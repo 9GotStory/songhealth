@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** CHECKLIST REVIEW COMPLETE — READY FOR TASKS
+- **Status:** TASKS COMPLETE — ANALYZE REQUIRED
 
 ## Active Feature Mirror
 
@@ -26,11 +26,12 @@
 
 ## Workflow Gate
 
-- **Current phase:** CHECKLIST REVIEW
-- **Phase status:** COMPLETE — PASS (80 OF 80 SATISFIED)
-- **Previous completed phase:** PLAN — PHASE 0/1 ARTIFACTS RECONCILED
-- **Next valid action:** run `$speckit-tasks` for the active feature
-- **Blocking issues:** NONE; no return to Specify/Clarify is required
+- **Current phase:** TASKS
+- **Phase status:** COMPLETE — 72 DEPENDENCY-ORDERED TASKS GENERATED
+- **Previous completed phase:** CHECKLIST REVIEW — PASS (80 OF 80 SATISFIED)
+- **Next valid action:** run `$speckit-analyze` for the active feature
+- **Blocking issues:** NONE IN TASKS; implementation remains unauthorized until Analyze passes and
+  a dependency-ready task or approved small batch receives an explicit handoff
 
 ## Authorized Implementation
 
