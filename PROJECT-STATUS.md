@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION HANDOFF — T001 AUTHORIZED
+- **Status:** IMPLEMENTATION REVIEW — T001 PASS
 
 ## Active Feature Mirror
 
@@ -27,30 +27,20 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Phase status:** T001 AUTHORIZED — PENDING CLAUDE CODE EXECUTION
-- **Previous completed phase:** ANALYZE — PASS (0 BLOCKING FINDINGS; 25 OF 25 REQUIREMENTS COVERED)
-- **Next valid action:** Claude Code runs `$speckit-implement` for T001 only, verifies the scoped
-  result, marks only T001 complete, and stops for Codex review
-- **Blocking issues:** NONE — T001 is incomplete and Setup has no predecessor dependency
+- **Phase status:** T001 COMPLETE — PASS
+- **Previous completed scope:** T001 — private npm workspace root, engine policy, and root command
+  names
+- **Next valid action:** authorize T002 or an explicitly approved dependency-ready Setup batch;
+  no further implementation is currently authorized
+- **Blocking issues:** NONE
 
 ## Authorized Implementation
 
-- **Task / Scope:** T001 — create only the private npm workspace root, Node/npm engine policy, and
-  stable root command names in `package.json`; `tasks.md` may change only to mark T001 complete after
-  its verification passes
+- **Task / Scope:** NONE
 - **Runtime:** Claude Code
-- **Required references:** `specs/001-application-foundation/tasks.md` T001;
-  `specs/001-application-foundation/spec.md` FR-001 and FR-012;
-  `specs/001-application-foundation/plan.md` Technical Context and Project Structure;
-  `specs/001-application-foundation/research.md` Decision 1;
-  `specs/001-application-foundation/contracts/foundation-operations.md` Commands;
-  System Blueprint §§ 51–54 and 82–87; Constitution Principles II, III, and VI
-- **Expected verification:** `package.json` parses as JSON; the root is private and ESM; workspace
-  membership is exactly `apps/*`; Node/npm engine policy matches the approved local Node 24/npm 12
-  baseline without claiming Production support; stable root command names match the Operations
-  Contract; no dependency, lockfile, workspace manifest/directory, script implementation, Product
-  behavior, shared package, or speculative infrastructure is added; `git diff --check` passes
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Required references:** NONE
+- **Expected verification:** NONE
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 

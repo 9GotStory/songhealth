@@ -1,0 +1,37 @@
+{
+  "name": "songhealth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Application foundation and development runtime for the สสอ.สอง website (one repository, three application workspaces).",
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=24.0.0 <25",
+    "npm": ">=12.0.0 <13"
+  },
+  "scripts": {
+    "foundation:check": "node -e \"process.exit(1)\"",
+    "dev:setup": "node -e \"process.exit(1)\"",
+    "dev:start": "node -e \"process.exit(1)\"",
+    "dev:ready": "node -e \"process.exit(1)\"",
+    "dev:stop": "node -e \"process.exit(1)\"",
+    "dev:restart": "node -e \"process.exit(1)\"",
+    "foundation:status": "node -e \"process.exit(1)\"",
+    "foundation:inventory": "node -e \"process.exit(1)\"",
+    "dev:reset": "node -e \"process.exit(1)\"",
+    "foundation:recover": "node -e \"process.exit(1)\"",
+    "foundation:cleanup": "node -e \"process.exit(1)\"",
+    "foundation:test-interruption": "node -e \"process.exit(1)\"",
+    "dev:persistence-check": "node -e \"process.exit(1)\"",
+    "db:status": "node -e \"process.exit(1)\"",
+    "db:migrate": "node -e \"process.exit(1)\"",
+    "verify:production-like": "node -e \"process.exit(1)\"",
+    "check": "node -e \"process.exit(1)\"",
+    "security:secrets": "node -e \"process.exit(1)\"",
+    "security:dependencies": "node -e \"process.exit(1)\"",
+    "security:asvs": "node -e \"process.exit(1)\"",
+    "security:check": "node -e \"process.exit(1)\""
+  }
+}
