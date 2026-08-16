@@ -15,7 +15,7 @@ quality. It does not mean implementation work is complete.
 
 ## Requirement Completeness
 
-- [ ] CHK001 Are the required duties and explicit non-responsibilities documented for each Public,
+- [x] CHK001 Are the required duties and explicit non-responsibilities documented for each Public,
   Admin, and Server boundary so every planned area has one current foundation purpose?
   [Completeness, Spec §FR-001–FR-002, §FR-012, Plan §Runtime composition]
 - [ ] CHK002 Does the daily-development requirement set cover prerequisites, initial setup, start,
@@ -25,7 +25,7 @@ quality. It does not mean implementation work is complete.
   configuration acceptance/rejection, migration state, database connectivity, liveness, readiness,
   proxy trust, route reachability, isolation, reporting, and cleanup? [Completeness, Spec §FR-009–FR-011,
   Contract §Verification result contract]
-- [ ] CHK004 Are documentation requirements complete for configuration ownership, lifecycle command
+- [x] CHK004 Are documentation requirements complete for configuration ownership, lifecycle command
   ownership, troubleshooting boundaries, failure interpretation, data lifecycle, and known
   Production-parity limits? [Completeness, Spec §FR-014, Contract §Failure behavior]
 - [ ] CHK005 Are recovery requirements documented for incompatible/corrupted Development data,
@@ -34,40 +34,40 @@ quality. It does not mean implementation work is complete.
 
 ## Requirement Clarity
 
-- [ ] CHK006 Is “minimum foundation behavior” distinguished with objective boundaries from a Product
+- [x] CHK006 Is “minimum foundation behavior” distinguished with objective boundaries from a Product
   feature, finished Public/Admin experience, authentication behavior, feature API, domain schema,
   and migration content? [Clarity, Spec §FR-002, §FR-016, §Scope Boundaries]
-- [ ] CHK007 Are “ready,” “healthy,” “not-ready,” and overall readiness defined with the exact
+- [x] CHK007 Are “ready,” “healthy,” “not-ready,” and overall readiness defined with the exact
   required components and migration-state semantics rather than left to implementation judgment?
   [Clarity, Spec §FR-009, Data Model §Component Readiness, HTTP Contract §/health/ready]
 - [ ] CHK008 Are “safe, actionable explanation,” “protected values,” “protected infrastructure
   details,” and “ordinary output” defined across command output, application logs, container/proxy
   logs, and HTTP responses? [Ambiguity, Spec §FR-007, §FR-010, Plan §Configuration and startup]
-- [ ] CHK009 Is “known clean state” defined together with the exact reset target, required
+- [x] CHK009 Is “known clean state” defined together with the exact reset target, required
   confirmation, post-reset migration state, and safe-refusal conditions? [Clarity, Spec §US1-AS3,
   §FR-004, Contract §Commands]
-- [ ] CHK010 Are authoritative environment identity, runtime profile identity, profile selection,
+- [x] CHK010 Are authoritative environment identity, runtime profile identity, profile selection,
   and allowed combinations defined so Verification cannot be mistaken for Staging, Production, or
   a fourth data environment? [Clarity, Spec §FR-008, Plan §Configuration and startup, Data Model
   §Runtime Profile]
 
 ## Requirement Consistency
 
-- [ ] CHK011 Are migration-readiness requirements consistent with the prohibition on Product/domain
+- [x] CHK011 Are migration-readiness requirements consistent with the prohibition on Product/domain
   migration content and with the distinction between application startup checks, explicit migration
   actions, and Kysely-owned bookkeeping? [Consistency, Spec §FR-009, §FR-016, Plan §Persistence and
   migrations]
 - [ ] CHK012 Are Development data-persistence/reset requirements consistent across the spec, data
   model, operations contract, and quickstart, including the rule that routine stop preserves the
   named volume? [Consistency, Spec §FR-004, §SC-002, Data Model §Data Store]
-- [ ] CHK013 Is profile selection without committed-configuration edits consistent with the planned
+- [x] CHK013 Is profile selection without committed-configuration edits consistent with the planned
   separate ignored local inputs, different credentials, manifests, project names, networks, and
   volumes? [Consistency, Spec §FR-008, Plan §Persistence and migrations, Contract §Profile ownership
   and isolation]
-- [ ] CHK014 Are the selected Development/Verification runtime and database versions consistently
+- [x] CHK014 Are the selected Development/Verification runtime and database versions consistently
   labeled provisional and prevented from becoming an implied Bangmod Production decision or parity
   claim? [Consistency, Spec §FR-015, §Assumptions, Plan §Technical Context]
-- [ ] CHK015 Is the no-authentication scope consistent with Admin route reachability and with the
+- [x] CHK015 Is the no-authentication scope consistent with Admin route reachability and with the
   separate confirmation/ownership controls required for destructive maintainer operations?
   [Consistency, Spec §FR-009, §FR-016, Plan §Operations and verification]
 
@@ -85,28 +85,28 @@ quality. It does not mean implementation work is complete.
 - [ ] CHK019 Does the configuration-failure criterion define the required missing/invalid input
   classes and every output surface covered by the zero-disclosure expectation? [Acceptance Criteria,
   Spec §SC-004, §FR-006–FR-007]
-- [ ] CHK020 Are “without an undocumented corrective step,” “clean independently initialized,” and
+- [x] CHK020 Are “without an undocumented corrective step,” “clean independently initialized,” and
   “two consecutive runs” defined with observable evidence for both daily and Verification profiles?
   [Measurability, Spec §SC-005, §SC-007, Quickstart §7]
 
 ## Scenario Coverage
 
-- [ ] CHK021 Are primary daily-development requirements complete from clean checkout through safe
+- [x] CHK021 Are primary daily-development requirements complete from clean checkout through safe
   shutdown, including the independent evidence expected at each lifecycle stage? [Coverage,
   Spec §User Story 1]
-- [ ] CHK022 Are primary Production-like Verification requirements complete for both a successful
+- [x] CHK022 Are primary Production-like Verification requirements complete for both a successful
   release candidate and a run that is independent of any daily-development state? [Coverage,
   Spec §User Story 2]
 - [ ] CHK023 Are exception requirements complete for invalid configuration, unavailable database,
   pending/failed migration state, failed proxy/application boundary, and partially ready components?
   [Coverage, Exception Flow, Spec §US1-AS4, §US2-AS2, §Edge Cases]
-- [ ] CHK024 Are concurrent and repeated-operation requirements defined for daily and Verification
+- [x] CHK024 Are concurrent and repeated-operation requirements defined for daily and Verification
   profiles running together, repeated start/stop/reset requests, and duplicate-resource prevention?
   [Coverage, Alternate Flow, Spec §FR-008, §FR-017, §Edge Cases]
 
 ## Edge Case Coverage
 
-- [ ] CHK025 Are unavailable-port and host-resource requirements explicit about bounded diagnostics,
+- [x] CHK025 Are unavailable-port and host-resource requirements explicit about bounded diagnostics,
   refusal to broaden exposure, and refusal to rewrite tracked configuration or silently choose a
   different port? [Edge Case, Spec §Edge Cases, Plan §Constraints]
 - [ ] CHK026 Is recovery from incompatible or corrupted Development data specified with decision
@@ -128,14 +128,14 @@ quality. It does not mean implementation work is complete.
 - [ ] CHK030 Are non-Production data requirements complete for synthetic defaults and for any
   justified Production-derived data, including purpose limitation, approval, sanitization,
   minimization, isolation, and disposal? [Privacy, Gap, Spec §FR-005, §Assumptions, SRC-06 §702]
-- [ ] CHK031 Are proxy-security requirements defined for trusted-hop scope, forwarded-header spoofing,
+- [x] CHK031 Are proxy-security requirements defined for trusted-hop scope, forwarded-header spoofing,
   direct app/database exposure, canonical-origin trust, and security-header ownership without making
   a Production-proxy claim? [Security, Completeness, Spec §FR-009–FR-011, Plan §Configuration and
   startup]
-- [ ] CHK032 Are authority requirements for reset, migration, and cleanup explicit about allowed
+- [x] CHK032 Are authority requirements for reset, migration, and cleanup explicit about allowed
   actors or maintainer context, confirmation, exact resource ownership, least destructive scope,
   and safe denial? [Authorization, Data Integrity, Spec §FR-004, §FR-017, Contract §Commands]
-- [ ] CHK033 Are data-integrity requirements complete for persistent Development state, disposable
+- [x] CHK033 Are data-integrity requirements complete for persistent Development state, disposable
   Verification state, explicit migration ownership, pending-migration unreadiness, and prevention
   of cross-profile mutation? [Data Integrity, Completeness, Spec §FR-004, §FR-008–FR-009, Data Model
   §Migration State]
@@ -146,10 +146,10 @@ quality. It does not mean implementation work is complete.
 
 ## Dependencies & Assumptions
 
-- [ ] CHK035 Are supported-workstation, Node/npm, Podman, Compose-provider, port, and release-artifact
+- [x] CHK035 Are supported-workstation, Node/npm, Podman, Compose-provider, port, and release-artifact
   prerequisites defined precisely enough to distinguish an unmet dependency from a feature failure?
   [Dependency, Clarity, Spec §Assumptions, Contract §Prerequisites]
-- [ ] CHK036 Is the Bangmod inspection dependency documented with the evidence, decision owner, and
+- [x] CHK036 Is the Bangmod inspection dependency documented with the evidence, decision owner, and
   gate required before Production Node, database vendor/version/collation, pool, or proxy-trust
   values may be locked? [Dependency, Gap, Spec §FR-015, §Assumptions]
 
@@ -158,17 +158,40 @@ quality. It does not mean implementation work is complete.
 - [ ] CHK037 Is the common quality-entry-point requirement specific about required risk-based check
   classes, failure semantics, and why no arbitrary coverage threshold or premature Product journey
   is required? [Clarity, Testability, Spec §FR-013, Plan §Testing]
-- [ ] CHK038 Can every FR-001–FR-017 requirement be traced to at least one acceptance scenario,
+- [x] CHK038 Can every FR-001–FR-017 requirement be traced to at least one acceptance scenario,
   contract rule, or measurable outcome without relying on implementation tasks that do not yet
   exist? [Traceability, Spec §Functional Requirements, §Success Criteria]
 - [ ] CHK039 Are nondisclosure requirements objectively reviewable through a defined forbidden-output
   taxonomy and allowlisted safe reason codes rather than the subjective phrase “does not expose
   protected values”? [Ambiguity, Testability, Spec §FR-007, §FR-010, HTTP Contract §Schemas]
-- [ ] CHK040 Are the terms environment, profile, Compose project, Data Store, named volume, readiness,
+- [x] CHK040 Are the terms environment, profile, Compose project, Data Store, named volume, readiness,
   release candidate, bounded contract, and Production parity defined and used consistently across
   the spec, plan, data model, contracts, and quickstart? [Consistency, Ambiguity, Spec §FR-008–FR-011]
 
 ## Notes
+
+### Review Finding — CHANGES REQUIRED (2026-08-16)
+
+- **Satisfied**: 22 of 40 requirements-quality criteria.
+- **Recovery and interrupted-operation gaps**: CHK002, CHK005, CHK023, CHK026, CHK027, and CHK028
+  remain unchecked because corrupted/incompatible data, interrupted reset/migration/startup, failed
+  cleanup, safe terminal states, next actions, and stale/colliding/mislabeled resource refusal are
+  not fully specified.
+- **Verification contract gaps**: CHK003 and CHK018 remain unchecked because the distinct result
+  inventory does not explicitly account for release-candidate startup and cleanup even though
+  startup is required by FR-009 and SC-003 requires a result for every required contract.
+- **Measurability gaps**: CHK012, CHK016, and CHK017 remain unchecked because timing boundaries and
+  the meaning/evidence of preserved Development data are not objective enough; database instance
+  identity proves volume continuity but not that local data remains available.
+- **Security/privacy and failure-contract gaps**: CHK008, CHK019, CHK029, CHK030, and CHK039 remain
+  unchecked because output surfaces, protected-value taxonomy, configuration-failure classes,
+  safe reason codes, and Production-derived-data authorization/disposal are incomplete.
+- **Security quality-gate gap**: CHK034 and CHK037 remain unchecked because the applicable ASVS 5
+  evidence expectations and required secret/dependency/security check classes are not yet carried
+  into the feature requirements/design quality entry point.
+- **Routing decision**: Return to Clarify for these existing-scope ambiguities and omissions. If the
+  resulting clarifications change design contracts, rerun Plan; then regenerate/review the custom
+  checklist before Tasks.
 
 - Mark items `[x]` only after review confirms the requirement-quality criterion is satisfied
 - Leave items unchecked when they still require clarification, correction, or reviewer evaluation

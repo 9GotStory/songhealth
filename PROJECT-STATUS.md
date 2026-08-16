@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** CHECKLIST GENERATED — READY FOR CHECKLIST REVIEW
+- **Status:** CHECKLIST REVIEW CHANGES REQUIRED — RETURN TO CLARIFY
 
 ## Active Feature Mirror
 
@@ -26,12 +26,13 @@
 
 ## Workflow Gate
 
-- **Current phase:** CHECKLIST
-- **Phase status:** GENERATED — CUSTOM REQUIREMENTS-QUALITY REVIEW PENDING
-- **Previous completed phase:** PLAN
-- **Next valid action:** review every item in `checklists/foundation-quality.md`; mark `[x]` only
-  when the requirements-quality criterion is satisfied and return gaps to the owning artifact
-- **Blocking issues:** NONE
+- **Current phase:** CHECKLIST REVIEW
+- **Phase status:** CHANGES REQUIRED — 22/40 CRITERIA SATISFIED; 18 REQUIREMENTS GAPS REMAIN
+- **Previous completed phase:** CHECKLIST GENERATION
+- **Next valid action:** run Clarify for the unchecked checklist findings; rerun Plan if design
+  contracts change, then regenerate/review the custom checklist before Tasks
+- **Blocking issues:** CHK002, CHK003, CHK005, CHK008, CHK012, CHK016–CHK019, CHK023,
+  CHK026–CHK030, CHK034, CHK037, CHK039
 
 ## Authorized Implementation
 
