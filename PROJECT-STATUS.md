@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION REVIEW — T001 PASS
+- **Status:** IMPLEMENTATION REVIEW — T002 PASS
 
 ## Active Feature Mirror
 
@@ -27,10 +27,10 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Phase status:** T001 COMPLETE — PASS
-- **Previous completed scope:** T001 — private npm workspace root, engine policy, and root command
-  names
-- **Next valid action:** authorize T002 or an explicitly approved dependency-ready Setup batch;
+- **Phase status:** T002 COMPLETE — PASS
+- **Previous completed scope:** T002 — Public React Router Framework Mode workspace manifest and
+  build configuration
+- **Next valid action:** authorize T003 or an explicitly approved dependency-ready Setup batch;
   no further implementation is currently authorized
 - **Blocking issues:** NONE
 

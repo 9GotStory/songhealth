@@ -27,7 +27,7 @@ testable checkpoint. Requirement references are included in every task.
 **Purpose**: Establish only the approved three-workspace toolchain and safe repository inputs.
 
 - [X] T001 Create the private npm workspace root, Node/npm engine policy, and root command names in `package.json` (Refs: FR-001, FR-012; Plan §Technical Context)
-- [ ] T002 [P] Create the React Router Framework Mode Public workspace manifest and build configuration in `apps/web/package.json`, `apps/web/vite.config.ts`, and `apps/web/react-router.config.ts` (Refs: FR-001–FR-002; Plan §Runtime composition)
+- [X] T002 [P] Create the React Router Framework Mode Public workspace manifest and build configuration in `apps/web/package.json`, `apps/web/vite.config.ts`, and `apps/web/react-router.config.ts` (Refs: FR-001–FR-002; Plan §Runtime composition)
 - [ ] T003 [P] Create the separate React/Vite Admin CSR workspace shell configuration in `apps/admin/package.json`, `apps/admin/vite.config.ts`, and `apps/admin/index.html` (Refs: FR-001–FR-002; Plan §Runtime composition)
 - [ ] T004 [P] Create the Fastify/Kysely server workspace manifest and exports in `apps/server/package.json` (Refs: FR-001–FR-002; Plan §Runtime composition)
 - [ ] T005 [P] Configure strict shared ESM TypeScript compilation without a shared runtime package in `tsconfig.json` (Refs: FR-012, FR-016; Plan §Project Structure)
