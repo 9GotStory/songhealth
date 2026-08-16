@@ -62,7 +62,7 @@ paths:
                         status: not-ready
                         diagnostic:
                           reasonCode: DATABASE_UNAVAILABLE
-                          profile: verification
+                          diagnosticScope: verification
                           component: database
                           remediation: CHECK_DATABASE
         "500":
@@ -166,7 +166,7 @@ components:
     SafeDiagnostic:
       type: object
       additionalProperties: false
-      required: [reasonCode, profile, component, remediation]
+      required: [reasonCode, diagnosticScope, component, remediation]
       properties:
         reasonCode:
           type: string
@@ -179,7 +179,7 @@ components:
             - CONFIG_MALFORMED
             - CONFIG_UNSUPPORTED
             - CONFIG_OUT_OF_RANGE
-            - CONFIG_PROFILE_CONFLICT
+            - CONFIG_IDENTITY_CONFLICT
             - CONFIG_REJECTION_NOT_ENFORCED
             - DATABASE_UNAVAILABLE
             - MIGRATION_FAILED
@@ -193,6 +193,10 @@ components:
             - OPERATION_INTERRUPTED
             - RESOURCE_OWNERSHIP_UNPROVEN
             - RESOURCE_INVENTORY_CHANGED
+            - DATA_INTEGRITY_UNPROVEN
+            - DATA_RECONSTRUCTIBILITY_UNPROVEN
+            - NON_DESTRUCTIVE_REPAIR_UNAVAILABLE
+            - MANUAL_REVIEW_REQUIRED
             - PREREQUISITE_FAILED
             - CLEANUP_FAILED
             - REPORT_INVALID
@@ -200,8 +204,11 @@ components:
             - SECRET_SCANNER_FAILED
             - COMMITTED_SECRET_DETECTED
             - DEPENDENCY_FINDING_UNREVIEWED
+            - DEPENDENCY_FINDING_BLOCKING
+            - DEPENDENCY_EXCEPTION_EXPIRED
+            - DEPENDENCY_EVIDENCE_MISMATCH
             - ASVS_EVIDENCE_INCOMPLETE
-        profile:
+        diagnosticScope:
           type: string
           enum: [foundation, daily, verification]
         component:
@@ -241,5 +248,7 @@ components:
             - INSPECT_OWNERSHIP
             - RETRY_SAFE_OPERATION
             - RUN_CONFIRMED_RECOVERY
+            - RUN_CONFIRMED_RESET
+            - REVIEW_MANUALLY
             - REVIEW_SECURITY_EVIDENCE
             - NONE

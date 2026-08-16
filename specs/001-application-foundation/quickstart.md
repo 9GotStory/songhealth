@@ -3,8 +3,8 @@
 This guide defines runnable acceptance scenarios for the completed foundation. Commands are
 repository contracts from [foundation-operations.md](contracts/foundation-operations.md). HTTP
 responses follow [foundation-http.openapi.yaml](contracts/foundation-http.openapi.yaml), security
-evidence follows [foundation-security.md](contracts/foundation-security.md), and profile state
-follows [data-model.md](data-model.md).
+evidence follows [foundation-security.md](contracts/foundation-security.md), and execution-context/
+operation-target state follows [data-model.md](data-model.md).
 
 ## Prerequisites and timing boundaries
 
@@ -50,13 +50,13 @@ Expected outcomes:
 Capture normalized resource inventories, then obtain an action-bound reset token:
 
 ```bash
-npm run foundation:inventory -- --profile development --action status
-npm run foundation:inventory -- --profile verification --action status
-RESET_TOKEN="$(npm run --silent foundation:inventory -- --profile development --action reset --token-only)"
+npm run foundation:inventory -- --target development --action status
+npm run foundation:inventory -- --target verification --action status
+RESET_TOKEN="$(npm run --silent foundation:inventory -- --target development --action reset --token-only)"
 npm run dev:persistence-check -- --confirm "$RESET_TOKEN"
 npm run dev:ready
-npm run foundation:inventory -- --profile development --action status
-npm run foundation:inventory -- --profile verification --action status
+npm run foundation:inventory -- --target development --action status
+npm run foundation:inventory -- --target verification --action status
 ```
 
 Expected outcomes:
@@ -64,9 +64,10 @@ Expected outcomes:
 - one Delivery-owned synthetic, non-sensitive marker is written before routine stop/restart and the
   exact value is read after restart;
 - reset re-inventories under the Development lock, accepts only the still-current token, changes
-  only the exactly confirmed Development datastore, reapplies tracked migrations, and proves the
+  only the exactly confirmed Development Data Store, reapplies tracked migrations, and proves the
   prior marker row absent;
-- before/after inventories expose only normalized ownership/profile identifiers, digests, and state;
+- before/after inventories expose only normalized environment/runtime-profile/operation-target
+  identifiers, digests, and state;
 - Verification and every non-target resource remain unchanged and untargeted;
 - missing, mismatched, ambiguous, stale, mislabeled, or unexpectedly active/attached targets refuse
   mutation; no wildcard, prune, force, `--remove-orphans`, or broad volume deletion is used.
@@ -81,7 +82,7 @@ empty                   -> CONFIG_EMPTY
 malformed               -> CONFIG_MALFORMED
 unsupported enum/value  -> CONFIG_UNSUPPORTED
 out of range            -> CONFIG_OUT_OF_RANGE
-cross-profile conflict  -> CONFIG_PROFILE_CONFLICT
+identity conflict       -> CONFIG_IDENTITY_CONFLICT
 ```
 
 For each fixture run the relevant preflight/start command and the focused diagnostic tests.
@@ -90,8 +91,9 @@ Expected outcomes:
 - failure occurs before a database pool, listener, child service, or other work is accepted;
 - command stdout/stderr, application logs, surfaced container/proxy logs, HTTP/readiness failures,
   component failures, and Verification results all use the same closed Safe Diagnostic shape;
-- allowlisted reason, profile, component, optional safe key name, and bounded remediation are the
-  only fields; raw child-process/Compose/Podman/Nginx/database output is never passed through;
+- allowlisted reason, diagnostic scope, component, optional safe key name, and bounded remediation
+  are the only fields; raw child-process/Compose/Podman/Nginx/database output is never passed
+  through;
 - unique forbidden sentinels are absent in exact and encoded form from every surface.
 
 Repeat provenance validation with `synthetic`, an explicitly approved non-Production fixture, and a
@@ -101,9 +103,9 @@ content remains invalid.
 ## 4. Prove explicit migration readiness
 
 ```bash
-npm run db:status -- --profile development
-npm run db:migrate -- --profile development
-npm run db:status -- --profile development
+npm run db:status -- --target development
+npm run db:migrate -- --target development
+npm run db:status -- --target development
 ```
 
 `status` never mutates. `migrate` is explicit and reports each tracked migration, including the
@@ -113,28 +115,46 @@ migrations make readiness fail. The marker table is operational test evidence, n
 ## 5. Prove interrupted-operation recovery
 
 Run controlled local fault injection for `start`, `stop`, `migrate`, `reset`, and `cleanup` using the
-acceptance-only interface, changing the profile/action/phase to each documented allowlisted case:
+acceptance-only interface, changing the operation target/action/phase to each documented allowlisted
+case:
 
 ```bash
-npm run foundation:test-interruption -- --profile development --action start --phase after-journal
-npm run foundation:status -- --profile development
-npm run foundation:inventory -- --profile development --action recover --operation start
-RECOVERY_TOKEN="$(npm run --silent foundation:inventory -- --profile development --action recover --operation start --token-only)"
-npm run foundation:recover -- --profile development --operation start --confirm "$RECOVERY_TOKEN"
+npm run foundation:test-interruption -- --target development --action start --phase after-journal
+npm run foundation:status -- --target development
 ```
 
-Expected outcomes:
+Exercise and verify all four assessment outcomes:
 
-- each operation is exclusive per profile, journals before mutation, handles signals/failures in a
-  `finally` cleanup path, and ends stopped or not-ready on interruption;
-- the first failure remains primary and any cleanup/recovery failure is additional;
-- safe non-destructive retry is allowed only when inventory proves it; destructive recovery/reset/
-  cleanup requires a fresh exact token;
-- an ungraceful interruption leaves an open journal that the next invocation detects. Orphaned,
-  ambiguous, changed, or ownership-unproven state is read-only and refused until exact ownership is
-  reviewed and explicitly confirmed.
+1. Confirmed ownership, valid integrity, and safe repeatability yields `retry`; the retried action
+   passes postchecks without replacing the original journal evidence.
+2. An invalid but repairable runtime state yields `recover`. Obtain a recovery token bound to the
+   original operation and the only allowlisted repair, then prove the synthetic marker survives and
+   connectivity/integrity/migration postchecks pass:
 
-Repeat the same pattern for Verification cleanup, proving Development inventory is untouched.
+   ```bash
+   RECOVERY_TOKEN="$(npm run --silent foundation:inventory -- --target development --action recover --operation start --repair recreate-database-runtime-preserve-volume --token-only)"
+   npm run foundation:recover -- --target development --operation start --repair recreate-database-runtime-preserve-volume --confirm "$RECOVERY_TOKEN"
+   ```
+
+3. Unavailable/failed repair plus confirmed reconstructibility yields `reset`; a fresh reset token
+   is required, the old marker is absent afterward, migrations are current, and only Development
+   Data Store inventory changes.
+4. Unknown ownership, integrity, safe repeatability, or reconstructibility yields `manual-review`;
+   no token is issued and no mutation occurs.
+
+For every case, the operation is exclusive per operation target, journals before mutation, and ends
+stopped/not-ready on failure or interruption. A failed retry/recovery/reset appends a secondary Safe
+Diagnostic without replacing the immutable original failure. An approved non-Production fixture
+without a verified replay source is not assumed reconstructible. No generic SQL repair, migration
+rollback, or backup restore is attempted.
+
+Exercise Verification stale/interrupted resources through exact inventory-confirmed cleanup, not
+recovery, and prove Development inventory is untouched.
+
+```bash
+CLEANUP_TOKEN="$(npm run --silent foundation:inventory -- --target verification --action cleanup --token-only)"
+npm run foundation:cleanup -- --target verification --confirm "$CLEANUP_TOKEN"
+```
 
 ## 6. Run Production-like Verification independently
 
@@ -158,7 +178,7 @@ configuration-empty-rejected
 configuration-malformed-rejected
 configuration-unsupported-rejected
 configuration-out-of-range-rejected
-configuration-cross-profile-rejected
+configuration-identity-conflict-rejected
 migration
 database
 liveness
@@ -197,13 +217,21 @@ Expected outcomes:
 
 - the pinned one-shot Gitleaks v8.29.1 image detects its ephemeral synthetic canary and finds no
   committed secret;
-- the locked dependency graph has no unreviewed actionable finding;
+- normalized dependency findings reconcile exactly with the committed locked-graph ledger; tool/
+  parse failure, graph/evidence mismatch, missing/duplicate/stale rows, unsupported severity, or
+  unknown reachability/Production exposure is blocking;
+- confirmed locked-graph foundation-relevant reachable/Production-exposed Critical/High findings
+  block unless fixed or covered by a current Product Owner-approved mitigation/risk exception after
+  recorded security/technical review; tests prove Critical 7-day and High 30-day exception expiry,
+  including failure exactly at expiry;
+- Medium/Low rows have complete disposition, owner, review date, and remediation due dates anchored
+  to first observation within 90/180 days; overdue status is explicitly reported but non-blocking;
 - every applicable foundation ASVS 5.0.0 row has applicability, implementation, verification, and
   evidence; selected L2 rows include risk rationale, and auth/session is explicitly N/A under
   FR-016;
 - typecheck, lint/static/import boundaries, independent builds, diagnostic nondisclosure,
-  HTTP/readiness, real database/migration, and profile/proxy/route checks have discoverable non-zero
-  failure behavior;
+  HTTP/readiness, real database/migration, and operation-target/proxy/route checks have discoverable
+  non-zero failure behavior;
 - no result claims blanket ASVS compliance, Production hosting readiness, or exact parity.
 
 ## 8. Repeat and stop

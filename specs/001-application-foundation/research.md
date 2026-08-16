@@ -28,7 +28,7 @@ smallest tooling that enforces the approved application boundaries.
 
 ## Decision 2: Resolve and lock compatible dependency versions during implementation
 
-**Decision**: Use the current compatible major baseline—ESM TypeScript 5.x, Fastify 5, React 19.2+,
+**Decision**: Use the current compatible major baseline—ESM TypeScript 5.x, Fastify 5, React 19.2.7+,
 React Router 8 Framework Mode, and Vite 8—plus TypeBox/JSON Schema, Kysely, `mysql2`, and Vitest.
 Resolve compatible package releases when the workspace is scaffolded and commit exact transitive
 resolution in `package-lock.json`; do not freeze package patch versions in Source-of-Truth or
@@ -78,7 +78,7 @@ additional framework.
 
 The absence of an official Fastify-specific React Router adapter is a bounded implementation risk.
 Focused adapter tests must cover GET/HEAD, streaming SSR, redirects, errors, aborts, repeated
-headers, and logging/security-header ownership before the release-shaped profile can pass.
+headers, and logging/security-header ownership before the Verification runtime profile can pass.
 
 ## Decision 4: Provisional MySQL 8.4 LTS for local and Verification
 
@@ -102,9 +102,10 @@ choice while Bangmod's actual MySQL/MariaDB service remains unknown.
 
 **Decision**: Use `infra/compose.development.yaml` for the Development database only and
 `infra/compose.verification.yaml` for Nginx, the production-built application, and its independent
-database. A guarded Node orchestration script derives stable checkout-scoped `development` and
-`verification` project names, applies complete reverse-DNS ownership labels, explicitly sequences/
-polls components, and maintains a mode-`0600` ignored atomic per-profile operation journal.
+database. These are the `development` and `verification` operation targets. A guarded Node
+orchestration script derives stable checkout-scoped project names, applies complete reverse-DNS
+environment/runtime-profile/operation-target ownership labels, explicitly sequences/polls
+components, and maintains a mode-`0600` ignored atomic per-operation-target journal.
 
 Development publishes its database only to loopback and preserves its named volume on routine
 stop. Verification publishes only Nginx; its app/database remain network-internal. Verification
@@ -114,24 +115,30 @@ automatic pre-clean.
 Before mutation, typed Podman inspection must prove exact resource type/name, checkout-scoped
 project, manifest allowlist, canonical Compose labels, custom ownership labels, and expected
 attachment/mount state. A read-only inventory binds those facts and the requested action into a
-confirmation digest; after acquiring a per-profile lock, the command immediately re-inventories and
+confirmation digest; after acquiring a per-operation-target lock, the command immediately re-inventories and
 refuses any change. Destructive actions remove recorded exact resources individually without force.
 No name-prefix, wildcard, label-filter, `--remove-orphans`, broad `down --volumes`, prune, or force
 fallback is permitted.
 
 The journal preserves action/phase, inventory and mutation-plan digests, primary failure, secondary
-cleanup failure, and safe next action. Signals/interruption leave the profile stopped or not-ready;
-cleanup is automatic only for exact current-run resources, and later destructive recovery requires
-a fresh inventory-bound token.
+attempt/cleanup failures, and safe next action. Signals/interruption leave the operation target
+stopped or not-ready. A nested recovery assessment derives exactly one of `retry`, `recover`,
+`reset`, or `manual-review`: retry requires exact ownership, passing integrity, and proven safe
+repeatability; recovery requires an allowlisted verified, bounded, non-destructive repair and
+post-repair integrity proof; reset requires confirmed reconstructibility plus unavailable or failed
+repair and a fresh reset token; uncertainty issues no token. The only automatic Development repair
+in this Delivery is `recreate-database-runtime-preserve-volume`, which reconciles exact container/
+network runtime state while retaining the named volume. No generic SQL repair, migration rollback,
+or backup restore is introduced. Verification disposal is named cleanup, not recovery.
 
 **Rationale**: Two small manifests make data ownership and port exposure structurally distinct and
-allow the profiles to coexist. Podman's `compose` command delegates to an external Compose provider,
+allow the operation targets to coexist. Podman's `compose` command delegates to an external Compose provider,
 so preflight must verify that provider and orchestration cannot rely solely on provider-dependent
 health-condition behavior.
 
 **Alternatives considered**:
 
-- one manifest with profiles: fewer files, but easier accidental sharing of volumes, credentials,
+- one manifest with Compose profiles: fewer files, but easier accidental sharing of volumes, credentials,
   or published ports.
 - fixed global project names: collide across checkouts.
 - random project names: accumulate orphaned resources and obscure ownership.
@@ -142,11 +149,18 @@ health-condition behavior.
 ## Decision 6: Fail-closed typed configuration and bounded proxy trust
 
 **Decision**: Parse the full runtime configuration through a TypeBox-backed schema before opening
-the database pool or listener. Keep `APP_ENVIRONMENT` separate from `RUNTIME_PROFILE`, use distinct
-ignored config files and non-Production credentials per profile, and reject missing, empty,
-malformed, unsupported, out-of-range, or cross-profile values with distinct stable reason codes.
+the database pool or listener. Use four distinct identities: `environment`
+(`development | staging | production`), `runtimeProfile` (`daily | verification | hosted`),
+`operationTarget` (`development | verification`), and derived `diagnosticScope`
+(`foundation | daily | verification`). The Development target maps to
+`development / daily / daily`; Verification maps to
+`development / verification / verification`; cross-target preflight may emit `foundation`.
+Local commands accept `--target`, while `APP_ENVIRONMENT` and `RUNTIME_PROFILE` remain runtime
+configuration; `diagnosticScope` is never user input or resource identity. Use distinct ignored
+config files and non-Production credentials per operation target, and reject missing, empty,
+malformed, unsupported, out-of-range, or cross-identity values with distinct stable reason codes.
 The mapping is respectively `CONFIG_MISSING`, `CONFIG_EMPTY`, `CONFIG_MALFORMED`,
-`CONFIG_UNSUPPORTED`, `CONFIG_OUT_OF_RANGE`, and `CONFIG_PROFILE_CONFLICT`.
+`CONFIG_UNSUPPORTED`, `CONFIG_OUT_OF_RANGE`, and `CONFIG_IDENTITY_CONFLICT`.
 Fixture provenance is allowlisted to `synthetic` or `approved-non-production`; Production-derived
 data is invalid in this Delivery even if claimed sanitized. Verification trusts exactly one Nginx
 proxy hop while the app port is internal; daily Development trusts no forwarded proxy headers.
@@ -156,16 +170,17 @@ This fixture rule is a deliberate Delivery-specific narrowing of the broader fut
 allowance for sanitized/minimized Production-derived test data; it does not weaken or conflict with
 that authority.
 
-Every failure surface uses one closed `SafeDiagnostic`: allowlisted reason code, profile, component,
-optional safe configuration-key name, and allowlisted remediation. Standard output/error,
+Every failure surface uses one closed `SafeDiagnostic`: allowlisted reason code, diagnostic scope,
+component, optional safe configuration-key name, and allowlisted remediation. Standard output/error,
 application and surfaced container/proxy logs, HTTP errors/readiness, and Verification reports never
 pass through raw exceptions or child-process output. Sentinel tests scan every surface for raw
 values, credentials, URLs, stacks, internal exceptions, and unnecessary path/host/container/proxy
 details.
 
-**Rationale**: This enforces configuration completeness and environment identity without treating
-Verification as Production or a fourth environment. Fastify supports scoped proxy trust and derives
-forwarded host/protocol/client fields only when the configured proxy policy accepts the peer.
+**Rationale**: This enforces configuration completeness without overloading environment, topology,
+command/resource selection, or output identity and without treating Verification as Production or a
+fourth environment. Fastify supports scoped proxy trust and derives forwarded host/protocol/client
+fields only when the configured proxy policy accepts the peer.
 
 **Alternatives considered**:
 
@@ -209,7 +224,7 @@ forwarded headers, direct-port isolation, and per-contract results. Verification
 ordered PASS/FAIL results: `build`, `startup`, `configuration-valid`,
 `configuration-missing-rejected`, `configuration-empty-rejected`,
 `configuration-malformed-rejected`, `configuration-unsupported-rejected`,
-`configuration-out-of-range-rejected`, `configuration-cross-profile-rejected`, `migration`,
+`configuration-out-of-range-rejected`, `configuration-identity-conflict-rejected`, `migration`,
 `database`, `liveness`, `readiness`, `isolation`, `proxy`, `public-route`, `admin-route`,
 `server-route`, `cleanup`, and `reporting`. An earlier failure makes blocked later checks explicit
 `PREREQUISITE_FAILED` failures. Cleanup/reporting never replace an earlier primary failure; if no
@@ -217,7 +232,7 @@ earlier result failed, the first cleanup or reporting failure is primary. The fi
 atomically after cleanup and schema/nondisclosure validation. Do not add Playwright or an arbitrary
 coverage threshold in this Delivery.
 
-An acceptance-only fault-injection interface is limited to synthetic local profiles and allowlisted
+An acceptance-only fault-injection interface is limited to synthetic local operation targets and allowlisted
 phases for start, stop, migration, reset, and cleanup. It proves interruption journaling, next-run
 detection, safe retry/refusal, fresh-token recovery, and primary-failure preservation without adding
 a general-purpose fault/chaos platform.
@@ -225,7 +240,7 @@ a general-purpose fault/chaos platform.
 **Rationale**: There is no Product journey, authentication flow, upload, or interactive behavior to
 justify browser automation. HTTP/render/build checks are the lowest layer that proves the current
 route, SSR, proxy, and readiness requirements. Lifecycle validation separately proves named-volume
-persistence, exact reset, repeatability, and profile independence.
+persistence, exact reset, repeatability, and operation-target independence.
 
 **Alternatives considered**:
 
@@ -239,8 +254,9 @@ persistence, exact reset, repeatability, and profile independence.
 **Decision**: Expose only `/health/live` and `/health/ready` as JSON operational endpoints. Prove
 Public `/` and Admin `/admin/` reachability as HTML routes. Standardize root lifecycle commands,
 configuration keys, exit codes, isolation rules, and Verification result names in feature contracts;
-define inventory-bound reset/recovery, operation-journal, timing, and safe diagnostic contracts; do
-not create `packages/contracts` or `/api/*` foundation endpoints.
+define inventory-bound intentional reset, evidence-classified non-destructive recovery,
+operation-journal, timing, and safe diagnostic contracts; do not create `packages/contracts` or
+`/api/*` foundation endpoints.
 
 **Rationale**: External operational interfaces need stable testable behavior, but FR-002/FR-016
 prohibit turning the foundation into a feature API. Two health endpoints plus route/command
@@ -265,15 +281,32 @@ The discoverable security gate uses the one-shot image
 `ghcr.io/gitleaks/gitleaks:v8.29.1@sha256:aa036a2f4bdfe3cc3c55fa4326308efabb4a6be498c883c864fd1d0d5585438a`
 for committed-secret detection. Before scanning tracked content it runs an ephemeral synthetic
 canary that must be detected, avoiding a silent scanner/configuration success. The gate also uses
-npm's locked dependency graph for vulnerability review with explicit triage and a deterministic
-matrix-completeness validator. A failed canary, committed secret, unreviewed actionable dependency
-finding, or incomplete applicable ASVS row returns non-zero. This adds no daemon, SaaS, or secrets
-platform. Gitleaks v8.30.1 was not selected because a confirmed upstream regression can make its
-default-rule scans return false success; a later version requires reviewed repinning.
+npm's locked dependency graph for vulnerability review. It normalizes scanner findings and
+reconciles them one-to-one with a committed `docs/security/dependency-findings.json` ledger bound to
+the exact normalized release graph and `package-lock.json` digest. Every row records confirmation,
+foundation relevance, canonical severity, reachability, Production exposure, mitigation,
+disposition, owner, review date, `firstObservedAt`, and any due-date/approval evidence. Unknown
+reachability/exposure, stale/missing/duplicate evidence, graph mismatch, parse/tool failure, or
+unsupported severity returns non-zero.
 
-**Rationale**: FR-013 and the accepted Blueprint require evidence, not checklist theatre. Reusing
-Podman and npm keeps the gate small while an explicit matrix prevents unsupported compliance claims
-and documents why Product authentication/session controls are deferred.
+Confirmed locked-graph foundation-relevant findings are actionable when reachable or
+Production-exposed. Actionable Critical/High findings block until fixed or covered by a current
+Product Owner-approved mitigation or risk exception after recorded security/technical review. Risk
+exceptions expire no later than 7 days after approval for Critical findings and 30 for High; the
+exact expiry instant is expired. Medium/Low findings require due dates anchored to
+`firstObservedAt + 90/180 days`; overdue status is reported but does not block. An empty finding set
+passes only with an exact valid empty ledger. Gate tests inject the evaluation instant rather than
+depending on wall-clock timing. The ASVS gate separately applies a deterministic matrix-completeness
+validator. A failed canary, committed secret, blocking dependency state, or incomplete applicable
+ASVS row returns non-zero. This adds no daemon, SaaS, or secrets platform. Gitleaks v8.30.1 was not
+selected because a confirmed upstream regression can make its default-rule scans return false
+success; a later version requires reviewed repinning.
+
+**Rationale**: FR-013/SC-008 and the accepted Blueprint require objective evidence, not scanner or
+checklist theatre. A small committed normalized ledger gives deterministic review and Git history
+without storing raw scanner output or introducing a security platform. Reusing Podman and npm keeps
+the gate small while the ASVS matrix prevents unsupported compliance claims and documents why
+Product authentication/session controls are deferred.
 
 **Alternatives considered**:
 
@@ -283,6 +316,9 @@ and documents why Product authentication/session controls are deferred.
 - a security platform/SAST service baseline: adds operational scope with no present requirement.
 - require Product browser/security journeys: no Product journey, auth, upload, or state-changing API
   exists in this Delivery.
+- raw scanner output as the evidence record: unstable, potentially sensitive, and not a normalized
+  policy decision.
+- severity-only blocking: contradicts the approved relevance/reachability/exposure policy.
 
 ## Evidence consulted
 

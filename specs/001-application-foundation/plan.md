@@ -20,10 +20,13 @@ and a separate MySQL-compatible database. Startup validates configuration before
 readiness includes database connectivity and migration status, migrations remain explicit, and
 all output surfaces use one allowlisted diagnostic contract rather than secrets, raw exceptions,
 or infrastructure details. Guarded lifecycle operations journal their progress, refuse ambiguous
-ownership, preserve the primary failure, and bind destructive confirmation to an exact resource
-inventory. Persistence acceptance uses one foundation-operational synthetic marker plus before/
-after inventories; Verification emits every required build-through-cleanup result before its final
-report.
+ownership, preserve the primary failure, and classify exact, integrity-checked state as safely
+retryable, non-destructively recoverable, resettable only when reconstructibility is proven, or
+manual-review-only. Destructive confirmation binds to an exact resource inventory. Persistence
+acceptance uses one foundation-operational synthetic marker plus before/after inventories;
+Verification emits every required build-through-cleanup result before its final report. The
+dependency gate reconciles a committed normalized finding ledger to the locked release graph and
+enforces the approved actionability, approval, expiry, and remediation-deadline policy.
 
 ## Technical Context
 
@@ -31,7 +34,7 @@ report.
 (target workstation: Node.js 24.19.0 and npm 12.0.2); Production Node.js remains evidence-dependent
 on Bangmod inspection
 
-**Primary Dependencies**: npm 12 workspaces; Fastify 5; TypeBox/JSON Schema; React 19.2+; React Router
+**Primary Dependencies**: npm 12 workspaces; Fastify 5; TypeBox/JSON Schema; React 19.2.7+; React Router
 8 Framework Mode; Vite 8; Kysely with `mysql2`; Vitest and ESLint flat configuration for the
 applicable quality gates; no workspace orchestrator, DI container, or shared package baseline
 
@@ -58,7 +61,8 @@ result, exact cleanup, and final report after source/config/tools/images are loc
 clean runs produce the same result inventory
 
 **Constraints**: No Product behavior, authentication, domain schema, or speculative services;
-Development database is loopback-only; profiles never share credentials or mutable data; only
+Development database is loopback-only; operation targets never share credentials or mutable data;
+`environment`, `runtimeProfile`, `operationTarget`, and `diagnosticScope` remain distinct; only
 synthetic or explicitly approved non-Production fixtures are accepted and Production-derived data
 is rejected; all configuration rejection classes fail before pool/listener/work acceptance;
 migrations never auto-run at application startup; Verification success never claims Production
@@ -66,8 +70,8 @@ parity; destructive operations require an unchanged exact ownership inventory an
 wildcard, prune, orphan, or force deletion
 
 **Scale/Scope**: Three application workspaces, one database dependency, two local runtime profiles,
-two operational health endpoints, one Public foundation route, one Admin foundation route, and no
-shared packages until real reuse exists
+two local operation targets, two operational health endpoints, one Public foundation route, one
+Admin foundation route, and no shared packages until real reuse exists
 
 ## Constitution Check
 
@@ -75,12 +79,12 @@ shared packages until real reuse exists
 
 | Principle / gate | Pre-design evaluation | Post-design evaluation |
 |---|---|---|
-| I. Security First | PASS — configuration is fail-closed, secrets stay outside Git, the Development database is local-only, and proxy trust is profile-bounded. | PASS — one closed diagnostic schema covers every output surface; exact inventory-bound mutation, committed-secret detection, dependency review, and the ASVS 5.0.0 evidence contract make controls reviewable. |
-| II. Simple — Structured — Sustainable | PASS — ordinary npm workspaces and the three required apps are sufficient; no Nx/Turborepo, shared package, DI container, or speculative service is introduced. | PASS — one release-shaped Node process and two profile-specific small manifests satisfy the required boundaries without distributed runtime or empty hierarchy. |
+| I. Security First | PASS — configuration is fail-closed, secrets stay outside Git, the Development database is local-only, and proxy trust is runtime-profile-bounded. | PASS — one closed diagnostic schema covers every output surface; exact inventory-bound mutation, committed-secret detection, objective locked-graph dependency disposition, and the ASVS 5.0.0 evidence contract make controls reviewable. |
+| II. Simple — Structured — Sustainable | PASS — ordinary npm workspaces and the three required apps are sufficient; no Nx/Turborepo, shared package, DI container, or speculative service is introduced. | PASS — one release-shaped Node process and two operation-target-specific small manifests satisfy the required boundaries without distributed runtime or empty hierarchy. |
 | III. Requirement-Driven Architecture and Traceability | PASS — every planned boundary traces to FR-001–FR-017 and the Plan-routed Frozen decisions. | PASS — the only new persisted object is the SC-002 operational marker; all other additions are exact configuration, lifecycle, diagnostic, security-evidence, or Verification contracts. |
 | IV. Privacy and Data Minimization | PASS — only synthetic/non-Production data is permitted and no Product data model is created. | PASS — fixture provenance rejects even sanitized Production-derived input in this Delivery, and every failure surface is tested against the forbidden-output taxonomy. |
 | V. Quality and Proportionate Verification | PASS — the plan uses the lowest useful test layer plus real-engine and bounded HTTP/proxy verification. | PASS — the quickstart measures exact timing boundaries and proves marker continuity/reset, every configuration class and output surface, all Verification results, recovery, secret/dependency gates, and ASVS evidence without arbitrary coverage or premature Product E2E. |
-| VI. Operational Sustainability | PASS — supported LTS runtime, explicit lifecycle commands, actionable health, and small version-controlled manifests fit the approved environment. | PASS — atomic safe journals, immutable primary failures, explicit recovery, inventory-bound cleanup, and provisional hosting values make failures recoverable without broad automation. |
+| VI. Operational Sustainability | PASS — supported LTS runtime, explicit lifecycle commands, actionable health, and small version-controlled manifests fit the approved environment. | PASS — atomic per-target journals, immutable primary failures, deterministic retry/recovery/reset/manual-review classification, inventory-bound cleanup, and provisional hosting values make failures recoverable without broad automation. |
 | Delivery and Quality Gates | PASS — approved spec and routed authority were read before design; no implementation or future Delivery scope is authorized. | PASS — Phase 1 artifacts are complete, no Constitution exception is needed, and the workflow stops before Tasks. |
 
 ## Project Structure
@@ -155,12 +159,13 @@ scripts/
 tests/
 └── verification/
     ├── diagnostic-surfaces.test.ts
-    ├── foundation-profile.test.ts
+    ├── foundation-operation-target.test.ts
     └── lifecycle-recovery.test.ts
 
 docs/
 └── security/
-    └── asvs-foundation-evidence.md
+    ├── asvs-foundation-evidence.md
+    └── dependency-findings.json
 
 .env.development.example
 .env.verification.example
@@ -203,19 +208,25 @@ The root operation script is developer/runtime orchestration only; it contains n
 
 ### Configuration and startup
 
-- `APP_ENVIRONMENT` (`development`, `staging`, `production`) stays distinct from
-  `RUNTIME_PROFILE` (`daily`, `verification`, `hosted`), so Verification is not modeled as a fourth
-  authoritative environment.
+- Every artifact uses four distinct identities: `environment`
+  (`development | staging | production`), `runtimeProfile` (`daily | verification | hosted`),
+  `operationTarget` (`development | verification`), and derived `diagnosticScope`
+  (`foundation | daily | verification`). Local commands accept `--target`, never a second
+  incompatible meaning of “profile.” The Development target maps to
+  `development / daily / daily`; the Verification target maps to
+  `development / verification / verification`; cross-target preflight may report the `foundation`
+  diagnostic scope. Hosted execution is not selectable by local operation commands.
 - A TypeBox-backed configuration schema validates the complete configuration before Fastify calls
   `listen()` or creates the pool. Missing, empty, malformed, unsupported, out-of-range, and forbidden
-  cross-profile combinations map respectively to `CONFIG_MISSING`, `CONFIG_EMPTY`,
+  cross-identity combinations map respectively to `CONFIG_MISSING`, `CONFIG_EMPTY`,
   `CONFIG_MALFORMED`, `CONFIG_UNSUPPORTED`, `CONFIG_OUT_OF_RANGE`, and
-  `CONFIG_PROFILE_CONFLICT`.
+  `CONFIG_IDENTITY_CONFLICT`.
 - Commands, standard output/error, application and surfaced container/proxy logs, HTTP failures,
   readiness components, and Verification reports use the same closed `SafeDiagnostic` shape:
-  allowlisted reason code, profile, component, optional safe configuration-key name, and allowlisted
-  remediation. Raw child-process output is never passed through; serializers/adapters map it to the
-  contract, and sentinel tests scan every named surface.
+  allowlisted reason code, diagnostic scope, component, optional safe configuration-key name, and
+  allowlisted remediation. `diagnosticScope` is derived output context, never user configuration or
+  resource identity. Raw child-process output is never passed through; serializers/adapters map it
+  to the contract, and sentinel tests scan every named surface.
 - Verification trusts exactly one proxy hop while the application port remains internal to its
   Compose network. Daily Development does not trust forwarded headers. Hosted proxy trust remains
   unset until the real Bangmod chain is inspected.
@@ -225,27 +236,30 @@ The root operation script is developer/runtime orchestration only; it contains n
 - MySQL 8.4 LTS is a provisional local/Verification engine, pinned by an immutable digest resolving
   specifically to `mysql:8.4`; floating `mysql:lts`/`latest` tags are prohibited because `lts` may
   move to another major. This is not a claim about Bangmod's database vendor or version.
-- Development and Verification use separate manifests, different credentials, checkout-scoped
-  Compose project names, networks, and named volumes. Only the Development volume persists across
-  routine stop/restart.
+- The Development and Verification operation targets use separate manifests, different
+  credentials, checkout-scoped Compose project names, networks, and named volumes. Resources carry
+  explicit environment, runtime-profile, and operation-target ownership labels. Only the
+  Development Data Store volume persists across routine stop/restart.
 - Kysely's explicit migrator command owns `apply` and `status`; current migration APIs are imported
   from `kysely/migration`. Application startup never applies migrations and refuses readiness when
   tracked migrations are pending. One version-controlled operational migration creates the minimum
   `foundation_persistence_marker` table; it stores only a synthetic acceptance marker and is not a
   Product/domain schema or seed.
-- Runtime profile validation accepts fixture provenance `synthetic` or `approved-non-production`
-  only. `production-derived` is invalid in both local profiles even when claimed sanitized; a future
-  exception requires a separately approved Delivery change.
+- Runtime-profile validation accepts fixture provenance `synthetic` or `approved-non-production`
+  only. `production-derived` is invalid in both local operation targets even when claimed sanitized;
+  a future exception requires a separately approved Delivery change.
 
 ### Operations and verification
 
 - One checked operation entry point exposes prerequisite check, setup, start, readiness, stop,
-  restart, persistence proof, inventory, confirmed reset/recovery, and a self-contained Verification
-  run. A mode-`0600` ignored per-profile journal is atomically updated across phases and keeps the
-  first failure immutable from later cleanup/recovery failures. Runtime state lives only under the
-  ignored checkout-local `.foundation-state/`: one `<profile>/operation.json` journal and atomic
-  `reports/<run-id>.json` Verification output. Each journal embeds the checkout-scope digest, and no
-  protected value or raw tool output is stored there.
+  restart, persistence proof, inventory, non-destructive recovery, confirmed reset/cleanup, and a
+  self-contained Verification run. A mode-`0600` ignored per-operation-target journal is atomically
+  updated across phases and keeps the first failure immutable from later cleanup/recovery failures.
+  Runtime state lives only
+  under the ignored checkout-local `.foundation-state/`: one
+  `<operation-target>/operation.json` journal and atomic `reports/<run-id>.json` Verification
+  output. Each journal embeds the checkout-scope digest, and no protected value or raw tool output
+  is stored there.
 - Ownership requires exact type/name, checkout-scoped project, manifest allowlist, canonical Compose
   labels, complete project reverse-DNS labels, and expected attachment/mount state. Read-only
   inventory hashes that conjunction into an action-specific confirmation token; mutating commands
@@ -254,19 +268,28 @@ The root operation script is developer/runtime orchestration only; it contains n
   volume, or force operations.
 - Development persistence proof writes one non-sensitive marker, proves its value after routine
   restart, performs an inventory-confirmed reset, then proves the old row is absent, migrations are
-  current, and only Development datastore resources changed. Interrupted operations leave the
-  profile stopped or not-ready and route through documented status/inventory/retry/recover actions.
+  current, and only Development Data Store resources changed. Before any next action, status records
+  an exact recovery assessment: retry requires exact ownership, passing integrity checks, and an
+  allowlisted safely repeatable operation; recovery additionally requires a matching verified,
+  bounded, non-destructive handler and post-repair integrity proof; reset requires proven
+  reconstructibility plus unavailable or failed non-destructive repair and a fresh reset-specific
+  token; unknown ownership, integrity, or reconstructibility permits manual review only. This
+  Delivery's only automatic Development repair is
+  `recreate-database-runtime-preserve-volume`, which reconciles exact container/network runtime
+  state while retaining the named volume. It defines no generic SQL repair, migration rollback, or
+  backup restore. Interrupted operations leave the operation target stopped or not-ready and
+  preserve the original failure.
 - Verification requires an absent clean inventory or explicit inventory-confirmed recovery; it does
   not auto-remove stale resources. It emits exactly these ordered PASS/FAIL results: `build`,
   `startup`, `configuration-valid`, `configuration-missing-rejected`,
   `configuration-empty-rejected`, `configuration-malformed-rejected`,
   `configuration-unsupported-rejected`, `configuration-out-of-range-rejected`,
-  `configuration-cross-profile-rejected`, `migration`, `database`, `liveness`, `readiness`,
+  `configuration-identity-conflict-rejected`, `migration`, `database`, `liveness`, `readiness`,
   `isolation`, `proxy`, `public-route`, `admin-route`, `server-route`, `cleanup`, and `reporting`.
   Blocked later checks are explicit `PREREQUISITE_FAILED` failures. Cleanup/reporting never replace
   an earlier primary failure; if no earlier result failed, the first cleanup or reporting failure is
   primary. The atomic final report is emitted only after cleanup and nondisclosure/schema validation.
-- An acceptance-only, synthetic-profile fault-injection entry point exercises interrupted start,
+- An acceptance-only, synthetic-operation-target fault-injection entry point exercises interrupted start,
   stop, migration, reset, and cleanup at allowlisted phases. It cannot run against hosted or
   Production-derived configuration; the resulting journal, inventory, refusal/retry, and confirmed
   recovery paths are part of lifecycle verification rather than a general-purpose chaos system.
@@ -276,11 +299,23 @@ The root operation script is developer/runtime orchestration only; it contains n
 - Root quality entry points cover TypeScript typecheck, ESLint/static/import-boundary checks, three
   independent builds,
   focused diagnostic/configuration/HTTP tests, real-engine migration and persistence tests,
-  profile/proxy/route verification, a one-shot Gitleaks v8.29.1 scan pinned to the GHCR multi-platform
+  operation-target/proxy/route verification, a one-shot Gitleaks v8.29.1 scan pinned to the GHCR multi-platform
   manifest digest `sha256:aa036a2f4bdfe3cc3c55fa4326308efabb4a6be498c883c864fd1d0d5585438a`,
-  locked-graph dependency vulnerability review with explicit triage, and completeness validation of
-  `docs/security/asvs-foundation-evidence.md`. The secret gate first proves the scanner with an
-  ephemeral synthetic canary expected to fail, then scans tracked content.
+  locked-graph dependency vulnerability review with exact normalized-ledger reconciliation, and
+  completeness validation of `docs/security/asvs-foundation-evidence.md`. The secret gate first
+  proves the scanner with an ephemeral synthetic canary expected to fail, then scans tracked
+  content.
+- `docs/security/dependency-findings.json` binds a sorted normalized finding set to the exact
+  committed lock graph. Every finding records confirmation, foundation relevance, severity,
+  reachability, Production exposure, mitigation, disposition, owner, review date, first-observed
+  time, and any required due date/approval evidence. Unknown reachability or exposure blocks.
+  Confirmed locked-graph foundation-relevant findings are actionable when reachable or
+  Production-exposed. Actionable Critical/High findings block unless fixed or covered by a current
+  Product Owner-approved mitigation or risk exception after recorded security/technical review;
+  Critical exceptions expire within 7 days and High within 30. Medium/Low due dates are anchored to
+  first observation at 90/180 days and overdue status is reported without blocking. Tests inject the
+  policy time and cover exact-boundary expiry, stale graph/evidence, empty findings, and every
+  blocking/non-blocking branch without copying raw scanner output.
 - The ASVS artifact records versioned requirement ID, level, applicability/rationale,
   implementation, verification, and evidence. Applicable ASVS 5.0.0 Level 1 requirements are the
   floor; selected Level 2 controls cover this Delivery's proxy, configuration, data-disclosure,

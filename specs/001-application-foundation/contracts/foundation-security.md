@@ -55,6 +55,45 @@ The authoritative control text is the
 [OWASP ASVS 5.0.0 release](https://github.com/OWASP/ASVS/tree/v5.0.0/5.0). The implementation matrix
 records identifiers and project evidence rather than copying ASVS prose.
 
+## Dependency finding evidence
+
+Implementation maintains `docs/security/dependency-findings.json`, a committed normalized ledger
+bound to the exact current `package-lock.json` and normalized release dependency graph. Git history
+is the archive; no database, daemon, SaaS, or raw scanner-output store is introduced.
+
+The document contains `schemaVersion`, `lockfileDigest`, `releaseGraphDigest`, and a sorted
+`findings` array. Each current normalized finding has exactly one row keyed by advisory, package,
+installed version, and release path/fingerprint, with:
+
+- confirmation and evidence;
+- foundation relevance and bounded rationale;
+- canonical severity `critical | high | medium | low`;
+- reachability `reachable | not-reachable | not-applicable | unknown`;
+- Production exposure `exposed | not-exposed | not-applicable | unknown`;
+- mitigation, disposition, owner, review date, and stable `firstObservedAt`;
+- `remediationDueAt` for Medium/Low; and
+- for an unfixed actionable Critical/High finding, a mitigation/risk-exception approval containing
+  security/technical review evidence, Product Owner approval evidence, `approvedAt`, and any
+  `expiresAt`.
+
+Raw scanner/package-manager output, credentials, URLs containing secrets, and mutable external-only
+links are prohibited. Evidence references must be repository-verifiable and protected-data-safe.
+
+Actionability and timing are deterministic:
+
+1. `actionable = confirmed && present-in-locked-release-graph && foundation-relevant &&
+   (reachable || Production-exposed)`.
+2. Unknown reachability or Production exposure blocks pending triage regardless of severity.
+3. Actionable Critical/High blocks unless fixed or covered by a current Product Owner-approved
+   mitigation/risk exception after recorded security/technical review.
+4. A Critical risk exception expires no later than `approvedAt + 7 days`; High expires no later than
+   `approvedAt + 30 days`. At `asOf >= expiresAt`, it is expired. Approval becomes stale when the
+   finding, graph, mitigation evidence, or approval evidence changes/revokes.
+5. Medium/Low requires `remediationDueAt` no later than `firstObservedAt + 90/180 days`. Severity or
+   overdue status does not block, but missing/invalid evidence blocks. At
+   `asOf > remediationDueAt`, overdue state is emitted as a non-blocking result; equality is still
+   the due instant.
+
 ## Gate behavior
 
 - `npm run security:secrets` runs
@@ -62,15 +101,19 @@ records identifiers and project evidence rather than copying ASVS prose.
   It first scans a generated temporary synthetic canary that must be detected, then scans tracked
   repository content. A failed canary or finding returns non-zero; no committed canary, long-running
   service, floating image, or unpinned download is permitted.
-- `npm run security:dependencies` examines the committed npm lock graph. Every actionable finding
-  must have explicit relevance, severity, reachability, disposition, owner, and review date; an
-  unreviewed actionable finding returns non-zero.
+- `npm run security:dependencies` must complete and parse the scanner result, normalize severity,
+  recompute the locked release graph/digests, and reconcile the current finding set one-to-one with
+  the ledger. Tool/parse failure; unknown severity; missing, extra, duplicate, or stale finding;
+  graph/digest mismatch; missing required field; unknown reachability/exposure; unfixed actionable
+  Critical/High without a current approval; or expired/stale approval returns non-zero. An exact
+  valid empty ledger is required for zero findings. Tests inject `asOf` and cover immediately before,
+  exactly at, and after expiry/due boundaries.
 - `npm run security:asvs` validates the matrix schema, required applicability inventory, chapter
   coverage, selected-L2 rationale, and non-empty repository-verifiable evidence. Incomplete
   applicable evidence returns non-zero.
 - `npm run security:check` runs all three gates. `npm run check` includes their deterministic parts
   together with typecheck, lint/static/import-boundary checks, independent builds, diagnostic
-  nondisclosure, HTTP/readiness, real-database/migration, and profile/proxy/route checks.
+  nondisclosure, HTTP/readiness, real-database/migration, and operation-target/proxy/route checks.
 
 Evidence and fallback diagnostics themselves follow the Safe Diagnostic and protected-data rules;
 raw scanner, package-manager, container, proxy, database, or child-process output is not copied into

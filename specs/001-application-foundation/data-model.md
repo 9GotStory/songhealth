@@ -5,22 +5,33 @@ content table, account/authentication model, or seed data. The relational databa
 Kysely-owned migration bookkeeping plus one migrated `foundation_persistence_marker` operational
 table required to prove SC-002; neither is Product/domain persistence.
 
-## Runtime Profile
+## Execution Context
 
-Represents how the approved application is being executed. It is configuration, not a persisted
-business record.
+Represents the distinct identity dimensions for configuration, execution topology, local command/
+resource selection, and safe diagnostic output. It is configuration, not a persisted business
+record.
 
 | Field | Type | Rules |
 |---|---|---|
 | `environment` | `development \| staging \| production` | Authoritative logical environment; required. |
-| `profile` | `daily \| verification \| hosted` | Execution topology; required and kept separate from environment identity. |
+| `runtimeProfile` | `daily \| verification \| hosted` | Execution topology; required and kept separate from environment identity. |
+| `operationTarget` | optional `development \| verification` | Local command/resource selector; required for local operations and absent for hosted execution. |
+| `diagnosticScope` | `foundation \| daily \| verification` | Derived output context; never accepted as user configuration or resource identity. |
 | `releaseMode` | boolean | `false` for daily; `true` for verification and hosted execution. |
 | `proxyPolicy` | `none \| one-hop \| hosting-defined` | `none` for daily, `one-hop` for Verification, `hosting-defined` only after host inspection. |
-| `dataStoreId` | string | Resolves to exactly one profile-owned Data Store. |
+| `dataStoreId` | optional string | Each local operation target resolves to exactly one owned Data Store. |
 
-Valid local combinations are `development/daily` and `development/verification`. Verification is
-not a fourth authoritative environment. Production cannot use `daily` or provisional database
-settings.
+Valid local mappings are:
+
+| Operation target | Environment | Runtime profile | Diagnostic scope |
+|---|---|---|---|
+| `development` | `development` | `daily` | `daily` |
+| `verification` | `development` | `verification` | `verification` |
+
+Cross-target foundation preflight derives `diagnosticScope=foundation` while retaining the
+target-specific context of each inspected resource. Verification is not a fourth authoritative
+environment. Hosted Staging/Production is not selectable through local operation commands, and
+Production cannot use `daily`, `verification`, or provisional database settings.
 
 ## Runtime Configuration
 
@@ -28,19 +39,20 @@ The validated, immutable startup configuration. It is created before any listene
 
 | Field | Type | Sensitivity | Rules |
 |---|---|---|---|
-| `environment` | enum | public-safe | Must match Runtime Profile. |
-| `profile` | enum | public-safe | Must match Runtime Profile. |
+| `environment` | enum | public-safe | Must match Execution Context. |
+| `runtimeProfile` | enum | public-safe | Must match Execution Context. |
+| `operationTarget` | enum | public-safe | Supplied by the local command boundary and must match Execution Context. |
 | `host` | IP/hostname | restricted | Daily defaults to loopback; Verification app host is Compose-network internal. |
-| `port` | integer | public-safe | 1–65535; must not collide with another selected profile endpoint. |
-| `publicOrigin` | absolute URL | restricted | Required; scheme/host must match the selected profile contract. |
-| `databaseUrl` | connection URL | secret | Required; never printed; credentials must be profile-specific. |
+| `port` | integer | public-safe | 1–65535; must not collide with another selected operation-target endpoint. |
+| `publicOrigin` | absolute URL | restricted | Required; scheme/host must match the selected runtime-profile contract. |
+| `databaseUrl` | connection URL | secret | Required; never printed; credentials must be operation-target-specific. |
 | `databasePoolMax` | positive integer | restricted | Required and bounded; local default is implementation configuration, not a Production constant. |
-| `proxyPolicy` | enum | public-safe | Must follow the allowed profile combination above. |
+| `proxyPolicy` | enum | public-safe | Must follow the allowed Execution Context mapping above. |
 | `logLevel` | enum | public-safe | Allowlisted values only. |
 | `fixtureProvenance` | enum | public-safe | `synthetic` or `approved-non-production`; all Production-derived provenance is rejected. |
 
 Validation is all-or-nothing. Missing, empty, malformed, unsupported, out-of-range, or forbidden
-cross-profile values produce their specific Safe Diagnostic before the database pool, listener, or
+cross-identity values produce their specific Safe Diagnostic before the database pool, listener, or
 other work is accepted.
 
 ## Safe Diagnostic
@@ -51,10 +63,10 @@ surfaced container/proxy logs, HTTP errors/readiness failures, and Verification 
 | Field | Type | Rules |
 |---|---|---|
 | `reasonCode` | allowlisted enum | Stable code only; never raw child-process/exception text. |
-| `profile` | `foundation \| daily \| verification` | Required safe logical identity. |
+| `diagnosticScope` | `foundation \| daily \| verification` | Required derived output context. |
 | `component` | allowlisted enum | `orchestration`, `configuration`, `application`, `database`, `migration`, `proxy`, `public`, `admin`, `reporting`, `cleanup`, or `security`. |
 | `configurationKey` | optional allowlisted key | Present only when the schema key name itself is safe. |
-| `remediation` | allowlisted enum | A bounded next action such as `FIX_CONFIGURATION`, `RUN_MIGRATION`, `INSPECT_OWNERSHIP`, `RETRY_SAFE_OPERATION`, or `RUN_CONFIRMED_RECOVERY`. |
+| `remediation` | allowlisted enum | A bounded next action such as `FIX_CONFIGURATION`, `RUN_MIGRATION`, `INSPECT_OWNERSHIP`, `RETRY_SAFE_OPERATION`, `RUN_CONFIRMED_RECOVERY`, `RUN_CONFIRMED_RESET`, or `REVIEW_MANUALLY`. |
 
 The shape has no additional fields and no free-form message. It never contains supplied values,
 credentials, connection strings, SQL, stack traces, raw exceptions, filesystem paths, or
@@ -62,11 +74,13 @@ unnecessary host/container/proxy details.
 
 ## Data Store
 
-The MySQL-compatible database owned by one local profile.
+The MySQL-compatible database resource owned by one local operation target.
 
 | Field | Type | Rules |
 |---|---|---|
-| `id` | stable local identifier | Exact allowlisted value for `development` or `verification`. |
+| `id` | stable local resource identifier | Exact Delivery-owned identifier; it is not an identity dimension. |
+| `operationTarget` | `development \| verification` | Owning local operation target. |
+| `runtimeProfile` | `daily \| verification` | Associated execution topology; derived from operation target. |
 | `engineFamily` | string | `mysql-compatible`; local selection is provisionally MySQL 8.4 LTS. |
 | `productionParity` | boolean | Always `false` until actual hosting evidence is approved. |
 | `volumeName` | string | Exact Delivery-owned name; Development and Verification values differ. |
@@ -78,8 +92,8 @@ The MySQL-compatible database owned by one local profile.
 
 Relationships:
 
-- One Runtime Profile resolves to one Data Store.
-- No Data Store is shared between local profiles.
+- One local Execution Context resolves to one Data Store.
+- No Data Store is shared between operation targets.
 - The Development volume survives routine stop/restart and changes only through explicit migration
   or reset.
 - Verification creates a clean data state per run and removes only its own resources afterward.
@@ -140,36 +154,82 @@ A read-only, ordered snapshot used to prove ownership and bind a destructive con
 |---|---|---|
 | `action` | allowlisted lifecycle action | Confirmation is action-specific. |
 | `interruptedAction` | optional allowlisted lifecycle action | Present only when `action` is `recover`; binds recovery to the original operation. |
-| `profile` | `daily \| verification` | Required. |
+| `operationTarget` | `development \| verification` | Exact local command/resource selection. |
+| `runtimeProfile` | `daily \| verification` | Associated topology; must match operation target. |
 | `deliveryKey` | constant | `001-application-foundation`. |
 | `checkoutScope` | SHA-256 digest | No raw filesystem path. |
 | `manifestDigest` | SHA-256 digest | Binds the selected manifest/allowlist. |
 | `resources` | sorted Owned Runtime Resource list | Complete target inventory. |
 | `nonTargetDigest` | SHA-256 digest | Before/after proof that Verification and controlled non-target resources did not change. |
-| `confirmationToken` | optional SHA-256 digest | Emitted only when ownership is exact for the requested mutation. |
+| `assessmentDigest` | optional SHA-256 digest | Binds normalized integrity, repeatability, repair, and reconstructibility evidence when required. |
+| `confirmationToken` | optional SHA-256 digest | Emitted only when ownership and all action-specific recovery-assessment predicates pass. |
 | `observedAt` | UTC timestamp | Evidence only; excluded from the confirmation digest. |
 
-After acquiring the per-profile operation lock, a mutating command immediately re-inventories and
-requires the confirmation digest to match. Drift or blocked ownership refuses all mutation.
+After acquiring the per-operation-target lock, a mutating command immediately re-inventories,
+recomputes applicable assessment evidence, and requires the confirmation digest to match. Drift,
+blocked ownership, or a changed assessment refuses all mutation.
 
 ## Lifecycle Operation
 
 Safe local journal state for a setup/start/stop/restart/migrate/reset/verify/cleanup/recover action.
 It is stored atomically in the checkout-local ignored mode-`0600`
-`.foundation-state/<profile>/operation.json`, never in the application database, and contains no
-protected values. Atomic Verification reports live under `.foundation-state/reports/`.
+`.foundation-state/<operation-target>/operation.json`, never in the application database, and
+contains no protected values. Atomic Verification reports live under `.foundation-state/reports/`.
 
 | Field | Type | Rules |
 |---|---|---|
 | `operationId` | opaque local identifier | Safe, non-secret. |
-| `profile` / `action` | allowlisted enums | Exact operation scope. |
+| `operationTarget` / `runtimeProfile` / `action` | allowlisted enums | Exact operation and topology scope. |
 | `phase` | allowlisted enum | Last durably recorded phase. |
 | `state` | `running \| passed \| failed \| interrupted \| ownership-blocked` | No ambiguous terminal state. |
 | `inventoryDigest` / `mutationPlanDigest` | SHA-256 digests | Bind the exact target and intended mutations. |
 | `primaryFailure` | optional Safe Diagnostic | First failure is immutable. |
 | `secondaryFailures` | Safe Diagnostic list | Cleanup/recovery failures never replace the primary. |
-| `safeNextAction` | allowlisted remediation | Retry, inventory, confirmed recovery, or manual ownership review. |
+| `recoveryAssessment` | optional Recovery Assessment | Required after failure/interruption or incompatible/corrupted state before another action. |
+| `safeNextAction` | allowlisted remediation | Retry, non-destructive recovery, confirmed reset/cleanup, or manual review. |
 | `startedAt` / `updatedAt` | UTC timestamps | Journal evidence only; never emitted in ordinary diagnostics. |
+
+## Recovery Assessment
+
+A normalized, evidence-gated decision attached to the Lifecycle Operation. It introduces no service
+or database table and never stores raw Podman/database output.
+
+| Field | Type | Rules |
+|---|---|---|
+| `originOperationId` | opaque local identifier | Immutable link to the failed/interrupted operation. |
+| `originAction` / `originPhase` | allowlisted enums | Last durably recorded action and phase. |
+| `originalFailure` | Safe Diagnostic | Immutable; later attempt failures are secondary. |
+| `operationTarget` | `development \| verification` | Must match the journal and inventory. |
+| `runtimeProfile` | `daily \| verification` | Must match the operation target. |
+| `ownershipVerdict` | `confirmed \| unconfirmed` | Any ambiguity, collision, mislabel, drift, or unexpected attachment is `unconfirmed`. |
+| `integrityVerdict` | `valid \| invalid \| not-applicable \| unknown` | `invalid` requires a completed allowlisted check; an unavailable/inconclusive check is `unknown`. |
+| `repeatabilityVerdict` | `safe \| unsafe \| unknown` | Derived from action, durable phase, idempotency rule, and mutation-plan evidence. |
+| `reconstructibilityVerdict` | `confirmed \| not-reconstructible \| not-applicable \| unknown` | Confirmed only by migrations plus a verified fixture/replay source. |
+| `repairDisposition` | `verified-available \| unavailable \| failed \| not-applicable` | A generic or unreviewed repair is never available. |
+| `repairId` | optional allowlisted enum | This Delivery permits only `recreate-database-runtime-preserve-volume` for Development. |
+| `inventoryDigest` | SHA-256 digest | Exact ownership and attachment evidence. |
+| `integrityEvidenceDigest` | SHA-256 digest | Normalized compatibility/connectivity/migration evidence. |
+| `reconstructibilityEvidenceDigest` | optional SHA-256 digest | Migration and synthetic/approved fixture reconstruction evidence. |
+| `mutationPlanDigest` | SHA-256 digest | Exact intended mutations. |
+| `decision` | `retry \| recover \| reset \| manual-review` | Derived in the fixed order below. |
+| `attemptFailures` | Safe Diagnostic list | Append-only secondary failures; never replace `originalFailure`. |
+| `resolution` | `pending \| resolved \| unresolved` | Readiness requires successful postchecks, not merely an authorized action. |
+
+Decision order:
+
+1. Any unconfirmed/unknown applicable ownership, integrity, repeatability, or reconstructibility
+   evidence yields `manual-review` and no mutation token.
+2. Confirmed ownership plus valid/not-applicable integrity and proven safe repeatability yields
+   `retry`.
+3. Otherwise, an allowlisted verified repair yields `recover`; recovery preserves the Development
+   volume/data and must pass integrity postchecks.
+4. Otherwise, confirmed reconstructibility plus unavailable/failed repair yields `reset`; reset
+   requires a fresh exact reset token and explicit confirmation.
+5. Every other state yields `manual-review`.
+
+The SC-002 synthetic marker plus tracked migrations is reconstructible. An approved non-Production
+fixture without a verified replay source is `unknown`. This Delivery defines no generic SQL repair,
+migration rollback, or backup restore. Verification disposal is a cleanup action, never recovery.
 
 ## Component Readiness
 
@@ -205,14 +265,54 @@ stored in the application database.
 
 | Field | Type | Rules |
 |---|---|---|
-| `contract` | enum | `build`, `startup`, `configuration-valid`, `configuration-missing-rejected`, `configuration-empty-rejected`, `configuration-malformed-rejected`, `configuration-unsupported-rejected`, `configuration-out-of-range-rejected`, `configuration-cross-profile-rejected`, `migration`, `database`, `liveness`, `readiness`, `isolation`, `proxy`, `public-route`, `admin-route`, `server-route`, `cleanup`, `reporting`. |
+| `contract` | enum | `build`, `startup`, `configuration-valid`, `configuration-missing-rejected`, `configuration-empty-rejected`, `configuration-malformed-rejected`, `configuration-unsupported-rejected`, `configuration-out-of-range-rejected`, `configuration-identity-conflict-rejected`, `migration`, `database`, `liveness`, `readiness`, `isolation`, `proxy`, `public-route`, `admin-route`, `server-route`, `cleanup`, `reporting`. |
 | `result` | `pass \| fail` | Required; no implicit/skipped success. |
 | `diagnostic` | optional Safe Diagnostic | Required for failure. Blocked checks use `PREREQUISITE_FAILED`. |
 | `durationMs` | non-negative integer | Timing evidence only. |
 
+## Dependency Finding Review
+
+`docs/security/dependency-findings.json` is a normalized committed evidence document with top-level
+`schemaVersion`, `lockfileDigest`, `releaseGraphDigest`, and a sorted `findings` array. Each array
+item is one Dependency Finding Review row. The document is not Product data, and raw scanner/
+package-manager output is not persisted in it.
+
+| Field | Type | Rules |
+|---|---|---|
+| `findingKey` | stable digest | Advisory + package + installed version + normalized release path; unique and sorted. |
+| `confirmed` | boolean | Pending/unknown confirmation is invalid evidence. |
+| `confirmationEvidence` | repository-verifiable reference | Required evidence for the confirmation verdict. |
+| `foundationRelevant` / `relevanceRationale` | boolean plus bounded rationale | Both are required; the rationale is protected-data-safe. |
+| `severity` | `critical \| high \| medium \| low` | Unknown/unsupported scanner severity blocks normalization. |
+| `reachability` | `reachable \| not-reachable \| not-applicable \| unknown` | `unknown` blocks pending triage. |
+| `productionExposure` | `exposed \| not-exposed \| not-applicable \| unknown` | `unknown` blocks pending triage. |
+| `mitigation` / `disposition` | normalized enums plus evidence reference | No free-form raw scanner output. |
+| `owner` / `reviewDate` | non-empty role/reference and UTC date | Required for every current finding. |
+| `firstObservedAt` | UTC instant | Stable deadline anchor; triage cannot move it later. |
+| `remediationDueAt` | optional UTC instant | Required at no later than +90 days for Medium or +180 days for Low; overdue when `asOf > remediationDueAt`. |
+| `approval` | optional Dependency Approval | Required for an unfixed actionable Critical/High disposition. |
+
+`actionable` is derived only when the finding is confirmed, is present in the locked release graph,
+is foundation-relevant, and is reachable or Production-exposed. Unknown reachability or exposure
+blocks before actionability is accepted. A valid exact empty ledger represents zero findings.
+
+### Dependency Approval
+
+| Field | Type | Rules |
+|---|---|---|
+| `kind` | `mitigation \| risk-exception` | Must bind to the unchanged finding and release graph. |
+| `securityTechnicalReviewEvidence` | repository-verifiable reference | Required and protected-data-safe. |
+| `productOwnerApprovalEvidence` | repository-verifiable reference | Required; Product Owner is the exception authority. |
+| `approvedAt` | UTC instant | Required. |
+| `expiresAt` | UTC instant | Risk exception only; no later than +7 days for Critical or +30 days for High. Exact expiry is expired. |
+
+Actionable Critical/High blocks unless fixed or covered by a current approved mitigation/risk
+exception. Medium/Low severity and overdue status do not block, but complete evidence and the
+90/180-day due dates remain required and overdue state is reported.
+
 ## State Transitions
 
-### Daily Development profile
+### Daily runtime profile / Development operation target
 
 ```text
 absent --setup--> stopped --start--> starting --ready checks pass--> ready
@@ -223,13 +323,16 @@ absent --setup--> stopped --start--> starting --ready checks pass--> ready
 ready --stop--> stopped --start--> ready       (volume preserved)
 stopped --exact inventory + confirmed reset--> absent --migrate--> stopped (empty marker table)
 
-stopped/not-ready --status + exact inventory--> safe retry or confirmed recovery
-any state --ownership blocked-----------------> read-only refusal / manual ownership review
+stopped/not-ready --status + assessment--> retry | non-destructive recover | confirmed reset | manual review
+any state --unknown/unconfirmed evidence-----> read-only refusal / manual review
 ```
 
-Reset/recovery is rejected without a matching action-bound inventory token or when resources are
-ambiguous, stale/colliding, mislabeled, unexpectedly active/attached, or changed after inventory.
-Interrupted migration never auto-resets; status inspection must prove a safe pending retry.
+Retry/recovery/reset is rejected without a matching assessment; reset also requires a fresh
+action-bound inventory token. Ambiguous, stale/colliding, mislabeled, unexpectedly active/attached,
+or changed resources force manual review. Recovery may recreate the exact Development database
+container/network while preserving the named volume; it never deletes or mutates Development data.
+Interrupted migration never auto-resets; status must prove safe repeatability or route to manual
+review/reset under the full decision rules.
 
 ### Production-like Verification run
 
@@ -240,11 +343,12 @@ absent --clean isolated setup--> running --main checks--> cleanup --report valid
                                     |              +--failure adds cleanup diagnostic
                                     +--failure/interruption preserves primary diagnostic
 
-pre-existing/interrupted resources --inventory-confirmed recover--> absent
+pre-existing/interrupted disposable resources --inventory-confirmed cleanup--> absent
 pre-existing resources with blocked ownership---------------------> read-only refusal
 ```
 
 Cleanup runs after pass or fail only while current-run ownership remains exact. Main failure plus
 cleanup failure retains the main failure and adds the cleanup failure; main success plus cleanup
 failure makes cleanup primary. The final report is emitted only after cleanup and validates every
-required result plus nondisclosure. A running daily profile is neither a dependency nor a target.
+required result plus nondisclosure. A running daily runtime profile/Development operation target is
+neither a dependency nor a Verification cleanup target.

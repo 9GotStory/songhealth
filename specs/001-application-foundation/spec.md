@@ -153,7 +153,7 @@ foundation assets from deferred feature-specific work.
   manual review, and no action may target unrelated or Production data.
 - Startup, migration, reset, or cleanup is interrupted: the affected operation target remains
   stopped or not-ready, preserves the original failure result, and permits only a documented safe
-  retry or an explicitly confirmed ownership-scoped recovery action.
+  retry or a verified, bounded, non-destructive, ownership-scoped recovery action.
 - A Compose project, network, container, or volume is stale, colliding, ambiguously owned,
   mislabeled, or unexpectedly active: destructive work refuses to continue until exact Delivery and
   operation-target ownership is verified and the maintainer explicitly confirms the bounded target.
@@ -245,9 +245,9 @@ foundation assets from deferred feature-specific work.
 - **FR-017**: Repeated or interrupted start, stop, restart, migration, reset, and cleanup operations
   MUST leave the affected operation target stopped or not-ready, preserve the original failure
   result, and MUST NOT create duplicate active resources or ambiguous data ownership. Destructive
-  recovery MUST refuse stale, colliding, ambiguous, mislabeled, or unexpectedly active resources
-  until exact Delivery/operation-target ownership is verified and the maintainer explicitly
-  confirms the bounded target.
+  reset or cleanup MUST refuse stale, colliding, ambiguous, mislabeled, or unexpectedly active
+  resources until exact Delivery/operation-target ownership is verified and the maintainer
+  explicitly confirms the bounded target.
 
 ### Scope Boundaries
 

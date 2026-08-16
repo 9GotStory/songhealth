@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** CLARIFY COMPLETE — PLAN RERUN REQUIRED
+- **Status:** PLAN COMPLETE — CHECKLIST REVIEW REQUIRED
 
 ## Active Feature Mirror
 
@@ -26,13 +26,13 @@
 
 ## Workflow Gate
 
-- **Current phase:** CLARIFY
-- **Phase status:** COMPLETE — 3 MATERIAL AMBIGUITIES RESOLVED
-- **Previous completed phase:** CHECKLIST REVIEW — CHANGES REQUIRED (75 OF 80 SATISFIED)
-- **Next valid action:** rerun `$speckit-plan` to reconcile downstream design artifacts with the
-  clarified specification, then rerun checklist review before Tasks
-- **Blocking issues:** NONE IN SPEC; plan, data model, contracts, quickstart, and custom checklist
-  remain downstream of the clarified recovery, identity, and dependency-gate decisions
+- **Current phase:** PLAN
+- **Phase status:** COMPLETE — PHASE 0/1 ARTIFACTS RECONCILED
+- **Previous completed phase:** CLARIFY — 3 MATERIAL AMBIGUITIES RESOLVED
+- **Next valid action:** rerun checklist review against the reconciled specification and Plan
+  artifacts before Tasks
+- **Blocking issues:** NONE IN PLAN; the prior checklist result (75 of 80 satisfied) remains pending
+  re-review, and Tasks are not yet authorized
 
 ## Authorized Implementation
 

@@ -1,7 +1,8 @@
 # Foundation Operations Contract
 
-This contract defines the maintainer-facing entry points and profile safety rules. Script names are
-stable repository interfaces; their internal implementation remains a later task.
+This contract defines the maintainer-facing entry points and operation-target/runtime-profile safety
+rules. Script names are stable repository interfaces; their internal implementation remains a later
+task.
 
 ## Prerequisites
 
@@ -11,35 +12,37 @@ stable repository interfaces; their internal implementation remains a later task
 - a clean checkout and safe local configuration copied from the committed examples
 - required container/security-scanner images available locally before timed acceptance begins
 
-Production credentials, Production data, a native database service, and a running daily profile are
-not prerequisites. This Delivery accepts only synthetic or explicitly approved non-Production
-fixtures and rejects all Production-derived data, including sanitized/minimized copies.
+Production credentials, Production data, a native database service, and a running daily runtime
+profile are not prerequisites. This Delivery accepts only synthetic or explicitly approved
+non-Production fixtures and rejects all Production-derived data, including sanitized/minimized
+copies.
 
 ## Commands
 
 | Command | Contract |
 |---|---|
 | `npm ci` | Install exactly the lockfile dependency graph. |
-| `npm run foundation:check` | Check Node/npm/Podman/Compose availability, required files, safe profile configuration, and port availability without starting services. |
-| `npm run dev:setup` | Validate the Development profile, create/start only its database dependency, explicitly apply tracked migrations, and stop with an actionable non-zero result on failure. |
+| `npm run foundation:check` | Check Node/npm/Podman/Compose availability, required files, safe execution-context configuration, and port availability without starting services. |
+| `npm run dev:setup` | Validate the Development operation target/daily runtime profile, create/start only its database dependency, explicitly apply tracked migrations, and stop with an actionable non-zero result on failure. |
 | `npm run dev:start` | Start the Development database if needed and the native server/Public/Admin development processes; repeated invocation must not create duplicate resources. |
 | `npm run dev:ready` | Poll bounded readiness and route checks; return zero only when the whole daily foundation is ready. |
 | `npm run dev:stop` | Stop native processes and the Development database container without removing its named volume. Repetition is safe. |
 | `npm run dev:restart` | Perform the documented stop/start sequence and preserve Development data. |
-| `npm run foundation:status -- --profile <development\|verification>` | Read the safe operation journal plus current normalized inventory and return the next allowed action without mutation. |
-| `npm run foundation:inventory -- --profile <profile> --action <action> [--operation <interrupted-action>] [--token-only]` | Perform typed read-only inspection and emit a safe normalized inventory plus an action-bound confirmation token only when exact ownership is proven. Recovery tokens also bind the interrupted operation; `--token-only` suppresses the inventory body, not validation. |
-| `npm run dev:reset -- --confirm <inventory-token>` | Re-inventory under the Development lock, stop/remove only exact confirmed datastore resources, recreate them, and explicitly apply migrations. Missing/stale/mismatched confirmation or blocked ownership fails without mutation. |
-| `npm run foundation:recover -- --profile <profile> --operation <interrupted-action> --confirm <inventory-token>` | Reconcile only the exact interrupted operation bound into a `recover` inventory token. Development recovery preserves data unless the separately confirmed operation is reset; Verification cleanup may remove only its disposable resources. |
-| `npm run foundation:test-interruption -- --profile <profile> --action <start\|stop\|migrate\|reset\|cleanup> --phase <allowlisted-phase>` | Acceptance-only controlled fault injection for synthetic local profiles. It exercises journal, signal/failure, next-run detection, safe retry/recovery, and primary-failure preservation; it refuses non-local or Production-derived configuration. |
-| `npm run dev:persistence-check -- --confirm <reset-inventory-token>` | Write one synthetic marker, inventory resources, prove the same value after restart, perform the confirmed reset, prove the old marker absent and migrations current, and validate that only Development datastore inventory changed. |
-| `npm run db:status -- --profile <development\|verification>` | Report `current`, `pending`, or a safe failure code without applying migrations. |
-| `npm run db:migrate -- --profile <development\|verification>` | Apply pending version-controlled migrations explicitly to the selected non-Production profile. |
+| `npm run foundation:status -- --target <development\|verification>` | Read the target journal/inventory/integrity evidence and emit exactly one normalized `retry`, `recover`, `reset`, or `manual-review` Recovery Assessment without mutation. |
+| `npm run foundation:inventory -- --target <development\|verification> --action <action> [--operation <interrupted-action>] [--repair <allowlisted-repair>] [--token-only]` | Perform typed read-only inspection and emit normalized inventory/assessment evidence plus an action-bound token only when ownership and every predicate for that action pass. `--token-only` suppresses the inventory body, not validation. |
+| `npm run dev:reset -- --confirm <reset-inventory-token>` | Re-inventory under the Development target lock, require confirmed reconstructibility, remove/recreate only exact confirmed Data Store resources, and apply migrations. A routine intentional reset may proceed from healthy state; a reset selected by a failed/incompatible-state Recovery Assessment additionally requires non-destructive repair to be unavailable or failed. Missing/stale/mismatched evidence or uncertainty fails without mutation. |
+| `npm run foundation:recover -- --target development --operation <interrupted-action> --repair recreate-database-runtime-preserve-volume --confirm <recovery-token>` | Run the only allowlisted Development recovery: reconcile exact database container/network runtime state while preserving its named volume/data, then require connectivity, integrity, and migration-status postchecks. It never performs reset, SQL repair, migration rollback, or backup restore. |
+| `npm run foundation:cleanup -- --target verification --confirm <cleanup-token>` | Remove only exact confirmed disposable Verification resources after ownership/reconstructibility checks; it never targets Development and is the explicit stale/interrupted Verification disposal path. |
+| `npm run foundation:test-interruption -- --target <development\|verification> --action <start\|stop\|migrate\|reset\|cleanup> --phase <allowlisted-phase>` | Acceptance-only controlled fault injection for synthetic local operation targets. It exercises journal, assessment, retry/recovery/reset/manual-review, and primary-failure preservation; it refuses hosted or Production-derived configuration. |
+| `npm run dev:persistence-check -- --confirm <reset-inventory-token>` | Write one synthetic marker, inventory resources, prove the same value after restart, perform the confirmed reconstructible reset, prove the old marker absent and migrations current, and validate that only Development Data Store inventory changed. |
+| `npm run db:status -- --target <development\|verification>` | Report `current`, `pending`, or a safe failure code without applying migrations. |
+| `npm run db:migrate -- --target <development\|verification>` | Apply pending version-controlled migrations explicitly to the selected non-Production operation target. |
 | `npm run verify:production-like` | Require an absent clean Verification inventory, then build, start database/application/Nginx, apply migrations explicitly, run every ordered result, perform exact current-run cleanup, validate nondisclosure/report completeness, atomically emit the report and parity statement, and return non-zero if any result fails. |
-| `npm run check` | Run deterministic typecheck, lint/static/import-boundary checks, independent builds, focused diagnostic/HTTP/database/profile tests, and `security:check`; return non-zero on failure. |
+| `npm run check` | Run deterministic typecheck, lint/static/import-boundary checks, independent builds, focused diagnostic/HTTP/database/operation-target tests, and `security:check`; return non-zero on failure. |
 | `npm run security:secrets` | Prove the pinned Gitleaks scanner with an ephemeral detectable canary, then scan tracked content; a failed canary or detected committed secret is blocking. |
-| `npm run security:dependencies` | Review the locked npm graph for vulnerabilities and require explicit relevance/severity/reachability/mitigation triage for actionable findings. |
+| `npm run security:dependencies` | Normalize scanner findings, reconcile them exactly to the locked release graph and committed dependency ledger, and enforce the FR-013/SC-008 policy in [foundation-security.md](foundation-security.md). |
 | `npm run security:asvs` | Validate every applicable foundation ASVS 5.0.0 matrix row has applicability, implementation, verification, and evidence; authentication/session rows must carry the FR-016 not-applicable rationale. |
-| `npm run security:check` | Run secrets, dependency, and ASVS gates; return non-zero for a secret, unreviewed actionable dependency finding, or incomplete evidence. |
+| `npm run security:check` | Run secrets, dependency, and ASVS gates; return non-zero for a secret, blocking dependency state, or incomplete evidence. |
 
 ## Configuration examples
 
@@ -49,14 +52,25 @@ accepted as Production configuration.
 
 Minimum logical keys:
 
+The command boundary supplies `operationTarget` through `--target`; it is not an environment-file
+key. `diagnosticScope` is derived output context and is never accepted as configuration.
+
+| Operation target | `APP_ENVIRONMENT` | `RUNTIME_PROFILE` | Diagnostic scope |
+|---|---|---|---|
+| `development` | `development` | `daily` | `daily` |
+| `verification` | `development` | `verification` | `verification` |
+
+Cross-target foundation preflight may emit `diagnosticScope=foundation`. Hosted execution is not
+selectable by these local commands.
+
 | Key | Development | Verification | Safety rule |
 |---|---|---|---|
 | `APP_ENVIRONMENT` | `development` | `development` | Verification is not a fourth environment. |
 | `RUNTIME_PROFILE` | `daily` | `verification` | Must match the invoked command. |
 | `APP_HOST` | loopback | Compose internal | Verification app port is not published to the host. |
-| `APP_PORT` | documented local port | internal container port | Integer in range and profile-specific. |
-| `PUBLIC_ORIGIN` | local HTTP origin | Nginx test origin | Absolute URL matching the selected profile. |
-| `DATABASE_URL` | Development-only credential/database | different Verification-only credential/database | Secret; never logged or reused across profiles. |
+| `APP_PORT` | documented local port | internal container port | Integer in range and operation-target-specific. |
+| `PUBLIC_ORIGIN` | local HTTP origin | Nginx test origin | Absolute URL matching the selected runtime profile. |
+| `DATABASE_URL` | Development-only credential/database | different Verification-only credential/database | Secret; never logged or reused across operation targets. |
 | `DATABASE_POOL_MAX` | bounded local value | bounded test value | Must be positive; not a Production tuning decision. |
 | `PROXY_POLICY` | `none` | `one-hop` | Hosted value remains evidence-dependent. |
 | `LOG_LEVEL` | allowlisted local level | allowlisted Verification level | Never enables raw exception/tool passthrough. |
@@ -72,7 +86,7 @@ accepting other work. The required rejection classes are:
 | wrong type/format | `CONFIG_MALFORMED` |
 | unsupported enum/value | `CONFIG_UNSUPPORTED` |
 | numeric/size value outside its allowed range | `CONFIG_OUT_OF_RANGE` |
-| forbidden environment/profile/credential/resource combination | `CONFIG_PROFILE_CONFLICT` |
+| forbidden environment/runtime-profile/operation-target/credential/resource combination | `CONFIG_IDENTITY_CONFLICT` |
 
 ## Safe diagnostic contract
 
@@ -82,7 +96,7 @@ logs, HTTP errors/readiness components, or Verification reports has exactly this
 ```json
 {
   "reasonCode": "ALLOWLISTED_CODE",
-  "profile": "foundation | daily | verification",
+  "diagnosticScope": "foundation | daily | verification",
   "component": "ALLOWLISTED_COMPONENT",
   "configurationKey": "OPTIONAL_SAFE_SCHEMA_KEY",
   "remediation": "ALLOWLISTED_NEXT_ACTION"
@@ -100,25 +114,26 @@ exceptions/stacks, filesystem paths, raw inspect output, and unnecessary host/co
 details. Tests inject unique sentinel values and scan every named surface for both exact and encoded
 forms.
 
-## Profile ownership and isolation
+## Operation-target ownership and isolation
 
-- Development and Verification use exact, different Compose project names, networks, credentials,
-  database names, and named volumes.
+- The Development and Verification operation targets use exact, different Compose project names,
+  networks, credentials, database names, and named volumes.
 - Development publishes database access to loopback only. Verification publishes only Nginx; its
   application and database ports remain internal.
 - Routine `stop` never removes the Development volume.
 - Every manifest resource carries canonical Compose labels plus the complete custom label set
-  `org.songhealth.foundation.delivery`, `.checkout`, `.profile`, `.resource`, and
-  `.ownership-schema`.
+  `org.songhealth.foundation.delivery`, `.checkout`, `.environment`, `.runtime-profile`,
+  `.operation-target`, `.resource`, and `.ownership-schema`.
 - Mutation is allowed only when typed inspection proves exact expected type/name, checkout-scoped
   project, manifest membership, all canonical/custom labels, and expected attachments/mounts. A
-  second inventory under the profile lock must match the action-bound confirmation digest.
+  second inventory under the operation-target lock must match the action-bound confirmation digest.
 - Ambiguous, stale/colliding, mislabeled, unexpectedly active/attached, token-mismatched, or changed
   resources are read-only refusal states. No confirmation token is issued; remediation is bounded to
   safe inspection/manual ownership review.
-- Reset/recovery/cleanup removes recorded exact resources individually and never uses name prefixes,
+- Reset/cleanup removes recorded exact resources individually and never uses name prefixes,
   wildcards, label-filter deletion, `--remove-orphans`, broad `down --volumes`, prune, unresolved
-  variables, or force removal.
+  variables, or force removal. Recovery may reconcile only the exact Development database
+  container/network and must preserve the named volume and its data.
 - Verification requires no pre-existing resources. Current-run cleanup is automatic after pass/fail
   only while its journal and ownership remain exact; otherwise it refuses mutation and records a
   cleanup failure. It never stops, resets, connects to, or depends on Development resources.
@@ -136,7 +151,7 @@ configuration-empty-rejected,
 configuration-malformed-rejected,
 configuration-unsupported-rejected,
 configuration-out-of-range-rejected,
-configuration-cross-profile-rejected,
+configuration-identity-conflict-rejected,
 migration,
 database,
 liveness,
@@ -171,18 +186,34 @@ Every report ends with:
 - Partial startup never produces an overall ready/pass result.
 - The operation journal is written atomically before mutation and after every phase. SIGINT/SIGTERM
   records `OPERATION_INTERRUPTED`, attempts only exact current-run cleanup, preserves conventional
-  signal exit semantics, and leaves the profile stopped or not-ready.
-- Journals are ignored mode-`0600` files at `.foundation-state/<profile>/operation.json`; atomic
+  signal exit semantics, and leaves the operation target stopped or not-ready.
+- Journals are ignored mode-`0600` files at
+  `.foundation-state/<operation-target>/operation.json`; atomic
   Verification reports are written under `.foundation-state/reports/`. Both contain only normalized
   state and Safe Diagnostics, never protected values or raw tool output.
-- On the next invocation, an unclosed `running` journal is treated as interrupted. Non-destructive
-  retry is allowed only after status/inventory proves it safe; destructive reset/recovery/cleanup
-  requires a fresh matching token. Interrupted migration is status-checked and never auto-reset.
-- Cleanup/recovery cannot replace the immutable primary failure. Main failure plus cleanup failure
-  reports both; main success plus cleanup failure makes cleanup primary, and reporting is primary
-  only when every earlier result passed.
+- On the next invocation, an unclosed `running` journal is treated as interrupted and
+  `foundation:status` derives exactly one decision in this fixed order:
+
+  | Decision | Required predicates |
+  |---|---|
+  | `manual-review` | Any applicable ownership, integrity, repeatability, or reconstructibility evidence is unconfirmed/unknown; no token or mutation is allowed. |
+  | `retry` | Ownership is confirmed, integrity is valid/not-applicable, and the interrupted operation/phase is proven safely repeatable. |
+  | `recover` | Retry does not apply and `recreate-database-runtime-preserve-volume` is verified available; recovery is bounded, non-destructive, and must pass postchecks. |
+  | `reset` | Retry/recovery do not apply, reconstructibility is confirmed, and repair is unavailable or failed; a fresh exact reset token and explicit confirmation are required. |
+
+  Any state not satisfying a permitted action is `manual-review`. An approved non-Production
+  fixture without a verified replay source has unknown reconstructibility. Interrupted migration
+  never auto-resets or rolls back.
+- Retry/recovery/reset attempts bind the origin operation/action/phase, immutable original-failure
+  digest, operation target/runtime profile, inventory, integrity/reconstructibility evidence,
+  selected action/repair, and mutation plan. The command locks, re-evaluates, and rejects drift.
+- Recovery and cleanup cannot replace the immutable primary failure. A failed retry/recovery/reset
+  appends a secondary diagnostic and keeps the target stopped/not-ready. Main failure plus cleanup
+  failure reports both; main success plus cleanup failure makes cleanup primary, and reporting is
+  primary only when every earlier result passed.
 - Ownership that cannot be proven returns `RESOURCE_OWNERSHIP_UNPROVEN` without mutation. Inventory
-  drift returns `RESOURCE_INVENTORY_CHANGED`. Diagnostics use only the safe contract and bounded
+  drift returns `RESOURCE_INVENTORY_CHANGED`; unknown integrity or reconstructibility returns the
+  applicable safe refusal diagnostic. Diagnostics use only the safe contract and bounded
   remediation.
 
 ## Timing boundaries
@@ -203,3 +234,8 @@ FR-016. The gate makes no blanket ASVS compliance claim and does not add arbitra
 Product browser journey. The one-shot scanner is fixed to
 `ghcr.io/gitleaks/gitleaks:v8.29.1@sha256:aa036a2f4bdfe3cc3c55fa4326308efabb4a6be498c883c864fd1d0d5585438a`;
 upgrades require a reviewed digest change and passing canary.
+
+`docs/security/dependency-findings.json` is the normalized locked-graph evidence ledger. Dependency
+gate schema, exact reconciliation, actionability, Product Owner approval, exception expiry, and
+Medium/Low due-date rules follow [foundation-security.md](foundation-security.md). Raw scanner or
+package-manager output is never the committed evidence record or copied into Verification output.
