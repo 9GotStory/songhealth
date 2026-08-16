@@ -31,7 +31,7 @@ testable checkpoint. Requirement references are included in every task.
 - [X] T003 [P] Create the separate React/Vite Admin CSR workspace shell configuration in `apps/admin/package.json`, `apps/admin/vite.config.ts`, and `apps/admin/index.html` (Refs: FR-001–FR-002; Plan §Runtime composition)
 - [X] T004 [P] Create the Fastify/Kysely server workspace manifest and exports in `apps/server/package.json` (Refs: FR-001–FR-002; Plan §Runtime composition)
 - [X] T005 [P] Configure strict shared ESM TypeScript compilation without a shared runtime package in `tsconfig.json` (Refs: FR-012, FR-016; Plan §Project Structure)
-- [ ] T006 [P] Configure the baseline ESLint flat setup and TypeScript/static-check inputs in `eslint.config.js` (Refs: FR-013; Constitution Principle V)
+- [X] T006 [P] Configure the baseline ESLint flat setup and TypeScript/static-check inputs in `eslint.config.js` (Refs: FR-013; Constitution Principle V)
 - [ ] T007 Create ignored local-state/secret rules and non-secret configuration templates in `.gitignore`, `.env.development.example`, and `.env.verification.example` (Refs: FR-005–FR-008; Operations Contract §Configuration examples)
 - [ ] T008 Resolve compatible approved dependency releases and commit the exact single-workspace graph in `package-lock.json` (Refs: FR-013, FR-015; Research Decisions 1–2)
 

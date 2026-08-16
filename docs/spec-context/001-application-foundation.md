@@ -98,7 +98,7 @@ Exact numbered headings are therefore the stable routing pointers.
 | Product Owner Delivery selection | SATISFIED — `PROJECT-STATUS.md` selects `001-application-foundation`. |
 | Canonical Constitution | SATISFIED — `.specify/memory/constitution.md` v1.0.0. |
 | Product/System Source of Truth | SATISFIED — canonical `00–08` and System Blueprint v1.1 are Frozen. |
-| Spec Kit runtime and Codex/Claude integrations | MUST be verified on the target machine before Specify; currently not verified. |
+| Spec Kit runtime and Codex/Claude integrations | SATISFIED before Specify — Specify CLI 0.16.4 and Codex/Claude integrations verified. |
 | Bangmod runtime and database capabilities | MUST be inspected before locking Production Node.js or MySQL/MariaDB versions or claiming Production parity. |
 
 ## Approved Decisions to Preserve
