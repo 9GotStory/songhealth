@@ -1,7 +1,12 @@
 # Secrets / environment
+# Ignore actual local secret files, but allow exactly the two committed examples.
 .env
 .env.*
-!.env.example
+!.env.development.example
+!.env.verification.example
+
+# Checkout-local operation journal and Verification report tree (never committed)
+.foundation-state/
 
 # Node / build output (for later implementation)
 node_modules/
