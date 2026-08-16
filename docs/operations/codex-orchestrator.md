@@ -109,3 +109,25 @@ Blocking findings:
 Non-blocking notes:
 Next valid action:
 ```
+
+## Context7 Verification Rule
+
+Codex SHOULD use Context7 when planning or reviewing work whose correctness
+depends on current or version-specific third-party documentation.
+
+Typical cases:
+- framework/library API behavior;
+- supported configuration;
+- deprecated or changed APIs;
+- dependency compatibility;
+- implementation examples whose syntax may have changed.
+
+Context7 does not authorize architecture, dependency, scope, or requirement
+changes.
+
+If Context7 evidence conflicts with the Constitution, Frozen Source of Truth,
+or approved Delivery artifacts:
+1. do not silently choose the upstream recommendation;
+2. classify the issue as a potential Source-of-Truth conflict;
+3. stop the affected decision;
+4. route it through Impact Review / Product Owner decision as applicable.

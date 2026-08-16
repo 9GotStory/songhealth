@@ -51,3 +51,39 @@ After `specify`, resolve the active feature using Spec Kit's own resolution rule
 ## Stable instruction files
 
 Keep `AGENTS.md`, `CLAUDE.md`, and `docs/operations/codex-orchestrator.md` stable across features, not immutable. Update them only for durable recurring guidance; feature-specific plan/context injection belongs outside these durable instructions unless explicitly adopted by the project.
+
+## External Technical Documentation — Context7
+
+Context7 is the preferred external technical documentation source for
+version-sensitive library, framework, SDK, API, setup, configuration, and
+code-generation questions.
+
+Use Context7 when:
+- implementation depends on a third-party library or framework API;
+- exact current syntax, configuration, defaults, or supported behavior matters;
+- a dependency version may materially affect the answer;
+- planning or reviewing implementation requires verification against current
+  upstream documentation.
+
+Authority order:
+1. Constitution
+2. Approved/Frozen project Source of Truth
+3. Active Delivery artifacts
+4. Context7 / authoritative upstream technical documentation
+5. Model knowledge
+
+Context7 is evidence, not project authority.
+
+It MUST NOT:
+- override approved Product requirements;
+- override Frozen architecture decisions;
+- introduce an unapproved dependency;
+- expand Delivery scope;
+- silently resolve a conflict between upstream documentation and project
+  Source of Truth.
+
+If current upstream documentation conflicts with project Source of Truth,
+stop and report the conflict through the normal Impact Review path.
+
+Prefer version-specific documentation when a dependency version is known.
+Retrieve only the documentation needed for the current question or task.

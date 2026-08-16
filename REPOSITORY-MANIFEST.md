@@ -35,3 +35,9 @@
 - updated `AGENTS.md` to route Codex explicitly to that file.
 - updated README, short prompts, Spec Kit control documentation, and manifest references.
 - `CLAUDE.md` remains at repository root because it is the Claude Code-specific runtime instruction file.
+
+### Development Documentation Tooling
+
+- `.codex/config.toml` — project-scoped Codex MCP configuration for Context7.
+- `.mcp.json` — project-scoped Claude Code MCP configuration for Context7.
+- Context7 is a technical-reference layer only and is not project Source of Truth.

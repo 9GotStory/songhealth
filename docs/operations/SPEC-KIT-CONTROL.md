@@ -100,3 +100,17 @@ The included `bootstrap/constitution.proposed.md` remains `1.0.0-proposed`. It i
 6. If the canonical Constitution is missing or approved durable principles changed, run the **Constitution** prompt and review the result before continuing.
 7. Run the **Prepare Delivery Context** prompt; Codex creates/reconciles the first real routing map from `_template.md`.
 8. Continue with `Specify` only after `PROJECT-STATUS.md` marks the Delivery Context `READY`.
+
+## External Technical Documentation
+
+Context7 is the preferred current/version-specific technical documentation
+source during Plan, Analyze, Implementation, and Review when third-party
+library/framework/API behavior matters.
+
+Authority remains:
+
+Constitution
+→ Frozen Project Source of Truth
+→ Active Delivery artifacts
+→ Context7 / authoritative upstream documentation
+→ model knowledge

@@ -59,4 +59,13 @@ Implementation may begin only when every required gate below is PASS.
 - [ ] Task explicitly authorized in `PROJECT-STATUS.md`
 - [ ] Claude Code handoff has exact scope/references/verification
 
+## Context7 / External Documentation Gate
+
+- [ ] `.codex/config.toml` contains project-scoped Context7 MCP configuration.
+- [ ] `.mcp.json` contains the project-scoped Claude Code Context7 configuration.
+- [ ] Context7 is connected for Codex.
+- [ ] Context7 is connected for Claude Code.
+- [ ] Context7 is treated as technical evidence, not project Source of Truth.
+- [ ] Context7 cannot independently introduce dependencies or expand Delivery scope.
+
 Only after A–F pass may application implementation begin.
