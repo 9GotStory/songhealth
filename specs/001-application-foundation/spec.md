@@ -9,6 +9,33 @@
 **Input**: User description: "Create the approved Application Foundation & Development Runtime
 Delivery using its READY Delivery Context."
 
+## Clarifications
+
+### Session 2026-08-16
+
+- Q: How should the foundation respond when Development data or an environment lifecycle operation
+  is unsafe to continue? → A: Refuse unsafe work, preserve the original failure, provide a safe
+  reason code and documented retry/recovery path, and require confirmed ownership-scoped reset or
+  cleanup when necessary.
+- Q: What disclosure rule should apply to failures across command output, application/container/proxy
+  logs, HTTP responses, and Verification reports? → A: Every output surface uses an allowlisted
+  diagnostic contract containing only a safe reason code, profile/component, safe configuration key
+  name, and bounded remediation; raw protected values and unnecessary sensitive infrastructure
+  details are forbidden.
+- Q: May this foundation use Production-derived data in Development or Production-like Verification?
+  → A: No. This Delivery uses only synthetic or explicitly approved non-Production fixtures; any
+  future Production-derived-data exception requires a separately approved scope change.
+- Q: Which workflow boundaries should define the 20-minute Development target and 10-minute
+  Verification target? → A: Measure the complete repository-controlled workflow: Development from
+  its first documented setup command through overall readiness, and Verification from its single
+  command through build, all contract results, cleanup, and final reporting, after external tools,
+  required images, and the release candidate are locally available.
+- Q: What evidence should prove that Development data survives a routine restart and that an
+  explicit reset affects only the intended local data? → A: Use a Delivery-owned synthetic marker
+  plus before/after resource inventories: read the same marker after restart, then prove reset
+  removes it, restores migration readiness, and changes only the inventoried Development datastore
+  resources.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Start a Safe Daily Development Environment (Priority: P1)
@@ -97,8 +124,16 @@ foundation assets from deferred feature-specific work.
 
 - A required local port or host resource is unavailable: startup fails with a bounded diagnostic
   and does not silently expose a service more broadly or rewrite tracked configuration.
-- A previous local data state is incompatible or corrupted: the maintainer has an explicit recovery
-  or reset path that cannot target unrelated or Production data.
+- A previous local data state is incompatible or corrupted: the affected profile remains stopped or
+  not-ready, the original failure is preserved, and the maintainer receives a documented safe retry
+  or recovery path; any reset requires confirmation of the exact Delivery-owned profile and cannot
+  target unrelated or Production data.
+- Startup, migration, reset, or cleanup is interrupted: the affected profile remains stopped or
+  not-ready, preserves the original failure result, and permits only a documented safe retry or an
+  explicitly confirmed ownership-scoped recovery action.
+- A Compose project, network, container, or volume is stale, colliding, ambiguously owned,
+  mislabeled, or unexpectedly active: destructive work refuses to continue until exact Delivery and
+  profile ownership is verified and the maintainer explicitly confirms the bounded target.
 - The exact Production runtime or database variant is not yet verified: local choices remain
   clearly provisional and no Production-parity claim is made.
 - Startup succeeds for one component but another remains unhealthy: overall readiness remains
@@ -118,23 +153,32 @@ foundation assets from deferred feature-specific work.
 - **FR-002**: The foundation MUST remain free of Product-feature behavior; only the minimum behavior
   required to establish startup, readiness, connectivity, and verification MAY be included.
 - **FR-003**: Maintainers MUST have one documented daily-development procedure covering
-  prerequisites, initial setup, start, readiness confirmation, stop, restart, and recovery.
+  prerequisites, initial setup, start, readiness confirmation, stop, restart, recovery, safe retry,
+  and explicitly confirmed reset or cleanup after a failure.
 - **FR-004**: Daily development MUST use an isolated, non-Production local data dependency whose
   data survives routine stop/restart operations and changes only through explicit reset or
   migration actions.
 - **FR-005**: Local data access MUST be limited to the developer environment by default and MUST use
-  credentials and data distinct from Staging and Production.
+  credentials distinct from Staging and Production together with synthetic or explicitly approved
+  non-Production fixtures. Production-derived data is prohibited in this Delivery.
 - **FR-006**: The repository MUST provide safe configuration examples without real secrets, and
-  startup MUST validate all required configuration before accepting work.
-- **FR-007**: Missing or invalid configuration MUST produce an actionable failure while withholding
-  secrets, protected infrastructure details, and internal exception data from ordinary output.
+  startup MUST reject missing, empty, malformed, unsupported or out-of-range required values and
+  forbidden cross-profile credential/resource combinations before accepting work.
+- **FR-007**: Missing or invalid configuration MUST produce an actionable failure through the same
+  allowlisted diagnostic contract on command standard output/error, application/container/proxy
+  logs, HTTP responses, and generated Verification reports. Output MAY contain only a stable safe
+  reason code, affected profile/component, safe configuration key name, and bounded remediation; it
+  MUST NOT contain raw configuration values, credentials, connection strings, internal exceptions
+  or stacks, or unnecessary sensitive path, host, container, or proxy details.
 - **FR-008**: Maintainers MUST be able to select daily development or Production-like Verification
   without editing committed configuration or sharing mutable data between the profiles.
-- **FR-009**: Production-like Verification MUST exercise the release candidate's startup,
-  readiness, data connectivity, configuration contract, migration readiness, proxy/application
-  boundary, and basic public/administrative/server route reachability where applicable.
+- **FR-009**: Production-like Verification MUST report distinct results for release-candidate build
+  and startup, valid-configuration acceptance and required missing/invalid-configuration rejection,
+  migration state/readiness, database connectivity, liveness, readiness, profile isolation,
+  proxy/forwarded-header trust, public/administrative/server route reachability, result reporting,
+  and bounded cleanup.
 - **FR-010**: Every Production-like check MUST return an unambiguous pass/fail result and identify
-  the failed contract without exposing protected values.
+  the failed contract using the FR-007 allowlisted diagnostic contract on every output surface.
 - **FR-011**: Verification output and documentation MUST state that the profile validates bounded
   application contracts and does not establish exact parity with the Production hosting
   environment.
@@ -143,6 +187,15 @@ foundation assets from deferred feature-specific work.
   prohibited.
 - **FR-013**: Common foundation checks MUST be discoverable and runnable through documented entry
   points, with failures causing a non-successful result suitable for local and automated review.
+  The risk-based gate MUST cover static/type and boundary checks, independent builds, focused
+  configuration rejection and nondisclosure tests, liveness/readiness, real database connectivity
+  and migration readiness, profile isolation, proxy/route contracts, committed-secret detection,
+  dependency-vulnerability review, and a foundation-scoped OWASP ASVS 5.0.0 applicability/evidence
+  review. Applicable Level 1 controls form the minimum floor; selected Level 2 controls require
+  risk justification, and authentication/session controls are explicitly not applicable to this
+  Delivery under FR-016. This Delivery MUST NOT claim blanket ASVS compliance, impose an arbitrary
+  coverage percentage, or require a premature Product browser journey where no Product journey
+  exists.
 - **FR-014**: Setup and operational guidance MUST document prerequisites, configuration ownership,
   daily and verification workflows, data persistence/reset behavior, troubleshooting boundaries,
   and known Production-parity limits.
@@ -151,8 +204,11 @@ foundation assets from deferred feature-specific work.
 - **FR-016**: The Delivery MUST NOT add domain schemas, feature APIs, editorial workflows,
   authentication behavior, migration content, or public/admin Product experiences beyond the
   minimum foundation behavior in FR-002.
-- **FR-017**: Repeated start, stop, restart, and explicit reset operations MUST be predictable and
-  MUST NOT create duplicate active resources or ambiguous data ownership.
+- **FR-017**: Repeated or interrupted start, stop, restart, migration, reset, and cleanup operations
+  MUST leave the affected profile stopped or not-ready, preserve the original failure result, and
+  MUST NOT create duplicate active resources or ambiguous data ownership. Destructive recovery MUST
+  refuse stale, colliding, ambiguous, mislabeled, or unexpectedly active resources until exact
+  Delivery/profile ownership is verified and the maintainer explicitly confirms the bounded target.
 
 ### Scope Boundaries
 
@@ -169,7 +225,9 @@ foundation assets from deferred feature-specific work.
 - Product features, domain-specific data models, feature APIs, business workflows, or finished
   public/administrative experiences.
 - Legacy content migration or activation of the deferred migration plan.
-- Production deployment, go-live, Production data movement, or final backup/retention policy.
+- Production deployment, go-live, Production data movement or Production-derived data use, or final
+  backup/retention policy. A future Production-derived-data exception requires a separately approved
+  scope change.
 - Freezing evidence-dependent Production versions, limits, or hosting behavior before inspection.
 - Any unapproved distributed service, cache, queue, search service, object storage, orchestration
   platform, package-release system, or other speculative infrastructure.
@@ -179,15 +237,24 @@ foundation assets from deferred feature-specific work.
 
 ### Measurable Outcomes
 
-- **SC-001**: A maintainer with documented prerequisites can take a clean checkout to a ready daily
-  development foundation in 20 minutes or less, excluding prerequisite download time.
-- **SC-002**: In 100% of documented routine stop/restart tests, local development data remains
-  available; in 100% of explicit reset tests, only Delivery-owned local data is reset.
-- **SC-003**: From available release artifacts and prerequisites, the complete Production-like
-  verification run finishes within 10 minutes and reports a distinct result for every required
-  contract.
+- **SC-001**: With the documented workstation prerequisites and required container images already
+  available locally, a maintainer can take a clean checkout from invocation of the first documented
+  repository setup command through passing overall Development readiness in 20 minutes or less.
+  The timer includes all repository-controlled dependency installation, configuration preparation,
+  migration, and startup work; only acquisition of the checkout, external tools, and required images
+  is excluded.
+- **SC-002**: In 100% of documented routine stop/restart tests, a Delivery-owned synthetic marker
+  written before stop remains readable with the same value after restart. In 100% of explicit reset
+  tests, that prior marker is absent, required migration readiness is restored, and before/after
+  resource inventories show that only the explicitly confirmed Development datastore resources
+  changed; Production, non-Delivery, and Verification resources remain untargeted and unchanged.
+- **SC-003**: With documented external tools, required container images, configuration inputs, and
+  the release candidate already available locally, the Production-like Verification timer starts
+  when its single documented command is invoked and finishes within 10 minutes only after build,
+  every FR-009 contract result, bounded cleanup, and the final report complete.
 - **SC-004**: All tested missing or invalid required-configuration cases fail before readiness, and
-  zero tested failure outputs disclose secrets or protected internal values.
+  zero command standard output/error, application/container/proxy log, HTTP response, or generated
+  Verification-report results contain any value or detail forbidden by FR-007.
 - **SC-005**: A maintainer unfamiliar with the foundation can complete setup, readiness check,
   restart, explicit reset, and Production-like verification from repository guidance without an
   undocumented corrective step.
@@ -204,8 +271,9 @@ foundation assets from deferred feature-specific work.
   this specification does not reopen them or prescribe exact versions and commands.
 - Inspection of the actual Production hosting runtime and database remains a dependency before
   evidence-dependent Production values can be locked or parity can be claimed.
-- Local and verification environments use synthetic or otherwise approved non-Production data by
-  default.
+- Local and verification environments use only synthetic or explicitly approved non-Production
+  fixtures; this Delivery defines no authorization, retention, or disposal path for Production-derived
+  data because such use is prohibited and requires a separately approved scope change.
 - Minimal readiness and smoke behavior exists only to prove the foundation and is not treated as a
   Product feature.
 - The exact mechanics used to satisfy these outcomes will be selected during planning and verified
