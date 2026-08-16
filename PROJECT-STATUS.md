@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** PLAN COMPLETE — READY FOR CHECKLIST
+- **Status:** CHECKLIST GENERATED — READY FOR CHECKLIST REVIEW
 
 ## Active Feature Mirror
 
@@ -26,10 +26,11 @@
 
 ## Workflow Gate
 
-- **Current phase:** PLAN
-- **Phase status:** COMPLETE — PHASE 0/1 DESIGN ARTIFACTS GENERATED; CONSTITUTION GATES PASS
-- **Previous completed phase:** CLARIFY
-- **Next valid action:** run Checklist for `001-application-foundation` using its `Checklist` routing
+- **Current phase:** CHECKLIST
+- **Phase status:** GENERATED — CUSTOM REQUIREMENTS-QUALITY REVIEW PENDING
+- **Previous completed phase:** PLAN
+- **Next valid action:** review every item in `checklists/foundation-quality.md`; mark `[x]` only
+  when the requirements-quality criterion is satisfied and return gaps to the owning artifact
 - **Blocking issues:** NONE
 
 ## Authorized Implementation
