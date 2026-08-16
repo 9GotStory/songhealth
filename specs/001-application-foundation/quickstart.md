@@ -2,113 +2,103 @@
 
 This guide defines runnable acceptance scenarios for the completed foundation. Commands are
 repository contracts from [foundation-operations.md](contracts/foundation-operations.md). HTTP
-responses follow [foundation-http.openapi.yaml](contracts/foundation-http.openapi.yaml), and
-profile state follows [data-model.md](data-model.md).
+responses follow [foundation-http.openapi.yaml](contracts/foundation-http.openapi.yaml), security
+evidence follows [foundation-security.md](contracts/foundation-security.md), and profile state
+follows [data-model.md](data-model.md).
 
-## Prerequisites
+## Prerequisites and timing boundaries
 
-1. Use a clean checkout on a supported workstation.
-2. Install Node.js 24.x LTS with npm.
-3. Install Podman and configure one Compose provider. Confirm `podman compose version` or the
-   provider-specific equivalent succeeds.
-4. Confirm the documented loopback ports are free.
-5. Do not use Production credentials or Production data.
+Use a clean checkout with Node.js 24.x/npm, Podman plus a working Compose provider, documented
+loopback ports available, and all required container/security-scanner images already local. Only
+synthetic or explicitly approved non-Production fixtures are accepted. Any Production-derived data,
+including sanitized or minimized copies, is rejected; an exception requires separately approved
+scope.
 
-The Validation run excludes prerequisite download time from SC-001 and SC-003 timing.
+The Development timer begins immediately before the `npm ci` command below and ends only after
+configuration preparation, preflight, database creation, explicit migration, native application
+startup, and a passing overall `dev:ready`. Checkout acquisition, external-tool acquisition, and
+required-image acquisition are the only exclusions.
 
-## 1. Prepare a clean Development profile
+The Verification timer begins when the single `npm run verify:production-like` command is invoked,
+with release-candidate source, Verification configuration, external tools, and required images
+already local. It ends only after build, all twenty results including cleanup, and atomic final
+report emission. Configuration copy is a prerequisite; build is inside the timer.
+
+## 1. Prepare and start Development
 
 ```bash
 npm ci
 cp .env.development.example .env.development.local
 npm run foundation:check
 npm run dev:setup
-```
-
-Expected outcomes:
-
-- the prerequisite check identifies any missing tool, Compose provider, unsafe value, or port
-  conflict before application startup;
-- only the Development database dependency is created in Podman;
-- database access is bound to loopback and uses Development-only credentials;
-- the named Development volume exists and migration status is `current`;
-- no Product/domain schema, Production secret, or Production data is created;
-- the procedure completes within 20 minutes, excluding prerequisite downloads.
-
-## 2. Start and prove daily readiness
-
-```bash
 npm run dev:start
 npm run dev:ready
 ```
 
-`dev:ready` requests both health endpoints and prints the validated Public and Admin Development
-URLs. Open those exact URLs; no undocumented port discovery is required.
-
 Expected outcomes:
 
-- liveness and readiness match the operational HTTP contract;
-- the Public route returns meaningful server-rendered HTML before client JavaScript;
-- the Admin route loads the separate CSR foundation shell;
-- the route copy identifies only the current foundation boundary and does not implement Product
-  navigation, authentication, editorial workflow, or domain behavior;
-- running `npm run dev:start` again does not create duplicate processes, containers, networks, or
-  volumes.
+- unsafe tooling, configuration, ownership, or port state fails before application work;
+- only the Development database dependency runs in Podman, bound to loopback with Development-only
+  credentials; the Public, Admin, and server processes run natively;
+- tracked migrations are `current` and ordinary startup did not auto-apply them;
+- liveness, readiness, Public SSR HTML, and the separate Admin CSR shell pass at documented URLs;
+- repeated `dev:start` creates no duplicate process or resource;
+- the complete procedure passes within 20 minutes.
 
-## 3. Prove Development persistence and explicit reset
+## 2. Prove persistence, inventory safety, and explicit reset
+
+Capture normalized resource inventories, then obtain an action-bound reset token:
 
 ```bash
-npm run dev:stop
-npm run dev:start
+npm run foundation:inventory -- --profile development --action status
+npm run foundation:inventory -- --profile verification --action status
+RESET_TOKEN="$(npm run --silent foundation:inventory -- --profile development --action reset --token-only)"
+npm run dev:persistence-check -- --confirm "$RESET_TOKEN"
 npm run dev:ready
-DEV_DATABASE_ID_BEFORE="$(npm run --silent dev:database-id)"
-npm run dev:restart
-DEV_DATABASE_ID_AFTER_RESTART="$(npm run --silent dev:database-id)"
-test "$DEV_DATABASE_ID_BEFORE" = "$DEV_DATABASE_ID_AFTER_RESTART"
-```
-
-Expected outcome: the opaque database instance identity is unchanged after routine stop/restart
-because the Development named volume was preserved. The command is read-only and prints no
-connection or infrastructure detail.
-
-Then reset only the Development data:
-
-```bash
-npm run dev:stop
-npm run dev:reset -- --confirm development
-npm run dev:start
-npm run dev:ready
-DEV_DATABASE_ID_AFTER_RESET="$(npm run --silent dev:database-id)"
-test "$DEV_DATABASE_ID_BEFORE" != "$DEV_DATABASE_ID_AFTER_RESET"
+npm run foundation:inventory -- --profile development --action status
+npm run foundation:inventory -- --profile verification --action status
 ```
 
 Expected outcomes:
 
-- the database instance identity changed after reset and migration status is again `current`;
-- only the exact Delivery-owned Development volume was replaced;
-- an omitted or incorrect confirmation fails without changing any resource;
-- repeating stop/reset/start remains predictable.
+- one Delivery-owned synthetic, non-sensitive marker is written before routine stop/restart and the
+  exact value is read after restart;
+- reset re-inventories under the Development lock, accepts only the still-current token, changes
+  only the exactly confirmed Development datastore, reapplies tracked migrations, and proves the
+  prior marker row absent;
+- before/after inventories expose only normalized ownership/profile identifiers, digests, and state;
+- Verification and every non-target resource remain unchanged and untargeted;
+- missing, mismatched, ambiguous, stale, mislabeled, or unexpectedly active/attached targets refuse
+  mutation; no wildcard, prune, force, `--remove-orphans`, or broad volume deletion is used.
 
-## 4. Prove fail-closed configuration
+## 3. Prove configuration rejection and nondisclosure
 
-With the daily profile stopped, temporarily omit one required non-secret configuration key, then
-attempt startup:
+With Development stopped, exercise a required key/value fixture for each class:
 
-```bash
-npm run dev:start
+```text
+missing                 -> CONFIG_MISSING
+empty                   -> CONFIG_EMPTY
+malformed               -> CONFIG_MALFORMED
+unsupported enum/value  -> CONFIG_UNSUPPORTED
+out of range            -> CONFIG_OUT_OF_RANGE
+cross-profile conflict  -> CONFIG_PROFILE_CONFLICT
 ```
 
+For each fixture run the relevant preflight/start command and the focused diagnostic tests.
 Expected outcomes:
 
-- the command exits non-zero before the server listens or accepts work;
-- output identifies `CONFIGURATION_INVALID` and, when safe, the missing key;
-- output contains no secret value, database URL, SQL error, stack trace, filesystem path, or raw
-  internal exception.
+- failure occurs before a database pool, listener, child service, or other work is accepted;
+- command stdout/stderr, application logs, surfaced container/proxy logs, HTTP/readiness failures,
+  component failures, and Verification results all use the same closed Safe Diagnostic shape;
+- allowlisted reason, profile, component, optional safe key name, and bounded remediation are the
+  only fields; raw child-process/Compose/Podman/Nginx/database output is never passed through;
+- unique forbidden sentinels are absent in exact and encoded form from every surface.
 
-Restore the local configuration and repeat with one malformed value. The same failure guarantees
-must hold.
+Repeat provenance validation with `synthetic`, an explicitly approved non-Production fixture, and a
+`production-derived` fixture. Only the first two can pass; sanitized/minimized Production-derived
+content remains invalid.
 
-## 5. Prove migration readiness is explicit
+## 4. Prove explicit migration readiness
 
 ```bash
 npm run db:status -- --profile development
@@ -116,70 +106,115 @@ npm run db:migrate -- --profile development
 npm run db:status -- --profile development
 ```
 
+`status` never mutates. `migrate` is explicit and reports each tracked migration, including the
+minimal foundation-operational persistence-marker migration. The final state is `current`; pending
+migrations make readiness fail. The marker table is operational test evidence, not Product data.
+
+## 5. Prove interrupted-operation recovery
+
+Run controlled local fault injection for `start`, `stop`, `migrate`, `reset`, and `cleanup` using the
+acceptance-only interface, changing the profile/action/phase to each documented allowlisted case:
+
+```bash
+npm run foundation:test-interruption -- --profile development --action start --phase after-journal
+npm run foundation:status -- --profile development
+npm run foundation:inventory -- --profile development --action recover --operation start
+RECOVERY_TOKEN="$(npm run --silent foundation:inventory -- --profile development --action recover --operation start --token-only)"
+npm run foundation:recover -- --profile development --operation start --confirm "$RECOVERY_TOKEN"
+```
+
 Expected outcomes:
 
-- `status` never applies a migration;
-- `migrate` is explicit and returns one result per tracked migration;
-- the final status is `current`;
-- ordinary application startup never auto-runs pending migrations and cannot report ready while
-  tracked migrations are pending.
+- each operation is exclusive per profile, journals before mutation, handles signals/failures in a
+  `finally` cleanup path, and ends stopped or not-ready on interruption;
+- the first failure remains primary and any cleanup/recovery failure is additional;
+- safe non-destructive retry is allowed only when inventory proves it; destructive recovery/reset/
+  cleanup requires a fresh exact token;
+- an ungraceful interruption leaves an open journal that the next invocation detects. Orphaned,
+  ambiguous, changed, or ownership-unproven state is read-only and refused until exact ownership is
+  reviewed and explicitly confirmed.
 
-This Delivery has no Product migration content; the check proves the migration mechanism and
-database path only.
+Repeat the same pattern for Verification cleanup, proving Development inventory is untouched.
 
 ## 6. Run Production-like Verification independently
 
-Daily Development may be stopped or running. Use a Verification-only configuration copied from
-the committed example, then run:
+Development may be stopped or running. Copy the safe Verification example before starting the
+Verification timer:
 
 ```bash
 cp .env.verification.example .env.verification.local
 npm run verify:production-like
 ```
 
-Expected outcomes within 10 minutes:
+The operation requires an absent clean Verification inventory; it does not silently pre-clean stale
+resources. It emits these ordered results, each exactly `PASS` or `FAIL`:
 
-- a clean, isolated Verification project builds the release candidate;
-- only Nginx is published to the host; application and database endpoints remain internal;
-- migrations are applied explicitly before application readiness;
-- the report has a distinct `PASS` or `FAIL` for build, configuration, migration, database,
-  liveness, readiness, proxy, Public route, Admin route, server route, and isolation;
-- forwarded host/protocol behavior is accepted only through the single Verification proxy hop;
-- failures identify the contract with a safe reason code and return non-zero;
-- the final report states that local success does not establish exact Bangmod/Plesk parity;
-- pass or fail cleanup removes only Verification resources and leaves Development state unchanged.
-
-## 7. Repeat from independently clean states
-
-Perform the explicit Development reset and the complete Production-like Verification run twice:
-
-```bash
-npm run dev:stop
-npm run dev:reset -- --confirm development
-npm run dev:start
-npm run dev:ready
-npm run verify:production-like
-npm run dev:stop
-npm run dev:reset -- --confirm development
-npm run dev:start
-npm run dev:ready
-npm run verify:production-like
+```text
+build
+startup
+configuration-valid
+configuration-missing-rejected
+configuration-empty-rejected
+configuration-malformed-rejected
+configuration-unsupported-rejected
+configuration-out-of-range-rejected
+configuration-cross-profile-rejected
+migration
+database
+liveness
+readiness
+isolation
+proxy
+public-route
+admin-route
+server-route
+cleanup
+reporting
 ```
 
-Expected outcome: all acceptance scenarios and common foundation checks pass on two consecutive
-runs without an undocumented corrective step, shared mutable data, duplicate resources, or an
-ambiguous result.
+A blocked downstream result is `FAIL` with a safe `PREREQUISITE_FAILED` diagnostic, never missing or
+skipped. Cleanup runs after main checks; final completeness/schema/nondisclosure validation and
+atomic report emission run afterward. The first main failure remains primary, cleanup/reporting
+failures are additional. Cleanup becomes primary only if all earlier results passed; reporting is
+primary only if every earlier result passed. Overall `PASS` requires all twenty results to pass and
+completes within 10 minutes.
 
-## 8. Run common quality checks and stop
+Only Nginx is published to the host; application/database endpoints remain internal. The proxy,
+routes, database, migrations, isolation, diagnostics, and cleanup pass without touching Development.
+The final report explicitly states that local success does not establish exact Bangmod/Plesk parity.
+
+## 7. Run security and common quality gates
 
 ```bash
+npm run security:secrets
+npm run security:dependencies
+npm run security:asvs
+npm run security:check
 npm run check
-npm run dev:stop
 ```
 
 Expected outcomes:
 
-- typecheck, lint/architecture, unit/integration, HTTP/render/proxy contract, and build checks have
-  discoverable non-zero failure behavior;
-- Development containers stop while the named volume remains;
-- no task claims Staging/Production readiness or exact Production parity.
+- the pinned one-shot Gitleaks v8.29.1 image detects its ephemeral synthetic canary and finds no
+  committed secret;
+- the locked dependency graph has no unreviewed actionable finding;
+- every applicable foundation ASVS 5.0.0 row has applicability, implementation, verification, and
+  evidence; selected L2 rows include risk rationale, and auth/session is explicitly N/A under
+  FR-016;
+- typecheck, lint/static/import boundaries, independent builds, diagnostic nondisclosure,
+  HTTP/readiness, real database/migration, and profile/proxy/route checks have discoverable non-zero
+  failure behavior;
+- no result claims blanket ASVS compliance, Production hosting readiness, or exact parity.
+
+## 8. Repeat and stop
+
+Repeat the persistence/reset scenario and the complete Verification command twice from independently
+clean states. Both runs must pass without an undocumented corrective step, shared mutable data,
+duplicate resources, absent results, or ambiguous ownership.
+
+```bash
+npm run dev:stop
+```
+
+Development containers stop while its named volume remains. No command in this guide implements
+Product schema, APIs, authentication, authorization, editorial workflow, or domain behavior.

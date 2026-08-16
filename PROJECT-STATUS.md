@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** CLARIFY COMPLETE — PLAN RE-RUN REQUIRED
+- **Status:** PLAN COMPLETE — CHECKLIST REGENERATION REQUIRED
 
 ## Active Feature Mirror
 
@@ -26,13 +26,13 @@
 
 ## Workflow Gate
 
-- **Current phase:** CLARIFY
-- **Phase status:** COMPLETE — 5 OF 5 MATERIAL AMBIGUITIES RESOLVED AND INTEGRATED
-- **Previous completed phase:** CHECKLIST REVIEW — CHANGES REQUIRED
-- **Next valid action:** rerun Plan against the clarified requirements, then regenerate and review
-  the custom checklist before Tasks
-- **Blocking issues:** NONE within Clarify; the prior custom checklist is stale until Plan and
-  checklist generation/review are rerun
+- **Current phase:** PLAN
+- **Phase status:** COMPLETE — PHASE 0 RESEARCH AND PHASE 1 DESIGN RECONCILED TO THE CLARIFIED SPEC
+- **Previous completed phase:** CLARIFY — 5 OF 5 MATERIAL AMBIGUITIES RESOLVED
+- **Next valid action:** regenerate the custom requirements-quality checklist, then review it against
+  the approved spec and routed authority before Tasks
+- **Blocking issues:** NONE within Plan; the prior custom checklist is stale until checklist
+  generation/review are rerun
 
 ## Authorized Implementation
 
