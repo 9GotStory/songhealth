@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** PLAN COMPLETE — CHECKLIST REVIEW REQUIRED
+- **Status:** CHECKLIST REVIEW COMPLETE — READY FOR TASKS
 
 ## Active Feature Mirror
 
@@ -26,13 +26,11 @@
 
 ## Workflow Gate
 
-- **Current phase:** PLAN
-- **Phase status:** COMPLETE — PHASE 0/1 ARTIFACTS RECONCILED
-- **Previous completed phase:** CLARIFY — 3 MATERIAL AMBIGUITIES RESOLVED
-- **Next valid action:** rerun checklist review against the reconciled specification and Plan
-  artifacts before Tasks
-- **Blocking issues:** NONE IN PLAN; the prior checklist result (75 of 80 satisfied) remains pending
-  re-review, and Tasks are not yet authorized
+- **Current phase:** CHECKLIST REVIEW
+- **Phase status:** COMPLETE — PASS (80 OF 80 SATISFIED)
+- **Previous completed phase:** PLAN — PHASE 0/1 ARTIFACTS RECONCILED
+- **Next valid action:** run `$speckit-tasks` for the active feature
+- **Blocking issues:** NONE; no return to Specify/Clarify is required
 
 ## Authorized Implementation
 

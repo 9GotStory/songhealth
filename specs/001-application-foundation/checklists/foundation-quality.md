@@ -109,7 +109,7 @@ quality. It does not mean implementation work is complete.
 - [x] CHK025 Are unavailable-port and host-resource requirements explicit about bounded diagnostics,
   refusal to broaden exposure, and refusal to rewrite tracked configuration or silently choose a
   different port? [Edge Case, Spec §Edge Cases, Plan §Constraints]
-- [ ] CHK026 Is recovery from incompatible or corrupted Development data specified with decision
+- [x] CHK026 Is recovery from incompatible or corrupted Development data specified with decision
   criteria for recovery versus reset and safeguards against targeting unrelated data? [Gap, Recovery,
   Spec §Edge Cases, §FR-003–FR-004]
 - [x] CHK027 Are interrupted migration, reset, startup, and cleanup states defined with their safe
@@ -164,7 +164,7 @@ quality. It does not mean implementation work is complete.
 - [x] CHK039 Are nondisclosure requirements objectively reviewable through a defined forbidden-output
   taxonomy and allowlisted safe reason codes rather than the subjective phrase “does not expose
   protected values”? [Ambiguity, Testability, Spec §FR-007, §FR-010, HTTP Contract §Schemas]
-- [ ] CHK040 Are the terms environment, profile, Compose project, Data Store, named volume, readiness,
+- [x] CHK040 Are the terms environment, profile, Compose project, Data Store, named volume, readiness,
   release candidate, bounded contract, and Production parity defined and used consistently across
   the spec, plan, data model, contracts, and quickstart? [Consistency, Ambiguity, Spec §FR-008–FR-011]
 
@@ -236,7 +236,7 @@ and objective testability after the clarified specification and reconciled Plan.
 
 ## Requirement Clarity — Post-Clarify Plan
 
-- [ ] CHK047 Are `environment`, application `runtime profile`, operational command `profile`, Compose
+- [x] CHK047 Are `environment`, application `runtime profile`, operational command `profile`, Compose
   project, and Data Store named distinctly enough that `development`, `daily`, `verification`, and
   `foundation` cannot be confused across diagnostics and commands? [Clarity, Ambiguity, Spec §FR-008;
   Data Model §Runtime Profile; Operations Contract §Commands]
@@ -304,7 +304,7 @@ and objective testability after the clarified specification and reconciled Plan.
 - [x] CHK063 Are committed-secret detection requirements explicit about the immutable scanner pin,
   detectable ephemeral canary, tracked-content scope, blocking semantics, safe output, and reviewed
   repinning? [Security, Testability, Spec §FR-013; Security Contract §Gate behavior]
-- [ ] CHK064 Is “actionable dependency finding” defined with sufficient relevance, severity,
+- [x] CHK064 Is “actionable dependency finding” defined with sufficient relevance, severity,
   reachability, mitigation, disposition, ownership, review-date, and remediation-timing criteria to
   make the blocking rule objective? [Security, Clarity, Potential Gap, Spec §FR-013; Security Contract
   §Gate behavior]
@@ -356,7 +356,7 @@ and objective testability after the clarified specification and reconciled Plan.
   stop, migration, reset, and cleanup plus ungraceful next-run detection, ownership refusal, safe
   retry, fresh-token recovery, and primary-failure preservation? [Coverage, Recovery, Spec §FR-017;
   Quickstart §5]
-- [ ] CHK076 Are the secret, dependency, and ASVS gate failure conditions and evidence requirements
+- [x] CHK076 Are the secret, dependency, and ASVS gate failure conditions and evidence requirements
   objective enough that each entry point has deterministic non-zero blocking semantics where
   applicable? [Testability, Security, Spec §FR-013; Security Contract §Gate behavior]
 - [x] CHK077 Are the independently clean-state and two-consecutive-run criteria explicit about the
@@ -406,3 +406,21 @@ and objective testability after the clarified specification and reconciled Plan.
 - **Routing decision**: Return to `$speckit-clarify` for these three material ambiguities, preserve
   all other settled decisions, then rerun Plan and checklist review before Tasks. No implementation
   is authorized.
+
+## Review Finding — PASS (2026-08-16, Post-Clarify Plan Re-review)
+
+- **Satisfied**: 80 of 80 requirements-quality criteria.
+- **Recovery — CHK026**: The approved spec now defines the evidence predicates for retry,
+  non-destructive recovery, reset, and manual review. The Plan, data model, operations contract, and
+  quickstart carry the same ordered decision model and preserve the original failure.
+- **Identity vocabulary — CHK040 and CHK047**: `environment`, `runtimeProfile`, `operationTarget`,
+  and `diagnosticScope` are separately enumerated and mapped. Local commands use `--target`, and
+  Compose projects, Data Stores, and volumes remain resources rather than identity dimensions.
+- **Dependency gate — CHK064 and CHK076**: Actionability, unknown-state blocking, Critical/High
+  approval authority and exception expiry, Medium/Low due dates, exact ledger reconciliation, and
+  deterministic non-zero gate failures are objective and traceable to FR-013/SC-008.
+- **Authority review**: The reconciled requirements remain consistent with Constitution Principles
+  I–VI and Checklist-routed Blueprint §§148–149, 174, 335, 339–340, 357–358, 388–390, 440, and
+  699–703. No Source-of-Truth conflict or new requirement is introduced.
+- **Routing decision**: Checklist review passes. No return to Specify/Clarify is required; Tasks is
+  the next valid phase. No implementation is authorized by this review.
