@@ -153,7 +153,7 @@ A read-only, ordered snapshot used to prove ownership and bind a destructive con
 | Field | Type | Rules |
 |---|---|---|
 | `action` | allowlisted lifecycle action | Confirmation is action-specific. |
-| `interruptedAction` | optional allowlisted lifecycle action | Present only when `action` is `recover`; binds recovery to the original operation. |
+| `interruptedAction` | optional allowlisted lifecycle action | Present when `action` is `recover` or interrupted-state `cleanup`; binds the action to the original operation. |
 | `operationTarget` | `development \| verification` | Exact local command/resource selection. |
 | `runtimeProfile` | `daily \| verification` | Associated topology; must match operation target. |
 | `deliveryKey` | constant | `001-application-foundation`. |
@@ -211,7 +211,7 @@ or database table and never stores raw Podman/database output.
 | `integrityEvidenceDigest` | SHA-256 digest | Normalized compatibility/connectivity/migration evidence. |
 | `reconstructibilityEvidenceDigest` | optional SHA-256 digest | Migration and synthetic/approved fixture reconstruction evidence. |
 | `mutationPlanDigest` | SHA-256 digest | Exact intended mutations. |
-| `decision` | `retry \| recover \| reset \| manual-review` | Derived in the fixed order below. |
+| `decision` | `retry \| recover \| reset \| cleanup \| manual-review` | Derived in the target-appropriate fixed order below. |
 | `attemptFailures` | Safe Diagnostic list | Append-only secondary failures; never replace `originalFailure`. |
 | `resolution` | `pending \| resolved \| unresolved` | Readiness requires successful postchecks, not merely an authorized action. |
 
@@ -221,15 +221,19 @@ Decision order:
    evidence yields `manual-review` and no mutation token.
 2. Confirmed ownership plus valid/not-applicable integrity and proven safe repeatability yields
    `retry`.
-3. Otherwise, an allowlisted verified repair yields `recover`; recovery preserves the Development
-   volume/data and must pass integrity postchecks.
-4. Otherwise, confirmed reconstructibility plus unavailable/failed repair yields `reset`; reset
-   requires a fresh exact reset token and explicit confirmation.
-5. Every other state yields `manual-review`.
+3. For Development only, an allowlisted verified repair yields `recover`; recovery preserves the
+   Development volume/data and must pass integrity postchecks.
+4. For Development only, confirmed reconstructibility plus unavailable/failed repair yields
+   `reset`; reset requires a fresh exact reset token and explicit confirmation.
+5. For Verification only, confirmed exact ownership plus confirmed disposable/reconstructible
+   resources yields `cleanup`; cleanup requires a fresh exact cleanup token and explicit
+   confirmation.
+6. Every other state yields `manual-review`.
 
 The SC-002 synthetic marker plus tracked migrations is reconstructible. An approved non-Production
 fixture without a verified replay source is `unknown`. This Delivery defines no generic SQL repair,
-migration rollback, or backup restore. Verification disposal is a cleanup action, never recovery.
+migration rollback, or backup restore. Verification disposal is the `cleanup` decision, never the
+`recover` decision.
 
 ## Component Readiness
 

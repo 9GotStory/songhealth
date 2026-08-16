@@ -28,12 +28,12 @@ copies.
 | `npm run dev:ready` | Poll bounded readiness and route checks; return zero only when the whole daily foundation is ready. |
 | `npm run dev:stop` | Stop native processes and the Development database container without removing its named volume. Repetition is safe. |
 | `npm run dev:restart` | Perform the documented stop/start sequence and preserve Development data. |
-| `npm run foundation:status -- --target <development\|verification>` | Read the target journal/inventory/integrity evidence and emit exactly one normalized `retry`, `recover`, `reset`, or `manual-review` Recovery Assessment without mutation. |
+| `npm run foundation:status -- --target <development\|verification>` | Read the target journal/inventory/integrity evidence and emit exactly one normalized target-appropriate Recovery Assessment without mutation: Development permits `retry`, `recover`, `reset`, or `manual-review`; Verification permits `retry`, `cleanup`, or `manual-review`. |
 | `npm run foundation:inventory -- --target <development\|verification> --action <action> [--operation <interrupted-action>] [--repair <allowlisted-repair>] [--token-only]` | Perform typed read-only inspection and emit normalized inventory/assessment evidence plus an action-bound token only when ownership and every predicate for that action pass. `--token-only` suppresses the inventory body, not validation. |
 | `npm run dev:reset -- --confirm <reset-inventory-token>` | Re-inventory under the Development target lock, require confirmed reconstructibility, remove/recreate only exact confirmed Data Store resources, and apply migrations. A routine intentional reset may proceed from healthy state; a reset selected by a failed/incompatible-state Recovery Assessment additionally requires non-destructive repair to be unavailable or failed. Missing/stale/mismatched evidence or uncertainty fails without mutation. |
 | `npm run foundation:recover -- --target development --operation <interrupted-action> --repair recreate-database-runtime-preserve-volume --confirm <recovery-token>` | Run the only allowlisted Development recovery: reconcile exact database container/network runtime state while preserving its named volume/data, then require connectivity, integrity, and migration-status postchecks. It never performs reset, SQL repair, migration rollback, or backup restore. |
 | `npm run foundation:cleanup -- --target verification --confirm <cleanup-token>` | Remove only exact confirmed disposable Verification resources after ownership/reconstructibility checks; it never targets Development and is the explicit stale/interrupted Verification disposal path. |
-| `npm run foundation:test-interruption -- --target <development\|verification> --action <start\|stop\|migrate\|reset\|cleanup> --phase <allowlisted-phase>` | Acceptance-only controlled fault injection for synthetic local operation targets. It exercises journal, assessment, retry/recovery/reset/manual-review, and primary-failure preservation; it refuses hosted or Production-derived configuration. |
+| `npm run foundation:test-interruption -- --target <development\|verification> --action <start\|stop\|migrate\|reset\|cleanup> --phase <allowlisted-phase>` | Acceptance-only controlled fault injection for synthetic local operation targets. It exercises journal, assessment, Development retry/recovery/reset, Verification retry/cleanup, manual review, and primary-failure preservation; it refuses hosted or Production-derived configuration. |
 | `npm run dev:persistence-check -- --confirm <reset-inventory-token>` | Write one synthetic marker, inventory resources, prove the same value after restart, perform the confirmed reconstructible reset, prove the old marker absent and migrations current, and validate that only Development Data Store inventory changed. |
 | `npm run db:status -- --target <development\|verification>` | Report `current`, `pending`, or a safe failure code without applying migrations. |
 | `npm run db:migrate -- --target <development\|verification>` | Apply pending version-controlled migrations explicitly to the selected non-Production operation target. |
@@ -198,16 +198,17 @@ Every report ends with:
   |---|---|
   | `manual-review` | Any applicable ownership, integrity, repeatability, or reconstructibility evidence is unconfirmed/unknown; no token or mutation is allowed. |
   | `retry` | Ownership is confirmed, integrity is valid/not-applicable, and the interrupted operation/phase is proven safely repeatable. |
-  | `recover` | Retry does not apply and `recreate-database-runtime-preserve-volume` is verified available; recovery is bounded, non-destructive, and must pass postchecks. |
-  | `reset` | Retry/recovery do not apply, reconstructibility is confirmed, and repair is unavailable or failed; a fresh exact reset token and explicit confirmation are required. |
+  | `recover` | Development only: retry does not apply and `recreate-database-runtime-preserve-volume` is verified available; recovery is bounded, non-destructive, and must pass postchecks. |
+  | `reset` | Development only: retry/recovery do not apply, reconstructibility is confirmed, and repair is unavailable or failed; a fresh exact reset token and explicit confirmation are required. |
+  | `cleanup` | Verification only: retry does not apply, exact ownership is confirmed, and every target resource is confirmed disposable/reconstructible; a fresh exact cleanup token and explicit confirmation are required. |
 
   Any state not satisfying a permitted action is `manual-review`. An approved non-Production
   fixture without a verified replay source has unknown reconstructibility. Interrupted migration
   never auto-resets or rolls back.
-- Retry/recovery/reset attempts bind the origin operation/action/phase, immutable original-failure
+- Retry/recovery/reset/cleanup attempts bind the origin operation/action/phase, immutable original-failure
   digest, operation target/runtime profile, inventory, integrity/reconstructibility evidence,
   selected action/repair, and mutation plan. The command locks, re-evaluates, and rejects drift.
-- Recovery and cleanup cannot replace the immutable primary failure. A failed retry/recovery/reset
+- Recovery and cleanup cannot replace the immutable primary failure. A failed retry/recovery/reset/cleanup
   appends a secondary diagnostic and keeps the target stopped/not-ready. Main failure plus cleanup
   failure reports both; main success plus cleanup failure makes cleanup primary, and reporting is
   primary only when every earlier result passed.

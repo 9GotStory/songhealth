@@ -118,7 +118,7 @@ atomic reporting, isolation, the parity disclaimer, and completion within ten mi
 - [ ] T040 [P] [US2] Write failing Fastify-to-React-Router adapter tests for GET/HEAD, streaming, redirects, errors, aborts, repeated headers, and response/logging ownership in `apps/web/server.test.ts` (Refs: FR-009–FR-010; Plan §Runtime composition)
 - [ ] T041 [P] [US2] Add failing ordered-result, `PREREQUISITE_FAILED`, first-failure, timing, parity, and independent-target tests in `tests/verification/foundation-operation-target.test.ts` (Refs: FR-009–FR-011, SC-003; Data Model §Verification Run)
 - [ ] T042 [P] [US2] Add failing Nginx/app/database exposure, forwarded-header, direct-port, Public/Admin/server-route, and SSR HTML tests in `tests/verification/diagnostic-surfaces.test.ts` (Refs: FR-009–FR-011; Research Decision 8)
-- [ ] T043 [P] [US2] Add failing current-run cleanup, stale-entry refusal, interrupted cleanup, atomic-report, and secondary-failure tests in `tests/verification/lifecycle-recovery.test.ts` (Refs: FR-017, SC-003; Operations Contract §Failure behavior)
+- [ ] T043 [P] [US2] Add failing current-run cleanup, stale-entry refusal, target-appropriate cleanup-decision, interrupted cleanup, atomic-report, and secondary-failure tests in `tests/verification/lifecycle-recovery.test.ts` (Refs: FR-017, SC-003; Operations Contract §Failure behavior)
 
 ### Implementation for User Story 2
 
@@ -131,7 +131,7 @@ atomic reporting, isolation, the parity disclaimer, and completion within ten mi
 - [ ] T050 [US2] Implement migration, database, liveness, readiness, and dependency-blocked result stages in `scripts/foundation-operations.mjs` (Refs: FR-009–FR-010, SC-003; Operations Contract §Verification result contract)
 - [ ] T051 [US2] Implement operation-target isolation, one-hop proxy assertions, and Public/Admin/server route checks in `scripts/foundation-operations.mjs` (Refs: FR-008–FR-011; Operations Contract §Verification result contract)
 - [ ] T052 [US2] Implement safe container/proxy failure adapters and whole-report nondisclosure/schema validation in `apps/web/server.ts` and `scripts/foundation-operations.mjs` (Refs: FR-007, FR-010, SC-004; HTTP Contract §SafeDiagnostic)
-- [ ] T053 [US2] Implement exact current-run cleanup and explicit inventory-confirmed stale/interrupted Verification cleanup in `scripts/foundation-operations.mjs` (Refs: FR-009, FR-017; Operations Contract `foundation:cleanup`)
+- [ ] T053 [US2] Implement the target-appropriate Verification cleanup assessment, exact current-run cleanup, and explicit inventory-confirmed stale/interrupted cleanup in `scripts/foundation-operations.mjs` (Refs: FR-009, FR-017; Operations Contract `foundation:cleanup`)
 - [ ] T054 [US2] Implement ordered result aggregation, immutable primary/secondary failures, parity statement, and atomic final report emission in `scripts/foundation-operations.mjs` (Refs: FR-009–FR-011, SC-003; Data Model §Verification Run)
 - [ ] T055 [US2] Execute two clean independent Verification runs and correct only in-scope failures using `specs/001-application-foundation/quickstart.md` §6 (Refs: SC-003, SC-005, SC-007)
 

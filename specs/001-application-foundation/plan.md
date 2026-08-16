@@ -117,6 +117,7 @@ apps/
 │   │       ├── foundation.tsx
 │   │       └── foundation.test.tsx
 │   ├── react-router.config.ts
+│   ├── server.test.ts
 │   ├── server.ts
 │   ├── vite.config.ts
 │   └── package.json
@@ -170,6 +171,7 @@ docs/
 .env.development.example
 .env.verification.example
 .gitignore
+README.md
 package.json
 package-lock.json
 tsconfig.json
@@ -279,7 +281,7 @@ The root operation script is developer/runtime orchestration only; it contains n
   state while retaining the named volume. It defines no generic SQL repair, migration rollback, or
   backup restore. Interrupted operations leave the operation target stopped or not-ready and
   preserve the original failure.
-- Verification requires an absent clean inventory or explicit inventory-confirmed recovery; it does
+- Verification requires an absent clean inventory or explicit inventory-confirmed cleanup; it does
   not auto-remove stale resources. It emits exactly these ordered PASS/FAIL results: `build`,
   `startup`, `configuration-valid`, `configuration-missing-rejected`,
   `configuration-empty-rejected`, `configuration-malformed-rejected`,
@@ -292,7 +294,8 @@ The root operation script is developer/runtime orchestration only; it contains n
 - An acceptance-only, synthetic-operation-target fault-injection entry point exercises interrupted start,
   stop, migration, reset, and cleanup at allowlisted phases. It cannot run against hosted or
   Production-derived configuration; the resulting journal, inventory, refusal/retry, and confirmed
-  recovery paths are part of lifecycle verification rather than a general-purpose chaos system.
+  Development recovery and Verification cleanup paths are part of lifecycle verification rather
+  than a general-purpose chaos system.
 
 ### Testing and security evidence
 

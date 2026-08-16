@@ -1,10 +1,10 @@
 # Feature Specification: Application Foundation & Development Runtime
 
-**Feature Branch**: Not created; no `before_specify` branch hook is configured
+**Feature Branch**: `001-application-foundation`
 
 **Created**: 2026-08-16
 
-**Status**: Draft
+**Status**: Approved
 
 **Input**: User description: "Create the approved Application Foundation & Development Runtime
 Delivery using its READY Delivery Context."

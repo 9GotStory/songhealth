@@ -109,7 +109,7 @@ components, and maintains a mode-`0600` ignored atomic per-operation-target jour
 
 Development publishes its database only to loopback and preserves its named volume on routine
 stop. Verification publishes only Nginx; its app/database remain network-internal. Verification
-must begin from an absent clean inventory; stale resources require explicit recovery rather than
+must begin from an absent clean inventory; stale resources require explicit cleanup rather than
 automatic pre-clean.
 
 Before mutation, typed Podman inspection must prove exact resource type/name, checkout-scoped
@@ -122,14 +122,16 @@ fallback is permitted.
 
 The journal preserves action/phase, inventory and mutation-plan digests, primary failure, secondary
 attempt/cleanup failures, and safe next action. Signals/interruption leave the operation target
-stopped or not-ready. A nested recovery assessment derives exactly one of `retry`, `recover`,
-`reset`, or `manual-review`: retry requires exact ownership, passing integrity, and proven safe
-repeatability; recovery requires an allowlisted verified, bounded, non-destructive repair and
-post-repair integrity proof; reset requires confirmed reconstructibility plus unavailable or failed
-repair and a fresh reset token; uncertainty issues no token. The only automatic Development repair
-in this Delivery is `recreate-database-runtime-preserve-volume`, which reconciles exact container/
-network runtime state while retaining the named volume. No generic SQL repair, migration rollback,
-or backup restore is introduced. Verification disposal is named cleanup, not recovery.
+stopped or not-ready. A nested lifecycle recovery assessment derives exactly one target-appropriate
+decision: `retry`, `recover`, `reset`, `cleanup`, or `manual-review`. Retry requires exact ownership,
+passing integrity, and proven safe repeatability. Development recovery requires an allowlisted
+verified, bounded, non-destructive repair and post-repair integrity proof; Development reset
+requires confirmed reconstructibility plus unavailable or failed repair and a fresh reset token.
+Verification cleanup requires confirmed exact ownership and disposable/reconstructible resources;
+uncertainty issues no token. The only automatic Development repair in this Delivery is
+`recreate-database-runtime-preserve-volume`, which reconciles exact container/network runtime state
+while retaining the named volume. No generic SQL repair, migration rollback, or backup restore is
+introduced. Verification disposal is named cleanup, never the `recover` decision.
 
 **Rationale**: Two small manifests make data ownership and port exposure structurally distinct and
 allow the operation targets to coexist. Podman's `compose` command delegates to an external Compose provider,
