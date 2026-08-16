@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** CLARIFICATION COMPLETE — READY FOR PLAN
+- **Status:** PLAN COMPLETE — READY FOR CHECKLIST
 
 ## Active Feature Mirror
 
@@ -26,10 +26,10 @@
 
 ## Workflow Gate
 
-- **Current phase:** CLARIFY
-- **Phase status:** COMPLETE — NO CRITICAL AMBIGUITIES
-- **Previous completed phase:** SPECIFY
-- **Next valid action:** run Plan for `001-application-foundation` using its `Plan` routing
+- **Current phase:** PLAN
+- **Phase status:** COMPLETE — PHASE 0/1 DESIGN ARTIFACTS GENERATED; CONSTITUTION GATES PASS
+- **Previous completed phase:** CLARIFY
+- **Next valid action:** run Checklist for `001-application-foundation` using its `Checklist` routing
 - **Blocking issues:** NONE
 
 ## Authorized Implementation

@@ -1,0 +1,126 @@
+openapi: 3.1.0
+info:
+  title: Songhealth Foundation Operational HTTP Contract
+  version: 0.1.0
+  description: >-
+    Minimal liveness and readiness interfaces for the Application Foundation Delivery. These are
+    operational contracts, not Product APIs, and expose no secret or infrastructure detail.
+paths:
+  /health/live:
+    get:
+      operationId: getLiveness
+      summary: Confirm that the application process can handle HTTP work
+      tags: [operations]
+      responses:
+        "200":
+          description: Application process is alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Liveness"
+              examples:
+                alive:
+                  value:
+                    status: alive
+        "500":
+          $ref: "#/components/responses/SafeOperationalFailure"
+  /health/ready:
+    get:
+      operationId: getReadiness
+      summary: Confirm that all required foundation dependencies are ready
+      tags: [operations]
+      responses:
+        "200":
+          description: Configuration, application, database, and migration status are ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Readiness"
+              examples:
+                ready:
+                  value:
+                    status: ready
+                    components:
+                      - name: application
+                        status: ready
+                      - name: database
+                        status: ready
+        "503":
+          description: At least one required readiness contract is not ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Readiness"
+              examples:
+                databaseUnavailable:
+                  value:
+                    status: not-ready
+                    components:
+                      - name: application
+                        status: ready
+                      - name: database
+                        status: not-ready
+                        reasonCode: DATABASE_UNAVAILABLE
+        "500":
+          $ref: "#/components/responses/SafeOperationalFailure"
+components:
+  responses:
+    SafeOperationalFailure:
+      description: A safe operational failure without internal exception or protected values
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OperationalError"
+  schemas:
+    Liveness:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          const: alive
+    Readiness:
+      type: object
+      additionalProperties: false
+      required: [status, components]
+      properties:
+        status:
+          type: string
+          enum: [ready, not-ready]
+        components:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/ComponentReadiness"
+    ComponentReadiness:
+      type: object
+      additionalProperties: false
+      required: [name, status]
+      properties:
+        name:
+          type: string
+          enum: [application, database]
+        status:
+          type: string
+          enum: [ready, not-ready]
+        reasonCode:
+          type: string
+          enum:
+            - DATABASE_UNAVAILABLE
+            - MIGRATIONS_PENDING
+            - MIGRATION_STATUS_FAILED
+    OperationalError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code:
+              const: OPERATIONAL_FAILURE
+            message:
+              const: The operational check could not be completed.
