@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** CHECKLIST GENERATED — REVIEW REQUIRED
+- **Status:** CHECKLIST REVIEW — CHANGES REQUIRED; CLARIFY REQUIRED
 
 ## Active Feature Mirror
 
@@ -27,12 +27,12 @@
 ## Workflow Gate
 
 - **Current phase:** CHECKLIST
-- **Phase status:** GENERATION COMPLETE — 40 NEW UNCHECKED CRITERIA APPENDED (80 TOTAL)
-- **Previous completed phase:** PLAN — PHASE 0/1 DESIGN RECONCILED TO THE CLARIFIED SPEC
-- **Next valid action:** review the generated custom checklist against the approved spec and routed
-  authority; mark `[x]` only when the requirements-quality criterion is satisfied
-- **Blocking issues:** Tasks remain blocked until the custom checklist review records PASS or routes
-  any real requirement gap back to Specify/Clarify
+- **Phase status:** REVIEW COMPLETE — CHANGES REQUIRED (75 OF 80 SATISFIED)
+- **Previous completed phase:** CHECKLIST GENERATION — 80 REQUIREMENTS-QUALITY CRITERIA
+- **Next valid action:** run `$speckit-clarify` for the three routed ambiguities recorded in the
+  custom checklist, then rerun Plan and checklist review before Tasks
+- **Blocking issues:** corrupted/incompatible-data recovery decision criteria; profile identity
+  terminology/mapping; objective actionable-dependency threshold, exception authority, and deadline
 
 ## Authorized Implementation
 
