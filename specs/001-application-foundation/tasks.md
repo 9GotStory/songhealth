@@ -29,7 +29,7 @@ testable checkpoint. Requirement references are included in every task.
 - [X] T001 Create the private npm workspace root, Node/npm engine policy, and root command names in `package.json` (Refs: FR-001, FR-012; Plan §Technical Context)
 - [X] T002 [P] Create the React Router Framework Mode Public workspace manifest and build configuration in `apps/web/package.json`, `apps/web/vite.config.ts`, and `apps/web/react-router.config.ts` (Refs: FR-001–FR-002; Plan §Runtime composition)
 - [X] T003 [P] Create the separate React/Vite Admin CSR workspace shell configuration in `apps/admin/package.json`, `apps/admin/vite.config.ts`, and `apps/admin/index.html` (Refs: FR-001–FR-002; Plan §Runtime composition)
-- [ ] T004 [P] Create the Fastify/Kysely server workspace manifest and exports in `apps/server/package.json` (Refs: FR-001–FR-002; Plan §Runtime composition)
+- [X] T004 [P] Create the Fastify/Kysely server workspace manifest and exports in `apps/server/package.json` (Refs: FR-001–FR-002; Plan §Runtime composition)
 - [ ] T005 [P] Configure strict shared ESM TypeScript compilation without a shared runtime package in `tsconfig.json` (Refs: FR-012, FR-016; Plan §Project Structure)
 - [ ] T006 [P] Configure the baseline ESLint flat setup and TypeScript/static-check inputs in `eslint.config.js` (Refs: FR-013; Constitution Principle V)
 - [ ] T007 Create ignored local-state/secret rules and non-secret configuration templates in `.gitignore`, `.env.development.example`, and `.env.verification.example` (Refs: FR-005–FR-008; Operations Contract §Configuration examples)

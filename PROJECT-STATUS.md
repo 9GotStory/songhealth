@@ -16,47 +16,32 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION HANDOFF — T004 AUTHORIZED
+- **Status:** IMPLEMENTATION REVIEW — T004 PASS
 
 ## Active Feature Mirror
 
 - **Runtime resolution after `specify`:** `SPECIFY_FEATURE_DIRECTORY` override when set; otherwise `.specify/feature.json`
+- **Resolved from:** `.specify/feature.json` — `SPECIFY_FEATURE_DIRECTORY` is unset
 - **Feature directory:** `specs/001-application-foundation`
 - **Verified:** YES — matches the planned Delivery and Delivery Context
 
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Phase status:** T004 AUTHORIZED — PENDING CLAUDE CODE EXECUTION
-- **Previous completed scope:** T003 — PASS
-- **Next valid action:** Claude Code runs `$speckit-implement` for T004 only, verifies the scoped
-  result, marks only T004 complete, and stops for Codex review
-- **Blocking issues:** NONE — T001 is complete and reviewed; T004 is incomplete and
-  `apps/server/package.json` is absent
+- **Phase status:** T004 COMPLETE — PASS
+- **Previous completed scope:** T004 — Fastify/Kysely Server workspace manifest and narrow package
+  export map
+- **Next valid action:** authorize T005 or an explicitly approved dependency-ready Setup batch;
+  no further implementation is currently authorized
+- **Blocking issues:** NONE
 
 ## Authorized Implementation
 
-- **Task / Scope:** T004 — create only the Fastify/Kysely Server workspace manifest and its narrow
-  package export map in `apps/server/package.json`; `tasks.md` may change only to mark T004 complete
-  after its verification passes
+- **Task / Scope:** NONE
 - **Runtime:** Claude Code
-- **Required references:** `specs/001-application-foundation/tasks.md` T004;
-  `specs/001-application-foundation/spec.md` FR-001 and FR-002;
-  `specs/001-application-foundation/plan.md` Technical Context, Project Structure, Runtime
-  composition, and Persistence and migrations; `specs/001-application-foundation/research.md`
-  Decision 2; System Blueprint §§ 53–54, 84–87, 89–92, 96–97, 109–113, and 115–146;
-  Constitution Principles I–III, V, and VI; current upstream Fastify 5, Kysely 0.29, mysql2, and
-  TypeBox compatibility evidence
-- **Expected verification:** the Server workspace manifest is private ESM and declares only the
-  approved Fastify 5, Kysely 0.29, mysql2, TypeScript 5.x, Vitest, Node types, and TypeBox/JSON
-  Schema dependency families needed by the foundation; because TypeBox 1.x requires TypeScript 7,
-  use the TypeScript-5-compatible `@sinclair/typebox` family and leave exact resolution to T008;
-  expose only the intentional package-root Server composition boundary targeting the planned
-  `src/bootstrap.ts`, without public internal subpaths; no source file, route, schema, database
-  table, migration, listener, DI container, OpenAPI platform, dependency installation, lockfile,
-  Public/Admin change, Product behavior, authentication, shared package, or speculative structure
-  is added; package metadata and export-map structure are coherent and `git diff --check` passes
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Required references:** NONE
+- **Expected verification:** NONE
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
