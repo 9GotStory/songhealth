@@ -4,33 +4,33 @@
 
 ## Repository Bootstrap
 
-- **Repository state:** INITIAL REPOSITORY ASSEMBLED
+- **Repository state:** PRE-IMPLEMENTATION BOOTSTRAP COMPLETE
 - **Product/System Source of Truth:** `docs/website-modernization-docs/`
 - **System Blueprint:** `docs/website-modernization-docs/current/10-system-blueprint.md` — FROZEN v1.1
 - **Spec Kit control layer:** INSTALLED AS REPOSITORY FILES
-- **Canonical Constitution:** NOT ESTABLISHED YET
-- **Spec Kit runtime/integrations:** NOT VERIFIED ON TARGET MACHINE
+- **Canonical Constitution:** ESTABLISHED — `.specify/memory/constitution.md` v1.0.0
+- **Spec Kit runtime/integrations:** VERIFIED — Specify CLI 0.16.4; Codex + Claude integrations OK
 
 ## Planned Delivery
 
-- **Delivery:** UNSET
-- **Delivery Context:** UNSET
-- **Delivery Context state:** UNSET  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** AWAITING PRE-IMPLEMENTATION BOOTSTRAP
+- **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
+- **Delivery Context:** `docs/spec-context/001-application-foundation.md`
+- **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
+- **Status:** DELIVERY CONTEXT READY — READY FOR SPECIFY
 
 ## Active Feature Mirror
 
 - **Runtime resolution after `specify`:** `SPECIFY_FEATURE_DIRECTORY` override when set; otherwise `.specify/feature.json`
 - **Feature directory:** UNSET
-- **Verified:** NO
+- **Verified:** YES — no active feature exists before the first Specify run
 
 ## Workflow Gate
 
-- **Current phase:** BOOTSTRAP
-- **Phase status:** READY TO START
-- **Previous completed phase:** DOCUMENTATION / SYSTEM BLUEPRINT v1.1 FREEZE
-- **Next valid action:** verify Spec Kit runtime/integrations, reconcile Constitution, select approved first Delivery, then prepare Delivery Context
-- **Blocking issues:** canonical Constitution and target-machine Spec Kit runtime are not yet verified
+- **Current phase:** PRE-SPECIFY
+- **Phase status:** READY
+- **Previous completed phase:** DELIVERY CONTEXT
+- **Next valid action:** run Specify for `001-application-foundation` using its `Specify` routing
+- **Blocking issues:** NONE
 
 ## Authorized Implementation
 
