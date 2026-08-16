@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION HANDOFF — T005 AUTHORIZED
+- **Status:** IMPLEMENTATION REVIEW — T005 PASS
 
 ## Active Feature Mirror
 
@@ -28,36 +28,19 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Phase status:** T005 AUTHORIZED — PENDING CLAUDE CODE EXECUTION
-- **Previous completed scope:** T004 — PASS
-- **Next valid action:** Claude Code runs `$speckit-implement` for T005 only, verifies the scoped
-  result, marks only T005 complete, and stops for Codex review
-- **Blocking issues:** NONE — T001 is complete and reviewed; T005 is incomplete and
-  `tsconfig.json` is absent
+- **Phase status:** T005 COMPLETE — PASS
+- **Previous completed scope:** T005 — strict shared ESM TypeScript configuration
+- **Next valid action:** authorize T006 or an explicitly approved dependency-ready Setup batch;
+  no further implementation is currently authorized
+- **Blocking issues:** NONE
 
 ## Authorized Implementation
 
-- **Task / Scope:** T005 — create only the strict shared ESM TypeScript configuration in root
-  `tsconfig.json`; `tasks.md` may change only to mark T005 complete after its verification passes
+- **Task / Scope:** NONE
 - **Runtime:** Claude Code
-- **Required references:** `specs/001-application-foundation/tasks.md` T005 and Setup dependency
-  order; `specs/001-application-foundation/spec.md` FR-012 and FR-016;
-  `specs/001-application-foundation/plan.md` Technical Context, Project Structure, and Testing and
-  security evidence; `specs/001-application-foundation/research.md` Decision 2; System Blueprint
-  §§ 54, 57, 82–87, and 92; Constitution Principles II, III, V, and VI; current TypeScript 5.9
-  tsconfig option compatibility evidence
-- **Expected verification:** `tsconfig.json` is a single root configuration for the approved
-  TypeScript/TSX surfaces under `apps/`, `scripts/`, and `tests/`; it enables strict, no-emit ESM
-  typechecking, React JSX support, and the Node/browser library environment needed by the planned
-  three workspaces; its module and module-resolution settings form a valid TypeScript 5.9 ESM pair
-  and remain compatible with both Node-owned and Vite-owned sources; includes/excludes are bounded
-  to approved source/test/config surfaces and generated/dependency output is excluded; no path alias,
-  project reference, emitted artifact, shared runtime/config package, source directory, application
-  code, manifest/dependency change, dependency installation, lockfile, lint configuration, Product
-  behavior, or speculative hierarchy is added; because no compiler is installed before T008,
-  verification uses a structural configuration check plus `git diff --check` and does not download
-  TypeScript; only T005 is marked complete after these checks pass
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Required references:** NONE
+- **Expected verification:** NONE
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
