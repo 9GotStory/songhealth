@@ -200,3 +200,184 @@ quality. It does not mean implementation work is complete.
   and `$speckit-clarify`
 - Add reviewer findings or owning-artifact corrections inline
 - Items are numbered sequentially for easy reference
+
+## Post-Clarify Plan Review Scope (Generated 2026-08-16)
+
+**Focus**: Completeness, clarity, security/privacy, authorization and data integrity where relevant,
+and objective testability after the clarified specification and reconciled Plan.
+**Depth**: Standard requirements-quality gate.
+**Actor / timing**: Reviewer, after Plan and before Tasks.
+
+## Requirement Completeness — Post-Clarify Plan
+
+- [ ] CHK041 Are the daily-development requirements complete for prerequisites, configuration
+  preparation, setup, explicit migration, start, readiness, stop, restart, status, inventory, safe
+  retry, confirmed recovery, persistence proof, and reset? [Completeness, Spec §FR-003, §FR-014,
+  §FR-017; Operations Contract §Commands]
+- [ ] CHK042 Are all six required configuration-rejection classes enumerated with distinct outcomes
+  and the same fail-before-work boundary? [Completeness, Spec §FR-006; Plan §Configuration and
+  startup; Operations Contract §Configuration examples]
+- [ ] CHK043 Is one closed failure contract specified for command standard output/error, application
+  logs, surfaced container/proxy logs, HTTP/readiness failures, component failures, and Verification
+  results, including the prohibition on raw child-process output? [Completeness, Spec §FR-007,
+  §SC-004; Operations Contract §Safe diagnostic contract]
+- [ ] CHK044 Is the Verification requirement inventory complete for all twenty named results from
+  `build` through `reporting`, including startup, each configuration class, cleanup, and report
+  emission? [Completeness, Spec §FR-009–FR-010, §SC-003; Operations Contract §Verification result
+  contract]
+- [ ] CHK045 Are fixture-provenance requirements complete for accepted synthetic and explicitly
+  approved non-Production fixtures, rejection of every Production-derived fixture, and the approval
+  boundary for any future exception? [Completeness, Privacy, Spec §FR-005, §Scope Boundaries;
+  Operations Contract §Prerequisites]
+- [ ] CHK046 Are the foundation quality-gate requirements complete for typecheck, lint/static/import
+  boundaries, independent builds, focused diagnostic and HTTP checks, real database/migrations,
+  profile/proxy/routes, committed-secret detection, dependency review, and ASVS evidence?
+  [Completeness, Spec §FR-013; Plan §Testing and security evidence]
+
+## Requirement Clarity — Post-Clarify Plan
+
+- [ ] CHK047 Are `environment`, application `runtime profile`, operational command `profile`, Compose
+  project, and Data Store named distinctly enough that `development`, `daily`, `verification`, and
+  `foundation` cannot be confused across diagnostics and commands? [Clarity, Ambiguity, Spec §FR-008;
+  Data Model §Runtime Profile; Operations Contract §Commands]
+- [ ] CHK048 Is “before accepting work” defined consistently as occurring before database-pool
+  creation, listener binding, child-service startup, or any other externally useful work?
+  [Clarity, Spec §FR-006–FR-007; Plan §Configuration and startup]
+- [ ] CHK049 Are “protected values,” “unnecessary infrastructure details,” “raw tool output,” and
+  encoded/derived forms defined precisely enough for an objective nondisclosure review?
+  [Clarity, Ambiguity, Spec §FR-007, §SC-004; Operations Contract §Safe diagnostic contract]
+- [ ] CHK050 Is exact resource ownership defined as a complete conjunction of type/name,
+  checkout-scoped project, manifest membership, canonical/custom labels, and attachment/mount state,
+  with clear token-staleness semantics? [Clarity, Spec §FR-017; Data Model §Owned Runtime Resource,
+  §Resource Inventory]
+- [ ] CHK051 Is the persistence marker defined clearly as synthetic operational evidence rather than
+  Product/domain data, including its value-continuity and post-reset absence semantics? [Clarity,
+  Spec §SC-002, §FR-016; Data Model §Synthetic Persistence Marker]
+- [ ] CHK052 Are the Development and Verification timer start events, end events, included work, and
+  only permitted exclusions stated without relying on subjective “setup” or “prerequisite” wording?
+  [Clarity, Measurability, Spec §SC-001, §SC-003; Operations Contract §Timing boundaries]
+
+## Requirement Consistency — Post-Clarify Plan
+
+- [ ] CHK053 Is the single foundation-operational marker migration reconciled consistently with the
+  prohibition on Product/domain migration content and with the “minimum foundation behavior”
+  allowance? [Consistency, Potential Conflict, Spec §FR-002, §FR-016, §SC-002; Plan §Persistence and
+  migrations]
+- [ ] CHK054 Is the exact twenty-result ordering identical across the Plan, data model, operations
+  contract, and quickstart, with cleanup before final reporting everywhere? [Consistency, Spec
+  §FR-009–FR-010; Data Model §Check Result; Quickstart §6]
+- [ ] CHK055 Are primary-versus-secondary failure requirements consistent for main-check, cleanup,
+  reporting, interruption, and recovery failures, including which failure becomes primary when all
+  earlier results passed? [Consistency, Spec §Clarifications, §FR-017; Operations Contract
+  §Verification result contract, §Failure behavior]
+- [ ] CHK056 Is the Delivery-wide prohibition on Production-derived data explicitly reconciled as a
+  stricter scoped rule than the Blueprint’s broader future sanitized/minimized-data allowance?
+  [Consistency, Authority, Spec §FR-005, §Scope Boundaries; Plan §Persistence and migrations;
+  SRC-08 §440]
+- [ ] CHK057 Are Development persistence and Verification disposability requirements consistent
+  across volume ownership, credentials, project/network isolation, clean-entry rules, and non-target
+  inventory evidence? [Consistency, Spec §FR-004–FR-005, §FR-008; Data Model §Data Store; Operations
+  Contract §Profile ownership and isolation]
+- [ ] CHK058 Is the HTTP `SafeDiagnostic` schema consistent with the diagnostic fields, enums,
+  no-additional-properties rule, and remediation constraints specified for every non-HTTP output
+  surface? [Consistency, Spec §FR-007, §FR-010; HTTP Contract §SafeDiagnostic; Operations Contract
+  §Safe diagnostic contract]
+
+## Security and Privacy Requirements — Post-Clarify Plan
+
+- [ ] CHK059 Are requirements complete for committed examples, ignored local configuration,
+  Development/Verification credential separation, placeholder rejection, and the absolute exclusion
+  of Production credentials? [Security, Privacy, Completeness, Spec §FR-005–FR-007; Operations
+  Contract §Configuration examples]
+- [ ] CHK060 Are every adapter/serializer boundary that must replace raw Compose, Podman, Nginx,
+  database, scanner, package-manager, or child-process failures with a Safe Diagnostic identified in
+  the requirements? [Security, Coverage, Spec §FR-007, §SC-004; Plan §Configuration and startup;
+  Security Contract §Gate behavior]
+- [ ] CHK061 Are journal, lock, inventory, and Verification-report requirements explicit about
+  protected-data exclusion, normalized identifiers/digests, ignored storage, permissions, and atomic
+  writes? [Privacy, Data Minimization, Spec §FR-007, §FR-017; Data Model §Resource Inventory,
+  §Lifecycle Operation]
+- [ ] CHK062 Are proxy-security requirements complete for the one trusted Verification hop,
+  spoof-resistant forwarded metadata, direct application/database non-exposure, security-header
+  ownership, and deferred hosted trust? [Security, Completeness, Spec §FR-009, §FR-011, §FR-015;
+  Plan §Runtime composition, §Configuration and startup]
+- [ ] CHK063 Are committed-secret detection requirements explicit about the immutable scanner pin,
+  detectable ephemeral canary, tracked-content scope, blocking semantics, safe output, and reviewed
+  repinning? [Security, Testability, Spec §FR-013; Security Contract §Gate behavior]
+- [ ] CHK064 Is “actionable dependency finding” defined with sufficient relevance, severity,
+  reachability, mitigation, disposition, ownership, review-date, and remediation-timing criteria to
+  make the blocking rule objective? [Security, Clarity, Potential Gap, Spec §FR-013; Security Contract
+  §Gate behavior]
+- [ ] CHK065 Are ASVS requirements complete for the applicable L1 floor, risk-rationalized selected
+  L2 controls, chapter-level N/A/deferred-hosting rationales, required evidence fields, and the ban
+  on blanket compliance claims? [Security, Traceability, Spec §FR-013, §FR-016; Security Contract
+  §Evidence artifact, §Minimum applicability inventory]
+
+## Authorization and Data-Integrity Requirements — Post-Clarify Plan
+
+- [ ] CHK066 Is the maintainer authority boundary for migration, reset, cleanup, and recovery clear,
+  including that an inventory token proves target/intent freshness but is not Product user
+  authentication or authorization? [Authorization, Clarity, Spec §FR-003–FR-004, §FR-016–FR-017;
+  Operations Contract §Commands]
+- [ ] CHK067 Are per-profile exclusivity, lock acquisition, immediate re-inventory, token comparison,
+  and refusal-on-drift requirements complete enough to close the inspection-to-mutation race?
+  [Authorization, Data Integrity, Completeness, Spec §FR-017; Data Model §Resource Inventory,
+  §Lifecycle Operation]
+- [ ] CHK068 Does the reset requirement define objective before/after evidence that only the exact
+  confirmed Development datastore changed while Verification, Production, non-Delivery, and other
+  non-target resources remained untargeted and unchanged? [Data Integrity, Measurability, Spec
+  §SC-002; Quickstart §2]
+- [ ] CHK069 Are migration-integrity requirements complete for explicit application, non-mutating
+  status, pending-migration unreadiness, serialized execution, interruption inspection, and refusal
+  to auto-reset uncertain state? [Data Integrity, Recovery, Spec §FR-004, §FR-009, §FR-017; Data
+  Model §Migration State; Operations Contract §Failure behavior]
+- [ ] CHK070 Are marker requirements explicit about fixed ownership, synthetic provenance, bounded
+  non-sensitive content, sole acceptance-purpose access, continuity after restart, and absence after
+  reset? [Privacy, Data Integrity, Completeness, Spec §SC-002; Data Model §Synthetic Persistence
+  Marker]
+- [ ] CHK071 Are immutable-primary-failure and additional-cleanup/recovery-failure requirements
+  specified for both journal state and Verification reports so recovery cannot rewrite historical
+  failure meaning? [Data Integrity, Auditability, Spec §Clarifications, §FR-017; Data Model
+  §Lifecycle Operation, §Verification Run]
+
+## Acceptance Criteria and Testability — Post-Clarify Plan
+
+- [ ] CHK072 Can SC-001 be measured from immediately before `npm ci` through passing overall
+  readiness while including configuration, preflight, database creation, migration, and native app
+  startup and excluding only checkout/tool/image acquisition? [Measurability, Spec §SC-001;
+  Quickstart §Prerequisites and timing boundaries]
+- [ ] CHK073 Can every configuration class and nondisclosure surface be reviewed objectively using
+  the named reason-code mapping, fail-before-work boundary, closed schema, and exact/encoded sentinel
+  taxonomy? [Testability, Spec §SC-004, §FR-006–FR-007; Quickstart §3]
+- [ ] CHK074 Does every Verification result have an objectively defined PASS/FAIL condition,
+  including explicit `PREREQUISITE_FAILED` treatment for dependency-blocked results and no skipped or
+  absent state? [Testability, Spec §FR-009–FR-010; Operations Contract §Verification result contract]
+- [ ] CHK075 Are recovery acceptance requirements defined for controlled interruption of start,
+  stop, migration, reset, and cleanup plus ungraceful next-run detection, ownership refusal, safe
+  retry, fresh-token recovery, and primary-failure preservation? [Coverage, Recovery, Spec §FR-017;
+  Quickstart §5]
+- [ ] CHK076 Are the secret, dependency, and ASVS gate failure conditions and evidence requirements
+  objective enough that each entry point has deterministic non-zero blocking semantics where
+  applicable? [Testability, Security, Spec §FR-013; Security Contract §Gate behavior]
+- [ ] CHK077 Are the independently clean-state and two-consecutive-run criteria explicit about the
+  required result inventory, prohibited corrective steps, duplicate-resource absence, and profile
+  independence? [Measurability, Scenario Coverage, Spec §SC-005, §SC-007; Quickstart §8]
+- [ ] CHK078 Is the parity disclaimer objectively required in documentation and final reports, and
+  is the evidence gate for later Production runtime/database/proxy decisions stated separately from
+  local Verification success? [Testability, Dependency, Spec §FR-011, §FR-015; Plan §Technical
+  Context]
+- [ ] CHK079 Are clean-entry, stale-resource, interrupted-journal, ambiguous-ownership, cleanup-
+  failure, and report-emission-failure requirements defined as distinct exception states with safe
+  terminal outcomes? [Coverage, Edge Cases, Spec §Edge Cases, §FR-017; Operations Contract §Profile
+  ownership and isolation, §Failure behavior]
+- [ ] CHK080 Are external-tool, Compose-provider, required-image, scanner-image, port, and locally
+  available release/configuration prerequisites distinguished from timed workflow work and from
+  evidence-dependent Production dependencies? [Dependencies, Clarity, Spec §SC-001, §SC-003,
+  §FR-015; Operations Contract §Prerequisites, §Timing boundaries]
+
+## Generation Notes — Post-Clarify Plan
+
+- All CHK041–CHK080 items are intentionally unchecked; reviewer evaluation owns their state.
+- This batch appends to and preserves the prior review record rather than treating clarified text as
+  automatically satisfying earlier criteria.
+- `$speckit-implement` may read checklist state as a gate but must not modify markers.

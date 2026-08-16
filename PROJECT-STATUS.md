@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** PLAN COMPLETE — CHECKLIST REGENERATION REQUIRED
+- **Status:** CHECKLIST GENERATED — REVIEW REQUIRED
 
 ## Active Feature Mirror
 
@@ -26,13 +26,13 @@
 
 ## Workflow Gate
 
-- **Current phase:** PLAN
-- **Phase status:** COMPLETE — PHASE 0 RESEARCH AND PHASE 1 DESIGN RECONCILED TO THE CLARIFIED SPEC
-- **Previous completed phase:** CLARIFY — 5 OF 5 MATERIAL AMBIGUITIES RESOLVED
-- **Next valid action:** regenerate the custom requirements-quality checklist, then review it against
-  the approved spec and routed authority before Tasks
-- **Blocking issues:** NONE within Plan; the prior custom checklist is stale until checklist
-  generation/review are rerun
+- **Current phase:** CHECKLIST
+- **Phase status:** GENERATION COMPLETE — 40 NEW UNCHECKED CRITERIA APPENDED (80 TOTAL)
+- **Previous completed phase:** PLAN — PHASE 0/1 DESIGN RECONCILED TO THE CLARIFIED SPEC
+- **Next valid action:** review the generated custom checklist against the approved spec and routed
+  authority; mark `[x]` only when the requirements-quality criterion is satisfied
+- **Blocking issues:** Tasks remain blocked until the custom checklist review records PASS or routes
+  any real requirement gap back to Specify/Clarify
 
 ## Authorized Implementation
 
