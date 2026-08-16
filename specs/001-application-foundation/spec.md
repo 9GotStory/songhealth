@@ -19,9 +19,9 @@ Delivery using its READY Delivery Context."
   cleanup when necessary.
 - Q: What disclosure rule should apply to failures across command output, application/container/proxy
   logs, HTTP responses, and Verification reports? → A: Every output surface uses an allowlisted
-  diagnostic contract containing only a safe reason code, profile/component, safe configuration key
-  name, and bounded remediation; raw protected values and unnecessary sensitive infrastructure
-  details are forbidden.
+  diagnostic contract containing only a safe reason code, diagnostic scope/component, safe
+  configuration key name, and bounded remediation; raw protected values and unnecessary sensitive
+  infrastructure details are forbidden.
 - Q: May this foundation use Production-derived data in Development or Production-like Verification?
   → A: No. This Delivery uses only synthetic or explicitly approved non-Production fixtures; any
   future Production-derived-data exception requires a separately approved scope change.
@@ -33,8 +33,28 @@ Delivery using its READY Delivery Context."
 - Q: What evidence should prove that Development data survives a routine restart and that an
   explicit reset affects only the intended local data? → A: Use a Delivery-owned synthetic marker
   plus before/after resource inventories: read the same marker after restart, then prove reset
-  removes it, restores migration readiness, and changes only the inventoried Development datastore
+  removes it, restores migration readiness, and changes only the inventoried Development Data Store
   resources.
+- Q: How should incompatible or corrupted Development data be classified for retry, recovery,
+  reset, or manual review? → A: Retry only when ownership and integrity checks pass and the
+  operation is safely repeatable; recover only with a verified, bounded, non-destructive repair;
+  reset only when data is confirmed reconstructible and repair is unavailable or fails; require
+  manual review when ownership, integrity, or reconstructibility is uncertain.
+- Q: Which canonical identity vocabulary should every artifact use to distinguish authoritative
+  environments, execution topology, command/resource selection, and diagnostic reporting? → A:
+  Use `environment` (`development | staging | production`), `runtimeProfile`
+  (`daily | verification | hosted`), `operationTarget` (`development | verification`), and
+  `diagnosticScope` (`foundation | daily | verification`) as distinct dimensions; Compose projects,
+  Data Stores, and named volumes are resources associated with an operation target and runtime
+  profile, not additional identity types.
+- Q: What objective policy should determine when a dependency vulnerability blocks the security
+  gate, who may accept an exception, and when remediation is due? → A: Confirmed, foundation-relevant
+  findings in the locked release dependency graph are actionable when reachable or
+  Production-exposed; unknown reachability or exposure blocks pending triage. Actionable Critical
+  and High findings block until fixed or covered by a documented mitigation or risk exception
+  (each approved by the Product Owner after security/technical review); Critical exceptions expire
+  after 7 days and High exceptions after 30 days. Medium and Low findings require disposition,
+  owner, review date, and remediation within 90 and 180 days respectively, but do not block.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -68,7 +88,7 @@ reset that data, and stop the environment without undocumented intervention.
 ### User Story 2 - Run Release-Shaped Verification (Priority: P2)
 
 As a reviewer or release maintainer, I can start a reproducible Production-like Verification
-profile and run bounded checks of the built application, proxy boundary, data connectivity,
+runtime profile and run bounded checks of the built application, proxy boundary, data connectivity,
 configuration contract, migration readiness, health behavior, and basic route reachability before
 the project reaches Staging.
 
@@ -76,15 +96,15 @@ the project reaches Staging.
 under release-shaped conditions while preserving the real hosting environment as the final
 authority.
 
-**Independent Test**: Starting the verification profile from a clean verification state produces a
-clear pass/fail result for each bounded contract and can be repeated without relying on a running
-daily development environment.
+**Independent Test**: Starting the Verification runtime profile from a clean Verification state
+produces a clear pass/fail result for each bounded contract and can be repeated without relying on a
+running daily Development environment.
 
 **Acceptance Scenarios**:
 
-1. **Given** a valid release candidate and verification configuration, **When** the reviewer starts
-   the Production-like profile, **Then** each required component reports readiness and the bounded
-   verification checks complete with an unambiguous result.
+1. **Given** a valid release candidate and Verification configuration, **When** the reviewer starts
+   the Production-like Verification runtime profile, **Then** each required component reports
+   readiness and the bounded verification checks complete with an unambiguous result.
 2. **Given** one required component or configuration value is unavailable, **When** verification is
    run, **Then** it fails safely, identifies the failed contract, and does not expose protected
    values.
@@ -124,16 +144,19 @@ foundation assets from deferred feature-specific work.
 
 - A required local port or host resource is unavailable: startup fails with a bounded diagnostic
   and does not silently expose a service more broadly or rewrite tracked configuration.
-- A previous local data state is incompatible or corrupted: the affected profile remains stopped or
-  not-ready, the original failure is preserved, and the maintainer receives a documented safe retry
-  or recovery path; any reset requires confirmation of the exact Delivery-owned profile and cannot
-  target unrelated or Production data.
-- Startup, migration, reset, or cleanup is interrupted: the affected profile remains stopped or
-  not-ready, preserves the original failure result, and permits only a documented safe retry or an
-  explicitly confirmed ownership-scoped recovery action.
+- A previous local data state is incompatible or corrupted: the affected operation target remains
+  stopped or not-ready and preserves the original failure. Retry is permitted only when ownership
+  and integrity checks pass and the operation is safely repeatable; recovery is permitted only
+  through a verified, bounded, non-destructive repair; reset is permitted only when the data is
+  confirmed reconstructible, repair is unavailable or has failed, and the exact Delivery-owned
+  operation target is confirmed. Uncertain ownership, integrity, or reconstructibility requires
+  manual review, and no action may target unrelated or Production data.
+- Startup, migration, reset, or cleanup is interrupted: the affected operation target remains
+  stopped or not-ready, preserves the original failure result, and permits only a documented safe
+  retry or an explicitly confirmed ownership-scoped recovery action.
 - A Compose project, network, container, or volume is stale, colliding, ambiguously owned,
   mislabeled, or unexpectedly active: destructive work refuses to continue until exact Delivery and
-  profile ownership is verified and the maintainer explicitly confirms the bounded target.
+  operation-target ownership is verified and the maintainer explicitly confirms the bounded target.
 - The exact Production runtime or database variant is not yet verified: local choices remain
   clearly provisional and no Production-parity claim is made.
 - Startup succeeds for one component but another remains unhealthy: overall readiness remains
@@ -154,34 +177,42 @@ foundation assets from deferred feature-specific work.
   required to establish startup, readiness, connectivity, and verification MAY be included.
 - **FR-003**: Maintainers MUST have one documented daily-development procedure covering
   prerequisites, initial setup, start, readiness confirmation, stop, restart, recovery, safe retry,
-  and explicitly confirmed reset or cleanup after a failure.
+  and explicitly confirmed reset or cleanup after a failure. The procedure MUST classify an
+  incompatible or corrupted state using the retry, recovery, reset, and manual-review criteria in
+  Edge Cases before allowing the corresponding action.
 - **FR-004**: Daily development MUST use an isolated, non-Production local data dependency whose
   data survives routine stop/restart operations and changes only through explicit reset or
   migration actions.
-- **FR-005**: Local data access MUST be limited to the developer environment by default and MUST use
+- **FR-005**: Local data access MUST be limited to the Development environment by default and MUST use
   credentials distinct from Staging and Production together with synthetic or explicitly approved
   non-Production fixtures. Production-derived data is prohibited in this Delivery.
 - **FR-006**: The repository MUST provide safe configuration examples without real secrets, and
   startup MUST reject missing, empty, malformed, unsupported or out-of-range required values and
-  forbidden cross-profile credential/resource combinations before accepting work.
+  forbidden environment/runtime-profile/operation-target/credential/resource combinations before
+  accepting work.
 - **FR-007**: Missing or invalid configuration MUST produce an actionable failure through the same
   allowlisted diagnostic contract on command standard output/error, application/container/proxy
   logs, HTTP responses, and generated Verification reports. Output MAY contain only a stable safe
-  reason code, affected profile/component, safe configuration key name, and bounded remediation; it
-  MUST NOT contain raw configuration values, credentials, connection strings, internal exceptions
-  or stacks, or unnecessary sensitive path, host, container, or proxy details.
-- **FR-008**: Maintainers MUST be able to select daily development or Production-like Verification
-  without editing committed configuration or sharing mutable data between the profiles.
+  reason code, affected diagnostic scope/component, safe configuration key name, and bounded
+  remediation; it MUST NOT contain raw configuration values, credentials, connection strings,
+  internal exceptions or stacks, or unnecessary sensitive path, host, container, or proxy details.
+- **FR-008**: Maintainers MUST be able to select daily Development or Production-like Verification
+  without editing committed configuration or sharing mutable data between operation targets. Every
+  artifact MUST keep four identity dimensions distinct: `environment` is
+  `development | staging | production`; `runtimeProfile` is `daily | verification | hosted`;
+  `operationTarget` is `development | verification`; and `diagnosticScope` is
+  `foundation | daily | verification`. Compose projects, Data Stores, and named volumes are
+  resources associated with an operation target and runtime profile, not additional identity types.
 - **FR-009**: Production-like Verification MUST report distinct results for release-candidate build
   and startup, valid-configuration acceptance and required missing/invalid-configuration rejection,
-  migration state/readiness, database connectivity, liveness, readiness, profile isolation,
-  proxy/forwarded-header trust, public/administrative/server route reachability, result reporting,
-  and bounded cleanup.
+  migration state/readiness, database connectivity, liveness, readiness, operation-target and
+  resource isolation, proxy/forwarded-header trust, public/administrative/server route reachability,
+  result reporting, and bounded cleanup.
 - **FR-010**: Every Production-like check MUST return an unambiguous pass/fail result and identify
   the failed contract using the FR-007 allowlisted diagnostic contract on every output surface.
-- **FR-011**: Verification output and documentation MUST state that the profile validates bounded
-  application contracts and does not establish exact parity with the Production hosting
-  environment.
+- **FR-011**: Verification output and documentation MUST state that the Verification runtime profile
+  validates bounded application contracts and does not establish exact parity with the Production
+  hosting environment.
 - **FR-012**: The foundation MUST include only services, packages, and directories with a current
   Delivery requirement; speculative infrastructure and empty architecture hierarchies are
   prohibited.
@@ -189,13 +220,20 @@ foundation assets from deferred feature-specific work.
   points, with failures causing a non-successful result suitable for local and automated review.
   The risk-based gate MUST cover static/type and boundary checks, independent builds, focused
   configuration rejection and nondisclosure tests, liveness/readiness, real database connectivity
-  and migration readiness, profile isolation, proxy/route contracts, committed-secret detection,
-  dependency-vulnerability review, and a foundation-scoped OWASP ASVS 5.0.0 applicability/evidence
-  review. Applicable Level 1 controls form the minimum floor; selected Level 2 controls require
-  risk justification, and authentication/session controls are explicitly not applicable to this
-  Delivery under FR-016. This Delivery MUST NOT claim blanket ASVS compliance, impose an arbitrary
-  coverage percentage, or require a premature Product browser journey where no Product journey
-  exists.
+  and migration readiness, operation-target and resource isolation, proxy/route contracts,
+  committed-secret detection, dependency-vulnerability review, and a foundation-scoped OWASP ASVS
+  5.0.0 applicability/evidence review. Applicable Level 1 controls form the minimum floor; selected
+  Level 2 controls require risk justification, and authentication/session controls are explicitly
+  not applicable to this Delivery under FR-016. This Delivery MUST NOT claim blanket ASVS
+  compliance, impose an arbitrary coverage percentage, or require a premature Product browser
+  journey where no Product journey exists. A dependency finding is actionable when it is confirmed,
+  affects the locked release dependency graph, is relevant to this foundation, and is reachable or
+  Production-exposed; unknown reachability or exposure MUST block pending triage. Actionable
+  Critical and High findings MUST block until fixed or covered by a documented mitigation or risk
+  exception, each approved by the Product Owner after security/technical review. Critical
+  exceptions expire after 7 days and High exceptions after 30 days. Medium and Low findings do not
+  block but MUST record disposition, owner, and review date and MUST be remediated within 90 and 180
+  days respectively.
 - **FR-014**: Setup and operational guidance MUST document prerequisites, configuration ownership,
   daily and verification workflows, data persistence/reset behavior, troubleshooting boundaries,
   and known Production-parity limits.
@@ -205,10 +243,11 @@ foundation assets from deferred feature-specific work.
   authentication behavior, migration content, or public/admin Product experiences beyond the
   minimum foundation behavior in FR-002.
 - **FR-017**: Repeated or interrupted start, stop, restart, migration, reset, and cleanup operations
-  MUST leave the affected profile stopped or not-ready, preserve the original failure result, and
-  MUST NOT create duplicate active resources or ambiguous data ownership. Destructive recovery MUST
-  refuse stale, colliding, ambiguous, mislabeled, or unexpectedly active resources until exact
-  Delivery/profile ownership is verified and the maintainer explicitly confirms the bounded target.
+  MUST leave the affected operation target stopped or not-ready, preserve the original failure
+  result, and MUST NOT create duplicate active resources or ambiguous data ownership. Destructive
+  recovery MUST refuse stale, colliding, ambiguous, mislabeled, or unexpectedly active resources
+  until exact Delivery/operation-target ownership is verified and the maintainer explicitly
+  confirms the bounded target.
 
 ### Scope Boundaries
 
@@ -246,7 +285,7 @@ foundation assets from deferred feature-specific work.
 - **SC-002**: In 100% of documented routine stop/restart tests, a Delivery-owned synthetic marker
   written before stop remains readable with the same value after restart. In 100% of explicit reset
   tests, that prior marker is absent, required migration readiness is restored, and before/after
-  resource inventories show that only the explicitly confirmed Development datastore resources
+  resource inventories show that only the explicitly confirmed Development Data Store resources
   changed; Production, non-Delivery, and Verification resources remain untargeted and unchanged.
 - **SC-003**: With documented external tools, required container images, configuration inputs, and
   the release candidate already available locally, the Production-like Verification timer starts
@@ -261,7 +300,13 @@ foundation assets from deferred feature-specific work.
 - **SC-006**: Scope review identifies zero Product-feature implementations, zero unapproved
   services, and zero empty speculative package/module hierarchies in the completed Delivery.
 - **SC-007**: All acceptance scenarios and foundation checks pass on two consecutive runs from
-  clean, independently initialized daily-development and verification states.
+  clean, independently initialized daily and Verification operation-target states.
+- **SC-008**: Every dependency finding has recorded relevance, severity, reachability, Production
+  exposure, mitigation, disposition, owner, and review date. The dependency gate returns a
+  non-successful result for unknown reachability or exposure, any actionable Critical or High
+  finding without a current approved mitigation or risk exception, and any expired Critical or High
+  exception; Medium and Low findings record remediation due dates no later than 90 and 180 days
+  respectively without blocking the gate.
 
 ## Assumptions
 
@@ -271,9 +316,10 @@ foundation assets from deferred feature-specific work.
   this specification does not reopen them or prescribe exact versions and commands.
 - Inspection of the actual Production hosting runtime and database remains a dependency before
   evidence-dependent Production values can be locked or parity can be claimed.
-- Local and verification environments use only synthetic or explicitly approved non-Production
-  fixtures; this Delivery defines no authorization, retention, or disposal path for Production-derived
-  data because such use is prohibited and requires a separately approved scope change.
+- The daily and Verification runtime profiles use only synthetic or explicitly approved
+  non-Production fixtures; this Delivery defines no authorization, retention, or disposal path for
+  Production-derived data because such use is prohibited and requires a separately approved scope
+  change.
 - Minimal readiness and smoke behavior exists only to prove the foundation and is not treated as a
   Product feature.
 - The exact mechanics used to satisfy these outcomes will be selected during planning and verified

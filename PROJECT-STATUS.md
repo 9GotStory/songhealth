@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** CHECKLIST REVIEW — CHANGES REQUIRED; CLARIFY REQUIRED
+- **Status:** CLARIFY COMPLETE — PLAN RERUN REQUIRED
 
 ## Active Feature Mirror
 
@@ -26,13 +26,13 @@
 
 ## Workflow Gate
 
-- **Current phase:** CHECKLIST
-- **Phase status:** REVIEW COMPLETE — CHANGES REQUIRED (75 OF 80 SATISFIED)
-- **Previous completed phase:** CHECKLIST GENERATION — 80 REQUIREMENTS-QUALITY CRITERIA
-- **Next valid action:** run `$speckit-clarify` for the three routed ambiguities recorded in the
-  custom checklist, then rerun Plan and checklist review before Tasks
-- **Blocking issues:** corrupted/incompatible-data recovery decision criteria; profile identity
-  terminology/mapping; objective actionable-dependency threshold, exception authority, and deadline
+- **Current phase:** CLARIFY
+- **Phase status:** COMPLETE — 3 MATERIAL AMBIGUITIES RESOLVED
+- **Previous completed phase:** CHECKLIST REVIEW — CHANGES REQUIRED (75 OF 80 SATISFIED)
+- **Next valid action:** rerun `$speckit-plan` to reconcile downstream design artifacts with the
+  clarified specification, then rerun checklist review before Tasks
+- **Blocking issues:** NONE IN SPEC; plan, data model, contracts, quickstart, and custom checklist
+  remain downstream of the clarified recovery, identity, and dependency-gate decisions
 
 ## Authorized Implementation
 
