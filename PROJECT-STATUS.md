@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** SPECIFICATION COMPLETE — AWAITING CLARIFY
+- **Status:** CLARIFICATION COMPLETE — READY FOR PLAN
 
 ## Active Feature Mirror
 
@@ -26,10 +26,10 @@
 
 ## Workflow Gate
 
-- **Current phase:** SPECIFY
-- **Phase status:** COMPLETE — SPEC READY
-- **Previous completed phase:** DELIVERY CONTEXT
-- **Next valid action:** run Clarify for `001-application-foundation` using its `Clarify` routing
+- **Current phase:** CLARIFY
+- **Phase status:** COMPLETE — NO CRITICAL AMBIGUITIES
+- **Previous completed phase:** SPECIFY
+- **Next valid action:** run Plan for `001-application-foundation` using its `Plan` routing
 - **Blocking issues:** NONE
 
 ## Authorized Implementation
