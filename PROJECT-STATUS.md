@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION REVIEW — T005 PASS
+- **Status:** IMPLEMENTATION HANDOFF — T006 AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -28,19 +28,40 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Phase status:** T005 COMPLETE — PASS
-- **Previous completed scope:** T005 — strict shared ESM TypeScript configuration
-- **Next valid action:** authorize T006 or an explicitly approved dependency-ready Setup batch;
-  no further implementation is currently authorized
-- **Blocking issues:** NONE
+- **Phase status:** T006 AUTHORIZED — PENDING CLAUDE CODE EXECUTION
+- **Previous completed scope:** T005 — PASS
+- **Next valid action:** Claude Code runs `$speckit-implement` for T006 only, verifies the scoped
+  result, marks only T006 complete, and stops for Codex review
+- **Blocking issues:** NONE — T001 is complete and reviewed; T006 is incomplete and
+  `eslint.config.js` is absent
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE
+- **Task / Scope:** T006 — create only the baseline ESLint flat configuration and approved
+  JavaScript/TypeScript static-check inputs in root `eslint.config.js`; `tasks.md` may change only
+  to mark T006 complete after its verification passes
 - **Runtime:** Claude Code
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Required references:** `specs/001-application-foundation/tasks.md` T006 and Setup dependency
+  order; `specs/001-application-foundation/spec.md` FR-013, with FR-012 and FR-016 as scope
+  boundaries; `specs/001-application-foundation/plan.md` Technical Context, Project Structure, and
+  Testing and security evidence; `specs/001-application-foundation/contracts/foundation-operations.md`
+  `npm run check`; System Blueprint §§ 84–87, 345, 388–390, 418–420, and 440; Constitution
+  Principles II, III, V, and VI; current ESLint 10 flat-config and typescript-eslint guidance
+- **Expected verification:** `eslint.config.js` is an ESM flat configuration using current supported
+  ESLint configuration APIs; it supplies baseline recommended JavaScript and TypeScript parsing/
+  static rules for the approved `.js`, `.mjs`, `.cjs`, `.ts`, and `.tsx` surfaces and uses bounded
+  file/global-ignore patterns for application, configuration, script, and test inputs while
+  excluding dependencies and generated/build output; environment globals are scoped to their real
+  Node or browser ownership rather than enabled repository-wide; T065 remains responsible for the
+  complete deterministic import-direction and architecture-boundary rules, T066 for command wiring,
+  and T008 for dependency resolution and the lockfile; no type-aware project-service expansion,
+  custom architecture plugin, formatting framework, shared config package, application/source
+  change, package-manifest/dependency change, dependency installation, lockfile, generated output,
+  Product behavior, security scanner, or speculative hierarchy is added; because ESLint is not
+  installed before T008, verification uses `node --check eslint.config.js`, a structural scope check,
+  and `git diff --check` without downloading packages; only T006 is marked complete after these
+  checks pass
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
