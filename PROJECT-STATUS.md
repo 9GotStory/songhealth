@@ -16,20 +16,20 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** DELIVERY CONTEXT READY — READY FOR SPECIFY
+- **Status:** SPECIFICATION COMPLETE — AWAITING CLARIFY
 
 ## Active Feature Mirror
 
 - **Runtime resolution after `specify`:** `SPECIFY_FEATURE_DIRECTORY` override when set; otherwise `.specify/feature.json`
-- **Feature directory:** UNSET
-- **Verified:** YES — no active feature exists before the first Specify run
+- **Feature directory:** `specs/001-application-foundation`
+- **Verified:** YES — matches the planned Delivery and Delivery Context
 
 ## Workflow Gate
 
-- **Current phase:** PRE-SPECIFY
-- **Phase status:** READY
+- **Current phase:** SPECIFY
+- **Phase status:** COMPLETE — SPEC READY
 - **Previous completed phase:** DELIVERY CONTEXT
-- **Next valid action:** run Specify for `001-application-foundation` using its `Specify` routing
+- **Next valid action:** run Clarify for `001-application-foundation` using its `Clarify` routing
 - **Blocking issues:** NONE
 
 ## Authorized Implementation
