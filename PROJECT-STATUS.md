@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION REVIEW — T007 PASS
+- **Status:** IMPLEMENTATION HANDOFF — T008 AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -28,19 +28,41 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Phase status:** T007 REVIEWED — PASS
+- **Phase status:** T008 AUTHORIZED — PENDING CLAUDE CODE EXECUTION
 - **Previous completed scope:** T007 — PASS
-- **Next valid action:** Codex identifies the next valid incomplete task, verifies all blocking
-  dependencies, and issues a separate implementation handoff
-- **Blocking issues:** NONE
+- **Next valid action:** Claude Code runs `$speckit-implement` for T008 only, resolves and verifies
+  the existing approved workspace dependency graph, marks only T008 complete, and stops for Codex
+  review
+- **Blocking issues:** NONE — T001–T007 are complete, T007 passed review, every Setup input exists,
+  the required Node.js 24/npm 12 toolchain is active, and no root or nested lockfile currently exists
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T007 passed review; no subsequent task is authorized by this review
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T008 — create only the root `package-lock.json` by resolving the dependency
+  ranges already approved in `package.json` and the three `apps/*/package.json` manifests into one
+  exact npm workspace graph; `tasks.md` may change only to mark T008 complete after verification
+- **Runtime:** Claude Code
+- **Required references:** `specs/001-application-foundation/tasks.md` T008, Setup dependency order,
+  and checkpoint; `specs/001-application-foundation/research.md` Decisions 1–2;
+  `specs/001-application-foundation/plan.md` Technical Context, Project Structure, and Constitution
+  Check; `specs/001-application-foundation/spec.md` FR-012–FR-013 and FR-015–FR-016; the existing
+  root/Web/Admin/Server package manifests as the approved direct dependency inputs; Delivery
+  Context Implementation/Review routing and approved SRC-04/SRC-05 workspace/runtime decisions;
+  Constitution Principles I–III, V, and VI; current Context7 `/npm/cli` evidence for a single root
+  workspace lockfile and lockfile-first `npm ci` validation
+- **Expected verification:** use the installed Node.js 24.x/npm 12.x toolchain from the repository
+  root; create one root `package-lock.json` with an exact resolved/integrity-bearing transitive graph
+  for the root plus exactly `apps/web`, `apps/admin`, and `apps/server`, with no nested lockfiles or
+  additional workspace/direct dependency; do not change any package manifest, dependency range,
+  approved major, engine policy, script, source/configuration file, or add a package-manager/
+  workspace-orchestration layer; run root `npm ci` and prove it succeeds without changing the four
+  manifests or generated lockfile; verify npm recognizes exactly the three application workspaces
+  and reports no invalid, missing, peer-conflicting, or engine-incompatible dependency; run
+  `git diff --check` and confirm only `package-lock.json` plus the T008 checkbox changed for this
+  task; do not run `npm audit fix`, add overrides, use legacy/forced peer-resolution flags, create
+  the later dependency-finding ledger/security command, or silently alter approved inputs—stop and
+  report if compatible resolution requires any such expansion
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
