@@ -47,7 +47,7 @@ all user stories.
 
 **⚠️ CRITICAL**: Complete this phase before any user-story implementation.
 
-- [ ] T009 [P] Write failing tests for all six configuration rejection classes, four identity dimensions, fixture provenance, and fail-before-work behavior in `apps/server/src/config.test.ts` (Refs: FR-005–FR-008, SC-004; Data Model §Execution Context)
+- [X] T009 [P] Write failing tests for all six configuration rejection classes, four identity dimensions, fixture provenance, and fail-before-work behavior in `apps/server/src/config.test.ts` (Refs: FR-005–FR-008, SC-004; Data Model §Execution Context)
 - [ ] T010 Implement immutable TypeBox-backed runtime configuration and closed Safe Diagnostic construction in `apps/server/src/config.ts` (Refs: FR-005–FR-008; HTTP Contract §SafeDiagnostic)
 - [ ] T011 [P] Write failing real-engine tests for non-mutating migration status, explicit apply, pending readiness, serialization, and persistence-marker semantics in `apps/server/src/migrations.test.ts` (Refs: FR-004, FR-009, SC-002; Data Model §Migration State)
 - [ ] T012 Create the sole foundation-operational marker migration in `apps/server/src/migrations/001-foundation-persistence-marker.ts` (Refs: SC-002, FR-002, FR-016; Research Decision 7)
