@@ -49,7 +49,7 @@ all user stories.
 
 - [X] T009 [P] Write failing tests for all six configuration rejection classes, four identity dimensions, fixture provenance, and fail-before-work behavior in `apps/server/src/config.test.ts` (Refs: FR-005–FR-008, SC-004; Data Model §Execution Context)
 - [X] T010 Implement immutable TypeBox-backed runtime configuration and closed Safe Diagnostic construction in `apps/server/src/config.ts` (Refs: FR-005–FR-008; HTTP Contract §SafeDiagnostic)
-- [ ] T011 [P] Write failing real-engine tests for non-mutating migration status, explicit apply, pending readiness, serialization, and persistence-marker semantics in `apps/server/src/migrations.test.ts` (Refs: FR-004, FR-009, SC-002; Data Model §Migration State)
+- [X] T011 [P] Write failing real-engine tests for non-mutating migration status, explicit apply, pending readiness, serialization, and persistence-marker semantics in `apps/server/src/migrations.test.ts` (Refs: FR-004, FR-009, SC-002; Data Model §Migration State)
 - [ ] T012 Create the sole foundation-operational marker migration in `apps/server/src/migrations/001-foundation-persistence-marker.ts` (Refs: SC-002, FR-002, FR-016; Research Decision 7)
 - [ ] T013 Implement Kysely database composition plus explicit migration status/apply and marker access in `apps/server/src/database.ts` and `apps/server/src/migrations.ts` (Refs: FR-004, FR-009, SC-002; Plan §Persistence and migrations)
 - [ ] T014 [P] Write failing Fastify injection tests for liveness, readiness components, pending migrations, and closed error schemas in `apps/server/src/health.test.ts` (Refs: FR-007, FR-009–FR-010; HTTP Contract `/health/live` and `/health/ready`)
