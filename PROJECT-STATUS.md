@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION REVIEW — T010 PASS WITH NON-BLOCKING NOTES
+- **Status:** IMPLEMENTATION HANDOFF — T011 AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -28,22 +28,55 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Phase status:** T010 REWORK REVIEWED — PASS WITH NON-BLOCKING NOTES
+- **Phase status:** T011 AUTHORIZED — PENDING CLAUDE CODE EXECUTION
 - **Previous completed scope:** T010 — PASS WITH NON-BLOCKING NOTES
-- **Next valid action:** Codex verifies T011 is still incomplete and dependency-ready before issuing
-  a separate implementation handoff; no implementation task is currently authorized
+- **Next valid action:** Claude Code runs `$speckit-implement` for T011 only, writes the failing
+  real-engine migration contract tests, marks only T011 complete after the expected red result is
+  verified, and stops for Codex review
 - **Blocking issues:** NONE
-- **Non-blocking notes:** `apps/server/src/config.ts` remains untracked and must be included in the
-  eventual intentional commit; the decimal-integer comment says padding is prohibited while the
-  digit-only grammar accepts leading zeroes, which the routed requirements do not forbid
+- **Non-blocking notes:** The accepted T010 scope is committed at `df408b6`; its decimal-integer
+  comment says padding is prohibited while the digit-only grammar accepts leading zeroes, which the
+  routed requirements do not forbid
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T010 rework is accepted; T011 has not been authorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T011 — create only `apps/server/src/migrations.test.ts` with the failing
+  real-engine contract tests named by T011; `tasks.md` may change only to mark T011 complete after
+  the expected red result is verified
+- **Runtime:** Claude Code
+- **Required references:** `specs/001-application-foundation/tasks.md` T011, Foundational order, and
+  parallel-test rules; `specs/001-application-foundation/spec.md` FR-004, FR-009, and SC-002;
+  `specs/001-application-foundation/data-model.md` Data Store, Migration State, and Synthetic
+  Persistence Marker; `specs/001-application-foundation/plan.md` Persistence and migrations plus
+  Testing and security evidence; `specs/001-application-foundation/research.md` Decisions 7–8;
+  `specs/001-application-foundation/contracts/foundation-operations.md` `db:status`, `db:migrate`,
+  operation-target isolation, and failure behavior; `specs/001-application-foundation/quickstart.md`
+  §§2 and 4; Delivery Context Implementation/Review routing and dependencies; Constitution
+  Principles I–VI; installed Kysely 0.29.5 migration exports and `mysql2` 3.23.3 plus Context7
+  migration evidence
+- **Expected verification:** pin a real MySQL-compatible-engine contract, never SQLite or mocked
+  persistence as acceptance evidence; status inspection must be read-only and return immutable,
+  ordered `executed`/`pending` names with exact `current | pending | unavailable | error` state and
+  the applicable `DATABASE_UNAVAILABLE`, `MIGRATIONS_PENDING`, or `MIGRATION_STATUS_FAILED` safe
+  code without applying migrations or creating marker data; only explicit apply may transition
+  pending to current, report each tracked migration, remain safe when repeated, and serialize
+  concurrent apply attempts so each migration runs once; pending state must refuse readiness;
+  exercise the sole `foundation_persistence_marker` operational contract with fixed key
+  `sc002-development-persistence`, bounded opaque synthetic value, `synthetic` provenance, exact
+  read-after-reconnect continuity, and absence in a fresh/reset-and-remigrated state; create no
+  Product/domain schema, seed, or migration and expose no database URL, credential, raw SQL/error,
+  stack, or unnecessary host/path detail; use only an isolated non-Production test database and
+  exact cleanup, and fail explicitly rather than skip/pass if the required real engine is
+  unavailable; use `Migrator`/`FileMigrationProvider` from `kysely/migration`, with read-only status
+  based on `getMigrations()` and explicit apply based on `migrateToLatest()` or an equivalently
+  bounded adapter; require the targeted Vitest file to be discovered and red only because the
+  planned T012/T013 migration/database implementation is absent, not because of syntax, typing,
+  fixture, tooling, or test-environment defects; run root TypeScript checking and allow only the
+  expected missing planned implementation boundary, run `git diff --check`, confirm only
+  `migrations.test.ts` plus the T011 checkbox changed, preserve the clean accepted T010 baseline,
+  and do not create or modify T012/T013 implementation files, manifests, package files, lockfile,
+  lifecycle scripts, health/HTTP/bootstrap code, or later task artifacts
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
