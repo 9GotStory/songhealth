@@ -35,6 +35,10 @@ Use the smallest correct diff. Do not:
 
 Add/update tests proportionate to risk. Run relevant test/lint/build commands. Do not weaken valid tests to hide defects.
 
+When authorized verification depends on a real external database or local secret, follow the canonical **External real-engine verification** policy in `docs/operations/SPEC-KIT-CONTROL.md`. Use the repository's explicit local environment source for the verification command; do not rely on environment inherited from the Claude Code session or shell.
+
+If the required explicit environment or external engine is unavailable, return `BLOCKED` and leave any completion checkbox unchecked. Do not substitute mocks, skips, SQLite, another target, or session-only credentials for required real-engine acceptance evidence.
+
 ## Stop boundary
 
 After the authorized scope completes, stop. Do not begin the next task and do not run `converge`.

@@ -74,6 +74,28 @@ The Constitution is project-wide: establish it once and amend it only when durab
 
 Spec Kit officially supports scoped/staged `implement` runs with prompt arguments. This project applies a stricter project policy: each run is limited to the task (or explicitly approved small batch) authorized in `PROJECT-STATUS.md`, after checking it is still incomplete and dependency-ready, then returns to Codex for independent review.
 
+## External real-engine verification
+
+Verification that depends on local secrets or a real external database MUST NOT rely on environment variables inherited from an agent or shell session.
+
+For destructive real-engine acceptance tests, this repository uses the Git-ignored `.env.real-engine.local`, created from `.env.real-engine.example`. It is separate from `.env.verification.local`, which configures the Production-like Verification runtime.
+
+Executor and Reviewer MUST use the same explicit environment source for any acceptance check that requires `SONGHEALTH_TEST_DATABASE_URL`. For Node-based verification, load it explicitly, for example:
+
+```bash
+node --env-file=.env.real-engine.local \
+  ./node_modules/vitest/vitest.mjs \
+  run apps/server/src/migrations.test.ts
+```
+
+The real-engine target MUST be non-Production, disposable, and test-owned. Database names used by destructive acceptance tests MUST satisfy the approved isolated `songhealth_test_*` identity contract.
+
+`.env.real-engine.local` MUST NOT be committed, printed, echoed, copied into prompts or status files, or exposed in task/review output. Production credentials and Production-derived data MUST never be used.
+
+If the required local environment file or external engine is unavailable, verification MUST fail closed as unavailable or `BLOCKED`; it MUST NOT silently fall back to mocks, skips, SQLite, or inherited session state.
+
+Reviewers MUST distinguish an implementation/test failure from verification-environment unavailability. Acceptance that requires real-engine evidence is valid only when the canonical explicit-environment verification succeeds against the required real engine.
+
 ## Integrations
 
 Codex and Claude are multi-install-safe Spec Kit integrations. If both are installed, do **not** change the default integration on every task just to move between agents; each keeps its own core command/skill directory.

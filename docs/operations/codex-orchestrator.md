@@ -72,6 +72,10 @@ Do **not** switch Spec Kit's default integration for every task. If Codex and Cl
 
 After each implementation scope, review the actual diff, task state, and verification results against the authorized task, routed authority, spec, plan, and Constitution.
 
+When acceptance verification depends on a real external database or local secret, follow the canonical **External real-engine verification** policy in `docs/operations/SPEC-KIT-CONTROL.md`. Do not rely on Codex process or spawned-shell inherited environment. Use the repository's explicit local environment source for the required verification command.
+
+If that explicit verification environment or required engine is unavailable, classify the result as verification-environment unavailability rather than an implementation defect. Do not accept real-engine evidence from a different agent/session when the reviewer is required to reproduce it locally, and do not silently fall back to mocks, skips, SQLite, or another target.
+
 Do not silently fix code during review. Return exactly one:
 
 - `PASS`

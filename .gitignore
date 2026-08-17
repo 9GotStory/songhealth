@@ -1,7 +1,8 @@
 # Secrets / environment
-# Ignore actual local secret files, but allow exactly the two committed examples.
+# Ignore actual local secret files, but allow exactly the three committed examples.
 .env
 .env.*
+!.env.real-engine.example
 !.env.development.example
 !.env.verification.example
 
