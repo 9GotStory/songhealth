@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION REVIEW — T011 PASS
+- **Status:** IMPLEMENTATION REVIEW — T012 PASS WITH NON-BLOCKING NOTES
 
 ## Active Feature Mirror
 
@@ -28,13 +28,16 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Phase status:** T011 ACCEPTED — PASS
-- **Previous completed scope:** T011 — PASS
+- **Phase status:** T012 ACCEPTED — PASS WITH NON-BLOCKING NOTES
+- **Previous completed scope:** T012 — PASS WITH NON-BLOCKING NOTES
 - **Next valid action:** Codex identifies the next valid incomplete task, verifies its blocking
   dependencies, and records a separate Authorized Implementation handoff; no implementation is
   currently authorized
 - **Blocking issues:** NONE
-- **Non-blocking notes:** NONE
+- **Non-blocking notes:** Targeted ESLint could not run because the repository has no installed or
+  cached ESLint binary/package; adding that missing toolchain was outside T012 authorization.
+  Root TypeScript reported only the accepted missing-T013 modules, the T011 suite remained red only
+  at that boundary, and tracked/untracked diff checks passed
 
 ## Authorized Implementation
 
