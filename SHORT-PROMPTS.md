@@ -71,7 +71,13 @@ Identify the next valid incomplete task, verify all blocking dependencies are co
 ## Implement Authorized Task — Claude Code
 
 ```text
-Run speckit implement only for the Authorized Implementation in PROJECT-STATUS.md. Follow CLAUDE.md, run relevant verification, and stop before any other task.
+/speckit-implement
+
+Re-read PROJECT-STATUS.md before making any change. Treat its current Authorized Implementation and Authorization state as the sole execution authority for this run; do not rely on task, scope, or completion state from prior conversation/session context.
+
+Run speckit implement only for the currently Authorized Implementation in PROJECT-STATUS.md. Before editing, verify that the task/scope you are about to execute exactly matches the current persisted authorization. If it does not, stop and report the mismatch without changing files.
+
+Follow CLAUDE.md, run only the verification required by the current authorization, and stop before any other task. Do not run converge and do not commit unless explicitly authorized.
 ```
 
 ## Review — Codex
@@ -83,7 +89,13 @@ Review the completed authorized scope against the actual diff, tests, task/spec/
 ## Fix Blocking Findings — Claude Code
 
 ```text
-Run speckit implement only for the re-authorized blocking-fix scope in PROJECT-STATUS.md. Run relevant verification and stop.
+/speckit-implement
+
+Re-read PROJECT-STATUS.md before making any change. Treat its current Authorized Implementation, blocking finding IDs, and Authorization state as the sole execution authority for this run; do not rely on findings, scope, or completion state from prior conversation/session context.
+
+Run speckit implement only for the currently re-authorized blocking-fix scope in PROJECT-STATUS.md. Before editing, verify that the scope and finding IDs you are about to execute exactly match the current persisted authorization. If they do not, stop and report the mismatch without changing files.
+
+Run only the verification required by the current authorization and stop. Do not implement any other task, do not run converge, and do not commit unless explicitly authorized.
 ```
 
 ## Converge — Codex
