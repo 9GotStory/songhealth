@@ -33,7 +33,7 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { loadRuntimeConfiguration } from "./config.js";
+import { loadRuntimeConfiguration, SAFE_DIAGNOSTIC_SCHEMA } from "./config.js";
 
 type WorkBoundary = {
   createDatabasePool: () => void;
@@ -284,7 +284,14 @@ describe("identity dimension conflicts (FR-008)", () => {
   // Each case starts from a target-valid base (its own environment/profile/proxy/origin/
   // credential) and introduces exactly one named conflict. The sentinel rides in the
   // target-appropriate credential so it never itself becomes a second fault.
-  const identityConflictCases = [
+  const identityConflictCases: {
+    name: string;
+    base: Record<string, string>;
+    credential: (sentinel: string) => string;
+    overrides: Record<string, string>;
+    target: "development" | "verification";
+    scope: "daily" | "verification";
+  }[] = [
     {
       name: "Production environment is not selectable locally",
       base: DEV_BASE,
@@ -508,5 +515,392 @@ describe("fail-before-work and Verification-target diagnostics (SC-004)", () => 
     });
     assertNoWorkStarted(work);
     assertNoForbiddenContent(outcome, [sentinel, env.DATABASE_URL]);
+  });
+});
+
+describe("T010 rework: target isolation, fail-closed grammar, and command target", () => {
+  it("a remote/Production-like database host cannot satisfy the Development target", () => {
+    // Single fault: the database hostname is an internal/remote host (not loopback)
+    // while the credential and database identities are the Development ones.
+    const env: Record<string, string> = {
+      ...DEV_BASE,
+      DATABASE_URL: "mysql://songhealth_dev:dev-only-placeholder@db.internal:3306/songhealth_development",
+    };
+    const work = makeWork();
+
+    const outcome = loadRuntimeConfiguration(env, "development", work);
+
+    assertClosedDiagnostic(outcome, {
+      reasonCode: "CONFIG_IDENTITY_CONFLICT",
+      diagnosticScope: "daily",
+      component: "configuration",
+      remediation: "FIX_CONFIGURATION",
+      configurationKey: "DATABASE_URL",
+    });
+    assertNoWorkStarted(work);
+    assertNoForbiddenContent(outcome, [env.DATABASE_URL]);
+  });
+
+  it.each([
+    { name: "host with embedded port", value: "127.0.0.1:4173" },
+    { name: "host with surrounding whitespace", value: " 127.0.0.1" },
+    { name: "host that is a URL", value: "http://127.0.0.1" },
+  ])("malformed APP_HOST ($name) is rejected", ({ value }) => {
+    const env: Record<string, string> = { ...DEV_BASE, APP_HOST: value };
+    const work = makeWork();
+
+    const outcome = loadRuntimeConfiguration(env, "development", work);
+
+    assertClosedDiagnostic(outcome, {
+      reasonCode: "CONFIG_MALFORMED",
+      diagnosticScope: "daily",
+      component: "configuration",
+      remediation: "FIX_CONFIGURATION",
+      configurationKey: "APP_HOST",
+    });
+    assertNoWorkStarted(work);
+  });
+
+  it.each([
+    {
+      name: "non-loopback host on the Development target",
+      base: DEV_BASE,
+      value: "songhealth-app",
+      target: "development" as const,
+      scope: "daily" as const,
+    },
+    {
+      name: "loopback host on the Verification target",
+      base: VER_BASE,
+      value: "127.0.0.1",
+      target: "verification" as const,
+      scope: "verification" as const,
+    },
+  ])("target-inappropriate APP_HOST ($name) is rejected", ({ base, value, target, scope }) => {
+    const env: Record<string, string> = { ...base, APP_HOST: value };
+    const work = makeWork();
+
+    const outcome = loadRuntimeConfiguration(env, target, work);
+
+    assertClosedDiagnostic(outcome, {
+      reasonCode: "CONFIG_IDENTITY_CONFLICT",
+      diagnosticScope: scope,
+      component: "configuration",
+      remediation: "FIX_CONFIGURATION",
+      configurationKey: "APP_HOST",
+    });
+    assertNoWorkStarted(work);
+  });
+
+  const fakeLoopbackCases: {
+    name: string;
+    base: Record<string, string>;
+    overrides: Record<string, string>;
+    target: "development" | "verification";
+    scope: "daily" | "verification";
+    key: string;
+  }[] = [
+    {
+      name: "fake loopback DNS name as APP_HOST",
+      base: DEV_BASE,
+      overrides: { APP_HOST: "127.example.com" },
+      target: "development",
+      scope: "daily",
+      key: "APP_HOST",
+    },
+    {
+      name: "fake loopback DNS name as PUBLIC_ORIGIN",
+      base: DEV_BASE,
+      overrides: { PUBLIC_ORIGIN: "http://127.fake.example:4173" },
+      target: "development",
+      scope: "daily",
+      key: "PUBLIC_ORIGIN",
+    },
+  ];
+
+  it.each(fakeLoopbackCases)("fake loopback DNS ($name) is not treated as loopback", ({ base, overrides, target, scope, key }) => {
+    const env: Record<string, string> = { ...base, ...overrides };
+    const work = makeWork();
+
+    const outcome = loadRuntimeConfiguration(env, target, work);
+
+    assertClosedDiagnostic(outcome, {
+      reasonCode: "CONFIG_IDENTITY_CONFLICT",
+      diagnosticScope: scope,
+      component: "configuration",
+      remediation: "FIX_CONFIGURATION",
+      configurationKey: key,
+    });
+    assertNoWorkStarted(work);
+  });
+
+  it.each([
+    {
+      name: "origin port differs from APP_PORT",
+      base: DEV_BASE,
+      overrides: { PUBLIC_ORIGIN: "http://127.0.0.1:9999" },
+    },
+    {
+      name: "origin host differs from APP_HOST",
+      base: DEV_BASE,
+      overrides: { PUBLIC_ORIGIN: "http://localhost:4173" },
+    },
+  ])("origin not bound to the selected target ($name) is rejected", ({ base, overrides }) => {
+    const env: Record<string, string> = { ...base, ...overrides };
+    const work = makeWork();
+
+    const outcome = loadRuntimeConfiguration(env, "development", work);
+
+    assertClosedDiagnostic(outcome, {
+      reasonCode: "CONFIG_IDENTITY_CONFLICT",
+      diagnosticScope: "daily",
+      component: "configuration",
+      remediation: "FIX_CONFIGURATION",
+      configurationKey: "PUBLIC_ORIGIN",
+    });
+    assertNoWorkStarted(work);
+  });
+
+  it.each([
+    { name: "exponent notation", value: "1e2" },
+    { name: "hexadecimal notation", value: "0x10" },
+    { name: "leading whitespace", value: " 4173" },
+    { name: "signed value", value: "+4173" },
+  ])("non-decimal APP_PORT ($name) is malformed, not parsed", ({ value }) => {
+    const env: Record<string, string> = { ...DEV_BASE, APP_PORT: value };
+    const work = makeWork();
+
+    const outcome = loadRuntimeConfiguration(env, "development", work);
+
+    assertClosedDiagnostic(outcome, {
+      reasonCode: "CONFIG_MALFORMED",
+      diagnosticScope: "daily",
+      component: "configuration",
+      remediation: "FIX_CONFIGURATION",
+      configurationKey: "APP_PORT",
+    });
+    assertNoWorkStarted(work);
+  });
+
+  it("non-decimal DATABASE_POOL_MAX is malformed, not parsed", () => {
+    const env: Record<string, string> = { ...DEV_BASE, DATABASE_POOL_MAX: "1e2" };
+    const work = makeWork();
+
+    const outcome = loadRuntimeConfiguration(env, "development", work);
+
+    assertClosedDiagnostic(outcome, {
+      reasonCode: "CONFIG_MALFORMED",
+      diagnosticScope: "daily",
+      component: "configuration",
+      remediation: "FIX_CONFIGURATION",
+      configurationKey: "DATABASE_POOL_MAX",
+    });
+    assertNoWorkStarted(work);
+  });
+
+  it.each(["production", "staging", "hosted", "daily", ""]) (
+    "unsupported command target %j returns a foundation-scoped CONFIG_UNSUPPORTED without configurationKey",
+    (target) => {
+      const work = makeWork();
+
+      const outcome = loadRuntimeConfiguration(DEV_BASE, target, work);
+
+      // "allowlisted" with no key present asserts the closed diagnostic carries
+      // NO configurationKey (the command target is not an environment key).
+      assertClosedDiagnostic(outcome, {
+        reasonCode: "CONFIG_UNSUPPORTED",
+        diagnosticScope: "foundation",
+        component: "configuration",
+        remediation: "FIX_CONFIGURATION",
+        configurationKey: "allowlisted",
+      });
+      // The command target is not an environment key: the diagnostic must carry
+      // no configurationKey at all.
+      if (outcome.status === "rejected") {
+        expect(outcome.diagnostic.configurationKey).toBeUndefined();
+      }
+      assertNoWorkStarted(work);
+    },
+  );
+});
+
+describe("T010 rework round 2: fail-closed URL grammar, exact target identities, full reason-code allowlist", () => {
+  // R01: raw URL values must be rejected when whitespace-normalized or when an
+  // origin carries userinfo, a non-root path, query/fragment, or a
+  // target-inappropriate scheme. These are format faults -> CONFIG_MALFORMED.
+  const malformedUrlCases: {
+    name: string;
+    key: "DATABASE_URL" | "PUBLIC_ORIGIN";
+    value: string;
+  }[] = [
+    {
+      name: "leading-whitespace database URL",
+      key: "DATABASE_URL",
+      value: " mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:3306/songhealth_development",
+    },
+    {
+      name: "trailing-whitespace database URL",
+      key: "DATABASE_URL",
+      value: "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:3306/songhealth_development ",
+    },
+    {
+      name: "HTTPS development origin",
+      key: "PUBLIC_ORIGIN",
+      value: "https://127.0.0.1:4173",
+    },
+    {
+      name: "origin with userinfo",
+      key: "PUBLIC_ORIGIN",
+      value: "http://user@127.0.0.1:4173",
+    },
+    {
+      name: "origin with non-root path",
+      key: "PUBLIC_ORIGIN",
+      value: "http://127.0.0.1:4173/app",
+    },
+    {
+      name: "origin with query",
+      key: "PUBLIC_ORIGIN",
+      value: "http://127.0.0.1:4173?x=1",
+    },
+    {
+      name: "origin with fragment",
+      key: "PUBLIC_ORIGIN",
+      value: "http://127.0.0.1:4173#frag",
+    },
+  ];
+
+  it.each(malformedUrlCases)("malformed URL ($name) is rejected", ({ key, value }) => {
+    const env: Record<string, string> = { ...DEV_BASE, [key]: value };
+    const work = makeWork();
+
+    const outcome = loadRuntimeConfiguration(env, "development", work);
+
+    assertClosedDiagnostic(outcome, {
+      reasonCode: "CONFIG_MALFORMED",
+      diagnosticScope: "daily",
+      component: "configuration",
+      remediation: "FIX_CONFIGURATION",
+      configurationKey: key,
+    });
+    assertNoWorkStarted(work);
+    assertNoForbiddenContent(outcome, [value]);
+  });
+
+  // R02: bracketed ordinary hostnames are not valid host forms and cannot evade
+  // loopback classification -> CONFIG_MALFORMED.
+  it.each([
+    { name: "bracketed ordinary hostname", value: "[songhealth-app]" },
+    { name: "bracketed IPv4", value: "[127.0.0.1]" },
+  ])("bracketed non-IPv6 APP_HOST ($name) is malformed", ({ value }) => {
+    const env: Record<string, string> = { ...DEV_BASE, APP_HOST: value };
+    const work = makeWork();
+
+    const outcome = loadRuntimeConfiguration(env, "development", work);
+
+    assertClosedDiagnostic(outcome, {
+      reasonCode: "CONFIG_MALFORMED",
+      diagnosticScope: "daily",
+      component: "configuration",
+      remediation: "FIX_CONFIGURATION",
+      configurationKey: "APP_HOST",
+    });
+    assertNoWorkStarted(work);
+  });
+
+  // R02: Verification hosts must remain the exact approved local target
+  // identities, not arbitrary Production-like endpoints.
+  const verificationIdentityCases: {
+    name: string;
+    key: "APP_HOST" | "DATABASE_URL" | "PUBLIC_ORIGIN";
+    overrides: Record<string, string>;
+  }[] = [
+    {
+      name: "arbitrary Production-like application host",
+      key: "APP_HOST",
+      overrides: { APP_HOST: "prod-frontend" },
+    },
+    {
+      name: "arbitrary Production-like database host",
+      key: "DATABASE_URL",
+      overrides: {
+        DATABASE_URL:
+          "mysql://songhealth_ver:ver-only-placeholder@db.prod.example.com:3306/songhealth_verification",
+      },
+    },
+    {
+      name: "arbitrary Production-like origin host",
+      key: "PUBLIC_ORIGIN",
+      overrides: { PUBLIC_ORIGIN: "http://prod.example.com" },
+    },
+  ];
+
+  it.each(verificationIdentityCases)("Verification rejects $name", ({ key, overrides }) => {
+    const env: Record<string, string> = { ...VER_BASE, ...overrides };
+    const work = makeWork();
+
+    const outcome = loadRuntimeConfiguration(env, "verification", work);
+
+    assertClosedDiagnostic(outcome, {
+      reasonCode: "CONFIG_IDENTITY_CONFLICT",
+      diagnosticScope: "verification",
+      component: "configuration",
+      remediation: "FIX_CONFIGURATION",
+      configurationKey: key,
+    });
+    assertNoWorkStarted(work);
+  });
+
+  // R03: the closed Safe Diagnostic schema carries the complete routed
+  // reason-code allowlist (foundation-http.openapi.yaml SafeDiagnostic), not
+  // only the CONFIG_* codes.
+  it("SAFE_DIAGNOSTIC_SCHEMA carries the full routed reason-code allowlist", () => {
+    const reasonCodeNode = SAFE_DIAGNOSTIC_SCHEMA.properties.reasonCode as {
+      anyOf?: { const?: string }[];
+      allOf?: { const?: string }[];
+    };
+    const members = reasonCodeNode.anyOf ?? reasonCodeNode.allOf ?? [];
+    const reasonCodes = members.map((m) => m.const as string);
+
+    const expected = [
+      "OPERATIONAL_FAILURE",
+      "BUILD_FAILED",
+      "STARTUP_FAILED",
+      "CONFIG_MISSING",
+      "CONFIG_EMPTY",
+      "CONFIG_MALFORMED",
+      "CONFIG_UNSUPPORTED",
+      "CONFIG_OUT_OF_RANGE",
+      "CONFIG_IDENTITY_CONFLICT",
+      "CONFIG_REJECTION_NOT_ENFORCED",
+      "DATABASE_UNAVAILABLE",
+      "MIGRATION_FAILED",
+      "MIGRATIONS_PENDING",
+      "MIGRATION_STATUS_FAILED",
+      "LIVENESS_FAILED",
+      "READINESS_FAILED",
+      "ISOLATION_FAILED",
+      "PROXY_CONTRACT_FAILED",
+      "ROUTE_UNREACHABLE",
+      "OPERATION_INTERRUPTED",
+      "RESOURCE_OWNERSHIP_UNPROVEN",
+      "RESOURCE_INVENTORY_CHANGED",
+      "DATA_INTEGRITY_UNPROVEN",
+      "DATA_RECONSTRUCTIBILITY_UNPROVEN",
+      "NON_DESTRUCTIVE_REPAIR_UNAVAILABLE",
+      "MANUAL_REVIEW_REQUIRED",
+      "PREREQUISITE_FAILED",
+      "CLEANUP_FAILED",
+      "REPORT_INVALID",
+      "REPORT_EMISSION_FAILED",
+      "SECRET_SCANNER_FAILED",
+      "COMMITTED_SECRET_DETECTED",
+      "DEPENDENCY_FINDING_UNREVIEWED",
+      "DEPENDENCY_FINDING_BLOCKING",
+      "DEPENDENCY_EXCEPTION_EXPIRED",
+      "DEPENDENCY_EVIDENCE_MISMATCH",
+      "ASVS_EVIDENCE_INCOMPLETE",
+    ];
+    expect([...reasonCodes].sort()).toEqual([...expected].sort());
   });
 });
