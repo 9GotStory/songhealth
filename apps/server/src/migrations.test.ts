@@ -515,8 +515,7 @@ async function createNonTargetSentinel(db: Database): Promise<string> {
     await nc
       .schema
       .createTable(NON_TARGET_SENTINEL_TABLE)
-      .addColumn("id", "integer")
-      .primaryKey()
+      .addColumn("id", "integer", (col) => col.primaryKey())
       .execute();
   } finally {
     await closeDatabase(nc);
@@ -739,8 +738,7 @@ describe("T011 · status-inspection failure (R1)", () => {
     await database
       .schema
       .createTable(MIGRATION_METADATA_TABLE)
-      .addColumn("wrong_column", "varchar(255)")
-      .primaryKey()
+      .addColumn("wrong_column", "varchar(255)", (col) => col.primaryKey())
       .execute();
 
     try {
@@ -1067,8 +1065,7 @@ describe("T011 · destructive-helper gating and exact cleanup (R4)", () => {
     await database
       .schema
       .createTable(TARGET_SENTINEL_TABLE)
-      .addColumn("id", "integer")
-      .primaryKey()
+      .addColumn("id", "integer", (col) => col.primaryKey())
       .execute();
 
     // Non-target state: a sibling non-target schema with a sentinel table that
@@ -1131,6 +1128,169 @@ describe("T011 · unavailable engine fails explicitly with a safe code", () => {
       expect(status.state).toBe("unavailable");
       expect(status.safeReasonCode).toBe("DATABASE_UNAVAILABLE");
       assertNoRawLeak(status, ["unreachable-test-db", "://", "stack"]);
+    } finally {
+      await closeDatabase(unreachable);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T013 rework regression coverage (closes T013-B01 through T013-B03). These
+// pin the corrected behavior on top of the accepted T011 contract; they add
+// coverage without weakening any T011 assertion above.
+// ---------------------------------------------------------------------------
+
+/** Bounded safe code for a genuine marker read failure (T013-B01). */
+const MARKER_READ_FAILED = "MARKER_READ_FAILED";
+/** Bounded safe code for an out-of-bound marker value (T013-B02). */
+const MARKER_VALUE_OUT_OF_BOUND = "MARKER_VALUE_OUT_OF_BOUND";
+
+describe("T013 · marker read distinguishes absence from failure (B01)", () => {
+  it("a fresh/unmigrated schema (missing marker table) is absence (null)", async () => {
+    await resetDedicatedTarget(database, runOwnership);
+    // No marker table exists yet: the expected absence condition.
+    expect(await readMarker(database)).toBeNull();
+  });
+
+  it("a corrupted marker schema is a read failure, not absence", async () => {
+    await migrateToCurrent(database, runOwnership);
+    // Corrupt the marker table's schema (reachable engine, wrong columns) so the
+    // marker SELECT fails for a reason that is NOT a missing table.
+    await dropTableQualified(database, runOwnership.databaseName, MARKER_TABLE);
+    await database
+      .schema
+      .createTable(MARKER_TABLE)
+      .addColumn("wrong_column", "varchar(255)", (col) => col.primaryKey())
+      .execute();
+
+    try {
+      // A genuine read failure must throw a bounded safe code — it must NOT be
+      // falsely reported as marker absence (null).
+      let captured: unknown;
+      try {
+        await readMarker(database);
+      } catch (error) {
+        captured = error;
+      }
+      expect(captured).toBeInstanceOf(Error);
+      // The thrown message is exactly the bounded safe code — no raw SQL error,
+      // internal table/column name, or stack detail.
+      expect((captured as Error).message).toBe(MARKER_READ_FAILED);
+      assertNoRawLeak((captured as Error).message, [
+        "Unknown column",
+        "field list",
+        MARKER_TABLE,
+        "wrong_column",
+        "stack",
+      ]);
+    } finally {
+      // Restore a clean, migrated state for subsequent tests.
+      await migrateToCurrent(database, runOwnership);
+    }
+  });
+
+  it("an unreachable engine is a read failure, not absence", async () => {
+    const unreachable = await createDatabase(
+      withDatabaseName(testUrl, "unreachable-test-db"),
+    );
+    try {
+      // An unavailable engine must NOT be reported as marker absence (null);
+      // it is a genuine read failure with a bounded safe code.
+      let captured: unknown;
+      try {
+        await readMarker(unreachable);
+      } catch (error) {
+        captured = error;
+      }
+      expect(captured).toBeInstanceOf(Error);
+      expect((captured as Error).message).toBe(MARKER_READ_FAILED);
+      assertNoRawLeak((captured as Error).message, ["unreachable-test-db", "://", "stack"]);
+    } finally {
+      await closeDatabase(unreachable);
+    }
+  });
+});
+
+describe("T013 · marker value bound is enforced before mutation (B02)", () => {
+  it("an empty marker value is rejected and mutates nothing", async () => {
+    await migrateToCurrent(database, runOwnership);
+
+    await expect(writeMarker(database, "")).rejects.toThrow(MARKER_VALUE_OUT_OF_BOUND);
+    // No row was created by the rejected write.
+    expect(await readMarker(database)).toBeNull();
+  });
+
+  it("an over-length (>256) marker value is rejected and mutates nothing", async () => {
+    await migrateToCurrent(database, runOwnership);
+    await writeMarker(database, SYNTHETIC_MARKER_VALUE);
+    const before = await readMarker(database);
+
+    const over = `${"y".repeat(256)}y`; // 257 characters
+    expect(over.length).toBe(MARKER_VALUE_MAX_LENGTH + 1);
+    await expect(writeMarker(database, over)).rejects.toThrow(MARKER_VALUE_OUT_OF_BOUND);
+
+    // The row is unchanged: the out-of-bound value never reached the database.
+    const after = await readMarker(database);
+    expect(after).toEqual(before);
+    expect(after!.markerValue).toBe(SYNTHETIC_MARKER_VALUE);
+  });
+
+  it("accepts the exact bound (1 and 256 characters)", async () => {
+    await migrateToCurrent(database, runOwnership);
+
+    const one = "z"; // exactly the minimum
+    expect(one.length).toBe(1);
+    await writeMarker(database, one);
+    expect((await readMarker(database))!.markerValue).toBe(one);
+
+    const max = "z".repeat(MARKER_VALUE_MAX_LENGTH); // exactly the maximum
+    expect(max.length).toBe(MARKER_VALUE_MAX_LENGTH);
+    await writeMarker(database, max);
+    expect((await readMarker(database))!.markerValue).toBe(max);
+  });
+});
+
+describe("T013 · migration status snapshots are immutable and ordered (B03)", () => {
+  it("pending status exposes frozen, ordered executed/pending lists", async () => {
+    await resetDedicatedTarget(database, runOwnership);
+
+    const status = await getMigrationStatus(database);
+    assertClosedStatus(status);
+    expect(status.state).toBe("pending");
+
+    // Immutable: the returned lists cannot be mutated or re-ordered.
+    expect(Object.isFrozen(status.executed)).toBe(true);
+    expect(Object.isFrozen(status.pending)).toBe(true);
+    expect(() => (status.executed as unknown as string[]).push("x")).toThrow(TypeError);
+    expect(() => (status.pending as unknown as string[]).push("x")).toThrow(TypeError);
+
+    // Ordered: the exact expected names, in Kysely's deterministic order.
+    expect([...status.executed]).toEqual([]);
+    expect([...status.pending]).toEqual([MARKER_MIGRATION_NAME]);
+  });
+
+  it("current status exposes frozen, ordered executed/pending lists", async () => {
+    await migrateToCurrent(database, runOwnership);
+
+    const status = await getMigrationStatus(database);
+    assertClosedStatus(status);
+    expect(status.state).toBe("current");
+
+    expect(Object.isFrozen(status.executed)).toBe(true);
+    expect(Object.isFrozen(status.pending)).toBe(true);
+    expect([...status.executed]).toEqual([MARKER_MIGRATION_NAME]);
+    expect([...status.pending]).toEqual([]);
+  });
+
+  it("the unavailable and error status lists are immutable too", async () => {
+    const unreachable = await createDatabase(
+      withDatabaseName(testUrl, "unreachable-test-db"),
+    );
+    try {
+      const status = await getMigrationStatus(unreachable);
+      expect(status.state).toBe("unavailable");
+      expect(Object.isFrozen(status.executed)).toBe(true);
+      expect(Object.isFrozen(status.pending)).toBe(true);
     } finally {
       await closeDatabase(unreachable);
     }

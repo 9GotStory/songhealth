@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION REVIEW — T012 PASS WITH NON-BLOCKING NOTES
+- **Status:** IMPLEMENTATION REVIEW — T013 PASS WITH NON-BLOCKING NOTES
 
 ## Active Feature Mirror
 
@@ -28,16 +28,20 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Phase status:** T012 ACCEPTED — PASS WITH NON-BLOCKING NOTES
-- **Previous completed scope:** T012 — PASS WITH NON-BLOCKING NOTES
-- **Next valid action:** Codex identifies the next valid incomplete task, verifies its blocking
-  dependencies, and records a separate Authorized Implementation handoff; no implementation is
-  currently authorized
+- **Current review result:** PASS WITH NON-BLOCKING NOTES
+- **Phase status:** T013 ACCEPTED — PASS WITH NON-BLOCKING NOTES
+- **Previous completed scope:** T013 — PASS WITH NON-BLOCKING NOTES
+- **Next valid action:** Codex verifies T014 is still the next valid incomplete dependency-ready
+  task and records a separate Authorized Implementation handoff; no implementation is currently
+  authorized
 - **Blocking issues:** NONE
-- **Non-blocking notes:** Targeted ESLint could not run because the repository has no installed or
-  cached ESLint binary/package; adding that missing toolchain was outside T012 authorization.
-  Root TypeScript reported only the accepted missing-T013 modules, the T011 suite remained red only
-  at that boundary, and tracked/untracked diff checks passed
+- **Non-blocking notes:** T013-B01 through T013-B05 are closed. The exact isolated real-engine
+  verification passed all 36 T011/T013 tests; root `./node_modules/.bin/tsc --noEmit`, all 55
+  `apps/server/src/config.test.ts` tests, `git diff --check`, and untracked-file whitespace checks
+  also pass. The marker-access exceptions use bounded internal identifiers; later output adapters
+  must map them to the approved closed SafeDiagnostic vocabulary rather than expose them directly.
+  ESLint remains unavailable because no ESLint binary/package is installed; adding it was outside
+  T013 scope and was not required by the accepted T013 verification
 
 ## Authorized Implementation
 
