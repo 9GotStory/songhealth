@@ -131,3 +131,51 @@ or approved Delivery artifacts:
 2. classify the issue as a potential Source-of-Truth conflict;
 3. stop the affected decision;
 4. route it through Impact Review / Product Owner decision as applicable.
+
+### Review Outcome Persistence
+
+Every TASK REVIEW MUST reconcile `PROJECT-STATUS.md` before the review result is returned.
+
+Review is read-only for implementation artifacts, but `PROJECT-STATUS.md` is a writable workflow mirror.
+
+For each result:
+
+- `PASS`
+  - record the reviewed task/scope as PASS;
+  - clear Authorized Implementation;
+  - record the next valid orchestration action.
+
+- `PASS WITH NON-BLOCKING NOTES`
+  - record PASS and the non-blocking notes;
+  - clear Authorized Implementation;
+  - record the next valid orchestration action.
+
+- `CHANGES REQUIRED`
+  - record the exact current blocking finding IDs;
+  - replace stale findings from earlier review cycles;
+  - record a bounded rework scope identifying the files/areas that may change;
+  - set Authorization state to `REWORK`;
+  - record the verification required to close the current findings.
+
+- `SOURCE-OF-TRUTH CONFLICT`
+  - record the conflict and owning authority;
+  - clear implementation authorization;
+  - do not authorize implementation until the conflict is resolved.
+
+Before returning `TASK REVIEW`, re-read `PROJECT-STATUS.md` and verify that it represents the current review result.
+
+A rework handoff is invalid if `PROJECT-STATUS.md` does not contain the exact current blocking finding IDs and bounded rework scope.
+
+If the review result cannot be persisted coherently, stop with `REVIEW STATE NOT PERSISTED`; do not hand off work to Claude Code.
+
+### Rework Handoff Invariant
+
+Claude Code MUST NOT receive a rework handoff unless `PROJECT-STATUS.md` contains:
+
+1. the current review result;
+2. the exact current blocking finding IDs;
+3. the bounded authorized rework scope;
+4. the required verification;
+5. `Authorization state: REWORK`.
+
+Stale findings from a previous review cycle must be replaced, not retained as the active rework authorization.

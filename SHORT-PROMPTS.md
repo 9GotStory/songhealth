@@ -5,7 +5,7 @@ Use the invocation syntax exposed by the current agent (`$speckit-*`, `/speckit.
 ## Bootstrap / Resume — Codex
 
 ```text
-Read AGENTS.md, then follow its Codex routing to docs/operations/codex-orchestrator.md. Reconcile repository state, resolve the approved planned Delivery and any existing Delivery Context, and update PROJECT-STATUS.md. If a Spec Kit feature exists, resolve it using Spec Kit's runtime rules (SPECIFY_FEATURE_DIRECTORY override when set; otherwise .specify/feature.json). Do not create a new feature, run a lifecycle phase, or modify application code.
+Review the completed authorized scope against the actual diff, tests, task/spec/plan, Constitution, and routed authority. Do not fix implementation during review. Persist the review outcome and current authorization/rework state in PROJECT-STATUS.md according to the Codex orchestration contract, verify the mirror is current, then return TASK REVIEW.
 ```
 
 ## Constitution — Codex, initial setup or when project-wide principles changed
