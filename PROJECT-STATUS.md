@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION REVIEW — T016 PASS
+- **Status:** IMPLEMENTATION REVIEW — T017 PASS WITH NON-BLOCKING NOTES
 
 ## Active Feature Mirror
 
@@ -28,38 +28,35 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS
-- **Phase status:** T016 ACCEPTED — PASS
-- **Previous completed scope:** T016 — PASS
+- **Current review result:** PASS WITH NON-BLOCKING NOTES
+- **Phase status:** T017 ACCEPTED — PASS WITH NON-BLOCKING NOTES
+- **Previous completed scope:** T017 — PASS WITH NON-BLOCKING NOTES
 - **Next valid action:** Codex identifies the next valid incomplete task, verifies its blocking
   dependencies, and records a separate authorization and implementation handoff; no implementation
   is currently authorized
 - **Blocking issues:** NONE
-- **Review evidence:** T016-B01 is closed. The server composition validates before work, applies the
-  validated database pool maximum as mysql2 `connectionLimit`, maps Daily to no forwarded-header
-  trust and Verification to exactly one trusted hop, and enables Fastify logging at the validated
-  level. Its Fastify/Pino construction now removes the default process/hostname base and replaces the
-  request/response serializers with bounded method, registered-route, and status fields. Captured-log
-  regression tests exercise query, host, forwarded-for, remote-address, and thrown-error/path
-  sentinels plus the supplied database URL; the logger remains active while none reaches the emitted
-  log surface.
-  The implementation also preserves accepted configuration-first ordering, health routes, read-only
-  uncached readiness, no listener/migration/marker side effect, and bounded idempotent database
-  teardown. The actual T016/rework diff is limited to `apps/server/src/bootstrap.ts`, focused
-  `bootstrap.test.ts`, the required database/HTTP construction boundaries and focused real-engine
-  pool assertions, the T016 checkbox, and this workflow mirror; it adds no dependency, Product/API,
-  authentication, lifecycle, frontend, infrastructure, or Source-of-Truth change. The focused
-  bootstrap suite passes 12/12 tests, the combined configuration/health suite passes 72/72, the
-  canonical explicit-environment real-engine migration suite passes 38/38, and root `tsc --noEmit`,
-  `git diff --check`, conflict-marker inspection, and no-skip/todo inspection pass. Fastify 5.12 and
-  Pino 10 documentation confirm constructor logger options, custom stream/serializers, and base
-  bindings behavior. The implementation matches T016, the spec, plan, data contracts, Constitution,
-  and routed authority; no Source-of-Truth conflict was found.
-- **Non-blocking notes:** NONE
+- **Review evidence:** T017-B01 and T017-B02 are closed. The test contract now observes actual route
+  exports through runtime namespace keys, rejects data/mutation exports without statically selecting
+  absent properties, spies on SSR fetch behavior, requires a semantic main/heading boundary, rejects
+  navigation and form/control structure, and retains bounded Product/domain, Admin/CMS/editorial,
+  and authentication/session copy checks. A reviewer compiler probe using the same key-membership
+  pattern against a compliant default-only module produces no TypeScript diagnostic. The actual diff
+  is exactly bounded to the new `apps/web/app/routes/foundation.test.tsx`, the T017 checkbox, and
+  this workflow mirror; it adds no route implementation/registration, dependency, Product behavior,
+  Admin/server/script, infrastructure, or Source-of-Truth change. The targeted Vitest suite is
+  discovered and red only at the intentionally absent T024 `./foundation.js` boundary; root
+  `tsc --noEmit` reports only that same expected unresolved module. `git diff --check`,
+  conflict-marker inspection, and no-skip/todo/only inspection pass. The tests match T017, FR-001,
+  FR-002, FR-016, the plan, Constitution, and routed authority; no Source-of-Truth conflict was
+  found.
+- **Non-blocking notes:** The authorized ESLint command cannot run because the accepted locked graph
+  provides no `node_modules/.bin/eslint` executable. This pre-existing tooling limitation is outside
+  T017 rework scope and is not an implementation defect; do not change manifests or the lockfile to
+  address it in this task.
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T016 is accepted; T017 and all later tasks remain unauthorized
+- **Task / Scope:** NONE — T017 is accepted; T018 and all later tasks remain unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE

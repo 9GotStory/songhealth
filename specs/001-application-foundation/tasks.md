@@ -72,7 +72,7 @@ interrupted work yields the documented retry/recover/reset/manual-review decisio
 
 ### Tests for User Story 1
 
-- [ ] T017 [P] [US1] Write failing Public foundation route and no-Product-behavior tests in `apps/web/app/routes/foundation.test.tsx` (Refs: FR-001–FR-002, FR-016; US1)
+- [X] T017 [P] [US1] Write failing Public foundation route and no-Product-behavior tests in `apps/web/app/routes/foundation.test.tsx` (Refs: FR-001–FR-002, FR-016; US1)
 - [ ] T018 [P] [US1] Write failing Admin CSR shell boundary and no-authentication tests in `apps/admin/src/app.test.tsx` (Refs: FR-001–FR-002, FR-016; US1)
 - [ ] T019 [US1] Write failing preflight and daily setup/start/ready/stop/restart command tests in `scripts/foundation-operations.test.ts` (Refs: FR-003, FR-006, SC-001; Operations Contract §Commands)
 - [ ] T020 [US1] Add failing exact-ownership, action-token, lock/re-inventory, drift, and forbidden-deletion tests in `scripts/foundation-operations.test.ts` (Refs: FR-004, FR-017, SC-002; Data Model §Resource Inventory)
