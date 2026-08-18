@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION REVIEW — T018 PASS WITH NON-BLOCKING NOTES
+- **Status:** IMPLEMENTATION REVIEW — T019 PASS WITH NON-BLOCKING NOTES
 
 ## Active Feature Mirror
 
@@ -29,38 +29,40 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T018 ACCEPTED — PASS WITH NON-BLOCKING NOTES
-- **Previous completed scope:** T018 — PASS WITH NON-BLOCKING NOTES
+- **Phase status:** T019 ACCEPTED — PASS WITH NON-BLOCKING NOTES
+- **Previous completed scope:** T019 — failing preflight and daily setup/start/ready/stop/restart
+  command tests
 - **Next valid action:** Codex identifies the next valid incomplete task, verifies its blocking
-  dependencies, and records a separate authorization and implementation handoff; no implementation
-  is currently authorized
+  dependencies, and issues a separate implementation authorization; T020+ and all implementation
+  remain unauthorized until that handoff
 - **Blocking issues:** NONE
-- **Review evidence:** The actual implementation diff is exactly bounded to the new
-  `apps/admin/src/app.test.tsx`, the T018 checkbox, and this Codex-owned workflow mirror. The test
-  imports the planned T025 `./app.js` boundary, uses `react-dom/server` only as a deterministic
-  component-markup test utility, explicitly preserves the separate Admin CSR architecture, and
-  requires a renderable default component, semantic main/heading structure, recognizable Admin and
-  foundation/readiness-only copy, runtime key inspection for forbidden route exports, a no-fetch
-  render, and bounded absence checks for authentication/session/access control, Product/domain,
-  CMS/editorial workflow, navigation, form/control, and mutation surfaces. It does not create Admin
-  application code, dependencies, configuration, Product behavior, infrastructure, or any T019+
-  scope. Focused Vitest discovers the suite and is red only at the intentionally absent T025
-  `./app.js` import. Root `tsc --noEmit` reports the new expected T018 `./app.js` TS2307 plus the
-  previously accepted T017 `./foundation.js` TS2307, with no additional diagnostic. `git diff
-  --check`, conflict-marker inspection, and no-skip/todo/only inspection pass. The tests align with
-  T018, User Story 1, FR-001–FR-002, FR-016, the plan's separate minimal Admin CSR boundary, System
-  Blueprint §§4–5/§218/§246, Delivery Context routing and exclusions, and Constitution Principles
-  I–VI; no Source-of-Truth conflict was found.
-- **Non-blocking notes:** The accepted locked graph still provides no
-  `node_modules/.bin/eslint` executable, so the authorized focused ESLint attempt exits 127. Root
-  typecheck necessarily retains T017's accepted tests-first unresolved `./foundation.js` module
-  until T024; T018 itself adds only the expected unresolved `./app.js` module until T025. Neither
-  condition is a T018 implementation defect, and no manifest or lockfile change is authorized to
-  address them here.
+- **Review evidence:** T019-B01 and T019-B02 are closed. Stop and restart tests establish a genuinely
+  running precondition through the injected adapter, clear only observation counters/event history
+  while preserving resource state, and assert the operation-under-test deltas. Repeat stop proves no
+  second stop effect, and restart ordering is evaluated only over the restart trace, where all stop
+  effects precede start effects. T019-B03 remains closed: migration inventory stays owned by the
+  accepted migration boundary, while database/process adapters own idempotency and expose running
+  state without hidden operations-module state or invented native-process ordering. Preflight,
+  fail-before-work, setup/migration ordering, whole-foundation readiness, bounded polling, execution
+  identity, persistence, and duplicate-safe startup coverage remain intact. The actual implementation
+  diff is bounded to `scripts/foundation-operations.test.ts`; the T019 checkbox remains marked `[X]`,
+  and this Codex-owned mirror is the only review write. No implementation, package wiring,
+  dependency, manifest, lockfile, environment file, host mutation, Product behavior, or T020+ scope
+  was added. Focused Vitest is red only at the intentionally absent
+  `./foundation-operations.mjs` boundary. Root `tsc --noEmit` reports two imports of that same
+  expected missing module plus the accepted T017/T018 unresolved modules and no other diagnostic.
+  `git diff --check`, conflict-marker inspection, and no-skip/todo/only inspection pass. Review
+  against T019, FR-003, FR-006, SC-001, the Foundation Operations Contract, Quickstart §1, the plan,
+  the accepted migration boundary, routed Blueprint §§334–340/§§697–703, and Constitution Principles
+  II/III/V/VI finds no Source-of-Truth conflict.
+- **Non-blocking notes:** The focused ESLint command cannot run because the accepted locked graph
+  still provides no `node_modules/.bin/eslint` executable. This pre-existing tooling limitation is
+  outside T019 rework and does not authorize a manifest or lockfile change.
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T018 is accepted; T019 and all later tasks remain unauthorized
+- **Task / Scope:** NONE — T019 is accepted; T020+ and all implementation await a separate Codex
+  handoff
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE
