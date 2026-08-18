@@ -506,6 +506,42 @@ describe("T014 · GET /health/ready (not-ready)", () => {
     expect(applyMigrations).not.toHaveBeenCalled();
     expect(writeMarker).not.toHaveBeenCalled();
   });
+
+  it("an out-of-contract injected diagnostic is rejected at the runtime boundary and mapped to a closed OPERATIONAL_FAILURE (T015-B01)", async () => {
+    // A HealthDependencies implementation may supply a diagnostic carrying raw
+    // or unknown enum values. The runtime boundary must reject it (Fastify
+    // response serialization does NOT validate enum membership) and map it to
+    // the deterministic closed OPERATIONAL_FAILURE diagnostic — none of the
+    // raw sentinel values may reach the HTTP response.
+    const malformedDiagnostic = {
+      reasonCode: "SC002_RAW_SENTINEL_REASON",
+      diagnosticScope: "SC002_RAW_SENTINEL_SCOPE",
+      component: "SC002_RAW_SENTINEL_COMPONENT",
+      configurationKey: "SC002_RAW_SENTINEL_KEY",
+      remediation: "SC002_RAW_SENTINEL_REMEDIATION",
+    } as unknown as HealthSafeDiagnostic;
+    const getDatabaseReadiness = vi.fn(
+      async (): Promise<DatabaseReadiness> =>
+        databaseReadiness("not-ready", malformedDiagnostic),
+    );
+    const { app } = await buildApp({ getDatabaseReadiness });
+
+    const response = await app.inject({ method: "GET", url: "/health/ready" });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.headers["content-type"]).toContain("application/json");
+    const body = bodyOf(response);
+    assertExactKeys(body, READINESS_KEYS, "readiness");
+    expect(body.status).toBe("not-ready");
+    const { application, database } = assertComponentCardinality(body);
+    expect(application.status).toBe("ready");
+    expect(database.status).toBe("not-ready");
+    // The raw sentinel diagnostic is replaced by the closed operational
+    // failure — allowlisted values only, no raw detail.
+    assertClosedDiagnostic(database.diagnostic, "OPERATIONAL_FAILURE");
+    assertNoRawLeak(body);
+    assertNoRawLeak(response.payload);
+  });
 });
 
 // ---------------------------------------------------------------------------

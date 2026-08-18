@@ -53,7 +53,7 @@ all user stories.
 - [X] T012 Create the sole foundation-operational marker migration in `apps/server/src/migrations/001-foundation-persistence-marker.ts` (Refs: SC-002, FR-002, FR-016; Research Decision 7)
 - [X] T013 Implement Kysely database composition plus explicit migration status/apply and marker access in `apps/server/src/database.ts` and `apps/server/src/migrations.ts` (Refs: FR-004, FR-009, SC-002; Plan §Persistence and migrations)
 - [X] T014 [P] Write failing Fastify injection tests for liveness, readiness components, pending migrations, and closed error schemas in `apps/server/src/health.test.ts` (Refs: FR-007, FR-009–FR-010; HTTP Contract `/health/live` and `/health/ready`)
-- [ ] T015 Implement the operational HTTP schemas, liveness, readiness, and safe failure serialization in `apps/server/src/health.ts` and `apps/server/src/http.ts` (Refs: FR-007, FR-009–FR-010; HTTP Contract §Schemas)
+- [X] T015 Implement the operational HTTP schemas, liveness, readiness, and safe failure serialization in `apps/server/src/health.ts` and `apps/server/src/http.ts` (Refs: FR-007, FR-009–FR-010; HTTP Contract §Schemas)
 - [ ] T016 Compose validated configuration, database capabilities, health routes, and startup ordering as the server-owned Fastify plugin in `apps/server/src/bootstrap.ts` (Refs: FR-001–FR-002, FR-006, FR-009; Plan §Runtime composition)
 
 **Checkpoint**: Configuration, database/migration, and health contracts pass independently through

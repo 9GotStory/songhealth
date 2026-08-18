@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION REVIEW — T014 PASS
+- **Status:** IMPLEMENTATION REVIEW — T015 PASS
 
 ## Active Feature Mirror
 
@@ -29,26 +29,31 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** PASS
-- **Phase status:** T014 ACCEPTED — PASS
-- **Previous completed scope:** T014 — PASS
-- **Next valid action:** Codex verifies T015 remains the next incomplete dependency-ready task and
-  records a separate Authorized Implementation handoff; no implementation is currently authorized
+- **Phase status:** T015 ACCEPTED — PASS
+- **Previous completed scope:** T015 — PASS
+- **Next valid action:** Codex identifies the next valid incomplete task, verifies its blocking
+  dependencies, and records a separate authorization and implementation handoff; no implementation
+  is currently authorized
 - **Blocking issues:** NONE
-- **Review evidence:** T014-B01 and T014-B02 are closed. The actual implementation diff is bounded to
-  the authorized new `apps/server/src/health.test.ts` plus the T014 checkbox. The suite now partially
-  mocks the accepted `./migrations.js` module so `applyMigrations` and `writeMarker` are observable
-  spies while read-only exports remain real, and it requires exact component membership/cardinality
-  without array-order coupling. Current Vitest documentation confirms `vi.mock` registration precedes
-  static module evaluation and async `importOriginal` supports this partial-mock shape. The targeted
-  Vitest file is discovered and red only at the expected absent `./http.js` T015 boundary; root
-  TypeScript checking reports only the expected absent `./http.js` and `./health.js` modules.
-  `git diff --check`, untracked-file trailing-whitespace/conflict-marker checks, and the no-skipped/
-  todo-test inspection pass. No Source-of-Truth conflict was found.
+- **Review evidence:** T015-B01 is closed: the exported health Safe Diagnostic/dependency contract
+  now uses the complete closed allowlists, and `toDatabaseComponent()` validates injected diagnostics
+  against the accepted `SAFE_DIAGNOSTIC_SCHEMA` before serialization, mapping any malformed value to
+  the deterministic closed `OPERATIONAL_FAILURE`. Focused raw-sentinel HTTP regression evidence
+  proves invalid `reasonCode`, `diagnosticScope`, `component`, `configurationKey`, and `remediation`
+  values do not reach the response. The actual T015/rework diff is bounded to
+  `apps/server/src/health.ts`, `apps/server/src/http.ts`, focused additions to the accepted
+  `apps/server/src/health.test.ts`, the T015 checkbox, and this workflow mirror. The focused health
+  suite passes 17/17 tests; the combined configuration/health run passes 72/72; root
+  `tsc --noEmit`, `git diff --check`, trailing-whitespace/conflict-marker checks, and no-skip/todo
+  inspection pass. No listener, network, database, migration-apply, marker-write, dependency,
+  Product/API, authentication, or T016+ implementation change was found. The implementation matches
+  the task, spec, plan, HTTP/data contracts, Constitution, and routed authority; no Source-of-Truth
+  conflict was found.
 - **Non-blocking notes:** NONE
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE
+- **Task / Scope:** NONE — T015 is accepted; T016 and all later tasks remain unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE
