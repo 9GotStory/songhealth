@@ -87,9 +87,17 @@
  * removes only the tables this suite created and the dedicated test schema.
  */
 
-import { describe, expect, it, beforeAll, afterAll } from "vitest";
+import {
+  describe,
+  expect,
+  it,
+  beforeAll,
+  afterAll,
+  vi,
+} from "vitest";
 import { randomUUID } from "node:crypto";
 import { sql } from "kysely";
+import { createPool } from "mysql2";
 import {
   createDatabase,
   closeDatabase,
@@ -103,6 +111,21 @@ import {
   getDatabaseReadiness,
   type MigrationStatus,
 } from "./migrations.js";
+
+// T016-B01: observe the mysql2 pool construction. The spy delegates to the real
+// `createPool` (no mock persistence behavior), so the real-engine contract is
+// unchanged; it only records the construction arguments to prove the validated
+// pool bound reaches mysql2 as the pool `connectionLimit`.
+vi.mock("mysql2", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("mysql2")>();
+  return {
+    ...actual,
+    createPool: vi.fn(
+      (...args: Parameters<typeof actual.createPool>) =>
+        actual.createPool(...args),
+    ),
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Pinned contract constants (data-model.md §Migration State / §Synthetic
@@ -606,6 +629,58 @@ describe("T011 · contract shape", () => {
     expect(SYNTHETIC_MARKER_VALUE).not.toContain("://");
     expect(SYNTHETIC_MARKER_VALUE).not.toContain("@");
     expect(SYNTHETIC_MARKER_VALUE).not.toContain("/");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T016-B01 · database construction boundary: the validated pool bound reaches
+// mysql2 as the pool `connectionLimit` when the database is constructed.
+// ---------------------------------------------------------------------------
+
+describe("T016-B01 · database construction applies the validated pool bound", () => {
+  it("createDatabase forwards the pool bound to mysql2 as the pool connectionLimit", async () => {
+    // A synthetic, unreachable, non-Production URL: the pool is lazy, so no
+    // connection is attempted and no real engine is required for this proof.
+    const syntheticUrl =
+      "mysql://songhealth_test:placeholder@127.0.0.1:3306/songhealth_test_construct";
+    const poolMax = 7;
+
+    const createPoolSpy = vi.mocked(createPool);
+    createPoolSpy.mockClear();
+    const database = await createDatabase(syntheticUrl, poolMax);
+
+    // The pool is constructed exactly once, and the validated bound reaches
+    // mysql2 as the pool `connectionLimit`. (mysql2 mutates the config in
+    // place to add host/port/database/user/password, so assert the specific
+    // fields rather than exact object equality.)
+    expect(createPoolSpy).toHaveBeenCalledTimes(1);
+    const poolOptions = createPoolSpy.mock.calls[0][0] as {
+      uri: string;
+      connectionLimit?: number;
+    };
+    expect(poolOptions.uri).toBe(syntheticUrl);
+    expect(poolOptions.connectionLimit).toBe(poolMax);
+
+    await closeDatabase(database);
+  });
+
+  it("createDatabase without an explicit bound leaves the pool connectionLimit unset", async () => {
+    const syntheticUrl =
+      "mysql://songhealth_test:placeholder@127.0.0.1:3306/songhealth_test_construct";
+
+    const createPoolSpy = vi.mocked(createPool);
+    createPoolSpy.mockClear();
+    const database = await createDatabase(syntheticUrl);
+
+    expect(createPoolSpy).toHaveBeenCalledTimes(1);
+    const poolOptions = createPoolSpy.mock.calls[0][0] as {
+      uri: string;
+      connectionLimit?: number;
+    };
+    expect(poolOptions.uri).toBe(syntheticUrl);
+    expect(poolOptions.connectionLimit).toBeUndefined();
+
+    await closeDatabase(database);
   });
 });
 

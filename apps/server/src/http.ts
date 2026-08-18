@@ -37,11 +37,89 @@ import {
 } from "./health.js";
 
 /**
- * Build the operational Fastify app. Registers only the two health routes and
- * returns the in-process instance without binding a listener.
+ * Construction-time Fastify settings applied when the app is built (never
+ * deferred to the later caller-owned listener). The values come from the
+ * validated configuration:
+ *   - `trustProxy`: forwarded-header trust. `false` = none (Daily
+ *     `proxyPolicy=none`); `1` = exactly one hop (Verification
+ *     `proxyPolicy=one-hop`). Never blanket `true`.
+ *   - `logger.level`: the validated application log level.
+ *   - `logger.stream`: optional log output destination (defaults to the
+ *     process stdout). When options are supplied the logger is always bound to
+ *     the least-necessary allowlisted field set (T016-B01): no process/hostname
+ *     base, and no raw headers, query values, host/proxy/remote network
+ *     metadata, configuration, credentials, connection URLs, or exception
+ *     detail are ever serialized.
  */
-export async function createApp(deps: HealthDependencies): Promise<FastifyInstance> {
-  const app = Fastify();
+export interface AppConstructionOptions {
+  trustProxy: boolean | number;
+  logger: {
+    level: string;
+    stream?: NodeJS.WritableStream;
+  };
+}
+
+/**
+ * Least-necessary allowlisted request fields for the operational log surface
+ * (T016-B01): only the HTTP method and the registered route path. The raw
+ * request URL (and its query values), headers, host, and remote/proxy network
+ * metadata are never serialized. The parameter is typed structurally (only the
+ * fields read) so it stays assignable to Fastify's request-serializer contract.
+ */
+function safeRequestSerializer(req: {
+  method: string;
+  routeOptions?: { url?: string };
+}): { method: string; url: string } {
+  return { method: req.method, url: req.routeOptions?.url ?? "" };
+}
+
+/**
+ * Least-necessary allowlisted response field for the operational log surface
+ * (T016-B01): the closed status code. Typed structurally (only the field read)
+ * so it stays assignable to Fastify's response-serializer contract.
+ */
+function safeResponseSerializer(res: { statusCode: number }): {
+  statusCode: number;
+} {
+  return { statusCode: res.statusCode };
+}
+
+/**
+ * Build the operational Fastify app. Registers only the two health routes and
+ * returns the in-process instance without binding a listener. `options`
+ * supplies the validated construction-time proxy-trust and log-level settings;
+ * when omitted the accepted defaults apply (the T014/T015 health contract).
+ */
+export async function createApp(
+  deps: HealthDependencies,
+  options?: AppConstructionOptions,
+): Promise<FastifyInstance> {
+  // When construction options are supplied (the server-owned composition
+  // boundary), configure the Fastify/Pino logger at construction so it emits
+  // only the least-necessary allowlisted diagnostic fields (T016-B01): no
+  // process/hostname base, and the request/response serializers are replaced
+  // with closed field sets that never serialize raw headers, query values,
+  // host/proxy/remote network metadata, configuration, credentials, connection
+  // URLs, or exception detail. Logging stays enabled at the validated level.
+  // The no-options path (the accepted T014/T015 health contract) is unchanged.
+  const fastifyOptions = options
+    ? {
+        trustProxy: options.trustProxy,
+        logger: {
+          level: options.logger.level,
+          // Empty base: no process/hostname/pid fields are bound to every log
+          // line (T016-B01). Equivalent to `base: false` but type-compatible
+          // with Fastify's logger-options contract.
+          base: {},
+          ...(options.logger.stream ? { stream: options.logger.stream } : {}),
+          serializers: {
+            req: safeRequestSerializer,
+            res: safeResponseSerializer,
+          },
+        },
+      }
+    : undefined;
+  const app = Fastify(fastifyOptions);
 
   // Backstop: any error that escapes a route handler (including a probe
   // exception) becomes the closed 500 SafeDiagnostic. Never raw detail.

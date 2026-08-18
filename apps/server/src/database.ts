@@ -9,7 +9,8 @@
  * This module is the server-owned database boundary. It composes a Kysely
  * instance over `mysql2` from a `mysql://` (or `mysql2://`) connection URL and
  * exposes the minimal lifecycle surface the T011 real-engine contract imports:
- *   - `createDatabase(url)` — build a Kysely instance bound to the URL's schema.
+ *   - `createDatabase(url, connectionLimit?)` — build a Kysely instance bound
+ *     to the URL's schema, with an optional pool connection limit.
  *   - `closeDatabase(db)`   — end the underlying connection pool.
  *   - `Database`            — the Kysely instance type.
  *
@@ -46,10 +47,23 @@ export type Database = KyselyInstance<Record<string, never>>;
  * the Kysely driver on first use, so this function resolves even when the
  * engine is unreachable; it never throws for an unreachable target and never
  * logs or retains the URL or its credentials.
+ *
+ * `connectionLimit` is the validated pool bound (the accepted configuration's
+ * `databasePoolMax`). It is applied at pool construction — the mysql2
+ * `PoolOptions.connectionLimit` maximum — so the later caller-owned listener
+ * cannot change it after the fact. When omitted, mysql2's own default applies
+ * (the real-engine contract calls this boundary without a bound).
  */
-export async function createDatabase(url: string): Promise<Database> {
+export async function createDatabase(
+  url: string,
+  connectionLimit?: number,
+): Promise<Database> {
+  const poolOptions: { uri: string; connectionLimit?: number } = { uri: url };
+  if (connectionLimit !== undefined) {
+    poolOptions.connectionLimit = connectionLimit;
+  }
   const dialect = new MysqlDialect({
-    pool: createPool({ uri: url }),
+    pool: createPool(poolOptions),
   });
   return new Kysely<Record<string, never>>({ dialect });
 }
