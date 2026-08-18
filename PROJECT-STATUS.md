@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION REVIEW — T013 PASS WITH NON-BLOCKING NOTES
+- **Status:** IMPLEMENTATION REVIEW — T014 PASS
 
 ## Active Feature Mirror
 
@@ -28,20 +28,23 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T013 ACCEPTED — PASS WITH NON-BLOCKING NOTES
-- **Previous completed scope:** T013 — PASS WITH NON-BLOCKING NOTES
-- **Next valid action:** Codex verifies T014 is still the next valid incomplete dependency-ready
-  task and records a separate Authorized Implementation handoff; no implementation is currently
-  authorized
+- **Current review result:** PASS
+- **Phase status:** T014 ACCEPTED — PASS
+- **Previous completed scope:** T014 — PASS
+- **Next valid action:** Codex verifies T015 remains the next incomplete dependency-ready task and
+  records a separate Authorized Implementation handoff; no implementation is currently authorized
 - **Blocking issues:** NONE
-- **Non-blocking notes:** T013-B01 through T013-B05 are closed. The exact isolated real-engine
-  verification passed all 36 T011/T013 tests; root `./node_modules/.bin/tsc --noEmit`, all 55
-  `apps/server/src/config.test.ts` tests, `git diff --check`, and untracked-file whitespace checks
-  also pass. The marker-access exceptions use bounded internal identifiers; later output adapters
-  must map them to the approved closed SafeDiagnostic vocabulary rather than expose them directly.
-  ESLint remains unavailable because no ESLint binary/package is installed; adding it was outside
-  T013 scope and was not required by the accepted T013 verification
+- **Review evidence:** T014-B01 and T014-B02 are closed. The actual implementation diff is bounded to
+  the authorized new `apps/server/src/health.test.ts` plus the T014 checkbox. The suite now partially
+  mocks the accepted `./migrations.js` module so `applyMigrations` and `writeMarker` are observable
+  spies while read-only exports remain real, and it requires exact component membership/cardinality
+  without array-order coupling. Current Vitest documentation confirms `vi.mock` registration precedes
+  static module evaluation and async `importOriginal` supports this partial-mock shape. The targeted
+  Vitest file is discovered and red only at the expected absent `./http.js` T015 boundary; root
+  TypeScript checking reports only the expected absent `./http.js` and `./health.js` modules.
+  `git diff --check`, untracked-file trailing-whitespace/conflict-marker checks, and the no-skipped/
+  todo-test inspection pass. No Source-of-Truth conflict was found.
+- **Non-blocking notes:** NONE
 
 ## Authorized Implementation
 
