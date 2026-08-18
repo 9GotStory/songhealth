@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION REVIEW — T017 PASS WITH NON-BLOCKING NOTES
+- **Status:** IMPLEMENTATION REVIEW — T018 PASS WITH NON-BLOCKING NOTES
 
 ## Active Feature Mirror
 
@@ -29,34 +29,38 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T017 ACCEPTED — PASS WITH NON-BLOCKING NOTES
-- **Previous completed scope:** T017 — PASS WITH NON-BLOCKING NOTES
+- **Phase status:** T018 ACCEPTED — PASS WITH NON-BLOCKING NOTES
+- **Previous completed scope:** T018 — PASS WITH NON-BLOCKING NOTES
 - **Next valid action:** Codex identifies the next valid incomplete task, verifies its blocking
   dependencies, and records a separate authorization and implementation handoff; no implementation
   is currently authorized
 - **Blocking issues:** NONE
-- **Review evidence:** T017-B01 and T017-B02 are closed. The test contract now observes actual route
-  exports through runtime namespace keys, rejects data/mutation exports without statically selecting
-  absent properties, spies on SSR fetch behavior, requires a semantic main/heading boundary, rejects
-  navigation and form/control structure, and retains bounded Product/domain, Admin/CMS/editorial,
-  and authentication/session copy checks. A reviewer compiler probe using the same key-membership
-  pattern against a compliant default-only module produces no TypeScript diagnostic. The actual diff
-  is exactly bounded to the new `apps/web/app/routes/foundation.test.tsx`, the T017 checkbox, and
-  this workflow mirror; it adds no route implementation/registration, dependency, Product behavior,
-  Admin/server/script, infrastructure, or Source-of-Truth change. The targeted Vitest suite is
-  discovered and red only at the intentionally absent T024 `./foundation.js` boundary; root
-  `tsc --noEmit` reports only that same expected unresolved module. `git diff --check`,
-  conflict-marker inspection, and no-skip/todo/only inspection pass. The tests match T017, FR-001,
-  FR-002, FR-016, the plan, Constitution, and routed authority; no Source-of-Truth conflict was
-  found.
-- **Non-blocking notes:** The authorized ESLint command cannot run because the accepted locked graph
-  provides no `node_modules/.bin/eslint` executable. This pre-existing tooling limitation is outside
-  T017 rework scope and is not an implementation defect; do not change manifests or the lockfile to
-  address it in this task.
+- **Review evidence:** The actual implementation diff is exactly bounded to the new
+  `apps/admin/src/app.test.tsx`, the T018 checkbox, and this Codex-owned workflow mirror. The test
+  imports the planned T025 `./app.js` boundary, uses `react-dom/server` only as a deterministic
+  component-markup test utility, explicitly preserves the separate Admin CSR architecture, and
+  requires a renderable default component, semantic main/heading structure, recognizable Admin and
+  foundation/readiness-only copy, runtime key inspection for forbidden route exports, a no-fetch
+  render, and bounded absence checks for authentication/session/access control, Product/domain,
+  CMS/editorial workflow, navigation, form/control, and mutation surfaces. It does not create Admin
+  application code, dependencies, configuration, Product behavior, infrastructure, or any T019+
+  scope. Focused Vitest discovers the suite and is red only at the intentionally absent T025
+  `./app.js` import. Root `tsc --noEmit` reports the new expected T018 `./app.js` TS2307 plus the
+  previously accepted T017 `./foundation.js` TS2307, with no additional diagnostic. `git diff
+  --check`, conflict-marker inspection, and no-skip/todo/only inspection pass. The tests align with
+  T018, User Story 1, FR-001–FR-002, FR-016, the plan's separate minimal Admin CSR boundary, System
+  Blueprint §§4–5/§218/§246, Delivery Context routing and exclusions, and Constitution Principles
+  I–VI; no Source-of-Truth conflict was found.
+- **Non-blocking notes:** The accepted locked graph still provides no
+  `node_modules/.bin/eslint` executable, so the authorized focused ESLint attempt exits 127. Root
+  typecheck necessarily retains T017's accepted tests-first unresolved `./foundation.js` module
+  until T024; T018 itself adds only the expected unresolved `./app.js` module until T025. Neither
+  condition is a T018 implementation defect, and no manifest or lockfile change is authorized to
+  address them here.
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T017 is accepted; T018 and all later tasks remain unauthorized
+- **Task / Scope:** NONE — T018 is accepted; T019 and all later tasks remain unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE
