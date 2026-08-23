@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION REVIEW — T019 PASS WITH NON-BLOCKING NOTES
+- **Status:** IMPLEMENTATION REVIEW — T020 PASS WITH NON-BLOCKING NOTES
 
 ## Active Feature Mirror
 
@@ -29,39 +29,47 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T019 ACCEPTED — PASS WITH NON-BLOCKING NOTES
-- **Previous completed scope:** T019 — failing preflight and daily setup/start/ready/stop/restart
-  command tests
-- **Next valid action:** Codex identifies the next valid incomplete task, verifies its blocking
-  dependencies, and issues a separate implementation authorization; T020+ and all implementation
+- **Phase status:** T020 ACCEPTED — T021+ UNAUTHORIZED
+- **Previous completed scope:** T020 — failing exact-ownership, action-token, lock/re-inventory,
+  drift, and forbidden-deletion tests
+- **Next valid action:** Codex identifies the next valid incomplete task, verifies all blocking
+  dependencies, and issues a separate implementation authorization; T021+ and all implementation
   remain unauthorized until that handoff
 - **Blocking issues:** NONE
-- **Review evidence:** T019-B01 and T019-B02 are closed. Stop and restart tests establish a genuinely
-  running precondition through the injected adapter, clear only observation counters/event history
-  while preserving resource state, and assert the operation-under-test deltas. Repeat stop proves no
-  second stop effect, and restart ordering is evaluated only over the restart trace, where all stop
-  effects precede start effects. T019-B03 remains closed: migration inventory stays owned by the
-  accepted migration boundary, while database/process adapters own idempotency and expose running
-  state without hidden operations-module state or invented native-process ordering. Preflight,
-  fail-before-work, setup/migration ordering, whole-foundation readiness, bounded polling, execution
-  identity, persistence, and duplicate-safe startup coverage remain intact. The actual implementation
-  diff is bounded to `scripts/foundation-operations.test.ts`; the T019 checkbox remains marked `[X]`,
-  and this Codex-owned mirror is the only review write. No implementation, package wiring,
-  dependency, manifest, lockfile, environment file, host mutation, Product behavior, or T020+ scope
-  was added. Focused Vitest is red only at the intentionally absent
-  `./foundation-operations.mjs` boundary. Root `tsc --noEmit` reports two imports of that same
-  expected missing module plus the accepted T017/T018 unresolved modules and no other diagnostic.
-  `git diff --check`, conflict-marker inspection, and no-skip/todo/only inspection pass. Review
-  against T019, FR-003, FR-006, SC-001, the Foundation Operations Contract, Quickstart §1, the plan,
-  the accepted migration boundary, routed Blueprint §§334–340/§§697–703, and Constitution Principles
-  II/III/V/VI finds no Source-of-Truth conflict.
-- **Non-blocking notes:** The focused ESLint command cannot run because the accepted locked graph
-  still provides no `node_modules/.bin/eslint` executable. This pre-existing tooling limitation is
-  outside T019 rework and does not authorize a manifest or lockfile change.
+- **Review evidence:** T020-B02 is closed. The injected confirmation authority records every exact
+  opaque token submitted to verification and enforces issuance under the exact `(target, action)`
+  pair. Accepted reset and cleanup cases prove each operation submits the caller-presented token,
+  mints no replacement token in its operation event slice, verifies under the bound action after
+  locked re-inventory/evidence recomputation, and mutates only the individually recorded exact
+  resources. Operation-level mismatch cases present a real non-empty token issued for the other
+  valid target/action pair, prove reset/cleanup submit that exact caller token without minting a
+  substitute, and prove boundary refusal causes zero mutation. The direct same-target/
+  different-action control separately proves action-specific correlation without pinning token
+  value or serialization. T020-B01 remains closed: the observed custom-label map is the sole
+  completeness input, every documented missing key is exercised, and an initially absent manifest
+  resource refuses issuance. T020-B03 remains closed: reset, cleanup, and assessment-drift traces
+  enforce immediate post-lock inspection/recomputation and release after mutation/refusal.
+  T020-B04 remains closed across the expanded accepted/refusal matrix, including both mismatch
+  cases: the legacy no-argument volume deletion path and every forbidden broad mutation remain
+  untouched. The actual working-tree diff remains bounded to the authorized T019/T020 test artifact
+  in `scripts/foundation-operations.test.ts`, the already-complete T020 checkbox, and this
+  Codex-owned mirror; no operations implementation, application, manifest, package, lockfile,
+  configuration, environment, or T021+ artifact was added. No retry/recover action, journal,
+  interruption, integrity, repeatability, or recovery-assessment model was added. Focused Vitest is
+  red only at the intentionally absent `./foundation-operations.mjs` boundary. Root
+  `tsc --noEmit` reports the two imports of that expected missing module plus the accepted T017/T018
+  unresolved modules and no other diagnostic. `git diff --check`, conflict-marker inspection, and
+  no-skip/todo/only inspection pass. Review against T020, FR-004, FR-017, SC-002, Owned Runtime
+  Resource, Resource Inventory, the plan, Foundation Operations Contract, Quickstart §2, routed
+  Blueprint §§335/697–703, Delivery Context, and Constitution Principles I–VI finds no
+  Source-of-Truth conflict.
+- **Non-blocking notes:** The accepted locked graph still provides no
+  `node_modules/.bin/eslint` executable, so the required focused ESLint attempt exits 127. This
+  pre-existing tooling limitation does not authorize a dependency, manifest, or lockfile change.
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T019 is accepted; T020+ and all implementation await a separate Codex
+- **Task / Scope:** NONE — T020 is accepted; T021+ and all implementation await a separate Codex
   handoff
 - **Runtime:** NONE
 - **Required references:** NONE
