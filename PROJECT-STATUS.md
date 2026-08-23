@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION AUTHORIZED — T021
+- **Status:** IMPLEMENTATION REWORK — T021 CHANGES REQUIRED
 
 ## Active Feature Mirror
 
@@ -28,14 +28,22 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T020 ACCEPTED — T021 AUTHORIZED; T022+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED
+- **Phase status:** T020 ACCEPTED — T021 REWORK; T022+ UNAUTHORIZED
 - **Previous completed scope:** T020 — failing exact-ownership, action-token, lock/re-inventory,
   drift, and forbidden-deletion tests
-- **Next valid action:** Claude Code implements only T021, returns implementation-result evidence,
-  and stops for independent Codex review; T022+ remain unauthorized
-- **Blocking issues:** NONE
-- **Review evidence:** T020-B02 is closed. The injected confirmation authority records every exact
+- **Next valid action:** Claude Code corrects only T021-B01, returns corrective-result evidence,
+  and stops for independent Codex re-review; T022+ remain unauthorized
+- **Blocking issues:** T021-B01 — the T021 fault-injection suite exercises interrupted `start` and
+  `cleanup`, but omits interrupted `stop`, `migrate`, and `reset`, despite Quickstart §5, the
+  Foundation Operations Contract command signature, and Plan §Operations and verification requiring
+  the acceptance-only interface to exercise all five allowlisted actions
+- **Review evidence:** Independent review of `7a1f249` confirms the diff is bounded to the T021 test
+  artifact and checkbox, and reproduces the expected single missing-module Vitest failure, five
+  expected TS2307 diagnostics, clean `git diff --check`, and clean conflict-marker/no-skip scans.
+  T021-B01 remains blocking because the test matrix covers only two of the five explicitly required
+  interruption actions. Prior accepted evidence follows: T020-B02 is closed. The injected
+  confirmation authority records every exact
   opaque token submitted to verification and enforces issuance under the exact `(target, action)`
   pair. Accepted reset and cleanup cases prove each operation submits the caller-presented token,
   mints no replacement token in its operation event slice, verifies under the bound action after
@@ -68,10 +76,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T021 only — write failing interruption and recovery-decision tests for retry,
-  non-destructive recover, reset, manual review, and immutable primary failures in
-  `tests/verification/lifecycle-recovery.test.ts`; create only the minimum parent directory needed
-  for that test artifact
+- **Task / Scope:** T021-B01 rework only — extend
+  `tests/verification/lifecycle-recovery.test.ts` with deterministic interruption-injection coverage
+  for the missing allowlisted `stop`, `migrate`, and `reset` actions; preserve the accepted `start`
+  and Verification `cleanup` coverage and all existing T021 recovery-decision/immutable-failure
+  coverage
 - **Runtime:** Claude Code DEV Executor via the installed Spec Kit `implement` command/skill, bounded
   to T021
 - **Required references:** `.specify/memory/constitution.md`; `CLAUDE.md`;
@@ -82,14 +91,15 @@
   `specs/001-application-foundation/data-model.md` Lifecycle Operation and Recovery Assessment;
   `specs/001-application-foundation/contracts/foundation-operations.md` Failure behavior
 - **Expected verification:** focused Vitest for
-  `tests/verification/lifecycle-recovery.test.ts` must collect the intended T021 cases and fail only
-  at the deliberately absent T032–T034/T037 lifecycle/recovery implementation boundary; run
+  `tests/verification/lifecycle-recovery.test.ts` must collect interruption cases spanning all five
+  contract actions (`start`, `stop`, `migrate`, `reset`, `cleanup`) and fail only at the deliberately
+  absent T032–T034/T037 lifecycle/recovery implementation boundary; run
   focused ESLint and root `tsc --noEmit`, classifying only already-accepted missing-boundary/tooling
   diagnostics as non-blocking; run `git diff --check`, conflict-marker inspection, and
   no-skip/todo/only inspection. Return the exact changed files, commands/results, bounded expected
   red evidence, and confirmation that no implementation, package/dependency/lockfile, manifest,
   environment, Product behavior, T022+, or broad host/resource mutation was added.
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
