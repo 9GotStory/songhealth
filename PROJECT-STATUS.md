@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION REWORK — T021 CHANGES REQUIRED
+- **Status:** IMPLEMENTATION REVIEW — T021 PASS WITH NON-BLOCKING NOTES
 
 ## Active Feature Mirror
 
@@ -28,78 +28,40 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED
-- **Phase status:** T020 ACCEPTED — T021 REWORK; T022+ UNAUTHORIZED
-- **Previous completed scope:** T020 — failing exact-ownership, action-token, lock/re-inventory,
-  drift, and forbidden-deletion tests
-- **Next valid action:** Claude Code corrects only T021-B01, returns corrective-result evidence,
-  and stops for independent Codex re-review; T022+ remain unauthorized
-- **Blocking issues:** T021-B01 — the T021 fault-injection suite exercises interrupted `start` and
-  `cleanup`, but omits interrupted `stop`, `migrate`, and `reset`, despite Quickstart §5, the
-  Foundation Operations Contract command signature, and Plan §Operations and verification requiring
-  the acceptance-only interface to exercise all five allowlisted actions
-- **Review evidence:** Independent review of `7a1f249` confirms the diff is bounded to the T021 test
-  artifact and checkbox, and reproduces the expected single missing-module Vitest failure, five
-  expected TS2307 diagnostics, clean `git diff --check`, and clean conflict-marker/no-skip scans.
-  T021-B01 remains blocking because the test matrix covers only two of the five explicitly required
-  interruption actions. Prior accepted evidence follows: T020-B02 is closed. The injected
-  confirmation authority records every exact
-  opaque token submitted to verification and enforces issuance under the exact `(target, action)`
-  pair. Accepted reset and cleanup cases prove each operation submits the caller-presented token,
-  mints no replacement token in its operation event slice, verifies under the bound action after
-  locked re-inventory/evidence recomputation, and mutates only the individually recorded exact
-  resources. Operation-level mismatch cases present a real non-empty token issued for the other
-  valid target/action pair, prove reset/cleanup submit that exact caller token without minting a
-  substitute, and prove boundary refusal causes zero mutation. The direct same-target/
-  different-action control separately proves action-specific correlation without pinning token
-  value or serialization. T020-B01 remains closed: the observed custom-label map is the sole
-  completeness input, every documented missing key is exercised, and an initially absent manifest
-  resource refuses issuance. T020-B03 remains closed: reset, cleanup, and assessment-drift traces
-  enforce immediate post-lock inspection/recomputation and release after mutation/refusal.
-  T020-B04 remains closed across the expanded accepted/refusal matrix, including both mismatch
-  cases: the legacy no-argument volume deletion path and every forbidden broad mutation remain
-  untouched. The actual working-tree diff remains bounded to the authorized T019/T020 test artifact
-  in `scripts/foundation-operations.test.ts`, the already-complete T020 checkbox, and this
-  Codex-owned mirror; no operations implementation, application, manifest, package, lockfile,
-  configuration, environment, or T021+ artifact was added. No retry/recover action, journal,
-  interruption, integrity, repeatability, or recovery-assessment model was added. Focused Vitest is
-  red only at the intentionally absent `./foundation-operations.mjs` boundary. Root
-  `tsc --noEmit` reports the two imports of that expected missing module plus the accepted T017/T018
-  unresolved modules and no other diagnostic. `git diff --check`, conflict-marker inspection, and
-  no-skip/todo/only inspection pass. Review against T020, FR-004, FR-017, SC-002, Owned Runtime
-  Resource, Resource Inventory, the plan, Foundation Operations Contract, Quickstart §2, routed
-  Blueprint §§335/697–703, Delivery Context, and Constitution Principles I–VI finds no
-  Source-of-Truth conflict.
+- **Current review result:** PASS WITH NON-BLOCKING NOTES
+- **Phase status:** T021 PASS — HUMAN GATE; T022+ UNAUTHORIZED
+- **Previous completed scope:** T021 — failing interruption and recovery-decision tests for all
+  five allowlisted actions, target-appropriate retry/recover/reset/cleanup/manual-review decisions,
+  attempt binding, and immutable primary failures
+- **Next valid action:** Product Owner reviews and accepts or rejects T021 at Human Gate; no later
+  task is authorized
+- **Blocking issues:** NONE
+- **Review evidence:** T021-B01 is closed in `68cd439`: deterministic fault-injection cases now span
+  `start`, `stop`, `migrate`, `reset`, and `cleanup`, assert action/phase-specific interruption
+  evidence, preserve `OPERATION_INTERRUPTED` as primary, and keep targets stopped/not-ready without
+  mutation or duplicates. Independent re-review confirms the corrective diff is exactly one test
+  file with 53 inserted lines on top of the persisted rework state. Focused Vitest is red only at
+  the deliberately absent `../../scripts/foundation-operations.mjs` boundary. Root `tsc --noEmit`
+  reports only the four accepted baseline TS2307 diagnostics plus the expected T021 missing-boundary
+  diagnostic. `git diff --check`, conflict-marker inspection, and no-skip/todo/only inspection pass.
+  The complete T021 diff remains bounded to `tests/verification/lifecycle-recovery.test.ts`, its
+  task checkbox, and Codex-owned workflow mirror updates; no implementation, dependency, lockfile,
+  manifest, environment, Product behavior, or T022+ artifact was added. Review against T021,
+  FR-003, FR-017, Lifecycle Operation, Recovery Assessment, the Foundation Operations Contract,
+  Quickstart §5, Plan §Operations and verification, Delivery Context, and Constitution Principles
+  I–VI finds no Source-of-Truth conflict.
 - **Non-blocking notes:** The accepted locked graph still provides no
   `node_modules/.bin/eslint` executable, so the required focused ESLint attempt exits 127. This
   pre-existing tooling limitation does not authorize a dependency, manifest, or lockfile change.
 
 ## Authorized Implementation
 
-- **Task / Scope:** T021-B01 rework only — extend
-  `tests/verification/lifecycle-recovery.test.ts` with deterministic interruption-injection coverage
-  for the missing allowlisted `stop`, `migrate`, and `reset` actions; preserve the accepted `start`
-  and Verification `cleanup` coverage and all existing T021 recovery-decision/immutable-failure
-  coverage
-- **Runtime:** Claude Code DEV Executor via the installed Spec Kit `implement` command/skill, bounded
-  to T021
-- **Required references:** `.specify/memory/constitution.md`; `CLAUDE.md`;
-  `docs/spec-context/001-application-foundation.md` Implementation / Review routing;
-  `specs/001-application-foundation/spec.md` FR-003 and FR-017;
-  `specs/001-application-foundation/plan.md` Operations and verification;
-  `specs/001-application-foundation/tasks.md` T021 and dependency rules;
-  `specs/001-application-foundation/data-model.md` Lifecycle Operation and Recovery Assessment;
-  `specs/001-application-foundation/contracts/foundation-operations.md` Failure behavior
-- **Expected verification:** focused Vitest for
-  `tests/verification/lifecycle-recovery.test.ts` must collect interruption cases spanning all five
-  contract actions (`start`, `stop`, `migrate`, `reset`, `cleanup`) and fail only at the deliberately
-  absent T032–T034/T037 lifecycle/recovery implementation boundary; run
-  focused ESLint and root `tsc --noEmit`, classifying only already-accepted missing-boundary/tooling
-  diagnostics as non-blocking; run `git diff --check`, conflict-marker inspection, and
-  no-skip/todo/only inspection. Return the exact changed files, commands/results, bounded expected
-  red evidence, and confirmation that no implementation, package/dependency/lockfile, manifest,
-  environment, Product behavior, T022+, or broad host/resource mutation was added.
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T021 passed independent review and awaits Human Gate; T022+ remain
+  unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
