@@ -76,7 +76,7 @@ interrupted work yields the documented retry/recover/reset/manual-review decisio
 - [X] T018 [P] [US1] Write failing Admin CSR shell boundary and no-authentication tests in `apps/admin/src/app.test.tsx` (Refs: FR-001–FR-002, FR-016; US1)
 - [X] T019 [US1] Write failing preflight and daily setup/start/ready/stop/restart command tests in `scripts/foundation-operations.test.ts` (Refs: FR-003, FR-006, SC-001; Operations Contract §Commands)
 - [X] T020 [US1] Add failing exact-ownership, action-token, lock/re-inventory, drift, and forbidden-deletion tests in `scripts/foundation-operations.test.ts` (Refs: FR-004, FR-017, SC-002; Data Model §Resource Inventory)
-- [ ] T021 [P] [US1] Write failing interruption and recovery-decision tests for retry, non-destructive recover, reset, manual review, and immutable primary failures in `tests/verification/lifecycle-recovery.test.ts` (Refs: FR-003, FR-017; Data Model §Recovery Assessment)
+- [X] T021 [P] [US1] Write failing interruption and recovery-decision tests for retry, non-destructive recover, reset, manual review, and immutable primary failures in `tests/verification/lifecycle-recovery.test.ts` (Refs: FR-003, FR-017; Data Model §Recovery Assessment)
 - [ ] T022 [P] [US1] Write failing Development/Verification isolation, marker continuity, exact reset, and non-target inventory tests in `tests/verification/foundation-operation-target.test.ts` (Refs: FR-004, FR-008, SC-002; Quickstart §2)
 - [ ] T023 [P] [US1] Write failing daily stdout/stderr, application-log, HTTP, exact-sentinel, and encoded-sentinel nondisclosure tests in `tests/verification/diagnostic-surfaces.test.ts` (Refs: FR-007, SC-004; Operations Contract §Safe diagnostic contract)
 
