@@ -1,71 +1,112 @@
 # Pre-Implementation Gate
 
-> **State:** OPEN — repository assembled, runtime bootstrap pending
+> **State:** RECONCILED — the Delivery 001 pre-implementation gates below were satisfied before
+> bounded task implementation began. Current authorization: NONE (T021 Human Gate ACCEPTED; T022+
+> UNAUTHORIZED). Two Context7 connection items are unproven and one Context7 configuration item is
+> not satisfied at HEAD; see the Context7 gate below.
 
-Implementation may begin only when every required gate below is PASS.
-
+This file records whether the required gates were satisfied before application implementation
+began, and mirrors the current authorization state. It is a governance gate/status artifact — not
+a changelog, not a Source of Truth, and not a redefinition of requirements or architecture.
+Completed Specify/Clarify/Plan/checklist/Tasks/Analyze work is represented from persisted
+artifacts and history; those phases were not rerun for this reconciliation.
 
 ## Agent Instruction Routing
 
-- [ ] `AGENTS.md` exists at repository root.
-- [ ] `CLAUDE.md` exists at repository root.
-- [ ] `docs/operations/codex-orchestrator.md` exists and is routed from `AGENTS.md`.
-- [ ] no separate root Codex-specific instruction file is present.
-- [ ] no `QWEN.md` is present.
+- [x] `AGENTS.md` exists at repository root.
+- [x] `CLAUDE.md` exists at repository root.
+- [x] `docs/operations/codex-orchestrator.md` exists and is routed from `AGENTS.md`.
+- [x] no separate root Codex-specific instruction file is present.
+- [x] no `QWEN.md` is present.
 
 ## A. Repository baseline
 
-- [x] Frozen Product/IA documents `00–08` present
-- [x] System Blueprint `10` present as FROZEN v1.1
-- [x] Project Index / Changelog / reviews / archive present
-- [x] Codex / Claude / shared agent controls present
-- [x] Delivery Context template present
-- [x] Proposed Constitution present as bootstrap input only
+- [x] Frozen Product/IA documents `00–08` present — `docs/website-modernization-docs/current/`.
+- [x] System Blueprint `10` present as FROZEN v1.1.
+- [x] Project Index / Changelog / reviews / archive present.
+- [x] Codex / Claude / shared agent controls present — `AGENTS.md`, `.agents/skills/`, `.claude/skills/`.
+- [x] Delivery Context template present — `docs/spec-context/_template.md`.
+- [x] Proposed Constitution present as bootstrap input only — `bootstrap/constitution.proposed.md`.
 
 ## B. Target-machine Spec Kit runtime
 
-- [ ] `specify version` verified
-- [ ] `specify integration status` verified
-- [ ] Codex integration verified
-- [ ] Claude Code integration verified
-- [ ] default-sensitive extensions/presets reviewed if present
-- [ ] `SPECIFY_FEATURE_DIRECTORY` checked for stale/conflicting override
+- [x] `specify version` verified — Specify CLI 0.16.4, persisted in `PROJECT-STATUS.md` and the
+  Delivery Context dependency table.
+- [x] `specify integration status` verified — Codex + Claude integrations OK, same persisted record.
+- [x] Codex integration verified — `.specify/integration.json` lists `codex`;
+  `.specify/integrations/codex.manifest.json` (v0.16.4, installed 2026-08-16).
+- [x] Claude Code integration verified — `.specify/integration.json` lists `claude`;
+  `.specify/integrations/claude.manifest.json` (v0.16.4, installed 2026-08-16).
+- [x] default-sensitive extensions/presets reviewed — only the `git` extension is installed
+  (`.specify/extensions.yml`); its enablement is persisted in `c226306`.
+- [x] `SPECIFY_FEATURE_DIRECTORY` checked for stale/conflicting override — resolves to
+  `specs/001-application-foundation`, matching the planned Delivery and its Delivery Context
+  (`docs/spec-context/001-application-foundation.md`). `.specify/feature.json` is absent, so the
+  override is the active resolver. This reconciliation did not set, unset, or change the override.
 
 ## C. Constitution
 
-- [ ] proposed Constitution reconciled against the real repository
-- [ ] `/speckit.constitution` completed
-- [ ] canonical `.specify/memory/constitution.md` reviewed and approved
+- [x] proposed Constitution reconciled against the real repository — through
+  `/speckit.constitution`, not copied.
+- [x] `/speckit.constitution` completed — `52f901e`.
+- [x] canonical `.specify/memory/constitution.md` reviewed and approved — v1.0.0, ratified
+  2026-08-16; the retained Sync Impact Report records the placeholder → v1.0.0 transition.
 
 ## D. First Delivery
 
-- [ ] Product Owner selects/approves first Delivery
-- [ ] `PROJECT-STATUS.md` updated with Delivery key
-- [ ] `docs/spec-context/<delivery-key>.md` created/reconciled
-- [ ] Delivery Context state = `READY`
+- [x] Product Owner selects/approves first Delivery — `001-application-foundation`.
+- [x] `PROJECT-STATUS.md` updated with Delivery key.
+- [x] `docs/spec-context/001-application-foundation.md` created/reconciled — `6fb8e7f`.
+- [x] Delivery Context state = `READY`.
 
 ## E. Spec Kit feature gates
 
-- [ ] `specify` complete
-- [ ] `clarify` complete
-- [ ] `plan` complete
-- [ ] requirements checklist reviewed
-- [ ] `tasks` complete
-- [ ] `analyze` clean
+- [x] `specify` complete — `db3fb91`; `specs/001-application-foundation/spec.md` status Approved.
+- [x] `clarify` complete — `41ad720`, `8afe531`.
+- [x] `plan` complete — `dba6890`, reconciled in `99f01fe` and `106b195`.
+- [x] requirements checklist reviewed — `a5edfe8` records the checklist gate pass; both files
+  under `specs/001-application-foundation/checklists/` are fully satisfied
+  (`requirements.md` 16/16, `foundation-quality.md` 80/80, no unchecked items).
+- [x] `tasks` complete — `68eafe4`.
+- [x] `analyze` clean — `e323597` records post-analyze artifact reconciliation.
 
 ## F. Implementation authorization
 
-- [ ] next incomplete dependency-ready Task selected
-- [ ] Task explicitly authorized in `PROJECT-STATUS.md`
-- [ ] Claude Code handoff has exact scope/references/verification
+Satisfied before bounded task implementation began (persisted evidence):
+
+- [x] next incomplete dependency-ready Task selected — T001 at implementation start (`ca36426`).
+- [x] Task explicitly authorized in `PROJECT-STATUS.md` — explicit per-task authorization is
+  persisted across the T001–T021 loop (authorization commits include `ca36426` for T001 and
+  `95cc9d8` for T021).
+- [x] Claude Code handoff has exact scope/references/verification — persisted per-task
+  IMPLEMENTATION HANDOFFs under the `docs/operations/codex-orchestrator.md` handoff rule;
+  persisted-authorization enforcement is recorded in `7707150`.
+
+Current state (authoritative mirror — no task is selected or authorized now):
+
+- Authorized Implementation: NONE — `PROJECT-STATUS.md` records `Authorization state: NONE`.
+- T021 Human Gate is ACCEPTED; T022+ are UNAUTHORIZED. This reconciliation does not select,
+  authorize, or hand off any next task and does not advance the Spec Kit phase.
 
 ## Context7 / External Documentation Gate
 
-- [ ] `.codex/config.toml` contains project-scoped Context7 MCP configuration.
-- [ ] `.mcp.json` contains the project-scoped Claude Code Context7 configuration.
-- [ ] Context7 is connected for Codex.
-- [ ] Context7 is connected for Claude Code.
-- [ ] Context7 is treated as technical evidence, not project Source of Truth.
-- [ ] Context7 cannot independently introduce dependencies or expand Delivery scope.
+- [ ] `.codex/config.toml` contains project-scoped Context7 MCP configuration — NOT SATISFIED at
+  HEAD: added in `6266d0c`, removed in `04975f4`; no Codex-side Context7 configuration exists in
+  the repository.
+- [x] `.mcp.json` contains the project-scoped Claude Code Context7 configuration — present at
+  HEAD (`context7` HTTP server entry).
+- [ ] Context7 is connected for Codex — UNPROVEN: no repository configuration at HEAD evidences
+  the connection, and repository state alone cannot prove a live session.
+- [ ] Context7 is connected for Claude Code — UNPROVEN: `.mcp.json` declares the server, but a
+  live connected session cannot be claimed solely from repository configuration.
+- [x] Context7 is treated as technical evidence, not project Source of Truth — `AGENTS.md`
+  authority order; `docs/operations/codex-orchestrator.md` Context7 Verification Rule;
+  `docs/operations/SPEC-KIT-CONTROL.md` authority ladder.
+- [x] Context7 cannot independently introduce dependencies or expand Delivery scope — prohibited
+  explicitly by the same documents.
 
-Only after A–F pass may application implementation begin.
+A–F above were satisfied before Delivery 001 application implementation began; implementation then
+proceeded only under explicit per-task authorization through accepted T021. The unsatisfied
+Codex-side configuration item and the two unproven live-connection items do not authorize any
+dependency, manifest, lockfile, or configuration change, and do not select or authorize T022 or
+any later task.
