@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION REVIEW — T020 PASS WITH NON-BLOCKING NOTES
+- **Status:** IMPLEMENTATION AUTHORIZED — T021
 
 ## Active Feature Mirror
 
@@ -29,12 +29,11 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T020 ACCEPTED — T021+ UNAUTHORIZED
+- **Phase status:** T020 ACCEPTED — T021 AUTHORIZED; T022+ UNAUTHORIZED
 - **Previous completed scope:** T020 — failing exact-ownership, action-token, lock/re-inventory,
   drift, and forbidden-deletion tests
-- **Next valid action:** Codex identifies the next valid incomplete task, verifies all blocking
-  dependencies, and issues a separate implementation authorization; T021+ and all implementation
-  remain unauthorized until that handoff
+- **Next valid action:** Claude Code implements only T021, returns implementation-result evidence,
+  and stops for independent Codex review; T022+ remain unauthorized
 - **Blocking issues:** NONE
 - **Review evidence:** T020-B02 is closed. The injected confirmation authority records every exact
   opaque token submitted to verification and enforces issuance under the exact `(target, action)`
@@ -69,12 +68,28 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T020 is accepted; T021+ and all implementation await a separate Codex
-  handoff
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T021 only — write failing interruption and recovery-decision tests for retry,
+  non-destructive recover, reset, manual review, and immutable primary failures in
+  `tests/verification/lifecycle-recovery.test.ts`; create only the minimum parent directory needed
+  for that test artifact
+- **Runtime:** Claude Code DEV Executor via the installed Spec Kit `implement` command/skill, bounded
+  to T021
+- **Required references:** `.specify/memory/constitution.md`; `CLAUDE.md`;
+  `docs/spec-context/001-application-foundation.md` Implementation / Review routing;
+  `specs/001-application-foundation/spec.md` FR-003 and FR-017;
+  `specs/001-application-foundation/plan.md` Operations and verification;
+  `specs/001-application-foundation/tasks.md` T021 and dependency rules;
+  `specs/001-application-foundation/data-model.md` Lifecycle Operation and Recovery Assessment;
+  `specs/001-application-foundation/contracts/foundation-operations.md` Failure behavior
+- **Expected verification:** focused Vitest for
+  `tests/verification/lifecycle-recovery.test.ts` must collect the intended T021 cases and fail only
+  at the deliberately absent T032–T034/T037 lifecycle/recovery implementation boundary; run
+  focused ESLint and root `tsc --noEmit`, classifying only already-accepted missing-boundary/tooling
+  diagnostics as non-blocking; run `git diff --check`, conflict-marker inspection, and
+  no-skip/todo/only inspection. Return the exact changed files, commands/results, bounded expected
+  red evidence, and confirmation that no implementation, package/dependency/lockfile, manifest,
+  environment, Product behavior, T022+, or broad host/resource mutation was added.
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
