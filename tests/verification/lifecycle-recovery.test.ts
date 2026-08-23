@@ -821,6 +821,59 @@ describe("Foundation interruption injection — T021 (tests-first for T032/T037)
     expectNoForbiddenStrategy(harness);
   });
 
+  it.each([["stop"], ["migrate"], ["reset"]] as [string][])(
+    "interrupts the Development %s action at the allowlisted phase with matching journal evidence and a stopped target",
+    async (action) => {
+      const harness = makeCollaborators();
+      const {
+        collaborators,
+        interruptionState,
+        journalState,
+        events,
+        dbState,
+        processState,
+      } = harness;
+      // Arm and request the SAME action: the run must actually be interrupted
+      // at the requested phase, not complete because the fault never matched.
+      interruptionState.armedAction = action;
+
+      const result: OperationResult = await foundationTestInterruption(collaborators, {
+        target: "development",
+        action,
+        phase: AFTER_JOURNAL_PHASE,
+      });
+
+      // Interrupted operations fail and the target stays stopped/not-ready
+      // with no duplicate active resources (FR-017).
+      expect(result.exitCode).not.toBe(0);
+      expect(dbState.running).toBe(false);
+      expect(processState.running.size).toBe(0);
+      expect(dbState.startCount).toBe(0);
+      // The fault fired for THIS action at the requested phase before the
+      // journal durably recorded the interruption — the interruption is
+      // action-targeted, not incidental.
+      const checkIndex = events.indexOf(`interruption:check:${action}:${AFTER_JOURNAL_PHASE}`);
+      const writeIndex = events.indexOf("journal:write:development:interrupted");
+      expect(checkIndex).toBeGreaterThanOrEqual(0);
+      expect(writeIndex).toBeGreaterThan(checkIndex);
+      // Journal evidence: interrupted at the requested action/phase with the
+      // documented interruption reason code as the primary failure, exactly
+      // once.
+      const latest = journalState.records.development.at(-1);
+      expect(latest?.state).toBe("interrupted");
+      expect(latest?.action).toBe(action);
+      expect(latest?.phase).toBe(AFTER_JOURNAL_PHASE);
+      expect(latest?.primaryFailure?.reasonCode).toBe("OPERATION_INTERRUPTED");
+      expect(
+        journalState.records.development.filter((r) => r.state === "interrupted").length,
+      ).toBe(1);
+      // after-journal precedes any mutation: no lock, token, mutation,
+      // recovery, or destructive work of any kind.
+      expectNoMutationOfWork(harness);
+      expectNoForbiddenStrategy(harness);
+    },
+  );
+
   it.each([
     [
       "production-derived fixture provenance",
