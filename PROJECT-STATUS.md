@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE — T028 INDEPENDENT REVIEW PASS
+- **Status:** HUMAN GATE ACCEPTED — T028
 
 ## Active Feature Mirror
 
@@ -29,13 +29,12 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — T028, including exceptional T028-B05 correction
-- **Phase status:** T028 AWAITS PRODUCT OWNER HUMAN GATE — T029+ UNAUTHORIZED
-- **Previous completed scope:** T027 — prerequisite checking and idempotent Development database
-  setup
-- **Next valid action:** Product Owner Human Gate — accept or reject T028. Do not authorize T029 or
-  advance the Delivery automatically.
-- **Blocking issues:** NONE for T028 independent review
+- **Current review result:** HUMAN ACCEPTED — reviewed T028 scope, including T028-B01–T028-B05
+- **Phase status:** T028 ACCEPTED — T029+ UNAUTHORIZED
+- **Previous completed scope:** T028 — supervised native Development startup and bounded whole-
+  foundation readiness, including accepted closure of T028-B01–T028-B05
+- **Next valid action:** NONE IN THIS ISSUE — stop after recording T028 acceptance
+- **Blocking issues:** NONE for the accepted T028 scope
 - **Review evidence:** Exceptional corrective commit
   `ec998583ab687b1db4b5b8355c51479c394f505e` is fetchable and directly follows reviewed commit
   `ae42bf91cfaf733833089aecc7a0be4d990717f3`. Its bounded four-file diff tightens only the canonical
@@ -54,7 +53,7 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — Product Owner Human Gate after T028 PASS
+- **Task / Scope:** NONE — T028 Human Gate accepted; T029+ unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE
