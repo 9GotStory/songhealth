@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** REVIEW PASS — T026 AWAITING PRODUCT OWNER ACCEPTANCE
+- **Status:** HUMAN GATE ACCEPTED — T026
 
 ## Active Feature Mirror
 
@@ -30,10 +30,9 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T026 REVIEW PASS — PRODUCT OWNER HUMAN GATE; T027+ UNAUTHORIZED
+- **Phase status:** T026 ACCEPTED — T027+ UNAUTHORIZED
 - **Previous completed scope:** T026 — provisional Development database manifest
-- **Next valid action:** Product Owner reviews and accepts or rejects T026; no later task is
-  authorized in this issue
+- **Next valid action:** NONE IN THIS ISSUE — T026 acceptance recorded; T027+ remain unauthorized
 - **Blocking issues:** NONE
 - **Review evidence:** Independent re-review of corrective commit `c9162e4` against rework
   authorization commit `4f29456` closes T026-B01. The direct parent is exact and the corrective
@@ -52,6 +51,7 @@
   structure, destructive lifecycle behavior, or unrelated refactor was added. Review against T026,
   FR-004–FR-005, FR-008, FR-015, Research Decisions 4–5, Data Store, the Operations Contract,
   Delivery Context, and Constitution Principles I–VI finds no Source-of-Truth conflict.
+  Product Owner Human Gate accepted T026, including closure of T026-B01.
 - **Non-blocking notes:** Focused T019–T023 suites remain expected-red at the absent T027+
   `scripts/foundation-operations.mjs` boundary and do not consume this manifest. This reviewer
   runtime has no `npx` executable, so those suites could not be reproduced locally; the manifest's
@@ -59,8 +59,7 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T026 passed independent review and awaits Product Owner acceptance;
-  T027+ remain unauthorized
+- **Task / Scope:** NONE — T026 is accepted; T027+ remain unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE
