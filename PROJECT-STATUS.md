@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T028 IMPLEMENTATION AUTHORIZED
+- **Status:** T028 IMPLEMENTATION BLOCKED — PROVIDER CAPACITY
 
 ## Active Feature Mirror
 
@@ -30,16 +30,20 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** NOT YET REVIEWED — T028
-- **Phase status:** T028 AUTHORIZED — T029+ UNAUTHORIZED
+- **Phase status:** T028 AUTHORIZED BUT NOT EXECUTED — T029+ UNAUTHORIZED
 - **Previous completed scope:** T027 — prerequisite checking and idempotent Development database
   setup
-- **Next valid action:** Claude implements only T028 and stops for independent Codex review
-- **Blocking issues:** NONE
+- **Next valid action:** HUMAN GATE — decide whether to retry `claude-developer` after provider
+  capacity resets or explicitly authorize a different implementation author
+- **Blocking issues:** `claude-developer` task `01a03381-8a95-7ba1-a4f2-f4155ec6f84a` failed with
+  `agent_error.provider_quota_limit`; no automatic retry is pending and no implementation artifact
+  was produced
 - **Review evidence:** T028 review pending. Authorization selected from accepted HEAD
   `b1d1eb762cb90d5485806fde26d48cb9319b3823`: T001–T027 are complete and T027 is Human accepted;
   T028 is incomplete, is the first dependency-ready task, and no other implementation
   authorization is active.
-- **Non-blocking notes:** NONE
+- **Non-blocking notes:** The failed provider response reported a reset time of
+  `2026-08-24 22:22:50`; this is diagnostic timing, not proof that capacity is now available.
 
 ## Authorized Implementation
 
