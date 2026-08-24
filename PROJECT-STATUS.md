@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE ACCEPTED — T026
+- **Status:** T027 IMPLEMENTATION AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -29,41 +29,39 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T026 ACCEPTED — T027+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T027
+- **Phase status:** T027 AUTHORIZED — T028+ UNAUTHORIZED
 - **Previous completed scope:** T026 — provisional Development database manifest
-- **Next valid action:** NONE IN THIS ISSUE — T026 acceptance recorded; T027+ remain unauthorized
+- **Next valid action:** Claude implements only T027 and stops for independent Codex review
 - **Blocking issues:** NONE
-- **Review evidence:** Independent re-review of corrective commit `c9162e4` against rework
-  authorization commit `4f29456` closes T026-B01. The direct parent is exact and the corrective
-  diff changes only `infra/compose.development.yaml`: all three checkout labels now require the
-  same runtime-supplied `SONGHEALTH_CHECKOUT_ID`. Compose render/parse with the safe synthetic value
-  `synthetic-checkout-review` succeeds and emits that identical non-empty value on the service,
-  network, and volume; absent and empty inputs both fail at required-variable interpolation before
-  a generic or empty ownership claim can be accepted. The complete T026 diff remains bounded to the
-  Development manifest and T026 checkbox. It contains one digest-pinned MySQL 8.4 database,
-  loopback-only `127.0.0.1:3306` publication, Development-only placeholders aligned with the
-  committed example, InnoDB/`utf8mb4`, a persistent named volume, and the complete custom label set
-  on every resource. Independent digest inspection identifies MySQL 8.4.11 from the 8.4 source
-  path. `git diff --check`, clean-tree, conflict-marker, scope, task-boundary, and direct-parent
-  verification pass. No T027+, Verification manifest, dependency/package/lockfile, Product
-  schema/API/data, authentication, Production choice/parity claim, additional service, speculative
-  structure, destructive lifecycle behavior, or unrelated refactor was added. Review against T026,
-  FR-004–FR-005, FR-008, FR-015, Research Decisions 4–5, Data Store, the Operations Contract,
-  Delivery Context, and Constitution Principles I–VI finds no Source-of-Truth conflict.
-  Product Owner Human Gate accepted T026, including closure of T026-B01.
-- **Non-blocking notes:** Focused T019–T023 suites remain expected-red at the absent T027+
-  `scripts/foundation-operations.mjs` boundary and do not consume this manifest. This reviewer
-  runtime has no `npx` executable, so those suites could not be reproduced locally; the manifest's
-  supported Compose render/parse and digest inspection were independently reproduced.
+- **Review evidence:** T027 review pending. Authorization selected from accepted HEAD `2ebb085`:
+  T001–T026 are complete, T027 is incomplete and is the first dependency-ready task, and no other
+  implementation authorization is active.
+- **Non-blocking notes:** NONE
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T026 is accepted; T027+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T027 only — implement prerequisite checking and idempotent Development database
+  setup in `scripts/foundation-operations.mjs`; expose only `foundation:check` and `dev:setup` in
+  `package.json`. Stop before T028 or any later task.
+- **Runtime:** `claude-developer`
+- **Required references:** `CLAUDE.md`; `AGENTS.md`; `.specify/memory/constitution.md` Principles
+  I–VI and Delivery and Quality Gates; `docs/spec-context/001-application-foundation.md`
+  Implementation / Review routing and explicit out-of-scope boundaries;
+  `specs/001-application-foundation/tasks.md` T027;
+  `specs/001-application-foundation/spec.md` FR-003, FR-006, SC-001;
+  `specs/001-application-foundation/plan.md` Configuration and startup, Operations and verification;
+  `specs/001-application-foundation/contracts/foundation-operations.md` Prerequisites, Commands,
+  Configuration examples, Safe diagnostic contract, and Timing boundaries;
+  `scripts/foundation-operations.test.ts` accepted T019 contract; accepted T026
+  `infra/compose.development.yaml`.
+- **Expected verification:** Run the focused accepted T019 tests that exercise
+  `foundation:check` and `dev:setup`, plus any directly affected static/type/lint check available;
+  run `git diff --check`; report exact commands and results. Preserve deterministic injected/fake
+  collaborator support. Verify preflight is non-mutating, every prerequisite category is checked,
+  failures prevent later work, setup orders database start before explicit tracked migrations, and
+  repeated setup creates no duplicate database resource. Do not weaken accepted tests.
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
