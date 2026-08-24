@@ -1,7 +1,7 @@
 /**
- * T027 — type declarations for `scripts/foundation-operations.mjs`.
+ * T027/T028 — type declarations for `scripts/foundation-operations.mjs`.
  *
- * References: FR-003, FR-006, SC-001; Operations Contract §Commands /
+ * References: FR-003, FR-006, FR-009, SC-001; Operations Contract §Commands /
  * §Configuration examples / §Safe diagnostic contract; accepted T019/T020
  * contract `scripts/foundation-operations.test.ts` and the accepted T023
  * diagnostic-surface contract `tests/verification/diagnostic-surfaces.test.ts`.
@@ -35,7 +35,7 @@ export interface SafeDiagnostic {
  * failure. The remaining optional fields are the operation-specific
  * observations the accepted contracts assert (`ready` for readiness
  * polling, `token`/`resources` for inventory) and are produced by the
- * later tasks that own those operations.
+ * operations that own them.
  */
 export interface OperationResult {
   exitCode: number;
@@ -213,6 +213,34 @@ export function devSetup(
 ): Promise<OperationResult>;
 
 /**
+ * `dev:start` — supervised native daily startup: re-validate the same
+ * canonical Development identity before any work, start only the accepted
+ * Development database dependency plus the three native processes
+ * (server, Public, Admin) through the injected supervisor, never apply
+ * migrations, and create no duplicate process/resource on repetition
+ * (adapter-owned idempotency). Partial startup fails closed with one
+ * closed Safe Diagnostic per owned output surface (command output plus
+ * the application-log and HTTP-failure surfaces).
+ */
+export function devStart(
+  collaborators: FoundationOperationsCollaborators,
+): Promise<OperationResult>;
+
+/**
+ * `dev:ready` — bounded overall readiness: re-validate the canonical
+ * Development identity before probing, then poll the injected
+ * whole-foundation probe on the injected clock against the supplied
+ * bounded deadline/poll interval. Zero is returned only when database
+ * connectivity/migration currency, liveness, readiness, Public SSR,
+ * Admin CSR, and the server route are all ready; the bounded-deadline
+ * failure is one closed actionable Safe Diagnostic.
+ */
+export function devReady(
+  collaborators: FoundationOperationsCollaborators,
+  options: { deadlineMs: number; pollMs: number },
+): Promise<OperationResult>;
+
+/**
  * Whether an `npm --version` output satisfies the supported npm CLI range
  * (`>=12.0.0 <13`, the root `engines` constraint). Total and strict:
  * garbage or empty output fails. The raw tool output is never surfaced.
@@ -226,21 +254,10 @@ export const DATABASE_READINESS_TIMEOUT_MS: number;
 export const DATABASE_READINESS_POLL_INTERVAL_MS: number;
 
 // ---------------------------------------------------------------------------
-// Later-task operations (T028–T031). Exported so the accepted tests-first
+// Later-task operations (T029–T031). Exported so the accepted tests-first
 // contract can import the complete planned boundary; each throws until its
 // owning task implements it.
 // ---------------------------------------------------------------------------
-
-/** `dev:start` (T028). */
-export function devStart(
-  collaborators: FoundationOperationsCollaborators,
-): Promise<OperationResult>;
-
-/** `dev:ready` (T028). */
-export function devReady(
-  collaborators: FoundationOperationsCollaborators,
-  options: { deadlineMs: number; pollMs: number },
-): Promise<OperationResult>;
 
 /** `dev:stop` (T029). */
 export function devStop(

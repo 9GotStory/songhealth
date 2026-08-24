@@ -1,20 +1,24 @@
 /**
- * T027 — foundation prerequisite checking and idempotent Development
- * database setup.
+ * T027/T028 — foundation prerequisite checking, idempotent Development
+ * database setup, supervised native daily startup, and bounded overall
+ * readiness.
  *
- * References: FR-003, FR-006, SC-001; Operations Contract §Prerequisites /
- * §Commands / §Configuration examples / §Safe diagnostic contract /
- * §Timing boundaries; plan.md §Configuration and startup + §Operations and
- * verification; accepted T019/T020 contract
- * `scripts/foundation-operations.test.ts`; accepted T023 diagnostic-surface
- * contract `tests/verification/diagnostic-surfaces.test.ts`; accepted T026
- * manifest `infra/compose.development.yaml`; accepted T013 migration
- * boundary `apps/server/src/migrations.ts` (`applyMigrations(db)`);
+ * References: FR-003, FR-006, FR-009, SC-001; Operations Contract
+ * §Prerequisites / §Commands / §Configuration examples / §Safe diagnostic
+ * contract / §Timing boundaries; plan.md §Runtime composition /
+ * §Configuration and startup + §Operations and verification; accepted
+ * T019/T020 contract `scripts/foundation-operations.test.ts`; accepted T023
+ * diagnostic-surface contract `tests/verification/diagnostic-surfaces.test.ts`;
+ * accepted T026 manifest `infra/compose.development.yaml`; accepted T013
+ * migration boundary `apps/server/src/migrations.ts` (`applyMigrations(db)`);
  * accepted T010 canonical configuration boundary
- * `apps/server/src/config.ts` (`loadRuntimeConfiguration`).
+ * `apps/server/src/config.ts` (`loadRuntimeConfiguration`); accepted T016
+ * server composition boundary `apps/server/src/bootstrap.ts`
+ * (`createServer`); accepted T024/T025 Public SSR / Admin CSR entries.
  *
  * This module owns ONLY the operations boundary behavior the accepted
- * contracts pin for `foundation:check` and `dev:setup`:
+ * contracts pin for `foundation:check`, `dev:setup`, `dev:start`, and
+ * `dev:ready`:
  *   - `foundationCheck` routes every prerequisite category (Node, npm,
  *     Podman, Compose, required files, safe execution-context
  *     configuration, port availability) through the injected preflight
@@ -39,25 +43,46 @@
  *     emitted as exactly one closed Safe Diagnostic per owned output
  *     surface — never a configuration value, credential, connection
  *     string, raw child-process output, or host/filesystem detail.
+ *   - `devStart` (T028) re-validates the SAME canonical Development
+ *     identity before any work, then starts only the accepted Development
+ *     database dependency plus the three native daily processes (server,
+ *     Public, Admin) through the injected supervisor. Ordinary startup
+ *     never applies migrations, repeated invocation creates no duplicate
+ *     process or resource (adapter-owned idempotency, no hidden module
+ *     state), and partial startup fails closed: any rejected
+ *     configuration or failed database/process start returns non-zero
+ *     with exactly one closed Safe Diagnostic per owned output surface —
+ *     the command surfaces plus the application-log and HTTP-failure
+ *     surfaces the started application owns — never raw adapter output.
+ *   - `devReady` (T028) re-validates the canonical Development identity
+ *     BEFORE probing, then polls the injected whole-foundation probe on
+ *     the injected clock against the caller-supplied bounded deadline and
+ *     poll interval. It returns zero only when every component of the
+ *     daily readiness contract — database connectivity/migration
+ *     currency, liveness, readiness, Public SSR, Admin CSR, and the
+ *     server route — is ready; partial readiness keeps polling, and the
+ *     bounded-deadline failure is one closed actionable Safe Diagnostic.
  *
  * Determinism: all external effect is routed through the injected
  * collaborator set, so the accepted tests drive these operations with
  * fakes and no real tool, process, listener, or host mutation occurs under
  * test. The real adapters at the bottom of this file are used only by the
- * command-line entry point. Idempotency of repeated `dev:setup` is owned
- * by the adapters (`compose up --detach` reconciles; the migration
- * boundary is idempotent), never by hidden module state.
+ * command-line entry point. Idempotency of repeated `dev:setup` and
+ * `dev:start` is owned by the adapters (`compose up --detach` reconciles;
+ * the migration boundary is idempotent; a native process whose endpoint
+ * already accepts connections is not spawned again), never by hidden
+ * module state.
  *
- * T028+ operations (`dev:start`, `dev:ready`, `dev:stop`, `dev:restart`,
- * `foundation:inventory`, `dev:reset`, `foundation:cleanup`) are exported
- * as bounded not-implemented stubs so the accepted tests-first contract
- * can import the complete planned boundary; they throw until their owning
- * tasks implement them.
+ * T029+ operations (`dev:stop`, `dev:restart`, `foundation:inventory`,
+ * `dev:reset`, `foundation:cleanup`) are exported as bounded
+ * not-implemented stubs so the accepted tests-first contract can import
+ * the complete planned boundary; they throw until their owning tasks
+ * implement them.
  */
 
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { access, readFile } from "node:fs/promises";
+import { access, mkdir, open, readFile } from "node:fs/promises";
 import net from "node:net";
 import { registerHooks } from "node:module";
 import path from "node:path";
@@ -99,6 +124,42 @@ const PREFLIGHT_CHECK_DIAGNOSTICS = {
 
 /** The only operation target selectable by local daily commands. */
 const DAILY_OPERATION_TARGET = "development";
+
+/**
+ * The three native daily processes (plan.md §Runtime composition: the native
+ * Public/Fastify/Vite composition plus the separate Admin Vite process).
+ * A routed set — the contract claims no relative start order.
+ */
+const NATIVE_PROCESSES = ["server", "public", "admin"];
+
+/**
+ * The whole daily readiness contract (quickstart §1 / accepted T019): the
+ * ordered component set `dev:ready` requires. Overall readiness holds only
+ * when every listed component reports `ready` — database connectivity and
+ * migration currency are carried by the `database` component observation.
+ */
+const READINESS_COMPONENTS = [
+  "database",
+  "liveness",
+  "readiness",
+  "publicRoute",
+  "adminRoute",
+  "serverRoute",
+];
+
+/**
+ * Closed Safe Diagnostic routing for one not-ready readiness component (the
+ * first not-ready component in contract order is reported; every value comes
+ * from the accepted closed allowlists).
+ */
+const READINESS_COMPONENT_DIAGNOSTICS = {
+  database: ["DATABASE_UNAVAILABLE", "database", "CHECK_DATABASE"],
+  liveness: ["LIVENESS_FAILED", "application", "RETRY_SAFE_OPERATION"],
+  readiness: ["READINESS_FAILED", "application", "RETRY_SAFE_OPERATION"],
+  publicRoute: ["ROUTE_UNREACHABLE", "public", "RETRY_SAFE_OPERATION"],
+  adminRoute: ["ROUTE_UNREACHABLE", "admin", "RETRY_SAFE_OPERATION"],
+  serverRoute: ["ROUTE_UNREACHABLE", "application", "RETRY_SAFE_OPERATION"],
+};
 
 /**
  * Bounded engine-readiness wait (T027-B02): a detached `compose up` proves
@@ -173,11 +234,19 @@ async function emitDiagnostic(collaborators, diagnostic, surfaces) {
 const COMMAND_SURFACES = ["stdout", "stderr"];
 
 /**
- * Reject an operation: emit the closed diagnostic and return the non-zero
- * result carrying the same safe fields.
+ * The full `dev:start` diagnostic fan-out set (accepted T023): a daily
+ * startup failure is carried on the command surfaces AND on the
+ * application-log / HTTP-failure surfaces the started application owns.
  */
-async function rejectOperation(collaborators, diagnostic) {
-  await emitDiagnostic(collaborators, diagnostic, COMMAND_SURFACES);
+const STARTUP_SURFACES = ["stdout", "stderr", "applicationLog", "httpFailure"];
+
+/**
+ * Reject an operation: emit the closed diagnostic and return the non-zero
+ * result carrying the same safe fields. `surfaces` selects the owned output
+ * surfaces for the rejecting operation (command output by default).
+ */
+async function rejectOperation(collaborators, diagnostic, surfaces = COMMAND_SURFACES) {
+  await emitDiagnostic(collaborators, diagnostic, surfaces);
   return {
     exitCode: 1,
     reasonCode: diagnostic.reasonCode,
@@ -343,7 +412,152 @@ export async function devSetup(collaborators, target) {
 }
 
 // ---------------------------------------------------------------------------
-// T028+ operations — bounded not-implemented stubs. The accepted
+// T028 operations — dev:start and dev:ready.
+// ---------------------------------------------------------------------------
+
+/**
+ * Load the local configuration through the injected source and validate it
+ * against the accepted T010 canonical Development boundary — the single
+ * configuration policy, exactly as `devSetup` applies it. Returns either
+ * the canonical outcome or the already-emitted non-zero rejection result;
+ * both failure classes reject BEFORE any work is accepted.
+ */
+async function validateCanonicalDevelopmentConfiguration(collaborators, surfaces) {
+  let config;
+  try {
+    config = await collaborators.config.load();
+  } catch {
+    return {
+      rejected: await rejectOperation(
+        collaborators,
+        safeDiagnostic("CONFIG_MISSING", "daily", "configuration", "FIX_CONFIGURATION"),
+        surfaces,
+      ),
+    };
+  }
+  const outcome = await loadCanonicalDevelopmentOutcome(config);
+  if (outcome.status === "rejected") {
+    return { rejected: await rejectOperation(collaborators, outcome.diagnostic, surfaces) };
+  }
+  return { outcome };
+}
+
+/**
+ * `dev:start` — supervised native daily startup. Re-validate the canonical
+ * Development identity before any work, start only the accepted Development
+ * database dependency (adapter-owned idempotency: repetition reconciles and
+ * never duplicates the resource) and then the three native daily processes
+ * through the injected supervisor (also idempotent per process). Ordinary
+ * startup NEVER applies migrations — only the explicit `dev:setup` /
+ * `db:migrate` operations transition migration state. Partial startup fails
+ * closed: the first failed start returns non-zero with one closed Safe
+ * Diagnostic per owned surface and no ready/started claim is made; stopping
+ * the surviving processes is the later `dev:stop` operation's owned
+ * behavior, not this one's.
+ */
+export async function devStart(collaborators) {
+  const validation = await validateCanonicalDevelopmentConfiguration(
+    collaborators,
+    STARTUP_SURFACES,
+  );
+  if (validation.rejected !== undefined) {
+    return validation.rejected;
+  }
+
+  try {
+    await collaborators.database.start();
+  } catch {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("STARTUP_FAILED", "daily", "database", "CHECK_DATABASE"),
+      STARTUP_SURFACES,
+    );
+  }
+
+  for (const name of NATIVE_PROCESSES) {
+    try {
+      await collaborators.processes.start(name);
+    } catch {
+      return rejectOperation(
+        collaborators,
+        safeDiagnostic("STARTUP_FAILED", "daily", "application", "RETRY_SAFE_OPERATION"),
+        STARTUP_SURFACES,
+      );
+    }
+  }
+
+  return { exitCode: 0, diagnosticScope: "daily" };
+}
+
+/**
+ * The closed diagnostic for one not-ready readiness observation: the first
+ * not-ready component in contract order is routed to its allowlisted
+ * reason code/component/remediation; an absent/ill-formed observation (or a
+ * probe that threw) is the bounded overall readiness failure. No raw probe
+ * detail is ever carried.
+ */
+function readinessFailureDiagnostic(observation) {
+  const components =
+    typeof observation?.components === "object" && observation.components !== null
+      ? observation.components
+      : {};
+  for (const component of READINESS_COMPONENTS) {
+    if (components[component] !== "ready") {
+      const [reasonCode, diagnosticComponent, remediation] =
+        READINESS_COMPONENT_DIAGNOSTICS[component];
+      return safeDiagnostic(reasonCode, "daily", diagnosticComponent, remediation);
+    }
+  }
+  return safeDiagnostic("READINESS_FAILED", "daily", "application", "RETRY_SAFE_OPERATION");
+}
+
+/**
+ * `dev:ready` — bounded overall readiness. Re-validate the canonical
+ * Development identity BEFORE probing (a rejected configuration never probes
+ * or accepts work), then poll the injected whole-foundation probe on the
+ * injected clock against the caller-supplied bounded deadline/poll interval.
+ * Zero is returned only when the probe reports the whole daily readiness
+ * contract ready (the `ready` flag AND every required component); partial
+ * readiness keeps polling, and the bounded-deadline failure is one closed
+ * actionable Safe Diagnostic on the command surfaces.
+ */
+export async function devReady(collaborators, options) {
+  const validation = await validateCanonicalDevelopmentConfiguration(
+    collaborators,
+    COMMAND_SURFACES,
+  );
+  if (validation.rejected !== undefined) {
+    return validation.rejected;
+  }
+
+  const deadline = collaborators.clock.now() + options.deadlineMs;
+  for (;;) {
+    let observation = null;
+    try {
+      observation = await collaborators.readiness.probe();
+    } catch {
+      // A probe that fails is simply not-ready; no detail is surfaced.
+    }
+    const wholeFoundationReady =
+      observation !== null &&
+      observation.ready === true &&
+      READINESS_COMPONENTS.every((component) => observation.components[component] === "ready");
+    if (wholeFoundationReady) {
+      return { exitCode: 0, diagnosticScope: "daily", ready: true };
+    }
+    if (collaborators.clock.now() >= deadline) {
+      const failure = await rejectOperation(
+        collaborators,
+        readinessFailureDiagnostic(observation),
+      );
+      return { ...failure, ready: false };
+    }
+    await collaborators.clock.advance(options.pollMs);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// T029+ operations — bounded not-implemented stubs. The accepted
 // tests-first contract imports the complete planned boundary; each stub
 // throws until its owning task implements the operation. No stub performs
 // any work, so no later-task behavior can run early.
@@ -351,14 +565,10 @@ export async function devSetup(collaborators, target) {
 
 function notImplemented(command) {
   return async () => {
-    throw new Error(`operation not implemented by T027: ${command}`);
+    throw new Error(`operation not implemented by T028: ${command}`);
   };
 }
 
-/** `dev:start` — T028 scope. */
-export const devStart = notImplemented("dev:start");
-/** `dev:ready` — T028 scope. */
-export const devReady = notImplemented("dev:ready");
 /** `dev:stop` — T029 scope. */
 export const devStop = notImplemented("dev:stop");
 /** `dev:restart` — T029 scope. */
@@ -599,6 +809,31 @@ async function startDevelopmentDatabase() {
 const DATABASE_PROBE_TIMEOUT_MS = 1_000;
 
 /**
+ * Whether a TCP endpoint accepts connections right now: one bounded connect
+ * attempt. A failed, refused, or timed-out attempt is simply
+ * not-yet-ready/absent; no detail is surfaced (the callers map outcomes to
+ * closed Safe Diagnostics only).
+ */
+function tcpEndpointAcceptsConnections(host, port, timeoutMs) {
+  return new Promise((resolve) => {
+    const socket = net.connect({ host, port });
+    const settle = (accepting) => {
+      socket.destroy();
+      resolve(accepting);
+    };
+    socket.setTimeout(timeoutMs, () => {
+      settle(false);
+    });
+    socket.once("error", () => {
+      settle(false);
+    });
+    socket.once("connect", () => {
+      settle(true);
+    });
+  });
+}
+
+/**
  * Whether the Development database engine is accepting connections RIGHT
  * NOW (the `database.isRunning` readiness semantics for setup): one bounded
  * TCP connect against the configured loopback database endpoint. The
@@ -622,22 +857,7 @@ async function isDevelopmentDatabaseAcceptingConnections() {
   } catch {
     // not-yet-valid configuration: probe the documented default endpoint
   }
-  return new Promise((resolve) => {
-    const socket = net.connect({ host, port });
-    const settle = (accepting) => {
-      socket.destroy();
-      resolve(accepting);
-    };
-    socket.setTimeout(DATABASE_PROBE_TIMEOUT_MS, () => {
-      settle(false);
-    });
-    socket.once("error", () => {
-      settle(false);
-    });
-    socket.once("connect", () => {
-      settle(true);
-    });
-  });
+  return tcpEndpointAcceptsConnections(host, port, DATABASE_PROBE_TIMEOUT_MS);
 }
 
 /**
@@ -705,6 +925,370 @@ async function applyTrackedMigrations() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// T028 real adapters — supervised native daily processes and the
+// whole-foundation readiness probe. Used only by the command-line entry
+// point; the accepted tests always inject their own collaborators, so
+// nothing in this section runs under test.
+// ---------------------------------------------------------------------------
+
+/**
+ * Daily native-process endpoints (implementation configuration, not a
+ * Product decision): the Public dev server owns the documented application
+ * endpoint (`APP_HOST`/`APP_PORT`, which the canonical boundary binds to
+ * `PUBLIC_ORIGIN`), and the operational server and the Admin dev server
+ * occupy the adjacent derived loopback ports. The single-listener release
+ * composition that serves all three responsibilities on one port is a later
+ * task; these adjacent ports are provisional daily-development choices.
+ */
+const SERVER_PORT_OFFSET = 1;
+const ADMIN_PORT_OFFSET = 2;
+
+/** Per-attempt bound for one native-process endpoint probe (milliseconds). */
+const PROCESS_PROBE_TIMEOUT_MS = 1_000;
+/** Bounded supervised wait for a spawned native process to accept connections. */
+const PROCESS_START_TIMEOUT_MS = 60_000;
+const PROCESS_START_POLL_INTERVAL_MS = 250;
+/** Per-attempt bound for one readiness HTTP request (milliseconds). */
+const READINESS_REQUEST_TIMEOUT_MS = 2_000;
+/** Command-line defaults for the injected bounded overall-readiness poll. */
+const READINESS_DEADLINE_MS = 120_000;
+const READINESS_POLL_INTERVAL_MS = 500;
+
+/** Ignored checkout-local retention for supervised native-process output. */
+const PROCESS_LOG_DIRECTORY = path.join(
+  REPOSITORY_ROOT,
+  ".foundation-state",
+  "development",
+  "logs",
+);
+
+/**
+ * The server-process entry evaluated by the spawned Node child: it reuses
+ * the accepted T016 composition boundary (`createServer`) and binds the
+ * caller-owned listener at the derived operational endpoint. Configuration
+ * travels as process environment (never surfaced on any output surface); a
+ * rejected composition exits non-zero, which the supervisor observes as a
+ * failed start. The `.js`→`.ts` resolution retry mirrors the repository's
+ * TypeScript extension convention for the server sources.
+ */
+const SERVER_PROCESS_ENTRY = [
+  "import { registerHooks } from 'node:module';",
+  "import { pathToFileURL } from 'node:url';",
+  "registerHooks({",
+  "  resolve(specifier, context, nextResolve) {",
+  "    try {",
+  "      return nextResolve(specifier, context);",
+  "    } catch (error) {",
+  "      if (specifier.endsWith('.js')) {",
+  "        try {",
+  "          return nextResolve(specifier.slice(0, -3) + '.ts', context);",
+  "        } catch {}",
+  "      }",
+  "      throw error;",
+  "    }",
+  "  },",
+  "});",
+  "const entryPath = process.env.SONGHEALTH_SERVER_ENTRY_PATH;",
+  "const host = process.env.SONGHEALTH_SERVER_ENTRY_HOST;",
+  "const port = Number(process.env.SONGHEALTH_SERVER_ENTRY_PORT);",
+  "if (entryPath === undefined || host === undefined || !Number.isInteger(port)) {",
+  "  process.exitCode = 1;",
+  "} else {",
+  "  const server = await import(pathToFileURL(entryPath).href);",
+  "  const composed = await server.createServer({",
+  "    env: process.env,",
+  "    operationTarget: 'development',",
+  "  });",
+  "  if (composed.status !== 'ready') {",
+  "    process.exitCode = 1;",
+  "  } else {",
+  "    await composed.capabilities.app.listen({ host, port });",
+  "  }",
+  "}",
+].join("\n");
+
+/** Resolve a native daily process's loopback endpoint; null when unknown. */
+function nativeProcessEndpoint(name, host, appPort) {
+  if (name === "public") return { host, port: appPort };
+  if (name === "server") return { host, port: appPort + SERVER_PORT_OFFSET };
+  if (name === "admin") return { host, port: appPort + ADMIN_PORT_OFFSET };
+  return null;
+}
+
+/** The daily application endpoint from the local configuration record. */
+function resolveDevelopmentAppEndpoint(config) {
+  let host = "127.0.0.1";
+  let port = DEVELOPMENT_APP_PORT_FALLBACK;
+  if (typeof config?.APP_HOST === "string" && config.APP_HOST !== "") {
+    host = config.APP_HOST.replace(/^\[|\]$/g, "");
+  }
+  if (DECIMAL_INTEGER_PATTERN.test(config?.APP_PORT ?? "")) {
+    port = Number.parseInt(config.APP_PORT, 10);
+  }
+  return { host, port };
+}
+
+/** Bracket an IPv6 literal host for use inside a URL. */
+function formatHostForUrl(host) {
+  return host.includes(":") ? `[${host}]` : host;
+}
+
+/** Open (creating) the retained output file for one supervised process. */
+async function openProcessLogFile(name) {
+  await mkdir(PROCESS_LOG_DIRECTORY, { recursive: true });
+  return open(path.join(PROCESS_LOG_DIRECTORY, `${name}.log`), "a");
+}
+
+/**
+ * Spawn one detached native process whose retained output goes to the
+ * ignored checkout-local process log — never onto a command surface. The
+ * child is unref'd so the daily command returns while the process keeps
+ * running; stopping it is the `dev:stop` operation's owned behavior (T029).
+ */
+function spawnDetachedNativeProcess(command, args, env, logHandle) {
+  const child = spawn(command, args, {
+    cwd: REPOSITORY_ROOT,
+    env,
+    detached: true,
+    stdio: ["ignore", logHandle.fd, logHandle.fd],
+  });
+  child.unref();
+  return child;
+}
+
+/**
+ * Supervise one freshly spawned native process until its endpoint accepts
+ * connections. Fails closed on early child exit, spawn error, or the bounded
+ * start deadline by throwing (the operation maps that to one closed
+ * STARTUP_FAILED diagnostic); raw child output is never surfaced.
+ */
+async function superviseNativeProcessStart(child, endpoint) {
+  let exited = false;
+  child.once("exit", () => {
+    exited = true;
+  });
+  child.once("error", () => {
+    exited = true;
+  });
+  const deadline = Date.now() + PROCESS_START_TIMEOUT_MS;
+  for (;;) {
+    if (exited || child.exitCode !== null) {
+      throw new Error("native process exited before accepting connections");
+    }
+    if (
+      await tcpEndpointAcceptsConnections(endpoint.host, endpoint.port, PROCESS_PROBE_TIMEOUT_MS)
+    ) {
+      return;
+    }
+    if (Date.now() >= deadline) {
+      throw new Error("native process did not accept connections within the bounded start wait");
+    }
+    await new Promise((resolve) => {
+      setTimeout(resolve, PROCESS_START_POLL_INTERVAL_MS);
+    });
+  }
+}
+
+/**
+ * `processes.start(name)` — start one native daily process. Idempotent: a
+ * process whose endpoint already accepts connections is left untouched, so
+ * repeated `dev:start` invocations create no duplicate process (the same
+ * adapter-owned idempotency the accepted T019 contract drives through the
+ * injected seam).
+ */
+async function startNativeProcess(name) {
+  const config = await loadDevelopmentConfiguration();
+  const application = resolveDevelopmentAppEndpoint(config);
+  const endpoint = nativeProcessEndpoint(name, application.host, application.port);
+  if (endpoint === null) {
+    throw new Error(`unknown native daily process: ${name}`);
+  }
+  if (
+    await tcpEndpointAcceptsConnections(endpoint.host, endpoint.port, PROCESS_PROBE_TIMEOUT_MS)
+  ) {
+    return;
+  }
+  const logHandle = await openProcessLogFile(name);
+  let child;
+  try {
+    if (name === "server") {
+      child = spawnDetachedNativeProcess(
+        process.execPath,
+        ["--input-type=module", "--eval", SERVER_PROCESS_ENTRY],
+        {
+          ...process.env,
+          ...config,
+          SONGHEALTH_SERVER_ENTRY_PATH: path.join(
+            REPOSITORY_ROOT,
+            "apps/server/src/bootstrap.ts",
+          ),
+          SONGHEALTH_SERVER_ENTRY_HOST: endpoint.host,
+          SONGHEALTH_SERVER_ENTRY_PORT: String(endpoint.port),
+        },
+        logHandle,
+      );
+    } else if (name === "public") {
+      child = spawnDetachedNativeProcess(
+        "npm",
+        [
+          "exec",
+          "--workspace",
+          "apps/web",
+          "--",
+          "react-router",
+          "dev",
+          "--host",
+          endpoint.host,
+          "--port",
+          String(endpoint.port),
+          "--strictPort",
+        ],
+        { ...process.env, ...config },
+        logHandle,
+      );
+    } else {
+      child = spawnDetachedNativeProcess(
+        "npm",
+        [
+          "exec",
+          "--workspace",
+          "apps/admin",
+          "--",
+          "vite",
+          "--host",
+          endpoint.host,
+          "--port",
+          String(endpoint.port),
+          "--strictPort",
+        ],
+        { ...process.env, ...config },
+        logHandle,
+      );
+    }
+  } finally {
+    // The child holds its own duplicate of the descriptor; the supervisor's
+    // copy is released immediately.
+    await logHandle.close();
+  }
+  await superviseNativeProcessStart(child, endpoint);
+}
+
+/**
+ * `processes.isRunning(name)` — whether the process's endpoint currently
+ * accepts connections (the adapter's own idempotency observation).
+ */
+async function isNativeProcessRunning(name) {
+  try {
+    const config = await loadDevelopmentConfiguration();
+    const application = resolveDevelopmentAppEndpoint(config);
+    const endpoint = nativeProcessEndpoint(name, application.host, application.port);
+    if (endpoint === null) {
+      return false;
+    }
+    return await tcpEndpointAcceptsConnections(
+      endpoint.host,
+      endpoint.port,
+      PROCESS_PROBE_TIMEOUT_MS,
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * One bounded HTTP observation; `null` when the request fails or times out
+ * (never an exception — callers derive component states only).
+ */
+async function fetchObservation(url) {
+  try {
+    return await fetch(url, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(READINESS_REQUEST_TIMEOUT_MS),
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Whether an HTML document boundary answered with 200 (SSR page / CSR shell). */
+function isHtmlResponse(response) {
+  if (response === null || response.status !== 200) {
+    return false;
+  }
+  return (response.headers.get("content-type") ?? "").toLowerCase().includes("text/html");
+}
+
+/**
+ * `readiness.probe()` — one whole-foundation readiness observation against
+ * the running daily processes: liveness and the readiness payload (which
+ * carries database connectivity and migration currency) on the operational
+ * server, the Public SSR document at the configured public origin, and the
+ * Admin CSR shell on its derived endpoint. Every failed or absent check is
+ * simply a `not-ready` component; no raw request detail is returned.
+ */
+async function probeDailyReadiness() {
+  const components = Object.fromEntries(
+    READINESS_COMPONENTS.map((component) => [component, "not-ready"]),
+  );
+  let config = null;
+  try {
+    config = await loadDevelopmentConfiguration();
+  } catch {
+    return { ready: false, components };
+  }
+  const application = resolveDevelopmentAppEndpoint(config);
+  const serverOrigin = `http://${formatHostForUrl(application.host)}:${
+    application.port + SERVER_PORT_OFFSET
+  }`;
+
+  const liveness = await fetchObservation(`${serverOrigin}/health/live`);
+  if (liveness !== null && liveness.status === 200) {
+    components.liveness = "ready";
+  }
+
+  const readiness = await fetchObservation(`${serverOrigin}/health/ready`);
+  if (
+    readiness !== null &&
+    (readiness.status === 200 || readiness.status === 503 || readiness.status === 500)
+  ) {
+    // The operational route answered its closed contract: reachable.
+    components.serverRoute = "ready";
+  }
+  if (readiness !== null && readiness.status === 200) {
+    try {
+      const body = await readiness.json();
+      if (body?.status === "ready") {
+        components.readiness = "ready";
+      }
+      const database = Array.isArray(body?.components)
+        ? body.components.find((entry) => entry?.name === "database")
+        : undefined;
+      if (database?.status === "ready") {
+        components.database = "ready";
+      }
+    } catch {
+      // The readiness payload was not the closed shape: stays not-ready.
+    }
+  }
+
+  if (typeof config.PUBLIC_ORIGIN === "string" && config.PUBLIC_ORIGIN !== "") {
+    if (isHtmlResponse(await fetchObservation(config.PUBLIC_ORIGIN))) {
+      components.publicRoute = "ready";
+    }
+  }
+
+  const adminShell = await fetchObservation(
+    `http://${formatHostForUrl(application.host)}:${application.port + ADMIN_PORT_OFFSET}/`,
+  );
+  if (isHtmlResponse(adminShell)) {
+    components.adminRoute = "ready";
+  }
+
+  const ready = READINESS_COMPONENTS.every((component) => components[component] === "ready");
+  return { ready, components };
+}
+
 /** The real collaborator set for the command-line entry point. */
 function createCommandLineCollaborators() {
   return {
@@ -721,6 +1305,15 @@ function createCommandLineCollaborators() {
       start: startDevelopmentDatabase,
       isRunning: isDevelopmentDatabaseAcceptingConnections,
       applyMigrations: applyTrackedMigrations,
+    },
+    processes: {
+      // T028 owns supervised start/idempotency observation; stopping a
+      // native process is the `dev:stop` operation's behavior (T029).
+      start: startNativeProcess,
+      isRunning: isNativeProcessRunning,
+    },
+    readiness: {
+      probe: probeDailyReadiness,
     },
     clock: {
       now: () => Date.now(),
@@ -771,6 +1364,13 @@ async function runCommandLine(args) {
     result = await foundationCheck(collaborators);
   } else if (command === "dev:setup") {
     result = await devSetup(collaborators, readOption(rest, "target") ?? DAILY_OPERATION_TARGET);
+  } else if (command === "dev:start") {
+    result = await devStart(collaborators);
+  } else if (command === "dev:ready") {
+    result = await devReady(collaborators, {
+      deadlineMs: READINESS_DEADLINE_MS,
+      pollMs: READINESS_POLL_INTERVAL_MS,
+    });
   } else {
     result = await rejectOperation(
       collaborators,
@@ -783,10 +1383,12 @@ async function runCommandLine(args) {
     );
   }
   if (result.exitCode === 0) {
-    const summary =
-      command === "dev:setup"
-        ? "development database ready; tracked migrations current"
-        : "preflight checks passed";
+    const summaries = {
+      "dev:setup": "development database ready; tracked migrations current",
+      "dev:start": "development database running; native server/public/admin processes started",
+      "dev:ready": "development foundation ready",
+    };
+    const summary = summaries[command] ?? "preflight checks passed";
     process.stdout.write(`${command}: ${summary}\n`);
   }
   process.exitCode = result.exitCode;
