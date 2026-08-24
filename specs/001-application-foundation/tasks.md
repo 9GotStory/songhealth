@@ -82,7 +82,7 @@ interrupted work yields the documented retry/recover/reset/manual-review decisio
 
 ### Implementation for User Story 1
 
-- [ ] T024 [P] [US1] Implement the minimal Public SSR foundation route and route registration in `apps/web/app/root.tsx`, `apps/web/app/routes.ts`, and `apps/web/app/routes/foundation.tsx` (Refs: FR-001–FR-002, FR-016; Plan §Runtime composition)
+- [X] T024 [P] [US1] Implement the minimal Public SSR foundation route and route registration in `apps/web/app/root.tsx`, `apps/web/app/routes.ts`, and `apps/web/app/routes/foundation.tsx` (Refs: FR-001–FR-002, FR-016; Plan §Runtime composition)
 - [ ] T025 [P] [US1] Implement the separate minimal Admin CSR foundation shell in `apps/admin/src/app.tsx` and `apps/admin/src/main.tsx` (Refs: FR-001–FR-002, FR-016; Plan §Runtime composition)
 - [ ] T026 [P] [US1] Define the provisional digest-pinned, loopback-only Development database, persistent volume, credentials, and complete ownership labels in `infra/compose.development.yaml` (Refs: FR-004–FR-005, FR-008, FR-015; Research Decisions 4–5)
 - [ ] T027 [US1] Implement prerequisite checking and idempotent Development database setup in `scripts/foundation-operations.mjs` and expose `foundation:check`/`dev:setup` in `package.json` (Refs: FR-003, FR-006, SC-001; Operations Contract §Commands)
