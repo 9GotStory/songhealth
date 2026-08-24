@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE ACCEPTED — T025
+- **Status:** IMPLEMENTATION AUTHORIZED — T026
 
 ## Active Feature Mirror
 
@@ -30,9 +30,10 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T025 ACCEPTED — T026+ UNAUTHORIZED
+- **Phase status:** T025 ACCEPTED — T026 AUTHORIZED; T027+ UNAUTHORIZED
 - **Previous completed scope:** T025 — separate minimal Admin CSR foundation shell
-- **Next valid action:** NONE IN THIS ISSUE — T025 acceptance recorded; T026+ remain unauthorized
+- **Next valid action:** Claude Code implements only T026, returns implementation-result evidence,
+  and stops for independent Codex review; T027+ remain unauthorized
 - **Blocking issues:** NONE
 - **Review evidence:** Independent review of `7201cc3` against authorization commit `e60a71f`
   confirms exactly the two authorized Admin implementation files plus the T025 checkbox. The
@@ -56,11 +57,37 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T025 is accepted; T026+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T026 only — define the provisional Development database in
+  `infra/compose.development.yaml` with an immutable digest resolving specifically to MySQL 8.4,
+  loopback-only publication, a persistent named volume, Development-only credentials, InnoDB and
+  `utf8mb4`, and the complete canonical Compose/custom ownership labels; change only that manifest
+  and mark only T026 complete in `specs/001-application-foundation/tasks.md`
+- **Runtime:** Claude Code DEV Executor via the installed Spec Kit `implement` command/skill, bounded
+  to T026
+- **Required references:** `.specify/memory/constitution.md`; `CLAUDE.md`;
+  `docs/spec-context/001-application-foundation.md` Implementation / Review routing;
+  `specs/001-application-foundation/spec.md` FR-004–FR-005, FR-008, and FR-015;
+  `specs/001-application-foundation/plan.md` Persistence and migrations;
+  `specs/001-application-foundation/research.md` Decisions 4–5;
+  `specs/001-application-foundation/data-model.md` Data Store;
+  `specs/001-application-foundation/contracts/foundation-operations.md` Operation-target ownership
+  and isolation; `specs/001-application-foundation/tasks.md` T026 and dependency rules; and
+  `.env.development.example`
+- **Expected verification:** prove the manifest parses/renders with the repository's supported
+  Compose tooling and contains only the Development database service and its persistent named
+  volume; prove the immutable image digest resolves specifically to `mysql:8.4`; verify database
+  publication is explicitly bound to loopback, credentials/database identity are Development-only
+  and align with `.env.development.example`, InnoDB/`utf8mb4` are configured, and every service,
+  network, and volume resource carries the required canonical Compose labels plus
+  `org.songhealth.foundation.delivery`, `.checkout`, `.environment`, `.runtime-profile`,
+  `.operation-target`, `.resource`, and `.ownership-schema` with the correct Development values.
+  Run relevant focused manifest/operation-target tests where runnable, `git diff --check`,
+  conflict-marker inspection, and no-skip/todo/only inspection. Return the exact changed files,
+  commands/results, commit SHA, image tag/digest resolution evidence, and confirmation that no
+  T027+, Verification manifest, dependency/package/lockfile, Product data/schema/API,
+  authentication, Production decision/parity claim, additional service, speculative structure,
+  destructive lifecycle behavior, or unrelated refactor was added.
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
