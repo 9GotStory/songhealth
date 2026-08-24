@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T028 CHANGES REQUIRED — REAL-ADAPTER CORRECTIONS
+- **Status:** T028 CHANGES REQUIRED — CONFIGURED-HOST PREFLIGHT
 
 ## Active Feature Mirror
 
@@ -29,41 +29,35 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T028-B02, T028-B03
+- **Current review result:** CHANGES REQUIRED — T028-B04
 - **Phase status:** T028 REWORK — T029+ UNAUTHORIZED
 - **Previous completed scope:** T027 — prerequisite checking and idempotent Development database
   setup
-- **Next valid action:** Claude corrects only T028-B02 and T028-B03 on top of `3a283d8`, then stops
-  for independent Codex re-review
-- **Blocking issues:**
-  - T028-B02 — `foundation:check` tests only `APP_PORT` and database port 3306, but T028 derives and
-    binds server/Admin at `APP_PORT + 1/+2`; occupied, colliding, or out-of-range derived endpoints
-    therefore do not fail preflight before application work, contrary to the prerequisite and
-    Quickstart §1 contracts.
-  - T028-B03 — the Public adapter invokes React Router's default SSR entry while `@songhealth/web`
-    lacks a direct `isbot` dependency. The installed React Router code consequently edits
-    `apps/web/package.json` and runs `npm install` on first startup, as the developer observed. A
-    daily start must not mutate the tracked checkout or dependency lock at runtime.
-- **Review evidence:** Corrective artifact publication closes T028-B01: fetched commit
-  `3a283d81f3a9196815c827007a9692506849c7f9` has direct parent `ad5b7a5`, a clean diff, and only the
-  three authorized files. Independent detached-worktree verification: T019 produced 22 passes with
-  only the three expected T029 tests red; T023 diagnostics passed 24/24; `tsc --noEmit` produced
-  only the four unchanged later-task missing-export errors. Static inspection found T028-B02 in
-  `checkDevelopmentPortsAvailable` and T028-B03 in the installed React Router default-entry setup
-  path, which explicitly adds `isbot` and runs the package manager when the app manifest lacks it.
+- **Next valid action:** Claude corrects only T028-B04 on top of `4ad0aea`, then stops for the third
+  and final independent corrective re-review
+- **Blocking issues:** T028-B04 — `checkDevelopmentPortsAvailable()` now checks every required port
+  but still bind-probes all of them on hard-coded `127.0.0.1`; canonical Development configuration
+  also accepts `localhost`, `::1`, and any `127/8` `APP_HOST`, while the actual Public/server/Admin
+  children bind that configured host. An occupied actual configured endpoint can therefore still
+  pass preflight before application work.
+- **Review evidence:** Corrective commit
+  `4ad0aea50e88deb5aae2fd1505bbf7d6da41fe3f` directly follows `3a283d8`, has a clean bounded diff,
+  closes T028-B02 port-range/port-collision coverage and T028-B03 checkout mutation, and leaves the
+  resolved dependency graph unchanged. Independent detached-worktree verification reproduced
+  45 passes with only 43 expected later-task reds in `foundation-operations.test.ts`, T023 24/24,
+  successful `npm ci`, `npm ls isbot` at deduplicated 5.2.1, syntax check, and clean diff. Static
+  comparison of the canonical host policy with `checkLoopbackPortAvailable` found T028-B04.
 - **Non-blocking notes:** Independent npm used Node 24.11.0 with npm 11.6.1, below the repository's
   npm 12 engine pin; this did not affect the focused unit results, but full prerequisite acceptance
   still requires the approved npm version.
 
 ## Authorized Implementation
 
-- **Task / Scope:** T028-B02/T028-B03 rework only — make preflight validate every T028 daily native
-  endpoint, including derived-port range/collision/availability, before application work; prevent
-  first Public startup from mutating tracked manifests or invoking runtime dependency installation
-  by declaring only the already-locked React Router `isbot` runtime requirement in the Public
-  workspace and reconciling the lockfile without changing the resolved dependency graph. Add only
-  focused regressions needed for these findings. Do not change T028 orchestration semantics or
-  begin T029 or any later task.
+- **Task / Scope:** T028-B04 rework only — make real preflight bind-probe Public/server/Admin on the
+  canonically accepted configured application host rather than hard-coded `127.0.0.1`, while
+  retaining the corrected range/collision checks and the database manifest's actual bind endpoint.
+  Add only focused regression/smoke evidence for accepted non-default loopback hosts. Do not change
+  dependency files, T028 orchestration semantics, or begin T029 or any later task.
 - **Runtime:** `claude-developer`
 - **Required references:** `CLAUDE.md`; `AGENTS.md`; `.specify/memory/constitution.md` Principles
   I–VI and Delivery and Quality Gates; `docs/spec-context/001-application-foundation.md`
@@ -79,13 +73,12 @@
   `scripts/foundation-operations.test.ts` accepted T019 startup/readiness contract;
   `tests/verification/diagnostic-surfaces.test.ts` accepted T023 nondisclosure contract; accepted
   T010 configuration boundary and T027 setup implementation.
-- **Expected verification:** Demonstrate occupied/colliding/out-of-range derived server/Admin ports
-  fail before process work; demonstrate `npm ci` followed by first Public adapter startup leaves
-  `apps/web/package.json` and `package-lock.json` unchanged and does not run an install path; rerun
-  the focused T019 startup/readiness tests, T023 diagnostic tests, directly affected package/static
-  checks, `tsc --noEmit` with baseline comparison, and `git diff --check`. Report exact commands,
-  results, changed files, commit/ref, expected-red later-task tests, and confirmation T029+ remains
-  untouched.
+- **Expected verification:** Prove an occupied Public/server/Admin endpoint on an accepted
+  non-default configured loopback host (at minimum a `127/8` address other than `127.0.0.1`) fails
+  preflight, while a free configured-host endpoint passes the port leg. Rerun the focused T019/T023
+  and T028 rework tests, syntax/static checks, `tsc --noEmit` with baseline comparison, and
+  `git diff --check`; report exact commands/results, changed files, commit/ref, expected-red
+  later-task tests, and confirmation T029+ remains untouched.
 - **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
