@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE REQUIRED — T022
+- **Status:** HUMAN GATE ACCEPTED — T022
 
 ## Active Feature Mirror
 
@@ -30,12 +30,11 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T022 REVIEW PASS — HUMAN GATE PENDING; T023+ UNAUTHORIZED
+- **Phase status:** T022 ACCEPTED — T023+ UNAUTHORIZED
 - **Previous completed scope:** T022 — failing Development/Verification isolation,
   synthetic-marker continuity, exact confirmed Development reset, and unchanged
   Verification/non-target inventory tests
-- **Next valid action:** Product Owner Human Gate accepts or rejects T022; no later task is
-  authorized
+- **Next valid action:** NONE IN THIS ISSUE — T022 acceptance recorded; T023+ remain unauthorized
 - **Blocking issues:** NONE
 - **Review evidence:** Independent review of `30331d3` confirms the implementation diff is exactly
   `tests/verification/foundation-operation-target.test.ts` plus the T022 checkbox. The 21-case
@@ -49,15 +48,15 @@
   pass. No implementation, dependency, lockfile, manifest, environment, Product behavior,
   Production-derived data, host/resource mutation, or T023+ artifact was added. Review against
   T022, FR-004, FR-008, SC-002, Resource Inventory, Quickstart §2, the plan, Delivery Context, and
-  Constitution Principles I–VI finds no Source-of-Truth conflict.
+  Constitution Principles I–VI finds no Source-of-Truth conflict. Product Owner Human Gate accepted
+  T022.
 - **Non-blocking notes:** The accepted locked graph still provides no
   `node_modules/.bin/eslint` executable, so the required focused ESLint attempt exits 127. This
   pre-existing tooling limitation does not authorize a dependency, manifest, or lockfile change.
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T022 passed independent review and awaits the Human Gate; T023+ remain
-  unauthorized
+- **Task / Scope:** NONE — T022 is accepted; T023+ remain unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE
