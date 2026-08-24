@@ -6,7 +6,11 @@
 # operation target uses its own separate manifest; this manifest declares only the Development
 # database and its persistent volume. Checkout-scoped Compose project names are derived by
 # scripts/foundation-operations.mjs, so no fixed project/container/volume/network name is set
-# here (fixed global names would collide across checkouts). Credentials are committed
+# here (fixed global names would collide across checkouts). The checkout ownership label is
+# likewise runtime-supplied: SONGHEALTH_CHECKOUT_ID is the required, stable checkout-scoped
+# input set by scripts/foundation-operations.mjs alongside the project name, applied
+# identically to the service, network, and volume so each checkout presents its own ownership
+# value, and rendering fails when it is absent. Credentials are committed
 # non-secret Development-only placeholders aligned with .env.development.example; they are
 # never Production configuration.
 services:
@@ -29,7 +33,7 @@ services:
       - database
     labels:
       org.songhealth.foundation.delivery: "001-application-foundation"
-      org.songhealth.foundation.checkout: local
+      org.songhealth.foundation.checkout: "${SONGHEALTH_CHECKOUT_ID:?required checkout ownership input is absent}"
       org.songhealth.foundation.environment: development
       org.songhealth.foundation.runtime-profile: daily
       org.songhealth.foundation.operation-target: development
@@ -41,7 +45,7 @@ networks:
     driver: bridge
     labels:
       org.songhealth.foundation.delivery: "001-application-foundation"
-      org.songhealth.foundation.checkout: local
+      org.songhealth.foundation.checkout: "${SONGHEALTH_CHECKOUT_ID:?required checkout ownership input is absent}"
       org.songhealth.foundation.environment: development
       org.songhealth.foundation.runtime-profile: daily
       org.songhealth.foundation.operation-target: development
@@ -53,7 +57,7 @@ volumes:
   database-data:
     labels:
       org.songhealth.foundation.delivery: "001-application-foundation"
-      org.songhealth.foundation.checkout: local
+      org.songhealth.foundation.checkout: "${SONGHEALTH_CHECKOUT_ID:?required checkout ownership input is absent}"
       org.songhealth.foundation.environment: development
       org.songhealth.foundation.runtime-profile: daily
       org.songhealth.foundation.operation-target: development
