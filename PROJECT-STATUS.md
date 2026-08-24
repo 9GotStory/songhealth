@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE — DELIVERY BRANCH RECONCILIATION REQUIRED
+- **Status:** HUMAN GATE — T028 HISTORY RECONCILED
 
 ## Active Feature Mirror
 
@@ -29,18 +29,14 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** SOURCE-OF-TRUTH CONFLICT — accepted T028 implementation is absent from
-  the Delivery branch
-- **Phase status:** IMPLEMENTATION BLOCKED — T029+ UNAUTHORIZED
+- **Current review result:** RECONCILED — accepted T028 implementation history is present on the
+  canonical Delivery branch without implementation-content changes
+- **Phase status:** T028 ACCEPTED AND RECONCILED — T029+ UNAUTHORIZED
 - **Previous completed scope:** T028 — supervised native Development startup and bounded whole-
   foundation readiness, including accepted closure of T028-B01–T028-B05
-- **Next valid action:** Product Owner Human Gate — explicitly choose and authorize repository
-  reconciliation for the accepted T028 commits before any T029 authorization or implementation
-- **Blocking issues:** `origin/001-application-foundation` at
-  `a686f6ffc378ce30d8b42bb001a0c22be2b20097` records T028 as Human-accepted but does not contain the
-  accepted T028 implementation tip `ec998583ab687b1db4b5b8355c51479c394f505e`; T029 stop/restart
-  acceptance depends on T028 `dev:start`, which remains a stub on the Delivery branch. Do not merge,
-  rebase, cherry-pick, or reauthorize silently.
+- **Next valid action:** Product Owner reviews the repository reconciliation; do not authorize T029
+  in this issue run
+- **Blocking issues:** NONE — the prior Delivery-branch/T028 history conflict is reconciled
 - **Review evidence:** Exceptional corrective commit
   `ec998583ab687b1db4b5b8355c51479c394f505e` is fetchable and directly follows reviewed commit
   `ae42bf91cfaf733833089aecc7a0be4d990717f3`. Its bounded four-file diff tightens only the canonical
@@ -56,14 +52,21 @@
 - **Non-blocking notes:** Independent npm used Node 24.11.0 with npm 11.6.1, below the repository's
   npm 12 engine pin; this did not affect the focused unit results, but full prerequisite acceptance
   still requires the approved npm version.
+- **Reconciliation evidence:** Human-authorized non-rewriting merge
+  `b16c06905f97566a279283df285da1fd3cfb2573` joins canonical governance head
+  `5d2967cf1d536214c2ffea3fdd2877c48904ca5c` and accepted T028 implementation tip
+  `ec998583ab687b1db4b5b8355c51479c394f505e` from exact merge base
+  `ad5b7a5047a58e8b0e70bb670407fe307f7aa0e8`. The accepted tip is an ancestor of the merged head;
+  its nine implementation files are byte-identical to the accepted tip; `PROJECT-STATUS.md` remains
+  the canonical governance side; T028-B01–T028-B05 remain closed; T029+ remain unauthorized.
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T029 authorization superseded by the Delivery-branch/T028 conflict
+- **Task / Scope:** NONE — reconciliation only; T029+ unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
-- **Expected verification:** NONE until Human-authorized repository reconciliation is complete
-- **Authorization state:** SUPERSEDED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Expected verification:** NONE
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
