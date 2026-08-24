@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION AUTHORIZED — T029
+- **Status:** T029 IMPLEMENTATION BLOCKED — PROVIDER CAPACITY
 
 ## Active Feature Mirror
 
@@ -30,13 +30,15 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** HUMAN ACCEPTED — T028 repository history reconciliation
-- **Phase status:** T028 RECONCILIATION ACCEPTED — T029 AUTHORIZED; T030+ UNAUTHORIZED
+- **Phase status:** T028 RECONCILIATION ACCEPTED — T029 AUTHORIZED BUT NOT EXECUTED; T030+
+  UNAUTHORIZED
 - **Previous completed scope:** T028 — supervised native Development startup and bounded whole-
   foundation readiness, including accepted closure of T028-B01–T028-B05
-- **Next valid action:** Claude Code implements only the fresh T029 authorization from canonical base
-  `451523ba033d7192f32cad9096042fdaa6dd2ac9`, returns implementation-result evidence, and stops for
-  independent Codex review; T030+ remain unauthorized
-- **Blocking issues:** NONE — the prior Delivery-branch/T028 history conflict is reconciled
+- **Next valid action:** HUMAN GATE — decide whether to retry `claude-developer` after provider
+  capacity resets; the sole-author boundary prohibits implicit reassignment
+- **Blocking issues:** `claude-developer` task `01a0349c-1c7e-757b-8eea-3458aeb42f26` failed with
+  `agent_error.provider_quota_limit`; no automatic retry is pending and no T029 implementation
+  artifact was produced
 - **Review evidence:** Exceptional corrective commit
   `ec998583ab687b1db4b5b8355c51479c394f505e` is fetchable and directly follows reviewed commit
   `ae42bf91cfaf733833089aecc7a0be4d990717f3`. Its bounded four-file diff tightens only the canonical
@@ -51,7 +53,8 @@
   one-time Human exception is consumed; the repository's general three-round policy is unchanged.
 - **Non-blocking notes:** Independent npm used Node 24.11.0 with npm 11.6.1, below the repository's
   npm 12 engine pin; this did not affect the focused unit results, but full prerequisite acceptance
-  still requires the approved npm version.
+  still requires the approved npm version. The failed provider response reported a reset time of
+  `2026-08-25 03:23:56`; this is diagnostic timing, not proof that capacity is available.
 - **Reconciliation evidence:** Human-authorized non-rewriting merge
   `b16c06905f97566a279283df285da1fd3cfb2573` joins canonical governance head
   `5d2967cf1d536214c2ffea3fdd2877c48904ca5c` and accepted T028 implementation tip
