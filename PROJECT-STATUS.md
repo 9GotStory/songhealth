@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE ACCEPTED — T024
+- **Status:** IMPLEMENTATION AUTHORIZED — T025
 
 ## Active Feature Mirror
 
@@ -30,9 +30,10 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T024 ACCEPTED — T025+ UNAUTHORIZED
+- **Phase status:** T024 ACCEPTED — T025 AUTHORIZED; T026+ UNAUTHORIZED
 - **Previous completed scope:** T024 — minimal Public SSR foundation route and route registration
-- **Next valid action:** NONE IN THIS ISSUE — T024 acceptance recorded; T025+ remain unauthorized
+- **Next valid action:** Claude Code implements only T025, returns implementation-result evidence,
+  and stops for independent Codex review; T026+ remain unauthorized
 - **Blocking issues:** NONE
 - **Review evidence:** Independent review of `f19f59e` against authorization commit `1206304`
   confirms exactly the three authorized Public implementation files plus the T024 checkbox. The
@@ -55,11 +56,30 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T024 is accepted; T025+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T025 only — implement the separate minimal Admin CSR foundation shell in
+  `apps/admin/src/app.tsx` and `apps/admin/src/main.tsx`; change only those two implementation files
+  and mark only T025 complete in `specs/001-application-foundation/tasks.md`
+- **Runtime:** Claude Code DEV Executor via the installed Spec Kit `implement` command/skill, bounded
+  to T025
+- **Required references:** `.specify/memory/constitution.md`; `CLAUDE.md`;
+  `docs/spec-context/001-application-foundation.md` Implementation / Review routing;
+  `specs/001-application-foundation/spec.md` User Story 1, FR-001–FR-002, and FR-016;
+  `specs/001-application-foundation/plan.md` Runtime composition and project structure;
+  `specs/001-application-foundation/tasks.md` T025 and dependency rules; and the accepted T018
+  contract in `apps/admin/src/app.test.tsx`
+- **Expected verification:** focused Vitest for `apps/admin/src/app.test.tsx` must pass and prove a
+  default-only static Admin component with a semantic main/heading and recognizable
+  Admin/foundation/readiness copy, without fetching, navigation, forms or interactive mutation,
+  Product/domain content, CMS/editorial behavior, authentication, session, or access-control
+  behavior. Verify `apps/admin/src/main.tsx` mounts that component as the separate React/Vite CSR
+  entry through the existing `#root` boundary without adding routing, data access, or other
+  behavior. Run focused ESLint and root `tsc --noEmit`, classifying only already-accepted unrelated
+  baseline diagnostics as non-blocking; run `git diff --check`, conflict-marker inspection, and
+  no-skip/todo/only inspection. Return the exact changed files, commands/results, commit SHA, and
+  confirmation that no T026+, dependency/package/lockfile, Product behavior, authentication, data
+  access, schema/API, Production decision, shared package, speculative structure, or unrelated
+  refactor was added.
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
