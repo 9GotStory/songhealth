@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE — T028 MAXIMUM CORRECTIVE ROUNDS REACHED
+- **Status:** T028 EXCEPTIONAL T028-B05 REWORK AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -29,12 +29,13 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T028-B05; HUMAN GATE REQUIRED
-- **Phase status:** T028 BLOCKED AFTER THREE CORRECTIVE ROUNDS — T029+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T028-B05; ONE-TIME HUMAN OVERRIDE AUTHORIZED
+- **Phase status:** T028 EXCEPTIONAL REWORK — T029+ UNAUTHORIZED
 - **Previous completed scope:** T027 — prerequisite checking and idempotent Development database
   setup
-- **Next valid action:** HUMAN GATE — decide whether to authorize further T028 correction or accept
-  an explicit exception; no agent implementation authorization remains active
+- **Next valid action:** Claude corrects only T028-B05, then stops for Codex independent corrective
+  re-review. PASS clears authorization and returns to the Product Owner Human Gate; CHANGES REQUIRED
+  returns directly to Human decision with no further automatic corrective round.
 - **Blocking issues:** T028-B05 — endpoint validation and preflight use the port parsed from
   `DATABASE_URL`, but the accepted T026 Development manifest always publishes the actual database
   endpoint at `127.0.0.1:3306`. Canonical configuration currently accepts another database URL
@@ -45,19 +46,37 @@
   `ae42bf91cfaf733833089aecc7a0be4d990717f3` directly follows `4ad0aea`, has a clean bounded diff,
   and closes T028-B04 by probing Public/server/Admin on configured `APP_HOST` with a focused
   non-default `127/8` regression. Review of the manifest, canonical URL policy, and corrected
-  preflight found T028-B05. T028-B01–T028-B04 are closed; the three-round corrective limit is now
-  exhausted.
+  preflight found T028-B05. T028-B01–T028-B04 are closed. Human explicitly authorized one
+  exceptional bounded corrective round for T028-B05 only; the repository's general three-round
+  corrective policy is unchanged.
 - **Non-blocking notes:** Independent npm used Node 24.11.0 with npm 11.6.1, below the repository's
   npm 12 engine pin; this did not affect the focused unit results, but full prerequisite acceptance
   still requires the approved npm version.
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — Human Gate required after maximum corrective rounds
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T028-B05 only — tighten the canonical Development configuration boundary so
+  `DATABASE_URL` is accepted only when its database port matches the accepted T026 manifest
+  endpoint, port `3306`, and reject a non-3306 Development database URL before any operational
+  work. Preserve the accepted T010 policy and all accepted T027/T028 behavior; do not add a second
+  weaker operations-layer policy. Change only the canonical configuration implementation if
+  required, directly affected focused configuration/T028 regression tests, and operations code
+  only if strictly necessary to consume the corrected canonical result. Do not modify the T026
+  manifest, dependencies, package manifests, lockfiles, T028-B01–T028-B04, or T029+ work.
+- **Runtime:** `claude-developer`
+- **Required references:** Human T028-B05 exception decision; `AGENTS.md`; `CLAUDE.md`;
+  `.specify/memory/constitution.md`; `PROJECT-STATUS.md`; T010 canonical configuration
+  implementation/tests; `infra/compose.development.yaml` as read-only T026 evidence;
+  `scripts/foundation-operations.mjs`; `scripts/foundation-operations.test.ts`; T028 requirements in
+  `specs/001-application-foundation/spec.md`, `plan.md`, `tasks.md`, `contracts/operations.md`,
+  `data-model.md`, and `quickstart.md`.
+- **Expected verification:** focused canonical configuration regressions proving Development
+  port `3306` remains accepted and a non-3306 `DATABASE_URL` is rejected with a closed Safe
+  Diagnostic before any operational work; focused T028-B05 regression proving no work/probe occurs;
+  existing T028 and diagnostic-surface verification; TypeScript and diff checks with baseline
+  accounting; explicit evidence that the T026 manifest, dependency/package/lock files, B01–B04,
+  and T029+ are untouched; exact fetchable commit and parent.
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
