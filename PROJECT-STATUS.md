@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION REWORK — T026
+- **Status:** REVIEW PASS — T026 AWAITING PRODUCT OWNER ACCEPTANCE
 
 ## Active Feature Mirror
 
@@ -29,31 +29,29 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED
-- **Phase status:** T025 ACCEPTED — T026 REWORK; T027+ UNAUTHORIZED
-- **Previous completed scope:** T025 — separate minimal Admin CSR foundation shell
-- **Next valid action:** Claude Code corrects only T026-B01, returns corrective-result evidence,
-  and stops for independent Codex re-review; T027+ remain unauthorized
-- **Blocking issues:** T026-B01 — all three manifest resources hardcode
-  `org.songhealth.foundation.checkout: local`. That value is identical across checkouts and cannot
-  prove the checkout-scoped ownership required by Research Decision 5 and the Operations Contract's
-  exact-ownership conjunction. The manifest must receive a stable checkout-scoped value from the
-  orchestration boundary on every declared resource rather than claim the generic literal `local`.
-- **Review evidence:** Independent review of `2f2fac9` against authorization commit `50815a8`
-  confirms the direct parent and the exact authorized two-file diff: the new 61-line Development
-  manifest plus only the T026 checkbox. Compose render/parse succeeds. The manifest contains one
-  digest-pinned database service, loopback-only `127.0.0.1:3306` publication, the persistent named
-  volume, Development-only placeholder database/user credentials aligned with the committed
-  example, InnoDB/`utf8mb4` flags, and all seven custom label keys on the service, network, and
-  volume. Independent `podman manifest inspect` confirms the pinned OCI index children identify
-  MySQL `8.4.11` from the `8.4` source path. `git diff --check`, scope inspection, and direct-parent
-  verification pass. T026-B01 remains blocking because the checkout label value is not
-  checkout-scoped, despite the exact ownership contract. No T027+, Verification manifest,
-  dependency/package/lockfile, Product schema/API/data, authentication, Production choice/parity
-  claim, additional service, speculative structure, destructive lifecycle behavior, or unrelated
-  refactor was added. Review against T026, FR-004–FR-005, FR-008, FR-015, Research Decisions 4–5,
-  Data Store, the Operations Contract, Delivery Context, and Constitution Principles I–VI finds no
-  Source-of-Truth conflict.
+- **Current review result:** PASS WITH NON-BLOCKING NOTES
+- **Phase status:** T026 REVIEW PASS — PRODUCT OWNER HUMAN GATE; T027+ UNAUTHORIZED
+- **Previous completed scope:** T026 — provisional Development database manifest
+- **Next valid action:** Product Owner reviews and accepts or rejects T026; no later task is
+  authorized in this issue
+- **Blocking issues:** NONE
+- **Review evidence:** Independent re-review of corrective commit `c9162e4` against rework
+  authorization commit `4f29456` closes T026-B01. The direct parent is exact and the corrective
+  diff changes only `infra/compose.development.yaml`: all three checkout labels now require the
+  same runtime-supplied `SONGHEALTH_CHECKOUT_ID`. Compose render/parse with the safe synthetic value
+  `synthetic-checkout-review` succeeds and emits that identical non-empty value on the service,
+  network, and volume; absent and empty inputs both fail at required-variable interpolation before
+  a generic or empty ownership claim can be accepted. The complete T026 diff remains bounded to the
+  Development manifest and T026 checkbox. It contains one digest-pinned MySQL 8.4 database,
+  loopback-only `127.0.0.1:3306` publication, Development-only placeholders aligned with the
+  committed example, InnoDB/`utf8mb4`, a persistent named volume, and the complete custom label set
+  on every resource. Independent digest inspection identifies MySQL 8.4.11 from the 8.4 source
+  path. `git diff --check`, clean-tree, conflict-marker, scope, task-boundary, and direct-parent
+  verification pass. No T027+, Verification manifest, dependency/package/lockfile, Product
+  schema/API/data, authentication, Production choice/parity claim, additional service, speculative
+  structure, destructive lifecycle behavior, or unrelated refactor was added. Review against T026,
+  FR-004–FR-005, FR-008, FR-015, Research Decisions 4–5, Data Store, the Operations Contract,
+  Delivery Context, and Constitution Principles I–VI finds no Source-of-Truth conflict.
 - **Non-blocking notes:** Focused T019–T023 suites remain expected-red at the absent T027+
   `scripts/foundation-operations.mjs` boundary and do not consume this manifest. This reviewer
   runtime has no `npx` executable, so those suites could not be reproduced locally; the manifest's
@@ -61,29 +59,12 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T026-B01 rework only — replace the literal `local` checkout ownership value in
-  `infra/compose.development.yaml` with one required runtime-supplied, stable checkout-scoped value
-  and apply that same value to the service, network, and volume checkout labels; preserve all other
-  accepted T026 behavior and keep the T026 checkbox complete
-- **Runtime:** Claude Code DEV Executor via the installed Spec Kit `implement` command/skill, bounded
-  to T026
-- **Required references:** `.specify/memory/constitution.md`; `CLAUDE.md`;
-  `docs/spec-context/001-application-foundation.md` Implementation / Review routing;
-  `specs/001-application-foundation/spec.md` FR-004–FR-005, FR-008, and FR-015;
-  `specs/001-application-foundation/plan.md` Persistence and migrations;
-  `specs/001-application-foundation/research.md` Decisions 4–5;
-  `specs/001-application-foundation/data-model.md` Data Store;
-  `specs/001-application-foundation/contracts/foundation-operations.md` Operation-target ownership
-  and isolation; `specs/001-application-foundation/tasks.md` T026 and dependency rules; and
-  `.env.development.example`
-- **Expected verification:** render/parse the manifest with an explicit safe synthetic
-  checkout-scoped input and prove the same non-empty value appears on the service, network, and
-  volume; also prove render/parse fails when that required input is absent so no generic or empty
-  ownership claim can be created. Run `git diff --check`, conflict-marker inspection, and
-  no-skip/todo/only inspection. Return the exact changed files, commands/results, corrective commit
-  SHA and direct parent, and confirmation that accepted T026 behavior is unchanged and no T027+ or
-  unrelated scope was added.
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T026 passed independent review and awaits Product Owner acceptance;
+  T027+ remain unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
