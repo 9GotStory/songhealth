@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T027 IMPLEMENTATION AUTHORIZED
+- **Status:** T027 REVIEW PASS — PRODUCT OWNER HUMAN GATE
 
 ## Active Feature Mirror
 
@@ -29,58 +29,40 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T027-B01, T027-B02, T027-B03
-- **Phase status:** T027 REWORK AUTHORIZED — T028+ UNAUTHORIZED
-- **Previous completed scope:** T026 — provisional Development database manifest
-- **Next valid action:** Claude corrects only T027-B01–T027-B03 and stops for independent Codex
-  re-review
-- **Blocking issues:** T027-B01 — the new operations validator duplicates and weakens accepted T010
-  `apps/server/src/config.ts`: it accepts mismatched `PUBLIC_ORIGIN` host/port, non-origin URL
-  paths/query/userinfo/TLS, and arbitrary Development database user/name rather than enforcing the
-  canonical target identity and credential/resource combinations required by FR-006. T027-B02 —
-  the real setup adapter runs detached Compose and immediately applies migrations; the accepted
-  manifest has no healthcheck and detached start does not establish MySQL readiness, so clean
-  first-run setup can race engine initialization and fail instead of producing a usable idempotent
-  setup. T027-B03 — preflight accepts any executable npm version even though the repository and
-  Operations Contract require the supported npm CLI (`>=12.0.0 <13`); it can report success for an
-  incompatible prerequisite.
-- **Review evidence:** Exact commit `2a5906022ca0a334551a7a60dc4b7571e4462d86` has direct parent
-  authorization commit `820d62bc35248eaeea626838e67e0111cd083a40`; its four-file diff is
-  bounded and `git diff --check` passes. Static review confirms T028+ remain non-working stubs and
-  the task checkbox/package-script boundary is correct. Focused tests could not be independently
-  reproduced because this reviewer runtime has no Node/npm/npx executable; this is verification-
-  environment unavailability, not an implementation finding. Source inspection against accepted
-  T010 configuration behavior, FR-006, the Operations Contract, T026 manifest, and the real adapter
-  path establishes the three blocking findings above.
-- **Non-blocking notes:** The declaration file is broad because accepted tests import the planned
-  boundary, but it implements no later-task runtime behavior.
+- **Current review result:** PASS
+- **Phase status:** T027 REVIEWED — AWAITING PRODUCT OWNER ACCEPTANCE; T028+ UNAUTHORIZED
+- **Previous completed scope:** T027 — prerequisite checking and idempotent Development database
+  setup
+- **Next valid action:** Product Owner Human Gate for T027; do not authorize T028 in this issue
+- **Blocking issues:** NONE
+- **Review evidence:** Independent re-review of corrective commit
+  `63990d0729bb34b3512e938636181f954cb14eb0` against rework authorization commit `ca1e66b` closes
+  T027-B01–T027-B03. The direct parent is exact and the corrective diff changes only
+  `scripts/foundation-operations.mjs`, its declaration boundary, and focused accepted tests. The
+  operations path now delegates to accepted T010 `loadRuntimeConfiguration`, so canonical
+  Development host/origin/port and database user/name identity is enforced before work without a
+  second weaker policy. Database setup starts only the accepted Development database, polls the
+  injected usable-engine boundary on a 120-second/500-millisecond bound, maps probe failure/timeout
+  to a closed `DATABASE_UNAVAILABLE`, and applies tracked migrations only after readiness. npm
+  preflight parses the private command result and accepts only npm 12.x. Added regressions cover
+  eight origin/database identity and format refusals, npm range cases, timeout/late readiness, and
+  start→readiness→migration ordering. `git diff --check`, ancestry, clean-tree, scope, task-boundary,
+  and T028+ stub inspection pass. Developer evidence reports all focused T019/T023 and 18 corrective
+  tests passing; unchanged expected-red failures belong only to T028+ and absent T032–T037 exports.
+  No Product behavior, Production decision/parity claim, new dependency/service, destructive
+  lifecycle behavior, or later task was added.
+- **Non-blocking notes:** This reviewer runtime has no Node/npm/npx executable, so focused tests
+  could not be independently reproduced; this is verification-environment unavailability. The
+  developer's exact command/result evidence and independent static inspection are otherwise
+  coherent.
 
 ## Authorized Implementation
 
-- **Task / Scope:** T027 rework only — close T027-B01–T027-B03 in
-  `scripts/foundation-operations.mjs` and directly affected declarations/tests only. Reuse or match
-  the accepted T010 canonical Development configuration validation without weakening it; make the
-  real database setup wait boundedly for usable engine readiness before explicit migrations; and
-  validate the supported npm major/range during preflight. Stop before T028 or any later task.
-- **Runtime:** `claude-developer`
-- **Required references:** `CLAUDE.md`; `AGENTS.md`; `.specify/memory/constitution.md` Principles
-  I–VI and Delivery and Quality Gates; `docs/spec-context/001-application-foundation.md`
-  Implementation / Review routing and explicit out-of-scope boundaries;
-  `specs/001-application-foundation/tasks.md` T027;
-  `specs/001-application-foundation/spec.md` FR-003, FR-006, SC-001;
-  `specs/001-application-foundation/plan.md` Configuration and startup, Operations and verification;
-  `specs/001-application-foundation/contracts/foundation-operations.md` Prerequisites, Commands,
-  Configuration examples, Safe diagnostic contract, and Timing boundaries;
-  `scripts/foundation-operations.test.ts` accepted T019 contract; accepted T026
-  `infra/compose.development.yaml`.
-- **Expected verification:** Add focused regression coverage proving mismatched Development origin
-  host/port and wrong database user/name are rejected before work; malformed origin paths/query/
-  userinfo are rejected; incompatible npm versions fail preflight; and the real-adapter readiness
-  boundary is bounded and precedes migration application without implementing T028 overall
-  readiness. Rerun focused accepted T019/T023 tests for `foundation:check`/`dev:setup`, directly
-  affected static/type checks, and `git diff --check`. Report exact commands/results and preserve
-  all existing accepted tests.
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T027 review passed; T028+ remain unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
