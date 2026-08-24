@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE ACCEPTED — T023
+- **Status:** IMPLEMENTATION AUTHORIZED — T024
 
 ## Active Feature Mirror
 
@@ -30,10 +30,11 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T023 ACCEPTED — T024+ UNAUTHORIZED
+- **Phase status:** T023 ACCEPTED — T024 AUTHORIZED; T025+ UNAUTHORIZED
 - **Previous completed scope:** T023 — failing daily command stdout/stderr, application-log, HTTP,
   exact-sentinel, and encoded-sentinel nondisclosure tests
-- **Next valid action:** NONE IN THIS ISSUE — T023 acceptance recorded; T024+ remain unauthorized
+- **Next valid action:** Claude Code implements only T024, returns implementation-result evidence,
+  and stops for independent Codex review; T025+ remain unauthorized
 - **Blocking issues:** NONE
 - **Review evidence:** Independent review of `3876a9d` confirms the implementation diff is exactly
   `tests/verification/diagnostic-surfaces.test.ts` plus the T023 checkbox. The deterministic
@@ -58,11 +59,30 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T023 is accepted; T024+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T024 only — implement the minimal Public SSR foundation route and route
+  registration in `apps/web/app/root.tsx`, `apps/web/app/routes.ts`, and
+  `apps/web/app/routes/foundation.tsx`; change only those three implementation files and mark only
+  T024 complete in `specs/001-application-foundation/tasks.md`
+- **Runtime:** Claude Code DEV Executor via the installed Spec Kit `implement` command/skill, bounded
+  to T024
+- **Required references:** `.specify/memory/constitution.md`; `CLAUDE.md`;
+  `docs/spec-context/001-application-foundation.md` Implementation / Review routing;
+  `specs/001-application-foundation/spec.md` User Story 1, FR-001–FR-002, and FR-016;
+  `specs/001-application-foundation/plan.md` Runtime composition and project structure;
+  `specs/001-application-foundation/tasks.md` T024 and dependency rules; and the accepted T017
+  contract in `apps/web/app/routes/foundation.test.tsx`
+- **Expected verification:** focused Vitest for
+  `apps/web/app/routes/foundation.test.tsx` must pass and prove a default-only static Public route
+  that server-renders meaningful semantic foundation/readiness content without fetching,
+  navigation, forms, Product/domain behavior, Admin/CMS/editorial behavior, authentication, or
+  session behavior. Verify the route is registered through the existing React Router Framework
+  Mode boundary and the root remains the smallest correct document shell. Run focused ESLint and
+  root `tsc --noEmit`, classifying only already-accepted unrelated baseline diagnostics as
+  non-blocking; run `git diff --check`, conflict-marker inspection, and no-skip/todo/only
+  inspection. Return the exact changed files, commands/results, commit SHA, and confirmation that
+  no T025+, dependency/package/lockfile, Product behavior, authentication, data access, schema/API,
+  Production decision, shared package, speculative structure, or unrelated refactor was added.
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
