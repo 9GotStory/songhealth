@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T028 IMPLEMENTATION BLOCKED — PROVIDER CAPACITY
+- **Status:** T028 CHANGES REQUIRED — REVIEW ARTIFACT UNAVAILABLE
 
 ## Active Feature Mirror
 
@@ -29,27 +29,24 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** NOT YET REVIEWED — T028
-- **Phase status:** T028 AUTHORIZED BUT NOT EXECUTED — T029+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T028-B01
+- **Phase status:** T028 REWORK — T029+ UNAUTHORIZED
 - **Previous completed scope:** T027 — prerequisite checking and idempotent Development database
   setup
-- **Next valid action:** HUMAN GATE — decide whether to retry `claude-developer` after provider
-  capacity resets or explicitly authorize a different implementation author
-- **Blocking issues:** `claude-developer` task `01a03381-8a95-7ba1-a4f2-f4155ec6f84a` failed with
-  `agent_error.provider_quota_limit`; no automatic retry is pending and no implementation artifact
-  was produced
-- **Review evidence:** T028 review pending. Authorization selected from accepted HEAD
-  `b1d1eb762cb90d5485806fde26d48cb9319b3823`: T001–T027 are complete and T027 is Human accepted;
-  T028 is incomplete, is the first dependency-ready task, and no other implementation
-  authorization is active.
-- **Non-blocking notes:** The failed provider response reported a reset time of
-  `2026-08-24 22:22:50`; this is diagnostic timing, not proof that capacity is now available.
+- **Next valid action:** Claude publishes the existing T028 commit on a fetchable remote ref and
+  stops for independent Codex review; no implementation changes are authorized
+- **Blocking issues:** T028-B01 — reported implementation commit `3a283d8` and branch
+  `agent/claude-developer/f4155ec6f84a` are absent from the reviewer checkout and all fetched origin
+  refs, so the exact implementation artifact cannot be inspected or verified
+- **Review evidence:** `git fetch origin --prune` completed, but `git cat-file -t 3a283d8` returned
+  “Not a valid object name”; `git branch --all` contains no reported implementation branch.
+- **Non-blocking notes:** NONE
 
 ## Authorized Implementation
 
-- **Task / Scope:** T028 only — implement supervised native Public/Admin/server startup and bounded
-  overall readiness in `scripts/foundation-operations.mjs`; expose only `dev:start` and `dev:ready`
-  in `package.json`. Stop before T029 or any later task.
+- **Task / Scope:** T028-B01 rework only — publish the already-reported commit `3a283d8` to a
+  fetchable remote branch/ref and report the exact ref and full SHA. Do not modify or amend the
+  implementation and do not begin T029 or any later task.
 - **Runtime:** `claude-developer`
 - **Required references:** `CLAUDE.md`; `AGENTS.md`; `.specify/memory/constitution.md` Principles
   I–VI and Delivery and Quality Gates; `docs/spec-context/001-application-foundation.md`
@@ -65,17 +62,10 @@
   `scripts/foundation-operations.test.ts` accepted T019 startup/readiness contract;
   `tests/verification/diagnostic-surfaces.test.ts` accepted T023 nondisclosure contract; accepted
   T010 configuration boundary and T027 setup implementation.
-- **Expected verification:** Run the focused accepted T019 tests for `dev:start` and `dev:ready`
-  and the directly affected accepted T023 diagnostic/nondisclosure tests, plus any directly affected
-  static/type/lint check available; run `git diff --check`; report exact commands and results.
-  Verify startup validates the canonical Development identity before work, starts only the accepted
-  Development database plus the three native processes, does not auto-apply migrations, is
-  repeat-safe with no duplicate process/resource, and fails closed on partial startup. Verify
-  readiness polls on an injected bounded deadline, succeeds only when database connectivity,
-  migration currency, liveness/readiness, Public SSR, Admin CSR, and server route checks all pass,
-  and reports safe actionable diagnostics without protected/raw output. Preserve deterministic
-  injected/fake collaborator support and do not weaken accepted tests.
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Expected verification:** Push the exact existing commit without changing its SHA; confirm the
+  remote ref resolves to its full SHA and its direct parent is authorization commit `ad5b7a5`.
+  Report the push command/result and remote ref. No test rerun is required for artifact publication.
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
