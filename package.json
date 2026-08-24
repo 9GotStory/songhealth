@@ -12,8 +12,8 @@
     "npm": ">=12.0.0 <13"
   },
   "scripts": {
-    "foundation:check": "node -e \"process.exit(1)\"",
-    "dev:setup": "node -e \"process.exit(1)\"",
+    "foundation:check": "node scripts/foundation-operations.mjs foundation:check",
+    "dev:setup": "node scripts/foundation-operations.mjs dev:setup --target development",
     "dev:start": "node -e \"process.exit(1)\"",
     "dev:ready": "node -e \"process.exit(1)\"",
     "dev:stop": "node -e \"process.exit(1)\"",
