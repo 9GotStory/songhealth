@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION AUTHORIZED — T026
+- **Status:** IMPLEMENTATION REWORK — T026
 
 ## Active Feature Mirror
 
@@ -29,39 +29,42 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T025 ACCEPTED — T026 AUTHORIZED; T027+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED
+- **Phase status:** T025 ACCEPTED — T026 REWORK; T027+ UNAUTHORIZED
 - **Previous completed scope:** T025 — separate minimal Admin CSR foundation shell
-- **Next valid action:** Claude Code implements only T026, returns implementation-result evidence,
-  and stops for independent Codex review; T027+ remain unauthorized
-- **Blocking issues:** NONE
-- **Review evidence:** Independent review of `7201cc3` against authorization commit `e60a71f`
-  confirms exactly the two authorized Admin implementation files plus the T025 checkbox. The
-  default-only component renders a static semantic Admin foundation/readiness shell, and the
-  separate React/Vite CSR entry mounts it through the existing `#root` boundary. There is no
-  fetching, navigation, form or interactive mutation, routing, data access, Product/domain content,
-  CMS/editorial behavior, authentication/session/access-control behavior, or additional export.
-  Focused Vitest passes 8/8. Root `tsc --noEmit` reports exactly the five accepted T027+ TS2307
-  missing-boundary diagnostics and no T025 diagnostic or other error. `git diff --check`,
-  conflict-marker inspection, no-skip/todo/only inspection, direct-parent verification, and
-  clean-tree verification pass. No T026+, dependency, package, lockfile, manifest, schema/API,
-  Production decision, shared package, speculative structure, or unrelated refactor was added.
-  Review against T025, FR-001–FR-002, FR-016, the accepted T018 contract, plan, Delivery Context,
-  and Constitution Principles I–VI finds no Source-of-Truth conflict.
-  Product Owner Human Gate accepted T025.
-- **Non-blocking notes:** The accepted locked graph still provides no
-  `node_modules/.bin/eslint` executable, so the required focused ESLint attempt exits 127. The
-  lockfile-exact install uses Node 24.19.0 with bundled npm 11.17.0 and emits the known npm-engine
-  warning because the repository requests npm 12; neither limitation authorizes dependency,
-  manifest, or lockfile changes.
+- **Next valid action:** Claude Code corrects only T026-B01, returns corrective-result evidence,
+  and stops for independent Codex re-review; T027+ remain unauthorized
+- **Blocking issues:** T026-B01 — all three manifest resources hardcode
+  `org.songhealth.foundation.checkout: local`. That value is identical across checkouts and cannot
+  prove the checkout-scoped ownership required by Research Decision 5 and the Operations Contract's
+  exact-ownership conjunction. The manifest must receive a stable checkout-scoped value from the
+  orchestration boundary on every declared resource rather than claim the generic literal `local`.
+- **Review evidence:** Independent review of `2f2fac9` against authorization commit `50815a8`
+  confirms the direct parent and the exact authorized two-file diff: the new 61-line Development
+  manifest plus only the T026 checkbox. Compose render/parse succeeds. The manifest contains one
+  digest-pinned database service, loopback-only `127.0.0.1:3306` publication, the persistent named
+  volume, Development-only placeholder database/user credentials aligned with the committed
+  example, InnoDB/`utf8mb4` flags, and all seven custom label keys on the service, network, and
+  volume. Independent `podman manifest inspect` confirms the pinned OCI index children identify
+  MySQL `8.4.11` from the `8.4` source path. `git diff --check`, scope inspection, and direct-parent
+  verification pass. T026-B01 remains blocking because the checkout label value is not
+  checkout-scoped, despite the exact ownership contract. No T027+, Verification manifest,
+  dependency/package/lockfile, Product schema/API/data, authentication, Production choice/parity
+  claim, additional service, speculative structure, destructive lifecycle behavior, or unrelated
+  refactor was added. Review against T026, FR-004–FR-005, FR-008, FR-015, Research Decisions 4–5,
+  Data Store, the Operations Contract, Delivery Context, and Constitution Principles I–VI finds no
+  Source-of-Truth conflict.
+- **Non-blocking notes:** Focused T019–T023 suites remain expected-red at the absent T027+
+  `scripts/foundation-operations.mjs` boundary and do not consume this manifest. This reviewer
+  runtime has no `npx` executable, so those suites could not be reproduced locally; the manifest's
+  supported Compose render/parse and digest inspection were independently reproduced.
 
 ## Authorized Implementation
 
-- **Task / Scope:** T026 only — define the provisional Development database in
-  `infra/compose.development.yaml` with an immutable digest resolving specifically to MySQL 8.4,
-  loopback-only publication, a persistent named volume, Development-only credentials, InnoDB and
-  `utf8mb4`, and the complete canonical Compose/custom ownership labels; change only that manifest
-  and mark only T026 complete in `specs/001-application-foundation/tasks.md`
+- **Task / Scope:** T026-B01 rework only — replace the literal `local` checkout ownership value in
+  `infra/compose.development.yaml` with one required runtime-supplied, stable checkout-scoped value
+  and apply that same value to the service, network, and volume checkout labels; preserve all other
+  accepted T026 behavior and keep the T026 checkbox complete
 - **Runtime:** Claude Code DEV Executor via the installed Spec Kit `implement` command/skill, bounded
   to T026
 - **Required references:** `.specify/memory/constitution.md`; `CLAUDE.md`;
@@ -73,21 +76,14 @@
   `specs/001-application-foundation/contracts/foundation-operations.md` Operation-target ownership
   and isolation; `specs/001-application-foundation/tasks.md` T026 and dependency rules; and
   `.env.development.example`
-- **Expected verification:** prove the manifest parses/renders with the repository's supported
-  Compose tooling and contains only the Development database service and its persistent named
-  volume; prove the immutable image digest resolves specifically to `mysql:8.4`; verify database
-  publication is explicitly bound to loopback, credentials/database identity are Development-only
-  and align with `.env.development.example`, InnoDB/`utf8mb4` are configured, and every service,
-  network, and volume resource carries the required canonical Compose labels plus
-  `org.songhealth.foundation.delivery`, `.checkout`, `.environment`, `.runtime-profile`,
-  `.operation-target`, `.resource`, and `.ownership-schema` with the correct Development values.
-  Run relevant focused manifest/operation-target tests where runnable, `git diff --check`,
-  conflict-marker inspection, and no-skip/todo/only inspection. Return the exact changed files,
-  commands/results, commit SHA, image tag/digest resolution evidence, and confirmation that no
-  T027+, Verification manifest, dependency/package/lockfile, Product data/schema/API,
-  authentication, Production decision/parity claim, additional service, speculative structure,
-  destructive lifecycle behavior, or unrelated refactor was added.
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Expected verification:** render/parse the manifest with an explicit safe synthetic
+  checkout-scoped input and prove the same non-empty value appears on the service, network, and
+  volume; also prove render/parse fails when that required input is absent so no generic or empty
+  ownership claim can be created. Run `git diff --check`, conflict-marker inspection, and
+  no-skip/todo/only inspection. Return the exact changed files, commands/results, corrective commit
+  SHA and direct parent, and confirmation that accepted T026 behavior is unchanged and no T027+ or
+  unrelated scope was added.
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
