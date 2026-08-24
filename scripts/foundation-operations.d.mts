@@ -68,7 +68,9 @@ export interface PreflightCollaborators {
  * The Development Data Store adapter. The adapter owns idempotency:
  * starting an already-running database (or stopping a stopped one) is a
  * no-op with no duplicate resource, so repeated command invocations never
- * duplicate the database resource.
+ * duplicate the database resource. `isRunning` is the usable-engine
+ * readiness observation (the engine is accepting work), polled boundedly
+ * by setup before migrations are applied.
  */
 export interface DatabaseCollaborators {
   start(): Promise<void>;
@@ -199,14 +201,29 @@ export function foundationCheck(
 
 /**
  * `dev:setup` — validate the selectable local operation target and the
- * Development/daily execution identity before any work, start only the
- * Development database dependency idempotently, then explicitly apply
+ * Development/daily execution identity before any work through the
+ * accepted T010 canonical configuration boundary (no second policy),
+ * start only the Development database dependency idempotently, wait
+ * boundedly for the engine to accept connections, then explicitly apply
  * tracked migrations. Any failure is actionable and non-zero.
  */
 export function devSetup(
   collaborators: FoundationOperationsCollaborators,
   target: string,
 ): Promise<OperationResult>;
+
+/**
+ * Whether an `npm --version` output satisfies the supported npm CLI range
+ * (`>=12.0.0 <13`, the root `engines` constraint). Total and strict:
+ * garbage or empty output fails. The raw tool output is never surfaced.
+ */
+export function npmVersionSatisfiesEngines(versionOutput: string): boolean;
+
+/** Bounded engine-readiness wait before migrations (milliseconds). */
+export const DATABASE_READINESS_TIMEOUT_MS: number;
+
+/** Engine-readiness poll interval on the injected clock (milliseconds). */
+export const DATABASE_READINESS_POLL_INTERVAL_MS: number;
 
 // ---------------------------------------------------------------------------
 // Later-task operations (T028–T031). Exported so the accepted tests-first

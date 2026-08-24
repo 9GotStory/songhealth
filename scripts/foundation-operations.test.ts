@@ -275,6 +275,9 @@ import {
   foundationInventory,
   devReset,
   foundationCleanup,
+  npmVersionSatisfiesEngines,
+  DATABASE_READINESS_TIMEOUT_MS,
+  DATABASE_READINESS_POLL_INTERVAL_MS,
 } from "./foundation-operations.mjs";
 
 // ---------------------------------------------------------------------------
@@ -298,14 +301,21 @@ const READY_COMPONENTS = {
   serverRoute: "ready",
 } as const;
 
-/** A safe Development daily configuration (synthetic, non-secret). */
+/**
+ * A safe Development daily configuration (synthetic, non-secret). T027 rework
+ * (T027-B01): the DATABASE_URL identity is the canonical Development identity
+ * the accepted T010 boundary enforces (`songhealth_dev` / `songhealth_development`,
+ * the committed `.env.development.example` and T026 manifest credentials) — the
+ * pre-rework fixture used a non-canonical user/name that canonical validation
+ * must reject.
+ */
 const SAFE_DEV_CONFIG = {
   APP_ENVIRONMENT: "development",
   RUNTIME_PROFILE: "daily",
   APP_HOST: "127.0.0.1",
   APP_PORT: "10443",
   PUBLIC_ORIGIN: "http://127.0.0.1:10443",
-  DATABASE_URL: "mysql://dev-user:dev-password@127.0.0.1:13306/songhealth_dev",
+  DATABASE_URL: "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:13306/songhealth_development",
   DATABASE_POOL_MAX: "4",
   PROXY_POLICY: "none",
   LOG_LEVEL: "info",
@@ -2216,5 +2226,172 @@ describe("Foundation destructive operations — T020 (tests-first for T030–T03
     expect(releaseIndex).toBeGreaterThan(Math.max(...mutationIndices));
     // The Verification target lock is released after the operation completes.
     expect(harness.lockState.heldBy).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T027 rework regressions (review findings T027-B01/B02/B03).
+//
+// B01: `dev:setup` delegates configuration validation to the accepted T010
+// canonical boundary (`apps/server/src/config.ts`), so the exact canonical
+// Development semantics are provable here: a public origin NOT bound to
+// `APP_HOST`/`APP_PORT` is a forbidden identity combination, non-origin URL
+// forms (path/query/userinfo) and non-HTTP origins are malformed, and the
+// Development database user/name are the canonical identity — any other
+// credential/resource identity is rejected BEFORE any work.
+// B02: setup waits boundedly for the engine to accept connections before
+// migrations: a never-ready engine fails safely within the bound without
+// applying migrations, readiness provably precedes the migration event, and
+// a late-ready engine still completes.
+// B03: the npm preflight category enforces the supported npm CLI range by
+// parsing the version output (never surfacing it).
+// ---------------------------------------------------------------------------
+
+describe("Foundation setup rework regressions — T027-B01/B02/B03", () => {
+  it.each([
+    [
+      "a public-origin port that does not match APP_PORT",
+      { PUBLIC_ORIGIN: "http://127.0.0.1:9999" },
+      "CONFIG_IDENTITY_CONFLICT",
+      "PUBLIC_ORIGIN",
+    ],
+    [
+      "a public-origin host that does not match APP_HOST",
+      { PUBLIC_ORIGIN: "http://localhost:10443" },
+      "CONFIG_IDENTITY_CONFLICT",
+      "PUBLIC_ORIGIN",
+    ],
+    [
+      "a database user outside the canonical Development identity",
+      {
+        DATABASE_URL:
+          "mysql://dev-user:dev-only-placeholder@127.0.0.1:13306/songhealth_development",
+      },
+      "CONFIG_IDENTITY_CONFLICT",
+      "DATABASE_URL",
+    ],
+    [
+      "a database name outside the canonical Development identity",
+      {
+        DATABASE_URL:
+          "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:13306/songhealth_dev",
+      },
+      "CONFIG_IDENTITY_CONFLICT",
+      "DATABASE_URL",
+    ],
+    [
+      "a public origin with a non-root path",
+      { PUBLIC_ORIGIN: "http://127.0.0.1:10443/app" },
+      "CONFIG_MALFORMED",
+      "PUBLIC_ORIGIN",
+    ],
+    [
+      "a public origin with a query string",
+      { PUBLIC_ORIGIN: "http://127.0.0.1:10443?x=1" },
+      "CONFIG_MALFORMED",
+      "PUBLIC_ORIGIN",
+    ],
+    [
+      "a public origin with userinfo",
+      { PUBLIC_ORIGIN: "http://user:password@127.0.0.1:10443" },
+      "CONFIG_MALFORMED",
+      "PUBLIC_ORIGIN",
+    ],
+    [
+      "a non-HTTP public origin",
+      { PUBLIC_ORIGIN: "https://127.0.0.1:10443" },
+      "CONFIG_MALFORMED",
+      "PUBLIC_ORIGIN",
+    ],
+  ] as [string, Record<string, string>, string, string][])(
+    "dev:setup rejects %s before any work — canonical Development semantics",
+    async (_label, overrides, reasonCode, configurationKey) => {
+      const harness = makeCollaborators();
+      const { collaborators } = harness;
+      collaborators.config = {
+        load: async () => ({ ...SAFE_DEV_CONFIG, ...overrides }),
+      };
+
+      const result = await devSetup(collaborators, "development");
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.reasonCode).toBe(reasonCode);
+      expect(result.configurationKey).toBe(configurationKey);
+      // The rejection happens before any work of any kind.
+      expectNoWork(harness);
+    },
+  );
+
+  it.each([
+    ["12.0.2", true],
+    ["12.9.1", true],
+    ["v12.3.4", true],
+    ["11.9.9", false],
+    ["13.0.0", false],
+    ["not-a-version", false],
+    ["", false],
+  ] as [string, boolean][])(
+    "npm engine validation: %s satisfies the supported npm CLI range: %s",
+    (versionOutput, expected) => {
+      expect(npmVersionSatisfiesEngines(versionOutput)).toBe(expected);
+    },
+  );
+
+  it("dev:setup fails safely at the bounded deadline when the engine never accepts connections — no migrations, no native processes", async () => {
+    const harness = makeCollaborators();
+    const { collaborators, dbState, processState } = harness;
+    const probe = vi.fn(async () => false);
+    collaborators.database.isRunning = probe;
+
+    const result = await devSetup(collaborators, "development");
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.reasonCode).toBe("DATABASE_UNAVAILABLE");
+    // No migration or native-process work followed the failed readiness wait.
+    expect(dbState.migrationsApplied).toBe(false);
+    expect(processState.running.size).toBe(0);
+    // Bounded: the injected clock advanced exactly to the deadline and no
+    // further, and the probe count is bounded by the poll interval.
+    expect(collaborators.clock.now()).toBe(DATABASE_READINESS_TIMEOUT_MS);
+    expect(probe.mock.calls.length).toBe(
+      DATABASE_READINESS_TIMEOUT_MS / DATABASE_READINESS_POLL_INTERVAL_MS + 1,
+    );
+  });
+
+  it("dev:setup applies migrations once the engine accepts connections within the bound", async () => {
+    const harness = makeCollaborators();
+    const { collaborators, dbState } = harness;
+    let probes = 0;
+    collaborators.database.isRunning = async () => {
+      probes += 1;
+      return probes >= 3;
+    };
+
+    const result = await devSetup(collaborators, "development");
+
+    expect(result.exitCode).toBe(0);
+    expect(dbState.migrationsApplied).toBe(true);
+    expect(probes).toBe(3);
+    // Two bounded poll advances occurred while waiting for readiness.
+    expect(collaborators.clock.now()).toBe(2 * DATABASE_READINESS_POLL_INTERVAL_MS);
+  });
+
+  it("dev:setup proves engine readiness precedes explicit migration — database:start < readiness < migrate:applied", async () => {
+    const harness = makeCollaborators();
+    const { collaborators, events } = harness;
+    collaborators.database.isRunning = async () => {
+      events.push("database:isRunning");
+      return true;
+    };
+
+    const result = await devSetup(collaborators, "development");
+
+    expect(result.exitCode).toBe(0);
+    const startIndex = events.indexOf("database:start");
+    const readyIndex = events.indexOf("database:isRunning");
+    const migrateIndex = events.indexOf("migrate:applied");
+    expect(startIndex).toBeGreaterThanOrEqual(0);
+    expect(readyIndex).toBeGreaterThan(startIndex);
+    expect(migrateIndex).toBeGreaterThan(readyIndex);
   });
 });

@@ -9,7 +9,9 @@
  * `scripts/foundation-operations.test.ts`; accepted T023 diagnostic-surface
  * contract `tests/verification/diagnostic-surfaces.test.ts`; accepted T026
  * manifest `infra/compose.development.yaml`; accepted T013 migration
- * boundary `apps/server/src/migrations.ts` (`applyMigrations(db)`).
+ * boundary `apps/server/src/migrations.ts` (`applyMigrations(db)`);
+ * accepted T010 canonical configuration boundary
+ * `apps/server/src/config.ts` (`loadRuntimeConfiguration`).
  *
  * This module owns ONLY the operations boundary behavior the accepted
  * contracts pin for `foundation:check` and `dev:setup`:
@@ -17,17 +19,26 @@
  *     Podman, Compose, required files, safe execution-context
  *     configuration, port availability) through the injected preflight
  *     collaborators, performs no service work of any kind, and fails
- *     non-zero with a closed Safe Diagnostic when any category fails.
+ *     non-zero with a closed Safe Diagnostic when any category fails. The
+ *     npm category enforces the supported npm CLI range (`>=12.0.0 <13`,
+ *     the root `engines` constraint) by parsing the version output — never
+ *     by surfacing it.
  *   - `devSetup` validates the selectable local operation target and the
- *     Development/daily execution identity BEFORE any work (the six
- *     documented rejection classes: `CONFIG_MISSING`, `CONFIG_EMPTY`,
- *     `CONFIG_MALFORMED`, `CONFIG_UNSUPPORTED`, `CONFIG_OUT_OF_RANGE`,
- *     `CONFIG_IDENTITY_CONFLICT`), then starts only the Development
- *     database dependency and explicitly applies tracked migrations after
- *     it is running. Every failure is actionable, non-zero, and emitted as
- *     exactly one closed Safe Diagnostic per owned output surface — never
- *     a configuration value, credential, connection string, raw
- *     child-process output, or host/filesystem detail.
+ *     Development/daily execution identity BEFORE any work. Configuration
+ *     validation is DELEGATED to the accepted T010 canonical boundary
+ *     (`loadRuntimeConfiguration`): there is no second, weaker policy
+ *     here. The canonical boundary owns the six documented rejection
+ *     classes and the exact Development identity (loopback-only
+ *     `APP_HOST`/`PUBLIC_ORIGIN`/database host, `PUBLIC_ORIGIN` bound to
+ *     `APP_HOST`/`APP_PORT` with a bare HTTP origin, and the canonical
+ *     Development database user/name). `devSetup` then starts only the
+ *     Development database dependency, waits boundedly for the engine to
+ *     accept connections (setup dependency readiness — NOT T028
+ *     whole-application readiness), and only then explicitly applies
+ *     tracked migrations. Every failure is actionable, non-zero, and
+ *     emitted as exactly one closed Safe Diagnostic per owned output
+ *     surface — never a configuration value, credential, connection
+ *     string, raw child-process output, or host/filesystem detail.
  *
  * Determinism: all external effect is routed through the injected
  * collaborator set, so the accepted tests drive these operations with
@@ -86,49 +97,51 @@ const PREFLIGHT_CHECK_DIAGNOSTICS = {
   portAvailable: { component: "orchestration", remediation: "CHECK_PREREQUISITES" },
 };
 
-/** The ten required execution-context keys (contract §Configuration examples). */
-const CONFIGURATION_KEYS = [
-  "APP_ENVIRONMENT",
-  "RUNTIME_PROFILE",
-  "APP_HOST",
-  "APP_PORT",
-  "PUBLIC_ORIGIN",
-  "DATABASE_URL",
-  "DATABASE_POOL_MAX",
-  "PROXY_POLICY",
-  "LOG_LEVEL",
-  "FIXTURE_PROVENANCE",
-];
+/** The only operation target selectable by local daily commands. */
+const DAILY_OPERATION_TARGET = "development";
 
-/** Closed enum spaces (mirrored from the accepted configuration schema). */
-const ENVIRONMENT_VALUES = ["development", "staging", "production"];
-const RUNTIME_PROFILE_VALUES = ["daily", "verification", "hosted"];
-const PROXY_POLICY_VALUES = ["none", "one-hop", "hosting-defined"];
-const LOG_LEVEL_VALUES = ["fatal", "error", "warn", "info", "debug", "trace", "silent"];
-const FIXTURE_PROVENANCE_VALUES = ["synthetic", "approved-non-production"];
-/** Loopback-only hosts for the daily Development execution context. */
-const LOOPBACK_HOSTS = ["127.0.0.1", "localhost", "::1"];
-
-/** Bounded local numeric ranges (mirrored from the accepted configuration schema). */
-const PORT_MIN = 1;
-const PORT_MAX = 65535;
-const DATABASE_POOL_MAX_MIN = 1;
-const DATABASE_POOL_MAX_MAX = 100;
+/**
+ * Bounded engine-readiness wait (T027-B02): a detached `compose up` proves
+ * container creation, not that MySQL is accepting connections. `dev:setup`
+ * polls the database adapter's `isRunning` (engine accepting work) on the
+ * injected clock until this bound; a first run that races database
+ * initialization fails safely instead of racing migrations. This is setup
+ * dependency readiness only — whole-application readiness is T028.
+ */
+export const DATABASE_READINESS_TIMEOUT_MS = 120_000;
+export const DATABASE_READINESS_POLL_INTERVAL_MS = 500;
 
 /** Strict decimal-integer grammar: digits only (no sign, exponent, or padding). */
 const DECIMAL_INTEGER_PATTERN = /^[0-9]+$/;
 
-/** Simple host shape (no userinfo, whitespace, or path separators). */
-const HOST_SHAPE_PATTERN = /^[A-Za-z0-9.:[\]-]+$/;
+/**
+ * The fail-before-work seam the canonical configuration loader requires.
+ * It is intentionally never invoked by validation (`apps/server/src/config.ts`
+ * owns that invariant).
+ */
+const EMPTY_WORK_BOUNDARY = {
+  createDatabasePool() {},
+  bindListener() {},
+  startChildService() {},
+};
 
 /**
- * Strict `mysql://` / `mysql2://` connection-URL grammar. The credential
- * charset excludes the URL structural characters (`@`, `/`), whitespace,
- * and quotes, so a structurally broken connection URL cannot pass as
- * well-formed. Only shape is inspected; the value is never emitted.
+ * Validate an execution-context record against the accepted T010 canonical
+ * boundary (`loadRuntimeConfiguration`) for the Development/daily target.
+ * The canonical boundary is the single configuration policy: it owns the
+ * six documented rejection classes, the strict-loopback host rules, the
+ * `APP_HOST`/`APP_PORT`-bound bare-HTTP public origin, and the canonical
+ * Development database user/name. No second policy exists in this module.
+ * The outcome's rejection diagnostic is already a closed Safe Diagnostic.
  */
-const DATABASE_URL_PATTERN =
-  /^(mysql2?):\/\/([A-Za-z0-9_.-]+)(?::([^/@\s"'\\]*))?@(\[[A-Za-z0-9:]+\]|[A-Za-z0-9.-]+)(?::([0-9]{1,5}))?\/([A-Za-z0-9_]+)$/;
+async function loadCanonicalDevelopmentOutcome(config) {
+  const canonical = await import("../apps/server/src/config.ts");
+  return canonical.loadRuntimeConfiguration(
+    config,
+    DAILY_OPERATION_TARGET,
+    EMPTY_WORK_BOUNDARY,
+  );
+}
 
 /** Build exactly one closed Safe Diagnostic — no extra field ever. */
 function safeDiagnostic(reasonCode, diagnosticScope, component, remediation, configurationKey) {
@@ -181,136 +194,6 @@ async function rejectOperation(collaborators, diagnostic) {
 // (quickstart §3 / Operations Contract §Configuration examples).
 // ---------------------------------------------------------------------------
 
-/**
- * Classify one execution-context value against the Development/daily
- * identity. Returns `undefined` when the value is safe, or the two safe
- * fields of the rejection: the documented class reason code and the safe
- * configuration key name. No value is ever returned or retained.
- */
-function classifyConfigurationValue(key, value) {
-  switch (key) {
-    case "APP_ENVIRONMENT":
-      if (!ENVIRONMENT_VALUES.includes(value)) {
-        return { reasonCode: "CONFIG_UNSUPPORTED", configurationKey: key };
-      }
-      if (value !== "development") {
-        return { reasonCode: "CONFIG_IDENTITY_CONFLICT", configurationKey: key };
-      }
-      return undefined;
-    case "RUNTIME_PROFILE":
-      if (!RUNTIME_PROFILE_VALUES.includes(value)) {
-        return { reasonCode: "CONFIG_UNSUPPORTED", configurationKey: key };
-      }
-      if (value !== "daily") {
-        return { reasonCode: "CONFIG_IDENTITY_CONFLICT", configurationKey: key };
-      }
-      return undefined;
-    case "APP_HOST":
-      if (!HOST_SHAPE_PATTERN.test(value)) {
-        return { reasonCode: "CONFIG_MALFORMED", configurationKey: key };
-      }
-      if (!LOOPBACK_HOSTS.includes(value)) {
-        return { reasonCode: "CONFIG_IDENTITY_CONFLICT", configurationKey: key };
-      }
-      return undefined;
-    case "APP_PORT": {
-      if (!DECIMAL_INTEGER_PATTERN.test(value)) {
-        return { reasonCode: "CONFIG_MALFORMED", configurationKey: key };
-      }
-      const port = Number.parseInt(value, 10);
-      if (port < PORT_MIN || port > PORT_MAX) {
-        return { reasonCode: "CONFIG_OUT_OF_RANGE", configurationKey: key };
-      }
-      return undefined;
-    }
-    case "PUBLIC_ORIGIN": {
-      let origin;
-      try {
-        origin = new URL(value);
-      } catch {
-        return { reasonCode: "CONFIG_MALFORMED", configurationKey: key };
-      }
-      if (
-        (origin.protocol !== "http:" && origin.protocol !== "https:") ||
-        origin.hostname === ""
-      ) {
-        return { reasonCode: "CONFIG_MALFORMED", configurationKey: key };
-      }
-      if (!LOOPBACK_HOSTS.includes(origin.hostname)) {
-        return { reasonCode: "CONFIG_IDENTITY_CONFLICT", configurationKey: key };
-      }
-      return undefined;
-    }
-    case "DATABASE_URL": {
-      const match = DATABASE_URL_PATTERN.exec(value);
-      if (!match) {
-        return { reasonCode: "CONFIG_MALFORMED", configurationKey: key };
-      }
-      // Development database access is loopback-only (FR-005 / T026 manifest).
-      const host = match[4].replace(/^\[|\]$/g, "");
-      if (!LOOPBACK_HOSTS.includes(host)) {
-        return { reasonCode: "CONFIG_IDENTITY_CONFLICT", configurationKey: key };
-      }
-      return undefined;
-    }
-    case "DATABASE_POOL_MAX": {
-      if (!DECIMAL_INTEGER_PATTERN.test(value)) {
-        return { reasonCode: "CONFIG_MALFORMED", configurationKey: key };
-      }
-      const poolMax = Number.parseInt(value, 10);
-      if (poolMax < DATABASE_POOL_MAX_MIN || poolMax > DATABASE_POOL_MAX_MAX) {
-        return { reasonCode: "CONFIG_OUT_OF_RANGE", configurationKey: key };
-      }
-      return undefined;
-    }
-    case "PROXY_POLICY":
-      if (!PROXY_POLICY_VALUES.includes(value)) {
-        return { reasonCode: "CONFIG_UNSUPPORTED", configurationKey: key };
-      }
-      // Daily Development does not trust forwarded headers (plan.md).
-      if (value !== "none") {
-        return { reasonCode: "CONFIG_IDENTITY_CONFLICT", configurationKey: key };
-      }
-      return undefined;
-    case "LOG_LEVEL":
-      if (!LOG_LEVEL_VALUES.includes(value)) {
-        return { reasonCode: "CONFIG_UNSUPPORTED", configurationKey: key };
-      }
-      return undefined;
-    case "FIXTURE_PROVENANCE":
-      if (!FIXTURE_PROVENANCE_VALUES.includes(value)) {
-        return { reasonCode: "CONFIG_UNSUPPORTED", configurationKey: key };
-      }
-      return undefined;
-    default:
-      return undefined;
-  }
-}
-
-/**
- * Validate the complete execution-context configuration for the
- * Development/daily identity: every required key present and non-empty,
- * every value well-formed and supported, and no forbidden
- * environment/runtime-profile/operation-target combination. Returns the
- * first rejection's safe fields, or `undefined` when safe.
- */
-function validateDevelopmentDailyConfiguration(config) {
-  for (const key of CONFIGURATION_KEYS) {
-    const value = config[key];
-    if (value === undefined) {
-      return { reasonCode: "CONFIG_MISSING", configurationKey: key };
-    }
-    if (value === "") {
-      return { reasonCode: "CONFIG_EMPTY", configurationKey: key };
-    }
-    const rejection = classifyConfigurationValue(key, value);
-    if (rejection) {
-      return rejection;
-    }
-  }
-  return undefined;
-}
-
 // ---------------------------------------------------------------------------
 // T027 operations — foundation:check and dev:setup.
 // ---------------------------------------------------------------------------
@@ -356,17 +239,52 @@ export async function foundationCheck(collaborators) {
   };
 }
 
-/** The only operation target selectable by local daily commands. */
-const DAILY_OPERATION_TARGET = "development";
+/**
+ * Wait boundedly for the Development database engine to accept work by
+ * polling the database adapter's `isRunning` on the injected clock. This is
+ * setup dependency readiness (T027-B02): a detached `compose up` must be
+ * proven to yield an engine that accepts connections before migrations
+ * run. Returns `null` once ready, or the non-zero result for a bounded
+ * timeout / probe failure (mapped safely; raw adapter errors are never
+ * surfaced).
+ */
+async function waitForDatabaseReadiness(collaborators) {
+  const deadline = collaborators.clock.now() + DATABASE_READINESS_TIMEOUT_MS;
+  for (;;) {
+    let accepting;
+    try {
+      accepting = await collaborators.database.isRunning();
+    } catch {
+      return rejectOperation(
+        collaborators,
+        safeDiagnostic("DATABASE_UNAVAILABLE", "daily", "database", "CHECK_DATABASE"),
+      );
+    }
+    if (accepting) {
+      return null;
+    }
+    if (collaborators.clock.now() >= deadline) {
+      return rejectOperation(
+        collaborators,
+        safeDiagnostic("DATABASE_UNAVAILABLE", "daily", "database", "CHECK_DATABASE"),
+      );
+    }
+    await collaborators.clock.advance(DATABASE_READINESS_POLL_INTERVAL_MS);
+  }
+}
 
 /**
  * `dev:setup` — validate the selectable local operation target and the
  * Development/daily execution identity BEFORE any work, start only the
  * Development database dependency (adapter-owned idempotency: repetition
- * creates no duplicate database resource), then explicitly apply tracked
- * migrations once the database is running. Every failure is actionable and
- * non-zero, and is emitted as closed Safe Diagnostics on the command
- * output surfaces only.
+ * creates no duplicate database resource), wait boundedly until the engine
+ * accepts connections, and only then explicitly apply tracked migrations.
+ * Configuration validation is delegated to the accepted T010 canonical
+ * boundary, so the exact canonical Development semantics (including the
+ * `APP_HOST`/`APP_PORT`-bound bare-HTTP public origin and the canonical
+ * Development database user/name) are enforced with no second policy.
+ * Every failure is actionable and non-zero, and is emitted as closed Safe
+ * Diagnostics on the command output surfaces only.
  */
 export async function devSetup(collaborators, target) {
   // Hosted/Production is not selectable by local commands (plan.md
@@ -393,18 +311,9 @@ export async function devSetup(collaborators, target) {
     );
   }
 
-  const rejection = validateDevelopmentDailyConfiguration(config);
-  if (rejection) {
-    return rejectOperation(
-      collaborators,
-      safeDiagnostic(
-        rejection.reasonCode,
-        "daily",
-        "configuration",
-        "FIX_CONFIGURATION",
-        rejection.configurationKey,
-      ),
-    );
+  const outcome = await loadCanonicalDevelopmentOutcome(config);
+  if (outcome.status === "rejected") {
+    return rejectOperation(collaborators, outcome.diagnostic);
   }
 
   try {
@@ -414,6 +323,11 @@ export async function devSetup(collaborators, target) {
       collaborators,
       safeDiagnostic("STARTUP_FAILED", "daily", "database", "CHECK_DATABASE"),
     );
+  }
+
+  const readinessFailure = await waitForDatabaseReadiness(collaborators);
+  if (readinessFailure !== null) {
+    return readinessFailure;
   }
 
   try {
@@ -548,6 +462,36 @@ function checkNodeRuntime() {
   return major === 24;
 }
 
+/**
+ * Whether an `npm --version` output satisfies the supported npm CLI range
+ * (`>=12.0.0 <13`, the root `engines` constraint). Parsing is strict and
+ * total: anything that is not a concrete `major.minor.patch` in range —
+ * including garbage and empty output — fails. The raw output is never
+ * surfaced; only this boolean is observed (T027-B03).
+ */
+export function npmVersionSatisfiesEngines(versionOutput) {
+  const match = /^v?([0-9]+)\.([0-9]+)\.([0-9]+)(?:[.\s-].*)?$/.exec(
+    String(versionOutput ?? "").trim(),
+  );
+  if (match === null) {
+    return false;
+  }
+  const major = Number.parseInt(match[1], 10);
+  return major >= 12 && major < 13;
+}
+
+/** The installed npm CLI is the supported version range (root `engines`). */
+async function checkNpmCli() {
+  try {
+    const { stdout } = await execFileAsync("npm", ["--version"], {
+      timeout: TOOL_CHECK_TIMEOUT_MS,
+    });
+    return npmVersionSatisfiesEngines(stdout);
+  } catch {
+    return false;
+  }
+}
+
 /** Every required committed file for the Development target is present. */
 async function checkRequiredFiles() {
   for (const relativePath of REQUIRED_FILES) {
@@ -560,11 +504,16 @@ async function checkRequiredFiles() {
   return true;
 }
 
-/** The local execution-context configuration is complete and safe. */
+/**
+ * The local execution-context configuration is complete and safe by the
+ * accepted T010 canonical boundary — the same single policy `dev:setup`
+ * enforces (T027-B01).
+ */
 async function checkSafeDevelopmentConfiguration() {
   try {
     const config = await loadDevelopmentConfiguration();
-    return validateDevelopmentDailyConfiguration(config) === undefined;
+    const outcome = await loadCanonicalDevelopmentOutcome(config);
+    return outcome.status === "accepted";
   } catch {
     return false;
   }
@@ -646,6 +595,51 @@ async function startDevelopmentDatabase() {
   );
 }
 
+/** Per-attempt bound for one engine-acceptance TCP probe (milliseconds). */
+const DATABASE_PROBE_TIMEOUT_MS = 1_000;
+
+/**
+ * Whether the Development database engine is accepting connections RIGHT
+ * NOW (the `database.isRunning` readiness semantics for setup): one bounded
+ * TCP connect against the configured loopback database endpoint. The
+ * official MySQL image brings the port up only after initialization
+ * completes, so an accepted connection is the usable-engine signal the
+ * bounded wait in `devSetup` polls for. A failed or timed-out probe is
+ * simply not-yet-ready; no detail is surfaced.
+ */
+async function isDevelopmentDatabaseAcceptingConnections() {
+  const config = await loadDevelopmentConfiguration();
+  let host = "127.0.0.1";
+  let port = DEVELOPMENT_DATABASE_PORT;
+  try {
+    const endpoint = new URL(config.DATABASE_URL);
+    if (endpoint.hostname !== "") {
+      host = endpoint.hostname.replace(/^\[|\]$/g, "");
+    }
+    if (DECIMAL_INTEGER_PATTERN.test(endpoint.port)) {
+      port = Number.parseInt(endpoint.port, 10);
+    }
+  } catch {
+    // not-yet-valid configuration: probe the documented default endpoint
+  }
+  return new Promise((resolve) => {
+    const socket = net.connect({ host, port });
+    const settle = (accepting) => {
+      socket.destroy();
+      resolve(accepting);
+    };
+    socket.setTimeout(DATABASE_PROBE_TIMEOUT_MS, () => {
+      settle(false);
+    });
+    socket.once("error", () => {
+      settle(false);
+    });
+    socket.once("connect", () => {
+      settle(true);
+    });
+  });
+}
+
 /**
  * Bridge for importing the accepted TypeScript migration boundary from
  * this JavaScript module under Node's native type stripping: the server
@@ -716,7 +710,7 @@ function createCommandLineCollaborators() {
   return {
     preflight: {
       node: async () => checkNodeRuntime(),
-      npm: async () => externalToolSucceeds("npm", ["--version"]),
+      npm: checkNpmCli,
       podman: async () => externalToolSucceeds("podman", ["--version"]),
       compose: async () => externalToolSucceeds("podman", ["compose", "version"]),
       requiredFiles: checkRequiredFiles,
@@ -725,7 +719,16 @@ function createCommandLineCollaborators() {
     },
     database: {
       start: startDevelopmentDatabase,
+      isRunning: isDevelopmentDatabaseAcceptingConnections,
       applyMigrations: applyTrackedMigrations,
+    },
+    clock: {
+      now: () => Date.now(),
+      advance: async (ms) => {
+        await new Promise((resolve) => {
+          setTimeout(resolve, ms);
+        });
+      },
     },
     config: {
       load: loadDevelopmentConfiguration,
