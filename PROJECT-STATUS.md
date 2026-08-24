@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T028 CHANGES REQUIRED — CONFIGURED-HOST PREFLIGHT
+- **Status:** HUMAN GATE — T028 MAXIMUM CORRECTIVE ROUNDS REACHED
 
 ## Active Feature Mirror
 
@@ -29,57 +29,35 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T028-B04
-- **Phase status:** T028 REWORK — T029+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T028-B05; HUMAN GATE REQUIRED
+- **Phase status:** T028 BLOCKED AFTER THREE CORRECTIVE ROUNDS — T029+ UNAUTHORIZED
 - **Previous completed scope:** T027 — prerequisite checking and idempotent Development database
   setup
-- **Next valid action:** Claude corrects only T028-B04 on top of `4ad0aea`, then stops for the third
-  and final independent corrective re-review
-- **Blocking issues:** T028-B04 — `checkDevelopmentPortsAvailable()` now checks every required port
-  but still bind-probes all of them on hard-coded `127.0.0.1`; canonical Development configuration
-  also accepts `localhost`, `::1`, and any `127/8` `APP_HOST`, while the actual Public/server/Admin
-  children bind that configured host. An occupied actual configured endpoint can therefore still
-  pass preflight before application work.
+- **Next valid action:** HUMAN GATE — decide whether to authorize further T028 correction or accept
+  an explicit exception; no agent implementation authorization remains active
+- **Blocking issues:** T028-B05 — endpoint validation and preflight use the port parsed from
+  `DATABASE_URL`, but the accepted T026 Development manifest always publishes the actual database
+  endpoint at `127.0.0.1:3306`. Canonical configuration currently accepts another database URL
+  port, so `APP_PORT=3306` with a different configured database port can pass collision validation
+  even though Public and the started database target the same actual port. The validator must use
+  the manifest endpoint or the canonical boundary must reject a non-3306 Development database port.
 - **Review evidence:** Corrective commit
-  `4ad0aea50e88deb5aae2fd1505bbf7d6da41fe3f` directly follows `3a283d8`, has a clean bounded diff,
-  closes T028-B02 port-range/port-collision coverage and T028-B03 checkout mutation, and leaves the
-  resolved dependency graph unchanged. Independent detached-worktree verification reproduced
-  45 passes with only 43 expected later-task reds in `foundation-operations.test.ts`, T023 24/24,
-  successful `npm ci`, `npm ls isbot` at deduplicated 5.2.1, syntax check, and clean diff. Static
-  comparison of the canonical host policy with `checkLoopbackPortAvailable` found T028-B04.
+  `ae42bf91cfaf733833089aecc7a0be4d990717f3` directly follows `4ad0aea`, has a clean bounded diff,
+  and closes T028-B04 by probing Public/server/Admin on configured `APP_HOST` with a focused
+  non-default `127/8` regression. Review of the manifest, canonical URL policy, and corrected
+  preflight found T028-B05. T028-B01–T028-B04 are closed; the three-round corrective limit is now
+  exhausted.
 - **Non-blocking notes:** Independent npm used Node 24.11.0 with npm 11.6.1, below the repository's
   npm 12 engine pin; this did not affect the focused unit results, but full prerequisite acceptance
   still requires the approved npm version.
 
 ## Authorized Implementation
 
-- **Task / Scope:** T028-B04 rework only — make real preflight bind-probe Public/server/Admin on the
-  canonically accepted configured application host rather than hard-coded `127.0.0.1`, while
-  retaining the corrected range/collision checks and the database manifest's actual bind endpoint.
-  Add only focused regression/smoke evidence for accepted non-default loopback hosts. Do not change
-  dependency files, T028 orchestration semantics, or begin T029 or any later task.
-- **Runtime:** `claude-developer`
-- **Required references:** `CLAUDE.md`; `AGENTS.md`; `.specify/memory/constitution.md` Principles
-  I–VI and Delivery and Quality Gates; `docs/spec-context/001-application-foundation.md`
-  Implementation / Review routing and explicit out-of-scope boundaries;
-  `specs/001-application-foundation/tasks.md` T028;
-  `specs/001-application-foundation/spec.md` FR-003, FR-009, SC-001;
-  `specs/001-application-foundation/plan.md` Runtime composition, Configuration and startup, and
-  Operations and verification;
-  `specs/001-application-foundation/contracts/foundation-operations.md` Commands, Daily native
-  process supervision, Health/readiness behavior, Safe diagnostic contract, and Timing boundaries;
-  `specs/001-application-foundation/data-model.md` Execution Context, Migration State, and Health
-  Snapshot; `specs/001-application-foundation/quickstart.md` §1;
-  `scripts/foundation-operations.test.ts` accepted T019 startup/readiness contract;
-  `tests/verification/diagnostic-surfaces.test.ts` accepted T023 nondisclosure contract; accepted
-  T010 configuration boundary and T027 setup implementation.
-- **Expected verification:** Prove an occupied Public/server/Admin endpoint on an accepted
-  non-default configured loopback host (at minimum a `127/8` address other than `127.0.0.1`) fails
-  preflight, while a free configured-host endpoint passes the port leg. Rerun the focused T019/T023
-  and T028 rework tests, syntax/static checks, `tsc --noEmit` with baseline comparison, and
-  `git diff --check`; report exact commands/results, changed files, commit/ref, expected-red
-  later-task tests, and confirmation T029+ remains untouched.
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — Human Gate required after maximum corrective rounds
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
