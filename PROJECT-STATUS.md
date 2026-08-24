@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE ACCEPTED — T022
+- **Status:** IMPLEMENTATION AUTHORIZED — T023
 
 ## Active Feature Mirror
 
@@ -30,11 +30,12 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T022 ACCEPTED — T023+ UNAUTHORIZED
+- **Phase status:** T022 ACCEPTED — T023 AUTHORIZED; T024+ UNAUTHORIZED
 - **Previous completed scope:** T022 — failing Development/Verification isolation,
   synthetic-marker continuity, exact confirmed Development reset, and unchanged
   Verification/non-target inventory tests
-- **Next valid action:** NONE IN THIS ISSUE — T022 acceptance recorded; T023+ remain unauthorized
+- **Next valid action:** Claude Code implements only T023, returns implementation-result evidence,
+  and stops for independent Codex review; T024+ remain unauthorized
 - **Blocking issues:** NONE
 - **Review evidence:** Independent review of `30331d3` confirms the implementation diff is exactly
   `tests/verification/foundation-operation-target.test.ts` plus the T022 checkbox. The 21-case
@@ -56,11 +57,32 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T022 is accepted; T023+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T023 only — write failing daily command stdout/stderr, application-log, HTTP,
+  exact-sentinel, and encoded-sentinel nondisclosure tests in
+  `tests/verification/diagnostic-surfaces.test.ts`; create only that test artifact
+- **Runtime:** Claude Code DEV Executor via the installed Spec Kit `implement` command/skill, bounded
+  to T023
+- **Required references:** `.specify/memory/constitution.md`; `CLAUDE.md`;
+  `docs/spec-context/001-application-foundation.md` Implementation / Review routing;
+  `specs/001-application-foundation/spec.md` FR-007 and SC-004;
+  `specs/001-application-foundation/plan.md` Configuration and startup;
+  `specs/001-application-foundation/tasks.md` T023 and dependency rules;
+  `specs/001-application-foundation/contracts/foundation-operations.md` Safe diagnostic contract;
+  `specs/001-application-foundation/quickstart.md` §3
+- **Expected verification:** focused Vitest for
+  `tests/verification/diagnostic-surfaces.test.ts` must collect the intended T023 cases and fail
+  only at deliberately absent later implementation boundaries; cover daily command stdout/stderr,
+  application-log, and HTTP surfaces with unique exact and encoded forbidden sentinels, asserting
+  the closed SafeDiagnostic shape and no raw protected values, credentials, connection strings,
+  internal exceptions/stacks, paths, or unnecessary infrastructure details. Use deterministic
+  injected/fake collaborators and perform no real Podman/Compose, process, network, listener,
+  database, filesystem-state, or host-resource mutation. Run focused ESLint and root
+  `tsc --noEmit`, classifying only already-accepted missing-boundary/tooling diagnostics as
+  non-blocking; run `git diff --check`, conflict-marker inspection, and no-skip/todo/only
+  inspection. Return the exact changed files, commands/results, bounded expected-red evidence, and
+  confirmation that no implementation, package/dependency/lockfile, manifest, environment,
+  Product behavior, T024+, Production-derived data, or broad host/resource mutation was added.
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
