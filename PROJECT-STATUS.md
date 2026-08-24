@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION AUTHORIZED — T022
+- **Status:** HUMAN GATE REQUIRED — T022
 
 ## Active Feature Mirror
 
@@ -30,57 +30,38 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T021 ACCEPTED — T022 AUTHORIZED; T023+ UNAUTHORIZED
-- **Previous completed scope:** T021 — failing interruption and recovery-decision tests for all
-  five allowlisted actions, target-appropriate retry/recover/reset/cleanup/manual-review decisions,
-  attempt binding, and immutable primary failures
-- **Next valid action:** Claude Code implements only T022, returns implementation-result evidence,
-  and stops for independent Codex review; T023+ remain unauthorized
+- **Phase status:** T022 REVIEW PASS — HUMAN GATE PENDING; T023+ UNAUTHORIZED
+- **Previous completed scope:** T022 — failing Development/Verification isolation,
+  synthetic-marker continuity, exact confirmed Development reset, and unchanged
+  Verification/non-target inventory tests
+- **Next valid action:** Product Owner Human Gate accepts or rejects T022; no later task is
+  authorized
 - **Blocking issues:** NONE
-- **Review evidence:** T021-B01 is closed in `68cd439`: deterministic fault-injection cases now span
-  `start`, `stop`, `migrate`, `reset`, and `cleanup`, assert action/phase-specific interruption
-  evidence, preserve `OPERATION_INTERRUPTED` as primary, and keep targets stopped/not-ready without
-  mutation or duplicates. Independent re-review confirms the corrective diff is exactly one test
-  file with 53 inserted lines on top of the persisted rework state. Focused Vitest is red only at
-  the deliberately absent `../../scripts/foundation-operations.mjs` boundary. Root `tsc --noEmit`
-  reports only the four accepted baseline TS2307 diagnostics plus the expected T021 missing-boundary
-  diagnostic. `git diff --check`, conflict-marker inspection, and no-skip/todo/only inspection pass.
-  The complete T021 diff remains bounded to `tests/verification/lifecycle-recovery.test.ts`, its
-  task checkbox, and Codex-owned workflow mirror updates; no implementation, dependency, lockfile,
-  manifest, environment, Product behavior, or T022+ artifact was added. Review against T021,
-  FR-003, FR-017, Lifecycle Operation, Recovery Assessment, the Foundation Operations Contract,
-  Quickstart §5, Plan §Operations and verification, Delivery Context, and Constitution Principles
-  I–VI finds no Source-of-Truth conflict. Product Owner Human Gate accepted T021.
+- **Review evidence:** Independent review of `30331d3` confirms the implementation diff is exactly
+  `tests/verification/foundation-operation-target.test.ts` plus the T022 checkbox. The 21-case
+  contract covers target identity/isolation and digest sensitivity, marker continuity across
+  routine restart, exact action-bound reset and drift refusal, migration/marker postconditions,
+  unchanged Verification/non-target inventory, and negative controls, using only deterministic
+  injected fakes. Focused Vitest is red only at the deliberately absent
+  `../../scripts/foundation-operations.mjs` boundary. Root `tsc --noEmit` reports the five accepted
+  baseline TS2307 diagnostics plus exactly the expected T022 missing-boundary diagnostic and no
+  other error. `git diff --check`, conflict-marker inspection, and no-skip/todo/only inspection
+  pass. No implementation, dependency, lockfile, manifest, environment, Product behavior,
+  Production-derived data, host/resource mutation, or T023+ artifact was added. Review against
+  T022, FR-004, FR-008, SC-002, Resource Inventory, Quickstart §2, the plan, Delivery Context, and
+  Constitution Principles I–VI finds no Source-of-Truth conflict.
 - **Non-blocking notes:** The accepted locked graph still provides no
   `node_modules/.bin/eslint` executable, so the required focused ESLint attempt exits 127. This
   pre-existing tooling limitation does not authorize a dependency, manifest, or lockfile change.
 
 ## Authorized Implementation
 
-- **Task / Scope:** T022 only — write failing Development/Verification isolation, synthetic-marker
-  continuity across routine stop/restart, exact confirmed Development reset, and unchanged
-  Verification/non-target inventory tests in
-  `tests/verification/foundation-operation-target.test.ts`; create only that test artifact
-- **Runtime:** Claude Code DEV Executor via the installed Spec Kit `implement` command/skill, bounded
-  to T022
-- **Required references:** `.specify/memory/constitution.md`; `CLAUDE.md`;
-  `docs/spec-context/001-application-foundation.md` Implementation / Review routing;
-  `specs/001-application-foundation/spec.md` FR-004, FR-008, and SC-002;
-  `specs/001-application-foundation/plan.md` Operations and verification;
-  `specs/001-application-foundation/tasks.md` T022 and dependency rules;
-  `specs/001-application-foundation/data-model.md` Resource Inventory;
-  `specs/001-application-foundation/quickstart.md` §2
-- **Expected verification:** focused Vitest for
-  `tests/verification/foundation-operation-target.test.ts` must collect the intended T022 cases and
-  fail only at the deliberately absent T029–T031/T035/T037 operations implementation boundary; use
-  deterministic injected/fake collaborators and perform no real Podman/Compose, process, network,
-  listener, database, filesystem-state, or host-resource mutation. Run focused ESLint and root
-  `tsc --noEmit`, classifying only already-accepted missing-boundary/tooling diagnostics as
-  non-blocking; run `git diff --check`, conflict-marker inspection, and no-skip/todo/only
-  inspection. Return the exact changed files, commands/results, bounded expected-red evidence, and
-  confirmation that no implementation, package/dependency/lockfile, manifest, environment,
-  Product behavior, T023+, Production-derived data, or broad host/resource mutation was added.
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T022 passed independent review and awaits the Human Gate; T023+ remain
+  unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
