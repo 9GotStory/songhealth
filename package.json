@@ -14,8 +14,8 @@
   "scripts": {
     "foundation:check": "node scripts/foundation-operations.mjs foundation:check",
     "dev:setup": "node scripts/foundation-operations.mjs dev:setup --target development",
-    "dev:start": "node -e \"process.exit(1)\"",
-    "dev:ready": "node -e \"process.exit(1)\"",
+    "dev:start": "node scripts/foundation-operations.mjs dev:start",
+    "dev:ready": "node scripts/foundation-operations.mjs dev:ready",
     "dev:stop": "node -e \"process.exit(1)\"",
     "dev:restart": "node -e \"process.exit(1)\"",
     "foundation:status": "node -e \"process.exit(1)\"",

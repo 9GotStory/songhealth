@@ -118,7 +118,7 @@ const SAFE_DEV_CONFIG = {
   APP_HOST: "127.0.0.1",
   APP_PORT: "10443",
   PUBLIC_ORIGIN: "http://127.0.0.1:10443",
-  DATABASE_URL: `mysql://dev-user:${S_VALID_DB_CREDENTIAL}@127.0.0.1:13306/songhealth_dev`,
+  DATABASE_URL: `mysql://dev-user:${S_VALID_DB_CREDENTIAL}@127.0.0.1:3306/songhealth_dev`,
   DATABASE_POOL_MAX: "4",
   PROXY_POLICY: "none",
   LOG_LEVEL: "info",
@@ -305,7 +305,7 @@ const REJECTION_FIXTURES: RejectionFixture[] = [
     reasonCode: "CONFIG_MALFORMED",
     configurationKey: "DATABASE_URL",
     overrides: {
-      DATABASE_URL: `mysql://dev-user:${S_BROKEN_DB_CREDENTIAL}@@127.0.0.1:13306/songhealth_dev`,
+      DATABASE_URL: `mysql://dev-user:${S_BROKEN_DB_CREDENTIAL}@@127.0.0.1:3306/songhealth_dev`,
     },
     sentinels: [S_BROKEN_DB_CREDENTIAL],
   },

@@ -519,6 +519,41 @@ describe("fail-before-work and Verification-target diagnostics (SC-004)", () => 
 });
 
 describe("T010 rework: target isolation, fail-closed grammar, and command target", () => {
+  it("T028-B05: the accepted T026 manifest endpoint port 3306 remains the accepted Development database port", () => {
+    // The base fixture already carries the manifest endpoint port; assert it
+    // explicitly so the canonical acceptance of port 3306 is pinned evidence.
+    const work = makeWork();
+
+    const outcome = loadRuntimeConfiguration({ ...DEV_BASE }, "development", work);
+
+    expect(outcome.status).toBe("accepted");
+    assertNoWorkStarted(work);
+  });
+
+  it("T028-B05: a Development database URL on a non-manifest port is rejected as an identity conflict before any work", () => {
+    // Single fault: only the database port differs from the accepted T026
+    // manifest endpoint (`127.0.0.1:3306`); the credential, host, and
+    // database name remain the canonical Development identities.
+    const env: Record<string, string> = {
+      ...DEV_BASE,
+      DATABASE_URL:
+        "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:13306/songhealth_development",
+    };
+    const work = makeWork();
+
+    const outcome = loadRuntimeConfiguration(env, "development", work);
+
+    assertClosedDiagnostic(outcome, {
+      reasonCode: "CONFIG_IDENTITY_CONFLICT",
+      diagnosticScope: "daily",
+      component: "configuration",
+      remediation: "FIX_CONFIGURATION",
+      configurationKey: "DATABASE_URL",
+    });
+    assertNoWorkStarted(work);
+    assertNoForbiddenContent(outcome, [env.DATABASE_URL]);
+  });
+
   it("a remote/Production-like database host cannot satisfy the Development target", () => {
     // Single fault: the database hostname is an internal/remote host (not loopback)
     // while the credential and database identities are the Development ones.

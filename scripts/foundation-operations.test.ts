@@ -260,6 +260,7 @@
  * real-tool error.
  */
 
+import net from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   OperationResult,
@@ -276,6 +277,7 @@ import {
   devReset,
   foundationCleanup,
   npmVersionSatisfiesEngines,
+  checkDailyEndpointsAvailable,
   DATABASE_READINESS_TIMEOUT_MS,
   DATABASE_READINESS_POLL_INTERVAL_MS,
 } from "./foundation-operations.mjs";
@@ -315,7 +317,7 @@ const SAFE_DEV_CONFIG = {
   APP_HOST: "127.0.0.1",
   APP_PORT: "10443",
   PUBLIC_ORIGIN: "http://127.0.0.1:10443",
-  DATABASE_URL: "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:13306/songhealth_development",
+  DATABASE_URL: "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:3306/songhealth_development",
   DATABASE_POOL_MAX: "4",
   PROXY_POLICY: "none",
   LOG_LEVEL: "info",
@@ -2265,7 +2267,7 @@ describe("Foundation setup rework regressions — T027-B01/B02/B03", () => {
       "a database user outside the canonical Development identity",
       {
         DATABASE_URL:
-          "mysql://dev-user:dev-only-placeholder@127.0.0.1:13306/songhealth_development",
+          "mysql://dev-user:dev-only-placeholder@127.0.0.1:3306/songhealth_development",
       },
       "CONFIG_IDENTITY_CONFLICT",
       "DATABASE_URL",
@@ -2274,7 +2276,7 @@ describe("Foundation setup rework regressions — T027-B01/B02/B03", () => {
       "a database name outside the canonical Development identity",
       {
         DATABASE_URL:
-          "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:13306/songhealth_dev",
+          "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:3306/songhealth_dev",
       },
       "CONFIG_IDENTITY_CONFLICT",
       "DATABASE_URL",
@@ -2393,5 +2395,224 @@ describe("Foundation setup rework regressions — T027-B01/B02/B03", () => {
     expect(startIndex).toBeGreaterThanOrEqual(0);
     expect(readyIndex).toBeGreaterThan(startIndex);
     expect(migrateIndex).toBeGreaterThan(readyIndex);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T028 rework regressions — B02 (derived endpoints fail before work) and
+// B03 (the Public workspace declares its isbot runtime dependency so first
+// startup takes no install/mutation path).
+// ---------------------------------------------------------------------------
+
+describe("Foundation startup rework regressions — T028-B02/B03", () => {
+  it.each([
+    [
+      "a derived server endpoint above the TCP port range",
+      { APP_PORT: "65535", PUBLIC_ORIGIN: "http://127.0.0.1:65535" },
+      "CONFIG_OUT_OF_RANGE",
+    ],
+    [
+      "a derived admin endpoint above the TCP port range",
+      { APP_PORT: "65534", PUBLIC_ORIGIN: "http://127.0.0.1:65534" },
+      "CONFIG_OUT_OF_RANGE",
+    ],
+    [
+      "an application endpoint that collides with the Development database endpoint",
+      {
+        APP_PORT: "3306",
+        PUBLIC_ORIGIN: "http://127.0.0.1:3306",
+        DATABASE_URL:
+          "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:3306/songhealth_development",
+      },
+      "CONFIG_IDENTITY_CONFLICT",
+    ],
+  ] as [string, Record<string, string>, string][])(
+    "dev:start rejects %s before any work",
+    async (_label, overrides, reasonCode) => {
+      const harness = makeCollaborators();
+      const { collaborators } = harness;
+      collaborators.config = {
+        load: async () => ({ ...SAFE_DEV_CONFIG, ...overrides }),
+      };
+
+      const result = await devStart(collaborators);
+
+      // The canonical boundary accepts each record (the values are valid in
+      // themselves); the derived-endpoint validation must be what rejects.
+      expect(result.exitCode).not.toBe(0);
+      expect(result.reasonCode).toBe(reasonCode);
+      expect(result.configurationKey).toBe("APP_PORT");
+      // The rejection happens before any work of any kind.
+      expectNoWork(harness);
+    },
+  );
+
+  it("dev:ready rejects an invalid derived-endpoint state before probing readiness", async () => {
+    const harness = makeCollaborators();
+    const { collaborators } = harness;
+    collaborators.config = {
+      load: async () => ({
+        ...SAFE_DEV_CONFIG,
+        APP_PORT: "65535",
+        PUBLIC_ORIGIN: "http://127.0.0.1:65535",
+      }),
+    };
+    const probeSpy = vi.spyOn(collaborators.readiness, "probe");
+
+    const result = await devReady(collaborators, { deadlineMs: 2000, pollMs: 500 });
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.reasonCode).toBe("CONFIG_OUT_OF_RANGE");
+    expect(probeSpy).not.toHaveBeenCalled();
+    expectNoWork(harness);
+  });
+
+  it("the Public workspace declares its React Router isbot runtime dependency and the lockfile records it without changing the resolved graph", async () => {
+    const { readFileSync } = await import("node:fs");
+
+    const manifest = JSON.parse(
+      readFileSync(new URL("../apps/web/package.json", import.meta.url), "utf8"),
+    ) as { dependencies: Record<string, string> };
+    // Declared as a runtime dependency of the Public workspace: React
+    // Router's SSR entry requires it at runtime, so a missing declaration
+    // makes the first dev startup install and rewrite tracked manifests.
+    expect(typeof manifest.dependencies.isbot).toBe("string");
+
+    const lock = JSON.parse(
+      readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"),
+    ) as { packages: Record<string, { version?: string; dev?: boolean; dependencies?: Record<string, string> }> };
+    const entry = lock.packages["node_modules/isbot"];
+    expect(entry?.version).toBeTruthy();
+    // The locked entry stays the already-resolved version and is no longer
+    // classified dev-only for the workspace that depends on it at runtime.
+    expect(entry?.dev).toBeUndefined();
+    const webEntry = lock.packages["apps/web"];
+    expect(webEntry?.dependencies?.isbot).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T028 rework regression — B04 (preflight probes the CONFIGURED application
+// host, not only 127.0.0.1, while the database port keeps the manifest's own
+// loopback bind address). Uses the accepted non-default 127/8 host
+// `127.0.0.2`, which the canonical Development boundary accepts.
+// ---------------------------------------------------------------------------
+
+/** Bind one ephemeral listener on a host and report the assigned port. */
+function bindEphemeral(
+  host: string,
+): Promise<{ server: net.Server; port: number }> {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.once("error", reject);
+    server.listen(0, host, () => {
+      const address = server.address();
+      if (address === null || typeof address === "string") {
+        reject(new Error("ephemeral listener reported no port"));
+        return;
+      }
+      resolve({ server, port: address.port });
+    });
+  });
+}
+
+/** Close a listener and wait for the release. */
+function release(server: net.Server): Promise<void> {
+  return new Promise((resolve) => {
+    server.close(() => {
+      resolve();
+    });
+  });
+}
+
+describe("Foundation startup rework regression — T028-B04", () => {
+  it("preflight bind-probes Public/server/Admin on the configured non-default 127/8 host — an occupied server endpoint there fails, a free one passes", async () => {
+    // Choose ephemeral ports: the application base on the non-default
+    // loopback host and the database port on the manifest bind host, kept
+    // far enough apart that no derived endpoint collides with the database.
+    const application = await bindEphemeral("127.0.0.2");
+    let database: { server: net.Server; port: number } | undefined;
+    for (let attempt = 0; attempt < 8 && database === undefined; attempt += 1) {
+      const candidate = await bindEphemeral("127.0.0.1");
+      if (Math.abs(candidate.port - application.port) > 2) {
+        database = candidate;
+      } else {
+        await release(candidate.server);
+      }
+    }
+    expect(database).toBeTruthy();
+    const config = {
+      APP_HOST: "127.0.0.2",
+      APP_PORT: String(application.port),
+      DATABASE_URL: `mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:${
+        (database as { port: number }).port
+      }/songhealth_development`,
+    };
+    await release(application.server);
+    await release((database as { server: net.Server }).server);
+
+    // Free endpoints on the CONFIGURED host pass preflight.
+    await expect(checkDailyEndpointsAvailable(config)).resolves.toBe(true);
+
+    // An occupied server endpoint (APP_PORT + 1) on the CONFIGURED host
+    // fails preflight — even though the same port number is free on
+    // 127.0.0.1, which is the exact B04 defect a 127.0.0.1-only probe has.
+    const squatter = net.createServer();
+    await new Promise<void>((resolve, reject) => {
+      squatter.once("error", reject);
+      squatter.listen(application.port + 1, "127.0.0.2", () => {
+        resolve();
+      });
+    });
+    try {
+      await expect(checkDailyEndpointsAvailable(config)).resolves.toBe(false);
+    } finally {
+      await release(squatter);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T028 exceptional rework regression — B05 (a Development DATABASE_URL on a
+// port other than the accepted T026 manifest endpoint port 3306 is rejected
+// by the canonical boundary before any operational work or probe).
+// ---------------------------------------------------------------------------
+
+describe("Foundation startup exceptional rework regression — T028-B05", () => {
+  it("dev:start and dev:ready reject a non-manifest database port before every work/probe collaborator", async () => {
+    // Single fault: only the database port differs from the accepted T026
+    // manifest endpoint; every other dimension stays canonically Development.
+    const nonManifestPortConfig = {
+      ...SAFE_DEV_CONFIG,
+      DATABASE_URL:
+        "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:13306/songhealth_development",
+    };
+
+    const startHarness = makeCollaborators();
+    startHarness.collaborators.config = {
+      load: async () => ({ ...nonManifestPortConfig }),
+    };
+    const result = await devStart(startHarness.collaborators);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.reasonCode).toBe("CONFIG_IDENTITY_CONFLICT");
+    expect(result.configurationKey).toBe("DATABASE_URL");
+    expectNoWork(startHarness);
+
+    const readyHarness = makeCollaborators();
+    readyHarness.collaborators.config = {
+      load: async () => ({ ...nonManifestPortConfig }),
+    };
+    const probeSpy = vi.spyOn(readyHarness.collaborators.readiness, "probe");
+    const readyResult = await devReady(readyHarness.collaborators, {
+      deadlineMs: 2000,
+      pollMs: 500,
+    });
+
+    expect(readyResult.exitCode).not.toBe(0);
+    expect(readyResult.reasonCode).toBe("CONFIG_IDENTITY_CONFLICT");
+    expect(readyResult.configurationKey).toBe("DATABASE_URL");
+    expect(probeSpy).not.toHaveBeenCalled();
+    expectNoWork(readyHarness);
   });
 });
