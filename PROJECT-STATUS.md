@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE ACCEPTED — T028
+- **Status:** IMPLEMENTATION AUTHORIZED — T029
 
 ## Active Feature Mirror
 
@@ -30,10 +30,11 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** HUMAN ACCEPTED — reviewed T028 scope, including T028-B01–T028-B05
-- **Phase status:** T028 ACCEPTED — T029+ UNAUTHORIZED
+- **Phase status:** T028 ACCEPTED — T029 AUTHORIZED; T030+ UNAUTHORIZED
 - **Previous completed scope:** T028 — supervised native Development startup and bounded whole-
   foundation readiness, including accepted closure of T028-B01–T028-B05
-- **Next valid action:** NONE IN THIS ISSUE — stop after recording T028 acceptance
+- **Next valid action:** Claude Code implements only T029, returns implementation-result evidence,
+  and stops for independent Codex review; T030+ remain unauthorized
 - **Blocking issues:** NONE for the accepted T028 scope
 - **Review evidence:** Exceptional corrective commit
   `ec998583ab687b1db4b5b8355c51479c394f505e` is fetchable and directly follows reviewed commit
@@ -53,11 +54,29 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T028 Human Gate accepted; T029+ unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T029 only — implement idempotent Development stop and restart in
+  `scripts/foundation-operations.mjs`, and replace only the `dev:stop` / `dev:restart` placeholder
+  adapters in `package.json`; routine stop must stop the three supervised native processes and the
+  Development database container without deleting the named volume, repetition must be safe, and
+  restart must complete the documented stop-before-start sequence while preserving Development data
+- **Runtime:** Claude Code DEV Executor via the installed Spec Kit `implement` command/skill, bounded
+  to T029; stop before T030 or any later task
+- **Required references:** `.specify/memory/constitution.md`; `CLAUDE.md`;
+  `docs/spec-context/001-application-foundation.md` Implementation / Review routing;
+  `specs/001-application-foundation/spec.md` FR-003, FR-004, and SC-002;
+  `specs/001-application-foundation/plan.md` Operations and verification and Persistence and
+  migrations; `specs/001-application-foundation/tasks.md` T029 and dependency rules;
+  `specs/001-application-foundation/contracts/foundation-operations.md` Commands;
+  `scripts/foundation-operations.test.ts` existing T019 stop/restart acceptance cases
+- **Expected verification:** focused Vitest for the T019 `dev:stop` and `dev:restart` cases must pass,
+  including repeat-safe stop, exact native-process/database stop effects, stop-before-start ordering,
+  and unchanged Development volume/data state; run the affected operations test file, focused ESLint,
+  root TypeScript verification, `git diff --check`, conflict-marker inspection, and no-skip/todo/only
+  inspection. Return the exact changed files, commit SHA, commands/results, confirmation that the
+  Development named volume is never removed, and confirmation that no T030+ behavior, lifecycle
+  journal/recovery/reset/inventory implementation, dependency/lockfile/manifest change, Product
+  behavior, or broad host/resource mutation was added.
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
