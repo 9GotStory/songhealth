@@ -1,15 +1,16 @@
 # Pre-Implementation Gate
 
 > **State:** RECONCILED — the Delivery 001 pre-implementation gates below were satisfied before
-> bounded task implementation began. Current authorization: NONE (T021 Human Gate ACCEPTED; T022+
-> UNAUTHORIZED). Two Context7 connection items are unproven and one Context7 configuration item is
-> not satisfied at HEAD; see the Context7 gate below.
+> bounded task implementation began. Live per-task acceptance and implementation/review
+> authorization are maintained in `PROJECT-STATUS.md`. Two Context7 connection items are unproven
+> and one Context7 configuration item is not satisfied at HEAD; see the Context7 gate below.
 
 This file records whether the required gates were satisfied before application implementation
-began, and mirrors the current authorization state. It is a governance gate/status artifact — not
-a changelog, not a Source of Truth, and not a redefinition of requirements or architecture.
-Completed Specify/Clarify/Plan/checklist/Tasks/Analyze work is represented from persisted
-artifacts and history; those phases were not rerun for this reconciliation.
+began. It preserves historical gate evidence and does not mirror live per-task acceptance or
+authorization state. It is a governance gate artifact — not a changelog, not a Source of Truth,
+and not a redefinition of requirements or architecture. Completed Specify/Clarify/Plan/checklist/
+Tasks/Analyze work is represented from persisted artifacts and history; those phases were not
+rerun for this reconciliation.
 
 ## Agent Instruction Routing
 
@@ -82,11 +83,10 @@ Satisfied before bounded task implementation began (persisted evidence):
   IMPLEMENTATION HANDOFFs under the `docs/operations/codex-orchestrator.md` handoff rule;
   persisted-authorization enforcement is recorded in `7707150`.
 
-Current state (authoritative mirror — no task is selected or authorized now):
+Live implementation/review state:
 
-- Authorized Implementation: NONE — `PROJECT-STATUS.md` records `Authorization state: NONE`.
-- T021 Human Gate is ACCEPTED; T022+ are UNAUTHORIZED. This reconciliation does not select,
-  authorize, or hand off any next task and does not advance the Spec Kit phase.
+- `PROJECT-STATUS.md` is the sole workflow mirror for current task acceptance and authorization.
+- This historical gate record does not select, authorize, or hand off implementation work.
 
 ## Context7 / External Documentation Gate
 
@@ -105,8 +105,7 @@ Current state (authoritative mirror — no task is selected or authorized now):
 - [x] Context7 cannot independently introduce dependencies or expand Delivery scope — prohibited
   explicitly by the same documents.
 
-A–F above were satisfied before Delivery 001 application implementation began; implementation then
-proceeded only under explicit per-task authorization through accepted T021. The unsatisfied
-Codex-side configuration item and the two unproven live-connection items do not authorize any
-dependency, manifest, lockfile, or configuration change, and do not select or authorize T022 or
-any later task.
+A–F above were satisfied before Delivery 001 application implementation began; subsequent work
+proceeds only under explicit per-task authorization recorded in `PROJECT-STATUS.md`. The
+unsatisfied Codex-side configuration item and the two unproven live-connection items do not
+authorize any dependency, manifest, lockfile, configuration, or implementation change.
