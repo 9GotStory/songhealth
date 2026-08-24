@@ -2395,3 +2395,96 @@ describe("Foundation setup rework regressions — T027-B01/B02/B03", () => {
     expect(migrateIndex).toBeGreaterThan(readyIndex);
   });
 });
+
+// ---------------------------------------------------------------------------
+// T028 rework regressions — B02 (derived endpoints fail before work) and
+// B03 (the Public workspace declares its isbot runtime dependency so first
+// startup takes no install/mutation path).
+// ---------------------------------------------------------------------------
+
+describe("Foundation startup rework regressions — T028-B02/B03", () => {
+  it.each([
+    [
+      "a derived server endpoint above the TCP port range",
+      { APP_PORT: "65535", PUBLIC_ORIGIN: "http://127.0.0.1:65535" },
+      "CONFIG_OUT_OF_RANGE",
+    ],
+    [
+      "a derived admin endpoint above the TCP port range",
+      { APP_PORT: "65534", PUBLIC_ORIGIN: "http://127.0.0.1:65534" },
+      "CONFIG_OUT_OF_RANGE",
+    ],
+    [
+      "an application endpoint that collides with the Development database endpoint",
+      {
+        APP_PORT: "13306",
+        PUBLIC_ORIGIN: "http://127.0.0.1:13306",
+        DATABASE_URL:
+          "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:13306/songhealth_development",
+      },
+      "CONFIG_IDENTITY_CONFLICT",
+    ],
+  ] as [string, Record<string, string>, string][])(
+    "dev:start rejects %s before any work",
+    async (_label, overrides, reasonCode) => {
+      const harness = makeCollaborators();
+      const { collaborators } = harness;
+      collaborators.config = {
+        load: async () => ({ ...SAFE_DEV_CONFIG, ...overrides }),
+      };
+
+      const result = await devStart(collaborators);
+
+      // The canonical boundary accepts each record (the values are valid in
+      // themselves); the derived-endpoint validation must be what rejects.
+      expect(result.exitCode).not.toBe(0);
+      expect(result.reasonCode).toBe(reasonCode);
+      expect(result.configurationKey).toBe("APP_PORT");
+      // The rejection happens before any work of any kind.
+      expectNoWork(harness);
+    },
+  );
+
+  it("dev:ready rejects an invalid derived-endpoint state before probing readiness", async () => {
+    const harness = makeCollaborators();
+    const { collaborators } = harness;
+    collaborators.config = {
+      load: async () => ({
+        ...SAFE_DEV_CONFIG,
+        APP_PORT: "65535",
+        PUBLIC_ORIGIN: "http://127.0.0.1:65535",
+      }),
+    };
+    const probeSpy = vi.spyOn(collaborators.readiness, "probe");
+
+    const result = await devReady(collaborators, { deadlineMs: 2000, pollMs: 500 });
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.reasonCode).toBe("CONFIG_OUT_OF_RANGE");
+    expect(probeSpy).not.toHaveBeenCalled();
+    expectNoWork(harness);
+  });
+
+  it("the Public workspace declares its React Router isbot runtime dependency and the lockfile records it without changing the resolved graph", async () => {
+    const { readFileSync } = await import("node:fs");
+
+    const manifest = JSON.parse(
+      readFileSync(new URL("../apps/web/package.json", import.meta.url), "utf8"),
+    ) as { dependencies: Record<string, string> };
+    // Declared as a runtime dependency of the Public workspace: React
+    // Router's SSR entry requires it at runtime, so a missing declaration
+    // makes the first dev startup install and rewrite tracked manifests.
+    expect(typeof manifest.dependencies.isbot).toBe("string");
+
+    const lock = JSON.parse(
+      readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"),
+    ) as { packages: Record<string, { version?: string; dev?: boolean; dependencies?: Record<string, string> }> };
+    const entry = lock.packages["node_modules/isbot"];
+    expect(entry?.version).toBeTruthy();
+    // The locked entry stays the already-resolved version and is no longer
+    // classified dev-only for the workspace that depends on it at runtime.
+    expect(entry?.dev).toBeUndefined();
+    const webEntry = lock.packages["apps/web"];
+    expect(webEntry?.dependencies?.isbot).toBeTruthy();
+  });
+});

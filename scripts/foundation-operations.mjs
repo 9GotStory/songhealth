@@ -44,7 +44,9 @@
  *     surface — never a configuration value, credential, connection
  *     string, raw child-process output, or host/filesystem detail.
  *   - `devStart` (T028) re-validates the SAME canonical Development
- *     identity before any work, then starts only the accepted Development
+ *     identity before any work, validates every daily native endpoint
+ *     (derived ports in range and distinct from the Development database
+ *     endpoint — T028-B02), then starts only the accepted Development
  *     database dependency plus the three native daily processes (server,
  *     Public, Admin) through the injected supervisor. Ordinary startup
  *     never applies migrations, repeated invocation creates no duplicate
@@ -160,6 +162,24 @@ const READINESS_COMPONENT_DIAGNOSTICS = {
   adminRoute: ["ROUTE_UNREACHABLE", "admin", "RETRY_SAFE_OPERATION"],
   serverRoute: ["ROUTE_UNREACHABLE", "application", "RETRY_SAFE_OPERATION"],
 };
+
+/**
+ * Daily native-process endpoint derivation (implementation configuration,
+ * not a Product decision): the Public dev server owns the documented
+ * application endpoint (`APP_HOST`/`APP_PORT`, which the canonical boundary
+ * binds to `PUBLIC_ORIGIN`), and the operational server and the Admin dev
+ * server occupy the adjacent derived loopback ports. The single-listener
+ * release composition that serves all three responsibilities on one port is
+ * a later task; these adjacent ports are provisional daily-development
+ * choices, and EVERY derived endpoint is validated before any work
+ * (T028-B02: an occupied, colliding, or out-of-range derived endpoint must
+ * fail before application work).
+ */
+const SERVER_PORT_OFFSET = 1;
+const ADMIN_PORT_OFFSET = 2;
+
+/** The maximum valid TCP port; every derived daily endpoint must stay in range. */
+const MAX_TCP_PORT = 65535;
 
 /**
  * Bounded engine-readiness wait (T027-B02): a detached `compose up` proves
@@ -443,6 +463,69 @@ async function validateCanonicalDevelopmentConfiguration(collaborators, surfaces
 }
 
 /**
+ * Resolve every daily native endpoint from the CANONICALLY ACCEPTED
+ * configuration and validate it BEFORE any process work (T028-B02): the
+ * documented application endpoint and both derived endpoints must be valid
+ * in-range TCP ports, and no daily endpoint may collide with another —
+ * including the Development database endpoint, which binds the same
+ * loopback host. Returns the validated endpoint map, or `invalid` for an
+ * out-of-range / colliding endpoint state (routed by the callers to the
+ * documented rejection classes on the safe `APP_PORT` key).
+ */
+function resolveValidatedDailyEndpoints(configuration) {
+  const applicationPorts = {
+    public: configuration.port,
+    server: configuration.port + SERVER_PORT_OFFSET,
+    admin: configuration.port + ADMIN_PORT_OFFSET,
+  };
+  let databasePort = DEVELOPMENT_DATABASE_PORT;
+  try {
+    const parsed = Number.parseInt(new URL(configuration.databaseUrl).port, 10);
+    if (Number.isInteger(parsed) && parsed >= 1) {
+      databasePort = parsed;
+    }
+  } catch {
+    // An unparseable port falls back to the documented database port above.
+  }
+  const ports = [...Object.values(applicationPorts), databasePort];
+  const outOfRange = ports.some(
+    (port) => !Number.isInteger(port) || port < 1 || port > MAX_TCP_PORT,
+  );
+  if (outOfRange) {
+    return { invalid: "out-of-range" };
+  }
+  // The three application ports are distinct by construction while in
+  // range; a duplicate therefore proves a collision with the database
+  // endpoint (or a duplicate database declaration).
+  if (new Set(ports).size !== ports.length) {
+    return { invalid: "colliding" };
+  }
+  return {
+    endpoints: { host: configuration.host, ...applicationPorts, databasePort },
+  };
+}
+
+/**
+ * The endpoint-validation leg shared by the daily T028 operations: derive
+ * and validate every daily native endpoint from the canonical accepted
+ * configuration and reject BEFORE any work when a derived endpoint is
+ * out of range or collides with another daily endpoint.
+ */
+async function rejectInvalidDailyEndpoints(collaborators, configuration, surfaces) {
+  const resolved = resolveValidatedDailyEndpoints(configuration);
+  if (resolved.invalid === undefined) {
+    return null;
+  }
+  const reasonCode =
+    resolved.invalid === "out-of-range" ? "CONFIG_OUT_OF_RANGE" : "CONFIG_IDENTITY_CONFLICT";
+  return rejectOperation(
+    collaborators,
+    safeDiagnostic(reasonCode, "daily", "configuration", "FIX_CONFIGURATION", "APP_PORT"),
+    surfaces,
+  );
+}
+
+/**
  * `dev:start` — supervised native daily startup. Re-validate the canonical
  * Development identity before any work, start only the accepted Development
  * database dependency (adapter-owned idempotency: repetition reconciles and
@@ -462,6 +545,14 @@ export async function devStart(collaborators) {
   );
   if (validation.rejected !== undefined) {
     return validation.rejected;
+  }
+  const endpointRejection = await rejectInvalidDailyEndpoints(
+    collaborators,
+    validation.outcome.configuration,
+    STARTUP_SURFACES,
+  );
+  if (endpointRejection !== null) {
+    return endpointRejection;
   }
 
   try {
@@ -528,6 +619,14 @@ export async function devReady(collaborators, options) {
   );
   if (validation.rejected !== undefined) {
     return validation.rejected;
+  }
+  const endpointRejection = await rejectInvalidDailyEndpoints(
+    collaborators,
+    validation.outcome.configuration,
+    COMMAND_SURFACES,
+  );
+  if (endpointRejection !== null) {
+    return endpointRejection;
   }
 
   const deadline = collaborators.clock.now() + options.deadlineMs;
@@ -745,7 +844,14 @@ function checkLoopbackPortAvailable(port) {
   });
 }
 
-/** The documented loopback ports for the daily target are bindable. */
+/**
+ * The documented AND derived loopback ports for the daily target are valid
+ * and bindable (T028-B02): every daily endpoint — the application port,
+ * both derived native-process ports, and the Development database port —
+ * must be in range, mutually distinct, and free to bind right now. An
+ * occupied, colliding, or out-of-range endpoint fails preflight before any
+ * application work.
+ */
 async function checkDevelopmentPortsAvailable() {
   const config =
     (await readEnvironmentFile(DEVELOPMENT_ENV_FILE)) ??
@@ -754,10 +860,30 @@ async function checkDevelopmentPortsAvailable() {
   const appPort = DECIMAL_INTEGER_PATTERN.test(config.APP_PORT ?? "")
     ? Number.parseInt(config.APP_PORT, 10)
     : DEVELOPMENT_APP_PORT_FALLBACK;
-  const available = await Promise.all([
-    checkLoopbackPortAvailable(appPort),
-    checkLoopbackPortAvailable(DEVELOPMENT_DATABASE_PORT),
-  ]);
+  let databasePort = DEVELOPMENT_DATABASE_PORT;
+  try {
+    const endpoint = new URL(config.DATABASE_URL ?? "");
+    if (DECIMAL_INTEGER_PATTERN.test(endpoint.port)) {
+      databasePort = Number.parseInt(endpoint.port, 10);
+    }
+  } catch {
+    // Fall back to the documented database port above.
+  }
+  const ports = [
+    appPort,
+    appPort + SERVER_PORT_OFFSET,
+    appPort + ADMIN_PORT_OFFSET,
+    databasePort,
+  ];
+  const inRange = ports.every(
+    (port) => Number.isInteger(port) && port >= 1 && port <= MAX_TCP_PORT,
+  );
+  // The three application ports are distinct by construction while in
+  // range; a duplicate proves an endpoint collision.
+  if (!inRange || new Set(ports).size !== ports.length) {
+    return false;
+  }
+  const available = await Promise.all(ports.map((port) => checkLoopbackPortAvailable(port)));
   return available.every((isAvailable) => isAvailable);
 }
 
@@ -931,18 +1057,6 @@ async function applyTrackedMigrations() {
 // point; the accepted tests always inject their own collaborators, so
 // nothing in this section runs under test.
 // ---------------------------------------------------------------------------
-
-/**
- * Daily native-process endpoints (implementation configuration, not a
- * Product decision): the Public dev server owns the documented application
- * endpoint (`APP_HOST`/`APP_PORT`, which the canonical boundary binds to
- * `PUBLIC_ORIGIN`), and the operational server and the Admin dev server
- * occupy the adjacent derived loopback ports. The single-listener release
- * composition that serves all three responsibilities on one port is a later
- * task; these adjacent ports are provisional daily-development choices.
- */
-const SERVER_PORT_OFFSET = 1;
-const ADMIN_PORT_OFFSET = 2;
 
 /** Per-attempt bound for one native-process endpoint probe (milliseconds). */
 const PROCESS_PROBE_TIMEOUT_MS = 1_000;
