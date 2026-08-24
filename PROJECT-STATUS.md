@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION AUTHORIZED — T023
+- **Status:** HUMAN GATE REQUIRED — T023
 
 ## Active Feature Mirror
 
@@ -30,59 +30,40 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T022 ACCEPTED — T023 AUTHORIZED; T024+ UNAUTHORIZED
-- **Previous completed scope:** T022 — failing Development/Verification isolation,
-  synthetic-marker continuity, exact confirmed Development reset, and unchanged
-  Verification/non-target inventory tests
-- **Next valid action:** Claude Code implements only T023, returns implementation-result evidence,
-  and stops for independent Codex review; T024+ remain unauthorized
+- **Phase status:** T023 REVIEW PASS — HUMAN GATE PENDING; T024+ UNAUTHORIZED
+- **Previous completed scope:** T023 — failing daily command stdout/stderr, application-log, HTTP,
+  exact-sentinel, and encoded-sentinel nondisclosure tests
+- **Next valid action:** Product Owner Human Gate accepts or rejects T023; no later task is
+  authorized
 - **Blocking issues:** NONE
-- **Review evidence:** Independent review of `30331d3` confirms the implementation diff is exactly
-  `tests/verification/foundation-operation-target.test.ts` plus the T022 checkbox. The 21-case
-  contract covers target identity/isolation and digest sensitivity, marker continuity across
-  routine restart, exact action-bound reset and drift refusal, migration/marker postconditions,
-  unchanged Verification/non-target inventory, and negative controls, using only deterministic
-  injected fakes. Focused Vitest is red only at the deliberately absent
-  `../../scripts/foundation-operations.mjs` boundary. Root `tsc --noEmit` reports the five accepted
-  baseline TS2307 diagnostics plus exactly the expected T022 missing-boundary diagnostic and no
+- **Review evidence:** Independent review of `3876a9d` confirms the implementation diff is exactly
+  `tests/verification/diagnostic-surfaces.test.ts` plus the T023 checkbox. The deterministic
+  injected-fake contract defines 24 cases covering all six documented configuration-rejection
+  classes across daily setup/start command surfaces, fail-before-work/readiness, application-log
+  and HTTP failure presentation, raw adapter-error mapping, the closed SafeDiagnostic schema, and
+  exact plus URI/base64/base64url/hex/JSON/unicode sentinel nondisclosure. The allowlists match the
+  accepted server/OpenAPI schema. Focused Vitest is red only at the deliberately absent
+  `../../scripts/foundation-operations.mjs` boundary. Root `tsc --noEmit` reports the six accepted
+  baseline TS2307 diagnostics plus exactly the expected T023 missing-boundary diagnostic and no
   other error. `git diff --check`, conflict-marker inspection, and no-skip/todo/only inspection
   pass. No implementation, dependency, lockfile, manifest, environment, Product behavior,
-  Production-derived data, host/resource mutation, or T023+ artifact was added. Review against
-  T022, FR-004, FR-008, SC-002, Resource Inventory, Quickstart §2, the plan, Delivery Context, and
-  Constitution Principles I–VI finds no Source-of-Truth conflict. Product Owner Human Gate accepted
-  T022.
+  Production-derived data, host/resource mutation, or T024+ artifact was added. Review against
+  T023, FR-007, SC-004, the Safe diagnostic contract, Quickstart §3, the plan, Delivery Context,
+  and Constitution Principles I–VI finds no Source-of-Truth conflict.
 - **Non-blocking notes:** The accepted locked graph still provides no
   `node_modules/.bin/eslint` executable, so the required focused ESLint attempt exits 127. This
   pre-existing tooling limitation does not authorize a dependency, manifest, or lockfile change.
+  Vitest reports zero runtime-collected tests because the intentional static missing-module import
+  stops suite evaluation; the source-defined 24-case inventory was therefore verified statically.
 
 ## Authorized Implementation
 
-- **Task / Scope:** T023 only — write failing daily command stdout/stderr, application-log, HTTP,
-  exact-sentinel, and encoded-sentinel nondisclosure tests in
-  `tests/verification/diagnostic-surfaces.test.ts`; create only that test artifact
-- **Runtime:** Claude Code DEV Executor via the installed Spec Kit `implement` command/skill, bounded
-  to T023
-- **Required references:** `.specify/memory/constitution.md`; `CLAUDE.md`;
-  `docs/spec-context/001-application-foundation.md` Implementation / Review routing;
-  `specs/001-application-foundation/spec.md` FR-007 and SC-004;
-  `specs/001-application-foundation/plan.md` Configuration and startup;
-  `specs/001-application-foundation/tasks.md` T023 and dependency rules;
-  `specs/001-application-foundation/contracts/foundation-operations.md` Safe diagnostic contract;
-  `specs/001-application-foundation/quickstart.md` §3
-- **Expected verification:** focused Vitest for
-  `tests/verification/diagnostic-surfaces.test.ts` must collect the intended T023 cases and fail
-  only at deliberately absent later implementation boundaries; cover daily command stdout/stderr,
-  application-log, and HTTP surfaces with unique exact and encoded forbidden sentinels, asserting
-  the closed SafeDiagnostic shape and no raw protected values, credentials, connection strings,
-  internal exceptions/stacks, paths, or unnecessary infrastructure details. Use deterministic
-  injected/fake collaborators and perform no real Podman/Compose, process, network, listener,
-  database, filesystem-state, or host-resource mutation. Run focused ESLint and root
-  `tsc --noEmit`, classifying only already-accepted missing-boundary/tooling diagnostics as
-  non-blocking; run `git diff --check`, conflict-marker inspection, and no-skip/todo/only
-  inspection. Return the exact changed files, commands/results, bounded expected-red evidence, and
-  confirmation that no implementation, package/dependency/lockfile, manifest, environment,
-  Product behavior, T024+, Production-derived data, or broad host/resource mutation was added.
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T023 passed independent review and awaits the Human Gate; T024+ remain
+  unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
