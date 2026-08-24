@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE ACCEPTED — T027
+- **Status:** T028 IMPLEMENTATION AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -29,41 +29,49 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED
-- **Phase status:** T027 ACCEPTED — T028+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T028
+- **Phase status:** T028 AUTHORIZED — T029+ UNAUTHORIZED
 - **Previous completed scope:** T027 — prerequisite checking and idempotent Development database
   setup
-- **Next valid action:** NONE IN THIS ISSUE — T027 acceptance recorded; T028+ remain unauthorized
+- **Next valid action:** Claude implements only T028 and stops for independent Codex review
 - **Blocking issues:** NONE
-- **Review evidence:** Independent re-review of corrective commit
-  `63990d0729bb34b3512e938636181f954cb14eb0` against rework authorization commit `ca1e66b` closes
-  T027-B01–T027-B03. The direct parent is exact and the corrective diff changes only
-  `scripts/foundation-operations.mjs`, its declaration boundary, and focused accepted tests. The
-  operations path now delegates to accepted T010 `loadRuntimeConfiguration`, so canonical
-  Development host/origin/port and database user/name identity is enforced before work without a
-  second weaker policy. Database setup starts only the accepted Development database, polls the
-  injected usable-engine boundary on a 120-second/500-millisecond bound, maps probe failure/timeout
-  to a closed `DATABASE_UNAVAILABLE`, and applies tracked migrations only after readiness. npm
-  preflight parses the private command result and accepts only npm 12.x. Added regressions cover
-  eight origin/database identity and format refusals, npm range cases, timeout/late readiness, and
-  start→readiness→migration ordering. `git diff --check`, ancestry, clean-tree, scope, task-boundary,
-  and T028+ stub inspection pass. Developer evidence reports all focused T019/T023 and 18 corrective
-  tests passing; unchanged expected-red failures belong only to T028+ and absent T032–T037 exports.
-  No Product behavior, Production decision/parity claim, new dependency/service, destructive
-  lifecycle behavior, or later task was added. Product Owner Human Gate accepted T027, including
-  the reviewed closure of T027-B01, T027-B02, and T027-B03.
-- **Non-blocking notes:** This reviewer runtime has no Node/npm/npx executable, so focused tests
-  could not be independently reproduced; this is verification-environment unavailability. The
-  developer's exact command/result evidence and independent static inspection are otherwise
-  coherent.
+- **Review evidence:** T028 review pending. Authorization selected from accepted HEAD
+  `b1d1eb762cb90d5485806fde26d48cb9319b3823`: T001–T027 are complete and T027 is Human accepted;
+  T028 is incomplete, is the first dependency-ready task, and no other implementation
+  authorization is active.
+- **Non-blocking notes:** NONE
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T027 is accepted; T028+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T028 only — implement supervised native Public/Admin/server startup and bounded
+  overall readiness in `scripts/foundation-operations.mjs`; expose only `dev:start` and `dev:ready`
+  in `package.json`. Stop before T029 or any later task.
+- **Runtime:** `claude-developer`
+- **Required references:** `CLAUDE.md`; `AGENTS.md`; `.specify/memory/constitution.md` Principles
+  I–VI and Delivery and Quality Gates; `docs/spec-context/001-application-foundation.md`
+  Implementation / Review routing and explicit out-of-scope boundaries;
+  `specs/001-application-foundation/tasks.md` T028;
+  `specs/001-application-foundation/spec.md` FR-003, FR-009, SC-001;
+  `specs/001-application-foundation/plan.md` Runtime composition, Configuration and startup, and
+  Operations and verification;
+  `specs/001-application-foundation/contracts/foundation-operations.md` Commands, Daily native
+  process supervision, Health/readiness behavior, Safe diagnostic contract, and Timing boundaries;
+  `specs/001-application-foundation/data-model.md` Execution Context, Migration State, and Health
+  Snapshot; `specs/001-application-foundation/quickstart.md` §1;
+  `scripts/foundation-operations.test.ts` accepted T019 startup/readiness contract;
+  `tests/verification/diagnostic-surfaces.test.ts` accepted T023 nondisclosure contract; accepted
+  T010 configuration boundary and T027 setup implementation.
+- **Expected verification:** Run the focused accepted T019 tests for `dev:start` and `dev:ready`
+  and the directly affected accepted T023 diagnostic/nondisclosure tests, plus any directly affected
+  static/type/lint check available; run `git diff --check`; report exact commands and results.
+  Verify startup validates the canonical Development identity before work, starts only the accepted
+  Development database plus the three native processes, does not auto-apply migrations, is
+  repeat-safe with no duplicate process/resource, and fails closed on partial startup. Verify
+  readiness polls on an injected bounded deadline, succeeds only when database connectivity,
+  migration currency, liveness/readiness, Public SSR, Admin CSR, and server route checks all pass,
+  and reports safe actionable diagnostics without protected/raw output. Preserve deterministic
+  injected/fake collaborator support and do not weaken accepted tests.
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
