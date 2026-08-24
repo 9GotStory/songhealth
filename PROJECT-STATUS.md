@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION AUTHORIZED — T029
+- **Status:** HUMAN GATE — DELIVERY BRANCH RECONCILIATION REQUIRED
 
 ## Active Feature Mirror
 
@@ -29,13 +29,18 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** HUMAN ACCEPTED — reviewed T028 scope, including T028-B01–T028-B05
-- **Phase status:** T028 ACCEPTED — T029 AUTHORIZED; T030+ UNAUTHORIZED
+- **Current review result:** SOURCE-OF-TRUTH CONFLICT — accepted T028 implementation is absent from
+  the Delivery branch
+- **Phase status:** IMPLEMENTATION BLOCKED — T029+ UNAUTHORIZED
 - **Previous completed scope:** T028 — supervised native Development startup and bounded whole-
   foundation readiness, including accepted closure of T028-B01–T028-B05
-- **Next valid action:** Claude Code implements only T029, returns implementation-result evidence,
-  and stops for independent Codex review; T030+ remain unauthorized
-- **Blocking issues:** NONE for the accepted T028 scope
+- **Next valid action:** Product Owner Human Gate — explicitly choose and authorize repository
+  reconciliation for the accepted T028 commits before any T029 authorization or implementation
+- **Blocking issues:** `origin/001-application-foundation` at
+  `a686f6ffc378ce30d8b42bb001a0c22be2b20097` records T028 as Human-accepted but does not contain the
+  accepted T028 implementation tip `ec998583ab687b1db4b5b8355c51479c394f505e`; T029 stop/restart
+  acceptance depends on T028 `dev:start`, which remains a stub on the Delivery branch. Do not merge,
+  rebase, cherry-pick, or reauthorize silently.
 - **Review evidence:** Exceptional corrective commit
   `ec998583ab687b1db4b5b8355c51479c394f505e` is fetchable and directly follows reviewed commit
   `ae42bf91cfaf733833089aecc7a0be4d990717f3`. Its bounded four-file diff tightens only the canonical
@@ -54,29 +59,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T029 only — implement idempotent Development stop and restart in
-  `scripts/foundation-operations.mjs`, and replace only the `dev:stop` / `dev:restart` placeholder
-  adapters in `package.json`; routine stop must stop the three supervised native processes and the
-  Development database container without deleting the named volume, repetition must be safe, and
-  restart must complete the documented stop-before-start sequence while preserving Development data
-- **Runtime:** Claude Code DEV Executor via the installed Spec Kit `implement` command/skill, bounded
-  to T029; stop before T030 or any later task
-- **Required references:** `.specify/memory/constitution.md`; `CLAUDE.md`;
-  `docs/spec-context/001-application-foundation.md` Implementation / Review routing;
-  `specs/001-application-foundation/spec.md` FR-003, FR-004, and SC-002;
-  `specs/001-application-foundation/plan.md` Operations and verification and Persistence and
-  migrations; `specs/001-application-foundation/tasks.md` T029 and dependency rules;
-  `specs/001-application-foundation/contracts/foundation-operations.md` Commands;
-  `scripts/foundation-operations.test.ts` existing T019 stop/restart acceptance cases
-- **Expected verification:** focused Vitest for the T019 `dev:stop` and `dev:restart` cases must pass,
-  including repeat-safe stop, exact native-process/database stop effects, stop-before-start ordering,
-  and unchanged Development volume/data state; run the affected operations test file, focused ESLint,
-  root TypeScript verification, `git diff --check`, conflict-marker inspection, and no-skip/todo/only
-  inspection. Return the exact changed files, commit SHA, commands/results, confirmation that the
-  Development named volume is never removed, and confirmation that no T030+ behavior, lifecycle
-  journal/recovery/reset/inventory implementation, dependency/lockfile/manifest change, Product
-  behavior, or broad host/resource mutation was added.
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T029 authorization superseded by the Delivery-branch/T028 conflict
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE until Human-authorized repository reconciliation is complete
+- **Authorization state:** SUPERSEDED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
