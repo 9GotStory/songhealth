@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T027 REVIEW PASS — PRODUCT OWNER HUMAN GATE
+- **Status:** HUMAN GATE ACCEPTED — T027
 
 ## Active Feature Mirror
 
@@ -29,11 +29,11 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS
-- **Phase status:** T027 REVIEWED — AWAITING PRODUCT OWNER ACCEPTANCE; T028+ UNAUTHORIZED
+- **Current review result:** PASS — HUMAN ACCEPTED
+- **Phase status:** T027 ACCEPTED — T028+ UNAUTHORIZED
 - **Previous completed scope:** T027 — prerequisite checking and idempotent Development database
   setup
-- **Next valid action:** Product Owner Human Gate for T027; do not authorize T028 in this issue
+- **Next valid action:** NONE IN THIS ISSUE — T027 acceptance recorded; T028+ remain unauthorized
 - **Blocking issues:** NONE
 - **Review evidence:** Independent re-review of corrective commit
   `63990d0729bb34b3512e938636181f954cb14eb0` against rework authorization commit `ca1e66b` closes
@@ -50,7 +50,8 @@
   and T028+ stub inspection pass. Developer evidence reports all focused T019/T023 and 18 corrective
   tests passing; unchanged expected-red failures belong only to T028+ and absent T032–T037 exports.
   No Product behavior, Production decision/parity claim, new dependency/service, destructive
-  lifecycle behavior, or later task was added.
+  lifecycle behavior, or later task was added. Product Owner Human Gate accepted T027, including
+  the reviewed closure of T027-B01, T027-B02, and T027-B03.
 - **Non-blocking notes:** This reviewer runtime has no Node/npm/npx executable, so focused tests
   could not be independently reproduced; this is verification-environment unavailability. The
   developer's exact command/result evidence and independent static inspection are otherwise
@@ -58,7 +59,7 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T027 review passed; T028+ remain unauthorized
+- **Task / Scope:** NONE — T027 is accepted; T028+ remain unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE
