@@ -247,6 +247,21 @@ export function devReady(
  */
 export function npmVersionSatisfiesEngines(versionOutput: string): boolean;
 
+/**
+ * The preflight endpoint-availability core: validate that every daily
+ * endpoint — the configured application port, both derived native-process
+ * ports, and the Development database port — is an in-range, mutually
+ * distinct port, then bind-probe the Public/server/Admin endpoints on the
+ * CONFIGURED application host (any strict-loopback host the canonical
+ * boundary accepts) and the database port on the T026 manifest's own
+ * loopback publication address. Returns whether every endpoint is free to
+ * bind right now; an occupied, colliding, or out-of-range endpoint fails
+ * preflight before any application work.
+ */
+export function checkDailyEndpointsAvailable(
+  config: Record<string, string>,
+): Promise<boolean>;
+
 /** Bounded engine-readiness wait before migrations (milliseconds). */
 export const DATABASE_READINESS_TIMEOUT_MS: number;
 

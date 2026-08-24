@@ -828,8 +828,16 @@ async function checkSafeDevelopmentConfiguration() {
   }
 }
 
-/** Resolve whether a loopback port can be bound right now. */
-function checkLoopbackPortAvailable(port) {
+/**
+ * The Development Data Store's manifest-published loopback bind address:
+ * the accepted T026 manifest publishes its port as `127.0.0.1:<port>:3306`,
+ * so the database endpoint is probed on the manifest's own bind address —
+ * never on the (possibly different) configured application host.
+ */
+const DEVELOPMENT_DATABASE_BIND_HOST = "127.0.0.1";
+
+/** Resolve whether one host endpoint can be bound right now. */
+function checkHostEndpointAvailable(host, port) {
   return new Promise((resolve) => {
     const server = net.createServer();
     server.once("error", () => {
@@ -840,24 +848,28 @@ function checkLoopbackPortAvailable(port) {
         resolve(true);
       });
     });
-    server.listen(port, "127.0.0.1");
+    server.listen(port, host);
   });
 }
 
 /**
- * The documented AND derived loopback ports for the daily target are valid
- * and bindable (T028-B02): every daily endpoint — the application port,
- * both derived native-process ports, and the Development database port —
- * must be in range, mutually distinct, and free to bind right now. An
- * occupied, colliding, or out-of-range endpoint fails preflight before any
- * application work.
+ * The preflight endpoint-availability core (T028-B02/B04): every daily
+ * endpoint — the application port, both derived native-process ports, and
+ * the Development database port — must be in range (B02), mutually
+ * distinct (B02), and free to bind right now. Public/server/Admin bind the
+ * CONFIGURED application host (the canonical boundary accepts any strict
+ * loopback host, not only 127.0.0.1), and the database port is probed on
+ * the T026 manifest's own loopback publication address. An occupied,
+ * colliding, or out-of-range endpoint therefore fails preflight before any
+ * application work. Exported for the focused accepted-host regression
+ * evidence (the same exception as `npmVersionSatisfiesEngines`).
  */
-async function checkDevelopmentPortsAvailable() {
-  const config =
-    (await readEnvironmentFile(DEVELOPMENT_ENV_FILE)) ??
-    (await readEnvironmentFile(DEVELOPMENT_ENV_EXAMPLE_FILE)) ??
-    {};
-  const appPort = DECIMAL_INTEGER_PATTERN.test(config.APP_PORT ?? "")
+export async function checkDailyEndpointsAvailable(config) {
+  const appHost =
+    typeof config?.APP_HOST === "string" && config.APP_HOST !== ""
+      ? config.APP_HOST.replace(/^\[|\]$/g, "")
+      : "127.0.0.1";
+  const appPort = DECIMAL_INTEGER_PATTERN.test(config?.APP_PORT ?? "")
     ? Number.parseInt(config.APP_PORT, 10)
     : DEVELOPMENT_APP_PORT_FALLBACK;
   let databasePort = DEVELOPMENT_DATABASE_PORT;
@@ -869,12 +881,12 @@ async function checkDevelopmentPortsAvailable() {
   } catch {
     // Fall back to the documented database port above.
   }
-  const ports = [
+  const applicationPorts = [
     appPort,
     appPort + SERVER_PORT_OFFSET,
     appPort + ADMIN_PORT_OFFSET,
-    databasePort,
   ];
+  const ports = [...applicationPorts, databasePort];
   const inRange = ports.every(
     (port) => Number.isInteger(port) && port >= 1 && port <= MAX_TCP_PORT,
   );
@@ -883,8 +895,24 @@ async function checkDevelopmentPortsAvailable() {
   if (!inRange || new Set(ports).size !== ports.length) {
     return false;
   }
-  const available = await Promise.all(ports.map((port) => checkLoopbackPortAvailable(port)));
+  const available = await Promise.all([
+    ...applicationPorts.map((port) => checkHostEndpointAvailable(appHost, port)),
+    checkHostEndpointAvailable(DEVELOPMENT_DATABASE_BIND_HOST, databasePort),
+  ]);
   return available.every((isAvailable) => isAvailable);
+}
+
+/**
+ * The documented AND derived loopback endpoints of the daily target
+ * (local configuration, or the committed example as the non-mutating
+ * fallback source) are valid and bindable.
+ */
+async function checkDevelopmentPortsAvailable() {
+  const config =
+    (await readEnvironmentFile(DEVELOPMENT_ENV_FILE)) ??
+    (await readEnvironmentFile(DEVELOPMENT_ENV_EXAMPLE_FILE)) ??
+    {};
+  return checkDailyEndpointsAvailable(config);
 }
 
 /**

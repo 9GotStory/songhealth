@@ -260,6 +260,7 @@
  * real-tool error.
  */
 
+import net from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   OperationResult,
@@ -276,6 +277,7 @@ import {
   devReset,
   foundationCleanup,
   npmVersionSatisfiesEngines,
+  checkDailyEndpointsAvailable,
   DATABASE_READINESS_TIMEOUT_MS,
   DATABASE_READINESS_POLL_INTERVAL_MS,
 } from "./foundation-operations.mjs";
@@ -2486,5 +2488,86 @@ describe("Foundation startup rework regressions — T028-B02/B03", () => {
     expect(entry?.dev).toBeUndefined();
     const webEntry = lock.packages["apps/web"];
     expect(webEntry?.dependencies?.isbot).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T028 rework regression — B04 (preflight probes the CONFIGURED application
+// host, not only 127.0.0.1, while the database port keeps the manifest's own
+// loopback bind address). Uses the accepted non-default 127/8 host
+// `127.0.0.2`, which the canonical Development boundary accepts.
+// ---------------------------------------------------------------------------
+
+/** Bind one ephemeral listener on a host and report the assigned port. */
+function bindEphemeral(
+  host: string,
+): Promise<{ server: net.Server; port: number }> {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.once("error", reject);
+    server.listen(0, host, () => {
+      const address = server.address();
+      if (address === null || typeof address === "string") {
+        reject(new Error("ephemeral listener reported no port"));
+        return;
+      }
+      resolve({ server, port: address.port });
+    });
+  });
+}
+
+/** Close a listener and wait for the release. */
+function release(server: net.Server): Promise<void> {
+  return new Promise((resolve) => {
+    server.close(() => {
+      resolve();
+    });
+  });
+}
+
+describe("Foundation startup rework regression — T028-B04", () => {
+  it("preflight bind-probes Public/server/Admin on the configured non-default 127/8 host — an occupied server endpoint there fails, a free one passes", async () => {
+    // Choose ephemeral ports: the application base on the non-default
+    // loopback host and the database port on the manifest bind host, kept
+    // far enough apart that no derived endpoint collides with the database.
+    const application = await bindEphemeral("127.0.0.2");
+    let database: { server: net.Server; port: number } | undefined;
+    for (let attempt = 0; attempt < 8 && database === undefined; attempt += 1) {
+      const candidate = await bindEphemeral("127.0.0.1");
+      if (Math.abs(candidate.port - application.port) > 2) {
+        database = candidate;
+      } else {
+        await release(candidate.server);
+      }
+    }
+    expect(database).toBeTruthy();
+    const config = {
+      APP_HOST: "127.0.0.2",
+      APP_PORT: String(application.port),
+      DATABASE_URL: `mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:${
+        (database as { port: number }).port
+      }/songhealth_development`,
+    };
+    await release(application.server);
+    await release((database as { server: net.Server }).server);
+
+    // Free endpoints on the CONFIGURED host pass preflight.
+    await expect(checkDailyEndpointsAvailable(config)).resolves.toBe(true);
+
+    // An occupied server endpoint (APP_PORT + 1) on the CONFIGURED host
+    // fails preflight — even though the same port number is free on
+    // 127.0.0.1, which is the exact B04 defect a 127.0.0.1-only probe has.
+    const squatter = net.createServer();
+    await new Promise<void>((resolve, reject) => {
+      squatter.once("error", reject);
+      squatter.listen(application.port + 1, "127.0.0.2", () => {
+        resolve();
+      });
+    });
+    try {
+      await expect(checkDailyEndpointsAvailable(config)).resolves.toBe(false);
+    } finally {
+      await release(squatter);
+    }
   });
 });
