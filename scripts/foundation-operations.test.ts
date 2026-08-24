@@ -317,7 +317,7 @@ const SAFE_DEV_CONFIG = {
   APP_HOST: "127.0.0.1",
   APP_PORT: "10443",
   PUBLIC_ORIGIN: "http://127.0.0.1:10443",
-  DATABASE_URL: "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:13306/songhealth_development",
+  DATABASE_URL: "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:3306/songhealth_development",
   DATABASE_POOL_MAX: "4",
   PROXY_POLICY: "none",
   LOG_LEVEL: "info",
@@ -2267,7 +2267,7 @@ describe("Foundation setup rework regressions — T027-B01/B02/B03", () => {
       "a database user outside the canonical Development identity",
       {
         DATABASE_URL:
-          "mysql://dev-user:dev-only-placeholder@127.0.0.1:13306/songhealth_development",
+          "mysql://dev-user:dev-only-placeholder@127.0.0.1:3306/songhealth_development",
       },
       "CONFIG_IDENTITY_CONFLICT",
       "DATABASE_URL",
@@ -2276,7 +2276,7 @@ describe("Foundation setup rework regressions — T027-B01/B02/B03", () => {
       "a database name outside the canonical Development identity",
       {
         DATABASE_URL:
-          "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:13306/songhealth_dev",
+          "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:3306/songhealth_dev",
       },
       "CONFIG_IDENTITY_CONFLICT",
       "DATABASE_URL",
@@ -2419,10 +2419,10 @@ describe("Foundation startup rework regressions — T028-B02/B03", () => {
     [
       "an application endpoint that collides with the Development database endpoint",
       {
-        APP_PORT: "13306",
-        PUBLIC_ORIGIN: "http://127.0.0.1:13306",
+        APP_PORT: "3306",
+        PUBLIC_ORIGIN: "http://127.0.0.1:3306",
         DATABASE_URL:
-          "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:13306/songhealth_development",
+          "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:3306/songhealth_development",
       },
       "CONFIG_IDENTITY_CONFLICT",
     ],
@@ -2569,5 +2569,50 @@ describe("Foundation startup rework regression — T028-B04", () => {
     } finally {
       await release(squatter);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T028 exceptional rework regression — B05 (a Development DATABASE_URL on a
+// port other than the accepted T026 manifest endpoint port 3306 is rejected
+// by the canonical boundary before any operational work or probe).
+// ---------------------------------------------------------------------------
+
+describe("Foundation startup exceptional rework regression — T028-B05", () => {
+  it("dev:start and dev:ready reject a non-manifest database port before every work/probe collaborator", async () => {
+    // Single fault: only the database port differs from the accepted T026
+    // manifest endpoint; every other dimension stays canonically Development.
+    const nonManifestPortConfig = {
+      ...SAFE_DEV_CONFIG,
+      DATABASE_URL:
+        "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:13306/songhealth_development",
+    };
+
+    const startHarness = makeCollaborators();
+    startHarness.collaborators.config = {
+      load: async () => ({ ...nonManifestPortConfig }),
+    };
+    const result = await devStart(startHarness.collaborators);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.reasonCode).toBe("CONFIG_IDENTITY_CONFLICT");
+    expect(result.configurationKey).toBe("DATABASE_URL");
+    expectNoWork(startHarness);
+
+    const readyHarness = makeCollaborators();
+    readyHarness.collaborators.config = {
+      load: async () => ({ ...nonManifestPortConfig }),
+    };
+    const probeSpy = vi.spyOn(readyHarness.collaborators.readiness, "probe");
+    const readyResult = await devReady(readyHarness.collaborators, {
+      deadlineMs: 2000,
+      pollMs: 500,
+    });
+
+    expect(readyResult.exitCode).not.toBe(0);
+    expect(readyResult.reasonCode).toBe("CONFIG_IDENTITY_CONFLICT");
+    expect(readyResult.configurationKey).toBe("DATABASE_URL");
+    expect(probeSpy).not.toHaveBeenCalled();
+    expectNoWork(readyHarness);
   });
 });

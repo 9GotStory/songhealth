@@ -200,6 +200,9 @@ export const SAFE_DIAGNOSTIC_SCHEMA: TSchema = Type.Object(
  * Delivery's canonical local resource identities (the committed .env examples).
  * `hostLoopback` encodes the target-appropriate application host and public
  * origin exposure: Daily is loopback-only; Verification is internal-network.
+ * `databasePort` (Development only) is the accepted T026 manifest endpoint
+ * port — the Development Data Store manifest publishes `127.0.0.1:3306`, so
+ * a Development `DATABASE_URL` is canonical only on that exact port.
  */
 const TARGET_IDENTITY = {
   development: {
@@ -208,6 +211,7 @@ const TARGET_IDENTITY = {
     proxyPolicy: "none",
     databaseUser: "songhealth_dev",
     databaseName: "songhealth_development",
+    databasePort: 3306,
     hostLoopback: true,
   },
   verification: {
@@ -305,7 +309,13 @@ function isStrictLoopback(host: string): boolean {
   return IPV4_PATTERN.test(host) && host.startsWith("127.");
 }
 
-type ParsedDatabase = { username: string; hostname: string; database: string };
+type ParsedDatabase = {
+  username: string;
+  hostname: string;
+  database: string;
+  /** Effective engine port: an omitted port resolves to the engine default. */
+  port: number;
+};
 type ParsedOrigin = { hostname: string; port: string };
 
 // `new URL` silently trims leading/trailing C0-control/space padding and
@@ -328,6 +338,9 @@ function parseExactUrl(raw: string, schemePrefix: string): URL | null {
   return url;
 }
 
+/** The MySQL engine's default port (also the T026 manifest endpoint port). */
+const MYSQL_DEFAULT_PORT = 3306;
+
 function parseDatabaseUrl(raw: string): ParsedDatabase | null {
   const url = parseExactUrl(raw, "mysql://");
   if (url === null) return null;
@@ -339,7 +352,11 @@ function parseDatabaseUrl(raw: string): ParsedDatabase | null {
   if (!/^\/[^/]+$/.test(url.pathname)) return null;
   if (url.search !== "" || url.hash !== "") return null;
   const database = url.pathname.slice(1);
-  return { username: url.username, hostname: url.hostname, database };
+  // WHATWG URL parsing guarantees `port` is decimal digits or empty (an
+  // invalid port fails construction); an omitted port resolves to the
+  // engine default, which is the same manifest endpoint port.
+  const port = url.port !== "" ? Number.parseInt(url.port, 10) : MYSQL_DEFAULT_PORT;
+  return { username: url.username, hostname: url.hostname, database, port };
 }
 
 /**
@@ -517,6 +534,17 @@ export function loadRuntimeConfiguration(
       return reject("CONFIG_IDENTITY_CONFLICT", "DATABASE_URL");
     }
   } else if (database.hostname !== TARGET_IDENTITY.verification.databaseHost) {
+    return reject("CONFIG_IDENTITY_CONFLICT", "DATABASE_URL");
+  }
+  // The Development Data Store endpoint is the accepted T026 manifest
+  // publication (`127.0.0.1:3306`): a Development database URL is canonical
+  // only when its effective port is exactly that manifest endpoint port
+  // (an omitted port already resolves to the same engine default).
+  // Verification keeps its own later manifest contract.
+  if (
+    target === "development" &&
+    database.port !== TARGET_IDENTITY.development.databasePort
+  ) {
     return reject("CONFIG_IDENTITY_CONFLICT", "DATABASE_URL");
   }
   // Credentials must be operation-target-specific and never reused across targets.
