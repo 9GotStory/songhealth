@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** IMPLEMENTATION AUTHORIZED — T024
+- **Status:** REVIEW PASS — T024 AWAITING HUMAN GATE
 
 ## Active Feature Mirror
 
@@ -30,59 +30,35 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T023 ACCEPTED — T024 AUTHORIZED; T025+ UNAUTHORIZED
-- **Previous completed scope:** T023 — failing daily command stdout/stderr, application-log, HTTP,
-  exact-sentinel, and encoded-sentinel nondisclosure tests
-- **Next valid action:** Claude Code implements only T024, returns implementation-result evidence,
-  and stops for independent Codex review; T025+ remain unauthorized
+- **Phase status:** T024 REVIEW PASS — AWAITING HUMAN GATE; T025+ UNAUTHORIZED
+- **Previous completed scope:** T024 — minimal Public SSR foundation route and route registration
+- **Next valid action:** Product Owner Human Gate reviews T024; T025+ remain unauthorized
 - **Blocking issues:** NONE
-- **Review evidence:** Independent review of `3876a9d` confirms the implementation diff is exactly
-  `tests/verification/diagnostic-surfaces.test.ts` plus the T023 checkbox. The deterministic
-  injected-fake contract defines 24 cases covering all six documented configuration-rejection
-  classes across daily setup/start command surfaces, fail-before-work/readiness, application-log
-  and HTTP failure presentation, raw adapter-error mapping, the closed SafeDiagnostic schema, and
-  exact plus URI/base64/base64url/hex/JSON/unicode sentinel nondisclosure. The allowlists match the
-  accepted server/OpenAPI schema. Focused Vitest is red only at the deliberately absent
-  `../../scripts/foundation-operations.mjs` boundary. Root `tsc --noEmit` reports the six accepted
-  baseline TS2307 diagnostics plus exactly the expected T023 missing-boundary diagnostic and no
-  other error. `git diff --check`, conflict-marker inspection, and no-skip/todo/only inspection
-  pass. No implementation, dependency, lockfile, manifest, environment, Product behavior,
-  Production-derived data, host/resource mutation, or T024+ artifact was added. Review against
-  T023, FR-007, SC-004, the Safe diagnostic contract, Quickstart §3, the plan, Delivery Context,
-  and Constitution Principles I–VI finds no Source-of-Truth conflict. Product Owner Human Gate
-  accepted T023.
+- **Review evidence:** Independent review of `f19f59e` against authorization commit `1206304`
+  confirms exactly the three authorized Public implementation files plus the T024 checkbox. The
+  root is a minimal React Router document shell, the route table registers only `/`, and the
+  default-only foundation component renders bounded semantic Public foundation/readiness copy
+  without data, mutation, navigation, forms, Product behavior, Admin/CMS behavior, authentication,
+  or session behavior. Focused Vitest passes 9/9. Root `tsc --noEmit` reports exactly the six
+  accepted TS2307 missing-boundary diagnostics for T025/T027+ and no T024 diagnostic or other
+  error. `git diff --check`, conflict-marker inspection, no-skip/todo/only inspection, commit-parent
+  verification, and clean-tree verification pass. No T025+, dependency, package, lockfile,
+  manifest, schema/API, Production decision, shared package, speculative structure, or unrelated
+  refactor was added. Review against T024, FR-001–FR-002, FR-016, the accepted T017 contract, plan,
+  Delivery Context, and Constitution Principles I–VI finds no Source-of-Truth conflict.
 - **Non-blocking notes:** The accepted locked graph still provides no
-  `node_modules/.bin/eslint` executable, so the required focused ESLint attempt exits 127. This
-  pre-existing tooling limitation does not authorize a dependency, manifest, or lockfile change.
-  Vitest reports zero runtime-collected tests because the intentional static missing-module import
-  stops suite evaluation; the source-defined 24-case inventory was therefore verified statically.
+  `node_modules/.bin/eslint` executable, so the required focused ESLint attempt exits 127. The
+  lockfile-exact install uses Node 24.19.0 with bundled npm 11.17.0 and emits the known npm-engine
+  warning because the repository requests npm 12; neither limitation authorizes dependency,
+  manifest, or lockfile changes.
 
 ## Authorized Implementation
 
-- **Task / Scope:** T024 only — implement the minimal Public SSR foundation route and route
-  registration in `apps/web/app/root.tsx`, `apps/web/app/routes.ts`, and
-  `apps/web/app/routes/foundation.tsx`; change only those three implementation files and mark only
-  T024 complete in `specs/001-application-foundation/tasks.md`
-- **Runtime:** Claude Code DEV Executor via the installed Spec Kit `implement` command/skill, bounded
-  to T024
-- **Required references:** `.specify/memory/constitution.md`; `CLAUDE.md`;
-  `docs/spec-context/001-application-foundation.md` Implementation / Review routing;
-  `specs/001-application-foundation/spec.md` User Story 1, FR-001–FR-002, and FR-016;
-  `specs/001-application-foundation/plan.md` Runtime composition and project structure;
-  `specs/001-application-foundation/tasks.md` T024 and dependency rules; and the accepted T017
-  contract in `apps/web/app/routes/foundation.test.tsx`
-- **Expected verification:** focused Vitest for
-  `apps/web/app/routes/foundation.test.tsx` must pass and prove a default-only static Public route
-  that server-renders meaningful semantic foundation/readiness content without fetching,
-  navigation, forms, Product/domain behavior, Admin/CMS/editorial behavior, authentication, or
-  session behavior. Verify the route is registered through the existing React Router Framework
-  Mode boundary and the root remains the smallest correct document shell. Run focused ESLint and
-  root `tsc --noEmit`, classifying only already-accepted unrelated baseline diagnostics as
-  non-blocking; run `git diff --check`, conflict-marker inspection, and no-skip/todo/only
-  inspection. Return the exact changed files, commands/results, commit SHA, and confirmation that
-  no T025+, dependency/package/lockfile, Product behavior, authentication, data access, schema/API,
-  Production decision, shared package, speculative structure, or unrelated refactor was added.
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T024 review passed; T025+ remain unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
