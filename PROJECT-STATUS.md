@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** REVIEW PASS — T025 AWAITING HUMAN GATE
+- **Status:** HUMAN GATE ACCEPTED — T025
 
 ## Active Feature Mirror
 
@@ -30,9 +30,9 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** PASS WITH NON-BLOCKING NOTES
-- **Phase status:** T025 REVIEW PASS — AWAITING HUMAN GATE; T026+ UNAUTHORIZED
+- **Phase status:** T025 ACCEPTED — T026+ UNAUTHORIZED
 - **Previous completed scope:** T025 — separate minimal Admin CSR foundation shell
-- **Next valid action:** Product Owner Human Gate reviews T025; T026+ remain unauthorized
+- **Next valid action:** NONE IN THIS ISSUE — T025 acceptance recorded; T026+ remain unauthorized
 - **Blocking issues:** NONE
 - **Review evidence:** Independent review of `7201cc3` against authorization commit `e60a71f`
   confirms exactly the two authorized Admin implementation files plus the T025 checkbox. The
@@ -47,6 +47,7 @@
   Production decision, shared package, speculative structure, or unrelated refactor was added.
   Review against T025, FR-001–FR-002, FR-016, the accepted T018 contract, plan, Delivery Context,
   and Constitution Principles I–VI finds no Source-of-Truth conflict.
+  Product Owner Human Gate accepted T025.
 - **Non-blocking notes:** The accepted locked graph still provides no
   `node_modules/.bin/eslint` executable, so the required focused ESLint attempt exits 127. The
   lockfile-exact install uses Node 24.19.0 with bundled npm 11.17.0 and emits the known npm-engine
@@ -55,7 +56,7 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T025 review passed; T026+ remain unauthorized
+- **Task / Scope:** NONE — T025 is accepted; T026+ remain unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE
