@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE — T029 PASS HISTORY RECONCILED
+- **Status:** HUMAN GATE ACCEPTED — T029
 
 ## Active Feature Mirror
 
@@ -29,14 +29,14 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS AND RECONCILED — T029, including T029-B01–T029-B03 corrective
-  closure
-- **Phase status:** T029 AWAITS PRODUCT OWNER HUMAN GATE — T030+ UNAUTHORIZED
-- **Previous completed scope:** T028 — supervised native Development startup and bounded whole-
-  foundation readiness, including accepted closure of T028-B01–T028-B05
-- **Next valid action:** Product Owner Human Gate — accept or reject T029; do not authorize T030 or
-  advance the Delivery automatically
-- **Blocking issues:** NONE for T029 independent review
+- **Current review result:** HUMAN ACCEPTED — independently reviewed and reconciled T029,
+  including accepted closure of T029-B01–T029-B03
+- **Phase status:** T029 ACCEPTED — T030+ UNAUTHORIZED
+- **Previous completed scope:** T029 — idempotent Development stop and restart, including accepted
+  closure of T029-B01–T029-B03
+- **Next valid action:** NONE IN THIS ISSUE — stop after recording T029 acceptance; T030+ remain
+  unauthorized
+- **Blocking issues:** NONE for accepted T029 scope
 - **Review evidence:** Corrective tip `969992645ebbe9948131a64ef6b0b9378894b829` is fetchable and
   follows replayed T029 implementation commit `e9da8ff52db8992ea8abb51c9732e24d556bb1eb`
   from rework authorization `8518f9f774ca4c15995f41f1b759ef859d4dcbeb`. Exact base-to-tip changes are
@@ -69,10 +69,15 @@
   `scripts/foundation-operations.test.ts` are byte-identical to the reviewed tip;
   `PROJECT-STATUS.md` remains the canonical governance side; T029-B01–T029-B03 remain closed;
   Authorized Implementation remains `NONE`; T030+ remain unauthorized.
+- **T029 Product Owner acceptance:** Human Gate accepted reviewed corrective implementation tip
+  `969992645ebbe9948131a64ef6b0b9378894b829`, reconciliation merge
+  `8b04f9c67da25a5e461e532abfb01dcb1bb2a024`, and governance reconciliation record
+  `e049174571a29d0b9cac198d1273a642bd1564c3`. T029-B01–T029-B03 are accepted as closed;
+  Authorized Implementation remains `NONE`; T030+ remain unauthorized.
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — Product Owner Human Gate after T029 PASS; T030+ unauthorized
+- **Task / Scope:** NONE — T029 Human Gate accepted; T030+ unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE
