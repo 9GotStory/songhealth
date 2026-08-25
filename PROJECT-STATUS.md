@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T034 IMPLEMENTATION AUTHORIZED
+- **Status:** T034 CHANGES REQUIRED — CORRECTIVE REWORK AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -29,13 +29,26 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** HUMAN ACCEPTED — T033-B01–T033-B03 closed
-- **Phase status:** T033 ACCEPTED; T034 AUTHORIZED; T035+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T034-B01–T034-B02
+- **Phase status:** T033 ACCEPTED; T034 REWORK AUTHORIZED; T035+ UNAUTHORIZED
 - **Previous completed scope:** T033 — normalized read-only Recovery Assessment and fixed
   target-appropriate retry/recover/reset/cleanup/manual-review decision order
-- **Next valid action:** Claude Code implements only T034, returns implementation evidence, and
-  stops for independent Codex review; T035+ remain unauthorized
-- **Blocking issues:** None for T033 review
+- **Next valid action:** Claude Code corrects only T034-B01–T034-B02 from the persisted REWORK
+  authorization, returns corrective evidence, and stops for independent Codex re-review; T035+
+  remain unauthorized
+- **Blocking issues:** T034-B01 recovery confirmation is not bound to the requested interrupted
+  origin action; T034-B02 confirmation digest collapses non-boolean normalized evidence values and
+  therefore does not reject all assessment-evidence drift
+- **T034 review evidence:** Exact implementation tip
+  `74438dcf9c797d1b7409a6656c95ea752f3bdba8` has authorized base
+  `3444d82c951125cdc6d52cecf9d3efb6f5082cae` as its sole parent; the clean diff is limited to
+  `scripts/foundation-operations.mjs` (+446/-47), with no T035+ implementation. Syntax and five
+  focused T034 cases pass; foundation operations pass 94/94; lifecycle recovery is 48 passed / 1
+  established canonical-configuration fixture failure; TypeScript retains the four established
+  later-task missing-export errors. Independent probes reproduce T034-B01 and T034-B02: a token
+  issued for interrupted `start` successfully authorizes a later `stop` origin, and changing the
+  normalized reconstructibility verdict from `not-applicable` to `not-reconstructible` still
+  authorizes repair because both string values collapse to `false` in the confirmation digest.
 - **T033 Product Owner acceptance:** Human Gate accepted corrective implementation tip
   `19ca50d709cfffe48ec09707b80c093490d89572` and independent PASS governance record
   `ca17e4c64ab47bc5a56f28541fdb766cb6e26f7d`; T033-B01–T033-B03 are accepted as closed.
@@ -165,12 +178,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T034 — implement only the sole allowlisted Development repair
-  `recreate-database-runtime-preserve-volume` and its connectivity, integrity, and migration-status
-  postchecks in `scripts/foundation-operations.mjs`; preserve the named volume/data and integrate
-  with the accepted T031–T033 confirmation, locking, drift-refusal, journal, immutable-failure, and
-  Recovery Assessment boundaries; do not begin T035 persistence/reset proof, T036 database
-  adapters, T037 command-adapter exposure, or any T035+ behavior
+- **Task / Scope:** T034 corrective rework only in `scripts/foundation-operations.mjs`:
+  T034-B01 bind each recovery confirmation to the exact requested interrupted origin action so a
+  token issued for one origin action cannot authorize another; T034-B02 canonicalize and bind the
+  full normalized assessment-evidence values so any relevant evidence drift refuses before repair
+  work. Preserve all accepted T034 behavior and do not begin T035+
 - **Runtime:** Claude Code (`claude-developer`) using the installed Claude integration, bounded to
   T034 and required to stop before T035+
 - **Required references:** `specs/001-application-foundation/tasks.md` T034;
@@ -180,19 +192,16 @@
   `foundation:recover` and §Failure behavior; `specs/001-application-foundation/plan.md`
   §Operations and verification; `specs/001-application-foundation/quickstart.md` §5;
   `tests/verification/lifecycle-recovery.test.ts`; `.specify/memory/constitution.md` Principles I–VI
-- **Expected verification:** Run the focused T034 recovery cases in
-  `tests/verification/lifecycle-recovery.test.ts` and the full foundation-operations unit suite;
-  verify recovery is Development-only, accepts only a freshly issued exact token for the matching
-  origin action and allowlisted repair, locks and re-evaluates before mutation, refuses drift and
-  uncertain/mismatched evidence without repair work, reconciles only the exact database
-  container/network runtime while preserving the named volume/data, runs connectivity/integrity/
-  migration-status postchecks after repair, resolves only when every postcheck passes, leaves the
-  target stopped/not-ready on failure, and appends secondary Safe Diagnostics without replacing the
-  immutable original failure; verify reset, SQL repair, migration rollback, backup restore, broad
-  deletion, T035+ behavior, tests, package commands, dependencies, manifests, and lockfile remain
-  unchanged; return the exact implementation tip, parent/base SHA, clean status, exact diff/stat,
-  test commands/results, and confirmation that no T035+ scope entered the history
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Expected verification:** Add focused regression coverage proving a recovery token issued for
+  origin `start` refuses a `stop` origin with zero repair work, and proving a still-recover-eligible
+  normalized verdict change such as reconstructibility `not-applicable` → `not-reconstructible`
+  refuses as inventory/evidence drift with zero repair work. Re-run all focused T034 cases, the full
+  lifecycle-recovery suite, the full foundation-operations unit suite, syntax, diff/scope checks,
+  and TypeScript baseline; return exact corrective tip/base/history, diff/stat, clean status, and
+  test results. Tests may change only for these two focused regressions; production correction
+  remains limited to `scripts/foundation-operations.mjs`; package commands, declarations,
+  dependencies, manifests, lockfile, and T035+ remain unchanged
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
