@@ -148,8 +148,32 @@
  * documented fixed target-appropriate row order (manual-review gate, retry,
  * Development recover/reset, Verification cleanup, manual-review residual).
  * It never locks, mints a token, mutates, or recovers, so a manual-review
- * state issues no mutation evidence. `foundationRecover` remains absent —
- * the allowlisted repair (T034) owns it.
+ * state issues no mutation evidence.
+ *
+ * T034 adds the sole allowlisted Development recovery behind
+ * `foundation:recover` (Operations Contract §Commands): the
+ * `recreate-database-runtime-preserve-volume` repair. `foundation:inventory`
+ * issues the recovery token only for the Development target, the sole
+ * allowlisted repair, an allowlisted interrupted origin action, and evidence
+ * whose normalized verdicts still select the `recover` decision through the
+ * SAME T033 derivation — no second, weaker gate. The confirmed command is
+ * Development-only, refuses before any collaborator work on another target,
+ * an unreviewed repair, or a missing token, and then follows the accepted
+ * T031–T033 confirmed-attempt boundaries exactly: acquire the
+ * operation-target lock, re-classify the pending journal origin (refusing a
+ * corrupt journal or an origin that does not record the requested action),
+ * make the `running` record durable BEFORE any work, immediately
+ * re-inventory and re-evaluate under the lock, refuse drift — including the
+ * confirmation-digest drift on a still-eligible target — and verify the exact
+ * caller-presented token. Only then does the repair adapter run, exactly
+ * once, followed by its connectivity/integrity/migration-status postchecks;
+ * the attempt resolves only when every postcheck passes. The repair
+ * reconciles only the exact Development database container/network runtime
+ * through its adapter and this path contains no volume deletion, reset, SQL
+ * repair, migration rollback, backup restore, or broad/indirect deletion of
+ * any kind. A failed attempt appends its failure as a secondary attempt
+ * diagnostic on the immutable original failure and leaves the target
+ * stopped/not-ready.
  */
 
 import { execFile, spawn } from "node:child_process";
@@ -1724,9 +1748,21 @@ async function writeTerminalRecord(target, record) {
  * immutable link to the origin operation/action/phase, the origin's
  * immutable original failure, the attempt's own appended failures, and the
  * postcheck-gated resolution. Deriving the ordered decision from raw checks
- * is T033's boundary; the attempt records the decision it acted under.
+ * is T033's boundary; the attempt records the decision it acted under. A
+ * recovery attempt (T034) additionally records the selected allowlisted
+ * `repairId` the data model requires of a `recover` decision.
  */
-function attemptAssessment(target, action, origin, decision, evidence, attemptFailures, resolved, digests) {
+function attemptAssessment(
+  target,
+  action,
+  origin,
+  decision,
+  evidence,
+  attemptFailures,
+  resolved,
+  digests,
+  repairId,
+) {
   return {
     originOperationId: origin.operationId,
     originAction: origin.action,
@@ -1734,6 +1770,7 @@ function attemptAssessment(target, action, origin, decision, evidence, attemptFa
     originalFailure: origin.primaryFailure,
     operationTarget: target,
     runtimeProfile: RUNTIME_PROFILE_BY_TARGET[target],
+    ...(repairId !== undefined ? { repairId } : {}),
     decision,
     inventoryDigest: digests.inventoryDigest,
     integrityEvidenceDigest:
@@ -2025,6 +2062,15 @@ const DESTRUCTIVE_ACTION_BY_TARGET = {
   development: "reset",
   verification: "cleanup",
 };
+
+/**
+ * The recovery action `foundation:inventory` issues a token for and
+ * `foundation:recover` executes (T034). Recovery is Development-only
+ * (data-model.md §Recovery Assessment decision row 3), so the pairing is as
+ * closed as the destructive ones: `recover` is issuable only for the
+ * Development target, and this constant confers no confirmation of any kind.
+ */
+const RECOVERY_ACTION = "recover";
 
 /**
  * The assessment-evidence predicate each destructive action is gated on
@@ -2328,7 +2374,12 @@ function boundConfirmationEvidence(target, action, token) {
  * additionally requires proven exact ownership of the complete recorded
  * target and every applicable assessment predicate, and only then asks the
  * confirmation boundary to mint the action-bound token for that exact
- * inventory. The minted token is bound to a canonical digest of the complete
+ * inventory. T034 adds the Development-only `recover` action to that set: it
+ * additionally requires the sole allowlisted repair and an allowlisted
+ * interrupted origin action, and its evidence gate is the SAME T033 decision
+ * derivation (only a `recover` decision issues a recovery token — a
+ * generic/unreviewed repair is never available). The minted token is bound
+ * to a canonical digest of the complete
  * normalized inventory and assessment evidence it was issued against, so the
  * later locked recomputation is compared against the exact confirmed
  * observation, not merely against continued eligibility. Issuance is still
@@ -2353,7 +2404,12 @@ export async function foundationInventory(collaborators, options) {
     );
   }
   const destructiveAction = DESTRUCTIVE_ACTION_BY_TARGET[target];
-  const actionKnown = action === STATUS_ACTION || action === destructiveAction;
+  // T034 — `recover` is an issuable action for the Development target alone
+  // (recovery is Development-only): it mints the recovery token the confirmed
+  // recovery command requires, bound to the requested interrupted origin
+  // action and the sole allowlisted repair.
+  const recoveryIssuable = action === RECOVERY_ACTION && target === DAILY_OPERATION_TARGET;
+  const actionKnown = action === STATUS_ACTION || action === destructiveAction || recoveryIssuable;
   if (typeof action !== "string" || !actionKnown) {
     return rejectOperation(
       collaborators,
@@ -2364,6 +2420,27 @@ export async function foundationInventory(collaborators, options) {
         "CHECK_PREREQUISITES",
       ),
     );
+  }
+  if (recoveryIssuable) {
+    // The recovery request must name the sole allowlisted repair and the
+    // allowlisted interrupted origin action the recovery binds to: a generic
+    // or unreviewed repair is never available (data-model.md §Recovery
+    // Assessment), and an unidentified origin action binds nothing.
+    if (
+      request.repair !== ALLOWLISTED_DEVELOPMENT_REPAIR ||
+      typeof request.operation !== "string" ||
+      !LIFECYCLE_JOURNAL_ACTIONS.includes(request.operation)
+    ) {
+      return rejectOperation(
+        collaborators,
+        safeDiagnostic(
+          "NON_DESTRUCTIVE_REPAIR_UNAVAILABLE",
+          DIAGNOSTIC_SCOPE_BY_TARGET[target],
+          "orchestration",
+          "REVIEW_MANUALLY",
+        ),
+      );
+    }
   }
 
   let candidates;
@@ -2398,7 +2475,10 @@ export async function foundationInventory(collaborators, options) {
   // T031 — the confirmation is action-specific and evidence-gated: exact
   // ownership alone is insufficient, the action's own applicable predicate
   // must also be proven, and the boundary — not this module — mints the
-  // opaque token bound to this exact (target, action).
+  // opaque token bound to this exact (target, action). T034 — for the
+  // recovery action the gate is the SAME T033 decision derivation: the
+  // normalized evidence must select the `recover` decision, so no second,
+  // weaker recovery-specific policy can ever issue a token.
   let evidence;
   try {
     evidence = await collaborators.assessment.evaluate(target);
@@ -2408,7 +2488,22 @@ export async function foundationInventory(collaborators, options) {
       safeDiagnostic("OPERATIONAL_FAILURE", "foundation", "orchestration", "INSPECT_OWNERSHIP"),
     );
   }
-  if (!applicablePredicateHolds(action, evidence)) {
+  if (recoveryIssuable) {
+    const { verdicts, repairDispositionProven } = normalizedAssessmentVerdicts(evidence);
+    if (
+      deriveRecoveryDecision(target, verdicts, evidence, repairDispositionProven) !== "recover"
+    ) {
+      return rejectOperation(
+        collaborators,
+        safeDiagnostic(
+          "NON_DESTRUCTIVE_REPAIR_UNAVAILABLE",
+          DIAGNOSTIC_SCOPE_BY_TARGET[target],
+          "orchestration",
+          "REVIEW_MANUALLY",
+        ),
+      );
+    }
+  } else if (!applicablePredicateHolds(action, evidence)) {
     return rejectOperation(
       collaborators,
       safeDiagnostic(
@@ -3011,6 +3106,54 @@ function normalizedEvidenceVerdict(evidence, field, allowlist, failSafe) {
 }
 
 /**
+ * Normalize one complete untrusted assessment-evidence record into the closed
+ * §Recovery Assessment verdict set (T033): every verdict falls to its
+ * fail-safe enum value, and the repair disposition's PROVENNESS is carried
+ * beside its recorded value because its fail-safe (`unavailable`) is itself
+ * the row-4 reset predicate — an unproven disposition gates the decision to
+ * `manual-review` instead (T033-B01). This is the ONE normalization the
+ * assessment (T033) and the recovery token/attempt gates (T034) share: no
+ * second, weaker verdict policy exists anywhere in the module.
+ */
+function normalizedAssessmentVerdicts(evidence) {
+  const provenRepairDisposition = provenEvidenceVerdict(
+    evidence,
+    "repairDisposition",
+    REPAIR_DISPOSITIONS,
+  );
+  return {
+    verdicts: {
+      ownershipVerdict: normalizedEvidenceVerdict(
+        evidence,
+        "ownershipVerdict",
+        OWNERSHIP_VERDICTS,
+        "unconfirmed",
+      ),
+      integrityVerdict: normalizedEvidenceVerdict(
+        evidence,
+        "integrityVerdict",
+        INTEGRITY_VERDICTS,
+        "unknown",
+      ),
+      repeatabilityVerdict: normalizedEvidenceVerdict(
+        evidence,
+        "repeatabilityVerdict",
+        REPEATABILITY_VERDICTS,
+        "unknown",
+      ),
+      reconstructibilityVerdict: normalizedEvidenceVerdict(
+        evidence,
+        "reconstructibilityVerdict",
+        RECONSTRUCTIBILITY_VERDICTS,
+        "unknown",
+      ),
+      repairDisposition: provenRepairDisposition ?? "unavailable",
+    },
+    repairDispositionProven: provenRepairDisposition !== null,
+  };
+}
+
+/**
  * The canonical Safe Diagnostic serialization an evidence-digest binding
  * includes: exactly the contract's field set in a fixed order, so the
  * immutable original failure binds by VALUE deterministically whatever key
@@ -3208,45 +3351,9 @@ export async function foundationStatus(collaborators, options) {
   }
   // The repair disposition is the one facet whose fail-safe enum value is
   // itself a decision predicate, so its PROVENNESS is tracked beside the
-  // recorded value (T033-B01).
-  const provenRepairDisposition = provenEvidenceVerdict(
-    evidence,
-    "repairDisposition",
-    REPAIR_DISPOSITIONS,
-  );
-  const verdicts = {
-    ownershipVerdict: normalizedEvidenceVerdict(
-      evidence,
-      "ownershipVerdict",
-      OWNERSHIP_VERDICTS,
-      "unconfirmed",
-    ),
-    integrityVerdict: normalizedEvidenceVerdict(
-      evidence,
-      "integrityVerdict",
-      INTEGRITY_VERDICTS,
-      "unknown",
-    ),
-    repeatabilityVerdict: normalizedEvidenceVerdict(
-      evidence,
-      "repeatabilityVerdict",
-      REPEATABILITY_VERDICTS,
-      "unknown",
-    ),
-    reconstructibilityVerdict: normalizedEvidenceVerdict(
-      evidence,
-      "reconstructibilityVerdict",
-      RECONSTRUCTIBILITY_VERDICTS,
-      "unknown",
-    ),
-    repairDisposition: provenRepairDisposition ?? "unavailable",
-  };
-  const decision = deriveRecoveryDecision(
-    target,
-    verdicts,
-    evidence,
-    provenRepairDisposition !== null,
-  );
+  // recorded value (T033-B01) by the shared verdict normalization.
+  const { verdicts, repairDispositionProven } = normalizedAssessmentVerdicts(evidence);
+  const decision = deriveRecoveryDecision(target, verdicts, evidence, repairDispositionProven);
 
   // The binding every evidence digest is computed over (T033-B02): the
   // exact origin operation/action/phase, the operation target/runtime
@@ -3292,6 +3399,298 @@ export async function foundationStatus(collaborators, options) {
     resolution: "pending",
   };
   return { exitCode: 0, diagnosticScope, assessment };
+}
+
+// ---------------------------------------------------------------------------
+// T034 operations — the sole allowlisted Development recovery and its
+// connectivity/integrity/migration-status postchecks (FR-003/FR-017 Edge
+// Cases; data-model.md §Recovery Assessment; Operations Contract §Commands
+// `foundation:recover` and §Failure behavior; plan.md §Operations and
+// verification; quickstart §5).
+// ---------------------------------------------------------------------------
+
+/**
+ * The closed postcheck-failure mapping, in the documented postcheck order
+ * (connectivity, integrity, migration status): the first failed postcheck is
+ * the attempt's one appended secondary Safe Diagnostic, drawn from the closed
+ * vocabulary — never raw postcheck output. A postcheck result that is not an
+ * object carrying exactly the three boolean postchecks is UNCERTAIN evidence,
+ * which fails closed as the integrity diagnostic rather than being read as a
+ * pass.
+ */
+function recoveryPostcheckFailure(postchecks) {
+  const shaped =
+    postchecks !== null &&
+    typeof postchecks === "object" &&
+    !Array.isArray(postchecks) &&
+    typeof postchecks.connectivity === "boolean" &&
+    typeof postchecks.integrity === "boolean" &&
+    typeof postchecks.migrationStatus === "boolean";
+  if (!shaped) {
+    return safeDiagnostic("DATA_INTEGRITY_UNPROVEN", "daily", "database", "CHECK_DATABASE");
+  }
+  if (postchecks.connectivity !== true) {
+    return safeDiagnostic("DATABASE_UNAVAILABLE", "daily", "database", "CHECK_DATABASE");
+  }
+  if (postchecks.integrity !== true) {
+    return safeDiagnostic("DATA_INTEGRITY_UNPROVEN", "daily", "database", "CHECK_DATABASE");
+  }
+  if (postchecks.migrationStatus !== true) {
+    return safeDiagnostic("MIGRATION_STATUS_FAILED", "daily", "migration", "RUN_MIGRATION");
+  }
+  return null;
+}
+
+/**
+ * The locked phase of the confirmed recovery. Runs strictly between lock
+ * acquisition and lock release, mirroring the accepted T031 confirmed
+ * destructive sequence: the re-inventory is the first thing that happens
+ * under the lock and the evidence recompute immediately follows it. The
+ * recomputed normalized evidence must STILL select the `recover` decision
+ * through the single T033 derivation (drift or uncertainty refuses without
+ * repair work), the confirmation digest bound at issuance must still match,
+ * and the exact caller-presented token must be verified by the boundary.
+ * Only then does the sole allowlisted repair adapter run — exactly once —
+ * followed by its connectivity/integrity/migration-status postchecks; the
+ * named volume/data is the repair adapter's to preserve, and this path
+ * contains no volume deletion, reset, SQL repair, migration rollback,
+ * backup restore, or mutation-adapter work of any kind.
+ */
+async function executeConfirmedRecovery(collaborators, target, token) {
+  const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target];
+  let candidates;
+  try {
+    candidates = await collaborators.inventory.inspect(target);
+  } catch {
+    return destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
+  }
+  const inventory = normalizeTargetInventory(target, candidates);
+  const evidence = await collaborators.assessment.evaluate(target);
+  const { verdicts, repairDispositionProven } = normalizedAssessmentVerdicts(evidence);
+  const decision = deriveRecoveryDecision(target, verdicts, evidence, repairDispositionProven);
+  if (!inventory.ownershipProven || decision !== "recover") {
+    return destructiveRefusal(collaborators, diagnosticScope, "RESOURCE_INVENTORY_CHANGED");
+  }
+  const bound = boundConfirmationEvidence(target, RECOVERY_ACTION, token);
+  if (
+    bound !== undefined &&
+    bound !== confirmationEvidenceDigest(target, RECOVERY_ACTION, inventory, evidence)
+  ) {
+    return destructiveRefusal(collaborators, diagnosticScope, "RESOURCE_INVENTORY_CHANGED");
+  }
+  let confirmed;
+  try {
+    confirmed = await collaborators.confirmation.verify(target, RECOVERY_ACTION, token);
+  } catch {
+    return destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
+  }
+  if (confirmed !== true) {
+    return destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
+  }
+  if (bound === undefined) {
+    return destructiveRefusal(collaborators, diagnosticScope, "RESOURCE_INVENTORY_CHANGED");
+  }
+  try {
+    await collaborators.recovery.recreateDatabaseRuntimePreserveVolume();
+  } catch {
+    return destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
+  }
+  let postchecks;
+  try {
+    postchecks = await collaborators.recovery.postchecks();
+  } catch {
+    return destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
+  }
+  const postcheckFailure = recoveryPostcheckFailure(postchecks);
+  if (postcheckFailure !== null) {
+    return rejectOperation(collaborators, postcheckFailure);
+  }
+  return { exitCode: 0, diagnosticScope };
+}
+
+/**
+ * `foundation:recover` — the sole allowlisted Development recovery
+ * (FR-003/FR-017 Edge Cases; Operations Contract §Commands): reconcile the
+ * exact Development database container/network runtime through the
+ * `recreate-database-runtime-preserve-volume` repair while preserving the
+ * named volume/data, then require the connectivity, integrity, and
+ * migration-status postchecks. Recovery is Development-only: any other
+ * target is refused exactly like an unknown one before a single collaborator
+ * is touched. The request must name an allowlisted interrupted origin action
+ * and the sole allowlisted repair (a generic or unreviewed repair is never
+ * available), and present a token `foundation:inventory` issued for exactly
+ * this (target, action) — a missing token refuses read-only exactly like the
+ * confirmed destructive commands. A missing journal or repair facet is a
+ * prerequisite failure: the attempt binds the pending origin, so there is
+ * nothing to recover without them. Under the Development operation-target
+ * lock the strictly classified pending origin must exist and must record the
+ * requested origin action (absent or mismatched origin evidence refuses
+ * without repair work), the `running` record is made durable BEFORE any work
+ * (T032), and the locked re-evaluation owns every authorization. The
+ * terminal record binds the attempt to the immutable original failure with
+ * the `recover` decision and the selected `repairId`; the attempt resolves
+ * only when every postcheck passed, and a failed attempt appends its failure
+ * as a secondary attempt diagnostic and leaves the target stopped/not-ready.
+ */
+export async function foundationRecover(collaborators, options) {
+  const request = options === null || typeof options !== "object" ? {} : options;
+  const target = request.target;
+  const operation = request.operation;
+  const repair = request.repair;
+  const token = request.token;
+  if (target !== DAILY_OPERATION_TARGET) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "OPERATIONAL_FAILURE",
+        "foundation",
+        "orchestration",
+        "CHECK_PREREQUISITES",
+      ),
+    );
+  }
+  const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target];
+  if (repair !== ALLOWLISTED_DEVELOPMENT_REPAIR) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "NON_DESTRUCTIVE_REPAIR_UNAVAILABLE",
+        diagnosticScope,
+        "orchestration",
+        "REVIEW_MANUALLY",
+      ),
+    );
+  }
+  if (typeof operation !== "string" || !LIFECYCLE_JOURNAL_ACTIONS.includes(operation)) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("OPERATIONAL_FAILURE", diagnosticScope, "orchestration", "CHECK_PREREQUISITES"),
+    );
+  }
+  if (
+    collaborators.recovery === undefined ||
+    collaborators.recovery === null ||
+    collaborators.journal === undefined ||
+    collaborators.journal === null
+  ) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("OPERATIONAL_FAILURE", diagnosticScope, "orchestration", "CHECK_PREREQUISITES"),
+    );
+  }
+  if (typeof token !== "string" || token.length === 0) {
+    return refuseUnconfirmedTarget(collaborators, target);
+  }
+  let acquired;
+  try {
+    acquired = await collaborators.lock.acquire(target);
+  } catch {
+    acquired = false;
+  }
+  if (acquired !== true) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("OPERATIONAL_FAILURE", diagnosticScope, "orchestration", "RETRY_SAFE_OPERATION"),
+    );
+  }
+  const { journaled, corrupt, origin } = await readPendingOrigin(collaborators, target);
+  if (corrupt) {
+    const refused = await journalIntegrityRefusal(collaborators, target);
+    try {
+      await collaborators.lock.release(target);
+    } catch {
+      // The lock adapter's own failure never masks the refusal.
+    }
+    return refused;
+  }
+  if (origin === null || origin.action !== operation) {
+    // Absent or mismatched origin evidence: recovery binds the exact
+    // interrupted operation, so anything else refuses read-only without
+    // repair work — the origin journal record is never rewritten.
+    const refused =
+      origin === null
+        ? await rejectOperation(
+            collaborators,
+            safeDiagnostic(
+              "OPERATIONAL_FAILURE",
+              diagnosticScope,
+              "orchestration",
+              "INSPECT_OWNERSHIP",
+            ),
+          )
+        : await destructiveRefusal(collaborators, diagnosticScope, "RESOURCE_INVENTORY_CHANGED");
+    try {
+      await collaborators.lock.release(target);
+    } catch {
+      // The lock adapter's own failure never masks the refusal.
+    }
+    return refused;
+  }
+  const operationId = newOperationId();
+  const startedAt = journalTimestamp(collaborators);
+  const binding = { operationTarget: target, action: RECOVERY_ACTION, operationId };
+  const runningRecord = {
+    operationId,
+    operationTarget: target,
+    runtimeProfile: RUNTIME_PROFILE_BY_TARGET[target],
+    action: RECOVERY_ACTION,
+    phase: JOURNAL_PRE_WORK_PHASE,
+    state: "running",
+    inventoryDigest: journalDigest({ ...binding, scope: "inventory" }),
+    mutationPlanDigest: journalDigest({ ...binding, scope: "mutation-plan" }),
+    secondaryFailures: [],
+    startedAt,
+    updatedAt: startedAt,
+  };
+  if (!(await writeRunningRecord(collaborators, target, runningRecord))) {
+    const refused = await destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
+    try {
+      await collaborators.lock.release(target);
+    } catch {
+      // The lock adapter's own failure never masks the refusal.
+    }
+    return refused;
+  }
+  let result;
+  try {
+    result = await executeConfirmedRecovery(collaborators, target, token);
+  } catch {
+    result = await destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
+  }
+  const failed = result.exitCode !== 0;
+  const attemptFailure = failed ? resultFailureDiagnostic(result) : null;
+  const persisted = await writeTerminalRecord(target, {
+    ...runningRecord,
+    state: failed ? "failed" : "passed",
+    primaryFailure: attemptFailure ?? undefined,
+    secondaryFailures: [],
+    recoveryAssessment: attemptAssessment(
+      target,
+      RECOVERY_ACTION,
+      origin,
+      "recover",
+      null,
+      attemptFailure === null ? [] : [attemptFailure],
+      !failed,
+      {
+        inventoryDigest: runningRecord.inventoryDigest,
+        mutationPlanDigest: runningRecord.mutationPlanDigest,
+      },
+      ALLOWLISTED_DEVELOPMENT_REPAIR,
+    ),
+    safeNextAction: failed ? (result.remediation ?? "INSPECT_OWNERSHIP") : undefined,
+    updatedAt: journalTimestamp(collaborators),
+  });
+  if (!persisted) {
+    result = await terminalPersistenceFailure(collaborators, target);
+  }
+  try {
+    await collaborators.lock.release(target);
+  } catch {
+    // The lock adapter's own failure never masks the operation's result and
+    // never widens the recovery: the outcome above stands.
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------
