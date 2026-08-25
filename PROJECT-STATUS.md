@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T029 IMPLEMENTATION BLOCKED — PROVIDER CAPACITY
+- **Status:** T029 CHANGES REQUIRED — REVIEW ROUND 1
 
 ## Active Feature Mirror
 
@@ -29,16 +29,22 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** HUMAN ACCEPTED — T028 repository history reconciliation
-- **Phase status:** T028 RECONCILIATION ACCEPTED — T029 AUTHORIZED BUT NOT EXECUTED; T030+
-  UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T029 review round 1
+- **Phase status:** T028 RECONCILIATION ACCEPTED — T029 REWORK AUTHORIZED; T030+ UNAUTHORIZED
 - **Previous completed scope:** T028 — supervised native Development startup and bounded whole-
   foundation readiness, including accepted closure of T028-B01–T028-B05
-- **Next valid action:** HUMAN GATE — decide whether to retry `claude-developer` after provider
-  capacity resets; the sole-author boundary prohibits implicit reassignment
-- **Blocking issues:** `claude-developer` task `01a0349c-1c7e-757b-8eea-3458aeb42f26` failed with
-  `agent_error.provider_quota_limit`; no automatic retry is pending and no T029 implementation
-  artifact was produced
+- **Next valid action:** Claude Code corrects only T029-B01–T029-B03 on implementation commit
+  `af918fa8f10953136eb9febdcdaad30e5da35abe`, returns corrective evidence, and stops for independent
+  Codex re-review; T030+ remain unauthorized
+- **Blocking issues:** T029-B01 — `stopDevelopmentDatabase()` treats a non-accepting database TCP
+  endpoint as proof that nothing is running and returns without issuing bounded Compose `stop`; a
+  running container that is starting, unhealthy, or otherwise not accepting connections therefore
+  survives `dev:stop`. T029-B02 — `recordedProcessIdentityHolds()` returns `true` whenever
+  `/proc/<pid>/cmdline` cannot be read, so an unverifiable/recycled PID may be signalled; ownership
+  uncertainty must fail closed without signalling. T029-B03 —
+  `scripts/foundation-operations.d.mts` was changed despite the exact authorized implementation file
+  scope being `scripts/foundation-operations.mjs` and `package.json`; no signature change required
+  that third-file edit.
 - **Review evidence:** Exceptional corrective commit
   `ec998583ab687b1db4b5b8355c51479c394f505e` is fetchable and directly follows reviewed commit
   `ae42bf91cfaf733833089aecc7a0be4d990717f3`. Its bounded four-file diff tightens only the canonical
@@ -65,13 +71,14 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T029 only — implement idempotent Development stop and restart in
-  `scripts/foundation-operations.mjs`, and replace only the `dev:stop` / `dev:restart` placeholder
-  adapters in `package.json`; routine stop must stop the three supervised native processes and the
-  Development database container without deleting the named volume, repetition must be safe, and
-  restart must complete the documented stop-before-start sequence while preserving Development data
-- **Runtime:** Claude Code DEV Executor via the installed Spec Kit `implement` command/skill, bounded
-  to T029 on canonical base `451523ba033d7192f32cad9096042fdaa6dd2ac9`; stop before T030 or any
+- **Task / Scope:** T029 rework only — correct T029-B01 and T029-B02 in
+  `scripts/foundation-operations.mjs`; add only focused T029-B01/T029-B02 regression coverage in
+  `scripts/foundation-operations.test.ts`; revert the unauthorized documentation-only changes to
+  `scripts/foundation-operations.d.mts` for T029-B03; retain only the authorized `package.json`
+  adapter replacements and directly required T029 implementation; do not alter accepted T028
+  behavior or implement T030+
+- **Runtime:** Claude Code DEV Executor corrective revision from
+  `af918fa8f10953136eb9febdcdaad30e5da35abe`, bounded to T029-B01–T029-B03; stop before T030 or any
   later task
 - **Required references:** `.specify/memory/constitution.md`; `CLAUDE.md`;
   `docs/spec-context/001-application-foundation.md` Implementation / Review routing;
@@ -80,15 +87,15 @@
   migrations; `specs/001-application-foundation/tasks.md` T029 and dependency rules;
   `specs/001-application-foundation/contracts/foundation-operations.md` Commands;
   `scripts/foundation-operations.test.ts` existing T019 stop/restart acceptance cases
-- **Expected verification:** focused Vitest for the T019 `dev:stop` and `dev:restart` cases must pass,
-  including repeat-safe stop, exact native-process/database stop effects, stop-before-start ordering,
-  and unchanged Development volume/data state; run the affected operations test file, focused ESLint,
-  root TypeScript verification, `git diff --check`, conflict-marker inspection, and no-skip/todo/only
-  inspection. Return the exact changed files, commit SHA, commands/results, confirmation that the
-  Development named volume is never removed, and confirmation that no T030+ behavior, lifecycle
-  journal/recovery/reset/inventory implementation, dependency/lockfile/manifest change, Product
-  behavior, or broad host/resource mutation was added.
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Expected verification:** add focused regression evidence that a running database container is
+  stopped even when its TCP endpoint is not accepting connections, and that unreadable/missing PID
+  identity evidence never sends a signal; rerun focused T019 `dev:stop` / `dev:restart`, the full
+  affected operations test, focused ESLint, root TypeScript verification, `git diff --check`,
+  conflict-marker inspection, and no-skip/todo/only inspection. Return exact changed files, commit
+  SHA, commands/results, proof only `scripts/foundation-operations.mjs`,
+  `scripts/foundation-operations.test.ts`, and `package.json` differ from the authorized base, proof
+  the named volume is never removed, and confirmation no T030+ or other excluded scope was added.
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
