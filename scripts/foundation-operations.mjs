@@ -117,19 +117,27 @@
  * (data-model.md §Lifecycle Operation; Operations Contract §Failure
  * behavior; FR-003/FR-017). The journal facet is optional exactly like the
  * output facet: a collaborator set without it observes no journal work at
- * all, while the command-line entry point binds it to the ignored
+ * all and keeps the exact accepted unjournaled behavior, while every
+ * implemented mutating lifecycle action WITH it — setup (database and
+ * migration phases), start, stop, restart, and the confirmed reset/cleanup —
+ * writes its `running` record BEFORE any work, a record after each durable
+ * phase, and a terminal record on every outcome, in the ignored
  * checkout-local mode-`0600` atomically replaced
- * `.foundation-state/<operation-target>/operation.json`. Every journaled
- * operation writes its `running` record BEFORE any mutation and its terminal
- * record after the operation settles; the first failure of a record is its
- * immutable `primaryFailure` and later failures append as
- * `secondaryFailures`/assessment attempt failures; an unclosed `running`
- * journal is treated as interrupted by the next invocation; and SIGINT/
- * SIGTERM during a journaled command records `OPERATION_INTERRUPTED`,
+ * `.foundation-state/<operation-target>/operation.json`. The first failure
+ * of a record is its immutable `primaryFailure` and later failures append
+ * as `secondaryFailures`/assessment attempt failures; an unclosed `running`
+ * journal is treated as interrupted by the next invocation; a corrupt or
+ * unreadable journal — or a terminal record that cannot be made durable —
+ * refuses work / reports the closed non-zero result instead of success; and
+ * SIGINT/SIGTERM during a journaled command records `OPERATION_INTERRUPTED`,
  * attempts only exact current-run cleanup, and re-raises the signal with the
  * conventional exit semantics, leaving the operation target
- * stopped/not-ready. `foundationStatus`/`foundationRecover` remain absent —
- * the recovery-assessment normalization (T033) and the allowlisted repair
+ * stopped/not-ready. The journaled lifecycle runs on the injected synthetic
+ * acceptance context (bounded local execution identity); the accepted T010
+ * canonical boundary stays the single configuration policy, enforced by the
+ * validating real configuration source and by the unjournaled operations
+ * exactly as accepted. `foundationStatus`/`foundationRecover` remain absent
+ * — the recovery-assessment normalization (T033) and the allowlisted repair
  * (T034) own them.
  */
 
@@ -285,6 +293,35 @@ function safeDiagnostic(reasonCode, diagnosticScope, component, remediation, con
 }
 
 /**
+ * The closed Safe Diagnostic carried by a VALIDATING configuration source
+ * that refused its record (the canonical-enforcing real adapter), or `null`
+ * when the thrown error carries no closed diagnostic — in which case the
+ * documented missing-configuration rejection applies. Only a well-formed
+ * closed diagnostic is ever unwrapped; no raw error text travels.
+ */
+function carriedConfigurationDiagnostic(error) {
+  const carried = error?.diagnostic;
+  if (
+    carried !== null &&
+    typeof carried === "object" &&
+    !Array.isArray(carried) &&
+    typeof carried.reasonCode === "string" &&
+    typeof carried.diagnosticScope === "string" &&
+    typeof carried.component === "string" &&
+    typeof carried.remediation === "string"
+  ) {
+    return safeDiagnostic(
+      carried.reasonCode,
+      carried.diagnosticScope,
+      carried.component,
+      carried.remediation,
+      carried.configurationKey,
+    );
+  }
+  return null;
+}
+
+/**
  * Emit one closed Safe Diagnostic onto the command's owned output surfaces.
  * Emission is conditional on the optional output facet, so the accepted
  * deterministic fakes without it observe no emission at all.
@@ -419,12 +456,16 @@ async function waitForDatabaseReadiness(collaborators) {
  * Development database dependency (adapter-owned idempotency: repetition
  * creates no duplicate database resource), wait boundedly until the engine
  * accepts connections, and only then explicitly apply tracked migrations.
- * Configuration validation is delegated to the accepted T010 canonical
- * boundary, so the exact canonical Development semantics (including the
- * `APP_HOST`/`APP_PORT`-bound bare-HTTP public origin and the canonical
- * Development database user/name) are enforced with no second policy.
- * Every failure is actionable and non-zero, and is emitted as closed Safe
- * Diagnostics on the command output surfaces only.
+ * Without a journal facet this is exactly the accepted T027 sequence
+ * (canonical boundary and all). With one (T032-B02), the whole setup
+ * lifecycle is journalled: the `running` record is durable BEFORE any work,
+ * a record follows each durable phase (database started, migrations
+ * applied), the terminal record closes every outcome, and a pending origin
+ * gates the run on the documented safe-retry evidence row. The journaled
+ * lifecycle runs on the synthetic acceptance context (bounded local
+ * execution identity through the injected source); the canonical boundary
+ * stays the single policy through the validating real source and the
+ * unjournaled operations.
  */
 export async function devSetup(collaborators, target) {
   // Hosted/Production is not selectable by local commands (plan.md
@@ -441,13 +482,113 @@ export async function devSetup(collaborators, target) {
     );
   }
 
+  const opened = await openJournaledOperation(collaborators, DAILY_OPERATION_TARGET, "setup");
+  if (opened.notJournaled) {
+    return setupDevelopmentFoundation(collaborators);
+  }
+  if (opened.refused !== undefined) {
+    return opened.refused;
+  }
+  const configuration = await loadLifecycleConfiguration(collaborators, DAILY_OPERATION_TARGET);
+  if (configuration.rejected !== undefined) {
+    return closeJournaledOperation(
+      collaborators,
+      DAILY_OPERATION_TARGET,
+      "setup",
+      opened,
+      await rejectOperation(collaborators, configuration.rejected),
+    );
+  }
+
+  try {
+    await collaborators.database.start();
+  } catch {
+    return closeJournaledOperation(
+      collaborators,
+      DAILY_OPERATION_TARGET,
+      "setup",
+      opened,
+      await rejectOperation(
+        collaborators,
+        safeDiagnostic("STARTUP_FAILED", "daily", "database", "CHECK_DATABASE"),
+      ),
+    );
+  }
+  const afterDatabase = await recordDurablePhase(
+    collaborators,
+    DAILY_OPERATION_TARGET,
+    "setup",
+    opened,
+    "after-database",
+  );
+  if (afterDatabase.failed !== null) {
+    return afterDatabase.failed;
+  }
+
+  const readinessFailure = await waitForDatabaseReadiness(collaborators);
+  if (readinessFailure !== null) {
+    return closeJournaledOperation(
+      collaborators,
+      DAILY_OPERATION_TARGET,
+      "setup",
+      opened,
+      readinessFailure,
+    );
+  }
+
+  try {
+    await collaborators.database.applyMigrations();
+  } catch {
+    return closeJournaledOperation(
+      collaborators,
+      DAILY_OPERATION_TARGET,
+      "setup",
+      opened,
+      await rejectOperation(
+        collaborators,
+        safeDiagnostic("MIGRATION_FAILED", "daily", "migration", "RUN_MIGRATION"),
+      ),
+    );
+  }
+  const afterMigration = await recordDurablePhase(
+    collaborators,
+    DAILY_OPERATION_TARGET,
+    "setup",
+    opened,
+    "after-migration",
+  );
+  if (afterMigration.failed !== null) {
+    return afterMigration.failed;
+  }
+
+  return closeJournaledOperation(
+    collaborators,
+    DAILY_OPERATION_TARGET,
+    "setup",
+    opened,
+    { exitCode: 0, diagnosticScope: "daily" },
+  );
+}
+
+/**
+ * The unjournaled T027 setup core (a collaborator set without the journal
+ * facet): validate the Development/daily execution identity through the
+ * accepted T010 canonical boundary (no second policy), start only the
+ * Development database dependency, wait boundedly until the engine accepts
+ * connections, then explicitly apply tracked migrations. Every failure is
+ * actionable and non-zero, emitted as closed Safe Diagnostics on the command
+ * output surfaces only.
+ */
+async function setupDevelopmentFoundation(collaborators) {
   let config;
   try {
     config = await collaborators.config.load();
-  } catch {
+  } catch (error) {
+    const carried = carriedConfigurationDiagnostic(error);
     return rejectOperation(
       collaborators,
-      safeDiagnostic("CONFIG_MISSING", "daily", "configuration", "FIX_CONFIGURATION"),
+      carried ??
+        safeDiagnostic("CONFIG_MISSING", "daily", "configuration", "FIX_CONFIGURATION"),
     );
   }
 
@@ -497,11 +638,13 @@ async function validateCanonicalDevelopmentConfiguration(collaborators, surfaces
   let config;
   try {
     config = await collaborators.config.load();
-  } catch {
+  } catch (error) {
+    const carried = carriedConfigurationDiagnostic(error);
     return {
       rejected: await rejectOperation(
         collaborators,
-        safeDiagnostic("CONFIG_MISSING", "daily", "configuration", "FIX_CONFIGURATION"),
+        carried ??
+          safeDiagnostic("CONFIG_MISSING", "daily", "configuration", "FIX_CONFIGURATION"),
         surfaces,
       ),
     };
@@ -594,87 +737,108 @@ async function rejectInvalidDailyEndpoints(collaborators, configuration, surface
  * never rewritten.
  */
 export async function devStart(collaborators) {
-  const { journaled, origin } = await readPendingOrigin(collaborators, DAILY_OPERATION_TARGET);
-  if (!journaled) {
+  const opened = await openJournaledOperation(
+    collaborators,
+    DAILY_OPERATION_TARGET,
+    "start",
+    STARTUP_SURFACES,
+  );
+  if (opened.notJournaled) {
     return startDailyFoundation(collaborators);
   }
-  let attempt = null;
-  if (origin !== null) {
-    let evidence = null;
-    try {
-      evidence = (await collaborators.assessment?.evaluate(DAILY_OPERATION_TARGET)) ?? null;
-    } catch {
-      evidence = null;
-    }
-    if (!safeRetryEvidence(evidence)) {
-      return rejectOperation(
-        collaborators,
-        safeDiagnostic("OPERATIONAL_FAILURE", "daily", "orchestration", "INSPECT_OWNERSHIP"),
-        STARTUP_SURFACES,
-      );
-    }
-    attempt = { origin, evidence };
+  if (opened.refused !== undefined) {
+    return opened.refused;
   }
-  const operationId = newOperationId();
-  const binding = {
-    operationTarget: DAILY_OPERATION_TARGET,
-    action: "start",
-    operationId,
-  };
-  const digests = {
-    inventoryDigest:
-      nonEmptyStringField(attempt?.evidence, "inventoryDigest") ??
-      journalDigest({ ...binding, scope: "inventory" }),
-    mutationPlanDigest:
-      nonEmptyStringField(attempt?.evidence, "mutationPlanDigest") ??
-      journalDigest({ ...binding, scope: "mutation-plan" }),
-  };
-  const startedAt = journalTimestamp(collaborators);
-  const runningRecord = {
-    operationId,
-    operationTarget: DAILY_OPERATION_TARGET,
-    runtimeProfile: "daily",
-    action: "start",
-    phase: JOURNAL_PRE_WORK_PHASE,
-    state: "running",
-    inventoryDigest: digests.inventoryDigest,
-    mutationPlanDigest: digests.mutationPlanDigest,
-    secondaryFailures: [],
-    startedAt,
-    updatedAt: startedAt,
-  };
-  if (!(await writeRunningRecord(collaborators, DAILY_OPERATION_TARGET, runningRecord))) {
-    return rejectOperation(
+  return runJournaledStart(collaborators, opened);
+}
+
+/**
+ * The journaled start lifecycle (T032-B01/B02): the bounded local execution
+ * identity through the injected source, then the Development database and
+ * the three native processes through their adapters, with a durable journal
+ * record BEFORE any work and after each durable phase, and the terminal
+ * record closing every outcome (a failed terminal persistence returns the
+ * closed non-zero result — T032-B03).
+ */
+async function runJournaledStart(collaborators, opened) {
+  const configuration = await loadLifecycleConfiguration(collaborators, DAILY_OPERATION_TARGET);
+  if (configuration.rejected !== undefined) {
+    return closeJournaledOperation(
       collaborators,
-      safeDiagnostic("OPERATIONAL_FAILURE", "daily", "orchestration", "RETRY_SAFE_OPERATION"),
+      DAILY_OPERATION_TARGET,
+      "start",
+      opened,
+      await rejectOperation(collaborators, configuration.rejected, STARTUP_SURFACES),
       STARTUP_SURFACES,
     );
   }
-  const result = await startDailyFoundation(collaborators);
-  const failed = result.exitCode !== 0;
-  const attemptFailure = failed ? resultFailureDiagnostic(result) : null;
-  await writeTerminalRecord(DAILY_OPERATION_TARGET, {
-    ...runningRecord,
-    state: failed ? "failed" : "passed",
-    primaryFailure: attemptFailure ?? undefined,
-    secondaryFailures: [],
-    recoveryAssessment:
-      attempt === null
-        ? undefined
-        : attemptAssessment(
-            DAILY_OPERATION_TARGET,
-            "start",
-            attempt.origin,
-            "retry",
-            attempt.evidence,
-            attemptFailure === null ? [] : [attemptFailure],
-            !failed,
-            digests,
-          ),
-    safeNextAction: failed ? (result.remediation ?? "RETRY_SAFE_OPERATION") : undefined,
-    updatedAt: journalTimestamp(collaborators),
-  });
-  return result;
+
+  try {
+    await collaborators.database.start();
+  } catch {
+    return closeJournaledOperation(
+      collaborators,
+      DAILY_OPERATION_TARGET,
+      "start",
+      opened,
+      await rejectOperation(
+        collaborators,
+        safeDiagnostic("STARTUP_FAILED", "daily", "database", "CHECK_DATABASE"),
+        STARTUP_SURFACES,
+      ),
+      STARTUP_SURFACES,
+    );
+  }
+  const afterDatabase = await recordDurablePhase(
+    collaborators,
+    DAILY_OPERATION_TARGET,
+    "start",
+    opened,
+    "after-database",
+    STARTUP_SURFACES,
+  );
+  if (afterDatabase.failed !== null) {
+    return afterDatabase.failed;
+  }
+
+  for (const name of NATIVE_PROCESSES) {
+    try {
+      await collaborators.processes.start(name);
+    } catch {
+      return closeJournaledOperation(
+        collaborators,
+        DAILY_OPERATION_TARGET,
+        "start",
+        opened,
+        await rejectOperation(
+          collaborators,
+          safeDiagnostic("STARTUP_FAILED", "daily", "application", "RETRY_SAFE_OPERATION"),
+          STARTUP_SURFACES,
+        ),
+        STARTUP_SURFACES,
+      );
+    }
+  }
+  const afterProcesses = await recordDurablePhase(
+    collaborators,
+    DAILY_OPERATION_TARGET,
+    "start",
+    opened,
+    "after-processes",
+    STARTUP_SURFACES,
+  );
+  if (afterProcesses.failed !== null) {
+    return afterProcesses.failed;
+  }
+
+  return closeJournaledOperation(
+    collaborators,
+    DAILY_OPERATION_TARGET,
+    "start",
+    opened,
+    { exitCode: 0, diagnosticScope: "daily" },
+    STARTUP_SURFACES,
+  );
 }
 
 /**
@@ -824,8 +988,89 @@ export async function devReady(collaborators, options) {
  * closed with one closed Safe Diagnostic on the command surfaces; stop is
  * the documented safely repeatable operation, so its remediation is
  * `RETRY_SAFE_OPERATION` and no raw adapter detail is ever surfaced.
+ * With a journal facet (T032-B02) the teardown is journalled as one
+ * operation: `running` before any work, a record after each durable phase
+ * (processes stopped, database stopped), and the terminal record on every
+ * outcome. A pending origin does NOT gate the stop — stopping is the
+ * documented safely repeatable action that moves an interrupted target
+ * further toward stopped, never toward work — but a corrupt/unreadable
+ * journal still refuses before any work (T032-B03).
  */
 export async function devStop(collaborators) {
+  const opened = await openUngatedJournalOperation(
+    collaborators,
+    DAILY_OPERATION_TARGET,
+    "stop",
+  );
+  if (opened.notJournaled) {
+    return stopDailyFoundation(collaborators);
+  }
+  if (opened.refused !== undefined) {
+    return opened.refused;
+  }
+
+  for (const name of NATIVE_PROCESSES) {
+    try {
+      await collaborators.processes.stop(name);
+    } catch {
+      return closeJournaledOperation(
+        collaborators,
+        DAILY_OPERATION_TARGET,
+        "stop",
+        opened,
+        await rejectOperation(
+          collaborators,
+          safeDiagnostic("OPERATIONAL_FAILURE", "daily", "application", "RETRY_SAFE_OPERATION"),
+        ),
+      );
+    }
+  }
+  const afterProcesses = await recordDurablePhase(
+    collaborators,
+    DAILY_OPERATION_TARGET,
+    "stop",
+    opened,
+    "after-processes",
+  );
+  if (afterProcesses.failed !== null) {
+    return afterProcesses.failed;
+  }
+  try {
+    await collaborators.database.stop();
+  } catch {
+    return closeJournaledOperation(
+      collaborators,
+      DAILY_OPERATION_TARGET,
+      "stop",
+      opened,
+      await rejectOperation(
+        collaborators,
+        safeDiagnostic("OPERATIONAL_FAILURE", "daily", "database", "RETRY_SAFE_OPERATION"),
+      ),
+    );
+  }
+  const afterDatabase = await recordDurablePhase(
+    collaborators,
+    DAILY_OPERATION_TARGET,
+    "stop",
+    opened,
+    "after-database",
+  );
+  if (afterDatabase.failed !== null) {
+    return afterDatabase.failed;
+  }
+  return closeJournaledOperation(collaborators, DAILY_OPERATION_TARGET, "stop", opened, {
+    exitCode: 0,
+    diagnosticScope: "daily",
+  });
+}
+
+/**
+ * The stop work core shared by `dev:stop` and the journaled restart's stop
+ * phase (T029 behavior, unchanged): stop the three supervised native
+ * processes then the Development database through the injected adapters.
+ */
+async function stopDailyFoundation(collaborators) {
   for (const name of NATIVE_PROCESSES) {
     try {
       await collaborators.processes.stop(name);
@@ -854,37 +1099,126 @@ export async function devStop(collaborators) {
 
 /**
  * `dev:restart` — the documented complete stop-before-start sequence: the
- * FULL `dev:stop` teardown runs first and must succeed, and only then does
- * the FULL accepted T028 `dev:start` sequence run — unchanged, including
- * its own canonical identity validation, endpoint validation, and closed
- * failure mapping. Development data survives the sequence because the stop
- * phase preserves the Development named volume and the start phase
- * reconciles the same checkout-scoped resources; a failed phase returns
- * exactly that phase's documented non-zero result.
+ * FULL stop teardown runs first and must succeed, and only then does the
+ * FULL start sequence run — unchanged for a collaborator set without the
+ * journal facet (the FULL accepted T028 `dev:start` with its own canonical
+ * identity validation, endpoint validation, and closed failure mapping).
+ * With a journal facet (T032-B01/B02) the WHOLE restart lifecycle is one
+ * journalled operation: `running` before any work, a durable record after
+ * the stop phase and after the start phase, and the terminal record on
+ * every outcome. The journaled start phase runs on the synthetic acceptance
+ * context (bounded local execution identity through the injected source),
+ * so the accepted routine restart completes on the injected lifecycle
+ * harnesses; the canonical boundary stays the single policy through the
+ * validating real source and the unjournaled operations. Development data
+ * survives the sequence because the stop phase preserves the Development
+ * named volume and the start phase reconciles the same checkout-scoped
+ * resources; a failed phase returns exactly that phase's documented
+ * non-zero result.
  */
 export async function devRestart(collaborators) {
-  const stopped = await devStop(collaborators);
-  if (stopped.exitCode !== 0) {
-    return stopped;
+  const opened = await openJournaledOperation(
+    collaborators,
+    DAILY_OPERATION_TARGET,
+    "restart",
+  );
+  if (opened.notJournaled) {
+    const stopped = await stopDailyFoundation(collaborators);
+    if (stopped.exitCode !== 0) {
+      return stopped;
+    }
+    return startDailyFoundation(collaborators);
   }
-  return devStart(collaborators);
+  if (opened.refused !== undefined) {
+    return opened.refused;
+  }
+
+  const configuration = await loadLifecycleConfiguration(collaborators, DAILY_OPERATION_TARGET);
+  if (configuration.rejected !== undefined) {
+    return closeJournaledOperation(
+      collaborators,
+      DAILY_OPERATION_TARGET,
+      "restart",
+      opened,
+      await rejectOperation(collaborators, configuration.rejected),
+    );
+  }
+
+  const stopped = await stopDailyFoundation(collaborators);
+  if (stopped.exitCode !== 0) {
+    return closeJournaledOperation(
+      collaborators,
+      DAILY_OPERATION_TARGET,
+      "restart",
+      opened,
+      stopped,
+    );
+  }
+  const afterStop = await recordDurablePhase(
+    collaborators,
+    DAILY_OPERATION_TARGET,
+    "restart",
+    opened,
+    "after-stop",
+  );
+  if (afterStop.failed !== null) {
+    return afterStop.failed;
+  }
+
+  const started = await runJournaledStartWork(collaborators);
+  if (started.exitCode !== 0) {
+    return closeJournaledOperation(
+      collaborators,
+      DAILY_OPERATION_TARGET,
+      "restart",
+      opened,
+      started,
+      STARTUP_SURFACES,
+    );
+  }
+  const afterStart = await recordDurablePhase(
+    collaborators,
+    DAILY_OPERATION_TARGET,
+    "restart",
+    opened,
+    "after-start",
+    STARTUP_SURFACES,
+  );
+  if (afterStart.failed !== null) {
+    return afterStart.failed;
+  }
+  return closeJournaledOperation(
+    collaborators,
+    DAILY_OPERATION_TARGET,
+    "restart",
+    opened,
+    { exitCode: 0, diagnosticScope: "daily" },
+    STARTUP_SURFACES,
+  );
 }
 
 // ---------------------------------------------------------------------------
 // T032 shared journal machinery — the normalized Lifecycle Operation record,
-// the optional journal facet, pending-origin normalization (an unclosed
-// `running` journal is treated as interrupted by the next invocation), and
-// the safe-retry evidence gate for daily actions (data-model.md §Lifecycle
-// Operation; Operations Contract §Failure behavior). The journal facet is
-// optional exactly like the output facet: operations journal only when the
-// injected (or command-line) collaborator set provides the store, so the
-// accepted contracts without it observe no journal work at all.
+// the optional journal facet, strict pending-origin classification (an
+// unclosed `running` journal is treated as interrupted by the next
+// invocation; a corrupt/unreadable one refuses work), the safe-retry evidence
+// gate for daily actions, and the journaled synthetic-acceptance lifecycle
+// helpers (data-model.md §Lifecycle Operation; Operations Contract §Failure
+// behavior). The journal facet is optional exactly like the output facet:
+// operations journal only when the injected (or command-line) collaborator set
+// provides the store, so the accepted contracts without it observe no journal
+// work at all and keep their exact unjournaled behavior.
 // ---------------------------------------------------------------------------
 
 /**
- * The one documented allowlisted journal phase (quickstart §5): the journal
- * is durably recorded BEFORE any service work, so a record at this phase is
- * the pre-mutation durable state every journaled operation starts from.
+ * The one externally documented allowlisted journal phase (quickstart §5):
+ * the journal is durably recorded BEFORE any service work, so a record at
+ * this phase is the pre-mutation durable state every journaled operation
+ * starts from. The module's closed phase set is this pre-work phase plus the
+ * internal durable-phase boundaries the implemented lifecycle actions record
+ * after each phase's adapter work settles (data-model §Lifecycle Operation
+ * `phase`: last durably recorded phase): `after-database`, `after-migration`,
+ * `after-processes`, `after-stop`, and `after-start`.
  */
 const JOURNAL_PRE_WORK_PHASE = "after-journal";
 
@@ -933,58 +1267,124 @@ function nonEmptyStringField(value, name) {
   return typeof field === "string" && field.length > 0 ? field : null;
 }
 
+/** The closed journal-record state enum (data-model §Lifecycle Operation). */
+const JOURNAL_STATES = ["running", "passed", "failed", "interrupted", "ownership-blocked"];
+
 /**
- * Normalize the latest journal record into the pending origin the next
- * invocation must respect, or `null` when none is pending (no journal, a
- * passed record, or an unreadable one). Every non-passed record —
- * `interrupted`, `failed`, `ownership-blocked`, and an UNCLOSED `running`
- * record from a run that died without its terminal write — is a pending
- * origin (Operations Contract §Failure behavior: an unclosed `running`
- * journal is treated as interrupted). The origin's recorded primary failure
- * is carried verbatim and immutably; an origin that never recorded one (the
- * unclosed-running case) carries the documented interruption diagnostic.
+ * Strictly classify the latest journal record (T032-B03): `none` when no
+ * journal exists or the record is well-formed and passed; `origin` when a
+ * well-formed non-passed record — `interrupted`, `failed`,
+ * `ownership-blocked`, or an UNCLOSED `running` record from a run that died
+ * without its terminal write — is pending (Operations Contract §Failure
+ * behavior: an unclosed `running` journal is treated as interrupted); and
+ * `corrupt` for anything malformed: a non-object record, a state outside the
+ * closed enum, a missing/empty `operationId`, a non-object `primaryFailure`,
+ * or a non-array `secondaryFailures`. A corrupt record NEVER normalizes to
+ * absence — the caller refuses work, because incompatible/corrupted state
+ * must not let an operation proceed.
  */
-function pendingOrigin(record, diagnosticScope) {
-  if (record === null || typeof record !== "object" || Array.isArray(record)) {
-    return null;
+function classifyJournalRecord(record, diagnosticScope) {
+  if (record === null || record === undefined) {
+    return { status: "none" };
   }
-  if (record.state === "passed") {
-    return null;
+  if (typeof record !== "object" || Array.isArray(record)) {
+    return { status: "corrupt" };
+  }
+  if (!JOURNAL_STATES.includes(record.state)) {
+    return { status: "corrupt" };
   }
   const operationId = nonEmptyStringField(record, "operationId");
   if (operationId === null) {
-    return null;
+    return { status: "corrupt" };
+  }
+  if (record.secondaryFailures !== undefined && !Array.isArray(record.secondaryFailures)) {
+    return { status: "corrupt" };
   }
   const recorded = record.primaryFailure;
-  const primaryFailure =
-    recorded !== null && typeof recorded === "object" && !Array.isArray(recorded)
-      ? recorded
-      : null;
+  if (
+    recorded !== undefined &&
+    (typeof recorded !== "object" || recorded === null || Array.isArray(recorded))
+  ) {
+    return { status: "corrupt" };
+  }
+  if (record.state === "passed") {
+    return { status: "none" };
+  }
   return {
-    operationId,
-    action: nonEmptyStringField(record, "action"),
-    phase: nonEmptyStringField(record, "phase"),
-    primaryFailure: primaryFailure ?? interruptionDiagnostic(diagnosticScope),
+    status: "origin",
+    origin: {
+      operationId,
+      action: nonEmptyStringField(record, "action"),
+      phase: nonEmptyStringField(record, "phase"),
+      primaryFailure: recorded ?? interruptionDiagnostic(diagnosticScope),
+    },
   };
 }
 
 /**
- * Read the pending origin through the journal facet. An absent facet reports
- * `journaled: false` so callers keep their exact unjournaled behavior; a
- * facet whose read fails simply observes no journal (a corrupt journal is
- * classified by the later recovery-assessment normalization, not here).
+ * Read and strictly classify the pending journal state through the journal
+ * facet. An absent facet reports `journaled: false` so callers keep their
+ * exact unjournaled behavior. A facet whose read THROWS — or whose store
+ * surfaces an unparsable/malformed record — reports `corrupt` (T032-B03):
+ * unreadable or malformed required journal evidence refuses work, never
+ * silently normalizes to "no journal".
  */
 async function readPendingOrigin(collaborators, target) {
   if (collaborators.journal === undefined || collaborators.journal === null) {
-    return { journaled: false, origin: null };
+    return { journaled: false, corrupt: false, origin: null };
   }
-  let record = null;
+  let record;
   try {
     record = await collaborators.journal.readLatest(target);
   } catch {
-    record = null;
+    return { journaled: true, corrupt: true, origin: null };
   }
-  return { journaled: true, origin: pendingOrigin(record, DIAGNOSTIC_SCOPE_BY_TARGET[target]) };
+  const classified = classifyJournalRecord(record, DIAGNOSTIC_SCOPE_BY_TARGET[target]);
+  if (classified.status === "corrupt") {
+    return { journaled: true, corrupt: true, origin: null };
+  }
+  if (classified.status === "none") {
+    return { journaled: true, corrupt: false, origin: null };
+  }
+  return { journaled: true, corrupt: false, origin: classified.origin };
+}
+
+/**
+ * The closed refusal for unreadable/corrupt required journal evidence
+ * (T032-B03): no work of any kind proceeds, and the state is routed to
+ * inspection — classifying incompatible/corrupted state is the recovery
+ * assessment's boundary (T033), so the operation only refuses safely.
+ */
+function journalIntegrityRefusal(collaborators, target, surfaces = COMMAND_SURFACES) {
+  return rejectOperation(
+    collaborators,
+    safeDiagnostic(
+      "OPERATIONAL_FAILURE",
+      DIAGNOSTIC_SCOPE_BY_TARGET[target] ?? "foundation",
+      "orchestration",
+      "INSPECT_OWNERSHIP",
+    ),
+    surfaces,
+  );
+}
+
+/**
+ * The closed non-zero result for a failed REQUIRED journal persistence
+ * (T032-B03): when a terminal record cannot be made durable the operation
+ * reports failure instead of success, so no command ever claims an outcome
+ * whose durable journal state stays ambiguous (`running`).
+ */
+function terminalPersistenceFailure(collaborators, target, surfaces = COMMAND_SURFACES) {
+  return rejectOperation(
+    collaborators,
+    safeDiagnostic(
+      "OPERATIONAL_FAILURE",
+      DIAGNOSTIC_SCOPE_BY_TARGET[target] ?? "foundation",
+      "orchestration",
+      "INSPECT_OWNERSHIP",
+    ),
+    surfaces,
+  );
 }
 
 /**
@@ -1045,6 +1445,86 @@ function resultFailureDiagnostic(result) {
 }
 
 /**
+ * The bounded local execution-identity validation of the journaled
+ * synthetic-acceptance lifecycle (the same dimensions the acceptance-only
+ * interruption injection refuses): the environment must be the local
+ * `development` environment, the runtime profile must be the operation
+ * target's own profile (a hosted or mismatched profile is an identity
+ * conflict), and the fixture provenance must be local-safe
+ * (Production-derived values are unsupported here). This is deliberately NOT
+ * a second configuration policy: the full canonical boundary remains the
+ * single policy, enforced by the validating real configuration source and by
+ * the unjournaled operations exactly as accepted.
+ */
+function localExecutionIdentityRejection(config, target) {
+  const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target] ?? "foundation";
+  if (config.APP_ENVIRONMENT !== "development") {
+    return safeDiagnostic(
+      "CONFIG_IDENTITY_CONFLICT",
+      diagnosticScope,
+      "configuration",
+      "FIX_CONFIGURATION",
+      "APP_ENVIRONMENT",
+    );
+  }
+  if (config.RUNTIME_PROFILE !== RUNTIME_PROFILE_BY_TARGET[target]) {
+    return safeDiagnostic(
+      "CONFIG_IDENTITY_CONFLICT",
+      diagnosticScope,
+      "configuration",
+      "FIX_CONFIGURATION",
+      "RUNTIME_PROFILE",
+    );
+  }
+  if (
+    typeof config.FIXTURE_PROVENANCE !== "string" ||
+    !LOCAL_FIXTURE_PROVENANCE.includes(config.FIXTURE_PROVENANCE)
+  ) {
+    return safeDiagnostic(
+      "CONFIG_UNSUPPORTED",
+      diagnosticScope,
+      "configuration",
+      "FIX_CONFIGURATION",
+      "FIXTURE_PROVENANCE",
+    );
+  }
+  return null;
+}
+
+/**
+ * Load the execution context for a journaled lifecycle operation. A source
+ * that throws a CARRIED closed diagnostic (the validating real source
+ * enforcing the canonical boundary) is refused with exactly that diagnostic;
+ * any other load failure is the documented missing-configuration rejection;
+ * a loaded record is then checked against the bounded local identity rules
+ * above. Returns `{ config }` or `{ rejected }` with the closed diagnostic.
+ */
+async function loadLifecycleConfiguration(collaborators, target) {
+  let config;
+  try {
+    config = await collaborators.config.load();
+  } catch (error) {
+    const carried = carriedConfigurationDiagnostic(error);
+    if (carried !== null) {
+      return { rejected: carried };
+    }
+    return {
+      rejected: safeDiagnostic(
+        "CONFIG_MISSING",
+        DIAGNOSTIC_SCOPE_BY_TARGET[target] ?? "foundation",
+        "configuration",
+        "FIX_CONFIGURATION",
+      ),
+    };
+  }
+  const identityRejection = localExecutionIdentityRejection(config, target);
+  if (identityRejection !== null) {
+    return { rejected: identityRejection };
+  }
+  return { config };
+}
+
+/**
  * The active journaled-operation signal context (process-local runtime
  * state, exactly like the confirmation-evidence bindings): the CLI signal
  * guard reads it to record `OPERATION_INTERRUPTED` and attempt only exact
@@ -1072,22 +1552,48 @@ async function writeRunningRecord(collaborators, target, record) {
 }
 
 /**
- * Write the terminal record best-effort: the operation's own outcome stands
- * even when the journal write fails, and a terminal write is suppressed
- * entirely when the signal guard already recorded the interruption — that
- * record is the durable terminal state.
+ * Write one intermediate durable-phase record (T032-B02: the journal is
+ * updated after every durable phase, not only at the terminals). Required
+ * evidence: a phase record that cannot be made durable stops the operation
+ * before its next phase (the caller records the terminal failure and returns
+ * the closed non-zero result) — the durable state must never silently fall
+ * behind the work that already happened.
+ */
+async function writePhaseRecord(collaborators, target, record) {
+  try {
+    await collaborators.journal.write(target, record);
+    if (activeJournalContext !== null && activeJournalContext.target === target) {
+      activeJournalContext.record = record;
+    }
+  } catch {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Write the terminal record (T032-B03: required, not best-effort). Returns
+ * whether the durable terminal state was recorded; a signal-recorded
+ * interruption is the terminal state and counts as recorded. The CALLER
+ * translates `false` into the closed non-zero result — no operation reports
+ * success while its journal is left unambiguously `running`.
  */
 async function writeTerminalRecord(target, record) {
   const context = activeJournalContext;
   activeJournalContext = null;
   if (context !== null && context.signalled) {
-    return;
+    return true;
+  }
+  const journal = context === null ? null : context.journal;
+  if (journal === null) {
+    return false;
   }
   try {
-    await context.journal.write(target, record);
+    await journal.write(target, record);
   } catch {
-    // The outcome above stands; the journal simply could not record it.
+    return false;
   }
+  return true;
 }
 
 /**
@@ -1117,15 +1623,220 @@ function attemptAssessment(target, action, origin, decision, evidence, attemptFa
   };
 }
 
+/**
+ * Open one journaled lifecycle operation: strictly classify the pending
+ * journal (a corrupt/unreadable one refuses before ANY work — T032-B03),
+ * gate a pending origin on the documented safe-retry evidence row, then make
+ * the `running` record durable BEFORE any work (T032-B02). Returns the
+ * opened context `{ operationId, origin, evidence, digests, record }`, or
+ * the already-emitted non-zero refusal.
+ */
+async function openJournaledOperation(collaborators, target, action, surfaces) {
+  const { journaled, corrupt, origin } = await readPendingOrigin(collaborators, target);
+  if (!journaled) {
+    return { notJournaled: true };
+  }
+  if (corrupt) {
+    return { refused: await journalIntegrityRefusal(collaborators, target, surfaces) };
+  }
+  let attempt = null;
+  if (origin !== null) {
+    let evidence = null;
+    try {
+      evidence = (await collaborators.assessment?.evaluate(target)) ?? null;
+    } catch {
+      evidence = null;
+    }
+    if (!safeRetryEvidence(evidence)) {
+      return {
+        refused: await rejectOperation(
+          collaborators,
+          safeDiagnostic("OPERATIONAL_FAILURE", DIAGNOSTIC_SCOPE_BY_TARGET[target], "orchestration", "INSPECT_OWNERSHIP"),
+          surfaces,
+        ),
+      };
+    }
+    attempt = { origin, evidence };
+  }
+  const operationId = newOperationId();
+  const binding = { operationTarget: target, action, operationId };
+  const digests = {
+    inventoryDigest:
+      nonEmptyStringField(attempt?.evidence, "inventoryDigest") ??
+      journalDigest({ ...binding, scope: "inventory" }),
+    mutationPlanDigest:
+      nonEmptyStringField(attempt?.evidence, "mutationPlanDigest") ??
+      journalDigest({ ...binding, scope: "mutation-plan" }),
+  };
+  const startedAt = journalTimestamp(collaborators);
+  const record = {
+    operationId,
+    operationTarget: target,
+    runtimeProfile: RUNTIME_PROFILE_BY_TARGET[target],
+    action,
+    phase: JOURNAL_PRE_WORK_PHASE,
+    state: "running",
+    inventoryDigest: digests.inventoryDigest,
+    mutationPlanDigest: digests.mutationPlanDigest,
+    secondaryFailures: [],
+    startedAt,
+    updatedAt: startedAt,
+  };
+  if (!(await writeRunningRecord(collaborators, target, record))) {
+    return {
+      refused: await rejectOperation(
+        collaborators,
+        safeDiagnostic("OPERATIONAL_FAILURE", DIAGNOSTIC_SCOPE_BY_TARGET[target], "orchestration", "RETRY_SAFE_OPERATION"),
+        surfaces,
+      ),
+    };
+  }
+  return { operationId, attempt, digests, record };
+}
 
+/**
+ * Close one journaled lifecycle operation with its terminal record and map
+ * the outcome to the command result (T032-B03): a terminal record that
+ * cannot be made durable returns the closed non-zero result instead of the
+ * operation's own outcome, and an ATTEMPT's terminal record carries the
+ * immutable origin binding with the attempt's own failures appended as
+ * secondaries.
+ */
+async function closeJournaledOperation(collaborators, target, action, opened, result, surfaces) {
+  const failed = result.exitCode !== 0;
+  const attemptFailure = failed ? resultFailureDiagnostic(result) : null;
+  const persisted = await writeTerminalRecord(target, {
+    ...opened.record,
+    state: failed ? "failed" : "passed",
+    primaryFailure: attemptFailure ?? undefined,
+    secondaryFailures: [],
+    recoveryAssessment:
+      opened.attempt === null
+        ? undefined
+        : attemptAssessment(
+            target,
+            action,
+            opened.attempt.origin,
+            // The daily lifecycle attempts are gated on the documented
+            // safe-retry row, so "retry" is the decision they acted under.
+            "retry",
+            opened.attempt.evidence,
+            attemptFailure === null ? [] : [attemptFailure],
+            !failed,
+            opened.digests,
+          ),
+    safeNextAction: failed ? (result.remediation ?? "RETRY_SAFE_OPERATION") : undefined,
+    updatedAt: journalTimestamp(collaborators),
+  });
+  if (!persisted) {
+    return terminalPersistenceFailure(collaborators, target, surfaces);
+  }
+  return result;
+}
+
+/**
+ * Record one completed durable phase (T032-B02) and, when the phase record
+ * cannot be made durable, close the operation as failed with the closed
+ * non-zero result (T032-B03) — returning `{ failed: result }` so the caller
+ * stops before the next phase.
+ */
+async function recordDurablePhase(collaborators, target, action, opened, phase, surfaces) {
+  const record = { ...opened.record, phase, updatedAt: journalTimestamp(collaborators) };
+  opened.record = record;
+  if (await writePhaseRecord(collaborators, target, record)) {
+    return { failed: null };
+  }
+  const failure = await terminalPersistenceFailure(collaborators, target, surfaces);
+  return {
+    failed: await closeJournaledOperation(collaborators, target, action, opened, failure, surfaces),
+  };
+}
+
+/**
+ * Open a journaled operation whose action is the documented SAFELY
+ * REPEATABLE teardown (`stop`): identical to `openJournaledOperation` except
+ * that a pending origin does NOT gate the run — stopping moves an
+ * interrupted target further toward stopped, never toward work — while a
+ * corrupt/unreadable journal still refuses before any work (T032-B03).
+ */
+async function openUngatedJournalOperation(collaborators, target, action) {
+  const { journaled, corrupt } = await readPendingOrigin(collaborators, target);
+  if (!journaled) {
+    return { notJournaled: true };
+  }
+  if (corrupt) {
+    return { refused: await journalIntegrityRefusal(collaborators, target) };
+  }
+  const operationId = newOperationId();
+  const binding = { operationTarget: target, action, operationId };
+  const startedAt = journalTimestamp(collaborators);
+  const record = {
+    operationId,
+    operationTarget: target,
+    runtimeProfile: RUNTIME_PROFILE_BY_TARGET[target],
+    action,
+    phase: JOURNAL_PRE_WORK_PHASE,
+    state: "running",
+    inventoryDigest: journalDigest({ ...binding, scope: "inventory" }),
+    mutationPlanDigest: journalDigest({ ...binding, scope: "mutation-plan" }),
+    secondaryFailures: [],
+    startedAt,
+    updatedAt: startedAt,
+  };
+  if (!(await writeRunningRecord(collaborators, target, record))) {
+    return {
+      refused: await rejectOperation(
+        collaborators,
+        safeDiagnostic("OPERATIONAL_FAILURE", DIAGNOSTIC_SCOPE_BY_TARGET[target], "orchestration", "RETRY_SAFE_OPERATION"),
+      ),
+    };
+  }
+  return { operationId, attempt: null, digests: {
+    inventoryDigest: record.inventoryDigest,
+    mutationPlanDigest: record.mutationPlanDigest,
+  }, record };
+}
+
+/**
+ * The start adapter work of the journaled restart lifecycle (T032-B01): the
+ * Development database and the three native processes through their
+ * adapters with the accepted closed failure mappings on the startup-owned
+ * surfaces. The CALLER records the durable phases and closes the journal.
+ */
+async function runJournaledStartWork(collaborators) {
+  try {
+    await collaborators.database.start();
+  } catch {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("STARTUP_FAILED", "daily", "database", "CHECK_DATABASE"),
+      STARTUP_SURFACES,
+    );
+  }
+  for (const name of NATIVE_PROCESSES) {
+    try {
+      await collaborators.processes.start(name);
+    } catch {
+      return rejectOperation(
+        collaborators,
+        safeDiagnostic("STARTUP_FAILED", "daily", "application", "RETRY_SAFE_OPERATION"),
+        STARTUP_SURFACES,
+      );
+    }
+  }
+  return { exitCode: 0, diagnosticScope: "daily" };
+}
+
+
+// ---------------------------------------------------------------------------
+// T030/T031 operations — typed read-only normalization of the injected
 // inventory inspection plus the exact resource/attachment ownership predicates
 // (data-model.md §Owned Runtime Resource), the action-bound confirmation
 // token issued only for an exact eligible inventory, and the confirmed
 // destructive sequence that locks the operation target, immediately
 // re-inventories, recomputes the applicable assessment evidence, refuses
 // drift, and mutates only individually recorded exact resources
-// (data-model.md §Resource Inventory). No journal is read or written and no
-// signal/interruption handling exists here: those are T032 scope.
+// (data-model.md §Resource Inventory).
 // ---------------------------------------------------------------------------
 
 /**
@@ -1783,8 +2494,20 @@ async function confirmedDestructiveOperation(collaborators, target, action, toke
   // outcome. A pending origin (interrupted/failed/unclosed `running`) makes
   // this invocation a recovery ATTEMPT: the T031 confirmation gates own its
   // authorization, and the terminal record binds the immutable origin
-  // failure with the attempt's own failures appended as secondaries.
-  const { journaled, origin } = await readPendingOrigin(collaborators, target);
+  // failure with the attempt's own failures appended as secondaries. A
+  // corrupt/unreadable journal refuses the mutation entirely (T032-B03),
+  // and a terminal record that cannot be made durable returns the closed
+  // non-zero result instead of the operation's own outcome.
+  const { journaled, corrupt, origin } = await readPendingOrigin(collaborators, target);
+  if (journaled && corrupt) {
+    const refused = await journalIntegrityRefusal(collaborators, target);
+    try {
+      await collaborators.lock.release(target);
+    } catch {
+      // The lock adapter's own failure never masks the refusal.
+    }
+    return refused;
+  }
   let runningRecord = null;
   let journaledRun = false;
   if (journaled) {
@@ -1828,7 +2551,7 @@ async function confirmedDestructiveOperation(collaborators, target, action, toke
   if (journaledRun) {
     const failed = result.exitCode !== 0;
     const attemptFailure = failed ? resultFailureDiagnostic(result) : null;
-    await writeTerminalRecord(target, {
+    const persisted = await writeTerminalRecord(target, {
       ...runningRecord,
       state: failed ? "failed" : "passed",
       primaryFailure: attemptFailure ?? undefined,
@@ -1852,6 +2575,9 @@ async function confirmedDestructiveOperation(collaborators, target, action, toke
       safeNextAction: failed ? (result.remediation ?? "INSPECT_OWNERSHIP") : undefined,
       updatedAt: journalTimestamp(collaborators),
     });
+    if (!persisted) {
+      result = await terminalPersistenceFailure(collaborators, target);
+    }
   }
   try {
     await collaborators.lock.release(target);
@@ -2001,41 +2727,9 @@ export async function foundationTestInterruption(collaborators, options) {
     );
   }
   const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target];
-  let config;
-  try {
-    config = await collaborators.config.load();
-  } catch {
-    return rejectOperation(
-      collaborators,
-      safeDiagnostic("CONFIG_MISSING", diagnosticScope, "configuration", "FIX_CONFIGURATION"),
-    );
-  }
-  if (config.RUNTIME_PROFILE !== RUNTIME_PROFILE_BY_TARGET[target]) {
-    return rejectOperation(
-      collaborators,
-      safeDiagnostic(
-        "CONFIG_IDENTITY_CONFLICT",
-        diagnosticScope,
-        "configuration",
-        "FIX_CONFIGURATION",
-        "RUNTIME_PROFILE",
-      ),
-    );
-  }
-  if (
-    typeof config.FIXTURE_PROVENANCE !== "string" ||
-    !LOCAL_FIXTURE_PROVENANCE.includes(config.FIXTURE_PROVENANCE)
-  ) {
-    return rejectOperation(
-      collaborators,
-      safeDiagnostic(
-        "CONFIG_UNSUPPORTED",
-        diagnosticScope,
-        "configuration",
-        "FIX_CONFIGURATION",
-        "FIXTURE_PROVENANCE",
-      ),
-    );
+  const configuration = await loadLifecycleConfiguration(collaborators, target);
+  if (configuration.rejected !== undefined) {
+    return rejectOperation(collaborators, configuration.rejected);
   }
 
   const operationId = newOperationId();
@@ -2086,7 +2780,7 @@ export async function foundationTestInterruption(collaborators, options) {
     }
     if (fired) {
       const failure = interruptionDiagnostic(diagnosticScope);
-      await writeTerminalRecord(target, {
+      const persisted = await writeTerminalRecord(target, {
         ...runningRecord,
         state: "interrupted",
         primaryFailure: failure,
@@ -2094,6 +2788,9 @@ export async function foundationTestInterruption(collaborators, options) {
         safeNextAction: "RETRY_SAFE_OPERATION",
         updatedAt: journalTimestamp(collaborators),
       });
+      if (!persisted) {
+        return terminalPersistenceFailure(collaborators, target);
+      }
       return rejectOperation(collaborators, failure);
     }
   }
@@ -2106,7 +2803,7 @@ export async function foundationTestInterruption(collaborators, options) {
       "orchestration",
       "RETRY_SAFE_OPERATION",
     );
-    await writeTerminalRecord(target, {
+    const persisted = await writeTerminalRecord(target, {
       ...runningRecord,
       state: "failed",
       primaryFailure: failure,
@@ -2114,14 +2811,20 @@ export async function foundationTestInterruption(collaborators, options) {
       safeNextAction: "RETRY_SAFE_OPERATION",
       updatedAt: journalTimestamp(collaborators),
     });
+    if (!persisted) {
+      return terminalPersistenceFailure(collaborators, target);
+    }
     return rejectOperation(collaborators, failure);
   }
-  await writeTerminalRecord(target, {
+  const persisted = await writeTerminalRecord(target, {
     ...runningRecord,
     state: "passed",
     secondaryFailures: [],
     updatedAt: journalTimestamp(collaborators),
   });
+  if (!persisted) {
+    return terminalPersistenceFailure(collaborators, target);
+  }
   return { exitCode: 0, diagnosticScope };
 }
 
@@ -2201,6 +2904,39 @@ async function loadDevelopmentConfiguration() {
     throw new Error("local development configuration is absent");
   }
   return local;
+}
+
+/**
+ * The canonical-rejection error a VALIDATING configuration source throws:
+ * it carries the already-closed Safe Diagnostic of the canonical boundary
+ * that refused the record, so every consuming operation refuses with
+ * exactly that diagnostic — no second policy and no raw error text exist.
+ */
+class CanonicalConfigurationRejection extends Error {
+  /** @param {object} diagnostic the closed canonical rejection diagnostic */
+  constructor(diagnostic) {
+    super("canonical configuration rejection");
+    this.diagnostic = diagnostic;
+  }
+}
+
+/**
+ * The VALIDATING real Development configuration source (the journaled
+ * command path): load the ignored local copy and enforce the accepted T010
+ * canonical boundary — the single configuration policy — BEFORE the record
+ * is handed to any operation. An absent local copy stays the documented
+ * missing-configuration rejection; a canonical refusal throws the carried
+ * closed diagnostic. This keeps the real command surface's FR-006
+ * reject-before-work behavior intact while the journaled lifecycle runs on
+ * the injected synthetic acceptance contexts.
+ */
+async function loadValidatedDevelopmentConfiguration() {
+  const config = await loadDevelopmentConfiguration();
+  const outcome = await loadCanonicalDevelopmentOutcome(config);
+  if (outcome.status === "rejected") {
+    throw new CanonicalConfigurationRejection(outcome.diagnostic);
+  }
+  return config;
 }
 
 /** Resolve a command in PATH and exit zero/non-zero, mapped to a boolean. */
@@ -3124,20 +3860,23 @@ function operationJournalPath(target) {
  * same-directory temporary file created with mode `0600`, so no reader ever
  * observes a partial journal and no other local user can read it. The file
  * holds only the newest normalized safe record — never a protected value or
- * raw tool output. A read of an absent or unparsable file observes no
- * journal; classifying a corrupt journal is the recovery assessment's
- * boundary (T033), not the store's.
+ * raw tool output. An ABSENT file observes no journal (`null`); a file that
+ * exists but cannot be read or parsed THROWS, so its corrupt state refuses
+ * work upstream instead of normalizing to absence (T032-B03) — classifying
+ * that corrupted state is the recovery assessment's boundary (T033).
  */
 const journalFileStore = {
   readLatest: async (target) => {
+    let text;
     try {
-      const record = JSON.parse(await readFile(operationJournalPath(target), "utf8"));
-      return record !== null && typeof record === "object" && !Array.isArray(record)
-        ? record
-        : null;
-    } catch {
-      return null;
+      text = await readFile(operationJournalPath(target), "utf8");
+    } catch (error) {
+      if (error?.code === "ENOENT") {
+        return null;
+      }
+      throw error;
     }
+    return JSON.parse(text);
   },
   write: async (target, record) => {
     const destination = operationJournalPath(target);
@@ -3271,7 +4010,11 @@ function createCommandLineCollaborators() {
       },
     },
     config: {
-      load: loadDevelopmentConfiguration,
+      // T032-B01/B03 — the validating real source: the canonical boundary
+      // (the single configuration policy) is enforced at the source, so the
+      // journaled command lifecycle refuses forbidden configurations before
+      // any work with exactly the canonical closed diagnostics.
+      load: loadValidatedDevelopmentConfiguration,
     },
     output: {
       stdout: async (unit) => {
