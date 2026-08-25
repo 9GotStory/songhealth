@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T031 CHANGES REQUIRED — T031-B01
+- **Status:** HUMAN GATE — T031 INDEPENDENT REVIEW PASS
 
 ## Active Feature Mirror
 
@@ -29,26 +29,25 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T031-B01
-- **Phase status:** T030 ACCEPTED — T031 REWORK AUTHORIZED; T032+ UNAUTHORIZED
-- **Previous completed scope:** T030 — typed Podman inventory normalization and exact
-  resource/attachment ownership predicates, with T030-B01 accepted closed
-- **Next valid action:** Claude Code corrects only T031-B01, returns corrective evidence, and stops
-  for independent Codex re-review; T032+ remain unauthorized
-- **Blocking issues:** T031-B01 — the confirmation boundary receives only `(target, action)` at
-  issuance and `(target, action, token)` at verification, so the token does not bind the normalized
-  issuance inventory or assessment digest. A changed inventory/evidence state that remains broadly
-  ownership-eligible and predicate-true can therefore pass verification and mutate, contrary to the
-  required exact confirmation-digest match.
-- **T031 review evidence:** Exact implementation tip
-  `2e763b518447367e9132f659526a56e64acfef59` follows authorization
-  `d7dffa048d2c530a5704f25242fa9779977056f6`; the diff is limited to
-  `scripts/foundation-operations.mjs` and is clean. Independent focused T020/T031 verification is
-  40 passed and the full foundation-operations suite is 94 passed after `npm ci`; TypeScript retains
-  only the four established later-task missing-export errors. Those tests cover loss of eligibility,
-  but do not prove equality between the issuance inventory/assessment and the locked re-inventory/
-  recomputation. `data-model.md` §Resource Inventory and the operations contract require that exact
-  digest match, so T031-B01 blocks PASS.
+- **Current review result:** PASS — T031-B01 closed by independent corrective re-review
+- **Phase status:** T031 REVIEW PASS — PRODUCT OWNER HUMAN GATE; T032+ UNAUTHORIZED
+- **Previous completed scope:** T031 — action-bound exact-evidence confirmations, per-target lock,
+  immediate re-inventory/evidence recomputation, drift refusal, and bounded exact mutation
+- **Next valid action:** Product Owner Human Gate for reviewed T031; do not authorize T032+
+- **Blocking issues:** NONE for reviewed T031 scope
+- **T031 review evidence:** Human-authorized non-rewriting reconciliation merge
+  `e56f29144e5f8638b3ebbb70d36c193488bc7206` has first parent rework authorization
+  `7b2aa1404f95db7533be0898c0b3352c62bd0588` and second parent exact corrective tip
+  `de6386a4151e5525ecb454b02ffd6722e37063ae`, both diverging from reviewed base
+  `2e763b518447367e9132f659526a56e64acfef59`. `PROJECT-STATUS.md` at the merge is
+  byte-identical to the first parent and `scripts/foundation-operations.mjs` is byte-identical to
+  the corrective tip; diagnostic conflict commit `a700961b4cf442188277e6d86ff275662b33151d`
+  is not an ancestor. Fresh independent T031-B01 proof passed 35/35; focused T020/T031 passed
+  40/40; full foundation operations passed 94/94; TypeScript retains only the four established
+  later-task missing-export errors. Changed-yet-still-eligible inventory/assessment drift refuses
+  with `RESOURCE_INVENTORY_CHANGED` and zero mutation; prohibited mutation paths and T032+ remain
+  absent. The exact corrective tip and reconciliation merge are ancestors of this PASS governance
+  head.
 - **T030 review evidence:** Exact corrective tip `659136afaaf8de633875473b1965b8ffea0acfd5`
   follows rework authorization `197f7d675068a41f2567044a08c9dda079af0366`; the exact diff is
   limited to `scripts/foundation-operations.mjs` and is clean. Independent verification: focused
@@ -104,25 +103,12 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T031-B01 corrective rework in `scripts/foundation-operations.mjs` only: bind the
-  confirmation token to a canonical digest/equivalent exact representation of the complete
-  normalized issuance inventory and applicable assessment evidence, and require the locked
-  re-inventory/recomputed evidence to match before verification or mutation; do not begin T032 or
-  add lifecycle journals/signal handling
-- **Runtime:** Claude Code (`claude-developer`) using the installed Claude integration, bounded to
-  T031 and required to stop before T032+
-- **Required references:** `specs/001-application-foundation/tasks.md` T031;
-  `specs/001-application-foundation/spec.md` FR-004, FR-017, SC-002;
-  `specs/001-application-foundation/data-model.md` §Resource Inventory;
-  `specs/001-application-foundation/contracts/foundation-operations.md` §Operation-target
-  ownership and isolation and §Failure behavior; `specs/001-application-foundation/plan.md`
-  §Operations and verification; `.specify/memory/constitution.md` Principles I–VI
-- **Expected verification:** Provide focused proof that a same-target/action re-inventory or assessment
-  change which remains ownership-eligible and predicate-true is refused with
-  `RESOURCE_INVENTORY_CHANGED` and zero mutation; run the complete T020/T031 cases and full
-  foundation-operations suite; verify lock/re-inventory/recompute ordering, exact-only mutation,
-  prohibited deletion paths, and that T032+, dependencies, manifests, and lockfile remain unchanged
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T031 independent review PASS; Product Owner Human Gate pending; T032+
+  unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
