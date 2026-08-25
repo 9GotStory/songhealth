@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T032 REVIEW PASS — AWAITING PRODUCT OWNER HUMAN GATE
+- **Status:** T032 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
 
 ## Active Feature Mirror
 
@@ -29,15 +29,20 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — T032-B02–T032-B04 closed; T032-B01 reclassified as a
+- **Current review result:** HUMAN ACCEPTED — T032-B02–T032-B04 closed; T032-B01 reclassified as a
   pre-existing expected-red T022 fixture, not a T032 regression
-- **Phase status:** T032 REVIEW PASS — HUMAN GATE REQUIRED; T033+ UNAUTHORIZED
+- **Phase status:** T032 ACCEPTED; T033+ UNAUTHORIZED
 - **Previous completed scope:** T032 — checkout-local atomic lifecycle journals,
   interruption/signal handling, immutable primary/secondary failures, complete mutating-operation
   phase journaling, fail-closed journal persistence, and validation-transparent instrumentation
-- **Next valid action:** Product Owner reviews the exact T032 implementation and independent PASS
-  governance record at the Human Gate; T033+ remain unauthorized
+- **Next valid action:** None authorized; T033+ remain unauthorized
 - **Blocking issues:** None for T032 review
+- **T032 Product Owner acceptance:** Human Gate accepted corrective implementation tip
+  `526dd012830ada2b4c69e68e79a249e319b41a45` and independent PASS governance record
+  `87c872eda65e69e5d0b4b3ae7fc8a4a34fda61d5`; T032-B02–T032-B04 are accepted as closed,
+  and T032-B01 is accepted as a review misclassification of a pre-existing expected-red T022
+  fixture rather than an implementation regression. Authorized Implementation remains `NONE`;
+  T033+ remain unauthorized.
 - **T032 final review evidence:** Exact corrective tip
   `526dd012830ada2b4c69e68e79a249e319b41a45` descends directly from round-2 REWORK authorization
   `6feb3768b975a6b5dd6ee9298b189309ae0e2b7e`; its corrective diff is limited to
@@ -132,8 +137,7 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T032 passed independent review and awaits Product Owner Human Gate;
-  T033+ are not authorized
+- **Task / Scope:** NONE — T032 is Human accepted; T033+ are not authorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE
