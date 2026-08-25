@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE — T031 INDEPENDENT REVIEW PASS
+- **Status:** HUMAN GATE ACCEPTED — T031
 
 ## Active Feature Mirror
 
@@ -29,11 +29,12 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — T031-B01 closed by independent corrective re-review
-- **Phase status:** T031 REVIEW PASS — PRODUCT OWNER HUMAN GATE; T032+ UNAUTHORIZED
+- **Current review result:** HUMAN ACCEPTED — independently reviewed T031; T031-B01 accepted closed
+- **Phase status:** T031 ACCEPTED — T032+ UNAUTHORIZED
 - **Previous completed scope:** T031 — action-bound exact-evidence confirmations, per-target lock,
   immediate re-inventory/evidence recomputation, drift refusal, and bounded exact mutation
-- **Next valid action:** Product Owner Human Gate for reviewed T031; do not authorize T032+
+- **Next valid action:** NONE IN THIS ISSUE — stop after canonical T031 acceptance integration;
+  T032+ remain unauthorized
 - **Blocking issues:** NONE for reviewed T031 scope
 - **T031 review evidence:** Human-authorized non-rewriting reconciliation merge
   `e56f29144e5f8638b3ebbb70d36c193488bc7206` has first parent rework authorization
@@ -48,6 +49,11 @@
   with `RESOURCE_INVENTORY_CHANGED` and zero mutation; prohibited mutation paths and T032+ remain
   absent. The exact corrective tip and reconciliation merge are ancestors of this PASS governance
   head.
+- **T031 Product Owner acceptance:** Human Gate accepted corrective implementation tip
+  `de6386a4151e5525ecb454b02ffd6722e37063ae`, reconciliation merge
+  `e56f29144e5f8638b3ebbb70d36c193488bc7206`, and independent PASS governance record
+  `dc8ccbebea6aa659f70cd8c153a6129e3256bf21`; T031-B01 is accepted as closed. Authorized
+  Implementation remains `NONE`; T032+ remain unauthorized.
 - **T030 review evidence:** Exact corrective tip `659136afaaf8de633875473b1965b8ffea0acfd5`
   follows rework authorization `197f7d675068a41f2567044a08c9dda079af0366`; the exact diff is
   limited to `scripts/foundation-operations.mjs` and is clean. Independent verification: focused
@@ -103,8 +109,7 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T031 independent review PASS; Product Owner Human Gate pending; T032+
-  unauthorized
+- **Task / Scope:** NONE — T031 Human Gate accepted; T032+ unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE
