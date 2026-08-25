@@ -138,9 +138,18 @@
  * unjournaled paths, identically in both modes; only the acceptance-only
  * interruption injection applies its own documented bounded identity
  * refusal set to its synthetic acceptance contexts.
- * `foundationStatus`/`foundationRecover` remain absent — the
- * recovery-assessment normalization (T033) and the allowlisted repair
- * (T034) own them.
+ *
+ * T033 adds `foundation:status` (data-model.md §Recovery Assessment): the
+ * normalized, read-only assessment of the pending journal origin — including
+ * an unclosed `running` record, which the next invocation treats as
+ * interrupted — bound to the origin operation/action/phase, the operation
+ * target/runtime profile, the immutable original failure, and the normalized
+ * SHA-256 evidence digests, with exactly one decision derived in the
+ * documented fixed target-appropriate row order (manual-review gate, retry,
+ * Development recover/reset, Verification cleanup, manual-review residual).
+ * It never locks, mints a token, mutates, or recovers, so a manual-review
+ * state issues no mutation evidence. `foundationRecover` remains absent —
+ * the allowlisted repair (T034) owns it.
  */
 
 import { execFile, spawn } from "node:child_process";
@@ -2879,6 +2888,285 @@ export async function foundationTestInterruption(collaborators, options) {
     return terminalPersistenceFailure(collaborators, target);
   }
   return { exitCode: 0, diagnosticScope };
+}
+
+// ---------------------------------------------------------------------------
+// T033 operations — the normalized, read-only Recovery Assessment and the
+// fixed target-appropriate retry/recover/reset/cleanup/manual-review
+// decision order (FR-003/FR-017 Edge Cases; data-model.md §Recovery
+// Assessment; Operations Contract §Commands `foundation:status` and
+// §Failure behavior; quickstart §5).
+// ---------------------------------------------------------------------------
+
+/**
+ * The sole allowlisted Development repair this Delivery permits
+ * (data-model.md §Recovery Assessment `repairId`; quickstart §5):
+ * recreate the exact Development database container/network runtime while
+ * preserving its named volume and data. The assessment only RECORDS it as
+ * the selected repair of a `recover` decision — executing the repair with
+ * its connectivity/integrity/migration postchecks is the later recovery
+ * task's boundary.
+ */
+const ALLOWLISTED_DEVELOPMENT_REPAIR = "recreate-database-runtime-preserve-volume";
+
+/** The closed §Recovery Assessment verdict enums, in model order. */
+const OWNERSHIP_VERDICTS = ["confirmed", "unconfirmed"];
+const INTEGRITY_VERDICTS = ["valid", "invalid", "not-applicable", "unknown"];
+const REPEATABILITY_VERDICTS = ["safe", "unsafe", "unknown"];
+const RECONSTRUCTIBILITY_VERDICTS = [
+  "confirmed",
+  "not-reconstructible",
+  "not-applicable",
+  "unknown",
+];
+const REPAIR_DISPOSITIONS = ["verified-available", "unavailable", "failed", "not-applicable"];
+
+/**
+ * Normalize one untrusted verdict/disposition field of the injected
+ * assessment evidence to its closed enum. The evidence object is untrusted
+ * collaborator input: a field that is not exactly one of the documented
+ * values is never promoted to a stronger verdict — it falls to the
+ * fail-safe value, which is `unconfirmed`/`unknown` for the verdicts and
+ * `unavailable` for a repair disposition (a generic or unreviewed repair is
+ * never available). A malformed evidence object as a whole normalizes to
+ * every fail-safe value at once, so the decision can only be the row-1
+ * `manual-review` gate.
+ */
+function normalizedEvidenceVerdict(evidence, field, allowlist, failSafe) {
+  if (evidence === null || typeof evidence !== "object" || Array.isArray(evidence)) {
+    return failSafe;
+  }
+  return allowlist.includes(evidence[field]) ? evidence[field] : failSafe;
+}
+
+/**
+ * One bound evidence digest of the assessment: the normalized digest the
+ * evidence carries for this facet, else the canonical SHA-256 digest of the
+ * exact origin binding. The value is correlation evidence only — never a
+ * raw check and never ordinary output.
+ */
+function boundEvidenceDigest(evidence, field, binding, scope) {
+  return nonEmptyStringField(evidence, field) ?? journalDigest({ ...binding, scope });
+}
+
+/**
+ * Derive exactly one decision in the documented fixed order (data-model.md
+ * §Recovery Assessment; Operations Contract §Failure behavior). Earlier rows
+ * dominate later rows when several would match:
+ *
+ * 1. any unconfirmed/unknown APPLICABLE ownership, integrity, repeatability,
+ *    or reconstructibility evidence yields `manual-review` — ownership,
+ *    integrity, and repeatability are always applicable, while
+ *    reconstructibility is applicable exactly when a later row would depend
+ *    on it: never for a safely repeatable state (row 2 decides) and not for
+ *    Development while a verified repair is selected (row 3 decides);
+ * 2. confirmed ownership plus valid/not-applicable integrity and proven safe
+ *    repeatability yields `retry`;
+ * 3. Development only: an allowlisted verified-available repair yields
+ *    `recover` (row 2 did not apply);
+ * 4. Development only: confirmed reconstructibility plus an
+ *    unavailable/failed repair yields `reset`;
+ * 5. Verification only: confirmed exact ownership plus confirmed
+ *    disposable/reconstructible resources yields `cleanup`;
+ * 6. every other state yields `manual-review`.
+ *
+ * The result is therefore always inside the target-appropriate documented
+ * set — Development retry/recover/reset/manual-review, Verification
+ * retry/cleanup/manual-review — because rows 3/4 are reached only for
+ * Development and row 5 only for Verification.
+ */
+function deriveRecoveryDecision(target, verdicts, evidence) {
+  // Row 1 — the applicable-evidence gate.
+  if (verdicts.ownershipVerdict !== "confirmed") {
+    return "manual-review";
+  }
+  if (verdicts.integrityVerdict === "unknown") {
+    return "manual-review";
+  }
+  if (verdicts.repeatabilityVerdict === "unknown") {
+    return "manual-review";
+  }
+  const retryApplies =
+    (verdicts.integrityVerdict === "valid" ||
+      verdicts.integrityVerdict === "not-applicable") &&
+    verdicts.repeatabilityVerdict === "safe";
+  const verifiedRepairSelected =
+    target === "development" && verdicts.repairDisposition === "verified-available";
+  if (
+    !retryApplies &&
+    !verifiedRepairSelected &&
+    verdicts.reconstructibilityVerdict === "unknown"
+  ) {
+    return "manual-review";
+  }
+  // Row 2 — the documented safe retry.
+  if (retryApplies) {
+    return "retry";
+  }
+  // Row 3 — Development's allowlisted verified repair.
+  if (verifiedRepairSelected) {
+    return "recover";
+  }
+  // Row 4 — Development's confirmed-reconstructible reset (the repair is
+  // unavailable or failed: row 3 did not select it).
+  if (
+    target === "development" &&
+    verdicts.reconstructibilityVerdict === "confirmed" &&
+    (verdicts.repairDisposition === "unavailable" || verdicts.repairDisposition === "failed")
+  ) {
+    return "reset";
+  }
+  // Row 5 — Verification's confirmed disposable/reconstructible cleanup.
+  if (
+    target === "verification" &&
+    verdicts.reconstructibilityVerdict === "confirmed" &&
+    evidence !== null &&
+    typeof evidence === "object" &&
+    !Array.isArray(evidence) &&
+    evidence.disposabilityConfirmed === true
+  ) {
+    return "cleanup";
+  }
+  // Row 6 — the residual.
+  return "manual-review";
+}
+
+/**
+ * `foundation:status` — read the target journal and assessment evidence and
+ * emit exactly one normalized, target-appropriate Recovery Assessment
+ * WITHOUT mutation (FR-003/FR-017; Operations Contract §Commands). The
+ * pending origin is the strictly classified journal record — an
+ * `interrupted`, `failed`, `ownership-blocked`, or UNCLOSED `running`
+ * record, which the next invocation treats as interrupted — and its
+ * recorded failure is carried into the assessment as the immutable
+ * `originalFailure`. The normalized evidence is evaluated exactly once
+ * through the assessment facet, every verdict is normalized to its closed
+ * enum (untrusted input never earns a stronger verdict), and the decision
+ * is derived in the documented fixed row order. Read-only means read-only:
+ * no lock is taken, no token is minted, nothing is mutated, and no recovery
+ * or service work runs — journal reads and evidence evaluation are the only
+ * observations, so a manual-review state issues no mutation evidence of any
+ * kind. A corrupt/unreadable journal keeps the established closed refusal
+ * (T032-B03), and a target with no pending failure/interruption has no
+ * recovery state to assess: the command reports success without an
+ * assessment rather than fabricating an origin operation.
+ */
+export async function foundationStatus(collaborators, options) {
+  const request = options === null || typeof options !== "object" ? {} : options;
+  const target = request.target;
+  if (typeof target !== "string" || !Object.hasOwn(TARGET_RESOURCES, target)) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "OPERATIONAL_FAILURE",
+        "foundation",
+        "orchestration",
+        "CHECK_PREREQUISITES",
+      ),
+    );
+  }
+  const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target];
+  if (collaborators.journal === undefined || collaborators.journal === null) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("OPERATIONAL_FAILURE", diagnosticScope, "orchestration", "CHECK_PREREQUISITES"),
+    );
+  }
+  const { journaled, corrupt, origin } = await readPendingOrigin(collaborators, target);
+  if (!journaled || corrupt) {
+    return journalIntegrityRefusal(collaborators, target);
+  }
+  if (origin === null) {
+    return { exitCode: 0, diagnosticScope };
+  }
+
+  let evidence = null;
+  try {
+    evidence = (await collaborators.assessment?.evaluate(target)) ?? null;
+  } catch {
+    evidence = null;
+  }
+  const verdicts = {
+    ownershipVerdict: normalizedEvidenceVerdict(
+      evidence,
+      "ownershipVerdict",
+      OWNERSHIP_VERDICTS,
+      "unconfirmed",
+    ),
+    integrityVerdict: normalizedEvidenceVerdict(
+      evidence,
+      "integrityVerdict",
+      INTEGRITY_VERDICTS,
+      "unknown",
+    ),
+    repeatabilityVerdict: normalizedEvidenceVerdict(
+      evidence,
+      "repeatabilityVerdict",
+      REPEATABILITY_VERDICTS,
+      "unknown",
+    ),
+    reconstructibilityVerdict: normalizedEvidenceVerdict(
+      evidence,
+      "reconstructibilityVerdict",
+      RECONSTRUCTIBILITY_VERDICTS,
+      "unknown",
+    ),
+    repairDisposition: normalizedEvidenceVerdict(
+      evidence,
+      "repairDisposition",
+      REPAIR_DISPOSITIONS,
+      "unavailable",
+    ),
+  };
+  const decision = deriveRecoveryDecision(target, verdicts, evidence);
+
+  // The binding every derived evidence digest falls back to: the exact
+  // origin operation and its target. Digests are SHA-256 correlation
+  // evidence over normalized input only — no raw check output is stored.
+  const binding = {
+    operationTarget: target,
+    originOperationId: origin.operationId,
+    originAction: origin.action,
+    originPhase: origin.phase,
+  };
+  const reconstructibilityEvidenceDigest = nonEmptyStringField(
+    evidence,
+    "reconstructibilityEvidenceDigest",
+  );
+  const assessment = {
+    originOperationId: origin.operationId,
+    originAction: origin.action,
+    originPhase: origin.phase,
+    originalFailure: origin.primaryFailure,
+    operationTarget: target,
+    runtimeProfile: RUNTIME_PROFILE_BY_TARGET[target],
+    ownershipVerdict: verdicts.ownershipVerdict,
+    integrityVerdict: verdicts.integrityVerdict,
+    repeatabilityVerdict: verdicts.repeatabilityVerdict,
+    reconstructibilityVerdict: verdicts.reconstructibilityVerdict,
+    repairDisposition: verdicts.repairDisposition,
+    ...(decision === "recover" ? { repairId: ALLOWLISTED_DEVELOPMENT_REPAIR } : {}),
+    inventoryDigest: boundEvidenceDigest(evidence, "inventoryDigest", binding, "inventory"),
+    integrityEvidenceDigest: boundEvidenceDigest(
+      evidence,
+      "integrityEvidenceDigest",
+      binding,
+      "integrity-evidence",
+    ),
+    ...(reconstructibilityEvidenceDigest === null
+      ? {}
+      : { reconstructibilityEvidenceDigest }),
+    mutationPlanDigest: boundEvidenceDigest(
+      evidence,
+      "mutationPlanDigest",
+      binding,
+      "mutation-plan",
+    ),
+    decision,
+    attemptFailures: [],
+    resolution: "pending",
+  };
+  return { exitCode: 0, diagnosticScope, assessment };
 }
 
 // ---------------------------------------------------------------------------
