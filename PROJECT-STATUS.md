@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE ACCEPTED — T029
+- **Status:** T030 IMPLEMENTATION AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -31,11 +31,11 @@
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** HUMAN ACCEPTED — independently reviewed and reconciled T029,
   including accepted closure of T029-B01–T029-B03
-- **Phase status:** T029 ACCEPTED — T030+ UNAUTHORIZED
+- **Phase status:** T029 ACCEPTED — T030 AUTHORIZED; T031+ UNAUTHORIZED
 - **Previous completed scope:** T029 — idempotent Development stop and restart, including accepted
   closure of T029-B01–T029-B03
-- **Next valid action:** NONE IN THIS ISSUE — stop after recording T029 acceptance; T030+ remain
-  unauthorized
+- **Next valid action:** Claude Code implements only T030, returns implementation evidence, and
+  stops for independent Codex review; T031+ remain unauthorized
 - **Blocking issues:** NONE for accepted T029 scope
 - **Review evidence:** Corrective tip `969992645ebbe9948131a64ef6b0b9378894b829` is fetchable and
   follows replayed T029 implementation commit `e9da8ff52db8992ea8abb51c9732e24d556bb1eb`
@@ -77,11 +77,25 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T029 Human Gate accepted; T030+ unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T030 — implement typed Podman inventory normalization and exact
+  resource/attachment ownership predicates in `scripts/foundation-operations.mjs` only; do not
+  begin T031 or add any mutating reset/cleanup path
+- **Runtime:** Claude Code (`claude-developer`) using the installed Claude integration, bounded to
+  T030 and required to stop before T031+
+- **Required references:** `specs/001-application-foundation/tasks.md` T030;
+  `specs/001-application-foundation/spec.md` FR-004, FR-017, SC-002;
+  `specs/001-application-foundation/data-model.md` §Owned Runtime Resource and §Resource Inventory;
+  `specs/001-application-foundation/contracts/foundation-operations.md` §Operation-target ownership
+  and isolation; `specs/001-application-foundation/plan.md` §Runtime composition;
+  `.specify/memory/constitution.md` Principles I–VI
+- **Expected verification:** Run the focused `scripts/foundation-operations.test.ts` inventory and
+  exact-ownership tests (including T020 cases), plus the full foundation-operations unit suite;
+  verify normalized output is typed, deterministic, safe, and exact ownership requires expected
+  type/name, checkout-scoped project, manifest membership, canonical and complete custom labels,
+  and expected attachments/mounts; verify ambiguous, colliding, stale/mislabeled, or unexpectedly
+  attached resources are blocked/read-only; verify no T031 confirmation, locking, re-inventory, or
+  mutation behavior is implemented
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
