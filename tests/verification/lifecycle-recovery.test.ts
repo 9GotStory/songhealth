@@ -1555,6 +1555,86 @@ describe("Foundation recovery attempts — T021 binding and immutable primary fa
     expectNoForbiddenStrategy(harness);
   });
 
+  it("a recovery token issued for one interrupted origin action refuses every other origin action with zero repair work (T034-B01)", async () => {
+    const harness = makeCollaborators();
+    const { collaborators, assessmentState, journalState } = harness;
+    seedJournal(harness, interruptedJournal({ action: "start" }));
+    assessmentState.evidence = clone(EVIDENCE_RECOVER);
+    const { token } = await foundationInventory(collaborators, {
+      target: "development",
+      action: "recover",
+      operation: "start",
+      repair: ALLOWLISTED_REPAIR,
+    });
+    expect(typeof token).toBe("string");
+    // The pending origin is replaced by an interruption of a DIFFERENT
+    // action, and the replayed request names that new origin action: the
+    // journal-origin equality check alone cannot distinguish this from a
+    // legitimate recovery — only the token's own origin-action binding can.
+    journalState.records.development.pop();
+    seedJournal(harness, interruptedJournal({ action: "stop" }));
+    harness.events.length = 0;
+
+    const result = await foundationRecover(collaborators, {
+      target: "development",
+      operation: "stop",
+      repair: ALLOWLISTED_REPAIR,
+      token: token!,
+    });
+
+    // The token was issued for the `start` origin action, so replaying it
+    // against the `stop` origin is inventory/confirmation drift: non-zero,
+    // refused as drift, and NO repair work of any kind ran.
+    expect(result.exitCode).not.toBe(0);
+    expect(result.reasonCode).toBe("RESOURCE_INVENTORY_CHANGED");
+    expect(harness.events).not.toContain("recovery:recreate-runtime-preserve-volume");
+    expect(harness.events).not.toContain("recovery:postchecks");
+    expect(harness.recoveryState.runtimeRecreated).toBe(false);
+    expect(harness.recoveryState.volumePreserved).toBe(true);
+    expect(harness.mutationState.removedExact).toEqual([]);
+    expectNoForbiddenStrategy(harness);
+  });
+
+  it("a recovery token refuses still-recover-eligible normalized-evidence drift with zero repair work (T034-B02)", async () => {
+    const harness = makeCollaborators();
+    const { collaborators, assessmentState } = harness;
+    seedJournal(harness, interruptedJournal({ action: "start" }));
+    assessmentState.evidence = clone(EVIDENCE_RECOVER);
+    const { token } = await foundationInventory(collaborators, {
+      target: "development",
+      action: "recover",
+      operation: "start",
+      repair: ALLOWLISTED_REPAIR,
+    });
+    expect(typeof token).toBe("string");
+    // Drift that leaves every decision predicate intact: reconstructibility
+    // moves from `not-applicable` to `not-reconstructible`, which the fixed
+    // row order still resolves to `recover`. Only the confirmation digest —
+    // binding the exact evidence VALUES, not a boolean reduction of them —
+    // can distinguish this state from the one the token confirmed.
+    assessmentState.evidence = clone(EVIDENCE_RECOVER);
+    assessmentState.evidence.reconstructibilityVerdict = "not-reconstructible";
+    harness.events.length = 0;
+
+    const result = await foundationRecover(collaborators, {
+      target: "development",
+      operation: "start",
+      repair: ALLOWLISTED_REPAIR,
+      token: token!,
+    });
+
+    // Still-eligible drift is drift: non-zero, refused before any repair
+    // work, and the named volume/data remains untouched.
+    expect(result.exitCode).not.toBe(0);
+    expect(result.reasonCode).toBe("RESOURCE_INVENTORY_CHANGED");
+    expect(harness.events).not.toContain("recovery:recreate-runtime-preserve-volume");
+    expect(harness.events).not.toContain("recovery:postchecks");
+    expect(harness.recoveryState.runtimeRecreated).toBe(false);
+    expect(harness.recoveryState.volumePreserved).toBe(true);
+    expect(harness.mutationState.removedExact).toEqual([]);
+    expectNoForbiddenStrategy(harness);
+  });
+
   it("a confirmed reset selected by the assessment requires its fresh exact token and binds the attempt to the origin", async () => {
     const harness = makeCollaborators();
     const { collaborators, assessmentState, journalState, mutationState } = harness;

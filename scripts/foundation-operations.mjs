@@ -164,9 +164,14 @@
  * corrupt journal or an origin that does not record the requested action),
  * make the `running` record durable BEFORE any work, immediately
  * re-inventory and re-evaluate under the lock, refuse drift — including the
- * confirmation-digest drift on a still-eligible target — and verify the exact
- * caller-presented token. Only then does the repair adapter run, exactly
- * once, followed by its connectivity/integrity/migration-status postchecks;
+ * confirmation-digest drift on a still-eligible target, where the recovery
+ * confirmation digest additionally binds the exact requested interrupted
+ * origin action (T034-B01: a token issued for one origin action refuses
+ * every other) and the complete exact-value normalized assessment evidence
+ * (T034-B02: distinct enum values never share a digest) — and verify the
+ * exact caller-presented token. Only then does the repair adapter run,
+ * exactly once, followed by its connectivity/integrity/migration-status
+ * postchecks;
  * the attempt resolves only when every postcheck passes. The repair
  * reconciles only the exact Development database container/network runtime
  * through its adapter and this path contains no volume deletion, reset, SQL
@@ -2308,18 +2313,57 @@ function confirmationBindingKey(target, action, token) {
 
 /**
  * Canonicalize the (untrusted) normalized assessment evidence into a
- * deterministic, order-stable representation: every own key sorted, each value
- * reduced to whether it is exactly `true`. Any change to the evidence — a
- * flipped predicate, a dropped key, or a newly appearing one — changes the
- * canonical form and therefore the digest.
+ * deterministic, order-stable representation: every own key sorted, each
+ * value reduced to a type-stable canonical form that preserves its exact
+ * value. Reducing values to `=== true` (the T020-era boolean predicates)
+ * collapsed every distinct normalized enum value onto one boolean, so
+ * still-eligible evidence drift — for example reconstructibility
+ * `not-applicable` → `not-reconstructible` — shared the confirmation digest
+ * of the state the token was issued against (T034-B02). With exact values
+ * bound, any change to the evidence — a flipped predicate, a changed enum
+ * value, a dropped key, or a newly appearing one — changes the canonical
+ * form and therefore the digest.
  */
 function canonicalAssessmentEvidence(evidence) {
   if (evidence === null || typeof evidence !== "object" || Array.isArray(evidence)) {
     return null;
   }
-  return Object.keys(evidence)
+  try {
+    return Object.keys(evidence)
+      .sort()
+      .map((key) => [key, canonicalEvidenceValue(evidence[key])]);
+  } catch {
+    // A value too hostile to canonicalize (for example a cyclic structure)
+    // fails to the non-object form: the confirmation comparison then sees a
+    // changed canonical form and refuses, never a false match.
+    return null;
+  }
+}
+
+/**
+ * The canonical form of one evidence value: primitives (the closed enum
+ * strings, booleans, numbers) by exact value, `undefined` behind its own
+ * marker (plain JSON would collapse it into `null`), opaque non-JSON
+ * primitives behind a per-type marker, and composite values by their
+ * recursively key-sorted structure so nested differences stay visible.
+ */
+function canonicalEvidenceValue(value) {
+  if (value === undefined) {
+    return { undefined: true };
+  }
+  const kind = typeof value;
+  if (value === null || kind === "string" || kind === "number" || kind === "boolean") {
+    return value;
+  }
+  if (kind === "bigint" || kind === "symbol" || kind === "function") {
+    return { opaque: kind };
+  }
+  if (Array.isArray(value)) {
+    return value.map(canonicalEvidenceValue);
+  }
+  return Object.keys(value)
     .sort()
-    .map((key) => [key, evidence[key] === true]);
+    .map((key) => [key, canonicalEvidenceValue(value[key])]);
 }
 
 /**
@@ -2330,11 +2374,19 @@ function canonicalAssessmentEvidence(evidence) {
  * assessment evidence. SHA-256 over the canonical JSON form, matching the
  * data model's digest fields; the value is an internal correlation key and is
  * never emitted as ordinary output.
+ *
+ * A recovery confirmation additionally binds the exact requested interrupted
+ * origin action (`boundOriginAction`, T034-B01): a token issued for one
+ * origin action must refuse every other origin action — the origin-action
+ * equality the journal check observes live is not enough, because the
+ * confirmed request itself is what the token speaks for. The destructive
+ * actions bind no origin action, exactly as before.
  */
-function confirmationEvidenceDigest(target, action, inventory, evidence) {
+function confirmationEvidenceDigest(target, action, inventory, evidence, originAction) {
   const canonical = JSON.stringify({
     operationTarget: target,
     action,
+    ...(originAction !== undefined ? { boundOriginAction: originAction } : {}),
     resources: inventory.records.map((r) => [
       r.logicalKey,
       r.resourceType,
@@ -2347,10 +2399,10 @@ function confirmationEvidenceDigest(target, action, inventory, evidence) {
 }
 
 /** Bind one issued token to the exact evidence it was issued against. */
-function bindConfirmationEvidence(target, action, token, inventory, evidence) {
+function bindConfirmationEvidence(target, action, token, inventory, evidence, originAction) {
   confirmationEvidenceBindings.set(
     confirmationBindingKey(target, action, token),
-    confirmationEvidenceDigest(target, action, inventory, evidence),
+    confirmationEvidenceDigest(target, action, inventory, evidence, originAction),
   );
 }
 
@@ -2531,8 +2583,17 @@ export async function foundationInventory(collaborators, options) {
   }
   // T031-B01 — the minted token is bound to the exact normalized inventory and
   // assessment evidence it was issued against, so the later locked
-  // recomputation has something exact to match.
-  bindConfirmationEvidence(target, action, token, inventory, evidence);
+  // recomputation has something exact to match. T034-B01 — a recovery token is
+  // additionally bound to the exact requested interrupted origin action, so it
+  // can never authorize a different origin action later.
+  bindConfirmationEvidence(
+    target,
+    action,
+    token,
+    inventory,
+    evidence,
+    recoveryIssuable ? request.operation : undefined,
+  );
   return {
     exitCode: 0,
     diagnosticScope: "foundation",
@@ -3448,15 +3509,18 @@ function recoveryPostcheckFailure(postchecks) {
  * under the lock and the evidence recompute immediately follows it. The
  * recomputed normalized evidence must STILL select the `recover` decision
  * through the single T033 derivation (drift or uncertainty refuses without
- * repair work), the confirmation digest bound at issuance must still match,
- * and the exact caller-presented token must be verified by the boundary.
- * Only then does the sole allowlisted repair adapter run — exactly once —
- * followed by its connectivity/integrity/migration-status postchecks; the
- * named volume/data is the repair adapter's to preserve, and this path
- * contains no volume deletion, reset, SQL repair, migration rollback,
- * backup restore, or mutation-adapter work of any kind.
+ * repair work), the confirmation digest bound at issuance must still match —
+ * including the bound interrupted origin action (T034-B01: a token issued for
+ * one origin action refuses every other) and the exact normalized evidence
+ * values (T034-B02: still-eligible drift is drift) — and the exact
+ * caller-presented token must be verified by the boundary. Only then does the
+ * sole allowlisted repair adapter run — exactly once — followed by its
+ * connectivity/integrity/migration-status postchecks; the named volume/data
+ * is the repair adapter's to preserve, and this path contains no volume
+ * deletion, reset, SQL repair, migration rollback, backup restore, or
+ * mutation-adapter work of any kind.
  */
-async function executeConfirmedRecovery(collaborators, target, token) {
+async function executeConfirmedRecovery(collaborators, target, operation, token) {
   const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target];
   let candidates;
   try {
@@ -3474,7 +3538,7 @@ async function executeConfirmedRecovery(collaborators, target, token) {
   const bound = boundConfirmationEvidence(target, RECOVERY_ACTION, token);
   if (
     bound !== undefined &&
-    bound !== confirmationEvidenceDigest(target, RECOVERY_ACTION, inventory, evidence)
+    bound !== confirmationEvidenceDigest(target, RECOVERY_ACTION, inventory, evidence, operation)
   ) {
     return destructiveRefusal(collaborators, diagnosticScope, "RESOURCE_INVENTORY_CHANGED");
   }
@@ -3653,7 +3717,7 @@ export async function foundationRecover(collaborators, options) {
   }
   let result;
   try {
-    result = await executeConfirmedRecovery(collaborators, target, token);
+    result = await executeConfirmedRecovery(collaborators, target, operation, token);
   } catch {
     result = await destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
   }
