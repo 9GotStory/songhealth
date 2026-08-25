@@ -132,12 +132,14 @@
  * SIGINT/SIGTERM during a journaled command records `OPERATION_INTERRUPTED`,
  * attempts only exact current-run cleanup, and re-raises the signal with the
  * conventional exit semantics, leaving the operation target
- * stopped/not-ready. The journaled lifecycle runs on the injected synthetic
- * acceptance context (bounded local execution identity); the accepted T010
- * canonical boundary stays the single configuration policy, enforced by the
- * validating real configuration source and by the unjournaled operations
- * exactly as accepted. `foundationStatus`/`foundationRecover` remain absent
- * — the recovery-assessment normalization (T033) and the allowlisted repair
+ * stopped/not-ready. The journal is instrumentation only (T032-B04): the
+ * journaled `dev:setup`/`dev:start`/`dev:restart` run the EXACT accepted
+ * canonical-configuration and derived-endpoint validation boundary of their
+ * unjournaled paths, identically in both modes; only the acceptance-only
+ * interruption injection applies its own documented bounded identity
+ * refusal set to its synthetic acceptance contexts.
+ * `foundationStatus`/`foundationRecover` remain absent — the
+ * recovery-assessment normalization (T033) and the allowlisted repair
  * (T034) own them.
  */
 
@@ -461,11 +463,10 @@ async function waitForDatabaseReadiness(collaborators) {
  * lifecycle is journalled: the `running` record is durable BEFORE any work,
  * a record follows each durable phase (database started, migrations
  * applied), the terminal record closes every outcome, and a pending origin
- * gates the run on the documented safe-retry evidence row. The journaled
- * lifecycle runs on the synthetic acceptance context (bounded local
- * execution identity through the injected source); the canonical boundary
- * stays the single policy through the validating real source and the
- * unjournaled operations.
+ * gates the run on the documented safe-retry evidence row. The journal is
+ * instrumentation only (T032-B04): the journaled setup applies the SAME
+ * accepted canonical validation boundary before any work, identically in
+ * both modes.
  */
 export async function devSetup(collaborators, target) {
   // Hosted/Production is not selectable by local commands (plan.md
@@ -489,14 +490,18 @@ export async function devSetup(collaborators, target) {
   if (opened.refused !== undefined) {
     return opened.refused;
   }
-  const configuration = await loadLifecycleConfiguration(collaborators, DAILY_OPERATION_TARGET);
-  if (configuration.rejected !== undefined) {
+  // T032-B04 — the journal is instrumentation only: the journaled setup runs
+  // the EXACT accepted T027 canonical validation boundary before any work,
+  // identically to the unjournaled path (setup performs no endpoint
+  // validation in the accepted contract, so neither does this path).
+  const validation = await validateCanonicalDevelopmentConfiguration(collaborators);
+  if (validation.rejected !== undefined) {
     return closeJournaledOperation(
       collaborators,
       DAILY_OPERATION_TARGET,
       "setup",
       opened,
-      await rejectOperation(collaborators, configuration.rejected),
+      validation.rejected,
     );
   }
 
@@ -753,22 +758,46 @@ export async function devStart(collaborators) {
 }
 
 /**
- * The journaled start lifecycle (T032-B01/B02): the bounded local execution
- * identity through the injected source, then the Development database and
- * the three native processes through their adapters, with a durable journal
- * record BEFORE any work and after each durable phase, and the terminal
- * record closing every outcome (a failed terminal persistence returns the
- * closed non-zero result — T032-B03).
+ * The journaled start lifecycle (T032-B02): the EXACT accepted T028
+ * validation boundary (canonical identity, then derived endpoints —
+ * T032-B04: the journal never changes configuration semantics), then the
+ * Development database and the three native processes through their
+ * adapters, with a durable journal record BEFORE any work and after each
+ * durable phase, and the terminal record closing every outcome (a failed
+ * terminal persistence returns the closed non-zero result — T032-B03).
  */
 async function runJournaledStart(collaborators, opened) {
-  const configuration = await loadLifecycleConfiguration(collaborators, DAILY_OPERATION_TARGET);
-  if (configuration.rejected !== undefined) {
+  // T032-B04 — the journal is instrumentation only: the journaled startup
+  // runs the EXACT accepted T028 validation boundary (canonical identity,
+  // then derived endpoints) before any work, identically to the unjournaled
+  // path, so a forbidden configuration is refused with the same closed
+  // rejection and zero work in both modes.
+  const validation = await validateCanonicalDevelopmentConfiguration(
+    collaborators,
+    STARTUP_SURFACES,
+  );
+  if (validation.rejected !== undefined) {
     return closeJournaledOperation(
       collaborators,
       DAILY_OPERATION_TARGET,
       "start",
       opened,
-      await rejectOperation(collaborators, configuration.rejected, STARTUP_SURFACES),
+      validation.rejected,
+      STARTUP_SURFACES,
+    );
+  }
+  const endpointRejection = await rejectInvalidDailyEndpoints(
+    collaborators,
+    validation.outcome.configuration,
+    STARTUP_SURFACES,
+  );
+  if (endpointRejection !== null) {
+    return closeJournaledOperation(
+      collaborators,
+      DAILY_OPERATION_TARGET,
+      "start",
+      opened,
+      endpointRejection,
       STARTUP_SURFACES,
     );
   }
@@ -1103,14 +1132,13 @@ async function stopDailyFoundation(collaborators) {
  * FULL start sequence run — unchanged for a collaborator set without the
  * journal facet (the FULL accepted T028 `dev:start` with its own canonical
  * identity validation, endpoint validation, and closed failure mapping).
- * With a journal facet (T032-B01/B02) the WHOLE restart lifecycle is one
+ * With a journal facet (T032-B02) the WHOLE restart lifecycle is one
  * journalled operation: `running` before any work, a durable record after
  * the stop phase and after the start phase, and the terminal record on
- * every outcome. The journaled start phase runs on the synthetic acceptance
- * context (bounded local execution identity through the injected source),
- * so the accepted routine restart completes on the injected lifecycle
- * harnesses; the canonical boundary stays the single policy through the
- * validating real source and the unjournaled operations. Development data
+ * every outcome. The journal is instrumentation only (T032-B04): the
+ * restart's start phase runs the EXACT accepted T028 validation boundary
+ * (canonical identity, then derived endpoints) after the stop phase and
+ * before any start work, identically in both modes. Development data
  * survives the sequence because the stop phase preserves the Development
  * named volume and the start phase reconciles the same checkout-scoped
  * resources; a failed phase returns exactly that phase's documented
@@ -1133,17 +1161,6 @@ export async function devRestart(collaborators) {
     return opened.refused;
   }
 
-  const configuration = await loadLifecycleConfiguration(collaborators, DAILY_OPERATION_TARGET);
-  if (configuration.rejected !== undefined) {
-    return closeJournaledOperation(
-      collaborators,
-      DAILY_OPERATION_TARGET,
-      "restart",
-      opened,
-      await rejectOperation(collaborators, configuration.rejected),
-    );
-  }
-
   const stopped = await stopDailyFoundation(collaborators);
   if (stopped.exitCode !== 0) {
     return closeJournaledOperation(
@@ -1163,6 +1180,40 @@ export async function devRestart(collaborators) {
   );
   if (afterStop.failed !== null) {
     return afterStop.failed;
+  }
+
+  // T032-B04 — the journal is instrumentation only: the restart's start
+  // phase runs the EXACT accepted T028 validation boundary (canonical
+  // identity, then derived endpoints) after the stop phase and before any
+  // start work, identically to the unjournaled stop-then-start sequence.
+  const validation = await validateCanonicalDevelopmentConfiguration(
+    collaborators,
+    STARTUP_SURFACES,
+  );
+  if (validation.rejected !== undefined) {
+    return closeJournaledOperation(
+      collaborators,
+      DAILY_OPERATION_TARGET,
+      "restart",
+      opened,
+      validation.rejected,
+      STARTUP_SURFACES,
+    );
+  }
+  const endpointRejection = await rejectInvalidDailyEndpoints(
+    collaborators,
+    validation.outcome.configuration,
+    STARTUP_SURFACES,
+  );
+  if (endpointRejection !== null) {
+    return closeJournaledOperation(
+      collaborators,
+      DAILY_OPERATION_TARGET,
+      "restart",
+      opened,
+      endpointRejection,
+      STARTUP_SURFACES,
+    );
   }
 
   const started = await runJournaledStartWork(collaborators);
@@ -1445,16 +1496,15 @@ function resultFailureDiagnostic(result) {
 }
 
 /**
- * The bounded local execution-identity validation of the journaled
- * synthetic-acceptance lifecycle (the same dimensions the acceptance-only
- * interruption injection refuses): the environment must be the local
- * `development` environment, the runtime profile must be the operation
- * target's own profile (a hosted or mismatched profile is an identity
- * conflict), and the fixture provenance must be local-safe
- * (Production-derived values are unsupported here). This is deliberately NOT
- * a second configuration policy: the full canonical boundary remains the
- * single policy, enforced by the validating real configuration source and by
- * the unjournaled operations exactly as accepted.
+ * The bounded local execution-identity validation of the acceptance-only
+ * interruption injection (T032-B04 bounds it to that surface alone — the
+ * lifecycle commands run the exact canonical boundary in both modes): the
+ * environment must be the local `development` environment, the runtime
+ * profile must be the operation target's own profile (a hosted or mismatched
+ * profile is an identity conflict), and the fixture provenance must be
+ * local-safe (Production-derived values are unsupported here). This is
+ * deliberately NOT a second configuration policy for the lifecycle
+ * commands: the full canonical boundary remains the single policy.
  */
 function localExecutionIdentityRejection(config, target) {
   const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target] ?? "foundation";
@@ -1492,12 +1542,15 @@ function localExecutionIdentityRejection(config, target) {
 }
 
 /**
- * Load the execution context for a journaled lifecycle operation. A source
- * that throws a CARRIED closed diagnostic (the validating real source
- * enforcing the canonical boundary) is refused with exactly that diagnostic;
- * any other load failure is the documented missing-configuration rejection;
- * a loaded record is then checked against the bounded local identity rules
- * above. Returns `{ config }` or `{ rejected }` with the closed diagnostic.
+ * Load the execution context for the acceptance-only interruption injection
+ * (NOT the lifecycle commands — those run the exact canonical boundary in
+ * both modes, T032-B04). A source that throws a CARRIED closed diagnostic
+ * (the validating real source enforcing the canonical boundary) is refused
+ * with exactly that diagnostic; any other load failure is the documented
+ * missing-configuration rejection; a loaded record is then checked against
+ * the bounded local identity rules above (the injector's own contract: it
+ * refuses hosted and Production-derived configuration). Returns
+ * `{ config }` or `{ rejected }` with the closed diagnostic.
  */
 async function loadLifecycleConfiguration(collaborators, target) {
   let config;
@@ -2921,14 +2974,16 @@ class CanonicalConfigurationRejection extends Error {
 }
 
 /**
- * The VALIDATING real Development configuration source (the journaled
- * command path): load the ignored local copy and enforce the accepted T010
- * canonical boundary — the single configuration policy — BEFORE the record
- * is handed to any operation. An absent local copy stays the documented
- * missing-configuration rejection; a canonical refusal throws the carried
- * closed diagnostic. This keeps the real command surface's FR-006
- * reject-before-work behavior intact while the journaled lifecycle runs on
- * the injected synthetic acceptance contexts.
+ * The VALIDATING real Development configuration source: load the ignored
+ * local copy and enforce the accepted T010 canonical boundary — the single
+ * configuration policy — BEFORE the record is handed to any operation. An
+ * absent local copy stays the documented missing-configuration rejection; a
+ * canonical refusal throws the carried closed diagnostic, which every
+ * consuming operation refuses with verbatim. Defense in depth for the real
+ * command surface's FR-006 reject-before-work behavior: the operations
+ * themselves apply the same canonical boundary in both journaled and
+ * unjournaled modes (T032-B04), so the source-level enforcement changes no
+ * observable outcome.
  */
 async function loadValidatedDevelopmentConfiguration() {
   const config = await loadDevelopmentConfiguration();
