@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T030 IMPLEMENTATION AUTHORIZED
+- **Status:** T030 CHANGES REQUIRED — REWORK AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -29,14 +29,24 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** HUMAN ACCEPTED — independently reviewed and reconciled T029,
-  including accepted closure of T029-B01–T029-B03
-- **Phase status:** T029 ACCEPTED — T030 AUTHORIZED; T031+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T030-B01
+- **Phase status:** T030 REWORK AUTHORIZED; T031+ UNAUTHORIZED
 - **Previous completed scope:** T029 — idempotent Development stop and restart, including accepted
   closure of T029-B01–T029-B03
-- **Next valid action:** Claude Code implements only T030, returns implementation evidence, and
-  stops for independent Codex review; T031+ remain unauthorized
-- **Blocking issues:** NONE for accepted T029 scope
+- **Next valid action:** Claude Code corrects only T030-B01 at implementation tip
+  `2ef0875db6378801f40681e5c1ee7ffbacd28234`, returns corrective evidence, and stops for
+  independent Codex re-review; T031+ remain unauthorized
+- **Blocking issues:** T030-B01 — `foundationInventory` invokes `assessment.evaluate` and
+  `confirmation.issue` for reset/cleanup, implementing T031-owned action-bound confirmation-token
+  issuance despite the explicit T030 authorization excluding confirmation behavior
+- **T030 review evidence:** Reviewed exact tip `2ef0875db6378801f40681e5c1ee7ffbacd28234`
+  from authorization base `bc556735f27fe844b8b7a4effb40081c9fe641e6`; the diff is limited to
+  `scripts/foundation-operations.mjs` and is clean. Independent verification: focused inventory
+  27/27; full operations 82 passed / 12 expected T031 stub failures; TypeScript retains only the
+  four established later-task missing-export errors. Typed normalization, deterministic ordering,
+  exact-ownership conjunctions, blocked/read-only states, and output closure pass. T030-B01 is the
+  sole blocking scope violation; no lock, confirmation verification, re-inventory, drift refusal,
+  mutation, reset, cleanup, broad deletion, dependency, manifest, or lockfile change is present.
 - **Review evidence:** Corrective tip `969992645ebbe9948131a64ef6b0b9378894b829` is fetchable and
   follows replayed T029 implementation commit `e9da8ff52db8992ea8abb51c9732e24d556bb1eb`
   from rework authorization `8518f9f774ca4c15995f41f1b759ef859d4dcbeb`. Exact base-to-tip changes are
@@ -77,9 +87,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T030 — implement typed Podman inventory normalization and exact
-  resource/attachment ownership predicates in `scripts/foundation-operations.mjs` only; do not
-  begin T031 or add any mutating reset/cleanup path
+- **Task / Scope:** T030-B01 rework only in `scripts/foundation-operations.mjs`: remove the
+  T031-owned assessment/token-issuance path from `foundationInventory`; retain the T030 typed,
+  deterministic, fail-closed inventory normalization and exact resource/attachment ownership
+  predicates; do not add confirmation verification, locking, re-inventory, drift refusal, or any
+  mutation/reset/cleanup implementation
 - **Runtime:** Claude Code (`claude-developer`) using the installed Claude integration, bounded to
   T030 and required to stop before T031+
 - **Required references:** `specs/001-application-foundation/tasks.md` T030;
@@ -88,14 +100,14 @@
   `specs/001-application-foundation/contracts/foundation-operations.md` §Operation-target ownership
   and isolation; `specs/001-application-foundation/plan.md` §Runtime composition;
   `.specify/memory/constitution.md` Principles I–VI
-- **Expected verification:** Run the focused `scripts/foundation-operations.test.ts` inventory and
-  exact-ownership tests (including T020 cases), plus the full foundation-operations unit suite;
-  verify normalized output is typed, deterministic, safe, and exact ownership requires expected
-  type/name, checkout-scoped project, manifest membership, canonical and complete custom labels,
-  and expected attachments/mounts; verify ambiguous, colliding, stale/mislabeled, or unexpectedly
-  attached resources are blocked/read-only; verify no T031 confirmation, locking, re-inventory, or
-  mutation behavior is implemented
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Expected verification:** Run the focused T030 status/normalization and exact-ownership refusal
+  tests plus the full `scripts/foundation-operations.test.ts` suite; classify remaining failures by
+  later task. Prove no invocation of `assessment.evaluate`, `confirmation.issue`,
+  `confirmation.verify`, locking, re-inventory, drift refusal, or mutation is reachable from the
+  T030 implementation. Re-run `npx tsc --noEmit` and confirm no new errors beyond the four
+  established later-task missing exports. Confirm the corrective diff remains limited to
+  `scripts/foundation-operations.mjs`.
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
