@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T030 CHANGES REQUIRED — REWORK AUTHORIZED
+- **Status:** T030 REVIEW PASS — PRODUCT OWNER HUMAN GATE
 
 ## Active Feature Mirror
 
@@ -29,24 +29,23 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T030-B01
-- **Phase status:** T030 REWORK AUTHORIZED; T031+ UNAUTHORIZED
+- **Current review result:** PASS — T030-B01 closed
+- **Phase status:** T030 REVIEWED — AWAITING PRODUCT OWNER ACCEPTANCE; T031+ UNAUTHORIZED
 - **Previous completed scope:** T029 — idempotent Development stop and restart, including accepted
   closure of T029-B01–T029-B03
-- **Next valid action:** Claude Code corrects only T030-B01 at implementation tip
-  `2ef0875db6378801f40681e5c1ee7ffbacd28234`, returns corrective evidence, and stops for
-  independent Codex re-review; T031+ remain unauthorized
-- **Blocking issues:** T030-B01 — `foundationInventory` invokes `assessment.evaluate` and
-  `confirmation.issue` for reset/cleanup, implementing T031-owned action-bound confirmation-token
-  issuance despite the explicit T030 authorization excluding confirmation behavior
-- **T030 review evidence:** Reviewed exact tip `2ef0875db6378801f40681e5c1ee7ffbacd28234`
-  from authorization base `bc556735f27fe844b8b7a4effb40081c9fe641e6`; the diff is limited to
-  `scripts/foundation-operations.mjs` and is clean. Independent verification: focused inventory
-  27/27; full operations 82 passed / 12 expected T031 stub failures; TypeScript retains only the
-  four established later-task missing-export errors. Typed normalization, deterministic ordering,
-  exact-ownership conjunctions, blocked/read-only states, and output closure pass. T030-B01 is the
-  sole blocking scope violation; no lock, confirmation verification, re-inventory, drift refusal,
-  mutation, reset, cleanup, broad deletion, dependency, manifest, or lockfile change is present.
+- **Next valid action:** Product Owner Human Gate accepts or rejects reviewed T030 corrective tip
+  `659136afaaf8de633875473b1965b8ffea0acfd5`; do not authorize T031 in this issue
+- **Blocking issues:** NONE for reviewed T030 scope; T030-B01 is closed
+- **T030 review evidence:** Exact corrective tip `659136afaaf8de633875473b1965b8ffea0acfd5`
+  follows rework authorization `197f7d675068a41f2567044a08c9dda079af0366`; the exact diff is
+  limited to `scripts/foundation-operations.mjs` and is clean. Independent verification: focused
+  T030 status/normalization and ownership-refusal cases 20 passed with the one assessment-predicate
+  case correctly remaining T031; full operations 74 passed / 20 expected T031 failures; TypeScript
+  retains only the four established later-task missing-export errors. T030-B01 is closed:
+  `foundationInventory` reaches only inventory inspection and no assessment, confirmation, lock,
+  re-inventory, drift-refusal, mutation, reset, cleanup, or broad-deletion path. Typed deterministic
+  normalization, exact ownership, blocked/read-only handling, output closure, dependencies,
+  manifests, and lockfile remain compliant.
 - **Review evidence:** Corrective tip `969992645ebbe9948131a64ef6b0b9378894b829` is fetchable and
   follows replayed T029 implementation commit `e9da8ff52db8992ea8abb51c9732e24d556bb1eb`
   from rework authorization `8518f9f774ca4c15995f41f1b759ef859d4dcbeb`. Exact base-to-tip changes are
@@ -61,8 +60,8 @@
   are unchanged.
 - **Non-blocking notes:** Independent npm used Node 24.11.0 with npm 11.6.1, below the repository's
   npm 12 engine pin; this did not affect the focused unit results, but full prerequisite acceptance
-  still requires the approved npm version. The failed provider response reported a reset time of
-  `2026-08-25 03:23:56`; this is diagnostic timing, not proof that capacity is available.
+  still requires the approved npm version. ESLint remains unavailable because `@eslint/js` and the
+  completed check entry point belong to later task scope.
 - **Reconciliation evidence:** Human-authorized non-rewriting merge
   `b16c06905f97566a279283df285da1fd3cfb2573` joins canonical governance head
   `5d2967cf1d536214c2ffea3fdd2877c48904ca5c` and accepted T028 implementation tip
@@ -87,27 +86,12 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T030-B01 rework only in `scripts/foundation-operations.mjs`: remove the
-  T031-owned assessment/token-issuance path from `foundationInventory`; retain the T030 typed,
-  deterministic, fail-closed inventory normalization and exact resource/attachment ownership
-  predicates; do not add confirmation verification, locking, re-inventory, drift refusal, or any
-  mutation/reset/cleanup implementation
-- **Runtime:** Claude Code (`claude-developer`) using the installed Claude integration, bounded to
-  T030 and required to stop before T031+
-- **Required references:** `specs/001-application-foundation/tasks.md` T030;
-  `specs/001-application-foundation/spec.md` FR-004, FR-017, SC-002;
-  `specs/001-application-foundation/data-model.md` §Owned Runtime Resource and §Resource Inventory;
-  `specs/001-application-foundation/contracts/foundation-operations.md` §Operation-target ownership
-  and isolation; `specs/001-application-foundation/plan.md` §Runtime composition;
-  `.specify/memory/constitution.md` Principles I–VI
-- **Expected verification:** Run the focused T030 status/normalization and exact-ownership refusal
-  tests plus the full `scripts/foundation-operations.test.ts` suite; classify remaining failures by
-  later task. Prove no invocation of `assessment.evaluate`, `confirmation.issue`,
-  `confirmation.verify`, locking, re-inventory, drift refusal, or mutation is reachable from the
-  T030 implementation. Re-run `npx tsc --noEmit` and confirm no new errors beyond the four
-  established later-task missing exports. Confirm the corrective diff remains limited to
-  `scripts/foundation-operations.mjs`.
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T030 independently reviewed PASS; Product Owner Human Gate pending;
+  T031+ unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
