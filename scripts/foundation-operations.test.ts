@@ -1230,6 +1230,151 @@ describe("Foundation daily operations — T019 (tests-first for T027–T029)", (
   });
 
   // -------------------------------------------------------------------------
+  // T029-B01/T029-B02 rework regressions — the exact stop operations are
+  // authoritative and repeat-safe (never gated on readiness/running
+  // observations), and a stop refusal — the adapter's fail-closed signal
+  // for unproven ownership — is never swallowed into success.
+  // -------------------------------------------------------------------------
+
+  it("dev:stop issues the exact stop operations even when nothing reports running — readiness is never used as proof of absence (T029-B01)", async () => {
+    const harness = makeCollaborators();
+    const { collaborators, dbState } = harness;
+    // The B01 defect class: a database container may be running while its
+    // engine endpoint is NOT accepting connections (still starting,
+    // unhealthy, mid-restart), and no native process reports running. The
+    // stop operations are still the authoritative teardown and MUST be
+    // issued.
+    dbState.running = false;
+    let databaseStopRequests = 0;
+    collaborators.database.stop = async () => {
+      databaseStopRequests += 1;
+    };
+    const processStopRequests: Record<string, number> = {};
+    for (const name of NATIVE_PROCESSES) {
+      processStopRequests[name] = 0;
+    }
+    collaborators.processes.stop = async (name: string) => {
+      processStopRequests[name] = (processStopRequests[name] ?? 0) + 1;
+    };
+    // Running/readiness observations must never be consulted to decide
+    // whether there is something to stop.
+    let databaseReadinessConsultations = 0;
+    collaborators.database.isRunning = async () => {
+      databaseReadinessConsultations += 1;
+      return false;
+    };
+    let processReadinessConsultations = 0;
+    collaborators.processes.isRunning = async () => {
+      processReadinessConsultations += 1;
+      return false;
+    };
+
+    const result = await devStop(collaborators);
+
+    expect(result.exitCode).toBe(0);
+    // The exact stop operations ran despite every readiness/running
+    // observation reporting nothing to do.
+    expect(databaseStopRequests).toBe(1);
+    for (const name of NATIVE_PROCESSES) {
+      expect(processStopRequests[name]).toBe(1);
+    }
+    // Readiness was never used as absence-proof.
+    expect(databaseReadinessConsultations).toBe(0);
+    expect(processReadinessConsultations).toBe(0);
+    // No mutation path of any kind exists in the stop.
+    expect(dbState.volumeDeleted).toBe(false);
+  });
+
+  it("repeated dev:stop re-issues the same exact stop operations — repetition is safe through the stop itself, not skip logic (T029-B01)", async () => {
+    const harness = makeCollaborators();
+    const { collaborators, dbState } = harness;
+    dbState.running = false;
+    let databaseStopRequests = 0;
+    collaborators.database.stop = async () => {
+      databaseStopRequests += 1;
+    };
+    const processStopRequests: Record<string, number> = {};
+    for (const name of NATIVE_PROCESSES) {
+      processStopRequests[name] = 0;
+    }
+    collaborators.processes.stop = async (name: string) => {
+      processStopRequests[name] = (processStopRequests[name] ?? 0) + 1;
+    };
+
+    const first = await devStop(collaborators);
+    const second = await devStop(collaborators);
+
+    // Both invocations succeed and each re-issues the exact stop operations;
+    // the safety of repetition is owned by the stop operation itself (an
+    // adapter-level no-op reconcile), never by endpoint-observed skipping.
+    expect(first.exitCode).toBe(0);
+    expect(second.exitCode).toBe(0);
+    expect(databaseStopRequests).toBe(2);
+    for (const name of NATIVE_PROCESSES) {
+      expect(processStopRequests[name]).toBe(2);
+    }
+    expect(dbState.volumeDeleted).toBe(false);
+  });
+
+  it("dev:stop fails closed when a native-process stop refuses (unproven ownership) — no success claim, no further stop attempted (T029-B02)", async () => {
+    const harness = makeCollaborators();
+    const { collaborators, dbState } = harness;
+    // A stop adapter refuses exactly the way the real adapter refuses on
+    // unreadable/missing PID identity evidence: by throwing instead of
+    // signalling a process it cannot prove it owns.
+    const requestedStops: string[] = [];
+    collaborators.processes.stop = async (name: string) => {
+      requestedStops.push(name);
+      if (name === "public") {
+        throw new Error("stop refused: recorded process identity unproven");
+      }
+    };
+    let databaseStopRequests = 0;
+    collaborators.database.stop = async () => {
+      databaseStopRequests += 1;
+    };
+
+    const result = await devStop(collaborators);
+
+    // The refusal is never swallowed into success: non-zero with exactly the
+    // closed application failure mapping.
+    expect(result.exitCode).not.toBe(0);
+    expect(result.reasonCode).toBe("OPERATIONAL_FAILURE");
+    expect(result.diagnosticScope).toBe("daily");
+    expect(result.component).toBe("application");
+    expect(result.remediation).toBe("RETRY_SAFE_OPERATION");
+    // Fail closed at the first refusal: the remaining native process and the
+    // database stop were never attempted.
+    expect(requestedStops).toEqual(["server", "public"]);
+    expect(databaseStopRequests).toBe(0);
+    expect(dbState.volumeDeleted).toBe(false);
+  });
+
+  it("dev:stop fails closed when the database stop refuses — the refusal is reported, never bypassed (T029-B02)", async () => {
+    const harness = makeCollaborators();
+    const { collaborators, dbState } = harness;
+    const processStopRequests: string[] = [];
+    collaborators.processes.stop = async (name: string) => {
+      processStopRequests.push(name);
+    };
+    collaborators.database.stop = async () => {
+      throw new Error("stop refused: database stop failed");
+    };
+
+    const result = await devStop(collaborators);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.reasonCode).toBe("OPERATIONAL_FAILURE");
+    expect(result.diagnosticScope).toBe("daily");
+    expect(result.component).toBe("database");
+    expect(result.remediation).toBe("RETRY_SAFE_OPERATION");
+    // The native processes were stopped first (the documented teardown
+    // order) and the database refusal is the reported failure.
+    expect(processStopRequests).toEqual([...NATIVE_PROCESSES]);
+    expect(dbState.volumeDeleted).toBe(false);
+  });
+
+  // -------------------------------------------------------------------------
   // Execution identities and non-selectable hosted/Production target
   // -------------------------------------------------------------------------
 

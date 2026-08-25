@@ -89,11 +89,15 @@
  * test. The real adapters at the bottom of this file are used only by the
  * command-line entry point. Idempotency of repeated `dev:setup`,
  * `dev:start`, and `dev:stop` is owned by the adapters (`compose up
- * --detach` reconciles; `compose stop` addresses only the exact named
- * database container; the migration boundary is idempotent; a native
- * process whose endpoint already accepts connections is not spawned
- * again, and a recorded process that is already gone is not signalled),
- * never by hidden module state.
+ * --detach` reconciles; `compose stop` is issued unconditionally and
+ * addresses only the exact named database container, where stopping an
+ * already-stopped or absent container is a successful no-op reconcile —
+ * T029-B01; the migration boundary is idempotent; a native process whose
+ * endpoint already accepts connections is not spawned again; a recorded
+ * process that is already gone is not signalled; and a recorded process is
+ * signalled only when its command-line identity is positively verified,
+ * with unreadable or missing identity evidence treated as unproven
+ * ownership — T029-B02), never by hidden module state.
  *
  * T030+ operations (`foundation:inventory`, `dev:reset`,
  * `foundation:cleanup`) are exported as bounded not-implemented stubs so
@@ -1040,26 +1044,22 @@ async function startDevelopmentDatabase() {
 
 /**
  * Stop ONLY the Development database service of the accepted T026 manifest.
- * `compose stop` gracefully halts the exact checkout-scoped named container
- * WITHOUT removing it, its network, or its named volume — routine stop never
- * touches Development data (FR-004/SC-002); removal is exclusively the
- * later, explicitly confirmed reset/cleanup path. Adapter-owned
- * idempotency: when the engine's loopback endpoint is not accepting
- * connections there is nothing to stop, so repeated `dev:stop` invocations
- * stop nothing and still succeed; unreadable local configuration does not
- * block the stop (the exact project/service addressing needs no
- * configuration value).
+ * The exact checkout-scoped Compose `stop database` operation is
+ * AUTHORITATIVE (T029-B01): it is issued unconditionally, never gated on
+ * endpoint readiness — a database container can be running while starting,
+ * unhealthy, or otherwise not accepting connections, so a non-accepting
+ * endpoint is never proof of container absence. `compose stop` gracefully
+ * halts the exact named container WITHOUT removing it, its network, or its
+ * named volume — routine stop never touches Development data
+ * (FR-004/SC-002); removal is exclusively the later, explicitly confirmed
+ * reset/cleanup path. Repetition is safe through the stop operation itself:
+ * stopping an already-stopped or absent container of this exact
+ * checkout-scoped project is a successful no-op reconcile, so repeated
+ * `dev:stop` invocations re-issue the same exact stop and still succeed.
+ * No configuration value is read or surfaced — the exact project/service
+ * addressing derives only from the checkout identity.
  */
 async function stopDevelopmentDatabase() {
-  try {
-    if (!(await isDevelopmentDatabaseAcceptingConnections())) {
-      return;
-    }
-  } catch {
-    // Unreadable local configuration: proceed to the stop anyway — Compose
-    // addresses only this checkout-scoped project's exact named container,
-    // and no configuration value is surfaced anywhere.
-  }
   const { checkoutId, composeProjectName } = checkoutScopedIdentity();
   await execFileAsync(
     "podman",
@@ -1530,12 +1530,14 @@ async function removeProcessPid(name) {
 }
 
 /**
- * Whether the recorded PID still names THIS checkout's native process: on
- * `/proc`-exposing runtimes the child's actual command line must still
- * carry the per-process identity marker, so a recycled foreign PID is
- * never signalled as ours; where `/proc` is unavailable, liveness alone is
- * the best available guard. The command line is verified and discarded —
- * never surfaced on any output surface.
+ * Whether the recorded PID still names THIS checkout's native process: the
+ * child's ACTUAL command line — read from `/proc/<pid>/cmdline` — must
+ * POSITIVELY carry the per-process identity marker. Identity evidence is
+ * required, never assumed (T029-B02): when the command line is unreadable
+ * or missing (a non-`/proc` runtime, permission denial, an absent entry),
+ * ownership is UNPROVEN and the caller must refuse to signal rather than
+ * risk a recycled or foreign PID. The command line is verified and
+ * immediately discarded — never surfaced on any output surface.
  */
 async function recordedProcessIdentityHolds(pid, name) {
   const marker = PROCESS_IDENTITY_MARKERS[name];
@@ -1546,9 +1548,9 @@ async function recordedProcessIdentityHolds(pid, name) {
     const commandLine = await readFile(`/proc/${pid}/cmdline`, "utf8");
     return commandLine.includes(marker);
   } catch {
-    // The runtime does not expose /proc (or the process is already gone):
-    // the caller's liveness check remains the guard.
-    return true;
+    // Unreadable or missing identity evidence is unproven ownership, never
+    // permission to signal (fail closed).
+    return false;
   }
 }
 
@@ -1594,11 +1596,13 @@ async function waitForNativeProcessStop(name) {
  * Adapter-owned idempotency: no recorded PID means nothing this adapter
  * started (a never-started or already-stopped process) and stopping is a
  * no-op; a recorded process that already exited is not signalled again.
- * An endpoint held with no recorded PID, or a recorded PID whose command
- * line no longer matches this checkout's process, is NOT signalled —
- * signalling an unowned process is outside this Delivery's ownership rules,
- * so the adapter refuses (throws) and the operation reports the closed
- * failure for manual attention instead.
+ * A signal is sent ONLY when the recorded PID's command-line identity is
+ * POSITIVELY verified (T029-B02): an endpoint held with no recorded PID, a
+ * recorded PID whose identity evidence is unreadable or missing, or a
+ * recorded PID that no longer matches this checkout's process is NOT
+ * signalled — signalling an unowned process is outside this Delivery's
+ * ownership rules, so the adapter refuses (throws) and the operation
+ * reports the closed failure for manual attention instead.
  */
 async function stopNativeProcess(name) {
   if (PROCESS_IDENTITY_MARKERS[name] === undefined) {
