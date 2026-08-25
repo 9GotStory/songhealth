@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T032 IMPLEMENTATION AUTHORIZED
+- **Status:** T032 CHANGES REQUIRED
 
 ## Active Feature Mirror
 
@@ -29,13 +29,18 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** HUMAN ACCEPTED — independently reviewed T031; T031-B01 accepted closed
-- **Phase status:** T031 ACCEPTED — T032 AUTHORIZED; T033+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T032-B01–T032-B03
+- **Phase status:** T031 ACCEPTED — T032 REWORK AUTHORIZED; T033+ UNAUTHORIZED
 - **Previous completed scope:** T031 — action-bound exact-evidence confirmations, per-target lock,
   immediate re-inventory/evidence recomputation, drift refusal, and bounded exact mutation
-- **Next valid action:** Claude Code implements only T032, returns implementation evidence, and
-  stops for independent Codex review; T033+ remain unauthorized
-- **Blocking issues:** NONE for reviewed T031 scope
+- **Next valid action:** Claude Code corrects only T032-B01–T032-B03 from the exact persisted
+  REWORK authorization base, returns corrective evidence, and stops for independent re-review;
+  T033+ remain unauthorized
+- **Blocking issues:** T032-B01 — the accepted routine `devRestart` regression test now returns
+  non-zero on a fresh journal-enabled harness; T032-B02 — existing setup/stop/restart lifecycle
+  actions are not journaled before work and after their phases; T032-B03 — unreadable/corrupt
+  journals are normalized to absence and terminal journal-write failures are swallowed, permitting
+  work or success without durable unambiguous journal state
 - **T031 review evidence:** Human-authorized non-rewriting reconciliation merge
   `e56f29144e5f8638b3ebbb70d36c193488bc7206` has first parent rework authorization
   `7b2aa1404f95db7533be0898c0b3352c62bd0588` and second parent exact corrective tip
@@ -109,12 +114,14 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T032 — implement mode-`0600` atomic per-operation-target lifecycle journals,
-  signal/interruption handling, and immutable primary/secondary failure semantics in
-  `scripts/foundation-operations.mjs` only; do not begin T033 recovery-assessment normalization,
-  T034 repair behavior, or T037 command-adapter work
+- **Task / Scope:** T032 REWORK — correct only T032-B01–T032-B03 in
+  `scripts/foundation-operations.mjs`: restore accepted routine restart behavior; journal every
+  currently implemented mutating lifecycle action (setup including migration phases, start, stop,
+  restart, reset, cleanup) before work and after each durable phase without adding later command
+  adapters; and fail closed on unreadable/corrupt journals or failed terminal persistence so no
+  operation proceeds or reports success with absent/ambiguous required journal evidence
 - **Runtime:** Claude Code (`claude-developer`) using the installed Claude integration, bounded to
-  T032 and required to stop before T033+
+  T032-B01–T032-B03 and required to stop before T033+
 - **Required references:** `specs/001-application-foundation/tasks.md` T032;
   `specs/001-application-foundation/spec.md` FR-003 and FR-017;
   `specs/001-application-foundation/data-model.md` §Lifecycle Operation;
@@ -123,16 +130,17 @@
   `specs/001-application-foundation/research.md` Decision 5;
   `specs/001-application-foundation/quickstart.md` §5;
   `tests/verification/lifecycle-recovery.test.ts`; `.specify/memory/constitution.md` Principles I–VI
-- **Expected verification:** Run the focused T032 lifecycle/interruption cases in
-  `tests/verification/lifecycle-recovery.test.ts` and the full foundation-operations unit suite;
-  verify journals are checkout-local, ignored, atomically replaced, mode `0600`, written before
-  mutation and after every phase, contain only normalized safe state, and keep the first failure
-  immutable while appending later failures as secondary; verify SIGINT/SIGTERM records
-  `OPERATION_INTERRUPTED`, attempts only exact current-run cleanup, preserves conventional signal
-  exit semantics, and leaves the target stopped/not-ready; verify unclosed `running` journals are
-  treated as interrupted on the next invocation; verify T033+ behavior, dependencies, manifests,
-  package command surface, declaration files, and lockfile are unchanged
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Expected verification:** Reproduce and close the exact accepted regression with
+  `npx vitest run tests/verification/foundation-operation-target.test.ts -t "routine dev:restart preserves"`;
+  run `npx vitest run scripts/foundation-operations.test.ts`, the focused T032 cases in
+  `tests/verification/lifecycle-recovery.test.ts`, and `npx vitest run`; compare base-to-corrective
+  pass/failure sets and report zero regressions. Provide focused injected evidence that setup,
+  stop, and restart write `running` before work and terminal/phase records afterward; that corrupt
+  or unreadable journal reads refuse before work; and that a terminal-write failure returns a
+  closed non-zero result rather than success. Reconfirm atomic mode-`0600` real storage, immutable
+  primary/secondary failure semantics, signal exit behavior, and no T033+ behavior, dependency,
+  manifest, package command, declaration-file, or lockfile changes
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
