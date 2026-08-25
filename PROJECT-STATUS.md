@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE ACCEPTED — T031
+- **Status:** T032 IMPLEMENTATION AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -30,11 +30,11 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** HUMAN ACCEPTED — independently reviewed T031; T031-B01 accepted closed
-- **Phase status:** T031 ACCEPTED — T032+ UNAUTHORIZED
+- **Phase status:** T031 ACCEPTED — T032 AUTHORIZED; T033+ UNAUTHORIZED
 - **Previous completed scope:** T031 — action-bound exact-evidence confirmations, per-target lock,
   immediate re-inventory/evidence recomputation, drift refusal, and bounded exact mutation
-- **Next valid action:** NONE IN THIS ISSUE — stop after canonical T031 acceptance integration;
-  T032+ remain unauthorized
+- **Next valid action:** Claude Code implements only T032, returns implementation evidence, and
+  stops for independent Codex review; T033+ remain unauthorized
 - **Blocking issues:** NONE for reviewed T031 scope
 - **T031 review evidence:** Human-authorized non-rewriting reconciliation merge
   `e56f29144e5f8638b3ebbb70d36c193488bc7206` has first parent rework authorization
@@ -109,11 +109,30 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T031 Human Gate accepted; T032+ unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T032 — implement mode-`0600` atomic per-operation-target lifecycle journals,
+  signal/interruption handling, and immutable primary/secondary failure semantics in
+  `scripts/foundation-operations.mjs` only; do not begin T033 recovery-assessment normalization,
+  T034 repair behavior, or T037 command-adapter work
+- **Runtime:** Claude Code (`claude-developer`) using the installed Claude integration, bounded to
+  T032 and required to stop before T033+
+- **Required references:** `specs/001-application-foundation/tasks.md` T032;
+  `specs/001-application-foundation/spec.md` FR-003 and FR-017;
+  `specs/001-application-foundation/data-model.md` §Lifecycle Operation;
+  `specs/001-application-foundation/contracts/foundation-operations.md` §Failure behavior;
+  `specs/001-application-foundation/plan.md` §Operations and verification;
+  `specs/001-application-foundation/research.md` Decision 5;
+  `specs/001-application-foundation/quickstart.md` §5;
+  `tests/verification/lifecycle-recovery.test.ts`; `.specify/memory/constitution.md` Principles I–VI
+- **Expected verification:** Run the focused T032 lifecycle/interruption cases in
+  `tests/verification/lifecycle-recovery.test.ts` and the full foundation-operations unit suite;
+  verify journals are checkout-local, ignored, atomically replaced, mode `0600`, written before
+  mutation and after every phase, contain only normalized safe state, and keep the first failure
+  immutable while appending later failures as secondary; verify SIGINT/SIGTERM records
+  `OPERATION_INTERRUPTED`, attempts only exact current-run cleanup, preserves conventional signal
+  exit semantics, and leaves the target stopped/not-ready; verify unclosed `running` journals are
+  treated as interrupted on the next invocation; verify T033+ behavior, dependencies, manifests,
+  package command surface, declaration files, and lockfile are unchanged
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
