@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE ACCEPTED — T030
+- **Status:** T031 IMPLEMENTATION AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -30,11 +30,11 @@
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** HUMAN ACCEPTED — independently reviewed T030; T030-B01 accepted closed
-- **Phase status:** T030 ACCEPTED — T031+ UNAUTHORIZED
+- **Phase status:** T030 ACCEPTED — T031 AUTHORIZED; T032+ UNAUTHORIZED
 - **Previous completed scope:** T030 — typed Podman inventory normalization and exact
   resource/attachment ownership predicates, with T030-B01 accepted closed
-- **Next valid action:** NONE IN THIS ISSUE — stop after recording T030 acceptance; T031+ remain
-  unauthorized
+- **Next valid action:** Claude Code implements only T031, returns implementation evidence, and
+  stops for independent Codex review; T032+ remain unauthorized
 - **Blocking issues:** NONE for accepted T030 scope
 - **T030 review evidence:** Exact corrective tip `659136afaaf8de633875473b1965b8ffea0acfd5`
   follows rework authorization `197f7d675068a41f2567044a08c9dda079af0366`; the exact diff is
@@ -91,11 +91,29 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T030 Human Gate accepted; T031+ unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T031 — implement action-bound confirmation tokens, per-operation-target locking,
+  immediate re-inventory, applicable assessment-evidence recomputation, drift refusal, and bounded
+  exact mutation in `scripts/foundation-operations.mjs` only; do not begin T032 or add lifecycle
+  journals/signal handling
+- **Runtime:** Claude Code (`claude-developer`) using the installed Claude integration, bounded to
+  T031 and required to stop before T032+
+- **Required references:** `specs/001-application-foundation/tasks.md` T031;
+  `specs/001-application-foundation/spec.md` FR-004, FR-017, SC-002;
+  `specs/001-application-foundation/data-model.md` §Resource Inventory;
+  `specs/001-application-foundation/contracts/foundation-operations.md` §Operation-target
+  ownership and isolation and §Failure behavior; `specs/001-application-foundation/plan.md`
+  §Operations and verification; `.specify/memory/constitution.md` Principles I–VI
+- **Expected verification:** Run the focused T020/T031 destructive-operation cases in
+  `scripts/foundation-operations.test.ts`, plus the full foundation-operations unit suite; verify
+  tokens are action-bound and issued only for exact eligible inventories; verify the exact target
+  lock is acquired before immediate re-inventory and assessment recomputation; verify unavailable
+  lock, missing/mismatched token, blocked ownership, inventory/assessment drift, or collaborator
+  refusal produces the documented safe refusal with zero mutation; verify accepted reset/cleanup
+  removes only individually recorded exact resources and never uses prefixes, wildcards, label
+  filters, `--remove-orphans`, broad `down --volumes`, prune, unresolved variables, force removal,
+  or broad volume deletion; verify T032+ behavior, dependencies, manifests, and lockfile are
+  unchanged
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
