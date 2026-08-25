@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HUMAN GATE — T029 INDEPENDENT REVIEW PASS
+- **Status:** HUMAN GATE — T029 PASS HISTORY RECONCILED
 
 ## Active Feature Mirror
 
@@ -29,7 +29,8 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — T029, including T029-B01–T029-B03 corrective closure
+- **Current review result:** PASS AND RECONCILED — T029, including T029-B01–T029-B03 corrective
+  closure
 - **Phase status:** T029 AWAITS PRODUCT OWNER HUMAN GATE — T030+ UNAUTHORIZED
 - **Previous completed scope:** T028 — supervised native Development startup and bounded whole-
   foundation readiness, including accepted closure of T028-B01–T028-B05
@@ -59,6 +60,15 @@
   `ad5b7a5047a58e8b0e70bb670407fe307f7aa0e8`. The accepted tip is an ancestor of the merged head;
   its nine implementation files are byte-identical to the accepted tip; `PROJECT-STATUS.md` remains
   the canonical governance side; T028-B01–T028-B05 remain closed; T029+ remain unauthorized.
+- **T029 reconciliation evidence:** Human-authorized non-rewriting merge
+  `8b04f9c67da25a5e461e532abfb01dcb1bb2a024` joins canonical PASS governance head
+  `ecba7490c70af0c4ac73d78dbf681c3cf701c305` and reviewed T029 corrective tip
+  `969992645ebbe9948131a64ef6b0b9378894b829` from exact common base
+  `8518f9f774ca4c15995f41f1b759ef859d4dcbeb`. The reviewed tip is an ancestor of the merged head;
+  `package.json`, `scripts/foundation-operations.mjs`, and
+  `scripts/foundation-operations.test.ts` are byte-identical to the reviewed tip;
+  `PROJECT-STATUS.md` remains the canonical governance side; T029-B01–T029-B03 remain closed;
+  Authorized Implementation remains `NONE`; T030+ remain unauthorized.
 
 ## Authorized Implementation
 
