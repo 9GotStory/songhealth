@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T033 IMPLEMENTATION AUTHORIZED
+- **Status:** T033 CHANGES REQUIRED
 
 ## Active Feature Mirror
 
@@ -29,15 +29,33 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** HUMAN ACCEPTED — T032-B02–T032-B04 closed; T032-B01 reclassified as a
-  pre-existing expected-red T022 fixture, not a T032 regression
-- **Phase status:** T032 ACCEPTED; T033 AUTHORIZED; T034+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T033-B01–T033-B03
+- **Phase status:** T032 ACCEPTED; T033 REWORK AUTHORIZED; T034+ UNAUTHORIZED
 - **Previous completed scope:** T032 — checkout-local atomic lifecycle journals,
   interruption/signal handling, immutable primary/secondary failures, complete mutating-operation
   phase journaling, fail-closed journal persistence, and validation-transparent instrumentation
-- **Next valid action:** Claude Code implements only T033, returns implementation evidence, and
-  stops for independent Codex review; T034+ remain unauthorized
-- **Blocking issues:** None for T032 review
+- **Next valid action:** Claude Code corrects only T033-B01–T033-B03 from the exact persisted REWORK
+  authorization base, returns corrective evidence, and stops for independent re-review; T034+
+  remain unauthorized
+- **Blocking issues:** T033-B01 — an invalid/unrecognized `repairDisposition` normalizes to
+  `unavailable`, which can satisfy the destructive reset row when reconstructibility is confirmed;
+  untrusted or unproven repair disposition must fail closed to manual review. T033-B02 — arbitrary
+  non-empty evidence digest strings pass through unchanged, so the assessment does not guarantee
+  normalized SHA-256 digests or bind them to the required origin action/phase/target/profile and
+  immutable original failure. T033-B03 — `foundationStatus` does not reject a journal whose
+  operation target/runtime profile conflicts with the requested target or whose origin action/phase
+  is outside the allowlisted lifecycle enums, and can emit a normalized assessment from mismatched
+  identity evidence.
+- **T033 review evidence:** Exact implementation tip
+  `1ba7d3bcb34b8db82145d47a8fcb480f693c29c2` has authorized base
+  `24b09006869ef1923344a3dbb0fa2c71dcf9be74` as its sole parent; its clean base-to-tip diff is
+  limited to `scripts/foundation-operations.mjs` (+291/-3), with no T034+ implementation.
+  Independent verification reproduced lifecycle recovery at 43 passed / 6 failed and foundation
+  operations at 94/94. The 26 focused T033 decision tests pass, but inspection against the Recovery
+  Assessment data model and failure contract found T033-B01–T033-B03 above. The six residual
+  lifecycle failures retain the reported five T034 expected-red cases plus the pre-existing
+  canonical-configuration fixture interaction. Node 24.11.0/npm 11.6.1 remains below the npm 12
+  engine pin and is non-blocking for these focused results.
 - **T032 Product Owner acceptance:** Human Gate accepted corrective implementation tip
   `526dd012830ada2b4c69e68e79a249e319b41a45` and independent PASS governance record
   `87c872eda65e69e5d0b4b3ae7fc8a4a34fda61d5`; T032-B02–T032-B04 are accepted as closed,
@@ -138,10 +156,12 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T033 — implement the normalized, read-only Recovery Assessment and its fixed
-  target-appropriate retry/recover/reset/cleanup/manual-review decision order, binding normalized
-  evidence digests and the immutable origin failure in `scripts/foundation-operations.mjs` only;
-  do not begin T034 repair execution, T035 persistence/reset proof, or T037 command-adapter work
+- **Task / Scope:** T033 REWORK — correct only T033-B01–T033-B03 in
+  `scripts/foundation-operations.mjs`: fail closed to manual review for invalid/unproven repair
+  disposition; emit only normalized SHA-256 evidence digests fully bound to the required origin
+  identity/profile and immutable original failure; and reject mismatched target/profile or
+  non-allowlisted origin action/phase journal evidence. Do not begin T034 repair execution, T035
+  persistence/reset proof, or T037 command-adapter work
 - **Runtime:** Claude Code (`claude-developer`) using the installed Claude integration, bounded to
   T033 and required to stop before T034+
 - **Required references:** `specs/001-application-foundation/tasks.md` T033;
@@ -160,7 +180,7 @@
   retry/recover/reset/manual-review for Development and retry/cleanup/manual-review for
   Verification; verify T034+ behavior, dependencies, manifests, package command surface,
   declaration files, tests, and lockfile are unchanged
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
