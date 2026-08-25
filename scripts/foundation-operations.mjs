@@ -747,13 +747,15 @@ export async function devRestart(collaborators) {
 }
 
 // ---------------------------------------------------------------------------
-// T030 operation — foundation:inventory. Typed read-only normalization of the
-// injected inventory inspection plus the exact resource/attachment ownership
-// predicates (data-model.md §Owned Runtime Resource). The operation is
-// strictly read-only and T030-bounded: it takes no lock, consults no
-// assessment evidence, never touches the confirmation boundary, and performs
-// no mutation of any kind. Issuing or verifying an action-bound confirmation
-// token is T031 scope and is deliberately absent here.
+// T030/T031 operations — typed read-only normalization of the injected
+// inventory inspection plus the exact resource/attachment ownership predicates
+// (data-model.md §Owned Runtime Resource), the action-bound confirmation
+// token issued only for an exact eligible inventory, and the confirmed
+// destructive sequence that locks the operation target, immediately
+// re-inventories, recomputes the applicable assessment evidence, refuses
+// drift, and mutates only individually recorded exact resources
+// (data-model.md §Resource Inventory). No journal is read or written and no
+// signal/interruption handling exists here: those are T032 scope.
 // ---------------------------------------------------------------------------
 
 /**
@@ -819,6 +821,30 @@ const STATUS_ACTION = "status";
 const DESTRUCTIVE_ACTION_BY_TARGET = {
   development: "reset",
   verification: "cleanup",
+};
+
+/**
+ * The assessment-evidence predicate each destructive action is gated on
+ * (data-model.md §Resource Inventory: a token is emitted only when ownership
+ * AND every action-specific predicate pass). Reset requires the Data Store to
+ * be confirmed reconstructible; cleanup requires every target resource to be
+ * confirmed disposable. The evidence object is untrusted collaborator input,
+ * so the predicate is proven only by the field being exactly `true`.
+ */
+const ASSESSMENT_PREDICATE_BY_ACTION = {
+  reset: "reconstructibilityConfirmed",
+  cleanup: "disposabilityConfirmed",
+};
+
+/**
+ * The derived diagnostic scope of each operation target (Operations Contract
+ * §Configuration examples): a Development command reports `daily`, a
+ * Verification command reports `verification`. Only cross-target preflight
+ * may report `foundation`.
+ */
+const DIAGNOSTIC_SCOPE_BY_TARGET = {
+  development: "daily",
+  verification: "verification",
 };
 
 /**
@@ -989,6 +1015,21 @@ function normalizeTargetInventory(target, candidates) {
 }
 
 /**
+ * Whether the applicable assessment predicate for one destructive action is
+ * proven by the (untrusted) normalized evidence. Evidence that is not a
+ * well-formed object, or whose predicate field is anything but exactly
+ * `true`, is unproven — so an unavailable, malformed, or false predicate
+ * never issues or upholds a confirmation.
+ */
+function applicablePredicateHolds(action, evidence) {
+  if (evidence === null || typeof evidence !== "object" || Array.isArray(evidence)) {
+    return false;
+  }
+  const predicate = ASSESSMENT_PREDICATE_BY_ACTION[action];
+  return predicate !== undefined && evidence[predicate] === true;
+}
+
+/**
  * `foundation:inventory` — typed read-only inspection of one operation target
  * (FR-004/FR-017/SC-002; Operations Contract §Commands). The raw inspection is
  * normalized into the closed Owned Runtime Resource shape and emitted as the
@@ -996,11 +1037,12 @@ function normalizeTargetInventory(target, candidates) {
  * filesystem paths, and label values never become ordinary output. For the
  * read-only `status` action that is the whole operation. A destructive action
  * additionally requires proven exact ownership of the complete recorded
- * target and refuses with `RESOURCE_OWNERSHIP_UNPROVEN` otherwise — but this
- * T030 boundary stops there: it consults no assessment evidence and never
- * approaches the confirmation boundary, because action-bound confirmation
- * tokens, per-target locking, re-inventory, drift refusal, and mutation are
- * T031 scope. The operation therefore acquires no lock and mutates nothing.
+ * target and every applicable assessment predicate, and only then asks the
+ * confirmation boundary to mint the action-bound token for that exact
+ * inventory. Issuance is still read-only: it takes no lock and mutates
+ * nothing — the token only ever authorizes the separately confirmed
+ * destructive command, which re-establishes every predicate under the
+ * operation-target lock before any mutation.
  */
 export async function foundationInventory(collaborators, options) {
   const request = options === null || typeof options !== "object" ? {} : options;
@@ -1056,27 +1098,246 @@ export async function foundationInventory(collaborators, options) {
       ),
     );
   }
-  return { exitCode: 0, diagnosticScope: "foundation", resources: inventory.resources };
-}
+  if (action === STATUS_ACTION) {
+    return { exitCode: 0, diagnosticScope: "foundation", resources: inventory.resources };
+  }
 
-// ---------------------------------------------------------------------------
-// T031 operations — bounded not-implemented stubs. The accepted tests-first
-// contract imports the complete planned boundary; each stub throws until its
-// owning task implements it. No stub performs any work, so no later-task
-// behavior (action-bound confirmation tokens, locking, re-inventory, drift
-// refusal, or mutation) can run early.
-// ---------------------------------------------------------------------------
-
-function notImplemented(command) {
-  return async () => {
-    throw new Error(`operation not implemented by T030: ${command}`);
+  // T031 — the confirmation is action-specific and evidence-gated: exact
+  // ownership alone is insufficient, the action's own applicable predicate
+  // must also be proven, and the boundary — not this module — mints the
+  // opaque token bound to this exact (target, action).
+  let evidence;
+  try {
+    evidence = await collaborators.assessment.evaluate(target);
+  } catch {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("OPERATIONAL_FAILURE", "foundation", "orchestration", "INSPECT_OWNERSHIP"),
+    );
+  }
+  if (!applicablePredicateHolds(action, evidence)) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "DATA_RECONSTRUCTIBILITY_UNPROVEN",
+        "foundation",
+        "orchestration",
+        "INSPECT_OWNERSHIP",
+      ),
+    );
+  }
+  let token;
+  try {
+    token = await collaborators.confirmation.issue(target, action);
+  } catch {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("OPERATIONAL_FAILURE", "foundation", "orchestration", "INSPECT_OWNERSHIP"),
+    );
+  }
+  if (typeof token !== "string" || token.length === 0) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("OPERATIONAL_FAILURE", "foundation", "orchestration", "INSPECT_OWNERSHIP"),
+    );
+  }
+  return {
+    exitCode: 0,
+    diagnosticScope: "foundation",
+    resources: inventory.resources,
+    token,
   };
 }
 
-/** `dev:reset` — T031 scope. */
-export const devReset = notImplemented("dev:reset");
-/** `foundation:cleanup` — T031 scope. */
-export const foundationCleanup = notImplemented("foundation:cleanup");
+// ---------------------------------------------------------------------------
+// T031 operations — the confirmed destructive sequence. One shared core
+// serves both routed destructive commands: acquire the exact operation-target
+// lock, immediately re-inventory, immediately recompute the applicable
+// assessment evidence, refuse any drift, verify the presented action-bound
+// token, and only then remove individually recorded exact resources. No
+// journal is kept and no interruption is intercepted (T032 scope).
+// ---------------------------------------------------------------------------
+
+/**
+ * The locked phase of a confirmed destructive operation. Runs strictly
+ * between lock acquisition and lock release: the re-inventory is the first
+ * thing that happens under the lock and the evidence recompute immediately
+ * follows it, so any change to the confirmed inventory or assessment is
+ * observed before a single resource is touched.
+ */
+async function executeConfirmedMutation(collaborators, target, action, token) {
+  const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target];
+  let candidates;
+  try {
+    candidates = await collaborators.inventory.inspect(target);
+  } catch {
+    return destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
+  }
+  const inventory = normalizeTargetInventory(target, candidates);
+  const evidence = await collaborators.assessment.evaluate(target);
+
+  // Drift refusal (FR-017): the token was issued for one exact eligible
+  // inventory and assessment. A resource that disappeared, was re-observed
+  // mislabeled/stale/colliding, or evidence that no longer proves the action
+  // predicate means the confirmed target and the live target differ, so every
+  // mutation is refused with the documented drift reason code.
+  if (!inventory.ownershipProven || !applicablePredicateHolds(action, evidence)) {
+    return destructiveRefusal(collaborators, diagnosticScope, "RESOURCE_INVENTORY_CHANGED");
+  }
+
+  // The exact caller-presented token is submitted to the injected boundary
+  // under this command's bound action; the module never mints a substitute.
+  let confirmed;
+  try {
+    confirmed = await collaborators.confirmation.verify(target, action, token);
+  } catch {
+    return destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
+  }
+  if (confirmed !== true) {
+    return destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
+  }
+
+  // Bounded exact mutation: only the individually recorded exact resources of
+  // this target, each removed on its own through the exact-resource adapter,
+  // in the normalized inventory order. No broad or indirect deletion strategy
+  // exists on this path, and no non-target resource is addressed.
+  try {
+    for (const logicalKey of inventory.resources) {
+      await collaborators.mutation.removeExactResource(logicalKey);
+    }
+  } catch {
+    return destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
+  }
+  return { exitCode: 0, diagnosticScope };
+}
+
+/** One read-only destructive refusal: safe diagnostic, zero mutation. */
+function destructiveRefusal(collaborators, diagnosticScope, reasonCode) {
+  return rejectOperation(
+    collaborators,
+    safeDiagnostic(reasonCode, diagnosticScope, "orchestration", "INSPECT_OWNERSHIP"),
+  );
+}
+
+/**
+ * Refuse an unconfirmed destructive request read-only, reporting the most
+ * fundamental reason first: a target whose exact ownership cannot be proven
+ * could never have been issued a token at all, so that is the actionable
+ * refusal even though the presented confirmation is also missing. The
+ * eligibility check is a plain read-only inspection — no lock, no assessment
+ * recomputation, and no mutation of any kind.
+ */
+async function refuseUnconfirmedTarget(collaborators, target) {
+  const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target];
+  let candidates;
+  try {
+    candidates = await collaborators.inventory.inspect(target);
+  } catch {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "OPERATIONAL_FAILURE",
+        diagnosticScope,
+        "orchestration",
+        "CHECK_PREREQUISITES",
+      ),
+    );
+  }
+  const inventory = normalizeTargetInventory(target, candidates);
+  if (!inventory.ownershipProven) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "RESOURCE_OWNERSHIP_UNPROVEN",
+        diagnosticScope,
+        "orchestration",
+        "INSPECT_OWNERSHIP",
+      ),
+    );
+  }
+  return rejectOperation(
+    collaborators,
+    safeDiagnostic("OPERATIONAL_FAILURE", diagnosticScope, "orchestration", "CHECK_PREREQUISITES"),
+  );
+}
+
+/**
+ * The confirmed destructive sequence shared by both routed destructive
+ * commands. A missing confirmation refuses before any lock is touched. An
+ * unavailable operation-target lock refuses without mutating and without
+ * releasing a lock this operation does not hold. Once the lock is acquired,
+ * every outcome — accepted mutation or any refusal — releases it, and the
+ * release is the last thing the operation does.
+ */
+async function confirmedDestructiveOperation(collaborators, target, action, token) {
+  const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target];
+  if (typeof token !== "string" || token.length === 0) {
+    return refuseUnconfirmedTarget(collaborators, target);
+  }
+  let acquired;
+  try {
+    acquired = await collaborators.lock.acquire(target);
+  } catch {
+    acquired = false;
+  }
+  if (acquired !== true) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("OPERATIONAL_FAILURE", diagnosticScope, "orchestration", "RETRY_SAFE_OPERATION"),
+    );
+  }
+  let result;
+  try {
+    result = await executeConfirmedMutation(collaborators, target, action, token);
+  } catch {
+    result = destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
+  }
+  try {
+    await collaborators.lock.release(target);
+  } catch {
+    // The lock adapter's own failure never masks the operation's result and
+    // never widens the mutation: the outcome above stands.
+  }
+  return result;
+}
+
+/**
+ * `dev:reset` — the confirmed Development reset (FR-004/FR-017/SC-002;
+ * Operations Contract §Commands). Requires an action-bound reset token
+ * issued for the exact Development inventory, then re-inventory under the
+ * Development operation-target lock, requires the recomputed
+ * reconstructibility evidence to still hold, and removes only the
+ * individually recorded exact Data Store resources. Any refusal mutates
+ * nothing.
+ */
+export async function devReset(collaborators, token) {
+  return confirmedDestructiveOperation(collaborators, "development", "reset", token);
+}
+
+/**
+ * `foundation:cleanup` — the confirmed Verification disposal (FR-004/FR-017;
+ * Operations Contract §Commands). Cleanup is routed to the Verification
+ * operation target alone, so any other target is refused exactly like an
+ * unknown one before a lock is touched. With a valid action-bound cleanup
+ * token it re-inventories under the Verification lock, requires the
+ * recomputed disposability evidence to still hold, and removes only the
+ * individually recorded exact Verification resources; it never addresses a
+ * Development resource.
+ */
+export async function foundationCleanup(collaborators, target, token) {
+  if (typeof target !== "string" || DESTRUCTIVE_ACTION_BY_TARGET[target] !== "cleanup") {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "OPERATIONAL_FAILURE",
+        "foundation",
+        "orchestration",
+        "CHECK_PREREQUISITES",
+      ),
+    );
+  }
+  return confirmedDestructiveOperation(collaborators, target, "cleanup", token);
+}
 
 // ---------------------------------------------------------------------------
 // Real adapters — used only by the command-line entry point. The accepted
