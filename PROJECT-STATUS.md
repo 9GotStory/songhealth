@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T030 REVIEW PASS — PRODUCT OWNER HUMAN GATE
+- **Status:** HUMAN GATE ACCEPTED — T030
 
 ## Active Feature Mirror
 
@@ -29,13 +29,13 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — T030-B01 closed
-- **Phase status:** T030 REVIEWED — AWAITING PRODUCT OWNER ACCEPTANCE; T031+ UNAUTHORIZED
-- **Previous completed scope:** T029 — idempotent Development stop and restart, including accepted
-  closure of T029-B01–T029-B03
-- **Next valid action:** Product Owner Human Gate accepts or rejects reviewed T030 corrective tip
-  `659136afaaf8de633875473b1965b8ffea0acfd5`; do not authorize T031 in this issue
-- **Blocking issues:** NONE for reviewed T030 scope; T030-B01 is closed
+- **Current review result:** HUMAN ACCEPTED — independently reviewed T030; T030-B01 accepted closed
+- **Phase status:** T030 ACCEPTED — T031+ UNAUTHORIZED
+- **Previous completed scope:** T030 — typed Podman inventory normalization and exact
+  resource/attachment ownership predicates, with T030-B01 accepted closed
+- **Next valid action:** NONE IN THIS ISSUE — stop after recording T030 acceptance; T031+ remain
+  unauthorized
+- **Blocking issues:** NONE for accepted T030 scope
 - **T030 review evidence:** Exact corrective tip `659136afaaf8de633875473b1965b8ffea0acfd5`
   follows rework authorization `197f7d675068a41f2567044a08c9dda079af0366`; the exact diff is
   limited to `scripts/foundation-operations.mjs` and is clean. Independent verification: focused
@@ -46,6 +46,11 @@
   re-inventory, drift-refusal, mutation, reset, cleanup, or broad-deletion path. Typed deterministic
   normalization, exact ownership, blocked/read-only handling, output closure, dependencies,
   manifests, and lockfile remain compliant.
+- **T030 Product Owner acceptance:** Human Gate accepted reviewed corrective implementation tip
+  `659136afaaf8de633875473b1965b8ffea0acfd5` and independent PASS governance record
+  `8482bd059dd7107883b139ca4d304622efe0a45b`; T030-B01 is accepted as closed. The accepted
+  implementation tip is already an ancestor of the canonical PASS head, so no history
+  reconciliation is required. Authorized Implementation remains `NONE`; T031+ remain unauthorized.
 - **Review evidence:** Corrective tip `969992645ebbe9948131a64ef6b0b9378894b829` is fetchable and
   follows replayed T029 implementation commit `e9da8ff52db8992ea8abb51c9732e24d556bb1eb`
   from rework authorization `8518f9f774ca4c15995f41f1b759ef859d4dcbeb`. Exact base-to-tip changes are
@@ -86,8 +91,7 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T030 independently reviewed PASS; Product Owner Human Gate pending;
-  T031+ unauthorized
+- **Task / Scope:** NONE — T030 Human Gate accepted; T031+ unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE
