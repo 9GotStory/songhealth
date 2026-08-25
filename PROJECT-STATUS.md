@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T032 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T033 IMPLEMENTATION AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -31,11 +31,12 @@
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
 - **Current review result:** HUMAN ACCEPTED — T032-B02–T032-B04 closed; T032-B01 reclassified as a
   pre-existing expected-red T022 fixture, not a T032 regression
-- **Phase status:** T032 ACCEPTED; T033+ UNAUTHORIZED
+- **Phase status:** T032 ACCEPTED; T033 AUTHORIZED; T034+ UNAUTHORIZED
 - **Previous completed scope:** T032 — checkout-local atomic lifecycle journals,
   interruption/signal handling, immutable primary/secondary failures, complete mutating-operation
   phase journaling, fail-closed journal persistence, and validation-transparent instrumentation
-- **Next valid action:** None authorized; T033+ remain unauthorized
+- **Next valid action:** Claude Code implements only T033, returns implementation evidence, and
+  stops for independent Codex review; T034+ remain unauthorized
 - **Blocking issues:** None for T032 review
 - **T032 Product Owner acceptance:** Human Gate accepted corrective implementation tip
   `526dd012830ada2b4c69e68e79a249e319b41a45` and independent PASS governance record
@@ -137,11 +138,29 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T032 is Human accepted; T033+ are not authorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T033 — implement the normalized, read-only Recovery Assessment and its fixed
+  target-appropriate retry/recover/reset/cleanup/manual-review decision order, binding normalized
+  evidence digests and the immutable origin failure in `scripts/foundation-operations.mjs` only;
+  do not begin T034 repair execution, T035 persistence/reset proof, or T037 command-adapter work
+- **Runtime:** Claude Code (`claude-developer`) using the installed Claude integration, bounded to
+  T033 and required to stop before T034+
+- **Required references:** `specs/001-application-foundation/tasks.md` T033;
+  `specs/001-application-foundation/spec.md` FR-003 and FR-017 plus Edge Cases;
+  `specs/001-application-foundation/data-model.md` §Recovery Assessment;
+  `specs/001-application-foundation/contracts/foundation-operations.md` §Failure behavior;
+  `specs/001-application-foundation/plan.md` §Operations and verification;
+  `specs/001-application-foundation/quickstart.md` §5;
+  `tests/verification/lifecycle-recovery.test.ts`; `.specify/memory/constitution.md` Principles I–VI
+- **Expected verification:** Run the focused T033 Recovery Assessment cases in
+  `tests/verification/lifecycle-recovery.test.ts` and the full foundation-operations unit suite;
+  verify status assessment is read-only, emits exactly one normalized assessment, treats an
+  unclosed running journal as interrupted, preserves the immutable origin failure, binds the
+  operation/action/phase/target/profile and normalized SHA-256 evidence digests, applies decision
+  rows 1–6 in exact order, issues no mutation token for manual-review evidence, and permits only
+  retry/recover/reset/manual-review for Development and retry/cleanup/manual-review for
+  Verification; verify T034+ behavior, dependencies, manifests, package command surface,
+  declaration files, tests, and lockfile are unchanged
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
