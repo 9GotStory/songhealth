@@ -99,10 +99,16 @@
  * with unreadable or missing identity evidence treated as unproven
  * ownership — T029-B02), never by hidden module state.
  *
- * T030+ operations (`foundation:inventory`, `dev:reset`,
- * `foundation:cleanup`) are exported as bounded not-implemented stubs so
- * the accepted tests-first contract can import the complete planned
- * boundary; they throw until their owning tasks implement them.
+ * T030 adds `foundation:inventory`: typed, deterministic, fail-closed
+ * normalization of the injected inventory inspection into the closed Owned
+ * Runtime Resource shape, plus the exact resource/attachment ownership
+ * predicates. It is strictly read-only and bounded to T030 — no assessment
+ * evidence, confirmation token, lock, re-inventory, or mutation.
+ *
+ * T031 operations (`dev:reset`, `foundation:cleanup`) are exported as bounded
+ * not-implemented stubs so the accepted tests-first contract can import the
+ * complete planned boundary; they throw until their owning task implements
+ * them.
  */
 
 import { execFile, spawn } from "node:child_process";
@@ -741,20 +747,332 @@ export async function devRestart(collaborators) {
 }
 
 // ---------------------------------------------------------------------------
-// T030+ operations — bounded not-implemented stubs. The accepted
-// tests-first contract imports the complete planned boundary; each stub
-// throws until its owning task implements the operation. No stub performs
-// any work, so no later-task behavior can run early.
+// T030 operation — foundation:inventory. Typed read-only normalization of the
+// injected inventory inspection plus the exact resource/attachment ownership
+// predicates (data-model.md §Owned Runtime Resource). The operation is
+// strictly read-only and T030-bounded: it takes no lock, consults no
+// assessment evidence, never touches the confirmation boundary, and performs
+// no mutation of any kind. Issuing or verifying an action-bound confirmation
+// token is T031 scope and is deliberately absent here.
+// ---------------------------------------------------------------------------
+
+/**
+ * The manifest ownership schema every Delivery-owned resource must carry
+ * (`org.songhealth.foundation.ownership-schema` in
+ * `infra/compose.development.yaml`). An observation whose schema is not the
+ * current one is stale and therefore blocked.
+ */
+const OWNERSHIP_SCHEMA_VERSION = "v1";
+
+/**
+ * The closed resource-type set, in the deterministic order the normalized
+ * inventory is emitted in (containers, then networks, then volumes).
+ */
+const RESOURCE_TYPES = ["container", "network", "volume"];
+
+/**
+ * The complete custom reverse-DNS ownership label set every manifest resource
+ * carries (contract §Operation-target ownership and isolation). Completeness
+ * of this exact set is one conjunct of exact ownership: no single name prefix
+ * or provider label is sufficient.
+ */
+const OWNERSHIP_LABEL_KEYS = [
+  "org.songhealth.foundation.delivery",
+  "org.songhealth.foundation.checkout",
+  "org.songhealth.foundation.environment",
+  "org.songhealth.foundation.runtime-profile",
+  "org.songhealth.foundation.operation-target",
+  "org.songhealth.foundation.resource",
+  "org.songhealth.foundation.ownership-schema",
+];
+
+/**
+ * The recorded exact resources of each local operation target: the manifest
+ * role key (the allowlisted `logicalKey` enum) paired with the resource type
+ * that manifest role is expected to be observed as. These are the only
+ * resources a confirmed destructive action for that target may ever touch, so
+ * they are also the only keys ordinary inventory output may ever carry — any
+ * other observed key is a stale, mislabeled, or foreign candidate and
+ * normalizes to blocked.
+ */
+const TARGET_RESOURCES = {
+  development: [
+    { logicalKey: "development.database", resourceType: "container" },
+    { logicalKey: "development.database-volume", resourceType: "volume" },
+  ],
+  verification: [
+    { logicalKey: "verification.nginx", resourceType: "container" },
+    { logicalKey: "verification.network", resourceType: "network" },
+  ],
+};
+
+/** The read-only inventory action: normalized evidence only. */
+const STATUS_ACTION = "status";
+
+/**
+ * The destructive action each operation target routes to. The contract binds
+ * reset↔Development and cleanup↔Verification 1:1, so the pairing is a closed
+ * map rather than an orthogonal choice: a valid target presented with the
+ * other target's destructive action is refused exactly like an unknown
+ * action. This is target/action routing only — it confers no confirmation.
+ */
+const DESTRUCTIVE_ACTION_BY_TARGET = {
+  development: "reset",
+  verification: "cleanup",
+};
+
+/**
+ * The closed per-type runtime-state allowlists (data-model.md §Owned Runtime
+ * Resource `runtimeState`: only the state needed for the requested action,
+ * drawn from a closed enum). A state outside the candidate's own type set is
+ * not normalizable and therefore blocks the resource.
+ */
+const RUNTIME_STATES_BY_TYPE = {
+  container: ["created", "exited", "paused", "running", "stopped"],
+  network: ["present"],
+  volume: ["present"],
+};
+
+/** The exact-ownership conjuncts typed inspection must prove, in model order. */
+const OWNERSHIP_CONJUNCTS = [
+  "typeMatches",
+  "nameMatches",
+  "checkoutProjectMatches",
+  "manifestMember",
+  "canonicalLabelsComplete",
+  "ownershipSchemaCurrent",
+  "attachmentsExpected",
+];
+
+/** Index one target's recorded resources by manifest role key. */
+function indexTargetResources(target) {
+  const byKey = new Map();
+  for (const entry of TARGET_RESOURCES[target]) {
+    byKey.set(entry.logicalKey, entry);
+  }
+  return byKey;
+}
+
+/** Read one non-empty string field from an untrusted candidate, else `null`. */
+function readNonEmptyString(candidate, name) {
+  const value = candidate[name];
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+/**
+ * The custom-label completeness conjunct (T020-B01): derived solely from the
+ * observed label map against the complete documented set, because the model
+ * deliberately carries no separate completeness boolean. A partial set — any
+ * one documented key missing, or present with an empty or non-string value —
+ * leaves the conjunct unmet. Label values are never ownership evidence and
+ * never reach ordinary output.
+ */
+function hasCompleteOwnershipLabelSet(customLabels) {
+  if (customLabels === null || typeof customLabels !== "object" || Array.isArray(customLabels)) {
+    return false;
+  }
+  return OWNERSHIP_LABEL_KEYS.every((key) => {
+    const value = customLabels[key];
+    return typeof value === "string" && value.length > 0;
+  });
+}
+
+/**
+ * Normalize one raw inspection candidate into the closed Owned Runtime
+ * Resource shape. Every field of the candidate is untrusted input: a
+ * candidate that is not a well-formed object, whose role key is not in this
+ * target's manifest allowlist, whose observed type contradicts the manifest's
+ * expected type for that key, whose runtime state is outside its own type's
+ * closed allowlist, or for which any ownership conjunct is not proven
+ * `true`, normalizes to a BLOCKED read-only record. Nothing from the raw
+ * candidate is ever passed through: `logicalKey` stays `null` when no
+ * allowlisted role can be attributed, so such a candidate cannot appear in
+ * ordinary output at all.
+ */
+function normalizeOwnedRuntimeResource(candidate, expectedByKey) {
+  const record = {
+    logicalKey: null,
+    resourceType: null,
+    ownership: "blocked",
+    runtimeState: null,
+  };
+  if (candidate === null || typeof candidate !== "object" || Array.isArray(candidate)) {
+    return record;
+  }
+  const logicalKey = readNonEmptyString(candidate, "logicalKey");
+  const expected = logicalKey === null ? undefined : expectedByKey.get(logicalKey);
+  if (expected === undefined) {
+    return record;
+  }
+  record.logicalKey = logicalKey;
+  if (candidate.resourceType !== expected.resourceType) {
+    return record;
+  }
+  record.resourceType = expected.resourceType;
+  const runtimeState = readNonEmptyString(candidate, "runtimeState");
+  if (runtimeState === null || !RUNTIME_STATES_BY_TYPE[record.resourceType].includes(runtimeState)) {
+    return record;
+  }
+  record.runtimeState = runtimeState;
+  // Exact ownership is the full conjunction: any conjunct that is not proven
+  // `true` — absent, false, or malformed — leaves it unproven, and an
+  // unexpected attachment/use is a blocked-ownership trigger in its own right.
+  if (OWNERSHIP_CONJUNCTS.some((conjunct) => candidate[conjunct] !== true)) {
+    return record;
+  }
+  if (candidate.unexpectedlyAttached !== false) {
+    return record;
+  }
+  if (!hasCompleteOwnershipLabelSet(candidate.customLabels)) {
+    return record;
+  }
+  record.ownership = "exact";
+  return record;
+}
+
+/** Deterministic inventory order: resource type, then manifest role key. */
+function compareInventoryRecords(left, right) {
+  const typeOrder =
+    RESOURCE_TYPES.indexOf(left.resourceType) - RESOURCE_TYPES.indexOf(right.resourceType);
+  if (typeOrder !== 0) {
+    return typeOrder;
+  }
+  return left.logicalKey < right.logicalKey ? -1 : left.logicalKey > right.logicalKey ? 1 : 0;
+}
+
+/**
+ * Normalize one target's raw inspection into the complete ordered target
+ * inventory. Every expected manifest resource is present in the result —
+ * observed candidates carry `exact` or `blocked` ownership, and an expected
+ * resource no candidate claims carries `absent` ownership. A second candidate
+ * claiming an already-claimed role key is an ambiguity that blocks that role.
+ * The returned `ownershipProven` flag is the conjunction over the whole
+ * target: it is false when any candidate normalized to blocked (including a
+ * stale, mislabeled, colliding, or unexpectedly attached one, or one carrying
+ * no allowlisted role key at all) or when any expected resource is absent.
+ */
+function normalizeTargetInventory(target, candidates) {
+  const expectedByKey = indexTargetResources(target);
+  const records = new Map();
+  let ownershipProven = true;
+  for (const candidate of Array.isArray(candidates) ? candidates : []) {
+    const record = normalizeOwnedRuntimeResource(candidate, expectedByKey);
+    if (record.ownership !== "exact") {
+      ownershipProven = false;
+    }
+    if (record.logicalKey === null) {
+      continue;
+    }
+    const claimed = records.get(record.logicalKey);
+    if (claimed === undefined) {
+      records.set(record.logicalKey, record);
+      continue;
+    }
+    // Ambiguity: two candidates claim the same manifest-owned role, so
+    // neither proves ownership of it.
+    claimed.ownership = "blocked";
+    ownershipProven = false;
+  }
+  for (const expected of TARGET_RESOURCES[target]) {
+    if (!records.has(expected.logicalKey)) {
+      records.set(expected.logicalKey, {
+        logicalKey: expected.logicalKey,
+        resourceType: expected.resourceType,
+        ownership: "absent",
+        runtimeState: null,
+      });
+      ownershipProven = false;
+    }
+  }
+  const resources = [...records.values()].sort(compareInventoryRecords).map((r) => r.logicalKey);
+  return { resources, ownershipProven };
+}
+
+/**
+ * `foundation:inventory` — typed read-only inspection of one operation target
+ * (FR-004/FR-017/SC-002; Operations Contract §Commands). The raw inspection is
+ * normalized into the closed Owned Runtime Resource shape and emitted as the
+ * sorted manifest-role inventory; raw inspect data, resource names/IDs,
+ * filesystem paths, and label values never become ordinary output. For the
+ * read-only `status` action that is the whole operation. A destructive action
+ * additionally requires proven exact ownership of the complete recorded
+ * target and refuses with `RESOURCE_OWNERSHIP_UNPROVEN` otherwise — but this
+ * T030 boundary stops there: it consults no assessment evidence and never
+ * approaches the confirmation boundary, because action-bound confirmation
+ * tokens, per-target locking, re-inventory, drift refusal, and mutation are
+ * T031 scope. The operation therefore acquires no lock and mutates nothing.
+ */
+export async function foundationInventory(collaborators, options) {
+  const request = options === null || typeof options !== "object" ? {} : options;
+  const target = request.target;
+  const action = request.action;
+  if (typeof target !== "string" || !Object.hasOwn(TARGET_RESOURCES, target)) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "OPERATIONAL_FAILURE",
+        "foundation",
+        "orchestration",
+        "CHECK_PREREQUISITES",
+      ),
+    );
+  }
+  const destructiveAction = DESTRUCTIVE_ACTION_BY_TARGET[target];
+  const actionKnown = action === STATUS_ACTION || action === destructiveAction;
+  if (typeof action !== "string" || !actionKnown) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "OPERATIONAL_FAILURE",
+        "foundation",
+        "orchestration",
+        "CHECK_PREREQUISITES",
+      ),
+    );
+  }
+
+  let candidates;
+  try {
+    candidates = await collaborators.inventory.inspect(target);
+  } catch {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("OPERATIONAL_FAILURE", "foundation", "orchestration", "INSPECT_OWNERSHIP"),
+    );
+  }
+  const inventory = normalizeTargetInventory(target, candidates);
+
+  // The destructive actions are the ones whose exact ownership must be proven
+  // before anything may ever act on the target; `status` is a pure observation
+  // and reports the normalized inventory regardless of ownership outcome.
+  if (action !== STATUS_ACTION && !inventory.ownershipProven) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "RESOURCE_OWNERSHIP_UNPROVEN",
+        "foundation",
+        "orchestration",
+        "INSPECT_OWNERSHIP",
+      ),
+    );
+  }
+  return { exitCode: 0, diagnosticScope: "foundation", resources: inventory.resources };
+}
+
+// ---------------------------------------------------------------------------
+// T031 operations — bounded not-implemented stubs. The accepted tests-first
+// contract imports the complete planned boundary; each stub throws until its
+// owning task implements it. No stub performs any work, so no later-task
+// behavior (action-bound confirmation tokens, locking, re-inventory, drift
+// refusal, or mutation) can run early.
 // ---------------------------------------------------------------------------
 
 function notImplemented(command) {
   return async () => {
-    throw new Error(`operation not implemented by T029: ${command}`);
+    throw new Error(`operation not implemented by T030: ${command}`);
   };
 }
 
-/** `foundation:inventory` — T030–T031 scope. */
-export const foundationInventory = notImplemented("foundation:inventory");
 /** `dev:reset` — T031 scope. */
 export const devReset = notImplemented("dev:reset");
 /** `foundation:cleanup` — T031 scope. */
