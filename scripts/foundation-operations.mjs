@@ -1,12 +1,13 @@
 /**
- * T027/T028 — foundation prerequisite checking, idempotent Development
- * database setup, supervised native daily startup, and bounded overall
- * readiness.
+ * T027/T028/T029 — foundation prerequisite checking, idempotent Development
+ * database setup, supervised native daily startup, bounded overall
+ * readiness, and idempotent Development stop/restart.
  *
- * References: FR-003, FR-006, FR-009, SC-001; Operations Contract
- * §Prerequisites / §Commands / §Configuration examples / §Safe diagnostic
- * contract / §Timing boundaries; plan.md §Runtime composition /
- * §Configuration and startup + §Operations and verification; accepted
+ * References: FR-003, FR-004, FR-006, FR-009, SC-001–SC-002; Operations
+ * Contract §Prerequisites / §Commands / §Configuration examples / §Safe
+ * diagnostic contract / §Timing boundaries; plan.md §Runtime composition /
+ * §Configuration and startup + §Operations and verification +
+ * §Persistence and migrations; accepted
  * T019/T020 contract `scripts/foundation-operations.test.ts`; accepted T023
  * diagnostic-surface contract `tests/verification/diagnostic-surfaces.test.ts`;
  * accepted T026 manifest `infra/compose.development.yaml`; accepted T013
@@ -17,8 +18,8 @@
  * (`createServer`); accepted T024/T025 Public SSR / Admin CSR entries.
  *
  * This module owns ONLY the operations boundary behavior the accepted
- * contracts pin for `foundation:check`, `dev:setup`, `dev:start`, and
- * `dev:ready`:
+ * contracts pin for `foundation:check`, `dev:setup`, `dev:start`,
+ * `dev:ready`, `dev:stop`, and `dev:restart`:
  *   - `foundationCheck` routes every prerequisite category (Node, npm,
  *     Podman, Compose, required files, safe execution-context
  *     configuration, port availability) through the injected preflight
@@ -64,27 +65,45 @@
  *     currency, liveness, readiness, Public SSR, Admin CSR, and the
  *     server route — is ready; partial readiness keeps polling, and the
  *     bounded-deadline failure is one closed actionable Safe Diagnostic.
+ *   - `devStop` (T029) stops the three supervised native processes and
+ *     then the Development database container through the injected
+ *     adapters. Idempotency is adapter-owned: stopping an already-stopped
+ *     process or database is a no-op, so repetition is safe and produces
+ *     no duplicate effect. Routine stop NEVER removes the Development
+ *     named volume — this operation contains no volume-deletion or other
+ *     mutation path whatsoever. A failed stop fails closed with one
+ *     closed Safe Diagnostic on the command surfaces; because stop is the
+ *     documented safely repeatable operation, its remediation is
+ *     `RETRY_SAFE_OPERATION`.
+ *   - `devRestart` (T029) performs the documented complete
+ *     stop-before-start sequence: the full `dev:stop` teardown runs (and
+ *     must succeed) first, and only then does the full accepted T028
+ *     `dev:start` sequence run — unchanged, including its own canonical
+ *     identity validation and closed failure mapping. Development data
+ *     survives because the stop phase preserves the named volume and the
+ *     start phase reconciles the same checkout-scoped resources.
  *
  * Determinism: all external effect is routed through the injected
  * collaborator set, so the accepted tests drive these operations with
  * fakes and no real tool, process, listener, or host mutation occurs under
  * test. The real adapters at the bottom of this file are used only by the
- * command-line entry point. Idempotency of repeated `dev:setup` and
- * `dev:start` is owned by the adapters (`compose up --detach` reconciles;
- * the migration boundary is idempotent; a native process whose endpoint
- * already accepts connections is not spawned again), never by hidden
- * module state.
+ * command-line entry point. Idempotency of repeated `dev:setup`,
+ * `dev:start`, and `dev:stop` is owned by the adapters (`compose up
+ * --detach` reconciles; `compose stop` addresses only the exact named
+ * database container; the migration boundary is idempotent; a native
+ * process whose endpoint already accepts connections is not spawned
+ * again, and a recorded process that is already gone is not signalled),
+ * never by hidden module state.
  *
- * T029+ operations (`dev:stop`, `dev:restart`, `foundation:inventory`,
- * `dev:reset`, `foundation:cleanup`) are exported as bounded
- * not-implemented stubs so the accepted tests-first contract can import
- * the complete planned boundary; they throw until their owning tasks
- * implement them.
+ * T030+ operations (`foundation:inventory`, `dev:reset`,
+ * `foundation:cleanup`) are exported as bounded not-implemented stubs so
+ * the accepted tests-first contract can import the complete planned
+ * boundary; they throw until their owning tasks implement them.
  */
 
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { access, mkdir, open, readFile } from "node:fs/promises";
+import { access, mkdir, open, readFile, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import { registerHooks } from "node:module";
 import path from "node:path";
@@ -656,7 +675,69 @@ export async function devReady(collaborators, options) {
 }
 
 // ---------------------------------------------------------------------------
-// T029+ operations — bounded not-implemented stubs. The accepted
+// T029 operations — dev:stop and dev:restart.
+// ---------------------------------------------------------------------------
+
+/**
+ * `dev:stop` — idempotent daily teardown. Stop the three supervised native
+ * processes and then the Development database container through the
+ * injected adapters (adapter-owned idempotency: stopping an already-stopped
+ * process or database is a no-op, so repetition is safe and creates no
+ * duplicate effect). Routine stop NEVER removes the Development named
+ * volume — this operation calls no volume-deletion or other mutation path
+ * (FR-004/SC-002; volume removal belongs exclusively to the later,
+ * explicitly confirmed reset/cleanup operations). A failed stop fails
+ * closed with one closed Safe Diagnostic on the command surfaces; stop is
+ * the documented safely repeatable operation, so its remediation is
+ * `RETRY_SAFE_OPERATION` and no raw adapter detail is ever surfaced.
+ */
+export async function devStop(collaborators) {
+  for (const name of NATIVE_PROCESSES) {
+    try {
+      await collaborators.processes.stop(name);
+    } catch {
+      return rejectOperation(
+        collaborators,
+        safeDiagnostic(
+          "OPERATIONAL_FAILURE",
+          "daily",
+          "application",
+          "RETRY_SAFE_OPERATION",
+        ),
+      );
+    }
+  }
+  try {
+    await collaborators.database.stop();
+  } catch {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("OPERATIONAL_FAILURE", "daily", "database", "RETRY_SAFE_OPERATION"),
+    );
+  }
+  return { exitCode: 0, diagnosticScope: "daily" };
+}
+
+/**
+ * `dev:restart` — the documented complete stop-before-start sequence: the
+ * FULL `dev:stop` teardown runs first and must succeed, and only then does
+ * the FULL accepted T028 `dev:start` sequence run — unchanged, including
+ * its own canonical identity validation, endpoint validation, and closed
+ * failure mapping. Development data survives the sequence because the stop
+ * phase preserves the Development named volume and the start phase
+ * reconciles the same checkout-scoped resources; a failed phase returns
+ * exactly that phase's documented non-zero result.
+ */
+export async function devRestart(collaborators) {
+  const stopped = await devStop(collaborators);
+  if (stopped.exitCode !== 0) {
+    return stopped;
+  }
+  return devStart(collaborators);
+}
+
+// ---------------------------------------------------------------------------
+// T030+ operations — bounded not-implemented stubs. The accepted
 // tests-first contract imports the complete planned boundary; each stub
 // throws until its owning task implements the operation. No stub performs
 // any work, so no later-task behavior can run early.
@@ -664,14 +745,10 @@ export async function devReady(collaborators, options) {
 
 function notImplemented(command) {
   return async () => {
-    throw new Error(`operation not implemented by T028: ${command}`);
+    throw new Error(`operation not implemented by T029: ${command}`);
   };
 }
 
-/** `dev:stop` — T029 scope. */
-export const devStop = notImplemented("dev:stop");
-/** `dev:restart` — T029 scope. */
-export const devRestart = notImplemented("dev:restart");
 /** `foundation:inventory` — T030–T031 scope. */
 export const foundationInventory = notImplemented("foundation:inventory");
 /** `dev:reset` — T031 scope. */
@@ -689,6 +766,8 @@ export const foundationCleanup = notImplemented("foundation:cleanup");
 const TOOL_CHECK_TIMEOUT_MS = 30_000;
 /** Bounded timeout for bringing the Development database up (milliseconds). */
 const DATABASE_START_TIMEOUT_MS = 180_000;
+/** Bounded timeout for stopping the Development database (milliseconds). */
+const DATABASE_STOP_TIMEOUT_MS = 120_000;
 
 /** Required committed files for the Development target (quickstart §1). */
 const REQUIRED_FILES = ["infra/compose.development.yaml", ".env.development.example"];
@@ -959,6 +1038,48 @@ async function startDevelopmentDatabase() {
   );
 }
 
+/**
+ * Stop ONLY the Development database service of the accepted T026 manifest.
+ * `compose stop` gracefully halts the exact checkout-scoped named container
+ * WITHOUT removing it, its network, or its named volume — routine stop never
+ * touches Development data (FR-004/SC-002); removal is exclusively the
+ * later, explicitly confirmed reset/cleanup path. Adapter-owned
+ * idempotency: when the engine's loopback endpoint is not accepting
+ * connections there is nothing to stop, so repeated `dev:stop` invocations
+ * stop nothing and still succeed; unreadable local configuration does not
+ * block the stop (the exact project/service addressing needs no
+ * configuration value).
+ */
+async function stopDevelopmentDatabase() {
+  try {
+    if (!(await isDevelopmentDatabaseAcceptingConnections())) {
+      return;
+    }
+  } catch {
+    // Unreadable local configuration: proceed to the stop anyway — Compose
+    // addresses only this checkout-scoped project's exact named container,
+    // and no configuration value is surfaced anywhere.
+  }
+  const { checkoutId, composeProjectName } = checkoutScopedIdentity();
+  await execFileAsync(
+    "podman",
+    [
+      "compose",
+      "--file",
+      "infra/compose.development.yaml",
+      "--project-name",
+      composeProjectName,
+      "stop",
+      "database",
+    ],
+    {
+      cwd: REPOSITORY_ROOT,
+      env: { ...process.env, SONGHEALTH_CHECKOUT_ID: checkoutId },
+      timeout: DATABASE_STOP_TIMEOUT_MS,
+    },
+  );
+}
+
 /** Per-attempt bound for one engine-acceptance TCP probe (milliseconds). */
 const DATABASE_PROBE_TIMEOUT_MS = 1_000;
 
@@ -1091,6 +1212,9 @@ const PROCESS_PROBE_TIMEOUT_MS = 1_000;
 /** Bounded supervised wait for a spawned native process to accept connections. */
 const PROCESS_START_TIMEOUT_MS = 60_000;
 const PROCESS_START_POLL_INTERVAL_MS = 250;
+/** Bounded supervised wait for a signalled native process's endpoint to close. */
+const PROCESS_STOP_TIMEOUT_MS = 30_000;
+const PROCESS_STOP_POLL_INTERVAL_MS = 250;
 /** Per-attempt bound for one readiness HTTP request (milliseconds). */
 const READINESS_REQUEST_TIMEOUT_MS = 2_000;
 /** Command-line defaults for the injected bounded overall-readiness poll. */
@@ -1104,6 +1228,32 @@ const PROCESS_LOG_DIRECTORY = path.join(
   "development",
   "logs",
 );
+
+/**
+ * Ignored checkout-local retention for the supervised native processes'
+ * recorded process IDs (T029): the stop adapter's exact handle onto the
+ * process group it spawned. Like the logs, this is ignored checkout-local
+ * runtime state, never a committed artifact.
+ */
+const PROCESS_PID_DIRECTORY = path.join(
+  REPOSITORY_ROOT,
+  ".foundation-state",
+  "development",
+  "pids",
+);
+
+/**
+ * The per-process command-line marker proving a recorded PID still names
+ * THIS checkout's native process (the exact-ownership guard before any
+ * signal): every spawned argv carries it — the server child through its
+ * eval source, Public/Admin through their workspace selectors — so a
+ * recycled foreign PID can never be signalled as ours.
+ */
+const PROCESS_IDENTITY_MARKERS = {
+  server: "SONGHEALTH_SERVER_ENTRY_PATH",
+  public: "apps/web",
+  admin: "apps/admin",
+};
 
 /**
  * The server-process entry evaluated by the spawned Node child: it reuses
@@ -1313,6 +1463,10 @@ async function startNativeProcess(name) {
     // copy is released immediately.
     await logHandle.close();
   }
+  // Record the spawned group leader BEFORE supervision: a start that fails
+  // supervision may still leave a live child, and `dev:stop` (T029) must be
+  // able to stop it through its recorded process ID.
+  await recordProcessPid(name, child.pid);
   await superviseNativeProcessStart(child, endpoint);
 }
 
@@ -1336,6 +1490,155 @@ async function isNativeProcessRunning(name) {
   } catch {
     return false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// T029 real stop adapters — recorded-process teardown for the supervised
+// native daily processes. Used only by the command-line entry point; the
+// accepted tests always inject their own stop collaborators, so nothing in
+// this section runs under test.
+// ---------------------------------------------------------------------------
+
+/** Record one spawned native process's group-leader PID (T029 stop handle). */
+async function recordProcessPid(name, pid) {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    throw new Error(`native daily process exposed no pid: ${name}`);
+  }
+  await mkdir(PROCESS_PID_DIRECTORY, { recursive: true });
+  await writeFile(path.join(PROCESS_PID_DIRECTORY, `${name}.pid`), String(pid), "utf8");
+}
+
+/** Read one recorded native-process PID; `null` when none is recorded. */
+async function readProcessPid(name) {
+  try {
+    const text = await readFile(path.join(PROCESS_PID_DIRECTORY, `${name}.pid`), "utf8");
+    const pid = Number.parseInt(text.trim(), 10);
+    return Number.isInteger(pid) && pid > 0 ? pid : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Remove one recorded native-process PID (best-effort cleanup). */
+async function removeProcessPid(name) {
+  try {
+    await rm(path.join(PROCESS_PID_DIRECTORY, `${name}.pid`), { force: true });
+  } catch {
+    // A stale record that cannot be removed is harmless: a later stop
+    // re-checks liveness and identity before signalling anything.
+  }
+}
+
+/**
+ * Whether the recorded PID still names THIS checkout's native process: on
+ * `/proc`-exposing runtimes the child's actual command line must still
+ * carry the per-process identity marker, so a recycled foreign PID is
+ * never signalled as ours; where `/proc` is unavailable, liveness alone is
+ * the best available guard. The command line is verified and discarded —
+ * never surfaced on any output surface.
+ */
+async function recordedProcessIdentityHolds(pid, name) {
+  const marker = PROCESS_IDENTITY_MARKERS[name];
+  if (marker === undefined) {
+    return false;
+  }
+  try {
+    const commandLine = await readFile(`/proc/${pid}/cmdline`, "utf8");
+    return commandLine.includes(marker);
+  } catch {
+    // The runtime does not expose /proc (or the process is already gone):
+    // the caller's liveness check remains the guard.
+    return true;
+  }
+}
+
+/**
+ * Whether one recorded native process is still alive (signal-0 existence
+ * probe; never a delivered signal).
+ */
+function recordedProcessIsAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Wait boundedly until one native process's endpoint stops accepting
+ * connections after its termination signal. Throws at the bounded deadline
+ * if the endpoint still accepts (the caller maps that to one closed Safe
+ * Diagnostic — no force escalation exists in this Delivery).
+ */
+async function waitForNativeProcessStop(name) {
+  const deadline = Date.now() + PROCESS_STOP_TIMEOUT_MS;
+  for (;;) {
+    if (!(await isNativeProcessRunning(name))) {
+      return;
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(`native daily process still accepts connections: ${name}`);
+    }
+    await new Promise((resolve) => {
+      setTimeout(resolve, PROCESS_STOP_POLL_INTERVAL_MS);
+    });
+  }
+}
+
+/**
+ * `processes.stop(name)` — stop one native daily process owned by THIS
+ * checkout. The exact stop handle is the process-group PID recorded by the
+ * start adapter: `SIGTERM` to the negative PID terminates the child's whole
+ * detached group (the npm/vite or node/eval tree), and nothing else.
+ * Adapter-owned idempotency: no recorded PID means nothing this adapter
+ * started (a never-started or already-stopped process) and stopping is a
+ * no-op; a recorded process that already exited is not signalled again.
+ * An endpoint held with no recorded PID, or a recorded PID whose command
+ * line no longer matches this checkout's process, is NOT signalled —
+ * signalling an unowned process is outside this Delivery's ownership rules,
+ * so the adapter refuses (throws) and the operation reports the closed
+ * failure for manual attention instead.
+ */
+async function stopNativeProcess(name) {
+  if (PROCESS_IDENTITY_MARKERS[name] === undefined) {
+    throw new Error(`unknown native daily process: ${name}`);
+  }
+  const pid = await readProcessPid(name);
+  if (pid === null) {
+    // Nothing recorded by this checkout's start. Only an endpoint still
+    // held by an unowned listener refuses; otherwise this is the safe
+    // repeated-stop no-op.
+    if (await isNativeProcessRunning(name)) {
+      throw new Error(`unowned listener holds the daily endpoint: ${name}`);
+    }
+    return;
+  }
+  if (!recordedProcessIsAlive(pid)) {
+    // Already exited: the recorded handle is stale, nothing to signal.
+    await removeProcessPid(name);
+    return;
+  }
+  if (!(await recordedProcessIdentityHolds(pid, name))) {
+    // The PID no longer names this checkout's process (recycled foreign
+    // PID): drop the stale record and never signal an unowned process.
+    await removeProcessPid(name);
+    if (await isNativeProcessRunning(name)) {
+      throw new Error(`recorded pid no longer names the daily process: ${name}`);
+    }
+    return;
+  }
+  try {
+    // Negative PID addresses the child's whole detached process group.
+    process.kill(-pid, "SIGTERM");
+  } catch (error) {
+    if (error?.code !== "ESRCH") {
+      throw error;
+    }
+    // The group is already gone: nothing to signal.
+  }
+  await waitForNativeProcessStop(name);
+  await removeProcessPid(name);
 }
 
 /**
@@ -1445,13 +1748,15 @@ function createCommandLineCollaborators() {
     },
     database: {
       start: startDevelopmentDatabase,
+      stop: stopDevelopmentDatabase,
       isRunning: isDevelopmentDatabaseAcceptingConnections,
       applyMigrations: applyTrackedMigrations,
     },
     processes: {
-      // T028 owns supervised start/idempotency observation; stopping a
-      // native process is the `dev:stop` operation's behavior (T029).
+      // T028 owns supervised start/idempotency observation; T029 owns the
+      // recorded-process stop of the same native daily processes.
       start: startNativeProcess,
+      stop: stopNativeProcess,
       isRunning: isNativeProcessRunning,
     },
     readiness: {
@@ -1481,9 +1786,10 @@ function createCommandLineCollaborators() {
 
 // ---------------------------------------------------------------------------
 // Command-line entry point (`npm run foundation:check` / `npm run
-// dev:setup`). Failures are printed as their closed Safe Diagnostics only;
-// success prints one bounded safe line. The module's import by tests never
-// enters this path.
+// dev:setup` / `npm run dev:start` / `npm run dev:ready` / `npm run
+// dev:stop` / `npm run dev:restart`). Failures are printed as their closed
+// Safe Diagnostics only; success prints one bounded safe line. The module's
+// import by tests never enters this path.
 // ---------------------------------------------------------------------------
 
 /** Read one `--option value` (or `--option=value`) argument. */
@@ -1513,6 +1819,10 @@ async function runCommandLine(args) {
       deadlineMs: READINESS_DEADLINE_MS,
       pollMs: READINESS_POLL_INTERVAL_MS,
     });
+  } else if (command === "dev:stop") {
+    result = await devStop(collaborators);
+  } else if (command === "dev:restart") {
+    result = await devRestart(collaborators);
   } else {
     result = await rejectOperation(
       collaborators,
@@ -1529,6 +1839,8 @@ async function runCommandLine(args) {
       "dev:setup": "development database ready; tracked migrations current",
       "dev:start": "development database running; native server/public/admin processes started",
       "dev:ready": "development foundation ready",
+      "dev:stop": "development native processes and database stopped; named volume preserved",
+      "dev:restart": "development foundation stopped then started; development data preserved",
     };
     const summary = summaries[command] ?? "preflight checks passed";
     process.stdout.write(`${command}: ${summary}\n`);

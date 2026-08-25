@@ -1,10 +1,11 @@
 /**
- * T027/T028 — type declarations for `scripts/foundation-operations.mjs`.
+ * T027/T028/T029 — type declarations for `scripts/foundation-operations.mjs`.
  *
- * References: FR-003, FR-006, FR-009, SC-001; Operations Contract §Commands /
- * §Configuration examples / §Safe diagnostic contract; accepted T019/T020
- * contract `scripts/foundation-operations.test.ts` and the accepted T023
- * diagnostic-surface contract `tests/verification/diagnostic-surfaces.test.ts`.
+ * References: FR-003, FR-004, FR-006, FR-009, SC-001–SC-002; Operations
+ * Contract §Commands / §Configuration examples / §Safe diagnostic contract;
+ * accepted T019/T020 contract `scripts/foundation-operations.test.ts` and the
+ * accepted T023 diagnostic-surface contract
+ * `tests/verification/diagnostic-surfaces.test.ts`.
  *
  * This file carries only the module boundary types the accepted TypeScript
  * tests import from the JavaScript operations module (`OperationResult`,
@@ -241,6 +242,30 @@ export function devReady(
 ): Promise<OperationResult>;
 
 /**
+ * `dev:stop` (T029) — idempotent daily teardown: stop the three supervised
+ * native processes and then the Development database container through the
+ * injected adapters (adapter-owned idempotency: stopping an already-stopped
+ * process or database is a no-op, so repetition is safe). Routine stop
+ * never removes the Development named volume — the operation contains no
+ * volume-deletion or other mutation path. A failed stop fails closed with
+ * one closed Safe Diagnostic on the command surfaces.
+ */
+export function devStop(
+  collaborators: FoundationOperationsCollaborators,
+): Promise<OperationResult>;
+
+/**
+ * `dev:restart` (T029) — the documented complete stop-before-start
+ * sequence: the full `dev:stop` teardown runs and must succeed first, then
+ * the full accepted T028 `dev:start` sequence runs unchanged. Development
+ * data survives because the stop phase preserves the named volume and the
+ * start phase reconciles the same checkout-scoped resources.
+ */
+export function devRestart(
+  collaborators: FoundationOperationsCollaborators,
+): Promise<OperationResult>;
+
+/**
  * Whether an `npm --version` output satisfies the supported npm CLI range
  * (`>=12.0.0 <13`, the root `engines` constraint). Total and strict:
  * garbage or empty output fails. The raw tool output is never surfaced.
@@ -269,20 +294,10 @@ export const DATABASE_READINESS_TIMEOUT_MS: number;
 export const DATABASE_READINESS_POLL_INTERVAL_MS: number;
 
 // ---------------------------------------------------------------------------
-// Later-task operations (T029–T031). Exported so the accepted tests-first
+// Later-task operations (T030–T031). Exported so the accepted tests-first
 // contract can import the complete planned boundary; each throws until its
 // owning task implements it.
 // ---------------------------------------------------------------------------
-
-/** `dev:stop` (T029). */
-export function devStop(
-  collaborators: FoundationOperationsCollaborators,
-): Promise<OperationResult>;
-
-/** `dev:restart` (T029). */
-export function devRestart(
-  collaborators: FoundationOperationsCollaborators,
-): Promise<OperationResult>;
 
 /** `foundation:inventory` (T030–T031). The optional `operation`/`repair`
  * bind a recovery-issuable token to its interrupted operation and selected
