@@ -976,6 +976,10 @@ function compareInventoryRecords(left, right) {
  * target: it is false when any candidate normalized to blocked (including a
  * stale, mislabeled, colliding, or unexpectedly attached one, or one carrying
  * no allowlisted role key at all) or when any expected resource is absent.
+ * `records` carries the complete normalized Owned Runtime Resource list in
+ * the same deterministic order as `resources`: it is the exact representation
+ * a confirmation is bound to and re-derived under the lock, so a change to
+ * any normalized field — not merely to eligibility — is observable as drift.
  */
 function normalizeTargetInventory(target, candidates) {
   const expectedByKey = indexTargetResources(target);
@@ -1010,8 +1014,12 @@ function normalizeTargetInventory(target, candidates) {
       ownershipProven = false;
     }
   }
-  const resources = [...records.values()].sort(compareInventoryRecords).map((r) => r.logicalKey);
-  return { resources, ownershipProven };
+  const observed = [...records.values()].sort(compareInventoryRecords);
+  return {
+    resources: observed.map((r) => r.logicalKey),
+    records: observed,
+    ownershipProven,
+  };
 }
 
 /**
@@ -1030,6 +1038,84 @@ function applicablePredicateHolds(action, evidence) {
 }
 
 /**
+ * The confirmation-evidence bindings (T031-B01): each token the boundary mints
+ * is bound to the canonical digest of the exact normalized inventory and
+ * assessment evidence it was issued against, keyed by the exact
+ * `(target, action, token)` it was issued for. The accepted boundary contract
+ * mints an opaque token from `(target, action)` alone, so the module must hold
+ * the evidence side of the binding itself: this is the association the data
+ * model requires the locked recomputation to match, not resource state smuggled
+ * behind the collaborators. Bindings live only as long as the issuing process —
+ * durable confirmation evidence belongs to the later journal/adapter tasks, and
+ * a token with no binding for the presented `(target, action)` is refused
+ * rather than trusted.
+ */
+const confirmationEvidenceBindings = new Map();
+
+/** The binding key of one exact issued confirmation. */
+function confirmationBindingKey(target, action, token) {
+  return `${target} ${action} ${token}`;
+}
+
+/**
+ * Canonicalize the (untrusted) normalized assessment evidence into a
+ * deterministic, order-stable representation: every own key sorted, each value
+ * reduced to whether it is exactly `true`. Any change to the evidence — a
+ * flipped predicate, a dropped key, or a newly appearing one — changes the
+ * canonical form and therefore the digest.
+ */
+function canonicalAssessmentEvidence(evidence) {
+  if (evidence === null || typeof evidence !== "object" || Array.isArray(evidence)) {
+    return null;
+  }
+  return Object.keys(evidence)
+    .sort()
+    .map((key) => [key, evidence[key] === true]);
+}
+
+/**
+ * The canonical confirmation digest of one exact eligibility observation: the
+ * operation target, the action the confirmation is bound to, the complete
+ * normalized inventory (role, type, ownership, and runtime state of every
+ * recorded resource, in deterministic order), and the complete normalized
+ * assessment evidence. SHA-256 over the canonical JSON form, matching the
+ * data model's digest fields; the value is an internal correlation key and is
+ * never emitted as ordinary output.
+ */
+function confirmationEvidenceDigest(target, action, inventory, evidence) {
+  const canonical = JSON.stringify({
+    operationTarget: target,
+    action,
+    resources: inventory.records.map((r) => [
+      r.logicalKey,
+      r.resourceType,
+      r.ownership,
+      r.runtimeState,
+    ]),
+    assessmentEvidence: canonicalAssessmentEvidence(evidence),
+  });
+  return createHash("sha256").update(canonical).digest("hex");
+}
+
+/** Bind one issued token to the exact evidence it was issued against. */
+function bindConfirmationEvidence(target, action, token, inventory, evidence) {
+  confirmationEvidenceBindings.set(
+    confirmationBindingKey(target, action, token),
+    confirmationEvidenceDigest(target, action, inventory, evidence),
+  );
+}
+
+/**
+ * The digest bound to one presented confirmation for this exact
+ * `(target, action)`, or `undefined` when no such binding exists — including
+ * when the token was issued for a different pairing, which the boundary
+ * refuses on its own.
+ */
+function boundConfirmationEvidence(target, action, token) {
+  return confirmationEvidenceBindings.get(confirmationBindingKey(target, action, token));
+}
+
+/**
  * `foundation:inventory` — typed read-only inspection of one operation target
  * (FR-004/FR-017/SC-002; Operations Contract §Commands). The raw inspection is
  * normalized into the closed Owned Runtime Resource shape and emitted as the
@@ -1039,9 +1125,13 @@ function applicablePredicateHolds(action, evidence) {
  * additionally requires proven exact ownership of the complete recorded
  * target and every applicable assessment predicate, and only then asks the
  * confirmation boundary to mint the action-bound token for that exact
- * inventory. Issuance is still read-only: it takes no lock and mutates
- * nothing — the token only ever authorizes the separately confirmed
- * destructive command, which re-establishes every predicate under the
+ * inventory. The minted token is bound to a canonical digest of the complete
+ * normalized inventory and assessment evidence it was issued against, so the
+ * later locked recomputation is compared against the exact confirmed
+ * observation, not merely against continued eligibility. Issuance is still
+ * read-only: it takes no lock and mutates nothing — the token only ever
+ * authorizes the separately confirmed destructive command, which
+ * re-establishes every predicate and the bound digest under the
  * operation-target lock before any mutation.
  */
 export async function foundationInventory(collaborators, options) {
@@ -1141,6 +1231,10 @@ export async function foundationInventory(collaborators, options) {
       safeDiagnostic("OPERATIONAL_FAILURE", "foundation", "orchestration", "INSPECT_OWNERSHIP"),
     );
   }
+  // T031-B01 — the minted token is bound to the exact normalized inventory and
+  // assessment evidence it was issued against, so the later locked
+  // recomputation has something exact to match.
+  bindConfirmationEvidence(target, action, token, inventory, evidence);
   return {
     exitCode: 0,
     diagnosticScope: "foundation",
@@ -1153,9 +1247,11 @@ export async function foundationInventory(collaborators, options) {
 // T031 operations — the confirmed destructive sequence. One shared core
 // serves both routed destructive commands: acquire the exact operation-target
 // lock, immediately re-inventory, immediately recompute the applicable
-// assessment evidence, refuse any drift, verify the presented action-bound
-// token, and only then remove individually recorded exact resources. No
-// journal is kept and no interruption is intercepted (T032 scope).
+// assessment evidence, refuse any drift — including a still-eligible
+// inventory or assessment that no longer matches the digest bound to the
+// token — verify the presented action-bound token, and only then remove
+// individually recorded exact resources. No journal is kept and no
+// interruption is intercepted (T032 scope).
 // ---------------------------------------------------------------------------
 
 /**
@@ -1185,6 +1281,22 @@ async function executeConfirmedMutation(collaborators, target, action, token) {
     return destructiveRefusal(collaborators, diagnosticScope, "RESOURCE_INVENTORY_CHANGED");
   }
 
+  // T031-B01 — confirmation-digest drift: eligibility alone is not equality.
+  // A change that leaves every resource owned and the action predicate true
+  // (for example a re-observed runtime state, or a flipped non-applicable
+  // assessment key) still means the live target is no longer the one the token
+  // was issued against, so the bound digest no longer matches and every
+  // mutation is refused BEFORE the boundary is consulted. A token with no
+  // binding for this exact (target, action) is left to the boundary, which
+  // refuses tokens not issued for this pairing on its own.
+  const bound = boundConfirmationEvidence(target, action, token);
+  if (
+    bound !== undefined &&
+    bound !== confirmationEvidenceDigest(target, action, inventory, evidence)
+  ) {
+    return destructiveRefusal(collaborators, diagnosticScope, "RESOURCE_INVENTORY_CHANGED");
+  }
+
   // The exact caller-presented token is submitted to the injected boundary
   // under this command's bound action; the module never mints a substitute.
   let confirmed;
@@ -1195,6 +1307,14 @@ async function executeConfirmedMutation(collaborators, target, action, token) {
   }
   if (confirmed !== true) {
     return destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
+  }
+
+  // Fail closed on an unbound confirmation: a token the boundary accepts but
+  // that carries no evidence binding for this exact (target, action) cannot
+  // prove its confirmed inventory or assessment, so the confirmation digest
+  // cannot be shown to match and no mutation may proceed.
+  if (bound === undefined) {
+    return destructiveRefusal(collaborators, diagnosticScope, "RESOURCE_INVENTORY_CHANGED");
   }
 
   // Bounded exact mutation: only the individually recorded exact resources of
