@@ -29,18 +29,25 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T032-B01–T032-B03
+- **Current review result:** CHANGES REQUIRED — T032-B04; T032-B01–T032-B03 closed
 - **Phase status:** T031 ACCEPTED — T032 REWORK AUTHORIZED; T033+ UNAUTHORIZED
 - **Previous completed scope:** T031 — action-bound exact-evidence confirmations, per-target lock,
   immediate re-inventory/evidence recomputation, drift refusal, and bounded exact mutation
-- **Next valid action:** Claude Code corrects only T032-B01–T032-B03 from the exact persisted
+- **Next valid action:** Claude Code corrects only T032-B04 from the exact persisted
   REWORK authorization base, returns corrective evidence, and stops for independent re-review;
   T033+ remain unauthorized
-- **Blocking issues:** T032-B01 — the accepted routine `devRestart` regression test now returns
-  non-zero on a fresh journal-enabled harness; T032-B02 — existing setup/stop/restart lifecycle
-  actions are not journaled before work and after their phases; T032-B03 — unreadable/corrupt
-  journals are normalized to absence and terminal journal-write failures are swallowed, permitting
-  work or success without durable unambiguous journal state
+- **Blocking issues:** T032-B04 — adding the journal collaborator weakens the accepted canonical
+  configuration boundary: journal-enabled `devStart` accepts an invalid canonical database
+  identity and performs work, while the identical configuration without the journal is correctly
+  rejected with `CONFIG_IDENTITY_CONFLICT` / `DATABASE_URL` and zero work; journal instrumentation
+  must not change validation semantics for injected or real callers
+- **T032 corrective review evidence:** Exact corrective tip
+  `1dfa06797dcda02f797438238ef79a9e9a225da3` descends directly from REWORK authorization
+  `aa32d95e5a275180b59b4af987c726c7e44f286e`; its corrective diff is limited to
+  `scripts/foundation-operations.mjs`. Independent verification closes T032-B01–T032-B03: the
+  focused routine restart passes; foundation operations pass 94/94; lifecycle recovery is 15
+  passed / 34 expected T033–T034 failures; setup/stop/restart phase journaling, corrupt-journal
+  refusal, and required terminal-persistence failure handling are present. T032-B04 remains.
 - **T031 review evidence:** Human-authorized non-rewriting reconciliation merge
   `e56f29144e5f8638b3ebbb70d36c193488bc7206` has first parent rework authorization
   `7b2aa1404f95db7533be0898c0b3352c62bd0588` and second parent exact corrective tip
@@ -114,14 +121,13 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T032 REWORK — correct only T032-B01–T032-B03 in
-  `scripts/foundation-operations.mjs`: restore accepted routine restart behavior; journal every
-  currently implemented mutating lifecycle action (setup including migration phases, start, stop,
-  restart, reset, cleanup) before work and after each durable phase without adding later command
-  adapters; and fail closed on unreadable/corrupt journals or failed terminal persistence so no
-  operation proceeds or reports success with absent/ambiguous required journal evidence
+- **Task / Scope:** T032 REWORK — correct only T032-B04 in
+  `scripts/foundation-operations.mjs`: preserve the exact accepted canonical configuration and
+  endpoint-validation semantics for `devSetup`, `devStart`, and `devRestart` regardless of whether
+  the optional journal facet is present, while retaining the now-closed T032-B01–T032-B03 journal
+  lifecycle and fail-closed behavior
 - **Runtime:** Claude Code (`claude-developer`) using the installed Claude integration, bounded to
-  T032-B01–T032-B03 and required to stop before T033+
+  T032-B04 and required to stop before T033+
 - **Required references:** `specs/001-application-foundation/tasks.md` T032;
   `specs/001-application-foundation/spec.md` FR-003 and FR-017;
   `specs/001-application-foundation/data-model.md` §Lifecycle Operation;
@@ -130,16 +136,15 @@
   `specs/001-application-foundation/research.md` Decision 5;
   `specs/001-application-foundation/quickstart.md` §5;
   `tests/verification/lifecycle-recovery.test.ts`; `.specify/memory/constitution.md` Principles I–VI
-- **Expected verification:** Reproduce and close the exact accepted regression with
-  `npx vitest run tests/verification/foundation-operation-target.test.ts -t "routine dev:restart preserves"`;
-  run `npx vitest run scripts/foundation-operations.test.ts`, the focused T032 cases in
-  `tests/verification/lifecycle-recovery.test.ts`, and `npx vitest run`; compare base-to-corrective
-  pass/failure sets and report zero regressions. Provide focused injected evidence that setup,
-  stop, and restart write `running` before work and terminal/phase records afterward; that corrupt
-  or unreadable journal reads refuse before work; and that a terminal-write failure returns a
-  closed non-zero result rather than success. Reconfirm atomic mode-`0600` real storage, immutable
-  primary/secondary failure semantics, signal exit behavior, and no T033+ behavior, dependency,
-  manifest, package command, declaration-file, or lockfile changes
+- **Expected verification:** Add or run a focused differential matrix proving invalid canonical
+  configuration classes and derived endpoint collisions/range errors return the same closed
+  rejection with zero database/process/migration work both with and without a journal facet;
+  specifically prove invalid canonical `DATABASE_URL` is rejected as
+  `CONFIG_IDENTITY_CONFLICT` / `DATABASE_URL` in both modes. Re-run the B01 routine-restart case,
+  the B02 setup/stop/restart phase-order probes, the B03 corrupt-read/terminal-write probes,
+  `npx vitest run scripts/foundation-operations.test.ts`, the focused T032 lifecycle cases, and
+  `npx vitest run`; compare pass/failure sets and report zero regressions. Reconfirm no T033+
+  behavior, dependency, manifest, package command, declaration-file, or lockfile changes
 - **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
