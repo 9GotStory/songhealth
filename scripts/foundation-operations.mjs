@@ -105,15 +105,37 @@
  * predicates. It is strictly read-only and bounded to T030 — no assessment
  * evidence, confirmation token, lock, re-inventory, or mutation.
  *
- * T031 operations (`dev:reset`, `foundation:cleanup`) are exported as bounded
- * not-implemented stubs so the accepted tests-first contract can import the
- * complete planned boundary; they throw until their owning task implements
- * them.
+ * T031 adds the confirmed destructive sequence behind `dev:reset` /
+ * `foundation:cleanup`: the action-bound confirmation token minted only for
+ * an exact eligible inventory, the per-operation-target lock, the immediate
+ * re-inventory and assessment recomputation under that lock, drift refusal
+ * (including confirmation-digest drift on a still-eligible target), and the
+ * bounded individually-recorded exact-resource mutation.
+ *
+ * T032 adds the checkout-local lifecycle journal, the acceptance-only
+ * interruption injection, and immutable primary/secondary failure semantics
+ * (data-model.md §Lifecycle Operation; Operations Contract §Failure
+ * behavior; FR-003/FR-017). The journal facet is optional exactly like the
+ * output facet: a collaborator set without it observes no journal work at
+ * all, while the command-line entry point binds it to the ignored
+ * checkout-local mode-`0600` atomically replaced
+ * `.foundation-state/<operation-target>/operation.json`. Every journaled
+ * operation writes its `running` record BEFORE any mutation and its terminal
+ * record after the operation settles; the first failure of a record is its
+ * immutable `primaryFailure` and later failures append as
+ * `secondaryFailures`/assessment attempt failures; an unclosed `running`
+ * journal is treated as interrupted by the next invocation; and SIGINT/
+ * SIGTERM during a journaled command records `OPERATION_INTERRUPTED`,
+ * attempts only exact current-run cleanup, and re-raises the signal with the
+ * conventional exit semantics, leaving the operation target
+ * stopped/not-ready. `foundationStatus`/`foundationRecover` remain absent —
+ * the recovery-assessment normalization (T033) and the allowlisted repair
+ * (T034) own them.
  */
 
 import { execFile, spawn } from "node:child_process";
-import { createHash } from "node:crypto";
-import { access, mkdir, open, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { access, mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import { registerHooks } from "node:module";
 import path from "node:path";
@@ -555,7 +577,109 @@ async function rejectInvalidDailyEndpoints(collaborators, configuration, surface
 }
 
 /**
- * `dev:start` — supervised native daily startup. Re-validate the canonical
+ * `dev:start` — supervised native daily startup (FR-003/FR-017; T028 core +
+ * T032 journal lifecycle). Without a journal facet this is exactly the
+ * accepted T028 sequence. With one, the operation is journalled end to end:
+ * the `running` record is durable BEFORE any mutation, and the terminal
+ * record closes the journal on every outcome. When the latest journal
+ * leaves a pending origin — an interrupted, failed, ownership-blocked, or
+ * UNCLOSED `running` record — this invocation is a recovery ATTEMPT: it is
+ * permitted only when the normalized recovery evidence proves the documented
+ * safe-retry row (confirmed ownership, valid/not-applicable integrity, safe
+ * repeatability); any other verdict refuses the next daily action read-only
+ * before any work. The attempt's terminal record binds the immutable origin
+ * operation/action/phase and original failure, appends the attempt's own
+ * failure as a secondary assessment failure (never replacing the origin's),
+ * and resolves only on a successful retry. The origin record itself is
+ * never rewritten.
+ */
+export async function devStart(collaborators) {
+  const { journaled, origin } = await readPendingOrigin(collaborators, DAILY_OPERATION_TARGET);
+  if (!journaled) {
+    return startDailyFoundation(collaborators);
+  }
+  let attempt = null;
+  if (origin !== null) {
+    let evidence = null;
+    try {
+      evidence = (await collaborators.assessment?.evaluate(DAILY_OPERATION_TARGET)) ?? null;
+    } catch {
+      evidence = null;
+    }
+    if (!safeRetryEvidence(evidence)) {
+      return rejectOperation(
+        collaborators,
+        safeDiagnostic("OPERATIONAL_FAILURE", "daily", "orchestration", "INSPECT_OWNERSHIP"),
+        STARTUP_SURFACES,
+      );
+    }
+    attempt = { origin, evidence };
+  }
+  const operationId = newOperationId();
+  const binding = {
+    operationTarget: DAILY_OPERATION_TARGET,
+    action: "start",
+    operationId,
+  };
+  const digests = {
+    inventoryDigest:
+      nonEmptyStringField(attempt?.evidence, "inventoryDigest") ??
+      journalDigest({ ...binding, scope: "inventory" }),
+    mutationPlanDigest:
+      nonEmptyStringField(attempt?.evidence, "mutationPlanDigest") ??
+      journalDigest({ ...binding, scope: "mutation-plan" }),
+  };
+  const startedAt = journalTimestamp(collaborators);
+  const runningRecord = {
+    operationId,
+    operationTarget: DAILY_OPERATION_TARGET,
+    runtimeProfile: "daily",
+    action: "start",
+    phase: JOURNAL_PRE_WORK_PHASE,
+    state: "running",
+    inventoryDigest: digests.inventoryDigest,
+    mutationPlanDigest: digests.mutationPlanDigest,
+    secondaryFailures: [],
+    startedAt,
+    updatedAt: startedAt,
+  };
+  if (!(await writeRunningRecord(collaborators, DAILY_OPERATION_TARGET, runningRecord))) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("OPERATIONAL_FAILURE", "daily", "orchestration", "RETRY_SAFE_OPERATION"),
+      STARTUP_SURFACES,
+    );
+  }
+  const result = await startDailyFoundation(collaborators);
+  const failed = result.exitCode !== 0;
+  const attemptFailure = failed ? resultFailureDiagnostic(result) : null;
+  await writeTerminalRecord(DAILY_OPERATION_TARGET, {
+    ...runningRecord,
+    state: failed ? "failed" : "passed",
+    primaryFailure: attemptFailure ?? undefined,
+    secondaryFailures: [],
+    recoveryAssessment:
+      attempt === null
+        ? undefined
+        : attemptAssessment(
+            DAILY_OPERATION_TARGET,
+            "start",
+            attempt.origin,
+            "retry",
+            attempt.evidence,
+            attemptFailure === null ? [] : [attemptFailure],
+            !failed,
+            digests,
+          ),
+    safeNextAction: failed ? (result.remediation ?? "RETRY_SAFE_OPERATION") : undefined,
+    updatedAt: journalTimestamp(collaborators),
+  });
+  return result;
+}
+
+/**
+ * The unjournaled T028 startup core shared by `devStart` (and unchanged for
+ * a collaborator set without the journal facet): re-validate the canonical
  * Development identity before any work, start only the accepted Development
  * database dependency (adapter-owned idempotency: repetition reconciles and
  * never duplicates the resource) and then the three native daily processes
@@ -567,7 +691,7 @@ async function rejectInvalidDailyEndpoints(collaborators, configuration, surface
  * the surviving processes is the later `dev:stop` operation's owned
  * behavior, not this one's.
  */
-export async function devStart(collaborators) {
+async function startDailyFoundation(collaborators) {
   const validation = await validateCanonicalDevelopmentConfiguration(
     collaborators,
     STARTUP_SURFACES,
@@ -747,7 +871,253 @@ export async function devRestart(collaborators) {
 }
 
 // ---------------------------------------------------------------------------
-// T030/T031 operations — typed read-only normalization of the injected
+// T032 shared journal machinery — the normalized Lifecycle Operation record,
+// the optional journal facet, pending-origin normalization (an unclosed
+// `running` journal is treated as interrupted by the next invocation), and
+// the safe-retry evidence gate for daily actions (data-model.md §Lifecycle
+// Operation; Operations Contract §Failure behavior). The journal facet is
+// optional exactly like the output facet: operations journal only when the
+// injected (or command-line) collaborator set provides the store, so the
+// accepted contracts without it observe no journal work at all.
+// ---------------------------------------------------------------------------
+
+/**
+ * The one documented allowlisted journal phase (quickstart §5): the journal
+ * is durably recorded BEFORE any service work, so a record at this phase is
+ * the pre-mutation durable state every journaled operation starts from.
+ */
+const JOURNAL_PRE_WORK_PHASE = "after-journal";
+
+/** The runtime profile each operation target runs (plan.md identity map). */
+const RUNTIME_PROFILE_BY_TARGET = {
+  development: "daily",
+  verification: "verification",
+};
+
+/** The local-safe fixture provenance values (the canonical allowlist). */
+const LOCAL_FIXTURE_PROVENANCE = ["synthetic", "approved-non-production"];
+
+/**
+ * The closed interruption Safe Diagnostic (Operations Contract §Failure
+ * behavior): the documented reason code on the operation's derived scope,
+ * routed to the bounded safe-remediation vocabulary. It is the synthesized
+ * primary failure of every signal/interruption record.
+ */
+function interruptionDiagnostic(diagnosticScope) {
+  return safeDiagnostic(
+    "OPERATION_INTERRUPTED",
+    diagnosticScope,
+    "orchestration",
+    "RETRY_SAFE_OPERATION",
+  );
+}
+
+/** A fresh opaque local operation identifier (safe, non-secret). */
+function newOperationId() {
+  return randomUUID();
+}
+
+/**
+ * The canonical SHA-256 digest of one normalized journal binding. Digests
+ * bind the exact operation identity (and, for attempts, the assessment
+ * evidence) into the record; the value is correlation evidence only and is
+ * never emitted as ordinary output.
+ */
+function journalDigest(binding) {
+  return createHash("sha256").update(JSON.stringify(binding)).digest("hex");
+}
+
+/** One non-empty string field of untrusted normalized evidence, else `null`. */
+function nonEmptyStringField(value, name) {
+  const field = value === null || typeof value !== "object" ? undefined : value[name];
+  return typeof field === "string" && field.length > 0 ? field : null;
+}
+
+/**
+ * Normalize the latest journal record into the pending origin the next
+ * invocation must respect, or `null` when none is pending (no journal, a
+ * passed record, or an unreadable one). Every non-passed record —
+ * `interrupted`, `failed`, `ownership-blocked`, and an UNCLOSED `running`
+ * record from a run that died without its terminal write — is a pending
+ * origin (Operations Contract §Failure behavior: an unclosed `running`
+ * journal is treated as interrupted). The origin's recorded primary failure
+ * is carried verbatim and immutably; an origin that never recorded one (the
+ * unclosed-running case) carries the documented interruption diagnostic.
+ */
+function pendingOrigin(record, diagnosticScope) {
+  if (record === null || typeof record !== "object" || Array.isArray(record)) {
+    return null;
+  }
+  if (record.state === "passed") {
+    return null;
+  }
+  const operationId = nonEmptyStringField(record, "operationId");
+  if (operationId === null) {
+    return null;
+  }
+  const recorded = record.primaryFailure;
+  const primaryFailure =
+    recorded !== null && typeof recorded === "object" && !Array.isArray(recorded)
+      ? recorded
+      : null;
+  return {
+    operationId,
+    action: nonEmptyStringField(record, "action"),
+    phase: nonEmptyStringField(record, "phase"),
+    primaryFailure: primaryFailure ?? interruptionDiagnostic(diagnosticScope),
+  };
+}
+
+/**
+ * Read the pending origin through the journal facet. An absent facet reports
+ * `journaled: false` so callers keep their exact unjournaled behavior; a
+ * facet whose read fails simply observes no journal (a corrupt journal is
+ * classified by the later recovery-assessment normalization, not here).
+ */
+async function readPendingOrigin(collaborators, target) {
+  if (collaborators.journal === undefined || collaborators.journal === null) {
+    return { journaled: false, origin: null };
+  }
+  let record = null;
+  try {
+    record = await collaborators.journal.readLatest(target);
+  } catch {
+    record = null;
+  }
+  return { journaled: true, origin: pendingOrigin(record, DIAGNOSTIC_SCOPE_BY_TARGET[target]) };
+}
+
+/**
+ * Whether the normalized recovery evidence proves the documented safe-retry
+ * row for a daily action (Operations Contract decision row 2): confirmed
+ * ownership, valid or not-applicable integrity, and safe repeatability. Any
+ * other verdict — unknown, unconfirmed, invalid, or unsafe — refuses the
+ * next daily action read-only until the full ordered assessment (T033)
+ * routes it; the evidence object is untrusted collaborator input, so every
+ * verdict must be proven exactly.
+ */
+function safeRetryEvidence(evidence) {
+  if (evidence === null || typeof evidence !== "object" || Array.isArray(evidence)) {
+    return false;
+  }
+  return (
+    evidence.ownershipVerdict === "confirmed" &&
+    (evidence.integrityVerdict === "valid" || evidence.integrityVerdict === "not-applicable") &&
+    evidence.repeatabilityVerdict === "safe"
+  );
+}
+
+/**
+ * The one UTC journal timestamp source: the injected clock when present (the
+ * accepted deterministic fakes), wall-clock time only on the real
+ * command-line path. Timestamps are journal evidence only and are never
+ * emitted in ordinary diagnostics.
+ */
+function journalTimestamp(collaborators) {
+  const now =
+    typeof collaborators.clock?.now === "function" ? collaborators.clock.now() : Date.now();
+  return new Date(now).toISOString();
+}
+
+/**
+ * The closed Safe Diagnostic for one non-zero operation result — the exact
+ * diagnostic the operation already emitted, never a synthesized or raw one.
+ * It becomes the attempt's appended secondary failure.
+ */
+function resultFailureDiagnostic(result) {
+  const first = Array.isArray(result?.diagnostics) ? result.diagnostics[0] : undefined;
+  if (first !== null && typeof first === "object") {
+    return safeDiagnostic(
+      first.reasonCode,
+      first.diagnosticScope,
+      first.component,
+      first.remediation,
+      first.configurationKey,
+    );
+  }
+  return safeDiagnostic(
+    result?.reasonCode ?? "OPERATIONAL_FAILURE",
+    result?.diagnosticScope ?? "daily",
+    result?.component ?? "orchestration",
+    result?.remediation ?? "RETRY_SAFE_OPERATION",
+    result?.configurationKey,
+  );
+}
+
+/**
+ * The active journaled-operation signal context (process-local runtime
+ * state, exactly like the confirmation-evidence bindings): the CLI signal
+ * guard reads it to record `OPERATION_INTERRUPTED` and attempt only exact
+ * current-run cleanup while a journaled operation is between its pre-mutation
+ * and terminal records. `signalled` suppresses the wrapper's terminal write
+ * so the interruption record stays the durable terminal state.
+ */
+let activeJournalContext = null;
+
+/**
+ * Write the pre-mutation `running` record. Durability precedes mutation
+ * (Operations Contract §Failure behavior), so a journal that cannot be
+ * written refuses the operation BEFORE any work; the refusal is the closed
+ * operational failure, never a raw filesystem error.
+ */
+async function writeRunningRecord(collaborators, target, record) {
+  try {
+    await collaborators.journal.write(target, record);
+    activeJournalContext = { journal: collaborators.journal, target, record, signalled: false };
+  } catch {
+    activeJournalContext = null;
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Write the terminal record best-effort: the operation's own outcome stands
+ * even when the journal write fails, and a terminal write is suppressed
+ * entirely when the signal guard already recorded the interruption — that
+ * record is the durable terminal state.
+ */
+async function writeTerminalRecord(target, record) {
+  const context = activeJournalContext;
+  activeJournalContext = null;
+  if (context !== null && context.signalled) {
+    return;
+  }
+  try {
+    await context.journal.write(target, record);
+  } catch {
+    // The outcome above stands; the journal simply could not record it.
+  }
+}
+
+/**
+ * The recovery-assessment evidence bound into an ATTEMPT's terminal record
+ * (data-model.md §Recovery Assessment, the field subset T032 owns): the
+ * immutable link to the origin operation/action/phase, the origin's
+ * immutable original failure, the attempt's own appended failures, and the
+ * postcheck-gated resolution. Deriving the ordered decision from raw checks
+ * is T033's boundary; the attempt records the decision it acted under.
+ */
+function attemptAssessment(target, action, origin, decision, evidence, attemptFailures, resolved, digests) {
+  return {
+    originOperationId: origin.operationId,
+    originAction: origin.action,
+    originPhase: origin.phase,
+    originalFailure: origin.primaryFailure,
+    operationTarget: target,
+    runtimeProfile: RUNTIME_PROFILE_BY_TARGET[target],
+    decision,
+    inventoryDigest: digests.inventoryDigest,
+    integrityEvidenceDigest:
+      nonEmptyStringField(evidence, "integrityEvidenceDigest") ??
+      journalDigest({ evidence: "integrity", operationTarget: target, action }),
+    mutationPlanDigest: digests.mutationPlanDigest,
+    attemptFailures,
+    resolution: resolved ? "resolved" : "unresolved",
+  };
+}
+
+
 // inventory inspection plus the exact resource/attachment ownership predicates
 // (data-model.md §Owned Runtime Resource), the action-bound confirmation
 // token issued only for an exact eligible inventory, and the confirmed
@@ -1250,8 +1620,10 @@ export async function foundationInventory(collaborators, options) {
 // assessment evidence, refuse any drift — including a still-eligible
 // inventory or assessment that no longer matches the digest bound to the
 // token — verify the presented action-bound token, and only then remove
-// individually recorded exact resources. No journal is kept and no
-// interruption is intercepted (T032 scope).
+// individually recorded exact resources. With a journal facet present (T032)
+// the locked run is journalled: `running` before the re-inventory/mutation,
+// a terminal record on every outcome, and a pending origin binds the run as
+// a recovery attempt with the immutable primary/secondary failure semantics.
 // ---------------------------------------------------------------------------
 
 /**
@@ -1406,11 +1778,80 @@ async function confirmedDestructiveOperation(collaborators, target, action, toke
       safeDiagnostic("OPERATIONAL_FAILURE", diagnosticScope, "orchestration", "RETRY_SAFE_OPERATION"),
     );
   }
+  // T032 — under the lock, the journaled destructive operation records its
+  // `running` state BEFORE the re-inventory/mutation and closes it on every
+  // outcome. A pending origin (interrupted/failed/unclosed `running`) makes
+  // this invocation a recovery ATTEMPT: the T031 confirmation gates own its
+  // authorization, and the terminal record binds the immutable origin
+  // failure with the attempt's own failures appended as secondaries.
+  const { journaled, origin } = await readPendingOrigin(collaborators, target);
+  let runningRecord = null;
+  let journaledRun = false;
+  if (journaled) {
+    const operationId = newOperationId();
+    const startedAt = journalTimestamp(collaborators);
+    runningRecord = {
+      operationId,
+      operationTarget: target,
+      runtimeProfile: RUNTIME_PROFILE_BY_TARGET[target],
+      action,
+      phase: JOURNAL_PRE_WORK_PHASE,
+      state: "running",
+      inventoryDigest: journalDigest({ operationTarget: target, action, operationId, scope: "inventory" }),
+      mutationPlanDigest: journalDigest({
+        operationTarget: target,
+        action,
+        operationId,
+        scope: "mutation-plan",
+      }),
+      secondaryFailures: [],
+      startedAt,
+      updatedAt: startedAt,
+    };
+    journaledRun = await writeRunningRecord(collaborators, target, runningRecord);
+    if (!journaledRun) {
+      const refused = destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
+      try {
+        await collaborators.lock.release(target);
+      } catch {
+        // The lock adapter's own failure never masks the refusal.
+      }
+      return refused;
+    }
+  }
   let result;
   try {
     result = await executeConfirmedMutation(collaborators, target, action, token);
   } catch {
     result = destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
+  }
+  if (journaledRun) {
+    const failed = result.exitCode !== 0;
+    const attemptFailure = failed ? resultFailureDiagnostic(result) : null;
+    await writeTerminalRecord(target, {
+      ...runningRecord,
+      state: failed ? "failed" : "passed",
+      primaryFailure: attemptFailure ?? undefined,
+      secondaryFailures: [],
+      recoveryAssessment:
+        origin === null
+          ? undefined
+          : attemptAssessment(
+              target,
+              action,
+              origin,
+              action,
+              null,
+              attemptFailure === null ? [] : [attemptFailure],
+              !failed,
+              {
+                inventoryDigest: runningRecord.inventoryDigest,
+                mutationPlanDigest: runningRecord.mutationPlanDigest,
+              },
+            ),
+      safeNextAction: failed ? (result.remediation ?? "INSPECT_OWNERSHIP") : undefined,
+      updatedAt: journalTimestamp(collaborators),
+    });
   }
   try {
     await collaborators.lock.release(target);
@@ -1457,6 +1898,231 @@ export async function foundationCleanup(collaborators, target, token) {
     );
   }
   return confirmedDestructiveOperation(collaborators, target, "cleanup", token);
+}
+
+// ---------------------------------------------------------------------------
+// T032 operations — the acceptance-only interruption injection
+// (FR-003/FR-017; Operations Contract §Commands `foundation:test-interruption`;
+// quickstart §5; plan.md §Operations and verification).
+// ---------------------------------------------------------------------------
+
+/**
+ * The allowlisted interruption-injection actions (Operations Contract
+ * §Commands): exactly the five lifecycle actions quickstart §5 drives.
+ */
+const INTERRUPTION_ACTIONS = ["start", "stop", "migrate", "reset", "cleanup"];
+
+/** The allowlisted interruption phases: the one documented phase (§5). */
+const INTERRUPTION_PHASES = [JOURNAL_PRE_WORK_PHASE];
+
+/**
+ * The ordinary synthetic service work each injected action performs AFTER the
+ * fault check passes (the control case that proves the injection is
+ * phase-targeted, not a pre-emptive abort). `start`/`stop`/`migrate` perform
+ * their ordinary daily adapter work through the injected collaborators;
+ * `reset`/`cleanup` perform NO mutation — the confirmed destructive commands
+ * own all destructive work, so the injector only ever produces their
+ * interrupted journals.
+ */
+async function runSyntheticInterruptionWork(collaborators, target, action) {
+  if (target !== DAILY_OPERATION_TARGET) {
+    return;
+  }
+  if (action === "start") {
+    await collaborators.database.start();
+    for (const name of NATIVE_PROCESSES) {
+      await collaborators.processes.start(name);
+    }
+    return;
+  }
+  if (action === "stop") {
+    for (const name of NATIVE_PROCESSES) {
+      await collaborators.processes.stop(name);
+    }
+    await collaborators.database.stop();
+    return;
+  }
+  if (action === "migrate") {
+    await collaborators.database.applyMigrations();
+  }
+}
+
+/**
+ * `foundation:test-interruption` — the acceptance-only controlled fault
+ * injection for synthetic local operation targets (quickstart §5). It is NOT
+ * the real command path: it drives one synthetic operation of the requested
+ * allowlisted `(target, action, phase)` through the journal lifecycle so the
+ * interrupted state is observable without a real signal. It refuses hosted
+ * and Production-derived configuration before any injection or journal work
+ * (the contract's only configuration commitments for this entry point);
+ * every other value is the caller's synthetic acceptance context. The
+ * operation writes its `running` journal record BEFORE any service work,
+ * then polls the injected fault source for the exact `(action, phase)`: a
+ * firing fault records the `interrupted` journal with the documented
+ * `OPERATION_INTERRUPTED` primary failure, performs no service work, and
+ * returns non-zero (the target stays stopped/not-ready); a non-firing fault
+ * lets the ordinary synthetic action work complete and records `passed`.
+ */
+export async function foundationTestInterruption(collaborators, options) {
+  const request = options === null || typeof options !== "object" ? {} : options;
+  const { target, action, phase } = request;
+  if (
+    typeof target !== "string" ||
+    !Object.hasOwn(TARGET_RESOURCES, target) ||
+    typeof action !== "string" ||
+    !INTERRUPTION_ACTIONS.includes(action) ||
+    typeof phase !== "string" ||
+    !INTERRUPTION_PHASES.includes(phase)
+  ) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "OPERATIONAL_FAILURE",
+        "foundation",
+        "orchestration",
+        "CHECK_PREREQUISITES",
+      ),
+    );
+  }
+  if (
+    collaborators.journal === undefined ||
+    collaborators.journal === null ||
+    collaborators.interruption === undefined ||
+    collaborators.interruption === null
+  ) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "OPERATIONAL_FAILURE",
+        "foundation",
+        "orchestration",
+        "CHECK_PREREQUISITES",
+      ),
+    );
+  }
+  const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target];
+  let config;
+  try {
+    config = await collaborators.config.load();
+  } catch {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("CONFIG_MISSING", diagnosticScope, "configuration", "FIX_CONFIGURATION"),
+    );
+  }
+  if (config.RUNTIME_PROFILE !== RUNTIME_PROFILE_BY_TARGET[target]) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "CONFIG_IDENTITY_CONFLICT",
+        diagnosticScope,
+        "configuration",
+        "FIX_CONFIGURATION",
+        "RUNTIME_PROFILE",
+      ),
+    );
+  }
+  if (
+    typeof config.FIXTURE_PROVENANCE !== "string" ||
+    !LOCAL_FIXTURE_PROVENANCE.includes(config.FIXTURE_PROVENANCE)
+  ) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "CONFIG_UNSUPPORTED",
+        diagnosticScope,
+        "configuration",
+        "FIX_CONFIGURATION",
+        "FIXTURE_PROVENANCE",
+      ),
+    );
+  }
+
+  const operationId = newOperationId();
+  const startedAt = journalTimestamp(collaborators);
+  const runningRecord = {
+    operationId,
+    operationTarget: target,
+    runtimeProfile: RUNTIME_PROFILE_BY_TARGET[target],
+    action,
+    phase,
+    state: "running",
+    inventoryDigest: journalDigest({ operationTarget: target, action, phase, operationId, scope: "inventory" }),
+    mutationPlanDigest: journalDigest({
+      operationTarget: target,
+      action,
+      phase,
+      operationId,
+      scope: "mutation-plan",
+    }),
+    secondaryFailures: [],
+    startedAt,
+    updatedAt: startedAt,
+  };
+  if (!(await writeRunningRecord(collaborators, target, runningRecord))) {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("OPERATIONAL_FAILURE", diagnosticScope, "orchestration", "RETRY_SAFE_OPERATION"),
+    );
+  }
+  // A Verification cleanup operation begins from the disposable topology a
+  // verification START creates (data-model §State Transitions: a Verification
+  // run goes setup/start → checks → cleanup → report). The synthetic cleanup
+  // lifecycle therefore polls the fault at that arrange step first, then at
+  // the requested cleanup step — the arrange is poll-only, because the
+  // acceptance harness owns the synthetic topology and the injector never
+  // performs start-up or destructive work itself.
+  const faultSteps = [];
+  if (target === "verification" && action === "cleanup") {
+    faultSteps.push("start");
+  }
+  faultSteps.push(action);
+  for (const step of faultSteps) {
+    let fired = false;
+    try {
+      fired = (await collaborators.interruption.shouldInterrupt(step, phase)) === true;
+    } catch {
+      fired = false;
+    }
+    if (fired) {
+      const failure = interruptionDiagnostic(diagnosticScope);
+      await writeTerminalRecord(target, {
+        ...runningRecord,
+        state: "interrupted",
+        primaryFailure: failure,
+        secondaryFailures: [],
+        safeNextAction: "RETRY_SAFE_OPERATION",
+        updatedAt: journalTimestamp(collaborators),
+      });
+      return rejectOperation(collaborators, failure);
+    }
+  }
+  try {
+    await runSyntheticInterruptionWork(collaborators, target, action);
+  } catch {
+    const failure = safeDiagnostic(
+      "OPERATIONAL_FAILURE",
+      diagnosticScope,
+      "orchestration",
+      "RETRY_SAFE_OPERATION",
+    );
+    await writeTerminalRecord(target, {
+      ...runningRecord,
+      state: "failed",
+      primaryFailure: failure,
+      secondaryFailures: [],
+      safeNextAction: "RETRY_SAFE_OPERATION",
+      updatedAt: journalTimestamp(collaborators),
+    });
+    return rejectOperation(collaborators, failure);
+  }
+  await writeTerminalRecord(target, {
+    ...runningRecord,
+    state: "passed",
+    secondaryFailures: [],
+    updatedAt: journalTimestamp(collaborators),
+  });
+  return { exitCode: 0, diagnosticScope };
 }
 
 // ---------------------------------------------------------------------------
@@ -2437,6 +3103,137 @@ async function probeDailyReadiness() {
   return { ready, components };
 }
 
+// ---------------------------------------------------------------------------
+// T032 real adapters — the checkout-local lifecycle journal store and the
+// SIGINT/SIGTERM interruption guard. Used only by the command-line entry
+// point; the accepted tests always inject their own journal/interruption
+// collaborators, so nothing in this section runs under test.
+// ---------------------------------------------------------------------------
+
+/** Ignored checkout-local runtime-state root (`.gitignore` §journal). */
+const FOUNDATION_STATE_DIRECTORY = path.join(REPOSITORY_ROOT, ".foundation-state");
+
+/** The per-operation-target journal file (data-model §Lifecycle Operation). */
+function operationJournalPath(target) {
+  return path.join(FOUNDATION_STATE_DIRECTORY, target, "operation.json");
+}
+
+/**
+ * The real per-operation-target lifecycle journal store: the ignored
+ * checkout-local `operation.json`, ATOMICALLY REPLACED by `rename` from a
+ * same-directory temporary file created with mode `0600`, so no reader ever
+ * observes a partial journal and no other local user can read it. The file
+ * holds only the newest normalized safe record — never a protected value or
+ * raw tool output. A read of an absent or unparsable file observes no
+ * journal; classifying a corrupt journal is the recovery assessment's
+ * boundary (T033), not the store's.
+ */
+const journalFileStore = {
+  readLatest: async (target) => {
+    try {
+      const record = JSON.parse(await readFile(operationJournalPath(target), "utf8"));
+      return record !== null && typeof record === "object" && !Array.isArray(record)
+        ? record
+        : null;
+    } catch {
+      return null;
+    }
+  },
+  write: async (target, record) => {
+    const destination = operationJournalPath(target);
+    const directory = path.dirname(destination);
+    await mkdir(directory, { recursive: true });
+    const temporary = path.join(
+      directory,
+      `.${path.basename(destination)}.${process.pid}.tmp`,
+    );
+    try {
+      await writeFile(temporary, `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
+      await rename(temporary, destination);
+    } catch (error) {
+      await rm(temporary, { force: true });
+      throw error;
+    }
+  },
+};
+
+/**
+ * The SIGINT/SIGTERM interruption guard (Operations Contract §Failure
+ * behavior; FR-017). While a journaled operation is between its pre-mutation
+ * and terminal records, a signal records the `interrupted` journal with the
+ * documented `OPERATION_INTERRUPTED` primary failure, attempts ONLY exact
+ * current-run cleanup — the idempotent, checkout-owned stop of this
+ * checkout's native daily processes and Development database, never a
+ * destructive or broad path — and leaves the operation target
+ * stopped/not-ready. The conventional signal exit semantics are then
+ * preserved by restoring the default disposition and re-raising the same
+ * signal. With no active journaled operation the guard re-raises
+ * immediately, so every command keeps its conventional signal behavior.
+ */
+function installInterruptionGuard(collaborators) {
+  let handling = false;
+  const handlers = new Map();
+  const handleSignal = async (signal) => {
+    if (handling) {
+      reraiseSignal(signal);
+      return;
+    }
+    handling = true;
+    const context = activeJournalContext;
+    if (context !== null) {
+      context.signalled = true;
+      const failure = interruptionDiagnostic(DIAGNOSTIC_SCOPE_BY_TARGET[context.target] ?? "daily");
+      try {
+        await context.journal.write(context.target, {
+          ...context.record,
+          state: "interrupted",
+          primaryFailure: failure,
+          secondaryFailures: [],
+          safeNextAction: "RETRY_SAFE_OPERATION",
+          updatedAt: new Date().toISOString(),
+        });
+      } catch {
+        // The journal is best-effort here; the interruption still exits.
+      }
+      if (context.target === DAILY_OPERATION_TARGET) {
+        for (const name of NATIVE_PROCESSES) {
+          try {
+            await collaborators.processes.stop(name);
+          } catch {
+            // Exact current-run cleanup is attempted, never escalated.
+          }
+        }
+        try {
+          await collaborators.database.stop();
+        } catch {
+          // Exact current-run cleanup is attempted, never escalated.
+        }
+      }
+    }
+    reraiseSignal(signal);
+  };
+  const reraiseSignal = (signal) => {
+    for (const [name, handler] of handlers) {
+      process.removeListener(name, handler);
+    }
+    // Default disposition: the process dies with the conventional signal
+    // exit semantics (128 + signal number), exactly as without the guard.
+    process.kill(process.pid, signal);
+  };
+  for (const name of ["SIGINT", "SIGTERM"]) {
+    const handler = (signal) => {
+      void handleSignal(signal);
+    };
+    handlers.set(name, handler);
+    process.once(name, handler);
+  }
+  return () => {
+    for (const [name, handler] of handlers) {
+      process.removeListener(name, handler);
+    }
+  };
+}
+
 /** The real collaborator set for the command-line entry point. */
 function createCommandLineCollaborators() {
   return {
@@ -2484,6 +3281,9 @@ function createCommandLineCollaborators() {
         process.stderr.write(`${JSON.stringify(unit)}\n`);
       },
     },
+    // T032 — the real checkout-local lifecycle journal (mode-0600 atomic
+    // per-operation-target store) and the signal-guard collaborators.
+    journal: journalFileStore,
   };
 }
 
@@ -2510,32 +3310,41 @@ function readOption(args, name) {
 async function runCommandLine(args) {
   const [command, ...rest] = args;
   const collaborators = createCommandLineCollaborators();
+  // T032 — the SIGINT/SIGTERM interruption guard is installed for the whole
+  // command: it records `OPERATION_INTERRUPTED` and attempts exact
+  // current-run cleanup only while a journaled operation is actually
+  // running, and otherwise preserves the conventional signal behavior.
+  const removeInterruptionGuard = installInterruptionGuard(collaborators);
   let result;
-  if (command === "foundation:check") {
-    result = await foundationCheck(collaborators);
-  } else if (command === "dev:setup") {
-    result = await devSetup(collaborators, readOption(rest, "target") ?? DAILY_OPERATION_TARGET);
-  } else if (command === "dev:start") {
-    result = await devStart(collaborators);
-  } else if (command === "dev:ready") {
-    result = await devReady(collaborators, {
-      deadlineMs: READINESS_DEADLINE_MS,
-      pollMs: READINESS_POLL_INTERVAL_MS,
-    });
-  } else if (command === "dev:stop") {
-    result = await devStop(collaborators);
-  } else if (command === "dev:restart") {
-    result = await devRestart(collaborators);
-  } else {
-    result = await rejectOperation(
-      collaborators,
-      safeDiagnostic(
-        "OPERATIONAL_FAILURE",
-        "foundation",
-        "orchestration",
-        "CHECK_PREREQUISITES",
-      ),
-    );
+  try {
+    if (command === "foundation:check") {
+      result = await foundationCheck(collaborators);
+    } else if (command === "dev:setup") {
+      result = await devSetup(collaborators, readOption(rest, "target") ?? DAILY_OPERATION_TARGET);
+    } else if (command === "dev:start") {
+      result = await devStart(collaborators);
+    } else if (command === "dev:ready") {
+      result = await devReady(collaborators, {
+        deadlineMs: READINESS_DEADLINE_MS,
+        pollMs: READINESS_POLL_INTERVAL_MS,
+      });
+    } else if (command === "dev:stop") {
+      result = await devStop(collaborators);
+    } else if (command === "dev:restart") {
+      result = await devRestart(collaborators);
+    } else {
+      result = await rejectOperation(
+        collaborators,
+        safeDiagnostic(
+          "OPERATIONAL_FAILURE",
+          "foundation",
+          "orchestration",
+          "CHECK_PREREQUISITES",
+        ),
+      );
+    }
+  } finally {
+    removeInterruptionGuard();
   }
   if (result.exitCode === 0) {
     const summaries = {
