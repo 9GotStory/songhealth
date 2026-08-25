@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T033 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T034 IMPLEMENTATION AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -29,12 +29,12 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED; T033-B01–T033-B03 closed
-- **Phase status:** T033 ACCEPTED; T034+ UNAUTHORIZED
+- **Current review result:** HUMAN ACCEPTED — T033-B01–T033-B03 closed
+- **Phase status:** T033 ACCEPTED; T034 AUTHORIZED; T035+ UNAUTHORIZED
 - **Previous completed scope:** T033 — normalized read-only Recovery Assessment and fixed
   target-appropriate retry/recover/reset/cleanup/manual-review decision order
-- **Next valid action:** NONE selected or authorized — stop after T033 Human acceptance; T034+
-  remain unauthorized
+- **Next valid action:** Claude Code implements only T034, returns implementation evidence, and
+  stops for independent Codex review; T035+ remain unauthorized
 - **Blocking issues:** None for T033 review
 - **T033 Product Owner acceptance:** Human Gate accepted corrective implementation tip
   `19ca50d709cfffe48ec09707b80c093490d89572` and independent PASS governance record
@@ -165,11 +165,34 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T033 is Human accepted; T034+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T033 final review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T034 — implement only the sole allowlisted Development repair
+  `recreate-database-runtime-preserve-volume` and its connectivity, integrity, and migration-status
+  postchecks in `scripts/foundation-operations.mjs`; preserve the named volume/data and integrate
+  with the accepted T031–T033 confirmation, locking, drift-refusal, journal, immutable-failure, and
+  Recovery Assessment boundaries; do not begin T035 persistence/reset proof, T036 database
+  adapters, T037 command-adapter exposure, or any T035+ behavior
+- **Runtime:** Claude Code (`claude-developer`) using the installed Claude integration, bounded to
+  T034 and required to stop before T035+
+- **Required references:** `specs/001-application-foundation/tasks.md` T034;
+  `specs/001-application-foundation/spec.md` FR-003 and FR-017 plus Edge Cases;
+  `specs/001-application-foundation/data-model.md` §Recovery Assessment;
+  `specs/001-application-foundation/contracts/foundation-operations.md` §Commands
+  `foundation:recover` and §Failure behavior; `specs/001-application-foundation/plan.md`
+  §Operations and verification; `specs/001-application-foundation/quickstart.md` §5;
+  `tests/verification/lifecycle-recovery.test.ts`; `.specify/memory/constitution.md` Principles I–VI
+- **Expected verification:** Run the focused T034 recovery cases in
+  `tests/verification/lifecycle-recovery.test.ts` and the full foundation-operations unit suite;
+  verify recovery is Development-only, accepts only a freshly issued exact token for the matching
+  origin action and allowlisted repair, locks and re-evaluates before mutation, refuses drift and
+  uncertain/mismatched evidence without repair work, reconciles only the exact database
+  container/network runtime while preserving the named volume/data, runs connectivity/integrity/
+  migration-status postchecks after repair, resolves only when every postcheck passes, leaves the
+  target stopped/not-ready on failure, and appends secondary Safe Diagnostics without replacing the
+  immutable original failure; verify reset, SQL repair, migration rollback, backup restore, broad
+  deletion, T035+ behavior, tests, package commands, dependencies, manifests, and lockfile remain
+  unchanged; return the exact implementation tip, parent/base SHA, clean status, exact diff/stat,
+  test commands/results, and confirmation that no T035+ scope entered the history
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
