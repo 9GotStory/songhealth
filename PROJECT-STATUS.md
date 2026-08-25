@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T032 CHANGES REQUIRED
+- **Status:** T032 REVIEW PASS — AWAITING PRODUCT OWNER HUMAN GATE
 
 ## Active Feature Mirror
 
@@ -29,18 +29,29 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T032-B04; T032-B01–T032-B03 closed
-- **Phase status:** T031 ACCEPTED — T032 REWORK AUTHORIZED; T033+ UNAUTHORIZED
-- **Previous completed scope:** T031 — action-bound exact-evidence confirmations, per-target lock,
-  immediate re-inventory/evidence recomputation, drift refusal, and bounded exact mutation
-- **Next valid action:** Claude Code corrects only T032-B04 from the exact persisted
-  REWORK authorization base, returns corrective evidence, and stops for independent re-review;
-  T033+ remain unauthorized
-- **Blocking issues:** T032-B04 — adding the journal collaborator weakens the accepted canonical
-  configuration boundary: journal-enabled `devStart` accepts an invalid canonical database
-  identity and performs work, while the identical configuration without the journal is correctly
-  rejected with `CONFIG_IDENTITY_CONFLICT` / `DATABASE_URL` and zero work; journal instrumentation
-  must not change validation semantics for injected or real callers
+- **Current review result:** PASS — T032-B02–T032-B04 closed; T032-B01 reclassified as a
+  pre-existing expected-red T022 fixture, not a T032 regression
+- **Phase status:** T032 REVIEW PASS — HUMAN GATE REQUIRED; T033+ UNAUTHORIZED
+- **Previous completed scope:** T032 — checkout-local atomic lifecycle journals,
+  interruption/signal handling, immutable primary/secondary failures, complete mutating-operation
+  phase journaling, fail-closed journal persistence, and validation-transparent instrumentation
+- **Next valid action:** Product Owner reviews the exact T032 implementation and independent PASS
+  governance record at the Human Gate; T033+ remain unauthorized
+- **Blocking issues:** None for T032 review
+- **T032 final review evidence:** Exact corrective tip
+  `526dd012830ada2b4c69e68e79a249e319b41a45` descends directly from round-2 REWORK authorization
+  `6feb3768b975a6b5dd6ee9298b189309ae0e2b7e`; its corrective diff is limited to
+  `scripts/foundation-operations.mjs`, and `git diff --check` is clean. Independent inspection
+  confirms journal-enabled setup/start/restart now call the same accepted canonical and derived
+  endpoint validation boundaries as their unjournaled paths while retaining B02/B03 journal
+  behavior. Foundation operations pass 94/94; lifecycle recovery passes the 15 T032 cases with 34
+  expected T033/T034 failures; the full suite is 236 passed / 55 expected later-task failures / 38
+  skipped, plus the established unavailable real-database suite. TypeScript retains exactly the
+  four established later-task missing-export errors. The focused T022 routine-restart assertion
+  was independently reproduced with the identical `expected 1 to be +0` failure at original T032
+  authorized base `111037cf921532c34afe96dcb2ad2e10e4041f6b`; therefore B01 was a review
+  misclassification, not a regression or a requirement conflict. B02–B04 are closed, no T033+
+  implementation or out-of-scope file change is present, and T032 passes independent review.
 - **T032 corrective review evidence:** Exact corrective tip
   `1dfa06797dcda02f797438238ef79a9e9a225da3` descends directly from REWORK authorization
   `aa32d95e5a275180b59b4af987c726c7e44f286e`; its corrective diff is limited to
@@ -121,31 +132,12 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T032 REWORK — correct only T032-B04 in
-  `scripts/foundation-operations.mjs`: preserve the exact accepted canonical configuration and
-  endpoint-validation semantics for `devSetup`, `devStart`, and `devRestart` regardless of whether
-  the optional journal facet is present, while retaining the now-closed T032-B01–T032-B03 journal
-  lifecycle and fail-closed behavior
-- **Runtime:** Claude Code (`claude-developer`) using the installed Claude integration, bounded to
-  T032-B04 and required to stop before T033+
-- **Required references:** `specs/001-application-foundation/tasks.md` T032;
-  `specs/001-application-foundation/spec.md` FR-003 and FR-017;
-  `specs/001-application-foundation/data-model.md` §Lifecycle Operation;
-  `specs/001-application-foundation/contracts/foundation-operations.md` §Failure behavior;
-  `specs/001-application-foundation/plan.md` §Operations and verification;
-  `specs/001-application-foundation/research.md` Decision 5;
-  `specs/001-application-foundation/quickstart.md` §5;
-  `tests/verification/lifecycle-recovery.test.ts`; `.specify/memory/constitution.md` Principles I–VI
-- **Expected verification:** Add or run a focused differential matrix proving invalid canonical
-  configuration classes and derived endpoint collisions/range errors return the same closed
-  rejection with zero database/process/migration work both with and without a journal facet;
-  specifically prove invalid canonical `DATABASE_URL` is rejected as
-  `CONFIG_IDENTITY_CONFLICT` / `DATABASE_URL` in both modes. Re-run the B01 routine-restart case,
-  the B02 setup/stop/restart phase-order probes, the B03 corrupt-read/terminal-write probes,
-  `npx vitest run scripts/foundation-operations.test.ts`, the focused T032 lifecycle cases, and
-  `npx vitest run`; compare pass/failure sets and report zero regressions. Reconfirm no T033+
-  behavior, dependency, manifest, package command, declaration-file, or lockfile changes
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T032 passed independent review and awaits Product Owner Human Gate;
+  T033+ are not authorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
