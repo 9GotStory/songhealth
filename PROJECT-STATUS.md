@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T037 CHANGES REQUIRED — REWORK AUTHORIZED
+- **Status:** T037 PASSED INDEPENDENT REVIEW — PRODUCT OWNER HUMAN GATE
 
 ## Active Feature Mirror
 
@@ -29,17 +29,30 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T037-B01
-- **Phase status:** T037 REWORK AUTHORIZED; T038+ UNAUTHORIZED
+- **Current review result:** PASS — T037-B01 closed; PRODUCT OWNER HUMAN GATE
+- **Phase status:** T037 PASSED INDEPENDENT REVIEW; T038+ UNAUTHORIZED
 - **Previous completed scope:** T036 — non-mutating migration status and explicit target-routed
   migration apply command adapters
-- **Next valid action:** Claude Code corrects only T037-B01 from the persisted rework authorization,
-  reports the exact corrective tip and verification evidence, then stops for independent Codex review
-- **Blocking issues:** T037-B01 — the real Development inventory population omits the
-  manifest-declared `development.network`, while `foundation:recover` can create/reconcile that
-  network through Compose without proving its exact name, checkout/manifest/custom labels,
-  ownership schema, collision state, or attachments. This violates the complete Resource Inventory
-  and exact container/network recovery ownership requirements.
+- **Next valid action:** Product Owner Human Gate for T037; do not authorize T038 before explicit
+  human acceptance
+- **Blocking issues:** None for T037 review
+- **T037 final review evidence:** Exact corrective tip
+  `32c80051836f9cbaa3d96e77fdad167fd2107c57` has persisted REWORK authorization
+  `a8f7f8afe7d10ea3c06897a4f1b22545b8c463ae` as its sole parent; its corrective diff is limited to
+  `scripts/foundation-operations.mjs`, `scripts/foundation-operations.test.ts`,
+  `tests/verification/foundation-command-adapters.test.ts`,
+  `tests/verification/foundation-operation-target.test.ts`, and
+  `tests/verification/lifecycle-recovery.test.ts`, with no T038+ implementation. Independent
+  inspection and real-CLI adapter regressions close T037-B01: the complete Development inventory
+  includes the manifest-declared network with exact Compose names, checkout/manifest/custom labels,
+  current ownership schema, collision/ambiguity handling, and foreign-attachment evidence; every
+  blocked network state prevents token issuance and Compose repair, while a fully proven network
+  permits exactly the bounded recovery reconcile. Syntax and TypeScript pass; focused
+  CLI/foundation/database/diagnostic verification passes 166/166; lifecycle plus operation-target
+  verification is 74 passed / 1 established retry-fixture failure; the full relevant surface is
+  343 passed / 1 established failure / 38 real-engine tests unavailable because the required
+  explicit local environment source is absent. Diff check is clean. Node 24.11.0/npm 11.6.1 remains
+  below the npm 12 engine pin and is non-blocking for these results.
 - **T037 review evidence:** Exact implementation tip
   `9d5372eb0be215f452bd4505aede232bbdce7243` has authorization commit
   `18b440cc28cd409c41eb85035d91a0c72bc4d91b` as its sole parent; its clean diff is limited to
@@ -273,20 +286,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T037-B01 only — make the real Development inventory and recovery authorization
-  cover the manifest-declared Development network with complete exact ownership/collision/attachment
-  evidence before Compose recovery may reconcile it; add the focused real-adapter regression.
-  T038+ remain unauthorized.
-- **Runtime:** Claude Code (`claude-developer`)
-- **Required references:** Constitution; `spec.md` FR-003–FR-004 and FR-017; `plan.md`;
-  `data-model.md`; Operations Contract §Commands and §Failure behavior; `quickstart.md` §2;
-  `tasks.md` T037; `CLAUDE.md`
-- **Expected verification:** focused real CLI inventory/recovery tests proving an exact Development
-  network is included and an absent, mislabeled, colliding, ambiguous, cross-checkout, or
-  unexpectedly attached network prevents token issuance and repair work; existing command-adapter,
-  foundation-operations, lifecycle-recovery, and operation-target suites; syntax, type, and diff
-  checks; confirm no T038+ behavior or out-of-scope changes
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T037 passed independent review; T038+ remain unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE — see T037 final review evidence above
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
