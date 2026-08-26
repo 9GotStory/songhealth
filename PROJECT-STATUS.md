@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T035 AUTHORIZED — IMPLEMENTATION HANDOFF PENDING
+- **Status:** T035 CHANGES REQUIRED — CORRECTIVE ROUND 1
 
 ## Active Feature Mirror
 
@@ -29,13 +29,14 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** NOT YET REVIEWED — T035 authorized from accepted T034 state
-- **Phase status:** T035 AUTHORIZED; T036+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T035-B01–T035-B02 open
+- **Phase status:** T035 REWORK AUTHORIZED; T036+ UNAUTHORIZED
 - **Previous completed scope:** T034 — sole allowlisted Development runtime repair with exact
   origin-action/evidence-bound confirmation and connectivity/integrity/migration postchecks
-- **Next valid action:** Claude implements only T035 from the exact authorization commit, then
-  Codex independently reviews the resulting artifact
-- **Blocking issues:** None for T035 implementation
+- **Next valid action:** Claude corrects only T035-B01–T035-B02 from this persisted REWORK
+  authorization, then Codex independently re-reviews the corrective artifact
+- **Blocking issues:** T035-B01 changes the accepted complete-inventory projection to observed-only;
+  T035-B02 proves only a database bounce rather than the documented supervised routine restart
 - **T034 Product Owner acceptance:** Human Gate accepted corrective implementation tip
   `f1895d7a67f4292667432e83e9751a78080e0562` and independent PASS governance record
   `001680d48258f7eed236d48bdf3b6f723f6bb098`; T034-B01–T034-B02 are accepted as closed.
@@ -191,12 +192,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T035 only — implement the foundation-operational synthetic marker migration,
-  marker write/read and routine restart continuity proof, reconstructible exact Development reset,
-  migration restoration, old-marker absence proof, and before/after non-target inventory comparison
-  in `apps/server/src/migrations.ts` and `scripts/foundation-operations.mjs`
-- **Runtime:** Claude Code (`claude-developer`) from this authorization commit as the exact
-  Authorized Base SHA
+- **Task / Scope:** T035 corrective rework only — T035-B01 restore the accepted complete target
+  inventory semantics while preserving exact before/after SC-002 comparison evidence; T035-B02 run
+  the marker continuity proof through the documented supervised Development routine restart,
+  including native processes, without bypassing its accepted lifecycle/configuration/failure behavior
+- **Runtime:** Claude Code (`claude-developer`) from this REWORK authorization commit
 - **Required references:** `.specify/memory/constitution.md` Principles I–VI and Delivery and
   Quality Gates; `specs/001-application-foundation/spec.md` FR-004 and SC-002;
   `specs/001-application-foundation/plan.md` Runtime composition and Testing/security evidence;
@@ -204,13 +204,13 @@
   §2; `specs/001-application-foundation/data-model.md` Migration State, Persistence Marker,
   Persistence Validation Result, and lifecycle transitions; `specs/001-application-foundation/contracts/foundation-operations.md`
   command and reset contracts; `docs/spec-context/001-application-foundation.md` Implementation / Review routing
-- **Expected verification:** Add or update only T035-focused tests needed to prove parameterized
-  migration/marker operations, marker continuity through routine restart, fresh exact confirmation
-  and reconstructibility-gated Development reset, prior-marker absence, restored current migrations,
-  exact target-only inventory change, and unchanged Verification/non-target resources; run the
-  focused T035 tests plus relevant migration, lifecycle recovery, foundation operations, operation
-  target, typecheck, and diff/scope checks, reporting established unrelated failures separately
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Expected verification:** Add focused regressions proving an absent expected role remains in the
+  complete normalized inventory evidence and the SC-002 before/after comparison detects state/change
+  without redefining that projection; prove `dev:persistence-check` executes the accepted complete
+  supervised routine restart order and preserves the exact marker, including native-process failure
+  refusal; rerun focused T035, foundation operations, operation-target, lifecycle recovery, syntax,
+  typecheck, and diff/scope checks, classifying established unrelated failures separately
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
