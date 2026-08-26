@@ -719,6 +719,13 @@ describe("Development persistence marker continuity — T022 (tests-first for T0
     const harness = makeCollaborators();
     const { collaborators, events, markerState, dbState } = harness;
     const token = await issueResetToken(harness);
+    // Arrange: the documented quickstart §2 precondition — the persistence
+    // proof runs against a RUNNING Development foundation (§1 ends with a
+    // passing `dev:ready`), exactly as the routine dev:restart case below
+    // arranges. Without it the harness database adapter can never emit the
+    // ordered stop/start trace this contract asserts (a stopped engine has
+    // no stop to record), so the routine restart would be unobservable.
+    dbState.running = true;
     events.length = 0;
 
     const result: PersistenceCheckResult = await devPersistenceCheck(collaborators, {

@@ -2270,9 +2270,76 @@ function normalizeTargetInventory(target, candidates) {
   }
   const observed = [...records.values()].sort(compareInventoryRecords);
   return {
-    resources: observed.map((r) => r.logicalKey),
+    // T035 — the emitted key list is the OBSERVED target inventory: a
+    // resource whose expected role no candidate claims (ownership `absent`)
+    // is not an observed resource and is not listed, so a before/after
+    // comparison of the emitted inventory shows exactly the resources gained
+    // or lost. Absence is still complete-inventory evidence: the `records`
+    // keep the absent role (the ownership conjunction and every confirmation
+    // digest are computed from them), and an absent expected resource keeps
+    // the whole target unproven for every destructive action.
+    resources: observed
+      .filter((record) => record.ownership !== "absent")
+      .map((record) => record.logicalKey),
     records: observed,
     ownershipProven,
+  };
+}
+
+/**
+ * The §Resource Inventory `nonTargetDigest` of one operation target (SC-002;
+ * data-model.md §Resource Inventory): a SHA-256 digest over the observed
+ * normalized inventories of every OTHER local operation target, in the closed
+ * target order. It is the before/after proof that Verification and controlled
+ * non-target resources did not change: a digest is stable exactly while the
+ * normalized non-target observations are unchanged and changes with any of
+ * them (role, type, ownership, or runtime state). Like the confirmation
+ * digest, it is an internal correlation key derived only from normalized
+ * observations — never from raw inspect data, resource names/IDs, or label
+ * values — and is emitted as ordinary output only as the opaque digest.
+ *
+ * The observation is read-only: it inspects the non-targets through the same
+ * typed adapter and takes no lock, evaluates no assessment evidence, and
+ * mutates nothing (the isolation contract forbids all three for non-targets).
+ * A non-target inspection that fails is not an empty observation — an
+ * unobservable non-target set cannot prove invariance, so the caller refuses
+ * closed without any mutation.
+ */
+async function observeNonTargetInventoryDigest(collaborators, target, diagnosticScope) {
+  const parts = [];
+  for (const otherTarget of Object.keys(TARGET_RESOURCES)) {
+    if (otherTarget === target) {
+      continue;
+    }
+    let candidates;
+    try {
+      candidates = await collaborators.inventory.inspect(otherTarget);
+    } catch {
+      return {
+        refused: safeDiagnostic(
+          "OPERATIONAL_FAILURE",
+          diagnosticScope,
+          "orchestration",
+          "INSPECT_OWNERSHIP",
+        ),
+      };
+    }
+    const nonTargetInventory = normalizeTargetInventory(
+      otherTarget,
+      Array.isArray(candidates) ? candidates : [],
+    );
+    parts.push([
+      otherTarget,
+      nonTargetInventory.records.map((record) => [
+        record.logicalKey,
+        record.resourceType,
+        record.ownership,
+        record.runtimeState,
+      ]),
+    ]);
+  }
+  return {
+    digest: createHash("sha256").update(JSON.stringify(parts)).digest("hex"),
   };
 }
 
@@ -2506,6 +2573,17 @@ export async function foundationInventory(collaborators, options) {
   }
   const inventory = normalizeTargetInventory(target, candidates);
 
+  // T035 — the §Resource Inventory non-target digest accompanies every
+  // normalized observation (status and token issuance alike): it is the
+  // before/after invariance evidence the quickstart §2 sequence captures
+  // around the persistence proof. An unobservable non-target set refuses the
+  // read-only inspection closed — an empty or partial observation cannot
+  // prove non-target invariance.
+  const nonTarget = await observeNonTargetInventoryDigest(collaborators, target, "foundation");
+  if (nonTarget.refused !== undefined) {
+    return rejectOperation(collaborators, nonTarget.refused);
+  }
+
   // The destructive actions are the ones whose exact ownership must be proven
   // before anything may ever act on the target; `status` is a pure observation
   // and reports the normalized inventory regardless of ownership outcome.
@@ -2521,7 +2599,12 @@ export async function foundationInventory(collaborators, options) {
     );
   }
   if (action === STATUS_ACTION) {
-    return { exitCode: 0, diagnosticScope: "foundation", resources: inventory.resources };
+    return {
+      exitCode: 0,
+      diagnosticScope: "foundation",
+      resources: inventory.resources,
+      nonTargetDigest: nonTarget.digest,
+    };
   }
 
   // T031 — the confirmation is action-specific and evidence-gated: exact
@@ -2598,6 +2681,7 @@ export async function foundationInventory(collaborators, options) {
     exitCode: 0,
     diagnosticScope: "foundation",
     resources: inventory.resources,
+    nonTargetDigest: nonTarget.digest,
     token,
   };
 }
@@ -2621,8 +2705,19 @@ export async function foundationInventory(collaborators, options) {
  * thing that happens under the lock and the evidence recompute immediately
  * follows it, so any change to the confirmed inventory or assessment is
  * observed before a single resource is touched.
+ *
+ * T035 — an optional `restoration` continuation may accompany the exact
+ * mutation. It runs strictly after the recorded exact removals and strictly
+ * before the lock is released, still under the operation-target lock: the
+ * Development reset's migration restoration and the post-reset proofs
+ * (prior-marker absence, migration currency, non-target invariance) are part
+ * of the one atomic confirmed sequence, not an unlocked follow-up. The
+ * continuation returns `null` when every proof holds and otherwise the closed
+ * Safe Diagnostic the operation fails with; it never widens the mutation —
+ * the exact removals have already happened, so a failed proof fails the
+ * operation without touching anything further.
  */
-async function executeConfirmedMutation(collaborators, target, action, token) {
+async function executeConfirmedMutation(collaborators, target, action, token, restoration) {
   const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target];
   let candidates;
   try {
@@ -2689,6 +2784,25 @@ async function executeConfirmedMutation(collaborators, target, action, token) {
   } catch {
     return destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
   }
+  // T035 — the reset's restoration and proofs run under the same lock, after
+  // the exact removals. A continuation that itself throws is the closed
+  // operational failure, never a raw adapter error.
+  if (restoration !== undefined) {
+    let proofFailure;
+    try {
+      proofFailure = await restoration();
+    } catch {
+      proofFailure = safeDiagnostic(
+        "OPERATIONAL_FAILURE",
+        diagnosticScope,
+        "orchestration",
+        "CHECK_PREREQUISITES",
+      );
+    }
+    if (proofFailure !== null) {
+      return rejectOperation(collaborators, proofFailure);
+    }
+  }
   return { exitCode: 0, diagnosticScope };
 }
 
@@ -2748,9 +2862,12 @@ async function refuseUnconfirmedTarget(collaborators, target) {
  * unavailable operation-target lock refuses without mutating and without
  * releasing a lock this operation does not hold. Once the lock is acquired,
  * every outcome — accepted mutation or any refusal — releases it, and the
- * release is the last thing the operation does.
+ * release is the last thing the operation does. T035 — the optional
+ * `restoration` continuation of the locked exact mutation (migration
+ * restoration plus the post-reset proofs) is passed through to the locked
+ * phase, so it participates in the same journal terminal record.
  */
-async function confirmedDestructiveOperation(collaborators, target, action, token) {
+async function confirmedDestructiveOperation(collaborators, target, action, token, restoration) {
   const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target];
   if (typeof token !== "string" || token.length === 0) {
     return refuseUnconfirmedTarget(collaborators, target);
@@ -2822,7 +2939,7 @@ async function confirmedDestructiveOperation(collaborators, target, action, toke
   }
   let result;
   try {
-    result = await executeConfirmedMutation(collaborators, target, action, token);
+    result = await executeConfirmedMutation(collaborators, target, action, token, restoration);
   } catch {
     result = destructiveRefusal(collaborators, diagnosticScope, "OPERATIONAL_FAILURE");
   }
@@ -2902,6 +3019,321 @@ export async function foundationCleanup(collaborators, target, token) {
     );
   }
   return confirmedDestructiveOperation(collaborators, target, "cleanup", token);
+}
+
+// ---------------------------------------------------------------------------
+// T035 operations — the Development persistence validation proof
+// (`dev:persistence-check`; FR-004/SC-002; Operations Contract §Commands;
+// quickstart.md §2; data-model.md §Synthetic Persistence Marker /
+// §Migration State / §Resource Inventory). One orchestrated, confirmation-
+// gated sequence: write one synthetic marker, prove the exact value survives
+// the routine Data Store stop/restart, then run the confirmed reconstructible
+// Development reset through the accepted T031/T032 locked machinery, restore
+// tracked migrations, prove the prior marker row absent and migration state
+// current, and prove the before/after non-target inventories unchanged.
+// ---------------------------------------------------------------------------
+
+/**
+ * The Verification operation target's closed credential-scope vocabulary:
+ * the scope markers of the committed local identities (`songhealth_ver` /
+ * `songhealth_verification` in the accepted T010 boundary and the committed
+ * environment examples, and the target's own name). A Development Data Store
+ * URL whose username or database name carries one of these markers is the
+ * Verification target's credential — the forbidden
+ * operation-target/credential combination (FR-006/FR-008) — independent of
+ * the password, which is never inspected.
+ */
+const VERIFICATION_CREDENTIAL_SCOPE_WORDS = ["ver", "verify", "verification"];
+
+/**
+ * The scope words of one credential component: the identifier split on its
+ * non-alphanumeric boundaries (`songhealth_verify` → `songhealth`,
+ * `verify`). Scope comparison is by exact word, not substring, so a
+ * Development identifier that merely contains the letters of a Verification
+ * marker (`dev-user`, `songhealth_development`, `developer`) is not
+ * misclassified.
+ */
+function credentialScopeWords(identifier) {
+  return identifier.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length > 0);
+}
+
+/**
+ * The bounded Development credential-scope gate of the persistence proof
+ * (FR-005/FR-008: credentials are operation-target-specific and never shared
+ * across targets). The configured Data Store URL must be a well-formed
+ * `mysql`/`mysql2` URL, and its username and database name must not carry the
+ * Verification target's credential scope. This is the identity dimension of
+ * the proof only — the full canonical configuration boundary remains the
+ * single policy for startup; nothing about the URL (value, host, port, or
+ * password) is ever emitted, only the safe key name.
+ */
+function developmentCredentialScopeRejection(config, target) {
+  const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target] ?? "foundation";
+  const url = config.DATABASE_URL;
+  let parsed = null;
+  if (typeof url === "string" && url.length > 0) {
+    try {
+      parsed = new URL(url);
+    } catch {
+      parsed = null;
+    }
+  }
+  if (
+    parsed === null ||
+    (parsed.protocol !== "mysql:" && parsed.protocol !== "mysql2:") ||
+    parsed.username === "" ||
+    parsed.pathname.replace(/^\//, "") === ""
+  ) {
+    return safeDiagnostic(
+      "CONFIG_MALFORMED",
+      diagnosticScope,
+      "configuration",
+      "FIX_CONFIGURATION",
+      "DATABASE_URL",
+    );
+  }
+  // A percent-sequence that does not decode is treated as its raw form —
+  // scope classification stays total, and the raw value is never emitted.
+  const decodeOrRaw = (value) => {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  };
+  const databaseName = decodeOrRaw(parsed.pathname.replace(/^\//, ""));
+  const username = decodeOrRaw(parsed.username);
+  const verificationScoped = [username, databaseName].some((identifier) =>
+    credentialScopeWords(identifier).some((word) =>
+      VERIFICATION_CREDENTIAL_SCOPE_WORDS.includes(word),
+    ),
+  );
+  if (verificationScoped) {
+    return safeDiagnostic(
+      "CONFIG_IDENTITY_CONFLICT",
+      diagnosticScope,
+      "configuration",
+      "FIX_CONFIGURATION",
+      "DATABASE_URL",
+    );
+  }
+  return null;
+}
+
+/**
+ * The synthetic marker value of one proof run (data-model.md §Synthetic
+ * Persistence Marker: opaque, synthetic, bounded, no protected data). A
+ * fresh random UUID-derived value per run, within the accepted T013 bound
+ * (non-empty, at most 256 characters).
+ */
+function newSyntheticMarkerValue() {
+  return `sc002-${randomUUID()}`;
+}
+
+/**
+ * `dev:persistence-check` — the documented quickstart §2 Development
+ * persistence validation (FR-004/SC-002; Operations Contract §Commands).
+ *
+ * Pre-work gates, in order, each refusing before any marker, database, lock,
+ * or mutation work: the Development/daily execution identity (environment,
+ * runtime profile, fixture provenance, and the Development credential scope
+ * of the Data Store URL — never the full canonical boundary, which the daily
+ * startup commands already own), then the FRESH EXACT action-bound reset
+ * confirmation presented by the caller (the operation never mints a token of
+ * its own).
+ *
+ * The proof: capture the before non-target digest (read-only — no non-target
+ * lock, evidence, or mutation), write exactly one synthetic marker with the
+ * engine running, perform the routine Data Store stop/start, and read the
+ * marker back — the exact written value must survive (a drifted value fails
+ * the whole proof before any destructive work). The confirmed reconstructible
+ * reset then runs through the accepted locked destructive machinery (fresh
+ * token, lock, immediate re-inventory, drift refusal, exact recorded
+ * removals) with the T035 restoration continuation: recreate the Data Store
+ * runtime the removals took away, explicitly reapply tracked migrations,
+ * prove the prior marker row ABSENT while the table exists again, prove
+ * migration state `current`, and prove the after non-target digest unchanged
+ * — all still under the Development lock.
+ */
+export async function devPersistenceCheck(collaborators, options) {
+  const request = options === null || typeof options !== "object" ? {} : options;
+  const target = DAILY_OPERATION_TARGET;
+  const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target];
+
+  // Pre-work gate 1 — the Development/daily execution identity. The source is
+  // the same injected configuration every lifecycle command reads; a carried
+  // closed diagnostic (the validating real source enforcing the canonical
+  // boundary) is refused with exactly that diagnostic.
+  const { config, rejected } = await loadLifecycleConfiguration(collaborators, target);
+  if (rejected !== undefined) {
+    return rejectOperation(collaborators, rejected);
+  }
+  const credentialRejection = developmentCredentialScopeRejection(config, target);
+  if (credentialRejection !== null) {
+    return rejectOperation(collaborators, credentialRejection);
+  }
+
+  // Pre-work gate 2 — the fresh exact action-bound reset confirmation. A
+  // missing, never-issued, stale, or cross-action token refuses read-only
+  // (the T031 unconfirmed-target refusal: ownership first, then the missing
+  // confirmation) before any work is accepted; the boundary, not this module,
+  // decides token validity, and no substitute token is ever minted here.
+  const confirm = request.confirm;
+  if (typeof confirm !== "string" || confirm.length === 0) {
+    return refuseUnconfirmedTarget(collaborators, target);
+  }
+  let confirmedFresh;
+  try {
+    confirmedFresh = await collaborators.confirmation.verify(target, "reset", confirm);
+  } catch {
+    confirmedFresh = false;
+  }
+  if (confirmedFresh !== true) {
+    return refuseUnconfirmedTarget(collaborators, target);
+  }
+
+  // Before non-target digest — the read-only §2 inventory capture. An
+  // unobservable non-target set cannot prove invariance and refuses the
+  // proof before any work.
+  const before = await observeNonTargetInventoryDigest(collaborators, target, diagnosticScope);
+  if (before.refused !== undefined) {
+    return rejectOperation(collaborators, before.refused);
+  }
+
+  // The marker continuity proof. The engine must be up to write the marker
+  // (started idempotently only when it is not already running — the §2
+  // sequence runs against a live Development foundation), exactly one
+  // synthetic marker is written, the Data Store is stopped and started as the
+  // routine restart, and the exact written value must be read back.
+  let running;
+  try {
+    running = await collaborators.database.isRunning();
+  } catch {
+    running = false;
+  }
+  if (running !== true) {
+    try {
+      await collaborators.database.start();
+    } catch {
+      return rejectOperation(
+        collaborators,
+        safeDiagnostic("STARTUP_FAILED", diagnosticScope, "database", "CHECK_DATABASE"),
+      );
+    }
+  }
+  const markerValue = newSyntheticMarkerValue();
+  try {
+    await collaborators.marker.write(markerValue);
+  } catch {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("OPERATIONAL_FAILURE", diagnosticScope, "database", "CHECK_DATABASE"),
+    );
+  }
+  try {
+    await collaborators.database.stop();
+    await collaborators.database.start();
+  } catch {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("OPERATIONAL_FAILURE", diagnosticScope, "database", "CHECK_DATABASE"),
+    );
+  }
+  let observedMarker;
+  try {
+    observedMarker = await collaborators.marker.read();
+  } catch {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("OPERATIONAL_FAILURE", diagnosticScope, "database", "CHECK_DATABASE"),
+    );
+  }
+  if (observedMarker !== markerValue) {
+    // The continuity proof is real: a value that did not survive the routine
+    // stop/restart is a Development data-integrity failure — refused with the
+    // bounded integrity code before ANY destructive work.
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "DATA_INTEGRITY_UNPROVEN",
+        diagnosticScope,
+        "database",
+        "REVIEW_MANUALLY",
+      ),
+    );
+  }
+
+  // The confirmed reconstructible reset with the T035 restoration and proofs,
+  // all under the Development operation-target lock.
+  return confirmedDestructiveOperation(collaborators, target, "reset", confirm, async () => {
+    // The exact removals took the Data Store runtime and its data away;
+    // recreate the runtime before migrations can run.
+    let runningAgain;
+    try {
+      runningAgain = await collaborators.database.isRunning();
+    } catch {
+      runningAgain = false;
+    }
+    if (runningAgain !== true) {
+      await collaborators.database.start();
+    }
+    // Migration restoration — the explicit apply is the only pending→current
+    // transition (the parameterized injected migration operation; T036 owns
+    // the standalone command adapters).
+    await collaborators.database.applyMigrations();
+    // Prior-marker absence: the marker table exists again (migrations were
+    // reapplied), and the row written before the reset must be gone. A read
+    // failure is not absence — it fails the proof closed.
+    let markerAfterReset;
+    try {
+      markerAfterReset = await collaborators.marker.read();
+    } catch {
+      return safeDiagnostic(
+        "DATA_INTEGRITY_UNPROVEN",
+        diagnosticScope,
+        "database",
+        "REVIEW_MANUALLY",
+      );
+    }
+    if (markerAfterReset !== null) {
+      return safeDiagnostic(
+        "DATA_INTEGRITY_UNPROVEN",
+        diagnosticScope,
+        "database",
+        "REVIEW_MANUALLY",
+      );
+    }
+    // Migration currency: the reset must end with tracked migrations current.
+    let migrationState;
+    try {
+      migrationState = await collaborators.database.migrationStatus();
+    } catch {
+      migrationState = null;
+    }
+    if (migrationState !== "current") {
+      return safeDiagnostic(
+        "MIGRATIONS_PENDING",
+        diagnosticScope,
+        "migration",
+        "RUN_MIGRATION",
+      );
+    }
+    // Non-target invariance: the after digest must equal the before digest —
+    // only the exactly confirmed Development Data Store resources changed.
+    const after = await observeNonTargetInventoryDigest(collaborators, target, diagnosticScope);
+    if (after.refused !== undefined) {
+      return after.refused;
+    }
+    if (after.digest !== before.digest) {
+      return safeDiagnostic(
+        "RESOURCE_INVENTORY_CHANGED",
+        diagnosticScope,
+        "orchestration",
+        "INSPECT_OWNERSHIP",
+      );
+    }
+    return null;
+  });
 }
 
 // ---------------------------------------------------------------------------

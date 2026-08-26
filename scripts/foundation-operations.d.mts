@@ -51,6 +51,12 @@ export interface OperationResult {
   ready?: boolean;
   token?: string;
   resources?: string[];
+  /**
+   * The SHA-256 `nonTargetDigest` of the observed normalized inventories of
+   * every other local operation target (SC-002 before/after invariance
+   * evidence). Present on successful `foundation:inventory` observations.
+   */
+  nonTargetDigest?: string;
 }
 
 /** Routed prerequisite checks (Operations Contract §Prerequisites). */
@@ -78,6 +84,12 @@ export interface DatabaseCollaborators {
   isRunning(): Promise<boolean>;
   applyMigrations(): Promise<void>;
   deleteVolume(): Promise<void>;
+  /**
+   * The read-only migration-state observation (the closed Migration State
+   * `status` vocabulary). Required by the operations that prove migration
+   * currency (the T035 persistence validation proof).
+   */
+  migrationStatus?(): Promise<"current" | "pending" | "unavailable" | "error">;
 }
 
 /** The native Public/Admin/server process supervisor adapter. */
@@ -171,6 +183,19 @@ export interface OutputCollaborators {
 }
 
 /**
+ * The synthetic persistence-marker facet (SC-002; data-model.md §Synthetic
+ * Persistence Marker): the sole write/read access to the operational marker
+ * row owned by `apps/server/src/migrations.ts`. Only the Development
+ * persistence validation operation (`dev:persistence-check`) uses it; the
+ * marker value is opaque, synthetic, bounded, and carries no protected data.
+ * Optional on the collaborator set exactly like the output facet.
+ */
+export interface MarkerCollaborators {
+  write(value: string): Promise<void>;
+  read(): Promise<string | null>;
+}
+
+/**
  * The deterministic injected collaborator set every foundation operation is
  * driven through. The operations module owns only orchestration, ordering,
  * validation, and safe failure mapping — never hidden state.
@@ -188,6 +213,8 @@ export interface FoundationOperationsCollaborators {
   confirmation: ConfirmationCollaborators;
   mutation: MutationCollaborators;
   output?: OutputCollaborators;
+  /** The synthetic persistence-marker facet (required by `dev:persistence-check`). */
+  marker?: MarkerCollaborators;
 }
 
 /**
@@ -303,4 +330,21 @@ export function foundationCleanup(
   collaborators: FoundationOperationsCollaborators,
   target: string,
   token: string,
+): Promise<OperationResult>;
+
+/**
+ * `dev:persistence-check` (T035) — the quickstart §2 Development persistence
+ * validation: refuse forbidden identity combinations and every missing,
+ * never-issued, stale, or cross-action confirmation before any work; write
+ * exactly one synthetic marker; prove the exact value survives the routine
+ * Data Store stop/restart; run the confirmed reconstructible Development
+ * reset through the locked destructive machinery; restore tracked
+ * migrations; prove the prior marker row absent and migration state current;
+ * and prove the before/after non-target inventories unchanged. The
+ * collaborator set must provide the `marker` facet and the
+ * `database.migrationStatus` observation.
+ */
+export function devPersistenceCheck(
+  collaborators: FoundationOperationsCollaborators,
+  options: { confirm: string },
 ): Promise<OperationResult>;
