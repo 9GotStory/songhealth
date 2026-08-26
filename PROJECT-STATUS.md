@@ -29,16 +29,27 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T036-B01
-- **Phase status:** T036 REWORK AUTHORIZED; T037+ UNAUTHORIZED
+- **Current review result:** PASS — T036-B01 closed; PRODUCT OWNER HUMAN GATE
+- **Phase status:** T036 PASSED INDEPENDENT REVIEW; T037+ UNAUTHORIZED
 - **Previous completed scope:** T035 — synthetic marker persistence, supervised routine restart
   continuity, reconstructible exact reset, migration restoration, and non-target comparison
-- **Next valid action:** Claude corrects only T036-B01 from the exact rework authorization commit,
-  then Codex independently re-reviews the resulting artifact
-- **Blocking issues:** T036-B01 — the real CLI collaborator is hard-wired to the Development-only
-  configuration source and database URL, so `db:status -- --target verification` and
-  `db:migrate -- --target verification` cannot operate on the selected Verification target despite
-  the command contract; injected tests conceal the mismatch
+- **Next valid action:** Product Owner Human Gate for T036; do not authorize T037 before explicit
+  human acceptance
+- **Blocking issues:** None for T036 review
+- **T036 final review evidence:** Exact corrective tip
+  `ee4b7985af06e1b242c4f10f08cf9c98ed5c7c06` has persisted REWORK authorization
+  `0e0597e76cb5b12641a5fc1b1a6d13aa8fac3e66` as its sole parent; its corrective diff is limited to
+  `scripts/foundation-operations.mjs` and
+  `tests/verification/database-command-routing.test.ts`, with no T037+ implementation. Independent
+  inspection and the spawned real-CLI routing suite close T036-B01: Development and Verification
+  commands read, canonically validate, and address only their selected target's local configuration
+  and database identity; missing/cross-target/invalid identities refuse before adapter work; valid
+  target records reach the correctly scoped status/apply adapter with closed diagnostics. Focused
+  T036/configuration/foundation-operation/operation-target verification passes 203/203; the full
+  suite is 323 passed / 1 established lifecycle fixture failure / 38 real-engine tests unavailable
+  because the required explicit local environment source is absent. Syntax and diff checks pass.
+  TypeScript retains exactly the three established T037 missing-export errors. Node 24.11.0/npm
+  11.6.1 remains below the npm 12 engine pin and is non-blocking for these results.
 - **T036 review evidence:** Exact implementation tip
   `a520efb445409f550ab7066e4a79992101706634` has authorized base
   `c3911194bd1a02c9a936d948374d3a18bd49c3db` as its sole parent; its clean diff is limited to
@@ -224,28 +235,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T036-B01 only — make the real `db:status` and `db:migrate` CLI wiring select and
-  validate the requested Development or Verification local configuration and address only that
-  target's database; add focused regression coverage that exercises the real target-routing seam.
-  Do not implement T037+, Verification lifecycle/Compose work, or Product migration behavior
-- **Runtime:** Claude Code (`claude-developer`) from this rework authorization commit as the exact
-  Authorized Base SHA
-- **Required references:** `.specify/memory/constitution.md` Principles I–VI and Delivery and
-  Quality Gates; `specs/001-application-foundation/spec.md` FR-003–FR-004 and FR-009;
-  `specs/001-application-foundation/plan.md` Persistence and migrations;
-  `specs/001-application-foundation/tasks.md` T036;
-  `specs/001-application-foundation/contracts/foundation-operations.md` Commands and safe diagnostic
-  contract; `specs/001-application-foundation/quickstart.md` §4;
-  `specs/001-application-foundation/data-model.md` Migration State;
-  `docs/spec-context/001-application-foundation.md` Implementation / Review routing
-- **Expected verification:** Prove through the real CLI target-routing seam that Development loads
-  only Development configuration/database identity and Verification loads only Verification
-  configuration/database identity before status/apply work; retain status non-mutation, explicit
-  apply, cross-target/hosted/unsafe refusal, closed diagnostics, startup migration-free behavior,
-  and all existing T036 tests. Run the focused database-command, configuration,
-  foundation-operations, operation-target, typecheck, syntax, and diff/scope checks, reporting
-  established unrelated failures separately
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T036 passed independent review; T037+ remain unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE — see T036 final review evidence above
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
