@@ -2270,17 +2270,26 @@ function normalizeTargetInventory(target, candidates) {
   }
   const observed = [...records.values()].sort(compareInventoryRecords);
   return {
-    // T035 — the emitted key list is the OBSERVED target inventory: a
-    // resource whose expected role no candidate claims (ownership `absent`)
-    // is not an observed resource and is not listed, so a before/after
-    // comparison of the emitted inventory shows exactly the resources gained
-    // or lost. Absence is still complete-inventory evidence: the `records`
-    // keep the absent role (the ownership conjunction and every confirmation
-    // digest are computed from them), and an absent expected resource keeps
-    // the whole target unproven for every destructive action.
-    resources: observed
-      .filter((record) => record.ownership !== "absent")
-      .map((record) => record.logicalKey),
+    // T035-B01 — `resources` stays the ACCEPTED COMPLETE target inventory:
+    // every expected manifest role is listed, including one no candidate
+    // claims (ownership `absent`), because absence is an explicit Owned
+    // Runtime Resource state of the complete snapshot, not an omitted role.
+    // The before/after SC-002 comparison therefore does NOT infer change
+    // from this key list (it is invariant under removal) — it uses the
+    // complete normalized `states` evidence below, where an exact→absent or
+    // running→exited transition is observable while the inventory stays
+    // complete.
+    resources: observed.map((record) => record.logicalKey),
+    // The complete normalized per-resource state evidence (quickstart §2:
+    // before/after inventories expose normalized identifiers, digests, and
+    // STATE): every role of the complete inventory with its closed ownership
+    // verdict and allowlisted runtime state, in the same deterministic
+    // order. Nothing raw (names, IDs, labels, attachments) appears here.
+    states: observed.map((record) => ({
+      logicalKey: record.logicalKey,
+      ownership: record.ownership,
+      runtimeState: record.runtimeState,
+    })),
     records: observed,
     ownershipProven,
   };
@@ -2603,6 +2612,7 @@ export async function foundationInventory(collaborators, options) {
       exitCode: 0,
       diagnosticScope: "foundation",
       resources: inventory.resources,
+      states: inventory.states,
       nonTargetDigest: nonTarget.digest,
     };
   }
@@ -2681,6 +2691,7 @@ export async function foundationInventory(collaborators, options) {
     exitCode: 0,
     diagnosticScope: "foundation",
     resources: inventory.resources,
+    states: inventory.states,
     nonTargetDigest: nonTarget.digest,
     token,
   };
@@ -3144,16 +3155,18 @@ function newSyntheticMarkerValue() {
  *
  * The proof: capture the before non-target digest (read-only — no non-target
  * lock, evidence, or mutation), write exactly one synthetic marker with the
- * engine running, perform the routine Data Store stop/start, and read the
- * marker back — the exact written value must survive (a drifted value fails
- * the whole proof before any destructive work). The confirmed reconstructible
- * reset then runs through the accepted locked destructive machinery (fresh
- * token, lock, immediate re-inventory, drift refusal, exact recorded
- * removals) with the T035 restoration continuation: recreate the Data Store
- * runtime the removals took away, explicitly reapply tracked migrations,
- * prove the prior marker row ABSENT while the table exists again, prove
- * migration state `current`, and prove the after non-target digest unchanged
- * — all still under the Development lock.
+ * engine running, perform the documented complete supervised Development
+ * routine restart (`devRestart` — native processes and database, with its
+ * accepted configuration/journal/failure semantics), and read the marker
+ * back — the exact written value must survive (a drifted value fails the
+ * whole proof before any destructive work, and so does a failed restart). The
+ * confirmed reconstructible reset then runs through the accepted locked
+ * destructive machinery (fresh token, lock, immediate re-inventory, drift
+ * refusal, exact recorded removals) with the T035 restoration continuation:
+ * recreate the Data Store runtime the removals took away, explicitly reapply
+ * tracked migrations, prove the prior marker row ABSENT while the table
+ * exists again, prove migration state `current`, and prove the after
+ * non-target digest unchanged — all still under the Development lock.
  */
 export async function devPersistenceCheck(collaborators, options) {
   const request = options === null || typeof options !== "object" ? {} : options;
@@ -3203,8 +3216,15 @@ export async function devPersistenceCheck(collaborators, options) {
   // The marker continuity proof. The engine must be up to write the marker
   // (started idempotently only when it is not already running — the §2
   // sequence runs against a live Development foundation), exactly one
-  // synthetic marker is written, the Data Store is stopped and started as the
-  // routine restart, and the exact written value must be read back.
+  // synthetic marker is written, and the ROUTINE RESTART is the documented
+  // complete supervised Development lifecycle itself — T035-B02: the proof
+  // calls the accepted `devRestart` operation, not an isolated database
+  // bounce, so the marker is proven across the full native-process +
+  // database stop/start sequence with all of its accepted canonical
+  // configuration validation, journaling, immutable-failure, and
+  // closed-diagnostic semantics intact. A restart that fails refuses the
+  // whole proof closed BEFORE any reset mutation, with exactly the
+  // restart's own documented non-zero result.
   let running;
   try {
     running = await collaborators.database.isRunning();
@@ -3230,14 +3250,9 @@ export async function devPersistenceCheck(collaborators, options) {
       safeDiagnostic("OPERATIONAL_FAILURE", diagnosticScope, "database", "CHECK_DATABASE"),
     );
   }
-  try {
-    await collaborators.database.stop();
-    await collaborators.database.start();
-  } catch {
-    return rejectOperation(
-      collaborators,
-      safeDiagnostic("OPERATIONAL_FAILURE", diagnosticScope, "database", "CHECK_DATABASE"),
-    );
+  const restarted = await devRestart(collaborators);
+  if (restarted.exitCode !== 0) {
+    return restarted;
   }
   let observedMarker;
   try {

@@ -87,14 +87,20 @@ import {
 // external tool output, or Production constant appears here.
 // ---------------------------------------------------------------------------
 
-/** A safe Development daily configuration (synthetic, non-secret). */
+/**
+ * A safe Development daily configuration (synthetic, non-secret). T035-B02 —
+ * the Data Store URL uses the canonical committed Development identity (the
+ * `.env.development.example` values): the persistence proof routes its
+ * routine restart through the accepted `devRestart` lifecycle, whose
+ * canonical configuration boundary is part of the proof, not bypassed by it.
+ */
 const SAFE_DEV_CONFIG = {
   APP_ENVIRONMENT: "development",
   RUNTIME_PROFILE: "daily",
   APP_HOST: "127.0.0.1",
   APP_PORT: "10443",
   PUBLIC_ORIGIN: "http://127.0.0.1:10443",
-  DATABASE_URL: "mysql://dev-user:dev-password@127.0.0.1:13306/songhealth_dev",
+  DATABASE_URL: "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:3306/songhealth_development",
   DATABASE_POOL_MAX: "4",
   PROXY_POLICY: "none",
   LOG_LEVEL: "info",
@@ -182,14 +188,21 @@ function ownedResource(overrides: Partial<ResourceObservation> = {}): ResourceOb
 /**
  * The normalized `foundation:inventory` result surface pinned by this
  * contract: the T020-established fields plus the §Resource Inventory
- * `nonTargetDigest` this suite proves. No digest value is pinned — only
- * presence, stability, and sensitivity.
+ * `states`/`nonTargetDigest` evidence this suite proves. No digest value is
+ * pinned — only presence, stability, and sensitivity.
  */
+interface InventoryResourceState {
+  logicalKey: string;
+  ownership: "exact" | "absent" | "blocked";
+  runtimeState: string | null;
+}
+
 interface InventoryResult {
   exitCode: number;
   reasonCode?: string;
   token?: string;
   resources?: string[];
+  states?: InventoryResourceState[];
   nonTargetDigest?: string;
 }
 
@@ -301,6 +314,8 @@ function makeCollaborators() {
     resetMigrationsStayPending: false,
     /** A Verification inventory changes during the operation (isolation broken). */
     nonTargetChangesDuringRun: false,
+    /** The named native process fails to start during the routine restart. */
+    processStartFails: null as string | null,
   };
   let clockTime = 0;
   let confirmationTokenCount = 0;
@@ -348,6 +363,12 @@ function makeCollaborators() {
     },
     processes: {
       start: async (name: string) => {
+        if (failState.processStartFails === name) {
+          // A native process that fails to start during the supervised
+          // restart (the raw adapter error models the T038 input side; the
+          // operation must map it, never pass it through).
+          throw new Error(`synthetic-native-start-failure:${name}`);
+        }
         if (processState.running.has(name)) return;
         processState.running.add(name);
         processState.startCount[name] = (processState.startCount[name] ?? 0) + 1;
@@ -651,6 +672,72 @@ describe("Foundation operation-target isolation — T022 (tests-first for T029�
     expect(after.nonTargetDigest).not.toBe(before.nonTargetDigest);
   });
 
+  it("an expected role absent from the observed inventory remains represented in the complete normalized inventory evidence", async () => {
+    const harness = makeCollaborators();
+    const { collaborators, inventoryState } = harness;
+    // An expected manifest resource (the Data Store volume) is absent from
+    // the observed inventory.
+    inventoryState.byTarget.development = inventoryState.byTarget.development.filter(
+      (r) => r.logicalKey !== "development.database-volume",
+    );
+
+    const result: InventoryResult = await foundationInventory(collaborators, {
+      target: "development",
+      action: "status",
+    });
+
+    expect(result.exitCode).toBe(0);
+    // T035-B01 — the emitted key list stays the COMPLETE target inventory:
+    // the absent expected role is still listed, because absence is an
+    // explicit Owned Runtime Resource state of the complete snapshot.
+    expect(result.resources).toEqual([...DEV_DATASTORE_KEYS]);
+    // The complete normalized state evidence represents the absent role with
+    // its closed ownership verdict and no runtime state — distinct from the
+    // observed `exact` role in the same snapshot.
+    const states = new Map((result.states ?? []).map((s) => [s.logicalKey, s]));
+    expect(states.size).toBe(DEV_DATASTORE_KEYS.length);
+    expect(states.get("development.database")).toEqual({
+      logicalKey: "development.database",
+      ownership: "exact",
+      runtimeState: "running",
+    });
+    expect(states.get("development.database-volume")).toEqual({
+      logicalKey: "development.database-volume",
+      ownership: "absent",
+      runtimeState: null,
+    });
+  });
+
+  it("the SC-002 before/after comparison detects a state change through the complete normalized evidence while the complete key list is unchanged", async () => {
+    const harness = makeCollaborators();
+    const { collaborators, inventoryState } = harness;
+
+    const before: InventoryResult = await foundationInventory(collaborators, {
+      target: "development",
+      action: "status",
+    });
+    expect(before.exitCode).toBe(0);
+    // A change that does NOT alter the role set: the database container is
+    // re-observed in a different allowlisted runtime state.
+    inventoryState.byTarget.development[0].runtimeState = "exited";
+
+    const after: InventoryResult = await foundationInventory(collaborators, {
+      target: "development",
+      action: "status",
+    });
+    expect(after.exitCode).toBe(0);
+
+    // The complete key list is invariant under the change; the complete
+    // normalized state evidence is not — exactly the evidence dimension the
+    // §2 before/after comparison needs (an exact→absent transition is the
+    // same mechanism).
+    expect(after.resources).toEqual(before.resources);
+    const changed = (before.states ?? []).filter(
+      (s, index) => JSON.stringify(s) !== JSON.stringify(after.states?.[index]),
+    );
+    expect(changed.map((s) => s.logicalKey)).toEqual(["development.database"]);
+  });
+
   it.each([
     ["a verification runtime profile on a Development command", { RUNTIME_PROFILE: "verification" }, "CONFIG_IDENTITY_CONFLICT"],
     ["a hosted runtime profile", { RUNTIME_PROFILE: "hosted" }, "CONFIG_IDENTITY_CONFLICT"],
@@ -717,15 +804,18 @@ describe("Foundation operation-target isolation — T022 (tests-first for T029�
 describe("Development persistence marker continuity — T022 (tests-first for T029–T031/T035/T037)", () => {
   it("dev:persistence-check writes one synthetic marker before the routine stop and reads the exact same value back after the restart", async () => {
     const harness = makeCollaborators();
-    const { collaborators, events, markerState, dbState } = harness;
+    const { collaborators, events, markerState, dbState, processState } = harness;
     const token = await issueResetToken(harness);
     // Arrange: the documented quickstart §2 precondition — the persistence
     // proof runs against a RUNNING Development foundation (§1 ends with a
-    // passing `dev:ready`), exactly as the routine dev:restart case below
-    // arranges. Without it the harness database adapter can never emit the
-    // ordered stop/start trace this contract asserts (a stopped engine has
-    // no stop to record), so the routine restart would be unobservable.
+    // passing `dev:ready`): the database engine and all three native daily
+    // processes are up, exactly as the routine dev:restart case below
+    // arranges. Without it the harness adapters can never emit the ordered
+    // supervised stop/start trace this contract asserts (a stopped engine or
+    // process has no stop to record), so the routine restart would be
+    // unobservable.
     dbState.running = true;
+    for (const name of ["server", "public", "admin"]) processState.running.add(name);
     events.length = 0;
 
     const result: PersistenceCheckResult = await devPersistenceCheck(collaborators, {
@@ -748,6 +838,17 @@ describe("Development persistence marker continuity — T022 (tests-first for T0
     expect(stopIndex).toBeGreaterThan(writeIndex);
     expect(startIndex).toBeGreaterThan(stopIndex);
     expect(readIndex).toBeGreaterThan(startIndex);
+    // T035-B02 — the routine restart is the COMPLETE SUPERVISED lifecycle,
+    // not an isolated database bounce: every native daily process stops
+    // before the database stops, and the database starts before any native
+    // process starts again (the accepted stop-before-start order of the
+    // supervised restart).
+    for (const name of ["server", "public", "admin"]) {
+      expect(events.indexOf(`process:stop:${name}`)).toBeGreaterThan(writeIndex);
+      expect(events.indexOf(`process:stop:${name}`)).toBeLessThan(stopIndex);
+      expect(events.indexOf(`process:start:${name}`)).toBeGreaterThan(startIndex);
+      expect(events.indexOf(`process:start:${name}`)).toBeLessThan(readIndex);
+    }
     // The first read returns the exact written value (continuity); the last
     // read follows the reset's migration reapply and returns null (absence).
     expect(markerState.readLog[0]).toBe(markerState.lastWritten);
@@ -802,6 +903,37 @@ describe("Development persistence marker continuity — T022 (tests-first for T0
     // a safe reason code, and the failure precedes the reset mutation.
     expect(result.exitCode).not.toBe(0);
     expect(result.reasonCode).toBeTruthy();
+    expect(mutationState.removedExact).toEqual([]);
+    expectBoundedDevelopmentMutation(harness);
+  });
+
+  it("negative control: a native process that fails to start during the supervised routine restart refuses the proof closed before any reset mutation", async () => {
+    const harness = makeCollaborators();
+    const {
+      collaborators,
+      events,
+      markerState,
+      mutationState,
+      failState,
+    } = harness;
+    const token = await issueResetToken(harness);
+    // One native daily process fails to come back up during the routine
+    // restart's start phase (after the stop phase already succeeded).
+    failState.processStartFails = "public";
+    events.length = 0;
+
+    const result: PersistenceCheckResult = await devPersistenceCheck(collaborators, {
+      confirm: token,
+    });
+
+    // The restart is the complete supervised lifecycle, so its documented
+    // startup failure refuses the whole proof closed: the marker was written
+    // and the restart was attempted, but NO reset mutation occurred and no
+    // broad-deletion strategy was touched. The refusal is the restart's own
+    // closed startup diagnostic — never the raw adapter error.
+    expect(result.exitCode).not.toBe(0);
+    expect(result.reasonCode).toBe("STARTUP_FAILED");
+    expect(markerState.writes).toBe(1);
     expect(mutationState.removedExact).toEqual([]);
     expectBoundedDevelopmentMutation(harness);
   });
@@ -982,18 +1114,23 @@ describe("Non-target inventory comparison — T022 (tests-first for T029–T031/
     expect(developmentAfter.exitCode).toBe(0);
     expect(verificationAfter.exitCode).toBe(0);
 
-    // Only the explicitly confirmed Development Data Store resources changed:
-    // every resource gained or lost by the Development target is a Data Store
-    // key, and the executed mutation plan is exactly that set.
-    const beforeKeys = new Set(developmentBefore.resources ?? []);
-    const afterKeys = new Set(developmentAfter.resources ?? []);
-    const changed = [
-      ...[...beforeKeys].filter((k) => !afterKeys.has(k)),
-      ...[...afterKeys].filter((k) => !beforeKeys.has(k)),
-    ];
+    // Only the explicitly confirmed Development Data Store resources changed.
+    // T035-B01 — the comparison uses the COMPLETE NORMALIZED STATE evidence,
+    // not the role key list: the key list is the complete inventory (still
+    // listing every expected role, now observed `absent`), so the observable
+    // change dimension is each role's normalized ownership/runtime state.
+    expect(developmentAfter.resources).toEqual([...DEV_DATASTORE_KEYS]);
+    const beforeStates = new Map(
+      (developmentBefore.states ?? []).map((s) => [s.logicalKey, s]),
+    );
+    const afterStates = new Map((developmentAfter.states ?? []).map((s) => [s.logicalKey, s]));
+    const changed = [...beforeStates.keys()].filter(
+      (key) => JSON.stringify(beforeStates.get(key)) !== JSON.stringify(afterStates.get(key)),
+    );
     expect(changed.length).toBeGreaterThan(0);
     for (const key of changed) {
       expect(DEV_DATASTORE_KEYS).toContain(key);
+      expect(afterStates.get(key)?.ownership).toBe("absent");
     }
     expect([...harness.mutationState.removedExact].sort()).toEqual(
       [...DEV_DATASTORE_KEYS].sort(),

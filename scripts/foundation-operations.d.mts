@@ -29,6 +29,18 @@ export interface SafeDiagnostic {
 }
 
 /**
+ * One complete normalized per-resource state entry of a target inventory
+ * (quickstart §2: before/after inventories expose normalized identifiers,
+ * digests, and state). The closed ownership verdict and allowlisted runtime
+ * state of one manifest role — never a raw name, ID, label, or attachment.
+ */
+export interface InventoryResourceState {
+  logicalKey: string;
+  ownership: "exact" | "absent" | "blocked";
+  runtimeState: string | null;
+}
+
+/**
  * The normalized result of one foundation operation. `exitCode` is the
  * command exit status; on failure `reasonCode` is present and
  * `diagnostics` carries the closed Safe Diagnostics emitted for that
@@ -50,7 +62,19 @@ export interface OperationResult {
   failedChecks?: string[];
   ready?: boolean;
   token?: string;
+  /**
+   * The COMPLETE normalized target inventory keys (data-model.md §Resource
+   * Inventory): every expected manifest role, including one observed with
+   * ownership `absent`.
+   */
   resources?: string[];
+  /**
+   * The complete normalized per-resource state evidence of the same
+   * inventory (SC-002 before/after change evidence — the key list itself is
+   * invariant under a role's removal). Present on successful
+   * `foundation:inventory` observations.
+   */
+  states?: InventoryResourceState[];
   /**
    * The SHA-256 `nonTargetDigest` of the observed normalized inventories of
    * every other local operation target (SC-002 before/after invariance
