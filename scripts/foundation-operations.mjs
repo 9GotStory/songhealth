@@ -213,6 +213,35 @@
  * copy. No Verification lifecycle/Compose behavior is added: with no
  * Verification engine running, its commands fail closed exactly like the
  * Development ones do.
+ *
+ * T037 exposes the already-implemented T033–T035 operations as REAL
+ * command adapters (Operations Contract §Commands; quickstart §2/§5):
+ * `foundation:status`, `foundation:inventory` (including `--token-only`),
+ * `foundation:test-interruption`, `foundation:recover`, `dev:reset`, and
+ * `dev:persistence-check` route from `package.json` and the command-line
+ * entry point to their existing bounded operations. The target-taking
+ * commands join the T036-B01 target-routed collaborator binding, so a
+ * requested operation target's own ignored local file is the only
+ * configuration source its command reads. Exposure adds the missing REAL
+ * facets the operations were injected with in tests: typed Podman
+ * inventory inspection (candidates scoped to this Delivery's labeled
+ * resources claiming the target's recorded manifest roles — never foreign
+ * or unlabeled ones), the normalized Recovery Assessment evidence
+ * evaluator, the durable checkout-local action-bound confirmation
+ * boundary (latest-per-(target, action) tokens plus the evidence-digest
+ * binding the confirmed commands re-derive under the lock — the accepted
+ * T031 in-process map remains the tests' contract, and durability is
+ * enabled only on the command-line path), the per-target lock file with
+ * dead-holder reconciliation, individually-exact resource removal
+ * (stop-then-rm of the exact container name, exact volume/network name —
+ * never prefix, wildcard, label-filter, orphan, prune, broad-volume, or
+ * force paths), the sole allowlisted Development recovery repair with its
+ * connectivity/integrity/migration-status postchecks, the marker facet
+ * through the accepted server migration boundary, and the deterministic
+ * CLI fault source (the requested allowlisted (action, phase) IS the
+ * injection point, so the real injector performs no service work and only
+ * the journal is written). `foundation:cleanup` stays unexposed: the
+ * Verification disposal command is not this task's scope.
  */
 
 import { execFile, spawn } from "node:child_process";
@@ -2415,6 +2444,23 @@ function applicablePredicateHolds(action, evidence) {
  */
 const confirmationEvidenceBindings = new Map();
 
+/**
+ * T037 — the durable extension of those bindings for the command-line path:
+ * the quickstart §2/§5 flows mint a token in one CLI process and present it
+ * to a different one, so on the CLI the SAME evidence digest is also
+ * persisted under the checkout-local ignored `.foundation-state/`. Durability
+ * only extends the accepted binding across processes and never relaxes it —
+ * a presented token still needs the boundary's own acceptance AND a matching
+ * evidence digest. The imported-by-tests path never enables it, so the
+ * accepted in-process semantics are byte-identical under test.
+ */
+let durableConfirmationEvidenceEnabled = false;
+
+/** Enable durable (cross-process) confirmation evidence for the CLI path. */
+function enableDurableConfirmationEvidence() {
+  durableConfirmationEvidenceEnabled = true;
+}
+
 /** The binding key of one exact issued confirmation. */
 function confirmationBindingKey(target, action, token) {
   return `${target} ${action} ${token}`;
@@ -2507,12 +2553,35 @@ function confirmationEvidenceDigest(target, action, inventory, evidence, originA
   return createHash("sha256").update(canonical).digest("hex");
 }
 
-/** Bind one issued token to the exact evidence it was issued against. */
-function bindConfirmationEvidence(target, action, token, inventory, evidence, originAction) {
-  confirmationEvidenceBindings.set(
-    confirmationBindingKey(target, action, token),
-    confirmationEvidenceDigest(target, action, inventory, evidence, originAction),
-  );
+/**
+ * Bind one issued token to the exact evidence it was issued against. T037 —
+ * on the durable (command-line) path the binding is ALSO written through to
+ * the checkout-local confirmation store, keyed by the action the boundary
+ * minted the token for: the latest issued token carries the latest evidence
+ * digest, and a superseded token loses its durable binding together with the
+ * boundary's own acceptance. A store failure never weakens the binding — the
+ * in-process map is still set, and a later read that cannot find the durable
+ * entry fails closed exactly like an unbound token.
+ */
+async function bindConfirmationEvidence(target, action, token, inventory, evidence, originAction) {
+  const digest = confirmationEvidenceDigest(target, action, inventory, evidence, originAction);
+  confirmationEvidenceBindings.set(confirmationBindingKey(target, action, token), digest);
+  if (durableConfirmationEvidenceEnabled) {
+    try {
+      const record = await readDurableConfirmationRecord(target);
+      const confirmations = record === null ? {} : { ...record.confirmations };
+      confirmations[action] = {
+        token,
+        evidenceDigest: digest,
+        ...(originAction !== undefined ? { boundOriginAction: originAction } : {}),
+      };
+      await writeDurableConfirmationRecord(target, { confirmations });
+    } catch {
+      // A store failure never widens into an unsafe surface: the in-process
+      // binding above still holds, and a cross-process presentation of this
+      // token simply finds no durable binding and refuses closed.
+    }
+  }
 }
 
 /**
@@ -2521,8 +2590,27 @@ function bindConfirmationEvidence(target, action, token, inventory, evidence, or
  * when the token was issued for a different pairing, which the boundary
  * refuses on its own.
  */
-function boundConfirmationEvidence(target, action, token) {
-  return confirmationEvidenceBindings.get(confirmationBindingKey(target, action, token));
+async function boundConfirmationEvidence(target, action, token) {
+  const bound = confirmationEvidenceBindings.get(confirmationBindingKey(target, action, token));
+  if (bound !== undefined || !durableConfirmationEvidenceEnabled) {
+    return bound;
+  }
+  // T037 — the cross-process CLI binding: only the LATEST token issued for
+  // this exact (target, action) carries a durable evidence digest; anything
+  // else — a superseded token, a cross-action replay, a foreign value — is
+  // unbound, which the confirmed mutations refuse closed.
+  try {
+    const record = await readDurableConfirmationRecord(target);
+    const entry = record === null ? undefined : record.confirmations[action];
+    if (entry === undefined || entry.token !== token) {
+      return undefined;
+    }
+    return typeof entry.evidenceDigest === "string" && entry.evidenceDigest.length > 0
+      ? entry.evidenceDigest
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -2712,7 +2800,7 @@ export async function foundationInventory(collaborators, options) {
   // recomputation has something exact to match. T034-B01 — a recovery token is
   // additionally bound to the exact requested interrupted origin action, so it
   // can never authorize a different origin action later.
-  bindConfirmationEvidence(
+  await bindConfirmationEvidence(
     target,
     action,
     token,
@@ -2789,7 +2877,7 @@ async function executeConfirmedMutation(collaborators, target, action, token, re
   // mutation is refused BEFORE the boundary is consulted. A token with no
   // binding for this exact (target, action) is left to the boundary, which
   // refuses tokens not issued for this pairing on its own.
-  const bound = boundConfirmationEvidence(target, action, token);
+  const bound = await boundConfirmationEvidence(target, action, token);
   if (
     bound !== undefined &&
     bound !== confirmationEvidenceDigest(target, action, inventory, evidence)
@@ -4152,7 +4240,7 @@ async function executeConfirmedRecovery(collaborators, target, operation, token)
   if (!inventory.ownershipProven || decision !== "recover") {
     return destructiveRefusal(collaborators, diagnosticScope, "RESOURCE_INVENTORY_CHANGED");
   }
-  const bound = boundConfirmationEvidence(target, RECOVERY_ACTION, token);
+  const bound = await boundConfirmationEvidence(target, RECOVERY_ACTION, token);
   if (
     bound !== undefined &&
     bound !== confirmationEvidenceDigest(target, RECOVERY_ACTION, inventory, evidence, operation)
@@ -5592,18 +5680,819 @@ function installInterruptionGuard(collaborators) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// T037 real adapters — the command-line facets the exposed
+// status/inventory/interruption/recovery/reset/persistence-check commands
+// route to (FR-003–FR-004, FR-017; Operations Contract §Commands and
+// §Operation-target ownership and isolation; quickstart §2/§5). Like the
+// T028/T032 sections, nothing here runs under the accepted injected-
+// collaborator tests: the operations those tests exercise are unchanged, and
+// these adapters exist so the REAL commands address the same boundaries the
+// injected fakes stood in for.
+// ---------------------------------------------------------------------------
+
+/** Bounded wall-clock budget for one Podman listing call (milliseconds). */
+const PODMAN_LIST_TIMEOUT_MS = 15_000;
+/** Bounded wall-clock budget for one exact resource stop (milliseconds). */
+const PODMAN_STOP_TIMEOUT_MS = 30_000;
+/** Bounded wall-clock budget for one exact resource removal (milliseconds). */
+const PODMAN_REMOVE_TIMEOUT_MS = 30_000;
+
+/** The Delivery ownership label every manifest resource carries. */
+const DELIVERY_OWNERSHIP_LABEL_KEY = "org.songhealth.foundation.delivery";
+
+/** The manifest role-claim label a recorded resource is observed through. */
+const RESOURCE_CLAIM_LABEL_KEY = "org.songhealth.foundation.resource";
+
+/**
+ * The manifest-pinned custom label values of each operation target: the
+ * `manifestMember` conjunct is proven by these EXACT values, so a resource
+ * whose labels claim a different environment, runtime profile, operation
+ * target, delivery, or ownership schema is not a member of this target's
+ * manifest population.
+ */
+const MANIFEST_LABEL_VALUES_BY_TARGET = {
+  development: {
+    [DELIVERY_OWNERSHIP_LABEL_KEY]: "001-application-foundation",
+    "org.songhealth.foundation.environment": "development",
+    "org.songhealth.foundation.runtime-profile": "daily",
+    "org.songhealth.foundation.operation-target": "development",
+    "org.songhealth.foundation.ownership-schema": "v1",
+  },
+  verification: {
+    [DELIVERY_OWNERSHIP_LABEL_KEY]: "001-application-foundation",
+    "org.songhealth.foundation.environment": "development",
+    "org.songhealth.foundation.runtime-profile": "verification",
+    "org.songhealth.foundation.operation-target": "verification",
+    "org.songhealth.foundation.ownership-schema": "v1",
+  },
+};
+
+/**
+ * The exact expected resource names of one recorded Development manifest
+ * role, under both Compose naming providers (`-`-joined and `_`-joined).
+ * Names are derived, never fixed globals (the T026 manifest comment): the
+ * checkout-scoped project name plus the manifest's own service/volume key.
+ * The Verification manifest (T046) is not authored yet, so no Verification
+ * name is derivable — an observed Verification candidate therefore never
+ * proves `nameMatches` and blocks, which is the fail-closed direction.
+ */
+function expectedResourceNames(target, logicalKey) {
+  if (target !== DAILY_OPERATION_TARGET) {
+    return [];
+  }
+  const { composeProjectName } = checkoutScopedIdentity();
+  if (logicalKey === "development.database") {
+    return [`${composeProjectName}-database-1`, `${composeProjectName}_database_1`];
+  }
+  if (logicalKey === "development.database-volume") {
+    return [`${composeProjectName}_database-data`];
+  }
+  return [];
+}
+
+/**
+ * The exact expected network names of this checkout's Development Compose
+ * project (the manifest's single declared network): a container attached to
+ * a network OUTSIDE this set is unexpectedly attached.
+ */
+function expectedDevelopmentNetworkNames() {
+  const { composeProjectName } = checkoutScopedIdentity();
+  return new Set([`${composeProjectName}_database`, `${composeProjectName}-database`]);
+}
+
+/** The expected manifest resource type of one recorded role key. */
+function expectedTypeOf(target, logicalKey) {
+  return TARGET_RESOURCES[target].find((entry) => entry.logicalKey === logicalKey)
+    ?.resourceType;
+}
+
+/**
+ * Run one Podman listing and parse its JSON output. Any failure — tool
+ * absent, timeout, unparseable output — throws, which the inventory facet's
+ * callers translate to their closed inspection refusals.
+ */
+async function runPodmanJson(args) {
+  const { stdout } = await execFileAsync("podman", args, {
+    cwd: REPOSITORY_ROOT,
+    timeout: PODMAN_LIST_TIMEOUT_MS,
+  });
+  const parsed = JSON.parse(stdout);
+  return Array.isArray(parsed) ? parsed : [parsed];
+}
+
+async function listDeliveryContainers() {
+  return runPodmanJson([
+    "ps",
+    "-a",
+    "--format",
+    "json",
+    "--filter",
+    `label=${DELIVERY_OWNERSHIP_LABEL_KEY}`,
+  ]);
+}
+
+async function listDeliveryVolumes() {
+  return runPodmanJson([
+    "volume",
+    "ls",
+    "--format",
+    "json",
+    "--filter",
+    `label=${DELIVERY_OWNERSHIP_LABEL_KEY}`,
+  ]);
+}
+
+async function listDeliveryNetworks() {
+  return runPodmanJson([
+    "network",
+    "ls",
+    "--format",
+    "json",
+    "--filter",
+    `label=${DELIVERY_OWNERSHIP_LABEL_KEY}`,
+  ]);
+}
+
+/** The observed label map of one raw listing entry (untrusted input). */
+function readObservedLabels(entry) {
+  const labels = entry?.Labels ?? entry?.labels;
+  return labels !== null && typeof labels === "object" && !Array.isArray(labels) ? labels : {};
+}
+
+/** The observed name of one raw listing entry, or `null` (untrusted input). */
+function readObservedName(entry) {
+  for (const candidate of [entry?.Name, entry?.names?.[0], entry?.Names?.[0]]) {
+    if (typeof candidate === "string" && candidate.length > 0) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+/** The closed container runtime-state map from Podman's observed states. */
+const CONTAINER_RUNTIME_STATE_BY_OBSERVED = {
+  created: "created",
+  running: "running",
+  paused: "paused",
+  exited: "exited",
+  stopped: "stopped",
+};
+
+/**
+ * The containers currently using one exact volume, with each user's own
+ * Compose project label — the volume-side attachment evidence.
+ */
+async function listVolumeUsers(volumeName) {
+  const users = await runPodmanJson([
+    "ps",
+    "-a",
+    "--format",
+    "json",
+    "--filter",
+    `volume=${volumeName}`,
+  ]);
+  return users.map((entry) => ({
+    name: readObservedName(entry),
+    project: readObservedLabels(entry)["com.docker.compose.project"],
+  }));
+}
+
+/**
+ * The manifest-member conjunct: every manifest-pinned custom label value of
+ * this target matches exactly, and the role-claim label names exactly this
+ * recorded key.
+ */
+function manifestLabelValuesHold(expectedLabels, labels, logicalKey) {
+  return (
+    Object.entries(expectedLabels).every(([key, value]) => labels[key] === value) &&
+    labels[RESOURCE_CLAIM_LABEL_KEY] === logicalKey
+  );
+}
+
+/** The observed custom reverse-DNS label subset (never ownership evidence). */
+function songhealthLabelsOf(labels) {
+  const subset = {};
+  for (const [key, value] of Object.entries(labels)) {
+    if (key.startsWith("org.songhealth.foundation.")) {
+      subset[key] = value;
+    }
+  }
+  return subset;
+}
+
+/**
+ * The real typed read-only inventory inspection of one operation target:
+ * the population is THIS Delivery's labeled resources whose role-claim label
+ * names one of the target's recorded manifest keys — foreign or unlabeled
+ * resources are never candidates, and a resource of the OTHER operation
+ * target is a non-target (its inspection is observed separately through the
+ * non-target digest), never this target's candidate. Every conjunct is
+ * computed from the observation so a stale, mislabeled, colliding, or
+ * cross-project claim normalizes to a blocked read-only record upstream.
+ * `observedName` rides along for the exact-removal adapter's uniquely
+ * resolved address and never reaches normalized output.
+ */
+async function inspectTargetResources(target) {
+  if (!Object.hasOwn(TARGET_RESOURCES, target)) {
+    throw new Error("unknown operation target");
+  }
+  const recordedKeys = new Set(TARGET_RESOURCES[target].map((entry) => entry.logicalKey));
+  const { composeProjectName } = checkoutScopedIdentity();
+  const expectedLabels = MANIFEST_LABEL_VALUES_BY_TARGET[target];
+  const candidates = [];
+  const claimedKey = (labels) => {
+    const key = labels[RESOURCE_CLAIM_LABEL_KEY];
+    return typeof key === "string" && recordedKeys.has(key) ? key : null;
+  };
+
+  for (const entry of await listDeliveryContainers()) {
+    const labels = readObservedLabels(entry);
+    const logicalKey = claimedKey(labels);
+    if (logicalKey === null) {
+      continue;
+    }
+    const name = readObservedName(entry);
+    const observedNetworks = Array.isArray(entry?.Networks)
+      ? entry.Networks.filter((network) => typeof network === "string")
+      : [];
+    candidates.push({
+      logicalKey,
+      resourceType: "container",
+      observedName: name,
+      typeMatches: expectedTypeOf(target, logicalKey) === "container",
+      nameMatches: name !== null && expectedResourceNames(target, logicalKey).includes(name),
+      checkoutProjectMatches: labels["com.docker.compose.project"] === composeProjectName,
+      manifestMember: manifestLabelValuesHold(expectedLabels, labels, logicalKey),
+      canonicalLabelsComplete:
+        typeof labels["com.docker.compose.project"] === "string" &&
+        labels["com.docker.compose.project"].length > 0 &&
+        typeof labels["com.docker.compose.service"] === "string" &&
+        labels["com.docker.compose.service"].length > 0,
+      customLabels: songhealthLabelsOf(labels),
+      ownershipSchemaCurrent:
+        labels["org.songhealth.foundation.ownership-schema"] === "v1",
+      // A stopped container legitimately reports no attachment; an attachment
+      // outside this checkout's project networks is the unexpected one.
+      attachmentsExpected:
+        observedNetworks.length === 0 ||
+        observedNetworks.every((network) => expectedDevelopmentNetworkNames().has(network)),
+      runtimeState: CONTAINER_RUNTIME_STATE_BY_OBSERVED[entry?.State] ?? null,
+      unexpectedlyAttached: false,
+    });
+  }
+
+  for (const entry of await listDeliveryVolumes()) {
+    const labels = readObservedLabels(entry);
+    const logicalKey = claimedKey(labels);
+    if (logicalKey === null) {
+      continue;
+    }
+    const name = readObservedName(entry);
+    let foreignUsers = 0;
+    if (name !== null) {
+      const users = await listVolumeUsers(name);
+      foreignUsers = users.filter(
+        (user) => user.project !== composeProjectName || user.name === null,
+      ).length;
+    }
+    candidates.push({
+      logicalKey,
+      resourceType: "volume",
+      observedName: name,
+      typeMatches: expectedTypeOf(target, logicalKey) === "volume",
+      nameMatches: name !== null && expectedResourceNames(target, logicalKey).includes(name),
+      checkoutProjectMatches: labels["com.docker.compose.project"] === composeProjectName,
+      manifestMember: manifestLabelValuesHold(expectedLabels, labels, logicalKey),
+      canonicalLabelsComplete:
+        typeof labels["com.docker.compose.project"] === "string" &&
+        labels["com.docker.compose.project"].length > 0,
+      customLabels: songhealthLabelsOf(labels),
+      ownershipSchemaCurrent:
+        labels["org.songhealth.foundation.ownership-schema"] === "v1",
+      // A volume in use only by this checkout's containers is expected; any
+      // foreign (or unattributable) user is unexpected use.
+      attachmentsExpected: foreignUsers === 0,
+      runtimeState: "present",
+      unexpectedlyAttached: foreignUsers > 0,
+    });
+  }
+
+  for (const entry of await listDeliveryNetworks()) {
+    const labels = readObservedLabels(entry);
+    const logicalKey = claimedKey(labels);
+    if (logicalKey === null) {
+      continue;
+    }
+    const name = readObservedName(entry);
+    candidates.push({
+      logicalKey,
+      resourceType: "network",
+      observedName: name,
+      typeMatches: expectedTypeOf(target, logicalKey) === "network",
+      nameMatches: name !== null && expectedResourceNames(target, logicalKey).includes(name),
+      checkoutProjectMatches: labels["com.docker.compose.project"] === composeProjectName,
+      manifestMember: manifestLabelValuesHold(expectedLabels, labels, logicalKey),
+      canonicalLabelsComplete:
+        typeof labels["com.docker.compose.project"] === "string" &&
+        labels["com.docker.compose.project"].length > 0,
+      customLabels: songhealthLabelsOf(labels),
+      ownershipSchemaCurrent:
+        labels["org.songhealth.foundation.ownership-schema"] === "v1",
+      // Pre-T046 there is no container-side attachment evidence to observe
+      // for a network role; container attachment is proven on the container
+      // candidates themselves.
+      attachmentsExpected: true,
+      runtimeState: "present",
+      unexpectedlyAttached: false,
+    });
+  }
+  return candidates;
+}
+
+/** One deterministic canonical SHA-256 over a fixed-key-order value. */
+function canonicalSha256(value) {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+/** The journal states that leave an operation pending (unclosed or failed). */
+const PENDING_JOURNAL_STATES = ["running", "interrupted", "failed", "ownership-blocked"];
+
+/** The actions whose repeat is proven safe by their own idempotency rule. */
+const SAFELY_REPEATABLE_JOURNAL_ACTIONS = ["setup", "start", "stop", "restart", "migrate"];
+
+/**
+ * The pending origin action of the latest journal record, or `null` when the
+ * record is absent, terminal-successful, or carries no allowlisted action.
+ */
+function pendingJournalAction(latest) {
+  if (latest === null || typeof latest !== "object") {
+    return null;
+  }
+  if (!PENDING_JOURNAL_STATES.includes(latest.state)) {
+    return null;
+  }
+  const action = latest.action;
+  return typeof action === "string" && LIFECYCLE_JOURNAL_ACTIONS.includes(action)
+    ? action
+    : null;
+}
+
+/** Whether the Development named volume is currently observed exactly owned. */
+function developmentVolumeExactlyOwned(inventory) {
+  return (
+    inventory !== null &&
+    inventory.states.some(
+      (state) =>
+        state.logicalKey === "development.database-volume" && state.ownership === "exact",
+    )
+  );
+}
+
+/**
+ * The Development integrity observation (data-model.md §Recovery Assessment
+ * `integrityVerdict`): with no exactly-owned Data Store there is nothing to
+ * check (`not-applicable`); with one, an unreachable engine is an incomplete
+ * check (`unknown` — never a corruption claim), and a reachable engine's
+ * completed read-only migration-state check decides `valid` (`current` /
+ * `pending`) versus `invalid` (the check completed and failed).
+ */
+async function observeDevelopmentIntegrity(inventory) {
+  if (inventory === null) {
+    return { verdict: "unknown", connectivity: false, migrationObservation: null };
+  }
+  if (!developmentVolumeExactlyOwned(inventory)) {
+    return { verdict: "not-applicable", connectivity: false, migrationObservation: null };
+  }
+  let connectivity = false;
+  try {
+    connectivity = (await isDevelopmentDatabaseAcceptingConnections()) === true;
+  } catch {
+    connectivity = false;
+  }
+  if (!connectivity) {
+    return { verdict: "unknown", connectivity, migrationObservation: null };
+  }
+  let migrationObservation = null;
+  try {
+    migrationObservation = await readTrackedMigrationStatus(DAILY_OPERATION_TARGET);
+  } catch {
+    migrationObservation = "error";
+  }
+  const verdict =
+    migrationObservation === "current" || migrationObservation === "pending"
+      ? "valid"
+      : "invalid";
+  return { verdict, connectivity, migrationObservation };
+}
+
+/**
+ * The Verification integrity observation pre-T046: with no observed
+ * Verification resource there is nothing to check; any observed one has no
+ * engine to observe yet, so the check is incomplete (`unknown`).
+ */
+function observeVerificationIntegrity(inventory) {
+  if (inventory === null) {
+    return { verdict: "unknown", connectivity: false, migrationObservation: null };
+  }
+  const observed = inventory.states.some((state) => state.ownership !== "absent");
+  return observed
+    ? { verdict: "unknown", connectivity: false, migrationObservation: null }
+    : { verdict: "not-applicable", connectivity: false, migrationObservation: null };
+}
+
+/**
+ * The real normalized Recovery Assessment evidence of one operation target
+ * (data-model.md §Recovery Assessment): every verdict is derived from a
+ * live observation — the typed inventory (ownership), the Data Store
+ * connectivity plus read-only migration state (integrity), the pending
+ * journal origin's own idempotency class (repeatability), the validated
+ * fixture provenance with this Delivery's tracked migrations
+ * (reconstructibility: the SC-002 synthetic marker plus tracked migrations
+ * is reconstructible; an approved non-Production fixture without a verified
+ * replay source stays unknown), and the allowlisted repair's own
+ * precondition — the exactly-owned named volume it must preserve
+ * (`verified-available`), its absence (`unavailable`), or the journal's
+ * record of a failed recovery attempt (`failed`). Every digest is this
+ * module's own canonical SHA-256 over the same normalized observations, so
+ * the same state always re-derives the same evidence and any change is
+ * drift. An unobservable input (inspection, configuration, or journal
+ * failure) normalizes to the unknown/unproven verdicts, which the decision
+ * derivation fails closed on.
+ */
+async function evaluateTargetAssessmentEvidence(target) {
+  let inventory = null;
+  try {
+    inventory = normalizeTargetInventory(target, await inspectTargetResources(target));
+  } catch {
+    inventory = null;
+  }
+  const ownershipVerdict =
+    inventory !== null && inventory.ownershipProven ? "confirmed" : "unconfirmed";
+  const inventoryDigest = canonicalSha256({
+    operationTarget: target,
+    observation: inventory === null ? "unobservable" : "observed",
+    states: inventory === null ? null : inventory.states,
+  });
+
+  let fixtureProvenance = null;
+  try {
+    const config = await loadValidatedTargetConfiguration(target);
+    fixtureProvenance =
+      typeof config.FIXTURE_PROVENANCE === "string" && config.FIXTURE_PROVENANCE.length > 0
+        ? config.FIXTURE_PROVENANCE
+        : null;
+  } catch {
+    fixtureProvenance = null;
+  }
+
+  let journalCorrupt = false;
+  let latest = null;
+  try {
+    latest = await journalFileStore.readLatest(target);
+  } catch {
+    latest = null;
+    journalCorrupt = true;
+  }
+  const pendingAction = journalCorrupt ? null : pendingJournalAction(latest);
+  const priorFailedRecovery =
+    !journalCorrupt &&
+    latest !== null &&
+    typeof latest === "object" &&
+    latest.action === RECOVERY_ACTION &&
+    latest.state === "failed";
+  const repeatabilityVerdict =
+    pendingAction === null
+      ? "unknown"
+      : SAFELY_REPEATABLE_JOURNAL_ACTIONS.includes(pendingAction)
+        ? "safe"
+        : "unsafe";
+
+  const integrity =
+    target === DAILY_OPERATION_TARGET
+      ? await observeDevelopmentIntegrity(inventory)
+      : observeVerificationIntegrity(inventory);
+
+  const reconstructibilityVerdict =
+    fixtureProvenance === "synthetic" ? "confirmed" : "unknown";
+  const repairDisposition =
+    target === DAILY_OPERATION_TARGET
+      ? priorFailedRecovery
+        ? "failed"
+        : developmentVolumeExactlyOwned(inventory)
+          ? "verified-available"
+          : "unavailable"
+      : "not-applicable";
+
+  return {
+    ownershipVerdict,
+    integrityVerdict: integrity.verdict,
+    repeatabilityVerdict,
+    reconstructibilityVerdict,
+    repairDisposition,
+    inventoryDigest,
+    integrityEvidenceDigest: canonicalSha256({
+      operationTarget: target,
+      connectivity: integrity.connectivity,
+      migrationObservation: integrity.migrationObservation,
+      integrityVerdict: integrity.verdict,
+    }),
+    reconstructibilityEvidenceDigest: canonicalSha256({
+      operationTarget: target,
+      fixtureProvenance,
+      reconstructibilityVerdict,
+    }),
+    mutationPlanDigest: canonicalSha256({
+      operationTarget: target,
+      runtimeProfile: RUNTIME_PROFILE_BY_TARGET[target],
+      pendingAction,
+    }),
+    disposabilityConfirmed:
+      target === "verification" && inventory !== null && inventory.ownershipProven === true,
+    reconstructibilityConfirmed: reconstructibilityVerdict === "confirmed",
+  };
+}
+
+/** The per-operation-target durable confirmation store file. */
+function confirmationStorePath(target) {
+  return path.join(FOUNDATION_STATE_DIRECTORY, target, "confirmations.json");
+}
+
+/**
+ * Read the durable confirmation store: `null` when absent, a normalized
+ * shape when present, and a THROW on a present-but-unreadable/corrupt file —
+ * issuance and verification both fail closed on that throw.
+ */
+async function readDurableConfirmationRecord(target) {
+  let text;
+  try {
+    text = await readFile(confirmationStorePath(target), "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
+  const parsed = JSON.parse(text);
+  const confirmations = parsed?.confirmations;
+  if (
+    parsed !== null &&
+    typeof parsed === "object" &&
+    !Array.isArray(parsed) &&
+    confirmations !== null &&
+    typeof confirmations === "object" &&
+    !Array.isArray(confirmations)
+  ) {
+    return parsed;
+  }
+  return { confirmations: {} };
+}
+
+/** Atomically replace the durable confirmation store (mode-0600, rename). */
+async function writeDurableConfirmationRecord(target, record) {
+  const destination = confirmationStorePath(target);
+  const directory = path.dirname(destination);
+  await mkdir(directory, { recursive: true });
+  const temporary = path.join(
+    directory,
+    `.${path.basename(destination)}.${process.pid}.tmp`,
+  );
+  try {
+    await writeFile(temporary, `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
+    await rename(temporary, destination);
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
+}
+
+/**
+ * The real action-bound confirmation boundary for the command-line path:
+ * the LATEST token issued for one exact (target, action) is the only one
+ * verification accepts — minting supersedes every earlier token for that
+ * pairing, so a stale token refuses closed. Tokens are opaque checkout-
+ * scoped digests; the evidence side of the binding is the module's own
+ * (see `bindConfirmationEvidence`), never the boundary's.
+ */
+const confirmationFileBoundary = {
+  issue: async (target, action) => {
+    const token = `confirmation-${createHash("sha256")
+      .update(`${target}|${action}|${checkoutScopedIdentity().checkoutId}|${randomUUID()}`)
+      .digest("hex")}`;
+    const record = await readDurableConfirmationRecord(target);
+    const confirmations = record === null ? {} : { ...record.confirmations };
+    confirmations[action] = { token };
+    await writeDurableConfirmationRecord(target, { confirmations });
+    return token;
+  },
+  verify: async (target, action, token) => {
+    if (typeof token !== "string" || token.length === 0) {
+      return false;
+    }
+    try {
+      const record = await readDurableConfirmationRecord(target);
+      return record !== null && record.confirmations[action]?.token === token;
+    } catch {
+      return false;
+    }
+  },
+};
+
+/** The per-operation-target lock file (checkout-local, mode-0600). */
+function operationLockPath(target) {
+  return path.join(FOUNDATION_STATE_DIRECTORY, target, "operation.lock");
+}
+
+/**
+ * The real per-operation-target lock: exclusive cross-process creation of
+ * one lock file. A lock whose recorded holder process no longer exists is
+ * stale debris from a dead CLI — exactly that lock file is removed and the
+ * acquire retried once; an unreadable or undecidable lock stays refusing
+ * (fail closed), and a live holder always refuses.
+ */
+const lockFileStore = {
+  acquire: async (target) => {
+    const destination = operationLockPath(target);
+    await mkdir(path.dirname(destination), { recursive: true });
+    const record = `${JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() })}\n`;
+    try {
+      await writeFile(destination, record, { flag: "wx", mode: 0o600 });
+      return true;
+    } catch (error) {
+      if (error?.code !== "EEXIST") {
+        return false;
+      }
+      let holder = null;
+      try {
+        holder = JSON.parse(await readFile(destination, "utf8"));
+      } catch {
+        holder = null;
+      }
+      if (holder === null || typeof holder.pid !== "number" || !Number.isInteger(holder.pid)) {
+        return false;
+      }
+      try {
+        process.kill(holder.pid, 0);
+        return false;
+      } catch (signalError) {
+        if (signalError?.code !== "ESRCH") {
+          return false;
+        }
+        await rm(destination, { force: true });
+        try {
+          await writeFile(destination, record, { flag: "wx", mode: 0o600 });
+          return true;
+        } catch {
+          return false;
+        }
+      }
+    }
+  },
+  release: async (target) => {
+    await rm(operationLockPath(target), { force: true });
+  },
+};
+
+/**
+ * The bounded exact-resource removal adapter: re-resolve the EXACT observed
+ * name of one recorded manifest role through the same typed inspection, and
+ * remove exactly that one resource by that name — a stop-then-rm of the one
+ * exact container (never `--force`, which would be the forbidden force
+ * removal), or the exact volume/network removal. Zero or ambiguous
+ * candidates refuse: nothing is ever picked among claims, addressed by
+ * prefix, wildcard, label filter, project sweep, or prune.
+ */
+async function removeExactOwnedResource(target, logicalKey) {
+  const expectedType = expectedTypeOf(target, logicalKey);
+  const candidates = (await inspectTargetResources(target)).filter(
+    (candidate) =>
+      candidate.logicalKey === logicalKey && candidate.resourceType === expectedType,
+  );
+  const exact = candidates.filter(
+    (candidate) =>
+      candidate.nameMatches === true && candidate.checkoutProjectMatches === true,
+  );
+  if (exact.length !== 1) {
+    throw new Error("exact owned resource is not uniquely identified");
+  }
+  const name = exact[0].observedName;
+  if (typeof name !== "string" || name.length === 0) {
+    throw new Error("exact owned resource name is unobservable");
+  }
+  if (expectedType === "container") {
+    if (exact[0].runtimeState === "running") {
+      await execFileAsync("podman", ["stop", name], {
+        cwd: REPOSITORY_ROOT,
+        timeout: PODMAN_STOP_TIMEOUT_MS,
+      });
+    }
+    await execFileAsync("podman", ["rm", name], {
+      cwd: REPOSITORY_ROOT,
+      timeout: PODMAN_REMOVE_TIMEOUT_MS,
+    });
+    return;
+  }
+  const removalArgs =
+    expectedType === "volume" ? ["volume", "rm", name] : ["network", "rm", name];
+  await execFileAsync("podman", removalArgs, {
+    cwd: REPOSITORY_ROOT,
+    timeout: PODMAN_REMOVE_TIMEOUT_MS,
+  });
+}
+
+/**
+ * The real Development recovery facet: the sole allowlisted repair
+ * `recreate-database-runtime-preserve-volume` is the same checkout-scoped
+ * Compose reconcile the start adapter performs — it reconciles the exact
+ * database container/network runtime while the manifest keeps mounting the
+ * EXISTING named volume (there is no removal, recreation, or deletion of
+ * the volume anywhere on this path) — followed by the three required
+ * postchecks: engine connectivity, schema integrity through the read-only
+ * migration-state observation, and migration currency.
+ */
+const developmentRecoveryFacet = {
+  recreateDatabaseRuntimePreserveVolume: async () => {
+    await startDevelopmentDatabase();
+  },
+  postchecks: async () => {
+    let connectivity = false;
+    try {
+      connectivity = (await isDevelopmentDatabaseAcceptingConnections()) === true;
+    } catch {
+      connectivity = false;
+    }
+    let migrationObservation = null;
+    try {
+      migrationObservation = await readTrackedMigrationStatus(DAILY_OPERATION_TARGET);
+    } catch {
+      migrationObservation = null;
+    }
+    return {
+      connectivity,
+      integrity: migrationObservation === "current" || migrationObservation === "pending",
+      migrationStatus: migrationObservation === "current",
+    };
+  },
+};
+
+/**
+ * The real synthetic-marker facet through the accepted server migration
+ * boundary (the sole `foundation_persistence_marker` access): one bridge to
+ * the Development Data Store, writing or reading exactly one marker value
+ * and closing the pool. No raw pool, URL, or SQL detail ever escapes.
+ */
+async function withDevelopmentMarkerDatabase(operation) {
+  registerServerTypeScriptBridge();
+  const config = await loadLocalTargetConfiguration(DAILY_OPERATION_TARGET);
+  const poolMax = DECIMAL_INTEGER_PATTERN.test(config.DATABASE_POOL_MAX ?? "")
+    ? Number.parseInt(config.DATABASE_POOL_MAX, 10)
+    : undefined;
+  const serverDatabase = await import(
+    pathToFileURL(path.join(REPOSITORY_ROOT, "apps/server/src/database.ts")).href
+  );
+  const serverMigrations = await import(
+    pathToFileURL(path.join(REPOSITORY_ROOT, "apps/server/src/migrations.ts")).href
+  );
+  const database = await serverDatabase.createDatabase(config.DATABASE_URL, poolMax);
+  try {
+    return await operation(serverMigrations, database);
+  } finally {
+    await serverDatabase.closeDatabase(database);
+  }
+}
+
+/** Write exactly one synthetic Development marker value (SC-002). */
+async function writeDevelopmentMarker(value) {
+  await withDevelopmentMarkerDatabase((migrations, database) =>
+    migrations.writeMarker(database, value),
+  );
+}
+
+/** Read the Development marker value, or `null` when the row is absent. */
+async function readDevelopmentMarker() {
+  const row = await withDevelopmentMarkerDatabase((migrations, database) =>
+    migrations.readMarker(database),
+  );
+  if (row === null || row === undefined || typeof row !== "object") {
+    return null;
+  }
+  return typeof row.markerValue === "string" ? row.markerValue : null;
+}
+
 /**
  * The real collaborator set for the command-line entry point, bound to one
  * selectable operation target (T036-B01): the validating configuration
  * source and both database migration adapters route to THAT target's own
  * ignored local file and database identity. The daily commands bind the
- * Development target (the default); the `--target` database commands bind
- * the target read from the command line. Construction performs no I/O —
- * the bound sources load only when an operation actually invokes them, so
- * an invalid target (refused by the operations before any work) never
- * touches the filesystem.
+ * Development target (the default); the `--target` commands bind the target
+ * read from the command line. Construction performs no I/O — the bound
+ * sources load only when an operation actually invokes them, so an invalid
+ * target (refused by the operations before any work) never touches the
+ * filesystem. T037 adds the real inventory/assessment/confirmation/lock/
+ * mutation/recovery/marker facets plus the deterministic interruption fault
+ * source of the requested injection coordinates.
  */
-function createCommandLineCollaborators(target = DAILY_OPERATION_TARGET) {
+function createCommandLineCollaborators(target = DAILY_OPERATION_TARGET, options = {}) {
   return {
     preflight: {
       node: async () => checkNodeRuntime(),
@@ -5659,6 +6548,36 @@ function createCommandLineCollaborators(target = DAILY_OPERATION_TARGET) {
     // T032 — the real checkout-local lifecycle journal (mode-0600 atomic
     // per-operation-target store) and the signal-guard collaborators.
     journal: journalFileStore,
+    // T037 — the real facets of the exposed commands: typed inventory
+    // inspection, normalized Recovery Assessment evidence, the durable
+    // action-bound confirmation boundary, the per-target lock, the bounded
+    // exact-resource removal, the sole allowlisted Development recovery with
+    // its postchecks, and the synthetic-marker access. The interruption
+    // fault source is deterministic: the requested (action, phase) of THIS
+    // invocation is the injection point, so the real injector never reaches
+    // service work — the journal record is the whole observable.
+    inventory: {
+      inspect: inspectTargetResources,
+    },
+    assessment: {
+      evaluate: evaluateTargetAssessmentEvidence,
+    },
+    confirmation: confirmationFileBoundary,
+    lock: lockFileStore,
+    mutation: {
+      removeExactResource: async (logicalKey) => {
+        await removeExactOwnedResource(target, logicalKey);
+      },
+    },
+    recovery: developmentRecoveryFacet,
+    marker: {
+      write: writeDevelopmentMarker,
+      read: readDevelopmentMarker,
+    },
+    interruption: {
+      shouldInterrupt: async (step, phase) =>
+        step === options.interruptionAction && phase === options.interruptionPhase,
+    },
   };
 }
 
@@ -5667,8 +6586,20 @@ function createCommandLineCollaborators(target = DAILY_OPERATION_TARGET) {
 // dev:setup` / `npm run dev:start` / `npm run dev:ready` / `npm run
 // dev:stop` / `npm run dev:restart` / `npm run db:status -- --target
 // <development|verification>` / `npm run db:migrate -- --target
-// <development|verification>`). Failures are printed as their closed
-// Safe Diagnostics only; success prints one bounded safe line. The module's
+// <development|verification>` / `npm run foundation:status -- --target
+// <development|verification>` / `npm run foundation:inventory -- --target
+// <development|verification> --action <action> [--operation
+// <interrupted-action>] [--repair <allowlisted-repair>] [--token-only]` /
+// `npm run foundation:recover -- --target development --operation
+// <interrupted-action> --repair recreate-database-runtime-preserve-volume
+// --confirm <recovery-token>` / `npm run foundation:test-interruption --
+// --target <development|verification> --action <start|stop|migrate|reset|
+// cleanup> --phase <allowlisted-phase>` / `npm run dev:reset -- --confirm
+// <reset-inventory-token>` / `npm run dev:persistence-check -- --confirm
+// <reset-inventory-token>`). Failures are printed as their closed
+// Safe Diagnostics only; success prints one bounded safe line (the one
+// exception: `--token-only` prints exactly the minted token, because the
+// quickstart §2/§5 flows capture it as the command's stdout). The module's
 // import by tests never enters this path.
 // ---------------------------------------------------------------------------
 
@@ -5684,22 +6615,46 @@ function readOption(args, name) {
   return prefixed === undefined ? undefined : prefixed.slice(prefix.length);
 }
 
+/** Whether one boolean `--flag` (no value) is present. */
+function hasFlag(args, name) {
+  return args.includes(`--${name}`);
+}
+
 async function runCommandLine(args) {
   const [command, ...rest] = args;
-  // T036-B01 — the two database commands are the target-routed commands:
-  // their real collaborators are bound to the requested operation target's
-  // own configuration source and database identity BEFORE the operation
-  // runs, so `--target verification` loads, validates, and addresses the
-  // Verification target only. The daily commands keep the Development
-  // binding. An invalid target is refused by the operations before any
-  // bound source performs I/O.
-  const databaseCommandTarget =
-    command === "db:status" || command === "db:migrate"
-      ? readOption(rest, "target")
-      : undefined;
+  // T036-B01 — the target-routed commands: their real collaborators are
+  // bound to the requested operation target's own configuration source and
+  // database identity BEFORE the operation runs, so `--target verification`
+  // loads, validates, and addresses the Verification target only. T037 adds
+  // the target-taking foundation commands to that set; the daily commands
+  // keep the Development binding. An invalid target is refused by the
+  // operations before any bound source performs I/O.
+  const targetRoutedCommands = new Set([
+    "db:status",
+    "db:migrate",
+    "foundation:status",
+    "foundation:inventory",
+    "foundation:recover",
+    "foundation:test-interruption",
+  ]);
+  const commandTarget = targetRoutedCommands.has(command)
+    ? readOption(rest, "target")
+    : undefined;
   const collaborators = createCommandLineCollaborators(
-    databaseCommandTarget ?? DAILY_OPERATION_TARGET,
+    commandTarget ?? DAILY_OPERATION_TARGET,
+    {
+      // The deterministic fault source of the exposure-only injection
+      // command: the requested (action, phase) is the injection point.
+      interruptionAction:
+        command === "foundation:test-interruption" ? readOption(rest, "action") : undefined,
+      interruptionPhase:
+        command === "foundation:test-interruption" ? readOption(rest, "phase") : undefined,
+    },
   );
+  // T037 — the CLI mints and presents confirmations across processes, so
+  // the evidence binding is durable on this path (tests keep the accepted
+  // in-process semantics).
+  enableDurableConfirmationEvidence();
   // T032 — the SIGINT/SIGTERM interruption guard is installed for the whole
   // command: it records `OPERATION_INTERRUPTED` and attempts exact
   // current-run cleanup only while a journaled operation is actually
@@ -5726,6 +6681,38 @@ async function runCommandLine(args) {
       result = await dbStatus(collaborators, readOption(rest, "target"));
     } else if (command === "db:migrate") {
       result = await dbMigrate(collaborators, readOption(rest, "target"));
+    } else if (command === "foundation:status") {
+      result = await foundationStatus(collaborators, { target: readOption(rest, "target") });
+    } else if (command === "foundation:inventory") {
+      result = await foundationInventory(collaborators, {
+        target: readOption(rest, "target"),
+        action: readOption(rest, "action"),
+        ...(readOption(rest, "operation") !== undefined
+          ? { operation: readOption(rest, "operation") }
+          : {}),
+        ...(readOption(rest, "repair") !== undefined
+          ? { repair: readOption(rest, "repair") }
+          : {}),
+      });
+    } else if (command === "dev:reset") {
+      result = await devReset(collaborators, readOption(rest, "confirm"));
+    } else if (command === "foundation:recover") {
+      result = await foundationRecover(collaborators, {
+        target: readOption(rest, "target"),
+        operation: readOption(rest, "operation"),
+        repair: readOption(rest, "repair"),
+        token: readOption(rest, "confirm"),
+      });
+    } else if (command === "foundation:test-interruption") {
+      result = await foundationTestInterruption(collaborators, {
+        target: readOption(rest, "target"),
+        action: readOption(rest, "action"),
+        phase: readOption(rest, "phase"),
+      });
+    } else if (command === "dev:persistence-check") {
+      result = await devPersistenceCheck(collaborators, {
+        confirm: readOption(rest, "confirm"),
+      });
     } else {
       result = await rejectOperation(
         collaborators,
@@ -5740,6 +6727,20 @@ async function runCommandLine(args) {
   } finally {
     removeInterruptionGuard();
   }
+  if (
+    result.exitCode === 0 &&
+    command === "foundation:inventory" &&
+    hasFlag(rest, "token-only") &&
+    typeof result.token === "string" &&
+    result.token.length > 0
+  ) {
+    // Quickstart §2/§5 capture contract: `--token-only` suppresses the
+    // inventory body (validation still ran in full) and stdout is exactly
+    // the minted action-bound token.
+    process.stdout.write(`${result.token}\n`);
+    process.exitCode = result.exitCode;
+    return;
+  }
   if (result.exitCode === 0) {
     const summaries = {
       "dev:setup": "development database ready; tracked migrations current",
@@ -5747,6 +6748,9 @@ async function runCommandLine(args) {
       "dev:ready": "development foundation ready",
       "dev:stop": "development native processes and database stopped; named volume preserved",
       "dev:restart": "development foundation stopped then started; development data preserved",
+      "dev:reset": "confirmed development reset complete; only the exact data store resources were removed",
+      "foundation:recover": "development database runtime recovered; connectivity, integrity, and migration postchecks passed",
+      "dev:persistence-check": "development persistence proven; marker survived the routine restart and the confirmed reset",
     };
     let summary = summaries[command];
     if (summary === undefined && command === "db:status") {
@@ -5763,6 +6767,32 @@ async function runCommandLine(args) {
         applied.length > 0
           ? `${readOption(rest, "target")} tracked migrations applied: ${applied.join(", ")}`
           : `${readOption(rest, "target")} tracked migrations current; none newly applied`;
+    } else if (summary === undefined && command === "foundation:status") {
+      // One normalized target-appropriate decision, or the explicit
+      // no-pending-state report — never a fabricated origin.
+      const decision = result?.assessment?.decision;
+      summary =
+        typeof decision === "string" && decision.length > 0
+          ? `${readOption(rest, "target")} recovery decision: ${decision}`
+          : `${readOption(rest, "target")} has no pending failure or interruption`;
+    } else if (summary === undefined && command === "foundation:inventory") {
+      // Quickstart §2 — the normalized identifiers and state evidence only;
+      // a minted confirmation token is reported when one was issued.
+      const states = Array.isArray(result.states)
+        ? result.states
+            .map((state) =>
+              state.runtimeState === null
+                ? `${state.logicalKey}:${state.ownership}`
+                : `${state.logicalKey}:${state.ownership}/${state.runtimeState}`,
+            )
+            .join(", ")
+        : "";
+      summary =
+        typeof result.token === "string" && result.token.length > 0
+          ? `${readOption(rest, "target")} inventory: ${states}; confirmation token ${result.token}`
+          : `${readOption(rest, "target")} inventory: ${states}`;
+    } else if (summary === undefined && command === "foundation:test-interruption") {
+      summary = `${readOption(rest, "target")} synthetic ${readOption(rest, "action")} operation passed its ${readOption(rest, "phase")} phase without an injected fault`;
     } else if (summary === undefined) {
       summary = "preflight checks passed";
     }

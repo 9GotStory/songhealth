@@ -94,6 +94,44 @@ export interface OperationResult {
    * Present on successful `db:migrate` applies.
    */
   appliedMigrations?: readonly string[];
+  /**
+   * The exactly-one normalized target-appropriate Recovery Assessment of a
+   * pending failure/interruption (data-model.md §Recovery Assessment).
+   * Present on successful `foundation:status` observations that HAVE a
+   * pending origin; a target with no pending failure/interruption succeeds
+   * without one rather than fabricating an origin operation.
+   */
+  assessment?: RecoveryAssessment;
+}
+
+/**
+ * One complete normalized Recovery Assessment (data-model.md §Recovery
+ * Assessment): the immutable link to the pending origin operation, its
+ * immutable original failure, the target/profile binding, every normalized
+ * verdict with the module's own canonical evidence digests, the fixed-order
+ * decision, and the append-only attempt/resolution state. Never carries raw
+ * Podman/database output or any protected value.
+ */
+export interface RecoveryAssessment {
+  originOperationId: string;
+  originAction: string;
+  originPhase: string;
+  originalFailure: SafeDiagnostic;
+  operationTarget: string;
+  runtimeProfile: string;
+  ownershipVerdict: string;
+  integrityVerdict: string;
+  repeatabilityVerdict: string;
+  reconstructibilityVerdict: string;
+  repairDisposition: string;
+  repairId?: string;
+  inventoryDigest: string;
+  integrityEvidenceDigest: string;
+  reconstructibilityEvidenceDigest?: string;
+  mutationPlanDigest: string;
+  decision: string;
+  attemptFailures: SafeDiagnostic[];
+  resolution: string;
 }
 
 /** Routed prerequisite checks (Operations Contract §Prerequisites). */
@@ -419,4 +457,56 @@ export function dbStatus(
 export function dbMigrate(
   collaborators: FoundationOperationsCollaborators,
   target: string,
+): Promise<OperationResult>;
+
+/**
+ * `foundation:status` (T037 exposure of the T033 boundary) — read the
+ * selected operation target's journal and normalized assessment evidence
+ * and emit EXACTLY ONE target-appropriate Recovery Assessment without
+ * mutation of any kind: no lock, no token, no service or recovery work.
+ * A target with no pending failure/interruption reports success without
+ * an assessment rather than fabricating an origin; a corrupt journal and
+ * conflicting/unidentified journal evidence fail closed. The normalized
+ * assessment (decision, verdicts, immutable original failure, and the
+ * module's own canonical evidence digests) rides on the result.
+ */
+export function foundationStatus(
+  collaborators: FoundationOperationsCollaborators,
+  options: { target: string },
+): Promise<OperationResult>;
+
+/**
+ * `foundation:recover` (T037 exposure of the T034 boundary) — the sole
+ * allowlisted Development recovery: any other target is refused before a
+ * single collaborator is touched; the request must name an allowlisted
+ * interrupted origin action and the exact allowlisted repair
+ * `recreate-database-runtime-preserve-volume`, and present a token
+ * `foundation:inventory` issued for exactly that (target, action). Under
+ * the Development lock the pending origin must exist and record the
+ * requested action, the recomputed evidence must still select `recover`,
+ * and the bound confirmation digest must match — otherwise the attempt
+ * refuses read-only without repair work. The repair itself reconciles only
+ * the exact database container/network runtime, preserves the named volume
+ * and its data, and must pass the connectivity/integrity/migration-status
+ * postchecks.
+ */
+export function foundationRecover(
+  collaborators: FoundationOperationsCollaborators,
+  options: { target: string; operation: string; repair: string; token: string },
+): Promise<OperationResult>;
+
+/**
+ * `foundation:test-interruption` (T037 exposure; FR-003/FR-017; quickstart
+ * §5) — the acceptance-only controlled fault injection for SYNTHETIC local
+ * operation targets: one allowlisted `(target, action, phase)` driven
+ * through the journal lifecycle so the interrupted state is observable
+ * without a real signal. Hosted or Production-derived configuration is
+ * refused before any injection or journal work. The `running` record is
+ * durable BEFORE any service work; the injected fault records the
+ * `interrupted` terminal state with the documented `OPERATION_INTERRUPTED`
+ * primary failure and performs no service work.
+ */
+export function foundationTestInterruption(
+  collaborators: FoundationOperationsCollaborators,
+  options: { target: string; action: string; phase: string },
 ): Promise<OperationResult>;
