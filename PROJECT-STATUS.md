@@ -29,13 +29,28 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** NOT YET REVIEWED — T036 authorized from accepted T035 state
-- **Phase status:** T036 AUTHORIZED; T037+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T036-B01
+- **Phase status:** T036 REWORK AUTHORIZED; T037+ UNAUTHORIZED
 - **Previous completed scope:** T035 — synthetic marker persistence, supervised routine restart
   continuity, reconstructible exact reset, migration restoration, and non-target comparison
-- **Next valid action:** Claude implements only T036 from the exact authorization commit, then
-  Codex independently reviews the resulting artifact
-- **Blocking issues:** None for T036 implementation
+- **Next valid action:** Claude corrects only T036-B01 from the exact rework authorization commit,
+  then Codex independently re-reviews the resulting artifact
+- **Blocking issues:** T036-B01 — the real CLI collaborator is hard-wired to the Development-only
+  configuration source and database URL, so `db:status -- --target verification` and
+  `db:migrate -- --target verification` cannot operate on the selected Verification target despite
+  the command contract; injected tests conceal the mismatch
+- **T036 review evidence:** Exact implementation tip
+  `a520efb445409f550ab7066e4a79992101706634` has authorized base
+  `c3911194bd1a02c9a936d948374d3a18bd49c3db` as its sole parent; its clean diff is limited to
+  `scripts/foundation-operations.mjs`, `scripts/foundation-operations.d.mts`, `package.json`, and
+  `tests/verification/database-commands.test.ts`, with no T037+ implementation. Independent focused
+  verification passes 197/197; syntax and diff checks pass; TypeScript retains exactly the three
+  established T037 missing-export errors. Inspection finds T036-B01: `createCommandLineCollaborators`
+  supplies `loadValidatedDevelopmentConfiguration`, `applyTrackedMigrations`, and
+  `readTrackedMigrationStatus` for both selectable targets, while those adapters read only
+  `.env.development.local` and its `DATABASE_URL`; therefore the real Verification command path
+  either rejects the Development identity as cross-target or addresses the Development database,
+  and the positive injected Verification tests do not exercise this real wiring.
 - **T035 Product Owner acceptance:** Human Gate accepted corrective implementation tip
   `eee407c8de7977d5aa5ef3ed873866464bbe8086` and independent PASS governance record
   `4bd29c71855a10a2adb31f64e1091a28760c935a`; T035-B01–T035-B02 are accepted as closed.
@@ -209,11 +224,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T036 only — implement the non-mutating `db:status` adapter and explicit
-  `db:migrate` adapter for the selected Development or Verification non-Production operation target
-  in `scripts/foundation-operations.mjs` and expose both commands in `package.json`; do not implement
-  T037+ command adapters or Product migration behavior
-- **Runtime:** Claude Code (`claude-developer`) from this authorization commit as the exact
+- **Task / Scope:** T036-B01 only — make the real `db:status` and `db:migrate` CLI wiring select and
+  validate the requested Development or Verification local configuration and address only that
+  target's database; add focused regression coverage that exercises the real target-routing seam.
+  Do not implement T037+, Verification lifecycle/Compose work, or Product migration behavior
+- **Runtime:** Claude Code (`claude-developer`) from this rework authorization commit as the exact
   Authorized Base SHA
 - **Required references:** `.specify/memory/constitution.md` Principles I–VI and Delivery and
   Quality Gates; `specs/001-application-foundation/spec.md` FR-003–FR-004 and FR-009;
@@ -223,14 +238,14 @@
   contract; `specs/001-application-foundation/quickstart.md` §4;
   `specs/001-application-foundation/data-model.md` Migration State;
   `docs/spec-context/001-application-foundation.md` Implementation / Review routing
-- **Expected verification:** Add or update only T036-focused tests needed to prove `db:status`
-  reports `current`, `pending`, or a safe failure without mutation; `db:migrate` explicitly applies
-  tracked migrations only to the selected validated Development or Verification target; invalid,
-  hosted, cross-target, unsafe-fixture, and failed migration cases refuse through the existing safe
-  diagnostic boundary; run the focused T036 tests plus relevant migration, configuration,
-  foundation-operations, typecheck, and diff/scope checks, reporting established unrelated failures
-  separately
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Expected verification:** Prove through the real CLI target-routing seam that Development loads
+  only Development configuration/database identity and Verification loads only Verification
+  configuration/database identity before status/apply work; retain status non-mutation, explicit
+  apply, cross-target/hosted/unsafe refusal, closed diagnostics, startup migration-free behavior,
+  and all existing T036 tests. Run the focused database-command, configuration,
+  foundation-operations, operation-target, typecheck, syntax, and diff/scope checks, reporting
+  established unrelated failures separately
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
