@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T035 PASS — PRODUCT OWNER HUMAN GATE PENDING
+- **Status:** T035 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
 
 ## Active Feature Mirror
 
@@ -29,12 +29,17 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — T035-B01–T035-B02 closed
-- **Phase status:** T035 PASS; PRODUCT OWNER HUMAN GATE PENDING; T036+ UNAUTHORIZED
+- **Current review result:** PASS — HUMAN ACCEPTED; T035-B01–T035-B02 closed
+- **Phase status:** T035 ACCEPTED; T036+ UNAUTHORIZED
 - **Previous completed scope:** T034 — sole allowlisted Development runtime repair with exact
   origin-action/evidence-bound confirmation and connectivity/integrity/migration postchecks
-- **Next valid action:** Product Owner Human Gate for T035; no implementation is authorized
+- **Next valid action:** NONE selected or authorized — stop after T035 Human acceptance; T036+
+  remain unauthorized
 - **Blocking issues:** None for T035 review
+- **T035 Product Owner acceptance:** Human Gate accepted corrective implementation tip
+  `eee407c8de7977d5aa5ef3ed873866464bbe8086` and independent PASS governance record
+  `4bd29c71855a10a2adb31f64e1091a28760c935a`; T035-B01–T035-B02 are accepted as closed.
+  Authorized Implementation remains `NONE`; T036+ remain unauthorized.
 - **T035 final review evidence:** Exact corrective tip
   `eee407c8de7977d5aa5ef3ed873866464bbe8086` has persisted REWORK authorization
   `9cf157a0cf131a5aceff5e4d32fe61462ace2378` as its sole parent; the corrective diff is limited to
