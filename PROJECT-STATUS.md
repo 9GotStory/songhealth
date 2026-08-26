@@ -29,13 +29,13 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED; T035-B01–T035-B02 closed
-- **Phase status:** T035 ACCEPTED; T036+ UNAUTHORIZED
-- **Previous completed scope:** T034 — sole allowlisted Development runtime repair with exact
-  origin-action/evidence-bound confirmation and connectivity/integrity/migration postchecks
-- **Next valid action:** NONE selected or authorized — stop after T035 Human acceptance; T036+
-  remain unauthorized
-- **Blocking issues:** None for T035 review
+- **Current review result:** NOT YET REVIEWED — T036 authorized from accepted T035 state
+- **Phase status:** T036 AUTHORIZED; T037+ UNAUTHORIZED
+- **Previous completed scope:** T035 — synthetic marker persistence, supervised routine restart
+  continuity, reconstructible exact reset, migration restoration, and non-target comparison
+- **Next valid action:** Claude implements only T036 from the exact authorization commit, then
+  Codex independently reviews the resulting artifact
+- **Blocking issues:** None for T036 implementation
 - **T035 Product Owner acceptance:** Human Gate accepted corrective implementation tip
   `eee407c8de7977d5aa5ef3ed873866464bbe8086` and independent PASS governance record
   `4bd29c71855a10a2adb31f64e1091a28760c935a`; T035-B01–T035-B02 are accepted as closed.
@@ -209,11 +209,28 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T035 passed independent review; T036+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T035 final review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T036 only — implement the non-mutating `db:status` adapter and explicit
+  `db:migrate` adapter for the selected Development or Verification non-Production operation target
+  in `scripts/foundation-operations.mjs` and expose both commands in `package.json`; do not implement
+  T037+ command adapters or Product migration behavior
+- **Runtime:** Claude Code (`claude-developer`) from this authorization commit as the exact
+  Authorized Base SHA
+- **Required references:** `.specify/memory/constitution.md` Principles I–VI and Delivery and
+  Quality Gates; `specs/001-application-foundation/spec.md` FR-003–FR-004 and FR-009;
+  `specs/001-application-foundation/plan.md` Persistence and migrations;
+  `specs/001-application-foundation/tasks.md` T036;
+  `specs/001-application-foundation/contracts/foundation-operations.md` Commands and safe diagnostic
+  contract; `specs/001-application-foundation/quickstart.md` §4;
+  `specs/001-application-foundation/data-model.md` Migration State;
+  `docs/spec-context/001-application-foundation.md` Implementation / Review routing
+- **Expected verification:** Add or update only T036-focused tests needed to prove `db:status`
+  reports `current`, `pending`, or a safe failure without mutation; `db:migrate` explicitly applies
+  tracked migrations only to the selected validated Development or Verification target; invalid,
+  hosted, cross-target, unsafe-fixture, and failed migration cases refuse through the existing safe
+  diagnostic boundary; run the focused T036 tests plus relevant migration, configuration,
+  foundation-operations, typecheck, and diff/scope checks, reporting established unrelated failures
+  separately
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
