@@ -242,6 +242,19 @@
  * injection point, so the real injector performs no service work and only
  * the journal is written). `foundation:cleanup` stays unexposed: the
  * Verification disposal command is not this task's scope.
+ *
+ * T037-B01 corrects the complete Development inventory population: the
+ * manifest-declared `development.network` is a RECORDED target role, so the
+ * real typed inspection observes its claim with the full conjunct set —
+ * exact expected name under either Compose naming provider, checkout-scoped
+ * project, manifest label values, complete custom labels, current ownership
+ * schema, and ATTACHMENT evidence (every container observed on the exact
+ * network must belong to this checkout's Compose project; a foreign or
+ * unattributable attached container blocks ownership exactly like a foreign
+ * volume user) — and an absent, mislabeled, colliding, cross-checkout, or
+ * unexpectedly attached network therefore prevents confirmation-token
+ * issuance and every confirmed mutation, including the recovery repair that
+ * reconciles the network through Compose.
  */
 
 import { execFile, spawn } from "node:child_process";
@@ -2105,8 +2118,17 @@ const OWNERSHIP_LABEL_KEYS = [
  * normalizes to blocked.
  */
 const TARGET_RESOURCES = {
+  // T037-B01 — the manifest-declared Development network is a RECORDED role
+  // of the complete target inventory (infra/compose.development.yaml labels
+  // it `development.network`): exact ownership of the Development target is
+  // the conjunction over the database container, its network, AND its named
+  // volume, so an absent, mislabeled, colliding, cross-checkout, or
+  // unexpectedly attached network blocks token issuance and every confirmed
+  // mutation — including the recovery repair that would otherwise reconcile
+  // the network through Compose without proving it.
   development: [
     { logicalKey: "development.database", resourceType: "container" },
+    { logicalKey: "development.network", resourceType: "network" },
     { logicalKey: "development.database-volume", resourceType: "volume" },
   ],
   verification: [
@@ -5745,6 +5767,9 @@ function expectedResourceNames(target, logicalKey) {
   if (logicalKey === "development.database") {
     return [`${composeProjectName}-database-1`, `${composeProjectName}_database_1`];
   }
+  if (logicalKey === "development.network") {
+    return [`${composeProjectName}_database`, `${composeProjectName}-database`];
+  }
   if (logicalKey === "development.database-volume") {
     return [`${composeProjectName}_database-data`];
   }
@@ -5781,15 +5806,17 @@ async function runPodmanJson(args) {
   return Array.isArray(parsed) ? parsed : [parsed];
 }
 
-async function listDeliveryContainers() {
-  return runPodmanJson([
-    "ps",
-    "-a",
-    "--format",
-    "json",
-    "--filter",
-    `label=${DELIVERY_OWNERSHIP_LABEL_KEY}`,
-  ]);
+/**
+ * List EVERY container: unlike the volume/network listings this one is not
+ * label-filtered, because container-side attachment evidence must observe
+ * FOREIGN containers too — a non-Delivery container attached to this
+ * checkout's exact network is the unexpected attachment that blocks
+ * ownership, and a label filter would hide it. Population scoping happens
+ * in code: only a container claiming one of the target's recorded manifest
+ * roles ever becomes a candidate.
+ */
+async function listAllContainers() {
+  return runPodmanJson(["ps", "-a", "--format", "json"]);
 }
 
 async function listDeliveryVolumes() {
@@ -5883,15 +5910,18 @@ function songhealthLabelsOf(labels) {
 
 /**
  * The real typed read-only inventory inspection of one operation target:
- * the population is THIS Delivery's labeled resources whose role-claim label
- * names one of the target's recorded manifest keys — foreign or unlabeled
+ * the candidate population is the resources whose role-claim label names
+ * one of the target's recorded manifest keys — foreign or unlabeled
  * resources are never candidates, and a resource of the OTHER operation
  * target is a non-target (its inspection is observed separately through the
- * non-target digest), never this target's candidate. Every conjunct is
- * computed from the observation so a stale, mislabeled, colliding, or
- * cross-project claim normalizes to a blocked read-only record upstream.
- * `observedName` rides along for the exact-removal adapter's uniquely
- * resolved address and never reaches normalized output.
+ * non-target digest), never this target's candidate. Volume and network
+ * listings are Delivery-label-filtered; the container listing is unfiltered
+ * so foreign containers stay observable as attachment evidence while never
+ * becoming candidates themselves. Every conjunct is computed from the
+ * observation so a stale, mislabeled, colliding, cross-checkout, or
+ * unexpectedly attached claim normalizes to a blocked read-only record
+ * upstream. `observedName` rides along for the exact-removal adapter's
+ * uniquely resolved address and never reaches normalized output.
  */
 async function inspectTargetResources(target) {
   if (!Object.hasOwn(TARGET_RESOURCES, target)) {
@@ -5906,7 +5936,9 @@ async function inspectTargetResources(target) {
     return typeof key === "string" && recordedKeys.has(key) ? key : null;
   };
 
-  for (const entry of await listDeliveryContainers()) {
+  const containerEntries = await listAllContainers();
+
+  for (const entry of containerEntries) {
     const labels = readObservedLabels(entry);
     const logicalKey = claimedKey(labels);
     if (logicalKey === null) {
@@ -5985,6 +6017,23 @@ async function inspectTargetResources(target) {
       continue;
     }
     const name = readObservedName(entry);
+    // T037-B01 — the network's own attachment evidence: every container
+    // observed on this exact network must belong to THIS checkout's Compose
+    // project. A foreign (or unattributable) container attached to the
+    // network is unexpected use, which blocks ownership exactly like a
+    // foreign user of the named volume.
+    const attachedEntries =
+      name === null
+        ? []
+        : containerEntries.filter(
+            (container) =>
+              Array.isArray(container?.Networks) &&
+              container.Networks.includes(name),
+          );
+    const foreignAttachments = attachedEntries.filter((container) => {
+      const containerLabels = readObservedLabels(container);
+      return containerLabels["com.docker.compose.project"] !== composeProjectName;
+    }).length;
     candidates.push({
       logicalKey,
       resourceType: "network",
@@ -5999,12 +6048,9 @@ async function inspectTargetResources(target) {
       customLabels: songhealthLabelsOf(labels),
       ownershipSchemaCurrent:
         labels["org.songhealth.foundation.ownership-schema"] === "v1",
-      // Pre-T046 there is no container-side attachment evidence to observe
-      // for a network role; container attachment is proven on the container
-      // candidates themselves.
-      attachmentsExpected: true,
+      attachmentsExpected: foreignAttachments === 0,
       runtimeState: "present",
-      unexpectedlyAttached: false,
+      unexpectedlyAttached: foreignAttachments > 0,
     });
   }
   return candidates;
@@ -6105,8 +6151,11 @@ function observeVerificationIntegrity(inventory) {
  * The real normalized Recovery Assessment evidence of one operation target
  * (data-model.md §Recovery Assessment): every verdict is derived from a
  * live observation — the typed inventory (ownership), the Data Store
- * connectivity plus read-only migration state (integrity), the pending
- * journal origin's own idempotency class (repeatability), the validated
+ * connectivity plus read-only migration state (integrity), the conjunction
+ * of the pending journal origin's idempotency class with the integrity
+ * verdict (repeatability — the one derivation that must be invariant across
+ * the confirmed commands' own attempt-record writes; see the inline note),
+ * the validated
  * fixture provenance with this Delivery's tracked migrations
  * (reconstructibility: the SC-002 synthetic marker plus tracked migrations
  * is reconstructible; an approved non-Production fixture without a verified
@@ -6161,17 +6210,34 @@ async function evaluateTargetAssessmentEvidence(target) {
     typeof latest === "object" &&
     latest.action === RECOVERY_ACTION &&
     latest.state === "failed";
-  const repeatabilityVerdict =
-    pendingAction === null
-      ? "unknown"
-      : SAFELY_REPEATABLE_JOURNAL_ACTIONS.includes(pendingAction)
-        ? "safe"
-        : "unsafe";
 
   const integrity =
     target === DAILY_OPERATION_TARGET
       ? await observeDevelopmentIntegrity(inventory)
       : observeVerificationIntegrity(inventory);
+
+  // T037-B01 determinism — the confirmed recovery/reset commands write
+  // their OWN `running` journal record BEFORE the locked evidence
+  // recomputation (T032 durability precedes work), so any evidence field
+  // derived from the newest journal record would change across the
+  // confirmation boundary and guarantee a drift refusal. Repeatability is
+  // therefore derived ONLY from stable observations: unprovable integrity
+  // keeps it unknown (decision row 1); a pending LIFECYCLE origin against a
+  // valid/not-applicable store is the one proven safe repeat; everything
+  // else — a destructive/attempt-action pending record (an in-flight
+  // confirmed attempt or an interrupted reset/cleanup origin), or no
+  // pending record at all (nothing proves a safely repeatable operation,
+  // and destructive repetition is never safe) — is unsafe. This mapping is
+  // identical on both sides of every attempt-record transition.
+  const lifecyclePending =
+    pendingAction !== null && SAFELY_REPEATABLE_JOURNAL_ACTIONS.includes(pendingAction);
+  const repeatabilityVerdict =
+    integrity.verdict === "unknown"
+      ? "unknown"
+      : lifecyclePending &&
+          (integrity.verdict === "valid" || integrity.verdict === "not-applicable")
+        ? "safe"
+        : "unsafe";
 
   const reconstructibilityVerdict =
     fixtureProvenance === "synthetic" ? "confirmed" : "unknown";
@@ -6205,7 +6271,7 @@ async function evaluateTargetAssessmentEvidence(target) {
     mutationPlanDigest: canonicalSha256({
       operationTarget: target,
       runtimeProfile: RUNTIME_PROFILE_BY_TARGET[target],
-      pendingAction,
+      repeatabilityVerdict,
     }),
     disposabilityConfirmed:
       target === "verification" && inventory !== null && inventory.ownershipProven === true,

@@ -313,7 +313,11 @@ function ownedResource(overrides: Partial<ResourceObservation> = {}): ResourceOb
   return { ...base, ...overrides };
 }
 
-const DEV_DATASTORE_KEYS = ["development.database", "development.database-volume"] as const;
+const DEV_DATASTORE_KEYS = [
+  "development.database",
+  "development.network",
+  "development.database-volume",
+] as const;
 const VERIFICATION_DISPOSABLE_KEYS = ["verification.nginx", "verification.network"] as const;
 
 // ---------------------------------------------------------------------------
@@ -396,6 +400,11 @@ function makeCollaborators() {
     byTarget: {
       development: [
         ownedResource(),
+        ownedResource({
+          resourceType: "network",
+          logicalKey: "development.network",
+          runtimeState: "present",
+        }),
         ownedResource({
           resourceType: "volume",
           logicalKey: "development.database-volume",

@@ -37,10 +37,28 @@
  * This suite adds no Verification lifecycle/Compose behavior, no
  * `foundation:cleanup` exposure (not this task's scope), and no T038+
  * adapter coverage.
+ *
+ * T037-B01 adds the focused REAL-adapter regressions for the
+ * manifest-declared Development network (rework authorization
+ * `a8f7f8afe7d10ea3c06897a4f1b22545b8c463ae`): a stub `podman` on the
+ * sandbox PATH serves controlled typed listings (and records Compose
+ * repair invocations), so the real inspection/assessment/confirmation/
+ * recovery machinery is driven end-to-end through the real CLI without an
+ * engine — proving the exact network is part of the complete inventory and
+ * token issuance, and that an absent, mislabeled, colliding, cross-checkout,
+ * or unexpectedly attached network prevents token issuance and Compose
+ * repair work. The positive recovery case uses a local discarding TCP
+ * listener as the configured Data Store endpoint: connectivity is provable
+ * while the migration-status check fails against it, which is exactly the
+ * integrity-invalid state that selects the `recover` decision; the repair
+ * itself is then reached (the stub records the exact Compose reconcile) and
+ * fails only at the closed postcheck, because no real engine exists.
  */
 
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -119,6 +137,9 @@ const sandbox = {
   journalFile: "",
   lockFile: "",
   confirmationFile: "",
+  bin: "",
+  fixtures: "",
+  composeLog: "",
 };
 
 beforeAll(async () => {
@@ -151,6 +172,53 @@ beforeAll(async () => {
   sandbox.journalFile = path.join(stateDirectory, "operation.json");
   sandbox.lockFile = path.join(stateDirectory, "operation.lock");
   sandbox.confirmationFile = path.join(stateDirectory, "confirmations.json");
+  sandbox.bin = path.join(sandbox.root, "bin");
+  sandbox.fixtures = path.join(sandbox.root, "podman-fixtures");
+  sandbox.composeLog = path.join(sandbox.fixtures, "compose-invocations.log");
+  await mkdir(sandbox.bin, { recursive: true });
+  await mkdir(sandbox.fixtures, { recursive: true });
+  // T037-B01 — the stub Podman CLI: serves the typed listings the real
+  // inspection reads (containers unfiltered, volumes/networks
+  // delivery-labeled, volume users per exact volume) from fixture files and
+  // records every Compose invocation, so repair work is observable.
+  await writeFile(
+    path.join(sandbox.bin, "podman"),
+    [
+      "#!/usr/bin/env node",
+      "import { appendFile, readFile } from 'node:fs/promises';",
+      "const [subcommand, ...rest] = process.argv.slice(2);",
+      "const fixtures = process.env.T037_PODMAN_FIXTURES;",
+      "if (fixtures !== undefined) {",
+      "  const emit = async (name) => {",
+      "    try {",
+      "      process.stdout.write(await readFile(`${fixtures}/${name}`, 'utf8'));",
+      "    } catch {",
+      "      process.stdout.write('[]');",
+      "    }",
+      "  };",
+      "  if (subcommand === 'ps') {",
+      "    const volumeFilter = rest.find((argument) => argument.startsWith('volume='));",
+      "    await emit(volumeFilter === undefined ? 'containers.json' : 'volume-users.json');",
+      "    process.exit(0);",
+      "  }",
+      "  if (subcommand === 'volume') {",
+      "    await emit('volumes.json');",
+      "    process.exit(0);",
+      "  }",
+      "  if (subcommand === 'network') {",
+      "    await emit('networks.json');",
+      "    process.exit(0);",
+      "  }",
+      "  if (subcommand === 'compose') {",
+      "    await appendFile(`${fixtures}/compose-invocations.log`, `${JSON.stringify(rest)}\\n`);",
+      "    process.exit(0);",
+      "  }",
+      "}",
+      "process.exit(0);",
+      "",
+    ].join("\n"),
+    { mode: 0o755 },
+  );
 });
 
 afterAll(async () => {
@@ -758,6 +826,705 @@ describe("T037 real CLI command adapters — confirmation-gated mutation refusal
         });
       } finally {
         await restore();
+      }
+    },
+  );
+});
+
+// ---------------------------------------------------------------------------
+// T037-B01 — the manifest-declared Development network in the REAL adapter
+// chain: complete typed inventory, token issuance, and Compose repair
+// authorization (rework authorization a8f7f8afe7d10ea3c06897a4f1b22545b8c463ae).
+// ---------------------------------------------------------------------------
+
+/** This sandbox checkout's Compose project name (the module's derivation). */
+function sandboxProjectName(): string {
+  return `songhealth-dev-${createHash("sha256").update(sandbox.root).digest("hex").slice(0, 12)}`;
+}
+
+/** One complete manifest label map for a Development resource claim. */
+function manifestLabels(
+  project: string,
+  resource: string,
+  overrides: Record<string, string> = {},
+): Record<string, string> {
+  return {
+    "org.songhealth.foundation.delivery": "001-application-foundation",
+    "org.songhealth.foundation.checkout": "synthetic-checkout",
+    "org.songhealth.foundation.environment": "development",
+    "org.songhealth.foundation.runtime-profile": "daily",
+    "org.songhealth.foundation.operation-target": "development",
+    "org.songhealth.foundation.resource": resource,
+    "org.songhealth.foundation.ownership-schema": "v1",
+    "com.docker.compose.project": project,
+    "com.docker.compose.service": "database",
+    ...overrides,
+  };
+}
+
+/**
+ * The coherent exactly-owned Development observation set: the database
+ * container attached to the network, the manifest-labeled network, and the
+ * named volume used only by this checkout's container. Scenario overrides
+ * replace or corrupt one dimension at a time.
+ */
+function exactDevelopmentObservation(
+  overrides: {
+    containers?: unknown[];
+    networks?: unknown[];
+    volumes?: unknown[];
+    volumeUsers?: unknown[];
+  } = {},
+) {
+  const project = sandboxProjectName();
+  const containerName = `${project}-database-1`;
+  const networkName = `${project}_database`;
+  const volumeName = `${project}_database-data`;
+  const databaseContainer = {
+    Names: [containerName],
+    State: "running",
+    Labels: manifestLabels(project, "development.database"),
+    Networks: [networkName],
+  };
+  return {
+    project,
+    containerName,
+    networkName,
+    volumeName,
+    databaseContainer,
+    containers: overrides.containers ?? [databaseContainer],
+    networks: overrides.networks ?? [
+      { Name: networkName, Labels: manifestLabels(project, "development.network") },
+    ],
+    volumes: overrides.volumes ?? [
+      { Name: volumeName, Labels: manifestLabels(project, "development.database-volume") },
+    ],
+    volumeUsers: overrides.volumeUsers ?? [databaseContainer],
+  };
+}
+
+/** Install one scenario's stub-Podman fixture listings. */
+async function writePodmanFixtures(observation: ReturnType<typeof exactDevelopmentObservation>) {
+  await writeFile(path.join(sandbox.fixtures, "containers.json"), JSON.stringify(observation.containers), "utf8");
+  await writeFile(path.join(sandbox.fixtures, "networks.json"), JSON.stringify(observation.networks), "utf8");
+  await writeFile(path.join(sandbox.fixtures, "volumes.json"), JSON.stringify(observation.volumes), "utf8");
+  await writeFile(
+    path.join(sandbox.fixtures, "volume-users.json"),
+    JSON.stringify(observation.volumeUsers),
+    "utf8",
+  );
+  await rm(sandbox.composeLog, { force: true });
+}
+
+/** Reset the sandbox local state (env record, journal, lock, confirmations). */
+async function resetSandboxState(record: string | undefined): Promise<void> {
+  for (const absolute of [
+    sandbox.journalFile,
+    sandbox.lockFile,
+    sandbox.confirmationFile,
+  ]) {
+    await rm(absolute, { force: true });
+  }
+  if (record === undefined) {
+    await rm(sandbox.envFile, { force: true });
+  } else {
+    await writeFile(sandbox.envFile, `${record}\n`, "utf8");
+  }
+}
+
+/** Run the real CLI with the stub Podman first on PATH. */
+async function runStubbedCommand(args: string[]): Promise<CliOutcome> {
+  try {
+    const { stdout, stderr } = await execFileAsync("node", [sandbox.script, ...args], {
+      cwd: sandbox.root,
+      timeout: CLI_TIMEOUT_MS,
+      env: {
+        ...process.env,
+        PATH: `${sandbox.bin}:${process.env.PATH ?? ""}`,
+        T037_PODMAN_FIXTURES: sandbox.fixtures,
+      },
+    });
+    return { code: 0, stdout, stderr };
+  } catch (error) {
+    const failure = error as { code?: number; stdout?: string; stderr?: string };
+    return {
+      code: typeof failure.code === "number" ? failure.code : 1,
+      stdout: failure.stdout ?? "",
+      stderr: failure.stderr ?? "",
+    };
+  }
+}
+
+/** The recorded Compose repair invocations of the current scenario. */
+async function composeInvocations(): Promise<string[]> {
+  try {
+    const text = await readFile(sandbox.composeLog, "utf8");
+    return text.split(/\r?\n/).filter((line) => line.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * One local discarding TCP listener standing in for the Data Store endpoint,
+ * on the canonical Development publication address `127.0.0.1:3306` (the
+ * boundary pins a Development `DATABASE_URL` to exactly that port, matching
+ * the manifest's loopback publication — so the synthetic record stays
+ * byte-identical and connectivity is provable against the listener).
+ */
+function startDiscardingListener(): Promise<{
+  close: () => Promise<void>;
+}> {
+  const server = net.createServer((socket) => {
+    socket.destroy();
+  });
+  return new Promise((resolve) => {
+    server.listen(3306, "127.0.0.1", () => {
+      resolve({
+        close: () => new Promise<void>((done) => server.close(() => done())),
+      });
+    });
+  });
+}
+
+describe("T037-B01 real Development network ownership — complete inventory and repair authorization", () => {
+  it(
+    "an exactly-owned network is part of the complete Development inventory and action-bound token issuance",
+    { timeout: CLI_TIMEOUT_MS + 30_000 },
+    async () => {
+      await resetSandboxState(DEVELOPMENT_RECORD);
+      await writePodmanFixtures(exactDevelopmentObservation());
+      try {
+        const status = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "status",
+        ]);
+        expect(status.code).toBe(0);
+        expect(status.stdout).toBe(
+          "foundation:inventory: development inventory: " +
+            "development.database:exact/running, " +
+            "development.network:exact/present, " +
+            "development.database-volume:exact/present\n",
+        );
+        expectNoSentinel(status.stdout);
+        expectNoSentinel(status.stderr);
+
+        const token = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "reset",
+          "--token-only",
+        ]);
+        expect(token.code).toBe(0);
+        expect(token.stdout).toMatch(/^confirmation-[0-9a-f]{64}\n$/);
+        expectNoSentinel(token.stderr);
+      } finally {
+        await resetSandboxState(undefined);
+      }
+    },
+  );
+
+  it(
+    "an absent network leaves the complete ownership unproven: no reset token and no repair work",
+    { timeout: CLI_TIMEOUT_MS + 30_000 },
+    async () => {
+      await resetSandboxState(DEVELOPMENT_RECORD);
+      const observation = exactDevelopmentObservation({ networks: [] });
+      await writePodmanFixtures(observation);
+      try {
+        const status = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "status",
+        ]);
+        expect(status.code).toBe(0);
+        expect(status.stdout).toContain("development.network:absent");
+
+        const token = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "reset",
+          "--token-only",
+        ]);
+        expectRefused(token, {
+          reasonCodes: ["RESOURCE_OWNERSHIP_UNPROVEN"],
+          diagnosticScope: "foundation",
+          component: "orchestration",
+          remediations: ["INSPECT_OWNERSHIP"],
+        });
+
+        // The interrupted origin the recovery would bind to: with it
+        // recorded, the refusal that stops the attempt is the complete
+        // network ownership gate itself, not a missing origin.
+        const injected = await runStubbedCommand([
+          "foundation:test-interruption",
+          "--target",
+          "development",
+          "--action",
+          "start",
+          "--phase",
+          "after-journal",
+        ]);
+        expectRefused(injected, {
+          reasonCodes: ["OPERATION_INTERRUPTED"],
+          diagnosticScope: "daily",
+          component: "orchestration",
+          remediations: ["RETRY_SAFE_OPERATION"],
+        });
+
+        const recover = await runStubbedCommand([
+          "foundation:recover",
+          "--target",
+          "development",
+          "--operation",
+          "start",
+          "--repair",
+          "recreate-database-runtime-preserve-volume",
+          "--confirm",
+          "fabricated-recovery-token",
+        ]);
+        expectRefused(recover, {
+          reasonCodes: ["RESOURCE_INVENTORY_CHANGED"],
+          diagnosticScope: "daily",
+          component: "orchestration",
+          remediations: ["INSPECT_OWNERSHIP"],
+        });
+        expect(await composeInvocations()).toEqual([]);
+      } finally {
+        await resetSandboxState(undefined);
+      }
+    },
+  );
+
+  it(
+    "a mislabeled network (manifest label values contradicted) blocks the role and prevents token issuance",
+    { timeout: CLI_TIMEOUT_MS + 30_000 },
+    async () => {
+      await resetSandboxState(DEVELOPMENT_RECORD);
+      const observation = exactDevelopmentObservation();
+      await writePodmanFixtures({
+        ...observation,
+        networks: [
+          {
+            Name: observation.networkName,
+            Labels: manifestLabels(observation.project, "development.network", {
+              "org.songhealth.foundation.operation-target": "verification",
+            }),
+          },
+        ],
+      });
+      try {
+        const status = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "status",
+        ]);
+        expect(status.code).toBe(0);
+        expect(status.stdout).toContain("development.network:blocked");
+
+        const token = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "reset",
+          "--token-only",
+        ]);
+        expectRefused(token, {
+          reasonCodes: ["RESOURCE_OWNERSHIP_UNPROVEN"],
+          diagnosticScope: "foundation",
+          component: "orchestration",
+          remediations: ["INSPECT_OWNERSHIP"],
+        });
+      } finally {
+        await resetSandboxState(undefined);
+      }
+    },
+  );
+
+  it(
+    "two networks claiming the same recorded role are an ambiguity that blocks both and prevents token issuance",
+    { timeout: CLI_TIMEOUT_MS + 30_000 },
+    async () => {
+      await resetSandboxState(DEVELOPMENT_RECORD);
+      const observation = exactDevelopmentObservation();
+      await writePodmanFixtures({
+        ...observation,
+        networks: [
+          { Name: observation.networkName, Labels: manifestLabels(observation.project, "development.network") },
+          {
+            Name: `${observation.project}_database_clone`,
+            Labels: manifestLabels(observation.project, "development.network"),
+          },
+        ],
+      });
+      try {
+        const status = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "status",
+        ]);
+        expect(status.code).toBe(0);
+        expect(status.stdout).toContain("development.network:blocked");
+
+        const token = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "reset",
+          "--token-only",
+        ]);
+        expectRefused(token, {
+          reasonCodes: ["RESOURCE_OWNERSHIP_UNPROVEN"],
+          diagnosticScope: "foundation",
+          component: "orchestration",
+          remediations: ["INSPECT_OWNERSHIP"],
+        });
+      } finally {
+        await resetSandboxState(undefined);
+      }
+    },
+  );
+
+  it(
+    "a cross-checkout network (foreign project label and name) blocks the role and prevents token issuance and repair",
+    { timeout: CLI_TIMEOUT_MS + 30_000 },
+    async () => {
+      await resetSandboxState(DEVELOPMENT_RECORD);
+      const observation = exactDevelopmentObservation();
+      const foreignProject = "songhealth-dev-ffffffffffff";
+      await writePodmanFixtures({
+        ...observation,
+        networks: [
+          {
+            Name: `${foreignProject}_database`,
+            Labels: manifestLabels(foreignProject, "development.network"),
+          },
+        ],
+      });
+      try {
+        const status = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "status",
+        ]);
+        expect(status.code).toBe(0);
+        expect(status.stdout).toContain("development.network:blocked");
+
+        const token = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "reset",
+          "--token-only",
+        ]);
+        expectRefused(token, {
+          reasonCodes: ["RESOURCE_OWNERSHIP_UNPROVEN"],
+          diagnosticScope: "foundation",
+          component: "orchestration",
+          remediations: ["INSPECT_OWNERSHIP"],
+        });
+
+        // The interrupted origin the recovery would bind to: with it
+        // recorded, the refusal that stops the attempt is the complete
+        // network ownership gate itself, not a missing origin.
+        const injected = await runStubbedCommand([
+          "foundation:test-interruption",
+          "--target",
+          "development",
+          "--action",
+          "start",
+          "--phase",
+          "after-journal",
+        ]);
+        expectRefused(injected, {
+          reasonCodes: ["OPERATION_INTERRUPTED"],
+          diagnosticScope: "daily",
+          component: "orchestration",
+          remediations: ["RETRY_SAFE_OPERATION"],
+        });
+
+        const recover = await runStubbedCommand([
+          "foundation:recover",
+          "--target",
+          "development",
+          "--operation",
+          "start",
+          "--repair",
+          "recreate-database-runtime-preserve-volume",
+          "--confirm",
+          "fabricated-recovery-token",
+        ]);
+        expectRefused(recover, {
+          reasonCodes: ["RESOURCE_INVENTORY_CHANGED"],
+          diagnosticScope: "daily",
+          component: "orchestration",
+          remediations: ["INSPECT_OWNERSHIP"],
+        });
+        expect(await composeInvocations()).toEqual([]);
+      } finally {
+        await resetSandboxState(undefined);
+      }
+    },
+  );
+
+  it(
+    "a foreign container attached to the exact network is unexpected attachment that blocks the role and prevents token issuance and repair",
+    { timeout: CLI_TIMEOUT_MS + 30_000 },
+    async () => {
+      await resetSandboxState(DEVELOPMENT_RECORD);
+      const observation = exactDevelopmentObservation();
+      const foreignContainer = {
+        Names: ["foreign-unrelated-container"],
+        State: "running",
+        Labels: { "com.docker.compose.project": "some-other-project" },
+        Networks: [observation.networkName],
+      };
+      await writePodmanFixtures({
+        ...observation,
+        containers: [observation.databaseContainer, foreignContainer],
+      });
+      try {
+        const status = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "status",
+        ]);
+        expect(status.code).toBe(0);
+        expect(status.stdout).toContain("development.network:blocked");
+
+        const token = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "reset",
+          "--token-only",
+        ]);
+        expectRefused(token, {
+          reasonCodes: ["RESOURCE_OWNERSHIP_UNPROVEN"],
+          diagnosticScope: "foundation",
+          component: "orchestration",
+          remediations: ["INSPECT_OWNERSHIP"],
+        });
+
+        // The interrupted origin the recovery would bind to: with it
+        // recorded, the refusal that stops the attempt is the complete
+        // network ownership gate itself, not a missing origin.
+        const injected = await runStubbedCommand([
+          "foundation:test-interruption",
+          "--target",
+          "development",
+          "--action",
+          "start",
+          "--phase",
+          "after-journal",
+        ]);
+        expectRefused(injected, {
+          reasonCodes: ["OPERATION_INTERRUPTED"],
+          diagnosticScope: "daily",
+          component: "orchestration",
+          remediations: ["RETRY_SAFE_OPERATION"],
+        });
+
+        const recover = await runStubbedCommand([
+          "foundation:recover",
+          "--target",
+          "development",
+          "--operation",
+          "start",
+          "--repair",
+          "recreate-database-runtime-preserve-volume",
+          "--confirm",
+          "fabricated-recovery-token",
+        ]);
+        expectRefused(recover, {
+          reasonCodes: ["RESOURCE_INVENTORY_CHANGED"],
+          diagnosticScope: "daily",
+          component: "orchestration",
+          remediations: ["INSPECT_OWNERSHIP"],
+        });
+        expect(await composeInvocations()).toEqual([]);
+      } finally {
+        await resetSandboxState(undefined);
+      }
+    },
+  );
+
+  it(
+    "with proven complete ownership the confirmed recovery reaches the exact Compose repair and fails only at the no-engine postcheck",
+    { timeout: CLI_TIMEOUT_MS + 120_000 },
+    async () => {
+      const listener = await startDiscardingListener();
+      try {
+        await resetSandboxState(DEVELOPMENT_RECORD);
+        await writePodmanFixtures(exactDevelopmentObservation());
+
+        // The interrupted origin the recovery binds to.
+        const injected = await runStubbedCommand([
+          "foundation:test-interruption",
+          "--target",
+          "development",
+          "--action",
+          "start",
+          "--phase",
+          "after-journal",
+        ]);
+        expectRefused(injected, {
+          reasonCodes: ["OPERATION_INTERRUPTED"],
+          diagnosticScope: "daily",
+          component: "orchestration",
+          remediations: ["RETRY_SAFE_OPERATION"],
+        });
+
+        // Connectivity is provable against the listener while the
+        // migration-status check fails against it — the integrity-invalid
+        // state that selects `recover` for the allowlisted repair.
+        const recoveryToken = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "recover",
+          "--operation",
+          "start",
+          "--repair",
+          "recreate-database-runtime-preserve-volume",
+          "--token-only",
+        ]);
+        expect(recoveryToken.code).toBe(0);
+        expect(recoveryToken.stdout).toMatch(/^confirmation-[0-9a-f]{64}\n$/);
+
+        const recovered = await runStubbedCommand([
+          "foundation:recover",
+          "--target",
+          "development",
+          "--operation",
+          "start",
+          "--repair",
+          "recreate-database-runtime-preserve-volume",
+          "--confirm",
+          recoveryToken.stdout.trim(),
+        ]);
+        // No real engine exists: the repair itself ran (the exact Compose
+        // reconcile was issued) and the attempt fails closed at the
+        // integrity postcheck — never with a raw error or a value.
+        expectRefused(recovered, {
+          reasonCodes: ["DATA_INTEGRITY_UNPROVEN", "DATABASE_UNAVAILABLE", "MIGRATION_STATUS_FAILED"],
+          diagnosticScope: "daily",
+          component: "database",
+        });
+        const invocations = await composeInvocations();
+        expect(invocations).toHaveLength(1);
+        expect(invocations[0]).toContain("up");
+        expect(invocations[0]).toContain("database");
+        expectNoSentinel(recovered.stdout);
+        expectNoSentinel(recovered.stderr);
+      } finally {
+        await listener.close();
+        await resetSandboxState(undefined);
+      }
+    },
+  );
+
+  it(
+    "the same recovery state with a blocked network never reaches the Compose repair",
+    { timeout: CLI_TIMEOUT_MS + 120_000 },
+    async () => {
+      const listener = await startDiscardingListener();
+      try {
+        await resetSandboxState(DEVELOPMENT_RECORD);
+        const observation = exactDevelopmentObservation();
+        const foreignContainer = {
+          Names: ["foreign-unrelated-container"],
+          State: "running",
+          Labels: { "com.docker.compose.project": "some-other-project" },
+          Networks: [observation.networkName],
+        };
+        await writePodmanFixtures({
+          ...observation,
+          containers: [observation.databaseContainer, foreignContainer],
+        });
+
+        const injected = await runStubbedCommand([
+          "foundation:test-interruption",
+          "--target",
+          "development",
+          "--action",
+          "start",
+          "--phase",
+          "after-journal",
+        ]);
+        expectRefused(injected, {
+          reasonCodes: ["OPERATION_INTERRUPTED"],
+          diagnosticScope: "daily",
+          component: "orchestration",
+          remediations: ["RETRY_SAFE_OPERATION"],
+        });
+
+        // Ownership over the complete inventory (including the network) is
+        // unproven, so the read-only issuance gate refuses with the
+        // ownership diagnostic before any recovery token can be minted.
+        const recoveryToken = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "recover",
+          "--operation",
+          "start",
+          "--repair",
+          "recreate-database-runtime-preserve-volume",
+          "--token-only",
+        ]);
+        expectRefused(recoveryToken, {
+          reasonCodes: ["RESOURCE_OWNERSHIP_UNPROVEN"],
+          diagnosticScope: "foundation",
+          component: "orchestration",
+          remediations: ["INSPECT_OWNERSHIP"],
+        });
+        expect(recoveryToken.stdout).not.toContain("confirmation-");
+
+        const recovered = await runStubbedCommand([
+          "foundation:recover",
+          "--target",
+          "development",
+          "--operation",
+          "start",
+          "--repair",
+          "recreate-database-runtime-preserve-volume",
+          "--confirm",
+          "fabricated-recovery-token",
+        ]);
+        expectRefused(recovered, {
+          reasonCodes: ["RESOURCE_INVENTORY_CHANGED"],
+          diagnosticScope: "daily",
+          component: "orchestration",
+          remediations: ["INSPECT_OWNERSHIP"],
+        });
+        expect(await composeInvocations()).toEqual([]);
+      } finally {
+        await listener.close();
+        await resetSandboxState(undefined);
       }
     },
   );

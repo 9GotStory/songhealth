@@ -385,8 +385,13 @@ function partialCustomLabels(): Record<string, string> {
   return labels;
 }
 
-/** The exact Development Data Store resources a confirmed reset may touch. */
-const DEV_DATASTORE_KEYS = ["development.database", "development.database-volume"] as const;
+/** The exact Development Data Store resources a confirmed reset may touch
+ * (T037-B01: including the manifest-declared network role). */
+const DEV_DATASTORE_KEYS = [
+  "development.database",
+  "development.network",
+  "development.database-volume",
+] as const;
 
 /** The exact disposable Verification resources a confirmed cleanup may touch. */
 const VERIFICATION_DISPOSABLE_KEYS = ["verification.nginx", "verification.network"] as const;
@@ -589,6 +594,11 @@ function makeCollaborators(): Harness {
     byTarget: {
       development: [
         ownedResource(),
+        ownedResource({
+          resourceType: "network",
+          logicalKey: "development.network",
+          runtimeState: "present",
+        }),
         ownedResource({
           resourceType: "volume",
           logicalKey: "development.database-volume",

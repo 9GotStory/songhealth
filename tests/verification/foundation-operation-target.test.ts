@@ -143,8 +143,13 @@ const CUSTOM_LABEL_KEYS = [
   "org.songhealth.foundation.ownership-schema",
 ] as const;
 
-/** The individually recorded exact Development Data Store resources. */
-const DEV_DATASTORE_KEYS = ["development.database", "development.database-volume"] as const;
+/** The individually recorded exact Development Data Store resources
+ * (T037-B01: including the manifest-declared network role). */
+const DEV_DATASTORE_KEYS = [
+  "development.database",
+  "development.network",
+  "development.database-volume",
+] as const;
 
 /** The Verification target's disposable resources (non-targets here). */
 const VERIFICATION_DISPOSABLE_KEYS = ["verification.nginx", "verification.network"] as const;
@@ -269,6 +274,11 @@ function makeCollaborators() {
     byTarget: {
       development: [
         ownedResource(),
+        ownedResource({
+          resourceType: "network",
+          logicalKey: "development.network",
+          runtimeState: "present",
+        }),
         ownedResource({
           resourceType: "volume",
           logicalKey: "development.database-volume",
