@@ -199,6 +199,20 @@
  * code. Ordinary startup remains migration-free. No T037+ command adapter
  * (status/inventory/interruption/recovery/reset/persistence-check
  * exposure) is added here.
+ *
+ * T036-B01 corrects the REAL target-routing seam: the command-line
+ * collaborators are bound to the REQUESTED operation target, whose own
+ * ignored local environment file (`.env.development.local` /
+ * `.env.verification.local`) is the sole source both the validating
+ * configuration load and the two migration adapters read. Each command
+ * therefore loads, canonically validates (the T010 boundary invoked with
+ * that exact operation target), and addresses only the selected target's
+ * configuration and database identity — a Development record is refused
+ * as a cross-target identity by the Verification command and vice versa,
+ * and a missing target file is never satisfied by the other target's
+ * copy. No Verification lifecycle/Compose behavior is added: with no
+ * Verification engine running, its commands fail closed exactly like the
+ * Development ones do.
  */
 
 import { execFile, spawn } from "node:child_process";
@@ -327,20 +341,19 @@ const EMPTY_WORK_BOUNDARY = {
 
 /**
  * Validate an execution-context record against the accepted T010 canonical
- * boundary (`loadRuntimeConfiguration`) for the Development/daily target.
- * The canonical boundary is the single configuration policy: it owns the
- * six documented rejection classes, the strict-loopback host rules, the
- * `APP_HOST`/`APP_PORT`-bound bare-HTTP public origin, and the canonical
- * Development database user/name. No second policy exists in this module.
- * The outcome's rejection diagnostic is already a closed Safe Diagnostic.
+ * boundary (`loadRuntimeConfiguration`) for the REQUESTED selectable
+ * operation target. The canonical boundary is the single configuration
+ * policy: it owns the six documented rejection classes and each target's
+ * exact identity (Development's strict-loopback hosts and canonical
+ * database user/name/port; Verification's exact internal Compose-network
+ * identities) — so target-routing the call is what makes a `--target`
+ * command validate against its own target's identity, never another's. No
+ * second policy exists in this module. The outcome's rejection diagnostic is
+ * already a closed Safe Diagnostic.
  */
-async function loadCanonicalDevelopmentOutcome(config) {
+async function loadCanonicalTargetOutcome(config, target) {
   const canonical = await import("../apps/server/src/config.ts");
-  return canonical.loadRuntimeConfiguration(
-    config,
-    DAILY_OPERATION_TARGET,
-    EMPTY_WORK_BOUNDARY,
-  );
+  return canonical.loadRuntimeConfiguration(config, target, EMPTY_WORK_BOUNDARY);
 }
 
 /** Build exactly one closed Safe Diagnostic — no extra field ever. */
@@ -655,7 +668,7 @@ async function setupDevelopmentFoundation(collaborators) {
     );
   }
 
-  const outcome = await loadCanonicalDevelopmentOutcome(config);
+  const outcome = await loadCanonicalTargetOutcome(config, DAILY_OPERATION_TARGET);
   if (outcome.status === "rejected") {
     return rejectOperation(collaborators, outcome.diagnostic);
   }
@@ -712,7 +725,7 @@ async function validateCanonicalDevelopmentConfiguration(collaborators, surfaces
       ),
     };
   }
-  const outcome = await loadCanonicalDevelopmentOutcome(config);
+  const outcome = await loadCanonicalTargetOutcome(config, DAILY_OPERATION_TARGET);
   if (outcome.status === "rejected") {
     return { rejected: await rejectOperation(collaborators, outcome.diagnostic, surfaces) };
   }
@@ -4378,6 +4391,20 @@ const DATABASE_STOP_TIMEOUT_MS = 120_000;
 const REQUIRED_FILES = ["infra/compose.development.yaml", ".env.development.example"];
 /** The ignored local Development configuration copy (quickstart §1). */
 const DEVELOPMENT_ENV_FILE = ".env.development.local";
+/** The ignored local Verification configuration copy (contract §Configuration examples). */
+const VERIFICATION_ENV_FILE = ".env.verification.local";
+
+/**
+ * The ignored local environment file each selectable operation target reads
+ * (T036-B01): one target, one file. A target-routed command loads, validates,
+ * and addresses ONLY its own target's local configuration — a missing
+ * Verification copy is never satisfied by the Development copy, and no
+ * command ever reads another target's credential or database identity.
+ */
+const ENV_FILE_BY_TARGET = {
+  development: DEVELOPMENT_ENV_FILE,
+  verification: VERIFICATION_ENV_FILE,
+};
 /** The committed safe example the local copy is made from. */
 const DEVELOPMENT_ENV_EXAMPLE_FILE = ".env.development.example";
 /** Documented Development database loopback port (T026 manifest). */
@@ -4440,6 +4467,22 @@ async function loadDevelopmentConfiguration() {
 }
 
 /**
+ * Load the ignored local configuration of the REQUESTED selectable
+ * operation target (T036-B01): the target-routed source the `--target`
+ * database commands read. Throws when that target's own local copy is
+ * absent so callers map it to the documented missing-configuration
+ * rejection — one target's missing file is never satisfied by another
+ * target's copy.
+ */
+async function loadLocalTargetConfiguration(target) {
+  const local = await readEnvironmentFile(ENV_FILE_BY_TARGET[target]);
+  if (local === null) {
+    throw new Error("local operation-target configuration is absent");
+  }
+  return local;
+}
+
+/**
  * The canonical-rejection error a VALIDATING configuration source throws:
  * it carries the already-closed Safe Diagnostic of the canonical boundary
  * that refused the record, so every consuming operation refuses with
@@ -4454,8 +4497,9 @@ class CanonicalConfigurationRejection extends Error {
 }
 
 /**
- * The VALIDATING real Development configuration source: load the ignored
- * local copy and enforce the accepted T010 canonical boundary — the single
+ * The VALIDATING real configuration source of one selectable operation
+ * target (T036-B01): load THAT target's ignored local copy and enforce the
+ * accepted T010 canonical boundary FOR THAT TARGET — the single
  * configuration policy — BEFORE the record is handed to any operation. An
  * absent local copy stays the documented missing-configuration rejection; a
  * canonical refusal throws the carried closed diagnostic, which every
@@ -4465,9 +4509,9 @@ class CanonicalConfigurationRejection extends Error {
  * unjournaled modes (T032-B04), so the source-level enforcement changes no
  * observable outcome.
  */
-async function loadValidatedDevelopmentConfiguration() {
-  const config = await loadDevelopmentConfiguration();
-  const outcome = await loadCanonicalDevelopmentOutcome(config);
+async function loadValidatedTargetConfiguration(target) {
+  const config = await loadLocalTargetConfiguration(target);
+  const outcome = await loadCanonicalTargetOutcome(config, target);
   if (outcome.status === "rejected") {
     throw new CanonicalConfigurationRejection(outcome.diagnostic);
   }
@@ -4540,7 +4584,7 @@ async function checkRequiredFiles() {
 async function checkSafeDevelopmentConfiguration() {
   try {
     const config = await loadDevelopmentConfiguration();
-    const outcome = await loadCanonicalDevelopmentOutcome(config);
+    const outcome = await loadCanonicalTargetOutcome(config, DAILY_OPERATION_TARGET);
     return outcome.status === "accepted";
   } catch {
     return false;
@@ -4807,15 +4851,17 @@ function registerServerTypeScriptBridge() {
 /**
  * Explicitly apply tracked migrations through the accepted T013 boundary
  * (`apps/server/src/migrations.ts` owns the migration inventory; no
- * caller-supplied version list exists here). The apply itself is
- * idempotent, and the pool is always closed. Returns the names THIS apply
- * executed (empty when already current) — safe, version-controlled
- * migration names only — so `db:migrate` can report each tracked migration
- * (quickstart §4) without widening the boundary.
+ * caller-supplied version list exists here) to the REQUESTED selectable
+ * operation target's own database (T036-B01: the URL comes from that
+ * target's local configuration only). The apply itself is idempotent, and
+ * the pool is always closed. Returns the names THIS apply executed (empty
+ * when already current) — safe, version-controlled migration names only —
+ * so `db:migrate` can report each tracked migration (quickstart §4) without
+ * widening the boundary.
  */
-async function applyTrackedMigrations() {
+async function applyTrackedMigrations(target) {
   registerServerTypeScriptBridge();
-  const config = await loadDevelopmentConfiguration();
+  const config = await loadLocalTargetConfiguration(target);
   const poolMax = DECIMAL_INTEGER_PATTERN.test(config.DATABASE_POOL_MAX ?? "")
     ? Number.parseInt(config.DATABASE_POOL_MAX, 10)
     : undefined;
@@ -4844,13 +4890,15 @@ async function applyTrackedMigrations() {
  * Read the tracked-migration state through the accepted T013 boundary's
  * READ-ONLY status observation (`getMigrationStatus` never applies
  * migrations and never creates the Kysely metadata, lock, or marker
- * tables). Returns the closed Migration State `status` vocabulary; the
- * pool is always closed. This is the `db:status` real adapter — the
- * command's non-mutation guarantee rests on this read-only boundary.
+ * tables) against the REQUESTED selectable operation target's own database
+ * (T036-B01: the URL comes from that target's local configuration only).
+ * Returns the closed Migration State `status` vocabulary; the pool is
+ * always closed. This is the `db:status` real adapter — the command's
+ * non-mutation guarantee rests on this read-only boundary.
  */
-async function readTrackedMigrationStatus() {
+async function readTrackedMigrationStatus(target) {
   registerServerTypeScriptBridge();
-  const config = await loadDevelopmentConfiguration();
+  const config = await loadLocalTargetConfiguration(target);
   const poolMax = DECIMAL_INTEGER_PATTERN.test(config.DATABASE_POOL_MAX ?? "")
     ? Number.parseInt(config.DATABASE_POOL_MAX, 10)
     : undefined;
@@ -5544,8 +5592,18 @@ function installInterruptionGuard(collaborators) {
   };
 }
 
-/** The real collaborator set for the command-line entry point. */
-function createCommandLineCollaborators() {
+/**
+ * The real collaborator set for the command-line entry point, bound to one
+ * selectable operation target (T036-B01): the validating configuration
+ * source and both database migration adapters route to THAT target's own
+ * ignored local file and database identity. The daily commands bind the
+ * Development target (the default); the `--target` database commands bind
+ * the target read from the command line. Construction performs no I/O —
+ * the bound sources load only when an operation actually invokes them, so
+ * an invalid target (refused by the operations before any work) never
+ * touches the filesystem.
+ */
+function createCommandLineCollaborators(target = DAILY_OPERATION_TARGET) {
   return {
     preflight: {
       node: async () => checkNodeRuntime(),
@@ -5560,8 +5618,8 @@ function createCommandLineCollaborators() {
       start: startDevelopmentDatabase,
       stop: stopDevelopmentDatabase,
       isRunning: isDevelopmentDatabaseAcceptingConnections,
-      applyMigrations: applyTrackedMigrations,
-      migrationStatus: readTrackedMigrationStatus,
+      applyMigrations: async () => applyTrackedMigrations(target),
+      migrationStatus: async () => readTrackedMigrationStatus(target),
     },
     processes: {
       // T028 owns supervised start/idempotency observation; T029 owns the
@@ -5585,8 +5643,10 @@ function createCommandLineCollaborators() {
       // T032-B01/B03 — the validating real source: the canonical boundary
       // (the single configuration policy) is enforced at the source, so the
       // journaled command lifecycle refuses forbidden configurations before
-      // any work with exactly the canonical closed diagnostics.
-      load: loadValidatedDevelopmentConfiguration,
+      // any work with exactly the canonical closed diagnostics. T036-B01:
+      // the source is TARGET-ROUTED — it loads and canonically validates
+      // the bound operation target's own ignored local copy.
+      load: async () => loadValidatedTargetConfiguration(target),
     },
     output: {
       stdout: async (unit) => {
@@ -5626,7 +5686,20 @@ function readOption(args, name) {
 
 async function runCommandLine(args) {
   const [command, ...rest] = args;
-  const collaborators = createCommandLineCollaborators();
+  // T036-B01 — the two database commands are the target-routed commands:
+  // their real collaborators are bound to the requested operation target's
+  // own configuration source and database identity BEFORE the operation
+  // runs, so `--target verification` loads, validates, and addresses the
+  // Verification target only. The daily commands keep the Development
+  // binding. An invalid target is refused by the operations before any
+  // bound source performs I/O.
+  const databaseCommandTarget =
+    command === "db:status" || command === "db:migrate"
+      ? readOption(rest, "target")
+      : undefined;
+  const collaborators = createCommandLineCollaborators(
+    databaseCommandTarget ?? DAILY_OPERATION_TARGET,
+  );
   // T032 — the SIGINT/SIGTERM interruption guard is installed for the whole
   // command: it records `OPERATION_INTERRUPTED` and attempts exact
   // current-run cleanup only while a journaled operation is actually
