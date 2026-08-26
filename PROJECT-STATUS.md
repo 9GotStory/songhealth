@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T036 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T037 AUTHORIZED — IMPLEMENTATION HANDOFF
 
 ## Active Feature Mirror
 
@@ -29,13 +29,30 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED; T036-B01 closed
-- **Phase status:** T036 ACCEPTED; T037+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T037 authorized at canonical base
+  `52ff9083e2ee4f0d381d2df62404bb38f9723f7b`
+- **Phase status:** T037 AUTHORIZED; T038+ UNAUTHORIZED
 - **Previous completed scope:** T036 — non-mutating migration status and explicit target-routed
   migration apply command adapters
-- **Next valid action:** NONE selected or authorized — stop after T036 Human acceptance; T037+
-  remain unauthorized
-- **Blocking issues:** None for T036 review
+- **Next valid action:** Claude Code implements only T037, reports the exact implementation tip and
+  verification evidence, then stops for independent Codex review
+- **Blocking issues:** None — T036 is human-accepted and T037 is dependency-ready
+- **T037 authorization:** Expose the already specified status/inventory, interruption-injection,
+  Development recovery, confirmed Development reset, and Development persistence-check command
+  adapters in `scripts/foundation-operations.mjs` and `package.json`. Required authority:
+  `.specify/memory/constitution.md`, `specs/001-application-foundation/spec.md` FR-003–FR-004 and
+  FR-017, `specs/001-application-foundation/plan.md`,
+  `specs/001-application-foundation/data-model.md`,
+  `specs/001-application-foundation/contracts/foundation-operations.md` §Commands and §Failure
+  behavior, `specs/001-application-foundation/quickstart.md` §2, and
+  `specs/001-application-foundation/tasks.md` T037. Scope excludes T038+, new dependencies,
+  architecture/requirement changes, broad deletion, Production/hosted behavior, and weakening the
+  accepted exact-ownership, confirmation, journal, recovery, reset, persistence, isolation, or
+  closed-diagnostic boundaries. Verification must cover the exposed CLI/package entry points,
+  argument/target/action/phase/repair/confirmation validation, read-only status/inventory behavior,
+  bounded mutation and refusal paths, interruption and immutable-primary-failure behavior,
+  persistence/reset/non-target isolation, relevant focused suites, syntax/type/diff checks, and no
+  T038+ implementation.
 - **T036 Product Owner acceptance:** Human Gate accepted corrective implementation tip
   `ee4b7985af06e1b242c4f10f08cf9c98ed5c7c06` and independent PASS governance record
   `ae125a62fa2193901a75bdbd49372b59bb311437`; T036-B01 is accepted as closed. The accepted PASS
@@ -240,11 +257,17 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T036 passed independent review; T037+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T036 final review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T037 only — expose status/inventory, interruption injection, recovery,
+  confirmed reset, and persistence-check command adapters in `scripts/foundation-operations.mjs`
+  and `package.json`; T038+ remain unauthorized
+- **Runtime:** Claude Code (`claude-developer`)
+- **Required references:** Constitution; `spec.md` FR-003–FR-004 and FR-017; `plan.md`;
+  `data-model.md`; Operations Contract §Commands and §Failure behavior; `quickstart.md` §2;
+  `tasks.md` T037; `CLAUDE.md`
+- **Expected verification:** focused CLI/package-adapter, foundation-operations, lifecycle-recovery,
+  and operation-target/persistence tests; argument and refusal probes; syntax, type, and diff checks;
+  confirm no T038+ behavior or out-of-scope changes
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
