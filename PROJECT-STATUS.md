@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T037 AUTHORIZED — IMPLEMENTATION HANDOFF
+- **Status:** T037 CHANGES REQUIRED — REWORK AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -29,14 +29,30 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** NOT YET REVIEWED — T037 authorized at canonical base
-  `52ff9083e2ee4f0d381d2df62404bb38f9723f7b`
-- **Phase status:** T037 AUTHORIZED; T038+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T037-B01
+- **Phase status:** T037 REWORK AUTHORIZED; T038+ UNAUTHORIZED
 - **Previous completed scope:** T036 — non-mutating migration status and explicit target-routed
   migration apply command adapters
-- **Next valid action:** Claude Code implements only T037, reports the exact implementation tip and
-  verification evidence, then stops for independent Codex review
-- **Blocking issues:** None — T036 is human-accepted and T037 is dependency-ready
+- **Next valid action:** Claude Code corrects only T037-B01 from the persisted rework authorization,
+  reports the exact corrective tip and verification evidence, then stops for independent Codex review
+- **Blocking issues:** T037-B01 — the real Development inventory population omits the
+  manifest-declared `development.network`, while `foundation:recover` can create/reconcile that
+  network through Compose without proving its exact name, checkout/manifest/custom labels,
+  ownership schema, collision state, or attachments. This violates the complete Resource Inventory
+  and exact container/network recovery ownership requirements.
+- **T037 review evidence:** Exact implementation tip
+  `9d5372eb0be215f452bd4505aede232bbdce7243` has authorization commit
+  `18b440cc28cd409c41eb85035d91a0c72bc4d91b` as its sole parent; its clean diff is limited to
+  `scripts/foundation-operations.mjs`, `scripts/foundation-operations.d.mts`, `package.json`, and
+  `tests/verification/foundation-command-adapters.test.ts`, with no T038+ implementation. Syntax and
+  TypeScript pass. Independent focused CLI/foundation/database/diagnostic verification passes
+  158/158; lifecycle plus operation-target verification is 74 passed / 1 established retry-fixture
+  failure; the full relevant surface is 335 passed / 1 established failure / 38 real-engine tests
+  unavailable because the explicit local environment source is absent. Static inspection finds
+  T037-B01: `infra/compose.development.yaml` declares and labels `development.network`, but
+  `TARGET_RESOURCES.development` records only the database container and volume, so the real typed
+  inventory discards the network claim and recovery reaches `compose up --detach database` without
+  network ownership evidence.
 - **T037 authorization:** Expose the already specified status/inventory, interruption-injection,
   Development recovery, confirmed Development reset, and Development persistence-check command
   adapters in `scripts/foundation-operations.mjs` and `package.json`. Required authority:
@@ -257,17 +273,20 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T037 only — expose status/inventory, interruption injection, recovery,
-  confirmed reset, and persistence-check command adapters in `scripts/foundation-operations.mjs`
-  and `package.json`; T038+ remain unauthorized
+- **Task / Scope:** T037-B01 only — make the real Development inventory and recovery authorization
+  cover the manifest-declared Development network with complete exact ownership/collision/attachment
+  evidence before Compose recovery may reconcile it; add the focused real-adapter regression.
+  T038+ remain unauthorized.
 - **Runtime:** Claude Code (`claude-developer`)
 - **Required references:** Constitution; `spec.md` FR-003–FR-004 and FR-017; `plan.md`;
   `data-model.md`; Operations Contract §Commands and §Failure behavior; `quickstart.md` §2;
   `tasks.md` T037; `CLAUDE.md`
-- **Expected verification:** focused CLI/package-adapter, foundation-operations, lifecycle-recovery,
-  and operation-target/persistence tests; argument and refusal probes; syntax, type, and diff checks;
-  confirm no T038+ behavior or out-of-scope changes
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Expected verification:** focused real CLI inventory/recovery tests proving an exact Development
+  network is included and an absent, mislabeled, colliding, ambiguous, cross-checkout, or
+  unexpectedly attached network prevents token issuance and repair work; existing command-adapter,
+  foundation-operations, lifecycle-recovery, and operation-target suites; syntax, type, and diff
+  checks; confirm no T038+ behavior or out-of-scope changes
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
