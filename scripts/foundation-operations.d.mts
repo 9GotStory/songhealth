@@ -81,6 +81,19 @@ export interface OperationResult {
    * evidence). Present on successful `foundation:inventory` observations.
    */
   nonTargetDigest?: string;
+  /**
+   * The observed closed Migration State `status` (data-model.md §Migration
+   * State). Present on successful `db:status` reports (`current` and
+   * `pending` are the two successful report states; the safe-failure states
+   * refuse instead).
+   */
+  migrationState?: "current" | "pending" | "unavailable" | "error";
+  /**
+   * The tracked migrations THIS explicit apply executed, by their safe
+   * version-controlled names, in apply order (empty when already current).
+   * Present on successful `db:migrate` applies.
+   */
+  appliedMigrations?: readonly string[];
 }
 
 /** Routed prerequisite checks (Operations Contract §Prerequisites). */
@@ -106,7 +119,14 @@ export interface DatabaseCollaborators {
   start(): Promise<void>;
   stop(): Promise<void>;
   isRunning(): Promise<boolean>;
-  applyMigrations(): Promise<void>;
+  /**
+   * The explicit tracked-migration apply (the adapter owns the ordered
+   * migration inventory and its idempotency). MAY resolve with the names
+   * this apply executed — safe version-controlled names only — for the
+   * `db:migrate` report (quickstart §4); callers that ignore the value
+   * observe no change.
+   */
+  applyMigrations(): Promise<void | readonly string[]>;
   deleteVolume(): Promise<void>;
   /**
    * The read-only migration-state observation (the closed Migration State
@@ -371,4 +391,32 @@ export function foundationCleanup(
 export function devPersistenceCheck(
   collaborators: FoundationOperationsCollaborators,
   options: { confirm: string },
+): Promise<OperationResult>;
+
+/**
+ * `db:status` (T036) — the non-mutating explicit migration-state report for
+ * the selected local operation target: validate the selectable target and
+ * the bounded local execution identity before any work, then READ the
+ * migration state through the injected database adapter's read-only
+ * observation. `current` and `pending` are successful report states;
+ * `unavailable`, `error`, and an unobservable status refuse with their
+ * closed Migration State reason codes. This operation never applies
+ * migrations and never starts, stops, or deletes anything.
+ */
+export function dbStatus(
+  collaborators: FoundationOperationsCollaborators,
+  target: string,
+): Promise<OperationResult>;
+
+/**
+ * `db:migrate` (T036) — the standalone explicit tracked-migration apply for
+ * the selected validated local operation target (the only pending→current
+ * transition besides the setup/reset sequences; ordinary startup never
+ * applies migrations). The ordered migration inventory and idempotency are
+ * adapter-owned; a failed apply refuses with the closed `MIGRATION_FAILED`
+ * code. The applied migration names are carried on the result.
+ */
+export function dbMigrate(
+  collaborators: FoundationOperationsCollaborators,
+  target: string,
 ): Promise<OperationResult>;

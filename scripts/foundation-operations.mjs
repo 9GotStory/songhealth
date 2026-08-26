@@ -179,6 +179,26 @@
  * any kind. A failed attempt appends its failure as a secondary attempt
  * diagnostic on the immutable original failure and leaves the target
  * stopped/not-ready.
+ *
+ * T036 adds the explicit database command adapters `db:status` and
+ * `db:migrate` (Operations Contract §Commands; quickstart §4; data-model.md
+ * §Migration State): the selectable local operation target
+ * (`--target <development|verification>`) and the bounded local execution
+ * identity are refused BEFORE any work — an invalid target, a hosted or
+ * Production environment, a mismatched (cross-target) runtime profile, a
+ * Production-derived fixture provenance, or a missing configuration each
+ * refuse with its closed canonical diagnostic. `db:status` then READS the
+ * migration state through the injected database adapter's read-only
+ * observation and performs no mutation of any kind; `current` and
+ * `pending` are successful report states, while `unavailable`, `error`,
+ * and an unobservable status refuse with their closed Migration State
+ * reason codes. `db:migrate` is the standalone explicit apply — the only
+ * pending→current transition besides the setup/reset sequences — through
+ * the adapter that owns the ordered tracked-migration inventory and its
+ * idempotency; a failed apply refuses with the closed `MIGRATION_FAILED`
+ * code. Ordinary startup remains migration-free. No T037+ command adapter
+ * (status/inventory/interruption/recovery/reset/persistence-check
+ * exposure) is added here.
  */
 
 import { execFile, spawn } from "node:child_process";
@@ -3352,6 +3372,143 @@ export async function devPersistenceCheck(collaborators, options) {
 }
 
 // ---------------------------------------------------------------------------
+// T036 operations — the explicit database command adapters `db:status` and
+// `db:migrate` (FR-003–FR-004, FR-009; Operations Contract §Commands;
+// quickstart §4; data-model.md §Migration State; plan.md §Persistence and
+// migrations).
+// ---------------------------------------------------------------------------
+
+/**
+ * The closed Migration State `status` vocabulary the database adapter's
+ * read-only `migrationStatus` observation reports (data-model.md
+ * §Migration State). A value outside this set is not a state — the
+ * observation failed and refuses closed.
+ */
+const MIGRATION_STATES = ["current", "pending", "unavailable", "error"];
+
+/**
+ * Validate the selectable local operation target of a database command
+ * (Operations Contract §Commands: `--target <development|verification>`).
+ * An absent, unknown, or hosted/Production-shaped target is refused before
+ * any configuration or adapter work — the same closed routing every
+ * target-taking lifecycle command applies.
+ */
+async function rejectInvalidDatabaseTarget(collaborators, target) {
+  if (typeof target === "string" && Object.hasOwn(TARGET_RESOURCES, target)) {
+    return null;
+  }
+  return rejectOperation(
+    collaborators,
+    safeDiagnostic(
+      "OPERATIONAL_FAILURE",
+      "foundation",
+      "orchestration",
+      "CHECK_PREREQUISITES",
+    ),
+  );
+}
+
+/**
+ * `db:status` — the non-mutating explicit migration-state report (Operations
+ * Contract §Commands; quickstart §4; data-model.md §Migration State). The
+ * selectable local operation target is validated first; the bounded local
+ * execution identity (hosted/Production environment, a mismatched runtime
+ * profile, a Production-derived fixture) is refused BEFORE any observation
+ * through the same `loadLifecycleConfiguration` gate every target-taking
+ * lifecycle command applies — the canonical boundary stays the single
+ * configuration policy. The state itself is READ through the injected
+ * database adapter: this operation performs no mutation of any kind — it
+ * never applies migrations and never starts, stops, or deletes anything.
+ * `current` and `pending` are the two successful REPORT states (exit zero,
+ * the observed closed state on the result); `unavailable` and `error` are
+ * the documented safe failures and refuse non-zero with their closed
+ * Migration State reason codes. An unobservable status (a missing adapter
+ * facet, a throwing adapter, or a value outside the closed vocabulary) is
+ * the observation-failure refusal — never a fabricated state and never the
+ * raw adapter error.
+ */
+export async function dbStatus(collaborators, target) {
+  const invalidTarget = await rejectInvalidDatabaseTarget(collaborators, target);
+  if (invalidTarget !== null) {
+    return invalidTarget;
+  }
+  const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target];
+  const { rejected } = await loadLifecycleConfiguration(collaborators, target);
+  if (rejected !== undefined) {
+    return rejectOperation(collaborators, rejected);
+  }
+
+  let state = null;
+  try {
+    state = await collaborators.database.migrationStatus();
+  } catch {
+    state = null;
+  }
+  if (typeof state !== "string" || !MIGRATION_STATES.includes(state)) {
+    state = null;
+  }
+  if (state === "current" || state === "pending") {
+    return { exitCode: 0, diagnosticScope, migrationState: state };
+  }
+  if (state === "unavailable") {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("DATABASE_UNAVAILABLE", diagnosticScope, "database", "CHECK_DATABASE"),
+    );
+  }
+  return rejectOperation(
+    collaborators,
+    safeDiagnostic(
+      "MIGRATION_STATUS_FAILED",
+      diagnosticScope,
+      "database",
+      "RETRY_SAFE_OPERATION",
+    ),
+  );
+}
+
+/**
+ * `db:migrate` — the standalone explicit apply command (Operations Contract
+ * §Commands; quickstart §4; plan.md §Persistence and migrations: only an
+ * explicit migration operation may transition pending→current — ordinary
+ * startup never does). The selectable local operation target is validated
+ * and the bounded local execution identity refused BEFORE any work, exactly
+ * as `db:status` applies them; the apply then goes through the injected
+ * database adapter, which owns the ordered tracked-migration inventory (no
+ * caller-supplied version list exists here) and its own idempotency — a
+ * repeated explicit apply reports no newly applied migration. A failed apply
+ * refuses with the closed `MIGRATION_FAILED` code, never the raw adapter
+ * error. When the adapter reports the applied migration names, they are
+ * carried on the result as the bounded version-controlled report (safe,
+ * non-secret, version-controlled names only).
+ */
+export async function dbMigrate(collaborators, target) {
+  const invalidTarget = await rejectInvalidDatabaseTarget(collaborators, target);
+  if (invalidTarget !== null) {
+    return invalidTarget;
+  }
+  const diagnosticScope = DIAGNOSTIC_SCOPE_BY_TARGET[target];
+  const { rejected } = await loadLifecycleConfiguration(collaborators, target);
+  if (rejected !== undefined) {
+    return rejectOperation(collaborators, rejected);
+  }
+
+  let applied;
+  try {
+    applied = await collaborators.database.applyMigrations();
+  } catch {
+    return rejectOperation(
+      collaborators,
+      safeDiagnostic("MIGRATION_FAILED", diagnosticScope, "migration", "RUN_MIGRATION"),
+    );
+  }
+  const appliedMigrations = Array.isArray(applied)
+    ? applied.filter((name) => typeof name === "string")
+    : [];
+  return { exitCode: 0, diagnosticScope, appliedMigrations };
+}
+
+// ---------------------------------------------------------------------------
 // T032 operations — the acceptance-only interruption injection
 // (FR-003/FR-017; Operations Contract §Commands `foundation:test-interruption`;
 // quickstart §5; plan.md §Operations and verification).
@@ -4651,7 +4808,10 @@ function registerServerTypeScriptBridge() {
  * Explicitly apply tracked migrations through the accepted T013 boundary
  * (`apps/server/src/migrations.ts` owns the migration inventory; no
  * caller-supplied version list exists here). The apply itself is
- * idempotent, and the pool is always closed.
+ * idempotent, and the pool is always closed. Returns the names THIS apply
+ * executed (empty when already current) — safe, version-controlled
+ * migration names only — so `db:migrate` can report each tracked migration
+ * (quickstart §4) without widening the boundary.
  */
 async function applyTrackedMigrations() {
   registerServerTypeScriptBridge();
@@ -4674,6 +4834,39 @@ async function applyTrackedMigrations() {
     if (!applied || applied.state !== "current") {
       throw new Error("tracked migrations are not current after the explicit apply");
     }
+    return applied.applied ?? [];
+  } finally {
+    await serverDatabase.closeDatabase(database);
+  }
+}
+
+/**
+ * Read the tracked-migration state through the accepted T013 boundary's
+ * READ-ONLY status observation (`getMigrationStatus` never applies
+ * migrations and never creates the Kysely metadata, lock, or marker
+ * tables). Returns the closed Migration State `status` vocabulary; the
+ * pool is always closed. This is the `db:status` real adapter — the
+ * command's non-mutation guarantee rests on this read-only boundary.
+ */
+async function readTrackedMigrationStatus() {
+  registerServerTypeScriptBridge();
+  const config = await loadDevelopmentConfiguration();
+  const poolMax = DECIMAL_INTEGER_PATTERN.test(config.DATABASE_POOL_MAX ?? "")
+    ? Number.parseInt(config.DATABASE_POOL_MAX, 10)
+    : undefined;
+  const serverDatabase = await import(
+    pathToFileURL(path.join(REPOSITORY_ROOT, "apps/server/src/database.ts")).href
+  );
+  const serverMigrations = await import(
+    pathToFileURL(path.join(REPOSITORY_ROOT, "apps/server/src/migrations.ts")).href
+  );
+  const database = await serverDatabase.createDatabase(
+    config.DATABASE_URL,
+    poolMax,
+  );
+  try {
+    const status = await serverMigrations.getMigrationStatus(database);
+    return status.state;
   } finally {
     await serverDatabase.closeDatabase(database);
   }
@@ -5368,6 +5561,7 @@ function createCommandLineCollaborators() {
       stop: stopDevelopmentDatabase,
       isRunning: isDevelopmentDatabaseAcceptingConnections,
       applyMigrations: applyTrackedMigrations,
+      migrationStatus: readTrackedMigrationStatus,
     },
     processes: {
       // T028 owns supervised start/idempotency observation; T029 owns the
@@ -5411,7 +5605,9 @@ function createCommandLineCollaborators() {
 // ---------------------------------------------------------------------------
 // Command-line entry point (`npm run foundation:check` / `npm run
 // dev:setup` / `npm run dev:start` / `npm run dev:ready` / `npm run
-// dev:stop` / `npm run dev:restart`). Failures are printed as their closed
+// dev:stop` / `npm run dev:restart` / `npm run db:status -- --target
+// <development|verification>` / `npm run db:migrate -- --target
+// <development|verification>`). Failures are printed as their closed
 // Safe Diagnostics only; success prints one bounded safe line. The module's
 // import by tests never enters this path.
 // ---------------------------------------------------------------------------
@@ -5453,6 +5649,10 @@ async function runCommandLine(args) {
       result = await devStop(collaborators);
     } else if (command === "dev:restart") {
       result = await devRestart(collaborators);
+    } else if (command === "db:status") {
+      result = await dbStatus(collaborators, readOption(rest, "target"));
+    } else if (command === "db:migrate") {
+      result = await dbMigrate(collaborators, readOption(rest, "target"));
     } else {
       result = await rejectOperation(
         collaborators,
@@ -5475,7 +5675,24 @@ async function runCommandLine(args) {
       "dev:stop": "development native processes and database stopped; named volume preserved",
       "dev:restart": "development foundation stopped then started; development data preserved",
     };
-    const summary = summaries[command] ?? "preflight checks passed";
+    let summary = summaries[command];
+    if (summary === undefined && command === "db:status") {
+      // The observed state is the report: the validated target plus the
+      // closed Migration State vocabulary, nothing else.
+      summary = `${readOption(rest, "target")} migration state: ${result.migrationState}`;
+    } else if (summary === undefined && command === "db:migrate") {
+      // Quickstart §4 — the explicit apply reports each tracked migration
+      // it executed by its safe version-controlled name.
+      const applied = Array.isArray(result.appliedMigrations)
+        ? result.appliedMigrations
+        : [];
+      summary =
+        applied.length > 0
+          ? `${readOption(rest, "target")} tracked migrations applied: ${applied.join(", ")}`
+          : `${readOption(rest, "target")} tracked migrations current; none newly applied`;
+    } else if (summary === undefined) {
+      summary = "preflight checks passed";
+    }
     process.stdout.write(`${command}: ${summary}\n`);
   }
   process.exitCode = result.exitCode;
