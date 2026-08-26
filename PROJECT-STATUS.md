@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T034 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T035 AUTHORIZED — IMPLEMENTATION HANDOFF PENDING
 
 ## Active Feature Mirror
 
@@ -29,13 +29,13 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED; T034-B01–T034-B02 closed
-- **Phase status:** T034 ACCEPTED; T035+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T035 authorized from accepted T034 state
+- **Phase status:** T035 AUTHORIZED; T036+ UNAUTHORIZED
 - **Previous completed scope:** T034 — sole allowlisted Development runtime repair with exact
   origin-action/evidence-bound confirmation and connectivity/integrity/migration postchecks
-- **Next valid action:** NONE selected or authorized — stop after T034 Human acceptance; T035+
-  remain unauthorized
-- **Blocking issues:** None for T034 review
+- **Next valid action:** Claude implements only T035 from the exact authorization commit, then
+  Codex independently reviews the resulting artifact
+- **Blocking issues:** None for T035 implementation
 - **T034 Product Owner acceptance:** Human Gate accepted corrective implementation tip
   `f1895d7a67f4292667432e83e9751a78080e0562` and independent PASS governance record
   `001680d48258f7eed236d48bdf3b6f723f6bb098`; T034-B01–T034-B02 are accepted as closed.
@@ -191,11 +191,26 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T034 is Human accepted; T035+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T034 final review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T035 only — implement the foundation-operational synthetic marker migration,
+  marker write/read and routine restart continuity proof, reconstructible exact Development reset,
+  migration restoration, old-marker absence proof, and before/after non-target inventory comparison
+  in `apps/server/src/migrations.ts` and `scripts/foundation-operations.mjs`
+- **Runtime:** Claude Code (`claude-developer`) from this authorization commit as the exact
+  Authorized Base SHA
+- **Required references:** `.specify/memory/constitution.md` Principles I–VI and Delivery and
+  Quality Gates; `specs/001-application-foundation/spec.md` FR-004 and SC-002;
+  `specs/001-application-foundation/plan.md` Runtime composition and Testing/security evidence;
+  `specs/001-application-foundation/tasks.md` T035; `specs/001-application-foundation/quickstart.md`
+  §2; `specs/001-application-foundation/data-model.md` Migration State, Persistence Marker,
+  Persistence Validation Result, and lifecycle transitions; `specs/001-application-foundation/contracts/foundation-operations.md`
+  command and reset contracts; `docs/spec-context/001-application-foundation.md` Implementation / Review routing
+- **Expected verification:** Add or update only T035-focused tests needed to prove parameterized
+  migration/marker operations, marker continuity through routine restart, fresh exact confirmation
+  and reconstructibility-gated Development reset, prior-marker absence, restored current migrations,
+  exact target-only inventory change, and unchanged Verification/non-target resources; run the
+  focused T035 tests plus relevant migration, lifecycle recovery, foundation operations, operation
+  target, typecheck, and diff/scope checks, reporting established unrelated failures separately
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
