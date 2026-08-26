@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T035 CHANGES REQUIRED — CORRECTIVE ROUND 1
+- **Status:** T035 PASS — PRODUCT OWNER HUMAN GATE PENDING
 
 ## Active Feature Mirror
 
@@ -29,14 +29,26 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T035-B01–T035-B02 open
-- **Phase status:** T035 REWORK AUTHORIZED; T036+ UNAUTHORIZED
+- **Current review result:** PASS — T035-B01–T035-B02 closed
+- **Phase status:** T035 PASS; PRODUCT OWNER HUMAN GATE PENDING; T036+ UNAUTHORIZED
 - **Previous completed scope:** T034 — sole allowlisted Development runtime repair with exact
   origin-action/evidence-bound confirmation and connectivity/integrity/migration postchecks
-- **Next valid action:** Claude corrects only T035-B01–T035-B02 from this persisted REWORK
-  authorization, then Codex independently re-reviews the corrective artifact
-- **Blocking issues:** T035-B01 changes the accepted complete-inventory projection to observed-only;
-  T035-B02 proves only a database bounce rather than the documented supervised routine restart
+- **Next valid action:** Product Owner Human Gate for T035; no implementation is authorized
+- **Blocking issues:** None for T035 review
+- **T035 final review evidence:** Exact corrective tip
+  `eee407c8de7977d5aa5ef3ed873866464bbe8086` has persisted REWORK authorization
+  `9cf157a0cf131a5aceff5e4d32fe61462ace2378` as its sole parent; the corrective diff is limited to
+  `scripts/foundation-operations.mjs`, `scripts/foundation-operations.d.mts`, and
+  `tests/verification/foundation-operation-target.test.ts`, with no T036+ implementation. Independent
+  inspection and reproduction close T035-B01–T035-B02: the complete target inventory again retains
+  absent expected roles with separate normalized state evidence for before/after comparison, and the
+  marker continuity proof now runs through the accepted supervised Development restart including all
+  native processes and closed restart-failure behavior. The focused T035 suite passes 24/24;
+  foundation operations pass 94/94; the broader selected suites pass 278/279 with only the established
+  lifecycle fixture failure; the full suite is 295 passed / 1 established fixture failure / 38
+  real-engine tests unavailable because the required explicit local environment source is absent.
+  Syntax and diff checks pass. TypeScript retains exactly the three established T037 missing-export
+  errors. Node 24.11.0/npm 11.6.1 remains below the npm 12 engine pin and is non-blocking for these results.
 - **T034 Product Owner acceptance:** Human Gate accepted corrective implementation tip
   `f1895d7a67f4292667432e83e9751a78080e0562` and independent PASS governance record
   `001680d48258f7eed236d48bdf3b6f723f6bb098`; T034-B01–T034-B02 are accepted as closed.
@@ -192,25 +204,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T035 corrective rework only — T035-B01 restore the accepted complete target
-  inventory semantics while preserving exact before/after SC-002 comparison evidence; T035-B02 run
-  the marker continuity proof through the documented supervised Development routine restart,
-  including native processes, without bypassing its accepted lifecycle/configuration/failure behavior
-- **Runtime:** Claude Code (`claude-developer`) from this REWORK authorization commit
-- **Required references:** `.specify/memory/constitution.md` Principles I–VI and Delivery and
-  Quality Gates; `specs/001-application-foundation/spec.md` FR-004 and SC-002;
-  `specs/001-application-foundation/plan.md` Runtime composition and Testing/security evidence;
-  `specs/001-application-foundation/tasks.md` T035; `specs/001-application-foundation/quickstart.md`
-  §2; `specs/001-application-foundation/data-model.md` Migration State, Persistence Marker,
-  Persistence Validation Result, and lifecycle transitions; `specs/001-application-foundation/contracts/foundation-operations.md`
-  command and reset contracts; `docs/spec-context/001-application-foundation.md` Implementation / Review routing
-- **Expected verification:** Add focused regressions proving an absent expected role remains in the
-  complete normalized inventory evidence and the SC-002 before/after comparison detects state/change
-  without redefining that projection; prove `dev:persistence-check` executes the accepted complete
-  supervised routine restart order and preserves the exact marker, including native-process failure
-  refusal; rerun focused T035, foundation operations, operation-target, lifecycle recovery, syntax,
-  typecheck, and diff/scope checks, classifying established unrelated failures separately
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T035 passed independent review; T036+ remain unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE — see T035 final review evidence above
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
