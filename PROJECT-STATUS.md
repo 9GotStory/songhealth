@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T035 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T036 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
 
 ## Active Feature Mirror
 
@@ -29,13 +29,18 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — T036-B01 closed; PRODUCT OWNER HUMAN GATE
-- **Phase status:** T036 PASSED INDEPENDENT REVIEW; T037+ UNAUTHORIZED
-- **Previous completed scope:** T035 — synthetic marker persistence, supervised routine restart
-  continuity, reconstructible exact reset, migration restoration, and non-target comparison
-- **Next valid action:** Product Owner Human Gate for T036; do not authorize T037 before explicit
-  human acceptance
+- **Current review result:** PASS — HUMAN ACCEPTED; T036-B01 closed
+- **Phase status:** T036 ACCEPTED; T037+ UNAUTHORIZED
+- **Previous completed scope:** T036 — non-mutating migration status and explicit target-routed
+  migration apply command adapters
+- **Next valid action:** NONE selected or authorized — stop after T036 Human acceptance; T037+
+  remain unauthorized
 - **Blocking issues:** None for T036 review
+- **T036 Product Owner acceptance:** Human Gate accepted corrective implementation tip
+  `ee4b7985af06e1b242c4f10f08cf9c98ed5c7c06` and independent PASS governance record
+  `ae125a62fa2193901a75bdbd49372b59bb311437`; T036-B01 is accepted as closed. The accepted PASS
+  history descends linearly from canonical T035 acceptance, so no reconciliation merge is required.
+  Authorized Implementation remains `NONE`; T037+ remain unauthorized.
 - **T036 final review evidence:** Exact corrective tip
   `ee4b7985af06e1b242c4f10f08cf9c98ed5c7c06` has persisted REWORK authorization
   `0e0597e76cb5b12641a5fc1b1a6d13aa8fac3e66` as its sole parent; its corrective diff is limited to
