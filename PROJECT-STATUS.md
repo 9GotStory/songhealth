@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T042 CHANGES REQUIRED — REWORK AUTHORIZED
+- **Status:** T042 PASS — PRODUCT OWNER HUMAN GATE REQUIRED
 
 ## Active Feature Mirror
 
@@ -29,21 +29,27 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T042-B01
-- **Phase status:** T041 ACCEPTED; T042 REWORK AUTHORIZED; T043+ UNAUTHORIZED
+- **Current review result:** PASS — independent review complete
+- **Phase status:** T041 ACCEPTED; T042 PASS AWAITING HUMAN ACCEPTANCE; T043+ UNAUTHORIZED
 - **Previous completed scope:** T041 — failing ordered Verification result-contract tests
-- **Next valid action:** Claude Code corrects only T042-B01, then returns exact corrective and
-  verification evidence for independent Codex re-review
-- **Blocking issues:** T042-B01 — the Verification failure-surface test iterates
-  `applicationLog` and `httpFailure` only when units happen to exist, but never requires either
-  surface to receive a diagnostic. An implementation that omits both Verification failure surfaces
-  can therefore pass, contrary to FR-010 and the suite's stated four-surface contract.
-- **T042 rework authorization:** In `tests/verification/diagnostic-surfaces.test.ts` only, make the
-  T042 failure-surface contract require non-empty `applicationLog` and `httpFailure` emission (as
-  well as stdout/stderr) for the exercised Verification boundary failure, and require each emitted
-  unit to be exactly one closed `verification` SafeDiagnostic identifying the failed contract with
-  its allowlisted reason code. Preserve the intended-red entry guard and all accepted T023/T040/T041
-  behavior. Do not change production code or begin T043+.
+- **Next valid action:** Product Owner reviews T042 artifact and independent PASS; no further task is
+  selected or authorized
+- **Blocking issues:** None for T042 review
+- **T042 final review evidence:** Corrective implementation
+  `af52c80bca5ca3ba357f0ad4042601662b66701e` has persisted REWORK authorization
+  `ff0f77fcc03c83277c62805730960eb3846ca10c` as its sole parent and reviewed implementation
+  `c26a5f7523ef240cd3f14b09e1af40b0629fed2b` as grandparent. The corrective diff is limited to
+  `tests/verification/diagnostic-surfaces.test.ts` and closes T042-B01 by requiring each of stdout,
+  stderr, application log, and HTTP failure to be non-empty and every emitted unit to be an exact
+  closed `verification` SafeDiagnostic carrying `ISOLATION_FAILED`. Developer mutation evidence
+  proves omission of either application-log or HTTP-failure emission, and wrong-code application-log
+  emission, fail only the corrected assertions. Independent focused execution reproduces 16
+  intended-red T042 failures solely at the absent `verifyProductionLike` export while all 24
+  accepted T023 cases pass. The full verification selection is 151 passed with only the 16 T042 and
+  17 accepted T041 intended-red failures; Public/Admin/diagnostic regressions pass 20/20; TypeScript
+  reports only the accepted T040 missing `apps/web/server.js` boundary. Ancestry, diff, whitespace,
+  scope, and nondisclosure inspection are clean; no T043+, production, dependency, Product,
+  requirement, or architecture change is present.
 - **T042 authorization:** Add failing Production-like Verification HTTP boundary contract tests
   only in `tests/verification/diagnostic-surfaces.test.ts`. The tests must cover Verification
   exposure through Nginx only, internal application/database direct-port isolation, trusted
@@ -488,17 +494,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T042 REWORK — close T042-B01 in
-  `tests/verification/diagnostic-surfaces.test.ts` only; T043+ remain unauthorized
-- **Runtime:** Claude Code DEV Executor only
-- **Required references:** T042-B01 above; Constitution Principle V; spec FR-010 and SC-004;
-  operations contract §Safe diagnostic contract; original T042 authorization; reviewed
-  implementation `c26a5f7523ef240cd3f14b09e1af40b0629fed2b`
-- **Expected verification:** Focused deterministic intended-red T042 evidence; assertion-level or
-  mutation evidence proving omission of either `applicationLog` or `httpFailure` fails the corrected
-  contract; accepted T023 and relevant HTTP/diagnostic regressions; meaningful type check;
-  corrective-file-only diff; exact commands/results and corrective SHA
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T042 PASS awaits Product Owner Human Gate; T043+ remain unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE — see T042 final review evidence above
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
