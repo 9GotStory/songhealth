@@ -71,7 +71,16 @@
  * T029–T031/T035/T037 `scripts/foundation-operations.mjs` implementation
  * boundary does not exist yet. The failure is a module-resolution error for
  * that one intentionally absent module — not a syntax, discovery, dependency,
- * fixture, forced-failure, or real-tool error.
+ * fixture, forced-failure, or real-tool error. (Historical: that boundary was
+ * implemented and accepted as T029–T031/T035–T038; the rationale is retained
+ * unchanged for the accepted T022 cases above.)
+ *
+ * The T041 suite appended at the bottom of this file is a SEPARATE
+ * tests-first contract with its own scope, harness, and expected-red
+ * boundary — the missing Verification run orchestration export of the
+ * NOW-EXISTING operations module. It changes no accepted T022 case, harness,
+ * or assertion above; the two suites share only this file and the module
+ * under contract.
  */
 
 import { describe, expect, it } from "vitest";
@@ -81,6 +90,16 @@ import {
   foundationInventory,
   type OperationResult,
 } from "../../scripts/foundation-operations.mjs";
+// The T041 suite observes the SAME existing module through a NAMESPACE
+// import, because its expected-red boundary is one missing named export of
+// an already-implemented module (the planned T049 Verification run
+// orchestration entry `verifyProductionLike`), not an absent module. A named
+// import would turn that missing export into a file-wide import error and
+// redden the accepted T022 cases above with it; the namespace import keeps
+// the intended red exactly on the missing Verification orchestration
+// behavior (the accepted T040 `apps/web/server.test.ts` namespace-import
+// precedent for observing a module boundary).
+import * as FoundationOperationsModule from "../../scripts/foundation-operations.mjs";
 
 // ---------------------------------------------------------------------------
 // Synthetic, non-secret inputs. No real port, credential, connection string,
@@ -1167,5 +1186,888 @@ describe("Non-target inventory comparison — T022 (tests-first for T029–T031/
     expect(result.exitCode).not.toBe(0);
     expect(result.reasonCode).toBeTruthy();
     expectBoundedDevelopmentMutation(harness);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T041 — Production-like Verification result contract (tests-first for T049).
+// ---------------------------------------------------------------------------
+
+/**
+ * The EXACT ordered FR-009 contract-result inventory every Production-like
+ * Verification run emits (Operations Contract §Verification result contract;
+ * quickstart.md §6; plan.md §Operations and verification) — the single
+ * in-file source of truth for order and completeness in this suite.
+ */
+const VERIFICATION_CONTRACTS = [
+  "build",
+  "startup",
+  "configuration-valid",
+  "configuration-missing-rejected",
+  "configuration-empty-rejected",
+  "configuration-malformed-rejected",
+  "configuration-unsupported-rejected",
+  "configuration-out-of-range-rejected",
+  "configuration-identity-conflict-rejected",
+  "migration",
+  "database",
+  "liveness",
+  "readiness",
+  "isolation",
+  "proxy",
+  "public-route",
+  "admin-route",
+  "server-route",
+  "cleanup",
+  "reporting",
+] as const;
+
+/** The main (non-cleanup, non-reporting) contracts of the same inventory. */
+const VERIFICATION_MAIN_CONTRACTS = VERIFICATION_CONTRACTS.filter(
+  (contract) => contract !== "cleanup" && contract !== "reporting",
+);
+
+/**
+ * The fixed non-parity statement (FR-011; Operations Contract §Verification
+ * result contract "Every report ends with"): verbatim, byte for byte.
+ */
+const VERIFICATION_PARITY_STATEMENT =
+  "Production-like Verification validates bounded application contracts only; it does not establish exact parity with Bangmod/Plesk Production hosting.";
+
+/** The documented closed `state` vocabulary (data-model.md §Verification Run). */
+const VERIFICATION_RUN_STATES = [
+  "pending",
+  "running",
+  "passed",
+  "failed",
+  "interrupted",
+  "reported",
+] as const;
+
+/**
+ * Synthetic per-contract elapsed times the injected clock advances while each
+ * probe runs — DISTINCTIVE per contract so per-result timing is observable as
+ * real per-check measurement, not a fabricated constant. Every value stays
+ * far inside the SC-003 ten-minute whole-run bound; the SC-003 timer itself
+ * is an acceptance-scenario measurement (quickstart §6), not a unit-level
+ * contract, so it is deliberately not asserted here.
+ */
+const VERIFICATION_STEP_DURATIONS: Record<string, number> = {
+  build: 60_000,
+  startup: 30_000,
+  "configuration-valid": 1_000,
+  "configuration-missing-rejected": 1_100,
+  "configuration-empty-rejected": 1_200,
+  "configuration-malformed-rejected": 1_300,
+  "configuration-unsupported-rejected": 1_400,
+  "configuration-out-of-range-rejected": 1_500,
+  "configuration-identity-conflict-rejected": 1_600,
+  migration: 5_000,
+  database: 500,
+  liveness: 250,
+  readiness: 750,
+  isolation: 2_000,
+  proxy: 400,
+  "public-route": 300,
+  "admin-route": 350,
+  "server-route": 450,
+  cleanup: 8_000,
+  reporting: 1_500,
+};
+
+/** One safe synthetic release-candidate identifier (never a real revision). */
+const SYNTHETIC_RELEASE_REVISION = "t041-synthetic-release-candidate";
+
+/**
+ * One injected per-contract outcome (the probe-level facet the orchestration
+ * must normalize into exactly one ordered result). `diagnostic` is required
+ * for a failing outcome; `revision` is the build probe's candidate
+ * identifier.
+ */
+interface VerificationStepOutcome {
+  ok: boolean;
+  diagnostic?: SafeDiagnosticShape;
+  revision?: string;
+}
+
+/** The closed Safe Diagnostic logical shape (Operations Contract §Safe
+ * diagnostic contract; foundation-http.openapi.yaml SafeDiagnostic schema). */
+interface SafeDiagnosticShape {
+  reasonCode: string;
+  diagnosticScope: string;
+  component: string;
+  configurationKey?: string;
+  remediation: string;
+}
+
+/** One ordered Check Result (data-model.md §Verification Run). */
+interface VerificationCheckResult {
+  contract: string;
+  result: "pass" | "fail";
+  diagnostic?: SafeDiagnosticShape;
+  durationMs: number;
+}
+
+/**
+ * The `verify:production-like` result surface pinned by this contract: the
+ * accepted `OperationResult` plus the Verification-run observations the
+ * data-model §Verification Run defines, as top-level operation-specific
+ * fields exactly like the accepted `token`/`resources` inventory fields.
+ */
+interface VerificationRunResult extends OperationResult {
+  runId?: string;
+  releaseRevision?: string;
+  startedAt?: number;
+  finishedAt?: number;
+  state?: string;
+  checks?: VerificationCheckResult[];
+  primaryFailure?: SafeDiagnosticShape;
+  parityStatement?: string;
+}
+
+/** The planned T049 entry point: `verify:production-like`. */
+type VerifyProductionLike = (collaborators: unknown) => Promise<VerificationRunResult>;
+
+/**
+ * Resolve the planned Verification run orchestration entry. The single
+ * intentional dependency on the not-yet-implemented export: when T049 has
+ * not shipped it, EVERY T041 case fails on this one clean boundary
+ * assertion — the missing Verification orchestration behavior itself — never
+ * on an import, fixture, or setup error, and never in the accepted T022
+ * cases above.
+ */
+function verificationEntryPoint(): VerifyProductionLike {
+  const candidate = (
+    FoundationOperationsModule as unknown as Record<string, unknown>
+  ).verifyProductionLike;
+  expect(typeof candidate).toBe("function");
+  return candidate as VerifyProductionLike;
+}
+
+/** One injected synthetic failure diagnostic (closed safe shape). */
+function stepFailure(reasonCode: string, component: string): VerificationStepOutcome {
+  return {
+    ok: false,
+    diagnostic: {
+      reasonCode,
+      diagnosticScope: "verification",
+      component,
+      remediation: "CHECK_PREREQUISITES",
+    },
+  };
+}
+
+/** Assert one diagnostic is the closed Safe Diagnostic shape, scoped to the
+ * Verification run, with no field outside the contract. */
+function expectSafeDiagnostic(
+  diagnostic: SafeDiagnosticShape | undefined,
+): SafeDiagnosticShape {
+  expect(diagnostic).toBeDefined();
+  const keys = Object.keys(diagnostic!);
+  for (const key of keys) {
+    expect([
+      "reasonCode",
+      "diagnosticScope",
+      "component",
+      "configurationKey",
+      "remediation",
+    ]).toContain(key);
+  }
+  for (const required of ["reasonCode", "diagnosticScope", "component", "remediation"]) {
+    expect(keys).toContain(required);
+  }
+  expect(diagnostic!.diagnosticScope).toBe("verification");
+  return diagnostic!;
+}
+
+/**
+ * The T041 harness: one coherent set of injected collaborators around shared
+ * observable state. The Verification run's own runtime work is modeled by
+ * the `verification` facet — one injected probe per contract result
+ * (`runCheck(contract)`), which owns that check's probe-level behavior and
+ * side effects (starting the disposable Verification runtime, disposing it
+ * at cleanup, emitting at reporting) exactly as the accepted suites model
+ * their owned facets. The probe-level mechanics of each check (real Compose,
+ * Nginx, route, and rejection behavior) belong to T042/T049+; what THIS
+ * suite pins is the orchestration-owned result contract over them.
+ */
+function makeVerificationHarness(options: { development?: "running" | "stopped-absent" } = {}) {
+  const development = options.development ?? "running";
+  const events: string[] = [];
+  const probeOrder: string[] = [];
+  const probeEnteredAt: Record<string, number> = {};
+  const stepOutcomes: Record<string, VerificationStepOutcome> = {};
+  const mutationState = {
+    removedExact: [] as string[],
+    forbiddenInvocations: [] as string[],
+  };
+  const verificationRuntime = {
+    up: false,
+    startCount: 0,
+    presentKeys: [] as string[],
+    reportEmitted: false,
+  };
+  const developmentState = {
+    running: development === "running",
+    processes: development === "running" ? new Set(["server", "public", "admin"]) : new Set<string>(),
+    inventory: development === "running"
+      ? [
+          ownedResource(),
+          ownedResource({
+            resourceType: "network",
+            logicalKey: "development.network",
+            runtimeState: "present",
+          }),
+          ownedResource({
+            resourceType: "volume",
+            logicalKey: "development.database-volume",
+            runtimeState: "present",
+          }),
+        ]
+      : [],
+  };
+  let clockTime = 1_780_000_000_000;
+
+  const mutation = {
+    removeExactResource: async (logicalKey: string) => {
+      mutationState.removedExact.push(logicalKey);
+      events.push(`mutation:removeExact:${logicalKey}`);
+      verificationRuntime.presentKeys = verificationRuntime.presentKeys.filter(
+        (key) => key !== logicalKey,
+      );
+    },
+    removeByPrefix: async (prefix: string) => {
+      mutationState.forbiddenInvocations.push(`removeByPrefix:${prefix}`);
+    },
+    removeByWildcard: async (pattern: string) => {
+      mutationState.forbiddenInvocations.push(`removeByWildcard:${pattern}`);
+    },
+    removeByLabelFilter: async (label: string) => {
+      mutationState.forbiddenInvocations.push(`removeByLabelFilter:${label}`);
+    },
+    downWithRemoveOrphans: async () => {
+      mutationState.forbiddenInvocations.push("downWithRemoveOrphans");
+    },
+    downWithVolumes: async () => {
+      mutationState.forbiddenInvocations.push("downWithVolumes");
+    },
+    prune: async () => {
+      mutationState.forbiddenInvocations.push("prune");
+    },
+    forceRemove: async () => {
+      mutationState.forbiddenInvocations.push("forceRemove");
+    },
+    removeBroadVolumes: async () => {
+      mutationState.forbiddenInvocations.push("removeBroadVolumes");
+    },
+    removeWithUnresolvedVariables: async () => {
+      mutationState.forbiddenInvocations.push("removeWithUnresolvedVariables");
+    },
+  };
+
+  const collaborators = {
+    // The accepted daily-command collaborator facets remain present and
+    // observable: a Verification run must never drive the Development
+    // database engine, the native daily processes, or the Development
+    // persistence marker.
+    preflight: {
+      node: async () => true,
+      npm: async () => true,
+      podman: async () => true,
+      compose: async () => true,
+      requiredFiles: async () => true,
+      safeConfig: async () => true,
+      portAvailable: async () => true,
+    },
+    database: {
+      start: async () => {
+        events.push("database:start");
+        developmentState.running = true;
+      },
+      stop: async () => {
+        events.push("database:stop");
+        developmentState.running = false;
+      },
+      isRunning: async () => {
+        events.push("database:isRunning");
+        return developmentState.running;
+      },
+      applyMigrations: async () => {
+        events.push("migrate:applied");
+      },
+      migrationStatus: async () => {
+        events.push("migrations:status");
+        return "current" as const;
+      },
+      deleteVolume: async () => {
+        events.push("database:deleteVolume");
+      },
+    },
+    processes: {
+      start: async (name: string) => {
+        events.push(`process:start:${name}`);
+        developmentState.processes.add(name);
+      },
+      stop: async (name: string) => {
+        events.push(`process:stop:${name}`);
+        developmentState.processes.delete(name);
+      },
+      isRunning: async (name: string) => developmentState.processes.has(name),
+    },
+    readiness: {
+      probe: async () => {
+        events.push("readiness:probe");
+        return {
+          ready: true,
+          components: {
+            database: "ready",
+            liveness: "ready",
+            readiness: "ready",
+            publicRoute: "ready",
+            adminRoute: "ready",
+            serverRoute: "ready",
+          },
+        };
+      },
+    },
+    clock: {
+      now: () => clockTime,
+      advance: (ms: number) => {
+        clockTime += ms;
+      },
+    },
+    config: {
+      load: async () => {
+        events.push("config:load");
+        return { ...SAFE_VERIFICATION_CONFIG };
+      },
+    },
+    inventory: {
+      inspect: async (target: string) => {
+        events.push(`inventory:inspect:${target}`);
+        if (target === "verification") {
+          return verificationRuntime.presentKeys.map((key) =>
+            ownedResource({ logicalKey: key, resourceType: key.endsWith("network") ? "network" : "container" }),
+          );
+        }
+        return developmentState.inventory.map((r) => ({ ...r }));
+      },
+    },
+    assessment: {
+      evaluate: async (target: string) => {
+        events.push(`assessment:evaluate:${target}`);
+        return { reconstructibilityConfirmed: true, disposabilityConfirmed: true };
+      },
+    },
+    lock: {
+      acquire: async (target: string) => {
+        events.push(`lock:acquire:${target}`);
+        return true;
+      },
+      release: async (target: string) => {
+        events.push(`lock:release:${target}`);
+      },
+    },
+    confirmation: {
+      issue: async (target: string, action: string) => {
+        events.push(`confirmation:issue:${target}:${action}`);
+        return `synthetic-verification-token:${target}:${action}`;
+      },
+      verify: async (target: string, action: string) => {
+        events.push(`confirmation:verify:${target}:${action}`);
+        return true;
+      },
+    },
+    mutation,
+    journal: {
+      readLatest: async (target: string) => {
+        events.push(`journal:read:${target}`);
+        return null;
+      },
+      write: async (target: string, record: { state: string }) => {
+        events.push(`journal:write:${target}:${record.state}`);
+      },
+    },
+    marker: {
+      write: async () => {
+        events.push("marker:write");
+      },
+      read: async () => {
+        events.push("marker:read");
+        return null;
+      },
+    },
+    // The T041 facet: one injected probe per contract result. The probe
+    // records its call order and entry time, advances the injected clock by
+    // its distinctive synthetic duration, performs its owned synthetic side
+    // effect, and returns the injected outcome (pass by default; the build
+    // probe identifies the release candidate).
+    verification: {
+      runCheck: async (contract: string): Promise<VerificationStepOutcome> => {
+        probeOrder.push(contract);
+        probeEnteredAt[contract] = clockTime;
+        events.push(`verification:check:${contract}`);
+        clockTime += VERIFICATION_STEP_DURATIONS[contract] ?? 1_000;
+        if (contract === "startup") {
+          verificationRuntime.up = true;
+          verificationRuntime.startCount += 1;
+          verificationRuntime.presentKeys = [...VERIFICATION_DISPOSABLE_KEYS];
+          events.push("verification:runtime:up");
+        }
+        if (contract === "cleanup" && verificationRuntime.up) {
+          for (const key of [...verificationRuntime.presentKeys]) {
+            await mutation.removeExactResource(key);
+          }
+          verificationRuntime.up = false;
+          events.push("verification:runtime:down");
+        }
+        if (contract === "reporting") {
+          verificationRuntime.reportEmitted = true;
+          events.push("verification:report:emitted");
+        }
+        const injected = stepOutcomes[contract];
+        if (injected !== undefined) return clone(injected);
+        return contract === "build"
+          ? { ok: true, revision: SYNTHETIC_RELEASE_REVISION }
+          : { ok: true };
+      },
+    },
+  };
+
+  return {
+    collaborators,
+    events,
+    probeOrder,
+    probeEnteredAt,
+    stepOutcomes,
+    mutationState,
+    verificationRuntime,
+    developmentState,
+  };
+}
+
+type VerificationHarness = ReturnType<typeof makeVerificationHarness>;
+
+/** Run the planned Verification operation through the harness. */
+async function runVerificationLike(
+  harness: VerificationHarness,
+): Promise<VerificationRunResult> {
+  return verificationEntryPoint()(harness.collaborators);
+}
+
+/** The ordered contract names of one run's emitted checks. */
+function emittedContracts(result: VerificationRunResult): string[] {
+  return (result.checks ?? []).map((check) => check.contract);
+}
+
+/**
+ * The literal data-model rule "`primaryFailure`: First failed result":
+ * whatever the run emitted, the primary failure IS the diagnostic of the
+ * first `fail` result in the emitted order — derived from the run's own
+ * ordered inventory, with no assumption about which downstream checks any
+ * implementation chooses to probe or block.
+ */
+function expectPrimaryFailureIsFirstFailure(result: VerificationRunResult): void {
+  const firstFailure = (result.checks ?? []).find((check) => check.result === "fail");
+  if (firstFailure === undefined) {
+    expect(result.primaryFailure).toBeUndefined();
+  } else {
+    expect(result.primaryFailure).toEqual(firstFailure.diagnostic);
+  }
+}
+
+/** One run's checks keyed by contract name. */
+function checksByContract(
+  result: VerificationRunResult,
+): Map<string, VerificationCheckResult> {
+  return new Map((result.checks ?? []).map((check) => [check.contract, check]));
+}
+
+/**
+ * Assert the universal Check Result shape (data-model.md §Verification Run):
+ * a contract name, exactly `pass` or `fail`, a non-negative integer
+ * `durationMs`, and a diagnostic present exactly when the result is `fail`.
+ */
+function expectValidCheckResults(result: VerificationRunResult): Map<string, VerificationCheckResult> {
+  const checks = result.checks ?? [];
+  for (const check of checks) {
+    expect(typeof check.contract).toBe("string");
+    expect(check.contract.length).toBeGreaterThan(0);
+    expect(check.result === "pass" || check.result === "fail").toBe(true);
+    expect(Number.isInteger(check.durationMs)).toBe(true);
+    expect(check.durationMs).toBeGreaterThanOrEqual(0);
+    if (check.result === "fail") {
+      expect(check.diagnostic).toBeDefined();
+    } else {
+      expect(check.diagnostic).toBeUndefined();
+    }
+  }
+  return new Map(checks.map((check) => [check.contract, check]));
+}
+
+// ---------------------------------------------------------------------------
+// Module boundary.
+// ---------------------------------------------------------------------------
+
+describe("Verification module boundary — T041 (tests-first for T049)", () => {
+  it("exports the planned Verification run orchestration entry `verifyProductionLike` as a function", () => {
+    expect(typeof verificationEntryPoint()).toBe("function");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ordered result inventory — FR-009/FR-010 (tests-first for T049).
+// ---------------------------------------------------------------------------
+
+describe("Ordered Verification result inventory — T041 (tests-first for T049)", () => {
+  it("a clean absent-inventory run emits exactly the twenty documented contract results in the fixed order, each exactly pass", async () => {
+    const harness = makeVerificationHarness();
+
+    const result = await runVerificationLike(harness);
+
+    // Exactly the documented ordered inventory — no more, no fewer, no
+    // reordering (Operations Contract §Verification result contract).
+    expect(emittedContracts(result)).toEqual([...VERIFICATION_CONTRACTS]);
+    expect(result.checks).toHaveLength(VERIFICATION_CONTRACTS.length);
+    // The run drove its per-contract probes in that same fixed order.
+    expect(harness.probeOrder).toEqual([...VERIFICATION_CONTRACTS]);
+    const checks = expectValidCheckResults(result);
+    for (const contract of VERIFICATION_CONTRACTS) {
+      expect(checks.get(contract)?.result).toBe("pass");
+    }
+    // Overall PASS requires all twenty results to pass; a passing run has
+    // no primary failure and no failure reason code.
+    expect(result.exitCode).toBe(0);
+    expect(result.primaryFailure).toBeUndefined();
+    expect(result.reasonCode).toBeUndefined();
+    expectPrimaryFailureIsFirstFailure(result);
+    // The terminal state is a member of the closed vocabulary and is
+    // unambiguously a passing terminal state (never pending, running,
+    // failed, or interrupted).
+    expect(VERIFICATION_RUN_STATES).toContain(result.state);
+    expect(["passed", "reported"]).toContain(result.state);
+    // The current-run cleanup disposed exactly the disposable Verification
+    // resources the run created, through the bounded exact-resource path
+    // only.
+    expect([...harness.mutationState.removedExact].sort()).toEqual(
+      [...VERIFICATION_DISPOSABLE_KEYS].sort(),
+    );
+    expect(harness.mutationState.forbiddenInvocations).toEqual([]);
+  });
+
+  it("the twenty-contract inventory stays complete and ordered when the run fails — no result is ever missing or skipped", async () => {
+    const harness = makeVerificationHarness();
+    harness.stepOutcomes.startup = stepFailure("STARTUP_FAILED", "orchestration");
+
+    const result = await runVerificationLike(harness);
+
+    // A failed run still emits the complete ordered inventory exactly once
+    // per contract (quickstart §6: never missing or skipped).
+    expect(emittedContracts(result)).toEqual([...VERIFICATION_CONTRACTS]);
+    const checks = expectValidCheckResults(result);
+    expect(checks.get("startup")?.result).toBe("fail");
+    expect(checks.get("startup")?.diagnostic?.reasonCode).toBe("STARTUP_FAILED");
+    expect(result.exitCode).not.toBe(0);
+    // The terminal state is unambiguously a failing terminal state.
+    expect(VERIFICATION_RUN_STATES).toContain(result.state);
+    expect(["failed", "reported"]).toContain(result.state);
+    expectPrimaryFailureIsFirstFailure(result);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Downstream prerequisite blocking — FR-009/FR-010 (tests-first for T049).
+// ---------------------------------------------------------------------------
+
+describe("Downstream prerequisite blocking — T041 (tests-first for T049)", () => {
+  it("checks blocked by a failed prerequisite are explicit FAIL results with a safe PREREQUISITE_FAILED diagnostic", async () => {
+    const harness = makeVerificationHarness();
+    harness.stepOutcomes.startup = stepFailure("STARTUP_FAILED", "orchestration");
+
+    const result = await runVerificationLike(harness);
+
+    const checks = expectValidCheckResults(result);
+    // Physically impossible downstream checks were not run: migration needs
+    // the started Verification database and readiness needs the started
+    // runtime, so both are dependency-blocked by the startup failure.
+    for (const contract of ["migration", "readiness"]) {
+      expect(harness.probeOrder).not.toContain(contract);
+      const check = checks.get(contract);
+      expect(check?.result).toBe("fail");
+      expect(check?.diagnostic?.reasonCode).toBe("PREREQUISITE_FAILED");
+      expectSafeDiagnostic(check?.diagnostic);
+    }
+    // The general invariant: EVERY check the run did not drive is an
+    // explicit FAIL PREREQUISITE_FAILED result — the run never silently
+    // drops, skips, or passes a check it could not run.
+    for (const contract of VERIFICATION_CONTRACTS) {
+      if (!harness.probeOrder.includes(contract)) {
+        expect(checks.get(contract)?.result).toBe("fail");
+        expect(checks.get(contract)?.diagnostic?.reasonCode).toBe("PREREQUISITE_FAILED");
+      }
+    }
+    // The blocked-run primary failure is the startup failure itself.
+    expect(result.primaryFailure).toEqual(harness.stepOutcomes.startup.diagnostic);
+    expectPrimaryFailureIsFirstFailure(result);
+  });
+
+  it("a check that actually ran carries its own outcome — never a PREREQUISITE_FAILED result", async () => {
+    const harness = makeVerificationHarness();
+    harness.stepOutcomes.startup = stepFailure("STARTUP_FAILED", "orchestration");
+
+    const result = await runVerificationLike(harness);
+
+    const checks = expectValidCheckResults(result);
+    expect(harness.probeOrder.length).toBeGreaterThan(0);
+    for (const contract of harness.probeOrder) {
+      const check = checks.get(contract);
+      expect(check).toBeDefined();
+      expect(check?.diagnostic?.reasonCode).not.toBe("PREREQUISITE_FAILED");
+      if (contract === "startup") {
+        expect(check?.result).toBe("fail");
+      } else {
+        expect(check?.result).toBe("pass");
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Primary-failure selection and precedence — plan §Operations and
+// verification; Operations Contract §Verification result contract
+// (tests-first for T049).
+// ---------------------------------------------------------------------------
+
+describe("Primary-failure selection and precedence — T041 (tests-first for T049)", () => {
+  it("the first main failure stays primary when cleanup and reporting also fail — later failures never overwrite it", async () => {
+    const harness = makeVerificationHarness();
+    const databaseFailure = stepFailure("DATABASE_UNAVAILABLE", "database");
+    const cleanupFailure = stepFailure("CLEANUP_FAILED", "cleanup");
+    const reportingFailure = stepFailure("REPORT_EMISSION_FAILED", "reporting");
+    harness.stepOutcomes.database = databaseFailure;
+    harness.stepOutcomes.cleanup = cleanupFailure;
+    harness.stepOutcomes.reporting = reportingFailure;
+
+    const result = await runVerificationLike(harness);
+
+    // The FIRST failed result is the immutable primary failure; the later
+    // cleanup and reporting failures are additional, not replacements.
+    expect(result.primaryFailure).toEqual(databaseFailure.diagnostic);
+    expect(result.primaryFailure).not.toEqual(cleanupFailure.diagnostic);
+    expect(result.primaryFailure).not.toEqual(reportingFailure.diagnostic);
+    expectSafeDiagnostic(result.primaryFailure);
+    // All three failures remain individually observable in their own
+    // ordered results, and the run fails.
+    const checks = expectValidCheckResults(result);
+    expect(checks.get("database")?.diagnostic).toEqual(databaseFailure.diagnostic);
+    expect(checks.get("cleanup")?.diagnostic).toEqual(cleanupFailure.diagnostic);
+    expect(checks.get("reporting")?.diagnostic).toEqual(reportingFailure.diagnostic);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.reasonCode).toBeTruthy();
+    expectPrimaryFailureIsFirstFailure(result);
+  });
+
+  it("the first of two main failures is primary — a later main failure never displaces it", async () => {
+    const harness = makeVerificationHarness();
+    const livenessFailure = stepFailure("LIVENESS_FAILED", "application");
+    const isolationFailure = stepFailure("ISOLATION_FAILED", "orchestration");
+    harness.stepOutcomes.liveness = livenessFailure;
+    harness.stepOutcomes.isolation = isolationFailure;
+
+    const result = await runVerificationLike(harness);
+
+    // Liveness is probed (nothing before it failed) and carries its own
+    // failure, so it is the first `fail` result in the emitted order; the
+    // primary failure is exactly that first failure — never the later
+    // isolation failure, however the run treated it.
+    const checks = expectValidCheckResults(result);
+    expect(checks.get("liveness")?.result).toBe("fail");
+    expect(checks.get("liveness")?.diagnostic).toEqual(livenessFailure.diagnostic);
+    expect(result.primaryFailure).toEqual(livenessFailure.diagnostic);
+    expect(result.primaryFailure).not.toEqual(isolationFailure.diagnostic);
+    expectPrimaryFailureIsFirstFailure(result);
+    expect(result.exitCode).not.toBe(0);
+  });
+
+  it("when every main result passes, the first cleanup failure becomes the primary failure", async () => {
+    const harness = makeVerificationHarness();
+    const cleanupFailure = stepFailure("CLEANUP_FAILED", "cleanup");
+    harness.stepOutcomes.cleanup = cleanupFailure;
+
+    const result = await runVerificationLike(harness);
+
+    // All main checks passed, so the cleanup failure is primary.
+    const checks = expectValidCheckResults(result);
+    for (const contract of VERIFICATION_MAIN_CONTRACTS) {
+      expect(checks.get(contract)?.result).toBe("pass");
+    }
+    expect(result.primaryFailure).toEqual(cleanupFailure.diagnostic);
+    expect(result.exitCode).not.toBe(0);
+    expectPrimaryFailureIsFirstFailure(result);
+  });
+
+  it("reporting becomes the primary failure only when every earlier result passed", async () => {
+    const harness = makeVerificationHarness();
+    const reportingFailure = stepFailure("REPORT_EMISSION_FAILED", "reporting");
+    harness.stepOutcomes.reporting = reportingFailure;
+
+    const result = await runVerificationLike(harness);
+
+    const checks = expectValidCheckResults(result);
+    for (const contract of VERIFICATION_CONTRACTS) {
+      if (contract !== "reporting") {
+        expect(checks.get(contract)?.result).toBe("pass");
+      }
+    }
+    expect(checks.get("reporting")?.diagnostic).toEqual(reportingFailure.diagnostic);
+    expect(result.primaryFailure).toEqual(reportingFailure.diagnostic);
+    expect(result.exitCode).not.toBe(0);
+    expectPrimaryFailureIsFirstFailure(result);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Timing evidence — per-result and whole-run (data-model.md §Verification
+// Run `durationMs` / `startedAt` / `finishedAt`) (tests-first for T049).
+// ---------------------------------------------------------------------------
+
+describe("Verification timing evidence — T041 (tests-first for T049)", () => {
+  it("every probed result carries its own measured non-negative integer duration — the elapsed injected-clock time of that check's own probe", async () => {
+    const harness = makeVerificationHarness();
+
+    const result = await runVerificationLike(harness);
+
+    const checks = expectValidCheckResults(result);
+    for (const contract of harness.probeOrder) {
+      // The pinned measurement semantics: one result's `durationMs` is the
+      // injected-clock elapsed time of that check's own probe, so each
+      // distinctive synthetic advance must appear on its own result (a
+      // fabricated constant, zero, or a cross-attributed duration fails).
+      expect(checks.get(contract)?.durationMs).toBe(VERIFICATION_STEP_DURATIONS[contract]);
+    }
+  });
+
+  it("whole-run timing brackets the run: startedAt precedes every probe, finishedAt follows the last, and the span covers the measured check time", async () => {
+    const harness = makeVerificationHarness();
+
+    const result = await runVerificationLike(harness);
+
+    expect(typeof result.startedAt).toBe("number");
+    expect(typeof result.finishedAt).toBe("number");
+    expect(Number.isFinite(result.startedAt)).toBe(true);
+    expect(Number.isFinite(result.finishedAt)).toBe(true);
+    const startedAt = result.startedAt!;
+    const finishedAt = result.finishedAt!;
+    // The run started before any check probe ran...
+    expect(startedAt).toBeLessThanOrEqual(harness.probeEnteredAt.build);
+    // ...and finished only after the last probe completed.
+    expect(finishedAt).toBeGreaterThanOrEqual(
+      harness.probeEnteredAt.reporting + VERIFICATION_STEP_DURATIONS.reporting,
+    );
+    // The whole-run span covers the sum of every measured check.
+    const measuredTotal = harness.probeOrder.reduce(
+      (total, contract) => total + VERIFICATION_STEP_DURATIONS[contract],
+      0,
+    );
+    expect(finishedAt - startedAt).toBeGreaterThanOrEqual(measuredTotal);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Run identity and the fixed parity statement — FR-011 (tests-first for
+// T049).
+// ---------------------------------------------------------------------------
+
+describe("Verification run identity and parity statement — T041 (tests-first for T049)", () => {
+  it("the run carries an opaque non-empty runId, unique per run, and identifies its release candidate", async () => {
+    const harness = makeVerificationHarness();
+
+    const result = await runVerificationLike(harness);
+    const second = await runVerificationLike(harness);
+
+    expect(typeof result.runId).toBe("string");
+    expect(result.runId!.length).toBeGreaterThan(0);
+    // A fresh opaque identifier per run.
+    expect(second.runId).not.toBe(result.runId);
+    // The immutable candidate identifier of the verified release.
+    expect(result.releaseRevision).toBe(SYNTHETIC_RELEASE_REVISION);
+    expect(second.releaseRevision).toBe(SYNTHETIC_RELEASE_REVISION);
+  });
+
+  it("a passing run carries the fixed non-parity statement verbatim", async () => {
+    const harness = makeVerificationHarness();
+
+    const result = await runVerificationLike(harness);
+
+    expect(result.parityStatement).toBe(VERIFICATION_PARITY_STATEMENT);
+  });
+
+  it("a failing run still carries the fixed non-parity statement verbatim", async () => {
+    const harness = makeVerificationHarness();
+    harness.stepOutcomes.startup = stepFailure("STARTUP_FAILED", "orchestration");
+
+    const result = await runVerificationLike(harness);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.parityStatement).toBe(VERIFICATION_PARITY_STATEMENT);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Development/Verification independence — FR-008/FR-009; quickstart §6
+// (tests-first for T049).
+// ---------------------------------------------------------------------------
+
+describe("Development/Verification independence — T041 (tests-first for T049)", () => {
+  it("with Development running, the run never drives the Development adapters, locks, assessments, or mutations, and leaves Development untouched", async () => {
+    const harness = makeVerificationHarness({ development: "running" });
+    const developmentBefore = clone(harness.developmentState.inventory);
+    const processesBefore = new Set(harness.developmentState.processes);
+
+    const result = await runVerificationLike(harness);
+
+    expect(result.exitCode).toBe(0);
+    // The run never drives the Development daily adapters: no Development
+    // database work, no native daily process supervision, no Development
+    // persistence-marker access (the Verification runtime is owned by the
+    // verification facet, never by the daily collaborators).
+    for (const prefix of ["database:", "process:", "marker:", "migrate", "migrations:"]) {
+      expect(harness.events.some((event) => event.startsWith(prefix))).toBe(false);
+    }
+    // No Development lock or evidence evaluation is taken or required.
+    expect(harness.events).not.toContain("lock:acquire:development");
+    expect(harness.events).not.toContain("assessment:evaluate:development");
+    // Every executed mutation stayed bounded to the disposable Verification
+    // resources, through the exact-resource path only.
+    for (const key of harness.mutationState.removedExact) {
+      expect(VERIFICATION_DISPOSABLE_KEYS).toContain(key);
+    }
+    expect(harness.mutationState.forbiddenInvocations).toEqual([]);
+    // Development is exactly as found: inventory unchanged, engine still
+    // running, native processes untouched.
+    expect(harness.developmentState.inventory).toEqual(developmentBefore);
+    expect(harness.developmentState.running).toBe(true);
+    expect(harness.developmentState.processes).toEqual(processesBefore);
+  });
+
+  it("the run is independent of Development state — with Development stopped and absent it still produces the complete passing ordered run", async () => {
+    const harness = makeVerificationHarness({ development: "stopped-absent" });
+
+    const result = await runVerificationLike(harness);
+
+    // quickstart §6: Development may be stopped or running. With the whole
+    // Development target stopped and its inventory absent, the run neither
+    // depends on it nor addresses it, and completes passing.
+    expect(result.exitCode).toBe(0);
+    expect(emittedContracts(result)).toEqual([...VERIFICATION_CONTRACTS]);
+    const checks = expectValidCheckResults(result);
+    for (const contract of VERIFICATION_CONTRACTS) {
+      expect(checks.get(contract)?.result).toBe("pass");
+    }
+    for (const prefix of ["database:", "process:", "marker:"]) {
+      expect(harness.events.some((event) => event.startsWith(prefix))).toBe(false);
+    }
+    expect(harness.developmentState.inventory).toEqual([]);
+    expect(harness.developmentState.running).toBe(false);
   });
 });
