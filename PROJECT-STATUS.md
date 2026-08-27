@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T041 AUTHORIZED — IMPLEMENTATION HANDOFF PENDING
+- **Status:** T041 CHANGES REQUIRED — CORRECTIVE HANDOFF PENDING
 
 ## Active Feature Mirror
 
@@ -29,12 +29,24 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** NOT YET REVIEWED — T041 authorized from accepted T040 canonical head
-- **Phase status:** T040 ACCEPTED; T041 AUTHORIZED; T042+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T041-B01
+- **Phase status:** T040 ACCEPTED; T041 REWORK; T042+ UNAUTHORIZED
 - **Previous completed scope:** T040 — failing Fastify-to-React-Router adapter contract tests
-- **Next valid action:** Claude Code implements only T041, then returns exact implementation and
-  verification evidence for independent Codex review
-- **Blocking issues:** None for T041 authorization
+- **Next valid action:** Claude Code corrects only T041-B01 in the authorized T041 test file, then
+  returns exact corrective and verification evidence for independent Codex re-review
+- **Blocking issues:** T041-B01 — the timing tests verify timestamp shape, bracketing, and summed
+  per-check durations but explicitly omit SC-003's required ten-minute whole-run upper bound. A
+  conforming-looking implementation whose completed Verification span exceeds 600,000 ms can pass
+  the delivered timing assertions, so T041 does not yet prove its referenced measurable outcome.
+  Add a deterministic boundary assertion and mutation evidence that an over-ten-minute completed
+  run fails while the existing intended-red boundary remains clean.
+- **T041 review evidence:** Reviewed implementation `8deb60238eea75944b017948ee65f8a1d2eff91f`
+  has persisted authorization `b4e9f0002ce25e6578369181adea6a4ba5c61e8b` as its sole parent and
+  accepted T040 canonical base `962ebb8c6876809c71c0eb0c6dc73c84d2fec42f` in linear ancestry. The
+  diff is limited to `tests/verification/foundation-operation-target.test.ts` (+903/-1), with clean
+  whitespace and no T042+ or production implementation. Independent focused execution reproduces
+  16 intended-red T041 failures at the missing `verifyProductionLike` export while all 24 accepted
+  T022 cases pass; TypeScript reports only the accepted T040 missing `apps/web/server.js` boundary.
 - **T041 authorization:** Add failing Production-like Verification operation-target contract tests
   only in `tests/verification/foundation-operation-target.test.ts`. The tests must cover the exact
   ordered twenty-result inventory, explicit `PREREQUISITE_FAILED` downstream failures, immutable
@@ -428,17 +440,20 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T041 — failing ordered-result, prerequisite-blocking, failure precedence,
-  timing, parity, and independent-target tests in
-  `tests/verification/foundation-operation-target.test.ts`; T042+ remain unauthorized
+- **Task / Scope:** T041-B01 rework only in
+  `tests/verification/foundation-operation-target.test.ts`: add deterministic enforcement of the
+  SC-003 completed-run upper bound and the corresponding over-bound mutation proof; no other T041
+  behavior or file may change; T042+ remain unauthorized
 - **Runtime:** Claude Code DEV Executor only
 - **Required references:** Constitution; spec FR-009–FR-011 and SC-003; plan §Operations and
   verification; data model §Verification Run; operations contract §Verification result contract;
   quickstart §6; tasks T041; accepted T040 canonical head `962ebb8c6876809c71c0eb0c6dc73c84d2fec42f`
-- **Expected verification:** Deterministic intended-red focused T041 evidence; applicable existing
-  operation-target regressions; meaningful syntax/type checks; authorized-file-only diff; exact
-  commands/results and implementation SHA
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Expected verification:** Focused T041 remains deterministic and intended-red only at the
+  missing Verification orchestration export; the conforming double passes; an otherwise conforming
+  double whose completed run exceeds 600,000 ms fails the new timing assertion; all accepted T022
+  cases remain green; meaningful syntax/type and authorized-file-only diff checks; exact commands,
+  results, corrective SHA, and sole-parent ancestry
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
