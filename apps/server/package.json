@@ -7,6 +7,9 @@
   "exports": {
     ".": "./src/bootstrap.ts"
   },
+  "scripts": {
+    "build": "tsc src/bootstrap.ts --outDir build --rootDir src --module nodenext --moduleResolution nodenext --target es2023 --strict --verbatimModuleSyntax --isolatedModules --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --types node"
+  },
   "dependencies": {
     "@sinclair/typebox": "^0.34.0",
     "fastify": "^5.12.0",

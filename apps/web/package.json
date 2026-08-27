@@ -10,6 +10,9 @@
     "react-dom": "^19.2.7",
     "react-router": "^8.0.0"
   },
+  "scripts": {
+    "build": "react-router build"
+  },
   "devDependencies": {
     "@react-router/dev": "^8.0.0",
     "@types/react": "^19.2.0",
