@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T040 PASS — PRODUCT OWNER HUMAN GATE
+- **Status:** T040 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
 
 ## Active Feature Mirror
 
@@ -29,12 +29,17 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — T040 independently reviewed
-- **Phase status:** T039 ACCEPTED; T040 PASS awaiting Product Owner Human Gate; T041+ UNAUTHORIZED
-- **Previous completed scope:** T039 — independent US1 acceptance sequence and bounded in-scope
-  corrections
-- **Next valid action:** Product Owner Human Gate for T040; do not authorize T041+
+- **Current review result:** PASS — HUMAN ACCEPTED
+- **Phase status:** T040 ACCEPTED; T041+ UNAUTHORIZED
+- **Previous completed scope:** T040 — failing Fastify-to-React-Router adapter contract tests
+- **Next valid action:** NONE selected or authorized — stop after T040 Human acceptance; T041+
+  remain unauthorized
 - **Blocking issues:** None for T040 review
+- **T040 Product Owner acceptance:** Human Gate accepted corrective implementation tip
+  `f3d56290745269badab9741127e016f8f5fbbd5e` and independent PASS governance record
+  `5cb05943c789eae5f9729c934409c2d28ad1090d`. The accepted PASS history descends linearly from
+  canonical T039 acceptance, so no reconciliation merge is required. Authorized Implementation
+  remains `NONE`; T041+ remain unauthorized.
 - **T040 final review evidence:** Exact corrective tip
   `f3d56290745269badab9741127e016f8f5fbbd5e` has persisted REWORK authorization commit
   `a5cd37a47eb47b1ae091c7d700af91aa3c6488cf` as its sole parent, reviewed implementation
@@ -404,7 +409,7 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T040 passed independent review; T041+ remain unauthorized
+- **Task / Scope:** NONE — T040 Human Gate accepted; T041+ remain unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE — see T040 final review evidence above
