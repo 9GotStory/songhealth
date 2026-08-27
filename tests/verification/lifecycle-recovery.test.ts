@@ -71,6 +71,14 @@ import {
   foundationCleanup,
   type OperationResult,
 } from "../../scripts/foundation-operations.mjs";
+// The T043 suite observes the SAME existing module through a NAMESPACE
+// import, exactly like the accepted T041/T042 suites in their files: its
+// expected-red boundary is one missing named export of an already-implemented
+// module (the planned T049 Verification run orchestration entry
+// `verifyProductionLike`), not an absent module. A named import would turn
+// that missing export into a file-wide import error and redden the accepted
+// T021 cases above with it.
+import * as FoundationOperationsModule from "../../scripts/foundation-operations.mjs";
 
 // ---------------------------------------------------------------------------
 // Synthetic, non-secret inputs. No real port, credential, connection string,
@@ -1779,5 +1787,1226 @@ describe("Foundation recovery attempts — T021 binding and immutable primary fa
     // removed, and no forbidden strategy ran.
     expect(mutationState.removedExact.length).toBeLessThan(VERIFICATION_DISPOSABLE_KEYS.length);
     expectNoForbiddenStrategy(harness);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T043 — Verification current-run cleanup, pre-existing-resource refusal,
+// target-appropriate cleanup decisions, interrupted cleanup, atomic final
+// reporting, and cleanup/reporting secondary-failure precedence
+// (tests-first for T049).
+//
+// References: FR-017, SC-003; contracts/foundation-operations.md §Commands
+// (`verify:production-like`, `foundation:status`, `foundation:inventory`,
+// `foundation:cleanup`), §Operation-target ownership and isolation,
+// §Verification result contract, and §Failure behavior; data-model.md
+// §Lifecycle Operation, §Recovery Assessment, §Verification Run, and
+// §State Transitions; plan.md §Operations and verification; quickstart.md
+// §6; accepted T041/T042 Verification-run collaborator and result contracts.
+//
+// Where T041 pinned the ordered RESULT contract and T042 pinned the HTTP
+// boundary it is derived from, THIS suite pins the run-owned LIFECYCLE
+// around those results: the exact current-run cleanup boundary, the
+// read-only refusal of pre-existing Verification resources, the
+// Verification-appropriate decision routing of a run journal, interrupted
+// cleanup, atomic report emission, and the durable-journal precedence of
+// cleanup/reporting failures against the immutable primary failure.
+//
+// EXPECTED RED: the only reason the T043 cases below fail is that the
+// planned T049 `verifyProductionLike` orchestration entry of the
+// already-implemented `scripts/foundation-operations.mjs` does not exist
+// yet. Every T043 case fails on the one clean boundary assertion in
+// `verificationLifecycleEntryPoint()` — never on an import, fixture, or
+// setup error, and never in the accepted T021 cases above.
+// ---------------------------------------------------------------------------
+
+/** The ordered Verification contract inventory (Operations Contract
+ * §Verification result contract; identical to the accepted T041 list). */
+const T043_VERIFICATION_CONTRACTS = [
+  "build",
+  "startup",
+  "configuration-valid",
+  "configuration-missing-rejected",
+  "configuration-empty-rejected",
+  "configuration-malformed-rejected",
+  "configuration-unsupported-rejected",
+  "configuration-out-of-range-rejected",
+  "configuration-identity-conflict-rejected",
+  "migration",
+  "database",
+  "liveness",
+  "readiness",
+  "isolation",
+  "proxy",
+  "public-route",
+  "admin-route",
+  "server-route",
+  "cleanup",
+  "reporting",
+] as const;
+
+/** The fixed non-parity statement, verbatim (quickstart §6). */
+const T043_PARITY_STATEMENT =
+  "Production-like Verification validates bounded application contracts only; it does not establish exact parity with Bangmod/Plesk Production hosting.";
+
+/** The Verification operation target's configuration (contract §Configuration
+ * examples): every shared dimension differs from Development. */
+const T043_SAFE_VERIFICATION_CONFIG = {
+  APP_ENVIRONMENT: "development",
+  RUNTIME_PROFILE: "verification",
+  APP_HOST: "127.0.0.1",
+  APP_PORT: "10444",
+  PUBLIC_ORIGIN: "http://127.0.0.1:10444",
+  DATABASE_URL: "mysql://verify-user:verify-password@127.0.0.1:13307/songhealth_verify",
+  DATABASE_POOL_MAX: "2",
+  PROXY_POLICY: "one-hop",
+  LOG_LEVEL: "info",
+  FIXTURE_PROVENANCE: "synthetic",
+} as const;
+
+/** The lifecycle action of a Production-like Verification run
+ * (data-model §Lifecycle Operation allowlisted action enum). */
+const T043_VERIFY_ACTION = "verify";
+
+/** One safe synthetic release-candidate identifier (never a real revision). */
+const T043_SYNTHETIC_RELEASE_REVISION = "t043-synthetic-release-candidate";
+
+/**
+ * A unique synthetic Verification credential sentinel (SC-004): injected into
+ * the configuration the run loads, then scanned for in exact and encoded form
+ * across every surface the run emits — the atomic report, standard output,
+ * and the fallback standard error.
+ */
+const T043_VERIFY_CREDENTIAL_SENTINEL = "t043-synthetic-verify-credential-7f3a91";
+
+/** One injected per-contract probe outcome (the accepted T041 facet). */
+interface T043StepOutcome {
+  ok: boolean;
+  diagnostic?: SafeDiagnostic;
+  revision?: string;
+}
+
+/** One ordered Check Result (data-model.md §Verification Run). */
+interface T043CheckResult {
+  contract: string;
+  result: "pass" | "fail";
+  diagnostic?: SafeDiagnostic;
+  durationMs: number;
+}
+
+/** The `verify:production-like` result surface (accepted T041 shape). */
+interface T043RunResult extends OperationResult {
+  runId?: string;
+  releaseRevision?: string;
+  startedAt?: number;
+  finishedAt?: number;
+  state?: string;
+  checks?: T043CheckResult[];
+  primaryFailure?: SafeDiagnostic;
+  parityStatement?: string;
+}
+
+/** The planned T049 entry point: `verify:production-like`. */
+type T043VerifyProductionLike = (collaborators: unknown) => Promise<T043RunResult>;
+
+/**
+ * Resolve the planned Verification run orchestration entry. The single
+ * intentional dependency on the not-yet-implemented export: when T049 has
+ * not shipped it, EVERY T043 case fails on this one clean boundary
+ * assertion — the missing Verification orchestration behavior itself — never
+ * on an import, fixture, or setup error, and never in the accepted T021
+ * cases above.
+ */
+function verificationLifecycleEntryPoint(): T043VerifyProductionLike {
+  const candidate = (
+    FoundationOperationsModule as unknown as Record<string, unknown>
+  ).verifyProductionLike;
+  expect(typeof candidate).toBe("function");
+  return candidate as T043VerifyProductionLike;
+}
+
+/** One injected report-validation outcome (the reporting probe's own facet). */
+interface T043ReportValidation {
+  ok: boolean;
+  diagnostic?: SafeDiagnostic;
+}
+
+/** The atomic-report emission state owned by the injected `report` facet. */
+interface T043ReportState {
+  /** Complete-candidate validations performed before any emission. */
+  validations: number;
+  /** Whole-report records handed to the single atomic write path. */
+  emitted: unknown[];
+  /** Whether the atomic write itself refuses to complete. */
+  failWrite: boolean;
+  /** The injected completeness/schema/nondisclosure validation outcome. */
+  validation: T043ReportValidation;
+}
+
+/** The disposable run-owned runtime state of one Verification run. */
+interface T043RunRuntime {
+  up: boolean;
+  startCount: number;
+  presentKeys: string[];
+  reportEmitted: boolean;
+}
+
+/**
+ * Build one coherent set of injected collaborators for the Verification run
+ * lifecycle, around shared observable state and a chronological event trace.
+ * The Verification inventory starts ABSENT (the required clean pre-state);
+ * tests seed pre-existing resources through `preExisting`. The `report`
+ * facet is the T043 addition to the accepted T041/T042 collaborator shape:
+ * it owns the report artifact lifecycle (complete-candidate validation, then
+ * one atomic whole-report write), with every non-atomic emission strategy
+ * recorded as a forbidden invocation.
+ */
+function makeVerificationLifecycleHarness(
+  options: {
+    preExisting?: Partial<ResourceObservation>[];
+    development?: "running" | "stopped-absent";
+    /** Synthetic configuration overrides (the sentinel-injection path). */
+    configOverrides?: Record<string, string>;
+  } = {},
+) {
+  const development = options.development ?? "running";
+  const events: string[] = [];
+  const probeOrder: string[] = [];
+  const stepOutcomes: Record<string, T043StepOutcome> = {};
+  const mutationState = { removedExact: [] as string[], forbiddenInvocations: [] as string[] };
+  const runRuntime: T043RunRuntime = {
+    up: false,
+    startCount: 0,
+    presentKeys: [],
+    reportEmitted: false,
+  };
+  const reportState: T043ReportState = {
+    validations: 0,
+    emitted: [],
+    failWrite: false,
+    validation: { ok: true },
+  };
+  const outputState = { stdout: [] as unknown[], stderr: [] as unknown[] };
+  const developmentState = {
+    running: development === "running",
+    processes:
+      development === "running" ? new Set(["server", "public", "admin"]) : new Set<string>(),
+    inventory:
+      development === "running"
+        ? [
+            ownedResource(),
+            ownedResource({
+              resourceType: "network",
+              logicalKey: "development.network",
+              runtimeState: "present",
+            }),
+            ownedResource({
+              resourceType: "volume",
+              logicalKey: "development.database-volume",
+              runtimeState: "present",
+            }),
+          ]
+        : [],
+    volumeDeleted: false,
+  };
+  const preExisting: ResourceObservation[] = (options.preExisting ?? []).map((overrides) =>
+    ownedResource({ resourceType: "container", ...overrides }),
+  );
+  const lockState = { available: true, heldBy: null as string | null };
+  const confirmationState = {
+    issuedTokens: {} as Record<string, string[]>,
+    verifiedTokens: [] as string[],
+  };
+  const journalState: JournalState = { records: { development: [], verification: [] } };
+  const interruptionState = { armedAction: "", armedPhase: "" };
+  const assessmentState = { evidence: recoveryEvidence() };
+  const failState = { removeExact: false };
+  let clockTime = 1_781_000_000_000;
+  let confirmationTokenCount = 0;
+
+  /**
+   * The complete synthetic candidate the reporting probe validates and then
+   * emits atomically: the ordered results, the parity statement, and no
+   * protected value.
+   */
+  function candidateReport(): Record<string, unknown> {
+    return {
+      parityStatement: T043_PARITY_STATEMENT,
+      contracts: [...T043_VERIFICATION_CONTRACTS],
+      synthetic: true,
+    };
+  }
+
+  const collaborators = {
+    preflight: {
+      node: async () => true,
+      npm: async () => true,
+      podman: async () => true,
+      compose: async () => true,
+      requiredFiles: async () => true,
+      safeConfig: async () => true,
+      portAvailable: async () => true,
+    },
+    database: {
+      start: async () => {
+        events.push("database:start");
+        developmentState.running = true;
+      },
+      stop: async () => {
+        events.push("database:stop");
+        developmentState.running = false;
+      },
+      isRunning: async () => developmentState.running,
+      applyMigrations: async () => {
+        events.push("migrate:applied");
+      },
+      migrationStatus: async () => "current" as const,
+      deleteVolume: async () => {
+        developmentState.volumeDeleted = true;
+        events.push("database:deleteVolume");
+      },
+    },
+    processes: {
+      start: async (name: string) => {
+        events.push(`process:start:${name}`);
+        developmentState.processes.add(name);
+      },
+      stop: async (name: string) => {
+        events.push(`process:stop:${name}`);
+        developmentState.processes.delete(name);
+      },
+      isRunning: async (name: string) => developmentState.processes.has(name),
+    },
+    readiness: {
+      probe: async () => ({
+        ready: true,
+        components: {
+          database: "ready",
+          liveness: "ready",
+          readiness: "ready",
+          publicRoute: "ready",
+          adminRoute: "ready",
+          serverRoute: "ready",
+        },
+      }),
+    },
+    clock: {
+      now: () => clockTime,
+      advance: (ms: number) => {
+        clockTime += ms;
+      },
+    },
+    config: {
+      load: async () => {
+        events.push("config:load");
+        return {
+          ...T043_SAFE_VERIFICATION_CONFIG,
+          ...(options.configOverrides ?? {}),
+        };
+      },
+    },
+    inventory: {
+      inspect: async (target: string) => {
+        events.push(`inventory:inspect:${target}`);
+        if (target === "verification") {
+          const runOwned = runRuntime.presentKeys.map((key) =>
+            ownedResource({
+              logicalKey: key,
+              resourceType: key.endsWith("network") ? "network" : "container",
+            }),
+          );
+          return [...preExisting, ...runOwned].map((r) => ({ ...r }));
+        }
+        return developmentState.inventory.map((r) => ({ ...r }));
+      },
+    },
+    assessment: {
+      evaluate: async (target: string) => {
+        events.push(`assessment:evaluate:${target}`);
+        return clone(assessmentState.evidence);
+      },
+    },
+    lock: {
+      acquire: async (target: string) => {
+        events.push(`lock:acquire:${target}`);
+        if (!lockState.available) return false;
+        lockState.heldBy = target;
+        return true;
+      },
+      release: async (target: string) => {
+        events.push(`lock:release:${target}`);
+        if (lockState.heldBy === target) lockState.heldBy = null;
+      },
+    },
+    confirmation: {
+      issue: async (target: string, action: string) => {
+        confirmationTokenCount += 1;
+        const token = `t043-confirmation-token:${confirmationTokenCount}`;
+        (confirmationState.issuedTokens[`${target}:${action}`] ??= []).push(token);
+        events.push(`confirmation:issue:${target}:${action}`);
+        return token;
+      },
+      verify: async (target: string, action: string, token: string) => {
+        confirmationState.verifiedTokens.push(token);
+        events.push(`confirmation:verify:${target}:${action}`);
+        return (confirmationState.issuedTokens[`${target}:${action}`] ?? []).includes(token);
+      },
+    },
+    mutation: {
+      removeExactResource: async (logicalKey: string) => {
+        if (failState.removeExact) throw new Error("synthetic mutation failure");
+        mutationState.removedExact.push(logicalKey);
+        events.push(`mutation:removeExact:${logicalKey}`);
+        runRuntime.presentKeys = runRuntime.presentKeys.filter((key) => key !== logicalKey);
+        preExisting.splice(
+          preExisting.findIndex((r) => r.logicalKey === logicalKey),
+          1,
+        );
+      },
+      removeByPrefix: async (prefix: string) => {
+        mutationState.forbiddenInvocations.push(`removeByPrefix:${prefix}`);
+      },
+      removeByWildcard: async (pattern: string) => {
+        mutationState.forbiddenInvocations.push(`removeByWildcard:${pattern}`);
+      },
+      removeByLabelFilter: async (label: string) => {
+        mutationState.forbiddenInvocations.push(`removeByLabelFilter:${label}`);
+      },
+      downWithRemoveOrphans: async () => {
+        mutationState.forbiddenInvocations.push("downWithRemoveOrphans");
+      },
+      downWithVolumes: async () => {
+        mutationState.forbiddenInvocations.push("downWithVolumes");
+      },
+      prune: async () => {
+        mutationState.forbiddenInvocations.push("prune");
+      },
+      forceRemove: async () => {
+        mutationState.forbiddenInvocations.push("forceRemove");
+      },
+      removeBroadVolumes: async () => {
+        mutationState.forbiddenInvocations.push("removeBroadVolumes");
+      },
+      removeWithUnresolvedVariables: async () => {
+        mutationState.forbiddenInvocations.push("removeWithUnresolvedVariables");
+      },
+    },
+    journal: {
+      readLatest: async (target: string) => {
+        events.push(`journal:read:${target}`);
+        const list = journalState.records[target] ?? [];
+        return list.length ? clone(list[list.length - 1]) : null;
+      },
+      write: async (target: string, record: LifecycleJournal) => {
+        (journalState.records[target] ??= []).push(clone(record));
+        events.push(`journal:write:${target}:${record.state}`);
+      },
+    },
+    interruption: {
+      shouldInterrupt: async (action: string, phase: string) => {
+        events.push(`interruption:check:${action}:${phase}`);
+        return action === interruptionState.armedAction && phase === interruptionState.armedPhase;
+      },
+    },
+    output: {
+      stdout: async (unit: unknown) => {
+        outputState.stdout.push(unit);
+      },
+      stderr: async (unit: unknown) => {
+        outputState.stderr.push(unit);
+      },
+      applicationLog: async () => {
+        events.push("output:application-log");
+      },
+      httpFailure: async () => {
+        events.push("output:http-failure");
+      },
+    },
+    // The T043 facet: the report artifact lifecycle. `validate` performs the
+    // complete-candidate completeness/schema/nondisclosure validation;
+    // `writeAtomic` is the ONLY permitted emission path. Every non-atomic
+    // strategy is recorded so a test can assert it is never invoked.
+    report: {
+      validate: async (candidate: unknown): Promise<T043ReportValidation> => {
+        reportState.validations += 1;
+        events.push("report:validate");
+        void candidate;
+        return clone(reportState.validation);
+      },
+      writeAtomic: async (record: unknown) => {
+        reportState.emitted.push(clone(record));
+        events.push("report:write:atomic");
+      },
+      writeIncremental: async () => {
+        events.push("report:forbidden:write-incremental");
+      },
+      appendStream: async () => {
+        events.push("report:forbidden:append-stream");
+      },
+      overwriteInPlace: async () => {
+        events.push("report:forbidden:overwrite-in-place");
+      },
+    },
+    // The accepted T041 facet: one injected probe per contract result. The
+    // probe owns each check's own side effects — starting the disposable
+    // run runtime, disposing it at cleanup, and (for `reporting`) driving
+    // the `report` facet's validate-then-emit-atomically lifecycle. The
+    // ORDER of the probes and the cleanup-before-reporting obligation
+    // belong to the orchestration and are proven through the event trace.
+    verification: {
+      runCheck: async (contract: string): Promise<T043StepOutcome> => {
+        probeOrder.push(contract);
+        events.push(`verification:check:${contract}`);
+        clockTime += 1_000;
+        if (contract === "startup") {
+          runRuntime.up = true;
+          runRuntime.startCount += 1;
+          runRuntime.presentKeys = [...VERIFICATION_DISPOSABLE_KEYS];
+          events.push("verification:runtime:up");
+        }
+        if (contract === "cleanup" && runRuntime.up) {
+          for (const key of [...runRuntime.presentKeys]) {
+            await collaborators.mutation.removeExactResource(key);
+          }
+          runRuntime.up = false;
+          events.push("verification:runtime:down");
+        }
+        if (contract === "reporting") {
+          const validation = await collaborators.report.validate(candidateReport());
+          if (!validation.ok) return { ok: false, diagnostic: validation.diagnostic! };
+          if (reportState.failWrite) throw new Error("synthetic atomic-report write failure");
+          await collaborators.report.writeAtomic(candidateReport());
+          runRuntime.reportEmitted = true;
+          return { ok: true };
+        }
+        const injected = stepOutcomes[contract];
+        if (injected !== undefined) return clone(injected);
+        return contract === "build"
+          ? { ok: true, revision: T043_SYNTHETIC_RELEASE_REVISION }
+          : { ok: true };
+      },
+    },
+  };
+
+  return {
+    collaborators,
+    events,
+    probeOrder,
+    stepOutcomes,
+    mutationState,
+    runRuntime,
+    reportState,
+    outputState,
+    developmentState,
+    /** The Development inventory exactly as the harness was built — the
+     * before/after invariance baseline (SC-002 non-target evidence). */
+    developmentSnapshot: clone(developmentState.inventory),
+    preExisting,
+    lockState,
+    confirmationState,
+    journalState,
+    interruptionState,
+    assessmentState,
+    failState,
+  };
+}
+
+type T043Harness = ReturnType<typeof makeVerificationLifecycleHarness>;
+
+/** Run the planned Verification operation through the T043 harness. */
+async function t043Run(harness: T043Harness): Promise<T043RunResult> {
+  return verificationLifecycleEntryPoint()(harness.collaborators);
+}
+
+/** One run's checks keyed by contract name. */
+function t043Checks(result: T043RunResult): Map<string, T043CheckResult> {
+  return new Map((result.checks ?? []).map((check) => [check.contract, check]));
+}
+
+/** Prove the automatic cleanup used only the bounded exact-resource path. */
+function expectNoForbiddenRemoval(harness: T043Harness): void {
+  expect(harness.mutationState.forbiddenInvocations).toEqual([]);
+  expect(harness.events.filter((e) => e.startsWith("report:forbidden:"))).toEqual([]);
+}
+
+/**
+ * Prove the run never drove a Development adapter: no Development database,
+ * native process, volume, marker, or Development lock was touched, and the
+ * observed Development inventory is byte-for-byte what it started as. The
+ * run owns only its own disposable Verification resources.
+ */
+function expectDevelopmentUntouched(harness: T043Harness): void {
+  expect(harness.events.some((e) => e.startsWith("database:"))).toBe(false);
+  expect(harness.events.some((e) => e.startsWith("process:"))).toBe(false);
+  expect(harness.events.some((e) => e.startsWith("marker:"))).toBe(false);
+  expect(harness.events.some((e) => e.startsWith("lock:acquire:development"))).toBe(false);
+  expect(harness.developmentState.volumeDeleted).toBe(false);
+  expect(harness.developmentState.inventory).toEqual(harness.developmentSnapshot);
+}
+
+/**
+ * Prove a refusal was READ-ONLY: no lock acquired, no confirmation token
+ * issued, no mutation, and no report emitted.
+ */
+function expectReadOnlyRefusal(harness: T043Harness): void {
+  expect(harness.events.some((e) => e.startsWith("lock:"))).toBe(false);
+  expect(harness.events.some((e) => e.startsWith("mutation:"))).toBe(false);
+  expect(harness.events.some((e) => e.startsWith("confirmation:"))).toBe(false);
+  expect(harness.mutationState.removedExact).toEqual([]);
+  expect(harness.reportState.emitted).toEqual([]);
+  expect(harness.runRuntime.reportEmitted).toBe(false);
+  expectNoForbiddenRemoval(harness);
+}
+
+/** The documented read-only ownership-refusal reason codes. */
+const T043_OWNERSHIP_REFUSAL_CODES = [
+  "RESOURCE_OWNERSHIP_UNPROVEN",
+  "RESOURCE_INVENTORY_CHANGED",
+] as const;
+
+/**
+ * Every deterministic encoded form of a sentinel value: exact, URI and
+ * URI-component encodings, base64 and base64url, lowercase and uppercase
+ * hex, the JSON string-escaped form, and the fully unicode-escaped form
+ * (the accepted T042 nondisclosure form set).
+ */
+function t043EncodedForms(value: string): string[] {
+  const utf8 = Buffer.from(value, "utf8");
+  const unicodeEscaped = [...value]
+    .map((char) => `\\u${char.codePointAt(0)!.toString(16).padStart(4, "0")}`)
+    .join("");
+  const forms = new Set<string>([
+    value,
+    encodeURI(value),
+    encodeURIComponent(value),
+    utf8.toString("base64"),
+    utf8.toString("base64url"),
+    utf8.toString("hex"),
+    utf8.toString("hex").toUpperCase(),
+    JSON.stringify(value).slice(1, -1),
+    unicodeEscaped,
+  ]);
+  return [...forms];
+}
+
+/** Render one emitted surface as scannable text. */
+function t043SurfaceText(units: readonly unknown[]): string {
+  return units.map((unit) => (typeof unit === "string" ? unit : JSON.stringify(unit))).join("\n");
+}
+
+/**
+ * Prove a T043 run surface carries the injected credential sentinel in
+ * neither exact nor encoded form (SC-004/FR-007): the atomic report, the
+ * command standard output, and the fallback standard error are all safe
+ * diagnostic/report surfaces, never protected-value surfaces.
+ */
+function expectT043SurfaceSanitized(units: readonly unknown[]): void {
+  const text = t043SurfaceText(units);
+  for (const form of t043EncodedForms(T043_VERIFY_CREDENTIAL_SENTINEL)) {
+    expect(
+      text.includes(form),
+      `credential sentinel form leaked onto a Verification run surface: ${form}`,
+    ).toBe(false);
+  }
+}
+
+/**
+ * The documented pre-existing-resource refusal classes (FR-017: "MUST refuse
+ * stale, colliding, ambiguous, mislabeled, or unexpectedly active
+ * resources"; contract §Operation-target ownership and isolation adds
+ * "unexpectedly active/attached"). Each entry is one ownership predicate a
+ * typed inspection must prove before any mutation is allowed.
+ */
+const T043_PRE_EXISTING_REFUSALS = [
+  [
+    "a stale resource (superseded ownership schema)",
+    { logicalKey: "verification.nginx", ownershipSchemaCurrent: false },
+  ],
+  [
+    "a colliding resource (the expected role is occupied by another checkout's project)",
+    { logicalKey: "verification.network", resourceType: "network", checkoutProjectMatches: false },
+  ],
+  [
+    "an ambiguous resource (attachment state does not match the manifest)",
+    { logicalKey: "verification.nginx", attachmentsExpected: false },
+  ],
+  [
+    "a mislabeled resource (incomplete canonical Compose labels)",
+    { logicalKey: "verification.network", resourceType: "network", canonicalLabelsComplete: false },
+  ],
+  [
+    "a mislabeled resource (custom operation-target label names Development)",
+    {
+      logicalKey: "verification.nginx",
+      customLabels: Object.fromEntries(
+        CUSTOM_LABEL_KEYS.map((key) => [
+          key,
+          key === "org.songhealth.foundation.operation-target"
+            ? "synthetic:development"
+            : `synthetic:${key}`,
+        ]),
+      ),
+    },
+  ],
+  [
+    "an unexpectedly active resource (a container already running before the run starts)",
+    { logicalKey: "verification.nginx", runtimeState: "running" },
+  ],
+  [
+    "an unexpectedly attached resource (a mounted volume the manifest does not declare)",
+    { logicalKey: "verification.database-volume", resourceType: "volume", unexpectedlyAttached: true },
+  ],
+] as [string, Partial<ResourceObservation>][];
+
+describe("Verification run module boundary — T043 (tests-first for T049)", () => {
+  it("exports the planned Verification run orchestration entry `verifyProductionLike` as a function", () => {
+    expect(typeof verificationLifecycleEntryPoint()).toBe("function");
+  });
+});
+
+describe("Verification current-run cleanup — T043 (tests-first for T049)", () => {
+  it("a passing run disposes exactly the disposable resources it created, through the bounded exact-resource path only, and never touches Development", async () => {
+    const harness = makeVerificationLifecycleHarness();
+
+    const result = await t043Run(harness);
+
+    expect(result.exitCode).toBe(0);
+    // Cleanup removed exactly the current run's own disposable resources —
+    // no more, no fewer — and never re-created them.
+    expect(harness.mutationState.removedExact).toEqual([...VERIFICATION_DISPOSABLE_KEYS]);
+    expect(harness.runRuntime.up).toBe(false);
+    expect(harness.runRuntime.presentKeys).toEqual([]);
+    expect(harness.runRuntime.startCount).toBe(1);
+    expectNoForbiddenRemoval(harness);
+    expectDevelopmentUntouched(harness);
+    // The cleanup contract result passed.
+    expect(t043Checks(result).get("cleanup")?.result).toBe("pass");
+  });
+
+  it("a failing main check still performs the exact current-run cleanup after the failure", async () => {
+    const harness = makeVerificationLifecycleHarness();
+    harness.stepOutcomes.readiness = {
+      ok: false,
+      diagnostic: safeDiagnostic({
+        reasonCode: "SYNTHETIC_READINESS_FAILURE",
+        diagnosticScope: "verification",
+      }),
+    };
+
+    const result = await t043Run(harness);
+
+    expect(result.exitCode).not.toBe(0);
+    // Cleanup runs after pass OR fail: the run's own resources are disposed
+    // exactly, and the bounded path is the only one used.
+    expect(harness.mutationState.removedExact).toEqual([...VERIFICATION_DISPOSABLE_KEYS]);
+    expect(harness.runRuntime.up).toBe(false);
+    expectNoForbiddenRemoval(harness);
+    expectDevelopmentUntouched(harness);
+    expect(t043Checks(result).get("readiness")?.result).toBe("fail");
+  });
+
+  it("the automatic cleanup is bounded to the current run — it never removes anything the run did not create", async () => {
+    const harness = makeVerificationLifecycleHarness();
+
+    await t043Run(harness);
+
+    // Every removal is one of the run's own recorded disposable roles.
+    for (const key of harness.mutationState.removedExact) {
+      expect(VERIFICATION_DISPOSABLE_KEYS).toContain(key);
+    }
+    expect(harness.runRuntime.startCount).toBe(1);
+    expectNoForbiddenRemoval(harness);
+  });
+});
+
+describe("Verification pre-existing-resource refusal — T043 (tests-first for T049)", () => {
+  it.each(T043_PRE_EXISTING_REFUSALS)(
+    "the run refuses %s read-only before any build, start, mutation, or report — no auto-cleaning",
+    async (_label, overrides) => {
+      const harness = makeVerificationLifecycleHarness({ preExisting: [overrides] });
+
+      const result = await t043Run(harness);
+
+      // The run requires an absent clean Verification inventory; it never
+      // silently pre-cleans (quickstart §6, contract §Operation-target
+      // ownership and isolation).
+      expect(result.exitCode).not.toBe(0);
+      expect(T043_OWNERSHIP_REFUSAL_CODES).toContain(result.reasonCode);
+      expect(result.primaryFailure?.diagnosticScope).toBe("verification");
+      // Read-only refusal: no probe ran, no lock, no token, no mutation, and
+      // no report was emitted.
+      expect(harness.probeOrder).toEqual([]);
+      expectReadOnlyRefusal(harness);
+      // The pre-existing resource is still there, untouched.
+      expect(harness.preExisting.map((r) => r.logicalKey)).toContain(overrides.logicalKey!);
+      expectDevelopmentUntouched(harness);
+    },
+  );
+
+  it("a clean exactly-owned pre-existing Verification inventory is still refused — disposal is the documented inventory-confirmed cleanup path, never the run's", async () => {
+    const harness = makeVerificationLifecycleHarness({
+      preExisting: [
+        { logicalKey: "verification.nginx", resourceType: "container" },
+        {
+          logicalKey: "verification.network",
+          resourceType: "network",
+          runtimeState: "present",
+        },
+      ],
+    });
+
+    const result = await t043Run(harness);
+
+    // Exact ownership does NOT license the run to auto-remove: even a
+    // perfectly owned leftover is a pre-existing resource the run must
+    // refuse (plan.md "it does not auto-remove stale resources").
+    expect(result.exitCode).not.toBe(0);
+    expect(T043_OWNERSHIP_REFUSAL_CODES).toContain(result.reasonCode);
+    expect(harness.probeOrder).toEqual([]);
+    expectReadOnlyRefusal(harness);
+    expect(harness.preExisting).toHaveLength(2);
+    expectDevelopmentUntouched(harness);
+  });
+});
+
+describe("Verification-appropriate recovery decisions — T043 (tests-first for T049)", () => {
+  /**
+   * Seed one interrupted (or unclosed) Verification run journal as arrange
+   * state — the pending origin a `foundation:status` assessment derives
+   * from. Reuses the accepted T021 arrange helper's exact field set.
+   */
+  function seedVerificationJournal(
+    harness: T043Harness,
+    overrides: Partial<LifecycleJournal> = {},
+  ): LifecycleJournal {
+    const record = interruptedJournal({
+      operationTarget: "verification",
+      runtimeProfile: "verification",
+      action: T043_VERIFY_ACTION,
+      primaryFailure: safeDiagnostic({
+        reasonCode: "OPERATION_INTERRUPTED",
+        diagnosticScope: "verification",
+      }),
+      ...overrides,
+    });
+    harness.journalState.records.verification.push(clone(record));
+    return record;
+  }
+
+  it("an interrupted Verification run journal with confirmed ownership, valid integrity, and safe repeatability yields retry", async () => {
+    const harness = makeVerificationLifecycleHarness();
+    const { collaborators, assessmentState } = harness;
+    const origin = seedVerificationJournal(harness);
+    assessmentState.evidence = clone(EVIDENCE_RETRY);
+
+    const result = await foundationStatus(collaborators, { target: "verification" });
+
+    const assessment = result.assessment as RecoveryAssessmentRecord;
+    expect(assessment.originOperationId).toBe(origin.operationId);
+    expect(assessment.decision).toBe("retry");
+    expect(VERIFICATION_DECISIONS).toContain(assessment.decision);
+    expectReadOnlyRefusal(harness);
+  });
+
+  it("an interrupted cleanup where retry does not apply, with confirmed exact ownership and confirmed disposability, yields cleanup and a fresh cleanup token", async () => {
+    const harness = makeVerificationLifecycleHarness({
+      // The disposable Verification resources the interrupted cleanup left
+      // behind — the exact set a cleanup token must be bound to.
+      preExisting: [
+        { logicalKey: "verification.nginx", resourceType: "container" },
+        {
+          logicalKey: "verification.network",
+          resourceType: "network",
+          runtimeState: "present",
+        },
+      ],
+    });
+    const { collaborators, assessmentState } = harness;
+    seedVerificationJournal(harness, { action: "cleanup" });
+    assessmentState.evidence = clone(EVIDENCE_CLEANUP);
+
+    const status = await foundationStatus(collaborators, { target: "verification" });
+    expect((status.assessment as RecoveryAssessmentRecord).decision).toBe("cleanup");
+
+    // The cleanup decision is the only Verification disposal decision, and
+    // it is the one action that yields a mutation token.
+    const inventory = await foundationInventory(collaborators, {
+      target: "verification",
+      action: "cleanup",
+    });
+    expect(typeof inventory.token).toBe("string");
+    // No other Verification action is token-eligible.
+    for (const action of ["reset", "recover"]) {
+      const refused = await foundationInventory(collaborators, {
+        target: "verification",
+        action,
+      });
+      expect(refused.token).toBeFalsy();
+    }
+  });
+
+  it("an unclosed running Verification journal is treated as interrupted on the next invocation — exactly one read-only decision", async () => {
+    const harness = makeVerificationLifecycleHarness();
+    const { collaborators, assessmentState } = harness;
+    const origin = seedVerificationJournal(harness, {
+      state: "running",
+      primaryFailure: undefined,
+    });
+    assessmentState.evidence = clone(EVIDENCE_OWNERSHIP_UNCONFIRMED);
+
+    const result = await foundationStatus(collaborators, { target: "verification" });
+
+    // The unclosed `running` journal is assessed as interrupted, not
+    // ignored and not crashed on; unconfirmed ownership forces row 1.
+    const assessment = result.assessment as RecoveryAssessmentRecord;
+    expect(assessment.originOperationId).toBe(origin.operationId);
+    expect(assessment.decision).toBe("manual-review");
+    expect(VERIFICATION_DECISIONS).toContain(assessment.decision);
+    expectReadOnlyRefusal(harness);
+  });
+
+  it("a reset-shaped Verification state yields manual-review — the Verification decision vocabulary is exactly retry, cleanup, and manual-review", async () => {
+    const harness = makeVerificationLifecycleHarness();
+    const { collaborators, assessmentState } = harness;
+    seedVerificationJournal(harness);
+    // The reset evidence shape: reconstructibility confirmed with an
+    // unavailable repair, but disposability NOT confirmed — row 4 is
+    // Development-only and row 5 needs confirmed disposability, so only
+    // row 6 can decide for a Verification target.
+    assessmentState.evidence = clone({
+      ...EVIDENCE_RESET_UNAVAILABLE_REPAIR,
+      disposabilityConfirmed: false,
+    });
+
+    const result = await foundationStatus(collaborators, { target: "verification" });
+
+    const assessment = result.assessment as RecoveryAssessmentRecord;
+    expect(assessment.decision).toBe("manual-review");
+    expect(VERIFICATION_DECISIONS).toContain(assessment.decision);
+    expect(VERIFICATION_DECISIONS).not.toContain("reset");
+    expect(VERIFICATION_DECISIONS).not.toContain("recover");
+    expectReadOnlyRefusal(harness);
+  });
+});
+
+describe("Interrupted Verification cleanup — T043 (tests-first for T049)", () => {
+  it("an interruption at the run's cleanup phase records OPERATION_INTERRUPTED as the immutable primary, leaves the target not-ready, emits no report, and never duplicates resources", async () => {
+    const harness = makeVerificationLifecycleHarness();
+    harness.interruptionState.armedAction = T043_VERIFY_ACTION;
+    harness.interruptionState.armedPhase = "cleanup";
+
+    const result = await t043Run(harness);
+
+    expect(result.exitCode).not.toBe(0);
+    // The fault source was actually polled for this run's own cleanup phase.
+    expect(harness.events).toContain(`interruption:check:${T043_VERIFY_ACTION}:cleanup`);
+    // Exactly one interrupted journal record, bound to the Verification run.
+    const interrupted = harness.journalState.records.verification.filter(
+      (r) => r.state === "interrupted",
+    );
+    expect(interrupted).toHaveLength(1);
+    expect(interrupted[0].operationTarget).toBe("verification");
+    expect(interrupted[0].action).toBe(T043_VERIFY_ACTION);
+    expect(interrupted[0].primaryFailure?.reasonCode).toBe("OPERATION_INTERRUPTED");
+    expect(interrupted[0].primaryFailure?.diagnosticScope).toBe("verification");
+    // The run never reached reporting and emitted no report.
+    expect(harness.probeOrder).not.toContain("reporting");
+    expect(harness.reportState.emitted).toEqual([]);
+    expect(harness.runRuntime.reportEmitted).toBe(false);
+    // The target is left not-ready: the run's own resources were not all
+    // disposed, and nothing was re-created (FR-017: no duplicate active
+    // resources).
+    expect(harness.runRuntime.startCount).toBe(1);
+    expect(harness.mutationState.removedExact.length).toBeLessThan(
+      VERIFICATION_DISPOSABLE_KEYS.length,
+    );
+    // Whatever disposal was attempted stayed inside the bounded exact path.
+    expectNoForbiddenRemoval(harness);
+    expectDevelopmentUntouched(harness);
+  });
+
+  it("the next invocation after an interrupted cleanup does not auto-clean the leftover resources — it refuses read-only until the documented cleanup path runs", async () => {
+    const harness = makeVerificationLifecycleHarness({
+      // Arrange: an interrupted run left its disposable resources behind.
+      preExisting: [
+        { logicalKey: "verification.nginx", resourceType: "container" },
+        {
+          logicalKey: "verification.network",
+          resourceType: "network",
+          runtimeState: "present",
+        },
+      ],
+    });
+    const { collaborators, journalState } = harness;
+    journalState.records.verification.push(
+      clone(
+        interruptedJournal({
+          operationTarget: "verification",
+          runtimeProfile: "verification",
+          action: T043_VERIFY_ACTION,
+          primaryFailure: safeDiagnostic({
+            reasonCode: "OPERATION_INTERRUPTED",
+            diagnosticScope: "verification",
+          }),
+        }),
+      ),
+    );
+
+    const result = await t043Run(harness);
+
+    // The leftover resources are pre-existing from the run's point of view:
+    // it must not silently pre-clean them, and it must not proceed to build.
+    expect(result.exitCode).not.toBe(0);
+    expect(T043_OWNERSHIP_REFUSAL_CODES).toContain(result.reasonCode);
+    expect(harness.probeOrder).toEqual([]);
+    expectReadOnlyRefusal(harness);
+    expect(harness.journalState.records.verification).toHaveLength(2);
+    expectDevelopmentUntouched(harness);
+  });
+});
+
+describe("Atomic final reporting — T043 (tests-first for T049)", () => {
+  it("the report is emitted exactly once, atomically, and only after the current-run cleanup completed", async () => {
+    const harness = makeVerificationLifecycleHarness();
+
+    const result = await t043Run(harness);
+
+    expect(result.exitCode).toBe(0);
+    // Exactly one whole-report atomic write — never two, never zero.
+    expect(harness.reportState.emitted).toHaveLength(1);
+    // The candidate was validated before it was emitted.
+    expect(harness.reportState.validations).toBeGreaterThanOrEqual(1);
+    expect(
+      harness.events.indexOf("report:validate") <
+        harness.events.indexOf("report:write:atomic"),
+    ).toBe(true);
+    // Ordering: EVERY cleanup removal precedes the atomic emission, and the
+    // reporting probe follows the cleanup probe.
+    const lastRemoval = Math.max(
+      ...harness.mutationState.removedExact.map((key) =>
+        harness.events.indexOf(`mutation:removeExact:${key}`),
+      ),
+    );
+    expect(lastRemoval).toBeGreaterThanOrEqual(0);
+    expect(harness.events.indexOf("report:write:atomic")).toBeGreaterThan(lastRemoval);
+    expect(harness.probeOrder.indexOf("cleanup")).toBeLessThan(
+      harness.probeOrder.indexOf("reporting"),
+    );
+    expectNoForbiddenRemoval(harness);
+  });
+
+  it("when report validation fails, no atomic emission occurs and the reporting result is an explicit FAIL", async () => {
+    const harness = makeVerificationLifecycleHarness();
+    harness.reportState.validation = {
+      ok: false,
+      diagnostic: safeDiagnostic({
+        reasonCode: "SYNTHETIC_REPORT_VALIDATION_FAILURE",
+        diagnosticScope: "verification",
+      }),
+    };
+
+    const result = await t043Run(harness);
+
+    // The complete-candidate validation gates emission: nothing is written.
+    expect(result.exitCode).not.toBe(0);
+    expect(harness.reportState.emitted).toEqual([]);
+    expect(harness.runRuntime.reportEmitted).toBe(false);
+    expect(t043Checks(result).get("reporting")?.result).toBe("fail");
+    // Cleanup still ran and still disposed the run's resources exactly.
+    expect(harness.mutationState.removedExact).toEqual([...VERIFICATION_DISPOSABLE_KEYS]);
+    expectNoForbiddenRemoval(harness);
+  });
+
+  it("no incremental, streamed, or in-place report emission path is ever used — only one whole-report atomic write per run", async () => {
+    const harness = makeVerificationLifecycleHarness();
+
+    const result = await t043Run(harness);
+
+    expect(result.exitCode).toBe(0);
+    expect(harness.reportState.emitted.length).toBe(1);
+    expect(harness.events.filter((e) => e.startsWith("report:forbidden:"))).toEqual([]);
+  });
+
+  it("when the atomic emission itself fails, the fallback standard error is exactly one closed Safe Diagnostic", async () => {
+    const harness = makeVerificationLifecycleHarness();
+    harness.reportState.failWrite = true;
+
+    const result = await t043Run(harness);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(harness.reportState.emitted).toEqual([]);
+    expect(t043Checks(result).get("reporting")?.result).toBe("fail");
+    // The fallback is one closed unit on standard error — never a raw
+    // exception, stack, or partial report body.
+    const fallback = harness.outputState.stderr.at(-1) as SafeDiagnostic | undefined;
+    expect(fallback).toBeDefined();
+    const keys = Object.keys(fallback!);
+    for (const key of keys) {
+      expect([
+        "reasonCode",
+        "diagnosticScope",
+        "component",
+        "configurationKey",
+        "remediation",
+      ]).toContain(key);
+    }
+    for (const required of ["reasonCode", "diagnosticScope", "component", "remediation"]) {
+      expect(keys).toContain(required);
+    }
+    expect(fallback!.diagnosticScope).toBe("verification");
+    expectNoForbiddenRemoval(harness);
+  });
+
+  it("the injected Verification credential sentinel never appears on any run-emitted surface in exact or encoded form — not in the atomic report, standard output, or the fallback standard error", async () => {
+    const harness = makeVerificationLifecycleHarness({
+      configOverrides: {
+        DATABASE_URL: `mysql://verify-user:${T043_VERIFY_CREDENTIAL_SENTINEL}@127.0.0.1:13307/songhealth_verify`,
+      },
+    });
+    // Force every emission surface: a failing main check, a failing cleanup,
+    // and a failing atomic emission with its standard-error fallback.
+    harness.stepOutcomes.readiness = {
+      ok: false,
+      diagnostic: safeDiagnostic({
+        reasonCode: "SYNTHETIC_READINESS_FAILURE",
+        diagnosticScope: "verification",
+      }),
+    };
+    harness.failState.removeExact = true;
+    harness.reportState.failWrite = true;
+
+    const result = await t043Run(harness);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.primaryFailure?.reasonCode).toBe("SYNTHETIC_READINESS_FAILURE");
+    // The run actually reached every emission surface before the assertions
+    // below mean anything.
+    expect(harness.outputState.stderr.length).toBeGreaterThan(0);
+    // SC-004: no protected value on the report, stdout, or the fallback.
+    expectT043SurfaceSanitized(harness.reportState.emitted);
+    expectT043SurfaceSanitized(harness.outputState.stdout);
+    expectT043SurfaceSanitized(harness.outputState.stderr);
+    expectNoForbiddenRemoval(harness);
+  });
+});
+
+describe("Immutable primary failure and cleanup/reporting precedence — T043 (tests-first for T049)", () => {
+  it("a main failure plus a cleanup failure keeps the main failure primary in the journal and appends the cleanup failure as a secondary diagnostic", async () => {
+    const harness = makeVerificationLifecycleHarness();
+    harness.stepOutcomes.proxy = {
+      ok: false,
+      diagnostic: safeDiagnostic({
+        reasonCode: "SYNTHETIC_PROXY_FAILURE",
+        diagnosticScope: "verification",
+      }),
+    };
+    harness.failState.removeExact = true;
+
+    const result = await t043Run(harness);
+
+    expect(result.exitCode).not.toBe(0);
+    // The main failure is primary — the later cleanup failure never
+    // displaces it.
+    expect(result.primaryFailure?.reasonCode).toBe("SYNTHETIC_PROXY_FAILURE");
+    const records = harness.journalState.records.verification;
+    expect(records.length).toBeGreaterThan(0);
+    for (const record of records) {
+      if (record.primaryFailure !== undefined) {
+        expect(record.primaryFailure.reasonCode).toBe("SYNTHETIC_PROXY_FAILURE");
+      }
+    }
+    // The cleanup failure is recorded as a SECONDARY diagnostic, append-only.
+    const withSecondary = records.filter((r) => r.secondaryFailures.length > 0);
+    expect(withSecondary.length).toBeGreaterThan(0);
+    expect(
+      withSecondary.some((r) =>
+        r.secondaryFailures.some((d) => d.diagnosticScope === "verification"),
+      ),
+    ).toBe(true);
+    expect(t043Checks(result).get("proxy")?.result).toBe("fail");
+    expect(t043Checks(result).get("cleanup")?.result).toBe("fail");
+  });
+
+  it("when every main result passes but cleanup fails, cleanup becomes the primary failure", async () => {
+    const harness = makeVerificationLifecycleHarness();
+    harness.failState.removeExact = true;
+
+    const result = await t043Run(harness);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(t043Checks(result).get("cleanup")?.result).toBe("fail");
+    // With no earlier result failed, the cleanup failure is primary.
+    const earlier = (result.checks ?? []).filter(
+      (check) => check.contract !== "cleanup" && check.contract !== "reporting",
+    );
+    expect(earlier.every((check) => check.result === "pass")).toBe(true);
+    expect(result.primaryFailure?.reasonCode).toBeTruthy();
+    const cleanupDiagnostic = t043Checks(result).get("cleanup")?.diagnostic;
+    expect(cleanupDiagnostic).toBeDefined();
+  });
+
+  it("a reporting failure after a passing run makes reporting primary; after a cleanup failure it stays secondary to it", async () => {
+    const harness = makeVerificationLifecycleHarness();
+    harness.reportState.validation = {
+      ok: false,
+      diagnostic: safeDiagnostic({
+        reasonCode: "SYNTHETIC_REPORT_VALIDATION_FAILURE",
+        diagnosticScope: "verification",
+      }),
+    };
+
+    const result = await t043Run(harness);
+
+    // Every earlier result passed, so reporting is primary.
+    expect(result.exitCode).not.toBe(0);
+    expect(t043Checks(result).get("reporting")?.result).toBe("fail");
+    expect(result.primaryFailure?.reasonCode).toBe("SYNTHETIC_REPORT_VALIDATION_FAILURE");
+
+    // The same reporting failure with an also-failing cleanup stays
+    // SECONDARY to the cleanup failure: precedence follows the emitted
+    // order, not the severity.
+    const second = makeVerificationLifecycleHarness();
+    second.failState.removeExact = true;
+    second.reportState.validation = clone(harness.reportState.validation);
+    const secondResult = await t043Run(second);
+
+    expect(secondResult.exitCode).not.toBe(0);
+    expect(secondResult.primaryFailure?.reasonCode).not.toBe(
+      "SYNTHETIC_REPORT_VALIDATION_FAILURE",
+    );
+    expect(t043Checks(secondResult).get("cleanup")?.result).toBe("fail");
+  });
+
+  it("the journal's primary failure is immutable across every record the run writes — no later record overwrites or drops it", async () => {
+    const harness = makeVerificationLifecycleHarness();
+    harness.stepOutcomes.migration = {
+      ok: false,
+      diagnostic: safeDiagnostic({
+        reasonCode: "SYNTHETIC_MIGRATION_FAILURE",
+        diagnosticScope: "verification",
+      }),
+    };
+    harness.failState.removeExact = true;
+    harness.reportState.validation = {
+      ok: false,
+      diagnostic: safeDiagnostic({
+        reasonCode: "SYNTHETIC_REPORT_VALIDATION_FAILURE",
+        diagnosticScope: "verification",
+      }),
+    };
+
+    const result = await t043Run(harness);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.primaryFailure?.reasonCode).toBe("SYNTHETIC_MIGRATION_FAILURE");
+    const records = harness.journalState.records.verification;
+    expect(records.length).toBeGreaterThan(1);
+    const primaries = records
+      .map((record) => record.primaryFailure?.reasonCode)
+      .filter((code): code is string => code !== undefined);
+    // Once recorded, the first failure is carried forward verbatim into
+    // every later record — never replaced, never dropped.
+    expect(primaries.length).toBeGreaterThan(0);
+    expect(new Set(primaries)).toEqual(new Set(["SYNTHETIC_MIGRATION_FAILURE"]));
   });
 });
