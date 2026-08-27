@@ -23,6 +23,12 @@
  * closed `OPERATIONAL_FAILURE` Safe Diagnostic (allowlisted values only); no
  * raw exception, stack, SQL, credential, connection string, supplied value,
  * sentinel string, or host/path/infrastructure detail is ever serialized.
+ *
+ * T038 — the application-log surface is closed the same way: alongside the
+ * T016-B01 request/response serializers, the logger's `err` serializer maps
+ * every error object the framework may log internally to that same
+ * deterministic closed diagnostic, so the default error serializer's raw
+ * `type`/`message`/`stack` never reaches the application log.
  */
 
 import Fastify, { type FastifyInstance } from "fastify";
@@ -85,6 +91,27 @@ function safeResponseSerializer(res: { statusCode: number }): {
 }
 
 /**
+ * Least-necessary allowlisted error serialization for the operational log
+ * surface (T038). Fastify merges these serializers over its defaults, and its
+ * default `err` serializer (Pino's) emits the raw error `type`, `message`, and
+ * `stack` — the one remaining default serializer on this surface. Every
+ * framework-internal error log (request/response stream errors, post-send
+ * handler rejections, serializer failures) flows through it, so any logged
+ * error object is mapped to the deterministic closed `OPERATIONAL_FAILURE`
+ * diagnostic instead: allowlisted fields only, never raw exception, stack,
+ * message, SQL, credential, connection string, supplied value, or
+ * host/path/infrastructure detail. The allowlisted log-message strings
+ * Fastify itself emits (`"request errored"`, `"incoming request"`, ...) are
+ * static framework strings and are unaffected by this serializer.
+ */
+function safeErrorSerializer(
+  _error: unknown,
+): ReturnType<typeof operationalFailureDiagnostic> {
+  void _error;
+  return operationalFailureDiagnostic("application");
+}
+
+/**
  * Build the operational Fastify app. Registers only the two health routes and
  * returns the in-process instance without binding a listener. `options`
  * supplies the validated construction-time proxy-trust and log-level settings;
@@ -115,8 +142,22 @@ export async function createApp(
           serializers: {
             req: safeRequestSerializer,
             res: safeResponseSerializer,
+            // The closed diagnostic is intentionally NARROWER than Pino's
+            // default error shape (`type`/`message`/`stack`), so the binding
+            // is asserted to the logger-options serializer contract — the
+            // same type-compatibility treatment the `base` option and the
+            // request/response serializers above apply — while the runtime
+            // value stays the closed allowlisted field set.
+            err: safeErrorSerializer as unknown as (
+              error: unknown,
+            ) => {
+              [key: string]: unknown;
+              type: string;
+              message: string;
+              stack: string;
+            },
           },
-        },
+        }
       }
     : undefined;
   const app = Fastify(fastifyOptions);

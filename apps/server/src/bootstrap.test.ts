@@ -28,7 +28,13 @@
  *     `databasePoolMax` is forwarded to `createDatabase` as the pool bound, the
  *     validated `logLevel` configures the Fastify logger, and the validated
  *     `proxyPolicy` maps to Fastify `trustProxy` (`none` trusts no forwarded
- *     headers; `one-hop` trusts exactly one hop, never blanket `true`).
+ *     headers; `one-hop` trusts exactly one hop, never blanket `true`);
+ *   - T038 — the application-log surface is closed for framework-internal
+ *     error logging: any error object the composed app's logger is handed
+ *     (the exact Fastify `log-controller` call shape) serializes as the
+ *     deterministic closed `OPERATIONAL_FAILURE` Safe Diagnostic, so the
+ *     default Pino error serializer's raw type/message/stack never reaches
+ *     the application log (FR-007/SC-004).
  *
  * The database and migration boundaries are observed through deterministic
  * injected fakes bound to the accepted `createDatabase` / `closeDatabase` /
@@ -525,5 +531,112 @@ describe("createServer — construction-time settings (T016-B01)", () => {
     // One hop: the rightmost forwarded entry (the immediate proxy) wins —
     // exactly one hop is trusted, not the leftmost client (blanket `true`).
     expect(response.json()).toEqual({ ip: "70.41.3.18" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Application-log error serialization — T038 (FR-007/SC-004).
+// ---------------------------------------------------------------------------
+
+/**
+ * Every deterministic encoded form of a sentinel value (exact, URI and
+ * URI-component, base64 and base64url, lowercase and uppercase hex, the JSON
+ * string-escaped form, and the fully unicode-escaped form).
+ */
+function encodedForms(value: string): string[] {
+  const utf8 = Buffer.from(value, "utf8");
+  const unicodeEscaped = [...value]
+    .map((char) => `\\u${char.codePointAt(0)!.toString(16).padStart(4, "0")}`)
+    .join("");
+  const forms = new Set<string>([
+    value,
+    encodeURI(value),
+    encodeURIComponent(value),
+    utf8.toString("base64"),
+    utf8.toString("base64url"),
+    utf8.toString("hex"),
+    utf8.toString("hex").toUpperCase(),
+    JSON.stringify(value).slice(1, -1),
+    unicodeEscaped,
+  ]);
+  return [...forms];
+}
+
+describe("createServer — application-log error serialization (T038)", () => {
+  it("an error object the framework logs internally serializes as the closed OPERATIONAL_FAILURE diagnostic — never type, message, or stack", async () => {
+    vi.mocked(createDatabase).mockResolvedValue(SENTINEL_DB);
+    vi.mocked(getDatabaseReadiness).mockResolvedValue(READY_READINESS);
+
+    const capture = createLogCapture();
+    const result = await createServer({
+      env: DEV_BASE,
+      operationTarget: "development",
+      loggerStream: capture.stream,
+    });
+    if (result.status !== "ready") throw new Error("expected ready");
+    const { app } = result.capabilities;
+
+    // A raw internal exception carrying the exact detail the contract forbids:
+    // a sentinel message, a sentinel stack frame with a filesystem path, and a
+    // connection string. It is logged through the composed app's logger in the
+    // EXACT call shape Fastify's own log-controller uses for internal error
+    // logging (`reply.log.error({ err }, 'request errored')` — the shape every
+    // framework-internal error log at `error` level flows through), so the
+    // construction-time serializer contract is what is proven here.
+    const sentinelMessage = "SC038-ERR-MESSAGE-SENTINEL";
+    const sentinelPath = "SC038/err/path(c31e)";
+    const sentinelUrl = `mysql://songhealth_dev:${SENTINEL_CREDENTIAL}@127.0.0.1:3306/db`;
+    const rawError = new Error(`${sentinelMessage} ${sentinelUrl}`);
+    rawError.stack = `${rawError.message}\n    at layer (/home/${sentinelPath}/layer.ts:3:3)`;
+    app.log.error({ err: rawError }, "request errored");
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    const emitted = capture.text();
+    // The error object serializes as exactly the deterministic closed
+    // diagnostic (allowlisted fields and values only).
+    expect(emitted).toContain(
+      `"err":${JSON.stringify(operationalFailureDiagnostic("application"))}`,
+    );
+    expect(emitted).toContain('"msg":"request errored"');
+
+    // No raw type/message/stack field is emitted, and no sentinel or forbidden
+    // detail appears in exact or encoded form on the application-log surface.
+    expect(emitted).not.toContain('"type":"Error"');
+    for (const sentinel of [sentinelMessage, sentinelPath, sentinelUrl, SENTINEL_CREDENTIAL]) {
+      for (const form of encodedForms(sentinel)) {
+        expect(emitted, `encoded sentinel leaked onto the log surface: ${form}`).not.toContain(form);
+      }
+    }
+    for (const token of ["/home/", " at ", "mysql://", "127.0.0.1", "stack"]) {
+      expect(emitted, `forbidden detail leaked onto the log surface: ${token}`).not.toContain(token);
+    }
+  });
+
+  it("ordinary request logging keeps its closed field set — the error serializer changes nothing else", async () => {
+    vi.mocked(createDatabase).mockResolvedValue(SENTINEL_DB);
+    vi.mocked(getDatabaseReadiness).mockResolvedValue(READY_READINESS);
+
+    const capture = createLogCapture();
+    const result = await createServer({
+      env: DEV_BASE,
+      operationTarget: "development",
+      loggerStream: capture.stream,
+    });
+    if (result.status !== "ready") throw new Error("expected ready");
+    const { app } = result.capabilities;
+
+    await app.inject({ method: "GET", url: "/health/live" });
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const emitted = capture.text();
+
+    // The accepted T016-B01 request-log surface is unchanged: method + route
+    // path + status code + the framework's static messages, nothing else.
+    expect(emitted).toContain('"msg":"incoming request"');
+    expect(emitted).toContain('"msg":"request completed"');
+    expect(emitted).toContain('"req":{"method":"GET","url":"/health/live"}');
+    expect(emitted).toContain('"res":{"statusCode":200}');
+    for (const token of ["hostname", '"pid"', "remoteAddress", "headers"]) {
+      expect(emitted, `prohibited field leaked onto the log surface: ${token}`).not.toContain(token);
+    }
   });
 });

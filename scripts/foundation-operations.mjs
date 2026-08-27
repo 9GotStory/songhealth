@@ -5093,6 +5093,15 @@ const PROCESS_IDENTITY_MARKERS = {
  * rejected composition exits non-zero, which the supervisor observes as a
  * failed start. The `.js`→`.ts` resolution retry mirrors the repository's
  * TypeScript extension convention for the server sources.
+ *
+ * T038 — the child's own startup failures (a failed entry import, a rejected
+ * composition, a failed listener bind) are APPLICATION failures on the
+ * application-log surface (the retained process log this child's stdio is
+ * bound to), so each is mapped there to exactly one closed Safe Diagnostic:
+ * the composition boundary's own closed rejection when it rejected, otherwise
+ * the deterministic closed startup failure — and never the raw exception,
+ * stack, module path, or host/port detail Node would otherwise dump. The
+ * non-zero exit the supervisor observes is unchanged.
  */
 const SERVER_PROCESS_ENTRY = [
   "import { registerHooks } from 'node:module';",
@@ -5111,22 +5120,38 @@ const SERVER_PROCESS_ENTRY = [
   "    }",
   "  },",
   "});",
-  "const entryPath = process.env.SONGHEALTH_SERVER_ENTRY_PATH;",
-  "const host = process.env.SONGHEALTH_SERVER_ENTRY_HOST;",
-  "const port = Number(process.env.SONGHEALTH_SERVER_ENTRY_PORT);",
-  "if (entryPath === undefined || host === undefined || !Number.isInteger(port)) {",
-  "  process.exitCode = 1;",
-  "} else {",
-  "  const server = await import(pathToFileURL(entryPath).href);",
-  "  const composed = await server.createServer({",
-  "    env: process.env,",
-  "    operationTarget: 'development',",
-  "  });",
-  "  if (composed.status !== 'ready') {",
+  "const closedStartupFailure = {",
+  "  reasonCode: 'STARTUP_FAILED',",
+  "  diagnosticScope: 'daily',",
+  "  component: 'application',",
+  "  remediation: 'RETRY_SAFE_OPERATION',",
+  "};",
+  "const emitClosedDiagnostic = (diagnostic) => {",
+  "  process.stdout.write(`${JSON.stringify(diagnostic)}\\n`);",
+  "};",
+  "try {",
+  "  const entryPath = process.env.SONGHEALTH_SERVER_ENTRY_PATH;",
+  "  const host = process.env.SONGHEALTH_SERVER_ENTRY_HOST;",
+  "  const port = Number(process.env.SONGHEALTH_SERVER_ENTRY_PORT);",
+  "  if (entryPath === undefined || host === undefined || !Number.isInteger(port)) {",
   "    process.exitCode = 1;",
+  "    emitClosedDiagnostic(closedStartupFailure);",
   "  } else {",
-  "    await composed.capabilities.app.listen({ host, port });",
+  "    const server = await import(pathToFileURL(entryPath).href);",
+  "    const composed = await server.createServer({",
+  "      env: process.env,",
+  "      operationTarget: 'development',",
+  "    });",
+  "    if (composed.status !== 'ready') {",
+  "      process.exitCode = 1;",
+  "      emitClosedDiagnostic(composed.diagnostic ?? closedStartupFailure);",
+  "    } else {",
+  "      await composed.capabilities.app.listen({ host, port });",
+  "    }",
   "  }",
+  "} catch {",
+  "  process.exitCode = 1;",
+  "  emitClosedDiagnostic(closedStartupFailure);",
   "}",
 ].join("\n");
 
@@ -6665,7 +6690,11 @@ function createCommandLineCollaborators(target = DAILY_OPERATION_TARGET, options
 // <reset-inventory-token>`). Failures are printed as their closed
 // Safe Diagnostics only; success prints one bounded safe line (the one
 // exception: `--token-only` prints exactly the minted token, because the
-// quickstart §2/§5 flows capture it as the command's stdout). The module's
+// quickstart §2/§5 flows capture it as the command's stdout). T038 — that
+// closed-surface guarantee holds for UNEXPECTED orchestration failures too:
+// an error escaping its operation is mapped by the dispatch boundary to one
+// closed `OPERATIONAL_FAILURE` diagnostic on the command's derived scope, so
+// no raw unhandled-rejection detail ever reaches stdout/stderr. The module's
 // import by tests never enters this path.
 // ---------------------------------------------------------------------------
 
@@ -6726,6 +6755,16 @@ async function runCommandLine(args) {
   // current-run cleanup only while a journaled operation is actually
   // running, and otherwise preserves the conventional signal behavior.
   const removeInterruptionGuard = installInterruptionGuard(collaborators);
+  // T038 — the derived output context this command's unexpected orchestration
+  // failures report under: the bound operation target's own scope for the
+  // target-routed commands, the daily scope of the daily commands, and the
+  // foundation scope of the target-less preflight command.
+  const commandDiagnosticScope =
+    commandTarget !== undefined
+      ? DIAGNOSTIC_SCOPE_BY_TARGET[commandTarget]
+      : command === "foundation:check"
+        ? "foundation"
+        : "daily";
   let result;
   try {
     if (command === "foundation:check") {
@@ -6790,6 +6829,23 @@ async function runCommandLine(args) {
         ),
       );
     }
+  } catch {
+    // T038 — the terminal orchestration mapping: an unexpected failure that
+    // escapes its operation (an unmapped adapter, journal, or filesystem
+    // error) still fails the command non-zero with exactly one closed Safe
+    // Diagnostic on the command surfaces — the raw exception, stack, command
+    // text, or path Node would otherwise print on an unhandled rejection is
+    // never surfaced. Every dispatched operation already maps its own known
+    // failures; this is the boundary's closed backstop, not a second policy.
+    result = await rejectOperation(
+      collaborators,
+      safeDiagnostic(
+        "OPERATIONAL_FAILURE",
+        commandDiagnosticScope,
+        "orchestration",
+        "REVIEW_MANUALLY",
+      ),
+    );
   } finally {
     removeInterruptionGuard();
   }
