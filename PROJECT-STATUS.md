@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T039 PASS — PRODUCT OWNER HUMAN GATE
+- **Status:** T039 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
 
 ## Active Feature Mirror
 
@@ -29,12 +29,18 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS WITH NON-BLOCKING NOTES — T039 independently reviewed
-- **Phase status:** T039 PASS; awaiting Product Owner Human Gate; T040+ UNAUTHORIZED
-- **Previous completed scope:** T038 — closed application, orchestration, Podman, Compose, and
-  database failure mapping without raw passthrough
-- **Next valid action:** Product Owner Human Gate for T039; do not authorize T040+
+- **Current review result:** PASS WITH NON-BLOCKING NOTES — HUMAN ACCEPTED
+- **Phase status:** T039 ACCEPTED; T040+ UNAUTHORIZED
+- **Previous completed scope:** T039 — independent US1 acceptance sequence and bounded in-scope
+  corrections
+- **Next valid action:** NONE selected or authorized — stop after T039 Human acceptance; T040+
+  remain unauthorized
 - **Blocking issues:** None for T039 review
+- **T039 Product Owner acceptance:** Human Gate accepted implementation tip
+  `b4334f60293aa7d2f21c64d62e27282367b4a250` and independent PASS governance record
+  `d39fde9b5d6c8d87d7ed5aa99b6cb065c850d56a`. The accepted PASS history descends linearly from
+  canonical T038 acceptance, so no reconciliation merge is required. Authorized Implementation
+  remains `NONE`; T040+ remain unauthorized.
 - **T039 review evidence:** Exact implementation tip
   `b4334f60293aa7d2f21c64d62e27282367b4a250` has persisted authorization commit
   `29aac6d2db4e9d6c1888d4b3ac714035a54a7f0c` as its sole parent and canonical accepted T038 base
