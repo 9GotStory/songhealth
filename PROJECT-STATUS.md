@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T038 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T039 AUTHORIZED — IMPLEMENTATION HANDOFF
 
 ## Active Feature Mirror
 
@@ -29,13 +29,30 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED; T038-B01 and T038-B02 closed
-- **Phase status:** T038 ACCEPTED; T039+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T039 authorized at canonical base
+  `ea37487d2339527aff099df7a72c8170b506148d`
+- **Phase status:** T039 AUTHORIZED; T040+ UNAUTHORIZED
 - **Previous completed scope:** T038 — closed application, orchestration, Podman, Compose, and
   database failure mapping without raw passthrough
-- **Next valid action:** NONE selected or authorized — stop after T038 Human acceptance; T039+
-  remain unauthorized
-- **Blocking issues:** None for T038 review
+- **Next valid action:** Claude Code executes only T039, reports the exact implementation tip and
+  acceptance evidence, then stops for independent Codex review
+- **Blocking issues:** None — T038 is human-accepted and T039 is dependency-ready
+- **T039 authorization:** Execute the complete independent User Story 1 acceptance sequence in
+  `specs/001-application-foundation/quickstart.md` §§1–5 and correct only failures traceable to the
+  accepted US1 scope. Required authority: `.specify/memory/constitution.md`,
+  `specs/001-application-foundation/spec.md` SC-001–SC-002, SC-004–SC-005, and SC-007,
+  `specs/001-application-foundation/plan.md`,
+  `specs/001-application-foundation/data-model.md`,
+  `specs/001-application-foundation/contracts/foundation-operations.md`,
+  `specs/001-application-foundation/quickstart.md` §§1–5, and
+  `specs/001-application-foundation/tasks.md` T039. Scope excludes T040+, User Story 2 or 3,
+  Verification-profile implementation, proxy/Nginx or release-image work, new dependencies,
+  requirement/architecture changes, and weakening accepted configuration, ownership, lifecycle,
+  recovery, isolation, migration, diagnostic, or nondisclosure contracts. Verification must run the
+  complete §§1–5 sequence where the explicit local environment permits; classify unavailable
+  real-engine/tooling evidence rather than substituting mocks; run the relevant focused and
+  regression suites, syntax, type, and diff checks; prove no Product behavior or T040+ work; and
+  report exact commands, results, unavailable evidence, changed files, and implementation tip.
 - **T038 Product Owner acceptance:** Human Gate accepted corrective implementation tip
   `cb30554a51380676c9fa2c1bbe51f595e621098a` and independent PASS governance record
   `402295dbc513a91464c8b798ca3be42074711845`; T038-B01 and T038-B02 are accepted as closed. The
@@ -338,11 +355,19 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T038 passed independent review; T039+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T038 final review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T039 only — execute the complete independent US1 acceptance sequence in
+  `quickstart.md` §§1–5 and correct only traceable in-scope failures; T040+ remain unauthorized
+- **Runtime:** Claude Code (`claude-developer`)
+- **Required references:** Constitution; `spec.md` SC-001–SC-002, SC-004–SC-005, and SC-007;
+  `plan.md`; `data-model.md`; Operations Contract; `quickstart.md` §§1–5; `tasks.md` T039;
+  `CLAUDE.md`
+- **Expected verification:** complete Quickstart §§1–5 where the explicit environment permits;
+  focused and regression tests for daily lifecycle, persistence/reset, recovery, isolation,
+  configuration rejection, migration readiness, and nondisclosure; classify unavailable real-engine
+  or tooling evidence without substitution; syntax, type, and diff checks; confirm no Product
+  behavior, T040+ implementation, or out-of-scope changes; report exact commands/results, changed
+  files, unavailable evidence, and exact implementation tip
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
