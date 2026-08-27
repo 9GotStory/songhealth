@@ -254,7 +254,12 @@ const SAFE_DEV_CONFIG = {
   APP_HOST: "127.0.0.1",
   APP_PORT: "10443",
   PUBLIC_ORIGIN: "http://127.0.0.1:10443",
-  DATABASE_URL: "mysql://dev-user:dev-password@127.0.0.1:13306/songhealth_dev",
+  // T027-B01: the DATABASE_URL identity is the canonical Development identity
+  // (apps/server/src/config.ts `TARGET_IDENTITY` — the committed .env example
+  // credentials), so the journaled daily commands' canonical re-validation
+  // accepts this fixture exactly like a real local configuration.
+  DATABASE_URL:
+    "mysql://songhealth_dev:dev-only-placeholder@127.0.0.1:3306/songhealth_development",
   DATABASE_POOL_MAX: "4",
   PROXY_POLICY: "none",
   LOG_LEVEL: "info",
@@ -1263,9 +1268,12 @@ describe("Foundation recovery attempts — T021 binding and immutable primary fa
     const result = await devStart(collaborators);
 
     expect(result.exitCode).toBe(0);
-    // The origin journal record is never rewritten.
+    // The origin journal record is never rewritten. The journal appends one
+    // record per durable phase, so the origin operation's INTERRUPTED terminal
+    // record — the one the assessment was derived from — is the record that
+    // must survive the retry byte-for-byte.
     const originStill = journalState.records.development.find(
-      (r) => r.operationId === origin.operationId,
+      (r) => r.operationId === origin.operationId && r.state === "interrupted",
     );
     expect(originStill).toEqual(originSnapshot);
     // The attempt is bound to the origin operation/action/phase, target and

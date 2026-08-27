@@ -1030,6 +1030,62 @@ describe("T037-B01 real Development network ownership — complete inventory and
   );
 
   it(
+    "a lowercase-cased Podman network listing still proves exact network ownership (T039)",
+    { timeout: CLI_TIMEOUT_MS + 30_000 },
+    async () => {
+      await resetSandboxState(DEVELOPMENT_RECORD);
+      // Real `podman network ls --format json` (at least Podman 5.8) emits a
+      // lowercase-cased `name`/`labels` object, unlike the capitalized
+      // `Names`/`Name` of `ps`/`volume ls`. The typed inspection must read
+      // the observed network name in that casing too — otherwise the
+      // manifest-declared network can never prove `nameMatches` and every
+      // Development destructive confirmation is refused on a real engine.
+      const observation = exactDevelopmentObservation();
+      await writePodmanFixtures({
+        ...observation,
+        networks: [
+          {
+            name: observation.networkName,
+            labels: manifestLabels(observation.project, "development.network"),
+          },
+        ],
+      });
+      try {
+        const status = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "status",
+        ]);
+        expect(status.code).toBe(0);
+        expect(status.stdout).toBe(
+          "foundation:inventory: development inventory: " +
+            "development.database:exact/running, " +
+            "development.network:exact/present, " +
+            "development.database-volume:exact/present\n",
+        );
+        expectNoSentinel(status.stdout);
+        expectNoSentinel(status.stderr);
+
+        const token = await runStubbedCommand([
+          "foundation:inventory",
+          "--target",
+          "development",
+          "--action",
+          "reset",
+          "--token-only",
+        ]);
+        expect(token.code).toBe(0);
+        expect(token.stdout).toMatch(/^confirmation-[0-9a-f]{64}\n$/);
+        expectNoSentinel(token.stderr);
+      } finally {
+        await resetSandboxState(undefined);
+      }
+    },
+  );
+
+  it(
     "an absent network leaves the complete ownership unproven: no reset token and no repair work",
     { timeout: CLI_TIMEOUT_MS + 30_000 },
     async () => {

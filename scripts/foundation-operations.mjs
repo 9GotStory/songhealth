@@ -5872,9 +5872,17 @@ function readObservedLabels(entry) {
   return labels !== null && typeof labels === "object" && !Array.isArray(labels) ? labels : {};
 }
 
-/** The observed name of one raw listing entry, or `null` (untrusted input). */
+/**
+ * The observed name of one raw listing entry, or `null` (untrusted input).
+ * Podman's listing JSON is not cased uniformly across object kinds or
+ * releases — `ps`/`volume ls` emit `Names`/`Name`, while at least Podman 5.8
+ * emits a lowercase `name` object for `network ls` — so every documented
+ * casing of the name field is read (the same dual-casing tolerance
+ * `readObservedLabels` already applies). An absent or malformed name is
+ * still `null`, which never proves `nameMatches` upstream.
+ */
 function readObservedName(entry) {
-  for (const candidate of [entry?.Name, entry?.names?.[0], entry?.Names?.[0]]) {
+  for (const candidate of [entry?.Name, entry?.names?.[0], entry?.Names?.[0], entry?.name]) {
     if (typeof candidate === "string" && candidate.length > 0) {
       return candidate;
     }
