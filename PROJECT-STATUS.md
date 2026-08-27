@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T038 CHANGES REQUIRED — REWORK HANDOFF
+- **Status:** T038 PASS — PRODUCT OWNER HUMAN GATE
 
 ## Active Feature Mirror
 
@@ -29,23 +29,28 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T038-B01 and T038-B02
-- **Phase status:** T038 REWORK AUTHORIZED; T039+ UNAUTHORIZED
+- **Current review result:** PASS — T038-B01 and T038-B02 closed
+- **Phase status:** T038 PASSED INDEPENDENT REVIEW; T039+ UNAUTHORIZED
 - **Previous completed scope:** T037 — status/inventory, interruption injection, recovery,
   confirmed reset, and persistence-check command adapters
-- **Next valid action:** Claude Code corrects only T038-B01 and T038-B02 from persisted rework
-  authorization, reports the exact corrective tip and verification evidence, then stops for
-  independent Codex re-review
-- **Blocking issues:** T038-B01 — `apps/server/src/http.ts` maps every Fastify internal error log
-  through `operationalFailureDiagnostic("application")`, which hard-codes
-  `diagnosticScope=foundation`; the approved identity mapping requires Development application-log
-  failures to use `daily` and Verification application-log failures to use `verification`, with
-  `foundation` reserved for cross-target preflight. T038-B02 — the same error-log path emits a Pino
-  envelope containing `level`, `time`, `err`, and free-form `msg`, with the Safe Diagnostic nested
-  under `err`; FR-007 and the Operations Contract require each emitted failure on the application-log
-  surface to have exactly the closed Safe Diagnostic fields and prohibit additional properties and
-  free-form messages. The new test asserts the nested fragment and explicitly expects `msg`, so it
-  does not enforce the required whole-record shape.
+- **Next valid action:** Product Owner reviews and accepts or rejects the exact T038 corrective tip
+  and independent PASS record; do not authorize T039 before the Human Gate
+- **Blocking issues:** None for T038 review
+- **T038 final review evidence:** Exact corrective tip
+  `cb30554a51380676c9fa2c1bbe51f595e621098a` has persisted REWORK authorization
+  `ac50d02932c1d71e92b39cc98273d5faae8a09bc` as its sole parent; its corrective diff is limited to
+  `apps/server/src/http.ts`, `apps/server/src/bootstrap.ts`, and
+  `apps/server/src/bootstrap.test.ts`, with no T039+ implementation. T038-B01 is closed: the
+  application-error diagnostic receives the validated composition's derived `daily` or
+  `verification` scope, never the cross-target `foundation` scope. T038-B02 is closed: the bound
+  destination recognizes the module-owned closed error diagnostic and emits it as the complete
+  four-field application-log failure record with no Pino envelope, nested `err`, or free-form
+  message, while ordinary request/response records pass through unchanged. Development and
+  Verification whole-record tests cover both Fastify/Pino error call shapes, exact field sets,
+  derived scope, and exact/encoded sentinel nondisclosure. Independent syntax and TypeScript checks
+  pass; focused server/configuration/operations/diagnostic verification passes 210/210. Diff and
+  ancestry checks are clean. The previously established retry-fixture failure and unavailable
+  explicit real-engine environment remain non-blocking and untouched by this corrective scope.
 - **T038 review evidence:** Exact implementation tip
   `e2cc822e82dccb574799846e4f2fa459284242dd` has authorization commit
   `875c8650e98789084c46f2abaa9bd0cde7616d58` as its sole parent; its clean diff is limited to
@@ -328,21 +333,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T038 rework only — correct T038-B01 and T038-B02 on the Fastify internal
-  application-error log path. Ensure the emitted failure record itself has exactly the closed Safe
-  Diagnostic field set, with `diagnosticScope` derived from the composed Development (`daily`) or
-  Verification (`verification`) context. Update only the directly affected composition/logging code
-  and focused tests; T039+ remain unauthorized
-- **Runtime:** Claude Code (`claude-developer`)
-- **Required references:** Constitution; `spec.md` FR-007 and SC-004; `plan.md` §Configuration,
-  identity, and secrets; `data-model.md` §Safe Diagnostic; Operations Contract §Safe diagnostic
-  contract; `quickstart.md` §3; `tasks.md` T038; `CLAUDE.md`
-- **Expected verification:** add Development and Verification application-error log cases that parse
-  the complete emitted failure record and prove exact closed fields, no envelope/additional/free-form
-  fields, and the correct derived `daily`/`verification` scopes; retain exact and encoded sentinel
-  nondisclosure; rerun focused HTTP/server and diagnostic suites plus syntax, type, and diff checks;
-  confirm no regression to ordinary request logging and no T039+ or unrelated changes
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T038 passed independent review; T039+ remain unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE — see T038 final review evidence above
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
