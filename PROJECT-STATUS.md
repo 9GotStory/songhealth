@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T042 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T043 AUTHORIZED — IMPLEMENTATION HANDOFF
 
 ## Active Feature Mirror
 
@@ -29,12 +29,35 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED
-- **Phase status:** T042 ACCEPTED; T043+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T043 AUTHORIZED
+- **Phase status:** T042 ACCEPTED; T043 AUTHORIZED; T044+ UNAUTHORIZED
 - **Previous completed scope:** T042 — failing Verification HTTP boundary contract tests
-- **Next valid action:** NONE selected or authorized — stop after T042 Human acceptance; T043+
-  remain unauthorized
-- **Blocking issues:** None for T042 review
+- **Next valid action:** Claude implements only T043; Codex independently reviews the exact result
+- **Blocking issues:** None — T043 is incomplete and dependency-ready after accepted T040–T042
+- **T043 authorization:** Add failing Verification lifecycle/reporting contract tests only in
+  `tests/verification/lifecycle-recovery.test.ts`. Cover exact current-run cleanup after success or
+  failure; refusal of stale, colliding, ambiguous, mislabeled, or unexpectedly active/attached
+  pre-existing Verification resources; Verification-appropriate `retry`, `cleanup`, and
+  `manual-review` decisions; interrupted cleanup and unclosed-running-journal handling; atomic final
+  report emission only after cleanup and complete schema/nondisclosure validation; immutable first
+  failure with cleanup/reporting failures appended as secondary, while cleanup/reporting becomes
+  primary only when every earlier result passed. Required authority:
+  `.specify/memory/constitution.md`, `specs/001-application-foundation/spec.md` FR-017 and SC-003,
+  `specs/001-application-foundation/plan.md` §§Operations and verification,
+  `specs/001-application-foundation/data-model.md` §§Lifecycle Operation, Recovery Assessment, and
+  Verification Run, `specs/001-application-foundation/contracts/foundation-operations.md`
+  §§Operation-target ownership and isolation, Verification result contract, and Failure behavior,
+  `specs/001-application-foundation/quickstart.md` §6, and
+  `specs/001-application-foundation/tasks.md` T043. Scope is test authoring only and excludes T044+,
+  production changes, implementation in `scripts/foundation-operations.mjs`, release builds,
+  Containerfile, Compose/Nginx/application changes, new dependencies, Product behavior,
+  requirement/architecture changes, and weakening accepted US1 or T040–T042 contracts.
+  Verification must prove the focused T043 tests are deterministic and fail for the intended absent
+  Verification cleanup/reporting behavior rather than fixture/import/setup errors; run applicable
+  existing lifecycle/recovery and operation-target regressions plus syntax/type checks meaningful
+  for an intentionally red test task; confirm the diff is limited to the authorized test file; scan
+  exercised diagnostic/report surfaces for protected sentinel disclosure; and report exact
+  commands, expected-red versus passing results, changed files, and implementation SHA.
 - **T042 Product Owner acceptance:** Human Gate accepted corrective implementation tip
   `af52c80bca5ca3ba357f0ad4042601662b66701e` and independent PASS governance record
   `65cb946e8365e06b2b55799b4727f9afe6a56913`. The accepted PASS history descends linearly from
@@ -499,11 +522,18 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T042 Human Gate accepted; T043+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T042 final review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T043 — failing Verification cleanup, recovery-decision, interruption,
+  atomic-report, and immutable primary/secondary failure tests in
+  `tests/verification/lifecycle-recovery.test.ts` only
+- **Runtime:** Claude Code (`claude-developer`)
+- **Required references:** Constitution; feature spec FR-017 and SC-003; plan Operations and
+  verification; data model Lifecycle Operation, Recovery Assessment, and Verification Run;
+  operations contract ownership/isolation, Verification result, and Failure behavior; quickstart
+  §6; tasks.md T043
+- **Expected verification:** deterministic intended-red focused T043 behavior; applicable accepted
+  lifecycle/operation regressions; meaningful syntax/type checks; protected-sentinel nondisclosure;
+  one-file diff/scope evidence; exact commands/results/files/implementation SHA
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
