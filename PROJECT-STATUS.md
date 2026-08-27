@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T039 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T040 AUTHORIZED — IMPLEMENTATION HANDOFF
 
 ## Active Feature Mirror
 
@@ -29,13 +29,28 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS WITH NON-BLOCKING NOTES — HUMAN ACCEPTED
-- **Phase status:** T039 ACCEPTED; T040+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T040 implementation authorized
+- **Phase status:** T039 ACCEPTED; T040 AUTHORIZED; T041+ UNAUTHORIZED
 - **Previous completed scope:** T039 — independent US1 acceptance sequence and bounded in-scope
   corrections
-- **Next valid action:** NONE selected or authorized — stop after T039 Human acceptance; T040+
-  remain unauthorized
-- **Blocking issues:** None for T039 review
+- **Next valid action:** Claude Code implements only T040, then Codex independently reviews the
+  exact SHA-pinned result
+- **Blocking issues:** None for T040 authorization
+- **T040 authorization:** Write the failing Fastify-to-React-Router adapter contract tests in
+  `apps/web/server.test.ts` for GET and HEAD behavior, streaming, redirects, errors, aborts,
+  repeated headers, and response/security-header/logging ownership at the explicit handoff.
+  Required authority: `.specify/memory/constitution.md`,
+  `specs/001-application-foundation/spec.md` FR-009–FR-010 and SC-003,
+  `specs/001-application-foundation/plan.md` §Runtime composition,
+  `specs/001-application-foundation/tasks.md` T040, and the accepted T039 canonical base
+  `d1dea34f12ef88ba22511396dce1a8c30339ff7c`. Scope is test authoring only and excludes T041+,
+  implementation in `apps/web/server.ts`, build/Verification orchestration, proxy/Nginx/image or
+  manifest work, new dependencies, Product behavior, requirement/architecture changes, and
+  weakening accepted US1 contracts. Verification must prove the new focused tests are
+  deterministic and fail for the intended missing adapter behavior (not fixture/import/setup
+  errors), run applicable existing `apps/web` tests plus syntax/type checks that remain meaningful
+  for an intentionally red test task, confirm the diff is limited to the authorized test file, and
+  report exact commands, expected-red versus passing results, changed files, and implementation SHA.
 - **T039 Product Owner acceptance:** Human Gate accepted implementation tip
   `b4334f60293aa7d2f21c64d62e27282367b4a250` and independent PASS governance record
   `d39fde9b5d6c8d87d7ed5aa99b6cb065c850d56a`. The accepted PASS history descends linearly from
@@ -377,11 +392,17 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T039 passed independent review; T040+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T039 review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T040 only — failing Fastify-to-React-Router adapter contract tests in
+  `apps/web/server.test.ts`; T041+ and production implementation are unauthorized
+- **Runtime:** Claude Code via `claude-developer`; implementation must descend directly from the
+  persisted T040 authorization commit
+- **Required references:** Constitution; `spec.md` FR-009–FR-010 and SC-003; `plan.md` §Runtime
+  composition; `tasks.md` T040; canonical accepted base
+  `d1dea34f12ef88ba22511396dce1a8c30339ff7c`
+- **Expected verification:** focused deterministic expected-red adapter tests; applicable existing
+  `apps/web` regression tests; meaningful syntax/type checks; bounded diff and direct ancestry;
+  exact commands/results/files/implementation SHA in the handoff result
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
