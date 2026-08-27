@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T041 PASS — PRODUCT OWNER HUMAN GATE
+- **Status:** T041 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
 
 ## Active Feature Mirror
 
@@ -29,11 +29,18 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — T041 independently re-reviewed after Human reconciliation
-- **Phase status:** T040 ACCEPTED; T041 PASS awaiting Product Owner Human Gate; T042+ UNAUTHORIZED
+- **Current review result:** PASS — HUMAN ACCEPTED
+- **Phase status:** T041 ACCEPTED; T042+ UNAUTHORIZED
 - **Previous completed scope:** T041 — failing ordered Verification result-contract tests
-- **Next valid action:** Product Owner Human Gate for T041; do not authorize T042+
+- **Next valid action:** NONE selected or authorized — stop after T041 Human acceptance; T042+
+  remain unauthorized
 - **Blocking issues:** None for T041 review
+- **T041 Product Owner acceptance:** Human Gate accepted reconciled artifact
+  `d29a6d356e1f5c557ca4396cbf87b7aee0176361` and fresh independent PASS governance record
+  `d6ce73ce3b140ef101fa73ea21b8c01e9894f49e`. The reconciliation merge retains exact corrective
+  tip `d4a43d59bbec550f27b77231ca746c25d5d70278` as first parent and reviewed implementation
+  `8deb60238eea75944b017948ee65f8a1d2eff91f` as second parent while preserving the corrective tree
+  exactly. Authorized Implementation remains `NONE`; T042+ remain unauthorized.
 - **T041 reconciliation evidence:** Human-authorized non-rewriting reconciliation merge
   `d29a6d356e1f5c557ca4396cbf87b7aee0176361` has first parent exact corrective tip
   `d4a43d59bbec550f27b77231ca746c25d5d70278` and second parent reviewed implementation
@@ -452,7 +459,7 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T041 passed reconciled independent review; T042+ remain unauthorized
+- **Task / Scope:** NONE — T041 Human Gate accepted; T042+ remain unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE — see T041 reconciliation and final review evidence above
