@@ -1195,12 +1195,14 @@ describe("Closed SafeDiagnostic shape across every daily surface — T023 (tests
  *   - CLOSED SAFE-DIAGNOSTIC FAILURES WITHOUT DISCLOSURE (FR-007/FR-010/
  *     SC-004): every boundary failure is exactly one closed `verification`
  *     SafeDiagnostic on every exercised failure surface — the failed check
- *     result, the primary failure, and the command output surfaces — and the
- *     unique synthetic sentinels riding the boundary (the Verification
- *     database credential, the raw proxy-error and direct-refusal text, the
- *     internal application hostname, and every spoofed forwarded value the
- *     check itself injected) appear on no failure surface in exact or
- *     encoded form.
+ *     result, the primary failure, and all four command output surfaces,
+ *     each of which must carry the failure non-vacuously (non-empty, every
+ *     unit closed, every unit identifying the failed contract with its
+ *     allowlisted reason code) — and the unique synthetic sentinels riding
+ *     the boundary (the Verification database credential, the raw
+ *     proxy-error and direct-refusal text, the internal application
+ *     hostname, and every spoofed forwarded value the check itself
+ *     injected) appear on no failure surface in exact or encoded form.
  *
  * Surface modeling (the accepted T022-marker / T023-httpFailure precedent):
  * the Verification topology, the proxy, and the internal endpoints are owned
@@ -2076,7 +2078,7 @@ describe("Boundary contract violations — T042 (tests-first for T046/T047/T051)
 // ---------------------------------------------------------------------------
 
 describe("Closed safe-diagnostic failures and sentinel nondisclosure — T042 (tests-first for T052)", () => {
-  it("a boundary violation is reported on every exercised failure surface as closed verification diagnostics — the command surfaces identify the failed contract with its reason code", async () => {
+  it("a boundary violation is reported on every exercised failure surface as closed verification diagnostics — every output surface carries the failed contract's reason code", async () => {
     const harness = makeBoundaryHarness();
     harness.topology.hostPublications.push({
       service: "application",
@@ -2094,22 +2096,27 @@ describe("Closed safe-diagnostic failures and sentinel nondisclosure — T042 (t
       }
     }
     expectClosedDiagnostic(result.primaryFailure, "verification");
-    // Every unit on every command output surface is one closed verification
-    // diagnostic, and the command surfaces identify the failed contract
-    // with its reason code (FR-010).
+    // FR-010 on EVERY exercised failure surface, with no vacuous pass: each
+    // of the four command output surfaces — stdout and stderr AND the
+    // application-log and HTTP-failure surfaces — must actually carry the
+    // failure, must be non-empty, every emitted unit must be exactly one
+    // closed verification SafeDiagnostic, and every unit must identify the
+    // failed contract with its allowlisted reason code. An implementation
+    // that emits no Verification diagnostic to ANY owned surface — including
+    // one that emits to the command surfaces only — cannot pass (T042-B01).
     for (const surface of ALL_SURFACES) {
-      for (const unit of harness.outputState[surface]) {
-        expectClosedDiagnostic(unit, "verification");
-      }
-    }
-    for (const surface of ["stdout", "stderr"] as const) {
-      const units = harness.outputState[surface].map((unit) =>
-        expectClosedDiagnostic(unit, "verification"),
-      );
+      const units = harness.outputState[surface];
       expect(
-        units.some((record) => record.reasonCode === "ISOLATION_FAILED"),
-        `${surface} identifies the failed isolation contract`,
-      ).toBe(true);
+        units.length,
+        `${surface} carries the failure diagnostic`,
+      ).toBeGreaterThan(0);
+      for (const unit of units) {
+        const record = expectClosedDiagnostic(unit, "verification");
+        expect(
+          record.reasonCode,
+          `${surface} identifies the failed isolation contract`,
+        ).toBe("ISOLATION_FAILED");
+      }
     }
   });
 
