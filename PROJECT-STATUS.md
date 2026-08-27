@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T037 PASSED INDEPENDENT REVIEW — PRODUCT OWNER HUMAN GATE
+- **Status:** T037 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
 
 ## Active Feature Mirror
 
@@ -29,13 +29,18 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — T037-B01 closed; PRODUCT OWNER HUMAN GATE
-- **Phase status:** T037 PASSED INDEPENDENT REVIEW; T038+ UNAUTHORIZED
-- **Previous completed scope:** T036 — non-mutating migration status and explicit target-routed
-  migration apply command adapters
-- **Next valid action:** Product Owner Human Gate for T037; do not authorize T038 before explicit
-  human acceptance
+- **Current review result:** PASS — HUMAN ACCEPTED; T037-B01 closed
+- **Phase status:** T037 ACCEPTED; T038+ UNAUTHORIZED
+- **Previous completed scope:** T037 — status/inventory, interruption injection, recovery,
+  confirmed reset, and persistence-check command adapters
+- **Next valid action:** NONE selected or authorized — stop after T037 Human acceptance; T038+
+  remain unauthorized
 - **Blocking issues:** None for T037 review
+- **T037 Product Owner acceptance:** Human Gate accepted corrective implementation tip
+  `32c80051836f9cbaa3d96e77fdad167fd2107c57` and independent PASS governance record
+  `9b4f4e8467cbac72c478679dc2630ecf19dc341e`; T037-B01 is accepted as closed. The accepted PASS
+  history descends linearly from canonical T036 acceptance, so no reconciliation merge is required.
+  Authorized Implementation remains `NONE`; T038+ remain unauthorized.
 - **T037 final review evidence:** Exact corrective tip
   `32c80051836f9cbaa3d96e77fdad167fd2107c57` has persisted REWORK authorization
   `a8f7f8afe7d10ea3c06897a4f1b22545b8c463ae` as its sole parent; its corrective diff is limited to
