@@ -2836,9 +2836,13 @@ describe("Atomic final reporting — T043 (tests-first for T049)", () => {
     expect(result.exitCode).not.toBe(0);
     expect(harness.reportState.emitted).toEqual([]);
     expect(t043Checks(result).get("reporting")?.result).toBe("fail");
-    // The fallback is one closed unit on standard error — never a raw
-    // exception, stack, or partial report body.
-    const fallback = harness.outputState.stderr.at(-1) as SafeDiagnostic | undefined;
+    // The fallback is EXACTLY ONE closed unit on standard error — never a
+    // raw exception, stack, partial report body, or a duplicated diagnostic
+    // emitted once per surface or per retry (Operations Contract
+    // §Verification result contract "fallback standard error is itself one
+    // Safe Diagnostic").
+    expect(harness.outputState.stderr).toHaveLength(1);
+    const fallback = harness.outputState.stderr[0] as SafeDiagnostic | undefined;
     expect(fallback).toBeDefined();
     const keys = Object.keys(fallback!);
     for (const key of keys) {
@@ -2891,40 +2895,56 @@ describe("Atomic final reporting — T043 (tests-first for T049)", () => {
 });
 
 describe("Immutable primary failure and cleanup/reporting precedence — T043 (tests-first for T049)", () => {
+  /**
+   * The cleanup Check Result's OWN diagnostic — the exact value the
+   * precedence rules below must compare against. Derived from the run's own
+   * emitted ordered results, never re-authored by the test, so a primary or
+   * secondary that is merely "some verification-scoped failure" cannot
+   * satisfy the contract.
+   */
+  function exactCleanupDiagnostic(result: T043RunResult): SafeDiagnostic {
+    const diagnostic = t043Checks(result).get("cleanup")?.diagnostic;
+    expect(diagnostic).toBeDefined();
+    return diagnostic!;
+  }
+
   it("a main failure plus a cleanup failure keeps the main failure primary in the journal and appends the cleanup failure as a secondary diagnostic", async () => {
     const harness = makeVerificationLifecycleHarness();
-    harness.stepOutcomes.proxy = {
-      ok: false,
-      diagnostic: safeDiagnostic({
-        reasonCode: "SYNTHETIC_PROXY_FAILURE",
-        diagnosticScope: "verification",
-      }),
-    };
+    const mainFailure = safeDiagnostic({
+      reasonCode: "SYNTHETIC_PROXY_FAILURE",
+      diagnosticScope: "verification",
+    });
+    harness.stepOutcomes.proxy = { ok: false, diagnostic: mainFailure };
     harness.failState.removeExact = true;
 
     const result = await t043Run(harness);
 
     expect(result.exitCode).not.toBe(0);
+    expect(t043Checks(result).get("proxy")?.result).toBe("fail");
+    expect(t043Checks(result).get("cleanup")?.result).toBe("fail");
     // The main failure is primary — the later cleanup failure never
-    // displaces it.
-    expect(result.primaryFailure?.reasonCode).toBe("SYNTHETIC_PROXY_FAILURE");
+    // displaces it, and the primary IS the main check's own diagnostic.
+    expect(result.primaryFailure).toEqual(mainFailure);
     const records = harness.journalState.records.verification;
     expect(records.length).toBeGreaterThan(0);
     for (const record of records) {
       if (record.primaryFailure !== undefined) {
-        expect(record.primaryFailure.reasonCode).toBe("SYNTHETIC_PROXY_FAILURE");
+        expect(record.primaryFailure).toEqual(mainFailure);
       }
     }
-    // The cleanup failure is recorded as a SECONDARY diagnostic, append-only.
+    // The cleanup failure is recorded as a SECONDARY diagnostic, append-only,
+    // and that secondary IS the cleanup result's own diagnostic — not an
+    // unrelated or re-authored verification-scoped failure.
+    const cleanupDiagnostic = exactCleanupDiagnostic(result);
+    expect(cleanupDiagnostic).not.toEqual(mainFailure);
     const withSecondary = records.filter((r) => r.secondaryFailures.length > 0);
     expect(withSecondary.length).toBeGreaterThan(0);
-    expect(
-      withSecondary.some((r) =>
-        r.secondaryFailures.some((d) => d.diagnosticScope === "verification"),
-      ),
-    ).toBe(true);
-    expect(t043Checks(result).get("proxy")?.result).toBe("fail");
-    expect(t043Checks(result).get("cleanup")?.result).toBe("fail");
+    for (const record of withSecondary) {
+      expect(record.secondaryFailures).toContainEqual(cleanupDiagnostic);
+    }
+    // The main failure is never duplicated into the secondary list.
+    const allSecondary = withSecondary.flatMap((r) => r.secondaryFailures);
+    expect(allSecondary).not.toContainEqual(mainFailure);
   });
 
   it("when every main result passes but cleanup fails, cleanup becomes the primary failure", async () => {
@@ -2935,57 +2955,65 @@ describe("Immutable primary failure and cleanup/reporting precedence — T043 (t
 
     expect(result.exitCode).not.toBe(0);
     expect(t043Checks(result).get("cleanup")?.result).toBe("fail");
-    // With no earlier result failed, the cleanup failure is primary.
+    // With no earlier result failed, the cleanup failure is primary — and it
+    // is EXACTLY the cleanup Check Result's own diagnostic, not any other
+    // non-zero failure the run might surface.
     const earlier = (result.checks ?? []).filter(
       (check) => check.contract !== "cleanup" && check.contract !== "reporting",
     );
     expect(earlier.every((check) => check.result === "pass")).toBe(true);
-    expect(result.primaryFailure?.reasonCode).toBeTruthy();
-    const cleanupDiagnostic = t043Checks(result).get("cleanup")?.diagnostic;
-    expect(cleanupDiagnostic).toBeDefined();
+    const cleanupDiagnostic = exactCleanupDiagnostic(result);
+    expect(result.primaryFailure).toEqual(cleanupDiagnostic);
+    // The journal carries the same cleanup diagnostic as its primary.
+    const primaries = harness.journalState.records.verification
+      .map((record) => record.primaryFailure)
+      .filter((d): d is SafeDiagnostic => d !== undefined);
+    expect(primaries.length).toBeGreaterThan(0);
+    for (const primary of primaries) {
+      expect(primary).toEqual(cleanupDiagnostic);
+    }
   });
 
   it("a reporting failure after a passing run makes reporting primary; after a cleanup failure it stays secondary to it", async () => {
     const harness = makeVerificationLifecycleHarness();
-    harness.reportState.validation = {
-      ok: false,
-      diagnostic: safeDiagnostic({
-        reasonCode: "SYNTHETIC_REPORT_VALIDATION_FAILURE",
-        diagnosticScope: "verification",
-      }),
-    };
+    const reportingFailure = safeDiagnostic({
+      reasonCode: "SYNTHETIC_REPORT_VALIDATION_FAILURE",
+      diagnosticScope: "verification",
+    });
+    harness.reportState.validation = { ok: false, diagnostic: reportingFailure };
 
     const result = await t043Run(harness);
 
-    // Every earlier result passed, so reporting is primary.
+    // Every earlier result passed, so reporting is primary — exactly the
+    // reporting diagnostic.
     expect(result.exitCode).not.toBe(0);
     expect(t043Checks(result).get("reporting")?.result).toBe("fail");
-    expect(result.primaryFailure?.reasonCode).toBe("SYNTHETIC_REPORT_VALIDATION_FAILURE");
+    expect(result.primaryFailure).toEqual(reportingFailure);
 
     // The same reporting failure with an also-failing cleanup stays
     // SECONDARY to the cleanup failure: precedence follows the emitted
-    // order, not the severity.
+    // order, not the severity, and the primary is EXACTLY the cleanup
+    // Check Result's own diagnostic.
     const second = makeVerificationLifecycleHarness();
     second.failState.removeExact = true;
-    second.reportState.validation = clone(harness.reportState.validation);
+    second.reportState.validation = { ok: false, diagnostic: reportingFailure };
     const secondResult = await t043Run(second);
 
     expect(secondResult.exitCode).not.toBe(0);
-    expect(secondResult.primaryFailure?.reasonCode).not.toBe(
-      "SYNTHETIC_REPORT_VALIDATION_FAILURE",
-    );
     expect(t043Checks(secondResult).get("cleanup")?.result).toBe("fail");
+    expect(t043Checks(secondResult).get("reporting")?.result).toBe("fail");
+    const secondCleanupDiagnostic = exactCleanupDiagnostic(secondResult);
+    expect(secondResult.primaryFailure).toEqual(secondCleanupDiagnostic);
+    expect(secondResult.primaryFailure).not.toEqual(reportingFailure);
   });
 
   it("the journal's primary failure is immutable across every record the run writes — no later record overwrites or drops it", async () => {
     const harness = makeVerificationLifecycleHarness();
-    harness.stepOutcomes.migration = {
-      ok: false,
-      diagnostic: safeDiagnostic({
-        reasonCode: "SYNTHETIC_MIGRATION_FAILURE",
-        diagnosticScope: "verification",
-      }),
-    };
+    const firstFailure = safeDiagnostic({
+      reasonCode: "SYNTHETIC_MIGRATION_FAILURE",
+      diagnosticScope: "verification",
+    });
+    harness.stepOutcomes.migration = { ok: false, diagnostic: firstFailure };
     harness.failState.removeExact = true;
     harness.reportState.validation = {
       ok: false,
@@ -2998,15 +3026,24 @@ describe("Immutable primary failure and cleanup/reporting precedence — T043 (t
     const result = await t043Run(harness);
 
     expect(result.exitCode).not.toBe(0);
-    expect(result.primaryFailure?.reasonCode).toBe("SYNTHETIC_MIGRATION_FAILURE");
+    expect(result.primaryFailure).toEqual(firstFailure);
     const records = harness.journalState.records.verification;
     expect(records.length).toBeGreaterThan(1);
-    const primaries = records
-      .map((record) => record.primaryFailure?.reasonCode)
-      .filter((code): code is string => code !== undefined);
-    // Once recorded, the first failure is carried forward verbatim into
-    // every later record — never replaced, never dropped.
-    expect(primaries.length).toBeGreaterThan(0);
-    expect(new Set(primaries)).toEqual(new Set(["SYNTHETIC_MIGRATION_FAILURE"]));
+    // The FIRST complete Safe Diagnostic any record carries is the immutable
+    // primary. Every LATER primary-bearing record must carry that exact
+    // value — not just its reason code — so mutating or dropping
+    // diagnosticScope, component, configurationKey, or remediation fails.
+    const primaryBearing = records.filter((r) => r.primaryFailure !== undefined);
+    expect(primaryBearing.length).toBeGreaterThan(1);
+    const firstPrimary = primaryBearing[0].primaryFailure!;
+    expect(firstPrimary).toEqual(firstFailure);
+    for (const record of primaryBearing) {
+      expect(record.primaryFailure).toEqual(firstPrimary);
+    }
+    // Once a primary exists, no later record may drop it again.
+    const firstIndex = records.findIndex((r) => r.primaryFailure !== undefined);
+    for (let index = firstIndex + 1; index < records.length; index += 1) {
+      expect(records[index].primaryFailure).toBeDefined();
+    }
   });
 });
