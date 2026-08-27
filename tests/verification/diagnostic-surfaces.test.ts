@@ -82,7 +82,17 @@
  * T027/T028/T038 `scripts/foundation-operations.mjs` implementation boundary
  * does not exist yet. The failure is a module-resolution error for that one
  * intentionally absent module — not a syntax, discovery, dependency,
- * fixture, forced-failure, or real-tool error.
+ * fixture, forced-failure, or real-tool error. (Historical: that boundary was
+ * implemented and accepted as T027–T038; the rationale is retained unchanged
+ * for the accepted T023 cases above.)
+ *
+ * The T042 suite appended at the bottom of this file is a SEPARATE
+ * tests-first contract with its own scope, harness, and expected-red
+ * boundary — the absent Production-like Verification HTTP-boundary behavior
+ * of the NOW-EXISTING operations module (the planned T046/T047/T051/T052
+ * topology/proxy/route/diagnostic boundary behind the planned T049 entry
+ * point). It changes no accepted T023 case, harness, or assertion above; the
+ * two suites share only this file and the module under contract.
  */
 
 import { describe, expect, it } from "vitest";
@@ -94,6 +104,14 @@ import {
   type OperationResult,
   type FoundationOperationsCollaborators,
 } from "../../scripts/foundation-operations.mjs";
+// The T042 suite observes the SAME existing module through a NAMESPACE
+// import, exactly like the accepted T041 suite in its file: its expected-red
+// boundary is one missing behavior of an already-implemented module (the
+// planned T049 Verification run orchestration entry `verifyProductionLike`
+// and the T046/T047/T051/T052 boundary it drives), not an absent module. A
+// named import would turn that missing export into a file-wide import error
+// and redden the accepted T023 cases above with it.
+import * as FoundationOperationsModule from "../../scripts/foundation-operations.mjs";
 
 // ---------------------------------------------------------------------------
 // Synthetic, non-secret inputs. No real port, credential, connection string,
@@ -1121,5 +1139,1023 @@ describe("Closed SafeDiagnostic shape across every daily surface — T023 (tests
         expect(record.configurationKey).toBe("RUNTIME_PROFILE");
       }
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T042 — Production-like Verification HTTP boundary contract (tests-first for
+// T046/T047/T051/T052).
+// ---------------------------------------------------------------------------
+
+/**
+ * The T042 suite pins the HTTP-boundary behavior behind five of the twenty
+ * ordered FR-009 contract results — `isolation`, `proxy`, `public-route`,
+ * `admin-route`, and `server-route` — as the accepted T041 suite pins the
+ * orchestration-owned result contract over them (its header routes "the
+ * probe-level mechanics of each check (real Compose, Nginx, route, and
+ * rejection behavior)" to exactly here).
+ *
+ * References: FR-009–FR-011, SC-003–SC-004; plan.md §Runtime composition and
+ * §Operations and verification; research.md Decisions 6 and 8;
+ * contracts/foundation-operations.md §Safe diagnostic contract and
+ * §Operation-target ownership and isolation ("Verification publishes only
+ * Nginx; its application and database ports remain internal");
+ * contracts/foundation-http.openapi.yaml `/health/live` / `/health/ready`;
+ * data-model.md §Verification Run ("Public/Admin route reachability and proxy
+ * checks are Verification Check Results, not hidden inside readiness");
+ * quickstart.md §6; tasks.md T042; the accepted T017 meaningful-SSR and T018
+ * Admin-shell boundaries; the accepted T023 closed-diagnostic and sentinel
+ * helpers above; the accepted T041 Verification result contract.
+ *
+ * T042 proves, through the SAME `verify:production-like` entry point:
+ *   - NGINX-ONLY HOST EXPOSURE (FR-009 isolation): with only the proxy
+ *     published to the host and both internal endpoints refusing direct
+ *     connections, `isolation` passes; publishing the internal application
+ *     or database port to the host, or accepting a direct connection to
+ *     either internal endpoint, fails `isolation` with `ISOLATION_FAILED`.
+ *   - ONE-HOP FORWARDED-HEADER TRUST (FR-009/FR-010 proxy): a boundary that
+ *     honors the trusted proxy hop's forwarded metadata and rejects
+ *     client-supplied spoofed or multi-hop metadata passes `proxy`; a
+ *     spoofable boundary (client-supplied forwarded metadata honored) or an
+ *     opaque boundary (the trusted hop's metadata never reaching the
+ *     application) fails `proxy` with `PROXY_CONTRACT_FAILED`.
+ *   - PUBLIC `/` MEANINGFUL SSR HTML (FR-009/FR-016 public-route): the
+ *     accepted T017 meaningful-SSR definition — a semantic `<main>` region,
+ *     a heading, and recognizable Public/foundation copy in the SERVED body
+ *     through the proxy; a bare client-render shell or a safe operational
+ *     failure instead of SSR HTML fails `public-route` with
+ *     `ROUTE_UNREACHABLE`.
+ *   - ADMIN `/admin/` (FR-009 admin-route): the Admin HTML route reachable
+ *     through the proxy; its absence fails `admin-route` with
+ *     `ROUTE_UNREACHABLE`.
+ *   - SERVER LIVENESS/READINESS ROUTES (FR-009 server-route): both server
+ *     health routes reachable through the proxy with their documented JSON
+ *     operational responses; a failed liveness route or a not-ready
+ *     readiness route fails `server-route` with `ROUTE_UNREACHABLE`.
+ *   - CLOSED SAFE-DIAGNOSTIC FAILURES WITHOUT DISCLOSURE (FR-007/FR-010/
+ *     SC-004): every boundary failure is exactly one closed `verification`
+ *     SafeDiagnostic on every exercised failure surface — the failed check
+ *     result, the primary failure, and the command output surfaces — and the
+ *     unique synthetic sentinels riding the boundary (the Verification
+ *     database credential, the raw proxy-error and direct-refusal text, the
+ *     internal application hostname, and every spoofed forwarded value the
+ *     check itself injected) appear on no failure surface in exact or
+ *     encoded form.
+ *
+ * Surface modeling (the accepted T022-marker / T023-httpFailure precedent):
+ * the Verification topology, the proxy, and the internal endpoints are owned
+ * by the T046/T047/T051 adapters; the injected `verification.boundary` facet
+ * models them — one host-publication listing, one direct-connection attempt
+ * per internal endpoint, and one through-the-proxy request adapter that
+ * returns the observed response plus the request metadata the application
+ * derived under the live proxy-trust policy. The optional-facet rule is the
+ * accepted `journal`/`output`/`marker` rule: a collaborator set without the
+ * facet keeps the accepted T041 coarse-probe behavior, while a run driven
+ * WITH it must derive the five boundary contract results from these
+ * observations. A raw proxy-adapter rejection models the T052 raw-input
+ * side: consumed and mapped, never passed through to any surface.
+ *
+ * EXPECTED RED: the only reason the T042 cases fail is that the
+ * T049–T054 Production-like Verification behavior — the entry point and the
+ * topology/proxy/route boundary behind these five contract results — does
+ * not exist yet. Every case fails on the one clean missing-`export`
+ * assertion in `t042EntryPoint()` (the accepted T041 boundary precedent),
+ * never on an import, fixture, or setup error, and never in the accepted
+ * T023 cases above. No real Podman/Compose/Nginx is invoked, no listener is
+ * bound, no network request leaves the harness, and no machine state is
+ * depended on.
+ */
+
+/** Unique synthetic nondisclosure sentinels (SC-004), T042 series. */
+const S_VERIFY_DB_CREDENTIAL = "NDT042~verify!credential(77ce)";
+const S_RAW_PROXY_ERROR = "NDT042/proxy-raw e3a8=";
+const S_DIRECT_REFUSAL = "NDT042/direct-refusal 9d5f";
+const S_INTERNAL_APP_HOST = "NDT042/internal-app-host f0c2";
+
+/**
+ * The Verification operation target's configuration (the committed
+ * `.env.verification.example` shape): `development / verification /
+ * verification`, internal-only application host, `one-hop` proxy policy, and
+ * the unique database-credential sentinel that must never reach any surface.
+ */
+const SAFE_VERIFICATION_CONFIG = {
+  APP_ENVIRONMENT: "development",
+  RUNTIME_PROFILE: "verification",
+  APP_HOST: "songhealth-app",
+  APP_PORT: "3000",
+  PUBLIC_ORIGIN: "http://songhealth-verification.test",
+  DATABASE_URL: `mysql://songhealth_ver:${S_VERIFY_DB_CREDENTIAL}@songhealth-db:3306/songhealth_verification`,
+  DATABASE_POOL_MAX: "5",
+  PROXY_POLICY: "one-hop",
+  LOG_LEVEL: "info",
+  FIXTURE_PROVENANCE: "synthetic",
+} as const;
+
+/** The fixed non-parity statement (FR-011) — required contract content, not
+ * protected detail, so the sentinel scans exclude it explicitly. */
+const VERIFICATION_PARITY_STATEMENT =
+  "Production-like Verification validates bounded application contracts only; it does not establish exact parity with Bangmod/Plesk Production hosting.";
+
+/**
+ * Synthetic TEST-NET-1 (RFC 5737) addresses and hosts: documentation-safe,
+ * never a real or Production value.
+ */
+const SYNTHETIC_TRUSTED_CLIENT = "192.0.2.10";
+const SYNTHETIC_PROXY_PEER = "192.0.2.9";
+const SYNTHETIC_FORWARDED_PROTOCOL = "https";
+const SYNTHETIC_PUBLIC_HOST = "songhealth-verification.test";
+const SYNTHETIC_PROXY_HOST_PORT = 18443;
+
+/**
+ * The served Public `/` body of the healthy Verification runtime: meaningful
+ * SSR HTML under the accepted T017 definition — a semantic `<main>` region,
+ * a heading, and recognizable Public/foundation/readiness copy — not a bare
+ * client-render shell.
+ */
+const MEANINGFUL_SSR_HTML =
+  "<!DOCTYPE html><html><body><main><h1>Public Foundation readiness</h1>" +
+  "<p>Public foundation readiness boundary copy.</p></main></body></html>";
+
+/** The served Admin `/admin/` CSR shell of the healthy runtime. */
+const ADMIN_SHELL_HTML =
+  "<!DOCTYPE html><html><head><title>Songhealth Admin</title></head>" +
+  '<body><div id="root"></div></body></html>';
+
+/** The documented `/health/live` operational response body. */
+const LIVENESS_BODY = JSON.stringify({ status: "alive" });
+
+/** The documented `/health/ready` operational response body. */
+const READINESS_BODY = JSON.stringify({
+  status: "ready",
+  components: [
+    { name: "application", status: "ready" },
+    { name: "database", status: "ready" },
+  ],
+});
+
+/** One served response of a route behind the verification proxy. */
+interface BoundaryRouteResponse {
+  status: number;
+  contentType: string;
+  body: string;
+}
+
+/** The healthy Verification route table behind the proxy. */
+const HEALTHY_BOUNDARY_ROUTES: Record<string, BoundaryRouteResponse> = {
+  "/": { status: 200, contentType: "text/html", body: MEANINGFUL_SSR_HTML },
+  "/admin/": { status: 200, contentType: "text/html", body: ADMIN_SHELL_HTML },
+  "/health/live": {
+    status: 200,
+    contentType: "application/json",
+    body: LIVENESS_BODY,
+  },
+  "/health/ready": {
+    status: 200,
+    contentType: "application/json",
+    body: READINESS_BODY,
+  },
+};
+
+/** An internal Verification topology service. */
+type InternalService = "proxy" | "application" | "database";
+
+/** An internal endpoint the isolation contract protects. */
+type InternalEndpoint = "application" | "database";
+
+/** One host-published endpoint observed on the Verification topology. */
+interface HostPublication {
+  service: InternalService;
+  hostPort: number;
+}
+
+/** The outcome of one direct-connection attempt at an internal endpoint. */
+interface DirectConnectionOutcome {
+  endpoint: InternalEndpoint;
+  accepted: boolean;
+  /** Raw refusal detail (raw tool/socket text) — consumed, never surfaced. */
+  refusalDetail?: string;
+}
+
+/** One request the boundary check issues through the verification proxy. */
+interface BoundaryRequest {
+  method: "GET" | "HEAD";
+  path: string;
+  /** Client-supplied forwarded metadata attempting to spoof trust. */
+  forwardedFor?: string;
+}
+
+/**
+ * What one through-the-proxy request observed: the served response plus the
+ * request metadata the application derived under the live proxy-trust
+ * policy (the observable of Decision 6's scoped proxy trust).
+ */
+interface BoundaryObservation extends BoundaryRouteResponse {
+  derivedClientAddress: string;
+  derivedProtocol: string;
+  derivedHost: string;
+}
+
+/**
+ * The modeled Verification boundary state. `proxyPolicy` is the live
+ * trust behavior of the running topology: `one-hop` honors exactly the
+ * trusted proxy hop's appended metadata (the required Verification
+ * behavior), `client-controlled` honors client-supplied forwarded metadata
+ * wholesale (spoofable), and `opaque` never forwards the trusted hop's
+ * metadata to the application at all.
+ */
+interface BoundaryTopology {
+  hostPublications: HostPublication[];
+  directAccepts: Set<InternalEndpoint>;
+  proxyPolicy: "one-hop" | "client-controlled" | "opaque";
+  routes: Record<string, BoundaryRouteResponse>;
+  proxyError: Error | null;
+}
+
+/** The closed Safe Diagnostic logical shape, local to the T042 suite. */
+interface T042SafeDiagnostic {
+  reasonCode: string;
+  diagnosticScope: string;
+  component: string;
+  configurationKey?: string;
+  remediation: string;
+}
+
+/** One ordered Check Result (data-model.md §Verification Run). */
+interface T042CheckResult {
+  contract: string;
+  result: "pass" | "fail";
+  diagnostic?: T042SafeDiagnostic;
+  durationMs: number;
+}
+
+/** The `verify:production-like` result surface (the accepted T041 shape). */
+interface T042RunResult extends OperationResult {
+  runId?: string;
+  releaseRevision?: string;
+  startedAt?: number;
+  finishedAt?: number;
+  state?: string;
+  checks?: T042CheckResult[];
+  primaryFailure?: T042SafeDiagnostic;
+  parityStatement?: string;
+}
+
+/** The planned T049 entry point, observed exactly like the accepted T041. */
+type T042VerifyProductionLike = (collaborators: unknown) => Promise<T042RunResult>;
+
+/**
+ * Resolve the planned Verification run orchestration entry. The single
+ * intentional dependency on the not-yet-implemented boundary: until T049–
+ * T054 ship, EVERY T042 case fails on this one clean assertion — the absent
+ * Verification topology/proxy/route behavior itself — never on an import,
+ * fixture, or setup error, and never in the accepted T023 cases above.
+ */
+function t042EntryPoint(): T042VerifyProductionLike {
+  const candidate = (
+    FoundationOperationsModule as unknown as Record<string, unknown>
+  ).verifyProductionLike;
+  expect(typeof candidate).toBe("function");
+  return candidate as T042VerifyProductionLike;
+}
+
+/**
+ * Raw proxy-adapter failure text (the T052 raw-input side): sentinel text
+ * plus upstream/internal-host and proxy detail a failing adapter rejects
+ * with. Deterministic synthetic single-line output.
+ */
+function rawProxyError(): Error {
+  return new Error(
+    `nginx: [emerg] ${S_RAW_PROXY_ERROR} host not found in upstream "${S_INTERNAL_APP_HOST}:3000"`,
+  );
+}
+
+/**
+ * The T042 harness: the accepted T041 verification collaborator set (so a
+ * conforming run reaches the boundary contracts, disposes its runtime at
+ * cleanup, and emits at reporting) plus the T042 `verification.boundary`
+ * facet that models the Verification HTTP boundary, and the accepted
+ * optional `output` facet so the command surfaces are observable. The
+ * harness records every boundary consultation — publication listings,
+ * direct-connection attempts, and through-the-proxy requests — so a case
+ * can prove its contract result was derived from real boundary
+ * observations, never rubber-stamped.
+ */
+function makeBoundaryHarness() {
+  const events: string[] = [];
+  const outputState: OutputState = {
+    stdout: [],
+    stderr: [],
+    applicationLog: [],
+    httpFailure: [],
+  };
+  const verificationRuntime = {
+    up: false,
+    startCount: 0,
+    presentKeys: [] as string[],
+    reportEmitted: false,
+  };
+  const boundaryState = {
+    publicationListings: 0,
+    directAttempts: [] as InternalEndpoint[],
+    proxyRequests: [] as BoundaryRequest[],
+  };
+  const mutationState = {
+    removedExact: [] as string[],
+    forbiddenInvocations: [] as string[],
+  };
+  const topology: BoundaryTopology = {
+    hostPublications: [{ service: "proxy", hostPort: SYNTHETIC_PROXY_HOST_PORT }],
+    directAccepts: new Set<InternalEndpoint>(),
+    proxyPolicy: "one-hop",
+    routes: { ...HEALTHY_BOUNDARY_ROUTES },
+    proxyError: null,
+  };
+  let clockTime = 1_780_100_000_000;
+
+  const collaborators = {
+    preflight: {
+      node: async () => true,
+      npm: async () => true,
+      podman: async () => true,
+      compose: async () => true,
+      requiredFiles: async () => true,
+      safeConfig: async () => true,
+      portAvailable: async () => true,
+    },
+    database: {
+      start: async () => {
+        events.push("database:start");
+      },
+      stop: async () => {
+        events.push("database:stop");
+      },
+      isRunning: async () => false,
+      applyMigrations: async () => {
+        events.push("migrate:applied");
+      },
+      migrationStatus: async () => "current" as const,
+      deleteVolume: async () => {
+        events.push("database:deleteVolume");
+      },
+    },
+    processes: {
+      start: async (name: string) => {
+        events.push(`process:start:${name}`);
+      },
+      stop: async (name: string) => {
+        events.push(`process:stop:${name}`);
+      },
+      isRunning: async (name: string) => false,
+    },
+    readiness: {
+      probe: async () => ({ ready: true, components: {} }),
+    },
+    clock: {
+      now: () => clockTime,
+      advance: (ms: number) => {
+        clockTime += ms;
+      },
+    },
+    config: {
+      load: async () => {
+        events.push("config:load");
+        return { ...SAFE_VERIFICATION_CONFIG };
+      },
+    },
+    inventory: {
+      inspect: async (target: string) => {
+        events.push(`inventory:inspect:${target}`);
+        if (target === "verification") {
+          return verificationRuntime.presentKeys.map((key) => ({
+            logicalKey: key,
+          }));
+        }
+        return [];
+      },
+    },
+    assessment: {
+      evaluate: async (target: string) => {
+        events.push(`assessment:evaluate:${target}`);
+        return { reconstructibilityConfirmed: true, disposabilityConfirmed: true };
+      },
+    },
+    lock: {
+      acquire: async (target: string) => {
+        events.push(`lock:acquire:${target}`);
+        return true;
+      },
+      release: async (target: string) => {
+        events.push(`lock:release:${target}`);
+      },
+    },
+    confirmation: {
+      issue: async (target: string, action: string) => {
+        events.push(`confirmation:issue:${target}:${action}`);
+        return "synthetic-verification-token";
+      },
+      verify: async (target: string, action: string) => {
+        events.push(`confirmation:verify:${target}:${action}`);
+        return true;
+      },
+    },
+    mutation: {
+      removeExactResource: async (logicalKey: string) => {
+        mutationState.removedExact.push(logicalKey);
+        events.push(`mutation:removeExact:${logicalKey}`);
+        verificationRuntime.presentKeys = verificationRuntime.presentKeys.filter(
+          (key) => key !== logicalKey,
+        );
+      },
+      removeByPrefix: async (prefix: string) => {
+        mutationState.forbiddenInvocations.push(`removeByPrefix:${prefix}`);
+      },
+      removeByWildcard: async (pattern: string) => {
+        mutationState.forbiddenInvocations.push(`removeByWildcard:${pattern}`);
+      },
+      removeByLabelFilter: async (label: string) => {
+        mutationState.forbiddenInvocations.push(`removeByLabelFilter:${label}`);
+      },
+      downWithRemoveOrphans: async () => {
+        mutationState.forbiddenInvocations.push("downWithRemoveOrphans");
+      },
+      downWithVolumes: async () => {
+        mutationState.forbiddenInvocations.push("downWithVolumes");
+      },
+      prune: async () => {
+        mutationState.forbiddenInvocations.push("prune");
+      },
+      forceRemove: async () => {
+        mutationState.forbiddenInvocations.push("forceRemove");
+      },
+      removeBroadVolumes: async () => {
+        mutationState.forbiddenInvocations.push("removeBroadVolumes");
+      },
+      removeWithUnresolvedVariables: async () => {
+        mutationState.forbiddenInvocations.push("removeWithUnresolvedVariables");
+      },
+    },
+    journal: {
+      readLatest: async (target: string) => {
+        events.push(`journal:read:${target}`);
+        return null;
+      },
+      write: async (target: string, record: { state: string }) => {
+        events.push(`journal:write:${target}:${record.state}`);
+      },
+    },
+    marker: {
+      write: async () => {
+        events.push("marker:write");
+      },
+      read: async () => null,
+    },
+    output: {
+      stdout: async (unit: unknown): Promise<void> => {
+        outputState.stdout.push(unit);
+      },
+      stderr: async (unit: unknown): Promise<void> => {
+        outputState.stderr.push(unit);
+      },
+      applicationLog: async (record: unknown): Promise<void> => {
+        outputState.applicationLog.push(record);
+      },
+      httpFailure: async (response: unknown): Promise<void> => {
+        outputState.httpFailure.push(response);
+      },
+    },
+    // The T041 facet (coarse per-contract probe) plus the T042 boundary
+    // facet the five HTTP-boundary contract results must be derived from.
+    verification: {
+      runCheck: async (contract: string) => {
+        events.push(`verification:check:${contract}`);
+        clockTime += 1_000;
+        if (contract === "startup") {
+          verificationRuntime.up = true;
+          verificationRuntime.startCount += 1;
+          verificationRuntime.presentKeys = ["verification.nginx", "verification.network"];
+        }
+        if (contract === "cleanup" && verificationRuntime.up) {
+          for (const key of [...verificationRuntime.presentKeys]) {
+            await collaborators.mutation.removeExactResource(key);
+          }
+          verificationRuntime.up = false;
+        }
+        if (contract === "reporting") {
+          verificationRuntime.reportEmitted = true;
+        }
+        return contract === "build"
+          ? { ok: true, revision: "t042-synthetic-release-candidate" }
+          : { ok: true };
+      },
+      boundary: {
+        hostPublications: async (): Promise<HostPublication[]> => {
+          boundaryState.publicationListings += 1;
+          events.push("boundary:publications");
+          return topology.hostPublications.map((publication) => ({ ...publication }));
+        },
+        connectDirect: async (
+          endpoint: InternalEndpoint,
+        ): Promise<DirectConnectionOutcome> => {
+          boundaryState.directAttempts.push(endpoint);
+          events.push(`boundary:direct:${endpoint}`);
+          if (topology.directAccepts.has(endpoint)) {
+            return { endpoint, accepted: true };
+          }
+          return {
+            endpoint,
+            accepted: false,
+            refusalDetail: `${S_DIRECT_REFUSAL}: connection refused (internal ${endpoint} endpoint)`,
+          };
+        },
+        proxyRequest: async (
+          request: BoundaryRequest,
+        ): Promise<BoundaryObservation> => {
+          boundaryState.proxyRequests.push({ ...request });
+          events.push(`boundary:proxy:${request.method}:${request.path}`);
+          if (topology.proxyError) throw topology.proxyError;
+          const route =
+            topology.routes[request.path] ??
+            ({ status: 404, contentType: "text/html", body: "" } as BoundaryRouteResponse);
+          const clientEntries =
+            typeof request.forwardedFor === "string"
+              ? request.forwardedFor
+                  .split(",")
+                  .map((entry) => entry.trim())
+                  .filter((entry) => entry.length > 0)
+              : [];
+          let derivedClientAddress: string;
+          let derivedProtocol: string;
+          let derivedHost: string;
+          if (topology.proxyPolicy === "client-controlled") {
+            // The application honors client-supplied forwarded metadata
+            // wholesale: the first (attacker-controlled) entry wins.
+            derivedClientAddress =
+              clientEntries.length > 0 ? clientEntries[0] : SYNTHETIC_TRUSTED_CLIENT;
+            derivedProtocol = SYNTHETIC_FORWARDED_PROTOCOL;
+            derivedHost = SYNTHETIC_PUBLIC_HOST;
+          } else if (topology.proxyPolicy === "opaque") {
+            // The trusted hop's forwarded metadata never reaches the
+            // application: it derives only internal peer values.
+            derivedClientAddress = SYNTHETIC_PROXY_PEER;
+            derivedProtocol = "http";
+            derivedHost = S_INTERNAL_APP_HOST;
+          } else {
+            // Exactly one trusted hop: the entry the proxy appended is the
+            // derived client; client-supplied entries are not trusted.
+            derivedClientAddress = SYNTHETIC_TRUSTED_CLIENT;
+            derivedProtocol = SYNTHETIC_FORWARDED_PROTOCOL;
+            derivedHost = SYNTHETIC_PUBLIC_HOST;
+          }
+          return {
+            status: route.status,
+            contentType: route.contentType,
+            body: request.method === "HEAD" ? "" : route.body,
+            derivedClientAddress,
+            derivedProtocol,
+            derivedHost,
+          };
+        },
+      },
+    },
+  };
+
+  return {
+    collaborators,
+    events,
+    outputState,
+    verificationRuntime,
+    boundaryState,
+    mutationState,
+    topology,
+  };
+}
+
+type BoundaryHarness = ReturnType<typeof makeBoundaryHarness>;
+
+/** Run the planned Verification operation through the boundary harness. */
+async function runT042Verification(
+  harness: BoundaryHarness,
+): Promise<T042RunResult> {
+  return t042EntryPoint()(harness.collaborators);
+}
+
+/** One run's checks keyed by contract name. */
+function t042ChecksByContract(
+  result: T042RunResult,
+): Map<string, T042CheckResult> {
+  return new Map((result.checks ?? []).map((check) => [check.contract, check]));
+}
+
+/**
+ * Prove the named boundary violations fail EXACTLY their own contracts, each
+ * with its documented reason code in one closed `verification` SafeDiagnostic,
+ * with the first failed result in emitted order as the run's immutable
+ * primary failure, and that no other contract failed independently — any
+ * other failure may only be an explicit prerequisite block, never an
+ * unrelated or fixture-shaped failure.
+ */
+function expectBoundaryFailures(
+  result: T042RunResult,
+  expected: ReadonlyArray<{ contract: string; reasonCode: string }>,
+): void {
+  expect(result.exitCode).not.toBe(0);
+  const byContract = t042ChecksByContract(result);
+  for (const { contract, reasonCode } of expected) {
+    const check = byContract.get(contract);
+    expect(check, `the ${contract} contract result exists`).toBeDefined();
+    expect(check!.result).toBe("fail");
+    const record = expectClosedDiagnostic(check!.diagnostic, "verification");
+    expect(record.reasonCode).toBe(reasonCode);
+  }
+  const firstFailure = (result.checks ?? []).find(
+    (check) => check.result === "fail",
+  );
+  expect(result.primaryFailure).toEqual(firstFailure?.diagnostic);
+  const independent = new Set(expected.map((entry) => entry.contract));
+  for (const other of result.checks ?? []) {
+    if (independent.has(other.contract) || other.result !== "fail") continue;
+    expect(
+      other.diagnostic?.reasonCode,
+      `${other.contract} may fail only as an explicit prerequisite block`,
+    ).toBe("PREREQUISITE_FAILED");
+  }
+}
+
+/**
+ * Every unit on every failure surface of a failing boundary run — the failed
+ * check diagnostics, the primary failure, and the four command output
+ * surfaces — with the fixed FR-011 parity statement excluded as required
+ * contract content, then scanned for the sentinels (exact and encoded) and
+ * the forbidden detail markers.
+ */
+function expectBoundaryRunSanitized(
+  result: T042RunResult,
+  harness: BoundaryHarness,
+  sentinels: readonly string[],
+): void {
+  const units: unknown[] = [];
+  for (const check of result.checks ?? []) {
+    if (check.result === "fail") units.push(check.diagnostic);
+  }
+  if (result.primaryFailure !== undefined) units.push(result.primaryFailure);
+  units.push(
+    ...harness.outputState.stdout,
+    ...harness.outputState.stderr,
+    ...harness.outputState.applicationLog,
+    ...harness.outputState.httpFailure,
+  );
+  let text = surfaceText(units);
+  text = text.split(VERIFICATION_PARITY_STATEMENT).join("");
+  for (const sentinel of sentinels) {
+    for (const form of encodedForms(sentinel)) {
+      expect(
+        text.includes(form),
+        `sentinel form leaked onto a failure surface: ${form}`,
+      ).toBe(false);
+    }
+  }
+  const lowered = text.toLowerCase();
+  for (const marker of FORBIDDEN_DETAIL_MARKERS) {
+    expect(
+      lowered.includes(marker),
+      `forbidden detail leaked onto a failure surface: ${marker}`,
+    ).toBe(false);
+  }
+}
+
+/** Every spoofed forwarded value the run's own checks injected. */
+function recordedSpoofValues(harness: BoundaryHarness): string[] {
+  return harness.boundaryState.proxyRequests.flatMap((request) =>
+    typeof request.forwardedFor === "string" && request.forwardedFor.length > 0
+      ? [request.forwardedFor]
+      : [],
+  );
+}
+
+/** The sentinels riding every T042 boundary run by default. */
+const BOUNDARY_RUN_SENTINELS = [S_VERIFY_DB_CREDENTIAL, S_DIRECT_REFUSAL];
+
+/**
+ * The boundary violation matrix as flat cases: each case injects exactly one
+ * documented violation into the modeled topology and expects exactly its own
+ * contract to fail with its documented reason code.
+ */
+interface BoundaryViolationCase {
+  label: string;
+  contract: string;
+  reasonCode: string;
+  apply: (harness: BoundaryHarness) => void;
+  sentinels?: readonly string[];
+}
+
+const BOUNDARY_VIOLATION_CASES: BoundaryViolationCase[] = [
+  {
+    label: "the internal application port is published to the host",
+    contract: "isolation",
+    reasonCode: "ISOLATION_FAILED",
+    apply: (harness) => {
+      harness.topology.hostPublications.push({
+        service: "application",
+        hostPort: 13000,
+      });
+    },
+  },
+  {
+    label: "the internal database port is published to the host",
+    contract: "isolation",
+    reasonCode: "ISOLATION_FAILED",
+    apply: (harness) => {
+      harness.topology.hostPublications.push({
+        service: "database",
+        hostPort: 13306,
+      });
+    },
+  },
+  {
+    label: "a direct connection to the internal application endpoint is accepted",
+    contract: "isolation",
+    reasonCode: "ISOLATION_FAILED",
+    apply: (harness) => {
+      harness.topology.directAccepts.add("application");
+    },
+  },
+  {
+    label: "a direct connection to the internal database endpoint is accepted",
+    contract: "isolation",
+    reasonCode: "ISOLATION_FAILED",
+    apply: (harness) => {
+      harness.topology.directAccepts.add("database");
+    },
+  },
+  {
+    label: "client-supplied spoofed forwarded metadata is honored by the runtime",
+    contract: "proxy",
+    reasonCode: "PROXY_CONTRACT_FAILED",
+    apply: (harness) => {
+      harness.topology.proxyPolicy = "client-controlled";
+    },
+  },
+  {
+    label: "the trusted proxy hop's forwarded metadata never reaches the application",
+    contract: "proxy",
+    reasonCode: "PROXY_CONTRACT_FAILED",
+    apply: (harness) => {
+      harness.topology.proxyPolicy = "opaque";
+    },
+    sentinels: [S_INTERNAL_APP_HOST],
+  },
+  {
+    label: "Public `/` serves a bare client-render shell with no server-rendered content",
+    contract: "public-route",
+    reasonCode: "ROUTE_UNREACHABLE",
+    apply: (harness) => {
+      harness.topology.routes["/"] = {
+        status: 200,
+        contentType: "text/html",
+        body: '<!DOCTYPE html><html><body><div id="root"></div></body></html>',
+      };
+    },
+  },
+  {
+    label: "Public `/` returns the safe operational failure instead of SSR HTML",
+    contract: "public-route",
+    reasonCode: "ROUTE_UNREACHABLE",
+    apply: (harness) => {
+      harness.topology.routes["/"] = {
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({
+          reasonCode: "OPERATIONAL_FAILURE",
+          diagnosticScope: "verification",
+          component: "public",
+          remediation: "CHECK_PREREQUISITES",
+        }),
+      };
+    },
+  },
+  {
+    label: "Admin `/admin/` is absent behind the proxy",
+    contract: "admin-route",
+    reasonCode: "ROUTE_UNREACHABLE",
+    apply: (harness) => {
+      harness.topology.routes["/admin/"] = {
+        status: 404,
+        contentType: "text/html",
+        body: "",
+      };
+    },
+  },
+  {
+    label: "the server liveness route fails behind the proxy",
+    contract: "server-route",
+    reasonCode: "ROUTE_UNREACHABLE",
+    apply: (harness) => {
+      harness.topology.routes["/health/live"] = {
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({
+          reasonCode: "OPERATIONAL_FAILURE",
+          diagnosticScope: "verification",
+          component: "application",
+          remediation: "CHECK_PREREQUISITES",
+        }),
+      };
+    },
+  },
+  {
+    label: "the server readiness route reports not-ready behind the proxy",
+    contract: "server-route",
+    reasonCode: "ROUTE_UNREACHABLE",
+    apply: (harness) => {
+      harness.topology.routes["/health/ready"] = {
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "not-ready",
+          components: [{ name: "database", status: "not-ready" }],
+        }),
+      };
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Verification HTTP boundary entry — the T042 expected-red boundary.
+// ---------------------------------------------------------------------------
+
+describe("Verification HTTP boundary entry — T042 (tests-first for T046/T047/T049–T052)", () => {
+  it("exports the planned Verification run orchestration entry `verifyProductionLike` as a function", () => {
+    expect(typeof t042EntryPoint()).toBe("function");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Clean boundary — Nginx-only exposure, refused direct ports, one-hop trust,
+// and reachable Public/Admin/server routes (FR-009; Decision 6/8).
+// ---------------------------------------------------------------------------
+
+describe("Clean Verification HTTP boundary — T042 (tests-first for T046/T047/T051)", () => {
+  it("with only the proxy published, both internal endpoints refusing direct connections, one-hop forwarded trust, and every route healthy, the five boundary contracts pass — derived from real boundary observations", async () => {
+    const harness = makeBoundaryHarness();
+
+    const result = await runT042Verification(harness);
+
+    // The whole run passes, including the five boundary contracts.
+    expect(result.exitCode).toBe(0);
+    expect(result.primaryFailure).toBeUndefined();
+    for (const check of result.checks ?? []) {
+      expect(check.result, `${check.contract} passes`).toBe("pass");
+    }
+    // The isolation result was derived from a real publication listing and
+    // real direct-connection attempts at BOTH internal endpoints — never
+    // rubber-stamped.
+    expect(harness.boundaryState.publicationListings).toBeGreaterThan(0);
+    expect(new Set(harness.boundaryState.directAttempts)).toEqual(
+      new Set(["application", "database"] as InternalEndpoint[]),
+    );
+    // The route results were derived from real through-the-proxy requests
+    // at every documented boundary route.
+    const paths = harness.boundaryState.proxyRequests.map(
+      (request) => request.path,
+    );
+    expect(paths).toContain("/");
+    expect(paths).toContain("/admin/");
+    expect(paths).toContain("/health/live");
+    expect(paths).toContain("/health/ready");
+    // The proxy result really probed forwarded-header trust: at least one
+    // request carried client-supplied forwarded metadata attempting to
+    // spoof it, and under the required one-hop policy the application
+    // derived the trusted hop's values, not the spoofed ones.
+    const spoofed = harness.boundaryState.proxyRequests.filter(
+      (request) =>
+        typeof request.forwardedFor === "string" && request.forwardedFor.length > 0,
+    );
+    expect(spoofed.length).toBeGreaterThan(0);
+    // The healthy run surfaces no failure diagnostic and no sentinel.
+    expectBoundaryRunSanitized(result, harness, [
+      ...BOUNDARY_RUN_SENTINELS,
+      ...recordedSpoofValues(harness),
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Boundary violations — each documented violation fails exactly its own
+// contract (FR-009/FR-010; Operations Contract §Verification result
+// contract).
+// ---------------------------------------------------------------------------
+
+describe("Boundary contract violations — T042 (tests-first for T046/T047/T051)", () => {
+  it.each(BOUNDARY_VIOLATION_CASES)(
+    "$label fails exactly the $contract contract with $reasonCode",
+    async (caseData) => {
+      const harness = makeBoundaryHarness();
+      caseData.apply(harness);
+
+      const result = await runT042Verification(harness);
+
+      expectBoundaryFailures(result, [
+        { contract: caseData.contract, reasonCode: caseData.reasonCode },
+      ]);
+      // No sentinel riding the boundary — the verification credential, the
+      // raw direct-refusal detail, any case-specific value, and every
+      // spoofed forwarded value the run itself injected — reaches any
+      // failure surface in any form.
+      expectBoundaryRunSanitized(result, harness, [
+        ...BOUNDARY_RUN_SENTINELS,
+        ...(caseData.sentinels ?? []),
+        ...recordedSpoofValues(harness),
+      ]);
+    },
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Closed safe-diagnostic failures and raw-adapter nondisclosure — FR-007/
+// FR-010/SC-004 (tests-first for T052).
+// ---------------------------------------------------------------------------
+
+describe("Closed safe-diagnostic failures and sentinel nondisclosure — T042 (tests-first for T052)", () => {
+  it("a boundary violation is reported on every exercised failure surface as closed verification diagnostics — the command surfaces identify the failed contract with its reason code", async () => {
+    const harness = makeBoundaryHarness();
+    harness.topology.hostPublications.push({
+      service: "application",
+      hostPort: 13000,
+    });
+
+    const result = await runT042Verification(harness);
+
+    expect(result.exitCode).not.toBe(0);
+    // Every failed check diagnostic and the primary failure are exactly the
+    // closed shape scoped to the Verification run.
+    for (const check of result.checks ?? []) {
+      if (check.result === "fail") {
+        expectClosedDiagnostic(check.diagnostic, "verification");
+      }
+    }
+    expectClosedDiagnostic(result.primaryFailure, "verification");
+    // Every unit on every command output surface is one closed verification
+    // diagnostic, and the command surfaces identify the failed contract
+    // with its reason code (FR-010).
+    for (const surface of ALL_SURFACES) {
+      for (const unit of harness.outputState[surface]) {
+        expectClosedDiagnostic(unit, "verification");
+      }
+    }
+    for (const surface of ["stdout", "stderr"] as const) {
+      const units = harness.outputState[surface].map((unit) =>
+        expectClosedDiagnostic(unit, "verification"),
+      );
+      expect(
+        units.some((record) => record.reasonCode === "ISOLATION_FAILED"),
+        `${surface} identifies the failed isolation contract`,
+      ).toBe(true);
+    }
+  });
+
+  it("a proxy adapter that rejects with raw proxy error text fails the proxy-dependent boundary contracts with closed diagnostics — the raw error, upstream, and internal host detail never appear", async () => {
+    const harness = makeBoundaryHarness();
+    harness.topology.proxyError = rawProxyError();
+
+    const result = await runT042Verification(harness);
+
+    // Every contract that needs a through-the-proxy request fails
+    // independently with its documented reason code in the closed shape;
+    // the proxy failure is first in the emitted order, so it is primary.
+    expectBoundaryFailures(result, [
+      { contract: "proxy", reasonCode: "PROXY_CONTRACT_FAILED" },
+      { contract: "public-route", reasonCode: "ROUTE_UNREACHABLE" },
+      { contract: "admin-route", reasonCode: "ROUTE_UNREACHABLE" },
+      { contract: "server-route", reasonCode: "ROUTE_UNREACHABLE" },
+    ]);
+    // The raw proxy error text and the internal upstream host appear on no
+    // failure surface in exact or encoded form.
+    expectBoundaryRunSanitized(result, harness, [
+      ...BOUNDARY_RUN_SENTINELS,
+      S_RAW_PROXY_ERROR,
+      S_INTERNAL_APP_HOST,
+      ...recordedSpoofValues(harness),
+    ]);
+  });
+
+  it("the internal endpoints' raw refusal detail and the Verification database credential never appear on any failure surface in exact or encoded form", async () => {
+    const harness = makeBoundaryHarness();
+    harness.topology.proxyPolicy = "client-controlled";
+
+    const result = await runT042Verification(harness);
+
+    expectBoundaryFailures(result, [
+      { contract: "proxy", reasonCode: "PROXY_CONTRACT_FAILED" },
+    ]);
+    expectBoundaryRunSanitized(result, harness, [
+      ...BOUNDARY_RUN_SENTINELS,
+      ...recordedSpoofValues(harness),
+    ]);
+    // The direct-refusal sentinel rode every refused direct-connection
+    // observation and the credential rode the loaded configuration; both
+    // were consumed by the run — the attempts and the configuration load
+    // really happened — yet neither value reached a surface.
+    expect(harness.boundaryState.directAttempts.length).toBeGreaterThan(0);
+    expect(harness.events).toContain("config:load");
   });
 });
