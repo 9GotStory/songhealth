@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T038 AUTHORIZED — IMPLEMENTATION HANDOFF
+- **Status:** T038 CHANGES REQUIRED — REWORK HANDOFF
 
 ## Active Feature Mirror
 
@@ -29,14 +29,33 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** NOT YET REVIEWED — T038 authorized at canonical base
-  `d707ec10661e5771cc7cf37576f6e13e0ed3a23c`
-- **Phase status:** T038 AUTHORIZED; T039+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T038-B01 and T038-B02
+- **Phase status:** T038 REWORK AUTHORIZED; T039+ UNAUTHORIZED
 - **Previous completed scope:** T037 — status/inventory, interruption injection, recovery,
   confirmed reset, and persistence-check command adapters
-- **Next valid action:** Claude Code implements only T038, reports the exact implementation tip and
-  verification evidence, then stops for independent Codex review
-- **Blocking issues:** None — T037 is human-accepted and T038 is dependency-ready
+- **Next valid action:** Claude Code corrects only T038-B01 and T038-B02 from persisted rework
+  authorization, reports the exact corrective tip and verification evidence, then stops for
+  independent Codex re-review
+- **Blocking issues:** T038-B01 — `apps/server/src/http.ts` maps every Fastify internal error log
+  through `operationalFailureDiagnostic("application")`, which hard-codes
+  `diagnosticScope=foundation`; the approved identity mapping requires Development application-log
+  failures to use `daily` and Verification application-log failures to use `verification`, with
+  `foundation` reserved for cross-target preflight. T038-B02 — the same error-log path emits a Pino
+  envelope containing `level`, `time`, `err`, and free-form `msg`, with the Safe Diagnostic nested
+  under `err`; FR-007 and the Operations Contract require each emitted failure on the application-log
+  surface to have exactly the closed Safe Diagnostic fields and prohibit additional properties and
+  free-form messages. The new test asserts the nested fragment and explicitly expects `msg`, so it
+  does not enforce the required whole-record shape.
+- **T038 review evidence:** Exact implementation tip
+  `e2cc822e82dccb574799846e4f2fa459284242dd` has authorization commit
+  `875c8650e98789084c46f2abaa9bd0cde7616d58` as its sole parent; its clean diff is limited to
+  `apps/server/src/http.ts`, `scripts/foundation-operations.mjs`,
+  `apps/server/src/bootstrap.test.ts`, and `tests/verification/diagnostic-mapping.test.ts`, with no
+  T039+ implementation. Syntax and TypeScript pass; the focused server/configuration/operations/
+  diagnostic verification passes 209/209. Raw exception, stack, credential, connection-string,
+  path, and child-process details are suppressed in the exercised cases. Static and test inspection
+  identifies T038-B01 and T038-B02 on the Fastify application-error log path; command-boundary and
+  spawned-process mappings have no blocking finding in this round.
 - **T038 authorization:** Map application, orchestration, Podman, Compose, and database failures to
   the already specified closed Safe Diagnostic contract in `apps/server/src/http.ts` and
   `scripts/foundation-operations.mjs`. Required authority: `.specify/memory/constitution.md`,
@@ -309,18 +328,21 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T038 only — map application, orchestration, Podman, Compose, and database
-  failures to the closed Safe Diagnostic contract in `apps/server/src/http.ts` and
-  `scripts/foundation-operations.mjs`; T039+ remain unauthorized
+- **Task / Scope:** T038 rework only — correct T038-B01 and T038-B02 on the Fastify internal
+  application-error log path. Ensure the emitted failure record itself has exactly the closed Safe
+  Diagnostic field set, with `diagnosticScope` derived from the composed Development (`daily`) or
+  Verification (`verification`) context. Update only the directly affected composition/logging code
+  and focused tests; T039+ remain unauthorized
 - **Runtime:** Claude Code (`claude-developer`)
 - **Required references:** Constitution; `spec.md` FR-007 and SC-004; `plan.md` §Configuration,
   identity, and secrets; `data-model.md` §Safe Diagnostic; Operations Contract §Safe diagnostic
   contract; `quickstart.md` §3; `tasks.md` T038; `CLAUDE.md`
-- **Expected verification:** focused diagnostic-surface, HTTP/server, foundation-operation, and
-  relevant configuration tests; exact closed-schema/allowlist and additional-field rejection;
-  exact and encoded sentinel nondisclosure across named surfaces; non-zero/pre-readiness failure
-  probes; syntax, type, and diff checks; confirm no T039+ behavior or out-of-scope changes
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Expected verification:** add Development and Verification application-error log cases that parse
+  the complete emitted failure record and prove exact closed fields, no envelope/additional/free-form
+  fields, and the correct derived `daily`/`verification` scopes; retain exact and encoded sentinel
+  nondisclosure; rerun focused HTTP/server and diagnostic suites plus syntax, type, and diff checks;
+  confirm no regression to ordinary request logging and no T039+ or unrelated changes
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
