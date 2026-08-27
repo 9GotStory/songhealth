@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T040 CHANGES REQUIRED — REWORK HANDOFF
+- **Status:** T040 PASS — PRODUCT OWNER HUMAN GATE
 
 ## Active Feature Mirror
 
@@ -29,26 +29,25 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T040-B01–T040-B02
-- **Phase status:** T039 ACCEPTED; T040 REWORK AUTHORIZED; T041+ UNAUTHORIZED
+- **Current review result:** PASS — T040 independently reviewed
+- **Phase status:** T039 ACCEPTED; T040 PASS awaiting Product Owner Human Gate; T041+ UNAUTHORIZED
 - **Previous completed scope:** T039 — independent US1 acceptance sequence and bounded in-scope
   corrections
-- **Next valid action:** Claude Code corrects only T040-B01–T040-B02, then Codex independently
-  re-reviews the exact SHA-pinned result
-- **Blocking issues:** T040-B01 — the repeated request-header test uses `fetch`/`Headers.append`,
-  which normalizes the values before transport and therefore does not prove preservation of
-  repeated raw request-header field lines at the adapter handoff. T040-B02 — the thrown-handler
-  logging test describes exactly one closed application diagnostic but accepts any count greater
-  than or equal to one, so duplicate diagnostics incorrectly pass.
-- **T040 review evidence:** Exact implementation tip
-  `ed23c631dfc2b691b116dd6f9e80285ada3cd193` has persisted authorization commit
-  `0473c2dc0a8c34cf1fd64eeb64883b56181b09d7` as its sole parent and accepted T039 canonical base
-  `d1dea34f12ef88ba22511396dce1a8c30339ff7c` as grandparent. The diff is limited to the new
-  `apps/web/server.test.ts`; `git diff --check` is clean and no skipped/focused tests are present.
-  Independent focused execution is expected-red only at the absent `./server.js` module; existing
-  Public route regressions pass 9/9; TypeScript reports only that same expected missing module.
-  Review inspection identifies T040-B01 and T040-B02; all other authorized contract areas have no
-  blocking finding in this round.
+- **Next valid action:** Product Owner Human Gate for T040; do not authorize T041+
+- **Blocking issues:** None for T040 review
+- **T040 final review evidence:** Exact corrective tip
+  `f3d56290745269badab9741127e016f8f5fbbd5e` has persisted REWORK authorization commit
+  `a5cd37a47eb47b1ae091c7d700af91aa3c6488cf` as its sole parent, reviewed implementation
+  `ed23c631dfc2b691b116dd6f9e80285ada3cd193` as grandparent, and accepted T039 canonical base in
+  its linear ancestry. The corrective diff is limited to `apps/web/server.test.ts` and closes
+  T040-B01 by emitting two literal HTTP/1.1 request-header field lines over a raw socket before
+  asserting ordered preservation, and T040-B02 by requiring exactly one closed application
+  diagnostic. Independent focused execution is expected-red only at the absent `./server.js`
+  module; existing Public route regressions pass 9/9; TypeScript reports only that same expected
+  missing module; diff, conflict-marker, and skip/focus hygiene are clean. Developer mutation
+  evidence confirms the two corrected assertions reject last-value-only header handling and
+  duplicate diagnostic emission. No T041+, production implementation, dependency, or Product
+  change is present.
 - **T040 authorization:** Write the failing Fastify-to-React-Router adapter contract tests in
   `apps/web/server.test.ts` for GET and HEAD behavior, streaming, redirects, errors, aborts,
   repeated headers, and response/security-header/logging ownership at the explicit handoff.
@@ -405,19 +404,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T040 rework only — correct T040-B01 and T040-B02 in
-  `apps/web/server.test.ts`; T041+ and production implementation are unauthorized
-- **Runtime:** Claude Code via `claude-developer`; implementation must descend directly from the
-  persisted T040 authorization commit
-- **Required references:** Constitution; `spec.md` FR-009–FR-010 and SC-003; `plan.md` §Runtime
-  composition; `tasks.md` T040; canonical accepted base
-  `d1dea34f12ef88ba22511396dce1a8c30339ff7c`
-- **Expected verification:** prove repeated raw request-header field lines reach the handler with
-  every value in order; prove duplicate closed application diagnostics fail the logging test;
-  focused deterministic expected-red adapter tests; applicable existing `apps/web` regressions;
-  meaningful syntax/type checks; bounded diff and direct ancestry; exact commands/results/files/
-  corrective SHA in the result
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T040 passed independent review; T041+ remain unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE — see T040 final review evidence above
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
