@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T042 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T043 AUTHORIZED — IMPLEMENTATION HANDOFF
 
 ## Active Feature Mirror
 
@@ -29,12 +29,52 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED
-- **Phase status:** T042 ACCEPTED; T043+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T043
+- **Phase status:** T042 ACCEPTED; T043 REWORK AUTHORIZED; T044+ UNAUTHORIZED
 - **Previous completed scope:** T042 — failing Verification HTTP boundary contract tests
-- **Next valid action:** NONE selected or authorized — stop after T042 Human acceptance; T043+
-  remain unauthorized
-- **Blocking issues:** None for T042 review
+- **Next valid action:** Claude corrects only T043-B01–T043-B03; Codex independently re-reviews
+- **Blocking issues:** T043-B01–T043-B03
+- **T043 review evidence:** Exact implementation `3bbb8f9bb562c16800583cd3cf83e01abc16192e`
+  has canonical T042 acceptance `f984111d47554679a104c9c67c7e8758c7f1d37f` as its sole parent and a
+  clean one-file diff limited to `tests/verification/lifecycle-recovery.test.ts`. Independent
+  execution reproduces 23 deterministic intended-red T043 failures solely at the absent
+  `verifyProductionLike` export and 55 passing accepted/T043 cases; focused operation regressions
+  pass 146/146; TypeScript reports only the accepted T040 missing `apps/web/server.js` boundary.
+  Static assertion review identifies three bounded contract gaps:
+  - **T043-B01:** the atomic-write fallback case reads only `stderr.at(-1)` and never asserts that
+    stderr contains exactly one emitted unit, so duplicate diagnostics can pass the promised
+    exactly-one closed SafeDiagnostic contract.
+  - **T043-B02:** cleanup/reporting precedence cases accept any truthy or merely non-reporting
+    primary failure instead of proving the primary equals the cleanup result's exact diagnostic;
+    the main-plus-cleanup case likewise checks only a secondary diagnostic's scope rather than the
+    exact cleanup diagnostic, allowing an unrelated secondary failure to satisfy the test.
+  - **T043-B03:** the journal immutability case compares only `reasonCode`; later records may mutate
+    or drop other SafeDiagnostic fields while still passing, contrary to the required verbatim
+    immutable primary failure.
+- **T043 authorization:** Add failing Verification lifecycle/reporting contract tests only in
+  `tests/verification/lifecycle-recovery.test.ts`. Cover exact current-run cleanup after success or
+  failure; refusal of stale, colliding, ambiguous, mislabeled, or unexpectedly active/attached
+  pre-existing Verification resources; Verification-appropriate `retry`, `cleanup`, and
+  `manual-review` decisions; interrupted cleanup and unclosed-running-journal handling; atomic final
+  report emission only after cleanup and complete schema/nondisclosure validation; immutable first
+  failure with cleanup/reporting failures appended as secondary, while cleanup/reporting becomes
+  primary only when every earlier result passed. Required authority:
+  `.specify/memory/constitution.md`, `specs/001-application-foundation/spec.md` FR-017 and SC-003,
+  `specs/001-application-foundation/plan.md` §§Operations and verification,
+  `specs/001-application-foundation/data-model.md` §§Lifecycle Operation, Recovery Assessment, and
+  Verification Run, `specs/001-application-foundation/contracts/foundation-operations.md`
+  §§Operation-target ownership and isolation, Verification result contract, and Failure behavior,
+  `specs/001-application-foundation/quickstart.md` §6, and
+  `specs/001-application-foundation/tasks.md` T043. Scope is test authoring only and excludes T044+,
+  production changes, implementation in `scripts/foundation-operations.mjs`, release builds,
+  Containerfile, Compose/Nginx/application changes, new dependencies, Product behavior,
+  requirement/architecture changes, and weakening accepted US1 or T040–T042 contracts.
+  Verification must prove the focused T043 tests are deterministic and fail for the intended absent
+  Verification cleanup/reporting behavior rather than fixture/import/setup errors; run applicable
+  existing lifecycle/recovery and operation-target regressions plus syntax/type checks meaningful
+  for an intentionally red test task; confirm the diff is limited to the authorized test file; scan
+  exercised diagnostic/report surfaces for protected sentinel disclosure; and report exact
+  commands, expected-red versus passing results, changed files, and implementation SHA.
 - **T042 Product Owner acceptance:** Human Gate accepted corrective implementation tip
   `af52c80bca5ca3ba357f0ad4042601662b66701e` and independent PASS governance record
   `65cb946e8365e06b2b55799b4727f9afe6a56913`. The accepted PASS history descends linearly from
@@ -499,11 +539,21 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T042 Human Gate accepted; T043+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T042 final review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T043 REWORK — close only T043-B01–T043-B03 in
+  `tests/verification/lifecycle-recovery.test.ts`: assert exactly one fallback stderr unit; compare
+  cleanup primary/secondary diagnostics exactly in every precedence branch; and compare the full
+  immutable primary SafeDiagnostic across every later journal record
+- **Runtime:** Claude Code (`claude-developer`)
+- **Required references:** Constitution; feature spec FR-017 and SC-003; plan Operations and
+  verification; data model Lifecycle Operation, Recovery Assessment, and Verification Run;
+  operations contract ownership/isolation, Verification result, and Failure behavior; quickstart
+  §6; tasks.md T043
+- **Expected verification:** mutation or equivalent focused evidence that duplicate fallback stderr,
+  a wrong cleanup primary/secondary diagnostic, and mutation of any later primary-diagnostic field
+  each fail the corrected assertion; preserve deterministic intended-red T043 behavior and accepted
+  regressions; meaningful syntax/type checks; protected-sentinel nondisclosure; one-file corrective
+  diff; exact commands/results/files/corrective SHA
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
