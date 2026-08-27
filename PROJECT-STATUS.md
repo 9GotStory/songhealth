@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T038 PASS — PRODUCT OWNER HUMAN GATE
+- **Status:** T038 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
 
 ## Active Feature Mirror
 
@@ -29,13 +29,18 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — T038-B01 and T038-B02 closed
-- **Phase status:** T038 PASSED INDEPENDENT REVIEW; T039+ UNAUTHORIZED
-- **Previous completed scope:** T037 — status/inventory, interruption injection, recovery,
-  confirmed reset, and persistence-check command adapters
-- **Next valid action:** Product Owner reviews and accepts or rejects the exact T038 corrective tip
-  and independent PASS record; do not authorize T039 before the Human Gate
+- **Current review result:** PASS — HUMAN ACCEPTED; T038-B01 and T038-B02 closed
+- **Phase status:** T038 ACCEPTED; T039+ UNAUTHORIZED
+- **Previous completed scope:** T038 — closed application, orchestration, Podman, Compose, and
+  database failure mapping without raw passthrough
+- **Next valid action:** NONE selected or authorized — stop after T038 Human acceptance; T039+
+  remain unauthorized
 - **Blocking issues:** None for T038 review
+- **T038 Product Owner acceptance:** Human Gate accepted corrective implementation tip
+  `cb30554a51380676c9fa2c1bbe51f595e621098a` and independent PASS governance record
+  `402295dbc513a91464c8b798ca3be42074711845`; T038-B01 and T038-B02 are accepted as closed. The
+  accepted PASS history descends linearly from canonical T037 acceptance, so no reconciliation
+  merge is required. Authorized Implementation remains `NONE`; T039+ remain unauthorized.
 - **T038 final review evidence:** Exact corrective tip
   `cb30554a51380676c9fa2c1bbe51f595e621098a` has persisted REWORK authorization
   `ac50d02932c1d71e92b39cc98273d5faae8a09bc` as its sole parent; its corrective diff is limited to
