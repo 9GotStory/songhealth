@@ -26,15 +26,21 @@
  *
  * T038 — the application-log surface is closed the same way: alongside the
  * T016-B01 request/response serializers, the logger's `err` serializer maps
- * every error object the framework may log internally to that same
- * deterministic closed diagnostic, so the default error serializer's raw
- * `type`/`message`/`stack` never reaches the application log.
+ * every error object the framework may log internally to the deterministic
+ * closed `OPERATIONAL_FAILURE` diagnostic on the composed target's DERIVED
+ * scope (`daily` for Development, `verification` for Verification), and the
+ * bound destination renders each failure record as exactly that closed
+ * diagnostic — never the default error serializer's raw
+ * `type`/`message`/`stack`, a Pino envelope (`level`/`time`), a nested `err`
+ * key, or a free-form `msg`.
  */
 
 import Fastify, { type FastifyInstance } from "fastify";
+import { Writable } from "node:stream";
 import { SAFE_DIAGNOSTIC_SCHEMA } from "./config.js";
 import {
   type HealthDependencies,
+  type HealthSafeDiagnostic,
   LIVENESS_SCHEMA,
   READINESS_NOT_READY_SCHEMA,
   READINESS_READY_SCHEMA,
@@ -49,16 +55,23 @@ import {
  *   - `trustProxy`: forwarded-header trust. `false` = none (Daily
  *     `proxyPolicy=none`); `1` = exactly one hop (Verification
  *     `proxyPolicy=one-hop`). Never blanket `true`.
+ *   - `diagnosticScope`: the DERIVED output context of the operation target
+ *     the app was composed for — `daily` for the Development target,
+ *     `verification` for the Verification target (plan.md §Configuration and
+ *     startup; `foundation` is reserved for cross-target preflight and is
+ *     never an application-log scope). Application-log failures carry it.
  *   - `logger.level`: the validated application log level.
  *   - `logger.stream`: optional log output destination (defaults to the
  *     process stdout). When options are supplied the logger is always bound to
  *     the least-necessary allowlisted field set (T016-B01): no process/hostname
  *     base, and no raw headers, query values, host/proxy/remote network
  *     metadata, configuration, credentials, connection URLs, or exception
- *     detail are ever serialized.
+ *     detail are ever serialized. A failure record is exactly one closed Safe
+ *     Diagnostic — never a log envelope or free-form message (T038-B02).
  */
 export interface AppConstructionOptions {
   trustProxy: boolean | number;
+  diagnosticScope: "daily" | "verification";
   logger: {
     level: string;
     stream?: NodeJS.WritableStream;
@@ -100,15 +113,114 @@ function safeResponseSerializer(res: { statusCode: number }): {
  * error object is mapped to the deterministic closed `OPERATIONAL_FAILURE`
  * diagnostic instead: allowlisted fields only, never raw exception, stack,
  * message, SQL, credential, connection string, supplied value, or
- * host/path/infrastructure detail. The allowlisted log-message strings
- * Fastify itself emits (`"request errored"`, `"incoming request"`, ...) are
- * static framework strings and are unaffected by this serializer.
+ * host/path/infrastructure detail.
+ *
+ * T038-B01 — the diagnostic carries the DERIVED output context of the
+ * operation target the app was composed for (`daily` for the Development
+ * target, `verification` for the Verification target); the cross-target
+ * `foundation` scope is never an application-log scope. Ordinary log records
+ * (whose `err` this serializer leaves untouched — there is none) are not
+ * affected.
  */
 function safeErrorSerializer(
-  _error: unknown,
-): ReturnType<typeof operationalFailureDiagnostic> {
-  void _error;
-  return operationalFailureDiagnostic("application");
+  diagnosticScope: "daily" | "verification",
+): (_error: unknown) => HealthSafeDiagnostic {
+  return (_error: unknown) => applicationErrorDiagnostic(diagnosticScope);
+}
+
+/**
+ * The deterministic closed application-failure Safe Diagnostic for the
+ * application-log surface, scoped to the composed operation target's derived
+ * output context (T038-B01). Allowlisted fields and values only.
+ */
+function applicationErrorDiagnostic(
+  diagnosticScope: "daily" | "verification",
+): HealthSafeDiagnostic {
+  return {
+    reasonCode: "OPERATIONAL_FAILURE",
+    diagnosticScope,
+    component: "application",
+    remediation: "RETRY_SAFE_OPERATION",
+  };
+}
+
+/** The exact field set of a closed application-error log diagnostic. */
+const CLOSED_ERROR_DIAGNOSTIC_KEYS = [
+  "reasonCode",
+  "diagnosticScope",
+  "component",
+  "remediation",
+] as const;
+
+/**
+ * Whether a value is exactly one closed application-error diagnostic — the
+ * complete closed field set with string values, nothing else. This is the
+ * recognizer for a FAILURE record on the log destination below: the only way
+ * a serialized `err` value has this exact shape is this module's error
+ * serializer, so a matching record IS an application failure.
+ */
+function isClosedErrorDiagnostic(value: unknown): value is HealthSafeDiagnostic {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const keys = Object.keys(value);
+  if (keys.length !== CLOSED_ERROR_DIAGNOSTIC_KEYS.length) {
+    return false;
+  }
+  return CLOSED_ERROR_DIAGNOSTIC_KEYS.every(
+    (key) => typeof (value as Record<string, unknown>)[key] === "string",
+  );
+}
+
+/**
+ * The closed application-log destination (T038-B02). FR-007 and the
+ * Operations Contract §Safe diagnostic contract require each failure emitted
+ * on the application-log surface to have EXACTLY the closed Safe Diagnostic
+ * fields — additional properties (the Pino `level`/`time` envelope, a nested
+ * `err` key) and free-form messages (`msg`, including an error object's own
+ * message when it is logged as the sole argument) are prohibited. Pino cannot
+ * suppress those envelope fields itself, so the bound destination renders the
+ * record: every COMPLETE log line whose serialized `err` value is exactly the
+ * closed application-error diagnostic (this module's error serializer output)
+ * is replaced by that closed diagnostic alone — the complete record, nothing
+ * wrapping it — while every other line (ordinary request/response logging)
+ * passes through byte-for-byte unchanged.
+ */
+function closedDiagnosticLogDestination(
+  destination: NodeJS.WritableStream,
+): NodeJS.WritableStream {
+  let pending = "";
+  const renderLine = (line: string): string => {
+    if (line.trim() === "") {
+      return line;
+    }
+    try {
+      const record: unknown = JSON.parse(line);
+      if (typeof record === "object" && record !== null && !Array.isArray(record)) {
+        const err = (record as Record<string, unknown>).err;
+        if (isClosedErrorDiagnostic(err)) {
+          return JSON.stringify(err);
+        }
+      }
+    } catch {
+      // Not a JSON log line: pass through unchanged.
+    }
+    return line;
+  };
+  return new Writable({
+    write(chunk, _encoding, callback) {
+      pending += typeof chunk === "string" ? chunk : chunk.toString("utf8");
+      const lines = pending.split("\n");
+      pending = lines.pop() ?? "";
+      const rendered = lines.map(renderLine).join("\n");
+      const output = lines.length > 0 ? `${rendered}\n` : "";
+      if (output === "") {
+        callback();
+        return;
+      }
+      destination.write(output, callback);
+    },
+  });
 }
 
 /**
@@ -128,6 +240,11 @@ export async function createApp(
   // with closed field sets that never serialize raw headers, query values,
   // host/proxy/remote network metadata, configuration, credentials, connection
   // URLs, or exception detail. Logging stays enabled at the validated level.
+  // T038 — the error serializer maps every framework-internal error object to
+  // the closed application diagnostic on the DERIVED target scope (B01), and
+  // the destination is wrapped so a failure record is exactly that closed
+  // diagnostic — never a Pino envelope or free-form message (B02). Ordinary
+  // request/response logging passes through unchanged.
   // The no-options path (the accepted T014/T015 health contract) is unchanged.
   const fastifyOptions = options
     ? {
@@ -138,7 +255,12 @@ export async function createApp(
           // line (T016-B01). Equivalent to `base: false` but type-compatible
           // with Fastify's logger-options contract.
           base: {},
-          ...(options.logger.stream ? { stream: options.logger.stream } : {}),
+          // T038-B02 — the closed destination renders failure records as the
+          // bare closed Safe Diagnostic; the caller-supplied stream (or the
+          // process stdout default) receives everything else unchanged.
+          stream: closedDiagnosticLogDestination(
+            options.logger.stream ?? process.stdout,
+          ),
           serializers: {
             req: safeRequestSerializer,
             res: safeResponseSerializer,
@@ -148,7 +270,7 @@ export async function createApp(
             // same type-compatibility treatment the `base` option and the
             // request/response serializers above apply — while the runtime
             // value stays the closed allowlisted field set.
-            err: safeErrorSerializer as unknown as (
+            err: safeErrorSerializer(options.diagnosticScope) as unknown as (
               error: unknown,
             ) => {
               [key: string]: unknown;

@@ -41,10 +41,14 @@
  * least-necessary allowlisted diagnostic fields: no process/hostname base, and
  * no raw headers, query values, host/proxy/remote network metadata,
  * configuration, credentials, connection URLs, exception objects/stacks, or
- * other infrastructure detail. The optional `loggerStream` composition option
- * directs the log output to a caller-supplied destination (default: process
- * stdout); it is an observability seam only and changes no configuration,
- * database, proxy, or health behavior.
+ * other infrastructure detail. T038 — each application-log FAILURE record is
+ * exactly one closed Safe Diagnostic on this composition's derived target
+ * scope (`daily`/`verification`), never a log envelope or free-form message;
+ * ordinary request logging keeps its accepted closed field set. The optional
+ * `loggerStream` composition option directs the log output to a
+ * caller-supplied destination (default: process stdout); it is an
+ * observability seam only and changes no configuration, database, proxy, or
+ * health behavior.
  *
  * Startup/readiness never applies migrations, never writes the marker, never
  * caches a self-derived ready value (readiness is re-observed through the
@@ -173,6 +177,10 @@ export async function createServer(
   // readiness).
   const appOptions: AppConstructionOptions = {
     trustProxy: trustProxyForProxyPolicy(configuration.proxyPolicy),
+    // T038-B01 — the DERIVED output context of this composition's operation
+    // target scopes the application-log failure diagnostics (`daily` for the
+    // Development target, `verification` for the Verification target).
+    diagnosticScope,
     logger: {
       level: configuration.logLevel,
       ...(options.loggerStream ? { stream: options.loggerStream } : {}),

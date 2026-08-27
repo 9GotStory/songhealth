@@ -31,10 +31,13 @@
  *     headers; `one-hop` trusts exactly one hop, never blanket `true`);
  *   - T038 — the application-log surface is closed for framework-internal
  *     error logging: any error object the composed app's logger is handed
- *     (the exact Fastify `log-controller` call shape) serializes as the
- *     deterministic closed `OPERATIONAL_FAILURE` Safe Diagnostic, so the
- *     default Pino error serializer's raw type/message/stack never reaches
- *     the application log (FR-007/SC-004).
+ *     (the exact Fastify `log-controller` call shapes) is emitted as exactly
+ *     one closed `OPERATIONAL_FAILURE` Safe Diagnostic — the COMPLETE record
+ *     on the composed target's derived `daily`/`verification` scope, with no
+ *     Pino envelope (`level`/`time`), no nested `err` key, no free-form
+ *     `msg`, and no additional field — so the default Pino error serializer's
+ *     raw type/message/stack never reaches the application log
+ *     (FR-007/SC-004; Operations Contract §Safe diagnostic contract).
  *
  * The database and migration boundaries are observed through deterministic
  * injected fakes bound to the accepted `createDatabase` / `closeDatabase` /
@@ -563,45 +566,79 @@ function encodedForms(value: string): string[] {
 }
 
 describe("createServer — application-log error serialization (T038)", () => {
-  it("an error object the framework logs internally serializes as the closed OPERATIONAL_FAILURE diagnostic — never type, message, or stack", async () => {
+  /**
+   * Drive the application-error log path for one composed operation target
+   * and prove the COMPLETE emitted failure records. A raw internal exception
+   * carrying exactly the detail the contract forbids (a sentinel message, a
+   * sentinel stack frame with a filesystem path, and a connection string) is
+   * logged through the composed app's logger in BOTH call shapes Fastify's
+   * own log-controller uses for internal error logging —
+   * `log.error({ err }, 'request errored')` and the error-as-sole-argument
+   * form whose Pino `msg` would otherwise be the raw error message — so the
+   * construction-time serializer AND destination contract is what is proven.
+   */
+  async function driveApplicationErrorCase(options: {
+    env: Record<string, string>;
+    operationTarget: string;
+    expectedScope: "daily" | "verification";
+  }): Promise<string> {
     vi.mocked(createDatabase).mockResolvedValue(SENTINEL_DB);
     vi.mocked(getDatabaseReadiness).mockResolvedValue(READY_READINESS);
 
     const capture = createLogCapture();
     const result = await createServer({
-      env: DEV_BASE,
-      operationTarget: "development",
+      env: options.env,
+      operationTarget: options.operationTarget,
       loggerStream: capture.stream,
     });
     if (result.status !== "ready") throw new Error("expected ready");
     const { app } = result.capabilities;
 
-    // A raw internal exception carrying the exact detail the contract forbids:
-    // a sentinel message, a sentinel stack frame with a filesystem path, and a
-    // connection string. It is logged through the composed app's logger in the
-    // EXACT call shape Fastify's own log-controller uses for internal error
-    // logging (`reply.log.error({ err }, 'request errored')` — the shape every
-    // framework-internal error log at `error` level flows through), so the
-    // construction-time serializer contract is what is proven here.
     const sentinelMessage = "SC038-ERR-MESSAGE-SENTINEL";
     const sentinelPath = "SC038/err/path(c31e)";
     const sentinelUrl = `mysql://songhealth_dev:${SENTINEL_CREDENTIAL}@127.0.0.1:3306/db`;
     const rawError = new Error(`${sentinelMessage} ${sentinelUrl}`);
     rawError.stack = `${rawError.message}\n    at layer (/home/${sentinelPath}/layer.ts:3:3)`;
     app.log.error({ err: rawError }, "request errored");
+    app.log.error(rawError);
     await new Promise((resolve) => setTimeout(resolve, 25));
 
     const emitted = capture.text();
-    // The error object serializes as exactly the deterministic closed
-    // diagnostic (allowlisted fields and values only).
-    expect(emitted).toContain(
-      `"err":${JSON.stringify(operationalFailureDiagnostic("application"))}`,
-    );
-    expect(emitted).toContain('"msg":"request errored"');
+    // Every emitted line parses as one JSON record (the surface stays closed
+    // and machine-parseable — no free-form text line anywhere).
+    const lines = emitted.split("\n").filter((line) => line.trim() !== "");
+    expect(lines.length).toBeGreaterThan(0);
+    const records = lines.map((line) => JSON.parse(line) as Record<string, unknown>);
 
-    // No raw type/message/stack field is emitted, and no sentinel or forbidden
-    // detail appears in exact or encoded form on the application-log surface.
-    expect(emitted).not.toContain('"type":"Error"');
+    // Both error calls emitted exactly one FAILURE RECORD each: each is
+    // EXACTLY the closed Safe Diagnostic on the composed target's DERIVED
+    // scope — the complete record, no Pino envelope (`level`/`time`), no
+    // nested `err` key, no free-form `msg`, and no additional field.
+    const failureRecords = records.filter((record) => "reasonCode" in record);
+    expect(failureRecords).toHaveLength(2);
+    for (const record of failureRecords) {
+      expect(Object.keys(record).sort()).toEqual([
+        "component",
+        "diagnosticScope",
+        "reasonCode",
+        "remediation",
+      ]);
+      expect(record).toEqual({
+        reasonCode: "OPERATIONAL_FAILURE",
+        diagnosticScope: options.expectedScope,
+        component: "application",
+        remediation: "RETRY_SAFE_OPERATION",
+      });
+    }
+
+    // The envelope/additional/free-form fields are absent from the whole
+    // failure surface (only the two closed diagnostics were emitted).
+    for (const envelopeField of ['"level"', '"time"', '"err"', '"msg"', '"pid"', '"hostname"', '"type":"Error"']) {
+      expect(emitted, `envelope field leaked onto the log surface: ${envelopeField}`).not.toContain(envelopeField);
+    }
+
+    // No sentinel or forbidden detail appears in exact or encoded form on the
+    // application-log surface.
     for (const sentinel of [sentinelMessage, sentinelPath, sentinelUrl, SENTINEL_CREDENTIAL]) {
       for (const form of encodedForms(sentinel)) {
         expect(emitted, `encoded sentinel leaked onto the log surface: ${form}`).not.toContain(form);
@@ -610,9 +647,26 @@ describe("createServer — application-log error serialization (T038)", () => {
     for (const token of ["/home/", " at ", "mysql://", "127.0.0.1", "stack"]) {
       expect(emitted, `forbidden detail leaked onto the log surface: ${token}`).not.toContain(token);
     }
+    return emitted;
+  }
+
+  it("a Development application error emits exactly the closed daily diagnostic as the complete record — no envelope, no nested err, no free-form message", async () => {
+    await driveApplicationErrorCase({
+      env: DEV_BASE,
+      operationTarget: "development",
+      expectedScope: "daily",
+    });
   });
 
-  it("ordinary request logging keeps its closed field set — the error serializer changes nothing else", async () => {
+  it("a Verification application error emits exactly the closed verification diagnostic as the complete record — no envelope, no nested err, no free-form message", async () => {
+    await driveApplicationErrorCase({
+      env: VER_BASE,
+      operationTarget: "verification",
+      expectedScope: "verification",
+    });
+  });
+
+  it("ordinary request logging keeps its closed field set — the failure mapping changes nothing else", async () => {
     vi.mocked(createDatabase).mockResolvedValue(SENTINEL_DB);
     vi.mocked(getDatabaseReadiness).mockResolvedValue(READY_READINESS);
 
