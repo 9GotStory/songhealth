@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T041 CHANGES REQUIRED — CORRECTIVE HANDOFF PENDING
+- **Status:** T041 PASS — PRODUCT OWNER HUMAN GATE
 
 ## Active Feature Mirror
 
@@ -29,17 +29,29 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T041-B01
-- **Phase status:** T040 ACCEPTED; T041 REWORK; T042+ UNAUTHORIZED
-- **Previous completed scope:** T040 — failing Fastify-to-React-Router adapter contract tests
-- **Next valid action:** Claude Code corrects only T041-B01 in the authorized T041 test file, then
-  returns exact corrective and verification evidence for independent Codex re-review
-- **Blocking issues:** T041-B01 — the timing tests verify timestamp shape, bracketing, and summed
-  per-check durations but explicitly omit SC-003's required ten-minute whole-run upper bound. A
-  conforming-looking implementation whose completed Verification span exceeds 600,000 ms can pass
-  the delivered timing assertions, so T041 does not yet prove its referenced measurable outcome.
-  Add a deterministic boundary assertion and mutation evidence that an over-ten-minute completed
-  run fails while the existing intended-red boundary remains clean.
+- **Current review result:** PASS — T041 independently re-reviewed after Human reconciliation
+- **Phase status:** T040 ACCEPTED; T041 PASS awaiting Product Owner Human Gate; T042+ UNAUTHORIZED
+- **Previous completed scope:** T041 — failing ordered Verification result-contract tests
+- **Next valid action:** Product Owner Human Gate for T041; do not authorize T042+
+- **Blocking issues:** None for T041 review
+- **T041 reconciliation evidence:** Human-authorized non-rewriting reconciliation merge
+  `d29a6d356e1f5c557ca4396cbf87b7aee0176361` has first parent exact corrective tip
+  `d4a43d59bbec550f27b77231ca746c25d5d70278` and second parent reviewed implementation
+  `8deb60238eea75944b017948ee65f8a1d2eff91f`, whose exact common base is persisted T041
+  authorization `b4e9f0002ce25e6578369181adea6a4ba5c61e8b`. The merge tree
+  `dc3acaa232577fff42dd930bb1010d0465637f2c` is byte-identical to the corrective tip tree;
+  `tests/verification/foundation-operation-target.test.ts` has identical blob
+  `f388d94c9a917e0303eebfd7f554a678663e6adf`. Invalid pre-reconciliation PASS record
+  `edf556cab8e0b4c5bc658196474722f254062848` is not an ancestor of the reconciliation merge.
+- **T041 final review evidence:** The exact reconciled artifact preserves the reviewed T041 suite
+  plus the bounded SC-003 correction without implementation/test replay or content modification.
+  Independent focused execution reproduces 17 intended-red failures solely at the absent
+  `verifyProductionLike` export while all 24 accepted T022 cases pass. TypeScript reports only the
+  accepted T040 missing `apps/web/server.js` boundary. T041-B01 is closed by the deterministic
+  600,000 ms completed-run ceiling; developer mutation evidence shows an otherwise conforming
+  668,300 ms run fails only that bound case. Diff, whitespace, scope, tree, blob, and ancestry
+  checks are clean; no T042+, production implementation, dependency, requirement, or architecture
+  change is present.
 - **T041 review evidence:** Reviewed implementation `8deb60238eea75944b017948ee65f8a1d2eff91f`
   has persisted authorization `b4e9f0002ce25e6578369181adea6a4ba5c61e8b` as its sole parent and
   accepted T040 canonical base `962ebb8c6876809c71c0eb0c6dc73c84d2fec42f` in linear ancestry. The
@@ -440,20 +452,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T041-B01 rework only in
-  `tests/verification/foundation-operation-target.test.ts`: add deterministic enforcement of the
-  SC-003 completed-run upper bound and the corresponding over-bound mutation proof; no other T041
-  behavior or file may change; T042+ remain unauthorized
-- **Runtime:** Claude Code DEV Executor only
-- **Required references:** Constitution; spec FR-009–FR-011 and SC-003; plan §Operations and
-  verification; data model §Verification Run; operations contract §Verification result contract;
-  quickstart §6; tasks T041; accepted T040 canonical head `962ebb8c6876809c71c0eb0c6dc73c84d2fec42f`
-- **Expected verification:** Focused T041 remains deterministic and intended-red only at the
-  missing Verification orchestration export; the conforming double passes; an otherwise conforming
-  double whose completed run exceeds 600,000 ms fails the new timing assertion; all accepted T022
-  cases remain green; meaningful syntax/type and authorized-file-only diff checks; exact commands,
-  results, corrective SHA, and sole-parent ancestry
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T041 passed reconciled independent review; T042+ remain unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE — see T041 reconciliation and final review evidence above
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
