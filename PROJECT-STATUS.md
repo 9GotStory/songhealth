@@ -29,11 +29,28 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** NOT YET REVIEWED — T043 AUTHORIZED
-- **Phase status:** T042 ACCEPTED; T043 AUTHORIZED; T044+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T043
+- **Phase status:** T042 ACCEPTED; T043 REWORK AUTHORIZED; T044+ UNAUTHORIZED
 - **Previous completed scope:** T042 — failing Verification HTTP boundary contract tests
-- **Next valid action:** Claude implements only T043; Codex independently reviews the exact result
-- **Blocking issues:** None — T043 is incomplete and dependency-ready after accepted T040–T042
+- **Next valid action:** Claude corrects only T043-B01–T043-B03; Codex independently re-reviews
+- **Blocking issues:** T043-B01–T043-B03
+- **T043 review evidence:** Exact implementation `3bbb8f9bb562c16800583cd3cf83e01abc16192e`
+  has canonical T042 acceptance `f984111d47554679a104c9c67c7e8758c7f1d37f` as its sole parent and a
+  clean one-file diff limited to `tests/verification/lifecycle-recovery.test.ts`. Independent
+  execution reproduces 23 deterministic intended-red T043 failures solely at the absent
+  `verifyProductionLike` export and 55 passing accepted/T043 cases; focused operation regressions
+  pass 146/146; TypeScript reports only the accepted T040 missing `apps/web/server.js` boundary.
+  Static assertion review identifies three bounded contract gaps:
+  - **T043-B01:** the atomic-write fallback case reads only `stderr.at(-1)` and never asserts that
+    stderr contains exactly one emitted unit, so duplicate diagnostics can pass the promised
+    exactly-one closed SafeDiagnostic contract.
+  - **T043-B02:** cleanup/reporting precedence cases accept any truthy or merely non-reporting
+    primary failure instead of proving the primary equals the cleanup result's exact diagnostic;
+    the main-plus-cleanup case likewise checks only a secondary diagnostic's scope rather than the
+    exact cleanup diagnostic, allowing an unrelated secondary failure to satisfy the test.
+  - **T043-B03:** the journal immutability case compares only `reasonCode`; later records may mutate
+    or drop other SafeDiagnostic fields while still passing, contrary to the required verbatim
+    immutable primary failure.
 - **T043 authorization:** Add failing Verification lifecycle/reporting contract tests only in
   `tests/verification/lifecycle-recovery.test.ts`. Cover exact current-run cleanup after success or
   failure; refusal of stale, colliding, ambiguous, mislabeled, or unexpectedly active/attached
@@ -522,18 +539,21 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T043 — failing Verification cleanup, recovery-decision, interruption,
-  atomic-report, and immutable primary/secondary failure tests in
-  `tests/verification/lifecycle-recovery.test.ts` only
+- **Task / Scope:** T043 REWORK — close only T043-B01–T043-B03 in
+  `tests/verification/lifecycle-recovery.test.ts`: assert exactly one fallback stderr unit; compare
+  cleanup primary/secondary diagnostics exactly in every precedence branch; and compare the full
+  immutable primary SafeDiagnostic across every later journal record
 - **Runtime:** Claude Code (`claude-developer`)
 - **Required references:** Constitution; feature spec FR-017 and SC-003; plan Operations and
   verification; data model Lifecycle Operation, Recovery Assessment, and Verification Run;
   operations contract ownership/isolation, Verification result, and Failure behavior; quickstart
   §6; tasks.md T043
-- **Expected verification:** deterministic intended-red focused T043 behavior; applicable accepted
-  lifecycle/operation regressions; meaningful syntax/type checks; protected-sentinel nondisclosure;
-  one-file diff/scope evidence; exact commands/results/files/implementation SHA
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Expected verification:** mutation or equivalent focused evidence that duplicate fallback stderr,
+  a wrong cleanup primary/secondary diagnostic, and mutation of any later primary-diagnostic field
+  each fail the corrected assertion; preserve deterministic intended-red T043 behavior and accepted
+  regressions; meaningful syntax/type checks; protected-sentinel nondisclosure; one-file corrective
+  diff; exact commands/results/files/corrective SHA
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
