@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T041 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T042 AUTHORIZED — IMPLEMENTATION HANDOFF PENDING
 
 ## Active Feature Mirror
 
@@ -29,12 +29,32 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED
-- **Phase status:** T041 ACCEPTED; T042+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T042 authorized from accepted T041 canonical head
+- **Phase status:** T041 ACCEPTED; T042 AUTHORIZED; T043+ UNAUTHORIZED
 - **Previous completed scope:** T041 — failing ordered Verification result-contract tests
-- **Next valid action:** NONE selected or authorized — stop after T041 Human acceptance; T042+
-  remain unauthorized
-- **Blocking issues:** None for T041 review
+- **Next valid action:** Claude Code implements only T042, then returns exact implementation and
+  verification evidence for independent Codex review
+- **Blocking issues:** None for T042 authorization
+- **T042 authorization:** Add failing Production-like Verification HTTP boundary contract tests
+  only in `tests/verification/diagnostic-surfaces.test.ts`. The tests must cover Verification
+  exposure through Nginx only, internal application/database direct-port isolation, trusted
+  single-hop forwarded headers with spoofed or untrusted metadata rejected, Public `/` SSR HTML,
+  Admin `/admin/`, and server liveness/readiness route reachability, with failures represented by
+  the closed safe-diagnostic contract. Required authority: `.specify/memory/constitution.md`,
+  `specs/001-application-foundation/spec.md` FR-009–FR-011 and SC-003–SC-004,
+  `specs/001-application-foundation/plan.md` §§Runtime composition and Operations and verification,
+  `specs/001-application-foundation/research.md` Decisions 6 and 8,
+  `specs/001-application-foundation/contracts/foundation-operations.md` §§Safe diagnostic contract
+  and Operation-target ownership and isolation, and `specs/001-application-foundation/tasks.md`
+  T042. Scope is test authoring only and excludes T043+, production changes, release builds,
+  Containerfile, Compose/Nginx/application implementation, new dependencies, Product behavior,
+  requirement/architecture changes, and weakening accepted US1, T040, or T041 contracts.
+  Verification must prove the focused T042 tests are deterministic and fail for intended absent
+  Verification topology/proxy/route behavior rather than fixture/import/setup errors; run
+  applicable existing diagnostic-surface and HTTP regressions plus syntax/type checks meaningful
+  for an intentionally red test task; confirm the diff is limited to the authorized test file;
+  scan the exercised failure surfaces for protected sentinel disclosure; and report exact commands,
+  expected-red versus passing results, changed files, and implementation SHA.
 - **T041 Product Owner acceptance:** Human Gate accepted reconciled artifact
   `d29a6d356e1f5c557ca4396cbf87b7aee0176361` and fresh independent PASS governance record
   `d6ce73ce3b140ef101fa73ea21b8c01e9894f49e`. The reconciliation merge retains exact corrective
@@ -459,11 +479,18 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T041 Human Gate accepted; T042+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T041 reconciliation and final review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T042 — failing Verification Nginx/application/database exposure,
+  forwarded-header trust, direct-port isolation, Public/Admin/server-route, and SSR HTML tests in
+  `tests/verification/diagnostic-surfaces.test.ts`; T043+ remain unauthorized
+- **Runtime:** Claude Code DEV Executor only
+- **Required references:** Constitution; spec FR-009–FR-011 and SC-003–SC-004; plan §§Runtime
+  composition and Operations and verification; research Decisions 6 and 8; operations contract
+  §§Safe diagnostic contract and Operation-target ownership and isolation; tasks T042; accepted
+  T041 canonical head `092a9758140e1f8c1f5702ed69ea60b5f2e88b20`
+- **Expected verification:** Deterministic intended-red focused T042 evidence; applicable existing
+  diagnostic-surface and HTTP regressions; protected-sentinel nondisclosure scan; meaningful
+  syntax/type checks; authorized-file-only diff; exact commands/results and implementation SHA
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
