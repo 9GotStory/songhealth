@@ -75,8 +75,10 @@
  * without a bound listener (the accepted `apps/server/src/bootstrap.ts`
  * caller-owned-listener idiom); these tests drive it with Fastify `inject()`
  * where an in-process request is sufficient, and with a real loopback
- * listener plus `fetch` where only a real socket observes streaming progress,
- * client aborts, and repeated request-header wire lines.
+ * listener where only a real socket observes streaming progress and client
+ * aborts (`fetch`), and repeated request-header field lines (a raw socket —
+ * a fetch/Headers client normalizes repeated values into one joined field
+ * line before transport).
  *
  * EXPECTED RED: the only reason this suite fails is that the T048
  * `./server.js` module does not exist yet. The failure is a module-resolution
@@ -86,6 +88,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 import { Writable } from "node:stream";
+import { createConnection } from "node:net";
 
 // The planned T048 adapter composition module, imported as a NAMESPACE so the
 // test can observe the module boundary itself (its named exports) in addition
@@ -252,6 +255,40 @@ async function listenOnLoopback(app: ComposedWebApp): Promise<URL> {
     throw new Error("expected the composed app to expose a bound TCP address");
   }
   return new URL(`http://127.0.0.1:${address.port}/`);
+}
+
+/**
+ * Issue one HTTP/1.1 GET over a raw socket with the given literal header
+ * field lines, and resolve with the response's status line. No client
+ * library sits between the test and the wire, so the field lines reach the
+ * adapter exactly as written — required for the repeated request-header
+ * contract, because a fetch/Headers client normalizes repeated values into
+ * one joined field line before transport.
+ */
+function rawHttpGet(url: URL, headerLines: string[]): Promise<{ statusLine: string }> {
+  return new Promise((resolve, reject) => {
+    const socket = createConnection(
+      { host: url.hostname, port: Number(url.port) },
+      () => {
+        socket.write(
+          `GET ${url.pathname} HTTP/1.1\r\n` +
+            `Host: ${url.host}\r\n` +
+            `${headerLines.join("\r\n")}\r\n` +
+            `Connection: close\r\n` +
+            `\r\n`,
+        );
+      },
+    );
+    socket.setEncoding("utf8");
+    let response = "";
+    socket.on("data", (chunk: string) => {
+      response += chunk;
+    });
+    socket.on("error", reject);
+    socket.on("close", () => {
+      resolve({ statusLine: response.split("\r\n", 1)[0] ?? "" });
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -579,22 +616,26 @@ describe("createWebServer — client aborts", () => {
 // ---------------------------------------------------------------------------
 
 describe("createWebServer — repeated headers", () => {
-  it("forwards every repeated request-header value to the handler in order", async () => {
+  it("forwards every repeated request-header field line to the handler in order", async () => {
     const recording = recordRequests(okHandler("ok"));
     const app = await composeAdapterApp({ reactRouterHandler: recording.handler });
     const baseUrl = await listenOnLoopback(app);
 
-    // `fetch` emits one wire line per `append`, so the raw request genuinely
-    // carries a repeated header.
-    const headers = new Headers();
-    headers.append("x-t040-repeat", "alpha");
-    headers.append("x-t040-repeat", "beta");
-    await fetch(new URL("/repeated-request-header", baseUrl), { headers });
+    // A raw socket writes the field lines literally onto the wire, so the
+    // request genuinely carries `x-t040-repeat: alpha` and
+    // `x-t040-repeat: beta` as two separate field lines. (A fetch/Headers
+    // client cannot be used here: it normalizes repeated values into one
+    // joined field line before transport.)
+    const response = await rawHttpGet(
+      new URL("/repeated-request-header", baseUrl),
+      ["x-t040-repeat: alpha", "x-t040-repeat: beta"],
+    );
+    expect(response.statusLine).toContain("200");
 
     expect(recording.requests).toHaveLength(1);
-    // The standard Web Request view of a repeated header: every value, in
-    // wire order, joined per the fetch specification — none dropped or
-    // overwritten by the adapter.
+    // The standard Web Request view of repeated field lines: every value, in
+    // wire order, joined per the fetch specification — none dropped,
+    // overwritten, or reordered by the adapter.
     expect(recording.requests[0]!.request.headers.get("x-t040-repeat")).toBe(
       "alpha, beta",
     );
@@ -716,10 +757,10 @@ describe("createWebServer — logging ownership at the handoff", () => {
     expect(emitted).not.toContain(SENTINEL_STACK);
 
     // The failure is logged as exactly the closed application SafeDiagnostic
-    // record (T038): the complete record — the closed key set with closed
-    // values and the derived application scope — nothing wrapping it.
-    // (Non-JSON log lines are permitted to pass through; they are simply not
-    // closed records.)
+    // record (T038), emitted exactly once: the complete record — the closed
+    // key set with closed values and the derived application scope — nothing
+    // wrapping it and no duplicate emission. (Non-JSON log lines are
+    // permitted to pass through; they are simply not closed records.)
     const closedRecords = emitted
       .split("\n")
       .map((line) => {
@@ -732,7 +773,7 @@ describe("createWebServer — logging ownership at the handoff", () => {
       .filter((value): value is Record<string, unknown> =>
         isClosedApplicationDiagnostic(value),
       );
-    expect(closedRecords.length).toBeGreaterThanOrEqual(1);
+    expect(closedRecords).toHaveLength(1);
   });
 });
 
