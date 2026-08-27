@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T040 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T041 AUTHORIZED — IMPLEMENTATION HANDOFF PENDING
 
 ## Active Feature Mirror
 
@@ -29,12 +29,31 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED
-- **Phase status:** T040 ACCEPTED; T041+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T041 authorized from accepted T040 canonical head
+- **Phase status:** T040 ACCEPTED; T041 AUTHORIZED; T042+ UNAUTHORIZED
 - **Previous completed scope:** T040 — failing Fastify-to-React-Router adapter contract tests
-- **Next valid action:** NONE selected or authorized — stop after T040 Human acceptance; T041+
-  remain unauthorized
-- **Blocking issues:** None for T040 review
+- **Next valid action:** Claude Code implements only T041, then returns exact implementation and
+  verification evidence for independent Codex review
+- **Blocking issues:** None for T041 authorization
+- **T041 authorization:** Add failing Production-like Verification operation-target contract tests
+  only in `tests/verification/foundation-operation-target.test.ts`. The tests must cover the exact
+  ordered twenty-result inventory, explicit `PREREQUISITE_FAILED` downstream failures, immutable
+  first-failure selection including cleanup/reporting precedence, per-result and whole-run timing,
+  the fixed non-parity statement, and Development/Verification independence. Required authority:
+  `.specify/memory/constitution.md`, `specs/001-application-foundation/spec.md` FR-009–FR-011 and
+  SC-003, `specs/001-application-foundation/plan.md` §Operations and verification,
+  `specs/001-application-foundation/data-model.md` §Verification Run,
+  `specs/001-application-foundation/contracts/foundation-operations.md` §Verification result
+  contract, `specs/001-application-foundation/quickstart.md` §6, and
+  `specs/001-application-foundation/tasks.md` T041. Scope is test authoring only and excludes T042+,
+  implementation changes in `scripts/foundation-operations.mjs`, release builds, manifests,
+  Containerfile, Nginx/proxy or route implementation, new dependencies, Product behavior,
+  requirement/architecture changes, and weakening accepted US1 or T040 contracts. Verification
+  must prove the focused T041 tests are deterministic and fail for intended missing Verification
+  orchestration behavior rather than fixture/import/setup errors; run applicable existing
+  operation-target regressions plus syntax/type checks meaningful for an intentionally red test
+  task; confirm the diff is limited to the authorized test file; and report exact commands,
+  expected-red versus passing results, changed files, and implementation SHA.
 - **T040 Product Owner acceptance:** Human Gate accepted corrective implementation tip
   `f3d56290745269badab9741127e016f8f5fbbd5e` and independent PASS governance record
   `5cb05943c789eae5f9729c934409c2d28ad1090d`. The accepted PASS history descends linearly from
@@ -409,11 +428,17 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T040 Human Gate accepted; T041+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T040 final review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T041 — failing ordered-result, prerequisite-blocking, failure precedence,
+  timing, parity, and independent-target tests in
+  `tests/verification/foundation-operation-target.test.ts`; T042+ remain unauthorized
+- **Runtime:** Claude Code DEV Executor only
+- **Required references:** Constitution; spec FR-009–FR-011 and SC-003; plan §Operations and
+  verification; data model §Verification Run; operations contract §Verification result contract;
+  quickstart §6; tasks T041; accepted T040 canonical head `962ebb8c6876809c71c0eb0c6dc73c84d2fec42f`
+- **Expected verification:** Deterministic intended-red focused T041 evidence; applicable existing
+  operation-target regressions; meaningful syntax/type checks; authorized-file-only diff; exact
+  commands/results and implementation SHA
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
