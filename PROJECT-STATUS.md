@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T042 AUTHORIZED — IMPLEMENTATION HANDOFF PENDING
+- **Status:** T042 CHANGES REQUIRED — REWORK AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -29,12 +29,21 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** NOT YET REVIEWED — T042 authorized from accepted T041 canonical head
-- **Phase status:** T041 ACCEPTED; T042 AUTHORIZED; T043+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T042-B01
+- **Phase status:** T041 ACCEPTED; T042 REWORK AUTHORIZED; T043+ UNAUTHORIZED
 - **Previous completed scope:** T041 — failing ordered Verification result-contract tests
-- **Next valid action:** Claude Code implements only T042, then returns exact implementation and
-  verification evidence for independent Codex review
-- **Blocking issues:** None for T042 authorization
+- **Next valid action:** Claude Code corrects only T042-B01, then returns exact corrective and
+  verification evidence for independent Codex re-review
+- **Blocking issues:** T042-B01 — the Verification failure-surface test iterates
+  `applicationLog` and `httpFailure` only when units happen to exist, but never requires either
+  surface to receive a diagnostic. An implementation that omits both Verification failure surfaces
+  can therefore pass, contrary to FR-010 and the suite's stated four-surface contract.
+- **T042 rework authorization:** In `tests/verification/diagnostic-surfaces.test.ts` only, make the
+  T042 failure-surface contract require non-empty `applicationLog` and `httpFailure` emission (as
+  well as stdout/stderr) for the exercised Verification boundary failure, and require each emitted
+  unit to be exactly one closed `verification` SafeDiagnostic identifying the failed contract with
+  its allowlisted reason code. Preserve the intended-red entry guard and all accepted T023/T040/T041
+  behavior. Do not change production code or begin T043+.
 - **T042 authorization:** Add failing Production-like Verification HTTP boundary contract tests
   only in `tests/verification/diagnostic-surfaces.test.ts`. The tests must cover Verification
   exposure through Nginx only, internal application/database direct-port isolation, trusted
@@ -479,18 +488,17 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T042 — failing Verification Nginx/application/database exposure,
-  forwarded-header trust, direct-port isolation, Public/Admin/server-route, and SSR HTML tests in
-  `tests/verification/diagnostic-surfaces.test.ts`; T043+ remain unauthorized
+- **Task / Scope:** T042 REWORK — close T042-B01 in
+  `tests/verification/diagnostic-surfaces.test.ts` only; T043+ remain unauthorized
 - **Runtime:** Claude Code DEV Executor only
-- **Required references:** Constitution; spec FR-009–FR-011 and SC-003–SC-004; plan §§Runtime
-  composition and Operations and verification; research Decisions 6 and 8; operations contract
-  §§Safe diagnostic contract and Operation-target ownership and isolation; tasks T042; accepted
-  T041 canonical head `092a9758140e1f8c1f5702ed69ea60b5f2e88b20`
-- **Expected verification:** Deterministic intended-red focused T042 evidence; applicable existing
-  diagnostic-surface and HTTP regressions; protected-sentinel nondisclosure scan; meaningful
-  syntax/type checks; authorized-file-only diff; exact commands/results and implementation SHA
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Required references:** T042-B01 above; Constitution Principle V; spec FR-010 and SC-004;
+  operations contract §Safe diagnostic contract; original T042 authorization; reviewed
+  implementation `c26a5f7523ef240cd3f14b09e1af40b0629fed2b`
+- **Expected verification:** Focused deterministic intended-red T042 evidence; assertion-level or
+  mutation evidence proving omission of either `applicationLog` or `httpFailure` fails the corrected
+  contract; accepted T023 and relevant HTTP/diagnostic regressions; meaningful type check;
+  corrective-file-only diff; exact commands/results and corrective SHA
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
