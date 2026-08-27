@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T039 AUTHORIZED — IMPLEMENTATION HANDOFF
+- **Status:** T039 PASS — PRODUCT OWNER HUMAN GATE
 
 ## Active Feature Mirror
 
@@ -29,14 +29,30 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** NOT YET REVIEWED — T039 authorized at canonical base
-  `ea37487d2339527aff099df7a72c8170b506148d`
-- **Phase status:** T039 AUTHORIZED; T040+ UNAUTHORIZED
+- **Current review result:** PASS WITH NON-BLOCKING NOTES — T039 independently reviewed
+- **Phase status:** T039 PASS; awaiting Product Owner Human Gate; T040+ UNAUTHORIZED
 - **Previous completed scope:** T038 — closed application, orchestration, Podman, Compose, and
   database failure mapping without raw passthrough
-- **Next valid action:** Claude Code executes only T039, reports the exact implementation tip and
-  acceptance evidence, then stops for independent Codex review
-- **Blocking issues:** None — T038 is human-accepted and T039 is dependency-ready
+- **Next valid action:** Product Owner Human Gate for T039; do not authorize T040+
+- **Blocking issues:** None for T039 review
+- **T039 review evidence:** Exact implementation tip
+  `b4334f60293aa7d2f21c64d62e27282367b4a250` has persisted authorization commit
+  `29aac6d2db4e9d6c1888d4b3ac714035a54a7f0c` as its sole parent and canonical accepted T038 base
+  `ea37487d2339527aff099df7a72c8170b506148d` as grandparent. Its clean diff is limited to
+  `scripts/foundation-operations.mjs`, `tests/verification/foundation-command-adapters.test.ts`,
+  and `tests/verification/lifecycle-recovery.test.ts`, with no T040+ or Product behavior. The
+  lowercase Podman network-name field is accepted without allowing absent/malformed names to prove
+  ownership; the canonical Development fixture and immutable interrupted-origin assertion restore
+  their intended accepted contracts. Independent syntax and TypeScript checks pass; the changed
+  focused suites pass 72/72 and the full selected US1/configuration/HTTP/diagnostic/operation suite
+  passes 351/351. Developer-reproduced explicit real-MySQL migration verification passes 38/38;
+  reviewer reproduction is unavailable because this checkout has no explicit real-engine local
+  environment source. The complete Compose-backed Development happy path, persistence proof,
+  current-state migration path, recover/reset outcomes, timer, and consecutive-run evidence remain
+  unavailable because the runtime lacks a systemd user session required by rootless netavark DNS;
+  per the external real-engine policy this is a non-blocking verification-environment limitation,
+  not an implementation defect. Node 24.11.0 satisfies the Node pin, while reviewer npm 11.6.1 is
+  below the npm 12 pin; locked installation succeeds with the expected engine warning.
 - **T039 authorization:** Execute the complete independent User Story 1 acceptance sequence in
   `specs/001-application-foundation/quickstart.md` §§1–5 and correct only failures traceable to the
   accepted US1 scope. Required authority: `.specify/memory/constitution.md`,
@@ -355,19 +371,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T039 only — execute the complete independent US1 acceptance sequence in
-  `quickstart.md` §§1–5 and correct only traceable in-scope failures; T040+ remain unauthorized
-- **Runtime:** Claude Code (`claude-developer`)
-- **Required references:** Constitution; `spec.md` SC-001–SC-002, SC-004–SC-005, and SC-007;
-  `plan.md`; `data-model.md`; Operations Contract; `quickstart.md` §§1–5; `tasks.md` T039;
-  `CLAUDE.md`
-- **Expected verification:** complete Quickstart §§1–5 where the explicit environment permits;
-  focused and regression tests for daily lifecycle, persistence/reset, recovery, isolation,
-  configuration rejection, migration readiness, and nondisclosure; classify unavailable real-engine
-  or tooling evidence without substitution; syntax, type, and diff checks; confirm no Product
-  behavior, T040+ implementation, or out-of-scope changes; report exact commands/results, changed
-  files, unavailable evidence, and exact implementation tip
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T039 passed independent review; T040+ remain unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE — see T039 review evidence above
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
