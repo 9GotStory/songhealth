@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T043 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T044 AUTHORIZED — IMPLEMENTATION HANDOFF PENDING
 
 ## Active Feature Mirror
 
@@ -29,11 +29,11 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED
-- **Phase status:** T043 ACCEPTED; T044+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T044 AUTHORIZED
+- **Phase status:** T043 ACCEPTED; T044 AUTHORIZED; T045+ UNAUTHORIZED
 - **Previous completed scope:** T043 — failing Verification lifecycle and reporting contract tests
-- **Next valid action:** NONE selected or authorized — stop after T043 Human acceptance; T044+
-  remain unauthorized
+- **Next valid action:** Claude implements T044 only, then Codex independently reviews the exact
+  resulting artifact
 - **Blocking issues:** None for the reconciled T043 review
 - **T043 Product Owner acceptance:** Human Gate accepted reconciled artifact
   `a39e84b3dbbfad7fe4df74ac6477e6454d162818` and fresh independent PASS governance record
@@ -569,12 +569,20 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T043 Human Gate accepted; T044+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T043 reconciliation and reconciled final review evidence
-  above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T044 — configure independent production builds and release output for all three
+  workspaces only in `package.json`, `apps/web/package.json`, `apps/admin/package.json`, and
+  `apps/server/package.json`
+- **Runtime:** Claude Code via the repository's installed Spec Kit implement workflow, bounded to
+  T044 only
+- **Required references:** `.specify/memory/constitution.md`; `specs/001-application-foundation/spec.md`
+  FR-009 and FR-013; `specs/001-application-foundation/plan.md` §Testing and security evidence;
+  `specs/001-application-foundation/tasks.md` T044; accepted T040 release-adapter contract tests
+- **Expected verification:** prove each Public, Admin, and Server workspace has an independent
+  production build with its intended release output; run the three builds independently and any
+  focused manifest/build assertions plus applicable type/static checks; confirm the diff is
+  limited to the four authorized manifests and any lockfile update mechanically required by npm;
+  report exact commands/results, changed files, and implementation SHA
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
