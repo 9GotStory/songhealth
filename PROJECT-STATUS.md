@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T037 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T038 AUTHORIZED — IMPLEMENTATION HANDOFF
 
 ## Active Feature Mirror
 
@@ -29,13 +29,31 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED; T037-B01 closed
-- **Phase status:** T037 ACCEPTED; T038+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T038 authorized at canonical base
+  `d707ec10661e5771cc7cf37576f6e13e0ed3a23c`
+- **Phase status:** T038 AUTHORIZED; T039+ UNAUTHORIZED
 - **Previous completed scope:** T037 — status/inventory, interruption injection, recovery,
   confirmed reset, and persistence-check command adapters
-- **Next valid action:** NONE selected or authorized — stop after T037 Human acceptance; T038+
-  remain unauthorized
-- **Blocking issues:** None for T037 review
+- **Next valid action:** Claude Code implements only T038, reports the exact implementation tip and
+  verification evidence, then stops for independent Codex review
+- **Blocking issues:** None — T037 is human-accepted and T038 is dependency-ready
+- **T038 authorization:** Map application, orchestration, Podman, Compose, and database failures to
+  the already specified closed Safe Diagnostic contract in `apps/server/src/http.ts` and
+  `scripts/foundation-operations.mjs`. Required authority: `.specify/memory/constitution.md`,
+  `specs/001-application-foundation/spec.md` FR-007 and SC-004,
+  `specs/001-application-foundation/plan.md` §Configuration, identity, and secrets,
+  `specs/001-application-foundation/data-model.md` §Safe Diagnostic,
+  `specs/001-application-foundation/contracts/foundation-operations.md` §Safe diagnostic contract,
+  `specs/001-application-foundation/quickstart.md` §3, and
+  `specs/001-application-foundation/tasks.md` T038. Scope excludes T039+, Verification-profile
+  implementation, proxy/Nginx changes, new dependencies, requirement/architecture changes, and any
+  weakening of established ownership, lifecycle, immutable-failure, configuration-validation, or
+  refusal behavior. Verification must cover the exact closed schema and allowlists across server
+  HTTP/logging plus command stdout/stderr and mapped orchestration/Podman/Compose/database failures;
+  reject additional/free-form fields and raw passthrough; scan exact and encoded protected
+  sentinels; prove failures remain non-zero and occur before readiness/work acceptance; run relevant
+  focused diagnostic, HTTP, foundation-operation, syntax, type, and diff checks; and confirm no
+  T039+ implementation.
 - **T037 Product Owner acceptance:** Human Gate accepted corrective implementation tip
   `32c80051836f9cbaa3d96e77fdad167fd2107c57` and independent PASS governance record
   `9b4f4e8467cbac72c478679dc2630ecf19dc341e`; T037-B01 is accepted as closed. The accepted PASS
@@ -291,11 +309,18 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T037 passed independent review; T038+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T037 final review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T038 only — map application, orchestration, Podman, Compose, and database
+  failures to the closed Safe Diagnostic contract in `apps/server/src/http.ts` and
+  `scripts/foundation-operations.mjs`; T039+ remain unauthorized
+- **Runtime:** Claude Code (`claude-developer`)
+- **Required references:** Constitution; `spec.md` FR-007 and SC-004; `plan.md` §Configuration,
+  identity, and secrets; `data-model.md` §Safe Diagnostic; Operations Contract §Safe diagnostic
+  contract; `quickstart.md` §3; `tasks.md` T038; `CLAUDE.md`
+- **Expected verification:** focused diagnostic-surface, HTTP/server, foundation-operation, and
+  relevant configuration tests; exact closed-schema/allowlist and additional-field rejection;
+  exact and encoded sentinel nondisclosure across named surfaces; non-zero/pre-readiness failure
+  probes; syntax, type, and diff checks; confirm no T039+ behavior or out-of-scope changes
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
