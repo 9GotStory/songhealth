@@ -5833,40 +5833,89 @@ async function observeVerificationHealthContract(pathname, accepts) {
 
 /**
  * The `liveness` stage: the release listener's own operational liveness route
- * must answer its closed contract — HTTP 200 carrying exactly
- * `{"status":"alive"}`. Anything else (unreachable, non-200, or a body that is
- * not the closed shape) is this contract's failure.
+ * must answer the exact accepted closed schema (foundation-http.openapi.yaml
+ * `Liveness`) — HTTP 200 carrying an object with ONLY `status`, whose value is
+ * exactly `"alive"`. Anything else (unreachable, non-200, an array, a body
+ * with any additional property, or a different value) is this contract's
+ * failure.
  */
 async function probeVerificationLiveness() {
   return observeVerificationHealthContract(
     "/health/live",
-    `(status, body) => status === 200 && body !== null && typeof body === 'object' && body.status === 'alive'`,
+    [
+      `(status, body) =>`,
+      `  status === 200 &&`,
+      `  body !== null &&`,
+      `  typeof body === 'object' &&`,
+      `  !Array.isArray(body) &&`,
+      `  Object.keys(body).length === 1 &&`,
+      `  body.status === 'alive'`,
+    ].join("\n"),
   );
 }
 
 /**
  * The `readiness` stage: the release listener's own overall readiness route
- * must answer its closed contract — HTTP 200, overall `ready`, and BOTH
- * required components reporting `ready` with no diagnostic (data-model.md
- * §Component Readiness: readiness holds only when the application is running,
- * database connectivity succeeds, and Migration State is `current`). The
- * route's own 503/500 not-ready answers, and any absent or non-closed
- * response, are this contract's failure.
+ * must answer the exact accepted closed schema (foundation-http.openapi.yaml
+ * `Readiness` ready case) — HTTP 200 carrying an object with ONLY `status` and
+ * `components`, overall `ready`, EXACTLY two components, EXACTLY one
+ * `application` and one `database`, and each component an object with ONLY
+ * `name` and `status` reporting `ready` (a ready component carries no
+ * `diagnostic` and no additional property). The route's own 503/500
+ * not-ready answers, and any absent or non-closed response, are this
+ * contract's failure.
  */
 async function probeVerificationReadiness() {
   return observeVerificationHealthContract(
     "/health/ready",
     [
       `(status, body) => {`,
-      `  if (status !== 200 || body === null || typeof body !== 'object' || body.status !== 'ready') {`,
+      `  if (`,
+      `    status !== 200 ||`,
+      `    body === null ||`,
+      `    typeof body !== 'object' ||`,
+      `    Array.isArray(body)`,
+      `  ) {`,
       `    return false;`,
       `  }`,
-      `  const components = Array.isArray(body.components) ? body.components : [];`,
-      `  const ready = (name) => components.some(`,
-      `    (entry) => entry !== null && typeof entry === 'object' &&`,
-      `      entry.name === name && entry.status === 'ready' && entry.diagnostic === undefined,`,
-      `  );`,
-      `  return ready('application') && ready('database');`,
+      // Exactly the two declared top-level properties — no additional property.
+      `  const keys = Object.keys(body);`,
+      `  if (keys.length !== 2 || !('status' in body) || !('components' in body)) {`,
+      `    return false;`,
+      `  }`,
+      `  if (body.status !== 'ready') {`,
+      `    return false;`,
+      `  }`,
+      // Exactly two components, each exactly the two declared properties with
+      // a closed name and a ready status (so no diagnostic, no extra key).
+      `  const components = body.components;`,
+      `  if (!Array.isArray(components) || components.length !== 2) {`,
+      `    return false;`,
+      `  }`,
+      `  for (const entry of components) {`,
+      `    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {`,
+      `      return false;`,
+      `    }`,
+      `    const entryKeys = Object.keys(entry);`,
+      `    if (entryKeys.length !== 2 || !('name' in entry) || !('status' in entry)) {`,
+      `      return false;`,
+      `    }`,
+      `    if (entry.name !== 'application' && entry.name !== 'database') {`,
+      `      return false;`,
+      `    }`,
+      `    if (entry.status !== 'ready') {`,
+      `      return false;`,
+      `    }`,
+      `  }`,
+      // Exactly one of each required component name — no duplicates, no extras.
+      `  const names = components.map((entry) => entry.name);`,
+      `  if (names.filter((name) => name === 'application').length !== 1) {`,
+      `    return false;`,
+      `  }`,
+      `  if (names.filter((name) => name === 'database').length !== 1) {`,
+      `    return false;`,
+      `  }`,
+      `  return true;`,
       `}`,
     ].join("\n"),
   );
