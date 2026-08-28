@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T050 AUTHORIZED — IMPLEMENTATION PENDING
+- **Status:** T050 CHANGES REQUIRED — CORRECTIVE REVISION AUTHORIZED
 
 ## Active Feature Mirror
 
@@ -29,15 +29,46 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** NOT YET REVIEWED
-- **Phase status:** T049 ACCEPTED; T050 AUTHORIZED; T051+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED
+- **Phase status:** T049 ACCEPTED; T050 REWORK AUTHORIZED; T051+ UNAUTHORIZED
 - **Previous completed scope:** T049 — Verification build/start and configuration result stages
-- **Next valid action:** Claude implements only T050, then Codex independently reviews the exact
-  resulting artifact
-- **Blocking issues:** None
-- **Authorization state:** AUTHORIZED
-- **Authorized Implementation:** T050 — Verification migration, database, liveness, readiness,
-  and dependency-blocked result stages
+- **Next valid action:** Claude corrects only T050-B01, then Codex independently re-reviews the
+  exact resulting artifact
+- **Blocking issues:** T050-B01
+- **Authorization state:** REWORK
+- **Authorized Implementation:** T050 corrective revision — T050-B01 only
+- **T050 review — CHANGES REQUIRED:** Exact implementation
+  `508a203b23f692a4b8fb71ed6f7736cf6e78d4e7` is a one-file child of authorization
+  `fa5dcc1fed6e8566b44d54c9fd4a77de8749c8ed`; only
+  `scripts/foundation-operations.mjs` changed and `git diff --check` is clean. Independent locked
+  install reports zero vulnerabilities with only the established npm 11/npm 12 warning. Accepted
+  Verification contracts reproduce 183 passing / 28 expected-red T051–T054 failures; focused
+  orchestration regressions pass 94/94; the full suite reproduces 397 passing / 28 expected-red / 38
+  external-engine skips; syntax, TypeScript, and all three builds pass. With the committed synthetic
+  Verification example copied to the ignored local input, the independent real command proves
+  build, startup, all seven configuration contracts, migration, database, liveness, and readiness
+  pass; only the seven T051+ contracts emit closed `PREREQUISITE_FAILED` diagnostics. Exact test-run
+  resources were removed afterward. T050-B01 blocks acceptance: the health observations claim to
+  validate the closed HTTP schemas but accept response bodies that violate them. The liveness
+  predicate accepts extra keys, and the readiness predicate accepts extra body/component keys,
+  extra or duplicate components, and therefore does not enforce the OpenAPI `additionalProperties:
+  false`, exactly-two-components, and exactly-one-of-each constraints. Result: CHANGES REQUIRED;
+  T051+ remains unauthorized.
+- **T050-B01 REWORK authorization:** Preserve implementation
+  `508a203b23f692a4b8fb71ed6f7736cf6e78d4e7` in ancestry and correct only the liveness/readiness
+  response predicates in `scripts/foundation-operations.mjs` so a PASS requires the exact accepted
+  closed schemas in `specs/001-application-foundation/contracts/foundation-http.openapi.yaml`:
+  liveness has only `status: alive`; readiness has only `status` and `components`, exactly two
+  components, exactly one `application` and one `database`, and each ready component has only
+  `name` and `status` with no diagnostic or extra key. Do not change tests, any other file, the
+  migration/database/prerequisite behavior, T051+ behavior, dependencies, manifests, lockfile,
+  Development behavior, or Source-of-Truth. Required verification: locked install; accepted
+  T041–T043 contracts with exactly the established 28 later-task failures; focused orchestration
+  regressions; syntax; TypeScript; all three builds; independent real Verification command showing
+  the thirteen T049/T050 contracts pass and only seven T051+ blocked diagnostics; nondisclosure;
+  exact changed-file/ancestry checks; and `git diff --check`. Return a corrective commit whose sole
+  parent is this persisted REWORK authorization, exact commands/results, remaining expected-red
+  failures, environment limitations, and blockers.
 - **T050 authorization:** Implement only the T050 `migration`, `database`, `liveness`, and
   `readiness` Verification result stages plus prerequisite-blocked propagation for those stages in
   `scripts/foundation-operations.mjs`. Reuse the accepted T049 Verification build/start and
@@ -900,11 +931,14 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T049 Human Gate accepted; T050+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T049 review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T050 corrective revision — T050-B01 only; T051+ remain unauthorized
+- **Runtime:** Claude Code / `claude-developer`
+- **Required references:** `PROJECT-STATUS.md` T050-B01; `scripts/foundation-operations.mjs` health
+  observations; `specs/001-application-foundation/contracts/foundation-http.openapi.yaml` Liveness,
+  Readiness, and ComponentReadiness schemas
+- **Expected verification:** Exact commands and evidence listed in the T050-B01 REWORK authorization
+  above
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
