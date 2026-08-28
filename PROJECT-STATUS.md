@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T048 SOURCE-OF-TRUTH CONFLICT — HUMAN GATE REQUIRED
+- **Status:** T048-C01 RESOLVED BY PRODUCT OWNER — REWORK AUTHORIZATION PENDING
 
 ## Active Feature Mirror
 
@@ -29,15 +29,22 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** SOURCE-OF-TRUTH CONFLICT
-- **Phase status:** T047 ACCEPTED; T048 BLOCKED AT REVIEW; T049+ UNAUTHORIZED
+- **Current review result:** SOURCE-OF-TRUTH CONFLICT RESOLVED — REWORK NOT YET AUTHORIZED
+- **Phase status:** T047 ACCEPTED; T048 CLARIFIED; T049+ UNAUTHORIZED
 - **Previous completed scope:** T047 — one-hop Verification proxy configuration
-- **Next valid action:** Product Owner resolves T048-C01 ownership/scope at the Human Gate; no
-  implementation or next task is authorized
-- **Blocking issues:** T048-C01 — the T048 one-file task cannot produce a runnable release listener
-  under the already accepted T044/T045 build and image contracts
+- **Next valid action:** Persist exact T048 REWORK authorization from this clarified governance state
+- **Blocking issues:** None — T048-C01 ownership/scope resolved by Product Owner
 - **Authorization state:** NONE
 - **Authorized Implementation:** NONE
+- **T048-C01 Product Owner decision:** T048 remains the owner of the single-listener release
+  composition. Its task scope now explicitly includes the minimum release-entry build/export and
+  `infra/Containerfile` copy/start wiring required to make `apps/web/server.ts` the runnable release
+  entry. T049/T052 ownership and task order are unchanged; no new task or dependency is authorized.
+  Corrective implementation may touch only the minimum necessary subset of `apps/web/server.ts`,
+  `apps/web/package.json`, `apps/server/package.json` when required for a runtime-safe Server
+  package/export boundary, and `infra/Containerfile`. Root `package.json`, `package-lock.json`,
+  Compose, Nginx, orchestration scripts, tests, other specification content, T049+ behavior,
+  Product behavior, and new dependencies remain prohibited.
 - **T048 review — SOURCE-OF-TRUTH CONFLICT:** Exact implementation
   `04933bb805cad1ed643ffb3040a812d6ffb37b91` is a clean one-file child of T048 authorization
   `8c4bddbb8c147fd960521e2633b3c2fa79a17681`; `apps/web/server.ts` is its only changed file. The
@@ -758,10 +765,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T048-C01 requires Product Owner resolution; T049+ remain unauthorized
+- **Task / Scope:** NONE — T048 clarification persisted; exact REWORK authorization is the next
+  governance action; T049+ remain unauthorized
 - **Runtime:** NONE
-- **Required references:** NONE pending Human Gate
-- **Expected verification:** NONE pending Human Gate
+- **Required references:** NONE until REWORK authorization is persisted
+- **Expected verification:** NONE until REWORK authorization is persisted
 - **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
