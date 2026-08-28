@@ -1,0 +1,94 @@
+# Provisional release image for Delivery 001 — Application Foundation (tasks.md T045).
+#
+# References: spec.md FR-009 (Production-like Verification of the release candidate),
+# FR-013 (discoverable foundation checks), FR-015 (provisional runtime choices MUST be
+# labeled provisional and MUST NOT imply Production hosting parity); plan.md
+# §Project Structure and §Testing and security evidence; research.md Decisions 1–3
+# (Node.js 24 LTS toolchain, one locked dependency graph, one release-shaped listener);
+# contracts/foundation-security.md ASVS v5.0.0-13.4.1 (L1: the release image excludes
+# repository metadata and development-only content).
+#
+# PROVISIONAL CHOICE (FR-015): the base is the official Linux (Debian bookworm slim)
+# Node.js 24 image, pinned by immutable digest exactly like the Development database
+# image in infra/compose.development.yaml. Linux/Node 24 is a provisional local choice
+# for Production-like Verification only — it is NOT a Production hosting decision and
+# establishes no parity with the future hosting runtime, which stays evidence-dependent
+# until the real hosting environment is inspected.
+#
+# Build from a clean repository root (no prior local install or state is required):
+#   podman build -f infra/Containerfile -t songhealth-foundation:provisional .
+#
+# Content control (ASVS v5.0.0-13.4.1): there is deliberately no broad `COPY . .`.
+# Every COPY names an exact manifest or build input, so repository metadata (.git),
+# source tests, development-only files and dependencies, checkout-local state
+# (.foundation-state, node_modules, logs), and unrelated workspace content cannot
+# reach the final image. The runtime stage receives only:
+#   - the four accepted T044 workspace manifests (release identity plus the ESM
+#     "type": "module" resolution the emitted JavaScript relies on; the listed
+#     devDependencies are manifest metadata only — no dev packages are installed);
+#   - apps/server/build — the independent tsc server runtime boundary modules;
+#   - apps/web/build    — the React Router Framework Mode client + SSR release trees;
+#   - apps/admin/dist   — the independent Vite CSR release output;
+#   - the production-only node_modules installed from the committed lockfile.
+# The intermediate stages hold sources and dev-only tooling and are discarded.
+#
+# The startup command runs the accepted server runtime boundary module, the only
+# release-shaped executable artifact that exists at this task. The release listener
+# (apps/web/server.ts, T048), the Verification topology (T046), and the proxy (T047)
+# are out of scope, so no port is EXPOSEd and no HEALTHCHECK is declared: APP_PORT is
+# validated runtime configuration, and a healthcheck has no listener to probe until
+# the release listener task is implemented.
+
+# Build stage: install the full locked graph, then run the three accepted independent
+# T044 production builds exactly as exposed at the repository root.
+FROM docker.io/library/node:24-slim@sha256:6642ef280aebc09c4541bee0b15c9f89f0f3f3c247ddee79ae1d37eddfdcbbaa AS build
+WORKDIR /workspace
+# Manifests first so dependency installation stays cached across source edits.
+COPY package.json package-lock.json ./
+COPY apps/server/package.json apps/server/
+COPY apps/web/package.json apps/web/
+COPY apps/admin/package.json apps/admin/
+RUN npm ci --no-audit --no-fund
+# Only the build inputs of the three workspaces (the root tsconfig is included because
+# the accepted builds ran with it present). Test files inside these source trees never
+# reach the runtime image: the runtime copies build output only.
+COPY tsconfig.json ./
+COPY apps/server/src apps/server/src
+COPY apps/web/app apps/web/app
+COPY apps/web/react-router.config.ts apps/web/vite.config.ts apps/web/
+COPY apps/admin/index.html apps/admin/vite.config.ts apps/admin/
+COPY apps/admin/src apps/admin/src
+RUN npm run build:server && npm run build:admin && npm run build:web
+
+# Dependencies stage: production-only installation from the same committed lockfile.
+FROM docker.io/library/node:24-slim@sha256:6642ef280aebc09c4541bee0b15c9f89f0f3f3c247ddee79ae1d37eddfdcbbaa AS dependencies
+WORKDIR /workspace
+COPY package.json package-lock.json ./
+COPY apps/server/package.json apps/server/
+COPY apps/web/package.json apps/web/
+COPY apps/admin/package.json apps/admin/
+RUN npm ci --omit=dev --no-audit --no-fund
+
+# Runtime stage: release artifacts plus production dependencies only, as an unprivileged
+# user. The image writes no local state, so no writable path is provisioned.
+FROM docker.io/library/node:24-slim@sha256:6642ef280aebc09c4541bee0b15c9f89f0f3f3c247ddee79ae1d37eddfdcbbaa AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+LABEL org.songhealth.foundation.delivery="001-application-foundation" \
+      org.songhealth.foundation.resource="foundation.release-image" \
+      org.songhealth.foundation.ownership-schema="v1" \
+      org.opencontainers.image.title="songhealth foundation release image (provisional)" \
+      org.opencontainers.image.description="Provisional Linux/Node 24 release image for Production-like Verification only; not a Production hosting parity claim (FR-015)." \
+      org.opencontainers.image.source="https://github.com/9GotStory/songhealth"
+COPY --from=dependencies /workspace/package.json ./package.json
+COPY --from=dependencies /workspace/node_modules ./node_modules
+COPY --from=build /workspace/apps/server/package.json apps/server/package.json
+COPY --from=build /workspace/apps/server/build apps/server/build
+COPY --from=build /workspace/apps/web/package.json apps/web/package.json
+COPY --from=build /workspace/apps/web/build apps/web/build
+COPY --from=build /workspace/apps/admin/package.json apps/admin/package.json
+COPY --from=build /workspace/apps/admin/dist apps/admin/dist
+USER node:node
+# Provisional startup of the accepted server runtime boundary; superseded by the
+# release listener entry when its task is authorized and implemented.
+CMD ["node", "apps/server/build/bootstrap.js"]
