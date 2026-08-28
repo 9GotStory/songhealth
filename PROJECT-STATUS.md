@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T048 AUTHORIZED — IMPLEMENTATION HANDOFF
+- **Status:** T048 SOURCE-OF-TRUTH CONFLICT — HUMAN GATE REQUIRED
 
 ## Active Feature Mirror
 
@@ -29,14 +29,33 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** NOT YET REVIEWED — T048 AUTHORIZED
-- **Phase status:** T047 ACCEPTED; T048 AUTHORIZED; T049+ UNAUTHORIZED
+- **Current review result:** SOURCE-OF-TRUTH CONFLICT
+- **Phase status:** T047 ACCEPTED; T048 BLOCKED AT REVIEW; T049+ UNAUTHORIZED
 - **Previous completed scope:** T047 — one-hop Verification proxy configuration
-- **Next valid action:** Claude implements only T048; Codex independently reviews the exact result
-- **Blocking issues:** None
-- **Authorization state:** AUTHORIZED
-- **Authorized Implementation:** T048 — single-listener Fastify/Public/Admin release composition
-  and React Router handoff in `apps/web/server.ts`
+- **Next valid action:** Product Owner resolves T048-C01 ownership/scope at the Human Gate; no
+  implementation or next task is authorized
+- **Blocking issues:** T048-C01 — the T048 one-file task cannot produce a runnable release listener
+  under the already accepted T044/T045 build and image contracts
+- **Authorization state:** NONE
+- **Authorized Implementation:** NONE
+- **T048 review — SOURCE-OF-TRUTH CONFLICT:** Exact implementation
+  `04933bb805cad1ed643ffb3040a812d6ffb37b91` is a clean one-file child of T048 authorization
+  `8c4bddbb8c147fd960521e2633b3c2fa79a17681`; `apps/web/server.ts` is its only changed file. The
+  accepted T040 suite passes 14/14, TypeScript passes, all three accepted builds pass, and 252
+  focused regressions pass. T048-C01 blocks acceptance: `npm run build:web` emits only
+  `apps/web/build/client/**` and `apps/web/build/server/index.js`, not the new presentation entry;
+  the accepted `infra/Containerfile` neither copies `apps/web/server.ts` into its build context nor
+  emits/copies a runnable form of it, and its runtime still starts
+  `node apps/server/build/bootstrap.js`. The new entry also imports
+  `../server/src/http.js`, while the runtime image contains only `apps/server/build/http.js`.
+  Therefore the T045/T046 release candidate cannot execute the T048 single listener and Nginx has
+  no application listener at its configured destination. T049 is scoped to
+  `scripts/foundation-operations.mjs` and `package.json`; T052 revisits only failure adapters; no
+  remaining task owns the required release-entry build/copy/start integration. Correcting this
+  requires changing accepted T044/T045 artifacts outside T048's authorized `apps/web/server.ts`
+  scope, so reviewer rework cannot be authorized without an explicit Product Owner scope/ownership
+  decision. ESLint remains unavailable because its configured packages are absent from the lock;
+  npm 11.6.1 remains below the npm 12 pin. Result: SOURCE-OF-TRUTH CONFLICT; T049+ unauthorized.
 - **T048 authorization:** Implement only `apps/web/server.ts` as the thin release composition entry
   owned by T048. Register the accepted Server Fastify boundary first, serve the accepted Admin and
   Public release assets from the single internal listener, and adapt remaining Public requests to
@@ -739,14 +758,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T048 — implement the single-listener Fastify/Public/Admin release composition
-  and React Router handoff in `apps/web/server.ts`; T049+ remain unauthorized
-- **Runtime:** Claude Code (`claude-developer`) only
-- **Required references:** See the T048 authorization under Workflow Gate above
-- **Expected verification:** Complete accepted T040 adapter suite; focused composition/build/type/
-  static/nondisclosure regressions applicable to T048; diff/scope checks; exact implementation
-  evidence
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T048-C01 requires Product Owner resolution; T049+ remain unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE pending Human Gate
+- **Expected verification:** NONE pending Human Gate
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
