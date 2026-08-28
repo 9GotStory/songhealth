@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T047 AUTHORIZED — IMPLEMENTATION HANDOFF PENDING
+- **Status:** T047 RECONCILED REVIEW PASS — PRODUCT OWNER HUMAN GATE PENDING
 
 ## Active Feature Mirror
 
@@ -29,36 +29,34 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** CHANGES REQUIRED — T047-B01, T047-B02
-- **Phase status:** T046 ACCEPTED; T047 REWORK AUTHORIZED; T048+ UNAUTHORIZED
+- **Current review result:** PASS
+- **Phase status:** T047 RECONCILED REVIEW PASS; T048+ UNAUTHORIZED
 - **Previous completed scope:** T046 — isolated disposable Verification topology manifest
-- **Next valid action:** Claude Code corrects only T047-B01 and T047-B02 in
-  `infra/nginx/nginx.conf`; Codex independently re-reviews the exact corrective artifact
-- **Blocking issues:** T047-B01 rejects required Admin/Public build assets and remaining Public
-  requests; T047-B02 emits failed proxy requests as non-contract access-log records
-- **Authorization state:** REWORK
-- **Authorized Implementation:** T047 corrective rework only — `infra/nginx/nginx.conf`
-- **T047 rework authorization:**
-  - **T047-B01:** The exact-match route table forwards only `/`, `/admin/`, `/health/live`, and
-    `/health/ready`, while approved Research Decision 3 requires the release listener to serve
-    Admin/Public build assets and then adapt remaining Public requests, and Decision 8 verifies
-    Admin assets through Nginx. Correct the proxy routing so those application-owned asset and
-    remaining Public request surfaces reach the sole internal `songhealth-app:3000` listener,
-    without adding another destination or widening T046 host exposure.
-  - **T047-B02:** `log_format bounded` writes failures such as 404/502/504 as free-form records with
-    peer, timestamp, method, path, status, bytes, and duration. The Operations Contract §Safe
-    diagnostic contract requires every failure emitted on surfaced proxy logs to be exactly one
-    closed SafeDiagnostic with no additional fields or free-form content. Correct failure logging
-    to emit only the allowlisted closed `verification` diagnostic shape while keeping successful
-    request logging bounded and preventing query/header/upstream/internal-host disclosure.
-  Rework excludes Compose mounting/integration, T048+, application/server implementation,
-  orchestration, other infrastructure files, dependencies, Product behavior, and Source-of-Truth
-  changes. Verification must re-run the pinned-image Nginx syntax check; live-probe Public/Admin
-  asset and remaining Public paths through the sole internal listener; prove spoofed forwarding
-  metadata replacement; prove 404/502/504 proxy log units are exact closed diagnostics and contain
-  no protected sentinels, query/header values, peer/path/timing extras, or internal upstream data;
-  run applicable regressions and `git diff --check`; and report exact commands/results and the
-  corrective SHA.
+- **Next valid action:** Product Owner Human Gate for reconciled artifact
+  `25436c56c97b0211795fba155f9563ab432b6532`; do not authorize T048+
+- **Blocking issues:** None
+- **Authorization state:** NONE
+- **Authorized Implementation:** NONE
+- **T047 reconciliation evidence:** Human-authorized non-rewriting merge
+  `25436c56c97b0211795fba155f9563ab432b6532` has exact corrective implementation
+  `f0634c9b2eea8c3e7be164bbb38d26fafbff7208` as first parent and persisted REWORK governance
+  `dec812b2731ead5a98a72f387d209cafb37b48cc` as second parent. Therefore reviewed implementation
+  `8ce17027f5b9dd123c2598c0c27517278f0cb549`, T047 authorization
+  `72506db30491503fab3038e91962d83b0a90322d`, and both parent tips are ancestors. Invalid PASS
+  `b5b78484774eb2786fd924958489f6bcebce4225` is not an ancestor. The reconciled
+  `infra/nginx/nginx.conf` blob `4df478bf9a117722b6adaf6f666291149e8ad121` is byte-identical to
+  the corrective tip; the merge changes only `PROJECT-STATUS.md` relative to that implementation.
+- **T047 reconciled final review evidence:** Independent review of the exact reconciled artifact
+  confirms T047-B01 and T047-B02 remain closed. The complete application-owned surface forwards to
+  the sole internal `songhealth-app:3000` destination, including Public/Admin assets and remaining
+  Public requests, without widening T046 exposure. Successful access records are bounded, while
+  each 4xx/5xx record is exactly one closed allowlisted `verification` SafeDiagnostic without
+  request or infrastructure detail. The pinned Nginx image passes `nginx -t`; an independently
+  induced Admin-asset-path upstream refusal returns the closed 502 response and emits exactly one
+  identical diagnostic log unit with no injected query/forwarded-header sentinel or internal
+  destination detail. Ancestry, blob identity, scope, and whitespace checks are clean. The Compose
+  mount remains a later integration requirement outside T047. Result: PASS; Authorized
+  Implementation is `NONE`; T048+ remain unauthorized.
 - **T047 authorization:** Configure only `infra/nginx/nginx.conf` as the one-hop Verification proxy
   owned by T047. Forward Public `/`, Admin `/admin/`, and server health routes through the internal
   `songhealth-app:3000` listener; preserve the accepted Nginx-only host exposure and direct-app
