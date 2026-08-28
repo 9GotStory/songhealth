@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T045 AUTHORIZED — IMPLEMENTATION HANDOFF
+- **Status:** T045 PASS — PRODUCT OWNER HUMAN GATE
 
 ## Active Feature Mirror
 
@@ -29,12 +29,26 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** NOT YET REVIEWED — T045 AUTHORIZED
-- **Phase status:** T044 ACCEPTED; T045 AUTHORIZED; T046+ UNAUTHORIZED
-- **Previous completed scope:** T044 — independent production builds and release output
-- **Next valid action:** Claude Code implements only T045 from the persisted authorization below;
-  stop before T046+
-- **Blocking issues:** None for the reconciled T044 review
+- **Current review result:** PASS
+- **Phase status:** T045 PASS — AWAITING PRODUCT OWNER ACCEPTANCE; T046+ UNAUTHORIZED
+- **Previous completed scope:** T045 — provisional Linux/Node 24 release image
+- **Next valid action:** Product Owner Human Gate for exact T045 implementation
+  `7ea10fe559d83d41a2d7fe0fc1dabd6153f65e1f`; do not authorize T046+
+- **Blocking issues:** None for T045 independent review
+- **T045 review evidence:** Exact implementation `7ea10fe559d83d41a2d7fe0fc1dabd6153f65e1f`
+  has persisted authorization `7a0813ae5d9b9482a11b09a5cf60edd73ad6008e` as its sole parent and a clean
+  one-file diff adding only `infra/Containerfile`, with no T046+ implementation, manifest,
+  dependency, lockfile, or application change. Independent clean installation reports zero
+  vulnerabilities with only the established host npm 11 versus pinned npm 12 warning; Server,
+  Admin, and Public production builds pass; focused command-adapter regressions pass 21/21; and
+  `git diff --check` is clean. The digest-pinned three-stage image builds successfully with the
+  environment-required Podman chroot isolation, runs as uid 1000 on Linux/Node 24, loads the
+  accepted server boundary, and starts its bounded pre-listener command successfully. Final-image
+  inspection confirms accepted release artifacts and the locked production dependency graph are
+  present while repository metadata, Source-of-Truth/governance files, source tests, local state,
+  build workspace, lockfile, and sampled development-only packages are absent. Provisional/no-parity
+  labels are explicit. The retained `@types/node`/`undici-types` peer-dependency path is part of the
+  npm-resolved production graph and is non-blocking. Result: PASS; T046+ remain unauthorized.
 - **T044 Product Owner acceptance:** Human Gate accepted reconciled artifact
   `709858b3d8c0d3f2528aa9f6093099367b7d19fa` and fresh independent PASS governance record
   `0bff134ffcf461cd5e361fbbf23cb925f83e2acb`. The accepted history preserves exact reviewed
@@ -591,25 +605,12 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T045 — build the provisional Linux/Node 24 release image only in
-  `infra/Containerfile`, using the accepted independent T044 release outputs and excluding
-  repository metadata and development-only content. T046+ remain unauthorized.
-- **Runtime:** Claude Code DEV Executor
-- **Required references:** `.specify/memory/constitution.md`; `specs/001-application-foundation/spec.md`
-  FR-009, FR-013, and FR-015; `specs/001-application-foundation/plan.md` §Project Structure and
-  §Testing and security evidence; `specs/001-application-foundation/research.md` Decisions 1–3;
-  `specs/001-application-foundation/contracts/foundation-security.md` ASVS
-  `v5.0.0-13.4.1`; `specs/001-application-foundation/tasks.md` T045; and the accepted T044 package
-  manifests/build outputs.
-- **Expected verification:** Build the image from a clean repository context with the available
-  Podman-compatible builder; prove the runtime uses provisional Linux/Node 24 and starts only from
-  accepted release artifacts; inspect the final image to prove repository metadata, source tests,
-  development-only files/dependencies, local state, and unrelated workspace content are absent;
-  run relevant independent production-build regressions; run `git diff --check`; confirm the diff
-  is limited to `infra/Containerfile`, no new dependency or lockfile change exists, and no T046+
-  topology/proxy/application behavior is implemented. Report exact commands/results, image/content
-  inspection evidence, changed files, and implementation SHA.
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T045 independently passed; awaiting Product Owner Human Gate; T046+
+  remain unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE — see T045 review evidence above
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
