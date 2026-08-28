@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T048 REWORK AUTHORIZED — T048-C01
+- **Status:** T048 PASS — PRODUCT OWNER HUMAN GATE REQUIRED
 
 ## Active Feature Mirror
 
@@ -29,14 +29,35 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** REWORK REQUIRED — T048-C01
-- **Phase status:** T047 ACCEPTED; T048 REWORK AUTHORIZED; T049+ UNAUTHORIZED
-- **Previous completed scope:** T047 — one-hop Verification proxy configuration
-- **Next valid action:** Claude corrects only T048-C01; Codex independently reviews the exact result
-- **Blocking issues:** None — T048-C01 ownership/scope resolved by Product Owner
-- **Authorization state:** REWORK
-- **Authorized Implementation:** T048-C01 — make the accepted T048 composition a built and runnable
-  release-image entry
+- **Current review result:** PASS — AWAITING PRODUCT OWNER ACCEPTANCE
+- **Phase status:** T047 ACCEPTED; T048 PASS; T049+ UNAUTHORIZED
+- **Previous completed scope:** T048 — runnable single-listener release composition
+- **Next valid action:** Product Owner accepts or rejects exact T048 corrective artifact; do not
+  authorize T049+
+- **Blocking issues:** None
+- **Authorization state:** NONE
+- **Authorized Implementation:** NONE
+- **T048 final review — PASS:** Exact corrective implementation
+  `0ea2dcfb8d889b441a3b4bf61f8490332b1d136a` has persisted REWORK authorization
+  `ea387d5aa8766da9804dd8c852ca65b572d51e58` as its sole parent and retains original T048
+  implementation `04933bb805cad1ed643ffb3040a812d6ffb37b91` in linear ancestry. Its diff is limited
+  to the four authorized files: `apps/web/server.ts`, `apps/web/package.json`,
+  `apps/server/package.json`, and `infra/Containerfile`; prohibited files, dependencies, root
+  manifest, and lockfile are unchanged. Independent clean locked installation completes with only
+  the established npm 11-versus-12 engine warning. T040 passes 14/14; TypeScript passes; independent
+  Server, Admin, and Web builds pass; the Web build emits both the accepted React Router trees and
+  runnable `apps/web/build/entry/server.js`; 252 focused regressions pass; diff and worktree checks
+  are clean. Independent rootless Podman build produces image
+  `163cf6ee5063563d2bad3fe6224287996223d4b0af53424850d34baa5fc547ff` with CMD
+  `node apps/web/build/entry/server.js`, user `node:node`, the required release artifacts and
+  production dependencies, working built Server subpath imports, and none of the prohibited
+  repository/governance/spec/docs/tests/source/development-tooling content inspected. A bounded
+  isolated runtime proof starts the image on internal `10.89.88.2:3000`; the accepted pinned T047
+  Nginx proxy reaches `/health/live`, Public SSR `/`, and Admin `/admin/`, with the required security
+  headers. Proof containers and network were removed. The 56 established T049–T052 expected-red
+  failures and 38 external-MySQL skips remain outside this review; ESLint remains unavailable due
+  to its pre-existing absent locked plugins. Result: PASS; authorization cleared; T049+
+  unauthorized; stop at Product Owner Human Gate.
 - **T048-C01 Product Owner decision:** T048 remains the owner of the single-listener release
   composition. Its task scope now explicitly includes the minimum release-entry build/export and
   `infra/Containerfile` copy/start wiring required to make `apps/web/server.ts` the runnable release
@@ -785,15 +806,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** T048-C01 — minimum release-entry build/copy/start correction within the bounded
-  files above; T049+ remain unauthorized
-- **Runtime:** Claude Code (`claude-developer`) only
-- **Required references:** T048-C01 Product Owner decision and REWORK authorization above;
-  `.specify/memory/constitution.md`; `specs/001-application-foundation/{spec.md,plan.md,tasks.md}`;
-  accepted T040/T044–T048 artifacts
-- **Expected verification:** Exact clean-install, build, release-image, runtime/listener,
-  regression, nondisclosure, ancestry, scope, and diff evidence listed above
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — T048 PASS awaits Product Owner acceptance; T049+ remain unauthorized
+- **Runtime:** NONE
+- **Required references:** NONE
+- **Expected verification:** NONE — see T048 final review evidence above
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
