@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T048 PASS — PRODUCT OWNER HUMAN GATE REQUIRED
+- **Status:** T048 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
 
 ## Active Feature Mirror
 
@@ -29,14 +29,23 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — AWAITING PRODUCT OWNER ACCEPTANCE
-- **Phase status:** T047 ACCEPTED; T048 PASS; T049+ UNAUTHORIZED
+- **Current review result:** PASS — HUMAN ACCEPTED
+- **Phase status:** T048 ACCEPTED; T049+ UNAUTHORIZED
 - **Previous completed scope:** T048 — runnable single-listener release composition
-- **Next valid action:** Product Owner accepts or rejects exact T048 corrective artifact; do not
-  authorize T049+
+- **Next valid action:** NONE selected or authorized — stop after T048 Human acceptance; T049+
+  remain unauthorized
 - **Blocking issues:** None
 - **Authorization state:** NONE
 - **Authorized Implementation:** NONE
+- **T048 Product Owner acceptance:** Human Gate accepted original T048 implementation
+  `04933bb805cad1ed643ffb3040a812d6ffb37b91`, persisted REWORK authorization
+  `ea387d5aa8766da9804dd8c852ca65b572d51e58`, corrective implementation
+  `0ea2dcfb8d889b441a3b4bf61f8490332b1d136a`, and final independent PASS record
+  `9f98b62c4fbe1474a6b1bc72d61a7cad1212e158`. The accepted history is linear through Product
+  Owner clarification `877a9f147f3f47cceeb30a1aae0219327ddb22ed`; the four accepted corrective
+  implementation blobs remain unchanged from `0ea2dcf`. The release contract still emits and starts
+  `apps/web/build/entry/server.js`, preserves the single-listener behavior, and changes no
+  dependency or lockfile. Authorized Implementation remains `NONE`; T049+ remain unauthorized.
 - **T048 final review — PASS:** Exact corrective implementation
   `0ea2dcfb8d889b441a3b4bf61f8490332b1d136a` has persisted REWORK authorization
   `ea387d5aa8766da9804dd8c852ca65b572d51e58` as its sole parent and retains original T048
@@ -806,10 +815,10 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T048 PASS awaits Product Owner acceptance; T049+ remain unauthorized
+- **Task / Scope:** NONE — T048 Human Gate accepted; T049+ remain unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
-- **Expected verification:** NONE — see T048 final review evidence above
+- **Expected verification:** NONE — see T048 acceptance and final review evidence above
 - **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
