@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T047 RECONCILED REVIEW PASS — PRODUCT OWNER HUMAN GATE PENDING
+- **Status:** T047 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
 
 ## Active Feature Mirror
 
@@ -29,14 +29,24 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS
-- **Phase status:** T047 RECONCILED REVIEW PASS; T048+ UNAUTHORIZED
-- **Previous completed scope:** T046 — isolated disposable Verification topology manifest
-- **Next valid action:** Product Owner Human Gate for reconciled artifact
-  `25436c56c97b0211795fba155f9563ab432b6532`; do not authorize T048+
+- **Current review result:** PASS — HUMAN ACCEPTED
+- **Phase status:** T047 ACCEPTED; T048+ UNAUTHORIZED
+- **Previous completed scope:** T047 — one-hop Verification proxy configuration
+- **Next valid action:** NONE selected or authorized — stop after T047 Human acceptance; T048+
+  remain unauthorized
 - **Blocking issues:** None
 - **Authorization state:** NONE
 - **Authorized Implementation:** NONE
+- **T047 Product Owner acceptance:** Human Gate accepted reconciled artifact
+  `25436c56c97b0211795fba155f9563ab432b6532` and fresh independent PASS governance record
+  `f61224058c1397b4aa94951199c7b920d1076a62`. The accepted history preserves T047 authorization
+  `72506db30491503fab3038e91962d83b0a90322d`, reviewed implementation
+  `8ce17027f5b9dd123c2598c0c27517278f0cb549`, REWORK governance
+  `dec812b2731ead5a98a72f387d209cafb37b48cc`, corrective implementation
+  `f0634c9b2eea8c3e7be164bbb38d26fafbff7208`, and the reconciliation merge. Invalid PASS
+  `b5b78484774eb2786fd924958489f6bcebce4225` is excluded from accepted ancestry. The accepted
+  `infra/nginx/nginx.conf` blob remains exactly `4df478bf9a117722b6adaf6f666291149e8ad121`.
+  Authorized Implementation remains `NONE`; T048+ remain unauthorized.
 - **T047 reconciliation evidence:** Human-authorized non-rewriting merge
   `25436c56c97b0211795fba155f9563ab432b6532` has exact corrective implementation
   `f0634c9b2eea8c3e7be164bbb38d26fafbff7208` as first parent and persisted REWORK governance
