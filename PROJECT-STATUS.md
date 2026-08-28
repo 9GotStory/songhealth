@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T048-C01 RESOLVED BY PRODUCT OWNER — REWORK AUTHORIZATION PENDING
+- **Status:** T048 REWORK AUTHORIZED — T048-C01
 
 ## Active Feature Mirror
 
@@ -29,13 +29,14 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** SOURCE-OF-TRUTH CONFLICT RESOLVED — REWORK NOT YET AUTHORIZED
-- **Phase status:** T047 ACCEPTED; T048 CLARIFIED; T049+ UNAUTHORIZED
+- **Current review result:** REWORK REQUIRED — T048-C01
+- **Phase status:** T047 ACCEPTED; T048 REWORK AUTHORIZED; T049+ UNAUTHORIZED
 - **Previous completed scope:** T047 — one-hop Verification proxy configuration
-- **Next valid action:** Persist exact T048 REWORK authorization from this clarified governance state
+- **Next valid action:** Claude corrects only T048-C01; Codex independently reviews the exact result
 - **Blocking issues:** None — T048-C01 ownership/scope resolved by Product Owner
-- **Authorization state:** NONE
-- **Authorized Implementation:** NONE
+- **Authorization state:** REWORK
+- **Authorized Implementation:** T048-C01 — make the accepted T048 composition a built and runnable
+  release-image entry
 - **T048-C01 Product Owner decision:** T048 remains the owner of the single-listener release
   composition. Its task scope now explicitly includes the minimum release-entry build/export and
   `infra/Containerfile` copy/start wiring required to make `apps/web/server.ts` the runnable release
@@ -45,6 +46,25 @@
   package/export boundary, and `infra/Containerfile`. Root `package.json`, `package-lock.json`,
   Compose, Nginx, orchestration scripts, tests, other specification content, T049+ behavior,
   Product behavior, and new dependencies remain prohibited.
+- **T048-C01 REWORK authorization:** Preserve original T048 implementation
+  `04933bb805cad1ed643ffb3040a812d6ffb37b91` in ancestry and correct only the release-entry
+  integration gap. The corrective commit must descend linearly from this persisted REWORK
+  authorization; no rebase, cherry-pick, reset, or replay. Modify only the minimum needed subset of
+  `apps/web/server.ts`, `apps/web/package.json`, `apps/server/package.json` only when required for a
+  runtime-safe Server package/export boundary, and `infra/Containerfile`. Preserve the accepted
+  T048 source behavior and make the independent Web production build emit a runnable listener in
+  addition to the accepted React Router output; make the clean release image contain and start that
+  listener, resolve Server runtime imports without TypeScript source, retain only required release
+  artifacts and production dependencies, and accept bounded Verification traffic on internal port
+  3000 through the existing T047 forwarding path. Do not modify root `package.json`,
+  `package-lock.json`, Compose, Nginx, orchestration scripts, tests, specification beyond the
+  accepted T048 clarification, T049+ behavior, or Product behavior; add no dependency. Required
+  verification: clean locked install; T040 14/14; independent Web/Server/Admin/Public builds; clean
+  `infra/Containerfile` build and final-image content/absence inspection; final CMD/entry proof;
+  bounded Verification startup/listen/port-3000/T047-forwarding proof without T049 orchestration;
+  TypeScript, applicable focused and nondisclosure regressions, `git diff --check`, exact ancestry,
+  changed-file, manifest, dependency, and lockfile checks. Return exact commands/results, image
+  identity, implementation SHA, environment limitations, and blockers for independent review.
 - **T048 review — SOURCE-OF-TRUTH CONFLICT:** Exact implementation
   `04933bb805cad1ed643ffb3040a812d6ffb37b91` is a clean one-file child of T048 authorization
   `8c4bddbb8c147fd960521e2633b3c2fa79a17681`; `apps/web/server.ts` is its only changed file. The
@@ -765,12 +785,15 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T048 clarification persisted; exact REWORK authorization is the next
-  governance action; T049+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE until REWORK authorization is persisted
-- **Expected verification:** NONE until REWORK authorization is persisted
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T048-C01 — minimum release-entry build/copy/start correction within the bounded
+  files above; T049+ remain unauthorized
+- **Runtime:** Claude Code (`claude-developer`) only
+- **Required references:** T048-C01 Product Owner decision and REWORK authorization above;
+  `.specify/memory/constitution.md`; `specs/001-application-foundation/{spec.md,plan.md,tasks.md}`;
+  accepted T040/T044–T048 artifacts
+- **Expected verification:** Exact clean-install, build, release-image, runtime/listener,
+  regression, nondisclosure, ancestry, scope, and diff evidence listed above
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
