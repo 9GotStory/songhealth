@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T049 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T050 AUTHORIZED — IMPLEMENTATION PENDING
 
 ## Active Feature Mirror
 
@@ -29,14 +29,42 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED
-- **Phase status:** T049 ACCEPTED; T050+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED
+- **Phase status:** T049 ACCEPTED; T050 AUTHORIZED; T051+ UNAUTHORIZED
 - **Previous completed scope:** T049 — Verification build/start and configuration result stages
-- **Next valid action:** NONE selected or authorized — stop after T049 Human acceptance; T050+
-  remain unauthorized
+- **Next valid action:** Claude implements only T050, then Codex independently reviews the exact
+  resulting artifact
 - **Blocking issues:** None
-- **Authorization state:** NONE
-- **Authorized Implementation:** NONE
+- **Authorization state:** AUTHORIZED
+- **Authorized Implementation:** T050 — Verification migration, database, liveness, readiness,
+  and dependency-blocked result stages
+- **T050 authorization:** Implement only the T050 `migration`, `database`, `liveness`, and
+  `readiness` Verification result stages plus prerequisite-blocked propagation for those stages in
+  `scripts/foundation-operations.mjs`. Reuse the accepted T049 Verification build/start and
+  configuration stages, accepted explicit migration/database boundaries, accepted health HTTP
+  contracts, injected adapters, ordered-result contract, and closed SafeDiagnostic mapping.
+  Required authority: `.specify/memory/constitution.md`,
+  `specs/001-application-foundation/spec.md` FR-009–FR-010 and SC-003,
+  `specs/001-application-foundation/plan.md` §§Persistence and migrations and Operations and
+  verification, `specs/001-application-foundation/data-model.md` §§Migration State, Readiness
+  Status, and Verification Check Result,
+  `specs/001-application-foundation/contracts/foundation-operations.md` §§Commands, Safe diagnostic
+  contract, Verification result contract, and Failure behavior, accepted T041–T043 tests under
+  `tests/verification/`, accepted server migration/database/health boundaries under
+  `apps/server/src/`, and `specs/001-application-foundation/tasks.md` T050. Scope excludes T051+
+  isolation/proxy/route stages, T052 container/proxy failure adapters, T053 cleanup behavior, T054
+  report aggregation/emission, application or test changes, manifests, dependencies, lockfile,
+  Development behavior/resources, Product behavior, Production deployment/parity claims, and
+  Source-of-Truth changes. Verification must prove explicit migration precedes database and health
+  checks; database connectivity, liveness, and readiness emit canonical PASS/FAIL results in order;
+  pending/failed prerequisites produce explicit `PREREQUISITE_FAILED` downstream failures rather
+  than missing/skipped results; startup never auto-applies migrations; all diagnostics remain
+  closed and nondisclosing; later T051+ behavior remains expected-red/blocked. Run the complete
+  applicable accepted T041–T043 Verification contracts plus focused migration, database, health,
+  configuration, orchestration, nondisclosure, type/static/syntax, build, scope, and
+  `git diff --check` checks. Return exact commands/results, changed files, implementation SHA with
+  the persisted T050 authorization commit as its sole parent, expected-red later-task failures,
+  environment limitations, and blockers; do not weaken or bypass tests.
 - **T049 Product Owner acceptance:** Human Gate accepted persisted authorization
   `de6bedd9b18bb85dfd66db85e2b2f1ac56a6ffde`, exact implementation
   `bdb509a8ee2f9e8112a74d21b9666ccc47753cd0`, and independent PASS record
