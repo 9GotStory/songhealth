@@ -591,8 +591,7 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T044 reconciled artifact independently reviewed PASS; T045+ remain
-  unauthorized pending the Product Owner Human Gate
+- **Task / Scope:** NONE — T044 Human Gate accepted; T045+ remain unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE — see T044 reconciliation and reconciled final review evidence
