@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T046 PASS — PRODUCT OWNER HUMAN GATE
+- **Status:** T046 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
 
 ## Active Feature Mirror
 
@@ -29,12 +29,19 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS
-- **Phase status:** T046 PASS — AWAITING PRODUCT OWNER ACCEPTANCE; T047+ UNAUTHORIZED
+- **Current review result:** PASS — HUMAN ACCEPTED
+- **Phase status:** T046 ACCEPTED; T047+ UNAUTHORIZED
 - **Previous completed scope:** T046 — isolated disposable Verification topology manifest
-- **Next valid action:** Product Owner Human Gate for exact T046 implementation
-  `9678618c6914f976d392df0c328856c4ac366dda`; do not authorize T047+
+- **Next valid action:** NONE selected or authorized — stop after T046 Human acceptance; T047+
+  remain unauthorized
 - **Blocking issues:** None for T046 independent review
+- **T046 Product Owner acceptance:** Human Gate accepted exact implementation
+  `9678618c6914f976d392df0c328856c4ac366dda` and independent PASS governance record
+  `02b4bd894e5c6550369c2475c3e2523717365bff`. The accepted history is linear from persisted
+  authorization `302c8385eedb8d0836f11953cba162a5903fa6ca` through implementation and PASS; the
+  `infra/compose.verification.yaml` blob remains exactly
+  `eba76aa0bbde5a6b5965e773755f1688e0095d81` across implementation, PASS, and this acceptance
+  record. Authorized Implementation remains `NONE`; T047+ remain unauthorized.
 - **T046 review evidence:** Exact implementation `9678618c6914f976d392df0c328856c4ac366dda`
   has persisted authorization `302c8385eedb8d0836f11953cba162a5903fa6ca` as its sole parent and a clean
   one-file diff adding only `infra/compose.verification.yaml`. The resolved Compose model validates
@@ -653,8 +660,7 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T046 independently passed; awaiting Product Owner Human Gate; T047+
-  remain unauthorized
+- **Task / Scope:** NONE — T046 Human Gate accepted; T047+ remain unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE — see T046 review evidence above
