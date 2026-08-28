@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T047 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T048 AUTHORIZED — IMPLEMENTATION HANDOFF
 
 ## Active Feature Mirror
 
@@ -29,14 +29,39 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED
-- **Phase status:** T047 ACCEPTED; T048+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T048 AUTHORIZED
+- **Phase status:** T047 ACCEPTED; T048 AUTHORIZED; T049+ UNAUTHORIZED
 - **Previous completed scope:** T047 — one-hop Verification proxy configuration
-- **Next valid action:** NONE selected or authorized — stop after T047 Human acceptance; T048+
-  remain unauthorized
+- **Next valid action:** Claude implements only T048; Codex independently reviews the exact result
 - **Blocking issues:** None
-- **Authorization state:** NONE
-- **Authorized Implementation:** NONE
+- **Authorization state:** AUTHORIZED
+- **Authorized Implementation:** T048 — single-listener Fastify/Public/Admin release composition
+  and React Router handoff in `apps/web/server.ts`
+- **T048 authorization:** Implement only `apps/web/server.ts` as the thin release composition entry
+  owned by T048. Register the accepted Server Fastify boundary first, serve the accepted Admin and
+  Public release assets from the single internal listener, and adapt remaining Public requests to
+  the React Router server build using the official Node request-handler semantics and an explicit
+  raw Fastify request/reply handoff. Preserve request method, original path/query, repeated headers,
+  redirects, repeated response headers, streaming, abort propagation, composition-owned security
+  headers, and bounded logging/error ownership required by the accepted T040 contract. Required
+  authority: `.specify/memory/constitution.md`, `specs/001-application-foundation/spec.md`
+  FR-001, FR-009–FR-010, and FR-016, `specs/001-application-foundation/plan.md` §§Runtime
+  composition, Configuration and startup, and Testing and security evidence,
+  `specs/001-application-foundation/research.md` Decision 3,
+  `specs/001-application-foundation/contracts/foundation-http.openapi.yaml`, accepted
+  `apps/web/server.test.ts`, accepted `apps/server/src/bootstrap.ts`, accepted Public/Admin build
+  outputs and manifests, `infra/Containerfile`, `infra/compose.verification.yaml`,
+  `infra/nginx/nginx.conf`, and `specs/001-application-foundation/tasks.md` T048. Scope excludes
+  T049+, orchestration or Verification-result stages, Compose/Nginx/Containerfile changes, package
+  manifest or lockfile changes, new dependencies, Development runtime changes, Product behavior,
+  authentication, feature APIs, Production deployment/parity claims, and Source-of-Truth changes.
+  Verification must run the complete T040 `apps/web/server.test.ts` contract; prove Server routes
+  are registered before presentation fallbacks and that Admin/Public release assets and remaining
+  Public requests share the one internal listener; run applicable focused server/configuration,
+  build, type, lint/static/import-boundary, syntax, and nondisclosure regressions available within
+  the accepted toolchain; run `git diff --check`; and report the exact commands/results, changed
+  files, implementation SHA, unresolved expected-red later-task failures, and any environment
+  limitation without weakening or bypassing tests.
 - **T047 Product Owner acceptance:** Human Gate accepted reconciled artifact
   `25436c56c97b0211795fba155f9563ab432b6532` and fresh independent PASS governance record
   `f61224058c1397b4aa94951199c7b920d1076a62`. The accepted history preserves T047 authorization
@@ -714,11 +739,14 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T046 Human Gate accepted; T047+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T046 review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T048 — implement the single-listener Fastify/Public/Admin release composition
+  and React Router handoff in `apps/web/server.ts`; T049+ remain unauthorized
+- **Runtime:** Claude Code (`claude-developer`) only
+- **Required references:** See the T048 authorization under Workflow Gate above
+- **Expected verification:** Complete accepted T040 adapter suite; focused composition/build/type/
+  static/nondisclosure regressions applicable to T048; diff/scope checks; exact implementation
+  evidence
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
