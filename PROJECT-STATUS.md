@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T048 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T049 AUTHORIZED — IMPLEMENTATION HANDOFF
 
 ## Active Feature Mirror
 
@@ -29,14 +29,46 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED
-- **Phase status:** T048 ACCEPTED; T049+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T049 AUTHORIZED
+- **Phase status:** T048 ACCEPTED; T049 AUTHORIZED; T050+ UNAUTHORIZED
 - **Previous completed scope:** T048 — runnable single-listener release composition
-- **Next valid action:** NONE selected or authorized — stop after T048 Human acceptance; T049+
-  remain unauthorized
+- **Next valid action:** Claude implements only T049; Codex independently reviews the exact result
 - **Blocking issues:** None
-- **Authorization state:** NONE
-- **Authorized Implementation:** NONE
+- **Authorization state:** AUTHORIZED
+- **Authorized Implementation:** T049 — Verification build/start plus valid and six invalid
+  configuration result stages in `scripts/foundation-operations.mjs`, with the
+  `verify:production-like` root entry point in `package.json`
+- **T049 authorization:** Implement only the T049 Verification entry point and its ordered `build`,
+  `startup`, `configuration-valid`, `configuration-missing-rejected`,
+  `configuration-empty-rejected`, `configuration-malformed-rejected`,
+  `configuration-unsupported-rejected`, `configuration-out-of-range-rejected`, and
+  `configuration-identity-conflict-rejected` result stages in
+  `scripts/foundation-operations.mjs`; replace only the `verify:production-like` stub in root
+  `package.json`. Reuse the accepted canonical configuration boundary, Verification Compose/image/
+  proxy/release artifacts, lifecycle journal, closed SafeDiagnostic contract, injected adapters,
+  and ordered-result contract. Required authority: `.specify/memory/constitution.md`,
+  `specs/001-application-foundation/spec.md` FR-006, FR-009–FR-010 and SC-003,
+  `specs/001-application-foundation/plan.md` §§Configuration and startup and Operations and
+  verification, `specs/001-application-foundation/research.md` Decisions 5–7,
+  `specs/001-application-foundation/contracts/foundation-operations.md` §§Commands, Safe diagnostic
+  contract, Operation-target ownership and isolation, Verification result contract, and Failure
+  behavior, accepted T041–T043 tests under `tests/verification/`, accepted configuration/runtime
+  boundaries under `apps/server/src/`, accepted `infra/Containerfile`,
+  `infra/compose.verification.yaml`, `infra/nginx/nginx.conf`, and
+  `specs/001-application-foundation/tasks.md` T049. Scope excludes T050+ stages (migration,
+  database, health/readiness, dependency-blocked behavior, isolation/proxy/routes, cleanup, and
+  reporting), safe container/proxy adapters, application code, tests, manifests, lockfile,
+  dependencies, Development behavior/resources, Product behavior, Production deployment/parity
+  claims, and Source-of-Truth changes. Verification must prove the root command reaches the T049
+  implementation; all nine owned results are emitted in canonical order with exact PASS/FAIL and
+  closed nondisclosing diagnostics; invalid cases are rejected before accepting work; build/start
+  use only exact Verification resources and preserve Development isolation; later T050+ results
+  remain explicit expected-red/blocked behavior rather than being implemented. Run the complete
+  applicable accepted T041–T043 Verification contracts plus focused configuration, orchestration,
+  nondisclosure, type/static/syntax, build, scope, and `git diff --check` checks. Return exact
+  commands/results, changed files, implementation SHA with this authorization commit as its sole
+  parent, expected-red later-task failures, environment limitations, and blockers; do not weaken or
+  bypass tests.
 - **T048 Product Owner acceptance:** Human Gate accepted original T048 implementation
   `04933bb805cad1ed643ffb3040a812d6ffb37b91`, persisted REWORK authorization
   `ea387d5aa8766da9804dd8c852ca65b572d51e58`, corrective implementation
@@ -815,11 +847,15 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T048 Human Gate accepted; T049+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T048 acceptance and final review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T049 — implement Verification build/start plus valid and six invalid
+  configuration result stages in `scripts/foundation-operations.mjs` and expose
+  `verify:production-like` in root `package.json`; T050+ remain unauthorized
+- **Runtime:** Claude Code (`claude-developer`) only
+- **Required references:** See the T049 authorization under Workflow Gate above
+- **Expected verification:** Complete applicable accepted T041–T043 contracts; focused
+  configuration/orchestration/nondisclosure/type/static/syntax/build checks; exact ordered-result,
+  scope, ancestry, and diff evidence
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
