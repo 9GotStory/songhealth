@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T044 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T045 AUTHORIZED — IMPLEMENTATION HANDOFF
 
 ## Active Feature Mirror
 
@@ -29,11 +29,11 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED
-- **Phase status:** T044 ACCEPTED; T045+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T045 AUTHORIZED
+- **Phase status:** T044 ACCEPTED; T045 AUTHORIZED; T046+ UNAUTHORIZED
 - **Previous completed scope:** T044 — independent production builds and release output
-- **Next valid action:** NONE selected or authorized — stop after T044 Human acceptance; T045+
-  remain unauthorized
+- **Next valid action:** Claude Code implements only T045 from the persisted authorization below;
+  stop before T046+
 - **Blocking issues:** None for the reconciled T044 review
 - **T044 Product Owner acceptance:** Human Gate accepted reconciled artifact
   `709858b3d8c0d3f2528aa9f6093099367b7d19fa` and fresh independent PASS governance record
@@ -591,12 +591,25 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T044 Human Gate accepted; T045+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T044 reconciliation and reconciled final review evidence
-  above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T045 — build the provisional Linux/Node 24 release image only in
+  `infra/Containerfile`, using the accepted independent T044 release outputs and excluding
+  repository metadata and development-only content. T046+ remain unauthorized.
+- **Runtime:** Claude Code DEV Executor
+- **Required references:** `.specify/memory/constitution.md`; `specs/001-application-foundation/spec.md`
+  FR-009, FR-013, and FR-015; `specs/001-application-foundation/plan.md` §Project Structure and
+  §Testing and security evidence; `specs/001-application-foundation/research.md` Decisions 1–3;
+  `specs/001-application-foundation/contracts/foundation-security.md` ASVS
+  `v5.0.0-13.4.1`; `specs/001-application-foundation/tasks.md` T045; and the accepted T044 package
+  manifests/build outputs.
+- **Expected verification:** Build the image from a clean repository context with the available
+  Podman-compatible builder; prove the runtime uses provisional Linux/Node 24 and starts only from
+  accepted release artifacts; inspect the final image to prove repository metadata, source tests,
+  development-only files/dependencies, local state, and unrelated workspace content are absent;
+  run relevant independent production-build regressions; run `git diff --check`; confirm the diff
+  is limited to `infra/Containerfile`, no new dependency or lockfile change exists, and no T046+
+  topology/proxy/application behavior is implemented. Report exact commands/results, image/content
+  inspection evidence, changed files, and implementation SHA.
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
