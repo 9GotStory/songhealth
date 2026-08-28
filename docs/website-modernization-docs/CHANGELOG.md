@@ -1,5 +1,16 @@
 # Documentation Changelog
 
+## 28 สิงหาคม 2569 — Post-Freeze Semantic Consistency Correction
+
+A post-freeze semantic review found two stale status sentences retained from the reactivation phase.
+
+Corrections:
+- `COMPLETE-MANIFEST.md`: removed the contradictory “not Frozen” sentence after `09` had already been frozen as v1.0;
+- `PROJECT-INDEX.md`: replaced stale “does not Freeze 09” wording with current Freeze-state wording;
+- added `reviews/migration-plan-postfreeze-semantic-review-round-1-2026-08-28.md`.
+
+No migration rules, Product/IA semantics, architecture, or execution gates changed. `current/09-migration-plan.md`, Frozen `00–08`, and Frozen `10-system-blueprint.md` v1.1 remain unchanged.
+
 ## 28 สิงหาคม 2569 — Migration Plan Freeze v1.0
 
 Human Acceptance `ACCEPT — Freeze Migration Plan 09` was recorded after canonical commit `489bd1253c56d83f1ba54c2691845921874e0fbd` passed exact post-commit verification.

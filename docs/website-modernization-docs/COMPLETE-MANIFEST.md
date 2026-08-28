@@ -39,7 +39,7 @@ Existing v1.1 records remain unchanged:
 
 ## Migration Reactivation
 
-`09-migration-plan.md` is present in `current/` as **FROZEN v1.0** after evidence-backed Deep Review. It is not Frozen and does not authorize importer implementation, Trial Migration or Production Cutover.
+`09-migration-plan.md` is present in `current/` as **FROZEN v1.0** after evidence-backed Deep Review, exact post-commit verification and Human Acceptance. This Freeze does not authorize importer implementation, Trial Migration or Production Cutover.
 
 ## Validation
 
@@ -60,5 +60,13 @@ Existing v1.1 records remain unchanged:
 
 - `reviews/migration-plan-human-acceptance-2026-08-28.md`
 - `reviews/migration-plan-freeze-review-v1.0-2026-08-28.md`
+- Frozen `00–08` and Frozen `10-system-blueprint.md` v1.1 remain unchanged.
+- Importer implementation, Trial Migration and Production Cutover remain unauthorized.
+
+
+## Post-Freeze Semantic Corrective Review — 28 สิงหาคม 2569
+
+- `reviews/migration-plan-postfreeze-semantic-review-round-1-2026-08-28.md` — stale Freeze-status wording corrected.
+- `current/09-migration-plan.md` remains FROZEN v1.0 and byte-for-byte unchanged.
 - Frozen `00–08` and Frozen `10-system-blueprint.md` v1.1 remain unchanged.
 - Importer implementation, Trial Migration and Production Cutover remain unauthorized.

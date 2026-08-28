@@ -154,7 +154,7 @@ Version: 1.0
 Canonical baseline:
 
 - `00-website-foundation.md` through `08-search.md` are **FROZEN** and remain the active Product/Information Architecture Source of Truth.
-- `09-migration-plan.md` is **FROZEN v1.0**. Reactivation governs migration planning only; it does not Freeze `09` and does not authorize importer implementation, Trial Migration, Production Import or Cutover.
+- `09-migration-plan.md` is **FROZEN v1.0** after Human Acceptance and the Freeze transaction. The Freeze governs the migration-planning baseline only and does not authorize importer implementation, Trial Migration, Production Import or Cutover.
 - Frozen `10-system-blueprint.md` v1.1 remains unchanged and does **not** gain a retroactive dependency on `09`. Its defer wording records the status that was true when v1.1 was frozen on 15 สิงหาคม 2569; current documentation status is governed by this Index and `reviews/migration-plan-reactivation-review-2026-08-28.md`.
 - `10-system-blueprint.md` is the Frozen technical implementation baseline for `00–08` and translates those Product/Information Architecture decisions into implementable boundaries without redesigning Product semantics.
 
@@ -464,3 +464,11 @@ Accepted on 15 สิงหาคม 2569:
 - Freeze Review: `reviews/migration-plan-freeze-review-v1.0-2026-08-28.md`
 - `current/09-migration-plan.md`: FROZEN v1.0
 - Importer implementation / Trial Migration / Production Cutover: NOT AUTHORIZED
+
+
+## Post-Freeze Semantic Corrective Review — 28 สิงหาคม 2569
+
+- corrected two stale status sentences left from the reactivation phase;
+- `current/09-migration-plan.md` remains FROZEN v1.0 byte-for-byte unchanged;
+- Frozen `00–08` and Frozen `10-system-blueprint.md` v1.1 remain unchanged;
+- importer implementation, Trial Migration and Production Cutover remain unauthorized.
