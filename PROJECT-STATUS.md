@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T045 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T046 AUTHORIZED — IMPLEMENTATION HANDOFF
 
 ## Active Feature Mirror
 
@@ -29,12 +29,38 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED
-- **Phase status:** T045 ACCEPTED; T046+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T046 AUTHORIZED
+- **Phase status:** T045 ACCEPTED; T046 AUTHORIZED; T047+ UNAUTHORIZED
 - **Previous completed scope:** T045 — provisional Linux/Node 24 release image
-- **Next valid action:** NONE selected or authorized — stop after T045 Human acceptance; T046+
-  remain unauthorized
-- **Blocking issues:** None for T045 independent review
+- **Next valid action:** Claude Code implements only T046 from this persisted authorization; Codex
+  then independently reviews the exact resulting artifact
+- **Blocking issues:** None for T046 implementation
+- **T046 authorization:** Define only `infra/compose.verification.yaml` with the isolated,
+  disposable Production-like Verification topology required by T046: Nginx, the production-built
+  application, and an independent provisional digest-pinned MySQL 8.4 database; only Nginx may be
+  host-published, while application and database ports remain internal. Use Verification-only
+  credentials, database, named volume, and networks distinct from Development; preserve
+  `environment=development`, `runtime-profile=verification`, and
+  `operation-target=verification`; and apply the complete checkout-scoped ownership label set to
+  every service, network, and volume. Required authority:
+  `.specify/memory/constitution.md`, `specs/001-application-foundation/spec.md` FR-005 and
+  FR-008–FR-009, `specs/001-application-foundation/plan.md` §§Runtime composition,
+  Configuration and startup, and Persistence and migrations,
+  `specs/001-application-foundation/research.md` Decisions 4–5,
+  `specs/001-application-foundation/data-model.md` §Data Store,
+  `specs/001-application-foundation/contracts/foundation-operations.md` §§Configuration examples
+  and Operation-target ownership and isolation, `.env.verification.example`,
+  `infra/compose.development.yaml`, `infra/Containerfile`, and
+  `specs/001-application-foundation/tasks.md` T046. Scope excludes T047+, Nginx configuration,
+  application/server implementation, orchestration scripts, package manifests or lockfiles, new
+  dependencies, Product behavior, Production deployment/parity claims, Source-of-Truth changes,
+  and any Development-resource change. Verification must render the manifest with an explicit
+  checkout ownership input, validate the resolved Compose model, prove only the proxy is published
+  and application/database are internal, confirm distinct Verification credentials/database/volume
+  and the complete label set on every declared resource, confirm the pinned database image resolves
+  specifically to MySQL 8.4 and the application image/build contract uses the accepted
+  `infra/Containerfile`, run applicable existing isolation/configuration regressions and
+  `git diff --check`, and report exact commands/results, changed files, and implementation SHA.
 - **T045 Product Owner acceptance:** Human Gate accepted exact implementation
   `7ea10fe559d83d41a2d7fe0fc1dabd6153f65e1f` and independent PASS governance record
   `dead9bc1cdff8f38a3db11bf8341c98308f27421`. The accepted history is linear from persisted
@@ -612,11 +638,15 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T045 Human Gate accepted; T046+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T045 review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** T046 only — define the isolated disposable Verification topology in
+  `infra/compose.verification.yaml`; T047+ remain unauthorized
+- **Runtime:** Claude Code
+- **Required references:** See T046 authorization above
+- **Expected verification:** Render/validate the Compose model; prove proxy-only publication,
+  internal application/database ports, independent Verification credentials/database/volume,
+  complete ownership labels, accepted Containerfile use, and MySQL 8.4 digest identity; run
+  applicable existing regressions and `git diff --check`; report exact evidence and SHA
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
