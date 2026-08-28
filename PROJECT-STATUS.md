@@ -29,13 +29,36 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** NOT YET REVIEWED — T047 AUTHORIZED
-- **Phase status:** T046 ACCEPTED; T047 AUTHORIZED; T048+ UNAUTHORIZED
+- **Current review result:** CHANGES REQUIRED — T047-B01, T047-B02
+- **Phase status:** T046 ACCEPTED; T047 REWORK AUTHORIZED; T048+ UNAUTHORIZED
 - **Previous completed scope:** T046 — isolated disposable Verification topology manifest
-- **Next valid action:** Claude Code implements only T047; Codex independently reviews the exact
-  resulting artifact and stops at the Product Owner Human Gate
-- **Blocking issues:** None for T047 implementation
-- **Authorized Implementation:** T047 only — configure `infra/nginx/nginx.conf`
+- **Next valid action:** Claude Code corrects only T047-B01 and T047-B02 in
+  `infra/nginx/nginx.conf`; Codex independently re-reviews the exact corrective artifact
+- **Blocking issues:** T047-B01 rejects required Admin/Public build assets and remaining Public
+  requests; T047-B02 emits failed proxy requests as non-contract access-log records
+- **Authorization state:** REWORK
+- **Authorized Implementation:** T047 corrective rework only — `infra/nginx/nginx.conf`
+- **T047 rework authorization:**
+  - **T047-B01:** The exact-match route table forwards only `/`, `/admin/`, `/health/live`, and
+    `/health/ready`, while approved Research Decision 3 requires the release listener to serve
+    Admin/Public build assets and then adapt remaining Public requests, and Decision 8 verifies
+    Admin assets through Nginx. Correct the proxy routing so those application-owned asset and
+    remaining Public request surfaces reach the sole internal `songhealth-app:3000` listener,
+    without adding another destination or widening T046 host exposure.
+  - **T047-B02:** `log_format bounded` writes failures such as 404/502/504 as free-form records with
+    peer, timestamp, method, path, status, bytes, and duration. The Operations Contract §Safe
+    diagnostic contract requires every failure emitted on surfaced proxy logs to be exactly one
+    closed SafeDiagnostic with no additional fields or free-form content. Correct failure logging
+    to emit only the allowlisted closed `verification` diagnostic shape while keeping successful
+    request logging bounded and preventing query/header/upstream/internal-host disclosure.
+  Rework excludes Compose mounting/integration, T048+, application/server implementation,
+  orchestration, other infrastructure files, dependencies, Product behavior, and Source-of-Truth
+  changes. Verification must re-run the pinned-image Nginx syntax check; live-probe Public/Admin
+  asset and remaining Public paths through the sole internal listener; prove spoofed forwarding
+  metadata replacement; prove 404/502/504 proxy log units are exact closed diagnostics and contain
+  no protected sentinels, query/header values, peer/path/timing extras, or internal upstream data;
+  run applicable regressions and `git diff --check`; and report exact commands/results and the
+  corrective SHA.
 - **T047 authorization:** Configure only `infra/nginx/nginx.conf` as the one-hop Verification proxy
   owned by T047. Forward Public `/`, Admin `/admin/`, and server health routes through the internal
   `songhealth-app:3000` listener; preserve the accepted Nginx-only host exposure and direct-app
