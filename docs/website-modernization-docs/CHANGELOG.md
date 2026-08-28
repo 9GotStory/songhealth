@@ -1,5 +1,40 @@
 # Documentation Changelog
 
+## 28 สิงหาคม 2569
+
+### Migration Plan — Evidence-backed Canonical Reactivation as Working Draft v0.5
+
+The previous defer condition for `09-migration-plan.md` is satisfied by real WordPress SQL plus `wp-content/uploads` inventory evidence. Deep Review Rounds 1–3 returned `CHANGES REQUIRED` and were repaired; Round 4 returned PASS for canonical reactivation.
+
+Documentation actions:
+- restored the accepted archived `09` foundation/strategy (Sections 1–87) into `current/09-migration-plan.md` and appended the evidence-backed reactivation addendum;
+- set `current/09-migration-plan.md` to **WORKING DRAFT — REACTIVATED v0.5**;
+- added `reviews/migration-plan-reactivation-review-2026-08-28.md`;
+- updated `PROJECT-INDEX.md` to list active Working Draft `09`, correct the stale current-status reference to System Blueprint v1.1, and distinguish current 09 status from historical defer wording inside Frozen `10`;
+- preserved pre-reactivation `PROJECT-INDEX.md` and `CHANGELOG.md` in `archive/`;
+- intentionally left Frozen `10-system-blueprint.md` v1.1 unchanged because reactivation changes current documentation state, not the architecture frozen on 15 สิงหาคม 2569; `09` does not become a retroactive dependency of v1.1;
+- rebuilt the synchronized canonical documentation package after mutation.
+
+Evidence basis:
+- analyzed SQL SHA-256 `279977812ace31c24df7085455cfa249b8804e0c02bd70d85663ea7cef768597`;
+- uploads inventory SHA-256 `9240f8bf7f849909101ddfa9626bac0cad653198fce648e79a2d39a0b5dd13f0`;
+- SQL/uploads baseline is explicitly **non-atomic discovery/mapping evidence**, not final cutover truth;
+- legacy file MIME/extension is untrusted and every migrated binary remains subject to Frozen v1 file-security validation.
+
+Gate result:
+```text
+Canonical Reactivation           PASS
+09 Freeze                        NOT AUTHORIZED
+Importer Implementation          NOT AUTHORIZED
+Trial Migration                  NOT AUTHORIZED
+Production Import / Cutover      NOT AUTHORIZED
+Frozen 00–08 semantics           UNCHANGED
+Frozen 10 v1.1 architecture      UNCHANGED
+```
+
+Sensitive SQL dumps, credentials and raw personal/plugin evidence are not committed to GitHub.
+
+
 ## 15 สิงหาคม 2569
 
 ### System Blueprint Controlled Amendment v1.1 — Podman Development Database & Production-like Nginx Verification
