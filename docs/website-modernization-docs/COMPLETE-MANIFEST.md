@@ -2,7 +2,7 @@
 
 > **Generated:** 28 สิงหาคม 2569
 > **Canonical System Blueprint:** `current/10-system-blueprint.md` — FROZEN v1.1, Sections 1–705
-> **Migration Plan:** `current/09-migration-plan.md` — WORKING DRAFT — REACTIVATED v0.5  
+> **Migration Plan:** `current/09-migration-plan.md` — FROZEN v1.0  
 > **Base:** `website-modernization-docs-complete-v1.1-20260815.zip` (verified against current Git blob hashes before reactivation)  
 > **Current Documentation Mutation:** Evidence-backed `09` canonical reactivation — 28 สิงหาคม 2569
 
@@ -39,12 +39,12 @@ Existing v1.1 records remain unchanged:
 
 ## Migration Reactivation
 
-`09-migration-plan.md` is present in `current/` as **WORKING DRAFT — REACTIVATED v0.5** after evidence-backed Deep Review. It is not Frozen and does not authorize importer implementation, Trial Migration or Production Cutover.
+`09-migration-plan.md` is present in `current/` as **FROZEN v1.0** after evidence-backed Deep Review. It is not Frozen and does not authorize importer implementation, Trial Migration or Production Cutover.
 
 ## Validation
 
 - Blueprint section numbering: 1–705 continuous
-- Current canonical set: Frozen 00–08 + Working Draft 09 v0.5 + Frozen 10 v1.1
+- Current canonical set: Frozen 00–08 + Frozen 09 v1.0 + Frozen 10 v1.1
 - Markdown code-fence parity: PASS
 - v1.0 preserved before amendment: PASS
 
@@ -54,3 +54,11 @@ Existing v1.1 records remain unchanged:
 - `reviews/migration-plan-prefreeze-review-round-3-2026-08-28.md` — CHANGES REQUIRED: corrected Gate C cross-reference from Section 15 to Section 88.15.
 - `reviews/migration-plan-prefreeze-review-round-4-2026-08-28.md` — PASS: substantive pre-Freeze contract ready; canonical apply/post-commit exact review/human acceptance still required.
 - Frozen `00–08` and Frozen `10-system-blueprint.md` v1.1 remain unchanged.
+
+
+## Migration Plan Freeze v1.0 — 28 สิงหาคม 2569
+
+- `reviews/migration-plan-human-acceptance-2026-08-28.md`
+- `reviews/migration-plan-freeze-review-v1.0-2026-08-28.md`
+- Frozen `00–08` and Frozen `10-system-blueprint.md` v1.1 remain unchanged.
+- Importer implementation, Trial Migration and Production Cutover remain unauthorized.

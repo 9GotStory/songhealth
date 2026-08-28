@@ -1,5 +1,15 @@
 # Documentation Changelog
 
+## 28 สิงหาคม 2569 — Migration Plan Freeze v1.0
+
+Human Acceptance `ACCEPT — Freeze Migration Plan 09` was recorded after canonical commit `489bd1253c56d83f1ba54c2691845921874e0fbd` passed exact post-commit verification.
+
+- `current/09-migration-plan.md` → **FROZEN v1.0**
+- added Human Acceptance and Freeze Review records
+- Frozen `00–08` unchanged
+- Frozen `10-system-blueprint.md` v1.1 unchanged
+- importer implementation, Trial Migration and Production Cutover remain unauthorized
+
 ## 28 สิงหาคม 2569
 
 ### Migration Plan — Evidence-backed Canonical Reactivation as Working Draft v0.5

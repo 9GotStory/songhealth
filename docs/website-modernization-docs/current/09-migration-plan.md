@@ -1,8 +1,8 @@
 # Migration Plan — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 09-migration-plan  
-> **Status:** WORKING DRAFT — REACTIVATED
-> **Version:** 0.5
+> **Status:** FROZEN
+> **Version:** 1.0
 > **Last Updated:** 28 สิงหาคม 2569
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md` v1.1, `03-sitemap.md` v1.0, `04-homepage.md` v1.0, `05-admin-cms.md` v1.0, `06-roles-permissions.md` v1.0, `07-publishing-workflow.md` v1.0, `08-search.md` v1.0  
 > **Technical Constraints Read With:** Frozen `10-system-blueprint.md` v1.1 — not a retroactive dependency
@@ -2354,3 +2354,47 @@ The evidence datasets and detailed working-review artifacts remain outside the c
 - Frozen `00–08` Product semantics and Frozen `10-system-blueprint.md` v1.1 architecture remain unchanged. The defer wording inside Frozen `10` records the state at the time that Blueprint was frozen; current documentation status is governed by `PROJECT-INDEX.md` and the 28 สิงหาคม 2569 reactivation review.
 - Importer implementation, Trial Migration, Production Import, Cutover and WordPress retirement remain **NOT AUTHORIZED** by this reactivation.
 - Next documentation gate: **Migration Plan Freeze Review** of the physically merged canonical `09`.
+
+# 90. Freeze Acceptance and Baseline v1.0
+
+## 90.1 Human Acceptance
+
+On 28 สิงหาคม 2569, the Product Owner explicitly accepted the reviewed Migration Plan with:
+
+```text
+ACCEPT — Freeze Migration Plan 09
+```
+
+Accepted evidence chain:
+
+- canonical reactivation commit `489bd1253c56d83f1ba54c2691845921874e0fbd`;
+- parent `c4db1d97f70ed12461d55bbeea900c2f69909de8`;
+- reviewed package SHA-256 `ca8df92506b0edf5a9b56e6968efff2081fcce332464186af644d261b4ffa72e`;
+- Post-Commit Exact Review — PASS;
+- Pre-Freeze Review Round 4 — PASS.
+
+## 90.2 Freeze Decision
+
+`current/09-migration-plan.md` is **FROZEN v1.0**.
+
+This freezes the Migration Plan contract only. It does **not** authorize importer implementation, Trial Migration, Production Import or Cutover. `ANOM-001` through `ANOM-008` and `MODEL-GAP-001` remain explicit governed execution exceptions.
+
+Frozen `00–08` and Frozen `10-system-blueprint.md` v1.1 remain unchanged.
+
+## 90.3 Next Workflow
+
+```text
+Frozen 09 v1.0
+    ↓
+Migration Implementation Specification
+    ↓
+Clarify
+    ↓
+Plan
+    ↓
+Tasks
+    ↓
+Independent Review / Implementation Gate
+```
+
+No importer code may be implemented before that separate implementation gate is explicitly authorized.

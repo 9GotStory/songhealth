@@ -142,19 +142,19 @@ Version: 1.0
 | 06 | Roles & Permissions | FROZEN | 1.0 | `current/06-roles-permissions.md` |
 | 07 | Publishing Workflow | FROZEN | 1.0 | `current/07-publishing-workflow.md` |
 | 08 | Public Search / Search & Discovery | FROZEN | 1.0 | `current/08-search.md` |
-| 09 | Migration Plan | WORKING DRAFT — REACTIVATED | 0.5 | `current/09-migration-plan.md` |
+| 09 | Migration Plan | FROZEN | 1.0 | `current/09-migration-plan.md` |
 | 10 | System Blueprint | FROZEN | 1.1 | `current/10-system-blueprint.md` |
 
 ---
 
 ## 3. Current Canonical Status
 
-`10-system-blueprint.md` remains **FROZEN — System Blueprint Baseline v1.1**. `09-migration-plan.md` is now **WORKING DRAFT — REACTIVATED v0.5** after the real WordPress SQL + `wp-content/uploads` evidence passed the reactivation review.
+`10-system-blueprint.md` remains **FROZEN — System Blueprint Baseline v1.1**. `09-migration-plan.md` is now **FROZEN v1.0** after the real WordPress SQL + `wp-content/uploads` evidence passed the reactivation review.
 
 Canonical baseline:
 
 - `00-website-foundation.md` through `08-search.md` are **FROZEN** and remain the active Product/Information Architecture Source of Truth.
-- `09-migration-plan.md` is **WORKING DRAFT — REACTIVATED v0.5**. Reactivation governs migration planning only; it does not Freeze `09` and does not authorize importer implementation, Trial Migration, Production Import or Cutover.
+- `09-migration-plan.md` is **FROZEN v1.0**. Reactivation governs migration planning only; it does not Freeze `09` and does not authorize importer implementation, Trial Migration, Production Import or Cutover.
 - Frozen `10-system-blueprint.md` v1.1 remains unchanged and does **not** gain a retroactive dependency on `09`. Its defer wording records the status that was true when v1.1 was frozen on 15 สิงหาคม 2569; current documentation status is governed by this Index and `reviews/migration-plan-reactivation-review-2026-08-28.md`.
 - `10-system-blueprint.md` is the Frozen technical implementation baseline for `00–08` and translates those Product/Information Architecture decisions into implementable boundaries without redesigning Product semantics.
 
@@ -367,7 +367,7 @@ Current documentation point:
 
 > **System Blueprint Controlled Amendment — PASS / FROZEN v1.1**
 
-Phase 1 Canonical Integrity Repair and all eight Final Consistency Refinements are complete. The final re-check also repaired five residual alignment issues (Google OIDC vs stale SSO exclusion, ITA typed Evidence example, Homepage temporal placement execution, Public ID non-reassignment, and the small Redirect Registry implementation boundary). The physical `current/` set is Frozen `00–08`, **WORKING DRAFT — REACTIVATED `09` v0.5**, plus Frozen `10` v1.1. Reactivation changes documentation/migration-planning state only; Frozen Product/System semantics remain unchanged.
+Phase 1 Canonical Integrity Repair and all eight Final Consistency Refinements are complete. The final re-check also repaired five residual alignment issues (Google OIDC vs stale SSO exclusion, ITA typed Evidence example, Homepage temporal placement execution, Public ID non-reassignment, and the small Redirect Registry implementation boundary). The physical `current/` set is Frozen `00–08`, **FROZEN `09` v1.0**, plus Frozen `10` v1.1. Reactivation changes documentation/migration-planning state only; Frozen Product/System semantics remain unchanged.
 
 Final Refinement 1 — Autosave, Recovery & Protected Preview is Accepted and recorded in Sections 442–471. It separates authoritative canonical Save from server-side ephemeral Recovery, adds base-version/recovery-version conflict safety, re-checks current authorization on every Recovery/Preview request, keeps Recovery author-specific and bounded, and reuses the Public renderer for authenticated `no-store`/`noindex` Preview without publicizing staged Media or creating a revision/collaboration system.
 
@@ -391,7 +391,7 @@ All eight Final Consistency Refinements are Accepted and the Final `00–08 ↔ 
 
 The previous v1.0 Blueprint is preserved in `archive/10-system-blueprint-v1.0-pre-podman-environment-amendment-2026-08-15.md`, and the amendment review is recorded in `reviews/system-blueprint-amendment-v1.1-podman-environment-review.md`.
 
-`09-migration-plan.md` is now **WORKING DRAFT — REACTIVATED v0.5** because the real WordPress SQL + uploads evidence is available and reviewed. Migration planning may use Frozen `00–08 + 10 v1.1` together with Working Draft `09`; however, importer implementation, Trial Migration, Production Import and Cutover remain separately gated and are not authorized by reactivation.
+`09-migration-plan.md` is now **FROZEN v1.0** because the real WordPress SQL + uploads evidence is available and reviewed. Migration planning may use Frozen `00–08 + 10 v1.1` together with Frozen `09` v1.0; however, importer implementation, Trial Migration, Production Import and Cutover remain separately gated and are not authorized by reactivation.
 
 
 ### Controlled Amendment v1.1 — Development & Production-like Environment
@@ -456,3 +456,11 @@ Accepted on 15 สิงหาคม 2569:
 
 โฟลเดอร์เก่าภายใต้ `/mnt/data` ถือเป็น Historical Working Artifacts เท่านั้นและไม่ควรนำมาอ้างอิงในการตัดสินใจใหม่
 
+
+
+## Migration Plan Freeze v1.0 — 28 สิงหาคม 2569
+
+- Human Acceptance: `reviews/migration-plan-human-acceptance-2026-08-28.md`
+- Freeze Review: `reviews/migration-plan-freeze-review-v1.0-2026-08-28.md`
+- `current/09-migration-plan.md`: FROZEN v1.0
+- Importer implementation / Trial Migration / Production Cutover: NOT AUTHORIZED
