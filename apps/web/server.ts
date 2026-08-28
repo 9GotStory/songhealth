@@ -66,28 +66,135 @@
  * The caller owns the listener: `createWebServer` returns the composed
  * Fastify instance without binding (the accepted bootstrap idiom), and the
  * release wiring in `createReleaseWebServer` composes production inputs the
- * same way for the later caller-owned `listen()`. This module never reads
- * `process.env`, never applies migrations, and never imports Public or Admin
- * source — only the accepted build outputs' directory paths.
+ * same way for the later caller-owned `listen()`. The composition functions
+ * never read `process.env`, never apply migrations, and never import Public
+ * or Admin source — only the accepted build outputs' directory paths.
+ *
+ * T048-C01 — the release entry is also EMITTED and STARTED. The independent
+ * Web production build compiles this module to a runnable single-file
+ * listener (`apps/web/build/entry/server.js`; the workspace build script),
+ * the clean release image contains and starts it (infra/Containerfile CMD),
+ * and every Server-boundary import resolves runtime-safely: the accepted
+ * Server workspace ships the same boundary as TypeScript sources (what the
+ * workspace toolchain resolves) and as its independent production build
+ * (what the image contains, exposed through `@songhealth/server` subpath
+ * exports), so the loaders below prefer the source form and fall back to the
+ * built package form. Because the emitted entry must compile without the
+ * TypeScript sources present, it declares the accepted boundary signatures
+ * structurally instead of importing their types, and every fallback
+ * specifier is deliberately non-literal. When Node executes the emitted
+ * entry directly, the module self-starts the release listener (main guard
+ * below); under import — the accepted tests — it stays inert.
  */
 
-import { createReadStream } from "node:fs";
+import { createReadStream, existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-// The accepted Server operational-app constructor. The `@songhealth/server`
-// package surface exports only the full `createServer` composition boundary,
-// so the presentation-only default boundary below reaches the accepted
-// operational app constructor through its source module (Presentation →
-// Application is the approved dependency direction; the Server workspace
-// itself never imports Public/Admin source or build output).
-import { createApp } from "../server/src/http.js";
-// The accepted full Server composition boundary (validated configuration,
-// database capability, readiness, operational routes) for the release wiring.
-import { createServer as composeServerBoundary } from "@songhealth/server";
-import type { SafeDiagnostic } from "../server/src/config.js";
 import { createRequestHandler, type ServerBuild } from "react-router";
+
+/**
+ * The closed FR-007 diagnostic shape, as a structural view of the accepted
+ * `SafeDiagnostic` (apps/server/src/config.ts). Structural — not imported —
+ * so the emitted release entry typechecks and compiles without the Server
+ * TypeScript sources; the composition only constructs and passes it through.
+ */
+interface SafeDiagnostic {
+  reasonCode: string;
+  diagnosticScope: string;
+  component: string;
+  remediation: string;
+}
+
+/**
+ * Structural views of the accepted Server boundary signatures
+ * (apps/server/src/http.ts `createApp`, bootstrap.ts `createServer`) — the
+ * runtime-safe loading seam of T048-C01. They mirror the accepted parameter
+ * and result shapes this composition relies on; the accepted modules
+ * themselves remain the authority (and the test toolchain still exercises
+ * the real modules at runtime).
+ */
+interface ServerHealthDependencies {
+  getDatabaseReadiness: () => unknown;
+  livenessProbe: () => void | Promise<void>;
+}
+
+interface ServerAppConstructionOptions {
+  trustProxy: boolean | number;
+  diagnosticScope: "daily" | "verification";
+  logger: { level: string; stream?: NodeJS.WritableStream };
+}
+
+interface ServerHttpModule {
+  createApp: (
+    deps: ServerHealthDependencies,
+    options?: ServerAppConstructionOptions,
+  ) => Promise<FastifyInstance>;
+}
+
+/** The validated listen identity plus the derived scope, from the boundary. */
+interface ServerCompositionConfiguration {
+  host: string;
+  port: number;
+}
+
+interface ServerCapabilities {
+  app: FastifyInstance;
+  diagnosticScope: "daily" | "verification";
+  configuration: ServerCompositionConfiguration;
+  close: () => Promise<void>;
+}
+
+interface ServerBootstrapModule {
+  createServer: (options: {
+    env: Record<string, string | undefined>;
+    operationTarget: string;
+    loggerStream?: NodeJS.WritableStream;
+  }) => Promise<
+    | { status: "rejected"; diagnostic: SafeDiagnostic }
+    | { status: "ready"; capabilities: ServerCapabilities }
+  >;
+}
+
+// Non-literal specifiers on purpose: the emitted single-file entry must not
+// statically resolve (or compile against) the Server TypeScript sources, and
+// the release image resolves the built package form instead.
+const SERVER_HTTP_SOURCE_SPECIFIER = "../server/src/http.js";
+const SERVER_HTTP_PACKAGE_SPECIFIER = "@songhealth/server/http";
+const SERVER_BOOTSTRAP_SOURCE_SPECIFIER = "../server/src/bootstrap.js";
+const SERVER_BOOTSTRAP_PACKAGE_SPECIFIER = "@songhealth/server/bootstrap";
+
+let serverHttpModule: Promise<ServerHttpModule> | undefined;
+
+/**
+ * Load the accepted Server operational-app constructor (`createApp`):
+ * TypeScript source first (the workspace toolchain form), then the built
+ * package subpath (the clean release image form, where no TypeScript source
+ * exists). Cached after the first successful load.
+ */
+function loadServerHttp(): Promise<ServerHttpModule> {
+  serverHttpModule ??= import(SERVER_HTTP_SOURCE_SPECIFIER).catch(
+    async (): Promise<ServerHttpModule> =>
+      (await import(SERVER_HTTP_PACKAGE_SPECIFIER)) as ServerHttpModule,
+  );
+  return serverHttpModule;
+}
+
+let serverBootstrapModule: Promise<ServerBootstrapModule> | undefined;
+
+/**
+ * Load the accepted full Server composition boundary (`createServer`) with
+ * the same source-first, built-package-fallback resolution as
+ * `loadServerHttp`.
+ */
+function loadServerBootstrap(): Promise<ServerBootstrapModule> {
+  serverBootstrapModule ??= import(SERVER_BOOTSTRAP_SOURCE_SPECIFIER).catch(
+    async (): Promise<ServerBootstrapModule> =>
+      (await import(SERVER_BOOTSTRAP_PACKAGE_SPECIFIER)) as ServerBootstrapModule,
+  );
+  return serverBootstrapModule;
+}
 
 /**
  * The React Router Framework Mode server-build request handler seam: exactly
@@ -180,6 +287,8 @@ export type ReleaseWebServerResult =
       app: FastifyInstance;
       /** Bounded teardown: closes the listener app, then the database. */
       close: () => Promise<void>;
+      /** The validated listen identity the caller-owned listener binds. */
+      configuration: ServerCompositionConfiguration;
     };
 
 /**
@@ -429,6 +538,7 @@ export async function createWebServer(options: WebServerOptions): Promise<Fastif
   // `createApp`: the operational routes plus the bounded closed log surface
   // with truthful defaults (in-process liveness, database not-ready because
   // no database was composed, no proxy trust established).
+  const { createApp } = await loadServerHttp();
   const app =
     options.serverApp ??
     (await createApp(
@@ -538,7 +648,35 @@ export async function createWebServer(options: WebServerOptions): Promise<Fastif
 }
 
 /** The accepted React Router server build location for the release wiring. */
-const SERVER_BUILD_URL = new URL("./build/server/index.js", import.meta.url);
+/**
+ * The accepted React Router server build location, relative to this module:
+ * one form for the TypeScript source (apps/web/server.ts →
+ * apps/web/build/server/index.js) and one for the emitted release entry
+ * (apps/web/build/entry/server.js → apps/web/build/server/index.js). The
+ * first candidate that loads wins, so both forms compose the same accepted
+ * build.
+ */
+const REACT_ROUTER_SERVER_BUILD_URLS = [
+  new URL("./build/server/index.js", import.meta.url),
+  new URL("../server/index.js", import.meta.url),
+];
+
+async function loadReactRouterServerBuild(): Promise<ServerBuild> {
+  let lastError: unknown;
+  for (const candidate of REACT_ROUTER_SERVER_BUILD_URLS) {
+    try {
+      return (await import(candidate.href)) as unknown as ServerBuild;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
+/** The first directory in `candidates` that exists on disk, else `undefined`. */
+function firstExistingDirectory(candidates: Array<string | undefined>): string | undefined {
+  return candidates.find((candidate) => candidate !== undefined && existsSync(candidate));
+}
 
 /**
  * Compose the release-shaped web server from real production inputs: the
@@ -552,6 +690,7 @@ const SERVER_BUILD_URL = new URL("./build/server/index.js", import.meta.url);
 export async function createReleaseWebServer(
   options: ReleaseWebServerOptions,
 ): Promise<ReleaseWebServerResult> {
+  const { createServer: composeServerBoundary } = await loadServerBootstrap();
   const boundary = await composeServerBoundary({
     env: options.env,
     operationTarget: options.operationTarget,
@@ -562,15 +701,14 @@ export async function createReleaseWebServer(
   }
 
   const { capabilities } = boundary;
-  const serverBuild =
-    options.serverBuild ??
-    // Non-literal specifier on purpose: the server build exists only after
-    // the accepted web build runs, so the module is resolved at release
-    // composition time and never during the presentation-only test path.
-    ((await import(SERVER_BUILD_URL.href)) as unknown as ServerBuild);
+  const serverBuild = options.serverBuild ?? (await loadReactRouterServerBuild());
   const handler = createRequestHandler(serverBuild, "production");
 
-  const here = fileURLToPath(new URL(".", import.meta.url));
+  // The accepted release asset roots default to this module's location,
+  // which differs between the TypeScript source (apps/web/) and the emitted
+  // release entry (apps/web/build/entry/) — the first existing candidate
+  // wins, so both forms resolve the same accepted outputs.
+  const moduleDirectory = fileURLToPath(new URL(".", import.meta.url));
   const app = await createWebServer({
     reactRouterHandler: handler,
     securityHeaders: options.securityHeaders ?? RELEASE_SECURITY_HEADERS,
@@ -578,8 +716,18 @@ export async function createReleaseWebServer(
     serverApp: capabilities.app,
     diagnosticScope: capabilities.diagnosticScope,
     assets: {
-      publicClientDir: options.assets?.publicClientDir ?? join(here, "build", "client"),
-      adminDistDir: options.assets?.adminDistDir ?? resolve(here, "..", "admin", "dist"),
+      publicClientDir:
+        options.assets?.publicClientDir ??
+        firstExistingDirectory([
+          join(moduleDirectory, "build", "client"),
+          join(moduleDirectory, "..", "..", "build", "client"),
+        ]),
+      adminDistDir:
+        options.assets?.adminDistDir ??
+        firstExistingDirectory([
+          resolve(moduleDirectory, "..", "admin", "dist"),
+          resolve(moduleDirectory, "..", "..", "..", "admin", "dist"),
+        ]),
     },
   });
 
@@ -593,5 +741,62 @@ export async function createReleaseWebServer(
     await capabilities.close();
   };
 
-  return { status: "ready", app, close };
+  return { status: "ready", app, close, configuration: capabilities.configuration };
+}
+
+// ---------------------------------------------------------------------------
+// Release-entry startup (T048-C01).
+// ---------------------------------------------------------------------------
+
+/**
+ * Derive the local operation target from the validated `RUNTIME_PROFILE`
+ * environment identity (plan.md §Configuration and startup: the Development
+ * target maps to the `daily` profile, the Verification target to
+ * `verification`). Any other profile passes through untouched so the accepted
+ * Server configuration boundary owns its closed rejection — this is a
+ * selector over an accepted identity, never a second validator.
+ */
+function operationTargetForRuntimeProfile(runtimeProfile: string | undefined): string {
+  if (runtimeProfile === "daily") {
+    return "development";
+  }
+  if (runtimeProfile === "verification") {
+    return "verification";
+  }
+  return runtimeProfile ?? "";
+}
+
+/**
+ * Start the release listener when Node executes the emitted entry directly:
+ * compose from the complete environment, bind the validated host and port
+ * through the caller-owned listener this entry itself owns here, and close
+ * boundedly on termination signals. A rejected configuration surfaces its
+ * closed SafeDiagnostic on stderr and exits non-zero — no listener, pool, or
+ * child work is started (the accepted fail-before-work ordering).
+ */
+async function startReleaseListener(): Promise<void> {
+  const result = await createReleaseWebServer({
+    env: process.env,
+    operationTarget: operationTargetForRuntimeProfile(process.env.RUNTIME_PROFILE),
+  });
+  if (result.status === "rejected") {
+    process.stderr.write(`${JSON.stringify(result.diagnostic)}\n`);
+    process.exitCode = 1;
+    return;
+  }
+  const { app, close, configuration } = result;
+  await app.listen({ host: configuration.host, port: configuration.port });
+  const shutdown = (): void => {
+    void close().finally(() => {
+      process.exit(0);
+    });
+  };
+  process.once("SIGTERM", shutdown);
+  process.once("SIGINT", shutdown);
+}
+
+// The main guard: inert under import (the accepted T040 suite imports this
+// module), active only when Node executes the emitted entry file itself.
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await startReleaseListener();
 }

@@ -32,12 +32,18 @@
 #   - the production-only node_modules installed from the committed lockfile.
 # The intermediate stages hold sources and dev-only tooling and are discarded.
 #
-# The startup command runs the accepted server runtime boundary module, the only
-# release-shaped executable artifact that exists at this task. The release listener
-# (apps/web/server.ts, T048), the Verification topology (T046), and the proxy (T047)
-# are out of scope, so no port is EXPOSEd and no HEALTHCHECK is declared: APP_PORT is
-# validated runtime configuration, and a healthcheck has no listener to probe until
-# the release listener task is implemented.
+# The startup command runs the T048 single-listener release entry
+# (apps/web/build/entry/server.js, emitted by the independent Web production
+# build from apps/web/server.ts). It composes the accepted Server boundary —
+# resolved runtime-safely through the @songhealth/server package subpath
+# exports of the built apps/server/build output, with no TypeScript source in
+# the image — serves the Admin and Public release assets, adapts remaining
+# Public requests through the React Router server build, and binds the
+# validated APP_HOST/APP_PORT (the internal port 3000 the accepted
+# Verification topology and proxy forward to). No port is EXPOSEd and no
+# HEALTHCHECK is declared: the Compose topology owns the internal port
+# declaration, and a container-level health probe is a later integration
+# decision, not part of the T048 entry.
 
 # Build stage: install the full locked graph, then run the three accepted independent
 # T044 production builds exactly as exposed at the repository root.
@@ -55,6 +61,10 @@ RUN npm ci --no-audit --no-fund
 COPY tsconfig.json ./
 COPY apps/server/src apps/server/src
 COPY apps/web/app apps/web/app
+# The T048 release-entry source: the build input for the emitted runnable
+# listener (apps/web/build/entry/server.js). It never reaches the runtime
+# stage, which copies build output only.
+COPY apps/web/server.ts apps/web/
 COPY apps/web/react-router.config.ts apps/web/vite.config.ts apps/web/
 COPY apps/admin/index.html apps/admin/vite.config.ts apps/admin/
 COPY apps/admin/src apps/admin/src
@@ -89,6 +99,7 @@ COPY --from=build /workspace/apps/web/build apps/web/build
 COPY --from=build /workspace/apps/admin/package.json apps/admin/package.json
 COPY --from=build /workspace/apps/admin/dist apps/admin/dist
 USER node:node
-# Provisional startup of the accepted server runtime boundary; superseded by the
-# release listener entry when its task is authorized and implemented.
-CMD ["node", "apps/server/build/bootstrap.js"]
+# The T048 release listener entry: the single internal listener for the
+# accepted Server routes, Admin/Public release assets, and the React Router
+# server build (see the runtime-stage note above).
+CMD ["node", "apps/web/build/entry/server.js"]

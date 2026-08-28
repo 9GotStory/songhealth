@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Server workspace — authoritative Fastify/Kysely backend boundary (configuration, database, migrations, operational routes).",
   "exports": {
-    ".": "./src/bootstrap.ts"
+    ".": "./src/bootstrap.ts",
+    "./bootstrap": "./build/bootstrap.js",
+    "./http": "./build/http.js"
   },
   "scripts": {
     "build": "tsc src/bootstrap.ts --outDir build --rootDir src --module nodenext --moduleResolution nodenext --target es2023 --strict --verbatimModuleSyntax --isolatedModules --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --types node"
