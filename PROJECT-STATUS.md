@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T046 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T047 AUTHORIZED — IMPLEMENTATION HANDOFF PENDING
 
 ## Active Feature Mirror
 
@@ -29,12 +29,35 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED
-- **Phase status:** T046 ACCEPTED; T047+ UNAUTHORIZED
+- **Current review result:** NOT YET REVIEWED — T047 AUTHORIZED
+- **Phase status:** T046 ACCEPTED; T047 AUTHORIZED; T048+ UNAUTHORIZED
 - **Previous completed scope:** T046 — isolated disposable Verification topology manifest
-- **Next valid action:** NONE selected or authorized — stop after T046 Human acceptance; T047+
-  remain unauthorized
-- **Blocking issues:** None for T046 independent review
+- **Next valid action:** Claude Code implements only T047; Codex independently reviews the exact
+  resulting artifact and stops at the Product Owner Human Gate
+- **Blocking issues:** None for T047 implementation
+- **Authorized Implementation:** T047 only — configure `infra/nginx/nginx.conf`
+- **T047 authorization:** Configure only `infra/nginx/nginx.conf` as the one-hop Verification proxy
+  owned by T047. Forward Public `/`, Admin `/admin/`, and server health routes through the internal
+  `songhealth-app:3000` listener; preserve the accepted Nginx-only host exposure and direct-app
+  isolation from T046; replace client-supplied forwarding metadata with one bounded trusted-hop
+  contract; and use bounded safe access/error logging that does not disclose credentials, raw
+  upstream failures, internal host/container details, request query data, or protected sentinel
+  values. Required authority: `.specify/memory/constitution.md`,
+  `specs/001-application-foundation/spec.md` FR-009–FR-011,
+  `specs/001-application-foundation/plan.md` §§Runtime composition and Configuration and startup,
+  `specs/001-application-foundation/research.md` Decision 6,
+  `specs/001-application-foundation/contracts/foundation-operations.md` §§Safe diagnostic contract
+  and Operation-target ownership and isolation, `tests/verification/diagnostic-surfaces.test.ts`
+  T042, `infra/compose.verification.yaml`, and `specs/001-application-foundation/tasks.md` T047.
+  Scope excludes T048+, application/server implementation, orchestration scripts, Compose or
+  Containerfile changes, package manifests or lockfiles, new dependencies, Product behavior,
+  Production deployment/parity claims, Source-of-Truth changes, and any Development-resource
+  change. Verification must syntax-check the Nginx configuration using the accepted pinned image,
+  prove route forwarding targets only the internal application listener, prove inbound spoofed or
+  multi-hop forwarding metadata is not trusted or relayed as additional hops, confirm logs and
+  error handling are bounded and nondisclosing, run applicable existing T042 diagnostic/proxy and
+  configuration regressions meaningful before T049–T052 exist, run `git diff --check`, and report
+  exact commands/results, changed files, and implementation SHA.
 - **T046 Product Owner acceptance:** Human Gate accepted exact implementation
   `9678618c6914f976d392df0c328856c4ac366dda` and independent PASS governance record
   `02b4bd894e5c6550369c2475c3e2523717365bff`. The accepted history is linear from persisted
