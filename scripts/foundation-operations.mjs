@@ -4485,6 +4485,261 @@ export async function foundationRecover(collaborators, options) {
 }
 
 // ---------------------------------------------------------------------------
+// T049 — the Production-like Verification run (`verify:production-like`).
+// ---------------------------------------------------------------------------
+
+/**
+ * The EXACT ordered FR-009 contract-result inventory of one Production-like
+ * Verification run (Operations Contract §Verification result contract;
+ * data-model.md §Verification Run): each contract emits exactly one result,
+ * in this fixed order — never missing, skipped, reordered, or duplicated.
+ */
+const VERIFICATION_CONTRACTS = [
+  "build",
+  "startup",
+  "configuration-valid",
+  "configuration-missing-rejected",
+  "configuration-empty-rejected",
+  "configuration-malformed-rejected",
+  "configuration-unsupported-rejected",
+  "configuration-out-of-range-rejected",
+  "configuration-identity-conflict-rejected",
+  "migration",
+  "database",
+  "liveness",
+  "readiness",
+  "isolation",
+  "proxy",
+  "public-route",
+  "admin-route",
+  "server-route",
+  "cleanup",
+  "reporting",
+];
+
+/**
+ * The fixed non-parity statement (FR-011; Operations Contract §Verification
+ * result contract "Every report ends with"): carried verbatim by every
+ * completed run, passing or failing.
+ */
+const VERIFICATION_PARITY_STATEMENT =
+  "Production-like Verification validates bounded application contracts only; it does not establish exact parity with Bangmod/Plesk Production hosting.";
+
+/**
+ * Closed Safe Diagnostic routing for one contract whose probe could not
+ * return its own outcome — a raw adapter/tool failure the orchestration maps
+ * (never passes through): every value comes from the accepted allowlists
+ * (foundation-http.openapi.yaml SafeDiagnostic). These are the closed
+ * per-contract defaults; a probe that RETURNS its own well-formed closed
+ * diagnostic always wins over this route.
+ */
+const VERIFICATION_CONTRACT_FAILURE_ROUTES = {
+  build: ["BUILD_FAILED", "orchestration", "CHECK_PREREQUISITES"],
+  startup: ["STARTUP_FAILED", "orchestration", "CHECK_PREREQUISITES"],
+  "configuration-valid": ["CONFIG_REJECTION_NOT_ENFORCED", "configuration", "FIX_CONFIGURATION"],
+  "configuration-missing-rejected": [
+    "CONFIG_REJECTION_NOT_ENFORCED",
+    "configuration",
+    "FIX_CONFIGURATION",
+  ],
+  "configuration-empty-rejected": [
+    "CONFIG_REJECTION_NOT_ENFORCED",
+    "configuration",
+    "FIX_CONFIGURATION",
+  ],
+  "configuration-malformed-rejected": [
+    "CONFIG_REJECTION_NOT_ENFORCED",
+    "configuration",
+    "FIX_CONFIGURATION",
+  ],
+  "configuration-unsupported-rejected": [
+    "CONFIG_REJECTION_NOT_ENFORCED",
+    "configuration",
+    "FIX_CONFIGURATION",
+  ],
+  "configuration-out-of-range-rejected": [
+    "CONFIG_REJECTION_NOT_ENFORCED",
+    "configuration",
+    "FIX_CONFIGURATION",
+  ],
+  "configuration-identity-conflict-rejected": [
+    "CONFIG_REJECTION_NOT_ENFORCED",
+    "configuration",
+    "FIX_CONFIGURATION",
+  ],
+  migration: ["MIGRATION_FAILED", "migration", "RUN_MIGRATION"],
+  database: ["DATABASE_UNAVAILABLE", "database", "CHECK_DATABASE"],
+  liveness: ["LIVENESS_FAILED", "application", "RETRY_SAFE_OPERATION"],
+  readiness: ["READINESS_FAILED", "application", "RETRY_SAFE_OPERATION"],
+  isolation: ["ISOLATION_FAILED", "orchestration", "INSPECT_OWNERSHIP"],
+  proxy: ["PROXY_CONTRACT_FAILED", "proxy", "RETRY_SAFE_OPERATION"],
+  "public-route": ["ROUTE_UNREACHABLE", "public", "RETRY_SAFE_OPERATION"],
+  "admin-route": ["ROUTE_UNREACHABLE", "admin", "RETRY_SAFE_OPERATION"],
+  "server-route": ["ROUTE_UNREACHABLE", "application", "RETRY_SAFE_OPERATION"],
+  cleanup: ["CLEANUP_FAILED", "cleanup", "RETRY_SAFE_OPERATION"],
+  reporting: ["REPORT_EMISSION_FAILED", "reporting", "RETRY_SAFE_OPERATION"],
+};
+
+/**
+ * One contract's mapped closed failure diagnostic when its probe outcome
+ * carries no well-formed closed diagnostic of its own (a raw adapter or tool
+ * failure). The reason code/component/remediation triple comes only from the
+ * closed route table above — no raw error text, tool output, path, or
+ * host/container detail ever travels.
+ */
+function verificationContractFailureDiagnostic(contract) {
+  const [reasonCode, component, remediation] =
+    VERIFICATION_CONTRACT_FAILURE_ROUTES[contract] ?? [
+      "OPERATIONAL_FAILURE",
+      "orchestration",
+      "REVIEW_MANUALLY",
+    ];
+  return safeDiagnostic(reasonCode, "verification", component, remediation);
+}
+
+/**
+ * Normalize one probe outcome into its ordered Check Result fields: a pass
+ * carries no diagnostic; a failure carries its own well-formed closed
+ * diagnostic when the probe returned one (the closed-shape check is the
+ * accepted `carriedConfigurationDiagnostic` well-formedness rule — it
+ * accepts only the exact five-field Safe Diagnostic shape), and the mapped
+ * closed route diagnostic otherwise. The build probe's candidate identifier
+ * is the run's immutable release revision.
+ */
+function normalizeVerificationOutcome(contract, outcome) {
+  if (outcome !== null && typeof outcome === "object" && outcome.ok === true) {
+    const revision =
+      contract === "build" && typeof outcome.revision === "string" && outcome.revision.length > 0
+        ? outcome.revision
+        : undefined;
+    return { result: "pass", diagnostic: undefined, revision };
+  }
+  const carried =
+    outcome !== null && typeof outcome === "object"
+      ? carriedConfigurationDiagnostic(outcome)
+      : null;
+  return {
+    result: "fail",
+    diagnostic: carried ?? verificationContractFailureDiagnostic(contract),
+    revision: undefined,
+  };
+}
+
+/**
+ * Drive ONE contract's probe and measure it: the injected `verification`
+ * facet owns each check's own work and side effects; the orchestration owns
+ * the order, the timing evidence (the elapsed injected-clock time of that
+ * check's own probe), and the closed mapping of a probe that fails raw
+ * (SafeDiagnostic contract: raw child-process or adapter output is never
+ * passed through as ordinary output).
+ */
+async function runVerificationContractProbe(collaborators, contract) {
+  const probeStartedAt = collaborators.clock.now();
+  let outcome;
+  try {
+    outcome = await collaborators.verification.runCheck(contract);
+  } catch {
+    outcome = { ok: false };
+  }
+  const probeFinishedAt = collaborators.clock.now();
+  const normalized = normalizeVerificationOutcome(contract, outcome);
+  return {
+    ...normalized,
+    durationMs: Math.max(0, probeFinishedAt - probeStartedAt),
+  };
+}
+
+/**
+ * `verify:production-like` (T049) — the Production-like Verification run
+ * entry point. The run loads its bound operation target's configuration
+ * through the VALIDATING source first, so a forbidden or absent Verification
+ * configuration is refused with exactly the canonical closed diagnostic
+ * BEFORE any build, startup, or other work (FR-006 fail-before-work). It
+ * then drives every contract of the ordered FR-009 inventory through the
+ * injected `verification` probes — in the fixed canonical order, one result
+ * per contract, each with its own measured duration — and derives the
+ * data-model §Verification Run surface: the immutable primary failure is the
+ * FIRST failed result in the emitted order, the terminal state is
+ * unambiguous, and the fixed non-parity statement is always carried
+ * (FR-011). Every failed result's closed diagnostic is emitted exactly once
+ * on the command surfaces (FR-007/FR-010); the run never drives a
+ * Development adapter (FR-008 independence — the Development facets are not
+ * addressable from this operation at all).
+ *
+ * T050+ contracts (migration through reporting) are driven through the same
+ * probes but their real stages are not implemented yet: the real facet
+ * returns their explicit blocked `PREREQUISITE_FAILED` outcome (Operations
+ * Contract §Verification result contract: a dependency-blocked check is an
+ * explicit FAIL, never absent or skipped), so the real command stays
+ * expected-red until those tasks land.
+ */
+export async function verifyProductionLike(collaborators) {
+  const runId = newOperationId();
+  const startedAt = collaborators.clock.now();
+  // FR-006 — reject-before-work through the validating target-routed source:
+  // a carried canonical rejection is refused verbatim; any other load
+  // failure is the documented missing-configuration rejection.
+  try {
+    await collaborators.config.load();
+  } catch (error) {
+    const carried = carriedConfigurationDiagnostic(error);
+    return rejectOperation(
+      collaborators,
+      carried ??
+        safeDiagnostic("CONFIG_MISSING", "verification", "configuration", "FIX_CONFIGURATION"),
+    );
+  }
+  const checks = [];
+  let releaseRevision;
+  for (const contract of VERIFICATION_CONTRACTS) {
+    const probed = await runVerificationContractProbe(collaborators, contract);
+    if (probed.revision !== undefined) {
+      releaseRevision = probed.revision;
+    }
+    const check = {
+      contract,
+      result: probed.result,
+      ...(probed.diagnostic !== undefined ? { diagnostic: probed.diagnostic } : {}),
+      durationMs: probed.durationMs,
+    };
+    checks.push(check);
+  }
+  const finishedAt = collaborators.clock.now();
+  const firstFailure = checks.find((check) => check.result === "fail");
+  // FR-010 — every failed contract identifies itself with its closed
+  // diagnostic on the command output surfaces, exactly once each.
+  for (const check of checks) {
+    if (check.result === "fail") {
+      await emitDiagnostic(collaborators, check.diagnostic, COMMAND_SURFACES);
+    }
+  }
+  const failed = firstFailure !== undefined;
+  return {
+    exitCode: failed ? 1 : 0,
+    ...(failed
+      ? {
+          reasonCode: firstFailure.diagnostic.reasonCode,
+          diagnosticScope: firstFailure.diagnostic.diagnosticScope,
+          component: firstFailure.diagnostic.component,
+          configurationKey: firstFailure.diagnostic.configurationKey,
+          remediation: firstFailure.diagnostic.remediation,
+          diagnostics: checks
+            .filter((check) => check.result === "fail")
+            .map((check) => check.diagnostic),
+        }
+      : {}),
+    runId,
+    ...(releaseRevision !== undefined ? { releaseRevision } : {}),
+    startedAt,
+    finishedAt,
+    state: failed ? "failed" : "reported",
+    checks,
+    ...(failed ? { primaryFailure: firstFailure.diagnostic } : {}),
+    parityStatement: VERIFICATION_PARITY_STATEMENT,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Real adapters — used only by the command-line entry point. The accepted
 // tests always inject their own collaborators; nothing in this section
 // runs under test.
@@ -4923,6 +5178,394 @@ async function isDevelopmentDatabaseAcceptingConnections() {
     // not-yet-valid configuration: probe the documented default endpoint
   }
   return tcpEndpointAcceptsConnections(host, port, DATABASE_PROBE_TIMEOUT_MS);
+}
+
+// ---------------------------------------------------------------------------
+// T049 real Verification stages — the real `verification` probe of the
+// command-line collaborators. Only the T049-owned contracts (build, startup,
+// and the seven configuration contracts) have real stages; every T050+
+// contract returns its explicit blocked outcome (an expected-red FAIL with
+// `PREREQUISITE_FAILED` — the closed dependency-blocked encoding of the
+// Operations Contract §Verification result contract), never an absence.
+// ---------------------------------------------------------------------------
+
+/** The accepted Verification topology manifest (T046). */
+const VERIFICATION_COMPOSE_FILE = "infra/compose.verification.yaml";
+
+/**
+ * The release image tag the accepted Verification manifest builds and runs
+ * (its `songhealth-app` service `image`): the exact release candidate the
+ * `build` stage produces from the accepted T045/T048 `infra/Containerfile`.
+ */
+const VERIFICATION_RELEASE_IMAGE_TAG = "songhealth-foundation:provisional";
+
+/** Bounded budget for the release-candidate image build (milliseconds). */
+const VERIFICATION_BUILD_TIMEOUT_MS = 300_000;
+/** Bounded budget for starting the Verification topology (milliseconds). */
+const VERIFICATION_STARTUP_TIMEOUT_MS = 120_000;
+/** Poll interval of the bounded topology-startup wait (milliseconds). */
+const VERIFICATION_STARTUP_POLL_INTERVAL_MS = 500;
+
+/** The manifest-declared services of the Verification topology. */
+const VERIFICATION_TOPOLOGY_SERVICES = ["nginx", "songhealth-app", "songhealth-db"];
+
+/**
+ * The exact configuration key set the transient runtime override carries to
+ * the application service (the canonical boundary's own key order): the
+ * validated record of the bound target — never any other key, never another
+ * target's credential, and never a derived value like a diagnostic scope.
+ */
+const VERIFICATION_RUNTIME_CONFIGURATION_KEYS = [
+  "APP_ENVIRONMENT",
+  "RUNTIME_PROFILE",
+  "APP_HOST",
+  "APP_PORT",
+  "PUBLIC_ORIGIN",
+  "DATABASE_URL",
+  "DATABASE_POOL_MAX",
+  "PROXY_POLICY",
+  "LOG_LEVEL",
+  "FIXTURE_PROVENANCE",
+];
+
+/** The T049-owned contracts with real stages (tasks.md T049). */
+const T049_VERIFICATION_CONTRACTS = new Set([
+  "build",
+  "startup",
+  "configuration-valid",
+  "configuration-missing-rejected",
+  "configuration-empty-rejected",
+  "configuration-malformed-rejected",
+  "configuration-unsupported-rejected",
+  "configuration-out-of-range-rejected",
+  "configuration-identity-conflict-rejected",
+]);
+
+/**
+ * The checkout-scoped Compose identity of the VERIFICATION operation target:
+ * the same stable checkout digest as Development, but a DIFFERENT project
+ * name (`songhealth-verify-*` vs `songhealth-dev-*`), so the two targets'
+ * projects, containers, networks, and volumes can never collide or address
+ * each other (contract §Operation-target ownership and isolation).
+ */
+function verificationScopedIdentity() {
+  const digest = createHash("sha256").update(REPOSITORY_ROOT).digest("hex");
+  return {
+    checkoutId: digest.slice(0, 16),
+    composeProjectName: `songhealth-verify-${digest.slice(0, 12)}`,
+  };
+}
+
+/**
+ * The `build` stage: build the release candidate — the exact
+ * `songhealth-foundation:provisional` image from the accepted
+ * `infra/Containerfile`, nothing else. Its immutable local image identifier
+ * (an opaque safe identity — never a path, credential, or host detail) is
+ * the run's release revision. A raw tool failure throws and is mapped by the
+ * orchestration to the closed `BUILD_FAILED` route.
+ */
+async function buildVerificationReleaseImage() {
+  await execFileAsync(
+    "podman",
+    ["build", "--file", "infra/Containerfile", "--tag", VERIFICATION_RELEASE_IMAGE_TAG, "."],
+    {
+      cwd: REPOSITORY_ROOT,
+      timeout: VERIFICATION_BUILD_TIMEOUT_MS,
+    },
+  );
+  const { stdout } = await execFileAsync(
+    "podman",
+    ["images", "--format", "{{.ID}}", VERIFICATION_RELEASE_IMAGE_TAG],
+    { cwd: REPOSITORY_ROOT, timeout: TOOL_CHECK_TIMEOUT_MS },
+  );
+  const imageId = stdout.trim().split(/\r?\n/)[0]?.trim();
+  return typeof imageId === "string" && imageId.length > 0
+    ? { ok: true, revision: imageId }
+    : { ok: true };
+}
+
+/**
+ * Whether one raw `podman ps` entry reports running RIGHT NOW. Podman's
+ * listing JSON is not uniform across releases: `ps --format json` emits the
+ * container `State` as a lowercase string (`"running"`), while inspect-style
+ * output carries an object with a `Running` boolean — every documented shape
+ * is read (the same dual-casing tolerance `readObservedName` applies).
+ */
+function psEntryIsRunning(entry) {
+  const state = entry?.State;
+  return (
+    state === "running" ||
+    (state !== null && typeof state === "object" && state.Running === true)
+  );
+}
+
+/**
+ * Whether every manifest-declared service container of THIS checkout's
+ * Verification Compose project reports running right now (the provider's
+ * canonical Compose project label is the exact population scope — no name
+ * prefix, wildcard, or foreign project is ever addressed).
+ */
+async function verificationTopologyServicesRunning(composeProjectName) {
+  const entries = await runPodmanJson([
+    "ps",
+    "-a",
+    "--filter",
+    `label=com.docker.compose.project=${composeProjectName}`,
+    "--format",
+    "json",
+  ]);
+  const running = new Set(
+    entries
+      .filter((entry) => psEntryIsRunning(entry))
+      .map((entry) => readObservedLabels(entry)["com.docker.compose.service"])
+      .filter((service) => typeof service === "string"),
+  );
+  return VERIFICATION_TOPOLOGY_SERVICES.every((service) => running.has(service));
+}
+
+/**
+ * The ignored checkout-local path of the TRANSIENT orchestration-owned
+ * runtime-configuration override of one Verification run: the validated
+ * configuration of the bound target, layered over the accepted manifest for
+ * the `up` invocation only and removed afterwards. Never committed, never
+ * part of the manifest, and never surfaced on any output surface.
+ */
+function verificationRuntimeOverridePath() {
+  return path.join(
+    FOUNDATION_STATE_DIRECTORY,
+    "verification",
+    "runtime-configuration.override.yaml",
+  );
+}
+
+/**
+ * Write the transient runtime-configuration override (mode `0600`, same
+ * discipline as the operation journal): the manifest's `songhealth-app`
+ * service deliberately declares no committed configuration and must not
+ * inherit committed defaults (FR-006), so the ORCHESTRATION boundary
+ * supplies that target's validated runtime configuration — exactly the
+ * accepted eleven-key set, each value as one YAML double-quoted scalar
+ * (`JSON.stringify` is the YAML-compatible quoted form) — through the
+ * provider-standard file-layering mechanism. The committed manifest itself
+ * is never modified.
+ */
+async function writeVerificationRuntimeOverride(configuration) {
+  const destination = verificationRuntimeOverridePath();
+  await mkdir(path.dirname(destination), { recursive: true });
+  const environment = VERIFICATION_RUNTIME_CONFIGURATION_KEYS.map(
+    (key) => `      ${key}: ${JSON.stringify(configuration[key])}`,
+  ).join("\n");
+  const handle = await open(destination, "w", 0o600);
+  try {
+    await handle.writeFile(
+      `# Transient orchestration-owned runtime configuration of one Verification run.\n` +
+        `# Removed after the topology start; never committed and never surfaced.\n` +
+        `services:\n  songhealth-app:\n    environment:\n${environment}\n`,
+      "utf8",
+    );
+  } finally {
+    await handle.close();
+  }
+  return destination;
+}
+
+/**
+ * The `startup` stage: start the EXACT Verification topology — the accepted
+ * `infra/compose.verification.yaml` under this checkout's Verification
+ * project name, never Development's manifest, project, or resources. The
+ * validated runtime configuration of the bound target is supplied by this
+ * orchestration boundary through the transient override (see above); the
+ * checkout ownership input renders the manifest's ownership labels. Startup
+ * is proven, not assumed: a bounded poll requires every manifest-declared
+ * service container to report running before the stage passes; a raw tool
+ * failure or an over-bound startup throws and is mapped by the orchestration
+ * to the closed `STARTUP_FAILED` route.
+ */
+async function startVerificationTopology() {
+  const { checkoutId, composeProjectName } = verificationScopedIdentity();
+  const configuration = await loadValidatedTargetConfiguration("verification");
+  const overridePath = await writeVerificationRuntimeOverride(configuration);
+  try {
+    await execFileAsync(
+      "podman",
+      [
+        "compose",
+        "--file",
+        VERIFICATION_COMPOSE_FILE,
+        "--file",
+        overridePath,
+        "--project-name",
+        composeProjectName,
+        "up",
+        "--detach",
+      ],
+      {
+        cwd: REPOSITORY_ROOT,
+        env: { ...process.env, SONGHEALTH_CHECKOUT_ID: checkoutId },
+        timeout: VERIFICATION_STARTUP_TIMEOUT_MS,
+      },
+    );
+  } finally {
+    await rm(overridePath, { force: true });
+  }
+  const deadline = Date.now() + VERIFICATION_STARTUP_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    // The listing's own failure is simply not-yet-proven startup; the bound
+    // below stays the closed fail-closed outcome.
+    try {
+      if (await verificationTopologyServicesRunning(composeProjectName)) {
+        return { ok: true };
+      }
+    } catch {
+      // not-yet-observable: keep polling within the bound
+    }
+    await new Promise((resolve) => {
+      setTimeout(resolve, VERIFICATION_STARTUP_POLL_INTERVAL_MS);
+    });
+  }
+  throw new Error("verification topology did not report running within the startup bound");
+}
+
+/**
+ * The `configuration-valid` stage: the canonical boundary (the single
+ * configuration policy) must ACCEPT the bound target's own validated local
+ * record — reusing the validating source, never a second policy. A canonical
+ * refusal is the stage's own failure with exactly that closed diagnostic; an
+ * absent local copy is the documented missing-configuration rejection.
+ */
+async function probeVerificationConfigurationValid() {
+  try {
+    await loadValidatedTargetConfiguration("verification");
+    return { ok: true };
+  } catch (error) {
+    const carried = carriedConfigurationDiagnostic(error);
+    return {
+      ok: false,
+      diagnostic:
+        carried ??
+        safeDiagnostic("CONFIG_MISSING", "verification", "configuration", "FIX_CONFIGURATION"),
+    };
+  }
+}
+
+/**
+ * The six required invalid-configuration rejection cases (FR-006; contract
+ * §Configuration examples): each case mutates ONE safe synthetic field of
+ * the bound target's own valid local record and requires the canonical
+ * boundary to reject it with exactly the documented rejection class —
+ * proving the rejection boundary is enforced before work is accepted, not
+ * merely configured. A case the boundary accepts, or rejects with a
+ * different class, fails the stage with the closed
+ * `CONFIG_REJECTION_NOT_ENFORCED` diagnostic naming the safe key.
+ */
+const VERIFICATION_CONFIGURATION_REJECTION_CASES = [
+  {
+    contract: "configuration-missing-rejected",
+    reasonCode: "CONFIG_MISSING",
+    configurationKey: "APP_PORT",
+    mutate: (record) => {
+      const missing = { ...record };
+      delete missing.APP_PORT;
+      return missing;
+    },
+  },
+  {
+    contract: "configuration-empty-rejected",
+    reasonCode: "CONFIG_EMPTY",
+    configurationKey: "LOG_LEVEL",
+    mutate: (record) => ({ ...record, LOG_LEVEL: "" }),
+  },
+  {
+    contract: "configuration-malformed-rejected",
+    reasonCode: "CONFIG_MALFORMED",
+    configurationKey: "APP_HOST",
+    mutate: (record) => ({ ...record, APP_HOST: "songhealth app" }),
+  },
+  {
+    contract: "configuration-unsupported-rejected",
+    reasonCode: "CONFIG_UNSUPPORTED",
+    configurationKey: "LOG_LEVEL",
+    mutate: (record) => ({ ...record, LOG_LEVEL: "verbose" }),
+  },
+  {
+    contract: "configuration-out-of-range-rejected",
+    reasonCode: "CONFIG_OUT_OF_RANGE",
+    configurationKey: "DATABASE_POOL_MAX",
+    mutate: (record) => ({ ...record, DATABASE_POOL_MAX: "0" }),
+  },
+  {
+    contract: "configuration-identity-conflict-rejected",
+    reasonCode: "CONFIG_IDENTITY_CONFLICT",
+    configurationKey: "RUNTIME_PROFILE",
+    mutate: (record) => ({ ...record, RUNTIME_PROFILE: "daily" }),
+  },
+];
+
+/** One rejection case by its contract name, or `undefined`. */
+function verificationRejectionCase(contract) {
+  return VERIFICATION_CONFIGURATION_REJECTION_CASES.find(
+    (testCase) => testCase.contract === contract,
+  );
+}
+
+/**
+ * One rejection stage: reject-before-work is PROVEN by the canonical
+ * boundary itself — the mutated record must be refused with exactly the
+ * documented class for that case.
+ */
+async function probeVerificationConfigurationRejection(contract) {
+  const testCase = verificationRejectionCase(contract);
+  const base = await loadLocalTargetConfiguration("verification");
+  const outcome = await loadCanonicalTargetOutcome(testCase.mutate({ ...base }), "verification");
+  if (outcome.status === "rejected" && outcome.diagnostic.reasonCode === testCase.reasonCode) {
+    return { ok: true };
+  }
+  return {
+    ok: false,
+    diagnostic: safeDiagnostic(
+      "CONFIG_REJECTION_NOT_ENFORCED",
+      "verification",
+      "configuration",
+      "FIX_CONFIGURATION",
+      testCase.configurationKey,
+    ),
+  };
+}
+
+/**
+ * The real `verification.runCheck` probe of the command-line collaborators:
+ * the T049-owned contracts run their real stages; every T050+ contract
+ * returns its explicit blocked outcome — an expected-red FAIL carrying the
+ * closed `PREREQUISITE_FAILED` diagnostic of the contract's own component,
+ * exactly the contract's dependency-blocked encoding (never absent, skipped,
+ * or a fabricated pass) — until those tasks implement the real stages.
+ */
+async function runVerificationStageCheck(contract) {
+  if (!T049_VERIFICATION_CONTRACTS.has(contract)) {
+    const [, component] = VERIFICATION_CONTRACT_FAILURE_ROUTES[contract] ?? [
+      "OPERATIONAL_FAILURE",
+      "orchestration",
+    ];
+    return {
+      ok: false,
+      diagnostic: safeDiagnostic(
+        "PREREQUISITE_FAILED",
+        "verification",
+        component,
+        "CHECK_PREREQUISITES",
+      ),
+    };
+  }
+  if (contract === "build") {
+    return buildVerificationReleaseImage();
+  }
+  if (contract === "startup") {
+    return startVerificationTopology();
+  }
+  if (contract === "configuration-valid") {
+    return probeVerificationConfigurationValid();
+  }
+  return probeVerificationConfigurationRejection(contract);
 }
 
 /**
@@ -6677,6 +7320,12 @@ function createCommandLineCollaborators(target = DAILY_OPERATION_TARGET, options
       shouldInterrupt: async (step, phase) =>
         step === options.interruptionAction && phase === options.interruptionPhase,
     },
+    // T049 — the real per-contract Verification probes: the T049-owned
+    // contracts run their real build/startup/canonical-configuration stages;
+    // every T050+ contract returns its explicit blocked expected-red outcome.
+    verification: {
+      runCheck: (contract) => runVerificationStageCheck(contract),
+    },
   };
 }
 
@@ -6740,9 +7389,15 @@ async function runCommandLine(args) {
     "foundation:recover",
     "foundation:test-interruption",
   ]);
+  // T049 — the Verification run command is bound to the VERIFICATION
+  // operation target (it takes no `--target`: it is not target-selectable),
+  // so its collaborators load and address only that target's configuration
+  // and Compose identity before any work.
   const commandTarget = targetRoutedCommands.has(command)
     ? readOption(rest, "target")
-    : undefined;
+    : command === "verify:production-like"
+      ? "verification"
+      : undefined;
   const collaborators = createCommandLineCollaborators(
     commandTarget ?? DAILY_OPERATION_TARGET,
     {
@@ -6826,6 +7481,8 @@ async function runCommandLine(args) {
       result = await devPersistenceCheck(collaborators, {
         confirm: readOption(rest, "confirm"),
       });
+    } else if (command === "verify:production-like") {
+      result = await verifyProductionLike(collaborators);
     } else {
       result = await rejectOperation(
         collaborators,
@@ -6881,6 +7538,8 @@ async function runCommandLine(args) {
       "dev:reset": "confirmed development reset complete; only the exact data store resources were removed",
       "foundation:recover": "development database runtime recovered; connectivity, integrity, and migration postchecks passed",
       "dev:persistence-check": "development persistence proven; marker survived the routine restart and the confirmed reset",
+      "verify:production-like":
+        "production-like verification run passed every contract result; parity statement carried",
     };
     let summary = summaries[command];
     if (summary === undefined && command === "db:status") {

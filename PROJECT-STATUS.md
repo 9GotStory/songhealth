@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T048 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Status:** T049 PASS — PRODUCT OWNER HUMAN GATE
 
 ## Active Feature Mirror
 
@@ -29,14 +29,60 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED
-- **Phase status:** T048 ACCEPTED; T049+ UNAUTHORIZED
-- **Previous completed scope:** T048 — runnable single-listener release composition
-- **Next valid action:** NONE selected or authorized — stop after T048 Human acceptance; T049+
-  remain unauthorized
+- **Current review result:** PASS — AWAITING PRODUCT OWNER ACCEPTANCE
+- **Phase status:** T048 ACCEPTED; T049 PASS; T050+ UNAUTHORIZED
+- **Previous completed scope:** T049 — Verification build/start and configuration result stages
+- **Next valid action:** Product Owner Human Gate for T049; T050+ remain unauthorized
 - **Blocking issues:** None
 - **Authorization state:** NONE
 - **Authorized Implementation:** NONE
+- **T049 review — PASS:** Exact implementation
+  `bdb509a8ee2f9e8112a74d21b9666ccc47753cd0` has persisted authorization
+  `de6bedd9b18bb85dfd66db85e2b2f1ac56a6ffde` as its sole parent and changes only the two
+  authorized files: `scripts/foundation-operations.mjs` and root `package.json`. Independent clean
+  locked installation completes with zero vulnerabilities and only the established npm 11 versus
+  pinned npm 12 warning. The accepted T041–T043 contracts reproduce 130/159 passing, with exactly
+  the 29 expected-red later-task failures: T050 dependency blocking (1), T051/T052 boundary and
+  safe-adapter behavior (15), and T053/T054 cleanup/journal behavior (13). The T049 entry boundary,
+  ordered build/start and seven configuration results, closed diagnostic mapping, configuration
+  rejection, and orchestration-result surface pass. Accepted focused regressions pass 197/197;
+  TypeScript and independent Server, Admin, and Web builds pass; ancestry, exact changed-file scope,
+  and `git diff --check` are clean. The developer's bounded real-command proof additionally records
+  all nine T049 stages PASS, eleven explicit later-task blocked results, Verification-only resource
+  use, nondisclosing output, and exact cleanup. ESLint remains unavailable because its locked
+  plugins are absent. Result: PASS; authorization cleared; T050+ unauthorized; stop at Product
+  Owner Human Gate.
+- **T049 authorization:** Implement only the T049 Verification entry point and its ordered `build`,
+  `startup`, `configuration-valid`, `configuration-missing-rejected`,
+  `configuration-empty-rejected`, `configuration-malformed-rejected`,
+  `configuration-unsupported-rejected`, `configuration-out-of-range-rejected`, and
+  `configuration-identity-conflict-rejected` result stages in
+  `scripts/foundation-operations.mjs`; replace only the `verify:production-like` stub in root
+  `package.json`. Reuse the accepted canonical configuration boundary, Verification Compose/image/
+  proxy/release artifacts, lifecycle journal, closed SafeDiagnostic contract, injected adapters,
+  and ordered-result contract. Required authority: `.specify/memory/constitution.md`,
+  `specs/001-application-foundation/spec.md` FR-006, FR-009–FR-010 and SC-003,
+  `specs/001-application-foundation/plan.md` §§Configuration and startup and Operations and
+  verification, `specs/001-application-foundation/research.md` Decisions 5–7,
+  `specs/001-application-foundation/contracts/foundation-operations.md` §§Commands, Safe diagnostic
+  contract, Operation-target ownership and isolation, Verification result contract, and Failure
+  behavior, accepted T041–T043 tests under `tests/verification/`, accepted configuration/runtime
+  boundaries under `apps/server/src/`, accepted `infra/Containerfile`,
+  `infra/compose.verification.yaml`, `infra/nginx/nginx.conf`, and
+  `specs/001-application-foundation/tasks.md` T049. Scope excludes T050+ stages (migration,
+  database, health/readiness, dependency-blocked behavior, isolation/proxy/routes, cleanup, and
+  reporting), safe container/proxy adapters, application code, tests, manifests, lockfile,
+  dependencies, Development behavior/resources, Product behavior, Production deployment/parity
+  claims, and Source-of-Truth changes. Verification must prove the root command reaches the T049
+  implementation; all nine owned results are emitted in canonical order with exact PASS/FAIL and
+  closed nondisclosing diagnostics; invalid cases are rejected before accepting work; build/start
+  use only exact Verification resources and preserve Development isolation; later T050+ results
+  remain explicit expected-red/blocked behavior rather than being implemented. Run the complete
+  applicable accepted T041–T043 Verification contracts plus focused configuration, orchestration,
+  nondisclosure, type/static/syntax, build, scope, and `git diff --check` checks. Return exact
+  commands/results, changed files, implementation SHA with this authorization commit as its sole
+  parent, expected-red later-task failures, environment limitations, and blockers; do not weaken or
+  bypass tests.
 - **T048 Product Owner acceptance:** Human Gate accepted original T048 implementation
   `04933bb805cad1ed643ffb3040a812d6ffb37b91`, persisted REWORK authorization
   `ea387d5aa8766da9804dd8c852ca65b572d51e58`, corrective implementation
@@ -815,10 +861,10 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T048 Human Gate accepted; T049+ remain unauthorized
+- **Task / Scope:** NONE — T049 passed independent review; T050+ remain unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
-- **Expected verification:** NONE — see T048 acceptance and final review evidence above
+- **Expected verification:** NONE — see T049 review evidence above
 - **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
