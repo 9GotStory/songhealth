@@ -30,7 +30,7 @@
     "build:web": "npm run build --workspace apps/web",
     "build:admin": "npm run build --workspace apps/admin",
     "build:server": "npm run build --workspace apps/server",
-    "verify:production-like": "node -e \"process.exit(1)\"",
+    "verify:production-like": "node scripts/foundation-operations.mjs verify:production-like",
     "check": "node -e \"process.exit(1)\"",
     "security:secrets": "node -e \"process.exit(1)\"",
     "security:dependencies": "node -e \"process.exit(1)\"",
