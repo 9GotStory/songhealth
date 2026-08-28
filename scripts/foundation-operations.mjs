@@ -4598,6 +4598,66 @@ function verificationContractFailureDiagnostic(contract) {
 }
 
 /**
+ * T050 — the prerequisite model of the ordered inventory: which earlier
+ * contract a check physically needs before it can run at all. The
+ * configuration contracts validate the bound target's own local record and
+ * need no topology; everything from `migration` onward needs the started
+ * Verification topology, because the migration/database stages address the
+ * internal Compose-network database through it and the liveness/readiness
+ * stages observe the runtime it started. `startup` itself needs the release
+ * image `build` produced. `cleanup` and `reporting` are deliberately absent:
+ * they run AFTER the main checks regardless of those checks' outcomes
+ * (Operations Contract §Verification result contract — "Cleanup runs after
+ * main checks"), so a main-check failure never blocks either of them.
+ */
+const VERIFICATION_CONTRACT_PREREQUISITES = {
+  build: [],
+  startup: ["build"],
+  "configuration-valid": [],
+  "configuration-missing-rejected": [],
+  "configuration-empty-rejected": [],
+  "configuration-malformed-rejected": [],
+  "configuration-unsupported-rejected": [],
+  "configuration-out-of-range-rejected": [],
+  "configuration-identity-conflict-rejected": [],
+  migration: ["startup"],
+  database: ["startup"],
+  liveness: ["startup"],
+  readiness: ["startup"],
+  isolation: ["startup"],
+  proxy: ["startup"],
+  "public-route": ["startup"],
+  "admin-route": ["startup"],
+  "server-route": ["startup"],
+};
+
+/**
+ * The closed dependency-blocked encoding of one contract the run did NOT
+ * drive (Operations Contract §Verification result contract): an explicit
+ * `FAIL` carrying the closed `PREREQUISITE_FAILED` diagnostic of that
+ * contract's OWN component — never an omitted, skipped, or fabricated-pass
+ * result. The probe is not invoked at all, so the result carries no measured
+ * duration of its own.
+ */
+function blockedVerificationOutcome(contract) {
+  const [, component] = VERIFICATION_CONTRACT_FAILURE_ROUTES[contract] ?? [
+    "OPERATIONAL_FAILURE",
+    "orchestration",
+  ];
+  return {
+    result: "fail",
+    diagnostic: safeDiagnostic(
+      "PREREQUISITE_FAILED",
+      "verification",
+      component,
+      "CHECK_PREREQUISITES",
+    ),
+    revision: undefined,
+    durationMs: 0,
+  };
+}
+
+/**
  * Normalize one probe outcome into its ordered Check Result fields: a pass
  * carries no diagnostic; a failure carries its own well-formed closed
  * diagnostic when the probe returned one (the closed-shape check is the
@@ -4666,12 +4726,15 @@ async function runVerificationContractProbe(collaborators, contract) {
  * Development adapter (FR-008 independence — the Development facets are not
  * addressable from this operation at all).
  *
- * T050+ contracts (migration through reporting) are driven through the same
- * probes but their real stages are not implemented yet: the real facet
- * returns their explicit blocked `PREREQUISITE_FAILED` outcome (Operations
- * Contract §Verification result contract: a dependency-blocked check is an
- * explicit FAIL, never absent or skipped), so the real command stays
- * expected-red until those tasks land.
+ * T050 adds the migration/database/liveness/readiness stages and the
+ * prerequisite model: a contract whose prerequisite already failed is never
+ * driven at all and instead emits the explicit blocked `PREREQUISITE_FAILED`
+ * outcome (Operations Contract §Verification result contract: a
+ * dependency-blocked check is an explicit FAIL, never absent or skipped). The
+ * still-unimplemented T051+ contracts (isolation through reporting) are driven
+ * through the same probes and return their own explicit blocked outcome from
+ * the real facet, so the real command stays expected-red until those tasks
+ * land.
  */
 export async function verifyProductionLike(collaborators) {
   const runId = newOperationId();
@@ -4691,8 +4754,22 @@ export async function verifyProductionLike(collaborators) {
   }
   const checks = [];
   let releaseRevision;
+  // T050 — the contracts that have already failed, driving the prerequisite
+  // model: a later contract whose prerequisite is in this set is physically
+  // unrunnable, so its probe is never invoked and it instead emits the
+  // explicit closed PREREQUISITE_FAILED failure.
+  const failedContracts = new Set();
   for (const contract of VERIFICATION_CONTRACTS) {
-    const probed = await runVerificationContractProbe(collaborators, contract);
+    const blockedBy = (VERIFICATION_CONTRACT_PREREQUISITES[contract] ?? []).find(
+      (prerequisite) => failedContracts.has(prerequisite),
+    );
+    const probed =
+      blockedBy === undefined
+        ? await runVerificationContractProbe(collaborators, contract)
+        : blockedVerificationOutcome(contract);
+    if (probed.result === "fail") {
+      failedContracts.add(contract);
+    }
     if (probed.revision !== undefined) {
       releaseRevision = probed.revision;
     }
@@ -5181,10 +5258,11 @@ async function isDevelopmentDatabaseAcceptingConnections() {
 }
 
 // ---------------------------------------------------------------------------
-// T049 real Verification stages — the real `verification` probe of the
-// command-line collaborators. Only the T049-owned contracts (build, startup,
-// and the seven configuration contracts) have real stages; every T050+
-// contract returns its explicit blocked outcome (an expected-red FAIL with
+// T049/T050 real Verification stages — the real `verification` probe of the
+// command-line collaborators. The T049-owned contracts (build, startup, and
+// the seven configuration contracts) and the T050-owned contracts (migration,
+// database, liveness, and readiness) have real stages; every T051+ contract
+// returns its explicit blocked outcome (an expected-red FAIL with
 // `PREREQUISITE_FAILED` — the closed dependency-blocked encoding of the
 // Operations Contract §Verification result contract), never an absence.
 // ---------------------------------------------------------------------------
@@ -5239,6 +5317,19 @@ const T049_VERIFICATION_CONTRACTS = new Set([
   "configuration-unsupported-rejected",
   "configuration-out-of-range-rejected",
   "configuration-identity-conflict-rejected",
+]);
+
+/**
+ * The T050-owned contracts with real stages (tasks.md T050): the explicit
+ * migration apply, the read-only database-connectivity observation, and the
+ * two operational health observations, in the canonical inventory order
+ * after the configuration contracts.
+ */
+const T050_VERIFICATION_CONTRACTS = new Set([
+  "migration",
+  "database",
+  "liveness",
+  "readiness",
 ]);
 
 /**
@@ -5533,15 +5624,267 @@ async function probeVerificationConfigurationRejection(contract) {
 }
 
 /**
+ * T050 — the real migration/database/liveness/readiness stages. The two
+ * database-facing stages address the Verification Data Store through the
+ * started topology itself: that database is internal to the Compose project
+ * (`expose` alone, never published), so the ONLY correct route to it is a
+ * bounded `exec` of the release application container, which sits on the
+ * topology's `database` network and carries the accepted built Server
+ * boundary plus its production dependencies. Nothing is ever published, and
+ * no host-side connection to an internal service is attempted.
+ */
+
+/** Bounded budget for one in-topology database stage (milliseconds). */
+const VERIFICATION_IN_TOPOLOGY_STAGE_TIMEOUT_MS = 240_000;
+/**
+ * Bounded wait for the Verification Data Store engine to accept connections
+ * after its container reports running (milliseconds) — a running container is
+ * not yet an initialized engine on a clean run, so the explicit migration
+ * apply waits boundedly for read-only inspectability before it applies.
+ */
+const VERIFICATION_ENGINE_READY_TIMEOUT_MS = 120_000;
+/** Poll interval of the bounded engine-readiness wait (milliseconds). */
+const VERIFICATION_ENGINE_READY_POLL_INTERVAL_MS = 500;
+/**
+ * Bounded wait for the release listener to answer its operational health
+ * contract after its container reports running (milliseconds).
+ */
+const VERIFICATION_HEALTH_READY_TIMEOUT_MS = 60_000;
+/** Poll interval of the bounded health-contract wait (milliseconds). */
+const VERIFICATION_HEALTH_READY_POLL_INTERVAL_MS = 500;
+/** Bounded budget for one operational health request (milliseconds). */
+const VERIFICATION_HEALTH_REQUEST_TIMEOUT_MS = 15_000;
+
+/**
+ * The accepted built Server modules the release image carries at its
+ * documented runtime paths (`infra/Containerfile` runtime stage).
+ */
+const RELEASE_SERVER_DATABASE_MODULE = "/app/apps/server/build/database.js";
+const RELEASE_SERVER_MIGRATIONS_MODULE = "/app/apps/server/build/migrations.js";
+
+/**
+ * Run one bounded module script inside the release application container of
+ * THIS checkout's Verification project. The script is authored here and
+ * touches only the accepted built boundary; its process fails non-zero on any
+ * error, which `runVerificationContractProbe` maps to the contract's closed
+ * failure route — the container's own raw error text, stack, or driver
+ * message is never captured into any output surface. The environment is the
+ * container's own validated runtime configuration (supplied by the startup
+ * stage's transient override), never a host-side or Development value.
+ */
+async function execInVerificationApplication(script) {
+  const { checkoutId, composeProjectName } = verificationScopedIdentity();
+  await execFileAsync(
+    "podman",
+    [
+      "compose",
+      "--file",
+      VERIFICATION_COMPOSE_FILE,
+      "--project-name",
+      composeProjectName,
+      "exec",
+      "-T",
+      "songhealth-app",
+      "node",
+      "--input-type=module",
+      "--eval",
+      script,
+    ],
+    {
+      cwd: REPOSITORY_ROOT,
+      env: { ...process.env, SONGHEALTH_CHECKOUT_ID: checkoutId },
+      // The whole stage is bounded here: a container that never completes is
+      // killed and mapped to the contract's closed failure route.
+      timeout: VERIFICATION_IN_TOPOLOGY_STAGE_TIMEOUT_MS,
+    },
+  );
+  return { ok: true };
+}
+
+/**
+ * The `migration` stage: apply the tracked migrations EXPLICITLY to the
+ * Verification Data Store, through the accepted T013 boundary
+ * (`applyMigrations` owns the version-controlled inventory — no
+ * caller-supplied list exists here) executed inside the topology. This is the
+ * only migration path of the run: the release listener itself never applies
+ * migrations (plan.md §Persistence and migrations — "Application startup
+ * never applies migrations"), so the migrations reach `current` solely
+ * because this stage applied them. The stage passes only when the accepted
+ * boundary reports the post-apply state `current`.
+ */
+async function applyVerificationMigrations() {
+  await execInVerificationApplication(
+    [
+      `const { pathToFileURL } = await import('node:url');`,
+      `const database = await import(pathToFileURL(${JSON.stringify(
+        RELEASE_SERVER_DATABASE_MODULE,
+      )}).href);`,
+      `const migrations = await import(pathToFileURL(${JSON.stringify(
+        RELEASE_SERVER_MIGRATIONS_MODULE,
+      )}).href);`,
+      `const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });`,
+      `const pool = await database.createDatabase(`,
+      `  process.env.DATABASE_URL,`,
+      `  Number.parseInt(process.env.DATABASE_POOL_MAX ?? '', 10) || undefined,`,
+      `);`,
+      `try {`,
+      // A running container is not yet an initialized engine on a clean run:
+      // wait boundedly, observing only through the READ-ONLY status boundary,
+      // until the engine is inspectable (`unavailable` means not yet).
+      `  const deadline = Date.now() + ${VERIFICATION_ENGINE_READY_TIMEOUT_MS};`,
+      `  let status = await migrations.getMigrationStatus(pool);`,
+      `  while (status.state === 'unavailable' && Date.now() < deadline) {`,
+      `    await sleep(${VERIFICATION_ENGINE_READY_POLL_INTERVAL_MS});`,
+      `    status = await migrations.getMigrationStatus(pool);`,
+      `  }`,
+      `  if (status.state === 'unavailable') {`,
+      `    process.exitCode = 1;`,
+      `  } else {`,
+      `    const applied = await migrations.applyMigrations(pool);`,
+      `    if (applied.state !== 'current') {`,
+      `      process.exitCode = 1;`,
+      `    }`,
+      `  }`,
+      `} finally {`,
+      `  await database.closeDatabase(pool);`,
+      `}`,
+    ].join("\n"),
+  );
+  return { ok: true };
+}
+
+/**
+ * The `database` stage: prove the Verification Data Store is reachable and
+ * inspectable through the accepted READ-ONLY observation boundary
+ * (`getDatabaseReadiness` — a liveness SELECT plus the non-mutating Kysely
+ * migration introspection), executed inside the topology. It never applies,
+ * creates, or writes anything, so it observes connectivity as an independent
+ * contract rather than merely trusting the migration stage's success.
+ */
+async function probeVerificationDatabaseConnectivity() {
+  await execInVerificationApplication(
+    [
+      `const { pathToFileURL } = await import('node:url');`,
+      `const database = await import(pathToFileURL(${JSON.stringify(
+        RELEASE_SERVER_DATABASE_MODULE,
+      )}).href);`,
+      `const migrations = await import(pathToFileURL(${JSON.stringify(
+        RELEASE_SERVER_MIGRATIONS_MODULE,
+      )}).href);`,
+      `const pool = await database.createDatabase(`,
+      `  process.env.DATABASE_URL,`,
+      `  Number.parseInt(process.env.DATABASE_POOL_MAX ?? '', 10) || undefined,`,
+      `);`,
+      `try {`,
+      `  const readiness = await migrations.getDatabaseReadiness(pool);`,
+      `  if (readiness.status !== 'ready') {`,
+      `    process.exitCode = 1;`,
+      `  }`,
+      `} finally {`,
+      `  await database.closeDatabase(pool);`,
+      `}`,
+    ].join("\n"),
+  );
+  return { ok: true };
+}
+
+/**
+ * Observe the release application's OWN operational health contract from
+ * inside the topology, by executing one bounded observation against the
+ * listener the release entry bound (`APP_HOST`/`APP_PORT` of the target's own
+ * validated runtime configuration, which resolves to the application
+ * container itself). These are APPLICATION contracts, observed at the
+ * application boundary — deliberately NOT through the proxy, whose forwarding
+ * behavior is the separate `proxy`/route contracts of a later task, and never
+ * by publishing the internal application port. The observation script judges
+ * only the closed wire contract and reports it as its exit status, so no
+ * status text, header, body, or transport detail ever reaches an output
+ * surface.
+ */
+async function observeVerificationHealthContract(pathname, accepts) {
+  const observation = [
+    `const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });`,
+    `const origin = \`http://\${process.env.APP_HOST}:\${process.env.APP_PORT}\`;`,
+    `const accepts = ${accepts};`,
+    `const deadline = Date.now() + ${VERIFICATION_HEALTH_READY_TIMEOUT_MS};`,
+    `let satisfied = false;`,
+    `while (!satisfied && Date.now() < deadline) {`,
+    `  try {`,
+    `    const response = await fetch(origin + ${JSON.stringify(pathname)}, {`,
+    `      redirect: 'manual',`,
+    `      signal: AbortSignal.timeout(${VERIFICATION_HEALTH_REQUEST_TIMEOUT_MS}),`,
+    `    });`,
+    `    const body = await response.json();`,
+    `    satisfied = accepts(response.status, body);`,
+    `  } catch {`,
+    `    satisfied = false;`,
+    `  }`,
+    `  if (!satisfied) {`,
+    `    await sleep(${VERIFICATION_HEALTH_READY_POLL_INTERVAL_MS});`,
+    `  }`,
+    `}`,
+    `if (!satisfied) {`,
+    `  process.exitCode = 1;`,
+    `}`,
+  ].join("\n");
+  await execInVerificationApplication(observation);
+  return { ok: true };
+}
+
+/**
+ * The `liveness` stage: the release listener's own operational liveness route
+ * must answer its closed contract — HTTP 200 carrying exactly
+ * `{"status":"alive"}`. Anything else (unreachable, non-200, or a body that is
+ * not the closed shape) is this contract's failure.
+ */
+async function probeVerificationLiveness() {
+  return observeVerificationHealthContract(
+    "/health/live",
+    `(status, body) => status === 200 && body !== null && typeof body === 'object' && body.status === 'alive'`,
+  );
+}
+
+/**
+ * The `readiness` stage: the release listener's own overall readiness route
+ * must answer its closed contract — HTTP 200, overall `ready`, and BOTH
+ * required components reporting `ready` with no diagnostic (data-model.md
+ * §Component Readiness: readiness holds only when the application is running,
+ * database connectivity succeeds, and Migration State is `current`). The
+ * route's own 503/500 not-ready answers, and any absent or non-closed
+ * response, are this contract's failure.
+ */
+async function probeVerificationReadiness() {
+  return observeVerificationHealthContract(
+    "/health/ready",
+    [
+      `(status, body) => {`,
+      `  if (status !== 200 || body === null || typeof body !== 'object' || body.status !== 'ready') {`,
+      `    return false;`,
+      `  }`,
+      `  const components = Array.isArray(body.components) ? body.components : [];`,
+      `  const ready = (name) => components.some(`,
+      `    (entry) => entry !== null && typeof entry === 'object' &&`,
+      `      entry.name === name && entry.status === 'ready' && entry.diagnostic === undefined,`,
+      `  );`,
+      `  return ready('application') && ready('database');`,
+      `}`,
+    ].join("\n"),
+  );
+}
+
+/**
  * The real `verification.runCheck` probe of the command-line collaborators:
- * the T049-owned contracts run their real stages; every T050+ contract
+ * the T049/T050-owned contracts run their real stages; every T051+ contract
  * returns its explicit blocked outcome — an expected-red FAIL carrying the
  * closed `PREREQUISITE_FAILED` diagnostic of the contract's own component,
  * exactly the contract's dependency-blocked encoding (never absent, skipped,
  * or a fabricated pass) — until those tasks implement the real stages.
  */
 async function runVerificationStageCheck(contract) {
-  if (!T049_VERIFICATION_CONTRACTS.has(contract)) {
+  if (
+    !T049_VERIFICATION_CONTRACTS.has(contract) &&
+    !T050_VERIFICATION_CONTRACTS.has(contract)
+  ) {
     const [, component] = VERIFICATION_CONTRACT_FAILURE_ROUTES[contract] ?? [
       "OPERATIONAL_FAILURE",
       "orchestration",
@@ -5565,7 +5908,19 @@ async function runVerificationStageCheck(contract) {
   if (contract === "configuration-valid") {
     return probeVerificationConfigurationValid();
   }
-  return probeVerificationConfigurationRejection(contract);
+  if (T049_VERIFICATION_CONTRACTS.has(contract)) {
+    return probeVerificationConfigurationRejection(contract);
+  }
+  if (contract === "migration") {
+    return applyVerificationMigrations();
+  }
+  if (contract === "database") {
+    return probeVerificationDatabaseConnectivity();
+  }
+  if (contract === "liveness") {
+    return probeVerificationLiveness();
+  }
+  return probeVerificationReadiness();
 }
 
 /**
