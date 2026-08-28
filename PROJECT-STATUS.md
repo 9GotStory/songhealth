@@ -16,7 +16,7 @@
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
 - **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T045 PASS — PRODUCT OWNER HUMAN GATE
+- **Status:** T045 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
 
 ## Active Feature Mirror
 
@@ -29,12 +29,19 @@
 ## Workflow Gate
 
 - **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS
-- **Phase status:** T045 PASS — AWAITING PRODUCT OWNER ACCEPTANCE; T046+ UNAUTHORIZED
+- **Current review result:** PASS — HUMAN ACCEPTED
+- **Phase status:** T045 ACCEPTED; T046+ UNAUTHORIZED
 - **Previous completed scope:** T045 — provisional Linux/Node 24 release image
-- **Next valid action:** Product Owner Human Gate for exact T045 implementation
-  `7ea10fe559d83d41a2d7fe0fc1dabd6153f65e1f`; do not authorize T046+
+- **Next valid action:** NONE selected or authorized — stop after T045 Human acceptance; T046+
+  remain unauthorized
 - **Blocking issues:** None for T045 independent review
+- **T045 Product Owner acceptance:** Human Gate accepted exact implementation
+  `7ea10fe559d83d41a2d7fe0fc1dabd6153f65e1f` and independent PASS governance record
+  `dead9bc1cdff8f38a3db11bf8341c98308f27421`. The accepted history is linear from persisted
+  authorization `7a0813ae5d9b9482a11b09a5cf60edd73ad6008e` through implementation and PASS; the
+  `infra/Containerfile` blob remains exactly `8345b0e1104f0f22d9b7a094d6a015b86027c5f4` across
+  implementation, PASS, and this acceptance record. Authorized Implementation remains `NONE`;
+  T046+ remain unauthorized.
 - **T045 review evidence:** Exact implementation `7ea10fe559d83d41a2d7fe0fc1dabd6153f65e1f`
   has persisted authorization `7a0813ae5d9b9482a11b09a5cf60edd73ad6008e` as its sole parent and a clean
   one-file diff adding only `infra/Containerfile`, with no T046+ implementation, manifest,
@@ -605,8 +612,7 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T045 independently passed; awaiting Product Owner Human Gate; T046+
-  remain unauthorized
+- **Task / Scope:** NONE — T045 Human Gate accepted; T046+ remain unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
 - **Expected verification:** NONE — see T045 review evidence above
