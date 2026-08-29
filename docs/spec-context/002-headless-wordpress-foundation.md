@@ -1,6 +1,6 @@
 # Delivery Context — 002-headless-wordpress-foundation
 
-> **State:** DRAFT — HUMAN SELECTED / READY REVIEW PENDING  
+> **State:** READY — HUMAN SELECTED / INDEPENDENT REVIEW PASS  
 > **Implementation Authorization:** NONE  
 > Human-selected routing map. Do not treat this file as an active Spec Kit feature until the Context READY gate passes and the next Spec Kit phase is explicitly started.
 
@@ -57,9 +57,9 @@ For append-only amended documents, the final Canonical Freeze Binding defines ef
 ## Gate
 
 ```text
-Context state            DRAFT — READY REVIEW PENDING
+Context state            READY
 Human selection          PASS
-Spec Kit specify         NOT RUN — STOP BEFORE THIS PHASE
+Spec Kit specify         NEXT PHASE — NOT YET RUN
 Implementation           NOT AUTHORIZED
 T051+ from Delivery 001  NOT AUTHORIZED
 Importer                 NOT AUTHORIZED
