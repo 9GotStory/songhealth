@@ -13,33 +13,35 @@
 
 ## Planned Delivery
 
-- **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
-- **Delivery Context:** `docs/spec-context/001-application-foundation.md`
-- **Delivery Context state:** STALE  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** HISTORICAL T050 ACCEPTED — T051+ RETIRED AFTER ARCHITECTURE FREEZE
+- **Delivery:** 002-headless-wordpress-foundation — Headless WordPress Foundation & Public Contract
+- **Delivery Context:** `docs/spec-context/002-headless-wordpress-foundation.md`
+- **Delivery Context state:** DRAFT  <!-- UNSET | DRAFT | READY | STALE -->
+- **Status:** HUMAN SELECTED — CONTEXT READY REVIEW PENDING
+- **Predecessor:** 001-application-foundation — HISTORICAL / T050 ACCEPTED / T051+ RETIRED
 
 ## Active Feature Mirror
 
 - **Active implementation feature:** NONE
+- **Selected successor Delivery:** `002-headless-wordpress-foundation`
+- **Selected Context:** `docs/spec-context/002-headless-wordpress-foundation.md`
+- **Selected Context state:** DRAFT / READY REVIEW PENDING
 - **Historical feature directory:** `specs/001-application-foundation`
-- **Successor proposal:** `docs/spec-context/002-headless-wordpress-foundation.md`
-- **Successor state:** DRAFT / NOT SELECTED
-- **`.specify/feature.json`:** absent at reconciliation base
-- **Verified:** no successor implementation feature is active
+- **`.specify/feature.json`:** absent at selection base
+- **Verified:** no Delivery 002 Spec Kit feature has been created or activated
 
 ## Workflow Gate
 
-- **Current phase:** ARCHITECTURE FREEZE COMPLETE / SPEC KIT RECONCILIATION
-- **Current review result:** HEADLESS WORDPRESS CANONICAL INTEGRATION PASS
-- **Phase status:** Delivery 001 accepted through T050; T051+ RETIRED / UNAUTHORIZED
-- **Next valid action:** Human selects or rejects proposed `002-headless-wordpress-foundation`
-- **Blocking issues:** successor Delivery not yet selected
+- **Current phase:** DELIVERY 002 CONTEXT READY REVIEW
+- **Current review result:** PENDING
+- **Phase status:** Human selected `002-headless-wordpress-foundation`; Context remains DRAFT pending independent READY review
+- **Next valid action:** independent read-only READY review against Frozen 00–10 + Constitution + reconciliation
+- **Blocking issues:** Context READY review not yet completed
 - **Authorization state:** NONE
 - **Authorized Implementation:** NONE
-- **Canonical architecture head:** `2677e783d782c4ffd28d4d4fa6a0be2bf0cb3a30`
-- **Effective versions:** 00 v1.1; 01 v1.0; 02 v1.1; 03 v1.0; 04 v1.0; 05 v1.1; 06 v1.0; 07 v1.0; 08 v1.0; 09 v1.1; 10 v1.2
-- **Spec Kit reconciliation:** `docs/spec-reconciliation/001-to-headless-wordpress-reconciliation-2026-08-29.md`
-- **Implementation / T051+ / Importer / Trial Migration / Production Cutover:** NOT AUTHORIZED
+- **Spec Kit specify:** NOT RUN — STOP BEFORE THIS PHASE
+- **Delivery 001 T051+:** RETIRED / NOT AUTHORIZED
+- **Importer / Trial Migration / Production Cutover:** NOT AUTHORIZED
+- **Selection record:** `docs/spec-reconciliation/002-human-successor-selection-2026-08-29.md`
 
 - **T050 Product Owner acceptance:** Human Gate accepted initial authorization
   `fa5dcc1fed6e8566b44d54c9fd4a77de8749c8ed`, original implementation

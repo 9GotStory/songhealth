@@ -1,12 +1,12 @@
 # Delivery Context — 002-headless-wordpress-foundation
 
-> **State:** DRAFT — PROPOSAL ONLY / NOT SELECTED  
+> **State:** DRAFT — HUMAN SELECTED / READY REVIEW PENDING  
 > **Implementation Authorization:** NONE  
-> Routing map only. Do not treat this file as an active Spec Kit feature until Human selection.
+> Human-selected routing map. Do not treat this file as an active Spec Kit feature until the Context READY gate passes and the next Spec Kit phase is explicitly started.
 
 ## Identity
 
-- **Proposed Delivery:** Headless WordPress Foundation & Public Contract
+- **Selected Delivery:** Headless WordPress Foundation & Public Contract
 - **Key:** `002-headless-wordpress-foundation`
 - **Intent:** Establish the smallest clean WordPress + `songhealth-core` + React public-contract foundation required for later Product Deliveries.
 - **Predecessor:** `001-application-foundation`, accepted through T050 and retained as historical evidence.
@@ -57,9 +57,9 @@ For append-only amended documents, the final Canonical Freeze Binding defines ef
 ## Gate
 
 ```text
-Context state            DRAFT
-Human selection          PENDING
-Spec Kit specify         NOT AUTHORIZED
+Context state            DRAFT — READY REVIEW PENDING
+Human selection          PASS
+Spec Kit specify         NOT RUN — STOP BEFORE THIS PHASE
 Implementation           NOT AUTHORIZED
 T051+ from Delivery 001  NOT AUTHORIZED
 Importer                 NOT AUTHORIZED
