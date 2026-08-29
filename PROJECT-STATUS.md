@@ -31,11 +31,11 @@
 
 ## Workflow Gate
 
-- **Current phase:** DELIVERY 002 SPECIFY COMPLETE — STOP BEFORE CLARIFY
-- **Current review result:** SPECIFY INDEPENDENT REVIEW PASS
-- **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify COMPLETE
-- **Next valid action:** Spec Kit `clarify` as a separate phase gate; not run by this transaction
-- **Blocking issues:** None for Specify; Clarify has not started
+- **Current phase:** DELIVERY 002 CLARIFY COMPLETE — STOP BEFORE PLAN
+- **Current review result:** CLARIFY INDEPENDENT REVIEW PASS
+- **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify COMPLETE; Clarify COMPLETE
+- **Next valid action:** Spec Kit `plan` as a separate phase gate; not run by this transaction
+- **Blocking issues:** None for Clarify; Plan has not started
 - **Authorization state:** NONE
 - **Authorized Implementation:** NONE
 - **Spec Kit specify:** COMPLETE / independently reviewed
@@ -44,7 +44,8 @@
 - **Selection record:** `docs/spec-reconciliation/002-human-successor-selection-2026-08-29.md`
 - **Context READY review record:** `docs/spec-reconciliation/002-context-ready-review-2026-08-29.md`
 - **Specify review record:** `docs/spec-reconciliation/002-specify-review-2026-08-29.md`
-- **Spec Kit clarify:** NOT YET RUN
+- **Clarify review record:** `docs/spec-reconciliation/002-clarify-review-2026-08-29.md`
+- **Spec Kit clarify:** COMPLETE / 5 Human decisions / independently reviewed
 
 - **T050 Product Owner acceptance:** Human Gate accepted initial authorization
   `fa5dcc1fed6e8566b44d54c9fd4a77de8749c8ed`, original implementation
