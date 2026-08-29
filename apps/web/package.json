@@ -14,10 +14,12 @@
     "build": "react-router build && tsc server.ts --outDir build/entry --module nodenext --moduleResolution nodenext --target es2023 --strict --verbatimModuleSyntax --isolatedModules --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --types node"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@react-router/dev": "^8.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "typescript": "^5.9.0",
-    "vite": "^8.0.0"
+    "vite": "^8.0.0",
+    "vitest": "^4.1.0"
   }
 }

@@ -31,13 +31,13 @@
 
 ## Workflow Gate
 
-- **Current phase:** DELIVERY 002 ANALYZE COMPLETE — STOP BEFORE IMPLEMENTATION AUTHORIZATION
-- **Current review result:** ANALYZE PASS / INDEPENDENT VERIFICATION PASS
-- **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify COMPLETE; Clarify COMPLETE; Plan COMPLETE; Tasks COMPLETE; Analyze COMPLETE
-- **Next valid action:** Human pre-implementation authorization for Delivery 002; no implementation task is authorized by Analyze
-- **Blocking issues:** None from Analyze; implementation remains unauthorized pending a separate Human gate
-- **Authorization state:** NONE
-- **Authorized Implementation:** NONE
+- **Current phase:** DELIVERY 002 IMPLEMENTATION — PHASE 1 SETUP (T001–T005) IMPLEMENTED, PENDING INDEPENDENT REVIEW
+- **Current review result:** ANALYZE PASS / INDEPENDENT VERIFICATION PASS; T001–T005 implementation review PENDING
+- **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify COMPLETE; Clarify COMPLETE; Plan COMPLETE; Tasks COMPLETE; Analyze COMPLETE; Phase 1 Setup T001–T005 implemented
+- **Next valid action:** Independent review of the implemented T001–T005 batch, then Human gate; T006–T060 remain unauthorized
+- **Blocking issues:** None
+- **Authorization state:** AUTHORIZED (bounded: Delivery 002 T001–T005 only)  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Authorized Implementation:** Delivery 002 T001–T005 (see Authorized Implementation section)
 - **Spec Kit specify:** COMPLETE / independently reviewed
 - **Delivery 001 T051+:** RETIRED / NOT AUTHORIZED
 - **Importer / Trial Migration / Production Cutover:** NOT AUTHORIZED
@@ -969,11 +969,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — T050 reviewed PASS; T051+ remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — see T050 final review evidence above
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** Delivery 002 T001–T005 (Phase 1 Setup only) — implemented by Claude Code on the Delivery 002 base; pending independent review by Codex and Human decision. T006–T060 remain unauthorized.
+- **Runtime:** Human-authorized batch delegated to Claude Code (DEV Executor) via Multica issue `9GOTSTORY-36` / IMPLEMENTATION HANDOFF 2026-08-29; this bounded authorization supersedes the earlier pre-implementation "NONE" mirrors (Analyze does not authorize implementation).
+- **Required references:** `specs/002-headless-wordpress-foundation/tasks.md` (T001–T005), `spec.md` FR-001–FR-003, FR-021, FR-023–FR-029, `plan.md` Technical Context/Project Structure, `docs/spec-context/002-headless-wordpress-foundation.md`
+- **Expected verification:** proportionate syntax/config validation for every new PHP/XML/JSON/TypeScript file; Composer metadata/lock resolution without fabricated engine evidence; affected frontend configuration/test-discovery and existing React baseline checks; clean bootstrap/path-resolution checks; `git diff --check`; T001–T005-only scope and task-checkbox audit
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 

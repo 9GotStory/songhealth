@@ -23,11 +23,11 @@ description: "Dependency-ordered implementation tasks for Delivery 002"
 
 **Purpose**: Establish the smallest reproducible WordPress/PHP and frontend verification baseline without creating a Production Docker/VPS baseline or reviving Delivery 001 runtimes.
 
-- [ ] T001 Create the clean local WordPress development and verification dependency baseline, pinning only implementation-time supported test tooling and documenting that Production versions remain evidence-gated, in `wordpress/composer.json`
-- [ ] T002 Configure the WordPress plugin unit/integration suites and bootstrap paths without loading legacy themes or plugins in `wordpress/phpunit.xml.dist` and `wordpress/tests/bootstrap.php`
-- [ ] T003 [P] Configure the native public-surface containment suite bootstrap for a clean WordPress installation in `wordpress/tests/containment/bootstrap.php`
-- [ ] T004 [P] Configure frontend unit, contract, and browser test projects for the selectively reused React application in `apps/web/vite.config.ts` and `apps/web/playwright.config.ts`
-- [ ] T005 Create the first-party plugin entry point with activation/deactivation safety, module loading, and no Product behavior outside `songhealth-core` in `wordpress/wp-content/plugins/songhealth-core/songhealth-core.php`
+- [x] T001 Create the clean local WordPress development and verification dependency baseline, pinning only implementation-time supported test tooling and documenting that Production versions remain evidence-gated, in `wordpress/composer.json`
+- [x] T002 Configure the WordPress plugin unit/integration suites and bootstrap paths without loading legacy themes or plugins in `wordpress/phpunit.xml.dist` and `wordpress/tests/bootstrap.php`
+- [x] T003 [P] Configure the native public-surface containment suite bootstrap for a clean WordPress installation in `wordpress/tests/containment/bootstrap.php`
+- [x] T004 [P] Configure frontend unit, contract, and browser test projects for the selectively reused React application in `apps/web/vite.config.ts` and `apps/web/playwright.config.ts`
+- [x] T005 Create the first-party plugin entry point with activation/deactivation safety, module loading, and no Product behavior outside `songhealth-core` in `wordpress/wp-content/plugins/songhealth-core/songhealth-core.php`
 
 **Checkpoint**: A clean testable WordPress/plugin baseline and the existing React test baseline can be initialized without treating any local profile as proven Production topology.
 

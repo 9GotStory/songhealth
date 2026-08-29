@@ -16,6 +16,12 @@ build/
 coverage/
 .vite/
 
+# WordPress local verification profile (Delivery 002)
+wordpress/vendor/
+wordpress/composer.phar
+wordpress/wp-tests-config.php
+wordpress/.phpunit.result.cache
+
 # Logs
 *.log
 npm-debug.log*

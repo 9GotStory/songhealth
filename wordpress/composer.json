@@ -1,0 +1,23 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "songhealth/wordpress-verification",
+    "description": "Clean local WordPress development and verification dependency baseline for the first-party songhealth-core plugin (Delivery 002). Only implementation-time supported test tooling is pinned. Production PHP, WordPress, database, and hosting versions remain evidence-gated (FR-002, FR-021 to FR-023) and are intentionally NOT locked by this file.",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.3"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.6",
+        "wp-phpunit/wp-phpunit": "^7.0",
+        "yoast/phpunit-polyfills": "^3.0"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "scripts": {
+        "test:unit": "phpunit --testsuite unit",
+        "test:integration": "phpunit --testsuite integration",
+        "test:containment": "phpunit --bootstrap tests/containment/bootstrap.php tests/containment"
+    }
+}
