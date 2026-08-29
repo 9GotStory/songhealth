@@ -4,9 +4,9 @@
 
 ## Repository Bootstrap
 
-- **Repository state:** BOOTSTRAP COMPLETE — DELIVERY IMPLEMENTATION / REVIEW LOOP ACTIVE
+- **Repository state:** BOOTSTRAP COMPLETE — HEADLESS WORDPRESS ARCHITECTURE FROZEN / SPEC KIT RECONCILIATION
 - **Product/System Source of Truth:** `docs/website-modernization-docs/`
-- **System Blueprint:** `docs/website-modernization-docs/current/10-system-blueprint.md` — FROZEN v1.1
+- **System Blueprint:** `docs/website-modernization-docs/current/10-system-blueprint.md` — effective FROZEN v1.2
 - **Spec Kit control layer:** INSTALLED AS REPOSITORY FILES
 - **Canonical Constitution:** ESTABLISHED — `.specify/memory/constitution.md` v1.0.0
 - **Spec Kit runtime/integrations:** VERIFIED — Specify CLI 0.16.4; Codex + Claude integrations OK
@@ -15,29 +15,32 @@
 
 - **Delivery:** 001-application-foundation — Application Foundation & Development Runtime
 - **Delivery Context:** `docs/spec-context/001-application-foundation.md`
-- **Delivery Context state:** READY  <!-- UNSET | DRAFT | READY | STALE -->
-- **Status:** T050 ACCEPTED — PRODUCT OWNER HUMAN GATE COMPLETE
+- **Delivery Context state:** STALE  <!-- UNSET | DRAFT | READY | STALE -->
+- **Status:** HISTORICAL T050 ACCEPTED — T051+ RETIRED AFTER ARCHITECTURE FREEZE
 
 ## Active Feature Mirror
 
-- **Runtime resolution after `specify`:** `SPECIFY_FEATURE_DIRECTORY` override when set; otherwise `.specify/feature.json`
-- **Resolved from:** explicit `SPECIFY_FEATURE_DIRECTORY=specs/001-application-foundation` override;
-  `.specify/feature.json` is absent
-- **Feature directory:** `specs/001-application-foundation`
-- **Verified:** YES — matches the planned Delivery and Delivery Context
+- **Active implementation feature:** NONE
+- **Historical feature directory:** `specs/001-application-foundation`
+- **Successor proposal:** `docs/spec-context/002-headless-wordpress-foundation.md`
+- **Successor state:** DRAFT / NOT SELECTED
+- **`.specify/feature.json`:** absent at reconciliation base
+- **Verified:** no successor implementation feature is active
 
 ## Workflow Gate
 
-- **Current phase:** IMPLEMENTATION / REVIEW LOOP
-- **Current review result:** PASS — HUMAN ACCEPTED
-- **Phase status:** T050 ACCEPTED; T051+ UNAUTHORIZED
-- **Previous completed scope:** T050 — Verification migration, database, liveness, readiness, and
-  dependency-blocked result stages
-- **Next valid action:** NONE selected or authorized — stop after T050 Human acceptance; T051+
-  remain unauthorized
-- **Blocking issues:** None
+- **Current phase:** ARCHITECTURE FREEZE COMPLETE / SPEC KIT RECONCILIATION
+- **Current review result:** HEADLESS WORDPRESS CANONICAL INTEGRATION PASS
+- **Phase status:** Delivery 001 accepted through T050; T051+ RETIRED / UNAUTHORIZED
+- **Next valid action:** Human selects or rejects proposed `002-headless-wordpress-foundation`
+- **Blocking issues:** successor Delivery not yet selected
 - **Authorization state:** NONE
 - **Authorized Implementation:** NONE
+- **Canonical architecture head:** `2677e783d782c4ffd28d4d4fa6a0be2bf0cb3a30`
+- **Effective versions:** 00 v1.1; 01 v1.0; 02 v1.1; 03 v1.0; 04 v1.0; 05 v1.1; 06 v1.0; 07 v1.0; 08 v1.0; 09 v1.1; 10 v1.2
+- **Spec Kit reconciliation:** `docs/spec-reconciliation/001-to-headless-wordpress-reconciliation-2026-08-29.md`
+- **Implementation / T051+ / Importer / Trial Migration / Production Cutover:** NOT AUTHORIZED
+
 - **T050 Product Owner acceptance:** Human Gate accepted initial authorization
   `fa5dcc1fed6e8566b44d54c9fd4a77de8749c8ed`, original implementation
   `508a203b23f692a4b8fb71ed6f7736cf6e78d4e7`, persisted REWORK authorization

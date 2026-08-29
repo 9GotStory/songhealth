@@ -1,5 +1,21 @@
 # Documentation Changelog
 
+## 29 สิงหาคม 2569 — Clean Headless WordPress Controlled Amendment Freeze & Spec Kit Reconciliation
+
+Review sequence: Formal Phase E PASS → Phase F CHANGES REQUIRED → Phase G Round 1 CHANGES REQUIRED
+→ Phase G Round 2 PASS → Human Acceptance PASS → canonical integration PASS.
+
+- integration `b818aac7be76a74c6845e336900cf1f13966fcf7`
+- verification `2677e783d782c4ffd28d4d4fa6a0be2bf0cb3a30`
+- effective 00/05/09 → FROZEN v1.1
+- effective 10 → FROZEN v1.2
+- Frozen 01–04 / 06–08 unchanged
+- current architecture: React Public → Songhealth REST → `songhealth-core` → WordPress Core
+- Delivery 001 remains historical/accepted through T050; T051+ must not continue
+- `002-headless-wordpress-foundation` is DRAFT / NOT SELECTED
+- implementation/importer/Trial Migration/Production Cutover remain unauthorized
+
+
 ## 28 สิงหาคม 2569 — Post-Freeze Semantic Consistency Correction
 
 A post-freeze semantic review found two stale status sentences retained from the reactivation phase.
