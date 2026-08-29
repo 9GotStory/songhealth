@@ -31,9 +31,9 @@
 
 ## Workflow Gate
 
-- **Current phase:** DELIVERY 002 GATE 01 — T001–T005 HUMAN ACCEPTED / STOP BEFORE ANY FURTHER AUTHORIZATION
-- **Current review result:** T001–T005 PASS / T001–T005-B01 CLOSED / HUMAN ACCEPTED 2026-08-29
-- **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify COMPLETE; Clarify COMPLETE; Plan COMPLETE; Tasks COMPLETE; Analyze COMPLETE; Phase 1 Setup T001–T005 accepted
+- **Current phase:** DELIVERY 002 GATE 01.5 — LOCAL PODMAN VERIFICATION RUNTIME HUMAN ACCEPTED / STOP BEFORE ANY FURTHER AUTHORIZATION
+- **Current review result:** Gate 01.5 implementation `008241eef63e49c1a01ddcda5412d66c61cc866c` PASS / HUMAN ACCEPTED 2026-08-29
+- **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify COMPLETE; Clarify COMPLETE; Plan COMPLETE; Tasks COMPLETE; Analyze COMPLETE; Phase 1 Setup T001–T005 and prerequisite Gate 01.5 accepted
 - **Next valid action:** None until a separate Human authorization; T006–T060 remain unauthorized
 - **Blocking issues:** None
 - **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
@@ -49,6 +49,7 @@
 - **Tasks review record:** `docs/spec-reconciliation/002-tasks-review-2026-08-29.md`
 - **Analyze review record:** `docs/spec-reconciliation/002-analyze-review-2026-08-29.md`
 - **Gate 01 acceptance record:** Multica issue `9GOTSTORY-36`; T001–T005 accepted after independent PASS; T001–T005-B01 closed; implementation authorization cleared; T006–T060, deployment, importer, Trial Migration, and cutover remain unauthorized
+- **Gate 01.5 acceptance record:** Multica issue `9GOTSTORY-37`; local-only Podman WordPress verification runtime implementation `008241eef63e49c1a01ddcda5412d66c61cc866c` accepted after independent real-engine PASS; Production Docker/Podman/VPS, deployment, T006–T060, importer, migration, Trial Migration, Production Import, and Production Cutover remain unauthorized
 - **Spec Kit clarify:** COMPLETE / 5 Human decisions / independently reviewed
 - **Spec Kit plan:** COMPLETE / independently reviewed
 - **Spec Kit tasks:** COMPLETE / independently reviewed
@@ -970,10 +971,10 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — Delivery 002 T001–T005 accepted at Human Gate 01; T006–T060 remain unauthorized
+- **Task / Scope:** NONE — Delivery 002 T001–T005 and prerequisite Gate 01.5 accepted; T006–T060 remain unauthorized
 - **Runtime:** NONE
 - **Required references:** NONE
-- **Expected verification:** NONE — Gate 01 persistence verification only; no further implementation is authorized
+- **Expected verification:** NONE — Gate 01.5 acceptance is persisted; no further implementation is authorized
 - **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
