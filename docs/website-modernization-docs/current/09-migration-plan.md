@@ -2398,3 +2398,269 @@ Independent Review / Implementation Gate
 ```
 
 No importer code may be implemented before that separate implementation gate is explicitly authorized.
+
+---
+
+# Controlled Amendment — 09 Migration Plan v1.1 — Surgical Overlay
+
+> **Status:** REVIEW CANDIDATE — NOT FROZEN  
+> **Amends:** Frozen `09-migration-plan.md` v1.0  
+> **Mutation model:** APPEND-ONLY CONTROLLED AMENDMENT  
+> **Frozen sections retained:** `1–90` IN FULL  
+> **Deletion from Frozen v1.0:** NONE  
+> **Importer:** NOT AUTHORIZED  
+> **Trial Migration:** NOT AUTHORIZED  
+> **Production Cutover:** NOT AUTHORIZED
+
+## A09.1 Lossless Preservation Rule
+
+Frozen sections `1–90`, including the Evidence-backed Reactivation Addendum and its evidence/gate rules, remain normative in full.
+
+This amendment changes the **target runtime interpretation** from a custom Songhealth CMS/Node application to a clean Songhealth WordPress model.
+
+It does not remove:
+
+- migration-by-meaning;
+- legacy inventory;
+- classification;
+- historical retention;
+- Public ID rules;
+- legacy traceability;
+- URL/redirect mapping;
+- media/document rules;
+- internal-link rewriting;
+- taxonomy/menu evidence interpretation;
+- user/attribution decisions;
+- publishing-state mapping;
+- dates;
+- relationships;
+- search migration;
+- external migration manifest/state tracking;
+- initial + final delta;
+- idempotency/rerun safety;
+- validation/reconciliation;
+- exception queues;
+- cutover/fallback/rollback;
+- stabilization/legacy retirement;
+- anti-dual-publishing;
+- privacy/security evidence;
+- execution gates.
+
+## A09.2 Source WordPress ≠ Target Model
+
+Frozen section `2` remains conceptually correct but the wording “new CMS” is reinterpreted.
+
+The controlled transition is now:
+
+```text
+Legacy WordPress
+        ↓
+Inventory / classify / normalize by meaning
+        ↓
+Clean Songhealth WordPress domain model
+        ↓
+Songhealth Public REST Contract
+        ↓
+React Public Website
+```
+
+The fact that both source and target use WordPress does **not** authorize:
+
+```text
+Post → Post blindly
+Page → Page blindly
+copy plugin tables/settings
+copy page-builder structures
+copy legacy theme behavior
+copy old role/capability semantics
+reuse legacy runtime in place
+```
+
+Source technology may equal target runtime; source semantics do not equal target semantics.
+
+## A09.3 Target Domain Mapping
+
+Target WordPress storage primitives are allowed only when they preserve Frozen domain meaning.
+
+Examples:
+
+- Songhealth custom post types / suitable structured records;
+- registered metadata;
+- taxonomies;
+- relationships;
+- attachments/media;
+- immutable Songhealth Public ID controlled by `songhealth-core`.
+
+WordPress numeric ID and `post_name` remain implementation values, not canonical Songhealth identity.
+
+## A09.4 Import Execution Boundary
+
+Frozen importer/idempotency/evidence requirements remain.
+
+The importer must use a bounded Songhealth-owned import contract that writes through controlled WordPress/Songhealth capabilities rather than blindly cloning raw legacy tables.
+
+Required properties remain:
+
+- deterministic classification where possible;
+- explicit review/exception queue for ambiguity;
+- stable external migration manifest;
+- repeatable/idempotent execution;
+- semantic-collision detection;
+- bounded batch behavior;
+- traceability to legacy source;
+- no silent partial success;
+- reconciliation counts;
+- evidence for trial and cutover decisions.
+
+Direct raw-table copying from legacy WordPress into target WordPress is not the baseline.
+
+Exact implementation (WP-CLI command, plugin command, API/import service) remains a later Plan decision.
+
+## A09.5 User Accounts
+
+Frozen “do not blindly copy WordPress users/roles/password hashes” remains unchanged even though the target is WordPress.
+
+Target access must be provisioned according to Frozen `06` and the accepted authentication architecture.
+
+Do not migrate by default:
+
+- legacy role semantics;
+- plugin-created roles/capabilities;
+- inactive accounts;
+- password hashes;
+- authentication/session state.
+
+Required people are onboarded deliberately into the clean target user model.
+
+`CMS User ≠ Personnel` remains authoritative.
+
+## A09.6 Publishing State / Dates / Attribution / Relationships
+
+All Frozen mapping rules remain.
+
+WordPress target primitives do not authorize one-to-one status copying when Songhealth lifecycle meaning differs.
+
+The importer must derive target state from Frozen semantic rules and evidence.
+
+Historical attribution must not fabricate a CMS user merely because a legacy `post_author` ID exists.
+
+## A09.7 Media and Documents
+
+Frozen usage-aware media inventory, document classification, duplicate handling, binary-ingest safety, ITA evidence and resource URL requirements remain.
+
+WordPress Media Library is target binary infrastructure, not permission to import every derivative or legacy attachment indiscriminately.
+
+Original/canonical files are retained according to Frozen migration decisions; generated/duplicate/orphaned artifacts follow existing evidence rules.
+
+## A09.8 URL and Redirect Migration
+
+Frozen URL migration remains first-class.
+
+React routes from Frozen `03` remain canonical.
+
+Target WordPress native front-end URLs must not become a competing canonical public site.
+
+Legacy mapping must cover relevant:
+
+- content URLs;
+- resource/file URLs;
+- absorbed/duplicate content;
+- intentional `404` / `410`;
+- canonical redirects;
+- internal-link rewrites.
+
+Universal redirects to the homepage remain prohibited.
+
+## A09.9 Search Migration
+
+Frozen Search migration behavior remains.
+
+Search migration prepares target eligibility/content for the Songhealth public search contract; it does not require preserving a legacy WordPress search engine or creating a dedicated search service.
+
+## A09.10 No Permanent Dual Publishing
+
+Frozen section `29` is retained with updated terminology:
+
+```text
+Staff publish Legacy WordPress → sync Clean Target WordPress
+Staff publish Clean Target WordPress → sync Legacy WordPress
+```
+
+is **not** a permanent architecture.
+
+Temporary extraction/delta activity during controlled transition does not create long-term dual publishing.
+
+After cutover the clean target WordPress/Songhealth model becomes the canonical CMS; legacy WordPress follows stabilization and retirement rules.
+
+## A09.11 Relationship to System Blueprint
+
+Frozen `09` section `88.19` contains historical architecture bullets such as:
+
+```text
+Node.js Modular Monolith primary runtime
+Songhealth-native Admin CMS
+canonical CMS SQL persistence
+```
+
+Those **mechanism bullets are superseded** by Controlled Amendment `10` v1.2.
+
+The underlying migration invariants in section `88.19` remain:
+
+- migration enters one canonical Songhealth architecture;
+- no parallel permanent CMS;
+- no raw-table API;
+- no schema-seed shortcut;
+- media/documents preserve Songhealth meaning;
+- WordPress retirement is controlled rather than permanent dual-write.
+
+## A09.12 Security and Privacy
+
+All Frozen migration privacy/security rules remain, including the Sensitive Evidence / Privacy Boundary and Legacy Binary Ingest Security requirements.
+
+Using WordPress as target infrastructure does not weaken:
+
+- least privilege;
+- safe file ingest;
+- validation;
+- provenance;
+- data minimization;
+- no import of irrelevant authentication/form/plugin secrets;
+- evidence handling.
+
+## A09.13 Execution Gates Remain Closed
+
+This amendment changes documentation architecture only.
+
+```text
+Importer implementation    NOT AUTHORIZED
+Trial Migration             NOT AUTHORIZED
+Production Import           NOT AUTHORIZED
+Production Cutover          NOT AUTHORIZED
+Legacy retirement           NOT AUTHORIZED
+```
+
+Those gates require later explicit authorization.
+
+## A09.14 Acceptance Rule
+
+If a Frozen `09` requirement is not explicitly translated above as an implementation mechanism, it remains required unchanged.
+
+No canonical mutation occurs until an independent reviewer verifies the overlay against Frozen `09` and Phase F findings.
+
+
+---
+
+## Canonical Freeze Binding — 29 สิงหาคม 2569
+
+> **Human Acceptance:** PASS  
+> **Independent Review:** Phase G Round 2 — PASS  
+> **Canonical Controlled-Amendment Version:** v1.1  
+> **Canonical Status:** FROZEN  
+> **Implementation Authorization:** NONE  
+> **T051+:** NOT AUTHORIZED
+
+The embedded Surgical Overlay above is preserved byte-for-byte from the independently reviewed Round 2 artifact. Its pre-integration metadata `REVIEW CANDIDATE — NOT FROZEN` records the state of that artifact **before** Human Acceptance and is superseded by this binding **only for canonical status**.
+
+No normative overlay text is changed by this binding. Frozen pre-amendment content remains preserved in full as the prefix of this canonical document; the later Controlled Amendment has precedence only where it explicitly changes an implementation mechanism.
+
+This Freeze does not authorize application implementation, T051+, importer implementation, Trial Migration, Production Import, Production Cutover, or legacy retirement.

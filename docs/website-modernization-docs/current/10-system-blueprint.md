@@ -11622,3 +11622,548 @@ The previous v1.0 Blueprint is preserved in `archive/10-system-blueprint-v1.0-pr
 Future semantic changes continue to require Impact Review and Controlled Amendment/version increment.
 
 `09-migration-plan.md` remains **DEFERRED / NOT ACTIVE**.
+
+---
+
+# Controlled Amendment — 10 System Blueprint v1.2 — Surgical Overlay
+
+> **Status:** REVIEW CANDIDATE — NOT FROZEN  
+> **Amends:** Frozen `10-system-blueprint.md` v1.1  
+> **Mutation model:** APPEND-ONLY CONTROLLED AMENDMENT  
+> **Frozen sections retained:** `1–705` IN FULL  
+> **Deletion from Frozen v1.1:** NONE  
+> **Implementation Authorization:** NONE  
+> **T051+:** NOT AUTHORIZED
+
+## A10.1 Preservation / Precedence Contract
+
+Frozen sections `1–705` remain present and normative.
+
+This amendment has precedence only where an earlier section specifies an **implementation mechanism** that conflicts with the accepted Clean Headless WordPress architecture.
+
+Critical rule:
+
+> **Mechanism may be superseded; requirement may not silently disappear.**
+
+For an earlier clause:
+
+```text
+custom Node/Fastify/session/SQL/worker mechanism
+        ↓
+superseded by WordPress/songhealth-core/hosting mechanism
+```
+
+the behavioral, security, reliability, privacy, testing and operational invariant carried by that clause remains mandatory unless this amendment explicitly says otherwise.
+
+No security requirement is downgraded merely because WordPress Core becomes infrastructure.
+
+## A10.2 Version 1 Target Architecture
+
+```text
+PUBLIC
+Browser
+  │
+  ▼
+React Public Frontend
+  │
+  ▼
+Songhealth Public REST Contract
+/wp-json/songhealth/v1/...
+  │
+  ▼
+songhealth-core
+  │
+  ▼
+WordPress Core
+  │
+  ├── CMS / wp-admin
+  ├── users / authentication/session primitives
+  ├── editor
+  ├── media
+  ├── revisions/autosave
+  ├── draft/publish/future primitives
+  ├── capabilities
+  └── REST infrastructure
+  │
+  ▼
+WordPress Database + Media Files
+```
+
+Administrative path:
+
+```text
+Staff
+  │
+  ▼
+wp-admin
+  │
+  ▼
+WordPress Core + songhealth-core domain configuration
+```
+
+A standalone Node.js application backend, Fastify HTTP server, and custom Admin React CMS are no longer version 1 baseline runtime authorities.
+
+Node.js may remain frontend/build/test tooling where appropriate.
+
+## A10.3 Responsibility Translation Matrix
+
+| Frozen responsibility | v1.2 owner / mechanism |
+| --- | --- |
+| CMS shell/editor/media/users/revisions/autosave | WordPress Core |
+| Songhealth content types / structured fields | `songhealth-core` |
+| immutable Public ID | `songhealth-core` |
+| domain validation/lifecycle guards | `songhealth-core` |
+| Product role → capability mapping | `songhealth-core` over WordPress capability primitives |
+| staff auth/session primitive | WordPress authentication/session infrastructure |
+| MFA / stronger auth requirement | must remain satisfied through suitable WordPress/identity/hosting integration; not silently removed |
+| CSRF protection | WordPress nonce/cookie/origin protections plus bounded Songhealth checks as needed |
+| public API | Songhealth-owned `/wp-json/songhealth/v1/...` projection |
+| public rendering | React |
+| public routes/canonical/SEO | React + Songhealth route/canonical contract |
+| CMS persistence | WordPress DB/primitives |
+| media binary infrastructure | WordPress Media Library/files |
+| search | simplest WordPress/Songhealth projection meeting Frozen `08`; external engine only with evidence |
+| scheduled publishing/background work | WordPress scheduling + hosting cron where required |
+| audit | native history where sufficient + bounded `songhealth-core` audit where Frozen semantics require more |
+| security headers/TLS/proxy controls | hosting/web server/WordPress/React boundary as appropriate |
+| rate limiting/abuse controls | hosting/web server/application/plugin boundary as appropriate |
+| backups/restore | hosting/WordPress operational tooling with Frozen verification requirements |
+| monitoring/logging | hosting/WordPress/Songhealth bounded mechanisms preserving Frozen observability requirements |
+
+Ownership translation never means “WordPress handles everything”. `songhealth-core` exists specifically for Songhealth semantics that Core does not own.
+
+## A10.4 Explicitly Superseded Technical Mechanisms
+
+Earlier Frozen text that makes the following mechanisms mandatory is superseded as a mechanism:
+
+- Node.js as the primary CMS/backend runtime;
+- Fastify as the required production HTTP framework;
+- Express/Fastify-specific adapters/plugins/hooks;
+- TypeBox as a mandatory WordPress-era HTTP schema framework;
+- custom Node server-side session storage as the baseline;
+- custom Node authentication controller/session implementation;
+- custom application SQL persistence as the canonical CMS store;
+- Node-specific DB connection-pool policy where WordPress/PHP owns persistence;
+- custom Node cron/worker execution as the baseline;
+- Fastify/Pino-specific logging mechanism;
+- Fastify-specific HTTP integration-test tooling;
+- Podman development database / Node production-like proxy profile as an architecture mandate;
+- Node SSR server as a production requirement;
+- custom Admin React application runtime.
+
+Only the **mechanism** is superseded. Relevant invariant clauses in those sections remain in force.
+
+## A10.5 Explicitly Preserved Security Invariants
+
+All Frozen security requirements remain unless an explicit Product/security amendment says otherwise.
+
+This includes at minimum:
+
+- HTTPS/TLS;
+- trusted proxy correctness;
+- secure cookie/session handling;
+- CSRF protection for authenticated state-changing actions;
+- server-side authorization;
+- default deny;
+- object-level and field-level boundaries;
+- least privilege;
+- authorization freshness/revocation expectations;
+- self-escalation prevention;
+- last-Administrator protection;
+- MFA/strong-auth requirements already Frozen;
+- reauthentication requirements already Frozen;
+- authentication enumeration resistance;
+- rate limiting and abuse controls;
+- security headers/CSP;
+- secrets outside public source/frontend;
+- safe error handling;
+- privacy-aware bounded logging;
+- upload/file validation;
+- MIME/type/filename safety;
+- XSS/output escaping/sanitization;
+- safe rich text/embed boundaries;
+- dependency/security maintenance;
+- backup/restore verification;
+- mandatory security regression tests.
+
+Where WordPress Core lacks the exact Frozen requirement, use the smallest bounded combination of `songhealth-core`, vetted plugin, hosting control or identity integration.
+
+“WordPress Core does not provide it natively” is **not** permission to delete a Frozen security requirement.
+
+## A10.6 Authentication / Sessions / MFA
+
+WordPress owns staff account/session primitives.
+
+Frozen Product roles remain:
+
+```text
+Viewer
+Editor
+Publisher
+Administrator
+```
+
+WordPress roles/capabilities are implementation primitives and must not silently broaden Frozen `06`.
+
+Required v1 invariants include:
+
+- One CMS User → One Songhealth Role;
+- no Product-level multi-role union;
+- no scattered per-user allow/deny override model;
+- privileged/audited permission changes;
+- no unauthorized self-escalation;
+- last Administrator protected;
+- `CMS User ≠ Personnel`.
+
+Any Frozen Google/OAuth identity requirement remains normative and must integrate into the WordPress authentication boundary without creating a second user store or parallel IAM.
+
+Any Frozen MFA and reauthentication requirements remain normative. They may be satisfied by a bounded vetted WordPress/identity/hosting mechanism; they are not removed.
+
+## A10.7 CSRF / Request Origin
+
+Frozen CSRF and request-origin invariants remain.
+
+For WordPress-authenticated state-changing actions, use WordPress nonce/cookie protections and additional origin/capability validation where the Frozen threat model requires it.
+
+A WordPress nonce is not treated as authorization; capability and object checks remain server-side.
+
+## A10.8 Public REST Contract
+
+React uses Songhealth-owned public projection:
+
+```text
+/wp-json/songhealth/v1/...
+```
+
+Public REST must expose Songhealth concepts, not raw WordPress tables/IDs/plugin fields.
+
+Required invariants:
+
+- public-safe allowlisted fields only;
+- server-side public eligibility;
+- no Draft/Hidden/Internal leakage;
+- stable Songhealth Public ID;
+- no frontend-only authorization;
+- bounded filtering/sorting/search contracts;
+- abuse protections from Frozen Search/API requirements;
+- safe errors and no sensitive enumeration.
+
+Native WordPress REST may exist for editor infrastructure but is not automatically the Songhealth public contract.
+
+## A10.9 Native WordPress Public-Surface Containment
+
+For Songhealth-managed resources:
+
+- native WordPress anonymous REST must not exceed Songhealth public eligibility;
+- Draft/Hidden/Internal/withdrawn/ineligible records must not leak;
+- native WP single/archive/search/feed/sitemap/taxonomy/author surfaces must not become competing canonical public routes;
+- Frozen `03` React routes remain canonical;
+- internal CMS fields and CMS User identities are not published merely because WordPress can expose them;
+- `CMS User ≠ Personnel` remains authoritative.
+
+Public record visibility and binary-file confidentiality remain separate policies.
+
+## A10.10 Publishing / Published Editing
+
+Frozen `07` remains authority.
+
+Use WordPress Draft/Publish/Future/revision/autosave primitives before custom workflow code.
+
+The Frozen Published-editing invariant remains:
+
+```text
+Published
+→ authorized working edit
+→ public remains last valid Published state
+→ Preview
+→ Save Changes / Update
+→ new public state
+```
+
+If a standard WordPress path cannot preserve this without disproportionate staging complexity, the requirement must be brought back as an explicit Product Controlled Amendment to `07`; implementation may not silently weaken it.
+
+## A10.11 Headless Preview
+
+Preview must preserve Draft confidentiality while using React presentation:
+
+```text
+Authorized wp-admin user
+→ Preview
+→ bounded authenticated preview context
+→ React presentation
+→ candidate working state
+```
+
+Required:
+
+- server-side authorization;
+- no unrestricted public preview query;
+- no normal public/search/cache exposure;
+- no WordPress administrator credentials in React;
+- exact nonce/token/session mechanics deferred to Plan/security contract.
+
+## A10.12 Persistence and Data Integrity
+
+WordPress DB is the CMS persistence runtime.
+
+Songhealth meaning is represented through controlled WordPress primitives suitable to each domain.
+
+Earlier database invariants remain where applicable:
+
+- canonical source of truth is explicit;
+- integrity constraints/validation are not delegated to the browser;
+- atomicity is required for Songhealth mutations that span related records/audit state;
+- race/concurrency handling remains required where Frozen behavior depends on it;
+- idempotency remains required for repeatable operations/background/import work;
+- direct raw-table public APIs are prohibited;
+- analytical/dashboard data remains a separate data domain.
+
+No parallel custom CMS database is baseline.
+
+## A10.13 Media / Upload / Document Security
+
+WordPress Media Library is the binary infrastructure baseline.
+
+All Frozen file-security requirements remain, including:
+
+- allowlisted types;
+- MIME/content validation;
+- safe filenames;
+- size/dimension bounds where Frozen;
+- dangerous content rejection;
+- safe image transformation;
+- XSS/embed controls;
+- no user-controlled filesystem paths;
+- usage/dependency safety;
+- accessibility metadata;
+- domain-specific document semantics.
+
+The Frozen binary-confidentiality and lifecycle-eligibility contract remains authoritative.
+
+Required invariants include:
+
+```text
+binary existence
+≠
+public eligibility
+```
+
+and:
+
+- uploads begin non-public/private according to the Frozen upload lifecycle;
+- Draft Documents are Admin-only and their binaries must not have public delivery;
+- Hidden Documents must not have public delivery;
+- unpublished ITA Evidence must not have public delivery;
+- public delivery is permitted only while the current Songhealth lifecycle says the binary/resource is public-eligible;
+- knowing, guessing, bookmarking, or retaining a prior binary URL must not bypass current eligibility;
+- withdrawal, hiding, or other lifecycle changes that make a resource non-public must revoke public delivery according to the Frozen contract.
+
+WordPress Media Library may own storage and media-management primitives, but it is **not** the authority that decides anonymous public delivery.
+
+The implementation must provide the smallest bounded delivery control that enforces current eligibility. The exact mechanism is deferred to Plan/security design and may be implemented through `songhealth-core`, WordPress routing/authz, protected web-server delivery, hosting controls, or another proportionate mechanism.
+
+This amendment does not pre-authorize signed URLs, private object storage, or a download proxy; nor does it prohibit them if later evidence shows one is the simplest mechanism that satisfies the Frozen contract.
+
+Upload validation security and public-delivery eligibility are both mandatory and independently enforced.
+
+## A10.14 Scheduled / Background Work
+
+Use WordPress scheduling primitives first.
+
+When traffic-dependent WP scheduling is insufficient for a production reliability requirement, hosting cron may trigger WordPress scheduler/CLI/endpoint using supported bounded operations.
+
+Frozen reliability invariants remain:
+
+- idempotency;
+- no duplicate public-impact action;
+- race safety;
+- observable failure;
+- retry/recovery bounds where required;
+- scheduled publish failure must not masquerade as Published.
+
+No queue/broker/distributed worker platform is baseline without evidence.
+
+## A10.15 Rendering / SEO / URL Safety
+
+React remains the public presentation boundary.
+
+All Frozen direct-URL, canonical, redirect, Thai slug, Unicode normalization, safe URL parsing/decoding, public eligibility, SEO metadata and regression-test requirements remain.
+
+The only mechanism change is that a Node SSR server is not automatically required.
+
+Rendering may be static/pre-rendered/client/server-assisted only as evidence requires, provided Frozen public behavior is satisfied.
+
+## A10.16 Search
+
+Frozen `08` and the detailed Frozen `10` search security/bounds remain normative.
+
+Version 1 starts with the simplest WordPress/Songhealth query/projection that passes those requirements.
+
+The following remain required where already Frozen:
+
+- bounded query length/page size;
+- allowlisted filters/sorts/ranking;
+- safe snippets;
+- public eligibility;
+- SSR/client consistency;
+- abuse controls/rate limits;
+- regression tests;
+- privacy-aware logs.
+
+No Redis/dedicated search server/bot platform is baseline without evidence.
+
+## A10.17 Audit / Logging / Observability
+
+Frozen audit semantics remain.
+
+WordPress revisions/history may provide evidence for some edit history but do not automatically satisfy all Songhealth audit requirements.
+
+`songhealth-core` records bounded actor/action/object/public-impact evidence when required.
+
+Fastify/Pino-specific logging is superseded as a mechanism; Frozen logging/observability/security/privacy invariants remain and must be implemented through WordPress/PHP/hosting/Songhealth tooling as appropriate.
+
+## A10.18 Hosting / Deployment / Backup
+
+Production baseline:
+
+```text
+Bangmod Expert Hosting / DirectAdmin
+├── WordPress/PHP
+├── database
+├── media
+└── React public build
+```
+
+Production Docker and VPS are not baseline.
+
+Earlier deployment, backup, restore, secret separation, environment safety and disaster-recovery requirements remain normative unless tied solely to superseded Node/Podman mechanics.
+
+Development tooling is not Frozen by this amendment beyond:
+
+- no production-data unsafe default;
+- reproducible enough for team use;
+- suitable verification of Songhealth-owned behavior;
+- no requirement for production Docker/VPS.
+
+## A10.19 Testing Translation
+
+Test the Songhealth-owned requirements, not WordPress Core internals for their own sake.
+
+Mandatory risk-based coverage includes the Frozen security/behavioral tests plus:
+
+- immutable Public ID;
+- title/slug change identity invariants;
+- domain validation;
+- capability mapping;
+- lifecycle/public eligibility;
+- relationship integrity;
+- public REST projection;
+- native WordPress public-surface containment;
+- authenticated Preview confidentiality;
+- One-Role/no-per-user-override/self-escalation invariants;
+- `CMS User ≠ Personnel`;
+- migration idempotency/normalization;
+- React contract/canonical URL behavior.
+
+Fastify-specific test tooling is superseded; test obligations are not.
+
+## A10.20 Dependency / Plugin Policy
+
+Target baseline:
+
+```text
+WordPress Core
++ songhealth-core
++ minimum additional operational/security/backup/auth tooling justified by Frozen requirements
+```
+
+Each additional plugin/dependency requires:
+
+- requirement;
+- security/maintenance assessment;
+- ownership/update plan;
+- exit/replace consideration where material.
+
+Legacy plugin/theme/page-builder stack is not migrated by default.
+
+## A10.21 Explicit Non-Goals
+
+Version 1 does not build by default:
+
+- custom CMS framework;
+- custom user store;
+- parallel IAM service;
+- custom generic media library;
+- custom generic revisions platform;
+- generic workflow engine;
+- microservices;
+- Redis;
+- message broker;
+- dedicated search server;
+- private PDF infrastructure;
+- production Docker;
+- VPS migration;
+- legacy page-builder runtime;
+- raw legacy WordPress coupling in React.
+
+These non-goals do not cancel Frozen domain/security requirements.
+
+## A10.22 Migration Architecture
+
+Migration target becomes the clean WordPress/Songhealth model defined by this amendment and Controlled Amendment `09` v1.1.
+
+Legacy WordPress is a migration source only.
+
+Using WordPress on both sides does not authorize reuse of legacy theme/plugin/page-builder runtime or blind database copy.
+
+## A10.23 Delivery Transition
+
+Accepted Delivery 001 history is preserved.
+
+```text
+T050 = accepted historical delivery state
+T051+ = NOT AUTHORIZED
+```
+
+After all architecture amendments Freeze:
+
+1. reconcile prior Delivery 001 outputs;
+2. classify KEEP / REUSE / SUPERSEDED / REMOVE-LATER;
+3. do not rewrite accepted Git history;
+4. create a new Spec Kit delivery for the WordPress foundation;
+5. implementation requires a new explicit authorization gate.
+
+## A10.24 Lossless Acceptance Rule
+
+For every Frozen section `1–705`:
+
+```text
+If this amendment explicitly replaces a technology mechanism
+→ use the new owner/mechanism
+→ preserve the original invariant
+
+If this amendment does not explicitly replace it
+→ Frozen requirement remains unchanged
+```
+
+This rule is the canonical defense against silent requirement loss.
+
+No canonical mutation occurs until independent review confirms that the append-only overlay resolves all Phase F blocking findings.
+
+
+---
+
+## Canonical Freeze Binding — 29 สิงหาคม 2569
+
+> **Human Acceptance:** PASS  
+> **Independent Review:** Phase G Round 2 — PASS  
+> **Canonical Controlled-Amendment Version:** v1.2  
+> **Canonical Status:** FROZEN  
+> **Implementation Authorization:** NONE  
+> **T051+:** NOT AUTHORIZED
+
+The embedded Surgical Overlay above is preserved byte-for-byte from the independently reviewed Round 2 artifact. Its pre-integration metadata `REVIEW CANDIDATE — NOT FROZEN` records the state of that artifact **before** Human Acceptance and is superseded by this binding **only for canonical status**.
+
+No normative overlay text is changed by this binding. Frozen pre-amendment content remains preserved in full as the prefix of this canonical document; the later Controlled Amendment has precedence only where it explicitly changes an implementation mechanism.
+
+This Freeze does not authorize application implementation, T051+, importer implementation, Trial Migration, Production Import, Production Cutover, or legacy retirement.

@@ -1203,3 +1203,175 @@ Foundation, Information Architecture และ Content Model ผ่าน Cross-
 รวมถึง:
 
 > **Complexity must be earned.**
+
+---
+
+# Controlled Amendment — 00 Website Foundation v1.1 — Surgical Overlay
+
+> **Status:** REVIEW CANDIDATE — NOT FROZEN  
+> **Amends:** Frozen `00-website-foundation.md` v1.0  
+> **Mutation model:** APPEND-ONLY CONTROLLED AMENDMENT  
+> **Deletion from Frozen v1.0:** NONE  
+> **Implementation Authorization:** NONE  
+> **T051+:** NOT AUTHORIZED
+
+## A00.1 Preservation and Precedence
+
+Frozen `00-website-foundation.md` v1.0 remains preserved in full.
+
+This amendment changes only the technology/administration interpretations explicitly listed below. All Product scope, public IA direction, content meaning, privacy, accessibility, publishing intent, citizen-service boundaries, security-first principle, and Simple — Structured — Sustainable principle remain normative.
+
+Where an older implementation phrase conflicts with this amendment, this amendment has precedence **only for that implementation mechanism**. It does not cancel the underlying Product or security requirement.
+
+## A00.2 Clean Headless WordPress Technology Direction
+
+Version 1 target architecture becomes:
+
+```text
+React Public Website
+        │
+Songhealth Public REST Contract
+        │
+songhealth-core WordPress Plugin
+        │
+WordPress Core
+        │
+WordPress Database + Media Library
+```
+
+Responsibilities:
+
+```text
+WordPress Core
+→ commodity CMS infrastructure
+
+songhealth-core
+→ Songhealth-specific domain semantics, validation, public identity,
+  capability mapping, public eligibility, REST projection and bounded audit hooks
+
+React
+→ public UX, routes, accessibility, SEO/canonical output and public search UX
+```
+
+A standalone Node.js application backend and custom CMS framework are no longer the version 1 baseline.
+
+Node.js remains valid as frontend/build tooling where needed by React/Vite; it is not the primary production CMS/backend authority.
+
+## A00.3 Hosting Direction
+
+Production baseline remains Bangmod Expert Hosting / DirectAdmin.
+
+The architecture must fit the shared-hosting baseline unless a proven requirement demonstrates a limitation.
+
+Version 1 does not require by default:
+
+- production Docker;
+- VPS migration;
+- Redis;
+- message broker;
+- microservices;
+- dedicated search service;
+- private object storage.
+
+## A00.4 Meaning of “CMS Simpler Than WordPress”
+
+The Frozen principle that the CMS should be simpler than WordPress is retained as a **staff experience requirement**, not as a prohibition on using WordPress Core as infrastructure.
+
+Staff must work with Songhealth language and domain concepts, not generic WordPress mental models.
+
+Therefore:
+
+```text
+WordPress infrastructure underneath
+≠
+generic WordPress staff experience
+```
+
+`wp-admin` may be used directly when configured by `songhealth-core` with domain-specific labels, forms, menus, validation, capabilities and bounded extensions.
+
+A separate custom Admin React application is not a baseline requirement.
+
+## A00.5 Content Model Interpretation
+
+The Frozen warning against putting unrelated content into a generic “Post” model remains valid.
+
+Using WordPress storage primitives does not authorize flattening Songhealth domains into an undifferentiated generic post model.
+
+Target mapping must preserve Frozen domain meaning through suitable combinations of:
+
+- custom post types;
+- registered metadata;
+- taxonomies;
+- relationships;
+- attachments/media;
+- immutable Songhealth Public ID.
+
+WordPress numeric IDs and slugs do not become Songhealth public identity authority.
+
+## A00.6 Administrative Status Sections
+
+Earlier administrative/status wording in Frozen sections `13–15` described the state of documentation when v1.0 was created.
+
+For current architecture governance, those historical status statements are superseded by:
+
+```text
+00 v1.1 Controlled Amendment candidate
+05 v1.1 Controlled Amendment candidate
+09 v1.1 Controlled Amendment candidate
+10 v1.2 Controlled Amendment candidate
+
+Frozen 01–04 / 06–08 remain Product/IA authority
+Implementation remains NOT AUTHORIZED
+T051+ remains NOT AUTHORIZED
+```
+
+This status correction does not alter Product requirements.
+
+## A00.7 Non-Changes
+
+This amendment does **not** change:
+
+- public audience or mission;
+- accepted Information Architecture;
+- Content Model semantics;
+- Sitemap/canonical route authority;
+- Homepage requirements;
+- Roles & Permissions Product model;
+- Publishing Workflow semantics;
+- Search behavior;
+- privacy/compliance baseline;
+- accessibility expectations;
+- security-first priority;
+- migration requirement for controlled evidence-backed transition.
+
+## A00.8 Freeze Condition
+
+This overlay may be appended to Frozen `00` only after:
+
+```text
+independent lossless-preservation review
+→ PASS
+→ Human Acceptance
+→ controlled append-only canonical integration
+→ post-integration verification
+```
+
+No implementation authorization is implied.
+
+
+---
+
+## Canonical Freeze Binding — 29 สิงหาคม 2569
+
+> **Human Acceptance:** PASS  
+> **Independent Review:** Phase G Round 2 — PASS  
+> **Canonical Controlled-Amendment Version:** v1.1  
+> **Canonical Status:** FROZEN  
+> **Implementation Authorization:** NONE  
+> **T051+:** NOT AUTHORIZED
+
+The embedded Surgical Overlay above is preserved byte-for-byte from the independently reviewed Round 2 artifact. Its pre-integration metadata `REVIEW CANDIDATE — NOT FROZEN` records the state of that artifact **before** Human Acceptance and is superseded by this binding **only for canonical status**.
+
+No normative overlay text is changed by this binding. Frozen pre-amendment content remains preserved in full as the prefix of this canonical document; the later Controlled Amendment has precedence only where it explicitly changes an implementation mechanism.
+
+This Freeze does not authorize application implementation, T051+, importer implementation, Trial Migration, Production Import, Production Cutover, or legacy retirement.
