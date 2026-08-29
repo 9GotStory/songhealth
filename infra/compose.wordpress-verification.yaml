@@ -1,0 +1,203 @@
+# Disposable local WordPress verification runtime manifest (Delivery 002 Gate 01.5,
+# prerequisite for tasks.md T006; spec.md FR-001–FR-003, FR-021–FR-029; research.md
+# §1 Runtime and hosting baseline and §10 Configuration/diagnostics; plan.md
+# §Technical Context "Reproducible local WordPress/PHP/MySQL-compatible verification").
+#
+# LOCAL VERIFICATION ONLY. This manifest is not a Production, staging, or deployment
+# baseline; it makes no Production parity claim, and it authorizes no deployment,
+# importer, Trial Migration, Production Import, or cutover work (FR-002, FR-027,
+# FR-028). Production PHP/WordPress/database/topology decisions remain gated on real
+# Bangmod/DirectAdmin account evidence (SC-009).
+#
+# PROVISIONAL VERIFICATION CHOICES (FR-002/FR-028, mirroring the Delivery 001
+# convention in infra/compose.development.yaml): every image is pinned by immutable
+# digest so the profile is reproducible; floating tags are prohibited because they can
+# move to another major. The digests resolve, at the time this gate was implemented,
+# to:
+#   - docker.io/library/wordpress   sha256:5a93c470… → WordPress 7.1 on PHP 8.3.33 (Apache)
+#   - docker.io/library/wordpress   sha256:2b5e9d4d… → WP-CLI 2.12.0 on PHP 8.3.33
+#   - docker.io/library/mysql       sha256:b3b90af2… → MySQL 8.4 (the same provisional
+#     local engine choice already recorded by Delivery 001)
+# These are implementation-time verification pins only. They do not lock Production
+# versions and claim no Production topology.
+#
+# ISOLATION FROM DELIVERY 001: this manifest shares nothing with
+# infra/compose.development.yaml or infra/compose.verification.yaml — different Compose
+# project prefix (songhealth-wp-* vs songhealth-dev-*/songhealth-verify-*), different
+# service, volume, and network names, a different credentials namespace, and ownership
+# labels carrying delivery=002-headless-wordpress-foundation. A Delivery 001 command
+# can never address these resources and no command below can address a Delivery 001
+# resource.
+#
+# CHECKOUT SCOPING: no fixed global project/container/volume/network name is declared
+# here. scripts/wordpress-verification.sh derives the checkout-scoped Compose project
+# name (songhealth-wp-<checkout-hash>) and supplies SONGHEALTH_WP_CHECKOUT_ID, the
+# required ownership label input; rendering fails closed when it is absent, so a bare
+# `podman compose up` cannot start an unnamed, unowned runtime.
+#
+# SECRETS: no credential value is committed. The four database values and the local
+# site values are interpolated from the ignored .env.wordpress-verification.local file
+# (see .env.wordpress-verification.example); a missing or empty required value fails
+# rendering with the `:?` error below instead of starting a half-configured runtime.
+#
+# EXPOSURE: exactly one port is published and it is loopback-only (127.0.0.1). The
+# database declares `expose` alone — it has no host publication at all, so it is not
+# reachable off-host or outside this Compose project.
+services:
+  # Clean WordPress Core + PHP 8.3 + Apache. Core files land in the runtime-owned
+  # wordpress-core volume on first start (the image entrypoint copies a pristine
+  # WordPress into an empty /var/www/html and generates wp-config.php from the
+  # environment below). The only first-party code, the accepted T005 songhealth-core
+  # plugin, is bind-mounted READ-ONLY from this checkout, so the running plugin is
+  # always exactly the repository source and no plugin file is ever copied, modified,
+  # or versioned inside the runtime. No legacy Songhealth theme or plugin, no
+  # Production-derived content, and no other plugin is introduced; core-bundled
+  # inactive shims (hello/akismet) are never activated (proven by the readiness
+  # check's exact active-plugin list).
+  wordpress:
+    image: docker.io/library/wordpress@sha256:5a93c470ae8220fddf71f6ebe3bc94e615ddc2ae4d9810f795b830fb11c41a17
+    environment:
+      WORDPRESS_DB_HOST: wordpress-db:3306
+      WORDPRESS_DB_NAME: "${WORDPRESS_DB_NAME:?WORDPRESS_DB_NAME is required in .env.wordpress-verification.local}"
+      WORDPRESS_DB_USER: "${WORDPRESS_DB_USER:?WORDPRESS_DB_USER is required in .env.wordpress-verification.local}"
+      WORDPRESS_DB_PASSWORD: "${WORDPRESS_DB_PASSWORD:?WORDPRESS_DB_PASSWORD is required in .env.wordpress-verification.local}"
+    ports:
+      # Loopback-only publication: the sole host-reachable surface of this runtime.
+      - "127.0.0.1:${WORDPRESS_VERIFY_PORT:?WORDPRESS_VERIFY_PORT is required in .env.wordpress-verification.local}:80"
+    volumes:
+      # Runtime-owned WordPress Core files, generated wp-config.php, and uploads.
+      # Persistent across routine stop/start; removed only by the explicit
+      # disposable reset.
+      - wordpress-core:/var/www/html
+      # The accepted first-party plugin, sourced live from this checkout.
+      # `ro` keeps the checkout authoritative; the shared `z` SELinux label allows
+      # both this service and the one-shot CLI service to read the same tree
+      # without relabel conflicts.
+      - ../wordpress/wp-content/plugins/songhealth-core:/var/www/html/wp-content/plugins/songhealth-core:ro,z
+    networks:
+      - wordpress
+    labels:
+      org.songhealth.foundation.delivery: "002-headless-wordpress-foundation"
+      org.songhealth.foundation.checkout: "${SONGHEALTH_WP_CHECKOUT_ID:?required checkout ownership input is absent}"
+      org.songhealth.foundation.environment: development
+      org.songhealth.foundation.runtime-profile: disposable-local-verification
+      org.songhealth.foundation.operation-target: wordpress-local-verification
+      org.songhealth.foundation.resource: wordpress-verification.wordpress
+      org.songhealth.foundation.ownership-schema: "v1"
+
+  # The MySQL-compatible verification database for this Compose project only:
+  # its own credentials namespace, volume, and network membership. `expose`
+  # (never `ports`) keeps it unreachable from the host and from any other
+  # project; only the two services on the internal network can reach it.
+  wordpress-db:
+    image: docker.io/library/mysql@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb
+    command:
+      - --character-set-server=utf8mb4
+      - --default-storage-engine=innodb
+    environment:
+      MYSQL_DATABASE: "${WORDPRESS_DB_NAME:?WORDPRESS_DB_NAME is required in .env.wordpress-verification.local}"
+      MYSQL_USER: "${WORDPRESS_DB_USER:?WORDPRESS_DB_USER is required in .env.wordpress-verification.local}"
+      MYSQL_PASSWORD: "${WORDPRESS_DB_PASSWORD:?WORDPRESS_DB_PASSWORD is required in .env.wordpress-verification.local}"
+      MYSQL_ROOT_PASSWORD: "${WORDPRESS_DB_ROOT_PASSWORD:?WORDPRESS_DB_ROOT_PASSWORD is required in .env.wordpress-verification.local}"
+    expose:
+      - "3306"
+    volumes:
+      # Runtime-owned database state. Persists across routine stop/start (the
+      # documented persistence workflow relies on this); removed only by the
+      # explicit disposable reset.
+      - wordpress-db-data:/var/lib/mysql
+    networks:
+      - wordpress
+    healthcheck:
+      # Readiness signal consumed by scripts/wordpress-verification.sh. The
+      # credentials stay inside the container environment: the doubled `$$`
+      # keeps Compose from interpolating them on the host, and the expansion
+      # happens only in the container shell at check time, so the password
+      # never appears in a command line or in host output.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u\"$$MYSQL_USER\" --password=\"$$MYSQL_PASSWORD\" --silent"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+      start_period: 10s
+    labels:
+      org.songhealth.foundation.delivery: "002-headless-wordpress-foundation"
+      org.songhealth.foundation.checkout: "${SONGHEALTH_WP_CHECKOUT_ID:?required checkout ownership input is absent}"
+      org.songhealth.foundation.environment: development
+      org.songhealth.foundation.runtime-profile: disposable-local-verification
+      org.songhealth.foundation.operation-target: wordpress-local-verification
+      org.songhealth.foundation.resource: wordpress-verification.database
+      org.songhealth.foundation.ownership-schema: "v1"
+
+  # One-shot WP-CLI companion (official wordpress:cli image, WP-CLI 2.12.0 /
+  # PHP 8.3.33). Never started by `up` (profiles: tools); invoked only as
+  #   podman compose --profile tools run --rm wordpress-cli /songhealth-tools/<script>
+  # by the operations script to perform first-run core installation, plugin
+  # activation, and the readiness/loaded proof against the same core volume and
+  # the same live plugin mount as the web service.
+  wordpress-cli:
+    image: docker.io/library/wordpress@sha256:2b5e9d4d3e51909dca1aaa4732e9f5e5bf0377c2114dbd8ff39f060bff202586
+    profiles:
+      - tools
+    command: ["wp", "--info"]
+    environment:
+      WORDPRESS_DB_HOST: wordpress-db:3306
+      WORDPRESS_DB_NAME: "${WORDPRESS_DB_NAME:?WORDPRESS_DB_NAME is required in .env.wordpress-verification.local}"
+      WORDPRESS_DB_USER: "${WORDPRESS_DB_USER:?WORDPRESS_DB_USER is required in .env.wordpress-verification.local}"
+      WORDPRESS_DB_PASSWORD: "${WORDPRESS_DB_PASSWORD:?WORDPRESS_DB_PASSWORD is required in .env.wordpress-verification.local}"
+      WORDPRESS_VERIFY_SITE_URL: "${WORDPRESS_VERIFY_SITE_URL:?WORDPRESS_VERIFY_SITE_URL is required in .env.wordpress-verification.local}"
+      WORDPRESS_VERIFY_SITE_TITLE: "${WORDPRESS_VERIFY_SITE_TITLE:?WORDPRESS_VERIFY_SITE_TITLE is required in .env.wordpress-verification.local}"
+      WORDPRESS_VERIFY_ADMIN_USER: "${WORDPRESS_VERIFY_ADMIN_USER:?WORDPRESS_VERIFY_ADMIN_USER is required in .env.wordpress-verification.local}"
+      WORDPRESS_VERIFY_ADMIN_PASSWORD: "${WORDPRESS_VERIFY_ADMIN_PASSWORD:?WORDPRESS_VERIFY_ADMIN_PASSWORD is required in .env.wordpress-verification.local}"
+      WORDPRESS_VERIFY_ADMIN_EMAIL: "${WORDPRESS_VERIFY_ADMIN_EMAIL:?WORDPRESS_VERIFY_ADMIN_EMAIL is required in .env.wordpress-verification.local}"
+    volumes:
+      - wordpress-core:/var/www/html
+      - ../wordpress/wp-content/plugins/songhealth-core:/var/www/html/wp-content/plugins/songhealth-core:ro,z
+      - ./wordpress-verification:/songhealth-tools:ro,z
+    networks:
+      - wordpress
+    labels:
+      org.songhealth.foundation.delivery: "002-headless-wordpress-foundation"
+      org.songhealth.foundation.checkout: "${SONGHEALTH_WP_CHECKOUT_ID:?required checkout ownership input is absent}"
+      org.songhealth.foundation.environment: development
+      org.songhealth.foundation.runtime-profile: disposable-local-verification
+      org.songhealth.foundation.operation-target: wordpress-local-verification
+      org.songhealth.foundation.resource: wordpress-verification.cli
+      org.songhealth.foundation.ownership-schema: "v1"
+
+networks:
+  # The single internal network of this project: web ↔ CLI ↔ database. Nothing
+  # else joins it and it is never shared with a Delivery 001 network.
+  wordpress:
+    driver: bridge
+    labels:
+      org.songhealth.foundation.delivery: "002-headless-wordpress-foundation"
+      org.songhealth.foundation.checkout: "${SONGHEALTH_WP_CHECKOUT_ID:?required checkout ownership input is absent}"
+      org.songhealth.foundation.environment: development
+      org.songhealth.foundation.runtime-profile: disposable-local-verification
+      org.songhealth.foundation.operation-target: wordpress-local-verification
+      org.songhealth.foundation.resource: wordpress-verification.network
+      org.songhealth.foundation.ownership-schema: "v1"
+
+volumes:
+  # WordPress Core files + generated wp-config.php + uploads (see the wordpress
+  # service). Disposable with the profile.
+  wordpress-core:
+    labels:
+      org.songhealth.foundation.delivery: "002-headless-wordpress-foundation"
+      org.songhealth.foundation.checkout: "${SONGHEALTH_WP_CHECKOUT_ID:?required checkout ownership input is absent}"
+      org.songhealth.foundation.environment: development
+      org.songhealth.foundation.runtime-profile: disposable-local-verification
+      org.songhealth.foundation.operation-target: wordpress-local-verification
+      org.songhealth.foundation.resource: wordpress-verification.core-volume
+      org.songhealth.foundation.ownership-schema: "v1"
+  # MySQL-compatible data state (see the wordpress-db service). The only state
+  # the documented routine restart/persistence workflow preserves.
+  wordpress-db-data:
+    labels:
+      org.songhealth.foundation.delivery: "002-headless-wordpress-foundation"
+      org.songhealth.foundation.checkout: "${SONGHEALTH_WP_CHECKOUT_ID:?required checkout ownership input is absent}"
+      org.songhealth.foundation.environment: development
+      org.songhealth.foundation.runtime-profile: disposable-local-verification
+      org.songhealth.foundation.operation-target: wordpress-local-verification
+      org.songhealth.foundation.resource: wordpress-verification.database-volume
+      org.songhealth.foundation.ownership-schema: "v1"

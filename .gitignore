@@ -1,10 +1,11 @@
 # Secrets / environment
-# Ignore actual local secret files, but allow exactly the three committed examples.
+# Ignore actual local secret files, but allow exactly the four committed examples.
 .env
 .env.*
 !.env.real-engine.example
 !.env.development.example
 !.env.verification.example
+!.env.wordpress-verification.example
 
 # Checkout-local operation journal and Verification report tree (never committed)
 .foundation-state/
