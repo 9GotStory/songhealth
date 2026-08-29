@@ -31,14 +31,34 @@ define( 'SONGHEALTH_CORE_DIR', plugin_dir_path( __FILE__ ) );
  * Modules owned by songhealth-core, as repository-relative paths under
  * SONGHEALTH_CORE_DIR.
  *
- * Intentionally empty in this batch: no module is implemented yet, so nothing
- * beyond this lifecycle boundary is loaded. Later authorized tasks register
- * their completed modules here (final wiring is T019).
+ * Each entry is a completed module definition loaded on the normal plugin
+ * load order; final lifecycle wiring is T019. Loaded in dependency order:
+ * the authorization modules reference the content and capability
+ * declarations that precede them.
+ *
+ * - src/Diagnostics/Configuration.php (T006) — allowlisted, environment-
+ *   separated, fail-closed configuration schema; no secret is ever exposed.
+ * - src/Content/FoundationTypes.php (T007) — the two non-public foundation
+ *   custom post types and their metadata schemas.
+ * - src/Authorization/CapabilityMap.php (T008) — least-privilege Songhealth
+ *   capabilities and the accepted four-role mapping.
+ * - src/Authorization/AuthorizationService.php (T009) — default-deny
+ *   authorization decision primitives.
+ *
+ * Loading a module defines its declarations only. No module adds a WordPress
+ * hook of its own, so registering types, roles, or validation into the live
+ * request lifecycle remains T019's wiring decision, not a side effect of this
+ * list.
  *
  * @return string[]
  */
 function songhealth_core_modules() {
-	return array();
+	return array(
+		'src/Diagnostics/Configuration.php',
+		'src/Content/FoundationTypes.php',
+		'src/Authorization/CapabilityMap.php',
+		'src/Authorization/AuthorizationService.php',
+	);
 }
 
 /**
