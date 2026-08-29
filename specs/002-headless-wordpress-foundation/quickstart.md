@@ -24,12 +24,20 @@ liveness is minimal and no forbidden value appears.
 
 ## 2. Public ID and canonical detail
 
-Create Draft records of both types; confirm UUIDv7 exists before success. Save, Preview, publish,
-retitle, intentionally change slug, withdraw, and republish as allowed. Attempt ID edit/reassignment
-and request missing/old/malformed/normalized/current slugs.
+Create Draft records of both types through the Songhealth supported-resource creation service;
+confirm the UUIDv7 and its one-to-one mapping exist before success is reported. Force an actual
+issuance failure and confirm the creation operation returns failure and no accepted resource exists;
+confirm any identityless internal row stays quarantined and never qualifies as a Songhealth
+resource. Attempt raw Core insertion of a supported type and confirm it is an internal candidate
+only. Save, Preview, publish, retitle, intentionally change slug, withdraw, and republish as allowed
+through ordinary update behavior. Attempt ID edit/reassignment and request
+missing/old/malformed/normalized/current slugs.
 
-Expected: ID never changes/recycles; eligible records have one canonical React destination; current
-slug is disclosed only after eligibility; unknown/ineligible are neutral; no WordPress ID is public.
+Expected: service success always carries a verified immutable identity and service failure never
+leaves an accepted resource; ID never changes/recycles; a valid live mapping is the first
+prerequisite of any later eligibility/routing behavior; eligible records have one canonical React
+destination; current slug is disclosed only after eligibility; unknown/ineligible are neutral; no
+WordPress ID is public.
 
 ## 3. Detail and leakage-safe bounded listing
 

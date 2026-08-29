@@ -44,6 +44,11 @@ Preview, and download avoid unbounded scans and N+1 projections. No numeric targ
 representative response evidence is recorded and tuning follows measured need.
 
 **Constraints**: Default deny; current server-side eligibility on every anonymous disclosure;
+accepted creation only through the Songhealth supported-resource creation service (service success
+requires identity establishment plus one-to-one mapping verification; every actual issuance failure
+returns service failure; verified bounded transaction preferred, otherwise fail-return plus verified
+compensation with quarantined, never-qualifying internal candidates); Core insertion callbacks carry
+no Product success meaning and hook order/priority is never the correctness mechanism;
 neutral nondisclosure; no ineligible count/pagination leakage; nonce is not authorization; Preview is
 authenticated/authorized/`no-store`/`noindex`; protected bytes have no bypassable public path; safe
 config/diagnostics; no importer/cutover, Production Docker/VPS, Redis, queue, microservice, search
@@ -131,9 +136,13 @@ Songhealth policy, and presentation without a standalone backend or custom Admin
 
 1. Establish clean local WordPress verification and plugin bootstrap.
 2. Register two admin-visible/non-publicly-queryable types, capability mapping, identity registry,
-   metadata, and
-   create-time Public ID invariant.
-3. Implement shared current eligibility/projection, detail/list, and native-surface containment.
+   metadata, and the plugin-owned supported-resource creation service whose accepted creation —
+   including Draft — establishes the immutable Public ID (verified bounded transaction where safely
+   available, otherwise fail-return plus verified compensation with quarantined internal
+   candidates); raw Core insertion is an internal candidate only, and updates of accepted resources
+   keep ordinary WordPress update/autosave/revision behavior without identity mutation.
+3. Implement shared current eligibility/projection, detail/list, and native-surface containment;
+   a valid, live identity mapping is the first prerequisite of each.
 4. Bind React canonical routes to the public contract.
 5. Add authenticated Preview and protected delivery using fresh policy checks.
 6. Add safe config/diagnostics, risk verification, hosting-account checkpoint, dependency evidence,

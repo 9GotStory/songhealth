@@ -11,10 +11,13 @@ concepts are modeled. Full Frozen Product domains are excluded.
 | Songhealth Public ID registry row | `songhealth-core` in WordPress DB | Public ID only where eligible; row/internal key never public | Durable resource/canonical identity and uniqueness |
 | Display slug | Songhealth over Core primitive | Public after eligibility | Optional readability; never identity |
 
-Public ID is UUIDv7, generated on first successful creation including Draft, unique, immutable,
-never ordinarily caller-selected, and never recycled. The registry has unique `public_id` and unique
-`(resource_type, internal_post_id)` keys; deletion retains a tombstone mapping. Public projections
-contain no internal IDs.
+Public ID is UUIDv7, established by the plugin-owned Songhealth supported-resource creation service
+at first accepted creation including Draft, unique, immutable, never ordinarily caller-selected, and
+never recycled. Raw WordPress insertion success is an internal outcome, not accepted creation. The
+registry has unique `public_id` and unique `(resource_type, internal_post_id)` keys; deletion
+retains a tombstone mapping; a valid, live mapping is the first prerequisite of any later
+eligibility, REST, Preview, protected-binary, or canonical behavior. Public projections contain no
+internal IDs.
 
 ## Shared Songhealth Resource policy
 
@@ -24,7 +27,8 @@ This is policy vocabulary, not a generic production type.
 | --- | --- |
 | `internal_post_id` | Core identity; never public |
 | `resource_type` | Immutable `basic-page` or `document-resource` |
-| `public_id` | Required after successful creation; UUIDv7; globally unique/non-reassignable |
+| `public_id` | Established by the creation service before success is reported; UUIDv7; globally unique/non-reassignable |
+| `acceptance` | Creation is accepted only through the Songhealth creation service after identity establishment and one-to-one mapping verification; an identityless internal row is a quarantined candidate, never a Songhealth resource |
 | `title` | Required to publish; candidate allowed in Draft/Preview |
 | `display_slug` | Optional resolution metadata; safely normalized; changed only through authorized behavior |
 | `wp_status` | Internal primitive mapped by Songhealth lifecycle; raw value never public on denial |
@@ -32,9 +36,11 @@ This is policy vocabulary, not a generic production type.
 | timestamps | Core audit values; only allowlisted dates may project |
 | `author_user_id` | Internal CMS User; never public and never Personnel identity |
 
-`eligible = supported type + valid ID + currently public lifecycle + public visibility + not withdrawn
-+ type-specific publication validity`. Evaluate at disclosure/delivery time. Projection, list,
-reference, cache, slug, ID, or bytes never confer eligibility. Unknown/ineligible are neutral.
+`eligible = supported type + valid live identity + currently public lifecycle + public visibility +
+not withdrawn + type-specific publication validity`. Evaluate at disclosure/delivery time. A valid,
+live Public ID mapping is the first prerequisite: without one, a record is an internal candidate and
+never eligible. Projection, list, reference, cache, slug, ID, or bytes never confer eligibility.
+Unknown/ineligible are neutral.
 
 ## Basic Page Foundation Record
 
@@ -91,10 +97,20 @@ evidence, and `removal_authorized` (always false in Delivery 002 Plan/implementa
 ## State transitions
 
 ```text
-first successful create (including Draft) -> Public ID atomically issued -> non-public default
+service create (including Draft)          -> identity established + one-to-one mapping verified
+                                            -> accepted Songhealth resource, non-public default
+service create, issuance failure          -> service failure returned; creation not reported successful
+service create, issuance failure after the
+record write where no safe transaction    -> fail-return + verified compensation; if compensation
+                                            cannot complete, the identityless row stays a quarantined
+                                            internal candidate (never a Songhealth resource)
+raw Core insert of a supported type       -> internal candidate only; never accepted creation
 non-public -> public-eligible             -> authorized valid publication only
 public-eligible -> non-public/withdrawn   -> ID retained; public/list/binary access revoked
 any lifecycle -> Preview                  -> read-only context, never lifecycle mutation
+accepted resource update/autosave/revision -> ordinary WordPress paths; identity never written
 ```
 
-Hard deletion, ID recycling, finished workflow, importer, and migration mapping are out of scope.
+A valid, live identity is the first prerequisite of every later transition into eligibility, REST,
+Preview, protected binary, or canonical routing. Hard deletion, ID recycling, finished workflow,
+importer, and migration mapping are out of scope.

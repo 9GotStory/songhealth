@@ -79,23 +79,36 @@ A10.9/A10.12; official `register_post_type()` controls.
 
 ## 4. Immutable Public ID
 
-**Decision**: Generate UUIDv7 within the first successful server-side creation boundary after a
-durable internal record exists but before success is reported. Store the mapping in a tiny
-plugin-owned WordPress-database identity registry with a primary/unique Public ID and a unique
-`(resource_type, internal_post_id)` key. Treat post creation plus identity insertion as one bounded
-transaction where the verified database supports it; otherwise creation is not reported successful
-until insertion succeeds and a failed insertion triggers safe compensating cleanup/evidence. Absence,
-mutation, caller-selection, collision, or reassignment fails closed. Updates never write it;
-trash/deletion leaves a non-reusable tombstone mapping.
+**Decision**: Accepted creation exists only through a plugin-owned Songhealth supported-resource
+creation service for the two foundation types. The service establishes the immutable UUIDv7
+identity and verifies the one-to-one registry mapping before reporting success; raw
+`wp_insert_post()` success is an internal outcome only and never Product success, and every actual
+issuance failure is returned as service failure. Where a verified safe bounded transaction is
+available, the service performs record creation plus identity establishment as one transaction;
+otherwise it uses fail-return plus verified compensation, and a row whose compensation cannot
+complete remains a quarantined, unaccepted internal candidate that can never qualify as a
+Songhealth resource. Arbitrary Core-insertion callbacks are outside the Product success boundary;
+hook order/priority is never the correctness mechanism. Store the mapping in the tiny plugin-owned
+WordPress-database identity registry with a primary/unique Public ID and a unique
+`(resource_type, internal_post_id)` key. Absence, mutation, caller-selection, collision, or
+reassignment fails closed. A valid, live mapping is the first prerequisite of any later
+eligibility, REST, Preview, protected-binary, or canonical behavior. Updates of accepted resources
+continue through ordinary WordPress update/autosave/revision paths and never write identity;
+direct-create containment applies only to supported-type creation. Trash/deletion leaves a
+non-reusable tombstone mapping.
 
-**Rationale**: Effective Frozen authority selects UUIDv7. The boundary satisfies Draft issuance;
-the dedicated two-key registry supplies database-enforced uniqueness without imposing unsafe global
-constraints on WordPress's shared metadata table and prevents native ID/slug/filename/race coupling.
+**Rationale**: Effective Frozen authority selects UUIDv7. A service-owned acceptance boundary makes
+success and failure explicit and verifiable instead of inferred from Core callback timing, and
+satisfies Draft issuance; the dedicated two-key registry supplies database-enforced uniqueness
+without imposing unsafe global constraints on WordPress's shared metadata table and prevents
+native ID/slug/filename/race coupling.
 
 **Alternatives considered**: WordPress ID, slug, UUIDv4, best-effort `save_post` metadata without
-uniqueness, a global postmeta uniqueness index with collateral risk, or caller-provided IDs.
+uniqueness, a global postmeta uniqueness index with collateral risk, caller-provided IDs, or
+issuance driven by Core insertion hooks with callback ordering as the correctness mechanism.
 
-**Authority/evidence**: FR-004–005/024; Sitemap §§15.4/17.22; Blueprint §§677–691 and A10.3/A10.19.
+**Authority/evidence**: FR-004–005/024; Sitemap §§15.4/17.22; Blueprint §§677–691 and A10.3/A10.19;
+Human-approved T012-B01 design decision (2026-08-29).
 
 ## 5. Public REST detail/listing/projection
 
