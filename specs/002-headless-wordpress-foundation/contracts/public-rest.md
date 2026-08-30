@@ -20,16 +20,27 @@ does not expose Songhealth public search.
 
 ## Bounded listing
 
-`GET /resources?type={resourceType}&page={n}&perPage={n}&order={order}`
+`GET /resources?type={resourceType}&perPage={n}&order={order}&cursor={opaqueCursor?}`
 
-- Type is required and allowlisted. Page/per-page are positive and bounded with a small default and
-  hard server maximum. Order is an allowlist with deterministic Public ID tie-breaker.
+- Type is required and allowlisted. `perPage` is positive and bounded with a small default and hard
+  server maximum. Order is allowlisted and uses deterministic Public-ID keyset progress. Deep OFFSET
+  pagination is not supported.
+- Cursor is optional, confidential, and integrity/tamper protected; binds type and order; carries safe
+  version/expiry state; and reveals no internal identifier, scanned ineligible Public ID, eligibility
+  state, or database position. Malformed, expired, mismatched, or tampered cursors fail closed with the
+  bounded neutral invalid-request class. This contract does not require a persistent cursor store.
 - No keyword/search/suggestion/raw-filter/native-query parameter is supported.
-- Eligibility is in the query boundary before pagination; `total`, `totalPages`, empty pages, and
-  navigation metadata derive only from eligible rows.
+- Each request selects bounded candidate windows and evaluates at most a hard server-controlled
+  candidate budget. Query logic may maintain keyset progress but never reproduces or decides
+  eligibility; every returned item passes the live authoritative `PublicEligibility` decision.
+- Return at most `perPage` items. `hasMore` reports deterministic continuation, not an eligible count.
+  `nextCursor` is present exactly when continuation is available. When the scan budget ends before an
+  eligible item is found and candidates remain, return empty `data`, `hasMore=true`, and an opaque
+  `nextCursor`; never expose the scanned boundary or falsely report exhaustion.
+- Exact public `total` and `totalPages` are not part of this Delivery 002 foundation contract.
 
 ```json
-{"data": [], "page": 1, "perPage": 20, "total": 0, "totalPages": 0}
+{"data": [], "hasMore": true, "nextCursor": "<opaque>"}
 ```
 
 Basic Page API listing proves the clarified bounded-list behavior but creates no public `/pages` hub,
@@ -52,6 +63,6 @@ are never blindly redirected to the homepage.
 - An eligible parent cannot elevate an ineligible reference; omit/neutralize it after its own current
   decision.
 - Cache is never eligibility authority.
-- Invalid list input returns bounded `400`; unexpected failure returns generic `5xx` with a safe
+- Invalid list/cursor input returns bounded `400`; unexpected failure returns generic `5xx` with a safe
   category/correlation code. No stack, SQL, path, credential, user, or protected content.
 - Use JSON, deployed HTTPS, safe cache headers, and applicable abuse/rate bounds.

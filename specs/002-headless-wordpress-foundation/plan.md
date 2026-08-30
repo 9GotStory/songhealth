@@ -39,9 +39,10 @@ are not proven.
 
 **Project Type**: Headless web application: WordPress CMS/plugin backend plus React public frontend
 
-**Performance Goals**: Bounded list work is proportional to capped page size; detail, listing,
-Preview, and download avoid unbounded scans and N+1 projections. No numeric target is invented;
-representative response evidence is recorded and tuning follows measured need.
+**Performance Goals**: Every foundation-list request has a hard server-controlled candidate-scan and
+application-evaluation bound, uses deterministic Public-ID keyset progress, and performs no deep
+OFFSET or unbounded scan; detail, listing, Preview, and download avoid N+1 projections. No numeric
+target is invented; representative response evidence is recorded and tuning follows measured need.
 
 **Constraints**: Default deny; current server-side eligibility on every anonymous disclosure;
 accepted creation only through the Songhealth supported-resource creation service (service success
@@ -49,7 +50,8 @@ requires identity establishment plus one-to-one mapping verification; every actu
 returns service failure; verified bounded transaction preferred, otherwise fail-return plus verified
 compensation with quarantined, never-qualifying internal candidates); Core insertion callbacks carry
 no Product success meaning and hook order/priority is never the correctness mechanism;
-neutral nondisclosure; no ineligible count/pagination leakage; nonce is not authorization; Preview is
+neutral nondisclosure; no ineligible continuation leakage; confidential and integrity-protected
+opaque cursors; nonce is not authorization; Preview is
 authenticated/authorized/`no-store`/`noindex`; protected bytes have no bypassable public path; safe
 config/diagnostics; no importer/cutover, Production Docker/VPS, Redis, queue, microservice, search
 engine, or private object store baseline
@@ -142,7 +144,9 @@ Songhealth policy, and presentation without a standalone backend or custom Admin
    candidates); raw Core insertion is an internal candidate only, and updates of accepted resources
    keep ordinary WordPress update/autosave/revision behavior without identity mutation.
 3. Implement shared current eligibility/projection, detail/list, and native-surface containment;
-   a valid, live identity mapping is the first prerequisite of each.
+   a valid, live identity mapping is the first prerequisite of each. The foundation list uses bounded
+   candidate windows and opaque deterministic keyset continuation; `PublicEligibility` alone decides
+   record eligibility, exact public totals are absent, and SQL never reproduces the eligibility rules.
 4. Bind React canonical routes to the public contract.
 5. Add authenticated Preview and protected delivery using fresh policy checks.
 6. Add safe config/diagnostics, risk verification, hosting-account checkpoint, dependency evidence,

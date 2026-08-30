@@ -114,15 +114,25 @@ Human-approved T012-B01 design decision (2026-08-29).
 
 **Decision**: Read-only `/wp-json/songhealth/v1/resources/{resourceType}/{publicId}` and
 `/wp-json/songhealth/v1/resources`. Type is allowlisted to `basic-page`/`document-resource`; list
-accepts only type, page, per-page, and allowlisted order with a hard maximum. Query current eligible
-records before type-specific projection and pagination/counts. Detail evaluates eligibility before
-canonical metadata. Unknown/ineligible share neutral behavior. No search parameter/route.
+accepts only type, bounded per-page, allowlisted deterministic order, and an optional opaque
+continuation cursor. Each request selects a bounded Public-ID keyset candidate window, evaluates no
+more than a hard server-controlled candidate budget, and passes every returned item through the live
+`PublicEligibility` decision. SQL never reproduces eligibility. The response contains `data`,
+`hasMore`, and optional `nextCursor`, with no exact total/page count. A cursor is confidential and
+integrity-protected, binds type/order, supports version/expiry, and reveals no internal/scanned
+identifier, eligibility state, or database position. Budget exhaustion preserves deterministic
+progress, including an empty page with `hasMore=true` when candidates remain. Detail evaluates
+eligibility before canonical metadata. Unknown/ineligible share neutral behavior. No search
+parameter/route.
 
-**Rationale**: Custom controllers prevent WordPress leakage. Shared eligibility/projectors prevent
-drift; eligibility-first counts and canonical logic prevent existence leaks.
+**Rationale**: Custom controllers prevent WordPress leakage. One live eligibility authority plus
+bounded opaque continuation prevents cross-language eligibility drift, unbounded work, and existence
+leakage without adding a materialized eligibility cache for an API with no public listing hub.
 
-**Alternatives considered**: Raw `wp/v2`, GraphQL/new schema dependency, cached eligibility authority,
-unbounded listing, or Songhealth search.
+**Alternatives considered**: Raw `wp/v2`, GraphQL/new schema dependency, exact totals through a
+duplicated SQL eligibility predicate, a materialized eligibility projection with migration and
+invalidation burden, unbounded listing, or Songhealth search. Exact totals were rejected after real
+MySQL proved PHP/SQL semantic drift; materialization was disproportionate to this foundation scope.
 
 **Authority/evidence**: FR-006–012/030; A10.8–9/A10.15–16; official endpoint namespacing,
 validation, and permission callbacks.

@@ -42,11 +42,16 @@ WordPress ID is public.
 ## 3. Detail and leakage-safe bounded listing
 
 Seed eligible/ineligible records with sentinel metadata/user values. Exercise [public-rest.md](./contracts/public-rest.md)
-detail/list, page bounds, empty pages, type/order allowlists, attempted search/native params, and an
-eligibility change between calls. Compare fields, totals, pages, and errors.
+detail/list, per-page and hard scan bounds, deterministic continuation, type/order allowlists,
+opaque-cursor confidentiality/integrity/type/order/expiry rejection, empty all-ineligible scan
+windows, attempted search/native params, and an eligibility change between calls. Compare fields,
+continuation behavior, and errors.
 
-Expected: only eligible allowlisted fields; counts/pages include no suppressed items; stale state does
-not authorize; no Songhealth search exists.
+Expected: only eligible allowlisted fields; every returned item passes the live shared decision;
+application evaluation never exceeds the hard candidate budget; continuation makes deterministic
+progress without OFFSET or identifier/state leakage; an exhausted all-ineligible window can return
+empty `data` with `hasMore=true` and an opaque `nextCursor`; stale state does not authorize; no exact
+totals/page counts and no Songhealth search exist.
 
 ## 4. Native-surface containment
 

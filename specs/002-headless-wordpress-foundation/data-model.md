@@ -65,8 +65,13 @@ Derived non-authoritative DTO. Shared allowlist: `type`, `publicId`, `title`, `c
 Resource may contain `downloadPath`. Never expose raw Media URL/filename/path, internal IDs/status,
 post metadata, user identity, or protected state.
 
-Listing envelopes contain eligible items and page/per-page/counts computed after filtering; no native
-count, suppressed count, search score, or search contract exists.
+Foundation listing envelopes contain `data`, `hasMore`, and optional `nextCursor`, never exact public
+totals/page counts. Resource type, bounded `perPage`, deterministic order, and optional opaque cursor
+are the only list inputs. A hard server-owned candidate budget and Public-ID keyset window bound each
+request; `PublicEligibility` alone accepts returned records. The confidential, integrity-protected
+cursor carries only server-readable versioned/expiring continuation state bound to type/order and
+reveals no internal identifier, scanned ineligible Public ID, eligibility state, or database position.
+No native count, suppressed count, search score, or search contract exists.
 
 ## Preview Context
 
