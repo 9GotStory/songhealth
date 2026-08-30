@@ -203,12 +203,93 @@ class RoutesTest extends WP_UnitTestCase {
 		$this->assertSame( 404, $binary->get_status() );
 		$this->assertSame( NeutralResponse::CODE_NOT_FOUND, $binary->get_data()['code'] );
 
-		/* Valid listing input: the operation is not live until T025, so neutral. */
+		/*
+		 * The resource-detail and listing operations are live since T025: an
+		 * unknown record still answers the neutral 404 class through the
+		 * controller, and an empty-type listing is the terminal bounded
+		 * envelope (PublicRestContractTest owns the live-contract matrix).
+		 */
 		$listing = new WP_REST_Request( 'GET', '/songhealth/v1/resources' );
-		$listing->set_param( 'type', 'basic-page' );
+		$listing->set_param( 'type', 'document-resource' );
 		$response = rest_do_request( $listing );
-		$this->assertSame( 404, $response->get_status() );
-		$this->assertSame( NeutralResponse::CODE_NOT_FOUND, $response->get_data()['code'] );
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( array( 'data', 'hasMore' ), array_keys( (array) $response->get_data() ) );
+		$this->assertSame( array(), $response->get_data()['data'] );
+		$this->assertFalse( $response->get_data()['hasMore'] );
+	}
+
+	/** @test */
+	public function test_every_invalid_cursor_condition_converges_on_the_songhealth_invalid_request_contract() {
+		/*
+		 * G03-B01: every invalid continuation-cursor condition — including the
+		 * empty and overlength values the route boundary no longer rejects
+		 * itself — must reach the ONE bounded Songhealth invalid-request
+		 * contract, never the platform's invalid-parameter class. The full
+		 * observable response (status, code, body, transport headers) is
+		 * compared as one value, so any split between the conditions fails.
+		 */
+		for ( $i = 0; $i < 2; $i++ ) {
+			$created = CreateTimePublicId::create(
+				array(
+					'post_type'   => FoundationTypes::BASIC_PAGE,
+					'post_title'  => 'Cursor Convergence Fixture',
+					'post_status' => 'publish',
+				)
+			);
+			$this->assertIsArray( $created );
+			$this->songhealth_track_record( (int) $created['post_id'] );
+		}
+		$result = EligibleResourceQuery::query( array( 'type' => 'basic-page', 'perPage' => 1, 'order' => 'oldest' ) );
+		$this->assertTrue( $result['hasMore'] );
+		$genuine = (string) $result['nextCursor'];
+
+		$cursor_conditions = array(
+			'empty'          => '',
+			'overlength'     => str_repeat( 'x', 513 ),
+			'max-boundary'   => str_repeat( 'x', 512 ), /* At the bound: still an invalid (undecodable) cursor, never a bypass. */
+			'malformed'      => 'not-base64!!',
+			'padded'         => $genuine . '==',
+			'whitespace'     => ' ' . $genuine,
+			'tampered'       => substr( $genuine, 0, 10 ) . ( 'A' === $genuine[10] ? 'B' : 'A' ) . substr( $genuine, 11 ),
+			'truncated'      => substr( $genuine, 0, strlen( $genuine ) - 4 ),
+			'appended'       => $genuine . 'AAAA',
+			'genuine'        => $genuine, /* Control: the exact issued token is NOT an invalid cursor. */
+		);
+
+		$reference = null;
+		$genuine_contract = null;
+		foreach ( $cursor_conditions as $condition => $cursor ) {
+			$request = new WP_REST_Request( 'GET', '/songhealth/v1/resources' );
+			$request->set_param( 'type', 'basic-page' );
+			$request->set_param( 'order', 'oldest' );
+			$request->set_param( 'cursor', $cursor );
+			$response = rest_do_request( $request );
+			$contract = $this->neutral_contract( $response );
+
+			if ( 'genuine' === $condition ) {
+				$genuine_contract = $contract;
+				$this->assertSame( 200, $contract['status'], 'the exact issued token continues through the Songhealth path' );
+				continue;
+			}
+
+			if ( null === $reference ) {
+				$reference = $contract;
+				$this->assertSame( 400, $contract['status'], "an {$condition} cursor must fail closed" );
+				$this->assertSame( NeutralResponse::CODE_INVALID_REQUEST, $contract['code'], "the {$condition} cursor must use the Songhealth invalid-request class" );
+				$this->assertSame(
+					array( 'code' => NeutralResponse::CODE_INVALID_REQUEST, 'message' => 'Invalid request.', 'data' => array( 'status' => 400 ) ),
+					$contract['body'],
+					'the bounded invalid-request body is fixed'
+				);
+				$this->assertSame( 'no-store', $contract['cache'] );
+				$this->assertSame( 'nosniff', $contract['nosniff'] );
+				continue;
+			}
+			$this->assertSame( $reference, $contract, "'{$condition}' must be externally identical to every other invalid cursor condition" );
+			$this->assertStringNotContainsString( 'rest_invalid_param', (string) wp_json_encode( $contract['body'] ), 'no platform invalid-parameter class may appear' );
+		}
+		$this->assertNotNull( $genuine_contract );
+		$this->assertNotSame( $reference, $genuine_contract, 'the genuine token is observably distinct from the invalid class' );
 	}
 
 	/** @test */
@@ -252,7 +333,12 @@ class RoutesTest extends WP_UnitTestCase {
 	}
 
 	/** @test */
-	public function test_supported_listing_parameters_pass_validation_to_the_neutral_handler() {
+	public function test_supported_listing_parameters_reach_the_live_controller() {
+		/*
+		 * Since T025 the validated listing input reaches the live controller,
+		 * which answers the bounded envelope for every supported combination
+		 * (the eligible-content matrix belongs to PublicRestContractTest).
+		 */
 		foreach ( array( 'basic-page', 'document-resource' ) as $type ) {
 			foreach ( array( 'newest', 'oldest' ) as $order ) {
 				$request = new WP_REST_Request( 'GET', '/songhealth/v1/resources' );
@@ -260,14 +346,16 @@ class RoutesTest extends WP_UnitTestCase {
 				$request->set_param( 'perPage', 5 );
 				$request->set_param( 'order', $order );
 				$response = rest_do_request( $request );
-				$this->assertSame( 404, $response->get_status(), "validated input for {$type}/{$order} must reach the neutral fail-closed handler" );
-				$this->assertSame( NeutralResponse::CODE_NOT_FOUND, $response->get_data()['code'] );
+				$this->assertSame( 200, $response->get_status(), "validated input for {$type}/{$order} must reach the live controller" );
+				$keys = array_keys( (array) $response->get_data() );
+				$this->assertContains( 'data', $keys );
+				$this->assertContains( 'hasMore', $keys );
 			}
 		}
 	}
 
 	/** @test */
-	public function test_a_genuine_cursor_reaches_the_neutral_handler_and_a_bound_mismatch_does_not() {
+	public function test_a_genuine_cursor_reaches_the_live_controller_and_a_bound_mismatch_does_not() {
 		/* Two records: one page leaves a genuine continuation to be issued. */
 		for ( $i = 0; $i < 2; $i++ ) {
 			$created = CreateTimePublicId::create(
@@ -290,8 +378,9 @@ class RoutesTest extends WP_UnitTestCase {
 		$valid->set_param( 'order', 'oldest' );
 		$valid->set_param( 'cursor', $cursor );
 		$response = rest_do_request( $valid );
-		$this->assertSame( 404, $response->get_status(), 'a genuine cursor reaches the neutral fail-closed handler' );
-		$this->assertSame( NeutralResponse::CODE_NOT_FOUND, $response->get_data()['code'] );
+		$this->assertSame( 200, $response->get_status(), 'a genuine cursor reaches the live controller' );
+		$this->assertCount( 1, $response->get_data()['data'], 'the continuation page carries the remaining record' );
+		$this->assertFalse( $response->get_data()['hasMore'] );
 
 		$mismatch = new WP_REST_Request( 'GET', '/songhealth/v1/resources' );
 		$mismatch->set_param( 'type', 'basic-page' );

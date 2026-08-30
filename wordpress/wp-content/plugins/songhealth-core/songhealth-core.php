@@ -65,6 +65,9 @@ define( 'SONGHEALTH_CORE_DIR', plugin_dir_path( __FILE__ ) );
  *   resource queries with eligible-only totals.
  * - src/Rest/NativeSurfaceContainment.php (T018) — anonymous native surface
  *   containment.
+ * - src/Rest/PublicResourcesController.php (T025) — the eligible-only detail
+ *   and bounded opaque-continuation listing controllers for the US1 public
+ *   contract.
  * - src/Plugin.php (T019) — the lifecycle wiring module.
  *
  * Loading a module defines its declarations only. No module adds a WordPress
@@ -88,6 +91,7 @@ function songhealth_core_modules() {
 		'src/Rest/Routes.php',
 		'src/Rest/EligibleResourceQuery.php',
 		'src/Rest/NativeSurfaceContainment.php',
+		'src/Rest/PublicResourcesController.php',
 		'src/Plugin.php',
 	);
 }

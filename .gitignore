@@ -44,3 +44,6 @@ tmp/
 # Local backup/export files
 *.bak
 *.tmp
+
+# React Router framework mode generated route types/build state (Delivery 002 apps/web)
+apps/web/.react-router/

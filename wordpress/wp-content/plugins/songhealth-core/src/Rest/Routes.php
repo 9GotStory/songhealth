@@ -48,12 +48,13 @@
  * platform's distinct unrouted-response body.
  *
  * Handler boundary: the working projections belong to the user-story
- * controllers — PublicResourcesController (T025), PreviewController (T035),
- * and BinaryController (T043) — which are NOT part of the Foundational
- * phase. Until those authorized controllers exist, every handler here fails
- * closed with the same neutral not-found class (T014): the registered
- * surface exposes its approved shapes and bounded input behavior, and
- * discloses nothing else — not records, not existence, not lifecycle state.
+ * controllers. PublicResourcesController (T025) owns the resource-detail and
+ * bounded-listing responses and is dispatched to below; PreviewController
+ * (T035) and BinaryController (T043) are NOT part of this batch, so those
+ * two handlers still fail closed with the same neutral not-found class
+ * (T014): the registered surface exposes its approved shapes and bounded
+ * input behavior, and discloses nothing else — not records, not existence,
+ * not lifecycle state.
  *
  * This module registers its routes on `rest_api_init` when the plugin
  * lifecycle wiring (T019) calls register(); loading the file alone attaches
@@ -252,58 +253,33 @@ final class Routes {
 	}
 
 	/**
-	 * Resource detail handler.
+	 * Resource detail handler: dispatch to the US1 controller (T025).
 	 *
 	 * Every identifier condition — malformed, canonical-shaped unknown,
-	 * ineligible — resolves to the identical neutral class; the working
-	 * eligible-only projection belongs to the authorized US1 controller
-	 * (T025).
+	 * ineligible — still resolves to the identical neutral class; that answer
+	 * is produced inside the controller, after the same strict canonical
+	 * validation this route's neutrality contract requires.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response
 	 */
 	public static function detail_item( $request ) {
-		$neutral = self::neutral_for_identifier( $request );
-		if ( null !== $neutral ) {
-			return $neutral;
-		}
-		return NeutralResponse::not_found();
+		return PublicResourcesController::detail( $request );
 	}
 
 	/**
-	 * Bounded listing handler.
+	 * Bounded listing handler: dispatch to the US1 controller (T025).
 	 *
-	 * Input is re-validated against the shared allowlists (defense in depth
-	 * behind the route argument validation); supported input then fails
-	 * closed with the neutral class until the authorized US1 controller
-	 * (T025) supplies the eligible-only listing envelope.
+	 * Input is re-validated against the shared allowlists inside the
+	 * controller (defense in depth behind the route argument validation), and
+	 * invalid list input and invalid cursor input share the one bounded
+	 * invalid-request class there.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response
 	 */
 	public static function list_items( $request ) {
-		$order  = $request->get_param( 'order' ) ? (string) $request->get_param( 'order' ) : EligibleResourceQuery::ORDER_NEWEST;
-		$cursor = $request->get_param( 'cursor' );
-		$cursor = null === $cursor ? null : (string) $cursor;
-
-		$validated = EligibleResourceQuery::validate_params(
-			array(
-				'type'    => $request->get_param( 'type' ),
-				'perPage' => $request->get_param( 'perPage' ),
-				'order'   => $order,
-				'cursor'  => $cursor,
-			)
-		);
-		/*
-		 * Invalid list input and invalid cursor input share the one bounded
-		 * invalid-request class: a malformed, expired, or tampered cursor is
-		 * never distinguished from any other unsupported input.
-		 */
-		if ( is_wp_error( $validated )
-			|| is_wp_error( EligibleResourceQuery::validate_cursor( (string) $request->get_param( 'type' ), $order, $cursor ) ) ) {
-			return NeutralResponse::invalid_request();
-		}
-		return NeutralResponse::not_found();
+		return PublicResourcesController::listing( $request );
 	}
 
 	/**
@@ -405,11 +381,21 @@ final class Routes {
 	}
 
 	/**
-	 * The optional opaque continuation cursor. Shape-checked only: the
-	 * cursor's authenticity, expiry, and type/order binding are validated
-	 * when the query runs, and every failure shares the one bounded
-	 * invalid-request class with all other unsupported list input
-	 * (contracts/public-rest.md §Bounded listing).
+	 * The optional opaque continuation cursor. Transport-typed only: the
+	 * cursor's emptiness, maximum size, canonical form, authenticity,
+	 * expiry, and type/order binding are all validated by the Songhealth
+	 * cursor/query path inside the handler (EligibleResourceQuery
+	 * `validate_params`/`validate_cursor`), and every one of those failures
+	 * shares the one bounded `songhealth_invalid_request` class with all
+	 * other unsupported list input (G03-B01; contracts/public-rest.md
+	 * §Bounded listing).
+	 *
+	 * Rejecting an empty or overlength cursor at THIS layer instead would
+	 * make WordPress answer with its own invalid-parameter class — an
+	 * observable 400 body distinct from the Songhealth class — splitting the
+	 * invalid-cursor conditions into two externally distinguishable groups.
+	 * The hard maximum-size bound is retained unchanged, one layer deeper,
+	 * where it fails closed through the neutral class.
 	 *
 	 * @return array<string, mixed>
 	 */
@@ -418,7 +404,7 @@ final class Routes {
 			'type'              => 'string',
 			'required'          => false,
 			'validate_callback' => function ( $value ) {
-				return is_string( $value ) && '' !== $value && strlen( $value ) <= 512;
+				return is_string( $value );
 			},
 			'sanitize_callback' => function ( $value ) {
 				return (string) $value;
