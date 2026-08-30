@@ -44,6 +44,15 @@ define( 'SONGHEALTH_CORE_DIR', plugin_dir_path( __FILE__ ) );
  *   capabilities and the accepted four-role mapping.
  * - src/Authorization/AuthorizationService.php (T009) — default-deny
  *   authorization decision primitives.
+ * - src/Identity/RegistrySchema.php (T010) — the plugin-owned identity
+ *   registry table with unique public_id, unique (resource_type,
+ *   internal_post_id), and retained tombstone mappings.
+ * - src/Identity/PublicIdRegistry.php (T011) — canonical UUIDv7 generation
+ *   and validation, lookups, collision-safe insertion, and the
+ *   non-reassignment/non-recycling registry operations.
+ * - src/Identity/CreateTimePublicId.php (T012) — create-time issuance
+ *   enforcement: atomic-or-compensated Public ID before the first successful
+ *   creation (including Draft) is reported, and no update/caller mutation.
  *
  * Loading a module defines its declarations only. No module adds a WordPress
  * hook of its own, so registering types, roles, or validation into the live
@@ -58,6 +67,9 @@ function songhealth_core_modules() {
 		'src/Content/FoundationTypes.php',
 		'src/Authorization/CapabilityMap.php',
 		'src/Authorization/AuthorizationService.php',
+		'src/Identity/RegistrySchema.php',
+		'src/Identity/PublicIdRegistry.php',
+		'src/Identity/CreateTimePublicId.php',
 	);
 }
 
