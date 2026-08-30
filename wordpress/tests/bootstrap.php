@@ -106,3 +106,22 @@ tests_add_filter( 'muplugins_loaded', '_songhealth_core_tests_load_plugin' );
  * database schema and boots WordPress core with its default theme).
  */
 require $wp_tests_dir . '/includes/bootstrap.php';
+
+/*
+ * Provision the plugin-owned identity registry table on the installed test
+ * database BEFORE any test runs.
+ *
+ * The test framework isolates every test inside a transaction and rewrites
+ * CREATE TABLE to CREATE TEMPORARY TABLE while a test is running, and MySQL
+ * does not list temporary tables in SHOW TABLES — so a table created lazily
+ * from inside a test would be invisible to the schema check and every
+ * registry operation would fail closed. Creating it here makes it a real
+ * table of the disposable test database; the rows written by tests are still
+ * rolled back per test. This mirrors how WordPress core provisions its own
+ * tables during the test install and asserts the plugin's schema actually
+ * installs on the real engine.
+ */
+if ( ! \SonghealthCore\Identity\RegistrySchema::create() ) {
+	fwrite( STDERR, "[songhealth-tests] the songhealth identity registry table could not be created on the test database.\n" );
+	exit( 1 );
+}

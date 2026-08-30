@@ -7,10 +7,11 @@
  *
  * Delivery 002, T005: the first-party plugin entry point. WordPress Core
  * supplies commodity CMS infrastructure and songhealth-core owns Songhealth
- * semantics (FR-001). Module wiring for configuration, content types,
- * authorization, identity, eligibility, REST, Preview, binary delivery, and
- * diagnostics belongs to their own authorized tasks (T006+) and is
- * deliberately absent here.
+ * semantics (FR-001). The module files below own the declarations; the
+ * lifecycle wiring lives in src/Plugin.php (T019), which this entry point
+ * attaches after loading the modules. Preview, binary delivery, and
+ * diagnostics behavior belong to their own authorized tasks and remain
+ * absent here.
  *
  * @package SonghealthCore
  */
@@ -53,11 +54,22 @@ define( 'SONGHEALTH_CORE_DIR', plugin_dir_path( __FILE__ ) );
  * - src/Identity/CreateTimePublicId.php (T012) — create-time issuance
  *   enforcement: atomic-or-compensated Public ID before the first successful
  *   creation (including Draft) is reported, and no update/caller mutation.
+ * - src/Eligibility/PublicEligibility.php (T013) — the shared current
+ *   public-eligibility decision for the two supported types.
+ * - src/Rest/NeutralResponse.php (T014) — neutral public denial and bounded
+ *   invalid-input/unexpected-failure responses.
+ * - src/Rest/PublicProjector.php (T015) — the explicit Basic Page and
+ *   Document Resource public projectors.
+ * - src/Rest/Routes.php (T016) — the approved songhealth/v1 route shapes.
+ * - src/Rest/EligibleResourceQuery.php (T017) — eligibility-first bounded
+ *   resource queries with eligible-only totals.
+ * - src/Rest/NativeSurfaceContainment.php (T018) — anonymous native surface
+ *   containment.
+ * - src/Plugin.php (T019) — the lifecycle wiring module.
  *
  * Loading a module defines its declarations only. No module adds a WordPress
- * hook of its own, so registering types, roles, or validation into the live
- * request lifecycle remains T019's wiring decision, not a side effect of this
- * list.
+ * hook of its own; the single wiring decision is `SonghealthCore\Plugin::register()`,
+ * which this entry point calls after the modules have loaded (T019).
  *
  * @return string[]
  */
@@ -70,13 +82,21 @@ function songhealth_core_modules() {
 		'src/Identity/RegistrySchema.php',
 		'src/Identity/PublicIdRegistry.php',
 		'src/Identity/CreateTimePublicId.php',
+		'src/Eligibility/PublicEligibility.php',
+		'src/Rest/NeutralResponse.php',
+		'src/Rest/PublicProjector.php',
+		'src/Rest/Routes.php',
+		'src/Rest/EligibleResourceQuery.php',
+		'src/Rest/NativeSurfaceContainment.php',
+		'src/Plugin.php',
 	);
 }
 
 /**
  * Load the registered songhealth-core modules on the normal plugin load
- * order. Loading is require_once-based, so a double fire of `plugins_loaded`
- * cannot redeclare module code.
+ * order, then attach the lifecycle wiring. Loading is require_once-based, so
+ * a double fire of `plugins_loaded` cannot redeclare module code or wire the
+ * lifecycle twice.
  *
  * @return void
  */
@@ -84,14 +104,16 @@ function songhealth_core_load_modules() {
 	foreach ( songhealth_core_modules() as $module ) {
 		require_once SONGHEALTH_CORE_DIR . $module;
 	}
+	SonghealthCore\Plugin::register();
 }
 add_action( 'plugins_loaded', 'songhealth_core_load_modules' );
 
 /**
  * Safe activation: records the active plugin version for future upgrade
- * detection only. Creates no Product data, no user, role, or capability
- * change, no content type, table, endpoint, or setting beyond this one
- * non-public bookkeeping value.
+ * detection and provisions the foundation surfaces owned by activation —
+ * the identity registry table (T010) and the role/capability grants (T008).
+ * Creates no Product data, no user, no content, and no setting beyond the
+ * one non-public bookkeeping value.
  *
  * @return void
  */
@@ -100,14 +122,15 @@ function songhealth_core_activate() {
 		return;
 	}
 	update_option( 'songhealth_core_version', SONGHEALTH_CORE_VERSION, false );
+	SonghealthCore\Plugin::activate();
 }
 register_activation_hook( __FILE__, 'songhealth_core_activate' );
 
 /**
  * Safe deactivation: intentionally removes nothing. Songhealth data,
- * options, and configuration survive deactivation so deactivation is always
- * reversible and can never be used as an implicit deletion or retirement
- * mechanism.
+ * options, roles, capabilities, and configuration survive deactivation so
+ * deactivation is always reversible and can never be used as an implicit
+ * deletion or retirement mechanism.
  *
  * @return void
  */
@@ -115,5 +138,6 @@ function songhealth_core_deactivate() {
 	if ( ! current_user_can( 'activate_plugins' ) ) {
 		return;
 	}
+	SonghealthCore\Plugin::deactivate();
 }
 register_deactivation_hook( __FILE__, 'songhealth_core_deactivate' );
