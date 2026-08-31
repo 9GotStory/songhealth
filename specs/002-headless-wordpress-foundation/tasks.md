@@ -92,18 +92,18 @@ description: "Dependency-ordered implementation tasks for Delivery 002"
 
 ### Required verification for User Story 2
 
-- [ ] T030 [P] [US2] Write authorization integration tests for role/capability/object/scope/field/lifecycle/relationship checks, nonce-not-authorization, self-escalation denial, last-Administrator protection, and next-request revocation in `wordpress/wp-content/plugins/songhealth-core/tests/integration/AuthorizationBoundaryTest.php`
-- [ ] T031 [P] [US2] Write Preview contract tests for grant signature, expiry, purpose/audience/resource/revision/user binding, active session, fresh authorization, neutral denial, safe projection, and required confidentiality headers in `wordpress/wp-content/plugins/songhealth-core/tests/integration/PreviewContractTest.php`
-- [ ] T032 [P] [US2] Write browser tests for Songhealth-labelled admin entry points and authenticated React Preview isolation across logout, disablement, demotion, expiry, direct URL, cache, crawler, and public-route attempts in `apps/web/tests/e2e/staff-preview.spec.ts`
+- [x] T030 [P] [US2] Write authorization integration tests for role/capability/object/scope/field/lifecycle/relationship checks, nonce-not-authorization, self-escalation denial, last-Administrator protection, and next-request revocation in `wordpress/wp-content/plugins/songhealth-core/tests/integration/AuthorizationBoundaryTest.php`
+- [x] T031 [P] [US2] Write Preview contract tests for grant signature, expiry, purpose/audience/resource/revision/user binding, active session, fresh authorization, neutral denial, safe projection, and required confidentiality headers in `wordpress/wp-content/plugins/songhealth-core/tests/integration/PreviewContractTest.php`
+- [x] T032 [P] [US2] Write browser tests for Songhealth-labelled admin entry points and authenticated React Preview isolation across logout, disablement, demotion, expiry, direct URL, cache, crawler, and public-route attempts in `apps/web/tests/e2e/staff-preview.spec.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T033 [US2] Configure bounded Basic Page and Document Resource `wp-admin` menus, labels, fields, Public ID display, validation messages, and capability-aware actions using Songhealth domain language, with creation routed through the Songhealth supported-resource creation service so only accepted, identified records enter the admin workflow, in `wordpress/wp-content/plugins/songhealth-core/src/Content/AdminExperience.php`
-- [ ] T034 [US2] Implement short-lived single-purpose signed opaque Preview grants containing no content or credentials and bound to user/resource/revision/audience in `wordpress/wp-content/plugins/songhealth-core/src/Preview/PreviewGrant.php`
-- [ ] T035 [US2] Implement Preview initiation and retrieval with current WordPress session plus fresh authorization on every request, CSRF nonce/origin defense, explicit candidate projection, neutral denial, and private/no-store/noindex headers in `wordpress/wp-content/plugins/songhealth-core/src/Preview/PreviewController.php`
-- [ ] T036 [P] [US2] Implement a Preview-only React client that sends no administrator credential, avoids shared/service-worker persistence, and accepts only the bounded candidate DTO in `apps/web/app/services/songhealth-preview.ts`
-- [ ] T037 [US2] Implement the authenticated read-only Preview route with visible non-public labeling and no lifecycle actions, canonical links, analytics capture, or crawler exposure in `apps/web/app/routes/preview.$resourceType.$publicId.tsx`
-- [ ] T038 [US2] Record the US2 authorization, domain-admin, Draft identity, and Preview confidentiality results against Quickstart sections 5 and 7 in `tests/successor/evidence/us2-admin-preview.md`
+- [x] T033 [US2] Configure bounded Basic Page and Document Resource `wp-admin` menus, labels, fields, Public ID display, validation messages, and capability-aware actions using Songhealth domain language, with creation routed through the Songhealth supported-resource creation service so only accepted, identified records enter the admin workflow, in `wordpress/wp-content/plugins/songhealth-core/src/Content/AdminExperience.php`
+- [x] T034 [US2] Implement short-lived single-purpose signed opaque Preview grants containing no content or credentials and bound to user/resource/revision/audience in `wordpress/wp-content/plugins/songhealth-core/src/Preview/PreviewGrant.php`
+- [x] T035 [US2] Implement Preview initiation and retrieval with current WordPress session plus fresh authorization on every request, CSRF nonce/origin defense, explicit candidate projection, neutral denial, and private/no-store/noindex headers in `wordpress/wp-content/plugins/songhealth-core/src/Preview/PreviewController.php`
+- [x] T036 [P] [US2] Implement a Preview-only React client that sends no administrator credential, avoids shared/service-worker persistence, and accepts only the bounded candidate DTO in `apps/web/app/services/songhealth-preview.ts`
+- [x] T037 [US2] Implement the authenticated read-only Preview route with visible non-public labeling and no lifecycle actions, canonical links, analytics capture, or crawler exposure in `apps/web/app/routes/preview.$resourceType.$publicId.tsx`
+- [x] T038 [US2] Record the US2 authorization, domain-admin, Draft identity, and Preview confidentiality results against Quickstart sections 5 and 7 in `tests/successor/evidence/us2-admin-preview.md`
 
 **Checkpoint**: After Foundational, US2 is independently testable without requiring US3 or US4; it may reuse the shared React renderer established by US1.
 

@@ -173,7 +173,14 @@ class RoutesTest extends WP_UnitTestCase {
 					$reference = $contract;
 					$this->assertSame( 404, $contract['status'], "{$surface}/{$condition} must be the bounded 404 class" );
 					$this->assertSame( NeutralResponse::CODE_NOT_FOUND, $contract['code'] );
-					$this->assertSame( 'no-store', $contract['cache'] );
+					/*
+					 * The Preview surface carries its T035 confidentiality
+					 * posture on every answer, denial included (FR-016:
+					 * private/no-store); the anonymous public surfaces keep
+					 * the accepted plain no-store class.
+					 */
+					$expected_cache = 'preview' === $surface ? 'private, no-store' : 'no-store';
+					$this->assertSame( $expected_cache, $contract['cache'] );
 					$this->assertSame( 'nosniff', $contract['nosniff'] );
 					continue;
 				}

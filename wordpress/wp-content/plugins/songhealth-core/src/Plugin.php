@@ -51,10 +51,12 @@ declare( strict_types=1 );
 namespace SonghealthCore;
 
 use SonghealthCore\Authorization\CapabilityMap;
+use SonghealthCore\Content\AdminExperience;
 use SonghealthCore\Content\FoundationTypes;
 use SonghealthCore\Diagnostics\Configuration;
 use SonghealthCore\Identity\CreateTimePublicId;
 use SonghealthCore\Identity\RegistrySchema;
+use SonghealthCore\Preview\PreviewController;
 use SonghealthCore\Rest\NativeSurfaceContainment;
 use SonghealthCore\Rest\Routes;
 
@@ -82,6 +84,14 @@ final class Plugin {
 		add_action( 'rest_api_init', array( Routes::class, 'register' ) );
 
 		NativeSurfaceContainment::register();
+
+		/*
+		 * The bounded admin experience (T033) and the Preview initiation
+		 * surface (T035) attach to the wp-admin lifecycle; Preview retrieval
+		 * is dispatched by the registered REST route, never wired here.
+		 */
+		AdminExperience::register();
+		PreviewController::register();
 	}
 
 	/**

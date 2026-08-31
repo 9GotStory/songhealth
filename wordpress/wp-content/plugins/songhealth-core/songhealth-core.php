@@ -68,6 +68,17 @@ define( 'SONGHEALTH_CORE_DIR', plugin_dir_path( __FILE__ ) );
  * - src/Rest/PublicResourcesController.php (T025) — the eligible-only detail
  *   and bounded opaque-continuation listing controllers for the US1 public
  *   contract.
+ * - src/Content/AdminExperience.php (T033) — the bounded Songhealth wp-admin
+ *   experience for the two foundation types: work-language metaboxes, the
+ *   read-only Public ID display, bounded validation messages, capability-aware
+ *   actions, and accepted creation routed through the creation service.
+ * - src/Preview/PreviewGrant.php (T034) — short-lived single-purpose opaque
+ *   signed Preview grants bound to user/resource/revision/audience/purpose,
+ *   carrying no content and no credential.
+ * - src/Preview/PreviewController.php (T035) — Preview initiation and
+ *   retrieval with current session, fresh authorization, supplemental
+ *   nonce/origin defenses, the bounded candidate projection, neutral denial,
+ *   and private/no-store/noindex responses.
  * - src/Plugin.php (T019) — the lifecycle wiring module.
  *
  * Loading a module defines its declarations only. No module adds a WordPress
@@ -92,6 +103,9 @@ function songhealth_core_modules() {
 		'src/Rest/EligibleResourceQuery.php',
 		'src/Rest/NativeSurfaceContainment.php',
 		'src/Rest/PublicResourcesController.php',
+		'src/Content/AdminExperience.php',
+		'src/Preview/PreviewGrant.php',
+		'src/Preview/PreviewController.php',
 		'src/Plugin.php',
 	);
 }

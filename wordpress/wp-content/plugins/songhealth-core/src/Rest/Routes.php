@@ -70,6 +70,7 @@ namespace SonghealthCore\Rest;
 use SonghealthCore\Authorization\CapabilityMap;
 use SonghealthCore\Content\FoundationTypes;
 use SonghealthCore\Identity\PublicIdRegistry;
+use SonghealthCore\Preview\PreviewController;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_REST_Server;
@@ -283,25 +284,30 @@ final class Routes {
 	}
 
 	/**
-	 * Preview retrieval handler.
+	 * Preview retrieval handler: dispatch to the US2 controller (T035).
 	 *
-	 * The staff-session boundary is the first action (see preview_permission
-	 * for why it lives here), followed by the same neutral identifier
-	 * treatment as the other surfaces; the bounded candidate projection
-	 * belongs to the authorized US2 controller (T035).
+	 * The staff-session boundary remains the first action (see
+	 * preview_permission for why it lives here), followed by the same strict
+	 * canonical identifier treatment as the other surfaces. The controller
+	 * owns every per-request decision after that: the supplemental CSRF
+	 * defenses, the grant's binding verification, the live identity and
+	 * accepted-resource prerequisites, the fresh authorization decision, and
+	 * the bounded candidate projection. Every failure — including these two
+	 * early gates — answers the one neutral class carrying the Preview
+	 * confidentiality headers (PreviewController::denial()), so no failure
+	 * dimension is observable through status, body, or header variation.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response
 	 */
 	public static function preview_item( $request ) {
 		if ( ! self::is_staff_session() ) {
-			return NeutralResponse::not_found();
+			return PreviewController::denial();
 		}
-		$neutral = self::neutral_for_identifier( $request );
-		if ( null !== $neutral ) {
-			return $neutral;
+		if ( null !== self::neutral_for_identifier( $request ) ) {
+			return PreviewController::denial();
 		}
-		return NeutralResponse::not_found();
+		return PreviewController::retrieve( $request );
 	}
 
 	/**
