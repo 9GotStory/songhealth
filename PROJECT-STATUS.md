@@ -31,16 +31,16 @@
 
 ## Workflow Gate
 
-- **Current phase:** DELIVERY 002 GATE 06 — T048–T056 / US4 SUBSTANTIVELY CLOSED / STOP BEFORE FURTHER AUTHORIZATION
-- **Current review result:** PASS accepted — corrective implementation `4d7e53fcd2a09ba5e603af33ce038954b52a2be1`; G06-B01 closed after corrective round 1
-- **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify COMPLETE; Clarify COMPLETE; Plan COMPLETE; Tasks COMPLETE; Analyze COMPLETE; T001–T056 complete according to their accepted gate outcomes; unresolved T054 Bangmod account facts remain `DEFERRED-EVIDENCE-GATE`
-- **Next valid action:** None until separate Human authorization; T057–T060 remain NOT AUTHORIZED
-- **Blocking issues:** None for closed Gate 06; Production-specific Bangmod capability/version locks remain evidence-gated
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
-- **Authorized Implementation:** NONE
+- **Current phase:** DELIVERY 002 GATE 07 — T057–T060 / FINAL CROSS-CUTTING VERIFICATION / HUMAN AUTHORIZED
+- **Current review result:** Gate 06 PASS accepted — T048–T056 substantively CLOSED; corrective implementation `4d7e53fcd2a09ba5e603af33ce038954b52a2be1`; G06-B01 closed after corrective round 1
+- **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify COMPLETE; Clarify COMPLETE; Plan COMPLETE; Tasks COMPLETE; Analyze COMPLETE; T001–T056 complete according to their accepted gate outcomes; unresolved T054 Production-specific Bangmod account facts remain `DEFERRED-EVIDENCE-GATE`
+- **Next valid action:** Codex issues the bounded handoff to Claude Code for Delivery 002 Gate 07 / T057–T060 only
+- **Blocking issues:** None for Gate 07 handoff; unresolved T054 Production-specific Bangmod capability/version locks remain evidence-gated and must not be converted into assumed PASS results
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Authorized Implementation:** T057–T060 — Final Cross-Cutting Verification only
 - **Spec Kit specify:** COMPLETE / independently reviewed
 - **Delivery 001 T051+:** RETIRED / NOT AUTHORIZED
-- **Importer / Trial Migration / Production Cutover:** NOT AUTHORIZED
+- **Excluded scope:** Importer, Trial Migration, Production Import, Production Cutover, Production deployment, legacy retirement, Delivery 001 T051+, asset deletion, and speculative infrastructure remain NOT AUTHORIZED
 - **Selection record:** `docs/spec-reconciliation/002-human-successor-selection-2026-08-29.md`
 - **Context READY review record:** `docs/spec-reconciliation/002-context-ready-review-2026-08-29.md`
 - **Specify review record:** `docs/spec-reconciliation/002-specify-review-2026-08-29.md`
@@ -972,11 +972,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — Delivery 002 T001–T005 and prerequisite Gate 01.5 accepted; T006–T060 remain unauthorized
-- **Runtime:** NONE
-- **Required references:** NONE
-- **Expected verification:** NONE — Gate 01.5 acceptance is persisted; no further implementation is authorized
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** Delivery 002 Gate 07 / T057–T060 — Final Cross-Cutting Verification only: complete the FR-024/FR-025 and SC-001–SC-011 acceptance matrix; bounded-performance verification; nondisclosure audit; and final Delivery 002 scope audit
+- **Runtime:** Claude Code as DEV Executor under Codex orchestration and independent review
+- **Required references:** `.specify/memory/constitution.md`; `docs/spec-context/002-headless-wordpress-foundation.md`; `specs/002-headless-wordpress-foundation/spec.md`; `specs/002-headless-wordpress-foundation/plan.md`; `specs/002-headless-wordpress-foundation/tasks.md` T057–T060; `specs/002-headless-wordpress-foundation/quickstart.md`; and the accepted T001–T056 implementation/evidence artifacts routed by those documents
+- **Expected verification:** Execute and record only T057–T060 evidence; preserve every unresolved T054 Production-specific Bangmod account fact as `DEFERRED-EVIDENCE-GATE`; verify bounded behavior, nondisclosure, and exact Delivery 002 scope without importer/migration/import/cutover, Production deployment, legacy retirement, Delivery 001 T051+, asset deletion, speculative infrastructure, or new Product implementation
+- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
