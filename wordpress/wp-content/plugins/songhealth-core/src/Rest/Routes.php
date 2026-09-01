@@ -71,6 +71,7 @@ use SonghealthCore\Authorization\CapabilityMap;
 use SonghealthCore\Binary\BinaryController;
 use SonghealthCore\Binary\PreviewBinaryController;
 use SonghealthCore\Content\FoundationTypes;
+use SonghealthCore\Diagnostics\DiagnosticsController;
 use SonghealthCore\Identity\PublicIdRegistry;
 use SonghealthCore\Preview\PreviewController;
 use WP_REST_Request;
@@ -110,6 +111,16 @@ final class Routes {
 
 	/** Session-bound Preview binary route pattern (Document Resource only; T044). */
 	const ROUTE_PREVIEW_BINARY = '/preview/document-resource/' . self::IDENTIFIER_SEGMENT_PATTERN . '/binary';
+
+	/*
+	 * Operator channel shapes (US4, T052): the minimal public liveness
+	 * signal and the protected diagnostics surface. Both stay reachable
+	 * when startup validation fails closed (T053) — they are how an
+	 * operator observes and acts on that failure — and neither carries any
+	 * record data.
+	 */
+	const ROUTE_HEALTH      = '/health';
+	const ROUTE_DIAGNOSTICS = '/diagnostics';
 
 	/**
 	 * Register the approved route shapes on the REST infrastructure.
@@ -193,6 +204,30 @@ final class Routes {
 					'args'                => array(
 						'publicId' => self::public_id_arg(),
 					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::ROUTE_NAMESPACE,
+			self::ROUTE_HEALTH,
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( DiagnosticsController::class, 'liveness' ),
+					'permission_callback' => array( __CLASS__, 'public_read_permission' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::ROUTE_NAMESPACE,
+			self::ROUTE_DIAGNOSTICS,
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( DiagnosticsController::class, 'diagnostics' ),
+					'permission_callback' => array( __CLASS__, 'public_read_permission' ),
 				),
 			)
 		);

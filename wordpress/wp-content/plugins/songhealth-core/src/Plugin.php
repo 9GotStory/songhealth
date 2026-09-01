@@ -34,10 +34,11 @@
  * - The identity registry table is created on plugin activation (T010) and,
  *   when absent, lazily by the registry itself.
  * - Configuration (T006) becomes available to the lifecycle through the
- *   memoized accessor below. Startup VALIDATION that blocks protected work
- *   on invalid configuration is deliberately NOT implemented here: it is the
- *   authorized diagnostics task (T053), and this wiring adds no behavior of
- *   its own around validity.
+ *   memoized accessor below, and startup validation (T053) gates protected
+ *   work on that same request-scoped configuration: the data-bearing REST
+ *   surfaces are withheld from dispatch and new resource acceptance is
+ *   refused while any declared setting is missing, malformed, unsafe, or
+ *   wrong-origin, with bounded operator evidence preserved (FR-021).
  *
  * Activation and deactivation remain non-destructive (T005): activation
  * provisions only the registry table and the role/capability grants;
@@ -56,6 +57,7 @@ use SonghealthCore\Binary\ProtectedAttachment;
 use SonghealthCore\Content\AdminExperience;
 use SonghealthCore\Content\FoundationTypes;
 use SonghealthCore\Diagnostics\Configuration;
+use SonghealthCore\Diagnostics\StartupValidator;
 use SonghealthCore\Identity\CreateTimePublicId;
 use SonghealthCore\Identity\RegistrySchema;
 use SonghealthCore\Preview\PreviewController;
@@ -103,6 +105,15 @@ final class Plugin {
 		 */
 		BinaryController::register();
 		ProtectedAttachment::register();
+
+		/*
+		 * Startup validation (T053): evaluates the request-scoped
+		 * configuration, records the bounded operator evidence when it is
+		 * invalid, withholds the data-bearing REST surfaces from dispatch,
+		 * and refuses new resource acceptance through the creation service
+		 * gate. Attached last so every module it gates is already wired.
+		 */
+		StartupValidator::register();
 	}
 
 	/**

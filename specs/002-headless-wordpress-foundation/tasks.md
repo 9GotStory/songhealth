@@ -142,18 +142,18 @@ description: "Dependency-ordered implementation tasks for Delivery 002"
 
 ### Required verification for User Story 4
 
-- [ ] T048 [P] [US4] Write configuration and diagnostics tests for valid startup, missing/malformed/unsafe rejection, public minimal liveness, authenticated category/status output, and nondisclosure of secrets, paths, queries, users, records, stacks, and environment detail in `wordpress/wp-content/plugins/songhealth-core/tests/integration/DiagnosticsSafetyTest.php`
-- [ ] T049 [P] [US4] Create the cross-graph dependency/security review procedure covering supported WordPress/PHP/plugin and npm/frontend versions, advisories, ownership, maintenance, update, and replacement evidence in `tests/successor/dependency-security-review.md`
-- [ ] T050 [P] [US4] Create the actual-account evidence checklist for PHP/extensions, database, HTTPS/domain/document roots, protected-file controls, Git/deployment, required cron/CLI, logs, backup/restore, React hosting, and route handling, with unresolved facts marked `DEFERRED-EVIDENCE-GATE`, in `tests/successor/bangmod-capability-evidence.md`
-- [ ] T051 [P] [US4] Create the non-destructive Delivery 001 asset register with KEEP/REUSE/SUPERSEDED/REMOVE-LATER, replacement boundary/evidence, reviewer fields, and `removal_authorized=false` in `tests/successor/delivery-001-asset-classification.md`
+- [x] T048 [P] [US4] Write configuration and diagnostics tests for valid startup, missing/malformed/unsafe rejection, public minimal liveness, authenticated category/status output, and nondisclosure of secrets, paths, queries, users, records, stacks, and environment detail in `wordpress/wp-content/plugins/songhealth-core/tests/integration/DiagnosticsSafetyTest.php`
+- [x] T049 [P] [US4] Create the cross-graph dependency/security review procedure covering supported WordPress/PHP/plugin and npm/frontend versions, advisories, ownership, maintenance, update, and replacement evidence in `tests/successor/dependency-security-review.md`
+- [x] T050 [P] [US4] Create the actual-account evidence checklist for PHP/extensions, database, HTTPS/domain/document roots, protected-file controls, Git/deployment, required cron/CLI, logs, backup/restore, React hosting, and route handling, with unresolved facts marked `DEFERRED-EVIDENCE-GATE`, in `tests/successor/bangmod-capability-evidence.md`
+- [x] T051 [P] [US4] Create the non-destructive Delivery 001 asset register with KEEP/REUSE/SUPERSEDED/REMOVE-LATER, replacement boundary/evidence, reviewer fields, and `removal_authorized=false` in `tests/successor/delivery-001-asset-classification.md`
 
 ### Implementation for User Story 4
 
-- [ ] T052 [US4] Implement minimal public liveness and currently authorized diagnostic category/status responses with safe correlation codes and no protected environment values in `wordpress/wp-content/plugins/songhealth-core/src/Diagnostics/DiagnosticsController.php`
-- [ ] T053 [US4] Implement startup validation that blocks protected work on invalid configuration while preserving bounded actionable operator evidence in `wordpress/wp-content/plugins/songhealth-core/src/Diagnostics/StartupValidator.php`
-- [ ] T054 [US4] Execute the authorized actual Bangmod account checks when credentials/access are later provided, recording only redacted direct evidence or `DEFERRED-EVIDENCE-GATE` and accepting no Production lock from public documentation alone in `tests/successor/bangmod-capability-evidence.md`
-- [ ] T055 [US4] Review repository assets against implemented replacement proof without deleting anything and complete the classification/evidence fields while retaining `removal_authorized=false` in `tests/successor/delivery-001-asset-classification.md`
-- [ ] T056 [US4] Record US4 configuration, diagnostics, dependency/advisory, security-risk, hosting-gate, and successor-preservation results against Quickstart sections 1 and 8–10 in `tests/successor/evidence/us4-sustainable-foundation.md`
+- [x] T052 [US4] Implement minimal public liveness and currently authorized diagnostic category/status responses with safe correlation codes and no protected environment values in `wordpress/wp-content/plugins/songhealth-core/src/Diagnostics/DiagnosticsController.php`
+- [x] T053 [US4] Implement startup validation that blocks protected work on invalid configuration while preserving bounded actionable operator evidence in `wordpress/wp-content/plugins/songhealth-core/src/Diagnostics/StartupValidator.php`
+- [x] T054 [US4] Execute the authorized actual Bangmod account checks when credentials/access are later provided, recording only redacted direct evidence or `DEFERRED-EVIDENCE-GATE` and accepting no Production lock from public documentation alone in `tests/successor/bangmod-capability-evidence.md`
+- [x] T055 [US4] Review repository assets against implemented replacement proof without deleting anything and complete the classification/evidence fields while retaining `removal_authorized=false` in `tests/successor/delivery-001-asset-classification.md`
+- [x] T056 [US4] Record US4 configuration, diagnostics, dependency/advisory, security-risk, hosting-gate, and successor-preservation results against Quickstart sections 1 and 8–10 in `tests/successor/evidence/us4-sustainable-foundation.md`
 
 **Checkpoint**: US4 is independently testable after Foundational. T054 may remain evidence-gated until actual account access is authorized; it must not fabricate a PASS or introduce speculative infrastructure.
 

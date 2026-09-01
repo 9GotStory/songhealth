@@ -90,6 +90,33 @@ if ( ! file_exists( $wp_tests_config ) ) {
 putenv( 'WP_PHPUNIT__TESTS_CONFIG=' . $wp_tests_config );
 
 /*
+ * Valid baseline configuration for the clean verification profile.
+ *
+ * The disposable profile supplies a complete, valid, environment-separated
+ * server configuration exactly as a real deployment would (T006 schema:
+ * environment variable first, wp-config constant second). This matters
+ * since T053: startup validation fails closed on any missing, malformed,
+ * unsafe, or wrong-origin setting — withholding the data-bearing REST
+ * surfaces and refusing new resource acceptance — so a profile with NO
+ * configuration would leave every protected-work test exercising the outage
+ * path instead of the behavior under test. The values are non-secret,
+ * non-Production, loopback-only fixtures of this disposable profile; the
+ * safety suite (DiagnosticsSafetyTest) pins each invalid variant
+ * explicitly against this baseline. An already-exported variable wins, so
+ * an operator may supply the profile configuration from outside.
+ */
+foreach ( array(
+	'SONGHEALTH_ENVIRONMENT'        => 'development',
+	'SONGHEALTH_PUBLIC_ORIGIN'      => 'http://127.0.0.1:4173',
+	'SONGHEALTH_PREVIEW_SIGNING_KEY' => 'T002-verification-profile-signing-key-0123456789abcdef',
+) as $songhealth_key => $songhealth_value ) {
+	$current = getenv( $songhealth_key );
+	if ( false === $current || '' === $current ) {
+		putenv( $songhealth_key . '=' . $songhealth_value );
+	}
+}
+
+/*
  * Load ONLY the first-party plugin as the Songhealth boundary. Registered
  * before the test library bootstrap so the plugin is active on the clean
  * installation from the first request, exactly like a normal load order.

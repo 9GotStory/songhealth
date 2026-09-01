@@ -9,9 +9,9 @@
  * supplies commodity CMS infrastructure and songhealth-core owns Songhealth
  * semantics (FR-001). The module files below own the declarations; the
  * lifecycle wiring lives in src/Plugin.php (T019), which this entry point
- * attaches after loading the modules. Preview, binary delivery, and
- * diagnostics behavior belong to their own authorized tasks and remain
- * absent here.
+ * attaches after loading the modules. Preview, binary delivery, and the
+ * safe diagnostics/startup-validation modules are loaded below as completed
+ * declarations of their own authorized tasks (T035/T043/T044, T052/T053).
  *
  * @package SonghealthCore
  */
@@ -88,6 +88,14 @@ define( 'SONGHEALTH_CORE_DIR', plugin_dir_path( __FILE__ ) );
  * - src/Binary/PreviewBinaryController.php (T044) — the separate
  *   session-bound Preview binary surface re-using the accepted Gate 04
  *   Preview authorization semantics.
+ * - src/Diagnostics/DiagnosticsController.php (T052) — the minimal public
+ *   liveness response and the currently authorized protected diagnostics
+ *   report: stable category/status output with a safe correlation code and
+ *   no protected environment values.
+ * - src/Diagnostics/StartupValidator.php (T053) — fail-closed startup
+ *   validation: withholds the data-bearing REST surfaces and refuses new
+ *   resource acceptance while the configuration is invalid, preserving
+ *   bounded actionable operator evidence.
  * - src/Plugin.php (T019) — the lifecycle wiring module.
  *
  * Loading a module defines its declarations only. No module adds a WordPress
@@ -118,6 +126,8 @@ function songhealth_core_modules() {
 		'src/Binary/ProtectedAttachment.php',
 		'src/Binary/BinaryController.php',
 		'src/Binary/PreviewBinaryController.php',
+		'src/Diagnostics/DiagnosticsController.php',
+		'src/Diagnostics/StartupValidator.php',
 		'src/Plugin.php',
 	);
 }

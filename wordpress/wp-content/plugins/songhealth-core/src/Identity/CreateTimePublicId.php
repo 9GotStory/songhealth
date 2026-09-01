@@ -162,7 +162,9 @@ final class CreateTimePublicId {
 	 *
 	 * Failure codes, all value-free: `invalid_request`, `update_not_supported`
 	 * (updates of accepted resources use ordinary WordPress paths and never
-	 * pass through this service), `unsupported_type`, `issuance_unavailable`
+	 * pass through this service), `unsupported_type`,
+	 * `configuration_invalid` (startup validation refuses acceptance of new
+	 * protected work — T053; nothing was written), `issuance_unavailable`
 	 * (registry or randomness not ready — nothing was written),
 	 * `insert_failed`, `issuance_failed`, `mapping_verification_failed`,
 	 * `commit_failed`, and the abort outcomes `creation_rolled_back`,
@@ -182,6 +184,16 @@ final class CreateTimePublicId {
 		}
 		if ( ! empty( $postarr['ID'] ) ) {
 			return new WP_Error( 'update_not_supported' );
+		}
+		/*
+		 * Fail closed before any protected work is accepted: while startup
+		 * validation (T053) holds the configuration invalid, no new
+		 * immutable identity is established and no record becomes accepted.
+		 * Updates, autosaves, and revisions of already-identified resources
+		 * never pass through this service and stay untouched (FR-005).
+		 */
+		if ( ! \SonghealthCore\Diagnostics\StartupValidator::protected_work_allowed() ) {
+			return new WP_Error( 'configuration_invalid' );
 		}
 		$post_type = isset( $postarr['post_type'] ) ? (string) $postarr['post_type'] : '';
 		$resource_type = FoundationTypes::resource_type_for( $post_type );

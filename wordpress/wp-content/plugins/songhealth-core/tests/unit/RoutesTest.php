@@ -69,19 +69,24 @@ class RoutesTest extends WP_UnitTestCase {
 		/*
 		 * WordPress itself registers one extra entry per namespace: the
 		 * namespace index route at '/songhealth/v1'. Every other entry must
-		 * be one of the five approved shapes.
+		 * be one of the seven approved shapes: the five data-bearing shapes
+		 * (detail, listing, Preview, Preview-binary, binary) plus the two
+		 * operator channels (minimal public liveness, protected
+		 * diagnostics; T052).
 		 */
 		$expected = array(
 			'/' . Routes::ROUTE_NAMESPACE,
 			'/' . Routes::ROUTE_NAMESPACE . Routes::ROUTE_BINARY,
 			'/' . Routes::ROUTE_NAMESPACE . Routes::ROUTE_DETAIL,
+			'/' . Routes::ROUTE_NAMESPACE . Routes::ROUTE_DIAGNOSTICS,
+			'/' . Routes::ROUTE_NAMESPACE . Routes::ROUTE_HEALTH,
 			'/' . Routes::ROUTE_NAMESPACE . Routes::ROUTE_LISTING,
 			'/' . Routes::ROUTE_NAMESPACE . Routes::ROUTE_PREVIEW,
 			'/' . Routes::ROUTE_NAMESPACE . Routes::ROUTE_PREVIEW_BINARY,
 		);
 		sort( $expected );
 
-		$this->assertSame( $expected, $this->songhealth_routes(), 'only the approved detail, listing, Preview, Preview-binary, and binary shapes may exist' );
+		$this->assertSame( $expected, $this->songhealth_routes(), 'only the approved detail, listing, Preview, Preview-binary, binary, liveness, and diagnostics shapes may exist' );
 	}
 
 	/** @test */
