@@ -6,10 +6,13 @@
  * malformed, unsafe, and wrong-origin configuration fails closed BEFORE
  * protected work is accepted; public liveness stays minimal; protected
  * diagnostics require current authorization and expose only stable
- * category/status evidence with a safe correlation code; and no surface of
- * this batch discloses secrets, credentials, protected content, sensitive
- * paths, raw queries, CMS users/identities, records, stacks, or
- * unnecessary environment detail (FR-021, FR-022, FR-024; SC-007).
+ * category/status evidence with a safe correlation code — the authorized
+ * report shape and its per-setting status vocabulary are pinned CLOSED, so
+ * no valid or offending environment/origin literal can appear (G06-B01);
+ * and no surface of this batch discloses secrets, credentials, protected
+ * content, sensitive paths, raw queries, CMS users/identities, records,
+ * stacks, or unnecessary environment detail (FR-021, FR-022, FR-024;
+ * SC-007).
  *
  * Source of truth: specs/002-headless-wordpress-foundation/spec.md FR-021,
  * FR-022, FR-024; specs/002-headless-wordpress-foundation/quickstart.md §1;
@@ -51,13 +54,35 @@ class DiagnosticsSafetyTest extends WP_UnitTestCase {
 	/**
 	 * Distinctive sentinel values. Every assertion below proves these never
 	 * appear in any public or protected output of this batch: the real
-	 * signing-key value, the test database credential, the installation
+	 * signing-key value, the valid and the offending environment/origin
+	 * values (G06-B01), the test database credential, the installation
 	 * path, the table prefix, a protected record's title, and a CMS user
 	 * login are the disclosure classes SC-007 enumerates.
 	 */
-	const SENTINEL_KEY    = 'T048-sentinel-signing-key-zzz-not-a-real-secret-9876543210';
-	const SENTINEL_RECORD = 'T048-Sentinel-Protected-Record-Title';
-	const SENTINEL_LOGIN  = 't048-sentinel-staff-login';
+	const SENTINEL_KEY          = 'T048-sentinel-signing-key-zzz-not-a-real-secret-9876543210';
+	const SENTINEL_RECORD       = 'T048-Sentinel-Protected-Record-Title';
+	const SENTINEL_LOGIN        = 't048-sentinel-staff-login';
+	const SENTINEL_VALID_ORIGIN = 'http://t048-sentinel-valid-origin.example';
+	const SENTINEL_BAD_ORIGIN   = 'ftp://t048-sentinel-bad-scheme.example';
+
+	/**
+	 * The closed per-setting status vocabulary the authorized diagnostics
+	 * report may use (G06-B01): the one valid status plus every bounded T006
+	 * failure category. Nothing else — and never a configured value.
+	 */
+	const CLOSED_SETTING_STATUS_VOCABULARY = array(
+		'set-and-valid',
+		'missing',
+		'environment_not_allowlisted',
+		'origin_malformed',
+		'origin_not_bare',
+		'origin_scheme_unsafe',
+		'origin_host_malformed',
+		'secret_too_short',
+		'secret_characters_unsafe',
+		'secret_placeholder_value',
+		'unknown_setting',
+	);
 
 	/** Baseline configuration captured before any per-case override. */
 	private $baseline = array();
@@ -238,6 +263,26 @@ class DiagnosticsSafetyTest extends WP_UnitTestCase {
 		$this->assertSame( 'development', $status[ Configuration::KEY_ENVIRONMENT ] );
 		$this->assertSame( 'http://127.0.0.1:4173', $status[ Configuration::KEY_PUBLIC_ORIGIN ] );
 		$this->assertSame( 'set-and-valid', $status[ Configuration::KEY_PREVIEW_SIGNING_KEY ] );
+
+		/*
+		 * The remote diagnostics surface reports the CLOSED vocabulary only:
+		 * every valid setting — secret and non-secret alike — contributes
+		 * `set-and-valid`; the literal environment name and origin never
+		 * appear (G06-B01).
+		 */
+		wp_set_current_user( $this->staff['administrator'] );
+		$report = $this->get( '/songhealth/v1/diagnostics' )->get_data();
+		$this->assertSame(
+			array(
+				Configuration::KEY_ENVIRONMENT        => 'set-and-valid',
+				Configuration::KEY_PUBLIC_ORIGIN      => 'set-and-valid',
+				Configuration::KEY_PREVIEW_SIGNING_KEY => 'set-and-valid',
+			),
+			$report['categories']['configuration']['settings']
+		);
+		$encoded = (string) wp_json_encode( $report );
+		$this->assertStringNotContainsString( 'development', $encoded, 'the valid environment name is not disclosed' );
+		$this->assertStringNotContainsString( 'http://127.0.0.1:4173', $encoded, 'the valid public origin is not disclosed' );
 
 		/* The data surfaces are served (an unknown identifier is the neutral class, not the outage class). */
 		$detail = $this->get( '/songhealth/v1/resources/basic-page/00000000-0000-7000-8000-000000000000' );
@@ -425,6 +470,29 @@ class DiagnosticsSafetyTest extends WP_UnitTestCase {
 		$this->assertSame( 'valid', $report['categories']['configuration']['status'] );
 		$this->assertSame( 'available', $report['categories']['identity_registry']['status'] );
 
+		/*
+		 * G06-B01: the authorized report shape is CLOSED. The configuration
+		 * category is exactly {status, settings}; settings carries exactly
+		 * the three declared keys; and every value is drawn from the closed
+		 * status vocabulary — `set-and-valid` or one of the T006 bounded
+		 * failure categories — never a configured value.
+		 */
+		$this->assertSame(
+			array( 'status', 'settings' ),
+			array_keys( $report['categories']['configuration'] )
+		);
+		$this->assertSame(
+			array( Configuration::KEY_ENVIRONMENT, Configuration::KEY_PUBLIC_ORIGIN, Configuration::KEY_PREVIEW_SIGNING_KEY ),
+			array_keys( $report['categories']['configuration']['settings'] )
+		);
+		foreach ( $report['categories']['configuration']['settings'] as $key => $value ) {
+			$this->assertContains(
+				$value,
+				self::CLOSED_SETTING_STATUS_VOCABULARY,
+				"setting {$key} must report closed status vocabulary only"
+			);
+		}
+
 		/* The correlation code is shared with the startup operator evidence and stable per state. */
 		$this->assertSame( StartupValidator::correlation_code(), $report['correlation'] );
 		$this->assertMatchesRegularExpression( '/^shdiag-[0-9a-f]{12}$/', (string) $report['correlation'] );
@@ -434,6 +502,16 @@ class DiagnosticsSafetyTest extends WP_UnitTestCase {
 		$invalid_report = $this->get( '/songhealth/v1/diagnostics' )->get_data();
 		$this->assertNotSame( $report['correlation'], $invalid_report['correlation'] );
 		$this->assertNotSame( 'ok', $invalid_report['status'] );
+
+		/* The closed vocabulary holds under failure: the failing setting shows its category, the rest stay valid. */
+		$this->assertSame(
+			array(
+				Configuration::KEY_ENVIRONMENT        => 'set-and-valid',
+				Configuration::KEY_PUBLIC_ORIGIN      => 'set-and-valid',
+				Configuration::KEY_PREVIEW_SIGNING_KEY => 'missing',
+			),
+			$invalid_report['categories']['configuration']['settings']
+		);
 
 		$again = $this->get( '/songhealth/v1/diagnostics' )->get_data();
 		$this->assertSame( $invalid_report['correlation'], $again['correlation'], 'the code is deterministic for the same state' );
@@ -499,46 +577,53 @@ class DiagnosticsSafetyTest extends WP_UnitTestCase {
 		/*
 		 * Seed protected state a disclosure would leak: a real sentinel
 		 * signing key, a sentinel protected record, and a sentinel CMS
-		 * identity. The configuration is then invalid, which is the state
-		 * most likely to reach for a value while reporting a failure.
+		 * identity.
 		 */
 		$this->use_valid_configuration();
 		$created = $this->create_tracked( FoundationTypes::DOCUMENT_RESOURCE, self::SENTINEL_RECORD );
 		$this->assertIsArray( $created );
 
-		$this->use_configuration( $this->valid_configuration( array( 'SONGHEALTH_ENVIRONMENT' => 'staging' ) ) );
-
-		/* Every output this batch can produce, anonymous and authorized. */
-		wp_set_current_user( 0 );
-		$outputs = array(
-			$this->get( '/songhealth/v1/health' ),
-			$this->get( '/songhealth/v1/diagnostics' ),
-			$this->get( '/songhealth/v1/resources/basic-page/00000000-0000-7000-8000-000000000000' ),
-			$this->get( '/songhealth/v1/resources?type=basic-page' ),
-			$this->get( '/songhealth/v1/documents/00000000-0000-7000-8000-000000000000/binary' ),
+		/*
+		 * Pass A — VALID configuration carrying distinctive literal values
+		 * (G06-B01): a sentinel public origin and the real environment
+		 * name. This is the state whose values a status-only report must
+		 * never echo.
+		 */
+		$this->use_configuration(
+			$this->valid_configuration( array( 'SONGHEALTH_PUBLIC_ORIGIN' => self::SENTINEL_VALID_ORIGIN ) )
 		);
-		wp_set_current_user( $this->staff['administrator'] );
-		$outputs[] = $this->get( '/songhealth/v1/health' );
-		$outputs[] = $this->get( '/songhealth/v1/diagnostics' );
+		$encoded = $this->collect_every_output_of_this_batch();
 
-		$evidence = StartupValidator::operator_evidence();
-		$encoded  = wp_json_encode( $evidence );
-		foreach ( $outputs as $response ) {
-			$encoded .= (string) wp_json_encode( $response->get_data() );
-			$encoded .= (string) wp_json_encode( $response->get_headers() );
-		}
-		wp_set_current_user( $this->staff['administrator'] );
-		$encoded .= $this->render_admin_evidence();
+		/*
+		 * Pass B — INVALID configuration whose offending inputs are
+		 * distinctive literals: a sentinel unallowlisted environment name
+		 * and a sentinel bad-scheme origin. The failure state is the one
+		 * most likely to reach for a value while reporting a cause.
+		 */
+		$this->use_configuration(
+			array(
+				'SONGHEALTH_ENVIRONMENT'   => 'staging',
+				'SONGHEALTH_PUBLIC_ORIGIN' => self::SENTINEL_BAD_ORIGIN,
+				'SONGHEALTH_PREVIEW_SIGNING_KEY' => self::SENTINEL_KEY,
+			)
+		);
+		$encoded .= $this->collect_every_output_of_this_batch();
 
 		/*
 		 * The forbidden classes, each seeded with a distinctive sentinel:
-		 * secret values, database credentials, installation paths, the
-		 * database table prefix (raw-query vocabulary), protected record
-		 * content, CMS user identity, platform versions (unnecessary
-		 * environment detail), and stack traces.
+		 * secret values, the valid AND offending environment/origin values
+		 * (G06-B01), database credentials, installation paths, the database
+		 * table prefix (raw-query vocabulary), protected record content,
+		 * CMS user identity, platform versions (unnecessary environment
+		 * detail), and stack traces.
 		 */
 		$forbidden = array(
 			self::SENTINEL_KEY,
+			self::SENTINEL_VALID_ORIGIN,
+			self::SENTINEL_BAD_ORIGIN,
+			'development',
+			'production',
+			'staging',
 			self::SENTINEL_RECORD,
 			self::SENTINEL_LOGIN,
 			(string) DB_USER,
@@ -560,6 +645,45 @@ class DiagnosticsSafetyTest extends WP_UnitTestCase {
 			}
 			$this->assertStringNotContainsString( $needle, $encoded, "the forbidden class '{$this->forbidden_label( $needle )}' must never appear" );
 		}
+	}
+
+	/**
+	 * Collect every output this batch can produce in the CURRENT
+	 * configuration state — public liveness, anonymous diagnostics denial,
+	 * anonymous data-surface answers, the authorized diagnostics report,
+	 * the startup operator evidence, and the wp-admin evidence notice —
+	 * encoded as one comparable string.
+	 *
+	 * @return string
+	 */
+	private function collect_every_output_of_this_batch() {
+		$encoded = '';
+
+		wp_set_current_user( 0 );
+		foreach ( array(
+			'/songhealth/v1/health',
+			'/songhealth/v1/diagnostics',
+			'/songhealth/v1/resources/basic-page/00000000-0000-7000-8000-000000000000',
+			'/songhealth/v1/resources?type=basic-page',
+			'/songhealth/v1/documents/00000000-0000-7000-8000-000000000000/binary',
+		) as $route ) {
+			$response  = $this->get( $route );
+			$encoded   .= (string) wp_json_encode( $response->get_data() );
+			$encoded   .= (string) wp_json_encode( $response->get_headers() );
+		}
+
+		wp_set_current_user( $this->staff['administrator'] );
+		$health      = $this->get( '/songhealth/v1/health' );
+		$diagnostics = $this->get( '/songhealth/v1/diagnostics' );
+		$encoded    .= (string) wp_json_encode( $health->get_data() );
+		$encoded    .= (string) wp_json_encode( $diagnostics->get_data() );
+		$encoded    .= (string) wp_json_encode( $diagnostics->get_headers() );
+
+		$encoded .= (string) wp_json_encode( StartupValidator::operator_evidence() );
+		$encoded .= $this->render_admin_evidence();
+
+		wp_set_current_user( 0 );
+		return $encoded;
 	}
 
 	/** @test */

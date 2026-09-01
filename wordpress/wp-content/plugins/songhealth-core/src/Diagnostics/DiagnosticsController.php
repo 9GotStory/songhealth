@@ -32,11 +32,11 @@
  * - .specify/memory/constitution.md I, IV, VI.
  *
  * Nondisclosure contract: every body this controller emits is assembled from
- * allowlisted status vocabulary only. The configuration settings status is
- * re-used verbatim from the accepted T006 `Configuration::safe_status()`
- * report — the reviewed operator report in which secret settings contribute
- * only `set-and-valid` and nothing else — and the correlation code is a
- * one-way digest of category statuses, so it carries no configurable value.
+ * allowlisted status vocabulary only. Each configuration setting reports
+ * `set-and-valid` or its bounded failure category — never the configured
+ * environment name, origin URL, secret, or any other value — and the
+ * correlation code is a one-way digest of category statuses, so it carries
+ * no configurable value (G06-B01; FR-022).
  *
  * The two route shapes are registered by the lifecycle wiring through
  * Routes (T016); loading this file alone attaches nothing. Both surfaces
@@ -67,6 +67,12 @@ final class DiagnosticsController {
 
 	/** Fixed liveness body: one word, nothing else. */
 	const LIVENESS_OK = 'ok';
+
+	/**
+	 * The one valid-setting status of the closed diagnostics vocabulary:
+	 * presence and validity, never the configured value (G06-B01).
+	 */
+	const STATUS_SET_AND_VALID = 'set-and-valid';
 
 	/**
 	 * Public minimal liveness.
@@ -134,16 +140,23 @@ final class DiagnosticsController {
 	 * detail, paths, or identities (FR-022: no unnecessary environment
 	 * detail).
 	 *
+	 * Configuration settings report CLOSED status vocabulary only
+	 * (G06-B01): every setting contributes either `set-and-valid` or its
+	 * bounded failure category. The literal environment name, the literal
+	 * public origin, and every other configured value are deliberately
+	 * absent — the T006 `safe_status()`/`redacted_summary()` accessors stay
+	 * unchanged for their own server-side log contexts; THIS response is the
+	 * remote diagnostics surface, and it discloses no environment value.
+	 *
 	 * @return array<string, mixed>
 	 */
 	public static function report() {
 		$configuration = Plugin::configuration();
-		$settings      = $configuration->safe_status();
 
 		$categories = array(
 			'configuration'    => array(
 				'status'   => $configuration->is_valid() ? 'valid' : 'invalid',
-				'settings' => $settings,
+				'settings' => self::setting_statuses( $configuration ),
 			),
 			'identity_registry' => array(
 				'status' => \SonghealthCore\Identity\RegistrySchema::exists() ? 'available' : 'unavailable',
@@ -156,6 +169,28 @@ final class DiagnosticsController {
 			'correlation' => StartupValidator::correlation_code(),
 			'categories'  => $categories,
 		);
+	}
+
+	/**
+	 * The closed per-setting status vocabulary of the diagnostics report:
+	 * one entry per declared setting key, each either `set-and-valid` or
+	 * that setting's bounded failure category — never the configured value
+	 * (G06-B01; FR-022).
+	 *
+	 * @param Configuration $configuration Request-scoped lifecycle configuration.
+	 * @return array<string, string>
+	 */
+	private static function setting_statuses( Configuration $configuration ) {
+		$failures = array();
+		foreach ( $configuration->validation_issues() as $issue ) {
+			$failures[ $issue['key'] ] = $issue['category'];
+		}
+
+		$statuses = array();
+		foreach ( Configuration::allowlisted_keys() as $key ) {
+			$statuses[ $key ] = $failures[ $key ] ?? self::STATUS_SET_AND_VALID;
+		}
+		return $statuses;
 	}
 
 	/**

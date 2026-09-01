@@ -9,12 +9,15 @@ independent review and task acceptance are Codex/Human owned.
   authorization)
 - **Candidate:** this batch's tree on branch `agent/claude-developer/g06`,
   persisted as one commit whose sole parent is the base (see the
-  IMPLEMENTATION_RESULT for the exact SHA). The handoff additionally named a
-  persisted authorization commit `1ef98d2`; that object is not resolvable in
-  this checkout or on the GitHub remote (its branch was deleted and the
-  object garbage-collected), so the canonical base above — confirmed
-  independently by the Gate 06 issue body — is the recorded parent. Flagged
-  for reviewer verification.
+  IMPLEMENTATION_RESULT for the exact SHA), plus the G06-B01 corrective
+  commit (review round 1) preserving that implementation commit in linear
+  ancestry. The handoff additionally named a persisted authorization commit
+  `1ef98d2`; that object is not resolvable in this checkout or on the GitHub
+  remote (its branch was deleted and the object garbage-collected), so the
+  canonical base above — confirmed independently by the Gate 06 issue body —
+  is the recorded parent. The reviewer confirmed `1ef98d2` exists in the
+  reviewer checkout as a governance-only commit and that the implementation
+  lineage correctly rests on `b827f2c`.
 - **Environment profile (disposable local verification only):** WordPress 7.1
   core / PHP 8.3.33 / MySQL 8.4 (the digest-pinned Gate 01.5 verification
   images), PHPUnit 9.6.36 + wp-phpunit 7.1.0, Node 24.11.0 / npm 11.6.1,
@@ -33,8 +36,10 @@ filenames.
 **Valid startup is actionable.** With the complete valid configuration, the
 creation service accepts new protected resources, the data-bearing REST
 surfaces serve (an unknown identifier is the neutral 404 class), and the
-operator report shows per-setting status with presence-only secret reporting
-(`set-and-valid`).
+operator report shows per-setting status from CLOSED vocabulary only — every
+setting, secret and non-secret alike, contributes `set-and-valid` or its
+bounded failure category; the literal environment name and origin URL never
+appear in any diagnostics output (G06-B01).
 
 **Every invalid variant fails closed BEFORE protected work is accepted.**
 `DiagnosticsSafetyTest` drives 13 variants — each setting missing (3),
@@ -76,12 +81,20 @@ demotion denies the next request; promotion restores it.
 or state variation across valid/invalid/unsafe configuration.
 
 **Zero disclosure.** The nondisclosure case seeds a sentinel signing-key
-value, a sentinel protected record, and a sentinel CMS login, drives every
-output of this batch (liveness, anonymous + authorized diagnostics, withheld
-data surfaces, operator evidence, admin notice), and asserts none contains:
-the secret value, database credentials/name, the installation path, the
-table prefix or registry SQL vocabulary, protected record content, CMS user
-identity, PHP/WordPress versions, or stack/exception text.
+value, a sentinel VALID public origin plus the real environment name, a
+sentinel UNALLOWLISTED environment name plus a sentinel bad-scheme origin,
+a sentinel protected record, and a sentinel CMS login, then drives every
+output of this batch (liveness, anonymous + authorized diagnostics, data
+surfaces, operator evidence, admin notice) in BOTH the valid and the
+invalid state, and asserts none contains: the secret value, the valid or
+offending environment/origin literals (G06-B01), database
+credentials/name, the installation path, the table prefix or registry SQL
+vocabulary, protected record content, CMS user identity, PHP/WordPress
+versions, or stack/exception text. The authorized report's shape and
+per-setting status vocabulary are pinned against the closed set
+(`set-and-valid` + the bounded T006 failure categories), and the
+strengthened cases demonstrably fail against the pre-corrective report
+shape.
 
 ## 2. Quickstart §1 — live-HTTP probes against the verification runtime
 
@@ -157,9 +170,11 @@ $ git diff --check                               → clean
 $ cd wordpress && php vendor/bin/phpunit --testsuite unit
 OK (73 tests, 956 assertions)
 $ php vendor/bin/phpunit --testsuite integration
-OK (90 tests, 1566 assertions)
+OK (90 tests, 1580 assertions)
   of which pre-existing (excluding the new @group diagnostics):
-  OK (69 tests, 1226 assertions); new T048 cases: 21 tests (13 data-provider variants + 8 methods)
+  OK (69 tests, 1226 assertions); new T048 cases: 21 tests (13 data-provider variants + 8 methods);
+  after the G06-B01 corrective the focused diagnostics cases run 354 assertions,
+  and they demonstrably FAIL (3 failures) against the pre-corrective report shape
 $ php /repo/composer.phar test:containment        # documented no-probe mode
 OK, but incomplete, skipped, or risky tests! (24 tests, 240 assertions, 2 skipped)
 $ cd apps/web && npx vitest run --project contract        → 22 passed
@@ -229,8 +244,10 @@ or CMS identity.
   surface and every invalid-configuration cause; no public observable
   distinguishes which setting or category failed.
 - The diagnostics surface is default-deny, re-decided per request from live
-  actor state, and its report is assembled from allowlisted status
-  vocabulary; secret settings contribute presence only.
+  actor state, and its report is assembled from closed status vocabulary:
+  each configuration setting reports `set-and-valid` or its bounded failure
+  category, so no configured environment name, origin URL, or secret value
+  is ever echoed (G06-B01).
 - The correlation code digests category statuses only; two operators with
   the same failure signature see the same code, and nothing else can be
   derived from it.
