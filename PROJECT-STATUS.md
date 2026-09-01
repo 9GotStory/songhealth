@@ -31,11 +31,11 @@
 
 ## Workflow Gate
 
-- **Current phase:** DELIVERY 002 GATE 01.5 — LOCAL PODMAN VERIFICATION RUNTIME HUMAN ACCEPTED / STOP BEFORE ANY FURTHER AUTHORIZATION
-- **Current review result:** Gate 01.5 implementation `008241eef63e49c1a01ddcda5412d66c61cc866c` PASS / HUMAN ACCEPTED 2026-08-29
-- **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify COMPLETE; Clarify COMPLETE; Plan COMPLETE; Tasks COMPLETE; Analyze COMPLETE; Phase 1 Setup T001–T005 and prerequisite Gate 01.5 accepted
-- **Next valid action:** None until a separate Human authorization; T006–T060 remain unauthorized
-- **Blocking issues:** None
+- **Current phase:** DELIVERY 002 GATE 06 — T048–T056 / US4 SUBSTANTIVELY CLOSED / STOP BEFORE FURTHER AUTHORIZATION
+- **Current review result:** PASS accepted — corrective implementation `4d7e53fcd2a09ba5e603af33ce038954b52a2be1`; G06-B01 closed after corrective round 1
+- **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify COMPLETE; Clarify COMPLETE; Plan COMPLETE; Tasks COMPLETE; Analyze COMPLETE; T001–T056 complete according to their accepted gate outcomes; unresolved T054 Bangmod account facts remain `DEFERRED-EVIDENCE-GATE`
+- **Next valid action:** None until separate Human authorization; T057–T060 remain NOT AUTHORIZED
+- **Blocking issues:** None for closed Gate 06; Production-specific Bangmod capability/version locks remain evidence-gated
 - **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 - **Authorized Implementation:** NONE
 - **Spec Kit specify:** COMPLETE / independently reviewed
@@ -50,6 +50,7 @@
 - **Analyze review record:** `docs/spec-reconciliation/002-analyze-review-2026-08-29.md`
 - **Gate 01 acceptance record:** Multica issue `9GOTSTORY-36`; T001–T005 accepted after independent PASS; T001–T005-B01 closed; implementation authorization cleared; T006–T060, deployment, importer, Trial Migration, and cutover remain unauthorized
 - **Gate 01.5 acceptance record:** Multica issue `9GOTSTORY-37`; local-only Podman WordPress verification runtime implementation `008241eef63e49c1a01ddcda5412d66c61cc866c` accepted after independent real-engine PASS; Production Docker/Podman/VPS, deployment, T006–T060, importer, migration, Trial Migration, Production Import, and Production Cutover remain unauthorized
+- **Gate 06 acceptance record:** Multica issue `9GOTSTORY-44`; T048–T056 corrective implementation `4d7e53fcd2a09ba5e603af33ce038954b52a2be1` accepted after independent PASS; all actual Bangmod account facts remain `DEFERRED-EVIDENCE-GATE`; T057–T060 remain NOT AUTHORIZED
 - **Spec Kit clarify:** COMPLETE / 5 Human decisions / independently reviewed
 - **Spec Kit plan:** COMPLETE / independently reviewed
 - **Spec Kit tasks:** COMPLETE / independently reviewed
