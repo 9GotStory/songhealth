@@ -189,10 +189,11 @@ class PluginLifecycleWiringTest extends WP_UnitTestCase {
 			}
 		}
 		/*
-		 * Five entries: the four approved shapes plus the '/songhealth/v1'
+		 * Six entries: the five approved shapes (detail, listing, Preview,
+		 * Preview binary, Document binary) plus the '/songhealth/v1'
 		 * namespace-index route WordPress itself registers per namespace.
 		 */
-		$this->assertCount( 5, $ours );
+		$this->assertCount( 6, $ours );
 	}
 
 	/** @test */

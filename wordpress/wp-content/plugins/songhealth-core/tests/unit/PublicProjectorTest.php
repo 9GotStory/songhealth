@@ -79,15 +79,27 @@ class PublicProjectorTest extends WP_UnitTestCase {
 		$this->assertIsArray( $created );
 		$this->songhealth_track_record( (int) $created['post_id'] );
 
-		$attachment_id = self::factory()->attachment->create_object(
-			'projection-fixture.pdf',
+		/*
+		 * The attachment is established through the accepted T042 protected
+		 * relationship: eligibility's document-specific rule is the valid
+		 * one-to-one protected attachment, so a raw Media Library row alone
+		 * no longer publishes the fixture.
+		 */
+		$tmp = tempnam( sys_get_temp_dir(), 'shp' );
+		file_put_contents( $tmp, "%PDF-1.4\n%projection-fixture\n%%EOF\n" );
+		$attached = \SonghealthCore\Binary\ProtectedAttachment::attach(
 			(int) $created['post_id'],
 			array(
-				'post_mime_type' => 'application/pdf',
-				'post_type'      => 'attachment',
+				'tmp_name' => $tmp,
+				'name'     => 'projection-fixture.pdf',
+				'type'     => 'application/pdf',
+				'size'     => (int) filesize( $tmp ),
 			)
 		);
-		update_post_meta( (int) $created['post_id'], FoundationTypes::META_BINARY_ATTACHMENT_ID, (string) $attachment_id );
+		if ( file_exists( $tmp ) ) {
+			unlink( $tmp );
+		}
+		$this->assertIsArray( $attached, 'the fixture attachment is established through the accepted relationship' );
 		foreach ( $meta as $key => $value ) {
 			update_post_meta( (int) $created['post_id'], $key, $value );
 		}

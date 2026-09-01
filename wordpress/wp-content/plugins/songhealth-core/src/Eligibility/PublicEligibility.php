@@ -195,12 +195,14 @@ final class PublicEligibility {
 			return '' !== trim( (string) $post->post_title );
 		}
 
-		$attachment_id = (string) get_post_meta( (int) $post->ID, FoundationTypes::META_BINARY_ATTACHMENT_ID, true );
-		if ( 1 !== preg_match( '/^[1-9][0-9]*$/', $attachment_id ) ) {
-			return false;
-		}
-		$attachment = get_post( (int) $attachment_id );
-		return $attachment instanceof WP_Post && 'attachment' === $attachment->post_type;
+		/*
+		 * A Document Resource is publication-valid only with a valid, safe,
+		 * present one-to-one protected attachment relationship (T042). This
+		 * stays the eligibility AUTHORITY's single delegation for the
+		 * type-specific rule — the validator answers only the relationship
+		 * question and never confers eligibility by itself.
+		 */
+		return \SonghealthCore\Binary\ProtectedAttachment::relationship_is_valid( $post );
 	}
 }
 

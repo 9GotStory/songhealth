@@ -117,18 +117,18 @@ description: "Dependency-ordered implementation tasks for Delivery 002"
 
 ### Required verification for User Story 3
 
-- [ ] T039 [P] [US3] Write protected-binary integration tests for unknown IDs, Draft/Hidden/unpublished/withdrawn states, eligible delivery, publish/revoke transitions, non-elevating public references, broken relationships, unsafe metadata/type, ranges, and neutral failures in `wordpress/wp-content/plugins/songhealth-core/tests/integration/ProtectedBinaryContractTest.php`
-- [ ] T040 [P] [US3] Write containment tests proving raw upload, attachment, alternate/encoded path, host variant, redirect, cache, and prior-success URLs cannot bypass mediated current eligibility in `wordpress/tests/containment/ProtectedBinaryBypassTest.php`
-- [ ] T041 [P] [US3] Write browser tests for stable Document Resource routes, anonymous download/revocation, public-parent non-elevation, and separate authenticated Preview binary access in `apps/web/tests/e2e/protected-document.spec.ts`
+- [x] T039 [P] [US3] Write protected-binary integration tests for unknown IDs, Draft/Hidden/unpublished/withdrawn states, eligible delivery, publish/revoke transitions, non-elevating public references, broken relationships, unsafe metadata/type, ranges, and neutral failures in `wordpress/wp-content/plugins/songhealth-core/tests/integration/ProtectedBinaryContractTest.php`
+- [x] T040 [P] [US3] Write containment tests proving raw upload, attachment, alternate/encoded path, host variant, redirect, cache, and prior-success URLs cannot bypass mediated current eligibility in `wordpress/tests/containment/ProtectedBinaryBypassTest.php`
+- [x] T041 [P] [US3] Write browser tests for stable Document Resource routes, anonymous download/revocation, public-parent non-elevation, and separate authenticated Preview binary access in `apps/web/tests/e2e/protected-document.spec.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T042 [US3] Implement the one-to-one protected attachment relationship, safe metadata validation, and publication validity checks owned by Document Resource in `wordpress/wp-content/plugins/songhealth-core/src/Binary/ProtectedAttachment.php`
-- [ ] T043 [US3] Implement anonymous binary delivery by Public ID with fresh owning-Document eligibility, safe streaming headers/disposition/type, bounded range/size and abuse behavior, conservative caching, and neutral denial in `wordpress/wp-content/plugins/songhealth-core/src/Binary/BinaryController.php`
-- [ ] T044 [US3] Implement separate session-bound Preview binary delivery that reuses current Preview authorization without changing anonymous eligibility in `wordpress/wp-content/plugins/songhealth-core/src/Binary/PreviewBinaryController.php`
-- [ ] T045 [US3] Implement Document Resource public presentation using only its canonical Songhealth download path and never a Media Library URL, attachment ID, path, or filename identity in `apps/web/app/components/DocumentResource.tsx`
-- [ ] T046 [US3] Implement `/documents/{publicId}/{slug?}` resolution and download interaction with Public-ID identity and eligibility-first canonical behavior in `apps/web/app/routes/documents.$publicId.$slug.tsx`
-- [ ] T047 [US3] Record the US3 publish/revoke, reference non-elevation, known-URL, range, containment, and Preview-binary results against Quickstart section 6 in `tests/successor/evidence/us3-protected-binary.md`
+- [x] T042 [US3] Implement the one-to-one protected attachment relationship, safe metadata validation, and publication validity checks owned by Document Resource in `wordpress/wp-content/plugins/songhealth-core/src/Binary/ProtectedAttachment.php`
+- [x] T043 [US3] Implement anonymous binary delivery by Public ID with fresh owning-Document eligibility, safe streaming headers/disposition/type, bounded range/size and abuse behavior, conservative caching, and neutral denial in `wordpress/wp-content/plugins/songhealth-core/src/Binary/BinaryController.php`
+- [x] T044 [US3] Implement separate session-bound Preview binary delivery that reuses current Preview authorization without changing anonymous eligibility in `wordpress/wp-content/plugins/songhealth-core/src/Binary/PreviewBinaryController.php`
+- [x] T045 [US3] Implement Document Resource public presentation using only its canonical Songhealth download path and never a Media Library URL, attachment ID, path, or filename identity in `apps/web/app/components/DocumentResource.tsx`
+- [x] T046 [US3] Implement `/documents/{publicId}/{slug?}` resolution and download interaction with Public-ID identity and eligibility-first canonical behavior in `apps/web/app/routes/documents.$publicId.$slug.tsx`
+- [x] T047 [US3] Record the US3 publish/revoke, reference non-elevation, known-URL, range, containment, and Preview-binary results against Quickstart section 6 in `tests/successor/evidence/us3-protected-binary.md`
 
 **Checkpoint**: After Foundational, US3 is independently testable with a Document Resource and protected attachment; actual Production storage realization remains gated by US4 account evidence.
 

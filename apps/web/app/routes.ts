@@ -28,4 +28,6 @@ export default [
   route("pages/:publicId", "routes/pages.$publicId.$slug.tsx", { id: "routes/pages.publicId" }),
   route("pages/:publicId/:slug", "routes/pages.$publicId.$slug.tsx"),
   route("preview/:resourceType/:publicId", "routes/preview.$resourceType.$publicId.tsx"),
+  route("documents/:publicId", "routes/documents.$publicId.$slug.tsx", { id: "routes/documents.publicId" }),
+  route("documents/:publicId/:slug", "routes/documents.$publicId.$slug.tsx"),
 ] satisfies RouteConfig;

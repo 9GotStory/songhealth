@@ -68,6 +68,8 @@ declare( strict_types=1 );
 namespace SonghealthCore\Rest;
 
 use SonghealthCore\Authorization\CapabilityMap;
+use SonghealthCore\Binary\BinaryController;
+use SonghealthCore\Binary\PreviewBinaryController;
 use SonghealthCore\Content\FoundationTypes;
 use SonghealthCore\Identity\PublicIdRegistry;
 use SonghealthCore\Preview\PreviewController;
@@ -105,6 +107,9 @@ final class Routes {
 
 	/** Mediated Document Resource binary route pattern. */
 	const ROUTE_BINARY = '/documents/' . self::IDENTIFIER_SEGMENT_PATTERN . '/binary';
+
+	/** Session-bound Preview binary route pattern (Document Resource only; T044). */
+	const ROUTE_PREVIEW_BINARY = '/preview/document-resource/' . self::IDENTIFIER_SEGMENT_PATTERN . '/binary';
 
 	/**
 	 * Register the approved route shapes on the REST infrastructure.
@@ -170,6 +175,21 @@ final class Routes {
 					'methods'             => WP_REST_Server::READABLE,
 					'callback'            => array( __CLASS__, 'binary_item' ),
 					'permission_callback' => array( __CLASS__, 'public_read_permission' ),
+					'args'                => array(
+						'publicId' => self::public_id_arg(),
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::ROUTE_NAMESPACE,
+			self::ROUTE_PREVIEW_BINARY,
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( __CLASS__, 'preview_binary_item' ),
+					'permission_callback' => array( __CLASS__, 'preview_permission' ),
 					'args'                => array(
 						'publicId' => self::public_id_arg(),
 					),
@@ -311,11 +331,13 @@ final class Routes {
 	}
 
 	/**
-	 * Document Resource binary handler.
+	 * Document Resource binary handler: dispatch to the US3 controller (T043).
 	 *
-	 * Every identifier condition resolves to the identical neutral class; the
-	 * owning Document Resource's current-eligibility mediated delivery
-	 * belongs to the authorized US3 controller (T043).
+	 * The strict canonical identifier gate stays here as on every surface, so
+	 * malformed identifiers never reach the controller; every condition after
+	 * it — unknown, ineligible, broken relationship, unsafe metadata — is the
+	 * controller's one neutral class, re-decided from live state on every
+	 * request.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response
@@ -325,7 +347,28 @@ final class Routes {
 		if ( null !== $neutral ) {
 			return $neutral;
 		}
-		return NeutralResponse::not_found();
+		return BinaryController::deliver( $request );
+	}
+
+	/**
+	 * Preview binary handler: dispatch to the US3 controller (T044).
+	 *
+	 * The staff-session boundary is the first action, exactly as on the
+	 * Preview candidate surface (see preview_permission for why it lives in
+	 * the handler); the controller then applies the accepted Gate 04 Preview
+	 * authorization semantics to the candidate bytes.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public static function preview_binary_item( $request ) {
+		if ( ! self::is_staff_session() ) {
+			return PreviewController::denial();
+		}
+		if ( null !== self::neutral_for_identifier( $request ) ) {
+			return PreviewController::denial();
+		}
+		return PreviewBinaryController::deliver( $request );
 	}
 
 	/**

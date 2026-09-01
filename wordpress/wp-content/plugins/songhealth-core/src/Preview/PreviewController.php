@@ -369,9 +369,13 @@ final class PreviewController {
 	 * Whether the current request carries an authenticated Songhealth staff
 	 * session (the accepted staff boundary; identical to the route gate).
 	 *
+	 * Public for the accepted Preview consumers only: the Preview binary
+	 * surface (T044) re-uses this gate verbatim so the two surfaces share one
+	 * staff boundary.
+	 *
 	 * @return bool
 	 */
-	private static function is_staff_session() {
+	public static function is_staff_session() {
 		$user = wp_get_current_user();
 		return $user->exists() && null !== CapabilityMap::resolve_role( $user );
 	}
@@ -395,10 +399,13 @@ final class PreviewController {
 	 * itself be a bare origin; a Referer may carry a path and query only
 	 * after its parsed origin has proven equal.
 	 *
+	 * Public for the accepted Preview consumers only: the Preview binary
+	 * surface (T044) re-uses this exact boundary.
+	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return bool
 	 */
-	private static function origin_allows( $request ) {
+	public static function origin_allows( $request ) {
 		$approved = array();
 		$configuration = \SonghealthCore\Plugin::configuration();
 		if ( $configuration->is_valid() ) {
@@ -527,10 +534,13 @@ final class PreviewController {
 	 * presents one that does not verify is denied, so a stale or forged nonce
 	 * can never ride along with an otherwise valid request.
 	 *
+	 * Public for the accepted Preview consumers only: the Preview binary
+	 * surface (T044) re-uses this exact defense.
+	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return bool
 	 */
-	private static function nonce_if_present_verifies( $request ) {
+	public static function nonce_if_present_verifies( $request ) {
 		$nonce = $request->get_header( 'X-WP-Nonce' );
 		if ( null === $nonce ) {
 			$nonce = $request->get_param( '_wpnonce' );

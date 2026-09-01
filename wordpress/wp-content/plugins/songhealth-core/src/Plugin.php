@@ -51,6 +51,8 @@ declare( strict_types=1 );
 namespace SonghealthCore;
 
 use SonghealthCore\Authorization\CapabilityMap;
+use SonghealthCore\Binary\BinaryController;
+use SonghealthCore\Binary\ProtectedAttachment;
 use SonghealthCore\Content\AdminExperience;
 use SonghealthCore\Content\FoundationTypes;
 use SonghealthCore\Diagnostics\Configuration;
@@ -92,6 +94,15 @@ final class Plugin {
 		 */
 		AdminExperience::register();
 		PreviewController::register();
+
+		/*
+		 * The protected-binary surfaces: the controllers are dispatched by
+		 * their registered REST routes (T043/T044); this attaches the raw
+		 * byte serving seam those responses use and the attachment
+		 * relationship's storage-disclosure containment.
+		 */
+		BinaryController::register();
+		ProtectedAttachment::register();
 	}
 
 	/**

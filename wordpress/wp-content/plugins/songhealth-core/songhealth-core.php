@@ -79,6 +79,15 @@ define( 'SONGHEALTH_CORE_DIR', plugin_dir_path( __FILE__ ) );
  *   retrieval with current session, fresh authorization, supplemental
  *   nonce/origin defenses, the bounded candidate projection, neutral denial,
  *   and private/no-store/noindex responses.
+ * - src/Binary/ProtectedAttachment.php (T042) — the one-to-one Document
+ *   Resource → protected attachment relationship with safe metadata
+ *   validation and server-denied protected storage.
+ * - src/Binary/BinaryController.php (T043) — anonymous protected binary
+ *   delivery by Public ID with fresh owning-Document eligibility, bounded
+ *   ranges, conservative caching, and neutral denial.
+ * - src/Binary/PreviewBinaryController.php (T044) — the separate
+ *   session-bound Preview binary surface re-using the accepted Gate 04
+ *   Preview authorization semantics.
  * - src/Plugin.php (T019) — the lifecycle wiring module.
  *
  * Loading a module defines its declarations only. No module adds a WordPress
@@ -106,6 +115,9 @@ function songhealth_core_modules() {
 		'src/Content/AdminExperience.php',
 		'src/Preview/PreviewGrant.php',
 		'src/Preview/PreviewController.php',
+		'src/Binary/ProtectedAttachment.php',
+		'src/Binary/BinaryController.php',
+		'src/Binary/PreviewBinaryController.php',
 		'src/Plugin.php',
 	);
 }

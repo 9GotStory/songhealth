@@ -145,15 +145,27 @@ class PublicRestContractTest extends WP_UnitTestCase {
 		update_post_meta( (int) $created['post_id'], self::SENTINEL_META_KEY, self::SENTINEL_META_VALUE );
 
 		if ( $attach ) {
-			$attachment_id = self::factory()->attachment->create_object(
-				'contract-fixture-document.pdf',
+			/*
+			 * The attachment is established through the accepted T042
+			 * protected relationship: eligibility's document-specific rule is
+			 * the valid one-to-one protected attachment, so a raw Media
+			 * Library row alone no longer makes the fixture publishable.
+			 */
+			$tmp = tempnam( sys_get_temp_dir(), 'shc' );
+			file_put_contents( $tmp, "%PDF-1.4\n%contract-fixture-document\n%%EOF\n" );
+			$attached = \SonghealthCore\Binary\ProtectedAttachment::attach(
 				(int) $created['post_id'],
 				array(
-					'post_mime_type' => 'application/pdf',
-					'post_type'      => 'attachment',
+					'tmp_name' => $tmp,
+					'name'     => 'contract-fixture-document.pdf',
+					'type'     => 'application/pdf',
+					'size'     => (int) filesize( $tmp ),
 				)
 			);
-			update_post_meta( (int) $created['post_id'], FoundationTypes::META_BINARY_ATTACHMENT_ID, (string) $attachment_id );
+			if ( file_exists( $tmp ) ) {
+				unlink( $tmp );
+			}
+			$this->assertIsArray( $attached, 'the fixture attachment is established through the accepted relationship' );
 		}
 		return $created;
 	}
