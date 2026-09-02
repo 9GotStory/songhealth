@@ -31,13 +31,13 @@
 
 ## Workflow Gate
 
-- **Current phase:** DELIVERY 002 GATE 07 — G07-B01 SPEC KIT RECONCILIATION / STOP AT HUMAN REWORK GATE
-- **Current review result:** CHANGES REQUIRED on rejected evidence candidate `aedda25dba2b986a5bbebaf564e3a0c5de9f642c`; G07-B01 bounded-reference design gap reconciled in Spec Kit authority; G07-B02 remains an evidence-regeneration correction
+- **Current phase:** DELIVERY 002 GATE 07 — HUMAN-AUTHORIZED G07-B01–B02 CORRECTIVE REWORK
+- **Current review result:** REWORK authorized for exact findings G07-B01 (FR-031 bounded/N+1-safe Basic Page Document Resource reference projection) and G07-B02 (reproducible exact-endpoint T060 Git audit); rejected evidence candidate `aedda25dba2b986a5bbebaf564e3a0c5de9f642c` remains non-canonical
 - **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify/Clarify/Plan/Tasks reconciled for G07-B01; explicit Delivery 002 read-only Analyze consistency pass complete with no blocking finding; T001–T056 remain complete; T057–T060 remain incomplete; unresolved T054 Production-specific Bangmod account facts remain `DEFERRED-EVIDENCE-GATE`
-- **Next valid action:** Human authorization for bounded G07-B01 implementation/test correction plus G07-B02 evidence regeneration; no automatic Claude dispatch
-- **Blocking issues:** G07-B01 implementation/tests and G07-B02 exact-endpoint T060 evidence remain unresolved; rejected candidate MUST NOT be persisted
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
-- **Authorized Implementation:** NONE — reconciliation only; stop at Human boundary
+- **Next valid action:** bounded Codex handoff to Claude Code for the G07-B01 implementation/test correction and G07-B02/T057–T060 evidence regeneration, followed by Codex independent re-review
+- **Blocking issues:** G07-B01 and G07-B02 remain open until independent PASS; rejected candidate MUST NOT be used as the implementation base or persisted as-is
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Authorized Implementation:** G07-B01–B02 only — implement reconciled FR-031 from canonical authority base `c51ee2b6a3406ac9a5ff20927ff733e5bef9f014`, add/update bounded tests, and regenerate/revalidate T057–T060 evidence
 - **Spec Kit specify:** COMPLETE / independently reviewed
 - **Delivery 001 T051+:** RETIRED / NOT AUTHORIZED
 - **Excluded scope:** Importer, Trial Migration, Production Import, Production Cutover, Production deployment, legacy retirement, Delivery 001 T051+, asset deletion, and speculative infrastructure remain NOT AUTHORIZED
@@ -973,11 +973,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** NONE — G07-B01 Spec Kit reconciliation complete; corrective implementation/test work and G07-B02 evidence regeneration await separate Human authorization
-- **Runtime:** NONE
-- **Required references:** NONE until Human rework authorization
-- **Expected verification:** NONE authorized; rejected Gate 07 candidate remains non-canonical
-- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** Delivery 002 Gate 07 G07-B01–B02 rework only: implement the FR-031 hard response-owned budget of 100 raw stored Document Resource references, atomic over-bound write rejection, response-level raw-count preflight, at most one set-based Public ID mapping query and one set-based referenced-post load, request-local retrieval/meta caching, unchanged per-reference `PublicEligibility`, preserved order/deduplication, and whole-response safe failure for over-bound detail/list/Preview; add/update only necessary tests; regenerate/revalidate the complete T057–T060 evidence set, including T058 and exact-endpoint T060. T057–T060 checkboxes remain unchanged pending independent PASS.
+- **Runtime:** Claude Code as DEV Executor under Codex orchestration and independent review
+- **Required references:** canonical authority/base `c51ee2b6a3406ac9a5ff20927ff733e5bef9f014`; `.specify/memory/constitution.md`; this `PROJECT-STATUS.md`; `specs/002-headless-wordpress-foundation/spec.md` FR-031; reconciled `plan.md`, `data-model.md`, `contracts/public-rest.md`, `quickstart.md`, and T058 in `tasks.md`. Rejected candidate `aedda25dba2b986a5bbebaf564e3a0c5de9f642c` is reference-only for revalidated factual evidence and MUST NOT be the implementation base or be persisted as-is.
+- **Expected verification:** focused raw-bound/write-atomicity, detail/list/Preview whole-failure, order/deduplication, eligibility/non-elevation, and deterministic set-based query-count/N+1 tests at small and near-bound sets; all affected canonical PHP, REST, containment, authorization, Preview, protected-binary, identity/eligibility, diagnostics, frontend, browser, TypeScript, build, and live readiness/probe suites with honest environment-gate reporting; regenerated T057–T060 evidence; exact reproducible T060 Git endpoints/statistics; PHP syntax checks; `git diff --check`; complete changed-path and prohibited-scope audit. No Spec Kit/Frozen/Constitution/dependency/deployment/import/migration/cutover/retirement changes are authorized.
+- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
