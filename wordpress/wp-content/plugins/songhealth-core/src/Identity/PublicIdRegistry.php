@@ -229,9 +229,124 @@ final class PublicIdRegistry {
 	 * @param mixed $public_id Public ID to resolve.
 	 * @return object|null
 	 */
+	/**
+	 * Resolve many Public IDs to their registry mapping rows in ONE set-based
+	 * query (FR-031 reference-projection retrieval).
+	 *
+	 * Retrieval only: rows are returned exactly as stored — live and
+	 * tombstoned alike, every resource type alike — with no eligibility or
+	 * liveness decision of any kind; the caller decides. Identifiers are
+	 * syntax-validated first so a malformed value never reaches the database,
+	 * and duplicate input identifiers collapse to one row. The result maps
+	 * each found Public ID to its row; absent identifiers simply have no
+	 * entry.
+	 *
+	 * @param string[] $public_ids Public IDs to resolve.
+	 * @return object[] Public ID => mapping row, for the identifiers found.
+	 */
+	public static function mappings_for( array $public_ids ) {
+		$ids = array();
+		foreach ( $public_ids as $public_id ) {
+			$public_id = strtolower( trim( (string) $public_id ) );
+			if ( '' === $public_id || isset( $ids[ $public_id ] ) || ! self::is_valid_public_id( $public_id ) ) {
+				continue;
+			}
+			$ids[ $public_id ] = true;
+		}
+		if ( array() === $ids || ! self::ensure_schema() ) {
+			return array();
+		}
+
+		global $wpdb;
+		$table         = RegistrySchema::table_name();
+		$keys          = array_keys( $ids );
+		$placeholders  = implode( ',', array_fill( 0, count( $keys ), '%s' ) );
+		$rows          = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT * FROM ' . $table . ' WHERE ' . RegistrySchema::COLUMN_PUBLIC_ID . ' IN (' . $placeholders . ')',
+				$keys
+			)
+		);
+		$by_public_id = array();
+		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+			if ( is_object( $row ) && isset( $row->{RegistrySchema::COLUMN_PUBLIC_ID} ) ) {
+				$by_public_id[ (string) $row->{RegistrySchema::COLUMN_PUBLIC_ID} ] = $row;
+			}
+		}
+		return $by_public_id;
+	}
+
+	/**
+	 * The registry mapping row for a Public ID, or null.
+	 *
+	 * @param mixed $public_id Public ID to resolve.
+	 * @return object|null
+	 */
+	/**
+	 * Run one bounded read phase against a request-local mapping cache
+	 * (FR-031).
+	 *
+	 * The cache holds ONLY rows already resolved by the caller's ONE
+	 * set-based query (and explicit absences), is consulted by
+	 * `mapping_for()`/`public_id_for()` while the bracket is active, and is
+	 * ALWAYS removed when the bracket ends — so it never outlives the
+	 * response-scoped projection that primed it and can never serve another
+	 * request or test. Within the bracket no registry write happens (the
+	 * phase is pure evaluation), so a cached row cannot go stale; every
+	 * decision — liveness, type, eligibility — is still made by the
+	 * unchanged consumers from the row exactly as the database returned it.
+	 *
+	 * @param array<string, object|false> $rows_by_public_id Public ID => mapping row, or false for known-absent.
+	 * @param callable                    $work              The read phase to run.
+	 * @return mixed Whatever $work returns.
+	 */
+	public static function with_read_cache( array $rows_by_public_id, $work ) {
+		$by_public_id = array();
+		$by_resource  = array();
+		foreach ( $rows_by_public_id as $public_id => $row ) {
+			$public_id = strtolower( trim( (string) $public_id ) );
+			if ( '' === $public_id ) {
+				continue;
+			}
+			$by_public_id[ $public_id ] = $row;
+			if ( is_object( $row )
+				&& isset( $row->{RegistrySchema::COLUMN_RESOURCE_TYPE}, $row->{RegistrySchema::COLUMN_INTERNAL_POST_ID} ) ) {
+				$by_resource[ $row->{RegistrySchema::COLUMN_RESOURCE_TYPE} . '|' . (int) $row->{RegistrySchema::COLUMN_INTERNAL_POST_ID} ] = $row;
+			}
+		}
+
+		$previous_by_public_id = self::$read_cache_by_public_id;
+		$previous_by_resource  = self::$read_cache_by_resource;
+		self::$read_cache_by_public_id = $by_public_id;
+		self::$read_cache_by_resource  = $by_resource;
+
+		try {
+			return $work();
+		} finally {
+			self::$read_cache_by_public_id = $previous_by_public_id;
+			self::$read_cache_by_resource  = $previous_by_resource;
+		}
+	}
+
+	/** @var array<string, object|false>|null Active request-local rows by Public ID, or null when inactive. */
+	private static $read_cache_by_public_id = null;
+
+	/** @var array<string, object>|null Active request-local rows by resource key, or null when inactive. */
+	private static $read_cache_by_resource = null;
+
+	/**
+	 * The registry mapping row for a Public ID, or null.
+	 *
+	 * @param mixed $public_id Public ID to resolve.
+	 * @return object|null
+	 */
 	public static function mapping_for( $public_id ) {
 		if ( ! self::is_valid_public_id( $public_id ) ) {
 			return null;
+		}
+		if ( is_array( self::$read_cache_by_public_id ) && array_key_exists( strtolower( (string) $public_id ), self::$read_cache_by_public_id ) ) {
+			$cached = self::$read_cache_by_public_id[ strtolower( (string) $public_id ) ];
+			return is_object( $cached ) ? $cached : null;
 		}
 		if ( ! self::ensure_schema() ) {
 			return null;
@@ -347,6 +462,9 @@ final class PublicIdRegistry {
 		$internal_post_id = (int) $internal_post_id;
 		if ( $internal_post_id <= 0 ) {
 			return null;
+		}
+		if ( is_array( self::$read_cache_by_resource ) && isset( self::$read_cache_by_resource[ $resource_type . '|' . $internal_post_id ] ) ) {
+			return self::$read_cache_by_resource[ $resource_type . '|' . $internal_post_id ];
 		}
 		if ( ! self::ensure_schema() ) {
 			return null;

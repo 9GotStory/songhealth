@@ -60,6 +60,8 @@ define( 'SONGHEALTH_CORE_DIR', plugin_dir_path( __FILE__ ) );
  *   invalid-input/unexpected-failure responses.
  * - src/Rest/PublicProjector.php (T015) — the explicit Basic Page and
  *   Document Resource public projectors.
+ * - src/Rest/ReferenceProjection.php (G07-B01/FR-031) — the response-scoped
+ *   bounded Document Resource reference projection context.
  * - src/Rest/Routes.php (T016) — the approved songhealth/v1 route shapes.
  * - src/Rest/EligibleResourceQuery.php (T017) — eligibility-first bounded
  *   resource queries with eligible-only totals.
@@ -116,6 +118,7 @@ function songhealth_core_modules() {
 		'src/Eligibility/PublicEligibility.php',
 		'src/Rest/NeutralResponse.php',
 		'src/Rest/PublicProjector.php',
+		'src/Rest/ReferenceProjection.php',
 		'src/Rest/Routes.php',
 		'src/Rest/EligibleResourceQuery.php',
 		'src/Rest/NativeSurfaceContainment.php',

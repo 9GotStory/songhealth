@@ -82,7 +82,19 @@ final class PublicResourcesController {
 			return NeutralResponse::not_found();
 		}
 
-		$dto = PublicProjector::project( $post );
+		/*
+		 * FR-031 response preflight: the raw stored reference work of this
+		 * response is counted before any reference iteration or projection.
+		 * Over-budget stored state fails the WHOLE response through the
+		 * bounded safe failure class — no partial DTO, no truncation, no
+		 * count disclosure, no implied completeness.
+		 */
+		$context = ReferenceProjection::for_posts( array( $post ) );
+		if ( $context->over_budget() ) {
+			return NeutralResponse::unexpected_failure();
+		}
+
+		$dto = PublicProjector::project( $post, $context );
 		if ( ! is_array( $dto ) ) {
 			/*
 			 * Unreachable after the resolution above (it re-evaluates the same
@@ -141,6 +153,26 @@ final class PublicResourcesController {
 		}
 
 		/*
+		 * FR-031 response preflight: the COMBINED raw stored reference count
+		 * of every Basic Page participating in this response is counted
+		 * before any reference iteration or projection. A combined count
+		 * above the server-owned budget fails the WHOLE listing through the
+		 * bounded safe failure class — no earlier item is emitted as partial
+		 * success, no partial envelope, no truncation, no count disclosure.
+		 */
+		$context = ReferenceProjection::for_posts(
+			array_map(
+				static function ( $unit ) {
+					return $unit['post'];
+				},
+				$result['data']
+			)
+		);
+		if ( $context->over_budget() ) {
+			return NeutralResponse::unexpected_failure();
+		}
+
+		/*
 		 * Every scanned record was accepted by the live decision inside the
 		 * query; each is now projected by its explicit type projector, which
 		 * re-evaluates the same decision. A projection that cannot be made is
@@ -148,7 +180,7 @@ final class PublicResourcesController {
 		 */
 		$data = array();
 		foreach ( $result['data'] as $unit ) {
-			$dto = PublicProjector::project( $unit['post'] );
+			$dto = PublicProjector::project( $unit['post'], $context );
 			if ( is_array( $dto ) ) {
 				$data[] = $dto;
 			}

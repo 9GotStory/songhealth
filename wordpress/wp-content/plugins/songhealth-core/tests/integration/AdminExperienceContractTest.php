@@ -307,4 +307,72 @@ class AdminExperienceContractTest extends WP_UnitTestCase {
 		$this->assertSame( FoundationTypes::VISIBILITY_HIDDEN, (string) get_post_meta( (int) $page['post_id'], FoundationTypes::META_VISIBILITY, true ), 'a write path without this form is untouched' );
 		$this->assertSame( array(), $this->current_notices() );
 	}
+
+	/**
+	 * Count distinct shape-valid reference-shaped identifiers.
+	 *
+	 * @param int $count How many distinct identifiers to build.
+	 * @return string[]
+	 */
+	private function reference_shaped_ids( $count ) {
+		$ids = array();
+		for ( $i = 0; $i < $count; $i++ ) {
+			$ids[] = '00000000-0000-7000-8000-' . str_pad( dechex( $i ), 12, '0', STR_PAD_LEFT );
+		}
+		return $ids;
+	}
+
+	/** @test */
+	public function test_fr031_an_authorized_reference_submission_above_the_budget_is_refused_atomically() {
+		$page      = $this->create_page( FoundationTypes::VISIBILITY_HIDDEN );
+		$prior_set = $this->reference_shaped_ids( 2 );
+		update_post_meta( (int) $page['post_id'], FoundationTypes::META_DOCUMENT_REFERENCES, $prior_set );
+
+		/*
+		 * 101 RAW submitted lines that normalization would collapse far
+		 * below the budget: the bound is on the raw entry count, checked
+		 * before any normalization, so duplicates cannot bypass it.
+		 */
+		$lines = array_merge(
+			array_fill( 0, 50, $prior_set[0] ),
+			array_fill( 0, 50, $prior_set[1] ),
+			array( $prior_set[0] )
+		);
+		$this->assertCount( 101, $lines );
+
+		$this->submit_save( (int) $page['post_id'], array(
+			'songhealth_visibility'             => FoundationTypes::VISIBILITY_PUBLIC,
+			'songhealth_summary'                => 'Attempted replacement summary.',
+			'songhealth_document_references'    => implode( "\n", $lines ),
+		) );
+
+		$this->assertSame( $prior_set, (array) get_post_meta( (int) $page['post_id'], FoundationTypes::META_DOCUMENT_REFERENCES, true ), 'the previous stored reference set is preserved exactly' );
+		$this->assertSame( 'Prior summary.', (string) get_post_meta( (int) $page['post_id'], FoundationTypes::META_SUMMARY, true ), 'the refused submission writes no field at all' );
+		$this->assertSame( FoundationTypes::VISIBILITY_HIDDEN, (string) get_post_meta( (int) $page['post_id'], FoundationTypes::META_VISIBILITY, true ), 'atomic refusal leaves every bounded field untouched' );
+
+		$notices = $this->current_notices();
+		$this->assertCount( 1, $notices, 'exactly one bounded notice describes the refusal' );
+		$this->assertStringContainsString( 'ไม่มีการบันทึกการเปลี่ยนแปลง', (string) $notices[0], 'the notice states that nothing was saved' );
+		$this->assertStringContainsString( 'ยังคงอยู่', (string) $notices[0], 'the notice states that the previous set was kept' );
+		$this->assertStringNotContainsString( '101', (string) $notices[0], 'the offending count is not disclosed' );
+	}
+
+	/** @test */
+	public function test_fr031_exactly_100_raw_reference_lines_are_accepted_through_the_authorized_write() {
+		$page  = $this->create_page();
+		$lines = $this->reference_shaped_ids( 99 );
+		$lines[] = $lines[0]; /* 100 raw entries: 99 unique plus one duplicate. */
+		$this->assertCount( 100, $lines );
+
+		$this->submit_save( (int) $page['post_id'], array(
+			'songhealth_visibility'             => FoundationTypes::VISIBILITY_PUBLIC,
+			'songhealth_summary'                => 'Summary with an at-bound reference set.',
+			'songhealth_document_references'    => implode( "\n", $lines ),
+		) );
+
+		$expected = $this->reference_shaped_ids( 99 );
+		$this->assertSame( $expected, (array) get_post_meta( (int) $page['post_id'], FoundationTypes::META_DOCUMENT_REFERENCES, true ), 'the at-bound write stores the normalized, deduplicated set in submitted order' );
+		$this->assertSame( 'Summary with an at-bound reference set.', (string) get_post_meta( (int) $page['post_id'], FoundationTypes::META_SUMMARY, true ), 'the other submitted fields are saved normally' );
+		$this->assertSame( array(), $this->current_notices(), 'an in-bound save queues no notice' );
+	}
 }

@@ -263,6 +263,26 @@ final class AdminExperience {
 			return;
 		}
 
+		/*
+		 * FR-031 write boundary: an authorized Basic Page reference submission
+		 * whose RAW line count exceeds the server-owned budget is refused
+		 * atomically — checked before any normalization, so duplicate or
+		 * malformed input cannot bypass the pre-normalization work bound, and
+		 * before any field of this submission is written, so the previously
+		 * stored reference set (and every other bounded field) is preserved
+		 * exactly. Nothing is truncated and no partial new set is saved.
+		 */
+		$submitted_reference_lines = null;
+		if ( CapabilityMap::MODULE_DOCUMENT_RESOURCE !== $resource_type ) {
+			$submitted_reference_lines = array_filter(
+				array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) wp_unslash( $_POST['songhealth_document_references'] ?? '' ) ) )
+			);
+			if ( count( $submitted_reference_lines ) > FoundationTypes::MAX_RAW_DOCUMENT_REFERENCES ) {
+				self::queue_notice( 'ชุดเอกสารอ้างอิงยาวเกินขอบเขตที่ระบบกำหนด จึงไม่มีการบันทึกการเปลี่ยนแปลงใด ๆ ของระเบียนนี้ และชุดเอกสารอ้างอิงเดิมยังคงอยู่' );
+				return;
+			}
+		}
+
 		$invalid = array();
 
 		/* Summary: plain text always sanitizes cleanly. */
@@ -279,10 +299,9 @@ final class AdminExperience {
 			}
 			update_post_meta( (int) $post->ID, FoundationTypes::META_DOCUMENT_DATE, $clean );
 		} else {
-			$raw_references = (string) wp_unslash( $_POST['songhealth_document_references'] ?? '' );
-			$lines          = array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', $raw_references ) ) );
-			$kept           = array();
-			$dropped        = false;
+			$lines   = is_array( $submitted_reference_lines ) ? $submitted_reference_lines : array();
+			$kept    = array();
+			$dropped = false;
 			foreach ( $lines as $line ) {
 				if ( FoundationTypes::is_public_id_shape( $line ) ) {
 					$kept[] = strtolower( $line );

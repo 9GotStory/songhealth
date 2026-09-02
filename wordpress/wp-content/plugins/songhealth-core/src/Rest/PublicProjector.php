@@ -69,10 +69,20 @@ final class PublicProjector {
 	 * and returns null — the caller then applies the neutral response class
 	 * (T014), indistinguishable from an unknown record.
 	 *
-	 * @param WP_Post|int|null $post Post object or ID to project.
+	 * Document Resource references resolve through the response-scoped
+	 * bounded context when one is supplied (FR-031): the controller preflights
+	 * the response's raw reference budget, fails the whole response before
+	 * any projection when it is exceeded, and passes the context here so the
+	 * page's references resolve set-based within it. Without a context (a
+	 * single-record caller), the projector builds a throwaway one-record
+	 * context — the same budget and the same set-based resolution, scoped to
+	 * that one projection.
+	 *
+	 * @param WP_Post|int|null      $post    Post object or ID to project.
+	 * @param ReferenceProjection|null $context Optional response-scoped context.
 	 * @return array|null The allowlisted DTO, or null when not currently eligible.
 	 */
-	public static function project( $post ) {
+	public static function project( $post, $context = null ) {
 		$post = $post instanceof WP_Post ? $post : get_post( $post );
 		if ( ! $post instanceof WP_Post ) {
 			return null;
@@ -110,7 +120,21 @@ final class PublicProjector {
 		if ( FoundationTypes::BASIC_PAGE === $post->post_type ) {
 			$dto['body'] = self::body( $post );
 
-			$references = self::eligible_document_references( $post );
+			if ( ! $context instanceof ReferenceProjection ) {
+				$context = ReferenceProjection::for_posts( array( $post ) );
+			}
+			/*
+			 * Fail closed even for a caller that skipped the FR-031
+			 * preflight: an over-budget reference set yields NO projection at
+			 * all — never a DTO whose reference list was silently truncated
+			 * or partially resolved. The controller preflight reports the
+			 * bounded whole-response failure class; this guard is the
+			 * projector's own.
+			 */
+			if ( $context->over_budget() ) {
+				return null;
+			}
+			$references = $context->eligible_references( $post );
 			if ( array() !== $references ) {
 				$dto['documentReferences'] = $references;
 			}
@@ -205,51 +229,5 @@ final class PublicProjector {
 			return '';
 		}
 		return $stored;
-	}
-
-	/**
-	 * The currently eligible Document Resource references of a Basic Page, in
-	 * their stored order, as Public IDs only.
-	 *
-	 * Every reference is re-resolved through the identity registry and must
-	 * pass its OWN current eligibility decision (FR-019). An ineligible or
-	 * unknown reference is omitted entirely — never marked, never counted —
-	 * so the projection neither elevates it nor discloses its existence.
-	 *
-	 * @param WP_Post $post Basic Page post.
-	 * @return string[] Public IDs of currently eligible Document Resources.
-	 */
-	private static function eligible_document_references( WP_Post $post ) {
-		$stored = get_post_meta( (int) $post->ID, FoundationTypes::META_DOCUMENT_REFERENCES, true );
-		if ( ! is_array( $stored ) ) {
-			return array();
-		}
-
-		$eligible = array();
-		foreach ( $stored as $public_id ) {
-			$public_id = strtolower( trim( (string) $public_id ) );
-			if ( '' === $public_id ) {
-				continue;
-			}
-
-			$mapping = PublicIdRegistry::mapping_for( $public_id );
-			if ( ! is_object( $mapping ) || ! PublicIdRegistry::is_live( $mapping ) ) {
-				continue;
-			}
-			if ( FoundationTypes::RESOURCE_DOCUMENT_RESOURCE !== (string) $mapping->resource_type ) {
-				continue;
-			}
-
-			$referenced = get_post( (int) $mapping->internal_post_id );
-			if ( ! $referenced instanceof WP_Post || FoundationTypes::DOCUMENT_RESOURCE !== $referenced->post_type ) {
-				continue;
-			}
-			if ( ! PublicEligibility::is_eligible( $referenced ) ) {
-				continue;
-			}
-
-			$eligible[] = $public_id;
-		}
-		return $eligible;
 	}
 }

@@ -66,6 +66,7 @@ use SonghealthCore\Identity\CreateTimePublicId;
 use SonghealthCore\Identity\PublicIdRegistry;
 use SonghealthCore\Rest\NeutralResponse;
 use SonghealthCore\Rest\PublicProjector;
+use SonghealthCore\Rest\ReferenceProjection;
 use WP_Post;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -111,6 +112,24 @@ final class PreviewController {
 	 */
 	public static function denial() {
 		$response = NeutralResponse::not_found();
+		$response->header( 'Cache-Control', self::CACHE_CONTROL );
+		$response->header( 'X-Robots-Tag', self::ROBOTS_TAG );
+		return $response;
+	}
+
+	/**
+	 * The bounded Preview safe failure: the accepted generic bounded `5xx`
+	 * class with the Preview confidentiality headers (FR-031).
+	 *
+	 * Used when the candidate projection cannot be produced as a whole — an
+	 * over-budget stored reference set — so the response carries no candidate
+	 * state, no partial body, and no cause detail, while keeping the same
+	 * private/no-store/noindex transport as every Preview answer.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public static function unavailable() {
+		$response = NeutralResponse::unexpected_failure();
 		$response->header( 'Cache-Control', self::CACHE_CONTROL );
 		$response->header( 'X-Robots-Tag', self::ROBOTS_TAG );
 		return $response;
@@ -288,6 +307,18 @@ final class PreviewController {
 		);
 		if ( ! $decision->allowed() ) {
 			return self::denial(); // Fresh authorization: revocation hits this request.
+		}
+
+		/*
+		 * FR-031 response preflight: a candidate Basic Page whose stored raw
+		 * reference set exceeds the server-owned budget fails the whole
+		 * Preview projection through the bounded safe failure class — never a
+		 * partial candidate body, never truncation, never a count. The
+		 * candidate DTO carries the stored reference set as-is, so the budget
+		 * is checked on the raw stored entries before any projection.
+		 */
+		if ( ! ReferenceProjection::record_within_budget( $post ) ) {
+			return self::unavailable();
 		}
 
 		$dto = self::project_candidate( $post );

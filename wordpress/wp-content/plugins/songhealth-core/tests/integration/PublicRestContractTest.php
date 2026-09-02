@@ -751,4 +751,143 @@ class PublicRestContractTest extends WP_UnitTestCase {
 		$contained = rest_do_request( $native );
 		$this->assertSame( 404, $contained->get_status(), 'the native search surface never competes with the Songhealth contract' );
 	}
+
+	/**
+	 * Many eligible Document Resource references for the FR-031 budget tests.
+	 *
+	 * @param int $count How many eligible documents to create.
+	 * @return string[] Their Public IDs.
+	 */
+	private function create_reference_documents( $count ) {
+		$ids = array();
+		for ( $i = 0; $i < $count; $i++ ) {
+			$document = $this->create_document( true );
+			$ids[]    = (string) $document['public_id'];
+		}
+		return $ids;
+	}
+
+	/** @test */
+	public function test_fr031_detail_with_over_bound_legacy_references_fails_whole_through_the_bounded_safe_class() {
+		$page     = $this->create_page();
+		$eligible = $this->create_reference_documents( 3 );
+
+		/*
+		 * Legacy/bypassed over-bound stored state (direct meta write, never
+		 * an authorized write). The registered meta schema normalizes on
+		 * write, so a persisted over-bound set requires DISTINCT entries:
+		 * 3 real references plus 98 distinct unknown identifiers.
+		 */
+		$unknown = array();
+		for ( $i = 0; $i < 101 - 3; $i++ ) {
+			$unknown[] = '00000000-0000-7000-8000-' . str_pad( dechex( $i ), 12, '0', STR_PAD_LEFT );
+		}
+		update_post_meta( (int) $page['post_id'], FoundationTypes::META_DOCUMENT_REFERENCES, array_merge( $eligible, $unknown ) );
+
+		$response = $this->get_detail( 'basic-page', (string) $page['public_id'] );
+
+		$this->assertSame( 500, $response->get_status(), 'an over-bound reference set fails the whole detail response' );
+		$data = $response->get_data();
+		$this->assertSame( 'songhealth_unavailable', $data['code'], 'the failure is the generic bounded safe class' );
+		$encoded = wp_json_encode( $data );
+		$this->assertStringNotContainsString( 'documentReferences', (string) $encoded, 'no partial DTO body is emitted' );
+		$this->assertStringNotContainsString( 'Contract Fixture Page', (string) $encoded, 'no record field is disclosed' );
+		$this->assertStringNotContainsString( (string) $eligible[0], (string) $encoded, 'no reference is disclosed' );
+		$this->assertStringNotContainsString( '101', (string) $encoded, 'the offending count is never exposed' );
+		$this->assertStringNotContainsString( '100', (string) $encoded, 'the budget value is never exposed' );
+
+		/* Stored state was not silently repaired or truncated. */
+		$this->assertCount( 101, (array) get_post_meta( (int) $page['post_id'], FoundationTypes::META_DOCUMENT_REFERENCES, true ) );
+	}
+
+	/** @test */
+	public function test_fr031_listing_combined_reference_budget_fails_whole_without_partial_items() {
+		$eligible = $this->create_reference_documents( 3 );
+		$pages    = array();
+		foreach ( array( 34, 33, 33 ) as $index => $raw_count ) {
+			$page = $this->create_page( 'publish', array( 'title' => "Combined Budget Page {$index}", 'post_name' => "combined-budget-page-{$index}" ) );
+			/* Distinct entries per page: the registered meta schema normalizes on write. */
+			$raw = array_slice( $eligible, 0, 2 );
+			for ( $i = 0; $i < $raw_count - 2; $i++ ) {
+				$raw[] = sprintf( '00000000-0000-7000-8000-%01d%011d', $index, $i );
+			}
+			update_post_meta( (int) $page['post_id'], FoundationTypes::META_DOCUMENT_REFERENCES, $raw );
+			$pages[] = $page;
+		}
+
+		/* Combined raw count is exactly 100: the listing succeeds as a whole. */
+		$response = $this->list_resources( array( 'type' => 'basic-page', 'perPage' => 20, 'order' => 'newest' ) );
+		$this->assertSame( 200, $response->get_status(), 'a combined raw count at exactly the budget still serves the listing' );
+		$envelope = $response->get_data();
+		$this->assertCount( 3, $envelope['data'], 'every participating page projects' );
+		$expected_references = array_slice( $eligible, 0, 2 );
+		foreach ( $envelope['data'] as $dto ) {
+			$this->assertSame( $expected_references, $dto['documentReferences'], 'each page carries its eligible references in stored order' );
+		}
+
+		/* One more raw entry on one page pushes the combined count past the budget: the WHOLE listing fails. */
+		$stored   = (array) get_post_meta( (int) $pages[0]['post_id'], FoundationTypes::META_DOCUMENT_REFERENCES, true );
+		$stored[] = '00000000-0000-7000-8000-000000000099';
+		update_post_meta( (int) $pages[0]['post_id'], FoundationTypes::META_DOCUMENT_REFERENCES, $stored );
+
+		$response = $this->list_resources( array( 'type' => 'basic-page', 'perPage' => 20, 'order' => 'newest' ) );
+		$this->assertSame( 500, $response->get_status(), 'a combined count above the budget fails the whole listing response' );
+		$data = $response->get_data();
+		$this->assertSame( 'songhealth_unavailable', $data['code'] );
+		/* The failure body is EXACTLY the bounded error envelope — no list payload, no envelope keys of a partial page. */
+		$this->assertSame( array( 'code', 'message', 'data' ), array_keys( (array) $data ), 'the failure body is the bounded error envelope only' );
+		$this->assertSame( array( 'status' => 500 ), (array) $data['data'], 'the error data carries only the bounded status' );
+		$encoded = wp_json_encode( $data );
+		$this->assertStringNotContainsString( 'hasMore', (string) $encoded, 'no partial envelope shape is emitted' );
+		$this->assertStringNotContainsString( 'nextCursor', (string) $encoded, 'no partial envelope shape is emitted' );
+		$this->assertStringNotContainsString( 'Combined Budget Page', (string) $encoded, 'no earlier item is emitted as partial success' );
+		$this->assertStringNotContainsString( (string) $eligible[0], (string) $encoded, 'no reference is disclosed by the failure' );
+		$this->assertStringNotContainsString( '101', (string) $encoded, 'the offending combined count is never exposed' );
+	}
+
+	/** @test */
+	public function test_fr031_reference_order_and_deduplication_survive_projection_at_the_bound() {
+		$page     = $this->create_page();
+		$eligible = $this->create_reference_documents( 2 );
+		$ineligible = $this->create_document( false );
+		wp_update_post( array( 'ID' => (int) $ineligible['post_id'], 'post_status' => 'draft' ) );
+
+		/*
+		 * 100 raw stored entries carrying DUPLICATES, an ineligible
+		 * reference, and an unknown shape, in stored order. The registered
+		 * meta schema deduplicates on every schema-mediated write, so this
+		 * legacy/bypassed state is established by a direct postmeta row write
+		 * that bypasses the schema sanitizer — exactly the persisted shape
+		 * the projection-side deduplication must handle on its own.
+		 */
+		$raw = array();
+		for ( $i = 0; $i < 49; $i++ ) {
+			$raw[] = $eligible[0];
+			$raw[] = $eligible[1];
+		}
+		$raw[] = (string) $ineligible['public_id'];
+		$raw[] = '00000000-0000-7000-8000-0000000000ff';
+		$this->assertCount( 100, $raw );
+
+		global $wpdb;
+		delete_post_meta( (int) $page['post_id'], FoundationTypes::META_DOCUMENT_REFERENCES );
+		$wpdb->insert(
+			$wpdb->postmeta,
+			array(
+				'post_id'    => (int) $page['post_id'],
+				'meta_key'   => FoundationTypes::META_DOCUMENT_REFERENCES,
+				'meta_value' => maybe_serialize( $raw ),
+			)
+		);
+		wp_cache_delete( (int) $page['post_id'], 'post_meta' );
+
+		$response = $this->get_detail( 'basic-page', (string) $page['public_id'] );
+		$this->assertSame( 200, $response->get_status(), 'the at-bound projection serves detail as a whole' );
+		$dto = $response->get_data();
+		$this->assertSame(
+			array( $eligible[0], $eligible[1] ),
+			$dto['documentReferences'],
+			'references are deduplicated in stored order; ineligible and unknown entries are omitted entirely'
+		);
+	}
 }

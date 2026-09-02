@@ -826,4 +826,33 @@ class PreviewContractTest extends WP_UnitTestCase {
 			'Preview never mutates identity through the lifecycle'
 		);
 	}
+
+	/** @test */
+	public function test_fr031_an_over_bound_candidate_reference_set_fails_the_whole_preview_safely() {
+		$page = $this->create_page();
+
+		/* Legacy/bypassed over-bound stored candidate state (direct meta write, never an authorized write). */
+		$raw = array();
+		for ( $i = 0; $i < 101; $i++ ) {
+			$raw[] = '00000000-0000-7000-8000-' . str_pad( dechex( $i ), 12, '0', STR_PAD_LEFT );
+		}
+		update_post_meta( (int) $page['post_id'], FoundationTypes::META_DOCUMENT_REFERENCES, $raw );
+
+		$init    = $this->initiate( (int) $page['post_id'], $this->editor );
+		$request = $this->preview_request( 'basic-page', (string) $page['public_id'], $init['grant'] );
+
+		$this->assertSame( 500, $request->get_status(), 'an over-bound candidate reference set fails the whole Preview projection' );
+		$data = $request->get_data();
+		$this->assertSame( 'songhealth_unavailable', $data['code'], 'the failure is the generic bounded safe class' );
+		$encoded = wp_json_encode( $data );
+		$this->assertStringNotContainsString( 'documentReferences', (string) $encoded, 'no partial candidate body is emitted' );
+		$this->assertStringNotContainsString( 'Preview Contract Fixture', (string) $encoded, 'no candidate field is disclosed' );
+		$this->assertStringNotContainsString( (string) $raw[0], (string) $encoded, 'no stored reference is disclosed' );
+		$this->assertStringNotContainsString( '101', (string) $encoded, 'the offending count is never exposed' );
+
+		/* The Preview confidentiality posture is unchanged on the failure path. */
+		$this->assertSame( 'private, no-store', $request->get_headers()['Cache-Control'] ?? null );
+		$this->assertSame( 'noindex, nofollow', $request->get_headers()['X-Robots-Tag'] ?? null );
+		$this->assertSame( 'nosniff', $request->get_headers()['X-Content-Type-Options'] ?? null );
+	}
 }

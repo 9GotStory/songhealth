@@ -60,6 +60,16 @@ final class FoundationTypes {
 	/** Basic Page only: optional ordered Document Resource references, stored by Public ID. */
 	const META_DOCUMENT_REFERENCES = '_songhealth_document_references';
 
+	/**
+	 * The server-owned raw reference budget (FR-031): the maximum number of
+	 * raw stored Document Resource reference entries one detail, listing, or
+	 * Preview response may inspect — per record and combined across every
+	 * Basic Page in the response — and the maximum raw entry count an
+	 * authorized write may store. An implementation safety invariant: not a
+	 * client parameter, not a public SLA, not a per-page Product setting.
+	 */
+	const MAX_RAW_DOCUMENT_REFERENCES = 100;
+
 	/** Document Resource only. */
 	const META_DOCUMENT_DATE        = '_songhealth_document_date';
 	const META_BINARY_ATTACHMENT_ID = '_songhealth_binary_attachment_id';
