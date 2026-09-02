@@ -62,6 +62,18 @@ are never blindly redirected to the homepage.
 - Explicit type projector only; default serialization is forbidden.
 - An eligible parent cannot elevate an ineligible reference; omit/neutralize it after its own current
   decision.
+- Basic Page Document Resource references share one hard server-owned budget of 100 raw stored entry
+  work units per detail, listing, or Preview response. The budget is not a request parameter or public SLA.
+- Authorized writes reject an over-bound stored set atomically. At projection time, validate every
+  Basic Page raw set and the combined raw response count before iteration or normalization; deduplicate
+  within the budget in stored order; use at most one set-based mapping query and one set-based post
+  load for the response with request-local mapping/post/meta caches primed; and apply the unchanged
+  `PublicEligibility` decision to every candidate without further per-reference queries. Bulk loading
+  is retrieval only and never decides eligibility.
+- A legacy/bypassed over-bound set or combined response above the budget fails the whole projection
+  through the generic bounded `5xx` class. Never return a partial DTO/list/Preview body, silently
+  truncate references, imply that an incomplete collection is complete, reveal the offending value,
+  or add reference pagination/a client limit/new route.
 - Cache is never eligibility authority.
 - Invalid list/cursor input returns bounded `400`; unexpected failure returns generic `5xx` with a safe
   category/correlation code. No stack, SQL, path, credential, user, or protected content.

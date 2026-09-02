@@ -48,6 +48,12 @@ Distinct custom post type with shared fields plus optional summary, minimal cont
 optional ordered Document Resource references. A reference never elevates its target. Canonical path:
 `/pages/{public_id}/{display_slug?}`; there is no required `/pages` public hub.
 
+The stored reference collection is deduplicated in input order and is limited to the server-owned
+projection budget of 100 raw entries. An authorized update above that bound is rejected atomically
+and leaves the prior collection unchanged. This is an internal safety invariant, not a client-selectable field or a
+public SLA. Legacy/bypassed over-bound metadata remains administratively correctable but cannot be
+partially projected.
+
 ## Document Resource Foundation Record
 
 Distinct custom post type with shared fields plus optional summary/document date and one internal
@@ -64,6 +70,16 @@ Derived non-authoritative DTO. Shared allowlist: `type`, `publicId`, `title`, `c
 `summary` and approved dates. Basic Page may contain controlled `body`/eligible references. Document
 Resource may contain `downloadPath`. Never expose raw Media URL/filename/path, internal IDs/status,
 post metadata, user identity, or protected state.
+
+Reference projection has a response-scoped work budget of 100 raw entries across every Basic Page in
+one detail, listing, or Preview response. Before per-reference eligibility decisions, the projection
+boundary checks raw per-record and combined counts before iteration, deduplicates in stored order,
+and resolves mappings/posts with at most one set-based mapping query and one set-based post load for
+the response while priming request-local mapping/post/meta caches. `PublicEligibility` remains the
+sole current authority for every reference included in output. Unknown, wrong-type, withdrawn, and
+otherwise ineligible references are omitted. If stored or
+combined work exceeds the budget, the whole projection fails safely with no DTO/list/Preview body;
+no references are silently truncated and no incomplete collection is represented as complete.
 
 Foundation listing envelopes contain `data`, `hasMore`, and optional `nextCursor`, never exact public
 totals/page counts. Resource type, bounded `perPage`, deterministic order, and optional opaque cursor

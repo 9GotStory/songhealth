@@ -41,8 +41,12 @@ are not proven.
 
 **Performance Goals**: Every foundation-list request has a hard server-controlled candidate-scan and
 application-evaluation bound, uses deterministic Public-ID keyset progress, and performs no deep
-OFFSET or unbounded scan; detail, listing, Preview, and download avoid N+1 projections. No numeric
-target is invented; representative response evidence is recorded and tuning follows measured need.
+OFFSET or unbounded scan. Basic Page reference projection has a separate hard server-owned budget of
+100 evaluations across one detail, listing, or Preview response; reference mappings/posts are loaded
+set-wise for the response and each loaded reference still passes `PublicEligibility`, so detail,
+listing, Preview, and download avoid N+1 projection queries. The budget is an implementation safety
+boundary, not a client parameter or public SLA; representative evidence is recorded and tuning
+follows measured need.
 
 **Constraints**: Default deny; current server-side eligibility on every anonymous disclosure;
 accepted creation only through the Songhealth supported-resource creation service (service success
@@ -147,6 +151,13 @@ Songhealth policy, and presentation without a standalone backend or custom Admin
    a valid, live identity mapping is the first prerequisite of each. The foundation list uses bounded
    candidate windows and opaque deterministic keyset continuation; `PublicEligibility` alone decides
    record eligibility, exact public totals are absent, and SQL never reproduces the eligibility rules.
+   Basic Page Document Resource references use one response-scoped budget of 100 raw entry work units: reject
+   over-bound writes atomically, refuse an entire legacy/bypassed or combined over-bound projection
+   through the bounded safe failure class, check raw counts before iteration, deduplicate in stored
+   order, use at most one mapping query and one post load for the response, prime request-local
+   mapping/post/meta caches, then call `PublicEligibility` for every candidate without further
+   per-reference queries.
+   Never truncate, return a partial reference collection, or create a generalized relationship layer.
 4. Bind React canonical routes to the public contract.
 5. Add authenticated Preview and protected delivery using fresh policy checks.
 6. Add safe config/diagnostics, risk verification, hosting-account checkpoint, dependency evidence,

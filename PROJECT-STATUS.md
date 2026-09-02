@@ -31,13 +31,13 @@
 
 ## Workflow Gate
 
-- **Current phase:** DELIVERY 002 GATE 07 — T057–T060 / FINAL CROSS-CUTTING VERIFICATION / HUMAN AUTHORIZED
-- **Current review result:** Gate 06 PASS accepted — T048–T056 substantively CLOSED; corrective implementation `4d7e53fcd2a09ba5e603af33ce038954b52a2be1`; G06-B01 closed after corrective round 1
-- **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify COMPLETE; Clarify COMPLETE; Plan COMPLETE; Tasks COMPLETE; Analyze COMPLETE; T001–T056 complete according to their accepted gate outcomes; unresolved T054 Production-specific Bangmod account facts remain `DEFERRED-EVIDENCE-GATE`
-- **Next valid action:** Codex issues the bounded handoff to Claude Code for Delivery 002 Gate 07 / T057–T060 only
-- **Blocking issues:** None for Gate 07 handoff; unresolved T054 Production-specific Bangmod capability/version locks remain evidence-gated and must not be converted into assumed PASS results
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
-- **Authorized Implementation:** T057–T060 — Final Cross-Cutting Verification only
+- **Current phase:** DELIVERY 002 GATE 07 — G07-B01 SPEC KIT RECONCILIATION / STOP AT HUMAN REWORK GATE
+- **Current review result:** CHANGES REQUIRED on rejected evidence candidate `aedda25dba2b986a5bbebaf564e3a0c5de9f642c`; G07-B01 bounded-reference design gap reconciled in Spec Kit authority; G07-B02 remains an evidence-regeneration correction
+- **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify/Clarify/Plan/Tasks reconciled for G07-B01; explicit Delivery 002 read-only Analyze consistency pass complete with no blocking finding; T001–T056 remain complete; T057–T060 remain incomplete; unresolved T054 Production-specific Bangmod account facts remain `DEFERRED-EVIDENCE-GATE`
+- **Next valid action:** Human authorization for bounded G07-B01 implementation/test correction plus G07-B02 evidence regeneration; no automatic Claude dispatch
+- **Blocking issues:** G07-B01 implementation/tests and G07-B02 exact-endpoint T060 evidence remain unresolved; rejected candidate MUST NOT be persisted
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Authorized Implementation:** NONE — reconciliation only; stop at Human boundary
 - **Spec Kit specify:** COMPLETE / independently reviewed
 - **Delivery 001 T051+:** RETIRED / NOT AUTHORIZED
 - **Excluded scope:** Importer, Trial Migration, Production Import, Production Cutover, Production deployment, legacy retirement, Delivery 001 T051+, asset deletion, and speculative infrastructure remain NOT AUTHORIZED
@@ -55,6 +55,7 @@
 - **Spec Kit plan:** COMPLETE / independently reviewed
 - **Spec Kit tasks:** COMPLETE / independently reviewed
 - **Spec Kit analyze:** COMPLETE / read-only analysis PASS / independently verified
+- **G07-B01 analyze note:** the installed prerequisite resolver selected historical `specs/001-application-foundation` on this isolated branch, so Codex did not mutate resolver state; the repository `speckit-analyze` semantic/coverage/Constitution passes were applied read-only to the explicitly Human-authorized Delivery 002 `spec.md`, `plan.md`, and `tasks.md`, with FR-031 covered by reconciled T058 and no new blocking inconsistency
 
 - **T050 Product Owner acceptance:** Human Gate accepted initial authorization
   `fa5dcc1fed6e8566b44d54c9fd4a77de8749c8ed`, original implementation
@@ -972,11 +973,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** Delivery 002 Gate 07 / T057–T060 — Final Cross-Cutting Verification only: complete the FR-024/FR-025 and SC-001–SC-011 acceptance matrix; bounded-performance verification; nondisclosure audit; and final Delivery 002 scope audit
-- **Runtime:** Claude Code as DEV Executor under Codex orchestration and independent review
-- **Required references:** `.specify/memory/constitution.md`; `docs/spec-context/002-headless-wordpress-foundation.md`; `specs/002-headless-wordpress-foundation/spec.md`; `specs/002-headless-wordpress-foundation/plan.md`; `specs/002-headless-wordpress-foundation/tasks.md` T057–T060; `specs/002-headless-wordpress-foundation/quickstart.md`; and the accepted T001–T056 implementation/evidence artifacts routed by those documents
-- **Expected verification:** Execute and record only T057–T060 evidence; preserve every unresolved T054 Production-specific Bangmod account fact as `DEFERRED-EVIDENCE-GATE`; verify bounded behavior, nondisclosure, and exact Delivery 002 scope without importer/migration/import/cutover, Production deployment, legacy retirement, Delivery 001 T051+, asset deletion, speculative infrastructure, or new Product implementation
-- **Authorization state:** AUTHORIZED  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — G07-B01 Spec Kit reconciliation complete; corrective implementation/test work and G07-B02 evidence regeneration await separate Human authorization
+- **Runtime:** NONE
+- **Required references:** NONE until Human rework authorization
+- **Expected verification:** NONE authorized; rejected Gate 07 candidate remains non-canonical
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 

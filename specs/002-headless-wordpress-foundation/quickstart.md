@@ -44,14 +44,23 @@ WordPress ID is public.
 Seed eligible/ineligible records with sentinel metadata/user values. Exercise [public-rest.md](./contracts/public-rest.md)
 detail/list, per-page and hard scan bounds, deterministic continuation, type/order allowlists,
 opaque-cursor confidentiality/integrity/type/order/expiry rejection, empty all-ineligible scan
-windows, attempted search/native params, and an eligibility change between calls. Compare fields,
-continuation behavior, and errors.
+windows, attempted search/native params, and an eligibility change between calls. For Basic Page
+references, exercise normal eligible/ineligible and non-elevation cases; an ordered/deduplicated set
+at the 100-evaluation response budget; an authorized write and legacy/bypassed value above the bound;
+and a listing of multiple Basic Pages whose combined reference work is at and above the same budget.
+Instrument registry/post queries and reference evaluations for one versus many references. Compare
+fields, continuation behavior, errors, query shape, and work counts.
 
 Expected: only eligible allowlisted fields; every returned item passes the live shared decision;
 application evaluation never exceeds the hard candidate budget; continuation makes deterministic
 progress without OFFSET or identifier/state leakage; an exhausted all-ineligible window can return
 empty `data` with `hasMore=true` and an opaque `nextCursor`; stale state does not authorize; no exact
-totals/page counts and no Songhealth search exist.
+totals/page counts and no Songhealth search exist. Reference mappings/posts are loaded in a bounded
+set-based query shape rather than per-reference N+1 queries; every included reference independently
+passes current `PublicEligibility`; order/deduplication are preserved. At-bound detail/list/Preview
+projection succeeds. Over-bound writes are atomic refusals, while legacy/bypassed or combined
+over-bound projections fail wholly with bounded safe evidence and no partial body, silent truncation,
+count/value disclosure, or false completeness.
 
 ## 4. Native-surface containment
 
