@@ -31,13 +31,13 @@
 
 ## Workflow Gate
 
-- **Current phase:** DELIVERY 002 GATE 07 — HUMAN-AUTHORIZED G07-B01–B02 CORRECTIVE REWORK
-- **Current review result:** REWORK authorized for exact findings G07-B01 (FR-031 bounded/N+1-safe Basic Page Document Resource reference projection) and G07-B02 (reproducible exact-endpoint T060 Git audit); rejected evidence candidate `aedda25dba2b986a5bbebaf564e3a0c5de9f642c` remains non-canonical
+- **Current phase:** DELIVERY 002 GATE 07 — HUMAN-AUTHORIZED G07-B02 EVIDENCE-ONLY CORRECTIVE REWORK
+- **Current review result:** G07-B01 is independently verified CLOSED for this review cycle at reviewed candidate `4a85df824cd953738f369cd165a20c306143848d`; G07-B02 remains OPEN because T060 prohibited-scope keyword hit counts are not reproducible from the stated immutable ranges
 - **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify/Clarify/Plan/Tasks reconciled for G07-B01; explicit Delivery 002 read-only Analyze consistency pass complete with no blocking finding; T001–T056 remain complete; T057–T060 remain incomplete; unresolved T054 Production-specific Bangmod account facts remain `DEFERRED-EVIDENCE-GATE`
-- **Next valid action:** bounded Codex handoff to Claude Code for the G07-B01 implementation/test correction and G07-B02/T057–T060 evidence regeneration, followed by Codex independent re-review
-- **Blocking issues:** G07-B01 and G07-B02 remain open until independent PASS; rejected candidate MUST NOT be used as the implementation base or persisted as-is
+- **Next valid action:** bounded Codex handoff to Claude Code for the G07-B02 T060 evidence-only correction, followed by Codex independent re-review
+- **Blocking issues:** G07-B02 only — T060 prohibited-scope keyword hit counts must be regenerated as deterministic matching-added-line counts against the exact final immutable ranges; T057–T060 remain incomplete pending final independent PASS
 - **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
-- **Authorized Implementation:** G07-B01–B02 only — implement reconciled FR-031 from canonical authority base `c51ee2b6a3406ac9a5ff20927ff733e5bef9f014`, add/update bounded tests, and regenerate/revalidate T057–T060 evidence
+- **Authorized Implementation:** G07-B02 evidence correction only — preserve the independently reviewed G07-B01 implementation/test state and T057–T059 evidence from `4a85df824cd953738f369cd165a20c306143848d`; correct only `tests/successor/evidence/delivery-002-scope-audit.md`
 - **Spec Kit specify:** COMPLETE / independently reviewed
 - **Delivery 001 T051+:** RETIRED / NOT AUTHORIZED
 - **Excluded scope:** Importer, Trial Migration, Production Import, Production Cutover, Production deployment, legacy retirement, Delivery 001 T051+, asset deletion, and speculative infrastructure remain NOT AUTHORIZED
@@ -973,10 +973,10 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** Delivery 002 Gate 07 G07-B01–B02 rework only: implement the FR-031 hard response-owned budget of 100 raw stored Document Resource references, atomic over-bound write rejection, response-level raw-count preflight, at most one set-based Public ID mapping query and one set-based referenced-post load, request-local retrieval/meta caching, unchanged per-reference `PublicEligibility`, preserved order/deduplication, and whole-response safe failure for over-bound detail/list/Preview; add/update only necessary tests; regenerate/revalidate the complete T057–T060 evidence set, including T058 and exact-endpoint T060. T057–T060 checkboxes remain unchanged pending independent PASS.
+- **Task / Scope:** Delivery 002 Gate 07 G07-B02 evidence-only rework: preserve every implementation/test blob and the T057/T058/T059 evidence blobs from independently reviewed candidate `4a85df824cd953738f369cd165a20c306143848d`; change only `tests/successor/evidence/delivery-002-scope-audit.md` to regenerate every prohibited-scope term row as deterministic matching-added-line counts against the exact final immutable ranges. T057–T060 checkboxes remain unchanged pending final independent PASS.
 - **Runtime:** Claude Code as DEV Executor under Codex orchestration and independent review
-- **Required references:** canonical authority/base `c51ee2b6a3406ac9a5ff20927ff733e5bef9f014`; `.specify/memory/constitution.md`; this `PROJECT-STATUS.md`; `specs/002-headless-wordpress-foundation/spec.md` FR-031; reconciled `plan.md`, `data-model.md`, `contracts/public-rest.md`, `quickstart.md`, and T058 in `tasks.md`. Rejected candidate `aedda25dba2b986a5bbebaf564e3a0c5de9f642c` is reference-only for revalidated factual evidence and MUST NOT be the implementation base or be persisted as-is.
-- **Expected verification:** focused raw-bound/write-atomicity, detail/list/Preview whole-failure, order/deduplication, eligibility/non-elevation, and deterministic set-based query-count/N+1 tests at small and near-bound sets; all affected canonical PHP, REST, containment, authorization, Preview, protected-binary, identity/eligibility, diagnostics, frontend, browser, TypeScript, build, and live readiness/probe suites with honest environment-gate reporting; regenerated T057–T060 evidence; exact reproducible T060 Git endpoints/statistics; PHP syntax checks; `git diff --check`; complete changed-path and prohibited-scope audit. No Spec Kit/Frozen/Constitution/dependency/deployment/import/migration/cutover/retirement changes are authorized.
+- **Required references:** new B02-only governance base (this commit); reviewed candidate `4a85df824cd953738f369cd165a20c306143848d`; reconciled authority `c51ee2b6a3406ac9a5ff20927ff733e5bef9f014`; and `tests/successor/evidence/delivery-002-scope-audit.md`. G07-B01 implementation/tests and T057–T059 are accepted reference blobs and MUST remain byte-identical to `4a85df824cd953738f369cd165a20c306143848d`.
+- **Expected verification:** exact final changed-path list; byte-identical implementation/tests/T057/T058/T059 against `4a85df824cd953738f369cd165a20c306143848d`; mechanically regenerated three-range Git statistics and matching-added-line counts using explicit expressions; classification of every hit; zero unauthorized implementation or deletion; preserved `removal_authorized=false`; clean worktree; and `git diff --check`. No implementation, test, Spec Kit, Frozen, Constitution, dependency, configuration, deployment, import, migration, cutover, or retirement change is authorized.
 - **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
