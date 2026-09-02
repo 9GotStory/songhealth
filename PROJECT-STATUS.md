@@ -31,13 +31,13 @@
 
 ## Workflow Gate
 
-- **Current phase:** DELIVERY 002 GATE 07 — HUMAN-AUTHORIZED G07-B02 EVIDENCE-ONLY CORRECTIVE REWORK
-- **Current review result:** G07-B01 is CLOSED; the prior G07-B02 mechanical matching-added-line count defect is CLOSED at reviewed candidate `5a83c70b0594020adbf77387db96ed3d0a1c0148`; G07-B02 remains OPEN only because the T060 importer classification partition is internally inconsistent with its mechanically reproduced total
-- **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify/Clarify/Plan/Tasks reconciled for G07-B01; explicit Delivery 002 read-only Analyze consistency pass complete with no blocking finding; T001–T056 remain complete; T057–T060 remain incomplete; unresolved T054 Production-specific Bangmod account facts remain `DEFERRED-EVIDENCE-GATE`
-- **Next valid action:** bounded Codex handoff to Claude Code for the G07-B02 T060 classification-only evidence correction, followed by Codex independent re-review
-- **Blocking issues:** G07-B02 classification partition only — every importer matching added line must belong to exactly one reproducible category whose totals equal the final mechanically reproduced count; T057–T060 remain incomplete pending final independent PASS
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
-- **Authorized Implementation:** G07-B02 classification evidence only — preserve implementation, tests, and T057–T059 exactly from `5a83c70b0594020adbf77387db96ed3d0a1c0148`; correct only the importer classification partition in `tests/successor/evidence/delivery-002-scope-audit.md`, with mechanically necessary final-tree statistics/count updates
+- **Current phase:** DELIVERY 002 GATE 07 — SUBSTANTIVELY CLOSED
+- **Current review result:** PASS — G07-B01 and G07-B02 are CLOSED at independently accepted candidate `f034a80f257f0318940cc59a6b11810dc294a3bf`
+- **Phase status:** `002-headless-wordpress-foundation` Context READY; Specify/Clarify/Plan/Tasks/Analyze COMPLETE; T001–T060 complete according to accepted Gate outcomes; unresolved T054 Production-specific Bangmod account facts remain `DEFERRED-EVIDENCE-GATE`
+- **Next valid action:** Human selection and authorization of any subsequent bounded work; no further Delivery 002 implementation is authorized by this Gate closure
+- **Blocking issues:** none for Delivery 002 Gate 07; T054 Production-specific Bangmod account facts remain explicitly deferred pending direct evidence
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Authorized Implementation:** NONE
 - **Spec Kit specify:** COMPLETE / independently reviewed
 - **Delivery 001 T051+:** RETIRED / NOT AUTHORIZED
 - **Excluded scope:** Importer, Trial Migration, Production Import, Production Cutover, Production deployment, legacy retirement, Delivery 001 T051+, asset deletion, and speculative infrastructure remain NOT AUTHORIZED
@@ -51,6 +51,7 @@
 - **Gate 01 acceptance record:** Multica issue `9GOTSTORY-36`; T001–T005 accepted after independent PASS; T001–T005-B01 closed; implementation authorization cleared; T006–T060, deployment, importer, Trial Migration, and cutover remain unauthorized
 - **Gate 01.5 acceptance record:** Multica issue `9GOTSTORY-37`; local-only Podman WordPress verification runtime implementation `008241eef63e49c1a01ddcda5412d66c61cc866c` accepted after independent real-engine PASS; Production Docker/Podman/VPS, deployment, T006–T060, importer, migration, Trial Migration, Production Import, and Production Cutover remain unauthorized
 - **Gate 06 acceptance record:** Multica issue `9GOTSTORY-44`; T048–T056 corrective implementation `4d7e53fcd2a09ba5e603af33ce038954b52a2be1` accepted after independent PASS; all actual Bangmod account facts remain `DEFERRED-EVIDENCE-GATE`; T057–T060 remain NOT AUTHORIZED
+- **Gate 07 acceptance record:** Multica issue `9GOTSTORY-45`; T057–T060 and corrective candidate `f034a80f257f0318940cc59a6b11810dc294a3bf` accepted after independent PASS; G07-B01/G07-B02 closed; T001–T060 complete; all actual Bangmod account facts remain `DEFERRED-EVIDENCE-GATE`; no deployment, importer, migration, cutover, retirement, deletion, speculative infrastructure, or subsequent Delivery is authorized
 - **Spec Kit clarify:** COMPLETE / 5 Human decisions / independently reviewed
 - **Spec Kit plan:** COMPLETE / independently reviewed
 - **Spec Kit tasks:** COMPLETE / independently reviewed
@@ -973,11 +974,11 @@
 
 ## Authorized Implementation
 
-- **Task / Scope:** Delivery 002 Gate 07 G07-B02 classification-only evidence rework: preserve every implementation/test blob and the T057/T058/T059 evidence blobs from independently reviewed candidate `5a83c70b0594020adbf77387db96ed3d0a1c0148`; change only `tests/successor/evidence/delivery-002-scope-audit.md` so the importer matching-line set is partitioned into mutually exclusive, mechanically reproducible categories whose totals equal the final row count. T057–T060 checkboxes remain unchanged pending final independent PASS.
-- **Runtime:** Claude Code as DEV Executor under Codex orchestration and independent review
-- **Required references:** new classification-only governance base (this commit); reviewed candidate `5a83c70b0594020adbf77387db96ed3d0a1c0148`; reconciled authority `c51ee2b6a3406ac9a5ff20927ff733e5bef9f014`; and `tests/successor/evidence/delivery-002-scope-audit.md`. Implementation/tests and T057–T059 are accepted reference blobs and MUST remain byte-identical to `5a83c70b0594020adbf77387db96ed3d0a1c0148`.
-- **Expected verification:** exact ancestry and changed-file scope; byte-identical implementation/tests/T057/T058/T059 against `5a83c70b0594020adbf77387db96ed3d0a1c0148`; regenerated eight-row matching-added-line table; exact importer matching-line set and mutually exclusive path-level classification whose arithmetic equals the final total with unauthorized implementation zero; regenerated three-range statistics/path/deletion evidence; preserved Delivery 001 assets, `removal_authorized=false`, and deferred Bangmod state; clean worktree; and `git diff --check`. No implementation, test, Spec Kit, Frozen, Constitution, dependency, configuration, deployment, import, migration, cutover, or retirement change is authorized.
-- **Authorization state:** REWORK  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
+- **Task / Scope:** NONE — Delivery 002 Gate 07 is substantively closed; T001–T060 are complete according to accepted Gate outcomes.
+- **Runtime:** NONE
+- **Required references:** accepted Gate 07 candidate `f034a80f257f0318940cc59a6b11810dc294a3bf` and the persisted Gate 07 acceptance record above.
+- **Expected verification:** NONE pending a new explicit Human authorization.
+- **Authorization state:** NONE  <!-- NONE | AUTHORIZED | REWORK | SUPERSEDED -->
 
 ## Rules
 
