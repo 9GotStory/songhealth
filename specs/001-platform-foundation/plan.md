@@ -99,8 +99,13 @@ an accepted RPO/RTO, scale, operational-risk, or other current requirement.
 - Commit `seed/seed.json` as a valid, explicit EmDash version-1 seed with no Product collections,
   content, taxonomies, relations, redirects, menus, or widgets. This suppresses EmDash's default
   example model while leaving later approved features to add the real Content Model.
-- Use native EmDash migrations. Production release verification runs `emdash migrate --check`;
-  no custom migration framework or mirrored schema layer is introduced.
+- Use native EmDash migrations. The exact application build/sync emits the migration manifest used
+  by production deployment. The supported startup procedure inspects that target with
+  `emdash migrate --status`, applies pending migrations with `emdash migrate` while preserving the
+  native target-fingerprint safety check for non-interactive execution, and then verifies the
+  resulting state with `emdash migrate --check`. Apply or check failure blocks readiness. Native
+  runtime `check` mode may enforce production state and native `auto` mode may be used in
+  development; no custom migration framework or mirrored schema layer is introduced.
 
 ### Configuration and secrets
 
@@ -170,11 +175,16 @@ Persistent volumes
   recurring probe is non-mutating: it performs a loopback request to `/`, a bounded PostgreSQL
   connectivity check, and a check that the expected media mount exists and is readable. It returns
   only redacted ready/not-ready evidence and is never exposed as a required public endpoint.
-- Make native `emdash migrate --check` a deployment/startup gate that establishes compatible EmDash
-  database and migration state before the application is declared ready. A failed or unknown
-  native migration state blocks readiness; no custom migration framework is introduced. Use the
-  PostgreSQL image's `pg_isready` for database-container health. Quadlet health configuration and
-  `Notify=healthy` make the resulting ready/not-ready state observable to operators.
+- Make the native migration sequence a deployment/startup gate before the application is declared
+  ready: consume the migration manifest emitted by the exact application build, inspect the
+  intended database target with `emdash migrate --status`, apply pending migrations with
+  `emdash migrate`, and verify the resulting state with `emdash migrate --check`. The apply step
+  preserves EmDash's target-fingerprint safety mechanism when run non-interactively. `--check`
+  remains verification-only and does not apply migrations. Any status/apply/check failure or
+  unknown migration state blocks readiness; no custom migration framework or separate migration
+  service is introduced. Use the PostgreSQL image's `pg_isready` for database-container health.
+  Quadlet health configuration and `Notify=healthy` make the resulting ready/not-ready state
+  observable to operators.
 - Prove media writeability during deployment/startup acceptance and integration verification with
   a bounded create/read/remove scratch-file probe or the smallest equally reliable mechanism.
   Failure blocks acceptance of the environment as ready for use. Do not perform a persistent media
@@ -204,9 +214,10 @@ Persistent volumes
   platform or place values in Git, backup artifacts, planning artifacts, transcripts, or logs.
 - Create a clean PostgreSQL 18 database owned by the stable EmDash role, restore the complete archive
   with `pg_restore --exit-on-error` and no object filtering, restore media into a clean media volume,
-  inject the recovered runtime secrets, and recreate the application runtime. Verify native EmDash
-  migration state, Admin/runtime operation, 100% of designated validation records, and every media
-  checksum. Partial, corrupt, mismatched, or unusable inputs must fail closed.
+  inject the recovered runtime secrets, and recreate the application runtime. Run the same native
+  status/apply/check migration sequence from the exact application build before readiness, then
+  verify Admin/runtime operation, the canonical native EmDash site-tagline validation value, and
+  every media checksum. Partial, corrupt, mismatched, or unusable inputs must fail closed.
 - Use documented PostgreSQL and standard archive/checksum commands directly; do not add a backup
   framework, replication privilege, standby, WAL archiving, PITR, or continuous backup orchestration.
   Production-grade PITR/physical-backup architecture is explicitly deferred until a later accepted
@@ -278,13 +289,13 @@ Implementation evidence must include:
 2. production build/start and minimum SSR/Admin verification;
 3. expected ready/not-ready results for every defined dependency/configuration state, with secret
    redaction;
-4. three consecutive start/stop/restart/recreate cycles retaining all designated database and media
-   validation state;
+4. three consecutive start/stop/restart/recreate cycles retaining the exact native EmDash site
+   `tagline` validation value/digest and all designated media validation state;
 5. rejection of all defined unintended public PostgreSQL connection attempts while private
    application access succeeds;
 6. a complete logical database archive and separate media artifact associated with the same known
-   state, restored into clean persistence with 100% of designated records/files present and zero
-   unexplained integrity differences;
+   state, restored into clean persistence with the exact native site `tagline` value/digest and
+   100% of designated media files present with zero unexplained integrity differences;
 7. independently protected required runtime secrets recovered through the external secret boundary
    without their values entering Git, planning artifacts, or evidence logs; and
 8. rootless Podman/Quadlet unit, health, network, volume, and lifecycle evidence, including exact

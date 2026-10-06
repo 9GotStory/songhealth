@@ -50,6 +50,9 @@ Expected:
 - `http://localhost:4321/_emdash/admin/` reaches native setup or native sign-in;
 - the independent maintainer requires zero undocumented intervention.
 
+Development may use EmDash's native automatic migration mode. Production acceptance uses the
+explicit manifest-driven sequence in Section 3.2.
+
 Complete native setup using a disposable Admin identity and passkey. Confirm the Admin contains no
 Songhealth Product collections; the explicit empty seed must prevent example Posts/Pages content
 scope.
@@ -97,16 +100,24 @@ public operational endpoint is required.
 
 ### 3.2 Database and migration startup gate
 
-During every supported deployment/startup procedure, run the native EmDash compatibility check
-before the application is declared ready:
+During every supported production deployment/startup procedure, use the migration manifest emitted
+by the exact application build. Inspect the intended target, apply pending native migrations, and
+then verify the resulting state before the application is declared ready:
 
 ```bash
+npm run build
+npx emdash migrate --status --json
+npx emdash migrate --expected-target-fingerprint "$EMDASH_TARGET_FINGERPRINT"
 npx emdash migrate --check
 ```
 
-Expected: compatible state with no pending or unknown native migrations passes. Any migration or
-check failure blocks readiness. This gate uses supported EmDash behavior and introduces no custom
-migration framework.
+Derive and verify `EMDASH_TARGET_FINGERPRINT` from the inspected intended target; do not hard-code a
+different environment's fingerprint. The apply command consumes `.emdash/migrations.json` emitted
+by that exact build. Expected: `--status` inspects without mutation, plain `migrate` applies pending
+native migrations with EmDash's non-interactive target safety, and `--check` applies nothing and
+passes only when no pending or unknown migrations remain. Any status, apply, or check failure blocks
+readiness. This gate uses supported EmDash behavior and introduces no custom migration framework or
+service.
 
 ### 3.3 Media writeability acceptance gate
 
@@ -122,13 +133,15 @@ checks never perform persistent media writes.
 
 Through native EmDash Admin:
 
-1. set the designated disposable native site/system value;
+1. set the native Site Setting `tagline` to the exact disposable public-safe value
+   `Songhealth Feature 001 foundation validation`;
 2. upload the designated public-publishable media asset;
-3. retrieve the value and the media through their native boundaries;
-4. record the database value's canonical digest and the media path, size, and SHA-256 in the
-   validation manifest.
+3. retrieve that same `tagline` and the media through their native boundaries;
+4. record the exact UTF-8 tagline value and SHA-256 digest plus the media path, size, and SHA-256 in
+   the validation manifest.
 
-Do not add Product collections or production editorial content.
+Do not use Admin identity, passkey metadata, an arbitrary internal row, or a new Product collection
+as the database validation value. Do not add Product collections or production editorial content.
 
 ## 5. Production Quadlet smoke and isolation
 
@@ -167,11 +180,12 @@ npm run verify:lifecycle
 ```
 
 Each sequence performs start, stop, restart, and container recreation while retaining the named
-database and media volumes. After every operation, it reruns readiness and compares the designated
-database value and media bytes to the validation manifest.
+database and media volumes. After every operation, it reruns readiness and compares the canonical
+native site `tagline` value/digest and media bytes to the validation manifest.
 
-Expected: 100% of designated records/media remain retrievable and unchanged for all three cycles.
-Recreation with either expected volume omitted must be `not-ready`, not a healthy empty system.
+Expected: the exact native site `tagline` value/digest and 100% of designated media remain
+retrievable and unchanged for all three cycles. Recreation with either expected volume omitted must
+be `not-ready`, not a healthy empty system.
 
 ## 7. Recovery drill
 
@@ -210,9 +224,13 @@ mechanism before operational-use acceptance:
 pg_restore --exit-on-error --no-owner --no-privileges \
   --dbname "$RESTORE_DATABASE" "$RECOVERY_DIR/database.dump"
 tar --extract --file "$RECOVERY_DIR/media.tar" --directory "$RESTORE_MEDIA_DIRECTORY"
+npx emdash migrate --status --json
+npx emdash migrate --expected-target-fingerprint "$EMDASH_TARGET_FINGERPRINT"
 npx emdash migrate --check
 npm run verify:restored-foundation
 ```
+
+Use the same exact-build manifest and verified target-fingerprint procedure from Section 3.2.
 
 Expected:
 
@@ -220,11 +238,13 @@ Expected:
 - `pg_restore --list` can read the database archive before restore;
 - restore into the clean database completes with zero ignored restore errors and no schema/table
   filters;
-- the restored database contains the complete designated EmDash validation state and has no pending
-  or unknown native migrations;
+- the restored database contains the exact native site `tagline` value and digest recorded in the
+  validation manifest and has no pending or unknown native migrations after the native
+  status/apply/check sequence;
 - restored media is available through native EmDash behavior;
-- 100% of designated validation records and media are present;
-- canonical record values, file sizes, and SHA-256 digests show zero unexplained differences;
+- the canonical native site `tagline` and 100% of designated media are present;
+- the exact tagline value/digest, file sizes, and media SHA-256 digests show zero unexplained
+  differences;
 - independently protected runtime secrets are injected successfully without their values appearing
   in Git or evidence output;
 - an incomplete, corrupt, mismatched, or unusable Recovery Set fails recovery-set validation; and

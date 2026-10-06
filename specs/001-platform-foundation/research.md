@@ -79,7 +79,12 @@ custom schema framework. [EmDash seed files](https://docs.emdashcms.com/themes/s
 
 **Decision**: Use EmDash's native PostgreSQL adapter with a runtime `DATABASE_URL`, PostgreSQL
 18.6, and `pg` 8.23.1. Use native EmDash migration commands and a stable, non-superuser application
-role with the documented schema/object ownership permissions.
+role with the documented schema/object ownership permissions. Build/sync emits
+`.emdash/migrations.json` for the exact application build. Production deployment consumes that
+manifest, uses `emdash migrate --status` to inspect the intended target, applies pending migrations
+with `emdash migrate`, and uses `emdash migrate --check` only to verify the resulting state.
+Non-interactive apply preserves EmDash's required target-fingerprint safety mechanism. Native
+runtime migration mode may be `check` in production and `auto` in development.
 
 **Rationale**: EmDash officially supports PostgreSQL on Node and documents connection,
 least-privilege role, and core migration behavior. No explicit PostgreSQL server-major support
@@ -87,6 +92,7 @@ range is published; PostgreSQL 18.6 is the current supported upstream release an
 selected baseline, subject to an early native migration/start smoke test before further
 implementation proceeds. [EmDash database options](https://docs.emdashcms.com/deployment/database/),
 [EmDash core migrations](https://docs.emdashcms.com/deployment/core-migrations/),
+[EmDash CLI](https://docs.emdashcms.com/reference/cli/),
 [PostgreSQL 18.6](https://www.postgresql.org/docs/release/18.6/)
 
 **Alternatives considered**:
@@ -98,6 +104,12 @@ implementation proceeds. [EmDash database options](https://docs.emdashcms.com/de
 **Resolved limitation**: EmDash does not publish a server-major matrix. The plan does not invent
 one; it selects the current PostgreSQL stable release and makes direct compatibility verification a
 fail-fast implementation gate.
+
+**Verified command semantics**: `emdash migrate --status` reports migration state without applying
+changes; `emdash migrate` applies pending native migrations; and `emdash migrate --check` applies
+nothing and fails when pending or unknown migrations remain. Production must use the manifest from
+the exact build rather than recomputing an unreviewed target from runtime configuration. These are
+native EmDash capabilities, so no Songhealth migration framework or migration service is needed.
 
 ## 5. Media Storage
 
@@ -139,11 +151,13 @@ but no particular proxy product is needed. [EmDash authentication](https://docs.
 **Decision**: Keep the public `/` verification page separate from one minimal server-side readiness
 helper. The helper is private, repeatable, and callable on demand. Every normal recurring probe is
 non-mutating and combines a loopback SSR request, bounded PostgreSQL check, and expected-media-mount
-presence/readability check. Native `emdash migrate --check` establishes compatible database and
-migration state as a deployment/startup gate; failure blocks readiness. A bounded media
-write/read/remove check runs during deployment/startup acceptance and integration verification;
-failure blocks acceptance of the environment as ready for use. Quadlet health and `Notify=healthy`
-expose ready/not-ready through user systemd, not the public web surface.
+presence/readability check. Before readiness, the deployment/startup procedure consumes the exact
+build's migration manifest, inspects the target with `emdash migrate --status`, applies pending
+native migrations with `emdash migrate` using target-fingerprint safety when non-interactive, and
+verifies the resulting state with `emdash migrate --check`; any failure blocks readiness. A bounded
+media write/read/remove check runs during deployment/startup acceptance and integration
+verification; failure blocks acceptance of the environment as ready for use. Quadlet health and
+`Notify=healthy` expose ready/not-ready through user systemd, not the public web surface.
 
 **Rationale**: EmDash's documented sample health route checks only that Astro can serve a route and
 explicitly does not cover database, storage, or migrations. No supported all-dependency EmDash or
@@ -164,10 +178,10 @@ systemd readiness until the health check passes. [EmDash Node deployment](https:
   integration checks provide writeability evidence without repeated mutation.
 
 **Demonstrated gap**: There is no native aggregate readiness primitive covering the recurring Astro
-response, PostgreSQL, and local-media dependency checks. Native EmDash migration verification
-remains a distinct deployment/startup gate and is not reimplemented inside the helper. The planned
-private helper is the only custom foundation extension and requires focused tests for correct
-ready/not-ready and secret-redaction behavior.
+response, PostgreSQL, and local-media dependency checks. Native EmDash migration status, apply, and
+verification remain a distinct deployment/startup gate and are not reimplemented inside the
+helper. The planned private helper is the only custom foundation extension and requires focused
+tests for correct ready/not-ready and secret-redaction behavior.
 
 ## 8. Production Podman and Quadlet Topology
 

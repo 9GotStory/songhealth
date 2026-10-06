@@ -38,8 +38,7 @@ or reviewable evidence.
 - native migration version/state;
 - native site setup state;
 - native first-Admin identity and passkey metadata created during controlled setup;
-- native site title/tagline or another explicitly designated, non-confidential system value used as
-  the validation database record;
+- the native site `tagline` setting used as the canonical database validation value;
 - native media metadata for the validation asset.
 
 **Relationships**:
@@ -55,24 +54,28 @@ or reviewable evidence.
   content, taxonomies, relations, redirects, menus, widgets, or sections.
 - No confidential health information or production editorial content may be used.
 - Re-running startup/setup against existing state must not overwrite or silently reinitialize it.
-- Native migrations must report no pending or unknown state before the deployment is accepted ready.
+- The exact application build's native migration manifest must be inspected, pending migrations
+  applied through native EmDash behavior, and the resulting state verified with no pending or
+  unknown migrations before the deployment is accepted ready.
 
-## 3. Foundation Validation Record
+## 3. Foundation Validation Record — Native Site Tagline
 
-**Persistence**: One designated non-confidential value in native EmDash foundation/system state;
-not a new Songhealth Product collection.
+**Persistence**: The native EmDash Site Setting named `tagline`; not a new Songhealth Product
+collection.
 
 | Field | Rules |
 |---|---|
-| Stable identifier/path | Identifies the exact native record/value selected for comparison. |
-| Expected value | Fixed disposable text suitable for public disclosure. |
-| Recorded digest | SHA-256 over a canonical exported representation used only for verification. |
+| Stable identifier/path | Native EmDash Site Setting `tagline`. |
+| Expected value | Exact disposable public-safe text: `Songhealth Feature 001 foundation validation`. |
+| Recorded digest | SHA-256 over the exact UTF-8 tagline value, recorded before lifecycle/recovery verification. |
 
 **Relationships**: Recorded in the Recovery Manifest and captured by the complete PostgreSQL
 logical archive.
 
-**Validation rules**: Must be retrievable before backup, after each lifecycle cycle, and after
-restore; the canonical value and digest must match exactly.
+**Validation rules**: The tagline must be retrievable before lifecycle/recovery tests, after each
+lifecycle cycle, and after restore; its exact value and digest must match. Admin identity, passkey
+metadata, arbitrary internal rows, and a new Product collection are not substitutes for this
+validation value.
 
 ## 4. Public-Publishable Validation Asset
 
@@ -107,7 +110,7 @@ non-mutating.
 | Overall state | Exactly `ready` or `not-ready` for the required recurring foundation dependencies. |
 | Runtime check | Expected SSR marker from loopback `/`. |
 | Database check | Bounded successful query/connection against the configured database. |
-| Database/migration startup gate | Native EmDash result establishes compatible state with no pending or unknown migrations before readiness is declared; failure blocks readiness and does not invoke a custom migration framework. |
+| Database/migration startup gate | The exact build's native manifest is inspected with `emdash migrate --status`; pending migrations are applied with native `emdash migrate` using target-fingerprint safety when required; `emdash migrate --check` then verifies no pending or unknown migrations. Failure blocks readiness and does not invoke a custom migration framework or service. |
 | Media recurring check | Expected mount presence/readability, evaluated without mutation. |
 | Media writeability gate | Deployment/startup or integration evidence proves writeability with a bounded reversible probe or equally small reliable mechanism before the environment is accepted as ready for use. |
 | Timestamp/context | ISO 8601 timestamp and environment label; no secret-bearing values. |
@@ -140,7 +143,7 @@ persistent volumes.
 |---|---|
 | PostgreSQL logical archive | Complete unfiltered custom-format dump of the EmDash database schema and data. |
 | Media archive | Complete archive of the expected persistent media directory for the known validation state. |
-| Database verification evidence | Readable archive table of contents, successful error-stopping restore into a clean database, native migration check, and designated-record comparison. |
+| Database verification evidence | Readable archive table of contents, successful error-stopping restore into a clean database, native status/apply/check migration result, and exact native `tagline` value/digest comparison. |
 | Media checksum manifest | Path, size, and SHA-256 for every designated media file. |
 | Recovery metadata | One recovery-set identifier, ISO 8601 creation time, PostgreSQL/tool versions, artifact checksums, and expected validation items from the same known state. |
 
@@ -156,7 +159,8 @@ their common association evidence; it does not contain runtime secrets or secret
 - Restore targets a clean PostgreSQL database and clean media volume; the source active stores are
   not overwritten by the acceptance drill.
 - `pg_restore` must use no schema/table filters and must stop on the first restore error.
-- All designated records and media must be restored, with zero unexplained differences.
+- The exact native site `tagline` value/digest and all designated media must be restored, with zero
+  unexplained differences.
 - A corrupt archive, failed restore, or mismatched manifest fails closed.
 
 ## 7. Runtime Secret Recovery Evidence
