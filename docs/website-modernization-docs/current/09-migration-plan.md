@@ -2308,7 +2308,9 @@ The following remain mandatory:
 - legacy WordPress is retired through controlled cutover/stabilization rather than permanent dual-write;
 - the exact target runtime, database and CMS mechanisms are owned only by the current `10-system-blueprint.md`.
 
-This section intentionally does **not** assume a formal Songhealth Domain Boundary. The placement of Songhealth-specific rules is a post-rebaseline architecture decision; migration must preserve the rules regardless of where they are implemented.
+Migration follows the current Thin Songhealth Policy Layer decision in `10-system-blueprint.md`. When importer behavior touches shared Songhealth invariants—such as public eligibility, stable public identity, lifecycle validity, protected-resource access, authorization-sensitive actions, or relationship integrity—it must reuse the approved policy semantics rather than implement a competing migration-only rule set.
+
+The importer itself does **not** become a Domain/Application layer or a new policy authority. Migration-specific extraction, mapping and reconciliation logic remains migration tooling; shared Product rules remain owned by the current Songhealth policy contracts.
 
 ---
 
@@ -2347,9 +2349,9 @@ Next relationship:
 ```text
 Clean Rebaseline 00–10
         ↓
-Post-Rebaseline Architecture Review
+Human Acceptance / merge
         ↓
-Fresh Specification / Plan
+Fresh Constitution + Specification / Plan
         ↓
 Separately Authorized Migration Implementation
 ```

@@ -116,47 +116,68 @@ Application/CMS code ต้องไม่กระจาย raw SQL จน Prod
 
 # 4. Target Runtime Shape
 
+Baseline runtime remains one application/runtime boundary:
+
 ```text
-                    Internet
-                       │
-                    HTTPS
-                       │
-                       ▼
-              Reverse Proxy / Edge
-                       │
-                       ▼
-┌────────────────────────────────────────────┐
-│          Songhealth Astro Runtime          │
-│                                            │
-│  Public Astro SSR        EmDash Admin      │
-│         │                     │            │
-│         └──────────┬──────────┘            │
-│                    │                       │
-│                  EmDash                    │
-│                    │                       │
-└────────────────────┼───────────────────────┘
-                     │
-              PostgreSQL
-                     │
-              Media Storage
+                         Internet
+                            │
+                         HTTPS
+                            │
+                            ▼
+                   Reverse Proxy / Edge
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────┐
+│                Songhealth Astro Runtime              │
+│                                                      │
+│   Public Astro SSR              EmDash Admin         │
+│        │                            │                │
+│        │                     Plugins / Hooks          │
+│        │                            │                │
+│        ├──── commodity CMS access ──┼───────┐        │
+│        │                            │       │        │
+│        └──── shared rule checks ────┴──┐    │        │
+│                                       ▼    ▼        │
+│                         Thin Songhealth Policy Layer │
+│                           (shared business rules)    │
+│                                       │             │
+│                                     EmDash          │
+└───────────────────────────────────────┼─────────────┘
+                                        │
+                                   PostgreSQL
+                                        │
+                                   Media Storage
 ```
+
+The diagram is conceptual, not a mandatory call chain.
+
+Important boundary rules:
+
+- Astro/feature code may use EmDash directly for commodity CMS reads/configuration where no Songhealth-specific shared invariant is involved.
+- EmDash Admin plugins/hooks may use EmDash primitives directly for ordinary CMS behavior.
+- When an action or public decision depends on a shared Songhealth invariant, the relevant code invokes the Thin Songhealth Policy Layer.
+- The Policy Layer is an in-process code boundary only. It has no separate server, HTTP API, process, database, queue, deployment unit or independent persistence.
+- The Policy Layer does not wrap every EmDash API and does not create a generic CMS abstraction.
+- Data loading/persistence remains owned by EmDash/infrastructure unless a separately justified requirement says otherwise.
 
 Dashboard / analytical systems remain separate Data Domains ตาม `00`/`02`. พวกมันเชื่อมกับ public site ผ่าน bounded interfaces ได้โดยไม่ทำให้ CMS database กลายเป็น analytical warehouse.
 
-ไม่มี baseline requirement สำหรับ:
+There is no baseline requirement for:
 
-- separate generic application API server
-- Fastify/Nest/Express backend
-- separate React Admin application
-- WordPress runtime
-- `songhealth-core` compatibility layer
+- a separate generic application API server
+- a Fastify/Nest/Express backend
+- a separate React Admin application
+- a WordPress runtime
+- a `songhealth-core` compatibility layer
+- a formal Domain/Application architecture
+- generic repository/use-case/command/query layers
 - Redis
-- message broker
+- a message broker
 - microservices
 - Kubernetes
-- dedicated search cluster
+- a dedicated search cluster
 
-สิ่งเหล่านี้จะเพิ่มได้เมื่อมี concrete unmet requirement และผ่าน architecture review.
+Any of these requires a concrete unmet requirement plus architecture review.
 
 ---
 
@@ -230,56 +251,113 @@ Create a public API only when a real consumer requires one, เช่น indepen
 
 If an API is introduced it exposes purpose-built public-safe projections, not raw CMS entities.
 
+Direct EmDash access inside trusted Astro server code is allowed for commodity reads. If the result/action depends on a shared Songhealth policy—such as public eligibility, protected-resource access or canonical identity—the caller must apply that policy rather than duplicating the rule locally.
+
 ---
 
-# 9. Songhealth-Specific Business Rules — Placement Not Yet Frozen
+# 9. Thin Songhealth Policy Layer
 
-Clean Rebaseline v2.0 deliberately does **not** assume a formal `Songhealth Domain Boundary`.
+Clean Rebaseline v2.0 adopts **Option B — Thin shared Songhealth Policy Layer**.
 
-Previous explicit boundaries grew partly from architectures with separate application backends and Headless WordPress integration. That historical shape is not automatically carried into Astro + EmDash.
+This replaces the previous formal `Songhealth Domain Boundary` concept. The selected boundary is deliberately smaller: it centralizes only Songhealth-specific rules that must remain consistent across multiple surfaces, while leaving ordinary CMS behavior to Astro + EmDash.
 
-What remains mandatory is the **behavior**, including where applicable:
+## 9.1 What belongs in the Policy Layer
+
+A rule belongs here when all or most of the following are true:
+
+- it expresses Songhealth Product meaning rather than generic CMS mechanics
+- multiple features/surfaces must make the same decision
+- inconsistent duplication could cause security, public-visibility, lifecycle, identity or historical-integrity defects
+- the rule should be testable independently from UI rendering
+- EmDash primitives alone do not fully express the Songhealth requirement
+
+Current policy families include, where applicable:
 
 - public eligibility
-- stable public identity
-- lifecycle invariants
-- role/module-scope authorization
-- relationship integrity
-- historical integrity
-- protected-resource decisions
-- workflow validation
-- ITA semantics
-- audit-relevant actions
+- stable/canonical public identity semantics
+- Songhealth Role + Module Scope + action authorization
+- lifecycle/public-impact invariants
+- protected-resource/public-delivery decisions
+- cross-resource relationship integrity
+- historical/current visibility rules
+- shared workflow validation that is genuinely cross-feature
+- ITA-specific invariants that are reused outside one local form/action
 
-After all eleven `current/` documents pass Clean Rebaseline, a dedicated architecture review must compare at least:
+Exact module/file names are implementation details and are not Frozen here.
+
+## 9.2 What does not belong in the Policy Layer
+
+Do **not** move ordinary platform work into the Policy Layer merely for architectural symmetry.
+
+Examples that normally remain Astro/EmDash responsibilities:
+
+- collection reads/writes that need no shared Songhealth rule
+- editor UI and generic form behavior
+- revisions storage
+- ordinary media-library operations
+- database connectivity
+- routing/rendering
+- taxonomy reads
+- site settings
+- plugin wiring
+- logging transport
+- HTTP transport
+- generic repository abstraction around EmDash
+
+A feature-local rule stays feature-local until real reuse/consistency evidence justifies promotion.
+
+## 9.3 Boundary Characteristics
+
+The Policy Layer is:
+
+- in-process TypeScript code inside the Songhealth Astro runtime
+- intentionally small
+- explicit and testable
+- preferably side-effect-minimized for rule evaluation
+- reusable by Public Astro code and EmDash plugins/hooks/extensions
+- allowed to receive normalized resource/user/context inputs from platform adapters
+
+The Policy Layer is **not**:
+
+- a separate backend
+- a separate deployment unit
+- a second CMS
+- a persistence owner
+- an API gateway
+- a service bus
+- a Clean Architecture ceremony requirement
+- a mandatory wrapper around every EmDash operation
+
+Where policy evaluation needs current resource/user context, platform/infrastructure code loads that context and supplies it to the policy. This avoids turning policy code into an invisible persistence layer.
+
+## 9.4 Why Option B Was Selected
+
+Three approaches were reviewed:
 
 ```text
 Option A
-Astro/EmDash-native implementation
-+ small feature-local helpers/extensions
+Astro/EmDash-native + feature-local rules
 
 Option B
-Thin shared Songhealth policy/services layer
+Thin shared Songhealth Policy Layer
 
 Option C
 Formal Domain/Application boundary
 ```
 
-The decision must be based on actual cross-cutting invariants, testability, coupling and maintenance cost.
+Decision: **Option B**.
 
-Until that review:
+Option A was rejected as the baseline because cross-cutting rules such as public eligibility, authorization, stable identity and resource access could drift when implemented independently across Homepage, Search, detail pages, Admin hooks, document delivery and migration.
 
-- do not create a formal Domain layer merely because the old architecture had one
-- do not scatter cross-cutting rules through UI/routes merely because a formal layer is not yet approved
-- keep each rule close to its owning feature and make shared abstractions only when duplication/consistency evidence justifies them
+Option C was rejected because Astro + EmDash already provide the main CMS/application runtime. Reintroducing a formal Domain/Application/Repository/Use-Case stack would duplicate platform boundaries and risk recreating a custom backend without a demonstrated requirement.
 
-> **The requirement is current; the architectural layer is not yet decided.**
+> **Share Songhealth rules, not Songhealth infrastructure.**
 
 ---
 
 # 10. Authentication and Authorization
 
-Use EmDash authentication/authorization primitives as the starting point, but treat them as infrastructure primitives rather than Songhealth Product roles.
+Use EmDash authentication/authorization primitives as infrastructure primitives. Songhealth authorization decisions that depend on the current Role + Module Scope + action/resource state are evaluated through the Thin Songhealth Policy Layer.
 
 `06-roles-permissions.md` remains authoritative for Songhealth semantics, including the four Songhealth Role templates, Module Scope, public-impact authority, default deny และ separation between CMS account role and Personnel data.
 
@@ -301,7 +379,7 @@ Exact identity provider/OAuth/passkey configuration is an implementation/securit
 
 `07-publishing-workflow.md` owns lifecycle/workflow semantics.
 
-Use EmDash publishing/revision/scheduling/preview primitives first, then close only demonstrated gaps. Native EmDash lifecycle/status behavior is not automatically Songhealth Product semantics.
+Use EmDash publishing/revision/scheduling/preview primitives first, then close only demonstrated gaps. Native EmDash lifecycle/status behavior is not automatically Songhealth Product semantics; shared Songhealth publication/lifecycle decisions use the Thin Songhealth Policy Layer where a common rule is required.
 
 Verification must prove:
 
@@ -551,17 +629,29 @@ A later requirement may justify one of these only through explicit impact/archit
 
 ---
 
-# 23. Architecture Decision After Clean Rebaseline
+# 23. Architecture Decision — Songhealth Policy Boundary
 
-After `00–10` pass Clean Rebaseline, the **first architecture review** is:
+Post-Rebaseline architecture review is complete.
 
-> **Does Songhealth still need a formal Songhealth Domain Boundary on Astro + EmDash, and if so, how thin should it be?**
+Decision:
 
-Review evidence must identify actual cross-cutting rules rather than assume the answer.
+> **Use a Thin Songhealth Policy Layer; do not use the previous Formal Domain/Application Boundary.**
 
-The review compares simplicity, coupling, testability, portability and maintenance cost, then updates this Blueprint only if the result materially changes the runtime structure.
+Rationale:
 
-No implementation is authorized until this review and the subsequent clean Spec Kit/Constitution baseline are accepted.
+- Astro + EmDash already form the primary application/CMS runtime.
+- Songhealth still has cross-cutting Product invariants that must not be duplicated across public rendering, Admin extensions, Search, protected resources and migration.
+- A small in-process policy boundary gives consistency/testability without creating a second backend architecture.
+- Commodity EmDash behavior remains direct and platform-native.
+- New abstractions must be justified by a real shared rule or integration seam.
+
+Architecture guardrail:
+
+> **No repository/use-case/service/domain hierarchy is created solely to satisfy a pattern. Add structure only when a Product rule or measured implementation problem earns it.**
+
+This decision closes the Domain Boundary question for Version 1. Reopening it requires concrete evidence that the Thin Policy Layer cannot preserve accepted semantics cleanly.
+
+Implementation remains unauthorized until the clean Constitution and fresh Spec Kit baseline are accepted.
 
 ---
 
@@ -579,9 +669,13 @@ No implementation is authorized until this review and the subsequent clean Spec 
 - Legacy WordPress: **migration source only**
 - Hosting provider: **not Frozen; capability/evidence driven**
 - Containers: **optional operational choice**
-- Formal Songhealth Domain Boundary: **NOT YET DECIDED — post-rebaseline architecture review**
+- Songhealth shared business-rule boundary: **Thin Songhealth Policy Layer**
+- Formal Domain/Application Boundary: **NOT BASELINE**
+- Policy Layer deployment/persistence: **none — in-process shared code only**
 - Implementation authorization: **NONE**
 
 > **Build Songhealth from its requirements, not from the shape of the previous implementation.**
 
 > **Use the platform where it fits; add Songhealth-specific code only where the Product actually needs it.**
+
+> **Share Songhealth rules, not Songhealth infrastructure.**

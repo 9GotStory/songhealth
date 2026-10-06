@@ -1103,9 +1103,10 @@ Legacy WordPress audit และการย้ายข้อมูลถูก
 - exact reference-data values และ service inventory ที่เปลี่ยนตามข้อมูลจริง
 - production hosting/provider และ deployment evidence
 - exact dependency/version pinning
-- **รูปแบบการวาง Songhealth-specific domain/business rules ใน implementation ใหม่** รวมถึงคำถามว่าจำเป็นต้องมี formal “Songhealth Domain Boundary” หรือไม่
 
-ประเด็นสุดท้าย **ยังไม่ถูกตัดสินใน Foundation** และต้องวิเคราะห์หลังเอกสาร `current/` ทั้งชุดผ่าน Clean Rebaseline แล้ว
+การจัดวาง Songhealth-specific shared business rules **ไม่ใช่ Open Decision แล้ว**. `10-system-blueprint.md` กำหนดให้ใช้ **Thin Songhealth Policy Layer** สำหรับกฎร่วมที่เป็น Songhealth invariants โดยไม่สร้าง Formal Domain/Application architecture แบบเดิม.
+
+Foundation ยังคงไม่ผูก Product requirement กับชื่อ class/module/file หรือ framework abstraction ใด; รายละเอียดดังกล่าวเป็น implementation concern ภายใต้ข้อจำกัดของ `10`.
 
 ---
 
