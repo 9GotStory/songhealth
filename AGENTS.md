@@ -18,7 +18,7 @@ A downstream artifact MUST NOT silently override an upstream authority.
 The repository has been reset to the current Songhealth baseline.
 
 - Do not infer requirements from removed implementation, old Delivery numbers, old branches, or Git history.
-- Do not recreate React/Vite/Fastify/Headless WordPress architecture from historical evidence.
+- Do not recreate superseded architecture from historical evidence.
 - Use Git history only when the task explicitly requires migration provenance, forensic comparison, or historical evidence.
 - Prefer approved platform-native capability before custom infrastructure.
 - Custom abstractions/extensions require a demonstrated current gap.

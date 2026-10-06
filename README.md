@@ -6,7 +6,7 @@
 
 This repository intentionally contains **no active application implementation and no active feature specification**.
 
-The previous React/Vite/Fastify/Headless WordPress implementation, its tests, infrastructure, Delivery specs, review evidence, and bootstrap artifacts have been removed from the active tree. Git history remains available when historical evidence is explicitly needed.
+Superseded implementation, tests, infrastructure, specifications, review evidence, and bootstrap artifacts have been removed from the active tree. Git history remains available only when historical evidence is explicitly needed.
 
 ## Active Source of Truth
 
