@@ -74,14 +74,14 @@ The design does not claim horizontal scaling or implement later Product features
 | Security and Data Protection | PASS | PASS | Secrets remain external and separately recoverable, the DB role is least-privilege and non-superuser, PostgreSQL has no host-published port, and validation content is non-confidential/public-publishable. |
 | Spec-Driven Delivery and Human Authorization | PASS | PASS | This output stops at Plan artifacts. No tasks, dependencies, implementation, schema, image, or deployment files are created. |
 | Independent Implementation Review | PASS | PASS | Verification produces reviewable evidence; Codex review remains required after bounded Claude Code implementation. Parallel implementation is permitted only for dependency-safe, non-overlapping files/resources. |
-| Production Operations and Durability | PASS | PASS | Rootless Podman + Quadlet, private app/DB network, persistent DB/media volumes, lifecycle checks, complete logical database restore, media restore, and secret recovery satisfy the scoped Product Owner decision for Feature 001. Production-grade physical backup/PITR remains deferred. |
+| Production Operations and Durability | PASS | PASS | Rootless Podman + Quadlet, private app/DB network, persistent DB/media volumes, lifecycle checks, complete logical database restore, media restore, and separate secret recovery satisfy the Version 1 baseline in `current/10`. Production-grade physical backup/PITR remains deferred. |
 
 The Constitution Check was rerun after the Product Owner recovery, secret, and readiness decisions
-were incorporated. It remains PASS with no exception or complexity waiver. The logical recovery
-choice is a bounded Feature 001 decision under the highest authority; it does not silently establish
-a future production-grade recovery architecture. Any later physical backup/PITR baseline must be
-justified by an accepted operational requirement and reflected in the owning current authority
-before downstream implementation.
+were incorporated and after the owning Backup and Recovery authority in `current/10` was amended.
+It remains PASS with no exception or complexity waiver. The complete logical recovery choice is the
+smallest Feature 001 implementation of the current Version 1 baseline. Physical backup, WAL
+archiving, PITR, or replication-class recovery remains a later authority decision triggered only by
+an accepted RPO/RTO, scale, operational-risk, or other current requirement.
 
 ## Architecture and Implementation Approach
 
@@ -162,18 +162,23 @@ Persistent volumes
 
 ### Runtime verification and readiness
 
-- Keep public-runtime verification as a normal request to `/` with the expected SSR marker.
+- Keep public-runtime verification as a normal request to `/` with the expected SSR marker. It is
+  separate from the private operational readiness mechanism.
 - Implement one smallest-possible server-side `scripts/verify-readiness.mjs` helper because neither
-  Astro nor EmDash provides a supported aggregate ready/not-ready signal for runtime, PostgreSQL,
-  migration, and media state. A normal probe performs a loopback request to `/`, a bounded
-  PostgreSQL connectivity check, and a non-mutating check that the expected media mount exists and
-  is readable. It returns only redacted ready/not-ready evidence.
-- Run native `emdash migrate --check` as release/start verification, alongside the helper. Use the
+  Astro nor EmDash provides a supported aggregate ready/not-ready signal for the required runtime,
+  PostgreSQL, and media dependencies. The helper is repeatable and callable on demand. Every normal
+  recurring probe is non-mutating: it performs a loopback request to `/`, a bounded PostgreSQL
+  connectivity check, and a check that the expected media mount exists and is readable. It returns
+  only redacted ready/not-ready evidence and is never exposed as a required public endpoint.
+- Make native `emdash migrate --check` a deployment/startup gate that establishes compatible EmDash
+  database and migration state before the application is declared ready. A failed or unknown
+  native migration state blocks readiness; no custom migration framework is introduced. Use the
   PostgreSQL image's `pg_isready` for database-container health. Quadlet health configuration and
-  `Notify=healthy` make systemd's ready/not-ready state observable to operators.
-- Prove media writeability once during deployment/startup and in integration verification with a
-  bounded create/read/delete scratch-file check. Do not perform a destructive or persistent media
-  write on every normal readiness probe.
+  `Notify=healthy` make the resulting ready/not-ready state observable to operators.
+- Prove media writeability during deployment/startup acceptance and integration verification with
+  a bounded create/read/remove scratch-file probe or the smallest equally reliable mechanism.
+  Failure blocks acceptance of the environment as ready for use. Do not perform a persistent media
+  write on any normal recurring readiness probe.
 - Verify the native Admin route separately. A setup redirect or authenticated Admin response is an
   expected availability result; routine health checks do not automate passkey login.
 - Exercise normal, missing-configuration, database-unavailable, missing/unwritable-media, and
@@ -189,12 +194,14 @@ Persistent volumes
   contain the complete EmDash database schema and data required by Feature 001. Record tool/server
   versions and a checksum, and inspect the archive table of contents before accepting it.
 - Archive the persistent media volume separately and checksum every designated validation file.
-  Give the database archive, media archive, and manifest one recovery-set identifier and record the
-  expected database records/media from the same known state. Sequential creation is acceptable and
+  The Recovery Set consists of the database archive, media archive, and common identifier/evidence
+  associating both with the same known validation state. Sequential creation is acceptable and
   does not imply atomic cross-store backup.
-- Confirm the independently protected runtime-secret backup is available before the recovery drill.
-  Restore required secrets, including the same `EMDASH_ENCRYPTION_KEY`, through the external runtime
-  secret mechanism and produce only non-secret pass/fail evidence.
+- Treat Runtime Secret Recovery as a separate recovery dependency, not as a Recovery Set artifact.
+  Confirm the independently protected secret backup is available before the recovery drill. Restore
+  required secrets, including the same `EMDASH_ENCRYPTION_KEY`, through the external runtime secret
+  mechanism and produce only non-secret pass/fail evidence. Do not create a secret-management
+  platform or place values in Git, backup artifacts, planning artifacts, transcripts, or logs.
 - Create a clean PostgreSQL 18 database owned by the stable EmDash role, restore the complete archive
   with `pg_restore --exit-on-error` and no object filtering, restore media into a clean media volume,
   inject the recovered runtime secrets, and recreate the application runtime. Verify native EmDash

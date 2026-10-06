@@ -137,14 +137,19 @@ but no particular proxy product is needed. [EmDash authentication](https://docs.
 ## 7. Operational Readiness
 
 **Decision**: Keep the public `/` verification page separate from one minimal server-side readiness
-helper. A normal probe combines a loopback SSR request, bounded PostgreSQL check, and non-mutating
-expected-media-mount presence/readability check. Native `emdash migrate --check` and one bounded
-media write/read/delete check run during deployment/startup and integration verification. Quadlet
-health and `Notify=healthy` expose ready/not-ready through user systemd, not the public web surface.
+helper. The helper is private, repeatable, and callable on demand. Every normal recurring probe is
+non-mutating and combines a loopback SSR request, bounded PostgreSQL check, and expected-media-mount
+presence/readability check. Native `emdash migrate --check` establishes compatible database and
+migration state as a deployment/startup gate; failure blocks readiness. A bounded media
+write/read/remove check runs during deployment/startup acceptance and integration verification;
+failure blocks acceptance of the environment as ready for use. Quadlet health and `Notify=healthy`
+expose ready/not-ready through user systemd, not the public web surface.
 
 **Rationale**: EmDash's documented sample health route checks only that Astro can serve a route and
 explicitly does not cover database, storage, or migrations. No supported all-dependency EmDash or
-Astro readiness primitive was found. Podman Quadlet natively supports health commands and delaying
+Astro readiness primitive was found. Separating non-mutating recurring dependency checks from the
+native migration gate and bounded media-write acceptance check avoids repeated persistence mutation
+without weakening startup acceptance. Podman Quadlet natively supports health commands and delaying
 systemd readiness until the health check passes. [EmDash Node deployment](https://docs.emdashcms.com/deployment/nodejs/),
 [EmDash CLI](https://docs.emdashcms.com/reference/cli/),
 [Podman Quadlet](https://docs.podman.io/en/stable/markdown/podman-systemd.unit.5.html)
@@ -158,10 +163,11 @@ systemd readiness until the health check passes. [EmDash Node deployment](https:
 - Write to persistent media during every normal readiness probe: rejected; deployment/startup and
   integration checks provide writeability evidence without repeated mutation.
 
-**Demonstrated gap**: There is no native aggregate readiness primitive covering Astro response,
-PostgreSQL, migration state, and local media. The planned private helper is the only custom
-foundation extension and requires focused tests for correct ready/not-ready and secret-redaction
-behavior.
+**Demonstrated gap**: There is no native aggregate readiness primitive covering the recurring Astro
+response, PostgreSQL, and local-media dependency checks. Native EmDash migration verification
+remains a distinct deployment/startup gate and is not reimplemented inside the helper. The planned
+private helper is the only custom foundation extension and requires focused tests for correct
+ready/not-ready and secret-redaction behavior.
 
 ## 8. Production Podman and Quadlet Topology
 
@@ -189,8 +195,9 @@ reference](https://docs.podman.io/en/stable/markdown/podman-systemd.unit.5.html)
 
 **Decision**: Create an unfiltered PostgreSQL custom-format logical archive with `pg_dump`, restore
 it into a clean PostgreSQL database with `pg_restore --exit-on-error`, archive media separately,
-and associate both artifacts with the same known validation state through one manifest and
-recovery-set identifier.
+and associate both artifact classes with the same known validation state through one manifest and
+recovery-set identifier. Required runtime-secret recovery remains an independently protected
+dependency and is not part of this Recovery Set.
 
 **Rationale**: EmDash documents that its database contains content models, entries, users, settings,
 and plugin data while media binaries live in a separate storage backend. PostgreSQL documents that a
@@ -200,7 +207,9 @@ state requires cluster-level physical recovery. The Product Owner therefore sele
 logical path for this bounded feature. The validation state is quiescent while the database and
 media artifacts are created sequentially, so no atomic cross-store protocol is implied.
 PostgreSQL cluster-global roles are not EmDash database content; the stable application role and
-clean target database are recreated from external deployment configuration before restore.
+clean target database are recreated from external deployment configuration before restore. This
+full logical path implements the durable Version 1 minimum baseline now defined by `current/10`;
+physical or replication-class recovery remains conditional on a later accepted operational need.
 [EmDash database options](https://docs.emdashcms.com/deployment/database/),
 [PostgreSQL `pg_dump`](https://www.postgresql.org/docs/current/app-pgdump.html),
 [PostgreSQL `pg_restore`](https://www.postgresql.org/docs/current/app-pgrestore.html),
@@ -210,8 +219,9 @@ clean target database are recreated from external deployment configuration befor
 
 - EmDash JSON export as the database recovery artifact: rejected; it does not reconstruct the
   complete PostgreSQL-backed EmDash state and does not cover media bytes.
-- `pg_basebackup`/physical cluster recovery: rejected for Feature 001 because it introduces
-  replication privileges and cluster/WAL concerns without an accepted requirement.
+- `pg_basebackup`/physical cluster recovery: not required by the Version 1 baseline and rejected for
+  Feature 001 because it introduces replication privileges and cluster/WAL concerns without an
+  accepted requirement.
 - Continuous WAL archiving, PITR, standby servers, replication, retention automation, or an
   RTO/RPO: explicitly deferred until a later operational requirement demonstrates the need.
 - Atomic database/media snapshots: rejected; not required for the quiescent validation state.

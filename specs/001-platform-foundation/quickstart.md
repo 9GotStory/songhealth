@@ -72,30 +72,51 @@ Expected:
 - the production build starts through `dist/server/entry.mjs` using external runtime values;
 - no test assumes a public health/readiness endpoint.
 
-## 3. Operational readiness matrix
+## 3. Readiness and startup acceptance
 
-Run the private helper and native migration check:
+### 3.1 Repeatable operational readiness
+
+Run the private helper on demand:
 
 ```bash
 npm run verify:readiness
-npx emdash migrate --check
 ```
 
 Capture the exit status and redacted output for each case:
 
 | Case | Expected result |
 |---|---|
-| Valid configuration, runtime, database, migrations, and media mount | `ready`; both commands succeed. |
+| Valid configuration, runtime, database, and readable media mount | `ready`; the private helper succeeds. |
 | Missing required configuration | Startup/readiness fails with the field name, never its value. |
 | PostgreSQL unavailable | `not-ready`; database identified safely. |
-| Pending/unknown native migration | Release/start check fails; deployment is not accepted ready. |
 | Expected media mount absent/unreadable | Normal readiness is `not-ready`; no empty replacement store is accepted. |
-| Media mount unwritable during deployment/startup verification | Startup acceptance fails; the bounded reversible probe leaves no test file. |
 
-Expected: all defined checks produce the listed result and no output contains a configured secret.
-The normal public `/` response is recorded separately from operational ready/not-ready evidence.
-Normal recurring probes do not write to persistent media; writeability is tested explicitly during
-deployment/startup and integration verification.
+Expected: the helper is repeatable, private/internal, non-mutating, and produces the listed result
+without exposing configured secrets. The normal public `/` response is recorded separately; no
+public operational endpoint is required.
+
+### 3.2 Database and migration startup gate
+
+During every supported deployment/startup procedure, run the native EmDash compatibility check
+before the application is declared ready:
+
+```bash
+npx emdash migrate --check
+```
+
+Expected: compatible state with no pending or unknown native migrations passes. Any migration or
+check failure blocks readiness. This gate uses supported EmDash behavior and introduces no custom
+migration framework.
+
+### 3.3 Media writeability acceptance gate
+
+During deployment/startup acceptance and integration verification, run the documented bounded
+write/read/remove probe—or the smallest equally reliable implementation selected later—against the
+expected persistent media mount.
+
+Expected: successful write/read/remove evidence is required before the environment is accepted as
+ready for use; failure blocks acceptance and no probe file remains. Normal recurring readiness
+checks never perform persistent media writes.
 
 ## 4. Seed validation state
 
@@ -124,6 +145,8 @@ npm run verify:production
 Expected:
 
 - PostgreSQL becomes healthy before the application is accepted ready;
+- the native database/migration startup gate and the media-writeability acceptance gate have both
+  passed before the application is declared ready;
 - the application is reachable only through the configured loopback/proxy-facing boundary;
 - both containers share the private Songhealth network;
 - PostgreSQL has no published host port;
@@ -152,10 +175,15 @@ Recreation with either expected volume omitted must be `not-ready`, not a health
 
 ## 7. Recovery drill
 
-Before creating artifacts, confirm that every required operator-provided runtime secret—including
+### 7.1 Runtime Secret Recovery
+
+Confirm that every required operator-provided runtime secret—including
 `EMDASH_ENCRYPTION_KEY`—has an independently protected recovery copy. Record only the secret name,
 protected recovery reference/version, and a pass/fail availability result. Do not print or copy the
-secret value into the repository, recovery manifest, transcript, or planning artifacts.
+secret value into the repository, Recovery Set, recovery manifest, transcript, planning artifacts,
+or logs. This is a separate recovery dependency and does not create a secret-management platform.
+
+### 7.2 Recovery Set creation and restore
 
 Quiesce validation writes, assign one recovery-set identifier, then create a complete unfiltered
 PostgreSQL custom archive and the separate media archive:
@@ -171,10 +199,12 @@ sha256sum "$RECOVERY_DIR/database.dump" "$RECOVERY_DIR/media.tar"
 Use a protected PostgreSQL connection mechanism; do not place database credentials on the command
 line or in captured output. Record the recovery-set identifier, ISO timestamp, tool/server versions,
 artifact checksums, and expected database/media validation evidence in the manifest. The two
-artifacts are associated with the same quiescent state but are not an atomic snapshot.
+artifact classes and their common association evidence form the Recovery Set. They are associated
+with the same quiescent state but are not an atomic snapshot and do not contain runtime secrets.
 
-Restore the required runtime secrets through the external protected mechanism, then restore into a
-new empty database and media volume—not over the active source stores:
+Restore the Recovery Set into a new empty database and media volume—not over the active source
+stores—then restore the required runtime secrets separately through the external protected
+mechanism before operational-use acceptance:
 
 ```bash
 pg_restore --exit-on-error --no-owner --no-privileges \
@@ -197,8 +227,9 @@ Expected:
 - canonical record values, file sizes, and SHA-256 digests show zero unexplained differences;
 - independently protected runtime secrets are injected successfully without their values appearing
   in Git or evidence output;
-- an incomplete, corrupt, mismatched, or unusable recovery set—or a missing required secret—fails
-  and is never reported as recovered.
+- an incomplete, corrupt, mismatched, or unusable Recovery Set fails recovery-set validation; and
+- independently, a missing or unusable required runtime secret prevents the restored application
+  from being accepted as operationally usable.
 
 This drill does not measure an RTO/RPO, use physical cluster recovery, grant replication privileges,
 enable WAL archiving/PITR, create a standby, orchestrate continuous backup, or claim an atomic

@@ -92,30 +92,36 @@ media archive are required for complete recovery.
 
 - The asset must be uploadable and retrievable through native EmDash media behavior.
 - Bytes, size, and digest remain unchanged through three lifecycle cycles and recovery.
-- An unavailable/unwritable expected media mount causes not-ready; the runtime must not silently
-  substitute an empty directory.
+- An unavailable or unreadable expected media mount causes recurring readiness to report
+  `not-ready`; failure of the separate writeability acceptance gate prevents the environment from
+  being accepted as ready for use. The runtime must not silently substitute an empty directory.
 
 ## 5. Readiness Result
 
-**Persistence**: Ephemeral operator evidence; it is not an application database entity.
+**Persistence**: Ephemeral private operator evidence; it is not an application database entity.
+Operational readiness is repeatable and callable on demand, and normal recurring evaluation is
+non-mutating.
 
 | Field | Rules |
 |---|---|
-| Overall state | Exactly `ready` or `not-ready`. |
+| Overall state | Exactly `ready` or `not-ready` for the required recurring foundation dependencies. |
 | Runtime check | Expected SSR marker from loopback `/`. |
 | Database check | Bounded successful query/connection against the configured database. |
-| Migration check | Native EmDash result: no pending or unknown migrations. |
-| Media check | Normal probes verify expected mount presence/readability without mutation; deployment/startup evidence separately proves writeability with a bounded reversible probe. |
+| Database/migration startup gate | Native EmDash result establishes compatible state with no pending or unknown migrations before readiness is declared; failure blocks readiness and does not invoke a custom migration framework. |
+| Media recurring check | Expected mount presence/readability, evaluated without mutation. |
+| Media writeability gate | Deployment/startup or integration evidence proves writeability with a bounded reversible probe or equally small reliable mechanism before the environment is accepted as ready for use. |
 | Timestamp/context | ISO 8601 timestamp and environment label; no secret-bearing values. |
 | Failed dependency | Safe dependency name/reason when not-ready. |
 
 **Relationships**: Reflects the Application Runtime and both persistence boundaries. It may be
-consumed by Podman health/systemd readiness and retained as acceptance evidence.
+consumed by Podman health/systemd readiness and retained as acceptance evidence. The recurring
+operational result and the two deployment/startup gates are distinct evidence; readiness is not
+declared until the native database/migration gate and media-writeability gate have passed.
 
 **State transitions**:
 
 ```text
-starting -> ready                 when every required check passes
+starting -> ready                 when startup gates and recurring dependency checks pass
 starting -> not-ready             when any required check fails
 ready -> not-ready                when database/media/runtime becomes unavailable
 not-ready -> ready                only after all required checks pass again
@@ -140,8 +146,8 @@ persistent volumes.
 
 **Relationships**: Database and media artifacts together restore Native EmDash Foundation State and
 the Validation Asset. The manifest associates both artifacts with one known validation state; it
-does not make their creation atomic. The Recovery Set remains the database and media artifacts
-defined by the specification.
+does not make their creation atomic. The Recovery Set contains the database and media artifacts and
+their common association evidence; it does not contain runtime secrets or secret-recovery material.
 
 **Validation rules**:
 

@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-06
 
-**Status**: Draft
+**Status**: Approved
 
 **Input**: User description: "Create the first clean-rebuild feature specification for the
 minimum usable Songhealth platform foundation."
@@ -159,10 +159,11 @@ and find no platform-boundary replacement without a documented gap and authority
   Songhealth public-site and CMS feature work.
 - **FR-002**: The approved public runtime and CMS administration capability MUST start successfully
   as one coherent platform, and the public runtime MUST serve its minimum verification behavior.
-- **FR-003**: Operators MUST be able to determine whether the platform is ready or not ready
-  separately from public runtime availability. This feature MUST NOT require a publicly exposed
-  health or readiness endpoint; planning MUST select the exact mechanism within the authority of
-  `current/10`.
+- **FR-003**: Operators MUST be able to determine whether the platform is ready or not ready through
+  a repeatable, on-demand operational check separate from public runtime availability. Normal
+  recurring checks MUST be non-mutating and private/internal; this feature MUST NOT require a
+  publicly exposed health or readiness endpoint. Planning MUST select the exact mechanism within
+  the authority of `current/10`.
 - **FR-004**: The foundation MUST provide a persistent content and data-store boundary capable of
   storing and retrieving designated non-confidential validation data.
 - **FR-005**: The foundation MUST provide a persistent media boundary capable of storing and
@@ -180,7 +181,11 @@ and find no platform-boundary replacement without a documented gap and authority
   while remaining available to the application through its approved private boundary.
 - **FR-011**: Readiness verification MUST distinguish a fully usable platform from a process that is
   running while required data or media dependencies are unavailable, without assuming that
-  readiness is publicly exposed.
+  readiness is publicly exposed. The supported deployment/startup procedure MUST establish a
+  compatible platform-native database and migration state, and MUST prove media writeability through
+  bounded deployment/startup or integration verification, before the environment is accepted as
+  ready for use. Migration/check failure MUST block readiness. Normal recurring readiness MUST
+  remain non-mutating and MUST NOT perform a persistent media-write operation.
 - **FR-012**: Startup and operational failures MUST produce actionable results without exposing
   sensitive configuration or falsely reporting readiness.
 - **FR-013**: The foundation MUST provide a documented method to create a recovery set consisting of
@@ -188,7 +193,9 @@ and find no platform-boundary replacement without a documented gap and authority
   requirement MUST NOT imply a new atomic or transactionally synchronized backup mechanism.
 - **FR-014**: The recovery method MUST restore the database and media artifacts into a clean or
   recreated runtime and MUST provide evidence that every designated validation item was recovered
-  intact.
+  intact. Required runtime secrets and keys MUST have an independently protected recovery path
+  before the restored application is accepted as operationally usable; secret values MUST remain
+  outside the Recovery Set, Git, planning artifacts, and logs.
 - **FR-015**: Foundation verification MUST produce reviewable evidence for development setup,
   platform readiness, lifecycle durability, private data-store access, and backup and restore.
 - **FR-016**: Platform-native capabilities MUST be used for foundation behavior unless an accepted
@@ -213,10 +220,16 @@ and find no platform-boundary replacement without a documented gap and authority
 - **Public-Publishable Validation Asset**: A non-confidential media item used to prove storage,
   retrieval, lifecycle durability, and recovery of the media boundary.
 - **Readiness Result**: The observable state showing whether the platform and each required
-  foundation dependency are usable, not merely running.
+  foundation dependency are usable, not merely running. Normal recurring evaluation is private,
+  repeatable, on demand, and non-mutating; database/migration compatibility and media writeability
+  are prerequisite deployment/startup acceptance evidence.
 - **Recovery Set**: The database and media backup artifacts needed to restore a known validation
-  state and verify its integrity. The term does not require the artifacts to be created atomically
-  or through a new transactionally synchronized mechanism.
+  state, plus a common recovery-set identifier/evidence associating both artifact classes with that
+  state. The term does not include runtime secrets and does not require the artifacts to be created
+  atomically or through a new transactionally synchronized mechanism.
+- **Runtime Secret Recovery**: The independently protected recovery path for required external
+  runtime secrets and keys. It is required for operationally usable recovery but is not part of the
+  Recovery Set and does not require a new secret-management platform.
 
 ### Scope Boundaries
 
@@ -264,12 +277,15 @@ and find no platform-boundary replacement without a documented gap and authority
   100% of the designated validation data and media remain retrievable and unchanged.
 - **SC-003**: In the production-boundary verification, 100% of connection attempts from defined
   unintended public paths are rejected while all required application-to-data-store checks succeed.
-- **SC-004**: All defined readiness checks produce the expected ready or not-ready outcome for
-  normal operation, missing required configuration, an unavailable data boundary, and an
-  unavailable or unwritable media boundary.
+- **SC-004**: All defined on-demand operational readiness checks produce the expected ready or
+  not-ready outcome for normal operation, missing required configuration, an unavailable data
+  boundary, and an unavailable or unreadable media boundary. Separate deployment/startup evidence
+  establishes compatible platform-native database/migration state and media writeability before the
+  environment is accepted as ready for use.
 - **SC-005**: A recovery drill restores 100% of the designated validation database records and media
   into a clean or recreated runtime, and comparison evidence shows zero unexplained integrity
-  differences.
+  differences. Separate non-secret evidence demonstrates that every required runtime secret/key is
+  recoverable through its independently protected path.
 - **SC-006**: Review evidence records the result of 100% of the defined setup, startup, lifecycle,
   readiness, private data-store boundary, and recovery checks, with zero undocumented checks needed
   for acceptance.
@@ -294,10 +310,11 @@ and find no platform-boundary replacement without a documented gap and authority
 - Runtime recreation means replacement of ephemeral runtime components while approved persistent
   stores remain attached; recovery into newly initialized persistence is tested separately.
 - A recovery set contains the database and media backup artifacts needed to restore and verify the
-  known validation state; it does not require atomic or transactionally synchronized creation.
-  Planning selects the smallest recovery procedure that satisfies `current/10`. Detailed recovery
-  objectives, long-term retention policy, and continuous recovery operations remain later
-  operational decisions unless current authority adds them.
+  known validation state and common evidence associating them; it does not include runtime secrets
+  and does not require atomic or transactionally synchronized creation. Required runtime secrets
+  have a separate protected recovery path. Planning selects the smallest recovery procedure that
+  satisfies `current/10`. Detailed recovery objectives, long-term retention policy, and continuous
+  recovery operations remain later operational decisions unless current authority adds them.
 - A production-capable verification environment is available for lifecycle, network-boundary,
   persistence, and recovery tests; selecting a hosting provider is outside this feature.
 - Monitoring-stack and reverse-proxy product selection remain outside scope, but observable

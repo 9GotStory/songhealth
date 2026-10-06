@@ -304,13 +304,17 @@ Runtime monitoringขั้นต่ำต้องเห็น:
 
 # 18. Backup and Recovery
 
-Production recovery ใช้ **raw PostgreSQL backup/PITR + media backup** ตาม deployment capability.
+Version 1 ต้องมี **complete, restorable PostgreSQL database backup + persistent media backup** ที่กู้กลับเข้าสู่ clean/recreated runtime และตรวจสอบความครบถ้วนของข้อมูลได้.
 
-PostgreSQL data และ media persistence ต้องอยู่นอก ephemeral container layer. การ replace/recreate application หรือ database container ต้องไม่ใช่เหตุให้ข้อมูลถาวรสูญหาย และ restore verification ต้องพิสูจน์การกู้กลับเข้าสู่ clean/recreated runtime ได้.
+Full logical PostgreSQL backup/restore เป็น minimum baseline ที่เพียงพอได้ เมื่อพิสูจน์ได้ว่ากู้ database state ที่ระบบต้องใช้ครบถ้วนและผ่าน integrity verification. EmDash JSON backup/export เพียงอย่างเดียวยังไม่เพียงพอเป็น sole disaster-recovery backup เพราะไม่ครอบคลุม system state ทั้งหมดและ media files.
 
-EmDash JSON backup/export ไม่ใช่ sole disaster-recovery point เพราะไม่ครอบคลุมข้อมูลระบบทุกชนิดและไม่ใช่ raw database restore path.
+Physical base backup, WAL archiving, point-in-time recovery (PITR), replication-class recovery และ infrastructure ที่เกี่ยวข้อง **ไม่ใช่ mandatory Version 1 baseline**. เพิ่ม capability เหล่านี้เมื่อ accepted RPO/RTO, scale, operational risk หรือ current requirement อื่นพิสูจน์ว่าจำเป็น.
 
-ก่อน schema change, bulk import หรือ major upgrade ต้องมี restorable database backup และ restore verificationตามความเสี่ยง.
+PostgreSQL data และ media persistence ต้องอยู่นอก ephemeral container layer. การ replace/recreate application หรือ database container ต้องไม่ทำให้ข้อมูลถาวรสูญหาย และ recovery verification ต้องพิสูจน์การกู้ PostgreSQL และ media กลับเข้าสู่ clean/recreated runtime ได้.
+
+Runtime secrets/keys ที่จำเป็นต่อการใช้งานระบบหลัง restore ต้องมี independently protected recovery path. Secret values ต้องอยู่นอก Git, database/media backup artifacts, generated planning artifacts และ logs; recovery design ระดับนี้ไม่บังคับ secret-management platform เฉพาะราย.
+
+ก่อน risky schema change, bulk import หรือ major upgrade ต้องมี restorable database backup และ restore verification ตามระดับความเสี่ยง.
 
 ---
 
