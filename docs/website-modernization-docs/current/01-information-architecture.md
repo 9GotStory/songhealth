@@ -1,8 +1,8 @@
 # Information Architecture — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 01-information-architecture
-> **Status:** CLEAN REBASELINE v2.0 — CURRENT
-> **Version:** 2.0
+> **Status:** CLEAN REBASELINE v2.1 — CURRENT
+> **Version:** 2.1
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
 > **Depends On:** `00-website-foundation.md`
 > **Purpose:** กำหนดโครงสร้างสารสนเทศ ความสัมพันธ์ของข้อมูล และแนวทางการจัดกลุ่มข้อมูลของเว็บไซต์สำนักงานรุ่นใหม่ โดยยังไม่ลงรายละเอียดระดับ Content Schema, Sitemap ฉบับ Final, UI หรือโค้ด
@@ -1041,7 +1041,7 @@ ITA
 
 ผู้ใช้งานและสิทธิ์
 
-Audit Log
+Revision / History / Operational Evidence
 
 ตั้งค่าระบบ
 ```
@@ -1302,7 +1302,7 @@ Information Architecture นี้ไม่กำหนดรายละเอ�
 
 # 23. Clean Rebaseline Status
 
-Information Architecture ผ่าน Clean Rebaseline v2.0 โดยยังคงหลัก Citizen First, explicit information ownership, reusable structured information และ separation ระหว่าง public navigation กับ underlying data model
+Information Architecture ผ่าน Clean Rebaseline v2.1 โดยยังคงหลัก Citizen First, explicit information ownership, reusable structured information และ separation ระหว่าง public navigation กับ underlying data model
 
 Main Navigation, route ownership, Homepage, Admin CMS และ Search ถูกกำหนดต่อใน `03`, `04`, `05` และ `08` ตามลำดับ; ไม่มี historical phase state ใดมี precedence เหนือเอกสาร current เหล่านั้น
 

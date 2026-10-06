@@ -1,8 +1,8 @@
 # Homepage — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 04-homepage
-> **Status:** CLEAN REBASELINE v2.0 — CURRENT
-> **Version:** 2.0
+> **Status:** CLEAN REBASELINE v2.1 — CURRENT
+> **Version:** 2.1
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`
 > **Purpose:** กำหนด Content Architecture, Information Priority, Homepage Curation, Responsive Behavior, Fallback และ Accessibility ของหน้าแรกเว็บไซต์ โดยไม่ลงรายละเอียดระดับโค้ดหรือ Visual Design System
@@ -225,9 +225,9 @@ Featured does not create `/featured/{id}` or duplicate public pages.
 Examples:
 
 ```text
-Announcement → /announcements/{public-id}/{slug?}
-Health Content → /health/content/{public-id}/{slug?}
-Service → /services/{public-id}/{slug?}
+Announcement → /announcements/{slug}
+Health Content → /health/content/{slug}
+Service → /services/{slug}
 ```
 
 ### 7.3 CMS Curation
@@ -827,10 +827,10 @@ Homepage cards link directly to canonical routes:
 
 ```text
 News
-→ /news/{public-id}/{slug?}
+→ /news/{slug}
 
 Announcement
-→ /announcements/{public-id}/{slug?}
+→ /announcements/{slug}
 ```
 
 No homepage-specific detail routes are created.
@@ -1631,7 +1631,7 @@ If an Activity is already displayed in Featured/Priority, do not repeat it in th
 An Activity remains one Activity record:
 
 ```text
-/activities/{public-id}/{slug?}
+/activities/{slug}
 ```
 
 Do not duplicate an Activity as a News record merely to make it appear on the homepage.
@@ -3896,7 +3896,7 @@ Homepage selectors should use human-readable information such as:
 - Date
 - Search
 
-Staff should not need to type Public IDs or internal database IDs.
+Staff should not need to type internal content IDs.
 
 ### 18.24 Simple Admin Search / Filter
 
@@ -4042,17 +4042,11 @@ Manage Homepage
 
 Do not create a separate Homepage-specific role unless later requirements justify it.
 
-### 18.34 Audit Log
+### 18.34 Change History
 
-Homepage curation changes should remain audit logged.
+Homepage curation should use the same native revision/history evidence as other CMS-managed content/configuration where the platform supports it.
 
-Record at minimum:
-
-- who changed it
-- what changed
-- when it changed
-
-The existing Foundation Audit Log concept is sufficient.
+Version 1 does not require a Homepage-specific audit subsystem.
 
 ### 18.35 No Complex Rollback in Version 1
 
@@ -4181,7 +4175,7 @@ These require a real future requirement before being introduced.
 
 > **Homepage layout order, card style, and design-system decisions are not editor-configurable in Version 1.**
 
-> **Homepage curation should have its own permission capability and remain audit logged.**
+> **Homepage curation follows ordinary CMS edit/publish permissions; do not create a Homepage-specific role or audit subsystem in Version 1.**
 
 > **No page builder, per-device content, AI ranking, A/B testing, or personalization is needed in Version 1.**
 
@@ -4735,10 +4729,10 @@ Future requirements may revise this baseline through explicit impact review rath
 
 ---
 
-## 21. Clean Rebaseline — Homepage Baseline v2.0
+## 21. Clean Rebaseline — Homepage Baseline v2.1
 
-**Status:** CLEAN REBASELINE v2.0 — CURRENT
-**Version:** 2.0
+**Status:** CLEAN REBASELINE v2.1 — CURRENT
+**Version:** 2.1
 **Rebaseline Date:** 6 ตุลาคม 2569 (2026-10-06)
 
 This document is the current approved Homepage baseline for downstream design and implementation.

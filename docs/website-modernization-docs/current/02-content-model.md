@@ -1,8 +1,8 @@
 # Content Model — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 02-content-model
-> **Status:** CLEAN REBASELINE v2.0 — CURRENT
-> **Version:** 2.0
+> **Status:** CLEAN REBASELINE v2.1 — CURRENT
+> **Version:** 2.1
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`
 > **Purpose:** กำหนดชนิดข้อมูลหลักของเว็บไซต์ ความหมาย ขอบเขต ข้อมูลสำคัญ และความสัมพันธ์ระหว่างข้อมูล โดยยังไม่ลงรายละเอียดระดับ Database Schema, API, ORM หรือโค้ด
@@ -395,7 +395,7 @@ Health Content
 
 ### 8.3 Review Lifecycle
 
-Health Content ควรรองรับการทบทวนเนื้อหาเพื่อป้องกันข้อมูลสุขภาพล้าสมัย โดยไม่จำเป็นต้องสร้าง Approval Workflow ซับซ้อน
+Health Content ควรรองรับการทบทวนเนื้อหาเพื่อป้องกันข้อมูลสุขภาพล้าสมัย โดยใช้ Draft/Revision/Publish ของ CMS ก่อนและไม่สร้าง Approval Workflow แยกใน Version 1
 
 ---
 

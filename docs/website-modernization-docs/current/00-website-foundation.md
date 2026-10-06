@@ -1,8 +1,8 @@
 # Website Foundation — สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 00-website-foundation
-> **Status:** CLEAN REBASELINE v2.0 — CURRENT
-> **Version:** 2.0
+> **Status:** CLEAN REBASELINE v2.1 — CURRENT
+> **Version:** 2.1
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
 > **Purpose:** เอกสารหลักสำหรับบันทึกหลักการ ขอบเขต และ Architecture Decisions ระดับ Foundation ที่เอกสาร Information Architecture, Content Model, Sitemap, CMS และ System Blueprint ต้องยึดร่วมกัน
 > **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
@@ -308,72 +308,42 @@ Information Architecture จะถูกออกแบบโดยละเอ�
 
 ---
 
-### 3.12 Role-Based Access
+### 3.12 Access Control
 
-สิทธิ์ของผู้ใช้งานต้องแยกตามหน้าที่
+Admin CMS ต้องใช้ role/permission model ของ platform เป็น baseline และยึด least privilege.
 
-หลักการสำคัญ:
+Product requirement หลักคือ:
 
-> ผู้ใช้ควรได้รับเฉพาะสิทธิ์ที่จำเป็นต่อหน้าที่ของตน
+- ผู้ที่เขียน Draft ไม่จำเป็นต้องมีสิทธิ์ Publish
+- ผู้ที่จัดการ content ของผู้อื่นต้องมีสิทธิ์สูงกว่า
+- schema/users/settings/plugins/import/backup เป็น administrator-level work
+- client-side visibility ไม่ใช่ security boundary
 
-การปิด Approval Workflow **ไม่หมายความว่า** ผู้ใช้ทุกคนมีสิทธิ์ Publish
-
-Permission และ Approval ต้องเป็นคนละแนวคิดกัน
-
----
-
-### 3.13 Configurable Publishing Workflow
-
-Workflow ต้องรองรับทั้งหน่วยงานที่มีผู้ดูแลเพียงคนเดียว และหน่วยงานที่มีผู้เขียน/ผู้ตรวจ/ผู้อนุมัติหลายคน
-
-#### Workflow พื้นฐาน
-
-```text
-Draft
-  ↓
-Published
-  ↓
-Archived
-```
-
-#### Workflow เมื่อเปิด Approval
-
-```text
-Draft
-  ↓
-Pending Review
-  ↓
-Approved
-  ↓
-Published
-  ↓
-Archived
-```
-
-Approval Workflow ต้องสามารถ **เปิด/ปิดได้**
-
-และควรสามารถกำหนดตามประเภทเนื้อหาได้ หากมีความจำเป็น เช่น:
-
-- ข่าวทั่วไป — ไม่ต้องอนุมัติ
-- กิจกรรม — ไม่ต้องอนุมัติ
-- ประกาศสำคัญ — อาจต้องอนุมัติ
-- ข้อมูลเปิดเผย — อาจต้องอนุมัติ
-
-ค่าเริ่มต้นสำหรับบริบทสำนักงานขนาดเล็กไม่ควรสร้างขั้นตอนที่เกินความจำเป็น
+Version 1 **ไม่สร้าง Songhealth-specific role hierarchy หรือ Module Scope** หาก native CMS permissions เพียงพอ.
 
 ---
 
-### 3.14 Auditability
+### 3.13 Publishing Workflow
 
-ระบบต้องสามารถตรวจสอบย้อนหลังได้ว่า:
+Publishing ใช้ native CMS lifecycle เป็น baseline:
 
-- ใครสร้างข้อมูล
-- ใครแก้ไข
-- แก้ไขเมื่อใด
-- ใครเผยแพร่
-- ใครเปลี่ยนสถานะ
+```text
+Draft → Publish / Schedule → Published
+```
 
-Audit Log ควรทำงานแม้ Approval Workflow จะปิดอยู่
+Published content อาจมี pending draft changes โดย public version เดิมยังคงอยู่จน Publish changes.
+
+Version 1 **ไม่มี formal Approval Workflow, Pending Review หรือ Approved state ของ Songhealth**. หากผู้เขียนไม่มีสิทธิ์ Publish ให้บันทึก Draft แล้วผู้มี publish authority ตรวจและ Publish.
+
+เพิ่ม approval workflow เฉพาะเมื่อมี workflow/ข้อกำกับจริงที่ native permission boundary รองรับไม่ได้.
+
+---
+
+### 3.14 Traceability
+
+Version 1 ใช้ native authorship, timestamps, revisions/history และ operational logs เป็น baseline evidence.
+
+ไม่สร้าง Central Audit Log subsystem จนกว่าจะมี requirement ด้านกฎหมาย/กำกับดูแลที่ระบุเหตุการณ์และ retention ซึ่ง native evidence ไม่รองรับ.
 
 ---
 
@@ -963,8 +933,7 @@ Media Library
 
 ระบบ
 ├── ผู้ใช้งาน
-├── สิทธิ์
-├── Audit Log
+├── ผู้ใช้งานและสิทธิ์ตาม platform
 └── ตั้งค่าเว็บไซต์
 ```
 
@@ -994,15 +963,14 @@ Dashboard ข้อมูลสุขภาพภายใต้ `/dashboard` �
 | Feature | Default |
 |---|---|
 | Draft | ON |
-| Direct Publish | ON |
+| Publish ตาม native role/ownership | ON |
 | Scheduled Publish | ON |
-| Archive | ON |
-| Approval Workflow | OFF |
-| Audit Log | ON |
+| Revisions / Preview | ON where useful |
+| Trash / Restore | ON |
+| Formal Approval Workflow | NOT BASELINE |
+| Custom Audit subsystem | NOT BASELINE |
 
-Approval Workflow สามารถเปิดใช้ในอนาคตได้โดยไม่ต้องเปลี่ยนโครงสร้างระบบหลัก
-
-การเปิด Approval ควรเกิดจากความต้องการของหน่วยงานจริง ไม่ใช่เพราะระบบรองรับได้
+ใช้ native CMS behavior ก่อน. Custom workflow เพิ่มเมื่อ requirement จริงพิสูจน์ว่าจำเป็น.
 
 ---
 
@@ -1064,11 +1032,10 @@ Legacy WordPress audit และการย้ายข้อมูลถูก
 - Content First, Presentation Second
 - Structured Content
 - CMS ต้องเรียบง่ายสำหรับเจ้าหน้าที่และใช้ภาษางานของสำนักงาน
-- Role-Based Access
-- Approval Workflow เปิด/ปิดได้
-- Permission แยกจาก Approval
-- Audit Log ควรเปิดใช้งานเสมอ
-- Draft / Published / Archived เป็น Workflow พื้นฐาน
+- ใช้ native role/permission model และ least privilege
+- Draft authoring แยกจาก publish authority ได้โดยไม่สร้าง approval engine
+- ใช้ native revisions/history/operational evidence ก่อน custom audit subsystem
+- ใช้ native Draft / Published / Scheduled / Trash lifecycle เป็น baseline
 - เรื่องเด่นเป็น Presentation ไม่ใช่ Content Type
 - หน้าแรกเป็น Curated View
 - ใช้คำว่า “หน่วยบริการสุขภาพที่เกี่ยวข้อง”
@@ -1098,15 +1065,13 @@ Legacy WordPress audit และการย้ายข้อมูลถูก
 
 ### Clean Rebaseline Open Decisions
 
-หลัง Clean Rebaseline v2.0 ประเด็นที่ยังอาจต้องตัดสินเชิง implementation/operations แยกต่างหาก ได้แก่:
+หลัง Clean Rebaseline v2.1 ประเด็นที่ยังอาจต้องตัดสินเชิง implementation/operations แยกต่างหาก ได้แก่:
 - exact Visual Design tokens / component implementation
 - exact reference-data values และ service inventory ที่เปลี่ยนตามข้อมูลจริง
 - production hosting/provider และ deployment evidence
 - exact dependency/version pinning
 
-การจัดวาง Songhealth-specific shared business rules **ไม่ใช่ Open Decision แล้ว**. `10-system-blueprint.md` กำหนดให้ใช้ **Thin Songhealth Policy Layer** สำหรับกฎร่วมที่เป็น Songhealth invariants โดยไม่สร้าง Formal Domain/Application architecture แบบเดิม.
-
-Foundation ยังคงไม่ผูก Product requirement กับชื่อ class/module/file หรือ framework abstraction ใด; รายละเอียดดังกล่าวเป็น implementation concern ภายใต้ข้อจำกัดของ `10`.
+Songhealth-specific code organization ไม่ Freeze เป็น Domain/Policy layer. `10-system-blueprint.md` ใช้ platform-native architecture และอนุญาต feature-local helper/hook เฉพาะ gap ที่พิสูจน์แล้ว.
 
 ---
 
