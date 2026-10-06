@@ -1,113 +1,42 @@
-# สสอ.สอง Website — Initial Project Repository
+# Songhealth
 
-Repository bootstrap package for the new website of สำนักงานสาธารณสุขอำเภอสอง.
+เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง — Clean Rebuild baseline.
 
-## Current status
+## Current state
 
-This repository is **ready for Pre-Implementation Bootstrap**, not yet for application coding.
+This repository intentionally contains **no active application implementation and no active feature specification**.
 
-The Product/System documentation is already established and frozen. The remaining gate is to initialize/reconcile Spec Kit on the real development machine, establish the canonical Constitution, select the first Delivery, and prepare its Delivery Context.
+Superseded implementation, tests, infrastructure, specifications, review evidence, and bootstrap artifacts have been removed from the active tree. Git history remains available only when historical evidence is explicitly needed.
 
-## Source of Truth
+## Active Source of Truth
 
-Canonical Product/System documents are under:
+1. Product Owner decisions
+2. `.specify/memory/constitution.md`
+3. `docs/website-modernization-docs/current/00-website-foundation.md` through `09-migration-plan.md`
+4. `docs/website-modernization-docs/current/10-system-blueprint.md`
 
-```text
-docs/website-modernization-docs/
-```
+The current architecture baseline is intentionally platform-native:
 
-The active canonical set is:
+- Astro SSR
+- EmDash
+- TypeScript
+- PostgreSQL
+- persistent media storage
 
-```text
-current/
-├── 00-website-foundation.md
-├── 01-information-architecture.md
-├── 02-content-model.md
-├── 03-sitemap.md
-├── 04-homepage.md
-├── 05-admin-cms.md
-├── 06-roles-permissions.md
-├── 07-publishing-workflow.md
-├── 08-search.md
-└── 10-system-blueprint.md   # FROZEN v1.1
-```
+See `10-system-blueprint.md` for the authoritative technical baseline.
 
-`09-migration-plan.md` remains DEFERRED / NOT ACTIVE.
+## Spec Kit
 
-## Agent/runtime control
+Spec Kit tooling is installed under `.specify/`, with Codex/Claude skill integrations under `.agents/` and `.claude/`.
 
-Repository control files are organized as:
+There is currently **no active `specs/` feature**.
 
-- `AGENTS.md` — shared repository contract and Codex routing entry point
-- `docs/operations/codex-orchestrator.md` — Codex PM/System Architect/Spec Kit Orchestrator/reviewer rules (routed from `AGENTS.md`)
-- `CLAUDE.md` — Claude Code DEV Executor rules
-- `PROJECT-STATUS.md` — workflow/gate mirror
-- `SHORT-PROMPTS.md` — concise day-to-day Spec Kit control prompts
-- `bootstrap/constitution.proposed.md` — proposed Constitution input only
-- `docs/spec-context/_template.md` — per-Delivery routing template
+The next valid product-development step is to create a fresh Spec Kit feature from the current documentation baseline, beginning with a new `001-platform-foundation` specification.
 
-There is intentionally no `QWEN.md`.
+Implementation remains unauthorized until the required Spec Kit phases and Product Owner gates are completed.
 
-## Why there is no `src/`, `package.json`, database migration, or `infra/compose.yaml` yet
+## Clean-rebuild rule
 
-That is intentional.
+Do not reconstruct removed architecture from Git history, previous branch names, old task numbers, or prior implementation patterns unless historical evidence is explicitly required for migration or a documented impact review.
 
-Application scaffolding and executable infrastructure must come from an approved Delivery after:
-
-```text
-Constitution
-→ Delivery Context READY
-→ specify
-→ clarify
-→ plan
-→ checklist/review
-→ tasks
-→ analyze CLEAN
-→ authorized implementation
-```
-
-This prevents implementation choices from silently becoming requirements before Spec Kit has established the first Delivery.
-
-## First bootstrap on the real development machine
-
-From the repository root:
-
-```text
-1. initialize Git if this directory is not already a Git repository
-2. verify `specify version`
-3. verify `specify integration status`
-4. confirm Codex + Claude Code integrations
-5. inspect any pre-existing `SPECIFY_FEATURE_DIRECTORY`
-6. run the Bootstrap/Resume prompt from `SHORT-PROMPTS.md`
-7. reconcile `bootstrap/constitution.proposed.md` through `/speckit.constitution`
-8. review/approve the resulting canonical Constitution
-9. select the first approved Delivery in `PROJECT-STATUS.md`
-10. create `docs/spec-context/<delivery-key>.md` from the template using targeted retrieval
-11. mark Delivery Context `READY` only after Codex review
-12. begin `/speckit.specify`
-```
-
-Do not start Claude implementation before a Task is explicitly authorized in `PROJECT-STATUS.md`.
-
-## Environment architecture already accepted
-
-Daily Development:
-
-```text
-Developer Host
-├── Node.js / React / Vite
-└── Podman
-    └── MySQL-compatible CMS Database
-        └── Named Volume
-```
-
-Production-like Verification:
-
-```text
-Podman
-├── Nginx
-├── production-built Node.js application
-└── MySQL-compatible database
-```
-
-Production remains Bangmod Expert Hosting / Plesk-supported runtime. Local Podman/Nginx does not create a Production container requirement.
+> Build the new Songhealth from the current requirements, not from the shape of the old system.
