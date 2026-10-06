@@ -28,8 +28,11 @@ Clean Rebaseline v2.2 ยืนยันจาก adversarial review ว่า S
 - Database: **PostgreSQL**
 - Media: **persistent storage supported by deployment**
 - Runtime: **supported Node.js version compatible with selected Astro/EmDash release**
+- Production container runtime: **rootless Podman (OCI containers)**
+- Production service lifecycle: **systemd Quadlet**
+- Production network boundary: **private Podman application network; PostgreSQL is not publicly exposed**
 
-Pin dependency versions in implementation manifests/lockfiles. EmDash upgrade requires database backup, migration check and smoke/regression verification.
+Pin dependency/image versions in implementation manifests, lockfiles and production deployment definitions. Do not use an unbounded `latest` image as the production contract. EmDash upgrade requires database backup, migration check and smoke/regression verification.
 
 ---
 
@@ -42,21 +45,52 @@ Internet
 HTTPS / Reverse Proxy
    │
    ▼
-┌──────────────────────────────────────┐
-│         Astro + EmDash Runtime       │
-│                                      │
-│  Astro SSR Public Site              │
-│  EmDash Admin                       │
-│  EmDash Content / Search / Media    │
-│  small feature-local helpers/hooks  │
-└──────────────────┬───────────────────┘
-                   │
-              PostgreSQL
-                   │
-              Media Storage
+Linux / Fedora-compatible production host
+   │
+   ▼
+rootless Podman + systemd Quadlet
+   │
+   └── private Songhealth network
+       │
+       ├── songhealth-app
+       │   └── Astro SSR + EmDash
+       │
+       └── songhealth-db
+           └── PostgreSQL
+
+Persistent host/volume storage
+├── PostgreSQL data
+└── public-publishable Media files
 ```
 
 ไม่มี separate Songhealth backend, API server, Domain service, Policy service หรือ database ของ Songhealth CMS อีกชั้น.
+
+## 3.1 Production Deployment Baseline
+
+Production ใช้ **rootless Podman** เป็น container runtime และใช้ **systemd Quadlet** เป็น declarative lifecycle integration กับ systemd.
+
+Baseline topology มีเพียง:
+
+- application container: Astro SSR + EmDash
+- PostgreSQL container
+- persistent PostgreSQL storage
+- persistent media storage
+- HTTPS/reverse proxy ใน deployment boundary
+
+ข้อกำหนดขั้นต่ำ:
+
+1. application และ PostgreSQL อยู่บน private Podman network เดียวกันตาม deployment configuration
+2. PostgreSQL ไม่ publish port สู่ public network; รับ connection จาก application/deployment path ที่จำเป็นเท่านั้น
+3. database data และ media ต้องอยู่นอก ephemeral writable layer ของ container และต้องคงอยู่เมื่อ replace/recreate container
+4. secrets และ environment-specific configuration ไม่ bake ลง image และไม่ commit ลง repository
+5. Quadlet/service definition ต้องกำหนด startup/restart behavior และ health/readiness verification ตาม capability ของ runtime
+6. production image/dependency versions ต้อง pin ให้ reproduce deployment ได้
+7. backup/restore ต้องกู้ข้อมูล PostgreSQL และ media ได้โดยไม่ขึ้นกับอายุของ application container
+8. reverse proxy implementation อาจเลือกตาม deployment environment แต่ต้องรักษา HTTPS, forwarding headers, request limits และ security boundary ที่ระบบต้องการ
+
+Development ไม่บังคับให้ทุก process รันใน container. Astro/Node tooling, Spec Kit และ AI agents รัน native บนเครื่องพัฒนาได้; ใช้ Podman ใน development เมื่อช่วยให้ database/runtime parity หรือ integration verification ชัดเจนขึ้น.
+
+**Docker/Docker Compose ไม่ใช่ parallel production baseline.** หากมีเหตุผลต้องเปลี่ยน container runtime ในอนาคต ให้เป็น architecture decision ใหม่ ไม่ maintain deployment contracts สองชุดโดยไม่มี requirement.
 
 ---
 
@@ -257,7 +291,8 @@ ITA ใช้ collections/relations ตาม Content Model.
 
 Runtime monitoringขั้นต่ำต้องเห็น:
 
-- application health/start failures
+- application/container health, restart and start failures
+- Quadlet/systemd unit failures
 - database/storage failures
 - scheduled publishing problems
 - migration failures
@@ -270,6 +305,8 @@ Runtime monitoringขั้นต่ำต้องเห็น:
 # 18. Backup and Recovery
 
 Production recovery ใช้ **raw PostgreSQL backup/PITR + media backup** ตาม deployment capability.
+
+PostgreSQL data และ media persistence ต้องอยู่นอก ephemeral container layer. การ replace/recreate application หรือ database container ต้องไม่ใช่เหตุให้ข้อมูลถาวรสูญหาย และ restore verification ต้องพิสูจน์การกู้กลับเข้าสู่ clean/recreated runtime ได้.
 
 EmDash JSON backup/export ไม่ใช่ sole disaster-recovery point เพราะไม่ครอบคลุมข้อมูลระบบทุกชนิดและไม่ใช่ raw database restore path.
 
@@ -303,8 +340,10 @@ Environment-specific valuesไม่ hard-code:
 - auth provider secrets
 - storage credentials/path
 - proxy/deployment settings
+- production container image references
+- Podman network/storage names or pathsที่ขึ้นกับ environment
 
-Use supported config/env mechanisms.
+Use supported config/env mechanisms. Production container/service definitionsต้องแยก configuration ออกจาก secrets และหลีกเลี่ยง host-specific hard-code ที่ไม่จำเป็น.
 
 ---
 
@@ -323,6 +362,9 @@ Use supported config/env mechanisms.
 - Homepage/ITA domain behavior
 - migration mapping and old-URL redirects
 - production build/start
+- rootless Podman + Quadlet deployment smoke test
+- private database network boundary / no unintended public DB port
+- container replacement with persistent PostgreSQL/media intact
 - backup/restore readiness
 
 Custom hook/helper ใดที่เพิ่มเพื่อปิด gap ต้องมี focused tests.
@@ -358,6 +400,8 @@ Version 1 ไม่มี baseline requirement สำหรับ:
 - message broker/Redis
 - microservices
 - Kubernetes
+- Docker/Docker Compose as a second production deployment baseline
+- containerizing every development tool/process by default
 - page builder
 - custom audit platform
 
@@ -368,6 +412,11 @@ Version 1 ไม่มี baseline requirement สำหรับ:
 - Astro SSR: **YES**
 - EmDash Admin/CMS: **YES**
 - PostgreSQL: **YES**
+- Production container runtime: **rootless Podman**
+- Production service lifecycle: **systemd Quadlet**
+- Private app/database container network: **YES; no public PostgreSQL port**
+- Docker/Docker Compose parallel production baseline: **NO**
+- Kubernetes: **NO**
 - Native EmDash RBAC: **YES**
 - Module Scope: **NO baseline requirement**
 - Formal Approval Workflow: **NO baseline requirement**
