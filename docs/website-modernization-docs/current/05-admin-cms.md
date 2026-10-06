@@ -1,8 +1,8 @@
 # Admin CMS — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 05-admin-cms
-> **Status:** CLEAN REBASELINE v2.1 — CURRENT
-> **Version:** 2.1
+> **Status:** CLEAN REBASELINE v2.2 — CURRENT
+> **Version:** 2.2
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`
 > **Purpose:** กำหนดความต้องการของ Admin CMS ที่จำเป็นต่อการดูแล Songhealth โดยใช้ความสามารถมาตรฐานของ CMS ก่อน และสร้างส่วนขยายเฉพาะเมื่อมี gap ที่พิสูจน์แล้ว

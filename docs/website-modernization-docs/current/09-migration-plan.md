@@ -1,8 +1,8 @@
 # Migration Plan — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 09-migration-plan
-> **Status:** CLEAN REBASELINE v2.1 — CURRENT
-> **Version:** 2.1
+> **Status:** CLEAN REBASELINE v2.2 — CURRENT
+> **Version:** 2.2
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
 > **Depends On:** `00-website-foundation.md` through `08-search.md`
 > **Purpose:** กำหนดการย้ายจาก Legacy WordPress เข้าสู่ Songhealth ใหม่โดยใช้ importer ของ CMS ก่อน และเพิ่ม custom migration code เฉพาะ semantic gaps
@@ -42,7 +42,7 @@ Target meaning มาจาก:
 - `03` slug-based Sitemap
 - `05–07` native-first Admin/access/publishing
 - `08` native-first Search
-- `10` Astro + EmDash architecture
+- current `10-system-blueprint.md` technical target (without redefining Product semantics)
 
 WordPress post type/category/status/ID ไม่เป็น authority ของ target model.
 
@@ -50,10 +50,10 @@ WordPress post type/category/status/ID ไม่เป็น authority ของ
 
 # 4. Preferred Import Path
 
-Version 1 ใช้ EmDash WordPress import flow เป็น first path:
+Version 1 ใช้ native WordPress import flow ของ target CMS เป็น first path:
 
 1. WXR export เมื่อข้อมูลที่ต้องใช้มีใน WordPress export
-2. EmDash Exporter plugin เมื่อควบคุม source site และต้องการ authenticated content/custom fields/menus/settings/SEO ที่รองรับ
+2. target-CMS-supported exporter/connector เมื่อควบคุม source site และต้องการข้อมูลมากกว่า standard export
 3. native Analyze/Review/Prepare/Import/Copy Media flow
 
 ใช้ native importer สำหรับสิ่งที่รองรับก่อน:
@@ -142,7 +142,7 @@ Presentation attributionกับ CMS loginเป็นคนละเรื่�
 - map trusted source authors to existing/new CMS usersเมื่อเหมาะ
 - unmapped source authorใช้ guest bylineได้
 - ไม่ copy WordPress password hashes/roles/sessions
-- target accessใช้ native EmDash RBAC ตาม `06`/`10`
+- target accessใช้ native CMS RBAC ตาม `06`; exact mappingอยู่ใน `10`
 
 ---
 
@@ -203,6 +203,7 @@ Use target CMS native redirects/404 log first.
 
 Trial importควรทำใน isolated/staging target และ repeatได้โดยไม่แตะ production target.
 
+
 ตรวจ:
 
 - counts by mapped collection
@@ -230,7 +231,7 @@ Trial importควรทำใน isolated/staging target และ repeatได
 - switch canonical traffic
 - retain source rollback window
 
-ไม่สร้าง permanent dual-write/sync ระหว่าง WordPress กับ EmDash.
+ไม่สร้าง permanent dual-write/sync ระหว่าง legacy WordPress กับ target CMS.
 
 ---
 
@@ -239,7 +240,7 @@ Trial importควรทำใน isolated/staging target และ repeatได
 ก่อน production cutoverต้องมี:
 
 - restorable source backup
-- restorable target PostgreSQL backup
+- restorable target database backup
 - target media backup
 - DNS/proxy rollback procedure
 - record of final redirect/import configuration
@@ -250,7 +251,7 @@ Rollback ไม่ต้องเป็น distributed transaction; ต้อง
 
 # 16. Native Importer Boundary
 
-Native importerไม่จำเป็นต้อง solveทุก Songhealth semantic mapping.
+Target CMS native importerไม่จำเป็นต้อง solveทุก Songhealth semantic mapping.
 
 สร้าง custom migration codeเมื่อ:
 

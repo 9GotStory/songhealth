@@ -1,8 +1,8 @@
 # Public Search / Search & Discovery — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 08-search
-> **Status:** CLEAN REBASELINE v2.1 — CURRENT
-> **Version:** 2.1
+> **Status:** CLEAN REBASELINE v2.2 — CURRENT
+> **Version:** 2.2
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`, `06-roles-permissions.md`, `07-publishing-workflow.md`
 > **Purpose:** กำหนด Public Search ที่ใช้ง่ายสำหรับประชาชนโดยใช้ search capability ของ CMS/database ก่อน และไม่สร้าง search platform แยก
@@ -169,7 +169,7 @@ Search path ต้อง:
 - fail safely without stack traces/database details
 - apply reasonable abuse/rate protection จาก platform/deployment
 
-หากใช้ internal server-side search API ภายใน Astro ไม่จำเป็นต้อง expose standalone public REST endpoint.
+หากใช้ trusted internal server-side search path ไม่จำเป็นต้อง expose standalone public REST endpoint.
 
 ---
 

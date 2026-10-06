@@ -1,8 +1,8 @@
 # Website Foundation — สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 00-website-foundation
-> **Status:** CLEAN REBASELINE v2.1 — CURRENT
-> **Version:** 2.1
+> **Status:** CLEAN REBASELINE v2.2 — CURRENT
+> **Version:** 2.2
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
 > **Purpose:** เอกสารหลักสำหรับบันทึกหลักการ ขอบเขต และ Architecture Decisions ระดับ Foundation ที่เอกสาร Information Architecture, Content Model, Sitemap, CMS และ System Blueprint ต้องยึดร่วมกัน
 > **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
@@ -741,7 +741,7 @@ Dashboard และ Analytical Metrics ไม่ใช่ CMS Content แต่�
 Health Information
 ├── Health Content        → CMS
 ├── Health Report         → CMS Metadata + PDF Document
-└── Dashboard             → Separate SQL/Data Layer → API → UI
+└── Dashboard             → Separate analytical ownership → Public Dashboard UI
 ```
 
 ### 7.9 บริการประชาชน
@@ -751,7 +751,7 @@ Health Information
 - **Service** — บริการหรือกระบวนงานจริง
 - **Document Resource** — คู่มือ แบบฟอร์ม และเอกสารประกอบ
 - **Health Service Directory** — การค้นหาหน่วยบริการและสถานที่รับบริการ
-- **Contact Information** — ช่องทางติดต่อ
+- **Contact Data** — ช่องทางติดต่อที่เป็นเจ้าของโดย Office / Service / Health Service / Personnel ตามบริบท
 
 Public UX สามารถนำสิ่งเหล่านี้มาแสดงร่วมกันใน “บริการประชาชน” ได้ แต่ไม่ควรสร้างเป็น Service Entity ทั้งหมด
 
@@ -1065,13 +1065,13 @@ Legacy WordPress audit และการย้ายข้อมูลถูก
 
 ### Clean Rebaseline Open Decisions
 
-หลัง Clean Rebaseline v2.1 ประเด็นที่ยังอาจต้องตัดสินเชิง implementation/operations แยกต่างหาก ได้แก่:
+หลัง Clean Rebaseline v2.2 ประเด็นที่ยังอาจต้องตัดสินเชิง implementation/operations แยกต่างหาก ได้แก่:
 - exact Visual Design tokens / component implementation
 - exact reference-data values และ service inventory ที่เปลี่ยนตามข้อมูลจริง
 - production hosting/provider และ deployment evidence
 - exact dependency/version pinning
 
-Songhealth-specific code organization ไม่ Freeze เป็น Domain/Policy layer. `10-system-blueprint.md` ใช้ platform-native architecture และอนุญาต feature-local helper/hook เฉพาะ gap ที่พิสูจน์แล้ว.
+Songhealth-specific code organization ไม่ Freeze เป็น Domain/Policy layer. `10-system-blueprint.md` ใช้ platform-native architecture และอนุญาต feature-local helper/hook เฉพาะ gap ที่พิสูจน์แล้ว; Media/Contact/Search/Auth/Publishing ใช้ native platform capability ก่อน.
 
 ---
 

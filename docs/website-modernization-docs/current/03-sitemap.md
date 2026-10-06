@@ -1,8 +1,8 @@
 # Sitemap — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 03-sitemap
-> **Status:** CLEAN REBASELINE v2.1 — CURRENT
-> **Version:** 2.1
+> **Status:** CLEAN REBASELINE v2.2 — CURRENT
+> **Version:** 2.2
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`
 > **Purpose:** กำหนด public navigation, canonical routes, URL rules, redirects และ public error behavior โดยใช้ slug-based URLs ที่เรียบง่าย
@@ -208,7 +208,7 @@ Historical fiscal years remain addressable.
 
 # 12. Contact
 
-`/contact` เป็น canonical office contact page และ reuse structured Contact Information.
+`/contact` เป็น canonical office contact page และ reuse structured office/contact data จาก owner ที่ถูกต้อง; ไม่บังคับ standalone Contact collection.
 
 ไม่สร้าง route แยกสำหรับ phone/address/map โดยไม่มี use case.
 
@@ -378,6 +378,6 @@ Implementation → `10`.
 
 # 21. Decision
 
-Clean Rebaseline v2.1 replaces the former Public-ID-first URL architecture with a **slug-first public URL + native stable content ID + redirect continuity** model.
+Clean Rebaseline v2.2 replaces the former Public-ID-first URL architecture with a **slug-first public URL + native stable content ID + redirect continuity** model.
 
 > **Do not invent a second public identity system when the CMS already provides stable identity and safe slug change handling.**

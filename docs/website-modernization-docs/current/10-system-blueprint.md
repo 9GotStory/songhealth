@@ -1,8 +1,8 @@
 # System Blueprint — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 10-system-blueprint
-> **Status:** CLEAN REBASELINE v2.1 — CURRENT
-> **Version:** 2.1
+> **Status:** CLEAN REBASELINE v2.2 — CURRENT
+> **Version:** 2.2
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
 > **Depends On:** `00-website-foundation.md` through `09-migration-plan.md`
 > **Purpose:** กำหนด architecture ปัจจุบันที่ใช้ Astro + EmDash แบบ platform-native และเพิ่ม Songhealth-specific code เฉพาะ gap ที่พิสูจน์แล้ว
@@ -14,7 +14,7 @@
 
 > **EmDash-native first. Songhealth extensions only for demonstrated gaps.**
 
-Clean Rebaseline v2.1 ถอนสมมติฐานว่า Songhealth ต้องมี application/domain/policy layer ของตนเองก่อนเริ่มพัฒนา.
+Clean Rebaseline v2.2 ยืนยันจาก adversarial review ว่า Songhealth ไม่ต้องมี application/domain/policy layer ของตนเองเป็น baseline; platform-native capability ครอบคลุมกลไกหลักส่วนใหญ่แล้ว.
 
 การมี helper/module ที่ share กันในอนาคตเป็น code-organization decision จาก duplication/gap จริง ไม่ใช่ architecture layer ที่ต้องสร้างล่วงหน้า.
 
@@ -243,6 +243,8 @@ ITA ใช้ collections/relations ตาม Content Model.
 
 สร้าง custom migration script/source เฉพาะ mapping ที่ native importer ไม่สามารถแปลงเป็น Songhealth Content Model ได้อย่างถูกต้อง.
 
+**EmDash rerun guard:** WXR/Exporter reruns with skip-existing identify an existing target by collection + slug + locale. A source slug change between initial import and final delta can therefore produce a second target entry. Migration implementation must inventory slug changes, constrain source editing during final delta, and reconcile duplicates/redirects before cutover.
+
 ---
 
 # 17. Traceability and Operations
@@ -269,7 +271,7 @@ Runtime monitoringขั้นต่ำต้องเห็น:
 
 Production recovery ใช้ **raw PostgreSQL backup/PITR + media backup** ตาม deployment capability.
 
-EmDash JSON backup/export ไม่ใช่ sole disaster-recovery point.
+EmDash JSON backup/export ไม่ใช่ sole disaster-recovery point เพราะไม่ครอบคลุมข้อมูลระบบทุกชนิดและไม่ใช่ raw database restore path.
 
 ก่อน schema change, bulk import หรือ major upgrade ต้องมี restorable database backup และ restore verificationตามความเสี่ยง.
 

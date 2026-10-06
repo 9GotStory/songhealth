@@ -1,8 +1,8 @@
 # Publishing Workflow — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 07-publishing-workflow
-> **Status:** CLEAN REBASELINE v2.1 — CURRENT
-> **Version:** 2.1
+> **Status:** CLEAN REBASELINE v2.2 — CURRENT
+> **Version:** 2.2
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`, `06-roles-permissions.md`
 > **Purpose:** กำหนด publishing semantics ที่ Songhealth ต้องการโดยใช้ lifecycle ของ CMS เป็น baseline และไม่สร้าง workflow engine ซ้ำ

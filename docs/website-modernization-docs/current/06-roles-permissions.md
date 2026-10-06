@@ -1,8 +1,8 @@
 # Roles & Permissions — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 06-roles-permissions
-> **Status:** CLEAN REBASELINE v2.1 — CURRENT
-> **Version:** 2.1
+> **Status:** CLEAN REBASELINE v2.2 — CURRENT
+> **Version:** 2.2
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`
 > **Purpose:** กำหนด access-control requirements ที่จำเป็นต่อ Songhealth โดยไม่สร้าง role/permission model ซ้ำกับ CMS
