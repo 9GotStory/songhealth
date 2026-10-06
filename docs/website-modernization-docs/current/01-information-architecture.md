@@ -1,11 +1,13 @@
 # Information Architecture — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
-> **Document ID:** 01-information-architecture  
-> **Status:** FROZEN — IA Baseline  
-> **Version:** 1.0  
-> **Last Updated:** 14 สิงหาคม 2569  
-> **Depends On:** `00-website-foundation.md`  
+> **Document ID:** 01-information-architecture
+> **Status:** CLEAN REBASELINE v2.0 — CURRENT
+> **Version:** 2.0
+> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Depends On:** `00-website-foundation.md`
 > **Purpose:** กำหนดโครงสร้างสารสนเทศ ความสัมพันธ์ของข้อมูล และแนวทางการจัดกลุ่มข้อมูลของเว็บไซต์สำนักงานรุ่นใหม่ โดยยังไม่ลงรายละเอียดระดับ Content Schema, Sitemap ฉบับ Final, UI หรือโค้ด
+> **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
+> **Technology Ownership:** Information Architecture is implementation-neutral.
 
 ---
 
@@ -1231,25 +1233,18 @@ Dashboard ไม่ดึง Metric จาก Health Report/PDF แต่ใช�
 
 ---
 
-## 20.2 To Be Validated / Refined
+## 20.2 Configurable / Evidence-Driven Data Still Open
 
-หัวข้อต่อไปนี้ยังต้องสำรวจหรือออกแบบเพิ่มเติม:
+IA ownership is settled, while exact operational/reference values may continue to evolve without changing the IA model:
+- Service Inventory ของ สสอ.สอง
+- Service Ownership และ Service Channel รายบริการ
+- กลุ่มบริการ อสม. ที่มีหลักฐานการใช้งานจริง
+- Category / Topic / Audience taxonomy values
+- Area Master / Village reference values
+- Quick Links / Footer composition within canonical route ownership
+- exact Search filter presentation within `08-search.md`
 
-- Service Inventory ของ สสอ.สองฉบับสมบูรณ์
-- Service Ownership รายบริการ
-- Service Channel รายบริการ
-- กลุ่มบริการ อสม. อื่น ๆ
-- โครงสร้าง Category / Topic ฉบับ Final
-- Area Master / Village Structure ฉบับ Final
-- Audience Taxonomy ฉบับ Final
-- Main Navigation
-- ตำแหน่ง `/dashboard` ใน Navigation / Sitemap
-- Footer Navigation
-- Quick Links
-- Search Filters
-- URL Structure
-- Sitemap ฉบับ Final
-- Admin CMS UX รายละเอียด
+การเปลี่ยนค่าเหล่านี้ต้องไม่สร้าง Information Domain, route ownership หรือ Content Type ใหม่โดยปริยาย
 
 ---
 
@@ -1272,9 +1267,9 @@ Information Architecture นี้ไม่กำหนดรายละเอ�
 
 ---
 
-# 22. Relationship to Future Documents
+# 22. Relationship to the Current Document Set
 
-เอกสารนี้เป็นฐานให้กับเอกสารต่อไปนี้:
+เอกสารนี้เป็นฐานร่วมกับเอกสารต่อไปนี้ใน `current/`:
 
 ```text
 00-website-foundation.md
@@ -1305,20 +1300,11 @@ Information Architecture นี้ไม่กำหนดรายละเอ�
 
 ---
 
-# 23. Current Next Step
+# 23. Clean Rebaseline Status
 
-Information Architecture ผ่าน Cross-Model Review และ Final Consistency Review กับ `00-website-foundation.md` และ `02-content-model.md` แล้ว และถูก Freeze เป็น **IA Baseline v1.0**
+Information Architecture ผ่าน Clean Rebaseline v2.0 โดยยังคงหลัก Citizen First, explicit information ownership, reusable structured information และ separation ระหว่าง public navigation กับ underlying data model
 
-ขั้นตอนถัดไปคือ `03-sitemap.md` ซึ่งจะเปลี่ยน Information Domains และ Content Relationships ที่ตกลงแล้วให้เป็นโครงสร้างหน้าและเส้นทางของเว็บไซต์
-
-```text
-01 Information Architecture   ✅ FROZEN v1.0
-               │
-               ▼
-          03-sitemap.md
-```
-
-Main Navigation ยังไม่ Freeze ในเอกสารนี้ และจะตัดสินใจใน Sitemap / Navigation Design
+Main Navigation, route ownership, Homepage, Admin CMS และ Search ถูกกำหนดต่อใน `03`, `04`, `05` และ `08` ตามลำดับ; ไม่มี historical phase state ใดมี precedence เหนือเอกสาร current เหล่านั้น
 
 # 24. IA Foundation Statement
 

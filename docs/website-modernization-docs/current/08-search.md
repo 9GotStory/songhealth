@@ -1,11 +1,13 @@
 # Public Search / Search & Discovery — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
-> **Document ID:** 08-search  
-> **Status:** FROZEN — Public Search / Search & Discovery Baseline  
-> **Version:** 1.0  
-> **Last Updated:** 14 สิงหาคม 2569  
-> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md` v1.1, `03-sitemap.md` v1.0, `04-homepage.md` v1.0, `05-admin-cms.md` v1.0, `06-roles-permissions.md` v1.0, `07-publishing-workflow.md` v1.0  
+> **Document ID:** 08-search
+> **Status:** CLEAN REBASELINE v2.0 — CURRENT
+> **Version:** 2.0
+> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md` v1.1, `03-sitemap.md` v1.0, `04-homepage.md` v1.0, `05-admin-cms.md` v1.0, `06-roles-permissions.md` v1.0, `07-publishing-workflow.md` v1.0
 > **Purpose:** กำหนดพฤติกรรมของ Public Search / Search & Discovery ให้ประชาชนค้นหาข้อมูลสาธารณะของเว็บไซต์ได้ง่าย ถูกต้อง และสอดคล้องกับ Information Architecture, Content Model, Sitemap และ Publishing Lifecycle โดยยังไม่ผูกกับ search engine, database extension, indexing library หรือ implementation technology ใด
+> **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
+> **Technology Ownership:** Search behavior, Thai-language expectations, eligibility, ranking and privacy are product contracts; exact engine/index implementation belongs to `10`.
 
 ---
 
@@ -753,7 +755,7 @@ Personnel Search Result
 → filtered / anchored directory context when supported
 ```
 
-หากอนาคตต้องการ individual Personnel detail route ต้องผ่าน Sitemap Impact Review / Controlled Amendment ก่อน ไม่ให้ `08-search.md` สร้าง route ownership ใหม่เอง.
+หากอนาคตต้องการ individual Personnel detail route ต้องผ่าน Sitemap Impact Review / versioned cross-document update ก่อน ไม่ให้ `08-search.md` สร้าง route ownership ใหม่เอง.
 
 > **Do not invent individual public profile pages solely to make Search easier.**
 
@@ -783,7 +785,7 @@ Organization Search Result
 → /about/organization
 ```
 
-ไม่สร้าง Organization detail route รายหน่วยจาก `08-search.md`; หากอนาคตมี route รายหน่วยจริงต้องผ่าน Sitemap Impact Review / Controlled Amendment ก่อน.
+ไม่สร้าง Organization detail route รายหน่วยจาก `08-search.md`; หากอนาคตมี route รายหน่วยจริงต้องผ่าน Sitemap Impact Review / versioned cross-document update ก่อน.
 
 > **Being master data does not automatically make an entity a Public Search Unit.**
 
@@ -1063,7 +1065,7 @@ Search eligibility derive จาก:
 
 การมี manual visibility checkbox ทั่วระบบจะสร้าง contradiction และเพิ่มภาระเจ้าหน้าที่โดยไม่มี business meaning.
 
-หากอนาคตมี use case จริงสำหรับ explicit discoverability control ต้องผ่าน Impact Review/Controlled Amendment.
+หากอนาคตมี use case จริงสำหรับ explicit discoverability control ต้องผ่าน Impact Review/versioned cross-document update.
 
 ---
 
@@ -3432,7 +3434,7 @@ Curated aliases remain part of appropriate canonical entity/master data rather t
 
 Version 1 does **not** add a new CMS `search.reindex` capability after Frozen `06-roles-permissions.md`.
 
-Manual reindex/rebuild should preferably remain an operational/deployment maintenance capability outside routine CMS workflow. If a future implementation genuinely requires exposing it inside Admin CMS, that change must pass Roles & Permissions Impact Review / Controlled Amendment; the resulting action would require Administrator-level authorization and remain subject to system safeguards.
+Manual reindex/rebuild should preferably remain an operational/deployment maintenance capability outside routine CMS workflow. If a future implementation genuinely requires exposing it inside Admin CMS, that change must pass Roles & Permissions Impact Review / versioned cross-document update; the resulting action would require Administrator-level authorization and remain subject to system safeguards.
 
 Reindexing always means:
 
@@ -3528,7 +3530,7 @@ Accepted baseline:
 - raw Search queries are treated as potentially sensitive user input; operational logging follows data minimization and bounded-retention principles.
 - alerts are reserved for sustained actionable conditions; visibility-safety failures receive the highest priority and always fail closed.
 - Version 1 does not expose editable ranking weights, manual query boosts/pinning, or a global Search synonym manager to CMS staff.
-- Version 1 adds no new CMS reindex permission; manual reindex preferably remains operational maintenance outside routine CMS, and exposing it later requires Roles & Permissions Impact Review / Controlled Amendment with Administrator-level authorization.
+- Version 1 adds no new CMS reindex permission; manual reindex preferably remains operational maintenance outside routine CMS, and exposing it later requires Roles & Permissions Impact Review / versioned cross-document update with Administrator-level authorization.
 - Search maintenance may degrade availability but may never weaken privacy/visibility guarantees.
 - infrastructure/search-engine/queue/retry/monitoring/SLA specifics remain deferred to `10-system-blueprint.md`.
 
@@ -3744,7 +3746,7 @@ A Public Search API response must contain only the minimal public-safe fields re
 - safe display metadata
 - public lifecycle context where meaningful
 
-The backend must not send full CMS entities containing private/internal fields and rely on React to hide them.
+The trusted search/public-data layer must not send full CMS entities containing private/internal fields and rely on the presentation layer to hide them.
 
 > **Do not send what the client is not allowed to expose.**
 
@@ -3946,7 +3948,7 @@ The review verified:
 
 1. **Frozen Search Group alignment** — `08` now uses the Sitemap baseline `ทุกประเภท / ข่าวสาร / บริการประชาชน / ข้อมูลสุขภาพ / หน่วยบริการ / เอกสาร / ITA / เกี่ยวกับเรา` rather than an incomplete example set.
 2. **Personnel / Organization canonical destination alignment** — Version 1 Search results use `/about/personnel` and `/about/organization` directory/anchored context as Frozen in the Sitemap; `08` no longer leaves room for creating new per-entity detail routes without Sitemap amendment.
-3. **Admin / reindex permission boundary alignment** — Search health, if exposed in Admin CMS, remains read-only/actionable system information outside the normal Admin Work Dashboard. Version 1 adds no new CMS `search.reindex` permission after `06` Freeze; manual reindex remains operational maintenance unless a future Controlled Amendment explicitly introduces an Admin capability.
+3. **Admin / reindex permission boundary alignment** — Search health, if exposed in Admin CMS, remains read-only/actionable system information outside the normal Admin Work Dashboard. Version 1 adds no new CMS `search.reindex` permission after `06` Freeze; manual reindex remains operational maintenance unless a future versioned cross-document update explicitly introduces an Admin capability.
 
 These repairs clarify existing Frozen decisions and do not introduce a new Search feature or change the accepted architecture.
 
@@ -3976,9 +3978,9 @@ No new Search feature topic is required before Freeze.
 
 ---
 
-# 172. Freeze — Public Search / Search & Discovery Baseline v1.0
+# 172. Freeze — Public Search / Search & Discovery Baseline v2.0
 
-`08-search.md` is **FROZEN — Public Search / Search & Discovery Baseline v1.0**.
+`08-search.md` is **FROZEN — Public Search / Search & Discovery Baseline v2.0**.
 
 Frozen baseline includes:
 
@@ -3992,8 +3994,9 @@ Frozen baseline includes:
 - public-safe projection, request bounds, output safety, privacy, abuse protection, crawler/SEO boundary, and minimal Public Search API contract
 - explicit deferral of implementation technology to `10-system-blueprint.md`
 
-Future changes to this Frozen baseline require Impact Review and, where appropriate, Controlled Amendment/version increment under the project documentation rules.
+Future changes require cross-document Impact Review and a versioned update to the consolidated `current/` baseline.
 
-Next planned document:
 
-> **`09-migration-plan.md` — Migration Plan**
+Current relationship:
+
+> **`09-migration-plan.md` governs legacy-source transition, while `10-system-blueprint.md` selects the current technical search mechanism without weakening this contract.**

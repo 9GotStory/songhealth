@@ -1,11 +1,13 @@
 # Roles & Permissions — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
-> **Document ID:** 06-roles-permissions  
-> **Status:** FROZEN — Roles & Permissions Baseline  
-> **Version:** 1.0  
-> **Last Updated:** 14 สิงหาคม 2569  
-> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md` v1.1, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md` v1.0  
+> **Document ID:** 06-roles-permissions
+> **Status:** CLEAN REBASELINE v2.0 — CURRENT
+> **Version:** 2.0
+> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md` v1.1, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md` v1.0
 > **Purpose:** กำหนดแนวคิด Role, Capability, ขอบเขตสิทธิ์ และ Security/Usability Guardrails ของ Admin CMS โดยยังไม่ลงรายละเอียดระดับ Database Schema, Authorization Library, API Middleware หรือโค้ด
+> **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
+> **Technology Ownership:** Roles, Module Scope and authorization semantics are product rules independent of the authentication/CMS implementation.
 
 ---
 
@@ -1306,7 +1308,7 @@ Administrator ที่มีสิทธิ์อาจดู read-only effecti
 
 ## 42.16 Backend Authority
 
-> **Frontend controls usability; Backend is the authorization authority.**
+> **Client-side controls improve usability; authoritative authorization must be enforced by the trusted server/system boundary.**
 
 Client-provided Role/Module Scope ไม่เป็น Source of Truth และ Version 1 ไม่มี Force Override / Ignore Permission / Bypass Lifecycle ใน normal CMS UX.
 
@@ -1321,21 +1323,21 @@ Final review against Frozen `00–05` confirmed the Version 1 authorization mode
 3. Hard Delete is Administrator-only by default and only where Admin CMS lifecycle/reference safety rules explicitly allow deletion (primarily safe unused Draft/unreferenced records).
 4. Every Active non-Administrator account must have at least one Module Scope; Administrator receives All Modules by definition.
 5. CMS Role is separate from public Personnel Role/Position/Assignment and must never be inferred from job title.
-6. One Role level applies uniformly across all assigned Module Scopes in Version 1. Mixed responsibility levels per module require future Impact Review/Controlled Amendment rather than silently over-granting or adding per-user overrides.
+6. One Role level applies uniformly across all assigned Module Scopes in Version 1. Mixed responsibility levels per module require future Impact Review/versioned cross-document update rather than silently over-granting or adding per-user overrides.
 
 Consistency result: Foundation PASS, IA PASS, Content Model v1.1 PASS, Sitemap PASS, Homepage PASS, Admin CMS PASS, ITA/Document/shared-resource boundaries PASS, security guardrails PASS, and over-engineering review PASS.
 
 ---
 
-# 44. Freeze — Roles & Permissions Baseline v1.0
+# 44. Clean Rebaseline — Roles & Permissions Baseline v2.0
 
-**Sections 1–43 = FROZEN Roles & Permissions Baseline.**
+**Sections 1–43 = CLEAN REBASELINE Roles & Permissions v2.0.**
 
 Status:
 
 ```text
-FROZEN — Roles & Permissions Baseline
-Version 1.0
+CLEAN REBASELINE — Roles & Permissions Baseline
+Version 2.0
 ```
 
-Future changes require Impact Review and, where appropriate, Controlled Amendment under `PROJECT-INDEX.md` version rules.
+Future changes require cross-document Impact Review and a versioned update to the consolidated `current/` baseline.

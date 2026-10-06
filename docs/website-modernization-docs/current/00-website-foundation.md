@@ -1,10 +1,12 @@
 # Website Foundation — สำนักงานสาธารณสุขอำเภอสอง
 
-> **Document ID:** 00-website-foundation  
-> **Status:** FROZEN — Foundation Baseline  
-> **Version:** 1.0  
-> **Last Updated:** 13 สิงหาคม 2569  
+> **Document ID:** 00-website-foundation
+> **Status:** CLEAN REBASELINE v2.0 — CURRENT
+> **Version:** 2.0
+> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
 > **Purpose:** เอกสารหลักสำหรับบันทึกหลักการ ขอบเขต และ Architecture Decisions ระดับ Foundation ที่เอกสาร Information Architecture, Content Model, Sitemap, CMS และ System Blueprint ต้องยึดร่วมกัน
+> **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
+> **Technology Ownership:** `00–09` define Product/behavior requirements; technology/runtime decisions belong to `10-system-blueprint.md`.
 
 ---
 
@@ -12,7 +14,7 @@
 
 สำนักงานสาธารณสุขอำเภอสองมีแผนปรับปรุงเว็บไซต์สำนักงานจากระบบเดิมที่พัฒนาด้วย WordPress ไปสู่เว็บไซต์รุ่นใหม่ที่ออกแบบให้เหมาะกับบริบทการใช้งานของสำนักงานในระยะยาว
 
-โครงการนี้ **ไม่ใช่การแปลง WordPress เดิมให้เป็น React แบบตรงตัว** และไม่ใช่การนำโครงสร้าง เมนู หรือข้อจำกัดของ WordPress เดิมมาสร้างซ้ำบนเทคโนโลยีใหม่
+โครงการนี้ **ไม่ใช่การแปลงระบบ WordPress เดิมแบบตรงตัว** และไม่ใช่การนำโครงสร้าง เมนู ข้อจำกัด หรือ technical debt ของระบบเดิมมาสร้างซ้ำในระบบใหม่
 
 เป้าหมายคือการออกแบบเว็บไซต์และระบบจัดการเนื้อหาใหม่จากพื้นฐาน โดยพิจารณาจาก:
 
@@ -24,52 +26,50 @@
 - ความสามารถในการดูแลและพัฒนาต่อในระยะยาว
 - การหลีกเลี่ยงความซับซ้อนที่ไม่จำเป็น
 
-### 1.1 Hosting Direction
+### 1.1 Delivery and Hosting Principle
 
-แนวทาง Hosting ที่เลือกสำหรับระบบใหม่คือ:
+Foundation ไม่ Freeze ผู้ให้บริการ Hosting, control panel, container platform หรือ deployment topology รายใดรายหนึ่ง
 
-**Bangmod Expert Hosting**
+Production environment ต้องถูกเลือกจากความสามารถที่ระบบปัจจุบันต้องใช้จริง โดยอย่างน้อยต้อง:
+- รองรับ runtime และ persistence ที่กำหนดใน `10-system-blueprint.md`
+- รองรับ HTTPS, request routing/reverse proxy และ secret separation ที่ปลอดภัย
+- มี persistent data/media ตาม requirement
+- มี backup + restore ที่ทดสอบได้
+- มี staging/verification path ที่เหมาะสม
+- ไม่บังคับ Product requirement ให้ลดลงเพื่อให้พอดีกับข้อจำกัดของผู้ให้บริการ
 
-เนื่องจากเหมาะกับแนวทางการพัฒนาเว็บไซต์รุ่นใหม่ที่ใช้ Node.js, React, Vite และฐานข้อมูล SQL โดยไม่จำเป็นต้องรับภาระดูแลระบบปฏิบัติการและโครงสร้างพื้นฐานในระดับ Cloud VPS ตั้งแต่เริ่มต้น
+การเลือกผู้ให้บริการจริงเป็น Deployment decision ที่ต้องมี evidence แยกต่างหาก
 
-### 1.2 Technology Direction
+### 1.2 Technology Neutrality
 
-เทคโนโลยีหลักที่วางแนวทางไว้ในปัจจุบัน ได้แก่:
+เอกสาร `00–09` อธิบาย **สิ่งที่ Songhealth ต้องทำ** ไม่ใช่ implementation recipe
 
-- React
-- Vite
-- Node.js
-- SQL Database (แยกตาม Data Domain ตามความเหมาะสม)
+Framework, CMS, database engine, runtime, hosting provider, API topology และ code structure เป็นหน้าที่ของ `10-system-blueprint.md` และ implementation plan
 
-รายละเอียด Framework, Library, ORM, วิธี Deployment และโครงสร้างทางเทคนิคอื่น ๆ **ยังไม่ถือเป็นข้อสรุปในเอกสารฉบับนี้** และจะพิจารณาใน System Blueprint ภายหลัง
+> **Technology may satisfy a requirement; technology does not redefine the requirement.**
 
-### 1.3 CMS และ Dashboard / Data Platform
+หากเทคโนโลยีที่เลือกไม่สามารถรักษา Product semantics ได้ ต้องเปลี่ยนหรือขยาย implementation อย่างมีเหตุผล ไม่ใช่ลด requirement แบบเงียบ ๆ
 
-เว็บไซต์สามารถมี Dashboard สำหรับข้อมูลสุขภาพหรือข้อมูลเชิงวิเคราะห์ได้ แต่ Dashboard ต้องถูกมองเป็น **Data Domain แยกจาก CMS Content**
+### 1.3 CMS and Dashboard / Data Platform Separation
 
-แนวทางที่ตกลงในระดับ Foundation:
+เว็บไซต์สามารถมี Dashboard สำหรับข้อมูลสุขภาพหรือข้อมูลเชิงวิเคราะห์ได้ แต่ Dashboard ต้องเป็น **Data Domain แยกจาก CMS/Public Content**
+
+แนวคิดระดับ Foundation:
 
 ```text
-CMS / Public Content                 Dashboard / Analytical Data
-        │                                      │
-        ▼                                      ▼
-     CMS API                              Dashboard API
-        │                                      │
-        ▼                                      ▼
- CMS Database                         Dashboard Database
+Public Content Domain              Analytical / Dashboard Domain
+         │                                   │
+         └──── stable references / bounded integration ────┘
 ```
 
 หลักสำคัญ:
+- CMS/Public Content ไม่เป็นแหล่งเก็บ Analytical Metrics หลักของ Dashboard
+- Dashboard มี data ownership และ persistence ของตนเองตามความเหมาะสม
+- การเชื่อมข้อมูลข้าม Domain ใช้ Stable Identifier หรือ bounded integration ที่ตรวจสอบได้
+- หลีกเลี่ยง shared mutable tables หรือ cross-domain joins ที่ไม่มี ownership ชัดเจน
+- Dashboard สามารถนำเสนอภายใต้ public path เช่น `/dashboard` โดยไม่ทำให้ CMS กลายเป็น analytical platform
 
-- CMS Database และ Dashboard Database แยกกันอย่างน้อยในระดับ Logical Database และ Credentials
-- ไม่จำเป็นต้องใช้ Database Server คนละเครื่องตั้งแต่ Version 1
-- Dashboard ใช้ SQL / Data Layer ของตนเอง และให้ Frontend เข้าถึงผ่าน API
-- Dashboard สามารถนำเสนอภายใต้ Path ของเว็บไซต์ เช่น `/dashboard`
-- CMS ไม่ควรเป็นแหล่งเก็บ Analytical Metrics เพื่อป้อน Dashboard
-- ไม่ใช้ Cross-Database Join เป็นกลไกหลักในการผูกสอง Domain เข้าด้วยกัน
-- หากจำเป็นต้องเชื่อม Reference Data ให้ใช้ Stable Identifier, API หรือ Controlled Synchronization
-
-> **Separate responsibilities first; scale infrastructure only when needed.**
+> **Separate responsibilities first; add infrastructure only when evidence requires it.**
 
 ---
 
@@ -147,13 +147,13 @@ CMS / Public Content                 Dashboard / Analytical Data
 
 ระบบควรมีคุณสมบัติหลัก 3 ประการ
 
-**Simple**  
+**Simple**
 ใช้งานง่ายสำหรับประชาชนและเจ้าหน้าที่
 
-**Structured**  
+**Structured**
 ข้อมูลมีโครงสร้างชัดเจน ไม่กระจัดกระจายหรือซ้ำซ้อน
 
-**Sustainable**  
+**Sustainable**
 สามารถดูแล พัฒนา และส่งต่อให้ผู้ดูแลระบบในอนาคตได้
 
 ---
@@ -245,7 +245,7 @@ CMS / Public Content                 Dashboard / Analytical Data
 
 ข้อมูลแต่ละประเภทต้องมีโครงสร้างที่เหมาะกับบริบทของตนเอง
 
-ไม่ควรใช้แนวทางแบบ WordPress ที่นำข้อมูลหลายประเภทไปเก็บในรูปแบบ Post เดียวกันทั้งหมด
+ไม่ควร flatten ข้อมูลหลายประเภทให้กลายเป็น generic record แบบเดียวจนสูญเสีย domain meaning
 
 ตัวอย่าง Content Type ที่ควรแยกจากกัน:
 
@@ -290,9 +290,9 @@ Information Architecture จะถูกออกแบบโดยละเอ�
 
 ---
 
-### 3.11 CMS Must Be Simpler Than WordPress
+### 3.11 CMS Must Be Simple for Staff
 
-ระบบ Admin CMS ใหม่ต้องใช้งานง่ายกว่า WordPress สำหรับงานของสำนักงาน
+ระบบ Admin CMS ใหม่ต้องใช้งานง่ายกว่าระบบเดิมสำหรับงานของสำนักงาน และใช้ภาษางานจริงแทนศัพท์เทคนิคของแพลตฟอร์ม
 
 เจ้าหน้าที่ควรเห็นเมนูตามภารกิจจริง เช่น:
 
@@ -1054,7 +1054,7 @@ Approval Workflow สามารถเปิดใช้ในอนาคต�
 
 แนวทางต่อไปนี้ถือว่าตกลงร่วมกันแล้ว ณ เวอร์ชันปัจจุบัน:
 
-- ใช้ Bangmod Expert Hosting เป็นแนวทาง Hosting
+- Hosting/Deployment ต้องเลือกจาก capability ที่ System Blueprint และ Production evidence ต้องการ ไม่ Freeze ผู้ให้บริการไว้ใน Product Foundation
 - ระบบใหม่ไม่ใช่การ Copy WordPress เดิม
 - ใช้แนวคิด Digital Public Portal
 - Citizen First
@@ -1063,7 +1063,7 @@ Approval Workflow สามารถเปิดใช้ในอนาคต�
 - Single Source of Truth
 - Content First, Presentation Second
 - Structured Content
-- CMS ต้องง่ายกว่า WordPress
+- CMS ต้องเรียบง่ายสำหรับเจ้าหน้าที่และใช้ภาษางานของสำนักงาน
 - Role-Based Access
 - Approval Workflow เปิด/ปิดได้
 - Permission แยกจาก Approval
@@ -1096,27 +1096,16 @@ Approval Workflow สามารถเปิดใช้ในอนาคต�
 - “ข่าวสุขภาพ” เป็น View / Filter ของ News ตาม Health Topic ส่วนความรู้สุขภาพใช้ Health Content
 - คู่มือและแบบฟอร์มเป็น Document Resources และการค้นหาหน่วยบริการเป็น Directory Function ไม่ใช่ Service Entity โดยตัวมันเอง
 
-### Not Yet Finalized
+### Clean Rebaseline Open Decisions
 
-Foundation, Information Architecture และ Content Model ถูก Freeze เป็น Baseline v1.0 แล้ว
+หลัง Clean Rebaseline v2.0 ประเด็นที่ยังอาจต้องตัดสินเชิง implementation/operations แยกต่างหาก ได้แก่:
+- exact Visual Design tokens / component implementation
+- exact reference-data values และ service inventory ที่เปลี่ยนตามข้อมูลจริง
+- production hosting/provider และ deployment evidence
+- exact dependency/version pinning
+- **รูปแบบการวาง Songhealth-specific domain/business rules ใน implementation ใหม่** รวมถึงคำถามว่าจำเป็นต้องมี formal “Songhealth Domain Boundary” หรือไม่
 
-หัวข้อต่อไปนี้ยังไม่ถือว่า Freeze:
-
-- Sitemap
-- Main Navigation
-- Homepage Layout ฉบับสมบูรณ์
-- Admin CMS UX
-- Roles & Permissions Matrix
-- Approval Policy ราย Content Type
-- Search Behavior
-- Service Inventory ฉบับสมบูรณ์
-- Service Ownership และ Service Channel รายบริการ
-- Final Taxonomy / Category Lists
-- WordPress Migration Mapping
-- Visual Design System
-- Technical Architecture รายละเอียด
-- Database Schema / API Contract
-- Deployment Architecture
+ประเด็นสุดท้าย **ยังไม่ถูกตัดสินใน Foundation** และต้องวิเคราะห์หลังเอกสาร `current/` ทั้งชุดผ่าน Clean Rebaseline แล้ว
 
 ---
 
@@ -1163,22 +1152,23 @@ Freeze
 
 ---
 
-## 15. Current Next Step
+## 15. Clean Rebaseline Status
 
-Foundation, Information Architecture และ Content Model ผ่าน Cross-Model Review และ Final Consistency Review แล้ว และถูก Freeze เป็น **Foundation Baseline v1.0**
-
-ขั้นตอนถัดไปคือ:
+เอกสาร `00–10` เป็นชุด Source of Truth เดียวกันสำหรับ Songhealth รุ่นใหม่
 
 ```text
-00 Website Foundation         ✅ FROZEN v1.0
-01 Information Architecture   ✅ FROZEN v1.0
-02 Content Model              ✅ FROZEN v1.0
-               │
-               ▼
-          03-sitemap.md
+Product / Information / Content / UX / Workflow requirements
+                         ↓
+                 System Blueprint
+                         ↓
+              Specification / Plan
+                         ↓
+                  Implementation
 ```
 
-การ Freeze หมายถึงใช้เป็น Baseline สำหรับเอกสารถัดไป ไม่ได้หมายความว่าเอกสารแก้ไขไม่ได้ตลอดไป หาก Requirement จริงเปลี่ยน สามารถออก Revision ใหม่พร้อมบันทึกเหตุผลและตรวจผลกระทบต่อเอกสารที่พึ่งพาได้
+ไม่มี code, framework, CMS extension หรือ Delivery เก่าที่มีสิทธิ์ override เอกสาร Product โดยอัตโนมัติ
+
+Clean Rebaseline เอง **ไม่ใช่ implementation authorization**. หลังทั้ง 11 เอกสารผ่าน consistency review แล้วจึงทำ Post-Rebaseline Architecture Review และสร้าง Spec Kit baseline ใหม่
 
 ## 16. Foundation Statement
 
@@ -1186,10 +1176,10 @@ Foundation, Information Architecture และ Content Model ผ่าน Cross-
 
 แต่ต้องเป็นระบบที่:
 
-> **ใช้ง่ายสำหรับประชาชน  
-> จัดการง่ายสำหรับเจ้าหน้าที่  
-> มีโครงสร้างข้อมูลที่ชัดเจน  
-> ปลอดภัยและตรวจสอบได้  
+> **ใช้ง่ายสำหรับประชาชน
+> จัดการง่ายสำหรับเจ้าหน้าที่
+> มีโครงสร้างข้อมูลที่ชัดเจน
+> ปลอดภัยและตรวจสอบได้
 > และสามารถดูแลต่อได้ในระยะยาว**
 
 หลักการสำคัญของโครงการ:
@@ -1205,173 +1195,3 @@ Foundation, Information Architecture และ Content Model ผ่าน Cross-
 > **Complexity must be earned.**
 
 ---
-
-# Controlled Amendment — 00 Website Foundation v1.1 — Surgical Overlay
-
-> **Status:** REVIEW CANDIDATE — NOT FROZEN  
-> **Amends:** Frozen `00-website-foundation.md` v1.0  
-> **Mutation model:** APPEND-ONLY CONTROLLED AMENDMENT  
-> **Deletion from Frozen v1.0:** NONE  
-> **Implementation Authorization:** NONE  
-> **T051+:** NOT AUTHORIZED
-
-## A00.1 Preservation and Precedence
-
-Frozen `00-website-foundation.md` v1.0 remains preserved in full.
-
-This amendment changes only the technology/administration interpretations explicitly listed below. All Product scope, public IA direction, content meaning, privacy, accessibility, publishing intent, citizen-service boundaries, security-first principle, and Simple — Structured — Sustainable principle remain normative.
-
-Where an older implementation phrase conflicts with this amendment, this amendment has precedence **only for that implementation mechanism**. It does not cancel the underlying Product or security requirement.
-
-## A00.2 Clean Headless WordPress Technology Direction
-
-Version 1 target architecture becomes:
-
-```text
-React Public Website
-        │
-Songhealth Public REST Contract
-        │
-songhealth-core WordPress Plugin
-        │
-WordPress Core
-        │
-WordPress Database + Media Library
-```
-
-Responsibilities:
-
-```text
-WordPress Core
-→ commodity CMS infrastructure
-
-songhealth-core
-→ Songhealth-specific domain semantics, validation, public identity,
-  capability mapping, public eligibility, REST projection and bounded audit hooks
-
-React
-→ public UX, routes, accessibility, SEO/canonical output and public search UX
-```
-
-A standalone Node.js application backend and custom CMS framework are no longer the version 1 baseline.
-
-Node.js remains valid as frontend/build tooling where needed by React/Vite; it is not the primary production CMS/backend authority.
-
-## A00.3 Hosting Direction
-
-Production baseline remains Bangmod Expert Hosting / DirectAdmin.
-
-The architecture must fit the shared-hosting baseline unless a proven requirement demonstrates a limitation.
-
-Version 1 does not require by default:
-
-- production Docker;
-- VPS migration;
-- Redis;
-- message broker;
-- microservices;
-- dedicated search service;
-- private object storage.
-
-## A00.4 Meaning of “CMS Simpler Than WordPress”
-
-The Frozen principle that the CMS should be simpler than WordPress is retained as a **staff experience requirement**, not as a prohibition on using WordPress Core as infrastructure.
-
-Staff must work with Songhealth language and domain concepts, not generic WordPress mental models.
-
-Therefore:
-
-```text
-WordPress infrastructure underneath
-≠
-generic WordPress staff experience
-```
-
-`wp-admin` may be used directly when configured by `songhealth-core` with domain-specific labels, forms, menus, validation, capabilities and bounded extensions.
-
-A separate custom Admin React application is not a baseline requirement.
-
-## A00.5 Content Model Interpretation
-
-The Frozen warning against putting unrelated content into a generic “Post” model remains valid.
-
-Using WordPress storage primitives does not authorize flattening Songhealth domains into an undifferentiated generic post model.
-
-Target mapping must preserve Frozen domain meaning through suitable combinations of:
-
-- custom post types;
-- registered metadata;
-- taxonomies;
-- relationships;
-- attachments/media;
-- immutable Songhealth Public ID.
-
-WordPress numeric IDs and slugs do not become Songhealth public identity authority.
-
-## A00.6 Administrative Status Sections
-
-Earlier administrative/status wording in Frozen sections `13–15` described the state of documentation when v1.0 was created.
-
-For current architecture governance, those historical status statements are superseded by:
-
-```text
-00 v1.1 Controlled Amendment candidate
-05 v1.1 Controlled Amendment candidate
-09 v1.1 Controlled Amendment candidate
-10 v1.2 Controlled Amendment candidate
-
-Frozen 01–04 / 06–08 remain Product/IA authority
-Implementation remains NOT AUTHORIZED
-T051+ remains NOT AUTHORIZED
-```
-
-This status correction does not alter Product requirements.
-
-## A00.7 Non-Changes
-
-This amendment does **not** change:
-
-- public audience or mission;
-- accepted Information Architecture;
-- Content Model semantics;
-- Sitemap/canonical route authority;
-- Homepage requirements;
-- Roles & Permissions Product model;
-- Publishing Workflow semantics;
-- Search behavior;
-- privacy/compliance baseline;
-- accessibility expectations;
-- security-first priority;
-- migration requirement for controlled evidence-backed transition.
-
-## A00.8 Freeze Condition
-
-This overlay may be appended to Frozen `00` only after:
-
-```text
-independent lossless-preservation review
-→ PASS
-→ Human Acceptance
-→ controlled append-only canonical integration
-→ post-integration verification
-```
-
-No implementation authorization is implied.
-
-
----
-
-## Canonical Freeze Binding — 29 สิงหาคม 2569
-
-> **Human Acceptance:** PASS  
-> **Independent Review:** Phase G Round 2 — PASS  
-> **Canonical Controlled-Amendment Version:** v1.1  
-> **Canonical Status:** FROZEN  
-> **Implementation Authorization:** NONE  
-> **T051+:** NOT AUTHORIZED
-
-The embedded Surgical Overlay above is preserved byte-for-byte from the independently reviewed Round 2 artifact. Its pre-integration metadata `REVIEW CANDIDATE — NOT FROZEN` records the state of that artifact **before** Human Acceptance and is superseded by this binding **only for canonical status**.
-
-No normative overlay text is changed by this binding. Frozen pre-amendment content remains preserved in full as the prefix of this canonical document; the later Controlled Amendment has precedence only where it explicitly changes an implementation mechanism.
-
-This Freeze does not authorize application implementation, T051+, importer implementation, Trial Migration, Production Import, Production Cutover, or legacy retirement.

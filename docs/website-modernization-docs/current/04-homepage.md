@@ -1,11 +1,13 @@
 # Homepage — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
-> **Document ID:** 04-homepage  
-> **Status:** FROZEN — Homepage Baseline  
-> **Version:** 1.0  
-> **Last Updated:** 13 สิงหาคม 2569  
-> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`  
+> **Document ID:** 04-homepage
+> **Status:** CLEAN REBASELINE v2.0 — CURRENT
+> **Version:** 2.0
+> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`
 > **Purpose:** กำหนด Content Architecture, Information Priority, Homepage Curation, Responsive Behavior, Fallback และ Accessibility ของหน้าแรกเว็บไซต์ โดยไม่ลงรายละเอียดระดับโค้ดหรือ Visual Design System
+> **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
+> **Technology Ownership:** Homepage composition, eligibility and accessibility are presentation requirements independent of frontend framework.
 
 ---
 ## 1. Purpose
@@ -4715,7 +4717,7 @@ It does **not** freeze:
 - exact visual styling, spacing, typography, color tokens, or breakpoints
 - database tables or schema
 - API contracts
-- React component structure
+- presentation component structure
 - backend framework / ORM implementation
 - exact Search ranking and indexing behavior (`08-search.md`)
 - detailed CMS screens outside Homepage curation (`05-admin-cms.md`)
@@ -4735,8 +4737,8 @@ Future requirements may revise this baseline through explicit impact review rath
 
 ## 21. Freeze Statement
 
-**Status:** FROZEN — Homepage Baseline  
-**Version:** 1.0  
+**Status:** FROZEN — Homepage Baseline
+**Version:** 1.0
 **Freeze Date:** 13 สิงหาคม 2569
 
 This document is the approved Homepage baseline for downstream design and implementation documents.

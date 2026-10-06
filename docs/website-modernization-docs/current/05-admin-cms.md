@@ -1,11 +1,13 @@
 # Admin CMS — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
-> **Document ID:** 05-admin-cms  
-> **Status:** FROZEN — Admin CMS Baseline  
-> **Version:** 1.0  
-> **Last Updated:** 14 สิงหาคม 2569  
-> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`  
+> **Document ID:** 05-admin-cms
+> **Status:** CLEAN REBASELINE v2.0 — CURRENT
+> **Version:** 2.0
+> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`
 > **Purpose:** กำหนดแนวทาง Admin CMS สำหรับเจ้าหน้าที่ โดยเน้น workflow ที่เรียบง่าย ใช้ Structured Content อย่างถูกต้อง และไม่เพิ่มความซับซ้อนเกินความจำเป็น
+> **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
+> **Technology Ownership:** This document specifies CMS capability and staff UX; `10-system-blueprint.md` selects the CMS implementation.
 
 ---
 
@@ -23,9 +25,9 @@ Admin CMS ต้องทำให้เจ้าหน้าที่จัด�
 
 ---
 
-# 2. CMS Is Not a WordPress Clone
+# 2. CMS Uses Songhealth Domain Language, Not a Generic CMS Mental Model
 
-CMS ใหม่ไม่ควรกลับไปสู่แนวคิดทั่วไปแบบ:
+CMS ใหม่ไม่ควรบังคับให้เจ้าหน้าที่ทำงานผ่าน generic platform concepts เช่น:
 
 ```text
 Posts
@@ -4629,290 +4631,17 @@ Deferred intentionally: detailed Roles/Permissions → `06`; Publishing Workflow
 
 ---
 
-# 60. Freeze — Admin CMS Baseline v1.0
+# 60. Clean Rebaseline — Admin CMS Baseline v2.0
 
-**Sections 1–59 = FROZEN Admin CMS Baseline.**
+**Sections 1–59 = CLEAN REBASELINE Admin CMS v2.0.**
 
 Status:
 
 ```text
-FROZEN — Admin CMS Baseline
-Version 1.0
+CLEAN REBASELINE — Admin CMS Baseline
+Version 2.0
 ```
 
-Future changes require Impact Review and, where appropriate, Controlled Amendment under `PROJECT-INDEX.md` version rules.
+Future changes require cross-document Impact Review and a versioned update. `current/` keeps the consolidated current answer rather than accumulating implementation-specific append-only overlays.
 
 ---
-
-# Controlled Amendment — 05 Admin CMS v1.1 — Surgical Overlay
-
-> **Status:** REVIEW CANDIDATE — NOT FROZEN  
-> **Amends:** Frozen `05-admin-cms.md` v1.0  
-> **Mutation model:** APPEND-ONLY CONTROLLED AMENDMENT  
-> **Frozen sections retained:** `1–60` IN FULL  
-> **Deletion from Frozen v1.0:** NONE  
-> **Implementation Authorization:** NONE  
-> **T051+:** NOT AUTHORIZED
-
-## A05.1 Lossless Preservation Rule
-
-Frozen sections `1–59` remain normative staff-facing Admin CMS requirements.
-
-Frozen section `60` remains the historical v1.0 Freeze record.
-
-This amendment changes **implementation ownership**, not the accepted admin behavior.
-
-Therefore all detailed Frozen requirements remain in force unless this amendment explicitly translates the mechanism used to satisfy them, including:
-
-- Admin navigation and work dashboard;
-- domain-specific forms;
-- required fields and validation;
-- Draft behavior;
-- manual save;
-- autosave/recovery;
-- Preview;
-- publishing/scheduling;
-- Published editing;
-- lifecycle/delete/archive semantics;
-- list/search/filter/bulk behavior;
-- relationships/selectors;
-- media/image/document workflows;
-- ITA administration;
-- permission-aware UI;
-- audit visibility;
-- conflict/concurrency handling;
-- responsive/accessibility/Thai-language UX;
-- accepted warnings, confirmations and non-goals.
-
-No requirement is removed merely because WordPress Core supplies part of the mechanism.
-
-## A05.2 WordPress Is Infrastructure, Not the Staff Mental Model
-
-Frozen section `2. CMS Is Not a WordPress Clone` is reinterpreted as:
-
-> Do not reproduce the **legacy/generic WordPress mental model** for staff. This is not a prohibition on using a clean WordPress Core runtime.
-
-Staff-facing information structure continues to use Songhealth domain language.
-
-The target is:
-
-```text
-wp-admin
-+ domain-specific configuration and bounded extensions from songhealth-core
-```
-
-not:
-
-```text
-generic Posts / Pages / Plugins mental model
-```
-
-and not:
-
-```text
-a second custom Admin React CMS
-```
-
-## A05.3 Admin Runtime Ownership
-
-WordPress Core owns commodity admin infrastructure:
-
-- authenticated admin shell;
-- editor primitives;
-- media library;
-- persistence primitives;
-- Draft/Publish/Future primitives;
-- revisions/autosave primitives;
-- users and capability primitives.
-
-`songhealth-core` owns the Songhealth layer necessary to satisfy Frozen `05`:
-
-- content-type registration and labels;
-- structured fields/panels;
-- domain validation;
-- capability-aware actions;
-- lifecycle guards;
-- Public ID display/control;
-- relationship selectors where Core is insufficient;
-- domain-specific warnings/confirmation;
-- audit surfaces/records where Frozen requirements exceed Core;
-- hiding or constraining irrelevant native surfaces;
-- bounded admin enhancements necessary for Frozen UX.
-
-Native capability should be used before custom UI **only when it satisfies the Frozen requirement**.
-
-## A05.4 No Silent Requirement Downgrade
-
-The following rule is mandatory:
-
-```text
-WordPress Core lacks an exact Frozen UX/behavior
-        ↓
-DO NOT silently drop the requirement
-        ↓
-first use bounded songhealth-core extension
-        ↓
-if still disproportionate, propose an explicit Product Controlled Amendment
-```
-
-Implementation convenience cannot weaken Frozen `05`.
-
-## A05.5 Autosave and Revisions
-
-WordPress native autosave/revisions may satisfy the commodity storage/recovery mechanism.
-
-Frozen semantics still govern:
-
-- manual Save remains meaningful;
-- autosave does not masquerade as a successful public-impact action;
-- recovery must not silently overwrite confirmed state;
-- conflict/concurrency rules remain;
-- revisions/autosaves are not a substitute for audit where Frozen audit requires actor/action/public-impact evidence.
-
-No custom generic revision engine is baseline.
-
-## A05.6 Published Editing
-
-Frozen Published-editing behavior remains authoritative:
-
-```text
-Published
-→ authorized Publisher edits working state
-→ Public remains last valid Published state
-→ Preview
-→ Save Changes / Update
-→ new public state
-```
-
-WordPress-native behavior may be used only if the implementation proves this semantic is preserved.
-
-If standard WordPress behavior cannot satisfy it without disproportionate custom staging complexity, that is a Product amendment question for Frozen `07`; it must not be changed silently in implementation.
-
-## A05.7 Headless Preview
-
-Because public presentation is React, Frozen Preview must be preserved through an authenticated, bounded bridge:
-
-```text
-Authorized wp-admin user
-→ Preview action
-→ authenticated/authorized preview context
-→ React public presentation
-→ candidate Draft / working state
-```
-
-Required invariants:
-
-- no anonymous Draft preview bypass;
-- server-side authorization;
-- Draft preview data excluded from normal public/search/cache output;
-- React receives no WordPress administrator credentials;
-- exact nonce/token/session mechanics are a Plan/security-contract decision.
-
-## A05.8 Roles and Permission-aware UI
-
-Frozen `06` remains the Product authority.
-
-WordPress capabilities are implementation primitives only.
-
-Admin implementation must preserve:
-
-- one Songhealth role per CMS user;
-- no Product-level multi-role union;
-- no scattered per-user capability override model;
-- no self-escalation;
-- protected last Administrator;
-- privileged/audited permission changes;
-- `CMS User ≠ Personnel`;
-- permission-aware UI and server-side enforcement.
-
-## A05.9 Media / Documents / ITA
-
-Frozen sections covering media, images, documents and ITA remain normative in full.
-
-WordPress Media Library may provide binary/media infrastructure, but it does not cancel Songhealth requirements for:
-
-- metadata and relationships;
-- usage visibility;
-- safe delete behavior;
-- duplicate/reuse guidance;
-- published document correction/revision semantics;
-- ITA evidence integrity;
-- file validation/security;
-- stable resource identity;
-- accessibility metadata;
-- domain-specific pickers and status context.
-
-Binary delivery remains governed by the Frozen lifecycle and current-eligibility contract.
-
-In particular:
-
-- an uploaded file does not become public merely because it exists in WordPress Media Library;
-- newly uploaded binaries remain non-public until the associated Songhealth lifecycle makes them eligible for public delivery;
-- Draft Documents are Admin-only;
-- Hidden Documents have no public delivery;
-- unpublished ITA Evidence has no public delivery;
-- possession or discovery of a binary URL must not bypass the current eligibility decision;
-- changing a record from public-eligible to non-public must remove public delivery according to the Frozen lifecycle rules.
-
-WordPress Media Library is therefore a storage/management primitive, not public-delivery authority.
-
-The exact protected-delivery mechanism is a later security/Plan decision and may use the smallest suitable WordPress, `songhealth-core`, web-server, or hosting control, but it must enforce the Frozen current-eligibility contract.
-
-## A05.10 Lists, Search, Filters and Bulk Actions
-
-Frozen admin list/search/filter/bulk requirements remain.
-
-WordPress native list tables/search may be reused when sufficient.
-
-Where native behavior cannot express the Frozen domain semantics, `songhealth-core` adds the smallest bounded extension needed.
-
-No separate admin search service is baseline.
-
-## A05.11 Accessibility and Language
-
-All Frozen responsive, keyboard, label, contrast, validation-message and Thai-content UX requirements remain.
-
-Using `wp-admin` does not waive accessibility requirements.
-
-## A05.12 Implementation Non-Goals
-
-Version 1 does not build by default:
-
-- custom Admin SPA;
-- custom CMS framework;
-- custom authentication/user store;
-- custom generic media library;
-- custom generic revisions platform;
-- generic workflow engine;
-- real-time collaboration;
-- offline-first CMS;
-- personal file space;
-- general enterprise DAM.
-
-These non-goals do not remove Frozen domain-specific behavior.
-
-## A05.13 Acceptance Rule
-
-The lossless test for this amendment is:
-
-> If a Frozen `05` behavior is not explicitly superseded as an implementation mechanism above, it remains required.
-
-No canonical mutation occurs until an independent reviewer verifies this overlay against Frozen `05`.
-
-
----
-
-## Canonical Freeze Binding — 29 สิงหาคม 2569
-
-> **Human Acceptance:** PASS  
-> **Independent Review:** Phase G Round 2 — PASS  
-> **Canonical Controlled-Amendment Version:** v1.1  
-> **Canonical Status:** FROZEN  
-> **Implementation Authorization:** NONE  
-> **T051+:** NOT AUTHORIZED
-
-The embedded Surgical Overlay above is preserved byte-for-byte from the independently reviewed Round 2 artifact. Its pre-integration metadata `REVIEW CANDIDATE — NOT FROZEN` records the state of that artifact **before** Human Acceptance and is superseded by this binding **only for canonical status**.
-
-No normative overlay text is changed by this binding. Frozen pre-amendment content remains preserved in full as the prefix of this canonical document; the later Controlled Amendment has precedence only where it explicitly changes an implementation mechanism.
-
-This Freeze does not authorize application implementation, T051+, importer implementation, Trial Migration, Production Import, Production Cutover, or legacy retirement.

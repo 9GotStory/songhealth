@@ -1,11 +1,13 @@
 # Sitemap — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
-> **Document ID:** 03-sitemap  
-> **Status:** FROZEN — Sitemap Baseline  
-> **Version:** 1.0  
-> **Last Updated:** 14 สิงหาคม 2569  
-> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`  
+> **Document ID:** 03-sitemap
+> **Status:** CLEAN REBASELINE v2.0 — CURRENT
+> **Version:** 2.0
+> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`
 > **Purpose:** กำหนด Public Sitemap, Main/Utility Navigation, Canonical Route Ownership, Breadcrumb, URL Convention, Redirect และ Public Error/Lifecycle Behavior ของเว็บไซต์สำนักงานรุ่นใหม่
+> **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
+> **Technology Ownership:** Routes, canonical identity and public behavior are product contracts; router/framework implementation belongs to `10`.
 
 ---
 
@@ -1153,7 +1155,7 @@ Examples:
 /documents?year=2569&type=form
 ```
 
-Important discovery state should not exist only in temporary React memory.
+Important discovery state should not exist only in temporary client-side memory.
 
 ## 15.17 Fragment
 
@@ -1361,7 +1363,7 @@ This Sitemap does not decide:
 - URL encoding implementation
 - Unicode normalization implementation
 - reverse proxy rewrite details
-- Nginx Unit routing
+- hosting-specific routing
 - CDN behavior
 
 These belong in:
@@ -2214,7 +2216,7 @@ Detailed monitoring belongs in `09-migration-plan.md`; it is not a requirement t
 
 The Sitemap does not decide:
 
-- exact React error component
+- exact presentation component for public error states
 - exact HTTP middleware implementation
 - 404 logging technology
 - 301 vs 308 specifics
@@ -2361,7 +2363,7 @@ Final Review พบและแก้ไขประเด็นต่อไป�
 
 ## 20.1 Frozen Sitemap Decisions
 
-Sitemap Baseline v1.0 ถือว่า Freeze แล้วในประเด็นต่อไปนี้:
+Sitemap Baseline v2.0 ถือว่า Freeze แล้วในประเด็นต่อไปนี้:
 
 - Main Navigation และ Utility Navigation
 - Public route ownership
@@ -2422,4 +2424,3 @@ Freeze หมายถึง **Approved Baseline for downstream documents** ไ�
 > **Navigation helps people discover information; canonical routes define where information belongs.**
 
 > **Structured data may be reused across many public contexts without duplicating ownership or content.**
-

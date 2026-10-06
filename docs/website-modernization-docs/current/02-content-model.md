@@ -1,11 +1,13 @@
 # Content Model — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
-> **Document ID:** 02-content-model  
-> **Status:** FROZEN — Content Model Baseline  
-> **Version:** 1.1  
-> **Last Updated:** 14 สิงหาคม 2569  
-> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`  
+> **Document ID:** 02-content-model
+> **Status:** CLEAN REBASELINE v2.0 — CURRENT
+> **Version:** 2.0
+> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`
 > **Purpose:** กำหนดชนิดข้อมูลหลักของเว็บไซต์ ความหมาย ขอบเขต ข้อมูลสำคัญ และความสัมพันธ์ระหว่างข้อมูล โดยยังไม่ลงรายละเอียดระดับ Database Schema, API, ORM หรือโค้ด
+> **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
+> **Technology Ownership:** Content types, relationships, lifecycle meaning and resource ownership are independent of CMS/database implementation.
 > **Revision Note v1.1:** ขยาย ITA Evidence ให้รองรับ Media Evidence เพิ่มเติมจาก Document และ External URL โดยไม่เปลี่ยนโครงสร้างหลักของ ITA
 
 ---
@@ -65,7 +67,7 @@ Content Model แบ่งออกเป็น 4 กลุ่มหลัก
    └── ITA
 ```
 
-Content Model ทั้ง 4 กลุ่มผ่าน Cross-Model Review และ Final Consistency Review แล้ว และถูก Freeze เป็น Content Model Baseline v1.0
+Content Model ทั้ง 4 กลุ่มผ่าน Cross-Model Review และ Final Consistency Review แล้ว และถูกรวมเป็น Content Model Baseline v2.0 ใน Clean Rebaseline ปัจจุบัน
 
 ---
 
@@ -558,7 +560,7 @@ Health Service
 
 Health Service คือหน่วยบริการสุขภาพที่มีตัวตนจริงและมีบทบาทในการให้บริการสุขภาพแก่ประชาชน
 
-> **Health Service Directory is not a HIS.**  
+> **Health Service Directory is not a HIS.**
 > **Health Service Directory is not an organizational hierarchy.**
 
 ### 12.2 Model
@@ -1630,15 +1632,16 @@ ITA
 
 ---
 
-## 24. Next Step
+## 24. Clean Rebaseline Status
 
-Content Model ถูก Freeze เป็น **Content Model Baseline v1.1** หลัง Controlled Amendment เรื่อง ITA Media Evidence
+Content Model v2.0 remains the canonical semantic model for downstream architecture/specification.
 
-ขั้นตอนถัดไป:
-
-1. ใช้ Content Model Baseline v1.1 เป็นข้อกำหนดสำหรับงาน downstream โดย Amendment นี้ไม่เปลี่ยน Public Route ของ Sitemap v1.0
-2. เริ่ม `03-sitemap.md`
-3. ไม่สร้าง Page หรือ Route ที่ทำให้เกิด Content Type ซ้ำกับ Model ที่ Freeze ไว้ เว้นแต่มี Requirement ใหม่ที่ชัดเจนและผ่านการทบทวนผลกระทบ
+Rules:
+1. Implementation must map these models into the selected CMS/persistence without flattening away domain meaning.
+2. Public routes remain owned by `03-sitemap.md`; Content Model does not create routes by itself.
+3. Existing Content Types/Resources must not be duplicated merely because a framework or CMS exposes a convenient generic primitive.
+4. Exact storage schema, field types, indexes and CMS collection configuration belong to `10-system-blueprint.md` and implementation planning.
+5. Any future model change requires cross-document impact review.
 
 ## 25. Content Model Foundation Statement
 

@@ -1,11 +1,13 @@
 # Publishing Workflow — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
-> **Document ID:** 07-publishing-workflow  
-> **Status:** FROZEN — Publishing Workflow Baseline  
-> **Version:** 1.0  
-> **Last Updated:** 14 สิงหาคม 2569  
-> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md` v1.1, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md` v1.0, `06-roles-permissions.md` v1.0  
+> **Document ID:** 07-publishing-workflow
+> **Status:** CLEAN REBASELINE v2.0 — CURRENT
+> **Version:** 2.0
+> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md` v1.1, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md` v1.0, `06-roles-permissions.md` v1.0
 > **Purpose:** กำหนด Publishing Workflow, publication lifecycle, scheduling, validation, optional approval boundary และ domain lifecycle semantics ของ Admin CMS ให้สอดคล้องกันทั้งระบบ โดยยังไม่ลงรายละเอียด implementation ระดับ queue, cron, database state machine, token/session หรือ code
+> **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
+> **Technology Ownership:** Lifecycle, approval, scheduling, concurrency and audit semantics are product contracts; scheduler/storage mechanics belong to `10`.
 
 ---
 
@@ -156,7 +158,7 @@ Scheduled Publish เป็นส่วนหนึ่งของ Publish/Publi
 - เปลี่ยนเวลาที่ Schedule
 - Cancel Schedule
 
-หากในอนาคตมี requirement จริงว่าผู้ใช้บางคน Schedule ได้แต่ Publish Now ไม่ได้ จึงค่อยทำ Impact Review/Controlled Amendment.
+หากในอนาคตมี requirement จริงว่าผู้ใช้บางคน Schedule ได้แต่ Publish Now ไม่ได้ จึงค่อยทำ Impact Review/versioned cross-document update.
 
 ---
 
@@ -193,7 +195,7 @@ Editor ที่ไม่มี Publish/Public-impact capability:
 
 เหตุผลคือ Version 1 ยังไม่มี proposed revision / review branch สำหรับให้ Editor เตรียมการเปลี่ยน Published record แล้วส่งต่อ Publisher.
 
-หาก Approval/revision workflow ถูกเปิดในอนาคต จึงค่อยออกแบบ proposed-change behavior ใน Controlled Amendment/Version ถัดไป.
+หาก Approval/revision workflow ถูกเปิดในอนาคต จึงค่อยออกแบบ proposed-change behavior ใน versioned cross-document update/Version ถัดไป.
 
 > **Do not create a hidden revision workflow merely to make Editor editing Published content appear possible.**
 
@@ -2262,7 +2264,7 @@ Version 1 ไม่บังคับว่า Submitted By ต้องต่�
 
 ถ้าหน่วยงานมี operational policy ให้คนอื่นเป็นผู้ตรวจ สามารถใช้กระบวนการทำงานจริงได้ แต่ระบบยังไม่ enforce two-person rule.
 
-Requirement เรื่อง mandatory dual control หรือ self-approval prohibition หากเกิดขึ้นจริงในอนาคตต้องเป็น Controlled Amendment.
+Requirement เรื่อง mandatory dual control หรือ self-approval prohibition หากเกิดขึ้นจริงในอนาคตต้องเป็น versioned cross-document update.
 
 ## 32.7 Pending Review Is Stable for Review
 
@@ -2564,7 +2566,7 @@ Published Version
 → Replace Published Version
 ```
 
-ซึ่งเป็น revision-approval workflow จริงและต้องผ่าน Controlled Amendment.
+ซึ่งเป็น revision-approval workflow จริงและต้องผ่าน versioned cross-document update.
 
 ## 32.27 Changing Approval Configuration Is Prospective
 
@@ -4061,15 +4063,15 @@ No unresolved architecture blocker remains. Exact transaction/locking/scheduler 
 
 ---
 
-# 43. Freeze — Publishing Workflow Baseline v1.0
+# 43. Clean Rebaseline — Publishing Workflow Baseline v2.0
 
-**Sections 1–42 = FROZEN Publishing Workflow Baseline.**
+**Sections 1–42 = CLEAN REBASELINE Publishing Workflow v2.0.**
 
 Status:
 
 ```text
-FROZEN — Publishing Workflow Baseline
-Version 1.0
+CLEAN REBASELINE — Publishing Workflow Baseline
+Version 2.0
 ```
 
 Key boundary retained at Freeze:
@@ -4081,8 +4083,9 @@ Key boundary retained at Freeze:
 - Homepage whole-configuration scheduling is not part of Version 1; only eligible temporal placements may schedule.
 - Published-revision branching, workflow designers, multi-stage approval, reviewer assignment, recurring scheduling, AI quality gates, universal state-machine configuration, and enterprise workflow infrastructure are excluded from Version 1.
 
-Future changes require Impact Review and, where appropriate, Controlled Amendment under `PROJECT-INDEX.md` version rules.
+Future changes require cross-document Impact Review and a versioned update to the consolidated `current/` baseline.
 
-Next planned document:
 
-> **`08-search.md` — Public Search / Search & Discovery**
+Current relationship:
+
+> **`08-search.md` consumes the lifecycle/public-eligibility semantics defined here; `10-system-blueprint.md` chooses the smallest mechanism that can satisfy them.**
