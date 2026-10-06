@@ -11,6 +11,12 @@ coverage/
 .astro/
 .vite/
 
+# Generated output (EmDash migration manifest emitted by the exact application build)
+.emdash/migrations.json
+
+# Development media (local EmDash media store; see MEDIA_DIRECTORY in .env.example)
+/media/
+
 # Local caches / temp
 .cache/
 .tmp/
@@ -18,7 +24,8 @@ tmp/
 *.tmp
 *.bak
 
-# Logs
+# Logs (including raw validation logs/captures; redacted evidence under specs/ stays tracked)
+/logs/
 *.log
 npm-debug.log*
 pnpm-debug.log*
