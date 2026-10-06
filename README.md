@@ -22,6 +22,8 @@ The current architecture baseline is intentionally platform-native:
 - TypeScript
 - PostgreSQL
 - persistent media storage
+- rootless Podman for production containers
+- systemd Quadlet for production container lifecycle
 
 See `10-system-blueprint.md` for the authoritative technical baseline.
 
