@@ -40,6 +40,31 @@ For a new feature:
 4. preserve the Product/architecture boundary;
 5. stop at the requested Spec Kit phase.
 
+## External Documentation and Context7
+
+For current or version-sensitive behavior of frameworks, libraries, SDKs, APIs, and
+developer tooling, agents MUST verify the relevant documentation instead of relying on
+model memory.
+
+Use the configured Context7 MCP as the first documentation source when it supports the
+relevant technology.
+
+- Resolve documentation for the actual library/tool and version relevant to the approved
+  architecture, plan, manifest, or lockfile.
+- Use Context7 to verify capabilities, supported APIs, configuration, compatibility, and
+  current usage patterns before introducing custom code or making version-sensitive
+  technical decisions.
+- If Context7 does not cover the technology, is incomplete, or cannot establish the
+  required fact, use authoritative first-party upstream documentation or package metadata.
+- Do not treat Context7 or external documentation as Product authority. External sources
+  explain what a technology can do; Product Owner decisions, the Constitution, current
+  documents, and approved feature artifacts determine what Songhealth must do.
+- When a planning or implementation decision materially depends on version-specific
+  external behavior, record the verified conclusion and relevant version/source in the
+  appropriate research, plan, or implementation evidence.
+- If verified upstream behavior conflicts with an approved assumption, do not silently
+  work around it. Surface the conflict for review at the current gate.
+
 ## Implementation Gate
 
 There is no standing implementation authorization.
