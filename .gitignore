@@ -1,27 +1,22 @@
-# Secrets / environment
-# Ignore actual local secret files, but allow exactly the four committed examples.
+# Secrets / local environment
 .env
 .env.*
-!.env.real-engine.example
-!.env.development.example
-!.env.verification.example
-!.env.wordpress-verification.example
+!.env.example
 
-# Checkout-local operation journal and Verification report tree (never committed)
-.foundation-state/
-
-# Node / build output (for later implementation)
+# Dependencies / build output
 node_modules/
 dist/
 build/
 coverage/
+.astro/
 .vite/
 
-# WordPress local verification profile (Delivery 002)
-wordpress/vendor/
-wordpress/composer.phar
-wordpress/wp-tests-config.php
-wordpress/.phpunit.result.cache
+# Local caches / temp
+.cache/
+.tmp/
+tmp/
+*.tmp
+*.bak
 
 # Logs
 *.log
@@ -30,20 +25,17 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# OS / editor
+# IDE / OS
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
 
-# Local temp/cache
-.tmp/
-tmp/
-.cache/
-
-# Local backup/export files
-*.bak
-*.tmp
-
-# React Router framework mode generated route types/build state (Delivery 002 apps/web)
-apps/web/.react-router/
+# Local database / backup / export artifacts
+*.sqlite
+*.sqlite3
+*.dump
+*.sql
+*.sql.gz
+*.tar
+*.tgz

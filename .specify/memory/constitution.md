@@ -1,25 +1,15 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 1.1.0
-- Bump rationale: MINOR — adds a durable project-wide principle for platform-native implementation
-  and materially expands Source-of-Truth governance for the Clean Rebaseline; existing core
-  principles remain compatible.
+- Version change: 1.1.0 → 1.1.1
+- Bump rationale: PATCH — aligns governance wording with the repository reset by removing
+  active-tree references to superseded feature paths; no principle or authority meaning changes.
 - Modified principles:
-  - I. Security First → clarified platform/security reuse and proportionality
-  - II. Simple — Structured — Sustainable → strengthened anti-over-engineering rules
-  - III. Requirement-Driven Architecture and Traceability → renumbered to IV and aligned to
-    Clean Rebaseline v2.2 authority
-  - IV. Privacy and Data Minimization by Design → renumbered to V
-  - V. Quality and Proportionate Verification → renumbered to VI and expanded native-capability
-    verification expectations
-  - VI. Operational Sustainability → renumbered to VII
+  - None; wording-only governance alignment
 - Added principle:
-  - III. Platform-Native First, Minimal Extension
+  - None
 - Modified sections:
-  - Authority and Scope → establishes docs/website-modernization-docs/current/00–10 as the
-    active Songhealth Product/Architecture Source of Truth and marks pre-rebaseline specs as
-    historical/non-authoritative
-  - Delivery and Quality Gates → adds demonstrated-gap and abstraction gates
+  - Authority and Scope → clarifies that pre-rebaseline artifacts live only in Git history and
+    remain non-authoritative unless explicitly retrieved as historical evidence
 - Removed sections: None
 - Follow-up TODOs: None
 -->
@@ -179,11 +169,10 @@ or maintain is not a sustainable solution.
   Constitution. Within an authorized feature, spec.md defines feature requirements,
   plan.md defines the approved implementation approach, and tasks.md defines executable
   work. A downstream artifact MUST NOT silently override an upstream authority.
-- Specifications and implementation artifacts created before the Clean Rebaseline v2.2,
-  including the existing specs/001-application-foundation and
-  specs/002-headless-wordpress-foundation, are historical evidence only until explicitly
-  replaced or re-authorized under the current baseline. They MUST NOT be used to reactivate
-  removed architecture.
+- Project artifacts created before the Clean Rebaseline v2.2 have been removed from the active
+  repository surface. When retrieved from Git history for migration, forensic comparison, or
+  historical evidence, they remain non-authoritative and MUST NOT be used to reactivate removed
+  architecture or silently define current requirements.
 - Code and tests are implementation evidence. They MUST NOT be used to silently change approved
   requirements or decisions.
 - Feature-specific rules and implementation details MUST remain in their owning Source-of-Truth
@@ -235,4 +224,4 @@ or maintain is not a sustainable solution.
   Truth, work MUST stop; the conflict MUST be routed through Impact Review and Product Owner
   decision rather than resolved silently.
 
-**Version**: 1.1.0 | **Ratified**: 2026-08-16 | **Last Amended**: 2026-10-06
+**Version**: 1.1.1 | **Ratified**: 2026-08-16 | **Last Amended**: 2026-10-06
