@@ -12,6 +12,12 @@ changing approved architecture.
 implementation branch `agent/claude-developer/9de0d4bb463c` cut from that commit.
 **Scope**: documentation-only. No dependency installation, scaffold, package/lock/config change,
 application/infrastructure/test file, Spec Kit artifact change, or T002+ work was performed.
+**Revision**: 2 (2026-10-06, Codex corrective round 1) — corrected the peer-graph verdict
+(`@types/react`/`@types/react-dom` are non-optional, currently unresolved peers of
+`@astrojs/react` 6.0.5; `@astrojs/markdown-remark` reclassified as astro's optional peer),
+qualified support-status wording to registry-verifiable facts with explicit notes where no
+exact-version support policy is published, and corrected/version-pinned the Podman secret
+evidence to the exact v6.1.3 release-tag sources. Baseline verdict is unchanged.
 
 ## Method and source policy
 
@@ -23,9 +29,10 @@ PostgreSQL policy) were verified against authoritative first-party sources:
 - npm registry metadata via `npm view <pkg>@<version>` (registry.npmjs.org, package-authoritative)
 - nodejs.org release blog, dist index, and the upstream `nodejs/release` schedule
 - postgresql.org release notes and versioning policy
-- github.com/containers/podman release v6.1.3 and docs.podman.io unit references
-  (podman-systemd.unit(5), podman-container.unit(5), podman-secret-create(1), reached through
-  Context7's indexed copies)
+- github.com/containers/podman release v6.1.3; Quadlet/secret capability claims are verified
+  against the **versioned v6.1.3 documentation inside the release tag** (podman-systemd.unit(5),
+  podman-secret-create(1), and the shared run/create `--secret` option reference), with the
+  docs.podman.io pages reached through Context7 used only as a secondary discovery index
 
 Context7 library IDs used: `/websites/podman_io_en` (Podman/Quadlet), `/websites/emdashcms`
 (EmDash), `/withastro/docs` (resolved; registry metadata was more authoritative for the
@@ -34,27 +41,39 @@ engine/peer facts needed here, so Astro facts below cite package metadata).
 Every item below was checked on 2026-10-06. No secrets or confidential values appear in this
 artifact; only public version numbers, dates, and published constraint ranges.
 
+**Support-status basis**: for npm packages, "published/undeleted/undeprecated" means verified
+registry existence with no `deprecated` field — it is **not** a claim of an upstream
+per-exact-version maintenance promise, which Astro, React/`@astrojs/react`, and TypeScript do
+not publish. Where an upstream publishes a dated lifecycle policy — Node.js (release schedule)
+and PostgreSQL (versioning policy) — the dated lifecycle conclusions below are based on that
+policy.
+
 ## Summary verdict
 
-| # | Approved item | Role | Exists (date) | Support status on 2026-10-06 | Declared constraints satisfied | Verdict |
+| # | Approved item | Role | Exists (date) | Support status on 2026-10-06 | Declared constraints vs approved pins | Verdict |
 |---|---|---|---|---|---|---|
 | 1 | Node.js 24.21.0 | Server runtime (LTS line 24 "Krypton") | Yes — 2026-09-08 (blog; dist index 2026-09-07) | Active LTS; line EOL 2028-04-30 | n/a (base) | VALID |
 | 2 | npm 12.2.0 | Package manager | Yes — published 2026-09-30 | Current `latest`; undeleted/undeprecated | engines `node ^22.22.2 \|\| ^24.15.0 \|\| >=26.0.0` ✓ | VALID |
 | 3 | Astro 7.3.5 | SSR framework | Yes — published 2026-09-24 | Current major line (7.x); undeleted/undeprecated | engines `node >=22.12.0`, `npm >=9.6.5` ✓ | VALID |
 | 4 | `@astrojs/node` 11.1.6 | Node adapter (standalone) | Yes — published 2026-09-16 | Current major line (11.x); undeleted/undeprecated | peer `astro ^7.2.1` ✓ (7.3.5) | VALID |
 | 5 | EmDash 1.1.0 | CMS/Admin (Astro integration) | Yes — published 2026-10-01 | Current `latest`; undeleted/undeprecated | engines `node >=22.16` ✓; peers astro ≥6 ✓, react ≥18 ✓, react-dom ≥18 ✓, `@astrojs/react` ≥5-beta ✓, `pg ^8` optional ✓ | VALID |
-| 6 | `@astrojs/react` 6.0.5 | React integration | Yes — published 2026-08-31 | Published/undeleted; newer major 7.0.1 exists (see Risks) | peers `react`/`react-dom ^17 \|\| ^18 \|\| ^19` ✓ (19.2.4); engines `node >=22.12.0` ✓; `@types/*` peers noted in Risks | VALID |
+| 6 | `@astrojs/react` 6.0.5 | React integration | Yes — published 2026-08-31 | Published/undeleted; newer major 7.0.1 exists (see Risks) | peers `react`/`react-dom ^17 \|\| ^18 \|\| ^19` ✓ (19.2.4); engines `node >=22.12.0` ✓; `@types/*` peers **unresolved pending T002 (R2)** | VALID |
 | 7 | React / ReactDOM 19.2.4 | Admin UI runtime | Yes — published 2026-01-26 | Published/undeleted; react `latest` is 19.3.0 | react-dom peer `react ^19.2.4` ✓ (exact); engines `node >=0.10.0` ✓ | VALID |
 | 8 | TypeScript 6.0.3 | Language/toolchain | Yes — published 2026-04-16 | Published/undeleted; newer major 7.0.2 exists (see Risks) | engines `node >=14.17` ✓ | VALID |
 | 9 | `pg` 8.23.1 | PostgreSQL driver | Yes — published 2026-09-30 | Current `latest`; undeleted/undeprecated | engines `node >= 16.0.0` ✓; `pg-native` peer optional ✓; satisfies EmDash optional `pg ^8.0.0` ✓ | VALID |
 | 10 | PostgreSQL 18.6 | Database server | Yes — released 2026-08-13 | Current minor of the current supported major; line supported to 2030-11-14 | EmDash publishes no server-major matrix — deferred to T006 gate | VALID (metadata level) |
 | 11 | Podman 6.1.3 + rootless Quadlet | Container runtime / lifecycle | Yes — released 2026-09-29 | Current upstream release | Required Quadlet capabilities verified (see §Quadlet) | VALID (reference release) |
 
-**Baseline conclusion**: every approved exact version exists, is undeleted and undeprecated,
-remains supported/appropriate for its assigned role as of 2026-10-06, and the set's declared
-engine/peer constraints are mutually satisfied on Node.js 24.21.0 + npm 12.2.0. **No stop
-condition was triggered; T001 reports no BLOCKED.** Version-currency observations that do not
-affect validity are recorded under Risks.
+**Baseline conclusion**: every approved exact version exists and is published, undeleted, and
+free of registry deprecation as of 2026-10-06; where upstream publishes a dated support policy
+(Node.js, PostgreSQL), that policy holds for the approved items (see Support-status basis
+above). The approved named pins declare **no incompatible engine/peer ranges against one
+another** on Node.js 24.21.0 + npm 12.2.0. The full peer graph is **not yet complete**:
+`@astrojs/react` 6.0.5 declares non-optional peers on `@types/react` and `@types/react-dom`,
+which the approved baseline does not yet name and T002 must resolve and pin (R2). On that
+basis — no incompatibility among the approved named pins, and no stop condition triggered —
+**T001 reports no BLOCKED**, reasoned without claiming a closed peer graph. Version-currency
+observations that do not affect validity are recorded under Risks.
 
 ## Per-item revalidation records
 
@@ -92,9 +111,11 @@ affect validity are recorded under Risks.
   `beta` = 7.4.0-beta.1; `legacy` = 4.16.19. The 7.x line is the active stable major.
 - Declared engines: `node >=22.12.0`, `npm >=9.6.5`, `pnpm >=7.1.0` — Node 24.21.0 and
   npm 12.2.0 satisfy the two that apply (npm chosen as the sole package manager). ✓
-- Peer dependency `@astrojs/markdown-remark ^7.3.0` is Astro's own internal pair and resolves
-  inside Astro's dependency tree at install time (T002's `npm ci`); it constrains no other
-  approved item.
+- `@astrojs/markdown-remark ^7.3.0` is declared as an **optional peer** of astro@7.3.5
+  (`peerDependenciesMeta`: `optional: true`, verified 2026-10-06). Because it is optional, npm
+  does not require a consumer to supply it, and it constrains no other approved item; whether
+  T002 supplies it explicitly is a pinning decision deferred to T002, not a constraint
+  violation.
 
 ### 4. `@astrojs/node` 11.1.6
 
@@ -134,13 +155,17 @@ affect validity are recorded under Risks.
 - Exists: registry metadata, published 2026-08-31; no `deprecated` field.
 - Declared engines: `node >=22.12.0` — Node 24.21.0 satisfies. ✓
 - Declared peerDependencies: `react ^17.0.2 || ^18.0.0 || ^19.0.0` (19.2.4 ✓),
-  `react-dom ^17.0.2 || ^18.0.0 || ^19.0.0` (19.2.4 ✓), plus `@types/react` and
-  `@types/react-dom` at `^19.0.0`-inclusive ranges — see Risks item R2.
+  `react-dom ^17.0.2 || ^18.0.0 || ^19.0.0` (19.2.4 ✓), plus **non-optional** peers
+  `@types/react` and `@types/react-dom` at `^19.0.0`-inclusive ranges (no
+  `peerDependenciesMeta` marks them optional). Neither type package is part of the approved
+  named baseline, so these two peers are **unresolved** until T002 pins them — see Risks
+  item R2.
 - Version-currency note: dist-tag `latest` = 7.0.1 (a newer major exists; its peers also accept
   React 19 but add `oxc-transform-react`). Research.md §2 recorded that EmDash's upstream
   catalog tests **the React 6 adapter** against Astro 7 / React 19, so the approved 6.0.5 pin
-  is the researched-compatible choice and satisfies every declared constraint of the approved
-  set. No substitution is proposed or needed.
+  is the researched-compatible choice and satisfies every constraint it declares **against
+  packages named in the approved set** (its `@types/*` peers are outside that set — R2). No
+  substitution is proposed or needed.
 
 ### 7. React 19.2.4 / ReactDOM 19.2.4
 
@@ -204,10 +229,11 @@ affect validity are recorded under Risks.
   vendor-supported package whose Quadlet provides the researched capabilities, with the exact
   host version recorded in verification evidence (T022). This is reconfirmed as the right
   reading; T001 does not select a host package.
-- **Required Quadlet capabilities verified against podman-systemd.unit(5),
-  podman-container.unit(5), and podman-secret-create(1) (docs.podman.io, via Context7
-  `/websites/podman_io_en`, 2026-10-06)** — capability evidence only, no deployment files
-  designed here:
+- **Required Quadlet capabilities verified against the versioned Podman v6.1.3 release-tag
+  documentation — podman-systemd.unit(5) (which carries the Quadlet `[Container]` keys
+  including `Notify=`), podman-secret-create(1), and the shared run/create `--secret` option
+  reference (checked 2026-10-06; URLs in Sources)** — capability evidence only, no deployment
+  files designed here:
   - **Unit kinds**: the Quadlet generator reads files with extensions `.container`, `.volume`,
     `.network`, `.build`, `.pod`, `.kube`, `.artifact` and generates a corresponding
     `.service` per file. `.container`/`.network`/`.volume` (the kinds Feature 001's topology
@@ -220,19 +246,28 @@ affect validity are recorded under Risks.
     `[Install] WantedBy=default.target` enables user units. User units for `nologin` users are
     manageable via `systemctl --machine user@. --user`. ✓
   - **Health**: `[Container]` exposes the health-check key family (`HealthCmd` and related
-    interval/retries/start-period/timeout options). `Notify=healthy` (podman-container.unit(5))
-    postpones the systemd startup notification until Podman marks the container healthy, and
-    requires a configured healthcheck — exactly the mechanism plan.md relies on to make
-    ready/not-ready observable through user systemd (`pg_isready` for the DB container). ✓
-  - **Dependencies**: standard `[Unit]` `After=`/`Requires=` may reference other Quadlet units
-    (upstream example: `After=basic.container` + `Requires=basic.container`), so app/DB startup
+    interval/retries/start-period/timeout options). `Notify=healthy` (v6.1.3
+    podman-systemd.unit(5)) postpones the systemd startup notification until Podman marks the
+    container healthy, and requires a configured healthcheck — exactly the mechanism plan.md
+    relies on to make ready/not-ready observable through user systemd (`pg_isready` for the DB
+    container). ✓
+  - **Dependencies**: v6.1.3 podman-systemd.unit(5) states "All options and tables available in
+    standard systemd unit files are supported" and documents unit-to-unit dependencies with the
+    example `[Unit]` `After=basic.container` + `Requires=basic.container` ("Quadlet will
+    automatically translate dependencies … between different Quadlet units"), so app/DB startup
     ordering and network/volume unit dependencies are expressible natively; generated services
     are ordinary systemd services managed by `systemctl`. ✓
-  - **Secrets**: `[Container]` `Secret=` key — "Use a Podman secret in the container either as
-    a file or an environment variable… equivalent to the Podman `--secret` option" — and
-    `podman secret create` supports file-based secrets mounted under `/run/secrets` (e.g.
-    `--secret source=…,type=mount,uid=…,gid=…,mode=440`), plus `type=env` exposure. External
-    runtime secrets therefore have a native rootless path without baking values into images. ✓
+  - **Secrets — two distinct operations, both verified at the v6.1.3 tag**: `podman secret
+    create` **creates and stores** a secret from a file or stdin (drivers: `file`, `pass`,
+    `shell`); it does not itself mount anything into a container. Exposure to a container is a
+    separate runtime operation: `podman run --secret` / Quadlet `[Container]` `Secret=` ("Use a
+    Podman secret in the container either as a file or an environment variable… equivalent to
+    the Podman `--secret` option", form `secret[,opt=opt ...]`) reference the **already-stored**
+    secret ("Secrets and its storage are managed using the `podman secret` command"), exposing
+    it as `type=mount` (the default; at `/run/secrets/<name>` or a `target` path, with
+    `uid`/`gid`/`mode` mount options, default mode 0444) or as `type=env`, written into the
+    container at creation time. External runtime secrets therefore have a native rootless
+    create-then-expose path without baking values into images. ✓
 - Conclusion: the approved rootless user-systemd Quadlet path and the `.container`,
   `.network`, `.volume`, health, dependency, and secret behaviors required by `current/10`
   §3.1 and plan.md are documented upstream capabilities of the current release; nothing
@@ -254,10 +289,12 @@ against the exact approved versions:
 - EmDash 1.1.0's peer envelope (Astro ≥6, React/ReactDOM ≥18, `@astrojs/react` ≥5-beta) and
   optional `pg ^8.0.0` are all satisfied by the approved pins; its only unsatisfied-by-design
   peer (`@emdash-cms/auth-atproto`) is declared optional.
-- These are **metadata-level** conclusions. They establish that no declared constraint blocks
-  the set; they do **not** establish runtime behavior (build, sync, migrate, serve) or EmDash↔
-  PostgreSQL 18 server compatibility, which is exactly what T002 (pinning) and T006 (empirical
-  gate) exist to prove.
+- These are **metadata-level** conclusions about the **approved named pins**: they establish
+  that no range declared among those pins is incompatible. They do **not** claim a complete
+  peer graph — `@astrojs/react` 6.0.5's non-optional `@types/react`/`@types/react-dom` peers
+  remain unresolved until T002 pins them (R2) — and they do **not** establish runtime behavior
+  (build, sync, migrate, serve) or EmDash↔PostgreSQL 18 server compatibility, which is exactly
+  what T002 (pinning) and T006 (empirical gate) exist to prove.
 
 ## Verified facts vs source limitations vs the T006 gate
 
@@ -289,13 +326,15 @@ against the exact approved versions:
   tooling pin) so `npm ci`/lockfile generation runs on 12.2.0, not the bundled 11.x.
 - **R4 — Version currency (informational, not validity defects)**: `astro` 7.3.6,
   `@astrojs/node` 11.1.7, `react`/`react-dom` 19.3.0, `@astrojs/react` 7.0.1, and TypeScript
-  7.0.2 exist as of 2026-10-06. The approved pins remain published, undeleted, and satisfy all
-  declared constraints; adopting any newer version is an explicitly authorized change
+  7.0.2 exist as of 2026-10-06. The approved pins remain published, undeleted, and declare no
+  incompatible ranges among themselves (the `@types/*` peer gap remains, R2); adopting any
+  newer version is an explicitly authorized change
   (Constitution §V), out of T001 scope. Note `@astrojs/react` 6.0.5 is one major behind
   `latest` and is the version EmDash's upstream catalog tests (research.md §2).
 - **R5 — Node 24 LTS phase transition on 2026-10-20**: Active → Maintenance LTS (critical
-  fixes only) until EOL 2028-04-30. The line remains supported across the entire Feature 001
-  horizon; recorded so the Product Owner sees the phase change, which requires no action now.
+  fixes only) until EOL 2028-04-30 (published schedule dates). No claim is made here about the
+  Feature 001 delivery horizon, which current authority does not define; recorded so the
+  Product Owner sees the phase change, which requires no action now.
 - **R6 — Production host Podman version**: upstream 6.1.3 is the reference; the actual
   vendor-supported host package version must be recorded in T022 evidence per plan.md.
 
@@ -304,8 +343,8 @@ against the exact approved versions:
 | Condition | Result |
 |---|---|
 | Any approved exact version does not exist | Not triggered — all 11 items verified to exist with dates |
-| Any item deprecated/withdrawn or unsupported for its role | Not triggered — none deprecated; Node 24 LTS to 2028-04-30, PostgreSQL 18 to 2030-11-14, npm/EmDash/`pg` are current `latest`, others published and current-line |
-| Declared engine/peer/platform constraint violated by the set | Not triggered — all declared constraints satisfied (analysis above); optional peers excluded by design |
+| Any item deprecated/withdrawn or unsupported for its role | Not triggered — no registry `deprecated`/withdrawal on any item; where upstream publishes a dated policy it holds (Node 24 LTS to 2028-04-30; PostgreSQL 18 to 2030-11-14); npm/EmDash/`pg` are current `latest`; for the remaining npm items no exact-version support policy is published, so role-appropriateness rests on published/undeleted status and current-line dist-tags (see Support-status basis) |
+| Declared engine/peer/platform constraint violated by the set | Not triggered for the approved named pins — no incompatible ranges among them (analysis above). The peer graph is intentionally incomplete until T002 resolves `@astrojs/react` 6.0.5's two non-optional `@types/*` peers (R2); that is a pending pinning step, not a violation. Optional peers are excluded by design |
 | Approved architecture requires an invalid/stale capability | Not triggered — Quadlet rootless/health/dependency/secret behaviors all documented upstream |
 
 **Result: no BLOCKED. The approved dependency/platform baseline is revalidated as valid for
@@ -329,6 +368,18 @@ T006 empirical gate.**
 - No `npm install`/`npm ci`, build, or test was run — not required or authorized for this
   documentation-only task.
 
+Corrective round 1 (2026-10-06, same day, this revision):
+
+- `npm view astro@7.3.5 peerDependenciesMeta` → `@astrojs/markdown-remark` `optional: true`;
+  `npm view @astrojs/react@6.0.5 peerDependenciesMeta` → absent (its `@types/*` peers are
+  non-optional).
+- Versioned Podman v6.1.3 release-tag documentation fetched and quoted:
+  podman-systemd.unit(5) (extensions, rootless paths, `Notify=healthy`, `Secret=`, Quadlet
+  unit dependencies), podman-secret-create(1) (create/store semantics), and the shared
+  `options/secret.md` run/create `--secret` reference (exposure semantics).
+- `git diff --check`, changed-file list, and diff inspection rerun on the corrective commit
+  against parent `7d57828be1b2949c74723557e4b36d922dd9e850`.
+
 ## Sources (all accessed 2026-10-06)
 
 1. npm registry metadata (registry.npmjs.org) via `npm view` for the nine pinned packages.
@@ -339,9 +390,13 @@ T006 empirical gate.**
 6. PostgreSQL 18.6 release notes — https://www.postgresql.org/docs/release/18.6/
 7. PostgreSQL versioning policy — https://www.postgresql.org/support/versioning/
 8. Podman v6.1.3 release — https://github.com/containers/podman/releases/tag/v6.1.3
-9. Podman Quadlet references (via Context7-indexed docs.podman.io):
-   podman-systemd.unit(5), podman-container.unit(5), podman-secret-create(1),
-   podman-auto-update(1).
+9. Podman **v6.1.3 release-tag documentation** (versioned, exact-release sources):
+   https://raw.githubusercontent.com/containers/podman/v6.1.3/docs/source/markdown/podman-systemd.unit.5.md,
+   https://raw.githubusercontent.com/containers/podman/v6.1.3/docs/source/markdown/podman-secret-create.1.md,
+   and https://raw.githubusercontent.com/containers/podman/v6.1.3/docs/source/markdown/options/secret.md
+   (shared run/create `--secret` option reference). Context7-indexed docs.podman.io pages
+   (podman-systemd.unit(5), podman-secret-create(1), podman-auto-update(1)) were used only as
+   a secondary discovery index.
 10. EmDash documentation (via Context7 `/websites/emdashcms`, docs.emdashcms.com):
     existing-project guide, deployment/nodejs, deployment/database, reference/configuration.
 
