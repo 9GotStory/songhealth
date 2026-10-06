@@ -23,6 +23,12 @@ The repository has been reset to the current Songhealth baseline.
 - Prefer approved platform-native capability before custom infrastructure.
 - Custom abstractions/extensions require a demonstrated current gap.
 
+## Spec Kit Usage
+
+This repository does not vendor agent-specific Spec Kit skill bundles. Use the current upstream `github/spec-kit` process/instructions through the AI agent selected for the task. Local `.specify/` files are project state/templates, not a replacement for checking current upstream Spec Kit behavior when version-sensitive workflow details matter.
+
+Do not recreate `.agents/skills` or `.claude/skills` as committed project content unless the Product Owner explicitly changes this repository policy.
+
 ## Context Discipline
 
 Read only the minimum current authority needed for the task.

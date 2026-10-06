@@ -27,7 +27,7 @@ See `10-system-blueprint.md` for the authoritative technical baseline.
 
 ## Spec Kit
 
-Spec Kit tooling is installed under `.specify/`, with Codex/Claude skill integrations under `.agents/` and `.claude/`.
+Spec Kit project state is kept under `.specify/`. Agent skill bundles are intentionally **not vendored in this repository**; use the current upstream `github/spec-kit` workflow through the AI agent selected for the task.
 
 There is currently **no active `specs/` feature**.
 
