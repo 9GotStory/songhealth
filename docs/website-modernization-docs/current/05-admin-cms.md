@@ -4615,9 +4615,9 @@ No menu/footer/page builder, feature-flag console, arbitrary status editor, JSON
 
 ---
 
-# 59. Final Admin CMS Consistency Review
+# 59. Clean Rebaseline Admin CMS Consistency Review
 
-Final review against Frozen `00–04` and Content Model v1.1 identified and corrected five blocking consistency issues before Freeze:
+Review against current `00–04` confirms:
 
 1. Health Report management is present and staff-facing `ความรู้สุขภาพ` is distinct from `รายงานสุขภาพ`.
 2. Reusable External Organization management is represented by `หน่วยงานที่เกี่ยวข้อง`.
@@ -4625,9 +4625,16 @@ Final review against Frozen `00–04` and Content Model v1.1 identified and corr
 4. Official/public channels belong to Contact Information, not Settings.
 5. Scheduled Publish Failure is actionable; normal success remains Published state + feedback/Audit rather than a persistent notification.
 
-Cross-document result: Foundation PASS, IA PASS, Content Model v1.1 PASS, Sitemap PASS, Homepage PASS, shared resource/ITA boundaries PASS, responsive/accessibility PASS, permission handoff boundary PASS, and over-engineering review PASS.
+Current ownership of downstream detail:
 
-Deferred intentionally: detailed Roles/Permissions → `06`; Publishing Workflow → `07`; Public Search → `08`; Migration → `09`; implementation/infra → `10`; exact visual Design System/breakpoints remain later design work.
+- Roles/Permissions → `06-roles-permissions.md`
+- Publishing Workflow → `07-publishing-workflow.md`
+- Public Search → `08-search.md`
+- Migration → `09-migration-plan.md`
+- implementation/infrastructure → `10-system-blueprint.md`
+- exact visual Design System/tokens remain separate design implementation work
+
+Cross-document result for Admin CMS semantics: Foundation PASS, IA PASS, Content Model PASS, Sitemap PASS, Homepage PASS, shared resource/ITA boundaries PASS, responsive/accessibility PASS, permission handoff boundary PASS, and over-engineering review PASS.
 
 ---
 

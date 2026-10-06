@@ -8,7 +8,7 @@
 > **Purpose:** กำหนดชนิดข้อมูลหลักของเว็บไซต์ ความหมาย ขอบเขต ข้อมูลสำคัญ และความสัมพันธ์ระหว่างข้อมูล โดยยังไม่ลงรายละเอียดระดับ Database Schema, API, ORM หรือโค้ด
 > **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
 > **Technology Ownership:** Content types, relationships, lifecycle meaning and resource ownership are independent of CMS/database implementation.
-> **Revision Note v1.1:** ขยาย ITA Evidence ให้รองรับ Media Evidence เพิ่มเติมจาก Document และ External URL โดยไม่เปลี่ยนโครงสร้างหลักของ ITA
+> **Consolidated Model Note:** ITA Evidence รองรับ Document, Media และ External URL ตาม semantics ปัจจุบัน โดยไม่เปลี่ยนโครงสร้างหลัก Fiscal Year → Section/MOIT → Requirement/Item → Evidence
 
 ---
 
@@ -1611,7 +1611,7 @@ ITA
 - Area Master Detail / Village Structure
 - Document Type Final List
 - Media Type Final List
-- Detailed Status Rules ต่อ Content Type
+- exact implementation representation ของ lifecycle/status (semantic rules กำหนดโดย `07-publishing-workflow.md`)
 
 ---
 

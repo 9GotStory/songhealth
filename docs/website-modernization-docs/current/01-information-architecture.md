@@ -998,13 +998,13 @@ ITA
 ติดต่อเรา
 ```
 
-Main Navigation นี้ยัง **ไม่ Freeze**
+รายการนี้เป็น IA-level view เท่านั้น; **Main Navigation ปัจจุบันและ route ownership กำหนดโดย `03-sitemap.md`**.
 
 ---
 
 ## 16.2 Admin CMS
 
-Draft IA:
+Conceptual Admin IA (รายละเอียด UX/current navigation กำหนดโดย `05-admin-cms.md`):
 
 ```text
 Admin Dashboard

@@ -4,7 +4,7 @@
 > **Status:** CLEAN REBASELINE v2.0 — CURRENT
 > **Version:** 2.0
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
-> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md` v1.1, `03-sitemap.md` v1.0, `04-homepage.md` v1.0, `05-admin-cms.md` v1.0, `06-roles-permissions.md` v1.0, `07-publishing-workflow.md` v1.0, `08-search.md` v1.0
+> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`, `06-roles-permissions.md`, `07-publishing-workflow.md`, `08-search.md`
 > **Technical Constraints Read With:** Frozen `10-system-blueprint.md` v1.1 — not a retroactive dependency
 > **Evidence Basis:** WordPress SQL + `wp-content/uploads` inventory baseline collected 28 สิงหาคม 2569
 > **Implementation / Import Authorization:** NONE
@@ -117,7 +117,7 @@ Baseline principles:
 
 # 6. Content Classification by Domain Meaning
 
-Legacy WordPress content ต้องถูก classify ตาม Frozen Content Model เช่น:
+Legacy WordPress content ต้องถูก classify ตาม current Content Model เช่น:
 
 ```text
 Basic Page
@@ -155,7 +155,7 @@ Historical migration ใช้ Domain meaning ไม่ใช้ age-only rule.
 older than 3 years → delete
 ```
 
-สำหรับ ITA ใช้หลักจาก Frozen Content Model:
+สำหรับ ITA ใช้หลักจาก current Content Model:
 
 > **Preserve history; improve forward.**
 
@@ -174,7 +174,7 @@ Fiscal Year
 
 # 8. Canonical Identity and Legacy Traceability
 
-ระบบใหม่สร้าง Stable Public Identity ตาม Frozen Sitemap/Content Model ของตนเอง.
+ระบบใหม่สร้าง Stable Public Identity ตาม current Sitemap/Content Model ของตนเอง.
 
 Legacy WordPress identifiers เช่น:
 
@@ -220,7 +220,7 @@ Old WordPress URL
 → New Canonical URL
 ```
 
-สอดคล้องกับ Frozen Sitemap:
+สอดคล้องกับ current Sitemap:
 
 > **Redirect only when there is a meaningful equivalent or successor.**
 
@@ -241,10 +241,10 @@ all old 404s → /
 หากไม่มี meaningful equivalent:
 
 - Not Found ใช้เมื่อข้อมูลไม่ควรถูกตีความว่าเคยมี public successor
-- Gone ใช้ตาม Frozen Sitemap/Publishing semantics เมื่อ content ที่เคย Public ถูกถอนถาวรและไม่มี meaningful successor
+- Gone ใช้ตาม current Sitemap/Publishing semantics เมื่อ content ที่เคย Public ถูกถอนถาวรและไม่มี meaningful successor
 - Redirect ใช้เฉพาะเมื่อ destination ตอบ user intent เดิมจริง
 
-Superseded Document ไม่ถูก auto-redirect เพียงเพราะมี successor; historical identity ยังคงตาม Frozen Publishing Workflow.
+Superseded Document ไม่ถูก auto-redirect เพียงเพราะมี successor; historical identity ยังคงตาม current Publishing Workflow.
 
 ---
 
@@ -299,7 +299,7 @@ Unused generated derivative
 
 # 13. Documents, PDFs, and Resource Meaning
 
-PDF/Document เดิมที่ฝังอยู่ใน WordPress Post/Page ต้องถูกตีความตาม Frozen Content Model.
+PDF/Document เดิมที่ฝังอยู่ใน WordPress Post/Page ต้องถูกตีความตาม current Content Model.
 
 ตัวอย่าง:
 
@@ -388,7 +388,7 @@ Targeted human review ใช้กับ:
 
 # 17. Attribution and Historical Accuracy
 
-Migration ต้องรักษา original date/attribution ที่ **เชื่อถือได้** เท่าที่ทำได้ ตาม Frozen Publishing Workflow.
+Migration ต้องรักษา original date/attribution ที่ **เชื่อถือได้** เท่าที่ทำได้ ตาม current Publishing Workflow.
 
 หาก legacy actor ไม่ทราบ:
 
@@ -726,7 +726,7 @@ Implementation/infrastructure decisionsไป `10-system-blueprint.md` หรื
 
 Accepted baseline:
 
-- Migration is a controlled transition into the Frozen IA/Content Model/lifecycle/URL rules, not a one-to-one WordPress clone.
+- Migration is a controlled transition into the current IA/Content Model/lifecycle/URL rules, not a one-to-one WordPress clone.
 - legacy content is classified by meaning and ongoing public value before migration.
 - migration decisions distinguish Current, Historical, Review Required, Redirect Only, Do Not Migrate, and Backup-only outcomes.
 - WordPress IDs/URLs support traceability but never become the new canonical identity model.
@@ -766,7 +766,7 @@ Migration Decision
 “Should it survive, and in what public/historical role?”
       ↓
 Target Mapping
-“Which Frozen Content Model resource should represent it?”
+“Which current Content Model resource should represent it?”
 ```
 
 WordPress storage type is evidence about the old implementation, not proof of target Domain meaning.
@@ -917,13 +917,13 @@ A legacy `Page` may represent many target Domains, including:
 
 Therefore `Page → Basic Page` is not a default one-to-one migration rule.
 
-The Frozen Information Architecture and Content Model determine the target representation.
+The current Information Architecture and Content Model determine the target representation.
 
 ---
 
 # 42. Structured Resources Are Extracted from Legacy Pages Where Appropriate
 
-Legacy pages that manually embed structured information should be decomposed into the canonical structured resources already defined by the Frozen Content Model.
+Legacy pages that manually embed structured information should be decomposed into the canonical structured resources already defined by the current Content Model.
 
 Examples:
 
@@ -1023,7 +1023,7 @@ Version 1 does not blindly migrate all Tags. Useful legacy taxonomy values may i
 
 # 47. Legacy Menus Are Navigation Evidence, Not Sitemap Authority
 
-The Frozen Sitemap remains authoritative.
+The current Sitemap remains authoritative.
 
 Legacy WordPress menus are inventoried to:
 
@@ -1211,7 +1211,7 @@ Unknown authorship is preserved as unknown rather than inventing a staff identit
 
 # 56. Target Validation Applies to Imported Records
 
-Import does not bypass the Frozen Content Model, Roles/Permissions, Publishing Workflow, or Search public-eligibility rules.
+Import does not bypass the current Content Model, Roles/Permissions, Publishing Workflow, or Search public-eligibility rules.
 
 A target record must satisfy its Domain validation before becoming Public.
 
@@ -1307,16 +1307,16 @@ Accepted baseline:
 - media inventory is usage-aware; orphaned/generated/duplicate/broken assets are reviewed rather than blindly copied.
 - PDFs/Documents are classified by business/public meaning and relationships; `PDF` is not a target Content Type.
 - legacy Categories/Tags are classification evidence, not authoritative target taxonomy; presentation categories/tags are left behind.
-- legacy menus support discovery/redirect analysis but never override the Frozen Sitemap.
+- legacy menus support discovery/redirect analysis but never override the current Sitemap.
 - WordPress Users support trustworthy attribution review and controlled onboarding only; authentication state/legacy Roles remain outside automatic migration.
 - deterministic rule-based classification handles clear cases while ambiguous meaning enters Review Required; Version 1 does not require AI/ML classification.
-- the baseline mapping matrix maps legacy meaning into the Frozen Content Model and remains subordinate to Domain validation.
+- the baseline mapping matrix maps legacy meaning into the current Content Model and remains subordinate to Domain validation.
 - migration supports 1→1, 1→Many, and Many→1 mappings while preserving provenance.
 - practical duplicate detection uses URLs, repeated content/title evidence, canonical subject, and file hashes without an advanced duplicate platform.
 - legacy Published/Draft status does not directly determine target lifecycle; lifecycle/public behavior follows Domain meaning and available evidence without fabrication.
 - legacy dates are interpreted semantically per Domain rather than copied blindly from `post_date`.
 - legacy account/author data remains traceable but is not automatically presented as trustworthy Public Author.
-- imported records pass the same Frozen target validation and may remain Draft/Review when data is incomplete.
+- imported records pass the same current target validation and may remain Draft/Review when data is incomplete.
 - one external migration manifest is the working Source of Truth for source identity, decisions, mappings, redirects, exceptions, validation, and outcomes.
 - human review is exception-focused and risk-based, with stronger review for Personnel, Health Service, Service, Contact, ITA, current Documents, Health Reports, and important organizational content.
 - a migration item is complete only when its identity, preservation decision, target mapping/lifecycle, legacy URL treatment, migration outcome, and review status are explicit.
@@ -1455,13 +1455,13 @@ Health Content เป็น Domain ที่ต้อง review validity เข�
 
 # 68. Basic Page and IA Consolidation
 
-Basic Page migration ต้องสอดคล้องกับ Frozen Information Architecture.
+Basic Page migration ต้องสอดคล้องกับ current Information Architecture.
 
 - หน้า current ที่ยังมี legitimate place ใน IA ใหม่ → `Migrate — Current`.
 - หน้า legacy ที่ถูกแทนด้วย structured resource เช่น Personnel, Health Service, Contact หรือ Service → ไม่ migrate เป็น duplicate Basic Page; ใช้ `Redirect Only` หรือ consolidate ตาม mapping.
 - หน้า legacy ที่ไม่มีตำแหน่งใน IA ใหม่ไม่ทำให้เราสร้าง navigation/section ใหม่เพียงเพื่อรักษาโครงสร้างเดิม.
 
-Legacy IA ไม่สามารถ override Frozen Sitemap.
+Legacy IA ไม่สามารถ override current Sitemap.
 
 ---
 
@@ -1480,7 +1480,7 @@ Personnel migration เน้น **current verified public records**.
 
 # 70. Organization Retention
 
-- Current organization structure → migrate เป็น structured Organization ตาม Frozen model.
+- Current organization structure → migrate เป็น structured Organization ตาม current model.
 - obsolete organization structure → `Retain in Backup Only` โดย default เว้นแต่มี explicit historical requirement.
 - historical News/Documents อาจยัง preserveชื่อหน่วยงานตาม contextเดิม.
 
@@ -1535,7 +1535,7 @@ Document decisionขึ้นกับ authority/version semantics:
 - Expired document ที่ยังมี legitimate reference value → `Migrate — Historical` + `Expired`.
 - Expired form/guide ที่เสี่ยงให้ประชาชนใช้ผิดฉบับ → เอนเอียงไป Backup/Redirect มากกว่าการเปิด Historical Public.
 
-Superseded/Expired historical Documents ไม่ถูก redirectไป successorโดยอัตโนมัติใน ordinary case; Frozen Sitemap semanticsยังคงใช้.
+Superseded/Expired historical Documents ไม่ถูก redirectไป successorโดยอัตโนมัติใน ordinary case; current Sitemap semanticsยังคงใช้.
 
 ---
 
@@ -1558,7 +1558,7 @@ ITA ต้อง preserve Fiscal Year context อย่างชัดเจน.
 - Requirement/Evidence relationshipsของแต่ละปีต้องคงของปีนั้นเอง.
 - historical Evidence ห้าม auto-follow successor/newer Evidence.
 
-ถ้า byte-identical Document reusedหลาย Requirement/ปีจริง resource reuseอาจทำได้ตาม Frozen model แต่ relationshipของแต่ละ Fiscal Year/Requirementต้องแยกชัด.
+ถ้า byte-identical Document reusedหลาย Requirement/ปีจริง resource reuseอาจทำได้ตาม current model แต่ relationshipของแต่ละ Fiscal Year/Requirementต้องแยกชัด.
 
 ---
 
@@ -1616,7 +1616,7 @@ Migration แยกอย่างน้อย 3 กรณี:
 
 สอง recordsพูดถึงสิ่งเดียวกันแต่คนละ presentation เช่น Contactหลายหน้า หรือ Service instructionsซ้ำหลายจุด.
 
-ต้อง Reviewก่อน consolidate และเลือก targetตาม Frozen Content Model.
+ต้อง Reviewก่อน consolidate และเลือก targetตาม current Content Model.
 
 ### Historical Version
 
@@ -1806,11 +1806,11 @@ The next step is to define how every known legacy public URL is treated after mi
 
 ---
 
-# 88. Evidence-backed Reactivation Addendum
+# 88. Evidence-backed Legacy WordPress Review
 
 > **Historical continuation note:** Section 87 records the next topic at the moment the pre-deferral foundation was paused. Sections 88.13–88.15 now provide the evidence-backed Media/Document, URL and import contracts for that topic; Section 87 is retained for provenance and is not the current next-action statement.
 
-## 88.1 Reactivation Purpose
+## 88.1 Purpose
 
 The defer condition now has real evidence: REST/CPT/taxonomy/ACF discovery, an integrity-checked SQL baseline, and a filesystem inventory for `wp-content/uploads`.
 
@@ -1822,7 +1822,7 @@ The governing principles remain:
 
 > **Clean the structure, preserve the meaning.**
 
-Frozen `00–08` remain authoritative for Product/Information Architecture and Frozen `10` v1.1 remains authoritative for technical architecture. This reactivated `09` governs migration planning only.
+Current `00–08` remain authoritative for Product/Information Architecture and current `10-system-blueprint.md` defines the target technical architecture. This section supplies legacy-source evidence and migration rules only.
 
 ---
 
@@ -2000,7 +2000,7 @@ The legacy `/directives/` listing does **not** receive an automatic `/documents`
 
 ## 88.8 Procurement Mapping — Corrected by Deep Review Round 1
 
-Frozen IA treats procurement (`จัดซื้อจัดจ้าง`) as an `Announcement` meaning. The PDF is a reusable canonical `Document` resource, not a reason to erase the Announcement lifecycle.
+current IA treats procurement (`จัดซื้อจัดจ้าง`) as an `Announcement` meaning. The PDF is a reusable canonical `Document` resource, not a reason to erase the Announcement lifecycle.
 
 Therefore:
 
@@ -2017,7 +2017,7 @@ The legacy `/procurements/` listing is **Review Required for redirect**. A 301 i
 
 The source contains 22 MOIT records for each of 2567, 2568 and 2569.
 
-Frozen target structure remains unchanged:
+current target structure remains unchanged:
 
 ```text
 Fiscal Year
@@ -2046,14 +2046,14 @@ Evidence discovery:
 
 ### 88.9.1 Internal legacy link exception — MODEL-GAP-001
 
-Legacy ITA includes 5 internal link references / 3 unique internal destinations. They are **not** added to the Frozen target structure as a new generic URL Evidence type in this proposal.
+Legacy ITA includes 5 internal link references / 3 unique internal destinations. They are **not** added to the current target structure as a new generic URL Evidence type in this proposal.
 
 Required order:
 
 1. classify each internal destination;
 2. map to existing Document/Media/canonical context when semantically valid;
 3. preserve historical evidence without dynamic Personnel/Organization binding;
-4. only if legitimate evidence cannot be represented using Frozen semantics, raise a narrowly scoped versioned cross-document update to `02-content-model.md`.
+4. only if legitimate evidence cannot be represented using current semantics, raise a narrowly scoped versioned cross-document update to `02-content-model.md`.
 
 ---
 
@@ -2063,7 +2063,7 @@ Required order:
 
 - History → `/about` **Office Information history narrative**; preserve the 20-row office-head history as historical context, not 20 automatic Personnel profiles and not Organization master data.
 - Role/duties → `/about` Office Information responsibilities + 4 Documents; verify legal/currentness.
-- Office policy → `Review Required`: `/about/policies` is a curated Document-backed view under Frozen IA; determine whether legacy prose is summary/presentation or authoritative policy information before creating a target source of truth.
+- Office policy → `Review Required`: `/about/policies` is a curated Document-backed view under current IA; determine whether legacy prose is summary/presentation or authoritative policy information before creating a target source of truth.
 - ITA 2567/2568/2569 Elementor landings → Redirect Only to `/ita/{year}`.
 - Personnel page → 12 Personnel candidates + Assignments + profile Media; verify semantics.
 - Related agencies → 17 Health Service candidates; verify current operational data.
@@ -2244,72 +2244,51 @@ Trial acceptance requires more than row-count equality.
 
 ---
 
-## 88.18 Reactivation / Freeze / Execution Gates
+## 88.18 Current Migration Execution Gates
 
-These gates answer different questions and must not be collapsed into one another.
+Documentation acceptance and migration execution are separate decisions. Clean Rebaseline v2.0 does **not** authorize data mutation.
 
 ```text
-CANONICAL REACTIVATION                        = EFFECTIVE WITH THIS CANONICAL DOCUMENTATION TRANSACTION
-DEEP REVIEW ROUND 1                         = CHANGES REQUIRED — REPAIRED
-DEEP REVIEW ROUND 2                         = CHANGES REQUIRED — REPAIRED
-DEEP REVIEW ROUND 3                         = CHANGES REQUIRED — REPAIRED IN v0.5
-DEEP REVIEW ROUND 4                         = PASS — ADDENDUM / MERGE PROPOSAL
-CANONICAL current/09 MUTATION               = EFFECTIVE ON COMMIT OF THIS TRANSACTION — WORKING DRAFT v0.5
-FROZEN 10 v1.1                              = UNCHANGED — defer note is status-at-freeze history
-FREEZE 09                                   = NOT AUTHORIZED — requires separate Freeze Review
+CURRENT MIGRATION CONTRACT                  = `09-migration-plan.md` v2.0
+TARGET PRODUCT SEMANTICS                    = current `00–08`
+TARGET TECHNICAL ARCHITECTURE               = current `10-system-blueprint.md`
 TRIAL IMPORT                                = NOT AUTHORIZED
 PRODUCTION IMPORT                           = NOT AUTHORIZED
-FROZEN PRODUCT/ARCHITECTURE SEMANTICS       = UNCHANGED
+FINAL CUTOVER                               = NOT AUTHORIZED
+LEGACY WORDPRESS RETIREMENT                 = NOT AUTHORIZED
 ```
 
-### 88.18.1 Gate A — Canonical Reactivation as WORKING DRAFT
+### 88.18.1 Gate A — Trial Migration
 
-Required:
+A trial migration may be authorized only after a fresh implementation specification/plan defines a bounded importer against the current target architecture and proves:
 
-1. preserve the archived accepted `09` foundation and integrate this evidence addendum without semantic loss;
-2. pass Deep Review Round 4 for the addendum/merge proposal;
-3. explicitly approve canonical reactivation;
-4. apply the coordinated documentation consistency transaction (`current/09`, `PROJECT-INDEX`, `CHANGELOG`, reactivation review, canonical ZIP rebuild); Frozen `10-system-blueprint.md` v1.1 remains immutable because reactivation changes current documentation state, not the architecture frozen on 15 สิงหาคม 2569;
-5. verify the physically merged canonical artifact has not lost any accepted foundation contract.
+- repeatable/non-destructive trial execution
+- source → decision → target reconciliation
+- current Content Model/lifecycle/Public ID validation
+- file/media validation and protected/public delivery behavior
+- redirect/resource mapping
+- Review Required handling for ambiguous records
+- no blind target-database copying
+- rollback/re-run procedure
 
-Reactivation does **not** authorize importer implementation or data mutation.
+Trial runs may intentionally leave uncertain records as Draft/Review Required; they must not publish uncertain/high-risk records merely to make counts match.
 
-### 88.18.2 Gate B — Freeze the Migration Plan
-
-`09` may be considered for Freeze when the **plan/contract itself** is complete and internally consistent, including:
-
-- migration decision categories and lifecycle semantics are stable;
-- extraction/delta, manifest, URL/resource, security, import, validation, rollback and retirement contracts are explicit;
-- known evidence anomalies are represented in the exception process;
-- no unresolved issue requires silently changing Frozen `00–08` or architecture semantics in `10`;
-- any necessary versioned cross-document update has been explicitly reviewed.
-
-Individual legacy records may still be `Review Required` when the plan freezes. That is expected migration execution state, not automatically a document-design defect.
-
-> **Freeze the rules when the rules are complete; resolve record-level exceptions through those rules.**
-
-### 88.18.3 Gate C — Trial Migration
-
-A trial migration may be authorized only after implementation-specific planning/testing establishes a controlled importer that satisfies Section 88.15 and Frozen `10`. Trial runs must be non-destructive/repeatable and may intentionally include Draft/Review outcomes to prove exception handling.
-
-Trial authorization does not require every production decision to be resolved, but it must not publish uncertain/high-risk records merely to make counts match.
-
-### 88.18.4 Gate D — Final Production Cutover
+### 88.18.2 Gate B — Final Production Cutover
 
 Before final cutover/public exposure, execution evidence must close or explicitly disposition preservation-critical exceptions, including as applicable:
 
-- ANOM-001 missing ITA binary;
-- current Personnel verification;
-- current Health Service operational verification;
-- ambiguous directive/procurement lifecycle decisions;
-- health-safety/current-content review;
-- Ethics fiscal-year mismatch;
-- risk-based classification of the 81 unreferenced attachment exceptions;
-- public-use resource URL treatment;
-- MODEL-GAP-001 destination treatment without unapproved model expansion;
-- pre-cutover/final coordinated SQL + required-file evidence under content freeze;
-- source → decision → target/outcome reconciliation;
-- public/Search/redirect validation and practical fallback readiness.
+- ANOM-001 missing ITA binary
+- current Personnel verification
+- current Health Service operational verification
+- ambiguous directive/procurement lifecycle decisions
+- health-safety/current-content review
+- Ethics fiscal-year mismatch
+- risk-based classification of the 81 unreferenced attachment exceptions
+- public-use resource URL treatment
+- MODEL-GAP-001 destination treatment without unapproved model expansion
+- coordinated pre-cutover/final SQL + required-file evidence under a controlled content-freeze window
+- source → decision → target/outcome reconciliation
+- public/Search/redirect validation and practical fallback readiness
 
 Final cutover is where current-truth verification and preservation completeness become mandatory.
 

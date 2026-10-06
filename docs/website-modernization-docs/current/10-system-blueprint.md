@@ -197,12 +197,14 @@ CMS collections/fields are implementation mappings of that model, not an indepen
 ```text
 Current Product Content Model
           ↓
-version-controlled schema/configuration
+version-controlled bootstrap/schema intent
           ↓
-reviewed migration
+explicit reviewed schema/content migration
           ↓
-EmDash / PostgreSQL
+EmDash active model in PostgreSQL
 ```
+
+EmDash stores the active content model in the database. A version-controlled seed/schema artifact may bootstrap or document intended structure, but it is **not** assumed to be an every-deploy production migration mechanism. Production model changes require an explicit reviewed migration/change procedure.
 
 Production content schemas must not drift through unreviewed admin changes.
 
@@ -277,11 +279,11 @@ Until that review:
 
 # 10. Authentication and Authorization
 
-Use EmDash authentication/authorization primitives as the starting point.
+Use EmDash authentication/authorization primitives as the starting point, but treat them as infrastructure primitives rather than Songhealth Product roles.
 
-`06-roles-permissions.md` remains authoritative for Songhealth semantics, including Role, Module Scope, public-impact authority, default deny และ separation between CMS account role and Personnel data.
+`06-roles-permissions.md` remains authoritative for Songhealth semantics, including the four Songhealth Role templates, Module Scope, public-impact authority, default deny และ separation between CMS account role and Personnel data.
 
-If native EmDash role semantics cannot represent required Module Scope or action constraints exactly, add the smallest reviewed extension necessary.
+EmDash's native role names/levels are **not assumed to map 1:1** to Songhealth roles. If native permissions cannot represent Songhealth Role + Module Scope + action constraints exactly, add the smallest reviewed mapping/extension necessary without changing `06` semantics.
 
 Rules:
 
@@ -299,20 +301,20 @@ Exact identity provider/OAuth/passkey configuration is an implementation/securit
 
 `07-publishing-workflow.md` owns lifecycle/workflow semantics.
 
-Use EmDash publishing/revision/scheduling/preview primitives first, then close only demonstrated gaps.
+Use EmDash publishing/revision/scheduling/preview primitives first, then close only demonstrated gaps. Native EmDash lifecycle/status behavior is not automatically Songhealth Product semantics.
 
 Verification must prove:
 
 - Draft/Published/Archived and type-specific lifecycle semantics
 - optional Approval behavior
 - public-impact authority
-- scheduled publication correctness
+- scheduled publication correctness, including Songhealth-defined failure behavior when native platform transitions differ
 - stale/concurrent change safety
 - failure does not masquerade as successful publication
 - historical integrity
 - preview confidentiality and current authorization
 
-Do not port old WordPress/PHP scheduler, preview grant, hook or projection classes merely because they existed.
+Do not port old WordPress/PHP scheduler, preview grant, hook or projection classes merely because they existed. Where an EmDash hook/status transition differs from `07`, the implementation must adapt the platform or return to architecture review rather than silently changing the Product workflow.
 
 ---
 

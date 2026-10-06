@@ -4,7 +4,7 @@
 > **Status:** CLEAN REBASELINE v2.0 — CURRENT
 > **Version:** 2.0
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
-> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md` v1.1, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md` v1.0, `06-roles-permissions.md` v1.0
+> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`, `06-roles-permissions.md`
 > **Purpose:** กำหนด Publishing Workflow, publication lifecycle, scheduling, validation, optional approval boundary และ domain lifecycle semantics ของ Admin CMS ให้สอดคล้องกันทั้งระบบ โดยยังไม่ลงรายละเอียด implementation ระดับ queue, cron, database state machine, token/session หรือ code
 > **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
 > **Technology Ownership:** Lifecycle, approval, scheduling, concurrency and audit semantics are product contracts; scheduler/storage mechanics belong to `10`.
@@ -521,15 +521,15 @@ Current accepted baseline:
 
 ---
 
-# 24. Canonical Publishing State Model
+# 24. Canonical Publishing Semantics
 
-Publishing Workflow uses a **small shared publishing core** only where publication semantics genuinely exist, while Domain lifecycle/visibility states remain specific to the meaning already frozen in `02-content-model.md` and `03-sitemap.md`.
+Publication behavior may reuse **shared publishing semantics** where the semantics are genuinely common, while each content/domain lifecycle remains specific to the meaning defined in `02-content-model.md` and `03-sitemap.md`. This is a Product-level reuse rule, not a requirement for a particular code layer or Domain architecture.
 
-> **Use a small shared publishing core, then let each domain express its real lifecycle.**
+> **Share semantics only where they are truly common; preserve each domain’s real lifecycle.**
 
 > **A status represents business/public meaning, not implementation convenience.**
 
-## 24.1 Shared Publishing Core
+## 24.1 Shared Publishing Semantics
 
 Where applicable:
 
@@ -632,7 +632,7 @@ Homepage Configuration uses:
 Draft → Preview → Published
 ```
 
-There is no whole-Homepage `Scheduled` configuration state in Version 1. Scheduling belongs only to Homepage placements with a demonstrated temporal use case from Frozen `04-homepage.md`, currently such as Urgent Alert, Featured, and Health Information.
+There is no whole-Homepage `Scheduled` configuration state in Version 1. Scheduling belongs only to Homepage placements with a demonstrated temporal use case from current `04-homepage.md`, currently such as Urgent Alert, Featured, and Health Information.
 
 Current Published Homepage remains valid while Draft configuration is prepared. Placement scheduling must never blank or partially replace the Homepage.
 
@@ -697,7 +697,7 @@ The system does not provide a universal workflow/state-machine configurator. Sta
 Accepted baseline:
 
 - Shared publication core remains Draft / Scheduled / Published only where genuinely applicable.
-- Domain states preserve Frozen Content Model/Sitemap semantics, including `Hidden` for Health Service, Personnel, Organization, and Document, and meaningful `Expired` for Document.
+- Domain states preserve current Content Model/Sitemap semantics, including `Hidden` for Health Service, Personnel, Organization, and Document, and meaningful `Expired` for Document.
 - Contact Information remains structured reusable records, not singleton Published Configuration + hidden working-copy workflow.
 - Homepage Configuration is Draft / Published; scheduling is limited to eligible temporal placements rather than the whole Homepage package.
 - Scheduled is committed and publication-ready; Approval OFF allows revalidated in-place edits while Approval ON locks the approved package until Cancel → Draft → Review again.
@@ -2896,7 +2896,7 @@ Version 1 ไม่สร้าง universal `Withdrawn` lifecycle state ให�
 
 ## 34.23 Not Found / Gone / Redirect Semantics
 
-สอดคล้องกับ Frozen Sitemap:
+สอดคล้องกับ current Sitemap:
 
 **Not Found** ใช้กับ record ที่ไม่มีจริงหรือไม่เคย public และ public userไม่ควรรู้ว่ามี เช่น Draft / Pending Review / Approved / Scheduled before publication.
 
@@ -3683,7 +3683,7 @@ Active   → ทำให้ไม่ใช้งาน
 Inactive → เปิดใช้งานอีกครั้ง
 ```
 
-Public-impact edits to Active records still require Publisher-level authority as frozen in `06-roles-permissions.md`.
+Public-impact edits to Active records still require Publisher-level authority as defined in `06-roles-permissions.md`.
 
 ## 38.17 Announcement UX
 
@@ -3725,7 +3725,7 @@ Published records use a separate `ดูหน้าเว็บไซต์` li
 
 ## 38.20 Permission-Aware Actions
 
-The frozen `06` behavior remains authoritative:
+The current `06` behavior remains authoritative:
 
 ```text
 No capability
@@ -3875,7 +3875,7 @@ Touch targets, dialog layout, and error navigation remain usable on small screen
 
 ## 38.33 Accessibility
 
-Publishing action UX follows the frozen `05` accessibility baseline:
+Publishing action UX follows the current `05` accessibility baseline:
 
 - keyboard-accessible controls
 - predictable focus order
@@ -3930,7 +3930,7 @@ Accepted baseline:
 - Public-impact actions commit current valid working data and do not require a redundant Save immediately before Publish/Schedule.
 - Archive, Supersede, Inactivate, Permanent Withdrawal, and Correct Published File remain deliberate/secondary actions with confirmation only where warranted.
 - Document replacement and entity lifecycle actions use domain-specific human language.
-- Record lists do not provide Bulk Publish or routine one-click Publish; domain-safe Bulk Archive may exist only where Frozen Admin CMS rules justify it.
+- Record lists do not provide Bulk Publish or routine one-click Publish; domain-safe Bulk Archive may exist only where current Admin CMS rules justify it.
 - Success feedback states the real workflow/public consequence; failures preserve working data and direct staff to the actual problem.
 - Preview remains protected, read-only, non-public, and clearly distinct from the public page.
 - Record Workflow History remains secondary contextual information, not an activity feed.
@@ -3987,7 +3987,7 @@ A stale edit/action never reverses a newer committed Archive, Close, Expire, Ina
 
 ## 40.7 Homepage Source Invalidation
 
-For an already Published Homepage, a curated source that becomes ineligible is removed/hidden/falls back according to Frozen Homepage eligibility rules without turning the entire Homepage into Draft or failed state. CMS surfaces an actionable warning.
+For an already Published Homepage, a curated source that becomes ineligible is removed/hidden/falls back according to current Homepage eligibility rules without turning the entire Homepage into Draft or failed state. CMS surfaces an actionable warning.
 
 For placement-level scheduling, if an eligible scheduled placement becomes invalid before activation, that placement does not activate; fallback/hide behavior protects the current Homepage and no whole-Homepage Scheduled replacement state is created.
 
@@ -4034,14 +4034,14 @@ Accepted baseline:
 
 # 42. Final Publishing Workflow Consistency Review
 
-Final cross-document review was performed against Frozen `00–06` before Freeze.
+Clean Rebaseline cross-document review was performed against current `00–06`.
 
 Initial result was **CONDITIONAL PASS** with no critical architecture blocker and four consistency correction groups plus two clarifications. All accepted corrections have now been applied across affected sections:
 
-1. Restored Frozen lifecycle semantics: `Hidden` for Health Service / Personnel / Organization / Document and meaningful `Expired` for Document.
+1. Confirmed lifecycle semantics: `Hidden` for Health Service / Personnel / Organization / Document and meaningful `Expired` for Document.
 2. Replaced the incorrect singleton Contact Configuration model with the structured reusable Contact Information model and Publisher-level public-impact rules.
 3. Removed whole-Homepage Scheduled Configuration; Homepage Configuration is Draft/Published while only eligible temporal placements may schedule.
-4. Aligned list/bulk behavior with Frozen Admin CMS: Bulk Publish/destructive Bulk Delete remain excluded, while domain-safe Bulk Archive may exist where justified.
+4. Aligned list/bulk behavior with current Admin CMS: Bulk Publish/destructive Bulk Delete remain excluded, while domain-safe Bulk Archive may exist where justified.
 5. Clarified Scheduled editing under Approval OFF vs Approval ON content-lock semantics.
 6. Replaced ambiguous `Editor Working State` wording with `Authorized Working Changes` so the formal Editor Role is not misrepresented.
 
@@ -4059,7 +4059,7 @@ Additional verification result:
 - Responsive publishing UX / server-authoritative state — PASS
 - Over-engineering guardrails — PASS
 
-No unresolved architecture blocker remains. Exact transaction/locking/scheduler infrastructure, storage representation, API status codes, retry cadence, and other implementation mechanics remain deferred to `10-system-blueprint.md`; Public Search inclusion/ranking for historical content remains deferred to `08-search.md`.
+No unresolved Product/workflow blocker remains. Exact transaction/locking/scheduler infrastructure, storage representation, transport status codes, retry cadence, and other implementation mechanics belong to `10-system-blueprint.md`; Public Search inclusion/ranking for historical content is governed by `08-search.md`.
 
 ---
 
@@ -4074,12 +4074,12 @@ CLEAN REBASELINE — Publishing Workflow Baseline
 Version 2.0
 ```
 
-Key boundary retained at Freeze:
+Key boundary retained in the current baseline:
 
 - Direct Publish and Scheduled Publish are available to authorized Publisher-level users by default.
 - Approval Workflow is optional and OFF by default.
 - Create/Edit never implies public-impact authority.
-- State/lifecycle semantics follow Domain meaning and Frozen Content Model/Sitemap.
+- State/lifecycle semantics follow Domain meaning and current Content Model/Sitemap.
 - Homepage whole-configuration scheduling is not part of Version 1; only eligible temporal placements may schedule.
 - Published-revision branching, workflow designers, multi-stage approval, reviewer assignment, recurring scheduling, AI quality gates, universal state-machine configuration, and enterprise workflow infrastructure are excluded from Version 1.
 

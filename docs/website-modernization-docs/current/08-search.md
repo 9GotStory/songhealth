@@ -4,7 +4,7 @@
 > **Status:** CLEAN REBASELINE v2.0 — CURRENT
 > **Version:** 2.0
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
-> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md` v1.1, `03-sitemap.md` v1.0, `04-homepage.md` v1.0, `05-admin-cms.md` v1.0, `06-roles-permissions.md` v1.0, `07-publishing-workflow.md` v1.0
+> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`, `06-roles-permissions.md`, `07-publishing-workflow.md`
 > **Purpose:** กำหนดพฤติกรรมของ Public Search / Search & Discovery ให้ประชาชนค้นหาข้อมูลสาธารณะของเว็บไซต์ได้ง่าย ถูกต้อง และสอดคล้องกับ Information Architecture, Content Model, Sitemap และ Publishing Lifecycle โดยยังไม่ผูกกับ search engine, database extension, indexing library หรือ implementation technology ใด
 > **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
 > **Technology Ownership:** Search behavior, Thai-language expectations, eligibility, ranking and privacy are product contracts; exact engine/index implementation belongs to `10`.
@@ -3730,13 +3730,13 @@ If content was previously Public and later becomes Hidden, withdrawn, or otherwi
 
 External search engines may take time to refresh their own indexes/caches.
 
-The website should therefore expose correct canonical route semantics such as Not Found, Gone, or meaningful Redirect according to the Frozen Sitemap/Publishing Workflow, while recognizing that external crawler convergence is outside the direct control of `08-search.md`.
+The website should therefore expose correct canonical route semantics such as Not Found, Gone, or meaningful Redirect according to the current Sitemap/Publishing Workflow, while recognizing that external crawler convergence is outside the direct control of `08-search.md`.
 
 ---
 
-# 162. Purpose-built Public Search API Response
+# 162. Purpose-built Public Search Result/Data Contract
 
-A Public Search API response must contain only the minimal public-safe fields required to render Search results, conceptually:
+Whatever trusted server-side search interface supplies results to the presentation layer must expose only the minimal public-safe fields required to render Search results, conceptually:
 
 - canonical stable identity as needed
 - canonical public URL
@@ -3750,7 +3750,7 @@ The trusted search/public-data layer must not send full CMS entities containing 
 
 > **Do not send what the client is not allowed to expose.**
 
-The Public Search endpoint is read-only and does not mutate canonical content or ranking state.
+The Search execution path is read-only from the public user's perspective and does not mutate canonical content or ranking state. This section does not require a separately exposed HTTP API.
 
 ---
 
@@ -3762,7 +3762,7 @@ The user may see a message such as:
 
 > ไม่สามารถค้นหาได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง
 
-Public responses must not expose database errors, stack traces, search-engine names, index names, query dumps, payloads, internal IDs, or infrastructure topology.
+Public Search errors/results must not expose database errors, stack traces, search-engine names, index names, query dumps, payloads, internal IDs, or infrastructure topology.
 
 Authorization-like errors for Hidden/Internal candidates should not occur in Global Search because those candidates are outside the eligible result set.
 
@@ -3927,7 +3927,7 @@ Accepted baseline:
 
 # 171. Final Search Consistency Review
 
-Final review compared this document against Frozen `00–07` and found **no architectural blocker** after three consistency repairs.
+Clean Rebaseline review compared this document against current `00–07` and found **no Product/search blocker** after consistency review.
 
 ## 171.1 Review Scope
 
@@ -3935,7 +3935,7 @@ The review verified:
 
 - Website Foundation / Citizen First / Search-as-First-Class alignment
 - Information Architecture and public-domain boundaries
-- Frozen Sitemap `/search`, Search Groups, canonical routes, query-state, and public lifecycle behavior
+- Current Sitemap `/search`, Search Groups, canonical routes, query-state, and public lifecycle behavior
 - Content Model Search Unit/resource meaning and shared Document/Media/ITA relationships
 - Homepage vs Search responsibility separation
 - Admin CMS / Roles & Permissions boundaries
@@ -3946,11 +3946,11 @@ The review verified:
 
 ## 171.2 Consistency Repairs Applied Before Freeze
 
-1. **Frozen Search Group alignment** — `08` now uses the Sitemap baseline `ทุกประเภท / ข่าวสาร / บริการประชาชน / ข้อมูลสุขภาพ / หน่วยบริการ / เอกสาร / ITA / เกี่ยวกับเรา` rather than an incomplete example set.
-2. **Personnel / Organization canonical destination alignment** — Version 1 Search results use `/about/personnel` and `/about/organization` directory/anchored context as Frozen in the Sitemap; `08` no longer leaves room for creating new per-entity detail routes without Sitemap amendment.
-3. **Admin / reindex permission boundary alignment** — Search health, if exposed in Admin CMS, remains read-only/actionable system information outside the normal Admin Work Dashboard. Version 1 adds no new CMS `search.reindex` permission after `06` Freeze; manual reindex remains operational maintenance unless a future versioned cross-document update explicitly introduces an Admin capability.
+1. **Search Group alignment** — `08` now uses the Sitemap baseline `ทุกประเภท / ข่าวสาร / บริการประชาชน / ข้อมูลสุขภาพ / หน่วยบริการ / เอกสาร / ITA / เกี่ยวกับเรา` rather than an incomplete example set.
+2. **Personnel / Organization canonical destination alignment** — Version 1 Search results use `/about/personnel` and `/about/organization` directory/anchored context as defined in the current Sitemap; `08` no longer leaves room for creating new per-entity detail routes without Sitemap amendment.
+3. **Admin / reindex permission boundary alignment** — Search health, if exposed in Admin CMS, remains read-only/actionable system information outside the normal Admin Work Dashboard. Version 1 adds no new CMS `search.reindex` permission outside the current `06` permission baseline; manual reindex remains operational maintenance unless a future versioned cross-document update explicitly introduces an Admin capability.
 
-These repairs clarify existing Frozen decisions and do not introduce a new Search feature or change the accepted architecture.
+These rules clarify current decisions and do not introduce a new Search feature or dictate a particular search transport/engine.
 
 ## 171.3 Consistency Result
 
@@ -3974,15 +3974,15 @@ Implementation deferral to System Blueprint PASS
 
 **Final Result: PASS.**
 
-No new Search feature topic is required before Freeze.
+No new Search Product topic is required for the current baseline.
 
 ---
 
-# 172. Freeze — Public Search / Search & Discovery Baseline v2.0
+# 172. Clean Rebaseline — Public Search / Search & Discovery Baseline v2.0
 
-`08-search.md` is **FROZEN — Public Search / Search & Discovery Baseline v2.0**.
+`08-search.md` is **CLEAN REBASELINE v2.0 — CURRENT**.
 
-Frozen baseline includes:
+Current baseline includes:
 
 - Public Search Foundation and separation from Admin Search
 - Searchable Content & Search Unit Model
@@ -3991,7 +3991,7 @@ Frozen baseline includes:
 - `/search` UX, citizen-facing Search Groups, URL-backed query/filter/page state, pagination, zero/error/loading states, responsive/accessibility rules
 - canonical lifecycle synchronization, fail-closed visibility, reconciliation, and rebuildability
 - Search operations/observability boundaries without Search-admin over-engineering
-- public-safe projection, request bounds, output safety, privacy, abuse protection, crawler/SEO boundary, and minimal Public Search API contract
+- public-safe projection, request bounds, output safety, privacy, abuse protection, crawler/SEO boundary, and minimal Search result/data contract independent of transport
 - explicit deferral of implementation technology to `10-system-blueprint.md`
 
 Future changes require cross-document Impact Review and a versioned update to the consolidated `current/` baseline.

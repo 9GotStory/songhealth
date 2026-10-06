@@ -1044,7 +1044,7 @@ Approval Workflow สามารถเปิดใช้ในอนาคต�
 - Media ใดต้องเก็บ
 - เอกสารใดควรจัดหมวดใหม่
 
-การทำ WordPress Audit และ Migration Plan จะดำเนินการใน Phase แยกต่างหาก
+Legacy WordPress audit และการย้ายข้อมูลถูกกำกับโดย `09-migration-plan.md`; WordPress ยังคงเป็นเพียง migration source และไม่กำหนด target architecture.
 
 ---
 
@@ -1085,8 +1085,8 @@ Approval Workflow สามารถเปิดใช้ในอนาคต�
 - Health Report ใช้แนวทาง Metadata + PDF / Document และไม่แตกข้อมูลใน PDF เป็น Metrics ใน CMS
 - Health Metric ไม่เป็น CMS Content Type ใน Version 1
 - Dashboard / Analytical Data เป็น Data Domain แยกจาก CMS และสามารถนำเสนอผ่าน `/dashboard`
-- CMS Database และ Dashboard Database แยกกันอย่างน้อยในระดับ Logical Database และ Credentials
-- Dashboard เข้าถึงข้อมูลผ่าน API และไม่ใช้ CMS Database เป็น Analytical Data Source หลัก
+- Public Content/CMS และ Dashboard ต้องมี data ownership และ access boundary แยกกัน; exact physical database topology เป็นเรื่องของ System Blueprint/ระบบ Dashboard
+- Dashboard integration ใช้ bounded interface ที่มี ownership ชัดเจน และไม่ใช้ CMS/Public Content persistence เป็น Analytical Data Source หลัก
 - ITA เป็น Structured Yearly Evidence Directory: Fiscal Year → MOIT / Section → Requirement / Item → Evidence
 - PDF / Document เป็น ITA Evidence หลักใน Version 1 และ External URL ใช้เมื่อจำเป็น
 - ITA ปรับเกณฑ์ได้ตามแต่ละปีโดยไม่ Hard-code โครงสร้าง
@@ -1109,46 +1109,41 @@ Approval Workflow สามารถเปิดใช้ในอนาคต�
 
 ---
 
-## 14. Documentation Roadmap
+## 14. Current Documentation Set and Change Flow
 
-เอกสารลำดับถัดไปควรถูกสร้างเมื่อหัวข้อนั้นได้รับการอภิปรายและมีข้อสรุปเพียงพอ
-
-แนวทางเบื้องต้น:
+เอกสาร `current/` ทั้ง 11 ไฟล์เป็น Source of Truth ชุดเดียวกัน:
 
 ```text
-docs/
-├── 00-website-foundation.md
-├── 01-information-architecture.md
-├── 02-content-model.md
-├── 03-sitemap.md
-├── 04-homepage.md
-├── 05-admin-cms.md
-├── 06-roles-permissions.md
-├── 07-publishing-workflow.md
-├── 08-search.md
-├── 09-migration-plan.md
-└── 10-system-blueprint.md
+00 Website Foundation
+01 Information Architecture
+02 Content Model
+03 Sitemap
+04 Homepage
+05 Admin CMS
+06 Roles & Permissions
+07 Publishing Workflow
+08 Search
+09 Migration Plan
+10 System Blueprint
 ```
 
-ไม่จำเป็นต้องสร้างเอกสารทั้งหมดพร้อมกัน
-
-หลักการทำงานคือ:
+การเปลี่ยน requirement หลัง Clean Rebaseline ใช้ flow:
 
 ```text
-Discuss
-   ↓
-Reach Agreement
-   ↓
-Document
-   ↓
-Review
-   ↓
-Refine
-   ↓
-Final Review
-   ↓
-Freeze
+New evidence / requirement
+        ↓
+Impact Review
+        ↓
+Update owning current document
+        ↓
+Cross-document consistency review
+        ↓
+Human acceptance
+        ↓
+Downstream specification / implementation update
 ```
+
+Git history/archival branches เก็บ provenance ของ baseline เก่า; `current/` ไม่สะสม implementation-specific append-only overlays อีกต่อไป.
 
 ---
 

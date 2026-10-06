@@ -54,7 +54,7 @@ Accepted principles:
 
 ## 3. Header / Navigation
 
-Homepage header uses the frozen public navigation:
+Homepage header uses the current public navigation:
 
 ```text
 Main Navigation
@@ -1460,7 +1460,7 @@ This preserves:
 - Back behavior
 - shareability
 - deterministic state
-- consistency with frozen URL conventions
+- consistency with current URL conventions
 
 ### 11.13 No Large Inline Search Results
 
@@ -4704,15 +4704,15 @@ Fallback
 
 > **Accessibility is a quality requirement throughout design/development/QA, not a separate approval workflow.**
 
-> **Exact visual measurements and component implementation belong to the later Design System/System Blueprint; `04-homepage.md` freezes the behavior and principles.**
+> **Exact visual measurements and component implementation belong to the later Design System/System Blueprint; `04-homepage.md` defines the current behavior and principles.**
 
 ---
 
 ## 20. Scope Boundary and Deferred Decisions
 
-This document freezes Homepage behavior, content ownership, priority, fallback, curation, responsive rules, and accessibility principles.
+This document defines the current Homepage behavior, content ownership, priority, fallback, curation, responsive rules, and accessibility principles.
 
-It does **not** freeze:
+It does **not** define:
 
 - exact visual styling, spacing, typography, color tokens, or breakpoints
 - database tables or schema
@@ -4735,17 +4735,17 @@ Future requirements may revise this baseline through explicit impact review rath
 
 ---
 
-## 21. Freeze Statement
+## 21. Clean Rebaseline — Homepage Baseline v2.0
 
-**Status:** FROZEN — Homepage Baseline
-**Version:** 1.0
-**Freeze Date:** 13 สิงหาคม 2569
+**Status:** CLEAN REBASELINE v2.0 — CURRENT
+**Version:** 2.0
+**Rebaseline Date:** 6 ตุลาคม 2569 (2026-10-06)
 
-This document is the approved Homepage baseline for downstream design and implementation documents.
+This document is the current approved Homepage baseline for downstream design and implementation.
 
-Freeze means:
+Current baseline means:
 
-- downstream documents must respect these decisions
-- implementation detail may refine how the decisions are realized
-- a genuine requirement change may revise the baseline through impact review
+- downstream documents and implementation respect these decisions
+- implementation may refine how the decisions are realized without changing Product behavior
+- a genuine requirement change may revise the baseline through cross-document impact review
 - convenience alone is not sufficient reason to bypass content ownership, canonical routing, accessibility, or complexity guardrails

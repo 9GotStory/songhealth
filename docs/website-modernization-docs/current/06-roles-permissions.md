@@ -4,7 +4,7 @@
 > **Status:** CLEAN REBASELINE v2.0 — CURRENT
 > **Version:** 2.0
 > **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
-> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md` v1.1, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md` v1.0
+> **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`
 > **Purpose:** กำหนดแนวคิด Role, Capability, ขอบเขตสิทธิ์ และ Security/Usability Guardrails ของ Admin CMS โดยยังไม่ลงรายละเอียดระดับ Database Schema, Authorization Library, API Middleware หรือโค้ด
 > **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
 > **Technology Ownership:** Roles, Module Scope and authorization semantics are product rules independent of the authentication/CMS implementation.
@@ -237,7 +237,7 @@ Version 1 ใช้ Permission ระดับ Module + Action เป็นห�
 
 Edit ไม่ได้หมายความว่า Hard Delete ได้
 
-ข้อมูลสำคัญใช้ lifecycle-first ตาม Frozen Foundation/Admin CMS:
+ข้อมูลสำคัญใช้ lifecycle-first ตาม current Foundation/Admin CMS baseline:
 
 - Archive
 - Close / Expire
@@ -503,7 +503,7 @@ Version 1 ใช้ capability ระดับสูงเพียง:
 Settings Manage
 ```
 
-ไม่แตก permission ตามแต่ละ field ใน Settings เพราะ Frozen Settings Boundary ตั้งใจให้เล็กอยู่แล้ว
+ไม่แตก permission ตามแต่ละ field ใน Settings เพราะ current Settings Boundary ตั้งใจให้เล็กอยู่แล้ว
 
 ---
 
@@ -1027,7 +1027,7 @@ Module Scope เป็นทั้ง Module ไม่ใช่ row-level scope.
 
 ## 40.7 Specialized Modules Derived from Role
 
-ITA และ Homepage specialized capabilities derive จาก Role + Module Scope ตาม Matrix ที่ Freeze ไว้ ไม่ให้ Administrator ติ๊ก capability ย่อยราย User.
+ITA และ Homepage specialized capabilities derive จาก Role + Module Scope ตาม current Matrix ไม่ให้ Administrator ติ๊ก capability ย่อยราย User.
 
 ## 40.8 Permission Summary and Impact Preview
 
@@ -1210,7 +1210,7 @@ CMS แยกอย่างน้อย:
 - Validation/Conflict
 - Not Found
 
-Exact HTTP/API status เช่น 401/403/404 ไป System Blueprint; `06` Freeze user-facing semantics และ security behavior.
+Exact HTTP/API status เช่น 401/403/404 ไป System Blueprint; `06` defines user-facing semantics และ security behavior.
 
 ## 42.3 Action Visibility
 
@@ -1316,7 +1316,7 @@ Client-provided Role/Module Scope ไม่เป็น Source of Truth แล�
 
 # 43. Final Roles & Permissions Consistency Review
 
-Final review against Frozen `00–05` confirmed the Version 1 authorization model with the following final clarifications/corrections:
+Clean Rebaseline review against current `00–05` confirms the Version 1 authorization model with the following clarifications:
 
 1. Any edit to an already Public/Active record that changes public output requires Publisher-level authority in that Module; Editor-level edit authority remains for Draft/non-public work.
 2. `audit.view` remains a separate architectural capability but is Administrator-only by default in Version 1.
@@ -1325,7 +1325,7 @@ Final review against Frozen `00–05` confirmed the Version 1 authorization mode
 5. CMS Role is separate from public Personnel Role/Position/Assignment and must never be inferred from job title.
 6. One Role level applies uniformly across all assigned Module Scopes in Version 1. Mixed responsibility levels per module require future Impact Review/versioned cross-document update rather than silently over-granting or adding per-user overrides.
 
-Consistency result: Foundation PASS, IA PASS, Content Model v1.1 PASS, Sitemap PASS, Homepage PASS, Admin CMS PASS, ITA/Document/shared-resource boundaries PASS, security guardrails PASS, and over-engineering review PASS.
+Consistency result: Foundation PASS, IA PASS, Content Model v2.0 PASS, Sitemap v2.0 PASS, Homepage v2.0 PASS, Admin CMS v2.0 PASS, ITA/Document/shared-resource boundaries PASS, security guardrails PASS, and over-engineering review PASS.
 
 ---
 

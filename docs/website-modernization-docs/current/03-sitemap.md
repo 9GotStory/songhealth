@@ -340,7 +340,7 @@ v1 ยังไม่รวม:
 - `/health/reports/...` = Canonical Report URL
 - Raw PDF ไม่ใช่ Canonical Report URL
 - `/dashboard` = Dashboard Entry Point
-- Dashboard อยู่ใต้ “ข้อมูลสุขภาพ” ใน Public Navigation แต่แยก Data Domain / DB / API จาก CMS
+- Dashboard อยู่ใต้ “ข้อมูลสุขภาพ” ใน Public Navigation แต่มี data ownership/access boundary แยกจาก CMS/Public Content; exact persistence/integration topology อยู่ใน architecture ของระบบที่เกี่ยวข้อง
 - Dashboard sub-routes ยังไม่ Freeze
 - Health Topic เป็น Filter/Taxonomy ก่อน ไม่สร้าง topic routes โดย default
 
@@ -2307,9 +2307,9 @@ as appropriate.
 
 ---
 
-# 19. Final Consistency Review
+# 19. Clean Rebaseline Consistency Review
 
-ก่อน Freeze ได้ตรวจเทียบ Sitemap ฉบับนี้กับ Baseline ที่ Freeze แล้ว:
+Clean Rebaseline ตรวจ Sitemap เทียบกับ current upstream baselines:
 
 - `00-website-foundation.md`
 - `01-information-architecture.md`
@@ -2342,7 +2342,7 @@ as appropriate.
 
 ### Adjustments Made During Final Review
 
-Final Review พบและแก้ไขประเด็นต่อไปนี้ก่อน Freeze:
+Consistency Review ยืนยัน/ปรับประเด็นต่อไปนี้:
 
 - แก้ News Detail breadcrumb จาก `หน้าแรก > ข่าวสาร > ข่าวประชาสัมพันธ์ > ชื่อข่าว` เป็น `หน้าแรก > ข่าวสาร > ชื่อข่าว` เพราะ `/news` เป็นทั้ง Communication Hub และ News Listing อยู่แล้ว และไม่มี route “ข่าวประชาสัมพันธ์” แยกอีกชั้น
 - เพิ่ม Basic Page canonical fallback route `/pages/{public-id}/{slug?}` โดยไม่มี `/pages` listing เพื่อให้ Basic Page ที่เผยแพร่และค้นเจอมี canonical destination โดยไม่ขยาย scope
@@ -2359,11 +2359,11 @@ Final Review พบและแก้ไขประเด็นต่อไป�
 
 ---
 
-# 20. Decision Status / Freeze
+# 20. Current Sitemap Baseline
 
-## 20.1 Frozen Sitemap Decisions
+## 20.1 Approved Sitemap Decisions
 
-Sitemap Baseline v2.0 ถือว่า Freeze แล้วในประเด็นต่อไปนี้:
+Sitemap Baseline v2.0 เป็น current approved baseline ในประเด็นต่อไปนี้:
 
 - Main Navigation และ Utility Navigation
 - Public route ownership
@@ -2385,28 +2385,32 @@ Sitemap Baseline v2.0 ถือว่า Freeze แล้วในประเ�
 - 404 / Gone / Unpublished public behavior
 - Basic Page fallback route
 
-## 20.2 Intentionally Deferred
+## 20.2 Remaining Deferred Details
 
-การ Freeze Sitemap ไม่ได้ Freeze รายละเอียดต่อไปนี้:
+รายละเอียดต่อไปนี้ยังอยู่นอก ownership ของ Sitemap หรือยังต้องมี evidence เพิ่มเติม:
 
-- exact Public ID format (UUID / ULID / opaque ID)
-- exact search ranking, synonyms, typo tolerance, Thai segmentation
-- exact Service Inventory / category taxonomy
-- exact Health Service status enum
-- detailed status enum per Content Type
-- exact HTTP redirect code choice (301 vs 308)
-- exact preview authentication mechanism
-- exact Footer link composition
+- exact Public ID encoding/format (เช่น UUID / ULID / opaque ID) โดยต้องรักษา stable public identity semantics
+- exact Service Inventory และ taxonomy values ที่ขึ้นกับข้อมูลปฏิบัติงานจริง
+- exact HTTP redirect status choice ในแต่ละ technical case
+- exact preview authentication/session mechanism (`10-system-blueprint.md`)
+- exact Footer link composition ภายใต้ ownership ที่ `04-homepage.md` กำหนด
 - Dashboard internal route structure beyond `/dashboard`
-- WordPress URL-by-URL migration mapping
-- API / Database / Router implementation
-- visual layout and responsive components
+- WordPress URL-by-URL migration mapping (`09-migration-plan.md`)
+- Database/router/storage implementation (`10-system-blueprint.md`)
+- visual implementation และ responsive component details
 
-หัวข้อเหล่านี้จะถูกกำหนดในเอกสารลำดับถัดไปตามความเหมาะสม โดยต้องไม่ขัดกับ Sitemap Baseline นี้
+สิ่งที่ **ไม่ deferred แล้ว**:
+
+- Search behavior/Thai matching/ranking/filters → `08-search.md`
+- publishing/lifecycle/status semantics → `07-publishing-workflow.md`
+- Admin behavior → `05-admin-cms.md`
+- Roles/Permissions → `06-roles-permissions.md`
+
+การเปลี่ยนรายละเอียดเหล่านี้ต้องไม่ขัดกับ current Sitemap ownership/canonical-route contract.
 
 ## 20.3 Change Control
 
-Freeze หมายถึง **Approved Baseline for downstream documents** ไม่ใช่ immutable forever.
+Current baseline คือ **Approved Baseline for downstream documents** ไม่ใช่ immutable forever.
 
 หาก Requirement จริงเปลี่ยนในอนาคต:
 
