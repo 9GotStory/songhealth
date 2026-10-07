@@ -26,6 +26,23 @@ minimum usable Songhealth platform foundation."
   → A: No. It means the database and media backup artifacts needed to restore and verify the known
   validation state; planning chooses the smallest procedure allowed by `current/10`.
 
+### Session 2026-10-07
+
+- Q: Which exact configuration interface must Feature 001 use for the PostgreSQL runtime, EmDash
+  migrations, public origin, application server, and media storage? → A: The verified
+  platform-native runtime contract approved with the T004 Human Gate architecture correction:
+  the application PostgreSQL runtime uses `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, and
+  `PGPASSWORD`; the EmDash migration connection uses `EMDASH_MIGRATION_DATABASE_URL`; the
+  public origin uses `EMDASH_SITE_URL`; the application server uses `HOST` and `PORT`; the
+  EmDash secret is `EMDASH_ENCRYPTION_KEY`; and native media storage uses the stable
+  application mount path `./media` rather than a `MEDIA_DIRECTORY` runtime input. The
+  PostgreSQL runtime inputs and the migration URL must identify the same intended database,
+  with consistency checks and evidence that compare non-secret identity components (host,
+  port, database, user) only and never disclose credentials, and no secret or
+  environment-specific credential may be serialized into build artifacts or images. This
+  clarification records the approved correction only; it changes no Product requirement,
+  user story, acceptance scenario, or scope boundary in this specification.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Start the Canonical Platform (Priority: P1)

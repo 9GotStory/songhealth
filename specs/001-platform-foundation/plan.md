@@ -32,8 +32,8 @@ tasks are created in this Plan phase.
 versions in the manifest and lockfile rather than use an unbounded `latest` contract.
 
 **Storage**: PostgreSQL 18.6 on a persistent Podman volume; EmDash's native local-filesystem media
-adapter on a separate persistent Podman volume. Development uses the same PostgreSQL major and an
-ignored local media directory.
+adapter on a separate persistent Podman volume. Development uses the same PostgreSQL major and the
+ignored local media directory at the stable application path `./media`.
 
 **Testing**: `astro check`, Node's built-in test runner for configuration/readiness logic,
 Playwright 1.63.0 for focused public/Admin browser smoke checks, and command-driven Podman/Quadlet,
@@ -110,12 +110,21 @@ an accepted RPO/RTO, scale, operational-risk, or other current requirement.
 ### Configuration and secrets
 
 - Commit only a documented `.env.example` containing variable names and non-secret examples.
-  Required runtime inputs include the public site origin, server host/port, PostgreSQL connection,
-  media directory, and EmDash encryption key. Validation fails closed on missing or malformed
-  required values and redacts their values from output.
-- Keep `DATABASE_URL`, `EMDASH_ENCRYPTION_KEY`, database passwords, and backup credentials in
-  operator-managed Podman/systemd secrets or equivalent host-protected files. Non-secret values may
-  use an external environment file. Neither class is baked into the OCI image or committed.
+  Required runtime inputs use the approved platform-native names: the application PostgreSQL
+  runtime connection `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`; the EmDash
+  migration connection `EMDASH_MIGRATION_DATABASE_URL`; the public origin `EMDASH_SITE_URL`; the
+  application server `HOST`/`PORT`; and the EmDash secret `EMDASH_ENCRYPTION_KEY`. Validation
+  fails closed on missing or malformed required values, verifies that the PostgreSQL runtime
+  inputs and the migration URL identify the same intended database by comparing non-secret
+  identity components (host, port, database, user) only, and redacts all values from output.
+  Native media storage is not a runtime input: the EmDash local-media adapter uses the stable
+  application mount path `./media`—a persistent volume mapped to that path in production and the
+  ignored local `./media` directory in development—instead of a `MEDIA_DIRECTORY` variable.
+- Keep `PGPASSWORD`, the password inside `EMDASH_MIGRATION_DATABASE_URL`, `EMDASH_ENCRYPTION_KEY`,
+  and backup credentials in operator-managed Podman/systemd secrets or equivalent host-protected
+  files. Non-secret values may use an external environment file. Neither class is baked into the
+  OCI image, serialized into build artifacts, or committed; the native migration manifest emitted
+  by the exact application build carries secret-free target information only.
 - Maintain an independently protected backup/recovery procedure for required operator-provided
   runtime secrets, including `EMDASH_ENCRYPTION_KEY`. The procedure records only secret names,
   version/recovery references, and pass/fail evidence in reviewable artifacts; actual values remain
@@ -134,9 +143,9 @@ an accepted RPO/RTO, scale, operational-risk, or other current requirement.
   committed lockfile.
 - Start only PostgreSQL in a disposable rootless Podman development container, with a named volume
   when persistence testing is needed. This is parity support, not a second production stack.
-- Store development media in an ignored local directory through the same native EmDash local
-  adapter. A clean-checkout guide names every prerequisite and command; an independent maintainer
-  must need zero undocumented intervention.
+- Store development media in the ignored local directory at the stable application path `./media`
+  through the same native EmDash local adapter. A clean-checkout guide names every prerequisite
+  and command; an independent maintainer must need zero undocumented intervention.
 
 ### Production topology and durability
 
@@ -177,7 +186,8 @@ Persistent volumes
   only redacted ready/not-ready evidence and is never exposed as a required public endpoint.
 - Make the native migration sequence a deployment/startup gate before the application is declared
   ready: consume the migration manifest emitted by the exact application build, inspect the
-  intended database target with `emdash migrate --status`, apply pending migrations with
+  intended database target—the one identified by `EMDASH_MIGRATION_DATABASE_URL`, which must match
+  the `PG*` runtime inputs' target—with `emdash migrate --status`, apply pending migrations with
   `emdash migrate`, and verify the resulting state with `emdash migrate --check`. The apply step
   preserves EmDash's target-fingerprint safety mechanism when run non-interactively. `--check`
   remains verification-only and does not apply migrations. Any status/apply/check failure or

@@ -4,6 +4,9 @@
 
 **Research date**: 2026-10-06
 
+**Updated**: 2026-10-07 — configuration decisions corrected to the approved platform-native
+runtime configuration contract (see the correction notes in sections 4 and 5).
+
 **Source policy**: Current official project documentation, official package metadata, and
 authoritative upstream repositories only. Historical Songhealth implementation was not consulted.
 
@@ -77,14 +80,27 @@ custom schema framework. [EmDash seed files](https://docs.emdashcms.com/themes/s
 
 ## 4. PostgreSQL and Native Migrations
 
-**Decision**: Use EmDash's native PostgreSQL adapter with a runtime `DATABASE_URL`, PostgreSQL
-18.6, and `pg` 8.23.1. Use native EmDash migration commands and a stable, non-superuser application
+**Decision**: Use EmDash's native PostgreSQL adapter with the native runtime connection inputs
+`PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, and `PGPASSWORD`, PostgreSQL 18.6, and `pg` 8.23.1.
+The native EmDash migration commands connect through the separately named
+`EMDASH_MIGRATION_DATABASE_URL` migration connection. Use a stable, non-superuser application
 role with the documented schema/object ownership permissions. Build/sync emits
 `.emdash/migrations.json` for the exact application build. Production deployment consumes that
 manifest, uses `emdash migrate --status` to inspect the intended target, applies pending migrations
 with `emdash migrate`, and uses `emdash migrate --check` only to verify the resulting state.
 Non-interactive apply preserves EmDash's required target-fingerprint safety mechanism. Native
 runtime migration mode may be `check` in production and `auto` in development.
+
+**Correction (2026-10-07)**: The original research above assumed a single runtime `DATABASE_URL`
+connection string for both the application and migrations. The Product Owner's approved T004 Human
+Gate architecture correction replaced that assumption with the platform-native contract before any
+implementation was accepted: the application runtime identifies its database through `PGHOST`,
+`PGPORT`, `PGDATABASE`, `PGUSER`, and `PGPASSWORD`, while the native migration commands read
+`EMDASH_MIGRATION_DATABASE_URL` (the adapter's migration connection-variable name). Both inputs
+must identify the same intended database, verified through non-secret identity components (host,
+port, database, user) only, and the manifest's target label omits credentials by native behavior.
+The earlier `DATABASE_URL` wording is superseded historical context, not current configuration
+authority; no implementation based on it was accepted.
 
 **Rationale**: EmDash officially supports PostgreSQL on Node and documents connection,
 least-privilege role, and core migration behavior. No explicit PostgreSQL server-major support
@@ -114,7 +130,15 @@ native EmDash capabilities, so no Songhealth migration framework or migration se
 ## 5. Media Storage
 
 **Decision**: Use EmDash's native local-filesystem storage adapter against a dedicated persistent
-media volume in production and an ignored local directory in development.
+media volume in production and an ignored local directory in development. Media storage resolves
+at the stable application mount path `./media`—production maps the persistent media volume to that
+path, and development uses the ignored local `./media` directory—and is not runtime-configured
+through a `MEDIA_DIRECTORY` variable.
+
+**Correction (2026-10-07)**: The original wording above left the media location implicitly
+runtime-configurable (a `MEDIA_DIRECTORY`-style input). The approved T004 Human Gate architecture
+correction fixes native media storage at the stable application path `./media` instead; that
+earlier interpretation is superseded and is not current configuration authority.
 
 **Rationale**: EmDash explicitly recommends local storage for a single Node server with writable
 persistent disk. This satisfies the fixed single-host baseline without adding object storage,

@@ -11,22 +11,31 @@ configuration; never application database content solely for configuration conve
 
 | Field | Classification | Rules |
 |---|---|---|
-| Public site origin | Non-secret, environment-specific | Absolute HTTPS origin in production; available at build and runtime where EmDash requires it. |
-| Application host/port | Non-secret, environment-specific | Must match the container/proxy boundary and must not expose an unintended interface. |
-| PostgreSQL connection | Secret-bearing | References only the private DB boundary; stable least-privilege EmDash role; value never logged. |
-| EmDash encryption key | Secret | Valid EmDash key; stored and recovered outside the repository/database/media artifacts; value never logged. |
-| Media directory | Non-secret path | Must resolve to the intended persistent media mount in production and be writable. |
+| Public site origin (`EMDASH_SITE_URL`) | Non-secret, environment-specific | Absolute HTTPS origin in production; available at build and runtime where EmDash requires it. |
+| Application server (`HOST`, `PORT`) | Non-secret, environment-specific | Must match the container/proxy boundary and must not expose an unintended interface. |
+| PostgreSQL runtime connection (`PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`) | Non-secret identity inputs | Reference only the private DB boundary; stable least-privilege EmDash role. |
+| PostgreSQL runtime password (`PGPASSWORD`) | Secret | Belongs to the stable least-privilege EmDash role; value never logged. |
+| EmDash migration connection (`EMDASH_MIGRATION_DATABASE_URL`) | Secret-bearing | Used only by the native EmDash migration commands; must identify the same intended database as the `PG*` runtime inputs; value never logged. |
+| EmDash encryption key (`EMDASH_ENCRYPTION_KEY`) | Secret | Valid EmDash key; stored and recovered outside the repository/database/media artifacts; value never logged. |
+| Media storage path | Non-secret stable application path | Native EmDash local-media storage uses the stable application mount path `./media`; it is not configured through a `MEDIA_DIRECTORY` runtime input. Production maps the persistent media volume to that path; it must exist and be writable. |
 | Image references | Non-secret deployment value | Exact version and immutable digest; never unbounded `latest`. |
 
 **Relationships**: Configures the Application Runtime, Persistent Database, and Persistent Media
-Store. Required operator-provided secrets have an independent protected recovery procedure linked
-to recovery readiness by name/reference only; secret values are never included in the Recovery Set
-or reviewable evidence.
+Store. The `PG*` runtime inputs and `EMDASH_MIGRATION_DATABASE_URL` target the same intended
+database; the runtime-versus-migration split is a connection-interface distinction, not two
+databases. Required operator-provided secrets have an independent protected recovery procedure
+linked to recovery readiness by name/reference only; secret values are never included in the
+Recovery Set or reviewable evidence.
 
 **Validation rules**:
 
 - Missing, malformed, or mutually inconsistent required values fail startup/readiness.
+- The `PG*` runtime inputs and `EMDASH_MIGRATION_DATABASE_URL` must agree on the same intended
+  database; consistency checks and evidence compare the non-secret identity components (host,
+  port, database, user) only and never disclose passwords or the full URL.
 - Error and readiness output may name the missing field or dependency but must not print values.
+- No secret or environment-specific credential may be serialized into build artifacts or images;
+  the native migration manifest carries secret-free target information only.
 - Committed examples contain names and safe placeholders only.
 
 ## 2. Native EmDash Foundation State
@@ -79,7 +88,8 @@ validation value.
 
 ## 4. Public-Publishable Validation Asset
 
-**Persistence**: Metadata in PostgreSQL; file bytes in EmDash's native local media directory.
+**Persistence**: Metadata in PostgreSQL; file bytes in EmDash's native local media storage at the
+stable application path `./media`.
 
 | Field | Rules |
 |---|---|
@@ -175,8 +185,9 @@ the external runtime secret boundary before the recovered application is accepte
 
 **Validation rules**:
 
-- At minimum, the inventory includes `EMDASH_ENCRYPTION_KEY` and any other operator-provided secret
-  that the implemented foundation actually requires.
+- At minimum, the inventory includes `EMDASH_ENCRYPTION_KEY`, the `PGPASSWORD` application-role
+  secret, and the password inside `EMDASH_MIGRATION_DATABASE_URL`, plus any other
+  operator-provided secret that the implemented foundation actually requires.
 - The protected backup must be available independently of Git, active containers, the active
   database/media volumes, and their recovery artifacts.
 - Restoration must produce only a pass/fail result or opaque version reference; values must not
@@ -189,7 +200,7 @@ the external runtime secret boundary before the recovered application is accepte
 Astro SSR + native EmDash Admin
        |                 |
        v                 v
-PostgreSQL state     Native media directory
+PostgreSQL state     Native media storage (stable ./media path)
        |                 |
        v                 v
 Logical DB archive   Separate media archive

@@ -1,9 +1,9 @@
 # System Blueprint — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 10-system-blueprint
-> **Status:** CLEAN REBASELINE v2.2 — CURRENT
-> **Version:** 2.2
-> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Status:** CLEAN REBASELINE v2.3 — CURRENT
+> **Version:** 2.3
+> **Last Updated:** 7 ตุลาคม 2569 (2026-10-07)
 > **Depends On:** `00-website-foundation.md` through `09-migration-plan.md`
 > **Purpose:** กำหนด architecture ปัจจุบันที่ใช้ Astro + EmDash แบบ platform-native และเพิ่ม Songhealth-specific code เฉพาะ gap ที่พิสูจน์แล้ว
 > **Implementation Authorization:** NONE
@@ -340,14 +340,31 @@ Runtime secrets/keys ที่จำเป็นต่อการใช้ง�
 Environment-specific valuesไม่ hard-code:
 
 - host/domain
-- database URL/credentials
+- database connection inputs/credentials
 - auth provider secrets
-- storage credentials/path
+- storage credentials
 - proxy/deployment settings
 - production container image references
 - Podman network/storage names or pathsที่ขึ้นกับ environment
 
 Use supported config/env mechanisms. Production container/service definitionsต้องแยก configuration ออกจาก secrets และหลีกเลี่ยง host-specific hard-code ที่ไม่จำเป็น.
+
+## 20.1 Native Runtime Configuration Contract
+
+Runtime/configuration contract ปัจจุบันของ Songhealth คือ platform-native contract ที่ Product Owner ตรวจสอบและอนุมัติแล้ว (T004 Human Gate architecture correction, 2026-10-07):
+
+- Application PostgreSQL runtime: `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`
+- EmDash migration connection: `EMDASH_MIGRATION_DATABASE_URL`
+- Public origin: `EMDASH_SITE_URL`
+- Application server: `HOST`, `PORT`
+- EmDash secret: `EMDASH_ENCRYPTION_KEY`
+- Native media storage ใช้ stable application mount path `./media` (persistent media volume ใน production จะ map มาที่ path เดียวกันนี้); media ไม่ได้ runtime-configure ผ่าน `MEDIA_DIRECTORY`
+
+ข้อกำหนดของ contract:
+
+1. Runtime PostgreSQL inputs และ migration URL ต้องระบุ intended database เดียวกัน; consistency check/evidence เทียบเฉพาะ non-secret identity components (host, port, database, user) เท่านั้น และต้องไม่พิมพ์ password หรือ full URL ออกมา
+2. Secret หรือ environment-specific credential ใดๆ ต้องไม่ถูก serialize ลง build artifacts หรือ images; migration manifest ที่ application build/sync emit ต้องมีเฉพาะ secret-free target information ตาม native EmDash behavior
+3. ชื่อ `DATABASE_URL` เดิมถูกแทนที่ด้วย contract นี้แล้ว และไม่ใช่ current configuration authority — การปรากฏของชื่อนั้นในที่อื่นเป็น historical/rejected context เท่านั้น
 
 ---
 
@@ -429,6 +446,8 @@ Version 1 ไม่มี baseline requirement สำหรับ:
 - Native EmDash Search: **YES; Thai trigram baseline**
 - Custom Search Projection: **NO**
 - Native relations/media/redirects: **YES**
+- Runtime configuration contract: **native `PG*` PostgreSQL inputs + `EMDASH_MIGRATION_DATABASE_URL` migration connection + `EMDASH_SITE_URL` + `HOST`/`PORT` + `EMDASH_ENCRYPTION_KEY`; runtime and migration inputs identify the same intended database**
+- Media storage path: **stable application path `./media`; no `MEDIA_DIRECTORY` runtime input**
 - Named Songhealth Policy/Domain Layer: **NO baseline requirement**
 - Feature-local helpers/hooks: **only for proven gaps**
 - WordPress migration: **native EmDash importer first**

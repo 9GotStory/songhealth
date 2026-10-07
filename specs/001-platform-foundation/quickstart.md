@@ -38,8 +38,12 @@ npm run dev
 ```
 
 Supply real local values only in ignored `.env`/secret inputs. At minimum, provide the documented
-database URL, EmDash encryption key, site origin, and media path. Never paste secret values into the
-evidence log.
+native runtime inputs: the PostgreSQL runtime connection (`PGHOST`, `PGPORT`, `PGDATABASE`,
+`PGUSER`, `PGPASSWORD`), the EmDash migration connection (`EMDASH_MIGRATION_DATABASE_URL`, which
+must identify the same intended database as the `PG*` inputs), the public origin
+(`EMDASH_SITE_URL`), and the EmDash encryption key (`EMDASH_ENCRYPTION_KEY`). Media storage needs
+no environment value: the native EmDash local-media adapter uses the ignored stable application
+path `./media`. Never paste secret values into the evidence log.
 
 Expected:
 
@@ -113,7 +117,10 @@ npx emdash migrate --check
 
 Derive and verify `EMDASH_TARGET_FINGERPRINT` from the inspected intended target; do not hard-code a
 different environment's fingerprint. The apply command consumes `.emdash/migrations.json` emitted
-by that exact build. Expected: `--status` inspects without mutation, plain `migrate` applies pending
+by that exact build. The native migration commands connect through `EMDASH_MIGRATION_DATABASE_URL`;
+before acceptance, confirm by non-secret identity components only (host, port, database, user)
+that it identifies the same intended database as the `PG*` runtime inputs, and never print the
+password or the full URL. Expected: `--status` inspects without mutation, plain `migrate` applies pending
 native migrations with EmDash's non-interactive target safety, and `--check` applies nothing and
 passes only when no pending or unknown migrations remain. Any status, apply, or check failure blocks
 readiness. This gate uses supported EmDash behavior and introduces no custom migration framework or
@@ -206,12 +213,14 @@ PostgreSQL custom archive and the separate media archive:
 export RECOVERY_DIR=/approved/backup/location
 pg_dump --format=custom --file "$RECOVERY_DIR/database.dump" "$PGDATABASE"
 pg_restore --list "$RECOVERY_DIR/database.dump"
-tar --create --file "$RECOVERY_DIR/media.tar" --directory "$MEDIA_DIRECTORY" .
+tar --create --file "$RECOVERY_DIR/media.tar" --directory ./media .
 sha256sum "$RECOVERY_DIR/database.dump" "$RECOVERY_DIR/media.tar"
 ```
 
-Use a protected PostgreSQL connection mechanism; do not place database credentials on the command
-line or in captured output. Record the recovery-set identifier, ISO timestamp, tool/server versions,
+`pg_dump`/`pg_restore` consume the native `PG*` client inputs for their connection. Use a protected
+PostgreSQL connection mechanism; do not place database credentials on the command
+line or in captured output. The media archive is taken from the stable application media path
+`./media`; it is not read from a `MEDIA_DIRECTORY` runtime input. Record the recovery-set identifier, ISO timestamp, tool/server versions,
 artifact checksums, and expected database/media validation evidence in the manifest. The two
 artifact classes and their common association evidence form the Recovery Set. They are associated
 with the same quiescent state but are not an atomic snapshot and do not contain runtime secrets.
@@ -223,14 +232,19 @@ mechanism before operational-use acceptance:
 ```bash
 pg_restore --exit-on-error --no-owner --no-privileges \
   --dbname "$RESTORE_DATABASE" "$RECOVERY_DIR/database.dump"
-tar --extract --file "$RECOVERY_DIR/media.tar" --directory "$RESTORE_MEDIA_DIRECTORY"
+tar --extract --file "$RECOVERY_DIR/media.tar" --directory "$RESTORE_MEDIA_MOUNT"
 npx emdash migrate --status --json
 npx emdash migrate --expected-target-fingerprint "$EMDASH_TARGET_FINGERPRINT"
 npx emdash migrate --check
 npm run verify:restored-foundation
 ```
 
-Use the same exact-build manifest and verified target-fingerprint procedure from Section 3.2.
+Use the same exact-build manifest and verified target-fingerprint procedure from Section 3.2. The
+restore migration gate connects through the restored environment's
+`EMDASH_MIGRATION_DATABASE_URL`, which must identify the same restored database as the `PG*`
+runtime inputs—verified by non-secret identity components only. Extract media into the clean media
+volume's stable application mount path (`$RESTORE_MEDIA_MOUNT`), never over the active source
+store.
 
 Expected:
 
