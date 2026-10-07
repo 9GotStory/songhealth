@@ -1,0 +1,16 @@
+{
+  "$schema": "https://emdashcms.com/seed.schema.json",
+  "version": "1",
+  "meta": {
+    "name": "Songhealth Platform Foundation",
+    "description": "Explicitly empty version-1 seed for Feature 001: suppresses EmDash's built-in example Posts/Pages model. Defines zero Product collections, content, taxonomies, relations, redirects, menus, widgets, and sections; later approved features add the real content model."
+  },
+  "collections": [],
+  "relations": [],
+  "taxonomies": [],
+  "menus": [],
+  "redirects": [],
+  "widgetAreas": [],
+  "sections": [],
+  "content": {}
+}
