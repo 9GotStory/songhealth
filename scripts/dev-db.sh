@@ -294,35 +294,57 @@ verify_container_static() {
 		mismatches+=("persistent data volume (expected named volume ${VOLUME_NAME} mounted at ${PGDATA_MOUNT})")
 	fi
 
-	# Network boundary: exactly one published container port, bound to an
-	# explicit loopback address, with a valid host port number. Equality
+	# Network boundary: exactly one publication in total — the PostgreSQL
+	# container port bound exactly once to an explicit loopback host address
+	# with a single valid host port number. Any second binding, loopback or
+	# not, on the same or another container-port key, fails closed. Equality
 	# with the requested PGPORT/PGHOST family is enforced additionally by
-	# the start path, which knows the configuration.
-	local ports single port_value
+	# the start path, which knows the configuration. The spec renders one
+	# "<ip>:<port> "-suffixed binding per key and one "; "-separated key
+	# group, so strictness means: one key group, one binding token, and an
+	# exactly-matching loopback ip:port form.
+	local ports single key bindings binding port_value port_reason=''
 	ports="$(container_ports_spec)"
 	single="${ports%;}"
+	key="${single%%=*}"
+	bindings="${single#*=}"
+	binding="${bindings% }"
 	case $single in
-	*';'*)
-		mismatches+=('published port (expected exactly one port mapping)')
-		;;
-	"${CONTAINER_PORT}/tcp=127.0.0.1:"* | "${CONTAINER_PORT}/tcp=::1:"*)
-		port_value="${single##*:}"
-		port_value="${port_value%%[[:space:]]*}"
-		case $port_value in
-		'' | *[!0-9]*)
-			mismatches+=('published port (host port is not a valid TCP port number)')
-			;;
-		*)
-			if [ "$port_value" -lt 1 ] || [ "$port_value" -gt 65535 ]; then
-				mismatches+=('published port (host port is outside 1-65535)')
+	*';'*) port_reason='expected exactly one container-port mapping' ;;
+	esac
+	if [ -z "$port_reason" ] && [ "$key" != "${CONTAINER_PORT}/tcp" ]; then
+		port_reason="expected exactly the ${CONTAINER_PORT}/tcp mapping"
+	fi
+	if [ -z "$port_reason" ]; then
+		case $binding in
+		*' '*) port_reason='expected exactly one host binding' ;;
+		esac
+	fi
+	if [ -z "$port_reason" ]; then
+		case $binding in
+		'127.0.0.1:'* | '::1:'*)
+			port_value="${binding##*:}"
+			case $port_value in
+			'' | *[!0-9]*)
+				port_reason='host port is not a valid TCP port number'
+				;;
+			esac
+			if [ -z "$port_reason" ]; then
+				# force base 10 so a leading zero can never parse as octal
+				port_value=$((10#$port_value))
+				if [ "$port_value" -lt 1 ] || [ "$port_value" -gt 65535 ]; then
+					port_reason='host port is outside 1-65535'
+				fi
 			fi
 			;;
+		*)
+			port_reason="expected a single explicit loopback binding of ${CONTAINER_PORT}/tcp"
+			;;
 		esac
-		;;
-	*)
-		mismatches+=("published port (expected a single explicit loopback publication of ${CONTAINER_PORT}/tcp)")
-		;;
-	esac
+	fi
+	if [ -n "$port_reason" ]; then
+		mismatches+=("published port (${port_reason})")
+	fi
 
 	if [ "${#mismatches[@]}" -gt 0 ]; then
 		die_mismatch "${mismatches[@]}"
