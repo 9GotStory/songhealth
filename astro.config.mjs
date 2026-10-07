@@ -48,6 +48,13 @@ const POSTGRESQL_URL_PROTOCOLS = new Set(["postgres:", "postgresql:"]);
 // A migration URL may omit the port; it then targets the PostgreSQL default,
 // which is the port identity the PG* inputs must agree with.
 const POSTGRESQL_DEFAULT_PORT = "5432";
+// The native PostgreSQL client consumes the migration URL through
+// pg-connection-string, which applies query options to the connection config
+// and lets the host, port, and user query keys override the URL identity this
+// validation compares (database is included conservatively; libpq-style keys
+// are matched case-insensitively). Any such key fails closed; unrelated
+// native options such as SSL settings are unaffected.
+const IDENTITY_OVERRIDE_QUERY_KEYS = new Set(["host", "port", "user", "database"]);
 
 const REQUIRED_INPUT_NAMES = [
   "PGHOST",
@@ -130,10 +137,21 @@ function validateRuntimeConfiguration(env) {
       problems.push(
         "input EMDASH_MIGRATION_DATABASE_URL must be a PostgreSQL connection URL (scheme postgresql:// or postgres://)",
       );
-    } else if (migrationUrl.username === "" || databaseNameFromUrl(migrationUrl) === "") {
-      problems.push(
-        "input EMDASH_MIGRATION_DATABASE_URL must include its user and database identity components",
-      );
+    } else {
+      if (migrationUrl.username === "" || databaseNameFromUrl(migrationUrl) === "") {
+        problems.push(
+          "input EMDASH_MIGRATION_DATABASE_URL must include its user and database identity components",
+        );
+      }
+      if (
+        [...migrationUrl.searchParams.keys()].some((key) =>
+          IDENTITY_OVERRIDE_QUERY_KEYS.has(key.toLowerCase()),
+        )
+      ) {
+        problems.push(
+          "input EMDASH_MIGRATION_DATABASE_URL must not carry connection options that can override its PostgreSQL identity components (host, port, user, database)",
+        );
+      }
     }
   }
 
