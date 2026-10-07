@@ -146,11 +146,22 @@ automatic (`auto`) migration mode; the configured production runtime mode is `ch
 - The committed explicit empty seed ([seed/seed.json](seed/seed.json)) intentionally defines no
   Product collections; it suppresses EmDash's built-in example Posts/Pages model.
 
-Automated browser smoke for both surfaces (the application must be running):
+Automated browser smoke for both surfaces. One-time setup after `npm ci`: the smoke drives a
+Playwright-managed Chromium that `npm ci` does not install, so download it once with the pinned
+local CLI (`@playwright/test` from [package.json](package.json)):
+
+```bash
+npx playwright install chromium
+```
+
+Then, with the application running:
 
 ```bash
 npm run test:browser    # defaults to http://localhost:4321; override with PLAYWRIGHT_BASE_URL
 ```
+
+This Playwright-managed Chromium is only the automated smoke driver. It is distinct from the
+passkey-capable browser you use for the one-time manual native Admin setup described above.
 
 ## 8. Recurring readiness check (private, non-mutating)
 
