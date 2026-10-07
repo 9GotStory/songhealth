@@ -24,11 +24,18 @@
 # The container publishes PostgreSQL only on that loopback boundary at
 # ${PGPORT}. Database files persist in the named volume below. `stop` never
 # removes the container or the volume; this helper provides no reset,
-# recreate, or delete behavior at all. Before starting or accepting an
-# existing same-name container, `start` fails closed unless the container
-# demonstrably is this helper's resource and matches the requested
-# configuration; a conflicting resource is never mutated, recreated, or
-# deleted, and mismatches are reported by field/resource name only.
+# recreate, or delete behavior at all.
+#
+# Every same-name container — for `start`, `status`, and `stop` alike — is
+# first proven to be this helper's resource through a static, secret-free
+# contract: the non-secret ownership label set at creation, the pinned
+# image digest, the expected named persistent volume, and a single explicit
+# loopback PostgreSQL publication. `start` additionally requires the
+# requested PG* configuration (including the exact published port and the
+# initialization database/user/password) to match. Any mismatch fails
+# closed: the container is never started, stopped, reported ready, mutated,
+# recreated, or deleted, and mismatches are reported by field/resource
+# name only. `status` and `stop` never need credentials.
 #
 # Exit codes (stable contract for automation; only 0 means success/ready):
 #   status   0 ready | 1 starting or unhealthy | 2 stopped | 3 absent
@@ -38,7 +45,7 @@
 #   all      4 missing or invalid required PG* input (including a
 #            non-loopback PGHOST), or an existing same-name container that
 #            does not match this helper's resource contract or the
-#            requested configuration
+#            requested configuration (foreign/collision resource)
 #            5 environment error (podman missing, rootful session)
 #            64 usage error
 #
@@ -54,6 +61,11 @@ set -euo pipefail
 readonly IMAGE_REF='docker.io/library/postgres:18.6@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf'
 readonly CONTAINER_NAME='songhealth-dev-db'
 readonly VOLUME_NAME='songhealth-dev-db-data'
+# Stable, non-secret ownership marker applied at creation. It lets status
+# and stop distinguish this helper's resource from a foreign same-name
+# container without any PG* input.
+readonly OWNERSHIP_LABEL_KEY='songhealth.dev-db.managed-by'
+readonly OWNERSHIP_LABEL_VALUE='songhealth/scripts/dev-db.sh'
 # Official PostgreSQL 18 images declare VOLUME /var/lib/postgresql with
 # PGDATA=/var/lib/postgresql/18/docker, so the persistent named volume must
 # mount the parent directory (mounting the pre-18 /var/lib/postgresql/data
@@ -97,9 +109,15 @@ server (rootless Podman only; application tooling stays native).
            containers; an existing data directory is never reinitialized.
   stop     Stop the container. The container and its persistent data volume
            are kept; nothing is deleted. Idempotent: stopping an already
-           stopped or absent container succeeds.
+           stopped or absent container succeeds. A foreign or mismatching
+           same-name container is never stopped or otherwise mutated.
   status   Report the state: ready, starting, unhealthy, stopped, or absent.
-           Exits 0 only when PostgreSQL is ready.
+           Exits 0 only when PostgreSQL is ready. A foreign or mismatching
+           same-name container is never reported ready (or at all).
+
+stop and status need no credentials: they verify only the helper-owned
+resource identity (ownership label, pinned image, persistent volume,
+single loopback publication), never the PG* values.
 
 Provide configuration from the environment or the ignored .env file (see
 .env.example), e.g.:  set -a; . ./.env; set +a; npm run dev-db:start
@@ -111,7 +129,7 @@ Exit codes:
   all      4 missing or invalid required PG* input (including a
            non-loopback PGHOST), or an existing same-name container that
            does not match this helper's contract or the requested
-           configuration
+           configuration (foreign/collision resource; never mutated)
            5 environment error (podman missing or not rootless)
            64 usage error
 EOF
@@ -227,13 +245,33 @@ container_env_value() {
 	return 1
 }
 
-verify_existing_container() {
+container_label_value() {
+	inspect_field "{{index .Config.Labels \"${OWNERSHIP_LABEL_KEY}\"}}"
+}
+
+die_mismatch() {
+	# die_mismatch <mismatch-phrase>... : report a foreign or mismatching
+	# same-name container by field/resource name only and fail closed.
+	printf 'dev-db: existing container %s does not match this helper or the requested configuration; mismatching: %s\n' \
+		"$CONTAINER_NAME" "$*" >&2
+	printf 'dev-db: refusing to report its state, start, stop, or otherwise mutate or delete it; inspect it manually with: podman container inspect %s\n' \
+		"$CONTAINER_NAME" >&2
+	exit "$EXIT_CONFIG"
+}
+
+verify_container_static() {
 	# Fail closed unless the existing same-name container is demonstrably
-	# this helper's resource and matches the requested configuration.
-	# Collects every mismatch, reports field/resource NAMES only (never
-	# values or credentials), and never deletes, recreates, or mutates the
-	# conflicting container. Requires require_pg_config to have run first.
+	# this helper's resource, using only the static, secret-free identity
+	# contract: ownership label, pinned image, expected named persistent
+	# volume, and a single explicit loopback PostgreSQL publication. Needs
+	# no PG* inputs, so status and stop keep their no-credentials contract.
+	# Reports field/resource NAMES only and never mutates the resource.
 	local mismatches=()
+
+	# Ownership: the stable, non-secret marker this helper sets at creation.
+	if [ "$(container_label_value)" != "$OWNERSHIP_LABEL_VALUE" ]; then
+		mismatches+=("ownership label (${OWNERSHIP_LABEL_KEY})")
+	fi
 
 	# Resource identity: created from the pinned reference and running the
 	# pinned image content. podman normalizes ImageName to repo@digest, and
@@ -256,16 +294,54 @@ verify_existing_container() {
 		mismatches+=("persistent data volume (expected named volume ${VOLUME_NAME} mounted at ${PGDATA_MOUNT})")
 	fi
 
-	# Network boundary: exactly one published container port, bound to the
-	# loopback address matching PGHOST, on host port PGPORT. Anything else —
-	# a different port, a non-loopback or missing bind, extra mappings —
-	# fails closed.
+	# Network boundary: exactly one published container port, bound to an
+	# explicit loopback address, with a valid host port number. Equality
+	# with the requested PGPORT/PGHOST family is enforced additionally by
+	# the start path, which knows the configuration.
+	local ports single port_value
+	ports="$(container_ports_spec)"
+	single="${ports%;}"
+	case $single in
+	*';'*)
+		mismatches+=('published port (expected exactly one port mapping)')
+		;;
+	"${CONTAINER_PORT}/tcp=127.0.0.1:"* | "${CONTAINER_PORT}/tcp=::1:"*)
+		port_value="${single##*:}"
+		port_value="${port_value%%[[:space:]]*}"
+		case $port_value in
+		'' | *[!0-9]*)
+			mismatches+=('published port (host port is not a valid TCP port number)')
+			;;
+		*)
+			if [ "$port_value" -lt 1 ] || [ "$port_value" -gt 65535 ]; then
+				mismatches+=('published port (host port is outside 1-65535)')
+			fi
+			;;
+		esac
+		;;
+	*)
+		mismatches+=("published port (expected a single explicit loopback publication of ${CONTAINER_PORT}/tcp)")
+		;;
+	esac
+
+	if [ "${#mismatches[@]}" -gt 0 ]; then
+		die_mismatch "${mismatches[@]}"
+	fi
+}
+
+verify_existing_container() {
+	# Start path: the static helper-owned resource contract, then the
+	# requested configuration (exact published port matching the validated
+	# PGHOST loopback form and PGPORT, plus the initialization
+	# database/user/password). Compared in memory; never printed. Requires
+	# require_pg_config to have run first.
+	verify_container_static
+
+	local mismatches=()
 	if [ "$(container_ports_spec)" != "${CONTAINER_PORT}/tcp=${PUBLISH_HOST_IP}:${PGPORT} ;" ]; then
 		mismatches+=('published port (expected the explicit loopback publish equal to PGPORT)')
 	fi
 
-	# Initialization identity: the container must have been created with the
-	# requested database/user/password. Compared in memory; never printed.
 	local value
 	if value="$(container_env_value POSTGRES_DB)" && [ "$value" = "$PGDATABASE" ]; then :; else
 		mismatches+=('initialization database (POSTGRES_DB)')
@@ -278,11 +354,7 @@ verify_existing_container() {
 	fi
 
 	if [ "${#mismatches[@]}" -gt 0 ]; then
-		printf 'dev-db: existing container %s does not match this helper or the requested configuration; mismatching: %s\n' \
-			"$CONTAINER_NAME" "${mismatches[*]}" >&2
-		printf 'dev-db: refusing to start, mutate, or delete it; inspect it manually with: podman container inspect %s\n' \
-			"$CONTAINER_NAME" >&2
-		exit "$EXIT_CONFIG"
+		die_mismatch "${mismatches[@]}"
 	fi
 }
 
@@ -360,6 +432,7 @@ cmd_start() {
 	export POSTGRES_PASSWORD="$PGPASSWORD"
 	if ! podman run --detach \
 		--name "$CONTAINER_NAME" \
+		--label "${OWNERSHIP_LABEL_KEY}=${OWNERSHIP_LABEL_VALUE}" \
 		--env POSTGRES_USER \
 		--env POSTGRES_DB \
 		--env POSTGRES_PASSWORD \
@@ -384,6 +457,10 @@ cmd_stop() {
 		return 0
 	fi
 
+	# Never stop, delete, or otherwise mutate a resource this helper does
+	# not demonstrably own (static identity contract, no PG* inputs).
+	verify_container_static
+
 	local raw
 	raw="$(container_state)"
 	if [ "$raw" != "running" ] && [ "$raw" != "paused" ]; then
@@ -405,6 +482,11 @@ cmd_status() {
 		printf 'dev-db: %s: absent (no development database container)\n' "$CONTAINER_NAME"
 		return "$EXIT_ABSENT"
 	fi
+
+	# Never report the state of — and in particular never report ready — a
+	# resource this helper does not demonstrably own (static identity
+	# contract, no PG* inputs).
+	verify_container_static
 
 	local raw health
 	raw="$(container_state)"
