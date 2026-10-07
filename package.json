@@ -14,7 +14,8 @@
     "preview": "astro preview",
     "dev-db:start": "./scripts/dev-db.sh start",
     "dev-db:stop": "./scripts/dev-db.sh stop",
-    "dev-db:status": "./scripts/dev-db.sh status"
+    "dev-db:status": "./scripts/dev-db.sh status",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "@astrojs/node": "11.1.6",
@@ -26,6 +27,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "typescript": "6.0.3"
