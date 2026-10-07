@@ -15,22 +15,36 @@
 #
 #   set -a; . ./.env; set +a; npm run dev-db:start
 #
-# The container publishes PostgreSQL only on the loopback boundary
-# 127.0.0.1:${PGPORT}. Database files persist in the named volume below.
-# `stop` never removes the container or the volume; this helper provides no
-# reset, recreate, or delete behavior at all.
+# PGHOST must be a local loopback host (127.0.0.1, localhost, or ::1): the
+# development container is published only on the explicit loopback host
+# boundary that matches it, so any non-loopback PGHOST identifies a
+# database this helper must not shadow; it is rejected before any resource
+# is created or started.
+#
+# The container publishes PostgreSQL only on that loopback boundary at
+# ${PGPORT}. Database files persist in the named volume below. `stop` never
+# removes the container or the volume; this helper provides no reset,
+# recreate, or delete behavior at all. Before starting or accepting an
+# existing same-name container, `start` fails closed unless the container
+# demonstrably is this helper's resource and matches the requested
+# configuration; a conflicting resource is never mutated, recreated, or
+# deleted, and mismatches are reported by field/resource name only.
 #
 # Exit codes (stable contract for automation; only 0 means success/ready):
 #   status   0 ready | 1 starting or unhealthy | 2 stopped | 3 absent
 #   start    0 started and ready | 1 not ready within the bounded wait, or
 #            the container failed during startup
 #   stop     0 stopped (or already stopped/absent) | 1 failed to stop
-#   all      4 missing or invalid required PG* input
+#   all      4 missing or invalid required PG* input (including a
+#            non-loopback PGHOST), or an existing same-name container that
+#            does not match this helper's resource contract or the
+#            requested configuration
 #            5 environment error (podman missing, rootful session)
 #            64 usage error
 #
 # Secret safety: this script never prints the value of any PG* input or any
-# credential-bearing string; errors name the missing variable only.
+# credential-bearing string; errors name the missing or mismatching field
+# only.
 
 set -euo pipefail
 
@@ -57,6 +71,12 @@ readonly EXIT_CONFIG=4
 readonly EXIT_ENV=5
 readonly EXIT_USAGE=64
 
+# Set by require_pg_config from the validated PGHOST loopback form:
+# PUBLISH_HOST is the podman --publish host address (bracketed for IPv6),
+# PUBLISH_HOST_IP is the same address as podman reports it in inspect data.
+PUBLISH_HOST=''
+PUBLISH_HOST_IP=''
+
 usage() {
 	cat <<'EOF'
 Usage: scripts/dev-db.sh {start|stop|status}
@@ -67,8 +87,14 @@ server (rootless Podman only; application tooling stays native).
   start    Create (if absent) and start the container, then wait a bounded
            time (60s) for PostgreSQL readiness. Requires the native inputs
            PGHOST, PGPORT, PGDATABASE, PGUSER and PGPASSWORD in the
-           environment. Idempotent: an already-ready container succeeds
-           immediately; a stopped one is started without reinitialization.
+           environment. PGHOST must be loopback (127.0.0.1, localhost, or
+           ::1); PostgreSQL is published only on the matching loopback
+           boundary. An existing same-name container is started or accepted
+           as ready only if it matches the pinned image, the persistent
+           volume, the loopback published port, and the initialization
+           user/database/password; any mismatch fails closed without
+           mutating the existing resource. Idempotent for matching
+           containers; an existing data directory is never reinitialized.
   stop     Stop the container. The container and its persistent data volume
            are kept; nothing is deleted. Idempotent: stopping an already
            stopped or absent container succeeds.
@@ -82,7 +108,10 @@ Exit codes:
   status   0 ready | 1 starting or unhealthy | 2 stopped | 3 absent
   start    0 started and ready | 1 not ready within the timeout, or failed
   stop     0 stopped (or nothing to stop) | 1 failed to stop
-  all      4 missing or invalid required PG* input
+  all      4 missing or invalid required PG* input (including a
+           non-loopback PGHOST), or an existing same-name container that
+           does not match this helper's contract or the requested
+           configuration
            5 environment error (podman missing or not rootless)
            64 usage error
 EOF
@@ -133,6 +162,25 @@ require_pg_config() {
 	if [ "$PGPORT" -lt 1 ] || [ "$PGPORT" -gt 65535 ]; then
 		die "$EXIT_CONFIG" "PGPORT is outside the valid TCP port range 1-65535"
 	fi
+	# The development container can serve only the loopback boundary it
+	# publishes, so accept exactly the supported loopback forms and
+	# normalize them to the matching publish address. localhost resolves to
+	# both loopback families and libpq falls back to IPv4, so it maps to the
+	# IPv4 publish like 127.0.0.1. Anything else is a host this helper would
+	# silently shadow; reject it before creating or starting anything.
+	case $PGHOST in
+	127.0.0.1 | localhost)
+		PUBLISH_HOST='127.0.0.1'
+		PUBLISH_HOST_IP='127.0.0.1'
+		;;
+	::1)
+		PUBLISH_HOST='[::1]'
+		PUBLISH_HOST_IP='::1'
+		;;
+	*)
+		die "$EXIT_CONFIG" "PGHOST must be a local loopback host for the development database (supported forms: 127.0.0.1, localhost, ::1); the current value is not one of them"
+		;;
+	esac
 }
 
 container_state() {
@@ -149,6 +197,93 @@ container_exit_code() {
 
 published_port() {
 	podman port "$CONTAINER_NAME" "$CONTAINER_PORT/tcp" 2>/dev/null || true
+}
+
+inspect_field() {
+	# inspect_field <go-template>
+	podman container inspect --format "$1" "$CONTAINER_NAME" 2>/dev/null || true
+}
+
+container_ports_spec() {
+	# Renders the configured host port mappings, e.g. "5432/tcp=127.0.0.1:5432 ;"
+	inspect_field '{{range $p, $b := .NetworkSettings.Ports}}{{$p}}={{range $b}}{{.HostIP}}:{{.HostPort}} {{end}};{{end}}'
+}
+
+container_mounts_spec() {
+	# Renders the container mounts, e.g. "volume,songhealth-dev-db-data,/var/lib/postgresql;"
+	inspect_field '{{range .Mounts}}{{.Type}},{{.Name}},{{.Destination}};{{end}}'
+}
+
+container_env_value() {
+	# container_env_value <name> -> value on stdout, non-zero if unset.
+	# Reads the container's environment through podman inspect output, so
+	# values (including secrets) never appear on any command line.
+	local wanted="$1" line
+	while IFS= read -r line; do
+		case $line in
+		"${wanted}="*) printf '%s' "${line#"${wanted}="}" && return 0 ;;
+		esac
+	done <<<"$(inspect_field '{{range .Config.Env}}{{println .}}{{end}}')"
+	return 1
+}
+
+verify_existing_container() {
+	# Fail closed unless the existing same-name container is demonstrably
+	# this helper's resource and matches the requested configuration.
+	# Collects every mismatch, reports field/resource NAMES only (never
+	# values or credentials), and never deletes, recreates, or mutates the
+	# conflicting container. Requires require_pg_config to have run first.
+	local mismatches=()
+
+	# Resource identity: created from the pinned reference and running the
+	# pinned image content. podman normalizes ImageName to repo@digest, and
+	# the image's RepoDigests prove the content is the pinned digest.
+	local expected_image_name="${IMAGE_REF%@*}"
+	expected_image_name="${expected_image_name%:*}@${IMAGE_REF##*@}"
+	local image_name image_id repo_digests
+	image_name="$(inspect_field '{{.ImageName}}')"
+	image_id="$(inspect_field '{{.Image}}')"
+	repo_digests="$(podman image inspect --format '{{json .RepoDigests}}' "$image_id" 2>/dev/null || true)"
+	if [ "$image_name" != "$expected_image_name" ] ||
+		! printf '%s' "$repo_digests" | grep -qF "\"${expected_image_name}\""; then
+		mismatches+=('image reference (expected the pinned PostgreSQL 18.6 digest)')
+	fi
+
+	# Persistent storage: exactly the expected named volume at the expected
+	# destination (foreign or anonymous volumes and wrong destinations —
+	# including the pre-18 /var/lib/postgresql/data path — fail closed).
+	if [ "$(container_mounts_spec)" != "volume,${VOLUME_NAME},${PGDATA_MOUNT};" ]; then
+		mismatches+=("persistent data volume (expected named volume ${VOLUME_NAME} mounted at ${PGDATA_MOUNT})")
+	fi
+
+	# Network boundary: exactly one published container port, bound to the
+	# loopback address matching PGHOST, on host port PGPORT. Anything else —
+	# a different port, a non-loopback or missing bind, extra mappings —
+	# fails closed.
+	if [ "$(container_ports_spec)" != "${CONTAINER_PORT}/tcp=${PUBLISH_HOST_IP}:${PGPORT} ;" ]; then
+		mismatches+=('published port (expected the explicit loopback publish equal to PGPORT)')
+	fi
+
+	# Initialization identity: the container must have been created with the
+	# requested database/user/password. Compared in memory; never printed.
+	local value
+	if value="$(container_env_value POSTGRES_DB)" && [ "$value" = "$PGDATABASE" ]; then :; else
+		mismatches+=('initialization database (POSTGRES_DB)')
+	fi
+	if value="$(container_env_value POSTGRES_USER)" && [ "$value" = "$PGUSER" ]; then :; else
+		mismatches+=('initialization user (POSTGRES_USER)')
+	fi
+	if value="$(container_env_value POSTGRES_PASSWORD)" && [ "$value" = "$PGPASSWORD" ]; then :; else
+		mismatches+=('initialization password (POSTGRES_PASSWORD)')
+	fi
+
+	if [ "${#mismatches[@]}" -gt 0 ]; then
+		printf 'dev-db: existing container %s does not match this helper or the requested configuration; mismatching: %s\n' \
+			"$CONTAINER_NAME" "${mismatches[*]}" >&2
+		printf 'dev-db: refusing to start, mutate, or delete it; inspect it manually with: podman container inspect %s\n' \
+			"$CONTAINER_NAME" >&2
+		exit "$EXIT_CONFIG"
+	fi
 }
 
 report_ready() {
@@ -181,12 +316,15 @@ wait_until_ready() {
 		sleep "$POLL_INTERVAL_SECONDS"
 	done
 	health="$(container_health)"
-	die "$EXIT_NOT_READY" "PostgreSQL did not become ready within ${READY_TIMEOUT_SECONDS}s (health: ${health:-unknown}); inspect with: podman logs ${CONTAINER_NAME} podman healthcheck run ${CONTAINER_NAME}"
+	die "$EXIT_NOT_READY" "PostgreSQL did not become ready within ${READY_TIMEOUT_SECONDS}s (health: ${health:-unknown}); inspect with: podman logs ${CONTAINER_NAME} or podman healthcheck run ${CONTAINER_NAME}"
 }
 
 cmd_start() {
 	local raw health
 	if podman container exists "$CONTAINER_NAME"; then
+		# Prove the existing resource is this helper's and matches the
+		# requested configuration before starting or accepting it.
+		verify_existing_container
 		raw="$(container_state)"
 		health="$(container_health)"
 		if [ "$raw" = "running" ]; then
@@ -225,7 +363,7 @@ cmd_start() {
 		--env POSTGRES_USER \
 		--env POSTGRES_DB \
 		--env POSTGRES_PASSWORD \
-		--publish "127.0.0.1:${PGPORT}:${CONTAINER_PORT}" \
+		--publish "${PUBLISH_HOST}:${PGPORT}:${CONTAINER_PORT}" \
 		--volume "${VOLUME_NAME}:${PGDATA_MOUNT}" \
 		--health-cmd 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1' \
 		--health-interval 5s \
@@ -279,7 +417,7 @@ cmd_status() {
 			return 0
 			;;
 		unhealthy)
-			printf 'dev-db: %s: unhealthy; inspect with: podman logs %s podman healthcheck run %s\n' \
+			printf 'dev-db: %s: unhealthy; inspect with: podman logs %s or podman healthcheck run %s\n' \
 				"$CONTAINER_NAME" "$CONTAINER_NAME" "$CONTAINER_NAME"
 			return "$EXIT_NOT_READY"
 			;;
