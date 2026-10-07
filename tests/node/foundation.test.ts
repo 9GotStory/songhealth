@@ -81,9 +81,11 @@
 // broken fixtures.
 //
 // Non-mutation (T009 acceptance): a normal recurring readiness run must not
-// create, modify, or remove ANY media entry. The media fixtures below are
-// snapshotted (kind, size, mtime, SHA-256) before the helper runs and
-// compared after, and a missing mount must still be missing afterwards (no
+// create, modify, remove, or re-permission ANY media entry. The media
+// fixtures below are snapshotted (kind, size, mtime, permission bits,
+// SHA-256) before the helper runs and compared after — including in the
+// unreadable case, where the arranged mode is captured before any test-side
+// restoration — and a missing mount must still be missing afterwards (no
 // unintended empty replacement store). These tests deliberately do NOT fold
 // in T013's distinct startup-acceptance work: no media write/read/remove
 // probe and no migration status/apply/check gate appears anywhere here.
@@ -329,6 +331,62 @@ function assertNoValueEcho(run: HelperRun, env: Record<string, string>, contextL
   }
 }
 
+// ---------------------------------------------------------------------------
+// Exact overall state (data-model §5: the overall state is exactly `ready` or
+// `not-ready`). The state must appear as an unambiguous standalone token: an
+// occurrence embedded in a larger word or hyphenated compound ("unready",
+// "readiness", "pre-ready") is not a state claim, and evidence carrying BOTH
+// state tokens — or neither — is contradictory and rejected. Plain substring
+// checks are deliberately never used for the overall state, so exit 0 with
+// `unready` text, or a nonzero exit with both states printed, both fail.
+// ---------------------------------------------------------------------------
+
+const READY_STATE_TOKEN = /(?<![A-Za-z0-9-])ready(?![A-Za-z0-9-])/g;
+const NOT_READY_STATE_TOKEN = /(?<![A-Za-z0-9-])not-ready(?![A-Za-z0-9-])/g;
+
+/** Count the standalone overall-state tokens in the combined child output. */
+function overallStateEvidence(output: string): { ready: number; notReady: number } {
+  const count = (pattern: RegExp): number => (output.match(pattern) ?? []).length;
+  return { ready: count(READY_STATE_TOKEN), notReady: count(NOT_READY_STATE_TOKEN) };
+}
+
+/** Assert the evidence states exactly the `ready` overall state: at least one
+ * standalone `ready` token and no standalone `not-ready` token. */
+function assertExactReadyState(
+  run: HelperRun,
+  forbidden: ReadonlyArray<{ label: string; value: string }>,
+  contextLabel: string,
+  red: string,
+): void {
+  const evidence = overallStateEvidence(run.output);
+  assert.ok(
+    evidence.ready >= 1 && evidence.notReady === 0,
+    `${contextLabel} must state exactly one overall state: \`ready\` (data-model §5). ` +
+      `Found ${evidence.ready} standalone \`ready\` and ${evidence.notReady} standalone ` +
+      `\`not-ready\` token(s); embedded forms such as "unready" or "readiness" do not ` +
+      `count as a state; sanitized output: ${sanitizeForReporting(run.output, forbidden)}${red}`,
+  );
+}
+
+/** Assert the evidence states exactly the `not-ready` overall state: at least
+ * one standalone `not-ready` token and no standalone `ready` token, so a
+ * contradictory readiness claim can never pass alongside a failure. */
+function assertExactNotReadyState(
+  run: HelperRun,
+  forbidden: ReadonlyArray<{ label: string; value: string }>,
+  contextLabel: string,
+  red: string,
+): void {
+  const evidence = overallStateEvidence(run.output);
+  assert.ok(
+    evidence.notReady >= 1 && evidence.ready === 0,
+    `${contextLabel} must state exactly one overall state: \`not-ready\` (data-model §5). ` +
+      `Found ${evidence.notReady} standalone \`not-ready\` and ${evidence.ready} standalone ` +
+      `\`ready\` token(s); a stray standalone \`ready\` token is a contradictory readiness ` +
+      `claim; sanitized output: ${sanitizeForReporting(run.output, forbidden)}${red}`,
+  );
+}
+
 /** Run one not-ready case: the helper must exit nonzero, state `not-ready`,
  * identify the dependency safely, and echo no configured value. */
 function expectNotReady(
@@ -345,11 +403,7 @@ function expectNotReady(
       `report ready through the exit status); got exit ${run.status ?? "none"} signal ${run.signal}` +
       `; sanitized output: ${sanitizeForReporting(run.output, forbidden)}${red}`,
   );
-  assert.ok(
-    run.output.includes("not-ready"),
-    `failure evidence must state the overall state \`not-ready\` (data-model §5); ` +
-      `sanitized output: ${sanitizeForReporting(run.output, forbidden)}${red}`,
-  );
+  assertExactNotReadyState(run, forbidden, "failure evidence", red);
   if ("field" in expectedName) {
     assert.ok(
       new RegExp(`\\b${expectedName.field}\\b`).test(run.output),
@@ -588,7 +642,12 @@ interface FixtureDaemon {
   close(): Promise<void>;
 }
 
-/** Spawn the fixture daemon and wait for its self-checked readiness line. */
+/** Spawn the fixture daemon and wait for its self-checked readiness line.
+ * Every startup-rejection path (spawn error, timeout, early exit without a
+ * report, unparseable report, reported self-check failure) terminates the
+ * exact spawned child BEFORE the error is rethrown, so a failed daemon
+ * startup can never leak the process; the returned `close()` reuses the same
+ * bounded, idempotent terminator. */
 async function startFixtureDaemon(options: { ssr: SsrMode; pg: PgMode }): Promise<FixtureDaemon> {
   const child = spawn(
     process.execPath,
@@ -597,77 +656,109 @@ async function startFixtureDaemon(options: { ssr: SsrMode; pg: PgMode }): Promis
   );
   let stdout = "";
   let stderr = "";
+  let spawnErrorMessage: string | null = null;
   child.stdout.on("data", (chunk: Buffer) => {
     stdout += chunk.toString("utf8");
   });
   child.stderr.on("data", (chunk: Buffer) => {
     stderr += chunk.toString("utf8");
   });
-
-  const report = await new Promise<DaemonReport>((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error(`fixture daemon did not become ready within ${DAEMON_READY_TIMEOUT_MS} ms`)),
-      DAEMON_READY_TIMEOUT_MS,
-    );
-    const poll = () => {
-      const newline = stdout.indexOf("\n");
-      if (newline === -1) {
-        if (child.exitCode !== null) {
-          clearTimeout(timer);
-          reject(
-            new Error(
-              `fixture daemon exited early (code ${child.exitCode}) without a readiness line; ` +
-                `stderr: ${stderr.slice(0, 300) || "<empty>"}`,
-            ),
-          );
-        } else {
-          setTimeout(poll, 25);
-        }
-        return;
-      }
-      clearTimeout(timer);
-      let parsed: DaemonReport;
-      try {
-        parsed = JSON.parse(stdout.slice(0, newline)) as DaemonReport;
-      } catch (error) {
-        reject(new Error(`fixture daemon readiness line was not parseable: ${String(error)}`));
-        return;
-      }
-      if (typeof parsed.harnessError === "string") {
-        reject(new Error(`fixture daemon self-check failed: ${parsed.harnessError}`));
-        return;
-      }
-      resolve(parsed);
-    };
-    poll();
+  child.once("error", (error: Error) => {
+    spawnErrorMessage = error.message;
   });
 
-  return {
-    report,
-    close: () =>
-      new Promise<void>((resolve) => {
+  // Deterministic, bounded, idempotent terminator: close stdin (the daemon's
+  // voluntary shutdown signal), escalate to SIGKILL after a grace period, and
+  // always resolve — even if the exit event is delayed or already consumed.
+  let terminated: Promise<void> | null = null;
+  const terminate = (): Promise<void> => {
+    if (terminated === null) {
+      terminated = new Promise<void>((resolve) => {
+        if (child.exitCode !== null || child.signalCode !== null || spawnErrorMessage !== null) {
+          resolve();
+          return;
+        }
         const finish = () => resolve();
         child.once("exit", finish);
-        child.stdin.end();
+        try {
+          child.stdin.end();
+        } catch {
+          /* stdin already closed */
+        }
         setTimeout(() => {
-          if (child.exitCode === null) child.kill("SIGKILL");
+          if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
         }, 3_000).unref();
-        // resolve even if the exit event is delayed by the kill grace period
         setTimeout(finish, 3_500).unref();
-      }),
+      });
+    }
+    return terminated;
   };
+
+  let report: DaemonReport;
+  try {
+    report = await new Promise<DaemonReport>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`fixture daemon did not become ready within ${DAEMON_READY_TIMEOUT_MS} ms`)),
+        DAEMON_READY_TIMEOUT_MS,
+      );
+      const poll = () => {
+        if (spawnErrorMessage !== null) {
+          clearTimeout(timer);
+          reject(new Error(`fixture daemon could not be spawned: ${spawnErrorMessage}`));
+          return;
+        }
+        const newline = stdout.indexOf("\n");
+        if (newline === -1) {
+          if (child.exitCode !== null) {
+            clearTimeout(timer);
+            reject(
+              new Error(
+                `fixture daemon exited early (code ${child.exitCode}) without a readiness line; ` +
+                  `stderr: ${stderr.slice(0, 300) || "<empty>"}`,
+              ),
+            );
+          } else {
+            setTimeout(poll, 25);
+          }
+          return;
+        }
+        clearTimeout(timer);
+        let parsed: DaemonReport;
+        try {
+          parsed = JSON.parse(stdout.slice(0, newline)) as DaemonReport;
+        } catch (error) {
+          reject(new Error(`fixture daemon readiness line was not parseable: ${String(error)}`));
+          return;
+        }
+        if (typeof parsed.harnessError === "string") {
+          reject(new Error(`fixture daemon self-check failed: ${parsed.harnessError}`));
+          return;
+        }
+        resolve(parsed);
+      };
+      poll();
+    });
+  } catch (error) {
+    await terminate();
+    throw error;
+  }
+
+  return { report, close: terminate };
 }
 
 // ---------------------------------------------------------------------------
 // Media fixture: synthetic, unmistakably non-confidential entries inside the
 // disposable working directory's `./media` mount, snapshotted so any created,
-// modified, or removed entry is detected after a readiness run.
+// modified, removed, or re-permissioned entry is detected after a readiness
+// run. Permission bits are part of every entry: a probe that only changes a
+// mode (for example "repairing" an unreadable mount) is a mutation.
 // ---------------------------------------------------------------------------
 
 interface MediaSnapshotEntry {
   kind: "file" | "directory";
   size: number;
   mtimeMs: number;
+  permBits: number;
   sha256: string | null;
 }
 
@@ -676,7 +767,13 @@ function snapshotMedia(root: string): Record<string, MediaSnapshotEntry> {
   const walk = (absolute: string, relative: string) => {
     const stats = fs.statSync(absolute);
     if (stats.isDirectory()) {
-      entries[relative] = { kind: "directory", size: 0, mtimeMs: stats.mtimeMs, sha256: null };
+      entries[relative] = {
+        kind: "directory",
+        size: 0,
+        mtimeMs: stats.mtimeMs,
+        permBits: stats.mode & 0o777,
+        sha256: null,
+      };
       for (const name of fs.readdirSync(absolute).sort()) {
         walk(path.join(absolute, name), path.join(relative, name));
       }
@@ -685,10 +782,17 @@ function snapshotMedia(root: string): Record<string, MediaSnapshotEntry> {
         kind: "file",
         size: stats.size,
         mtimeMs: stats.mtimeMs,
+        permBits: stats.mode & 0o777,
         sha256: crypto.createHash("sha256").update(fs.readFileSync(absolute)).digest("hex"),
       };
     } else {
-      entries[relative] = { kind: "file", size: stats.size, mtimeMs: stats.mtimeMs, sha256: null };
+      entries[relative] = {
+        kind: "file",
+        size: stats.size,
+        mtimeMs: stats.mtimeMs,
+        permBits: stats.mode & 0o777,
+        sha256: null,
+      };
     }
   };
   walk(root, ".");
@@ -837,11 +941,11 @@ describe("aggregate ready contract", () => {
             `${run.status ?? "none"} signal ${run.signal}; sanitized output: ` +
             `${sanitizeForReporting(run.output, forbidden)}${red}`,
         );
-        assert.ok(
-          run.output.includes("ready") && !run.output.includes("not-ready"),
-          `ready attempt ${attempt}: evidence must state exactly the \`ready\` state and ` +
-            `must not state \`not-ready\`; sanitized output: ` +
-            `${sanitizeForReporting(run.output, forbidden)}${red}`,
+        assertExactReadyState(
+          run,
+          forbidden,
+          `ready attempt ${attempt}: evidence`,
+          red,
         );
         assert.ok(
           /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(run.output),
@@ -977,11 +1081,57 @@ describe("expected media mount contract", () => {
 
   it("reports not-ready naming the media dependency when the expected media mount is unreadable", async () => {
     const fixtures = await startFixtures({ ssr: "marker", pg: "responsive", media: "unreadable" });
+    const mediaRoot = fixtures.mediaRoot as string;
+    const before = fixtures.mediaSnapshot as Record<string, MediaSnapshotEntry>;
     try {
       const run = runReadinessHelper(fixtures.env, fixtures.fixtureRoot);
       expectNotReady(run, fixtures.env, mediaDependency);
+
+      // Capture the mount's post-probe state BEFORE any test-side restoration.
+      // stat needs no read permission on the target itself, so this observes
+      // what the helper actually left: a probe that removed the mount, or that
+      // "repaired" its permission mode, is caught here and cannot be masked by
+      // the readability restoration performed below for inspection/cleanup.
+      let postRootStats: fs.Stats;
+      try {
+        postRootStats = fs.statSync(mediaRoot);
+      } catch (error) {
+        assert.fail(
+          `the unreadable media mount must still be present after the probe (stat failed: ` +
+            `${String(error)})`,
+        );
+      }
+      assert.equal(
+        postRootStats.mode & 0o777,
+        0o000,
+        "the recurring readiness probe must not change the media mount's permission mode",
+      );
+
+      // Inspection-only restoration, strictly AFTER the post-probe mode was
+      // captured: re-readability lets the test verify the rest of the tree,
+      // and must never overwrite the observed pre-restoration state.
+      fs.chmodSync(mediaRoot, 0o755);
+      const postSnapshot = snapshotMedia(mediaRoot);
+      postSnapshot["."] = {
+        kind: postRootStats.isDirectory() ? "directory" : "file",
+        size: 0,
+        mtimeMs: postRootStats.mtimeMs,
+        permBits: postRootStats.mode & 0o777,
+        sha256: null,
+      };
+      const expected: Record<string, MediaSnapshotEntry> = {
+        ...before,
+        ".": { ...before["."], permBits: 0o000 },
+      };
+      assert.deepEqual(
+        postSnapshot,
+        expected,
+        "the unreadable-media probe must not create, modify, remove, or re-permission " +
+          "any media entry: the arranged tree/content/metadata must be exactly as before, " +
+          "with the mount still in its arranged unreadable mode",
+      );
     } finally {
-      await fixtures.close(); // restores readability before removing the root
+      await fixtures.close(); // restores readability (idempotent) before removing the root
     }
   });
 });
