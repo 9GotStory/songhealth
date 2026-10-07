@@ -11,7 +11,10 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "dev-db:start": "./scripts/dev-db.sh start",
+    "dev-db:stop": "./scripts/dev-db.sh stop",
+    "dev-db:status": "./scripts/dev-db.sh status"
   },
   "dependencies": {
     "@astrojs/node": "11.1.6",
