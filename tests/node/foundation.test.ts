@@ -55,9 +55,12 @@
 //   connection/query succeeds, and the expected media mount exists and is
 //   readable. Any required failure exits nonzero with evidence stating
 //   `not-ready` and at most a safe field/dependency name.
-// - The expected SSR marker is the stable public runtime verification marker
-//   that T011's `src/pages/index.astro` must render at `/`; T010's browser
-//   smoke must align with the same constant. The marker is public page
+// - The expected SSR marker is the canonical public runtime verification
+//   marker contract already accepted by T010 and rendered by T011's
+//   `src/pages/index.astro` at `/`: a meta element named
+//   "songhealth-foundation" with the exact content value "public-runtime"
+//   (Product Owner decision resolving 9GOTSTORY-146, 2026-10-07, which
+//   supersedes the earlier T009-only literal). The marker is public page
 //   content, so its text is not treated as a secret anywhere in this file.
 // - Every dependency check is bounded: the helper must terminate by itself
 //   with a not-ready result within the deterministic wall-clock bound enforced
@@ -129,14 +132,33 @@ const SYNTHETIC_IDENTITY = {
   user: "songhealth_t009_synthetic_user",
 } as const;
 
-// The stable public SSR verification marker contract (T011 renders it, T012
-// expects it, T010 should align with it). Public page content, not a secret.
-const EXPECTED_SSR_MARKER = "songhealth-foundation-001-runtime-verification";
+// The canonical public SSR verification marker contract (T010 defined it,
+// T011's `src/pages/index.astro` renders it, T012 must expect it on loopback
+// `/`). Exactly the accepted T010/T011 meta element: `<meta
+// name="songhealth-foundation" content="public-runtime">`; the Product Owner
+// resolved it as canonical for T009/T012 too (9GOTSTORY-146, 2026-10-07),
+// superseding the earlier T009-only literal
+// "songhealth-foundation-001-runtime-verification". As in T010's browser
+// smoke, the pattern tolerates only serialization details (whitespace and the
+// optional self-closing slash); the element name and content value are the
+// stable contract. Public page content, not a secret.
+const EXPECTED_SSR_MARKER_PATTERN =
+  /<meta\s+name="songhealth-foundation"\s+content="public-runtime"\s*\/?>/;
+
+// Served when the loopback SSR probe must reach a listening server that DOES
+// carry the canonical marker: a minimal synthetic HTML document whose head
+// carries the canonical marker element in the exact serialization T011's
+// `src/pages/index.astro` renders. Synthetic and non-confidential apart from
+// the canonical public marker itself; free of the words "ready"/"not-ready".
+const SYNTHETIC_MARKER_SSR_BODY =
+  '<!doctype html><html><head><meta name="songhealth-foundation" content="public-runtime" /></head><body>synthetic-fixture-page</body></html>';
 
 // Served when a probe must reach a listening server whose response is NOT the
-// expected marker: deliberately free of the marker and of the words
-// "ready"/"not-ready" so a helper that dumps the response body cannot
-// accidentally satisfy (or distort) the state assertions.
+// expected marker: deliberately free of the canonical marker (no meta element
+// at all, so neither the "songhealth-foundation" name nor the "public-runtime"
+// value appears) and of the words "ready"/"not-ready" so a helper that dumps
+// the response body cannot accidentally satisfy (or distort) the state
+// assertions.
 const SYNTHETIC_WRONG_SSR_BODY =
   "<!doctype html><html><body>synthetic-unrelated-payload-without-runtime-marker</body></html>";
 
@@ -438,8 +460,9 @@ type PgMode = "responsive" | "silent" | "refused";
 function fixtureDaemonSource(options: { ssr: SsrMode; pg: PgMode }): string {
   return `
 const OPTIONS = ${JSON.stringify(options)};
-const MARKER = ${JSON.stringify(EXPECTED_SSR_MARKER)};
+const MARKER_BODY = ${JSON.stringify(SYNTHETIC_MARKER_SSR_BODY)};
 const WRONG_BODY = ${JSON.stringify(SYNTHETIC_WRONG_SSR_BODY)};
+const MARKER_PATTERN = ${EXPECTED_SSR_MARKER_PATTERN.toString()};
 const PG_IDENTITY = ${JSON.stringify(SYNTHETIC_IDENTITY)};
 const PG_PASSWORD = ${JSON.stringify(SYNTHETIC_PG_PASSWORD)};
 // --eval ESM has no require: anchor one at the repository root so the pinned
@@ -546,7 +569,7 @@ const servePg = (mode) => new Promise((resolve, reject) => {
 
 // -- Synthetic application HTTP server ---------------------------------------
 const serveSsr = (mode) => new Promise((resolve, reject) => {
-  const body = mode === "marker" ? "<!doctype html><html><body><main>" + MARKER + "</main></body></html>" : WRONG_BODY;
+  const body = mode === "marker" ? MARKER_BODY : WRONG_BODY;
   const server = require("node:http").createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     if (request.method === "GET" && url.pathname === "/") {
@@ -598,7 +621,7 @@ const main = async () => {
     const body = await response.text();
     report.ssrMarkerServed =
       response.status === 200 &&
-      (OPTIONS.ssr === "marker" ? body.includes(MARKER) : !body.includes(MARKER));
+      (OPTIONS.ssr === "marker" ? MARKER_PATTERN.test(body) : !MARKER_PATTERN.test(body));
   }
 
   if (OPTIONS.pg === "responsive") {
@@ -881,10 +904,10 @@ async function startFixtures(options: { ssr: SsrMode; pg: PgMode; media: MediaMo
 // ---------------------------------------------------------------------------
 
 describe("fixture controls (harness soundness)", () => {
-  it("SSR fixture serves the expected marker body on loopback /", async () => {
+  it("SSR fixture serves the canonical marker body on loopback /", async () => {
     const daemon = await startFixtureDaemon({ ssr: "marker", pg: "responsive" });
     try {
-      assert.equal(daemon.report.ssrMarkerServed, true, "the marker fixture must serve the expected marker");
+      assert.equal(daemon.report.ssrMarkerServed, true, "the marker fixture must serve the canonical public-runtime marker");
     } finally {
       await daemon.close();
     }
