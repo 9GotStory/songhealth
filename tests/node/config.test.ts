@@ -8,7 +8,8 @@
 // - specs/001-platform-foundation/spec.md: FR-007/FR-012, User Story 1
 //   acceptance scenario 3, edge cases, and the 2026-10-07 configuration
 //   clarification
-// - specs/001-platform-foundation/data-model.md §1 (Runtime Configuration)
+// - specs/001-platform-foundation/data-model.md §1 (Runtime Configuration:
+//   "may name the missing field or dependency but must not print values")
 // - specs/001-platform-foundation/plan.md ("Configuration and secrets")
 //
 // These tests define the approved contract and are intentionally RED until T008
@@ -21,6 +22,19 @@
 // identifies field/component names and never echoes configured values
 // (§20.1: the PG*/migration-URL consistency check compares non-secret identity
 // components only; passwords and the full URL are never printed).
+//
+// Field-name-only enforcement (review round 1): for EVERY case — failure and
+// control alike — the combined child output must not echo ANY non-empty value
+// configured for that exact case (not only secrets or hand-selected divergent
+// values), nor any constant secret marker, nor any distinctive identity
+// FRAGMENT of a configured URL (its host, port, user, or database component).
+// To keep that rule total, every configured value in every case is
+// unmistakably distinctive synthetic data chosen so it cannot collide with
+// generic actionable hints (TCP port ranges, supported URL schemes such as
+// postgresql:// or http://, loopback/default examples). The single documented
+// exception is the literal port value "0", which cannot be made distinctive
+// and which legitimate boundary hints (for example "> 0") may contain; see
+// UNASSERTABLE_CONFIGURED_VALUES.
 //
 // Per §21 these tests cover Songhealth configuration behavior only: no Astro
 // or EmDash internals, no reusable helper/module API, no configuration
@@ -37,16 +51,20 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 // ---------------------------------------------------------------------------
 // Synthetic (non-secret) test markers and the valid baseline environment.
+// All values are deliberately distinctive so the every-value echo rule below
+// cannot false-fail a correct implementation that prints generic hints.
 // ---------------------------------------------------------------------------
 
 const SYNTHETIC_PG_PASSWORD = "SYNTHETIC-PG-PASSWORD-NOT-A-SECRET";
 const SYNTHETIC_URL_PASSWORD = "SYNTHETIC-URL-PASSWORD-NOT-A-SECRET";
 const SYNTHETIC_ENCRYPTION_KEY = "SYNTHETIC-ENCRYPTION-KEY-0123456789abcdefABCDEF";
 
-// Synthetic non-secret PostgreSQL identity (never a real database).
+// Synthetic non-secret PostgreSQL identity (never a real database; the host
+// and port avoid the PostgreSQL defaults so range/default hints cannot
+// collide with the echo assertions).
 const SYNTHETIC_IDENTITY = {
-  host: "localhost",
-  port: "5432",
+  host: "songhealth-test-db.synthetic.example.invalid",
+  port: "54329",
   database: "songhealth_test_synthetic",
   user: "songhealth_test_user",
 } as const;
@@ -55,21 +73,74 @@ const SYNTHETIC_MIGRATION_URL =
   `postgresql://${SYNTHETIC_IDENTITY.user}:${SYNTHETIC_URL_PASSWORD}` +
   `@${SYNTHETIC_IDENTITY.host}:${SYNTHETIC_IDENTITY.port}/${SYNTHETIC_IDENTITY.database}`;
 
-// Every failure-path assertion scans all child output for these markers, so
-// any configured secret value that leaks into an error message fails the test.
-const ALWAYS_FORBIDDEN_VALUES: ReadonlyArray<{ label: string; value: string }> = [
+// Constant secret markers asserted absent in every case, independent of what
+// the case itself configures (the migration-URL password is a fragment of the
+// URL value, so it needs its own entry to catch a fragment-only echo).
+const CONSTANT_SECRET_MARKERS: ReadonlyArray<{ label: string; value: string }> = [
   { label: "PGPASSWORD value marker", value: SYNTHETIC_PG_PASSWORD },
   { label: "migration-URL password marker", value: SYNTHETIC_URL_PASSWORD },
   { label: "EMDASH_ENCRYPTION_KEY value marker", value: SYNTHETIC_ENCRYPTION_KEY },
-  { label: "full migration URL", value: SYNTHETIC_MIGRATION_URL },
 ];
+
+// The only configured values exempt from the echo assertions: ones that
+// cannot be made distinctive and that legitimate actionable hints may
+// legitimately contain (a boundary hint such as "> 0" contains "0"). Every
+// other configured value in every case is distinctive synthetic data and is
+// asserted absent from combined child output.
+const UNASSERTABLE_CONFIGURED_VALUES: ReadonlySet<string> = new Set(["0"]);
+
+/** Standalone echo-forbidden entries for the distinctive non-secret identity
+ * components (host, port, user, database) of any parsable configured URL, so
+ * an error that echoes only a FRAGMENT of the migration URL or public origin
+ * — for example just its host — is caught even when the full URL is never
+ * printed. In the missing/empty cases the URL is the only configured copy of
+ * those components, so fragment coverage is required for the rule to be
+ * total. URL schemes are deliberately not forbidden: legitimate actionable
+ * hints name supported schemes such as postgresql:// or https://. */
+function urlComponentValues(env: Record<string, string>): ReadonlyArray<{ label: string; value: string }> {
+  const components: Array<{ label: string; value: string }> = [];
+  const add = (label: string, value: string) => {
+    if (value.length > 0 && !UNASSERTABLE_CONFIGURED_VALUES.has(value)) {
+      components.push({ label, value });
+    }
+  };
+  const collect = (variable: string, raw: string | undefined, wantsDatabase: boolean) => {
+    if (!raw) return;
+    let parsed: URL;
+    try {
+      parsed = new URL(raw);
+    } catch {
+      return; // unparsable URL: the whole configured value is already forbidden
+    }
+    add(`${variable} URL host component`, parsed.hostname);
+    if (parsed.port !== "") add(`${variable} URL port component`, parsed.port);
+    if (parsed.username !== "") add(`${variable} URL user component`, parsed.username);
+    if (wantsDatabase) {
+      const database = parsed.pathname.replace(/^\//, "");
+      add(`${variable} URL database component`, database);
+    }
+  };
+  collect("EMDASH_MIGRATION_DATABASE_URL", env.EMDASH_MIGRATION_DATABASE_URL, true);
+  collect("EMDASH_SITE_URL", env.EMDASH_SITE_URL, false);
+  return components;
+}
+
+/** The complete echo-forbidden set for one exact case: the constant secret
+ * markers, every non-empty configured input value of that case, and the
+ * distinctive identity components of its configured URLs. */
+function echoForbiddenValuesFor(env: Record<string, string>): ReadonlyArray<{ label: string; value: string }> {
+  const configured = Object.entries(env)
+    .filter(([, value]) => value.length > 0 && !UNASSERTABLE_CONFIGURED_VALUES.has(value))
+    .map(([name, value]) => ({ label: `${name} value`, value }));
+  return [...CONSTANT_SECRET_MARKERS, ...configured, ...urlComponentValues(env)];
+}
 
 // The complete approved native runtime input set (§20.1), synthetic and valid.
 function validBaselineEnv(): Record<string, string> {
   return {
-    HOST: "127.0.0.1",
-    PORT: "4321",
-    EMDASH_SITE_URL: "http://localhost:4321",
+    HOST: "synthetic-app-host.example.invalid",
+    PORT: "43219",
+    EMDASH_SITE_URL: "http://synthetic-public-origin.example.invalid",
     PGHOST: SYNTHETIC_IDENTITY.host,
     PGPORT: SYNTHETIC_IDENTITY.port,
     PGDATABASE: SYNTHETIC_IDENTITY.database,
@@ -148,18 +219,18 @@ function loadApplicationConfiguration(env: Record<string, string>): ConfigLoadRu
   }
 }
 
-/** Replace every synthetic secret marker before using child output in
- * assertion diagnostics, so a redaction failure can never republish the value
- * through the test runner's own output. */
-function sanitizeForReporting(text: string): string {
+/** Replace every case-specific configured marker before any child output is
+ * used in assertion diagnostics, so a value-echo failure can never republish
+ * the value through the test runner's own output. */
+function sanitizeForReporting(
+  text: string,
+  forbidden: ReadonlyArray<{ label: string; value: string }>,
+): string {
   let sanitized = text;
-  for (const marker of [
-    SYNTHETIC_PG_PASSWORD,
-    SYNTHETIC_URL_PASSWORD,
-    SYNTHETIC_ENCRYPTION_KEY,
-    SYNTHETIC_MIGRATION_URL,
-  ]) {
-    sanitized = sanitized.split(marker).join("<redacted-test-marker>");
+  for (const { value } of forbidden) {
+    if (value.length > 0) {
+      sanitized = sanitized.split(value).join("<redacted-test-marker>");
+    }
   }
   return sanitized.length > 400 ? `${sanitized.slice(0, 400)}…` : sanitized;
 }
@@ -169,13 +240,15 @@ function assertHarnessSound(run: ConfigLoadRun): void {
   assert.ok(run.outcome !== null, "harness failure: no configuration-load outcome was reported");
 }
 
-/** Assert the configuration load failed closed, names the expected
- * field/component names, and echoed none of the configured values. */
+/** Run one failure case: load the configuration with exactly `env` and assert
+ * that the load fails closed, names the expected field/component names, and
+ * echoes none of the values configured for this exact case. */
 function expectFailClosedNaming(
-  run: ConfigLoadRun,
+  env: Record<string, string>,
   expectedFieldNames: ReadonlyArray<string>,
-  extraForbiddenValues: ReadonlyArray<{ label: string; value: string }> = [],
 ): void {
+  const run = loadApplicationConfiguration(env);
+  const forbidden = echoForbiddenValuesFor(env);
   assertHarnessSound(run);
   assert.ok(
     run.outcome !== null && run.outcome.ok === false,
@@ -191,12 +264,10 @@ function expectFailClosedNaming(
     assert.ok(
       message.includes(field),
       `failure message must identify the field/component name "${field}"; message: ` +
-        sanitizeForReporting(message),
+        sanitizeForReporting(message, forbidden),
     );
   }
-  for (const { label, value } of [...ALWAYS_FORBIDDEN_VALUES, ...extraForbiddenValues]) {
-    // Only distinctive markers are asserted absent; plain digits are not
-    // asserted because they legitimately occur in boundary hints (e.g. "1-65535").
+  for (const { label, value } of forbidden) {
     assert.ok(
       !run.output.includes(value),
       `failure output must never echo the configured ${label}`,
@@ -212,15 +283,17 @@ function expectFailClosedNaming(
 // ---------------------------------------------------------------------------
 
 describe("valid native runtime configuration (control)", () => {
-  it("loads the canonical application configuration successfully", () => {
-    const run = loadApplicationConfiguration(validBaselineEnv());
+  it("loads the canonical application configuration successfully without echoing any configured value", () => {
+    const env = validBaselineEnv();
+    const run = loadApplicationConfiguration(env);
+    const forbidden = echoForbiddenValuesFor(env);
     assertHarnessSound(run);
     assert.ok(
       run.outcome?.ok === true,
       "valid synthetic inputs must not be rejected; failure would indicate a harness " +
-        `or dependency problem, not a contract result: ${sanitizeForReporting(run.output)}`,
+        `or dependency problem, not a contract result: ${sanitizeForReporting(run.output, forbidden)}`,
     );
-    for (const { label, value } of ALWAYS_FORBIDDEN_VALUES) {
+    for (const { label, value } of forbidden) {
       assert.ok(!run.output.includes(value), `successful load output must not echo the ${label}`);
     }
   });
@@ -249,12 +322,12 @@ describe("missing or empty required values fail closed", () => {
     it(`fails closed naming ${inputName} when it is unset`, () => {
       const env = validBaselineEnv();
       delete env[inputName];
-      expectFailClosedNaming(loadApplicationConfiguration(env), [inputName]);
+      expectFailClosedNaming(env, [inputName]);
     });
 
     it(`fails closed naming ${inputName} when it is empty`, () => {
       const env = { ...validBaselineEnv(), [inputName]: "" };
-      expectFailClosedNaming(loadApplicationConfiguration(env), [inputName]);
+      expectFailClosedNaming(env, [inputName]);
     });
   }
 });
@@ -263,6 +336,11 @@ describe("missing or empty required values fail closed", () => {
 // Malformed values explicitly covered by current authority: invalid TCP ports
 // (PGPORT/PORT), an invalid public origin (EMDASH_SITE_URL), and a malformed,
 // non-PostgreSQL, or incomplete migration URL (EMDASH_MIGRATION_DATABASE_URL).
+// Every malformed value below is distinctive synthetic data, so the automatic
+// every-value echo rule fully applies to it. The literal port "0" is the one
+// configured value exempt from echo assertion (see
+// UNASSERTABLE_CONFIGURED_VALUES); all other configured values in that case
+// are still asserted.
 // ---------------------------------------------------------------------------
 
 describe("malformed required values fail closed", () => {
@@ -276,29 +354,25 @@ describe("malformed required values fail closed", () => {
   for (const { variable, value, reason } of invalidTcpPorts) {
     it(`fails closed naming ${variable} for ${reason}`, () => {
       const env = { ...validBaselineEnv(), [variable]: value };
-      expectFailClosedNaming(loadApplicationConfiguration(env), [variable], [
-        { label: `${variable} value marker`, value },
-      ]);
+      expectFailClosedNaming(env, [variable]);
     });
   }
 
-  it('fails closed naming EMDASH_SITE_URL when the origin has no scheme (bare host)', () => {
+  it("fails closed naming EMDASH_SITE_URL when the origin has no scheme (bare host)", () => {
     const env = { ...validBaselineEnv(), EMDASH_SITE_URL: "synthetic-site-origin.example.invalid" };
-    expectFailClosedNaming(loadApplicationConfiguration(env), ["EMDASH_SITE_URL"], [
-      { label: "EMDASH_SITE_URL value marker", value: "synthetic-site-origin.example.invalid" },
-    ]);
+    expectFailClosedNaming(env, ["EMDASH_SITE_URL"]);
   });
 
-  it('fails closed naming EMDASH_SITE_URL when the origin has no host', () => {
-    const env = { ...validBaselineEnv(), EMDASH_SITE_URL: "http://" };
-    expectFailClosedNaming(loadApplicationConfiguration(env), ["EMDASH_SITE_URL"]);
+  it("fails closed naming EMDASH_SITE_URL when the origin has a scheme but no host", () => {
+    // Distinctive scheme-with-empty-host value: asserting its absence cannot
+    // collide with a legitimate scheme hint such as "http:// or https://".
+    const env = { ...validBaselineEnv(), EMDASH_SITE_URL: "http://:43219" };
+    expectFailClosedNaming(env, ["EMDASH_SITE_URL"]);
   });
 
   it("fails closed naming EMDASH_MIGRATION_DATABASE_URL when it is not a parsable URL", () => {
     const env = { ...validBaselineEnv(), EMDASH_MIGRATION_DATABASE_URL: "synthetic-malformed-not-a-url" };
-    expectFailClosedNaming(loadApplicationConfiguration(env), ["EMDASH_MIGRATION_DATABASE_URL"], [
-      { label: "EMDASH_MIGRATION_DATABASE_URL value marker", value: "synthetic-malformed-not-a-url" },
-    ]);
+    expectFailClosedNaming(env, ["EMDASH_MIGRATION_DATABASE_URL"]);
   });
 
   it("fails closed naming EMDASH_MIGRATION_DATABASE_URL when the scheme is not PostgreSQL", () => {
@@ -306,14 +380,18 @@ describe("malformed required values fail closed", () => {
       `mysql://${SYNTHETIC_IDENTITY.user}:${SYNTHETIC_URL_PASSWORD}` +
       `@${SYNTHETIC_IDENTITY.host}:${SYNTHETIC_IDENTITY.port}/${SYNTHETIC_IDENTITY.database}`;
     const env = { ...validBaselineEnv(), EMDASH_MIGRATION_DATABASE_URL: nonPostgresUrl };
-    expectFailClosedNaming(loadApplicationConfiguration(env), ["EMDASH_MIGRATION_DATABASE_URL"], [
-      { label: "full non-PostgreSQL migration URL", value: nonPostgresUrl },
-    ]);
+    expectFailClosedNaming(env, ["EMDASH_MIGRATION_DATABASE_URL"]);
   });
 
   it("fails closed naming EMDASH_MIGRATION_DATABASE_URL when it is incomplete (no user or database identity)", () => {
-    const env = { ...validBaselineEnv(), EMDASH_MIGRATION_DATABASE_URL: "postgresql://localhost:5432" };
-    expectFailClosedNaming(loadApplicationConfiguration(env), ["EMDASH_MIGRATION_DATABASE_URL"]);
+    // Distinctive scheme+host+port value with no user or database component;
+    // asserting its absence cannot collide with a legitimate postgresql://
+    // scheme hint.
+    const env = {
+      ...validBaselineEnv(),
+      EMDASH_MIGRATION_DATABASE_URL: `postgresql://${SYNTHETIC_IDENTITY.host}:${SYNTHETIC_IDENTITY.port}`,
+    };
+    expectFailClosedNaming(env, ["EMDASH_MIGRATION_DATABASE_URL"]);
   });
 });
 
@@ -321,49 +399,28 @@ describe("malformed required values fail closed", () => {
 // Identity agreement: the PG* runtime inputs and EMDASH_MIGRATION_DATABASE_URL
 // must identify the same intended database. Each non-secret identity component
 // — host, port, database, user — is mismatched exactly once; the failure must
-// name the field/component without echoing either side's value.
+// name the field/component without echoing either side's value (both sides'
+// values are covered automatically by the per-case echo rule).
 // ---------------------------------------------------------------------------
 
 describe("PG* runtime inputs and migration URL must agree on the intended database", () => {
   it("fails closed when PGHOST disagrees with the migration URL host component", () => {
     const env = { ...validBaselineEnv(), PGHOST: "synthetic-alt-host.example.invalid" };
-    expectFailClosedNaming(
-      loadApplicationConfiguration(env),
-      ["PGHOST", "EMDASH_MIGRATION_DATABASE_URL"],
-      [{ label: "divergent PGHOST value", value: "synthetic-alt-host.example.invalid" }],
-    );
+    expectFailClosedNaming(env, ["PGHOST", "EMDASH_MIGRATION_DATABASE_URL"]);
   });
 
   it("fails closed when PGPORT disagrees with the migration URL port component", () => {
     const env = { ...validBaselineEnv(), PGPORT: "65432" };
-    expectFailClosedNaming(
-      loadApplicationConfiguration(env),
-      ["PGPORT", "EMDASH_MIGRATION_DATABASE_URL"],
-      [{ label: "divergent PGPORT value", value: "65432" }],
-    );
+    expectFailClosedNaming(env, ["PGPORT", "EMDASH_MIGRATION_DATABASE_URL"]);
   });
 
   it("fails closed when PGDATABASE disagrees with the migration URL database component", () => {
     const env = { ...validBaselineEnv(), PGDATABASE: "synthetic_alt_database" };
-    expectFailClosedNaming(
-      loadApplicationConfiguration(env),
-      ["PGDATABASE", "EMDASH_MIGRATION_DATABASE_URL"],
-      [
-        { label: "divergent PGDATABASE value", value: "synthetic_alt_database" },
-        { label: "migration-URL database value", value: SYNTHETIC_IDENTITY.database },
-      ],
-    );
+    expectFailClosedNaming(env, ["PGDATABASE", "EMDASH_MIGRATION_DATABASE_URL"]);
   });
 
   it("fails closed when PGUSER disagrees with the migration URL user component", () => {
     const env = { ...validBaselineEnv(), PGUSER: "synthetic_alt_user" };
-    expectFailClosedNaming(
-      loadApplicationConfiguration(env),
-      ["PGUSER", "EMDASH_MIGRATION_DATABASE_URL"],
-      [
-        { label: "divergent PGUSER value", value: "synthetic_alt_user" },
-        { label: "migration-URL user value", value: SYNTHETIC_IDENTITY.user },
-      ],
-    );
+    expectFailClosedNaming(env, ["PGUSER", "EMDASH_MIGRATION_DATABASE_URL"]);
   });
 });
