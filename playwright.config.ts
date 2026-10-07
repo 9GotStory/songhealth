@@ -21,15 +21,17 @@
 // by T013/T015.
 //
 // The base URL comes from the PLAYWRIGHT_BASE_URL environment variable when
-// set, otherwise from the documented development origin (HOST=127.0.0.1,
-// PORT=4321 in .env.example). That variable is test-runner plumbing, not an
-// application runtime configuration name (10-system-blueprint.md §20.1), so it
-// is intentionally not added to .env.example. This file reads no credentials
-// and no secret values.
+// set, otherwise from the documented development origin
+// http://localhost:4321 (.env.example EMDASH_SITE_URL; quickstart §1 expects
+// `http://localhost:4321/` to return the SSR marker and §2 expects bare
+// `npm run test:browser`; `astro dev` listens on that localhost origin). That
+// variable is test-runner plumbing, not an application runtime configuration
+// name (10-system-blueprint.md §20.1), so it is intentionally not added to
+// .env.example. This file reads no credentials and no secret values.
 
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4321";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:4321";
 
 export default defineConfig({
   testDir: "./tests/browser",

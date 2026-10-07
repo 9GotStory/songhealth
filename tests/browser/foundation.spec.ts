@@ -89,10 +89,11 @@ test("native EmDash Admin is available at /_emdash/admin/ (native setup or sign-
   page,
 }) => {
   // Availability boundary only: navigating to the native Admin route must be
-  // handled by the running EmDash integration. The native first-admin setup
-  // outcome and the native sign-in outcome are both accepted; the flow is
-  // never completed and no passkey interaction, authentication, EmDash UI
-  // copy, markup, or other implementation detail is asserted.
+  // handled by the running EmDash integration. Against the pinned emdash@1.1.0,
+  // the native unauthenticated outcomes are the first-admin setup page and the
+  // sign-in page; exactly those two are accepted. The flow is never completed
+  // and no passkey interaction, authentication, EmDash UI copy, markup, or
+  // other implementation detail is asserted.
   const response = await page.goto("/_emdash/admin/");
 
   expect(
@@ -104,11 +105,20 @@ test("native EmDash Admin is available at /_emdash/admin/ (native setup or sign-
     "the native Admin route must be reachable and served successfully",
   ).toBe(200);
 
-  // After any native redirect (e.g. to first-admin setup or sign-in), the
-  // browser must remain inside the native /_emdash route namespace of the
-  // configured origin.
+  // After any native redirect, the browser must remain on the configured
+  // origin (not merely anywhere under /_emdash) at one of the two native
+  // unauthenticated Admin outcomes. A single trailing slash is normalized so
+  // the native route's exact slash form is not part of the contract; the two
+  // path values themselves are.
+  const baseURL = test.info().project.use.baseURL;
+  expect(baseURL, "the suite must run against a configured base URL").toBeTruthy();
   const finalUrl = new URL(page.url());
-  expect(finalUrl.pathname, "the Admin flow must stay under /_emdash").toMatch(
-    /^\/_emdash(\/|$)/,
+  expect(finalUrl.origin, "the Admin flow must stay on the configured origin").toBe(
+    new URL(baseURL!).origin,
   );
+  const finalPath = finalUrl.pathname.replace(/\/$/, "");
+  expect(
+    ["/_emdash/admin/setup", "/_emdash/admin/login"],
+    "the Admin flow must land on native setup or native sign-in",
+  ).toContain(finalPath);
 });
