@@ -23,18 +23,16 @@
 // (§20.1: the PG*/migration-URL consistency check compares non-secret identity
 // components only; passwords and the full URL are never printed).
 //
-// Field-name-only enforcement (review round 1): for EVERY case — failure and
-// control alike — the combined child output must not echo ANY non-empty value
-// configured for that exact case (not only secrets or hand-selected divergent
-// values), nor any constant secret marker, nor any distinctive identity
-// FRAGMENT of a configured URL (its host, port, user, or database component).
-// To keep that rule total, every configured value in every case is
-// unmistakably distinctive synthetic data chosen so it cannot collide with
-// generic actionable hints (TCP port ranges, supported URL schemes such as
-// postgresql:// or http://, loopback/default examples). The single documented
-// exception is the literal port value "0", which cannot be made distinctive
-// and which legitimate boundary hints (for example "> 0") may contain; see
-// UNASSERTABLE_CONFIGURED_VALUES.
+// Field-name-only enforcement (review rounds 1-2): for EVERY case — failure
+// and control alike — the combined child output must not echo ANY non-empty
+// value configured for that exact case (not only secrets or hand-selected
+// divergent values), nor any constant secret marker, nor any distinctive
+// identity FRAGMENT of a configured URL (its host, port, user, or database
+// component). The rule is total, with no exemptions: every configured value
+// in every case — including every malformed value — is unmistakably
+// distinctive synthetic data chosen so it cannot collide with generic
+// actionable hints (TCP port ranges, supported URL schemes such as
+// postgresql:// or http://, loopback/default examples).
 //
 // Per §21 these tests cover Songhealth configuration behavior only: no Astro
 // or EmDash internals, no reusable helper/module API, no configuration
@@ -82,13 +80,6 @@ const CONSTANT_SECRET_MARKERS: ReadonlyArray<{ label: string; value: string }> =
   { label: "EMDASH_ENCRYPTION_KEY value marker", value: SYNTHETIC_ENCRYPTION_KEY },
 ];
 
-// The only configured values exempt from the echo assertions: ones that
-// cannot be made distinctive and that legitimate actionable hints may
-// legitimately contain (a boundary hint such as "> 0" contains "0"). Every
-// other configured value in every case is distinctive synthetic data and is
-// asserted absent from combined child output.
-const UNASSERTABLE_CONFIGURED_VALUES: ReadonlySet<string> = new Set(["0"]);
-
 /** Standalone echo-forbidden entries for the distinctive non-secret identity
  * components (host, port, user, database) of any parsable configured URL, so
  * an error that echoes only a FRAGMENT of the migration URL or public origin
@@ -100,7 +91,7 @@ const UNASSERTABLE_CONFIGURED_VALUES: ReadonlySet<string> = new Set(["0"]);
 function urlComponentValues(env: Record<string, string>): ReadonlyArray<{ label: string; value: string }> {
   const components: Array<{ label: string; value: string }> = [];
   const add = (label: string, value: string) => {
-    if (value.length > 0 && !UNASSERTABLE_CONFIGURED_VALUES.has(value)) {
+    if (value.length > 0) {
       components.push({ label, value });
     }
   };
@@ -130,7 +121,7 @@ function urlComponentValues(env: Record<string, string>): ReadonlyArray<{ label:
  * distinctive identity components of its configured URLs. */
 function echoForbiddenValuesFor(env: Record<string, string>): ReadonlyArray<{ label: string; value: string }> {
   const configured = Object.entries(env)
-    .filter(([, value]) => value.length > 0 && !UNASSERTABLE_CONFIGURED_VALUES.has(value))
+    .filter(([, value]) => value.length > 0)
     .map(([name, value]) => ({ label: `${name} value`, value }));
   return [...CONSTANT_SECRET_MARKERS, ...configured, ...urlComponentValues(env)];
 }
@@ -337,16 +328,14 @@ describe("missing or empty required values fail closed", () => {
 // (PGPORT/PORT), an invalid public origin (EMDASH_SITE_URL), and a malformed,
 // non-PostgreSQL, or incomplete migration URL (EMDASH_MIGRATION_DATABASE_URL).
 // Every malformed value below is distinctive synthetic data, so the automatic
-// every-value echo rule fully applies to it. The literal port "0" is the one
-// configured value exempt from echo assertion (see
-// UNASSERTABLE_CONFIGURED_VALUES); all other configured values in that case
-// are still asserted.
+// every-value echo rule fully applies to it with no exceptions (the
+// below-range port is the distinctive negative "-54329", not a bare "0").
 // ---------------------------------------------------------------------------
 
 describe("malformed required values fail closed", () => {
   const invalidTcpPorts: ReadonlyArray<{ variable: string; value: string; reason: string }> = [
     { variable: "PGPORT", value: "synthetic-not-a-port", reason: "non-numeric TCP port" },
-    { variable: "PGPORT", value: "0", reason: "TCP port 0 is outside the usable 1-65535 range" },
+    { variable: "PGPORT", value: "-54329", reason: "negative TCP port below the usable 1-65535 range" },
     { variable: "PGPORT", value: "70000", reason: "TCP port above 65535" },
     { variable: "PORT", value: "synthetic-not-a-port", reason: "non-numeric TCP port" },
     { variable: "PORT", value: "70000", reason: "TCP port above 65535" },
