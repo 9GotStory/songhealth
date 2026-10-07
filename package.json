@@ -15,7 +15,8 @@
     "dev-db:start": "./scripts/dev-db.sh start",
     "dev-db:stop": "./scripts/dev-db.sh stop",
     "dev-db:status": "./scripts/dev-db.sh status",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "verify:startup": "./tests/operations/verify-startup.sh"
   },
   "dependencies": {
     "@astrojs/node": "11.1.6",
