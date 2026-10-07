@@ -22,7 +22,11 @@
 #   S1  validate the native runtime/migration inputs and prove — comparing
 #       non-secret identity components only (host, port, database, user) —
 #       that the PG* application inputs and EMDASH_MIGRATION_DATABASE_URL
-#       identify the same intended database, before anything else runs
+#       identify the same intended database, before anything else runs. The
+#       host component is compared case-insensitively, exactly like the
+#       accepted T008 configuration boundary (astro.config.mjs compares
+#       PGHOST.toLowerCase() with the URL-normalized hostname), and the
+#       agreed normalized identity is retained for the S3 label check
 #   S2  build the exact application (astro build) so the native
 #       .emdash/migrations.json manifest is emitted by this exact build (a
 #       stale manifest is removed first; the manifest is consumed strictly as
@@ -30,8 +34,9 @@
 #       verify its identity fields, secret-freeness, and checksum
 #   S3  inspect the intended target with `emdash migrate --status --json`
 #       (no mutation), derive the actual target fingerprint from that
-#       inspection, prove the reported target label agrees with the PG*
-#       identity, and reject an invalid or unknown migration state
+#       inspection, prove the reported target label agrees with the agreed
+#       normalized identity from S1, and reject an invalid or unknown
+#       migration state
 #   S4  apply pending native migrations with plain `emdash migrate` carrying
 #       the required non-interactive --expected-target-fingerprint safety
 #       value derived from the S3 inspection, then re-inspect the target and
@@ -39,10 +44,15 @@
 #   S5  verify the resulting state with `emdash migrate --check` (exit 0
 #       means nothing pending and nothing unknown; it applies nothing)
 #   S6  probe the stable ./media mount with one unique bounded disposable
-#       file: create/write known bytes, read them back and compare, then
-#       remove the probe and prove no residue remains. A missing mount (this
-#       gate never creates ./media), an unwritable mount, a content mismatch,
-#       or a failed cleanup fails acceptance
+#       file whose pathname is claimed atomically and exclusively (mktemp:
+#       O_CREAT|O_EXCL — an existing file or symlink at a candidate name can
+#       never be truncated or followed, and mktemp safely retries with a
+#       fresh name), write known bytes into the claimed file, read them back
+#       and compare, then remove the probe and prove no residue remains.
+#       Cleanup removes only a pathname this run successfully claimed. A
+#       missing mount (this gate never creates ./media), an unclaimable or
+#       unwritable mount, a content mismatch, or a failed cleanup fails
+#       acceptance
 #
 # Inputs come from the environment (never committed). Supply them from the
 # ignored .env file, e.g.:
@@ -97,6 +107,14 @@ readonly MEDIA_MOUNT_PATH='media'
 ROOT=''
 TMP_DIR=''
 PROBE_FILE=''
+# The agreed normalized database identity proven in S1 (non-secret
+# components). AGREED_HOST carries the URL-normalized hostname, which the
+# accepted T008 comparison proves equal to PGHOST case-insensitively; the
+# native target label is built from exactly this normalized identity.
+AGREED_HOST=''
+AGREED_PORT=''
+AGREED_DATABASE=''
+AGREED_USER=''
 
 usage() {
 	cat <<'EOF'
@@ -107,14 +125,17 @@ as ready for use, that the exact application build's native migration
 manifest drives a clean native migration sequence against the intended
 PostgreSQL target and that the stable ./media mount is writable.
 
-Sequence: input validation and PG*/migration-URL identity agreement ->
-exact application build emitting the native .emdash/migrations.json
-(identity + secret-freeness + checksum asserts) -> emdash migrate
---status --json target inspection, fingerprint derivation, and
-invalid/unknown-state rejection -> non-interactive emdash migrate apply
-with --expected-target-fingerprint -> post-apply re-inspection ->
-emdash migrate --check -> bounded disposable media write/read/remove
-probe against ./media with a no-residue proof.
+Sequence: input validation and PG*/migration-URL identity agreement
+(host compared case-insensitively, as in the accepted T008 configuration
+boundary) -> exact application build emitting the native
+.emdash/migrations.json (identity + secret-freeness + checksum asserts)
+-> emdash migrate --status --json target inspection, fingerprint
+derivation, and invalid/unknown-state rejection -> non-interactive
+emdash migrate apply with --expected-target-fingerprint -> post-apply
+re-inspection -> emdash migrate --check -> bounded disposable media
+write/read/remove probe against ./media whose pathname is claimed
+atomically and exclusively (never clobbering or following an existing
+entry), with a no-residue proof.
 
 The database target must already be reachable and ./media must already
 exist; this gate creates and manages no database or media resource. It
@@ -200,9 +221,15 @@ print_tail() {
 # ---------------------------------------------------------------------------
 
 cleanup() {
-	if [ -n "$PROBE_FILE" ] && [ -e "$PROBE_FILE" ]; then
-		# A failure between the probe write and its planned removal lands
-		# here; no probe residue may survive this gate either way.
+	# PROBE_FILE is set only for a pathname this run claimed atomically and
+	# exclusively (mktemp O_CREAT|O_EXCL) and clears as soon as that file is
+	# verified removed, so cleanup can only ever remove a file this gate
+	# itself successfully created — never a pre-existing entry. The
+	# regular-file/not-symlink re-check keeps that ownership guarantee even
+	# if the pathname were somehow replaced mid-run.
+	if [ -n "$PROBE_FILE" ] && [ -f "$PROBE_FILE" ] && [ ! -L "$PROBE_FILE" ]; then
+		# A failure between the probe claim/write and its planned removal
+		# lands here; no probe residue may survive this gate either way.
 		if rm -f "$PROBE_FILE" 2>/dev/null && [ ! -e "$PROBE_FILE" ]; then
 			step cleanup INFO 'removed leftover media probe file after a failed step (no residue remains)'
 		else
@@ -222,7 +249,7 @@ cleanup() {
 require_tools() {
 	local missing=()
 	local tool
-	for tool in node npm npx sha256sum timeout; do
+	for tool in node npm npx mktemp sha256sum timeout; do
 		command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
 	done
 	if [ "${#missing[@]}" -gt 0 ]; then
@@ -299,8 +326,14 @@ check_identity_agreement() {
 		esac
 	done <"$identity_file"
 
+	# Host comparison mirrors the accepted T008 configuration boundary
+	# (astro.config.mjs): DNS hostnames are case-insensitive, so PGHOST is
+	# compared with the URL-normalized hostname (already lowercase from the
+	# WHATWG URL parse) case-insensitively. Port, database, and user are
+	# compared exactly, as in T008. A mixed-case PGHOST that the accepted
+	# application configuration loads must pass this gate unchanged.
 	local mismatches=()
-	if [ "$url_host" != "$PGHOST" ]; then
+	if [ "$url_host" != "${PGHOST,,}" ]; then
 		mismatches+=('host (PGHOST vs EMDASH_MIGRATION_DATABASE_URL)')
 	fi
 	if [ "$url_port" != "$PGPORT" ]; then
@@ -318,9 +351,19 @@ check_identity_agreement() {
 		exit "$EXIT_CONFIG"
 	fi
 
-	# These four components are the documented non-secret identity evidence.
-	info S1 'identity agreement: host=%s port=%s database=%s user=%s (password and full URL never printed)' \
-		"$PGHOST" "$PGPORT" "$PGDATABASE" "$PGUSER"
+	# Retain the agreed normalized identity (non-secret components): the
+	# native target label inspected in S3 is built by EmDash from the
+	# migration connection URL's identity, so that label must be compared
+	# against this normalized form rather than the raw PGHOST spelling.
+	AGREED_HOST="$url_host"
+	AGREED_PORT="$url_port"
+	AGREED_DATABASE="$url_database"
+	AGREED_USER="$url_user"
+
+	# These four components are the documented non-secret identity evidence
+	# (host shown in its normalized form, compared case-insensitively).
+	info S1 'identity agreement: host=%s port=%s database=%s user=%s (host compared case-insensitively as in the accepted T008 boundary; password and full URL never printed)' \
+		"$AGREED_HOST" "$AGREED_PORT" "$AGREED_DATABASE" "$AGREED_USER"
 	pass S1 'inputs valid and PG*/migration-URL identity agreement proven (non-secret components only)'
 }
 
@@ -504,9 +547,15 @@ inspect_target() {
 	fi
 
 	# The native postgres target label is host:port/database built from the
-	# migration connection URL; it must agree with the PG* identity proven
-	# in S1, so the inspected target is the intended database.
-	local expected_label="${PGHOST}:${PGPORT}/${PGDATABASE}"
+	# migration connection URL's identity; it must agree with the identity
+	# proven in S1, so the inspected target is the intended database. The
+	# expected label is built from the AGREED normalized identity (the URL
+	# hostname form), not the raw PGHOST spelling: EmDash normalizes the
+	# label's host exactly as the URL parse does, and S1 already proved that
+	# normalized host equal to PGHOST case-insensitively, per the accepted
+	# T008 boundary. Comparing raw PGHOST here would wrongly reject a
+	# mixed-case PGHOST that the accepted configuration loads.
+	local expected_label="${AGREED_HOST}:${AGREED_PORT}/${AGREED_DATABASE}"
 	if [ "$STATUS_LABEL" != "$expected_label" ]; then
 		fail_gate S3 'inspected target label %s does not match the intended database identity %s' \
 			"${STATUS_LABEL:-missing}" "$expected_label"
@@ -584,13 +633,26 @@ probe_media() {
 			"$MEDIA_MOUNT_PATH"
 	fi
 
-	# One unique, bounded, disposable probe file with known bytes.
-	local probe_name probe payload
-	probe_name=".songhealth-startup-probe-$(date -u +%Y%m%dT%H%M%SZ)-$$-$RANDOM"
-	probe="$media_dir/$probe_name"
+	# Claim one unique, bounded, disposable probe pathname atomically and
+	# exclusively: mktemp creates with O_CREAT|O_EXCL, so an existing entry
+	# at a candidate name — a file OR a symlink — can never be truncated or
+	# followed, and a collision makes mktemp safely retry with a fresh name
+	# instead of clobbering something this gate did not create. The claimed
+	# file is created mode 0600 and is written, read, and removed only
+	# through this exclusively owned pathname.
+	local probe probe_name payload claimed
+	if ! claimed="$(mktemp "$media_dir/.songhealth-startup-probe.XXXXXXXXXXXX")" 2>"$TMP_DIR/probe-claim.err"; then
+		print_tail 'media probe claim diagnostics' "$TMP_DIR/probe-claim.err"
+		fail_gate S6 'claiming an exclusive disposable media probe pathname failed: the expected media mount is not writable (or no exclusive probe pathname could be created)'
+	fi
+	probe="$claimed"
+	probe_name="$(basename "$probe")"
+	# Ownership starts here and is the only thing cleanup ever acts on: this
+	# run exclusively created this exact pathname a moment ago.
 	PROBE_FILE="$probe"
 	payload="songhealth t013 startup-acceptance media probe $probe_name"
 
+	# Write the known bytes into the file this run exclusively claimed.
 	if ! printf '%s' "$payload" >"$probe" 2>"$TMP_DIR/probe-write.err"; then
 		print_tail 'media probe write diagnostics' "$TMP_DIR/probe-write.err"
 		fail_gate S6 'writing the disposable media probe failed: the expected media mount is not writable'
@@ -618,9 +680,9 @@ probe_media() {
 	fi
 	PROBE_FILE=''
 
-	info S6 'media probe %s: wrote and read back %s identical bytes, then removed it; no residue remains' \
+	info S6 'media probe %s: exclusively claimed, wrote and read back %s identical bytes, then removed it; no residue remains' \
 		"$probe_name" "$size"
-	pass S6 'bounded disposable media write/read/remove probe passed against the stable %s mount' \
+	pass S6 'bounded disposable media write/read/remove probe passed against the stable %s mount (exclusive claim, no clobber, no symlink follow)' \
 		"$MEDIA_MOUNT_PATH"
 }
 
