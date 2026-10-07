@@ -75,10 +75,14 @@ function databaseNameFromUrl(url) {
 }
 
 // A public origin is exactly scheme://host[:port]: an absolute http:// or
-// https:// URL with a non-empty host and no userinfo, path, query, or fragment
-// (.env.example documents the form with no trailing slash; WHATWG parsing
-// normalizes both the empty and the "/" root path to pathname "/", so the
-// nothing-after-the-authority rule is checked on the raw input).
+// https:// URL with a non-empty host and no userinfo, path, query, or
+// fragment (.env.example documents the form with no trailing slash).
+// Acceptance requires the unmodified input to equal its own canonical WHATWG
+// origin serialization (url.origin), which contains exactly that form and
+// nothing else — so a missing, doubled, or backslashed authority separator,
+// surrounding or control whitespace, userinfo, path, query, fragment, or
+// trailing slash (anything the parser would silently normalize away) makes
+// the input differ from its origin form and fails closed.
 function parseAbsoluteHttpOrigin(value) {
   let url;
   try {
@@ -89,9 +93,7 @@ function parseAbsoluteHttpOrigin(value) {
   const isOrigin =
     (url.protocol === "http:" || url.protocol === "https:") &&
     url.hostname !== "" &&
-    url.username === "" &&
-    url.password === "" &&
-    !/^[^:]+:\/\/[^/?#]*[/?#]/.test(value);
+    value === url.origin;
   return isOrigin ? url : null;
 }
 
