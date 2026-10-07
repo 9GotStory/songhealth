@@ -74,6 +74,27 @@ function databaseNameFromUrl(url) {
   return url.pathname.replace(/^\//, "");
 }
 
+// A public origin is exactly scheme://host[:port]: an absolute http:// or
+// https:// URL with a non-empty host and no userinfo, path, query, or fragment
+// (.env.example documents the form with no trailing slash; WHATWG parsing
+// normalizes both the empty and the "/" root path to pathname "/", so the
+// nothing-after-the-authority rule is checked on the raw input).
+function parseAbsoluteHttpOrigin(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  const isOrigin =
+    (url.protocol === "http:" || url.protocol === "https:") &&
+    url.hostname !== "" &&
+    url.username === "" &&
+    url.password === "" &&
+    !/^[^:]+:\/\/[^/?#]*[/?#]/.test(value);
+  return isOrigin ? url : null;
+}
+
 function validateRuntimeConfiguration(env) {
   const problems = [];
   const missing = REQUIRED_INPUT_NAMES.filter((name) => isMissingInput(env[name]));
@@ -87,18 +108,13 @@ function validateRuntimeConfiguration(env) {
     }
   }
 
-  let publicOrigin = null;
-  if (!missing.includes("EMDASH_SITE_URL")) {
-    try {
-      publicOrigin = new URL(env.EMDASH_SITE_URL);
-    } catch {
-      publicOrigin = null;
-    }
-    if (publicOrigin === null || publicOrigin.hostname === "") {
-      problems.push(
-        "input EMDASH_SITE_URL must be an absolute http:// or https:// origin with a non-empty host",
-      );
-    }
+  if (
+    !missing.includes("EMDASH_SITE_URL") &&
+    parseAbsoluteHttpOrigin(env.EMDASH_SITE_URL) === null
+  ) {
+    problems.push(
+      "input EMDASH_SITE_URL must be an absolute http:// or https:// origin (scheme, host, optional port only: no userinfo, path, query, or fragment)",
+    );
   }
 
   let migrationUrl = null;
