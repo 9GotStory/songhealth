@@ -16,10 +16,17 @@
 # - specs/001-platform-foundation/plan.md — "Production topology and
 #   durability" (one PostgreSQL .container on the private network with the
 #   database volume mounted; user systemd owns start/stop/restart/ordering/
-#   restart policy/enablement; no PostgreSQL port is published) and
-#   "Configuration and secrets" (non-secret values may use an external
-#   environment file; passwords stay in operator-managed Podman/systemd
-#   secrets; one stable non-superuser role)
+#   restart policy; no PostgreSQL port is published), "Configuration and
+#   secrets" (non-secret values may use an external environment file;
+#   passwords stay in operator-managed Podman/systemd secrets), and the
+#   approved role model: the application uses one stable, non-superuser,
+#   least-privilege role (database connect, schema usage/create, DML, and
+#   ownership of the EmDash objects it creates)
+# - official postgres:18 image contract — the image initializes POSTGRES_USER
+#   as the cluster bootstrap administrator WITH SUPERUSER privileges and
+#   creates POSTGRES_DB owned by it, so this unit treats POSTGRES_USER and
+#   the songhealth-db-password secret as the bootstrap administrator's
+#   identity, never as the application's role or credential
 # - scripts/dev-db.sh — the approved PostgreSQL 18.6 image pin and the
 #   storage-boundary research: official PostgreSQL 18 images declare
 #   VOLUME /var/lib/postgresql with PGDATA=/var/lib/postgresql/18/docker, so
@@ -39,23 +46,49 @@
 # T016's C3 stage proves the boundary from runtime metadata and from the host
 # side at deployment verification time.
 #
-# External runtime inputs (never committed; both fail closed when absent):
-# - ./songhealth-db.env, resolved relative to this unit's installed location
-#   (Quadlet-native relative resolution; no host-specific absolute path is
-#   committed). The operator-managed, non-secret initialization identity:
-#     POSTGRES_USER=<the stable non-superuser EmDash role; the same value as
-#                    the application runtime's PGUSER>
-#     POSTGRES_DB=<the application runtime's PGDATABASE>
-#   Container start fails when the file is absent, and the application's
-#   PG* identity inputs must carry the same non-secret identity components.
-# - the Podman secret `songhealth-db-password`, injected through the native
-#   Quadlet Secret= mechanism and mounted at /run/secrets/songhealth-db-pass
-#   word (default mode 0444). It is consumed through the official image's
-#   native POSTGRES_PASSWORD_FILE input, so no password value is embedded in
-#   this file, in the container environment, or in Git, and `podman inspect`
+# External runtime inputs (never committed; every absence fails closed):
+#
+# - ~/.config/containers/systemd/songhealth-db.env — the operator-managed,
+#   non-secret bootstrap identity, loaded at the [Service] level (the %h
+#   specifier is expanded by user systemd; no host-specific absolute path is
+#   committed):
+#     POSTGRES_USER=<bootstrap administrator name — an administrative
+#                    identity, deliberately NOT the application's PGUSER>
+#     POSTGRES_DB=<target application database>
+#   A missing file fails the unit before any container exists; a missing or
+#   empty required key skips the unit before the container is created (see
+#   the ExecCondition gates in [Service]), so the image's fallback defaults
+#   (superuser `postgres`, database named after the user) can never silently
+#   initialize persistent storage. Only these two named variables are
+#   forwarded into the container; no other key in the file reaches it.
+#
+# - the Podman secret `songhealth-db-password` — the bootstrap
+#   administrator's credential, injected through the native Quadlet Secret=
+#   mechanism and mounted at /run/secrets/songhealth-db-password (default
+#   mode 0444). It is consumed through the official image's native
+#   POSTGRES_PASSWORD_FILE input, so no password value is embedded in this
+#   file, in the container environment, or in Git, and `podman inspect`
 #   cannot leak it. Container creation fails when the secret does not exist,
 #   and the image itself additionally refuses to initialize without a
 #   password.
+#
+# Application-role provisioning prerequisite (external; NOT a startup input
+# of this unit): the application must never connect as the bootstrap
+# administrator. Before application use, the operator provisions — from
+# external deployment configuration, against this running database — the one
+# stable, least-privilege application role matching the application runtime's
+# PGUSER, with its own separately protected credential (a distinct operator
+# secret consumed by the application unit, never songhealth-db-password) and
+# exactly the approved permissions: database CONNECT, schema USAGE/CREATE,
+# DML, and ownership of the EmDash objects it creates — no superuser,
+# CREATEDB, or CREATEROLE. Provisioning cannot precede first initialization,
+# so it does not gate this unit's start; application credentials and
+# migrations are enforced by the application-side startup/readiness gate
+# (T013/T020). The provisioned role is verifiable secret-free through the
+# local administrative boundary (its pg_roles attributes must show
+# non-superuser and its database/schema privileges must match the approved
+# set); provisioning commands and their evidence remain disposable operator
+# material and are not committed to this repository.
 
 [Unit]
 Description=Songhealth PostgreSQL 18.6 database (private application network only)
@@ -79,11 +112,15 @@ Network=songhealth.network
 # replaces only the ephemeral container layer, never the named volume.
 Volume=songhealth-db-data.volume:/var/lib/postgresql
 
-# Operator-managed non-secret initialization identity (see the header):
-# required at start; a missing file fails the unit closed.
-EnvironmentFile=./songhealth-db.env
+# Bootstrap identity: the two [Service]-validated variables are forwarded
+# into the container by bare name — podman --env KEY inherits each value from
+# the unit environment that user systemd loaded from the external environment
+# file. The image's native entrypoint and initialization behavior are
+# unchanged, and no other key from that file reaches the container.
+Environment=POSTGRES_USER
+Environment=POSTGRES_DB
 
-# Database credential: protected external Podman secret, mounted as a file at
+# Bootstrap credential: protected external Podman secret, mounted as a file at
 # the default /run/secrets/songhealth-db-password and consumed through the
 # official image's native *_FILE input. No usable credential is committed or
 # exported into the environment; a missing secret fails container creation.
@@ -95,7 +132,9 @@ Environment=POSTGRES_PASSWORD_FILE=/run/secrets/songhealth-db-password
 # identity inputs, on the container-internal loopback. No secret is involved
 # or printed. Notify=healthy postpones the generated unit's startup
 # notification until the health check passes, so user systemd never considers
-# the service started before PostgreSQL is healthy.
+# the service started before PostgreSQL is healthy. pg_isready proves only
+# that the server accepts connections; the ExecCondition gates in [Service]
+# are what prevent wrong-identity initialization.
 HealthCmd=pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1
 HealthInterval=5s
 HealthTimeout=3s
@@ -104,11 +143,25 @@ HealthStartPeriod=30s
 Notify=healthy
 
 # Rootless user-systemd lifecycle behavior — no alternative orchestration
-# layer exists: Quadlet generates the service and default.target enablement,
-# and user systemd alone owns restart. The unit returns after any unplanned
-# container exit (postgres crash, OOM kill, external signal shutdown); an
-# explicit `systemctl --user stop` is never restarted, and systemd's built-in
-# start rate limiting bounds the retry loop of a fail-closed missing input.
+# layer exists, and no boot-time enablement is defined here: the unit runs
+# when the operator starts or enables it through user systemd.
+#
+# The environment file supplies the bootstrap identity at the systemd level.
+# A missing file fails the unit load before any container exists, and the
+# ExecCondition gates skip the unit — exit 1-254 semantics: skipped, not
+# failed, and not restarted — when a required identity value is missing or
+# empty. In every gated case no container is created, the native image
+# entrypoint never runs, the persistent volume is never initialized with
+# fallback defaults, and the healthy notification cannot fire. Failures name
+# the field only; values are never printed.
 [Service]
+EnvironmentFile=%h/.config/containers/systemd/songhealth-db.env
+ExecCondition=/usr/bin/test -n "${POSTGRES_USER}"
+ExecCondition=/usr/bin/test -n "${POSTGRES_DB}"
+
+# The unit returns after any unplanned container exit (postgres crash, OOM
+# kill, external signal shutdown); an explicit `systemctl --user stop` is
+# never restarted, and systemd's built-in start rate limiting bounds the
+# retry loop of a fail-closed missing input.
 Restart=always
 RestartSec=5s
