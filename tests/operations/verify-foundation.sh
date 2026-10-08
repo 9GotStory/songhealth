@@ -1,0 +1,1445 @@
+#!/usr/bin/env bash
+# node -e programs are single-quoted on purpose: the JavaScript must not be
+# shell-expanded.
+# shellcheck disable=SC2016
+#
+# Songhealth production smoke/lifecycle verification harness (Feature 001,
+# T016 — RED verification harness for US2).
+#
+# This harness is the FAILING-first verification contract for the production
+# implementation that T017–T020 will later deliver (OCI image + five Quadlet
+# definitions). At any baseline where those artifacts are absent it must exit
+# nonzero with one bounded, secret-free prerequisite failure that is
+# attributable ONLY to that intentionally absent downstream implementation —
+# never to a syntax error, an unchecked variable, an unbounded wait, secret
+# leakage, or destructive probing (stage P0 runs before anything else and
+# before any environment input is even required, so a bare run at the RED
+# baseline always reports the missing deployment, not missing inputs).
+#
+# Contract coverage (delegation items map 1:1 to stage groups):
+#
+#   P0   RED prerequisite: the repository deployment definitions exist
+#        (deploy/Containerfile + the five deploy/quadlet/* units from the
+#        approved plan structure) and the T013 authority script is present.
+#   R1   resolve and validate the EXACT task-owned runtime targets (units,
+#        containers, network, volumes) BEFORE any lifecycle mutation; the
+#        documented T015 development resources (songhealth-dev-db,
+#        songhealth-dev-db-data, host ./media) are never targets and any
+#        collision with them fails closed.
+#   C1  (1) T013's startup-acceptance contract — status -> inspected-target
+#        fingerprint-guarded apply -> check over the exact-build manifest,
+#        plus the bounded media write/read/remove probe — completed for the
+#        current start of the application unit before it is treated as READY,
+#        evidenced by the T013 gate's own PASS banner in the unit journal
+#        (the banner is derived from tests/operations/verify-startup.sh
+#        itself, so this harness reuses T013's contract instead of
+#        duplicating or weakening it; it is re-proved for every start across
+#        the lifecycle cycles); recurring readiness stays private (obtained
+#        only through the container boundary) and non-mutating (media tree
+#        and tagline proven unchanged across a readiness probe).
+#   C2  (2) both containers are attached to the approved private application
+#        network; the required application-to-database access succeeds
+#        through that private path only; the defined unintended host/public
+#        PostgreSQL paths (any published host-port mapping, and the host to
+#        the database container's private address) are evaluated in C3.
+#   C3  (3) PostgreSQL publishes NO host port — proven from runtime/container
+#        metadata (empty PortBindings, empty `podman port` mapping registry)
+#        AND from the applicable host boundary by an actual bounded TCP
+#        connect from the host to the database container's private address
+#        (must be refused), never inferred from a successful private
+#        connection.
+#   C4  (4) the two expected separate persistent volumes exist and are
+#        attached at their approved targets (database data at
+#        /var/lib/postgresql — the official PostgreSQL 18 image's persistent
+#        parent of PGDATA, researched in scripts/dev-db.sh — and media at the
+#        stable in-container ./media mount path), as named-volume mounts
+#        outside the ephemeral container layers.
+#   C5  (7+8) integrity baseline: the canonical native EmDash Site Setting
+#        `tagline` is retrieved through its intended native platform boundary
+#        and compared EXACT VALUE FIRST, then its exact UTF-8 bytes are
+#        hashed and compared with the canonical SHA-256; the designated
+#        validation media is retrieved through its intended native public
+#        media boundary and its bytes compared with the canonical media
+#        SHA-256.
+#   C6  (5) exactly three consecutive lifecycle cycles, each exercising
+#        start, stop, restart, and replace/recreate of the ephemeral runtime
+#        containers while retaining the named volumes; after every operation
+#        the readiness state is re-probed, and both integrity checks are
+#        rerun at every operational checkpoint (a stopped platform must
+#        report not-ready, and integrity is asserted wherever the platform
+#        is expected to serve it — every checkpoint where the unit runs).
+#   C7  (6) a deliberately missing expected persistence attachment (the
+#        media volume omitted from the application unit's Quadlet source)
+#        reports not-ready and never a healthy empty replacement; the
+#        omission is simulated WITHOUT deleting or reinitializing persistent
+#        state, and the original attachment is restored — verified by
+#        checksum — on every exit path, including interruption (traps).
+#   C8   final integrity checkpoint, retained-volume/no-new-volume proof, and
+#        the no-residue wrap-up.
+#
+# The harness never starts or stops the T005 development database, never
+# touches songhealth-dev-db / songhealth-dev-db-data or the host ./media
+# tree, never deletes or recreates a volume, and never runs the production
+# application itself. Its mutations are exactly: user-systemd unit lifecycle
+# operations on the two validated production units, removal of their two
+# validated ephemeral containers (only after the owning unit is stopped) for
+# the recreate exercise, and the guarded, checksum-verified transient edit of
+# the application Quadlet source during C7.
+#
+# Inputs are external and environment-appropriate (no host-specific paths,
+# credentials, or public endpoints are hard-coded). Required:
+#
+#   SONGHEALTH_APP_ORIGIN          proxy-facing loopback origin of the
+#                                  production application publication,
+#                                  e.g. http://127.0.0.1:8080
+#   SONGHEALTH_VALIDATION_TOKEN    scoped EmDash personal access token with
+#                                  settings:read, provisioned by the operator
+#                                  for validation; read in-process by node
+#                                  and NEVER printed or logged
+#   SONGHEALTH_VALIDATION_MEDIA_PATH
+#                                  URL path of the designated validation media
+#                                  asset on the native public media file
+#                                  boundary, e.g. /_emdash/api/media/file/<key>
+#
+# Optional topology overrides (defaults come from the approved plan
+# structure; override only to match the deployed environment):
+#
+#   SONGHEALTH_APP_UNIT (songhealth-app.service)
+#   SONGHEALTH_DB_UNIT (songhealth-db.service)
+#   SONGHEALTH_APP_CONTAINER (systemd-songhealth-app)
+#   SONGHEALTH_DB_CONTAINER (systemd-songhealth-db)
+#   SONGHEALTH_NETWORK (songhealth)
+#   SONGHEALTH_DB_VOLUME (songhealth-db-data)
+#   SONGHEALTH_MEDIA_VOLUME (songhealth-media)
+#   SONGHEALTH_DB_MOUNT_TARGET (/var/lib/postgresql)
+#   SONGHEALTH_MEDIA_MOUNT_TARGET (/app/media)
+#   SONGHEALTH_READINESS_COMMAND (node scripts/verify-readiness.mjs)
+#   SONGHEALTH_APP_QUADLET (default: <xdg-config>/containers/systemd/
+#   songhealth-app.container, derived from SONGHEALTH_APP_UNIT)
+#
+# Secret safety: this harness holds no database credentials (all
+# application-to-database probes execute inside the application container
+# through `podman exec`, consuming only the container's own configured
+# environment). It never prints credentials, secret values, bearer tokens,
+# EMDASH_ENCRYPTION_KEY, PGPASSWORD, or a full credential-bearing migration
+# URL; any captured command output is scrubbed of the known secret values
+# before it is printed, and readiness output is additionally asserted to be
+# secret-free. Only safe unit/container/network/volume/dependency names,
+# non-secret digests, and HTTP status codes appear in output.
+#
+# Exit codes: 0 PASS | 1 FAIL (any stage, including the expected RED
+# prerequisite failure) | 2 environment error | 4 missing or invalid input |
+# 64 usage error.
+
+set -euo pipefail
+
+readonly EXIT_FAIL=1
+readonly EXIT_ENV=2
+readonly EXIT_CONFIG=4
+readonly EXIT_USAGE=64
+
+# Bounded waits so no stage can ever hang (seconds).
+readonly UNIT_WAIT_SECONDS=300
+readonly NEGATIVE_SETTLE_SECONDS=150
+readonly EXEC_TIMEOUT_SECONDS=60
+readonly CONNECT_TIMEOUT_SECONDS=5
+readonly HTTP_TIMEOUT_SECONDS=30
+readonly POLL_SECONDS=5
+readonly JOURNAL_MAX_LINES=20000
+
+# Canonical validation evidence (T015, non-environment-specific by design).
+readonly TAGLINE_EXPECTED='Songhealth Feature 001 foundation validation'
+readonly TAGLINE_EXPECTED_SHA256='84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415'
+readonly MEDIA_EXPECTED_SHA256='3d8133b049b52f94d6f5a55ee8d1d1181b2eaa8a907eee557b16f0163a66198d'
+
+# T013 authority: the reused startup-acceptance contract. The gate banner is
+# derived from this script at runtime, never re-typed here, so this harness
+# can only accept what the accepted T013 gate itself proves.
+readonly T013_SCRIPT='tests/operations/verify-startup.sh'
+readonly T013_BANNER_MARKER='t013: T013 startup acceptance gate: PASS'
+
+# Repository deployment definitions required by the approved plan (Project
+# Structure) and their owning tasks, for the P0 RED prerequisite check.
+readonly DEPLOY_DEFINITION_FILES=(
+	'deploy/Containerfile'
+	'deploy/quadlet/songhealth.network'
+	'deploy/quadlet/songhealth-db-data.volume'
+	'deploy/quadlet/songhealth-media.volume'
+	'deploy/quadlet/songhealth-db.container'
+	'deploy/quadlet/songhealth-app.container'
+)
+readonly DEPLOY_DEFINITION_OWNERS=(
+	'T017 (production OCI image)'
+	'T018 (private application network)'
+	'T018 (persistent PostgreSQL data volume)'
+	'T018 (persistent media volume)'
+	'T019 (PostgreSQL Quadlet unit)'
+	'T020 (application Quadlet unit)'
+)
+
+# Documented T015/T005 development resources that this harness must never
+# operate on, by name (scripts/dev-db.sh contract).
+readonly DEV_GUARD_NAMES='songhealth-dev-db songhealth-dev-db-data'
+
+# Approved topology defaults (plan Project Structure; Quadlet default
+# container naming is systemd-<unit-base>). Environment-appropriate inputs
+# may override every one of them.
+APP_UNIT="${SONGHEALTH_APP_UNIT:-songhealth-app.service}"
+DB_UNIT="${SONGHEALTH_DB_UNIT:-songhealth-db.service}"
+APP_CONTAINER="${SONGHEALTH_APP_CONTAINER:-systemd-songhealth-app}"
+DB_CONTAINER="${SONGHEALTH_DB_CONTAINER:-systemd-songhealth-db}"
+NETWORK_NAME="${SONGHEALTH_NETWORK:-songhealth}"
+DB_VOLUME="${SONGHEALTH_DB_VOLUME:-songhealth-db-data}"
+MEDIA_VOLUME="${SONGHEALTH_MEDIA_VOLUME:-songhealth-media}"
+DB_MOUNT_TARGET="${SONGHEALTH_DB_MOUNT_TARGET:-/var/lib/postgresql}"
+MEDIA_MOUNT_TARGET="${SONGHEALTH_MEDIA_MOUNT_TARGET:-/app/media}"
+READINESS_COMMAND="${SONGHEALTH_READINESS_COMMAND:-node scripts/verify-readiness.mjs}"
+
+# Set while the harness runs.
+ROOT=''
+TMP_DIR=''
+GATE_BANNER=''
+QUADLET_SOURCE=''
+QUADLET_BACKUP=''
+QUADLET_MODIFIED=''
+QUADLET_SOURCE_SHA_BASE=''
+VOLUME_SNAPSHOT=''
+# Probe results of the most recent probe_readiness call.
+READINESS_STATE=''
+READINESS_LINE=''
+
+usage() {
+	cat <<'EOF'
+Usage: tests/operations/verify-foundation.sh
+
+T016 production smoke/lifecycle verification harness (User Story 2, RED
+verification-first): prove the production rootless Podman/Quadlet
+foundation's startup acceptance (T013 contract), private network boundary,
+absence of any published PostgreSQL host port, expected persistent volume
+attachments, exactly three start/stop/restart/recreate lifecycle cycles with
+retained validation state, the missing-attachment not-ready behavior, and
+the canonical tagline/media integrity comparisons after every checkpoint.
+
+Stage order: P0 repository deployment-definition prerequisite (the expected
+RED failure while T017–T020 are unimplemented) -> R1 task-owned target
+resolution/validation -> C1 startup-gate evidence + private non-mutating
+recurring readiness -> C2 private network + app-to-database access ->
+C3 no published PostgreSQL host port -> C4 persistent volume attachments ->
+C5 canonical tagline/media integrity baseline -> C6 three lifecycle cycles
+-> C7 missing-attachment negative (guarded, checksum-verified restore) ->
+C8 final integrity and no-residue wrap-up.
+
+Required environment inputs (see the script header for the full input
+reference): SONGHEALTH_APP_ORIGIN, SONGHEALTH_VALIDATION_TOKEN,
+SONGHEALTH_VALIDATION_MEDIA_PATH. Topology names default to the approved
+plan structure and may be overridden (SONGHEALTH_APP_UNIT,
+SONGHEALTH_DB_UNIT, SONGHEALTH_APP_CONTAINER, SONGHEALTH_DB_CONTAINER,
+SONGHEALTH_NETWORK, SONGHEALTH_DB_VOLUME, SONGHEALTH_MEDIA_VOLUME,
+SONGHEALTH_DB_MOUNT_TARGET, SONGHEALTH_MEDIA_MOUNT_TARGET,
+SONGHEALTH_READINESS_COMMAND, SONGHEALTH_APP_QUADLET).
+
+The harness never touches the development database resources
+(songhealth-dev-db, songhealth-dev-db-data) or the host media tree, never
+deletes or recreates a volume, and restores any transient attachment
+omission on every exit path.
+
+Exit codes: 0 PASS | 1 FAIL (any stage, including the expected RED
+prerequisite failure while T017–T020 are unimplemented) | 2 environment
+error | 4 missing/invalid input | 64 usage error.
+EOF
+}
+
+die() {
+	# die <exit-code> <message...>
+	local code="$1"
+	shift
+	printf 't016: %s\n' "$*" >&2
+	exit "$code"
+}
+
+step() {
+	# step <name> <status> <printf-format> [args...]
+	local name="$1" status="$2"
+	shift 2
+	printf 't016: [%s] %s ' "$name" "$status"
+	# The format is always this script's own literal message.
+	# shellcheck disable=SC2059
+	printf -- "$@"
+	printf '\n'
+}
+
+pass() { step "$1" PASS "${@:2}"; }
+info() { step "$1" INFO "${@:2}"; }
+warn() { step "$1" WARN "${@:2}"; }
+
+fail_stage() {
+	# fail_stage <stage-name> <printf-format> [args...]
+	local name="$1"
+	shift
+	printf 't016: [%s] FAIL ' "$name" >&2
+	# The format is always this script's own literal message.
+	# shellcheck disable=SC2059
+	printf -- "$@" >&2
+	printf '\n' >&2
+	exit "$EXIT_FAIL"
+}
+
+# ---------------------------------------------------------------------------
+# Secret-safe helpers
+# ---------------------------------------------------------------------------
+
+scrub() {
+	# stdin -> stdout with every known secret VALUE replaced by [REDACTED].
+	# The secret values are read from the environment inside the node
+	# process, so they never appear on any command line. Used before any
+	# captured command output may reach the terminal.
+	node -e '
+		const names = ["PGPASSWORD", "EMDASH_MIGRATION_DATABASE_URL", "EMDASH_ENCRYPTION_KEY", "EMDASH_TOKEN", "SONGHEALTH_VALIDATION_TOKEN"];
+		const values = names.map((n) => process.env[n]).filter((v) => typeof v === "string" && v.length >= 4);
+		let data = "";
+		process.stdin.on("data", (c) => (data += c));
+		process.stdin.on("end", () => {
+			for (const value of values) data = data.replaceAll(value, "[REDACTED]");
+			process.stdout.write(data);
+		});
+	'
+}
+
+file_free_of_secrets() {
+	# file_free_of_secrets <file>: exit 0 when the file contains none of the
+	# known secret-bearing input values. The file is never printed.
+	node -e '
+		const fs = require("fs");
+		const names = ["PGPASSWORD", "EMDASH_MIGRATION_DATABASE_URL", "EMDASH_ENCRYPTION_KEY", "EMDASH_TOKEN", "SONGHEALTH_VALIDATION_TOKEN"];
+		const values = names.map((n) => process.env[n]).filter((v) => typeof v === "string" && v.length >= 4);
+		const data = fs.readFileSync(process.argv[1], "utf8");
+		process.exit(values.some((v) => data.includes(v)) ? 1 : 0);
+	' "$1" 2>/dev/null
+}
+
+print_tail() {
+	# print_tail <label> <file> [lines]: scrubbed bounded tail for diagnosis.
+	local label="$1" file="$2" lines="${3:-15}"
+	if [ -s "$file" ]; then
+		printf 't016: %s (last %s lines, secret-scrubbed):\n' "$label" "$lines" >&2
+		tail -n "$lines" "$file" | scrub >&2
+	else
+		printf 't016: %s: (no captured output)\n' "$label" >&2
+	fi
+}
+
+# ---------------------------------------------------------------------------
+# Cleanup: above all, restore the C7 attachment omission on every exit path,
+# then remove the scratch directory. No persistent state is ever deleted.
+# ---------------------------------------------------------------------------
+
+restore_app_quadlet() {
+	# Byte-exact restore of the application Quadlet source after the C7
+	# negative test, including from the interruption traps. Restoring the
+	# source file restores the original volume-attachment definition; the
+	# regenerated unit follows after daemon-reload, and the unit is restarted
+	# best-effort so the platform is not left stopped. Returns nonzero only
+	# when the byte-exact restore itself could not be verified.
+	if [ -z "$QUADLET_MODIFIED" ] || [ -z "$QUADLET_SOURCE" ] || [ -z "$QUADLET_BACKUP" ]; then
+		return 0
+	fi
+	if [ ! -f "$QUADLET_BACKUP" ] || [ ! -f "$QUADLET_SOURCE" ]; then
+		step cleanup WARN 'cannot restore %s: the baseline copy or the source disappeared; if needed, restore from %s and run: systemctl --user daemon-reload' \
+			"$QUADLET_SOURCE" "$QUADLET_BACKUP"
+		return 0
+	fi
+	local restored_sha=''
+	if ! cat "$QUADLET_BACKUP" >"$QUADLET_SOURCE" 2>/dev/null ||
+		! restored_sha="$(sha256sum "$QUADLET_SOURCE" | awk '{print $1}')" ||
+		[ "$restored_sha" != "$QUADLET_SOURCE_SHA_BASE" ]; then
+		step cleanup WARN 'could not verify the byte-exact restore of %s; the baseline copy is preserved at %s — restore it manually and run: systemctl --user daemon-reload' \
+			"$QUADLET_SOURCE" "$QUADLET_BACKUP"
+		return 1
+	fi
+	QUADLET_MODIFIED=''
+	systemctl --user daemon-reload >/dev/null 2>&1 || true
+	if systemctl --user is-active --quiet "$APP_UNIT" 2>/dev/null; then
+		step cleanup INFO 'application Quadlet source restored byte-exact (SHA-256 verified); attachment definition matches the baseline again'
+	else
+		if timeout --kill-after=15 "${UNIT_WAIT_SECONDS}s" systemctl --user restart "$APP_UNIT" >/dev/null 2>&1; then
+			step cleanup INFO 'application Quadlet source restored byte-exact and the unit restarted after the attachment-omission test'
+		else
+			step cleanup WARN 'application Quadlet source restored byte-exact, but the unit did not restart cleanly; run: systemctl --user start %s' "$APP_UNIT"
+		fi
+	fi
+	return 0
+}
+
+cleanup() {
+	restore_app_quadlet || true
+	if [ -n "$TMP_DIR" ] && [ -d "$TMP_DIR" ]; then
+		rm -rf "$TMP_DIR"
+	fi
+}
+
+# ---------------------------------------------------------------------------
+# P0 — RED prerequisite: the production deployment definitions exist
+# ---------------------------------------------------------------------------
+
+check_deployment_definitions() {
+	local missing=()
+	local absent_files='' file i
+	if [ ! -f "$ROOT/$T013_SCRIPT" ]; then
+		fail_stage P0 'the T013 startup-acceptance authority %s is absent from the repository; this harness reuses and anchors on it and cannot verify the startup gate without it' \
+			"$T013_SCRIPT"
+	fi
+	for file in "${DEPLOY_DEFINITION_FILES[@]}"; do
+		if [ ! -f "$ROOT/$file" ]; then
+			missing+=("$file")
+		fi
+	done
+	if [ "${#missing[@]}" -gt 0 ]; then
+		for file in "${missing[@]}"; do
+			absent_files+="${absent_files:+, }$file"
+		done
+		printf 't016: [P0] FAIL production deployment definition(s) absent from the repository: %s\n' "$absent_files" >&2
+		printf 't016: [P0] these are the intentionally unimplemented T017–T020 production artifacts; the T016 harness fails closed for exactly this bounded prerequisite reason\n' >&2
+		for i in "${!DEPLOY_DEFINITION_FILES[@]}"; do
+			if [ ! -f "$ROOT/${DEPLOY_DEFINITION_FILES[$i]}" ]; then
+				printf 't016: [P0] missing %s — owned by %s\n' \
+					"${DEPLOY_DEFINITION_FILES[$i]}" "${DEPLOY_DEFINITION_OWNERS[$i]}" >&2
+			fi
+		done
+		printf 't016: [P0] no lifecycle, network, volume, or persistence probe was attempted and nothing was mutated\n' >&2
+		exit "$EXIT_FAIL"
+	fi
+	pass P0 'production deployment definitions present in the repository (Containerfile + five Quadlet units) and the T013 authority script resolved'
+}
+
+# ---------------------------------------------------------------------------
+# Tool and input validation
+# ---------------------------------------------------------------------------
+
+require_tools() {
+	local missing=()
+	local tool
+	for tool in podman systemctl journalctl node sha256sum timeout mktemp; do
+		command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
+	done
+	if [ "${#missing[@]}" -gt 0 ]; then
+		die "$EXIT_ENV" "required tool(s) not on PATH: ${missing[*]}"
+	fi
+}
+
+validate_inputs() {
+	local missing=()
+	local var
+	for var in SONGHEALTH_APP_ORIGIN SONGHEALTH_VALIDATION_TOKEN \
+		SONGHEALTH_VALIDATION_MEDIA_PATH; do
+		if [ -z "${!var:-}" ]; then
+			missing+=("$var")
+		fi
+	done
+	if [ "${#missing[@]}" -gt 0 ]; then
+		printf 't016: [R1] FAIL missing required input(s): %s\n' "${missing[*]}" >&2
+		printf 't016: [R1] supply the documented external validation inputs in the environment (never on a command line); see the script header\n' >&2
+		exit "$EXIT_CONFIG"
+	fi
+
+	case $SONGHEALTH_APP_ORIGIN in
+	http://* | https://*) ;;
+	*)
+		die "$EXIT_CONFIG" 'SONGHEALTH_APP_ORIGIN must be an absolute http:// or https:// origin (scheme + host + optional port, no path)'
+		;;
+	esac
+	# Strip the scheme and require a bare authority: no path, query, or
+	# fragment components (a simple glob cannot do this — shell wildcards
+	# match "/" and the empty string, so a normal origin would be rejected).
+	local origin_authority=''
+	origin_authority="${SONGHEALTH_APP_ORIGIN#http://}"
+	origin_authority="${origin_authority#https://}"
+	case $origin_authority in
+	'' | */* | *\?* | *\#*)
+		die "$EXIT_CONFIG" 'SONGHEALTH_APP_ORIGIN must be a bare origin: host and optional port only, no path, query, or fragment'
+		;;
+	esac
+	case $SONGHEALTH_VALIDATION_MEDIA_PATH in
+	/*) ;;
+	*) die "$EXIT_CONFIG" 'SONGHEALTH_VALIDATION_MEDIA_PATH must be an absolute URL path beginning with /' ;;
+	esac
+
+	# The resolved production targets must never collide with the documented
+	# development resources this harness must not touch.
+	local guard_name
+	for guard_name in $DEV_GUARD_NAMES; do
+		case " $APP_UNIT $DB_UNIT $APP_CONTAINER $DB_CONTAINER $NETWORK_NAME $DB_VOLUME $MEDIA_VOLUME " in
+		*" $guard_name "*)
+			die "$EXIT_CONFIG" "a resolved production target collides with the preserved development resource name $guard_name; this harness never operates on the T015 development database/media state"
+			;;
+		esac
+	done
+}
+
+# ---------------------------------------------------------------------------
+# R1 — resolve and validate the exact task-owned targets (read-only, before
+# any mutation)
+# ---------------------------------------------------------------------------
+
+unit_exists() {
+	# unit_exists <unit>: exit 0 when the user-systemd unit is known.
+	systemctl --user cat "$1" >/dev/null 2>&1
+}
+
+container_running() {
+	# container_running <container>: exit 0 when the container exists and
+	# runs.
+	podman ps --filter name="^$1\$" --filter status=running --format '{{.Names}}' 2>/dev/null | grep -Fxq "$1"
+}
+
+container_state() {
+	# container_state <container>: prints the container state or 'absent'.
+	local state=''
+	state="$(podman container inspect "$1" --format '{{.State.Status}}' 2>/dev/null || true)"
+	printf '%s' "${state:-absent}"
+}
+
+container_id() {
+	# container_id <container>: prints the full container ID or empty.
+	podman container inspect "$1" --format '{{.Id}}' 2>/dev/null || true
+}
+
+validate_container_ownership() {
+	# validate_container_ownership <container> <unit>: the container must run
+	# inside the owning unit's cgroup, proving it is this deployment's
+	# task-owned ephemeral container and not a same-name foreign resource —
+	# the precondition for any later stop/rm lifecycle exercise.
+	local container="$1" unit="$2"
+	local cgroup=''
+	cgroup="$(podman container inspect "$container" --format '{{.CgroupPath}}' 2>/dev/null || true)"
+	if [ -z "$cgroup" ]; then
+		fail_stage R1 'could not resolve the cgroup of container %s' "$container"
+	fi
+	case $cgroup in
+	*"$unit"*) ;;
+	*)
+		fail_stage R1 'container %s does not run in the cgroup of unit %s (cgroup owner mismatch); refusing to treat it as a task-owned target' \
+			"$container" "$unit"
+		;;
+	esac
+}
+
+snapshot_volumes() {
+	# snapshot_volumes: sorted named-volume list (names only, non-secret).
+	podman volume ls --format '{{.Name}}' 2>/dev/null | sort || true
+}
+
+resolve_targets() {
+	local unit
+	for unit in "$APP_UNIT" "$DB_UNIT"; do
+		if ! unit_exists "$unit"; then
+			fail_stage R1 'user-systemd unit %s is not known; the approved Quadlet units must be installed in the rootless user location before production verification' \
+				"$unit"
+		fi
+	done
+	if ! systemctl --user is-system-running >/dev/null 2>&1; then
+		die "$EXIT_ENV" 'the user systemd manager is not runnable from this session; production verification requires a rootless user session with user systemd (Quadlet baseline)'
+	fi
+	for unit in "$APP_UNIT" "$DB_UNIT"; do
+		if ! systemctl --user is-active --quiet "$unit"; then
+			fail_stage R1 'unit %s is not active; start the production deployment (systemctl --user start %s %s) before verification' \
+				"$unit" "$DB_UNIT" "$APP_UNIT"
+		fi
+	done
+
+	if ! container_running "$APP_CONTAINER"; then
+		fail_stage R1 'application container %s is not running under unit %s' "$APP_CONTAINER" "$APP_UNIT"
+	fi
+	if ! container_running "$DB_CONTAINER"; then
+		fail_stage R1 'database container %s is not running under unit %s' "$DB_CONTAINER" "$DB_UNIT"
+	fi
+	validate_container_ownership "$APP_CONTAINER" "$APP_UNIT"
+	validate_container_ownership "$DB_CONTAINER" "$DB_UNIT"
+
+	if ! podman network exists "$NETWORK_NAME" 2>/dev/null; then
+		fail_stage R1 'the approved private application network %s does not exist' "$NETWORK_NAME"
+	fi
+	local volume
+	for volume in "$DB_VOLUME" "$MEDIA_VOLUME"; do
+		if ! podman volume exists "$volume" 2>/dev/null; then
+			fail_stage R1 'expected persistent volume %s does not exist' "$volume"
+		fi
+	done
+
+	# Baseline snapshot used by the later no-new-resources proof. Volumes are
+	# never created or deleted by this harness; the snapshot only proves that
+	# the set is unchanged. (The container-replacement proof captures each
+	# cycle's own before/after container ids, because they legitimately
+	# change across cycles.)
+	VOLUME_SNAPSHOT="$(snapshot_volumes)"
+
+	# Resolve the application Quadlet source for the guarded C7 negative test
+	# before any mutation happens, so the omission test can never operate on
+	# an unresolved path.
+	if [ -n "${SONGHEALTH_APP_QUADLET:-}" ]; then
+		QUADLET_SOURCE="$SONGHEALTH_APP_QUADLET"
+	else
+		local unit_base config_dir
+		unit_base="${APP_UNIT%.service}"
+		config_dir="${XDG_CONFIG_HOME:-$HOME/.config}"
+		QUADLET_SOURCE="$config_dir/containers/systemd/$unit_base.container"
+	fi
+	if [ ! -f "$QUADLET_SOURCE" ]; then
+		fail_stage R1 'the application Quadlet source %s is not present at the documented rootless user location; set SONGHEALTH_APP_QUADLET to the installed source path' \
+			"$QUADLET_SOURCE"
+	fi
+
+	info R1 'resolved targets: units %s + %s, containers %s + %s, network %s, volumes %s + %s' \
+		"$APP_UNIT" "$DB_UNIT" "$APP_CONTAINER" "$DB_CONTAINER" \
+		"$NETWORK_NAME" "$DB_VOLUME" "$MEDIA_VOLUME"
+	info R1 'application Quadlet source for the guarded negative test: %s' "$QUADLET_SOURCE"
+	pass R1 'task-owned targets resolved and validated (unit cgroup ownership proven) before any lifecycle mutation; development resources guarded: %s' \
+		"$DEV_GUARD_NAMES"
+}
+
+# ---------------------------------------------------------------------------
+# C1 — T013 startup-acceptance gate evidence before READY, and private
+# non-mutating recurring readiness
+# ---------------------------------------------------------------------------
+
+derive_gate_banner() {
+	# The banner this harness requires in the unit journal is derived from
+	# the accepted T013 script itself at runtime. If the script no longer
+	# prints it, this harness fails closed rather than accepting a drifted or
+	# weakened substitute.
+	GATE_BANNER="$(grep -oF "$T013_BANNER_MARKER" "$ROOT/$T013_SCRIPT" | head -1 || true)"
+	if [ -z "$GATE_BANNER" ]; then
+		fail_stage C1 'could not derive the T013 gate completion banner from %s; the authority script changed and this harness refuses to weaken its evidence anchor' \
+			"$T013_SCRIPT"
+	fi
+}
+
+unit_main_start_epoch() {
+	# unit_main_start_epoch <unit>: prints the unit's current main-start time
+	# as a unix epoch (empty when the unit has no current start).
+	local ts epoch=''
+	ts="$(LC_ALL=C systemctl --user show "$1" -p ExecMainStartTimestamp --value 2>/dev/null || true)"
+	if [ -n "$ts" ] && [ "$ts" != '0' ]; then
+		epoch="$(date -d "$ts" +%s 2>/dev/null || true)"
+	fi
+	printf '%s' "$epoch"
+}
+
+require_gate_banner_for_current_start() {
+	# require_gate_banner_for_current_start <label>: the T013 gate's PASS
+	# banner must be present in the application unit's journal for the
+	# CURRENT start (the journal window is bounded to entries since the
+	# unit's current main-process start), proving the deployment ran the
+	# reused T013 startup-acceptance gate during this start — the exact-build
+	# status -> fingerprint-guarded apply -> check sequence and the bounded
+	# media write/read/remove probe. Blocking readiness on gate failure is
+	# the deployment's own contract (T020); this stage re-proves the gate ran
+	# on every start, including after every lifecycle operation below.
+	local label="$1"
+	local epoch journal_file
+	epoch="$(unit_main_start_epoch "$APP_UNIT")"
+	if [ -z "$epoch" ]; then
+		fail_stage "$label" 'unit %s reports no current main start; cannot bound the journal window for the T013 gate evidence' "$APP_UNIT"
+	fi
+	journal_file="$TMP_DIR/journal-$label.txt"
+	if ! timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
+		journalctl --user -u "$APP_UNIT" --since "@$epoch" -n "$JOURNAL_MAX_LINES" --no-pager \
+		>"$journal_file" 2>"$TMP_DIR/journal-$label.err"; then
+		print_tail 'journalctl diagnostics' "$TMP_DIR/journal-$label.err"
+		fail_stage "$label" 'reading the journal of unit %s failed' "$APP_UNIT"
+	fi
+	if ! grep -Fq "$GATE_BANNER" "$journal_file"; then
+		fail_stage "$label" 'the T013 startup-acceptance gate PASS banner is absent from the journal of the current start of %s; the deployment must run the reused T013 gate (status -> inspected-target fingerprint-guarded apply -> check + bounded media probe) during every start before the application is accepted ready' \
+			"$APP_UNIT"
+	fi
+	if ! file_free_of_secrets "$journal_file"; then
+		fail_stage "$label" 'the captured unit journal contains a configured secret value; refusing to continue'
+	fi
+	info "$label" 'T013 gate completion banner present in the journal of the current %s start (banner anchored on %s)' \
+		"$APP_UNIT" "$T013_SCRIPT"
+	pass "$label" 'T013 startup-acceptance gate evidenced for the current application start'
+}
+
+media_tree_snapshot() {
+	# media_tree_snapshot: prints a sha256 over a sorted listing (path, size,
+	# mtime) of the in-container stable media mount, taken through the
+	# application container's own node runtime (no shell requirement).
+	# Prints 'unavailable' when the listing cannot be taken. Used only to
+	# prove NON-MUTATION across a recurring readiness probe.
+	local listing='' rc=0
+	listing="$(timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" podman exec "$APP_CONTAINER" \
+		node -e '
+			const fs = require("fs");
+			const path = require("path");
+			const root = process.argv[1];
+			const lines = [];
+			const walk = (dir, prefix) => {
+				for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+					const full = path.join(dir, entry.name);
+					const rel = prefix + "/" + entry.name;
+					const st = fs.lstatSync(full);
+					if (st.isDirectory()) walk(full, rel);
+					else lines.push(rel + " " + st.size + " " + Math.floor(st.mtimeMs));
+				}
+			};
+			walk(root, "");
+			process.stdout.write(lines.join("\n") + "\n");
+		' "$MEDIA_MOUNT_TARGET" 2>/dev/null)" || rc=$?
+	if [ "$rc" -ne 0 ]; then
+		printf 'unavailable\n'
+		return
+	fi
+	printf '%s' "$listing" | sha256sum | awk '{print $1}'
+}
+
+probe_readiness() {
+	# probe_readiness: runs the deployment's recurring readiness helper
+	# INSIDE the application container (private boundary; the container's own
+	# configured environment is consumed there, never copied out). Sets
+	# READINESS_STATE (ready | not-ready | unreachable | leaked |
+	# indeterminate) and READINESS_LINE (one scrubbed, secret-free line).
+	local out_file="$TMP_DIR/readiness.out" rc=0
+	if ! container_running "$APP_CONTAINER"; then
+		READINESS_STATE='unreachable'
+		READINESS_LINE='application container not running (platform stopped or failed)'
+		return
+	fi
+	# shellcheck disable=SC2086 # READINESS_COMMAND is a documented command
+	# string (default: node scripts/verify-readiness.mjs); word splitting is
+	# intentional and it is never attacker-controlled data.
+	timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" podman exec "$APP_CONTAINER" \
+		$READINESS_COMMAND >"$out_file" 2>&1 || rc=$?
+	if ! file_free_of_secrets "$out_file"; then
+		# The output is never printed in this case: it contains a configured
+		# secret value, which the private recurring readiness contract
+		# forbids.
+		READINESS_STATE='leaked'
+		READINESS_LINE='readiness output contained a configured secret value (value never printed)'
+		return
+	fi
+	if grep -Fq 'readiness: not-ready' "$out_file"; then
+		READINESS_STATE='not-ready'
+	elif grep -Fq 'readiness: ready' "$out_file" && [ "$rc" -eq 0 ]; then
+		READINESS_STATE='ready'
+	elif grep -Fq 'readiness: ready' "$out_file"; then
+		READINESS_STATE='not-ready'
+	else
+		READINESS_STATE='indeterminate'
+	fi
+	READINESS_LINE="$(grep -F 'readiness:' "$out_file" | tail -1 | scrub || true)"
+	if [ -z "$READINESS_LINE" ]; then
+		READINESS_LINE='readiness result line unavailable (helper produced no recognizable state line)'
+	fi
+}
+
+check_recurring_readiness_private() {
+	# C1b: the recurring readiness probe must be private (executed only
+	# through the container boundary — no public endpoint is consulted or
+	# required) and non-mutating (the media tree and the canonical tagline
+	# digest are proven unchanged across the probe).
+	local before='' after=''
+	before="$(media_tree_snapshot)"
+	probe_readiness
+	if [ "$READINESS_STATE" != 'ready' ]; then
+		fail_stage C1 'recurring readiness reported %s (%s); expected ready on the healthy baseline before lifecycle testing' \
+			"$READINESS_STATE" "$READINESS_LINE"
+	fi
+	after="$(media_tree_snapshot)"
+	if [ "$before" = 'unavailable' ] || [ "$after" = 'unavailable' ] || [ "$before" != "$after" ]; then
+		fail_stage C1 'the recurring readiness probe mutated the expected media mount (tree digest changed across the probe); recurring readiness MUST be non-mutating'
+	fi
+	info C1 'readiness (private, through the container boundary): %s' "$READINESS_LINE"
+	check_tagline C1
+	pass C1 'recurring readiness is private (container boundary only) and non-mutating (media tree and tagline proven unchanged across the probe)'
+}
+
+# ---------------------------------------------------------------------------
+# C2 — approved private application network and app-to-database access
+# ---------------------------------------------------------------------------
+
+check_private_network() {
+	local app_nets='' db_nets=''
+	app_nets="$(podman container inspect "$APP_CONTAINER" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}} {{end}}' 2>/dev/null || true)"
+	db_nets="$(podman container inspect "$DB_CONTAINER" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}} {{end}}' 2>/dev/null || true)"
+	case " $app_nets" in
+	*" $NETWORK_NAME "*) ;;
+	*)
+		fail_stage C2 'application container %s is not attached to the approved private network %s (attached: %s)' \
+			"$APP_CONTAINER" "$NETWORK_NAME" "${app_nets:-none}"
+		;;
+	esac
+	case " $db_nets" in
+	*" $NETWORK_NAME "*) ;;
+	*)
+		fail_stage C2 'database container %s is not attached to the approved private network %s (attached: %s)' \
+			"$DB_CONTAINER" "$NETWORK_NAME" "${db_nets:-none}"
+		;;
+	esac
+	pass C2 'both runtime containers are attached to the approved private application network %s' "$NETWORK_NAME"
+
+	# Required application-to-database access succeeds, proven through the
+	# application container's own private path: the TCP check executes inside
+	# the container and reads the container's own configured PGHOST/PGPORT
+	# environment (values never leave the container; only the outcome does).
+	local out_file="$TMP_DIR/app-to-db.out"
+	if ! timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" podman exec "$APP_CONTAINER" \
+		node -e '
+			const net = require("net");
+			const host = process.env.PGHOST;
+			const port = Number(process.env.PGPORT || 5432);
+			if (!host) { console.error("PGHOST is not configured in the application container environment"); process.exit(4); }
+			const socket = net.connect({ host, port });
+			const fail = (message) => { socket.destroy(); console.error(message); process.exit(1); };
+			socket.setTimeout(10000, () => fail("application-to-database TCP check timed out"));
+			socket.on("error", (error) => fail("application-to-database TCP check failed: " + String(error.code || "error")));
+			socket.on("connect", () => { socket.destroy(); process.stdout.write("connected\n"); process.exit(0); });
+		' >"$out_file" 2>&1; then
+		print_tail 'application-to-database probe diagnostics' "$out_file"
+		fail_stage C2 'the required application-to-database access over the private network failed (probe ran inside the application container using its own configured database target; no credentials were involved)'
+	fi
+	info C2 'application-to-database access verified through the private network path from inside the application container'
+	info C2 'the defined unintended host/public PostgreSQL paths (any published host-port mapping, and the host to the database container private address) are probed and must be rejected in the next stage (C3)'
+	pass C2 'required private application-to-database access succeeds on network %s' "$NETWORK_NAME"
+}
+
+# ---------------------------------------------------------------------------
+# C3 — PostgreSQL publishes no host port (metadata AND host boundary)
+# ---------------------------------------------------------------------------
+
+check_no_published_db_port() {
+	# Metadata: no host port bindings configured for the database container.
+	local bindings=''
+	bindings="$(podman container inspect "$DB_CONTAINER" --format '{{.HostConfig.PortBindings}}' 2>/dev/null || true)"
+	if [ -n "$bindings" ] && [ "$bindings" != 'map[]' ]; then
+		fail_stage C3 'database container %s declares host port bindings in its runtime configuration (PortBindings=%s); the production contract publishes no PostgreSQL host port' \
+			"$DB_CONTAINER" "$bindings"
+	fi
+
+	# Host boundary: the runtime port-mapping registry must list nothing for
+	# the database container.
+	local port_map=''
+	port_map="$(podman port "$DB_CONTAINER" 2>/dev/null || true)"
+	if [ -n "$port_map" ]; then
+		fail_stage C3 'the host port-mapping registry lists published port(s) for database container %s; the production contract publishes no PostgreSQL host port' \
+			"$DB_CONTAINER"
+	fi
+
+	# Host boundary, actual probe: a bounded TCP connect FROM the verification
+	# host to the database container's private address on every port the
+	# image declares must be refused. This is deliberately NOT inferred from
+	# the successful private connection in C2: the private path succeeds
+	# inside the network while this host path must fail.
+	local db_ip='' exposed='' port
+	db_ip="$(podman container inspect "$DB_CONTAINER" \
+		--format "{{range \$name, \$net := .NetworkSettings.Networks}}{{if eq \$name \"$NETWORK_NAME\"}}{{\$net.IPAddress}}{{end}}{{end}}" 2>/dev/null || true)"
+	if [ -z "$db_ip" ]; then
+		fail_stage C3 'could not resolve the private address of database container %s on network %s' \
+			"$DB_CONTAINER" "$NETWORK_NAME"
+	fi
+	exposed="$(podman container inspect "$DB_CONTAINER" --format '{{.Config.ExposedPorts}}' 2>/dev/null || true)"
+	local ports=() token
+	for token in $(printf '%s' "$exposed" | tr -d 'map[]{}' | tr ' ' '\n' | cut -d/ -f1); do
+		case $token in
+		'' | *[!0-9]*) ;;
+		*) ports+=("$token") ;;
+		esac
+	done
+	if [ "${#ports[@]}" -eq 0 ]; then
+		# The official PostgreSQL image always declares its listening port;
+		# fall back to the standard port if the declaration is unreadable.
+		ports=(5432)
+	fi
+	for port in "${ports[@]}"; do
+		local probe_file="$TMP_DIR/host-refused-$port.out" rc=0
+		timeout --kill-after=5 "$((CONNECT_TIMEOUT_SECONDS + 5))s" \
+			node -e '
+				const net = require("net");
+				const socket = net.connect({ host: process.argv[1], port: Number(process.argv[2]) });
+				socket.setTimeout(Number(process.argv[3]) * 1000, () => { socket.destroy(); process.stdout.write("refused(timeout)\n"); process.exit(0); });
+				socket.on("error", (error) => { socket.destroy(); process.stdout.write("refused(" + String(error.code || "error") + ")\n"); process.exit(0); });
+				socket.on("connect", () => { socket.destroy(); process.stdout.write("CONNECTED\n"); process.exit(3); });
+			' "$db_ip" "$port" "$CONNECT_TIMEOUT_SECONDS" >"$probe_file" 2>&1 || rc=$?
+		if [ "$rc" -eq 3 ] || grep -Fq 'CONNECTED' "$probe_file"; then
+			fail_stage C3 'the verification host CONNECTED to the database container private address %s:%s — PostgreSQL is reachable from an unintended host/public path' \
+				"$db_ip" "$port"
+		fi
+		if [ "$rc" -ne 0 ]; then
+			print_tail 'host-boundary probe diagnostics' "$probe_file"
+			fail_stage C3 'the host-boundary rejection probe against %s:%s did not complete within its bounded time' "$db_ip" "$port"
+		fi
+		info C3 'host-boundary probe %s:%s -> %s' "$db_ip" "$port" "$(cat "$probe_file")"
+	done
+
+	pass C3 'PostgreSQL publishes no host port (empty PortBindings, empty runtime port registry, and every host-boundary TCP connect to the private database address refused)'
+}
+
+# ---------------------------------------------------------------------------
+# C4 — expected persistent volume attachments at the approved targets
+# ---------------------------------------------------------------------------
+
+check_live_mountpoint() {
+	# check_live_mountpoint <container> <target> <kind>: the target must be a
+	# live mount point inside the container. The application container is
+	# probed with its own node runtime (no shell requirement); the database
+	# container (a PostgreSQL image without node) is probed with cat, which
+	# the official image provides. Both read only /proc/mounts.
+	local container="$1" target="$2" kind="$3" rc=0
+	if [ "$kind" = 'node' ]; then
+		timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" podman exec "$container" \
+			node -e '
+				const fs = require("fs");
+				const target = process.argv[1];
+				const mounted = fs.readFileSync("/proc/mounts", "utf8").split("\n").some((line) => line.split(" ")[1] === target);
+				process.exit(mounted ? 0 : 1);
+			' "$target" >/dev/null 2>&1 || rc=$?
+	else
+		podman exec "$container" cat /proc/mounts 2>/dev/null |
+			awk -v t="$target" '$2 == t { found = 1 } END { exit found ? 0 : 1 }' || rc=$?
+	fi
+	if [ "$rc" -ne 0 ]; then
+		fail_stage C4 '%s is not a live mount point inside container %s' "$target" "$container"
+	fi
+}
+
+check_volume_attachments() {
+	# Each expected named volume must be mounted, as a named volume (never an
+	# ephemeral bind or image-layer path), at its approved target in the
+	# owning container. Named-volume mounts live outside the container's
+	# ephemeral writable layer by construction; the C7 negative test below
+	# additionally proves the attachment (not a baked directory) is what
+	# carries the persistent state.
+	local db_mounts='' app_mounts=''
+	db_mounts="$(podman container inspect "$DB_CONTAINER" --format '{{range .Mounts}}{{.Type}}:{{.Name}}:{{.Destination}} {{end}}' 2>/dev/null || true)"
+	app_mounts="$(podman container inspect "$APP_CONTAINER" --format '{{range .Mounts}}{{.Type}}:{{.Name}}:{{.Destination}} {{end}}' 2>/dev/null || true)"
+	case " $db_mounts" in
+	*" volume:$DB_VOLUME:$DB_MOUNT_TARGET "*)
+		info C4 'database data: named volume %s mounted at %s in %s' "$DB_VOLUME" "$DB_MOUNT_TARGET" "$DB_CONTAINER"
+		;;
+	*)
+		fail_stage C4 'database container %s does not mount named volume %s at the approved target %s (mounts: %s)' \
+			"$DB_CONTAINER" "$DB_VOLUME" "$DB_MOUNT_TARGET" "${db_mounts:-none}"
+		;;
+	esac
+	case " $app_mounts" in
+	*" volume:$MEDIA_VOLUME:$MEDIA_MOUNT_TARGET "*)
+		info C4 'media: named volume %s mounted at %s in %s' "$MEDIA_VOLUME" "$MEDIA_MOUNT_TARGET" "$APP_CONTAINER"
+		;;
+	*)
+		fail_stage C4 'application container %s does not mount named volume %s at the approved target %s (mounts: %s)' \
+			"$APP_CONTAINER" "$MEDIA_VOLUME" "$MEDIA_MOUNT_TARGET" "${app_mounts:-none}"
+		;;
+	esac
+
+	check_live_mountpoint "$DB_CONTAINER" "$DB_MOUNT_TARGET" 'cat'
+	check_live_mountpoint "$APP_CONTAINER" "$MEDIA_MOUNT_TARGET" 'node'
+
+	pass C4 'both expected persistent volumes are attached as named volumes at their approved targets, outside the ephemeral container layers'
+}
+
+# ---------------------------------------------------------------------------
+# C5/C6/C7/C8 integrity checkpoints — canonical tagline and validation media
+# ---------------------------------------------------------------------------
+
+check_tagline() {
+	# check_tagline <stage-label>: retrieve the canonical native EmDash Site
+	# Setting `tagline` through its intended native platform boundary (the
+	# native settings REST surface, exactly the boundary T015 canonized),
+	# reached over the deployment's proxy-facing loopback publication with a
+	# scoped validation token that is read in-process and never printed.
+	# Compare the EXACT value first, then hash the exact UTF-8 bytes and
+	# compare the canonical SHA-256. The comparison happens entirely inside
+	# the node process so no retrieved content is ever shell-evaluated.
+	local label="$1"
+	local out_file="$TMP_DIR/tagline-$label.out" err_file="$TMP_DIR/tagline-$label.err" rc=0
+	timeout --kill-after=15 "${HTTP_TIMEOUT_SECONDS}s" node -e '
+		(async () => {
+			const crypto = require("crypto");
+			const expectedValue = process.argv[1];
+			const expectedSha256 = process.argv[2];
+			const origin = process.env.SONGHEALTH_APP_ORIGIN;
+			const token = process.env.SONGHEALTH_VALIDATION_TOKEN;
+			const fail = (message) => { console.error(message); process.exit(1); };
+			let response;
+			try {
+				const controller = new AbortController();
+				const timer = setTimeout(() => controller.abort(), 25000);
+				response = await fetch(origin + "/_emdash/api/settings", {
+					headers: { authorization: "Bearer " + token },
+					signal: controller.signal,
+				});
+				clearTimeout(timer);
+			} catch {
+				fail("settings request failed (network/timeout)");
+			}
+			if (response.status !== 200) {
+				fail("settings endpoint returned http status " + response.status + " (validation token rejected or platform unavailable; token never printed)");
+			}
+			let payload;
+			try {
+				payload = await response.json();
+			} catch {
+				fail("settings response is not the expected JSON shape");
+			}
+			const tagline = payload && payload.data && typeof payload.data.tagline === "string" ? payload.data.tagline : null;
+			if (tagline === null) fail("settings response carries no tagline value");
+			if (tagline !== expectedValue) {
+				const shown = tagline.slice(0, 120).replace(/\s+/g, " ");
+				fail("tagline VALUE mismatch: the retrieved value differs from the canonical validation value (retrieved, first 120 bytes, whitespace flattened: " + JSON.stringify(shown) + ")");
+			}
+			const bytes = Buffer.from(tagline, "utf8");
+			const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
+			if (sha256 !== expectedSha256) {
+				fail("tagline DIGEST mismatch: sha256 " + sha256 + " of the exact UTF-8 bytes does not equal the canonical " + expectedSha256);
+			}
+			process.stdout.write("value-exact bytes=" + bytes.length + " sha256=" + sha256 + "\n");
+		})();
+	' "$TAGLINE_EXPECTED" "$TAGLINE_EXPECTED_SHA256" >"$out_file" 2>"$err_file" || rc=$?
+	if [ "$rc" -ne 0 ] || [ ! -s "$out_file" ]; then
+		print_tail "tagline retrieval diagnostics ($label)" "$err_file"
+		fail_stage "$label" 'canonical tagline verification failed at checkpoint %s (see the bounded diagnostics above)' "$label"
+	fi
+	pass "$label" 'tagline integrity: exact canonical value matched first, then exact UTF-8 bytes hashed and matched the canonical SHA-256 %s at checkpoint %s' \
+		"$TAGLINE_EXPECTED_SHA256" "$label"
+}
+
+check_media() {
+	# check_media <stage-label>: retrieve the designated validation media
+	# through its intended native public media file boundary over the
+	# deployment's proxy-facing loopback publication and compare the exact
+	# bytes with the canonical media SHA-256.
+	local label="$1"
+	local out_file="$TMP_DIR/media-$label.out" err_file="$TMP_DIR/media-$label.err" rc=0
+	timeout --kill-after=15 "${HTTP_TIMEOUT_SECONDS}s" node -e '
+		(async () => {
+			const crypto = require("crypto");
+			const expectedSha256 = process.argv[1];
+			const origin = process.env.SONGHEALTH_APP_ORIGIN;
+			const mediaPath = process.env.SONGHEALTH_VALIDATION_MEDIA_PATH;
+			const fail = (message) => { console.error(message); process.exit(1); };
+			let response;
+			try {
+				const controller = new AbortController();
+				const timer = setTimeout(() => controller.abort(), 25000);
+				response = await fetch(origin + mediaPath, { signal: controller.signal });
+				clearTimeout(timer);
+			} catch {
+				fail("media request failed (network/timeout)");
+			}
+			if (response.status !== 200) {
+				fail("media boundary returned http status " + response.status + " for the designated validation media path");
+			}
+			const bytes = Buffer.from(await response.arrayBuffer());
+			const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
+			if (sha256 !== expectedSha256) {
+				fail("media DIGEST mismatch: sha256 " + sha256 + " over " + bytes.length + " retrieved bytes does not equal the canonical " + expectedSha256);
+			}
+			process.stdout.write("bytes=" + bytes.length + " sha256=" + sha256 + "\n");
+		})();
+	' "$MEDIA_EXPECTED_SHA256" >"$out_file" 2>"$err_file" || rc=$?
+	if [ "$rc" -ne 0 ] || [ ! -s "$out_file" ]; then
+		print_tail "media retrieval diagnostics ($label)" "$err_file"
+		fail_stage "$label" 'canonical validation-media verification failed at checkpoint %s (see the bounded diagnostics above)' "$label"
+	fi
+	pass "$label" 'media integrity: retrieved bytes match the canonical SHA-256 %s at checkpoint %s (%s)' \
+		"$MEDIA_EXPECTED_SHA256" "$label" "$(cat "$out_file")"
+}
+
+integrity_checkpoint() {
+	# integrity_checkpoint <stage-label>: both canonical integrity anchors
+	# after every lifecycle checkpoint.
+	local label="$1"
+	check_tagline "$label"
+	check_media "$label"
+}
+
+# ---------------------------------------------------------------------------
+# C6 — exactly three lifecycle cycles (start, stop, restart, recreate)
+# ---------------------------------------------------------------------------
+
+wait_unit_active() {
+	# wait_unit_active <stage> <unit> <purpose>: bounded poll for active.
+	local stage="$1" unit="$2" purpose="$3" waited=0
+	while ! systemctl --user is-active --quiet "$unit" 2>/dev/null; do
+		if [ "$waited" -ge "$UNIT_WAIT_SECONDS" ]; then
+			fail_stage "$stage" 'unit %s did not become active within the bounded %ss wait (%s)' \
+				"$unit" "$UNIT_WAIT_SECONDS" "$purpose"
+		fi
+		sleep "$POLL_SECONDS"
+		waited=$((waited + POLL_SECONDS))
+	done
+}
+
+wait_unit_not_active() {
+	# wait_unit_not_active <stage> <unit> <purpose>: bounded poll for any
+	# non-active terminal state (failed/inactive), including absent.
+	local stage="$1" unit="$2" purpose="$3" waited=0 state=''
+	while :; do
+		state="$(systemctl --user is-active "$unit" 2>/dev/null || true)"
+		case $state in
+		active | activating | deactivating | reloading | re-executing) ;;
+		*) return 0 ;;
+		esac
+		if [ "$waited" -ge "$UNIT_WAIT_SECONDS" ]; then
+			fail_stage "$stage" 'unit %s did not leave the active/activating states within the bounded %ss wait (%s)' \
+				"$unit" "$UNIT_WAIT_SECONDS" "$purpose"
+		fi
+		sleep "$POLL_SECONDS"
+		waited=$((waited + POLL_SECONDS))
+	done
+}
+
+wait_app_ready_with_gate() {
+	# wait_app_ready_with_gate <stage> <purpose>: bounded wait until the
+	# application unit is active AND the reused T013 gate has evidenced
+	# completion for this start (the gate runs during every start; readiness
+	# is blocked on gate failure by the deployment contract).
+	local stage="$1" purpose="$2" waited=0 epoch journal_file
+	journal_file="$TMP_DIR/journal-gate-poll.txt"
+	while :; do
+		if systemctl --user is-active --quiet "$APP_UNIT" 2>/dev/null; then
+			epoch="$(unit_main_start_epoch "$APP_UNIT")"
+			if [ -n "$epoch" ]; then
+				if timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
+					journalctl --user -u "$APP_UNIT" --since "@$epoch" -n "$JOURNAL_MAX_LINES" --no-pager \
+					>"$journal_file" 2>/dev/null && grep -Fq "$GATE_BANNER" "$journal_file"; then
+					info "$stage" 'application ready for %s (unit active and T013 gate banner present for this start)' "$purpose"
+					return 0
+				fi
+			fi
+		fi
+		if [ "$waited" -ge "$UNIT_WAIT_SECONDS" ]; then
+			fail_stage "$stage" 'the application unit did not reach ready with T013 gate evidence within the bounded %ss wait (%s)' \
+				"$UNIT_WAIT_SECONDS" "$purpose"
+		fi
+		sleep "$POLL_SECONDS"
+		waited=$((waited + POLL_SECONDS))
+	done
+}
+
+volumes_retained_check() {
+	# volumes_retained_check <stage>: both named volumes still exist and the
+	# named-volume set is unchanged since R1 (nothing was deleted, recreated,
+	# or silently created — no empty replacement store).
+	local stage="$1" current='' volume
+	for volume in "$DB_VOLUME" "$MEDIA_VOLUME"; do
+		if ! podman volume exists "$volume" 2>/dev/null; then
+			fail_stage "$stage" 'expected persistent volume %s no longer exists; persistent state must never be deleted or recreated by lifecycle operations' \
+				"$volume"
+		fi
+	done
+	current="$(snapshot_volumes)"
+	if [ "$current" != "$VOLUME_SNAPSHOT" ]; then
+		fail_stage "$stage" 'the named-volume set changed during %s (a lifecycle operation created or removed a volume); expected the exact baseline set' "$stage"
+	fi
+}
+
+lifecycle_cycle() {
+	# lifecycle_cycle <n>: one full start/stop/restart/recreate cycle with a
+	# readiness probe after every operation and both integrity checks at
+	# every operational checkpoint. Ordering is always database-then-
+	# application so dependency start-up is deterministic; only ephemeral
+	# containers are ever replaced.
+	local n="$1"
+	local label="cycle-$n"
+
+	# --- restart ---
+	info C6 '%s: restart' "$label"
+	systemctl --user restart "$DB_UNIT" ||
+		fail_stage C6 '%s: restarting database unit %s failed' "$label" "$DB_UNIT"
+	wait_unit_active C6 "$DB_UNIT" "$label restart database"
+	systemctl --user restart "$APP_UNIT" ||
+		fail_stage C6 '%s: restarting application unit %s failed' "$label" "$APP_UNIT"
+	wait_app_ready_with_gate C6 "$label restart"
+	probe_readiness
+	if [ "$READINESS_STATE" != 'ready' ]; then
+		fail_stage C6 '%s: readiness after restart is %s (%s)' "$label" "$READINESS_STATE" "$READINESS_LINE"
+	fi
+	volumes_retained_check C6
+	integrity_checkpoint "$label-restart"
+
+	# --- stop (the stopped platform must report not-ready, never
+	# stale-ready) ---
+	info C6 '%s: stop' "$label"
+	systemctl --user stop "$APP_UNIT" ||
+		fail_stage C6 '%s: stopping application unit %s failed' "$label" "$APP_UNIT"
+	wait_unit_not_active C6 "$APP_UNIT" "$label stop application"
+	systemctl --user stop "$DB_UNIT" ||
+		fail_stage C6 '%s: stopping database unit %s failed' "$label" "$DB_UNIT"
+	wait_unit_not_active C6 "$DB_UNIT" "$label stop database"
+	local state=''
+	state="$(container_state "$APP_CONTAINER")"
+	if [ "$state" = 'running' ]; then
+		warn C6 '%s: application container still reports running after the unit stopped; continuing' "$label"
+	fi
+	probe_readiness
+	if [ "$READINESS_STATE" = 'ready' ]; then
+		fail_stage C6 '%s: readiness reported ready while the platform is stopped; a stopped platform must report not-ready' "$label"
+	fi
+	info C6 '%s: readiness while stopped: %s (%s)' "$label" "$READINESS_STATE" "$READINESS_LINE"
+	volumes_retained_check C6
+
+	# --- start ---
+	info C6 '%s: start' "$label"
+	systemctl --user start "$DB_UNIT" ||
+		fail_stage C6 '%s: starting database unit %s failed' "$label" "$DB_UNIT"
+	wait_unit_active C6 "$DB_UNIT" "$label start database"
+	systemctl --user start "$APP_UNIT" ||
+		fail_stage C6 '%s: starting application unit %s failed' "$label" "$APP_UNIT"
+	wait_app_ready_with_gate C6 "$label start"
+	probe_readiness
+	if [ "$READINESS_STATE" != 'ready' ]; then
+		fail_stage C6 '%s: readiness after start is %s (%s)' "$label" "$READINESS_STATE" "$READINESS_LINE"
+	fi
+	volumes_retained_check C6
+	integrity_checkpoint "$label-start"
+
+	# --- replace/recreate (ephemeral containers only; named volumes
+	# retained) ---
+	info C6 '%s: replace/recreate' "$label"
+	local old_app_id='' old_db_id='' new_app_id='' new_db_id=''
+	old_app_id="$(container_id "$APP_CONTAINER")"
+	old_db_id="$(container_id "$DB_CONTAINER")"
+	systemctl --user stop "$APP_UNIT" ||
+		fail_stage C6 '%s: stopping application unit %s for recreation failed' "$label" "$APP_UNIT"
+	wait_unit_not_active C6 "$APP_UNIT" "$label recreate stop application"
+	systemctl --user stop "$DB_UNIT" ||
+		fail_stage C6 '%s: stopping database unit %s for recreation failed' "$label" "$DB_UNIT"
+	wait_unit_not_active C6 "$DB_UNIT" "$label recreate stop database"
+	# The containers are the validated task-owned ephemeral resources (R1
+	# proved unit cgroup ownership); removing them after their units stopped
+	# is exactly the replace/recreate exercise. Volumes are never touched.
+	if [ "$(container_state "$APP_CONTAINER")" != 'absent' ]; then
+		podman rm -f "$APP_CONTAINER" >/dev/null 2>&1 ||
+			fail_stage C6 '%s: could not remove the stopped task-owned application container %s' "$label" "$APP_CONTAINER"
+	fi
+	if [ "$(container_state "$DB_CONTAINER")" != 'absent' ]; then
+		podman rm -f "$DB_CONTAINER" >/dev/null 2>&1 ||
+			fail_stage C6 '%s: could not remove the stopped task-owned database container %s' "$label" "$DB_CONTAINER"
+	fi
+	volumes_retained_check C6
+	systemctl --user start "$DB_UNIT" ||
+		fail_stage C6 '%s: starting database unit %s after recreation failed' "$label" "$DB_UNIT"
+	wait_unit_active C6 "$DB_UNIT" "$label recreate start database"
+	systemctl --user start "$APP_UNIT" ||
+		fail_stage C6 '%s: starting application unit %s after recreation failed' "$label" "$APP_UNIT"
+	wait_app_ready_with_gate C6 "$label recreate"
+	new_app_id="$(container_id "$APP_CONTAINER")"
+	new_db_id="$(container_id "$DB_CONTAINER")"
+	if [ -n "$old_app_id" ] && [ "$new_app_id" = "$old_app_id" ]; then
+		fail_stage C6 '%s: the application container was not replaced (container id unchanged across the recreate operation)' "$label"
+	fi
+	if [ -n "$old_db_id" ] && [ "$new_db_id" = "$old_db_id" ]; then
+		fail_stage C6 '%s: the database container was not replaced (container id unchanged across the recreate operation)' "$label"
+	fi
+	info C6 '%s: ephemeral containers replaced (application and database container ids changed); named volumes retained' "$label"
+	probe_readiness
+	if [ "$READINESS_STATE" != 'ready' ]; then
+		fail_stage C6 '%s: readiness after recreate is %s (%s)' "$label" "$READINESS_STATE" "$READINESS_LINE"
+	fi
+	integrity_checkpoint "$label-recreate"
+
+	pass C6 '%s complete: start, stop, restart, and replace/recreate exercised with readiness probes and both integrity checks at every checkpoint' "$label"
+}
+
+# ---------------------------------------------------------------------------
+# C7 — missing expected persistence attachment reports not-ready (guarded
+# negative test with byte-exact restore on every exit path)
+# ---------------------------------------------------------------------------
+
+check_missing_attachment_negative() {
+	# Omit ONLY the expected media-volume attachment from the application
+	# unit's installed Quadlet source, then restart the unit: the platform
+	# must report not-ready and must never come up healthy with an empty
+	# replacement store. Persistent state is untouched (the named volume is
+	# not deleted, unmounted, or reinitialized); the source file is restored
+	# byte-exact and verified afterwards, and the EXIT/INT/TERM traps restore
+	# it even when this stage is interrupted.
+	local media_volume_lines=0 total_before=0 total_after=0
+	media_volume_lines="$(grep -cE "^[[:space:]]*Volume=.*${MEDIA_VOLUME}" "$QUADLET_SOURCE" || true)"
+	if [ "$media_volume_lines" -eq 0 ]; then
+		fail_stage C7 'the application Quadlet source %s declares no Volume= line referencing the expected media volume %s; cannot simulate the attachment omission' \
+			"$QUADLET_SOURCE" "$MEDIA_VOLUME"
+	fi
+	total_before="$(wc -l <"$QUADLET_SOURCE" | tr -d '[:space:]')"
+
+	QUADLET_BACKUP="$TMP_DIR/quadlet-app.backup"
+	cp -p "$QUADLET_SOURCE" "$QUADLET_BACKUP" ||
+		fail_stage C7 'could not create the byte-exact baseline copy of %s; aborting before any modification' "$QUADLET_SOURCE"
+	QUADLET_SOURCE_SHA_BASE="$(sha256sum "$QUADLET_BACKUP" | awk '{print $1}')"
+
+	grep -vE "^[[:space:]]*Volume=.*${MEDIA_VOLUME}" "$QUADLET_BACKUP" >"$TMP_DIR/quadlet-app.modified"
+	total_after="$(wc -l <"$TMP_DIR/quadlet-app.modified" | tr -d '[:space:]')"
+	if [ "$((total_before - total_after))" -ne "$media_volume_lines" ]; then
+		fail_stage C7 'the attachment-omission edit was not surgical; aborting before any unit change (nothing was modified)'
+	fi
+	# From here on the source may be modified: mark it FIRST so that any
+	# failure — including a partial write or an interruption — takes the
+	# trap-guarded byte-exact restore path.
+	QUADLET_MODIFIED='yes'
+	cat "$TMP_DIR/quadlet-app.modified" >"$QUADLET_SOURCE" ||
+		fail_stage C7 'writing the attachment-omitted Quadlet source failed; the exit trap restores the byte-exact baseline'
+	if [ "$(sha256sum "$QUADLET_SOURCE" | awk '{print $1}')" = "$QUADLET_SOURCE_SHA_BASE" ]; then
+		fail_stage C7 'the attachment-omission edit changed nothing; aborting before any unit change'
+	fi
+	info C7 'media-volume attachment omitted from %s (%s line(s)); byte-exact baseline copy retained (SHA-256 %s) and every exit path restores it' \
+		"$QUADLET_SOURCE" "$media_volume_lines" "$QUADLET_SOURCE_SHA_BASE"
+
+	systemctl --user daemon-reload ||
+		fail_stage C7 'daemon-reload after the guarded Quadlet edit failed; the original attachment is restored by the exit trap'
+	systemctl --user restart "$APP_UNIT" ||
+		info C7 'restarting the application unit with the omitted attachment reported failure (the platform refused the state; proceeding to the readiness evidence)'
+
+	# Bounded settle: the unit may fail, stay activating until its health
+	# gate gives up, or come up without the mount — each must surface as
+	# not-ready, never as a healthy empty replacement.
+	local waited=0 unit_state='' settled=0
+	while [ "$waited" -lt "$NEGATIVE_SETTLE_SECONDS" ] && [ "$settled" -eq 0 ]; do
+		unit_state="$(systemctl --user is-active "$APP_UNIT" 2>/dev/null || true)"
+		case $unit_state in
+		active | failed) settled=1 ;;
+		esac
+		if [ "$settled" -eq 0 ]; then
+			sleep "$POLL_SECONDS"
+			waited=$((waited + POLL_SECONDS))
+		fi
+	done
+	probe_readiness
+	info C7 'with the expected media attachment omitted: unit state %s, readiness %s (%s)' \
+		"${unit_state:-unknown}" "$READINESS_STATE" "$READINESS_LINE"
+
+	if [ "$READINESS_STATE" = 'ready' ]; then
+		fail_stage C7 'the platform reported READY with the expected media persistence attachment missing — a missing attachment must report not-ready and must never appear as a healthy empty replacement'
+	fi
+	if [ "$READINESS_STATE" = 'leaked' ]; then
+		fail_stage C7 'the not-ready result exposed a configured secret value (value never printed); readiness output must be redacted in every state'
+	fi
+	case $unit_state in
+	active)
+		# The unit being active is only acceptable when the recurring
+		# readiness mechanism itself reports not-ready (or the container is
+		# already gone): the missing dependency is identified, not masked.
+		case $READINESS_STATE in
+		not-ready | unreachable) ;;
+		*)
+			fail_stage C7 'the unit is %s but readiness is %s; a missing persistence attachment must produce an explicit not-ready result' \
+				"$unit_state" "$READINESS_STATE"
+			;;
+		esac
+		;;
+	failed | activating | unknown | '')
+		# A failed or never-ready unit is the platform refusing to present a
+		# healthy state without the attachment — the required negative
+		# outcome.
+		;;
+	esac
+
+	# Persistent state untouched by the omission: both volumes still exist
+	# and the named-volume set is unchanged (no empty replacement store was
+	# created anywhere).
+	volumes_retained_check C7
+	pass C7 'missing expected persistence attachment reported not-ready (unit %s, readiness %s); no healthy empty replacement and no persistent-state mutation' \
+		"${unit_state:-not-ready}" "$READINESS_STATE"
+
+	# Restore the original attachment (byte-exact, checksum-verified) and
+	# re-verify the platform end to end.
+	if ! restore_app_quadlet; then
+		fail_stage C7 'the byte-exact attachment restore failed; the baseline copy is preserved at %s' "$QUADLET_BACKUP"
+	fi
+	if ! systemctl --user is-active --quiet "$APP_UNIT" 2>/dev/null; then
+		systemctl --user start "$APP_UNIT" ||
+			fail_stage C7 'the application unit did not start after restoring the original attachment'
+	fi
+	wait_app_ready_with_gate C7 'restore'
+	probe_readiness
+	if [ "$READINESS_STATE" != 'ready' ]; then
+		fail_stage C7 'readiness after restoring the original attachment is %s (%s)' "$READINESS_STATE" "$READINESS_LINE"
+	fi
+	volumes_retained_check C7
+	integrity_checkpoint C7-restore
+	pass C7 'original attachment restored byte-exact (SHA-256 verified) and the platform re-verified ready with full integrity'
+}
+
+# ---------------------------------------------------------------------------
+# main
+# ---------------------------------------------------------------------------
+
+main() {
+	local action="${1:-}"
+	if [ "$#" -gt 0 ]; then
+		case $action in
+		-h | --help | help)
+			usage
+			return 0
+			;;
+		*)
+			usage >&2
+			die "$EXIT_USAGE" "unexpected argument(s): $* (this harness takes no arguments)"
+			;;
+		esac
+	fi
+
+	ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+	cd "$ROOT"
+
+	TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/t016-foundation-verify.XXXXXX")"
+	trap cleanup EXIT
+	trap 'trap - EXIT; cleanup; exit 130' INT
+	trap 'trap - EXIT; cleanup; exit 143' TERM
+
+	# P0 — RED prerequisite, before any tool requirement or input need, so a
+	# bare run at a baseline without the T017–T020 implementation always
+	# fails for exactly that bounded, deployment-attributable reason.
+	check_deployment_definitions
+
+	require_tools
+	info main 'node %s, podman %s, %s' \
+		"$(node --version)" \
+		"$(podman version --format '{{.Client.Version}}' 2>/dev/null || echo unknown)" \
+		"$(systemctl --version 2>/dev/null | head -1 || echo 'systemd (version unknown)')"
+	validate_inputs
+	derive_gate_banner
+	info main 'T013 gate completion banner anchored from %s: %s' "$T013_SCRIPT" "$GATE_BANNER"
+
+	# R1 — resolve and validate every task-owned target before any mutation.
+	resolve_targets
+
+	# C1 — startup acceptance before READY + private non-mutating readiness.
+	require_gate_banner_for_current_start C1
+	check_recurring_readiness_private
+
+	# C2/C3/C4 — network boundary, no published database port, attachments.
+	check_private_network
+	check_no_published_db_port
+	check_volume_attachments
+
+	# C5 — canonical integrity baseline before any lifecycle mutation.
+	integrity_checkpoint baseline
+
+	# C6 — exactly three consecutive lifecycle cycles.
+	local cycle
+	for cycle in 1 2 3; do
+		lifecycle_cycle "$cycle"
+	done
+	pass C6 'exactly three consecutive lifecycle cycles completed with 100%% retention of the canonical validation state'
+
+	# C7 — missing-attachment negative with guarded restore.
+	check_missing_attachment_negative
+
+	# C8 — final integrity, retained volumes, and wrap-up.
+	probe_readiness
+	if [ "$READINESS_STATE" != 'ready' ]; then
+		fail_stage C8 'final readiness is %s (%s)' "$READINESS_STATE" "$READINESS_LINE"
+	fi
+	volumes_retained_check C8
+	integrity_checkpoint final
+	pass C8 'final state verified: ready, both persistent volumes retained, canonical tagline and media intact'
+
+	printf 't016: ================================================================\n'
+	printf 't016: T016 production foundation verification: PASS\n'
+	printf 't016: T013 startup gate evidenced before ready; private non-mutating readiness proven\n'
+	printf 't016: private network access, no published database port, and volume attachments verified\n'
+	printf 't016: three lifecycle cycles + missing-attachment negative passed with full integrity retention\n'
+	printf 't016: tested tree: %s\n' "$(git rev-parse HEAD 2>/dev/null || echo 'unknown (git unavailable)')"
+	printf 't016: ================================================================\n'
+}
+
+main "$@"
