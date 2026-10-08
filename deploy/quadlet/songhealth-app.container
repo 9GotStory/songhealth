@@ -1,0 +1,288 @@
+# Songhealth production application container (Feature 001, T020).
+#
+# Authority:
+# - specs/001-platform-foundation/tasks.md T020 — the single Astro + EmDash
+#   application Quadlet with the persistent media volume, private network,
+#   proxy-facing loopback publication, external secrets/configuration,
+#   restart behavior, and startup ordering that runs T013's
+#   exact-build-manifest status/apply/check migration gate before the
+#   application is accepted ready; block readiness on migration failure
+#   without adding a migration container, service, or orchestration layer
+# - docs/website-modernization-docs/current/10-system-blueprint.md §2 (pin
+#   dependency/image versions in production deployment definitions; no
+#   unbounded `latest`), §3.1 (rootless Podman + systemd Quadlet baseline:
+#   app + PostgreSQL on one private network, only the application published
+#   on the proxy-facing loopback boundary, secrets never baked into images,
+#   Quadlet defines startup/restart and health/readiness), §20/§20.1
+#   (environment-specific values stay external; the native runtime input
+#   contract PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD,
+#   EMDASH_MIGRATION_DATABASE_URL, EMDASH_SITE_URL, HOST/PORT,
+#   EMDASH_ENCRYPTION_KEY; media at the stable ./media path)
+# - specs/001-platform-foundation/plan.md — "Production topology and
+#   durability" (publish only the application port to the proxy-facing host
+#   boundary; a missing expected attachment must never appear as a healthy
+#   empty replacement store), "Configuration and secrets" (non-secret values
+#   may use an external environment file; secret-bearing values stay in
+#   operator-managed Podman/systemd secrets or equivalent host-protected
+#   files), "Runtime verification and readiness" (the native migration
+#   sequence is a deployment/startup gate before the application is declared
+#   ready; Quadlet health + Notify=healthy make the state observable)
+# - accepted contracts consumed as-is, never reconstructed here:
+#   deploy/Containerfile (T017 single production OCI runtime, whose /app tree
+#   is deliberately writable by its non-root `node` user so this unit can run
+#   the gate's exact in-place rebuild), deploy/quadlet/songhealth.network and
+#   songhealth-media.volume (T018 private network and persistent media
+#   volume), deploy/quadlet/songhealth-db.container (T019 private-only
+#   PostgreSQL, resolved on the network as systemd-songhealth-db),
+#   tests/operations/verify-startup.sh driven through package.json's
+#   committed verify:startup mapping (T013 startup-acceptance gate:
+#   S1 input/identity validation -> S2 exact build + native manifest ->
+#   S3 status/fingerprint inspection -> S4 fingerprint-guarded apply ->
+#   S5 check -> S6 bounded disposable media write/read/remove probe),
+#   scripts/verify-readiness.mjs (T012 private non-mutating recurring
+#   readiness), tests/operations/verify-foundation.sh (T016 harness; it
+#   resolves this container as systemd-songhealth-app, so ContainerName is
+#   deliberately NOT set and keeps the Quadlet default naming)
+#
+# Image identity: localhost/songhealth-app:0.0.1 is the explicit
+# version-tagged application image built from THIS checkout by the T017
+# Containerfile (podman build -f deploy/Containerfile -t
+# localhost/songhealth-app:0.0.1 .), whose only base is pinned inside the
+# Containerfile by version and immutable digest. 0.0.1 is the repository
+# application version (package.json); it is never `latest` and never a bare
+# floating name. The exact-build image digest is environment/build-specific
+# (blueprint §20), so it is recorded in the deployment verification evidence
+# and may be pinned in the installed deployment copy in digest form
+# (localhost/songhealth-app@sha256:<digest of the exact build>); this
+# repository definition pins the explicit name+version identity only. A
+# missing local image makes container creation fail closed.
+#
+# External runtime inputs (never committed; every absence fails closed):
+#
+# - ~/.config/containers/systemd/songhealth-app.env — the operator-managed,
+#   host-protected environment file loaded at the [Service] level (the %h
+#   specifier is expanded by user systemd; no host-specific absolute path is
+#   committed), supplying the approved native runtime inputs:
+#     HOST=127.0.0.1        loopback application address for the accepted
+#                           T012 readiness contract (see the startup note
+#                           below for the in-container server bind)
+#     PORT=4321             application port; must equal the published
+#                           container port below
+#     PGHOST=systemd-songhealth-db
+#                           the T019 container's resolvable name on the
+#                           private songhealth network
+#     PGPORT=5432           PostgreSQL port inside the private network
+#     PGDATABASE=<target application database>
+#     PGUSER=<least-privilege application role — see below>
+#     PGPASSWORD=<application role credential>
+#     EMDASH_SITE_URL=<absolute production origin>
+#   Only these eight named variables are forwarded into the container
+#   (Environment= bare-name forwarding below); no other key in the file
+#   reaches it. PGPASSWORD is secret-bearing and lives in this host-protected
+#   file rather than a Podman file-secret because the accepted recurring
+#   readiness contract reads it from the container environment itself:
+#   scripts/verify-readiness.mjs is executed by the T016 harness through
+#   `podman exec`, which inherits only the container's configured
+#   environment — a file-mounted secret can never satisfy that contract
+#   (plan.md permits exactly this: operator-managed Podman/systemd secrets
+#   or equivalent host-protected files). The file must be operator-protected
+#   (0600); systemd does not expose EnvironmentFile values in unit
+#   definitions, `systemctl show`, or the journal.
+#
+# - the Podman secrets `songhealth-migration-database-url` and
+#   `songhealth-encryption-key` — the two most sensitive inputs (the
+#   migration connection URL with its embedded password, and the EmDash
+#   encryption key), injected through the native Quadlet Secret= mechanism
+#   and mounted read-only at /run/secrets/<name>. They are read by the
+#   container's own startup command below and exported only into the
+#   application process environment: they never appear in this file, in the
+#   container's configured environment (so `podman inspect` cannot leak
+#   them), in Git, or in any image layer, and they are not exec-visible.
+#   Container creation fails when either secret does not exist.
+#
+# Application-role prerequisite (external; provisioned by the operator
+# against the running T019 database before this unit can pass its gate):
+# the application connects ONLY as the separately provisioned stable
+# least-privilege role named by PGUSER with database CONNECT, schema
+# USAGE/CREATE, DML, and ownership of the EmDash objects it creates — never
+# as T019's bootstrap administrator (POSTGRES_USER) and never with the
+# bootstrap secret songhealth-db-password. The migration URL must identify
+# the same intended database as the PG* inputs; the T013 gate's S1 step
+# enforces that agreement by non-secret identity components only, and S3
+# re-proves it against the inspected native target label. A missing or
+# misprivileged role, a missing database, or any identity disagreement fails
+# the gate closed (field names only, never values). This unit provisions
+# nothing and initializes nothing.
+#
+# Startup sequence (one container; no migration container, migration
+# service, custom server, or orchestration layer exists): the image's native
+# entrypoint receives one `sh -c` payload that, in order,
+#   1. proves the expected persistent media attachment is live: /app/media
+#      must be a real mount point (the same /proc/mounts field-2 primitive
+#      the T016 harness uses). The T017 image ships an empty placeholder
+#      directory at /app/media, so an omitted Volume= attachment would
+#      otherwise silently present a writable ephemeral replacement store as
+#      healthy — plan.md forbids exactly that. Refusal names the missing
+#      attachment and exits before anything else runs.
+#   2. reads the two Podman secrets into the process environment (missing
+#      secret files surface as named missing inputs in the gate's S1);
+#   3. runs the accepted T013 startup-acceptance gate as-is through the
+#      committed verify:startup mapping — input/identity validation, the
+#      exact application rebuild and its native manifest checks, native
+#      status -> inspected-fingerprint-guarded apply -> post-apply
+#      inspection -> check, and the bounded disposable media
+#      write/read/remove probe. Any failure exits nonzero, the container
+#      never starts the application, and the unit follows its restart
+#      policy; the gate's full [S1..S6] PASS markers land in this unit's
+#      journal for every start.
+#   4. only then execs the native standalone server emitted by that exact
+#      build (dist/server/entry.mjs), with the in-container bind widened to
+#      0.0.0.0 for this one process.
+#
+# Server bind note (verified against rootless Podman 5.8.4 on the
+# verification host, both for the bridge network used here and for pasta):
+# a container process bound to the container's own loopback is NOT reachable
+# through a published host port — rootless port forwarding delivers to the
+# container's network address (pasta(1) likewise targets the namespace's
+# public address unless --host-lo-to-ns-lo is set, and that option does not
+# apply to bridge-network containers). The HOST input above stays the
+# loopback application address the accepted T012 helper probes
+# (http://127.0.0.1:4321/ inside the container), and a 0.0.0.0 bind answers
+# that loopback probe — so this unit starts the server process with
+# HOST=0.0.0.0 as explicit deployment configuration while the external
+# boundary remains loopback-only: PublishPort below binds the host side to
+# 127.0.0.1 only, and the container's second interface is the private
+# songhealth network shared only with PostgreSQL. No unintended interface
+# is exposed (.env.example: production HOST must match the container/proxy
+# boundary and must not expose an unintended interface).
+#
+# T016 deployed-verification limits accepted at review (the harness is not
+# weakened to hide them): its C1 wiring validator only proves host-executable
+# authority paths or the trusted host npm runner, so it cannot recognize the
+# in-container `podman run ... npm run verify:startup` wiring this unit uses
+# by design; and its C7 negative test demands the in-container readiness
+# helper itself print a media-identifying not-ready result, which the
+# accepted stat-based T012 helper cannot produce for an omitted mount that
+# leaves the image's placeholder directory in place — this unit instead
+# fails the start closed (guard above) so a missing attachment can never be
+# reported healthy. Both remain explicitly identified deployment-verification
+# incompatibilities for review; full deployed acceptance is T022's separate
+# authorization.
+
+[Unit]
+Description=Songhealth Astro + EmDash application (T013 startup gate, private network, loopback-only publication)
+# Hard ordering and dependency on the T019 PostgreSQL unit: starting this
+# unit starts the database first, and the database unit's own Notify=healthy
+# semantics mean "started" there is "healthy". The network and media-volume
+# dependencies are generated natively by the Network=/Volume= unit
+# references below.
+Requires=songhealth-db.service
+After=songhealth-db.service
+
+[Container]
+# The single T017 production application image (see the image-identity note
+# above): explicit name + repository version, locally built from this
+# checkout, never `latest`. A missing image fails container creation closed.
+Image=localhost/songhealth-app:0.0.1
+
+# Attach exclusively to the accepted T018 private application network
+# (NetworkName=songhealth). The Quadlet reference generates
+# Requires=/After= on songhealth-network.service; PostgreSQL is reachable
+# only here and publishes no host port of its own (T019).
+Network=songhealth.network
+
+# Persistent public-publishable media: the accepted T018 volume
+# (VolumeName=songhealth-media) mounted at the image's canonical stable
+# application path /app/media (blueprint §20.1; no MEDIA_DIRECTORY input
+# exists). The Quadlet reference generates a dependency on
+# songhealth-media-volume.service; container recreation replaces only the
+# ephemeral container layer, never the named volume.
+Volume=songhealth-media.volume:/app/media
+
+# The only publication in this deployment: the application port on the host
+# loopback, for the external HTTPS/reverse-proxy boundary. The host side is
+# bound to 127.0.0.1 only — never all interfaces — and the container port
+# must equal the external PORT input (4321 here). PostgreSQL is not
+# published in any form.
+PublishPort=127.0.0.1:4321:4321
+
+# Approved native runtime inputs forwarded by bare name — each value is
+# inherited from the unit environment that user systemd loaded from the
+# external environment file, exactly as the accepted T019 unit forwards its
+# identity inputs. No other key from that file reaches the container.
+Environment=HOST
+Environment=PORT
+Environment=PGHOST
+Environment=PGPORT
+Environment=PGDATABASE
+Environment=PGUSER
+Environment=PGPASSWORD
+Environment=EMDASH_SITE_URL
+
+# Operator-managed Podman secrets for the two most sensitive inputs, mounted
+# read-only at /run/secrets/<name> and read by the startup command below.
+# Missing secrets fail container creation.
+Secret=songhealth-migration-database-url
+Secret=songhealth-encryption-key
+
+# One startup payload (see the startup-sequence note above): media
+# attachment guard -> secret reads -> the accepted T013 gate via the
+# committed verify:startup mapping -> exec the native standalone server
+# with the deployment's in-container 0.0.0.0 bind. Every failure exits
+# nonzero before the application starts; the gate's per-stage output lands
+# in this unit's journal.
+Exec=sh -c "grep -q ' /app/media ' /proc/mounts || { echo songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start >&2; exit 1; }; IFS= read -r EMDASH_MIGRATION_DATABASE_URL </run/secrets/songhealth-migration-database-url; IFS= read -r EMDASH_ENCRYPTION_KEY </run/secrets/songhealth-encryption-key; export EMDASH_MIGRATION_DATABASE_URL EMDASH_ENCRYPTION_KEY; npm run verify:startup && HOST=0.0.0.0 exec node dist/server/entry.mjs"
+
+# Native container health: one bounded loopback HTTP probe of the
+# application's own SSR verification page from inside the container (the
+# server's 0.0.0.0 bind answers container loopback). Non-mutating, no
+# secret involved, no public endpoint. Notify=healthy postpones the
+# generated unit's startup notification until the health check passes, so
+# user systemd never considers this service started before the gate has
+# passed AND the application is actually serving.
+HealthCmd=node -e 'fetch(`http://127.0.0.1:`+(process.env.PORT||4321)+`/`).then(r=>{if(r.status!==200)process.exit(1)}).catch(()=>process.exit(1))'
+HealthInterval=10s
+HealthTimeout=5s
+HealthRetries=6
+HealthStartPeriod=300s
+Notify=healthy
+
+# Rootless user-systemd lifecycle behavior — no alternative orchestration
+# layer exists, and no boot-time enablement is defined here: the unit runs
+# when the operator starts or enables it through user systemd.
+#
+# The environment file supplies the runtime inputs at the systemd level. A
+# missing file fails the unit load before any container exists, and the
+# ExecCondition gates skip the unit — exit 1-254 semantics: skipped, not
+# failed, and not restarted — when a required input is missing or empty,
+# naming the field only (values are never printed). In every gated case no
+# container is created, no secret is read, and the healthy notification
+# cannot fire. Precise input validation (port ranges, URL form, PG*/URL
+# identity agreement) belongs to the accepted T008 configuration boundary
+# and the T013 gate's S1, which fail closed inside the container.
+[Service]
+EnvironmentFile=%h/.config/containers/systemd/songhealth-app.env
+ExecCondition=/usr/bin/test -n "${HOST}"
+ExecCondition=/usr/bin/test -n "${PORT}"
+ExecCondition=/usr/bin/test -n "${PGHOST}"
+ExecCondition=/usr/bin/test -n "${PGPORT}"
+ExecCondition=/usr/bin/test -n "${PGDATABASE}"
+ExecCondition=/usr/bin/test -n "${PGUSER}"
+ExecCondition=/usr/bin/test -n "${PGPASSWORD}"
+ExecCondition=/usr/bin/test -n "${EMDASH_SITE_URL}"
+
+# The unit returns after any unplanned container exit (application crash,
+# failed startup gate, OOM kill, external signal shutdown); an explicit
+# `systemctl --user stop` is never restarted, and systemd's built-in start
+# rate limiting bounds any retry loop. A failed gate therefore never
+# escalates to a healthy state — it can only retry or stay down.
+Restart=always
+RestartSec=5s
+
+# The startup gate rebuilds the exact application inside the container
+# before the server starts, so the default 90s Type=notify start timeout
+# cannot cover a legitimate start: this bound deliberately exceeds the
+# gate's own internal bounds (build 900s + bounded migration commands) so
+# systemd never abandons a start the gate itself would still conclude, while
+# an actual hang still fails the unit closed.
+TimeoutStartSec=1800s
