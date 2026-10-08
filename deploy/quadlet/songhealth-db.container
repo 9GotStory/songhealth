@@ -1,0 +1,114 @@
+# Songhealth production PostgreSQL container (Feature 001, T019).
+#
+# Authority:
+# - specs/001-platform-foundation/tasks.md T019 — the pinned PostgreSQL 18.6
+#   rootless Quadlet with private-network-only attachment, the persistent
+#   database volume, external secrets/configuration, native container health,
+#   and no published host port
+# - docs/website-modernization-docs/current/10-system-blueprint.md §2 (pin
+#   image versions by immutable digest in production definitions), §3.1
+#   (rootless Podman + systemd Quadlet baseline: PostgreSQL stays on the
+#   private application network and is never host-published; secrets and
+#   environment-specific configuration are never baked into images or
+#   committed), §20/§20.1 (environment-specific values stay external under
+#   supported mechanisms; the native PG* runtime contract's identity
+#   components — host, port, database, user — are non-secret)
+# - specs/001-platform-foundation/plan.md — "Production topology and
+#   durability" (one PostgreSQL .container on the private network with the
+#   database volume mounted; user systemd owns start/stop/restart/ordering/
+#   restart policy/enablement; no PostgreSQL port is published) and
+#   "Configuration and secrets" (non-secret values may use an external
+#   environment file; passwords stay in operator-managed Podman/systemd
+#   secrets; one stable non-superuser role)
+# - scripts/dev-db.sh — the approved PostgreSQL 18.6 image pin and the
+#   storage-boundary research: official PostgreSQL 18 images declare
+#   VOLUME /var/lib/postgresql with PGDATA=/var/lib/postgresql/18/docker, so
+#   the persistent volume must mount the PARENT directory; the pre-18
+#   /var/lib/postgresql/data boundary would leave the real data directory
+#   unpersisted
+# - deploy/quadlet/songhealth.network and songhealth-db-data.volume (T018),
+#   referenced below by their Quadlet unit names so the generated user-systemd
+#   service carries native ordering/dependency relationships on those
+#   resources; tests/operations/verify-foundation.sh (T016) resolves the
+#   container as systemd-songhealth-db, so ContainerName is deliberately NOT
+#   set and keeps the Quadlet default naming (systemd-<unit-base>)
+#
+# No host port is published in any form — no PublishPort, ExposeHostPort, or
+# any other host-port binding exists here, not even on loopback. The
+# application reaches this database only over the private songhealth network;
+# T016's C3 stage proves the boundary from runtime metadata and from the host
+# side at deployment verification time.
+#
+# External runtime inputs (never committed; both fail closed when absent):
+# - ./songhealth-db.env, resolved relative to this unit's installed location
+#   (Quadlet-native relative resolution; no host-specific absolute path is
+#   committed). The operator-managed, non-secret initialization identity:
+#     POSTGRES_USER=<the stable non-superuser EmDash role; the same value as
+#                    the application runtime's PGUSER>
+#     POSTGRES_DB=<the application runtime's PGDATABASE>
+#   Container start fails when the file is absent, and the application's
+#   PG* identity inputs must carry the same non-secret identity components.
+# - the Podman secret `songhealth-db-password`, injected through the native
+#   Quadlet Secret= mechanism and mounted at /run/secrets/songhealth-db-pass
+#   word (default mode 0444). It is consumed through the official image's
+#   native POSTGRES_PASSWORD_FILE input, so no password value is embedded in
+#   this file, in the container environment, or in Git, and `podman inspect`
+#   cannot leak it. Container creation fails when the secret does not exist,
+#   and the image itself additionally refuses to initialize without a
+#   password.
+
+[Unit]
+Description=Songhealth PostgreSQL 18.6 database (private application network only)
+
+[Container]
+# Official PostgreSQL 18.6 image, pinned by explicit version and the immutable
+# digest of the upstream multi-arch index — the same approved pin
+# scripts/dev-db.sh uses (verified 2026-10-07 against registry metadata).
+Image=docker.io/library/postgres:18.6@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf
+
+# Attach exclusively to the accepted T018 private application network. The
+# Quadlet reference generates Requires=/After= on songhealth-network.service
+# and attaches the container to the network that unit defines (NetworkName=
+# songhealth).
+Network=songhealth.network
+
+# Persistent database data: the accepted T018 volume (VolumeName=songhealth
+# -db-data) mounted at the PostgreSQL 18 persistent parent of PGDATA, per the
+# dev-db.sh storage-boundary research above. The Quadlet reference generates
+# a dependency on songhealth-db-data-volume.service; container recreation
+# replaces only the ephemeral container layer, never the named volume.
+Volume=songhealth-db-data.volume:/var/lib/postgresql
+
+# Operator-managed non-secret initialization identity (see the header):
+# required at start; a missing file fails the unit closed.
+EnvironmentFile=./songhealth-db.env
+
+# Database credential: protected external Podman secret, mounted as a file at
+# the default /run/secrets/songhealth-db-password and consumed through the
+# official image's native *_FILE input. No usable credential is committed or
+# exported into the environment; a missing secret fails container creation.
+Secret=songhealth-db-password
+Environment=POSTGRES_PASSWORD_FILE=/run/secrets/songhealth-db-password
+
+# Native container health, in the same accepted shape as scripts/dev-db.sh:
+# the official image's pg_isready against the container's own non-secret
+# identity inputs, on the container-internal loopback. No secret is involved
+# or printed. Notify=healthy postpones the generated unit's startup
+# notification until the health check passes, so user systemd never considers
+# the service started before PostgreSQL is healthy.
+HealthCmd=pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1
+HealthInterval=5s
+HealthTimeout=3s
+HealthRetries=3
+HealthStartPeriod=30s
+Notify=healthy
+
+# Rootless user-systemd lifecycle behavior — no alternative orchestration
+# layer exists: Quadlet generates the service and default.target enablement,
+# and user systemd alone owns restart. The unit returns after any unplanned
+# container exit (postgres crash, OOM kill, external signal shutdown); an
+# explicit `systemctl --user stop` is never restarted, and systemd's built-in
+# start rate limiting bounds the retry loop of a fail-closed missing input.
+[Service]
+Restart=always
+RestartSec=5s
