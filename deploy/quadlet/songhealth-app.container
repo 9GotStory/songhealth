@@ -147,17 +147,23 @@
 # CREATEROLE (which also structurally rejects the bootstrap administrator),
 # and must hold CONNECT on the target database plus USAGE and CREATE on
 # schema public — and, completing the contract, every EXISTING EmDash
-# object is verified read-only for DML and ownership/inherited ownership:
-# EmDash 1.1.0 creates its tables and sequences unqualified, so they live
-# in schema public of the dedicated application database, and each existing
-# ordinary/partitioned table or sequence there must be owned by the
-# connecting role directly or through role membership (pg_has_role USAGE —
-# the native ownership/inherited-ownership test) or carry its full required
-# DML set (tables: SELECT, INSERT, UPDATE, DELETE; sequences: SELECT,
-# USAGE, UPDATE — distinct privileges per PostgreSQL 18 ddl-priv). A
-# database with no such objects yet is the legitimate pre-first-migration
-# state and passes; after the first native apply the role owns the objects
-# it created. Any failure names the failed prerequisite or object only
+# object is verified read-only for BOTH ownership/inherited ownership AND
+# effective required DML: EmDash 1.1.0 creates its tables and sequences
+# unqualified, so they live in schema public of the dedicated application
+# database, and each existing ordinary/partitioned table or sequence there
+# must be owned by the connecting role directly or through role membership
+# (pg_has_role USAGE — the native ownership/inherited-ownership test) AND
+# hold its full required DML set (tables: SELECT, INSERT, UPDATE, DELETE;
+# sequences: SELECT, USAGE, UPDATE — distinct privileges per PostgreSQL 18
+# ddl-priv). Neither condition alone satisfies the approved contract:
+# PostgreSQL 18 GRANT keeps ownership and grantable DML distinct — an owner
+# can revoke its own ordinary DML privileges (owned with no effective DML),
+# and a non-owner can hold full grants without ownership — so both invalid
+# shapes are rejected, each naming the violated condition(s). A database
+# with no such objects yet is the legitimate pre-first-migration state and
+# passes; after the first native apply the role owns the objects it created
+# with their privileges intact. Any failure names the failed prerequisite
+# or object only
 # (identity components are the documented non-secret ones; credentials and
 # connection errors never print values) and blocks the start before the
 # T013 gate's apply step. The migration URL must still identify the same
@@ -184,11 +190,12 @@
 #      secret files surface as named missing inputs in the gate's S1);
 #   4. enforces the least-privilege application-role prerequisite above —
 #      role attributes, database CONNECT, schema USAGE/CREATE, and
-#      read-only DML/ownership verification of every existing EmDash object
-#      in schema public — before the gate runs and therefore strictly
-#      before any migration mutation, printing one secret-safe
-#      verification line (with the verified existing-object count) on
-#      success;
+#      read-only verification that every existing EmDash object in schema
+#      public carries BOTH required ownership (direct or through role
+#      membership) AND effective required DML — before the gate runs and
+#      therefore strictly before any migration mutation, printing one
+#      secret-safe verification line (with the verified existing-object
+#      count) on success;
 #   5. runs the accepted T013 startup-acceptance gate as-is through the
 #      committed verify:startup mapping — input/identity validation, the
 #      exact application rebuild and its native manifest checks, native
@@ -300,7 +307,7 @@ Secret=songhealth-encryption-key
 # server with the deployment's in-container 0.0.0.0 bind. Every failure
 # exits nonzero before the application starts; each prerequisite's verdict
 # and the gate's per-stage output land in this unit's journal.
-Exec=sh -c "grep -q ' /app/media ' /proc/mounts || { echo songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start >&2; exit 1; }; test -r /app/media/.songhealth-media-store || { echo songhealth-app: operator-managed existing media store marker .songhealth-media-store is missing at /app/media - the persistent store was not provisioned or has been replaced - refusing to start >&2; exit 1; }; IFS= read -r EMDASH_MIGRATION_DATABASE_URL </run/secrets/songhealth-migration-database-url; IFS= read -r EMDASH_ENCRYPTION_KEY </run/secrets/songhealth-encryption-key; export EMDASH_MIGRATION_DATABASE_URL EMDASH_ENCRYPTION_KEY; node -e 'const pg=require(`pg`);const c=new pg.Client({host:process.env.PGHOST,port:Number(process.env.PGPORT),database:process.env.PGDATABASE,user:process.env.PGUSER,password:process.env.PGPASSWORD,connectionTimeoutMillis:5000,query_timeout:5000});const fail=m=>{console.error(`songhealth-app: `+m);process.exit(1)};(async()=>{await c.connect();const r=await c.query(`select rolsuper s,rolcreatedb cd,rolcreaterole cr,has_database_privilege(current_user,current_database(),$q$CONNECT$q$) dbc,has_schema_privilege(current_user,$q$public$q$,$q$USAGE$q$) su,has_schema_privilege(current_user,$q$public$q$,$q$CREATE$q$) sc from pg_roles where rolname=current_user`);const b=r.rows[0];if(!b)fail(`least-privilege application-role prerequisite failed: the connecting role has no pg_roles row`);if(b.s)fail(`least-privilege application-role prerequisite failed: the connecting role is SUPERUSER - the bootstrap administrator is not the application identity`);if(b.cd)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEDB`);if(b.cr)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEROLE`);if(!b.dbc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CONNECT on the target database`);if(!b.su)fail(`least-privilege application-role prerequisite failed: the connecting role lacks USAGE on schema public`);if(!b.sc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CREATE on schema public`);const o=await c.query(`select case c.relkind when $q$S$q$ then $q$sequence$q$ else $q$table$q$ end kind,c.relname obj,pg_has_role(current_user,c.relowner,$q$USAGE$q$) owned,case c.relkind when $q$S$q$ then has_sequence_privilege(current_user,c.oid,$q$SELECT$q$) and has_sequence_privilege(current_user,c.oid,$q$USAGE$q$) and has_sequence_privilege(current_user,c.oid,$q$UPDATE$q$) else has_table_privilege(current_user,c.oid,$q$SELECT$q$) and has_table_privilege(current_user,c.oid,$q$INSERT$q$) and has_table_privilege(current_user,c.oid,$q$UPDATE$q$) and has_table_privilege(current_user,c.oid,$q$DELETE$q$) end dml from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind in ($q$r$q$,$q$p$q$,$q$S$q$) and n.nspname=$q$public$q$`);await c.end();for(const x of o.rows)if(!x.owned&&!x.dml)fail(`least-privilege application-role prerequisite failed: existing EmDash `+x.kind+` `+x.obj+` in schema public is neither owned by the connecting role directly or through role membership nor granted its full required DML privileges`);console.error(`songhealth-app: least-privilege application-role prerequisite verified: non-superuser, no CREATEDB, no CREATEROLE, database CONNECT, schema public USAGE and CREATE, and `+o.rows.length+` existing EmDash relation(s) in schema public pass ownership or full-DML verification`)})().catch(e=>fail(`least-privilege application-role prerequisite failed: `+((e&&e.code)||`error`)))' && npm run verify:startup && HOST=0.0.0.0 exec node dist/server/entry.mjs"
+Exec=sh -c "grep -q ' /app/media ' /proc/mounts || { echo songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start >&2; exit 1; }; test -r /app/media/.songhealth-media-store || { echo songhealth-app: operator-managed existing media store marker .songhealth-media-store is missing at /app/media - the persistent store was not provisioned or has been replaced - refusing to start >&2; exit 1; }; IFS= read -r EMDASH_MIGRATION_DATABASE_URL </run/secrets/songhealth-migration-database-url; IFS= read -r EMDASH_ENCRYPTION_KEY </run/secrets/songhealth-encryption-key; export EMDASH_MIGRATION_DATABASE_URL EMDASH_ENCRYPTION_KEY; node -e 'const pg=require(`pg`);const c=new pg.Client({host:process.env.PGHOST,port:Number(process.env.PGPORT),database:process.env.PGDATABASE,user:process.env.PGUSER,password:process.env.PGPASSWORD,connectionTimeoutMillis:5000,query_timeout:5000});const fail=m=>{console.error(`songhealth-app: `+m);process.exit(1)};(async()=>{await c.connect();const r=await c.query(`select rolsuper s,rolcreatedb cd,rolcreaterole cr,has_database_privilege(current_user,current_database(),$q$CONNECT$q$) dbc,has_schema_privilege(current_user,$q$public$q$,$q$USAGE$q$) su,has_schema_privilege(current_user,$q$public$q$,$q$CREATE$q$) sc from pg_roles where rolname=current_user`);const b=r.rows[0];if(!b)fail(`least-privilege application-role prerequisite failed: the connecting role has no pg_roles row`);if(b.s)fail(`least-privilege application-role prerequisite failed: the connecting role is SUPERUSER - the bootstrap administrator is not the application identity`);if(b.cd)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEDB`);if(b.cr)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEROLE`);if(!b.dbc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CONNECT on the target database`);if(!b.su)fail(`least-privilege application-role prerequisite failed: the connecting role lacks USAGE on schema public`);if(!b.sc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CREATE on schema public`);const o=await c.query(`select case c.relkind when $q$S$q$ then $q$sequence$q$ else $q$table$q$ end kind,c.relname obj,pg_has_role(current_user,c.relowner,$q$USAGE$q$) owned,case c.relkind when $q$S$q$ then has_sequence_privilege(current_user,c.oid,$q$SELECT$q$) and has_sequence_privilege(current_user,c.oid,$q$USAGE$q$) and has_sequence_privilege(current_user,c.oid,$q$UPDATE$q$) else has_table_privilege(current_user,c.oid,$q$SELECT$q$) and has_table_privilege(current_user,c.oid,$q$INSERT$q$) and has_table_privilege(current_user,c.oid,$q$UPDATE$q$) and has_table_privilege(current_user,c.oid,$q$DELETE$q$) end dml from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind in ($q$r$q$,$q$p$q$,$q$S$q$) and n.nspname=$q$public$q$`);await c.end();for(const x of o.rows){const p=[];if(!x.owned)p.push(`not owned by the connecting role directly or through role membership`);if(!x.dml)p.push(`lacking effective required DML privileges`);if(p.length>0)fail(`least-privilege application-role prerequisite failed: existing EmDash `+x.kind+` `+x.obj+` in schema public is `+p.join(` and `))}console.error(`songhealth-app: least-privilege application-role prerequisite verified: non-superuser, no CREATEDB, no CREATEROLE, database CONNECT, schema public USAGE and CREATE, and `+o.rows.length+` existing EmDash relation(s) in schema public pass required ownership (direct or inherited) and full DML verification`)})().catch(e=>fail(`least-privilege application-role prerequisite failed: `+((e&&e.code)||`error`)))' && npm run verify:startup && HOST=0.0.0.0 exec node dist/server/entry.mjs"
 
 # Native container health = the accepted T012 aggregate readiness, wired
 # verbatim (rework r1, finding 2): the helper runs inside the container
