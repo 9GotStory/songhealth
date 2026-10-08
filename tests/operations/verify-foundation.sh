@@ -33,10 +33,14 @@
 #        Execution is tied to the accepted authority by TWO combined live
 #        proofs: (a) WIRING — the unit's effective startup definition
 #        (systemctl --user cat, i.e. the generated unit the manager actually
-#        executes) must invoke the accepted T013 authority, directly (an
-#        Exec command line naming tests/operations/verify-startup.sh) or
-#        through the committed package.json `verify:startup` mapping (which
-#        must itself map to the accepted script); and (b) COMPLETION — the
+#        executes) must invoke the accepted T013 authority AS A COMMAND
+#        TOKEN: tests/operations/verify-startup.sh as the executable (or as
+#        the script argument directly following a shell interpreter), or a
+#        package run of `npm run verify:startup` whose committed
+#        package.json mapping is itself validated to run the accepted
+#        script as its command. Occurrences of the names inside arbitrary
+#        arguments, quoted shell payloads, or comments are inert text and
+#        are rejected; and (b) COMPLETION — the
 #        journal of the unit's CURRENT systemd invocation (matched by
 #        _SYSTEMD_INVOCATION_ID, never a wall-clock window, so pre-start
 #        gates are covered and earlier invocations can never be reused)
@@ -718,46 +722,115 @@ derive_gate_markers() {
 gate_wiring_reason() {
 	# gate_wiring_reason <effective-unit-definition-file>: prints '' (empty)
 	# when the effective startup definition provably invokes the accepted
-	# T013 authority — an Exec command line (ExecStart/ExecStartPre/
-	# ExecStartPost/ExecCondition) naming the accepted script
-	# (verify-startup.sh), directly or through the committed package.json
-	# `verify:startup` mapping when that mapping actually resolves to the
-	# accepted script — and otherwise prints the actionable rejection
-	# reason. This is the live WIRING half of the execution proof: journal
-	# marker text alone (which can be fabricated) is never accepted without
-	# it. Kept as a pure reasoner over unit-definition text (exactly what
+	# T013 authority AS A COMMAND, and otherwise the actionable rejection
+	# reason. The validation is STRUCTURAL — every Exec command line is
+	# tokenized (whitespace splitting with double-quote grouping, as systemd
+	# parses Exec commands) and only command positions count, never substring
+	# presence in arbitrary arguments, quoted shell payloads (-c), or text
+	# after '#'. Accepted forms:
+	#   DIRECT: the accepted script tests/operations/verify-startup.sh is
+	#     the executable token (absolute or relative path ending in
+	#     .../tests/operations/verify-startup.sh, or the bare basename), or
+	#     the script argument immediately following a shell interpreter
+	#     token (sh/bash/dash/zsh/ksh) with no flags between;
+	#   PACKAGE RUN: an `npm run verify:startup` command, accepted only when
+	#     the committed package.json maps verify:startup to a command that
+	#     itself satisfies the DIRECT rule (the mapping is validated as the
+	#     accepted command, not by substring search).
+	# This is the live WIRING half of the execution proof: journal marker
+	# text alone (which can be fabricated) is never accepted without it.
+	# Kept as a pure reasoner over unit-definition text (exactly what
 	# `systemctl --user cat` yields) so the --self-test demonstrations
-	# exercise the identical logic, including the negative cases.
-	local unit_file="$1"
-	local exec_lines=''
-	exec_lines="$(grep -E '^(ExecStart|ExecStartPre|ExecStartPost|ExecCondition)=' "$unit_file" 2>/dev/null || true)"
-	if [ -z "$exec_lines" ]; then
-		printf 'the effective unit definition declares no Exec command line (ExecStart/ExecStartPre/ExecStartPost/ExecCondition) to inspect for the startup-gate wiring'
-		return 0
-	fi
-	if printf '%s\n' "$exec_lines" | grep -Fq -- 'verify-startup.sh'; then
+	# exercise the identical logic, including the inert-text negatives.
+	local unit_file="$1" verdict=''
+	verdict="$(node -e '
+		const fs = require("fs");
+		const path = require("path");
+		const ACCEPTED = "tests/operations/verify-startup.sh";
+		const BASENAME = "verify-startup.sh";
+		const INTERPRETERS = new Set(["sh", "bash", "dash", "zsh", "ksh"]);
+		const unitFile = process.argv[1];
+		const pkgFile = process.argv[2];
+		const fail = (reason) => { process.stdout.write("reject " + reason + "\n"); process.exit(0); };
+		let text;
+		try {
+			text = fs.readFileSync(unitFile, "utf8");
+		} catch {
+			fail("could not read the effective unit definition");
+		}
+		const execLines = text.split("\n").filter((line) => /^(ExecStart|ExecStartPre|ExecStartPost|ExecCondition)=/.test(line));
+		if (execLines.length === 0) {
+			fail("the effective unit definition declares no Exec command line (ExecStart/ExecStartPre/ExecStartPost/ExecCondition) to inspect for the startup-gate wiring");
+		}
+		const tokenize = (line) => {
+			const tokens = [];
+			let current = "";
+			let has = false;
+			let quoted = false;
+			for (let i = 0; i < line.length; i++) {
+				const ch = line[i];
+				if (ch === "\\") {
+					if (i + 1 < line.length) { current += line[i + 1]; i++; has = true; }
+					continue;
+				}
+				if (ch === "\"") { quoted = !quoted; has = true; continue; }
+				if (!quoted && /\s/.test(ch)) {
+					if (has) { tokens.push(current); current = ""; has = false; }
+					continue;
+				}
+				current += ch;
+				has = true;
+			}
+			if (has) tokens.push(current);
+			return tokens;
+		};
+		const isAcceptedScriptToken = (token) =>
+			typeof token === "string" && (token === BASENAME || token === ACCEPTED || token === "./" + ACCEPTED || token.endsWith("/" + ACCEPTED));
+		const invokesDirectly = (tokens) => {
+			if (tokens.length === 0) return false;
+			if (isAcceptedScriptToken(tokens[0])) return true;
+			if (INTERPRETERS.has(path.basename(tokens[0])) && tokens.length >= 2 && isAcceptedScriptToken(tokens[1])) return true;
+			return false;
+		};
+		let sawPackageRun = false;
+		for (const line of execLines) {
+			const tokens = tokenize(line.slice(line.indexOf("=") + 1));
+			if (invokesDirectly(tokens)) { process.stdout.write("accept direct\n"); process.exit(0); }
+			if (tokens.length >= 3 && path.basename(tokens[0]) === "npm" && tokens[1] === "run" && tokens[2] === "verify:startup") sawPackageRun = true;
+		}
+		if (sawPackageRun) {
+			let pkg;
+			try {
+				pkg = JSON.parse(fs.readFileSync(pkgFile, "utf8"));
+			} catch {
+				fail("the unit runs `npm run verify:startup`, but the committed package.json could not be read to validate the mapping");
+			}
+			const command = pkg && pkg.scripts && typeof pkg.scripts["verify:startup"] === "string" ? pkg.scripts["verify:startup"] : undefined;
+			if (command === undefined) {
+				fail("the unit runs `npm run verify:startup`, but the committed package.json has no verify:startup script mapping");
+			}
+			if (!invokesDirectly(tokenize(command))) {
+				fail("the unit runs `npm run verify:startup`, but the committed package.json does not map it to the accepted T013 command (the mapping must run " + ACCEPTED + " as its command token)");
+			}
+			process.stdout.write("accept mapped\n");
+			process.exit(0);
+		}
+		fail("no Exec command line invokes the accepted T013 authority as a command token (" + ACCEPTED + " directly, or a package run of verify:startup mapped to it); occurrences inside arguments, shell payloads, or comments are inert text, not execution, and journal marker text alone is not execution proof");
+	' "$unit_file" "$ROOT/package.json" 2>/dev/null || true)"
+	case $verdict in
+	'accept direct' | 'accept mapped')
 		printf ''
 		return 0
-	fi
-	if printf '%s\n' "$exec_lines" | grep -Fq -- 'verify:startup'; then
-		local mapped=''
-		mapped="$(node -e '
-			const fs = require("fs");
-			const pkg = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-			const command = pkg && pkg.scripts ? pkg.scripts["verify:startup"] : undefined;
-			process.stdout.write(typeof command === "string" && command.includes("verify-startup.sh") ? "mapped" : "unmapped");
-		' "$ROOT/package.json" 2>/dev/null || true)"
-		if [ "$mapped" = 'mapped' ]; then
-			printf ''
-			return 0
-		fi
-		printf 'the unit invokes the verify:startup npm script, but the committed package.json does not map verify:startup to the accepted T013 script %s' \
-			"$T013_SCRIPT"
+		;;
+	reject\ ?*)
+		printf '%s' "${verdict#reject }"
 		return 0
-	fi
-	printf 'no Exec command line in the effective unit definition invokes the accepted T013 authority (%s directly, or via the package.json verify:startup mapping); journal marker text alone is not execution proof' \
-		"$T013_SCRIPT"
-	return 0
+		;;
+	*)
+		printf 'the gate-wiring validation could not evaluate the effective unit definition (unexpected validator outcome); failing closed'
+		return 0
+		;;
+	esac
 }
 
 require_gate_wiring_for_unit() {
@@ -784,7 +857,7 @@ require_gate_wiring_for_unit() {
 	if [ -n "$reason" ]; then
 		fail_stage "$label" '%s' "$reason"
 	fi
-	info "$label" 'the effective unit definition of %s provably invokes the accepted T013 authority (%s direct / package.json verify:startup mapping)' \
+	info "$label" 'the effective unit definition of %s provably invokes the accepted T013 authority as a command token (%s direct / package.json verify:startup mapping validated as the accepted command)' \
 		"$APP_UNIT" "$T013_SCRIPT"
 	pass "$label" 'T013 startup-gate wiring proven on the effective application unit definition'
 }
@@ -1877,15 +1950,56 @@ SHIM
 	fi
 
 	# Case 8 — the gate-wiring reasoner accepts only an effective unit
-	# definition that provably invokes the accepted T013 authority.
+	# definition whose Exec command ACTUALLY invokes the accepted T013
+	# authority as a command token: the three inert forms from review
+	# round 3 (echoed script name, echoed npm script name inside a shell
+	# payload, and a comment-position occurrence) must all be rejected,
+	# alongside the plain not-wired and fabricated-marker units, while the
+	# direct, interpreter-direct, and validated package-run forms are
+	# accepted.
 	local wdir="$ST_ROOT/wiring" reason_w='' saved_root="$ROOT"
 	mkdir -p "$wdir"
 	printf '[Service]\nExecStartPre=/app/tests/operations/verify-startup.sh\nExecStart=/usr/bin/node ./dist/server/entry.mjs\n' >"$wdir/direct.unit"
 	reason_w="$(gate_wiring_reason "$wdir/direct.unit")"
 	if [ -z "$reason_w" ]; then
-		st_case wiring-accepts-direct 'PASS an Exec line naming verify-startup.sh accepted'
+		st_case wiring-accepts-direct 'PASS the accepted script as the executable token accepted'
 	else
 		st_fail wiring-accepts-direct "must accept: $reason_w"
+	fi
+	printf '[Service]\nExecStartPre=/bin/bash /app/tests/operations/verify-startup.sh\nExecStart=/usr/bin/node ./dist/server/entry.mjs\n' >"$wdir/interpreter.unit"
+	reason_w="$(gate_wiring_reason "$wdir/interpreter.unit")"
+	if [ -z "$reason_w" ]; then
+		st_case wiring-accepts-interpreter 'PASS interpreter + accepted script as the immediate argument accepted'
+	else
+		st_fail wiring-accepts-interpreter "must accept: $reason_w"
+	fi
+	printf '[Service]\nExecStartPre=/bin/sh -c "echo verify-startup.sh"\nExecStart=/usr/bin/node ./dist/server/entry.mjs\n' >"$wdir/inert-echo-script.unit"
+	reason_w="$(gate_wiring_reason "$wdir/inert-echo-script.unit")"
+	if [ -n "$reason_w" ]; then
+		st_case wiring-rejects-echoed-script 'PASS the script name echoed inside a shell payload rejected (inert text, not execution)'
+	else
+		st_fail wiring-rejects-echoed-script 'an echoed script name inside a -c payload must be rejected'
+	fi
+	printf '[Service]\nExecStartPre=/bin/sh -c "echo verify:startup"\nExecStart=/usr/bin/node ./dist/server/entry.mjs\n' >"$wdir/inert-echo-mapped.unit"
+	reason_w="$(gate_wiring_reason "$wdir/inert-echo-mapped.unit")"
+	if [ -n "$reason_w" ]; then
+		st_case wiring-rejects-echoed-mapped 'PASS the npm script name echoed inside a shell payload rejected'
+	else
+		st_fail wiring-rejects-echoed-mapped 'an echoed npm script name inside a -c payload must be rejected'
+	fi
+	printf '[Service]\nExecStartPre=/bin/true # verify-startup.sh\nExecStart=/usr/bin/node ./dist/server/entry.mjs\n' >"$wdir/inert-comment.unit"
+	reason_w="$(gate_wiring_reason "$wdir/inert-comment.unit")"
+	if [ -n "$reason_w" ]; then
+		st_case wiring-rejects-comment 'PASS a comment/argument-position occurrence rejected'
+	else
+		st_fail wiring-rejects-comment 'a # -position occurrence must be rejected'
+	fi
+	printf '[Service]\nExecStartPre=/opt/inert/verify-startup.sh\nExecStart=/usr/bin/node ./dist/server/entry.mjs\n' >"$wdir/decoy-path.unit"
+	reason_w="$(gate_wiring_reason "$wdir/decoy-path.unit")"
+	if [ -n "$reason_w" ]; then
+		st_case wiring-rejects-decoy-path 'PASS a same-basename path outside the accepted tests/operations location rejected'
+	else
+		st_fail wiring-rejects-decoy-path 'a decoy same-basename path must be rejected'
 	fi
 	printf '[Service]\nExecStart=/usr/bin/node ./dist/server/entry.mjs\n' >"$wdir/notwired.unit"
 	reason_w="$(gate_wiring_reason "$wdir/notwired.unit")"
@@ -1905,10 +2019,10 @@ SHIM
 	else
 		st_fail wiring-rejects-fabricated 'a fabricated marker-only unit must be rejected by the wiring proof'
 	fi
-	printf '[Service]\nExecStartPre=/bin/sh -c "npm run verify:startup"\nExecStart=/usr/bin/node ./dist/server/entry.mjs\n' >"$wdir/mapped.unit"
+	printf '[Service]\nExecStartPre=/usr/bin/npm run verify:startup\nExecStart=/usr/bin/node ./dist/server/entry.mjs\n' >"$wdir/mapped.unit"
 	reason_w="$(gate_wiring_reason "$wdir/mapped.unit")"
 	if [ -z "$reason_w" ]; then
-		st_case wiring-accepts-mapped 'PASS the verify:startup npm form accepted because the committed package.json maps it to verify-startup.sh'
+		st_case wiring-accepts-mapped 'PASS the npm run verify:startup command accepted because the committed package.json mapping IS the accepted command'
 	else
 		st_fail wiring-accepts-mapped "must accept via the committed mapping: $reason_w"
 	fi
@@ -1916,9 +2030,9 @@ SHIM
 	printf '{ "scripts": { "verify:startup": "echo not-the-gate" } }\n' >"$ST_ROOT/package.json"
 	reason_w="$(gate_wiring_reason "$wdir/mapped.unit")"
 	if [ -n "$reason_w" ]; then
-		st_case wiring-rejects-unmapped 'PASS the verify:startup form rejected when package.json does not map it to the accepted script'
+		st_case wiring-rejects-unmapped 'PASS the verify:startup form rejected when package.json does not map it to the accepted command'
 	else
-		st_fail wiring-rejects-unmapped 'an unmapped verify:startup reference must be rejected'
+		st_fail wiring-rejects-unmapped 'a mapping that does not run the accepted script must be rejected'
 	fi
 	ROOT="$saved_root"
 
