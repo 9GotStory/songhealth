@@ -18,15 +18,18 @@
 #   contract PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD,
 #   EMDASH_MIGRATION_DATABASE_URL, EMDASH_SITE_URL, HOST/PORT,
 #   EMDASH_ENCRYPTION_KEY; media at the stable ./media path)
-# - specs/001-platform-foundation/plan.md — "Production topology and
-#   durability" (publish only the application port to the proxy-facing host
-#   boundary; a missing expected attachment must never appear as a healthy
-#   empty replacement store), "Configuration and secrets" (non-secret values
-#   may use an external environment file; secret-bearing values stay in
-#   operator-managed Podman/systemd secrets or equivalent host-protected
-#   files), "Runtime verification and readiness" (the native migration
-#   sequence is a deployment/startup gate before the application is declared
-#   ready; Quadlet health + Notify=healthy make the state observable)
+# - specs/001-platform-foundation/plan.md — "Technical Context"/"Configuration
+#   and secrets" (pin the built application image by explicit version AND
+#   immutable digest; non-secret values may use an external environment file;
+#   secret-bearing values stay in operator-managed Podman/systemd secrets or
+#   equivalent host-protected files), "Production topology and durability"
+#   (publish only the application port to the proxy-facing host boundary; a
+#   missing expected attachment or an accidentally empty replacement store
+#   must never appear as a healthy platform), "Runtime verification and
+#   readiness" (the native migration sequence is a deployment/startup gate
+#   before the application is declared ready; recurring readiness is private
+#   and non-mutating; Quadlet health + Notify=healthy make the state
+#   observable)
 # - accepted contracts consumed as-is, never reconstructed here:
 #   deploy/Containerfile (T017 single production OCI runtime, whose /app tree
 #   is deliberately writable by its non-root `node` user so this unit can run
@@ -39,23 +42,25 @@
 #   S1 input/identity validation -> S2 exact build + native manifest ->
 #   S3 status/fingerprint inspection -> S4 fingerprint-guarded apply ->
 #   S5 check -> S6 bounded disposable media write/read/remove probe),
-#   scripts/verify-readiness.mjs (T012 private non-mutating recurring
-#   readiness), tests/operations/verify-foundation.sh (T016 harness; it
-#   resolves this container as systemd-songhealth-app, so ContainerName is
-#   deliberately NOT set and keeps the Quadlet default naming)
+#   scripts/verify-readiness.mjs (T012 private non-mutating aggregate
+#   readiness helper, also wired into container health below),
+#   tests/operations/verify-foundation.sh (T016 harness; it resolves this
+#   container as systemd-songhealth-app, so ContainerName is deliberately
+#   NOT set and keeps the Quadlet default naming)
 #
-# Image identity: localhost/songhealth-app:0.0.1 is the explicit
-# version-tagged application image built from THIS checkout by the T017
+# Image identity (rework r1, finding 1): the full immutable production
+# identity is pinned below as explicit repository name + explicit version +
+# immutable digest of the canonical build of THIS checkout's T017
 # Containerfile (podman build -f deploy/Containerfile -t
-# localhost/songhealth-app:0.0.1 .), whose only base is pinned inside the
-# Containerfile by version and immutable digest. 0.0.1 is the repository
-# application version (package.json); it is never `latest` and never a bare
-# floating name. The exact-build image digest is environment/build-specific
-# (blueprint §20), so it is recorded in the deployment verification evidence
-# and may be pinned in the installed deployment copy in digest form
-# (localhost/songhealth-app@sha256:<digest of the exact build>); this
-# repository definition pins the explicit name+version identity only. A
-# missing local image makes container creation fail closed.
+# localhost/songhealth-app:0.0.1 .; the build's only base is itself pinned
+# by version and immutable digest inside the Containerfile). 0.0.1 is the
+# repository application version (package.json). The digest is the exact
+# build this deployment definition accepts — podman resolves the digest
+# against local image storage, so a different or rebuilt image never
+# satisfies it and container creation fails closed; changing the accepted
+# build therefore requires changing this pinned identity. The tag is kept
+# alongside the digest for human-readable identity only; the digest is the
+# enforcement. Never `latest`, never a bare mutable tag.
 #
 # External runtime inputs (never committed; every absence fails closed):
 #
@@ -64,8 +69,8 @@
 #   specifier is expanded by user systemd; no host-specific absolute path is
 #   committed), supplying the approved native runtime inputs:
 #     HOST=127.0.0.1        loopback application address for the accepted
-#                           T012 readiness contract (see the startup note
-#                           below for the in-container server bind)
+#                           T012 readiness contract (see the server-bind
+#                           note below)
 #     PORT=4321             application port; must equal the published
 #                           container port below
 #     PGHOST=systemd-songhealth-db
@@ -73,7 +78,7 @@
 #                           private songhealth network
 #     PGPORT=5432           PostgreSQL port inside the private network
 #     PGDATABASE=<target application database>
-#     PGUSER=<least-privilege application role — see below>
+#     PGUSER=<least-privilege application role — enforced below>
 #     PGPASSWORD=<application role credential>
 #     EMDASH_SITE_URL=<absolute production origin>
 #   Only these eight named variables are forwarded into the container
@@ -82,12 +87,13 @@
 #   file rather than a Podman file-secret because the accepted recurring
 #   readiness contract reads it from the container environment itself:
 #   scripts/verify-readiness.mjs is executed by the T016 harness through
-#   `podman exec`, which inherits only the container's configured
-#   environment — a file-mounted secret can never satisfy that contract
-#   (plan.md permits exactly this: operator-managed Podman/systemd secrets
-#   or equivalent host-protected files). The file must be operator-protected
-#   (0600); systemd does not expose EnvironmentFile values in unit
-#   definitions, `systemctl show`, or the journal.
+#   `podman exec` and by the container healthcheck below, both of which
+#   inherit only the container's configured environment — a file-mounted
+#   secret can never satisfy those contracts (plan.md permits exactly this:
+#   operator-managed Podman/systemd secrets or equivalent host-protected
+#   files). The file must be operator-protected (0600); systemd does not
+#   expose EnvironmentFile values in unit definitions, `systemctl show`, or
+#   the journal.
 #
 # - the Podman secrets `songhealth-migration-database-url` and
 #   `songhealth-encryption-key` — the two most sensitive inputs (the
@@ -100,19 +106,46 @@
 #   them), in Git, or in any image layer, and they are not exec-visible.
 #   Container creation fails when either secret does not exist.
 #
-# Application-role prerequisite (external; provisioned by the operator
-# against the running T019 database before this unit can pass its gate):
-# the application connects ONLY as the separately provisioned stable
-# least-privilege role named by PGUSER with database CONNECT, schema
-# USAGE/CREATE, DML, and ownership of the EmDash objects it creates — never
-# as T019's bootstrap administrator (POSTGRES_USER) and never with the
-# bootstrap secret songhealth-db-password. The migration URL must identify
-# the same intended database as the PG* inputs; the T013 gate's S1 step
-# enforces that agreement by non-secret identity components only, and S3
-# re-proves it against the inspected native target label. A missing or
-# misprivileged role, a missing database, or any identity disagreement fails
-# the gate closed (field names only, never values). This unit provisions
-# nothing and initializes nothing.
+# Operator-managed persistence prerequisite (rework r1, finding 3): the
+# persistent media store must already exist as an explicitly provisioned
+# store. The T018 volume unit (and Podman generally) creates a missing named
+# volume as an empty replacement (`podman volume create --ignore`), which a
+# mount-only check cannot distinguish from the operator's existing store —
+# so this unit additionally requires the operator-created store marker
+# `.songhealth-media-store` at the root of the media volume. The operator
+# creates the marker ONCE when provisioning the store (a small non-secret
+# provisioning record, e.g. an ISO timestamp and host identifier, owned by
+# the runtime user). The marker travels with the persistent bytes only: a
+# deleted-and-recreated volume, a wiped store, or an unprovisioned
+# deployment has no marker, and this unit refuses to start — it never
+# creates, initializes, or repairs the store itself. The same
+# deleted-volume recreation hazard exists for the T019 database volume;
+# that store's enforcement belongs to the T019 unit and is noted for
+# review, not changed here.
+#
+# Least-privilege application-role prerequisite (rework r1, finding 4): the
+# approved contract (T019/T020) is ONE stable, non-superuser, least-privilege
+# application role with database CONNECT, schema USAGE/CREATE, DML, and
+# ownership of the EmDash objects it creates — provisioned by the operator
+# against the running T019 database, never the bootstrap administrator
+# (POSTGRES_USER, initialized WITH SUPERUSER by the official image) and
+# never the bootstrap secret songhealth-db-password. T013 proves identity
+# agreement and migration state, not role privileges, so before any
+# migration mutation runs, this unit's startup command enforces the
+# privilege prerequisite itself through the application's own pinned pg
+# client, connecting exactly as the configured PG* application identity:
+# the connecting role must exist, must NOT be SUPERUSER or hold CREATEDB or
+# CREATEROLE (which also structurally rejects the bootstrap administrator),
+# and must hold CONNECT on the target database plus USAGE and CREATE on
+# schema public. DML and object ownership cannot be pre-checked before the
+# role's own objects exist and follow from CREATE. Any failure names the
+# failed prerequisite only (identity components are the documented
+# non-secret ones; credentials and connection errors never print values)
+# and blocks the start before the T013 gate's apply step. The migration URL
+# must still identify the same intended database as the PG* inputs; the
+# gate's S1 enforces that agreement by non-secret identity components only,
+# and S3 re-proves it against the inspected native target label. This unit
+# provisions nothing and initializes nothing.
 #
 # Startup sequence (one container; no migration container, migration
 # service, custom server, or orchestration layer exists): the image's native
@@ -124,18 +157,26 @@
 #      otherwise silently present a writable ephemeral replacement store as
 #      healthy — plan.md forbids exactly that. Refusal names the missing
 #      attachment and exits before anything else runs.
-#   2. reads the two Podman secrets into the process environment (missing
+#   2. proves the store is the operator-provisioned existing store: the
+#      store marker above must exist and be readable. A missing marker (an
+#      unprovisioned or replaced store) refuses to start with the
+#      prerequisite named — no initialization, no repair.
+#   3. reads the two Podman secrets into the process environment (missing
 #      secret files surface as named missing inputs in the gate's S1);
-#   3. runs the accepted T013 startup-acceptance gate as-is through the
+#   4. enforces the least-privilege application-role prerequisite above —
+#      before the gate runs and therefore strictly before any migration
+#      mutation — printing one secret-safe verification line on success;
+#   5. runs the accepted T013 startup-acceptance gate as-is through the
 #      committed verify:startup mapping — input/identity validation, the
 #      exact application rebuild and its native manifest checks, native
 #      status -> inspected-fingerprint-guarded apply -> post-apply
 #      inspection -> check, and the bounded disposable media
-#      write/read/remove probe. Any failure exits nonzero, the container
-#      never starts the application, and the unit follows its restart
-#      policy; the gate's full [S1..S6] PASS markers land in this unit's
-#      journal for every start.
-#   4. only then execs the native standalone server emitted by that exact
+#      write/read/remove probe (the only migration/write probes; they stay
+#      startup-only). Any failure exits nonzero, the container never starts
+#      the application, and the unit follows its restart policy; the gate's
+#      full [S1..S6] PASS markers land in this unit's journal for every
+#      start.
+#   6. only then execs the native standalone server emitted by that exact
 #      build (dist/server/entry.mjs), with the in-container bind widened to
 #      0.0.0.0 for this one process.
 #
@@ -156,21 +197,22 @@
 # is exposed (.env.example: production HOST must match the container/proxy
 # boundary and must not expose an unintended interface).
 #
-# T016 deployed-verification limits accepted at review (the harness is not
-# weakened to hide them): its C1 wiring validator only proves host-executable
+# T016 deployed-verification limits (rework r1 wording correction): the two
+# incompatibilities below are IDENTIFIED and OUTSTANDING for authority
+# resolution — they are not approved exemptions, and the harness is not
+# weakened to hide them: (a) C1's wiring validator proves host-executable
 # authority paths or the trusted host npm runner, so it cannot recognize the
 # in-container `podman run ... npm run verify:startup` wiring this unit uses
-# by design; and its C7 negative test demands the in-container readiness
+# by design; (b) C7's negative test demands the in-container readiness
 # helper itself print a media-identifying not-ready result, which the
 # accepted stat-based T012 helper cannot produce for an omitted mount that
 # leaves the image's placeholder directory in place — this unit instead
-# fails the start closed (guard above) so a missing attachment can never be
-# reported healthy. Both remain explicitly identified deployment-verification
-# incompatibilities for review; full deployed acceptance is T022's separate
-# authorization.
+# fails the start closed (steps 1-2 above) so a missing or replaced
+# attachment can never be reported healthy. Full deployed acceptance
+# including these stages belongs to T022's separate authorization.
 
 [Unit]
-Description=Songhealth Astro + EmDash application (T013 startup gate, private network, loopback-only publication)
+Description=Songhealth Astro + EmDash application (T013 startup gate, least-privilege role prerequisite, private network, loopback-only publication)
 # Hard ordering and dependency on the T019 PostgreSQL unit: starting this
 # unit starts the database first, and the database unit's own Notify=healthy
 # semantics mean "started" there is "healthy". The network and media-volume
@@ -180,10 +222,12 @@ Requires=songhealth-db.service
 After=songhealth-db.service
 
 [Container]
-# The single T017 production application image (see the image-identity note
-# above): explicit name + repository version, locally built from this
-# checkout, never `latest`. A missing image fails container creation closed.
-Image=localhost/songhealth-app:0.0.1
+# The single T017 production application image, pinned by the FULL immutable
+# identity: explicit repository + explicit version + the immutable digest of
+# the canonical build of this checkout's deploy/Containerfile (see the
+# image-identity note above). Only that exact image satisfies this
+# reference; any other or rebuilt image fails container creation closed.
+Image=localhost/songhealth-app:0.0.1@sha256:e7e05bc68a9d0d9f104bfb421af7b6888c08a9d193c2af89bc978f7f8b325e1b
 
 # Attach exclusively to the accepted T018 private application network
 # (NetworkName=songhealth). The Quadlet reference generates
@@ -196,7 +240,8 @@ Network=songhealth.network
 # application path /app/media (blueprint §20.1; no MEDIA_DIRECTORY input
 # exists). The Quadlet reference generates a dependency on
 # songhealth-media-volume.service; container recreation replaces only the
-# ephemeral container layer, never the named volume.
+# ephemeral container layer, never the named volume. The operator-managed
+# existing-store marker is enforced by the startup command below.
 Volume=songhealth-media.volume:/app/media
 
 # The only publication in this deployment: the application port on the host
@@ -226,24 +271,35 @@ Secret=songhealth-migration-database-url
 Secret=songhealth-encryption-key
 
 # One startup payload (see the startup-sequence note above): media
-# attachment guard -> secret reads -> the accepted T013 gate via the
-# committed verify:startup mapping -> exec the native standalone server
-# with the deployment's in-container 0.0.0.0 bind. Every failure exits
-# nonzero before the application starts; the gate's per-stage output lands
-# in this unit's journal.
-Exec=sh -c "grep -q ' /app/media ' /proc/mounts || { echo songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start >&2; exit 1; }; IFS= read -r EMDASH_MIGRATION_DATABASE_URL </run/secrets/songhealth-migration-database-url; IFS= read -r EMDASH_ENCRYPTION_KEY </run/secrets/songhealth-encryption-key; export EMDASH_MIGRATION_DATABASE_URL EMDASH_ENCRYPTION_KEY; npm run verify:startup && HOST=0.0.0.0 exec node dist/server/entry.mjs"
+# attachment guard -> existing-store marker guard -> secret reads ->
+# least-privilege application-role prerequisite -> the accepted T013 gate
+# via the committed verify:startup mapping -> exec the native standalone
+# server with the deployment's in-container 0.0.0.0 bind. Every failure
+# exits nonzero before the application starts; each prerequisite's verdict
+# and the gate's per-stage output land in this unit's journal.
+Exec=sh -c "grep -q ' /app/media ' /proc/mounts || { echo songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start >&2; exit 1; }; test -r /app/media/.songhealth-media-store || { echo songhealth-app: operator-managed existing media store marker .songhealth-media-store is missing at /app/media - the persistent store was not provisioned or has been replaced - refusing to start >&2; exit 1; }; IFS= read -r EMDASH_MIGRATION_DATABASE_URL </run/secrets/songhealth-migration-database-url; IFS= read -r EMDASH_ENCRYPTION_KEY </run/secrets/songhealth-encryption-key; export EMDASH_MIGRATION_DATABASE_URL EMDASH_ENCRYPTION_KEY; node -e 'const pg=require(`pg`);const c=new pg.Client({host:process.env.PGHOST,port:Number(process.env.PGPORT),database:process.env.PGDATABASE,user:process.env.PGUSER,password:process.env.PGPASSWORD,connectionTimeoutMillis:5000,query_timeout:5000});const fail=m=>{console.error(`songhealth-app: `+m);process.exit(1)};(async()=>{await c.connect();const r=await c.query(`select rolsuper s,rolcreatedb cd,rolcreaterole cr,has_database_privilege(current_user,current_database(),$q$CONNECT$q$) dbc,has_schema_privilege(current_user,$q$public$q$,$q$USAGE$q$) su,has_schema_privilege(current_user,$q$public$q$,$q$CREATE$q$) sc from pg_roles where rolname=current_user`);await c.end();const b=r.rows[0];if(!b)fail(`least-privilege application-role prerequisite failed: the connecting role has no pg_roles row`);if(b.s)fail(`least-privilege application-role prerequisite failed: the connecting role is SUPERUSER - the bootstrap administrator is not the application identity`);if(b.cd)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEDB`);if(b.cr)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEROLE`);if(!b.dbc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CONNECT on the target database`);if(!b.su)fail(`least-privilege application-role prerequisite failed: the connecting role lacks USAGE on schema public`);if(!b.sc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CREATE on schema public`);console.error(`songhealth-app: least-privilege application-role prerequisite verified: non-superuser, no CREATEDB, no CREATEROLE, database CONNECT, schema public USAGE and CREATE`)})().catch(e=>fail(`least-privilege application-role prerequisite failed: `+((e&&e.code)||`error`)))' && npm run verify:startup && HOST=0.0.0.0 exec node dist/server/entry.mjs"
 
-# Native container health: one bounded loopback HTTP probe of the
-# application's own SSR verification page from inside the container (the
-# server's 0.0.0.0 bind answers container loopback). Non-mutating, no
-# secret involved, no public endpoint. Notify=healthy postpones the
-# generated unit's startup notification until the health check passes, so
-# user systemd never considers this service started before the gate has
-# passed AND the application is actually serving.
-HealthCmd=node -e 'fetch(`http://127.0.0.1:`+(process.env.PORT||4321)+`/`).then(r=>{if(r.status!==200)process.exit(1)}).catch(()=>process.exit(1))'
+# Native container health = the accepted T012 aggregate readiness, wired
+# verbatim (rework r1, finding 2): the helper runs inside the container
+# (private boundary, no public endpoint), consumes only the container's own
+# configured environment, and performs its bounded non-mutating checks —
+# loopback SSR probe with the expected marker, bounded PostgreSQL
+# connectivity, and media-mount presence/readability — self-terminating
+# within its own 8s overall bound and exiting nonzero on any not-ready
+# result. A mere HTTP 200 is therefore never sufficient: with the database
+# unreachable or the media mount unreadable, health fails while the SSR
+# page may still be served. The migration/write probes are NOT part of
+# health — they remain startup-only in the T013 gate above, so recurring
+# health never mutates persistent state. HealthTimeout exceeds the
+# helper's own wall-clock bound; failures during the startup gate fall
+# inside HealthStartPeriod and do not count. Notify=healthy postpones the
+# generated unit's startup notification until this aggregate check passes,
+# so user systemd never considers this service started before the gate has
+# passed AND the application is actually, completely ready.
+HealthCmd=node scripts/verify-readiness.mjs
 HealthInterval=10s
-HealthTimeout=5s
-HealthRetries=6
+HealthTimeout=15s
+HealthRetries=3
 HealthStartPeriod=300s
 Notify=healthy
 
