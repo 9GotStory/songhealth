@@ -30,21 +30,24 @@
 #        fingerprint-guarded apply -> check over the exact-build manifest,
 #        plus the bounded media write/read/remove probe — completed for the
 #        current start of the application unit before it is treated as READY.
-#        Evidence is scoped to the unit's CURRENT systemd invocation
-#        (journal matched by _SYSTEMD_INVOCATION_ID, never by a wall-clock
-#        window): the slice covers that invocation's ExecStartPre /
-#        ExecStartPost work too, so a pre-start gate is never excluded, and
-#        an earlier invocation's evidence can never be reused across rapid
-#        restarts. Within that slice the harness requires the gate's FULL
-#        derived evidence sequence — every `t013: [S<n>] PASS` stage marker
-#        emitted by the accepted script (S1..S6, each carrying run-specific
-#        content such as target fingerprints and the unique probe pathname)
-#        plus the final PASS banner — all derived at runtime from
-#        tests/operations/verify-startup.sh itself, so a lone logged banner
-#        string is not accepted as proof that T013 ran; the deployment must
-#        actually execute the gate to completion during every start.
-#        Recurring readiness stays private (obtained only through the
-#        container boundary) and non-mutating (the media snapshot hashes
+#        Execution is tied to the accepted authority by TWO combined live
+#        proofs: (a) WIRING — the unit's effective startup definition
+#        (systemctl --user cat, i.e. the generated unit the manager actually
+#        executes) must invoke the accepted T013 authority, directly (an
+#        Exec command line naming tests/operations/verify-startup.sh) or
+#        through the committed package.json `verify:startup` mapping (which
+#        must itself map to the accepted script); and (b) COMPLETION — the
+#        journal of the unit's CURRENT systemd invocation (matched by
+#        _SYSTEMD_INVOCATION_ID, never a wall-clock window, so pre-start
+#        gates are covered and earlier invocations can never be reused)
+#        must contain the gate's full derived marker sequence — every
+#        `t013: [S<n>] PASS` stage marker plus the final PASS banner, all
+#        derived at runtime from tests/operations/verify-startup.sh, in
+#        ascending stage order. Journal text alone (a fabricated marker
+#        sequence) is rejected by the wiring proof; a wired unit that did
+#        not complete the gate is rejected by the ordered completion
+#        evidence. Recurring readiness stays private (obtained only through
+#        the container boundary) and non-mutating (the media snapshot hashes
 #        directory metadata INCLUDING the media root and subdirectories plus
 #        per-file CONTENT digests, so a create/read/remove probe or an
 #        in-place byte change is detected, and the tagline digest is
@@ -248,9 +251,10 @@ the canonical tagline/media integrity comparisons after every checkpoint.
 
 Stage order: P0 repository deployment-definition prerequisite (the expected
 RED failure while T017–T020 are unimplemented) -> R1 task-owned target
-resolution/validation -> C1 startup-gate evidence (scoped to the current
-systemd invocation, full derived T013 stage sequence) + private non-mutating
-recurring readiness -> C2 private network + app-to-database access ->
+resolution/validation -> C1 startup-gate evidence (live wiring proof on the
+effective unit definition + invocation-scoped, ordered completion markers) +
+private non-mutating recurring readiness -> C2 private network +
+app-to-database access ->
 C3 no published PostgreSQL host port -> C4 persistent volume attachments ->
 C5 canonical tagline/media integrity baseline -> C6 three lifecycle cycles
 -> C7 missing-attachment negative (requires the explicit not-ready result
@@ -683,16 +687,17 @@ resolve_targets() {
 # ---------------------------------------------------------------------------
 
 derive_gate_markers() {
-	# The evidence this harness requires is derived from the accepted T013
-	# script itself at runtime, never re-typed here: the final PASS banner
-	# AND every `t013: [S<n>] PASS` stage marker the script emits (the `pass
-	# S<n>` calls it contains). Requiring the full stage sequence — whose
-	# lines carry run-specific content such as the inspected target
-	# fingerprint and the unique mktemp probe pathname — ties the evidence to
-	# the gate actually executing in the watched window: a lone logged banner
-	# string proves only that the text was logged, not that T013 ran. If the
-	# script no longer contains the expected sequence, this harness fails
-	# closed rather than accepting a drifted or weakened substitute.
+	# The completion evidence this harness requires is derived from the
+	# accepted T013 script itself at runtime, never re-typed here: the final
+	# PASS banner AND every `t013: [S<n>] PASS` stage marker the script
+	# emits (the `pass S<n>` calls it contains). The markers alone are NOT
+	# execution proof — they are fixed prefixes that could be fabricated in
+	# a log — so they are always combined with the live WIRING proof in
+	# require_gate_wiring_for_unit (the effective unit definition must invoke
+	# the accepted authority) and checked in ascending stage order within the
+	# current invocation. If the script no longer contains the expected
+	# sequence, this harness fails closed rather than accepting a drifted or
+	# weakened substitute.
 	GATE_BANNER="$(grep -oF "$T013_BANNER_MARKER" "$ROOT/$T013_SCRIPT" | head -1 || true)"
 	if [ -z "$GATE_BANNER" ]; then
 		fail_stage C1 'could not derive the T013 gate completion banner from %s; the authority script changed and this harness refuses to weaken its evidence anchor' \
@@ -708,6 +713,80 @@ derive_gate_markers() {
 	for s in "${stages[@]}"; do
 		GATE_STAGE_MARKERS+=("t013: [$s] PASS")
 	done
+}
+
+gate_wiring_reason() {
+	# gate_wiring_reason <effective-unit-definition-file>: prints '' (empty)
+	# when the effective startup definition provably invokes the accepted
+	# T013 authority — an Exec command line (ExecStart/ExecStartPre/
+	# ExecStartPost/ExecCondition) naming the accepted script
+	# (verify-startup.sh), directly or through the committed package.json
+	# `verify:startup` mapping when that mapping actually resolves to the
+	# accepted script — and otherwise prints the actionable rejection
+	# reason. This is the live WIRING half of the execution proof: journal
+	# marker text alone (which can be fabricated) is never accepted without
+	# it. Kept as a pure reasoner over unit-definition text (exactly what
+	# `systemctl --user cat` yields) so the --self-test demonstrations
+	# exercise the identical logic, including the negative cases.
+	local unit_file="$1"
+	local exec_lines=''
+	exec_lines="$(grep -E '^(ExecStart|ExecStartPre|ExecStartPost|ExecCondition)=' "$unit_file" 2>/dev/null || true)"
+	if [ -z "$exec_lines" ]; then
+		printf 'the effective unit definition declares no Exec command line (ExecStart/ExecStartPre/ExecStartPost/ExecCondition) to inspect for the startup-gate wiring'
+		return 0
+	fi
+	if printf '%s\n' "$exec_lines" | grep -Fq -- 'verify-startup.sh'; then
+		printf ''
+		return 0
+	fi
+	if printf '%s\n' "$exec_lines" | grep -Fq -- 'verify:startup'; then
+		local mapped=''
+		mapped="$(node -e '
+			const fs = require("fs");
+			const pkg = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+			const command = pkg && pkg.scripts ? pkg.scripts["verify:startup"] : undefined;
+			process.stdout.write(typeof command === "string" && command.includes("verify-startup.sh") ? "mapped" : "unmapped");
+		' "$ROOT/package.json" 2>/dev/null || true)"
+		if [ "$mapped" = 'mapped' ]; then
+			printf ''
+			return 0
+		fi
+		printf 'the unit invokes the verify:startup npm script, but the committed package.json does not map verify:startup to the accepted T013 script %s' \
+			"$T013_SCRIPT"
+		return 0
+	fi
+	printf 'no Exec command line in the effective unit definition invokes the accepted T013 authority (%s directly, or via the package.json verify:startup mapping); journal marker text alone is not execution proof' \
+		"$T013_SCRIPT"
+	return 0
+}
+
+require_gate_wiring_for_unit() {
+	# require_gate_wiring_for_unit <label>: the LIVE wiring half of the C1
+	# execution proof. Captures the effective, currently-loaded definition of
+	# the application unit exactly as the manager executes it
+	# (`systemctl --user cat`), proves it secret-free, and requires the
+	# gate_wiring_reason acceptance above. Combined with the invocation-
+	# scoped ordered completion evidence in
+	# require_gate_evidence_for_current_start, a fabricated marker-only
+	# journal on a unit not wired to T013 is rejected here, and a wired unit
+	# whose gate did not complete is rejected there.
+	local label="$1"
+	local unit_file="$TMP_DIR/unit-$label.txt" reason=''
+	if ! timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
+		systemctl --user cat "$APP_UNIT" >"$unit_file" 2>"$unit_file.err"; then
+		print_tail 'systemctl cat diagnostics' "$unit_file.err"
+		fail_stage "$label" 'reading the effective unit definition of %s failed' "$APP_UNIT"
+	fi
+	if ! file_free_of_secrets "$unit_file"; then
+		fail_stage "$label" 'the captured effective unit definition contains a configured secret value; refusing to continue'
+	fi
+	reason="$(gate_wiring_reason "$unit_file")"
+	if [ -n "$reason" ]; then
+		fail_stage "$label" '%s' "$reason"
+	fi
+	info "$label" 'the effective unit definition of %s provably invokes the accepted T013 authority (%s direct / package.json verify:startup mapping)' \
+		"$APP_UNIT" "$T013_SCRIPT"
+	pass "$label" 'T013 startup-gate wiring proven on the effective application unit definition'
 }
 
 current_invocation_id() {
@@ -735,25 +814,37 @@ collect_invocation_journal() {
 
 gate_markers_present() {
 	# gate_markers_present <journal-file>: every derived T013 stage marker
-	# AND the final banner must appear in the file.
-	local file="$1" marker
-	for marker in "${GATE_STAGE_MARKERS[@]}"; do
-		grep -Fq "$marker" "$file" || return 1
+	# AND the final banner must appear in the file, each first occurrence on
+	# a strictly later line than the previous one (ascending stage order —
+	# the order in which the accepted script actually emits them). Marker
+	# text alone is not execution proof; this predicate is always combined
+	# with the live wiring proof in require_gate_wiring_for_unit.
+	local file="$1" marker prev=0 ln=''
+	for marker in "${GATE_STAGE_MARKERS[@]}" "$GATE_BANNER"; do
+		ln="$(grep -nF -m1 -- "$marker" "$file" | cut -d: -f1 || true)"
+		if [ -z "$ln" ]; then
+			return 1
+		fi
+		if [ "$ln" -le "$prev" ]; then
+			return 1
+		fi
+		prev="$ln"
 	done
-	grep -Fq "$GATE_BANNER" "$file" || return 1
 	return 0
 }
 
 require_gate_evidence_for_current_start() {
-	# require_gate_evidence_for_current_start <label>: the full derived T013
-	# evidence sequence — every stage marker plus the final PASS banner —
-	# must be present in the journal of the application unit's CURRENT
-	# systemd invocation, proving the deployment executed the reused T013
-	# startup-acceptance gate to completion during this start (including any
-	# pre-start wiring) before the application is treated as ready. Blocking
-	# readiness on gate failure is the deployment's own contract (T020);
-	# this stage re-proves the gate ran on every start, including after
-	# every lifecycle operation below.
+	# require_gate_evidence_for_current_start <label>: the COMPLETION half of
+	# the C1 execution proof — the full derived T013 evidence sequence
+	# (every stage marker plus the final PASS banner, in ascending stage
+	# order) must be present in the journal of the application unit's
+	# CURRENT systemd invocation, proving the wired gate ran to completion
+	# during this start (including any pre-start wiring) before the
+	# application is treated as ready. Blocking readiness on gate failure is
+	# the deployment's own contract (T020); this stage re-proves completion
+	# on every start, including after every lifecycle operation below.
+	# Always preceded by require_gate_wiring_for_unit so marker text alone
+	# can never be accepted.
 	local label="$1"
 	local inv='' journal_file
 	inv="$(current_invocation_id "$APP_UNIT")"
@@ -766,7 +857,7 @@ require_gate_evidence_for_current_start() {
 		fail_stage "$label" 'reading the journal of unit %s (invocation %s) failed' "$APP_UNIT" "$inv"
 	fi
 	if ! gate_markers_present "$journal_file"; then
-		fail_stage "$label" 'the full T013 startup-acceptance evidence sequence is absent from the journal of the CURRENT invocation of %s (invocation %s); required markers: [%s] plus [%s] — the deployment must run the reused T013 gate (status -> inspected-target fingerprint-guarded apply -> check + bounded media probe) to completion during every start before the application is accepted ready' \
+		fail_stage "$label" 'the full ordered T013 startup-acceptance evidence sequence is absent from the journal of the CURRENT invocation of %s (invocation %s); required markers, in ascending stage order: [%s] plus [%s] — the deployment must run the wired T013 gate (status -> inspected-target fingerprint-guarded apply -> check + bounded media probe) to completion during every start before the application is accepted ready' \
 			"$APP_UNIT" "$inv" "${GATE_STAGE_MARKERS[*]}" "$GATE_BANNER"
 	fi
 	if ! file_free_of_secrets "$journal_file"; then
@@ -1285,10 +1376,10 @@ wait_app_ready_with_gate() {
 	# wait_app_ready_with_gate <stage> <purpose>: bounded wait until the
 	# application unit is active AND the reused T013 gate has evidenced
 	# completion for the unit's CURRENT invocation (the full derived stage
-	# sequence plus banner, scoped by _SYSTEMD_INVOCATION_ID so pre-start
-	# gate output is included and earlier invocations can never satisfy the
-	# check). The invocation id is re-read every poll because it changes on
-	# every restart.
+	# sequence plus banner in ascending stage order, scoped by
+	# _SYSTEMD_INVOCATION_ID so pre-start gate output is included and
+	# earlier invocations can never satisfy the check). The invocation id is
+	# re-read every poll because it changes on every restart.
 	local stage="$1" purpose="$2" waited=0 inv='' journal_file
 	journal_file="$TMP_DIR/journal-gate-poll.txt"
 	while :; do
@@ -1583,10 +1674,12 @@ check_missing_attachment_negative() {
 
 ST_ROOT=''
 ST_FAILURES=0
+ST_PASSES=0
 
 st_case() {
 	# st_case <name> <verdict-line>
 	printf 't016-selftest: [%s] %s\n' "$1" "$2"
+	ST_PASSES=$((ST_PASSES + 1))
 }
 
 st_fail() {
@@ -1606,6 +1699,11 @@ self_test() {
 	fi
 
 	ST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/t016-selftest.XXXXXX")"
+
+	# The wiring and ordered-marker demonstrations consume the same derived
+	# markers and repository authorities the main verification path uses.
+	ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+	derive_gate_markers
 
 	# systemctl shim: records every invocation and succeeds, so the restore
 	# branches never touch the real user systemd manager during the
@@ -1765,21 +1863,141 @@ SHIM
 	else
 		st_fail detect-in-place-change 'a same-size in-place byte change must change the snapshot digest'
 	fi
+	# Isolated subdirectory case: the baseline is recaptured immediately
+	# before the mkdir/rmdir so ONLY the directory mutation is measured
+	# (the preceding in-place byte change must not contaminate it).
+	h_before="$(node -e "$(media_walk_js)" "$media" | sha256sum | awk '{print $1}')"
 	mkdir "$media/subdir"
 	rmdir "$media/subdir"
 	h_after="$(node -e "$(media_walk_js)" "$media" | sha256sum | awk '{print $1}')"
 	if [ "$h_before" != "$h_after" ]; then
-		st_case detect-subdir-create-delete 'PASS subdirectory create/delete detected'
+		st_case detect-subdir-create-delete 'PASS subdirectory create/delete detected (baseline recaptured immediately before the mutation)'
 	else
-		st_fail detect-subdir-create-delete 'a subdirectory create/delete must change the snapshot digest'
+		st_fail detect-subdir-create-delete 'an isolated subdirectory create/delete must change the snapshot digest'
+	fi
+
+	# Case 8 — the gate-wiring reasoner accepts only an effective unit
+	# definition that provably invokes the accepted T013 authority.
+	local wdir="$ST_ROOT/wiring" reason_w='' saved_root="$ROOT"
+	mkdir -p "$wdir"
+	printf '[Service]\nExecStartPre=/app/tests/operations/verify-startup.sh\nExecStart=/usr/bin/node ./dist/server/entry.mjs\n' >"$wdir/direct.unit"
+	reason_w="$(gate_wiring_reason "$wdir/direct.unit")"
+	if [ -z "$reason_w" ]; then
+		st_case wiring-accepts-direct 'PASS an Exec line naming verify-startup.sh accepted'
+	else
+		st_fail wiring-accepts-direct "must accept: $reason_w"
+	fi
+	printf '[Service]\nExecStart=/usr/bin/node ./dist/server/entry.mjs\n' >"$wdir/notwired.unit"
+	reason_w="$(gate_wiring_reason "$wdir/notwired.unit")"
+	if [ -n "$reason_w" ]; then
+		st_case wiring-rejects-not-wired 'PASS a unit with no T013 reference rejected (journal markers alone are not execution proof)'
+	else
+		st_fail wiring-rejects-not-wired 'a unit not wired to T013 must be rejected'
+	fi
+	{
+		printf '[Service]\n'
+		printf 'ExecStartPre=/bin/sh -c "echo t013: [S1] PASS fabricated; echo t013: [S2] PASS fabricated"\n'
+		printf 'ExecStart=/usr/bin/node ./dist/server/entry.mjs\n'
+	} >"$wdir/fabricated.unit"
+	reason_w="$(gate_wiring_reason "$wdir/fabricated.unit")"
+	if [ -n "$reason_w" ]; then
+		st_case wiring-rejects-fabricated 'PASS a unit that only echoes fabricated marker text rejected'
+	else
+		st_fail wiring-rejects-fabricated 'a fabricated marker-only unit must be rejected by the wiring proof'
+	fi
+	printf '[Service]\nExecStartPre=/bin/sh -c "npm run verify:startup"\nExecStart=/usr/bin/node ./dist/server/entry.mjs\n' >"$wdir/mapped.unit"
+	reason_w="$(gate_wiring_reason "$wdir/mapped.unit")"
+	if [ -z "$reason_w" ]; then
+		st_case wiring-accepts-mapped 'PASS the verify:startup npm form accepted because the committed package.json maps it to verify-startup.sh'
+	else
+		st_fail wiring-accepts-mapped "must accept via the committed mapping: $reason_w"
+	fi
+	ROOT="$ST_ROOT"
+	printf '{ "scripts": { "verify:startup": "echo not-the-gate" } }\n' >"$ST_ROOT/package.json"
+	reason_w="$(gate_wiring_reason "$wdir/mapped.unit")"
+	if [ -n "$reason_w" ]; then
+		st_case wiring-rejects-unmapped 'PASS the verify:startup form rejected when package.json does not map it to the accepted script'
+	else
+		st_fail wiring-rejects-unmapped 'an unmapped verify:startup reference must be rejected'
+	fi
+	ROOT="$saved_root"
+
+	# Case 9 — the ordered completion-marker predicate.
+	local jdir="$ST_ROOT/journal" jfile='' marker='' rc_m=0
+	mkdir -p "$jdir"
+	jfile="$jdir/inorder.log"
+	: >"$jfile"
+	printf 'systemd: starting application unit\n' >>"$jfile"
+	for marker in "${GATE_STAGE_MARKERS[@]}"; do
+		printf '%s gate stage completed\n' "$marker" >>"$jfile"
+		printf 'interleaved application log line\n' >>"$jfile"
+	done
+	printf '%s\n' "$GATE_BANNER" >>"$jfile"
+	if gate_markers_present "$jfile"; then
+		st_case markers-accept-ordered 'PASS the full stage sequence in ascending order with the banner last accepted'
+	else
+		st_fail markers-accept-ordered 'an ascending complete marker sequence must be accepted'
+	fi
+	jfile="$jdir/fabricated-inorder.log"
+	: >"$jfile"
+	for marker in "${GATE_STAGE_MARKERS[@]}"; do
+		printf '%s fabricated\n' "$marker" >>"$jfile"
+	done
+	printf '%s fabricated\n' "$GATE_BANNER" >>"$jfile"
+	rc_m=0
+	gate_markers_present "$jfile" || rc_m=$?
+	if [ "$rc_m" -eq 0 ]; then
+		st_case markers-accept-fabricated-text 'PASS marker predicate accepts fabricated in-order text BY DESIGN — the wiring proof (case 8) is what rejects it, which is why C1 always requires both'
+	else
+		st_fail markers-accept-fabricated-text 'unexpected: the marker predicate should accept fabricated in-order text; the wiring proof is the rejecting leg'
+	fi
+	jfile="$jdir/outoforder.log"
+	: >"$jfile"
+	printf '%s\n' "$GATE_BANNER" >>"$jfile"
+	for marker in "${GATE_STAGE_MARKERS[@]}"; do
+		printf '%s emitted\n' "$marker" >>"$jfile"
+	done
+	rc_m=0
+	gate_markers_present "$jfile" || rc_m=$?
+	if [ "$rc_m" -ne 0 ]; then
+		st_case markers-reject-out-of-order 'PASS banner-before-stages ordering rejected'
+	else
+		st_fail markers-reject-out-of-order 'out-of-order marker sequences must be rejected'
+	fi
+	jfile="$jdir/swapped.log"
+	{
+		printf '%s emitted\n' "${GATE_STAGE_MARKERS[1]}"
+		printf '%s emitted\n' "${GATE_STAGE_MARKERS[0]}"
+		printf '%s\n' "$GATE_BANNER"
+	} >>"$jfile"
+	rc_m=0
+	gate_markers_present "$jfile" || rc_m=$?
+	if [ "$rc_m" -ne 0 ]; then
+		st_case markers-reject-swapped 'PASS swapped stage order rejected'
+	else
+		st_fail markers-reject-swapped 'swapped stage order must be rejected'
+	fi
+	jfile="$jdir/missing.log"
+	{
+		for marker in "${GATE_STAGE_MARKERS[@]:0:3}" "${GATE_STAGE_MARKERS[@]:4}"; do
+			printf '%s emitted\n' "$marker"
+		done
+		printf '%s\n' "$GATE_BANNER"
+	} >>"$jfile"
+	rc_m=0
+	gate_markers_present "$jfile" || rc_m=$?
+	if [ "$rc_m" -ne 0 ]; then
+		st_case markers-reject-missing 'PASS a missing stage marker rejected'
+	else
+		st_fail markers-reject-missing 'a sequence with a missing stage must be rejected'
 	fi
 
 	rm -rf "$ST_ROOT"
 	if [ "$ST_FAILURES" -eq 0 ]; then
-		printf 't016-selftest: all isolated failure-path demonstrations passed\n'
+		printf 't016-selftest: all %s demonstration(s) passed\n' "$ST_PASSES"
 		return 0
 	fi
-	printf 't016-selftest: %s demonstration(s) FAILED\n' "$ST_FAILURES" >&2
+	printf 't016-selftest: %s of %s demonstration(s) FAILED\n' "$ST_FAILURES" "$((ST_PASSES + ST_FAILURES))" >&2
 	return 1
 }
 
@@ -1837,6 +2055,10 @@ main() {
 	resolve_targets
 
 	# C1 — startup acceptance before READY + private non-mutating readiness.
+	# Wiring proof first (live, on the effective unit definition), then the
+	# invocation-scoped ordered completion evidence; together they tie the
+	# accepted evidence to T013 actually executing on this start.
+	require_gate_wiring_for_unit C1
 	require_gate_evidence_for_current_start C1
 	check_recurring_readiness_private
 
