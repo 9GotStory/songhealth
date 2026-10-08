@@ -48,7 +48,8 @@
 #   container as systemd-songhealth-app, so ContainerName is deliberately
 #   NOT set and keeps the Quadlet default naming)
 #
-# Image identity (rework r1, finding 1): the full immutable production
+# Image identity (rework r1 finding 1; digest re-pinned in rework r2 to the
+# retained inspectable canonical artifact): the full immutable production
 # identity is pinned below as explicit repository name + explicit version +
 # immutable digest of the canonical build of THIS checkout's T017
 # Containerfile (podman build -f deploy/Containerfile -t
@@ -58,9 +59,15 @@
 # build this deployment definition accepts — podman resolves the digest
 # against local image storage, so a different or rebuilt image never
 # satisfies it and container creation fails closed; changing the accepted
-# build therefore requires changing this pinned identity. The tag is kept
-# alongside the digest for human-readable identity only; the digest is the
-# enforcement. Never `latest`, never a bare mutable tag.
+# build therefore requires changing this pinned identity. Because default
+# image builds are not bit-reproducible across build times, the accepted
+# artifact is RETAINED in the deployment verification runtime's rootless
+# Podman storage (inspectable as localhost/songhealth-app@sha256:<digest>)
+# so the pinned identity can be independently verified; the r1 build was
+# discarded during that round's teardown and is superseded by this
+# retained artifact. The tag is kept alongside the digest for
+# human-readable identity only; the digest is the enforcement. Never
+# `latest`, never a bare mutable tag.
 #
 # External runtime inputs (never committed; every absence fails closed):
 #
@@ -123,29 +130,41 @@
 # that store's enforcement belongs to the T019 unit and is noted for
 # review, not changed here.
 #
-# Least-privilege application-role prerequisite (rework r1, finding 4): the
-# approved contract (T019/T020) is ONE stable, non-superuser, least-privilege
-# application role with database CONNECT, schema USAGE/CREATE, DML, and
-# ownership of the EmDash objects it creates — provisioned by the operator
-# against the running T019 database, never the bootstrap administrator
-# (POSTGRES_USER, initialized WITH SUPERUSER by the official image) and
-# never the bootstrap secret songhealth-db-password. T013 proves identity
-# agreement and migration state, not role privileges, so before any
+# Least-privilege application-role prerequisite (rework r1 finding 4,
+# completed in rework r2): the approved contract (T019/T020) is ONE stable,
+# non-superuser, least-privilege application role with database CONNECT,
+# schema USAGE/CREATE, DML, and ownership/inherited ownership of the EmDash
+# objects — provisioned by the operator against the running T019 database,
+# never the bootstrap administrator (POSTGRES_USER, initialized WITH
+# SUPERUSER by the official image) and never the bootstrap secret
+# songhealth-db-password. T013 proves identity agreement and migration
+# state, not role privileges, and a merely-applied migration state or a
+# SELECT-only probe establishes no CMS write permission, so before any
 # migration mutation runs, this unit's startup command enforces the
 # privilege prerequisite itself through the application's own pinned pg
 # client, connecting exactly as the configured PG* application identity:
 # the connecting role must exist, must NOT be SUPERUSER or hold CREATEDB or
 # CREATEROLE (which also structurally rejects the bootstrap administrator),
 # and must hold CONNECT on the target database plus USAGE and CREATE on
-# schema public. DML and object ownership cannot be pre-checked before the
-# role's own objects exist and follow from CREATE. Any failure names the
-# failed prerequisite only (identity components are the documented
-# non-secret ones; credentials and connection errors never print values)
-# and blocks the start before the T013 gate's apply step. The migration URL
-# must still identify the same intended database as the PG* inputs; the
-# gate's S1 enforces that agreement by non-secret identity components only,
-# and S3 re-proves it against the inspected native target label. This unit
-# provisions nothing and initializes nothing.
+# schema public — and, completing the contract, every EXISTING EmDash
+# object is verified read-only for DML and ownership/inherited ownership:
+# EmDash 1.1.0 creates its tables and sequences unqualified, so they live
+# in schema public of the dedicated application database, and each existing
+# ordinary/partitioned table or sequence there must be owned by the
+# connecting role directly or through role membership (pg_has_role USAGE —
+# the native ownership/inherited-ownership test) or carry its full required
+# DML set (tables: SELECT, INSERT, UPDATE, DELETE; sequences: SELECT,
+# USAGE, UPDATE — distinct privileges per PostgreSQL 18 ddl-priv). A
+# database with no such objects yet is the legitimate pre-first-migration
+# state and passes; after the first native apply the role owns the objects
+# it created. Any failure names the failed prerequisite or object only
+# (identity components are the documented non-secret ones; credentials and
+# connection errors never print values) and blocks the start before the
+# T013 gate's apply step. The migration URL must still identify the same
+# intended database as the PG* inputs; the gate's S1 enforces that
+# agreement by non-secret identity components only, and S3 re-proves it
+# against the inspected native target label. This unit provisions nothing,
+# grants nothing, repairs nothing, and initializes nothing.
 #
 # Startup sequence (one container; no migration container, migration
 # service, custom server, or orchestration layer exists): the image's native
@@ -164,8 +183,12 @@
 #   3. reads the two Podman secrets into the process environment (missing
 #      secret files surface as named missing inputs in the gate's S1);
 #   4. enforces the least-privilege application-role prerequisite above —
-#      before the gate runs and therefore strictly before any migration
-#      mutation — printing one secret-safe verification line on success;
+#      role attributes, database CONNECT, schema USAGE/CREATE, and
+#      read-only DML/ownership verification of every existing EmDash object
+#      in schema public — before the gate runs and therefore strictly
+#      before any migration mutation, printing one secret-safe
+#      verification line (with the verified existing-object count) on
+#      success;
 #   5. runs the accepted T013 startup-acceptance gate as-is through the
 #      committed verify:startup mapping — input/identity validation, the
 #      exact application rebuild and its native manifest checks, native
@@ -227,7 +250,7 @@ After=songhealth-db.service
 # the canonical build of this checkout's deploy/Containerfile (see the
 # image-identity note above). Only that exact image satisfies this
 # reference; any other or rebuilt image fails container creation closed.
-Image=localhost/songhealth-app:0.0.1@sha256:e7e05bc68a9d0d9f104bfb421af7b6888c08a9d193c2af89bc978f7f8b325e1b
+Image=localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407
 
 # Attach exclusively to the accepted T018 private application network
 # (NetworkName=songhealth). The Quadlet reference generates
@@ -277,7 +300,7 @@ Secret=songhealth-encryption-key
 # server with the deployment's in-container 0.0.0.0 bind. Every failure
 # exits nonzero before the application starts; each prerequisite's verdict
 # and the gate's per-stage output land in this unit's journal.
-Exec=sh -c "grep -q ' /app/media ' /proc/mounts || { echo songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start >&2; exit 1; }; test -r /app/media/.songhealth-media-store || { echo songhealth-app: operator-managed existing media store marker .songhealth-media-store is missing at /app/media - the persistent store was not provisioned or has been replaced - refusing to start >&2; exit 1; }; IFS= read -r EMDASH_MIGRATION_DATABASE_URL </run/secrets/songhealth-migration-database-url; IFS= read -r EMDASH_ENCRYPTION_KEY </run/secrets/songhealth-encryption-key; export EMDASH_MIGRATION_DATABASE_URL EMDASH_ENCRYPTION_KEY; node -e 'const pg=require(`pg`);const c=new pg.Client({host:process.env.PGHOST,port:Number(process.env.PGPORT),database:process.env.PGDATABASE,user:process.env.PGUSER,password:process.env.PGPASSWORD,connectionTimeoutMillis:5000,query_timeout:5000});const fail=m=>{console.error(`songhealth-app: `+m);process.exit(1)};(async()=>{await c.connect();const r=await c.query(`select rolsuper s,rolcreatedb cd,rolcreaterole cr,has_database_privilege(current_user,current_database(),$q$CONNECT$q$) dbc,has_schema_privilege(current_user,$q$public$q$,$q$USAGE$q$) su,has_schema_privilege(current_user,$q$public$q$,$q$CREATE$q$) sc from pg_roles where rolname=current_user`);await c.end();const b=r.rows[0];if(!b)fail(`least-privilege application-role prerequisite failed: the connecting role has no pg_roles row`);if(b.s)fail(`least-privilege application-role prerequisite failed: the connecting role is SUPERUSER - the bootstrap administrator is not the application identity`);if(b.cd)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEDB`);if(b.cr)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEROLE`);if(!b.dbc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CONNECT on the target database`);if(!b.su)fail(`least-privilege application-role prerequisite failed: the connecting role lacks USAGE on schema public`);if(!b.sc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CREATE on schema public`);console.error(`songhealth-app: least-privilege application-role prerequisite verified: non-superuser, no CREATEDB, no CREATEROLE, database CONNECT, schema public USAGE and CREATE`)})().catch(e=>fail(`least-privilege application-role prerequisite failed: `+((e&&e.code)||`error`)))' && npm run verify:startup && HOST=0.0.0.0 exec node dist/server/entry.mjs"
+Exec=sh -c "grep -q ' /app/media ' /proc/mounts || { echo songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start >&2; exit 1; }; test -r /app/media/.songhealth-media-store || { echo songhealth-app: operator-managed existing media store marker .songhealth-media-store is missing at /app/media - the persistent store was not provisioned or has been replaced - refusing to start >&2; exit 1; }; IFS= read -r EMDASH_MIGRATION_DATABASE_URL </run/secrets/songhealth-migration-database-url; IFS= read -r EMDASH_ENCRYPTION_KEY </run/secrets/songhealth-encryption-key; export EMDASH_MIGRATION_DATABASE_URL EMDASH_ENCRYPTION_KEY; node -e 'const pg=require(`pg`);const c=new pg.Client({host:process.env.PGHOST,port:Number(process.env.PGPORT),database:process.env.PGDATABASE,user:process.env.PGUSER,password:process.env.PGPASSWORD,connectionTimeoutMillis:5000,query_timeout:5000});const fail=m=>{console.error(`songhealth-app: `+m);process.exit(1)};(async()=>{await c.connect();const r=await c.query(`select rolsuper s,rolcreatedb cd,rolcreaterole cr,has_database_privilege(current_user,current_database(),$q$CONNECT$q$) dbc,has_schema_privilege(current_user,$q$public$q$,$q$USAGE$q$) su,has_schema_privilege(current_user,$q$public$q$,$q$CREATE$q$) sc from pg_roles where rolname=current_user`);const b=r.rows[0];if(!b)fail(`least-privilege application-role prerequisite failed: the connecting role has no pg_roles row`);if(b.s)fail(`least-privilege application-role prerequisite failed: the connecting role is SUPERUSER - the bootstrap administrator is not the application identity`);if(b.cd)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEDB`);if(b.cr)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEROLE`);if(!b.dbc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CONNECT on the target database`);if(!b.su)fail(`least-privilege application-role prerequisite failed: the connecting role lacks USAGE on schema public`);if(!b.sc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CREATE on schema public`);const o=await c.query(`select case c.relkind when $q$S$q$ then $q$sequence$q$ else $q$table$q$ end kind,c.relname obj,pg_has_role(current_user,c.relowner,$q$USAGE$q$) owned,case c.relkind when $q$S$q$ then has_sequence_privilege(current_user,c.oid,$q$SELECT$q$) and has_sequence_privilege(current_user,c.oid,$q$USAGE$q$) and has_sequence_privilege(current_user,c.oid,$q$UPDATE$q$) else has_table_privilege(current_user,c.oid,$q$SELECT$q$) and has_table_privilege(current_user,c.oid,$q$INSERT$q$) and has_table_privilege(current_user,c.oid,$q$UPDATE$q$) and has_table_privilege(current_user,c.oid,$q$DELETE$q$) end dml from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind in ($q$r$q$,$q$p$q$,$q$S$q$) and n.nspname=$q$public$q$`);await c.end();for(const x of o.rows)if(!x.owned&&!x.dml)fail(`least-privilege application-role prerequisite failed: existing EmDash `+x.kind+` `+x.obj+` in schema public is neither owned by the connecting role directly or through role membership nor granted its full required DML privileges`);console.error(`songhealth-app: least-privilege application-role prerequisite verified: non-superuser, no CREATEDB, no CREATEROLE, database CONNECT, schema public USAGE and CREATE, and `+o.rows.length+` existing EmDash relation(s) in schema public pass ownership or full-DML verification`)})().catch(e=>fail(`least-privilege application-role prerequisite failed: `+((e&&e.code)||`error`)))' && npm run verify:startup && HOST=0.0.0.0 exec node dist/server/entry.mjs"
 
 # Native container health = the accepted T012 aggregate readiness, wired
 # verbatim (rework r1, finding 2): the helper runs inside the container
