@@ -1,0 +1,8 @@
+# Songhealth persistent PostgreSQL data volume (Feature 001, T018).
+# Rootless Podman Quadlet definition: one named volume holding PostgreSQL
+# data outside the ephemeral container layer, so database data survives
+# container replacement. Attachment (at /var/lib/postgresql) belongs to the
+# T019 PostgreSQL container unit; this volume's lifecycle is independent of
+# the media volume.
+[Volume]
+VolumeName=songhealth-db-data

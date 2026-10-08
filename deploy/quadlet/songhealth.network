@@ -1,0 +1,7 @@
+# Songhealth private application network (Feature 001, T018).
+# Rootless Podman Quadlet definition: one dedicated bridge network shared by
+# the application and PostgreSQL containers. No host port is published here;
+# container attachment and publication belong to the T019/T020 container
+# units, and PostgreSQL must never publish a host port on this network.
+[Network]
+NetworkName=songhealth
