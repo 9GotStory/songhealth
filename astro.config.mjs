@@ -191,6 +191,18 @@ validateRuntimeConfiguration(process.env);
 export default defineConfig({
   output: "server",
   adapter: node({ mode: "standalone" }),
+  // Application server boundary (blueprint §20.1, T015 Human Gate): the
+  // already-validated HOST and PORT inputs are consumed here through Astro's
+  // native server configuration, so `astro dev`/`astro preview` bind exactly
+  // the configured address instead of a default `localhost` resolution that
+  // may resolve differently from the configured loopback boundary. The port
+  // converts to the number Astro's native type requires. The built standalone
+  // Node server keeps its own native runtime HOST/PORT override, so production
+  // behavior is unchanged.
+  server: {
+    host: process.env.HOST,
+    port: Number(process.env.PORT),
+  },
   integrations: [
     react(),
     emdash({

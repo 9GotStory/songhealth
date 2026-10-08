@@ -158,6 +158,8 @@ interface ConfigLoadOutcome {
   ok: boolean;
   name?: string;
   message?: string;
+  carriesConfiguredHost?: boolean;
+  carriesNumericPort?: boolean;
 }
 
 interface ConfigLoadRun {
@@ -167,22 +169,7 @@ interface ConfigLoadRun {
   output: string;
 }
 
-function loadApplicationConfiguration(env: Record<string, string>): ConfigLoadRun {
-  const childSource = `
-    const report = (payload) =>
-      process.stdout.write(${JSON.stringify(RESULT_SENTINEL)} + JSON.stringify(payload));
-    try {
-      const mod = await import(${JSON.stringify(CONFIG_MODULE_URL)});
-      report({ ok: true, hasDefaultExport: mod.default !== undefined && mod.default !== null });
-    } catch (error) {
-      report({
-        ok: false,
-        name: error instanceof Error ? error.name : typeof error,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-  `;
-
+function runConfigChild(env: Record<string, string>, childSource: string): ConfigLoadRun {
   const spawned = spawnSync(process.execPath, ["--input-type=module", "--eval", childSource], {
     cwd: REPO_ROOT,
     env,
@@ -208,6 +195,24 @@ function loadApplicationConfiguration(env: Record<string, string>): ConfigLoadRu
   } catch (error) {
     return { outcome: null, harnessError: `child result not parseable: ${String(error)}`, output };
   }
+}
+
+function loadApplicationConfiguration(env: Record<string, string>): ConfigLoadRun {
+  const childSource = `
+    const report = (payload) =>
+      process.stdout.write(${JSON.stringify(RESULT_SENTINEL)} + JSON.stringify(payload));
+    try {
+      const mod = await import(${JSON.stringify(CONFIG_MODULE_URL)});
+      report({ ok: true, hasDefaultExport: mod.default !== undefined && mod.default !== null });
+    } catch (error) {
+      report({
+        ok: false,
+        name: error instanceof Error ? error.name : typeof error,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  `;
+  return runConfigChild(env, childSource);
 }
 
 /** Replace every case-specific configured marker before any child output is
@@ -411,5 +416,68 @@ describe("PG* runtime inputs and migration URL must agree on the intended databa
   it("fails closed when PGUSER disagrees with the migration URL user component", () => {
     const env = { ...validBaselineEnv(), PGUSER: "synthetic_alt_user" };
     expectFailClosedNaming(env, ["PGUSER", "EMDASH_MIGRATION_DATABASE_URL"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T015 Human Gate regression: a valid synthetic HOST/PORT pair must be present
+// in the EXPORTED Astro configuration (native `server.host`/`server.port`),
+// not merely validated. `astro dev`/`astro preview` bind only what the native
+// server configuration carries, so a configuration that validates HOST/PORT
+// without exporting them leaves the application on Astro's default `localhost`
+// resolution — the boundary divergence that blocked the T015 clean-checkout
+// readiness check. The comparisons run inside the child process against the
+// same case environment the configuration module loaded with, and only boolean
+// results are reported, preserving the every-value echo rule above.
+// ---------------------------------------------------------------------------
+
+describe("validated HOST/PORT are carried in the exported Astro server configuration", () => {
+  function loadExportedServerBoundary(env: Record<string, string>): ConfigLoadRun {
+    const childSource = `
+      const report = (payload) =>
+        process.stdout.write(${JSON.stringify(RESULT_SENTINEL)} + JSON.stringify(payload));
+      try {
+        const mod = await import(${JSON.stringify(CONFIG_MODULE_URL)});
+        const server = mod.default?.server ?? {};
+        report({
+          ok: true,
+          carriesConfiguredHost: server.host === process.env.HOST,
+          carriesNumericPort:
+            typeof server.port === "number" && server.port === Number(process.env.PORT),
+        });
+      } catch (error) {
+        report({
+          ok: false,
+          name: error instanceof Error ? error.name : typeof error,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    `;
+    return runConfigChild(env, childSource);
+  }
+
+  it("exports the configured host and the numeric configured port as the native server boundary", () => {
+    const env = validBaselineEnv();
+    const run = loadExportedServerBoundary(env);
+    const forbidden = echoForbiddenValuesFor(env);
+    assertHarnessSound(run);
+    assert.ok(
+      run.outcome?.ok === true,
+      "valid synthetic inputs must load; failure would indicate a harness or dependency " +
+        `problem: ${sanitizeForReporting(run.output, forbidden)}`,
+    );
+    assert.ok(
+      run.outcome?.carriesConfiguredHost === true,
+      "the exported configuration must carry the configured HOST as server.host, so " +
+        "`astro dev` binds the configured boundary instead of a default localhost resolution",
+    );
+    assert.ok(
+      run.outcome?.carriesNumericPort === true,
+      "the exported configuration must carry the configured PORT as the numeric server.port " +
+        "required by Astro's native server configuration type",
+    );
+    for (const { label, value } of forbidden) {
+      assert.ok(!run.output.includes(value), `load output must not echo the ${label}`);
+    }
   });
 });
