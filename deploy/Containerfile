@@ -1,0 +1,131 @@
+# Songhealth single production OCI runtime (Feature 001, T017).
+#
+# Authority:
+# - specs/001-platform-foundation/tasks.md T017 — the single pinned production
+#   Astro + EmDash OCI runtime, retaining the native migration manifest
+#   emitted by that exact application build for deployment/startup use, with
+#   external runtime configuration and no embedded secrets; no Docker Compose,
+#   no second production stack, and no T018–T022 deployment files live here
+# - docs/website-modernization-docs/current/10-system-blueprint.md §2 (pin
+#   dependency/image versions in production definitions; no unbounded
+#   `latest` image as the deployment contract), §3.1 (rootless Podman
+#   production baseline: secrets and environment-specific configuration are
+#   never baked into images), §20/§20.1 (environment-specific values are
+#   runtime inputs under their approved native names; native media storage
+#   stays at the stable application path ./media)
+# - specs/001-platform-foundation/plan.md — Technical Context pins, "One
+#   Astro + EmDash platform", "Configuration and secrets", "Production
+#   topology and durability"
+#
+# Shape: one multi-stage OCI build on the official Node 24.21.0 image, pinned
+# in BOTH stages by explicit version and the immutable digest of the upstream
+# multi-arch image index (the same pinning contract scripts/dev-db.sh uses for
+# PostgreSQL 18.6). The `build` stage reproduces the approved exact toolchain
+# (npm 12.2.0 over the image's bundled npm 11.x — T001 evidence R3), installs
+# the single committed lockfile, and runs the exact application build so the
+# native `.emdash/migrations.json` manifest and the standalone entry
+# `dist/server/entry.mjs` are emitted by THIS build inside THIS environment.
+# The `runtime` stage ships only that standalone server output, the emitted
+# manifest, and the minimum source/config/package/operational material the
+# accepted T013 startup-acceptance authority (tests/operations/verify-startup.sh,
+# consumed as-is) and the T012 readiness helper (scripts/verify-readiness.mjs)
+# need to rebuild/consume that exact build later.
+#
+# Build-time configuration note: `astro build` loads astro.config.mjs, whose
+# accepted T008 boundary fail-fast-validates the full native runtime input
+# set. The values assigned in the build RUN below exist ONLY inside the
+# discarded `build` stage to satisfy that validation: they are non-secret,
+# non-routable placeholders (build.internal / build.invalid) that reach no
+# ENV, ARG, label, or layer of the final image and are usable for nothing.
+# The final image declares NO default for any runtime input: the real
+# PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD, EMDASH_MIGRATION_DATABASE_URL,
+# EMDASH_SITE_URL, HOST/PORT, and EMDASH_ENCRYPTION_KEY values are consumed
+# only from the environment at run time (blueprint §20.1), and the native
+# migration manifest records the migration connection-variable NAME only.
+
+# --- build stage: exact toolchain + lockfile install + the exact build ------
+
+FROM docker.io/library/node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS build
+
+# Approved exact package-manager pin (package.json packageManager/engines).
+RUN npm install -g npm@12.2.0 && npm cache clean --force
+
+WORKDIR /app
+
+# Lockfile-first: `npm ci` from the single committed package-lock.json,
+# production dependencies only — the image ships no dev toolchain.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+# Minimum source/config/operational material (context exclusions live in
+# .containerignore; the explicit COPY list below is the image-content
+# authority). .env.example is the committed placeholder-only configuration
+# example that the T013 gate's operator guidance references.
+COPY astro.config.mjs tsconfig.json .env.example ./
+COPY seed/ seed/
+COPY src/ src/
+COPY scripts/verify-readiness.mjs scripts/
+COPY tests/operations/verify-startup.sh tests/operations/
+
+# The exact application build. The inline placeholder inputs satisfy the T008
+# configuration boundary during the build only (see the header note); the
+# build performs no database or network access. The trailing guards fail the
+# image build closed if this exact build ever stops emitting the standalone
+# entry or a secret-free native manifest, and strip the Vite build cache and
+# generated .astro types so no build cache ships in node_modules or /app.
+RUN PGHOST=build.internal PGPORT=5432 PGDATABASE=build PGUSER=build \
+	PGPASSWORD=build-time-placeholder-not-a-secret \
+	EMDASH_MIGRATION_DATABASE_URL=postgresql://build:build-time-placeholder-not-a-secret@build.internal:5432/build \
+	EMDASH_SITE_URL=http://build.invalid \
+	HOST=127.0.0.1 PORT=4321 \
+	EMDASH_ENCRYPTION_KEY=build-time-placeholder-not-a-secret \
+	npm run build \
+	&& test -f dist/server/entry.mjs \
+	&& test -f .emdash/migrations.json \
+	&& ! grep -q '://' .emdash/migrations.json \
+	&& rm -rf node_modules/.vite .astro
+
+# --- runtime stage: the one application runtime ------------------------------
+
+FROM docker.io/library/node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+
+# Same approved package-manager pin as the build stage: the accepted T013
+# authority drives `npm run build` / `npm run verify:startup` through this npm
+# inside the container.
+RUN npm install -g npm@12.2.0 && npm cache clean --force
+
+WORKDIR /app
+
+# /app is the stable application boundary (blueprint §20.1): native media
+# storage stays at ./media (/app/media), where the persistent media volume
+# maps in production. The tree is owned by the image's fixed non-root `node`
+# user because the accepted T013 gate rebuilds the exact application in place
+# (its S2 removes and re-emits .emdash/migrations.json and dist/), so the
+# rebuild paths must be writable by the runtime user; only regenerated build
+# output ever occupies the ephemeral writable layer — persistent data and
+# media are external runtime mounts, never baked here.
+COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./
+COPY --from=build --chown=node:node /app/astro.config.mjs /app/tsconfig.json /app/.env.example ./
+COPY --from=build --chown=node:node /app/seed ./seed
+COPY --from=build --chown=node:node /app/src ./src
+COPY --from=build --chown=node:node /app/scripts ./scripts
+COPY --from=build --chown=node:node /app/tests ./tests
+COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/dist ./dist
+COPY --from=build --chown=node:node /app/.emdash ./.emdash
+
+# Empty stable media mount point: no validation or application media is baked
+# into the image; the later deployment (T018/T020) maps the persistent volume
+# here. Writable by the non-root runtime user only.
+RUN mkdir -p media && chown node:node media && chmod 750 media
+
+# Non-root runtime user (the official image's fixed UID/GID 1000/1000); no
+# privileged behavior and no host-specific ownership assumption.
+USER node
+
+# The one application runtime: the native Astro standalone server emitted by
+# the exact build. No additional backend/server, custom entrypoint, health
+# check, volume, or lifecycle orchestration is defined in this image — those
+# belong to the deployment boundary.
+ENV NODE_ENV=production
+CMD ["node", "dist/server/entry.mjs"]
