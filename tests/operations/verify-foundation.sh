@@ -29,14 +29,26 @@
 #   C1  (1) T013's startup-acceptance contract — status -> inspected-target
 #        fingerprint-guarded apply -> check over the exact-build manifest,
 #        plus the bounded media write/read/remove probe — completed for the
-#        current start of the application unit before it is treated as READY,
-#        evidenced by the T013 gate's own PASS banner in the unit journal
-#        (the banner is derived from tests/operations/verify-startup.sh
-#        itself, so this harness reuses T013's contract instead of
-#        duplicating or weakening it; it is re-proved for every start across
-#        the lifecycle cycles); recurring readiness stays private (obtained
-#        only through the container boundary) and non-mutating (media tree
-#        and tagline proven unchanged across a readiness probe).
+#        current start of the application unit before it is treated as READY.
+#        Evidence is scoped to the unit's CURRENT systemd invocation
+#        (journal matched by _SYSTEMD_INVOCATION_ID, never by a wall-clock
+#        window): the slice covers that invocation's ExecStartPre /
+#        ExecStartPost work too, so a pre-start gate is never excluded, and
+#        an earlier invocation's evidence can never be reused across rapid
+#        restarts. Within that slice the harness requires the gate's FULL
+#        derived evidence sequence — every `t013: [S<n>] PASS` stage marker
+#        emitted by the accepted script (S1..S6, each carrying run-specific
+#        content such as target fingerprints and the unique probe pathname)
+#        plus the final PASS banner — all derived at runtime from
+#        tests/operations/verify-startup.sh itself, so a lone logged banner
+#        string is not accepted as proof that T013 ran; the deployment must
+#        actually execute the gate to completion during every start.
+#        Recurring readiness stays private (obtained only through the
+#        container boundary) and non-mutating (the media snapshot hashes
+#        directory metadata INCLUDING the media root and subdirectories plus
+#        per-file CONTENT digests, so a create/read/remove probe or an
+#        in-place byte change is detected, and the tagline digest is
+#        captured on BOTH sides of the probe and compared).
 #   C2  (2) both containers are attached to the approved private application
 #        network; the required application-to-database access succeeds
 #        through that private path only; the defined unintended host/public
@@ -70,10 +82,18 @@
 #        is expected to serve it — every checkpoint where the unit runs).
 #   C7  (6) a deliberately missing expected persistence attachment (the
 #        media volume omitted from the application unit's Quadlet source)
-#        reports not-ready and never a healthy empty replacement; the
-#        omission is simulated WITHOUT deleting or reinitializing persistent
-#        state, and the original attachment is restored — verified by
-#        checksum — on every exit path, including interruption (traps).
+#        must produce the REQUIRED EXPLICIT recurring-readiness result:
+#        `not-ready` identifying the affected media dependency by its safe
+#        dependency name (spec US2 scenario 3; data-model sections 4-5). A
+#        failed unit or an unreachable readiness helper is NOT an acceptable
+#        substitute and fails the stage, as does any ready result (a healthy
+#        empty replacement). The omission is simulated WITHOUT deleting or
+#        reinitializing persistent state, and the original attachment is
+#        restored — verified by checksum — on every exit path, including
+#        interruption (traps); when a byte-exact restore cannot be verified,
+#        restoration fails closed: the recovery copy is preserved next to
+#        the source AND the scratch directory holding the original backup is
+#        kept (never deleted), with an actionable nonzero result.
 #   C8   final integrity checkpoint, retained-volume/no-new-volume proof, and
 #        the no-residue wrap-up.
 #
@@ -85,6 +105,11 @@
 # validated ephemeral containers (only after the owning unit is stopped) for
 # the recreate exercise, and the guarded, checksum-verified transient edit of
 # the application Quadlet source during C7.
+#
+# `--self-test` runs isolated failure-path demonstrations of the guarded
+# restore/cleanup branches, the missing-attachment readiness acceptance, and
+# the non-mutation detector, entirely against scratch files under a shimmed
+# systemctl; it touches no real deployment, unit, or Quadlet.
 #
 # Inputs are external and environment-appropriate (no host-specific paths,
 # credentials, or public endpoints are hard-coded). Required:
@@ -199,6 +224,7 @@ READINESS_COMMAND="${SONGHEALTH_READINESS_COMMAND:-node scripts/verify-readiness
 ROOT=''
 TMP_DIR=''
 GATE_BANNER=''
+GATE_STAGE_MARKERS=()
 QUADLET_SOURCE=''
 QUADLET_BACKUP=''
 QUADLET_MODIFIED=''
@@ -210,7 +236,7 @@ READINESS_LINE=''
 
 usage() {
 	cat <<'EOF'
-Usage: tests/operations/verify-foundation.sh
+Usage: tests/operations/verify-foundation.sh [--self-test]
 
 T016 production smoke/lifecycle verification harness (User Story 2, RED
 verification-first): prove the production rootless Podman/Quadlet
@@ -222,12 +248,14 @@ the canonical tagline/media integrity comparisons after every checkpoint.
 
 Stage order: P0 repository deployment-definition prerequisite (the expected
 RED failure while T017–T020 are unimplemented) -> R1 task-owned target
-resolution/validation -> C1 startup-gate evidence + private non-mutating
+resolution/validation -> C1 startup-gate evidence (scoped to the current
+systemd invocation, full derived T013 stage sequence) + private non-mutating
 recurring readiness -> C2 private network + app-to-database access ->
 C3 no published PostgreSQL host port -> C4 persistent volume attachments ->
 C5 canonical tagline/media integrity baseline -> C6 three lifecycle cycles
--> C7 missing-attachment negative (guarded, checksum-verified restore) ->
-C8 final integrity and no-residue wrap-up.
+-> C7 missing-attachment negative (requires the explicit not-ready result
+naming the media dependency; guarded, checksum-verified, fail-closed
+restore) -> C8 final integrity and no-residue wrap-up.
 
 Required environment inputs (see the script header for the full input
 reference): SONGHEALTH_APP_ORIGIN, SONGHEALTH_VALIDATION_TOKEN,
@@ -241,7 +269,15 @@ SONGHEALTH_READINESS_COMMAND, SONGHEALTH_APP_QUADLET).
 The harness never touches the development database resources
 (songhealth-dev-db, songhealth-dev-db-data) or the host media tree, never
 deletes or recreates a volume, and restores any transient attachment
-omission on every exit path.
+omission on every exit path; an unverified restore preserves the recovery
+copy and the scratch directory and exits nonzero.
+
+  --self-test  Run isolated failure-path demonstrations of the guarded
+               restore/cleanup branches, the missing-attachment readiness
+               acceptance, and the non-mutation detector, entirely against
+               scratch files under a shimmed systemctl. Touches no real
+               deployment, unit, or Quadlet; exits 0 only when every
+               demonstration passes.
 
 Exit codes: 0 PASS | 1 FAIL (any stage, including the expected RED
 prerequisite failure while T017–T020 are unimplemented) | 2 environment
@@ -335,25 +371,37 @@ print_tail() {
 
 restore_app_quadlet() {
 	# Byte-exact restore of the application Quadlet source after the C7
-	# negative test, including from the interruption traps. Restoring the
-	# source file restores the original volume-attachment definition; the
-	# regenerated unit follows after daemon-reload, and the unit is restarted
-	# best-effort so the platform is not left stopped. Returns nonzero only
-	# when the byte-exact restore itself could not be verified.
+	# negative test, including from the interruption traps. Returns 0 ONLY
+	# when there is nothing to restore or the restore is verified byte-exact
+	# (SHA-256 equal to the recorded pre-edit baseline). Any restoration
+	# problem fails closed and preserves the recovery material: an adjacent
+	# recovery copy is written next to the source where possible, and the
+	# scratch directory holding the original backup is kept by cleanup(), so
+	# the recovery path is genuine on every exit path.
 	if [ -z "$QUADLET_MODIFIED" ] || [ -z "$QUADLET_SOURCE" ] || [ -z "$QUADLET_BACKUP" ]; then
 		return 0
 	fi
 	if [ ! -f "$QUADLET_BACKUP" ] || [ ! -f "$QUADLET_SOURCE" ]; then
-		step cleanup WARN 'cannot restore %s: the baseline copy or the source disappeared; if needed, restore from %s and run: systemctl --user daemon-reload' \
-			"$QUADLET_SOURCE" "$QUADLET_BACKUP"
-		return 0
+		step cleanup WARN 'cannot attempt the byte-exact restore: the baseline copy (%s) or the source (%s) is missing; the scratch directory is KEPT — inspect it before any manual repair' \
+			"$QUADLET_BACKUP" "$QUADLET_SOURCE"
+		return 1
 	fi
 	local restored_sha=''
 	if ! cat "$QUADLET_BACKUP" >"$QUADLET_SOURCE" 2>/dev/null ||
 		! restored_sha="$(sha256sum "$QUADLET_SOURCE" | awk '{print $1}')" ||
 		[ "$restored_sha" != "$QUADLET_SOURCE_SHA_BASE" ]; then
-		step cleanup WARN 'could not verify the byte-exact restore of %s; the baseline copy is preserved at %s — restore it manually and run: systemctl --user daemon-reload' \
-			"$QUADLET_SOURCE" "$QUADLET_BACKUP"
+		# Unverified restore: never delete the recovery material. Keep a
+		# recovery copy next to the source (durable, outside the scratch
+		# directory) in addition to the original backup that cleanup()
+		# preserves.
+		local recovery="$QUADLET_SOURCE.t016-recovery"
+		if cp -p "$QUADLET_BACKUP" "$recovery" 2>/dev/null; then
+			step cleanup WARN 'byte-exact restore of %s could NOT be verified; recovery copy preserved at %s and the original backup kept at %s — restore manually, then run: systemctl --user daemon-reload && systemctl --user start %s' \
+				"$QUADLET_SOURCE" "$recovery" "$QUADLET_BACKUP" "$APP_UNIT"
+		else
+			step cleanup WARN 'byte-exact restore of %s could NOT be verified and the adjacent recovery copy could not be written; the original backup is kept at %s — restore it manually, then run: systemctl --user daemon-reload && systemctl --user start %s' \
+				"$QUADLET_SOURCE" "$QUADLET_BACKUP" "$APP_UNIT"
+		fi
 		return 1
 	fi
 	QUADLET_MODIFIED=''
@@ -371,10 +419,43 @@ restore_app_quadlet() {
 }
 
 cleanup() {
-	restore_app_quadlet || true
-	if [ -n "$TMP_DIR" ] && [ -d "$TMP_DIR" ]; then
-		rm -rf "$TMP_DIR"
+	# Preserves the scratch directory whenever the byte-exact restore is not
+	# verified: it holds the only guaranteed copy of the pre-edit Quadlet
+	# source (plus the adjacent recovery copy written by the restore). Only a
+	# verified restore (or nothing to restore) may remove it. Returns nonzero
+	# in the unrestorable case so the exit traps force an actionable nonzero
+	# result.
+	if restore_app_quadlet; then
+		if [ -n "$TMP_DIR" ] && [ -d "$TMP_DIR" ]; then
+			rm -rf "$TMP_DIR"
+		fi
+		return 0
 	fi
+	if [ -n "$TMP_DIR" ] && [ -d "$TMP_DIR" ]; then
+		step cleanup WARN 'scratch directory KEPT (recovery material inside, never deleted while the restore is unverified): %s' "$TMP_DIR"
+	fi
+	return 1
+}
+
+on_exit() {
+	# EXIT trap: never exit 0 with an unrestorable attachment omission.
+	local ec=$?
+	if ! cleanup; then
+		if [ "$ec" -eq 0 ]; then
+			ec=1
+		fi
+	fi
+	exit "$ec"
+}
+
+on_signal() {
+	# INT/TERM traps: run the same fail-closed cleanup and exit with the
+	# signal-appropriate nonzero code (nonzero is guaranteed both ways; the
+	# cleanup WARN lines carry the retained recovery path when a restore
+	# could not be verified).
+	trap - EXIT INT TERM
+	cleanup || true
+	exit "$1"
 }
 
 # ---------------------------------------------------------------------------
@@ -601,89 +682,153 @@ resolve_targets() {
 # non-mutating recurring readiness
 # ---------------------------------------------------------------------------
 
-derive_gate_banner() {
-	# The banner this harness requires in the unit journal is derived from
-	# the accepted T013 script itself at runtime. If the script no longer
-	# prints it, this harness fails closed rather than accepting a drifted or
-	# weakened substitute.
+derive_gate_markers() {
+	# The evidence this harness requires is derived from the accepted T013
+	# script itself at runtime, never re-typed here: the final PASS banner
+	# AND every `t013: [S<n>] PASS` stage marker the script emits (the `pass
+	# S<n>` calls it contains). Requiring the full stage sequence — whose
+	# lines carry run-specific content such as the inspected target
+	# fingerprint and the unique mktemp probe pathname — ties the evidence to
+	# the gate actually executing in the watched window: a lone logged banner
+	# string proves only that the text was logged, not that T013 ran. If the
+	# script no longer contains the expected sequence, this harness fails
+	# closed rather than accepting a drifted or weakened substitute.
 	GATE_BANNER="$(grep -oF "$T013_BANNER_MARKER" "$ROOT/$T013_SCRIPT" | head -1 || true)"
 	if [ -z "$GATE_BANNER" ]; then
 		fail_stage C1 'could not derive the T013 gate completion banner from %s; the authority script changed and this harness refuses to weaken its evidence anchor' \
 			"$T013_SCRIPT"
 	fi
-}
-
-unit_main_start_epoch() {
-	# unit_main_start_epoch <unit>: prints the unit's current main-start time
-	# as a unix epoch (empty when the unit has no current start).
-	local ts epoch=''
-	ts="$(LC_ALL=C systemctl --user show "$1" -p ExecMainStartTimestamp --value 2>/dev/null || true)"
-	if [ -n "$ts" ] && [ "$ts" != '0' ]; then
-		epoch="$(date -d "$ts" +%s 2>/dev/null || true)"
+	local stages=() s
+	mapfile -t stages < <(grep -oE 'pass S[0-9]+ ' "$ROOT/$T013_SCRIPT" | awk '{print $2}' | sort -u)
+	if [ "${#stages[@]}" -lt 6 ]; then
+		fail_stage C1 'could not derive the full T013 stage sequence from %s (found %s distinct stage markers, expected at least the S1-S6 sequence); the authority script changed and this harness refuses to weaken its evidence anchor' \
+			"$T013_SCRIPT" "${#stages[@]}"
 	fi
-	printf '%s' "$epoch"
+	GATE_STAGE_MARKERS=()
+	for s in "${stages[@]}"; do
+		GATE_STAGE_MARKERS+=("t013: [$s] PASS")
+	done
 }
 
-require_gate_banner_for_current_start() {
-	# require_gate_banner_for_current_start <label>: the T013 gate's PASS
-	# banner must be present in the application unit's journal for the
-	# CURRENT start (the journal window is bounded to entries since the
-	# unit's current main-process start), proving the deployment ran the
-	# reused T013 startup-acceptance gate during this start — the exact-build
-	# status -> fingerprint-guarded apply -> check sequence and the bounded
-	# media write/read/remove probe. Blocking readiness on gate failure is
-	# the deployment's own contract (T020); this stage re-proves the gate ran
-	# on every start, including after every lifecycle operation below.
+current_invocation_id() {
+	# current_invocation_id <unit>: the unit's CURRENT systemd invocation id
+	# (empty when the unit has no current invocation).
+	systemctl --user show "$1" -p InvocationID --value 2>/dev/null || true
+}
+
+collect_invocation_journal() {
+	# collect_invocation_journal <invocation-id> <out-file>: bounded journal
+	# slice for EXACTLY the given invocation of the application unit. Scoped
+	# by _SYSTEMD_INVOCATION_ID rather than any wall-clock window: the slice
+	# inherently covers that invocation's ExecStartPre/ExecStartPost work (a
+	# pre-start gate is never excluded, as an ExecMainStartTimestamp-based
+	# window would exclude it) and it can never admit an earlier invocation's
+	# evidence during rapid restarts.
+	local inv="$1" out="$2"
+	if ! timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
+		journalctl --user -u "$APP_UNIT" "_SYSTEMD_INVOCATION_ID=$inv" -n "$JOURNAL_MAX_LINES" --no-pager \
+		>"$out" 2>"$out.err"; then
+		return 1
+	fi
+	return 0
+}
+
+gate_markers_present() {
+	# gate_markers_present <journal-file>: every derived T013 stage marker
+	# AND the final banner must appear in the file.
+	local file="$1" marker
+	for marker in "${GATE_STAGE_MARKERS[@]}"; do
+		grep -Fq "$marker" "$file" || return 1
+	done
+	grep -Fq "$GATE_BANNER" "$file" || return 1
+	return 0
+}
+
+require_gate_evidence_for_current_start() {
+	# require_gate_evidence_for_current_start <label>: the full derived T013
+	# evidence sequence — every stage marker plus the final PASS banner —
+	# must be present in the journal of the application unit's CURRENT
+	# systemd invocation, proving the deployment executed the reused T013
+	# startup-acceptance gate to completion during this start (including any
+	# pre-start wiring) before the application is treated as ready. Blocking
+	# readiness on gate failure is the deployment's own contract (T020);
+	# this stage re-proves the gate ran on every start, including after
+	# every lifecycle operation below.
 	local label="$1"
-	local epoch journal_file
-	epoch="$(unit_main_start_epoch "$APP_UNIT")"
-	if [ -z "$epoch" ]; then
-		fail_stage "$label" 'unit %s reports no current main start; cannot bound the journal window for the T013 gate evidence' "$APP_UNIT"
+	local inv='' journal_file
+	inv="$(current_invocation_id "$APP_UNIT")"
+	if [ -z "$inv" ]; then
+		fail_stage "$label" 'unit %s reports no current invocation; cannot scope the journal window for the T013 gate evidence' "$APP_UNIT"
 	fi
 	journal_file="$TMP_DIR/journal-$label.txt"
-	if ! timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
-		journalctl --user -u "$APP_UNIT" --since "@$epoch" -n "$JOURNAL_MAX_LINES" --no-pager \
-		>"$journal_file" 2>"$TMP_DIR/journal-$label.err"; then
-		print_tail 'journalctl diagnostics' "$TMP_DIR/journal-$label.err"
-		fail_stage "$label" 'reading the journal of unit %s failed' "$APP_UNIT"
+	if ! collect_invocation_journal "$inv" "$journal_file"; then
+		print_tail 'journalctl diagnostics' "$journal_file.err"
+		fail_stage "$label" 'reading the journal of unit %s (invocation %s) failed' "$APP_UNIT" "$inv"
 	fi
-	if ! grep -Fq "$GATE_BANNER" "$journal_file"; then
-		fail_stage "$label" 'the T013 startup-acceptance gate PASS banner is absent from the journal of the current start of %s; the deployment must run the reused T013 gate (status -> inspected-target fingerprint-guarded apply -> check + bounded media probe) during every start before the application is accepted ready' \
-			"$APP_UNIT"
+	if ! gate_markers_present "$journal_file"; then
+		fail_stage "$label" 'the full T013 startup-acceptance evidence sequence is absent from the journal of the CURRENT invocation of %s (invocation %s); required markers: [%s] plus [%s] — the deployment must run the reused T013 gate (status -> inspected-target fingerprint-guarded apply -> check + bounded media probe) to completion during every start before the application is accepted ready' \
+			"$APP_UNIT" "$inv" "${GATE_STAGE_MARKERS[*]}" "$GATE_BANNER"
 	fi
 	if ! file_free_of_secrets "$journal_file"; then
 		fail_stage "$label" 'the captured unit journal contains a configured secret value; refusing to continue'
 	fi
-	info "$label" 'T013 gate completion banner present in the journal of the current %s start (banner anchored on %s)' \
+	info "$label" 'full T013 stage sequence + PASS banner present in the journal of the current invocation of %s (markers derived from %s)' \
 		"$APP_UNIT" "$T013_SCRIPT"
-	pass "$label" 'T013 startup-acceptance gate evidenced for the current application start'
+	pass "$label" 'T013 startup-acceptance gate execution evidenced for the current application invocation'
+}
+
+media_walk_js() {
+	# media_walk_js: prints the shared node program that walks a directory
+	# tree and emits, sorted, one line per entry: the media ROOT's own
+	# metadata (`d / <mtime>`), every subdirectory's metadata
+	# (`d <path> <mtime>`), and every file's size, mtime, and CONTENT SHA-256
+	# (`f <path> <size> <mtime> <sha256>`). Non-directory/non-file entries are
+	# recorded by kind and mode. Hashing this listing detects create/delete
+	# (directory mtimes change, including the root's), in-place byte changes
+	# (content digests), and metadata-only touches — the exact classes of
+	# prohibited persistent media writes (including a write/read/remove
+	# probe) that a path/size/mtime-only hash of files would miss. One
+	# program is shared by the in-container snapshot and the --self-test
+	# demonstration so they cannot drift apart.
+	cat <<'WALKJS'
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+const root = process.argv[1];
+const lines = [];
+const rootStat = fs.lstatSync(root);
+lines.push("d / " + Math.floor(rootStat.mtimeMs));
+const walk = (dir, prefix) => {
+	for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+		const full = path.join(dir, entry.name);
+		const rel = prefix + "/" + entry.name;
+		const st = fs.lstatSync(full);
+		if (st.isDirectory()) {
+			lines.push("d " + rel + " " + Math.floor(st.mtimeMs));
+			walk(full, rel);
+		} else if (st.isFile()) {
+			const content = fs.readFileSync(full);
+			lines.push("f " + rel + " " + st.size + " " + Math.floor(st.mtimeMs) + " " + crypto.createHash("sha256").update(content).digest("hex"));
+		} else {
+			lines.push("o " + rel + " " + st.mode);
+		}
+	}
+};
+walk(root, "");
+process.stdout.write(lines.join("\n") + "\n");
+WALKJS
 }
 
 media_tree_snapshot() {
-	# media_tree_snapshot: prints a sha256 over a sorted listing (path, size,
-	# mtime) of the in-container stable media mount, taken through the
-	# application container's own node runtime (no shell requirement).
-	# Prints 'unavailable' when the listing cannot be taken. Used only to
-	# prove NON-MUTATION across a recurring readiness probe.
+	# media_tree_snapshot: prints a sha256 over the shared walk listing
+	# (root/subdirectory metadata + per-file content digests) of the
+	# in-container stable media mount, taken through the application
+	# container's own node runtime (no shell requirement). Prints
+	# 'unavailable' when the listing cannot be taken. Used only to prove
+	# NON-MUTATION across a recurring readiness probe.
 	local listing='' rc=0
 	listing="$(timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" podman exec "$APP_CONTAINER" \
-		node -e '
-			const fs = require("fs");
-			const path = require("path");
-			const root = process.argv[1];
-			const lines = [];
-			const walk = (dir, prefix) => {
-				for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
-					const full = path.join(dir, entry.name);
-					const rel = prefix + "/" + entry.name;
-					const st = fs.lstatSync(full);
-					if (st.isDirectory()) walk(full, rel);
-					else lines.push(rel + " " + st.size + " " + Math.floor(st.mtimeMs));
-				}
-			};
-			walk(root, "");
-			process.stdout.write(lines.join("\n") + "\n");
-		' "$MEDIA_MOUNT_TARGET" 2>/dev/null)" || rc=$?
+		node -e "$(media_walk_js)" "$MEDIA_MOUNT_TARGET" 2>/dev/null)" || rc=$?
 	if [ "$rc" -ne 0 ]; then
 		printf 'unavailable\n'
 		return
@@ -731,25 +876,74 @@ probe_readiness() {
 	fi
 }
 
+capture_tagline_digest() {
+	# capture_tagline_digest: prints the SHA-256 over the exact UTF-8 bytes
+	# of the CURRENTLY retrieved native tagline value, or fails closed. Used
+	# to capture the digest on BOTH sides of a recurring readiness probe so
+	# the non-mutation claim compares the two captures directly, rather than
+	# only checking the canonical value afterwards.
+	timeout --kill-after=15 "${HTTP_TIMEOUT_SECONDS}s" node -e '
+		(async () => {
+			const crypto = require("crypto");
+			const origin = process.env.SONGHEALTH_APP_ORIGIN;
+			const token = process.env.SONGHEALTH_VALIDATION_TOKEN;
+			const fail = (message) => { console.error(message); process.exit(1); };
+			let response;
+			try {
+				const controller = new AbortController();
+				const timer = setTimeout(() => controller.abort(), 25000);
+				response = await fetch(origin + "/_emdash/api/settings", {
+					headers: { authorization: "Bearer " + token },
+					signal: controller.signal,
+				});
+				clearTimeout(timer);
+			} catch {
+				fail("settings request failed (network/timeout)");
+			}
+			if (response.status !== 200) fail("settings endpoint returned http status " + response.status);
+			let payload;
+			try {
+				payload = await response.json();
+			} catch {
+				fail("settings response is not the expected JSON shape");
+			}
+			const tagline = payload && payload.data && typeof payload.data.tagline === "string" ? payload.data.tagline : null;
+			if (tagline === null) fail("settings response carries no tagline value");
+			process.stdout.write(crypto.createHash("sha256").update(Buffer.from(tagline, "utf8")).digest("hex") + "\n");
+		})();
+	'
+}
+
 check_recurring_readiness_private() {
 	# C1b: the recurring readiness probe must be private (executed only
 	# through the container boundary — no public endpoint is consulted or
-	# required) and non-mutating (the media tree and the canonical tagline
-	# digest are proven unchanged across the probe).
-	local before='' after=''
-	before="$(media_tree_snapshot)"
+	# required) and non-mutating. Non-mutation is proven on BOTH anchors with
+	# before/after captures: the media snapshot (root/subdirectory metadata
+	# plus per-file content digests, so a create/read/remove probe or an
+	# in-place byte change is detected) and the tagline digest (captured on
+	# both sides of the probe, not merely asserted against the canonical
+	# value afterwards).
+	local tree_before='' tree_after='' tag_before='' tag_after=''
+	tree_before="$(media_tree_snapshot)"
+	tag_before="$(capture_tagline_digest)" ||
+		fail_stage C1 'could not capture the tagline digest before the recurring readiness probe'
 	probe_readiness
 	if [ "$READINESS_STATE" != 'ready' ]; then
 		fail_stage C1 'recurring readiness reported %s (%s); expected ready on the healthy baseline before lifecycle testing' \
 			"$READINESS_STATE" "$READINESS_LINE"
 	fi
-	after="$(media_tree_snapshot)"
-	if [ "$before" = 'unavailable' ] || [ "$after" = 'unavailable' ] || [ "$before" != "$after" ]; then
-		fail_stage C1 'the recurring readiness probe mutated the expected media mount (tree digest changed across the probe); recurring readiness MUST be non-mutating'
+	tree_after="$(media_tree_snapshot)"
+	tag_after="$(capture_tagline_digest)" ||
+		fail_stage C1 'could not capture the tagline digest after the recurring readiness probe'
+	if [ "$tree_before" = 'unavailable' ] || [ "$tree_after" = 'unavailable' ] || [ "$tree_before" != "$tree_after" ]; then
+		fail_stage C1 'the recurring readiness probe mutated the expected media mount (snapshot digest changed across the probe; the snapshot covers root/subdirectory metadata and per-file content digests, so any persistent media write — including a bounded write/read/remove probe — is a violation of FR-011 recurring-readiness non-mutation)'
+	fi
+	if [ "$tag_before" != "$tag_after" ]; then
+		fail_stage C1 'the tagline digest changed across the recurring readiness probe; recurring readiness MUST be non-mutating'
 	fi
 	info C1 'readiness (private, through the container boundary): %s' "$READINESS_LINE"
 	check_tagline C1
-	pass C1 'recurring readiness is private (container boundary only) and non-mutating (media tree and tagline proven unchanged across the probe)'
+	pass C1 'recurring readiness is private (container boundary only) and non-mutating (media snapshot with content digests and directory metadata, and tagline digest, all captured on both sides of the probe and unchanged)'
 }
 
 # ---------------------------------------------------------------------------
@@ -1090,20 +1284,21 @@ wait_unit_not_active() {
 wait_app_ready_with_gate() {
 	# wait_app_ready_with_gate <stage> <purpose>: bounded wait until the
 	# application unit is active AND the reused T013 gate has evidenced
-	# completion for this start (the gate runs during every start; readiness
-	# is blocked on gate failure by the deployment contract).
-	local stage="$1" purpose="$2" waited=0 epoch journal_file
+	# completion for the unit's CURRENT invocation (the full derived stage
+	# sequence plus banner, scoped by _SYSTEMD_INVOCATION_ID so pre-start
+	# gate output is included and earlier invocations can never satisfy the
+	# check). The invocation id is re-read every poll because it changes on
+	# every restart.
+	local stage="$1" purpose="$2" waited=0 inv='' journal_file
 	journal_file="$TMP_DIR/journal-gate-poll.txt"
 	while :; do
 		if systemctl --user is-active --quiet "$APP_UNIT" 2>/dev/null; then
-			epoch="$(unit_main_start_epoch "$APP_UNIT")"
-			if [ -n "$epoch" ]; then
-				if timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
-					journalctl --user -u "$APP_UNIT" --since "@$epoch" -n "$JOURNAL_MAX_LINES" --no-pager \
-					>"$journal_file" 2>/dev/null && grep -Fq "$GATE_BANNER" "$journal_file"; then
-					info "$stage" 'application ready for %s (unit active and T013 gate banner present for this start)' "$purpose"
-					return 0
-				fi
+			inv="$(current_invocation_id "$APP_UNIT")"
+			if [ -n "$inv" ] && collect_invocation_journal "$inv" "$journal_file" 2>/dev/null &&
+				gate_markers_present "$journal_file"; then
+				info "$stage" 'application ready for %s (unit active and the full T013 gate evidence present for invocation %s)' \
+					"$purpose" "$inv"
+				return 0
 			fi
 		fi
 		if [ "$waited" -ge "$UNIT_WAIT_SECONDS" ]; then
@@ -1245,14 +1440,52 @@ lifecycle_cycle() {
 # negative test with byte-exact restore on every exit path)
 # ---------------------------------------------------------------------------
 
+c7_negative_result_reason() {
+	# c7_negative_result_reason <readiness-output-file>: prints '' (empty)
+	# when the observed negative-state readiness result is EXACTLY the
+	# required bounded outcome — an explicit `not-ready` whose output
+	# identifies the affected media dependency by its safe dependency name —
+	# and otherwise prints the actionable rejection reason. Kept as a pure
+	# reasoner (no exit, no side effects) so the --self-test demonstrations
+	# exercise the identical logic on synthetic states. A failed or
+	# unreachable platform is deliberately NOT accepted: spec US2 scenario 3
+	# and data-model sections 4-5 require the readiness check itself to
+	# report not-ready and name the dependency.
+	local out_file="$1"
+	case $READINESS_STATE in
+	not-ready) ;;
+	ready)
+		printf 'the platform reported READY with the expected media persistence attachment missing — a missing attachment must report not-ready and must never appear as a healthy empty replacement'
+		return 0
+		;;
+	leaked)
+		printf 'the readiness output exposed a configured secret value (value never printed); readiness output must be redacted in every state'
+		return 0
+		;;
+	*)
+		printf 'the platform did not produce the required explicit not-ready readiness result (readiness state: %s; %s) — a failed or unreachable platform is not a substitute: the readiness check itself must report not-ready and identify the affected media dependency' \
+			"$READINESS_STATE" "$READINESS_LINE"
+		return 0
+		;;
+	esac
+	if ! grep -qiE '(^|[^[:alpha:]])media([^[:alpha:]]|$)' "$out_file" 2>/dev/null; then
+		printf 'the not-ready result did not identify the affected media dependency by its safe dependency name (the readiness output must name media)'
+		return 0
+	fi
+	printf ''
+	return 0
+}
+
 check_missing_attachment_negative() {
 	# Omit ONLY the expected media-volume attachment from the application
-	# unit's installed Quadlet source, then restart the unit: the platform
-	# must report not-ready and must never come up healthy with an empty
-	# replacement store. Persistent state is untouched (the named volume is
-	# not deleted, unmounted, or reinitialized); the source file is restored
-	# byte-exact and verified afterwards, and the EXIT/INT/TERM traps restore
-	# it even when this stage is interrupted.
+	# unit's installed Quadlet source, then restart the unit: the platform's
+	# recurring readiness must explicitly report not-ready naming the media
+	# dependency, and must never come up healthy with an empty replacement
+	# store. Persistent state is untouched (the named volume is not deleted,
+	# unmounted, or reinitialized); the source file is restored byte-exact
+	# and verified afterwards, and the EXIT/INT/TERM traps restore it — or
+	# fail closed preserving the recovery material — even when this stage is
+	# interrupted.
 	local media_volume_lines=0 total_before=0 total_after=0
 	media_volume_lines="$(grep -cE "^[[:space:]]*Volume=.*${MEDIA_VOLUME}" "$QUADLET_SOURCE" || true)"
 	if [ "$media_volume_lines" -eq 0 ]; then
@@ -1288,61 +1521,42 @@ check_missing_attachment_negative() {
 	systemctl --user restart "$APP_UNIT" ||
 		info C7 'restarting the application unit with the omitted attachment reported failure (the platform refused the state; proceeding to the readiness evidence)'
 
-	# Bounded settle: the unit may fail, stay activating until its health
-	# gate gives up, or come up without the mount — each must surface as
-	# not-ready, never as a healthy empty replacement.
-	local waited=0 unit_state='' settled=0
-	while [ "$waited" -lt "$NEGATIVE_SETTLE_SECONDS" ] && [ "$settled" -eq 0 ]; do
+	# Bounded settle: poll until the recurring readiness mechanism produces a
+	# determinate result for the omission state (the helper may need the
+	# container to finish starting). Whatever the unit state, the ONLY
+	# accepted outcome is the explicit not-ready result naming media —
+	# enforced below by the shared reasoner; unit failure or unreachability
+	# is not a substitute.
+	local waited=0 unit_state=''
+	while [ "$waited" -lt "$NEGATIVE_SETTLE_SECONDS" ]; do
 		unit_state="$(systemctl --user is-active "$APP_UNIT" 2>/dev/null || true)"
-		case $unit_state in
-		active | failed) settled=1 ;;
+		probe_readiness
+		case $READINESS_STATE in
+		ready | not-ready | leaked) break ;;
 		esac
-		if [ "$settled" -eq 0 ]; then
-			sleep "$POLL_SECONDS"
-			waited=$((waited + POLL_SECONDS))
-		fi
+		sleep "$POLL_SECONDS"
+		waited=$((waited + POLL_SECONDS))
 	done
-	probe_readiness
 	info C7 'with the expected media attachment omitted: unit state %s, readiness %s (%s)' \
 		"${unit_state:-unknown}" "$READINESS_STATE" "$READINESS_LINE"
 
-	if [ "$READINESS_STATE" = 'ready' ]; then
-		fail_stage C7 'the platform reported READY with the expected media persistence attachment missing — a missing attachment must report not-ready and must never appear as a healthy empty replacement'
+	local reject_reason=''
+	reject_reason="$(c7_negative_result_reason "$TMP_DIR/readiness.out")"
+	if [ -n "$reject_reason" ]; then
+		fail_stage C7 '%s' "$reject_reason"
 	fi
-	if [ "$READINESS_STATE" = 'leaked' ]; then
-		fail_stage C7 'the not-ready result exposed a configured secret value (value never printed); readiness output must be redacted in every state'
-	fi
-	case $unit_state in
-	active)
-		# The unit being active is only acceptable when the recurring
-		# readiness mechanism itself reports not-ready (or the container is
-		# already gone): the missing dependency is identified, not masked.
-		case $READINESS_STATE in
-		not-ready | unreachable) ;;
-		*)
-			fail_stage C7 'the unit is %s but readiness is %s; a missing persistence attachment must produce an explicit not-ready result' \
-				"$unit_state" "$READINESS_STATE"
-			;;
-		esac
-		;;
-	failed | activating | unknown | '')
-		# A failed or never-ready unit is the platform refusing to present a
-		# healthy state without the attachment — the required negative
-		# outcome.
-		;;
-	esac
 
 	# Persistent state untouched by the omission: both volumes still exist
 	# and the named-volume set is unchanged (no empty replacement store was
 	# created anywhere).
 	volumes_retained_check C7
-	pass C7 'missing expected persistence attachment reported not-ready (unit %s, readiness %s); no healthy empty replacement and no persistent-state mutation' \
-		"${unit_state:-not-ready}" "$READINESS_STATE"
+	pass C7 'missing expected persistence attachment produced the required explicit not-ready result identifying the media dependency (%s); no healthy empty replacement and no persistent-state mutation' \
+		"$READINESS_LINE"
 
 	# Restore the original attachment (byte-exact, checksum-verified) and
 	# re-verify the platform end to end.
 	if ! restore_app_quadlet; then
-		fail_stage C7 'the byte-exact attachment restore failed; the baseline copy is preserved at %s' "$QUADLET_BACKUP"
+		fail_stage C7 'the byte-exact attachment restore could not be verified; a recovery copy was preserved next to the source and the exit cleanup keeps the scratch directory with the original backup — nothing is deleted'
 	fi
 	if ! systemctl --user is-active --quiet "$APP_UNIT" 2>/dev/null; then
 		systemctl --user start "$APP_UNIT" ||
@@ -1359,6 +1573,217 @@ check_missing_attachment_negative() {
 }
 
 # ---------------------------------------------------------------------------
+# --self-test: isolated failure-path demonstrations of the corrected
+# branches (review round 1). Nothing here touches a real deployment: the
+# restore/cleanup branches run against scratch files with a shimmed
+# systemctl first on PATH, the negative-result reasoner runs on synthetic
+# states, and the non-mutation detector runs against a scratch directory.
+# Exit is 0 only when every demonstration passes.
+# ---------------------------------------------------------------------------
+
+ST_ROOT=''
+ST_FAILURES=0
+
+st_case() {
+	# st_case <name> <verdict-line>
+	printf 't016-selftest: [%s] %s\n' "$1" "$2"
+}
+
+st_fail() {
+	# st_fail <name> <reason>
+	printf 't016-selftest: [%s] FAIL %s\n' "$1" "$2" >&2
+	ST_FAILURES=$((ST_FAILURES + 1))
+}
+
+self_test() {
+	local missing=()
+	local tool
+	for tool in node sha256sum mktemp grep cmp; do
+		command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
+	done
+	if [ "${#missing[@]}" -gt 0 ]; then
+		die "$EXIT_ENV" "self-test requires tool(s) not on PATH: ${missing[*]}"
+	fi
+
+	ST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/t016-selftest.XXXXXX")"
+
+	# systemctl shim: records every invocation and succeeds, so the restore
+	# branches never touch the real user systemd manager during the
+	# self-test.
+	mkdir -p "$ST_ROOT/bin"
+	cat >"$ST_ROOT/bin/systemctl" <<SHIM
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>'$ST_ROOT/systemctl.log'
+exit 0
+SHIM
+	chmod +x "$ST_ROOT/bin/systemctl"
+	PATH="$ST_ROOT/bin:$PATH"
+	APP_UNIT='t016-selftest-absent.service'
+
+	local src="$ST_ROOT/app.container" bak="$ST_ROOT/backup.container"
+
+	# Case 1 — verified restore: returns 0, restores the content byte-exact,
+	# and reloaded the manager (shim log).
+	printf '[Container]\nVolume=songhealth-media.volume:/app/media\n' >"$src"
+	cp -p "$src" "$bak"
+	printf '[Container]\n' >"$src"
+	QUADLET_SOURCE="$src"
+	QUADLET_BACKUP="$bak"
+	QUADLET_SOURCE_SHA_BASE="$(sha256sum "$bak" | awk '{print $1}')"
+	QUADLET_MODIFIED='yes'
+	if restore_app_quadlet &&
+		[ "$(sha256sum "$src" | awk '{print $1}')" = "$QUADLET_SOURCE_SHA_BASE" ] &&
+		grep -q 'daemon-reload' "$ST_ROOT/systemctl.log"; then
+		st_case restore-verified 'PASS byte-exact restore returned 0, restored the content, and attempted daemon-reload (shimmed)'
+	else
+		st_fail restore-verified 'the verified-restore branch must return 0, restore byte-exact, and reload the manager'
+	fi
+	QUADLET_MODIFIED=''
+
+	# Case 2 — unverifiable restore (doctored baseline digest): must fail
+	# closed, keep the original backup, and write the adjacent recovery copy.
+	printf '[Container]\n' >"$src"
+	QUADLET_BACKUP="$bak"
+	QUADLET_SOURCE_SHA_BASE="$(printf '0%.0s' {1..64})"
+	QUADLET_MODIFIED='yes'
+	local recovery="$src.t016-recovery" rc2=0
+	rm -f "$recovery"
+	restore_app_quadlet || rc2=$?
+	if [ "$rc2" -ne 0 ] && [ -f "$bak" ] && [ -f "$recovery" ] && cmp -s "$recovery" "$bak"; then
+		st_case restore-unverified 'PASS unverifiable restore returned nonzero and preserved the original backup AND the adjacent recovery copy'
+	else
+		st_fail restore-unverified 'an unverifiable restore must fail closed, keep the backup, and write the adjacent recovery copy'
+	fi
+	QUADLET_MODIFIED=''
+
+	# Case 3 — missing baseline copy: must fail closed (no silent success).
+	QUADLET_SOURCE="$src"
+	QUADLET_BACKUP="$ST_ROOT/does-not-exist.backup"
+	QUADLET_MODIFIED='yes'
+	local rc3=0
+	restore_app_quadlet || rc3=$?
+	if [ "$rc3" -ne 0 ]; then
+		st_case restore-missing-backup 'PASS missing baseline copy returned nonzero (no silent success)'
+	else
+		st_fail restore-missing-backup 'a missing baseline copy must not report success'
+	fi
+	QUADLET_MODIFIED=''
+	QUADLET_BACKUP=''
+
+	# Case 4 — cleanup with an unverified restore: must return nonzero, KEEP
+	# the scratch directory holding the backup, and leave the adjacent
+	# recovery copy in place.
+	local keep_dir="$ST_ROOT/tmpdir-unverified"
+	mkdir -p "$keep_dir"
+	cp -p "$bak" "$keep_dir/quadlet-app.backup"
+	printf '[Container]\n' >"$src"
+	QUADLET_SOURCE="$src"
+	QUADLET_BACKUP="$keep_dir/quadlet-app.backup"
+	QUADLET_SOURCE_SHA_BASE="$(printf '0%.0s' {1..64})"
+	QUADLET_MODIFIED='yes'
+	local saved_tmp="$TMP_DIR"
+	TMP_DIR="$keep_dir"
+	rm -f "$recovery"
+	local rc4=0
+	cleanup || rc4=$?
+	if [ "$rc4" -ne 0 ] && [ -d "$keep_dir" ] && [ -f "$keep_dir/quadlet-app.backup" ] && [ -f "$recovery" ]; then
+		st_case cleanup-preserves-recovery 'PASS unverified restore: cleanup returned nonzero and kept BOTH the scratch directory (with the backup) and the adjacent recovery copy'
+	else
+		st_fail cleanup-preserves-recovery 'cleanup must fail closed and keep the recovery material when the restore is unverified'
+	fi
+	QUADLET_MODIFIED=''
+	TMP_DIR="$saved_tmp"
+
+	# Case 5 — cleanup with nothing to restore: returns 0 and removes the
+	# scratch directory.
+	local plain_dir="$ST_ROOT/tmpdir-clean"
+	mkdir -p "$plain_dir"
+	TMP_DIR="$plain_dir"
+	QUADLET_MODIFIED=''
+	local rc5=0
+	cleanup || rc5=$?
+	if [ "$rc5" -eq 0 ] && [ ! -d "$plain_dir" ]; then
+		st_case cleanup-removes-scratch 'PASS clean state: scratch directory removed and 0 returned'
+	else
+		st_fail cleanup-removes-scratch 'cleanup must return 0 and remove the scratch directory when nothing needs restoring'
+	fi
+	TMP_DIR="$saved_tmp"
+
+	# Case 6 — the negative-result reasoner accepts ONLY the explicit
+	# not-ready result naming media.
+	local reason='' out="$ST_ROOT/readiness.out"
+	local state
+	for state in ready unreachable indeterminate leaked; do
+		READINESS_STATE="$state"
+		READINESS_LINE="synthetic $state"
+		reason="$(c7_negative_result_reason "$out")"
+		if [ -n "$reason" ]; then
+			st_case "reasoner-rejects-$state" 'PASS non-not-ready state rejected (unit failure/unreachability is not a substitute)'
+		else
+			st_fail "reasoner-rejects-$state" 'this state must be rejected'
+		fi
+	done
+	READINESS_STATE='not-ready'
+	READINESS_LINE='synthetic not-ready (database)'
+	printf 'songhealth readiness: not-ready\nfailed dependency: database (PostgreSQL connectivity check failed)\n' >"$out"
+	reason="$(c7_negative_result_reason "$out")"
+	if [ -n "$reason" ]; then
+		st_case reasoner-rejects-other-dependency 'PASS not-ready naming a different dependency rejected'
+	else
+		st_fail reasoner-rejects-other-dependency 'a not-ready result naming a non-media dependency must be rejected'
+	fi
+	printf 'songhealth readiness: not-ready\nfailed dependency: media (expected media mount missing or unreadable)\n' >"$out"
+	reason="$(c7_negative_result_reason "$out")"
+	if [ -z "$reason" ]; then
+		st_case reasoner-accepts-media-notready 'PASS the explicit not-ready result naming the media dependency accepted'
+	else
+		st_fail reasoner-accepts-media-notready "must accept this result: $reason"
+	fi
+	READINESS_STATE=''
+	READINESS_LINE=''
+
+	# Case 7 — the strengthened non-mutation detector catches the prohibited
+	# probe classes the old path/size/mtime-only hash missed.
+	local media="$ST_ROOT/media" h_before='' h_after=''
+	mkdir -p "$media"
+	h_before="$(node -e "$(media_walk_js)" "$media" | sha256sum | awk '{print $1}')"
+	printf 'probe-bytes' >"$media/.songhealth-probe"
+	cat "$media/.songhealth-probe" >/dev/null
+	rm -f "$media/.songhealth-probe"
+	h_after="$(node -e "$(media_walk_js)" "$media" | sha256sum | awk '{print $1}')"
+	if [ "$h_before" != "$h_after" ]; then
+		st_case detect-create-read-delete 'PASS create/read/delete probe in an empty directory detected (media-root metadata is hashed)'
+	else
+		st_fail detect-create-read-delete 'a create/read/delete probe must change the snapshot digest'
+	fi
+	printf 'AAAA' >"$media/f.dat"
+	h_before="$(node -e "$(media_walk_js)" "$media" | sha256sum | awk '{print $1}')"
+	printf 'BBBB' >"$media/f.dat"
+	h_after="$(node -e "$(media_walk_js)" "$media" | sha256sum | awk '{print $1}')"
+	if [ "$h_before" != "$h_after" ]; then
+		st_case detect-in-place-change 'PASS same-size in-place byte change detected (content digest is hashed)'
+	else
+		st_fail detect-in-place-change 'a same-size in-place byte change must change the snapshot digest'
+	fi
+	mkdir "$media/subdir"
+	rmdir "$media/subdir"
+	h_after="$(node -e "$(media_walk_js)" "$media" | sha256sum | awk '{print $1}')"
+	if [ "$h_before" != "$h_after" ]; then
+		st_case detect-subdir-create-delete 'PASS subdirectory create/delete detected'
+	else
+		st_fail detect-subdir-create-delete 'a subdirectory create/delete must change the snapshot digest'
+	fi
+
+	rm -rf "$ST_ROOT"
+	if [ "$ST_FAILURES" -eq 0 ]; then
+		printf 't016-selftest: all isolated failure-path demonstrations passed\n'
+		return 0
+	fi
+	printf 't016-selftest: %s demonstration(s) FAILED\n' "$ST_FAILURES" >&2
+	return 1
+}
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 
@@ -1370,9 +1795,17 @@ main() {
 			usage
 			return 0
 			;;
+		--self-test)
+			# Isolated failure-path demonstrations (see the self_test
+			# header); touches no real deployment, unit, or Quadlet.
+			if self_test; then
+				return 0
+			fi
+			exit "$EXIT_FAIL"
+			;;
 		*)
 			usage >&2
-			die "$EXIT_USAGE" "unexpected argument(s): $* (this harness takes no arguments)"
+			die "$EXIT_USAGE" "unexpected argument(s): $* (this harness takes no positional arguments; supported: --help, --self-test)"
 			;;
 		esac
 	fi
@@ -1381,9 +1814,9 @@ main() {
 	cd "$ROOT"
 
 	TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/t016-foundation-verify.XXXXXX")"
-	trap cleanup EXIT
-	trap 'trap - EXIT; cleanup; exit 130' INT
-	trap 'trap - EXIT; cleanup; exit 143' TERM
+	trap on_exit EXIT
+	trap 'on_signal 130' INT
+	trap 'on_signal 143' TERM
 
 	# P0 — RED prerequisite, before any tool requirement or input need, so a
 	# bare run at a baseline without the T017–T020 implementation always
@@ -1396,14 +1829,15 @@ main() {
 		"$(podman version --format '{{.Client.Version}}' 2>/dev/null || echo unknown)" \
 		"$(systemctl --version 2>/dev/null | head -1 || echo 'systemd (version unknown)')"
 	validate_inputs
-	derive_gate_banner
-	info main 'T013 gate completion banner anchored from %s: %s' "$T013_SCRIPT" "$GATE_BANNER"
+	derive_gate_markers
+	info main 'T013 gate evidence anchored on %s: %s stage markers + banner [%s]' \
+		"$T013_SCRIPT" "${#GATE_STAGE_MARKERS[@]}" "${GATE_STAGE_MARKERS[*]} $GATE_BANNER"
 
 	# R1 — resolve and validate every task-owned target before any mutation.
 	resolve_targets
 
 	# C1 — startup acceptance before READY + private non-mutating readiness.
-	require_gate_banner_for_current_start C1
+	require_gate_evidence_for_current_start C1
 	check_recurring_readiness_private
 
 	# C2/C3/C4 — network boundary, no published database port, attachments.
