@@ -397,18 +397,25 @@ ExecCondition=/usr/bin/test -n "${EMDASH_SITE_URL}"
 Restart=always
 RestartSec=5s
 
-# Startup timeout budget (rework r4, F02), computed from the accepted T013
-# sequence as committed — never shortening or bypassing any of its internal
-# bounds: the exact application build is bounded at 900s plus a 30s
-# kill-after (930s), and the four sequential bounded native CLI calls — S3
-# status, S4 apply, S4 post-apply status, S5 check — at 600s plus a 30s
-# kill-after each (2520s), for 3450s of accepted gate allowance. To that
-# add the role-prerequisite connection and two bounded queries (10s bounds
-# each), container start and npm/npx startup overhead, the standalone
-# server boot, and the first healthcheck pass that releases the
-# Notify=healthy startup notification (10s interval): roughly 60-90s of
-# additional overhead, or about 3540s worst case. TimeoutStartSec=3600s
-# covers the complete accepted sequence with bounded headroom, so systemd
-# never abandons a start the gate itself would still legitimately conclude,
-# while an actual hang still fails the unit closed within one hour.
+# Startup timeout budget (rework r4 F02; comment corrected in rework r5 per
+# the Product Owner decision). The verified part is the accepted T013
+# sequence as committed — never shortened or bypassed here: the exact
+# application build is bounded at 900s plus a 30s kill-after (930s), and
+# the four sequential bounded native CLI calls — S3 status, S4 apply, S4
+# post-apply status, S5 check — at 600s plus a 30s kill-after each (2520s),
+# for 3450s of bounded command allowance. TimeoutStartSec=3600s is the
+# Product Owner accepted operational policy ceiling for each start
+# attempt; the remaining 150s is an overhead reserve for everything else —
+# the role-prerequisite connection and its two bounded queries (10s bounds
+# each), container start and npm/npx startup overhead, the T013 S6 bounded
+# media claim/write/read/remove operations, standalone server boot, and
+# the first healthcheck pass that releases the Notify=healthy startup
+# notification — and that reserve is UNVERIFIED: the S6 filesystem
+# operations and the standalone server startup have no independently
+# proven wall-clock limits, so no overall worst-case duration is claimed
+# here. A start attempt whose legitimate progress exceeds the ceiling will
+# be terminated by systemd; that possibility is accepted by the Product
+# Owner decision rather than eliminated by this unit. Actual startup
+# durations, and whether this ceiling accommodates them, remain subject to
+# separately authorized runtime validation.
 TimeoutStartSec=3600s
