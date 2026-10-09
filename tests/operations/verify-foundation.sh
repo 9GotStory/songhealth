@@ -1015,20 +1015,58 @@ gate_wiring_reason() {
 			for (const t of p) {
 				if (t.quoted && /verify:startup|verify-startup/.test(t.text)) return "an occurrence of the gate names inside a quoted string is inert decoy text, not execution";
 			}
-			// Complete-prefix control (rework r2, finding 2): nothing in the
-			// payload may redirect execution away from the accepted commands -
-			// a shell function definition (a name() token, or a bare () token)
-			// shadows npm or node; an unquoted command substitution (backticks
-			// or $( )) can replace any step; a cd changes the working directory
-			// the committed npm mapping relies on. All are rejected anywhere
-			// outside quoted strings, so the validated gate/server suffix
-			// cannot be reached through a redirected prefix.
+			// Complete-prefix control (rework r2 finding 2; corrected and
+			// made POSITIVE in rework r3 findings 1+2). The token stream holds
+			// {text, quoted} objects: textual checks use .text (the r2 scan
+			// applied them to the object and threw, rejecting everything).
+			// Beyond the r2 blacklist (function definitions, unquoted command
+			// substitution, cd), the prefix is now POSITIVELY constrained to
+			// the approved T020 startup shape: the payload is split into
+			// command segments at top-level operators (;, &&, ||), and every
+			// segment executable — the first unquoted non-assignment token —
+			// must belong to the approved command set: the mount/store guards
+			// (grep, test, echo, exit, and their { } grouping), the secret
+			// reads (read behind leading KEY= assignments), export, the
+			// role-prerequisite interpreter (node -e with exactly one quoted
+			// program), the gate (npm), and the standalone server (node).
+			// exec is approved ONLY as the final exec node
+			// dist/server/entry.mjs launch. Anything else — eval, sh, bash,
+			// ., source, command, arbitrary binaries, or a quoted string in
+			// executable position — is an unrecognized executable prefix and
+			// is rejected, so no redirected prefix (quoted or not) can reach
+			// the validated gate/server suffix.
 			for (let i = 0; i < p.length; i++) {
-				const t = p[i];
-				if (t.quoted) continue;
+				const t = p[i].text;
+				if (p[i].quoted) continue;
 				if (/\(\)$/.test(t) || t === "()") return "a shell function definition in the startup payload shadows the accepted commands and is rejected";
 				if (t.includes("`") || t.includes("$(")) return "command substitution in an unquoted startup-payload token can redirect execution and is rejected";
-				if (t === "cd" && (i === 0 || p[i - 1].text === ";" || p[i - 1].text === "&&" || p[i - 1].text === "||")) return "a directory change in the startup payload can redirect gate execution away from the committed mapping working directory and is rejected";
+			}
+			const APPROVED_EXECUTABLES = new Set(["grep", "echo", "exit", "test", "read", "export", "node", "npm", "{", "}"]);
+			const segments = [];
+			let segment = [];
+			for (let i = 0; i < p.length; i++) {
+				const tok = p[i];
+				if (!tok.quoted && (tok.text === ";" || tok.text === "&&" || tok.text === "||")) { segments.push(segment); segment = []; continue; }
+				segment.push(tok);
+			}
+			segments.push(segment);
+			for (const seg of segments) {
+				if (seg.length === 0) continue;
+				let k = 0;
+				while (k < seg.length && !seg[k].quoted && isAssignment(seg[k].text)) k++;
+				if (k >= seg.length) continue;
+				if (seg[k].quoted) return "a quoted string in executable position is not an approved startup command";
+				const exe = seg[k].text;
+				if (exe === "exec") {
+					if (!(seg[k + 1] && !seg[k + 1].quoted && seg[k + 1].text === "node" && seg[k + 2] && !seg[k + 2].quoted && seg[k + 2].text === "dist/server/entry.mjs" && k + 3 === seg.length)) return "exec is only approved as the final standalone-server launch";
+					continue;
+				}
+				if (exe === "cd") return "a directory change in the startup payload can redirect gate execution away from the committed mapping working directory and is rejected";
+				if (exe === "node" && seg[k + 1] && !seg[k + 1].quoted && seg[k + 1].text === "-e") {
+					if (!(seg[k + 2] && seg[k + 2].quoted && k + 3 === seg.length)) return "the node role-prerequisite must be node -e with exactly one quoted program";
+					continue;
+				}
+				if (!APPROVED_EXECUTABLES.has(exe)) return "unrecognized executable prefix: " + exe + " is not part of the approved startup shape";
 			}
 			const isGate = (i) => !p[i].quoted && p[i].text === "npm" && p[i + 1] && !p[i + 1].quoted && p[i + 1].text === "run" && p[i + 2] && !p[i + 2].quoted && p[i + 2].text === "verify:startup";
 			const isServer = (i) => !p[i].quoted && p[i].text === "node" && p[i + 1] && !p[i + 1].quoted && p[i + 1].text === "dist/server/entry.mjs";
@@ -2020,18 +2058,26 @@ classify_effective_media_attachment() {
 		const target = process.argv[2];
 		let text;
 		try { text = fs.readFileSync(process.argv[1], "utf8"); } catch { process.stdout.write("unprovable\n"); process.exit(0); }
-		let effective = null;
+		// systemd ExecStart list semantics (rework r3, finding 3): ExecStart
+		// is a resettable command LIST — an empty value resets it — and
+		// multiple surviving commands are valid only for Type=oneshot
+		// sequential execution. This classifier supports the single-command
+		// application service, so EXACTLY ONE surviving entry may be
+		// classified; zero or multiple survivors are unprovable (two
+		// entries, first attached and second omitted, are NOT omission).
+		let effective = [];
 		for (const line of text.split("\n")) {
 			if (!/^ExecStart=/.test(line)) continue;
 			const value = line.slice("ExecStart=".length);
-			if (value.trim() === "") { effective = null; continue; }
-			effective = value;
+			if (value.trim() === "") { effective = []; continue; }
+			effective.push(value);
 		}
-		if (effective === null) { process.stdout.write("unprovable\n"); process.exit(0); }
+		if (effective.length !== 1) { process.stdout.write("unprovable\n"); process.exit(0); }
+		const command = effective[0];
 		const tokens = [];
 		let current = "", has = false, quoted = false;
-		for (let i = 0; i < effective.length; i++) {
-			const ch = effective[i];
+		for (let i = 0; i < command.length; i++) {
+			const ch = command[i];
 			if (ch === "\\") {
 				if (i + 1 < effective.length) {
 					if (effective[i + 1] === "x" && i + 3 < effective.length && /^[0-9a-f]{2}$/.test(effective.slice(i + 2, i + 4))) {
@@ -2218,7 +2264,11 @@ c7_negative_result_reason() {
 				it = index(l, lt)
 				if (it == 0 || it <= iv) next
 				seg = substr(l, iv + length(lv), it - iv - length(lv))
-				if (seg ~ /not attached|not mounted|missing|absent/ && l ~ /refus|not attached|not mounted|missing|absent/) { found = 1; exit }
+				# rework r3 finding 4: the record must carry an EXPLICIT
+				# refusal clause (refused/refusing/refusal/refuse) — absence
+				# words alone satisfy no predicate, so an absence WARNING
+				# without a refusal is rejected just like an unrelated error.
+				if (seg ~ /not attached|not mounted|missing|absent/ && l ~ /refus/) { found = 1; exit }
 			}
 			END { exit found ? 0 : 1 }
 		' "$refusal_file"; then
@@ -2442,8 +2492,8 @@ case " \$* " in
 	exit 0
 	;;
 *' --value '*)
-	if [ -f '$ST_ROOT/fx-inv' ]; then
-		n='\$(cat '$ST_ROOT/fx-inv-count' 2>/dev/null || printf 0)'
+		if [ -f '$ST_ROOT/fx-inv' ]; then
+		n="\$(cat '$ST_ROOT/fx-inv-count' 2>/dev/null || printf 0)"
 		n=\$((n + 1))
 		printf '%s' "\$n" >'$ST_ROOT/fx-inv-count'
 		sed -n "\${n}p" '$ST_ROOT/fx-inv'
@@ -2651,6 +2701,13 @@ SHIM
 	else
 		st_fail reasoner-rejects-same-line-unrelated 'co-occurrence of media identifiers with an unrelated failure must be rejected'
 	fi
+	printf 'WARNING: songhealth-media is not attached at /app/media\n' >"$rj"
+	reason_r="$(c7_negative_result_reason "$out" "$rj")"
+	if [ -n "$reason_r" ]; then
+		st_case reasoner-rejects-absence-warning 'PASS an absence WARNING without an explicit refusal clause rejected (the approved guard diagnostic is required)'
+	else
+		st_fail reasoner-rejects-absence-warning 'absence words without a refusal clause must not compose a refusal record'
+	fi
 	{
 		printf 'songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start\n'
 		printf 't013: T013 startup acceptance gate: PASS\n'
@@ -2784,6 +2841,17 @@ UNIT
 		st_case classify-reset-only 'PASS a lone ExecStart= reset (no effective command) classified unprovable (never omission evidence)'
 	else
 		st_fail classify-reset-only "expected unprovable/empty, got: $cls"
+	fi
+	{
+		printf '[Service]\n'
+		printf 'ExecStart=/usr/bin/podman run --name systemd-%N --rm -v songhealth-media:/app/media localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"\n'
+		printf 'ExecStart=/usr/bin/podman run --name systemd-%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"\n'
+	} >"$cdir/multi-entry.service"
+	cls="$(classify_effective_media_attachment "$cdir/multi-entry.service")"
+	if [ -z "$cls" ] || [ "$cls" = 'unprovable' ]; then
+		st_case classify-multiple-entries 'PASS two surviving ExecStart entries (attached then omitted, no reset) classified unprovable - not omission'
+	else
+		st_fail classify-multiple-entries "expected unprovable/empty, got: $cls"
 	fi
 
 	# Collector state-collection demonstrations (rework r2, finding 5),
@@ -3135,6 +3203,16 @@ UNIT
 		else
 			st_fail wiring-rejects-container-substitution 'unquoted command substitution can redirect execution and must be rejected'
 		fi
+		cat >"$wdir/container-eval-shadow.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "eval 'npm() { return 0; }'; npm run verify:startup && exec node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-eval-shadow.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-eval-shadow 'PASS a quoted eval defining a shadow function rejected (positive executable whitelist)'
+		else
+			st_fail wiring-rejects-container-eval-shadow 'an eval prefix that neutralizes the gate must be rejected'
+		fi
 
 	# Caller-dispatch demonstrations (rework r2, finding 1): the accepted
 	# wiring FORM must survive into the caller and actually dispatch the
@@ -3156,8 +3234,12 @@ UNIT
 		st_fail dispatch-container-identity-matching "the dispatch must run and verify matching identities (rc=$dispatch_rc)"
 	fi
 	printf '%s\n' 'localhost/songhealth-app:0.0.1@sha256:1111111111111111111111111111111111111111111111111111111111111111' >"$ST_ROOT/fx-podman-image"
+	# (rework r3, finding 6) fail_stage exits; an expected negative dispatch
+	# must run in an isolated child shell so only the child terminates and
+	# the || observes its status - the production fail_stage behavior is
+	# unchanged.
 	dispatch_rc=0
-	require_gate_wiring_for_unit C1-mismatch >/dev/null 2>"$ST_ROOT/dispatch.err" || dispatch_rc=$?
+	( require_gate_wiring_for_unit C1-mismatch >/dev/null 2>"$ST_ROOT/dispatch.err" ) || dispatch_rc=$?
 	if [ "$dispatch_rc" -ne 0 ] && grep -q 'does not equal the effective unit pinned identity' "$ST_ROOT/dispatch.err"; then
 		st_case dispatch-container-identity-mismatch 'PASS a mismatching deployed image identity fails the stage closed through the dispatched binding'
 	else
