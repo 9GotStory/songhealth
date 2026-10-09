@@ -47,18 +47,29 @@
 #        startup gate invocation — the trusted podman runner (the podman
 #        this verification environment resolves; bare `podman` is rejected)
 #        executing a container run that names the expected application
-#        container, references the intended application image identity
-#        (SONGHEALTH_APP_IMAGE, exact token, optionally digest-pinned as
-#        <image>@sha256:<64 hex>; never `latest`), and passes ONE sh -c
-#        startup payload that structurally invokes the committed
-#        verify:startup mapping in command position AND starts the accepted
-#        standalone server (node dist/server/entry.mjs) ONLY behind strict
-#        success chaining (`&&`, `exec`, KEY=VALUE assignments) — any `;`,
-#        `||`, or other operator between the gate and the server is a
-#        failure-ignoring chain and is rejected; the committed package.json
-#        mapping is validated against the package root exactly as for the
-#        host npm form; occurrences of the gate names inside quoted strings
-#        are inert decoy text and are rejected. Unprovable or untrusted
+#        container, references the intended application image identity as
+#        the DIGEST-PINNED form SONGHEALTH_APP_IMAGE@sha256:<64 hex> (a
+#        bare tag cannot prove which image was accepted; `latest` and other
+#        repositories are rejected), mounts NOTHING whose destination is
+#        not the expected media mount target (an overmounted /app/tests or
+#        /app/package.json would shadow the accepted in-container gate
+#        identity), and passes ONE sh -c startup payload whose COMPLETE
+#        control flow is validated: the committed verify:startup mapping
+#        invoked exactly once in command position, immediately followed by
+#        the strict success separator `&&`, the accepted standalone server
+#        (node dist/server/entry.mjs) exactly once with only `exec` and
+#        KEY=VALUE assignments between, and NOTHING after the server entry
+#        token — duplicate gate/server occurrences, missing separators,
+#        failure bypasses (`;`, `||`, trailing commands), alternate server
+#        launches, and command shadowing are rejected; the committed
+#        package.json mapping is validated against the package root
+#        exactly as for the host npm form; occurrences of the gate names
+#        inside quoted strings are inert decoy text and are rejected. The
+#        structural shape alone is not acceptance: the runtime identity
+#        binding (require_container_gate_identity_for_unit) then ties the
+#        pinned digest to the deployed container's ACTUAL image identity
+#        and proves the container's gate script and package.json are
+#        byte-identical to the accepted repository sources. Unprovable or untrusted
 #        executables fail closed; occurrences of the names inside arbitrary
 #        arguments, quoted shell payloads, or comments are rejected; and
 #        (b) COMPLETION — the
@@ -121,14 +132,22 @@
 #        execute — not-ready may instead be demonstrated by an
 #        invocation-scoped, media-specific startup refusal, valid only when
 #        ALL supporting conditions are established: the effective
-#        attachment omission is verified on the currently loaded unit
-#        definition; the refusal belongs to the current attempted start
-#        (scoped by _SYSTEMD_INVOCATION_ID); the refusal line explicitly
-#        identifies the required media dependency (media volume name or
-#        mount target); the application never reaches Healthy/Ready (the
-#        same invocation shows no T013 gate completion); generic failures,
-#        stale logs, and simple unreachability are rejected; and the
-#        original media volume remains intact. This evidence is classified
+#        attachment omission is verified from the GENERATED service's
+#        execution argv (the podman run -v/--volume/--mount options —
+#        absent, malformed, or unprovable execution definitions are
+#        rejected evidence, and an attached service never qualifies); the
+#        refusal belongs to the current attempted start (scoped by
+#        _SYSTEMD_INVOCATION_ID, with the manager's current InvocationID
+#        still equal to it); ONE refusal record names the required media
+#        attachment as the startup-blocking cause (refusal token AND media
+#        volume name AND mount target on the same line); the application
+#        never reaches Healthy/Ready — the same invocation shows NO T013
+#        gate stage output at all and its main process exited nonzero
+#        (native state; a successful or still-running attempt is not
+#        refusal evidence); every captured unit and journal slice is
+#        secret-checked like the C1 collections; generic failures, split
+#        unrelated lines, stale logs, and simple unreachability are
+#        rejected; and the original media volume remains intact. This evidence is classified
 #        STARTUP REFUSAL, never as a T012 readiness-helper result. Any
 #        ready result (a healthy empty replacement) fails the stage in
 #        either class. The omission is simulated WITHOUT deleting or
@@ -283,6 +302,10 @@ VOLUME_SNAPSHOT=''
 # Probe results of the most recent probe_readiness call.
 READINESS_STATE=''
 READINESS_LINE=''
+# The wiring form most recently accepted by gate_wiring_reason
+# (direct | mapped | container); consumed by the container-form runtime
+# identity binding.
+WIRING_FORM=''
 # STARTUP REFUSAL evidence context (C7, Product Owner decision 2026-10-09):
 # 'verified-omission' once the currently loaded unit definition provably
 # lacks the media attachment AND the current-invocation journal slice has
@@ -834,6 +857,7 @@ gate_wiring_reason() {
 	# without it. Kept as a pure reasoner over unit-definition text so the
 	# --self-test demonstrations exercise the identical logic.
 	local unit_file="$1" verdict=''
+	WIRING_FORM=''
 	verdict="$(node -e '
 		const fs = require("fs");
 		const path = require("path");
@@ -844,6 +868,7 @@ gate_wiring_reason() {
 		const rootDir = process.argv[3];
 		const appImage = process.argv[4] || "localhost/songhealth-app:0.0.1";
 		const appContainer = process.argv[5] || "systemd-songhealth-app";
+		const mediaMountTarget = process.argv[6] || "/app/media";
 		const fail = (reason) => { process.stdout.write("reject " + reason + "\n"); process.exit(0); };
 		const realpathQuiet = (p) => { try { return fs.realpathSync(p); } catch { return null; } };
 		const authorityAnchor = realpathQuiet(path.join(rootDir, ACCEPTED));
@@ -928,25 +953,70 @@ gate_wiring_reason() {
 			const image = tokens[n - 4];
 			if (image.startsWith("-")) return "no explicit application image token precedes the startup payload";
 			if (/:(latest)$/.test(image) || image.endsWith(":latest")) return "a floating latest image tag is not the intended application image";
-			if (image !== appImage && !digestForm.test(image)) return "the image token is not the intended application image identity";
+			// The container form requires the immutable digest-pinned form of
+			// the intended identity: a bare tag cannot prove WHICH image the
+			// deployment accepted, and an arbitrary digest under the expected
+			// tag must not pass as the accepted artifact (the runtime
+			// identity binding in require_container_gate_identity_for_unit
+			// then ties this pinned digest to the actual container and the
+			// accepted in-container sources).
+			if (!digestForm.test(image)) return "the image token is not the digest-pinned intended application image identity";
+			// Reject execution overrides that could shadow the accepted
+			// in-container gate script or mapping: every volume/mount/tmpfs
+			// destination must be exactly the expected media mount target.
+			const mountSpecs = [];
+			for (let i = 2; i < n - 3; i++) {
+				const t = tokens[i];
+				if (t === "-v" || t === "--volume" || t === "--mount" || t === "--tmpfs") { if (i + 1 < n) mountSpecs.push(tokens[i + 1]); }
+				else if (t.startsWith("--volume=")) mountSpecs.push(t.slice("--volume=".length));
+				else if (t.startsWith("--mount=")) mountSpecs.push(t.slice("--mount=".length));
+				else if (t.startsWith("--tmpfs=")) mountSpecs.push(t.slice("--tmpfs=".length));
+			}
+			const destinationOf = (spec) => {
+				if (spec.includes("target=")) {
+					for (const kv of spec.split(",")) if (kv.startsWith("target=")) return kv.slice("target=".length);
+					return null;
+				}
+				if (spec.includes(":")) { const parts = spec.split(":"); return parts.length >= 2 ? parts[1] : null; }
+				return spec;
+			};
+			for (const spec of mountSpecs) {
+				const dst = destinationOf(spec);
+				if (dst === null || dst === "") return "an execution mount option is malformed and cannot be proven harmless";
+				if (dst !== mediaMountTarget) return "an execution override mounts " + dst + ", which is not the expected media mount target and could shadow the accepted in-container gate identity";
+			}
 			const p = shellTokens(tokens[n - 1]);
 			if (p.length === 0) return "the startup payload is empty";
 			for (const t of p) {
 				if (t.quoted && /verify:startup|verify-startup/.test(t.text)) return "an occurrence of the gate names inside a quoted string is inert decoy text, not execution";
 			}
-			const gateIdx = p.findIndex((t, i) => !t.quoted && t.text === "npm" && p[i + 1] && !p[i + 1].quoted && p[i + 1].text === "run" && p[i + 2] && !p[i + 2].quoted && p[i + 2].text === "verify:startup");
-			if (gateIdx === -1) return "the startup payload does not invoke the committed verify:startup mapping as a command";
+			const isGate = (i) => !p[i].quoted && p[i].text === "npm" && p[i + 1] && !p[i + 1].quoted && p[i + 1].text === "run" && p[i + 2] && !p[i + 2].quoted && p[i + 2].text === "verify:startup";
+			const isServer = (i) => !p[i].quoted && p[i].text === "node" && p[i + 1] && !p[i + 1].quoted && p[i + 1].text === "dist/server/entry.mjs";
+			const gatePositions = [];
+			const serverPositions = [];
+			for (let i = 0; i < p.length; i++) { if (isGate(i)) gatePositions.push(i); if (isServer(i)) serverPositions.push(i); }
+			if (gatePositions.length === 0) return "the startup payload does not invoke the committed verify:startup mapping as a command";
+			if (gatePositions.length > 1 || serverPositions.length > 1) return "duplicate gate or standalone-server occurrences are command shadowing and are rejected";
+			if (serverPositions.length === 0) return "the startup payload does not start the accepted standalone server";
+			const gateIdx = gatePositions[0];
 			const prev = gateIdx === 0 ? null : p[gateIdx - 1].text;
 			if (prev !== null && prev !== ";" && prev !== "&&" && prev !== "||" && prev !== "(") return "the gate invocation is not in command position";
-			const serverIdx = p.findIndex((t, i) => !t.quoted && t.text === "node" && p[i + 1] && !p[i + 1].quoted && p[i + 1].text === "dist/server/entry.mjs");
-			if (serverIdx === -1) return "the startup payload does not start the accepted standalone server";
-			if (serverIdx < gateIdx + 3) return "the standalone server must start only after the gate invocation";
-			for (let i = gateIdx + 3; i < serverIdx; i++) {
+			// The actual success separator is mandatory immediately after the
+			// gate: no separator at all (arguments masquerading as a chain)
+			// is rejected, and everything up to the server must preserve it.
+			if (!p[gateIdx + 3] || p[gateIdx + 3].text !== "&&") return "the gate invocation is not immediately followed by the strict success separator";
+			const serverIdx = serverPositions[0];
+			if (serverIdx === -1 || serverIdx < gateIdx + 3) return "the standalone server must start only after the gate invocation";
+			for (let i = gateIdx + 4; i < serverIdx; i++) {
 				const t = p[i].text;
-				if (t === "&&" || t === "exec") continue;
+				if (t === "exec") continue;
 				if (isAssignment(t)) continue;
 				return "the chain between the gate and the standalone server permits startup without successful gate completion (unexpected token)";
 			}
+			// The accepted startup payload ENDS at the standalone server: any
+			// trailing commands (failure bypasses, alternate launches) are
+			// rejected — nothing may follow the server entry path token.
+			if (serverIdx + 2 !== p.length) return "commands follow the standalone server start (failure bypass or alternate launch) and are rejected";
 			return "";
 		};
 		let text;
@@ -1024,9 +1094,10 @@ gate_wiring_reason() {
 		let detail = "";
 		if (containerAttempts.length > 0) detail = "; container-invocation rejection: " + containerAttempts[0];
 		fail("no Exec command line provably invokes the accepted T013 authority by executable identity (an absolute path resolving to the repository checkout file " + ACCEPTED + ", the trusted npm runner resolved from this verification environment running the committed verify:startup mapping, or the approved in-container invocation: the trusted podman runner, the intended application image and container, and one sh -c payload running the validated verify:startup mapping with the standalone server strictly success-chained after it); bare basenames, pathname suffixes, unresolvable or untrusted executables, floating image tags, failure-ignoring chains, and occurrences inside arguments, shell payloads, or comments are not identity proof" + detail);
-	' "$unit_file" "$ROOT/package.json" "$ROOT" "$APP_IMAGE" "$APP_CONTAINER" 2>/dev/null || true)"
+	' "$unit_file" "$ROOT/package.json" "$ROOT" "$APP_IMAGE" "$APP_CONTAINER" "$MEDIA_MOUNT_TARGET" 2>/dev/null || true)"
 	case $verdict in
 	'accept direct' | 'accept mapped' | 'accept container')
+		WIRING_FORM="${verdict#accept }"
 		printf ''
 		return 0
 		;;
@@ -1039,6 +1110,52 @@ gate_wiring_reason() {
 		return 0
 		;;
 	esac
+}
+
+require_container_gate_identity_for_unit() {
+	# require_container_gate_identity_for_unit <label> <effective-unit-file>:
+	# the runtime half of the CONTAINER wiring form (rework r1, finding 1):
+	# binds the accepted in-container gate invocation to the intended ACTUAL
+	# container and the accepted immutable image and sources. The structural
+	# reasoner proved the unit's shape; this proves, secret-free, that (a)
+	# the unit's digest-pinned image token equals the deployed container's
+	# actual image identity (an arbitrary digest under the expected tag, or
+	# a different image, fails closed), and (b) the container's in-container
+	# T013 gate script and package mapping are byte-identical (SHA-256) to
+	# the accepted repository sources this harness anchors on — so no
+	# overmounted or replaced /app/tests or /app/package.json can satisfy
+	# the wiring. Digests and identities only; no secret values.
+	local label="$1" unit_file="$2"
+	local pinned='' actual='' cont_sums='' host_sums='' line='' f='' c='' h=''
+	pinned="$(grep -oE "${APP_IMAGE}@sha256:[0-9a-f]{64}" "$unit_file" | head -1 || true)"
+	if [ -z "$pinned" ]; then
+		fail_stage "$label" 'the container-form wiring carries no digest-pinned application image token to bind to the actual container'
+	fi
+	if ! actual="$(timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
+		podman container inspect "$APP_CONTAINER" --format '{{.ImageName}}' 2>/dev/null)" || [ -z "$actual" ]; then
+		fail_stage "$label" 'could not inspect the actual image identity of container %s for the container-form identity binding' \
+			"$APP_CONTAINER"
+	fi
+	if [ "$actual" != "$pinned" ]; then
+		fail_stage "$label" 'the deployed container image identity %s does not equal the effective unit pinned identity %s — the wiring is not bound to the accepted image' \
+			"$actual" "$pinned"
+	fi
+	if ! cont_sums="$(timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
+		podman exec "$APP_CONTAINER" sha256sum /app/tests/operations/verify-startup.sh /app/package.json 2>/dev/null)"; then
+		fail_stage "$label" 'could not read the in-container gate script and package mapping digests from %s' \
+			"$APP_CONTAINER"
+	fi
+	c="$(printf '%s\n' "$cont_sums" | awk 'NR==1 { print $1 }')"
+	h="$(printf '%s\n' "$cont_sums" | awk 'NR==2 { print $1 }')"
+	local host_script='' host_pkg=''
+	host_script="$(sha256sum "$ROOT/tests/operations/verify-startup.sh" | awk '{print $1}')"
+	host_pkg="$(sha256sum "$ROOT/package.json" | awk '{print $1}')"
+	if [ -z "$c" ] || [ -z "$h" ] || [ "$c" != "$host_script" ] || [ "$h" != "$host_pkg" ]; then
+		fail_stage "$label" 'the in-container T013 gate script or package.json mapping differs from the accepted repository sources — the container gate identity is not proven'
+	fi
+	info "$label" 'container-form identity bound: deployed image %s; in-container gate script and package mapping byte-identical to the accepted sources' \
+		"$pinned"
+	pass "$label" 'container-form wiring bound to the intended container, accepted immutable image, and accepted in-container gate sources'
 }
 
 require_gate_wiring_for_unit() {
@@ -1065,9 +1182,15 @@ require_gate_wiring_for_unit() {
 	if [ -n "$reason" ]; then
 		fail_stage "$label" '%s' "$reason"
 	fi
-	info "$label" 'the effective unit definition of %s provably invokes the accepted T013 authority as a command token (%s direct / npm or in-container verify:startup mapping validated as the accepted command)' \
-		"$APP_UNIT" "$T013_SCRIPT"
+	info "$label" 'the effective unit definition of %s provably invokes the accepted T013 authority as a command token (%s direct / npm or in-container verify:startup mapping validated as the accepted command; form: %s)' \
+		"$APP_UNIT" "$T013_SCRIPT" "$WIRING_FORM"
 	pass "$label" 'T013 startup-gate wiring proven on the effective application unit definition'
+	# For the container form, bind the structural shape proof to the actual
+	# container, the accepted immutable image digest, and the accepted
+	# in-container gate sources (rework r1, finding 1).
+	if [ "$WIRING_FORM" = 'container' ]; then
+		require_container_gate_identity_for_unit "$label" "$unit_file"
+	fi
 }
 
 current_invocation_id() {
@@ -1812,24 +1935,97 @@ lifecycle_cycle() {
 # negative test with byte-exact restore on every exit path)
 # ---------------------------------------------------------------------------
 
+classify_effective_media_attachment() {
+	# classify_effective_media_attachment <effective-unit-file>: prints
+	# 'attached', 'omitted', or 'unprovable' (rework r1, finding 3). The
+	# attachment in a Quadlet-GENERATED service is a podman run execution
+	# argument (-v/--volume/--mount/--tmpfs), never a Volume= line, so the
+	# effective execution argv is what must be inspected. 'attached' when a
+	# recognized option's destination equals the expected media mount
+	# target; 'omitted' when the ExecStart provably parses as a podman run
+	# and no option attaches the target; 'unprovable' when the ExecStart is
+	# absent, is not a parseable podman run, or carries a malformed mount
+	# option — never accepted as omission evidence. Pure text reasoner over
+	# one file so the --self-test demonstrations exercise identical logic.
+	awk -v target="$MEDIA_MOUNT_TARGET" '
+		function dest_of(spec) {
+			if (spec ~ /target=/) {
+				m = split(spec, kv, ",")
+				for (k = 1; k <= m; k++) if (kv[k] ~ /^target=/) return substr(kv[k], 8)
+				return ""
+			}
+			if (index(spec, ":") > 0) {
+				m = split(spec, parts, ":")
+				if (m >= 2) return parts[2]
+				return ""
+			}
+			return spec
+		}
+		/^ExecStart=/ {
+			line = substr($0, index($0, "=") + 1)
+			gsub(/\\x[0-9a-f][0-9a-f]/, " ", line)
+			n = split(line, t, /[ \t]+/)
+			isrun = 0
+			for (i = 1; i < n; i++) if (t[i] ~ /(^|\/)podman$/ && t[i + 1] == "run") isrun = 1
+			if (!isrun) { print "unprovable"; exit }
+			attached = 0; malformed = 0
+			for (i = 1; i <= n; i++) {
+				spec = ""
+				if (t[i] == "-v" || t[i] == "--volume" || t[i] == "--mount" || t[i] == "--tmpfs") {
+					if (i < n) spec = t[i + 1]; else { malformed = 1; continue }
+				} else if (t[i] ~ /^--volume=/) spec = substr(t[i], 10)
+				else if (t[i] ~ /^--mount=/) spec = substr(t[i], 8)
+				else if (t[i] ~ /^--tmpfs=/) spec = substr(t[i], 9)
+				if (spec == "") continue
+				dst = dest_of(spec)
+				if (dst == "") { malformed = 1; continue }
+				if (dst == target) attached = 1
+			}
+			if (attached) { print "attached"; exit }
+			if (malformed) { print "unprovable"; exit }
+			print "omitted"; exit
+		}
+	' "$1"
+	# No ExecStart line at all -> awk printed nothing -> the caller treats
+	# empty output as unprovable.
+}
+
 collect_startup_refusal_evidence() {
 	# collect_startup_refusal_evidence: captures the STARTUP REFUSAL (C7,
 	# Product Owner decision 2026-10-09) evidence context for the CURRENT
-	# negative state. Sets REFUSAL_STATE='verified-omission' only when the
-	# currently loaded unit definition provably lacks the media attachment
-	# (the omission is EFFECTIVE, not merely edited on disk) AND the current
-	# invocation's journal slice could be captured for the reasoner; any
-	# failure leaves REFUSAL_STATE='' (the evidence class stays unavailable
-	# and only a genuine T012 result can pass the stage). Read-only.
+	# negative state (completed in rework r1, findings 3+5). Sets
+	# REFUSAL_STATE='verified-omission' only when ALL of the following
+	# hold; any failure leaves REFUSAL_STATE='' (the evidence class stays
+	# unavailable and only a genuine T012 result can pass the stage).
+	# Read-only, secret-checked, invocation-scoped:
+	#   1. the currently loaded (generated) unit definition is captured and
+	#      secret-free — a captured secret fails the stage outright;
+	#   2. the EFFECTIVE EXECUTION ARGV of that definition is classified by
+	#      classify_effective_media_attachment and must be 'omitted' — the
+	#      attachment is a podman run argument in the generated service, so
+	#      a Volume= text search or the edited Quadlet file alone proves
+	#      nothing; 'attached' or 'unprovable' never yields acceptance;
+	#   3. the current invocation's journal slice is captured and
+	#      secret-free;
+	#   4. the attempted start is specifically a pre-server refusal with no
+	#      Healthy/Ready acceptance, proven from native state: the manager's
+	#      CURRENT InvocationID still equals the scoped invocation (stale or
+	#      changed context rejected) and that invocation's main process
+	#      EXITED NONZERO (the guard's refusal exit) — a successful exit, a
+	#      still-running attempt, or absent state is not refusal evidence.
 	REFUSAL_STATE=''
-	local inv='' unit_file journal_file
+	local inv='' unit_file journal_file classification='' show='' s_inv='' s_code='' s_status=''
 	unit_file="$TMP_DIR/unit-omitted-effective.txt"
 	journal_file="$TMP_DIR/refusal-journal.txt"
 	if ! timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
 		systemctl --user cat "$APP_UNIT" >"$unit_file" 2>/dev/null; then
 		return 0
 	fi
-	if grep -qE "^[[:space:]]*Volume=.*${MEDIA_VOLUME}" "$unit_file"; then
+	if ! file_free_of_secrets "$unit_file"; then
+		fail_stage C7 'the captured effective unit definition contains a configured secret value; refusing to continue'
+	fi
+	classification="$(classify_effective_media_attachment "$unit_file")"
+	if [ "$classification" != 'omitted' ]; then
 		return 0
 	fi
 	inv="$(current_invocation_id "$APP_UNIT")"
@@ -1837,6 +2033,25 @@ collect_startup_refusal_evidence() {
 		return 0
 	fi
 	if ! collect_invocation_journal "$inv" "$journal_file"; then
+		return 0
+	fi
+	if ! file_free_of_secrets "$journal_file"; then
+		fail_stage C7 'the captured refusal journal contains a configured secret value; refusing to continue'
+	fi
+	show="$(systemctl --user show "$APP_UNIT" -p InvocationID --value -p ExecMainCode --value -p ExecMainStatus --value 2>/dev/null || true)"
+	s_inv="$(printf '%s\n' "$show" | sed -n '1p')"
+	s_code="$(printf '%s\n' "$show" | sed -n '2p')"
+	s_status="$(printf '%s\n' "$show" | sed -n '3p')"
+	if [ -z "$s_inv" ] || [ -z "$s_code" ] || [ -z "$s_status" ]; then
+		return 0
+	fi
+	if [ "$s_inv" != "$inv" ]; then
+		return 0
+	fi
+	if [ "$s_code" != 'exited' ]; then
+		return 0
+	fi
+	if [ "$s_status" = '0' ]; then
 		return 0
 	fi
 	REFUSAL_STATE='verified-omission'
@@ -1876,18 +2091,30 @@ c7_negative_result_reason() {
 				"$READINESS_STATE"
 			return 0
 		fi
-		if ! grep -qiE 'refus|not attached' "$refusal_file"; then
-			printf 'the current-invocation journal contains no startup refusal line (readiness state: %s; %s) — a generic failure or stale log is not a substitute' \
-				"$READINESS_STATE" "$READINESS_LINE"
-			return 0
-		fi
-		if ! grep -qiE "${MEDIA_VOLUME}|${MEDIA_MOUNT_TARGET}" "$refusal_file"; then
-			printf 'the startup refusal does not explicitly identify the required media dependency by volume name or mount target (readiness state: %s)' \
+		# The refusal record must be ONE line that structurally matches the
+		# approved guard diagnostic: the refusal token AND the literal media
+		# volume name AND the literal mount target on the SAME line, naming
+		# the missing media attachment as the startup-blocking cause. Two
+		# unrelated lines (a media mention plus a generic failure elsewhere)
+		# are not a refusal record.
+		if ! awk -v v="$MEDIA_VOLUME" -v t="$MEDIA_MOUNT_TARGET" '
+			{
+				l = tolower($0)
+				if ((l ~ /not attached/ || l ~ /refus/) && index(l, tolower(v)) > 0 && index(l, tolower(t)) > 0) { found = 1; exit }
+			}
+			END { exit found ? 0 : 1 }
+		' "$refusal_file"; then
+			printf 'no single invocation-scoped refusal record identifies the required media attachment as the startup-blocking cause (volume name AND mount target AND the refusal on one line; readiness state: %s) — unrelated media mentions, generic failures, and stale logs are not substitutes' \
 				"$READINESS_STATE"
 			return 0
 		fi
-		if grep -qF "$GATE_BANNER" "$refusal_file"; then
-			printf 'the current invocation also contains the T013 gate completion banner, contradicting a startup refusal (stale or contradictory evidence rejected; readiness state: %s)' \
+		# No Healthy/Ready acceptance in the refused attempt: ANY gate stage
+		# output in the scoped invocation contradicts a pre-server media
+		# refusal (the guard runs before the gate), not merely the final
+		# banner; native no-healthy state is separately established by the
+		# collector from the invocation's nonzero main-process exit.
+		if grep -qE 't013: \[S[0-9]+\]' "$refusal_file"; then
+			printf 'the current invocation also contains T013 gate stage output, contradicting a pre-server startup refusal (stale or contradictory evidence rejected; readiness state: %s)' \
 				"$READINESS_STATE"
 			return 0
 		fi
@@ -2232,13 +2459,23 @@ SHIM
 	fi
 	{
 		printf 'songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start\n'
-		printf 't013: T013 startup acceptance gate: PASS\n'
+		printf 't013: [S1] PASS inputs valid\n'
 	} >"$rj"
 	reason_r="$(c7_negative_result_reason "$out" "$rj")"
 	if [ -n "$reason_r" ]; then
-		st_case reasoner-rejects-refusal-with-gate-pass 'PASS a refusal slice that also contains the gate completion banner rejected (contradiction/stale evidence)'
+		st_case reasoner-rejects-refusal-with-gate-output 'PASS a refusal slice that also contains T013 gate stage output rejected (contradiction/stale evidence)'
 	else
-		st_fail reasoner-rejects-refusal-with-gate-pass 'a contradiction between refusal and completed gate must be rejected'
+		st_fail reasoner-rejects-refusal-with-gate-output 'any gate stage output contradicts a pre-server refusal and must be rejected'
+	fi
+	{
+		printf 'songhealth-app: media path /app/media\n'
+		printf 'songhealth-app: database connection refused\n'
+	} >"$rj"
+	reason_r="$(c7_negative_result_reason "$out" "$rj")"
+	if [ -n "$reason_r" ]; then
+		st_case reasoner-rejects-split-line-refusal 'PASS unrelated media mention and generic refusal on different lines rejected (one record must name the dependency as the blocking cause)'
+	else
+		st_fail reasoner-rejects-split-line-refusal 'a media mention plus an unrelated failure must not compose a refusal record'
 	fi
 	REFUSAL_STATE=''
 	printf 'songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start\n' >"$rj"
@@ -2251,6 +2488,56 @@ SHIM
 	READINESS_STATE=''
 	READINESS_LINE=''
 	REFUSAL_STATE=''
+
+	# Case 6c — the effective-attachment classifier reasons over the
+	# GENERATED service's execution argv (the attachment is a podman run
+	# argument there, never a Volume= line): attached / omitted / unprovable.
+	local cdir="$ST_ROOT/classify" cls=''
+	mkdir -p "$cdir"
+	cat >"$cdir/attached-v.service" <<'UNIT'
+[Service]
+ExecStart=/usr/bin/podman run --name systemd-%N --rm -v songhealth-media:/app/media --publish 127.0.0.1:4321:4321 localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"
+UNIT
+	cls="$(classify_effective_media_attachment "$cdir/attached-v.service")"
+	if [ "$cls" = 'attached' ]; then
+		st_case classify-attached-volume 'PASS a generated service attaching media via -v classified attached'
+	else
+		st_fail classify-attached-volume "expected attached, got: $cls"
+	fi
+	cat >"$cdir/attached-mount.service" <<'UNIT'
+[Service]
+ExecStart=/usr/bin/podman run --name systemd-%N --rm --mount type=volume,source=songhealth-media,target=/app/media localhost/songhealth-app:0.0.1@sha256:0000000000000000000000000000000000000000000000000000000000000000 sh -c "gate && server"
+UNIT
+	cls="$(classify_effective_media_attachment "$cdir/attached-mount.service")"
+	if [ "$cls" = 'attached' ]; then
+		st_case classify-attached-mount 'PASS a generated service attaching media via --mount target= classified attached'
+	else
+		st_fail classify-attached-mount "expected attached, got: $cls"
+	fi
+	cat >"$cdir/omitted.service" <<'UNIT'
+[Service]
+ExecStart=/usr/bin/podman run --name systemd-%N --rm --publish 127.0.0.1:4321:4321 localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"
+UNIT
+	cls="$(classify_effective_media_attachment "$cdir/omitted.service")"
+	if [ "$cls" = 'omitted' ]; then
+		st_case classify-omitted 'PASS a generated service with no media attachment option classified omitted'
+	else
+		st_fail classify-omitted "expected omitted, got: $cls"
+	fi
+	printf '[Service]\nExecStart=/usr/bin/node dist/server/entry.mjs\n' >"$cdir/nopodman.service"
+	cls="$(classify_effective_media_attachment "$cdir/nopodman.service")"
+	if [ "$cls" = 'unprovable' ]; then
+		st_case classify-unprovable-not-run 'PASS a non-podman-run ExecStart classified unprovable (never omission evidence)'
+	else
+		st_fail classify-unprovable-not-run "expected unprovable, got: $cls"
+	fi
+	printf '[Service]\n' >"$cdir/noexecstart.service"
+	cls="$(classify_effective_media_attachment "$cdir/noexecstart.service")"
+	if [ -z "$cls" ] || [ "$cls" = 'unprovable' ]; then
+		st_case classify-unprovable-absent 'PASS an absent ExecStart classified unprovable (never omission evidence)'
+	else
+		st_fail classify-unprovable-absent "expected unprovable/empty, got: $cls"
+	fi
 
 	# Case 7 — the strengthened non-mutation detector catches the prohibited
 	# probe classes the old path/size/mtime-only hash missed.
@@ -2454,27 +2741,27 @@ SHIM
 	if [ -n "$trusted_podman_path" ]; then
 		cat >"$wdir/container-ok.unit" <<UNIT
 [Service]
-ExecStart=${trusted_podman_path} run --name systemd-%N --replace --rm -v songhealth-media:/app/media --publish 127.0.0.1:4321:4321 localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "grep -q ' /app/media ' /proc/mounts; npm run verify:startup && HOST=0.0.0.0 exec node dist/server/entry.mjs"
+ExecStart=${trusted_podman_path} run --name systemd-%N --replace --rm -v songhealth-media:/app/media --publish 127.0.0.1:4321:4321 localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "grep -q ' /app/media ' /proc/mounts || { echo songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start >&2; exit 1; }; test -r /app/media/.songhealth-media-store || { echo songhealth-app: operator-managed existing media store marker .songhealth-media-store is missing at /app/media - the persistent store was not provisioned or has been replaced - refusing to start >&2; exit 1; }; IFS= read -r EMDASH_MIGRATION_DATABASE_URL </run/secrets/songhealth-migration-database-url; IFS= read -r EMDASH_ENCRYPTION_KEY </run/secrets/songhealth-encryption-key; export EMDASH_MIGRATION_DATABASE_URL EMDASH_ENCRYPTION_KEY; node -e 'const pg=require(`pg`);const c=new pg.Client({host:process.env.PGHOST,port:Number(process.env.PGPORT),database:process.env.PGDATABASE,user:process.env.PGUSER,password:process.env.PGPASSWORD,connectionTimeoutMillis:5000,query_timeout:5000});const fail=m=>{console.error(`songhealth-app: `+m);process.exit(1)};(async()=>{await c.connect();const r=await c.query(`select rolsuper s,rolcreatedb cd,rolcreaterole cr,has_database_privilege(current_user,current_database(),$q$CONNECT$q$) dbc,has_schema_privilege(current_user,$q$public$q$,$q$USAGE$q$) su,has_schema_privilege(current_user,$q$public$q$,$q$CREATE$q$) sc from pg_roles where rolname=current_user`);const b=r.rows[0];if(!b)fail(`least-privilege application-role prerequisite failed: the connecting role has no pg_roles row`);if(b.s)fail(`least-privilege application-role prerequisite failed: the connecting role is SUPERUSER - the bootstrap administrator is not the application identity`);if(b.cd)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEDB`);if(b.cr)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEROLE`);if(!b.dbc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CONNECT on the target database`);if(!b.su)fail(`least-privilege application-role prerequisite failed: the connecting role lacks USAGE on schema public`);if(!b.sc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CREATE on schema public`);const o=await c.query(`select case c.relkind when $q$S$q$ then $q$sequence$q$ else $q$table$q$ end kind,c.relname obj,pg_has_role(current_user,c.relowner,$q$USAGE$q$) owned,case c.relkind when $q$S$q$ then has_sequence_privilege(current_user,c.oid,$q$SELECT$q$) and has_sequence_privilege(current_user,c.oid,$q$USAGE$q$) and has_sequence_privilege(current_user,c.oid,$q$UPDATE$q$) else has_table_privilege(current_user,c.oid,$q$SELECT$q$) and has_table_privilege(current_user,c.oid,$q$INSERT$q$) and has_table_privilege(current_user,c.oid,$q$UPDATE$q$) and has_table_privilege(current_user,c.oid,$q$DELETE$q$) end dml from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind in ($q$r$q$,$q$p$q$,$q$S$q$) and n.nspname=$q$public$q$`);await c.end();for(const x of o.rows){const p=[];if(!x.owned)p.push(`not owned by the connecting role directly or through role membership`);if(!x.dml)p.push(`lacking effective required DML privileges`);if(p.length>0)fail(`least-privilege application-role prerequisite failed: existing EmDash `+x.kind+` `+x.obj+` in schema public is `+p.join(` and `))}console.error(`songhealth-app: least-privilege application-role prerequisite verified: non-superuser, no CREATEDB, no CREATEROLE, database CONNECT, schema public USAGE and CREATE, and `+o.rows.length+` existing EmDash relation(s) in schema public pass required ownership (direct or inherited) and full DML verification`)})().catch(e=>fail(`least-privilege application-role prerequisite failed: `+((e&&e.code)||`error`)))' && npm run verify:startup && HOST=0.0.0.0 exec node dist/server/entry.mjs"
 UNIT
 		reason_c="$(gate_wiring_reason "$wdir/container-ok.unit")"
 		if [ -z "$reason_c" ]; then
-			st_case wiring-accepts-container 'PASS the approved in-container gate invocation accepted (trusted runner, intended image, structural gate-before-server chain)'
+			st_case wiring-accepts-container 'PASS the full current T020 startup payload accepted (trusted runner, digest-pinned intended image, complete gate-before-server control flow)'
 		else
-			st_fail wiring-accepts-container "must accept the approved container invocation: $reason_c"
+			st_fail wiring-accepts-container "must accept the approved full container invocation: $reason_c"
 		fi
 		cat >"$wdir/container-tag.unit" <<UNIT
 [Service]
 ExecStart=${trusted_podman_path} run --name systemd-songhealth-app --rm localhost/songhealth-app:0.0.1 sh -c "npm run verify:startup && exec node dist/server/entry.mjs"
 UNIT
 		reason_c="$(gate_wiring_reason "$wdir/container-tag.unit")"
-		if [ -z "$reason_c" ]; then
-			st_case wiring-accepts-container-tag 'PASS the intended image identity accepted in exact-tag form'
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-untagged 'PASS a bare-tag image token rejected — it cannot prove which image the deployment accepted'
 		else
-			st_fail wiring-accepts-container-tag "must accept the exact-tag image form: $reason_c"
+			st_fail wiring-rejects-container-untagged 'an undigest-pinned image token must be rejected'
 		fi
 		cat >"$wdir/container-semi.unit" <<UNIT
 [Service]
-ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1 sh -c "npm run verify:startup; node dist/server/entry.mjs"
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "npm run verify:startup; node dist/server/entry.mjs"
 UNIT
 		reason_c="$(gate_wiring_reason "$wdir/container-semi.unit")"
 		if [ -n "$reason_c" ]; then
@@ -2482,9 +2769,39 @@ UNIT
 		else
 			st_fail wiring-rejects-container-failure-ignoring 'a chain that starts the server regardless of gate failure must be rejected'
 		fi
+		cat >"$wdir/container-tail-bypass.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "npm run verify:startup && exec node dist/server/entry.mjs || true; exec node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-tail-bypass.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-tail-bypass 'PASS a trailing failure bypass after the server start rejected (commands after the server entry token)'
+		else
+			st_fail wiring-rejects-container-tail-bypass 'a payload that relaunches the server after a failed gate must be rejected'
+		fi
+		cat >"$wdir/container-nosep.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "npm run verify:startup node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-nosep.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-no-separator 'PASS a gate invocation with no success separator (server as mere arguments) rejected'
+		else
+			st_fail wiring-rejects-container-no-separator 'arguments masquerading as a chain must be rejected'
+		fi
+		cat >"$wdir/container-overmount.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm -v songhealth-media:/app/media -v decoy-gate:/app/tests localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "npm run verify:startup && exec node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-overmount.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-overmount 'PASS an execution override mounting a destination other than the media target rejected (gate-shadowing defense)'
+		else
+			st_fail wiring-rejects-container-overmount 'an overmount that could shadow the in-container gate identity must be rejected'
+		fi
 		cat >"$wdir/container-echo.unit" <<UNIT
 [Service]
-ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1 sh -c "echo npm run verify:startup; node dist/server/entry.mjs"
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "echo npm run verify:startup; node dist/server/entry.mjs"
 UNIT
 		reason_c="$(gate_wiring_reason "$wdir/container-echo.unit")"
 		if [ -n "$reason_c" ]; then
@@ -2494,7 +2811,7 @@ UNIT
 		fi
 		cat >"$wdir/container-quoted-decoy.unit" <<UNIT
 [Service]
-ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1 sh -c "echo \"npm run verify:startup\"; node dist/server/entry.mjs"
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "echo \"npm run verify:startup\"; node dist/server/entry.mjs"
 UNIT
 		reason_c="$(gate_wiring_reason "$wdir/container-quoted-decoy.unit")"
 		if [ -n "$reason_c" ]; then
@@ -2534,7 +2851,7 @@ UNIT
 		fi
 		cat >"$wdir/container-server-first.unit" <<UNIT
 [Service]
-ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1 sh -c "node dist/server/entry.mjs & npm run verify:startup"
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "node dist/server/entry.mjs & npm run verify:startup"
 UNIT
 		reason_c="$(gate_wiring_reason "$wdir/container-server-first.unit")"
 		if [ -n "$reason_c" ]; then
