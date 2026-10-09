@@ -64,12 +64,19 @@
 #        launches, and command shadowing are rejected; the committed
 #        package.json mapping is validated against the package root
 #        exactly as for the host npm form; occurrences of the gate names
-#        inside quoted strings are inert decoy text and are rejected. The
-#        structural shape alone is not acceptance: the runtime identity
-#        binding (require_container_gate_identity_for_unit) then ties the
-#        pinned digest to the deployed container's ACTUAL image identity
-#        and proves the container's gate script and package.json are
-#        byte-identical to the accepted repository sources. Unprovable or untrusted
+#        inside quoted strings are inert decoy text and are rejected; and
+#        the COMPLETE payload prefix is controlled — shell function
+#        definitions (name() tokens), unquoted command substitution
+#        (backticks or $( )), and cd commands are rejected anywhere outside
+#        quoted strings, so the validated gate/server suffix cannot be
+#        reached through a redirected prefix. The structural shape alone
+#        is not acceptance: the runtime identity binding
+#        (require_container_gate_identity_for_unit, dispatched by the
+#        caller WITHOUT command substitution so the accepted form
+#        propagates) then ties the pinned digest to the deployed
+#        container's ACTUAL image identity and proves the container's gate
+#        script and package.json are byte-identical to the accepted
+#        repository sources. Unprovable or untrusted
 #        executables fail closed; occurrences of the names inside arbitrary
 #        arguments, quoted shell payloads, or comments are rejected; and
 #        (b) COMPLETION — the
@@ -139,15 +146,22 @@
 #        refusal belongs to the current attempted start (scoped by
 #        _SYSTEMD_INVOCATION_ID, with the manager's current InvocationID
 #        still equal to it); ONE refusal record names the required media
-#        attachment as the startup-blocking cause (refusal token AND media
-#        volume name AND mount target on the same line); the application
-#        never reaches Healthy/Ready — the same invocation shows NO T013
-#        gate stage output at all and its main process exited nonzero
-#        (native state; a successful or still-running attempt is not
-#        refusal evidence); every captured unit and journal slice is
-#        secret-checked like the C1 collections; generic failures, split
-#        unrelated lines, stale logs, and simple unreachability are
-#        rejected; and the original media volume remains intact. This evidence is classified
+#        attachment as the startup-blocking cause in the approved guard
+#        structure — the literal volume name, an attachment negation, and
+#        the literal mount target in that order on the same line — so a
+#        generic failure that merely co-occurs with the media identifiers
+#        is rejected; the application never reaches Healthy/Ready — the
+#        same invocation shows NO T013 gate output at all (stage markers
+#        OR the completion banner) and its main process exited nonzero
+#        (native state read as NAMED Key=Value properties in any order,
+#        with the systemd 259 INTEGER ExecMainCode semantics — a
+#        successful or still-running attempt is not refusal evidence, and
+#        the nonzero exit is one component of the combined evidence set,
+#        not a standalone no-healthy proof); every captured unit and
+#        journal slice is secret-checked like the C1 collections; generic
+#        failures, split or same-line unrelated mentions, stale logs, and
+#        simple unreachability are rejected; and the original media volume
+#        remains intact. This evidence is classified
 #        STARTUP REFUSAL, never as a T012 readiness-helper result. Any
 #        ready result (a healthy empty replacement) fails the stage in
 #        either class. The omission is simulated WITHOUT deleting or
@@ -359,11 +373,15 @@ copy and the scratch directory and exits nonzero.
   --self-test  Run isolated failure-path demonstrations of the guarded
                restore/cleanup branches, the missing-attachment readiness
                acceptance (both the T012 result and the STARTUP REFUSAL
-               class), the wiring reasoner (host and in-container forms),
-               and the non-mutation detector, entirely against scratch
-               files under a shimmed systemctl. Touches no real deployment,
-               unit, or Quadlet; exits 0 only when every demonstration
-               passes.
+               class), the wiring reasoner (host and in-container forms
+               with complete-prefix control), the caller dispatch and
+               runtime identity binding, the execution-argv attachment
+               classifier, the refusal-evidence collector (authentic
+               named-property state shapes), and the non-mutation detector,
+               entirely against scratch files under a shimmed systemctl,
+               journalctl, and podman. Touches no real deployment, unit,
+               Quadlet, or container engine; exits 0 only when every
+               demonstration passes.
 
 Exit codes: 0 PASS | 1 FAIL (any stage, including the expected RED
 prerequisite failure while T017–T020 are unimplemented) | 2 environment
@@ -856,8 +874,15 @@ gate_wiring_reason() {
 	# journal marker text alone (which can be fabricated) is never accepted
 	# without it. Kept as a pure reasoner over unit-definition text so the
 	# --self-test demonstrations exercise the identical logic.
-	local unit_file="$1" verdict=''
+	local unit_file="$1" verdict='' out_reason="${2:-}" out_form="${3:-}"
 	WIRING_FORM=''
+	# Optional variable-name arguments (rework r2, finding 1): when given,
+	# the verdict is stored into the CALLER's variables with printf -v
+	# instead of being printed for command substitution - a form assigned
+	# only inside $(...) cannot propagate to the caller, which previously
+	# left the container identity binding permanently skipped. Bare
+	# single-argument calls keep the original print-empty-on-accept
+	# contract used by the self-test reasoner demonstrations.
 	verdict="$(node -e '
 		const fs = require("fs");
 		const path = require("path");
@@ -990,6 +1015,21 @@ gate_wiring_reason() {
 			for (const t of p) {
 				if (t.quoted && /verify:startup|verify-startup/.test(t.text)) return "an occurrence of the gate names inside a quoted string is inert decoy text, not execution";
 			}
+			// Complete-prefix control (rework r2, finding 2): nothing in the
+			// payload may redirect execution away from the accepted commands -
+			// a shell function definition (a name() token, or a bare () token)
+			// shadows npm or node; an unquoted command substitution (backticks
+			// or $( )) can replace any step; a cd changes the working directory
+			// the committed npm mapping relies on. All are rejected anywhere
+			// outside quoted strings, so the validated gate/server suffix
+			// cannot be reached through a redirected prefix.
+			for (let i = 0; i < p.length; i++) {
+				const t = p[i];
+				if (t.quoted) continue;
+				if (/\(\)$/.test(t) || t === "()") return "a shell function definition in the startup payload shadows the accepted commands and is rejected";
+				if (t.includes("`") || t.includes("$(")) return "command substitution in an unquoted startup-payload token can redirect execution and is rejected";
+				if (t === "cd" && (i === 0 || p[i - 1].text === ";" || p[i - 1].text === "&&" || p[i - 1].text === "||")) return "a directory change in the startup payload can redirect gate execution away from the committed mapping working directory and is rejected";
+			}
 			const isGate = (i) => !p[i].quoted && p[i].text === "npm" && p[i + 1] && !p[i + 1].quoted && p[i + 1].text === "run" && p[i + 2] && !p[i + 2].quoted && p[i + 2].text === "verify:startup";
 			const isServer = (i) => !p[i].quoted && p[i].text === "node" && p[i + 1] && !p[i + 1].quoted && p[i + 1].text === "dist/server/entry.mjs";
 			const gatePositions = [];
@@ -1098,15 +1138,30 @@ gate_wiring_reason() {
 	case $verdict in
 	'accept direct' | 'accept mapped' | 'accept container')
 		WIRING_FORM="${verdict#accept }"
-		printf ''
+		if [ -n "$out_form" ]; then
+			printf -v "$out_form" '%s' "${verdict#accept }"
+			printf -v "$out_reason" '%s' ''
+		else
+			printf ''
+		fi
 		return 0
 		;;
 	reject\ ?*)
-		printf '%s' "${verdict#reject }"
+		if [ -n "$out_reason" ]; then
+			printf -v "$out_reason" '%s' "${verdict#reject }"
+			if [ -n "$out_form" ]; then printf -v "$out_form" '%s' ''; fi
+		else
+			printf '%s' "${verdict#reject }"
+		fi
 		return 0
 		;;
 	*)
-		printf 'the gate-wiring validation could not evaluate the effective unit definition (unexpected validator outcome); failing closed'
+		if [ -n "$out_reason" ]; then
+			printf -v "$out_reason" '%s' 'the gate-wiring validation could not evaluate the effective unit definition (unexpected validator outcome); failing closed'
+			if [ -n "$out_form" ]; then printf -v "$out_form" '%s' ''; fi
+		else
+			printf 'the gate-wiring validation could not evaluate the effective unit definition (unexpected validator outcome); failing closed'
+		fi
 		return 0
 		;;
 	esac
@@ -1178,17 +1233,20 @@ require_gate_wiring_for_unit() {
 	if ! file_free_of_secrets "$unit_file"; then
 		fail_stage "$label" 'the captured effective unit definition contains a configured secret value; refusing to continue'
 	fi
-	reason="$(gate_wiring_reason "$unit_file")"
+	local wiring_form=''
+	gate_wiring_reason "$unit_file" reason wiring_form
 	if [ -n "$reason" ]; then
 		fail_stage "$label" '%s' "$reason"
 	fi
 	info "$label" 'the effective unit definition of %s provably invokes the accepted T013 authority as a command token (%s direct / npm or in-container verify:startup mapping validated as the accepted command; form: %s)' \
-		"$APP_UNIT" "$T013_SCRIPT" "$WIRING_FORM"
+		"$APP_UNIT" "$T013_SCRIPT" "$wiring_form"
 	pass "$label" 'T013 startup-gate wiring proven on the effective application unit definition'
 	# For the container form, bind the structural shape proof to the actual
 	# container, the accepted immutable image digest, and the accepted
-	# in-container gate sources (rework r1, finding 1).
-	if [ "$WIRING_FORM" = 'container' ]; then
+	# in-container gate sources (rework r1 finding 1; dispatch made
+	# effective in rework r2 finding 1 - the form is now obtained without
+	# command substitution).
+	if [ "$wiring_form" = 'container' ]; then
 		require_container_gate_identity_for_unit "$label" "$unit_file"
 	fi
 }
@@ -1937,57 +1995,90 @@ lifecycle_cycle() {
 
 classify_effective_media_attachment() {
 	# classify_effective_media_attachment <effective-unit-file>: prints
-	# 'attached', 'omitted', or 'unprovable' (rework r1, finding 3). The
+	# 'attached', 'omitted', or 'unprovable' (introduced rework r1 finding 3;
+	# rewritten in rework r2 finding 3 for faithful argv semantics). The
 	# attachment in a Quadlet-GENERATED service is a podman run execution
-	# argument (-v/--volume/--mount/--tmpfs), never a Volume= line, so the
-	# effective execution argv is what must be inspected. 'attached' when a
-	# recognized option's destination equals the expected media mount
-	# target; 'omitted' when the ExecStart provably parses as a podman run
-	# and no option attaches the target; 'unprovable' when the ExecStart is
-	# absent, is not a parseable podman run, or carries a malformed mount
-	# option — never accepted as omission evidence. Pure text reasoner over
-	# one file so the --self-test demonstrations exercise identical logic.
-	awk -v target="$MEDIA_MOUNT_TARGET" '
-		function dest_of(spec) {
-			if (spec ~ /target=/) {
-				m = split(spec, kv, ",")
-				for (k = 1; k <= m; k++) if (kv[k] ~ /^target=/) return substr(kv[k], 8)
-				return ""
-			}
-			if (index(spec, ":") > 0) {
-				m = split(spec, parts, ":")
-				if (m >= 2) return parts[2]
-				return ""
-			}
-			return spec
+	# argument, so this reasons over the EFFECTIVE ExecStart value with the
+	# same quote-aware, systemd-escape-decoding tokenizer the wiring
+	# reasoner uses: quoted option values stay whole, \xHH escapes DECODE
+	# to their character (so -v songhealth-media:/app/medi\x61 attaches),
+	# the executable and 'run' subcommand are proven at their ACTUAL
+	# leading positions (an /usr/bin/echo decoy that merely mentions podman
+	# is unprovable), mount options are inspected only in the run-option
+	# region before the image/command tail, and systemd ExecStart
+	# override/reset semantics are honored (an empty ExecStart= resets
+	# accumulated entries; the LAST surviving entry is effective).
+	# 'attached' only when a recognized -v/--volume/--mount/--tmpfs option
+	# (space or = form) has the expected media mount target as its
+	# destination; malformed options and unparseable definitions are
+	# 'unprovable' and are NEVER accepted as omission evidence. Pure text
+	# reasoner over one file so the --self-test demonstrations exercise
+	# identical logic.
+	local unit_file="$1"
+	node -e '
+		const fs = require("fs");
+		const target = process.argv[2];
+		let text;
+		try { text = fs.readFileSync(process.argv[1], "utf8"); } catch { process.stdout.write("unprovable\n"); process.exit(0); }
+		let effective = null;
+		for (const line of text.split("\n")) {
+			if (!/^ExecStart=/.test(line)) continue;
+			const value = line.slice("ExecStart=".length);
+			if (value.trim() === "") { effective = null; continue; }
+			effective = value;
 		}
-		/^ExecStart=/ {
-			line = substr($0, index($0, "=") + 1)
-			gsub(/\\x[0-9a-f][0-9a-f]/, " ", line)
-			n = split(line, t, /[ \t]+/)
-			isrun = 0
-			for (i = 1; i < n; i++) if (t[i] ~ /(^|\/)podman$/ && t[i + 1] == "run") isrun = 1
-			if (!isrun) { print "unprovable"; exit }
-			attached = 0; malformed = 0
-			for (i = 1; i <= n; i++) {
-				spec = ""
-				if (t[i] == "-v" || t[i] == "--volume" || t[i] == "--mount" || t[i] == "--tmpfs") {
-					if (i < n) spec = t[i + 1]; else { malformed = 1; continue }
-				} else if (t[i] ~ /^--volume=/) spec = substr(t[i], 10)
-				else if (t[i] ~ /^--mount=/) spec = substr(t[i], 8)
-				else if (t[i] ~ /^--tmpfs=/) spec = substr(t[i], 9)
-				if (spec == "") continue
-				dst = dest_of(spec)
-				if (dst == "") { malformed = 1; continue }
-				if (dst == target) attached = 1
+		if (effective === null) { process.stdout.write("unprovable\n"); process.exit(0); }
+		const tokens = [];
+		let current = "", has = false, quoted = false;
+		for (let i = 0; i < effective.length; i++) {
+			const ch = effective[i];
+			if (ch === "\\") {
+				if (i + 1 < effective.length) {
+					if (effective[i + 1] === "x" && i + 3 < effective.length && /^[0-9a-f]{2}$/.test(effective.slice(i + 2, i + 4))) {
+						current += String.fromCharCode(parseInt(effective.slice(i + 2, i + 4), 16));
+						i += 3;
+					} else { current += effective[i + 1]; i++; }
+					has = true;
+				}
+				continue;
 			}
-			if (attached) { print "attached"; exit }
-			if (malformed) { print "unprovable"; exit }
-			print "omitted"; exit
+			if (ch === "\"") { quoted = !quoted; has = true; continue; }
+			if (!quoted && /\s/.test(ch)) {
+				if (has) { tokens.push(current); current = ""; has = false; }
+				continue;
+			}
+			current += ch;
+			has = true;
 		}
-	' "$1"
-	# No ExecStart line at all -> awk printed nothing -> the caller treats
-	# empty output as unprovable.
+		if (has) tokens.push(current);
+		if (!(tokens.length >= 2 && /(^|\/)podman$/.test(tokens[0]) && tokens[1] === "run")) { process.stdout.write("unprovable\n"); process.exit(0); }
+		let end = tokens.length;
+		if (tokens.length >= 3 && tokens[tokens.length - 3] === "sh" && tokens[tokens.length - 2] === "-c") end = tokens.length - 3;
+		const destinationOf = (spec) => {
+			if (spec.includes("target=")) {
+				for (const kv of spec.split(",")) if (kv.startsWith("target=")) return kv.slice("target=".length);
+				return null;
+			}
+			if (spec.includes(":")) { const parts = spec.split(":"); return parts.length >= 2 ? parts[1] : null; }
+			return spec;
+		};
+		let attached = false, malformed = false;
+		for (let i = 2; i < end; i++) {
+			let spec = null;
+			const t = tokens[i];
+			if (t === "-v" || t === "--volume" || t === "--mount" || t === "--tmpfs") { if (i + 1 < end) spec = tokens[i + 1]; else { malformed = true; continue; } }
+			else if (t.startsWith("--volume=")) spec = t.slice("--volume=".length);
+			else if (t.startsWith("--mount=")) spec = t.slice("--mount=".length);
+			else if (t.startsWith("--tmpfs=")) spec = t.slice("--tmpfs=".length);
+			if (spec === null) continue;
+			const dst = destinationOf(spec);
+			if (dst === null || dst === "") { malformed = true; continue; }
+			if (dst === target) attached = true;
+		}
+		if (attached) { process.stdout.write("attached\n"); process.exit(0); }
+		if (malformed) { process.stdout.write("unprovable\n"); process.exit(0); }
+		process.stdout.write("omitted\n");
+	' "$unit_file" "$MEDIA_MOUNT_TARGET" 2>/dev/null || printf 'unprovable\n'
 }
 
 collect_startup_refusal_evidence() {
@@ -2007,12 +2098,18 @@ collect_startup_refusal_evidence() {
 	#      nothing; 'attached' or 'unprovable' never yields acceptance;
 	#   3. the current invocation's journal slice is captured and
 	#      secret-free;
-	#   4. the attempted start is specifically a pre-server refusal with no
-	#      Healthy/Ready acceptance, proven from native state: the manager's
-	#      CURRENT InvocationID still equals the scoped invocation (stale or
-	#      changed context rejected) and that invocation's main process
-	#      EXITED NONZERO (the guard's refusal exit) — a successful exit, a
-	#      still-running attempt, or absent state is not refusal evidence.
+	#   4. the attempted start carries native state CONSISTENT with a
+	#      pre-server refusal and no Healthy/Ready acceptance, taken
+	#      together with the slice's complete absence of gate output: the
+	#      manager's CURRENT InvocationID still equals the scoped invocation
+	#      (stale or changed context rejected) and that invocation's main
+	#      process exited nonzero (the guard's refusal exit). A nonzero
+	#      final exit alone is not represented as proof of no earlier
+	#      Healthy/Ready acceptance — it is one component of the combined
+	#      evidence set (invocation consistency + nonzero exit + zero gate
+	#      output in the scoped slice, checked by the reasoner); a
+	#      successful exit, a still-running attempt, or absent state is not
+	#      refusal evidence.
 	REFUSAL_STATE=''
 	local inv='' unit_file journal_file classification='' show='' s_inv='' s_code='' s_status=''
 	unit_file="$TMP_DIR/unit-omitted-effective.txt"
@@ -2038,20 +2135,33 @@ collect_startup_refusal_evidence() {
 	if ! file_free_of_secrets "$journal_file"; then
 		fail_stage C7 'the captured refusal journal contains a configured secret value; refusing to continue'
 	fi
-	show="$(systemctl --user show "$APP_UNIT" -p InvocationID --value -p ExecMainCode --value -p ExecMainStatus --value 2>/dev/null || true)"
-	s_inv="$(printf '%s\n' "$show" | sed -n '1p')"
-	s_code="$(printf '%s\n' "$show" | sed -n '2p')"
-	s_status="$(printf '%s\n' "$show" | sed -n '3p')"
+	# Named-property parsing (rework r2, finding 5): systemctl show does not
+	# guarantee the requested property order across releases, and systemd
+	# 259 prints ExecMainCode as an INTEGER (1 = exited; see the v259
+	# property mapping and bus-print integer printer), not the word
+	# 'exited'. Parse Key=Value lines BY NAME and validate the numeric exit
+	# semantics: ExecMainCode must be exited (integer 1; the legacy string
+	# form is still tolerated) and ExecMainStatus must be numeric and
+	# nonzero (the guard's refusal exit). A successful exit, a non-numeric
+	# status, or absent properties are not refusal evidence.
+	show="$(systemctl --user show "$APP_UNIT" -p InvocationID -p ExecMainCode -p ExecMainStatus 2>/dev/null || true)"
+	s_inv="$(printf '%s\n' "$show" | awk -F= '$1=="InvocationID"{print substr($0, index($0, "=") + 1)}')"
+	s_code="$(printf '%s\n' "$show" | awk -F= '$1=="ExecMainCode"{print substr($0, index($0, "=") + 1)}')"
+	s_status="$(printf '%s\n' "$show" | awk -F= '$1=="ExecMainStatus"{print substr($0, index($0, "=") + 1)}')"
 	if [ -z "$s_inv" ] || [ -z "$s_code" ] || [ -z "$s_status" ]; then
 		return 0
 	fi
 	if [ "$s_inv" != "$inv" ]; then
 		return 0
 	fi
-	if [ "$s_code" != 'exited' ]; then
-		return 0
-	fi
-	if [ "$s_status" = '0' ]; then
+	case $s_code in
+	1 | exited) ;;
+	*) return 0 ;;
+	esac
+	case $s_status in
+	*[!0-9]* | '') return 0 ;;
+	esac
+	if [ "$s_status" -eq 0 ]; then
 		return 0
 	fi
 	REFUSAL_STATE='verified-omission'
@@ -2092,19 +2202,27 @@ c7_negative_result_reason() {
 			return 0
 		fi
 		# The refusal record must be ONE line that structurally matches the
-		# approved guard diagnostic: the refusal token AND the literal media
-		# volume name AND the literal mount target on the SAME line, naming
-		# the missing media attachment as the startup-blocking cause. Two
-		# unrelated lines (a media mention plus a generic failure elsewhere)
-		# are not a refusal record.
+		# approved guard diagnostic: after the literal media volume name and
+		# BEFORE the literal mount target there must be an attachment-negation
+		# (not attached / not mounted / missing / absent) — the guard's
+		# "volume <V> is not attached at <T>" clause — and the line must
+		# carry the refusal. Mere co-occurrence of a media mention with an
+		# unrelated failure (same line or split lines) does not make media
+		# absence the startup-blocking cause and is rejected.
 		if ! awk -v v="$MEDIA_VOLUME" -v t="$MEDIA_MOUNT_TARGET" '
 			{
 				l = tolower($0)
-				if ((l ~ /not attached/ || l ~ /refus/) && index(l, tolower(v)) > 0 && index(l, tolower(t)) > 0) { found = 1; exit }
+				lv = tolower(v); lt = tolower(t)
+				iv = index(l, lv)
+				if (iv == 0) next
+				it = index(l, lt)
+				if (it == 0 || it <= iv) next
+				seg = substr(l, iv + length(lv), it - iv - length(lv))
+				if (seg ~ /not attached|not mounted|missing|absent/ && l ~ /refus|not attached|not mounted|missing|absent/) { found = 1; exit }
 			}
 			END { exit found ? 0 : 1 }
 		' "$refusal_file"; then
-			printf 'no single invocation-scoped refusal record identifies the required media attachment as the startup-blocking cause (volume name AND mount target AND the refusal on one line; readiness state: %s) — unrelated media mentions, generic failures, and stale logs are not substitutes' \
+			printf 'no single invocation-scoped refusal record identifies the required media attachment as the startup-blocking cause (the approved structure names the volume, negates its attachment, and names the mount target on one line; readiness state: %s) — unrelated media mentions, generic failures, and stale logs are not substitutes' \
 				"$READINESS_STATE"
 			return 0
 		fi
@@ -2113,8 +2231,8 @@ c7_negative_result_reason() {
 		# refusal (the guard runs before the gate), not merely the final
 		# banner; native no-healthy state is separately established by the
 		# collector from the invocation's nonzero main-process exit.
-		if grep -qE 't013: \[S[0-9]+\]' "$refusal_file"; then
-			printf 'the current invocation also contains T013 gate stage output, contradicting a pre-server startup refusal (stale or contradictory evidence rejected; readiness state: %s)' \
+		if grep -qE 't013: \[S[0-9]+\]' "$refusal_file" || grep -qF "$GATE_BANNER" "$refusal_file"; then
+			printf 'the current invocation also contains T013 gate output (a stage marker or the completion banner), contradicting a pre-server startup refusal (stale or contradictory evidence rejected; readiness state: %s)' \
 				"$READINESS_STATE"
 			return 0
 		fi
@@ -2306,14 +2424,63 @@ self_test() {
 
 	# systemctl shim: records every invocation and succeeds, so the restore
 	# branches never touch the real user systemd manager during the
-	# self-test.
+	# self-test. It also serves optional fixture files (rework r2): a
+	# captured effective unit for `--user cat`, sequenced InvocationID
+	# values for single-property --value queries (simulating fresh or
+	# changed invocations), and a named-property show payload for the
+	# multi-property state query. journalctl and podman shims serve the
+	# collector/refusal and identity-binding demonstrations the same way —
+	# no real runtime manager, journal, or container engine is ever
+	# invoked by the self-test.
 	mkdir -p "$ST_ROOT/bin"
 	cat >"$ST_ROOT/bin/systemctl" <<SHIM
 #!/usr/bin/env bash
 printf '%s\n' "\$*" >>'$ST_ROOT/systemctl.log'
+case " \$* " in
+*' --user cat '*)
+	[ -f '$ST_ROOT/fx-unit' ] && cat '$ST_ROOT/fx-unit'
+	exit 0
+	;;
+*' --value '*)
+	if [ -f '$ST_ROOT/fx-inv' ]; then
+		n='\$(cat '$ST_ROOT/fx-inv-count' 2>/dev/null || printf 0)'
+		n=\$((n + 1))
+		printf '%s' "\$n" >'$ST_ROOT/fx-inv-count'
+		sed -n "\${n}p" '$ST_ROOT/fx-inv'
+	fi
+	exit 0
+	;;
+*' show '*)
+	[ -f '$ST_ROOT/fx-show' ] && cat '$ST_ROOT/fx-show'
+	exit 0
+	;;
+esac
 exit 0
 SHIM
 	chmod +x "$ST_ROOT/bin/systemctl"
+	cat >"$ST_ROOT/bin/journalctl" <<SHIM
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>'$ST_ROOT/journalctl.log'
+[ -f '$ST_ROOT/fx-journal' ] && cat '$ST_ROOT/fx-journal'
+exit 0
+SHIM
+	chmod +x "$ST_ROOT/bin/journalctl"
+	cat >"$ST_ROOT/bin/podman" <<SHIM
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>'$ST_ROOT/podman.log'
+case " \$* " in
+*' container inspect '*)
+	[ -f '$ST_ROOT/fx-podman-image' ] && cat '$ST_ROOT/fx-podman-image'
+	exit 0
+	;;
+*' sha256sum '*)
+	[ -f '$ST_ROOT/fx-podman-sums' ] && cat '$ST_ROOT/fx-podman-sums'
+	exit 0
+	;;
+esac
+exit 0
+SHIM
+	chmod +x "$ST_ROOT/bin/podman"
 	PATH="$ST_ROOT/bin:$PATH"
 	APP_UNIT='t016-selftest-absent.service'
 
@@ -2477,6 +2644,23 @@ SHIM
 	else
 		st_fail reasoner-rejects-split-line-refusal 'a media mention plus an unrelated failure must not compose a refusal record'
 	fi
+	printf 'songhealth-app: database connection refused; media settings: songhealth-media /app/media\n' >"$rj"
+	reason_r="$(c7_negative_result_reason "$out" "$rj")"
+	if [ -n "$reason_r" ]; then
+		st_case reasoner-rejects-same-line-unrelated 'PASS a same-line generic failure that merely mentions the media identifiers rejected (media absence must be the blocking cause)'
+	else
+		st_fail reasoner-rejects-same-line-unrelated 'co-occurrence of media identifiers with an unrelated failure must be rejected'
+	fi
+	{
+		printf 'songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start\n'
+		printf 't013: T013 startup acceptance gate: PASS\n'
+	} >"$rj"
+	reason_r="$(c7_negative_result_reason "$out" "$rj")"
+	if [ -n "$reason_r" ]; then
+		st_case reasoner-rejects-refusal-with-banner-only 'PASS a refusal slice containing only the completion banner (no stage markers) rejected'
+	else
+		st_fail reasoner-rejects-refusal-with-banner-only 'the completion banner alone must still contradict a pre-server refusal'
+	fi
 	REFUSAL_STATE=''
 	printf 'songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start\n' >"$rj"
 	reason_r="$(c7_negative_result_reason "$out" "$rj")"
@@ -2538,6 +2722,124 @@ UNIT
 	else
 		st_fail classify-unprovable-absent "expected unprovable/empty, got: $cls"
 	fi
+	cat >"$cdir/quoted-attach.service" <<'UNIT'
+[Service]
+ExecStart=/usr/bin/podman run --name systemd-%N --rm -v "songhealth-media:/app/media" localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"
+UNIT
+	cls="$(classify_effective_media_attachment "$cdir/quoted-attach.service")"
+	if [ "$cls" = 'attached' ]; then
+		st_case classify-attached-quoted 'PASS a QUOTED -v option value kept whole by the faithful tokenizer classified attached'
+	else
+		st_fail classify-attached-quoted "expected attached, got: $cls"
+	fi
+	cat >"$cdir/escaped-attach.service" <<'UNIT'
+[Service]
+ExecStart=/usr/bin/podman run --name systemd-%N --rm -v songhealth-media:/app/medi\x61 localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"
+UNIT
+	cls="$(classify_effective_media_attachment "$cdir/escaped-attach.service")"
+	if [ "$cls" = 'attached' ]; then
+		st_case classify-attached-escaped 'PASS a systemd \xHH-escaped destination DECODED to the media target classified attached'
+	else
+		st_fail classify-attached-escaped "expected attached, got: $cls"
+	fi
+	cat >"$cdir/echo-decoy.service" <<'UNIT'
+[Service]
+ExecStart=/usr/bin/echo /usr/bin/podman run --name systemd-%N --rm -v songhealth-media:/app/media
+UNIT
+	cls="$(classify_effective_media_attachment "$cdir/echo-decoy.service")"
+	if [ "$cls" = 'unprovable' ]; then
+		st_case classify-decoy-argv 'PASS an echo argv that merely mentions podman run classified unprovable (positional executable proof)'
+	else
+		st_fail classify-decoy-argv "expected unprovable, got: $cls"
+	fi
+	cat >"$cdir/malformed.service" <<'UNIT'
+[Service]
+ExecStart=/usr/bin/podman run --name systemd-%N --rm -v
+UNIT
+	cls="$(classify_effective_media_attachment "$cdir/malformed.service")"
+	if [ "$cls" = 'unprovable' ]; then
+		st_case classify-malformed-option 'PASS a dangling -v with no value classified unprovable (never omission evidence)'
+	else
+		st_fail classify-malformed-option "expected unprovable, got: $cls"
+	fi
+	{
+		printf '[Service]\n'
+		printf 'ExecStart=/usr/bin/podman run --name systemd-%N --rm -v songhealth-media:/app/media localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"\n'
+		printf 'ExecStart=\n'
+		printf 'ExecStart=/usr/bin/podman run --name systemd-%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"\n'
+	} >"$cdir/reset-then-real.service"
+	cls="$(classify_effective_media_attachment "$cdir/reset-then-real.service")"
+	if [ "$cls" = 'omitted' ]; then
+		st_case classify-reset-then-real 'PASS an ExecStart= reset honored: the LAST surviving entry (no attachment) classified omitted'
+	else
+		st_fail classify-reset-then-real "expected omitted, got: $cls"
+	fi
+	{
+		printf '[Service]\n'
+		printf 'ExecStart=/usr/bin/podman run --name systemd-%N --rm -v songhealth-media:/app/media localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"\n'
+		printf 'ExecStart=\n'
+	} >"$cdir/reset-only.service"
+	cls="$(classify_effective_media_attachment "$cdir/reset-only.service")"
+	if [ -z "$cls" ] || [ "$cls" = 'unprovable' ]; then
+		st_case classify-reset-only 'PASS a lone ExecStart= reset (no effective command) classified unprovable (never omission evidence)'
+	else
+		st_fail classify-reset-only "expected unprovable/empty, got: $cls"
+	fi
+
+	# Collector state-collection demonstrations (rework r2, finding 5),
+	# entirely through the shimmed systemctl/journalctl with authentic
+	# Key=Value property shapes: named parsing must tolerate ANY property
+	# order, accept the systemd-259 integer ExecMainCode (1) and the legacy
+	# string form, reject stale invocation context, reject successful
+	# exits, and complete only with the full evidence set.
+	local saved_tmp="$TMP_DIR" refused='' props=''
+	TMP_DIR="$ST_ROOT/collector-tmp"
+	mkdir -p "$TMP_DIR"
+	cp "$cdir/omitted.service" "$ST_ROOT/fx-unit"
+	printf 'songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start\n' >"$ST_ROOT/fx-journal"
+	for props in \
+		'ExecMainStatus=1\nInvocationID=inv-9\nExecMainCode=1' \
+		'ExecMainCode=1\nExecMainStatus=1\nInvocationID=inv-9' \
+		'ExecMainCode=exited\nInvocationID=inv-9\nExecMainStatus=1'; do
+		printf '%b\n' "$props" >"$ST_ROOT/fx-show"
+		printf 'inv-9\n' >"$ST_ROOT/fx-inv"
+		: >"$ST_ROOT/fx-inv-count"
+		REFUSAL_STATE=''
+		collect_startup_refusal_evidence
+		if [ "$REFUSAL_STATE" = 'verified-omission' ]; then
+			refused='yes'
+		else
+			refused='no'
+			break
+		fi
+	done
+	if [ "$refused" = 'yes' ]; then
+		st_case collector-accepts-authentic-state 'PASS the collector verified the omission evidence from named properties in any order, integer and legacy ExecMainCode forms, nonzero status'
+	else
+		st_fail collector-accepts-authentic-state 'the collector must accept authentic state shapes for a genuine refusal attempt'
+	fi
+	printf 'inv-1\ninv-2\n' >"$ST_ROOT/fx-inv"
+	: >"$ST_ROOT/fx-inv-count"
+	printf 'ExecMainCode=1\nInvocationID=inv-2\nExecMainStatus=1\n' >"$ST_ROOT/fx-show"
+	REFUSAL_STATE=''
+	collect_startup_refusal_evidence
+	if [ -z "$REFUSAL_STATE" ]; then
+		st_case collector-rejects-stale-invocation 'PASS a changed invocation context between capture and state query rejected'
+	else
+		st_fail collector-rejects-stale-invocation 'a stale/changed invocation must not produce refusal evidence'
+	fi
+	printf 'inv-9\n' >"$ST_ROOT/fx-inv"
+	: >"$ST_ROOT/fx-inv-count"
+	printf 'ExecMainCode=1\nInvocationID=inv-9\nExecMainStatus=0\n' >"$ST_ROOT/fx-show"
+	REFUSAL_STATE=''
+	collect_startup_refusal_evidence
+	if [ -z "$REFUSAL_STATE" ]; then
+		st_case collector-rejects-success-exit 'PASS a successful (zero) main-process exit rejected as refusal evidence'
+	else
+		st_fail collector-rejects-success-exit 'a zero exit is not a refusal exit and must be rejected'
+	fi
+	rm -f "$ST_ROOT/fx-unit" "$ST_ROOT/fx-show" "$ST_ROOT/fx-inv" "$ST_ROOT/fx-inv-count" "$ST_ROOT/fx-journal"
+	TMP_DIR="$saved_tmp"
 
 	# Case 7 — the strengthened non-mutation detector catches the prohibited
 	# probe classes the old path/size/mtime-only hash missed.
@@ -2739,15 +3041,29 @@ UNIT
 		}
 	')"
 	if [ -n "$trusted_podman_path" ]; then
-		cat >"$wdir/container-ok.unit" <<UNIT
+		# (rework r2, finding 6) The fixture is written through a QUOTED heredoc
+		# so the payload's 42 backticks and $q$ expressions survive as literal
+		# data (an unquoted heredoc would perform command/variable substitution
+		# and abort under set -u on the unset q); the trusted runner path is
+		# injected afterwards by placeholder substitution that never evaluates
+		# the payload, and the byte-preservation case below proves no expansion
+		# happened at construction.
+		cat >"$wdir/container-ok.unit" <<'UNIT'
 [Service]
-ExecStart=${trusted_podman_path} run --name systemd-%N --replace --rm -v songhealth-media:/app/media --publish 127.0.0.1:4321:4321 localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "grep -q ' /app/media ' /proc/mounts || { echo songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start >&2; exit 1; }; test -r /app/media/.songhealth-media-store || { echo songhealth-app: operator-managed existing media store marker .songhealth-media-store is missing at /app/media - the persistent store was not provisioned or has been replaced - refusing to start >&2; exit 1; }; IFS= read -r EMDASH_MIGRATION_DATABASE_URL </run/secrets/songhealth-migration-database-url; IFS= read -r EMDASH_ENCRYPTION_KEY </run/secrets/songhealth-encryption-key; export EMDASH_MIGRATION_DATABASE_URL EMDASH_ENCRYPTION_KEY; node -e 'const pg=require(`pg`);const c=new pg.Client({host:process.env.PGHOST,port:Number(process.env.PGPORT),database:process.env.PGDATABASE,user:process.env.PGUSER,password:process.env.PGPASSWORD,connectionTimeoutMillis:5000,query_timeout:5000});const fail=m=>{console.error(`songhealth-app: `+m);process.exit(1)};(async()=>{await c.connect();const r=await c.query(`select rolsuper s,rolcreatedb cd,rolcreaterole cr,has_database_privilege(current_user,current_database(),$q$CONNECT$q$) dbc,has_schema_privilege(current_user,$q$public$q$,$q$USAGE$q$) su,has_schema_privilege(current_user,$q$public$q$,$q$CREATE$q$) sc from pg_roles where rolname=current_user`);const b=r.rows[0];if(!b)fail(`least-privilege application-role prerequisite failed: the connecting role has no pg_roles row`);if(b.s)fail(`least-privilege application-role prerequisite failed: the connecting role is SUPERUSER - the bootstrap administrator is not the application identity`);if(b.cd)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEDB`);if(b.cr)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEROLE`);if(!b.dbc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CONNECT on the target database`);if(!b.su)fail(`least-privilege application-role prerequisite failed: the connecting role lacks USAGE on schema public`);if(!b.sc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CREATE on schema public`);const o=await c.query(`select case c.relkind when $q$S$q$ then $q$sequence$q$ else $q$table$q$ end kind,c.relname obj,pg_has_role(current_user,c.relowner,$q$USAGE$q$) owned,case c.relkind when $q$S$q$ then has_sequence_privilege(current_user,c.oid,$q$SELECT$q$) and has_sequence_privilege(current_user,c.oid,$q$USAGE$q$) and has_sequence_privilege(current_user,c.oid,$q$UPDATE$q$) else has_table_privilege(current_user,c.oid,$q$SELECT$q$) and has_table_privilege(current_user,c.oid,$q$INSERT$q$) and has_table_privilege(current_user,c.oid,$q$UPDATE$q$) and has_table_privilege(current_user,c.oid,$q$DELETE$q$) end dml from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind in ($q$r$q$,$q$p$q$,$q$S$q$) and n.nspname=$q$public$q$`);await c.end();for(const x of o.rows){const p=[];if(!x.owned)p.push(`not owned by the connecting role directly or through role membership`);if(!x.dml)p.push(`lacking effective required DML privileges`);if(p.length>0)fail(`least-privilege application-role prerequisite failed: existing EmDash `+x.kind+` `+x.obj+` in schema public is `+p.join(` and `))}console.error(`songhealth-app: least-privilege application-role prerequisite verified: non-superuser, no CREATEDB, no CREATEROLE, database CONNECT, schema public USAGE and CREATE, and `+o.rows.length+` existing EmDash relation(s) in schema public pass required ownership (direct or inherited) and full DML verification`)})().catch(e=>fail(`least-privilege application-role prerequisite failed: `+((e&&e.code)||`error`)))' && npm run verify:startup && HOST=0.0.0.0 exec node dist/server/entry.mjs"
+ExecStart=__T016_TRUSTED_PODMAN__ run --name systemd-%N --replace --rm -v songhealth-media:/app/media --publish 127.0.0.1:4321:4321 localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "grep -q ' /app/media ' /proc/mounts || { echo songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start >&2; exit 1; }; test -r /app/media/.songhealth-media-store || { echo songhealth-app: operator-managed existing media store marker .songhealth-media-store is missing at /app/media - the persistent store was not provisioned or has been replaced - refusing to start >&2; exit 1; }; IFS= read -r EMDASH_MIGRATION_DATABASE_URL </run/secrets/songhealth-migration-database-url; IFS= read -r EMDASH_ENCRYPTION_KEY </run/secrets/songhealth-encryption-key; export EMDASH_MIGRATION_DATABASE_URL EMDASH_ENCRYPTION_KEY; node -e 'const pg=require(`pg`);const c=new pg.Client({host:process.env.PGHOST,port:Number(process.env.PGPORT),database:process.env.PGDATABASE,user:process.env.PGUSER,password:process.env.PGPASSWORD,connectionTimeoutMillis:5000,query_timeout:5000});const fail=m=>{console.error(`songhealth-app: `+m);process.exit(1)};(async()=>{await c.connect();const r=await c.query(`select rolsuper s,rolcreatedb cd,rolcreaterole cr,has_database_privilege(current_user,current_database(),$q$CONNECT$q$) dbc,has_schema_privilege(current_user,$q$public$q$,$q$USAGE$q$) su,has_schema_privilege(current_user,$q$public$q$,$q$CREATE$q$) sc from pg_roles where rolname=current_user`);const b=r.rows[0];if(!b)fail(`least-privilege application-role prerequisite failed: the connecting role has no pg_roles row`);if(b.s)fail(`least-privilege application-role prerequisite failed: the connecting role is SUPERUSER - the bootstrap administrator is not the application identity`);if(b.cd)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEDB`);if(b.cr)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEROLE`);if(!b.dbc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CONNECT on the target database`);if(!b.su)fail(`least-privilege application-role prerequisite failed: the connecting role lacks USAGE on schema public`);if(!b.sc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CREATE on schema public`);const o=await c.query(`select case c.relkind when $q$S$q$ then $q$sequence$q$ else $q$table$q$ end kind,c.relname obj,pg_has_role(current_user,c.relowner,$q$USAGE$q$) owned,case c.relkind when $q$S$q$ then has_sequence_privilege(current_user,c.oid,$q$SELECT$q$) and has_sequence_privilege(current_user,c.oid,$q$USAGE$q$) and has_sequence_privilege(current_user,c.oid,$q$UPDATE$q$) else has_table_privilege(current_user,c.oid,$q$SELECT$q$) and has_table_privilege(current_user,c.oid,$q$INSERT$q$) and has_table_privilege(current_user,c.oid,$q$UPDATE$q$) and has_table_privilege(current_user,c.oid,$q$DELETE$q$) end dml from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind in ($q$r$q$,$q$p$q$,$q$S$q$) and n.nspname=$q$public$q$`);await c.end();for(const x of o.rows){const p=[];if(!x.owned)p.push(`not owned by the connecting role directly or through role membership`);if(!x.dml)p.push(`lacking effective required DML privileges`);if(p.length>0)fail(`least-privilege application-role prerequisite failed: existing EmDash `+x.kind+` `+x.obj+` in schema public is `+p.join(` and `))}console.error(`songhealth-app: least-privilege application-role prerequisite verified: non-superuser, no CREATEDB, no CREATEROLE, database CONNECT, schema public USAGE and CREATE, and `+o.rows.length+` existing EmDash relation(s) in schema public pass required ownership (direct or inherited) and full DML verification`)})().catch(e=>fail(`least-privilege application-role prerequisite failed: `+((e&&e.code)||`error`)))' && npm run verify:startup && HOST=0.0.0.0 exec node dist/server/entry.mjs"
 UNIT
+		sed -i "s|__T016_TRUSTED_PODMAN__|${trusted_podman_path}|" "$wdir/container-ok.unit"
 		reason_c="$(gate_wiring_reason "$wdir/container-ok.unit")"
 		if [ -z "$reason_c" ]; then
 			st_case wiring-accepts-container 'PASS the full current T020 startup payload accepted (trusted runner, digest-pinned intended image, complete gate-before-server control flow)'
 		else
 			st_fail wiring-accepts-container "must accept the approved full container invocation: $reason_c"
+		fi
+		if grep -qF 'q$CONNECT$q$' "$wdir/container-ok.unit" && \
+			[ "$(awk 'BEGIN{r=0} {r+=gsub(/`/,"`")} END{print r+0}' "$wdir/container-ok.unit")" -ge 40 ]; then
+			st_case wiring-fixture-byte-preserved 'PASS the full-payload fixture preserved the literal node/SQL text (no substitution at construction)'
+		else
+			st_fail wiring-fixture-byte-preserved 'the fixture payload must be byte-preserved (backticks and $q$ literals intact)'
 		fi
 		cat >"$wdir/container-tag.unit" <<UNIT
 [Service]
@@ -2789,6 +3105,75 @@ UNIT
 		else
 			st_fail wiring-rejects-container-no-separator 'arguments masquerading as a chain must be rejected'
 		fi
+		cat >"$wdir/container-fn-shadow.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "npm() { return 0; }; npm run verify:startup && exec node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-fn-shadow.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-fn-shadow 'PASS a shell function definition shadowing npm rejected (complete-prefix control)'
+		else
+			st_fail wiring-rejects-container-fn-shadow 'a function definition that neutralizes the gate must be rejected'
+		fi
+		cat >"$wdir/container-cd.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "cd /tmp; npm run verify:startup && exec node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-cd.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-cd 'PASS a directory change before the gate rejected (working-directory redirect)'
+		else
+			st_fail wiring-rejects-container-cd 'a cd prefix that redirects gate execution must be rejected'
+		fi
+		cat >"$wdir/container-subst.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "X=\`cat /etc/hostname\`; npm run verify:startup && exec node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-subst.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-substitution 'PASS an unquoted command substitution in the prefix rejected'
+		else
+			st_fail wiring-rejects-container-substitution 'unquoted command substitution can redirect execution and must be rejected'
+		fi
+
+	# Caller-dispatch demonstrations (rework r2, finding 1): the accepted
+	# wiring FORM must survive into the caller and actually dispatch the
+	# runtime identity binding for the container form — matching identity
+	# completes, mismatching identity fails closed — through the shimmed
+	# podman, never a real engine.
+	cp "$wdir/container-ok.unit" "$ST_ROOT/fx-unit"
+	printf '%s\n' 'localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407' >"$ST_ROOT/fx-podman-image"
+	sha256sum "$ROOT/tests/operations/verify-startup.sh" | awk '{print $1 "  /app/tests/operations/verify-startup.sh"}' >"$ST_ROOT/fx-podman-sums"
+	sha256sum "$ROOT/package.json" | awk '{print $1 "  /app/package.json"}' >>"$ST_ROOT/fx-podman-sums"
+	: >"$ST_ROOT/podman.log"
+	local dispatch_rc=0
+	require_gate_wiring_for_unit C1-dispatch >/dev/null 2>"$ST_ROOT/dispatch.err" || dispatch_rc=$?
+	if [ "$dispatch_rc" -eq 0 ] &&
+		grep -q 'container inspect' "$ST_ROOT/podman.log" &&
+		grep -q 'sha256sum /app/tests/operations/verify-startup.sh' "$ST_ROOT/podman.log"; then
+		st_case dispatch-container-identity-matching 'PASS the container form dispatched the runtime identity binding (actual image identity + in-container source digests verified, matching)'
+	else
+		st_fail dispatch-container-identity-matching "the dispatch must run and verify matching identities (rc=$dispatch_rc)"
+	fi
+	printf '%s\n' 'localhost/songhealth-app:0.0.1@sha256:1111111111111111111111111111111111111111111111111111111111111111' >"$ST_ROOT/fx-podman-image"
+	dispatch_rc=0
+	require_gate_wiring_for_unit C1-mismatch >/dev/null 2>"$ST_ROOT/dispatch.err" || dispatch_rc=$?
+	if [ "$dispatch_rc" -ne 0 ] && grep -q 'does not equal the effective unit pinned identity' "$ST_ROOT/dispatch.err"; then
+		st_case dispatch-container-identity-mismatch 'PASS a mismatching deployed image identity fails the stage closed through the dispatched binding'
+	else
+		st_fail dispatch-container-identity-mismatch "the dispatch must fail closed on identity mismatch (rc=$dispatch_rc)"
+	fi
+	# A host-form unit must NOT trigger the container identity dispatch.
+	cp "$wdir/direct.unit" "$ST_ROOT/fx-unit"
+	: >"$ST_ROOT/podman.log"
+	dispatch_rc=0
+	require_gate_wiring_for_unit C1-hostform >/dev/null 2>&1 || dispatch_rc=$?
+	if [ ! -s "$ST_ROOT/podman.log" ]; then
+		st_case dispatch-host-form-no-binding 'PASS the host form does not dispatch the container identity binding'
+	else
+		st_fail dispatch-host-form-no-binding 'the identity binding must not run for host-form wiring'
+	fi
+	rm -f "$ST_ROOT/fx-unit" "$ST_ROOT/fx-podman-image" "$ST_ROOT/fx-podman-sums"
 		cat >"$wdir/container-overmount.unit" <<UNIT
 [Service]
 ExecStart=${trusted_podman_path} run --name systemd-%N --rm -v songhealth-media:/app/media -v decoy-gate:/app/tests localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "npm run verify:startup && exec node dist/server/entry.mjs"
