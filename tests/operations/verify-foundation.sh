@@ -33,19 +33,35 @@
 #        Execution is tied to the accepted authority by TWO combined live
 #        proofs: (a) WIRING — the unit's effective startup definition
 #        (systemctl --user cat, i.e. the generated unit the manager actually
-#        executes) must invoke the accepted T013 authority as a command
-#        with PROVEN EXECUTABLE IDENTITY: an absolute executable token
-#        whose realpath equals the repository checkout's
-#        tests/operations/verify-startup.sh (a symlink resolving to it is
-#        the authority; bare basenames and same-suffix paths in unrelated
-#        trees are rejected), optionally behind a system interpreter under
-#        /usr, or the trusted npm runner — the npm this verification
-#        environment itself resolves — running the committed
+#        executes) must invoke the accepted T013 authority with PROVEN
+#        EXECUTABLE IDENTITY in one of two approved forms. HOST FORM: an
+#        absolute executable token whose realpath equals the repository
+#        checkout's tests/operations/verify-startup.sh (a symlink resolving
+#        to it is the authority; bare basenames and same-suffix paths in
+#        unrelated trees are rejected), optionally behind a system
+#        interpreter under /usr, or the trusted npm runner — the npm this
+#        verification environment itself resolves — running the committed
 #        verify:startup mapping, where that mapping is itself validated to
-#        resolve to the authority against the package root. Unprovable or
-#        untrusted executables fail closed; occurrences of the names inside
-#        arbitrary arguments, quoted shell payloads, or comments are inert
-#        text and are rejected; and (b) COMPLETION — the
+#        resolve to the authority against the package root. CONTAINER FORM
+#        (Product Owner decision 2026-10-09): the approved in-container
+#        startup gate invocation — the trusted podman runner (the podman
+#        this verification environment resolves; bare `podman` is rejected)
+#        executing a container run that names the expected application
+#        container, references the intended application image identity
+#        (SONGHEALTH_APP_IMAGE, exact token, optionally digest-pinned as
+#        <image>@sha256:<64 hex>; never `latest`), and passes ONE sh -c
+#        startup payload that structurally invokes the committed
+#        verify:startup mapping in command position AND starts the accepted
+#        standalone server (node dist/server/entry.mjs) ONLY behind strict
+#        success chaining (`&&`, `exec`, KEY=VALUE assignments) — any `;`,
+#        `||`, or other operator between the gate and the server is a
+#        failure-ignoring chain and is rejected; the committed package.json
+#        mapping is validated against the package root exactly as for the
+#        host npm form; occurrences of the gate names inside quoted strings
+#        are inert decoy text and are rejected. Unprovable or untrusted
+#        executables fail closed; occurrences of the names inside arbitrary
+#        arguments, quoted shell payloads, or comments are rejected; and
+#        (b) COMPLETION — the
 #        journal of the unit's CURRENT systemd invocation (matched by
 #        _SYSTEMD_INVOCATION_ID, never a wall-clock window, so pre-start
 #        gates are covered and earlier invocations can never be reused)
@@ -94,12 +110,28 @@
 #        is expected to serve it — every checkpoint where the unit runs).
 #   C7  (6) a deliberately missing expected persistence attachment (the
 #        media volume omitted from the application unit's Quadlet source)
-#        must produce the REQUIRED EXPLICIT recurring-readiness result:
-#        `not-ready` identifying the affected media dependency by its safe
-#        dependency name (spec US2 scenario 3; data-model sections 4-5). A
-#        failed unit or an unreachable readiness helper is NOT an acceptable
-#        substitute and fails the stage, as does any ready result (a healthy
-#        empty replacement). The omission is simulated WITHOUT deleting or
+#        must produce the REQUIRED EXPLICIT operational not-ready result
+#        identifying the affected media dependency by its safe dependency
+#        name (spec US2 scenario 3; data-model sections 4-5), in one of two
+#        PO-approved evidence classes. T012 CLASS: when the container runs,
+#        the recurring readiness helper itself reports `not-ready` naming
+#        media. STARTUP REFUSAL CLASS (Product Owner decision 2026-10-09):
+#        when the application container cannot start because the required
+#        persistent media attachment is absent — so the helper cannot
+#        execute — not-ready may instead be demonstrated by an
+#        invocation-scoped, media-specific startup refusal, valid only when
+#        ALL supporting conditions are established: the effective
+#        attachment omission is verified on the currently loaded unit
+#        definition; the refusal belongs to the current attempted start
+#        (scoped by _SYSTEMD_INVOCATION_ID); the refusal line explicitly
+#        identifies the required media dependency (media volume name or
+#        mount target); the application never reaches Healthy/Ready (the
+#        same invocation shows no T013 gate completion); generic failures,
+#        stale logs, and simple unreachability are rejected; and the
+#        original media volume remains intact. This evidence is classified
+#        STARTUP REFUSAL, never as a T012 readiness-helper result. Any
+#        ready result (a healthy empty replacement) fails the stage in
+#        either class. The omission is simulated WITHOUT deleting or
 #        reinitializing persistent state, and the original attachment is
 #        restored — verified by checksum — on every exit path, including
 #        interruption (traps); when a byte-exact restore cannot be verified,
@@ -153,6 +185,11 @@
 #   SONGHEALTH_READINESS_COMMAND (node scripts/verify-readiness.mjs)
 #   SONGHEALTH_APP_QUADLET (default: <xdg-config>/containers/systemd/
 #   songhealth-app.container, derived from SONGHEALTH_APP_UNIT)
+#   SONGHEALTH_APP_IMAGE (localhost/songhealth-app:0.0.1 — the intended
+#                          application image identity for the C1 container
+#                          wiring form; the exact token is required and may
+#                          carry the deployment's digest pin
+#                          <image>@sha256:<64 hex>)
 #
 # Secret safety: this harness holds no database credentials (all
 # application-to-database probes execute inside the application container
@@ -231,6 +268,7 @@ MEDIA_VOLUME="${SONGHEALTH_MEDIA_VOLUME:-songhealth-media}"
 DB_MOUNT_TARGET="${SONGHEALTH_DB_MOUNT_TARGET:-/var/lib/postgresql}"
 MEDIA_MOUNT_TARGET="${SONGHEALTH_MEDIA_MOUNT_TARGET:-/app/media}"
 READINESS_COMMAND="${SONGHEALTH_READINESS_COMMAND:-node scripts/verify-readiness.mjs}"
+APP_IMAGE="${SONGHEALTH_APP_IMAGE:-localhost/songhealth-app:0.0.1}"
 
 # Set while the harness runs.
 ROOT=''
@@ -245,6 +283,11 @@ VOLUME_SNAPSHOT=''
 # Probe results of the most recent probe_readiness call.
 READINESS_STATE=''
 READINESS_LINE=''
+# STARTUP REFUSAL evidence context (C7, Product Owner decision 2026-10-09):
+# 'verified-omission' once the currently loaded unit definition provably
+# lacks the media attachment AND the current-invocation journal slice has
+# been captured for the refusal reasoner; '' otherwise.
+REFUSAL_STATE=''
 
 usage() {
 	cat <<'EOF'
@@ -261,14 +304,19 @@ the canonical tagline/media integrity comparisons after every checkpoint.
 Stage order: P0 repository deployment-definition prerequisite (the expected
 RED failure while T017–T020 are unimplemented) -> R1 task-owned target
 resolution/validation -> C1 startup-gate evidence (live wiring proof on the
-effective unit definition + invocation-scoped, ordered completion markers) +
-private non-mutating recurring readiness -> C2 private network +
-app-to-database access ->
+effective unit definition — host-executable identity or the approved
+in-container podman/image/payload form — plus invocation-scoped, ordered
+completion markers) + private non-mutating recurring readiness -> C2 private
+network + app-to-database access ->
 C3 no published PostgreSQL host port -> C4 persistent volume attachments ->
 C5 canonical tagline/media integrity baseline -> C6 three lifecycle cycles
--> C7 missing-attachment negative (requires the explicit not-ready result
-naming the media dependency; guarded, checksum-verified, fail-closed
-restore) -> C8 final integrity and no-residue wrap-up.
+-> C7 missing-attachment negative (requires the explicit operational
+not-ready result naming the media dependency — a genuine T012 helper result
+from a running container, or the Product Owner approved STARTUP REFUSAL
+class: an invocation-scoped, media-specific startup refusal with the
+effective omission verified and no gate completion; guarded,
+checksum-verified, fail-closed restore) -> C8 final integrity and
+no-residue wrap-up.
 
 Required environment inputs (see the script header for the full input
 reference): SONGHEALTH_APP_ORIGIN, SONGHEALTH_VALIDATION_TOKEN,
@@ -277,7 +325,7 @@ plan structure and may be overridden (SONGHEALTH_APP_UNIT,
 SONGHEALTH_DB_UNIT, SONGHEALTH_APP_CONTAINER, SONGHEALTH_DB_CONTAINER,
 SONGHEALTH_NETWORK, SONGHEALTH_DB_VOLUME, SONGHEALTH_MEDIA_VOLUME,
 SONGHEALTH_DB_MOUNT_TARGET, SONGHEALTH_MEDIA_MOUNT_TARGET,
-SONGHEALTH_READINESS_COMMAND, SONGHEALTH_APP_QUADLET).
+SONGHEALTH_READINESS_COMMAND, SONGHEALTH_APP_QUADLET, SONGHEALTH_APP_IMAGE).
 
 The harness never touches the development database resources
 (songhealth-dev-db, songhealth-dev-db-data) or the host media tree, never
@@ -287,10 +335,12 @@ copy and the scratch directory and exits nonzero.
 
   --self-test  Run isolated failure-path demonstrations of the guarded
                restore/cleanup branches, the missing-attachment readiness
-               acceptance, and the non-mutation detector, entirely against
-               scratch files under a shimmed systemctl. Touches no real
-               deployment, unit, or Quadlet; exits 0 only when every
-               demonstration passes.
+               acceptance (both the T012 result and the STARTUP REFUSAL
+               class), the wiring reasoner (host and in-container forms),
+               and the non-mutation detector, entirely against scratch
+               files under a shimmed systemctl. Touches no real deployment,
+               unit, or Quadlet; exits 0 only when every demonstration
+               passes.
 
 Exit codes: 0 PASS | 1 FAIL (any stage, including the expected RED
 prerequisite failure while T017–T020 are unimplemented) | 2 environment
@@ -727,12 +777,14 @@ derive_gate_markers() {
 gate_wiring_reason() {
 	# gate_wiring_reason <effective-unit-definition-file>: prints '' (empty)
 	# when the effective startup definition provably invokes the accepted
-	# T013 authority AS A COMMAND WITH PROVEN EXECUTABLE IDENTITY, and
-	# otherwise the actionable rejection reason. Structural command-position
-	# checks (tokenized Exec lines, never substring presence in arguments,
-	# shell payloads, or comments) PLUS identity anchors resolved against
-	# the trusted execution context — the repository checkout this harness
-	# itself anchors on and the trusted tool resolution of its environment:
+	# T013 authority AS A COMMAND WITH PROVEN EXECUTABLE IDENTITY in one of
+	# the two Product Owner approved forms, and otherwise the actionable
+	# rejection reason. Structural command-position checks (tokenized Exec
+	# lines, never substring presence in arguments, shell payloads, or
+	# comments) PLUS identity anchors resolved against the trusted
+	# execution context — the repository checkout this harness itself
+	# anchors on and the trusted tool resolution of its environment:
+	#   HOST FORM (original):
 	#   AUTHORITY ANCHOR (the accepted script): the executable token must
 	#     contain a '/' and its realpath (symlinks resolved) must EQUAL the
 	#     realpath of <repo>/tests/operations/verify-startup.sh. A bare
@@ -748,10 +800,32 @@ gate_wiring_reason() {
 	#     environment itself resolves on PATH (the operator's real npm); a
 	#     fake runner such as /tmp/npm never matches. Bare `npm` in a unit
 	#     is rejected (the unit's own PATH is not provable here).
-	#   MAPPING VALIDATION: the committed package.json verify:startup
-	#     mapping must itself satisfy the authority-anchor rule, with
-	#     relative tokens resolved against the package root (npm's
-	#     documented script working directory) — not by substring search.
+	#   CONTAINER FORM (Product Owner decision 2026-10-09 — the approved
+	#   in-container startup gate invocation):
+	#   PODMAN ANCHOR: the runner token must be an absolute path whose
+	#     realpath EQUALS the podman executable this harness's environment
+	#     resolves on PATH; bare `podman` is rejected.
+	#   IMAGE/CONTAINER ANCHOR: the run must name the expected application
+	#     container (the Quadlet-generated systemd-%N specifier form or the
+	#     configured APP_CONTAINER literal) and reference the intended
+	#     application image identity as the exact token SONGHEALTH_APP_IMAGE
+	#     or that identity digest-pinned as <image>@sha256:<64 hex> — never
+	#     `latest`, never a different repository or floating tag.
+	#   STRUCTURAL PAYLOAD PROOF: the container command must be ONE sh -c
+	#     startup payload whose quote-aware token stream (a) invokes the
+	#     committed verify:startup mapping as [npm][run][verify:startup] in
+	#     command position, (b) starts the accepted standalone server
+	#     [node][dist/server/entry.mjs], and (c) chains the server strictly
+	#     AFTER the gate with only success-preserving tokens between them
+	#     (`&&`, `exec`, KEY=VALUE assignments) — `;`, `||`, or any other
+	#     operator between gate and server is a failure-ignoring chain and
+	#     is rejected. Occurrences of the gate names inside quoted strings
+	#     are inert decoy text and are rejected.
+	#   MAPPING VALIDATION (both package-run forms): the committed
+	#   package.json verify:startup mapping must itself satisfy the
+	#   authority-anchor rule, with relative tokens resolved against the
+	#   package root (npm's documented script working directory) — not by
+	#   substring search.
 	# Relative script paths are accepted ONLY in the package.json mapping
 	# context (defined base); in unit Exec lines every path must be absolute
 	# and resolvable, else the identity is unprovable and the reasoner
@@ -768,6 +842,8 @@ gate_wiring_reason() {
 		const unitFile = process.argv[1];
 		const pkgFile = process.argv[2];
 		const rootDir = process.argv[3];
+		const appImage = process.argv[4] || "localhost/songhealth-app:0.0.1";
+		const appContainer = process.argv[5] || "systemd-songhealth-app";
 		const fail = (reason) => { process.stdout.write("reject " + reason + "\n"); process.exit(0); };
 		const realpathQuiet = (p) => { try { return fs.realpathSync(p); } catch { return null; } };
 		const authorityAnchor = realpathQuiet(path.join(rootDir, ACCEPTED));
@@ -780,6 +856,7 @@ gate_wiring_reason() {
 			return null;
 		};
 		const trustedNpm = resolveOnPath("npm");
+		const trustedPodman = resolveOnPath("podman");
 		const underSystemPrefix = (p) => p === "/usr" || p.startsWith("/usr/");
 		const resolvesToAuthority = (token, baseDir) => {
 			if (typeof token !== "string" || !token.includes("/")) return false;
@@ -807,6 +884,71 @@ gate_wiring_reason() {
 			if (trustedInterpreter(tokens[0]) && tokens.length >= 2 && resolvesToAuthority(tokens[1], baseDir)) return true;
 			return false;
 		};
+		const escapeRegExp = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		const digestForm = new RegExp("^" + escapeRegExp(appImage) + "@sha256:[0-9a-f]{64}$");
+		// Quote-aware shell lexer for the sh -c startup payload: emits
+		// {text, quoted} tokens; ; && || become standalone operator tokens;
+		// everything inside quotes is one inert string token.
+		const shellTokens = (payload) => {
+			const out = [];
+			let cur = "", has = false, quoted = false, quoteChar = "", quoteSeen = false;
+			for (let i = 0; i < payload.length; i++) {
+				const ch = payload[i];
+				if (quoted) {
+					if (ch === quoteChar) { quoted = false; continue; }
+					if (ch === "\\" && quoteChar === "\"" && i + 1 < payload.length) { cur += payload[i + 1]; i++; has = true; continue; }
+					cur += ch; has = true; continue;
+				}
+				const SQ = String.fromCharCode(39), DQ = String.fromCharCode(34);
+				if (ch === SQ || ch === DQ) { quoted = true; quoteChar = ch; quoteSeen = true; has = true; continue; }
+				if (/\s/.test(ch)) {
+					if (has) { out.push({ text: cur, quoted: quoteSeen }); cur = ""; has = false; quoteSeen = false; }
+					continue;
+				}
+				if (ch === ";" || ch === "&" || ch === "|") {
+					if (has) { out.push({ text: cur, quoted: quoteSeen }); cur = ""; has = false; quoteSeen = false; }
+					if ((ch === "&" || ch === "|") && payload[i + 1] === ch) { out.push({ text: ch + ch, quoted: false }); i++; }
+					else out.push({ text: ch, quoted: false });
+					continue;
+				}
+				cur += ch; has = true;
+			}
+			if (has) out.push({ text: cur, quoted: quoteSeen });
+			return out;
+		};
+		const isAssignment = (t) => /^[A-Za-z_][A-Za-z0-9_]*=/.test(t);
+		const acceptsContainerInvocation = (tokens) => {
+			if (!trustedPodman) return "no trusted podman runner could be resolved in this verification environment";
+			if (tokens[0] !== trustedPodman) return "the container runner token does not resolve to the podman executable this verification environment trusts";
+			if (tokens[1] !== "run") return "the trusted runner is not executing a container run";
+			const nameIdx = tokens.findIndex((t, i) => i >= 2 && t === "--name" && i + 1 < tokens.length);
+			if (nameIdx === -1 || (tokens[nameIdx + 1] !== "systemd-%N" && tokens[nameIdx + 1] !== appContainer)) return "the container run does not name the expected application container";
+			const n = tokens.length;
+			if (n < 6 || tokens[n - 3] !== "sh" || tokens[n - 2] !== "-c") return "the container command is not one sh -c startup payload";
+			const image = tokens[n - 4];
+			if (image.startsWith("-")) return "no explicit application image token precedes the startup payload";
+			if (/:(latest)$/.test(image) || image.endsWith(":latest")) return "a floating latest image tag is not the intended application image";
+			if (image !== appImage && !digestForm.test(image)) return "the image token is not the intended application image identity";
+			const p = shellTokens(tokens[n - 1]);
+			if (p.length === 0) return "the startup payload is empty";
+			for (const t of p) {
+				if (t.quoted && /verify:startup|verify-startup/.test(t.text)) return "an occurrence of the gate names inside a quoted string is inert decoy text, not execution";
+			}
+			const gateIdx = p.findIndex((t, i) => !t.quoted && t.text === "npm" && p[i + 1] && !p[i + 1].quoted && p[i + 1].text === "run" && p[i + 2] && !p[i + 2].quoted && p[i + 2].text === "verify:startup");
+			if (gateIdx === -1) return "the startup payload does not invoke the committed verify:startup mapping as a command";
+			const prev = gateIdx === 0 ? null : p[gateIdx - 1].text;
+			if (prev !== null && prev !== ";" && prev !== "&&" && prev !== "||" && prev !== "(") return "the gate invocation is not in command position";
+			const serverIdx = p.findIndex((t, i) => !t.quoted && t.text === "node" && p[i + 1] && !p[i + 1].quoted && p[i + 1].text === "dist/server/entry.mjs");
+			if (serverIdx === -1) return "the startup payload does not start the accepted standalone server";
+			if (serverIdx < gateIdx + 3) return "the standalone server must start only after the gate invocation";
+			for (let i = gateIdx + 3; i < serverIdx; i++) {
+				const t = p[i].text;
+				if (t === "&&" || t === "exec") continue;
+				if (isAssignment(t)) continue;
+				return "the chain between the gate and the standalone server permits startup without successful gate completion (unexpected token)";
+			}
+			return "";
+		};
 		let text;
 		try {
 			text = fs.readFileSync(unitFile, "utf8");
@@ -825,7 +967,17 @@ gate_wiring_reason() {
 			for (let i = 0; i < line.length; i++) {
 				const ch = line[i];
 				if (ch === "\\") {
-					if (i + 1 < line.length) { current += line[i + 1]; i++; has = true; }
+					if (i + 1 < line.length) {
+						// systemd command-line escapes: \xHH hex escapes (as
+						// emitted for generated Quadlet ExecStart arguments),
+						// \" and \\ and any other escaped character taken
+						// literally.
+						if (line[i + 1] === "x" && i + 3 < line.length && /^[0-9a-f]{2}$/.test(line.slice(i + 2, i + 4))) {
+							current += String.fromCharCode(parseInt(line.slice(i + 2, i + 4), 16));
+							i += 3;
+						} else { current += line[i + 1]; i++; }
+						has = true;
+					}
 					continue;
 				}
 				if (ch === "\"") { quoted = !quoted; has = true; continue; }
@@ -840,10 +992,17 @@ gate_wiring_reason() {
 			return tokens;
 		};
 		let sawPackageRun = false;
+		let containerWired = false;
+		const containerAttempts = [];
 		for (const line of execLines) {
 			const tokens = tokenize(line.slice(line.indexOf("=") + 1));
 			if (invokesDirectly(tokens, null)) { process.stdout.write("accept direct\n"); process.exit(0); }
 			if (trustedNpmToken(tokens[0]) && tokens[1] === "run" && tokens[2] === "verify:startup") sawPackageRun = true;
+			if (trustedPodman && tokens[0] === trustedPodman && tokens[1] === "run") {
+				const reason = acceptsContainerInvocation(tokens);
+				if (reason === "") { sawPackageRun = true; containerWired = true; }
+				else containerAttempts.push(reason);
+			}
 		}
 		if (sawPackageRun) {
 			let pkg;
@@ -859,13 +1018,15 @@ gate_wiring_reason() {
 			if (!invokesDirectly(tokenize(command), path.dirname(pkgFile))) {
 				fail("the unit runs the trusted npm with `run verify:startup`, but the committed package.json mapping does not resolve to the accepted T013 authority " + ACCEPTED);
 			}
-			process.stdout.write("accept mapped\n");
+			process.stdout.write(containerWired ? "accept container\n" : "accept mapped\n");
 			process.exit(0);
 		}
-		fail("no Exec command line provably invokes the accepted T013 authority by executable identity (an absolute path resolving to the repository checkout file " + ACCEPTED + ", or the trusted npm runner resolved from this verification environment running the committed verify:startup mapping); bare basenames, pathname suffixes, unresolvable or untrusted executables, and occurrences inside arguments, shell payloads, or comments are not identity proof");
-	' "$unit_file" "$ROOT/package.json" "$ROOT" 2>/dev/null || true)"
+		let detail = "";
+		if (containerAttempts.length > 0) detail = "; container-invocation rejection: " + containerAttempts[0];
+		fail("no Exec command line provably invokes the accepted T013 authority by executable identity (an absolute path resolving to the repository checkout file " + ACCEPTED + ", the trusted npm runner resolved from this verification environment running the committed verify:startup mapping, or the approved in-container invocation: the trusted podman runner, the intended application image and container, and one sh -c payload running the validated verify:startup mapping with the standalone server strictly success-chained after it); bare basenames, pathname suffixes, unresolvable or untrusted executables, floating image tags, failure-ignoring chains, and occurrences inside arguments, shell payloads, or comments are not identity proof" + detail);
+	' "$unit_file" "$ROOT/package.json" "$ROOT" "$APP_IMAGE" "$APP_CONTAINER" 2>/dev/null || true)"
 	case $verdict in
-	'accept direct' | 'accept mapped')
+	'accept direct' | 'accept mapped' | 'accept container')
 		printf ''
 		return 0
 		;;
@@ -904,7 +1065,7 @@ require_gate_wiring_for_unit() {
 	if [ -n "$reason" ]; then
 		fail_stage "$label" '%s' "$reason"
 	fi
-	info "$label" 'the effective unit definition of %s provably invokes the accepted T013 authority as a command token (%s direct / package.json verify:startup mapping validated as the accepted command)' \
+	info "$label" 'the effective unit definition of %s provably invokes the accepted T013 authority as a command token (%s direct / npm or in-container verify:startup mapping validated as the accepted command)' \
 		"$APP_UNIT" "$T013_SCRIPT"
 	pass "$label" 'T013 startup-gate wiring proven on the effective application unit definition'
 }
@@ -1651,20 +1812,88 @@ lifecycle_cycle() {
 # negative test with byte-exact restore on every exit path)
 # ---------------------------------------------------------------------------
 
+collect_startup_refusal_evidence() {
+	# collect_startup_refusal_evidence: captures the STARTUP REFUSAL (C7,
+	# Product Owner decision 2026-10-09) evidence context for the CURRENT
+	# negative state. Sets REFUSAL_STATE='verified-omission' only when the
+	# currently loaded unit definition provably lacks the media attachment
+	# (the omission is EFFECTIVE, not merely edited on disk) AND the current
+	# invocation's journal slice could be captured for the reasoner; any
+	# failure leaves REFUSAL_STATE='' (the evidence class stays unavailable
+	# and only a genuine T012 result can pass the stage). Read-only.
+	REFUSAL_STATE=''
+	local inv='' unit_file journal_file
+	unit_file="$TMP_DIR/unit-omitted-effective.txt"
+	journal_file="$TMP_DIR/refusal-journal.txt"
+	if ! timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
+		systemctl --user cat "$APP_UNIT" >"$unit_file" 2>/dev/null; then
+		return 0
+	fi
+	if grep -qE "^[[:space:]]*Volume=.*${MEDIA_VOLUME}" "$unit_file"; then
+		return 0
+	fi
+	inv="$(current_invocation_id "$APP_UNIT")"
+	if [ -z "$inv" ]; then
+		return 0
+	fi
+	if ! collect_invocation_journal "$inv" "$journal_file"; then
+		return 0
+	fi
+	REFUSAL_STATE='verified-omission'
+}
+
 c7_negative_result_reason() {
-	# c7_negative_result_reason <readiness-output-file>: prints '' (empty)
-	# when the observed negative-state readiness result is EXACTLY the
-	# required bounded outcome — an explicit `not-ready` whose output
-	# identifies the affected media dependency by its safe dependency name —
-	# and otherwise prints the actionable rejection reason. Kept as a pure
+	# c7_negative_result_reason <readiness-output-file> [refusal-journal]:
+	# prints '' (empty) when the observed negative-state evidence is EXACTLY
+	# the required bounded outcome — an explicit `not-ready` whose output
+	# identifies the affected media dependency by its safe dependency name
+	# (T012 class), or the complete STARTUP REFUSAL evidence set (unreachable
+	# container + verified effective omission + invocation-scoped
+	# media-identifying refusal + no gate completion) — and otherwise prints
+	# the actionable rejection reason. Kept as a pure
 	# reasoner (no exit, no side effects) so the --self-test demonstrations
-	# exercise the identical logic on synthetic states. A failed or
-	# unreachable platform is deliberately NOT accepted: spec US2 scenario 3
-	# and data-model sections 4-5 require the readiness check itself to
-	# report not-ready and name the dependency.
-	local out_file="$1"
+	# exercise the identical logic on synthetic states. Two evidence classes
+	# are accepted (Product Owner decision 2026-10-09): a genuine T012
+	# not-ready result from a RUNNING container naming the media dependency,
+	# or — only when the application container cannot start because the
+	# required persistent media attachment is absent, so the helper cannot
+	# execute — the STARTUP REFUSAL class: an invocation-scoped,
+	# media-specific startup refusal with the effective attachment omission
+	# verified and no gate completion in the same invocation. Generic
+	# failures, stale logs, and simple unreachability remain rejected, and
+	# the refusal is never classified as a readiness-helper result.
+	local out_file="$1" refusal_file="${2:-}"
 	case $READINESS_STATE in
 	not-ready) ;;
+	unreachable)
+		if [ "$REFUSAL_STATE" != 'verified-omission' ]; then
+			printf 'the platform is unreachable without the verified effective attachment omission required for the STARTUP REFUSAL evidence class (readiness state: %s; %s) — simple unreachability is not a substitute' \
+				"$READINESS_STATE" "$READINESS_LINE"
+			return 0
+		fi
+		if [ ! -s "$refusal_file" ]; then
+			printf 'the STARTUP REFUSAL evidence class requires the current-invocation journal slice (readiness state: %s)' \
+				"$READINESS_STATE"
+			return 0
+		fi
+		if ! grep -qiE 'refus|not attached' "$refusal_file"; then
+			printf 'the current-invocation journal contains no startup refusal line (readiness state: %s; %s) — a generic failure or stale log is not a substitute' \
+				"$READINESS_STATE" "$READINESS_LINE"
+			return 0
+		fi
+		if ! grep -qiE "${MEDIA_VOLUME}|${MEDIA_MOUNT_TARGET}" "$refusal_file"; then
+			printf 'the startup refusal does not explicitly identify the required media dependency by volume name or mount target (readiness state: %s)' \
+				"$READINESS_STATE"
+			return 0
+		fi
+		if grep -qF "$GATE_BANNER" "$refusal_file"; then
+			printf 'the current invocation also contains the T013 gate completion banner, contradicting a startup refusal (stale or contradictory evidence rejected; readiness state: %s)' \
+				"$READINESS_STATE"
+			return 0
+		fi
+		printf ''
+		return 0
+		;;
 	ready)
 		printf 'the platform reported READY with the expected media persistence attachment missing — a missing attachment must report not-ready and must never appear as a healthy empty replacement'
 		return 0
@@ -1674,9 +1903,9 @@ c7_negative_result_reason() {
 		return 0
 		;;
 	*)
-		printf 'the platform did not produce the required explicit not-ready readiness result (readiness state: %s; %s) — a failed or unreachable platform is not a substitute: the readiness check itself must report not-ready and identify the affected media dependency' \
+		printf 'the platform did not produce the required explicit operational not-ready result (readiness state: %s; %s) — a failed or indeterminate platform is not a substitute: either the readiness check itself must report not-ready naming the affected media dependency, or the complete STARTUP REFUSAL evidence set must be established' \
 			"$READINESS_STATE" "$READINESS_LINE"
-		return 0
+			return 0
 		;;
 	esac
 	if ! grep -qiE '(^|[^[:alpha:]])media([^[:alpha:]]|$)' "$out_file" 2>/dev/null; then
@@ -1734,25 +1963,48 @@ check_missing_attachment_negative() {
 
 	# Bounded settle: poll until the recurring readiness mechanism produces a
 	# determinate result for the omission state (the helper may need the
-	# container to finish starting). Whatever the unit state, the ONLY
-	# accepted outcome is the explicit not-ready result naming media —
-	# enforced below by the shared reasoner; unit failure or unreachability
-	# is not a substitute.
-	local waited=0 unit_state=''
-	while [ "$waited" -lt "$NEGATIVE_SETTLE_SECONDS" ]; do
+	# container to finish starting). Two Product Owner approved evidence
+	# classes are determinate here: a genuine T012 not-ready result from a
+	# running container, or — when the container cannot start because the
+	# required media attachment is absent, so the helper cannot execute —
+	# the complete STARTUP REFUSAL evidence set, collected against the
+	# CURRENT invocation only. Anything else keeps polling until the bound;
+	# the shared reasoner below makes the final call, and unit failure or
+	# simple unreachability alone is never accepted.
+	local waited=0 unit_state='' determinate='no' evidence_class=''
+	while [ "$waited" -lt "$NEGATIVE_SETTLE_SECONDS" ] && [ "$determinate" = 'no' ]; do
 		unit_state="$(systemctl --user is-active "$APP_UNIT" 2>/dev/null || true)"
 		probe_readiness
+		REFUSAL_STATE=''
 		case $READINESS_STATE in
-		ready | not-ready | leaked) break ;;
+		ready | not-ready | leaked)
+			determinate='yes'
+			;;
+		unreachable)
+			collect_startup_refusal_evidence
+			if [ "$REFUSAL_STATE" = 'verified-omission' ] &&
+				[ -z "$(c7_negative_result_reason "$TMP_DIR/readiness.out" "$TMP_DIR/refusal-journal.txt")" ]; then
+				determinate='yes'
+			fi
+			;;
 		esac
-		sleep "$POLL_SECONDS"
-		waited=$((waited + POLL_SECONDS))
+		if [ "$determinate" = 'no' ]; then
+			sleep "$POLL_SECONDS"
+			waited=$((waited + POLL_SECONDS))
+		fi
 	done
-	info C7 'with the expected media attachment omitted: unit state %s, readiness %s (%s)' \
-		"${unit_state:-unknown}" "$READINESS_STATE" "$READINESS_LINE"
+	# Evidence classification (never re-labeled): a T012 result only exists
+	# when the container ran and the helper produced it; everything else
+	# that passes the reasoner is STARTUP REFUSAL.
+	evidence_class='STARTUP REFUSAL (invocation-scoped, media-specific, no gate completion; Product Owner decision 2026-10-09 — never a T012 readiness-helper result)'
+	if [ "$READINESS_STATE" = 'not-ready' ]; then
+		evidence_class='T012 readiness-helper result from the running container'
+	fi
+	info C7 'with the expected media attachment omitted: unit state %s, readiness %s (%s), evidence class: %s' \
+		"${unit_state:-unknown}" "$READINESS_STATE" "$READINESS_LINE" "$evidence_class"
 
 	local reject_reason=''
-	reject_reason="$(c7_negative_result_reason "$TMP_DIR/readiness.out")"
+	reject_reason="$(c7_negative_result_reason "$TMP_DIR/readiness.out" "$TMP_DIR/refusal-journal.txt")"
 	if [ -n "$reject_reason" ]; then
 		fail_stage C7 '%s' "$reject_reason"
 	fi
@@ -1761,8 +2013,8 @@ check_missing_attachment_negative() {
 	# and the named-volume set is unchanged (no empty replacement store was
 	# created anywhere).
 	volumes_retained_check C7
-	pass C7 'missing expected persistence attachment produced the required explicit not-ready result identifying the media dependency (%s); no healthy empty replacement and no persistent-state mutation' \
-		"$READINESS_LINE"
+	pass C7 'missing expected persistence attachment produced the required explicit operational not-ready evidence identifying the media dependency (%s; evidence class: %s); no healthy empty replacement and no persistent-state mutation' \
+		"$READINESS_LINE" "$evidence_class"
 
 	# Restore the original attachment (byte-exact, checksum-verified) and
 	# re-verify the platform end to end.
@@ -1957,8 +2209,48 @@ SHIM
 	else
 		st_fail reasoner-accepts-media-notready "must accept this result: $reason"
 	fi
+	# Case 6b — the STARTUP REFUSAL evidence class (Product Owner decision
+	# 2026-10-09): accepted only with the COMPLETE evidence set, and
+	# classified as startup refusal — never as a T012 readiness result.
+	local rj="$ST_ROOT/refusal-journal.txt" reason_r=''
+	READINESS_STATE='unreachable'
+	READINESS_LINE='application container not running (platform stopped or failed)'
+	REFUSAL_STATE='verified-omission'
+	printf 'songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start\n' >"$rj"
+	reason_r="$(c7_negative_result_reason "$out" "$rj")"
+	if [ -z "$reason_r" ]; then
+		st_case reasoner-accepts-startup-refusal 'PASS the invocation-scoped media-identifying startup refusal accepted (STARTUP REFUSAL class)'
+	else
+		st_fail reasoner-accepts-startup-refusal "must accept this evidence: $reason_r"
+	fi
+	printf 'Error: no secret with name or id songhealth-encryption-key: no such secret\n' >"$rj"
+	reason_r="$(c7_negative_result_reason "$out" "$rj")"
+	if [ -n "$reason_r" ]; then
+		st_case reasoner-rejects-generic-refusal 'PASS a generic startup failure that does not identify the media dependency rejected'
+	else
+		st_fail reasoner-rejects-generic-refusal 'a generic failure must be rejected in the refusal class'
+	fi
+	{
+		printf 'songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start\n'
+		printf 't013: T013 startup acceptance gate: PASS\n'
+	} >"$rj"
+	reason_r="$(c7_negative_result_reason "$out" "$rj")"
+	if [ -n "$reason_r" ]; then
+		st_case reasoner-rejects-refusal-with-gate-pass 'PASS a refusal slice that also contains the gate completion banner rejected (contradiction/stale evidence)'
+	else
+		st_fail reasoner-rejects-refusal-with-gate-pass 'a contradiction between refusal and completed gate must be rejected'
+	fi
+	REFUSAL_STATE=''
+	printf 'songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start\n' >"$rj"
+	reason_r="$(c7_negative_result_reason "$out" "$rj")"
+	if [ -n "$reason_r" ]; then
+		st_case reasoner-rejects-refusal-unverified-omission 'PASS unreachability without the verified effective omission rejected (simple unreachability is not a substitute)'
+	else
+		st_fail reasoner-rejects-refusal-unverified-omission 'the refusal class requires the verified omission context'
+	fi
 	READINESS_STATE=''
 	READINESS_LINE=''
+	REFUSAL_STATE=''
 
 	# Case 7 — the strengthened non-mutation detector catches the prohibited
 	# probe classes the old path/size/mtime-only hash missed.
@@ -2142,6 +2434,116 @@ SHIM
 			st_fail wiring-rejects-unmapped 'a mapping that does not resolve to the accepted script must be rejected'
 		fi
 		ROOT="$saved_root"
+	fi
+
+	# In-container wiring cases (Product Owner decision 2026-10-09): the
+	# approved in-container startup gate invocation is recognized
+	# structurally — trusted podman runner, expected container name,
+	# intended image identity (exact tag or digest-pinned), and ONE sh -c
+	# payload running the validated verify:startup mapping with the
+	# standalone server strictly success-chained after it. Failure-ignoring
+	# chains, decoys, floating tags, and unprovable runners are rejected.
+	local trusted_podman_path='' reason_c=''
+	trusted_podman_path="$(node -e '
+		const fs = require("fs");
+		const path = require("path");
+		for (const dir of String(process.env.PATH || "").split(":").filter(Boolean)) {
+			try { process.stdout.write(fs.realpathSync(path.join(dir, "podman"))); break; } catch {}
+		}
+	')"
+	if [ -n "$trusted_podman_path" ]; then
+		cat >"$wdir/container-ok.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-%N --replace --rm -v songhealth-media:/app/media --publish 127.0.0.1:4321:4321 localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "grep -q ' /app/media ' /proc/mounts; npm run verify:startup && HOST=0.0.0.0 exec node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-ok.unit")"
+		if [ -z "$reason_c" ]; then
+			st_case wiring-accepts-container 'PASS the approved in-container gate invocation accepted (trusted runner, intended image, structural gate-before-server chain)'
+		else
+			st_fail wiring-accepts-container "must accept the approved container invocation: $reason_c"
+		fi
+		cat >"$wdir/container-tag.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-songhealth-app --rm localhost/songhealth-app:0.0.1 sh -c "npm run verify:startup && exec node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-tag.unit")"
+		if [ -z "$reason_c" ]; then
+			st_case wiring-accepts-container-tag 'PASS the intended image identity accepted in exact-tag form'
+		else
+			st_fail wiring-accepts-container-tag "must accept the exact-tag image form: $reason_c"
+		fi
+		cat >"$wdir/container-semi.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1 sh -c "npm run verify:startup; node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-semi.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-failure-ignoring 'PASS a failure-ignoring chain between gate and server rejected'
+		else
+			st_fail wiring-rejects-container-failure-ignoring 'a chain that starts the server regardless of gate failure must be rejected'
+		fi
+		cat >"$wdir/container-echo.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1 sh -c "echo npm run verify:startup; node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-echo.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-echo-decoy 'PASS the gate names echoed as arguments (not command position) rejected'
+		else
+			st_fail wiring-rejects-container-echo-decoy 'an echoed gate invocation must be rejected'
+		fi
+		cat >"$wdir/container-quoted-decoy.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1 sh -c "echo \"npm run verify:startup\"; node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-quoted-decoy.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-quoted-decoy 'PASS the gate names inside a quoted string rejected as inert decoy text'
+		else
+			st_fail wiring-rejects-container-quoted-decoy 'a quoted-string occurrence must be rejected as inert text'
+		fi
+		cat >"$wdir/container-latest.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:latest sh -c "npm run verify:startup && exec node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-latest.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-latest 'PASS a floating latest image tag rejected'
+		else
+			st_fail wiring-rejects-container-latest 'a floating latest tag must be rejected'
+		fi
+		cat >"$wdir/container-wrong-image.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm example.com/other/app:1.0.0 sh -c "npm run verify:startup && exec node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-wrong-image.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-wrong-image 'PASS an unintended image identity rejected'
+		else
+			st_fail wiring-rejects-container-wrong-image 'an image outside the intended identity must be rejected'
+		fi
+		cat >"$wdir/container-bare-podman.unit" <<UNIT
+[Service]
+ExecStart=podman run --name systemd-%N --rm localhost/songhealth-app:0.0.1 sh -c "npm run verify:startup && exec node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-bare-podman.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-bare-podman 'PASS a bare podman runner rejected (unprovable executable identity)'
+		else
+			st_fail wiring-rejects-container-bare-podman 'a bare runner must be rejected as unprovable'
+		fi
+		cat >"$wdir/container-server-first.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1 sh -c "node dist/server/entry.mjs & npm run verify:startup"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-server-first.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-server-first 'PASS a payload that starts the server before (or parallel to) the gate rejected'
+		else
+			st_fail wiring-rejects-container-server-first 'the server must start only after successful gate completion'
+		fi
+	else
+		st_fail wiring-podman-resolution 'could not resolve a trusted podman in this environment for the in-container positive controls'
 	fi
 
 	# Case 9 — the ordered completion-marker predicate.

@@ -123,6 +123,7 @@ non-mutating.
 | Database/migration startup gate | The exact build's native manifest is inspected with `emdash migrate --status`; pending migrations are applied with native `emdash migrate` using target-fingerprint safety when required; `emdash migrate --check` then verifies no pending or unknown migrations. Failure blocks readiness and does not invoke a custom migration framework or service. |
 | Media recurring check | Expected mount presence/readability, evaluated without mutation. |
 | Media writeability gate | Deployment/startup or integration evidence proves writeability with a bounded reversible probe or equally small reliable mechanism before the environment is accepted as ready for use. |
+| Startup refusal evidence | When the application container cannot start because the required persistent media attachment is absent, operational not-ready may instead be demonstrated by a **STARTUP REFUSAL** record (Product Owner decision 2026-10-09): an invocation-scoped, media-specific startup refusal from the current attempted start, with the effective attachment omission verified, the application never reaching Healthy/Ready, generic failures/stale logs/simple unreachability rejected, the original media volume left intact, and restoration plus full startup/readiness/data/media integrity verification still mandatory. This class is never reported as a readiness-helper result. |
 | Timestamp/context | ISO 8601 timestamp and environment label; no secret-bearing values. |
 | Failed dependency | Safe dependency name/reason when not-ready. |
 

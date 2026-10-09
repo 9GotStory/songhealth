@@ -43,6 +43,21 @@ minimum usable Songhealth platform foundation."
   clarification records the approved correction only; it changes no Product requirement,
   user story, acceptance scenario, or scope boundary in this specification.
 
+### Session 2026-10-09
+
+- Q: When the application container cannot start because the required persistent media
+  attachment is absent — so the recurring readiness helper cannot execute — may operational
+  not-ready still be demonstrated? → A: Yes, within bounds. The Product Owner approved
+  classifying an invocation-scoped, media-specific startup refusal as operational not-ready
+  evidence (**STARTUP REFUSAL**, never a readiness-helper result) only when all supporting
+  conditions are established: the effective attachment omission is verified; the refusal
+  belongs to the current attempted start; the refusal explicitly identifies the required
+  media dependency; the application never reaches Healthy/Ready; generic failures, stale
+  logs, and simple unreachability are rejected; the original media volume remains intact;
+  and restoration plus subsequent startup/readiness/data/media integrity verification all
+  remain mandatory. A genuine readiness-helper `not-ready` result naming media from a
+  running container remains the other accepted evidence class for this scenario.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Start the Canonical Platform (Priority: P1)
