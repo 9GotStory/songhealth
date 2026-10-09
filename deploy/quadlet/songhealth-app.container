@@ -79,7 +79,8 @@
 #                           T012 readiness contract (see the server-bind
 #                           note below)
 #     PORT=4321             application port; must equal the published
-#                           container port below
+#                           container port below — enforced before container
+#                           creation by an ExecCondition skip on mismatch
 #     PGHOST=systemd-songhealth-db
 #                           the T019 container's resolvable name on the
 #                           private songhealth network
@@ -276,9 +277,13 @@ Volume=songhealth-media.volume:/app/media
 
 # The only publication in this deployment: the application port on the host
 # loopback, for the external HTTPS/reverse-proxy boundary. The host side is
-# bound to 127.0.0.1 only — never all interfaces — and the container port
-# must equal the external PORT input (4321 here). PostgreSQL is not
-# published in any form.
+# bound to 127.0.0.1 only — never all interfaces — and the committed
+# container port (4321) is the single authority for the whole port
+# configuration: the standalone server, the T012 readiness probe, and the
+# healthcheck all consume the same inherited PORT input, and an
+# ExecCondition below rejects any PORT that disagrees with this publication
+# before any container exists, so listener, probe, and publication can
+# never silently diverge. PostgreSQL is not published in any form.
 PublishPort=127.0.0.1:4321:4321
 
 # Approved native runtime inputs forwarded by bare name — each value is
@@ -340,21 +345,48 @@ Notify=healthy
 # The environment file supplies the runtime inputs at the systemd level. A
 # missing file fails the unit load before any container exists, and the
 # ExecCondition gates skip the unit — exit 1-254 semantics: skipped, not
-# failed, and not restarted — when a required input is missing or empty,
-# naming the field only (values are never printed). In every gated case no
-# container is created, no secret is read, and the healthy notification
-# cannot fire. Precise input validation (port ranges, URL form, PG*/URL
-# identity agreement) belongs to the accepted T008 configuration boundary
-# and the T013 gate's S1, which fail closed inside the container.
+# failed, and not restarted — when a required input is missing, empty, or
+# (for PORT) in disagreement with the committed publication port, naming
+# the field or conflict only (values are never printed). In every gated
+# case no container is created, no secret is read, and the healthy
+# notification cannot fire.
+#
+# Port consistency (rework r4, F01): the PORT input must equal the
+# committed publication container port 4321 above. The equality
+# ExecCondition rejects any conflicting PORT before startup side effects;
+# PORT is a documented non-secret identity component, so its expansion in
+# this one argument is safe (no secret is involved).
+#
+# Secret-safe presence check (rework r4, F03): PGPASSWORD must be
+# non-empty in the effective environment systemd loaded from the
+# EnvironmentFile, but its value must never be interpolated into a host
+# command argument. The ':' command prefix disables systemd's command-line
+# environment variable substitution entirely (systemd.service(5) v259: an
+# Exec prefixed with ':' passes a literal "$USER"), so the shell below
+# receives the literal text test -n "$PGPASSWORD" and its BUILT-IN test
+# inspects the variable inside the process environment the shell inherits
+# from the unit: the credential appears in no argv, no log line, and no
+# diagnostic. ConditionEnvironment= was considered and rejected: it checks
+# the service manager's environment, not EnvironmentFile= values
+# (systemd.unit(5)); a pattern match on the file was rejected by the
+# Product Owner: quoted and multi-line EnvironmentFile values are not
+# reliably validated that way (systemd.exec(5)). The value necessarily
+# remains in the service's own process environment — inherent to any
+# environment-injection mechanism, including the container runtime itself —
+# but never in world-readable command-line metadata.
+#
+# Precise input validation (port ranges, URL form, PG*/URL identity
+# agreement) belongs to the accepted T008 configuration boundary and the
+# T013 gate's S1, which fail closed inside the container.
 [Service]
 EnvironmentFile=%h/.config/containers/systemd/songhealth-app.env
 ExecCondition=/usr/bin/test -n "${HOST}"
-ExecCondition=/usr/bin/test -n "${PORT}"
+ExecCondition=/usr/bin/test "${PORT}" = 4321
 ExecCondition=/usr/bin/test -n "${PGHOST}"
 ExecCondition=/usr/bin/test -n "${PGPORT}"
 ExecCondition=/usr/bin/test -n "${PGDATABASE}"
 ExecCondition=/usr/bin/test -n "${PGUSER}"
-ExecCondition=/usr/bin/test -n "${PGPASSWORD}"
+ExecCondition=:/usr/bin/sh -c 'test -n "$PGPASSWORD"'
 ExecCondition=/usr/bin/test -n "${EMDASH_SITE_URL}"
 
 # The unit returns after any unplanned container exit (application crash,
@@ -365,10 +397,18 @@ ExecCondition=/usr/bin/test -n "${EMDASH_SITE_URL}"
 Restart=always
 RestartSec=5s
 
-# The startup gate rebuilds the exact application inside the container
-# before the server starts, so the default 90s Type=notify start timeout
-# cannot cover a legitimate start: this bound deliberately exceeds the
-# gate's own internal bounds (build 900s + bounded migration commands) so
-# systemd never abandons a start the gate itself would still conclude, while
-# an actual hang still fails the unit closed.
-TimeoutStartSec=1800s
+# Startup timeout budget (rework r4, F02), computed from the accepted T013
+# sequence as committed — never shortening or bypassing any of its internal
+# bounds: the exact application build is bounded at 900s plus a 30s
+# kill-after (930s), and the four sequential bounded native CLI calls — S3
+# status, S4 apply, S4 post-apply status, S5 check — at 600s plus a 30s
+# kill-after each (2520s), for 3450s of accepted gate allowance. To that
+# add the role-prerequisite connection and two bounded queries (10s bounds
+# each), container start and npm/npx startup overhead, the standalone
+# server boot, and the first healthcheck pass that releases the
+# Notify=healthy startup notification (10s interval): roughly 60-90s of
+# additional overhead, or about 3540s worst case. TimeoutStartSec=3600s
+# covers the complete accepted sequence with bounded headroom, so systemd
+# never abandons a start the gate itself would still legitimately conclude,
+# while an actual hang still fails the unit closed within one hour.
+TimeoutStartSec=3600s
