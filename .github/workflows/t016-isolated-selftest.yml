@@ -17,14 +17,14 @@ jobs:
       - name: Check out the exact authorized source SHA
         uses: actions/checkout@v4
         with:
-          ref: ee4716d6006d593bde7dc8bd23de78b1622be5cc
+          ref: 5d6080e8626b6d62ad7d5b6eceb564c4a379947b
           persist-credentials: false
       - name: Verify checkout identity and runner isolation context
         run: |
           head="$(git rev-parse HEAD)"
           echo "HEAD=$head"
           echo "runner=$RUNNER_NAME ImageOS=$ImageOS"
-          [ "$head" = "ee4716d6006d593bde7dc8bd23de78b1622be5cc" ]
+          [ "$head" = "5d6080e8626b6d62ad7d5b6eceb564c4a379947b" ]
       - name: T016 source-only self-test
         run: |
           set +e
