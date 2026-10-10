@@ -1,0 +1,34 @@
+# T016 isolated self-test (Product Owner approval, 9GOTSTORY-171).
+# Temporary push-triggered workflow on this disposable branch only: runs the
+# source-only T016 self-test on an ephemeral GitHub-hosted Ubuntu runner.
+# No secrets, read-only token, credentials never persisted, nothing outside
+# this runner is contacted; the harness self-test is fully shimmed.
+name: t016-isolated-selftest
+on:
+  push:
+    branches: [test/t016-isolated-selftest]
+permissions:
+  contents: read
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the exact authorized source SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ee4716d6006d593bde7dc8bd23de78b1622be5cc
+          persist-credentials: false
+      - name: Verify checkout identity and runner isolation context
+        run: |
+          head="$(git rev-parse HEAD)"
+          echo "HEAD=$head"
+          echo "runner=$RUNNER_NAME ImageOS=$ImageOS"
+          [ "$head" = "ee4716d6006d593bde7dc8bd23de78b1622be5cc" ]
+      - name: T016 source-only self-test
+        run: |
+          set +e
+          bash tests/operations/verify-foundation.sh --self-test
+          rc=$?
+          echo "SELF_TEST_EXIT_CODE=$rc"
+          exit $rc
