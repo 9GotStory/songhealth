@@ -90,8 +90,8 @@
 # set); provisioning commands and their evidence remain disposable operator
 # material and are not committed to this repository.
 #
-# Existing-database-store guard (fail-closed; bounded source correction,
-# corrective round 1): plan.md forbids that "a missing expected attachment
+# Existing-database-store guard (fail-closed; bounded source correction):
+# plan.md forbids that "a missing expected attachment
 # or an accidentally empty replacement store ... appear[s] as a healthy
 # platform", but the official image's native entrypoint silently runs
 # initdb against ANY empty PGDATA — including a named volume that Podman
@@ -131,34 +131,67 @@
 #        returns the volume's existing data directory. Its failure or an
 #        empty result is an inspection error and refuses the start; it is
 #        never treated as cluster absence.
-#     2. `podman unshare /usr/bin/test ...` — execution of the stat-class
-#        /usr/bin/test binary inside the rootless user namespace, the
-#        documented mechanism for host-side access to rootless storage:
-#        initdb creates PGDATA mode 0700 owned by the image's postgres
-#        user (a subordinate UID on the host), which the runtime user
-#        cannot even traverse outside that namespace, while inside it the
-#        runtime user is root and container ownerships are mapped.
-#   Both checks are existence/size (stat-class) operations only: no
-#   create, write, truncate, chown, chmod, initialize, or populate path
-#   exists anywhere in validation, and no database CONTENT is ever read —
-#   no data leaves the store, so nothing sensitive can leak. The claim is
-#   NOT that `:ro`, `nocopy`, or `podman unshare` is individually safe —
-#   it is that validation performs no volume mount and no container
-#   lifecycle whatsoever, and runs only a metadata query and stat-class
-#   file checks.
+#     2. `podman unshare /usr/bin/find -L ...` — execution of the GNU
+#        findutils `find` binary with -L (follow symlinks; a host system
+#        base tool, same class as /usr/bin/sh, test, and echo already
+#        used here) inside the rootless user namespace, the documented
+#        mechanism for host-side access to rootless storage: initdb
+#        creates PGDATA mode 0700 owned by the image's postgres user (a
+#        subordinate UID on the host), which the runtime user cannot even
+#        traverse outside that namespace, while inside it the runtime
+#        user is root and container ownerships are mapped.
+#   The filesystem checks are directory enumeration plus metadata (readdir
+#   and stat only): no create, write, truncate, chown, chmod, initialize,
+#   or populate path exists anywhere in validation, and no database
+#   CONTENT is ever read — no data leaves the store, so nothing sensitive
+#   can leak. The claim is NOT that `:ro`, `nocopy`, or `podman unshare`
+#   is individually safe — it is that validation performs no volume mount
+#   and no container lifecycle whatsoever, and runs only a metadata query
+#   and enumeration/metadata file checks.
 #
-# - Probe error handling (fail-closed on the unexpected): the cluster
-#   probe's exit status is discriminated explicitly. Status 0 = validated
-#   existing cluster (start proceeds). Status 1 — and only status 1 — =
-#   validated clean absence (the provisioning-marker arm is evaluated
-#   next). ANY other status (e.g. test misuse status 2, or a Podman-level
-#   error such as 125) is a probe execution error: the start is refused
-#   with that status named, BEFORE the provisioning fallback is ever
-#   evaluated, so no probe failure can become implicit provisioning
-#   authorization. The marker probe is discriminated identically
-#   (0 = provisioning authorized, 1 = validated absence -> refuse, other
-#   = error -> refuse). The volume-metadata query is handled the same
-#   way: a store whose metadata cannot be inspected is refused outright.
+# - Inspection classification — why enumeration, not test predicates.
+#   GNU `test -e`/`-s` CANNOT prove absence: their exit 1 is returned both
+#   for a missing/zero-length file AND for any failed stat (EACCES, EIO,
+#   ELOOP, ...), so a lookup error is indistinguishable from absence and
+#   could reach the provisioning fallback. The guard therefore never uses
+#   a test predicate on a guessed path. It enumerates directories with
+#   find -L, which never guesses: find descends only through entries it
+#   has successfully enumerated, reports a missing start point or any
+#   lookup failure (permission/traversal, I/O, symlink loop, unstat-able
+#   match) as an ERROR with a nonzero exit status, and reports a cleanly
+#   enumerated-but-unnamed file as simply no match with exit status 0
+#   (GNU findutils: exit 0 when all files are processed successfully,
+#   greater than zero if any error occurs). -L (following symlinks) is
+#   what surfaces symlink-looped path components and unstat-able symlinked
+#   entries as enumeration errors instead of silently classifying the
+#   masked path as absence; following a symlink only widens the read-only
+#   enumeration (the anchored literal -path pattern cannot match anything
+#   outside the store's own path prefix, and no write path exists). Each
+#   probe's result is thus classified exactly:
+#     - probe exit nonzero -> INSPECTION FAILURE: refuse immediately,
+#       naming the status, BEFORE the provisioning fallback is evaluated;
+#     - probe exit 0 with the path printed by -print -> the file EXISTS
+#       (output is constrained to the exact matched path — no other
+#       output is possible, so no ambiguous or uninterpretable result can
+#       occur);
+#     - probe exit 0 with no output -> the file is CONCLUSIVELY ABSENT
+#       (the parent directories were enumerated without unresolved
+#       errors — including the legitimately-missing 18/docker hierarchy of
+#       a fresh or replacement volume, which is a non-match, not an
+#       error).
+#   The cluster verdict combines two enumerations of
+#   <data-dir>/18/docker/PG_VERSION: `-size +0c -print` (non-empty =
+#   valid existing cluster -> start) and plain `-print` (match with no
+#   size match = confirmed ZERO-LENGTH file -> not initialized; no match
+#   = confirmed ABSENT -> not initialized). Only after one of those two
+#   confirmed not-initialized verdicts — never after any error — is the
+#   provisioning-marker enumeration evaluated, and it is classified
+#   identically: exit nonzero -> marker INSPECTION FAILURE, refused and
+#   never interpreted as marker absence or authorization; exit 0 + match
+#   -> provisioning authorized (loud journal notice); exit 0 + no match
+#   -> confirmed marker absence -> refuse. The volume-metadata query
+#   fails closed the same way. No probe failure — exit status or
+#   filesystem error — can become implicit provisioning authorization.
 #
 # - Where it runs, and what is honestly claimed: the guard is a [Service]
 #   ExecCondition, evaluated after the T018 volume unit (the generated
@@ -320,26 +353,34 @@ Notify=healthy
 # created, that (1) resolves the store's data directory through the
 # read-only `podman volume inspect` metadata query and refuses if that
 # metadata is unavailable or unusable — an uninspectable store is never
-# accepted; (2) runs the stat-class existing-cluster probe (`podman
-# unshare /usr/bin/test -s <data-dir>/18/docker/PG_VERSION`, the same
-# marker the native entrypoint consults) and passes only on status 0;
-# (3) treats status 1 — and ONLY status 1 — as a validated clean absence
-# and then evaluates the operator's provisioning-marker probe (status 0
-# passes with a loud journal notice); any other status (e.g. 2, or a
-# Podman-level 125) is a probe execution error and refuses immediately,
-# BEFORE the provisioning fallback is ever evaluated, so no probe failure
-# can become implicit provisioning authorization. Validation mounts no
-# volume and creates no container — Podman's host-side volume preparation
-# cannot run — and the diagnostics name volumes, paths, statuses, and
-# conditions only, never credentials, values, or database contents.
-# Dollar signs in the line are doubled ($$): systemd's documented
-# Exec-line escape passes one literal $ to the shell, which is the only
-# place these variables expand.
+# accepted; (2) classifies the cluster marker by DIRECTORY ENUMERATION,
+# never by a test predicate on a guessed path: `podman unshare
+# /usr/bin/find <data-dir> -maxdepth 3 -path <data-dir>/18/docker/
+# PG_VERSION -size +0c -print` matches only a non-empty PG_VERSION (valid
+# existing cluster -> start), and only when it does not match does a
+# second plain `-print` enumeration run to distinguish a confirmed
+# ZERO-LENGTH PG_VERSION from confirmed ABSENCE; (3) evaluates the
+# operator's provisioning-marker enumeration ONLY after a confirmed
+# zero-length/absent verdict — a marker match passes with a loud journal
+# notice, confirmed marker absence refuses. EVERY enumeration's exit
+# status is classified first: nonzero (a permission/traversal, I/O,
+# symlink-loop, or other filesystem lookup error — the failure mode
+# `test -e`/`-s` exit 1 silently conflates with absence) refuses
+# immediately, BEFORE the provisioning fallback is evaluated, so no
+# inspection failure can become implicit provisioning authorization;
+# marker inspection errors are never read as marker absence. Output is
+# constrained to the exact matched path or empty, so no ambiguous result
+# is representable. Validation mounts no volume and creates no container
+# — Podman's host-side volume preparation cannot run — and the
+# diagnostics name volumes, paths, statuses, and conditions only, never
+# credentials, values, or database contents. Dollar signs in the line are
+# doubled ($$): systemd's documented Exec-line escape passes one literal
+# $ to the shell, which is the only place these variables expand.
 [Service]
 EnvironmentFile=%h/.config/containers/systemd/songhealth-db.env
 ExecCondition=/usr/bin/test -n "${POSTGRES_USER}"
 ExecCondition=/usr/bin/test -n "${POSTGRES_DB}"
-ExecCondition=/usr/bin/sh -c 'p=$$(podman volume inspect --format "{{.Mountpoint}}" songhealth-db-data) || { /usr/bin/echo "songhealth-db: refusing to start: cannot inspect persistent-store volume metadata (podman volume inspect songhealth-db-data failed, so the existing store cannot be validated) - an uninspectable store is never accepted and never initialized" >&2; exit 1; }; [ -n "$$p" ] || { /usr/bin/echo "songhealth-db: refusing to start: the persistent-store volume songhealth-db-data reports no usable data directory, so its contents cannot be validated - refusing" >&2; exit 1; }; podman unshare /usr/bin/test -s "$$p/18/docker/PG_VERSION"; rc=$$?; [ $$rc -eq 0 ] && exit 0; [ $$rc -eq 1 ] || { /usr/bin/echo "songhealth-db: refusing to start: the existing-cluster probe exited with unexpected status $$rc instead of validating the store or reporting a clean absence - refusing before the provisioning fallback is evaluated" >&2; exit 1; }; podman unshare /usr/bin/test -e "$$p/.songhealth-db-store"; rc=$$?; [ $$rc -eq 0 ] && { /usr/bin/echo "songhealth-db: provisioning marker .songhealth-db-store is present in songhealth-db-data: initial cluster initialization is enabled for this start - remove the marker after first-time provisioning is verified healthy" >&2; exit 0; }; [ $$rc -eq 1 ] || { /usr/bin/echo "songhealth-db: refusing to start: the provisioning-marker probe exited with unexpected status $$rc - refusing" >&2; exit 1; }; /usr/bin/echo "songhealth-db: refusing to start: the persistent store (named volume songhealth-db-data at /var/lib/postgresql) holds no initialized PostgreSQL cluster (no non-empty PG_VERSION at /var/lib/postgresql/18/docker) and no operator provisioning marker (.songhealth-db-store) - an empty, missing-content, or automatically recreated replacement store is never initialized silently. Intentional first-time provisioning: create the marker, start this unit, verify healthy, then remove the marker - see the existing-database-store guard section in this unit header" >&2; exit 1'
+ExecCondition=/usr/bin/sh -c 'p=$$(podman volume inspect --format "{{.Mountpoint}}" songhealth-db-data) || { /usr/bin/echo "songhealth-db: refusing to start: cannot inspect persistent-store volume metadata (podman volume inspect songhealth-db-data failed, so the existing store cannot be validated) - an uninspectable store is never accepted and never initialized" >&2; exit 1; }; [ -n "$$p" ] || { /usr/bin/echo "songhealth-db: refusing to start: the persistent-store volume songhealth-db-data reports no usable data directory, so its contents cannot be validated - refusing" >&2; exit 1; }; v=$$(podman unshare /usr/bin/find -L "$$p" -maxdepth 3 -path "$$p/18/docker/PG_VERSION" -size +0c -print); rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: the existing-cluster inspection did not complete cleanly (enumeration exited with status $$rc - a permission, traversal, I/O, symlink-loop, or other filesystem error is never treated as cluster absence) - refusing before the provisioning fallback is evaluated" >&2; exit 1; fi; if [ -n "$$v" ]; then exit 0; fi; e=$$(podman unshare /usr/bin/find -L "$$p" -maxdepth 3 -path "$$p/18/docker/PG_VERSION" -print); rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: the existing-cluster existence check did not complete cleanly (enumeration exited with status $$rc) - refusing before the provisioning fallback is evaluated" >&2; exit 1; fi; m=$$(podman unshare /usr/bin/find -L "$$p" -maxdepth 1 -name .songhealth-db-store -print); rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: the provisioning-marker inspection did not complete cleanly (enumeration exited with status $$rc) - a marker inspection error is never interpreted as marker absence or authorization - refusing" >&2; exit 1; fi; if [ -z "$$m" ]; then if [ -n "$$e" ]; then /usr/bin/echo "songhealth-db: refusing to start: PG_VERSION exists at /var/lib/postgresql/18/docker but is zero-length, so no initialized cluster exists, and no operator provisioning marker (.songhealth-db-store) is present - an invalid database state is never initialized silently. Intentional first-time provisioning: create the marker, start this unit, verify healthy, then remove the marker - see the existing-database-store guard section in this unit header" >&2; else /usr/bin/echo "songhealth-db: refusing to start: the persistent store (named volume songhealth-db-data at /var/lib/postgresql) was enumerated cleanly and conclusively holds no PG_VERSION at /var/lib/postgresql/18/docker and no operator provisioning marker (.songhealth-db-store) - an empty, missing-content, or automatically recreated replacement store is never initialized silently. Intentional first-time provisioning: create the marker, start this unit, verify healthy, then remove the marker - see the existing-database-store guard section in this unit header" >&2; fi; exit 1; fi; /usr/bin/echo "songhealth-db: provisioning marker .songhealth-db-store is present in songhealth-db-data and the absence of an initialized cluster was confirmed by clean enumeration: initial cluster initialization is enabled for this start - remove the marker after first-time provisioning is verified healthy" >&2; exit 0'
 
 # The unit returns after any unplanned container exit (postgres crash, OOM
 # kill, external signal shutdown); an explicit `systemctl --user stop` is
