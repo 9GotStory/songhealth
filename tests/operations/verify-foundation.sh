@@ -799,6 +799,24 @@ derive_gate_markers() {
 	# sequence, this harness fails closed rather than accepting a drifted or
 	# weakened substitute.
 	GATE_BANNER="$(grep -oF "$T013_BANNER_MARKER" "$ROOT/$T013_SCRIPT" | head -1 || true)"
+
+# The accepted T020 startup payload (exceptional round 4, blocker 2), base64
+# of the exact sh -c payload committed in the accepted T020 candidate
+# (deploy/quadlet/songhealth-app.container at fd5c2ea2, Exec= line): the
+# mount/store guards, secret reads, export, the role-prerequisite node
+# program, the T013 gate mapping, and the HOST=0.0.0.0 exec server launch.
+# The container-form wiring accepts ONLY this payload (byte-equal after
+# systemd escape decoding): executable-name whitelists cannot prove the
+# approved commands and arguments, so a grouped eval, shell-function
+# shadowing, an unauthorized assignment, an altered role-check program, or
+# any execution redirection - however deeply quoted or nested - differs
+# from the accepted payload and is rejected. The structural rules remain
+# as earlier-diagnosis layers; this equality gate is the authority.
+# base64 avoids every shell/JS quoting hazard for the 42 backticks and
+# $q$ literals inside.
+readonly APPROVED_STARTUP_PAYLOAD_B64='Z3JlcCAtcSAnIC9hcHAvbWVkaWEgJyAvcHJvYy9tb3VudHMgfHwgeyBlY2hvIHNvbmdoZWFsdGgtYXBwOiByZXF1aXJlZCBwZXJzaXN0ZW50IG1lZGlhIHZvbHVtZSBzb25naGVhbHRoLW1lZGlhIGlzIG5vdCBhdHRhY2hlZCBhdCAvYXBwL21lZGlhIC0gcmVmdXNpbmcgdG8gc3RhcnQgPiYyOyBleGl0IDE7IH07IHRlc3QgLXIgL2FwcC9tZWRpYS8uc29uZ2hlYWx0aC1tZWRpYS1zdG9yZSB8fCB7IGVjaG8gc29uZ2hlYWx0aC1hcHA6IG9wZXJhdG9yLW1hbmFnZWQgZXhpc3RpbmcgbWVkaWEgc3RvcmUgbWFya2VyIC5zb25naGVhbHRoLW1lZGlhLXN0b3JlIGlzIG1pc3NpbmcgYXQgL2FwcC9tZWRpYSAtIHRoZSBwZXJzaXN0ZW50IHN0b3JlIHdhcyBub3QgcHJvdmlzaW9uZWQgb3IgaGFzIGJlZW4gcmVwbGFjZWQgLSByZWZ1c2luZyB0byBzdGFydCA+JjI7IGV4aXQgMTsgfTsgSUZTPSByZWFkIC1yIEVNREFTSF9NSUdSQVRJT05fREFUQUJBU0VfVVJMIDwvcnVuL3NlY3JldHMvc29uZ2hlYWx0aC1taWdyYXRpb24tZGF0YWJhc2UtdXJsOyBJRlM9IHJlYWQgLXIgRU1EQVNIX0VOQ1JZUFRJT05fS0VZIDwvcnVuL3NlY3JldHMvc29uZ2hlYWx0aC1lbmNyeXB0aW9uLWtleTsgZXhwb3J0IEVNREFTSF9NSUdSQVRJT05fREFUQUJBU0VfVVJMIEVNREFTSF9FTkNSWVBUSU9OX0tFWTsgbm9kZSAtZSAnY29uc3QgcGc9cmVxdWlyZShgcGdgKTtjb25zdCBjPW5ldyBwZy5DbGllbnQoe2hvc3Q6cHJvY2Vzcy5lbnYuUEdIT1NULHBvcnQ6TnVtYmVyKHByb2Nlc3MuZW52LlBHUE9SVCksZGF0YWJhc2U6cHJvY2Vzcy5lbnYuUEdEQVRBQkFTRSx1c2VyOnByb2Nlc3MuZW52LlBHVVNFUixwYXNzd29yZDpwcm9jZXNzLmVudi5QR1BBU1NXT1JELGNvbm5lY3Rpb25UaW1lb3V0TWlsbGlzOjUwMDAscXVlcnlfdGltZW91dDo1MDAwfSk7Y29uc3QgZmFpbD1tPT57Y29uc29sZS5lcnJvcihgc29uZ2hlYWx0aC1hcHA6IGArbSk7cHJvY2Vzcy5leGl0KDEpfTsoYXN5bmMoKT0+e2F3YWl0IGMuY29ubmVjdCgpO2NvbnN0IHI9YXdhaXQgYy5xdWVyeShgc2VsZWN0IHJvbHN1cGVyIHMscm9sY3JlYXRlZGIgY2Qscm9sY3JlYXRlcm9sZSBjcixoYXNfZGF0YWJhc2VfcHJpdmlsZWdlKGN1cnJlbnRfdXNlcixjdXJyZW50X2RhdGFiYXNlKCksJHEkQ09OTkVDVCRxJCkgZGJjLGhhc19zY2hlbWFfcHJpdmlsZWdlKGN1cnJlbnRfdXNlciwkcSRwdWJsaWMkcSQsJHEkVVNBR0UkcSQpIHN1LGhhc19zY2hlbWFfcHJpdmlsZWdlKGN1cnJlbnRfdXNlciwkcSRwdWJsaWMkcSQsJHEkQ1JFQVRFJHEkKSBzYyBmcm9tIHBnX3JvbGVzIHdoZXJlIHJvbG5hbWU9Y3VycmVudF91c2VyYCk7Y29uc3QgYj1yLnJvd3NbMF07aWYoIWIpZmFpbChgbGVhc3QtcHJpdmlsZWdlIGFwcGxpY2F0aW9uLXJvbGUgcHJlcmVxdWlzaXRlIGZhaWxlZDogdGhlIGNvbm5lY3Rpbmcgcm9sZSBoYXMgbm8gcGdfcm9sZXMgcm93YCk7aWYoYi5zKWZhaWwoYGxlYXN0LXByaXZpbGVnZSBhcHBsaWNhdGlvbi1yb2xlIHByZXJlcXVpc2l0ZSBmYWlsZWQ6IHRoZSBjb25uZWN0aW5nIHJvbGUgaXMgU1VQRVJVU0VSIC0gdGhlIGJvb3RzdHJhcCBhZG1pbmlzdHJhdG9yIGlzIG5vdCB0aGUgYXBwbGljYXRpb24gaWRlbnRpdHlgKTtpZihiLmNkKWZhaWwoYGxlYXN0LXByaXZpbGVnZSBhcHBsaWNhdGlvbi1yb2xlIHByZXJlcXVpc2l0ZSBmYWlsZWQ6IHRoZSBjb25uZWN0aW5nIHJvbGUgaGFzIENSRUFURURCYCk7aWYoYi5jcilmYWlsKGBsZWFzdC1wcml2aWxlZ2UgYXBwbGljYXRpb24tcm9sZSBwcmVyZXF1aXNpdGUgZmFpbGVkOiB0aGUgY29ubmVjdGluZyByb2xlIGhhcyBDUkVBVEVST0xFYCk7aWYoIWIuZGJjKWZhaWwoYGxlYXN0LXByaXZpbGVnZSBhcHBsaWNhdGlvbi1yb2xlIHByZXJlcXVpc2l0ZSBmYWlsZWQ6IHRoZSBjb25uZWN0aW5nIHJvbGUgbGFja3MgQ09OTkVDVCBvbiB0aGUgdGFyZ2V0IGRhdGFiYXNlYCk7aWYoIWIuc3UpZmFpbChgbGVhc3QtcHJpdmlsZWdlIGFwcGxpY2F0aW9uLXJvbGUgcHJlcmVxdWlzaXRlIGZhaWxlZDogdGhlIGNvbm5lY3Rpbmcgcm9sZSBsYWNrcyBVU0FHRSBvbiBzY2hlbWEgcHVibGljYCk7aWYoIWIuc2MpZmFpbChgbGVhc3QtcHJpdmlsZWdlIGFwcGxpY2F0aW9uLXJvbGUgcHJlcmVxdWlzaXRlIGZhaWxlZDogdGhlIGNvbm5lY3Rpbmcgcm9sZSBsYWNrcyBDUkVBVEUgb24gc2NoZW1hIHB1YmxpY2ApO2NvbnN0IG89YXdhaXQgYy5xdWVyeShgc2VsZWN0IGNhc2UgYy5yZWxraW5kIHdoZW4gJHEkUyRxJCB0aGVuICRxJHNlcXVlbmNlJHEkIGVsc2UgJHEkdGFibGUkcSQgZW5kIGtpbmQsYy5yZWxuYW1lIG9iaixwZ19oYXNfcm9sZShjdXJyZW50X3VzZXIsYy5yZWxvd25lciwkcSRVU0FHRSRxJCkgb3duZWQsY2FzZSBjLnJlbGtpbmQgd2hlbiAkcSRTJHEkIHRoZW4gaGFzX3NlcXVlbmNlX3ByaXZpbGVnZShjdXJyZW50X3VzZXIsYy5vaWQsJHEkU0VMRUNUJHEkKSBhbmQgaGFzX3NlcXVlbmNlX3ByaXZpbGVnZShjdXJyZW50X3VzZXIsYy5vaWQsJHEkVVNBR0UkcSQpIGFuZCBoYXNfc2VxdWVuY2VfcHJpdmlsZWdlKGN1cnJlbnRfdXNlcixjLm9pZCwkcSRVUERBVEUkcSQpIGVsc2UgaGFzX3RhYmxlX3ByaXZpbGVnZShjdXJyZW50X3VzZXIsYy5vaWQsJHEkU0VMRUNUJHEkKSBhbmQgaGFzX3RhYmxlX3ByaXZpbGVnZShjdXJyZW50X3VzZXIsYy5vaWQsJHEkSU5TRVJUJHEkKSBhbmQgaGFzX3RhYmxlX3ByaXZpbGVnZShjdXJyZW50X3VzZXIsYy5vaWQsJHEkVVBEQVRFJHEkKSBhbmQgaGFzX3RhYmxlX3ByaXZpbGVnZShjdXJyZW50X3VzZXIsYy5vaWQsJHEkREVMRVRFJHEkKSBlbmQgZG1sIGZyb20gcGdfY2xhc3MgYyBqb2luIHBnX25hbWVzcGFjZSBuIG9uIG4ub2lkPWMucmVsbmFtZXNwYWNlIHdoZXJlIGMucmVsa2luZCBpbiAoJHEkciRxJCwkcSRwJHEkLCRxJFMkcSQpIGFuZCBuLm5zcG5hbWU9JHEkcHVibGljJHEkYCk7YXdhaXQgYy5lbmQoKTtmb3IoY29uc3QgeCBvZiBvLnJvd3Mpe2NvbnN0IHA9W107aWYoIXgub3duZWQpcC5wdXNoKGBub3Qgb3duZWQgYnkgdGhlIGNvbm5lY3Rpbmcgcm9sZSBkaXJlY3RseSBvciB0aHJvdWdoIHJvbGUgbWVtYmVyc2hpcGApO2lmKCF4LmRtbClwLnB1c2goYGxhY2tpbmcgZWZmZWN0aXZlIHJlcXVpcmVkIERNTCBwcml2aWxlZ2VzYCk7aWYocC5sZW5ndGg+MClmYWlsKGBsZWFzdC1wcml2aWxlZ2UgYXBwbGljYXRpb24tcm9sZSBwcmVyZXF1aXNpdGUgZmFpbGVkOiBleGlzdGluZyBFbURhc2ggYCt4LmtpbmQrYCBgK3gub2JqK2AgaW4gc2NoZW1hIHB1YmxpYyBpcyBgK3Auam9pbihgIGFuZCBgKSl9Y29uc29sZS5lcnJvcihgc29uZ2hlYWx0aC1hcHA6IGxlYXN0LXByaXZpbGVnZSBhcHBsaWNhdGlvbi1yb2xlIHByZXJlcXVpc2l0ZSB2ZXJpZmllZDogbm9uLXN1cGVydXNlciwgbm8gQ1JFQVRFREIsIG5vIENSRUFURVJPTEUsIGRhdGFiYXNlIENPTk5FQ1QsIHNjaGVtYSBwdWJsaWMgVVNBR0UgYW5kIENSRUFURSwgYW5kIGArby5yb3dzLmxlbmd0aCtgIGV4aXN0aW5nIEVtRGFzaCByZWxhdGlvbihzKSBpbiBzY2hlbWEgcHVibGljIHBhc3MgcmVxdWlyZWQgb3duZXJzaGlwIChkaXJlY3Qgb3IgaW5oZXJpdGVkKSBhbmQgZnVsbCBETUwgdmVyaWZpY2F0aW9uYCl9KSgpLmNhdGNoKGU9PmZhaWwoYGxlYXN0LXByaXZpbGVnZSBhcHBsaWNhdGlvbi1yb2xlIHByZXJlcXVpc2l0ZSBmYWlsZWQ6IGArKChlJiZlLmNvZGUpfHxgZXJyb3JgKSkpJyAmJiBucG0gcnVuIHZlcmlmeTpzdGFydHVwICYmIEhPU1Q9MC4wLjAuMCBleGVjIG5vZGUgZGlzdC9zZXJ2ZXIvZW50cnkubWpz'
+APPROVED_STARTUP_PAYLOAD="$(printf '%s' "$APPROVED_STARTUP_PAYLOAD_B64" | base64 -d)"
+export APPROVED_STARTUP_PAYLOAD
 	if [ -z "$GATE_BANNER" ]; then
 		fail_stage C1 'could not derive the T013 gate completion banner from %s; the authority script changed and this harness refuses to weaken its evidence anchor' \
 			"$T013_SCRIPT"
@@ -1095,6 +1113,17 @@ gate_wiring_reason() {
 			// trailing commands (failure bypasses, alternate launches) are
 			// rejected — nothing may follow the server entry path token.
 			if (serverIdx + 2 !== p.length) return "commands follow the standalone server start (failure bypass or alternate launch) and are rejected";
+			// (exceptional round 4, blocker 2) The authority gate: the decoded
+			// startup payload must be BYTE-EQUAL to the accepted T020 startup
+			// payload (passed via the environment as base64-decoded text).
+			// Every structural rule above is an earlier-diagnosis layer; this
+			// equality is what proves the approved commands AND arguments -
+			// grouped eval bodies, function shadowing (quoted or not),
+			// unauthorized assignments, altered role-check programs, and any
+			// execution redirection all differ from the accepted payload.
+			const approved = String(process.env.APPROVED_STARTUP_PAYLOAD || "");
+			if (approved === "") return "the accepted T020 startup payload authority was not supplied to the reasoner; failing closed";
+			if (tokens[n - 1] !== approved) return "the startup payload differs from the accepted T020 startup payload (approved commands and arguments are required byte-for-byte)";
 			return "";
 		};
 		let text;
@@ -2039,7 +2068,10 @@ classify_effective_media_attachment() {
 	# argument, so this reasons over the EFFECTIVE ExecStart value with the
 	# same quote-aware, systemd-escape-decoding tokenizer the wiring
 	# reasoner uses: quoted option values stay whole, \xHH escapes DECODE
-	# to their character (so -v songhealth-media:/app/medi\x61 attaches),
+	# to their character (so -v songhealth-media:/app/medi\x61 attaches —
+	# the decoding branch reads the effective COMMAND string; the earlier
+	# array-indexed variant dropped every backslash, exceptional round 4
+	# blocker 1),
 	# the executable and 'run' subcommand are proven at their ACTUAL
 	# leading positions (an /usr/bin/echo decoy that merely mentions podman
 	# is unprovable), mount options are inspected only in the run-option
@@ -2079,11 +2111,17 @@ classify_effective_media_attachment() {
 		for (let i = 0; i < command.length; i++) {
 			const ch = command[i];
 			if (ch === "\\") {
-				if (i + 1 < effective.length) {
-					if (effective[i + 1] === "x" && i + 3 < effective.length && /^[0-9a-f]{2}$/.test(effective.slice(i + 2, i + 4))) {
-						current += String.fromCharCode(parseInt(effective.slice(i + 2, i + 4), 16));
+				// (exceptional round 4, blocker 1) bounds, lookahead, and
+				// slices all read the effective COMMAND STRING - the previous
+				// branch indexed the effective ARRAY (length 1 after the
+				// single-entry check), so i + 1 < effective.length was always
+				// false and every backslash escape was silently dropped,
+				// turning /app/medi\x61 into /app/medix61 (false omission).
+				if (i + 1 < command.length) {
+					if (command[i + 1] === "x" && i + 3 < command.length && /^[0-9a-f]{2}$/.test(command.slice(i + 2, i + 4))) {
+						current += String.fromCharCode(parseInt(command.slice(i + 2, i + 4), 16));
 						i += 3;
-					} else { current += effective[i + 1]; i++; }
+					} else { current += command[i + 1]; i++; }
 					has = true;
 				}
 				continue;
@@ -2264,11 +2302,17 @@ c7_negative_result_reason() {
 				it = index(l, lt)
 				if (it == 0 || it <= iv) next
 				seg = substr(l, iv + length(lv), it - iv - length(lv))
-				# rework r3 finding 4: the record must carry an EXPLICIT
-				# refusal clause (refused/refusing/refusal/refuse) — absence
-				# words alone satisfy no predicate, so an absence WARNING
-				# without a refusal is rejected just like an unrelated error.
-				if (seg ~ /not attached|not mounted|missing|absent/ && l ~ /refus/) { found = 1; exit }
+				# (exceptional round 4, blocker 3) the approved guard record is
+				# "volume <V> ... <negation> ... at <T> - refusing to start":
+				# the attachment clause (V, negation, T, in that order) must be
+				# FOLLOWED ON THE SAME RECORD by the explicit refusal clause,
+				# tying the refusal to the missing attachment. A refus* word
+				# anywhere else on the line (a database "connection refused"
+				# before the media warning) does not make media absence the
+				# startup-blocking cause and is rejected, as are absence
+				# warnings with no refusal at all.
+				after = substr(l, it + length(lt))
+				if (seg ~ /not attached|not mounted|missing|absent/ && after ~ /refus/) { found = 1; exit }
 			}
 			END { exit found ? 0 : 1 }
 		' "$refusal_file"; then
@@ -2707,6 +2751,13 @@ SHIM
 		st_case reasoner-rejects-absence-warning 'PASS an absence WARNING without an explicit refusal clause rejected (the approved guard diagnostic is required)'
 	else
 		st_fail reasoner-rejects-absence-warning 'absence words without a refusal clause must not compose a refusal record'
+	fi
+	printf 'songhealth-app: database connection refused; WARNING: songhealth-media is not attached at /app/media\n' >"$rj"
+	reason_r="$(c7_negative_result_reason "$out" "$rj")"
+	if [ -n "$reason_r" ]; then
+		st_case reasoner-rejects-combined-unrelated-refusal 'PASS a database refusal preceding a media warning rejected (the refusal clause must follow the attachment clause it refuses)'
+	else
+		st_fail reasoner-rejects-combined-unrelated-refusal 'an unrelated refusal word must not validate a media warning'
 	fi
 	{
 		printf 'songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start\n'
@@ -3212,6 +3263,29 @@ UNIT
 			st_case wiring-rejects-container-eval-shadow 'PASS a quoted eval defining a shadow function rejected (positive executable whitelist)'
 		else
 			st_fail wiring-rejects-container-eval-shadow 'an eval prefix that neutralizes the gate must be rejected'
+		fi
+		cat >"$wdir/container-group-eval.unit" <<UNIT
+[Service]
+ExecStart=${trusted_podman_path} run --name systemd-%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "{ eval 'npm() { return 0; }'; }; npm run verify:startup && exec node dist/server/entry.mjs"
+UNIT
+		reason_c="$(gate_wiring_reason "$wdir/container-group-eval.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-group-eval 'PASS a grouped eval shadowing the gate rejected (payload must be byte-equal to the accepted T020 payload)'
+		else
+			st_fail wiring-rejects-container-group-eval 'a guard-group body that neutralizes the gate must be rejected'
+		fi
+		reason_c="$(gate_wiring_reason "$wdir/container-ok.unit")"
+		if [ -z "$reason_c" ]; then
+			st_case wiring-accepts-container-approved-payload 'PASS the accepted T020 startup payload is the positive authority (byte-equal, dispatched)'
+		else
+			st_fail wiring-accepts-container-approved-payload "the full accepted payload must be accepted: $reason_c"
+		fi
+		sed "s|rolsuper s|rolsuper x|" "$wdir/container-ok.unit" >"$wdir/container-altered-role.unit"
+		reason_c="$(gate_wiring_reason "$wdir/container-altered-role.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-altered-role 'PASS an altered role-check program rejected (any byte difference from the accepted payload)'
+		else
+			st_fail wiring-rejects-container-altered-role 'an altered approved-command argument must be rejected'
 		fi
 
 	# Caller-dispatch demonstrations (rework r2, finding 1): the accepted
