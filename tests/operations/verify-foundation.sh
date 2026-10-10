@@ -1010,6 +1010,17 @@ gate_wiring_reason() {
 			const mountSpecs = [];
 			for (let i = 2; i < n - 3; i++) {
 				const t = tokens[i];
+				// (exceptional round 5, C1) An entrypoint override redirects
+				// execution without touching the image or the payload tokens:
+				// podman starts the selected entrypoint and passes the command
+				// tokens as ARGUMENTS, which the entrypoint may ignore - so an
+				// otherwise byte-identical approved payload, unchanged image
+				// digest, and matching in-container source hashes prove nothing
+				// about what executes. The approved T020 unit sets no
+				// entrypoint (it relies on the native image entrypoint), so ANY
+				// --entrypoint option, in = or separate-argument form, is an
+				// unauthorized execution override and is rejected.
+				if (t === "--entrypoint" || t.startsWith("--entrypoint=")) return "an unauthorized --entrypoint override redirects container execution away from the approved startup command and is rejected";
 				if (t === "-v" || t === "--volume" || t === "--mount" || t === "--tmpfs") { if (i + 1 < n) mountSpecs.push(tokens[i + 1]); }
 				else if (t.startsWith("--volume=")) mountSpecs.push(t.slice("--volume=".length));
 				else if (t.startsWith("--mount=")) mountSpecs.push(t.slice("--mount=".length));
@@ -2312,7 +2323,15 @@ c7_negative_result_reason() {
 				# startup-blocking cause and is rejected, as are absence
 				# warnings with no refusal at all.
 				after = substr(l, it + length(lt))
-				if (seg ~ /not attached|not mounted|missing|absent/ && after ~ /refus/) { found = 1; exit }
+				# (exceptional round 5, C7) the refusal must be the approved
+				# guard diagnostic itself: separator characters, then the
+				# guard clause "refusing to start" (or refused/refusal to
+				# start) - the missing attachment stated as the reason startup
+				# is refused. Arbitrary refusal text later on the record (a
+				# database "connection refused" appended after the media
+				# warning) does not make media absence the cause, whatever the
+				# clause ordering.
+				if (seg ~ /not attached|not mounted|missing|absent/ && after ~ /^[-,;:. \t]*refus[a-z]* to start/) { found = 1; exit }
 			}
 			END { exit found ? 0 : 1 }
 		' "$refusal_file"; then
@@ -2758,6 +2777,13 @@ SHIM
 		st_case reasoner-rejects-combined-unrelated-refusal 'PASS a database refusal preceding a media warning rejected (the refusal clause must follow the attachment clause it refuses)'
 	else
 		st_fail reasoner-rejects-combined-unrelated-refusal 'an unrelated refusal word must not validate a media warning'
+	fi
+	printf 'songhealth-app: WARNING: songhealth-media is not attached at /app/media; database connection refused\n' >"$rj"
+	reason_r="$(c7_negative_result_reason "$out" "$rj")"
+	if [ -n "$reason_r" ]; then
+		st_case reasoner-rejects-reversed-unrelated-refusal 'PASS a media warning followed by a database refusal rejected (the tail must be the guard refusing-to-start diagnostic, whatever the clause ordering)'
+	else
+		st_fail reasoner-rejects-reversed-unrelated-refusal 'an appended unrelated refusal must not validate a media warning'
 	fi
 	{
 		printf 'songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start\n'
@@ -3286,6 +3312,20 @@ UNIT
 			st_case wiring-rejects-container-altered-role 'PASS an altered role-check program rejected (any byte difference from the accepted payload)'
 		else
 			st_fail wiring-rejects-container-altered-role 'an altered approved-command argument must be rejected'
+		fi
+		sed "s|--rm |--rm --entrypoint=/app/media/decoy |" "$wdir/container-ok.unit" >"$wdir/container-entrypoint-eq.unit"
+		reason_c="$(gate_wiring_reason "$wdir/container-entrypoint-eq.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-entrypoint-eq 'PASS an unauthorized --entrypoint= override rejected even with the byte-exact approved payload'
+		else
+			st_fail wiring-rejects-container-entrypoint-eq 'an entrypoint override must be rejected regardless of payload equality'
+		fi
+		sed "s|--rm |--rm --entrypoint /bin/false |" "$wdir/container-ok.unit" >"$wdir/container-entrypoint-arg.unit"
+		reason_c="$(gate_wiring_reason "$wdir/container-entrypoint-arg.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-container-entrypoint-arg 'PASS an unauthorized separate-argument --entrypoint override rejected even with the byte-exact approved payload'
+		else
+			st_fail wiring-rejects-container-entrypoint-arg 'an entrypoint override in separate-argument form must be rejected'
 		fi
 
 	# Caller-dispatch demonstrations (rework r2, finding 1): the accepted
