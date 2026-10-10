@@ -89,6 +89,254 @@
 # non-superuser and its database/schema privileges must match the approved
 # set); provisioning commands and their evidence remain disposable operator
 # material and are not committed to this repository.
+#
+# Existing-database-store guard — Phase B, NORMAL STARTUP (fail-closed; the
+# accepted Option A design). plan.md forbids that "a missing expected
+# attachment or an accidentally empty replacement store ... appear[s] as a
+# healthy platform", but the official image's native entrypoint silently
+# runs initdb against ANY empty PGDATA — including a named volume that
+# Podman recreated automatically after the original persistent volume
+# disappeared (the T018 volume unit generates `podman volume create
+# --ignore`, and any `-v name:...` mount auto-creates a missing named
+# volume as an empty replacement). Normal startup therefore contains NO
+# initialization path of any kind: no provisioning marker exists, no
+# fallback exists, and NO inspection outcome — including a failed,
+# ambiguous, or errored inspection — ever authorizes initialization.
+# Initial provisioning is a separate, explicit, operator-executed
+# procedure (Phase A, documented below); this unit only ever STARTS an
+# already-initialized store.
+#
+# The guard (an ExecCondition evaluated before the database container is
+# created, after the generated Requires=/After= on the T018 volume unit):
+#
+# 1. `podman volume inspect --format {{.Mountpoint}} songhealth-db-data`
+#    resolves the existing named volume's data directory. A failed query,
+#    a nonzero exit, or an empty/unusable path refuses the start: named
+#    volume EXISTENCE is never treated as store validity, and an
+#    uninspectable store is never accepted.
+# 2. Four positive, non-following metadata classifications run under
+#    `podman unshare` (the rootless user namespace — required because
+#    initdb creates PGDATA mode 0700 owned by the image's postgres user,
+#    a subordinate UID the runtime user cannot traverse outside the
+#    namespace), bottom-up, each through only previously classified
+#    plain-directory parents, using the ONE approved additional runtime
+#    dependency:
+#        LC_ALL=C /usr/bin/stat -c "%F %s" -- <component>
+#    (GNU coreutils stat; non-following by default — -L is never used;
+#    LC_ALL=C pins the file-type text to its C-locale representation.)
+#    Required results, each needing exit status 0 AND exactly valid
+#    output:
+#      - <data-dir>           one line "directory <non-negative integer>"
+#      - <data-dir>/18        one line "directory <non-negative integer>"
+#      - <data-dir>/18/docker one line "directory <non-negative integer>"
+#      - <data-dir>/18/docker/PG_VERSION
+#                             one line "regular file <strictly positive
+#                             integer>" (the same marker, at the same
+#                             PGDATA the pinned image's entrypoint
+#                             consults, with the same non-empty size
+#                             semantics)
+#    Refused for any component: nonzero stat exit (ENOENT, EACCES, EIO,
+#    ELOOP, unmapped ownership, any other lookup failure — an error is
+#    NEVER interpreted as absence); unknown or unexpected type text
+#    (including `symbolic link` — a symlink anywhere in the chain, live
+#    or dangling, is refused WITHOUT ever being followed); malformed,
+#    missing, empty, or multi-line output; non-numeric, negative, or
+#    zero size where positive size is required; any extra tokens. Only
+#    successful positive classification of every component proceeds to
+#    native PostgreSQL startup, where the entrypoint makes its own
+#    independent [ -s "$PGDATA/PG_VERSION" ] skip-initialization
+#    decision on the same path. A non-empty PG_VERSION is initialization
+#    EVIDENCE, never a guarantee of database integrity: a corrupt
+#    cluster passes this gate and is then refused by PostgreSQL itself
+#    (native startup failure, never healthy, restart policy with
+#    systemd's start rate limiting bounds the retry, nothing repaired).
+#
+# Non-mutating inspection (under the coordination policy below): the
+# validation syscall set is exactly one lstat per component plus Podman's
+# own metadata-database read — no file content is read, no directory is
+# enumerated, and no in-store symlink is followed, so the kernel's
+# persistent-metadata update sites (read-path atime, directory-iteration
+# atime, and the symlink-follow atime path) are not reached; lstat
+# updates no timestamp and no write-class syscall occurs, regardless of
+# mount options. Scope honesty: components of the data directory's path
+# PREFIX outside the persistent store (Podman's storage area) are
+# path-resolved as in every Podman operation; and these kernel-behavior
+# claims are source-derived, with runtime proof (strace inventory and
+# before/after inode timestamps) deferred to authorized runtime
+# verification. No container is created for validation, nothing is
+# mounted, and Podman's host-side volume preparation cannot run.
+#
+# Operational Coordination Policy (approved Option A; the guard's
+# guarantees are explicitly conditional on it). Window: from the first
+# store-inspection ExecCondition until the instant the native PostgreSQL
+# entrypoint completes its skip-initialization decision. Bound actors:
+# every external host process, tool, automation, and administrator — not
+# limited to podman volume lifecycle commands. During the window no
+# external actor may modify database file contents (write, truncate,
+# delete, replace), directory entries or contents, symlinks or targets,
+# ownership/permissions/metadata, mounts/bind mounts/storage mappings,
+# named-volume identity or lifecycle, or any other persistent-store state
+# capable of changing the validation result. What the implementation
+# independently guarantees: positive non-following per-component
+# classification; fail-closed refusal of every nonconforming observation
+# before any container exists; no provisioning fallback; ordering within
+# this unit's own activation. What depends on operator compliance:
+# non-following classification protects each inspection's FINAL component
+# — if a previously classified parent directory is replaced (for example
+# by a symlink) between inspections, pathname resolution of a deeper
+# component follows the new parent and may classify the target; the guard
+# is NOT independent protection against a violating actor, and systemd
+# unit-job serialization covers only this unit's own sequencing, never
+# external filesystem changes. The Product Owner accepts this residual
+# race risk explicitly (Option A); it is documented, not eliminated, and
+# no locking architecture is added.
+#
+# Honest three-claim boundary: this unit does NOT prevent the T018 volume
+# unit (or Podman) from creating a missing named volume as an empty
+# replacement; it DOES prevent PostgreSQL from ever initializing it (on
+# refusal no container exists, the entrypoint never runs, initdb never
+# executes); and it DOES prevent this unit from ever reporting active or
+# healthy on it (a skipped unit never reaches active, so Notify=healthy
+# cannot fire). systemd 259 skip semantics (accepted F02): a refusal is
+# an ExecCondition exit in (0,254] — the unit stays inactive with
+# Result=exec-condition, the start job completes JOB_DONE (systemctl
+# start does not itself signal the refusal; the observables are the
+# inactive state, systemctl show -p Result, and the journal diagnostic),
+# and the T020 unit's Requires=/After= does NOT reject the application's
+# start job: T020's own independent database-connectivity/readiness
+# prerequisite is the application-side fail-closed boundary. Database
+# unit inactivity, application startup refusal, and Healthy/Ready
+# acceptance remain three distinct notions.
+#
+# Phase A — EXPLICIT INITIAL PROVISIONING (operator-executed, one-shot;
+# documented here, never executed by this unit, never automatic on any
+# ordinary start). The authorization is the act of running the named
+# procedure; nothing persists as an armed state and no reusable bypass
+# exists in any committed or in-store artifact.
+#
+#   1. podman volume create songhealth-db-data
+#      (idempotent; only if absent), and ensure the Podman secret
+#      songhealth-db-password exists.
+#   2. Verify the store is GENUINELY EMPTY — successful inspection must
+#      be established independently of empty output:
+#        MP="$(podman volume inspect --format '{{.Mountpoint}}' \
+#              songhealth-db-data)"
+#        OUT="$(podman unshare /bin/ls -A "$MP")"; RC=$?
+#        [ "$RC" -eq 0 ] && [ -z "$OUT" ] || {
+#          echo "store is not verifiably empty (status $RC or non-empty)" >&2
+#          exit 1; }
+#      A store without PG_VERSION but WITH other content (initdb creates
+#      WAL and subdirectories before the marker exists) is a PARTIAL
+#      state — provisioning refuses it; recovery requires explicit
+#      operator investigation and a deliberate reset decision (see the
+#      interrupted-provisioning states below). Enumeration is acceptable
+#      here because Phase A is a deliberate provisioning context, not
+#      normal-startup validation.
+#   3. Load and validate the provisioning configuration with the STRICT
+#      PARSER below (never shell-sourcing the file).
+#   4. One-shot initialization with the exact approved digest and
+#      EXPLICIT value delivery only (no --env-file; PGDATA is never
+#      delivered, so the image default
+#      PGDATA=/var/lib/postgresql/18/docker is the only one in effect):
+#        podman run -d --name songhealth-db-provision \
+#          --network none \
+#          --volume songhealth-db-data:/var/lib/postgresql \
+#          --secret songhealth-db-password \
+#          -e POSTGRES_USER="$POSTGRES_USER" \
+#          -e POSTGRES_DB="$POSTGRES_DB" \
+#          -e POSTGRES_PASSWORD_FILE=/run/secrets/songhealth-db-password \
+#          docker.io/library/postgres:18.6@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf
+#   5. FINAL-SERVER verification (initialization is not readiness: the
+#      entrypoint runs initdb with a temporary pg_ctl server, stops it,
+#      and only then execs the final server). All three must pass:
+#        a. the FINAL "ready to accept connections" record in
+#           podman logs songhealth-db-provision;
+#        b. podman exec songhealth-db-provision \
+#             pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"   (exit 0;
+#           availability only — pg_isready does not verify identity);
+#        c. SQL identity on the final server, compared against the
+#           strictly parsed values:
+#             podman exec songhealth-db-provision psql \
+#               -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+#               "select current_database()"
+#             == POSTGRES_DB, and the same with
+#               "select current_user" == POSTGRES_USER.
+#   6. podman rm -f songhealth-db-provision; then, if this unit changed,
+#      systemctl --user daemon-reload, and
+#      systemctl --user start songhealth-db.service (Phase B passes on
+#      the now-initialized store).
+#
+#   STRICT PARSING CONTRACT (Phase-A precondition; it does not narrow the
+#   systemd unit's accepted EnvironmentFile behavior — the unit continues
+#   to load any file systemd accepts; the strict grammar simply gates
+#   PROVISIONING). Grammar: the file exists, is readable, and EVERY line
+#   is exactly POSTGRES_USER=<value> or POSTGRES_DB=<value>, where
+#   <value> is one or more characters of [A-Za-z0-9_]; no whitespace, no
+#   quotes, no escapes, no comments, no blank lines, no other keys, no
+#   duplicates, nothing else. For every in-grammar file, systemd's
+#   EnvironmentFile parsing and this parser resolve IDENTICAL values
+#   (an unquoted single-line assignment is passed through verbatim by
+#   both; systemd performs no variable expansion and quote stripping
+#   cannot apply where no quotes exist); every out-of-grammar input is
+#   refused outright, so no divergent interpretation can exist. Parser:
+#
+#     cfg="$HOME/.config/containers/systemd/songhealth-db.env"
+#     unset POSTGRES_USER POSTGRES_DB
+#     { [ -f "$cfg" ] && [ -r "$cfg" ]; } || {
+#       echo "configuration missing or unreadable" >&2; exit 1; }
+#     NU=0; ND=0
+#     while IFS= read -r LINE || [ -n "$LINE" ]; do
+#       FIELD=""; VALUE=""
+#       case "$LINE" in
+#         POSTGRES_USER=*) FIELD=U; VALUE="${LINE#POSTGRES_USER=}" ;;
+#         POSTGRES_DB=*)   FIELD=D; VALUE="${LINE#POSTGRES_DB=}" ;;
+#         *)               { echo "unsupported line in configuration" >&2
+#                            exit 1; } ;;
+#       esac
+#       case "$VALUE" in
+#         ""|*[!A-Za-z0-9_]*)
+#           { echo "malformed or empty value" >&2; exit 1; } ;;
+#       esac
+#       case "$FIELD" in
+#         U) NU=$((NU+1)); POSTGRES_USER="$VALUE" ;;
+#         D) ND=$((ND+1)); POSTGRES_DB="$VALUE" ;;
+#       esac
+#     done < "$cfg"
+#     [ "$NU" -eq 1 ] && [ "$ND" -eq 1 ] || {
+#       echo "duplicate or missing assignment" >&2; exit 1; }
+#
+#   Expected outcomes: `POSTGRES_USER=alice` accepted (value alice);
+#   quoted (`POSTGRES_USER="alice"`), escaped, duplicate, malformed
+#   (missing `=`, empty value, stray whitespace), unterminated, absent,
+#   blank, comment, unknown-key, and unreadable/missing-file inputs ALL
+#   abort provisioning; inherited or stale shell values can never
+#   substitute (unset first; the file check precedes parsing); the
+#   validated values are then delivered EXPLICITLY as
+#   -e NAME="$VALUE" arguments (step 4), never via --env-file and never
+#   via bare -e, so the container receives exactly the validated
+#   identities and nothing else.
+#
+# Interrupted provisioning — five states, none of which this unit ever
+# resolves automatically (no deletion, reset, cleanup, repair, or initdb
+# retry over an unverified store; a missing PG_VERSION is NEVER treated
+# as proof of an empty store):
+#   S1  verified-empty store (step 2 passed): eligible for Phase A.
+#   S2  partial store WITHOUT PG_VERSION (files/directories present):
+#       Phase B refuses (no valid marker), Phase A refuses (not
+#       verifiably empty); recovery requires explicit operator
+#       investigation and a deliberate, humanly-authorized reset.
+#   S3  PG_VERSION present but provisioning incomplete (intended
+#       database/user missing): Phase B classifies the structure and the
+#       container MAY run and report healthy — acknowledged; completed
+#       provisioning is NOT presumed. The Phase-A handoff is governed
+#       solely by final-server SQL identity verification, and application
+#       acceptance is independently blocked by T020's prerequisite.
+#       Recovery: explicit operator decision.
+#   S4  final server running but identity verification incomplete: not
+#       accepted as provisioned; verify or recover explicitly.
+#   S5  fully provisioned and verified: eligible for Normal Startup.
+# In every state, PostgreSQL health, completed provisioning, and
+# application acceptance remain three distinct facts.
 
 [Unit]
 Description=Songhealth PostgreSQL 18.6 database (private application network only)
@@ -134,7 +382,8 @@ Environment=POSTGRES_PASSWORD_FILE=/run/secrets/songhealth-db-password
 # notification until the health check passes, so user systemd never considers
 # the service started before PostgreSQL is healthy. pg_isready proves only
 # that the server accepts connections; the ExecCondition gates in [Service]
-# are what prevent wrong-identity initialization.
+# are what prevent wrong-identity initialization and the initialization of
+# an unprovisioned, empty, or replacement store.
 HealthCmd=pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1
 HealthInterval=5s
 HealthTimeout=3s
@@ -150,14 +399,34 @@ Notify=healthy
 # A missing file fails the unit load before any container exists, and the
 # ExecCondition gates skip the unit — exit 1-254 semantics: skipped, not
 # failed, and not restarted — when a required identity value is missing or
-# empty. In every gated case no container is created, the native image
-# entrypoint never runs, the persistent volume is never initialized with
-# fallback defaults, and the healthy notification cannot fire. Failures name
-# the field only; values are never printed.
+# empty, or when the existing-database-store guard below refuses the
+# persistent store. In every gated case no container is created, the native
+# image entrypoint never runs, the persistent volume is never initialized
+# with fallback defaults or as a replacement store, and the healthy
+# notification cannot fire. Failures name the field or the failed store
+# condition only; values are never printed.
+#
+# Existing-database-store guard (Phase B; full contract in the header):
+# first the `podman volume inspect` metadata query (failure or unusable
+# path refuses), then four positive non-following classifications under
+# `podman unshare`, bottom-up — data directory, 18, docker as `directory`,
+# PG_VERSION as a `regular file` with strictly positive size — each
+# requiring stat exit 0 AND exactly one line of precisely valid output
+# (`LC_ALL=C /usr/bin/stat -c "%F %s" -- <component>`). Nonzero exit
+# (any lookup error), symlink classification, unknown type, malformed/
+# missing/extra output, or non-positive size refuses the component and
+# the unit BEFORE any container exists; no fallback and no provisioning
+# path exists in normal startup. Dollar signs and percent signs in the
+# line are doubled ($$ and %%): systemd's documented Exec-line escapes
+# pass one literal $ and one literal % to the shell, which is the only
+# place these expand; the rendered form (`%F %s`, `${...}`) is what the
+# shell executes. Diagnostics name components, conditions, and statuses
+# only — never credentials, values, or database contents.
 [Service]
 EnvironmentFile=%h/.config/containers/systemd/songhealth-db.env
 ExecCondition=/usr/bin/test -n "${POSTGRES_USER}"
 ExecCondition=/usr/bin/test -n "${POSTGRES_DB}"
+ExecCondition=/usr/bin/sh -c 'p=$$(podman volume inspect --format "{{.Mountpoint}}" songhealth-db-data) || { /usr/bin/echo "songhealth-db: refusing to start: cannot inspect persistent-store volume metadata (podman volume inspect songhealth-db-data failed, so the existing store cannot be validated) - an uninspectable store is never accepted and never initialized" >&2; exit 1; }; [ -n "$$p" ] || { /usr/bin/echo "songhealth-db: refusing to start: the persistent-store volume songhealth-db-data reports no usable data directory, so its contents cannot be validated - refusing" >&2; exit 1; }; t=$$(LC_ALL=C podman unshare /usr/bin/stat -c "%%F %%s" -- "$$p"); rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: store inspection of the volume data directory exited with status $$rc - a filesystem error is never treated as cluster absence - refusing before any PostgreSQL start" >&2; exit 1; fi; f=$${t#directory }; [ "$$f" -ge 0 ] 2>/dev/null; rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: the volume data directory did not classify as the required plain directory (a symlink, unexpected type, or malformed result is refused and never followed) - refusing before any PostgreSQL start" >&2; exit 1; fi; t=$$(LC_ALL=C podman unshare /usr/bin/stat -c "%%F %%s" -- "$$p/18"); rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: store inspection of 18 exited with status $$rc - a filesystem error is never treated as cluster absence - refusing before any PostgreSQL start" >&2; exit 1; fi; f=$${t#directory }; [ "$$f" -ge 0 ] 2>/dev/null; rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: 18 did not classify as the required plain directory (a symlink, unexpected type, or malformed result is refused and never followed) - refusing before any PostgreSQL start" >&2; exit 1; fi; t=$$(LC_ALL=C podman unshare /usr/bin/stat -c "%%F %%s" -- "$$p/18/docker"); rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: store inspection of 18/docker exited with status $$rc - a filesystem error is never treated as cluster absence - refusing before any PostgreSQL start" >&2; exit 1; fi; f=$${t#directory }; [ "$$f" -ge 0 ] 2>/dev/null; rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: 18/docker did not classify as the required plain directory (a symlink, unexpected type, or malformed result is refused and never followed) - refusing before any PostgreSQL start" >&2; exit 1; fi; t=$$(LC_ALL=C podman unshare /usr/bin/stat -c "%%F %%s" -- "$$p/18/docker/PG_VERSION"); rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: store inspection of PG_VERSION exited with status $$rc - a filesystem error is never treated as cluster absence - refusing before any PostgreSQL start" >&2; exit 1; fi; f=$${t#regular file }; [ "$$f" -gt 0 ] 2>/dev/null; rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: PG_VERSION at /var/lib/postgresql/18/docker did not classify as a regular file with strictly positive size (a zero-length, missing, ambiguous, or symlinked marker is never accepted) - an empty, missing-content, or automatically recreated replacement store is never initialized silently; initial provisioning is the explicit operator procedure in this unit header" >&2; exit 1; fi'
 
 # The unit returns after any unplanned container exit (postgres crash, OOM
 # kill, external signal shutdown); an explicit `systemctl --user stop` is
