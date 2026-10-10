@@ -90,71 +90,124 @@
 # set); provisioning commands and their evidence remain disposable operator
 # material and are not committed to this repository.
 #
-# Existing-database-store guard (fail-closed, bounded source correction):
-# plan.md forbids that "a missing expected attachment or an accidentally
-# empty replacement store ... appear[s] as a healthy platform", but the
-# official image's native entrypoint silently runs initdb against ANY empty
-# PGDATA — including a named volume that Podman recreated automatically
-# after the original persistent volume disappeared (the T018 volume unit
-# generates `podman volume create --ignore`, and any `-v name:...` mount
-# auto-creates a missing named volume as an empty replacement). Without
-# this guard, a deleted-and-recreated songhealth-db-data volume would come
-# up as a fresh empty cluster and report healthy. The gate below therefore
-# refuses to start unless the persistent store ALREADY holds an initialized
-# PostgreSQL cluster or carries the operator's one-time provisioning
-# marker. Its exact contract and honest limits:
+# Existing-database-store guard (fail-closed; bounded source correction,
+# corrective round 1): plan.md forbids that "a missing expected attachment
+# or an accidentally empty replacement store ... appear[s] as a healthy
+# platform", but the official image's native entrypoint silently runs
+# initdb against ANY empty PGDATA — including a named volume that Podman
+# recreated automatically after the original persistent volume disappeared
+# (the T018 volume unit generates `podman volume create --ignore`, and any
+# `-v name:...` mount auto-creates a missing named volume as an empty
+# replacement). Without this guard, a deleted-and-recreated
+# songhealth-db-data volume would come up as a fresh empty cluster and
+# report healthy. The gate below therefore refuses to start unless the
+# persistent store ALREADY holds an initialized PostgreSQL cluster or
+# carries the operator's one-time provisioning marker. Its exact contract
+# and honest limits:
 #
 # - What is checked: a non-empty PG_VERSION at
 #   /var/lib/postgresql/18/docker — the exact marker the official image's
 #   own entrypoint consults (same digest, PGDATA at that path per the
 #   pinned-image research above) to decide "PostgreSQL Database directory
 #   appears to contain a database; Skipping initialization" — OR an
-#   operator provisioning marker file
-#   .songhealth-db-store at the volume root /var/lib/postgresql (the same
-#   store-marker pattern as the reviewed T020 media-store prerequisite;
-#   deliberately OUTSIDE PGDATA so the native entrypoint never touches
-#   it). Named-volume existence alone proves nothing and is never
-#   consulted.
+#   operator provisioning marker file .songhealth-db-store at the volume
+#   root /var/lib/postgresql (the same store-marker pattern as the
+#   reviewed T020 media-store prerequisite; deliberately OUTSIDE PGDATA so
+#   the native entrypoint never touches it). Named-volume existence alone
+#   proves nothing: existence metadata is only the precondition that makes
+#   inspection possible, and a store that cannot be inspected is refused,
+#   never equated with absence.
 #
-# - Where it runs, and the three explicitly distinct claims: the guard is
-#   a [Service] ExecCondition, evaluated after the T018 volume unit (the
-#   generated Requires=/After= on songhealth-db-data-volume.service) but
-#   strictly BEFORE the database container is created. It does NOT prevent
-#   the T018 volume unit (or Podman itself) from creating a missing named
-#   volume as an empty replacement — preventing that creation would
-#   require changing T018 and is outside this unit's authority; the honest
-#   claim is the pair it does establish: it DOES prevent PostgreSQL from
-#   initializing that replacement store (on refusal the unit is skipped —
-#   exit 1-254 semantics: not failed, not restarted — so no container
-#   exists, the native entrypoint never runs, initdb never executes
-#   against the unvalidated store), and it DOES prevent false Healthy/
-#   Ready acceptance (the unit never reaches active, Notify=healthy can
-#   never fire, and the T020 application unit's Requires=songhealth-db.
-#   service therefore also refuses to start — no application ever connects
-#   to a refused store).
+# - How it inspects — provably non-mutating. Validation creates NO
+#   container and invokes NO volume lifecycle: nothing in the guard mounts
+#   the volume, so Podman's host-side volume preparation (copying image
+#   directory contents into a fresh volume, and adjusting its ownership,
+#   permissions, and timestamps — preparation that a `:ro` mount does not
+#   restrict and that `podman run --volume=` performs before any probe
+#   command executes) cannot run at all. The guard uses exactly two
+#   mechanisms:
+#     1. `podman volume inspect --format {{.Mountpoint}}
+#        songhealth-db-data` — a read-only storage-metadata query that
+#        returns the volume's existing data directory. Its failure or an
+#        empty result is an inspection error and refuses the start; it is
+#        never treated as cluster absence.
+#     2. `podman unshare /usr/bin/test ...` — execution of the stat-class
+#        /usr/bin/test binary inside the rootless user namespace, the
+#        documented mechanism for host-side access to rootless storage:
+#        initdb creates PGDATA mode 0700 owned by the image's postgres
+#        user (a subordinate UID on the host), which the runtime user
+#        cannot even traverse outside that namespace, while inside it the
+#        runtime user is root and container ownerships are mapped.
+#   Both checks are existence/size (stat-class) operations only: no
+#   create, write, truncate, chown, chmod, initialize, or populate path
+#   exists anywhere in validation, and no database CONTENT is ever read —
+#   no data leaves the store, so nothing sensitive can leak. The claim is
+#   NOT that `:ro`, `nocopy`, or `podman unshare` is individually safe —
+#   it is that validation performs no volume mount and no container
+#   lifecycle whatsoever, and runs only a metadata query and stat-class
+#   file checks.
 #
-# - The probes: one-shot `podman run --rm --network=none` invocations of
-#   the SAME pinned digest below, mounting songhealth-db-data READ-ONLY at
-#   /var/lib/postgresql and running only /usr/bin/test through the image's
-#   native entrypoint command passthrough (a non-postgres first argument is
-#   exec'd as-is by docker-entrypoint.sh). They read two file-existence
-#   facts, create nothing, mutate nothing, publish no port, attach to no
-#   network, and remove themselves (--rm). They are read-only validation
-#   probes of the one approved database image, not a second PostgreSQL
-#   container and not an orchestration layer.
+# - Probe error handling (fail-closed on the unexpected): the cluster
+#   probe's exit status is discriminated explicitly. Status 0 = validated
+#   existing cluster (start proceeds). Status 1 — and only status 1 — =
+#   validated clean absence (the provisioning-marker arm is evaluated
+#   next). ANY other status (e.g. test misuse status 2, or a Podman-level
+#   error such as 125) is a probe execution error: the start is refused
+#   with that status named, BEFORE the provisioning fallback is ever
+#   evaluated, so no probe failure can become implicit provisioning
+#   authorization. The marker probe is discriminated identically
+#   (0 = provisioning authorized, 1 = validated absence -> refuse, other
+#   = error -> refuse). The volume-metadata query is handled the same
+#   way: a store whose metadata cannot be inspected is refused outright.
+#
+# - Where it runs, and what is honestly claimed: the guard is a [Service]
+#   ExecCondition, evaluated after the T018 volume unit (the generated
+#   Requires=/After= on songhealth-db-data-volume.service) but strictly
+#   BEFORE the database container is created. Three explicitly distinct
+#   claims: (1) it does NOT prevent the T018 volume unit (or Podman
+#   itself) from creating a missing named volume as an empty replacement —
+#   preventing that creation would require changing T018 and is outside
+#   this unit's authority; (2) it DOES prevent PostgreSQL from
+#   initializing that replacement store — on refusal the unit is skipped,
+#   no container exists, the native entrypoint never runs, and initdb
+#   never executes against the unvalidated store; (3) it DOES prevent
+#   THIS database unit from ever reporting active or healthy — a skipped
+#   unit never reaches active, so Notify=healthy can never fire.
+#
+# - systemd skip semantics (systemd 259; do not overstate): an
+#   ExecCondition refusal leaves this unit inactive with
+#   Result=exec-condition, and the skipped unit's start job completes as
+#   JOB_DONE, not JOB_FAILED — `systemctl --user start songhealth-db`
+#   therefore does NOT itself report the refusal (the observable signals
+#   are the inactive state, `systemctl --user show -p Result` =
+#   exec-condition, and this unit's journal diagnostic), and the T020
+#   application unit's Requires=/After= does NOT reject the application's
+#   start job: after the ordering dependency the application unit still
+#   starts and its container may attempt startup while this database unit
+#   is inactive. The application-side fail-closed boundary is the
+#   application's OWN independent database prerequisite — the reviewed
+#   T020 startup payload connects to the database and exits nonzero
+#   before its server or readiness when the database is absent — a
+#   separate mechanism from this unit's refusal, and no Healthy/Ready
+#   acceptance is possible on either side. Three distinct notions are
+#   kept distinct: database-unit inactivity (this unit skipped),
+#   application startup refusal (T020's own prerequisite exits nonzero),
+#   and Healthy/Ready acceptance (requires this unit active + healthy AND
+#   the application's own gate; neither occurs while this unit refuses).
 #
 # - Intentional first-time provisioning is explicit and operator-controlled
 #   (this unit, this image, and every committed file arm nothing by
-#   default):
+#   default; the operator commands below are deliberate WRITE actions on
+#   the store — validation itself never writes):
 #     1. podman volume create songhealth-db-data
 #        (idempotent; only needed if the volume does not exist yet — the
 #        T018 unit would create it empty at first start anyway)
 #     2. arm provisioning ONCE by deliberately placing the marker inside
-#        the persistent store itself, with the same pinned image:
-#          podman run --rm \
-#            --volume=songhealth-db-data:/var/lib/postgresql:rw \
-#            docker.io/library/postgres:18.6@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf \
-#            touch /var/lib/postgresql/.songhealth-db-store
+#        the persistent store itself (no container, no volume mount):
+#          MP="$(podman volume inspect --format '{{.Mountpoint}}' \
+#                songhealth-db-data)"
+#          podman unshare /usr/bin/touch \
+#            "$MP/.songhealth-db-store"
 #     3. systemctl --user daemon-reload (if this unit changed) and
 #        systemctl --user start songhealth-db.service: the gate passes on
 #        the marker, the journal records that provisioning mode is active,
@@ -165,10 +218,10 @@
 #     4. verify healthy (systemctl --user is-active songhealth-db.service
 #        and the unit journal), provision the least-privilege application
 #        role per the prerequisite above, then REMOVE the marker:
-#          podman run --rm \
-#            --volume=songhealth-db-data:/var/lib/postgresql:rw \
-#            docker.io/library/postgres:18.6@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf \
-#            rm -f /var/lib/postgresql/.songhealth-db-store
+#          MP="$(podman volume inspect --format '{{.Mountpoint}}' \
+#                songhealth-db-data)"
+#          podman unshare /usr/bin/rm -f \
+#            "$MP/.songhealth-db-store"
 #   The marker lives INSIDE the persistent bytes, so an automatically
 #   recreated replacement volume NEVER inherits it: re-arming
 #   initialization always requires the operator's explicit marker command
@@ -263,25 +316,30 @@ Notify=healthy
 # condition only; values are never printed.
 #
 # Existing-database-store guard (see the header section above for the full
-# contract): one shell line whose probes run BEFORE the database container
-# is created — first the initialized-cluster arm (non-empty PG_VERSION at
-# the pinned image's PGDATA, the same marker the native entrypoint
-# consults), then, only if the store is not initialized, the operator's
-# one-time provisioning marker arm (which also announces provisioning mode
-# in the journal), and otherwise a refusal that names the failed condition
-# and skips the unit. Both probes are one-shot `podman run --rm
-# --network=none` invocations of the same pinned digest mounting
-# songhealth-db-data READ-ONLY at /var/lib/postgresql and running only
-# /usr/bin/test; they read two file-existence facts, write nothing, and
-# create nothing. All command paths are absolute; no environment variable
-# of this unit is expanded into the line, and the diagnostics name only
-# volumes, paths, and conditions — never credentials, values, or database
-# contents.
+# contract): one shell line, executed BEFORE the database container is
+# created, that (1) resolves the store's data directory through the
+# read-only `podman volume inspect` metadata query and refuses if that
+# metadata is unavailable or unusable — an uninspectable store is never
+# accepted; (2) runs the stat-class existing-cluster probe (`podman
+# unshare /usr/bin/test -s <data-dir>/18/docker/PG_VERSION`, the same
+# marker the native entrypoint consults) and passes only on status 0;
+# (3) treats status 1 — and ONLY status 1 — as a validated clean absence
+# and then evaluates the operator's provisioning-marker probe (status 0
+# passes with a loud journal notice); any other status (e.g. 2, or a
+# Podman-level 125) is a probe execution error and refuses immediately,
+# BEFORE the provisioning fallback is ever evaluated, so no probe failure
+# can become implicit provisioning authorization. Validation mounts no
+# volume and creates no container — Podman's host-side volume preparation
+# cannot run — and the diagnostics name volumes, paths, statuses, and
+# conditions only, never credentials, values, or database contents.
+# Dollar signs in the line are doubled ($$): systemd's documented
+# Exec-line escape passes one literal $ to the shell, which is the only
+# place these variables expand.
 [Service]
 EnvironmentFile=%h/.config/containers/systemd/songhealth-db.env
 ExecCondition=/usr/bin/test -n "${POSTGRES_USER}"
 ExecCondition=/usr/bin/test -n "${POSTGRES_DB}"
-ExecCondition=/usr/bin/sh -c 'podman run --rm --network=none --volume=songhealth-db-data:/var/lib/postgresql:ro docker.io/library/postgres:18.6@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf /usr/bin/test -s /var/lib/postgresql/18/docker/PG_VERSION || { podman run --rm --network=none --volume=songhealth-db-data:/var/lib/postgresql:ro docker.io/library/postgres:18.6@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf /usr/bin/test -e /var/lib/postgresql/.songhealth-db-store && /usr/bin/echo "songhealth-db: provisioning marker .songhealth-db-store is present in songhealth-db-data: initial cluster initialization is enabled for this start - remove the marker after first-time provisioning is verified healthy" >&2; } || { /usr/bin/echo "songhealth-db: refusing to start: the persistent store (named volume songhealth-db-data at /var/lib/postgresql) holds no initialized PostgreSQL cluster (no non-empty PG_VERSION at /var/lib/postgresql/18/docker) and no operator provisioning marker (.songhealth-db-store) - an empty, missing-content, or automatically recreated replacement store is never initialized silently. Intentional first-time provisioning: create the marker, start this unit, verify healthy, then remove the marker - see the existing-database-store guard section in this unit header" >&2; exit 1; }'
+ExecCondition=/usr/bin/sh -c 'p=$$(podman volume inspect --format "{{.Mountpoint}}" songhealth-db-data) || { /usr/bin/echo "songhealth-db: refusing to start: cannot inspect persistent-store volume metadata (podman volume inspect songhealth-db-data failed, so the existing store cannot be validated) - an uninspectable store is never accepted and never initialized" >&2; exit 1; }; [ -n "$$p" ] || { /usr/bin/echo "songhealth-db: refusing to start: the persistent-store volume songhealth-db-data reports no usable data directory, so its contents cannot be validated - refusing" >&2; exit 1; }; podman unshare /usr/bin/test -s "$$p/18/docker/PG_VERSION"; rc=$$?; [ $$rc -eq 0 ] && exit 0; [ $$rc -eq 1 ] || { /usr/bin/echo "songhealth-db: refusing to start: the existing-cluster probe exited with unexpected status $$rc instead of validating the store or reporting a clean absence - refusing before the provisioning fallback is evaluated" >&2; exit 1; }; podman unshare /usr/bin/test -e "$$p/.songhealth-db-store"; rc=$$?; [ $$rc -eq 0 ] && { /usr/bin/echo "songhealth-db: provisioning marker .songhealth-db-store is present in songhealth-db-data: initial cluster initialization is enabled for this start - remove the marker after first-time provisioning is verified healthy" >&2; exit 0; }; [ $$rc -eq 1 ] || { /usr/bin/echo "songhealth-db: refusing to start: the provisioning-marker probe exited with unexpected status $$rc - refusing" >&2; exit 1; }; /usr/bin/echo "songhealth-db: refusing to start: the persistent store (named volume songhealth-db-data at /var/lib/postgresql) holds no initialized PostgreSQL cluster (no non-empty PG_VERSION at /var/lib/postgresql/18/docker) and no operator provisioning marker (.songhealth-db-store) - an empty, missing-content, or automatically recreated replacement store is never initialized silently. Intentional first-time provisioning: create the marker, start this unit, verify healthy, then remove the marker - see the existing-database-store guard section in this unit header" >&2; exit 1'
 
 # The unit returns after any unplanned container exit (postgres crash, OOM
 # kill, external signal shutdown); an explicit `systemctl --user stop` is
