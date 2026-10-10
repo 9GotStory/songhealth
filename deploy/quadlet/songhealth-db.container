@@ -124,28 +124,43 @@
 #        LC_ALL=C /usr/bin/stat -c "%F %s" -- <component>
 #    (GNU coreutils stat; non-following by default — -L is never used;
 #    LC_ALL=C pins the file-type text to its C-locale representation.)
-#    Required results, each needing exit status 0 AND exactly valid
-#    output:
-#      - <data-dir>           one line "directory <non-negative integer>"
-#      - <data-dir>/18        one line "directory <non-negative integer>"
-#      - <data-dir>/18/docker one line "directory <non-negative integer>"
+#    Required results, each needing stat exit status 0 (checked
+#    independently of output) AND a byte-exact single record:
+#      - <data-dir>           exactly "directory <digits>\n" and nothing
+#                             else
+#      - <data-dir>/18        exactly "directory <digits>\n" and nothing
+#                             else
+#      - <data-dir>/18/docker exactly "directory <digits>\n" and nothing
+#                             else
 #      - <data-dir>/18/docker/PG_VERSION
-#                             one line "regular file <strictly positive
-#                             integer>" (the same marker, at the same
-#                             PGDATA the pinned image's entrypoint
-#                             consults, with the same non-empty size
-#                             semantics)
+#                             exactly "regular file <digits>\n" with a
+#                             strictly positive digits-only size (the
+#                             same marker, at the same PGDATA the pinned
+#                             image's entrypoint consults, with the same
+#                             non-empty size semantics)
+#    where <digits> is an unsigned decimal field: digits only, no sign,
+#    no whitespace, no extra tokens. Validation is structural, not
+#    arithmetic: the type prefix must be PROVEN present (a stripped
+#    result equal to the original record proves absence of the prefix,
+#    so a bare numeric result such as `4096` is refused at every
+#    component), the size field must be digits-only by character class,
+#    and the complete captured output — preserved with a trailing
+#    sentinel so command substitution cannot conceal extra records —
+#    must equal the exact reconstructed record; this detects missing
+#    trailing newlines, additional blank lines, multi-line output, and
+#    any residue that numeric conversion alone would accept.
 #    Refused for any component: nonzero stat exit (ENOENT, EACCES, EIO,
 #    ELOOP, unmapped ownership, any other lookup failure — an error is
-#    NEVER interpreted as absence); unknown or unexpected type text
-#    (including `symbolic link` — a symlink anywhere in the chain, live
-#    or dangling, is refused WITHOUT ever being followed); malformed,
-#    missing, empty, or multi-line output; non-numeric, negative, or
-#    zero size where positive size is required; any extra tokens. Only
-#    successful positive classification of every component proceeds to
-#    native PostgreSQL startup, where the entrypoint makes its own
-#    independent [ -s "$PGDATA/PG_VERSION" ] skip-initialization
-#    decision on the same path. A non-empty PG_VERSION is initialization
+#    NEVER interpreted as absence); bare or prefixed-absent numeric
+#    output; unknown or unexpected type text (including `symbolic
+#    link` — a symlink anywhere in the chain, live or dangling, is
+#    refused WITHOUT ever being followed); signed, spaced, or malformed
+#    size fields; missing, empty, multi-line, or additional output
+#    including trailing blank lines; zero size where positive size is
+#    required. Only successful positive classification of every
+#    component proceeds to native PostgreSQL startup, where the
+#    entrypoint makes its own independent [ -s "$PGDATA/PG_VERSION" ]
+#    skip-initialization decision on the same path. A non-empty PG_VERSION is initialization
 #    EVIDENCE, never a guarantee of database integrity: a corrupt
 #    cluster passes this gate and is then refused by PostgreSQL itself
 #    (native startup failure, never healthy, restart policy with
@@ -217,21 +232,40 @@
 #   1. podman volume create songhealth-db-data
 #      (idempotent; only if absent), and ensure the Podman secret
 #      songhealth-db-password exists.
-#   2. Verify the store is GENUINELY EMPTY — successful inspection must
-#      be established independently of empty output:
+#   2. Verify the store is GENUINELY EMPTY. Every inspection's exit
+#      status is checked independently, and emptiness is established by
+#      an exact sentinel comparison rather than by empty output —
+#      command substitution strips trailing newlines, so a plain
+#      "$( ... )" capture cannot distinguish an empty listing from a
+#      listing containing only newline-only filenames:
 #        MP="$(podman volume inspect --format '{{.Mountpoint}}' \
-#              songhealth-db-data)"
-#        OUT="$(podman unshare /bin/ls -A "$MP")"; RC=$?
-#        [ "$RC" -eq 0 ] && [ -z "$OUT" ] || {
-#          echo "store is not verifiably empty (status $RC or non-empty)" >&2
-#          exit 1; }
-#      A store without PG_VERSION but WITH other content (initdb creates
-#      WAL and subdirectories before the marker exists) is a PARTIAL
-#      state — provisioning refuses it; recovery requires explicit
-#      operator investigation and a deliberate reset decision (see the
-#      interrupted-provisioning states below). Enumeration is acceptable
-#      here because Phase A is a deliberate provisioning context, not
-#      normal-startup validation.
+#              songhealth-db-data)"; RC=$?
+#        [ "$RC" -eq 0 ] || {
+#          echo "volume metadata query failed (status $RC)" >&2; exit 1; }
+#        case "$MP" in
+#          /*) ;;
+#          *)  { echo "unusable mountpoint result" >&2; exit 1; } ;;
+#        esac
+#        OUT="$(podman unshare /bin/ls -A -- "$MP" && printf x)"; RC=$?
+#        [ "$RC" -eq 0 ] || {
+#          echo "store enumeration failed (status $RC)" >&2; exit 1; }
+#        [ "$OUT" = "x" ] || {
+#          echo "store is not verifiably empty" >&2; exit 1; }
+#      The metadata query must succeed on its own (a failed query that
+#      nevertheless prints a path is refused), the mountpoint must be a
+#      usable absolute path, the listing must succeed on its own (empty
+#      stdout from a failed command is never success), and the captured
+#      output must be EXACTLY the sentinel — only a successful listing
+#      of a genuinely empty directory produces it, while any entry,
+#      including a newline-only filename, adds bytes and fails the
+#      comparison. A store without PG_VERSION but WITH any other
+#      content (initdb creates WAL and subdirectories before the marker
+#      exists) is a PARTIAL state — provisioning refuses it; recovery
+#      requires explicit operator investigation and a deliberate reset
+#      decision (see the interrupted-provisioning states below).
+#      Enumeration is acceptable here because Phase A is a deliberate
+#      provisioning context, not normal-startup validation; nothing is
+#      ever deleted, reset, repaired, or initialized automatically.
 #   3. Load and validate the provisioning configuration with the STRICT
 #      PARSER below (never shell-sourcing the file).
 #   4. One-shot initialization with the exact approved digest and
@@ -273,10 +307,18 @@
 #   is exactly POSTGRES_USER=<value> or POSTGRES_DB=<value>, where
 #   <value> is one or more characters of [A-Za-z0-9_]; no whitespace, no
 #   quotes, no escapes, no comments, no blank lines, no other keys, no
-#   duplicates, nothing else. For every in-grammar file, systemd's
+#   duplicates, nothing else — as a BYTE grammar over the raw file: any
+#   NUL byte, any control byte, any non-ASCII byte, and any
+#   non-conforming record (including a final record without a trailing
+#   newline or a NUL-only suffix) is rejected BEFORE any extraction.
+#   Validation is performed on the raw bytes by grep(1) — a base-system
+#   POSIX utility, used only in this documented operator procedure, not
+#   in the unit runtime — because the shell itself cannot hold NUL bytes
+#   in variables, so any read-based parser normalizes malformed input
+#   before its grammar check. For every in-grammar file, systemd's
 #   EnvironmentFile parsing and this parser resolve IDENTICAL values
-#   (an unquoted single-line assignment is passed through verbatim by
-#   both; systemd performs no variable expansion and quote stripping
+#   (an unquoted single-line ASCII assignment is passed through verbatim
+#   by both; systemd performs no variable expansion and quote stripping
 #   cannot apply where no quotes exist); every out-of-grammar input is
 #   refused outright, so no divergent interpretation can exist. Parser:
 #
@@ -284,38 +326,37 @@
 #     unset POSTGRES_USER POSTGRES_DB
 #     { [ -f "$cfg" ] && [ -r "$cfg" ]; } || {
 #       echo "configuration missing or unreadable" >&2; exit 1; }
-#     NU=0; ND=0
-#     while IFS= read -r LINE || [ -n "$LINE" ]; do
-#       FIELD=""; VALUE=""
-#       case "$LINE" in
-#         POSTGRES_USER=*) FIELD=U; VALUE="${LINE#POSTGRES_USER=}" ;;
-#         POSTGRES_DB=*)   FIELD=D; VALUE="${LINE#POSTGRES_DB=}" ;;
-#         *)               { echo "unsupported line in configuration" >&2
-#                            exit 1; } ;;
-#       esac
-#       case "$VALUE" in
-#         ""|*[!A-Za-z0-9_]*)
-#           { echo "malformed or empty value" >&2; exit 1; } ;;
-#       esac
-#       case "$FIELD" in
-#         U) NU=$((NU+1)); POSTGRES_USER="$VALUE" ;;
-#         D) ND=$((ND+1)); POSTGRES_DB="$VALUE" ;;
-#       esac
-#     done < "$cfg"
-#     [ "$NU" -eq 1 ] && [ "$ND" -eq 1 ] || {
-#       echo "duplicate or missing assignment" >&2; exit 1; }
+#     if LC_ALL=C grep -a -q -v -E \
+#          '^POSTGRES_(USER|DB)=[A-Za-z0-9_]+$' "$cfg"; then
+#       echo "out-of-grammar bytes or records in configuration" >&2
+#       exit 1
+#     fi
+#     [ "$(LC_ALL=C grep -a -c -E '^POSTGRES_USER=' "$cfg")" -eq 1 ] || {
+#       echo "duplicate or missing POSTGRES_USER assignment" >&2; exit 1; }
+#     [ "$(LC_ALL=C grep -a -c -E '^POSTGRES_DB=' "$cfg")" -eq 1 ] || {
+#       echo "duplicate or missing POSTGRES_DB assignment" >&2; exit 1; }
+#     POSTGRES_USER="$(LC_ALL=C sed -n 's/^POSTGRES_USER=//p' "$cfg")"
+#     POSTGRES_DB="$(LC_ALL=C sed -n 's/^POSTGRES_DB=//p' "$cfg")"
 #
-#   Expected outcomes: `POSTGRES_USER=alice` accepted (value alice);
-#   quoted (`POSTGRES_USER="alice"`), escaped, duplicate, malformed
-#   (missing `=`, empty value, stray whitespace), unterminated, absent,
-#   blank, comment, unknown-key, and unreadable/missing-file inputs ALL
-#   abort provisioning; inherited or stale shell values can never
-#   substitute (unset first; the file check precedes parsing); the
-#   validated values are then delivered EXPLICITLY as
-#   -e NAME="$VALUE" arguments (step 4), never via --env-file and never
-#   via bare -e, so the container receives exactly the validated
-#   identities and nothing else.
-#
+#   The grep -v pass proves the COMPLETE raw file conforms to the
+#   grammar (any nonconforming line — NUL-bearing, quoted, escaped,
+#   blank, comment, unknown-key, malformed, or non-ASCII — makes it
+#   print and refuses provisioning); only after that byte-level proof
+#   are the values extracted, with sed, from the now-known-conforming
+#   records, and each key must occur exactly once. Expected outcomes:
+#   `POSTGRES_USER=alice` + `POSTGRES_DB=songhealth` accepted (values
+#   alice/songhealth); a NUL byte anywhere in the file — inside a value
+#   (al<NUL>ice) or as a trailing NUL suffix after otherwise valid
+#   assignments — REFUSED; quoted, escaped, duplicate, missing, empty,
+#   malformed, unterminated, blank, comment, unknown-key, non-ASCII,
+#   control-byte, and unreadable/missing-file inputs ALL refuse;
+#   inherited or stale shell values can never substitute (unset first;
+#   the file check precedes parsing; a missing key refuses regardless
+#   of the environment); the validated values are then delivered
+#   EXPLICITLY as -e NAME="$VALUE" arguments (step 4), never via
+#   --env-file and never via bare -e, so the container receives exactly
+#   the validated identities and nothing else.
+
 # Interrupted provisioning — five states, none of which this unit ever
 # resolves automatically (no deletion, reset, cleanup, repair, or initdb
 # retry over an unverified store; a missing PG_VERSION is NEVER treated
@@ -411,22 +452,32 @@ Notify=healthy
 # path refuses), then four positive non-following classifications under
 # `podman unshare`, bottom-up — data directory, 18, docker as `directory`,
 # PG_VERSION as a `regular file` with strictly positive size — each
-# requiring stat exit 0 AND exactly one line of precisely valid output
-# (`LC_ALL=C /usr/bin/stat -c "%F %s" -- <component>`). Nonzero exit
-# (any lookup error), symlink classification, unknown type, malformed/
-# missing/extra output, or non-positive size refuses the component and
-# the unit BEFORE any container exists; no fallback and no provisioning
-# path exists in normal startup. Dollar signs and percent signs in the
-# line are doubled ($$ and %%): systemd's documented Exec-line escapes
-# pass one literal $ and one literal % to the shell, which is the only
-# place these expand; the rendered form (`%F %s`, `${...}`) is what the
+# requiring stat exit status 0 (checked independently) AND a
+# byte-exact single record of the form "type <digits>" validated
+# structurally (`LC_ALL=C /usr/bin/stat -c "%F %s" -- <component>`):
+# the type prefix is proven present by inequality (a bare numeric
+# result is refused at every component), the size field is digits-only
+# by character class (signs, whitespace, extra tokens refused), and the
+# complete output — captured with a trailing printf sentinel so command
+# substitution cannot conceal extra records — must equal the exact
+# reconstructed record, refusing missing or additional newlines,
+# multi-line output, and any residue; PG_VERSION additionally requires
+# a strictly positive size. Nonzero exit (any lookup error), symlink
+# classification, unknown type, or any nonconforming record refuses the
+# component and the unit BEFORE any container exists; no fallback and
+# no provisioning path exists in normal startup. No arithmetic
+# comparison substitutes for structural validation. Dollar signs,
+# percent signs, and the backslash of the printf newline are doubled
+# ($$, %%, and \\n): systemd's documented Exec-line escapes pass one
+# literal $, %, and backslash to the shell, which is the only place
+# they expand; the rendered form (`%F %s`, `${...}`, `\n`) is what the
 # shell executes. Diagnostics name components, conditions, and statuses
 # only — never credentials, values, or database contents.
 [Service]
 EnvironmentFile=%h/.config/containers/systemd/songhealth-db.env
 ExecCondition=/usr/bin/test -n "${POSTGRES_USER}"
 ExecCondition=/usr/bin/test -n "${POSTGRES_DB}"
-ExecCondition=/usr/bin/sh -c 'p=$$(podman volume inspect --format "{{.Mountpoint}}" songhealth-db-data) || { /usr/bin/echo "songhealth-db: refusing to start: cannot inspect persistent-store volume metadata (podman volume inspect songhealth-db-data failed, so the existing store cannot be validated) - an uninspectable store is never accepted and never initialized" >&2; exit 1; }; [ -n "$$p" ] || { /usr/bin/echo "songhealth-db: refusing to start: the persistent-store volume songhealth-db-data reports no usable data directory, so its contents cannot be validated - refusing" >&2; exit 1; }; t=$$(LC_ALL=C podman unshare /usr/bin/stat -c "%%F %%s" -- "$$p"); rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: store inspection of the volume data directory exited with status $$rc - a filesystem error is never treated as cluster absence - refusing before any PostgreSQL start" >&2; exit 1; fi; f=$${t#directory }; [ "$$f" -ge 0 ] 2>/dev/null; rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: the volume data directory did not classify as the required plain directory (a symlink, unexpected type, or malformed result is refused and never followed) - refusing before any PostgreSQL start" >&2; exit 1; fi; t=$$(LC_ALL=C podman unshare /usr/bin/stat -c "%%F %%s" -- "$$p/18"); rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: store inspection of 18 exited with status $$rc - a filesystem error is never treated as cluster absence - refusing before any PostgreSQL start" >&2; exit 1; fi; f=$${t#directory }; [ "$$f" -ge 0 ] 2>/dev/null; rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: 18 did not classify as the required plain directory (a symlink, unexpected type, or malformed result is refused and never followed) - refusing before any PostgreSQL start" >&2; exit 1; fi; t=$$(LC_ALL=C podman unshare /usr/bin/stat -c "%%F %%s" -- "$$p/18/docker"); rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: store inspection of 18/docker exited with status $$rc - a filesystem error is never treated as cluster absence - refusing before any PostgreSQL start" >&2; exit 1; fi; f=$${t#directory }; [ "$$f" -ge 0 ] 2>/dev/null; rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: 18/docker did not classify as the required plain directory (a symlink, unexpected type, or malformed result is refused and never followed) - refusing before any PostgreSQL start" >&2; exit 1; fi; t=$$(LC_ALL=C podman unshare /usr/bin/stat -c "%%F %%s" -- "$$p/18/docker/PG_VERSION"); rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: store inspection of PG_VERSION exited with status $$rc - a filesystem error is never treated as cluster absence - refusing before any PostgreSQL start" >&2; exit 1; fi; f=$${t#regular file }; [ "$$f" -gt 0 ] 2>/dev/null; rc=$$?; if [ $$rc -ne 0 ]; then /usr/bin/echo "songhealth-db: refusing to start: PG_VERSION at /var/lib/postgresql/18/docker did not classify as a regular file with strictly positive size (a zero-length, missing, ambiguous, or symlinked marker is never accepted) - an empty, missing-content, or automatically recreated replacement store is never initialized silently; initial provisioning is the explicit operator procedure in this unit header" >&2; exit 1; fi'
+ExecCondition=/usr/bin/sh -c 'p=$$(podman volume inspect --format "{{.Mountpoint}}" songhealth-db-data) || { /usr/bin/echo "songhealth-db: refusing to start: cannot inspect persistent-store volume metadata (podman volume inspect songhealth-db-data failed, so the existing store cannot be validated) - an uninspectable store is never accepted and never initialized" >&2; exit 1; }; [ -n "$$p" ] || { /usr/bin/echo "songhealth-db: refusing to start: the persistent-store volume songhealth-db-data reports no usable data directory, so its contents cannot be validated - refusing" >&2; exit 1; }; w=$$(LC_ALL=C podman unshare /usr/bin/stat -c "%%F %%s" -- "$$p" && printf x); rc=$$?; [ $$rc -eq 0 ] || { /usr/bin/echo "songhealth-db: refusing to start: store inspection of the volume data directory exited with status $$rc - a filesystem error is never treated as cluster absence - refusing before any PostgreSQL start" >&2; exit 1; }; t=$${w%%x}; s=$${t#directory }; [ "$$s" != "$$t" ] || { /usr/bin/echo "songhealth-db: refusing to start: the volume data directory did not classify as the required plain directory through exactly one valid record of the required shape (the words: directory, one space, then unsigned decimal digits) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, malformed, or additional output is refused and never followed - refusing before any PostgreSQL start" >&2; exit 1; }; case $$s in *[0-9]?);; *) /usr/bin/echo "songhealth-db: refusing to start: the volume data directory did not classify as the required plain directory through exactly one valid record of the required shape (the words: directory, one space, then unsigned decimal digits) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, malformed, or additional output is refused and never followed - refusing before any PostgreSQL start" >&2; exit 1;; esac; d=$${s%%?}; case $$d in ""|*[!0-9]*) /usr/bin/echo "songhealth-db: refusing to start: the volume data directory did not classify as the required plain directory through exactly one valid record of the required shape (the words: directory, one space, then unsigned decimal digits) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, malformed, or additional output is refused and never followed - refusing before any PostgreSQL start" >&2; exit 1;; esac; e=$$(printf "directory %%s\\nx" "$$d"); [ "$$w" = "$$e" ] || { /usr/bin/echo "songhealth-db: refusing to start: the volume data directory did not classify as the required plain directory through exactly one valid record of the required shape (the words: directory, one space, then unsigned decimal digits) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, malformed, or additional output is refused and never followed - refusing before any PostgreSQL start" >&2; exit 1; }; w=$$(LC_ALL=C podman unshare /usr/bin/stat -c "%%F %%s" -- "$$p/18" && printf x); rc=$$?; [ $$rc -eq 0 ] || { /usr/bin/echo "songhealth-db: refusing to start: store inspection of 18 exited with status $$rc - a filesystem error is never treated as cluster absence - refusing before any PostgreSQL start" >&2; exit 1; }; t=$${w%%x}; s=$${t#directory }; [ "$$s" != "$$t" ] || { /usr/bin/echo "songhealth-db: refusing to start: 18 did not classify as the required plain directory through exactly one valid record of the required shape (the words: directory, one space, then unsigned decimal digits) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, malformed, or additional output is refused and never followed - refusing before any PostgreSQL start" >&2; exit 1; }; case $$s in *[0-9]?);; *) /usr/bin/echo "songhealth-db: refusing to start: 18 did not classify as the required plain directory through exactly one valid record of the required shape (the words: directory, one space, then unsigned decimal digits) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, malformed, or additional output is refused and never followed - refusing before any PostgreSQL start" >&2; exit 1;; esac; d=$${s%%?}; case $$d in ""|*[!0-9]*) /usr/bin/echo "songhealth-db: refusing to start: 18 did not classify as the required plain directory through exactly one valid record of the required shape (the words: directory, one space, then unsigned decimal digits) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, malformed, or additional output is refused and never followed - refusing before any PostgreSQL start" >&2; exit 1;; esac; e=$$(printf "directory %%s\\nx" "$$d"); [ "$$w" = "$$e" ] || { /usr/bin/echo "songhealth-db: refusing to start: 18 did not classify as the required plain directory through exactly one valid record of the required shape (the words: directory, one space, then unsigned decimal digits) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, malformed, or additional output is refused and never followed - refusing before any PostgreSQL start" >&2; exit 1; }; w=$$(LC_ALL=C podman unshare /usr/bin/stat -c "%%F %%s" -- "$$p/18/docker" && printf x); rc=$$?; [ $$rc -eq 0 ] || { /usr/bin/echo "songhealth-db: refusing to start: store inspection of 18/docker exited with status $$rc - a filesystem error is never treated as cluster absence - refusing before any PostgreSQL start" >&2; exit 1; }; t=$${w%%x}; s=$${t#directory }; [ "$$s" != "$$t" ] || { /usr/bin/echo "songhealth-db: refusing to start: 18/docker did not classify as the required plain directory through exactly one valid record of the required shape (the words: directory, one space, then unsigned decimal digits) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, malformed, or additional output is refused and never followed - refusing before any PostgreSQL start" >&2; exit 1; }; case $$s in *[0-9]?);; *) /usr/bin/echo "songhealth-db: refusing to start: 18/docker did not classify as the required plain directory through exactly one valid record of the required shape (the words: directory, one space, then unsigned decimal digits) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, malformed, or additional output is refused and never followed - refusing before any PostgreSQL start" >&2; exit 1;; esac; d=$${s%%?}; case $$d in ""|*[!0-9]*) /usr/bin/echo "songhealth-db: refusing to start: 18/docker did not classify as the required plain directory through exactly one valid record of the required shape (the words: directory, one space, then unsigned decimal digits) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, malformed, or additional output is refused and never followed - refusing before any PostgreSQL start" >&2; exit 1;; esac; e=$$(printf "directory %%s\\nx" "$$d"); [ "$$w" = "$$e" ] || { /usr/bin/echo "songhealth-db: refusing to start: 18/docker did not classify as the required plain directory through exactly one valid record of the required shape (the words: directory, one space, then unsigned decimal digits) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, malformed, or additional output is refused and never followed - refusing before any PostgreSQL start" >&2; exit 1; }; w=$$(LC_ALL=C podman unshare /usr/bin/stat -c "%%F %%s" -- "$$p/18/docker/PG_VERSION" && printf x); rc=$$?; [ $$rc -eq 0 ] || { /usr/bin/echo "songhealth-db: refusing to start: store inspection of PG_VERSION exited with status $$rc - a filesystem error is never treated as cluster absence - refusing before any PostgreSQL start" >&2; exit 1; }; t=$${w%%x}; s=$${t#regular file }; [ "$$s" != "$$t" ] || { /usr/bin/echo "songhealth-db: refusing to start: PG_VERSION at /var/lib/postgresql/18/docker did not classify as a regular file with a strictly positive size through exactly one valid record of the required shape (the words: regular file, one space, then unsigned decimal digits, value greater than zero) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, zero-length, malformed, or additional output is refused - an empty, missing-content, or automatically recreated replacement store is never initialized silently; initial provisioning is the explicit operator procedure in this unit header" >&2; exit 1; }; case $$s in *[0-9]?);; *) /usr/bin/echo "songhealth-db: refusing to start: PG_VERSION at /var/lib/postgresql/18/docker did not classify as a regular file with a strictly positive size through exactly one valid record of the required shape (the words: regular file, one space, then unsigned decimal digits, value greater than zero) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, zero-length, malformed, or additional output is refused - an empty, missing-content, or automatically recreated replacement store is never initialized silently; initial provisioning is the explicit operator procedure in this unit header" >&2; exit 1;; esac; d=$${s%%?}; case $$d in ""|*[!0-9]*) /usr/bin/echo "songhealth-db: refusing to start: PG_VERSION at /var/lib/postgresql/18/docker did not classify as a regular file with a strictly positive size through exactly one valid record of the required shape (the words: regular file, one space, then unsigned decimal digits, value greater than zero) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, zero-length, malformed, or additional output is refused - an empty, missing-content, or automatically recreated replacement store is never initialized silently; initial provisioning is the explicit operator procedure in this unit header" >&2; exit 1;; esac; [ $$d -gt 0 ] || { /usr/bin/echo "songhealth-db: refusing to start: PG_VERSION at /var/lib/postgresql/18/docker did not classify as a regular file with a strictly positive size through exactly one valid record of the required shape (the words: regular file, one space, then unsigned decimal digits, value greater than zero) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, zero-length, malformed, or additional output is refused - an empty, missing-content, or automatically recreated replacement store is never initialized silently; initial provisioning is the explicit operator procedure in this unit header" >&2; exit 1; }; e=$$(printf "regular file %%s\\nx" "$$d"); [ "$$w" = "$$e" ] || { /usr/bin/echo "songhealth-db: refusing to start: PG_VERSION at /var/lib/postgresql/18/docker did not classify as a regular file with a strictly positive size through exactly one valid record of the required shape (the words: regular file, one space, then unsigned decimal digits, value greater than zero) - a bare numeric result, missing type prefix, symlink or unknown type, signed, spaced, zero-length, malformed, or additional output is refused - an empty, missing-content, or automatically recreated replacement store is never initialized silently; initial provisioning is the explicit operator procedure in this unit header" >&2; exit 1; }'
 
 # The unit returns after any unplanned container exit (postgres crash, OOM
 # kill, external signal shutdown); an explicit `systemctl --user stop` is
