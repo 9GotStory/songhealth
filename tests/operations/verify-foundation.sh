@@ -2530,6 +2530,19 @@ self_test() {
 
 	ST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/t016-selftest.XXXXXX")"
 
+	# (Stage 1 fix 2) main() creates the harness TMP_DIR only AFTER the
+	# --self-test dispatch, so inside the self-test it was empty: harness
+	# functions called by the dispatch demonstrations (notably
+	# require_gate_wiring_for_unit's unit/journal captures) wrote to
+	# "/unit-*.txt" — outside the authorized scratch root. Initialize
+	# TMP_DIR to a valid directory INSIDE ST_ROOT so every self-test
+	# capture stays in the scratch tree; the later save/restore blocks
+	# (collector and cleanup cases) continue to work unchanged, and the
+	# expected dispatch-failure demonstration remains isolated in its
+	# child shell (production fail_stage behavior is untouched).
+	TMP_DIR="$ST_ROOT/harness-tmp"
+	mkdir -p "$TMP_DIR"
+
 	# The wiring and ordered-marker demonstrations consume the same derived
 	# markers and repository authorities the main verification path uses.
 	ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -2898,10 +2911,17 @@ UNIT
 	fi
 	{
 		printf '[Service]\n'
-		printf 'ExecStart=/usr/bin/podman run --name systemd-%N --rm -v songhealth-media:/app/media localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"\n'
+		printf 'ExecStart=/usr/bin/podman run --name systemd-%%N --rm -v songhealth-media:/app/media localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"\n'
 		printf 'ExecStart=\n'
-		printf 'ExecStart=/usr/bin/podman run --name systemd-%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"\n'
+		printf 'ExecStart=/usr/bin/podman run --name systemd-%%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"\n'
 	} >"$cdir/reset-then-real.service"
+	# (Stage 1 fix 1) The five ExecStart fixture printf FORMAT strings in the
+	# reset/multi-entry fixtures above and below escape % as %% — a literal
+	# systemd-%N in a printf format is an invalid directive that truncates
+	# the line at systemd- and drops its trailing newline, concatenating
+	# fixture entries into mangled files (the three classifier failures in
+	# the first isolated run). %%N renders the intended literal systemd-%N;
+	# the heredoc-built fixtures are unaffected.
 	cls="$(classify_effective_media_attachment "$cdir/reset-then-real.service")"
 	if [ "$cls" = 'omitted' ]; then
 		st_case classify-reset-then-real 'PASS an ExecStart= reset honored: the LAST surviving entry (no attachment) classified omitted'
@@ -2910,7 +2930,7 @@ UNIT
 	fi
 	{
 		printf '[Service]\n'
-		printf 'ExecStart=/usr/bin/podman run --name systemd-%N --rm -v songhealth-media:/app/media localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"\n'
+		printf 'ExecStart=/usr/bin/podman run --name systemd-%%N --rm -v songhealth-media:/app/media localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"\n'
 		printf 'ExecStart=\n'
 	} >"$cdir/reset-only.service"
 	cls="$(classify_effective_media_attachment "$cdir/reset-only.service")"
@@ -2921,8 +2941,8 @@ UNIT
 	fi
 	{
 		printf '[Service]\n'
-		printf 'ExecStart=/usr/bin/podman run --name systemd-%N --rm -v songhealth-media:/app/media localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"\n'
-		printf 'ExecStart=/usr/bin/podman run --name systemd-%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"\n'
+		printf 'ExecStart=/usr/bin/podman run --name systemd-%%N --rm -v songhealth-media:/app/media localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"\n'
+		printf 'ExecStart=/usr/bin/podman run --name systemd-%%N --rm localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "gate && server"\n'
 	} >"$cdir/multi-entry.service"
 	cls="$(classify_effective_media_attachment "$cdir/multi-entry.service")"
 	if [ -z "$cls" ] || [ "$cls" = 'unprovable' ]; then
