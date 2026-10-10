@@ -125,7 +125,9 @@
 #    (GNU coreutils stat; non-following by default — -L is never used;
 #    LC_ALL=C pins the file-type text to its C-locale representation.)
 #    Required results, each needing stat exit status 0 (checked
-#    independently of output) AND a byte-exact single record:
+#    independently of output) AND a single record that is exact WITHIN
+#    THE SUPPORTED OUTPUT REPRESENTATION of authentic GNU stat (the
+#    trusted output contract is stated below):
 #      - <data-dir>           exactly "directory <digits>\n" and nothing
 #                             else
 #      - <data-dir>/18        exactly "directory <digits>\n" and nothing
@@ -146,9 +148,51 @@
 #    component), the size field must be digits-only by character class,
 #    and the complete captured output — preserved with a trailing
 #    sentinel so command substitution cannot conceal extra records —
-#    must equal the exact reconstructed record; this detects missing
-#    trailing newlines, additional blank lines, multi-line output, and
-#    any residue that numeric conversion alone would accept.
+#    must equal the exact reconstructed record; within the supported
+#    output representation this detects missing trailing newlines,
+#    additional blank lines, multi-line output, and any residue that
+#    numeric conversion alone would accept. Clarified record examples
+#    for PG_VERSION: `regular file 3` — one space, valid unsigned
+#    digits, strictly positive, correctly terminated — is a VALID,
+#    PASSING record; `regular file  3` (two spaces), `regular file +3`
+#    (signed), and a bare `3` (no type prefix) are all REFUSED.
+#
+#    Trusted GNU stat output contract (Product-Owner-approved trust
+#    boundary): the record validation above is exact WITHIN THE
+#    SUPPORTED OUTPUT REPRESENTATION of an authentic GNU /usr/bin/stat
+#    invoked by this unit with the FIXED format string `%F %s`,
+#    LC_ALL=C, non-following classification, and the `--` argument
+#    boundary. It is NOT a general guarantee of byte-exact validation
+#    of arbitrary, substituted, corrupted, or malicious stdout.
+#    Authoritative source basis (GNU coreutils v9.7, src/stat.c,
+#    print_stat/print_it): the %F directive emits the file-type word
+#    through out_string(file_type(...)) — a C string (fixed words such
+#    as directory / regular file / symbolic link, C locale under
+#    LC_ALL=C); the %s directive emits the size through
+#    out_uint(unsigned_file_size(...)) — a printf %ju unsigned
+#    decimal; literal format characters pass through putchar and the
+#    record terminator through fputs; NO code path of these directives
+#    writes a NUL byte to stdout. The unit's explicit assumptions are:
+#    the /usr/bin/stat executed under podman unshare is the authentic
+#    GNU coreutils stat at its absolute path (target availability,
+#    version, and behavior remain MANDATORY pre-adoption runtime
+#    evidence); the format string is fixed by this unit and is never
+#    influenced by the store, the volume, or any input; and the
+#    program's stdout arrives unmodified between the process and the
+#    capturing shell. KNOWN LIMITATION, documented rather than hidden:
+#    shell command substitution discards NUL bytes, so a hypothetical
+#    emitter OTHER than authentic GNU stat could produce a byte stream
+#    that normalizes into an accepted record — the independent review
+#    demonstrated exactly this with a stub emitting
+#    `regular file 3<NUL><LF>`. That stub demonstrates the limitation
+#    of shell capture, NOT a behavior of authentic GNU stat and NOT an
+#    actual-store bypass; acceptance is restricted to the verified GNU
+#    stat output contract above, and the text-level validation
+#    (successful exit status checked independently; exact type prefix
+#    proven present; unsigned digits-only size by character class;
+#    single-record shape with the sentinel-preserved terminator;
+#    strict positivity for PG_VERSION) is retained unchanged and
+#    rejects every deviation representable in that output.
 #    Refused for any component: nonzero stat exit (ENOENT, EACCES, EIO,
 #    ELOOP, unmapped ownership, any other lookup failure — an error is
 #    NEVER interpreted as absence); bare or prefixed-absent numeric
@@ -303,59 +347,96 @@
 #   STRICT PARSING CONTRACT (Phase-A precondition; it does not narrow the
 #   systemd unit's accepted EnvironmentFile behavior — the unit continues
 #   to load any file systemd accepts; the strict grammar simply gates
-#   PROVISIONING). Grammar: the file exists, is readable, and EVERY line
-#   is exactly POSTGRES_USER=<value> or POSTGRES_DB=<value>, where
-#   <value> is one or more characters of [A-Za-z0-9_]; no whitespace, no
-#   quotes, no escapes, no comments, no blank lines, no other keys, no
-#   duplicates, nothing else — as a BYTE grammar over the raw file: any
-#   NUL byte, any control byte, any non-ASCII byte, and any
-#   non-conforming record (including a final record without a trailing
-#   newline or a NUL-only suffix) is rejected BEFORE any extraction.
-#   Validation is performed on the raw bytes by grep(1) — a base-system
-#   POSIX utility, used only in this documented operator procedure, not
-#   in the unit runtime — because the shell itself cannot hold NUL bytes
-#   in variables, so any read-based parser normalizes malformed input
-#   before its grammar check. For every in-grammar file, systemd's
+#   PROVISIONING). Grammar (a BYTE grammar over the raw file): the file
+#   exists and is readable; every record is exactly
+#   POSTGRES_USER=<value> or POSTGRES_DB=<value>, where <value> is one
+#   or more characters of [A-Za-z0-9_]; no whitespace, no quotes, no
+#   escapes, no comments, no blank lines, no other keys, no duplicates,
+#   and nothing else — no NUL byte, control byte, or non-ASCII byte
+#   anywhere. A final record MAY end at EOF without a trailing newline
+#   and is accepted exactly when all its bytes satisfy this grammar and
+#   both required identities validate (grep supplies the missing
+#   terminator for matching, so the acceptance is deliberate and
+#   byte-complete). Validation runs on the raw bytes BEFORE any
+#   potentially lossy shell extraction, by grep(1) — a base-system POSIX
+#   utility used only in this documented operator procedure, not in the
+#   unit runtime — because the shell cannot hold NUL bytes in
+#   variables, so any read-based parser normalizes malformed input
+#   before its grammar check. EVERY command's exit status is checked
+#   explicitly and independently, and no provisioning command may run
+#   until every step has POSITIVELY succeeded: GNU grep exits 0 when a
+#   match is found, 1 when none is found, and 2 on error, so the
+#   validation step accepts ONLY status 1 (no invalid records found)
+#   and refuses both 0 (an invalid record exists) and 2 (inspection
+#   failure) — a failed inspection is never treated as successful
+#   validation, and no output is interpreted as success without its
+#   command's own success. For every in-grammar file, systemd's
 #   EnvironmentFile parsing and this parser resolve IDENTICAL values
-#   (an unquoted single-line ASCII assignment is passed through verbatim
-#   by both; systemd performs no variable expansion and quote stripping
-#   cannot apply where no quotes exist); every out-of-grammar input is
-#   refused outright, so no divergent interpretation can exist. Parser:
+#   (an unquoted single-line ASCII assignment is passed through
+#   verbatim by both; systemd performs no variable expansion and quote
+#   stripping cannot apply where no quotes exist); every out-of-grammar
+#   input is refused outright. Fail-closed parser:
 #
 #     cfg="$HOME/.config/containers/systemd/songhealth-db.env"
 #     unset POSTGRES_USER POSTGRES_DB
 #     { [ -f "$cfg" ] && [ -r "$cfg" ]; } || {
 #       echo "configuration missing or unreadable" >&2; exit 1; }
-#     if LC_ALL=C grep -a -q -v -E \
-#          '^POSTGRES_(USER|DB)=[A-Za-z0-9_]+$' "$cfg"; then
-#       echo "out-of-grammar bytes or records in configuration" >&2
-#       exit 1
-#     fi
-#     [ "$(LC_ALL=C grep -a -c -E '^POSTGRES_USER=' "$cfg")" -eq 1 ] || {
-#       echo "duplicate or missing POSTGRES_USER assignment" >&2; exit 1; }
-#     [ "$(LC_ALL=C grep -a -c -E '^POSTGRES_DB=' "$cfg")" -eq 1 ] || {
-#       echo "duplicate or missing POSTGRES_DB assignment" >&2; exit 1; }
-#     POSTGRES_USER="$(LC_ALL=C sed -n 's/^POSTGRES_USER=//p' "$cfg")"
-#     POSTGRES_DB="$(LC_ALL=C sed -n 's/^POSTGRES_DB=//p' "$cfg")"
+#     LC_ALL=C grep -a -q -v -E \
+#          '^POSTGRES_(USER|DB)=[A-Za-z0-9_]+$' "$cfg"; rc=$?
+#     [ "$rc" -eq 1 ] || {
+#       echo "out-of-grammar bytes or records, or validation failed (status $rc)" >&2
+#       exit 1; }
+#     NU="$(LC_ALL=C grep -a -c -E '^POSTGRES_USER=' "$cfg")"; rc=$?
+#     [ "$rc" -eq 0 ] && [ "$NU" -eq 1 ] || {
+#       echo "POSTGRES_USER count failed or not exactly one (status $rc)" >&2
+#       exit 1; }
+#     ND="$(LC_ALL=C grep -a -c -E '^POSTGRES_DB=' "$cfg")"; rc=$?
+#     [ "$rc" -eq 0 ] && [ "$ND" -eq 1 ] || {
+#       echo "POSTGRES_DB count failed or not exactly one (status $rc)" >&2
+#       exit 1; }
+#     POSTGRES_USER="$(LC_ALL=C sed -n 's/^POSTGRES_USER=//p' "$cfg")"; rc=$?
+#     [ "$rc" -eq 0 ] || {
+#       echo "POSTGRES_USER extraction failed (status $rc)" >&2; exit 1; }
+#     POSTGRES_DB="$(LC_ALL=C sed -n 's/^POSTGRES_DB=//p' "$cfg")"; rc=$?
+#     [ "$rc" -eq 0 ] || {
+#       echo "POSTGRES_DB extraction failed (status $rc)" >&2; exit 1; }
+#     case "$POSTGRES_USER" in
+#       ""|*[!A-Za-z0-9_]*) {
+#         echo "POSTGRES_USER unavailable or invalid after extraction" >&2
+#         exit 1; } ;;
+#     esac
+#     case "$POSTGRES_DB" in
+#       ""|*[!A-Za-z0-9_]*) {
+#         echo "POSTGRES_DB unavailable or invalid after extraction" >&2
+#         exit 1; } ;;
+#     esac
 #
 #   The grep -v pass proves the COMPLETE raw file conforms to the
-#   grammar (any nonconforming line — NUL-bearing, quoted, escaped,
-#   blank, comment, unknown-key, malformed, or non-ASCII — makes it
-#   print and refuses provisioning); only after that byte-level proof
-#   are the values extracted, with sed, from the now-known-conforming
-#   records, and each key must occur exactly once. Expected outcomes:
-#   `POSTGRES_USER=alice` + `POSTGRES_DB=songhealth` accepted (values
-#   alice/songhealth); a NUL byte anywhere in the file — inside a value
-#   (al<NUL>ice) or as a trailing NUL suffix after otherwise valid
-#   assignments — REFUSED; quoted, escaped, duplicate, missing, empty,
-#   malformed, unterminated, blank, comment, unknown-key, non-ASCII,
-#   control-byte, and unreadable/missing-file inputs ALL refuse;
+#   grammar BEFORE extraction (any nonconforming record — NUL-bearing,
+#   quoted, escaped, blank, comment, unknown-key, malformed, or
+#   non-ASCII — yields status 0 and refuses; a failed inspection yields
+#   status 2 and ALSO refuses); each count command must itself succeed
+#   (status 0) and report exactly one; each extraction must itself
+#   succeed; and both extracted identities are re-validated against the
+#   accepted grammar after extraction, so an empty, malformed, or
+#   unavailable identity can never reach the provisioning container.
+#   Expected outcomes: a valid two-key ASCII configuration — with or
+#   without a trailing newline after the final assignment — is ACCEPTED
+#   with exactly those values; a NUL byte anywhere (inside a value, or
+#   as a NUL-only suffix) together with a FAILED validation command is
+#   REFUSED (the failure is never success); validation status 2 with
+#   otherwise valid-looking identities is REFUSED; a USER-extraction
+#   failure while DB extraction succeeds (and vice versa) is REFUSED; a
+#   count-command failure with valid-looking output is REFUSED; either
+#   extracted identity empty is REFUSED; duplicate, missing, quoted,
+#   escaped, malformed, blank, comment, unknown-key, control-byte,
+#   non-ASCII, CRLF, and unreadable/missing-file inputs are REFUSED;
 #   inherited or stale shell values can never substitute (unset first;
-#   the file check precedes parsing; a missing key refuses regardless
-#   of the environment); the validated values are then delivered
-#   EXPLICITLY as -e NAME="$VALUE" arguments (step 4), never via
-#   --env-file and never via bare -e, so the container receives exactly
-#   the validated identities and nothing else.
+#   every missing key refuses regardless of the environment); the
+#   validated values are then delivered EXPLICITLY as
+#   -e NAME="$VALUE" arguments (step 4), never via --env-file and never
+#   via bare -e, so the container receives exactly the validated
+#   identities and nothing else.
 
 # Interrupted provisioning — five states, none of which this unit ever
 # resolves automatically (no deletion, reset, cleanup, repair, or initdb
@@ -452,9 +533,12 @@ Notify=healthy
 # path refuses), then four positive non-following classifications under
 # `podman unshare`, bottom-up — data directory, 18, docker as `directory`,
 # PG_VERSION as a `regular file` with strictly positive size — each
-# requiring stat exit status 0 (checked independently) AND a
-# byte-exact single record of the form "type <digits>" validated
-# structurally (`LC_ALL=C /usr/bin/stat -c "%F %s" -- <component>`):
+# requiring stat exit status 0 (checked independently) AND a single
+# record of the form "type <digits>" that is exact within the trusted
+# GNU stat output contract stated in the header (see that contract for
+# the source basis, the explicit assumptions, and the documented
+# shell-capture NUL limitation) (`LC_ALL=C /usr/bin/stat -c "%F %s" --
+# <component>`):
 # the type prefix is proven present by inequality (a bare numeric
 # result is refused at every component), the size field is digits-only
 # by character class (signs, whitespace, extra tokens refused), and the
