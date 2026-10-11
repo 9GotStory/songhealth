@@ -325,6 +325,16 @@ ignoring secret recovery on that basis, because foundation recovery must preserv
 boundary later bounded features depend on. The recovery path is the same-key path regardless of
 how many settings currently exist.
 
+A direct consequence, verified against the accepted gates themselves: generic startup and
+readiness acceptance do **not** establish this entry's recovery. The accepted input checks — the
+configuration boundary and the T013 gate's S1 — verify only that `EMDASH_ENCRYPTION_KEY` is
+present and non-empty; the T012 readiness helper does not consume the key at all; and the
+application's own malformed-key validation reports an operator-facing diagnostic without making
+unrelated requests unavailable. A nonempty malformed key — or a **different valid key** — can
+therefore coexist with a full startup PASS and an aggregate `ready` result. Usability evidence
+for this entry is entry-specific (§8.3.3): format validity, same-state key identity, and
+injection, none of which generic gate markers can substitute for.
+
 ## 8. Ordered availability, restoration, and usability checks
 
 The three stages run **in order**; each entry's evidence (§10) records the per-stage result. A
@@ -344,21 +354,34 @@ For each §3 entry, against the target known state:
 
 A `fail` at any point stops before stage B; nothing is staged.
 
-### 8.2 Stage B — restoration (per §6)
+### 8.2 Stage B — restoration and installation (per §6)
 
 Stage the applicable versions, recreate the three Podman secrets from staging files, restore
 `PGPASSWORD` into the environment file in an exact-byte representation, recreate the containers,
-remove the staging files. The restore result per entry is the observable outcome of those steps —
-secret existence after recreation can be confirmed name-only:
+remove the staging files. The restore result per entry is the observable outcome of those steps.
+Secret **installation** — the secret exists under its expected name after recreation — can be
+confirmed name-only:
 
 ```bash
 podman secret ls --format '{{.Name}}'
 ```
 
-### 8.3 Stage C — usability (existing fail-closed signals; no new mechanism)
+Installation evidence stops there: a name in the listing proves the secret exists and can mount,
+not that its value is applicable to or usable on the recovery target. For the encryption key and
+the bootstrap credential, installation is explicitly **not** usability (§8.3.3, §8.3.4).
 
-Usability is proven by the accepted production gates themselves — this document adds no
-verification mechanism:
+### 8.3 Stage C — usability (per-entry evidence; no new committed mechanism)
+
+Usability is proven **per entry**, by the signals that actually authenticate or verify that
+entry. For two entries the accepted production gates already do exactly that — they connect with
+the recovered credential and fail closed on a wrong one (§8.3.2). For the encryption key and the
+bootstrap credential the generic gates do **not** exercise the entry — presence is checked, the
+value is not — so §8.3.3 and §8.3.4 define entry-specific, secret-safe operator verification
+instead. No plugin, seeded encrypted setting, custom verifier, code change, or new committed
+gate is added: the checks below are documented operator procedures using standard tools, with
+file paths (never values) in command arguments and no value in any output.
+
+#### 8.3.1 Common fail-closed signals (all entries)
 
 - **Missing Podman secret** → container creation fails for the affected unit (both units require
   their secrets at creation).
@@ -377,9 +400,156 @@ verification mechanism:
   `podman exec systemd-songhealth-app node scripts/verify-readiness.mjs` (redacted output;
   [`production-foundation.md`](production-foundation.md) §8.2).
 
-A usability signal that names a secret-bearing input as missing or unusable marks that entry
-**fail**; investigate the named prerequisite, never the output, and never print the value while
-investigating.
+These signals are necessary for every entry, and a signal naming a secret-bearing input as
+missing or unusable marks that entry **fail** (investigate the named prerequisite, never the
+output, and never print a value while investigating). They are **sufficient** usability evidence
+only where they authenticate the entry's own credential — which is the case for exactly two
+entries:
+
+#### 8.3.2 Entries 1–2 — the gates authenticate these credentials
+
+- **Entry 1 (`PGPASSWORD`).** The application unit's least-privilege application-role
+  prerequisite connects to the recovered database over TCP **as the configured `PG*` identity,
+  with the recovered credential**, strictly before any migration mutation; authentication
+  failure refuses startup naming the failed prerequisite only. The T012 helper's bounded
+  PostgreSQL connectivity check re-proves the same authentication on demand. A passed
+  prerequisite together with S1 is entry-specific usability evidence: the recovered credential
+  actually authenticated as `PGUSER`.
+- **Entry 2 (the migration URL's embedded password).** The T013 gate's S3 status and S4 apply
+  steps connect through the recovered `EMDASH_MIGRATION_DATABASE_URL`, authenticating its
+  embedded credential; S1/S3 additionally prove the non-secret identity agreement against the
+  `PG*` inputs. Passed gate stages are entry-specific usability evidence for this credential.
+
+#### 8.3.3 Entry 3 — `EMDASH_ENCRYPTION_KEY`: entry-specific verification required
+
+**Why generic markers do not suffice.** The accepted input checks (the configuration boundary
+and S1) verify presence only; the T012 helper does not consume the key; and the application's
+own key validation is deliberately non-blocking for unrelated behavior — a malformed value
+produces an operator-facing startup diagnostic while unrelated requests continue. With this
+foundation's empty plugin state there is no encrypted setting whose decryption could fail
+visibly, so a **nonempty malformed key — or a different valid key — coexists with startup PASS
+and aggregate READY** (§7.2). Generic gate markers therefore prove only that *some* nonempty
+value was injected; they cannot mark this entry `pass`.
+
+**Entry-specific evidence — all three of the following are required:**
+
+- **K1 — format validity of the staged material** (operator-side, structural, no value output).
+  The staging file must carry the key material as its single line (a trailing newline is
+  acceptable), and every comma-separated element of that line must match the documented current
+  EmDash key format: the literal prefix `emdash_enc_v1_` followed by the unpadded-base64url
+  encoding of 32 random bytes — 43 base64url characters (`[A-Za-z0-9_-]`, no `=` padding) by
+  encoding arithmetic from the documented 32-byte length (Appendix B). The checks read the
+  protected staging file and print nothing except a fixed diagnostic on the first failure; the
+  exit statuses are the result:
+
+  ```bash
+  # exactly one non-empty line in the staging file
+  [ "$(grep -c . <protected-staging-file>)" -eq 1 ] || { echo "staging file is not a single line" >&2; exit 1; }
+  # that line matches the documented key format (single key or comma-separated rotation list)
+  LC_ALL=C grep -qxE 'emdash_enc_v1_[A-Za-z0-9_-]{43}(,emdash_enc_v1_[A-Za-z0-9_-]{43})*' \
+    <protected-staging-file>
+  ```
+
+  A single-element value or a comma-separated rotation list both match; an empty file, extra
+  lines, a bare prefix, wrong length, padding characters, whitespace, or a partial element
+  fails. K1 proves format only — never that the key is the *applicable* one.
+
+- **K2 — same-state key identity.** The staged material must be the applicable protected
+  version for the target known state (§5.2), proven against the protected record itself:
+  either byte-identical to the applicable version's protected bytes
+  (`cmp --silent <protected-staging-file> <applicable-protected-version>` — exit status only,
+  nothing printed), or matching a SHA-256 digest that the operator recorded **inside the
+  protected record** when the version was protected (`sha256sum <protected-staging-file>`,
+  compared against the recorded digest; only the match result is recorded anywhere else). A
+  digest of 256-bit-random key material is non-invertible; even so, a digest is recorded only
+  inside the protected record itself — never in evidence, Git, or review artifacts — and is
+  never recorded at all for low-entropy passwords. A K2 mismatch means a wrong or stale version
+  was staged:
+  re-select the applicable reference or escalate (§9.2); do not proceed on an unverified guess.
+
+- **K3 — injection.** The recreated application container must carry exactly the staged
+  applicable material — the mounted secret, compared byte-for-byte against the staging file
+  with the bytes flowing over stdin, never through a command argument:
+
+  ```bash
+  podman exec -i systemd-songhealth-app \
+    cmp -s /run/secrets/songhealth-encryption-key - < <protected-staging-file>
+  ```
+
+  Exit 0 proves the running container's mounted key secret is byte-identical to the staged
+  applicable material.
+
+**Negative runtime signal.** An EmDash malformed-key diagnostic in the unit journal
+(`journalctl --user -u songhealth-app.service -e`) is an immediate **fail**, whatever K1 says.
+Its absence together with K1 means the mounted key also passed the application's own format
+validation.
+
+**Refusal rule.** An invalid, missing, or mismatched key — any K1/K2/K3 failure — refuses
+operational recovery acceptance **even when the application is READY**. Without all three
+checks observed for this entry, its usability stays `pending` (unexercised) or `fail`; generic
+startup PASS and aggregate READY can never alone mark this row `pass`.
+
+**Honest boundary.** The empty foundation has no encrypted plugin settings, so no Feature 001
+runtime path demonstrates decryption of encrypted settings. K1–K3 are structural and identity
+proof of the protected material and of its injection into the runtime — strictly stronger than
+generic markers, but still not a decryption demonstration; that boundary is inherent to the
+foundation's empty seed and is not worked around here.
+
+#### 8.3.4 Entry 4 — bootstrap credential: availability, installation, applicability
+
+Three distinct facts, never collapsed into one:
+
+1. **Availability** (stage A): the protected recovery copy of the bootstrap credential exists,
+   is independent, and its applicable version is identified — a statement about the operator's
+   protected mechanism only.
+2. **Installation** (stage B): the Podman secret `songhealth-db-password` was recreated from
+   the staged file and mounts (name-only listing, successful container creation) — a statement
+   about the secret store only.
+3. **Applicability/usability**: the restored credential **authenticates as `POSTGRES_USER`
+   against the recovery target cluster** — the only fact that matters for this entry's row.
+
+**Why generic markers do not suffice.** On an already-initialized store, Phase B never applies
+the secret to the stored administrator credential (§3, §9.1), so a *wrong* restored secret can
+exist, mount, and coexist with a healthy database and a READY application: the database unit's
+health command is `pg_isready`, which verifies server availability **without verifying any
+credential** (Appendix B), and the application gates authenticate the separate least-privilege
+application identity, not the bootstrap administrator. Neither name-only listing, container
+creation, database health, nor application gate markers may mark this entry's usability `pass`.
+
+**Applicability evidence, by recovery target:**
+
+- **Clean-cluster recovery (the recovery-drill case).** The target store is initialized by the
+  explicit Phase A procedure *from this very staged secret* — `POSTGRES_PASSWORD_FILE` consumes
+  the mounted secret at initialization, and Phase A passes no authentication-method override, so
+  the image's password-based host authentication defaults are in force (Appendix B). The stored
+  bootstrap credential therefore equals the staged material **by construction**, and the
+  accepted Phase A final-server identity verification
+  ([`production-foundation.md`](production-foundation.md) §5.1) is the recorded provisioning
+  evidence for this entry.
+- **Already-initialized store.** Applicability is proven only by an authentication probe as
+  `POSTGRES_USER` using the mounted secret. The probe must connect over the server's
+  **private-network name/address** — connections made from inside the database container to
+  itself over the socket or loopback use the image's local `trust` authentication and do not
+  exercise any password; password authentication applies to connections arriving from other
+  addresses (Appendix B):
+
+  ```bash
+  podman exec systemd-songhealth-db sh -c 'PGPASSWORD="$(cat /run/secrets/songhealth-db-password)" psql -h systemd-songhealth-db -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select current_user"'
+  ```
+
+  The credential is read from the mounted secret inside the container shell at runtime: it
+  never appears in any command argument, and the only output is the single non-secret
+  `current_user` identity value — nothing secret-bearing is printed. Exit 0
+  with `current_user` equal to `POSTGRES_USER` is the applicability evidence. A completed
+  **authentication failure** means the restored secret does not match the stored credential:
+  usability **fail** — re-select the applicable protected version or escalate (§9.2); never
+  reset, reinitialize, or modify any store or unit to make the check pass. A **connection-level**
+  failure (name resolution, unreachable, timeout) is *inconclusive*, not a pass or fail —
+  resolve the connectivity problem and re-run the probe; only a completed authentication
+  attempt yields a verdict.
+
+If applicability is unexercised or unproven, this entry's usability stays **`pending`** — never
+inferred from existence, installation, database health, or application markers.
 
 ### 8.4 Relationship to the Recovery Set and later integrity verification
 
@@ -449,8 +619,8 @@ protected recovery reference/version, and the availability/restore/usability res
 Nothing else. Values, access credentials, full connection URLs, raw `podman inspect` or process
 environment dumps, and shell traces are prohibited in evidence; only named fields, non-secret
 identity components, and pass/fail/pending results appear. Acceptable observables are the
-secret-scrubbed gate markers and the redacted helper output of §8.3, plus name-only secret
-listings (§8.2).
+secret-scrubbed gate markers and redacted helper output of §8.3.1, the name-only secret listings
+of §8.2 (installation evidence), and the entry-specific operator checks of §8.3.3–§8.3.4.
 
 This document ships the template with **every result `pending`** — it is documentation, not
 runtime evidence, and no result may be pre-filled or fabricated. The template is populated only
@@ -464,9 +634,22 @@ by the authorized recovery drill, whose evidence lands in the T028 deliverable
 | `EMDASH_ENCRYPTION_KEY` (applicable key list) — Podman secret `songhealth-encryption-key` | *record at drill* | pending | pending | pending |
 | bootstrap administrator credential — Podman secret `songhealth-db-password` | *record at drill* | pending | pending | pending |
 
-Recording rules: `pass` requires the cited stage's observable (e.g. journal gate markers for
-usability) actually observed for that entry; `fail` records the named refusal or missing
-dependency; `pending` means not exercised under authorization. A `pending` or `fail` in any
+Recording rules: `pass` requires the cited stage's observable actually observed for that entry —
+and for the **usability** column, the entry-specific evidence defined in §8.3:
+
+- entries 1–2: the authenticating gates of §8.3.2 (prerequisite connection/S1 and readiness for
+  `PGPASSWORD`; S3/S4 for the migration URL's credential) are admissible, because those gates
+  authenticate these credentials themselves;
+- entry 3 (`EMDASH_ENCRYPTION_KEY`): admissible only with K1 + K2 + K3 observed (§8.3.3) —
+  generic startup PASS and aggregate READY can never alone mark this row `pass`;
+- entry 4 (bootstrap credential): admissible only with the case-specific applicability evidence
+  of §8.3.4 (Phase A provisioning evidence on a clean target; the private-network
+  authentication probe on an initialized store) — name-only listing, container creation,
+  database health, and application gate markers can never mark it `pass`.
+
+`fail` records the named refusal, failed check, or missing dependency; an inconclusive probe
+result is recorded as such, not as `pass`. `pending` means not exercised under authorization —
+including an unexercised applicability probe or key-material check. A `pending` or `fail` in any
 required row prevents operational recovery acceptance (§8).
 
 ## 11. Runtime gates and deferred work
@@ -509,7 +692,8 @@ upstream documentation (first via Context7, per the repository contract in
   contain it — restoring a database without every key its encrypted settings reference leaves
   those values unreadable; a malformed value produces an operator-facing startup message while
   operations needing encrypted settings fail closed and unrelated requests continue; the value
-  format is `emdash_enc_v1_` + 32 random bytes (unpadded base64url), generated by the documented
+  format is `emdash_enc_v1_` + 32 random bytes as unpadded base64url (43 base64url characters
+  by encoding arithmetic — the basis of §8.3.3's K1 pattern), generated by the documented
   `emdash secrets generate` command; native rotation prepends a new key and retains older keys
   comma-separated, with stored `kid` fingerprints selecting older keys for reads, every plugin
   secret re-saved before an old key is removed, and no reporting of which key IDs remain in use.
@@ -524,6 +708,18 @@ upstream documentation (first via Context7, per the repository contract in
   reference pages, via Context7): `pg_dump` dumps a single database and does not dump roles or
   tablespaces, which are cluster-wide; `pg_dumpall --globals-only` exists for global objects (the
   basis of §6.4's statement that cluster-global roles are not in the Recovery Set's archive).
+  `pg_isready` (the `app-pg-isready` reference page) verifies server availability without
+  verifying credentials or identity (the basis of §8.3.4's rejection of database health as
+  bootstrap-credential evidence).
+- **Official PostgreSQL image** (docker-library: the image documentation and the current
+  `docker-entrypoint.sh` source, fetched 2026-10-11): the image establishes `trust`
+  authentication for local connections — a password is not required when connecting from inside
+  the database container itself (socket or localhost), but is required when connecting from a
+  different host/container — and the entrypoint appends a single `host all all all <method>`
+  line to `pg_hba.conf`, where the method defaults to the server's password-encryption setting
+  (`scram-sha-256` for PostgreSQL 18) unless `POSTGRES_HOST_AUTH_METHOD` overrides it. Phase A
+  passes no such override, so password authentication governs connections arriving from other
+  addresses (the basis of §8.3.4's private-network probe and its socket/loopback caveat).
 
 Upstream documentation explains what the technology does; the Product authorities and the
 committed deployment units cited above remain the authority for what this deployment does.
