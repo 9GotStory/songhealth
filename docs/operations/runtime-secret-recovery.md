@@ -457,13 +457,22 @@ value was injected; they cannot mark this entry `pass`.
   Length and alphabet alone do **not** prove canonical encoding: the pinned EmDash parser
   rejects key strings whose trailing base64 bits are non-zero (a decode/re-encode equality
   check — Appendix B), so K1 performs the same round trip with standard tools. The byte check
-  is **byte-safe**: the residue of non-permitted bytes is counted with `wc -c` — which counts
-  every byte, including NUL — rather than matched as text, because shell text tools cannot
-  reliably see NUL and command substitution silently drops it; the count runs **before** the
-  file is loaded into a shell variable, and a failed or unusable check result is itself
-  refusal (GNU coreutils environment, as the deployment already mandates elsewhere). Every
-  value flows through shell builtins and stdin — `cat`, `printf`, `test`, and parameter
-  expansion never place it in a command argument, and `tr`/`wc`/`base64`/`grep`/`awk` receive
+  is **byte-safe**: `od` dumps every byte exactly — NUL included — as one status-checked
+  command, and every dumped byte must belong to the permitted set; no text-pattern residue
+  match is used, because shell text tools cannot reliably see NUL and command substitution
+  silently drops it. The byte check runs **before** the file is loaded into a shell variable.
+  **Every validation stage checks its own failure and refuses on it** — there is no `pipefail`
+  assumption and no pipeline whose upstream failure can hide behind a successful downstream
+  command: each stage is either a single command whose exit status is checked (the `test`
+  guards, `awk` line count, `od` dump, `cat` load, the structural `grep`), or a pipeline whose
+  acceptance condition is an exact-value equality that no failed, empty, or partial stage can
+  fabricate (the canonical round trip); a failed or unusable result — including an empty or
+  non-numeric line count or a dumped-read failure — is itself refusal, never acceptance
+  (Bash- and POSIX-`sh`-compatible; GNU coreutils/`od -v -t x1` environment, as the deployment
+  already mandates elsewhere). The staging file is operator-owned and quiescent while K1 runs —
+  it was staged for this procedure and is expected not to change between the per-stage reads.
+  Every value flows through shell builtins and stdin — `cat`, `printf`, `test`, and parameter
+  expansion never place it in a command argument, and `awk`/`od`/`grep`/`tr`/`base64` receive
   paths or stdin only. The checks print nothing except a fixed diagnostic naming the failed
   representation; the exit statuses are the result:
 
@@ -473,23 +482,29 @@ value was injected; they cannot mark this entry `pass`.
   # staging input present and readable
   [ -f "$f" ] && [ -r "$f" ] || { echo "staging file absent or unreadable" >&2; exit 1; }
   # whole-file shape: exactly one line (a single terminal newline is acceptable;
-  # leading or trailing blank lines and any second line are not)
-  [ "$(awk 'END{print NR}' "$f")" -eq 1 ] || { echo "staging file is not a single line" >&2; exit 1; }
-  # full read succeeds — read/tool errors are refusal, not acceptance
-  cat "$f" > /dev/null || { echo "staging file could not be read" >&2; exit 1; }
-  # byte-safe whitelist: count every non-permitted byte with wc -c — NUL included,
-  # which a text-pattern residue match cannot see
-  n=$(LC_ALL=C tr -d 'A-Za-z0-9_,\n-' < "$f" | wc -c); rc=$?
-  [ "$rc" -eq 0 ] || { echo "byte whitelist check failed" >&2; exit 1; }
-  case "$n" in ''|*[!0-9]*) echo "byte whitelist check produced no usable result" >&2; exit 1 ;; esac
-  [ "$n" -eq 0 ] || { echo "staging file contains bytes outside the permitted representation" >&2; exit 1; }
+  # leading or trailing blank lines and any second line are not) — awk's own
+  # exit status is checked, and an unusable result refuses
+  nr=$(awk 'END{print NR}' "$f") || { echo "line check could not read the staging file" >&2; exit 1; }
+  case "$nr" in ''|*[!0-9]*) echo "line check produced no usable result" >&2; exit 1 ;; esac
+  [ "$nr" -eq 1 ] || { echo "staging file is not a single line" >&2; exit 1; }
+  # byte-safe whitelist: od dumps every byte exactly — NUL included — in one
+  # status-checked command, and every dumped byte pair must belong to the
+  # permitted set (key alphabet, comma, hyphen, newline)
+  dump=$(od -An -v -tx1 "$f") || { echo "byte check could not read the staging file" >&2; exit 1; }
+  if ! printf '%s' "$dump" | awk 'BEGIN { ok = 1 }
+       { for (i = 1; i <= NF; i++) if ($i !~ /^(0a|2c|2d|3[0-9]|4[1-9a-f]|5[0-9a]|5f|6[1-9a-f]|7[0-9a])$/) ok = 0 }
+       END { exit !ok }'; then
+    echo "staging file contains bytes outside the permitted representation" >&2; exit 1
+  fi
   # structural format: prefix + 43 base64url characters per element, comma-separated
-  line=$(cat "$f")
+  line=$(cat "$f") || { echo "staging file could not be read" >&2; exit 1; }
   printf '%s' "$line" | LC_ALL=C grep -qxE 'emdash_enc_v1_[A-Za-z0-9_-]{43}(,emdash_enc_v1_[A-Za-z0-9_-]{43})*' \
     || { echo "structural format check failed" >&2; exit 1; }
   # canonical encoding per element: decode, re-encode, require equality
   # (equality also fixes the decoded length at exactly 32 bytes — 43 unpadded
-  # characters is that length's unique encoding)
+  # characters is that length's unique encoding; and any failed, empty, or
+  # partial pipeline stage here can only produce a mismatch and refusal,
+  # because acceptance requires the exact 43-character equality)
   oldIFS=$IFS; IFS=,; set -f
   for elem in $line; do
     body=${elem#emdash_enc_v1_}
