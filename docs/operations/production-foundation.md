@@ -157,19 +157,39 @@ container — no other key in the file reaches it.
 eight keys:
 
 ```ini
+# PGPASSWORD is SECRET-BEARING (see the notes below): the application role credential.
 HOST=127.0.0.1
 PORT=4321
 PGHOST=systemd-songhealth-db
 PGPORT=5432
 PGDATABASE=<target application database>
 PGUSER=<least-privilege application role — enforced by the unit's startup prerequisites>
-PGPASSWORD=<application role credential>          # SECRET-BEARING; see below
+PGPASSWORD=<application role credential>
 EMDASH_SITE_URL=<absolute production HTTPS origin>
 ```
 
 Only these eight named variables are forwarded into the application container (bare-name
 `Environment=` forwarding); no other key in the file reaches it. `systemd` does not expose
 `EnvironmentFile` values in unit definitions, `systemctl show`, or the journal.
+
+**EnvironmentFile comment/quoting rules — the credential must survive parsing exactly.**
+`systemd` parses an `EnvironmentFile` with its own line parser, not shell semantics
+(`systemd.exec(5)`; the v259 `parse_env_file` implementation):
+
+- A line whose first non-whitespace character is `#` or `;` is a comment and is ignored — this is
+  the **only** comment form. There are **no inline comments**: in `KEY=VALUE`, everything after
+  the `=` up to the end of the line is the value. An annotation placed after the value — even
+  separated by spaces and a `#` — is preserved as part of the value, silently changing the
+  credential and failing authentication. Keep annotations on their own comment line, as above.
+- Leading and trailing whitespace around an unquoted value is trimmed, so meaningful
+  leading/trailing whitespace in a credential cannot be represented unquoted — generate
+  credentials without it.
+- Quotation marks around the value are removed, and inside double quotes backslash escapes
+  (`\`, `"`, `` ` ``, `$`) are interpreted; the assignment must be a single line with no shell
+  expansion.
+
+The practical rule: write every credential as a bare, unquoted, single-line assignment with
+nothing else on the line.
 
 `PGHOST` must be `systemd-songhealth-db` — the database container's resolvable name on the
 private `songhealth` network. `PGPASSWORD` is secret-bearing: protect the file (mode `0600`,
@@ -561,24 +581,57 @@ healthy.
 
 ### 7.2 Container recreation retaining both named volumes
 
-Runtime recreation replaces only the ephemeral container; both named volumes — `songhealth-db-data`
-and `songhealth-media`, with their identities and contents — are never deleted or recreated by
-any lifecycle operation:
+Recreation is native to the generated units' stop/start lifecycle — **no manual `podman rm` step
+exists or is needed**. The Quadlet-generated service for each `.container` unit starts its
+container with `podman run … --name systemd-<unit> --replace --rm` and stops it with
+`podman rm -v -f -i <container>` (plus an ignored-failure repeat in `ExecStopPost` that covers a
+killed-conmon stop), per the reference v6.1.3 generator. Consequences:
+
+- an ordinary successful `systemctl --user stop` **already removes the container** — there is no
+  stopped container left to remove, and a manual `podman rm` would merely report that no such
+  container exists;
+- the next `systemctl --user start` **creates a fresh container** (the `--replace` flag also
+  clears any same-name leftover from an abnormal shutdown);
+- both named volumes — `songhealth-db-data` and `songhealth-media`, with their identities and
+  contents — are never deleted or recreated by any lifecycle operation: stop/start/recreate
+  touches only the ephemeral container.
+
+**Application-only recreation** (the database unit is never stopped and stays active/healthy):
 
 ```bash
 systemctl --user stop songhealth-app.service
-podman rm systemd-songhealth-app
 systemctl --user start songhealth-app.service
 ```
 
-(For the database container the same shape applies with `systemd-songhealth-db`; its next start
-passes through the existing-store guard of §6.1 again — validating the store, never initializing
-it.) After recreation, startup re-runs every gate from scratch: the store guards, the role and
-schema prerequisites, the full migration status/apply/check sequence (idempotent — against an
-already-migrated database the apply is a verified no-op), and the media probe. Verify afterwards
-with the readiness checks of §8. The three-cycle version of this exercise (start, stop, restart,
-recreate, with integrity comparison after every operation) is exactly what the T016 harness
-verifies at T022 — ordinary operation needs only the commands above and a readiness check.
+This reruns the application unit's own startup sequence only (§6.2: media attachment and
+existing-store-marker guards, secret reads, least-privilege role and public-only-schema
+prerequisites, the T013 gate S1–S6, server exec). The database unit's existing-store guard does
+**not** rerun — the database unit was not reactivated.
+
+**Full-platform or database-container recreation.** Stopping the database unit propagates the
+stop to the application unit through the dependency edge, and starting the database alone does
+**not** start its dependent application — restore the application explicitly:
+
+```bash
+systemctl --user stop songhealth-app.service songhealth-db.service
+systemctl --user start songhealth-db.service    # store guard reruns; refusals skip (§8.3)
+systemctl --user start songhealth-app.service   # full application startup sequence reruns
+```
+
+(The last two commands may be collapsed into a single
+`systemctl --user start songhealth-app.service`: its dependency edge orders the database unit
+first and, with the database unit's `Notify=healthy`, the application's own prerequisites do not
+begin until PostgreSQL is healthy.)
+
+Which guards rerun per sequence: reactivating the **database unit** reruns its `ExecCondition`
+guards — the identity-input presence checks and the existing-store guard of §6.1, which validates
+the existing store and never initializes it; reactivating the **application unit** reruns its
+full startup sequence of §6.2. The migration status/apply/check sequence is idempotent —
+against an already-migrated database the apply is a verified no-op — and the media probe removes
+its own file. Verify afterwards with the readiness checks of §8. The three-cycle version of this
+exercise (start, stop, restart, recreate, with integrity comparison after every operation) is
+exactly what the T016 harness verifies at T022 — ordinary operation needs only the sequences
+above and a readiness check.
 
 ### 7.3 Operations this baseline does not provide
 
@@ -764,13 +817,20 @@ Version-sensitive facts in this document were verified against current upstream 
   `podman-volume.unit(5)`); `Notify=healthy` postponing the startup notification until the
   health check passes; generated services being transient with the generator applying the
   source `[Install]` section at generation time, and Quadlet drop-in files in
-  `<name>.container.d/*.conf` (`podman-systemd.unit(5)`).
+  `<name>.container.d/*.conf` (`podman-systemd.unit(5)`); the generated container service
+  running `podman run … --replace --rm` and stopping with `podman rm -v -f -i <container>`
+  plus an ignored-failure `ExecStopPost` repeat (v6.1.3 generator source,
+  `pkg/systemd/quadlet/quadlet.go` — the basis of §7.2's native stop/start recreation).
 - **systemd** (project documentation and source, via Context7): per-user manager lifetime —
   `user@.service` runs while a login session is open and terminates after the last logout
   unless lingering is enabled, in which case it starts at boot and survives logout
   (`systemd-run(1)`, logind); `ExecCondition` exit status 1–254 producing skip semantics —
   skipped, not failed, not restarted (`systemd.service(5)`; `src/core/service.c`
-  `SERVICE_SKIP_CONDITION`).
+  `SERVICE_SKIP_CONDITION`); `EnvironmentFile` parsing — comments only as full lines starting
+  with `#`/`;`, no inline comments (an unquoted value runs to end of line, with surrounding
+  whitespace trimmed; quotes are removed and backslash escapes apply inside double quotes)
+  (`systemd.exec(5)`; the `parse_env_file` implementation and its parser tests, checked at
+  v259 — the basis of §4.3's environment-file rules).
 
 Upstream documentation explains what the technology does; the Product authorities and the
 committed deployment units above remain the authority for what this deployment does.
