@@ -457,61 +457,111 @@ value was injected; they cannot mark this entry `pass`.
   Length and alphabet alone do **not** prove canonical encoding: the pinned EmDash parser
   rejects key strings whose trailing base64 bits are non-zero (a decode/re-encode equality
   check — Appendix B), so K1 performs the same round trip with standard tools. The byte check
-  is **byte-safe**: `od` dumps every byte exactly — NUL included — as one status-checked
-  command, and every dumped byte must belong to the permitted set; no text-pattern residue
-  match is used, because shell text tools cannot reliably see NUL and command substitution
-  silently drops it. The byte check runs **before** the file is loaded into a shell variable.
-  **Every validation stage checks its own failure and refuses on it** — there is no `pipefail`
-  assumption and no pipeline whose upstream failure can hide behind a successful downstream
-  command: each stage is either a single command whose exit status is checked (the `test`
-  guards, `awk` line count, `od` dump, `cat` load, the structural `grep`), or a pipeline whose
-  acceptance condition is an exact-value equality that no failed, empty, or partial stage can
-  fabricate (the canonical round trip); a failed or unusable result — including an empty or
-  non-numeric line count or a dumped-read failure — is itself refusal, never acceptance
-  (Bash- and POSIX-`sh`-compatible; GNU coreutils/`od -v -t x1` environment, as the deployment
-  already mandates elsewhere). The staging file is operator-owned and quiescent while K1 runs —
-  it was staged for this procedure and is expected not to change between the per-stage reads.
-  Every value flows through shell builtins and stdin — `cat`, `printf`, `test`, and parameter
-  expansion never place it in a command argument, and `awk`/`od`/`grep`/`tr`/`base64` receive
-  paths or stdin only. The checks print nothing except a fixed diagnostic naming the failed
-  representation; the exit statuses are the result:
+  is **byte-safe**: `od` dumps every byte exactly — NUL included — and every dumped byte must
+  belong to the permitted set; no text-pattern residue match is used, because shell text tools
+  cannot reliably see NUL and command substitution silently drops it. The byte check runs
+  **before** the file is loaded into a shell variable. **Every stage is a sequential command
+  whose own exit status is checked immediately — producers and consumers alike — with no
+  pipelines, no `pipefail` assumption, and no implicit `set -e`**: the line count, the byte
+  dump and its write redirection, every file read, the structural feed and its `grep`, and
+  each canonical transformation (URL-to-standard translation, decode, encode, padding/newline
+  removal, standard-to-URL translation) is individually refused on its own failure. The
+  exact-equality comparison runs **only after all stages succeeded**, and is a separate,
+  mandatory check of its own — so a command that emits complete, correct output and then
+  fails is rejected: output equality alone never establishes successful execution, and
+  command-status evidence and canonical-byte evidence remain independent. Decoded binary
+  material lives only in **protected intermediate files**, never in a shell variable: an
+  atomically created, operator-private scratch directory (GNU `mktemp -d` with a template of
+  trailing `X`es — never a predictable shared path and never `mktemp -u`; Appendix B) is
+  created inside the staging file's own protected directory (the staging path is required to
+  be absolute so the scratch stays inside that area) under `umask 077`, with owner-only
+  permissions on the directory and every file; a failed setup refuses. Cleanup is guarded on
+  success, refusal, and handled interruption (`INT`/`TERM`/`HUP` → exit 130) by the subshell's
+  `EXIT` trap: it preserves the validation status, and a cleanup failure can only turn
+  success into refusal — never the reverse. An unhandled interruption (a signal the trap
+  cannot catch, such as `SIGKILL`) leaves any residue owner-only protected inside the staging
+  area for operator cleanup; only this invocation's scratch directory is removed, never the
+  staging file itself, which is retained through K3/stage C (§6.2). The whole check runs in a
+  subshell, so its variables, `umask`, and traps stay local and a refusal exits the check, not
+  the operator's shell. Every value flows through shell builtins, stdin, and the protected
+  files — `printf`, `test`, and parameter expansion never place key material in an external
+  command argument, and `awk`/`od`/`cat`/`grep`/`tr`/`base64`/`cmp`/`dirname`/`mktemp`/`rm`
+  receive fixed syntax and paths only; tool diagnostics are suppressed and replaced by fixed
+  refusal messages, so no trace or value is ever emitted (Bash- and POSIX-`sh`-compatible;
+  GNU coreutils environment — `od -v`, `mktemp -d` — as the deployment already mandates
+  elsewhere). The staging file is operator-owned and quiescent while K1 runs. The checks
+  print nothing except a fixed diagnostic naming the failed stage; the exit statuses are the
+  result:
 
   ```bash
   f=<protected-staging-file>
 
-  # staging input present and readable
-  [ -f "$f" ] && [ -r "$f" ] || { echo "staging file absent or unreadable" >&2; exit 1; }
-  # whole-file shape: exactly one line (a single terminal newline is acceptable;
-  # leading or trailing blank lines and any second line are not) — awk's own
-  # exit status is checked, and an unusable result refuses
-  nr=$(awk 'END{print NR}' "$f") || { echo "line check could not read the staging file" >&2; exit 1; }
-  case "$nr" in ''|*[!0-9]*) echo "line check produced no usable result" >&2; exit 1 ;; esac
-  [ "$nr" -eq 1 ] || { echo "staging file is not a single line" >&2; exit 1; }
-  # byte-safe whitelist: od dumps every byte exactly — NUL included — in one
-  # status-checked command, and every dumped byte pair must belong to the
-  # permitted set (key alphabet, comma, hyphen, newline)
-  dump=$(od -An -v -tx1 "$f") || { echo "byte check could not read the staging file" >&2; exit 1; }
-  if ! printf '%s' "$dump" | awk 'BEGIN { ok = 1 }
-       { for (i = 1; i <= NF; i++) if ($i !~ /^(0a|2c|2d|3[0-9]|4[1-9a-f]|5[0-9a]|5f|6[1-9a-f]|7[0-9a])$/) ok = 0 }
-       END { exit !ok }'; then
-    echo "staging file contains bytes outside the permitted representation" >&2; exit 1
-  fi
-  # structural format: prefix + 43 base64url characters per element, comma-separated
-  line=$(cat "$f") || { echo "staging file could not be read" >&2; exit 1; }
-  printf '%s' "$line" | LC_ALL=C grep -qxE 'emdash_enc_v1_[A-Za-z0-9_-]{43}(,emdash_enc_v1_[A-Za-z0-9_-]{43})*' \
-    || { echo "structural format check failed" >&2; exit 1; }
-  # canonical encoding per element: decode, re-encode, require equality
-  # (equality also fixes the decoded length at exactly 32 bytes — 43 unpadded
-  # characters is that length's unique encoding; and any failed, empty, or
-  # partial pipeline stage here can only produce a mismatch and refusal,
-  # because acceptance requires the exact 43-character equality)
-  oldIFS=$IFS; IFS=,; set -f
-  for elem in $line; do
-    body=${elem#emdash_enc_v1_}
-    canon=$(printf '%s=' "$body" | tr -- '-_' '/+' | base64 -d 2>/dev/null | base64 | tr -d '\n=' | tr -- '/+' '-_')
-    [ "$canon" = "$body" ] || { echo "noncanonical key element encoding" >&2; exit 1; }
-  done
-  IFS=$oldIFS; set +f
+  # K1 — sequential stages, each checking its own exit status immediately.
+  # Runs in a subshell: variables, umask, and traps stay local, and a refusal
+  # exits the check, not the operator's shell.
+  (
+    k1_refuse() { echo "$1" >&2; exit 1; }
+    k1_cleanup() {
+      if [ -n "$scratch" ] && [ -d "$scratch" ]; then rm -rf -- "$scratch" >/dev/null 2>&1; fi
+    }
+    # cleanup runs on success, refusal, and handled interruption; the validation
+    # status is preserved, and a cleanup failure can only turn success into
+    # refusal — never the reverse
+    trap 'st=$?; k1_cleanup || { [ "$st" -eq 0 ] && st=1; }; exit $st' EXIT
+    trap 'exit 130' INT TERM HUP
+
+    # staging input present and readable
+    [ -f "$f" ] && [ -r "$f" ] || k1_refuse 'staging file absent or unreadable'
+    # whole-file shape: exactly one line (a single terminal newline is acceptable;
+    # leading or trailing blank lines and any second line are not)
+    nr=$(awk 'END{print NR}' "$f" 2>/dev/null) || k1_refuse 'line check could not read the staging file'
+    case "$nr" in ''|*[!0-9]*) k1_refuse 'line check produced no usable result' ;; esac
+    [ "$nr" -eq 1 ] || k1_refuse 'staging file is not a single line'
+
+    # protected scratch: atomically created by mktemp inside the staging file's own
+    # protected directory (absolute path enforced); umask 077 keeps every artifact
+    # owner-only; binary decoded material lives only in these files, never in a
+    # shell variable
+    umask 077
+    sdir=$(dirname -- "$f" 2>/dev/null) || k1_refuse 'staging directory could not be determined'
+    case "$sdir" in /*) ;; *) k1_refuse 'staging file path must be absolute so the scratch directory stays inside the protected staging area' ;; esac
+    scratch=$(mktemp -d "$sdir/k1.XXXXXX" 2>/dev/null) || k1_refuse 'scratch directory could not be created'
+
+    # byte-safe whitelist: od dumps every byte exactly — NUL included — and every
+    # dumped byte pair must belong to the permitted set (key alphabet, comma,
+    # hyphen, newline)
+    od -An -v -tx1 "$f" > "$scratch/dump" 2>/dev/null || k1_refuse 'byte check could not read the staging file'
+    awk 'BEGIN { ok = 1 }
+         { for (i = 1; i <= NF; i++) if ($i !~ /^(0a|2c|2d|3[0-9]|4[1-9a-f]|5[0-9a]|5f|6[1-9a-f]|7[0-9a])$/) ok = 0 }
+         END { exit !ok }' "$scratch/dump" 2>/dev/null \
+      || k1_refuse 'byte check failed: forbidden byte present or check did not complete'
+
+    # structural format: prefix + 43 base64url characters per element, comma-separated
+    line=$(cat "$f" 2>/dev/null) || k1_refuse 'staging file could not be read'
+    printf '%s\n' "$line" > "$scratch/line" 2>/dev/null || k1_refuse 'structural check input could not be prepared'
+    LC_ALL=C grep -qxE 'emdash_enc_v1_[A-Za-z0-9_-]{43}(,emdash_enc_v1_[A-Za-z0-9_-]{43})*' "$scratch/line" 2>/dev/null \
+      || k1_refuse 'structural format check failed'
+
+    # canonical encoding per element: URL-to-standard translation, decoding,
+    # encoding, padding/newline removal, standard-to-URL translation — each
+    # stage's own status checked immediately — and only after every stage
+    # succeeded, the exact-equality comparison (which also fixes the decoded
+    # length at exactly 32 bytes — 43 unpadded characters is that length's
+    # unique encoding)
+    oldIFS=$IFS; IFS=,; set -f
+    for elem in $line; do
+      body=${elem#emdash_enc_v1_}
+      printf '%s=' "$body" > "$scratch/body" 2>/dev/null || k1_refuse 'canonical check input could not be prepared'
+      printf '%s'  "$body" > "$scratch/expect" 2>/dev/null || k1_refuse 'canonical comparison input could not be prepared'
+      tr -- '-_' '/+' < "$scratch/body" > "$scratch/std" 2>/dev/null || k1_refuse 'URL-to-standard translation failed'
+      base64 -d < "$scratch/std" > "$scratch/raw" 2>/dev/null || k1_refuse 'base64 decoding failed'
+      base64 < "$scratch/raw" > "$scratch/enc" 2>/dev/null || k1_refuse 'base64 encoding failed'
+      tr -d '\n=' < "$scratch/enc" > "$scratch/nopad" 2>/dev/null || k1_refuse 'padding removal failed'
+      tr -- '/+' '-_' < "$scratch/nopad" > "$scratch/url" 2>/dev/null || k1_refuse 'standard-to-URL translation failed'
+      cmp -s "$scratch/expect" "$scratch/url" || k1_refuse 'noncanonical key element encoding'
+    done
+    IFS=$oldIFS; set +f
+  )
   ```
 
   Refused, among others: an absent or unreadable staging file; a leading or trailing blank
@@ -843,6 +893,13 @@ upstream documentation (first via Context7, per the repository contract in
   even when length and alphabet are correct. §8.3.3's K1 round-trip check mirrors that
   acceptance contract with standard tools, so a key the application would reject cannot pass
   K1.
+- **GNU coreutils `mktemp`** (the GNU coreutils manual, via Context7, verified 2026-10-11):
+  `mktemp -d TEMPLATE` creates a directory instead of a file, granting read/write/search
+  permissions to the current user only — no group or other permissions — further restrictable
+  by `umask`; the template requires trailing `X`es (at least three) that are replaced to form
+  the unique name, and creation is atomic. §8.3.3's K1 uses `mktemp -d` with a template
+  inside the protected staging directory under `umask 077` for exactly these properties;
+  predictable shared paths and `mktemp -u` are not used.
 
 Upstream documentation explains what the technology does; the Product authorities and the
 committed deployment units cited above remain the authority for what this deployment does.
