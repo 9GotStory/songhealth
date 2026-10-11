@@ -97,11 +97,13 @@
 # redirection for the artifact); a destination entry that appears after
 # preflight is never clobbered, and any publish-time or post-publish
 # verification failure rolls back ONLY artifacts this invocation demonstrably
-# published and still owns (per-artifact published flag plus the recorded
-# device:inode object identity AND current digest — an identical-bytes
-# replacement is a different file object and is refused), leaving foreign,
-# replaced, symlinked, or ambiguous entries untouched, so a partial set is
-# never left looking complete.
+# published and still owns: each artifact's device:inode object identity is
+# established from the STAGED file object BEFORE the move and the landed
+# object must carry exactly that identity (rename preserves it), plus the
+# current digest — a post-rename destination reading is never the sole
+# ownership source, and an identical-bytes replacement is a different file
+# object and is refused — leaving foreign, replaced, symlinked, or ambiguous
+# entries untouched, so a partial set is never left looking complete.
 #
 # Secret safety: this script never prints PGPASSWORD, the migration URL, the
 # encryption key, or any other secret value. Redaction is structural
@@ -1007,9 +1009,14 @@ publish_single() {
 	#     refuses. A destination directory or directory symlink can
 	#     therefore never receive or redirect the artifact;
 	#   - the landed object is verified to be a regular file at the exact
-	#     destination basename, and its device:inode identity — the rollback
-	#     ownership proof — is recorded from the SAME single stat reading
-	#     that proves the file type (one syscall, no type/identity window);
+	#     destination basename whose device:inode identity EQUALS the staged
+	#     file object's identity read BEFORE the move: rename preserves the
+	#     object's device:inode, so the landed object must be the original
+	#     staged file object itself. A post-rename reading is never the sole
+	#     ownership source — a replacement swapped in between the rename and
+	#     the reading has a different identity and is refused as foreign;
+	#   - both identity readings come from a single stat call that proves
+	#     the file type and the object identity together;
 	#   - the underlying mv error stream is captured and published only
 	#     through the scrubbed tail (raw mv diagnostics embed the
 	#     operator-supplied Recovery Set directory path).
@@ -1020,6 +1027,23 @@ publish_single() {
 		fail_stage S5 'publication refused: the entry %s appeared in the Recovery Set directory after preflight (late collision); the existing entry was left untouched and nothing was published over it' \
 			"$name"
 	fi
+	# The ownership identity originates from the STAGED file object this
+	# invocation created, read BEFORE the move.
+	local staged_reading='' staged_id=''
+	staged_reading="$(stat -c '%d:%i|%F' -- "$src" 2>"$SCRATCH/stat-staged-$name.err")" || {
+		print_tail "stat $name (staged) diagnostics" "$SCRATCH/stat-staged-$name.err" 3
+		rollback_published
+		fail_stage S5 'the staged %s could not be identity-read for publication ownership' "$what"
+	}
+	case $staged_reading in
+	*"|regular file")
+		staged_id="${staged_reading%|*}"
+		;;
+	*)
+		rollback_published
+		fail_stage S5 'publication refused: the staged %s is not a regular file object' "$what"
+		;;
+	esac
 	if ! mv -n -T -- "$src" "$dest" 2>"$err"; then
 		print_tail "mv $name diagnostics" "$err" 3
 		rollback_published
@@ -1033,18 +1057,17 @@ publish_single() {
 		fail_stage S5 'publication refused: %s could not be moved to its exact destination basename without overwriting an entry that appeared after preflight; the destination was left untouched and nothing was relocated into it' \
 			"$name"
 	fi
-	# One stat reading carries both the file-type proof and the object
-	# identity: the recorded identity therefore always describes a verified
-	# regular file at the exact destination basename.
-	local identity=''
+	# The landed object must be the ORIGINAL staged file object: same
+	# device:inode, read (with its type proof) from one stat call.
+	local identity='' landed_id=''
 	identity="$(stat -c '%d:%i|%F' -- "$dest" 2>"$SCRATCH/stat-publish-$name.err")" || {
 		print_tail "stat $name diagnostics" "$SCRATCH/stat-publish-$name.err" 3
 		rollback_published
-		fail_stage S5 'the published %s could not be identity-recorded for rollback ownership' "$what"
+		fail_stage S5 'the published %s could not be identity-verified after the move' "$what"
 	}
 	case $identity in
 	*"|regular file")
-		printf -v "$id_var" '%s' "${identity%|*}"
+		landed_id="${identity%|*}"
 		;;
 	*)
 		# A directory, symlink, or other non-regular entry at the destination
@@ -1054,6 +1077,16 @@ publish_single() {
 			"$name"
 		;;
 	esac
+	if [ "$landed_id" != "$staged_id" ]; then
+		# The object at the destination is not the staged file object this
+		# run created: it was replaced between the rename and this reading,
+		# or the move did not preserve the object — either way it is foreign
+		# and is left untouched, and this name was never published by us.
+		rollback_published
+		fail_stage S5 'publication refused: the landed %s is not the original staged file object this invocation created (replaced or ambiguous); the destination entry was left untouched' \
+			"$name"
+	fi
+	printf -v "$id_var" '%s' "$staged_id"
 }
 
 owned_artifact() {
