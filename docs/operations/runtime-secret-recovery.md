@@ -475,15 +475,28 @@ value was injected; they cannot mark this entry `pass`.
   trailing `X`es — never a predictable shared path and never `mktemp -u`; Appendix B) is
   created inside the staging file's own protected directory (the staging path is required to
   be absolute so the scratch stays inside that area) under `umask 077`, with owner-only
-  permissions on the directory and every file; a failed setup refuses. Cleanup is guarded on
-  success, refusal, and handled interruption (`INT`/`TERM`/`HUP` → exit 130) by the subshell's
-  `EXIT` trap: it preserves the validation status, and a cleanup failure can only turn
-  success into refusal — never the reverse. An unhandled interruption (a signal the trap
-  cannot catch, such as `SIGKILL`) leaves any residue owner-only protected inside the staging
-  area for operator cleanup; only this invocation's scratch directory is removed, never the
-  staging file itself, which is retained through K3/stage C (§6.2). The whole check runs in a
-  subshell, so its variables, `umask`, and traps stay local and a refusal exits the check, not
-  the operator's shell. Every value flows through shell builtins, stdin, and the protected
+  permissions on the directory and every file; a failed setup refuses. **Cleanup ownership is
+  separated from path existence**: the invocation-local cleanup state is initialized to empty
+  *before any trap is installed*, overwriting any inherited value — subshell isolation alone
+  does not clear an inherited variable — so initially nothing is eligible for deletion; a
+  path becomes eligible only after this invocation's own checked `mktemp` succeeded **and**
+  the printed path is validated to belong to the staging area and the `k1.` namespace. A
+  missing staging file, a failed line/setup check, a failed or interrupted creation, or a
+  merely printed foreign path therefore can never authorize deletion of an inherited or
+  unrelated path; uncertain residue is left owner-only protected for operator investigation,
+  and no cleanup target is ever guessed. Removal is bounded: only the explicit K1 artifact
+  names inside the eligible directory are removed, then the directory itself via `rmdir` —
+  no recursive deletion, no glob, no caller-provided artifact list, and never the staging
+  file; unexpected contents block directory removal (counting as cleanup failure) and are
+  preserved. Cleanup is guarded on success, refusal, and handled interruption
+  (`INT`/`TERM`/`HUP` → exit 130) by the subshell's `EXIT` trap: it preserves the validation
+  status, and a cleanup failure can only turn success into refusal — never the reverse. An
+  unhandled interruption (a signal the trap cannot catch, such as `SIGKILL`) leaves any
+  residue owner-only protected inside the staging area for operator cleanup; the staging file
+  itself is retained through K3/stage C (§6.2), untouched by cleanup. The whole check runs in
+  a subshell, so its variables, `umask`, and traps stay local — the caller's state and traps
+  are never modified — and a refusal exits the check, not the operator's shell. Every value
+  flows through shell builtins, stdin, and the protected
   files — `printf`, `test`, and parameter expansion never place key material in an external
   command argument, and `awk`/`od`/`cat`/`grep`/`tr`/`base64`/`cmp`/`dirname`/`mktemp`/`rm`
   receive fixed syntax and paths only; tool diagnostics are suppressed and replaced by fixed
@@ -501,9 +514,28 @@ value was injected; they cannot mark this entry `pass`.
   # exits the check, not the operator's shell.
   (
     k1_refuse() { echo "$1" >&2; exit 1; }
+
+    # invocation-local cleanup state — initialized before any trap is installed,
+    # overwriting any inherited value: nothing is eligible for deletion until
+    # this invocation's own checked scratch creation succeeds and is validated;
+    # subshell isolation alone does not clear an inherited variable
+    scratch=''
+
+    # bounded cleanup: only the explicit K1 artifact names inside the eligible
+    # directory, then the directory itself via rmdir — no recursive deletion, no
+    # glob, no caller-provided list, and never the staging file; unexpected
+    # contents block directory removal (a cleanup failure) and are preserved
     k1_cleanup() {
-      if [ -n "$scratch" ] && [ -d "$scratch" ]; then rm -rf -- "$scratch" >/dev/null 2>&1; fi
+      crc=0
+      if [ -n "$scratch" ] && [ -d "$scratch" ]; then
+        for artifact in dump line body expect std raw enc nopad url; do
+          rm -f -- "$scratch/$artifact" >/dev/null 2>&1 || crc=1
+        done
+        rmdir -- "$scratch" >/dev/null 2>&1 || crc=1
+      fi
+      return "$crc"
     }
+
     # cleanup runs on success, refusal, and handled interruption; the validation
     # status is preserved, and a cleanup failure can only turn success into
     # refusal — never the reverse
@@ -525,7 +557,18 @@ value was injected; they cannot mark this entry `pass`.
     umask 077
     sdir=$(dirname -- "$f" 2>/dev/null) || k1_refuse 'staging directory could not be determined'
     case "$sdir" in /*) ;; *) k1_refuse 'staging file path must be absolute so the scratch directory stays inside the protected staging area' ;; esac
-    scratch=$(mktemp -d "$sdir/k1.XXXXXX" 2>/dev/null) || k1_refuse 'scratch directory could not be created'
+    # cleanup eligibility is recorded only here: after this invocation's own
+    # checked creation succeeded AND the resulting path is validated to belong
+    # to the protected staging area and the k1. namespace. A missing staging
+    # file, a failed earlier check, a failed or interrupted creation, or a
+    # merely printed foreign path never authorizes deletion of anything; any
+    # uncertain residue is left protected for operator investigation, and no
+    # cleanup target is ever guessed
+    cand=$(mktemp -d "$sdir/k1.XXXXXX" 2>/dev/null) || k1_refuse 'scratch directory could not be created'
+    case "$cand" in
+      "$sdir"/k1.??*) scratch=$cand ;;
+      *) k1_refuse 'created path is outside the expected staging-area K1 namespace - nothing is deleted; inspect and remove it manually' ;;
+    esac
 
     # byte-safe whitelist: od dumps every byte exactly — NUL included — and every
     # dumped byte pair must belong to the permitted set (key alphabet, comma,
