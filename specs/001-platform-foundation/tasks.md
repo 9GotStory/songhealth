@@ -89,7 +89,7 @@ description: "Actionable task graph for the Songhealth Platform Foundation"
 - [ ] T021 [US2] Document rootless user-systemd installation, start/stop/restart/recreation, private database boundary, persistent volume handling, readiness interpretation, and the external HTTPS/reverse-proxy boundary without selecting a proxy product in `docs/operations/production-foundation.md`
 - [ ] T022 [US2] Execute T016 on a production-capable verification host and record redacted Quadlet unit, image/build-manifest identity, native migration status/apply/check outcome, health, network, port, volume, three-cycle lifecycle, missing-attachment, and persistence-integrity evidence in `specs/001-platform-foundation/evidence/T022-us2-production-durability.md`; every lifecycle comparison must retrieve and match the exact native site `tagline` value/digest established by T015
 
-**Checkpoint**: User Story 2 proves production lifecycle durability and private PostgreSQL exposure. Stop for Codex PASS/REWORK before recovery work.
+**Checkpoint**: User Story 2 proves production lifecycle durability and private PostgreSQL exposure at the mandatory T022 runtime gate. Stop for Codex PASS/REWORK on T022 before any dependent runtime work. Under the approved Development-First Sequencing decision (see Notes), Phase 5 source authoring may proceed in parallel after T021 acceptance without requiring T022 PASS.
 
 ---
 
@@ -98,6 +98,8 @@ description: "Actionable task graph for the Songhealth Platform Foundation"
 **Goal**: Restore the complete designated EmDash database state, persistent media, and independently protected runtime secrets into a clean/recreated runtime with measurable integrity.
 
 **Independent Test**: Create database and media artifacts for one known validation state, restore them into clean PostgreSQL/media persistence, separately recover required runtime secrets, and demonstrate exact canonical native site `tagline` value/digest recovery plus 100% designated-media recovery with zero unexplained integrity differences; incomplete, corrupt, mismatched, or secret-incomplete recovery must fail closed.
+
+**Sequencing (Development-First, bounded Product Owner decision of 2026-10-11)**: T023–T027 may be authored as sources and independently reviewed once the accepted production source boundary through T021 and the earlier gates are in place; T022 runtime PASS is not a prerequisite for that source work, which still requires separate bounded Product Owner authorization per task. Source review does not establish runtime acceptance, complete US2/US3, waive any failed gate, or satisfy final feature acceptance: T022 remains a mandatory runtime acceptance gate, and T028 may execute only after both T022 PASS and Codex-accepted sources for all of T023–T027.
 
 ### Recovery verification for User Story 3
 
@@ -154,11 +156,13 @@ T010 -> T011
 T015 -> T016 -> {T017 || T018}
 T018 -> T019
 {T017, T019} -> T020 -> T021 -> T022 [US2 GATE]
-T022 -> {T023 || T024}
-T024 -> T025 -> T026 -> T027
-{T023, T027} -> T028 [US3 GATE] -> T029 -> T030 [US4 GATE]
+T021 -> {T023 || T024} [DFS: source authoring/review only; T022 PASS not required]
+T024 -> T025 -> T026 -> T027 [each edge: accepted source review before dependent work]
+{T022, T023, T027} -> T028 [US3 GATE: joins T022 PASS + accepted T023–T027 sources] -> T029 -> T030 [US4 GATE]
 T030 -> T031 -> T032
 ```
+
+**Development-First Sequencing (graph)**: The `T021 -> {T023 || T024}` edge records the bounded Product Owner decision that recovery sources may be authored and reviewed once the production source boundary through T021 is accepted, without waiting for T022 runtime PASS. Every other edge keeps its original meaning, and each Phase 5 dependency still requires independent Codex source review before dependent work proceeds. The T028 join is explicit: T028 execution requires both T022 PASS and Codex-accepted sources for T023–T027, including T023's separately documented runtime-secret recovery prerequisite.
 
 ### Phase Dependencies
 
@@ -166,7 +170,7 @@ T030 -> T031 -> T032
 - **Foundational (Phase 2)**: T004/T005 require Setup; T006 requires both and blocks all later work; T007/T008 follow only after T006 passes.
 - **User Story 1 (Phase 3)**: Requires T008; T009/T010 precede their protected behavior; T015 is the story gate.
 - **User Story 2 (Phase 4)**: Requires T015 PASS; T016 defines verification before deployment work; T022 is the story gate.
-- **User Story 3 (Phase 5)**: Requires T022 PASS; T024 defines recovery verification before backup/restore implementation; T028 is the story gate.
+- **User Story 3 (Phase 5)**: Source authoring requires the accepted production source boundary through T021—not T022 PASS—under Development-First Sequencing, with separate bounded Product Owner authorization; T023/T024 remain file-independent; T024 defines recovery verification before backup/restore implementation, and each Phase 5 dependency requires independent source review before dependent work proceeds; T028 is the story gate and requires the join of T022 PASS plus accepted T023–T027 sources.
 - **User Story 4 (Phase 6)**: Requires T028 PASS so the review covers the complete foundation; T030 is the story gate.
 - **Final phase**: Requires T030 PASS; T032 follows full validation T031.
 
@@ -174,8 +178,8 @@ T030 -> T031 -> T032
 
 - **T006 — PostgreSQL 18.6 / EmDash compatibility**: Hard stop on failure; only Product Owner/architecture resolution can unblock dependent work.
 - **T015 — Canonical platform/MVP**: Must pass clean-checkout, public/Admin, readiness, migration, media-writeability, and secret-redaction criteria.
-- **T022 — Production durability**: Must pass private-network, no-public-DB, lifecycle, missing-attachment, and persistence checks.
-- **T028 — Recovery**: Must pass clean logical restore, media restore, integrity, and separate runtime-secret recovery criteria.
+- **T022 — Production durability**: Must pass private-network, no-public-DB, lifecycle, missing-attachment, and persistence checks. Under Development-First Sequencing it remains a mandatory runtime acceptance gate whose PASS is required before T028 executes; it no longer blocks T023–T027 source authoring and review.
+- **T028 — Recovery**: Must pass clean logical restore, media restore, integrity, and separate runtime-secret recovery criteria. Execution requires the explicit join of T022 PASS and Codex-accepted sources for T023–T027, including T023's separately documented runtime-secret recovery prerequisite.
 - **T030 — Canonical extension review**: Must find no second foundation or Product-scope expansion.
 - **T031 — Full validation**: Must pass before final evidence handoff.
 
@@ -185,8 +189,8 @@ T030 -> T031 -> T032
 - **T004 + T005** after Phase 1: application configuration and development PostgreSQL controls own different files; neither consumes the other's unfinished artifacts.
 - **T009 + T010**, then **T011 + T012**, after T008: Node readiness tests/public browser tests and their corresponding page/helper implementations are file-disjoint; each pair joins before T013.
 - **T017 + T018** after T016: OCI image files and network/volume Quadlets are file-disjoint and share no mutable runtime during authoring; both join before container-unit completion.
-- **T023 + T024** after T022: secret-recovery documentation and recovery verification scenario own different files and do not consume each other's outputs.
-- No user-story phases run in parallel because each later story consumes evidence and boundaries established by the previous priority.
+- **T023 + T024** after T021 acceptance: secret-recovery documentation and recovery verification scenario own different files, do not consume each other's outputs, and require no T022 runtime PASS.
+- No user-story phases run in parallel at runtime because each later story consumes runtime evidence and boundaries established by the previous priority. The single bounded exception is Development-First Sequencing: Phase 5 source authoring/review may overlap a still-pending T022 runtime gate, and the two lines rejoin at T028.
 
 ---
 
@@ -200,10 +204,11 @@ The suggested MVP is **Phase 1 + Phase 2 + User Story 1 through T015**. This yie
 
 1. Complete Setup and pass T006 before accepting any downstream database-dependent implementation.
 2. Complete US1 and obtain Codex PASS/REWORK at T015.
-3. Add production Podman/Quadlet durability and obtain review at T022.
-4. Add the logical database/media recovery boundary and obtain review at T028.
-5. Complete the canonical-extension review at T030.
-6. Run final validation and hand off the evidence index; do not begin implementation without the separate Human Gate authorization required by the Constitution.
+3. Author and review the production Podman/Quadlet source boundary through T021, then execute the durability gate T022 and obtain review.
+4. After T021 acceptance, and in parallel with any still-pending T022 execution, author and independently review the logical database/media recovery sources T023–T027 (Development-First Sequencing; separate bounded Product Owner authorization per task).
+5. Execute T028 only after the explicit join of T022 PASS and accepted T023–T027 sources, and obtain review.
+6. Complete the canonical-extension review at T030.
+7. Run final validation and hand off the evidence index; do not begin implementation without the separate Human Gate authorization required by the Constitution.
 
 ## Scope Guardrails
 
@@ -215,6 +220,8 @@ The suggested MVP is **Phase 1 + Phase 2 + User Story 1 through T015**. This yie
 
 ## Notes
 
+- **Development-First Sequencing (bounded Product Owner decision of 2026-10-11, Multica issue 9GOTSTORY-194)**: T023–T027 may be authored and independently reviewed as sources after the accepted production source boundary through T021, without T022 runtime PASS. The decision changes sequencing only: no task deliverable, gate, architecture, or specification requirement changes; each recovery-source task still requires separate bounded Product Owner authorization and independent Codex source review before dependent work proceeds; and source review does not establish runtime acceptance, complete US2/US3, waive any failed gate, or satisfy final feature acceptance. T022 and T028 remain mandatory runtime acceptance gates, T028 requires both T022 PASS and accepted T023–T027 sources, and all final evidence requirements—including T022/T028 evidence—are unchanged.
+- **CA-01 remains deferred** and is unaffected by this amendment.
 - Every completed task must return its focused verification evidence for independent Codex PASS/REWORK before dependent tasks continue.
 - `[P]` means file/resource independence only after the documented prerequisites are satisfied.
 - Tests and operational verification precede or accompany the behavior they protect.
