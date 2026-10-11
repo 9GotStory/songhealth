@@ -44,8 +44,11 @@
 #        the active source media mount: canonically equal, ancestor,
 #        descendant, symlink-alias, unresolved-tail-alias, physical, and
 #        same-device:inode relationships are all rejected (realpath -m
-#        canonicalization plus physical/inode defenses), and any separation
-#        that cannot be established fails closed.
+#        canonicalization plus physical defenses and MANDATORY device:inode
+#        probes whenever both mounts exist — a failed, empty, or malformed
+#        identity reading refuses; stat and realpath are declared tool
+#        prerequisites), and any separation that cannot be established
+#        fails closed.
 #   S2   Recovery Set pre-restore validation, strictly BEFORE any restore
 #        attempt (existence -> checksums -> archive readability ->
 #        association/anchor, in that order; an S2 failure means S3 never
@@ -139,7 +142,8 @@
 # implementations of the three T025–T027 scripts, leak-producing synthetic
 # diagnostics whose sentinel values must never survive into captured
 # output, source/restore store-overlap regressions (ancestor, descendant,
-# symlink alias, unresolved-tail alias, leading-zero port), distinct
+# symlink alias, unresolved-tail alias, leading-zero port, unavailable and
+# unusable device:inode probe evidence), distinct
 # restored-state failure scenarios driven through a comparator double that
 # actually examines the restored fixtures (wrong tagline, missing tagline,
 # missing media, changed media), a native apply-failure scenario, dirty
@@ -497,7 +501,11 @@ check_recovery_implementations() {
 require_tools() {
 	local missing=()
 	local tool
-	for tool in node npm npx tar sha256sum timeout mktemp pg_restore base64 od awk grep; do
+	# stat and realpath are S1 prerequisites: the source/restore
+	# separation proofs canonicalize with realpath -m and — when both
+	# mounts exist — compare underlying device:inode identities through
+	# stat, refusing when that evidence fails (never skipping it).
+	for tool in node npm npx tar sha256sum timeout mktemp pg_restore base64 od awk grep stat realpath; do
 		command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
 	done
 	if [ "${#missing[@]}" -gt 0 ]; then
@@ -706,14 +714,28 @@ check_source_store_protection() {
 		if media_paths_related "$src_phys" "$restore_phys"; then
 			fail_input_source 'the declared restore media mount is physically equal to, inside, or containing the active source media mount; source active stores must never be recovery targets'
 		fi
-		src_stat="$(stat -c '%d:%i' -- "$src_phys" 2>/dev/null)" || src_stat=''
-		restore_stat="$(stat -c '%d:%i' -- "$restore_phys" 2>/dev/null)" || restore_stat=''
-		if [ -n "$src_stat" ] && [ -n "$restore_stat" ] && [ "$src_stat" == "$restore_stat" ]; then
+		# The underlying-identity probes are MANDATORY evidence whenever
+		# both mounts exist: a failed, empty, or malformed device:inode
+		# reading REFUSES (F02 round 2). Missing evidence is not safe
+		# separation — lexical/physical pathname inequality alone cannot
+		# rule out two mount paths referencing the same underlying
+		# directory, so this branch fails closed, never open, when its
+		# evidence is unavailable or unusable.
+		src_stat="$(stat -c '%d:%i' -- "$src_phys" 2>/dev/null)" ||
+			fail_input_source 'the device:inode identity of the active source media mount could not be determined; safe separation cannot be established — failing closed'
+		restore_stat="$(stat -c '%d:%i' -- "$restore_phys" 2>/dev/null)" ||
+			fail_input_source 'the device:inode identity of the restore media mount could not be determined; safe separation cannot be established — failing closed'
+		local identity_re='^[0-9]+:[0-9]+$'
+		printf '%s' "$src_stat" | grep -qE "$identity_re" ||
+			fail_input_source 'the device:inode reading of the active source media mount is empty or not the expected numeric device:inode shape; safe separation cannot be established — failing closed'
+		printf '%s' "$restore_stat" | grep -qE "$identity_re" ||
+			fail_input_source 'the device:inode reading of the restore media mount is empty or not the expected numeric device:inode shape; safe separation cannot be established — failing closed'
+		if [ "$src_stat" == "$restore_stat" ]; then
 			fail_input_source 'the declared restore media mount and the active source media mount are the same underlying directory (device:inode); source active stores must never be recovery targets'
 		fi
 	fi
 
-	info S1 'source-store protection: restore target %s:%s/%s and restore media mount are safely separated from the declared active source database identity and source media mount (canonical overlap, symlink, unresolved-tail, physical, and device:inode aliasing rejected)' \
+	info S1 'source-store protection: restore target %s:%s/%s and restore media mount are safely separated from the declared active source database identity and source media mount (canonical equal/ancestor/descendant, symlink, unresolved-tail, and physical aliasing rejected; underlying device:inode identities compared, with any failed, empty, or malformed identity reading refusing)' \
 		"$AGREED_HOST" "$AGREED_PORT" "$AGREED_DATABASE"
 }
 
@@ -1566,7 +1588,8 @@ self_test() {
 	trap 'st_cleanup; exit 130' INT TERM HUP
 
 	local st_root="$st/repo" st_bin="$st/bin" st_calls="$st/calls" st_fix="$st/fixtures"
-	mkdir -p "$st_root/scripts" "$st_bin" "$st_calls" "$st_fix"
+	local st_bin_stat_fail="$st/stat-fail-bin" st_bin_stat_bad="$st/stat-bad-bin"
+	mkdir -p "$st_root/scripts" "$st_bin" "$st_calls" "$st_fix" "$st_bin_stat_fail" "$st_bin_stat_bad"
 
 	# Repository no-mutation baseline (the real checkout may contain this
 	# harness as an untracked file; it must be unchanged by the self-test).
@@ -1851,6 +1874,30 @@ exec emdash "$@"
 EOF
 	chmod +x "$st_bin/pg_restore" "$st_bin/emdash" "$st_bin/npm" "$st_bin/npx"
 
+	# Controlled stat doubles for the device:inode probe-evidence
+	# regressions (F02 round 2): one fails unconditionally, one returns a
+	# usable exit status with an unusable non-numeric identity shape. They
+	# live in separate directories and are prepended to PATH per case, so
+	# every other scenario keeps using the real stat.
+	cat >"$st_bin_stat_fail/stat" <<'EOF'
+#!/usr/bin/env bash
+# Controlled stub (T024 self-test ONLY): stands in for stat, failing
+# unconditionally — the unavailable-identity-evidence regression.
+set -u
+printf 'stat %s\n' "$*" >>"${ST_CALLS:?}/stat.calls"
+exit 1
+EOF
+	cat >"$st_bin_stat_bad/stat" <<'EOF'
+#!/usr/bin/env bash
+# Controlled stub (T024 self-test ONLY): stands in for stat, returning a
+# usable exit status with an unusable (non-numeric, wrong-shape) identity.
+set -u
+printf 'stat %s\n' "$*" >>"${ST_CALLS:?}/stat.calls"
+printf 'garbage-not-a-device-inode-identity\n'
+exit 0
+EOF
+	chmod +x "$st_bin_stat_fail/stat" "$st_bin_stat_bad/stat"
+
 	# --- synthetic Recovery Set fixtures (builder: variant -> fixture dir).
 	build_set() {
 		# build_set <dir> <variant>
@@ -2015,7 +2062,7 @@ EOF
 		# end proves the harness never invokes the backup authority in any
 		# scenario.
 		local name
-		for name in pg_restore restore-foundation verify-restored-foundation emdash npm npx; do
+		for name in pg_restore restore-foundation verify-restored-foundation emdash npm npx stat; do
 			: >"$st_calls/$name.calls" 2>/dev/null || true
 		done
 		rm -f "$st_calls/emdash.calls.fp" 2>/dev/null || true
@@ -2256,6 +2303,30 @@ EOF
 		st_case source-media-unresolved-tail ok 'restore mount whose symlinked parent resolves into the source tree rejected at S1 (F02 regression)'
 	else
 		st_case source-media-unresolved-tail fail 'an unresolved-tail alias into the source tree was not rejected'
+	fi
+
+	reset_case_env
+	current_case='probe-stat-failing'
+	set_case_env PATH "$st_bin_stat_fail:$st_bin:$orig_path"
+	run_child
+	if expect_rc 4 && expect_output '\[S1\] FAIL' && expect_output 'could not be determined' &&
+		expect_stub_called stat &&
+		expect_stub_not_called restore-foundation; then
+		st_case probe-stat-failing ok 'an UNAVAILABLE device:inode probe (failing stat double) refuses at S1: no safe-separation claim without evidence (F02 round-2 regression)'
+	else
+		st_case probe-stat-failing fail 'a failing device:inode probe still allowed the run to proceed'
+	fi
+
+	reset_case_env
+	current_case='probe-stat-unusable'
+	set_case_env PATH "$st_bin_stat_bad:$st_bin:$orig_path"
+	run_child
+	if expect_rc 4 && expect_output '\[S1\] FAIL' && expect_output 'numeric device:inode shape' &&
+		expect_stub_called stat &&
+		expect_stub_not_called restore-foundation; then
+		st_case probe-stat-unusable ok 'an UNUSABLE device:inode reading (wrong shape, exit 0) refuses at S1: malformed evidence is not separation (F02 round-2 regression)'
+	else
+		st_case probe-stat-unusable fail 'a malformed device:inode reading still allowed the run to proceed'
 	fi
 
 	# ---- S2: Recovery Set pre-restore validation -------------------------
