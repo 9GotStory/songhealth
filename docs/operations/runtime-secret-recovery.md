@@ -211,7 +211,14 @@ values are never displayed.
    # <staging-file> examples: a mode-0600 file in an operator-controlled protected directory
    ```
 
-2. **Recreate the three Podman secrets from the staging files.** The command line carries only
+2. **Verify the staged material before replacing anything.** Run the format and identity checks
+   of §8.3.3 (K1 format validity and K2 same-state identity for the encryption key) and confirm
+   the bootstrap staging file carries its credential without embedded newlines (§8.3.4), all
+   **before** any live secret is replaced: a refusal at this step leaves the external runtime
+   boundary untouched. K3 (injection) and the stage-C usability checks run later, against the
+   retained staging files (step 6).
+
+3. **Recreate the three Podman secrets from the staging files.** The command line carries only
    the path; `--replace` updates an existing secret of the same name:
 
    ```bash
@@ -221,10 +228,10 @@ values are never displayed.
    ```
 
    Replaced secrets reach **newly created containers only** — an existing container keeps the old
-   value until it is recreated (verified Podman behavior, Appendix B) — so step 4 is not
+   value until it is recreated (verified Podman behavior, Appendix B) — so step 5 is not
    optional.
 
-3. **Restore `PGPASSWORD` into the environment file.** Update the `PGPASSWORD` key of
+4. **Restore `PGPASSWORD` into the environment file.** Update the `PGPASSWORD` key of
    `~/.config/containers/systemd/songhealth-app.env` with the applicable credential, written in
    the representation that round-trips its intended bytes exactly — the accepted
    `EnvironmentFile` comment/quoting rules apply (no inline comments, backslash and quote
@@ -233,7 +240,7 @@ values are never displayed.
    representation, never the value. Keep the file at mode `0600`. No other key of the file is a
    secret; non-secret keys are restored as ordinary configuration (§3).
 
-4. **Recreate the containers so replaced values reach the runtime.** The Quadlet lifecycle does
+5. **Recreate the containers so replaced values reach the runtime.** The Quadlet lifecycle does
    this natively — a stop removes the container, the next start creates a fresh one
    ([`production-foundation.md`](production-foundation.md) §7.2):
 
@@ -242,10 +249,15 @@ values are never displayed.
    systemctl --user start songhealth-app.service
    ```
 
-5. **Remove the staging files** in the operator's usual protected way once restoration is
-   accepted.
+6. **Run the stage-C usability checks (§8.3) with the staging files still in place.** K3
+   compares the container's mounted secret against the retained staging file, and the bootstrap
+   applicability probe of §8.3.4 reads the mounted secret — the staging files are therefore
+   retained until stage C completes, not removed after step 3.
 
-6. **Record the evidence** — per-entry restore result and opaque reference only (§10).
+7. **Remove the staging files only after stage C completes** — in the operator's usual protected
+   way, on success **and on refusal alike**. A refusal under investigation may retain its
+   staging files (protected) until the investigation ends; they are removed then. Then record
+   the evidence — per-entry restore result and opaque reference only (§10).
 
 ### 6.3 What restore does not do
 
@@ -356,11 +368,13 @@ A `fail` at any point stops before stage B; nothing is staged.
 
 ### 8.2 Stage B — restoration and installation (per §6)
 
-Stage the applicable versions, recreate the three Podman secrets from staging files, restore
-`PGPASSWORD` into the environment file in an exact-byte representation, recreate the containers,
-remove the staging files. The restore result per entry is the observable outcome of those steps.
-Secret **installation** — the secret exists under its expected name after recreation — can be
-confirmed name-only:
+Stage the applicable versions, verify the staged material before replacing anything, recreate
+the three Podman secrets from staging files, restore `PGPASSWORD` into the environment file in
+an exact-byte representation, and recreate the containers (§6.2). The staging files are
+**retained** through stage C — the injection and usability checks consume them (§8.3.3 K3,
+§8.3.4) — and are removed only afterwards (§6.2 step 7). The restore result per entry is the
+observable outcome of those steps. Secret **installation** — the secret exists under its
+expected name after recreation — can be confirmed name-only:
 
 ```bash
 podman secret ls --format '{{.Name}}'
@@ -433,43 +447,72 @@ value was injected; they cannot mark this entry `pass`.
 
 **Entry-specific evidence — all three of the following are required:**
 
-- **K1 — format validity of the staged material** (operator-side, structural, no value output).
-  The staging file must carry the key material as its single line (a trailing newline is
-  acceptable), and every comma-separated element of that line must match the documented current
-  EmDash key format: the literal prefix `emdash_enc_v1_` followed by the unpadded-base64url
-  encoding of 32 random bytes — 43 base64url characters (`[A-Za-z0-9_-]`, no `=` padding) by
-  encoding arithmetic from the documented 32-byte length (Appendix B). The checks read the
-  protected staging file and print nothing except a fixed diagnostic on the first failure; the
-  exit statuses are the result:
+- **K1 — format validity of the staged material** (operator-side, structural, no value output;
+  runs **before** any secret is replaced — §6.2 step 2). K1 checks exactly the permitted
+  whole-file representation — one complete key/list line, an optional single terminal newline,
+  and nothing else — and the canonical encoding of every element. The per-element format is the
+  documented current EmDash key format: the literal prefix `emdash_enc_v1_` followed by the
+  unpadded-base64url encoding of 32 random bytes — 43 base64url characters (`[A-Za-z0-9_-]`,
+  no `=` padding) by encoding arithmetic from the documented 32-byte length (Appendix B).
+  Length and alphabet alone do **not** prove canonical encoding: the pinned EmDash parser
+  rejects key strings whose trailing base64 bits are non-zero (a decode/re-encode equality
+  check — Appendix B), so K1 performs the same round trip with standard tools. Every value
+  flows through shell builtins and stdin — `cat`, `printf`, `test`, and parameter expansion
+  never place it in a command argument, and `tr`/`base64`/`grep`/`awk` receive paths or stdin
+  only. The checks print nothing except a fixed diagnostic naming the failed representation;
+  the exit statuses are the result:
 
   ```bash
-  # exactly one non-empty line in the staging file
-  [ "$(grep -c . <protected-staging-file>)" -eq 1 ] || { echo "staging file is not a single line" >&2; exit 1; }
-  # that line matches the documented key format (single key or comma-separated rotation list)
-  LC_ALL=C grep -qxE 'emdash_enc_v1_[A-Za-z0-9_-]{43}(,emdash_enc_v1_[A-Za-z0-9_-]{43})*' \
-    <protected-staging-file>
+  f=<protected-staging-file>
+
+  # staging input present and readable
+  [ -f "$f" ] && [ -r "$f" ] || { echo "staging file absent or unreadable" >&2; exit 1; }
+  # whole-file shape: exactly one line (a single terminal newline is acceptable;
+  # leading or trailing blank lines and any second line are not)
+  [ "$(awk 'END{print NR}' "$f")" -eq 1 ] || { echo "staging file is not a single line" >&2; exit 1; }
+  # byte whitelist: nothing outside the key alphabet, commas, and the newline
+  if LC_ALL=C tr -d 'A-Za-z0-9_,\n-' < "$f" | grep -q .; then
+    echo "staging file contains bytes outside the permitted representation" >&2; exit 1
+  fi
+  # structural format: prefix + 43 base64url characters per element, comma-separated
+  line=$(cat "$f")
+  printf '%s' "$line" | LC_ALL=C grep -qxE 'emdash_enc_v1_[A-Za-z0-9_-]{43}(,emdash_enc_v1_[A-Za-z0-9_-]{43})*' \
+    || { echo "structural format check failed" >&2; exit 1; }
+  # canonical encoding per element: decode, re-encode, require equality
+  # (equality also fixes the decoded length at exactly 32 bytes — 43 unpadded
+  # characters is that length's unique encoding)
+  oldIFS=$IFS; IFS=,; set -f
+  for elem in $line; do
+    body=${elem#emdash_enc_v1_}
+    canon=$(printf '%s=' "$body" | tr -- '-_' '/+' | base64 -d 2>/dev/null | base64 | tr -d '\n=' | tr -- '/+' '-_')
+    [ "$canon" = "$body" ] || { echo "noncanonical key element encoding" >&2; exit 1; }
+  done
+  IFS=$oldIFS; set +f
   ```
 
-  A single-element value or a comma-separated rotation list both match; an empty file, extra
-  lines, a bare prefix, wrong length, padding characters, whitespace, or a partial element
-  fails. K1 proves format only — never that the key is the *applicable* one.
+  Refused, among others: an absent or unreadable staging file; a leading or trailing blank
+  line; any second line; an empty file; a bare prefix; wrong length; `=` padding; whitespace;
+  CRLF; any byte outside the permitted set; a noncanonical final encoding (for example a
+  trailing character whose nonsignificant bits are non-zero); and any noncanonical element of a
+  rotation list. K1 proves format only — never that the key is the *applicable* one.
 
-- **K2 — same-state key identity.** The staged material must be the applicable protected
-  version for the target known state (§5.2), proven against the protected record itself:
-  either byte-identical to the applicable version's protected bytes
-  (`cmp --silent <protected-staging-file> <applicable-protected-version>` — exit status only,
-  nothing printed), or matching a SHA-256 digest that the operator recorded **inside the
-  protected record** when the version was protected (`sha256sum <protected-staging-file>`,
-  compared against the recorded digest; only the match result is recorded anywhere else). A
-  digest of 256-bit-random key material is non-invertible; even so, a digest is recorded only
-  inside the protected record itself — never in evidence, Git, or review artifacts — and is
-  never recorded at all for low-entropy passwords. A K2 mismatch means a wrong or stale version
-  was staged:
-  re-select the applicable reference or escalate (§9.2); do not proceed on an unverified guess.
+- **K2 — same-state key identity** (runs **before** any secret is replaced — §6.2 step 2). The
+  staged material must be the applicable protected version for the target known state (§5.2),
+  proven against the protected record itself: either byte-identical to the applicable version's
+  protected bytes (`cmp --silent <protected-staging-file> <applicable-protected-version>` —
+  exit status only, nothing printed), or matching a SHA-256 digest that the operator recorded
+  **inside the protected record** when the version was protected
+  (`sha256sum <protected-staging-file>`, compared against the recorded digest; only the match
+  result is recorded anywhere else). A digest of 256-bit-random key material is non-invertible;
+  even so, a digest is recorded only inside the protected record itself — never in evidence,
+  Git, or review artifacts — and is never recorded at all for low-entropy passwords. A K2
+  mismatch means a wrong or stale version was staged: re-select the applicable reference or
+  escalate (§9.2); do not proceed on an unverified guess.
 
-- **K3 — injection.** The recreated application container must carry exactly the staged
-  applicable material — the mounted secret, compared byte-for-byte against the staging file
-  with the bytes flowing over stdin, never through a command argument:
+- **K3 — injection** (runs after replacement and container recreation, against the staging file
+  **retained through stage C** — §6.2 steps 6–7). The recreated application container must
+  carry exactly the staged applicable material — the mounted secret, compared byte-for-byte
+  against the staging file with the bytes flowing over stdin, never through a command argument:
 
   ```bash
   podman exec -i systemd-songhealth-app \
@@ -479,10 +522,14 @@ value was injected; they cannot mark this entry `pass`.
   Exit 0 proves the running container's mounted key secret is byte-identical to the staged
   applicable material.
 
-**Negative runtime signal.** An EmDash malformed-key diagnostic in the unit journal
-(`journalctl --user -u songhealth-app.service -e`) is an immediate **fail**, whatever K1 says.
-Its absence together with K1 means the mounted key also passed the application's own format
-validation.
+**Negative runtime signal.** An EmDash invalid/malformed-key diagnostic in the unit journal
+belongs to the **current** recovery attempt only — the journal of this unit's present start
+cycle (`journalctl --user -u songhealth-app.service -e`, read for the current attempt, never
+historical records — the same invocation-scoping discipline the accepted STARTUP REFUSAL
+evidence class uses). Such a diagnostic observed for the current attempt is an immediate
+**fail**, whatever K1 says. The **absence** of a diagnostic establishes nothing: it is not
+evidence that the application accepted the key, and only K1–K3 carry the affirmative evidence
+for this entry.
 
 **Refusal rule.** An invalid, missing, or mismatched key — any K1/K2/K3 failure — refuses
 operational recovery acceptance **even when the application is READY**. Without all three
@@ -516,40 +563,77 @@ credential** (Appendix B), and the application gates authenticate the separate l
 application identity, not the bootstrap administrator. Neither name-only listing, container
 creation, database health, nor application gate markers may mark this entry's usability `pass`.
 
-**Applicability evidence, by recovery target:**
+**Applicability evidence — one mechanism for both recovery targets.** Applicability is proven
+**only** by an actual secret-safe password-authenticated probe as `POSTGRES_USER` against the
+recovery target, executed after authorized provisioning/start of the target's database unit.
+The two targets differ only in what the probe is combined with:
 
 - **Clean-cluster recovery (the recovery-drill case).** The target store is initialized by the
-  explicit Phase A procedure *from this very staged secret* — `POSTGRES_PASSWORD_FILE` consumes
-  the mounted secret at initialization, and Phase A passes no authentication-method override, so
-  the image's password-based host authentication defaults are in force (Appendix B). The stored
-  bootstrap credential therefore equals the staged material **by construction**, and the
-  accepted Phase A final-server identity verification
-  ([`production-foundation.md`](production-foundation.md) §5.1) is the recorded provisioning
-  evidence for this entry.
-- **Already-initialized store.** Applicability is proven only by an authentication probe as
-  `POSTGRES_USER` using the mounted secret. The probe must connect over the server's
-  **private-network name/address** — connections made from inside the database container to
-  itself over the socket or loopback use the image's local `trust` authentication and do not
-  exercise any password; password authentication applies to connections arriving from other
-  addresses (Appendix B):
+  explicit Phase A procedure *from this staged secret* (`POSTGRES_PASSWORD_FILE`; Phase A passes
+  no authentication-method override, so the image's password-based host authentication defaults
+  are in force — Appendix B). The accepted Phase A final-server identity verification
+  ([`production-foundation.md`](production-foundation.md) §5.1) remains the recorded
+  **provisioning** evidence — it proves the intended database and bootstrap identity exist —
+  but it is **not** usability proof: its checks connect locally, under the image's local
+  `trust` authentication, and never authenticate the password. The probe below must still run
+  against the newly provisioned target before this entry's usability may be marked `pass`.
+- **Already-initialized store.** Phase B never applies the secret to the stored administrator
+  credential (§3, §9.1), so nothing but the probe can establish that the restored credential
+  matches the stored one.
 
-  ```bash
-  podman exec systemd-songhealth-db sh -c 'PGPASSWORD="$(cat /run/secrets/songhealth-db-password)" psql -h systemd-songhealth-db -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select current_user"'
-  ```
+**The probe** — private-network, password-authenticated, current-attempt:
 
-  The credential is read from the mounted secret inside the container shell at runtime: it
-  never appears in any command argument, and the only output is the single non-secret
-  `current_user` identity value — nothing secret-bearing is printed. Exit 0
-  with `current_user` equal to `POSTGRES_USER` is the applicability evidence. A completed
-  **authentication failure** means the restored secret does not match the stored credential:
-  usability **fail** — re-select the applicable protected version or escalate (§9.2); never
-  reset, reinitialize, or modify any store or unit to make the check pass. A **connection-level**
-  failure (name resolution, unreachable, timeout) is *inconclusive*, not a pass or fail —
-  resolve the connectivity problem and re-run the probe; only a completed authentication
-  attempt yields a verdict.
+```bash
+podman exec systemd-songhealth-db sh -c 'pw=$(cat /run/secrets/songhealth-db-password) || { echo "bootstrap secret read failed" >&2; exit 1; }; [ -n "$pw" ] || { echo "bootstrap secret is empty" >&2; exit 1; }; PGPASSWORD="$pw" psql -h systemd-songhealth-db -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select current_user"'
+```
 
-If applicability is unexercised or unproven, this entry's usability stays **`pending`** — never
-inferred from existence, installation, database health, or application markers.
+Its conditions and semantics, all of which hold by construction of the command:
+
+- **The secret read succeeds and is nonempty** — guarded explicitly before any connection is
+  attempted; a missing/unreadable/empty mounted secret fails with a fixed diagnostic naming the
+  condition, never a value.
+- **The credential never appears in any command argument** — it is read from the mounted secret
+  inside the container shell at runtime, held in a shell variable, and passed to `psql` through
+  the environment; the only output is the single non-secret `current_user` identity value.
+- **The selected connection exercises password authentication, not local trust and no
+  alternate credential fallback** — it targets the server's private-network name
+  (`systemd-songhealth-db`), so the connection arrives from the container's network address
+  rather than the socket or loopback, where the image's local `trust` authentication would
+  exercise no password (Appendix B); `PGPASSWORD` takes precedence over any password-file
+  lookup, and the database container carries no alternate credential source.
+- **The result belongs to the intended target and the current attempt** — `systemd-songhealth-db`
+  is this deployment's generated database container, `podman exec` runs it now against that
+  container, and the verdict is read only from this invocation's exit status and output; stale
+  journal records or an earlier attempt's result are never substituted.
+- **The probe authenticates the whole staged material as read** — command substitution yields
+  the secret's full content (trailing newlines stripped), so a pass proves the entire staged
+  material is exactly the operative credential. This is what closes the first-line divergence:
+  see the file-consumption semantics below.
+
+**Verdicts.** Exit 0 with `current_user` equal to `POSTGRES_USER` (a non-secret identity
+component) is the applicability evidence. A completed **authentication failure** means the
+restored credential does not match the stored one: usability **fail** — re-select the
+applicable protected version or escalate (§9.2); never reset, reinitialize, or modify any store
+or unit to make the check pass. A **connection-level** failure (name resolution, unreachable,
+timeout) is *inconclusive*, not a pass or fail — resolve the connectivity problem and re-run
+the probe; only a completed authentication attempt yields a verdict.
+
+**Accepted file-consumption semantics (documented, not redefined).** The operative bootstrap
+credential is the **first line** of the secret file: the image reads `POSTGRES_PASSWORD_FILE`
+into the environment through command substitution, and `initdb --pwfile` takes the first line
+of the password file (Appendix B). A staging file containing two lines therefore provisions
+the first-line password while the full staged material differs — and the probe above then
+**fails authentication**, because it submits the whole material as read; Phase A identity
+checks alone would not expose this (they authenticate nothing). The single-line staging
+representation — the credential as the file's one line, an optional terminal newline, **no
+embedded newlines** — makes the staged material and the operative credential coincide, which
+§6.2 step 2 asks the operator to confirm before replacement. This paragraph documents how the
+accepted image consumes the input; it changes no credential, and it invents no narrower
+credential-generation policy — the operator's credential choice remains the operator's.
+
+If applicability is unexercised or unproven — on either target — this entry's usability stays
+**`pending`** (or `fail` on a completed negative verdict) — never inferred from existence,
+installation, Phase A identity checks, database health, or application markers.
 
 ### 8.4 Relationship to the Recovery Set and later integrity verification
 
@@ -642,10 +726,11 @@ and for the **usability** column, the entry-specific evidence defined in §8.3:
   authenticate these credentials themselves;
 - entry 3 (`EMDASH_ENCRYPTION_KEY`): admissible only with K1 + K2 + K3 observed (§8.3.3) —
   generic startup PASS and aggregate READY can never alone mark this row `pass`;
-- entry 4 (bootstrap credential): admissible only with the case-specific applicability evidence
-  of §8.3.4 (Phase A provisioning evidence on a clean target; the private-network
-  authentication probe on an initialized store) — name-only listing, container creation,
-  database health, and application gate markers can never mark it `pass`.
+- entry 4 (bootstrap credential): admissible only with the password-authenticated
+  private-network probe of §8.3.4, **on both clean and already-initialized recovery targets**
+  (after authorized provisioning/start of the target) — Phase A final-server identity evidence
+  is provisioning evidence only and can never mark usability `pass`; neither can name-only
+  listing, container creation, database health, or application gate markers.
 
 `fail` records the named refusal, failed check, or missing dependency; an inconclusive probe
 result is recorded as such, not as `pass`. `pending` means not exercised under authorization —
@@ -719,7 +804,20 @@ upstream documentation (first via Context7, per the repository contract in
   line to `pg_hba.conf`, where the method defaults to the server's password-encryption setting
   (`scram-sha-256` for PostgreSQL 18) unless `POSTGRES_HOST_AUTH_METHOD` overrides it. Phase A
   passes no such override, so password authentication governs connections arriving from other
-  addresses (the basis of §8.3.4's private-network probe and its socket/loopback caveat).
+  addresses (the basis of §8.3.4's private-network probe and its socket/loopback caveat). The
+  same entrypoint reads `POSTGRES_PASSWORD_FILE` into the environment through command
+  substitution (its `file_env` helper) and passes the value to `initdb --pwfile`; PostgreSQL 18
+  documents that `initdb --pwfile` "read[s] the bootstrap superuser's password from a file. The
+  first line of the file is taken as the password" (postgresql.org/docs/18, `app-initdb`,
+  verified 2026-10-11) — together the basis of §8.3.4's accepted file-consumption semantics
+  (first-line consumption at initialization; whole-material authentication by the probe).
+- **EmDash 1.1.0 key parser acceptance** (the pinned, lock-integrity-verified package, as
+  independently verified against the package source in the T023 corrective review): the
+  encryption-key parser enforces canonical unpadded-base64url encoding through a
+  decode/re-encode equality check, rejecting values whose trailing base64 bits are non-zero
+  even when length and alphabet are correct. §8.3.3's K1 round-trip check mirrors that
+  acceptance contract with standard tools, so a key the application would reject cannot pass
+  K1.
 
 Upstream documentation explains what the technology does; the Product authorities and the
 committed deployment units cited above remain the authority for what this deployment does.
