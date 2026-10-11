@@ -87,23 +87,32 @@
 # Fail-closed behavior (every case exits nonzero and publishes nothing):
 # missing/invalid inputs; a missing, unreadable, empty, or non-file-containing
 # media store (a replacement store is never created); unsafe Recovery Set
-# directory/media overlap; pre-existing artifact basenames; an unobservable,
-# absent, or non-canonical observed tagline; pg_dump/psql/tar failures;
-# empty or unreadable archives; checksum, entry, or manifest inconsistencies.
-# Artifacts are staged inside the Recovery Set directory and renamed into
-# place only after every validation passes (manifest last); any publish-time
-# or post-publish verification failure rolls the published names back so a
-# partial set is never left looking complete.
+# directory/media overlap; pre-existing artifact basenames (including as
+# dangling symlinks); an unobservable, absent, or non-canonical observed
+# tagline; pg_dump/psql/tar failures; empty or unreadable archives; checksum,
+# entry, or manifest inconsistencies. Artifacts are staged inside the Recovery
+# Set directory and renamed into place only after every validation passes
+# (manifest last, each move guarded and no-clobber); a destination entry that
+# appears after preflight is never clobbered, and any publish-time or
+# post-publish verification failure rolls back ONLY artifacts this invocation
+# demonstrably published and still owns (per-artifact published flag plus a
+# current-digest ownership check), leaving foreign or replaced entries
+# untouched, so a partial set is never left looking complete.
 #
 # Secret safety: this script never prints PGPASSWORD, the migration URL, the
 # encryption key, or any other secret value. Redaction is structural
-# (mirroring the accepted T024 harness): every published diagnostic flows
-# through publish_diag/scrub, which redacts every nonempty supplied secret
-# regardless of length, the full migration URL, and the URL password's
-# standalone (percent-encoded and decoded) representations; node-side JSON
-# readers report parser failures with FIXED messages (the default
-# SyntaxError echoes an excerpt of the raw input); errors name the failing
-# field/resource only; invalid invocations never echo argument values.
+# (mirroring the accepted T024 harness): every published DIAGNOSTIC flows
+# through publish_diag/scrub and every stdout line carrying DYNAMIC values
+# (including the operator-supplied Recovery Set directory path in the final
+# success message) flows through publish_out/scrub; underlying tool error
+# streams (mv, sha256sum, stat, find, mktemp, cd) are captured and released
+# only through the scrubbed tail, never inherited. scrub redacts every
+# nonempty supplied secret regardless of length, the full migration URL, and
+# the URL password's standalone (percent-encoded and decoded)
+# representations; node-side JSON readers report parser failures with FIXED
+# messages (the default SyntaxError echoes an excerpt of the raw input);
+# errors name the failing field/resource only; invalid invocations never
+# echo argument values.
 #
 # Exit codes: 0 PASS | 1 FAIL (any stage) | 2 environment error (missing
 # tools) | 4 missing or invalid input | 64 usage error.
@@ -161,6 +170,13 @@ PG_RESTORE_VERSION=''
 PSQL_VERSION=''
 RECOVERY_SET_ID=''
 CREATED_AT=''
+# Manifest digest (computed at build; the rollback ownership proof and the
+# post-publication verification both use it) and the per-artifact
+# "this invocation demonstrably published it" flags.
+MANIFEST_SHA256=''
+PUBLISHED_DB=0
+PUBLISHED_MEDIA=0
+PUBLISHED_MANIFEST=0
 
 usage() {
 	cat <<'EOF'
@@ -302,6 +318,19 @@ publish_diag() {
 	fi
 }
 
+publish_out() {
+	# stdin -> stdout, sanitized through the same structural redaction
+	# boundary as publish_diag. Every stdout line carrying DYNAMIC values
+	# (operator-supplied paths, identifiers) flows through here, so a
+	# secret-bearing path component can never reach the success/evidence
+	# output even on a fully successful run.
+	if command -v node >/dev/null 2>&1; then
+		scrub
+	else
+		cat
+	fi
+}
+
 print_tail() {
 	# print_tail <label> <file> [lines]: scrubbed bounded tail for diagnosis.
 	local label="$1" file="$2" lines="${3:-15}"
@@ -415,7 +444,12 @@ validate_inputs() {
 	if [ ! -r "$SONGHEALTH_RECOVERY_DIR" ] || [ ! -x "$SONGHEALTH_RECOVERY_DIR" ]; then
 		die "$EXIT_CONFIG" 'SONGHEALTH_RECOVERY_DIR is not readable/traversable'
 	fi
-	RECOVERY_DIR="$(cd -- "$SONGHEALTH_RECOVERY_DIR" && pwd -P)"
+	# The resolution failure path emits the raw path in cd's own error; that
+	# output is discarded and replaced by a fixed message, so an
+	# operator-supplied path component can never reach unsanitized output.
+	if ! RECOVERY_DIR="$(cd -- "$SONGHEALTH_RECOVERY_DIR" 2>/dev/null && pwd -P)"; then
+		die "$EXIT_CONFIG" 'SONGHEALTH_RECOVERY_DIR could not be resolved to a usable directory'
+	fi
 
 	# The media store at the stable application path: present, readable, and
 	# carrying real designated content. A missing or unreadable store fails
@@ -490,13 +524,18 @@ check_output_source_separation() {
 
 check_publishable_output() {
 	# Existing evidence is never overwritten: publishing requires all three
-	# basenames to be absent. Artifacts are staged beside the destination and
-	# renamed into place only after every validation passes.
+	# basenames to be absent. -e alone misses a DANGLING SYMLINK, so an
+	# existing link of that name (target present or not) is also refused —
+	# plain mv would otherwise replace the link with this run's artifact.
+	# Artifacts are staged beside the destination and renamed into place only
+	# after every validation passes; publication itself re-checks each
+	# destination immediately before moving (a late collision fails closed
+	# without clobbering).
 	local file
 	for file in "$DB_ARCHIVE_NAME" "$MEDIA_ARCHIVE_NAME" "$RECOVERY_MANIFEST_NAME"; do
-		if [ -e "$RECOVERY_DIR/$file" ]; then
-			fail_input 'a Recovery Set artifact named %s already exists in %s; existing evidence is never overwritten — publish into a new Recovery Set directory' \
-				"$file" "$RECOVERY_DIR"
+		if [ -e "$RECOVERY_DIR/$file" ] || [ -L "$RECOVERY_DIR/$file" ]; then
+			fail_input 'a Recovery Set entry named %s already exists in the Recovery Set directory (regular file, directory, or symlink — including a dangling link); existing evidence is never overwritten — publish into a new Recovery Set directory' \
+				"$file"
 		fi
 	done
 }
@@ -647,8 +686,18 @@ create_database_archive() {
 		fail_stage S3 'the database archive table of contents carries no archive entries'
 	fi
 
-	read -r DB_SHA256 _ < <(sha256sum -- "$dump")
-	DB_SIZE="$(stat -c '%s' -- "$dump")"
+	# Checksum/size evidence of the staged artifact. Underlying tool errors
+	# are captured and published only through the scrubbed tail — a raw
+	# diagnostic embeds the staging path (which contains the operator
+	# supplied Recovery Set directory name).
+	read -r DB_SHA256 _ < <(sha256sum -- "$dump" 2>"$SCRATCH/sha-db.err") || {
+		print_tail 'sha256sum diagnostics (database archive)' "$SCRATCH/sha-db.err" 3
+		fail_stage S3 'the created database archive could not be checksummed'
+	}
+	DB_SIZE="$(stat -c '%s' -- "$dump" 2>"$SCRATCH/stat-db.err")" || {
+		print_tail 'stat diagnostics (database archive)' "$SCRATCH/stat-db.err" 3
+		fail_stage S3 'the size of the created database archive could not be determined'
+	}
 
 	info S3 'database archive created: unfiltered custom-format pg_dump, %s TOC entries, %s bytes, sha256 %s' \
 		"$DB_TOC_ENTRIES" "$DB_SIZE" "$DB_SHA256"
@@ -670,7 +719,10 @@ create_media_archive() {
 	# exactly the form the T024 S2 contract checks against the archive
 	# listing.
 	local files="$SCRATCH/media-files.txt"
-	find "$MEDIA_DIR" -type f -printf '%P\n' | LC_ALL=C sort >"$files"
+	find "$MEDIA_DIR" -type f -printf '%P\n' 2>"$SCRATCH/find-media.err" | LC_ALL=C sort >"$files" || {
+		print_tail 'find diagnostics (media store)' "$SCRATCH/find-media.err" 3
+		fail_stage S4 'the media store could not be enumerated for designated-entry evidence'
+	}
 	MEDIA_ENTRY_COUNT="$(grep -c . "$files" || true)"
 	if [ "$MEDIA_ENTRY_COUNT" -lt 1 ]; then
 		fail_stage S4 'the media store stopped carrying designated files; a Recovery Set requires nonempty media evidence'
@@ -780,8 +832,14 @@ create_media_archive() {
 		fail_stage S4 'the extracted media archive does not match the recorded designated-entry evidence'
 	fi
 
-	read -r MEDIA_SHA256 _ < <(sha256sum -- "$archive")
-	MEDIA_SIZE="$(stat -c '%s' -- "$archive")"
+	read -r MEDIA_SHA256 _ < <(sha256sum -- "$archive" 2>"$SCRATCH/sha-media.err") || {
+		print_tail 'sha256sum diagnostics (media archive)' "$SCRATCH/sha-media.err" 3
+		fail_stage S4 'the created media archive could not be checksummed'
+	}
+	MEDIA_SIZE="$(stat -c '%s' -- "$archive" 2>"$SCRATCH/stat-media.err")" || {
+		print_tail 'stat diagnostics (media archive)' "$SCRATCH/stat-media.err" 3
+		fail_stage S4 'the size of the created media archive could not be determined'
+	}
 
 	info S4 'media archive created: %s designated entries, every entry present in the listing and byte-identical after extraction, %s bytes, sha256 %s' \
 		"$MEDIA_ENTRY_COUNT" "$MEDIA_SIZE" "$MEDIA_SHA256"
@@ -864,58 +922,147 @@ publish_recovery_set() {
 		print_tail 'manifest self-check diagnostics' "$SCRATCH/manifest-selfcheck.err" 5
 		fail_stage S5 'the manifest failed the secret-free/validity self-check; nothing was published'
 	fi
+	read -r MANIFEST_SHA256 _ < <(sha256sum -- "$manifest" 2>"$SCRATCH/sha-manifest.err") || {
+		print_tail 'sha256sum diagnostics (manifest)' "$SCRATCH/sha-manifest.err" 3
+		fail_stage S5 'the manifest could not be checksummed for publication-ownership evidence'
+	}
 
 	# Publish by rename within the same directory, manifest LAST: until the
 	# association evidence appears, an interrupted publish is detectably
-	# incomplete. Any failure rolls every published name back so a partial
-	# set is never left behind.
-	if ! mv -- "$STAGING_DIR/$DB_ARCHIVE_NAME" "$RECOVERY_DIR/$DB_ARCHIVE_NAME"; then
-		rollback_published
-		fail_stage S5 'publishing the database archive failed; nothing was published'
-	fi
-	if ! mv -- "$STAGING_DIR/$MEDIA_ARCHIVE_NAME" "$RECOVERY_DIR/$MEDIA_ARCHIVE_NAME"; then
-		rollback_published
-		fail_stage S5 'publishing the media archive failed; nothing was published'
-	fi
-	if ! mv -- "$manifest" "$RECOVERY_DIR/$RECOVERY_MANIFEST_NAME"; then
-		rollback_published
-		fail_stage S5 'publishing the manifest failed; nothing was published'
-	fi
+	# incomplete. Each move is guarded (destination still absent, including
+	# a dangling link), executed with mv --no-clobber, and verified to have
+	# actually moved the staged file, so an entry that appears after
+	# preflight is never clobbered and any failure rolls back only what this
+	# invocation demonstrably published and still owns.
+	publish_single "$STAGING_DIR/$DB_ARCHIVE_NAME" "$DB_ARCHIVE_NAME" 'the database archive'
+	PUBLISHED_DB=1
+	publish_single "$STAGING_DIR/$MEDIA_ARCHIVE_NAME" "$MEDIA_ARCHIVE_NAME" 'the media archive'
+	PUBLISHED_MEDIA=1
+	publish_single "$manifest" "$RECOVERY_MANIFEST_NAME" 'the manifest'
+	PUBLISHED_MANIFEST=1
 
 	# Post-publication verification of the PUBLISHED bytes: the artifacts in
 	# the Recovery Set directory must still match the recorded checksums.
-	local published_db_sha='' published_media_sha=''
-	read -r published_db_sha _ < <(sha256sum -- "$RECOVERY_DIR/$DB_ARCHIVE_NAME") || {
+	# Underlying checksum-reader errors are captured and published only
+	# through the scrubbed tail.
+	local published_db_sha='' published_media_sha='' published_manifest_sha=''
+	read -r published_db_sha _ < <(sha256sum -- "$RECOVERY_DIR/$DB_ARCHIVE_NAME" 2>"$SCRATCH/sha-pub-db.err") || {
+		print_tail 'sha256sum diagnostics (published database archive)' "$SCRATCH/sha-pub-db.err" 3
 		rollback_published
 		fail_stage S5 'the published database archive could not be re-read for verification'
 	}
-	read -r published_media_sha _ < <(sha256sum -- "$RECOVERY_DIR/$MEDIA_ARCHIVE_NAME") || {
+	read -r published_media_sha _ < <(sha256sum -- "$RECOVERY_DIR/$MEDIA_ARCHIVE_NAME" 2>"$SCRATCH/sha-pub-media.err") || {
+		print_tail 'sha256sum diagnostics (published media archive)' "$SCRATCH/sha-pub-media.err" 3
 		rollback_published
 		fail_stage S5 'the published media archive could not be re-read for verification'
 	}
-	if [ "$published_db_sha" != "$DB_SHA256" ] || [ "$published_media_sha" != "$MEDIA_SHA256" ]; then
+	read -r published_manifest_sha _ < <(sha256sum -- "$RECOVERY_DIR/$RECOVERY_MANIFEST_NAME" 2>"$SCRATCH/sha-pub-manifest.err") || {
+		print_tail 'sha256sum diagnostics (published manifest)' "$SCRATCH/sha-pub-manifest.err" 3
 		rollback_published
-		fail_stage S5 'a published artifact does not match its recorded checksum; the incomplete set was rolled back and nothing was published'
+		fail_stage S5 'the published manifest could not be re-read for verification'
+	}
+	if [ "$published_db_sha" != "$DB_SHA256" ] || [ "$published_media_sha" != "$MEDIA_SHA256" ] ||
+		[ "$published_manifest_sha" != "$MANIFEST_SHA256" ]; then
+		rollback_published
+		fail_stage S5 'a published artifact does not match its recorded checksum; the incomplete set was rolled back (a destination no longer carrying this run''s bytes was left untouched)'
 	fi
 
 	pass S5 'Recovery Set published: database archive + media archive + manifest under one identifier, checksums re-verified after publication'
 }
 
+publish_single() {
+	# publish_single <staged-source> <basename> <description>: move one
+	# staged artifact into the Recovery Set directory fail-closed.
+	#   - late-collision guard: the destination must STILL be absent
+	#     (including as a dangling symlink) — an entry that appeared after
+	#     the S1 preflight is never clobbered, and nothing of ours is
+	#     published over it;
+	#   - mv --no-clobber closes the residual window between the guard and
+	#     the move: a destination that appears inside it makes mv skip
+	#     silently, which the staged-source check below detects and refuses;
+	#   - the underlying mv error stream is captured and published only
+	#     through the scrubbed tail (raw mv diagnostics embed the
+	#     operator-supplied Recovery Set directory path).
+	local src="$1" name="$2" what="$3"
+	local dest="$RECOVERY_DIR/$name" err="$SCRATCH/publish-$name.err"
+	if [ -e "$dest" ] || [ -L "$dest" ]; then
+		rollback_published
+		fail_stage S5 'publication refused: the entry %s appeared in the Recovery Set directory after preflight (late collision); the existing entry was left untouched and nothing was published over it' \
+			"$name"
+	fi
+	if ! mv -n -- "$src" "$dest" 2>"$err"; then
+		print_tail "mv $name diagnostics" "$err" 3
+		rollback_published
+		fail_stage S5 'publishing %s failed; the failure was captured and sanitized, and nothing of this run remains published' "$what"
+	fi
+	if [ -e "$src" ] || [ -L "$src" ]; then
+		# mv --no-clobber skipped the move: the destination changed between
+		# the guard and the move — the same late-collision refusal.
+		rollback_published
+		fail_stage S5 'publication refused: %s could not be moved into place without overwriting an entry that appeared after preflight; the destination was left untouched' \
+			"$name"
+	fi
+}
+
+owned_artifact() {
+	# owned_artifact <file> <recorded-sha256>: 0 exactly when the file exists
+	# and its CURRENT bytes still equal the digest this run produced — the
+	# proof that a destination entry is this invocation's own output and not
+	# another writer's.
+	local file="$1" want="$2" got=''
+	[ -f "$file" ] || return 1
+	read -r got _ < <(sha256sum -- "$file" 2>/dev/null) || return 1
+	[ "$got" = "$want" ]
+}
+
 rollback_published() {
-	# Removes only the basenames this run publishes; S1 refused to start if
-	# any of them already existed, so everything present under these names is
-	# this run's own output.
-	rm -f -- "$RECOVERY_DIR/$DB_ARCHIVE_NAME" "$RECOVERY_DIR/$MEDIA_ARCHIVE_NAME" \
-		"$RECOVERY_DIR/$RECOVERY_MANIFEST_NAME" 2>/dev/null || true
+	# Removes ONLY artifacts this invocation demonstrably published and still
+	# owns: the per-artifact published flag proves this run moved the name,
+	# and the current content digest must still equal the digest this run
+	# produced. A destination that was replaced by another writer after
+	# publication — or that this run never published — is foreign and is
+	# left untouched (reported by basename only).
+	local left=''
+	if [ "$PUBLISHED_DB" = 1 ]; then
+		if owned_artifact "$RECOVERY_DIR/$DB_ARCHIVE_NAME" "$DB_SHA256"; then
+			rm -f -- "$RECOVERY_DIR/$DB_ARCHIVE_NAME" 2>/dev/null || true
+		else
+			left+="${left:+, }$DB_ARCHIVE_NAME"
+		fi
+	fi
+	if [ "$PUBLISHED_MEDIA" = 1 ]; then
+		if owned_artifact "$RECOVERY_DIR/$MEDIA_ARCHIVE_NAME" "$MEDIA_SHA256"; then
+			rm -f -- "$RECOVERY_DIR/$MEDIA_ARCHIVE_NAME" 2>/dev/null || true
+		else
+			left+="${left:+, }$MEDIA_ARCHIVE_NAME"
+		fi
+	fi
+	if [ "$PUBLISHED_MANIFEST" = 1 ]; then
+		if owned_artifact "$RECOVERY_DIR/$RECOVERY_MANIFEST_NAME" "$MANIFEST_SHA256"; then
+			rm -f -- "$RECOVERY_DIR/$RECOVERY_MANIFEST_NAME" 2>/dev/null || true
+		else
+			left+="${left:+, }$RECOVERY_MANIFEST_NAME"
+		fi
+	fi
+	if [ -n "$left" ]; then
+		printf 't025: [S5] NOTE rollback left a destination entry that no longer carries this run''s bytes untouched: %s\n' "$left" | publish_diag
+	fi
 }
 
 run_backup() {
 	require_tools
 	validate_inputs
 
-	SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/t025-backup.XXXXXX")"
+	# Scratch/staging creation failures are reported with fixed messages:
+	# the raw mktemp/cd diagnostics embed operator-supplied path components
+	# and are discarded, never inherited.
+	SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/t025-backup.XXXXXX" 2>/dev/null)" || {
+		die "$EXIT_ENV" 'a scratch directory could not be created under TMPDIR'
+	}
 	chmod 700 "$SCRATCH"
-	STAGING_DIR="$(mktemp -d "$RECOVERY_DIR/.t025-staging.XXXXXX")"
+	STAGING_DIR="$(mktemp -d "$RECOVERY_DIR/.t025-staging.XXXXXX" 2>/dev/null)" || {
+		die "$EXIT_CONFIG" 'a staging directory could not be created inside the Recovery Set directory; check that it is writable'
+	}
 
 	observe_canonical_state
 	create_database_archive
@@ -924,8 +1071,11 @@ run_backup() {
 
 	printf 't025: ================================================================\n'
 	printf 't025: T025 backup foundation: PASS\n'
+	# The success/evidence line carries the operator-supplied Recovery Set
+	# directory path: it is published through the structural redaction
+	# boundary (publish_out), never directly.
 	printf 't025: Recovery Set %s published to %s (created %s)\n' \
-		"$RECOVERY_SET_ID" "$RECOVERY_DIR" "$CREATED_AT"
+		"$RECOVERY_SET_ID" "$RECOVERY_DIR" "$CREATED_AT" | publish_out
 	printf 't025: one identifier associates the database archive, the media archive, and the canonical T015 tagline evidence\n'
 	printf 't025: creation was sequential under the declared quiescent state; no atomic cross-store snapshot is claimed\n'
 	printf 't025: runtime-secret recovery is separate and is not part of this Recovery Set\n'
