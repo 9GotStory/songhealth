@@ -456,11 +456,16 @@ value was injected; they cannot mark this entry `pass`.
   no `=` padding) by encoding arithmetic from the documented 32-byte length (Appendix B).
   Length and alphabet alone do **not** prove canonical encoding: the pinned EmDash parser
   rejects key strings whose trailing base64 bits are non-zero (a decode/re-encode equality
-  check — Appendix B), so K1 performs the same round trip with standard tools. Every value
-  flows through shell builtins and stdin — `cat`, `printf`, `test`, and parameter expansion
-  never place it in a command argument, and `tr`/`base64`/`grep`/`awk` receive paths or stdin
-  only. The checks print nothing except a fixed diagnostic naming the failed representation;
-  the exit statuses are the result:
+  check — Appendix B), so K1 performs the same round trip with standard tools. The byte check
+  is **byte-safe**: the residue of non-permitted bytes is counted with `wc -c` — which counts
+  every byte, including NUL — rather than matched as text, because shell text tools cannot
+  reliably see NUL and command substitution silently drops it; the count runs **before** the
+  file is loaded into a shell variable, and a failed or unusable check result is itself
+  refusal (GNU coreutils environment, as the deployment already mandates elsewhere). Every
+  value flows through shell builtins and stdin — `cat`, `printf`, `test`, and parameter
+  expansion never place it in a command argument, and `tr`/`wc`/`base64`/`grep`/`awk` receive
+  paths or stdin only. The checks print nothing except a fixed diagnostic naming the failed
+  representation; the exit statuses are the result:
 
   ```bash
   f=<protected-staging-file>
@@ -470,10 +475,14 @@ value was injected; they cannot mark this entry `pass`.
   # whole-file shape: exactly one line (a single terminal newline is acceptable;
   # leading or trailing blank lines and any second line are not)
   [ "$(awk 'END{print NR}' "$f")" -eq 1 ] || { echo "staging file is not a single line" >&2; exit 1; }
-  # byte whitelist: nothing outside the key alphabet, commas, and the newline
-  if LC_ALL=C tr -d 'A-Za-z0-9_,\n-' < "$f" | grep -q .; then
-    echo "staging file contains bytes outside the permitted representation" >&2; exit 1
-  fi
+  # full read succeeds — read/tool errors are refusal, not acceptance
+  cat "$f" > /dev/null || { echo "staging file could not be read" >&2; exit 1; }
+  # byte-safe whitelist: count every non-permitted byte with wc -c — NUL included,
+  # which a text-pattern residue match cannot see
+  n=$(LC_ALL=C tr -d 'A-Za-z0-9_,\n-' < "$f" | wc -c); rc=$?
+  [ "$rc" -eq 0 ] || { echo "byte whitelist check failed" >&2; exit 1; }
+  case "$n" in ''|*[!0-9]*) echo "byte whitelist check produced no usable result" >&2; exit 1 ;; esac
+  [ "$n" -eq 0 ] || { echo "staging file contains bytes outside the permitted representation" >&2; exit 1; }
   # structural format: prefix + 43 base64url characters per element, comma-separated
   line=$(cat "$f")
   printf '%s' "$line" | LC_ALL=C grep -qxE 'emdash_enc_v1_[A-Za-z0-9_-]{43}(,emdash_enc_v1_[A-Za-z0-9_-]{43})*' \
@@ -492,9 +501,10 @@ value was injected; they cannot mark this entry `pass`.
 
   Refused, among others: an absent or unreadable staging file; a leading or trailing blank
   line; any second line; an empty file; a bare prefix; wrong length; `=` padding; whitespace;
-  CRLF; any byte outside the permitted set; a noncanonical final encoding (for example a
-  trailing character whose nonsignificant bits are non-zero); and any noncanonical element of a
-  rotation list. K1 proves format only — never that the key is the *applicable* one.
+  CRLF; a NUL byte anywhere in the file — leading, embedded, before the terminal newline, or
+  trailing; any byte outside the permitted set; a noncanonical final encoding (for example a
+  trailing character whose nonsignificant bits are non-zero); and any noncanonical element of
+  a rotation list. K1 proves format only — never that the key is the *applicable* one.
 
 - **K2 — same-state key identity** (runs **before** any secret is replaced — §6.2 step 2). The
   staged material must be the applicable protected version for the target known state (§5.2),
