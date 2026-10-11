@@ -38,8 +38,14 @@
 #        accepted T008/T013 boundary); and the source active stores are
 #        never recovery targets — the declared restore database identity
 #        must differ from the declared active source database identity
-#        (host:port/database), and the restore media mount must differ from
-#        the active source media mount.
+#        (host:port/database, the source port validated and compared
+#        NUMERICALLY so leading-zero spellings cannot disguise the same
+#        port), and the restore media mount must be safely SEPARATE from
+#        the active source media mount: canonically equal, ancestor,
+#        descendant, symlink-alias, unresolved-tail-alias, physical, and
+#        same-device:inode relationships are all rejected (realpath -m
+#        canonicalization plus physical/inode defenses), and any separation
+#        that cannot be established fails closed.
 #   S2   Recovery Set pre-restore validation, strictly BEFORE any restore
 #        attempt (existence -> checksums -> archive readability ->
 #        association/anchor, in that order; an S2 failure means S3 never
@@ -130,10 +136,22 @@
 # `--self-test` runs the isolated synthetic scenario suite entirely under a
 # scratch directory in TMPDIR: synthetic non-confidential fixtures, PATH-
 # shimmed controlled stubs for pg_restore / npm / npx / emdash and stub
-# implementations of the three T025–T027 scripts, sentinel redaction scans,
-# ordering proofs (a failed stage provably prevents every later stub from
-# being invoked), and a repository no-mutation proof. It touches no real
-# database, media store, secret, deployment, or tracked source file.
+# implementations of the three T025–T027 scripts, leak-producing synthetic
+# diagnostics whose sentinel values must never survive into captured
+# output, source/restore store-overlap regressions (ancestor, descendant,
+# symlink alias, unresolved-tail alias, leading-zero port), distinct
+# restored-state failure scenarios driven through a comparator double that
+# actually examines the restored fixtures (wrong tagline, missing tagline,
+# missing media, changed media), a native apply-failure scenario, dirty
+# clean-target refusal, call-order and inspected-fingerprint agreement
+# assertions, ordering proofs (a failed stage provably prevents every later
+# stub from being invoked), and a repository no-mutation proof. It touches
+# no real database, media store, secret, deployment, or tracked source
+# file. Traceability is truthful about what is verified versus deferred:
+# the doubles verify THIS harness's control flow and fail-closed behavior
+# against synthetic inputs; T025–T027's real implementations, their real
+# pg_restore/emdash semantics, and runtime recovery acceptance remain
+# those tasks' and T028's reviewed scope.
 #
 # Inputs come from the environment (never committed). Required for a real
 # verification run:
@@ -178,13 +196,21 @@
 # containing no secrets and no URLs.
 #
 # Secret safety: this harness never prints PGPASSWORD, the migration URL,
-# the encryption key, or any other secret value. Errors and diagnostics
-# name the missing or mismatching field/resource only, identity evidence
-# prints only the documented non-secret components (host, port, database,
-# user), the S6 encryption-key format check runs byte-safely against a
-# mode-0600 scratch file inside this run's own mktemp directory and prints
-# only a fixed field-name result, and any captured command output is
-# scrubbed of the known secret values before it is printed.
+# the migration credential, the encryption key, or any other secret value.
+# Redaction is structural, not per-call-site trust (F01): every published
+# diagnostic (fail_stage/die messages and captured tails) is sanitized
+# through publish_diag/scrub, which redacts every NONEMPTY supplied secret
+# regardless of length, the full migration URL, and the URL password's
+# standalone representations (percent-encoded and decoded), so a
+# credential printed without its surrounding URL is still redacted; all
+# node-side JSON readers catch parser failures with FIXED messages and
+# captured stderr, because the default SyntaxError echoes an excerpt of
+# the raw input; and invalid invocations never echo argument values.
+# Errors and diagnostics name the missing or mismatching field/resource
+# only; identity evidence prints only the documented non-secret components
+# (host, port, database, user); and the S6 encryption-key format check
+# runs byte-safely against a mode-0600 scratch file inside this run's own
+# mktemp directory, printing only a fixed field-name result.
 #
 # Version-sensitive external semantics verified for this harness (Context7
 # first where supported, per AGENTS.md; see the T024 implementation evidence
@@ -294,10 +320,16 @@ EOF
 }
 
 die() {
-	# die <exit-code> <message...>
+	# die <exit-code> <message...>: the message is sanitized before
+	# publication and never echoes raw argument or input values.
 	local code="$1"
 	shift
-	printf 't024: %s\n' "$*" >&2
+	local message=''
+	# The format is always this script's own literal message.
+	# shellcheck disable=SC2059
+	message="$(printf -- "$@")"
+	printf 't024: ' >&2
+	printf '%s\n' "$message" | publish_diag
 	exit "$code"
 }
 
@@ -316,14 +348,17 @@ pass() { step "$1" PASS "${@:2}"; }
 info() { step "$1" INFO "${@:2}"; }
 
 fail_stage() {
-	# fail_stage <stage-name> <printf-format> [args...]
+	# fail_stage <stage-name> <printf-format> [args...]: the message is
+	# sanitized before publication (publish_diag), so substituted values
+	# (basenames, paths, counts) cannot carry a secret VALUE into evidence.
 	local name="$1"
 	shift
-	printf 't024: [%s] FAIL ' "$name" >&2
+	local message=''
 	# The format is always this script's own literal message.
 	# shellcheck disable=SC2059
-	printf -- "$@" >&2
-	printf '\n' >&2
+	message="$(printf -- "$@")"
+	printf 't024: [%s] FAIL ' "$name" >&2
+	printf '%s\n' "$message" | publish_diag
 	exit "$EXIT_FAIL"
 }
 
@@ -335,10 +370,33 @@ scrub() {
 	# stdin -> stdout with every known secret VALUE replaced by [REDACTED].
 	# The secret values are read from the environment inside the node
 	# process, so they never appear on any command line. Used before any
-	# captured command output may reach the terminal.
+	# captured command output may reach the terminal. Coverage (F01): every
+	# NONEMPTY supplied secret regardless of length (a 1-3 character value
+	# is still a secret), the full migration URL, and the migration
+	# credential's STANDALONE representations — the password component the
+	# URL carries, in both its percent-encoded and decoded forms, so a
+	# diagnostic that prints only the credential (never the full URL) is
+	# redacted too. Longer values are replaced first so a value that
+	# contains another (e.g. the URL containing the password) cannot shield
+	# a shorter one from replacement.
 	node -e '
 		const names = ["PGPASSWORD", "EMDASH_MIGRATION_DATABASE_URL", "EMDASH_ENCRYPTION_KEY"];
-		const values = names.map((n) => process.env[n]).filter((v) => typeof v === "string" && v.length >= 4);
+		const values = names
+			.map((n) => process.env[n])
+			.filter((v) => typeof v === "string" && v.length >= 1);
+		const url = process.env.EMDASH_MIGRATION_DATABASE_URL;
+		if (typeof url === "string" && url.length >= 1) {
+			try {
+				const parsed = new URL(url);
+				if (parsed.password) {
+					values.push(parsed.password);
+					try {
+						values.push(decodeURIComponent(parsed.password));
+					} catch {}
+				}
+			} catch {}
+		}
+		values.sort((a, b) => b.length - a.length);
 		let data = "";
 		process.stdin.on("data", (c) => (data += c));
 		process.stdin.on("end", () => {
@@ -346,6 +404,22 @@ scrub() {
 			process.stdout.write(data);
 		});
 	'
+}
+
+publish_diag() {
+	# stdin -> stderr, sanitized before publication. Every diagnostic this
+	# harness publishes (fail_stage and die messages, captured tails) flows
+	# through here or through print_tail, so a message that unexpectedly
+	# carries a secret VALUE (for example through a substituted path or
+	# filename) is redacted structurally, not by trusting each call site.
+	# Degraded mode without node (itself an environment error path) passes
+	# the message through unchanged: those messages contain field/tool
+	# names only.
+	if command -v node >/dev/null 2>&1; then
+		scrub >&2
+	else
+		cat >&2
+	fi
 }
 
 print_tail() {
@@ -562,20 +636,31 @@ check_source_store_protection() {
 	# The source active stores must never be recovery targets. The operator
 	# declares the active source database identity (host:port/database,
 	# non-secret) and the active source media mount; the harness proves the
-	# restore target differs from both before anything runs. Host comparison
-	# is case-insensitive (as above); port and database are exact.
+	# restore target is safely SEPARATE from both before anything runs
+	# (F02): mere inequality is not enough — a restore mount located under
+	# the source tree, a source located under the restore tree, symlink
+	# aliases, and unresolved-tail aliases must all be rejected, and the
+	# comparison fails closed when separation cannot be established.
 	local src_identity_file="$TMP_DIR/source-identity.txt"
 	local src_host='' src_port='' src_database='' key value
 
+	# The source identity's port is validated and NORMALIZED NUMERICALLY:
+	# text comparison would accept e.g. target:05432/db against the restore
+	# identity target:5432/db, which is the same port.
 	node -e '
 		const raw = process.env.SONGHEALTH_SOURCE_DB_IDENTITY;
-		const m = /^([^:\/]+):(\d+)\/(.+)$/.exec(raw.trim());
+		const m = /^([^:\/]+):(\d+)\/(.+)$/.exec(String(raw).trim());
 		if (!m) {
 			console.error("SONGHEALTH_SOURCE_DB_IDENTITY must be host:port/database");
 			process.exit(4);
 		}
-		process.stdout.write(`host ${m[1]}\nport ${m[2]}\ndatabase ${m[3]}\n`);
-	' >"$src_identity_file" || die "$EXIT_CONFIG" 'SONGHEALTH_SOURCE_DB_IDENTITY is malformed (expected host:port/database)'
+		const port = Number(m[2]);
+		if (!Number.isInteger(port) || port < 1 || port > 65535) {
+			console.error("SONGHEALTH_SOURCE_DB_IDENTITY port is outside the valid TCP port range 1-65535");
+			process.exit(4);
+		}
+		process.stdout.write(`host ${m[1]}\nport ${port}\ndatabase ${m[3]}\n`);
+	' >"$src_identity_file" || die "$EXIT_CONFIG" 'SONGHEALTH_SOURCE_DB_IDENTITY is malformed or its port is not a valid TCP port (expected host:port/database)'
 	while IFS=' ' read -r key value; do
 		case $key in
 		host) src_host="$value" ;;
@@ -584,34 +669,73 @@ check_source_store_protection() {
 		esac
 	done <"$src_identity_file"
 
-	if [ "${src_host,,}" == "${AGREED_HOST,,}" ] && [ "$src_port" == "$AGREED_PORT" ] &&
+	if [ "${src_host,,}" == "${AGREED_HOST,,}" ] && [ "$src_port" -eq $((10#$AGREED_PORT)) ] &&
 		[ "$src_database" == "$AGREED_DATABASE" ]; then
-		fail_input_source 'the declared restore target IS the active source database (host:port/database agree); source active stores must never be recovery targets'
+		fail_input_source 'the declared restore target IS the active source database (host/port/database agree after numeric port normalization); source active stores must never be recovery targets'
 	fi
 
-	# Media mounts: lexical inequality after trailing-slash normalization
-	# (both already proven absolute), plus realpath-equality rejection when
-	# both exist, so symlink aliasing cannot bypass the lexical check.
-	local src_media="${SONGHEALTH_SOURCE_MEDIA_MOUNT%/}"
-	local restore_media="${SONGHEALTH_RESTORE_MEDIA_MOUNT%/}"
-	if [ "$src_media" == "$restore_media" ]; then
-		fail_input_source 'the declared restore media mount IS the active source media mount; source active stores must never be recovery targets'
+	# Media separation: reject equal, ancestor, and descendant
+	# relationships between the CANONICAL forms of the two mounts. Each
+	# path is canonicalized with realpath -m, which resolves symlinks in
+	# every existing component (including a symlinked final component) and
+	# lexicalizes the unresolved tail — so a symlink alias to the source,
+	# and a restore target created later under a symlinked parent that
+	# resolves into the source tree, are both exposed before any restore.
+	# When both mounts exist as directories, the physical (pwd -P)
+	# resolutions and the underlying device:inode identities are compared
+	# as a further alias defense. Any resolution failure is a fail-closed
+	# condition: separation that cannot be established is separation that
+	# was not proven.
+	local src_canon='' restore_canon=''
+	if ! src_canon="$(realpath -m -- "${SONGHEALTH_SOURCE_MEDIA_MOUNT%/}" 2>/dev/null)" || [ -z "$src_canon" ]; then
+		fail_input_source 'the active source media mount path could not be canonically resolved; safe separation cannot be established — failing closed'
 	fi
-	if [ -d "$src_media" ] && [ -d "$restore_media" ]; then
-		local src_real='' restore_real=''
-		src_real="$(cd "$src_media" && pwd -P)"
-		restore_real="$(cd "$restore_media" && pwd -P)"
-		if [ "$src_real" == "$restore_real" ]; then
-			fail_input_source 'the declared restore media mount resolves to the active source media mount; source active stores must never be recovery targets'
+	if ! restore_canon="$(realpath -m -- "${SONGHEALTH_RESTORE_MEDIA_MOUNT%/}" 2>/dev/null)" || [ -z "$restore_canon" ]; then
+		fail_input_source 'the restore media mount path could not be canonically resolved; safe separation cannot be established — failing closed'
+	fi
+	if media_paths_related "$src_canon" "$restore_canon"; then
+		fail_input_source 'the declared restore media mount is canonically equal to, inside, or containing the active source media mount (equal/ancestor/descendant/symlink/unresolved-tail alias); source active stores must never be recovery targets'
+	fi
+
+	if [ -d "$src_canon" ] && [ -d "$restore_canon" ]; then
+		local src_phys='' restore_phys='' src_stat='' restore_stat=''
+		if ! src_phys="$(cd -- "$src_canon" 2>/dev/null && pwd -P)" || \
+			! restore_phys="$(cd -- "$restore_canon" 2>/dev/null && pwd -P)"; then
+			fail_input_source 'an existing media mount could not be physically resolved; safe separation cannot be established — failing closed'
+		fi
+		if media_paths_related "$src_phys" "$restore_phys"; then
+			fail_input_source 'the declared restore media mount is physically equal to, inside, or containing the active source media mount; source active stores must never be recovery targets'
+		fi
+		src_stat="$(stat -c '%d:%i' -- "$src_phys" 2>/dev/null)" || src_stat=''
+		restore_stat="$(stat -c '%d:%i' -- "$restore_phys" 2>/dev/null)" || restore_stat=''
+		if [ -n "$src_stat" ] && [ -n "$restore_stat" ] && [ "$src_stat" == "$restore_stat" ]; then
+			fail_input_source 'the declared restore media mount and the active source media mount are the same underlying directory (device:inode); source active stores must never be recovery targets'
 		fi
 	fi
 
-	info S1 'source-store protection: restore target %s:%s/%s and restore media mount differ from the declared active source database identity and source media mount' \
+	info S1 'source-store protection: restore target %s:%s/%s and restore media mount are safely separated from the declared active source database identity and source media mount (canonical overlap, symlink, unresolved-tail, physical, and device:inode aliasing rejected)' \
 		"$AGREED_HOST" "$AGREED_PORT" "$AGREED_DATABASE"
 }
 
+media_paths_related() {
+	# media_paths_related <a> <b>: true (return 0) when the two canonical
+	# paths are equal or one is an ancestor of the other. Canonical forms
+	# carry no trailing slash, so the "prefix + /" patterns are
+	# component-safe (a/bc is NOT inside a/b).
+	if [ "$1" == "$2" ]; then
+		return 0
+	fi
+	case $1 in
+	"$2"/*) return 0 ;;
+	esac
+	case $2 in
+	"$1"/*) return 0 ;;
+	esac
+	return 1
+}
+
 fail_input_source() {
-	printf 't024: [S1] FAIL %s\n' "$1" >&2
+	printf 't024: [S1] FAIL %s\n' "$1" | publish_diag
 	exit "$EXIT_CONFIG"
 }
 
@@ -626,11 +750,26 @@ parse_recovery_manifest() {
 	# scan finds a problem. Sets MANIFEST_* globals on success.
 	local manifest="$1"
 	local rc=0
+	# stderr is captured, never inherited: a parser failure prints a FIXED
+	# message (F01) — the default node SyntaxError includes an excerpt of
+	# the raw input, which would publish manifest content unredacted.
 	node -e '
 		const fs = require("fs");
+		const refuse = (m) => { console.error(m); process.exit(1); };
 		const [file, expectedValue, expectedSha, expectedBytes] = process.argv.slice(1);
-		const text = fs.readFileSync(file, "utf8");
-		const m = JSON.parse(text);
+		let text;
+		try {
+			text = fs.readFileSync(file, "utf8");
+		} catch {
+			refuse("the Recovery Set manifest could not be read");
+		}
+		let m;
+		try {
+			m = JSON.parse(text);
+		} catch {
+			refuse("the Recovery Set manifest is not valid JSON");
+		}
+		if (typeof m !== "object" || m === null) refuse("the Recovery Set manifest is not a JSON object");
 		const expected = m.expected ?? {};
 		const value = typeof expected.taglineValue === "string" ? expected.taglineValue : "";
 		const lines = [
@@ -657,7 +796,7 @@ parse_recovery_manifest() {
 		}
 		process.stdout.write(lines.join("\n") + "\n");
 	' "$manifest" "$TAGLINE_EXPECTED" "$TAGLINE_EXPECTED_SHA256" "$TAGLINE_EXPECTED_BYTES" \
-		>"$TMP_DIR/manifest.parsed" || rc=$?
+		>"$TMP_DIR/manifest.parsed" 2>"$TMP_DIR/manifest.parse.err" || rc=$?
 	if [ "$rc" -ne 0 ]; then
 		return 1
 	fi
@@ -921,10 +1060,24 @@ inspect_manifest() {
 	local rc=0
 	# Emits "<key> <value>" lines (no spaces inside any value) plus, only
 	# when the secret-safety scan finds a problem, urlLike/secretKeys lines.
+	# Parser failures print a FIXED message with stderr captured (F01): the
+	# default node SyntaxError would echo an excerpt of the raw manifest.
 	node -e '
 		const fs = require("fs");
-		const text = fs.readFileSync(process.argv[1], "utf8");
-		const m = JSON.parse(text);
+		const refuse = (m) => { console.error(m); process.exit(1); };
+		let text;
+		try {
+			text = fs.readFileSync(process.argv[1], "utf8");
+		} catch {
+			refuse("the migration manifest could not be read");
+		}
+		let m;
+		try {
+			m = JSON.parse(text);
+		} catch {
+			refuse("the migration manifest is not valid JSON");
+		}
+		if (typeof m !== "object" || m === null) refuse("the migration manifest is not a JSON object");
 		const lines = [
 			`schemaVersion ${m.schemaVersion ?? ""}`,
 			`emdashVersion ${m.emdashVersion ?? ""}`,
@@ -937,7 +1090,7 @@ inspect_manifest() {
 		const secretKeys = [...text.matchAll(/"([A-Za-z]*(?:password|secret|token|credential)[A-Za-z]*)"/gi)].map((x) => x[1]);
 		if (secretKeys.length > 0) lines.push(`secretKeys ${secretKeys.join(",")}`);
 		process.stdout.write(lines.join("\n") + "\n");
-	' "$manifest" >"$TMP_DIR/emdash-manifest.parsed" || rc=$?
+	' "$manifest" >"$TMP_DIR/emdash-manifest.parsed" 2>"$TMP_DIR/emdash-manifest.parse.err" || rc=$?
 	if [ "$rc" -ne 0 ]; then
 		fail_stage S4 'the emitted migration manifest is not valid JSON'
 	fi
@@ -1011,9 +1164,18 @@ parse_status_json() {
 	# STATUS_FINGERPRINT, STATUS_APPLIED, STATUS_PENDING, STATUS_UNKNOWN
 	# from the native JSON report (stdout of --status --json).
 	local rc=0
+	# Parser failures print a FIXED message with stderr captured (F01): the
+	# default node SyntaxError would echo an excerpt of the raw report.
 	node -e '
 		const fs = require("fs");
-		const report = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+		const refuse = (m) => { console.error(m); process.exit(1); };
+		let report;
+		try {
+			report = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+		} catch {
+			refuse("the native status report is not valid JSON");
+		}
+		if (typeof report !== "object" || report === null) refuse("the native status report is not a JSON object");
 		const t = report.target ?? {};
 		const out = {
 			kind: String(t.kind ?? ""),
@@ -1024,7 +1186,7 @@ parse_status_json() {
 			unknown: (report.unknownApplied ?? []).length,
 		};
 		for (const [k, v] of Object.entries(out)) console.log(`${k} ${v}`);
-	' "$1" >"$1.parsed" || rc=$?
+	' "$1" >"$1.parsed" 2>"$1.parse.err" || rc=$?
 	if [ "$rc" -ne 0 ]; then
 		return 1
 	fi
@@ -1339,8 +1501,11 @@ main() {
 			return $?
 			;;
 		*)
+			# Argument VALUES are never echoed back (F01): an accidentally
+			# supplied secret on the command line must not be reflected in
+			# the usage error, so the message names only the fact.
 			usage >&2
-			die "$EXIT_USAGE" "unexpected argument(s): $* (this harness takes no arguments except --self-test)"
+			die "$EXIT_USAGE" 'unexpected argument(s) were provided (this harness takes no arguments except --self-test); argument values are not echoed'
 			;;
 		esac
 	fi
@@ -1407,15 +1572,28 @@ self_test() {
 	# harness as an untracked file; it must be unchanged by the self-test).
 	git -C "$REAL_ROOT" status --porcelain >"$st/repo-status.before" 2>/dev/null || : >"$st/repo-status.before"
 
-	# --- synthetic sentinel secret values (format-valid where validity is
-	# required; their strings must never appear in captured output).
+	# --- synthetic sentinel secret values. Their strings must never appear
+	# in any captured output. sentinel_short_pg exercises the <4-character
+	# secret case; sentinel_manifest rides inside a malformed manifest;
+	# sentinel_arg is passed as an invalid invocation argument.
 	local sentinel_pg='SENTINEL-PGPASSWORD-t024'
 	local sentinel_migpw='SENTINEL-MIGPW-t024'
 	local sentinel_enckey_malformed='SENTINEL-ENCKEY-MALFORMED-t024'
+	local sentinel_arg='SENTINEL-ARG-ECHO-t024'
+	local sentinel_manifest='SENTINEL-MALFORMED-MANIFEST-t024'
+	local sentinel_short_pg='qZ9'
 	# 32 distinctive bytes -> canonical emdash_enc_v1_ key material.
 	local sentinel_enckey
 	sentinel_enckey="emdash_enc_v1_$(printf 't024sentinelenckeypattern0000001' | base64 | tr -- '/+' '-_' | tr -d '=')"
-	printf '%s\n%s\n%s\n%s\n' "$sentinel_pg" "$sentinel_migpw" "$sentinel_enckey" "$sentinel_enckey_malformed" >"$st/sentinels"
+	{
+		printf '%s\n' "$sentinel_pg"
+		printf '%s\n' "$sentinel_migpw"
+		printf '%s\n' "$sentinel_enckey"
+		printf '%s\n' "$sentinel_enckey_malformed"
+		printf '%s\n' "$sentinel_arg"
+		printf '%s\n' "$sentinel_manifest"
+		printf '%s\n' "$sentinel_short_pg"
+	} >"$st/sentinels"
 
 	# --- scratch repository: real package.json (pinned-version authority
 	# for the S4 manifest identity check) + stub implementation scripts.
@@ -1433,32 +1611,110 @@ EOF
 	cat >"$st_root/scripts/$(basename "$RESTORE_SCRIPT")" <<'EOF'
 #!/usr/bin/env bash
 # Controlled stub (T024 self-test ONLY): stands in for the future T026
-# restore procedure. Success materializes the fixture media into the clean
-# restore mount; STUB_RESTORE_MODE=fail simulates an error-stopping
-# pg_restore failure.
+# restore procedure. Contract double: it refuses a dirty (non-clean)
+# restore target unconditionally, materializes the fixture media and the
+# synthetic restored database state, and supports controlled failure and
+# deliberately leaky modes (whose secret-bearing output the harness must
+# redact before publication).
 set -u
 printf 'restore-foundation %s\n' "$*" >>"${ST_CALLS:?}/restore-foundation.calls"
-if [ "${STUB_RESTORE_MODE:-ok}" != ok ]; then
+printf 'restore-foundation\n' >>"${ST_CALLS:?}/sequence.log"
+mode="${STUB_RESTORE_MODE:-ok}"
+mount="${SONGHEALTH_RESTORE_MEDIA_MOUNT:?}"
+if [ "$mode" = fail ]; then
 	printf 't026-stub: restore FAILED (controlled failure): pg_restore: error: out of memory\n' >&2
 	exit 3
 fi
-mkdir -p "${SONGHEALTH_RESTORE_MEDIA_MOUNT:?}" || exit 3
-cp -a "${ST_MEDIA_SRC:?}/." "${SONGHEALTH_RESTORE_MEDIA_MOUNT:?}/" || exit 3
-printf 't026-stub: restore: PASS (controlled stub; unfiltered error-stopping restore simulation)\n'
+if [ "$mode" = leaky ]; then
+	# Deliberately secret-bearing output (F01 regression): the harness must
+	# redact the short password, the standalone migration credential, the
+	# full migration URL, and the encryption key before any of it reaches
+	# captured evidence.
+	url="${EMDASH_MIGRATION_DATABASE_URL:-}"
+	rest="${url#*://}"
+	userinfo="${rest%%@*}"
+	migpw="${userinfo#*:}"
+	printf 't026-stub(leaky): PGPASSWORD=<%s> migration-password=<%s> migration-url=<%s> encryption-key=<%s>\n' \
+		"${PGPASSWORD:-}" "$migpw" "$url" "${EMDASH_ENCRYPTION_KEY:-}"
+fi
+# Clean-target refusal is unconditional: restoring over pre-existing
+# content is refused (the clean-target half of the T026 contract double).
+if find "$mount" -mindepth 1 -print -quit 2>/dev/null | grep -q .; then
+	printf 't026-stub: restore refused: the restore media mount is not clean (pre-existing content present)\n' >&2
+	exit 4
+fi
+mkdir -p "$mount" || exit 3
+cp -a "${ST_MEDIA_SRC:?}/." "$mount/" || exit 3
+printf '%s' "${ST_RESTORED_TAGLINE-}" >"${ST_RESTORED_DB_STATE:?}" || exit 3
+printf 't026-stub: restore: PASS (controlled stub; unfiltered error-stopping restore simulation; clean target verified)\n'
 exit 0
 EOF
 	cat >"$st_root/scripts/$(basename "$COMPARATOR_SCRIPT")" <<'EOF'
 // Controlled stub (T024 self-test ONLY): stands in for the future T027
-// restored-foundation comparator. ESM module syntax: the real T027 script
-// is an .mjs run through node.
+// restored-foundation comparator. Unlike a forced exit, this double
+// actually EXAMINES the synthetic restored state (ST_RESTORED_DB_STATE)
+// and the restored media mount against the Recovery Set manifest's
+// expected evidence, so the distinct restored-state failure scenarios
+// (wrong tagline, missing tagline, missing media, changed media) are
+// exercised through real fixture comparisons. It remains a controlled
+// double: the real native-retrieval comparison belongs to T027/T028.
 import fs from "node:fs";
+import crypto from "node:crypto";
+
+fs.appendFileSync(`${process.env.ST_CALLS}/sequence.log`, "verify-restored-foundation\n");
 fs.appendFileSync(`${process.env.ST_CALLS}/verify-restored-foundation.calls`, "verify-restored-foundation invoked\n");
-if (process.env.STUB_COMPARATOR_MODE === "fail") {
-	console.error("t027-stub: comparator FAILED (controlled failure): restored tagline digest mismatch");
-	process.exit(1);
+
+const fail = (m) => { console.error(`t027-stub: ${m}`); process.exit(1); };
+if (process.env.STUB_COMPARATOR_MODE === "error") {
+	fail("comparator FAILED (controlled forced error)");
 }
-console.log("t027-stub: tagline: exact value + SHA-256 match (controlled stub)");
-console.log("t027-stub: media: 100% designated entries matched; 0 unexplained differences (controlled stub)");
+
+let manifest;
+try {
+	manifest = JSON.parse(fs.readFileSync(`${process.env.SONGHEALTH_RECOVERY_DIR}/recovery-manifest.json`, "utf8"));
+} catch {
+	fail("could not read the Recovery Set manifest");
+}
+const expected = manifest.expected ?? {};
+if (typeof expected.taglineValue !== "string" || typeof expected.taglineSha256 !== "string") {
+	fail("the Recovery Set manifest carries no expected tagline evidence");
+}
+
+let restoredTagline = "";
+try {
+	restoredTagline = fs.readFileSync(process.env.ST_RESTORED_DB_STATE, "utf8");
+} catch {}
+if (restoredTagline.length === 0) fail("restored tagline MISSING from the restored database state");
+if (restoredTagline !== expected.taglineValue) fail("restored tagline VALUE mismatch (expected the canonical T015 value)");
+const digest = crypto.createHash("sha256").update(Buffer.from(restoredTagline, "utf8")).digest("hex");
+if (digest !== expected.taglineSha256) fail("restored tagline DIGEST mismatch");
+
+const mount = process.env.SONGHEALTH_RESTORE_MEDIA_MOUNT;
+const entries = Array.isArray(manifest.media?.entries) ? manifest.media.entries : [];
+let missing = 0;
+let changed = 0;
+let matched = 0;
+for (const e of entries) {
+	let buf;
+	try {
+		buf = fs.readFileSync(`${mount}/${e.path}`);
+	} catch {
+		missing += 1;
+		console.error(`t027-stub: designated media MISSING from the restored mount: ${e.path}`);
+		continue;
+	}
+	const d = crypto.createHash("sha256").update(buf).digest("hex");
+	if (buf.length !== e.size || d !== e.sha256) {
+		changed += 1;
+		console.error(`t027-stub: designated media CHANGED (size/SHA-256 mismatch): ${e.path}`);
+	} else {
+		matched += 1;
+	}
+}
+if (missing > 0) fail(`${missing} designated media item(s) MISSING from the restored mount (100% recovery not met)`);
+if (changed > 0) fail(`${changed} designated media item(s) CHANGED (size/SHA-256 mismatch; unexplained difference present)`);
+console.log("t027-stub: tagline: exact value + SHA-256 match against the restored fixtures (controlled stub)");
+console.log(`t027-stub: media: 100% of ${matched} designated entries matched; 0 unexplained differences (controlled stub examining the restored fixtures)`);
 EOF
 	chmod +x "$st_root/scripts/$(basename "$BACKUP_SCRIPT")" "$st_root/scripts/$(basename "$RESTORE_SCRIPT")"
 
@@ -1472,6 +1728,7 @@ EOF
 # with no filter flags; any other mode is refused.
 set -u
 printf 'pg_restore %s\n' "$*" >>"${ST_CALLS:?}/pg_restore.calls"
+printf 'pg_restore\n' >>"${ST_CALLS:?}/sequence.log"
 list=no
 file=''
 for a in "$@"; do
@@ -1494,39 +1751,58 @@ fi
 printf '; Version: 18.6 (controlled-stub TOC)\n;\n4; 2615 1 SCHEMA - public emdash\n9; 2610 1 DATABASE emdash postgres\n9; 2610 2 TABLE settings emdash\n'
 exit 0
 EOF
-	cat >"$st_bin/emdash" <<EOF
+	cat >"$st_bin/emdash" <<'EOF'
 #!/usr/bin/env bash
 # Controlled stub (T024 self-test ONLY): mimics the documented EmDash 1.1.0
-# migrate CLI surface the accepted T013 gate uses. Modes via
-# STUB_EMDASH_MODE: ok | fail-status | fail-apply | fail-check | unknown |
-# leave-pending (post-apply re-inspection still reports a pending
+# migrate CLI surface the accepted T013 gate uses. The apply branch
+# ENFORCES the inspected-target fingerprint guard (F03):
+# --expected-target-fingerprint must carry exactly the fingerprint this
+# stub reported in its most recent --status invocation, and the status
+# sequence must have happened; an absent or wrong fingerprint is refused.
+# Modes via STUB_EMDASH_MODE: ok | fail-status | fail-apply | fail-check |
+# unknown | leave-pending (post-apply re-inspection still reports a pending
 # migration). Target label comes from ST_EMDASH_LABEL so the harness's
 # inspected-label agreement check runs for real.
 set -u
-calls="\${ST_CALLS:?}/emdash.calls"
-printf 'emdash %s\n' "\$*" >>"\$calls"
-mode="\${STUB_EMDASH_MODE:-ok}"
-label="\${ST_EMDASH_LABEL:?}"
+calls="${ST_CALLS:?}/emdash.calls"
+printf 'emdash %s\n' "$*" >>"$calls"
+mode="${STUB_EMDASH_MODE:-ok}"
+label="${ST_EMDASH_LABEL:?}"
 fp='1111111111111111111111111111111111111111111111111111111111111111'
-n="\$(wc -l <"\$calls" 2>/dev/null || printf '0')"
-n="\${n//[[:space:]]/}"
-[ "\${1:-}" = migrate ] || { printf 'emdash-stub: unsupported subcommand\n' >&2; exit 2; }
-case "\${2:-}" in
+[ "${1:-}" = migrate ] || { printf 'emdash-stub: unsupported subcommand\n' >&2; exit 2; }
+case "${2:-}" in
 --status)
-	[ "\$mode" = fail-status ] && { printf 'emdash-stub: status failed (controlled failure)\n' >&2; exit 1; }
+	printf 'emdash:status\n' >>"${ST_CALLS:?}/sequence.log"
+	[ "$mode" = fail-status ] && { printf 'emdash-stub: status failed (controlled failure)\n' >&2; exit 1; }
 	pending='[]'
 	unknown='[]'
-	[ "\$mode" = unknown ] && unknown='["999_alien_migration"]'
-	if [ "\$mode" = leave-pending ] && [ "\$n" -ge 2 ]; then pending='["091_redirect_artifacts"]'; fi
-	printf '{"target":{"kind":"postgres","label":"%s","fingerprint":"%s"},"knownApplied":["001_initial","002_settings","003_media"],"pending":%s,"unknownApplied":%s}\n' "\$label" "\$fp" "\$pending" "\$unknown"
+	[ "$mode" = unknown ] && unknown='["999_alien_migration"]'
+	if [ "$mode" = leave-pending ]; then
+		n="$(grep -c -- '--status' "$calls" 2>/dev/null || true)"
+		case "$n" in
+		'' | *[!0-9]*) n=0 ;;
+		esac
+		if [ "$n" -ge 2 ]; then pending='["091_redirect_artifacts"]'; fi
+	fi
+	printf '%s\n' "$fp" >"$calls.fp"
+	printf '{"target":{"kind":"postgres","label":"%s","fingerprint":"%s"},"knownApplied":["001_initial","002_settings","003_media"],"pending":%s,"unknownApplied":%s}\n' "$label" "$fp" "$pending" "$unknown"
 	exit 0
 	;;
 --expected-target-fingerprint)
-	[ "\$mode" = fail-apply ] && { printf 'emdash-stub: apply failed (controlled failure): fingerprint guard or migration error\n' >&2; exit 1; }
+	printf 'emdash:apply\n' >>"${ST_CALLS:?}/sequence.log"
+	guard="${3:-}"
+	recorded=''
+	[ -f "$calls.fp" ] && recorded="$(cat "$calls.fp" 2>/dev/null)"
+	if [ -z "$guard" ] || [ -z "$recorded" ] || [ "$guard" != "$recorded" ]; then
+		printf 'emdash-stub: apply refused: --expected-target-fingerprint is absent or does not match the fingerprint reported by the inspected target\n' >&2
+		exit 5
+	fi
+	[ "$mode" = fail-apply ] && { printf 'emdash-stub: apply failed (controlled failure): fingerprint guard or migration error\n' >&2; exit 1; }
 	exit 0
 	;;
 --check)
-	[ "\$mode" = fail-check ] && { printf 'emdash-stub: check failed (controlled failure): pending migrations remain\n' >&2; exit 1; }
+	printf 'emdash:check\n' >>"${ST_CALLS:?}/sequence.log"
+	[ "$mode" = fail-check ] && { printf 'emdash-stub: check failed (controlled failure): pending migrations remain\n' >&2; exit 1; }
 	exit 0
 	;;
 *)
@@ -1558,6 +1834,7 @@ node -e '
 	require("fs").writeFileSync(".emdash/migrations.json", JSON.stringify(m, null, 2) + "\n");
 ' "$pin" || exit 1
 : >dist/server/entry.mjs || exit 1
+printf 'npm-build\n' >>"${ST_CALLS:?}/sequence.log"
 printf 'npm-stub: synthetic exact-build manifest emitted (controlled stub)\n'
 exit 0
 EOF
@@ -1608,7 +1885,6 @@ EOF
 			media_sha="$(sha256sum "$dir/media.tar" | awk '{print $1}')"
 			;;
 		sha-mismatch) media_sha="$(printf '%064d' 0)" ;;
-		anchor-mismatch) ;;
 		entry-missing) entries='[{"path":"assets/absent-from-archive.txt","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"}]' ;;
 		traversal-db-file) ;;
 		esac
@@ -1639,11 +1915,36 @@ EOF
 	build_set "$st_fix/entry-missing" entry-missing
 	build_set "$st_fix/traversal" traversal-db-file
 
+	# Malformed-manifest fixture (F01): raw manifest text that carries a
+	# sentinel value; S2 must fail with the FIXED parser message and the
+	# sentinel must never surface (the default node SyntaxError would echo
+	# an excerpt of this raw input).
+	mkdir -p "$st_fix/malformed"
+	printf 'PGDMP-malformed-manifest-fixture\n' >"$st_fix/malformed/database.dump"
+	printf '{ "password": "%s", "recoverySetId": "broken-json", "truncated": ' "$sentinel_manifest" \
+		>"$st_fix/malformed/$RECOVERY_MANIFEST_NAME"
+
+	# Restored-media source variants for the distinct comparator scenarios:
+	# media-missing omits one designated entry; media-changed keeps the path
+	# but alters the bytes (size/SHA-256 mismatch).
+	mkdir -p "$st_fix/media-missing-src/assets" "$st_fix/media-changed-src/assets"
+	cp "$st_fix/good/media-src/assets/validation-a.txt" "$st_fix/media-missing-src/assets/"
+	cp "$st_fix/good/media-src/assets/validation-a.txt" "$st_fix/media-changed-src/assets/"
+	printf 'mutated bytes for the changed-media restored-state scenario\n' >"$st_fix/media-changed-src/assets/validation-b.png"
+
+	# Store-alias fixtures (F02): a real source directory plus symlink
+	# aliases, one used directly (alias link) and one used as a parent whose
+	# unresolved tail would land inside the source tree.
+	mkdir -p "$st/alias/real-source"
+	printf 'source-store fixture asset\n' >"$st/alias/real-source/asset.txt"
+	ln -s "$st/alias/real-source" "$st/alias/alias-link"
+	ln -s "$st/alias/real-source" "$st/alias/parent-link"
+
 	# The unreadable-database fixture reuses the good set with mode 000.
 	chmod 000 "$st_fix/good/database.dump"
 
 	# The active SOURCE media mount (a distinct scratch store the harness
-	# must never touch) and the clean restore mount parent.
+	# must never touch) and the clean restore mount.
 	mkdir -p "$st/source-media-mount" "$st/restore-media-mount"
 	printf 'active source media (must never be a recovery target)\n' >"$st/source-media-mount/active-source-asset.txt"
 	local source_media_digest_before
@@ -1668,6 +1969,8 @@ EOF
 	base_env+=("SONGHEALTH_RESTORE_MEDIA_MOUNT=$st/restore-media-mount")
 	base_env+=("ST_CALLS=$st_calls")
 	base_env+=("ST_MEDIA_SRC=$st_fix/good/media-src")
+	base_env+=("ST_RESTORED_DB_STATE=$st/restored-db-state")
+	base_env+=("ST_RESTORED_TAGLINE=$TAGLINE_EXPECTED")
 	base_env+=('ST_EMDASH_LABEL=restore.local:5532/songhealth_restore')
 	base_env+=('STUB_EMDASH_MODE=ok')
 	base_env+=('STUB_RESTORE_MODE=ok')
@@ -1715,6 +2018,15 @@ EOF
 		for name in pg_restore restore-foundation verify-restored-foundation emdash npm npx; do
 			: >"$st_calls/$name.calls" 2>/dev/null || true
 		done
+		rm -f "$st_calls/emdash.calls.fp" 2>/dev/null || true
+		: >"$st_calls/sequence.log" 2>/dev/null || true
+		# Every scenario starts from a CLEAN restore target: no case may
+		# silently reuse a previous case's restored content (the restore
+		# double refuses dirty targets), and the synthetic restored
+		# database state is re-created per case.
+		rm -rf "$st/restore-media-mount"
+		mkdir -p "$st/restore-media-mount"
+		rm -f "$st/restored-db-state"
 	}
 
 	local current_case='' child_rc=0
@@ -1723,9 +2035,9 @@ EOF
 		local name="$1" outcome="$2" detail="$3"
 		total=$((total + 1))
 		if [ "$outcome" = ok ]; then
-			printf '[self-test] case %-26s PASS  %s\n' "$name" "$detail"
+			printf '[self-test] case %-30s PASS  %s\n' "$name" "$detail"
 		else
-			printf '[self-test] case %-26s FAIL  %s\n' "$name" "$detail"
+			printf '[self-test] case %-30s FAIL  %s\n' "$name" "$detail"
 			failures=$((failures + 1))
 		fi
 	}
@@ -1770,12 +2082,41 @@ EOF
 	expect_no_sentinels() {
 		local f
 		for f in "$st/out/$current_case.out" "$st/out/$current_case.err"; do
-			if grep -F -f "$st/sentinels" "$f" >/dev/null 2>&1;
+			if grep -F -f "$st/sentinels" "$f" >/dev/null 2>&1
 				then printf '[self-test] case %s: a sentinel secret value leaked into %s\n' "$current_case" "$f" >&2
 				return 1
 			fi
 		done
 		return 0
+	}
+
+	expect_sequence_before() {
+		# expect_sequence_before <entry-a> <entry-b>: the first occurrence
+		# of a in sequence.log strictly precedes the first occurrence of b
+		# (required call ORDER across the authority doubles).
+		local a_line='' b_line=''
+		a_line="$(grep -n -m1 -Fx -- "$1" "$st_calls/sequence.log" 2>/dev/null | cut -d: -f1)"
+		b_line="$(grep -n -m1 -Fx -- "$2" "$st_calls/sequence.log" 2>/dev/null | cut -d: -f1)"
+		[ -n "$a_line" ] && [ -n "$b_line" ] && [ "$a_line" -lt "$b_line" ]
+	}
+
+	expect_emdash_gate_sequence() {
+		# The required native sequence against the restored target, WITH
+		# argument agreement (F03): exactly status -> apply (carrying the
+		# exact fingerprint the stub reported at inspection) -> status ->
+		# check, and the cross-authority order pg_restore -> restore ->
+		# status -> apply -> check -> comparator in sequence.log.
+		local log="$st_calls/emdash.calls"
+		[ "$(wc -l <"$log")" -eq 4 ] || return 1
+		[ "$(sed -n '1p' "$log")" = 'emdash migrate --status --json' ] || return 1
+		sed -n '2p' "$log" | grep -q '^emdash migrate --expected-target-fingerprint 1111111111111111111111111111111111111111111111111111111111111111$' || return 1
+		[ "$(sed -n '3p' "$log")" = 'emdash migrate --status --json' ] || return 1
+		[ "$(sed -n '4p' "$log")" = 'emdash migrate --check' ] || return 1
+		expect_sequence_before 'pg_restore' 'restore-foundation' || return 1
+		expect_sequence_before 'restore-foundation' 'emdash:status' || return 1
+		expect_sequence_before 'emdash:status' 'emdash:apply' || return 1
+		expect_sequence_before 'emdash:apply' 'emdash:check' || return 1
+		expect_sequence_before 'emdash:check' 'verify-restored-foundation' || return 1
 	}
 
 	printf 't024 self-test: isolated synthetic scenario suite under %s\n' "$st"
@@ -1784,7 +2125,6 @@ EOF
 	# ---- invocation contracts -------------------------------------------
 	reset_case_env
 	current_case='help'
-	EXTRA_FLAGS=()
 	CASE_ENV=("HOME=$HOME" "PATH=$orig_path")
 	run_child --help
 	if expect_rc 0 && expect_output '^Usage: tests/operations/verify-recovery.sh'; then
@@ -1801,6 +2141,16 @@ EOF
 		st_case invalid-arg ok 'invalid invocation fails closed with exit 64 before any tool, input, or mutation'
 	else
 		st_case invalid-arg fail 'invalid invocation did not fail closed with exit 64'
+	fi
+
+	reset_case_env
+	current_case='leak-invalid-arg-echo'
+	CASE_ENV=("HOME=$HOME" "PATH=$orig_path")
+	run_child "$sentinel_arg"
+	if expect_rc 64 && expect_output 'argument values are not echoed' && expect_no_sentinels; then
+		st_case leak-invalid-arg-echo ok 'a sentinel-valued argument is never echoed back by the usage error (F01 regression)'
+	else
+		st_case leak-invalid-arg-echo fail 'an argument value was echoed into the usage error'
 	fi
 
 	# ---- baseline RED (real repository, no scratch root, no stubs) ------
@@ -1820,8 +2170,6 @@ EOF
 	# ---- S1: fail-closed inputs and source protection --------------------
 	reset_case_env
 	current_case='scratch-missing-inputs'
-	# P0 passes against the scratch implementations; the environment carries
-	# NO scenario inputs at all, so S1 must fail closed before any mutation.
 	CASE_ENV=("HOME=$HOME" "PATH=$st_bin:$orig_path" "SONGHEALTH_T024_TEST_ROOT=$st_root")
 	run_child
 	if expect_rc 4 && expect_output 'missing required input' &&
@@ -1843,14 +2191,71 @@ EOF
 	fi
 
 	reset_case_env
+	current_case='source-db-port-leading-zeros'
+	set_case_env SONGHEALTH_SOURCE_DB_IDENTITY 'restore.local:05532/songhealth_restore'
+	run_child
+	if expect_rc 4 && expect_output '\[S1\] FAIL' && expect_output 'numeric port normalization' &&
+		expect_stub_not_called restore-foundation; then
+		st_case source-db-port-leading-zeros ok 'source identity port 05532 normalized numerically against restore port 5532 and rejected (F02 regression)'
+	else
+		st_case source-db-port-leading-zeros fail 'a leading-zero source port still disguised the same port'
+	fi
+
+	reset_case_env
 	current_case='source-media-collision'
 	set_case_env SONGHEALTH_RESTORE_MEDIA_MOUNT "$st/source-media-mount"
 	run_child
 	if expect_rc 4 && expect_output '\[S1\] FAIL' && expect_output 'never be recovery targets' &&
 		expect_stub_not_called restore-foundation; then
-		st_case source-media-collision ok 'restore media mount equal to the source media mount rejected at S1'
+		st_case source-media-collision ok 'restore media mount equal to the active source media mount rejected at S1'
 	else
 		st_case source-media-collision fail 'source-media collision was not rejected'
+	fi
+
+	reset_case_env
+	current_case='restore-under-source-mount'
+	set_case_env SONGHEALTH_RESTORE_MEDIA_MOUNT "$st/source-media-mount/restore-new"
+	run_child
+	if expect_rc 4 && expect_output '\[S1\] FAIL' && expect_output 'ancestor/descendant' &&
+		expect_stub_not_called restore-foundation; then
+		st_case restore-under-source-mount ok 'restore media mount inside the active source tree rejected at S1 (F02 regression)'
+	else
+		st_case restore-under-source-mount fail 'a restore target under the source mount was not rejected'
+	fi
+
+	reset_case_env
+	current_case='source-under-restore-mount'
+	set_case_env SONGHEALTH_SOURCE_MEDIA_MOUNT "$st/restore-media-mount/src"
+	run_child
+	if expect_rc 4 && expect_output '\[S1\] FAIL' && expect_output 'ancestor/descendant' &&
+		expect_stub_not_called restore-foundation; then
+		st_case source-under-restore-mount ok 'active source media mount inside the restore tree rejected at S1 (F02 regression)'
+	else
+		st_case source-under-restore-mount fail 'a source mount under the restore target was not rejected'
+	fi
+
+	reset_case_env
+	current_case='source-media-symlink-alias'
+	set_case_env SONGHEALTH_SOURCE_MEDIA_MOUNT "$st/alias/real-source"
+	set_case_env SONGHEALTH_RESTORE_MEDIA_MOUNT "$st/alias/alias-link"
+	run_child
+	if expect_rc 4 && expect_output '\[S1\] FAIL' && expect_output 'symlink' &&
+		expect_stub_not_called restore-foundation; then
+		st_case source-media-symlink-alias ok 'restore mount that is a symlink alias of the source store rejected at S1 (F02 regression)'
+	else
+		st_case source-media-symlink-alias fail 'a symlink alias between the mounts was not rejected'
+	fi
+
+	reset_case_env
+	current_case='source-media-unresolved-tail'
+	set_case_env SONGHEALTH_SOURCE_MEDIA_MOUNT "$st/alias/real-source"
+	set_case_env SONGHEALTH_RESTORE_MEDIA_MOUNT "$st/alias/parent-link/restore"
+	run_child
+	if expect_rc 4 && expect_output '\[S1\] FAIL' && expect_output 'unresolved-tail' &&
+		expect_stub_not_called restore-foundation; then
+		st_case source-media-unresolved-tail ok 'restore mount whose symlinked parent resolves into the source tree rejected at S1 (F02 regression)'
+	else
+		st_case source-media-unresolved-tail fail 'an unresolved-tail alias into the source tree was not rejected'
 	fi
 
 	# ---- S2: Recovery Set pre-restore validation -------------------------
@@ -1945,7 +2350,18 @@ EOF
 		st_case set-traversal-file fail 'path traversal in the manifest was not rejected'
 	fi
 
-	# ---- S3: error-stopping restore --------------------------------------
+	reset_case_env
+	current_case='leak-malformed-manifest'
+	set_case_env SONGHEALTH_RECOVERY_DIR "$st_fix/malformed"
+	run_child
+	if expect_rc 1 && expect_output '\[S2\] FAIL' && expect_output 'not valid JSON' &&
+		expect_stub_not_called restore-foundation && expect_no_sentinels; then
+		st_case leak-malformed-manifest ok 'malformed manifest rejected with the FIXED parser message; the sentinel inside its raw text never surfaces (F01 regression)'
+	else
+		st_case leak-malformed-manifest fail 'malformed-manifest parsing leaked input content or did not fail closed'
+	fi
+
+	# ---- S3: error-stopping restore + clean target -----------------------
 	reset_case_env
 	current_case='restore-fails'
 	set_case_env STUB_RESTORE_MODE fail
@@ -1959,12 +2375,36 @@ EOF
 		st_case restore-fails fail 'a failing restore did not stop subsequent success/acceptance'
 	fi
 
+	reset_case_env
+	current_case='dirty-target-refusal'
+	printf 'pre-existing dirty target content\n' >"$st/restore-media-mount/leftover.txt"
+	run_child
+	if expect_rc 1 && expect_output '\[S3\] FAIL' && expect_output 'not clean' &&
+		expect_stub_not_called emdash &&
+		expect_stub_not_called verify-restored-foundation; then
+		st_case dirty-target-refusal ok 'a dirty (non-clean) restore target is refused by the restore authority and blocks all acceptance (F03)'
+	else
+		st_case dirty-target-refusal fail 'a dirty restore target did not produce refusal'
+	fi
+
+	reset_case_env
+	current_case='leaky-authority-output'
+	set_case_env STUB_RESTORE_MODE leaky
+	set_case_env PGPASSWORD "$sentinel_short_pg"
+	run_child
+	if expect_rc 0 && expect_output '\[S3\] PASS' && expect_output '\[REDACTED\]' &&
+		expect_output '\[S6\] PASS' && expect_no_sentinels; then
+		st_case leaky-authority-output ok 'deliberately leaky authority output is fully redacted before publication, including a 3-character password and the standalone migration credential (F01 regression)'
+	else
+		st_case leaky-authority-output fail 'secret-bearing authority output survived redaction'
+	fi
+
 	# ---- S4: migration gate failures --------------------------------------
 	reset_case_env
 	current_case='migration-status-fails'
 	set_case_env STUB_EMDASH_MODE fail-status
 	run_child
-	if expect_rc 1 && expect_output '\[S4\] FAIL' && expect_output -- '--status failed' &&
+	if expect_rc 1 && expect_output '\[S4\] FAIL' && expect_output 'status failed' &&
 		expect_stub_not_called verify-restored-foundation; then
 		st_case migration-status-fails ok 'native --status failure against the restored target blocks acceptance before any comparison'
 	else
@@ -1983,6 +2423,18 @@ EOF
 	fi
 
 	reset_case_env
+	current_case='migration-apply-fails'
+	set_case_env STUB_EMDASH_MODE fail-apply
+	run_child
+	if expect_rc 1 && expect_output '\[S4\] FAIL' && expect_output 'apply failed' &&
+		expect_output 'fingerprint guard or migration error' &&
+		expect_stub_not_called verify-restored-foundation; then
+		st_case migration-apply-fails ok 'native apply failure against the restored target (behind a passing inspected-fingerprint guard) blocks acceptance (F03)'
+	else
+		st_case migration-apply-fails fail 'an apply failure did not block acceptance'
+	fi
+
+	reset_case_env
 	current_case='migration-pending-left'
 	set_case_env STUB_EMDASH_MODE leave-pending
 	run_child
@@ -1997,22 +2449,63 @@ EOF
 	current_case='migration-check-fails'
 	set_case_env STUB_EMDASH_MODE fail-check
 	run_child
-	if expect_rc 1 && expect_output '\[S4\] FAIL' && expect_output -- '--check failed' &&
+	if expect_rc 1 && expect_output '\[S4\] FAIL' && expect_output 'check failed' &&
 		expect_stub_not_called verify-restored-foundation; then
 		st_case migration-check-fails ok 'native --check failure against the restored target blocks acceptance'
 	else
 		st_case migration-check-fails fail 'a check failure did not block acceptance'
 	fi
 
-	# ---- S5: comparator failure ------------------------------------------
+	# ---- S5: distinct restored-state failures through the comparator double
 	reset_case_env
-	current_case='comparator-fails'
-	set_case_env STUB_COMPARATOR_MODE fail
+	current_case='comparator-error'
+	set_case_env STUB_COMPARATOR_MODE error
 	run_child
-	if expect_rc 1 && expect_output '\[S5\] FAIL' && expect_output 'comparator failed'; then
-		st_case comparator-fails ok 'wrong/missing tagline (or changed media) reported by the comparator blocks recovery acceptance'
+	if expect_rc 1 && expect_output '\[S5\] FAIL' && expect_output 'controlled forced error'; then
+		st_case comparator-error ok 'a generic comparator authority error still blocks recovery acceptance (forced-error control)'
 	else
-		st_case comparator-fails fail 'a comparator failure did not block acceptance'
+		st_case comparator-error fail 'a comparator authority error did not block acceptance'
+	fi
+
+	reset_case_env
+	current_case='comparator-tagline-wrong'
+	set_case_env ST_RESTORED_TAGLINE 'Songhealth WRONG restored tagline (synthetic)'
+	run_child
+	if expect_rc 1 && expect_output '\[S5\] FAIL' && expect_output 'tagline VALUE mismatch' &&
+		expect_output '\[S3\] PASS' && expect_output '\[S4\] PASS'; then
+		st_case comparator-tagline-wrong ok 'a WRONG restored tagline value is detected by the comparator double examining the restored fixtures after a successful restore and migration gate (F03)'
+	else
+		st_case comparator-tagline-wrong fail 'a wrong restored tagline was not detected'
+	fi
+
+	reset_case_env
+	current_case='comparator-tagline-missing'
+	set_case_env ST_RESTORED_TAGLINE ''
+	run_child
+	if expect_rc 1 && expect_output '\[S5\] FAIL' && expect_output 'tagline MISSING'; then
+		st_case comparator-tagline-missing ok 'a MISSING restored tagline is detected by the comparator double examining the restored fixtures (F03)'
+	else
+		st_case comparator-tagline-missing fail 'a missing restored tagline was not detected'
+	fi
+
+	reset_case_env
+	current_case='comparator-media-missing'
+	set_case_env ST_MEDIA_SRC "$st_fix/media-missing-src"
+	run_child
+	if expect_rc 1 && expect_output '\[S5\] FAIL' && expect_output 'media MISSING from the restored mount'; then
+		st_case comparator-media-missing ok 'a designated media item MISSING from the restored mount is detected by the comparator double (F03)'
+	else
+		st_case comparator-media-missing fail 'missing restored media was not detected'
+	fi
+
+	reset_case_env
+	current_case='comparator-media-changed'
+	set_case_env ST_MEDIA_SRC "$st_fix/media-changed-src"
+	run_child
+	if expect_rc 1 && expect_output '\[S5\] FAIL' && expect_output 'CHANGED \(size/SHA-256 mismatch\)'; then
+		st_case comparator-media-changed ok 'a designated media item CHANGED in the restored mount (size/SHA-256 mismatch) is detected by the comparator double (F03)'
+	else
+		st_case comparator-media-changed fail 'changed restored media was not detected'
 	fi
 
 	# ---- S6: independent missing-secret rejection -------------------------
@@ -2062,10 +2555,8 @@ EOF
 		st_case secret-enckey-malformed fail 'a malformed encryption key was not rejected'
 	fi
 
-	# ---- positive control flow (stubs succeed) ---------------------------
+	# ---- positive control flow (stubs succeed; genuine sequence proof) ---
 	reset_case_env
-	rm -rf "$st/restore-media-mount"
-	mkdir -p "$st/restore-media-mount"
 	current_case='positive-control-flow'
 	run_child
 	if expect_rc 0 && expect_output 'T024 recovery verification: PASS' &&
@@ -2075,10 +2566,11 @@ EOF
 		expect_output '\[S6\] PASS' &&
 		expect_stub_called pg_restore && expect_stub_called restore-foundation &&
 		expect_stub_called emdash && expect_stub_called verify-restored-foundation &&
-		expect_output 'canonical T015 value'; then
-		st_case positive-control-flow ok 'all stages pass under controlled stubs; banner is explicitly control-flow-only, never runtime recovery acceptance'
+		expect_output 'canonical T015 value' &&
+		expect_emdash_gate_sequence; then
+		st_case positive-control-flow ok 'all stages pass under controlled stubs against genuinely matching restored fixtures; native status -> inspected-fingerprint apply -> check order and cross-authority sequence verified; banner is control-flow-only'
 	else
-		st_case positive-control-flow fail 'the stubbed success scenario did not complete with the control-flow-only banner'
+		st_case positive-control-flow fail 'the stubbed success scenario did not complete with the sequence/fingerprint proofs and control-flow-only banner'
 	fi
 
 	# ---- global assertions ------------------------------------------------
@@ -2108,7 +2600,7 @@ EOF
 		printf 't024 self-test: FAIL\n' >&2
 		return "$EXIT_FAIL"
 	fi
-	printf 't024 self-test: PASS (synthetic fixtures and controlled stubs only)\n'
+	printf 't024 self-test: PASS (synthetic fixtures and controlled stubs only; verified: this harness control flow — runtime recovery acceptance stays with T025–T027/T028)\n'
 	return 0
 }
 
