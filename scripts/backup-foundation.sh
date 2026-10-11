@@ -92,12 +92,16 @@
 # tagline; pg_dump/psql/tar failures; empty or unreadable archives; checksum,
 # entry, or manifest inconsistencies. Artifacts are staged inside the Recovery
 # Set directory and renamed into place only after every validation passes
-# (manifest last, each move guarded and no-clobber); a destination entry that
-# appears after preflight is never clobbered, and any publish-time or
-# post-publish verification failure rolls back ONLY artifacts this invocation
-# demonstrably published and still owns (per-artifact published flag plus a
-# current-digest ownership check), leaving foreign or replaced entries
-# untouched, so a partial set is never left looking complete.
+# (manifest last; each move guarded, no-clobber, and exact-destination-basename
+# — a late directory or directory symlink can never become a container or a
+# redirection for the artifact); a destination entry that appears after
+# preflight is never clobbered, and any publish-time or post-publish
+# verification failure rolls back ONLY artifacts this invocation demonstrably
+# published and still owns (per-artifact published flag plus the recorded
+# device:inode object identity AND current digest — an identical-bytes
+# replacement is a different file object and is refused), leaving foreign,
+# replaced, symlinked, or ambiguous entries untouched, so a partial set is
+# never left looking complete.
 #
 # Secret safety: this script never prints PGPASSWORD, the migration URL, the
 # encryption key, or any other secret value. Redaction is structural
@@ -177,6 +181,12 @@ MANIFEST_SHA256=''
 PUBLISHED_DB=0
 PUBLISHED_MEDIA=0
 PUBLISHED_MANIFEST=0
+# Device:inode identity of each published file object, recorded from the
+# single stat reading that also proves the landed type at the verified move;
+# the rollback ownership proof requires the CURRENT object to still carry it.
+PUBLISHED_DB_ID=''
+PUBLISHED_MEDIA_ID=''
+PUBLISHED_MANIFEST_ID=''
 
 usage() {
 	cat <<'EOF'
@@ -930,22 +940,28 @@ publish_recovery_set() {
 	# Publish by rename within the same directory, manifest LAST: until the
 	# association evidence appears, an interrupted publish is detectably
 	# incomplete. Each move is guarded (destination still absent, including
-	# a dangling link), executed with mv --no-clobber, and verified to have
-	# actually moved the staged file, so an entry that appears after
-	# preflight is never clobbered and any failure rolls back only what this
-	# invocation demonstrably published and still owns.
-	publish_single "$STAGING_DIR/$DB_ARCHIVE_NAME" "$DB_ARCHIVE_NAME" 'the database archive'
+	# a dangling link), executed with mv --no-clobber --no-target-directory
+	# (exact destination-basename semantics: a late directory or directory
+	# symlink can never become a container or a redirection for the
+	# artifact), verified to have actually moved the staged file, verified
+	# to have landed as a regular file, and identity-recorded for rollback
+	# ownership; any failure rolls back only what this invocation
+	# demonstrably published and still owns.
+	publish_single "$STAGING_DIR/$DB_ARCHIVE_NAME" "$DB_ARCHIVE_NAME" 'the database archive' PUBLISHED_DB_ID
 	PUBLISHED_DB=1
-	publish_single "$STAGING_DIR/$MEDIA_ARCHIVE_NAME" "$MEDIA_ARCHIVE_NAME" 'the media archive'
+	publish_single "$STAGING_DIR/$MEDIA_ARCHIVE_NAME" "$MEDIA_ARCHIVE_NAME" 'the media archive' PUBLISHED_MEDIA_ID
 	PUBLISHED_MEDIA=1
-	publish_single "$manifest" "$RECOVERY_MANIFEST_NAME" 'the manifest'
+	publish_single "$manifest" "$RECOVERY_MANIFEST_NAME" 'the manifest' PUBLISHED_MANIFEST_ID
 	PUBLISHED_MANIFEST=1
 
-	# Post-publication verification of the PUBLISHED bytes: the artifacts in
-	# the Recovery Set directory must still match the recorded checksums.
-	# Underlying checksum-reader errors are captured and published only
-	# through the scrubbed tail.
+	# Post-publication verification of the PUBLISHED objects: the artifacts
+	# in the Recovery Set directory must still be this run's own file
+	# objects (identity) carrying this run's bytes (checksums). A swap after
+	# publication — even with identical bytes — fails here or at rollback
+	# and the foreign replacement is left untouched. Underlying reader
+	# errors are captured and published only through the scrubbed tail.
 	local published_db_sha='' published_media_sha='' published_manifest_sha=''
+	local current_db_id='' current_media_id='' current_manifest_id=''
 	read -r published_db_sha _ < <(sha256sum -- "$RECOVERY_DIR/$DB_ARCHIVE_NAME" 2>"$SCRATCH/sha-pub-db.err") || {
 		print_tail 'sha256sum diagnostics (published database archive)' "$SCRATCH/sha-pub-db.err" 3
 		rollback_published
@@ -961,91 +977,137 @@ publish_recovery_set() {
 		rollback_published
 		fail_stage S5 'the published manifest could not be re-read for verification'
 	}
+	current_db_id="$(stat -c '%d:%i' -- "$RECOVERY_DIR/$DB_ARCHIVE_NAME" 2>/dev/null)" || current_db_id=''
+	current_media_id="$(stat -c '%d:%i' -- "$RECOVERY_DIR/$MEDIA_ARCHIVE_NAME" 2>/dev/null)" || current_media_id=''
+	current_manifest_id="$(stat -c '%d:%i' -- "$RECOVERY_DIR/$RECOVERY_MANIFEST_NAME" 2>/dev/null)" || current_manifest_id=''
 	if [ "$published_db_sha" != "$DB_SHA256" ] || [ "$published_media_sha" != "$MEDIA_SHA256" ] ||
-		[ "$published_manifest_sha" != "$MANIFEST_SHA256" ]; then
+		[ "$published_manifest_sha" != "$MANIFEST_SHA256" ] ||
+		[ "$current_db_id" != "$PUBLISHED_DB_ID" ] || [ "$current_media_id" != "$PUBLISHED_MEDIA_ID" ] ||
+		[ "$current_manifest_id" != "$PUBLISHED_MANIFEST_ID" ]; then
 		rollback_published
-		fail_stage S5 'a published artifact does not match its recorded checksum; the incomplete set was rolled back (a destination no longer carrying this run''s bytes was left untouched)'
+		fail_stage S5 'a published destination no longer carries this invocation''s own file object or bytes; the incomplete set was rolled back (replaced or swapped entries were left untouched)'
 	fi
 
 	pass S5 'Recovery Set published: database archive + media archive + manifest under one identifier, checksums re-verified after publication'
 }
 
 publish_single() {
-	# publish_single <staged-source> <basename> <description>: move one
-	# staged artifact into the Recovery Set directory fail-closed.
+	# publish_single <staged-source> <basename> <description> <id-var>:
+	# move one staged artifact to its EXACT destination basename, fail-closed.
 	#   - late-collision guard: the destination must STILL be absent
 	#     (including as a dangling symlink) — an entry that appeared after
 	#     the S1 preflight is never clobbered, and nothing of ours is
-	#     published over it;
-	#   - mv --no-clobber closes the residual window between the guard and
-	#     the move: a destination that appears inside it makes mv skip
-	#     silently, which the staged-source check below detects and refuses;
+	#     published over or INTO it;
+	#   - mv --no-clobber --no-target-directory closes the residual window
+	#     between the guard and the move with EXACT-basename semantics: the
+	#     source is consumed ONLY by a clean rename onto an absent name. An
+	#     existing regular file, DIRECTORY, or symlink destination (however
+	#     it appears) makes mv skip silently — never a move into a directory
+	#     container — which the staged-source check below detects and
+	#     refuses. A destination directory or directory symlink can
+	#     therefore never receive or redirect the artifact;
+	#   - the landed object is verified to be a regular file at the exact
+	#     destination basename, and its device:inode identity — the rollback
+	#     ownership proof — is recorded from the SAME single stat reading
+	#     that proves the file type (one syscall, no type/identity window);
 	#   - the underlying mv error stream is captured and published only
 	#     through the scrubbed tail (raw mv diagnostics embed the
 	#     operator-supplied Recovery Set directory path).
-	local src="$1" name="$2" what="$3"
+	local src="$1" name="$2" what="$3" id_var="$4"
 	local dest="$RECOVERY_DIR/$name" err="$SCRATCH/publish-$name.err"
 	if [ -e "$dest" ] || [ -L "$dest" ]; then
 		rollback_published
 		fail_stage S5 'publication refused: the entry %s appeared in the Recovery Set directory after preflight (late collision); the existing entry was left untouched and nothing was published over it' \
 			"$name"
 	fi
-	if ! mv -n -- "$src" "$dest" 2>"$err"; then
+	if ! mv -n -T -- "$src" "$dest" 2>"$err"; then
 		print_tail "mv $name diagnostics" "$err" 3
 		rollback_published
 		fail_stage S5 'publishing %s failed; the failure was captured and sanitized, and nothing of this run remains published' "$what"
 	fi
 	if [ -e "$src" ] || [ -L "$src" ]; then
 		# mv --no-clobber skipped the move: the destination changed between
-		# the guard and the move — the same late-collision refusal.
+		# the guard and the move (a regular file, directory, or symlink) —
+		# the same late-collision refusal, with no relocation anywhere.
 		rollback_published
-		fail_stage S5 'publication refused: %s could not be moved into place without overwriting an entry that appeared after preflight; the destination was left untouched' \
+		fail_stage S5 'publication refused: %s could not be moved to its exact destination basename without overwriting an entry that appeared after preflight; the destination was left untouched and nothing was relocated into it' \
 			"$name"
 	fi
+	# One stat reading carries both the file-type proof and the object
+	# identity: the recorded identity therefore always describes a verified
+	# regular file at the exact destination basename.
+	local identity=''
+	identity="$(stat -c '%d:%i|%F' -- "$dest" 2>"$SCRATCH/stat-publish-$name.err")" || {
+		print_tail "stat $name diagnostics" "$SCRATCH/stat-publish-$name.err" 3
+		rollback_published
+		fail_stage S5 'the published %s could not be identity-recorded for rollback ownership' "$what"
+	}
+	case $identity in
+	*"|regular file")
+		printf -v "$id_var" '%s' "${identity%|*}"
+		;;
+	*)
+		# A directory, symlink, or other non-regular entry at the destination
+		# basename is never accepted as a publication result.
+		rollback_published
+		fail_stage S5 'publication refused: %s did not land as a regular file at the exact destination basename (a directory or symlink destination is never a container or a redirection for it)' \
+			"$name"
+		;;
+	esac
 }
 
 owned_artifact() {
-	# owned_artifact <file> <recorded-sha256>: 0 exactly when the file exists
-	# and its CURRENT bytes still equal the digest this run produced — the
-	# proof that a destination entry is this invocation's own output and not
-	# another writer's.
-	local file="$1" want="$2" got=''
+	# owned_artifact <file> <recorded-identity> <recorded-sha256>: 0 exactly
+	# when the destination entry is THIS invocation's own published file
+	# object. Evidence required: the entry is a regular file (a symlink is
+	# refused even when it resolves to our own file), its device:inode
+	# identity STILL equals the identity recorded at this run's verified
+	# move, and its current bytes still equal the digest this run produced.
+	# Digest equality alone is deliberately insufficient: an
+	# identical-bytes replacement is a different file object and is refused.
+	local file="$1" want_id="$2" want_sha="$3"
+	local got_id='' got_sha=''
 	[ -f "$file" ] || return 1
-	read -r got _ < <(sha256sum -- "$file" 2>/dev/null) || return 1
-	[ "$got" = "$want" ]
+	[ -L "$file" ] && return 1
+	got_id="$(stat -c '%d:%i' -- "$file" 2>/dev/null)" || return 1
+	[ "$got_id" = "$want_id" ] || return 1
+	read -r got_sha _ < <(sha256sum -- "$file" 2>/dev/null) || return 1
+	[ "$got_sha" = "$want_sha" ]
 }
 
 rollback_published() {
 	# Removes ONLY artifacts this invocation demonstrably published and still
 	# owns: the per-artifact published flag proves this run moved the name,
-	# and the current content digest must still equal the digest this run
-	# produced. A destination that was replaced by another writer after
-	# publication — or that this run never published — is foreign and is
+	# the CURRENT device:inode identity must still equal the identity
+	# recorded at the verified move (an identical-bytes replacement is a
+	# different object and is refused), and the current digest must still
+	# equal this run's. A destination that was replaced by another writer,
+	# swapped, symlinked, or never published by this run is foreign and is
 	# left untouched (reported by basename only).
 	local left=''
 	if [ "$PUBLISHED_DB" = 1 ]; then
-		if owned_artifact "$RECOVERY_DIR/$DB_ARCHIVE_NAME" "$DB_SHA256"; then
+		if owned_artifact "$RECOVERY_DIR/$DB_ARCHIVE_NAME" "$PUBLISHED_DB_ID" "$DB_SHA256"; then
 			rm -f -- "$RECOVERY_DIR/$DB_ARCHIVE_NAME" 2>/dev/null || true
 		else
 			left+="${left:+, }$DB_ARCHIVE_NAME"
 		fi
 	fi
 	if [ "$PUBLISHED_MEDIA" = 1 ]; then
-		if owned_artifact "$RECOVERY_DIR/$MEDIA_ARCHIVE_NAME" "$MEDIA_SHA256"; then
+		if owned_artifact "$RECOVERY_DIR/$MEDIA_ARCHIVE_NAME" "$PUBLISHED_MEDIA_ID" "$MEDIA_SHA256"; then
 			rm -f -- "$RECOVERY_DIR/$MEDIA_ARCHIVE_NAME" 2>/dev/null || true
 		else
 			left+="${left:+, }$MEDIA_ARCHIVE_NAME"
 		fi
 	fi
 	if [ "$PUBLISHED_MANIFEST" = 1 ]; then
-		if owned_artifact "$RECOVERY_DIR/$RECOVERY_MANIFEST_NAME" "$MANIFEST_SHA256"; then
+		if owned_artifact "$RECOVERY_DIR/$RECOVERY_MANIFEST_NAME" "$PUBLISHED_MANIFEST_ID" "$MANIFEST_SHA256"; then
 			rm -f -- "$RECOVERY_DIR/$RECOVERY_MANIFEST_NAME" 2>/dev/null || true
 		else
 			left+="${left:+, }$RECOVERY_MANIFEST_NAME"
 		fi
 	fi
 	if [ -n "$left" ]; then
-		printf 't025: [S5] NOTE rollback left a destination entry that no longer carries this run''s bytes untouched: %s\n' "$left" | publish_diag
+		printf 't025: [S5] NOTE rollback left a destination entry that is not this invocation''s own published file object (replaced, swapped, symlinked, or ambiguous) untouched: %s\n' "$left" | publish_diag
 	fi
 }
 
