@@ -46,9 +46,10 @@
 #        same-device:inode relationships are all rejected (realpath -m
 #        canonicalization plus physical defenses and MANDATORY device:inode
 #        probes whenever both mounts exist — a failed, empty, or malformed
-#        identity reading refuses; stat and realpath are declared tool
-#        prerequisites), and any separation that cannot be established
-#        fails closed.
+#        (including multiline) identity reading refuses, each complete
+#        reading validated as exactly one numeric device:inode tuple;
+#        stat and realpath are declared tool prerequisites), and any
+#        separation that cannot be established fails closed.
 #   S2   Recovery Set pre-restore validation, strictly BEFORE any restore
 #        attempt (existence -> checksums -> archive readability ->
 #        association/anchor, in that order; an S2 failure means S3 never
@@ -142,8 +143,8 @@
 # implementations of the three T025–T027 scripts, leak-producing synthetic
 # diagnostics whose sentinel values must never survive into captured
 # output, source/restore store-overlap regressions (ancestor, descendant,
-# symlink alias, unresolved-tail alias, leading-zero port, unavailable and
-# unusable device:inode probe evidence), distinct
+# symlink alias, unresolved-tail alias, leading-zero port, unavailable,
+# unusable, and multiline device:inode probe evidence), distinct
 # restored-state failure scenarios driven through a comparator double that
 # actually examines the restored fixtures (wrong tagline, missing tagline,
 # missing media, changed media), a native apply-failure scenario, dirty
@@ -725,11 +726,16 @@ check_source_store_protection() {
 			fail_input_source 'the device:inode identity of the active source media mount could not be determined; safe separation cannot be established — failing closed'
 		restore_stat="$(stat -c '%d:%i' -- "$restore_phys" 2>/dev/null)" ||
 			fail_input_source 'the device:inode identity of the restore media mount could not be determined; safe separation cannot be established — failing closed'
-		local identity_re='^[0-9]+:[0-9]+$'
-		printf '%s' "$src_stat" | grep -qE "$identity_re" ||
-			fail_input_source 'the device:inode reading of the active source media mount is empty or not the expected numeric device:inode shape; safe separation cannot be established — failing closed'
-		printf '%s' "$restore_stat" | grep -qE "$identity_re" ||
-			fail_input_source 'the device:inode reading of the restore media mount is empty or not the expected numeric device:inode shape; safe separation cannot be established — failing closed'
+		# Each COMPLETE captured reading must be exactly one numeric
+		# device:inode tuple — no embedded newlines, no additional
+		# content before the equality comparison. A line-oriented match
+		# would accept "garbage\n123:456" because one line matches, and
+		# the reading would then compare unequal to a clean "123:456" and
+		# wrongly report safe separation (F02 round 3).
+		printf '%s' "$src_stat" | identity_reading_valid ||
+			fail_input_source 'the complete device:inode reading of the active source media mount is empty, multiline, or not exactly one numeric device:inode tuple; safe separation cannot be established — failing closed'
+		printf '%s' "$restore_stat" | identity_reading_valid ||
+			fail_input_source 'the complete device:inode reading of the restore media mount is empty, multiline, or not exactly one numeric device:inode tuple; safe separation cannot be established — failing closed'
 		if [ "$src_stat" == "$restore_stat" ]; then
 			fail_input_source 'the declared restore media mount and the active source media mount are the same underlying directory (device:inode); source active stores must never be recovery targets'
 		fi
@@ -754,6 +760,19 @@ media_paths_related() {
 	"$1"/*) return 0 ;;
 	esac
 	return 1
+}
+
+identity_reading_valid() {
+	# stdin: one COMPLETE captured stat reading. Valid only when it is
+	# EXACTLY one record matching the numeric device:inode tuple — no
+	# embedded newlines, no additional content, no empty input. A
+	# line-oriented grep would accept any single matching line inside a
+	# multiline reading; this whole-reading check does not.
+	awk '
+		NR != 1 { bad = 1 }
+		$0 !~ /^[0-9]+:[0-9]+$/ { bad = 1 }
+		END { exit bad ? 1 : NR == 1 ? 0 : 1 }
+	'
 }
 
 fail_input_source() {
@@ -1589,7 +1608,8 @@ self_test() {
 
 	local st_root="$st/repo" st_bin="$st/bin" st_calls="$st/calls" st_fix="$st/fixtures"
 	local st_bin_stat_fail="$st/stat-fail-bin" st_bin_stat_bad="$st/stat-bad-bin"
-	mkdir -p "$st_root/scripts" "$st_bin" "$st_calls" "$st_fix" "$st_bin_stat_fail" "$st_bin_stat_bad"
+	local st_bin_stat_ml_src="$st/stat-ml-src-bin" st_bin_stat_ml_restore="$st/stat-ml-restore-bin"
+	mkdir -p "$st_root/scripts" "$st_bin" "$st_calls" "$st_fix" "$st_bin_stat_fail" "$st_bin_stat_bad" "$st_bin_stat_ml_src" "$st_bin_stat_ml_restore"
 
 	# Repository no-mutation baseline (the real checkout may contain this
 	# harness as an untracked file; it must be unchanged by the self-test).
@@ -1897,6 +1917,41 @@ printf 'garbage-not-a-device-inode-identity\n'
 exit 0
 EOF
 	chmod +x "$st_bin_stat_fail/stat" "$st_bin_stat_bad/stat"
+	cat >"$st_bin_stat_ml_src/stat" <<'EOF'
+#!/usr/bin/env bash
+# Controlled stub (T024 self-test ONLY): stands in for stat, returning a
+# MULTILINE reading (invalid content before a valid identity line) for the
+# SOURCE mount probe and a clean single tuple for the restore probe.
+set -u
+printf 'stat %s\n' "$*" >>"${ST_CALLS:?}/stat.calls"
+case "$*" in
+*"${SONGHEALTH_SOURCE_MEDIA_MOUNT:?}"*)
+	printf 'garbage\n123:456\n'
+	;;
+*)
+	printf '123:456\n'
+	;;
+esac
+exit 0
+EOF
+	cat >"$st_bin_stat_ml_restore/stat" <<'EOF'
+#!/usr/bin/env bash
+# Controlled stub (T024 self-test ONLY): stands in for stat, returning a
+# MULTILINE reading (invalid content before a valid identity line) for the
+# RESTORE mount probe and a clean single tuple for the source probe.
+set -u
+printf 'stat %s\n' "$*" >>"${ST_CALLS:?}/stat.calls"
+case "$*" in
+*"${SONGHEALTH_RESTORE_MEDIA_MOUNT:?}"*)
+	printf 'garbage\n123:456\n'
+	;;
+*)
+	printf '123:456\n'
+	;;
+esac
+exit 0
+EOF
+	chmod +x "$st_bin_stat_ml_src/stat" "$st_bin_stat_ml_restore/stat"
 
 	# --- synthetic Recovery Set fixtures (builder: variant -> fixture dir).
 	build_set() {
@@ -2321,12 +2376,36 @@ EOF
 	current_case='probe-stat-unusable'
 	set_case_env PATH "$st_bin_stat_bad:$st_bin:$orig_path"
 	run_child
-	if expect_rc 4 && expect_output '\[S1\] FAIL' && expect_output 'numeric device:inode shape' &&
+	if expect_rc 4 && expect_output '\[S1\] FAIL' && expect_output 'exactly one numeric device:inode tuple' &&
 		expect_stub_called stat &&
 		expect_stub_not_called restore-foundation; then
-		st_case probe-stat-unusable ok 'an UNUSABLE device:inode reading (wrong shape, exit 0) refuses at S1: malformed evidence is not separation (F02 round-2 regression)'
+		st_case probe-stat-unusable ok 'an UNUSABLE device:inode reading (wrong shape, exit 0) refuses at S1: malformed evidence is not separation (retained F02 round-2 regression)'
 	else
 		st_case probe-stat-unusable fail 'a malformed device:inode reading still allowed the run to proceed'
+	fi
+
+	reset_case_env
+	current_case='probe-stat-multiline-source'
+	set_case_env PATH "$st_bin_stat_ml_src:$st_bin:$orig_path"
+	run_child
+	if expect_rc 4 && expect_output '\[S1\] FAIL' && expect_output 'exactly one numeric device:inode tuple' &&
+		expect_stub_called stat &&
+		expect_stub_not_called restore-foundation; then
+		st_case probe-stat-multiline-source ok 'a SOURCE-side multiline reading (valid tuple amid invalid content, clean restore side) refuses at S1: a matching line inside extra content is not a valid reading (F02 round-3 regression)'
+	else
+		st_case probe-stat-multiline-source fail 'a multiline source device:inode reading still allowed the run to proceed'
+	fi
+
+	reset_case_env
+	current_case='probe-stat-multiline-restore'
+	set_case_env PATH "$st_bin_stat_ml_restore:$st_bin:$orig_path"
+	run_child
+	if expect_rc 4 && expect_output '\[S1\] FAIL' && expect_output 'exactly one numeric device:inode tuple' &&
+		expect_stub_called stat &&
+		expect_stub_not_called restore-foundation; then
+		st_case probe-stat-multiline-restore ok 'a RESTORE-side multiline reading (valid tuple amid invalid content, clean source side) refuses at S1: a matching line inside extra content is not a valid reading (F02 round-3 regression)'
+	else
+		st_case probe-stat-multiline-restore fail 'a multiline restore device:inode reading still allowed the run to proceed'
 	fi
 
 	# ---- S2: Recovery Set pre-restore validation -------------------------
