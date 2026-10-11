@@ -174,22 +174,36 @@ Only these eight named variables are forwarded into the application container (b
 
 **EnvironmentFile comment/quoting rules — the credential must survive parsing exactly.**
 `systemd` parses an `EnvironmentFile` with its own line parser, not shell semantics
-(`systemd.exec(5)`; the v259 `parse_env_file` implementation):
+(`systemd.exec(5)`; the v259 `parse_env_file` implementation). The bytes on the line are **not**
+the value verbatim: comments, whitespace, quotes, and backslashes are all processed.
 
 - A line whose first non-whitespace character is `#` or `;` is a comment and is ignored — this is
   the **only** comment form. There are **no inline comments**: in `KEY=VALUE`, everything after
-  the `=` up to the end of the line is the value. An annotation placed after the value — even
-  separated by spaces and a `#` — is preserved as part of the value, silently changing the
-  credential and failing authentication. Keep annotations on their own comment line, as above.
-- Leading and trailing whitespace around an unquoted value is trimmed, so meaningful
-  leading/trailing whitespace in a credential cannot be represented unquoted — generate
-  credentials without it.
-- Quotation marks around the value are removed, and inside double quotes backslash escapes
-  (`\`, `"`, `` ` ``, `$`) are interpreted; the assignment must be a single line with no shell
-  expansion.
+  the `=` belongs to the assignment. An annotation placed after the value — even separated by
+  spaces and a `#` — is preserved as part of the value, silently changing the credential and
+  failing authentication. Keep annotations on their own comment line, as above.
+- **Unquoted value:** leading whitespace is skipped and trailing whitespace trimmed; a value
+  beginning with `"` or `'` is parsed as quoted instead. **Every backslash escapes the character
+  that follows it and is itself dropped** — `PGPASSWORD=demo\value` parses as `demovalue`, not
+  `demo\value`. Write a literal backslash doubled (`demo\\value` → `demo\value`), and never end
+  the line with an odd trailing backslash (a backslash before the newline continues the line).
+- **Double-quoted value (`"…"`):** the quotes are removed; whitespace inside — leading, trailing,
+  interior — is preserved exactly; an unescaped `"` ends the value. A backslash escapes only
+  `\`, `"`, `` ` ``, and `$` (backslash removed); before any other character the backslash stays
+  literally, as in the shell.
+- **Single-quoted value (`'…'`):** the quotes are removed and the content between them is
+  **fully literal** — no escape processing at all, whitespace and `#` included. This is the
+  exact representation for a credential containing backslashes, double quotes, `$`, spaces, or
+  other parser-significant bytes, provided the credential itself contains no single quote (a
+  single quote inside a value is carried bare in unquoted or double-quoted form instead).
 
-The practical rule: write every credential as a bare, unquoted, single-line assignment with
-nothing else on the line.
+The practical rule: keep nothing else on the line, and choose the representation that
+round-trips the credential's **actual intended bytes** — unquoted when it contains no backslash,
+no quote character, and no leading/trailing whitespace; single-quoted when it contains any of
+those except a single quote; double-quoted (with `\`, `"`, `` ` ``, `$` escaped) otherwise. Do
+not reshape the credential to suit the file: if authentication fails while the role and its
+credential are otherwise confirmed, suspect the file's encoding first — fix the representation,
+not the deployment, and never the value. The units never print values.
 
 `PGHOST` must be `systemd-songhealth-db` — the database container's resolvable name on the
 private `songhealth` network. `PGPASSWORD` is secret-bearing: protect the file (mode `0600`,
@@ -620,8 +634,13 @@ systemctl --user start songhealth-app.service   # full application startup seque
 
 (The last two commands may be collapsed into a single
 `systemctl --user start songhealth-app.service`: its dependency edge orders the database unit
-first and, with the database unit's `Notify=healthy`, the application's own prerequisites do not
-begin until PostgreSQL is healthy.)
+first and, **when the database unit activates successfully**, its `Notify=healthy` holds the
+application's own prerequisites until PostgreSQL is healthy. That guarantee is conditional: if
+the database unit is instead **skipped** by its `ExecCondition` guards (§8.3) — refused inputs or
+a refused store — its start job completes without failing the application's start job through
+the dependency edge, and the application's own database prerequisites then execute and refuse
+connectivity. The ordering edge is convenience; the application's independent gate is the
+fail-closed boundary, exactly as in §4.2.)
 
 Which guards rerun per sequence: reactivating the **database unit** reruns its `ExecCondition`
 guards — the identity-input presence checks and the existing-store guard of §6.1, which validates
@@ -827,10 +846,11 @@ Version-sensitive facts in this document were verified against current upstream 
   (`systemd-run(1)`, logind); `ExecCondition` exit status 1–254 producing skip semantics —
   skipped, not failed, not restarted (`systemd.service(5)`; `src/core/service.c`
   `SERVICE_SKIP_CONDITION`); `EnvironmentFile` parsing — comments only as full lines starting
-  with `#`/`;`, no inline comments (an unquoted value runs to end of line, with surrounding
-  whitespace trimmed; quotes are removed and backslash escapes apply inside double quotes)
-  (`systemd.exec(5)`; the `parse_env_file` implementation and its parser tests, checked at
-  v259 — the basis of §4.3's environment-file rules).
+  with `#`/`;`, no inline comments; unquoted values run to end of line with surrounding
+  whitespace trimmed and **every backslash escaping (and being consumed by) the following
+  character**; double quotes preserve whitespace and escape only `\`, `"`, `` ` ``, `$`; single
+  quotes are fully literal (`systemd.exec(5)`; the `parse_env_file` implementation and its
+  parser tests, checked at v259 — the basis of §4.3's environment-file rules).
 
 Upstream documentation explains what the technology does; the Product authorities and the
 committed deployment units above remain the authority for what this deployment does.
