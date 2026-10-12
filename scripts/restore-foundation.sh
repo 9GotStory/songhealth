@@ -70,17 +70,27 @@
 #        media destination exists as a directory, is not a symlink, is
 #        readable/traversable/writable, and is EMPTY; the restore database is
 #        reachable through the native PG* inputs, current_database() equals
-#        PGDATABASE, and user objects of EVERY kind are absent — the sum
-#        covers EVERY schema-resident object catalog of PostgreSQL 18
-#        (relations of all six user kinds, routines, types with their
-#        array types, collations, conversions, operators, operator
-#        classes/families, statistics objects, and the four text-search
-#        classes) alongside non-default schemas, extensions, and large
-#        objects — so a database carrying only a function, only an enum,
-#        or only a collation is a populated existing store and is refused
-#        just like one carrying tables. Existing user database
-#        objects/data and nonempty or unsafe media destinations are
-#        refused — never dropped, cleared, overwritten, or reinitialized.
+#        PGDATABASE, and pre-existing user database state of EVERY class is
+#        absent — schema-resident object roots of every catalog (relations,
+#        routines, types, collations, conversions, operators, operator
+#        classes/families, statistics, text-search; dependent objects are
+#        accounted through their required parent roots), DATABASE-LOCAL
+#        roots without a schema (publications, default ACLs, FDWs, foreign
+#        servers, user mappings via the public count-only view, event
+#        triggers, languages, casts, transforms, access methods), and
+#        SHARED-catalog rows scoped to this target only (subscriptions by
+#        subdbid, database/per-role settings by setdatabase, and
+#        target-database annotations by complete classoid+objoid identity)
+#        — all count-only and secret-free (options, connection strings, and
+#        setting values are never selected), built-ins classified by the
+#        PostgreSQL 18.6 native identity rule (OID >= FirstNormalObjectId
+#        16384) where catalogs carry bootstrap rows, plus non-default
+#        schemas, extensions, and large objects. So a database carrying
+#        only a function, an enum, a collation, or only a publication is a
+#        populated existing store and is refused just like one carrying
+#        tables. Existing user database objects/data and nonempty or
+#        unsafe media destinations are refused — never dropped, cleared,
+#        overwritten, or reinitialized.
 #   S4   the bounded restoration itself, latest-stage-first-rollbackable:
 #        media first. The archive is extracted into a private staging
 #        directory created INSIDE the destination (same filesystem, so
@@ -1341,29 +1351,65 @@ check_clean_database() {
 	# connection failure fails closed: no target is ever created,
 	# initialized, or substituted here.
 	#
-	# The user-object count covers EVERY schema-resident object catalog of
-	# PostgreSQL 18 (per the upstream catalogs overview), not a
-	# relation/routine/type subset: relations of the six user kinds
-	# (pg_class — indexes cannot exist without a counted table), routines
-	# (pg_proc), types including their array types (pg_type), COLLATIONS
-	# (pg_collation), conversions (pg_conversion), operators
-	# (pg_operator), operator classes (pg_opclass) and families
-	# (pg_opfamily), statistics objects (pg_statistic_ext), and the four
-	# text-search classes (pg_ts_config, pg_ts_dict, pg_ts_parser,
-	# pg_ts_template). All are summed in the SECOND field so the probe
-	# stays one five-field line. Only built-ins of a genuinely fresh
-	# database are permitted: pg_catalog/pg_toast/information_schema
-	# content is namespace-excluded, plpgsql is the allowed default
-	# extension, and extension-owned objects (pg_depend deptype 'e') are
-	# attributed to the extension gate rather than their class gate.
-	# Schemas, non-default extensions, and large objects complete the
-	# proof; cluster-global objects (roles, FDWs, servers) remain outside
-	# this database-level gate, whose recreation research §9 places
-	# outside this script. Verified against real PostgreSQL 18.6: a fresh
-	# database reports 0; collation-only reports 1; function-only reports
-	# 1; enum-only reports 2 (enum + array type); a plain table reports 3
-	# (table + row type + array type); a table plus a user operator
-	# reports 3.
+	# The user-state count covers every class of pre-existing user-defined
+	# DATABASE state in PostgreSQL 18 (per the upstream catalogs overview's
+	# database-local/shared distinction), grouped as follows; every count
+	# below is summed into the SECOND field so the probe stays ONE
+	# five-field line (identity | user state | schemas | extensions |
+	# large objects), and the complete reading is validated: a failed,
+	# empty, malformed, or partial observation refuses.
+	#
+	# (1) Schema-resident roots: relations of the six user kinds (pg_class;
+	#     indexes, TOAST children, triggers, rules, policies, and
+	#     constraints all REQUIRE a counted parent table to exist), routines
+	#     (pg_proc), types including their array types (pg_type; a row type
+	#     requires its relation, an array type its base type), collations,
+	#     conversions, operators, operator classes/families, statistics
+	#     objects, and the four text-search classes — namespace-excluded
+	#     from pg_catalog/pg_toast/information_schema, and extension-owned
+	#     objects (pg_depend deptype 'e') attributed to the extension gate.
+	# (2) Database-local roots without a schema: publications
+	#     (pg_publication — database-local storage, verified invisible from
+	#     other databases), default ACLs (pg_default_acl — likewise
+	#     verified database-local), foreign-data wrappers (pg_foreign_data_
+	#     wrapper), foreign servers (pg_foreign_server), user mappings (the
+	#     publicly readable pg_user_mappings VIEW, COUNT ONLY — mapping
+	#     options can carry credentials and are never selected; direct
+	#     pg_user_mapping reads are permission-denied for this role),
+	#     event triggers (pg_event_trigger), languages (pg_language),
+	#     casts (pg_cast), transforms (pg_transform — no built-in rows),
+	#     and access methods (pg_am).
+	# (3) Shared catalogs with target-database state, scoped to THIS target
+	#     only: subscriptions by subdbid = the target's OID (COUNT ONLY —
+	#     subconninfo/suboptions carry credentials and are never selected),
+	#     database and per-role-in-database settings by setdatabase = the
+	#     target's OID (COUNT ONLY — setting VALUES are never selected),
+	#     and target-database annotations (comments/security labels) in
+	#     pg_shdescription/pg_shseclabel keyed by the COMPLETE catalog
+	#     identity (classoid = pg_database AND objoid = the target's OID) —
+	#     other databases' rows and genuine cluster-globals (roles,
+	#     tablespaces) are outside this target's cleanliness.
+	#
+	# Built-ins vs user objects: for the catalogs that contain initdb
+	# bootstrap rows (languages, casts, access methods), user-created
+	# objects are classified by PostgreSQL 18.6's native identity rule —
+	# OID >= FirstNormalObjectId = 16384 (REL_18_6
+	# src/include/access/transam.h) — so a user cast between built-in
+	# types, a user trusted language reusing built-in handlers, or a user
+	# access method reusing a built-in handler is still detected; verified
+	# zero on a fresh 18.6 image. No name allow-lists, no row-count
+	# baselines, no undocumented exclusions. The connection stays the
+	# non-superuser runtime role; no privilege is added.
+	#
+	# Verified against real PostgreSQL 18.6 with a non-superuser owner:
+	# a fresh database reports 0; publication-only, default-ACL-only,
+	# FDW/server/user-mapping-only, language-only, cast-only,
+	# access-method-only, event-trigger-only, database-setting-only,
+	# per-role-in-database-setting-only, subscription-only (connect=false,
+	# no slot), and database-comment-only fixtures are each detected;
+	# collation-only reports 1; function-only 1; enum-only 2; a plain
+	# table 3; dirty state created in a DIFFERENT database does not dirty
+	# this target.
 	local probe="$SCRATCH/db-clean-probe.txt"
 	if ! timeout --kill-after=15 "${PSQL_TIMEOUT_SECONDS}s" \
 		psql -X -w -t -A -c "SELECT current_database() || '|' ||
@@ -1405,7 +1451,27 @@ check_clean_database() {
 				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = x.oid AND d.deptype = 'e')) +
 			(SELECT count(*) FROM pg_catalog.pg_ts_template x JOIN pg_catalog.pg_namespace n ON n.oid = x.tmplnamespace
 				WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
-				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = x.oid AND d.deptype = 'e'))) || '|' ||
+				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = x.oid AND d.deptype = 'e')) +
+			(SELECT count(*) FROM pg_catalog.pg_publication) +
+			(SELECT count(*) FROM pg_catalog.pg_default_acl) +
+			(SELECT count(*) FROM pg_catalog.pg_foreign_data_wrapper) +
+			(SELECT count(*) FROM pg_catalog.pg_foreign_server) +
+			(SELECT count(*) FROM pg_catalog.pg_user_mappings) +
+			(SELECT count(*) FROM pg_catalog.pg_event_trigger) +
+			(SELECT count(*) FROM pg_catalog.pg_transform) +
+			(SELECT count(*) FROM pg_catalog.pg_language WHERE oid >= 16384) +
+			(SELECT count(*) FROM pg_catalog.pg_cast WHERE oid >= 16384) +
+			(SELECT count(*) FROM pg_catalog.pg_am WHERE oid >= 16384) +
+			(SELECT count(*) FROM pg_catalog.pg_subscription
+				WHERE subdbid = (SELECT d.oid FROM pg_catalog.pg_database d WHERE d.datname = current_database())) +
+			(SELECT count(*) FROM pg_catalog.pg_db_role_setting
+				WHERE setdatabase = (SELECT d.oid FROM pg_catalog.pg_database d WHERE d.datname = current_database())) +
+			(SELECT count(*) FROM pg_catalog.pg_shdescription a
+				WHERE a.classoid = 'pg_catalog.pg_database'::pg_catalog.regclass
+				AND a.objoid = (SELECT d.oid FROM pg_catalog.pg_database d WHERE d.datname = current_database())) +
+			(SELECT count(*) FROM pg_catalog.pg_shseclabel a
+				WHERE a.classoid = 'pg_catalog.pg_database'::pg_catalog.regclass
+				AND a.objoid = (SELECT d.oid FROM pg_catalog.pg_database d WHERE d.datname = current_database()))) || '|' ||
 			(SELECT count(*) FROM pg_catalog.pg_namespace
 				WHERE nspname !~ '^pg_' AND nspname <> 'information_schema' AND nspname <> 'public') || '|' ||
 			(SELECT count(*) FROM pg_catalog.pg_extension WHERE extname <> 'plpgsql') || '|' ||
@@ -1416,8 +1482,8 @@ check_clean_database() {
 	fi
 	local line
 	line="$(sed -n '1p' "$probe")"
-	if [ -z "$line" ]; then
-		fail_stage S3 'the restore database cleanliness probe returned no result'
+	if [ -z "$line" ] || [ "$(wc -l <"$probe")" -ne 1 ]; then
+		fail_stage S3 'the restore database cleanliness probe returned an empty or malformed reading; refusing'
 	fi
 	local probe_db='' objects='' schemas='' extensions='' largeobjs=''
 	IFS='|' read -r probe_db objects schemas extensions largeobjs <<<"$line"
@@ -1427,10 +1493,25 @@ check_clean_database() {
 	local bad=0
 	printf '%s\n' "$objects" "$schemas" "$extensions" "$largeobjs" | grep -qvE '^[0-9]+$' && bad=1
 	if [ "$bad" -ne 0 ] || [ "$objects" -ne 0 ] || [ "$schemas" -ne 0 ] || [ "$extensions" -ne 0 ] || [ "$largeobjs" -ne 0 ]; then
-		fail_stage S3 'the restore database is not clean (user objects (relations/routines/types)=%s non-default schemas=%s non-default extensions=%s large objects=%s); an existing populated store is never dropped, cleared, overwritten, or reinitialized — provision a fresh clean database externally' \
+		fail_stage S3 'the restore database is not clean (user database objects/state of any class=%s non-default schemas=%s non-default extensions=%s large objects=%s — schema-resident objects, publications, default ACLs, FDWs/servers/user mappings, event triggers, languages, casts, transforms, access methods, target-scoped subscriptions/settings/annotations are all covered); an existing populated store is never dropped, cleared, overwritten, or reinitialized — provision a fresh clean database externally' \
 			"${objects:-?}" "${schemas:-?}" "${extensions:-?}" "${largeobjs:-?}"
 	fi
-	pass S3 'restore database verified clean and reachable: connected database equals PGDATABASE, zero user objects of every kind (relations, routines, standalone types), zero non-default schemas, zero non-default extensions, zero large objects'
+
+	# Non-secret server version evidence, same read-only connection,
+	# charset-validated like the accepted T025 evidence (distribution
+	# builds report suffixed forms such as "18.6 (Debian 18.6-1.pgdg13+2)").
+	local server_version
+	server_version="$(timeout --kill-after=15 "${PSQL_TIMEOUT_SECONDS}s" \
+		psql -X -w -t -A -c 'SHOW server_version' 2>"$SCRATCH/psql-version.err" | sed -n '1p' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')" || {
+		print_tail 'psql server-version diagnostics' "$SCRATCH/psql-version.err" 3
+		fail_stage S3 'the PostgreSQL server version could not be observed; the clean-target preflight requires non-secret version evidence'
+	}
+	if ! printf '%s' "$server_version" | grep -qE '^[0-9][0-9A-Za-z.()+ -]*$'; then
+		fail_stage S3 'the PostgreSQL server version reading is not usable version evidence; refusing'
+	fi
+	info S3 'PostgreSQL server version: %s (non-secret evidence; connected database equals PGDATABASE)' \
+		"$server_version"
+	pass S3 'restore database verified clean and reachable: connected database equals PGDATABASE, zero user database objects/state of any class (schema-resident objects; publications; default ACLs; FDWs/servers/user mappings; event triggers; languages; casts; transforms; access methods; target-scoped subscriptions, settings, and annotations), zero non-default schemas, zero non-default extensions, zero large objects'
 }
 
 # ---------------------------------------------------------------------------
