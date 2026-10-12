@@ -83,11 +83,20 @@
 //   newline; `-X` skips psqlrc and `-w` never prompts (accepted T024/T025/
 //   T026 use the same flags).
 // - Node.js 24 `child_process.spawn` (Context7
-//   /websites/nodejs_latest-v24_x_api): options `timeout` (ms) sends
-//   `killSignal` (default "SIGTERM") to the child when exceeded; the 'exit'
-//   event then carries `code === null` and the terminating `signal`. Node
-//   fs Dirent/lstat semantics do not follow symlinks, giving the per-entry
-//   alias-ambiguity defense below.
+//   /websites/nodejs_latest-v24_x_api): spawn's own `timeout` option only
+//   SENDS `killSignal` (default "SIGTERM") when exceeded and still waits for
+//   the child's own exit — a child that traps or ignores SIGTERM, or exits 0
+//   from a SIGTERM handler, is therefore not reliably bounded or
+//   fail-closed by that option alone (corrective round 1, F03). This
+//   comparator consequently owns the deadline itself (SIGTERM → SIGKILL →
+//   force-settle; see runBounded). WHATWG URL parsing (the same record)
+//   lowercases hostnames only for special schemes; `postgres://`/
+//   `postgresql://` are non-special, so `parsed.hostname` PRESERVES the
+//   original host spelling — exactly the verbatim spelling the pinned EmDash
+//   1.1.0 native target label uses — which is why host agreement compares
+//   both spellings case-insensitively while the label comparison keeps the
+//   URL spelling (corrective round 1, F02). Node fs Dirent/lstat semantics
+//   do not follow symlinks, giving the per-entry alias-ambiguity defense.
 //
 // Inputs come from the environment (never committed; never arguments):
 //
@@ -169,21 +178,36 @@
 // all subprocess output is captured in memory.
 //
 // Secret safety: no secret value, credential-bearing URL, raw manifest/
-// setting/error payload, or unsanitized subprocess diagnostic is ever
-// published. Redaction is structural (mirroring the accepted T024/T025/T026
-// sources): every published line — status, evidence, and failure — flows
-// through scrub(), which replaces every nonempty supplied secret value
-// (PGPASSWORD, EMDASH_MIGRATION_DATABASE_URL, EMDASH_ENCRYPTION_KEY), the
-// full migration URL, and the migration credential's standalone
-// (percent-encoded and decoded) representations with [REDACTED], longest
-// first; JSON readers report parser failures with FIXED messages (the
-// default SyntaxError would echo an excerpt of the raw input); captured
-// subprocess stderr is published only as a bounded scrubbed tail; errors name
-// the failing field/resource/check only; invalid invocations never echo
-// argument values; every published line is length-capped. Bounded waits
-// (spawn timeout + SIGTERM) keep every external read finite: 45 s for psql
-// and 75 s per emdash invocation — comfortably inside the accepted T024 S5
-// comparator bound of 300 s.
+// setting/error payload, or ANY raw subprocess diagnostic is ever published.
+// Publication policy (corrective round 1, F01): evidence consists of FIXED
+// field/check/dependency names, counts, exit statuses, the documented
+// non-secret identity components, the tracked canonical anchors, and
+// validated-or-derived hex digests — never untrusted values (manifest
+// metadata, native report labels/kinds, filesystem names) and never raw
+// diagnostic tails, so a credential-bearing string that is not among the
+// configured environment secrets has no path into the output and a
+// configured multiline secret cannot leak fragments across line splitting.
+// Defense in depth on top: every published line still flows through
+// scrub(), which replaces every nonempty supplied secret value (PGPASSWORD,
+// EMDASH_MIGRATION_DATABASE_URL, EMDASH_ENCRYPTION_KEY), the full migration
+// URL, and the migration credential's standalone (percent-encoded and
+// decoded) representations with [REDACTED], longest first, BEFORE the
+// published-line length cap (so truncation can never cut a redaction); JSON
+// readers report parser failures with FIXED messages (the default
+// SyntaxError would echo an excerpt of the raw input); captured subprocess
+// stderr is reduced to a byte count and never retained as text; invalid
+// invocations never echo argument values.
+//
+// Bounded waits (corrective round 1, F03): every external read is bounded by
+// an invocation-owned deadline tracked INDEPENDENTLY of the child's fate —
+// SIGTERM at the deadline, SIGKILL after a proportional grace (a quarter of
+// the bound, clamped to [200 ms, 5 s]), and a hard force-settle (streams
+// destroyed, failed result returned) after twice that grace, so a child that
+// ignores SIGTERM, exits 0 from a SIGTERM handler, or leaves a grandchild
+// holding the pipes can never make the await unbounded, and a timed-out
+// operation is ALWAYS a failure even when it then exits 0. Bounds: 45 s for
+// psql and 75 s per emdash invocation (+ at most 10 s collection each) —
+// comfortably inside the accepted T024 S5 comparator bound of 300 s.
 //
 // Exit codes: 0 PASS | 1 FAIL (any stage) | 2 environment error (missing
 // tools) | 4 missing or invalid input | 64 usage error.
@@ -256,8 +280,6 @@ const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 // captured subprocess stream is capped at capture time.
 const MAX_PUBLISHED_LINE_LENGTH = 2_000;
 const MAX_CAPTURE_BYTES = 64 * 1024;
-const CAPTURE_TRUNCATION_NOTE = "\n…[capture truncated]";
-const TAIL_LINES = 5;
 
 // ---------------------------------------------------------------------------
 // Structural redaction — every published line flows through here
@@ -328,20 +350,6 @@ function dieEnv(message) {
   process.exit(EXIT_ENV);
 }
 
-// A bounded, scrubbed tail of captured subprocess diagnostics — the only way
-// captured tool output is ever published.
-function publishTail(label, captured) {
-  if (typeof captured === "string" && captured.length > 0) {
-    const lines = captured.split("\n");
-    publishErr(`t027: ${label} (last ${Math.min(lines.length, TAIL_LINES)} line(s), secret-scrubbed):`);
-    for (const line of lines.slice(-TAIL_LINES)) {
-      if (line !== "") publishErr(line);
-    }
-  } else {
-    publishErr(`t027: ${label}: (no captured output)`);
-  }
-}
-
 function usage(fd) {
   const text = [
     "Usage: node scripts/verify-restored-foundation.mjs",
@@ -402,10 +410,27 @@ function findOnPath(tool, envPath) {
   return null;
 }
 
+// Bounded waits escalate in stages so an invocation-owned subprocess can
+// never make the await unbounded: SIGTERM at the deadline, SIGKILL after a
+// PROPORTIONAL grace period, and a hard force-settle (streams destroyed,
+// failed result returned) after twice that in case a grandchild inherited
+// the pipes and keeps them open after the owned child died. The grace scales
+// with the bound (a quarter of it, clamped to [200 ms, 5 s]) so short bounds
+// stay short in absolute terms while the production bounds keep a full 5 s
+// for graceful shutdown.
+function killGraceFor(timeoutMs) {
+  return Math.min(5_000, Math.max(200, Math.ceil(timeoutMs / 4)));
+}
+
 function runBounded(executable, args, timeoutMs, cwd) {
-  // Resolves { code, signal, stdout, stderr }; a spawn failure or a timeout
-  // kill resolves as a failed run with a FIXED reason (never a thrown error
-  // carrying the raw cause into output).
+  // Resolves { ok, reason, code, signal, stdout, stderrBytes }; stdout is
+  // kept ONLY for downstream JSON parsing that never echoes it (fixed
+  // messages on parse failure), and captured stderr is reduced to a byte
+  // count — no captured diagnostic text is ever published (F01). The deadline
+  // is tracked INDEPENDENTLY of the child's fate: an operation whose
+  // deadline fired is ALWAYS a failure, even when the child subsequently
+  // exits 0 (F03), and a spawn failure resolves as a failed run with a FIXED
+  // reason (never a thrown error carrying the raw cause into output).
   return new Promise((resolve) => {
     let child;
     try {
@@ -413,41 +438,86 @@ function runBounded(executable, args, timeoutMs, cwd) {
         cwd,
         env: process.env,
         stdio: ["ignore", "pipe", "pipe"],
-        timeout: timeoutMs,
-        killSignal: "SIGTERM",
       });
     } catch {
-      resolve({ ok: false, reason: "spawn", code: null, signal: null, stdout: "", stderr: "" });
+      resolve({ ok: false, reason: "spawn", code: null, signal: null, stdout: "", stderrBytes: 0 });
       return;
     }
     let stdout = "";
-    let stderr = "";
+    let stderrBytes = 0;
+    let timedOut = false;
     let settled = false;
+    let killTimer = null;
+    let forceTimer = null;
     const settle = (result) => {
-      if (!settled) {
-        settled = true;
-        resolve(result);
-      }
+      if (settled) return;
+      settled = true;
+      clearTimeout(killTimer);
+      clearTimeout(forceTimer);
+      resolve(result);
     };
+    const failResult = (reason, code, signal) => ({
+      ok: false,
+      reason,
+      code,
+      signal,
+      stdout: timedOut ? "" : stdout,
+      stderrBytes,
+    });
     child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk) => {
       if (stdout.length < MAX_CAPTURE_BYTES) stdout += chunk;
     });
-    child.stderr.on("data", (chunk) => {
-      if (stderr.length < MAX_CAPTURE_BYTES) stderr += chunk;
+    child.stderr.on("data", () => {
+      // Counted, never retained or published.
+      stderrBytes += 1;
     });
+    // Independent deadline: the spawned child is owned by this invocation,
+    // so terminating and collecting it is in scope. SIGTERM first, SIGKILL
+    // after the proportional grace period, and a forced failure result after
+    // twice the grace even if the close event never arrives.
+    const killGraceMs = killGraceFor(timeoutMs);
+    setTimeout(() => {
+      timedOut = true;
+      try {
+        child.kill("SIGTERM");
+      } catch {
+        // Already gone: the close handler decides.
+      }
+      killTimer = setTimeout(() => {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          // Already gone: the close handler decides.
+        }
+      }, killGraceMs);
+      forceTimer = setTimeout(() => {
+        try {
+          child.stdout.destroy();
+          child.stderr.destroy();
+        } catch {
+          // Streams already closed.
+        }
+        settle(failResult("timeout", null, null));
+      }, killGraceMs * 2);
+    }, timeoutMs);
     child.on("error", () => {
-      resolve({ ok: false, reason: "spawn", code: null, signal: null, stdout: "", stderr: "" });
+      settle(failResult(timedOut ? "timeout" : "spawn", null, null));
     });
     child.on("close", (code, signal) => {
+      if (timedOut) {
+        // The deadline fired: a failure regardless of how the child then
+        // exited (including exit 0 from a SIGTERM handler).
+        settle(failResult("timeout", code, signal));
+        return;
+      }
       settle({
-        ok: typeof code === "number" && code === 0,
-        reason: code === null && signal ? "timeout-or-signal" : "exit",
+        ok: typeof code === "number" && code === 0 && signal === null,
+        reason: code === null && signal ? "signal" : "exit",
         code,
         signal,
-        stdout: stdout + (stdout.length >= MAX_CAPTURE_BYTES ? CAPTURE_TRUNCATION_NOTE : ""),
-        stderr: stderr + (stderr.length >= MAX_CAPTURE_BYTES ? CAPTURE_TRUNCATION_NOTE : ""),
+        stdout,
+        stderrBytes,
       });
     });
   });
@@ -543,15 +613,21 @@ function checkInputs() {
     failInput("S1", "SONGHEALTH_RECOVERY_DIR is not readable/traversable");
   }
 
-  // PG* / migration-URL identity agreement: non-secret components only, host
-  // case-insensitively (the WHATWG URL parse lowercases the hostname), port/
-  // database/user compared exactly — the accepted T008/T013 boundary.
+  // PG* / migration-URL identity agreement: non-secret components only.
+  // DNS hostnames are case-insensitive and the WHATWG URL parse PRESERVES
+  // the original host spelling for non-special schemes such as postgres/
+  // postgresql (it lowercases only special schemes like http), so BOTH host
+  // spellings are compared case-insensitively (F02). The URL spelling is
+  // kept verbatim as the agreed host so the S4 native target-label
+  // comparison stays compatible with the pinned EmDash 1.1.0 label, which
+  // uses parsed.hostname verbatim. Port/database/user are compared exactly
+  // — the accepted T008/T013 boundary.
   const identity = migrationUrlIdentity();
   if (identity.error) {
     failInput("S1", `${identity.error} (malformed migration connection input)`);
   }
   const mismatches = [];
-  if (identity.host !== process.env.PGHOST.toLowerCase()) {
+  if (identity.host.toLowerCase() !== process.env.PGHOST.toLowerCase()) {
     mismatches.push("host (PGHOST vs EMDASH_MIGRATION_DATABASE_URL)");
   }
   if (identity.port !== process.env.PGPORT) {
@@ -705,11 +781,15 @@ function loadExactBuildManifest() {
   }
 
   const names = manifest.migrationSet?.names;
+  // Observed manifest values are never interpolated into evidence (F01): a
+  // malformed manifest is untrusted input and could carry credential-bearing
+  // strings; failures name the field/check only. The pinned version is from
+  // the tracked package.json and is safe to name.
   if (manifest.schemaVersion !== 1) {
-    failStage("S3", `unexpected exact-build manifest schemaVersion ${JSON.stringify(manifest.schemaVersion ?? null)}`);
+    failStage("S3", "unexpected exact-build manifest schemaVersion (observed value not printed; expected 1)");
   }
   if (manifest.emdashVersion !== pinned) {
-    failStage("S3", `exact-build manifest emdashVersion ${JSON.stringify(manifest.emdashVersion ?? "")} does not match the pinned dependency ${pinned}`);
+    failStage("S3", `exact-build manifest emdashVersion does not match the pinned dependency ${pinned} (observed value not printed)`);
   }
   if (!Array.isArray(names) || names.length < 1 || !names.every((name) => typeof name === "string" && name !== "")) {
     failStage("S3", "the exact-build manifest migration set is empty, missing, or malformed");
@@ -721,10 +801,10 @@ function loadExactBuildManifest() {
     failStage("S3", "the exact-build manifest migration-set fingerprint is missing or not a SHA-256 value");
   }
   if (manifest.database?.type !== "postgres") {
-    failStage("S3", `exact-build manifest database type ${JSON.stringify(manifest.database?.type ?? "")} is not the native postgres adapter`);
+    failStage("S3", "exact-build manifest database type is not the native postgres adapter (observed value not printed)");
   }
   if (manifest.database?.executorConfig?.connectionStringEnv !== EXPECTED_MIGRATION_ENV_NAME) {
-    failStage("S3", `exact-build manifest migration connection variable is ${JSON.stringify(manifest.database?.executorConfig?.connectionStringEnv ?? "")}, expected the NAME ${EXPECTED_MIGRATION_ENV_NAME}`);
+    failStage("S3", `exact-build manifest migration connection variable does not name ${EXPECTED_MIGRATION_ENV_NAME} (observed value not printed)`);
   }
   // Secret-freeness of the native manifest (the accepted T013/T024 scans).
   if (/:\/\//.test(text)) {
@@ -769,11 +849,10 @@ async function checkMigrationState(tools, agreedIdentity, exactBuildNames) {
     APP_ROOT,
   );
   if (!status.ok) {
-    publishTail("emdash migrate --status diagnostics", status.stderr);
-    if (status.reason === "timeout-or-signal") {
-      failStage("S4", "native emdash migrate --status did not finish within its time bound against the restored target");
+    if (status.reason === "timeout") {
+      failStage("S4", "native emdash migrate --status did not finish within its time bound against the restored target (terminated and collected; diagnostics withheld)");
     }
-    failStage("S4", `native emdash migrate --status failed against the restored target (exit ${status.code})`);
+    failStage("S4", `native emdash migrate --status failed against the restored target (exit ${status.code}; ${status.stderrBytes} byte(s) of diagnostics withheld)`);
   }
   const report = parseJsonReport("S4", "status report", status.stdout);
   const target = report.target ?? {};
@@ -785,7 +864,7 @@ async function checkMigrationState(tools, agreedIdentity, exactBuildNames) {
   }
 
   if (target.kind !== "postgres") {
-    failStage("S4", `inspected restored migration target kind is ${JSON.stringify(String(target.kind ?? ""))}, expected postgres`);
+    failStage("S4", "inspected restored migration target kind is not postgres (observed value not printed)");
   }
   if (!isSha256Hex(target.fingerprint)) {
     failStage("S4", "the inspected restored-target fingerprint is missing or not a SHA-256 value");
@@ -793,10 +872,13 @@ async function checkMigrationState(tools, agreedIdentity, exactBuildNames) {
   // The native postgres target label is host:port/database derived from the
   // migration connection URL's identity (verified from the pinned package
   // source); it must agree with the S1 identity, so the inspected target is
-  // the restored database and not some other target.
+  // the restored database and not some other target. The OBSERVED label is
+  // never printed (F01: an untrusted report can carry credential-bearing
+  // strings); the expected label is built from the agreed non-secret
+  // identity components only.
   const expectedLabel = `${agreedIdentity.host}:${agreedIdentity.port}/${agreedIdentity.database}`;
   if (target.label !== expectedLabel) {
-    failStage("S4", `inspected target label ${JSON.stringify(String(target.label ?? ""))} does not match the restored target identity ${expectedLabel}`);
+    failStage("S4", `inspected target label does not match the restored target identity ${expectedLabel} (observed value not printed)`);
   }
   if (pending.length > 0) {
     failStage("S4", `the restored target reports ${pending.length} pending migration(s); pending state blocks restored-integrity verification`);
@@ -813,7 +895,7 @@ async function checkMigrationState(tools, agreedIdentity, exactBuildNames) {
   if (!sameSet) {
     failStage("S4", `the restored target's applied migration set does not equal the exact-build manifest's migration set (applied ${appliedSorted.length} of ${exactBuildNames.length}); inconsistent migration state blocks verification`);
   }
-  info("S4", `restored target inspected: ${target.kind} ${target.label}`);
+  info("S4", `restored target inspected: postgres ${expectedLabel} (expected identity; the report's own spelling was proven equal)`);
   info("S4", `restored-target fingerprint (sha256 of the non-secret target identity): ${target.fingerprint}`);
   info("S4", `migration state: applied=${knownApplied.length} pending=${pending.length} unknown=${unknownApplied.length}`);
 
@@ -825,11 +907,10 @@ async function checkMigrationState(tools, agreedIdentity, exactBuildNames) {
     APP_ROOT,
   );
   if (!check.ok) {
-    publishTail("emdash migrate --check diagnostics", check.stderr);
-    if (check.reason === "timeout-or-signal") {
-      failStage("S4", "native emdash migrate --check did not finish within its time bound against the restored target");
+    if (check.reason === "timeout") {
+      failStage("S4", "native emdash migrate --check did not finish within its time bound against the restored target (terminated and collected; diagnostics withheld)");
     }
-    failStage("S4", `emdash migrate --check failed (exit ${check.code}: pending or unknown migrations remain against the restored target, or an error occurred)`);
+    failStage("S4", `emdash migrate --check failed (exit ${check.code}: pending or unknown migrations remain against the restored target, or an error occurred; ${check.stderrBytes} byte(s) of diagnostics withheld)`);
   }
   info("S4", "emdash migrate --check: no pending and no unknown migrations against the restored target (exit 0; applies nothing)");
   pass("S4", "native migration state of the restored target verified read-only: postgres target identity agreement, zero pending, zero unknown, applied set equals the exact-build set, native --check exit 0");
@@ -847,11 +928,10 @@ async function checkObservedTagline(tools) {
     APP_ROOT,
   );
   if (!observation.ok) {
-    publishTail("psql tagline query diagnostics", observation.stderr);
-    if (observation.reason === "timeout-or-signal") {
-      failStage("S5", "the native Site Setting tagline read did not finish within its time bound");
+    if (observation.reason === "timeout") {
+      failStage("S5", "the native Site Setting tagline read did not finish within its time bound (terminated and collected; diagnostics withheld)");
     }
-    failStage("S5", "the native Site Setting tagline could not be read from the restored database (unreachable, authentication refused, or the native options storage is absent)");
+    failStage("S5", `the native Site Setting tagline could not be read from the restored database (unreachable, authentication refused, or the native options storage is absent; ${observation.stderrBytes} byte(s) of diagnostics withheld)`);
   }
   let text = observation.stdout;
   if (text === "") {
@@ -917,19 +997,20 @@ function checkRestoredMedia(designatedEntries) {
   // Walk the whole mount: every entry must be a plain regular file or
   // directory (a symlink or special object anywhere is alias/special-content
   // ambiguity and fails closed), and the regular-file set is compared with
-  // the designated set below.
+  // the designated set below. Filesystem names are untrusted (F01): evidence
+  // carries counts, positions, and validated hex digests — never a raw name.
   const presentFiles = [];
   const walk = (directory, prefix) => {
     let dirents;
     try {
       dirents = fs.readdirSync(directory, { withFileTypes: true });
     } catch {
-      failStage("S6", `the restored media mount could not be enumerated${prefix ? ` under ${prefix}` : ""} (unreadable)`);
+      failStage("S6", `the restored media mount could not be enumerated (unreadable; ${presentFiles.length} file(s) seen so far; names not printed)`);
     }
     for (const dirent of dirents) {
       const rel = prefix === "" ? dirent.name : `${prefix}/${dirent.name}`;
       if (dirent.isSymbolicLink() || (!dirent.isFile() && !dirent.isDirectory())) {
-        failStage("S6", `the restored media mount contains a non-regular entry (symlink or special object): ${rel}`);
+        failStage("S6", `the restored media mount contains a non-regular entry (symlink or special object) at file ${presentFiles.length + 1} of the walk (name not printed; sha256 of the name ${sha256Hex(Buffer.from(rel, "utf8"))})`);
       }
       if (dirent.isDirectory()) walk(path.join(directory, dirent.name), rel);
       else presentFiles.push(rel);
@@ -939,9 +1020,14 @@ function checkRestoredMedia(designatedEntries) {
 
   // Every designated entry: each path component must be a real directory
   // (never a symlink), the final entry a real regular file, and the bytes
-  // must match the recorded size and SHA-256 independently.
+  // must match the recorded size and SHA-256 independently. Evidence
+  // identifies the entry by its manifest position and its RECORDED digest
+  // (hex-validated in S2), so an operator can map it back to the manifest
+  // without any untrusted bytes reaching the output.
   let matched = 0;
-  for (const entry of designatedEntries) {
+  for (let index = 0; index < designatedEntries.length; index += 1) {
+    const entry = designatedEntries[index];
+    const entryRef = `entry ${index + 1} of ${designatedEntries.length} (recorded sha256 ${entry.sha256})`;
     const components = entry.path.split("/");
     let probe = mount;
     for (let i = 0; i < components.length - 1; i += 1) {
@@ -950,13 +1036,13 @@ function checkRestoredMedia(designatedEntries) {
       try {
         componentStat = fs.lstatSync(probe);
       } catch {
-        failStage("S6", `the designated restored media entry is missing from the mount: ${entry.path}`);
+        failStage("S6", `the designated restored media entry is missing from the mount: ${entryRef}`);
       }
       if (componentStat.isSymbolicLink()) {
-        failStage("S6", `a component of the designated restored media path is a symlink (alias ambiguity rejected): ${entry.path}`);
+        failStage("S6", `a component of the designated restored media path is a symlink (alias ambiguity rejected): ${entryRef}`);
       }
       if (!componentStat.isDirectory()) {
-        failStage("S6", `a component of the designated restored media path is not a directory: ${entry.path}`);
+        failStage("S6", `a component of the designated restored media path is not a directory: ${entryRef}`);
       }
     }
     const target = path.join(mount, entry.path);
@@ -964,28 +1050,28 @@ function checkRestoredMedia(designatedEntries) {
     try {
       entryStat = fs.lstatSync(target);
     } catch {
-      failStage("S6", `the designated restored media entry is missing from the mount: ${entry.path}`);
+      failStage("S6", `the designated restored media entry is missing from the mount: ${entryRef}`);
     }
     if (entryStat.isSymbolicLink()) {
-      failStage("S6", `the designated restored media entry is a symlink (alias ambiguity rejected): ${entry.path}`);
+      failStage("S6", `the designated restored media entry is a symlink (alias ambiguity rejected): ${entryRef}`);
     }
     if (!entryStat.isFile()) {
-      failStage("S6", `the designated restored media entry did not restore as a regular file: ${entry.path}`);
+      failStage("S6", `the designated restored media entry did not restore as a regular file: ${entryRef}`);
     }
     let bytes;
     try {
       bytes = fs.readFileSync(target);
     } catch {
-      failStage("S6", `the designated restored media entry is unreadable: ${entry.path}`);
+      failStage("S6", `the designated restored media entry is unreadable: ${entryRef}`);
     }
     if (entryStat.size !== bytes.length) {
-      failStage("S6", `the designated restored media entry changed while being read (inconsistent observation): ${entry.path}`);
+      failStage("S6", `the designated restored media entry changed while being read (inconsistent observation): ${entryRef}`);
     }
     if (bytes.length !== entry.size) {
-      failStage("S6", `the designated restored media entry has the wrong size (size difference): ${entry.path}`);
+      failStage("S6", `the designated restored media entry has the wrong size (size difference): ${entryRef}`);
     }
     if (sha256Hex(bytes) !== entry.sha256) {
-      failStage("S6", `the designated restored media entry does not match the recorded SHA-256 evidence (digest difference): ${entry.path}`);
+      failStage("S6", `the designated restored media entry does not match the recorded SHA-256 evidence (digest difference): ${entryRef}`);
     }
     matched += 1;
   }
@@ -997,7 +1083,7 @@ function checkRestoredMedia(designatedEntries) {
   const designatedSet = new Set(designatedEntries.map((entry) => entry.path));
   const extras = presentFiles.filter((file) => !designatedSet.has(file));
   if (extras.length > 0) {
-    failStage("S6", `the restored media mount carries ${extras.length} unexplained non-designated file(s) (first: ${extras[0]}); zero unexplained differences required`);
+    failStage("S6", `the restored media mount carries ${extras.length} unexplained non-designated file(s) (names not printed; sha256 of the first name ${sha256Hex(Buffer.from(extras[0], "utf8"))}); zero unexplained differences required`);
   }
   if (matched !== designatedEntries.length) {
     failStage("S6", "100% designated media recovery not met");
