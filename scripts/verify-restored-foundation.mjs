@@ -198,7 +198,7 @@
 // stderr is reduced to a byte count and never retained as text; invalid
 // invocations never echo argument values.
 //
-// Bounded waits (corrective rounds 1–2, F03): every external read is bounded
+// Bounded waits (corrective rounds 1–3, F03): every external read is bounded
 // by an invocation-owned deadline tracked INDEPENDENTLY of the child's fate —
 // SIGTERM at the deadline, SIGKILL after a proportional grace (a quarter of
 // the bound, clamped to [200 ms, 5 s]), and a hard force-settle (streams
@@ -210,13 +210,20 @@
 // negative pid, so termination covers the processes this invocation owns —
 // including descendants of the CLI wrapper (npx → emdash) that inherited the
 // pipes — and never selects by executable name or touches the workspace
-// daemon or unrelated processes. A bounded collection phase then polls the
-// owned group for emptiness (re-SIGKILLing lingering members) before the
-// result is returned, and timeout evidence says "collected" only when
-// emptiness was actually observed. Bounds: 45 s for psql and 75 s per emdash
-// invocation (+ at most ~10 s termination/collection each) — comfortably
-// inside the accepted T024 S5 comparator bound of 300 s.
-//
+// daemon or unrelated processes. Every settlement path cancels EVERY derived
+// timer including the deadline itself, and the timer callbacks refuse to
+// signal once settled, so a completed operation never makes a later
+// termination attempt against a possibly stale PGID (round 3). The bounded
+// collection phase then polls the owned group for emptiness where ONLY an
+// explicit ESRCH observation counts — EPERM or any other failed/unexpected
+// observation is unavailable evidence that establishes nothing — and an
+// operation whose collection could not be established is downgraded to a
+// failed result (reason "collect") so every call site fails closed: uncertain
+// cleanup is never reported as success, and timeout evidence says
+// "collected" only when emptiness was actually observed. Bounds: 45 s for
+// psql and 75 s per emdash invocation (+ at most ~10 s termination and
+// ~0.75 s collection each) — comfortably inside the accepted T024 S5
+// comparator bound of 300 s.
 // Exit codes: 0 PASS | 1 FAIL (any stage) | 2 environment error (missing
 // tools) | 4 missing or invalid input | 64 usage error.
 
@@ -511,10 +518,18 @@ async function runBounded(executable, args, timeoutMs, cwd) {
     let timedOut = false;
     let exited = null; // { code, signal } once the child itself died
     let settled = false;
+    let deadlineTimer = null;
     let killTimer = null;
     let forceTimer = null;
     let pipeTimer = null;
+    // Every settlement path cancels EVERY derived timer — including the
+    // independent deadline itself (F03 round 3): once an operation has
+    // settled, a stale deadline must never fire, and a PGID whose group was
+    // already observed gone is no longer a valid ownership basis for any
+    // later termination attempt. The `if (settled) return;` guards in the
+    // timer callbacks are defense in depth for a callback already dequeued.
     const clearTimers = () => {
+      clearTimeout(deadlineTimer);
       clearTimeout(killTimer);
       clearTimeout(forceTimer);
       clearTimeout(pipeTimer);
@@ -555,13 +570,16 @@ async function runBounded(executable, args, timeoutMs, cwd) {
     // a forced failure result after twice the grace even if the close event
     // never arrives.
     const killGraceMs = killGraceFor(timeoutMs);
-    setTimeout(() => {
+    deadlineTimer = setTimeout(() => {
+      if (settled) return; // stale deadline: never signal after settlement
       timedOut = true;
       signalOwned("SIGTERM");
       killTimer = setTimeout(() => {
+        if (settled) return; // stale escalation: never signal after settlement
         signalOwned("SIGKILL");
       }, killGraceMs);
       forceTimer = setTimeout(() => {
+        if (settled) return;
         destroyStreams();
         settle(failResult("timeout", null, null));
       }, killGraceMs * 2);
@@ -576,6 +594,7 @@ async function runBounded(executable, args, timeoutMs, cwd) {
       // descendant. Give them a bounded grace, then kill the remaining group
       // and destroy the streams so normal completion stays bounded too.
       pipeTimer = setTimeout(() => {
+        if (settled) return; // stale pipe grace: never signal after settlement
         signalOwned("SIGKILL");
         destroyStreams();
         settle({
@@ -609,37 +628,67 @@ async function runBounded(executable, args, timeoutMs, cwd) {
   // owned group is still alive — a descendant of the CLI wrapper that
   // inherited the pipes, for example — re-SIGKILL the group and poll for
   // emptiness. This is what makes a "terminated and collected" claim real
-  // for descendants, not just the direct child; `collected` records whether
-  // emptiness was actually established, so published claims can match the
-  // evidence.
+  // for descendants, not just the direct child. ONLY an explicit ESRCH
+  // observation establishes emptiness (F03 round 3): EPERM and every other
+  // failed or unexpected observation are UNAVAILABLE evidence and must never
+  // establish cleanup. When collection cannot be established, the result is
+  // downgraded to a failure (reason "collect") so every call site fails
+  // closed — uncertain cleanup is never reported as success — and the
+  // timeout path keeps its already-failed status with `collected: false`.
   const groupPid = useProcessGroup && child !== null && typeof child.pid === "number" ? -child.pid : null;
   if (groupPid === null) {
-    return { ...run, collected: run.reason === "spawn" };
-  }
-  const groupEmpty = () => {
-    try {
-      process.kill(groupPid, 0);
-      return false;
-    } catch {
-      return true; // ESRCH: no member of the owned group remains
-    }
-  };
-  if (groupEmpty()) {
+    // No group was created (spawn failure): there is nothing to collect.
     return { ...run, collected: true };
   }
-  const deadline = Date.now() + COLLECTION_POLL_MS;
-  while (Date.now() < deadline) {
+  const probeGroup = () => {
+    // "empty" (ESRCH — no member of the owned group remains), "members"
+    // (the group is observably non-empty), or "unavailable" (EPERM or any
+    // other failed/unexpected observation).
     try {
-      process.kill(groupPid, "SIGKILL");
-    } catch {
-      // Already empty.
+      process.kill(groupPid, 0);
+      return "members";
+    } catch (error) {
+      if (error && typeof error === "object" && error.code === "ESRCH") return "empty";
+      return "unavailable";
     }
-    await sleepMs(COLLECTION_POLL_STEP_MS);
-    if (groupEmpty()) {
-      return { ...run, collected: true };
+  };
+  let collected = false;
+  let firstProbe = probeGroup();
+  if (firstProbe === "empty") {
+    collected = true;
+  } else {
+    const deadline = Date.now() + COLLECTION_POLL_MS;
+    let probe = firstProbe;
+    while (probe === "members" && Date.now() < deadline) {
+      try {
+        process.kill(groupPid, "SIGKILL");
+      } catch {
+        // Already empty or unavailable: the next probe decides.
+      }
+      await sleepMs(COLLECTION_POLL_STEP_MS);
+      probe = probeGroup();
+      if (probe === "empty") {
+        collected = true;
+        break;
+      }
     }
   }
-  return { ...run, collected: false };
+  if (collected) {
+    return { ...run, collected: true };
+  }
+  // Collection could not be established (unavailable observation or an
+  // exhausted poll with members still observably present). Fail closed:
+  // never return a success for an operation whose owned-group cleanup is
+  // unconfirmed.
+  return {
+    ok: false,
+    reason: run.reason === "timeout" ? "timeout" : "collect",
+    code: run.code,
+    signal: run.signal,
+    stdout: "",
+    stderrBytes: run.stderrBytes,
+    collected: false,
+  };
 }
 
 const sha256Hex = (buffer) => crypto.createHash("sha256").update(buffer).digest("hex");
@@ -968,6 +1017,9 @@ async function checkMigrationState(tools, agreedIdentity, exactBuildNames) {
     APP_ROOT,
   );
   if (!status.ok) {
+    if (status.reason === "collect") {
+      failStage("S4", "native emdash migrate --status completed but cleanup of its invocation-owned subprocess group could not be established (observation unavailable or collection unconfirmed; uncertain cleanup never verifies)");
+    }
     if (status.reason === "timeout") {
       failStage("S4", `native emdash migrate --status did not finish within its time bound against the restored target (${terminationNote(status)}; diagnostics withheld)`);
     }
@@ -1026,6 +1078,9 @@ async function checkMigrationState(tools, agreedIdentity, exactBuildNames) {
     APP_ROOT,
   );
   if (!check.ok) {
+    if (check.reason === "collect") {
+      failStage("S4", "native emdash migrate --check completed but cleanup of its invocation-owned subprocess group could not be established (observation unavailable or collection unconfirmed; uncertain cleanup never verifies)");
+    }
     if (check.reason === "timeout") {
       failStage("S4", `native emdash migrate --check did not finish within its time bound against the restored target (${terminationNote(check)}; diagnostics withheld)`);
     }
@@ -1047,6 +1102,9 @@ async function checkObservedTagline(tools) {
     APP_ROOT,
   );
   if (!observation.ok) {
+    if (observation.reason === "collect") {
+      failStage("S5", "the native Site Setting tagline read completed but cleanup of its invocation-owned subprocess group could not be established (observation unavailable or collection unconfirmed; uncertain cleanup never verifies)");
+    }
     if (observation.reason === "timeout") {
       failStage("S5", `the native Site Setting tagline read did not finish within its time bound (${terminationNote(observation)}; diagnostics withheld)`);
     }
