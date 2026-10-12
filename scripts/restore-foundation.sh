@@ -84,18 +84,22 @@
 #        an atomic guarded rename; every designated entry re-verified by
 #        bytes; each top-level entry published with mv --no-clobber
 #        --no-target-directory exact-basename semantics, staged-object
-#        device:inode ownership proof, and post-move verification, WITH a
-#        per-descendant identity record taken at each verified move; the
-#        published destination is then proven to contain EXACTLY the
-#        archived entries — a late foreign or replacement entry fails the
-#        run and rolls back only what this invocation demonstrably
-#        published and still owns: because owning a directory does not
-#        establish ownership of its descendants, rollback removes recorded
-#        objects one by one (rmdir-only for directories), PRESERVING
-#        foreign additions and replaced descendants — including
-#        identical-bytes replacements with a different inode — and keeps
-#        any directory still holding such an object; staging cleanup
-#        follows the same rule), then the database: native `pg_restore
+#        device:inode ownership proof, and post-move verification, WITH
+#        descendant ownership derived from the VALIDATED STAGING
+#        PROVENANCE (the staging tree identity record taken after the
+#        verified extraction) and the landed tree REQUIRED to match that
+#        provenance exactly — a foreign addition or replacement that
+#        appears between the rename and verification is refused and never
+#        becomes cleanup-owned; the published destination is then proven
+#        to contain EXACTLY the archived entries — a late foreign or
+#        replacement entry fails the run and rolls back only what this
+#        invocation demonstrably published and still owns: because owning
+#        a directory does not establish ownership of its descendants,
+#        rollback removes provenance-proven objects one by one
+#        (rmdir-only for directories), PRESERVING foreign additions and
+#        replaced descendants — including identical-bytes replacements
+#        with a different inode — and keeps any directory still holding
+#        such an object; staging cleanup follows the same rule), then the database: native `pg_restore
 #        --exit-on-error --no-owner --no-privileges` (plus --no-password
 #        for non-interactive use) restoring the WHOLE archive into the
 #        validated clean target with NO schema/table/section/data-only
@@ -542,12 +546,14 @@ record_tree() {
 	# record_tree <root> <record-file>: evidence of object identity for
 	# every entry under <root> (the root itself excluded), as
 	# <relative-path>TAB<device:inode>TAB<type> lines (%D is the device
-	# number, matching stat's %d). The record is taken at a moment when
-	# the whole tree is demonstrably this invocation's own (immediately
-	# after a verified move, or after the verified staging extraction), so
-	# any later object that does not match it — a foreign addition or an
-	# identical-bytes replacement with a different inode — is not provably
-	# ours and is never removed.
+	# number, matching stat's %d). Used for the STAGING provenance record:
+	# taken immediately after the verified staging extraction, when every
+	# recorded object is provably this invocation's own. Per-entry
+	# ownership records for rollback are DERIVED from this provenance (by
+	# path prefix) — never adopted from a fresh enumeration of the
+	# destination — and the landed tree must match the derived record at
+	# verification time, so a foreign addition or an identical-bytes
+	# replacement with a different inode is never cleanup-owned.
 	find "$1" -mindepth 1 -printf '%P\t%D:%i\t%y\n' 2>/dev/null | LC_ALL=C sort >"$2"
 }
 
@@ -644,12 +650,14 @@ rollback_published_media() {
 	# Removes ONLY what this invocation demonstrably published and still
 	# owns. A published REGULAR FILE is a single proven object (rm -f). A
 	# published DIRECTORY is proven only at its own boundary: its
-	# descendants are removed solely through the per-descendant identity
-	# record taken at its verified move (remove_owned_tree — rmdir-only for
-	# directories, preserving foreign additions and replaced descendants),
-	# never by an unproven recursive delete. Entries replaced, swapped,
-	# symlinked, or never published by this run are foreign and are left
-	# untouched.
+	# descendants are removed solely through the PROVENANCE-DERIVED
+	# per-descendant identity record (derived from the validated staging
+	# tree, which the landed tree was required to match at verification
+	# time; remove_owned_tree — rmdir-only for directories, preserving
+	# foreign additions and replaced descendants), never by an unproven
+	# recursive delete and never from a fresh destination enumeration.
+	# Entries replaced, swapped, symlinked, or never published by this run
+	# are foreign and are left untouched.
 	local i='' left='' incomplete=''
 	for i in "${!PUBLISHED_NAMES[@]}"; do
 		if [ -z "${PUBLISHED_NAMES[$i]:-}" ]; then
@@ -1524,17 +1532,42 @@ restore_media() {
 			fail_stage S4 'publication refused: the landed media entry %s is not the original staged object this invocation created (replaced or ambiguous); the destination entry was left untouched' \
 				"$name"
 		fi
-		# Per-descendant ownership evidence, taken at the moment the landed
-		# tree is provably this run's own: rollback of a published directory
-		# removes only descendants that STILL carry these recorded
-		# identities — foreign additions and identical-bytes replacements
-		# (different objects) are preserved, never recursively deleted.
+		# Descendant ownership is derived from the VALIDATED STAGING
+		# PROVENANCE — never adopted from a fresh enumeration of the
+		# destination: the staging tree identity record was taken when every
+		# staged object was provably this invocation's own (verified
+		# extraction into this run's private staging directory). A rename
+		# preserves each object's device:inode, so the landed tree MUST
+		# equal this provenance exactly; anything else — a foreign addition
+		# or a replacement (including an identical-bytes replacement with a
+		# different inode) that appeared between the rename and this
+		# verification — is not provably ours, is refused below, and never
+		# becomes cleanup-owned.
 		local pub_tree="$SCRATCH/pub-tree-${#PUBLISHED_NAMES[@]}.tree"
-		record_tree "$dest" "$pub_tree"
+		local landed_tree="$SCRATCH/landed-tree-${#PUBLISHED_NAMES[@]}.txt"
+		awk -F'\t' -v pfx="$name/" 'index($1, pfx) == 1 {
+			$1 = substr($1, length(pfx) + 1)
+			print $1 "\t" $2 "\t" $3
+		}' "$STAGING_TREE" | LC_ALL=C sort >"$pub_tree"
+		find "$dest" -mindepth 1 -printf '%P\t%D:%i\t%y\n' 2>"$SCRATCH/find-landed.err" |
+			LC_ALL=C sort >"$landed_tree" || {
+				print_tail 'find diagnostics (landed tree)' "$SCRATCH/find-landed.err" 3
+				rollback_published_media
+				fail_stage S4 'the landed media entry %s could not be enumerated for provenance verification' "$name"
+			}
+		# The entry joins the rollback set FIRST, governed by the
+		# provenance-derived record: a provenance mismatch then rolls back
+		# exactly the provenance-matching descendants of THIS entry too,
+		# preserving the foreign objects inside it.
 		PUBLISHED_NAMES+=("$name")
 		PUBLISHED_IDS+=("$staged_id")
 		PUBLISHED_ISDIR+=("$is_dir")
 		PUBLISHED_TREES+=("$pub_tree")
+		if ! cmp -s "$pub_tree" "$landed_tree"; then
+			rollback_published_media
+			fail_stage S4 'publication refused: the landed tree for %s does not match the validated staging provenance (a foreign addition or replacement appeared between the rename and verification); owned objects were rolled back and the unproven foreign objects were preserved' \
+				"$name"
+		fi
 	done <"$top_level"
 
 	# Remove this run's own now-empty staging directory before the final
