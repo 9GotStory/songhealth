@@ -70,34 +70,45 @@
 #        media destination exists as a directory, is not a symlink, is
 #        readable/traversable/writable, and is EMPTY; the restore database is
 #        reachable through the native PG* inputs, current_database() equals
-#        PGDATABASE, and user objects/schemas/extensions/large objects are
-#        all absent. Existing user database objects/data and nonempty or
-#        unsafe media destinations are refused — never dropped, cleared,
-#        overwritten, or reinitialized.
+#        PGDATABASE, and user objects of EVERY kind are absent — relations
+#        of all kinds, ROUTINES (functions/procedures/aggregates), and
+#        standalone TYPES (with their array types) alongside non-default
+#        schemas, extensions, and large objects — so a database carrying
+#        only a function or only an enum is a populated existing store and
+#        is refused just like one carrying tables. Existing user database
+#        objects/data and nonempty or unsafe media destinations are
+#        refused — never dropped, cleared, overwritten, or reinitialized.
 #   S4   the bounded restoration itself, latest-stage-first-rollbackable:
 #        media first (archive extracted into a private staging directory
 #        created INSIDE the destination — same filesystem, so publication is
 #        an atomic guarded rename; every designated entry re-verified by
 #        bytes; each top-level entry published with mv --no-clobber
 #        --no-target-directory exact-basename semantics, staged-object
-#        device:inode ownership proof, and post-move verification; the
+#        device:inode ownership proof, and post-move verification, WITH a
+#        per-descendant identity record taken at each verified move; the
 #        published destination is then proven to contain EXACTLY the
 #        archived entries — a late foreign or replacement entry fails the
-#        run and rolls back only what this invocation demonstrably published
-#        and still owns, leaving foreign objects untouched), then the
-#        database: native `pg_restore --exit-on-error --no-owner
-#        --no-privileges` (plus --no-password for non-interactive use)
-#        restoring the WHOLE archive into the validated clean target with NO
-#        schema/table/section/data-only filtering and NO selected TOC lists;
-#        any restore error stops the run nonzero, rolls the media
-#        publication back, and refuses a zero-object result. The
-#        non-rollbackable native restore runs LAST, after every rollbackable
-#        step has been verified; because pg_restore --exit-on-error stops at
-#        the first error without undoing applied work, a failed database
-#        restore leaves the media destination as it was found (empty) while
-#        the DATABASE may carry partial objects and must be externally
-#        reprovisioned before any retry — it is never dropped or cleared
-#        here.
+#        run and rolls back only what this invocation demonstrably
+#        published and still owns: because owning a directory does not
+#        establish ownership of its descendants, rollback removes recorded
+#        objects one by one (rmdir-only for directories), PRESERVING
+#        foreign additions and replaced descendants — including
+#        identical-bytes replacements with a different inode — and keeps
+#        any directory still holding such an object; staging cleanup
+#        follows the same rule), then the database: native `pg_restore
+#        --exit-on-error --no-owner --no-privileges` (plus --no-password
+#        for non-interactive use) restoring the WHOLE archive into the
+#        validated clean target with NO schema/table/section/data-only
+#        filtering and NO selected TOC lists; any restore error stops the
+#        run nonzero, rolls the media publication back, and refuses a
+#        zero-object result. The non-rollbackable native restore runs LAST,
+#        after every rollbackable step has been verified; because
+#        pg_restore --exit-on-error stops at the first error without
+#        undoing applied work, a failed database restore leaves the media
+#        destination as it was found (empty, except preserved foreign
+#        objects) while the DATABASE may carry partial objects and must be
+#        externally reprovisioned before any retry — it is never dropped or
+#        cleared here.
 #
 # Division of ownership: this script performs ONLY this bounded database and
 # media restoration. Exit 0 means exactly that restoration succeeded — it is
@@ -155,13 +166,22 @@
 #
 # Secret safety: this script never prints PGPASSWORD, the migration URL, the
 # migration credential, the encryption key, or any other secret value.
-# Redaction is structural (mirroring the accepted T024/T025 sources): every
-# published diagnostic flows through publish_diag/scrub and every stdout
-# line carrying dynamic values flows through publish_out/scrub; underlying
-# tool error streams (psql, pg_restore, tar, mv, sha256sum, stat, mktemp)
-# are captured and released only through the scrubbed tail, never inherited;
-# node-side JSON readers report parser failures with FIXED messages (the
-# default SyntaxError echoes an excerpt of the raw input); errors name the
+# Redaction is structural (mirroring the accepted T024/T025 sources) and
+# covers ALL published output, not only diagnostics: every status/evidence
+# line (pass/info step output and the success banner, which carry dynamic
+# values such as identity components, artifact basenames, paths, and the
+# recovery-set identifier) flows through publish_out/scrub, and every
+# diagnostic (fail_stage/die/fail_input messages, captured tails) flows
+# through publish_diag/scrub — so a non-secret-looking value that happens
+# to EQUAL a supplied secret (for example a PGDATABASE equal to
+# PGPASSWORD, or an artifact basename carrying a credential) can never
+# reach unsanitized output on either a successful or a failing run;
+# underlying tool error streams (psql, pg_restore, tar, mv, sha256sum,
+# stat, mktemp) are captured and released only through the scrubbed tail,
+# never inherited; node-side JSON readers report parser failures with
+# FIXED messages (the default SyntaxError echoes an excerpt of the raw
+# input) and refuse control characters in emitted identifier strings (an
+# embedded newline cannot forge later parse lines); errors name the
 # failing field/resource only; invalid invocations never echo argument
 # values.
 #
@@ -235,6 +255,9 @@ AGREED_USER=''
 PUBLISHED_NAMES=()
 PUBLISHED_IDS=()
 PUBLISHED_ISDIR=()
+PUBLISHED_TREES=()
+# Staging tree identity record (set after the verified staging extraction).
+STAGING_TREE=''
 
 usage() {
 	cat <<'EOF'
@@ -295,14 +318,19 @@ die() {
 }
 
 step() {
-	# step <name> <status> <printf-format> [args...]
+	# step <name> <status> <printf-format> [args...]: the formatted message
+	# is published through the structural redaction boundary (publish_out),
+	# like every dynamic status/evidence line — an identity component,
+	# artifact basename, or path that happens to carry a supplied secret
+	# VALUE (for example a PGDATABASE equal to PGPASSWORD) can never reach
+	# unsanitized output, on success or failure.
 	local name="$1" status="$2"
 	shift 2
-	printf 't026: [%s] %s ' "$name" "$status"
+	local message=''
 	# The format is always this script's own literal message.
 	# shellcheck disable=SC2059
-	printf -- "$@"
-	printf '\n'
+	message="$(printf -- "$@")"
+	printf 't026: [%s] %s %s\n' "$name" "$status" "$message" | publish_out
 }
 
 pass() { step "$1" PASS "${@:2}"; }
@@ -499,14 +527,89 @@ check_paths_separated() {
 
 # ---------------------------------------------------------------------------
 # Cleanup and rollback. Cleanup removes only this invocation's own scratch
-# and staging directories. Rollback removes ONLY destination entries this
-# invocation demonstrably published and still owns; foreign, replaced,
-# symlinked, or ambiguous entries are left untouched (reported by basename).
+# and staging trees, and staging is removed ownership-safely (see below).
+# Rollback removes ONLY destination objects this invocation demonstrably
+# published and still owns — INCLUDING per-descendant proofs inside
+# published directories: ownership of a directory does NOT establish
+# ownership of its descendants, so no unproven descendant is ever removed
+# recursively. Foreign additions and replaced descendants (including
+# identical-bytes replacements with a different inode) are preserved;
+# owned directories are removed only by rmdir when they are empty, and a
+# directory still holding a foreign object is kept (reported by basename).
 # ---------------------------------------------------------------------------
 
+record_tree() {
+	# record_tree <root> <record-file>: evidence of object identity for
+	# every entry under <root> (the root itself excluded), as
+	# <relative-path>TAB<device:inode>TAB<type> lines (%D is the device
+	# number, matching stat's %d). The record is taken at a moment when
+	# the whole tree is demonstrably this invocation's own (immediately
+	# after a verified move, or after the verified staging extraction), so
+	# any later object that does not match it — a foreign addition or an
+	# identical-bytes replacement with a different inode — is not provably
+	# ours and is never removed.
+	find "$1" -mindepth 1 -printf '%P\t%D:%i\t%y\n' 2>/dev/null | LC_ALL=C sort >"$2"
+}
+
+remove_owned_tree() {
+	# remove_owned_tree <root> <record-file>: removes only recorded objects
+	# that STILL carry their recorded device:inode identity. Recorded
+	# regular files are removed individually; recorded directories are
+	# removed deepest-first by rmdir ONLY when empty; <root> itself is
+	# removed by rmdir only when empty. Anything absent, replaced, or never
+	# recorded is foreign and preserved; the function returns nonzero when
+	# anything under (or including) <root> had to be left in place.
+	local root="$1" record="$2"
+	local left=0
+	local rel id type cur
+	while IFS=$'\t' read -r rel id type; do
+		[ "$type" = 'f' ] || continue
+		cur="$(stat -c '%d:%i' -- "$root/$rel" 2>/dev/null)" || {
+			left=1
+			continue
+		}
+		if [ "$cur" != "$id" ]; then
+			left=1
+			continue
+		fi
+		rm -f -- "$root/$rel" 2>/dev/null || left=1
+	done <"$record"
+	# Directories deepest-first, rmdir only — a directory containing a
+	# foreign or unproven object refuses removal, which is exactly the
+	# required preservation.
+	while IFS=$'\t' read -r rel id type; do
+		[ "$type" = 'd' ] || continue
+		cur="$(stat -c '%d:%i' -- "$root/$rel" 2>/dev/null)" || {
+			left=1
+			continue
+		}
+		if [ "$cur" != "$id" ]; then
+			left=1
+			continue
+		fi
+		rmdir -- "$root/$rel" 2>/dev/null || left=1
+	done < <(awk -F'\t' '$3 == "d" {print}' "$record" |
+		awk -F'\t' '{n = gsub(/\//, "/"); print n "\t" $0}' |
+		sort -rn | cut -f2-)
+	rmdir -- "$root" 2>/dev/null || left=1
+	return "$left"
+}
+
 cleanup() {
+	# Staging removal is ownership-safe: the staging tree identity record
+	# (taken after the verified extraction) governs which descendants are
+	# provably ours; unexpected entries — the same objects whose presence
+	# already makes S4 refuse — are preserved rather than recursively
+	# deleted. Without a record (extraction never completed), the staging
+	# directory is only rmdir'd when empty. The private mode-0700 scratch
+	# tree in TMPDIR is this invocation's own mktemp creation and is
+	# removed wholesale.
 	if [ -n "$STAGING_DIR" ] && [ -d "$STAGING_DIR" ]; then
-		rm -rf -- "$STAGING_DIR" 2>/dev/null || true
+		if [ -n "${STAGING_TREE:-}" ] && [ -f "$STAGING_TREE" ]; then
+			remove_owned_tree "$STAGING_DIR" "$STAGING_TREE" 2>/dev/null || true
+		else
+			rmdir -- "$STAGING_DIR" 2>/dev/null || true
+		fi
 	fi
 	if [ -n "$SCRATCH" ] && [ -d "$SCRATCH" ]; then
 		rm -rf -- "$SCRATCH" 2>/dev/null || true
@@ -519,7 +622,9 @@ owned_published_entry() {
 	# object: it exists, is of the recorded kind, and STILL carries the
 	# device:inode identity recorded at this run's verified move (an
 	# identical-bytes replacement is a different file object and is
-	# refused — equal content never proves ownership).
+	# refused — equal content never proves ownership). Descendants inside
+	# a published directory are governed by their own recorded identities
+	# (remove_owned_tree), never by the directory's.
 	local entry="$1" want_id="$2" is_dir="$3"
 	local reading='' got_id='' got_type=''
 	[ -e "$entry" ] || return 1
@@ -537,23 +642,40 @@ owned_published_entry() {
 
 rollback_published_media() {
 	# Removes ONLY what this invocation demonstrably published and still
-	# owns (per-entry recorded device:inode identity). A destination entry
-	# that was replaced by another writer, swapped, symlinked, or never
-	# published by this run is foreign and is left untouched.
-	local i='' left=''
+	# owns. A published REGULAR FILE is a single proven object (rm -f). A
+	# published DIRECTORY is proven only at its own boundary: its
+	# descendants are removed solely through the per-descendant identity
+	# record taken at its verified move (remove_owned_tree — rmdir-only for
+	# directories, preserving foreign additions and replaced descendants),
+	# never by an unproven recursive delete. Entries replaced, swapped,
+	# symlinked, or never published by this run are foreign and are left
+	# untouched.
+	local i='' left='' incomplete=''
 	for i in "${!PUBLISHED_NAMES[@]}"; do
 		if [ -z "${PUBLISHED_NAMES[$i]:-}" ]; then
 			continue
 		fi
-		if owned_published_entry "$RESTORE_MOUNT/${PUBLISHED_NAMES[$i]}" "${PUBLISHED_IDS[$i]}" "${PUBLISHED_ISDIR[$i]}"; then
-			rm -rf -- "$RESTORE_MOUNT/${PUBLISHED_NAMES[$i]:?}" 2>/dev/null || true
-		else
+		if ! owned_published_entry "$RESTORE_MOUNT/${PUBLISHED_NAMES[$i]}" "${PUBLISHED_IDS[$i]}" "${PUBLISHED_ISDIR[$i]}"; then
 			left+="${left:+, }${PUBLISHED_NAMES[$i]}"
+			continue
+		fi
+		if [ "${PUBLISHED_ISDIR[$i]}" = 1 ]; then
+			if ! remove_owned_tree "$RESTORE_MOUNT/${PUBLISHED_NAMES[$i]:?}" "${PUBLISHED_TREES[$i]}" 2>/dev/null; then
+				# The directory (or a descendant) still holds an object
+				# that is not provably this run's own — preserved.
+				incomplete+="${incomplete:+, }${PUBLISHED_NAMES[$i]}"
+			fi
+		else
+			rm -f -- "$RESTORE_MOUNT/${PUBLISHED_NAMES[$i]:?}" 2>/dev/null || left+="${left:+, }${PUBLISHED_NAMES[$i]}"
 		fi
 	done
 	if [ -n "$left" ]; then
 		printf 't026: [S4] NOTE rollback left a destination entry that is not an object demonstrably published and still owned by this invocation (replaced, swapped, symlinked, or ambiguous) untouched: %s\n' \
 			"$left" | publish_diag
+	fi
+	if [ -n "$incomplete" ]; then
+		printf 't026: [S4] NOTE rollback preserved unproven descendant object(s) (foreign additions or replacements) inside: %s — owned siblings were removed, the rest was left untouched\n' \
+			"$incomplete" | publish_diag
 	fi
 }
 
@@ -622,7 +744,7 @@ validate_inputs() {
 		fi
 	done
 	if [ "${#missing[@]}" -gt 0 ]; then
-		printf 't026: [S1] FAIL missing required input(s): %s\n' "${missing[*]}" >&2
+		printf 't026: [S1] FAIL missing required input(s): %s\n' "${missing[*]}" | publish_diag
 		printf 't026: [S1] provide the documented inputs in the environment (see the script header); no credential is a script input value — the credential travels through the protected native connection mechanism\n' >&2
 		exit "$EXIT_CONFIG"
 	fi
@@ -687,7 +809,7 @@ validate_inputs() {
 	fi
 	if [ "${#mismatches[@]}" -gt 0 ]; then
 		printf 't026: [S1] FAIL the restore target PG* runtime inputs and EMDASH_MIGRATION_DATABASE_URL do not identify the same intended database; mismatching: %s\n' \
-			"${mismatches[*]}" >&2
+			"${mismatches[*]}" | publish_diag
 		exit "$EXIT_CONFIG"
 	fi
 	AGREED_HOST="$url_host"
@@ -786,6 +908,17 @@ parse_recovery_manifest() {
 		lines.push(`dbSha256 ${shaOk(m.database?.sha256) ? m.database.sha256 : "INVALID"}`);
 		lines.push(`mediaSha256 ${shaOk(m.media?.sha256) ? m.media.sha256 : "INVALID"}`);
 		const entries = Array.isArray(m.media?.entries) ? m.media.entries : [];
+		// Control characters in emitted identifier strings could forge
+		// additional "<key> <value>" parse lines (an embedded newline
+		// cannot be allowed to speak as a later field), so they are
+		// refused outright with a FIXED message.
+		const ctrl = /[\x00-\x1f\x7f]/;
+		if (typeof m.recoverySetId === "string" && ctrl.test(m.recoverySetId)) {
+			refuse("the manifest recovery-set identifier contains a control character");
+		}
+		if (typeof m.createdAt === "string" && ctrl.test(m.createdAt)) {
+			refuse("the manifest creation time contains a control character");
+		}
 		lines.push(`mediaEntryCount ${entries.length}`);
 		lines.push(`recoverySetId ${typeof m.recoverySetId === "string" && m.recoverySetId ? "present" : "missing"}`);
 		lines.push(`recoverySetIdValue ${typeof m.recoverySetId === "string" ? m.recoverySetId : ""}`);
@@ -1203,12 +1336,36 @@ check_clean_database() {
 	# (-X -w: never read startup files, never prompt, fail instead). A
 	# connection failure fails closed: no target is ever created,
 	# initialized, or substituted here.
+	#
+	# The user-object count covers every object class a user can leave in a
+	# populated database — relations of all kinds, ROUTINES (functions,
+	# procedures, aggregates; pg_proc), and standalone TYPES (enums,
+	# domains, composites and their array types; pg_type) — not only the
+	# relation subset (native catalog ownership per the PostgreSQL 18
+	# pg_proc/pg_type references). All three are counted in the SECOND
+	# field so the probe stays one five-field line. Only built-ins of a
+	# genuinely fresh database are permitted: pg_catalog/pg_toast/
+	# information_schema content is namespace-excluded, array types are
+	# attributed to their base type, plpgsql is the allowed default
+	# extension, and extension-owned objects (pg_depend deptype 'e') are
+	# attributed to the extension gate rather than the routine/type gates.
+	# Schemas, non-default extensions, and large objects complete the
+	# proof. Verified against real PostgreSQL 18.6: a fresh database
+	# reports 0; a database carrying only public.existing_marker() reports
+	# 1; a database carrying only enum public.existing_marker reports 2
+	# (the enum and its array type).
 	local probe="$SCRATCH/db-clean-probe.txt"
 	if ! timeout --kill-after=15 "${PSQL_TIMEOUT_SECONDS}s" \
 		psql -X -w -t -A -c "SELECT current_database() || '|' ||
-			(SELECT count(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+			((SELECT count(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
 				WHERE c.relkind IN ('r','p','v','m','S','f')
-				AND n.nspname !~ '^pg_' AND n.nspname <> 'information_schema') || '|' ||
+				AND n.nspname !~ '^pg_' AND n.nspname <> 'information_schema') +
+			(SELECT count(*) FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+				WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')) +
+			(SELECT count(*) FROM pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+				WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = t.oid AND d.deptype = 'e'))) || '|' ||
 			(SELECT count(*) FROM pg_catalog.pg_namespace
 				WHERE nspname !~ '^pg_' AND nspname <> 'information_schema' AND nspname <> 'public') || '|' ||
 			(SELECT count(*) FROM pg_catalog.pg_extension WHERE extname <> 'plpgsql') || '|' ||
@@ -1230,10 +1387,10 @@ check_clean_database() {
 	local bad=0
 	printf '%s\n' "$objects" "$schemas" "$extensions" "$largeobjs" | grep -qvE '^[0-9]+$' && bad=1
 	if [ "$bad" -ne 0 ] || [ "$objects" -ne 0 ] || [ "$schemas" -ne 0 ] || [ "$extensions" -ne 0 ] || [ "$largeobjs" -ne 0 ]; then
-		fail_stage S3 'the restore database is not clean (user relations=%s non-default schemas=%s non-default extensions=%s large objects=%s); an existing populated store is never dropped, cleared, overwritten, or reinitialized — provision a fresh clean database externally' \
+		fail_stage S3 'the restore database is not clean (user objects (relations/routines/types)=%s non-default schemas=%s non-default extensions=%s large objects=%s); an existing populated store is never dropped, cleared, overwritten, or reinitialized — provision a fresh clean database externally' \
 			"${objects:-?}" "${schemas:-?}" "${extensions:-?}" "${largeobjs:-?}"
 	fi
-	pass S3 'restore database verified clean and reachable: connected database equals PGDATABASE, zero user relations, zero non-default schemas, zero non-default extensions, zero large objects'
+	pass S3 'restore database verified clean and reachable: connected database equals PGDATABASE, zero user objects of every kind (relations, routines, standalone types), zero non-default schemas, zero non-default extensions, zero large objects'
 }
 
 # ---------------------------------------------------------------------------
@@ -1283,6 +1440,13 @@ restore_media() {
 		rollback_published_media
 		fail_stage S4 'the staged media does not match the recorded designated-entry evidence; nothing was published'
 	fi
+
+	# Ownership evidence for the staging tree, taken at the moment every
+	# staged object is provably this invocation's own: cleanup removes only
+	# descendants still carrying these identities, so unexpected entries in
+	# staging are preserved instead of recursively deleted.
+	STAGING_TREE="$SCRATCH/staging.tree"
+	record_tree "$STAGING_DIR" "$STAGING_TREE"
 
 	# Publish every top-level staged entry with exact-basename, no-clobber,
 	# ownership-proven semantics: late destination entries are never
@@ -1360,9 +1524,17 @@ restore_media() {
 			fail_stage S4 'publication refused: the landed media entry %s is not the original staged object this invocation created (replaced or ambiguous); the destination entry was left untouched' \
 				"$name"
 		fi
+		# Per-descendant ownership evidence, taken at the moment the landed
+		# tree is provably this run's own: rollback of a published directory
+		# removes only descendants that STILL carry these recorded
+		# identities — foreign additions and identical-bytes replacements
+		# (different objects) are preserved, never recursively deleted.
+		local pub_tree="$SCRATCH/pub-tree-${#PUBLISHED_NAMES[@]}.tree"
+		record_tree "$dest" "$pub_tree"
 		PUBLISHED_NAMES+=("$name")
 		PUBLISHED_IDS+=("$staged_id")
 		PUBLISHED_ISDIR+=("$is_dir")
+		PUBLISHED_TREES+=("$pub_tree")
 	done <"$top_level"
 
 	# Remove this run's own now-empty staging directory before the final
@@ -1374,6 +1546,7 @@ restore_media() {
 		fail_stage S4 'the staging directory was not empty after publication (unexpected or foreign object); the restoration was rolled back'
 	fi
 	STAGING_DIR=''
+	STAGING_TREE=''
 
 	# Final destination proof: the destination must contain EXACTLY the
 	# archived entries — no foreign additions, no replacements, no
@@ -1513,20 +1686,21 @@ run_restore() {
 	restore_media
 	restore_database
 
-	printf 't026: ================================================================\n'
-	printf 't026: T026 restore foundation: PASS\n'
-	printf 't026: the bounded database/media restoration into the clean target succeeded (whole unfiltered error-stopping pg_restore + guarded media publication)\n'
-	# The success/evidence line carries operator-supplied dynamic values: it
-	# is published through the structural redaction boundary, never
-	# directly.
+	# Every banner line flows through the structural redaction boundary:
+	# the success/evidence lines carry operator-supplied dynamic values
+	# (recovery-set identifier, target identity components, tested tree),
+	# and the static lines follow the same boundary for uniformity.
+	printf 't026: ================================================================\n' | publish_out
+	printf 't026: T026 restore foundation: PASS\n' | publish_out
+	printf 't026: the bounded database/media restoration into the clean target succeeded (whole unfiltered error-stopping pg_restore + guarded media publication)\n' | publish_out
 	printf 't026: recovery set %s restored into target %s:%s/%s and the restore media destination\n' \
 		"${RECOVERY_SET_ID_VALUE:-unknown}" \
 		"$AGREED_HOST" "$AGREED_PORT" "$AGREED_DATABASE" | publish_out
-	printf 't026: exit 0 means exactly this bounded restoration succeeded — NOT READY and NOT operational recovery acceptance\n'
-	printf 't026: the native migration gate and restored-foundation comparison remain with the T024 harness S4/S5 (T013/T027 authorities) and the T028 drill\n'
-	printf 't026: runtime-secret recovery is separate and was not performed; the Recovery Set contains no secrets and none were required here\n'
-	printf 't026: tested tree: %s\n' "$(git rev-parse HEAD 2>/dev/null || echo 'unknown (git unavailable)')"
-	printf 't026: ================================================================\n'
+	printf 't026: exit 0 means exactly this bounded restoration succeeded — NOT READY and NOT operational recovery acceptance\n' | publish_out
+	printf 't026: the native migration gate and restored-foundation comparison remain with the T024 harness S4/S5 (T013/T027 authorities) and the T028 drill\n' | publish_out
+	printf 't026: runtime-secret recovery is separate and was not performed; the Recovery Set contains no secrets and none were required here\n' | publish_out
+	printf 't026: tested tree: %s\n' "$(git rev-parse HEAD 2>/dev/null || echo 'unknown (git unavailable)')" | publish_out
+	printf 't026: ================================================================\n' | publish_out
 }
 
 main() {
