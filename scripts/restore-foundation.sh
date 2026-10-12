@@ -70,49 +70,59 @@
 #        media destination exists as a directory, is not a symlink, is
 #        readable/traversable/writable, and is EMPTY; the restore database is
 #        reachable through the native PG* inputs, current_database() equals
-#        PGDATABASE, and user objects of EVERY kind are absent — relations
-#        of all kinds, ROUTINES (functions/procedures/aggregates), and
-#        standalone TYPES (with their array types) alongside non-default
-#        schemas, extensions, and large objects — so a database carrying
-#        only a function or only an enum is a populated existing store and
-#        is refused just like one carrying tables. Existing user database
+#        PGDATABASE, and user objects of EVERY kind are absent — the sum
+#        covers EVERY schema-resident object catalog of PostgreSQL 18
+#        (relations of all six user kinds, routines, types with their
+#        array types, collations, conversions, operators, operator
+#        classes/families, statistics objects, and the four text-search
+#        classes) alongside non-default schemas, extensions, and large
+#        objects — so a database carrying only a function, only an enum,
+#        or only a collation is a populated existing store and is refused
+#        just like one carrying tables. Existing user database
 #        objects/data and nonempty or unsafe media destinations are
 #        refused — never dropped, cleared, overwritten, or reinitialized.
 #   S4   the bounded restoration itself, latest-stage-first-rollbackable:
-#        media first (archive extracted into a private staging directory
-#        created INSIDE the destination — same filesystem, so publication is
-#        an atomic guarded rename; every designated entry re-verified by
-#        bytes; each top-level entry published with mv --no-clobber
-#        --no-target-directory exact-basename semantics, staged-object
-#        device:inode ownership proof, and post-move verification, WITH
-#        descendant ownership derived from the VALIDATED STAGING
-#        PROVENANCE (the staging tree identity record taken after the
-#        verified extraction) and the landed tree REQUIRED to match that
-#        provenance exactly — a foreign addition or replacement that
-#        appears between the rename and verification is refused and never
-#        becomes cleanup-owned; the published destination is then proven
-#        to contain EXACTLY the archived entries — a late foreign or
-#        replacement entry fails the run and rolls back only what this
-#        invocation demonstrably published and still owns: because owning
-#        a directory does not establish ownership of its descendants,
-#        rollback removes provenance-proven objects one by one
-#        (rmdir-only for directories), PRESERVING foreign additions and
-#        replaced descendants — including identical-bytes replacements
-#        with a different inode — and keeps any directory still holding
-#        such an object; staging cleanup follows the same rule), then the database: native `pg_restore
-#        --exit-on-error --no-owner --no-privileges` (plus --no-password
-#        for non-interactive use) restoring the WHOLE archive into the
-#        validated clean target with NO schema/table/section/data-only
-#        filtering and NO selected TOC lists; any restore error stops the
-#        run nonzero, rolls the media publication back, and refuses a
-#        zero-object result. The non-rollbackable native restore runs LAST,
-#        after every rollbackable step has been verified; because
-#        pg_restore --exit-on-error stops at the first error without
-#        undoing applied work, a failed database restore leaves the media
-#        destination as it was found (empty, except preserved foreign
-#        objects) while the DATABASE may carry partial objects and must be
-#        externally reprovisioned before any retry — it is never dropped or
-#        cleared here.
+#        media first. The archive is extracted into a private staging
+#        directory created INSIDE the destination (same filesystem, so
+#        publication is an atomic guarded rename); every designated entry
+#        is re-verified by bytes; the STAGED PATH SET is then validated to
+#        equal exactly the S2-validated archive member set, and the
+#        staging ownership record is built path-by-path from that
+#        validated member set only — an unexpected staging entry (for
+#        example a foreign file injected between extraction and the check)
+#        refuses the run before anything is published and is never adopted
+#        into an ownership record; cleanup removes only the
+#        archive-authored identity-matching objects and the unexpected
+#        entry survives. Each top-level entry is published with mv
+#        --no-clobber --no-target-directory exact-basename semantics and
+#        staged-object device:inode ownership proof, WITH descendant
+#        ownership derived from that staging provenance and the landed
+#        tree REQUIRED to match it exactly — a foreign addition or
+#        replacement that appears between the rename and verification is
+#        refused and never becomes cleanup-owned. The published
+#        destination is then proven to contain EXACTLY the archived
+#        entries; a late foreign or replacement entry fails the run, which
+#        rolls back only what this invocation demonstrably published and
+#        still owns — because owning a directory does not establish
+#        ownership of its descendants, rollback removes provenance-proven
+#        objects one by one (rmdir-only for directories), PRESERVING
+#        foreign additions and replaced descendants (including
+#        identical-bytes replacements with a different inode) and keeping
+#        any directory still holding such an object. Then the database:
+#        native `pg_restore --exit-on-error --no-owner --no-privileges`
+#        (plus --no-password for non-interactive use) restoring the WHOLE
+#        archive into the validated clean target with NO
+#        schema/table/section/data-only filtering and NO selected TOC
+#        lists; any restore error stops the run nonzero, rolls the media
+#        publication back, and refuses a zero-object result. The
+#        non-rollbackable native restore runs LAST, after every
+#        rollbackable step has been verified; because pg_restore
+#        --exit-on-error stops at the first error without undoing applied
+#        work, a failed database restore leaves the media destination as
+#        it was found (empty, except preserved foreign objects) while the
+#        DATABASE may carry partial objects and must be externally
+#        reprovisioned before any retry — it is never dropped or cleared
+#        here.
 #
 # Division of ownership: this script performs ONLY this bounded database and
 # media restoration. Exit 0 means exactly that restoration succeeded — it is
@@ -542,21 +552,6 @@ check_paths_separated() {
 # directory still holding a foreign object is kept (reported by basename).
 # ---------------------------------------------------------------------------
 
-record_tree() {
-	# record_tree <root> <record-file>: evidence of object identity for
-	# every entry under <root> (the root itself excluded), as
-	# <relative-path>TAB<device:inode>TAB<type> lines (%D is the device
-	# number, matching stat's %d). Used for the STAGING provenance record:
-	# taken immediately after the verified staging extraction, when every
-	# recorded object is provably this invocation's own. Per-entry
-	# ownership records for rollback are DERIVED from this provenance (by
-	# path prefix) — never adopted from a fresh enumeration of the
-	# destination — and the landed tree must match the derived record at
-	# verification time, so a foreign addition or an identical-bytes
-	# replacement with a different inode is never cleanup-owned.
-	find "$1" -mindepth 1 -printf '%P\t%D:%i\t%y\n' 2>/dev/null | LC_ALL=C sort >"$2"
-}
-
 remove_owned_tree() {
 	# remove_owned_tree <root> <record-file>: removes only recorded objects
 	# that STILL carry their recorded device:inode identity. Recorded
@@ -602,14 +597,15 @@ remove_owned_tree() {
 }
 
 cleanup() {
-	# Staging removal is ownership-safe: the staging tree identity record
-	# (taken after the verified extraction) governs which descendants are
-	# provably ours; unexpected entries — the same objects whose presence
-	# already makes S4 refuse — are preserved rather than recursively
-	# deleted. Without a record (extraction never completed), the staging
-	# directory is only rmdir'd when empty. The private mode-0700 scratch
-	# tree in TMPDIR is this invocation's own mktemp creation and is
-	# removed wholesale.
+	# Staging removal is ownership-safe: the staging ownership record —
+	# built path-by-path from the VALIDATED ARCHIVE MEMBER SET, never from
+	# an enumeration of the staging directory — governs which descendants
+	# are provably ours; unexpected entries (whose presence already makes
+	# S4 refuse before publication) are preserved rather than recursively
+	# deleted or adopted as cleanup-owned. Without a record (extraction
+	# never completed), the staging directory is only rmdir'd when empty.
+	# The private mode-0700 scratch tree in TMPDIR is this invocation's
+	# own mktemp creation and is removed wholesale.
 	if [ -n "$STAGING_DIR" ] && [ -d "$STAGING_DIR" ]; then
 		if [ -n "${STAGING_TREE:-}" ] && [ -f "$STAGING_TREE" ]; then
 			remove_owned_tree "$STAGING_DIR" "$STAGING_TREE" 2>/dev/null || true
@@ -1345,23 +1341,29 @@ check_clean_database() {
 	# connection failure fails closed: no target is ever created,
 	# initialized, or substituted here.
 	#
-	# The user-object count covers every object class a user can leave in a
-	# populated database — relations of all kinds, ROUTINES (functions,
-	# procedures, aggregates; pg_proc), and standalone TYPES (enums,
-	# domains, composites and their array types; pg_type) — not only the
-	# relation subset (native catalog ownership per the PostgreSQL 18
-	# pg_proc/pg_type references). All three are counted in the SECOND
-	# field so the probe stays one five-field line. Only built-ins of a
-	# genuinely fresh database are permitted: pg_catalog/pg_toast/
-	# information_schema content is namespace-excluded, array types are
-	# attributed to their base type, plpgsql is the allowed default
+	# The user-object count covers EVERY schema-resident object catalog of
+	# PostgreSQL 18 (per the upstream catalogs overview), not a
+	# relation/routine/type subset: relations of the six user kinds
+	# (pg_class — indexes cannot exist without a counted table), routines
+	# (pg_proc), types including their array types (pg_type), COLLATIONS
+	# (pg_collation), conversions (pg_conversion), operators
+	# (pg_operator), operator classes (pg_opclass) and families
+	# (pg_opfamily), statistics objects (pg_statistic_ext), and the four
+	# text-search classes (pg_ts_config, pg_ts_dict, pg_ts_parser,
+	# pg_ts_template). All are summed in the SECOND field so the probe
+	# stays one five-field line. Only built-ins of a genuinely fresh
+	# database are permitted: pg_catalog/pg_toast/information_schema
+	# content is namespace-excluded, plpgsql is the allowed default
 	# extension, and extension-owned objects (pg_depend deptype 'e') are
-	# attributed to the extension gate rather than the routine/type gates.
+	# attributed to the extension gate rather than their class gate.
 	# Schemas, non-default extensions, and large objects complete the
-	# proof. Verified against real PostgreSQL 18.6: a fresh database
-	# reports 0; a database carrying only public.existing_marker() reports
-	# 1; a database carrying only enum public.existing_marker reports 2
-	# (the enum and its array type).
+	# proof; cluster-global objects (roles, FDWs, servers) remain outside
+	# this database-level gate, whose recreation research §9 places
+	# outside this script. Verified against real PostgreSQL 18.6: a fresh
+	# database reports 0; collation-only reports 1; function-only reports
+	# 1; enum-only reports 2 (enum + array type); a plain table reports 3
+	# (table + row type + array type); a table plus a user operator
+	# reports 3.
 	local probe="$SCRATCH/db-clean-probe.txt"
 	if ! timeout --kill-after=15 "${PSQL_TIMEOUT_SECONDS}s" \
 		psql -X -w -t -A -c "SELECT current_database() || '|' ||
@@ -1373,7 +1375,37 @@ check_clean_database() {
 				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')) +
 			(SELECT count(*) FROM pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
 				WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
-				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = t.oid AND d.deptype = 'e'))) || '|' ||
+				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = t.oid AND d.deptype = 'e')) +
+			(SELECT count(*) FROM pg_catalog.pg_collation x JOIN pg_catalog.pg_namespace n ON n.oid = x.collnamespace
+				WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = x.oid AND d.deptype = 'e')) +
+			(SELECT count(*) FROM pg_catalog.pg_conversion x JOIN pg_catalog.pg_namespace n ON n.oid = x.connamespace
+				WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = x.oid AND d.deptype = 'e')) +
+			(SELECT count(*) FROM pg_catalog.pg_operator x JOIN pg_catalog.pg_namespace n ON n.oid = x.oprnamespace
+				WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = x.oid AND d.deptype = 'e')) +
+			(SELECT count(*) FROM pg_catalog.pg_opclass x JOIN pg_catalog.pg_namespace n ON n.oid = x.opcnamespace
+				WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = x.oid AND d.deptype = 'e')) +
+			(SELECT count(*) FROM pg_catalog.pg_opfamily x JOIN pg_catalog.pg_namespace n ON n.oid = x.opfnamespace
+				WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = x.oid AND d.deptype = 'e')) +
+			(SELECT count(*) FROM pg_catalog.pg_statistic_ext x JOIN pg_catalog.pg_namespace n ON n.oid = x.stxnamespace
+				WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = x.oid AND d.deptype = 'e')) +
+			(SELECT count(*) FROM pg_catalog.pg_ts_config x JOIN pg_catalog.pg_namespace n ON n.oid = x.cfgnamespace
+				WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = x.oid AND d.deptype = 'e')) +
+			(SELECT count(*) FROM pg_catalog.pg_ts_dict x JOIN pg_catalog.pg_namespace n ON n.oid = x.dictnamespace
+				WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = x.oid AND d.deptype = 'e')) +
+			(SELECT count(*) FROM pg_catalog.pg_ts_parser x JOIN pg_catalog.pg_namespace n ON n.oid = x.prsnamespace
+				WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = x.oid AND d.deptype = 'e')) +
+			(SELECT count(*) FROM pg_catalog.pg_ts_template x JOIN pg_catalog.pg_namespace n ON n.oid = x.tmplnamespace
+				WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+				AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_depend d WHERE d.objid = x.oid AND d.deptype = 'e'))) || '|' ||
 			(SELECT count(*) FROM pg_catalog.pg_namespace
 				WHERE nspname !~ '^pg_' AND nspname <> 'information_schema' AND nspname <> 'public') || '|' ||
 			(SELECT count(*) FROM pg_catalog.pg_extension WHERE extname <> 'plpgsql') || '|' ||
@@ -1449,12 +1481,44 @@ restore_media() {
 		fail_stage S4 'the staged media does not match the recorded designated-entry evidence; nothing was published'
 	fi
 
-	# Ownership evidence for the staging tree, taken at the moment every
-	# staged object is provably this invocation's own: cleanup removes only
-	# descendants still carrying these identities, so unexpected entries in
-	# staging are preserved instead of recursively deleted.
+	# Ownership evidence for the staging tree — built from the VALIDATED
+	# ARCHIVE MEMBER SET, never from a free enumeration of staging: the
+	# staged path set must equal exactly the S2-validated members (same
+	# paths, same types), and the ownership record is written ONLY for
+	# those expected archive-authored paths. An unexpected staging entry —
+	# for example a foreign file injected between extraction and this
+	# check — makes the sets disagree, refuses the run before anything is
+	# published, and is NEVER adopted into an ownership record: cleanup
+	# removes only the expected identity-matching objects (rmdir-only for
+	# directories) and the unexpected entry survives.
 	STAGING_TREE="$SCRATCH/staging.tree"
-	record_tree "$STAGING_DIR" "$STAGING_TREE"
+	local expected_set="$SCRATCH/staging-expected-set.txt"
+	local staging_paths="$SCRATCH/staging-paths.txt"
+	{
+		awk '{print $0 "\tf"}' "$SCRATCH/expected-files.txt"
+		awk '{print $0 "\td"}' "$SCRATCH/expected-dirs.txt"
+	} | LC_ALL=C sort >"$expected_set"
+	find "$STAGING_DIR" -mindepth 1 -printf '%P\t%y\n' 2>"$SCRATCH/find-staging-set.err" |
+		LC_ALL=C sort >"$staging_paths" || {
+			print_tail 'find diagnostics (staging set)' "$SCRATCH/find-staging-set.err" 3
+			fail_stage S4 'the staging area could not be enumerated against the validated archive member set'
+		}
+	: >"$STAGING_TREE"
+	local st_rel='' st_type='' st_id='' st_missing=0
+	while IFS=$'\t' read -r st_rel st_type; do
+		[ -n "$st_rel" ] || continue
+		# %d (decimal device) is the format find's %D and the comparison
+		# readers use — GNU stat's %D is HEX and would never match.
+		st_id="$(stat -c '%d:%i' -- "$STAGING_DIR/$st_rel" 2>/dev/null)" || {
+			st_missing=1
+			continue
+		}
+		printf '%s\t%s\t%s\n' "$st_rel" "$st_id" "$st_type" >>"$STAGING_TREE"
+	done <"$expected_set"
+	LC_ALL=C sort -o "$STAGING_TREE" "$STAGING_TREE"
+	if [ "$st_missing" -ne 0 ] || ! cmp -s "$expected_set" "$staging_paths"; then
+		fail_stage S4 'unexpected staging content: the extracted staging tree does not equal the validated archive member set (a foreign entry was injected, or an archive member is absent); nothing was published, the run is refused, and cleanup removes only archive-authored objects — the unexpected entry survives'
+	fi
 
 	# Publish every top-level staged entry with exact-basename, no-clobber,
 	# ownership-proven semantics: late destination entries are never
@@ -1534,9 +1598,9 @@ restore_media() {
 		fi
 		# Descendant ownership is derived from the VALIDATED STAGING
 		# PROVENANCE — never adopted from a fresh enumeration of the
-		# destination: the staging tree identity record was taken when every
-		# staged object was provably this invocation's own (verified
-		# extraction into this run's private staging directory). A rename
+		# destination: the staging ownership record was built from the
+		# validated archive member set, every entry of which was proven
+		# archive-authored by the staged-set equality check. A rename
 		# preserves each object's device:inode, so the landed tree MUST
 		# equal this provenance exactly; anything else — a foreign addition
 		# or a replacement (including an identical-bytes replacement with a
