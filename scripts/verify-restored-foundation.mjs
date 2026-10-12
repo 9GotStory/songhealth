@@ -198,16 +198,24 @@
 // stderr is reduced to a byte count and never retained as text; invalid
 // invocations never echo argument values.
 //
-// Bounded waits (corrective round 1, F03): every external read is bounded by
-// an invocation-owned deadline tracked INDEPENDENTLY of the child's fate —
+// Bounded waits (corrective rounds 1–2, F03): every external read is bounded
+// by an invocation-owned deadline tracked INDEPENDENTLY of the child's fate —
 // SIGTERM at the deadline, SIGKILL after a proportional grace (a quarter of
 // the bound, clamped to [200 ms, 5 s]), and a hard force-settle (streams
 // destroyed, failed result returned) after twice that grace, so a child that
-// ignores SIGTERM, exits 0 from a SIGTERM handler, or leaves a grandchild
+// ignores SIGTERM, exits 0 from a SIGTERM handler, or leaves a descendant
 // holding the pipes can never make the await unbounded, and a timed-out
-// operation is ALWAYS a failure even when it then exits 0. Bounds: 45 s for
-// psql and 75 s per emdash invocation (+ at most 10 s collection each) —
-// comfortably inside the accepted T024 S5 comparator bound of 300 s.
+// operation is ALWAYS a failure even when it then exits 0. Each subprocess is
+// spawned as the leader of its OWN process group and signals are sent to the
+// negative pid, so termination covers the processes this invocation owns —
+// including descendants of the CLI wrapper (npx → emdash) that inherited the
+// pipes — and never selects by executable name or touches the workspace
+// daemon or unrelated processes. A bounded collection phase then polls the
+// owned group for emptiness (re-SIGKILLing lingering members) before the
+// result is returned, and timeout evidence says "collected" only when
+// emptiness was actually observed. Bounds: 45 s for psql and 75 s per emdash
+// invocation (+ at most ~10 s termination/collection each) — comfortably
+// inside the accepted T024 S5 comparator bound of 300 s.
 //
 // Exit codes: 0 PASS | 1 FAIL (any stage) | 2 environment error (missing
 // tools) | 4 missing or invalid input | 64 usage error.
@@ -422,38 +430,107 @@ function killGraceFor(timeoutMs) {
   return Math.min(5_000, Math.max(200, Math.ceil(timeoutMs / 4)));
 }
 
-function runBounded(executable, args, timeoutMs, cwd) {
-  // Resolves { ok, reason, code, signal, stdout, stderrBytes }; stdout is
-  // kept ONLY for downstream JSON parsing that never echoes it (fixed
-  // messages on parse failure), and captured stderr is reduced to a byte
-  // count — no captured diagnostic text is ever published (F01). The deadline
-  // is tracked INDEPENDENTLY of the child's fate: an operation whose
-  // deadline fired is ALWAYS a failure, even when the child subsequently
-  // exits 0 (F03), and a spawn failure resolves as a failed run with a FIXED
-  // reason (never a thrown error carrying the raw cause into output).
-  return new Promise((resolve) => {
-    let child;
+// Bounded post-termination collection: how long the settlement may poll for
+// the owned process group to become empty (and how often), so cleanup claims
+// match what was actually established without ever unbounding the await.
+const COLLECTION_POLL_MS = 750;
+const COLLECTION_POLL_STEP_MS = 25;
+// How long the pipe streams may stay open after the owned child itself has
+// exited (a descendant holding the inherited pipes) before the group is
+// killed and the streams are destroyed on the normal path too.
+const PIPE_CLOSE_GRACE_MS = 2_000;
+
+const sleepMs = (ms) => new Promise((resolveSleep) => {
+  setTimeout(resolveSleep, ms);
+});
+
+// Timeout evidence wording that matches what was established: the owned
+// process group was terminated, and — only when the bounded collection phase
+// actually observed the group empty — also collected.
+const terminationNote = (result) =>
+  result && result.collected === false
+    ? "terminated (collection unconfirmed)"
+    : "terminated and collected";
+
+async function runBounded(executable, args, timeoutMs, cwd) {
+  // Resolves { ok, reason, code, signal, stdout, stderrBytes, collected }.
+  // stdout is kept ONLY for downstream JSON parsing that never echoes it
+  // (fixed messages on parse failure), and captured stderr is reduced to a
+  // byte count — no captured diagnostic text is ever published (F01). The
+  // deadline is tracked INDEPENDENTLY of the child's fate: an operation
+  // whose deadline fired is ALWAYS a failure, even when the child
+  // subsequently exits 0 (F03), and a spawn failure resolves as a failed run
+  // with a FIXED reason (never a thrown error carrying the raw cause into
+  // output).
+  //
+  // Process ownership (F03 round 2): every subprocess is spawned DETACHED on
+  // POSIX, i.e. as the leader of its OWN process group (PGID == child PID).
+  // Termination signals are sent to the NEGATIVE pid — the whole group this
+  // invocation created — so descendants of the CLI wrapper (npx → emdash,
+  // shell background jobs) that inherited the pipes are terminated with
+  // their parent, and NEVER by executable name or any other selector that
+  // could touch the workspace daemon or unrelated processes. After
+  // settlement, a bounded collection phase confirms the group is empty
+  // before the result is returned (re-SIGKILLing if members linger), and the
+  // `collected` flag records whether emptiness was actually established.
+  const useProcessGroup = process.platform !== "win32";
+  let child = null;
+  const run = await new Promise((resolve) => {
     try {
       child = spawn(executable, args, {
         cwd,
         env: process.env,
         stdio: ["ignore", "pipe", "pipe"],
+        detached: useProcessGroup,
       });
     } catch {
       resolve({ ok: false, reason: "spawn", code: null, signal: null, stdout: "", stderrBytes: 0 });
       return;
     }
+    const groupPid = typeof child.pid === "number" ? -child.pid : null;
+    const signalOwned = (signal) => {
+      // Group first (all processes this invocation owns through this
+      // child), direct child as the fallback when the group is already gone
+      // or group signaling is unavailable.
+      if (groupPid !== null) {
+        try {
+          process.kill(groupPid, signal);
+          return;
+        } catch {
+          // Group empty or leader gone: fall through to the direct child.
+        }
+      }
+      try {
+        child.kill(signal);
+      } catch {
+        // Already gone: the close handler decides.
+      }
+    };
     let stdout = "";
     let stderrBytes = 0;
     let timedOut = false;
+    let exited = null; // { code, signal } once the child itself died
     let settled = false;
     let killTimer = null;
     let forceTimer = null;
+    let pipeTimer = null;
+    const clearTimers = () => {
+      clearTimeout(killTimer);
+      clearTimeout(forceTimer);
+      clearTimeout(pipeTimer);
+    };
+    const destroyStreams = () => {
+      try {
+        child.stdout.destroy();
+        child.stderr.destroy();
+      } catch {
+        // Streams already closed.
+      }
+    };
     const settle = (result) => {
       if (settled) return;
       settled = true;
-      clearTimeout(killTimer);
-      clearTimeout(forceTimer);
+      clearTimers();
       resolve(result);
     };
     const failResult = (reason, code, signal) => ({
@@ -472,37 +549,44 @@ function runBounded(executable, args, timeoutMs, cwd) {
       // Counted, never retained or published.
       stderrBytes += 1;
     });
-    // Independent deadline: the spawned child is owned by this invocation,
-    // so terminating and collecting it is in scope. SIGTERM first, SIGKILL
-    // after the proportional grace period, and a forced failure result after
-    // twice the grace even if the close event never arrives.
+    // Independent deadline: the spawned child (and its whole group) is owned
+    // by this invocation, so terminating and collecting it is in scope.
+    // SIGTERM to the group first, SIGKILL after the proportional grace, and
+    // a forced failure result after twice the grace even if the close event
+    // never arrives.
     const killGraceMs = killGraceFor(timeoutMs);
     setTimeout(() => {
       timedOut = true;
-      try {
-        child.kill("SIGTERM");
-      } catch {
-        // Already gone: the close handler decides.
-      }
+      signalOwned("SIGTERM");
       killTimer = setTimeout(() => {
-        try {
-          child.kill("SIGKILL");
-        } catch {
-          // Already gone: the close handler decides.
-        }
+        signalOwned("SIGKILL");
       }, killGraceMs);
       forceTimer = setTimeout(() => {
-        try {
-          child.stdout.destroy();
-          child.stderr.destroy();
-        } catch {
-          // Streams already closed.
-        }
+        destroyStreams();
         settle(failResult("timeout", null, null));
       }, killGraceMs * 2);
     }, timeoutMs);
     child.on("error", () => {
       settle(failResult(timedOut ? "timeout" : "spawn", null, null));
+    });
+    child.on("exit", (code, signal) => {
+      if (exited === null) exited = { code, signal };
+      if (timedOut) return; // the timeout settlement path owns the result
+      // The child died on its own; its inherited pipes may be held open by a
+      // descendant. Give them a bounded grace, then kill the remaining group
+      // and destroy the streams so normal completion stays bounded too.
+      pipeTimer = setTimeout(() => {
+        signalOwned("SIGKILL");
+        destroyStreams();
+        settle({
+          ok: typeof exited.code === "number" && exited.code === 0 && exited.signal === null,
+          reason: exited.code === null && exited.signal ? "signal" : "exit",
+          code: exited.code,
+          signal: exited.signal,
+          stdout,
+          stderrBytes,
+        });
+      }, PIPE_CLOSE_GRACE_MS);
     });
     child.on("close", (code, signal) => {
       if (timedOut) {
@@ -521,6 +605,41 @@ function runBounded(executable, args, timeoutMs, cwd) {
       });
     });
   });
+  // Bounded collection phase (every settlement path): if any process of the
+  // owned group is still alive — a descendant of the CLI wrapper that
+  // inherited the pipes, for example — re-SIGKILL the group and poll for
+  // emptiness. This is what makes a "terminated and collected" claim real
+  // for descendants, not just the direct child; `collected` records whether
+  // emptiness was actually established, so published claims can match the
+  // evidence.
+  const groupPid = useProcessGroup && child !== null && typeof child.pid === "number" ? -child.pid : null;
+  if (groupPid === null) {
+    return { ...run, collected: run.reason === "spawn" };
+  }
+  const groupEmpty = () => {
+    try {
+      process.kill(groupPid, 0);
+      return false;
+    } catch {
+      return true; // ESRCH: no member of the owned group remains
+    }
+  };
+  if (groupEmpty()) {
+    return { ...run, collected: true };
+  }
+  const deadline = Date.now() + COLLECTION_POLL_MS;
+  while (Date.now() < deadline) {
+    try {
+      process.kill(groupPid, "SIGKILL");
+    } catch {
+      // Already empty.
+    }
+    await sleepMs(COLLECTION_POLL_STEP_MS);
+    if (groupEmpty()) {
+      return { ...run, collected: true };
+    }
+  }
+  return { ...run, collected: false };
 }
 
 const sha256Hex = (buffer) => crypto.createHash("sha256").update(buffer).digest("hex");
@@ -850,7 +969,7 @@ async function checkMigrationState(tools, agreedIdentity, exactBuildNames) {
   );
   if (!status.ok) {
     if (status.reason === "timeout") {
-      failStage("S4", "native emdash migrate --status did not finish within its time bound against the restored target (terminated and collected; diagnostics withheld)");
+      failStage("S4", `native emdash migrate --status did not finish within its time bound against the restored target (${terminationNote(status)}; diagnostics withheld)`);
     }
     failStage("S4", `native emdash migrate --status failed against the restored target (exit ${status.code}; ${status.stderrBytes} byte(s) of diagnostics withheld)`);
   }
@@ -908,7 +1027,7 @@ async function checkMigrationState(tools, agreedIdentity, exactBuildNames) {
   );
   if (!check.ok) {
     if (check.reason === "timeout") {
-      failStage("S4", "native emdash migrate --check did not finish within its time bound against the restored target (terminated and collected; diagnostics withheld)");
+      failStage("S4", `native emdash migrate --check did not finish within its time bound against the restored target (${terminationNote(check)}; diagnostics withheld)`);
     }
     failStage("S4", `emdash migrate --check failed (exit ${check.code}: pending or unknown migrations remain against the restored target, or an error occurred; ${check.stderrBytes} byte(s) of diagnostics withheld)`);
   }
@@ -929,7 +1048,7 @@ async function checkObservedTagline(tools) {
   );
   if (!observation.ok) {
     if (observation.reason === "timeout") {
-      failStage("S5", "the native Site Setting tagline read did not finish within its time bound (terminated and collected; diagnostics withheld)");
+      failStage("S5", `the native Site Setting tagline read did not finish within its time bound (${terminationNote(observation)}; diagnostics withheld)`);
     }
     failStage("S5", `the native Site Setting tagline could not be read from the restored database (unreachable, authentication refused, or the native options storage is absent; ${observation.stderrBytes} byte(s) of diagnostics withheld)`);
   }
