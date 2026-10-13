@@ -56,12 +56,19 @@ documentation or package-script gaps.
   (`AGENTS.md` §Authority item 6): `astro.config.mjs`, `src/live.config.ts`, `seed/seed.json`,
   `src/pages/index.astro`, `package.json`, plus the accepted T006/T015 evidence files and the
   accepted foundation/recovery source files enumerated in §3.
-- Version-sensitive EmDash capability/API statements that go beyond supplied baseline evidence
-  were verified through Context7 (`/websites/emdashcms`, i.e. `docs.emdashcms.com`) on
-  2026-10-13, against the pinned `emdash` **1.1.0** dependency (`package.json`; the same
-  combination was runtime-verified as installed-equals-pin by the accepted T006/T015 evidence).
-  Each such statement is marked **[C7]** with its exact page; see §9. No other EmDash/Astro API
-  is asserted beyond supplied evidence, and no unsupported API is invented.
+- EmDash capability/API statements that go beyond supplied baseline evidence were checked
+  against the vendor's **current documentation** through Context7 (`/websites/emdashcms`, i.e.
+  `docs.emdashcms.com`) on 2026-10-13. That source is **unversioned**: it establishes what the
+  vendor currently documents, not pinned-release coverage. Each such statement is therefore
+  labelled a **current vendor-documented candidate seam** — subordinate to the owning
+  authorities, distinct from the baseline-configured and runtime-evidenced seams of §3, and
+  requiring confirmation against the exact pinned `emdash` version before any future
+  implementation relies on it. The pin is `emdash` **1.1.0** (`package.json`); the accepted
+  T006/T015 evidence verified installed-equals-pin and the foundation facts those gates
+  exercised — migration CLI semantics, the integrated start, the native Admin setup/sign-in
+  path, and the native settings/media REST surfaces — **not** the query/editorial/search/import
+  APIs below. Each candidate seam is marked **[C7]** with its exact page; see §9. No other
+  EmDash/Astro API is asserted beyond supplied evidence, and no unsupported API is invented.
 
 ## 3. Foundation baseline inventory — installed/configured seams vs implemented behavior vs planned work
 
@@ -69,8 +76,7 @@ The delegation's required distinction, at the exact baseline:
 
 | Layer | Installed / configured at baseline (concrete repository evidence) | Actually implemented foundation behavior (runtime-evidenced) | Planned, **not** implemented Product work |
 |---|---|---|---|
-| Application platform | `astro.config.mjs`: one Astro `output: "server"` app, `@astrojs/node` standalone adapter, React integration, EmDash integration with native `postgres()` adapter, native `local()` media adapter (`./media`, `/_emdash/api/media/file`), native migration modes (`runtime: "check"`, `dev: "auto"`); T008 fail-fast configuration validation in the same file | Integrated app builds, starts, serves the minimum SSR surface; native migration status/apply/check sequence passes (accepted `specs/001-platform-foundation/evidence/T006-emdash-postgresql-compatibility.md`,
-  `specs/001-platform-foundation/evidence/T015-us1-canonical-platform.md`) | Nothing — this is the canonical single platform itself |
+| Application platform | `astro.config.mjs`: one Astro `output: "server"` app, `@astrojs/node` standalone adapter, React integration, EmDash integration with native `postgres()` adapter, native `local()` media adapter (`./media`, `/_emdash/api/media/file`), native migration modes (`runtime: "check"`, `dev: "auto"`); T008 fail-fast configuration validation in the same file | Integrated app builds, starts, serves the minimum SSR surface; native migration status/apply/check sequence passes (accepted `specs/001-platform-foundation/evidence/T006-emdash-postgresql-compatibility.md` and `specs/001-platform-foundation/evidence/T015-us1-canonical-platform.md`) | Nothing — this is the canonical single platform itself |
 | Content collections | `src/live.config.ts`: the single `_emdash` live collection registered via `defineLiveCollection` + `emdashLoader()`; `seed/seed.json`: explicit empty version-1 seed (`collections`, `relations`, `taxonomies`, `menus`, `redirects`, `widgetAreas`, `sections`, `content` all empty) | **Zero** Product collections, content, taxonomies, relations, redirects, menus, widgets, or sections are defined; the seed's stated purpose is to suppress EmDash's built-in example Posts/Pages model (plan §One Astro + EmDash platform; `data-model.md` §2) | All Songhealth Product collections of `02-content-model.md` §24 |
 | Public pages | `src/pages/index.astro`: one minimum SSR verification page with the `songhealth-foundation` marker — deliberately no Homepage composition, Product content, navigation, styling, CMS-driven sections, API behavior, or readiness logic (its own header comment; T011) | The minimum public runtime serves its verification marker on the configured boundary (accepted T015 evidence §3) | Every canonical route of `03-sitemap.md` §19 and all Homepage composition of `04-homepage.md` |
 | Admin / editorial | Native EmDash Admin mounted by the integration at its standard `/_emdash/` routes (React integration registered for it) | Native Admin availability and the fresh first-admin setup/sign-in path were runtime-evidenced at T015; the canonical native site `tagline` setting was set/retrieved through native platform paths | No Product collection exists to exercise editorial workflows: **no verified editorial workflow for Product content exists or is claimed**; roles/permissions assignments are future operational policy |
@@ -92,7 +98,8 @@ establish Product collections, Product pages, or verified editorial workflows.
   declared through the native seed file and managed as the active runtime schema; no ORM/domain
   entity layer may mirror them (`10-system-blueprint.md` §4: "Map Content Types → EmDash
   collections/fields/relations/taxonomies"; seed files are for bootstrap/environment setup, the
-  EmDash database model is the active runtime schema). Verified shape **[C7]**: the seed format
+  EmDash database model is the active runtime schema). Vendor-documented shape — a current
+  vendor-documented candidate seam **[C7]**: the seed format
   defines `collections` (with `fields`, `supports` such as `drafts`/`revisions`/`search`/`seo`),
   `taxonomies` (hierarchical terms attached to collections), `relations`, `menus`,
   `widgetAreas`, and `content` (`docs.emdashcms.com/themes/seed-files`,
@@ -138,7 +145,8 @@ establish Product collections, Product pages, or verified editorial workflows.
   404), §14 (Homepage).
 - **Existing native seam**: Astro's file-based routing under `src/pages/` in the single SSR
   application, with public reads of EmDash content through the registered `_emdash` live
-  collection. Verified shape **[C7]**: Astro pages query EmDash content with
+  collection. Vendor-documented shape — a current vendor-documented candidate seam **[C7]**:
+  Astro pages query EmDash content with
   `getEmDashCollection`/`getEmDashEntry` from `emdash`, and collection queries default to
   **published** status (`docs.emdashcms.com/guides/querying-content`,
   `/concepts/architecture`); draft preview uses EmDash's signed, expiring preview token
@@ -186,7 +194,8 @@ establish Product collections, Product pages, or verified editorial workflows.
   revision/unpublish/trash-restore-permanent delete/revisions/preview/edit locking/optimistic
   concurrency; no custom approval workflow in Version 1).
 - **Existing native seam**: the EmDash editorial lifecycle, roles, and Admin delivered by the
-  integrated platform. Verified shape **[C7]** (`docs.emdashcms.com/reference/content-lifecycle`,
+  integrated platform. Vendor-documented shape — a current vendor-documented candidate seam
+  **[C7]** (`docs.emdashcms.com/reference/content-lifecycle`,
   `/guides/working-with-content`, `/reference/mcp-server`): entries are `draft`, `scheduled`, or
   `published`; a published entry can hold a pending draft revision that goes live only on
   "Publish changes"; `Schedule`/`Change schedule`/`Remove schedule`; `Unpublish` removes the
@@ -194,8 +203,10 @@ establish Product collections, Product pages, or verified editorial workflows.
   status with restore and privileged permanent delete; revision-enabled collections keep
   revision history and revision restore; preview uses signed expiring tokens; entries carry edit
   locks (`ENTRY_LOCKED` refusals name the holder) and `_rev` optimistic-concurrency tokens that
-  refuse stale saves. This matches the authority's required baseline lifecycle
-  (`07-publishing-workflow.md` §2, §4, §5, §8, §9) item for item.
+  refuse stale saves. The documented behavior maps item-for-item onto the authority's required
+  baseline lifecycle (`07-publishing-workflow.md` §2, §4, §5, §8, §9); as a candidate seam it is
+  documentation of the platform capability the authority directs Songhealth to use, not a
+  runtime-verified observation of this foundation.
 - **Concrete repository evidence**: `astro.config.mjs` (the integration that mounts the native
   Admin and its lifecycle against the foundation database; native migration modes `runtime:
   "check"` / `dev: "auto"`); `seed/seed.json` (defines **zero** workflow states or approval
@@ -231,12 +242,12 @@ baseline**; media/Admin availability are runtime-evidenced only as foundation be
 | Capability | Owning authority (file/section) | Native seam (installed or platform-provided) | Baseline repository / accepted evidence | Boundary preserved |
 |---|---|---|---|---|
 | **Media Library** (native-first media) | `02-content-model.md` §14 (no Songhealth Media collection; use the CMS Media Library); `05-admin-cms.md` §5 (native Media Library baseline); `10-system-blueprint.md` §11 | EmDash native media library on the native `local()` storage adapter configured at the stable `./media` mount, served at `/_emdash/api/media/file` (`astro.config.mjs`) | `astro.config.mjs` storage block; accepted T015 evidence: native upload `POST /_emdash/api/media`, native retrieval, byte-identical digests, CLI `emdash media list` | No DAM, folder hierarchy, image editor, check-in/out, custom media-usage database, or protected-file delivery; media storage is for public-publishable website assets only (`05-admin-cms.md` §5; `10-system-blueprint.md` §11; Constitution §IV) |
-| **Global Search** (native-first search) | `08-search.md` §1 (use CMS/database search capability first; search discovers content, does not own it), §10 (no custom Search Projection if the native index tracks the CMS lifecycle), §14 (non-goals: no dedicated external search service, custom ranking engine, vector/semantic search); `10-system-blueprint.md` §10 | Native EmDash content search: collections declare `search` support with per-field `searchable` flags, and search is exposed through the platform's own surfaces — verified **[C7]** for the `emdash search` full-text CLI with collection/locale/limit filters (`docs.emdashcms.com/themes/seed-files`; `/reference/cli`). The server-side global search API/function named by `10-system-blueprint.md` §10 is authority direction to be confirmed against the pinned version when that feature is specified | `seed/seed.json` (no collections, so no searchable fields exist yet); no `/search` route exists — only `src/pages/index.astro` | Thai-appropriate tokenizer (trigram) configuration, searchable fields/weights set exactly; no search infrastructure of Songhealth's own; dedicated search technology reconsidered only on measured relevance/scale/UAT failure (`10-system-blueprint.md` §10; `08-search.md` §4, §15) |
+| **Global Search** (native-first search) | `08-search.md` §1 (use CMS/database search capability first; search discovers content, does not own it), §10 (no custom Search Projection if the native index tracks the CMS lifecycle), §14 (non-goals: no dedicated external search service, custom ranking engine, vector/semantic search); `10-system-blueprint.md` §10 | Native EmDash content search: collections declare `search` support with per-field `searchable` flags, and search is exposed through the platform's own surfaces — a current vendor-documented candidate seam, documented **[C7]** for the `emdash search` full-text CLI with collection/locale/limit filters (`docs.emdashcms.com/themes/seed-files`; `/reference/cli`). The server-side global search API/function named by `10-system-blueprint.md` §10 is authority direction to be confirmed against the pinned version when that feature is specified | `seed/seed.json` (no collections, so no searchable fields exist yet); no `/search` route exists — only `src/pages/index.astro` | Thai-appropriate tokenizer (trigram) configuration, searchable fields/weights set exactly; no search infrastructure of Songhealth's own; dedicated search technology reconsidered only on measured relevance/scale/UAT failure (`10-system-blueprint.md` §10; `08-search.md` §4, §15) |
 | **Admin CMS** (native-first Admin) | `05-admin-cms.md` §1 (use the CMS, do not rebuild it; customization order: labels → built-in config → built-in permissions/workflow → small plugin/hook/widget → custom Admin page only for a proven gap), §13 (Extension Gate), §14 (non-goals incl. custom Admin SPA); `10-system-blueprint.md` §5 | Native EmDash Admin mounted by the integration at `/_emdash/` with React registered for it (`astro.config.mjs`); Thai labels via platform localization, no Admin fork | `astro.config.mjs` React + EmDash integrations; accepted T015 evidence: native Admin setup/sign-in availability on the running platform | No custom Admin SPA, role builder, notification center, workflow inbox; custom Admin components only through the §13 gate |
 | **Relations & reuse** | `02-content-model.md` §13 (Document as semantic record + native media), §19 (core relationships); `10-system-blueprint.md` §12 | Native EmDash relation/reference fields with native transaction/relation validation | `seed/seed.json` (`relations: []` — seam present, deliberately empty) | No custom relationship service; no data duplication merely because presentation differs (`10-system-blueprint.md` §12) |
 | **SEO, redirects, 404** | `03-sitemap.md` §16 (redirects), §17 (404/Gone/unpublished), §18 (legacy URL handling); `10-system-blueprint.md` §13 | Native EmDash SEO features, sitemap/robots/canonical metadata, and redirect/404 facilities; the native core migration set installed by the platform includes redirect artifacts (accepted T006/T015 evidence: the 90 core migrations run `001_initial`…`091_redirect_artifacts`) | Accepted T006/T015 migration-manifest evidence; `seed/seed.json` (`redirects: []`) | No custom redirect manager or redirect subsystem before a proven gap; Astro templates keep canonical page semantics (`10-system-blueprint.md` §13; `03-sitemap.md` §16) |
 | **ITA** | `02-content-model.md` §18 (structured yearly evidence directory; evidence points to Document / native Media / External URL; no compliance/scoring/workflow engine); `03-sitemap.md` §11 (routes); `05-admin-cms.md` §7 (native collection editor + relation picker first); `10-system-blueprint.md` §15 | Structured EmDash collections/relations per the Content Model; native editor first; custom widget/page only on a clear UAT gap | None — planned; no ITA resources exist at baseline | No ITA compliance engine, scoring engine, approval workflow, workflow designer, or automatic evidence carry-forward (`05-admin-cms.md` §7; `10-system-blueprint.md` §15) |
-| **WordPress migration** (native-first importer) | `09-migration-plan.md` §1 (native importer first; customize only mapping gaps), §4 (preferred import path: WXR/exporter → native Analyze/Review/Prepare/Import/Copy-Media flow), §16 (native importer boundary), §17 (non-goals: no generic importer framework/custom identity registry/custom redirect service); `10-system-blueprint.md` §16 | Native EmDash WordPress import flow — verified **[C7]**: a WXR import REST surface exists, executing a WXR file with post-type/author mappings, `skipExisting`, and per-section import against target collections (`POST /_emdash/api/import/wordpress/execute`, `docs.emdashcms.com/migration/content-import`). The rerun-guard behavior (collection + slug + locale identity of `skipExisting`) is recorded as an authority-mandated implementation caution in `10-system-blueprint.md` §16 | None — planned and **not authorized**: `09-migration-plan.md` §18 records Trial/Production import/cutover/retirement all `NOT AUTHORIZED` | Custom migration code only for transformations the native importer cannot perform correctly, as temporary tooling, never a permanent application layer; WordPress is the source, never the target model (`09-migration-plan.md` §1, §16) |
+| **WordPress migration** (native-first importer) | `09-migration-plan.md` §1 (native importer first; customize only mapping gaps), §4 (preferred import path: WXR/exporter → native Analyze/Review/Prepare/Import/Copy-Media flow), §16 (native importer boundary), §17 (non-goals: no generic importer framework/custom identity registry/custom redirect service); `10-system-blueprint.md` §16 | Native EmDash WordPress import flow — a current vendor-documented candidate seam, documented **[C7]**: a WXR import REST surface exists, executing a WXR file with post-type/author mappings, `skipExisting`, and per-section import against target collections (`POST /_emdash/api/import/wordpress/execute`, `docs.emdashcms.com/migration/content-import`). The rerun-guard behavior (collection + slug + locale identity of `skipExisting`) is recorded as an authority-mandated implementation caution in `10-system-blueprint.md` §16 | None — planned and **not authorized**: `09-migration-plan.md` §18 records Trial/Production import/cutover/retirement all `NOT AUTHORIZED` | Custom migration code only for transformations the native importer cannot perform correctly, as temporary tooling, never a permanent application layer; WordPress is the source, never the target model (`09-migration-plan.md` §1, §16) |
 
 Adjacent bounded areas that are **not** CMS features and stay outside these seams: the Dashboard
 is a separate analytical data domain with its own ownership — the CMS must not become its metric
@@ -271,21 +282,30 @@ store (`00-website-foundation.md` §1.3; `02-content-model.md` §17); single-sou
   owning authority"; Constitution §I and §Governance; `specs/001-platform-foundation/checklists/foundation-review.md` CHK004).
   This artifact records seams as they exist at the baseline; it amends nothing.
 
-## 9. External verification record (version-sensitive claims)
+## 9. External documentation record — current vendor-documented candidate seams
 
-| Verified fact | Source (checked 2026-10-13) | Version anchor |
+Provenance classes used in this artifact, kept distinct: **baseline-configured** (present in
+the repository at the exact baseline), **runtime-evidenced** (exercised by accepted T006/T015
+foundation gates against installed `emdash@1.1.0`), and **current vendor-documented candidate
+seam** (unversioned current vendor documentation checked via Context7 on 2026-10-13;
+subordinate to the owning authorities and requiring confirmation against the pinned
+`emdash` 1.1.0 before future implementation). Every `[C7]` statement below belongs to the
+third class.
+
+| Documented statement (candidate seam) | Source (checked 2026-10-13; unversioned current vendor documentation) | Provenance / version note |
 |---|---|---|
-| `_emdash` live collection registered with `defineLiveCollection` + `emdashLoader()` in `src/live.config.ts`; pages query via `getEmDashCollection`/`getEmDashEntry`; queries default to published status | Context7 `/websites/emdashcms` → `docs.emdashcms.com/concepts/architecture`, `/guides/querying-content` (also matches the baseline file verbatim) | `emdash` pinned `1.1.0` (`package.json`); installed-equals-pin runtime-verified by accepted T006/T015 evidence |
-| Content lifecycle: draft/scheduled/published; live + pending draft; publish changes; schedule/unschedule; unpublish; Trash/restore/permanent delete; revisions and revision restore; signed expiring preview tokens; edit locks (`ENTRY_LOCKED`); `_rev` stale-save refusal | Context7 `/websites/emdashcms` → `docs.emdashcms.com/reference/content-lifecycle`, `/guides/working-with-content`, `/reference/api` (`generatePreviewToken`), `/reference/mcp-server` | same |
-| Seed format defines `collections` (fields; `supports` incl. `drafts`/`revisions`/`search`/`seo`), `taxonomies`, `relations`, `menus`, `widgetAreas`, `content` | Context7 `/websites/emdashcms` → `docs.emdashcms.com/themes/seed-files`, `/themes/creating-themes` (the baseline `seed/seed.json` uses the same schema and keys) | same |
-| Native WordPress WXR import surface (`POST /_emdash/api/import/wordpress/execute` with `postTypeMappings`, `skipExisting`, author mappings, import sections) | Context7 `/websites/emdashcms` → `docs.emdashcms.com/migration/content-import` | same |
-| Native full-text search CLI (`emdash search`, collection/locale/limit filters) and per-field `searchable` flags | Context7 `/websites/emdashcms` → `docs.emdashcms.com/reference/cli`, `/themes/seed-files` | same |
+| `_emdash` live collection registered with `defineLiveCollection` + `emdashLoader()` in `src/live.config.ts`; pages query via `getEmDashCollection`/`getEmDashEntry`; queries default to published status | Context7 `/websites/emdashcms` → `docs.emdashcms.com/concepts/architecture`, `/guides/querying-content` | Loader registration is **baseline-configured** (present verbatim in `src/live.config.ts`); the query functions and their published-default behavior are **current vendor documentation only** — confirm against pinned `emdash` 1.1.0 (`package.json`) before implementation |
+| Content lifecycle: draft/scheduled/published; live + pending draft; publish changes; schedule/unschedule; unpublish; Trash/restore/permanent delete; revisions and revision restore; signed expiring preview tokens; edit locks (`ENTRY_LOCKED`); `_rev` stale-save refusal | Context7 `/websites/emdashcms` → `docs.emdashcms.com/reference/content-lifecycle`, `/guides/working-with-content`, `/reference/api` (`generatePreviewToken`), `/reference/mcp-server` | Current vendor documentation only; not exercised by T006/T015 — confirm against pinned `emdash` 1.1.0 (`package.json`) before implementation |
+| Seed format defines `collections` (fields; `supports` incl. `drafts`/`revisions`/`search`/`seo`), `taxonomies`, `relations`, `menus`, `widgetAreas`, `content` | Context7 `/websites/emdashcms` → `docs.emdashcms.com/themes/seed-files`, `/themes/creating-themes` | Documented capability is current vendor documentation; the baseline `seed/seed.json` itself (same schema URL and top-level keys, all empty) is **baseline-configured** repository evidence |
+| Native WordPress WXR import surface (`POST /_emdash/api/import/wordpress/execute` with `postTypeMappings`, `skipExisting`, author mappings, import sections) | Context7 `/websites/emdashcms` → `docs.emdashcms.com/migration/content-import` | Current vendor documentation only; not exercised by any accepted runtime evidence — confirm against pinned `emdash` 1.1.0 (`package.json`) before implementation |
+| Native full-text search CLI (`emdash search`, collection/locale/limit filters) and per-field `searchable` flags | Context7 `/websites/emdashcms` → `docs.emdashcms.com/reference/cli`, `/themes/seed-files` | Current vendor documentation only; not exercised by any accepted runtime evidence — confirm against pinned `emdash` 1.1.0 (`package.json`) before implementation |
 
-No claim above goes beyond these pages plus supplied baseline evidence. The server-side global
-search API named by `10-system-blueprint.md` §10 and the Admin UI details of the WordPress
-import flow are treated as **owning-authority direction for future features**, to be confirmed
-against the pinned version at those features' specification time — not asserted here as verified
-EmDash 1.1.0 API fact beyond what is recorded above.
+No `[C7]` statement is asserted as pinned-1.1.0-verified fact, and no release-specific package
+or source evidence was inspected for them; they record what the vendor currently documents so
+each future feature can confirm the capability against the exact pinned version at its
+specification time. The server-side global search API named by `10-system-blueprint.md` §10 and
+the Admin UI details of the WordPress import flow remain **owning-authority direction for
+future features**, not documented-statement claims.
 
 ## 10. Pending gates and what this artifact does not establish
 
@@ -315,15 +335,19 @@ EmDash 1.1.0 API fact beyond what is recorded above.
 ## 12. Limitations
 
 - This is a source-only artifact authored under Development-First Sequencing: it reflects the
-  accepted source baseline and cited authorities as of 2026-10-13 and the pinned `emdash` 1.1.0
-  documented surface verified through Context7 on that date; it contains no runtime execution of
-  the application, tests, or operational gates (per the delegation: "This document-only task
-  requires no runtime execution or application tests").
-- EmDash documentation via Context7 reflects the vendor's current published documentation; where
-  that documentation and the pinned 1.1.0 package could diverge, the accepted in-repository
-  runtime evidence (T006/T015, both recorded against installed `emdash@1.1.0`) takes precedence
-  for the facts it covers, and every remaining capability statement is framed as future
-  feature direction to be confirmed at that feature's specification time.
+  accepted source baseline and cited authorities as of 2026-10-13, plus EmDash capability
+  statements checked against the vendor's **unversioned current documentation** through
+  Context7 on that date (§9, provenance class "current vendor-documented candidate seam"); it
+  contains no runtime execution of the application, tests, or operational gates (per the
+  delegation: "This document-only task requires no runtime execution or application tests").
+- The current vendor documentation may diverge from the pinned `emdash` 1.1.0 package; no
+  `[C7]` claim asserts pinned-release coverage. Where the accepted in-repository runtime
+  evidence (T006/T015, recorded against installed `emdash@1.1.0`) covers a fact — the
+  foundation configuration, migration CLI semantics, integrated start, native Admin
+  setup/sign-in, and the native settings/media REST surfaces — that evidence takes precedence
+  and is labelled baseline-configured/runtime-evidenced; every other capability statement is a
+  candidate seam requiring confirmation against the exact pinned version before future
+  implementation.
 - The author is the implementation executor, not the reviewer: independent Codex review (PASS /
   REWORK / BLOCKED) and separate Product Owner Source Acceptance — and any merge — remain
   outstanding.
