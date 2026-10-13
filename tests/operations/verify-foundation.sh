@@ -693,14 +693,35 @@ validate_container_ownership() {
 	# inside the owning unit's cgroup, proving it is this deployment's
 	# task-owned ephemeral container and not a same-name foreign resource —
 	# the precondition for any later stop/rm lifecycle exercise.
+	# Podman exposes this under State. Prove containment in the user
+	# manager's exact unit cgroup; a unit-name substring is not ownership.
 	local container="$1" unit="$2"
-	local cgroup=''
-	cgroup="$(podman container inspect "$container" --format '{{.CgroupPath}}' 2>/dev/null || true)"
-	if [ -z "$cgroup" ]; then
+	local cgroup='' unit_cgroup='' path=''
+	if ! cgroup="$(podman container inspect "$container" --format '{{.State.CgroupPath}}' 2>/dev/null)" ||
+		[ -z "$cgroup" ]; then
 		fail_stage R1 'could not resolve the cgroup of container %s' "$container"
 	fi
+	if ! unit_cgroup="$(systemctl --user show "$unit" -p ControlGroup --value 2>/dev/null)" ||
+		[ -z "$unit_cgroup" ]; then
+		fail_stage R1 'could not resolve the cgroup of owning unit %s' "$unit"
+	fi
+	# Require canonical absolute paths: no empty, whitespace, dot or parent
+	# components. Otherwise prefix comparison could accept an unproven owner.
+	for path in "$cgroup" "$unit_cgroup"; do
+		if [[ ! "$path" =~ ^/[^/[:space:]]+(/[^/[:space:]]+)*$ ]]; then
+			fail_stage R1 'malformed cgroup path; ownership of container %s is unprovable' "$container"
+		fi
+		case "$path/" in
+		*'/./'* | *'/../'*)
+			fail_stage R1 'malformed cgroup path; ownership of container %s is unprovable' "$container"
+			;;
+		esac
+	done
+	if [[ "$unit_cgroup" != */"$unit" ]]; then
+		fail_stage R1 'owning unit %s has an unexpected ControlGroup; container ownership is unprovable' "$unit"
+	fi
 	case $cgroup in
-	*"$unit"*) ;;
+	"$unit_cgroup" | "$unit_cgroup"/*) ;;
 	*)
 		fail_stage R1 'container %s does not run in the cgroup of unit %s (cgroup owner mismatch); refusing to treat it as a task-owned target' \
 			"$container" "$unit"
@@ -800,21 +821,12 @@ derive_gate_markers() {
 	# weakened substitute.
 	GATE_BANNER="$(grep -oF "$T013_BANNER_MARKER" "$ROOT/$T013_SCRIPT" | head -1 || true)"
 
-# The accepted T020 startup payload (exceptional round 4, blocker 2), base64
-# of the exact sh -c payload committed in the accepted T020 candidate
-# (deploy/quadlet/songhealth-app.container at fd5c2ea2, Exec= line): the
-# mount/store guards, secret reads, export, the role-prerequisite node
-# program, the T013 gate mapping, and the HOST=0.0.0.0 exec server launch.
-# The container-form wiring accepts ONLY this payload (byte-equal after
-# systemd escape decoding): executable-name whitelists cannot prove the
-# approved commands and arguments, so a grouped eval, shell-function
-# shadowing, an unauthorized assignment, an altered role-check program, or
-# any execution redirection - however deeply quoted or nested - differs
-# from the accepted payload and is rejected. The structural rules remain
-# as earlier-diagnosis layers; this equality gate is the authority.
-# base64 avoids every shell/JS quoting hazard for the 42 backticks and
-# $q$ literals inside.
-readonly APPROVED_STARTUP_PAYLOAD_B64='Z3JlcCAtcSAnIC9hcHAvbWVkaWEgJyAvcHJvYy9tb3VudHMgfHwgeyBlY2hvIHNvbmdoZWFsdGgtYXBwOiByZXF1aXJlZCBwZXJzaXN0ZW50IG1lZGlhIHZvbHVtZSBzb25naGVhbHRoLW1lZGlhIGlzIG5vdCBhdHRhY2hlZCBhdCAvYXBwL21lZGlhIC0gcmVmdXNpbmcgdG8gc3RhcnQgPiYyOyBleGl0IDE7IH07IHRlc3QgLXIgL2FwcC9tZWRpYS8uc29uZ2hlYWx0aC1tZWRpYS1zdG9yZSB8fCB7IGVjaG8gc29uZ2hlYWx0aC1hcHA6IG9wZXJhdG9yLW1hbmFnZWQgZXhpc3RpbmcgbWVkaWEgc3RvcmUgbWFya2VyIC5zb25naGVhbHRoLW1lZGlhLXN0b3JlIGlzIG1pc3NpbmcgYXQgL2FwcC9tZWRpYSAtIHRoZSBwZXJzaXN0ZW50IHN0b3JlIHdhcyBub3QgcHJvdmlzaW9uZWQgb3IgaGFzIGJlZW4gcmVwbGFjZWQgLSByZWZ1c2luZyB0byBzdGFydCA+JjI7IGV4aXQgMTsgfTsgSUZTPSByZWFkIC1yIEVNREFTSF9NSUdSQVRJT05fREFUQUJBU0VfVVJMIDwvcnVuL3NlY3JldHMvc29uZ2hlYWx0aC1taWdyYXRpb24tZGF0YWJhc2UtdXJsOyBJRlM9IHJlYWQgLXIgRU1EQVNIX0VOQ1JZUFRJT05fS0VZIDwvcnVuL3NlY3JldHMvc29uZ2hlYWx0aC1lbmNyeXB0aW9uLWtleTsgZXhwb3J0IEVNREFTSF9NSUdSQVRJT05fREFUQUJBU0VfVVJMIEVNREFTSF9FTkNSWVBUSU9OX0tFWTsgbm9kZSAtZSAnY29uc3QgcGc9cmVxdWlyZShgcGdgKTtjb25zdCBmYWlsPW09Pntjb25zb2xlLmVycm9yKGBzb25naGVhbHRoLWFwcDogYCttKTtwcm9jZXNzLmV4aXQoMSl9O2NvbnN0IHNjaGVtYUNvbnRyYWN0T2s9cj0+ISFyJiZTdHJpbmcoci5jcmVhdGlvbl9zY2hlbWEpPT09YHB1YmxpY2AmJkFycmF5LmlzQXJyYXkoci5sb29rdXBfc2NoZW1hcykmJnIubG9va3VwX3NjaGVtYXMuZmlsdGVyKHg9PlN0cmluZyh4KSE9PWBwZ19jYXRhbG9nYCkubGVuZ3RoPT09MSYmU3RyaW5nKHIubG9va3VwX3NjaGVtYXMuZmlsdGVyKHg9PlN0cmluZyh4KSE9PWBwZ19jYXRhbG9nYClbMF0pPT09YHB1YmxpY2AmJlN0cmluZyhyLnRlbXBfc2NoZW1hKT09PWAwYDsoYXN5bmMoKT0+e2NvbnN0IGM9bmV3IHBnLkNsaWVudCh7aG9zdDpwcm9jZXNzLmVudi5QR0hPU1QscG9ydDpOdW1iZXIocHJvY2Vzcy5lbnYuUEdQT1JUKSxkYXRhYmFzZTpwcm9jZXNzLmVudi5QR0RBVEFCQVNFLHVzZXI6cHJvY2Vzcy5lbnYuUEdVU0VSLHBhc3N3b3JkOnByb2Nlc3MuZW52LlBHUEFTU1dPUkQsY29ubmVjdGlvblRpbWVvdXRNaWxsaXM6NTAwMCxxdWVyeV90aW1lb3V0OjUwMDB9KTthd2FpdCBjLmNvbm5lY3QoKTtjb25zdCBzYT0oYXdhaXQgYy5xdWVyeShgc2VsZWN0IGN1cnJlbnRfc2NoZW1hKCkgYXMgY3JlYXRpb25fc2NoZW1hLCBjdXJyZW50X3NjaGVtYXMoZmFsc2UpIGFzIGxvb2t1cF9zY2hlbWFzLCBwZ19teV90ZW1wX3NjaGVtYSgpIGFzIHRlbXBfc2NoZW1hYCkpLnJvd3NbMF07aWYoIXNjaGVtYUNvbnRyYWN0T2soc2EpKWZhaWwoYHB1YmxpYy1vbmx5IHNjaGVtYSBwcmVyZXF1aXNpdGUgZmFpbGVkOiB0aGUgYXBwbGljYXRpb24gY29ubmVjdGlvbiBkb2VzIG5vdCBzYXRpc2Z5IHRoZSBwdWJsaWMtb25seSBzY2hlbWEgY29udHJhY3QgKGNyZWF0aW9uIHNjaGVtYSBjdXJyZW50X3NjaGVtYSgpIG11c3QgYmUgcHVibGljLCB0aGUgZWZmZWN0aXZlIGxvb2t1cCBwYXRoIGN1cnJlbnRfc2NoZW1hcyhmYWxzZSkgbWludXMgdGhlIGRvY3VtZW50ZWQgaW1wbGljaXQgb3IgZXhwbGljaXQgcGdfY2F0YWxvZyBzeXN0ZW0gbG9va3VwIG11c3QgYmUgZXhhY3RseSBwdWJsaWMsIGFuZCBwZ19teV90ZW1wX3NjaGVtYSgpIG11c3QgYmUgMCBzbyBubyB0ZW1wb3Jhcnkgc2NoZW1hIHNoYWRvd3MgRW1EYXNoIHJlbGF0aW9uIGxvb2t1cCkgLSByZWZ1c2luZyBiZWZvcmUgYW55IG1pZ3JhdGlvbiBtdXRhdGlvbmApO2NvbnN0IG1jPW5ldyBwZy5DbGllbnQoe2Nvbm5lY3Rpb25TdHJpbmc6cHJvY2Vzcy5lbnYuRU1EQVNIX01JR1JBVElPTl9EQVRBQkFTRV9VUkwsY29ubmVjdGlvblRpbWVvdXRNaWxsaXM6NTAwMCxxdWVyeV90aW1lb3V0OjUwMDB9KTthd2FpdCBtYy5jb25uZWN0KCk7Y29uc3Qgc209KGF3YWl0IG1jLnF1ZXJ5KGBzZWxlY3QgY3VycmVudF9zY2hlbWEoKSBhcyBjcmVhdGlvbl9zY2hlbWEsIGN1cnJlbnRfc2NoZW1hcyhmYWxzZSkgYXMgbG9va3VwX3NjaGVtYXMsIHBnX215X3RlbXBfc2NoZW1hKCkgYXMgdGVtcF9zY2hlbWFgKSkucm93c1swXTthd2FpdCBtYy5lbmQoKTtpZighc2NoZW1hQ29udHJhY3RPayhzbSkpZmFpbChgcHVibGljLW9ubHkgc2NoZW1hIHByZXJlcXVpc2l0ZSBmYWlsZWQ6IHRoZSBtaWdyYXRpb24gY29ubmVjdGlvbiBkb2VzIG5vdCBzYXRpc2Z5IHRoZSBwdWJsaWMtb25seSBzY2hlbWEgY29udHJhY3QgKHRoZSBzYW1lIGNyZWF0aW9uLXNjaGVtYSwgZWZmZWN0aXZlLWxvb2t1cC1wYXRoLCBhbmQgdGVtcG9yYXJ5LXNjaGVtYSBjb25kaXRpb25zKSAtIHJlZnVzaW5nIGJlZm9yZSBhbnkgbWlncmF0aW9uIG11dGF0aW9uYCk7Y29uc3Qgcj1hd2FpdCBjLnF1ZXJ5KGBzZWxlY3Qgcm9sc3VwZXIgcyxyb2xjcmVhdGVkYiBjZCxyb2xjcmVhdGVyb2xlIGNyLGhhc19kYXRhYmFzZV9wcml2aWxlZ2UoY3VycmVudF91c2VyLGN1cnJlbnRfZGF0YWJhc2UoKSwkcSRDT05ORUNUJHEkKSBkYmMsaGFzX3NjaGVtYV9wcml2aWxlZ2UoY3VycmVudF91c2VyLCRxJHB1YmxpYyRxJCwkcSRVU0FHRSRxJCkgc3UsaGFzX3NjaGVtYV9wcml2aWxlZ2UoY3VycmVudF91c2VyLCRxJHB1YmxpYyRxJCwkcSRDUkVBVEUkcSQpIHNjIGZyb20gcGdfcm9sZXMgd2hlcmUgcm9sbmFtZT1jdXJyZW50X3VzZXJgKTtjb25zdCBiPXIucm93c1swXTtpZighYilmYWlsKGBsZWFzdC1wcml2aWxlZ2UgYXBwbGljYXRpb24tcm9sZSBwcmVyZXF1aXNpdGUgZmFpbGVkOiB0aGUgY29ubmVjdGluZyByb2xlIGhhcyBubyBwZ19yb2xlcyByb3dgKTtpZihiLnMpZmFpbChgbGVhc3QtcHJpdmlsZWdlIGFwcGxpY2F0aW9uLXJvbGUgcHJlcmVxdWlzaXRlIGZhaWxlZDogdGhlIGNvbm5lY3Rpbmcgcm9sZSBpcyBTVVBFUlVTRVIgLSB0aGUgYm9vdHN0cmFwIGFkbWluaXN0cmF0b3IgaXMgbm90IHRoZSBhcHBsaWNhdGlvbiBpZGVudGl0eWApO2lmKGIuY2QpZmFpbChgbGVhc3QtcHJpdmlsZWdlIGFwcGxpY2F0aW9uLXJvbGUgcHJlcmVxdWlzaXRlIGZhaWxlZDogdGhlIGNvbm5lY3Rpbmcgcm9sZSBoYXMgQ1JFQVRFREJgKTtpZihiLmNyKWZhaWwoYGxlYXN0LXByaXZpbGVnZSBhcHBsaWNhdGlvbi1yb2xlIHByZXJlcXVpc2l0ZSBmYWlsZWQ6IHRoZSBjb25uZWN0aW5nIHJvbGUgaGFzIENSRUFURVJPTEVgKTtpZighYi5kYmMpZmFpbChgbGVhc3QtcHJpdmlsZWdlIGFwcGxpY2F0aW9uLXJvbGUgcHJlcmVxdWlzaXRlIGZhaWxlZDogdGhlIGNvbm5lY3Rpbmcgcm9sZSBsYWNrcyBDT05ORUNUIG9uIHRoZSB0YXJnZXQgZGF0YWJhc2VgKTtpZighYi5zdSlmYWlsKGBsZWFzdC1wcml2aWxlZ2UgYXBwbGljYXRpb24tcm9sZSBwcmVyZXF1aXNpdGUgZmFpbGVkOiB0aGUgY29ubmVjdGluZyByb2xlIGxhY2tzIFVTQUdFIG9uIHNjaGVtYSBwdWJsaWNgKTtpZighYi5zYylmYWlsKGBsZWFzdC1wcml2aWxlZ2UgYXBwbGljYXRpb24tcm9sZSBwcmVyZXF1aXNpdGUgZmFpbGVkOiB0aGUgY29ubmVjdGluZyByb2xlIGxhY2tzIENSRUFURSBvbiBzY2hlbWEgcHVibGljYCk7Y29uc3Qgbz1hd2FpdCBjLnF1ZXJ5KGBzZWxlY3QgY2FzZSBjLnJlbGtpbmQgd2hlbiAkcSRTJHEkIHRoZW4gJHEkc2VxdWVuY2UkcSQgZWxzZSAkcSR0YWJsZSRxJCBlbmQga2luZCxjLnJlbG5hbWUgb2JqLHBnX2hhc19yb2xlKGN1cnJlbnRfdXNlcixjLnJlbG93bmVyLCRxJFVTQUdFJHEkKSBvd25lZCxjYXNlIGMucmVsa2luZCB3aGVuICRxJFMkcSQgdGhlbiBoYXNfc2VxdWVuY2VfcHJpdmlsZWdlKGN1cnJlbnRfdXNlcixjLm9pZCwkcSRTRUxFQ1QkcSQpIGFuZCBoYXNfc2VxdWVuY2VfcHJpdmlsZWdlKGN1cnJlbnRfdXNlcixjLm9pZCwkcSRVU0FHRSRxJCkgYW5kIGhhc19zZXF1ZW5jZV9wcml2aWxlZ2UoY3VycmVudF91c2VyLGMub2lkLCRxJFVQREFURSRxJCkgZWxzZSBoYXNfdGFibGVfcHJpdmlsZWdlKGN1cnJlbnRfdXNlcixjLm9pZCwkcSRTRUxFQ1QkcSQpIGFuZCBoYXNfdGFibGVfcHJpdmlsZWdlKGN1cnJlbnRfdXNlcixjLm9pZCwkcSRJTlNFUlQkcSQpIGFuZCBoYXNfdGFibGVfcHJpdmlsZWdlKGN1cnJlbnRfdXNlcixjLm9pZCwkcSRVUERBVEUkcSQpIGFuZCBoYXNfdGFibGVfcHJpdmlsZWdlKGN1cnJlbnRfdXNlcixjLm9pZCwkcSRERUxFVEUkcSQpIGVuZCBkbWwgZnJvbSBwZ19jbGFzcyBjIGpvaW4gcGdfbmFtZXNwYWNlIG4gb24gbi5vaWQ9Yy5yZWxuYW1lc3BhY2Ugd2hlcmUgYy5yZWxraW5kIGluICgkcSRyJHEkLCRxJHAkcSQsJHEkUyRxJCkgYW5kIG4ubnNwbmFtZT0kcSRwdWJsaWMkcSRgKTthd2FpdCBjLmVuZCgpO2Zvcihjb25zdCB4IG9mIG8ucm93cyl7Y29uc3QgcD1bXTtpZigheC5vd25lZClwLnB1c2goYG5vdCBvd25lZCBieSB0aGUgY29ubmVjdGluZyByb2xlIGRpcmVjdGx5IG9yIHRocm91Z2ggcm9sZSBtZW1iZXJzaGlwYCk7aWYoIXguZG1sKXAucHVzaChgbGFja2luZyBlZmZlY3RpdmUgcmVxdWlyZWQgRE1MIHByaXZpbGVnZXNgKTtpZihwLmxlbmd0aD4wKWZhaWwoYGxlYXN0LXByaXZpbGVnZSBhcHBsaWNhdGlvbi1yb2xlIHByZXJlcXVpc2l0ZSBmYWlsZWQ6IGV4aXN0aW5nIEVtRGFzaCBgK3gua2luZCtgIGAreC5vYmorYCBpbiB0aGUgZXN0YWJsaXNoZWQgcHVibGljIHNjaGVtYSBpcyBgK3Auam9pbihgIGFuZCBgKSl9Y29uc29sZS5lcnJvcihgc29uZ2hlYWx0aC1hcHA6IGxlYXN0LXByaXZpbGVnZSBhcHBsaWNhdGlvbi1yb2xlIGFuZCBwdWJsaWMtb25seSBzY2hlbWEgcHJlcmVxdWlzaXRlcyB2ZXJpZmllZDogYm90aCBjb25uZWN0aW9ucyBjcmVhdGUgaW50byBwdWJsaWMgKGN1cnJlbnRfc2NoZW1hKSB3aXRoIGVmZmVjdGl2ZSBsb29rdXAgZXhhY3RseSBwdWJsaWMgYmV5b25kIHRoZSBkb2N1bWVudGVkIHBnX2NhdGFsb2cgc3lzdGVtIGxvb2t1cCAoY3VycmVudF9zY2hlbWFzKGZhbHNlKSkgYW5kIG5vIHRlbXBvcmFyeSBzY2hlbWEgKHBnX215X3RlbXBfc2NoZW1hIDApOyBub24tc3VwZXJ1c2VyLCBubyBDUkVBVEVEQiwgbm8gQ1JFQVRFUk9MRSwgZGF0YWJhc2UgQ09OTkVDVCwgc2NoZW1hIHB1YmxpYyBVU0FHRSBhbmQgQ1JFQVRFLCBhbmQgYCtvLnJvd3MubGVuZ3RoK2AgZXhpc3RpbmcgRW1EYXNoIHJlbGF0aW9uKHMpIGluIHRoZSBlc3RhYmxpc2hlZCBwdWJsaWMgc2NoZW1hIHBhc3MgcmVxdWlyZWQgb3duZXJzaGlwIChkaXJlY3Qgb3IgaW5oZXJpdGVkKSBhbmQgZnVsbCBETUwgdmVyaWZpY2F0aW9uYCl9KSgpLmNhdGNoKGU9PmZhaWwoYGxlYXN0LXByaXZpbGVnZSBhcHBsaWNhdGlvbi1yb2xlIGFuZCBwdWJsaWMtb25seSBzY2hlbWEgcHJlcmVxdWlzaXRlIGZhaWxlZDogYCsoKGUmJmUuY29kZSl8fGBlcnJvcmApKSknICYmIG5wbSBydW4gdmVyaWZ5OnN0YXJ0dXAgJiYgSE9TVD0wLjAuMC4wIGV4ZWMgbm9kZSBkaXN0L3NlcnZlci9lbnRyeS5tanM='
+# Complete T020 startup payload, synchronized for the F01 text[] casts.
+# Mount/store guards, secret reads, export, role/schema prerequisites, T013
+# mapping and server launch must match byte-for-byte after systemd decoding.
+# The only changes from the accepted payload are the two native SQL casts.
+# base64 preserves the backticks and $q$ literals without shell/JS expansion.
+readonly APPROVED_STARTUP_PAYLOAD_B64='Z3JlcCAtcSAnIC9hcHAvbWVkaWEgJyAvcHJvYy9tb3VudHMgfHwgeyBlY2hvIHNvbmdoZWFsdGgtYXBwOiByZXF1aXJlZCBwZXJzaXN0ZW50IG1lZGlhIHZvbHVtZSBzb25naGVhbHRoLW1lZGlhIGlzIG5vdCBhdHRhY2hlZCBhdCAvYXBwL21lZGlhIC0gcmVmdXNpbmcgdG8gc3RhcnQgPiYyOyBleGl0IDE7IH07IHRlc3QgLXIgL2FwcC9tZWRpYS8uc29uZ2hlYWx0aC1tZWRpYS1zdG9yZSB8fCB7IGVjaG8gc29uZ2hlYWx0aC1hcHA6IG9wZXJhdG9yLW1hbmFnZWQgZXhpc3RpbmcgbWVkaWEgc3RvcmUgbWFya2VyIC5zb25naGVhbHRoLW1lZGlhLXN0b3JlIGlzIG1pc3NpbmcgYXQgL2FwcC9tZWRpYSAtIHRoZSBwZXJzaXN0ZW50IHN0b3JlIHdhcyBub3QgcHJvdmlzaW9uZWQgb3IgaGFzIGJlZW4gcmVwbGFjZWQgLSByZWZ1c2luZyB0byBzdGFydCA+JjI7IGV4aXQgMTsgfTsgSUZTPSByZWFkIC1yIEVNREFTSF9NSUdSQVRJT05fREFUQUJBU0VfVVJMIDwvcnVuL3NlY3JldHMvc29uZ2hlYWx0aC1taWdyYXRpb24tZGF0YWJhc2UtdXJsOyBJRlM9IHJlYWQgLXIgRU1EQVNIX0VOQ1JZUFRJT05fS0VZIDwvcnVuL3NlY3JldHMvc29uZ2hlYWx0aC1lbmNyeXB0aW9uLWtleTsgZXhwb3J0IEVNREFTSF9NSUdSQVRJT05fREFUQUJBU0VfVVJMIEVNREFTSF9FTkNSWVBUSU9OX0tFWTsgbm9kZSAtZSAnY29uc3QgcGc9cmVxdWlyZShgcGdgKTtjb25zdCBmYWlsPW09Pntjb25zb2xlLmVycm9yKGBzb25naGVhbHRoLWFwcDogYCttKTtwcm9jZXNzLmV4aXQoMSl9O2NvbnN0IHNjaGVtYUNvbnRyYWN0T2s9cj0+ISFyJiZTdHJpbmcoci5jcmVhdGlvbl9zY2hlbWEpPT09YHB1YmxpY2AmJkFycmF5LmlzQXJyYXkoci5sb29rdXBfc2NoZW1hcykmJnIubG9va3VwX3NjaGVtYXMuZmlsdGVyKHg9PlN0cmluZyh4KSE9PWBwZ19jYXRhbG9nYCkubGVuZ3RoPT09MSYmU3RyaW5nKHIubG9va3VwX3NjaGVtYXMuZmlsdGVyKHg9PlN0cmluZyh4KSE9PWBwZ19jYXRhbG9nYClbMF0pPT09YHB1YmxpY2AmJlN0cmluZyhyLnRlbXBfc2NoZW1hKT09PWAwYDsoYXN5bmMoKT0+e2NvbnN0IGM9bmV3IHBnLkNsaWVudCh7aG9zdDpwcm9jZXNzLmVudi5QR0hPU1QscG9ydDpOdW1iZXIocHJvY2Vzcy5lbnYuUEdQT1JUKSxkYXRhYmFzZTpwcm9jZXNzLmVudi5QR0RBVEFCQVNFLHVzZXI6cHJvY2Vzcy5lbnYuUEdVU0VSLHBhc3N3b3JkOnByb2Nlc3MuZW52LlBHUEFTU1dPUkQsY29ubmVjdGlvblRpbWVvdXRNaWxsaXM6NTAwMCxxdWVyeV90aW1lb3V0OjUwMDB9KTthd2FpdCBjLmNvbm5lY3QoKTtjb25zdCBzYT0oYXdhaXQgYy5xdWVyeShgc2VsZWN0IGN1cnJlbnRfc2NoZW1hKCkgYXMgY3JlYXRpb25fc2NoZW1hLCBjdXJyZW50X3NjaGVtYXMoZmFsc2UpOjp0ZXh0W10gYXMgbG9va3VwX3NjaGVtYXMsIHBnX215X3RlbXBfc2NoZW1hKCkgYXMgdGVtcF9zY2hlbWFgKSkucm93c1swXTtpZighc2NoZW1hQ29udHJhY3RPayhzYSkpZmFpbChgcHVibGljLW9ubHkgc2NoZW1hIHByZXJlcXVpc2l0ZSBmYWlsZWQ6IHRoZSBhcHBsaWNhdGlvbiBjb25uZWN0aW9uIGRvZXMgbm90IHNhdGlzZnkgdGhlIHB1YmxpYy1vbmx5IHNjaGVtYSBjb250cmFjdCAoY3JlYXRpb24gc2NoZW1hIGN1cnJlbnRfc2NoZW1hKCkgbXVzdCBiZSBwdWJsaWMsIHRoZSBlZmZlY3RpdmUgbG9va3VwIHBhdGggY3VycmVudF9zY2hlbWFzKGZhbHNlKSBtaW51cyB0aGUgZG9jdW1lbnRlZCBpbXBsaWNpdCBvciBleHBsaWNpdCBwZ19jYXRhbG9nIHN5c3RlbSBsb29rdXAgbXVzdCBiZSBleGFjdGx5IHB1YmxpYywgYW5kIHBnX215X3RlbXBfc2NoZW1hKCkgbXVzdCBiZSAwIHNvIG5vIHRlbXBvcmFyeSBzY2hlbWEgc2hhZG93cyBFbURhc2ggcmVsYXRpb24gbG9va3VwKSAtIHJlZnVzaW5nIGJlZm9yZSBhbnkgbWlncmF0aW9uIG11dGF0aW9uYCk7Y29uc3QgbWM9bmV3IHBnLkNsaWVudCh7Y29ubmVjdGlvblN0cmluZzpwcm9jZXNzLmVudi5FTURBU0hfTUlHUkFUSU9OX0RBVEFCQVNFX1VSTCxjb25uZWN0aW9uVGltZW91dE1pbGxpczo1MDAwLHF1ZXJ5X3RpbWVvdXQ6NTAwMH0pO2F3YWl0IG1jLmNvbm5lY3QoKTtjb25zdCBzbT0oYXdhaXQgbWMucXVlcnkoYHNlbGVjdCBjdXJyZW50X3NjaGVtYSgpIGFzIGNyZWF0aW9uX3NjaGVtYSwgY3VycmVudF9zY2hlbWFzKGZhbHNlKTo6dGV4dFtdIGFzIGxvb2t1cF9zY2hlbWFzLCBwZ19teV90ZW1wX3NjaGVtYSgpIGFzIHRlbXBfc2NoZW1hYCkpLnJvd3NbMF07YXdhaXQgbWMuZW5kKCk7aWYoIXNjaGVtYUNvbnRyYWN0T2soc20pKWZhaWwoYHB1YmxpYy1vbmx5IHNjaGVtYSBwcmVyZXF1aXNpdGUgZmFpbGVkOiB0aGUgbWlncmF0aW9uIGNvbm5lY3Rpb24gZG9lcyBub3Qgc2F0aXNmeSB0aGUgcHVibGljLW9ubHkgc2NoZW1hIGNvbnRyYWN0ICh0aGUgc2FtZSBjcmVhdGlvbi1zY2hlbWEsIGVmZmVjdGl2ZS1sb29rdXAtcGF0aCwgYW5kIHRlbXBvcmFyeS1zY2hlbWEgY29uZGl0aW9ucykgLSByZWZ1c2luZyBiZWZvcmUgYW55IG1pZ3JhdGlvbiBtdXRhdGlvbmApO2NvbnN0IHI9YXdhaXQgYy5xdWVyeShgc2VsZWN0IHJvbHN1cGVyIHMscm9sY3JlYXRlZGIgY2Qscm9sY3JlYXRlcm9sZSBjcixoYXNfZGF0YWJhc2VfcHJpdmlsZWdlKGN1cnJlbnRfdXNlcixjdXJyZW50X2RhdGFiYXNlKCksJHEkQ09OTkVDVCRxJCkgZGJjLGhhc19zY2hlbWFfcHJpdmlsZWdlKGN1cnJlbnRfdXNlciwkcSRwdWJsaWMkcSQsJHEkVVNBR0UkcSQpIHN1LGhhc19zY2hlbWFfcHJpdmlsZWdlKGN1cnJlbnRfdXNlciwkcSRwdWJsaWMkcSQsJHEkQ1JFQVRFJHEkKSBzYyBmcm9tIHBnX3JvbGVzIHdoZXJlIHJvbG5hbWU9Y3VycmVudF91c2VyYCk7Y29uc3QgYj1yLnJvd3NbMF07aWYoIWIpZmFpbChgbGVhc3QtcHJpdmlsZWdlIGFwcGxpY2F0aW9uLXJvbGUgcHJlcmVxdWlzaXRlIGZhaWxlZDogdGhlIGNvbm5lY3Rpbmcgcm9sZSBoYXMgbm8gcGdfcm9sZXMgcm93YCk7aWYoYi5zKWZhaWwoYGxlYXN0LXByaXZpbGVnZSBhcHBsaWNhdGlvbi1yb2xlIHByZXJlcXVpc2l0ZSBmYWlsZWQ6IHRoZSBjb25uZWN0aW5nIHJvbGUgaXMgU1VQRVJVU0VSIC0gdGhlIGJvb3RzdHJhcCBhZG1pbmlzdHJhdG9yIGlzIG5vdCB0aGUgYXBwbGljYXRpb24gaWRlbnRpdHlgKTtpZihiLmNkKWZhaWwoYGxlYXN0LXByaXZpbGVnZSBhcHBsaWNhdGlvbi1yb2xlIHByZXJlcXVpc2l0ZSBmYWlsZWQ6IHRoZSBjb25uZWN0aW5nIHJvbGUgaGFzIENSRUFURURCYCk7aWYoYi5jcilmYWlsKGBsZWFzdC1wcml2aWxlZ2UgYXBwbGljYXRpb24tcm9sZSBwcmVyZXF1aXNpdGUgZmFpbGVkOiB0aGUgY29ubmVjdGluZyByb2xlIGhhcyBDUkVBVEVST0xFYCk7aWYoIWIuZGJjKWZhaWwoYGxlYXN0LXByaXZpbGVnZSBhcHBsaWNhdGlvbi1yb2xlIHByZXJlcXVpc2l0ZSBmYWlsZWQ6IHRoZSBjb25uZWN0aW5nIHJvbGUgbGFja3MgQ09OTkVDVCBvbiB0aGUgdGFyZ2V0IGRhdGFiYXNlYCk7aWYoIWIuc3UpZmFpbChgbGVhc3QtcHJpdmlsZWdlIGFwcGxpY2F0aW9uLXJvbGUgcHJlcmVxdWlzaXRlIGZhaWxlZDogdGhlIGNvbm5lY3Rpbmcgcm9sZSBsYWNrcyBVU0FHRSBvbiBzY2hlbWEgcHVibGljYCk7aWYoIWIuc2MpZmFpbChgbGVhc3QtcHJpdmlsZWdlIGFwcGxpY2F0aW9uLXJvbGUgcHJlcmVxdWlzaXRlIGZhaWxlZDogdGhlIGNvbm5lY3Rpbmcgcm9sZSBsYWNrcyBDUkVBVEUgb24gc2NoZW1hIHB1YmxpY2ApO2NvbnN0IG89YXdhaXQgYy5xdWVyeShgc2VsZWN0IGNhc2UgYy5yZWxraW5kIHdoZW4gJHEkUyRxJCB0aGVuICRxJHNlcXVlbmNlJHEkIGVsc2UgJHEkdGFibGUkcSQgZW5kIGtpbmQsYy5yZWxuYW1lIG9iaixwZ19oYXNfcm9sZShjdXJyZW50X3VzZXIsYy5yZWxvd25lciwkcSRVU0FHRSRxJCkgb3duZWQsY2FzZSBjLnJlbGtpbmQgd2hlbiAkcSRTJHEkIHRoZW4gaGFzX3NlcXVlbmNlX3ByaXZpbGVnZShjdXJyZW50X3VzZXIsYy5vaWQsJHEkU0VMRUNUJHEkKSBhbmQgaGFzX3NlcXVlbmNlX3ByaXZpbGVnZShjdXJyZW50X3VzZXIsYy5vaWQsJHEkVVNBR0UkcSQpIGFuZCBoYXNfc2VxdWVuY2VfcHJpdmlsZWdlKGN1cnJlbnRfdXNlcixjLm9pZCwkcSRVUERBVEUkcSQpIGVsc2UgaGFzX3RhYmxlX3ByaXZpbGVnZShjdXJyZW50X3VzZXIsYy5vaWQsJHEkU0VMRUNUJHEkKSBhbmQgaGFzX3RhYmxlX3ByaXZpbGVnZShjdXJyZW50X3VzZXIsYy5vaWQsJHEkSU5TRVJUJHEkKSBhbmQgaGFzX3RhYmxlX3ByaXZpbGVnZShjdXJyZW50X3VzZXIsYy5vaWQsJHEkVVBEQVRFJHEkKSBhbmQgaGFzX3RhYmxlX3ByaXZpbGVnZShjdXJyZW50X3VzZXIsYy5vaWQsJHEkREVMRVRFJHEkKSBlbmQgZG1sIGZyb20gcGdfY2xhc3MgYyBqb2luIHBnX25hbWVzcGFjZSBuIG9uIG4ub2lkPWMucmVsbmFtZXNwYWNlIHdoZXJlIGMucmVsa2luZCBpbiAoJHEkciRxJCwkcSRwJHEkLCRxJFMkcSQpIGFuZCBuLm5zcG5hbWU9JHEkcHVibGljJHEkYCk7YXdhaXQgYy5lbmQoKTtmb3IoY29uc3QgeCBvZiBvLnJvd3Mpe2NvbnN0IHA9W107aWYoIXgub3duZWQpcC5wdXNoKGBub3Qgb3duZWQgYnkgdGhlIGNvbm5lY3Rpbmcgcm9sZSBkaXJlY3RseSBvciB0aHJvdWdoIHJvbGUgbWVtYmVyc2hpcGApO2lmKCF4LmRtbClwLnB1c2goYGxhY2tpbmcgZWZmZWN0aXZlIHJlcXVpcmVkIERNTCBwcml2aWxlZ2VzYCk7aWYocC5sZW5ndGg+MClmYWlsKGBsZWFzdC1wcml2aWxlZ2UgYXBwbGljYXRpb24tcm9sZSBwcmVyZXF1aXNpdGUgZmFpbGVkOiBleGlzdGluZyBFbURhc2ggYCt4LmtpbmQrYCBgK3gub2JqK2AgaW4gdGhlIGVzdGFibGlzaGVkIHB1YmxpYyBzY2hlbWEgaXMgYCtwLmpvaW4oYCBhbmQgYCkpfWNvbnNvbGUuZXJyb3IoYHNvbmdoZWFsdGgtYXBwOiBsZWFzdC1wcml2aWxlZ2UgYXBwbGljYXRpb24tcm9sZSBhbmQgcHVibGljLW9ubHkgc2NoZW1hIHByZXJlcXVpc2l0ZXMgdmVyaWZpZWQ6IGJvdGggY29ubmVjdGlvbnMgY3JlYXRlIGludG8gcHVibGljIChjdXJyZW50X3NjaGVtYSkgd2l0aCBlZmZlY3RpdmUgbG9va3VwIGV4YWN0bHkgcHVibGljIGJleW9uZCB0aGUgZG9jdW1lbnRlZCBwZ19jYXRhbG9nIHN5c3RlbSBsb29rdXAgKGN1cnJlbnRfc2NoZW1hcyhmYWxzZSkpIGFuZCBubyB0ZW1wb3Jhcnkgc2NoZW1hIChwZ19teV90ZW1wX3NjaGVtYSAwKTsgbm9uLXN1cGVydXNlciwgbm8gQ1JFQVRFREIsIG5vIENSRUFURVJPTEUsIGRhdGFiYXNlIENPTk5FQ1QsIHNjaGVtYSBwdWJsaWMgVVNBR0UgYW5kIENSRUFURSwgYW5kIGArby5yb3dzLmxlbmd0aCtgIGV4aXN0aW5nIEVtRGFzaCByZWxhdGlvbihzKSBpbiB0aGUgZXN0YWJsaXNoZWQgcHVibGljIHNjaGVtYSBwYXNzIHJlcXVpcmVkIG93bmVyc2hpcCAoZGlyZWN0IG9yIGluaGVyaXRlZCkgYW5kIGZ1bGwgRE1MIHZlcmlmaWNhdGlvbmApfSkoKS5jYXRjaChlPT5mYWlsKGBsZWFzdC1wcml2aWxlZ2UgYXBwbGljYXRpb24tcm9sZSBhbmQgcHVibGljLW9ubHkgc2NoZW1hIHByZXJlcXVpc2l0ZSBmYWlsZWQ6IGArKChlJiZlLmNvZGUpfHxgZXJyb3JgKSkpJyAmJiBucG0gcnVuIHZlcmlmeTpzdGFydHVwICYmIEhPU1Q9MC4wLjAuMCBleGVjIG5vZGUgZGlzdC9zZXJ2ZXIvZW50cnkubWpz'
 APPROVED_STARTUP_PAYLOAD="$(printf '%s' "$APPROVED_STARTUP_PAYLOAD_B64" | base64 -d)"
 export APPROVED_STARTUP_PAYLOAD
 	if [ -z "$GATE_BANNER" ]; then
@@ -2554,7 +2566,9 @@ self_test() {
 	# captured effective unit for `--user cat`, sequenced InvocationID
 	# values for single-property --value queries (simulating fresh or
 	# changed invocations), and a named-property show payload for the
-	# multi-property state query. journalctl and podman shims serve the
+	# multi-property state query — and, for the F02 ownership fixtures
+	# (T022 corrective source gate), the owning unit's ControlGroup for
+	# `-p ControlGroup` queries. journalctl and podman shims serve the
 	# collector/refusal and identity-binding demonstrations the same way —
 	# no real runtime manager, journal, or container engine is ever
 	# invoked by the self-test.
@@ -2565,6 +2579,11 @@ printf '%s\n' "\$*" >>'$ST_ROOT/systemctl.log'
 case " \$* " in
 *' --user cat '*)
 	[ -f '$ST_ROOT/fx-unit' ] && cat '$ST_ROOT/fx-unit'
+	exit 0
+	;;
+*' -p ControlGroup '*)
+	[ -f '$ST_ROOT/fx-unit-controlgroup' ] && cat '$ST_ROOT/fx-unit-controlgroup'
+	[ -f '$ST_ROOT/fx-unit-cgroup-error' ] && exit 1
 	exit 0
 	;;
 *' --value '*)
@@ -2595,6 +2614,11 @@ SHIM
 #!/usr/bin/env bash
 printf '%s\n' "\$*" >>'$ST_ROOT/podman.log'
 case " \$* " in
+*' --format {{.State.CgroupPath}} '*)
+	[ -f '$ST_ROOT/fx-podman-cgroup' ] && cat '$ST_ROOT/fx-podman-cgroup'
+	[ -f '$ST_ROOT/fx-podman-cgroup-error' ] && exit 125
+	exit 0
+	;;
 *' container inspect '*)
 	[ -f '$ST_ROOT/fx-podman-image' ] && cat '$ST_ROOT/fx-podman-image'
 	exit 0
@@ -3215,7 +3239,7 @@ UNIT
 		# happened at construction.
 		cat >"$wdir/container-ok.unit" <<'UNIT'
 [Service]
-ExecStart=__T016_TRUSTED_PODMAN__ run --name systemd-%N --replace --rm -v songhealth-media:/app/media --publish 127.0.0.1:4321:4321 localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "grep -q ' /app/media ' /proc/mounts || { echo songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start >&2; exit 1; }; test -r /app/media/.songhealth-media-store || { echo songhealth-app: operator-managed existing media store marker .songhealth-media-store is missing at /app/media - the persistent store was not provisioned or has been replaced - refusing to start >&2; exit 1; }; IFS= read -r EMDASH_MIGRATION_DATABASE_URL </run/secrets/songhealth-migration-database-url; IFS= read -r EMDASH_ENCRYPTION_KEY </run/secrets/songhealth-encryption-key; export EMDASH_MIGRATION_DATABASE_URL EMDASH_ENCRYPTION_KEY; node -e 'const pg=require(`pg`);const fail=m=>{console.error(`songhealth-app: `+m);process.exit(1)};const schemaContractOk=r=>!!r&&String(r.creation_schema)===`public`&&Array.isArray(r.lookup_schemas)&&r.lookup_schemas.filter(x=>String(x)!==`pg_catalog`).length===1&&String(r.lookup_schemas.filter(x=>String(x)!==`pg_catalog`)[0])===`public`&&String(r.temp_schema)===`0`;(async()=>{const c=new pg.Client({host:process.env.PGHOST,port:Number(process.env.PGPORT),database:process.env.PGDATABASE,user:process.env.PGUSER,password:process.env.PGPASSWORD,connectionTimeoutMillis:5000,query_timeout:5000});await c.connect();const sa=(await c.query(`select current_schema() as creation_schema, current_schemas(false) as lookup_schemas, pg_my_temp_schema() as temp_schema`)).rows[0];if(!schemaContractOk(sa))fail(`public-only schema prerequisite failed: the application connection does not satisfy the public-only schema contract (creation schema current_schema() must be public, the effective lookup path current_schemas(false) minus the documented implicit or explicit pg_catalog system lookup must be exactly public, and pg_my_temp_schema() must be 0 so no temporary schema shadows EmDash relation lookup) - refusing before any migration mutation`);const mc=new pg.Client({connectionString:process.env.EMDASH_MIGRATION_DATABASE_URL,connectionTimeoutMillis:5000,query_timeout:5000});await mc.connect();const sm=(await mc.query(`select current_schema() as creation_schema, current_schemas(false) as lookup_schemas, pg_my_temp_schema() as temp_schema`)).rows[0];await mc.end();if(!schemaContractOk(sm))fail(`public-only schema prerequisite failed: the migration connection does not satisfy the public-only schema contract (the same creation-schema, effective-lookup-path, and temporary-schema conditions) - refusing before any migration mutation`);const r=await c.query(`select rolsuper s,rolcreatedb cd,rolcreaterole cr,has_database_privilege(current_user,current_database(),$q$CONNECT$q$) dbc,has_schema_privilege(current_user,$q$public$q$,$q$USAGE$q$) su,has_schema_privilege(current_user,$q$public$q$,$q$CREATE$q$) sc from pg_roles where rolname=current_user`);const b=r.rows[0];if(!b)fail(`least-privilege application-role prerequisite failed: the connecting role has no pg_roles row`);if(b.s)fail(`least-privilege application-role prerequisite failed: the connecting role is SUPERUSER - the bootstrap administrator is not the application identity`);if(b.cd)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEDB`);if(b.cr)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEROLE`);if(!b.dbc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CONNECT on the target database`);if(!b.su)fail(`least-privilege application-role prerequisite failed: the connecting role lacks USAGE on schema public`);if(!b.sc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CREATE on schema public`);const o=await c.query(`select case c.relkind when $q$S$q$ then $q$sequence$q$ else $q$table$q$ end kind,c.relname obj,pg_has_role(current_user,c.relowner,$q$USAGE$q$) owned,case c.relkind when $q$S$q$ then has_sequence_privilege(current_user,c.oid,$q$SELECT$q$) and has_sequence_privilege(current_user,c.oid,$q$USAGE$q$) and has_sequence_privilege(current_user,c.oid,$q$UPDATE$q$) else has_table_privilege(current_user,c.oid,$q$SELECT$q$) and has_table_privilege(current_user,c.oid,$q$INSERT$q$) and has_table_privilege(current_user,c.oid,$q$UPDATE$q$) and has_table_privilege(current_user,c.oid,$q$DELETE$q$) end dml from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind in ($q$r$q$,$q$p$q$,$q$S$q$) and n.nspname=$q$public$q$`);await c.end();for(const x of o.rows){const p=[];if(!x.owned)p.push(`not owned by the connecting role directly or through role membership`);if(!x.dml)p.push(`lacking effective required DML privileges`);if(p.length>0)fail(`least-privilege application-role prerequisite failed: existing EmDash `+x.kind+` `+x.obj+` in the established public schema is `+p.join(` and `))}console.error(`songhealth-app: least-privilege application-role and public-only schema prerequisites verified: both connections create into public (current_schema) with effective lookup exactly public beyond the documented pg_catalog system lookup (current_schemas(false)) and no temporary schema (pg_my_temp_schema 0); non-superuser, no CREATEDB, no CREATEROLE, database CONNECT, schema public USAGE and CREATE, and `+o.rows.length+` existing EmDash relation(s) in the established public schema pass required ownership (direct or inherited) and full DML verification`)})().catch(e=>fail(`least-privilege application-role and public-only schema prerequisite failed: `+((e&&e.code)||`error`)))' && npm run verify:startup && HOST=0.0.0.0 exec node dist/server/entry.mjs"
+ExecStart=__T016_TRUSTED_PODMAN__ run --name systemd-%N --replace --rm -v songhealth-media:/app/media --publish 127.0.0.1:4321:4321 localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "grep -q ' /app/media ' /proc/mounts || { echo songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start >&2; exit 1; }; test -r /app/media/.songhealth-media-store || { echo songhealth-app: operator-managed existing media store marker .songhealth-media-store is missing at /app/media - the persistent store was not provisioned or has been replaced - refusing to start >&2; exit 1; }; IFS= read -r EMDASH_MIGRATION_DATABASE_URL </run/secrets/songhealth-migration-database-url; IFS= read -r EMDASH_ENCRYPTION_KEY </run/secrets/songhealth-encryption-key; export EMDASH_MIGRATION_DATABASE_URL EMDASH_ENCRYPTION_KEY; node -e 'const pg=require(`pg`);const fail=m=>{console.error(`songhealth-app: `+m);process.exit(1)};const schemaContractOk=r=>!!r&&String(r.creation_schema)===`public`&&Array.isArray(r.lookup_schemas)&&r.lookup_schemas.filter(x=>String(x)!==`pg_catalog`).length===1&&String(r.lookup_schemas.filter(x=>String(x)!==`pg_catalog`)[0])===`public`&&String(r.temp_schema)===`0`;(async()=>{const c=new pg.Client({host:process.env.PGHOST,port:Number(process.env.PGPORT),database:process.env.PGDATABASE,user:process.env.PGUSER,password:process.env.PGPASSWORD,connectionTimeoutMillis:5000,query_timeout:5000});await c.connect();const sa=(await c.query(`select current_schema() as creation_schema, current_schemas(false)::text[] as lookup_schemas, pg_my_temp_schema() as temp_schema`)).rows[0];if(!schemaContractOk(sa))fail(`public-only schema prerequisite failed: the application connection does not satisfy the public-only schema contract (creation schema current_schema() must be public, the effective lookup path current_schemas(false) minus the documented implicit or explicit pg_catalog system lookup must be exactly public, and pg_my_temp_schema() must be 0 so no temporary schema shadows EmDash relation lookup) - refusing before any migration mutation`);const mc=new pg.Client({connectionString:process.env.EMDASH_MIGRATION_DATABASE_URL,connectionTimeoutMillis:5000,query_timeout:5000});await mc.connect();const sm=(await mc.query(`select current_schema() as creation_schema, current_schemas(false)::text[] as lookup_schemas, pg_my_temp_schema() as temp_schema`)).rows[0];await mc.end();if(!schemaContractOk(sm))fail(`public-only schema prerequisite failed: the migration connection does not satisfy the public-only schema contract (the same creation-schema, effective-lookup-path, and temporary-schema conditions) - refusing before any migration mutation`);const r=await c.query(`select rolsuper s,rolcreatedb cd,rolcreaterole cr,has_database_privilege(current_user,current_database(),$q$CONNECT$q$) dbc,has_schema_privilege(current_user,$q$public$q$,$q$USAGE$q$) su,has_schema_privilege(current_user,$q$public$q$,$q$CREATE$q$) sc from pg_roles where rolname=current_user`);const b=r.rows[0];if(!b)fail(`least-privilege application-role prerequisite failed: the connecting role has no pg_roles row`);if(b.s)fail(`least-privilege application-role prerequisite failed: the connecting role is SUPERUSER - the bootstrap administrator is not the application identity`);if(b.cd)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEDB`);if(b.cr)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEROLE`);if(!b.dbc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CONNECT on the target database`);if(!b.su)fail(`least-privilege application-role prerequisite failed: the connecting role lacks USAGE on schema public`);if(!b.sc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CREATE on schema public`);const o=await c.query(`select case c.relkind when $q$S$q$ then $q$sequence$q$ else $q$table$q$ end kind,c.relname obj,pg_has_role(current_user,c.relowner,$q$USAGE$q$) owned,case c.relkind when $q$S$q$ then has_sequence_privilege(current_user,c.oid,$q$SELECT$q$) and has_sequence_privilege(current_user,c.oid,$q$USAGE$q$) and has_sequence_privilege(current_user,c.oid,$q$UPDATE$q$) else has_table_privilege(current_user,c.oid,$q$SELECT$q$) and has_table_privilege(current_user,c.oid,$q$INSERT$q$) and has_table_privilege(current_user,c.oid,$q$UPDATE$q$) and has_table_privilege(current_user,c.oid,$q$DELETE$q$) end dml from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind in ($q$r$q$,$q$p$q$,$q$S$q$) and n.nspname=$q$public$q$`);await c.end();for(const x of o.rows){const p=[];if(!x.owned)p.push(`not owned by the connecting role directly or through role membership`);if(!x.dml)p.push(`lacking effective required DML privileges`);if(p.length>0)fail(`least-privilege application-role prerequisite failed: existing EmDash `+x.kind+` `+x.obj+` in the established public schema is `+p.join(` and `))}console.error(`songhealth-app: least-privilege application-role and public-only schema prerequisites verified: both connections create into public (current_schema) with effective lookup exactly public beyond the documented pg_catalog system lookup (current_schemas(false)) and no temporary schema (pg_my_temp_schema 0); non-superuser, no CREATEDB, no CREATEROLE, database CONNECT, schema public USAGE and CREATE, and `+o.rows.length+` existing EmDash relation(s) in the established public schema pass required ownership (direct or inherited) and full DML verification`)})().catch(e=>fail(`least-privilege application-role and public-only schema prerequisite failed: `+((e&&e.code)||`error`)))' && npm run verify:startup && HOST=0.0.0.0 exec node dist/server/entry.mjs"
 UNIT
 		sed -i "s|__T016_TRUSTED_PODMAN__|${trusted_podman_path}|" "$wdir/container-ok.unit"
 		reason_c="$(gate_wiring_reason "$wdir/container-ok.unit")"
@@ -3326,6 +3350,14 @@ UNIT
 		else
 			st_fail wiring-accepts-container-approved-payload "the full accepted payload must be accepted: $reason_c"
 		fi
+		sed 's/current_schemas(false)::text\[\]/current_schemas(false)/g' "$wdir/container-ok.unit" >"$wdir/container-stale-schema.unit"
+		reason_c="$(gate_wiring_reason "$wdir/container-stale-schema.unit")"
+		if [ -n "$reason_c" ]; then
+			st_case wiring-rejects-stale-schema-payload 'PASS the old name[] query payload rejected by complete payload equality'
+		else
+			st_fail wiring-rejects-stale-schema-payload 'the pre-correction startup payload must be rejected'
+		fi
+
 		sed "s|rolsuper s|rolsuper x|" "$wdir/container-ok.unit" >"$wdir/container-altered-role.unit"
 		reason_c="$(gate_wiring_reason "$wdir/container-altered-role.unit")"
 		if [ -n "$reason_c" ]; then
@@ -3533,6 +3565,199 @@ UNIT
 	else
 		st_fail markers-reject-missing 'a sequence with a missing stage must be rejected'
 	fi
+
+	# Case 10 — execute the exact T020 prerequisite program with isolated
+	# clients. No connection or shell startup command is executed. Rows model
+	# the pinned driver's name[] string and text[] array delivery; the actual
+	# parser is separately checked against lockfile-verified package source.
+	local t020_src="$ROOT/deploy/quadlet/songhealth-app.container"
+	local f01_out='' f01_rc=0 line=''
+	f01_out="$(node - "$t020_src" <<'F01JS'
+const fs = require("fs");
+const vm = require("vm");
+const assert = require("assert/strict");
+const src = fs.readFileSync(process.argv[2], "utf8");
+const execLine = src.split("\n").find(l => l.startsWith("Exec="));
+const payload = execLine.match(/^Exec=sh -c "(.*)"$/)[1];
+assert.equal(payload, process.env.APPROVED_STARTUP_PAYLOAD, "complete T020 payload equality");
+const program = payload.match(/node -e '(.*)' && npm run verify:startup/)[1];
+assert.equal((program.match(/current_schemas\(false\)::text\[\] as lookup_schemas/g) || []).length, 2);
+assert.equal(program.includes("current_schemas(false) as lookup_schemas"), false);
+console.log("f01-complete-payload-and-both-casts OK");
+const good = {creation_schema: "public", lookup_schemas: ["public"], temp_schema: 0};
+const role = {s: false, cd: false, cr: false, dbc: true, su: true, sc: true};
+async function run(options = {}, source = program) {
+    const events = [], logs = [];
+    let clients = 0, exit = 0;
+    class Client {
+        constructor() { this.id = ++clients; }
+        async connect() {
+            events.push(`${this.id}:connect`);
+            if (options.connectError === this.id) throw {code: "FIXTURE_CONNECT_ERROR"};
+        }
+        async end() { events.push(`${this.id}:end`); }
+        async query(sql) {
+            assert.match(sql, /^select /);
+            if (sql.includes("as lookup_schemas")) {
+                events.push(`${this.id}:schema`);
+                if (options.queryError === this.id) throw {code: "FIXTURE_QUERY_ERROR"};
+                return {rows: [Object.hasOwn(options, `row${this.id}`) ? options[`row${this.id}`] : good]};
+            }
+            assert.equal(this.id, 1);
+            if (sql.includes("from pg_roles")) {
+                events.push("role");
+                return {rows: [Object.hasOwn(options, "role") ? options.role : role]};
+            }
+            assert.match(sql, /pg_has_role\(current_user,c.relowner,\$q\$USAGE\$q\$\) owned/);
+            for (const privilege of ["SELECT", "INSERT", "UPDATE", "DELETE"])
+                assert.ok(sql.includes(`has_table_privilege(current_user,c.oid,$q$${privilege}$q$)`));
+            for (const privilege of ["SELECT", "USAGE", "UPDATE"])
+                assert.ok(sql.includes(`has_sequence_privilege(current_user,c.oid,$q$${privilege}$q$)`));
+            assert.ok(sql.includes("and has_table_privilege"));
+            assert.ok(sql.includes("and has_sequence_privilege"));
+            events.push("objects");
+            return {rows: options.objects || []};
+        }
+    }
+    const context = {
+        require: name => { assert.equal(name, "pg"); return {Client}; },
+        process: {env: {}, exit: code => { exit = code; throw new Error("fixture exit"); }},
+        console: {error: message => logs.push(message)}
+    };
+    try { await vm.runInNewContext(source, context, {timeout: 1000}); }
+    catch (e) { if (!exit) throw e; }
+    return {exit, events, logs};
+}
+async function check(name, options, accepted, schemaFailure = false, source = program) {
+    const r = await run(options, source);
+    assert.equal(r.exit, accepted ? 0 : 1, name);
+    if (accepted) {
+        assert.deepEqual(r.events, ["1:connect", "1:schema", "2:connect", "2:schema", "2:end", "role", "objects", "1:end"]);
+        assert.ok(r.logs.some(l => l.includes("prerequisites verified")));
+    } else {
+        assert.equal(r.logs.some(l => l.includes("prerequisites verified")), false);
+        if (schemaFailure) assert.equal(r.events.includes("role"), false);
+    }
+    console.log(`${name} OK`);
+}
+(async () => {
+    await check("f01-both-public-fresh", {}, true);
+    await check("f01-both-explicit-catalog", {row1: {...good, lookup_schemas: ["pg_catalog", "public"]}, row2: {...good, lookup_schemas: ["public", "pg_catalog"], temp_schema: "0"}}, true);
+    const negatives = [
+        ["oid1003-string", {...good, lookup_schemas: "{public}"}],
+        ["wrong-creation", {...good, creation_schema: "cms"}],
+        ["wrong-lookup", {...good, lookup_schemas: ["cms"]}],
+        ["extra-lookup", {...good, lookup_schemas: ["public", "cms"]}],
+        ["role-schema", {...good, lookup_schemas: ["songhealth_app", "public"]}],
+        ["duplicate-public", {...good, lookup_schemas: ["public", "public"]}],
+        ["temp-lookup", {...good, lookup_schemas: ["pg_temp_7", "public"]}],
+        ["active-temp", {...good, temp_schema: 16384}],
+        ["empty-lookup", {...good, lookup_schemas: []}],
+        ["null-lookup", {...good, lookup_schemas: null}],
+        ["malformed-lookup", {...good, lookup_schemas: [null]}],
+        ["missing-temp", {creation_schema: "public", lookup_schemas: ["public"]}],
+        ["null-creation", {...good, creation_schema: null}],
+        ["missing-row", undefined], ["null-row", null], ["missing-fields", {}]
+    ];
+    for (const id of [1, 2]) {
+        for (const [name, row] of negatives)
+            await check(`f01-connection-${id}-${name}`, {[`row${id}`]: row}, false, true);
+        await check(`f01-connection-${id}-query-error`, {queryError: id}, false, true);
+        await check(`f01-connection-${id}-connect-error`, {connectError: id}, false, true);
+    }
+    for (const key of ["s", "cd", "cr", "dbc", "su", "sc"])
+        await check(`f01-role-${key}-refused`, {role: {...role, [key]: !role[key]}}, false);
+    await check("f01-missing-role", {role: undefined}, false);
+    for (const kind of ["table", "sequence"])
+        for (const [owned, dml] of [[false, true], [true, false], [false, false]])
+            await check(`f01-${kind}-owned-${owned}-dml-${dml}`, {objects: [{kind, obj: "fixture", owned, dml}]}, false);
+    await check("f01-owned-table-and-sequence-dml", {objects: ["table", "sequence"].map(kind => ({kind, obj: "fixture", owned: true, dml: true}))}, true);
+})().catch(e => { console.error(e); process.exitCode = 1; });
+F01JS
+	)" || f01_rc=$?
+	if [ "$f01_rc" -eq 0 ] && [ -n "$f01_out" ]; then
+		while IFS= read -r line; do
+			case $line in
+			*' OK') st_case "${line%% *}" 'PASS exact prerequisite program verdict and connection ordering' ;;
+			*) st_fail f01-program "unexpected fixture output: $line" ;;
+			esac
+		done <<<"$f01_out"
+	else
+		st_fail f01-program 'the isolated T020 prerequisite program regression failed'
+	fi
+
+	# Case 11 — exact owning-unit containment, through scratch shims only.
+	local f02_uc='/user.slice/user-1001.slice/user@1001.service/app.slice/songhealth-db.service'
+	local f02_path='' f02_rc=0 f02_err="$ST_ROOT/f02.err"
+	printf '%s\n' "$f02_uc" >"$ST_ROOT/fx-unit-controlgroup"
+	for f02_path in "$f02_uc" "${f02_uc}/libpod-payload-fixture"; do
+		printf '%s\n' "$f02_path" >"$ST_ROOT/fx-podman-cgroup"
+		if ( validate_container_ownership t016-selftest-db "$DB_UNIT" ) >"$f02_err" 2>&1; then
+			st_case f02-owning-unit 'PASS exact unit cgroup or its descendant accepted'
+		else
+			st_fail f02-owning-unit 'a valid owning-unit cgroup must be accepted'
+		fi
+	done
+	for f02_path in '' '<no value>' 'songhealth-db.service/payload' \
+		"${f02_uc}.foreign/payload" "/foreign${f02_uc}/payload" \
+		"${f02_uc}/../foreign/payload" "${f02_uc}/./payload" \
+		"${f02_uc}//payload" "${f02_uc}/" "${f02_uc}/payload with spaces" \
+		"${f02_uc}/payload"$'\n/foreign/payload'; do
+		printf '%s\n' "$f02_path" >"$ST_ROOT/fx-podman-cgroup"
+		f02_rc=0
+		( validate_container_ownership t016-selftest-db "$DB_UNIT" ) >"$f02_err" 2>&1 || f02_rc=$?
+		if [ "$f02_rc" -ne 0 ] && grep -q 't016: \[R1\] FAIL' "$f02_err"; then
+			st_case f02-refuse-container-path 'PASS missing, malformed or foreign path refused'
+		else
+			st_fail f02-refuse-container-path 'an unproven cgroup must refuse ownership'
+		fi
+	done
+	printf '%s\n' "$f02_uc/payload" >"$ST_ROOT/fx-podman-cgroup"
+	for f02_path in '' '/' 'relative' "/foreign.service" "$f02_uc/.." \
+		"${f02_uc}/" "/user.slice//songhealth-db.service"; do
+		printf '%s\n' "$f02_path" >"$ST_ROOT/fx-unit-controlgroup"
+		f02_rc=0
+		( validate_container_ownership t016-selftest-db "$DB_UNIT" ) >"$f02_err" 2>&1 || f02_rc=$?
+		if [ "$f02_rc" -ne 0 ] && grep -q 't016: \[R1\] FAIL' "$f02_err"; then
+			st_case f02-refuse-unit-path 'PASS missing, malformed or wrong owning-unit ControlGroup refused'
+		else
+			st_fail f02-refuse-unit-path 'an unproven unit ControlGroup must refuse ownership'
+		fi
+	done
+	local f02_missing=''
+	for f02_missing in fx-podman-cgroup fx-unit-controlgroup; do
+		printf '%s\n' "$f02_uc/payload" >"$ST_ROOT/fx-podman-cgroup"
+		printf '%s\n' "$f02_uc" >"$ST_ROOT/fx-unit-controlgroup"
+		rm -f "$ST_ROOT/$f02_missing"
+		f02_rc=0
+		( validate_container_ownership t016-selftest-db "$DB_UNIT" ) >"$f02_err" 2>&1 || f02_rc=$?
+		if [ "$f02_rc" -ne 0 ] && grep -q 'could not resolve the cgroup' "$f02_err"; then
+			st_case "f02-missing-$f02_missing" 'PASS absent inspection data refuses ownership'
+		else
+			st_fail "f02-missing-$f02_missing" 'missing inspection data must refuse ownership'
+		fi
+	done
+	printf '%s\n' "$f02_uc/payload" >"$ST_ROOT/fx-podman-cgroup"
+	printf '%s\n' "$f02_uc" >"$ST_ROOT/fx-unit-controlgroup"
+	local f02_error=''
+	for f02_error in fx-podman-cgroup-error fx-unit-cgroup-error; do
+		: >"$ST_ROOT/$f02_error"
+		f02_rc=0
+		( validate_container_ownership t016-selftest-db "$DB_UNIT" ) >"$f02_err" 2>&1 || f02_rc=$?
+		if [ "$f02_rc" -ne 0 ] && grep -q 'could not resolve the cgroup' "$f02_err"; then
+			st_case "$f02_error" 'PASS inspection error refused even with valid-looking stdout'
+		else
+			st_fail "$f02_error" 'inspection errors must never authorize ownership'
+		fi
+		rm -f "$ST_ROOT/$f02_error"
+	done
+	if grep -qF -- '--format {{.State.CgroupPath}}' "$ST_ROOT/podman.log" &&
+		! grep -qF -- '--format {{.CgroupPath}}' "$ST_ROOT/podman.log"; then
+		st_case f02-inspection-field 'PASS ownership queries use only .State.CgroupPath'
+	else
+		st_fail f02-inspection-field 'ownership must inspect the compatible field'
+	fi
+	rm -f "$ST_ROOT/fx-podman-cgroup" "$ST_ROOT/fx-unit-controlgroup"
 
 	rm -rf "$ST_ROOT"
 	if [ "$ST_FAILURES" -eq 0 ]; then
