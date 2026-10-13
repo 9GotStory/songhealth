@@ -4,16 +4,19 @@
 
 **Working branch**: `agent/codex-lead-reviewer/477dbb76ad5b`
 **Reconciliation baseline**: `e2903e41be6aebd849352d4cc452906eb3d796fd`
+**Verified continuation HEAD**: `2d3cfc96929ef9085194e3c79a11a38f374de0b1`
 **Original approved Clarify source**: `6129d4b6de13fdb05726ba5631fa7ed14672dd64`
 
-**Status**: Existing Plan Phase 0 Human Gate — revised authorities/specification await ChatGPT
-Independent Review and Human Acceptance. This remains a partial Plan, not a completed design,
-independent PASS, runtime acceptance or implementation authorization. No Phase 1 outputs generated.
+**Status**: Official Plan Phase 0 BLOCKED on retained Q1 reference-selection mapping (B-Q1-REF).
+The reviewed V1 reconciliation is the current Product baseline under continuation comment
+`01a13779-da61-71be-bc11-46d3ea9d5413`. This remains a partial Plan, not a completed design,
+independent PASS, runtime acceptance or implementation authorization. Phase 1 prerequisites are unmet.
 
 **Input**: Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8` explicitly defers
 unavailable Q3/Q4 guarantees from V1 and stops upstream EmDash changes. This pass reconciles the
-owning documents/specification and stops for review. After acceptance, continue the same official
-Plan workflow's remaining research/design steps; do not reinitialize or rerun Specify/Clarify.
+owning documents/specification. The later continuation instruction authorizes remaining research and
+Phase 1 after its prerequisites. Setup was already completed; no reinitialization/Specify/Clarify
+rerun occurs. A verified material new gap is reported within Phase 0 rather than worked around.
 
 ## Summary
 
@@ -35,7 +38,10 @@ as current direction; the request remains unsubmitted and upstream pursuit is st
 
 See [scope-reconciliation.md](scope-reconciliation.md) for the scope matrix, requirement traceability,
 full §23 screening, changed-file rationale and risks, and [research.md](research.md) for capability
-limits. The current gate is review of this reconciliation, not proof of deferred enforcement.
+limits. [native-feasibility.md](native-feasibility.md) records the new retained-Q1 gap: action hooks
+exist, but save-time reference requiredness conflicts with incomplete drafts and the policy/context
+path does not expose a complete effective-selection projection. Host exports and compare/revision
+alternatives were considered; no complete supported adapter is established. This is not D-REF.
 
 ## Technical Context
 
@@ -78,16 +84,17 @@ reference values and operational role assignments are not invented.
 
 | Principle / boundary | Reconciliation assessment | Remaining gate |
 | --- | --- | --- |
-| I: current authority | Scope changes have explicit Product Owner authority; directly affected owning 00/01/02/03/05/06/07/08/09 and technical 10 are reconciled before downstream adoption | Revised authorities/spec require independent review/human acceptance; no implementation uses unaccepted revisions |
-| II: native first | Retained native primitives; unavailable D-ITA/D-REF are deferred without duplicate mechanisms | Q1 native schema/publication-hook mapping still needs exact-release proof; any later minimal validation extension must pass the existing gate |
+| I: current authority | Reviewed reconciliation is current Product baseline under explicit continuation; no requirements amended | B-Q1-REF reported rather than weakening Q1; no implementation authorization |
+| II: native first | Native primitives retained; D-ITA/D-REF deferred without duplicate mechanisms | B-Q1-REF: complete supported selection-only candidate read not established; no host-table workaround selected |
 | III: simplicity | No ITA fallback collection, custom CMS/media/reference/locking/snapshot subsystem, second foundation or speculative Organization relation | Concrete representation/cardinality choices wait for the same Plan after acceptance |
 | IV: security/data protection | Native roles/ownership, administrator content-purge boundary, public-data limits, private production database and secret-free documents preserved | Permissions/usage/precautions are not dependency guarantees; preview/public linked reads still require focused verification |
-| V: phased human authorization | Only documentation reconciliation within Plan Phase 0; no Specify/Clarify rerun or new phase | STOP for ChatGPT Independent Review/Human Acceptance; no Phase 1 or later command now |
+| V: phased human authorization | Remaining Phase 0 research authorized; Phase 1 also authorized only once its official prerequisite is met | ERROR on unresolved B-Q1-REF; no Phase 1 or later command, no additional workflow phase |
 | Independent review | Codex authors this explicitly authorized documentation pass; no production authorship | Author assessment only; independent PASS belongs to reviewer and final acceptance to human |
 | Durability/operations | Foundation sources and runtime contract unchanged; T022/T028 PENDING | Original T028/T030 joins remain; no acceptance/waiver inferred |
 
 No Constitution amendment/exception is requested. The scope decision follows its owning-authority
-amendment route. **Post-design check NOT RUN**: Phase 1 is withheld. This is not full Plan PASS.
+amendment route. **Post-design check NOT RUN**: Phase 1 prerequisite remains unmet. This is not full
+Plan PASS. Constitution I/II/V require reporting this unresolved enforcement contract.
 
 ## Implementation Mapping Gate — Content Model §23
 
@@ -101,6 +108,10 @@ duplicate, generic Contact, executive/Featured/Health News kind, custom permissi
 entity is introduced. Organization remains conditional; Area remains native taxonomy/reference
 selection based on official-code/query needs. Every final proposed relation must pass §23 in Plan.
 
+Reduced-scope candidate screening remains valid, but full native-sufficiency/enforcement mapping
+does not pass while B-Q1-REF is unresolved. This distinction preserves the reviewed reconciliation
+assessment without converting it into complete design or SC-008 runtime acceptance.
+
 ## Project Structure
 
 ### Documentation (this feature)
@@ -110,6 +121,7 @@ specs/002-cms-content-model/
 ├── spec.md                    # reduced V1 and explicit D-ITA/D-REF register
 ├── plan.md                    # partial Plan; scope-review Human Gate
 ├── research.md                # active reduced-scope capability evidence/risks
+├── native-feasibility.md      # remaining Phase 0 findings and retained-Q1 blocker
 ├── scope-reconciliation.md    # traceability/mapping/consistency review handoff
 ├── clarify-review.md          # unchanged historical author evidence
 ├── specify-review.md          # unchanged historical author evidence
@@ -119,8 +131,9 @@ specs/002-cms-content-model/
 └── upstream-request-draft.md  # cancelled/unsubmitted historical draft
 ```
 
-`data-model.md`, `contracts/` and `quickstart.md` remain absent: they are remaining official
-Phase 1 outputs after research and acceptance of this reconciliation. `tasks.md` is unauthorized.
+`data-model.md`, `contracts/` and `quickstart.md` remain absent: they are official Phase 1 outputs
+after the research prerequisite is resolved. The continuation authorizes that phase, but B-Q1-REF
+prevents entering it. `tasks.md` and later commands remain unauthorized.
 The review handoff is supporting Plan evidence, not a separate workflow or approval document.
 
 ### Source Code (repository root)
@@ -149,12 +162,21 @@ or designed in Phase 1 by this reconciliation.
 
 ## Remaining Research and Stop
 
-Q1 native validation mapping, actual staged-field/metadata boundaries, safe selectors/public reads,
-Area representation, conditional Organization use and representative editor usability remain to be
-verified in the same Plan after this review acceptance. They are not declared solved by deferral.
-No upstream chase continues. Detailed risks are in the [reconciliation](scope-reconciliation.md#remaining-risks).
+The [remaining Phase 0 report](native-feasibility.md) verifies scalar/action-hook wiring, documents
+native revision/metadata boundaries, and screens classification/Area/Organization/public-read/editor
+primitives. It identifies B-Q1-REF as an unresolved complete Q1 mapping, with source-derived
+discriminating scenarios and explicitly considered native host exports. No requirement is weakened
+and no workaround selected. Native UI availability is not staff UAT/runtime PASS. Do not pursue
+upstream changes, enter Phase 1, or report normal Plan completion over this unmet prerequisite.
+
+Before/after Plan hooks were re-read: enabled optional `speckit.git.commit` hooks, null conditions,
+with auto-commit disabled. Optional hooks are skipped; no mandatory Plan hook exists. The delivery
+commit records research, not successful phase completion. Official upstream Plan instructions were
+checked again; their Phase 1 prerequisite and unresolved-research ERROR rule apply here. Original
+setup remains valid; it was not rerun or used to overwrite existing artifacts.
 
 ## Complexity Tracking
 
 No exception or additional subsystem is proposed. D-ITA/D-REF are deferred requirements with stable
-traceability, not authorized extensions. This pass stops at the existing Phase 0 scope-review gate.
+traceability, not authorized extensions. This pass reports B-Q1-REF in the existing official Plan
+Phase 0, with no new approval phase and no completed-design claim.

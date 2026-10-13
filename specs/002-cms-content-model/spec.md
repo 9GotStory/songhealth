@@ -4,9 +4,9 @@
 
 **Created**: 2026-10-13
 
-**Status**: V1 scope reconciliation within existing Plan Phase 0 — awaiting ChatGPT Independent
-Review and Human Acceptance of revised authorities/specification. Plan is incomplete; Phase 1 and
-all later phases are withheld until acceptance. No implementation authorization.
+**Status**: Reviewed V1 scope reconciliation is the current Product baseline under continuation
+comment `01a13779-da61-71be-bc11-46d3ea9d5413`. Existing official Plan Phase 0 research found
+B-Q1-REF; Plan remains incomplete pending its resolution. No implementation authorization.
 
 **Input / precedence**: Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
 (2026-10-13) supersedes unavailable Q3/Q4 V1 guarantees and stops upstream-change pursuit.
@@ -31,8 +31,9 @@ authorized target deletion/unpublish can leave missing links. No atomic/snapshot
 upgrade or upstream change is introduced. Legacy ITA material is not deleted/migrated/withdrawn;
 any future delivery/cutover disposition requires its own accepted decision.
 
-Owning current documents are revised for this decision and await Human Acceptance. Final mapping,
-field/cardinality choices and remaining native risks belong to the same Plan after that acceptance.
+Owning current documents and the reviewed reconciliation are the current Product baseline under
+the continuation instruction. Final mapping/field choices belong to the same official Plan; the
+remaining Q1 research finding is recorded in `native-feasibility.md`, without changing requirements.
 
 ## Clarifications
 
@@ -542,8 +543,8 @@ These describe meaning and responsibilities, not a required number of collection
 
 #### Explicitly Out of Scope
 
-- Beyond this authorized Plan Phase 0 scope reconciliation: Phase 1 design until review acceptance,
-  Checklist, Tasks, Analyze, implementation, schema/seed/infrastructure/dependency change, production
+- Beyond the authorized official Plan workflow: Checklist, Tasks, Analyze, implementation,
+  schema/seed/infrastructure/dependency change, production
   operations/deployment or merge. No Specify/Clarify rerun or upstream pursuit/submission/contact.
 - Structured ITA hierarchy/evidence/history/correction/retention (D-ITA); unavailable Q4 removal
   vetoes and cross-record atomic publication/availability enforcement (D-REF). No substitute
@@ -650,7 +651,7 @@ counted as PASS. Runtime outcomes remain unverified by this document-only reconc
   and accepted T023–T027 sources; T030 still requires T028 PASS and accepted T029 sources.
   T029 source evidence is not runtime PASS or final Feature 001 acceptance.
 - Specify was authorized despite pending runtime evidence. Issue 9GOTSTORY-206 authorized
-  Clarify only. Issue 9GOTSTORY-207 now authorizes this bounded Plan reconciliation; no authorization
+  Clarify only. Issue 9GOTSTORY-207 now authorizes completion of this existing official Plan; no authorization
   permits dependent runtime work.
   The Product Owner must establish required Feature 001 readiness/dependencies at a later
   Feature 002 gate. Pending evidence cannot be treated as PASS.
@@ -663,8 +664,10 @@ counted as PASS. Runtime outcomes remain unverified by this document-only reconc
 
 Q1/Q2 remain accepted for retained V1 scope. Q3/Q4 original answers remain in the historical
 session; Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8` explicitly changes their
-V1 applicability. The revised owning authorities and this specification require ChatGPT Independent
-Review and Human Acceptance. This pass stops here; no new clarification questions/phases were run.
+V1 applicability. Continuation comment `01a13779-da61-71be-bc11-46d3ea9d5413` adopts that reviewed
+reconciliation as current baseline and authorizes the remaining official Plan. Its unresolved
+retained-Q1 finding is research evidence, not a scope amendment or rerun of Clarify. No new workflow
+phase is created; B-Q1-REF must resolve before the official Phase 1 prerequisite is met.
 
 1. **Q1 (FR-002, matrix, US1.6–7, SC-006):** unchanged action-specific requiredness on 12 V1
    rows; the four ITA rows are retained under D-ITA rather than applied to a nonexistent V1 model.

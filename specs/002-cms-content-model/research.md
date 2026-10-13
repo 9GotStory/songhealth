@@ -5,8 +5,10 @@
 **Current reconciliation baseline**: `e2903e41be6aebd849352d4cc452906eb3d796fd`
 **Original Clarify source**: `6129d4b6de13fdb05726ba5631fa7ed14672dd64`
 
-**Standing**: Partial existing Plan Phase 0; reduced authorities/specification await independent
-review/human acceptance. Research/design are not complete. No runtime or independent PASS.
+**Standing**: Partial official Plan Phase 0, blocked on retained Q1 reference-selection mapping
+(B-Q1-REF). Continuation comment `01a13779-da61-71be-bc11-46d3ea9d5413` adopts the reviewed V1
+reconciliation as current Product baseline and authorizes completion from verified HEAD
+`2d3cfc96929ef9085194e3c79a11a38f374de0b1`. No runtime or independent PASS.
 
 ## Current Product Decision and Applicability
 
@@ -14,7 +16,8 @@ Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8` stops upstream purs
 structured ITA historical evidence (D-ITA) plus unavailable Q4 target-removal/atomic availability
 guarantees (D-REF). Q1 publication-required field/selection values, incomplete drafts, Q2 current
 assignments and independent public-read/native-authority boundaries remain. Owning documents and
-spec are reconciled; this pass stops for their review rather than advancing to Phase 1.
+spec are reconciled. Their review is no longer the prerequisite being awaited; the new retained-Q1
+finding below prevents completing research and entering the officially authorized Phase 1.
 
 The previous blocker leaves reduced V1 acceptance because its requirements are explicitly deferred,
 not because native gaps are repaired. No deferred fixture is counted as implemented/PASS. This
@@ -23,6 +26,30 @@ does not defer Q1 or claim all remaining native semantics are already verified.
 The prior options, upstream survey and request remain historical evidence. Their upstream-first
 recommendation and request-publication next step are superseded; the draft is cancelled/unsubmitted.
 No further upstream changes/contact are pursued. See [scope-reconciliation.md](scope-reconciliation.md).
+
+## Remaining Phase 0 Result — B-Q1-REF
+
+**Decision:** Do not claim complete Q1 mapping or enter Phase 1 over the unresolved reference
+candidate contract. Preserve all retained requirements and report the material finding within the
+same official Plan, as the continuation instruction directs.
+
+**Rationale:** Native manual publish, schedule acceptance and scheduled execution have supported
+policy hooks; schema reference requiredness rejects incomplete drafts. When references are optional
+for draft saves, their complete effective selection is absent from the policy event and ordinary
+plugin content-read API. Draft markers are stripped, and opposite-end sequential changes can make
+native publication's baseline-diff result differ from a raw staged/compare selection. This is
+required selection presence (FR-002/026, US2.6, SC-006), not deferred target-availability atomicity.
+
+**Alternatives considered:** native `required` flags alone; data-only hooks; resolved-target public
+reads; raw revision/compare snapshots; and trusted native host exports (`getDb`, content/compare/
+revision handlers). Host access exists, but a complete supported effective-selection adapter is not
+established merely by those exports. No internal-table/marker coupling or copied promotion logic is
+selected as a workaround, no new subsystem proposed, and no additional workflow phase introduced.
+
+[native-feasibility.md](native-feasibility.md) contains exact-release sources, discriminating
+scenarios, considered host alternatives, the other native primitive/revision/public-read/editor
+findings, and Constitution/§23 assessment. These are static findings, not executed CMS acceptance.
+Q1 remains unresolved; D-ITA/D-REF remain deferred. Phase 1's research-complete prerequisite is unmet.
 
 ## Pinned 1.1.0 Capability Findings — Scope-adjusted Disposition
 
@@ -51,12 +78,13 @@ but cannot authorize an absent atomic guarantee.
 
 - **Q1 remains required.** Native publication hooks are available, but a per-resource mapping must
   show complete candidate field/selection checks at publish, schedule acceptance and execution while
-  allowing incomplete drafts. Native save-time required flags alone cannot satisfy both. No custom
-  generic policy engine or implementation is approved by this source evidence.
+  allowing incomplete drafts. The remaining selection contract is B-Q1-REF; native save-time required
+  flags alone cannot satisfy both. No custom generic policy engine or implementation is approved.
 - **Actual revision scope matters.** Native content-data/selected staged references and other shared
   or separately maintained data are not automatically one revision. Taxonomy/SEO/byline behavior,
-  classification requiredness, byline alternatives and gallery selection must be checked in the
-  remaining Plan. Revised lifecycle promises cover actual native staged content data, not blanket
+  classification requiredness, byline alternatives and gallery primitives are accounted for in the
+  remaining Phase 0 report; actual runtime/UAT results are unverified. Revised lifecycle promises
+  cover actual native staged content data, not blanket
   cross-record/metadata freezing. No new immutable/current-metadata subsystem is proposed.
 - **Public boundaries remain.** Linked content must be read through published-only paths; drafts
   cannot leak via preview/query parameters. Missing assets may be unavailable after authorized
@@ -71,12 +99,14 @@ but cannot authorize an absent atomic guarantee.
 These risks do not reinstate D-ITA/D-REF into V1. They are not automatically resolved by scope
 reduction and must be addressed through the same remaining Plan or returned to its existing gate.
 
-## Current Human Gate and Foundation Boundary
+## Official Plan Prerequisite and Foundation Boundary
 
-Required now: ChatGPT Independent Review and Human Acceptance of the revised authorities/spec.
-After acceptance, resume the same official Plan research and Phase 1 steps. Do not rerun setup,
-Specify/Clarify, reinitialize, create a separate workflow, or start Checklist/Tasks/Analyze/Implementation.
-No data model/contracts/quickstart or production change was produced in this pass.
+The reviewed authorities/specification are current under the continuation instruction. The official
+Plan workflow was rechecked against upstream: Phase 1 requires complete research and the workflow
+errors on unresolved clarifications/gates. B-Q1-REF is reported at that existing boundary; this is
+not a new approval loop. No data model/contracts/quickstart are produced over that unresolved
+contract, and no completed Plan claim is made. Do not rerun setup/Specify/Clarify, reinitialize,
+create a separate workflow, or start Checklist/Tasks/Analyze/Implementation.
 
 T022 durability and T028 recovery remain **PENDING**. T028 requires T022 PASS plus accepted
 T023–T027 sources; T030 requires T028 PASS plus accepted T029 sources. No final foundation or
