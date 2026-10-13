@@ -14,6 +14,11 @@ Phase 1 design has not run. Do not proceed to Checklist, Tasks, Analyze, or impl
 authorized further feasibility research only. [Options and recommendation](phase0-options.md)
 record the released/upstream evidence. The block remains; no design approach has been accepted.
 
+**Upstream-first follow-up**: Comment `01a135d8-6635-7d61-b499-3c0d97e9dd95` authorizes only
+upstream research and a local request draft. [Findings and implications](upstream-feasibility.md)
+and the [Human Review draft](upstream-request-draft.md) do not establish an accepted enforcement
+approach. No submission/contact occurred; Phase 0 and Plan remain BLOCKED.
+
 **Input**: Multica issue 9GOTSTORY-207 (`01a135bf-1792-7dce-9185-47e8d25ad268`)
 authorizes the official Spec Kit Plan workflow only, Codex only, with no delegation.
 The older authorization statements in the preserved spec describe its Clarify run;
@@ -114,7 +119,9 @@ specs/002-cms-content-model/
 ├── checklists/requirements.md # preserved earlier quality evaluation
 ├── plan.md                    # partial Plan; blocked in Phase 0
 ├── research.md                # exact-release findings and Human Gate
-└── phase0-options.md          # bounded feasibility assessment, supporting research
+├── phase0-options.md          # bounded feasibility assessment, supporting research
+├── upstream-feasibility.md    # related proposals, support limits and Human Gate implications
+└── upstream-request-draft.md  # unsubmitted opening request for Human Review
 ```
 
 `data-model.md`, `contracts/` and `quickstart.md` are **not generated**: official Phase 1

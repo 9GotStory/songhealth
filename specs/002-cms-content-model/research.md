@@ -14,6 +14,13 @@ withholding implementation, dependency changes and Phase 1. The resulting
 snapshot, including content deletion and concurrency. No complete supported enforcement approach
 was established; recommendation is upstream-native first while keeping the current pin and Human Gate.
 
+**Upstream-first continuation (2026-10-13)**: Product Owner comment
+`01a135d8-6635-7d61-b499-3c0d97e9dd95` authorizes upstream proposal/support research and an
+unsubmitted request draft from `cb8110662832d62d7acddf10af5c0a3a8e55f62f`. The
+[findings](upstream-feasibility.md) identify related work and distinguish supported partial primitives
+from unaccepted proposals. The [draft](upstream-request-draft.md) is for Human Review only.
+No complete supported enforcement approach was established; Plan remains BLOCKED in Phase 0.
+
 ## Workflow and provenance
 
 Decision: Continue the existing clarified feature on managed branch
