@@ -326,7 +326,7 @@ Legacy WordPress permalink structure never controls the new IA.
 
 ---
 
-# 19. Consolidated Sitemap
+# 19. Consolidated V1 Sitemap
 
 ```text
 /
@@ -353,12 +353,19 @@ Legacy WordPress permalink structure never controls the new IA.
 ├── /documents
 │   └── /documents/{slug}
 ├── /pages/{slug}
-├── /ita
-│   ├── /ita/{fiscal-year}
-│   └── /ita/{fiscal-year}/{section-key}
 ├── /search
 └── /contact
 ```
+
+**Deferred future scope — not active V1 routes (§11):**
+
+```text
+/ita
+├── /ita/{fiscal-year}
+└── /ita/{fiscal-year}/{section-key}
+```
+
+These reserved patterns do not change the separate legacy ITA disposition described in §11.
 
 ---
 
