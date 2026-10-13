@@ -1,5 +1,13 @@
 # Plan Phase 0 — Enforcement Feasibility Options
 
+> **Historical / superseded direction (2026-10-14):** Product Owner comment
+> `01a135e9-23e0-78c3-bcea-c752516828a8` stops upstream pursuit and defers unavailable Q3/Q4
+> guarantees from V1. This artifact preserves earlier evidence, not the current next action.
+> The request draft is cancelled and remains unsubmitted; no maintainer contact occurred.
+> Current scope/review standing is in [scope-reconciliation.md](scope-reconciliation.md),
+> [spec.md](spec.md), [plan.md](plan.md) and [research.md](research.md).
+
+
 **Date**: 2026-10-13 | **Feature**: `002-cms-content-model` | **Issue**: 9GOTSTORY-207
 
 **Authorization**: Product Owner direction in comment `01a135cf-ace5-73b6-9883-59d8ff82adf9`:

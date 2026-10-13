@@ -1,12 +1,20 @@
 # Website Foundation — สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 00-website-foundation
-> **Status:** CLEAN REBASELINE v2.2 — CURRENT
-> **Version:** 2.2
-> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Status:** CLEAN REBASELINE v2.3 — V1 scope revision for Independent Review / Human Acceptance
+> **Version:** 2.3
+> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Purpose:** เอกสารหลักสำหรับบันทึกหลักการ ขอบเขต และ Architecture Decisions ระดับ Foundation ที่เอกสาร Information Architecture, Content Model, Sitemap, CMS และ System Blueprint ต้องยึดร่วมกัน
 > **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
 > **Technology Ownership:** `00–09` define Product/behavior requirements; technology/runtime decisions belong to `10-system-blueprint.md`.
+
+
+> **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
+> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
+> publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
+> independent review and human acceptance; deferral is not implementation or PASS. No upstream
+> change, new subsystem, replacement ITA workflow or production action is authorized.
 
 ---
 
@@ -489,7 +497,7 @@ Online Service เป็นเพียงหนึ่งในช่องท�
 
 โครงสร้างข้อมูลภายในสามารถมีความสัมพันธ์และมาตรฐานที่ดีได้ โดยไม่ควรทำให้ Workflow ของเจ้าหน้าที่ซับซ้อนตามไปด้วย
 
-ตัวอย่างเช่น การเพิ่มหลักฐาน ITA สามารถให้เจ้าหน้าที่อัปโหลด PDF จากหน้า ITA ได้โดยตรง ขณะที่ระบบจัดการ Document Resource และ Relationship เบื้องหลังให้อัตโนมัติ
+V1 example: staff select one existing Document from an Announcement or Service through native selectors. Structured ITA upload/evidence maintenance is deferred (§7.10); ordinary reuse does not guarantee historical immutability.
 
 > **Architecture can be structured without making the workflow complicated.**
 
@@ -499,7 +507,7 @@ Online Service เป็นเพียงหนึ่งในช่องท�
 
 CMS และระบบข้อมูลเชิงวิเคราะห์มีหน้าที่ต่างกัน จึงต้องรักษาขอบเขตความรับผิดชอบให้ชัดเจน
 
-- CMS รับผิดชอบ Content, Directory, Services, Documents, Media และ ITA
+- CMS รับผิดชอบ Content, Directory, Services, Documents และ native Media ใน V1; structured ITA history/evidence is deferred
 - Dashboard / Data Platform รับผิดชอบ Metrics, Time Series, KPI และ Analytical Data
 - การนำเสนอสามารถอยู่ในเว็บไซต์เดียวกันได้ แต่ไม่ควรบังคับให้ใช้ Data Model หรือ Database เดียวกัน
 
@@ -565,7 +573,7 @@ Version 1 ควรประกอบด้วย Module หลักดัง�
 7. Document Center
 8. Health Information
 9. Citizen Services
-10. ITA / คุณธรรมและความโปร่งใส
+10. ITA / คุณธรรมและความโปร่งใส — **deferred from V1** (§7.10)
 11. Contact & Digital Channels
 12. Admin CMS
 
@@ -755,36 +763,18 @@ Health Information
 
 Public UX สามารถนำสิ่งเหล่านี้มาแสดงร่วมกันใน “บริการประชาชน” ได้ แต่ไม่ควรสร้างเป็น Service Entity ทั้งหมด
 
-### 7.10 ITA / คุณธรรมและความโปร่งใส
+### 7.10 ITA / คุณธรรมและความโปร่งใส — Deferred from V1
 
-ITA เป็น Structured Yearly Evidence Directory ที่ปรับโครงสร้างได้ตามเกณฑ์ของแต่ละปีงบประมาณ
+The structured Fiscal Year → MOIT/Section → Requirement/Item → Evidence model and its historical
+public retention, immutable-target/preservation and traceable correction guarantees are deferred
+from the reduced V1 scope. They are not implemented/passed by ordinary Document/Media reuse,
+native revisions or staff maintenance precautions. No ITA workspace/upload journey, generic-page
+substitute, snapshot subsystem or upstream change is required in V1.
 
-โครงสร้างพื้นฐาน:
-
-```text
-Fiscal Year
-    ↓
-MOIT / Section
-    ↓
-Requirement / Item
-    ↓
-Evidence
-    ├── PDF / Document
-    └── External URL (optional)
-```
-
-PDF / Document เป็น Evidence หลักใน Version 1 ตาม Workflow จริงของงาน ITA
-
-ระบบควร Structured ภายใน แต่ Workflow หลังบ้านต้องเรียบง่าย เช่น อัปโหลด PDF จากหน้า ITA ได้โดยตรง และให้ระบบสร้าง/เชื่อม Document Resource เบื้องหลัง
-
-หลักสำคัญ:
-
-- MOIT และ Requirement ไม่ Hard-code และปรับได้ตามแต่ละปี
-- ITA ปีย้อนหลังยังเปิดดูได้
-- Reuse Document เมื่อเหมาะสม แต่ไม่บังคับขั้นตอนที่ยุ่งยาก
-- ไม่ผูก ITA แบบ Dynamic กับ Personnel, Organization หรือ Service ใน Version 1
-- รักษาประวัติผ่าน Evidence ของปีนั้นเป็นหลัก
-- **Preserve history; improve forward.**
+Future ITA requirements remain year-configurable structure, reusable Document/media/URL evidence,
+no automatic carry-forward and preserved historical context. Re-entry requires a separate accepted
+scope/capability decision. See `02-content-model.md` §18 and Feature 002 D-ITA/D-REF for traceability.
+This deferral authorizes no deletion, migration, withdrawal or cutover of existing public ITA material.
 
 ---
 
@@ -916,11 +906,8 @@ Admin Dashboard
 บริการประชาชน
 └── Service Catalog
 
-ITA
-├── ปีงบประมาณ
-├── MOIT / Section
-├── Requirement / Item
-└── Evidence
+Deferred future scope: ITA
+└── Fiscal Year / Section / Requirement / Evidence (not V1 Admin)
 
 Media Library
 └── รูปภาพ / Logo / Visual Assets
@@ -1054,11 +1041,9 @@ Legacy WordPress audit และการย้ายข้อมูลถูก
 - Dashboard / Analytical Data เป็น Data Domain แยกจาก CMS และสามารถนำเสนอผ่าน `/dashboard`
 - Public Content/CMS และ Dashboard ต้องมี data ownership และ access boundary แยกกัน; exact physical database topology เป็นเรื่องของ System Blueprint/ระบบ Dashboard
 - Dashboard integration ใช้ bounded interface ที่มี ownership ชัดเจน และไม่ใช้ CMS/Public Content persistence เป็น Analytical Data Source หลัก
-- ITA เป็น Structured Yearly Evidence Directory: Fiscal Year → MOIT / Section → Requirement / Item → Evidence
-- PDF / Document เป็น ITA Evidence หลักใน Version 1 และ External URL ใช้เมื่อจำเป็น
-- ITA ปรับเกณฑ์ได้ตามแต่ละปีโดยไม่ Hard-code โครงสร้าง
-- ITA Workflow ต้องเรียบง่ายสำหรับเจ้าหน้าที่ แม้โครงสร้างข้อมูลภายในจะเป็น Structured Resource
-- Preserve history; improve forward สำหรับ ITA ย้อนหลัง
+- Structured yearly ITA evidence and historical-preservation guarantees are deferred from V1 (§7.10)
+- Ordinary native Document/Media reuse remains; no immutable targets, required-reference deletion vetoes or cross-record atomicity is claimed
+- No upstream EmDash change or custom history/media/relationship-locking subsystem is pursued
 - Basic Page ใช้เฉพาะเมื่อไม่มี Structured Content Model ที่เหมาะสมกว่า
 - “ข่าวสุขภาพ” เป็น View / Filter ของ News ตาม Health Topic ส่วนความรู้สุขภาพใช้ Health Content
 - คู่มือและแบบฟอร์มเป็น Document Resources และการค้นหาหน่วยบริการเป็น Directory Function ไม่ใช่ Service Entity โดยตัวมันเอง

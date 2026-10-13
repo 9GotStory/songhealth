@@ -1,5 +1,13 @@
 # Upstream request draft — Human Review only
 
+> **Historical / superseded direction (2026-10-14):** Product Owner comment
+> `01a135e9-23e0-78c3-bcea-c752516828a8` stops upstream pursuit and defers unavailable Q3/Q4
+> guarantees from V1. This artifact preserves earlier evidence, not the current next action.
+> The request draft is cancelled and remains unsubmitted; no maintainer contact occurred.
+> Current scope/review standing is in [scope-reconciliation.md](scope-reconciliation.md),
+> [spec.md](spec.md), [plan.md](plan.md) and [research.md](research.md).
+
+
 **Publication status**: Local, unsubmitted. No maintainer contact occurred. Intended route is an
 opening Ideas Discussion, subject to human review/editing/disclosure/manual publication and separate
 Product Owner authorization. Proposed scenarios have not been executed; they are not observed results.

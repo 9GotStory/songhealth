@@ -4,19 +4,44 @@
 
 **Created**: 2026-10-13
 
-**Status**: Clarify complete — awaiting ChatGPT Independent Review and Product Owner acceptance
-of the resulting artifact. No later phase is authorized.
+**Status**: V1 scope reconciliation within existing Plan Phase 0 — awaiting ChatGPT Independent
+Review and Human Acceptance of revised authorities/specification. Plan is incomplete; Phase 1 and
+all later phases are withheld until acceptance. No implementation authorization.
 
-**Input**: Initialize Feature 002 from approved Songhealth content, administration, access, and
-publishing authorities. Define Product meaning, staff journeys, relationships, acceptance
-scenarios, and scope boundaries; identify Product decisions and foundation dependencies.
-Originally produced at Specify. Issue 9GOTSTORY-206 authorizes Clarify only from baseline
-`4e3fb02b44ac5650cc63b17e441b7cb0321ddc00`; stop after Clarify. This document authorizes no
-later phase or implementation.
+**Input / precedence**: Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
+(2026-10-13) supersedes unavailable Q3/Q4 V1 guarantees and stops upstream-change pursuit.
+This documentation reconciliation starts at `e2903e41be6aebd849352d4cc452906eb3d796fd` on the
+existing managed branch. Q1/Q2 remain applicable to retained resources; deferred requirements are
+traceable below. This is not a rerun of Specify/Clarify or a new feature/workflow.
+
+## Product Owner V1 Scope Decision — Plan Phase 0
+
+| Capability | Reduced V1 standing | Traceability |
+| --- | --- | --- |
+| Ordinary content, semantic Document/native Media, Personnel/current assignment, conditional Organization, Service/facility/Area | Retained on supported native EmDash 1.1.0 primitives | US1–4/6–7; FR-001–013/018–032 with the boundaries below |
+| Q1 incomplete drafts / publication-required field and selection values | Retained for the 12 V1 matrix rows, with optional/conditional semantics unchanged; exact supported mapping still requires Plan verification | FR-002; US1.6–7; SC-006 |
+| Q2 current Personnel assignment only | Retained; no assignment-history feature | FR-008/009; US3.4; SC-001 |
+| Q3 structured yearly ITA history, immutable/preserved evidence, retained published years and traceable correction | **D-ITA: deferred from V1; not implemented/PASS**. Entire structured ITA journey/representation is withheld, with no Basic Page or ordinary Document fallback claiming those guarantees | US5; FR-014–017; SC-004; four deferred Q1 ITA rows |
+| Q4 published-required-target removal veto and cross-record atomic availability/retention | **D-REF: deferred from V1; not implemented/PASS**. Includes guaranteed target/file availability at publication/schedule commit and under concurrent/later changes; no implicit cross-record gate | Former US2.6/US6.8; deferred portions FR-025/026 and SC-005/006 |
+| Q4 safe public reads / incomplete drafts / valid selections | Retained where independent of deferred enforcement: no draft exposure, omit unavailable linked content, safe missing-file state, Q1 selection presence and native value/cardinality validation | FR-002/020/025/026; US2.6–8; SC-005/006 |
+
+Native permissions authorize actors; usage reporting and staff precautions help maintenance.
+Neither proves Q3/Q4 enforcement. Native media replacement may change current shared consumers;
+authorized target deletion/unpublish can leave missing links. No atomic/snapshot/locking subsystem,
+upgrade or upstream change is introduced. Legacy ITA material is not deleted/migrated/withdrawn;
+any future delivery/cutover disposition requires its own accepted decision.
+
+Owning current documents are revised for this decision and await Human Acceptance. Final mapping,
+field/cardinality choices and remaining native risks belong to the same Plan after that acceptance.
 
 ## Clarifications
 
-### Session 2026-10-13
+### Session 2026-10-13 — Historical Accepted Answers
+
+The four original accepted answers below are preserved as decision provenance. They are not four
+current V1 guarantees: the later Product Owner scope table above retains Q1/Q2, defers Q3 and the
+unavailable Q4 enforcement, and retains Q4's independent public-read/selection boundaries.
+Deferred answers are not passed, implemented or replaced by precautions.
 
 - Q: Which field rule should apply when staff publish content or schedule it for publication?
   → A: Option A, accepted by the Product Owner in comment `01a135a8-78b6-799f-952c-7ba05885ede4`:
@@ -87,8 +112,8 @@ of each kind and verify its attributes/classifications, without building public 
    confidentiality constraints still apply.
 7. **Given** a missing or invalid applicable Q1 publication field, **When** publication or schedule
    acceptance is attempted, **Then** the action is refused with a readable explanation. Validation
-   also applies before a scheduled revision becomes public; an incomplete pending edit does not
-   replace the existing public version.
+   also applies before a scheduled content-data revision becomes public; an incomplete candidate
+   does not replace the existing live content-data revision through that publication action.
 
 ---
 
@@ -109,20 +134,24 @@ reopen each and confirm the same identity/file. Select a raw image without creat
 2. **Given** a public report, **When** Health Report metadata is saved, **Then** title, summary,
    type, Health Topic, reporting period, owner/source, applicable date, and optional fiscal year/Area
    describe a related Document; report metrics are not extracted into editorial records by default.
-3. **Given** a raw image or screenshot, **When** it is selected as media or ITA evidence, **Then**
+3. **Given** a raw image or screenshot, **When** it is selected for retained V1 content, **Then**
    it is reusable without a generic File/Media content record or mandatory semantic Document.
 4. **Given** a Document has a successor or expiry context, **When** that metadata changes, **Then**
    domain context remains separate from publication state and the original file/successor remain
    identifiable without copying either.
 5. **Given** a public image, **When** staff select it, **Then** available alternative text/caption
    and asset metadata can be maintained; media storage is not presented as confidential storage.
-6. **Given** a Health Report with an unavailable required Document or file, **When** publication
-   or schedule acceptance/execution is attempted, **Then** it is refused with a readable explanation;
-   an incomplete draft may still be saved under Q1. An available published Document and existing
-   file satisfy this relationship check, without an extra upload.
-7. **Given** an unavailable optional linked record, **When** its parent is published/read publicly,
-   **Then** the optional link is omitted from public reads and does not block the parent; no draft
-   or unpublished target content is exposed.
+6. **Given** a Health Report with no selected report Document, **When** publication or schedule
+   acceptance/execution is attempted, **Then** Q1 selection-required validation refuses it; an
+   incomplete draft remains saveable. A stored selection is not guaranteed target availability.
+7. **Given** unavailable linked content, **When** its parent is read publicly, **Then** the target
+   is omitted without exposing draft/unpublished data. A missing file produces a safe unavailable
+   state. Unavailable optional links do not block parent publication; D-REF withholding a required
+   target's availability guarantee must not be reported as a successful availability check.
+8. **Given** native authorized replacement/removal of a reused asset or linked record, **When**
+   public consumers are re-read, **Then** they reflect the current native state or safe unavailability.
+   No immutable bytes, deletion veto or atomic cross-record preservation is claimed as V1 acceptance.
+
 
 ---
 
@@ -150,7 +179,7 @@ demonstrated, and change the person's public assignment without changing editing
 4. **Given** a current Personnel assignment, **When** the assignment changes or ends, **Then**
    current public assignment/unit/visibility is updated on the same identity. No start/end dates,
    retained past-assignment records or public past-assignment directory are required by Feature 002;
-   native editorial revisions remain the traceability baseline and past-year ITA context is unchanged.
+   native editorial revisions remain the traceability baseline. ITA historical-preservation acceptance is deferred (D-ITA).
 5. **Given** a public assignment or visibility changes, **When** saved, **Then** it does not
    provision/disable an editing account, redefine permissions, or erase historical authorship.
 
@@ -185,14 +214,18 @@ Areas, and identify the same relationships from both directions without duplicat
 
 ---
 
-### User Story 5 - Maintain Yearly ITA Evidence (Priority: P2)
+### User Story 5 - Maintain Yearly ITA Evidence (DEFERRED: D-ITA; no V1 priority/acceptance)
 
-As an ITA editor, I can configure yearly sections/requirements, attach ordered evidence, and
+**Standing**: The original six scenarios below retain deferred-requirement traceability. They
+are future-scope scenarios, not V1 test fixtures or completion obligations. No ITA representation,
+workspace, upload journey or ordinary-page replacement is approved by this reconciliation.
+
+As a future ITA editor, I would configure yearly sections/requirements, attach ordered evidence, and
 preserve past-year evidence independently of current personnel/organization changes.
 
-**Why this priority**: Evidence must remain understandable and historically accurate.
+**Why this future need matters**: Evidence must remain understandable and historically accurate.
 
-**Independent Test**: Prepare two different fiscal-year structures with ordered Document, media,
+**Deferred verification**: Prepare two different fiscal-year structures with ordered Document, media,
 and external-link evidence; change current personnel/organization and check historical context.
 
 **Acceptance Scenarios**:
@@ -234,12 +267,15 @@ adding public page templates.
 1. **Given** a saved draft, **When** anonymous reading or unauthorized preview is attempted,
    **Then** it is not exposed; direct publish/schedule attempts by draft-only staff are refused
    at the trusted system boundary.
-2. **Given** published content, **When** pending edits are saved/previewed, **Then** the previous
-   live version remains public until authorized publication.
+2. **Given** published content with enabled native revisions, **When** staged content-data edits
+   are saved/previewed, **Then** the previous live content-data revision remains public until
+   authorized publication. This is not a promise that shared media, linked records or separately
+   maintained taxonomy/SEO/byline metadata are staged/frozen atomically with it; their native
+   boundaries must be documented and checked in Plan.
 3. **Given** authorized one-time scheduling, **When** scheduled, **Then** timezone is explicit,
    publication never occurs early, existing live content remains until update success, and
    available overdue/failure evidence is observable.
-4. **Given** published content eligible under the accepted Q3 retention and Q4 reference rules,
+4. **Given** published V1 content and native lifecycle authority,
    **When** unpublished/trashed, **Then** public reads exclude it while editable/restorable
    information remains; permanent deletion additionally requires administrator authority.
 5. **Given** enabled revision/concurrency protection, **When** a stale/conflicting save occurs,
@@ -250,11 +286,11 @@ adding public page templates.
 7. **Given** an unauthorized/disabled account, **When** it attempts protected content or
    schema/security administration directly, **Then** trusted role/ownership checks refuse it,
    regardless of visible controls or a person's public job title.
-8. **Given** a target required by published content, **When** unpublish/trash/permanent deletion or
-   asset removal is attempted, **Then** it is refused with a readable explanation, even when the
-   actor otherwise has permission for that action. Staff first deliberately update the published
-   references or unpublish eligible parents; retained ITA years remain public with valid replacements
-   where required and Q3 traceability. No parent or target is automatically unpublished/deleted.
+8. **Given** an actor lacks native permission, **When** direct unpublish/trash/permanent-delete
+   or media-removal is attempted, **Then** trusted native role/ownership checks refuse it.
+   An otherwise authorized actor is not promised a required-published-reference veto. That
+   stronger original refusal scenario remains deferred as D-REF, not satisfied by this role test.
+
 
 ---
 
@@ -279,32 +315,26 @@ and corrects an agreed validation failure using labels and the reported explanat
 
 ### Edge Cases
 
-- Featured selections and Health News filters do not create another kind or duplicate records.
-- Explicitly optional inputs remain optional; accepted Q1 defines action-specific validation.
-  An incomplete draft remains saveable; failed publication validation leaves existing live content
-  unchanged, including when a scheduled revision is no longer valid at its publication time.
-- Activity/announcement/document/report dates are distinct from editorial timestamps; closed,
-  expired, superseded, and review-due contexts are not universal publishing states.
-- One Document reused across three contexts retains one authoritative file; successor changes
-  must not silently substitute historical ITA evidence.
-- A required unavailable content target blocks parent publication, schedule acceptance and
-  scheduled publication; required file assets must exist. Incomplete drafts remain allowed.
-  Unavailable optional links are omitted from public reads without blocking the parent.
-- Unpublish/trash/permanent deletion or asset removal is refused while published content requires
-  the target. Staff first deliberately update the published references or unpublish eligible parents;
-  retained ITA years stay public with valid replacements where required and Q3 traceability.
-  No automatic cascade or draft exposure is permitted.
-- Official Area/facility codes survive reuse; a common label alone does not justify an entity.
-- Editing one fiscal year or current Personnel/Organization does not rewrite past-year evidence.
-- Every published ITA year remains public without automatic expiry; changing retention needs a
-  separate Product decision. A deliberate historical correction must preserve traceability of the
-  prior/replacement target and must not silently propagate across shared evidence or other years.
-- An ended Personnel assignment does not create a historical assignment record or public past
-  directory in this feature; it updates current public information without changing CMS access.
-- Stale automation writes, conflicting saves, uncertain network outcomes, and failed schedules
-  do not silently overwrite or falsely report success.
-- Schema/access changes and permanent deletion retain administrator-only boundaries.
-- Public contact/media must not become private personnel/clinical/confidential storage.
+- Featured/Health News/leadership presentation creates no duplicate content kind.
+- Q1 optional/conditional values remain so; an incomplete draft is saveable under native identity,
+  supplied-value, authorization and public-data safety rules. Invalid Q1 publication values must
+  not be treated as a successful publish/schedule, including due-time validation.
+- Domain dates/status remain separate from editorial state; no automatic expiry/unpublish is inferred.
+- A Document/file reused across contexts shares its current native source, not immutable historical
+  bytes. Authorized replacement/removal may change or break consumers; public reads handle this
+  safely and never expose drafts. D-ITA/D-REF are not tested as V1 enforcement.
+- A selected reference/file value may be required by Q1 without a guaranteed published target/file
+  at commit or through later removal. No cross-record preflight is claimed to be atomic.
+- Official Area/facility codes survive reuse; common labels alone do not justify entities.
+- An ended Personnel assignment updates current information on one identity without CMS access
+  changes; no assignment-history record/directory is required.
+- Supported entry revision/concurrency, safe preview, native roles and truthful failure/re-read
+  behavior remain. Shared media/linked records and separately maintained metadata are not silently
+  included in a blanket live/draft guarantee.
+- Permanent content deletion is native administrator-only and trash-first; media deletion uses
+  native media/ownership authority. Neither boundary proves retention/dependency enforcement.
+- Confidential patient/clinical/HR/private-contact data never belongs in this model or media.
+- Existing legacy ITA evidence/URLs are not withdrawn or migrated by the reduced feature scope.
 
 ## Requirements *(mandatory)*
 
@@ -317,7 +347,8 @@ and corrects an agreed validation failure using labels and the reported explanat
   Publication and schedule acceptance MUST validate the applicable fields in the accepted Q1
   matrix below; validity MUST be checked before scheduled publication. Explicitly optional fields
   MUST remain optional; conditional fields MUST apply only when their stated condition is met.
-  Invalid or incomplete pending edits MUST NOT replace an existing public version.
+  Invalid or incomplete candidate content-data revisions MUST NOT replace the live content-data
+  version through publication; separately maintained metadata/shared targets follow FR-022's boundary.
 - **FR-003**: Basic Page MUST NOT substitute for a structured kind; Featured/Health News/leadership
   views and additional presentation contexts MUST NOT create duplicate kinds or source copies.
 - **FR-004**: Document MUST be a semantic public record around a file with title, optional summary,
@@ -326,7 +357,7 @@ and corrects an agreed validation failure using labels and the reported explanat
 - **FR-005**: Raw images/files MUST use the existing media resource and available alternative
   text/caption/type/size/dimensions/usage metadata. They MUST NOT automatically require a Document
   or duplicate Media/File record (`02` §14).
-- **FR-006**: About content, Services, Health Reports, Announcements, and ITA MUST reuse the same
+- **FR-006**: About content, Services, Health Reports and Announcements MUST reuse the same
   authoritative Document/file where needed rather than upload context copies.
 - **FR-007**: Health Report MUST be metadata plus a related Document with period/Topic/owner/source,
   applicable date, and optional Area/year (`02` §16), without storing analytical metrics.
@@ -336,7 +367,7 @@ and corrects an agreed validation failure using labels and the reported explanat
   assignment-history feature or public past-assignment directory. Assignment-history start/end
   dates and retained past-assignment records are not required. Later history needs MUST have a
   separately confirmed Product use case. Native editorial revisions remain the traceability
-  baseline; current assignment edits MUST NOT rewrite historical ITA evidence context.
+  baseline. Historical ITA preservation is deferred under D-ITA, not a V1 Personnel acceptance condition.
 - **FR-009**: Personnel MUST remain distinct from editing accounts; public job/assignment/status
   MUST NOT automatically change permissions, disable accounts, or erase authorship (`06` §6).
 - **FR-010**: Organization MUST become a reusable entity only where identity/metadata and
@@ -349,21 +380,6 @@ and corrects an agreed validation failure using labels and the reported explanat
   MUST be identifiable from both service and facility contexts.
 - **FR-013**: Shared Area references MUST retain applicable hierarchy and official/stable codes
   when connecting data (`02` §10), without taking ownership of analytical data.
-- **FR-014**: ITA MUST support the year/Section/Requirement/ordered Evidence hierarchy with the
-  applicable attributes and ordering in US5 and `02` §18.
-- **FR-015**: ITA evidence MUST reference Document, media, or external URL with optional label/order;
-  it MUST NOT be presumed a separately routable entity.
-- **FR-016**: ITA structure MUST be configurable per year without automatic carry-forward or changes
-  to another year's structure/order.
-- **FR-017**: All already-published and subsequently published ITA years MUST remain public without
-  automatic expiry or a retention deadline; a different retention policy MUST have a separate
-  Product decision. Historical text, metadata and evidence targets MAY be deliberately corrected
-  only by staff authorized under native publishing/ownership rules. Pending corrections MUST leave
-  the live version intact until publication. Native authorship/timestamps/revisions/history and
-  available logs MUST identify who changed what and when, including prior and replacement evidence
-  targets. Current Personnel/Organization, shared Document/media or other-year changes MUST NOT
-  silently rewrite historical evidence; evidence MUST NOT be automatically carried forward.
-  These requirements MUST NOT imply a universal snapshot, approval or audit subsystem.
 - **FR-018**: Shared Topic/Health Topic, Audience, Category/Type, and similar classifications MUST
   remain classifications where sufficient. Additional relations MUST have real reuse/discovery/
   history value; not every content kind MUST link to every other kind.
@@ -377,8 +393,9 @@ and corrects an agreed validation failure using labels and the reported explanat
   role/ownership checks MUST govern own/others' content and administrative operations;
   hidden UI controls MUST NOT be treated as security (`06` §§2–8).
 - **FR-022**: Editorial state MUST remain separate from domain timing/status. Saved pending edits
-  MUST leave live content unchanged until publication; an unpublish permitted by Q3 retention and
-  Q4 reference rules MUST remove the public version while retaining editable information
+  MUST preserve the live content-data revision for fields actually staged by native revisions;
+  this does not freeze related media/content or separately maintained metadata. Native authorized
+  unpublish MUST remove the public content version while retaining editable information
   (`07` §§2/4/6).
 - **FR-023**: One-time future publication MUST show timezone, never publish early, retain current
   live content until update success, and expose available failure/overdue evidence; recurring
@@ -386,21 +403,22 @@ and corrects an agreed validation failure using labels and the reported explanat
 - **FR-024**: Supported revisions/preview/explicit save/autosave/draft recovery/locks/concurrency
   MUST be used where needed; stale/concurrent writes MUST NOT silently overwrite (`05` §3;
   `07` §§8–9).
-- **FR-025**: Trash/restore MUST be ordinary deletion; permanent deletion MUST be administrator-only
-  with reference/retention consideration (`07` §10). Unpublish/trash/permanent deletion or asset
-  removal MUST be refused while published content requires the target. Staff MUST first deliberately
-  update the affected published references or unpublish eligible parents; retained ITA years MUST
-  stay public with valid replacements where required and Q3 traceability. There MUST NOT be an
-  automatic cascade of unpublication or deletion.
-- **FR-026**: Validation and failed/uncertain actions MUST produce readable, truthful results;
-  uncertain lifecycle outcomes MUST be re-read before retry. Relationship constraints MUST
-  preserve publication access boundaries (`07` §§7/13). Required linked content MUST have an
-  available published version at parent publication, schedule acceptance and scheduled publication;
-  required file assets MUST exist. An unavailable required target MUST cause a readable refusal,
-  leaving any existing live version unchanged. Missing required relations MAY remain in incomplete
-  drafts under Q1; unavailable optional links MUST NOT block parent publication.
+- **FR-025**: Native Trash/restore MUST be the ordinary content deletion path; permanent content
+  deletion MUST require native administrator permission and the native trash-first precondition.
+  Media removal MUST use native media/ownership permissions. Staff reference/retention review is
+  an operational precaution, not a required-published-reference veto. The original target-removal
+  veto/no-cascade enforcement is deferred (D-REF); no custom cascade/locking mechanism is introduced.
+- **FR-026**: Native value/format/cardinality validation and failed/uncertain actions MUST produce
+  readable, truthful results; uncertain outcomes MUST be re-read before retry. Q1 applicable field/
+  selection presence MUST be checked at publication, schedule acceptance and execution. Missing
+  Product selections MAY remain in drafts under Q1. Stored selections/native permissions MUST NOT
+  be represented as a guarantee of target publication/file existence at commit or during later
+  changes; that cross-record availability/removal guarantee is deferred (D-REF). Public reads follow
+  FR-020 and safely represent missing files. No unavailable optional link blocks parent publication.
+
 - **FR-027**: Schema/users/access/plugins/site-wide security/settings/backup/import/transfer and
-  permanent deletion MUST retain administrator boundaries. Native authorship/timestamps/revisions/
+  permanent content deletion MUST retain administrator boundaries. Native media removal follows
+  its distinct native media/ownership permissions (FR-025). Native authorship/timestamps/revisions/
   history and available logs MUST remain traceability baseline; no new audit permission family
   is required (`05` §§8/10; `06` §§7/10).
 - **FR-028**: This model/media MUST contain only public-publishable website information; patient,
@@ -419,13 +437,44 @@ and corrects an agreed validation failure using labels and the reported explanat
   A native gap MUST be surfaced for owning-authority review rather than silently relaxing
   requirements or creating an extension.
 
-**Q1 publication matrix — Product Owner accepted Option A (2026-10-13).**
+### Deferred Requirements — Not V1 Acceptance
+
+**D-ITA** retains the original FR-014–017 below as future requirements. Their MUST statements
+describe the deferred capability only, not reduced V1 obligations or implementation/PASS. They
+retain US5/SC-004 and the four deferred ITA matrix rows. Re-entry needs a new bounded decision.
+
+- **FR-014**: ITA MUST support the year/Section/Requirement/ordered Evidence hierarchy with the
+  applicable attributes and ordering in US5 and `02` §18.
+- **FR-015**: ITA evidence MUST reference Document, media, or external URL with optional label/order;
+  it MUST NOT be presumed a separately routable entity.
+- **FR-016**: ITA structure MUST be configurable per year without automatic carry-forward or changes
+  to another year's structure/order.
+- **FR-017**: All already-published and subsequently published ITA years MUST remain public without
+  automatic expiry or a retention deadline; a different retention policy MUST have a separate
+  Product decision. Historical text, metadata and evidence targets MAY be deliberately corrected
+  only by staff authorized under native publishing/ownership rules. Pending corrections MUST leave
+  the live version intact until publication. Native authorship/timestamps/revisions/history and
+  available logs MUST identify who changed what and when, including prior and replacement evidence
+  targets. Current Personnel/Organization, shared Document/media or other-year changes MUST NOT
+  silently rewrite historical evidence; evidence MUST NOT be automatically carried forward.
+  These requirements MUST NOT imply a universal snapshot, approval or audit subsystem.
+
+**D-REF** retains original Q4 removal/atomic availability guarantees from FR-025/026, US2.6 and
+US6.8, and portions of SC-005/006: required targets/files available at publish/schedule acceptance/
+execution; removal veto while published parents require them; deliberate resolution with no automatic
+cascade and Q3 traceability for retained ITA. These are deferred, not weakened operational checks or
+current V1 fixtures. Independent public-read, selection and role boundaries remain under current FRs.
+
+### Q1 Publication Matrix — Retained V1
+
+**Accepted Option A (2026-10-13); reduced resource applicability under the later scope decision.**
 
 This matrix makes the applicable non-optional attributes in `02-content-model.md` publication
 requirements by explicit Product decision; source field lists alone did not establish requiredness.
 It defines semantics, not schema or collection count. Relations not applicable to the real record
 may be empty. Slash-separated source alternatives describe alternative representations, not a
-demand to fill both versions. No minimum evidence count is required for an ITA requirement.
+demand to fill both versions. Required related-Document/media rows require a selected value;
+this does not assert D-REF target availability/immutability at commit or through later changes.
 
 | Resource | Required for publication / schedule acceptance |
 | --- | --- |
@@ -441,14 +490,21 @@ demand to fill both versions. No minimum evidence count is required for an ITA r
 | Document | Title, Document Type, and a selected public file |
 | Health Report | Title, summary, type, Health Topic, reporting period, owner/source, related report Document; report date when meaningful |
 | Area reference, in whichever representation is later justified | Identity and applicable parent hierarchy; official/stable code when connecting other data |
+
+
+Optional images, summaries, classifications, contacts, and related records stay optional wherever
+the owning source explicitly marks them optional. This matrix imposes no new media metadata
+requirements, retention period, custom permission or implementation mechanism. Q1 remains a
+publication-validation requirement; native `required` flags must not defeat incomplete drafts.
+
+**Deferred Q1 ITA rows — D-ITA only; not V1 publication requirements:**
+
+| Deferred resource | Retained future field rule |
+| --- | --- |
 | ITA Fiscal Year | Fiscal-year value and display order |
 | ITA Section / MOIT | Code, title, display order, parent fiscal year |
 | ITA Requirement / Item | Code/number, title, description, display order, parent section |
 | ITA evidence item | One selected Document, media asset, or external URL target; labels/order remain optional as specified. No minimum evidence count is required for a requirement. |
-
-Optional images, summaries, classifications, contacts, and related records stay optional wherever
-the owning source explicitly marks them optional. This matrix imposes no new media metadata
-requirements, retention period, custom permission, or implementation mechanism.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -468,29 +524,31 @@ These describe meaning and responsibilities, not a required number of collection
 | Document | Semantic file record/type/date/year/owner/successor/status | Reusable authoritative media file; no DMS |
 | Health Report | Report metadata/period/Topic/owner/date/Area/year | Report Document; no metrics dataset |
 | Area Reference | Shared official-coded hierarchy | Classification/service area; storage undecided |
-| ITA Year / Section / Requirement | Year-specific ordered hierarchy/codes/titles/descriptions | Structural resources only as needed; all published years retained; authorized traceable corrections |
-| ITA Evidence item | Ordered Document/media/URL with optional label | No assumed standalone route or compliance workflow |
+| ITA hierarchy / Evidence — deferred D-ITA | Year-specific hierarchy/codes/order/targets and preservation | No V1 collection, route, Admin workflow or acceptance; future semantic meaning preserved |
 | Classification / media / contact / system metadata | Shared labels/assets/owner contact/editorial identity | Existing CMS or owner responsibility; no duplicate entities |
 
 ### Scope Boundaries
 
 #### In Scope
 
-- Definitions and acceptance requirements for all canonical Version 1 semantic resources in
+- Definitions and acceptance requirements for all retained Version 1 semantic resources in
   `02` §24 and justified relationships, including conditional Organization and current Personnel
   assignments. Assignment history is excluded by accepted Q2.
 - Shared classification/official identifiers, Document/media distinctions, owner contact,
-  ITA history, and model-specific access/publication/validation requirements.
+  and retained model-specific access/publication/validation requirements; no structured ITA history.
 - Future proof of staff maintenance through the primary CMS and publication-safe public reads;
   public page construction is not part of the model feature.
-- Mapping-gate screening, dependencies, and unresolved Product decisions.
+- Mapping-gate screening, foundation dependencies and explicit deferred-scope traceability.
 
 #### Explicitly Out of Scope
 
-- Beyond this authorized Clarify session: Plan, Checklist-phase artifacts, Tasks, Analyze, implementation,
-  schema/seed/infrastructure/dependency changes, production operations/deployment, or merge.
-  The existing Specify quality checklist is re-evaluated during Clarify; this is not the later
-  Checklist phase.
+- Beyond this authorized Plan Phase 0 scope reconciliation: Phase 1 design until review acceptance,
+  Checklist, Tasks, Analyze, implementation, schema/seed/infrastructure/dependency change, production
+  operations/deployment or merge. No Specify/Clarify rerun or upstream pursuit/submission/contact.
+- Structured ITA hierarchy/evidence/history/correction/retention (D-ITA); unavailable Q4 removal
+  vetoes and cross-record atomic publication/availability enforcement (D-REF). No substitute
+  ordinary page/Document workflow, snapshot subsystem or new architecture is approved.
+
 - Public page/route/template implementation, Homepage curation implementation, visual design,
   public search implementation, and external-consumer APIs.
 - Production editorial population, WordPress migration/import/legacy cutover, and invented real
@@ -512,12 +570,13 @@ These describe meaning and responsibilities, not a required number of collection
 
 ### Measurable Outcomes
 
-These are future acceptance outcomes, not runtime results established by Specify or Clarify.
+These are future reduced-V1 acceptance outcomes, not runtime results or a completed Plan.
 Agreed fixtures must cover each unconditional resource and every Product-confirmed conditional case.
-Accepted Q1–Q4 define the publication, current-assignment, historical-correction and relationship
-fixtures; runtime outcomes remain unverified by this document-only phase.
+Q1/Q2 and retained Q4 public-read/selection boundaries define V1 fixtures. US5/FR-014–017/
+SC-004 and stronger Q4 enforcement fixtures are deferred, excluded from V1 denominators and never
+counted as PASS. Runtime outcomes remain unverified by this document-only reconciliation.
 
-- **SC-001**: Staff create/save/reopen/correctly identify 100% of representative records in US1–5,
+- **SC-001**: Staff create/save/reopen/correctly identify 100% of retained representative records in US1–4,
   with zero generic-page substitutions or duplicate presentation-only kinds.
   A changed/ended Personnel-assignment fixture retains the same identity and correct current
   assignment/unit/visibility, without requiring a historical assignment record or public past directory.
@@ -525,25 +584,26 @@ fixtures; runtime outcomes remain unverified by this document-only phase.
   Report with zero additional context uploads or duplicate Document records.
 - **SC-003**: Every agreed service/facility/Area fixture preserves the same relationship from both
   directions and unchanged official identifiers; location remains distinguishable from service area.
-- **SC-004**: Two fiscal-year fixtures with different structures and all three evidence target kinds
-  retain 100% of evidence targets/order and required historical context after next-year and
-  current Personnel/Organization or shared Document/media edits, with zero automatic carry-forward.
-  Both published years remain public with no automatic expiry. A deliberate correction fixture
-  changes only the authorized published revision and intended year's evidence, with identifiable
-  actor/time/change and prior/replacement targets; unauthorized correction has zero effect.
-- **SC-005**: Every agreed draft/publication/preview/ownership/admin-boundary case has the expected
-  allowed/refused outcome, with zero unauthorized draft exposure/publication or premature pending
-  edit/scheduled update exposure. Required unavailable content/file target fixtures refuse parent
-  publication and schedule acceptance/execution; unavailable optional-link fixtures allow the
-  parent and omit those links from public reads, with zero draft target exposure.
+- **SC-004**: **DEFERRED D-ITA; not V1 acceptance.** The original two-year structure/evidence,
+  historical preservation under shared edits, public retention and traceable authorized correction
+  outcomes remain future requirements under US5/FR-014–017. No V1 fixture/PASS is claimed.
+
+- **SC-005**: Every agreed retained draft/publication/preview/ownership/admin-boundary fixture
+  has the native allowed/refused outcome, with zero unauthorized draft exposure/publication or
+  premature staged content-data/scheduled-update exposure. Public linked-target reads omit
+  unavailable content and never expose its draft; missing files have a safe unavailable state.
+  Required-selection missing values are covered by Q1/SC-006. D-REF cross-record availability and
+  target-removal guarantees, and atomic staging of separately maintained metadata, are not inferred.
+
 - **SC-006**: Every agreed invalid-input/stale-write/failed-action/trash-restore/uncertainty case
   yields the correct state and readable result with zero false success or silent overwrite.
   For every applicable Q1 matrix field, a missing-value fixture MUST allow draft save subject to
   the stated native/safety constraints and MUST refuse publication/schedule acceptance. A revision
   invalidated before its scheduled publication MUST remain non-public, preserving any live version.
-  Required-reference removal fixtures refuse unpublish/trash/permanent deletion or asset removal
-  until published dependencies are deliberately resolved; eligible-parent removal and retained-ITA
-  replacement fixtures follow Q3/Q4 with zero automatic cascades.
+  Native-authority/trash-first/restore fixtures have the documented outcomes, including otherwise
+  authorized maintenance that can affect reused content. Required-reference removal veto, immutable
+  history and cross-record atomicity fixtures are deferred D-REF/D-ITA, not reported as passed.
+
 - **SC-007**: Staff demonstrate author/select/reuse/find/correct journeys with recognizable labels
   and zero undocumented technical intervention to maintain representative records.
 - **SC-008**: Review accounts for every proposed resource/relation under all four mapping questions,
@@ -553,21 +613,24 @@ fixtures; runtime outcomes remain unverified by this document-only phase.
 ## Assumptions
 
 - Current Product authorities define meaning; code/foundation evidence only shows the starting point.
-- All canonical Version 1 semantic resources are covered; Organization and additional relations
+- All retained Version 1 semantic resources are covered; Organization and additional relations
   remain conditional on the sources' demonstrated-use gates. Accepted Q2 limits Personnel to
   current assignments; assignment history requires a separate confirmed Product use case.
 - The primary CMS and its supported lifecycle/access/media are reused. Exact field types,
-  collection count/cardinalities, Area/assignment/ITA storage, and validation mechanisms belong
-  to a separately authorized later phase.
+  collection count/cardinalities, Area/current-assignment representation and supported Q1 validation
+  mapping belong to remaining Plan work after this Human Gate; no ITA storage is selected in V1.
 - Domain dates/status retain their meaning; no universal enum or automatic unpublish is inferred.
-- Accepted Q3 retains every published ITA year; native traceability must support deliberate
-  historical corrections. A demonstrated capability gap must be surfaced at the owning-authority
-  review gate, not treated as authorization for a custom historical subsystem.
+- Q3 and unavailable Q4 guarantees are explicitly deferred by the Product Owner; ordinary native
+  media/Document reuse, revision history and staff precautions cannot be claimed to satisfy them.
+- V1 uses native publication, permissions, value/reference constraints and safe public reads.
+  Retained Q1 mapping and native field/metadata revision boundaries still need exact-release
+  verification; this reconciliation is not a blanket feasibility/runtime PASS.
+
 - Verification data will be synthetic/public-publishable; real staff assignments, inventories,
   classification terms, and Area/code values are not invented.
 - Conditional reuse fixtures require a recorded Product use case before they become collection
   or acceptance obligations. Past Personnel assignments are outside Feature 002 acceptance;
-  ITA historical-evidence acceptance remains required independently.
+  ITA historical-evidence acceptance is deferred independently under D-ITA.
 
 ### Dependencies and Authority
 
@@ -576,8 +639,9 @@ fixtures; runtime outcomes remain unverified by this document-only phase.
   `05-admin-cms.md` §§1–5/7–15; `06-roles-permissions.md` §§1–12;
   `07-publishing-workflow.md` §§1–15. Context: `00-website-foundation.md` §§1–3;
   `01-information-architecture.md` §§1/3–12/16–18.
-- Architecture remains `docs/website-modernization-docs/current/10-system-blueprint.md` v2.3,
-  especially §§4–9/11–12/15/18–23; this specification changes none of its choices.
+- Architecture remains `docs/website-modernization-docs/current/10-system-blueprint.md` v2.4 (scope reconciliation for review),
+  especially §§4–9/11–12/15/18–23. The canonical platform/configuration remains unchanged; its
+  unavailable ITA/reference enforcement acceptance is explicitly deferred.
 - Baseline: `9GotStory/songhealth`, `001-platform-foundation`,
   `67770b0ebf77b623af838d4a77b186a358b7ff4e`. Feature 001 approved spec (embedded clarifications),
   plan/tasks, and T029 source evidence identify foundation/boundaries; they do not authorize
@@ -585,8 +649,9 @@ fixtures; runtime outcomes remain unverified by this document-only phase.
 - **T022 production durability: PENDING. T028 recovery: PENDING.** T028 still requires T022 PASS
   and accepted T023–T027 sources; T030 still requires T028 PASS and accepted T029 sources.
   T029 source evidence is not runtime PASS or final Feature 001 acceptance.
-- Specify was authorized despite pending runtime evidence. Issue 9GOTSTORY-206 now authorizes
-  Clarify only; neither authorization permits dependent runtime work.
+- Specify was authorized despite pending runtime evidence. Issue 9GOTSTORY-206 authorized
+  Clarify only. Issue 9GOTSTORY-207 now authorizes this bounded Plan reconciliation; no authorization
+  permits dependent runtime work.
   The Product Owner must establish required Feature 001 readiness/dependencies at a later
   Feature 002 gate. Pending evidence cannot be treated as PASS.
 - Later design must verify supported model operations against the actual pinned CMS release;
@@ -594,29 +659,23 @@ fixtures; runtime outcomes remain unverified by this document-only phase.
 - No `PROJECT-STATUS.md`, `PRE-IMPLEMENTATION-GATE.md`, or separate clarification file is
   present at baseline. No replacement approval artifact is invented.
 
-### Open Product Decisions — Human Gate
+### Decision Traceability — Existing Plan Human Gate
 
-Q1–Q4 are accepted and integrated above. Four questions were asked sequentially and all four
-answers were accepted. No unresolved Product clarification remains within this feature's approved
-scope. The resulting artifact still requires Independent Review and Human Acceptance; completion
-of Clarify does not authorize Plan or implementation.
+Q1/Q2 remain accepted for retained V1 scope. Q3/Q4 original answers remain in the historical
+session; Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8` explicitly changes their
+V1 applicability. The revised owning authorities and this specification require ChatGPT Independent
+Review and Human Acceptance. This pass stops here; no new clarification questions/phases were run.
 
-1. **Q1 — Requiredness/action matrix (FR-002; US1.6/7.2; SC-006).**
-   **Resolved**: Product Owner accepted Option A; see the Clarifications session, FR-002,
-   the Q1 publication matrix, US1.6–7 and SC-006.
-2. **Q2 — Personnel assignment history (FR-008; US3.4).**
-   **Resolved**: Product Owner accepted Option A, current assignments only; see the Clarifications
-   session, FR-008, US3.4, SC-001 and Scope Boundaries. No assignment-history subsystem or public
-   past-assignment directory is part of this feature.
-3. **Q3 — ITA historical years/corrections (FR-017; US5.4; SC-004).**
-   **Resolved**: Product Owner accepted Option A, retain all published years without automatic
-   expiry and allow native-authorized, traceable corrections; see the Clarifications session,
-   FR-017, US5.4/6 and SC-004. No automatic evidence carry-forward is permitted.
-4. **Q4 — Unavailable relationship targets (FR-020/025/026; Edge Cases; SC-005/006).**
-   **Resolved**: Product Owner accepted Option A; required unavailable targets block publication
-   and required-by-published targets cannot be removed until dependencies are deliberately resolved.
-   Optional unavailable links are omitted from public reads; no automatic cascade or draft exposure.
-   See the Clarifications session, FR-020/025/026, US2.6–7/US6.8 and SC-005/006.
+1. **Q1 (FR-002, matrix, US1.6–7, SC-006):** unchanged action-specific requiredness on 12 V1
+   rows; the four ITA rows are retained under D-ITA rather than applied to a nonexistent V1 model.
+2. **Q2 (FR-008/009, US3.4, SC-001):** current assignment/unit/visibility on the same identity;
+   no assignment-history feature. No ITA historical guarantee is attached to V1 Personnel acceptance.
+3. **Q3 (US5, FR-014–017, SC-004):** deferred D-ITA in full, including structured history,
+   immutable/preserved evidence, retained published years and traceable correction. No ordinary
+   Document/media workflow is substituted or counted as passed.
+4. **Q4 (US2.6–8/US6.8, FR-020/025/026, SC-005/006):** public-only reads, safe unavailable
+   targets, valid selections and native authority retained; removal veto and atomic cross-record
+   target/file availability are deferred D-REF. Preconditions/precautions are not enforcement.
 
 Other inputs before later design/acceptance: real Organization/shared-object reuse examples;
 Service/facility inventories; classification terms/official Area sources; operational role

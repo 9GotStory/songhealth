@@ -1,11 +1,19 @@
 # Publishing Workflow — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 07-publishing-workflow
-> **Status:** CLEAN REBASELINE v2.2 — CURRENT
-> **Version:** 2.2
-> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Status:** CLEAN REBASELINE v2.3 — V1 scope revision for Independent Review / Human Acceptance
+> **Version:** 2.3
+> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`, `06-roles-permissions.md`
 > **Purpose:** กำหนด publishing semantics ที่ Songhealth ต้องการโดยใช้ lifecycle ของ CMS เป็น baseline และไม่สร้าง workflow engine ซ้ำ
+
+
+> **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
+> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
+> publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
+> independent review and human acceptance; deferral is not implementation or PASS. No upstream
+> change, new subsystem, replacement ITA workflow or production action is authorized.
 
 ---
 
@@ -114,8 +122,8 @@ Version 1 รองรับ one-time future publishing ผ่าน native sche
 - Announcement: วันที่เริ่ม/สิ้นสุดความเกี่ยวข้อง
 - Health Service: operational status เช่น active / temporarily closed / inactive
 - Document: current / superseded / expired ตามความหมายของเอกสาร
-- Personnel: current/historical visibility ตามนโยบายข้อมูล
-- ITA: fiscal year และ historical evidence context
+- Personnel: current public assignment/visibility; assignment history is outside V1 (Q2)
+- ITA: fiscal-year historical evidence semantics are deferred from V1
 
 กฎเหล่านี้อยู่ใน Content Model/domain feature ที่เกี่ยวข้อง ไม่สร้าง universal workflow engine.
 
@@ -127,7 +135,11 @@ Version 1 รองรับ one-time future publishing ผ่าน native sche
 
 ใช้ field required/unique/validation และ relation constraints ก่อน.
 
-เพิ่ม publish hook/custom validation เฉพาะ invariant ที่ native schema validation แสดงไม่ได้ เช่น dependency ที่ต้องตรวจข้ามหลาย resource ก่อน publish.
+Use supported native publication hooks only for retained action-specific validation that schema
+constraints cannot express, notably Q1 incomplete drafts versus publication-required values.
+Do not infer an atomic cross-resource dependency gate from a before-hook: EmDash 1.1.0 executes
+policy reads before the mutation transaction. Q4 guaranteed target availability at commit,
+published-required-reference removal vetoes and cross-record locking are deferred from V1.
 
 Validation ต้อง deterministic และ human-readable.
 
@@ -156,6 +168,12 @@ Public route ต้องไม่เปิด Draft ผ่าน query paramete
 - edit lock
 - optimistic concurrency/version token
 
+These are native entry-level protections, not cross-record atomicity. Pending-draft guarantees
+cover data the platform actually stages in the content revision; shared media bytes, linked records
+and separately maintained taxonomy/SEO/byline metadata are not assumed to be frozen together.
+Remaining Plan research must identify those native boundaries and their V1 validation implications;
+no blanket pending-change or cross-resource PASS is inferred.
+
 Songhealth ไม่สร้าง revision tables, locking service หรือ conflict protocol แยก.
 
 Automation/agent writes ต้องใช้ concurrency precondition ที่ platform รองรับเมื่อมี เพื่อไม่ overwrite งานใหม่กว่า.
@@ -166,7 +184,12 @@ Automation/agent writes ต้องใช้ concurrency precondition ที่
 
 ใช้ Trash/Restore เป็นค่าเริ่มต้นแทน hard delete.
 
-Permanent delete จำกัดเฉพาะ privileged administrator และต้องใช้เมื่อไม่มี retention/reference need แล้ว.
+Permanent content delete จำกัดเฉพาะ privileged administrator through native permissions and the native
+already-trashed precondition. Staff should consider usage/retention and repair references before
+destructive maintenance. This is an operational precaution, not a server-enforced dependency veto:
+the pinned native purge path does not invoke the trash before-delete hook or refuse published
+backlinks. Media deletion/replacement likewise lacks historical/required-reference policy vetoes.
+The unavailable Q3/Q4 guarantees are deferred, not passed through permissions or staff review.
 
 ไม่สร้าง custom Archive Center หาก native Trash + domain status เพียงพอ.
 
@@ -181,17 +204,20 @@ Version 1 ใช้:
 - revision history
 - native operational logs
 
-เป็น baseline evidence.
+เป็น baseline evidence for ordinary native editing. Native revisions are finite/prunable and
+do not retain overwritten media bytes; V1 promises no immutable historical-evidence/audit archive.
 
 ไม่สร้าง Central Audit Log ของ Songhealth เว้นแต่ requirement ด้านกฎหมาย/กำกับดูแลระบุเหตุการณ์และ retention ที่ native evidence ไม่ครอบคลุม.
 
 ---
 
-# 12. Homepage and ITA
+# 12. Homepage and Deferred ITA
 
-Homepage curation และ ITA publication ใช้ editorial lifecycle เดียวกันเท่าที่ model เป็น content collection ได้.
-
-อย่าสร้าง Homepage-specific หรือ ITA-specific workflow engine. Domain-specific validation เพิ่มเฉพาะเมื่อ required relationship/evidence semantics ต้องการจริง.
+Homepage curation reuses ordinary native content publication. Structured ITA history/evidence is
+deferred (`02` §18), not a V1 publishing journey. No Homepage/ITA workflow engine or snapshot
+subsystem is created. A missing linked target is omitted or represented as safely unavailable in
+public reads, without exposing editorial content; native lifecycle permission alone does not
+guarantee linked-record availability or immutability.
 
 ---
 

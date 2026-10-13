@@ -1,12 +1,20 @@
 # System Blueprint — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 10-system-blueprint
-> **Status:** CLEAN REBASELINE v2.3 — CURRENT
-> **Version:** 2.3
-> **Last Updated:** 7 ตุลาคม 2569 (2026-10-07)
+> **Status:** CLEAN REBASELINE v2.4 — V1 scope revision for Independent Review / Human Acceptance
+> **Version:** 2.4
+> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md` through `09-migration-plan.md`
 > **Purpose:** กำหนด architecture ปัจจุบันที่ใช้ Astro + EmDash แบบ platform-native และเพิ่ม Songhealth-specific code เฉพาะ gap ที่พิสูจน์แล้ว
 > **Implementation Authorization:** NONE
+
+
+> **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
+> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
+> publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
+> independent review and human acceptance; deferral is not implementation or PASS. No upstream
+> change, new subsystem, replacement ITA workflow or production action is authorized.
 
 ---
 
@@ -26,7 +34,8 @@ Clean Rebaseline v2.2 ยืนยันจาก adversarial review ว่า S
 - CMS/Admin: **EmDash integrated in the Astro application**
 - Language: **TypeScript**
 - Database: **PostgreSQL**
-- Media: **persistent storage supported by deployment**
+- Media: **persistent native local storage supported by deployment; not immutable evidence storage**
+- Pinned CMS for this V1 scope: **EmDash 1.1.0; no upgrade/vendor patch/fork**
 - Runtime: **supported Node.js version compatible with selected Astro/EmDash release**
 - Production container runtime: **rootless Podman (OCI containers)**
 - Production service lifecycle: **systemd Quadlet**
@@ -171,9 +180,12 @@ Exact assignment เป็น operational policy ของสำนักงา�
 
 Contributor ที่ไม่มี publish permission เขียน Draft แล้ว Author/Editor ที่เหมาะสมตรวจและ Publish.
 
-ใช้ hooks เฉพาะ mandatory Songhealth validation ที่ schema/relation constraints ทำไม่ได้.
+Use supported native hooks only for retained publication-specific validation that native schema
+cannot express, with focused verification and the §22 gate. Q1 field/selection requiredness remains;
+Q4 cross-record availability/removal guarantees are deferred. Native policy hooks and `_rev` fence
+the current entry, not all target records or their published dependents in one transaction.
 
-Domain metadata เช่น announcement expiry, health-service operational status, document successor/expiry และ ITA fiscal-year semantics ไม่กลายเป็น universal CMS workflow states.
+Domain metadata เช่น announcement expiry, health-service operational status และ document successor/expiry ไม่กลายเป็น universal CMS workflow states. Structured ITA historical semantics are deferred from V1 (§15).
 
 ---
 
@@ -217,7 +229,10 @@ Dedicated search technologyพิจารณาใหม่เฉพาะเ�
 
 # 11. Media
 
-ใช้ EmDash Media Library + storage adapter + media usage tracking.
+ใช้ EmDash Media Library + existing local storage adapter + available media usage tracking.
+EmDash 1.1.0 media delete removes the row before storage cleanup without a required-published-usage
+veto; native image replace can overwrite the existing key. Reporting/permissions/staff precautions
+do not enforce Q3/Q4. Immutable historical assets and reference removal vetoes are deferred.
 
 ไม่สร้าง DAM, media reference database หรือ protected-file delivery layer ใน Version 1.
 
@@ -233,7 +248,11 @@ Security boundary สำคัญ:
 
 ใช้ EmDash relations/reference fields สำหรับ shared structured relationships ตาม Content Model.
 
-ใช้ native transaction/relation validation ก่อน custom relationship service.
+Use native relation/cardinality/value validation and the platform's supported entry mutations.
+Those primitives do not guarantee published target availability through concurrent removal. A
+before-hook preflight is outside the later handler transaction; native permanent deletion bypasses
+the trash hook. Cross-record atomic enforcement and published-required-reference removal vetoes
+are deferred from V1. Do not create a custom relationship service/locking subsystem to restore them.
 
 Document/Media/Personnel/Organization/Health Service reuse ยึด model semantics ใน `02`; ไม่ duplicate data เพียงเพราะ presentation ต่างกัน.
 
@@ -259,13 +278,16 @@ Homepage เป็น Astro presentation ที่อ่าน canonical CMS dat
 
 ---
 
-# 15. ITA
+# 15. ITA — Deferred from V1
 
-ITA ใช้ collections/relations ตาม Content Model.
+Structured yearly ITA collections/relations, immutable/historically preserved evidence and its
+correction/retention guarantees are outside the reduced V1 scope (`02` §18). No ITA application,
+snapshot/media subsystem, custom workflow or upstream change is pursued. Ordinary Document/Media
+reuse remains and must not be advertised as historical evidence enforcement.
 
-เริ่มจาก native editor. Custom widget/page เพิ่มเฉพาะ UAT gap ที่ชัดเจน.
-
-ไม่มี compliance engine, scoring engine หรือ approval workflow ของ ITA ใน Version 1.
+The canonical Astro + EmDash 1.1.0 + PostgreSQL foundation, native local-media mount and rootless
+Podman/Quadlet production contract are preserved. A later ITA re-entry needs explicit approved
+scope and supported capability evidence; no alternate foundation is authorized here.
 
 ---
 
@@ -380,7 +402,7 @@ Runtime/configuration contract ปัจจุบันของ Songhealth ค�
 - role assignment scenarios
 - scheduling/preview smoke tests
 - Thai search UAT
-- Homepage/ITA domain behavior
+- Homepage and retained V1 content behavior; structured ITA historical-evidence acceptance is deferred
 - migration mapping and old-URL redirects
 - production build/start
 - rootless Podman + Quadlet deployment smoke test
@@ -445,7 +467,10 @@ Version 1 ไม่มี baseline requirement สำหรับ:
 - Songhealth Public ID: **NO; use native ID internally + slug URL**
 - Native EmDash Search: **YES; Thai trigram baseline**
 - Custom Search Projection: **NO**
-- Native relations/media/redirects: **YES**
+- Native relations/media/redirects: **YES, with documented native limitations; no Q3/Q4 enforcement claim**
+- Structured ITA historical evidence: **DEFERRED from V1**
+- Published-required-reference removal veto / cross-record atomicity: **DEFERRED from V1**
+- Upstream-change pursuit / upgrade / vendor patch / custom history or relationship-locking subsystem: **NO**
 - Runtime configuration contract: **native `PG*` PostgreSQL inputs + `EMDASH_MIGRATION_DATABASE_URL` migration connection + `EMDASH_SITE_URL` + `HOST`/`PORT` + `EMDASH_ENCRYPTION_KEY`; runtime and migration inputs identify the same intended database**
 - Media storage path: **stable application path `./media`; no `MEDIA_DIRECTORY` runtime input**
 - Named Songhealth Policy/Domain Layer: **NO baseline requirement**

@@ -1,11 +1,19 @@
 # Sitemap — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 03-sitemap
-> **Status:** CLEAN REBASELINE v2.2 — CURRENT
-> **Version:** 2.2
-> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Status:** CLEAN REBASELINE v2.3 — V1 scope revision for Independent Review / Human Acceptance
+> **Version:** 2.3
+> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`
 > **Purpose:** กำหนด public navigation, canonical routes, URL rules, redirects และ public error behavior โดยใช้ slug-based URLs ที่เรียบง่าย
+
+
+> **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
+> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
+> publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
+> independent review and human acceptance; deferral is not implementation or PASS. No upstream
+> change, new subsystem, replacement ITA workflow or production action is authorized.
 
 ---
 
@@ -32,8 +40,7 @@ Main Navigation
 ├── ข่าวสาร
 ├── บริการประชาชน
 ├── ข้อมูลสุขภาพ
-├── เอกสารเผยแพร่
-└── ITA
+└── เอกสารเผยแพร่
 
 Utility
 ├── ค้นหา
@@ -190,19 +197,15 @@ Raw storage filename ไม่ใช่ canonical page URL.
 
 ---
 
-# 11. ITA
+# 11. ITA — Deferred Route Scope
 
-```text
-/ita
-├── /ita/{fiscal-year}
-└── /ita/{fiscal-year}/{section-key}
-```
+The `/ita`, `/ita/{fiscal-year}` and `/ita/{fiscal-year}/{section-key}` patterns describe the
+deferred structured-ITA design, not required V1 routes or navigation. Historical-year addressing
+and evidence routing require separate accepted re-entry of `02-content-model.md` §18.
 
-Requirement/Item แสดงใน section page; Version 1 ไม่ต้องมี detail route ต่อ item.
-
-Document Evidence ใช้ canonical Document URL. Media/External URL อยู่ใน ITA context ตาม Content Model.
-
-Historical fiscal years remain addressable.
+No replacement Basic Page/evidence route or new external-archive delivery policy is approved by
+this reconciliation. Existing legacy ITA URLs/material remain subject to separate migration/cutover
+decisions; this document update does not withdraw, redirect or delete them.
 
 ---
 
@@ -237,7 +240,6 @@ Breadcrumb สะท้อน public information hierarchy ไม่ derive จ�
 หน้าแรก > บริการประชาชน > ชื่อบริการ
 หน้าแรก > ข้อมูลสุขภาพ > ความรู้สุขภาพ > ชื่อเรื่อง
 หน้าแรก > เอกสารเผยแพร่ > ชื่อเอกสาร
-หน้าแรก > ITA > 2569 > MOIT 1
 ```
 
 ---
@@ -249,7 +251,7 @@ Breadcrumb สะท้อน public information hierarchy ไม่ derive จ�
 - no file extension in canonical detail page
 - no trailing slash baseline
 - query parametersใช้สำหรับ filters/search/pagination ไม่ใช่ identity
-- fragmentsใช้ deep-link ภายใน page เช่น ITA item ได้
+- fragmentsใช้ deep-link ภายใน published page ได้; structured ITA item links are deferred (§11)
 - route rootsไม่เปลี่ยนตาม internal collection label โดยอัตโนมัติ
 
 Canonical route table:
@@ -265,7 +267,7 @@ Canonical route table:
 | Health Report | `/health/reports/{slug}` |
 | Document | `/documents/{slug}` |
 | Basic Page | `/pages/{slug}` |
-| ITA Section | `/ita/{fiscal-year}/{section-key}` |
+| ITA Section — deferred, not V1 | `/ita/{fiscal-year}/{section-key}` (reserved future design only) |
 
 ---
 

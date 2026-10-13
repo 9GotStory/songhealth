@@ -1,45 +1,41 @@
 # Implementation Plan: CMS Content Model
 
-**Feature**: `002-cms-content-model` | **Date**: 2026-10-13 | **Spec**: [spec.md](spec.md)
+**Feature**: `002-cms-content-model` | **Date**: 2026-10-14 | **Spec**: [spec.md](spec.md)
 
 **Working branch**: `agent/codex-lead-reviewer/477dbb76ad5b`
+**Reconciliation baseline**: `e2903e41be6aebd849352d4cc452906eb3d796fd`
+**Original approved Clarify source**: `6129d4b6de13fdb05726ba5631fa7ed14672dd64`
 
-**Exact approved source SHA**: `6129d4b6de13fdb05726ba5631fa7ed14672dd64`
+**Status**: Existing Plan Phase 0 Human Gate — revised authorities/specification await ChatGPT
+Independent Review and Human Acceptance. This remains a partial Plan, not a completed design,
+independent PASS, runtime acceptance or implementation authorization. No Phase 1 outputs generated.
 
-**Status**: **BLOCKED — HUMAN GATE during Phase 0 research.** This is a partial Plan
-artifact, not a completed implementation plan, independent PASS, or implementation authorization.
-Phase 1 design has not run. Do not proceed to Checklist, Tasks, Analyze, or implementation.
-
-**Bounded Phase 0 continuation**: Product Owner comment `01a135cf-ace5-73b6-9883-59d8ff82adf9`
-authorized further feasibility research only. [Options and recommendation](phase0-options.md)
-record the released/upstream evidence. The block remains; no design approach has been accepted.
-
-**Upstream-first follow-up**: Comment `01a135d8-6635-7d61-b499-3c0d97e9dd95` authorizes only
-upstream research and a local request draft. [Findings and implications](upstream-feasibility.md)
-and the [Human Review draft](upstream-request-draft.md) do not establish an accepted enforcement
-approach. No submission/contact occurred; Phase 0 and Plan remain BLOCKED.
-
-**Input**: Multica issue 9GOTSTORY-207 (`01a135bf-1792-7dce-9185-47e8d25ad268`)
-authorizes the official Spec Kit Plan workflow only, Codex only, with no delegation.
-The older authorization statements in the preserved spec describe its Clarify run;
-this issue provides the bounded Plan authorization from the approved SHA above.
+**Input**: Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8` explicitly defers
+unavailable Q3/Q4 guarantees from V1 and stops upstream EmDash changes. This pass reconciles the
+owning documents/specification and stops for review. After acceptance, continue the same official
+Plan workflow's remaining research/design steps; do not reinitialize or rerun Specify/Clarify.
 
 ## Summary
 
-Feature 002 defines structured public website content on the existing Astro SSR + EmDash +
-PostgreSQL foundation. It preserves accepted Clarify Q1–Q4: incomplete drafts, current Personnel
-assignments only, retained/traceably corrected ITA history, and required-reference publication/removal
-protection. No second CMS, backend, database, workflow engine, or RBAC is permitted.
+Reduced V1 retains ordinary public content, Document/native Media reuse, current Personnel,
+conditional Organization, Services/facilities/Areas, native lifecycle/roles and supported validation.
+Q1 incomplete drafts/publication-required values and Q2 current assignments remain; public-only
+linked reads and safe unavailable targets remain. Structured ITA history/evidence is deferred D-ITA.
+Unavailable Q4 removal vetoes and cross-record atomic availability/retention are deferred D-REF.
 
-Pinned-release research found an enforcement gap for Q3 and Q4. EmDash 1.1.0's native media
-delete path does not check published content usage, and native image replacement overwrites the
-same storage object. Its media hooks cover upload, not delete or replace. Native usage tracking
-and content revisions cannot be claimed to enforce these requirements.
-See [research.md](research.md) for integrity-verified release evidence and the bounded Human Gate.
+The exact 1.1.0 gaps remain real. They no longer block reduced V1 acceptance because the Product
+Owner has explicitly removed the affected guarantees from that acceptance scope, not because native
+permissions, precautions or an implementation solved them. Deferred tests are not passed or included
+in the V1 denominator. No Basic Page/Document fallback substitutes for structured historical ITA.
 
-No corrective mechanism is selected. A supported, approved approach must be established before
-research can finish and Phase 1 can define the model and contracts. No staff convention, hidden
-control, snapshot system, or custom media subsystem replaces the accepted trusted enforcement.
+The canonical Astro + EmDash 1.1.0 + PostgreSQL foundation, local media, native development and
+Podman/Quadlet production contracts remain. No replacement platform, upgrade, patch, snapshot or
+relationship-locking subsystem is selected. Historical options/request artifacts are superseded
+as current direction; the request remains unsubmitted and upstream pursuit is stopped.
+
+See [scope-reconciliation.md](scope-reconciliation.md) for the scope matrix, requirement traceability,
+full §23 screening, changed-file rationale and risks, and [research.md](research.md) for capability
+limits. The current gate is review of this reconciliation, not proof of deferred enforcement.
 
 ## Technical Context
 
@@ -63,49 +59,47 @@ private PostgreSQL and persistent database/media; this issue authorizes no deplo
 **Project Type**: One integrated CMS-backed website; native Admin is the primary staff interface.
 
 **Performance Goals**: No new quantitative target. Representative staff maintenance and publication
-safety remain spec SC-001–008 outcomes; production capacity evidence belongs to its owning scope.
+safety remain the seven active spec success criteria (SC-004 is deferred); production capacity
+evidence belongs to its owning scope.
 
 **Constraints**: Native-first mapping; Thai labels with correct English fallback; public-publishable
 data only; native roles/ownership and editorial identity; no confidential data, speculative collections,
-public page implementation, import, external-consumer API or infrastructure changes. Q3/Q4 media
-enforcement feasibility is blocked.
+public page implementation, import, external-consumer API or infrastructure changes. D-ITA/D-REF
+guarantees are deferred from V1; no upstream-change pursuit.
 
-**Scale/Scope**: Seven staff journeys and 16 Q1 semantic-resource rows, not an approved collection
-count. Organization/additional relations require demonstrated reuse. Real official inventories,
+**Scale/Scope**: Six active staff journeys plus deferred US5; 12 active Q1 semantic-resource
+rows plus four deferred ITA rows, not an approved collection count. Organization/additional relations
+require demonstrated reuse. Real official inventories,
 reference values and operational role assignments are not invented.
 
 ## Constitution Check
 
-*Official gate: before Phase 0 research; re-evaluate after Phase 1 design.*
+*Official gate: before research; re-evaluate after Phase 1 design.*
 
-| Principle / boundary | Research-entry check | Current gate result |
+| Principle / boundary | Reconciliation assessment | Remaining gate |
 | --- | --- | --- |
-| I: current authority | PASS for bounded Plan research from approved Clarify SHA | HUMAN GATE: report pinned capability conflict; do not weaken Q3/Q4 or change owning authorities |
-| II: platform-native first | PASS: inspect canonical/native seams first | BLOCKED: no supported removal/replacement enforcement approach established; no custom extension approved |
-| III: simplest sufficient architecture | PASS: reuse the one foundation | No duplicate subsystem proposed; complete design withheld |
-| IV: security/data protection | PASS for public-publishable, secret-free research | Trusted removal/reference enforcement required; UI-only prevention insufficient |
-| V: phased human authorization | PASS: issue authorizes Plan only | STOP within Plan; no design completion or later phase claimed |
-| Independent review | Codex authors planning documents under explicit issue authorization | Author evidence for ChatGPT Independent Review/Product Owner decision, not independent PASS |
-| Operations/durability | Existing foundation unchanged | T022/T028 PENDING; no runtime or final foundation acceptance |
+| I: current authority | Scope changes have explicit Product Owner authority; directly affected owning 00/01/02/03/05/06/07/08/09 and technical 10 are reconciled before downstream adoption | Revised authorities/spec require independent review/human acceptance; no implementation uses unaccepted revisions |
+| II: native first | Retained native primitives; unavailable D-ITA/D-REF are deferred without duplicate mechanisms | Q1 native schema/publication-hook mapping still needs exact-release proof; any later minimal validation extension must pass the existing gate |
+| III: simplicity | No ITA fallback collection, custom CMS/media/reference/locking/snapshot subsystem, second foundation or speculative Organization relation | Concrete representation/cardinality choices wait for the same Plan after acceptance |
+| IV: security/data protection | Native roles/ownership, administrator content-purge boundary, public-data limits, private production database and secret-free documents preserved | Permissions/usage/precautions are not dependency guarantees; preview/public linked reads still require focused verification |
+| V: phased human authorization | Only documentation reconciliation within Plan Phase 0; no Specify/Clarify rerun or new phase | STOP for ChatGPT Independent Review/Human Acceptance; no Phase 1 or later command now |
+| Independent review | Codex authors this explicitly authorized documentation pass; no production authorship | Author assessment only; independent PASS belongs to reviewer and final acceptance to human |
+| Durability/operations | Foundation sources and runtime contract unchanged; T022/T028 PENDING | Original T028/T030 joins remain; no acceptance/waiver inferred |
 
-Post-design Constitution evaluation: **NOT RUN**, because Phase 1 has not begun. This is not
-a successful Plan gate and does not support advancement to Checklist.
+No Constitution amendment/exception is requested. The scope decision follows its owning-authority
+amendment route. **Post-design check NOT RUN**: Phase 1 is withheld. This is not full Plan PASS.
 
 ## Implementation Mapping Gate — Content Model §23
 
-All future collections/relations must answer: Product identity versus presentation/classification;
-native primitive sufficiency; demonstrated reuse; duplication benefit versus maintenance cost.
-The bounded screening relevant to the stopped research is:
+The [reconciliation screening](scope-reconciliation.md#content-model-23-screening) accounts for all
+retained semantic resources, native classifications/media/settings and actual core relation uses
+against the four questions: real entity; native primitive sufficiency; real reuse; maintenance value.
+These are candidates and scope checks, not Phase 1 schema/field/relation definitions.
 
-| Candidate | 1. Product entity? | 2. Existing primitive? | 3. Real reuse? | 4. Duplication benefit? | Disposition |
-| --- | --- | --- | --- | --- | --- |
-| Raw media/file | Asset, not new content identity | Native media/storage and image/file fields | Shared Document/content/ITA assets | Another collection duplicates CMS ownership and cannot protect bytes | Reject duplicate Media/File; record safety gap |
-| Document | Real metadata around a public file | Collection + native file-field candidate | Announcement/Service/Report/ITA reuse | One record avoids per-context file/metadata duplication | Preserve semantics; exact definition awaits Phase 1 |
-| ITA evidence | Ordered target/context belonging to a requirement | Relation/structured-field candidates need safe historical behavior | Document/media/URL references required | Routable Evidence/snapshot subsystem not justified by this blocker | Storage not selected; preserve Q3/Q4 and stop |
-| Reference/retention guard | Invariant, not content entity | Content policy hooks exist; media delete/replace hooks absent | Published dependency/history protection required | Custom media/reference database duplicates infrastructure | No new collection/subsystem/workaround authorized |
-
-This is not complete SC-008 accounting. A completed design must account for every proposed resource
-and relation. Collection counts, Organization/Area representation and ITA cardinalities are not approved.
+ITA structural/evidence primitives are outside V1. No historical helper entity, native-resource
+duplicate, generic Contact, executive/Featured/Health News kind, custom permission or locking
+entity is introduced. Organization remains conditional; Area remains native taxonomy/reference
+selection based on official-code/query needs. Every final proposed relation must pass §23 in Plan.
 
 ## Project Structure
 
@@ -113,49 +107,54 @@ and relation. Collection counts, Organization/Area representation and ITA cardin
 
 ```text
 specs/002-cms-content-model/
-├── spec.md                    # preserved approved Clarify source
-├── clarify-review.md          # preserved Clarify evidence
-├── specify-review.md          # preserved Specify evidence
-├── checklists/requirements.md # preserved earlier quality evaluation
-├── plan.md                    # partial Plan; blocked in Phase 0
-├── research.md                # exact-release findings and Human Gate
-├── phase0-options.md          # bounded feasibility assessment, supporting research
-├── upstream-feasibility.md    # related proposals, support limits and Human Gate implications
-└── upstream-request-draft.md  # unsubmitted opening request for Human Review
+├── spec.md                    # reduced V1 and explicit D-ITA/D-REF register
+├── plan.md                    # partial Plan; scope-review Human Gate
+├── research.md                # active reduced-scope capability evidence/risks
+├── scope-reconciliation.md    # traceability/mapping/consistency review handoff
+├── clarify-review.md          # unchanged historical author evidence
+├── specify-review.md          # unchanged historical author evidence
+├── checklists/requirements.md # unchanged historical quality evaluation
+├── phase0-options.md          # historical superseded options
+├── upstream-feasibility.md    # historical superseded upstream direction
+└── upstream-request-draft.md  # cancelled/unsubmitted historical draft
 ```
 
-`data-model.md`, `contracts/` and `quickstart.md` are **not generated**: official Phase 1
-requires complete research and a passing gate. `tasks.md` is not a Plan output and is unauthorized.
-No additional phase or replacement approval document is created.
+`data-model.md`, `contracts/` and `quickstart.md` remain absent: they are remaining official
+Phase 1 outputs after research and acceptance of this reconciliation. `tasks.md` is unauthorized.
+The review handoff is supporting Plan evidence, not a separate workflow or approval document.
 
 ### Source Code (repository root)
 
 ```text
-astro.config.mjs      # existing SSR/EmDash/PostgreSQL/local-media integration
-src/live.config.ts   # existing single _emdash live collection registration
+astro.config.mjs      # existing canonical integration, unchanged
+src/live.config.ts   # existing _emdash registration, unchanged
 src/pages/index.astro
-seed/seed.json       # existing empty version-1 seed; zero Product collections
-scripts/             # existing development/foundation/recovery sources
-tests/               # existing foundation/browser/operations verification
+seed/seed.json       # empty foundation seed, unchanged; zero Product collections
+scripts/             # existing native development/foundation/recovery sources
+tests/               # existing verification sources
 ```
 
-**Structure Decision**: Extend canonical seams only after a completed/reviewed Plan and the later
-human implementation gate. No feature implementation path or application layer is added here.
+**Structure Decision**: Retain the one foundation; exact feature configuration is not implemented
+or designed in Phase 1 by this reconciliation.
 
 ## Foundation Dependencies
 
 - T022 production durability: **PENDING**. T028 recovery: **PENDING**.
-- T028 execution still requires T022 PASS plus Codex-accepted T023–T027 sources, including the
-  separately documented runtime-secret recovery prerequisite.
-- T030 still requires T028 PASS plus Codex-accepted T029 sources. T029 source evidence is
-  not runtime acceptance or final foundation acceptance.
-- This issue authorizes Plan research despite those pending gates. It authorizes no dependent
-  runtime work and establishes no new Development-First Sequencing exception.
-- Feature 002 implementation readiness/dependencies must be established explicitly at its later
-  Human Gate; this partial plan neither waives nor invents that decision.
+- T028 requires T022 PASS plus Codex-accepted T023–T027 sources, including the separate runtime-secret
+  recovery prerequisite; T030 requires T028 PASS plus Codex-accepted T029 sources.
+- T029 source evidence is not runtime PASS/final foundation acceptance. No dependency exception,
+  waiver or new runtime authorization is created by reducing Product scope.
+- Feature 002 implementation readiness remains subject to its later approved artifacts, dependencies,
+  independent reviews and explicit bounded implementation Human Gate.
+
+## Remaining Research and Stop
+
+Q1 native validation mapping, actual staged-field/metadata boundaries, safe selectors/public reads,
+Area representation, conditional Organization use and representative editor usability remain to be
+verified in the same Plan after this review acceptance. They are not declared solved by deferral.
+No upstream chase continues. Detailed risks are in the [reconciliation](scope-reconciliation.md#remaining-risks).
 
 ## Complexity Tracking
 
-No Constitution exception is requested or approved. The native gap remains a blocker, not
-permission for an unreviewed extension. [Research](research.md#human-gate-required-to-resume-plan)
-states the bounded decision and evidence needed to resume Plan.
+No exception or additional subsystem is proposed. D-ITA/D-REF are deferred requirements with stable
+traceability, not authorized extensions. This pass stops at the existing Phase 0 scope-review gate.

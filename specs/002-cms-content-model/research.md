@@ -1,27 +1,88 @@
 # CMS Content Model — Plan Research
 
-**Date**: 2026-10-13 | **Feature**: `002-cms-content-model` | **Issue**: 9GOTSTORY-207
+**Date**: 2026-10-14 | **Feature**: `002-cms-content-model` | **Issue**: 9GOTSTORY-207
 
-**Source SHA**: `6129d4b6de13fdb05726ba5631fa7ed14672dd64`
+**Current reconciliation baseline**: `e2903e41be6aebd849352d4cc452906eb3d796fd`
+**Original Clarify source**: `6129d4b6de13fdb05726ba5631fa7ed14672dd64`
 
-**Status**: **BLOCKED during official Plan Phase 0 — HUMAN GATE required.** Partial research,
-not a complete design, independent PASS, or runtime acceptance.
+**Standing**: Partial existing Plan Phase 0; reduced authorities/specification await independent
+review/human acceptance. Research/design are not complete. No runtime or independent PASS.
 
-**Human Gate continuation (2026-10-13)**: The Product Owner authorized bounded Codex-only Phase 0
-feasibility research in comment `01a135cf-ace5-73b6-9883-59d8ff82adf9`, preserving Q1–Q4 and
-withholding implementation, dependency changes and Phase 1. The resulting
-[options assessment](phase0-options.md) checks 1.1.0, released 1.2.0 and an exact upstream-main
-snapshot, including content deletion and concurrency. No complete supported enforcement approach
-was established; recommendation is upstream-native first while keeping the current pin and Human Gate.
+## Current Product Decision and Applicability
 
-**Upstream-first continuation (2026-10-13)**: Product Owner comment
-`01a135d8-6635-7d61-b499-3c0d97e9dd95` authorizes upstream proposal/support research and an
-unsubmitted request draft from `cb8110662832d62d7acddf10af5c0a3a8e55f62f`. The
-[findings](upstream-feasibility.md) identify related work and distinguish supported partial primitives
-from unaccepted proposals. The [draft](upstream-request-draft.md) is for Human Review only.
-No complete supported enforcement approach was established; Plan remains BLOCKED in Phase 0.
+Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8` stops upstream pursuit and defers
+structured ITA historical evidence (D-ITA) plus unavailable Q4 target-removal/atomic availability
+guarantees (D-REF). Q1 publication-required field/selection values, incomplete drafts, Q2 current
+assignments and independent public-read/native-authority boundaries remain. Owning documents and
+spec are reconciled; this pass stops for their review rather than advancing to Phase 1.
 
-## Workflow and provenance
+The previous blocker leaves reduced V1 acceptance because its requirements are explicitly deferred,
+not because native gaps are repaired. No deferred fixture is counted as implemented/PASS. This
+does not defer Q1 or claim all remaining native semantics are already verified.
+
+The prior options, upstream survey and request remain historical evidence. Their upstream-first
+recommendation and request-publication next step are superseded; the draft is cancelled/unsubmitted.
+No further upstream changes/contact are pursued. See [scope-reconciliation.md](scope-reconciliation.md).
+
+## Pinned 1.1.0 Capability Findings — Scope-adjusted Disposition
+
+All package paths below belong to the integrity-verified upstream `emdash@1.1.0` archive,
+not Songhealth files. The previous 1.2.0/main survey is historical comparison only, not an upgrade
+candidate or current prerequisite. This reconciliation changes no package or runtime state.
+
+| Capability / exact source | Finding | Reduced V1 disposition |
+| --- | --- | --- |
+| Media DELETE: `src/astro/routes/api/media/[id].ts:108`; runtime `:4802`; `src/api/handlers/media.ts:359`; media repository `:622` | Permission/ownership then row-first deletion/storage cleanup; no required-published-reference veto | Ordinary native maintenance retained; D-REF veto deferred, missing consumers handled safely |
+| Image PUT: `src/astro/routes/api/media/[id]/replace.ts:87`; media repository `:593` | Overwrites existing key and updates current row; no historical target freeze | Ordinary shared reuse retained; D-ITA immutable/historical-preservation workflow deferred |
+| Media hooks: `src/plugins/types.ts:1800` | Before/after upload only; no delete/replace veto | No missing-hook workaround or upstream pursuit |
+| Content policy: `src/emdash-runtime.ts:4296`, `:4432`, `:4509`, `:4543` | Publish/schedule/unpublish policy, candidate hydration and current-entry revision fence; scheduler checks publish policy at due time | Supported candidate for retained Q1 action validation; full field/selection coverage still requires proof |
+| Trash/purge: runtime `:3950`, `:4020`; content handler `:1940` | Trash before-delete hook; purge bypasses it, requires trashed row and native admin REST permission; cleans edges/revisions | Native lifecycle/access retained; D-REF dependent-target veto and D-ITA archival guarantee not claimed |
+| Transaction/plugin context: `src/database/transaction.ts`; `src/plugins/types.ts:1056` | Hook policy reads precede handler transaction; no plugin-shared content transaction provided | Entry protections retained; cross-record atomicity deferred D-REF |
+| Native revision prune: `src/database/repositories/revision.ts:278` | Finite revision pruning protects this entry's live/draft pointers, not arbitrary external historical references or media bytes | Native editorial history retained; no indefinite immutable evidence claim |
+| Schema requiredness: `src/schema/zod-generator.ts:41`; required references `src/api/handlers/validate-references.ts:127` | Required flags/selections can be checked on saves/creates, which is not Q1 publication-only requiredness | Exact native schema/publication-hook mapping is a remaining Plan obligation; do not silently impose all Q1 fields at draft save |
+
+Decision: retain these native primitives and document their limits. Alternatives rejected for
+this reduced scope: a second CMS/backend/database, duplicate Media/reference index, custom lock/
+snapshot/history engine, vendor patch/fork/monkey patch, dependency upgrade, upstream intervention,
+or operational precautions presented as enforcement. Native usage reporting may guide maintenance
+but cannot authorize an absent atomic guarantee.
+
+## Retained Validation and Revision Risks
+
+- **Q1 remains required.** Native publication hooks are available, but a per-resource mapping must
+  show complete candidate field/selection checks at publish, schedule acceptance and execution while
+  allowing incomplete drafts. Native save-time required flags alone cannot satisfy both. No custom
+  generic policy engine or implementation is approved by this source evidence.
+- **Actual revision scope matters.** Native content-data/selected staged references and other shared
+  or separately maintained data are not automatically one revision. Taxonomy/SEO/byline behavior,
+  classification requiredness, byline alternatives and gallery selection must be checked in the
+  remaining Plan. Revised lifecycle promises cover actual native staged content data, not blanket
+  cross-record/metadata freezing. No new immutable/current-metadata subsystem is proposed.
+- **Public boundaries remain.** Linked content must be read through published-only paths; drafts
+  cannot leak via preview/query parameters. Missing assets may be unavailable after authorized
+  maintenance; native public media itself is for public-publishable data, not confidentiality.
+- **Representation/UAT remains.** Official-code Area hierarchy, reciprocal service/facility reuse,
+  conditional Organization reuse, Thai labels and staff selectors need bounded mapping evidence.
+  No official inventory, new collection or guaranteed native editor fit is invented.
+- **Native lifecycle smoke evidence remains.** Scheduling/timezone, locks/stale-entry writes,
+  trash/restore, administrator content purge and truthful uncertain/failing outcomes must be checked
+  on retained fixtures after design/authorization. Document review is not those outcomes.
+
+These risks do not reinstate D-ITA/D-REF into V1. They are not automatically resolved by scope
+reduction and must be addressed through the same remaining Plan or returned to its existing gate.
+
+## Current Human Gate and Foundation Boundary
+
+Required now: ChatGPT Independent Review and Human Acceptance of the revised authorities/spec.
+After acceptance, resume the same official Plan research and Phase 1 steps. Do not rerun setup,
+Specify/Clarify, reinitialize, create a separate workflow, or start Checklist/Tasks/Analyze/Implementation.
+No data model/contracts/quickstart or production change was produced in this pass.
+
+T022 durability and T028 recovery remain **PENDING**. T028 requires T022 PASS plus accepted
+T023–T027 sources; T030 requires T028 PASS plus accepted T029 sources. No final foundation or
+runtime acceptance/waiver is inferred. The Constitution stays 2.0.0; no exception is requested.
+
+## Original workflow provenance — historical setup
 
 Decision: Continue the existing clarified feature on managed branch
 `agent/codex-lead-reviewer/477dbb76ad5b`, from exactly the approved SHA.
@@ -95,119 +156,6 @@ metadata and the committed `package-lock.json` entry:
 sha512-VXo1fIMr44PEiE1A9Z5aFWvjsqhdLDHLqat2iPkFYoam2kYV6h+2LGkEDovkXdLmmWWDY9w7ekP0CP6ziYMFhg==
 ```
 
-Locations below are **inside that exact upstream package**, not Songhealth paths. This is static
+Package locations above are **inside that exact upstream package**, not Songhealth paths. This is static
 release evidence, not a runtime test. No dependency, CMS record, database, schema, media object
 or production runtime was mutated.
-
-## R1 — Required media deletion protection: native gap
-
-Decision: Do not claim Q4/FR-025 is natively enforced; block selection of a safe implementation.
-
-Rationale: This call chain contains no published-content required-reference veto:
-
-| Exact package source | Observed behavior |
-| --- | --- |
-| `src/astro/routes/api/media/[id].ts:108` | DELETE checks native delete/ownership permission and calls runtime media deletion |
-| `src/emdash-runtime.ts:4802` | Calls native handler and invalidates settings cache; no deletion policy hook |
-| `src/api/handlers/media.ts:359` | Finds media, tracks cleanup, deletes media row and removes/queues storage cleanup; no content-usage veto |
-| `src/database/repositories/media.ts:622` | Deletes by media ID without a published-dependency predicate |
-| `src/database/repositories/media.ts:632` | Checks other media rows sharing a storage key, not published content requirements |
-| `src/plugins/types.ts:1800` | Registered media hooks cover before/after upload; no before-delete hook |
-
-Native usage reporting/indexing is not removal enforcement. Core migration
-`src/database/migrations/046_media_usage_index.ts` stores media/source identifiers as ordinary text,
-not a restrictive content-to-media foreign key. PostgreSQL cannot infer publication requirements.
-
-Failure scenario from inspected source: a published Document/News/ITA entry requires an asset;
-an otherwise authorized user issues native media DELETE. The path deletes it without checking
-the published dependency. Native permission alone does not satisfy Q4's refusal even when the
-actor otherwise has permission. This scenario was not executed against a runtime.
-
-Alternatives considered: Duplicate Media/File or custom reference database is prohibited and
-cannot intercept native mutation. Hidden controls or staff instructions do not enforce direct
-API/MCP/CLI operations. Blanket permission removal is not selected: it removes legitimate
-maintenance after reference resolution and is not established as a supported least-privilege solution
-for all required responsibilities.
-
-## R2 — Historical ITA media replacement: native gap
-
-Decision: Do not claim native content revisions preserve historical media bytes; retain Q3 as
-a blocking design requirement.
-
-Rationale: `src/astro/routes/api/media/[id]/replace.ts:14` checks edit/ownership permission,
-ready state, image type/size. At line 87 it uploads replacement bytes to the existing
-`media.storageKey`, then updates metadata. `src/database/repositories/media.ts:593` updates
-size/dimensions/hash on the same ready media row. There is no ITA usage check or historical
-preservation hook in this path. Registered media hooks provide no before-replace veto.
-
-Failure scenario from inspected source: a published historical ITA requirement selects an image;
-an authorized user replaces it through native PUT. The same evidence key yields new bytes without
-deliberate correction/publication of the ITA revision. Its prior content revision cannot recover the
-overwritten bytes. This conflicts with Q3/FR-017/SC-004 preservation under shared-media edits.
-The scenario was not executed against a runtime.
-
-Alternatives considered: Retaining media ID, URL or content revision cannot preserve bytes
-overwritten at that key. Content before-publish hooks do not run on image replacement. A universal
-snapshot engine, new DAM/storage subsystem or forked Admin is unauthorized. A supported immutable
-target/protection approach has not been established and is not invented.
-
-## R3 — Content policy seams: available, not a complete solution
-
-Decision: Record supported candidates without overstating coverage.
-
-Rationale: `src/emdash-runtime.ts:4447`, `:4515`, and `:4550` call native
-`content:beforePublish`, `content:beforeUnpublish`, and `content:beforeSchedule` policy hooks.
-The policy path hydrates pending draft data for publish/schedule, rejects cancellation and
-carries a revision precondition into the write. Scheduler-origin publication uses the same
-publish policy and has native explicit rejection evidence. These are candidate Q1/cross-record
-Q4 seams without a new scheduling engine.
-
-`src/emdash-runtime.ts:3951` invokes `content:beforeDelete` on trash with a boolean result;
-`:4020` permanently deletes from trash without that hook. The vendor
-[hook reference](https://docs.emdashcms.com/reference/hooks) documents this limit. This is not
-proof of safe permanent deletion under every future required-reference mapping.
-
-Alternatives considered: Content hooks cannot establish media-delete/replace coverage. A preflight
-lookup plus parent `_rev` does not prove cross-target atomicity under concurrent publication and
-target removal. PostgreSQL 18 documentation requires appropriate transaction consistency controls;
-no direct locks/migrations or custom relationship service is authorized by this research.
-
-Q1 validation placement, Q4 concurrent target protection/permanent deletion, revision retention
-and exact ITA storage/editor usability still require research after the blocking capability boundary
-is resolved. They are not verified designs.
-
-## Preserved Clarify decisions and foundation boundaries
-
-- Q1 stays exactly the spec's 16-row publication matrix, with conditional/optional fields,
-  incomplete drafts under native identity/safety constraints, and publication/schedule validation.
-- Q2 retains current assignment/unit/visibility on one Personnel identity; no assignment history.
-- Q3 retains all published ITA years without automatic expiry; native-authorized traceable
-  corrections must be deliberate, preserving history under current/shared edits.
-- Q4 requires published targets/existing files at publish, schedule acceptance and execution;
-  unavailable optional links are omitted; published required dependencies prevent removal;
-  resolution/replacement is deliberate, with no cascade or draft exposure.
-- T022 durability and T028 recovery stay **PENDING**. T028 requires T022 PASS plus accepted
-  T023–T027 sources; T030 requires T028 PASS plus accepted T029 sources. No runtime gate,
-  acceptance state or Feature 001 task marker changed.
-
-## Human Gate required to resume Plan
-
-Required bounded decision: establish an approved supported way to prevent required media deletion
-and preserve historical ITA evidence under shared media replacement, covering trusted native
-mutation paths. Provide capability evidence for the pin, or approve a separately verified upstream
-release/owning-architecture change if necessary. Preserve Q1–Q4; do not infer permission to weaken
-them or introduce new infrastructure.
-
-Evidence needed before design resumes:
-
-1. Exact supported interception/protection mechanism and version/source.
-2. Coverage of native Admin/direct REST and relevant MCP/CLI/plugin/scheduled operations,
-   without UI-only or single-path bypass.
-3. Bounded deletion, historical replacement and concurrency scenarios, including permitted
-   maintenance after deliberate resolution and prior/live preservation.
-4. For an extension, demonstrated-gap/minimal-extension/test review under owning authorities;
-   for a baseline change, accepted owning-authority amendment before downstream adoption.
-
-This is the existing Plan review stop, not an additional workflow phase. Research remains
-incomplete; Phase 1 `data-model.md`, `contracts/` and `quickstart.md` are not generated as a
-completed design. No later Spec Kit command is authorized by this issue.
