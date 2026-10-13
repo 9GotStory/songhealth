@@ -7,6 +7,13 @@
 **Status**: **BLOCKED during official Plan Phase 0 — HUMAN GATE required.** Partial research,
 not a complete design, independent PASS, or runtime acceptance.
 
+**Human Gate continuation (2026-10-13)**: The Product Owner authorized bounded Codex-only Phase 0
+feasibility research in comment `01a135cf-ace5-73b6-9883-59d8ff82adf9`, preserving Q1–Q4 and
+withholding implementation, dependency changes and Phase 1. The resulting
+[options assessment](phase0-options.md) checks 1.1.0, released 1.2.0 and an exact upstream-main
+snapshot, including content deletion and concurrency. No complete supported enforcement approach
+was established; recommendation is upstream-native first while keeping the current pin and Human Gate.
+
 ## Workflow and provenance
 
 Decision: Continue the existing clarified feature on managed branch

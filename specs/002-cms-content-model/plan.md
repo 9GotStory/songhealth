@@ -10,6 +10,10 @@
 artifact, not a completed implementation plan, independent PASS, or implementation authorization.
 Phase 1 design has not run. Do not proceed to Checklist, Tasks, Analyze, or implementation.
 
+**Bounded Phase 0 continuation**: Product Owner comment `01a135cf-ace5-73b6-9883-59d8ff82adf9`
+authorized further feasibility research only. [Options and recommendation](phase0-options.md)
+record the released/upstream evidence. The block remains; no design approach has been accepted.
+
 **Input**: Multica issue 9GOTSTORY-207 (`01a135bf-1792-7dce-9185-47e8d25ad268`)
 authorizes the official Spec Kit Plan workflow only, Codex only, with no delegation.
 The older authorization statements in the preserved spec describe its Clarify run;
@@ -109,7 +113,8 @@ specs/002-cms-content-model/
 ├── specify-review.md          # preserved Specify evidence
 ├── checklists/requirements.md # preserved earlier quality evaluation
 ├── plan.md                    # partial Plan; blocked in Phase 0
-└── research.md                # exact-release findings and Human Gate
+├── research.md                # exact-release findings and Human Gate
+└── phase0-options.md          # bounded feasibility assessment, supporting research
 ```
 
 `data-model.md`, `contracts/` and `quickstart.md` are **not generated**: official Phase 1
