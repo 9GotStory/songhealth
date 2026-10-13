@@ -1,5 +1,12 @@
 # Retained V1 Native Feasibility — Plan Phase 0
 
+> **Historical supporting artifact:** Product Owner decision `01a13788-95c6-72f5-8787-f86b4e0c5fd6` supersedes
+> the prior Q1 missing-reference draft/publication-only rule and resolves B-Q1-REF through native
+> save-time requiredness. The historical observations below remain provenance, not current blockers
+> or phase status. Current scope/standing is in `spec.md`, `research.md` and the completed `plan.md`.
+> D-ITA/D-REF remain deferred. Phase 1 artifacts now exist; no reference adapter was developed.
+
+
 **Baseline**: `2d3cfc96929ef9085194e3c79a11a38f374de0b1`
 
 **Direction**: Product Owner comment `01a13779-da61-71be-bc11-46d3ea9d5413`

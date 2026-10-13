@@ -1,8 +1,8 @@
 # System Blueprint — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 10-system-blueprint
-> **Status:** CLEAN REBASELINE v2.4 — V1 scope revision for Independent Review / Human Acceptance
-> **Version:** 2.4
+> **Status:** CLEAN REBASELINE v2.5 — native Q1 revision for Plan Independent Review
+> **Version:** 2.5
 > **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md` through `09-migration-plan.md`
 > **Purpose:** กำหนด architecture ปัจจุบันที่ใช้ Astro + EmDash แบบ platform-native และเพิ่ม Songhealth-specific code เฉพาะ gap ที่พิสูจน์แล้ว
@@ -15,6 +15,12 @@
 > publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
 > independent review and human acceptance; deferral is not implementation or PASS. No upstream
 > change, new subsystem, replacement ITA workflow or production action is authorized.
+
+> **Native Q1 decision:** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
+> save-time requiredness for genuinely mandatory native references. Missing such a reference need
+> not be saveable as a draft. Other incomplete drafts follow native field validation. Optional/
+> conditional relationships are not automatic publication gates where native enforcement lacks
+> adequate data. D-ITA/D-REF remain deferred; no custom reference adapter or internal-table access.
 
 ---
 
@@ -181,7 +187,11 @@ Exact assignment เป็น operational policy ของสำนักงา�
 Contributor ที่ไม่มี publish permission เขียน Draft แล้ว Author/Editor ที่เหมาะสมตรวจและ Publish.
 
 Use supported native hooks only for retained publication-specific validation that native schema
-cannot express, with focused verification and the §22 gate. Q1 field/selection requiredness remains;
+cannot express, with focused verification and the §22 gate. Q1 now distinguishes native
+mandatory-reference create/save validation from supported content-data/classification publication
+checks. A focused native hook may read candidate content data and `ctx.taxonomies`; it must not
+read internal reference tables, reconstruct selections or mirror promotion algorithms. Conditional
+relationships without native enforcement remain editorial checks. No separate validation engine;
 Q4 cross-record availability/removal guarantees are deferred. Native policy hooks and `_rev` fence
 the current entry, not all target records or their published dependents in one transaction.
 

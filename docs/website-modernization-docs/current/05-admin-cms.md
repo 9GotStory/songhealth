@@ -1,8 +1,8 @@
 # Admin CMS — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 05-admin-cms
-> **Status:** CLEAN REBASELINE v2.3 — V1 scope revision for Independent Review / Human Acceptance
-> **Version:** 2.3
+> **Status:** CLEAN REBASELINE v2.4 — native Q1 revision for Plan Independent Review
+> **Version:** 2.4
 > **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`
 > **Purpose:** กำหนดความต้องการของ Admin CMS ที่จำเป็นต่อการดูแล Songhealth โดยใช้ความสามารถมาตรฐานของ CMS ก่อน และสร้างส่วนขยายเฉพาะเมื่อมี gap ที่พิสูจน์แล้ว
@@ -14,6 +14,12 @@
 > publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
 > independent review and human acceptance; deferral is not implementation or PASS. No upstream
 > change, new subsystem, replacement ITA workflow or production action is authorized.
+
+> **Native Q1 decision:** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
+> save-time requiredness for genuinely mandatory native references. Missing such a reference need
+> not be saveable as a draft. Other incomplete drafts follow native field validation. Optional/
+> conditional relationships are not automatic publication gates where native enforcement lacks
+> adequate data. D-ITA/D-REF remain deferred; no custom reference adapter or internal-table access.
 
 ---
 
@@ -73,7 +79,7 @@ Dashboard analytical data ภายใต้ `/dashboard` ไม่ใช่ CMS
 - slug management
 - taxonomy / relation selectors
 - media picker
-- validation จาก Content Model for retained V1 resources; Q1 draft/publication semantics must be verified through supported native seams
+- validation จาก Content Model for retained V1 resources; native mandatory-reference save rules and supported scalar/classification publication checks are distinct; see the Feature 002 field matrix
 - conflict/edit-lock protection ตาม platform capability
 
 Songhealth ไม่สร้าง editor, revision engine, preview system, autosave engine หรือ scheduling UI ของตนเองหาก CMS มี capability เหล่านี้อยู่แล้ว.

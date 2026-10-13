@@ -1,8 +1,8 @@
 # Publishing Workflow — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 07-publishing-workflow
-> **Status:** CLEAN REBASELINE v2.3 — V1 scope revision for Independent Review / Human Acceptance
-> **Version:** 2.3
+> **Status:** CLEAN REBASELINE v2.4 — native Q1 revision for Plan Independent Review
+> **Version:** 2.4
 > **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`, `06-roles-permissions.md`
 > **Purpose:** กำหนด publishing semantics ที่ Songhealth ต้องการโดยใช้ lifecycle ของ CMS เป็น baseline และไม่สร้าง workflow engine ซ้ำ
@@ -14,6 +14,12 @@
 > publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
 > independent review and human acceptance; deferral is not implementation or PASS. No upstream
 > change, new subsystem, replacement ITA workflow or production action is authorized.
+
+> **Native Q1 decision:** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
+> save-time requiredness for genuinely mandatory native references. Missing such a reference need
+> not be saveable as a draft. Other incomplete drafts follow native field validation. Optional/
+> conditional relationships are not automatic publication gates where native enforcement lacks
+> adequate data. D-ITA/D-REF remain deferred; no custom reference adapter or internal-table access.
 
 ---
 
@@ -136,7 +142,11 @@ Version 1 รองรับ one-time future publishing ผ่าน native sche
 ใช้ field required/unique/validation และ relation constraints ก่อน.
 
 Use supported native publication hooks only for retained action-specific validation that schema
-constraints cannot express, notably Q1 incomplete drafts versus publication-required values.
+constraints cannot express and whose data is actually available. Mandatory native references use
+create/save requiredness; they are not a publication-only hook predicate. Other incomplete drafts
+remain possible under native validation. Content-data/classification publication predicates may
+use the supported hooks; conditional relationships without adequate enforcement remain optional
+editorial checks, not automatic publication guarantees. No custom selection adapter/promotion mirror.
 Do not infer an atomic cross-resource dependency gate from a before-hook: EmDash 1.1.0 executes
 policy reads before the mutation transaction. Q4 guaranteed target availability at commit,
 published-required-reference removal vetoes and cross-record locking are deferred from V1.

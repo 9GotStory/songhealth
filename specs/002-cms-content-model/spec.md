@@ -4,26 +4,28 @@
 
 **Created**: 2026-10-13
 
-**Status**: Reviewed V1 scope reconciliation is the current Product baseline under continuation
-comment `01a13779-da61-71be-bc11-46d3ea9d5413`. Existing official Plan Phase 0 research found
-B-Q1-REF; Plan remains incomplete pending its resolution. No implementation authorization.
+**Status**: Native-first Q1 revised by Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6`;
+official Plan Phase 0/1 completed as documentation for Independent Review. No runtime/UAT PASS or
+implementation authorization. The latest decision resolves B-Q1-REF by changing V1 applicability
+of missing-reference drafts, not by adding a custom reference adapter.
 
 **Input / precedence**: Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
 (2026-10-13) supersedes unavailable Q3/Q4 V1 guarantees and stops upstream-change pursuit.
 This documentation reconciliation starts at `e2903e41be6aebd849352d4cc452906eb3d796fd` on the
-existing managed branch. Q1/Q2 remain applicable to retained resources; deferred requirements are
+existing managed branch. Current Q1 is revised by comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6`;
+Q2 remains applicable to retained resources; deferred requirements are
 traceable below. This is not a rerun of Specify/Clarify or a new feature/workflow.
 
-## Product Owner V1 Scope Decision — Plan Phase 0
+## Product Owner V1 Scope Decisions — Current Plan Baseline
 
 | Capability | Reduced V1 standing | Traceability |
 | --- | --- | --- |
 | Ordinary content, semantic Document/native Media, Personnel/current assignment, conditional Organization, Service/facility/Area | Retained on supported native EmDash 1.1.0 primitives | US1–4/6–7; FR-001–013/018–032 with the boundaries below |
-| Q1 incomplete drafts / publication-required field and selection values | Retained for the 12 V1 matrix rows, with optional/conditional semantics unchanged; exact supported mapping still requires Plan verification | FR-002; US1.6–7; SC-006 |
+| Q1 native-first validation | Mandatory native references may be required at create/save; other incomplete drafts follow native validation. Adequately observable content-data/classification publication checks remain. Conditional relationship enforcement is not claimed | FR-002/026; US1.6–7/US2.6; current field matrix; SC-006 |
 | Q2 current Personnel assignment only | Retained; no assignment-history feature | FR-008/009; US3.4; SC-001 |
 | Q3 structured yearly ITA history, immutable/preserved evidence, retained published years and traceable correction | **D-ITA: deferred from V1; not implemented/PASS**. Entire structured ITA journey/representation is withheld, with no Basic Page or ordinary Document fallback claiming those guarantees | US5; FR-014–017; SC-004; four deferred Q1 ITA rows |
 | Q4 published-required-target removal veto and cross-record atomic availability/retention | **D-REF: deferred from V1; not implemented/PASS**. Includes guaranteed target/file availability at publication/schedule commit and under concurrent/later changes; no implicit cross-record gate | Former US2.6/US6.8; deferred portions FR-025/026 and SC-005/006 |
-| Q4 safe public reads / incomplete drafts / valid selections | Retained where independent of deferred enforcement: no draft exposure, omit unavailable linked content, safe missing-file state, Q1 selection presence and native value/cardinality validation | FR-002/020/025/026; US2.6–8; SC-005/006 |
+| Q4 safe public reads / native valid selections | Retained independently: no draft exposure, omit unavailable linked content, safe missing-file state, native save-time reference/value/cardinality validation; no availability/removal protection | FR-002/020/025/026; US2.6–8; SC-005/006 |
 
 Native permissions authorize actors; usage reporting and staff precautions help maintenance.
 Neither proves Q3/Q4 enforcement. Native media replacement may change current shared consumers;
@@ -33,14 +35,16 @@ any future delivery/cutover disposition requires its own accepted decision.
 
 Owning current documents and the reviewed reconciliation are the current Product baseline under
 the continuation instruction. Final mapping/field choices belong to the same official Plan; the
-remaining Q1 research finding is recorded in `native-feasibility.md`, without changing requirements.
+latest Q1 decision `01a13788-95c6-72f5-8787-f86b4e0c5fd6` changes the former blanket missing-reference draft
+requirement explicitly. `plan.md`, `data-model.md`, `contracts/` and `quickstart.md` describe the
+completed planning design; the prior finding remains historical evidence, not a current blocker.
 
 ## Clarifications
 
 ### Session 2026-10-13 — Historical Accepted Answers
 
 The four original accepted answers below are preserved as decision provenance. They are not four
-current V1 guarantees: the later Product Owner scope table above retains Q1/Q2, defers Q3 and the
+current V1 guarantees: the later scope and native-Q1 decisions above revise Q1, retain Q2, defer Q3 and the
 unavailable Q4 enforcement, and retains Q4's independent public-read/selection boundaries.
 Deferred answers are not passed, implemented or replaced by precautions.
 
@@ -108,10 +112,11 @@ of each kind and verify its attributes/classifications, without building public 
 5. **Given** evergreen guidance, **When** Health Content is saved, **Then** title, summary, body,
    Health Topic, source/byline, and media are representable, with optional Audience/review dates.
    A review date does not automatically unpublish it.
-6. **Given** an incomplete draft, **When** an authorized author saves it, **Then** missing Product
-   fields alone do not block save; native identity, authorization, invalid supplied values, and
-   confidentiality constraints still apply.
-7. **Given** a missing or invalid applicable Q1 publication field, **When** publication or schedule
+6. **Given** a draft incomplete in values permitted by native validation, **When** an authorized
+   author saves it, **Then** it can be saved; a missing genuinely mandatory native reference may
+   instead be refused at create/save. Native identity, supplied-value, authorization and public-data
+   safety constraints apply. V1 does not promise saving every missing-reference draft.
+7. **Given** a missing or invalid Q1 content-data/classification publication field, **When** publication or schedule
    acceptance is attempted, **Then** the action is refused with a readable explanation. Validation
    also applies before a scheduled content-data revision becomes public; an incomplete candidate
    does not replace the existing live content-data revision through that publication action.
@@ -142,9 +147,11 @@ reopen each and confirm the same identity/file. Select a raw image without creat
    identifiable without copying either.
 5. **Given** a public image, **When** staff select it, **Then** available alternative text/caption
    and asset metadata can be maintained; media storage is not presented as confidential storage.
-6. **Given** a Health Report with no selected report Document, **When** publication or schedule
-   acceptance/execution is attempted, **Then** Q1 selection-required validation refuses it; an
-   incomplete draft remains saveable. A stored selection is not guaranteed target availability.
+6. **Given** a Health Report with no selected report Document, **When** native create/save is
+   attempted, **Then** mandatory-reference validation refuses it. A draft with that selection may
+   omit other values allowed by native validation. Native publication revalidates requiredness/
+   cardinality; schedule acceptance uses its native behavior without an invented selection hook.
+   Selection validity does not guarantee target availability or later removal protection.
 7. **Given** unavailable linked content, **When** its parent is read publicly, **Then** the target
    is omitted without exposing draft/unpublished data. A missing file produces a safe unavailable
    state. Unavailable optional links do not block parent publication; D-REF withholding a required
@@ -317,15 +324,17 @@ and corrects an agreed validation failure using labels and the reported explanat
 ### Edge Cases
 
 - Featured/Health News/leadership presentation creates no duplicate content kind.
-- Q1 optional/conditional values remain so; an incomplete draft is saveable under native identity,
-  supplied-value, authorization and public-data safety rules. Invalid Q1 publication values must
-  not be treated as a successful publish/schedule, including due-time validation.
+- Q1 missing-value behavior follows the native-first matrix: mandatory native references can
+  block create/save; other incomplete drafts are saveable where native validation permits. Only
+  adequately observable publication predicates are automated at supported action points.
+- Conditional/optional relationships are not automatic publication gates. No internal selection
+  adapter or promotion mirror is permitted to restore the previous blanket draft rule.
 - Domain dates/status remain separate from editorial state; no automatic expiry/unpublish is inferred.
 - A Document/file reused across contexts shares its current native source, not immutable historical
   bytes. Authorized replacement/removal may change or break consumers; public reads handle this
   safely and never expose drafts. D-ITA/D-REF are not tested as V1 enforcement.
-- A selected reference/file value may be required by Q1 without a guaranteed published target/file
-  at commit or through later removal. No cross-record preflight is claimed to be atomic.
+- Native required-reference/file validation never guarantees a published target/file at commit
+  or through later removal. No cross-record preflight is claimed to be atomic.
 - Official Area/facility codes survive reuse; common labels alone do not justify entities.
 - An ended Personnel assignment updates current information on one identity without CMS access
   changes; no assignment-history record/directory is required.
@@ -343,13 +352,15 @@ and corrects an agreed validation failure using labels and the reported explanat
 
 - **FR-001**: Staff MUST maintain Basic Page, News, Activity, Announcement, and Health Content as
   distinct semantic kinds with the attributes in US1 and `02-content-model.md` §§3–7.
-- **FR-002**: Missing Product fields alone MUST NOT block draft save. Native identity requirements,
-  authorization, invalid supplied values, and confidentiality constraints MUST still apply.
-  Publication and schedule acceptance MUST validate the applicable fields in the accepted Q1
-  matrix below; validity MUST be checked before scheduled publication. Explicitly optional fields
-  MUST remain optional; conditional fields MUST apply only when their stated condition is met.
-  Invalid or incomplete candidate content-data revisions MUST NOT replace the live content-data
-  version through publication; separately maintained metadata/shared targets follow FR-022's boundary.
+- **FR-002**: V1 MUST follow supported EmDash 1.1.0 validation semantics. A genuinely mandatory
+  native reference MAY be required at create/save; V1 MUST NOT require saving a draft missing it.
+  Other incomplete drafts MUST remain supported where native field validation permits them.
+  Native identity, supplied-value, authorization and confidentiality rules still apply.
+  The accepted matrix MUST distinguish save-time rules, content-data/classification publication
+  checks and editorial conditional relationships. Supported hooks MUST enforce only predicates
+  whose required data/enforcement is available at publish, schedule acceptance and due-time execution.
+  Invalid candidate content-data MUST NOT replace live content-data through publication. Optional
+  relationships MUST remain optional; unsupported conditional relationship gates MUST NOT be claimed.
 - **FR-003**: Basic Page MUST NOT substitute for a structured kind; Featured/Health News/leadership
   views and additional presentation contexts MUST NOT create duplicate kinds or source copies.
 - **FR-004**: Document MUST be a semantic public record around a file with title, optional summary,
@@ -409,13 +420,16 @@ and corrects an agreed validation failure using labels and the reported explanat
   Media removal MUST use native media/ownership permissions. Staff reference/retention review is
   an operational precaution, not a required-published-reference veto. The original target-removal
   veto/no-cascade enforcement is deferred (D-REF); no custom cascade/locking mechanism is introduced.
-- **FR-026**: Native value/format/cardinality validation and failed/uncertain actions MUST produce
-  readable, truthful results; uncertain outcomes MUST be re-read before retry. Q1 applicable field/
-  selection presence MUST be checked at publication, schedule acceptance and execution. Missing
-  Product selections MAY remain in drafts under Q1. Stored selections/native permissions MUST NOT
-  be represented as a guarantee of target publication/file existence at commit or during later
-  changes; that cross-record availability/removal guarantee is deferred (D-REF). Public reads follow
-  FR-020 and safely represent missing files. No unavailable optional link blocks parent publication.
+- **FR-026**: Native value/format/cardinality/required-reference validation and failed/uncertain
+  actions MUST produce readable, truthful results; uncertain outcomes MUST be re-read before retry.
+  Mandatory references use native create/save and publication constraints, not a custom selection
+  predicate at schedule acceptance. Supported content-data/classification publication predicates
+  apply at the action points in the matrix. No custom reference-selection adapter, internal reference
+  table access or mirrored native promotion algorithm is permitted. Native selection validity MUST
+  NOT be represented as cross-record target/file availability or removal protection (D-REF).
+  Public reads follow FR-020 and safely represent missing files; optional unavailable links do not
+  block parent publication. Conditional relationships without reliable native publication enforcement
+  remain editor-reviewed context, not automatic publication requirements.
 
 - **FR-027**: Schema/users/access/plugins/site-wide security/settings/backup/import/transfer and
   permanent content deletion MUST retain administrator boundaries. Native media removal follows
@@ -466,37 +480,34 @@ execution; removal veto while published parents require them; deliberate resolut
 cascade and Q3 traceability for retained ITA. These are deferred, not weakened operational checks or
 current V1 fixtures. Independent public-read, selection and role boundaries remain under current FRs.
 
-### Q1 Publication Matrix — Retained V1
+### Q1 Native Validation Matrix — Retained V1
 
-**Accepted Option A (2026-10-13); reduced resource applicability under the later scope decision.**
+**Current Product decision:** `01a13788-95c6-72f5-8787-f86b4e0c5fd6` supersedes the original
+Q1 blanket incomplete-draft/selection-at-every-publication-action rule. Twelve semantic rows remain;
+the four ITA rows below remain deferred. Native identity and supplied-value/format/authorization
+constraints always apply. Slash alternatives do not require both representations.
 
-This matrix makes the applicable non-optional attributes in `02-content-model.md` publication
-requirements by explicit Product decision; source field lists alone did not establish requiredness.
-It defines semantics, not schema or collection count. Relations not applicable to the real record
-may be empty. Slash-separated source alternatives describe alternative representations, not a
-demand to fill both versions. Required related-Document/media rows require a selected value;
-this does not assert D-REF target availability/immutability at commit or through later changes.
+| Resource | Save-time native rule | Supported publish / schedule acceptance / due-time checks | Relationship or conditional boundary |
+| --- | --- | --- | --- |
+| Basic Page | Other incomplete Product fields allowed by native validation | Title and nonempty body | Optional media/Document links; no automatic relationship gate |
+| News | Other incomplete Product fields allowed by native validation | Title, summary, body, featured image selection, News Category and Topic/Health Topic classification | Area/Audience/Source and added relations optional |
+| Activity | Other incomplete Product fields allowed by native validation | Title, summary/description, date/time, location text, featured image OR nonempty gallery, participants/context text | Known-place/internal Personnel links optional; external participants may be text |
+| Announcement | Other incomplete Product fields allowed by native validation | Title, summary/details, type, announcement date | Opening/closing dates maintained when applicable and validate if supplied; applicable Documents are editor-reviewed context, not an automatic conditional gate |
+| Health Content | Other incomplete Product fields allowed by native validation | Title, summary, body, Health Topic, explicit source text, featured image/media selection | Native byline may additionally credit authors; no required custom byline identity or reference check |
+| Personnel | Other incomplete Product fields allowed by native validation | Prefix, first/last name, display name, profile image selection, current public assignment, organizational unit, visibility/current status value | Public contacts optional/appropriate; no assignment-history dates or records (Q2); Organization link optional |
+| Organization, only where reuse justifies it | Other incomplete Product fields allowed by native validation | Name and type when this conditional entity is instantiated | Parent/affiliation/contact/visibility maintained when applicable; no automatic conditional relationship gate |
+| Health Service | Other incomplete Product fields allowed by native validation | Official name/code, type, operational status, address/coordinates, opening hours, public contact and service-area taxonomy selection | Offered-Service/Organization links optional/editor-reviewed; location is not service area |
+| Service | Other incomplete Product fields allowed by native validation | Name, summary, Category/Topic/Audience, ownership type, provider/owner text, channels, eligibility, steps, required-document guidance, contact/location guidance; external URL for external digital ownership | Duration/fees/notes maintained when applicable and validate if supplied; Document/facility links optional/editor-reviewed, not automatic conditional gates |
+| Document | Other incomplete Product fields allowed by native validation | Title, Document Type and native file selection | Optional successor/context; selected asset is not guaranteed immutable/available |
+| Health Report | Related report Document is a genuinely mandatory native reference at create/save; single selection under native cardinality | Title, summary, type, Health Topic, reporting period and owner/source; native publication also checks reference requiredness/cardinality | Schedule acceptance does not add a custom reference predicate; report date maintained when meaningful and validates if supplied; native selection validity is not D-REF protection |
+| Area reference | Native term label/slug/parent shape validation on term maintenance; supplied official/stable codes retained when connecting data | No separate content publication gate for taxonomy terms | Hierarchical native taxonomy; codes/parent correctness verified with authoritative inventory/editor review, not a fabricated collection or immutable-history guarantee |
 
-| Resource | Required for publication / schedule acceptance |
-| --- | --- |
-| Basic Page | Title and body |
-| News | Title, summary, body, featured image, News Category, Topic/Health Topic classification |
-| Activity | Title, summary/description, activity date/time, location, featured image/gallery, participants/context text |
-| Announcement | Title, summary/details, type, announcement date; opening/closing dates and related Documents when applicable |
-| Health Content | Title, summary, body, Health Topic, source/byline, featured image/media |
-| Personnel | Prefix, first/last name, display name, profile image, current public assignment, organizational unit, public visibility/current status; public contact only where appropriate. No assignment-history start/end dates or retained past assignments are required (accepted Q2). |
-| Organization, only where reuse justifies it | Name and type; parent/affiliation, owner contact, and active/inactive visibility when applicable |
-| Health Service | Official name, official facility/service code, type, operational status, address and coordinates, opening hours, public contacts, service-area references, and offered-Service relationships when applicable |
-| Service | Name, summary, Category/Topic/Audience, ownership type, provider/owner, channels, eligibility and steps guidance, required-document guidance, contact/location guidance; duration/fees/notes when applicable, external URL for an external service, and Document/facility relationships when applicable |
-| Document | Title, Document Type, and a selected public file |
-| Health Report | Title, summary, type, Health Topic, reporting period, owner/source, related report Document; report date when meaningful |
-| Area reference, in whichever representation is later justified | Identity and applicable parent hierarchy; official/stable code when connecting other data |
-
-
-Optional images, summaries, classifications, contacts, and related records stay optional wherever
-the owning source explicitly marks them optional. This matrix imposes no new media metadata
-requirements, retention period, custom permission or implementation mechanism. Q1 remains a
-publication-validation requirement; native `required` flags must not defeat incomplete drafts.
+Content-data/classification predicates above use only hydrated candidate data and supported taxonomy
+reads. Publication checks do not reconstruct relation selections. Incomplete mandatory-reference
+drafts are no longer an acceptance fixture. Conditional relationship presence remains editorial
+context where adequate native enforcement is unavailable; it is not silently treated as passed.
+Native term maintenance and separately maintained metadata follow their actual native boundaries.
+No minimum evidence count, retention rule, custom permission or reference subsystem is introduced.
 
 **Deferred Q1 ITA rows — D-ITA only; not V1 publication requirements:**
 
@@ -524,7 +535,7 @@ These describe meaning and responsibilities, not a required number of collection
 | Service | Guidance/provider/channels/eligibility/steps/documents | Documents and offering facilities; no transactions |
 | Document | Semantic file record/type/date/year/owner/successor/status | Reusable authoritative media file; no DMS |
 | Health Report | Report metadata/period/Topic/owner/date/Area/year | Report Document; no metrics dataset |
-| Area Reference | Shared official-coded hierarchy | Classification/service area; storage undecided |
+| Area Reference | Shared official-coded hierarchy | Native hierarchical taxonomy in the proposed Plan; no Area content collection |
 | ITA hierarchy / Evidence — deferred D-ITA | Year-specific hierarchy/codes/order/targets and preservation | No V1 collection, route, Admin workflow or acceptance; future semantic meaning preserved |
 | Classification / media / contact / system metadata | Shared labels/assets/owner contact/editorial identity | Existing CMS or owner responsibility; no duplicate entities |
 
@@ -593,14 +604,17 @@ counted as PASS. Runtime outcomes remain unverified by this document-only reconc
   has the native allowed/refused outcome, with zero unauthorized draft exposure/publication or
   premature staged content-data/scheduled-update exposure. Public linked-target reads omit
   unavailable content and never expose its draft; missing files have a safe unavailable state.
-  Required-selection missing values are covered by Q1/SC-006. D-REF cross-record availability and
+  Native save-time mandatory-reference refusals and supported publication checks are covered by SC-006. D-REF cross-record availability and
   target-removal guarantees, and atomic staging of separately maintained metadata, are not inferred.
 
 - **SC-006**: Every agreed invalid-input/stale-write/failed-action/trash-restore/uncertainty case
   yields the correct state and readable result with zero false success or silent overwrite.
-  For every applicable Q1 matrix field, a missing-value fixture MUST allow draft save subject to
-  the stated native/safety constraints and MUST refuse publication/schedule acceptance. A revision
-  invalidated before its scheduled publication MUST remain non-public, preserving any live version.
+  For each matrix row, missing-value fixtures MUST distinguish native create/save refusal for
+  mandatory references from saveable missing content-data/classification values and their supported
+  publication/schedule refusal. Schedule/due-time checks MUST match native action semantics; no
+  unsupported relation hook or conditional guarantee is expected. An invalid content-data candidate
+  at due time MUST remain non-public, preserving existing live content-data. Optional/conditional
+  relation fixtures MUST show native maintenance rather than an automatic publication gate.
   Native-authority/trash-first/restore fixtures have the documented outcomes, including otherwise
   authorized maintenance that can affect reused content. Required-reference removal veto, immutable
   history and cross-record atomicity fixtures are deferred D-REF/D-ITA, not reported as passed.
@@ -617,15 +631,15 @@ counted as PASS. Runtime outcomes remain unverified by this document-only reconc
 - All retained Version 1 semantic resources are covered; Organization and additional relations
   remain conditional on the sources' demonstrated-use gates. Accepted Q2 limits Personnel to
   current assignments; assignment history requires a separate confirmed Product use case.
-- The primary CMS and its supported lifecycle/access/media are reused. Exact field types,
-  collection count/cardinalities, Area/current-assignment representation and supported Q1 validation
-  mapping belong to remaining Plan work after this Human Gate; no ITA storage is selected in V1.
+- The primary CMS and its supported lifecycle/access/media are reused. Proposed native field types,
+  collection/cardinality/Area/current-assignment choices and revised Q1 mapping are in `data-model.md`
+  for Plan Independent Review; no schema is applied or ITA storage selected in V1.
 - Domain dates/status retain their meaning; no universal enum or automatic unpublish is inferred.
 - Q3 and unavailable Q4 guarantees are explicitly deferred by the Product Owner; ordinary native
   media/Document reuse, revision history and staff precautions cannot be claimed to satisfy them.
 - V1 uses native publication, permissions, value/reference constraints and safe public reads.
-  Retained Q1 mapping and native field/metadata revision boundaries still need exact-release
-  verification; this reconciliation is not a blanket feasibility/runtime PASS.
+  Current Q1 mapping and field/metadata boundaries are documented in the completed Plan; native
+  integration/UAT verification remains future work and no runtime PASS is inferred.
 
 - Verification data will be synthetic/public-publishable; real staff assignments, inventories,
   classification terms, and Area/code values are not invented.
@@ -640,7 +654,7 @@ counted as PASS. Runtime outcomes remain unverified by this document-only reconc
   `05-admin-cms.md` §§1–5/7–15; `06-roles-permissions.md` §§1–12;
   `07-publishing-workflow.md` §§1–15. Context: `00-website-foundation.md` §§1–3;
   `01-information-architecture.md` §§1/3–12/16–18.
-- Architecture remains `docs/website-modernization-docs/current/10-system-blueprint.md` v2.4 (scope reconciliation for review),
+- Architecture remains `docs/website-modernization-docs/current/10-system-blueprint.md` v2.5 (native Q1 reconciliation for review),
   especially §§4–9/11–12/15/18–23. The canonical platform/configuration remains unchanged; its
   unavailable ITA/reference enforcement acceptance is explicitly deferred.
 - Baseline: `9GotStory/songhealth`, `001-platform-foundation`,
@@ -655,32 +669,35 @@ counted as PASS. Runtime outcomes remain unverified by this document-only reconc
   permits dependent runtime work.
   The Product Owner must establish required Feature 001 readiness/dependencies at a later
   Feature 002 gate. Pending evidence cannot be treated as PASS.
-- Later design must verify supported model operations against the actual pinned CMS release;
-  current external documentation alone is not release-specific or runtime evidence.
+- The Plan records exact-release source evidence and future native integration/UAT scenarios;
+  source observations and current external documentation are not runtime acceptance evidence.
 - No `PROJECT-STATUS.md`, `PRE-IMPLEMENTATION-GATE.md`, or separate clarification file is
   present at baseline. No replacement approval artifact is invented.
 
 ### Decision Traceability — Existing Plan Human Gate
 
-Q1/Q2 remain accepted for retained V1 scope. Q3/Q4 original answers remain in the historical
+Current Q1 and unchanged Q2 apply to retained V1 scope. Q3/Q4 original answers remain in the historical
 session; Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8` explicitly changes their
 V1 applicability. Continuation comment `01a13779-da61-71be-bc11-46d3ea9d5413` adopts that reviewed
-reconciliation as current baseline and authorizes the remaining official Plan. Its unresolved
-retained-Q1 finding is research evidence, not a scope amendment or rerun of Clarify. No new workflow
-phase is created; B-Q1-REF must resolve before the official Phase 1 prerequisite is met.
+reconciliation as current baseline and authorizes the remaining official Plan. Later decision
+`01a13788-95c6-72f5-8787-f86b4e0c5fd6` explicitly changes Q1 native validation semantics and
+resolves B-Q1-REF. Research/design are completed within that same Plan; no rerun of Clarify or
+additional workflow phase occurs. Implementation and independent/runtime acceptance are not implied.
 
-1. **Q1 (FR-002, matrix, US1.6–7, SC-006):** unchanged action-specific requiredness on 12 V1
-   rows; the four ITA rows are retained under D-ITA rather than applied to a nonexistent V1 model.
+1. **Q1 (FR-002/026, matrix, US1.6–7/US2.6, SC-006):** native validation semantics on 12 V1
+   rows revised by the native-first decision: mandatory references may block create/save; supported
+   content-data/classification action checks remain, unsupported conditional relationship gates do
+   not. Four ITA rows stay D-ITA. B-Q1-REF is resolved by this Product decision, not a new adapter.
 2. **Q2 (FR-008/009, US3.4, SC-001):** current assignment/unit/visibility on the same identity;
    no assignment-history feature. No ITA historical guarantee is attached to V1 Personnel acceptance.
 3. **Q3 (US5, FR-014–017, SC-004):** deferred D-ITA in full, including structured history,
    immutable/preserved evidence, retained published years and traceable correction. No ordinary
    Document/media workflow is substituted or counted as passed.
 4. **Q4 (US2.6–8/US6.8, FR-020/025/026, SC-005/006):** public-only reads, safe unavailable
-   targets, valid selections and native authority retained; removal veto and atomic cross-record
+   targets, native valid selections and native authority retained; removal veto and atomic cross-record
    target/file availability are deferred D-REF. Preconditions/precautions are not enforcement.
 
-Other inputs before later design/acceptance: real Organization/shared-object reuse examples;
+Other inputs before implementation/UAT acceptance: real Organization/shared-object reuse examples;
 Service/facility inventories; classification terms/official Area sources; operational role
 assignments/site timezone; and the Feature 001 dependency gate for subsequent Feature 002 work.
 These inputs do not authorize additional entities, custom permissions/workflows, or architecture.

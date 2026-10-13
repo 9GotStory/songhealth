@@ -1,8 +1,8 @@
 # Content Model — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 02-content-model
-> **Status:** CLEAN REBASELINE v2.3 — V1 scope revision for Independent Review / Human Acceptance
-> **Version:** 2.3
+> **Status:** CLEAN REBASELINE v2.4 — native Q1 revision for Plan Independent Review
+> **Version:** 2.4
 > **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`
 > **Purpose:** กำหนด semantic resources, fields และ relationships ที่ Songhealth ต้องการ โดยไม่สร้าง model ซ้ำกับ native CMS resources
@@ -14,6 +14,12 @@
 > publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
 > independent review and human acceptance; deferral is not implementation or PASS. No upstream
 > change, new subsystem, replacement ITA workflow or production action is authorized.
+
+> **Native Q1 decision:** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
+> save-time requiredness for genuinely mandatory native references. Missing such a reference need
+> not be saveable as a draft. Other incomplete drafts follow native field validation. Optional/
+> conditional relationships are not automatic publication gates where native enforcement lacks
+> adequate data. D-ITA/D-REF remain deferred; no custom reference adapter or internal-table access.
 
 ---
 
@@ -413,11 +419,18 @@ Examples:
 
 ### V1 validation and native limitation boundary
 
-Accepted Q1 applies to retained V1 resources: allow incomplete drafts subject to native identity,
-authorization, valid supplied values and public-data safety; require applicable field/selection
-values at publication, schedule acceptance and scheduled execution. Optional/conditional values
-retain their accepted meaning. Exact mapping to native schema and supported publication hooks
-must be verified in the remaining Plan work; a schema-level required flag must not block Q1 drafts.
+Current Q1 follows the native-first decision above. A genuinely mandatory native reference
+(Health Report → Document) is required on create/save through native field/cardinality validation;
+V1 does not promise an incomplete draft missing it. Optional references stay optional. Conditional
+relationships such as Announcement/Service attachments, facilities or Organization links remain
+editor-maintained context, not automatically enforced publication requirements.
+
+Other missing Product values may remain in drafts where native validation permits. Applicable
+content-data publication requirements and classification selections can use supported publication/
+scheduling hooks only where the exact release exposes sufficient data: hydrated candidate data and
+native taxonomy reads. Save-time requiredness is distinguished from publication checks in Feature
+002's accepted field matrix. No reference-selection adapter, native promotion mirror, internal
+reference-table access or unsupported conditional publication gate is selected.
 
 Native reference/cardinality/value validation and public-only reads remain. A selected reference or
 file is not a guarantee of target availability through concurrent or later target changes. V1 does

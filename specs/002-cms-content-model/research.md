@@ -1,191 +1,183 @@
-# CMS Content Model — Plan Research
+# CMS Content Model — Completed Plan Research
 
-**Date**: 2026-10-14 | **Feature**: `002-cms-content-model` | **Issue**: 9GOTSTORY-207
+**Date**: 2026-10-14 | **Feature**: `002-cms-content-model`
+**Verified starting HEAD**: `b614c8f283394381d0cb45c2b2903e28c49b75fc`
+**Current decision**: `01a13788-95c6-72f5-8787-f86b4e0c5fd6`
 
-**Current reconciliation baseline**: `e2903e41be6aebd849352d4cc452906eb3d796fd`
-**Original Clarify source**: `6129d4b6de13fdb05726ba5631fa7ed14672dd64`
+Phase 0 research is complete for the revised V1 baseline. Findings establish planning feasibility,
+not implementation, pinned-runtime PASS, Thai staff UAT or independent acceptance. No unresolved
+architecture choice remains. Implementation/population/operational verification is listed separately.
 
-**Standing**: Partial official Plan Phase 0, blocked on retained Q1 reference-selection mapping
-(B-Q1-REF). Continuation comment `01a13779-da61-71be-bc11-46d3ea9d5413` adopts the reviewed V1
-reconciliation as current Product baseline and authorizes completion from verified HEAD
-`2d3cfc96929ef9085194e3c79a11a38f374de0b1`. No runtime or independent PASS.
+## 1. Q1 Native Requiredness — B-Q1-REF Resolved by Product Decision
 
-## Current Product Decision and Applicability
+**Decision:** Health Report's single Document reference is mandatory at native create/save.
+Other relation fields are optional; conditional relationships are not automatic publication gates.
+Missing other Product fields may be saved where native validation permits. Publication predicates
+cover observable candidate content data and current taxonomy assignments only.
 
-Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8` stops upstream pursuit and defers
-structured ITA historical evidence (D-ITA) plus unavailable Q4 target-removal/atomic availability
-guarantees (D-REF). Q1 publication-required field/selection values, incomplete drafts, Q2 current
-assignments and independent public-read/native-authority boundaries remain. Owning documents and
-spec are reconciled. Their review is no longer the prerequisite being awaited; the new retained-Q1
-finding below prevents completing research and entering the officially authorized Phase 1.
+**Rationale:** The pinned release's `validateRequiredReferencesPresent` and
+`validateReferenceSelection` enforce a native required reference at create/save; native publication
+also checks requiredness/cardinality. The Product Owner explicitly accepts this behavior rather
+than requiring an incomplete missing-reference draft. No selected-reference policy projection is
+needed at schedule acceptance. The old projection finding remains factually valid but no longer
+blocks the revised requirement. D-REF availability/removal/atomic guarantees remain deferred.
 
-The previous blocker leaves reduced V1 acceptance because its requirements are explicitly deferred,
-not because native gaps are repaired. No deferred fixture is counted as implemented/PASS. This
-does not defer Q1 or claim all remaining native semantics are already verified.
+**Alternatives considered:** blanket publication-only reference rules, native flags while claiming
+all missing-reference drafts save, internal edge-table reads, raw revision/compare adapters and
+mirrored promotion algorithms. All are rejected by the latest decision. No upstream pursuit,
+upgrade, vendor patch, custom reference service or historical subsystem is selected.
 
-The prior options, upstream survey and request remain historical evidence. Their upstream-first
-recommendation and request-publication next step are superseded; the draft is cancelled/unsubmitted.
-No further upstream changes/contact are pursued. See [scope-reconciliation.md](scope-reconciliation.md).
+Exact sources: `src/api/handlers/validate-references.ts:115/144`; create handler
+`src/api/handlers/content.ts:1213`; runtime staging `src/emdash-runtime.ts:3701`; publication handler
+`src/api/handlers/content.ts:2327`. Schedule accepts its actual native constraints; no identical
+reference check at every action point is claimed. Target status/bytes can later change independently.
 
-## Remaining Phase 0 Result — B-Q1-REF
+## 2. Remaining Publication Validation
 
-**Decision:** Do not claim complete Q1 mapping or enter Phase 1 over the unresolved reference
-candidate contract. Preserve all retained requirements and report the material finding within the
-same official Plan, as the continuation instruction directs.
+**Decision:** One small configuration-declared native plugin, with `content:beforePublish` and
+`content:beforeSchedule`, evaluates the finite field/classification predicates in the accepted
+matrix. It reads `event.content.data` and `ctx.taxonomies.getEntryTerms` only. Capabilities:
+`hooks.content-policy:register`, `taxonomies:read`. No storage, routes, content writes, media queries,
+network calls, `getDb`, internal reference tables, reference snapshots or relation-promotion logic.
 
-**Rationale:** Native manual publish, schedule acceptance and scheduled execution have supported
-policy hooks; schema reference requiredness rejects incomplete drafts. When references are optional
-for draft saves, their complete effective selection is absent from the policy event and ordinary
-plugin content-read API. Draft markers are stripped, and opposite-end sequential changes can make
-native publication's baseline-diff result differ from a raw staged/compare selection. This is
-required selection presence (FR-002/026, US2.6, SC-006), not deferred target-availability atomicity.
+**Rationale:** Scalar/media/repeater content data is hydrated from the pending revision before
+policy. Manual publish uses `beforePublish`, schedule acceptance uses `beforeSchedule`, and due-time
+execution uses the same publish policy with scheduler origin. Explicit cancellation returns the
+native rejected-action code/reason; native `_rev` fences the current entry. Current taxonomy reads
+are sufficient for classification presence, without asserting staged/frozen metadata or cross-record
+atomicity. Native field required flags are not substituted for publication-only data checks.
 
-**Alternatives considered:** native `required` flags alone; data-only hooks; resolved-target public
-reads; raw revision/compare snapshots; and trusted native host exports (`getDb`, content/compare/
-revision handlers). Host access exists, but a complete supported effective-selection adapter is not
-established merely by those exports. No internal-table/marker coupling or copied promotion logic is
-selected as a workaround, no new subsystem proposed, and no additional workflow phase introduced.
+**Alternatives considered:** rebuilding validation/editor/scheduler engines, hidden-button validation,
+save-time mandatory flags for every Product field, and reference reconstruction. A finite native
+hook is the smallest supported extension for the still-accepted data/classification action rules;
+it is proposed design within current blueprint §§7/22, not delivered application code.
 
-[native-feasibility.md](native-feasibility.md) contains exact-release sources, discriminating
-scenarios, considered host alternatives, the other native primitive/revision/public-read/editor
-findings, and Constitution/§23 assessment. These are static findings, not executed CMS acceptance.
-Q1 remains unresolved; D-ITA/D-REF remain deferred. Phase 1's research-complete prerequisite is unmet.
+Exact sources: `src/emdash-runtime.ts:4296/4432/4543/890/3257`;
+`src/plugins/types.ts:663/1476/1783`; `src/plugins/hooks.ts:346/758`;
+`src/astro/integration/runtime.ts:252`; `src/astro/integration/virtual-modules.ts:252`.
+Native file/package descriptors are bundled for Node; no Cloudflare sandbox or new npm dependency
+is required. Use `createPlugin`/`definePlugin` and a build-resolvable source-module descriptor,
+not an inline resolved hook object in Astro's plugin array.
 
-## Pinned 1.1.0 Capability Findings — Scope-adjusted Disposition
+Registration is part of the application configuration. Native administrators can change plugins/
+schema; a disabled/missing validation plugin does not enforce these predicates. Acceptance must
+verify active registration, both hooks, abort behavior, API enforcement and scheduled execution;
+do not claim a platform-wide rule immune to administrative configuration changes.
 
-All package paths below belong to the integrity-verified upstream `emdash@1.1.0` archive,
-not Songhealth files. The previous 1.2.0/main survey is historical comparison only, not an upgrade
-candidate or current prerequisite. This reconciliation changes no package or runtime state.
+## 3. Fields and Native Revisions
 
-| Capability / exact source | Finding | Reduced V1 disposition |
-| --- | --- | --- |
-| Media DELETE: `src/astro/routes/api/media/[id].ts:108`; runtime `:4802`; `src/api/handlers/media.ts:359`; media repository `:622` | Permission/ownership then row-first deletion/storage cleanup; no required-published-reference veto | Ordinary native maintenance retained; D-REF veto deferred, missing consumers handled safely |
-| Image PUT: `src/astro/routes/api/media/[id]/replace.ts:87`; media repository `:593` | Overwrites existing key and updates current row; no historical target freeze | Ordinary shared reuse retained; D-ITA immutable/historical-preservation workflow deferred |
-| Media hooks: `src/plugins/types.ts:1800` | Before/after upload only; no delete/replace veto | No missing-hook workaround or upstream pursuit |
-| Content policy: `src/emdash-runtime.ts:4296`, `:4432`, `:4509`, `:4543` | Publish/schedule/unpublish policy, candidate hydration and current-entry revision fence; scheduler checks publish policy at due time | Supported candidate for retained Q1 action validation; full field/selection coverage still requires proof |
-| Trash/purge: runtime `:3950`, `:4020`; content handler `:1940` | Trash before-delete hook; purge bypasses it, requires trashed row and native admin REST permission; cleans edges/revisions | Native lifecycle/access retained; D-REF dependent-target veto and D-ITA archival guarantee not claimed |
-| Transaction/plugin context: `src/database/transaction.ts`; `src/plugins/types.ts:1056` | Hook policy reads precede handler transaction; no plugin-shared content transaction provided | Entry protections retained; cross-record atomicity deferred D-REF |
-| Native revision prune: `src/database/repositories/revision.ts:278` | Finite revision pruning protects this entry's live/draft pointers, not arbitrary external historical references or media bytes | Native editorial history retained; no indefinite immutable evidence claim |
-| Schema requiredness: `src/schema/zod-generator.ts:41`; required references `src/api/handlers/validate-references.ts:127` | Required flags/selections can be checked on saves/creates, which is not Q1 publication-only requiredness | Exact native schema/publication-hook mapping is a remaining Plan obligation; do not silently impose all Q1 fields at draft save |
+**Decision:** Use schema-owned native collections, string/text/Portable Text, image/file, datetime,
+number/boolean/select, repeaters and native reference fields. Enable native drafts, revisions,
+preview and scheduling on content collections. One `title` field per collection carries that kind's
+actual title/name/display name, with the appropriate Thai label; native slug/identity stays native.
 
-Decision: retain these native primitives and document their limits. Alternatives rejected for
-this reduced scope: a second CMS/backend/database, duplicate Media/reference index, custom lock/
-snapshot/history engine, vendor patch/fork/monkey patch, dependency upgrade, upstream intervention,
-or operational precautions presented as enforcement. Native usage reporting may guide maintenance
-but cannot authorize an absent atomic guarantee.
+**Rationale:** Field types/validation cover the retained data without duplicate system metadata.
+Media/file values carry native IDs; gallery is an image repeater. Scalar missing values remain
+saveable with non-required fields; supplied malformed values still face native validation. Saved
+content-data and reference changes stage in native revisions; taxonomy/SEO/byline side writes and
+shared targets are not frozen with them. Source text is the accepted source/byline alternative for
+Health Content; native credited bylines remain optional attribution, not another Personnel identity.
 
-## Retained Validation and Revision Risks
+**Alternatives considered:** JSON-as-editor for all content, copied author/slug/state fields, custom
+revisions, frozen taxonomy/byline metadata and separate gallery/file collections. Rejected as
+unnecessary or incompatible with the reviewed native boundaries.
 
-- **Q1 remains required.** Native publication hooks are available, but a per-resource mapping must
-  show complete candidate field/selection checks at publish, schedule acceptance and execution while
-  allowing incomplete drafts. The remaining selection contract is B-Q1-REF; native save-time required
-  flags alone cannot satisfy both. No custom generic policy engine or implementation is approved.
-- **Actual revision scope matters.** Native content-data/selected staged references and other shared
-  or separately maintained data are not automatically one revision. Taxonomy/SEO/byline behavior,
-  classification requiredness, byline alternatives and gallery primitives are accounted for in the
-  remaining Phase 0 report; actual runtime/UAT results are unverified. Revised lifecycle promises
-  cover actual native staged content data, not blanket
-  cross-record/metadata freezing. No new immutable/current-metadata subsystem is proposed.
-- **Public boundaries remain.** Linked content must be read through published-only paths; drafts
-  cannot leak via preview/query parameters. Missing assets may be unavailable after authorized
-  maintenance; native public media itself is for public-publishable data, not confidentiality.
-- **Representation/UAT remains.** Official-code Area hierarchy, reciprocal service/facility reuse,
-  conditional Organization reuse, Thai labels and staff selectors need bounded mapping evidence.
-  No official inventory, new collection or guaranteed native editor fit is invented.
-- **Native lifecycle smoke evidence remains.** Scheduling/timezone, locks/stale-entry writes,
-  trash/restore, administrator content purge and truthful uncertain/failing outcomes must be checked
-  on retained fixtures after design/authorization. Document review is not those outcomes.
+Sources: `src/schema/types.ts:13/169/199`; `src/schema/zod-generator.ts:41/90/217`;
+`src/emdash-runtime.ts:3701`; content handler `:1325–1360/1600–1650`;
+`src/plugins/types.ts:663/752`; native revision repository `:278` (finite pruning).
 
-These risks do not reinstate D-ITA/D-REF into V1. They are not automatically resolved by scope
-reduction and must be addressed through the same remaining Plan or returned to its existing gate.
+## 4. Taxonomy and Area
 
-## Official Plan Prerequisite and Foundation Boundary
+**Decision:** Native taxonomies for shared Topic/health classifications, Audience, News Category,
+Announcement/Document/Report/facility types and Service Category. A hierarchical `area` taxonomy
+holds verified Province → District → Subdistrict → Village terms. Use explicit verified code as
+native term slug, native label as display name, and parent/group identity for hierarchy/reuse.
 
-The reviewed authorities/specification are current under the continuation instruction. The official
-Plan workflow was rechecked against upstream: Phase 1 requires complete research and the workflow
-errors on unresolved clarifications/gates. B-Q1-REF is reported at that existing boundary; this is
-not a new approval loop. No data model/contracts/quickstart are produced over that unresolved
-contract, and no completed Plan claim is made. Do not rerun setup/Specify/Clarify, reinitialize,
-create a separate workflow, or start Checklist/Tasks/Analyze/Implementation.
+**Rationale:** V1 needs codes/hierarchy/selection, not a separate Area entity with operational fields.
+Term creation supports label/slug/parent; supplied codes survive label changes when the code slug is
+maintained. Terms have no content publication lifecycle: term changes are current metadata. Facility
+coverage Area is distinct from its address/coordinates. Source provenance can use native description;
+no invented official codes or custom metadata-editing UI is required.
 
-T022 durability and T028 recovery remain **PENDING**. T028 requires T022 PASS plus accepted
-T023–T027 sources; T030 requires T028 PASS plus accepted T029 sources. No final foundation or
-runtime acceptance/waiver is inferred. The Constitution stays 2.0.0; no exception is requested.
+**Alternatives considered:** Area collection, duplicate classification collections and free-form
+uncoded geographic labels. A collection is unnecessary for this scope. Richer analytical/source
+metadata would be a different owning requirement; it is not assumed or implemented now.
 
-## Original workflow provenance — historical setup
+Sources: `src/api/schemas/taxonomies.ts:52/86`; `src/api/handlers/taxonomies.ts:356`;
+`src/plugins/types.ts:663`; `src/seed/types.ts:176`. Actual code/term inventory and hierarchy correctness
+remain population/UAT inputs; native slug mutability is not an immutable-history guarantee.
 
-Decision: Continue the existing clarified feature on managed branch
-`agent/codex-lead-reviewer/477dbb76ad5b`, from exactly the approved SHA.
+## 5. Organization and Relationships
 
-Rationale: Fetching the named Clarify source branch resolved to approved
-`6129d4b6de13fdb05726ba5631fa7ed14672dd64`. The clean checkout was fast-forwarded to it before
-planning. Draft PR #14 remained open against `001-platform-foundation`, with head branch
-`002-cms-content-model` at stale Specify SHA `4e3fb02b44ac5650cc63b17e441b7cb0321ddc00`.
-Neither the PR nor its head was altered.
+**Decision:** No Organization collection by default without the existing demonstrated-reuse case.
+Use current unit/provider/affiliation text on its owner. A single conditional Organization schema
+and its limited native links are defined in the data model for a confirmed shared-metadata case.
+No separate internal/external organization kinds. Other relationships use one native edge set with
+explicit cardinality; facility/Service selectors bind opposite sides of the same many-to-many relation.
 
-Alternatives considered: Stale remote specification, rerunning Specify/Clarify and initializing
-or renumbering the feature were rejected by the issue.
+**Rationale:** Native reference pickers/relations avoid copied Documents, Services or facility
+records. Report → Document alone is mandatory at save; all other reference selections stay optional.
+The inverse view does not need another service or duplicate relation table. Native baseline-diff
+promotion and selected-group semantics are used as supplied, not mirrored in Songhealth code.
 
-Installed Specify CLI: 1.1.0. The official agent Plan instruction is
-`specify_cli/core_pack/commands/plan.md`, checked against the
-[current upstream workflow](https://github.com/github/spec-kit/blob/main/templates/commands/plan.md).
-Plan is an agent instruction workflow, not a shell `specify plan` subcommand. Repository policy
-deliberately excludes vendored agent-specific bundles; none was recreated.
+**Alternatives considered:** automatic Organization creation for every noun, universal relationship
+matrix, duplicate opposite-end collections, custom backlink index and conditional relation gates.
+Rejected under §23 and the latest decision. Conditional Organization activation is an existing
+Product input to later implementation, not an unresolved architecture or a new approval phase.
 
-Official setup ran from repository root:
+Sources: `src/schema/types.ts:113/199`; `src/api/handlers/validate-references.ts:42/115`;
+`src/api/handlers/staged-references.ts:67/181`; `src/seed/types.ts:130/145`.
 
-```bash
-SPECIFY_FEATURE=002-cms-content-model \
-SPECIFY_FEATURE_DIRECTORY=specs/002-cms-content-model \
-SPECIFY_FEATURE_NO_PERSIST=1 \
-bash .specify/scripts/bash/setup-plan.sh --json
-```
+## 6. Public Reads and Native Editor
 
-JSON resolved `FEATURE_SPEC`, `IMPL_PLAN` and `FEATURE_DIR` to this feature. Its `BRANCH` is
-the logical feature identifier; the actual Git branch is recorded above. Supported overrides
-preserved tracked feature state. The copied official template supplies the plan structure.
+**Decision:** Preserve the existing `_emdash` live registration. Future consumers use native
+published-context `getEmDashEntry/Collection/References`; signed preview/edit context remains
+authorized. Omit unavailable linked content and show safe file unavailability. Use native labels,
+lists/pickers/taxonomies/repeaters/preview/lifecycle UI, with Thai labels and correct English fallback.
 
-Before/after Plan hooks in `.specify/extensions.yml` parse successfully: both are enabled,
-optional `speckit.git.commit` hooks with null conditions. Their event auto-commit flags and the
-default in `.specify/extensions/git/git-config.yml` are false. Optional hooks are skipped; no
-mandatory hook exists. The explicit delivery commit records blocked research, not successful phase
-completion. Codex performed research directly under the no-delegation constraint.
+**Rationale:** Public helpers distinguish published data from preview; privileged plugin content
+reads are not the public renderer. No public page/API/search implementation belongs to this feature.
+Native field labels/sort order and title/date fields provide maintenance without rebuilding Admin.
+Actual Thai staff comprehension, selector flow, media missing-state rendering and scheduled-time
+display require implementation/UAT evidence, not another architecture investigation.
 
-Read authorities: `AGENTS.md`, Constitution 2.0.0, approved Feature 002 spec/Clarify handoff,
-`current/02-content-model.md`, `05-admin-cms.md`, `06-roles-permissions.md`,
-`07-publishing-workflow.md`, and `10-system-blueprint.md`. Foundation task dependencies,
-T029 seam evidence, README and canonical integration were inspected as baseline evidence.
-No `PROJECT-STATUS.md` or `PRE-IMPLEMENTATION-GATE.md` is present; no substitute approval is invented.
+**Alternatives considered:** custom Admin SPA, duplicate live loader/public API, untrusted preview
+parameters and confidential CMS media. Rejected by existing authorities/security scope.
 
-## Documentation and exact release evidence
+Sources: `src/query.ts:1138/1390`; `src/runtime.ts`; `src/schema/types.ts:320/454`;
+current/05 §§3/4/12 and current/07 §§8/9. Native media stays public-publishable and replaceable.
 
-Context7 was used first:
+## Evidence, Workflow and Remaining Verification
 
-| Technology | Resolved source | Subject | Limit |
-| --- | --- | --- | --- |
-| EmDash | `/websites/emdashcms` | Fields/repeaters/references, content policy hooks, media usage/deletion | Unversioned vendor docs; exact 1.1.0 behavior checked separately |
-| Astro | `/withastro/docs` | SSR live reads/errors, Node standalone integration | Unversioned docs, not 7.3.5 runtime validation |
-| PostgreSQL | `/websites/postgresql_18` | Transaction isolation/cross-record consistency | Major-18 docs, not new 18.6 compatibility/runtime acceptance |
+The first-party `emdash@1.1.0` archive integrity was independently recomputed and matches
+`package-lock.json`: `sha512-VXo1fIMr44PEiE1A9Z5aFWvjsqhdLDHLqat2iPkFYoam2kYV6h+2LGkEDovkXdLmmWWDY9w7ekP0CP6ziYMFhg==`.
+Package paths above refer to that release, not private Songhealth files. Previous source checks and
+the isolated native-diff probe remain historical evidence; no new reference investigation is reopened.
 
-Primary documentation:
+Context7 was used first (`/websites/emdashcms`). Unversioned docs explain supported hooks/relations;
+exact release source controls version claims. Primary links:
+[field types](https://docs.emdashcms.com/reference/field-types/),
+[hooks](https://docs.emdashcms.com/reference/hooks/),
+[capabilities](https://docs.emdashcms.com/plugins/creating-plugins/capabilities/),
+[native plugins](https://docs.emdashcms.com/plugins/creating-native-plugins/your-first-native-plugin/),
+[query API](https://docs.emdashcms.com/reference/api/),
+[seed format](https://docs.emdashcms.com/themes/seed-files/), and the
+[pinned archive](https://registry.npmjs.org/emdash/-/emdash-1.1.0.tgz).
 
-- [EmDash field types](https://docs.emdashcms.com/reference/field-types)
-- [EmDash hooks](https://docs.emdashcms.com/reference/hooks)
-- [EmDash plugin hooks](https://docs.emdashcms.com/plugins/creating-plugins/hooks)
-- [EmDash REST API](https://docs.emdashcms.com/reference/rest-api)
-- [Astro live content](https://docs.astro.build/en/guides/content-collections/)
-- [Astro Node integration](https://docs.astro.build/en/guides/integrations-guide/node/)
-- [PostgreSQL 18 application-level consistency](https://www.postgresql.org/docs/18/applevel-consistency.html)
+The installed Specify CLI 1.1.0 official Plan instructions were rechecked against
+[upstream Plan](https://github.com/github/spec-kit/blob/main/templates/commands/plan.md).
+Original setup already resolved this feature/plan/template; it was not rerun or overwritten.
+Research continued directly under the existing Codex-only constraint. Phase 0 decisions above
+resolve the planning unknowns before generating Phase 1 outputs. No Specify/Clarify rerun or new phase.
+Before/after Plan hooks parse as enabled optional `speckit.git.commit`, null conditions, with
+auto-commit disabled. Optional hooks are skipped; no mandatory Plan hook applies. An explicit delivery
+commit records completed planning documentation, not implementation acceptance.
 
-The exact first-party [EmDash 1.1.0 npm archive](https://registry.npmjs.org/emdash/-/emdash-1.1.0.tgz)
-was downloaded with `npm pack` and inspected outside the repository. It includes vendor TypeScript
-sources. Metadata version is 1.1.0. Independently computed archive SHA-512 integrity equals npm
-metadata and the committed `package-lock.json` entry:
-
-```text
-sha512-VXo1fIMr44PEiE1A9Z5aFWvjsqhdLDHLqat2iPkFYoam2kYV6h+2LGkEDovkXdLmmWWDY9w7ekP0CP6ziYMFhg==
-```
-
-Package locations above are **inside that exact upstream package**, not Songhealth paths. This is static
-release evidence, not a runtime test. No dependency, CMS record, database, schema, media object
-or production runtime was mutated.
+Future verification: the native-required-reference create/update/publish fixtures; supported scalar/
+classification policy at manual/schedule/due-time actions; active plugin/configuration and failures;
+metadata revision boundaries; permissions/preview; reciprocal selectors and Area code maintenance;
+Thai editor UAT. See [quickstart.md](quickstart.md). These are planned tests, not PASS results.
+The shell has Node 24.11.0, not the pinned 24.21.0; no integration test was claimed or dependency
+changed. No database/schema/runtime mutation occurred. T022/T028 remain PENDING, with original joins.
+D-ITA/D-REF, historical evidence and legacy cutover remain deferred/separate; no scope waiver or
+foundation completion is inferred. No genuine new material architecture impossibility is established.
