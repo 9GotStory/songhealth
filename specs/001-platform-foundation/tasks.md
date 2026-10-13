@@ -113,7 +113,7 @@ description: "Actionable task graph for the Songhealth Platform Foundation"
 - [ ] T027 [US3] Implement the restored-foundation integrity comparator for the native EmDash Site Setting `tagline` exact value/digest established by T015, native migration state, and every designated media path/size/SHA-256 digest in `scripts/verify-restored-foundation.mjs`; do not substitute Admin identity, passkey metadata, arbitrary internal rows, or a Product collection, and output only redacted pass/fail evidence with zero secret values
 - [ ] T028 [US3] Execute the complete recovery drill against clean/recreated persistence and record the Recovery Set identity, tool/server versions, archive/checksum validation, restore result, exact restored native site `tagline` value/digest comparison from T027, 100% designated data/media comparison, zero unexplained differences, and separate non-secret runtime-secret recovery result in `specs/001-platform-foundation/evidence/T028-us3-recovery.md`
 
-**Checkpoint**: User Story 3 proves the approved minimum logical recovery baseline. Stop for Codex PASS/REWORK before downstream-foundation review.
+**Checkpoint**: User Story 3 proves the approved minimum logical recovery baseline. Stop for Codex PASS/REWORK before downstream-foundation review. Under the approved Development-First Sequencing amendment (see Notes), T029 source authoring and review may proceed in parallel after accepted T027 sources without requiring T028 runtime PASS.
 
 ---
 
@@ -123,7 +123,9 @@ description: "Actionable task graph for the Songhealth Platform Foundation"
 
 **Independent Test**: An architecture/specification review maps all four downstream capability groups to the single foundation, finds no duplicate application/backend/platform boundary, and finds no boundary replacement without a documented requirement gap and owning-authority amendment.
 
-- [ ] T029 [US4] Prepare feature-scoped review evidence in `specs/001-platform-foundation/evidence/T029-canonical-extension-seams.md` that maps the currently planned downstream capability groups to the canonical foundation, identifies the existing native extension seams they rely on, references the owning authority for each boundary, explicitly states that the artifact is review evidence rather than architecture authority, and demonstrates that no second backend/platform foundation or speculative abstraction is needed
+**Sequencing (Development-First, bounded Product Owner decision of 2026-10-13)**: T029 may be authored as sources and independently reviewed after accepted T027 source integration, which presupposes Codex-accepted sources for all of T023–T027; T028 runtime PASS is not a prerequisite for that source work, which still requires separate bounded Product Owner authorization. Source review does not establish runtime acceptance, complete US3/US4, waive any failed gate, or satisfy final feature acceptance: T022 and T028 remain mandatory runtime gates, T028 may execute only after both T022 PASS and Codex-accepted sources for all of T023–T027, and T030 may execute only after both T028 PASS and Codex-accepted T029 sources.
+
+- [ ] T029 [US4] Prepare feature-scoped review evidence in `specs/001-platform-foundation/evidence/T029-canonical-extension-seams.md` that maps the currently planned downstream capability groups to the canonical foundation, identifies the existing native extension seams they rely on, references the owning authority for each boundary, explicitly states that the artifact is review evidence rather than architecture authority, and demonstrates that no second backend/platform foundation or speculative abstraction is needed; under Development-First Sequencing it may be authored and reviewed after accepted T027 sources before T022/T028 runtime PASS, with separate bounded Product Owner authorization, and any evidence prepared at that stage must identify the pending runtime evidence—T022/T028 as applicable—and make no US3/US4 completion or final acceptance claim
 - [ ] T030 [US4] Independently review T029's canonical-extension evidence against the owning authority and record PASS/REWORK traceability for content models, public pages, publishing behavior, and other bounded Product features, including explicit confirmation that no Product collection, competing foundation, or speculative abstraction was delivered, in `specs/001-platform-foundation/evidence/T030-us4-extension-review.md`
 
 **Checkpoint**: All four user stories are independently satisfied without expanding Feature 001 scope.
@@ -158,11 +160,13 @@ T018 -> T019
 {T017, T019} -> T020 -> T021 -> T022 [US2 GATE]
 T021 -> {T023 || T024} [DFS: source authoring/review only; T022 PASS not required]
 T024 -> T025 -> T026 -> T027 [each edge: accepted source review before dependent work]
-{T022, T023, T027} -> T028 [US3 GATE: joins T022 PASS + accepted T023–T027 sources] -> T029 -> T030 [US4 GATE]
+{T022, T023, T027} -> T028 [US3 GATE: joins T022 PASS + accepted T023–T027 sources]
+T027 -> T029 [DFS: source authoring/review only after accepted T027 sources; T022/T028 PASS not required]
+{T028, T029} -> T030 [US4 GATE: joins T028 PASS + accepted T029 sources]
 T030 -> T031 -> T032
 ```
 
-**Development-First Sequencing (graph)**: The `T021 -> {T023 || T024}` edge records the bounded Product Owner decision that recovery sources may be authored and reviewed once the production source boundary through T021 is accepted, without waiting for T022 runtime PASS. Every other edge keeps its original meaning, and each Phase 5 dependency still requires independent Codex source review before dependent work proceeds. The T028 join is explicit: T028 execution requires both T022 PASS and Codex-accepted sources for T023–T027, including T023's separately documented runtime-secret recovery prerequisite.
+**Development-First Sequencing (graph)**: The `T021 -> {T023 || T024}` edge records the bounded Product Owner decision that recovery sources may be authored and reviewed once the production source boundary through T021 is accepted, without waiting for T022 runtime PASS. The `T027 -> T029` edge records the bounded decision extended to T029: its evidence sources may be authored and reviewed once the T023–T027 sources are Codex-accepted (the accepted T027 source closing that chain), without waiting for T022/T028 runtime PASS. Every other edge keeps its original meaning, and each Phase 5/Phase 6 source dependency still requires independent Codex source review before dependent work proceeds. The T028 join is explicit: T028 execution requires both T022 PASS and Codex-accepted sources for T023–T027, including T023's separately documented runtime-secret recovery prerequisite. The T030 join is explicit: T030 execution requires both T028 PASS and Codex-accepted T029 sources.
 
 ### Phase Dependencies
 
@@ -171,16 +175,16 @@ T030 -> T031 -> T032
 - **User Story 1 (Phase 3)**: Requires T008; T009/T010 precede their protected behavior; T015 is the story gate.
 - **User Story 2 (Phase 4)**: Requires T015 PASS; T016 defines verification before deployment work; T022 is the story gate.
 - **User Story 3 (Phase 5)**: Source authoring requires the accepted production source boundary through T021—not T022 PASS—under Development-First Sequencing, with separate bounded Product Owner authorization; T023/T024 remain file-independent; T024 defines recovery verification before backup/restore implementation, and each Phase 5 dependency requires independent source review before dependent work proceeds; T028 is the story gate and requires the join of T022 PASS plus accepted T023–T027 sources.
-- **User Story 4 (Phase 6)**: Requires T028 PASS so the review covers the complete foundation; T030 is the story gate.
+- **User Story 4 (Phase 6)**: T029 source authoring requires accepted T027 sources—not T028 PASS—under Development-First Sequencing, with separate bounded Product Owner authorization; T030 is the story gate and requires the join of T028 PASS plus accepted T029 sources so the review covers the complete foundation.
 - **Final phase**: Requires T030 PASS; T032 follows full validation T031.
 
 ### Blocking Gates
 
 - **T006 — PostgreSQL 18.6 / EmDash compatibility**: Hard stop on failure; only Product Owner/architecture resolution can unblock dependent work.
 - **T015 — Canonical platform/MVP**: Must pass clean-checkout, public/Admin, readiness, migration, media-writeability, and secret-redaction criteria.
-- **T022 — Production durability**: Must pass private-network, no-public-DB, lifecycle, missing-attachment, and persistence checks. Under Development-First Sequencing it remains a mandatory runtime acceptance gate whose PASS is required before T028 executes; it no longer blocks T023–T027 source authoring and review.
+- **T022 — Production durability**: Must pass private-network, no-public-DB, lifecycle, missing-attachment, and persistence checks. Under Development-First Sequencing it remains a mandatory runtime acceptance gate whose PASS is required before T028 executes; it no longer blocks T023–T027 or T029 source authoring and review.
 - **T028 — Recovery**: Must pass clean logical restore, media restore, integrity, and separate runtime-secret recovery criteria. Execution requires the explicit join of T022 PASS and Codex-accepted sources for T023–T027, including T023's separately documented runtime-secret recovery prerequisite.
-- **T030 — Canonical extension review**: Must find no second foundation or Product-scope expansion.
+- **T030 — Canonical extension review**: Must find no second foundation or Product-scope expansion. Execution requires the explicit join of T028 PASS and Codex-accepted T029 sources; T029 source review cannot substitute for T028 runtime PASS or waive a failed gate.
 - **T031 — Full validation**: Must pass before final evidence handoff.
 
 ### Parallel Opportunities
@@ -190,7 +194,8 @@ T030 -> T031 -> T032
 - **T009 + T010**, then **T011 + T012**, after T008: Node readiness tests/public browser tests and their corresponding page/helper implementations are file-disjoint; each pair joins before T013.
 - **T017 + T018** after T016: OCI image files and network/volume Quadlets are file-disjoint and share no mutable runtime during authoring; both join before container-unit completion.
 - **T023 + T024** after T021 acceptance: secret-recovery documentation and recovery verification scenario own different files, do not consume each other's outputs, and require no T022 runtime PASS.
-- No user-story phases run in parallel at runtime because each later story consumes runtime evidence and boundaries established by the previous priority. The single bounded exception is Development-First Sequencing: Phase 5 source authoring/review may overlap a still-pending T022 runtime gate, and the two lines rejoin at T028.
+- **T029 after accepted T023–T027 sources**: canonical-extension evidence authoring owns only `specs/001-platform-foundation/evidence/T029-canonical-extension-seams.md`, consumes no runtime evidence beyond identifying it as pending, and requires no T022/T028 runtime PASS.
+- No user-story phases run in parallel at runtime because each later story consumes runtime evidence and boundaries established by the previous priority. The single bounded exception is Development-First Sequencing: Phase 5 source authoring/review may overlap a still-pending T022 runtime gate, Phase 6 T029 source authoring/review may overlap still-pending T022/T028 runtime gates, the recovery line rejoins at T028, and the extension line rejoins at T030.
 
 ---
 
@@ -206,9 +211,10 @@ The suggested MVP is **Phase 1 + Phase 2 + User Story 1 through T015**. This yie
 2. Complete US1 and obtain Codex PASS/REWORK at T015.
 3. Author and review the production Podman/Quadlet source boundary through T021, then execute the durability gate T022 and obtain review.
 4. After T021 acceptance, and in parallel with any still-pending T022 execution, author and independently review the logical database/media recovery sources T023–T027 (Development-First Sequencing; separate bounded Product Owner authorization per task).
-5. Execute T028 only after the explicit join of T022 PASS and accepted T023–T027 sources, and obtain review.
-6. Complete the canonical-extension review at T030.
-7. Run final validation and hand off the evidence index; do not begin implementation without the separate Human Gate authorization required by the Constitution.
+5. After the T023–T027 sources are accepted, and in parallel with any still-pending T022/T028 execution, author and independently review the T029 canonical-extension evidence (Development-First Sequencing; separate bounded Product Owner authorization); early evidence must identify the pending T022/T028 runtime evidence and make no US3/US4 completion or final acceptance claim.
+6. Execute T028 only after the explicit join of T022 PASS and accepted T023–T027 sources, and obtain review.
+7. Complete the canonical-extension review at T030 only after the explicit join of T028 PASS and accepted T029 sources.
+8. Run final validation and hand off the evidence index; do not begin implementation without the separate Human Gate authorization required by the Constitution.
 
 ## Scope Guardrails
 
@@ -220,7 +226,7 @@ The suggested MVP is **Phase 1 + Phase 2 + User Story 1 through T015**. This yie
 
 ## Notes
 
-- **Development-First Sequencing (bounded Product Owner decision of 2026-10-11, Multica issue 9GOTSTORY-194)**: T023–T027 may be authored and independently reviewed as sources after the accepted production source boundary through T021, without T022 runtime PASS. The decision changes sequencing only: no task deliverable, gate, architecture, or specification requirement changes; each recovery-source task still requires separate bounded Product Owner authorization and independent Codex source review before dependent work proceeds; and source review does not establish runtime acceptance, complete US2/US3, waive any failed gate, or satisfy final feature acceptance. T022 and T028 remain mandatory runtime acceptance gates, T028 requires both T022 PASS and accepted T023–T027 sources, and all final evidence requirements—including T022/T028 evidence—are unchanged.
+- **Development-First Sequencing (bounded Product Owner decisions of 2026-10-11 and 2026-10-13, Multica issues 9GOTSTORY-194 and 9GOTSTORY-200)**: T023–T027 may be authored and independently reviewed as sources after the accepted production source boundary through T021, without T022 runtime PASS, and T029 may be authored and independently reviewed as sources after accepted T027 source integration, without T022/T028 runtime PASS. The decisions change sequencing only: no task deliverable, gate, architecture, or specification requirement changes; each source task (T023–T027, T029) still requires separate bounded Product Owner authorization and independent Codex source review before dependent work proceeds; and source review does not establish runtime acceptance, complete US2/US3/US4, waive any failed gate, or satisfy final feature acceptance. T029 evidence prepared before the runtime gates must identify the pending runtime evidence—T022/T028 as applicable—and make no US3/US4 completion or final acceptance claim, and source review cannot substitute for runtime PASS or waive a failed gate. T022 and T028 remain mandatory runtime acceptance gates, T028 requires both T022 PASS and accepted T023–T027 sources, T030 requires both T028 PASS and accepted T029 sources, and all final evidence requirements—including T022/T028 evidence—are unchanged.
 - **CA-01 remains deferred** and is unaffected by this amendment.
 - Every completed task must return its focused verification evidence for independent Codex PASS/REWORK before dependent tasks continue.
 - `[P]` means file/resource independence only after the documented prerequisites are satisfied.
