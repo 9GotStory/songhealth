@@ -8,7 +8,7 @@ Act only as the implementation executor for an explicitly authorized active Spec
 
 ## Current repository state
 
-The repository is a clean baseline with no active application implementation and no active feature specification.
+Feature 001 `platform-foundation` is the active feature: the canonical Astro + EmDash platform (US1, T015) is accepted with runtime evidence; the production Podman/Quadlet deployment sources (T017–T021), the recovery sources (T023–T027), and the T029 canonical-extension evidence are committed and independently reviewed; the T022/T028 runtime gates are pending, separately authorized tasks. Development, testing, review, and PR preparation follow the Multica-first workflow recorded in `AGENTS.md` and `README.md`.
 
 If no current authorized task exists, do not implement, scaffold, install dependencies, create infrastructure, or restore historical code.
 

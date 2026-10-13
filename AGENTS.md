@@ -72,3 +72,29 @@ There is no standing implementation authorization.
 Implementation may begin only when an active feature has approved `spec.md`, `plan.md`, `tasks.md`, dependencies are ready, and the Product Owner has explicitly authorized the bounded scope.
 
 Do not create application code, infrastructure, schema, or dependencies merely because the repository is currently empty.
+
+## Development Workflow (Multica-first)
+
+Product Owner decision of 2026-10-13 (Multica issue 9GOTSTORY-202). It aligns the development
+workflow only; it changes no task deliverable, gate, architecture, or specification requirement.
+
+- Development, testing, review, and pull-request preparation happen in Multica task runs under
+  the Constitution's independent-review workflow (Codex reviews; the Product Owner accepts).
+- The single development environment is the native workflow documented in `README.md` (native
+  Node.js/npm tooling plus the rootless-Podman development PostgreSQL helper). Do not create or
+  maintain a second development environment, containerized Node/npm tooling, or a Compose-style
+  development stack.
+- Development testing uses EmDash's native development-only bootstrap for programmatic
+  Admin/API access (documented in `README.md` §7: `POST /_emdash/api/setup/dev-bypass`,
+  development builds only). Never automate passkey login; production Admin authentication stays
+  the native passkey flow.
+- Production deployment remains rootless Podman + systemd Quadlet
+  (`docs/operations/production-foundation.md`); development tooling must not grow into a
+  parallel production-like stack.
+- Every task run that starts a task-owned temporary container must clean it up before the run
+  ends (stop the development database with `npm run dev-db:stop`; remove any ad-hoc container
+  the task itself created). Cleanup stops or removes containers only: it never deletes named
+  volumes, persistent data, accepted sources, or evidence. A task run that cannot clean up a
+  container it owns reports that fact in its result instead of leaving it silently.
+- The T022 and T028 runtime gates stay pending until separately authorized; no development
+  workflow change may claim runtime acceptance that has not been produced.

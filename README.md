@@ -4,9 +4,11 @@
 
 **Current implementation**: Feature 001 `platform-foundation` — one server-rendered Astro application
 with EmDash as its integrated CMS/Admin, backed by PostgreSQL, developed natively on Node.js/npm.
-Production container/lifecycle, durability, and recovery work is specified in the authority below
-but not implemented yet. This README documents the currently accepted native development workflow
-only.
+The production deployment (rootless Podman + Quadlet) and recovery sources are committed and
+independently reviewed; their runtime verification gates — T022 (production durability) and T028
+(recovery drill) — are pending, separately authorized tasks (see §11 of
+[docs/operations/production-foundation.md](docs/operations/production-foundation.md)). This README
+documents the currently accepted native development workflow only.
 
 ## Authority
 
@@ -17,6 +19,24 @@ only.
 4. `specs/001-platform-foundation/` — active Spec Kit feature artifacts
 
 Do not reconstruct removed architecture from Git history or old branch names (see `AGENTS.md`).
+
+## Development workflow (Multica-first)
+
+Per the Product Owner decision of 2026-10-13 (Multica issue 9GOTSTORY-202; recorded as the
+repository contract in `AGENTS.md`):
+
+- Development, testing, review, and pull-request preparation happen in Multica task runs. The
+  environment those runs use is exactly the workflow in this README — there is one development
+  environment, and no second one may be created (no containerized Node/npm tooling, no
+  Compose-style development stack).
+- Development testing uses EmDash's native development-only bootstrap for programmatic
+  Admin/API access (§7); passkey login is never automated.
+- Production deployment remains rootless Podman + systemd Quadlet
+  ([docs/operations/production-foundation.md](docs/operations/production-foundation.md)).
+- Task-owned temporary containers are cleaned up automatically by the owning task run (§10);
+  persistent data, accepted sources, and evidence are preserved.
+- The T022/T028 runtime gates remain pending until separately authorized; nothing in the
+  development workflow may claim their runtime acceptance.
 
 ## Prerequisites
 
@@ -146,6 +166,22 @@ automatic (`auto`) migration mode; the configured production runtime mode is `ch
 - The committed explicit empty seed ([seed/seed.json](seed/seed.json)) intentionally defines no
   Product collections; it suppresses EmDash's built-in example Posts/Pages model.
 
+**Development testing access — native EmDash dev bypass.** For headless/CLI development testing
+(the standard path under the Multica-first workflow), use the platform's own development-only
+bootstrap `POST /_emdash/api/setup/dev-bypass?token=1`, documented in the installed `emdash`
+package ("For agent/browser testing…"; "Optionally create a PAT token (?token=1) for headless/CLI
+testing"). Verified behavior (installed `emdash@1.1.0`, recorded in
+[specs/001-platform-foundation/evidence/T015-us1-canonical-platform.md](specs/001-platform-foundation/evidence/T015-us1-canonical-platform.md) §4):
+
+- it mints a scoped personal access token for native EmDash API access (no login ceremony);
+- it is gated to development builds — production builds answer `403`;
+- it applies the same committed explicit-empty seed and does not alter the canonical
+  `tagline`/media validation state.
+
+The minted token is secret-bearing: keep it only in ignored scratch space (mode `0600`), never
+print it in full, and never commit it. This path supplements — never replaces — the native
+passkey authentication, which remains the production Admin mechanism and is never automated.
+
 Automated browser smoke for both surfaces. One-time setup after `npm ci`: the smoke drives a
 Playwright-managed Chromium that `npm ci` does not install, so download it once with the pinned
 local CLI (`@playwright/test` from [package.json](package.json)):
@@ -196,6 +232,20 @@ exist at this baseline.
 
 Restart later with `npm run dev-db:start`; the preserved volume is reused and existing data is
 never reinitialized.
+
+### Task-run automatic cleanup
+
+Every Multica task run that starts a task-owned temporary container must stop or remove it
+before the run ends:
+
+- stop the development database with `npm run dev-db:stop`;
+- remove any ad-hoc container the task itself created (`podman rm -f <name>`).
+
+Cleanup is part of task completion, never deferred to a later task or left to the next run. It
+stops or removes **containers only**: named volumes (`songhealth-dev-db-data`), persistent data,
+accepted sources, and evidence are never deleted by cleanup — the dev-db helper provides no
+delete behavior at all. A task run that cannot clean up a container it owns reports that fact in
+its result instead of leaving it silently.
 
 ## Common failures and recovery
 
