@@ -1,7 +1,7 @@
 # Content Model — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 02-content-model
-> **Status:** CLEAN REBASELINE v2.4 — native Q1 revision for Plan Independent Review
+> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-only publication
 > **Version:** 2.4
 > **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`
@@ -15,11 +15,18 @@
 > independent review and human acceptance; deferral is not implementation or PASS. No upstream
 > change, new subsystem, replacement ITA workflow or production action is authorized.
 
-> **Native Q1 decision:** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
+> **Prior native Q1 decision (save-time requiredness retained; publication hook superseded):** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
 > save-time requiredness for genuinely mandatory native references. Missing such a reference need
 > not be saveable as a draft. Other incomplete drafts follow native field validation. Optional/
 > conditional relationships are not automatic publication gates where native enforcement lacks
 > adequate data. D-ITA/D-REF remain deferred; no custom reference adapter or internal-table access.
+
+> **Current V1 simplification (Product Owner, 2026-10-14):** Songhealth uses native EmDash
+> field/type/required-reference/cardinality checks at save and native RBAC/lifecycle at
+> Publish/Schedule. No Songhealth-specific publication validation hook, editorial review,
+> approval queue or confirmation step. Incomplete optional content may publish under
+> native permissions; editorial completeness is the publisher's responsibility.
+> D-ITA/D-REF remain deferred; this decision is not runtime acceptance.
 
 ---
 
@@ -419,28 +426,25 @@ Examples:
 
 ### V1 validation and native limitation boundary
 
-Current Q1 follows the native-first decision above. A genuinely mandatory native reference
-(Health Report → Document) is required on create/save through native field/cardinality validation;
-V1 does not promise an incomplete draft missing it. Optional references stay optional. Conditional
-relationships such as Announcement/Service attachments, facilities or Organization links remain
-editor-maintained context, not automatically enforced publication requirements.
+V1 uses only EmDash native schema required/type/format/unique/reference/cardinality checks
+at create/save and native RBAC, lifecycle, revision, scheduling and built-in validation
+at Publish/Schedule. Native `title` for semantic records, a Document's `file`, and
+Health Report → Document are required on create/save; other missing fields and
+classifications are optional unless an explicitly accepted native save rule applies.
+Incomplete drafts that violate a native required rule are refused; staff are responsible
+for editorial completeness before publishing.
 
-Other missing Product values may remain in drafts where native validation permits. Applicable
-content-data publication requirements and classification selections can use supported publication/
-scheduling hooks only where the exact release exposes sufficient data: hydrated candidate data and
-native taxonomy reads. Save-time requiredness is distinguished from publication checks in Feature
-002's accepted field matrix. No reference-selection adapter, native promotion mirror, internal
-reference-table access or unsupported conditional publication gate is selected.
+No Songhealth-specific `content:beforePublish` / `content:beforeSchedule`
+validation hook or extra data/taxonomy completeness rule is proposed. No editorial
+review, approval, confirmation, reference adapter or promoted-reference mirror.
+Missing optional data is not a Songhealth publish/schedule refusal. Native errors and
+permissions remain binding.
 
-Native reference/cardinality/value validation and public-only reads remain. A selected reference or
-file is not a guarantee of target availability through concurrent or later target changes. V1 does
-not promise Q4's atomic cross-record published-availability gate, required-target unpublish/trash/
-permanent-delete/media-removal veto, or cascade prevention beyond native behavior. Those guarantees
-are deferred (D-REF). Public reads omit unavailable linked content or show a safe unavailable file
-state without exposing drafts; parent publication is not a permanent availability promise.
-
-Staff may inspect available usage information and deliberately repair references before maintenance.
-Those precautions and native role/ownership permission are not automated Q3/Q4 enforcement.
+Native references and media are not immutable. A selection does not guarantee
+availability under concurrent/later target changes. D-REF cross-record availability/
+removal veto and D-ITA historical evidence guarantees remain deferred. Public reads
+exclude draft targets and safely omit unavailable links/files. Staff may manually
+inspect reuse; this is not an automated dependency lock.
 
 ---
 

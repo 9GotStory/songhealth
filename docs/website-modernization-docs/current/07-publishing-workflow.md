@@ -1,7 +1,7 @@
 # Native Publishing Lifecycle — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 07-publishing-workflow
-> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-first V1
+> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-only publication
 > **Version:** 2.4
 > **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`, `06-roles-permissions.md`
@@ -14,11 +14,18 @@
 > publication, permissions and supported validation remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan; deferral is not implementation or PASS. No upstream
 > change, new subsystem, replacement ITA workflow or production action is authorized.
 
-> **Native Q1 decision:** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
+> **Prior native Q1 decision (save-time requiredness retained; publication hook superseded):** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
 > save-time requiredness for genuinely mandatory native references. Missing such a reference need
 > not be saveable as a draft. Other incomplete drafts follow native field validation. Optional/
 > conditional relationships are not automatic publication gates where native enforcement lacks
 > adequate data. D-ITA/D-REF remain deferred; no custom reference adapter or internal-table access.
+
+> **Current V1 simplification (Product Owner, 2026-10-14):** Songhealth uses native EmDash
+> field/type/required-reference/cardinality checks at save and native RBAC/lifecycle at
+> Publish/Schedule. No Songhealth-specific publication validation hook, editorial review,
+> approval queue or confirmation step. Incomplete optional content may publish under
+> native permissions; editorial completeness is the publisher's responsibility.
+> D-ITA/D-REF remain deferred; this decision is not runtime acceptance.
 
 ---
 
@@ -133,25 +140,22 @@ Version 1 รองรับ one-time future publishing ผ่าน native sche
 
 ---
 
-# 7. Validation
+# 7. Native Validation Only
 
-ใช้ field required/unique/validation และ relation constraints ก่อน.
+ใช้ EmDash native schema `required`, type/format, unique, reference/cardinality
+constraints at create/save and native built-in checks at Publish/Schedule.
+Native semantic title, Document file and mandatory Health Report → Document
+are save-time requirements. Other fields and classifications remain optional
+where native schema permits. Editorial completeness is the publisher's responsibility.
 
-Use supported native publication hooks only for retained action-specific validation that schema
-constraints cannot express and whose data is actually available. Mandatory native references use
-create/save requiredness; they are not a publication-only hook predicate. Other incomplete drafts
-remain possible under native validation. Content-data/classification publication predicates may
-use the supported hooks; conditional relationships without adequate enforcement remain optional
-editorial checks, not automatic publication guarantees. No custom selection adapter/promotion mirror.
-Do not infer an atomic cross-resource dependency gate from a before-hook: EmDash 1.1.0 executes
-policy reads before the mutation transaction. Q4 guaranteed target availability at commit,
-published-required-reference removal vetoes and cross-record locking are deferred from V1.
+**No Songhealth-specific `content:beforePublish` or `content:beforeSchedule`
+hooks, custom completeness predicates, article review/approval or confirmation UI.**
+Native RBAC-authorized staff publish or schedule directly. Native errors, revisions,
+concurrency, secure preview and scheduler semantics remain. Missing optional
+information does not cause a Songhealth-specific publication refusal.
 
-Native field/relation validation และ content-data/classification publication checks เป็นการตรวจความถูกต้องของข้อมูลโดยระบบ ไม่ใช่การตรวจคุณภาพบทความหรือการอนุมัติจากบุคคล. ไม่มี Songhealth-specific confirm modal หรือ editorial sign-off เพิ่มจาก Native CMS.
-
-Validation ต้อง deterministic และ human-readable.
-
-Version 1 ไม่มี AI quality gate, readiness score หรือ generic rule builder.
+D-ITA/D-REF historical preservation and cross-record target availability/removal
+guarantees remain deferred; save-time requiredness does not establish them.
 
 ---
 

@@ -1,7 +1,7 @@
 # System Blueprint — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 10-system-blueprint
-> **Status:** CLEAN REBASELINE v2.5 — native Q1 revision for Plan Independent Review
+> **Status:** CLEAN REBASELINE v2.5 — CURRENT native-only publication
 > **Version:** 2.5
 > **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md` through `09-migration-plan.md`
@@ -16,11 +16,18 @@
 > independent review and human acceptance; deferral is not implementation or PASS. No upstream
 > change, new subsystem, replacement ITA workflow or production action is authorized.
 
-> **Native Q1 decision:** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
+> **Prior native Q1 decision (save-time requiredness retained; publication hook superseded):** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
 > save-time requiredness for genuinely mandatory native references. Missing such a reference need
 > not be saveable as a draft. Other incomplete drafts follow native field validation. Optional/
 > conditional relationships are not automatic publication gates where native enforcement lacks
 > adequate data. D-ITA/D-REF remain deferred; no custom reference adapter or internal-table access.
+
+> **Current V1 simplification (Product Owner, 2026-10-14):** Songhealth uses native EmDash
+> field/type/required-reference/cardinality checks at save and native RBAC/lifecycle at
+> Publish/Schedule. No Songhealth-specific publication validation hook, editorial review,
+> approval queue or confirmation step. Incomplete optional content may publish under
+> native permissions; editorial completeness is the publisher's responsibility.
+> D-ITA/D-REF remain deferred; this decision is not runtime acceptance.
 
 ---
 
@@ -184,16 +191,16 @@ Exact assignment เป็น operational policy ของสำนักงา�
 
 ไม่มี custom Approval Workflow ใน Version 1.
 
-Contributor ที่ไม่มี publish permission เขียน Draft แล้ว Author/Editor ที่เหมาะสมตรวจและ Publish.
+Authorized publishers may Publish/Schedule immediately under EmDash native RBAC.
+Draft-only staff Save Draft according to native permissions without a review queue,
+article approval or Songhealth confirmation action.
 
-Use supported native hooks only for retained publication-specific validation that native schema
-cannot express, with focused verification and the §22 gate. Q1 now distinguishes native
-mandatory-reference create/save validation from supported content-data/classification publication
-checks. A focused native hook may read candidate content data and `ctx.taxonomies`; it must not
-read internal reference tables, reconstruct selections or mirror promotion algorithms. Conditional
-relationships without native enforcement remain editorial checks. No separate validation engine;
-Q4 cross-record availability/removal guarantees are deferred. Native policy hooks and `_rev` fence
-the current entry, not all target records or their published dependents in one transaction.
+Feature 002 uses native schema required/type/reference/cardinality validation on
+create/save, and native publish/schedule checks. **No custom publication-validation
+plugin, `content:beforePublish` or `content:beforeSchedule` hook is planned.**
+Optional fields/taxonomies are staff editorial responsibilities, not custom
+publication blockers. Native errors remain real refusals. Cross-record
+availability/removal and historical guarantees remain D-REF/D-ITA.
 
 Domain metadata เช่น announcement expiry, health-service operational status และ document successor/expiry ไม่กลายเป็น universal CMS workflow states. Structured ITA historical semantics are deferred from V1 (§15).
 
