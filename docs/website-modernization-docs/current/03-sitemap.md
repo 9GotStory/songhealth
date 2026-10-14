@@ -1,7 +1,7 @@
 # Sitemap — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 03-sitemap
-> **Status:** CLEAN REBASELINE v2.3 — V1 scope revision for Independent Review / Human Acceptance
+> **Status:** CLEAN REBASELINE v2.3 — CURRENT native-first V1
 > **Version:** 2.3
 > **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`
@@ -11,8 +11,7 @@
 > **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
 > (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
 > management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
-> publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
-> independent review and human acceptance; deferral is not implementation or PASS. No upstream
+> publication, permissions and supported validation remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan; deferral is not implementation or PASS. No upstream
 > change, new subsystem, replacement ITA workflow or production action is authorized.
 
 ---

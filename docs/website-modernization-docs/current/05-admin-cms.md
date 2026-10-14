@@ -1,7 +1,7 @@
 # Admin CMS — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 05-admin-cms
-> **Status:** CLEAN REBASELINE v2.4 — native Q1 revision for Plan Independent Review
+> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-first V1
 > **Version:** 2.4
 > **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`
@@ -11,8 +11,7 @@
 > **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
 > (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
 > management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
-> publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
-> independent review and human acceptance; deferral is not implementation or PASS. No upstream
+> publication, permissions and supported validation remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan; deferral is not implementation or PASS. No upstream
 > change, new subsystem, replacement ITA workflow or production action is authorized.
 
 > **Native Q1 decision:** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
@@ -164,7 +163,7 @@ Publishing UI ใช้ native draft/publish/schedule/revision/preview behavior 
 
 Version 1 ไม่มี custom approval engine, Pending Review queue หรือ Approved state ของ Songhealth.
 
-หากผู้เขียนไม่มีสิทธิ์ Publish ให้บันทึก Draft และผู้ที่มี publish authority เป็นผู้ตรวจแล้ว Publish ผ่าน workflow มาตรฐานของ CMS.
+ผู้มี Native RBAC publish authority สามารถ Publish/Schedule บทความได้โดยตรง ไม่ต้องส่งตรวจ ขออนุมัติ หรือกดยืนยันผ่านขั้นตอนเพิ่มเติมของ Songhealth. ผู้ไม่มีสิทธิ์ Publish บันทึก Draft ได้ตาม native permissions; ไม่มีการส่งคำขออนุมัติหรือคิวผู้ตรวจ.
 
 ---
 

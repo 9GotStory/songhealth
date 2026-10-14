@@ -1,7 +1,7 @@
 # Website Foundation — สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 00-website-foundation
-> **Status:** CLEAN REBASELINE v2.3 — V1 scope revision for Independent Review / Human Acceptance
+> **Status:** CLEAN REBASELINE v2.3 — CURRENT native-first V1
 > **Version:** 2.3
 > **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Purpose:** เอกสารหลักสำหรับบันทึกหลักการ ขอบเขต และ Architecture Decisions ระดับ Foundation ที่เอกสาร Information Architecture, Content Model, Sitemap, CMS และ System Blueprint ต้องยึดร่วมกัน
@@ -12,8 +12,7 @@
 > **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
 > (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
 > management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
-> publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
-> independent review and human acceptance; deferral is not implementation or PASS. No upstream
+> publication, permissions and supported validation remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan; deferral is not implementation or PASS. No upstream
 > change, new subsystem, replacement ITA workflow or production action is authorized.
 
 ---
@@ -341,7 +340,7 @@ Draft → Publish / Schedule → Published
 
 Published content อาจมี pending draft changes โดย public version เดิมยังคงอยู่จน Publish changes.
 
-Version 1 **ไม่มี formal Approval Workflow, Pending Review หรือ Approved state ของ Songhealth**. หากผู้เขียนไม่มีสิทธิ์ Publish ให้บันทึก Draft แล้วผู้มี publish authority ตรวจและ Publish.
+Version 1 **ไม่มี formal Approval Workflow, Pending Review หรือ Approved state ของ Songhealth**. ผู้มี Native RBAC publish authority สามารถเผยแพร่หรือกำหนดเวลาได้โดยตรง ไม่ต้องส่งบทความให้ตรวจสอบ ขออนุมัติ หรือยืนยันผ่านขั้นตอนของ Songhealth; ผู้ไม่มีสิทธิ์ Publish สามารถบันทึก Draft ได้ตามสิทธิ์ โดยไม่มีระบบส่งคำขออนุมัติ.
 
 เพิ่ม approval workflow เฉพาะเมื่อมี workflow/ข้อกำกับจริงที่ native permission boundary รองรับไม่ได้.
 

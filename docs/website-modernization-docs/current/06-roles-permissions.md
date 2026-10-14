@@ -1,7 +1,7 @@
 # Roles & Permissions — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 06-roles-permissions
-> **Status:** CLEAN REBASELINE v2.3 — V1 scope revision for Independent Review / Human Acceptance
+> **Status:** CLEAN REBASELINE v2.3 — CURRENT native-first V1
 > **Version:** 2.3
 > **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`
@@ -38,7 +38,7 @@ Songhealth ต้อง enforce least privilege ที่ trusted server/system 
 
 > **สิทธิ์เขียน Draft ไม่จำเป็นต้องเท่ากับสิทธิ์ Publish.**
 
-ผู้ใช้งานที่มีหน้าที่เขียนแต่ไม่ควรเผยแพร่เองต้องสามารถสร้าง/แก้ Draft แล้วให้ผู้ที่มี publish authority ตรวจและ Publish ได้.
+ผู้ที่มี native publish authority เผยแพร่หรือกำหนดเวลาบทความได้โดยตรงโดยไม่ต้องผ่านการตรวจบทความ การยืนยัน หรือการอนุมัติเพิ่มเติม. ผู้ที่ไม่มีสิทธิ์ Publish สร้าง/แก้ Draft ได้ตาม native permissions แต่ไม่มี workflow ส่งตรวจหรือขออนุมัติ.
 
 นี่เป็น permission boundary ไม่ใช่เหตุผลให้สร้าง Approval Workflow หรือ Pending Review state แยก.
 
@@ -104,7 +104,7 @@ uses its separate media/ownership permissions; it is not a trash-first content p
 administrator-only guarantee for every raw asset. Authorization of an actor does not establish
 published-required-reference or historical-retention enforcement. Those unavailable Q3/Q4
 guarantees are deferred from V1 under `02` §18/20 and `07` §10, not implemented or passed.
-This bounded wording reconciliation awaits Independent Review/Human Acceptance; no custom RBAC.
+This is the current V1 boundary; no custom RBAC or editorial approval flow.
 
 ---
 

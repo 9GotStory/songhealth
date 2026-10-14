@@ -1,7 +1,7 @@
-# Publishing Workflow — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
+# Native Publishing Lifecycle — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 07-publishing-workflow
-> **Status:** CLEAN REBASELINE v2.4 — native Q1 revision for Plan Independent Review
+> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-first V1
 > **Version:** 2.4
 > **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`, `06-roles-permissions.md`
@@ -11,8 +11,7 @@
 > **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
 > (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
 > management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
-> publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
-> independent review and human acceptance; deferral is not implementation or PASS. No upstream
+> publication, permissions and supported validation remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan; deferral is not implementation or PASS. No upstream
 > change, new subsystem, replacement ITA workflow or production action is authorized.
 
 > **Native Q1 decision:** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
@@ -54,19 +53,16 @@ Published
 
 ---
 
-# 3. No Formal Approval Workflow in Version 1
+# 3. Direct Native Publishing — No Article Approval
 
-Version 1 ไม่มี Approval Workflow engine.
-
-กรณีผู้เขียนไม่ควร Publish เอง ให้ใช้ access-control boundary:
+Version 1 ไม่มี Approval Workflow engine, reviewer/approver หรือการส่งบทความเพื่อรอตรวจ/ยืนยัน. ผู้มีสิทธิ์ Publish/Schedule ตาม Native RBAC ใช้ปุ่มมาตรฐานของ EmDash ได้โดยตรง ไม่มี Songhealth-specific confirmation step.
 
 ```text
-Draft-only author
-      ↓
-ผู้มี publish authority ตรวจ
-      ↓
-Publish
+Authorized publisher → Native Publish / Schedule
+Draft-only author    → Native Save Draft
 ```
+
+ผู้มีสิทธิ์ Publish สามารถเผยแพร่ Draft ที่เข้าถึงได้ตาม Native RBAC โดยไม่ต้องรอการตรวจสอบจากผู้ใช้คนอื่น. สิทธิ์การเขียน Draft และสิทธิ์เผยแพร่ยังเป็นคนละ permission ตาม native CMS.
 
 ไม่ต้องมี:
 
@@ -151,6 +147,8 @@ Do not infer an atomic cross-resource dependency gate from a before-hook: EmDash
 policy reads before the mutation transaction. Q4 guaranteed target availability at commit,
 published-required-reference removal vetoes and cross-record locking are deferred from V1.
 
+Native field/relation validation และ content-data/classification publication checks เป็นการตรวจความถูกต้องของข้อมูลโดยระบบ ไม่ใช่การตรวจคุณภาพบทความหรือการอนุมัติจากบุคคล. ไม่มี Songhealth-specific confirm modal หรือ editorial sign-off เพิ่มจาก Native CMS.
+
 Validation ต้อง deterministic และ human-readable.
 
 Version 1 ไม่มี AI quality gate, readiness score หรือ generic rule builder.
@@ -181,8 +179,8 @@ Public route ต้องไม่เปิด Draft ผ่าน query paramete
 These are native entry-level protections, not cross-record atomicity. Pending-draft guarantees
 cover data the platform actually stages in the content revision; shared media bytes, linked records
 and separately maintained taxonomy/SEO/byline metadata are not assumed to be frozen together.
-Remaining Plan research must identify those native boundaries and their V1 validation implications;
-no blanket pending-change or cross-resource PASS is inferred.
+The reviewed Feature 002 Plan documents these native boundaries; focused implementation verification remains future work.
+No blanket pending-change or cross-resource PASS is inferred.
 
 Songhealth ไม่สร้าง revision tables, locking service หรือ conflict protocol แยก.
 
