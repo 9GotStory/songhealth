@@ -12,66 +12,66 @@
 
 ## Requirement Completeness
 
-- [ ] CHK001 Are all retained semantic resources and their attributes accounted for, with Organization explicitly conditional on demonstrated reuse and presentation-only kinds excluded? [Completeness, Spec §FR-001/003/010/031, Spec §Key Entities]
-- [ ] CHK002 Are semantic Document, raw Media, and Health Report responsibilities distinguished, including shared identity/file reuse without duplicate uploads or an implied immutable source? [Completeness, Spec §FR-004–007, Spec §US2.1–8]
-- [ ] CHK003 Are classification, Area hierarchy, official codes, physical location, and service coverage requirements defined without conflating these meanings? [Completeness, Spec §FR-012/013/018, Spec §US4.2–4]
-- [ ] CHK004 Does the relationship mapping document each source, target, cardinality, reuse purpose, and requiredness, and answer all four owning mapping-gate questions? [Completeness, Spec §FR-031, Data Model §Native Relationship Accounting/§23 Mapping Accounting, Content Model §23]
-- [ ] CHK005 Are native system metadata, domain dates, and contact ownership distinguished so that duplicate metadata or generic Contact requirements are not inferred? [Completeness, Spec §FR-019/030, Spec §Key Entities]
+- [x] CHK001 Are all retained semantic resources and their attributes accounted for, with Organization explicitly conditional on demonstrated reuse and presentation-only kinds excluded? [Completeness, Spec §FR-001/003/010/031, Spec §Key Entities]
+- [x] CHK002 Are semantic Document, raw Media, and Health Report responsibilities distinguished, including shared identity/file reuse without duplicate uploads or an implied immutable source? [Completeness, Spec §FR-004–007, Spec §US2.1–8]
+- [x] CHK003 Are classification, Area hierarchy, official codes, physical location, and service coverage requirements defined without conflating these meanings? [Completeness, Spec §FR-012/013/018, Spec §US4.2–4]
+- [x] CHK004 Does the relationship mapping document each source, target, cardinality, reuse purpose, and requiredness, and answer all four owning mapping-gate questions? [Completeness, Spec §FR-031, Data Model §Native Relationship Accounting/§23 Mapping Accounting, Content Model §23]
+- [x] CHK005 Are native system metadata, domain dates, and contact ownership distinguished so that duplicate metadata or generic Contact requirements are not inferred? [Completeness, Spec §FR-019/030, Spec §Key Entities]
 
 ## Requirement Clarity
 
-- [ ] CHK006 Is Health Report's mandatory Document selection explicitly a native create/save requirement, with no acceptance promise for a draft missing that selection? [Clarity, Spec §FR-002/026, Spec §US2.6, Spec §Q1 Native Validation Matrix]
-- [ ] CHK007 Are permitted incomplete drafts distinguished from invalid supplied values, native identity constraints, authorization, and public-data restrictions? [Clarity, Spec §FR-002/028, Spec §US1.6]
-- [ ] CHK008 Does the Q1 matrix distinguish manual publication, schedule acceptance, and due-time validation from save-time requiredness, including the absence of an added reference predicate at schedule acceptance? [Clarity, Spec §FR-002/026, Spec §Q1 Native Validation Matrix]
-- [ ] CHK009 Are optional and editorially conditional relationships clearly separated from automatically enforced publication requirements, including applicable Announcement Documents and Service/facility links? [Clarity, Spec §FR-002/026, Spec §Q1 Native Validation Matrix]
-- [ ] CHK010 Are publication field meanings such as nonempty body/gallery, supplied conditional values, and valid zero/false values sufficiently precise for objective acceptance? [Clarity, Spec §FR-002/026, Spec §Q1 Native Validation Matrix, Data Model §Common Native Contract]
-- [ ] CHK011 Is the live/pending content-data guarantee explicitly bounded, with separately maintained classification/SEO/byline metadata, related records, and shared media excluded from atomic staging? [Clarity, Spec §FR-022/024, Spec §US6.2, Editorial Contract §Outcomes and Revision Limits]
+- [x] CHK006 Is Health Report's mandatory Document selection explicitly a native create/save requirement, with no acceptance promise for a draft missing that selection? [Clarity, Spec §FR-002/026, Spec §US2.6, Spec §Q1 Native Validation Matrix]
+- [x] CHK007 Are permitted incomplete drafts distinguished from invalid supplied values, native identity constraints, authorization, and public-data restrictions? [Clarity, Spec §FR-002/028, Spec §US1.6]
+- [x] CHK008 Does the Q1 matrix distinguish manual publication, schedule acceptance, and due-time validation from save-time requiredness, including the absence of an added reference predicate at schedule acceptance? [Clarity, Spec §FR-002/026, Spec §Q1 Native Validation Matrix]
+- [x] CHK009 Are optional and editorially conditional relationships clearly separated from automatically enforced publication requirements, including applicable Announcement Documents and Service/facility links? [Clarity, Spec §FR-002/026, Spec §Q1 Native Validation Matrix]
+- [x] CHK010 Are publication field meanings such as nonempty body/gallery, supplied conditional values, and valid zero/false values sufficiently precise for objective acceptance? [Clarity, Spec §FR-002/026, Spec §Q1 Native Validation Matrix, Data Model §Common Native Contract]
+- [x] CHK011 Is the live/pending content-data guarantee explicitly bounded, with separately maintained classification/SEO/byline metadata, related records, and shared media excluded from atomic staging? [Clarity, Spec §FR-022/024, Spec §US6.2, Editorial Contract §Outcomes and Revision Limits]
 
 ## Requirement Consistency
 
-- [ ] CHK012 Are revised Q1 rules consistent across owning Product documents, the specification's stories/matrix, and the accepted Plan contracts, with historical answers clearly marked as superseded where applicable? [Consistency, Spec §Clarifications/Decision Traceability, Spec §FR-002/026, Content Model §20, Publishing Workflow §7]
-- [ ] CHK013 Are current Personnel assignment, same-identity updates, and separation from editing accounts consistent across stories, requirements, and outcomes, without assignment-history obligations? [Consistency, Spec §FR-008/009, Spec §US3.4–5, Spec §SC-001]
-- [ ] CHK014 Are domain expiry, review dates, operational closure, and active/current status consistently separated from editorial publication and automatic unpublishing? [Consistency, Spec §FR-022/023/030, Spec §US1.4–5/US4.5]
-- [ ] CHK015 Do permission requirements consistently distinguish draft-only, own/others' publishing, administrator-only trash-first permanent content deletion, and separate native media-removal authority? [Consistency, Spec §FR-021/025/027, Spec §US6.7–8, Editorial Contract §Staff Surface and Authorization]
+- [x] CHK012 Are revised Q1 rules consistent across owning Product documents, the specification's stories/matrix, and the accepted Plan contracts, with historical answers clearly marked as superseded where applicable? [Consistency, Spec §Clarifications/Decision Traceability, Spec §FR-002/026, Content Model §20, Publishing Workflow §7]
+- [x] CHK013 Are current Personnel assignment, same-identity updates, and separation from editing accounts consistent across stories, requirements, and outcomes, without assignment-history obligations? [Consistency, Spec §FR-008/009, Spec §US3.4–5, Spec §SC-001]
+- [x] CHK014 Are domain expiry, review dates, operational closure, and active/current status consistently separated from editorial publication and automatic unpublishing? [Consistency, Spec §FR-022/023/030, Spec §US1.4–5/US4.5]
+- [x] CHK015 Do permission requirements consistently distinguish draft-only, own/others' publishing, administrator-only trash-first permanent content deletion, and separate native media-removal authority? [Consistency, Spec §FR-021/025/027, Spec §US6.7–8, Editorial Contract §Staff Surface and Authorization]
 
 ## Acceptance Criteria Quality
 
-- [ ] CHK016 Are active outcome denominators explicit for unconditional resources and confirmed conditional cases, excluding US5, FR-014–017, SC-004, and deferred portions of Q4? [Measurability, Spec §Measurable Outcomes, Spec §Deferred Requirements]
-- [ ] CHK017 Are retained save/publication, safe-read, concurrency, and readable-failure outcomes objectively distinguishable without counting native selection validity as availability or removal protection? [Acceptance Criteria, Spec §SC-005/006, Spec §FR-026]
-- [ ] CHK018 Are staff maintenance and Thai-label comprehension criteria tied to agreed representative journeys and a defined reviewer, rather than an unqualified claim that the editor is usable? [Measurability, Spec §US7, Spec §SC-007]
+- [x] CHK016 Are active outcome denominators explicit for unconditional resources and confirmed conditional cases, excluding US5, FR-014–017, SC-004, and deferred portions of Q4? [Measurability, Spec §Measurable Outcomes, Spec §Deferred Requirements]
+- [x] CHK017 Are retained save/publication, safe-read, concurrency, and readable-failure outcomes objectively distinguishable without counting native selection validity as availability or removal protection? [Acceptance Criteria, Spec §SC-005/006, Spec §FR-026]
+- [x] CHK018 Are staff maintenance and Thai-label comprehension criteria tied to agreed representative journeys and a defined reviewer, rather than an unqualified claim that the editor is usable? [Measurability, Spec §US7, Spec §SC-007]
 
 ## Scenario Coverage
 
-- [ ] CHK019 Do stories and criteria cover the primary retained authoring/reuse and draft-to-publication journeys, plus authorized preview and draft-only permission refusal? [Coverage, Spec §US1/US2/US6.1, Spec §FR-020/021]
-- [ ] CHK020 Are one-time scheduling requirements complete for timezone, no early publication, due-time refusal, existing live-content preservation, and available overdue/failure evidence? [Coverage, Spec §FR-023/026, Spec §US6.3, Editorial Contract §Outcomes and Revision Limits]
-- [ ] CHK021 Are alternate/recovery requirements defined for stale or conflicting edits, supported revision review/restore and draft recovery, and uncertain outcomes requiring a state re-read before retry? [Coverage, Spec §FR-024/026, Spec §US6.5–6]
-- [ ] CHK022 Are authorized unpublish/trash/restore/permanent-delete scenarios distinguished from permission refusals, with their public-read consequences specified independently of deferred dependency vetoes? [Coverage, Spec §FR-020/025/027, Spec §US6.4/8]
+- [x] CHK019 Do stories and criteria cover the primary retained authoring/reuse and draft-to-publication journeys, plus authorized preview and draft-only permission refusal? [Coverage, Spec §US1/US2/US6.1, Spec §FR-020/021]
+- [x] CHK020 Are one-time scheduling requirements complete for timezone, no early publication, due-time refusal, existing live-content preservation, and available overdue/failure evidence? [Coverage, Spec §FR-023/026, Spec §US6.3, Editorial Contract §Outcomes and Revision Limits]
+- [x] CHK021 Are alternate/recovery requirements defined for stale or conflicting edits, supported revision review/restore and draft recovery, and uncertain outcomes requiring a state re-read before retry? [Coverage, Spec §FR-024/026, Spec §US6.5–6]
+- [x] CHK022 Are authorized unpublish/trash/restore/permanent-delete scenarios distinguished from permission refusals, with their public-read consequences specified independently of deferred dependency vetoes? [Coverage, Spec §FR-020/025/027, Spec §US6.4/8]
 
 ## Edge Case Coverage
 
-- [ ] CHK023 Are requirements explicit for a published parent whose target is draft, unpublished, trashed, or unavailable, including omission without draft fallback and a safe missing-file state? [Edge Case, Spec §FR-020/026, Spec §US2.7, Public Read Contract §Shared Source and Missing Targets]
-- [ ] CHK024 Are shared-media replacement and concurrent/later target changes explicitly outside historical preservation and atomic availability guarantees, while retained public-read safety remains required? [Edge Case, Spec §US2.8, Spec §Deferred Requirements — D-REF, Public Read Contract §Shared Source and Missing Targets]
-- [ ] CHK025 Are missing selections, wrong target types, excessive cardinality, and invalid supplied values distinguished from optional empty selections in the written validation requirements? [Edge Case, Spec §FR-002/026, Editorial Contract §Native Request Shapes/Validation Contract]
-- [ ] CHK026 Are public-read error, not-found, and partial-reference outcomes specified without equating a failed read with a successful empty listing or granting privileged draft fallback? [Edge Case, Spec §FR-020/026, Public Read Contract §Native Reads/Shared Source and Missing Targets]
+- [x] CHK023 Are requirements explicit for a published parent whose target is draft, unpublished, trashed, or unavailable, including omission without draft fallback and a safe missing-file state? [Edge Case, Spec §FR-020/026, Spec §US2.7, Public Read Contract §Shared Source and Missing Targets]
+- [x] CHK024 Are shared-media replacement and concurrent/later target changes explicitly outside historical preservation and atomic availability guarantees, while retained public-read safety remains required? [Edge Case, Spec §US2.8, Spec §Deferred Requirements — D-REF, Public Read Contract §Shared Source and Missing Targets]
+- [x] CHK025 Are missing selections, wrong target types, excessive cardinality, and invalid supplied values distinguished from optional empty selections in the written validation requirements? [Edge Case, Spec §FR-002/026, Editorial Contract §Native Request Shapes/Validation Contract]
+- [x] CHK026 Are public-read error, not-found, and partial-reference outcomes specified without equating a failed read with a successful empty listing or granting privileged draft fallback? [Edge Case, Spec §FR-020/026, Public Read Contract §Native Reads/Shared Source and Missing Targets]
 
 ## Non-Functional Requirements
 
-- [ ] CHK027 Are trusted authorization, least privilege, and authorized preview requirements explicit, independent of hidden UI controls or Personnel job titles, without introducing custom RBAC? [Security, Spec §FR-009/020/021/027, Roles & Permissions §§1–6]
-- [ ] CHK028 Are public-publishable-only boundaries explicit for content, Personnel contact, fixtures, and media, with confidential clinical/HR/private data excluded? [Security, Spec §FR-028, Spec §Assumptions, Constitution §IV]
-- [ ] CHK029 Are understandable Thai labels, readable validation results, and acceptable correct English platform fallback clearly specified without implying a replacement Admin? [Usability, Spec §FR-026/029, Spec §US7.1–2]
+- [x] CHK027 Are trusted authorization, least privilege, and authorized preview requirements explicit, independent of hidden UI controls or Personnel job titles, without introducing custom RBAC? [Security, Spec §FR-009/020/021/027, Roles & Permissions §§1–6]
+- [x] CHK028 Are public-publishable-only boundaries explicit for content, Personnel contact, fixtures, and media, with confidential clinical/HR/private data excluded? [Security, Spec §FR-028, Spec §Assumptions, Constitution §IV]
+- [x] CHK029 Are understandable Thai labels, readable validation results, and acceptable correct English platform fallback clearly specified without implying a replacement Admin? [Usability, Spec §FR-026/029, Spec §US7.1–2]
 
 ## Dependencies & Assumptions
 
-- [ ] CHK030 Are the unchanged native foundation and minimal-extension boundary documented, with no deferred-invariant workaround, custom reference adapter, or additional CMS/Media subsystem implied? [Dependency, Spec §FR-032/Scope Boundaries, Plan §Technical Context/Complexity Tracking, Constitution §§II–III]
-- [ ] CHK031 Do the requirements preserve Feature 001 T022/T028 as PENDING and the original readiness dependencies, without interpreting Plan acceptance as runtime acceptance or implementation authorization? [Dependency, Spec §Dependencies and Authority, Plan §Verification Design and Implementation Dependencies]
-- [ ] CHK032 Are real inventories, classification/Area sources, conditional Organization reuse, role assignments, timezone, and continued validation configuration documented as remaining inputs or assumptions with clear acceptance responsibility? [Assumption, Spec §Assumptions/Dependencies and Authority, Plan §Verification Design and Implementation Dependencies]
+- [x] CHK030 Are the unchanged native foundation and minimal-extension boundary documented, with no deferred-invariant workaround, custom reference adapter, or additional CMS/Media subsystem implied? [Dependency, Spec §FR-032/Scope Boundaries, Plan §Technical Context/Complexity Tracking, Constitution §§II–III]
+- [x] CHK031 Do the requirements preserve Feature 001 T022/T028 as PENDING and the original readiness dependencies, without interpreting Plan acceptance as runtime acceptance or implementation authorization? [Dependency, Spec §Dependencies and Authority, Plan §Verification Design and Implementation Dependencies]
+- [x] CHK032 Are real inventories, classification/Area sources, conditional Organization reuse, role assignments, timezone, and continued validation configuration documented as remaining inputs or assumptions with clear acceptance responsibility? [Assumption, Spec §Assumptions/Dependencies and Authority, Plan §Verification Design and Implementation Dependencies]
 
 ## Ambiguities & Conflicts
 
-- [ ] CHK033 Is D-ITA traceable through US5, FR-014–017, SC-004, and four deferred matrix rows, with no V1 structured ITA journey or ordinary-page/Document substitute and no changed legacy ITA disposition? [Consistency, Spec §Deferred Requirements — D-ITA, Spec §Scope Boundaries, Public Read Contract §Verification Boundary]
-- [ ] CHK034 Is D-REF traceable through original Q4 and the deferred portions of FR-025/026 and SC-005/006, with permissions, usage reporting, and staff precautions explicitly insufficient to satisfy its guarantees? [Consistency, Spec §Deferred Requirements — D-REF, Spec §Product Owner V1 Scope Decisions]
-- [ ] CHK035 Are historical Q1–Q4 decisions distinguished from current applicability so that preserved provenance cannot be read as four active V1 guarantees? [Clarity, Spec §Clarifications/Decision Traceability]
-- [ ] CHK036 Are requirement-quality approval, accepted planning design, and future implementation/UAT outcomes clearly distinguished, with any remaining uncertainty identified rather than declared PASS? [Ambiguity, Spec §Measurable Outcomes/Dependencies and Authority, Plan §Constitution Check, Public Read Contract §Verification Boundary]
+- [x] CHK033 Is D-ITA traceable through US5, FR-014–017, SC-004, and four deferred matrix rows, with no V1 structured ITA journey or ordinary-page/Document substitute and no changed legacy ITA disposition? [Consistency, Spec §Deferred Requirements — D-ITA, Spec §Scope Boundaries, Public Read Contract §Verification Boundary]
+- [x] CHK034 Is D-REF traceable through original Q4 and the deferred portions of FR-025/026 and SC-005/006, with permissions, usage reporting, and staff precautions explicitly insufficient to satisfy its guarantees? [Consistency, Spec §Deferred Requirements — D-REF, Spec §Product Owner V1 Scope Decisions]
+- [x] CHK035 Are historical Q1–Q4 decisions distinguished from current applicability so that preserved provenance cannot be read as four active V1 guarantees? [Clarity, Spec §Clarifications/Decision Traceability]
+- [x] CHK036 Are requirement-quality approval, accepted planning design, and future implementation/UAT outcomes clearly distinguished, with any remaining uncertainty identified rather than declared PASS? [Ambiguity, Spec §Measurable Outcomes/Dependencies and Authority, Plan §Constitution Check, Public Read Contract §Verification Boundary]
 
 ## Notes
 
