@@ -15,8 +15,11 @@
 // renderings — never the raw cause object — and combine with restore
 // failures under known-secret scrubbing; trash-listing traversal validates
 // the native success/list/pagination shape and treats malformed pages and
-// stalled or cyclic cursors as unknown, never as proven absence. No
-// behavior beyond the authorized T002 scope.
+// stalled or cyclic cursors as unknown, never as proven absence; the
+// one-time Product Owner-authorized corrective round 4 narrowed terminal
+// validity to the native contract: only an actually absent (or explicitly
+// empty) terminal cursor proves exhaustion, and any other supplied cursor
+// value type is unknown. No behavior beyond the authorized T002 scope.
 //
 // Authority:
 // - specs/002-cms-content-model/tasks.md T002 ("Add bounded native
@@ -1504,11 +1507,14 @@ export async function permanentlyDeleteEntry(
  * content:read_drafts, cursor-paginated). Returns:
  * - "in-trash" — the id appears in the native trash listing;
  * - "not-in-trash" — the listing was FULLY traversed (well-formed pages,
- *   terminated by an absent/empty nextCursor) without the id;
+ *   terminated by a native-contract terminal cursor: the key actually
+ *   absent, or an explicitly empty terminal cursor) without the id;
  * - "unknown" — traversal could not be trusted: request refusal/transport
- *   failure, a malformed success page (missing/non-array items), stalled or
- *   cyclic pagination (a nextCursor that repeats one already followed), or
- *   the bounded page budget ran out (corrective round 3, finding 2:
+ *   failure, a malformed success page (missing/non-array items), a
+ *   nextCursor of an invalid type (number/object/boolean/array/null — the
+ *   pinned native contract emits only absent-or-non-empty-string cursors),
+ *   stalled or cyclic pagination (a nextCursor that repeats one already
+ *   followed), or the bounded page budget ran out (corrective rounds 3–4:
  *   incomplete traversal must never be read as proven absence).
  *
  * This exists because the ORDINARY content GET hides soft-deleted entries
@@ -1556,10 +1562,22 @@ export async function findTrashedEntry(
 		if (items.some((item) => recordOf(item).id === id)) {
 			return "in-trash";
 		}
-		const nextCursor = data.nextCursor;
-		if (typeof nextCursor !== "string" || nextCursor.length === 0) {
+		// Terminal-cursor contract (pinned 1.1.0, ContentRepository.findTrashed
+		// via handleContentListTrashed): nextCursor is assigned ONLY while more
+		// pages remain — encodeCursor never yields an empty value — so the
+		// native terminal page simply OMITS the key. Only an actually absent
+		// cursor (or an explicitly empty terminal cursor, accepted
+		// defensively) proves the listing exhausted. Any other supplied value
+		// — number, object, boolean, array, null — is not a native-contract
+		// cursor and proves nothing about traversal (corrective round 4:
+		// malformed pagination must never become proven absence).
+		const nextCursor: unknown = data.nextCursor;
+		if (nextCursor === undefined || nextCursor === "") {
 			// Well-formed final page — the listing is exhausted.
 			return "not-in-trash";
+		}
+		if (typeof nextCursor !== "string") {
+			return "unknown";
 		}
 		// A nextCursor that repeats one already followed means pagination
 		// stalled or cycled; the listing was NOT proven fully traversed.
