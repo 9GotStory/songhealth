@@ -32,37 +32,32 @@ Exact sources: `src/api/handlers/validate-references.ts:115/144`; create handler
 `src/api/handlers/content.ts:2327`. Schedule accepts its actual native constraints; no identical
 reference check at every action point is claimed. Target status/bytes can later change independently.
 
-## 2. Remaining Publication Validation
+## 2. Native-only Publication — Latest Product Decision
 
-**Decision:** One small configuration-declared native plugin, with `content:beforePublish` and
-`content:beforeSchedule`, evaluates the finite field/classification predicates in the accepted
-matrix. It reads `event.content.data` and `ctx.taxonomies.getEntryTerms` only. Capabilities:
-`hooks.content-policy:register`, `taxonomies:read`. No storage, routes, content writes, media queries,
-network calls, `getDb`, internal reference tables, reference snapshots or relation-promotion logic.
+**Decision (2026-10-14):** The Product Owner no longer requires a
+Songhealth publication-time content/classification completeness policy.
+Native EmDash schema required/type/format/reference/cardinality rules apply
+at create/save. Semantic title, Document file and Health Report → Document
+are required at save; other fields/taxonomies remain optional where native
+schema permits. Native RBAC, scheduling, lifecycle and built-in constraints
+govern Publish/Schedule. No `content:beforePublish`, `content:beforeSchedule`,
+plugin registration, hook capabilities, reference adapter, alternate engine or
+manual article approval/confirmation is needed.
 
-**Rationale:** Scalar/media/repeater content data is hydrated from the pending revision before
-policy. Manual publish uses `beforePublish`, schedule acceptance uses `beforeSchedule`, and due-time
-execution uses the same publish policy with scheduler origin. Explicit cancellation returns the
-native rejected-action code/reason; native `_rev` fences the current entry. Current taxonomy reads
-are sufficient for classification presence, without asserting staged/frozen metadata or cross-record
-atomicity. Native field required flags are not substituted for publication-only data checks.
+**Rationale:** The previous proposed native plugin was an extension solely
+to enforce publication-only field/taxonomy predicates. Removing that Product
+requirement eliminates the gap and the extension. This is an explicit
+simplification with a tradeoff: records with missing optional content can be
+published by authorized staff. Native validation still rejects invalid
+supplied values and required fields/references at save, as supported.
+Future additional enforcement would require a new Product decision rather
+than accidental task generation.
 
-**Alternatives considered:** rebuilding validation/editor/scheduler engines, hidden-button validation,
-save-time mandatory flags for every Product field, and reference reconstruction. A finite native
-hook is the smallest supported extension for the still-accepted data/classification action rules;
-it is proposed design within current blueprint §§7/22, not delivered application code.
-
-Exact sources: `src/emdash-runtime.ts:4296/4432/4543/890/3257`;
-`src/plugins/types.ts:663/1476/1783`; `src/plugins/hooks.ts:346/758`;
-`src/astro/integration/runtime.ts:252`; `src/astro/integration/virtual-modules.ts:252`.
-Native file/package descriptors are bundled for Node; no Cloudflare sandbox or new npm dependency
-is required. Use `createPlugin`/`definePlugin` and a build-resolvable source-module descriptor,
-not an inline resolved hook object in Astro's plugin array.
-
-Registration is part of the application configuration. Native administrators can change plugins/
-schema; a disabled/missing validation plugin does not enforce these predicates. Acceptance must
-verify active registration, both hooks, abort behavior, API enforcement and scheduled execution;
-do not claim a platform-wide rule immune to administrative configuration changes.
+**Alternatives:** Previously researched finite publish/schedule hooks,
+reconstructed relation selection, internal-table adapters and mirrored
+promotion logic are **not selected**. Their source evidence below remains
+historical, not an active implementation dependency. D-ITA/D-REF are still
+deferred; native selection does not confer historical retention/availability.
 
 ## 3. Fields and Native Revisions
 
@@ -173,8 +168,8 @@ Before/after Plan hooks parse as enabled optional `speckit.git.commit`, null con
 auto-commit disabled. Optional hooks are skipped; no mandatory Plan hook applies. An explicit delivery
 commit records completed planning documentation, not implementation acceptance.
 
-Future verification: the native-required-reference create/update/publish fixtures; supported scalar/
-classification policy at manual/schedule/due-time actions; active plugin/configuration and failures;
+Future verification: native required-title/file/reference create/update cases and built-in
+publish/schedule permission/lifecycle outcomes; no custom policy registration or hooks;
 metadata revision boundaries; permissions/preview; reciprocal selectors and Area code maintenance;
 Thai editor UAT. See [quickstart.md](quickstart.md). These are planned tests, not PASS results.
 The shell has Node 24.11.0, not the pinned 24.21.0; no integration test was claimed or dependency
