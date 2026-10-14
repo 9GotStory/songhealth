@@ -126,9 +126,22 @@ D-ITA/D-REF historical and cross-record guarantees are deferred.
 
 When the actual implementation/tests exist and are authorized:
 
+Analyze finding **I1** is an existing T021/T033/T034 execution/documentation correction, not a
+new task or gate. Against ordinary `npm run dev`, select the relevant ordinary test files explicitly
+(example below); exclude `cms-public-reads.spec.ts`. T033 runs all applicable ordinary checks and
+then the dedicated public-read runner. Stop only the run-owned ordinary server before that runner;
+an occupied origin is a precondition failure, not permission to terminate another process. T021
+owns the temporary route and awaited failure/signal cleanup; T034 records final verified invocations.
+
 ```bash
 npm run build
-PLAYWRIGHT_BASE_URL="$EMDASH_SITE_URL" npm run test:browser
+PLAYWRIGHT_BASE_URL="$EMDASH_SITE_URL" npm run test:browser -- tests/browser/cms-lifecycle.spec.ts
+```
+
+After stopping the owned ordinary server, run the public-read check separately:
+
+```bash
+node tests/browser/run-cms-public-reads.mjs
 ```
 
 Record exact commit, versions, native schema state and observed results

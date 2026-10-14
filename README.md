@@ -22,10 +22,13 @@ Do not reconstruct removed architecture from Git history or old branch names (se
 
 ## Development workflow (Multica-first)
 
-Per the Product Owner decision of 2026-10-13 (Multica issue 9GOTSTORY-202; recorded as the
-repository contract in `AGENTS.md`):
+Per the Product Owner development decision of 2026-10-13 (Multica issue 9GOTSTORY-202) and
+accepted governance reconciliation of 2026-10-14 (recorded in `AGENTS.md` and the Constitution):
 
-- Development, testing, review, and pull-request preparation happen in Multica task runs. The
+- Multica agents execute bounded authorized tasks; ChatGPT performs Independent Review of their
+  artifacts/evidence, and the Product Owner gives final acceptance and implementation authorization.
+  Authors do not independently review their own artifacts; Spec Kit stages/Human Gate remain.
+- Development, testing and pull-request preparation happen in Multica task runs. The
   environment those runs use is exactly the workflow in this README — there is one development
   environment, and no second one may be created (no containerized Node/npm tooling, no
   Compose-style development stack).

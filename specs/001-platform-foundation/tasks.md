@@ -11,7 +11,7 @@ description: "Actionable task graph for the Songhealth Platform Foundation"
 
 **Tests**: Focused tests and operational verification are required because Feature 001 must produce independently reviewable evidence. Test Songhealth configuration and integration boundaries only; do not duplicate Astro, EmDash, PostgreSQL, Podman, or Quadlet upstream test suites.
 
-**Organization**: Tasks are grouped by shared prerequisites and the four approved user stories. Each task is a bounded Multica handoff that must receive independent Codex review before dependent work proceeds.
+**Organization**: Tasks are grouped by shared prerequisites and the four approved user stories. Each task is a bounded authorized Multica handoff that must receive ChatGPT Independent Review before dependent work proceeds, under the accepted governance reconciliation. The Product Owner provides final acceptance and implementation authorization; author and reviewer remain separate. Existing Codex-accepted source references record prior accepted evidence, not future reviewer assignments. Task definitions, dependency joins and pending T022/T028 gates remain unchanged.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -66,7 +66,7 @@ description: "Actionable task graph for the Songhealth Platform Foundation"
 - [ ] T014 [US1] Document the clean-checkout native Node/npm development workflow, rootless PostgreSQL helper, external configuration, ignored local media, native Admin/passkey setup, startup gates, readiness command, shutdown, and common failure recovery in `README.md`
 - [ ] T015 [US1] Execute the User Story 1 independent test from a clean checkout with disposable non-confidential validation data/media; set and retrieve the native EmDash Site Setting `tagline` with exact value `Songhealth Feature 001 foundation validation`, record its exact UTF-8 value and SHA-256 digest as the canonical database validation evidence, and record redacted setup, build/start, public/Admin, readiness matrix, native migration status/apply/check gate, media-writeability, and secret-redaction evidence in `specs/001-platform-foundation/evidence/T015-us1-canonical-platform.md`
 
-**Checkpoint**: User Story 1 is independently usable as the MVP platform foundation. Stop for Codex PASS/REWORK before production lifecycle work.
+**Checkpoint**: User Story 1 is independently usable as the MVP platform foundation. Stop for ChatGPT Independent Review PASS/REWORK before production lifecycle work.
 
 ---
 
@@ -89,7 +89,7 @@ description: "Actionable task graph for the Songhealth Platform Foundation"
 - [ ] T021 [US2] Document rootless user-systemd installation, start/stop/restart/recreation, private database boundary, persistent volume handling, readiness interpretation, and the external HTTPS/reverse-proxy boundary without selecting a proxy product in `docs/operations/production-foundation.md`
 - [ ] T022 [US2] Execute T016 on a production-capable verification host and record redacted Quadlet unit, image/build-manifest identity, native migration status/apply/check outcome, health, network, port, volume, three-cycle lifecycle, missing-attachment, and persistence-integrity evidence in `specs/001-platform-foundation/evidence/T022-us2-production-durability.md`; every lifecycle comparison must retrieve and match the exact native site `tagline` value/digest established by T015
 
-**Checkpoint**: User Story 2 proves production lifecycle durability and private PostgreSQL exposure at the mandatory T022 runtime gate. Stop for Codex PASS/REWORK on T022 before any dependent runtime work. Under the approved Development-First Sequencing decision (see Notes), Phase 5 source authoring may proceed in parallel after T021 acceptance without requiring T022 PASS.
+**Checkpoint**: User Story 2 proves production lifecycle durability and private PostgreSQL exposure at the mandatory T022 runtime gate. Stop for ChatGPT Independent Review PASS/REWORK on T022 before any dependent runtime work. Under the approved Development-First Sequencing decision (see Notes), Phase 5 source authoring may proceed in parallel after T021 acceptance without requiring T022 PASS.
 
 ---
 
@@ -113,7 +113,7 @@ description: "Actionable task graph for the Songhealth Platform Foundation"
 - [ ] T027 [US3] Implement the restored-foundation integrity comparator for the native EmDash Site Setting `tagline` exact value/digest established by T015, native migration state, and every designated media path/size/SHA-256 digest in `scripts/verify-restored-foundation.mjs`; do not substitute Admin identity, passkey metadata, arbitrary internal rows, or a Product collection, and output only redacted pass/fail evidence with zero secret values
 - [ ] T028 [US3] Execute the complete recovery drill against clean/recreated persistence and record the Recovery Set identity, tool/server versions, archive/checksum validation, restore result, exact restored native site `tagline` value/digest comparison from T027, 100% designated data/media comparison, zero unexplained differences, and separate non-secret runtime-secret recovery result in `specs/001-platform-foundation/evidence/T028-us3-recovery.md`
 
-**Checkpoint**: User Story 3 proves the approved minimum logical recovery baseline. Stop for Codex PASS/REWORK before downstream-foundation review. Under the approved Development-First Sequencing amendment (see Notes), T029 source authoring and review may proceed in parallel after accepted T027 sources without requiring T028 runtime PASS.
+**Checkpoint**: User Story 3 proves the approved minimum logical recovery baseline. Stop for ChatGPT Independent Review PASS/REWORK before downstream-foundation review. Under the approved Development-First Sequencing amendment (see Notes), T029 source authoring and review may proceed in parallel after accepted T027 sources without requiring T028 runtime PASS.
 
 ---
 
@@ -137,7 +137,7 @@ description: "Actionable task graph for the Songhealth Platform Foundation"
 **Purpose**: Run the approved end-to-end contract and assemble a bounded, secret-free handoff for independent acceptance review.
 
 - [ ] T031 Execute every applicable step in `specs/001-platform-foundation/quickstart.md` against the completed foundation, including exact-build migration-manifest identity, native status/apply/check sequencing with target-fingerprint safety, canonical native site `tagline` lifecycle/recovery comparison, type/tests/build, and rootless Podman/Quadlet smoke; record a redacted pass/fail matrix with exact versions and no undocumented checks in `specs/001-platform-foundation/evidence/T031-full-foundation-validation.md`
-- [ ] T032 Assemble the evidence index linking T001, T006, T015, T022, T028, T030, and T031 results; confirm secret values and confidential data are absent, every explicit out-of-scope capability remains absent, and unresolved items are visible for Codex review in `specs/001-platform-foundation/evidence/README.md`
+- [ ] T032 Assemble the evidence index linking T001, T006, T015, T022, T028, T030, and T031 results; confirm secret values and confidential data are absent, every explicit out-of-scope capability remains absent, and unresolved items are visible for ChatGPT Independent Review in `specs/001-platform-foundation/evidence/README.md`
 
 **Final checkpoint**: Stop for Tasks Review and later bounded human authorization. Task generation itself grants no implementation authorization.
 
@@ -166,7 +166,7 @@ T027 -> T029 [DFS: source authoring/review only after accepted T027 sources; T02
 T030 -> T031 -> T032
 ```
 
-**Development-First Sequencing (graph)**: The `T021 -> {T023 || T024}` edge records the bounded Product Owner decision that recovery sources may be authored and reviewed once the production source boundary through T021 is accepted, without waiting for T022 runtime PASS. The `T027 -> T029` edge records the bounded decision extended to T029: its evidence sources may be authored and reviewed once the T023–T027 sources are Codex-accepted (the accepted T027 source closing that chain), without waiting for T022/T028 runtime PASS. Every other edge keeps its original meaning, and each Phase 5/Phase 6 source dependency still requires independent Codex source review before dependent work proceeds. The T028 join is explicit: T028 execution requires both T022 PASS and Codex-accepted sources for T023–T027, including T023's separately documented runtime-secret recovery prerequisite. The T030 join is explicit: T030 execution requires both T028 PASS and Codex-accepted T029 sources.
+**Development-First Sequencing (graph)**: The `T021 -> {T023 || T024}` edge records the bounded Product Owner decision that recovery sources may be authored and reviewed once the production source boundary through T021 is accepted, without waiting for T022 runtime PASS. The `T027 -> T029` edge records the bounded decision extended to T029: its evidence sources may be authored and reviewed once the T023–T027 sources are Codex-accepted (the accepted T027 source closing that chain), without waiting for T022/T028 runtime PASS. Every other edge keeps its original meaning, and each Phase 5/Phase 6 source dependency still requires ChatGPT Independent Review of future source work before dependent work proceeds. The T028 join is explicit: T028 execution requires both T022 PASS and Codex-accepted sources for T023–T027, including T023's separately documented runtime-secret recovery prerequisite. The T030 join is explicit: T030 execution requires both T028 PASS and Codex-accepted T029 sources.
 
 ### Phase Dependencies
 
@@ -208,7 +208,7 @@ The suggested MVP is **Phase 1 + Phase 2 + User Story 1 through T015**. This yie
 ### Incremental Delivery
 
 1. Complete Setup and pass T006 before accepting any downstream database-dependent implementation.
-2. Complete US1 and obtain Codex PASS/REWORK at T015.
+2. Complete US1 and obtain ChatGPT Independent Review PASS/REWORK at T015.
 3. Author and review the production Podman/Quadlet source boundary through T021, then execute the durability gate T022 and obtain review.
 4. After T021 acceptance, and in parallel with any still-pending T022 execution, author and independently review the logical database/media recovery sources T023–T027 (Development-First Sequencing; separate bounded Product Owner authorization per task).
 5. After the T023–T027 sources are accepted, and in parallel with any still-pending T022/T028 execution, author and independently review the T029 canonical-extension evidence (Development-First Sequencing; separate bounded Product Owner authorization); early evidence must identify the pending T022/T028 runtime evidence and make no US3/US4 completion or final acceptance claim.
@@ -226,9 +226,9 @@ The suggested MVP is **Phase 1 + Phase 2 + User Story 1 through T015**. This yie
 
 ## Notes
 
-- **Development-First Sequencing (bounded Product Owner decisions of 2026-10-11 and 2026-10-13, Multica issues 9GOTSTORY-194 and 9GOTSTORY-200)**: T023–T027 may be authored and independently reviewed as sources after the accepted production source boundary through T021, without T022 runtime PASS, and T029 may be authored and independently reviewed as sources after accepted T027 source integration, without T022/T028 runtime PASS. The decisions change sequencing only: no task deliverable, gate, architecture, or specification requirement changes; each source task (T023–T027, T029) still requires separate bounded Product Owner authorization and independent Codex source review before dependent work proceeds; and source review does not establish runtime acceptance, complete US2/US3/US4, waive any failed gate, or satisfy final feature acceptance. T029 evidence prepared before the runtime gates must identify the pending runtime evidence—T022/T028 as applicable—and make no US3/US4 completion or final acceptance claim, and source review cannot substitute for runtime PASS or waive a failed gate. T022 and T028 remain mandatory runtime acceptance gates, T028 requires both T022 PASS and accepted T023–T027 sources, T030 requires both T028 PASS and accepted T029 sources, and all final evidence requirements—including T022/T028 evidence—are unchanged.
+- **Development-First Sequencing (bounded Product Owner decisions of 2026-10-11 and 2026-10-13, Multica issues 9GOTSTORY-194 and 9GOTSTORY-200)**: T023–T027 may be authored and independently reviewed as sources after the accepted production source boundary through T021, without T022 runtime PASS, and T029 may be authored and independently reviewed as sources after accepted T027 source integration, without T022/T028 runtime PASS. The decisions change sequencing only: no task deliverable, gate, architecture, or specification requirement changes; each source task (T023–T027, T029) still requires separate bounded Product Owner authorization and ChatGPT Independent Review of future source work before dependent work proceeds; and source review does not establish runtime acceptance, complete US2/US3/US4, waive any failed gate, or satisfy final feature acceptance. T029 evidence prepared before the runtime gates must identify the pending runtime evidence—T022/T028 as applicable—and make no US3/US4 completion or final acceptance claim, and source review cannot substitute for runtime PASS or waive a failed gate. T022 and T028 remain mandatory runtime acceptance gates, T028 requires both T022 PASS and accepted T023–T027 sources, T030 requires both T028 PASS and accepted T029 sources, and all final evidence requirements—including T022/T028 evidence—are unchanged.
 - **CA-01 remains deferred** and is unaffected by this amendment.
-- Every completed task must return its focused verification evidence for independent Codex PASS/REWORK before dependent tasks continue.
+- Every completed task must return its focused verification evidence for ChatGPT Independent Review PASS/REWORK before dependent tasks continue.
 - `[P]` means file/resource independence only after the documented prerequisites are satisfied.
 - Tests and operational verification precede or accompany the behavior they protect.
 - Commit only the bounded implementation and permitted redacted evidence for the selected task; do not include later-task work because a file is already open.

@@ -27,7 +27,7 @@ description: "Native-only CMS content-model development tasks, ordered by user s
 - Prepare synthetic public-publishable fixtures through native APIs; do not overwrite real records, invent official inventories, or put editorial population into the bootstrap seed. Taxonomy attachments are added as their collections are introduced; never bind a field to an undefined target.
 - Tests use the existing README development-only `POST /_emdash/api/setup/dev-bypass?token=1` and distinct native role credentials. Tokens stay in memory or ignored mode-0600 scratch, never logs/evidence. Native account/role operations provide Contributor, Author/Editor and Administrator fixtures; an Admin token alone cannot prove draft-only restrictions. No production Passkey automation or custom impersonation.
 - Use returned IDs and current `_rev`/supported concurrency preconditions. Re-read uncertain outcomes before a retry. Run runtime/schema/scheduler checks serially, and clean only owned synthetic fixtures, temporary consumers, credential scratch, foreground services and containers started by the run. Never delete persistent volumes or real media/data.
-- Future implementation requires the existing workflow's approvals, actual readiness and bounded authorization. Claude authors production/configuration changes; Codex independently reviews them. This task list neither grants that authorization nor creates another approval workflow.
+- Future implementation requires the existing workflow's approvals, actual readiness and bounded Product Owner authorization. Multica agents execute the authorized tasks; ChatGPT performs Independent Review of their artifacts/evidence; the Product Owner provides final acceptance. Author and Independent Reviewer remain separate. This task list neither grants authorization nor creates another approval workflow.
 
 ## Phase 1: Setup — Reuse Existing Platform
 
@@ -106,6 +106,12 @@ description: "Native-only CMS content-model development tasks, ordered by user s
 - The runner owns the dev-server handle and Playwright child. In `try/finally`, including nonzero test exit, exceptions and timeout, stop/await any still-running owned child, clean tracked native fixture records/media through T002 while the server remains available, then in nested `finally` await `devServer.stop()` and remove only owned credential/scratch files. SIGINT/SIGTERM must use the same awaited cleanup path; cleanup errors remain failures and cannot mask the original test result. Verify server shutdown and residue-free owned-resource cleanup. The injected route disappears with the dev server; no filesystem route exists to survive failure. Existing database containers/volumes, media and other processes remain untouched.
 
 Mechanism evidence: [Astro programmatic API](https://docs.astro.build/en/reference/programmatic-reference/) and [route injection/command hook](https://docs.astro.build/en/reference/integrations-reference/), checked through Context7 and the lockfile-integrity-matched [Astro 7.3.5 archive](https://registry.npmjs.org/astro/-/astro-7.3.5.tgz): `dist/core/config/config.js` loads/merges canonical and inline config, `dist/core/config/merge.js` appends integration arrays, `dist/integrations/hooks.js` supplies the command and registers injected routes, and `dist/core/dev/dev.js` returns the awaited stop handle. This establishes the planning mechanism, not an executed harness/runtime PASS.
+
+**Analyze I1 — existing execution/documentation correction (unexecuted):** T021's public-read
+test requires its dedicated runner, not ordinary `npm run dev`. T033 must select ordinary browser
+tests separately, exclude `cms-public-reads.spec.ts` from that invocation, stop only its owned
+ordinary server, then use `node tests/browser/run-cms-public-reads.mjs` with T021's isolation/cleanup.
+T034 owns the final verified README/Quickstart invocations. No new task, dependency or gate is added.
 
 **Checkpoint**: US1+US2+US6 supply the cohesive P1 native CMS increment. These are entry-level protections and safe reads, not cross-record availability/removal enforcement. Later public-page work owns actual missing-file presentation.
 

@@ -76,10 +76,12 @@ Spec Kit phase and MUST NOT implement future tasks opportunistically.
 
 ## Independent Implementation Review
 
-Under the agreed Multica workflow, Codex is the lead and independent reviewer, and Claude Code is
-the implementation executor. An implementation task is not complete merely because the executor
-reports success. Every bounded implementation MUST provide verification proportionate to its risk
-and MUST receive independent review before Product Owner acceptance. Review MUST check the approved
+Multica agents execute only bounded, explicitly authorized tasks. ChatGPT performs Independent
+Review; the Product Owner provides final acceptance and implementation authorization. The author
+MUST NOT act as the Independent Reviewer of the same artifact. An implementation task is not
+complete merely because its executor reports success. Every bounded implementation MUST provide
+verification proportionate to its risk and MUST receive Independent Review before Product Owner
+acceptance. Review MUST check the approved
 specification, plan, tasks, this Constitution, applicable current authority, and relevant
 operational or security boundaries.
 
@@ -126,4 +128,17 @@ non-negotiable governance.
 Compliance review is required at every gate. Any exception MUST be explicit, bounded, justified by
 current evidence, and approved by the Product Owner before affected work proceeds.
 
-**Version**: 2.0.0 | **Ratified**: 2026-08-16 | **Last Amended**: 2026-10-06
+### Accepted Amendment — 2026-10-14
+
+Product Owner direction `01a13882-2e10-7cbf-b207-409fdd20b9b3` replaces the standing
+Codex-reviewer/Claude-executor assignments with bounded Multica execution, ChatGPT Independent
+Review and Product Owner final acceptance/implementation authorization. Version 2.0.0 → 3.0.0
+is MAJOR because these assigned governance responsibilities change incompatibly. Principles I–V,
+Spec Kit stages, the Human Authorization Gate, separation of duties, evidence requirements and
+Feature 001 T022/T028 dependencies are preserved. Prior authorship and accepted review evidence
+remain valid provenance, not standing assignments. ChatGPT Independent Review PASS and Product
+Owner approval are recorded in `01a13896-b7d9-700e-9ea6-00973f11d963`. That approval authorizes
+finalization, commit and push of this documentation reconciliation only; it authorizes no Feature 002
+implementation, Feature 001 runtime gate execution, merge or deployment.
+
+**Version**: 3.0.0 | **Ratified**: 2026-08-16 | **Last Amended**: 2026-10-14

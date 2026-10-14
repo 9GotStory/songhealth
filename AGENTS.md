@@ -75,11 +75,18 @@ Do not create application code, infrastructure, schema, or dependencies merely b
 
 ## Development Workflow (Multica-first)
 
-Product Owner decision of 2026-10-13 (Multica issue 9GOTSTORY-202). It aligns the development
-workflow only; it changes no task deliverable, gate, architecture, or specification requirement.
+Product Owner decisions of 2026-10-13 (Multica issue 9GOTSTORY-202) and 2026-10-14
+(governance reconciliation `01a13882-2e10-7cbf-b207-409fdd20b9b3`, accepted by approval
+`01a13896-b7d9-700e-9ea6-00973f11d963`). This accepted reconciliation
+changes execution/review ownership only; task deliverables, gates, architecture and requirements remain.
 
-- Development, testing, review, and pull-request preparation happen in Multica task runs under
-  the Constitution's independent-review workflow (Codex reviews; the Product Owner accepts).
+- Multica agents execute bounded authorized development, testing and pull-request preparation
+  tasks. ChatGPT performs Independent Review of the resulting artifacts and evidence; the author
+  does not review their own artifact. The Product Owner provides final acceptance and explicit
+  bounded implementation authorization. Preserve the Spec Kit stages and Human Authorization Gate.
+- Historical agent names, branch names and accepted Codex source-review evidence retain their
+  provenance; they do not assign future execution or Independent Review duties. Existing accepted
+  evidence and Feature 001 dependency joins are not invalidated by the accepted ownership change.
 - The single development environment is the native workflow documented in `README.md` (native
   Node.js/npm tooling plus the rootless-Podman development PostgreSQL helper). Do not create or
   maintain a second development environment, containerized Node/npm tooling, or a Compose-style

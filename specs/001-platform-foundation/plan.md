@@ -73,7 +73,7 @@ The design does not claim horizontal scaling or implement later Product features
 | Simple, Structured, Sustainable | PASS | PASS | One application, one package manager/lockfile, one database, local persistent media, and a small application-oriented layout; no monorepo, service/repository layers, or speculative infrastructure. |
 | Security and Data Protection | PASS | PASS | Secrets remain external and separately recoverable, the DB role is least-privilege and non-superuser, PostgreSQL has no host-published port, and validation content is non-confidential/public-publishable. |
 | Spec-Driven Delivery and Human Authorization | PASS | PASS | This output stops at Plan artifacts. No tasks, dependencies, implementation, schema, image, or deployment files are created. |
-| Independent Implementation Review | PASS | PASS | Verification produces reviewable evidence; Codex review remains required after bounded Claude Code implementation. Parallel implementation is permitted only for dependency-safe, non-overlapping files/resources. |
+| Independent Implementation Review | PASS | PASS | Verification produces reviewable evidence; under the accepted governance reconciliation, bounded authorized Multica execution receives ChatGPT Independent Review before Product Owner acceptance. Parallel implementation is permitted only for dependency-safe, non-overlapping files/resources. |
 | Production Operations and Durability | PASS | PASS | Rootless Podman + Quadlet, private app/DB network, persistent DB/media volumes, lifecycle checks, complete logical database restore, media restore, and separate secret recovery satisfy the Version 1 baseline in `current/10`. Production-grade physical backup/PITR remains deferred. |
 
 The Constitution Check was rerun after the Product Owner recovery, secret, and readiness decisions
@@ -311,7 +311,7 @@ Implementation evidence must include:
 8. rootless Podman/Quadlet unit, health, network, volume, and lifecycle evidence, including exact
    runtime/image versions and digests.
 
-Codex independently reviews this evidence and the bounded implementation against the specification,
+ChatGPT independently reviews this evidence and bounded authorized Multica implementation against the specification,
 plan, tasks, Constitution, and `current/10`. An implementation agent's success report alone does not
 complete the feature.
 

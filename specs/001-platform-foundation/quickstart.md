@@ -283,6 +283,7 @@ Provide the independent reviewer with:
   recovery result, restore transcript, and final integrity diff;
 - confirmation that the explicit out-of-scope capabilities remain absent.
 
-The implementation is not accepted solely because the executor reports success. Codex performs the
-independent review against `spec.md`, `plan.md`, the later approved `tasks.md`, the Constitution, and
-`current/10` before Product Owner acceptance.
+The implementation is not accepted solely because its Multica executor reports success. Under the
+accepted governance reconciliation, ChatGPT performs Independent Review against `spec.md`, `plan.md`,
+the approved `tasks.md`, the Constitution and `current/10`; the author does not perform that review.
+The Product Owner provides final acceptance and explicit bounded implementation authorization.
