@@ -1,10 +1,12 @@
 # CMS Content Model — Completed Plan Research
 
 **Date**: 2026-10-14 | **Feature**: `002-cms-content-model`
-**Verified starting HEAD**: `b614c8f283394381d0cb45c2b2903e28c49b75fc`
-**Current decision**: `01a13788-95c6-72f5-8787-f86b4e0c5fd6`
+**Verified reconciliation HEAD**: `51a949e0d37965d22212e707dbd4557a905d5bd4`
+**Current instruction**: `01a137d4-3956-7621-92a5-a654dea51ef2`, approved native-only publishing.
 
-Phase 0 research is complete for the revised V1 baseline. Findings establish planning feasibility,
+Phase 0 is reconciled through the installed official Plan, reusing valid prior release evidence.
+Direct GitHub edits were candidates inspected against Product authority, not accepted outputs.
+Only the changed native save-validation mapping needed a focused source check. Findings establish planning feasibility,
 not implementation, pinned-runtime PASS, Thai staff UAT or independent acceptance. No unresolved
 architecture choice remains. Implementation/population/operational verification is listed separately.
 
@@ -12,9 +14,10 @@ architecture choice remains. Implementation/population/operational verification 
 
 **Decision:** Health Report's single Document reference is mandatory at native create/save.
 Other relation fields are optional; conditional relationships are not automatic publication gates.
-Missing other Product fields may be saved where native validation permits. The later
-2026-10-14 Product decision removes publication-specific content/taxonomy predicates;
-this earlier Q1 observation is retained solely as historical research context.
+Semantic title and Document file also use native save-time requiredness. Other fields and
+classifications remain optional where native validation permits. The 2026-10-14 Product decision
+removes publication-specific content/taxonomy predicates; prior projection/hook proposals are
+historical alternatives, while native required-reference evidence remains applicable.
 
 **Rationale:** The pinned release's `validateRequiredReferencesPresent` and
 `validateReferenceSelection` enforce a native required reference at create/save; native publication
@@ -56,9 +59,26 @@ than accidental task generation.
 
 **Alternatives:** Previously researched finite publish/schedule hooks,
 reconstructed relation selection, internal-table adapters and mirrored
-promotion logic are **not selected**. Their source evidence below remains
+promotion logic are **not selected**. Prior hook/projection source evidence remains
 historical, not an active implementation dependency. D-ITA/D-REF are still
 deferred; native selection does not confer historical retention/availability.
+
+**Focused EmDash 1.1.0 evidence:** `src/emdash-runtime.ts:3473` validates native create data
+with `partial: false`; `:3683` validates supplied update data with `partial: true`, and `:3774`
+validates supplied staged-write attempt data with `partial: true` before merging it with the
+existing revision. `src/api/handlers/validation.ts:199` generates the native
+field schema and validates type/enum/length/range/required constraints; `:217` additionally refuses
+empty required strings. `src/schema/zod-generator.ts:41` applies native required/optional rules,
+`:96` defines strings, and `:189` defines native file objects containing a string media `id`.
+Thus title/file flags belong to the native Save path, not a new publication extension. Media
+selection shape does not establish continued asset existence/bytes; stronger guarantees stay deferred.
+
+Context7 was used only for the changed native field-validation question (`/websites/emdashcms`,
+[field properties](https://docs.emdashcms.com/themes/seed-files/) and
+[field types](https://docs.emdashcms.com/reference/field-types/)). Its unversioned examples support
+schema configuration; the already verified 1.1.0 archive controls the release claims above.
+This is source evidence, not a runtime/integration test. No new unresolved native capability gap
+was established and no former media/reference investigation was reopened.
 
 ## 3. Fields and Native Revisions
 
@@ -68,8 +88,9 @@ preview and scheduling on content collections. One `title` field per collection 
 actual title/name/display name, with the appropriate Thai label; native slug/identity stays native.
 
 **Rationale:** Field types/validation cover the retained data without duplicate system metadata.
-Media/file values carry native IDs; gallery is an image repeater. Scalar missing values remain
-saveable with non-required fields; supplied malformed values still face native validation. Saved
+Media/file values carry native IDs; gallery is an image repeater. Titles and Document files are
+required at Save; missing optional scalar values remain saveable and may publish, while supplied
+malformed values still face native validation. Saved
 content-data and reference changes stage in native revisions; taxonomy/SEO/byline side writes and
 shared targets are not frozen with them. Source text is the accepted source/byline alternative for
 Health Content; native credited bylines remain optional attribution, not another Personnel identity.
@@ -162,9 +183,12 @@ exact release source controls version claims. Primary links:
 
 The installed Specify CLI 1.1.0 official Plan instructions were rechecked against
 [upstream Plan](https://github.com/github/spec-kit/blob/main/templates/commands/plan.md).
-Original setup already resolved this feature/plan/template; it was not rerun or overwritten.
-Research continued directly under the existing Codex-only constraint. Phase 0 decisions above
-resolve the planning unknowns before generating Phase 1 outputs. No Specify/Clarify rerun or new phase.
+For this reconciliation the actual official `setup-plan.sh --json` was executed with the existing
+Feature 002 context and no feature-state persistence. It preserved the existing plan, and the
+canonical template was loaded through the resolver. Candidate spec/Phase 0/1 artifacts were inspected
+and reconciled; valid prior evidence was reused. Research remained direct under Codex-only scope.
+Phase 0 decisions above resolve the changed mapping before Phase 1 reconciliation. No Specify/Clarify
+rerun, new feature, Tasks/Analyze/Implementation or additional approval workflow.
 Before/after Plan hooks parse as enabled optional `speckit.git.commit`, null conditions, with
 auto-commit disabled. Optional hooks are skipped; no mandatory Plan hook applies. An explicit delivery
 commit records completed planning documentation, not implementation acceptance.
@@ -173,7 +197,7 @@ Future verification: native required-title/file/reference create/update cases an
 publish/schedule permission/lifecycle outcomes; no custom policy registration or hooks;
 metadata revision boundaries; permissions/preview; reciprocal selectors and Area code maintenance;
 Thai editor UAT. See [quickstart.md](quickstart.md). These are planned tests, not PASS results.
-The shell has Node 24.11.0, not the pinned 24.21.0; no integration test was claimed or dependency
+The shell has Node 24.11.0/npm 11.6.1, not pinned 24.21.0/12.2.0; no integration test was claimed or dependency
 changed. No database/schema/runtime mutation occurred. T022/T028 remain PENDING, with original joins.
 D-ITA/D-REF, historical evidence and legacy cutover remain deferred/separate; no scope waiver or
 foundation completion is inferred. No genuine new material architecture impossibility is established.

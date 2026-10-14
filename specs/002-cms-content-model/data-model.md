@@ -1,7 +1,7 @@
 # CMS Content Model — Phase 1 Data Model
 
-**Standing:** proposed planning design for Independent Review; no schema/configuration/DB applied.
-Current Product decision: `01a13788-95c6-72f5-8787-f86b4e0c5fd6`.
+**Standing:** Phase 1 design reconciled through the existing official Plan for Independent Review;
+no schema/configuration/DB applied. Native-only instruction: `01a137d4-3956-7621-92a5-a654dea51ef2`.
 Authorities: current/02 §§1–24; 00 §8.1; 05/06/07; 10 §§4/7/11/22; active spec.
 
 ## Common Native Contract
@@ -20,12 +20,18 @@ carry no implementation vocabulary; verify every label/picker/error with the SC-
 Notation: **S** is native schema save-time requiredness; **O** is optional
 at save and Publish/Schedule except native built-in constraints and supplied-value
 checks. Native `title` is required on semantic entries, `file` on Document,
-and `report_document` on Health Report. No **P** publication-only predicate
+and `report_document` on Health Report. Configure each of these fields with native top-level
+`required: true`; all other content/reference fields remain non-required, with their native
+supplied-value constraints. This is proposed configuration, not an already-applied schema.
+No **P** publication-only predicate
 or custom content/taxonomy validation hook exists. Optional fields can be
 incomplete at publication under direct Native RBAC. EmDash still validates
 supplied types/formats/values and reference/cardinality constraints. Staff
 ensure appropriate editorial completeness and classification; native schema
-does not promise historical media or cross-record availability.
+does not promise historical media or cross-record availability. Native Save validation rejects
+missing required values and empty required strings; malformed supplied values retain native
+refusal. Optional body, gallery, channels and classifications have no added minimum-completeness
+rule. Valid numeric zero and boolean false/native 0/1 are not missing values.
 
 ## Collection Fields
 
@@ -33,12 +39,12 @@ does not promise historical media or cross-record availability.
 | --- | --- | --- |
 | `pages` / ข้อมูลทั่วไป | `title` string S; `summary` text O; `body` portableText O; image/file fields O when useful | related Documents O; no generic-page substitute for structured kinds |
 | `news` / ข่าว | `title` string S; `summary` text O; `body` portableText O; `featured_image` image O; `source_text` text O | `news_category` O, `topic` O; `area`/`audience` O |
-| `activities` / กิจกรรม | `title` string S; `summary` text O; `activity_at` datetime O; `location_text` string O; `featured_image` image or `gallery` repeater O (one suffices); `participants_text` text O | `topic`/`area` O; no separate participant/place identity required |
+| `activities` / กิจกรรม | `title` string S; `summary` text O; `activity_at` datetime O; `location_text` string O; `featured_image` image O; `gallery` repeater O; `participants_text` text O | `topic`/`area` O; no separate participant/place identity required |
 | `announcements` / ประกาศ | `title` string S; `details` portableText O; `announcement_at` datetime O; `opens_at`/`closes_at` datetime O | `announcement_type` O; `topic`/`audience` O; Documents O/editor-reviewed |
 | `health_content` / ความรู้สุขภาพ | `title` string S; `summary` text O; `body` portableText O; `source_text` text O; `featured_image` image O; `reviewed_at`/`next_review_at` datetime O | `topic` O using approved health classifications; `audience` O; native bylines optional attribution |
 | `personnel` / บุคลากร | `title` (display name) string S; `prefix`, `first_name`, `last_name` strings O; `profile_image` image O; `current_assignment`, `organizational_unit` strings O; `public_visible` boolean O; `public_contact` text O | Organization O only when activated; no account link, assignment history, Citizen ID/DOB/private address |
 | `health_services` / หน่วยบริการสุขภาพ | `title` (official name) string S; `facility_code` string O; `display_name` string O; `operational_status` select O (active/temporarily_closed/inactive); `address` text O; `latitude`/`longitude` number O; `opening_hours`, `public_contact` text O; `affiliation_text` string O; `image` image O | `facility_type` O; `area` O for service coverage; offered Services O; Organization O if activated |
-| `services` / บริการ | `title` string S; `summary` text O; `ownership_type` select O; `provider_text` string O; `channels` repeater O; `eligibility`, `steps`, `required_documents_guidance`, `contact_location_guidance` portableText O; `duration`, `fees`, `notes` text O; `external_url` url O for external digital ownership, otherwise O | `service_category`, `topic`, `audience` O; relevant Documents and offering facilities O/editor-reviewed |
+| `services` / บริการ | `title` string S; `summary` text O; `ownership_type` select O; `provider_text` string O; `channels` repeater O; `eligibility`, `steps`, `required_documents_guidance`, `contact_location_guidance` portableText O; `duration`, `fees`, `notes` text O; `external_url` url O | `service_category`, `topic`, `audience` O; relevant Documents and offering facilities O/editor-reviewed |
 | `documents` / เอกสาร | `title` string S; `summary` text O; `file` file S; `document_at` datetime O; `fiscal_year` integer O; `owner_source` text O; `domain_status` select O (current/superseded/expired) | `document_type` O; `topic` O; successor Document O |
 | `health_reports` / รายงานสุขภาพ | `title` string S; `summary` text O; `reporting_period`, `owner_source` text O; `report_at` datetime O; `fiscal_year` integer O | `report_type`, `topic` O; single `report_document` reference **S**; `area` O |
 | `organizations` / องค์กร — conditional | `title` (name) string S; `organization_type` select O with supplied approved values; `responsibilities` text O; `public_contact` text O; `active_visible` boolean O | parent/affiliation and selected owning-record links O only for demonstrated shared-object use |
@@ -46,12 +52,14 @@ does not promise historical media or cross-record availability.
 All ten unconditional kinds are native collections because their meaning/attributes/reuse differ;
 Featured/Health News/leadership are views, not new kinds. `organizations` is a defined conditional
 variant, not an always-created eleventh collection. Without a confirmed current reuse case, native
-owner unit/provider/affiliation fields remain the default. Confirmation is the existing §23 input,
+owner unit/provider/affiliation fields remain the default. Demonstrated reuse is the existing §23 input,
 not a newly invented workflow phase.
 
 Service ownership values preserve current/00 §8.1's four meanings: `direct`, `coordinated`,
 `related_health_service`, `external_digital`. Channel is separate: repeater rows with human-readable
-`label` string and optional `url` native url. No fabricated service inventory or transaction engine.
+`label` string O and `url` native url O. For external digital ownership staff maintain the useful
+external URL editorially; it remains optional in native validation. No fabricated service inventory
+or transaction engine.
 Guidance can explicitly explain that a step/eligibility/document item is not applicable, rather than
 inventing a supporting-file requirement. Announcement dates/close state and review dates do not
 auto-unpublish content. Reporting period is explanatory text, not an invented analytical dataset.
@@ -60,7 +68,8 @@ editorial information, with native supplied-value validation; no automated appli
 is invented where that context is not observable. Relationship optionality does not erase the
 owning document's useful domain meaning.
 
-Gallery uses native repeater image subfield plus optional caption; array position is order. Media
+Gallery uses native repeater image subfield plus optional caption; array position is order. Both
+featured image and gallery may be absent; there is no alternative-presence publication rule. Media
 IDs/alt/caption/dimensions/type/size stay native; current-source replacement/deletion may affect reuse.
 Domain dates use native offset-aware datetime; editor UAT must confirm date-only presentation and
 timezone expectations without conflating publication time. Coordinates use supplied numeric values
@@ -126,7 +135,7 @@ must use the appropriate saved/published state rather than promise immediate cro
 
 | Native operation | Model behavior | Boundary |
 | --- | --- | --- |
-| Create/save | Native field shape/value/reference constraints; missing allowed non-required data can draft; mandatory Report Document cannot be missing | No claim every incomplete draft saves |
+| Create/save | Native field shape/value/reference constraints; title, Document file and Report Document required; other optional data can be missing | No claim every incomplete draft saves or a selected file's bytes remain available |
 | Published content-data save | Native revisions stage content-data and pending reference selections; previous live data remains | Taxonomies/SEO/bylines/shared media are current side data, not an atomic frozen snapshot |
 | Publish | Native role/ownership, slug/revision and supported built-in constraints only; no Songhealth content/taxonomy policy | No target availability/immutable bytes guarantee |
 | Schedule acceptance | Native role/time/entry checks only; no Songhealth `beforeSchedule` hook | Native action semantics documented |
@@ -148,7 +157,10 @@ must use the appropriate saved/published state rather than promise immediate cro
 | Six unconditional relation edge sets above | Real supporting/report/successor/reciprocal reuse | Native maxima/requiredness/field bindings | US2/4 and current/02 §§3/12/13/19 | One native source/edge set per need; no custom selection/lock/index subsystem |
 | D-ITA/D-REF | Deferred historical/invariant scope | No V1 representation or enforcement selected | Excluded from active acceptance | No ITA/evidence/snapshot/retention/locking helper entities |
 
-All proposed resource/relation variants are accounted for. This is completed author planning
+All proposed resource/relation variants are accounted for without changing their identities,
+cardinalities or conditional activation. Save-time flags replace the former publication-only
+predicates; removing that requirement leaves no custom extension to justify under §23.
+This is completed author planning
 assessment for FR-031/SC-008; independent review and implementation/UAT acceptance remain pending.
 No proposed physical schema was applied. Official inventory/Organization confirmation are later
 population inputs and do not authorize architecture expansion.

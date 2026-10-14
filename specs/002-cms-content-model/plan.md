@@ -1,14 +1,15 @@
 # Implementation Plan: CMS Content Model
 
 **Feature**: `002-cms-content-model` | **Date**: 2026-10-14 | **Spec**: [spec.md](spec.md)
+**Input**: Existing Feature 002 specification inspected against the approved native-only Product decision.
 **Working branch**: `agent/codex-lead-reviewer/477dbb76ad5b`
-**Verified continuation HEAD**: `b614c8f283394381d0cb45c2b2903e28c49b75fc`
-**Product decision**: `01a13788-95c6-72f5-8787-f86b4e0c5fd6`
+**Verified continuation HEAD**: `51a949e0d37965d22212e707dbd4557a905d5bd4`
+**Current instruction**: `01a137d4-3956-7621-92a5-a654dea51ef2`, native-only Plan reconciliation.
 
-**Status**: Official Plan Phase 0/1 was completed and independently reviewed. Subsequent
-2026-10-14 Product reconciliation removes custom publication hooks from V1 planning artifacts.
-This is a documentation-only scope update, not a rerun of `$speckit.plan`, implementation,
-UAT/runtime PASS, final foundation acceptance or merge.
+**Status**: Installed official `$speckit.plan` executed for reconciliation of the existing feature.
+Phase 0 research and Phase 1 design are complete for Independent Review of this revision.
+Direct GitHub edits were inspected as candidates, not promoted to accepted workflow outputs.
+No implementation, integration/UAT/runtime PASS, final foundation acceptance or merge.
 Command stops here. Do not start Checklist, Tasks, Analyze or Implementation in this run.
 
 ## Summary
@@ -25,14 +26,16 @@ D-ITA/D-REF and Feature 001 runtime dependencies remain unchanged.
 ## Technical Context
 
 **Language/Version:** TypeScript 6.0.3, Node 24.21.0, npm 12.2.0 (unchanged pins).
-**Dependencies:** Astro 7.3.5, EmDash 1.1.0, Node adapter 11.1.6 standalone, React integration 6.0.5,
+**Primary Dependencies:** Astro 7.3.5, EmDash 1.1.0, Node adapter 11.1.6 standalone, React integration 6.0.5,
 React 19.2.4, pg 8.23.1. No added/upgraded dependency.
 **Storage:** Existing native PostgreSQL adapter/PostgreSQL 18.6; local media `./media`;
 native core/schema/relations own persistence. Seed/configuration is bootstrap intent, not an
 automatic production migration. No schema/seed/DB change is delivered by this Plan.
-**Testing:** Future native API/Playwright 1.63.0 fixtures and staff UAT in the one native development
-environment; pinned-runtime readiness remains a prerequisite to executing them. Source/Markdown
-checks in this run are not application/runtime acceptance.
+**Testing:** Future focused native API/build/Playwright 1.63.0 checks proportionate to changed
+configuration and one bounded staff-maintenance assessment in the existing development environment.
+Native public-query integration remains required; production Passkey automation, full browser UAT
+per task, durability/recovery drills and deployment checks are not this feature's development work.
+Pinned-runtime readiness is a prerequisite; source/Markdown checks here are not runtime acceptance.
 **Platform:** Linux Astro SSR; native Node/npm development with rootless-Podman PostgreSQL helper;
 existing rootless Podman + systemd Quadlet production/private database contract remains unchanged.
 **Project type:** One integrated CMS-backed website, native Admin primary staff interface.
@@ -50,11 +53,11 @@ content collection), six active stories/seven active SCs; four ITA rows/US5/SC-0
 
 | Principle | Pre-research assessment | Post-design assessment |
 | --- | --- | --- |
-| I: current authority | Latest explicit Product decision resolves native Q1 applicability; owning 02/05/07/10 reconciled | Spec/matrix/design agree; no other Product meaning amended, historical answers remain provenance; review precedes implementation |
+| I: current authority | Native-only Product instruction inspected against owning 02/05/06/07/10 and candidate spec; stale Q1 traceability corrected before design | Spec/matrix/design agree on Save requiredness and direct publishing; GitHub edits are reconciled workflow inputs, not assumed accepted outputs |
 | II: native first | Native save-time requiredness retained; previous adapter investigation closed | Native schema/relations/fields/UI and direct RBAC publishing; Product Owner removed proposed publication-specific plugin |
 | III: simplicity | One canonical foundation; no deferred-invariant workaround | Ten semantic content kinds; conditional Organization only for demonstrated reuse; taxonomy Area; no duplicate Media/Contact/system fields, custom relation engine or speculative infrastructure |
 | IV: security/data | Native roles/ownership, public-only data, private production DB/secrets preserved | Native RBAC/preview, published-only reads and save-time checks; no custom publishing hook or confidentiality/retention guarantee for media |
-| V: phased authorization | Existing Plan continuation only; no setup/Specify/Clarify restart | Phase 0 decisions complete; data model/contracts/quickstart generated; stop at normal Plan boundary, no later command or implementation |
+| V: phased authorization | Official setup resolves existing Feature 002 and preserves its plan; no new feature/branch or Specify/Clarify restart | Phase 0 decisions reused/checked; Phase 1 artifacts reconciled; stop at normal Plan boundary, no Tasks/Analyze/Implementation |
 | Independent review | Codex-only planning authorship, no production authorship | Author design assessment only; Independent Review and human approval are not claimed |
 | Operations | T022/T028 PENDING; original dependency joins | Unchanged sources/config/pins/runtime contracts; no waiver, PASS marker, merge/deployment |
 
@@ -72,7 +75,10 @@ are conditional on demonstrated shared metadata, with owner-text defaults. Every
 explicit source, target, cardinality, reuse purpose and requiredness. No automatic conditional
 reference enforcement is inferred; required Report Document uses native flags.
 
-Result: complete planning mapping with no speculative/duplicate subsystem. Actual inventories,
+Result: complete planning mapping with no speculative/duplicate subsystem. Required title/file/
+Report-reference flags use native Save validation; other fields retain native optionality. Removing
+publication completeness requirements removes the former plugin need, without satisfying D-ITA/D-REF.
+Actual inventories,
 conditional reuse case, label comprehension and fixture outcomes remain implementation/UAT inputs,
 not unresolved design architecture. §23/SC-008 runtime or independent acceptance is not asserted.
 
@@ -95,14 +101,14 @@ specs/002-cms-content-model/
 ```
 
 Original Specify/Clarify review/checklist artifacts and superseded options/upstream draft remain
-historical evidence. The upstream request is still unsubmitted/cancelled. No `tasks.md` or later
-quality checklist/analysis artifact is generated.
+historical evidence. The upstream request is still unsubmitted/cancelled. Existing checklists and
+their review markers are preserved, not re-evaluated by Plan. No `tasks.md` or analysis is generated.
 
 ### Planned Application Touch Points — Not Implemented
 
 ```text
 seed/seed.json  # native bootstrap schema intent; initialized schema requires native operations
-tests/browser/  # focused native Admin/API and optional public-read smoke fixtures
+tests/browser/  # focused native Admin/API and required public-query integration fixtures
 ```
 
 The previously proposed `src/plugins/publication-validation.ts` and Astro plugin
@@ -137,7 +143,8 @@ Q1 behavior is revised in current acceptance. No result is counted as passed by 
 
 [quickstart.md](quickstart.md) supplies prerequisites, runnable native environment commands and
 end-to-end acceptance journeys tied to the two contracts/model. Verify native create/save refusal
-for a missing mandatory Document, optional relations, valid cardinality, incomplete scalar drafts,
+for missing/cleared required title, Document file and mandatory Report Document, optional relations,
+valid cardinality and otherwise incomplete drafts,
 native Publish/Schedule authorization, native validation/failure behavior, scheduler failure behavior,
 metadata boundaries, current Personnel, reciprocal identity, public/preview permissions and Thai UAT.
 Conditional relationships are not automated publication fixtures; D-ITA/D-REF are not PASS denominators.
@@ -146,8 +153,9 @@ Remaining inputs: real classification/Area code sources, service/facility record
 Organization case, staff label/role assignment/site timezone, approved implementation artifacts and
 bounded authorization. Values are not fabricated in this Plan. No Songhealth validation plugin or
 registration precondition is required.
-Integration/build/API/scheduler/UAT verification is future work; the local Node is not the pinned
-version, and no application runtime or database was started during planning.
+Integration/build/API/scheduler/UAT verification is future work. This run's shell has Node 24.11.0
+and npm 11.6.1 rather than pinned 24.21.0/12.2.0; neither was changed. No application runtime,
+database, authentication session or test was started during planning.
 
 Feature 001 T022 durability and T028 recovery remain **PENDING**. T028 requires T022 PASS plus
 Codex-accepted T023–T027 sources (including runtime-secret recovery prerequisite). T030 requires
@@ -157,10 +165,19 @@ this Plan neither executes nor waives it.
 
 ## Official Workflow Completion and Hook Disposition
 
-Original official setup/template remain the same feature artifacts; no reinitialization. Installed
-Specify CLI 1.1.0 Plan instructions were checked against upstream. Phase 0 decisions are consolidated
-in research; Phase 1 model/contracts/quickstart generated; post-design Constitution check performed.
-Research was direct under Codex-only instructions. No new Spec Kit phase or approval loop.
+The installed Specify CLI 1.1.0 official Plan instructions were loaded and executed. Its actual
+`.specify/scripts/bash/setup-plan.sh --json` ran with explicit existing-feature resolution and
+`SPECIFY_FEATURE_NO_PERSIST=1`. It resolved this spec/plan and skipped copying over the existing plan.
+The resolver selected canonical `.specify/templates/plan-template.md`; its Technical Context,
+pre/post Constitution gates, project structure and complexity sections govern this reconciliation.
+The script's logical feature context is `002-cms-content-model`; the actual managed Git branch
+remains `agent/codex-lead-reviewer/477dbb76ad5b` at the verified input SHA above.
+
+Phase 0 reused valid exact-release research and checked only the changed save-validation mapping.
+The input-spec Q1 conflict was corrected under the explicit instruction; Phase 1 model, contracts
+and quickstart were reconciled and the post-design Constitution/§23 checks completed. No unresolved
+architecture clarification or unjustified gate violation was found. Research was direct under
+Codex-only instructions; no new feature, branch, workflow phase or approval loop.
 
 Before/after Plan hooks were read and parsed: optional enabled `speckit.git.commit`, null condition,
 auto-commit disabled. Both optional extension hooks are skipped; no mandatory hook exists. Explicit

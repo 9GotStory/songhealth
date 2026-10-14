@@ -7,8 +7,9 @@
 **Current policy (2026-10-14):** Product Owner selected native-only EmDash save-time
 validation and direct Native RBAC publishing, removing the previously planned Songhealth
 publication hooks. The accepted Q1 save-time requiredness remains; historical hook
-proposals are superseded. This is documentation reconciliation, not an invocation
-of a Spec Kit command, runtime PASS or implementation authorization.
+proposals are superseded. Plan input was inspected and its conflicting Q1 traceability
+corrected under reconciliation instruction `01a137d4-3956-7621-92a5-a654dea51ef2`.
+No Specify/Clarify rerun, runtime PASS or implementation authorization is implied.
 
 **Previous status**: Native-first Q1 revised by Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6`;
 official Plan Phase 0/1 completed as documentation for Independent Review. No runtime/UAT PASS or
@@ -39,11 +40,11 @@ authorized target deletion/unpublish can leave missing links. No atomic/snapshot
 upgrade or upstream change is introduced. Legacy ITA material is not deleted/migrated/withdrawn;
 any future delivery/cutover disposition requires its own accepted decision.
 
-Owning current documents and the reviewed reconciliation are the current Product baseline under
-the continuation instruction. Final mapping/field choices belong to the same official Plan; the
-latest Q1 decision `01a13788-95c6-72f5-8787-f86b4e0c5fd6` changes the former blanket missing-reference draft
-requirement explicitly. `plan.md`, `data-model.md`, `contracts/` and `quickstart.md` describe the
-completed planning design; the prior finding remains historical evidence, not a current blocker.
+The approved native-only Product decision governs this Plan input. Direct GitHub edits at
+`51a949e0d37965d22212e707dbd4557a905d5bd4` were reconciliation candidates, not automatically
+accepted Spec Kit outputs. The existing official Plan is reconciled under instruction
+`01a137d4-3956-7621-92a5-a654dea51ef2`; its Phase 0/1 outputs await Independent Review.
+The prior mandatory-reference finding remains valid historical evidence, not a current blocker.
 
 ## Clarifications
 
@@ -612,7 +613,7 @@ counted as PASS. Runtime outcomes remain unverified by this document-only reconc
   has the native allowed/refused outcome, with zero unauthorized draft exposure/publication or
   premature staged content-data/scheduled-update exposure. Public linked-target reads omit
   unavailable content and never expose its draft; missing files have a safe unavailable state.
-  Native save-time mandatory-reference refusals and supported publication checks are covered by SC-006. D-REF cross-record availability and
+  Native save-time required-field/reference refusals and built-in action checks are covered by SC-006. D-REF cross-record availability and
   target-removal guarantees, and atomic staging of separately maintained metadata, are not inferred.
 
 - **SC-006**: Every agreed native-invalid-input, stale-write, failed action,
@@ -687,13 +688,17 @@ session; Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8` explicitly
 V1 applicability. Continuation comment `01a13779-da61-71be-bc11-46d3ea9d5413` adopts that reviewed
 reconciliation as current baseline and authorizes the remaining official Plan. Later decision
 `01a13788-95c6-72f5-8787-f86b4e0c5fd6` explicitly changes Q1 native validation semantics and
-resolves B-Q1-REF. Research/design are completed within that same Plan; no rerun of Clarify or
+resolves B-Q1-REF. The 2026-10-14 native-only decision and reconciliation instruction
+`01a137d4-3956-7621-92a5-a654dea51ef2` now supersede the publication-hook portion of that
+design. Research/design are reconciled in the same official Plan; no Clarify rerun or
 additional workflow phase occurs. Implementation and independent/runtime acceptance are not implied.
 
 1. **Q1 (FR-002/026, matrix, US1.6–7/US2.6, SC-006):** native validation semantics on 12 V1
-   rows revised by the native-first decision: mandatory references may block create/save; supported
-   content-data/classification action checks remain, unsupported conditional relationship gates do
-   not. Four ITA rows stay D-ITA. B-Q1-REF is resolved by this Product decision, not a new adapter.
+   rows follow the current native-only decision: semantic title, Document file and the mandatory
+   Report Document use native create/save requiredness; other data/classifications are optional
+   under native validation. Publish/Schedule uses native RBAC/lifecycle and built-in checks only.
+   No publication completeness hook, article approval or confirmation remains. Four ITA rows stay
+   D-ITA. B-Q1-REF remains resolved by Product applicability, not an adapter.
 2. **Q2 (FR-008/009, US3.4, SC-001):** current assignment/unit/visibility on the same identity;
    no assignment-history feature. No ITA historical guarantee is attached to V1 Personnel acceptance.
 3. **Q3 (US5, FR-014–017, SC-004):** deferred D-ITA in full, including structured history,

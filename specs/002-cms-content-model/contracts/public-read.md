@@ -1,6 +1,6 @@
 # Public Read and Shared-Source Contract
 
-**Phase 1 design for Independent Review.** No public routes/templates, external-consumer API or
+**Phase 1 reconciled design for Independent Review.** No public routes/templates, external-consumer API or
 application implementation is introduced. This contract is the visibility/reuse boundary for
 native model consumers and later public-page work. See [data-model.md](../data-model.md) and
 [native-editorial.md](native-editorial.md).
@@ -36,6 +36,12 @@ reference hydration, but does not substitute for the native public-query integra
 The consumer handles native pagination/error/not-found outcomes. Relation hydration is opt-in;
 unrequested references remain absent. Follow native cache hints when a later cached consumer is
 built, without adding a Songhealth cache/search projection to this feature.
+
+Published status is a native visibility boundary, not an editorial-completeness certificate.
+Under current native-only Save/Publish rules, optional body/media/classification values may be
+absent on published entries. Consumers must tolerate those omissions without a privileged/draft
+fallback or an inferred publication-validation plugin. Actual public-page presentation remains
+later work; native query integration still needs focused verification before feature acceptance.
 
 ## Verification Boundary
 

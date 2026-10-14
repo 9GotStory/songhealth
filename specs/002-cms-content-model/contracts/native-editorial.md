@@ -1,6 +1,7 @@
 # Native Editorial and Save-Time Validation Contract
 
-**Phase 1 design for Independent Review.** No new public API, custom Admin, implementation or test
+**Phase 1 reconciled design for Independent Review**, instruction `01a137d4-3956-7621-92a5-a654dea51ef2`.
+No new public API, custom Admin, implementation or test
 result is delivered. This contract describes the existing EmDash 1.1.0 Admin/API consumed by staff
 and direct native-only publishing. Model: [data-model.md](../data-model.md); current rules:
 [spec.md](../spec.md#q1-native-validation-matrix--retained-v1).
@@ -43,6 +44,10 @@ not belong in `data`. Example: a synthetic report draft can supply
 fields remain incomplete. Omitted/empty required `report_document`, wrong targets or excessive
 cardinality follow native refusal. Other relationship fields permit empty selections and have no
 conditional publication predicate. This distinction closes B-Q1-REF without an adapter.
+All semantic `title` fields and Document `file` also have native `required: true`. File values
+use native objects containing a media `id`, not a copied file or an immutable evidence snapshot.
+Create must supply required fields; an update may omit an unchanged field but must not invalidly
+clear it. Native validation failures remain distinguishable from permission/state refusals.
 
 ## Validation Contract — Native Only
 
@@ -54,7 +59,9 @@ conditional publication predicate. This distinction closes B-Q1-REF without an a
 2. **Publish/Schedule:** A user with native RBAC publish authority may act
    without article review, approval, Songhealth confirmation or a custom
    publication completeness gate. EmDash's built-in role/lifecycle/time/
-   revision/reference checks remain in force. Missing optional content/
+   revision and applicable built-in checks remain in force. Native publication revalidates
+   reference requiredness/cardinality; Schedule retains its actual native action semantics,
+   without assuming the same reference predicate at every action point. Missing optional content/
    taxonomy selections are not blocked by Songhealth hooks.
 3. **Relationships:** Optional/conditional selections remain editorial
    context. No custom reference-selection adapter, effective-selection
@@ -68,6 +75,9 @@ No `content:beforePublish` / `content:beforeSchedule` registration,
 `src/plugins/publication-validation.ts` source or extra middleware is
 authorized. Native errors are reported truthfully; supplied-invalid data,
 permissions or state conflicts do not become false success.
+No required taxonomy, meaningful-body/gallery/channel heuristic, extra reviewer or article
+quality decision is substituted for the removed completeness policy. A native-authorized,
+natively valid record with optional omissions may publish/schedule.
 
 ## Outcomes and Revision Limits
 
