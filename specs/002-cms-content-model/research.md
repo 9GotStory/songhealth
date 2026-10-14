@@ -12,8 +12,9 @@ architecture choice remains. Implementation/population/operational verification 
 
 **Decision:** Health Report's single Document reference is mandatory at native create/save.
 Other relation fields are optional; conditional relationships are not automatic publication gates.
-Missing other Product fields may be saved where native validation permits. Publication predicates
-cover observable candidate content data and current taxonomy assignments only.
+Missing other Product fields may be saved where native validation permits. The later
+2026-10-14 Product decision removes publication-specific content/taxonomy predicates;
+this earlier Q1 observation is retained solely as historical research context.
 
 **Rationale:** The pinned release's `validateRequiredReferencesPresent` and
 `validateReferenceSelection` enforce a native required reference at create/save; native publication
