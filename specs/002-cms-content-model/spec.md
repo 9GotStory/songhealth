@@ -4,7 +4,13 @@
 
 **Created**: 2026-10-13
 
-**Status**: Native-first Q1 revised by Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6`;
+**Current policy (2026-10-14):** Product Owner selected native-only EmDash save-time
+validation and direct Native RBAC publishing, removing the previously planned Songhealth
+publication hooks. The accepted Q1 save-time requiredness remains; historical hook
+proposals are superseded. This is documentation reconciliation, not an invocation
+of a Spec Kit command, runtime PASS or implementation authorization.
+
+**Previous status**: Native-first Q1 revised by Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6`;
 official Plan Phase 0/1 completed as documentation for Independent Review. No runtime/UAT PASS or
 implementation authorization. The latest decision resolves B-Q1-REF by changing V1 applicability
 of missing-reference drafts, not by adding a custom reference adapter.
@@ -21,7 +27,7 @@ traceable below. This is not a rerun of Specify/Clarify or a new feature/workflo
 | Capability | Reduced V1 standing | Traceability |
 | --- | --- | --- |
 | Ordinary content, semantic Document/native Media, Personnel/current assignment, conditional Organization, Service/facility/Area | Retained on supported native EmDash 1.1.0 primitives | US1–4/6–7; FR-001–013/018–032 with the boundaries below |
-| Q1 native-first validation | Mandatory native references may be required at create/save; other incomplete drafts follow native validation. Adequately observable content-data/classification publication checks remain. Conditional relationship enforcement is not claimed | FR-002/026; US1.6–7/US2.6; current field matrix; SC-006 |
+| Q1 native-first validation | Native required semantic titles, Document file and mandatory Health Report → Document apply at create/save. Other fields/taxonomies follow native optionality. No Songhealth publication-time completeness hooks, confirmation, article review or approval; native RBAC/lifecycle checks remain | FR-002/026; US1.6–7/US2.6; current field matrix; SC-006 |
 | Q2 current Personnel assignment only | Retained; no assignment-history feature | FR-008/009; US3.4; SC-001 |
 | Q3 structured yearly ITA history, immutable/preserved evidence, retained published years and traceable correction | **D-ITA: deferred from V1; not implemented/PASS**. Entire structured ITA journey/representation is withheld, with no Basic Page or ordinary Document fallback claiming those guarantees | US5; FR-014–017; SC-004; four deferred Q1 ITA rows |
 | Q4 published-required-target removal veto and cross-record atomic availability/retention | **D-REF: deferred from V1; not implemented/PASS**. Includes guaranteed target/file availability at publication/schedule commit and under concurrent/later changes; no implicit cross-record gate | Former US2.6/US6.8; deferred portions FR-025/026 and SC-005/006 |
@@ -116,10 +122,11 @@ of each kind and verify its attributes/classifications, without building public 
    author saves it, **Then** it can be saved; a missing genuinely mandatory native reference may
    instead be refused at create/save. Native identity, supplied-value, authorization and public-data
    safety constraints apply. V1 does not promise saving every missing-reference draft.
-7. **Given** a missing or invalid Q1 content-data/classification publication field, **When** publication or schedule
-   acceptance is attempted, **Then** the action is refused with a readable explanation. Validation
-   also applies before a scheduled content-data revision becomes public; an incomplete candidate
-   does not replace the existing live content-data revision through that publication action.
+7. **Given** a validly saved record and an authorized publisher, **When** Publish or Schedule
+   is requested, **Then** EmDash applies native RBAC, lifecycle, revision, scheduling and
+   built-in validation only. Missing optional fields/classifications do not cause an added
+   Songhealth refusal; no article reviewer, approval, custom confirm or completeness hook
+   is required. Native failures remain truthful and readable.
 
 ---
 
@@ -324,9 +331,9 @@ and corrects an agreed validation failure using labels and the reported explanat
 ### Edge Cases
 
 - Featured/Health News/leadership presentation creates no duplicate content kind.
-- Q1 missing-value behavior follows the native-first matrix: mandatory native references can
-  block create/save; other incomplete drafts are saveable where native validation permits. Only
-  adequately observable publication predicates are automated at supported action points.
+- Q1 missing-value behavior follows native schema: required titles, Document files and native
+  required references may block create/save; other optional omissions are permitted.
+  No Songhealth publish/schedule completeness predicate or human article approval exists.
 - Conditional/optional relationships are not automatic publication gates. No internal selection
   adapter or promotion mirror is permitted to restore the previous blanket draft rule.
 - Domain dates/status remain separate from editorial state; no automatic expiry/unpublish is inferred.
@@ -352,15 +359,16 @@ and corrects an agreed validation failure using labels and the reported explanat
 
 - **FR-001**: Staff MUST maintain Basic Page, News, Activity, Announcement, and Health Content as
   distinct semantic kinds with the attributes in US1 and `02-content-model.md` §§3–7.
-- **FR-002**: V1 MUST follow supported EmDash 1.1.0 validation semantics. A genuinely mandatory
-  native reference MAY be required at create/save; V1 MUST NOT require saving a draft missing it.
-  Other incomplete drafts MUST remain supported where native field validation permits them.
-  Native identity, supplied-value, authorization and confidentiality rules still apply.
-  The accepted matrix MUST distinguish save-time rules, content-data/classification publication
-  checks and editorial conditional relationships. Supported hooks MUST enforce only predicates
-  whose required data/enforcement is available at publish, schedule acceptance and due-time execution.
-  Invalid candidate content-data MUST NOT replace live content-data through publication. Optional
-  relationships MUST remain optional; unsupported conditional relationship gates MUST NOT be claimed.
+- **FR-002**: V1 MUST use native EmDash 1.1.0 schema `required`, type, format,
+  unique, reference and cardinality validation at create/save, including required
+  semantic title, Document file, and Health Report → Document. Missing other fields and
+  classifications MAY be saved and published where the native schema allows, with
+  supplied invalid values still rejected by native validation. Native RBAC, lifecycle,
+  scheduling and revision constraints govern Publish/Schedule. No Songhealth-specific
+  content/taxonomy completeness hook, editor confirmation, article review or approval
+  workflow MAY be introduced. Native permission and public-data safety remain mandatory;
+  no cross-record file/target availability or immutability is implied.
+
 - **FR-003**: Basic Page MUST NOT substitute for a structured kind; Featured/Health News/leadership
   views and additional presentation contexts MUST NOT create duplicate kinds or source copies.
 - **FR-004**: Document MUST be a semantic public record around a file with title, optional summary,
@@ -420,16 +428,16 @@ and corrects an agreed validation failure using labels and the reported explanat
   Media removal MUST use native media/ownership permissions. Staff reference/retention review is
   an operational precaution, not a required-published-reference veto. The original target-removal
   veto/no-cascade enforcement is deferred (D-REF); no custom cascade/locking mechanism is introduced.
-- **FR-026**: Native value/format/cardinality/required-reference validation and failed/uncertain
-  actions MUST produce readable, truthful results; uncertain outcomes MUST be re-read before retry.
-  Mandatory references use native create/save and publication constraints, not a custom selection
-  predicate at schedule acceptance. Supported content-data/classification publication predicates
-  apply at the action points in the matrix. No custom reference-selection adapter, internal reference
-  table access or mirrored native promotion algorithm is permitted. Native selection validity MUST
-  NOT be represented as cross-record target/file availability or removal protection (D-REF).
-  Public reads follow FR-020 and safely represent missing files; optional unavailable links do not
-  block parent publication. Conditional relationships without reliable native publication enforcement
-  remain editor-reviewed context, not automatic publication requirements.
+- **FR-026**: Native required/type/value/reference/cardinality validation and
+  failure/uncertainty handling MUST return truthful outcomes. Native create/save
+  requiredness applies to semantic title, Document file and mandatory Health Report
+  Document relation; other supplied values still face native type/format checks.
+  Native Publish/Schedule applies built-in permission, time, lifecycle and revision
+  constraints only, without a Songhealth completeness hook, conditional reference
+  reconstruction, or manual article confirmation. Optional/conditional fields,
+  classifications and relations are maintained editorially, not publish-time gates.
+  Public reads safely omit unavailable targets or files under FR-020. Cross-record
+  availability, historical retention and target-removal veto remain D-REF/D-ITA.
 
 - **FR-027**: Schema/users/access/plugins/site-wide security/settings/backup/import/transfer and
   permanent content deletion MUST retain administrator boundaries. Native media removal follows
@@ -482,32 +490,32 @@ current V1 fixtures. Independent public-read, selection and role boundaries rema
 
 ### Q1 Native Validation Matrix — Retained V1
 
-**Current Product decision:** `01a13788-95c6-72f5-8787-f86b4e0c5fd6` supersedes the original
-Q1 blanket incomplete-draft/selection-at-every-publication-action rule. Twelve semantic rows remain;
-the four ITA rows below remain deferred. Native identity and supplied-value/format/authorization
-constraints always apply. Slash alternatives do not require both representations.
+**Current Product decision (2026-10-14):** Native-only publication replaces the
+previous proposed content-data/taxonomy publication hooks. Twelve active resource
+rows remain; the four ITA rows below remain D-ITA. Native schema requiredness
+applies at create/save, while Native RBAC/lifecycle governs Publish/Schedule.
 
-| Resource | Save-time native rule | Supported publish / schedule acceptance / due-time checks | Relationship or conditional boundary |
+| Resource | Native create/save | Native Publish / Schedule | Editorial / relationship boundary |
 | --- | --- | --- | --- |
-| Basic Page | Other incomplete Product fields allowed by native validation | Title and nonempty body | Optional media/Document links; no automatic relationship gate |
-| News | Other incomplete Product fields allowed by native validation | Title, summary, body, featured image selection, News Category and Topic/Health Topic classification | Area/Audience/Source and added relations optional |
-| Activity | Other incomplete Product fields allowed by native validation | Title, summary/description, date/time, location text, featured image OR nonempty gallery, participants/context text | Known-place/internal Personnel links optional; external participants may be text |
-| Announcement | Other incomplete Product fields allowed by native validation | Title, summary/details, type, announcement date | Opening/closing dates maintained when applicable and validate if supplied; applicable Documents are editor-reviewed context, not an automatic conditional gate |
-| Health Content | Other incomplete Product fields allowed by native validation | Title, summary, body, Health Topic, explicit source text, featured image/media selection | Native byline may additionally credit authors; no required custom byline identity or reference check |
-| Personnel | Other incomplete Product fields allowed by native validation | Prefix, first/last name, display name, profile image selection, current public assignment, organizational unit, visibility/current status value | Public contacts optional/appropriate; no assignment-history dates or records (Q2); Organization link optional |
-| Organization, only where reuse justifies it | Other incomplete Product fields allowed by native validation | Name and type when this conditional entity is instantiated | Parent/affiliation/contact/visibility maintained when applicable; no automatic conditional relationship gate |
-| Health Service | Other incomplete Product fields allowed by native validation | Official name/code, type, operational status, address/coordinates, opening hours, public contact and service-area taxonomy selection | Offered-Service/Organization links optional/editor-reviewed; location is not service area |
-| Service | Other incomplete Product fields allowed by native validation | Name, summary, Category/Topic/Audience, ownership type, provider/owner text, channels, eligibility, steps, required-document guidance, contact/location guidance; external URL for external digital ownership | Duration/fees/notes maintained when applicable and validate if supplied; Document/facility links optional/editor-reviewed, not automatic conditional gates |
-| Document | Other incomplete Product fields allowed by native validation | Title, Document Type and native file selection | Optional successor/context; selected asset is not guaranteed immutable/available |
-| Health Report | Related report Document is a genuinely mandatory native reference at create/save; single selection under native cardinality | Title, summary, type, Health Topic, reporting period and owner/source; native publication also checks reference requiredness/cardinality | Schedule acceptance does not add a custom reference predicate; report date maintained when meaningful and validates if supplied; native selection validity is not D-REF protection |
-| Area reference | Native term label/slug/parent shape validation on term maintenance; supplied official/stable codes retained when connecting data | No separate content publication gate for taxonomy terms | Hierarchical native taxonomy; codes/parent correctness verified with authoritative inventory/editor review, not a fabricated collection or immutable-history guarantee |
+| Basic Page | Title required; other fields optional, native supplied-value checks | Native RBAC/lifecycle only; no nonempty-body hook | Body/media/related Documents editorial |
+| News | Title required; other fields optional | Native RBAC/lifecycle only; no image/category/Topic hook | News Category, Topic, Area, Audience, source editorial |
+| Activity | Title required; other fields optional | Native RBAC/lifecycle only; no date/gallery/participant hook | Activity details, images/gallery, location editorial |
+| Announcement | Title required; other fields optional | Native RBAC/lifecycle only; no details/type/date hook | Dates, classification, Document links editorial |
+| Health Content | Title required; other fields optional | Native RBAC/lifecycle only; no body/source/media/Topic hook | Classification, source, review dates editorial |
+| Personnel | Display-name title required; other fields optional | Native RBAC/lifecycle only; no assignment/profile hook | Current public identity, unit, visibility editorial |
+| Organization, only on demonstrated reuse | Name/title required; other fields optional | Native RBAC/lifecycle only | Shared metadata and links optional |
+| Health Service | Official-name title required; other fields optional, supplied values type-checked | Native RBAC/lifecycle only; no Area/code/coordinate hook | Facility code, location, coverage, status, contact editorial |
+| Service | Title required; other fields optional, supplied values type-checked | Native RBAC/lifecycle only; no channel/guidance/URL hook | Ownership, categories, channels, guidance editorial |
+| Document | Title and native file required at save | Native RBAC/lifecycle only | Type, owner, dates, successor editorial |
+| Health Report | Title and one Document reference required at save; native cardinality | Native RBAC/lifecycle and built-in reference checks; no custom hook | Type, Topic, period, owner, Area editorial |
+| Area reference | Native taxonomy term label/slug/parent supplied-value validation | No independent content publication action | Official codes and hierarchy maintained from authoritative sources |
 
-Content-data/classification predicates above use only hydrated candidate data and supported taxonomy
-reads. Publication checks do not reconstruct relation selections. Incomplete mandatory-reference
-drafts are no longer an acceptance fixture. Conditional relationship presence remains editorial
-context where adequate native enforcement is unavailable; it is not silently treated as passed.
-Native term maintenance and separately maintained metadata follow their actual native boundaries.
-No minimum evidence count, retention rule, custom permission or reference subsystem is introduced.
+Only native validation and permission checks are automated. Missing optional
+content/classification values may remain at Publish/Schedule; this is a deliberate
+V1 tradeoff and not an automated completeness guarantee. Incomplete drafts
+violating save-time requiredness may be refused. Valid selections never guarantee
+linked-target availability, retention or historical immutability. No custom hook,
+reference adapter or second RBAC layer is proposed.
 
 **Deferred Q1 ITA rows — D-ITA only; not V1 publication requirements:**
 
@@ -607,17 +615,15 @@ counted as PASS. Runtime outcomes remain unverified by this document-only reconc
   Native save-time mandatory-reference refusals and supported publication checks are covered by SC-006. D-REF cross-record availability and
   target-removal guarantees, and atomic staging of separately maintained metadata, are not inferred.
 
-- **SC-006**: Every agreed invalid-input/stale-write/failed-action/trash-restore/uncertainty case
-  yields the correct state and readable result with zero false success or silent overwrite.
-  For each matrix row, missing-value fixtures MUST distinguish native create/save refusal for
-  mandatory references from saveable missing content-data/classification values and their supported
-  publication/schedule refusal. Schedule/due-time checks MUST match native action semantics; no
-  unsupported relation hook or conditional guarantee is expected. An invalid content-data candidate
-  at due time MUST remain non-public, preserving existing live content-data. Optional/conditional
-  relation fixtures MUST show native maintenance rather than an automatic publication gate.
-  Native-authority/trash-first/restore fixtures have the documented outcomes, including otherwise
-  authorized maintenance that can affect reused content. Required-reference removal veto, immutable
-  history and cross-record atomicity fixtures are deferred D-REF/D-ITA, not reported as passed.
+- **SC-006**: Every agreed native-invalid-input, stale-write, failed action,
+  trash/restore or uncertain-outcome fixture reports the correct native state
+  without false success or silent overwrite. Each resource's save-time required
+  fields/references and native supplied-value constraints are verified. For
+  intentionally optional content/taxonomy fields, successful native Save and
+  authorized Publish/Schedule MUST NOT be reported as a custom completeness
+  rejection. Native scheduling and due-time outcomes follow the platform;
+  no Songhealth validation plugin, conditional relationship gate or extra
+  editorial confirmation is assumed. D-REF/D-ITA remain outside V1 acceptance.
 
 - **SC-007**: Staff demonstrate author/select/reuse/find/correct journeys with recognizable labels
   and zero undocumented technical intervention to maintain representative records.
@@ -637,7 +643,7 @@ counted as PASS. Runtime outcomes remain unverified by this document-only reconc
 - Domain dates/status retain their meaning; no universal enum or automatic unpublish is inferred.
 - Q3 and unavailable Q4 guarantees are explicitly deferred by the Product Owner; ordinary native
   media/Document reuse, revision history and staff precautions cannot be claimed to satisfy them.
-- V1 uses native publication, permissions, value/reference constraints and safe public reads.
+- V1 uses native publication, RBAC, save-time value/reference constraints and safe public reads. No Songhealth publication hooks or human article-approval step.
   Current Q1 mapping and field/metadata boundaries are documented in the completed Plan; native
   integration/UAT verification remains future work and no runtime PASS is inferred.
 
