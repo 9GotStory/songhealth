@@ -134,8 +134,12 @@ creation, no container start) — per the delegation that is not T001 work.
   closed on such a mismatch by design. This run therefore neither started nor mutated the
   container or volume (no reset/recreate behavior exists, and persistent data is preserved).
   Truthful standing: the existing instance is **inspectable but not startable by this clone's
-  available inputs**; a later authorized runtime task must either obtain the owning credentials or
-  provision its own named instance through the same helper.
+  available inputs**. The helper fixes both resource names — `songhealth-dev-db` /
+  `songhealth-dev-db-data` (`scripts/dev-db.sh` `readonly CONTAINER_NAME`/`VOLUME_NAME`) — and
+  offers no instance-name override: later authorized runtime work must resolve ownership and
+  matching configuration for these preserved fixed-name resources, without deleting or
+  reinitializing them. If reuse cannot be established with matching inputs, that stands as a
+  recorded blocker for the requiring task; no supported alternate-instance path exists.
 - **Canonical sources** (unchanged at baseline): `astro.config.mjs` (single Astro SSR app, Node
   adapter, React integration, native `postgres()` adapter, native `local()` media at `./media`,
   migration modes `runtime: "check"` / `dev: "auto"`); `src/live.config.ts` (single `_emdash`
