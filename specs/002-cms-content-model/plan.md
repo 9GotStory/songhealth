@@ -5,23 +5,22 @@
 **Verified continuation HEAD**: `b614c8f283394381d0cb45c2b2903e28c49b75fc`
 **Product decision**: `01a13788-95c6-72f5-8787-f86b4e0c5fd6`
 
-**Status**: Official Plan Phase 0 research and Phase 1 design complete; documentation awaits
-Independent Review. No implementation, UAT/runtime PASS, final foundation acceptance or merge.
+**Status**: Official Plan Phase 0/1 was completed and independently reviewed. Subsequent
+2026-10-14 Product reconciliation removes custom publication hooks from V1 planning artifacts.
+This is a documentation-only scope update, not a rerun of `$speckit.plan`, implementation,
+UAT/runtime PASS, final foundation acceptance or merge.
 Command stops here. Do not start Checklist, Tasks, Analyze or Implementation in this run.
 
 ## Summary
 
-Extend the existing canonical platform with native semantic content collections, classifications,
-media/file fields and limited reusable relationships. Adopt native mandatory-reference create/save
-requiredness for Health Report → Document; other relations stay optional/editor-reviewed. A finite
-native publication plugin checks observable candidate fields/current taxonomy selections at manual
-publish, schedule acceptance and due-time publication. It reconstructs no reference selections and
-owns no storage, routes, locks, scheduler or RBAC.
-
-B-Q1-REF is resolved by explicit Product change, not repaired internals or passed deferred tests.
-Q2 current Personnel assignments remain. D-ITA structured historical evidence and D-REF cross-record
-availability/removal/atomic guarantees remain deferred. Ordinary shared media can change/disappear.
-Legacy ITA disposition and Feature 001 operational acceptance remain separate.
+Extend the canonical platform with native semantic collections, classifications,
+media and reusable relationships. Native schema owns required/type/value checks
+and references at create/save; native RBAC, lifecycle and built-in validation own
+Publish/Schedule. Record titles, Document files and required Health Report →
+Document references are native save-time requirements. Other content values and
+taxonomies are staff-maintained optional data. **No Songhealth publication
+validation hook, approval flow, confirmation UI, adapter or secondary CMS.**
+D-ITA/D-REF and Feature 001 runtime dependencies remain unchanged.
 
 ## Technical Context
 
@@ -52,17 +51,17 @@ content collection), six active stories/seven active SCs; four ITA rows/US5/SC-0
 | Principle | Pre-research assessment | Post-design assessment |
 | --- | --- | --- |
 | I: current authority | Latest explicit Product decision resolves native Q1 applicability; owning 02/05/07/10 reconciled | Spec/matrix/design agree; no other Product meaning amended, historical answers remain provenance; review precedes implementation |
-| II: native first | Required-reference save behavior accepted; previous adapter investigation closed | Native schema/relations/fields/UI; one finite supported content-data/taxonomy hook for the demonstrated publication-only validation need, with focused future tests |
+| II: native first | Native save-time requiredness retained; previous adapter investigation closed | Native schema/relations/fields/UI and direct RBAC publishing; Product Owner removed proposed publication-specific plugin |
 | III: simplicity | One canonical foundation; no deferred-invariant workaround | Ten semantic content kinds; conditional Organization only for demonstrated reuse; taxonomy Area; no duplicate Media/Contact/system fields, custom relation engine or speculative infrastructure |
-| IV: security/data | Native roles/ownership, public-only data, private production DB/secrets preserved | Native signed preview and published-context reads; validation hook has only policy/taxonomy-read capabilities, no DB/network/storage; no confidentiality/retention guarantee for media |
+| IV: security/data | Native roles/ownership, public-only data, private production DB/secrets preserved | Native RBAC/preview, published-only reads and save-time checks; no custom publishing hook or confidentiality/retention guarantee for media |
 | V: phased authorization | Existing Plan continuation only; no setup/Specify/Clarify restart | Phase 0 decisions complete; data model/contracts/quickstart generated; stop at normal Plan boundary, no later command or implementation |
 | Independent review | Codex-only planning authorship, no production authorship | Author design assessment only; Independent Review and human approval are not claimed |
 | Operations | T022/T028 PENDING; original dependency joins | Unchanged sources/config/pins/runtime contracts; no waiver, PASS marker, merge/deployment |
 
 Author assessment: no unjustified violation, exception or Constitution amendment. Post-design
 assessment is complete for the proposed design; it is not independent PASS or runtime SC acceptance.
-Blueprint §§7/22 already allow the finite supported hook with focused verification. No new
-architecture foundation or additional approval workflow is introduced.
+Blueprint §§7/22 permit extensions only for real gaps; no publication-hook gap is
+retained under the latest Product decision. No architecture or approval flow is added.
 
 ## Content Model §23 Mapping Gate
 
@@ -102,24 +101,22 @@ quality checklist/analysis artifact is generated.
 ### Planned Application Touch Points — Not Implemented
 
 ```text
-astro.config.mjs                      # native plugin descriptor registration only when authorized
-seed/seed.json                        # native bootstrap schema intent after design acceptance
-src/plugins/publication-validation.ts # finite native hooks; no relation adapter or public route
-tests/browser/                       # future native Admin/API and focused publication scenarios
+seed/seed.json  # native bootstrap schema intent; initialized schema requires native operations
+tests/browser/  # focused native Admin/API and optional public-read smoke fixtures
 ```
 
-`src/live.config.ts` keeps its single native `_emdash` registration. No Domain/Application/Policy
-layer, parallel backend, infrastructure directory or new production topology is introduced. The
-planned source paths express bounded configuration/validation work; no source file was created now.
-The active native schema is authoritative; inspect/apply schema through native operations during a
-separately authorized implementation, never assume editing seed changes an initialized database.
+The previously proposed `src/plugins/publication-validation.ts` and Astro plugin
+registration are **cancelled**. No Songhealth publishing plugin/capabilities,
+second foundation, custom content API, reference adapter or policy engine is planned.
+`src/live.config.ts` retains its single native `_emdash` registration. The active
+native schema is authoritative; seed edits alone do not migrate an initialized DB.
 
 ## Requirement Coverage
 
 | Stable requirement IDs | Planning artifact / verification ownership |
 | --- | --- |
 | FR-001/003/030 | Data model's ten native semantic kinds and native system metadata; US1/SC-001 journeys |
-| FR-002/026 | Revised Q1 matrix, native editorial validation contract and save/publish/schedule/due-time fixtures; B-Q1-REF resolved by current Product decision |
+| FR-002/026 | Current native-only Q1 matrix; save-time requiredness plus native RBAC/lifecycle fixture outcomes, no custom publication-completeness plugin |
 | FR-004–007 | Document/file/Report identity and six native reuse relations; shared-source/public-read contract and SC-002 |
 | FR-008/009 | Current Personnel fields and separate native account permissions; US3 current-assignment/SC-001 fixture |
 | FR-010 | Conditional Organization variant only on demonstrated reuse; existing §23 input and US3.3 |
@@ -141,14 +138,14 @@ Q1 behavior is revised in current acceptance. No result is counted as passed by 
 [quickstart.md](quickstart.md) supplies prerequisites, runnable native environment commands and
 end-to-end acceptance journeys tied to the two contracts/model. Verify native create/save refusal
 for a missing mandatory Document, optional relations, valid cardinality, incomplete scalar drafts,
-field/classification publication checks at all three supported points, scheduler failure behavior,
+native Publish/Schedule authorization, native validation/failure behavior, scheduler failure behavior,
 metadata boundaries, current Personnel, reciprocal identity, public/preview permissions and Thai UAT.
 Conditional relationships are not automated publication fixtures; D-ITA/D-REF are not PASS denominators.
 
 Remaining inputs: real classification/Area code sources, service/facility records, any genuine shared
 Organization case, staff label/role assignment/site timezone, approved implementation artifacts and
-bounded authorization. Values are not fabricated in this Plan. Native configuration must retain the
-validation plugin active; administrative schema/plugin changes can invalidate configured checks.
+bounded authorization. Values are not fabricated in this Plan. No Songhealth validation plugin or
+registration precondition is required.
 Integration/build/API/scheduler/UAT verification is future work; the local Node is not the pinned
 version, and no application runtime or database was started during planning.
 
@@ -172,7 +169,6 @@ Independent Review. It does not trigger its Tasks/Checklist handoffs.
 
 ## Complexity Tracking
 
-No Constitution exception/violation is proposed. The only planned custom code is finite native
-publication validation for data/classification predicates that differ from save-time rules. Native
-required references require no custom adapter. No generalized rules engine, storage or middleware
-layer is justified or included.
+No Constitution exception/violation is proposed. No custom publication code is planned. Native save-time required
+fields/references require no adapter, and native RBAC/lifecycle needs no extra review/confirmation.
+No generalized rules engine, storage, middleware or plugin layer is justified or included.
