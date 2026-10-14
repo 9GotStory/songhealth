@@ -17,31 +17,31 @@ For example, title is ชื่อเรื่อง for prose, ชื่อท�
 ชื่อบริการ for Service; วัน/เวลาจัดกิจกรรม is distinct from native publication time. Native labels
 carry no implementation vocabulary; verify every label/picker/error with the SC-007 staff journey.
 
-Notation: **P** is a content-data/current-taxonomy presence predicate at manual publish, schedule
-acceptance and due-time execution; **S** is native create/save requiredness; **O** is optional.
-Non-reference Product fields are non-required at schema save so missing values can draft; malformed
-supplied values still face native type/format/select constraints. P checks nonblank strings, meaningful
-native body/guidance blocks (blank text-only blocks do not suffice), native media-ID selection,
-meaningful gallery/channel rows, finite numbers (including zero), explicit booleans
-(including false and native stored 0/1 representations) and native classification assignment.
-Optional fields stay optional. No relation
-selection is read/reconstructed by the publication plugin. See spec's accepted 12-row matrix.
+Notation: **S** is native schema save-time requiredness; **O** is optional
+at save and Publish/Schedule except native built-in constraints and supplied-value
+checks. Native `title` is required on semantic entries, `file` on Document,
+and `report_document` on Health Report. No **P** publication-only predicate
+or custom content/taxonomy validation hook exists. Optional fields can be
+incomplete at publication under direct Native RBAC. EmDash still validates
+supplied types/formats/values and reference/cardinality constraints. Staff
+ensure appropriate editorial completeness and classification; native schema
+does not promise historical media or cross-record availability.
 
 ## Collection Fields
 
 | Collection / Thai content label | Content data fields and native types | Classification / reference selections |
 | --- | --- | --- |
-| `pages` / ข้อมูลทั่วไป | `title` string P; `summary` text O; `body` portableText P; image/file fields O when useful | related Documents O; no generic-page substitute for structured kinds |
-| `news` / ข่าว | `title` string P; `summary` text P; `body` portableText P; `featured_image` image P; `source_text` text O | `news_category` P, `topic` P; `area`/`audience` O |
-| `activities` / กิจกรรม | `title` string P; `summary` text P; `activity_at` datetime P; `location_text` string P; `featured_image` image or `gallery` repeater P (one suffices); `participants_text` text P | `topic`/`area` O; no separate participant/place identity required |
-| `announcements` / ประกาศ | `title` string P; `details` portableText P; `announcement_at` datetime P; `opens_at`/`closes_at` datetime O | `announcement_type` P; `topic`/`audience` O; Documents O/editor-reviewed |
-| `health_content` / ความรู้สุขภาพ | `title` string P; `summary` text P; `body` portableText P; `source_text` text P; `featured_image` image P; `reviewed_at`/`next_review_at` datetime O | `topic` P using approved health classifications; `audience` O; native bylines optional attribution |
-| `personnel` / บุคลากร | `prefix`, `first_name`, `last_name`, `title` (display name) strings P; `profile_image` image P; `current_assignment`, `organizational_unit` strings P; `public_visible` boolean P; `public_contact` text O | Organization O only when activated; no account link, assignment history, Citizen ID/DOB/private address |
-| `health_services` / หน่วยบริการสุขภาพ | `title` (official name), `facility_code` strings P; `display_name` string O; `operational_status` select P (active/temporarily_closed/inactive); `address` text P; `latitude`/`longitude` number P; `opening_hours`, `public_contact` text P; `affiliation_text` string O; `image` image O | `facility_type` P; `area` P for service coverage; offered Services O; Organization O if activated |
-| `services` / บริการ | `title` string P; `summary` text P; `ownership_type` select P; `provider_text` string P; `channels` repeater P; `eligibility`, `steps`, `required_documents_guidance`, `contact_location_guidance` portableText P; `duration`, `fees`, `notes` text O; `external_url` url P for external digital ownership, otherwise O | `service_category`, `topic`, `audience` P; relevant Documents and offering facilities O/editor-reviewed |
-| `documents` / เอกสาร | `title` string P; `summary` text O; `file` file P; `document_at` datetime O; `fiscal_year` integer O; `owner_source` text O; `domain_status` select O (current/superseded/expired) | `document_type` P; `topic` O; successor Document O |
-| `health_reports` / รายงานสุขภาพ | `title` string P; `summary` text P; `reporting_period`, `owner_source` text P; `report_at` datetime O; `fiscal_year` integer O | `report_type`, `topic` P; single `report_document` reference **S**; `area` O |
-| `organizations` / องค์กร — conditional | `title` (name) string P; `organization_type` select P with supplied approved values; `responsibilities` text O; `public_contact` text O; `active_visible` boolean O | parent/affiliation and selected owning-record links O only for demonstrated shared-object use |
+| `pages` / ข้อมูลทั่วไป | `title` string S; `summary` text O; `body` portableText O; image/file fields O when useful | related Documents O; no generic-page substitute for structured kinds |
+| `news` / ข่าว | `title` string S; `summary` text O; `body` portableText O; `featured_image` image O; `source_text` text O | `news_category` O, `topic` O; `area`/`audience` O |
+| `activities` / กิจกรรม | `title` string S; `summary` text O; `activity_at` datetime O; `location_text` string O; `featured_image` image or `gallery` repeater O (one suffices); `participants_text` text O | `topic`/`area` O; no separate participant/place identity required |
+| `announcements` / ประกาศ | `title` string S; `details` portableText O; `announcement_at` datetime O; `opens_at`/`closes_at` datetime O | `announcement_type` O; `topic`/`audience` O; Documents O/editor-reviewed |
+| `health_content` / ความรู้สุขภาพ | `title` string S; `summary` text O; `body` portableText O; `source_text` text O; `featured_image` image O; `reviewed_at`/`next_review_at` datetime O | `topic` O using approved health classifications; `audience` O; native bylines optional attribution |
+| `personnel` / บุคลากร | `title` (display name) string S; `prefix`, `first_name`, `last_name` strings O; `profile_image` image O; `current_assignment`, `organizational_unit` strings O; `public_visible` boolean O; `public_contact` text O | Organization O only when activated; no account link, assignment history, Citizen ID/DOB/private address |
+| `health_services` / หน่วยบริการสุขภาพ | `title` (official name) string S; `facility_code` string O; `display_name` string O; `operational_status` select O (active/temporarily_closed/inactive); `address` text O; `latitude`/`longitude` number O; `opening_hours`, `public_contact` text O; `affiliation_text` string O; `image` image O | `facility_type` O; `area` O for service coverage; offered Services O; Organization O if activated |
+| `services` / บริการ | `title` string S; `summary` text O; `ownership_type` select O; `provider_text` string O; `channels` repeater O; `eligibility`, `steps`, `required_documents_guidance`, `contact_location_guidance` portableText O; `duration`, `fees`, `notes` text O; `external_url` url O for external digital ownership, otherwise O | `service_category`, `topic`, `audience` O; relevant Documents and offering facilities O/editor-reviewed |
+| `documents` / เอกสาร | `title` string S; `summary` text O; `file` file S; `document_at` datetime O; `fiscal_year` integer O; `owner_source` text O; `domain_status` select O (current/superseded/expired) | `document_type` O; `topic` O; successor Document O |
+| `health_reports` / รายงานสุขภาพ | `title` string S; `summary` text O; `reporting_period`, `owner_source` text O; `report_at` datetime O; `fiscal_year` integer O | `report_type`, `topic` O; single `report_document` reference **S**; `area` O |
+| `organizations` / องค์กร — conditional | `title` (name) string S; `organization_type` select O with supplied approved values; `responsibilities` text O; `public_contact` text O; `active_visible` boolean O | parent/affiliation and selected owning-record links O only for demonstrated shared-object use |
 
 All ten unconditional kinds are native collections because their meaning/attributes/reuse differ;
 Featured/Health News/leadership are views, not new kinds. `organizations` is a defined conditional
@@ -70,11 +70,11 @@ and native range constraints (latitude −90..90, longitude −180..180), not ma
 
 | Native taxonomy | Attached kinds | Meaning / validation |
 | --- | --- | --- |
-| `topic` | News, Activity, Announcement, Health Content, Document, Health Report, Service | Shared Topic/health classification; P only on kinds whose matrix requires it. Owners supply appropriate health terms; automatic check is presence, not semantic scoring |
-| `audience` | News, Announcement, Health Content, Service | Shared intended audience; P for Service, optional elsewhere |
-| `news_category` | News | News category P; no separate Featured/Health News collection |
-| `announcement_type`, `document_type`, `report_type`, `facility_type`, `service_category` | Their respective kind | Native classification, not an entity with its own duplicate lifecycle |
-| `area` (hierarchical) | News, Activity, Health Service, Health Report | Explicit official/stable code in native term slug, name in label, parent via native group identity; P coverage selection only for facility |
+| `topic` | News, Activity, Announcement, Health Content, Document, Health Report, Service | Shared Topic/health classification; native term selection is editorially maintained, not a custom publish-time gate |
+| `audience` | News, Announcement, Health Content, Service | Shared intended audience; selection is optional at native save and publish |
+| `news_category` | News | Staff-maintained category; no separate Featured/Health News collection or custom publish gate |
+| `announcement_type`, `document_type`, `report_type`, `facility_type`, `service_category` | Their respective kind | Native optional classification, not an entity or a custom publish gate |
+| `area` (hierarchical) | News, Activity, Health Service, Health Report | Explicit official/stable code in native term slug, name in label, parent via native group identity; selection is editor-maintained, not a custom publication requirement |
 
 Area terms model applicable Province → District → Subdistrict → Village hierarchy. Native label/
 slug/parent validation applies at term maintenance; taxonomy terms do not have draft/publish status.
@@ -91,7 +91,7 @@ No Contact/File/Media collection, analytical metric table or additional state/pe
 One edge set per relation. Limits are native maxima; minimum requiredness is the bound field's
 native required flag. Unless marked S, reference fields are optional at create/save/publication.
 Native selection validity/cardinality is not a guarantee of published/available targets or removal
-protection. No hook reimplements effective selection or native baseline-diff promotion.
+protection. No Songhealth publication-validation hook or relation adapter is planned.
 
 | Relation | Source field / side → target | Cardinality (source; target) | Requiredness / reason |
 | --- | --- | --- | --- |
@@ -128,9 +128,9 @@ must use the appropriate saved/published state rather than promise immediate cro
 | --- | --- | --- |
 | Create/save | Native field shape/value/reference constraints; missing allowed non-required data can draft; mandatory Report Document cannot be missing | No claim every incomplete draft saves |
 | Published content-data save | Native revisions stage content-data and pending reference selections; previous live data remains | Taxonomies/SEO/bylines/shared media are current side data, not an atomic frozen snapshot |
-| Publish | Native role/ownership, slug/revision checks, native reference constraints and finite data/taxonomy policy | No target availability/immutable bytes guarantee |
-| Schedule acceptance | Native role/time/entry checks and `beforeSchedule` data/taxonomy policy | No custom effective-reference gate; native action semantics documented |
-| Due-time publication | Native due/time/revision checks, native publish reference constraints, `beforePublish` policy | Explicit policy cancellation has native rejection handling; other errors may remain scheduled/overdue; do not add retry manager |
+| Publish | Native role/ownership, slug/revision and supported built-in constraints only; no Songhealth content/taxonomy policy | No target availability/immutable bytes guarantee |
+| Schedule acceptance | Native role/time/entry checks only; no Songhealth `beforeSchedule` hook | Native action semantics documented |
+| Due-time publication | Native scheduler, due/time/revision and built-in publish constraints only | Native errors may remain scheduled/overdue; no Songhealth `beforePublish` policy or retry manager |
 | Unpublish/trash/restore/purge | Native permitted lifecycle; content purge administrator-only and trash-first | No published-required-dependent veto; raw media has separate native permissions |
 | Optional linked reads | Resolve in published context, omit unavailable links, safe missing file | Native media is public-publishable; no preview/draft leakage, no retention guarantee |
 
