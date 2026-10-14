@@ -9,7 +9,14 @@
 // native trash listing (an ordinary content GET 404 is not proof of
 // permanent deletion), known-secret scrubbing of response-body read
 // failures, and same-application binding for administrative executors and
-// role orchestrators. No behavior beyond the authorized T002 scope.
+// role orchestrators. Corrective round 3 (findings 1–2) further hardened:
+// callback failures are tracked by occurrence (a rejection with undefined
+// is still a failure) and surface only as scrubbed CmsHelperError
+// renderings — never the raw cause object — and combine with restore
+// failures under known-secret scrubbing; trash-listing traversal validates
+// the native success/list/pagination shape and treats malformed pages and
+// stalled or cyclic cursors as unknown, never as proven absence. No
+// behavior beyond the authorized T002 scope.
 //
 // Authority:
 // - specs/002-cms-content-model/tasks.md T002 ("Add bounded native
@@ -926,17 +933,21 @@ function roleStateText(adminObserved: number | undefined, liveObserved: unknown)
  * nothing forges identity, mints roles, or bypasses a permission check;
  * each phase exercises the real native permission decisions.
  *
- * Failure-path contract (corrective finding 2): after a possibly-committed
- * role mutation, EVERY exit path reconciles and restores. The switch
- * response is uncertain-safe (a refusal or transport failure is re-read
- * before the mutation is considered not-committed); the live /auth/me
- * identity check and the callback each run only when the switch is
- * verified; and restoration — restore request, admin re-read, and live
- * credential re-read — is awaited and verified on every path, including
- * switch-uncertain, identity-failure, and callback-failure. The original
- * role is reported restored only when that verification observed it;
- * otherwise the unresolved restoration is reported loudly and, when both
- * occur, combined with the preserved original failure evidence.
+ * Failure-path contract (corrective findings 2 and round-3 finding 1):
+ * after a possibly-committed role mutation, EVERY exit path reconciles and
+ * restores. The switch response is uncertain-safe (a refusal or transport
+ * failure is re-read before the mutation is considered not-committed); the
+ * live /auth/me identity check and the callback each run only when the
+ * switch is verified; and restoration — restore request, admin re-read, and
+ * live credential re-read — is awaited and verified on every path,
+ * including switch-uncertain, identity-failure, and callback-failure. The
+ * original role is reported restored only when that verification observed
+ * it; otherwise the unresolved restoration is reported loudly and, when
+ * both occur, combined with the preserved original failure evidence. A
+ * rejected callback is always reported as a failure (including rejections
+ * with `undefined`) and only ever surfaces as a CmsHelperError carrying a
+ * scrubbed rendering of the rejected value — the raw cause object is never
+ * rethrown, so its message/stack cannot leak credential material.
  */
 export async function withNativeRole<T>(
 	admin: CmsActor,
@@ -1062,13 +1073,21 @@ export async function withNativeRole<T>(
 		}
 	}
 
-	// Phase 3 — the caller's role-phase callback.
+	// Phase 3 — the caller's role-phase callback. A rejection is tracked by
+	// OCCURRENCE, separate from its value: even a rejection with `undefined`
+	// is a real failure (corrective round 3, finding 1), and the raw
+	// rejected value is never rethrown as-is — its message/stack could carry
+	// unsanitized credential material, so only a scrubbed rendering of it
+	// ever leaves this function.
 	let value: T | undefined;
+	let callbackFailed = false;
+	let callbackFailure: unknown;
 	if (mutated === "yes" && phaseError === undefined) {
 		try {
 			value = await fn(actor);
 		} catch (cause) {
-			phaseError = cause;
+			callbackFailed = true;
+			callbackFailure = cause;
 		}
 	}
 
@@ -1077,10 +1096,11 @@ export async function withNativeRole<T>(
 	if (mutated !== "no") {
 		const restoreError = await reconcileOriginalRole();
 		if (restoreError !== null) {
-			if (phaseError !== undefined) {
+			if (phaseError !== undefined || callbackFailed) {
+				const earlierFailure = phaseError !== undefined ? phaseError : callbackFailure;
 				throw new CmsHelperError(
 					"ROLE_AND_RESTORE_FAILED",
-					`${restoreError.message}; the earlier failure was: ${failureText(phaseError)}`,
+					`${restoreError.message}; the earlier failure was: ${failureText(earlierFailure, scrubSecrets)}`,
 				);
 			}
 			throw restoreError;
@@ -1088,6 +1108,15 @@ export async function withNativeRole<T>(
 	}
 	if (phaseError !== undefined) {
 		throw phaseError;
+	}
+	if (callbackFailed) {
+		// Truthful, redacted reporting of the rejected callback: the
+		// scrubbed message preserves the non-secret failure evidence without
+		// exposing the original cause object or its stack.
+		throw new CmsHelperError(
+			"CALLBACK_FAILED",
+			`the role-phase callback rejected: ${failureText(callbackFailure, scrubSecrets)}`,
+		);
 	}
 	if (mutated !== "yes") {
 		// Defensive: no phase error was recorded but the switch never
@@ -1474,9 +1503,13 @@ export async function permanentlyDeleteEntry(
  * (GET /_emdash/api/content/{collection}/trash, permission
  * content:read_drafts, cursor-paginated). Returns:
  * - "in-trash" — the id appears in the native trash listing;
- * - "not-in-trash" — the entire listing was traversed without it;
- * - "unknown" — the listing could not be traversed (refusal/transport) or
- *   pagination did not terminate within a bounded page budget.
+ * - "not-in-trash" — the listing was FULLY traversed (well-formed pages,
+ *   terminated by an absent/empty nextCursor) without the id;
+ * - "unknown" — traversal could not be trusted: request refusal/transport
+ *   failure, a malformed success page (missing/non-array items), stalled or
+ *   cyclic pagination (a nextCursor that repeats one already followed), or
+ *   the bounded page budget ran out (corrective round 3, finding 2:
+ *   incomplete traversal must never be read as proven absence).
  *
  * This exists because the ORDINARY content GET hides soft-deleted entries
  * (pinned 1.1.0: findByIdOrSlug uses includeTrashed=false), so an ordinary
@@ -1491,6 +1524,7 @@ export async function findTrashedEntry(
 	id: string,
 ): Promise<TrashedEntryLookup> {
 	const MAX_PAGES = 200;
+	const followedCursors = new Set<string>();
 	let cursor: string | undefined;
 	for (let page = 0; page < MAX_PAGES; page += 1) {
 		let result: NativeResult;
@@ -1511,18 +1545,29 @@ export async function findTrashedEntry(
 		if (!result.ok) {
 			return "unknown";
 		}
+		// Validate the native success/list shape before trusting the page: a
+		// malformed success (missing or non-array items) proves nothing about
+		// how much of the listing was traversed — fail closed.
 		const data = nativeDataOf(result);
-		const items = Array.isArray(data?.items) ? data.items : [];
+		const items = data?.items;
+		if (data === undefined || !Array.isArray(items)) {
+			return "unknown";
+		}
 		if (items.some((item) => recordOf(item).id === id)) {
 			return "in-trash";
 		}
-		const nextCursor = data?.nextCursor;
-		if (
-			typeof nextCursor !== "string" ||
-			nextCursor.length === 0 ||
-			nextCursor === cursor
-		) {
+		const nextCursor = data.nextCursor;
+		if (typeof nextCursor !== "string" || nextCursor.length === 0) {
+			// Well-formed final page — the listing is exhausted.
 			return "not-in-trash";
+		}
+		// A nextCursor that repeats one already followed means pagination
+		// stalled or cycled; the listing was NOT proven fully traversed.
+		if (nextCursor === cursor || followedCursors.has(nextCursor)) {
+			return "unknown";
+		}
+		if (cursor !== undefined) {
+			followedCursors.add(cursor);
 		}
 		cursor = nextCursor;
 	}
