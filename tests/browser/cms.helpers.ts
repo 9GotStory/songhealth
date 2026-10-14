@@ -1,6 +1,11 @@
 // T002 — bounded native request/fixture helpers for the Feature 002 focused
 // CMS checks. Test support in tests/browser/ only: no application, schema,
 // seed, dependency, infrastructure, or production change is made here.
+// Corrective round 1 (reviewer findings 1–6) hardened: the bootstrap
+// credential path, role-restoration failure coverage, media-deduplication
+// ownership safety, cleanup resilience/retention, embedded-secret redaction,
+// and the configured-origin request boundary. No behavior beyond the
+// authorized T002 scope was added.
 //
 // Authority:
 // - specs/002-cms-content-model/tasks.md T002 ("Add bounded native
@@ -82,7 +87,13 @@
 //   trash-first; no body)
 // - POST /_emdash/api/media — multipart form field "file" (+ optional
 //   deduplicate/ensureUniqueFilename/folderId/fieldId/width/height/thumbnail),
-//   media:upload permission, response data { item: { id, ... } }
+//   media:upload permission, response data { item: { id, ... } }.
+//   CRITICAL for fixture ownership: with a "deduplicate" flag an existing
+//   content hash makes the route return the PRE-EXISTING item as
+//   { item, deduplicated: true } (src/astro/routes/api/media.ts ~:217) —
+//   these helpers therefore never request deduplication and never register
+//   a deduplicated id as an owned fixture, so cleanup can never delete an
+//   asset it did not create
 // - GET/PUT/DELETE /_emdash/api/media/{id} — media:read;
 //   media:edit_own + ownership (editors+ any); media:delete_own + ownership
 //   (editors+ any)
@@ -90,27 +101,45 @@
 // Boundaries (tasks.md shared constraints; Constitution v3.0.0 II–V):
 // - development-only access: dev-bypass is used exactly as README §7
 //   documents it; no production Passkey automation, no custom authentication
+// - request boundary (corrective finding 6): every helper request is
+//   confined to the configured origin's /_emdash/ native API — absolute,
+//   protocol-relative, non-/_emdash/, and dot-escaping paths are rejected
+//   before any transport (so no credential-bearing request can leave the
+//   configured app), and redirects are refused rather than followed. This is
+//   the bounded T002 request boundary, not a new authentication layer
 // - no RBAC/impersonation abstraction: role fixtures use only the supported
 //   native account/role operations above. An Administrator token is never
 //   presented as coverage of another role — assertDistinctActors refuses the
 //   shortcut and every role phase is verified live through /auth/me. Where
 //   the environment lacks a second PAT-owning account (T001 §6 records that
 //   standing truthfully), the calling tests must report the gap; these
-//   helpers do not manufacture identities
+//   helpers do not manufacture identities. A role mutation is reconciled on
+//   every exit path: uncertain switch responses are re-read, and the
+//   original role is restored and verified even when the identity check or
+//   the callback fails (corrective finding 2)
 // - no reference-management abstraction: `references`/`taxonomies` maps are
 //   passed through in EmDash's native request shapes untouched
 // - no schema operations and no synthetic official inventories: these
 //   helpers only create/read/lifecycle content and clearly-marked synthetic
 //   public-publishable media; Feature 002 schema/taxonomy work belongs to
 //   its owning tasks
-// - secrets: bearer credentials live only in memory inside CmsActor (or in
-//   caller-held ignored mode-0600 scratch loaded through readSecretScratch,
-//   which refuses any looser file mode). They are never logged or embedded
-//   in errors; CmsActor serializes to a redacted view; every native result
-//   returned by these helpers is passed through redactSecrets
-// - cleanup is restricted to fixture IDs these helpers themselves registered
-//   as owned (WeakMap registry); it never touches volumes, real media,
-//   pre-existing data, or records it did not create
+// - secrets (corrective findings 1/5): the dev-bypass PAT travels from the
+//   native bootstrap response into the actor's private in-memory field
+//   through an internal unredacted path that never appears in any returned
+//   result; every externally reportable result, error message, non-JSON
+//   body, and transport-failure message is scrubbed of embedded credential
+//   strings (ec_pat_/ec_oat_ and "Bearer <token>" anywhere in a string) and
+//   of the request's own supplied credential. CmsActor serializes to a
+//   secret-free view; credential scratch loads fail closed below mode 0600
+// - cleanup (corrective findings 3/4) is restricted to fixture IDs these
+//   helpers themselves registered as owned (WeakMap registry). It never
+//   throws past a failed step: each fixture is attempted independently,
+//   uncertain/already-trashed outcomes are reconciled by re-reading state,
+//   unresolved IDs REMAIN registered so a later cleanup can retry them, and
+//   only proven-resolved IDs are dropped. A separate administrator actor may
+//   supply the deletion authority while the owning actor's registry still
+//   defines what may be touched. Volumes, real media, pre-existing data, and
+//   anything unregistered are never touched
 // - truthful outcomes: native validation/permission/conflict/uncertain
 //   results are returned as { ok, status, body } results, never converted
 //   into exceptions or false success; only helper preconditions (transport
@@ -131,6 +160,9 @@
 
 /** Documented development origin (README §6; playwright.config.ts default). */
 export const DEFAULT_DEVELOPMENT_ORIGIN = "http://localhost:4321";
+
+/** The native API root every helper request must stay inside. */
+const NATIVE_API_ROOT = "/_emdash/";
 
 /** Marker embedded in synthetic fixture titles/slugs by the calling tests. */
 export const SYNTHETIC_FIXTURE_MARK = "songhealth-f002-synthetic";
@@ -160,15 +192,16 @@ export function nativeRoleName(level: number): string {
 
 /**
  * Error thrown for helper precondition failures only (transport errors,
- * missing identity fields, failed precondition reads, unsafe secret scratch).
- * Native API refusals are NEVER thrown — they are returned as results so
- * tests report them truthfully. Messages are secret-free by construction.
+ * missing identity fields, failed precondition reads, unsafe secret scratch,
+ * rejected request targets). Native API refusals are NEVER thrown — they are
+ * returned as results so tests report them truthfully. Messages are
+ * secret-free by construction (scrubbed at every creation site).
  */
 export class CmsHelperError extends Error {
 	readonly code: string;
 
 	constructor(code: string, message: string) {
-		super(`[${code}] ${message}`);
+		super(`[${code}] ${scrubEmbeddedSecrets(message)}`);
 		this.name = "CmsHelperError";
 		this.code = code;
 	}
@@ -182,20 +215,51 @@ const SECRET_KEY_PATTERN = /^(authorization|token|password|secret|pat)$/i;
 const SECRET_VALUE_PATTERN = /^ec_(pat|oat)_/;
 const REDACTED = "[redacted]";
 
-/** Anything that looks like a native credential string is redacted. */
-export function isSecretLike(value: string): boolean {
-	return SECRET_VALUE_PATTERN.test(value) || /^Bearer\s+\S/i.test(value);
+/**
+ * Credential-shaped substrings ANYWHERE inside a string. Word-boundary safe:
+ * requires the native ec_pat_/ec_oat_ prefix or a "Bearer <long token>"
+ * header shape, so ordinary prose fields (e.g. a title saying "Bearer of …")
+ * are not corrupted (corrective finding 5).
+ */
+const EMBEDDED_SECRET_PATTERN =
+	/ec_(?:pat|oat)_[A-Za-z0-9][A-Za-z0-9_-]*|Bearer\s+[A-Za-z0-9._~+/=-]{12,}/gi;
+
+/** Replace credential-shaped substrings (and any supplied secret) in text. */
+export function scrubEmbeddedSecrets(text: string, secrets: readonly string[] = []): string {
+	let out = text.replaceAll(EMBEDDED_SECRET_PATTERN, REDACTED);
+	for (const secret of secrets) {
+		if (secret.length >= 8) {
+			out = out.split(secret).join(REDACTED);
+		}
+	}
+	return out;
 }
 
 /**
- * Deep, cycle-safe copy of `value` in which secret-looking values and
- * well-known secret-bearing keys are replaced. Every native result returned
- * by these helpers passes through this once, so evidence built from results
- * cannot carry credentials by accident.
+ * Anything that looks like a native credential string as a whole value: a
+ * PAT/OAT token, or a full Authorization header value whose bearer token is
+ * credential-shaped (12+ token characters — ordinary prose such as a title
+ * reading "Bearer of …" is not).
  */
-export function redactSecrets<T>(value: T, seen: WeakSet<object> = new WeakSet()): T {
+export function isSecretLike(value: string): boolean {
+	return SECRET_VALUE_PATTERN.test(value) || /^Bearer\s+[A-Za-z0-9._~+/=-]{12,}/i.test(value);
+}
+
+/**
+ * Deep, cycle-safe copy of `value` in which secret-looking values, embedded
+ * credential substrings, well-known secret-bearing keys, and any explicitly
+ * supplied secret material are replaced. Every native result returned by
+ * these helpers passes through this once, so evidence built from results —
+ * including native error messages and non-JSON bodies — cannot carry
+ * credentials by accident.
+ */
+export function redactSecrets<T>(value: T, secrets: readonly string[] = []): T {
+	return redactWalk(value, secrets, new WeakSet<object>());
+}
+
+function redactWalk<T>(value: T, secrets: readonly string[], seen: WeakSet<object>): T {
 	if (typeof value === "string") {
-		return (isSecretLike(value) ? REDACTED : value) as unknown as T;
+		return (isSecretLike(value) ? REDACTED : scrubEmbeddedSecrets(value, secrets)) as unknown as T;
 	}
 	if (value === null || typeof value !== "object") {
 		return value;
@@ -206,7 +270,7 @@ export function redactSecrets<T>(value: T, seen: WeakSet<object> = new WeakSet()
 	}
 	seen.add(source);
 	if (Array.isArray(source)) {
-		return source.map((entry) => redactSecrets(entry, seen)) as unknown as T;
+		return source.map((entry) => redactWalk(entry, secrets, seen)) as unknown as T;
 	}
 	const copy: Record<string, unknown> = {};
 	for (const key of Object.keys(source)) {
@@ -214,7 +278,7 @@ export function redactSecrets<T>(value: T, seen: WeakSet<object> = new WeakSet()
 		copy[key] =
 			typeof entry === "string" && SECRET_KEY_PATTERN.test(key)
 				? REDACTED
-				: redactSecrets(entry, seen);
+				: redactWalk(entry, secrets, seen);
 	}
 	return copy as unknown as T;
 }
@@ -349,6 +413,12 @@ function recordOf(value: unknown): Record<string, unknown> {
 		: {};
 }
 
+/** Secret-free rendering of an arbitrary caught failure for reports. */
+function failureText(cause: unknown): string {
+	const message = cause instanceof Error ? cause.message : String(cause);
+	return scrubEmbeddedSecrets(message);
+}
+
 // ---------------------------------------------------------------------------
 // Actor context (bearer credential stays in memory, never serialized)
 // ---------------------------------------------------------------------------
@@ -434,7 +504,7 @@ export function ownedFixtureCounts(actor: CmsActor): { entries: number; media: n
 }
 
 // ---------------------------------------------------------------------------
-// Request core
+// Request core — confined to the configured origin's native API
 // ---------------------------------------------------------------------------
 
 export interface CmsRequestOptions {
@@ -448,18 +518,52 @@ export interface CmsRequestOptions {
 }
 
 /**
+ * Internal request outcome: `body` is already redacted for reporting, while
+ * `rawBody` is the unredicated parse used ONLY in-module to carry the
+ * dev-bypass bootstrap credential from the native response into the actor's
+ * private field (corrective finding 1). rawBody never leaves this module.
+ */
+interface RawNativeResult {
+	ok: boolean;
+	status: number;
+	body: unknown;
+	rawBody: unknown;
+}
+
+/**
  * Perform one native API request. `authorization` is null only for the
- * unauthenticated development bootstrap path. Native refusals (4xx/5xx) are
- * returned as results; only transport failures throw, with secret-free
- * messages (a credential travels solely in the Authorization header).
+ * unauthenticated development bootstrap path. The target is validated
+ * against the configured origin BEFORE any transport (corrective finding 6):
+ * only same-origin /_emdash/ paths are accepted, and redirects are refused.
+ * Native refusals (4xx/5xx) are returned as results; only transport failures
+ * throw, with scrubbed messages (a credential travels solely in the
+ * Authorization header, and any echo of it in an error is scrubbed).
  */
 async function rawRequest(
 	baseUrl: string,
 	path: string,
 	authorization: string | null,
 	options: CmsRequestOptions,
-): Promise<NativeResult> {
+): Promise<RawNativeResult> {
+	if (typeof path !== "string" || !path.startsWith(NATIVE_API_ROOT)) {
+		// Also rejects absolute URLs and protocol-relative "//host/…" forms.
+		throw new CmsHelperError(
+			"REQUEST_PATH_REJECTED",
+			`refusing ${String(path)}: helper requests must target the configured app's ${NATIVE_API_ROOT} native API only`,
+		);
+	}
+	const configuredOrigin = new URL(baseUrl).origin;
 	const url = new URL(path, `${baseUrl.replace(/\/+$/, "")}/`);
+	if (url.origin !== configuredOrigin || !url.pathname.startsWith(NATIVE_API_ROOT)) {
+		throw new CmsHelperError(
+			"REQUEST_PATH_REJECTED",
+			`refusing ${url.origin}${url.pathname}: the resolved target must stay on the configured origin ${configuredOrigin} under ${NATIVE_API_ROOT}`,
+		);
+	}
+	const secrets: string[] = [];
+	if (authorization !== null) {
+		secrets.push(authorization.replace(/^Bearer\s+/i, ""));
+	}
 	for (const [key, value] of Object.entries(options.searchParams ?? {})) {
 		url.searchParams.set(key, value);
 	}
@@ -480,12 +584,16 @@ async function rawRequest(
 			method: options.method ?? "GET",
 			headers,
 			body,
+			// No native endpoint in this helper set redirects; following one
+			// could carry the Authorization header off-origin, so a redirect
+			// is an error rather than a followed hop.
+			redirect: "error",
 		});
 	} catch (cause) {
-		const reason = cause instanceof Error ? cause.message : String(cause);
+		const reason = failureText(cause);
 		throw new CmsHelperError(
 			"REQUEST_TRANSPORT",
-			`${options.method ?? "GET"} ${path} failed to reach the configured development app: ${reason}`,
+			`${options.method ?? "GET"} ${path} failed to reach the configured development app: ${scrubEmbeddedSecrets(reason, secrets)}`,
 		);
 	}
 	const text = await response.text();
@@ -495,7 +603,12 @@ async function rawRequest(
 	} catch {
 		parsed = { nonJsonBody: text };
 	}
-	return { ok: response.ok, status: response.status, body: redactSecrets(parsed) };
+	return {
+		ok: response.ok,
+		status: response.status,
+		body: redactSecrets(parsed, secrets),
+		rawBody: parsed,
+	};
 }
 
 /**
@@ -507,7 +620,8 @@ export async function cmsRequest(
 	path: string,
 	options: CmsRequestOptions = {},
 ): Promise<NativeResult> {
-	return rawRequest(actor.baseUrl, path, actor.bearerValue(), options);
+	const raw = await rawRequest(actor.baseUrl, path, actor.bearerValue(), options);
+	return { ok: raw.ok, status: raw.status, body: raw.body };
 }
 
 function baseUrlOrDefault(baseUrl?: string): string {
@@ -537,31 +651,42 @@ export interface DevBypassOptions {
  * POST /_emdash/api/setup/dev-bypass?token=1. In a production build the
  * endpoint answers 403 and this helper fails with DEV_BYPASS_FORBIDDEN —
  * that boundary is the platform's, and it is reported, not worked around.
- * The minted PAT exists only in memory afterwards.
+ *
+ * The minted PAT is read from the unredacted internal parse of the bootstrap
+ * response and exists only in the actor's private in-memory field
+ * (corrective finding 1): every result these helpers ever returns is
+ * redacted, but the credential itself must survive its trip into the actor.
+ * The follow-up /auth/me self-check proves the real credential is live.
  */
 export async function createDevBypassActor(options: DevBypassOptions = {}): Promise<CmsActor> {
 	// Unauthenticated by design: this IS the development bootstrap.
-	const result = await rawRequest(
+	const raw = await rawRequest(
 		baseUrlOrDefault(options.baseUrl),
 		"/_emdash/api/setup/dev-bypass",
 		null,
 		{ method: "POST", searchParams: { token: "1" } },
 	);
-	if (result.status === 403) {
+	const result: NativeResult = { ok: raw.ok, status: raw.status, body: raw.body };
+	if (raw.status === 403) {
 		throw new CmsHelperError(
 			"DEV_BYPASS_FORBIDDEN",
 			"the configured app refused dev-bypass (403): the native bootstrap is available in development builds only (README §7); no production authentication is attempted",
 		);
 	}
-	if (!result.ok) {
+	if (!raw.ok) {
 		throw new CmsHelperError(
 			"DEV_BYPASS_FAILED",
 			`dev-bypass bootstrap failed: ${nativeRefusalOf(result)}`,
 		);
 	}
-	const data = nativeDataOf(result);
-	const token = requireString(data?.token, "the minted PAT (only present with ?token=1)");
-	const user = recordOf(data?.user);
+	// Transient unredacted view, in-scope only, consumed immediately for the
+	// credential; nothing below returns it.
+	const rawData =
+		raw.rawBody !== null && typeof raw.rawBody === "object"
+			? ((raw.rawBody as Record<string, unknown>).data ?? {}) as Record<string, unknown>
+			: {};
+	const token = requireString(rawData.token, "the minted PAT (only present with ?token=1)");
+	const user = recordOf(rawData.user);
 	const actor = new CmsActor(
 		{
 			baseUrl: baseUrlOrDefault(options.baseUrl),
@@ -722,6 +847,11 @@ function userRoleOf(result: NativeResult): number | undefined {
 	return typeof role === "number" ? role : undefined;
 }
 
+/** Compact role state for truthful restore reporting. */
+function roleStateText(adminObserved: number | undefined, liveObserved: unknown): string {
+	return `admin-read=${adminObserved === undefined ? "unknown" : nativeRoleName(adminObserved)}; live-credential-read=${typeof liveObserved === "number" ? nativeRoleName(liveObserved) : String(liveObserved)}`;
+}
+
 /**
  * Run `fn` while the fixture actor's native account holds `role`.
  *
@@ -730,14 +860,21 @@ function userRoleOf(result: NativeResult): number | undefined {
  * it, and the platform's SELF_ROLE_CHANGE guard would refuse otherwise)
  * sets the fixture account's role via the users API; the fixture actor's
  * credential acts at that role because the auth middleware re-reads its
- * user record on every request. The role change is verified live through
- * /auth/me before `fn` runs, and the original role is restored and
- * re-verified afterwards — including when `fn` throws. A failed restore is
- * reported loudly (ROLE_RESTORE_FAILED) rather than left silent.
+ * user record on every request. This is not an impersonation layer:
+ * nothing forges identity, mints roles, or bypasses a permission check;
+ * each phase exercises the real native permission decisions.
  *
- * This is not an impersonation layer: nothing forges identity, mints roles,
- * or bypasses a permission check; each phase exercises the real native
- * permission decisions for that role level.
+ * Failure-path contract (corrective finding 2): after a possibly-committed
+ * role mutation, EVERY exit path reconciles and restores. The switch
+ * response is uncertain-safe (a refusal or transport failure is re-read
+ * before the mutation is considered not-committed); the live /auth/me
+ * identity check and the callback each run only when the switch is
+ * verified; and restoration — restore request, admin re-read, and live
+ * credential re-read — is awaited and verified on every path, including
+ * switch-uncertain, identity-failure, and callback-failure. The original
+ * role is reported restored only when that verification observed it;
+ * otherwise the unresolved restoration is reported loudly and, when both
+ * occur, combined with the preserved original failure evidence.
  */
 export async function withNativeRole<T>(
 	admin: CmsActor,
@@ -754,43 +891,145 @@ export async function withNativeRole<T>(
 			`could not read the current role of fixture account ${actor.userId}: ${nativeRefusalOf(before)}`,
 		);
 	}
-	const switchResult = await setUserRole(admin, actor.userId, role);
-	if (!switchResult.ok || userRoleOf(switchResult) !== role) {
-		throw new CmsHelperError(
-			"ROLE_SWITCH_REFUSED",
-			`native role operation refused to set ${nativeRoleName(role)} for account ${actor.userId}: ${nativeRefusalOf(switchResult)}`,
+	// The native record carries a numeric role level; restore through the
+	// same supported operation regardless of whether it is a known level.
+	const originalRoleLevel = originalRole as NativeRoleLevel;
+
+	/**
+	 * Reconcile the fixture account back to its original role. Never throws:
+	 * returns null when the account is VERIFIED back at its original role
+	 * (through both the admin read and the live credential read), or a
+	 * truthful error describing what was observed. Uncertain outcomes are
+	 * re-read before acting ("re-read uncertain actions before retry").
+	 */
+	const reconcileOriginalRole = async (): Promise<CmsHelperError | null> => {
+		try {
+			const current = await getUser(admin, actor.userId);
+			const currentRole = userRoleOf(current);
+			if (!current.ok) {
+				return new CmsHelperError(
+					"ROLE_RESTORE_UNVERIFIED",
+					`could not re-read the role of fixture account ${actor.userId} after mutation (${nativeRefusalOf(current)}); restoration state unknown`,
+				);
+			}
+			if (currentRole === originalRole) {
+				return null;
+			}
+			const restore = await setUserRole(admin, actor.userId, originalRoleLevel);
+			if (!restore.ok) {
+				return new CmsHelperError(
+					"ROLE_RESTORE_FAILED",
+					`native role operation refused to restore ${nativeRoleName(originalRole)} for account ${actor.userId} (observed ${currentRole === undefined ? "unknown" : nativeRoleName(currentRole)}): ${nativeRefusalOf(restore)}`,
+				);
+			}
+			const afterAdmin = await getUser(admin, actor.userId);
+			const afterLive = await getMe(actor);
+			const adminRole = userRoleOf(afterAdmin);
+			const liveRole = nativeDataOf(afterLive)?.role;
+			if (!afterAdmin.ok || adminRole !== originalRole || !afterLive.ok || liveRole !== originalRole) {
+				return new CmsHelperError(
+					"ROLE_RESTORE_UNVERIFIED",
+					`restoration of ${nativeRoleName(originalRole)} for account ${actor.userId} was requested but not verified (${roleStateText(adminRole, afterLive.ok ? liveRole : nativeRefusalOf(afterLive))})`,
+				);
+			}
+			return null;
+		} catch (cause) {
+			return new CmsHelperError(
+				"ROLE_RESTORE_UNVERIFIED",
+				`restoration attempt for account ${actor.userId} failed: ${failureText(cause)}`,
+			);
+		}
+	};
+
+	// Phase 1 — request the mutation; classify commit state truthfully.
+	let phaseError: unknown;
+	let mutated: "no" | "yes" | "uncertain" = "no";
+	try {
+		const switchResult = await setUserRole(admin, actor.userId, role);
+		if (switchResult.ok && userRoleOf(switchResult) === role) {
+			mutated = "yes";
+		} else {
+			// The response refused or disagreed — re-read before deciding
+			// whether the mutation nevertheless committed.
+			const actual = await getUser(admin, actor.userId);
+			const actualRole = userRoleOf(actual);
+			if (actual.ok && actualRole === originalRole) {
+				mutated = "no";
+				phaseError = new CmsHelperError(
+					"ROLE_SWITCH_REFUSED",
+					`native role operation refused to set ${nativeRoleName(role)} for account ${actor.userId} and re-read confirmed the role unchanged: ${nativeRefusalOf(switchResult)}`,
+				);
+			} else if (actual.ok && actualRole === role) {
+				mutated = "yes";
+			} else {
+				mutated = "uncertain";
+				phaseError = new CmsHelperError(
+					"ROLE_SWITCH_UNCERTAIN",
+					`role switch to ${nativeRoleName(role)} for account ${actor.userId} returned ${nativeRefusalOf(switchResult)} and the re-read could not confirm the original role (${actual.ok ? `observed ${actualRole === undefined ? "unknown" : nativeRoleName(actualRole)}` : nativeRefusalOf(actual)})`,
+				);
+			}
+		}
+	} catch (cause) {
+		mutated = "uncertain";
+		phaseError = new CmsHelperError(
+			"ROLE_SWITCH_UNCERTAIN",
+			`role switch request for account ${actor.userId} failed before its outcome was known: ${failureText(cause)}`,
 		);
 	}
-	const liveMe = await getMe(actor);
-	const liveRole = nativeDataOf(liveMe)?.role;
-	if (!liveMe.ok || liveRole !== role) {
-		await setUserRole(admin, actor.userId, originalRole as NativeRoleLevel);
+
+	// Phase 2 — verify the live credential actually acts at the target role.
+	if (mutated === "yes" && phaseError === undefined) {
+		try {
+			const liveMe = await getMe(actor);
+			const liveRole = nativeDataOf(liveMe)?.role;
+			if (!liveMe.ok || liveRole !== role) {
+				phaseError = new CmsHelperError(
+					"ROLE_SWITCH_UNVERIFIED",
+					`fixture credential did not verify at role ${nativeRoleName(role)} via /_emdash/api/auth/me (${liveMe.ok ? `observed ${String(liveRole)}` : nativeRefusalOf(liveMe)})`,
+				);
+			}
+		} catch (cause) {
+			phaseError = new CmsHelperError(
+				"ROLE_SWITCH_UNVERIFIED",
+				`live identity check failed after the role mutation: ${failureText(cause)}`,
+			);
+		}
+	}
+
+	// Phase 3 — the caller's role-phase callback.
+	let value: T | undefined;
+	if (mutated === "yes" && phaseError === undefined) {
+		try {
+			value = await fn(actor);
+		} catch (cause) {
+			phaseError = cause;
+		}
+	}
+
+	// Phase 4 — reconcile on every path that may have mutated. Only a
+	// re-read-confirmed original role (mutated === "no") skips this safely.
+	if (mutated !== "no") {
+		const restoreError = await reconcileOriginalRole();
+		if (restoreError !== null) {
+			if (phaseError !== undefined) {
+				throw new CmsHelperError(
+					"ROLE_AND_RESTORE_FAILED",
+					`${restoreError.message}; the earlier failure was: ${failureText(phaseError)}`,
+				);
+			}
+			throw restoreError;
+		}
+	}
+	if (phaseError !== undefined) {
+		throw phaseError;
+	}
+	if (mutated !== "yes") {
+		// Defensive: no phase error was recorded but the switch never
+		// verified — report truthfully instead of running the callback.
 		throw new CmsHelperError(
 			"ROLE_SWITCH_UNVERIFIED",
-			`fixture credential did not verify at role ${nativeRoleName(role)} via /_emdash/api/auth/me (observed ${String(liveRole)}); the original role was restored`,
+			`role phase did not run for account ${actor.userId} (mutation state: ${mutated})`,
 		);
-	}
-	let failure: unknown;
-	let failureIsError = false;
-	let value: T | undefined;
-	try {
-		value = await fn(actor);
-	} catch (cause) {
-		failure = cause;
-		failureIsError = true;
-	}
-	const restore = await setUserRole(admin, actor.userId, originalRole as NativeRoleLevel);
-	const restoreVerified = restore.ok
-		? nativeDataOf(await getMe(actor))?.role === originalRole
-		: false;
-	if (!restore.ok || !restoreVerified) {
-		throw new CmsHelperError(
-			"ROLE_RESTORE_FAILED",
-			`fixture account ${actor.userId} may still hold role ${nativeRoleName(role)}; restoring ${nativeRoleName(originalRole)} failed or did not verify (${nativeRefusalOf(restore)})`,
-		);
-	}
-	if (failureIsError) {
-		throw failure;
 	}
 	return value as T;
 }
@@ -820,30 +1059,45 @@ export interface SyntheticMediaResult {
 	result: NativeResult;
 	/** Media id from the native response, registered for owned cleanup. */
 	mediaId?: string;
+	/**
+	 * True when the native response reports the upload deduplicated onto a
+	 * PRE-EXISTING asset (pinned 1.1.0 media route behavior). Such an id is
+	 * never registered as owned and must never be deleted by these helpers
+	 * (corrective finding 3).
+	 */
+	reusedExistingMedia?: boolean;
 }
 
 /**
  * Upload one synthetic public-publishable PNG through the native media API
- * (POST /_emdash/api/media, multipart field "file"). The id used by callers
- * is the one the native response returned — never a fabricated value. On
- * success the id is registered for owned-fixture cleanup.
+ * (POST /_emdash/api/media, multipart field "file"). Deduplication is never
+ * requested: the deterministic fixture bytes would otherwise resolve to a
+ * pre-existing asset, and a reused asset is not an owned fixture. If a
+ * native response nevertheless reports `deduplicated: true`, the returned
+ * id is exposed read-only via the result body and NEVER registered for
+ * cleanup. The id used by callers is the one the native response returned —
+ * never a fabricated value.
  */
 export async function uploadSyntheticMedia(
 	actor: CmsActor,
-	options: { filename?: string; deduplicate?: boolean } = {},
+	options: { filename?: string } = {},
 ): Promise<SyntheticMediaResult> {
-	const filename = options.filename ?? `${SYNTHETIC_SLUG_PREFIX}media.png`;
+	const filename =
+		options.filename ??
+		`${SYNTHETIC_SLUG_PREFIX}media-${crypto.randomUUID().slice(0, 8)}.png`;
 	const form = new FormData();
 	form.append(
 		"file",
 		new File([syntheticMediaPng()], filename, { type: "image/png" }),
 	);
-	if (options.deduplicate === true) {
-		form.append("deduplicate", "true");
-	}
 	const result = await cmsRequest(actor, "/_emdash/api/media", { method: "POST", form });
-	const mediaId = nativeItemOf(result)?.id;
+	const item = nativeItemOf(result);
+	const mediaId = item?.id;
+	const deduplicated = nativeDataOf(result)?.deduplicated === true;
 	if (result.ok && typeof mediaId === "string") {
+		if (deduplicated) {
+			return { result, mediaId: undefined, reusedExistingMedia: true };
+		}
 		registryOf(actor).media.push(mediaId);
 		return { result, mediaId };
 	}
@@ -1156,79 +1410,165 @@ export async function permanentlyDeleteEntry(
 export interface CleanupEntryReport {
 	collection: string;
 	id: string;
+	/** Proven moved to trash, or proven already absent. */
 	trashed: boolean;
+	/** Proven permanently deleted, or proven already absent. */
 	permanentlyDeleted: boolean;
+	/**
+	 * True when the fixture is proven resolved and was removed from the
+	 * ownership registry; unresolved fixtures REMAIN registered so a later
+	 * cleanup can retry them (corrective finding 4).
+	 */
+	resolved: boolean;
+	/** Non-secret summary of the last observed refusal, when any. */
 	refusal?: string;
+	/** Proven-already-absent outcome note, when applicable. */
+	note?: string;
 }
 
 export interface CleanupMediaReport {
 	id: string;
+	/** Proven deleted, or proven already absent. */
 	deleted: boolean;
+	/** True when removed from the ownership registry (see above). */
+	resolved: boolean;
 	refusal?: string;
+	note?: string;
 }
 
 export interface CleanupReport {
 	entries: CleanupEntryReport[];
 	media: CleanupMediaReport[];
-	/** False when any step was refused or failed — reported, never hidden. */
+	/** False when any owned fixture remains unresolved — never hidden. */
 	complete: boolean;
 }
 
 /**
- * Clean up the synthetic fixtures THIS helper set registered for the actor —
- * and only those: entries move through the native reversible path (trash)
- * and, by default, the administrator-owned permanent delete; owned media is
- * removed through the native media API. Every refusal is recorded in the
- * secret-free report; cleanup never throws, never retries blindly, and never
- * touches anything it did not register (no volumes, real media, or
- * pre-existing data). Run it with an administrator-capable actor when
- * permanent deletion is expected; lesser authorities produce truthful
- * refusals in the report instead of false success.
+ * Clean up the synthetic fixtures registered as owned by `owner` — and only
+ * those (the WeakMap registry is the creation-ownership boundary; a
+ * deduplicated/reused native asset is never in it).
+ *
+ * Resilience contract (corrective finding 4):
+ * - cleanup never throws past a failed step; every fixture is attempted
+ *   independently and reported;
+ * - uncertain refusals are reconciled by re-reading current native state
+ *   (an already-trashed or already-absent fixture is recognized, and a
+ *   trash refusal with the entry still present still attempts the
+ *   administrator-owned permanent path);
+ * - only proven-resolved fixtures are removed from the registry —
+ *   unresolved ones stay registered so a repeated cleanup safely retries
+ *   them;
+ * - `adminActor` may supply native administrative authority for the
+ *   deletion calls (e.g. fixtures created under a lesser-role actor),
+ *   while `owner`'s registry still exclusively defines what may be touched.
+ *
+ * Run it with an administrator-capable authority when permanent deletion is
+ * expected; lesser authorities produce truthful refusals in the report
+ * instead of false success. Volumes, real media, pre-existing data, and
+ * anything unregistered are never touched.
  */
 export async function cleanupOwnedFixtures(
-	actor: CmsActor,
-	options: { permanent?: boolean } = {},
+	owner: CmsActor,
+	options: { adminActor?: CmsActor; permanent?: boolean } = {},
 ): Promise<CleanupReport> {
-	const registry = registryOf(actor);
+	const registry = registryOf(owner);
+	const executor = options.adminActor ?? owner;
 	const permanent = options.permanent !== false;
 	const report: CleanupReport = { entries: [], media: [], complete: true };
+	const resolvedEntryIds = new Set<string>();
+	const resolvedMediaIds = new Set<string>();
+
 	for (const entry of registry.entries.slice().reverse()) {
 		const entryReport: CleanupEntryReport = {
 			collection: entry.collection,
 			id: entry.id,
 			trashed: false,
 			permanentlyDeleted: false,
+			resolved: false,
 		};
-		const trash = await trashEntry(actor, entry.collection, entry.id);
-		entryReport.trashed = trash.ok;
-		if (!trash.ok) {
-			entryReport.refusal = nativeRefusalOf(trash);
+		try {
+			const trash = await trashEntry(executor, entry.collection, entry.id);
+			entryReport.trashed = trash.ok;
+			if (!trash.ok) {
+				entryReport.refusal = nativeRefusalOf(trash);
+			}
+		} catch (cause) {
+			entryReport.refusal = failureText(cause);
 		}
-		if (permanent) {
-			const purge = await permanentlyDeleteEntry(actor, entry.collection, entry.id);
-			entryReport.permanentlyDeleted = purge.ok;
-			if (!purge.ok) {
-				entryReport.refusal = entryReport.refusal ?? nativeRefusalOf(purge);
+		if (!entryReport.trashed) {
+			// Uncertain trash outcome — reconcile by re-reading current state.
+			try {
+				const state = await readEntry(executor, entry.collection, entry.id);
+				if (state.status === 404) {
+					entryReport.trashed = true;
+					entryReport.permanentlyDeleted = true;
+					entryReport.note = "already absent before cleanup";
+				} else if (state.ok) {
+					// Still present (possibly already trashed): the permanent
+					// path below remains meaningful; keep the observed refusal.
+				} else {
+					entryReport.refusal = entryReport.refusal ?? nativeRefusalOf(state);
+				}
+			} catch (cause) {
+				entryReport.refusal = entryReport.refusal ?? failureText(cause);
 			}
 		}
-		if (!entryReport.trashed || (permanent && !entryReport.permanentlyDeleted)) {
+		if (permanent && !entryReport.permanentlyDeleted) {
+			try {
+				const purge = await permanentlyDeleteEntry(executor, entry.collection, entry.id);
+				entryReport.permanentlyDeleted = purge.ok;
+				if (!purge.ok) {
+					entryReport.refusal = entryReport.refusal ?? nativeRefusalOf(purge);
+				}
+			} catch (cause) {
+				entryReport.refusal = entryReport.refusal ?? failureText(cause);
+			}
+		}
+		entryReport.resolved = permanent ? entryReport.permanentlyDeleted : entryReport.trashed;
+		if (entryReport.resolved) {
+			resolvedEntryIds.add(entry.id);
+		} else {
 			report.complete = false;
 		}
 		report.entries.push(entryReport);
 	}
+
 	for (const mediaId of registry.media.slice().reverse()) {
-		const mediaReport: CleanupMediaReport = { id: mediaId, deleted: false };
-		const removal = await deleteMedia(actor, mediaId);
-		mediaReport.deleted = removal.ok;
-		if (!removal.ok) {
-			mediaReport.refusal = nativeRefusalOf(removal);
+		const mediaReport: CleanupMediaReport = { id: mediaId, deleted: false, resolved: false };
+		try {
+			const removal = await deleteMedia(executor, mediaId);
+			mediaReport.deleted = removal.ok;
+			if (!removal.ok) {
+				mediaReport.refusal = nativeRefusalOf(removal);
+			}
+		} catch (cause) {
+			mediaReport.refusal = failureText(cause);
 		}
 		if (!mediaReport.deleted) {
+			try {
+				const state = await readMedia(executor, mediaId);
+				if (state.status === 404) {
+					mediaReport.deleted = true;
+					mediaReport.note = "already absent before cleanup";
+				} else if (!state.ok) {
+					mediaReport.refusal = mediaReport.refusal ?? nativeRefusalOf(state);
+				}
+			} catch (cause) {
+				mediaReport.refusal = mediaReport.refusal ?? failureText(cause);
+			}
+		}
+		mediaReport.resolved = mediaReport.deleted;
+		if (mediaReport.resolved) {
+			resolvedMediaIds.add(mediaId);
+		} else {
 			report.complete = false;
 		}
 		report.media.push(mediaReport);
 	}
-	registry.entries = [];
-	registry.media = [];
+
+	// Retain unresolved owned fixtures for a later retry; drop only the
+	// proven-resolved ones.
+	registry.entries = registry.entries.filter((entry) => !resolvedEntryIds.has(entry.id));
+	registry.media = registry.media.filter((mediaId) => !resolvedMediaIds.has(mediaId));
 	return redactSecrets(report) as CleanupReport;
 }
