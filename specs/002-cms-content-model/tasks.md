@@ -34,7 +34,7 @@ description: "Native-only CMS content-model development tasks, ordered by user s
 **Purpose**: Record bounded inputs and prepare test access. Project/framework/database initialization is N/A: the canonical foundation already exists.
 
 - [x] T001 Record the exact source baseline, existing Feature 001 T006/T015 and T029 evidence, pinned native development readiness, role/timezone fixtures, classification/official Area inputs and any demonstrated Organization reuse case in `specs/002-cms-content-model/evidence/T001-development-inputs.md`; use `README.md`'s existing setup, identify missing inputs truthfully, and keep Feature 001 T022/T028 PENDING without executing their gates.
-- [ ] T002 Add bounded native request/fixture helpers in `tests/browser/cms.helpers.ts` for the configured existing development app, dev-bypass access, distinct native roles, public synthetic media/records, fresh IDs/`_rev`, secret-redacted results and owned-fixture cleanup; use existing tooling, with no production authentication, permission or reference-management abstraction.
+- [x] T002 Add bounded native request/fixture helpers in `tests/browser/cms.helpers.ts` for the configured existing development app, dev-bypass access, distinct native roles, public synthetic media/records, fresh IDs/`_rev`, secret-redacted results and owned-fixture cleanup; use existing tooling, with no production authentication, permission or reference-management abstraction.
 
 **Checkpoint**: Source/test preparation may be reviewed independently of runtime readiness. Actual API tests require the pinned environment and supported native access; missing prerequisites cannot be marked PASS.
 
