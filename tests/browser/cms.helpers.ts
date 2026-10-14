@@ -4,8 +4,12 @@
 // Corrective round 1 (reviewer findings 1–6) hardened: the bootstrap
 // credential path, role-restoration failure coverage, media-deduplication
 // ownership safety, cleanup resilience/retention, embedded-secret redaction,
-// and the configured-origin request boundary. No behavior beyond the
-// authorized T002 scope was added.
+// and the configured-origin request boundary. Corrective round 2 (findings
+// 1–3) further hardened: trash-aware cleanup reconciliation through the
+// native trash listing (an ordinary content GET 404 is not proof of
+// permanent deletion), known-secret scrubbing of response-body read
+// failures, and same-application binding for administrative executors and
+// role orchestrators. No behavior beyond the authorized T002 scope.
 //
 // Authority:
 // - specs/002-cms-content-model/tasks.md T002 ("Add bounded native
@@ -85,6 +89,17 @@
 //   query string), POST …/{id}/restore (no body),
 //   DELETE …/{id}/permanent (content:delete_permanent — Administrator-only,
 //   trash-first; no body)
+// - GET …/{collection}/trash — native trash listing (content:read_drafts;
+//   cursor pagination `cursor?`/`limit?` 1-100 default 50; response
+//   data { items: [{ id, … }], nextCursor? })
+//   (src/astro/routes/api/content/[collection]/trash.ts;
+//   src/api/handlers/content.ts handleContentListTrashed). CRITICAL for
+//   cleanup reconciliation: the ORDINARY content GET excludes soft-deleted
+//   entries (src/database/repositories/content.ts findByIdOrSlug →
+//   _findByIdOrSlug includeTrashed=false), so an ordinary 404 is NOT proof
+//   of permanent deletion — an entry sitting in Trash 404s there while the
+//   trash listing still shows it. Cleanup therefore reconciles uncertain
+//   outcomes through the trash listing first (corrective round 2, finding 1)
 // - POST /_emdash/api/media — multipart form field "file" (+ optional
 //   deduplicate/ensureUniqueFilename/folderId/fieldId/width/height/thumbnail),
 //   media:upload permission, response data { item: { id, ... } }.
@@ -413,10 +428,15 @@ function recordOf(value: unknown): Record<string, unknown> {
 		: {};
 }
 
-/** Secret-free rendering of an arbitrary caught failure for reports. */
-function failureText(cause: unknown): string {
+/**
+ * Secret-free rendering of an arbitrary caught failure for reports. Known
+ * supplied secrets (the acting credentials) are scrubbed too, so a failure
+ * message echoing a non-pattern-shaped credential cannot leak into a
+ * report or a thrown helper error (corrective round 2, finding 2).
+ */
+function failureText(cause: unknown, secrets: readonly string[] = []): string {
 	const message = cause instanceof Error ? cause.message : String(cause);
-	return scrubEmbeddedSecrets(message);
+	return scrubEmbeddedSecrets(message, secrets);
 }
 
 // ---------------------------------------------------------------------------
@@ -489,6 +509,16 @@ export class CmsActor {
 	/** Authorization header value — internal to these helpers' requests. */
 	bearerValue(): string {
 		return `Bearer ${this.#token}`;
+	}
+
+	/**
+	 * The bare credential, so failure rendering for requests made through
+	 * this actor can scrub the actor's own secret even when it is not
+	 * credential-pattern-shaped (corrective round 2, finding 2). Internal to
+	 * these helpers' scrubbing paths; never returned in any result.
+	 */
+	knownSecret(): string {
+		return this.#token;
 	}
 }
 
@@ -596,7 +626,18 @@ async function rawRequest(
 			`${options.method ?? "GET"} ${path} failed to reach the configured development app: ${scrubEmbeddedSecrets(reason, secrets)}`,
 		);
 	}
-	const text = await response.text();
+	let text: string;
+	try {
+		text = await response.text();
+	} catch (cause) {
+		// A body-read rejection can carry request material (including the
+		// supplied credential) in its message — scrub it with this request's
+		// known secrets, not just the credential patterns (finding 2).
+		throw new CmsHelperError(
+			"RESPONSE_BODY_READ_FAILED",
+			`${options.method ?? "GET"} ${path} returned status ${response.status} but its body could not be read: ${failureText(cause, secrets)}`,
+		);
+	}
 	let parsed: unknown;
 	try {
 		parsed = text.length > 0 ? JSON.parse(text) : undefined;
@@ -793,6 +834,27 @@ export function assertDistinctActors(a: CmsActor, b: CmsActor): void {
 	}
 }
 
+/**
+ * Refuse cross-application actor pairs (corrective round 2, finding 3): an
+ * actor operating on another actor's registered fixture IDs — an
+ * administrative cleanup executor or a role-phase orchestrator — must
+ * identify the SAME configured native application (scheme+host+port) as the
+ * owning actor, or its native requests would hit a different app with IDs
+ * minted by this one. Checked before any request is made. This is a
+ * configuration-boundary check between two supplied actors, not a new
+ * authentication or RBAC layer.
+ */
+export function assertSameNativeApp(a: CmsActor, b: CmsActor): void {
+	const originA = new URL(a.baseUrl).origin;
+	const originB = new URL(b.baseUrl).origin;
+	if (originA !== originB) {
+		throw new CmsHelperError(
+			"ACTOR_ORIGIN_MISMATCH",
+			`the supplied actors identify different native applications (${originA} versus ${originB}); an actor operating on another actor's fixtures must be configured for the same application — refusing before any request`,
+		);
+	}
+}
+
 /** GET /_emdash/api/auth/me — live identity/role of the actor. */
 export async function getMe(actor: CmsActor): Promise<NativeResult> {
 	return cmsRequest(actor, "/_emdash/api/auth/me");
@@ -883,6 +945,10 @@ export async function withNativeRole<T>(
 	fn: (actor: CmsActor) => Promise<T>,
 ): Promise<T> {
 	assertDistinctActors(admin, actor);
+	// The orchestrator mutates the fixture account through ITS configured
+	// app; both actors must therefore identify the same native application.
+	assertSameNativeApp(admin, actor);
+	const scrubSecrets = [admin.knownSecret(), actor.knownSecret()];
 	const before = await getUser(admin, actor.userId);
 	const originalRole = userRoleOf(before);
 	if (!before.ok || originalRole === undefined) {
@@ -936,7 +1002,7 @@ export async function withNativeRole<T>(
 		} catch (cause) {
 			return new CmsHelperError(
 				"ROLE_RESTORE_UNVERIFIED",
-				`restoration attempt for account ${actor.userId} failed: ${failureText(cause)}`,
+				`restoration attempt for account ${actor.userId} failed: ${failureText(cause, scrubSecrets)}`,
 			);
 		}
 	};
@@ -973,7 +1039,7 @@ export async function withNativeRole<T>(
 		mutated = "uncertain";
 		phaseError = new CmsHelperError(
 			"ROLE_SWITCH_UNCERTAIN",
-			`role switch request for account ${actor.userId} failed before its outcome was known: ${failureText(cause)}`,
+			`role switch request for account ${actor.userId} failed before its outcome was known: ${failureText(cause, scrubSecrets)}`,
 		);
 	}
 
@@ -991,7 +1057,7 @@ export async function withNativeRole<T>(
 		} catch (cause) {
 			phaseError = new CmsHelperError(
 				"ROLE_SWITCH_UNVERIFIED",
-				`live identity check failed after the role mutation: ${failureText(cause)}`,
+				`live identity check failed after the role mutation: ${failureText(cause, scrubSecrets)}`,
 			);
 		}
 	}
@@ -1403,6 +1469,101 @@ export async function permanentlyDeleteEntry(
 	);
 }
 
+/**
+ * Trash-aware lookup through the supported native listing
+ * (GET /_emdash/api/content/{collection}/trash, permission
+ * content:read_drafts, cursor-paginated). Returns:
+ * - "in-trash" — the id appears in the native trash listing;
+ * - "not-in-trash" — the entire listing was traversed without it;
+ * - "unknown" — the listing could not be traversed (refusal/transport) or
+ *   pagination did not terminate within a bounded page budget.
+ *
+ * This exists because the ORDINARY content GET hides soft-deleted entries
+ * (pinned 1.1.0: findByIdOrSlug uses includeTrashed=false), so an ordinary
+ * 404 alone cannot distinguish "permanently deleted" from "sitting in
+ * Trash" (corrective round 2, finding 1). Never throws.
+ */
+export type TrashedEntryLookup = "in-trash" | "not-in-trash" | "unknown";
+
+export async function findTrashedEntry(
+	actor: CmsActor,
+	collection: string,
+	id: string,
+): Promise<TrashedEntryLookup> {
+	const MAX_PAGES = 200;
+	let cursor: string | undefined;
+	for (let page = 0; page < MAX_PAGES; page += 1) {
+		let result: NativeResult;
+		try {
+			result = await cmsRequest(
+				actor,
+				`/_emdash/api/content/${encodeURIComponent(collection)}/trash`,
+				{
+					searchParams: {
+						limit: "100",
+						...(cursor !== undefined ? { cursor } : {}),
+					},
+				},
+			);
+		} catch {
+			return "unknown";
+		}
+		if (!result.ok) {
+			return "unknown";
+		}
+		const data = nativeDataOf(result);
+		const items = Array.isArray(data?.items) ? data.items : [];
+		if (items.some((item) => recordOf(item).id === id)) {
+			return "in-trash";
+		}
+		const nextCursor = data?.nextCursor;
+		if (
+			typeof nextCursor !== "string" ||
+			nextCursor.length === 0 ||
+			nextCursor === cursor
+		) {
+			return "not-in-trash";
+		}
+		cursor = nextCursor;
+	}
+	return "unknown";
+}
+
+/**
+ * Where an entry actually is, reconciled through native state rather than
+ * the ordinary GET alone: "live" (ordinary read succeeds), "trashed" (shown
+ * by the native trash listing), "absent" (neither the trash listing nor the
+ * ordinary read can find it — genuinely deleted), or "unknown". Never
+ * throws.
+ */
+type EntryPresence = "live" | "trashed" | "absent" | "unknown";
+
+async function probeEntryPresence(
+	actor: CmsActor,
+	collection: string,
+	id: string,
+): Promise<EntryPresence> {
+	const trashLookup = await findTrashedEntry(actor, collection, id);
+	if (trashLookup === "in-trash") {
+		return "trashed";
+	}
+	if (trashLookup === "unknown") {
+		return "unknown";
+	}
+	try {
+		const read = await readEntry(actor, collection, id);
+		if (read.ok) {
+			return "live";
+		}
+		if (read.status === 404) {
+			return "absent";
+		}
+	} catch {
+		// fall through to unknown
+	}
+	return "unknown";
+}
+
 // ---------------------------------------------------------------------------
 // Cleanup — restricted to fixtures these helpers registered as owned
 // ---------------------------------------------------------------------------
@@ -1410,9 +1571,9 @@ export async function permanentlyDeleteEntry(
 export interface CleanupEntryReport {
 	collection: string;
 	id: string;
-	/** Proven moved to trash, or proven already absent. */
+	/** Proven moved to trash (directly or via the native trash listing). */
 	trashed: boolean;
-	/** Proven permanently deleted, or proven already absent. */
+	/** Proven permanently deleted — never inferred from an ordinary 404. */
 	permanentlyDeleted: boolean;
 	/**
 	 * True when the fixture is proven resolved and was removed from the
@@ -1422,7 +1583,7 @@ export interface CleanupEntryReport {
 	resolved: boolean;
 	/** Non-secret summary of the last observed refusal, when any. */
 	refusal?: string;
-	/** Proven-already-absent outcome note, when applicable. */
+	/** How the outcome was proven, when it was not the direct response. */
 	note?: string;
 }
 
@@ -1448,19 +1609,27 @@ export interface CleanupReport {
  * those (the WeakMap registry is the creation-ownership boundary; a
  * deduplicated/reused native asset is never in it).
  *
- * Resilience contract (corrective finding 4):
+ * Resilience contract (corrective findings 4 and round-2 findings 1/3):
  * - cleanup never throws past a failed step; every fixture is attempted
- *   independently and reported;
- * - uncertain refusals are reconciled by re-reading current native state
- *   (an already-trashed or already-absent fixture is recognized, and a
- *   trash refusal with the entry still present still attempts the
- *   administrator-owned permanent path);
+ *   independently and reported, with the acting credentials' own secret
+ *   material scrubbed from every recorded failure text;
+ * - uncertain outcomes are reconciled through NATIVE trash-aware state, not
+ *   the ordinary GET alone: an ordinary 404 can simply mean the entry sits
+ *   in Trash (native soft delete hides it from ordinary reads), so
+ *   reconciliation uses the native trash listing (paginated) plus the
+ *   ordinary read. An entry is only ever reported permanently deleted when
+ *   the purge succeeded directly or a post-purge state probe proves it
+ *   absent from BOTH the trash listing and the ordinary read. Trash-first
+ *   and administrator-only native deletion are respected (a live entry is
+ *   never purged directly; a refused purge leaves the fixture registered);
  * - only proven-resolved fixtures are removed from the registry —
  *   unresolved ones stay registered so a repeated cleanup safely retries
  *   them;
  * - `adminActor` may supply native administrative authority for the
- *   deletion calls (e.g. fixtures created under a lesser-role actor),
- *   while `owner`'s registry still exclusively defines what may be touched.
+ *   deletion calls (e.g. fixtures created under a lesser-role actor), but
+ *   it must identify the SAME configured native application as `owner`
+ *   (assertSameNativeApp is enforced before any request), while `owner`'s
+ *   registry still exclusively defines what may be touched.
  *
  * Run it with an administrator-capable authority when permanent deletion is
  * expected; lesser authorities produce truthful refusals in the report
@@ -1473,7 +1642,14 @@ export async function cleanupOwnedFixtures(
 ): Promise<CleanupReport> {
 	const registry = registryOf(owner);
 	const executor = options.adminActor ?? owner;
+	if (options.adminActor !== undefined) {
+		// An administrative executor operates on the owner's registered IDs;
+		// both must identify the same configured native application, checked
+		// before ANY cleanup request is made (round-2 finding 3).
+		assertSameNativeApp(owner, options.adminActor);
+	}
 	const permanent = options.permanent !== false;
+	const scrubSecrets = [owner.knownSecret(), executor.knownSecret()];
 	const report: CleanupReport = { entries: [], media: [], complete: true };
 	const resolvedEntryIds = new Set<string>();
 	const resolvedMediaIds = new Set<string>();
@@ -1486,6 +1662,7 @@ export async function cleanupOwnedFixtures(
 			permanentlyDeleted: false,
 			resolved: false,
 		};
+		let absent = false;
 		try {
 			const trash = await trashEntry(executor, entry.collection, entry.id);
 			entryReport.trashed = trash.ok;
@@ -1493,27 +1670,27 @@ export async function cleanupOwnedFixtures(
 				entryReport.refusal = nativeRefusalOf(trash);
 			}
 		} catch (cause) {
-			entryReport.refusal = failureText(cause);
+			entryReport.refusal = failureText(cause, scrubSecrets);
 		}
 		if (!entryReport.trashed) {
-			// Uncertain trash outcome — reconcile by re-reading current state.
-			try {
-				const state = await readEntry(executor, entry.collection, entry.id);
-				if (state.status === 404) {
-					entryReport.trashed = true;
-					entryReport.permanentlyDeleted = true;
-					entryReport.note = "already absent before cleanup";
-				} else if (state.ok) {
-					// Still present (possibly already trashed): the permanent
-					// path below remains meaningful; keep the observed refusal.
-				} else {
-					entryReport.refusal = entryReport.refusal ?? nativeRefusalOf(state);
-				}
-			} catch (cause) {
-				entryReport.refusal = entryReport.refusal ?? failureText(cause);
+			// Uncertain trash outcome. The ordinary GET alone cannot decide:
+			// native soft delete hides trashed entries from it. Reconcile
+			// through the native trash listing plus the ordinary read.
+			const presence = await probeEntryPresence(executor, entry.collection, entry.id);
+			if (presence === "trashed") {
+				entryReport.trashed = true;
+				entryReport.note = "proven in the native trash listing after an uncertain trash outcome";
+			} else if (presence === "absent") {
+				absent = true;
+				entryReport.trashed = true;
+				entryReport.permanentlyDeleted = true;
+				entryReport.note = "already absent (not in the native trash listing; ordinary read 404)";
+			} else if (presence === "live") {
+				entryReport.note = "still a live entry; the native trash-first path must succeed before purge";
 			}
+			// "unknown" keeps the observed refusal and stays unresolved.
 		}
-		if (permanent && !entryReport.permanentlyDeleted) {
+		if (permanent && entryReport.trashed && !absent && !entryReport.permanentlyDeleted) {
 			try {
 				const purge = await permanentlyDeleteEntry(executor, entry.collection, entry.id);
 				entryReport.permanentlyDeleted = purge.ok;
@@ -1521,10 +1698,19 @@ export async function cleanupOwnedFixtures(
 					entryReport.refusal = entryReport.refusal ?? nativeRefusalOf(purge);
 				}
 			} catch (cause) {
-				entryReport.refusal = entryReport.refusal ?? failureText(cause);
+				entryReport.refusal = entryReport.refusal ?? failureText(cause, scrubSecrets);
+			}
+			if (!entryReport.permanentlyDeleted) {
+				// Uncertain purge outcome — prove the actual native state
+				// before claiming (or denying) permanent deletion.
+				const presence = await probeEntryPresence(executor, entry.collection, entry.id);
+				if (presence === "absent") {
+					entryReport.permanentlyDeleted = true;
+					entryReport.note = "purge verified by native state re-read after an uncertain response";
+				}
 			}
 		}
-		entryReport.resolved = permanent ? entryReport.permanentlyDeleted : entryReport.trashed;
+		entryReport.resolved = absent || (permanent ? entryReport.permanentlyDeleted : entryReport.trashed);
 		if (entryReport.resolved) {
 			resolvedEntryIds.add(entry.id);
 		} else {
@@ -1542,7 +1728,7 @@ export async function cleanupOwnedFixtures(
 				mediaReport.refusal = nativeRefusalOf(removal);
 			}
 		} catch (cause) {
-			mediaReport.refusal = failureText(cause);
+			mediaReport.refusal = failureText(cause, scrubSecrets);
 		}
 		if (!mediaReport.deleted) {
 			try {
@@ -1554,7 +1740,7 @@ export async function cleanupOwnedFixtures(
 					mediaReport.refusal = mediaReport.refusal ?? nativeRefusalOf(state);
 				}
 			} catch (cause) {
-				mediaReport.refusal = mediaReport.refusal ?? failureText(cause);
+				mediaReport.refusal = mediaReport.refusal ?? failureText(cause, scrubSecrets);
 			}
 		}
 		mediaReport.resolved = mediaReport.deleted;
@@ -1570,5 +1756,5 @@ export async function cleanupOwnedFixtures(
 	// proven-resolved ones.
 	registry.entries = registry.entries.filter((entry) => !resolvedEntryIds.has(entry.id));
 	registry.media = registry.media.filter((mediaId) => !resolvedMediaIds.has(mediaId));
-	return redactSecrets(report) as CleanupReport;
+	return redactSecrets(report, scrubSecrets) as CleanupReport;
 }
