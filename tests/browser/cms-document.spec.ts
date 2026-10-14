@@ -82,6 +82,15 @@
 //   (schema:read) → data { item: { …collection, fields: [{ slug, type,
 //   required, … }] } } (src/astro/routes/api/schema/collections/[slug]/
 //   index.ts; src/api/handlers/schema.ts handleSchemaCollectionGet)
+// - Playwright 1.63.0 semantics (Context7 /microsoft/playwright v1.63.0):
+//   tests in one file run sequentially in one worker; test-scoped hooks
+//   (afterEach) and fixture teardown are guaranteed to run when a test
+//   finishes — including after a failure — in the SAME worker, while a
+//   FAILED test causes Playwright to discard that worker for LATER tests
+//   (docs/test-retries#failures). Owned-fixture cleanup therefore runs as
+//   test-scoped teardown below, never as a trailing ordinary test whose
+//   fresh-worker registry would make cleanup vacuously "complete" after a
+//   failure, and never as something a test filter could exclude
 //
 // Boundaries and non-claims (tasks.md T003; Constitution v3.0.0 II–V):
 // - Save checks only: no publish/schedule/lifecycle/revision/public-read
@@ -91,14 +100,27 @@
 //   availability, published-target or removal-protection outcome is asserted
 //   (D-REF stays deferred; native-editorial.md "Availability")
 // - the actor is the README §7 development-only dev-bypass Administrator
-//   fixture; distinct-role coverage is NOT claimed from it (T001 §6 records
-//   that input as pending; an Administrator token cannot prove role
-//   boundaries). The unauthenticated control below proves the authorization
-//   REFUSAL side only
+//   fixture, pinned to the RUNNER-CONFIGURED origin (playwright.config.ts
+//   contract: PLAYWRIGHT_BASE_URL or the documented development origin —
+//   never the helper default, which could silently target a different
+//   running app); the unauthenticated control builds its request from the
+//   same actor origin. Distinct-role coverage is NOT claimed from this
+//   actor (T001 §6 records that input as pending; an Administrator token
+//   cannot prove role boundaries). The unauthenticated control below proves
+//   the authorization REFUSAL side only
 // - fixtures are clearly-marked synthetic public-publishable data; IDs come
 //   from native responses only; every update sends a fresh re-read `_rev`
-//   (updateEntry re-reads when none is supplied); cleanup touches only the
-//   T002 owned-fixture registry
+//   (updateEntry re-reads when none is supplied). Owned-fixture cleanup runs
+//   as FAILURE-SAFE TEARDOWN in the worker whose actor created the fixtures:
+//   after every test (pass, fail, or individually selected — after an
+//   earlier failure Playwright discards the worker only for LATER tests, so
+//   this teardown has already reconciled that worker's registry) plus an
+//   afterAll safety net that retries anything still registered. beforeAll
+//   deliberately creates no owned fixtures, so a partial setup cannot leak
+//   any; a hard worker kill (SIGKILL) is the one path no in-process teardown
+//   can cover, and the run reports it through the helper's unresolved
+//   registry instead of claiming success. Cleanup touches only the T002
+//   owned-fixture registry, and unresolved cleanup FAILS the run truthfully
 // - runtime prerequisites the environment does not provide are reported
 //   truthfully: an unreachable app fails the worker loudly (helper transport
 //   error), and a missing `documents` collection skips as an explicit
@@ -112,6 +134,7 @@ import {
 	createDevBypassActor,
 	createSyntheticEntry,
 	cmsRequest,
+	DEFAULT_DEVELOPMENT_ORIGIN,
 	nativeItemOf,
 	readEntry,
 	updateEntry,
@@ -154,6 +177,28 @@ function uniqueTitle(): string {
 /** A valid native file value for an uploaded fixture media id. */
 function fileValueFor(mediaId: string): { id: string } {
 	return { id: mediaId };
+}
+
+/**
+ * The runner-configured origin for this suite, mirroring playwright.config.ts
+ * exactly: the PLAYWRIGHT_BASE_URL environment variable when set, otherwise
+ * the documented development origin (the helper default constant). Every
+ * actor this file creates is pinned to it, so the checks always exercise the
+ * application the runner was pointed at — never a silently defaulted origin
+ * that could be a different running development app — and the
+ * unauthenticated control below inherits the same origin from the actor.
+ *
+ * node:process is loaded through a dynamic non-literal import because the
+ * pinned dependency baseline intentionally ships no @types/node (the same
+ * pattern as readSecretScratch in cms.helpers.ts); the structural cast keeps
+ * this file strict-typed.
+ */
+async function configuredDevelopmentOrigin(): Promise<string> {
+	const specifier = "node:process";
+	const nodeProcess = (await import(specifier)) as unknown as {
+		env: Record<string, string | undefined>;
+	};
+	return nodeProcess.env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN;
 }
 
 /**
@@ -211,11 +256,17 @@ function expectValidationRefusal(result: NativeResult, caseLabel: string): void 
 // ---------------------------------------------------------------------------
 
 test.beforeAll(async () => {
-	// Development-only native access (README §7). An unreachable app, a
-	// production refusal (403) or an unverified identity throws a scrubbed
-	// helper error here — a truthful environment failure for every test in
-	// this file, never a field-validation result.
-	admin = await createDevBypassActor();
+	// Development-only native access (README §7), pinned to the
+	// runner-configured origin so a nondefault PLAYWRIGHT_BASE_URL run
+	// cannot silently exercise another app. An unreachable app, a production
+	// refusal (403) or an unverified identity throws a scrubbed helper error
+	// here — a truthful environment failure for every test in this file,
+	// never a field-validation result. This hook deliberately creates no
+	// owned fixtures (bootstrap and a schema read only), so a partial setup
+	// cannot leak anything for teardown to miss.
+	admin = await createDevBypassActor({
+		baseUrl: await configuredDevelopmentOrigin(),
+	});
 
 	// One live schema read decides readiness. The dev-bypass PAT carries
 	// schema:read; the request stays inside the configured app's native API.
@@ -274,6 +325,53 @@ test.beforeAll(async () => {
 	}
 	documentsSchema =
 		problems.length > 0 ? { outcome: "misconfigured", detail: problems.join("; ") } : { outcome: "ready" };
+});
+
+// ---------------------------------------------------------------------------
+// Failure-safe owned-fixture cleanup (corrective round 1, finding 1)
+// ---------------------------------------------------------------------------
+//
+// Cleanup runs as guaranteed TEARDOWN for the actor that created the
+// fixtures, never as a trailing ordinary test: a test-scoped afterEach runs
+// in the same worker after EVERY test — passed, failed, or individually
+// selected by a filter — and Playwright discards a failed test's worker only
+// for LATER tests, after this hook has already reconciled that worker's
+// registry (docs/test-retries#failures). The afterAll safety net afterwards
+// retries anything still registered (the T002 registry retains unresolved
+// ids exactly for that). Unresolved cleanup fails the run truthfully. Only
+// the T002 owned-fixture registry is ever touched.
+
+test.afterEach(async () => {
+	// Partial-setup guard: beforeAll creates no owned fixtures, so an actor
+	// that never finished bootstrapping has nothing to reconcile.
+	if (admin === undefined) {
+		return;
+	}
+	const report = await cleanupOwnedFixtures(admin, { permanent: true });
+	// Secret-free redacted evidence line for the run output.
+	console.log(
+		`[cms-document] owned-fixture cleanup after test: ${
+			report.complete ? "complete" : "UNRESOLVED"
+		} (entries attempted ${report.entries.length}, media attempted ${report.media.length})`,
+	);
+	expect(
+		report.complete,
+		"every owned synthetic fixture created by this test must be proven resolved (unresolved cleanup is a reported failure, not a silent leftover)",
+	).toBe(true);
+});
+
+test.afterAll(async () => {
+	// Safety net: normally a no-op (afterEach resolved everything); anything
+	// still registered here is an unresolved earlier attempt, retried and
+	// reported truthfully as the worker's final standing.
+	if (admin === undefined) {
+		return;
+	}
+	const report = await cleanupOwnedFixtures(admin, { permanent: true });
+	expect(
+		report.complete,
+		"the final worker cleanup must leave zero unresolved owned fixtures",
+	).toBe(true);
 });
 
 // ---------------------------------------------------------------------------
@@ -529,9 +627,10 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 
 	// One unauthenticated request to the same native endpoint with a VALID
 	// body: only the authorization layer can refuse it. The URL is built from
-	// the actor's configured origin plus the native API path (the same
-	// on-origin discipline as the T002 helpers); no credential is sent, so
-	// nothing can leave the configured app. Pinned 1.1.0: requirePerm answers
+	// the actor's origin — the runner-configured origin the actor was pinned
+	// to in beforeAll — plus the native API path (the same on-origin
+	// discipline as the T002 helpers); no credential is sent, so nothing can
+	// leave the configured app. Pinned 1.1.0: requirePerm answers
 	// UNAUTHORIZED 401 for an anonymous caller (FORBIDDEN 403 for an
 	// authenticated insufficient permission).
 	const url = new URL(`/_emdash/api/content/${DOCUMENT_COLLECTION}`, `${admin.baseUrl}/`);
@@ -567,23 +666,4 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 		error?.error?.code,
 		"an authorization refusal must not be mistaken for a field-validation refusal",
 	).not.toBe("VALIDATION_ERROR");
-});
-
-// ---------------------------------------------------------------------------
-// Owned-fixture cleanup (declared last; runs after every check above)
-// ---------------------------------------------------------------------------
-
-test("owned synthetic fixtures are cleaned up (trash-first permanent cleanup)", async () => {
-	gateDocumentsSchema();
-	// Cleanup is restricted to the T002 owned-fixture registry (synthetic
-	// entries and media created by this file's actor only). The dev-bypass
-	// fixture is an Administrator, so the native trash-first purge path is
-	// available; unresolved fixtures stay registered for a later retry and
-	// FAIL this check truthfully instead of being hidden. The report itself
-	// is already secret-redacted by the helpers.
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	expect(
-		report.complete,
-		"every owned synthetic fixture must be proven resolved (unresolved cleanup is a reported failure, not a silent leftover)",
-	).toBe(true);
 });
