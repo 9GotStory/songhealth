@@ -268,8 +268,8 @@ and external-link evidence; change current personnel/organization and check hist
 
 ### User Story 6 - Keep Drafts Separate from Publication (Priority: P1)
 
-As a staff author, I can save drafts; as an authorized publisher, I can review/publish/schedule
-content without exposing draft changes prematurely.
+As a staff author, I can save drafts; as an authorized publisher, I can preview/publish/schedule
+content directly under Native RBAC without exposing draft changes prematurely.
 
 **Why this priority**: The model must preserve editorial and permission boundaries.
 
