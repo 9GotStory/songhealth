@@ -64,8 +64,23 @@
 // - a native file value is an object whose REQUIRED member is a string media
 //   `id` (src/schema/zod-generator.ts file case: z.object({ id: z.string(),
 //   url?, src?, filename?, mimeType?, size?, provider?, meta? })) — a missing
-//   `file`, null, a bare string, an object without `id`, or a non-string
-//   `id` is a supplied-value type refusal, never a valid clear
+//   `file`, null, or an object with neither `id` nor `src` is a supplied-value
+//   type refusal, never a valid clear
+// - CORRECTIVE ROUND 1 (Product Owner approval 01a13ed2-7a42-7aa7-b8a9-546c558ef316,
+//   Human Gate 01a13ecf-ec08-7d27-8b6d-c0d292c1e943, Lead reproduction in the
+//   T006 review): a DOCUMENTED media value normalization layer runs at content
+//   create/update time BEFORE the field schema (src/media/normalize.ts, invoked
+//   from src/emdash-runtime.ts before create/update validation) and makes a
+//   BARE STRING a first-class native file shape (the URL-input path:
+//   "seed scripts, media picker, WP import, URL input"):
+//   file:"" and file:"not-an-object" → {provider:"external", id:"", src:<the
+//   string>}; file:{id:123} is coerced to {id:"", provider:"local"}. These
+//   three inputs are ACCEPTED (201) with exactly those stored representations,
+//   and the Product Owner accepts this pinned behavior as a documented V1
+//   limitation. An accepted normalized value with id:"" is NOT a real file
+//   selection — the regression tests below assert the exact degenerate stored
+//   shape through native read-back and never imply an empty id/src selects an
+//   available file (no availability guarantee exists; D-REF stays deferred)
 // - string → z.string(); integer → z.number().int(); datetime →
 //   z.iso.datetime({ offset: true }) (offset-aware; an offset-less timestamp
 //   is refused); select → z.enum(configured options) (zod-generator.ts)
@@ -504,19 +519,24 @@ test("create refuses missing, null and empty required title", async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Required-file Save refusals (create): missing/malformed file objects
+// Required-file Save refusals (create): missing/null/empty-object file values
 // ---------------------------------------------------------------------------
+//
+// CORRECTIVE ROUND 1 (approval 01a13ed2…): the three formerly asserted
+// "malformed" shapes that the pinned platform actually ACCEPTS via its
+// documented create/update-time media value normalization (bare "" and bare
+// non-URL strings → {provider:"external", id:"", src:<string>}; {id:123} →
+// {id:"", provider:"local"}) moved out of this refusal loop into the focused
+// normalization regression tests below. Genuine native refusals are retained
+// here exactly as before: omitted, null, and an object with neither id nor src.
 
-test("create refuses missing, null and malformed required file objects", async () => {
+test("create refuses missing, null and empty-object required file values", async () => {
 	gateDocumentsSchema();
 	const title = uniqueTitle();
 	const cases: Array<{ label: string; data: Record<string, unknown> }> = [
 		{ label: "file omitted", data: { title } },
 		{ label: "file null", data: { title, file: null } },
-		{ label: "file empty string", data: { title, file: "" } },
-		{ label: "file bare media-id string", data: { title, file: "not-an-object" } },
 		{ label: "file object without id", data: { title, file: {} } },
-		{ label: "file object with non-string id", data: { title, file: { id: 123 } } },
 	];
 	for (const fieldCase of cases) {
 		const refusal = await createSyntheticEntry(admin, DOCUMENT_COLLECTION, {
@@ -525,6 +545,94 @@ test("create refuses missing, null and malformed required file objects", async (
 		expectValidationRefusal(refusal.result, fieldCase.label);
 		expect(refusal.entryId, `${fieldCase.label}: no entry id may be returned for a refused save`).toBeUndefined();
 	}
+});
+
+// ---------------------------------------------------------------------------
+// Accepted V1 limitation (corrective round 1): pinned native media value
+// normalization precedes field validation, so three malformed RAW inputs are
+// accepted and stored as their normalized representations. One focused
+// regression test per input, each asserting the exact stored value through
+// native read-back. These assertions document the normalization boundary:
+// an empty id/src is a degenerate stored reference, NOT a selection of any
+// real available file, and confers no file-availability/retention guarantee
+// (D-REF stays deferred).
+// ---------------------------------------------------------------------------
+
+test("accepted V1 limitation: bare empty-string file input stores an empty external reference, not a real file selection", async () => {
+	gateDocumentsSchema();
+	const created = await createSyntheticEntry(admin, DOCUMENT_COLLECTION, {
+		data: { title: uniqueTitle(), file: "" },
+	});
+	expect(
+		created.result.ok,
+		"file:'' is accepted by the pinned platform's documented normalization (URL-input path) and the Product Owner accepts this as a V1 limitation",
+	).toBe(true);
+	expect(created.result.status).toBe(201);
+	expect(created.entryId, "the accepted create must return a native entry id for read-back").toBeTruthy();
+
+	const read = await readEntry(admin, DOCUMENT_COLLECTION, created.entryId!);
+	expect(read.ok, "the stored Document must be readable by returned id").toBe(true);
+	const file = (nativeItemOf(read)?.data as Record<string, unknown> | undefined)?.file;
+	expect(file, "the stored file value must be the normalized representation").toEqual({
+		provider: "external",
+		id: "",
+		src: "",
+	});
+	expect(
+		(file as { id?: unknown })?.id,
+		"the normalized empty-string input selects NO real file: its id is empty",
+	).toBe("");
+});
+
+test("accepted V1 limitation: bare non-URL string file input stores the string as an external src with empty id", async () => {
+	gateDocumentsSchema();
+	const created = await createSyntheticEntry(admin, DOCUMENT_COLLECTION, {
+		data: { title: uniqueTitle(), file: "not-an-object" },
+	});
+	expect(
+		created.result.ok,
+		"a bare non-URL string is the documented URL-input shape, normalized before validation; acceptance is a Product-Owner-approved V1 limitation",
+	).toBe(true);
+	expect(created.result.status).toBe(201);
+	expect(created.entryId).toBeTruthy();
+
+	const read = await readEntry(admin, DOCUMENT_COLLECTION, created.entryId!);
+	expect(read.ok, "the stored Document must be readable by returned id").toBe(true);
+	const file = (nativeItemOf(read)?.data as Record<string, unknown> | undefined)?.file;
+	expect(file, "the stored file value must preserve the raw string as src under the external provider").toEqual({
+		provider: "external",
+		id: "",
+		src: "not-an-object",
+	});
+	expect(
+		(file as { id?: unknown })?.id,
+		"an empty id is not a media selection: this documents normalization, never a real available file",
+	).toBe("");
+});
+
+test("accepted V1 limitation: non-string file id is coerced to an empty local-provider id", async () => {
+	gateDocumentsSchema();
+	const created = await createSyntheticEntry(admin, DOCUMENT_COLLECTION, {
+		data: { title: uniqueTitle(), file: { id: 123 } },
+	});
+	expect(
+		created.result.ok,
+		"the pinned normalization coerces a non-string id object to {id:\"\", provider:\"local\"}; acceptance is a Product-Owner-approved V1 limitation",
+	).toBe(true);
+	expect(created.result.status).toBe(201);
+	expect(created.entryId).toBeTruthy();
+
+	const read = await readEntry(admin, DOCUMENT_COLLECTION, created.entryId!);
+	expect(read.ok, "the stored Document must be readable by returned id").toBe(true);
+	const file = (nativeItemOf(read)?.data as Record<string, unknown> | undefined)?.file;
+	expect(file, "the stored file value must be the coerced local-provider representation with an empty id").toEqual({
+		id: "",
+		provider: "local",
+	});
+	expect(
+		(file as { id?: unknown })?.id,
+		"the coerced empty id selects NO local media item: this documents normalization, never a real available file",
+	).toBe("");
 });
 
 // ---------------------------------------------------------------------------

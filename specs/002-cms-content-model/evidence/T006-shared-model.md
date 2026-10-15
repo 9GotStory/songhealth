@@ -12,10 +12,13 @@ production-readiness duplication."
 Multica DEV Executor), delegated by codex-lead-reviewer (handoff comment
 `01a13e32-ac0b-74c4-94e3-28f0ebae535d`) under the Product Owner routing correction
 `01a13e30-e7ee-7203-83a4-b38cac5e623d` (Multica issue 9GOTSTORY-224).
-**Scope**: T006 only. **Runtime verification executed; one accepted T003 test fails against the
-pinned platform's documented native behavior — the conflict is root-caused below and surfaced for
-review; the T006 marker is intentionally left `[ ]` pending that decision.** No T007+ work, no
-test modification, no schema/seed/source/dependency change, no Feature 001 change, no merge or
+**Scope**: T006 only. Initial delivery: runtime verification executed, 9 passed / 1 failed —
+the failing T003 expectation was root-caused (§6) and surfaced unedited for review (marker left
+`[ ]`). **Corrective round 1 (§9), authorized by Product Owner approval
+`01a13ed2-7a42-7aa7-b8a9-546c558ef316`, reconciled the three conflicting expectations, added
+focused normalization regressions, and reran the complete revised suite: 13 passed / 0 failed /
+0 skipped — T006 is complete.** The historical 9-pass/1-fail record is retained below unchanged.
+No T007+ work, no schema/seed/source/dependency change, no Feature 001 change, no merge or
 deployment.
 
 ## 1. Official `$speckit.implement` workflow execution
@@ -282,3 +285,101 @@ completion, so the T006 marker remains `[ ]`.
   D-ITA/D-REF remain deferred. Dev-bypass is development-only and proves nothing about production
   Passkey flows. A single Administrator actor was used (T001 §6 distinct-role input remains
   pending); no role-boundary coverage is claimed.
+
+## 9. Corrective round 1 — Product-Owner-authorized reconciliation (2026-10-15, UTC)
+
+**Authorization.** Human Gate `01a13ecf-ec08-7d27-8b6d-c0d292c1e943` (seven bounded items) made
+effective by explicit Product Owner approval `01a13ed2-7a42-7aa7-b8a9-546c558ef316` ("APPROVED —
+Human Gate GRANTED… I explicitly approve accepting the verified EmDash 1.1.0 native file
+normalization behavior as a documented V1 limitation"), following Lead review
+`01a13ec9-e2a7-7662-a18f-f0013c404419` (verdict BLOCKED pending exactly this decision; the Lead
+independently reproduced the normalization/schema behavior under the integrity-verified package).
+Corrective delegation: `01a13ed3-8c1e-72ff-a9c5-367e3c91afd9` (round 1 of maximum 3). Executor:
+claude-developer. The §5–§6 original run result (**9 passed / 1 failed / 0 skipped, exit 1**) is
+retained above unchanged as the historical record; this section records the authorized correction
+and the fresh complete run — it does not overwrite that history.
+
+**Correction baseline.** `90217c5c173d33a64fcbcbf32efa341990358040` (the prior T006 candidate;
+sole parent the original baseline `63d05913296a8ed5205ab3597a9c547bca59b388`; both remote SHAs
+verified unchanged before work). Workflow gates re-executed for this round: prerequisites exit 0
+with the explicit `SPECIFY_FEATURE_DIRECTORY=specs/002-cms-content-model` override; checklists
+cms 36/36 + requirements 16/16 PASS (read-only); `before_implement`/`after_implement` optional →
+not auto-executed, explicit delivery commit instead; no materialized workflow bundle or
+tooling-generated file committed.
+
+**Exact authorized changes (this round).**
+
+1. `tests/browser/cms-document.spec.ts` — the former "create refuses missing, null and malformed
+   required file objects" test now asserts the three genuine native refusals only (file omitted;
+   `null`; `{}` — refused `400 VALIDATION_ERROR`), and the three Product-Owner-accepted inputs
+   moved into **three new focused regression tests**, one per input, each asserting the exact
+   stored normalized representation through native read-back of the returned id:
+   `file: ""` → `{provider: "external", id: "", src: ""}`;
+   `file: "not-an-object"` → `{provider: "external", id: "", src: "not-an-object"}`;
+   `file: {id: 123}` → `{id: "", provider: "local"}`. Each regression explicitly asserts
+   `id === ""` and states in its assertion messages that an empty id/src selects **no real
+   available file** (documents the normalization boundary; no availability/retention claim).
+   No case was silently deleted, skipped or reduced to success-only; required-title refusals,
+   invalid clears, invalid optional type/select/date refusals, valid uploaded-media/optional-
+   omission/update controls and the authorization-distinction control are byte-for-byte
+   unchanged; the failure-safe owned-fixture teardown (afterEach + afterAll) is unchanged; the
+   verified-API header notes were corrected to record normalization-before-validation.
+2. `specs/002-cms-content-model/spec.md` — conflicting provisions only: FR-002 and FR-026 now
+   carry the normalization exception by reference, and a labeled "Native file-value
+   normalization — accepted V1 limitation" note after the Q1 matrix distinguishes raw native
+   input normalization from subsequent schema validation, records the three accepted shapes and
+   the retained refusals, cites the approval, and preserves the native-only architecture and the
+   no-availability-guarantee boundary.
+3. `specs/002-cms-content-model/data-model.md` — Common Native Contract: same bounded
+   normalization distinction appended to the "malformed supplied values retain native refusal"
+   sentence.
+4. `specs/002-cms-content-model/contracts/native-editorial.md` — Native Request Shapes: same
+   bounded distinction appended after the file-value/required-clear sentences.
+5. `specs/002-cms-content-model/tasks.md` — the single T006 marker `[ ]` → `[x]` (below, after
+   the fresh complete passing run).
+6. This evidence section.
+
+**Fresh runtime verification (complete revised suite).** Environment re-established through the
+same README workflow: `npm run dev-db:start` re-passed the helper's fail-closed
+ownership/configuration verification on the preserved `songhealth-dev-db` (volume/data intact;
+`onConflict: skip` seed path re-run via dev-bypass, matching the already-applied schema — nothing
+reseeded); the run-owned dev server bound `http://127.0.0.1:4322` again (port 4321 remains
+occupied by the production-parity `systemd-songhealth-app` container, untouched); active schema
+re-verified before testing (`documents` present, `title` string+required, `file` file+required).
+Toolchain: Node v24.21.0 / npm 12.2.0, Playwright 1.63.0, emdash 1.1.0, PostgreSQL 18.6.
+
+```bash
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:4322 \
+  npm run test:browser -- tests/browser/cms-document.spec.ts --workers=1
+```
+
+**Result: exit 0 — 13 passed, 0 failed, 0 skipped (3.8s).** Per-test: schema precondition ✓;
+valid minimal save with uploaded-media `id` + optional omissions ✓; optional supplied values ✓;
+update omitting unchanged required fields ✓; required-title refusals ✓; **missing/null/
+empty-object file refusals ✓**; **normalization regression: `""` → external/empty ✓**;
+**normalization regression: `"not-an-object"` → external/src preserved ✓**; **normalization
+regression: `{id:123}` → local/empty id ✓**; invalid-clear refusals ✓; invalid
+type/select/date refusals ✓; update invalid select ✓; unauthenticated authorization refusal ✓.
+Failure-safe owned-fixture cleanup reported complete after **all 13** tests (0 unresolved).
+
+**T006 completion.** All required checks pass under the approved corrected expectations; the T006
+marker is ticked in `tasks.md` (the only task-list change). Remaining documented limitations (not
+blockers): the three accepted normalized file shapes are V1 platform limitations per the approval
+(empty id/src ≠ real file selection, no availability/retention guarantee; D-REF deferred);
+distinct-role fixtures remain a pending T001 §6 input; the URL-input normalization means a bare
+string never produces a supplied-value refusal — editorially, staff file selection uses the
+native picker/upload path.
+
+**Round-1 cleanup (with accurate recovery attribution).** All owned synthetic fixtures were
+resolved by the suite's own failure-safe teardown (13/13 complete, zero unresolved — no probe
+fixtures were created this round). A provider quota failure (`agent_error.provider_quota_limit`,
+429) interrupted this run after the marker edit but **before** the run-owned services were
+stopped; per the Lead's recovery inspection note (`01a13edd-08f8-7c66-bd4b-4622e0369d62`), the
+Lead — after confirming project/process identity and the helper's ownership label — performed the
+recovery cleanup with the project-scoped `astro dev stop` and the ownership-checking
+`npm run dev-db:stop`, and verified: no dev server/listener remains on 4322, the database
+container is exited, and the `songhealth-dev-db-data` volume is present (production-parity and
+unrelated services untouched). This resumed delivery re-verified that state (no dev server
+running; container stopped with volume preserved) and removed the run's credential scratch
+(dev-bypass token, mode 0600) and test log; the port-4321 occupant and all other host resources
+were never touched by this task.

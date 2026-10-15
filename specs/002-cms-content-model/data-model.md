@@ -30,7 +30,15 @@ supplied types/formats/values and reference/cardinality constraints. Staff
 ensure appropriate editorial completeness and classification; native schema
 does not promise historical media or cross-record availability. Native Save validation rejects
 missing required values and empty required strings; malformed supplied values retain native
-refusal. Optional body, gallery, channels and classifications have no added minimum-completeness
+refusal — with one accepted V1 limitation (Product Owner approval
+`01a13ed2-7a42-7aa7-b8a9-546c558ef316`): raw file/image inputs first pass the
+platform's documented create/update-time media value normalization
+(`src/media/normalize.ts`), which precedes schema validation, so a bare string
+(including `""`) stores `{provider: "external", id: "", src: <the string>}` and a
+non-string `id` object coerces to `{id: "", provider: "local"}`. Omitted/null
+files and objects with neither `id` nor `src` remain native refusals; a
+normalized empty `id`/`src` is not a real file selection and grants no
+availability or retention guarantee. Optional body, gallery, channels and classifications have no added minimum-completeness
 rule. Valid numeric zero and boolean false/native 0/1 are not missing values.
 
 ## Collection Fields

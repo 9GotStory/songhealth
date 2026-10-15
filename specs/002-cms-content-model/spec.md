@@ -364,7 +364,10 @@ and corrects an agreed validation failure using labels and the reported explanat
   unique, reference and cardinality validation at create/save, including required
   semantic title, Document file, and Health Report → Document. Missing other fields and
   classifications MAY be saved and published where the native schema allows, with
-  supplied invalid values still rejected by native validation. Native RBAC, lifecycle,
+  supplied invalid values still rejected by native validation — except that the
+  platform's documented create/update-time media value normalization precedes field
+  validation (accepted V1 limitation; see "Native file-value normalization" below).
+  Native RBAC, lifecycle,
   scheduling and revision constraints govern Publish/Schedule. No Songhealth-specific
   content/taxonomy completeness hook, editor confirmation, article review or approval
   workflow MAY be introduced. Native permission and public-data safety remain mandatory;
@@ -432,7 +435,10 @@ and corrects an agreed validation failure using labels and the reported explanat
 - **FR-026**: Native required/type/value/reference/cardinality validation and
   failure/uncertainty handling MUST return truthful outcomes. Native create/save
   requiredness applies to semantic title, Document file and mandatory Health Report
-  Document relation; other supplied values still face native type/format checks.
+  Document relation; other supplied values still face native type/format checks —
+  raw file/image inputs first pass the platform's documented media value
+  normalization (accepted V1 limitation; see "Native file-value normalization"
+  below), which precedes those checks.
   Native Publish/Schedule applies built-in permission, time, lifecycle and revision
   constraints only, without a Songhealth completeness hook, conditional reference
   reconstruction, or manual article confirmation. Optional/conditional fields,
@@ -517,6 +523,22 @@ V1 tradeoff and not an automated completeness guarantee. Incomplete drafts
 violating save-time requiredness may be refused. Valid selections never guarantee
 linked-target availability, retention or historical immutability. No custom hook,
 reference adapter or second RBAC layer is proposed.
+
+**Native file-value normalization — accepted V1 limitation (Product Owner approval
+`01a13ed2-7a42-7aa7-b8a9-546c558ef316`, 2026-10-15, on Lead-verified pinned
+behavior):** raw native input normalization is distinct from, and precedes,
+subsequent schema validation. At content create/update the pinned EmDash 1.1.0
+media value normalization (`src/media/normalize.ts`, the documented URL-input
+creation path) accepts three malformed raw file inputs and stores them
+normalized: a bare string `""` or `"not-an-object"` stores
+`{provider: "external", id: "", src: <the string>}`, and `{id: 123}` (non-string
+id) coerces to `{id: "", provider: "local"}`. Required-file validation still
+refuses an omitted or `null` file and an object with neither `id` nor `src`;
+required titles and other native type/format/select/date refusals are unchanged.
+A normalized empty `id`/`src` is not a selection of any real available file and
+carries no file-availability or retention guarantee (D-REF stays deferred); the
+native-only architecture is preserved and no hook, validation engine or core
+change is introduced.
 
 **Deferred Q1 ITA rows — D-ITA only; not V1 publication requirements:**
 
