@@ -56,7 +56,7 @@ description: "Native-only CMS content-model development tasks, ordered by user s
 
 ### Focused Tests
 
-- [ ] T007 [US1] Author table-driven native authoring checks in `tests/browser/cms-authoring.spec.ts` for all five kinds using T002/T006, title requiredness, representative supplied-value errors, optional omissions/classifications/media, optional Page/Announcement Document selectors, and direct permitted Publish/Schedule of natively valid incomplete fixtures; include no human-approval or custom policy-cancellation expectation.
+- [x] T007 [US1] Author table-driven native authoring checks in `tests/browser/cms-authoring.spec.ts` for all five kinds using T002/T006, title requiredness, representative supplied-value errors, optional omissions/classifications/media, optional Page/Announcement Document selectors, and direct permitted Publish/Schedule of natively valid incomplete fixtures; include no human-approval or custom policy-cancellation expectation.
 
 ### Implementation
 
