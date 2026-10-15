@@ -2,12 +2,34 @@
   "$schema": "https://emdashcms.com/seed.schema.json",
   "version": "1",
   "meta": {
-    "name": "Songhealth Platform Foundation",
-    "description": "Explicitly empty version-1 seed for Feature 001: suppresses EmDash's built-in example Posts/Pages model. Defines zero Product collections, content, taxonomies, relations, redirects, menus, widgets, and sections; later approved features add the real content model."
+    "name": "Songhealth CMS Content Model",
+    "description": "Feature 002 seed intent for the existing canonical platform: defines the three shared native taxonomies — topic, audience and hierarchical area — and still defines zero Product collections, relations, menus, redirects, widgetAreas, sections and content, suppressing EmDash's built-in example Posts/Pages model. Term inventories are intentionally empty pending authoritative sources; no official terms, geographic codes or inventories are supplied. Taxonomy attachments are added as each owning collection is introduced. Area terms model the applicable Province → District → Subdistrict → Village hierarchy: explicit official/stable code in the native term slug, name in the native label, parent via native group identity."
   },
   "collections": [],
   "relations": [],
-  "taxonomies": [],
+  "taxonomies": [
+    {
+      "name": "topic",
+      "label": "หัวข้อ",
+      "labelSingular": "หัวข้อ",
+      "hierarchical": false,
+      "collections": []
+    },
+    {
+      "name": "audience",
+      "label": "กลุ่มเป้าหมาย",
+      "labelSingular": "กลุ่มเป้าหมาย",
+      "hierarchical": false,
+      "collections": []
+    },
+    {
+      "name": "area",
+      "label": "พื้นที่",
+      "labelSingular": "พื้นที่",
+      "hierarchical": true,
+      "collections": []
+    }
+  ],
   "menus": [],
   "redirects": [],
   "widgetAreas": [],
