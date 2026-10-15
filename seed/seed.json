@@ -3,17 +3,89 @@
   "version": "1",
   "meta": {
     "name": "Songhealth CMS Content Model",
-    "description": "Feature 002 seed intent for the existing canonical platform: defines the three shared native taxonomies — topic, audience and hierarchical area — and still defines zero Product collections, relations, menus, redirects, widgetAreas, sections and content, suppressing EmDash's built-in example Posts/Pages model. Term inventories are intentionally empty pending authoritative sources; no official terms, geographic codes or inventories are supplied. Taxonomy attachments are added as each owning collection is introduced. Area terms model the applicable Province → District → Subdistrict → Village hierarchy: explicit official/stable code in the native term slug, name in the native label, parent via native group identity."
+    "description": "Feature 002 seed intent for the existing canonical platform: defines the shared native documents collection (required title and native file selection, optional domain metadata and the document_successor self-relation) and the shared native taxonomies — topic, audience and hierarchical area — plus the Document-only document_type classification, with topic and document_type attached to documents; audience and area still await their owning collections. Still defines zero menus, redirects, widgetAreas, sections and content, suppressing EmDash's built-in example Posts/Pages model. Term inventories are intentionally empty pending authoritative sources; no official terms, geographic codes or inventories are supplied. Taxonomy attachments are added as each owning collection is introduced. Area terms model the applicable Province → District → Subdistrict → Village hierarchy: explicit official/stable code in the native term slug, name in the native label, parent via native group identity."
   },
-  "collections": [],
-  "relations": [],
+  "collections": [
+    {
+      "slug": "documents",
+      "label": "เอกสาร",
+      "labelSingular": "เอกสาร",
+      "supports": ["drafts", "revisions", "preview", "scheduling"],
+      "titleField": "title",
+      "dateField": "document_at",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อเรื่อง",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "summary",
+          "label": "สรุป",
+          "type": "text"
+        },
+        {
+          "slug": "file",
+          "label": "ไฟล์เอกสาร",
+          "type": "file",
+          "required": true
+        },
+        {
+          "slug": "document_at",
+          "label": "วันที่เอกสาร",
+          "type": "datetime"
+        },
+        {
+          "slug": "fiscal_year",
+          "label": "ปีงบประมาณ",
+          "type": "integer"
+        },
+        {
+          "slug": "owner_source",
+          "label": "เจ้าของ/แหล่งที่มา",
+          "type": "text"
+        },
+        {
+          "slug": "domain_status",
+          "label": "สถานะเอกสาร",
+          "type": "select",
+          "validation": {
+            "options": ["current", "superseded", "expired"]
+          }
+        },
+        {
+          "slug": "successor",
+          "label": "เอกสารฉบับถัดไป",
+          "type": "reference",
+          "validation": {
+            "relation": "document_successor",
+            "relationSide": "parent"
+          }
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "slug": "document_successor",
+      "parentCollection": "documents",
+      "childCollection": "documents",
+      "parentLabel": "เอกสารฉบับก่อนหน้า",
+      "parentLabelSingular": "เอกสารฉบับก่อนหน้า",
+      "childLabel": "เอกสารฉบับถัดไป",
+      "childLabelSingular": "เอกสารฉบับถัดไป",
+      "maxChildrenPerParent": 1,
+      "maxParentsPerChild": null
+    }
+  ],
   "taxonomies": [
     {
       "name": "topic",
       "label": "หัวข้อ",
       "labelSingular": "หัวข้อ",
       "hierarchical": false,
-      "collections": []
+      "collections": ["documents"]
     },
     {
       "name": "audience",
@@ -28,6 +100,13 @@
       "labelSingular": "พื้นที่",
       "hierarchical": true,
       "collections": []
+    },
+    {
+      "name": "document_type",
+      "label": "ประเภทเอกสาร",
+      "labelSingular": "ประเภทเอกสาร",
+      "hierarchical": false,
+      "collections": ["documents"]
     }
   ],
   "menus": [],
