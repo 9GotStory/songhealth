@@ -123,7 +123,11 @@
 //   /_emdash/api/taxonomies/{name}/terms/{slug} removes it and answers 404
 //   NOT_FOUND for an already-absent term (handleTermDelete); GET
 //   /_emdash/api/taxonomies/{name}/terms/{slug} is the native read used to
-//   reconcile an uncertain deletion. The taxonomy LISTING
+//   reconcile an uncertain deletion — including a lost-response transport
+//   failure on the DELETE, whose outcome may have committed: native state is
+//   read BEFORE any repeated DELETE (corrective round 2, F2 residual; the
+//   tasks.md shared constraint "Re-read uncertain outcomes before a retry").
+//   The taxonomy LISTING
 //   GET /_emdash/api/taxonomies (taxonomies:read) returns
 //   `{ success: true, data: { taxonomies: [...] } }` (handleTaxonomyList) —
 //   an envelope key the accepted nativeItemsOf helper does NOT read (it
@@ -643,41 +647,129 @@ async function ensureSyntheticTopicTerm(): Promise<string> {
  *
  * The registration is RETAINED until deletion is actually proven — direct
  * success, a native 404 on the DELETE (the pinned handler answers NOT_FOUND
- * for an already-absent term), or a follow-up native read that proves absence
- * — so a transport failure or native refusal leaves the term registered for
- * the afterAll safety-net retry (corrective round 1, finding F2; the same
+ * for an already-absent term), or a native read that proves absence — so a
+ * transport failure or native refusal leaves the term registered for the
+ * afterAll safety-net retry (corrective round 1, finding F2; the same
  * retain-until-resolved contract the T002 registry applies to entries and
  * media). An unresolved term throws a secret-free error naming the owned
  * identity — never a false success, and never dropping the only record of
- * what still needs cleanup. A transport failure inside cmsRequest throws
- * before any state change, which keeps the registration the same way.
+ * what still needs cleanup.
+ *
+ * Corrective round 2 (F2 residual): a transport failure on the DELETE loses
+ * the response, so the deletion MAY have committed — an UNCERTAIN outcome —
+ * and the shared constraint requires re-reading native state before a retry
+ * ("Re-read uncertain outcomes before a retry", tasks.md). The protocol
+ * therefore verifies presence through a native read BEFORE every DELETE: at
+ * entry (a registration carried over from an earlier unresolved cleanup may
+ * refer to a term whose last deletion outcome was an uncertain transport
+ * loss, so no DELETE is ever issued without a just-verified presence — and a
+ * term already absent on entry resolves with no mutation at all) and after
+ * every uncertain DELETE outcome (verified absence resolves; verified
+ * presence permits exactly one deletion re-attempt; an unreadable state
+ * stays registered and is reported unresolved with no further mutation).
+ * Definite refusals keep the round-1 reconcile-before-absence-claim
+ * behavior.
  */
 async function deleteSyntheticTerm(): Promise<void> {
 	const term = syntheticTerm;
 	if (term === undefined) return;
 	const termPath = `/_emdash/api/taxonomies/${term.taxonomy}/terms/${encodeURIComponent(term.slug)}`;
-	const removal = await cmsRequest(admin, termPath, { method: "DELETE" });
-	if (removal.ok) {
+
+	const resolved = (): void => {
 		syntheticTerm = undefined;
+	};
+	const unresolved = (detail: string): never => {
+		throw new CmsHelperError(
+			"TERM_DELETE_UNRESOLVED",
+			`the owned synthetic ${term.taxonomy} term '${term.slug}' could not be proven deleted (${detail}); it stays registered for the safety-net retry`,
+		);
+	};
+
+	/**
+	 * Native presence read for reconciling uncertain outcomes: 404 proves
+	 * absence, success proves presence, anything else is unknown. Never
+	 * throws — an unreadable state is data, not an exception.
+	 */
+	const readPresence = async (): Promise<
+		{ presence: "absent" } | { presence: "present" } | { presence: "unknown"; detail: string }
+	> => {
+		let probe: NativeResult;
+		try {
+			probe = await cmsRequest(admin, termPath);
+		} catch {
+			return {
+				presence: "unknown",
+				detail: "the follow-up read failed before reaching the app",
+			};
+		}
+		if (probe.status === 404) return { presence: "absent" };
+		if (probe.ok) return { presence: "present" };
+		return { presence: "unknown", detail: `follow-up read: ${nativeRefusalOf(probe)}` };
+	};
+
+	// Entry reconciliation: verify presence BEFORE any DELETE. Verified
+	// absence resolves the registration without a single mutation (an
+	// already-deleted term never sees a repeated DELETE); an unreadable
+	// entry state is unresolved — no mutation on an unknown state.
+	const entry = await readPresence();
+	if (entry.presence === "absent") {
+		resolved();
 		return;
 	}
-	// Reconcile through a native read before any absence claim: 404 on the
-	// DELETE itself already proves the term is gone; any other refusal is
-	// followed by a GET that independently decides presence versus absence.
-	if (removal.status === 404) {
-		syntheticTerm = undefined;
+	if (entry.presence === "unknown") {
+		unresolved(`the pre-deletion presence read could not establish native state (${entry.detail})`);
+	}
+
+	let removal: NativeResult | undefined;
+	try {
+		removal = await cmsRequest(admin, termPath, { method: "DELETE" });
+	} catch {
+		// Lost response: the deletion outcome is uncertain — read native
+		// state BEFORE any repeated DELETE (corrective round 2, F2 residual).
+		const afterLoss = await readPresence();
+		if (afterLoss.presence === "absent") {
+			resolved();
+			return;
+		}
+		if (afterLoss.presence === "present") {
+			try {
+				removal = await cmsRequest(admin, termPath, { method: "DELETE" });
+			} catch {
+				unresolved(
+					"transport failure on the deletion; the term was verified present, but the re-attempted deletion then failed before its outcome was known",
+				);
+			}
+		} else {
+			unresolved(
+				`transport failure on the deletion and ${afterLoss.detail}`,
+			);
+		}
+	}
+	if (removal === undefined) {
+		// Defensive: unreachable by construction; resolution is never claimed
+		// without an outcome to ground it in. (A direct throw — a throwing
+		// statement is what proves this branch ends.)
+		throw new CmsHelperError(
+			"TERM_DELETE_UNRESOLVED",
+			`the owned synthetic ${term.taxonomy} term '${term.slug}' could not be proven deleted (no deletion outcome was established); it stays registered for the safety-net retry`,
+		);
+	}
+	const deletion: NativeResult = removal;
+	if (deletion.ok || deletion.status === 404) {
+		resolved();
 		return;
 	}
-	const probe = await cmsRequest(admin, termPath);
-	if (probe.status === 404) {
-		syntheticTerm = undefined;
+	// A definite refusal (other than the already-absent 404): reconcile
+	// through a native read before any absence claim.
+	const afterRefusal = await readPresence();
+	if (afterRefusal.presence === "absent") {
+		resolved();
 		return;
 	}
-	throw new CmsHelperError(
-		"TERM_DELETE_UNRESOLVED",
-		`the owned synthetic ${term.taxonomy} term '${term.slug}' could not be proven deleted (${nativeRefusalOf(removal)}; follow-up read: ${
-			probe.ok ? "the term is still present" : nativeRefusalOf(probe)
-		}); it stays registered for the safety-net retry`,
+	unresolved(
+		afterRefusal.presence === "present"
+			? `${nativeRefusalOf(deletion)}; a native read still finds the term`
+			: `${nativeRefusalOf(deletion)}; ${afterRefusal.detail}`,
 	);
 }
 
@@ -850,9 +942,11 @@ test.beforeAll(async () => {
 // already reconciled that worker's registry. The afterAll safety net retries
 // anything still registered. Synthetic classification terms are deleted AFTER
 // the entries that reference them, and a term whose deletion is not yet
-// proven stays registered so this safety net can retry it (corrective round
-// 1, finding F2). Unresolved cleanup fails the run truthfully; only owned
-// synthetic fixtures, terms, and the T002 registry are ever touched.
+// proven stays registered so this safety net can retry it — with every
+// uncertain deletion outcome re-read through a native presence check BEFORE
+// any repeated DELETE (corrective rounds 1–2, finding F2). Unresolved cleanup
+// fails the run truthfully; only owned synthetic fixtures, terms, and the
+// T002 registry are ever touched.
 
 test.afterEach(async () => {
 	// Partial-setup guard: beforeAll creates no owned fixtures, so an actor
