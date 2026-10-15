@@ -77,7 +77,10 @@
 //   string>}; file:{id:123} is coerced to {id:"", provider:"local"}. These
 //   three inputs are ACCEPTED (201) with exactly those stored representations,
 //   and the Product Owner accepts this pinned behavior as a documented V1
-//   limitation. An accepted normalized value with id:"" is NOT a real file
+//   limitation. Observed results for these exact inputs only — not universal
+//   rules: a resolvable bare local media ID or internal media URL normalizes
+//   to the real local item, and an explicitly supplied object provider (and
+//   src) is preserved. An accepted normalized value with id:"" is NOT a real file
 //   selection — the regression tests below assert the exact degenerate stored
 //   shape through native read-back and never imply an empty id/src selects an
 //   available file (no availability guarantee exists; D-REF stays deferred)
@@ -522,12 +525,18 @@ test("create refuses missing, null and empty required title", async () => {
 // Required-file Save refusals (create): missing/null/empty-object file values
 // ---------------------------------------------------------------------------
 //
-// CORRECTIVE ROUND 1 (approval 01a13ed2…): the three formerly asserted
-// "malformed" shapes that the pinned platform actually ACCEPTS via its
-// documented create/update-time media value normalization (bare "" and bare
-// non-URL strings → {provider:"external", id:"", src:<string>}; {id:123} →
-// {id:"", provider:"local"}) moved out of this refusal loop into the focused
-// normalization regression tests below. Genuine native refusals are retained
+// CORRECTIVE ROUND 1 (approval 01a13ed2…; wording narrowed round 2): the
+// three formerly asserted "malformed" shapes that the pinned platform
+// actually ACCEPTS via its documented create/update-time media value
+// normalization moved out of this refusal loop into the focused normalization
+// regression tests below — the exact inputs file:"" and file:"not-an-object"
+// (strings that are neither http(s) URLs, internal media URLs nor resolvable
+// local media IDs → {provider:"external", id:"", src:<the string>}) and
+// file:{id:123} with no explicit provider/src → {id:"", provider:"local"}.
+// These are observed results for those exact inputs, NOT universal rules:
+// a resolvable bare local media ID or internal media URL normalizes to the
+// real local item, and an explicitly supplied object provider (and src) is
+// preserved. Genuine native refusals are retained
 // here exactly as before: omitted, null, and an object with neither id nor src.
 
 test("create refuses missing, null and empty-object required file values", async () => {

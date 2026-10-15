@@ -31,11 +31,19 @@ ensure appropriate editorial completeness and classification; native schema
 does not promise historical media or cross-record availability. Native Save validation rejects
 missing required values and empty required strings; malformed supplied values retain native
 refusal — with one accepted V1 limitation (Product Owner approval
-`01a13ed2-7a42-7aa7-b8a9-546c558ef316`): raw file/image inputs first pass the
+`01a13ed2-7a42-7aa7-b8a9-546c558ef316`): raw file values first pass the
 platform's documented create/update-time media value normalization
-(`src/media/normalize.ts`), which precedes schema validation, so a bare string
-(including `""`) stores `{provider: "external", id: "", src: <the string>}` and a
-non-string `id` object coerces to `{id: "", provider: "local"}`. Omitted/null
+(`src/media/normalize.ts`), which precedes schema validation. For three exact
+observed raw inputs — `file: ""` and `file: "not-an-object"` (strings that are
+neither http(s) URLs, internal media URLs nor resolvable local media IDs) and
+`file: {id: 123}` (an object with no explicit `provider`/`src`) — the save is
+accepted and stores, respectively, `{provider: "external", id: "", src: ""}`,
+`{provider: "external", id: "", src: "not-an-object"}` and
+`{id: "", provider: "local"}`. These are observed results for those exact
+inputs, not universal rules: in general the normalizer resolves internal media
+URLs and resolvable bare local media IDs to the real local item, maps http(s)
+URLs to external references, and preserves an explicitly supplied object
+`provider` (and `src`). Omitted/null
 files and objects with neither `id` nor `src` remain native refusals; a
 normalized empty `id`/`src` is not a real file selection and grants no
 availability or retention guarantee. Optional body, gallery, channels and classifications have no added minimum-completeness

@@ -370,6 +370,58 @@ distinct-role fixtures remain a pending T001 §6 input; the URL-input normalizat
 string never produces a supplied-value refusal — editorially, staff file selection uses the
 native picker/upload path.
 
+## 10. Corrective round 2 — documentation wording correction (2026-10-15, UTC)
+
+**Trigger.** Lead review of candidate `aaeca912ac41b1c0b69804132e0801d356c2bc11` returned
+REWORK with one bounded finding (F1, medium): the round-1 normalization wording in
+`data-model.md` and `contracts/native-editorial.md` (and the T003 explanatory comment)
+generalized beyond the approved three inputs. The Lead independently confirmed two counterexamples
+in the lockfile-integrity-verified archive: a resolvable bare local media ID normalizes to the
+real local item (retaining its actual id, provider `local`), and
+`{id:123, provider:"external", src:"https://example.com/file.pdf"}` preserves the explicit
+external provider and its src. Authorization: same Product Owner approval
+(`01a13ed2-7a42-7aa7-b8a9-546c558ef316`), corrective round 2 of 3.
+
+**Source verification this round (pinned `emdash@1.1.0` archive,
+`node_modules/emdash/dist/normalize-BuWa0lvd.mjs`).** Confirmed first-hand:
+`normalizeStringUrl` tries internal-media-URL resolution, then http(s)→external, then
+`resolveLocalId` (a resolvable bare local media ID returns the real local item, provider
+`local`); only a non-matching string falls back to `{provider:"external", id:"", src:<string>}`.
+`recordToMediaValue` coerces a non-string `id` to `""` but **preserves** explicitly supplied
+string `provider`, `src` and other members, and `normalizeMediaValue` returns an
+explicit-`external` object unchanged. This matches the Lead's counterexamples and grounds the
+corrected wording. Workflow gates re-recorded for the round: prerequisites exit 0 (explicit
+`specs/002-cms-content-model` override), checklists 36/36 + 16/16 PASS (read-only), implement
+hooks optional → skipped, explicit delivery commit.
+
+**Exact wording corrections (documentation/comments only).**
+
+1. `data-model.md` Common Native Contract: the limitation now names the three exact observed raw
+   inputs (`file: ""` and `file: "not-an-object"` — strings that are neither http(s) URLs,
+   internal media URLs nor resolvable local media IDs — and `file: {id: 123}` with no explicit
+   `provider`/`src`) with their exact stored representations, explicitly states these are
+   observed results for those inputs and **not universal rules**, and accurately describes the
+   general normalizer (internal-URL/local-ID resolution to the real local item, http(s)→external,
+   explicit provider/src preservation). "raw file/image inputs" narrowed to "raw file values"
+   (file-value limitation only; no new image requirement).
+2. `contracts/native-editorial.md` Native Request Shapes: the same narrowing and accurate
+   general description.
+3. `tests/browser/cms-document.spec.ts`: the two explanatory comment passages (the
+   CORRECTIVE-ROUND-1 refusal-section note and the verified-API bullet) narrowed to the exact
+   inputs with the same not-universal clarification. **Executable content verified unchanged**:
+   the diff against `aaeca91` touches comment lines only (16 added / 7 replaced; **zero**
+   non-comment changed lines), so the reviewed 13-pass/0-failed/0-skipped execution-log result
+   applies to this test byte-for-byte; no runtime rerun was required or performed for this
+   documentation-only round.
+4. `spec.md` untouched this round (Lead confirmed it already names the three precise inputs).
+   T006 marker, approvals, recovery history and the §5–§9 records preserved unchanged.
+
+**Checks.** `git diff --check`: clean. Scope vs `aaeca91`: exactly three files (the two authority
+passages and the test comments) plus this evidence section; no functional, dependency, schema,
+seed, service or task-marker change. No runtime services were started this round (the round-1
+end state — no dev server on 4322, container stopped, volume preserved — is unchanged; no
+credential scratch exists).
+
 **Round-1 cleanup (with accurate recovery attribution).** All owned synthetic fixtures were
 resolved by the suite's own failure-safe teardown (13/13 complete, zero unresolved — no probe
 fixtures were created this round). A provider quota failure (`agent_error.provider_quota_limit`,

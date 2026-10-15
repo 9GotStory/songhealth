@@ -53,9 +53,17 @@ Raw native input normalization is distinct from, and precedes, that schema
 validation (accepted V1 limitation, Product Owner approval
 `01a13ed2-7a42-7aa7-b8a9-546c558ef316`): the pinned EmDash 1.1.0
 create/update-time media value normalization (`src/media/normalize.ts`, the
-documented URL-input creation path) accepts a bare string file input — including
-`""` — storing `{provider: "external", id: "", src: <the string>}`, and coerces
-a non-string `id` object to `{id: "", provider: "local"}`. Omitted/null files
+documented URL-input creation path) accepts three exact observed raw file
+inputs — `""` and `"not-an-object"` (strings that are neither http(s) URLs,
+internal media URLs nor resolvable local media IDs) and `{id: 123}` (no
+explicit `provider`/`src`) — storing, respectively,
+`{provider: "external", id: "", src: ""}`,
+`{provider: "external", id: "", src: "not-an-object"}` and
+`{id: "", provider: "local"}`. These are observed results for those exact
+inputs, not universal rules: in general the normalizer resolves internal media
+URLs and resolvable bare local media IDs to the real local item, maps http(s)
+URLs to external references, and preserves an explicitly supplied object
+`provider` (and `src`). Omitted/null files
 and objects with neither `id` nor `src` are still native refusals, and all
 other requiredness/type/format refusals above are unchanged. A normalized empty
 `id`/`src` is not a selection of any real available file and grants no
