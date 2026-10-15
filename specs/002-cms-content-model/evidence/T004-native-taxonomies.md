@@ -8,6 +8,9 @@ slug, name in label, parent via native group identity' and 'Province → Distric
 Village'; add no invented term inventory, Area/classification collection or taxonomy publication
 gate, and retain office contact in native site settings."
 **Recording date**: 2026-10-15 (UTC).
+**Corrective round**: 1/3 (2026-10-15) — evidence-only corrections per Lead REWORK comment
+`01a13da6-6337-706f-a7b3-9139803bb3be` (integrity digest transcription; validator dependency
+environment and reproduction instructions); see §5a. Implementation content unchanged.
 **Executor**: Claude Code (claude-developer, Multica DEV Executor), delegated by codex-lead-reviewer
 under the Product Owner bounded T004-only authorization in Multica issue 9GOTSTORY-221.
 **Scope**: T004 only. Source/static verification only: no initialized-database schema application,
@@ -85,9 +88,11 @@ exact-release sources.
    no collections and a parent on a flat taxonomy are validator **warnings**, not errors.
 2. **First-party exact release**: `https://registry.npmjs.org/emdash/-/emdash-1.1.0.tgz`
    downloaded; recomputed SHA-512
-   `sha512-VXo1fIMr44PEiE1A9Z5aFWvjsqhdLDHqat2iPkFYoam2kYV6h+2LGkEDovkXdLmmWWDY9w7ekP0CP6ziYMFhg==`
+   `sha512-VXo1fIMr44PEiE1A9Z5aFWvjsqhdLDHLqat2iPkFYoam2kYV6h+2LGkEDovkXdLmmWWDY9w7ekP0CP6ziYMFhg==`
    equals the `package-lock.json` `node_modules/emdash` integrity (the same value research.md
-   independently recomputed). Exact-release source consulted:
+   independently recomputed). Re-verified 2026-10-15 (corrective round 1/3) from a fresh
+   registry download: recomputed digest again equals the unchanged lockfile value. Exact-release
+   source consulted:
    - `src/seed/types.ts` — `SeedTaxonomy` (`name`, `label`, `labelSingular?`, `hierarchical?`,
      `collections?`, `terms?`) and `SeedTaxonomyTerm` (`slug`, `label`, `description?`, `parent?`
      — "Slug of parent term (for hierarchical taxonomies)").
@@ -107,10 +112,67 @@ exact-release sources.
 | Check | Command (pinned Node 24.21.0) | Outcome |
 | --- | --- | --- |
 | JSON well-formedness | `JSON.parse` of `seed/seed.json` under `node v24.21.0` | **OK** |
-| Exact-release seed validation | `validateSeed(seed)` imported from the integrity-verified `emdash@1.1.0` archive's `dist/seed/index.mjs` (scratch copy under gitignored `.tmp/`, pinned `kysely`/`zod` deps only; no project dependency change) | `valid: true`, `errors: []`, `warnings`: exactly the three truthful `taxonomies[n].collections: taxonomy "topic"/"audience"/"area" is not assigned to any collections` (matches the approved pending-attachment state) |
+| Exact-release seed validation (original run, 2026-10-14/15) | `validateSeed(seed)` imported from the integrity-verified `emdash@1.1.0` archive's `dist/seed/index.mjs` under pinned Node 24.21.0, with the archive's external imports resolving against the repository's lockfile-resolved dependency tree — see §5a for the accurate environment description and the verified reproduction commands | `valid: true`, `errors: []`, `warnings`: exactly the three truthful `taxonomies[n].collections: taxonomy "topic"/"audience"/"area" is not assigned to any collections` (matches the approved pending-attachment state) |
 | Scope check | `git status --porcelain` / `git diff --stat` | Only `seed/seed.json` (modified), `specs/002-cms-content-model/tasks.md` (single T004 marker), this evidence file (new); T005–T035 markers and all Feature 001 artifacts unchanged |
 | Whitespace | `git diff --check` | Clean — no whitespace errors |
 | Secrets | none introduced | No token/credential/secret value in any delivered file |
+
+## 5a. Corrective round 1/3 — validator environment correction and verified reproduction (2026-10-15)
+
+Lead REWORK comment `01a13da6-6337-706f-a7b3-9139803bb3be` required two evidence corrections;
+both are resolved here. Seed definitions, task markers, dependencies/lockfile and all other
+content are unchanged by this round.
+
+1. **Integrity value typo.** §4's recorded digest dropped one character (`LDHqat` instead of
+   `LDHLqat`). The corrected value above was recomputed from a fresh registry download and equals
+   the unchanged `package-lock.json` integrity. The original run's computation was correct; only
+   this record's transcription was wrong.
+
+2. **Inaccurate two-package setup claim.** The original validation did **not** run against a
+   `kysely`/`zod`-only environment. Its install command
+   (`npm install --no-save --ignore-scripts … kysely@0.29.0 zod@4.5.4`) executed from a scratch
+   directory without its own `package.json`, so npm resolved the project root as the repository
+   and materialized the repository's full lockfile-declared dependency tree (596 packages) in the
+   gitignored repository-root `node_modules/`; the validator import then resolved `kysely`, `zod`,
+   `@oslojs/crypto` and the remaining external imports from there. The original
+   `valid: true` / 0 errors / 3 warnings result is genuine (corroborated by the run execution
+   log) — only its environment description was inaccurate. The unreported repository-root
+   `node_modules/` residue from that run was removed during this corrective round.
+
+   Confirmed independently (Lead review and this round): a two-package environment cannot import
+   the validator — from a bare integrity-verified archive with only `kysely`/`zod` resolvable,
+   the import fails with
+   `Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@oslojs/crypto' imported from …/dist/secrets-….mjs`.
+   Installing the archive's own declared tree directly is also not viable: its `package.json`
+   references unpublished `@emdash-cms/atproto-test-utils@0.0.0` (registry 404) and carries
+   `@tiptap/react`↔`@types/react` peer conflicts (ERESOLVE).
+
+   **Verified clean-scratch reproduction** (pinned Node 24.21.0 / npm 12.2.0; no project
+   dependency change — `package.json` and `package-lock.json` untouched):
+
+   ```bash
+   cd <songhealth-repo>
+   npm ci                                                  # README §1: installs exactly the committed lockfile (599 packages)
+   mkdir -p .tmp/t004-verify && cd .tmp/t004-verify
+   curl -fsSL -o emdash-1.1.0.tgz https://registry.npmjs.org/emdash/-/emdash-1.1.0.tgz
+   # integrity: recomputed SHA-512 base64 equals package-lock.json's node_modules/emdash value (§4)
+   tar -xzf emdash-1.1.0.tgz
+   node --input-type=module -e "
+     import { validateSeed } from './package/dist/seed/index.mjs';
+     import { readFileSync } from 'node:fs';
+     const seed = JSON.parse(readFileSync('../../seed/seed.json','utf8'));
+     console.log(JSON.stringify(validateSeed(seed)));
+   "
+   ```
+
+   Executed 2026-10-15 with exactly these steps (under `.tmp/t004r1/`): `npm ci` reported
+   **"added 599 packages in 15s"**; the fresh archive's recomputed digest equals the lockfile
+   (§4); the validator import resolved its externals from the repository-root
+   `node_modules/` installed by `npm ci`; result: **`valid: true`, 0 errors, 3 warnings** —
+   identical to the original genuine result (the same three pending-attachment notices). This
+   reproduction is recorded separately from the original execution; it is a new run, not a
+   re-labeled old one. The `node_modules/` tree materialized for this verification was removed
+   afterwards to restore the per-clone state T001 recorded; `npm ci` recreates it exactly.
 
 ## 6. Outstanding prerequisites and non-claims
 
@@ -125,5 +187,8 @@ exact-release sources.
   original joins; this task neither executes nor redefines them.
 - No runtime, integration, scheduler, browser, readiness, or SC outcome is declared PASS; ChatGPT
   Independent Review and Product Owner acceptance remain required.
-- Owned scratch (`.tmp/t004/` validator tooling) removed before delivery; no container, service,
-  credential scratch, or database was created, started, or mutated by this run.
+- Owned scratch removed before delivery in both rounds (`.tmp/t004/` original validator tooling;
+  `.tmp/t004r1/` corrective verification), together with the repository-root `node_modules/` the
+  original run's install had silently materialized (§5a) — the per-clone state T001 recorded is
+  restored, and no container, service, credential scratch, or database was created, started, or
+  mutated by either run.
