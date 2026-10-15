@@ -120,14 +120,22 @@
 //   (content:read) → `data { terms: [{ id, name, slug, label, … }], … }`
 // - synthetic classification fixtures: POST /_emdash/api/taxonomies/{name}/terms
 //   (taxonomies:manage) with `{ slug?, label }` creates a term; DELETE
-//   /_emdash/api/taxonomies/{name}/terms/{slug} removes it (no in-use guard);
-//   GET /_emdash/api/taxonomies (taxonomies:read) lists definitions with
-//   their attached `collections` — used to verify the approved `topic`
-//   attachment per kind before exercising classification, never to invent an
-//   official term inventory (the fixture term below is clearly synthetic and
-//   owned-cleaned; the dev-bypass PAT's `admin` scope grants taxonomies:
-//   manage/read per @emdash-cms/auth "The `admin` scope grants access to
-//   everything")
+//   /_emdash/api/taxonomies/{name}/terms/{slug} removes it and answers 404
+//   NOT_FOUND for an already-absent term (handleTermDelete); GET
+//   /_emdash/api/taxonomies/{name}/terms/{slug} is the native read used to
+//   reconcile an uncertain deletion. The taxonomy LISTING
+//   GET /_emdash/api/taxonomies (taxonomies:read) returns
+//   `{ success: true, data: { taxonomies: [...] } }` (handleTaxonomyList) —
+//   an envelope key the accepted nativeItemsOf helper does NOT read (it
+//   handles data.items and bare-array envelopes), so the listing is parsed
+//   and validated locally in topicAttachmentFrom below and the accepted
+//   helper stays unchanged (corrective round 1, finding F1). The listing
+//   verifies the approved `topic` attachment per kind before exercising
+//   classification, never inventing an official term inventory; the fixture
+//   term below is clearly synthetic, owned-cleaned with its registration
+//   retained until deletion is proven (corrective round 1, finding F2), and
+//   the dev-bypass PAT's `admin` scope grants taxonomies:manage/read per
+//   @emdash-cms/auth "The `admin` scope grants access to everything"
 // - publish/schedule: POST …/publish `{ _rev?, overrideLock? }` and POST
 //   …/schedule `{ scheduledAt, _rev?, overrideLock? }` both gate on
 //   content:publish_own/content:publish_any (requireOwnerPerm in the routes);
@@ -217,9 +225,12 @@
 //   the worker whose actor created the fixtures (after every test — pass,
 //   fail, or individually selected — plus an afterAll safety net), and
 //   synthetic classification terms are deleted after the entries that use
-//   them. beforeAll deliberately creates no owned fixtures. A hard worker
-//   kill (SIGKILL) is the one path no in-process teardown can cover; the run
-//   reports it through unresolved cleanup instead of claiming success
+//   them with their registration RETAINED until deletion is proven (direct
+//   success, native 404, or a read-verified absence) so an unresolved term
+//   stays retryable by the safety net and is reported truthfully. beforeAll
+//   deliberately creates no owned fixtures. A hard worker kill (SIGKILL) is
+//   the one path no in-process teardown can cover; the run reports it through
+//   unresolved cleanup instead of claiming success
 // - runtime prerequisites the environment does not provide are reported
 //   truthfully: an unreachable app fails the worker loudly (helper transport
 //   error), and a missing collection skips as an explicit T008–T012 schema
@@ -237,7 +248,6 @@ import {
 	DEFAULT_DEVELOPMENT_ORIGIN,
 	nativeDataOf,
 	nativeItemOf,
-	nativeItemsOf,
 	nativeRefusalOf,
 	publishEntry,
 	readEntry,
@@ -407,8 +417,72 @@ const kindReadiness = new Map<string, KindReadiness>();
 /** Per-kind field map from the live schema read (for repeater subfields). */
 const kindFields = new Map<string, Map<string, SchemaField>>();
 
-/** The `topic` taxonomy definition read in beforeAll, when it exists. */
-let topicTaxonomy: { attachedCollections: string[] } | undefined;
+/**
+ * The verified attachment state of the shared `topic` taxonomy, derived once
+ * per worker in beforeAll from the native taxonomy listing: `attached` (the
+ * definition exists with a well-formed collections array), `missing` (a
+ * readable, well-formed listing defines no `topic`), or `unverified` (the
+ * listing request failed or its response was malformed). The distinction
+ * keeps a transport/refusal/shape problem from ever reading as a clean
+ * missing-attachment finding.
+ */
+type TopicAttachment =
+	| { state: "attached"; collections: string[] }
+	| { state: "missing" }
+	| { state: "unverified"; detail: string };
+
+/** Set by beforeAll; consumed by the per-kind readiness gate. */
+let topicAttachment: TopicAttachment = {
+	state: "unverified",
+	detail: "the native taxonomy listing has not been read yet",
+};
+
+/**
+ * Parse the shared-topic attachment state out of a native taxonomy-listing
+ * result. The pinned 1.1.0 `handleTaxonomyList` returns
+ * `{ success: true, data: { taxonomies: [...] } }` — an envelope key the
+ * accepted `nativeItemsOf` helper deliberately does not read (it handles
+ * `data.items` and bare-array envelopes), so this endpoint is parsed and
+ * validated LOCALLY here and the accepted helper stays unchanged. Failed
+ * requests and malformed responses map to `unverified` (visible as a
+ * readiness problem), never to a silent missing-attachment conclusion.
+ */
+function topicAttachmentFrom(result: NativeResult): TopicAttachment {
+	if (!result.ok) {
+		return {
+			state: "unverified",
+			detail: `the native taxonomy listing was refused (${nativeRefusalOf(result)})`,
+		};
+	}
+	const listed = nativeDataOf(result)?.taxonomies;
+	if (!Array.isArray(listed)) {
+		return {
+			state: "unverified",
+			detail:
+				"the native taxonomy listing response did not carry its documented data.taxonomies array",
+		};
+	}
+	const topic = listed.find(
+		(item) =>
+			item !== null &&
+			typeof item === "object" &&
+			((item as { name?: unknown }).name === "topic" ||
+				(item as { slug?: unknown }).slug === "topic"),
+	) as { collections?: unknown } | undefined;
+	if (topic === undefined) {
+		return { state: "missing" };
+	}
+	if (
+		!Array.isArray(topic.collections) ||
+		!topic.collections.every((slug): slug is string => typeof slug === "string")
+	) {
+		return {
+			state: "unverified",
+			detail: "the topic taxonomy definition carried a malformed collections array",
+		};
+	}
+	return { state: "attached", collections: topic.collections };
+}
 
 /** Synthetic classification term created on demand and cleaned in teardown. */
 let syntheticTerm: { taxonomy: string; slug: string } | undefined;
@@ -564,20 +638,47 @@ async function ensureSyntheticTopicTerm(): Promise<string> {
 	return slug;
 }
 
-/** Delete the synthetic term registered by ensureSyntheticTopicTerm. */
+/**
+ * Delete the synthetic term registered by ensureSyntheticTopicTerm.
+ *
+ * The registration is RETAINED until deletion is actually proven — direct
+ * success, a native 404 on the DELETE (the pinned handler answers NOT_FOUND
+ * for an already-absent term), or a follow-up native read that proves absence
+ * — so a transport failure or native refusal leaves the term registered for
+ * the afterAll safety-net retry (corrective round 1, finding F2; the same
+ * retain-until-resolved contract the T002 registry applies to entries and
+ * media). An unresolved term throws a secret-free error naming the owned
+ * identity — never a false success, and never dropping the only record of
+ * what still needs cleanup. A transport failure inside cmsRequest throws
+ * before any state change, which keeps the registration the same way.
+ */
 async function deleteSyntheticTerm(): Promise<void> {
 	const term = syntheticTerm;
-	syntheticTerm = undefined;
 	if (term === undefined) return;
-	const removal = await cmsRequest(
-		admin,
-		`/_emdash/api/taxonomies/${term.taxonomy}/terms/${encodeURIComponent(term.slug)}`,
-		{ method: "DELETE" },
+	const termPath = `/_emdash/api/taxonomies/${term.taxonomy}/terms/${encodeURIComponent(term.slug)}`;
+	const removal = await cmsRequest(admin, termPath, { method: "DELETE" });
+	if (removal.ok) {
+		syntheticTerm = undefined;
+		return;
+	}
+	// Reconcile through a native read before any absence claim: 404 on the
+	// DELETE itself already proves the term is gone; any other refusal is
+	// followed by a GET that independently decides presence versus absence.
+	if (removal.status === 404) {
+		syntheticTerm = undefined;
+		return;
+	}
+	const probe = await cmsRequest(admin, termPath);
+	if (probe.status === 404) {
+		syntheticTerm = undefined;
+		return;
+	}
+	throw new CmsHelperError(
+		"TERM_DELETE_UNRESOLVED",
+		`the owned synthetic ${term.taxonomy} term '${term.slug}' could not be proven deleted (${nativeRefusalOf(removal)}; follow-up read: ${
+			probe.ok ? "the term is still present" : nativeRefusalOf(probe)
+		}); it stays registered for the safety-net retry`,
 	);
-	expect(
-		removal.ok,
-		`the owned synthetic ${term.taxonomy} term '${term.slug}' must be deleted by its returned slug (unresolved cleanup is a reported failure, not a silent leftover)`,
-	).toBe(true);
 }
 
 // ---------------------------------------------------------------------------
@@ -647,21 +748,15 @@ test.beforeAll(async () => {
 		baseUrl: await configuredDevelopmentOrigin(),
 	});
 
-	// One live taxonomy read for the approved shared classification. `topic`
-	// has existed since T004/T005; its per-kind ATTACHMENT is part of the
-	// T009–T012 definitions and is checked per kind below.
+	// One live taxonomy read for the approved shared classification, parsed
+	// and validated locally through topicAttachmentFrom (corrective round 1,
+	// finding F1: this endpoint's `data.taxonomies` envelope is not one the
+	// accepted nativeItemsOf helper reads — parsing it through that helper
+	// always produced an empty list and misconfigured every topic-bearing
+	// kind). `topic` has existed since T004/T005; its per-kind ATTACHMENT is
+	// part of the T009–T012 definitions and is checked per kind below.
 	const taxonomiesRead = await cmsRequest(admin, "/_emdash/api/taxonomies");
-	if (taxonomiesRead.ok) {
-		const topic = nativeItemsOf(taxonomiesRead).find(
-			(item) =>
-				(item as { name?: unknown }).name === "topic" ||
-				(item as { slug?: unknown }).slug === "topic",
-		) as { collections?: unknown } | undefined;
-		topicTaxonomy =
-			topic !== undefined && Array.isArray(topic.collections)
-				? { attachedCollections: topic.collections.filter((c): c is string => typeof c === "string") }
-				: undefined;
-	}
+	topicAttachment = topicAttachmentFrom(taxonomiesRead);
 
 	// One live schema read per kind decides its readiness.
 	for (const kind of KINDS) {
@@ -707,12 +802,18 @@ test.beforeAll(async () => {
 		// The approved shared classification must actually be attached to this
 		// kind when the checks exercise it (data-model taxonomies table;
 		// T009–T012 attach topic to news/activities/announcements/
-		// health_content).
-		if (
-			kind.classificationTaxonomy === "topic" &&
-			(topicTaxonomy === undefined || !topicTaxonomy.attachedCollections.includes(kind.collection))
-		) {
-			problems.push("the shared topic taxonomy must be attached to this collection");
+		// health_content). An unreadable or malformed listing surfaces as its
+		// own problem; it never masquerades as a missing attachment.
+		if (kind.classificationTaxonomy === "topic") {
+			if (topicAttachment.state === "unverified") {
+				problems.push(
+					`the shared topic attachment could not be verified (${topicAttachment.detail})`,
+				);
+			} else if (topicAttachment.state === "missing") {
+				problems.push("the shared topic taxonomy must exist in the active native schema");
+			} else if (!topicAttachment.collections.includes(kind.collection)) {
+				problems.push("the shared topic taxonomy must be attached to this collection");
+			}
 		}
 		// The optional Document selector must be a bound native reference
 		// field on its approved relation, when this kind exercises it.
@@ -748,9 +849,10 @@ test.beforeAll(async () => {
 // discards a failed test's worker only for LATER tests, after this hook has
 // already reconciled that worker's registry. The afterAll safety net retries
 // anything still registered. Synthetic classification terms are deleted AFTER
-// the entries that reference them. Unresolved cleanup fails the run
-// truthfully; only owned synthetic fixtures, terms, and the T002 registry are
-// ever touched.
+// the entries that reference them, and a term whose deletion is not yet
+// proven stays registered so this safety net can retry it (corrective round
+// 1, finding F2). Unresolved cleanup fails the run truthfully; only owned
+// synthetic fixtures, terms, and the T002 registry are ever touched.
 
 test.afterEach(async () => {
 	// Partial-setup guard: beforeAll creates no owned fixtures, so an actor
