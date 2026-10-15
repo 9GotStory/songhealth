@@ -40,10 +40,7 @@ neither http(s) URLs, internal media URLs nor resolvable local media IDs) and
 accepted and stores, respectively, `{provider: "external", id: "", src: ""}`,
 `{provider: "external", id: "", src: "not-an-object"}` and
 `{id: "", provider: "local"}`. These are observed results for those exact
-inputs, not universal rules: in general the normalizer resolves internal media
-URLs and resolvable bare local media IDs to the real local item, maps http(s)
-URLs to external references, and preserves an explicitly supplied object
-`provider` (and `src`). Omitted/null
+inputs, not universal rules. Omitted/null
 files and objects with neither `id` nor `src` remain native refusals; a
 normalized empty `id`/`src` is not a real file selection and grants no
 availability or retention guarantee. Optional body, gallery, channels and classifications have no added minimum-completeness

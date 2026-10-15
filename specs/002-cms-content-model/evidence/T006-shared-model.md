@@ -422,6 +422,41 @@ seed, service or task-marker change. No runtime services were started this round
 end state — no dev server on 4322, container stopped, volume preserved — is unchanged; no
 credential scratch exists).
 
+## 11. Corrective round 3 — general-normalizer description removed (2026-10-15, UTC)
+
+**Trigger.** Lead review of `a1f7c9a0b4921225031ab0190108194873739366` (REWORK, residual F1):
+round 2's general-normalizer sentence claimed explicitly supplied object `provider` **and
+`src`** are preserved. That is false for local media — the pinned
+`src/media/normalize.ts` deletes `result.src` when the resolved provider is `local`
+(dist `normalize-BuWa0lvd.mjs:47`, re-verified first-hand this round); the Lead's executed
+counterexample `{id:"known-id", provider:"local", src:"https://example.com/file.pdf"}` stored
+`{id:"known-id", provider:"local"}` with no src. The round-1/round-2 review's external-provider
+example (`{id:123, provider:"external", src:"https://…"}` preserved its provider and src)
+demonstrated preservation **for that example only** — never a universal src-preservation claim;
+§10's "accurately describes the general normalizer" wording overstated it and is corrected by
+this round, with §10 retained as the historical record of round 2.
+
+**Correction (wording/evidence only, at the approved boundary).** The general-normalizer
+descriptions added in round 2 were removed entirely from `data-model.md`,
+`contracts/native-editorial.md` and both explanatory T003 comments. The passages now carry only
+the three exact observed raw inputs with their exact stored representations
+(`""`→`{provider:"external", id:"", src:""}`; `"not-an-object"`→`{provider:"external", id:"",
+src:"not-an-object"}`; `{id:123}` with no explicit provider/src→`{id:"", provider:"local"}`) and
+the statement that these are observed results for those exact inputs, not universal rules. No
+general account of other provider/URL paths remains — none is needed for T006.
+
+**Preserved verification history.** No functional assertion, schema, application, dependency,
+task marker or service changed. All non-comment test content remains byte-identical to the
+Lead-verified 13-pass/0-failed/0-skipped version (re-verified this round: the cumulative test
+diff vs `aaeca91` is comment-only, zero non-comment changed lines), so no runtime rerun was
+required. Round-1/round-2 evidence, the recovery-cleanup attribution and the T006 `[x]` marker
+are unchanged.
+
+**Checks.** `git diff --check`: clean. Round-3 delta vs `a1f7c9a`: exactly three wording files
+plus this evidence section; cumulative scope vs `63d0591…` remains the six authorized files with
+tasks.md changing only T006's marker. No runtime services started; round-1's verified end state
+stands.
+
 **Round-1 cleanup (with accurate recovery attribution).** All owned synthetic fixtures were
 resolved by the suite's own failure-safe teardown (13/13 complete, zero unresolved — no probe
 fixtures were created this round). A provider quota failure (`agent_error.provider_quota_limit`,
