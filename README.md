@@ -2,13 +2,15 @@
 
 เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง (Songhealth District Public Health Office website) — clean-rebuild implementation.
 
-**Current implementation**: Feature 001 `platform-foundation` — one server-rendered Astro application
-with EmDash as its integrated CMS/Admin, backed by PostgreSQL, developed natively on Node.js/npm.
-The production deployment (rootless Podman + Quadlet) and recovery sources are committed and
-independently reviewed; their runtime verification gates — T022 (production durability) and T028
-(recovery drill) — are pending, separately authorized tasks (see §11 of
-[docs/operations/production-foundation.md](docs/operations/production-foundation.md)). This README
-documents the currently accepted native development workflow only.
+**Current implementation**: one server-rendered Astro 7.3.5 application with EmDash 1.1.0 as its
+integrated CMS/Admin, backed by PostgreSQL 18.6. Feature 001 `platform-foundation` delivered the
+canonical platform; its production deployment sources (rootless Podman + Quadlet) and recovery
+sources are committed and independently reviewed, with their runtime verification gates — T022
+(production durability) and T028 (recovery drill) — pending, separately authorized tasks (see §11
+of [docs/operations/production-foundation.md](docs/operations/production-foundation.md)).
+Feature 002 `002-cms-content-model` is the active feature; its shared native model work is
+accepted through T007. Development, testing and review run against the single persistent
+development runtime documented in this README.
 
 ## Authority
 
@@ -16,252 +18,242 @@ documents the currently accepted native development workflow only.
 2. [.specify/memory/constitution.md](.specify/memory/constitution.md)
 3. `docs/website-modernization-docs/current/` — Product/behavior truth (`00`–`09`) and technical
    architecture ([10-system-blueprint.md](docs/website-modernization-docs/current/10-system-blueprint.md))
-4. `specs/001-platform-foundation/` — active Spec Kit feature artifacts
+4. `specs/001-platform-foundation/` — accepted Feature 001 artifacts;
+   `specs/002-cms-content-model/` — active Feature 002 artifacts
 
 Do not reconstruct removed architecture from Git history or old branch names (see `AGENTS.md`).
 
 ## Development workflow (Multica-first)
 
-Per the Product Owner development decision of 2026-10-13 (Multica issue 9GOTSTORY-202) and
-accepted governance reconciliation of 2026-10-14 (recorded in `AGENTS.md` and the Constitution):
+Per the Product Owner development decision of 2026-10-13 (Multica issue 9GOTSTORY-202), the
+accepted governance reconciliation of 2026-10-14 (recorded in `AGENTS.md` and the Constitution),
+and the development-runtime decision of 2026-10-16 (Multica issue 9GOTSTORY-232):
 
 - Multica agents execute bounded authorized tasks; ChatGPT performs Independent Review of their
-  artifacts/evidence, and the Product Owner gives final acceptance and implementation authorization.
-  Authors do not independently review their own artifacts; Spec Kit stages/Human Gate remain.
-- Development, testing and pull-request preparation happen in Multica task runs. The
-  environment those runs use is exactly the workflow in this README — there is one development
-  environment, and no second one may be created (no containerized Node/npm tooling, no
-  Compose-style development stack).
+  artifacts/evidence, and the Product Owner gives final acceptance and implementation
+  authorization. Authors do not independently review their own artifacts; Spec Kit
+  stages/Human Gate remain.
+- Development, testing and pull-request preparation happen in Multica task runs against the
+  **single persistent development runtime** described below. There is one development
+  environment; no second development stack may be created. The 2026-10-16 decision supersedes
+  the earlier native-host development workflow (host `npm ci` / `npm run dev` plus the `dev-db`
+  helper) as the canonical development instructions; those committed helpers remain accepted
+  implementation files, not the path for the shared runtime (see “Superseded native-host
+  workflow”).
 - Development testing uses EmDash's native development-only bootstrap for programmatic
-  Admin/API access (§7); passkey login is never automated.
+  Admin/API access (see “Verify the public and Admin surfaces”); passkey login is never
+  automated.
 - Production deployment remains rootless Podman + systemd Quadlet
-  ([docs/operations/production-foundation.md](docs/operations/production-foundation.md)).
-- Task-owned temporary containers are cleaned up automatically by the owning task run (§10);
-  persistent data, accepted sources, and evidence are preserved.
+  ([docs/operations/production-foundation.md](docs/operations/production-foundation.md)). The
+  development runtime is Podman Compose-based tooling and must not grow into a parallel
+  production-like stack.
+- Task runs clean up only task-owned temporary resources; the shared runtime, its volumes and
+  its data are never stopped, removed or deleted by cleanup (see “Task-run cleanup”).
 - The T022/T028 runtime gates remain pending until separately authorized; nothing in the
   development workflow may claim their runtime acceptance.
 
-## Prerequisites
+## The persistent development runtime
 
-- **Node.js `24.21.0` and npm `12.2.0`** — the exact pinned baseline in
-  [package.json](package.json) (`engines` / `packageManager`). Check with `node --version` and
-  `npm --version`.
-- **rootless Podman** available on `PATH` and running as a non-root rootless session. Only the
-  development PostgreSQL runs in a container; Node/npm/Astro/EmDash tooling stays native. The
-  development database helper refuses a missing or rootful podman.
-- a clean checkout of this repository.
+Provisioned once and accepted through ChatGPT Final Independent Review and Product Owner
+activation (2026-10-16). It is shared infrastructure: the containers, the stable source and the
+dedicated volumes survive completion of Multica issues and agent sessions.
 
-## 1. Install dependencies
+| Resource | Value |
+| --- | --- |
+| Host | the single Fedora environment, account `multica-agent` (UID 1001), rootless Podman + Podman Compose |
+| Application | container `songhealth-dev-app` — Astro 7.3.5 SSR + EmDash 1.1.0 dev server on the pinned tooling image `localhost/songhealth-dev-tooling:node24.21.0-npm12.2.0-r1` (Node 24.21.0 / npm 12.2.0), `restart: unless-stopped` |
+| Database | container `songhealth-dev-postgres` — PostgreSQL 18.6 pinned by immutable digest, database `songhealth_dev`, least-privileged application role `songhealth_dev_app` (the separate bootstrap role exists only in the PostgreSQL service environment), no published port, `restart: unless-stopped` |
+| Volumes | external named volumes `songhealth-dev-postgres-data-v1` (database) and `songhealth-dev-media-v1` (media, mounted at the application's stable `./media` path) — both persist across issues and sessions |
+| Networks | `songhealth-dev-app-net`; internal `songhealth-dev-db-net` |
+| Stable source | `/home/multica-agent/projects/songhealth-dev` — a real detached, clean worktree (durable store `/home/multica-agent/projects/.songhealth-dev.git`) pinned to the exact accepted SHA `6ab72780c1a531956acc3c06838c3028e10ad77d`, bind-mounted read-write at `/app` |
+| Development origin | `http://127.0.0.1:4322/` — loopback-only publication `127.0.0.1:4322 → 4321`; the server binds `0.0.0.0:4321` only inside its own container network namespace |
+| Runtime Controller | `/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh` (wrapper delegating to `runtime.py`) under an account-private installation root |
 
-```bash
-npm ci
-```
+Inside the container the application runs with `NODE_ENV=development` and
+`EMDASH_MIGRATIONS_MODE=check`: the entry guard runs the native `emdash migrate --check` (no
+auto-migration) before every dev-server start and refuses any configuration or dependency
+mismatch — exact Node/npm versions, database identity, media mount — without printing secrets.
+The external `config/astro.dev.config.mjs` imports the unchanged repository `astro.config.mjs`
+and adds only `vite.server.strictPort=true`; it does not patch application code.
 
-Installs exactly the committed `package-lock.json`.
+### Accepted evidence and honest limits
 
-## 2. Configure the environment
+Accepted at activation and recorded in the owning issue (not re-executed by this documentation):
+SSR marker, Admin authentication, native build, migration status 90/90 applied, existing
+persistence, and controller state `complete=true`. **Not tested — never document as PASS:** live
+HMR behavior (excluded from activation), a new full persistence-restart test, and automatic
+startup after a Fedora reboot — `restart: unless-stopped` supports daemon/session independence,
+but host-reboot autostart is not promised.
 
-```bash
-cp .env.example .env
-```
+## Runtime status and verification — the authorized routine operations
 
-Edit `.env` (ignored by Git) and replace every placeholder with real local values. Never place a
-usable secret in any committed file, example, or log.
-
-| Input | Purpose | Secret-bearing |
-| --- | --- | --- |
-| `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` | PostgreSQL runtime connection identity used by the application | no |
-| `PGPASSWORD` | password for the PostgreSQL runtime role | yes |
-| `EMDASH_MIGRATION_DATABASE_URL` | PostgreSQL connection URL used only by the native EmDash migration commands and the startup gate; its embedded password is part of the secret | yes |
-| `EMDASH_SITE_URL` | public origin of the site (scheme + host + optional port, no trailing slash) | no |
-| `HOST`, `PORT` | address and port the application server binds to (development default `127.0.0.1:4321`) | no |
-| `EMDASH_ENCRYPTION_KEY` | EmDash encryption key; generate a unique strong key — no usable value is committed on purpose | yes |
-
-The `PG*` runtime inputs and `EMDASH_MIGRATION_DATABASE_URL` **must identify the same intended
-database**: application validation and the startup gate compare the non-secret identity
-components (host, port, database, user) only, and never print a password or the full URL.
-
-Load the values into your shell once per shell session — the database helper, dev server, startup
-gate, and readiness helper all read them from the environment:
+The controller gates every operation against its recorded activation. The currently authorized
+routine operations are exactly **`status`** and **`verify`**:
 
 ```bash
-set -a; . ./.env; set +a
+/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh status
+/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh verify
 ```
 
-## 3. Prepare the local media directory
+- `status` inspects only: it prints the project, the pinned source SHA, the recorded container
+  IDs, and each container's running state as JSON.
+- `verify` is non-mutating: it runs the in-container native migration check and readiness
+  helper, checks the development database identity (`songhealth_dev` / `songhealth_dev_app`),
+  probes the public SSR marker and native Admin availability, and never calls
+  setup/dev-bypass, seeds, or writes fixtures. Only its full `PASS` line is success.
 
-Media storage is **not** configured through an environment variable (there is no
-`MEDIA_DIRECTORY`): the native EmDash local-media adapter always uses the stable application
-mount path `./media`, which is ignored by Git. Create it once and keep it readable and writable
-by the account running the application:
+### Startup and shutdown — restrictions
 
-```bash
-mkdir -p media
-```
+- The runtime is designed to stay up: detached containers with `restart: unless-stopped`, whose
+  data volumes survive issue completion and agent sessions. There is **no routine shutdown** of
+  the shared runtime, and task cleanup must never stop or remove it.
+- Controller verbs such as `up`, `stop`, `restart-app`, `test-build`, `test-persistence`,
+  `promote`, `bootstrap`, and the one-time recovery/resume actions exist in the controller but
+  are **not authorized by the current activation record** — the controller refuses them, and
+  they must not be advertised or attempted as available operations. Any lifecycle action needs
+  its own explicit review and Product Owner authorization. `test-hmr`, `down`, `prune`,
+  `cleanup`, `source-promotion`, production/legacy mutation and s2-assets mutation are
+  explicitly excluded.
+- The controller CLI has **no general `exec`** operation; do not invent one. Direct ad-hoc
+  `podman exec` into the shared containers is not an authorized substitute for controller
+  operations.
+- If `status` shows a container not running, or `verify` fails or prints `HOLD`: report the
+  secret-scrubbed output. Do not restart, re-bootstrap, reset state, or delete anything to
+  force a recovery — partial or failed states are preserved deliberately for investigation.
 
-Recurring readiness only checks that the mount exists and is readable; the startup gate below
-proves it is writable. Nothing in this repository creates or repairs the mount automatically.
+## Environment inputs and secret handling
 
-## 4. Start the development PostgreSQL
+Application inputs ([.env.example](.env.example) documents the field meanings) are supplied to
+the containers from the account-private `runtime.env` (mode `0600`) under the controller's
+installation root — never from a committed file, log, or comment. Secret-bearing inputs include
+`PGPASSWORD`, `EMDASH_ENCRYPTION_KEY`, `EMDASH_MIGRATION_DATABASE_URL`, and the PostgreSQL
+bootstrap password; identity components always describe the same intended database
+(`songhealth_dev` at `songhealth-dev-postgres:5432`, role `songhealth_dev_app`). Never print,
+copy, or commit these values or the full migration URL; the controller and entry guard compare
+non-secret identity components only.
 
-```bash
-npm run dev-db:start    # create (first run) and start; waits up to 60 s for readiness
-npm run dev-db:status   # report ready / starting / unhealthy / stopped / absent
-npm run dev-db:stop     # stop; the container and its data volume are preserved
-```
+A native development Admin token minted at initial setup is stored mode `0600` in
+`dev-access.json` under the installation root (marked “native Dev setup; never print or
+commit”). It is account-private access material, not a value to embed in tasks, evidence, or
+comments.
 
-- Only PostgreSQL runs in rootless Podman: the official PostgreSQL 18.6 image pinned by immutable
-  digest, container `songhealth-dev-db`, data in the named volume `songhealth-dev-db-data`,
-  published only on the loopback boundary matching `PGHOST` at `PGPORT`.
-- `start` requires `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, and `PGPASSWORD` in the
-  environment; `status` and `stop` need no credentials.
-- `stop` never deletes anything, and repeated starts never reinitialize existing data. The
-  helper provides no reset, recreate, or delete behavior at all, and fails closed (without
-  mutating it) on any same-name container it cannot prove it owns.
+## Verify the public and Admin surfaces
 
-## 5. Startup-acceptance gate
-
-Before the environment is accepted as ready for use, run the T013 gate:
-
-```bash
-npm run verify:startup
-```
-
-The gate ([tests/operations/verify-startup.sh](tests/operations/verify-startup.sh)):
-
-1. validates all required inputs and proves — comparing non-secret identity components only —
-   that the `PG*` runtime inputs and `EMDASH_MIGRATION_DATABASE_URL` identify the same intended
-   database;
-2. builds the exact application itself and consumes the native `.emdash/migrations.json` manifest
-   that the build emits;
-3. inspects the target with `emdash migrate --status --json` (no mutation), applies pending
-   migrations with a non-interactive inspected-fingerprint guard, and verifies the result with
-   `emdash migrate --check` (which applies nothing);
-4. probes `./media` with one bounded disposable write/read/remove file and proves that no
-   residue remains (it never creates the mount).
-
-The database must already be reachable and `./media` must already exist — the gate creates and
-manages no database or media resource. It is idempotent and independently repeatable: against an
-already-migrated database the apply is a verified no-op. Only exit `0` is PASS (`1` FAIL, `2`
-environment error, `4` missing/invalid input, `64` usage); its output is secret-scrubbed.
-
-This one-time deployment/startup acceptance is distinct from the recurring readiness check in §8.
-
-## 6. Start the application
-
-```bash
-npm run dev
-```
-
-The single Astro + EmDash platform starts natively and listens on `HOST`:`PORT`
-(http://localhost:4321 with the development defaults). Development uses EmDash's native
-automatic (`auto`) migration mode; the configured production runtime mode is `check`.
-
-## 7. Verify the public and Admin surfaces
-
-- **Public minimum SSR verification**: `GET /` must serve the stable marker
+- **Public SSR**: `GET http://127.0.0.1:4322/` must serve the stable marker
   `<meta name="songhealth-foundation" content="public-runtime">` (rendered by
   [src/pages/index.astro](src/pages/index.astro)).
-- **Native EmDash Admin**: open `http://localhost:4321/_emdash/admin/`. On a fresh database it
-  offers the native first-admin setup; afterwards the native sign-in page. Complete the one-time
-  setup with a browser that supports passkeys. Availability verification accepts either the
-  setup or the sign-in outcome and never automates passkey login.
-- The committed explicit empty seed ([seed/seed.json](seed/seed.json)) intentionally defines no
-  Product collections; it suppresses EmDash's built-in example Posts/Pages model.
+- **Native EmDash Admin**: `http://127.0.0.1:4322/_emdash/admin/` serves the native sign-in
+  page (the one-time first-admin setup is already complete on the existing database).
+  Availability verification accepts the sign-in outcome; it never automates passkey login,
+  which remains the production Admin mechanism.
+- The committed seed ([seed/seed.json](seed/seed.json)) is bootstrap intent for a fresh
+  database; see “The existing development database” for bootstrap-versus-existing-schema
+  behavior.
 
 **Development testing access — native EmDash dev bypass.** For headless/CLI development testing
 (the standard path under the Multica-first workflow), use the platform's own development-only
-bootstrap `POST /_emdash/api/setup/dev-bypass?token=1`, documented in the installed `emdash`
-package ("For agent/browser testing…"; "Optionally create a PAT token (?token=1) for headless/CLI
-testing"). Verified behavior (installed `emdash@1.1.0`, recorded in
-[specs/001-platform-foundation/evidence/T015-us1-canonical-platform.md](specs/001-platform-foundation/evidence/T015-us1-canonical-platform.md) §4):
+bootstrap `POST /_emdash/api/setup/dev-bypass?token=1` against the development origin
+(`http://127.0.0.1:4322`), documented in the installed `emdash` package. Verified behavior
+(installed `emdash@1.1.0`, recorded in
+[specs/001-platform-foundation/evidence/T015-us1-canonical-platform.md](specs/001-platform-foundation/evidence/T015-us1-canonical-platform.md)
+§4): it mints a scoped personal access token for native EmDash API access (no login ceremony);
+it is gated to development builds — production builds answer `403`. The minted token is
+secret-bearing: keep it only in ignored mode-`0600` scratch space, never print it in full, and
+never commit it. This path supplements — never replaces — the native passkey authentication.
 
-- it mints a scoped personal access token for native EmDash API access (no login ceremony);
-- it is gated to development builds — production builds answer `403`;
-- it applies the same committed explicit-empty seed and does not alter the canonical
-  `tagline`/media validation state.
+## The existing development database
 
-The minted token is secret-bearing: keep it only in ignored scratch space (mode `0600`), never
-print it in full, and never commit it. This path supplements — never replaces — the native
-passkey authentication, which remains the production Admin mechanism and is never automated.
+The shared database already exists with the accepted shared Feature 002 model applied
+(migration status 90/90 at activation). Because the runtime starts in migration `check` mode
+with no auto-migration:
 
-Automated browser smoke for both surfaces. One-time setup after `npm ci`: the smoke drives a
-Playwright-managed Chromium that `npm ci` does not install, so download it once with the pinned
-local CLI (`@playwright/test` from [package.json](package.json)):
+- `seed/seed.json` is **bootstrap intent only**: editing it does not update an initialized
+  database. Inspect/apply approved native definitions through supported EmDash schema
+  operations as each task's contract specifies; verify matching existing definitions rather
+  than destructively reseeding.
+- Schema, dependency, or configuration transitions additionally require the separately
+  reviewed maintenance path — they are outside code-only source promotion (see “Source
+  advancement boundary”).
+- No reset, recreate, or delete behavior exists for the shared database, the media volume, or
+  any named volume, and none may be improvised.
+
+## Source advancement boundary
+
+The stable runtime source is pinned to the exact accepted SHA recorded by the controller
+(`6ab72780c1a531956acc3c06838c3028e10ad77d`). Task branches are developed in separate Multica
+workspace checkouts; the shared runtime never consumes a new candidate implicitly:
+
+- Moving the stable source to a new SHA requires a **separately reviewed and Product
+  Owner-authorized promotion** recorded in a matching promotion approval (from/to full SHA plus
+  real Independent Review and Product Owner references, descendant ancestry, clean worktree).
+  Promotion is not in the current activation's operation list; using it first requires that
+  separate authorization.
+- The controller's promotion path is code-only: it refuses any change involving `package.json`,
+  `package-lock.json`, `astro.config.mjs`, `src/live.config.ts`, or `seed/seed.json` — those
+  schema/dependency/configuration transitions need separately reviewed maintenance, not a claim
+  that generic promotion suffices. A code-only promotion issues no install, migration, or
+  lifecycle command.
+- Never bypass the clean/detached/source-SHA protection, overwrite the stable source, edit
+  controller approval/state records, or perform automatic checkout/rebase/restart of the stable
+  worktree or the runtime.
+
+## Browser tests and the development origin
+
+Browser suites run under the pinned `@playwright/test` 1.63.0
+([playwright.config.ts](playwright.config.ts)), whose `baseURL` **default remains
+`http://localhost:4321`**. Against the persistent runtime, always set the explicit override:
 
 ```bash
-npx playwright install chromium
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:4322 npm run test:browser
 ```
 
-Then, with the application running:
+Executing test suites or builds that touch the shared runtime is bounded task work under its
+own authorization — the current routine activation covers `status`/`verify` only. There is no
+`npm test` script at this baseline; focused Node suites (`node --test "tests/node/*.test.ts"`)
+run under a task's own authorized pinned toolchain (the pinned host toolchain
+`/home/multica-agent/toolchain/node-v24.21.0-linux-x64` remains available for task workspaces).
+Use synthetic public-publishable test data, mint access through the dev bypass, and clean up
+only owned fixtures and scratch.
 
-```bash
-npm run test:browser    # defaults to http://localhost:4321; override with PLAYWRIGHT_BASE_URL
-```
+## Superseded native-host workflow
 
-This Playwright-managed Chromium is only the automated smoke driver. It is distinct from the
-passkey-capable browser you use for the one-time manual native Admin setup described above.
+The earlier canonical workflow — host `npm ci`, sourcing `.env` into the shell, the
+`dev-db:start`/`dev-db:status`/`dev-db:stop` helper ([scripts/dev-db.sh](scripts/dev-db.sh)),
+host `npm run dev` on port 4321, the one-time `npm run verify:startup` gate, and host-side
+`node scripts/verify-readiness.mjs` — is superseded as development instructions by the
+persistent runtime above. Its committed helper scripts, tests, and evidence remain accepted
+implementation and history, preserved unchanged: do not run them against, or in place of, the
+shared runtime, and do not use them to create a second development stack. For the shared
+runtime, startup acceptance is the accepted activation evidence, and recurring readiness is the
+controller's `verify` operation.
 
-## 8. Recurring readiness check (private, non-mutating)
+## Task-run cleanup
 
-```bash
-node scripts/verify-readiness.mjs
-```
+Every Multica task run cleans up only **task-owned temporary resources** before it ends:
 
-Run it from the repository root with `HOST`, `PORT`, and the `PG*` inputs in the environment.
-There is no `verify:readiness` npm script at this baseline. It checks, each within its own time
-bound: the loopback `/` SSR marker, PostgreSQL connectivity, and `./media` presence/readability.
-It prints only a `ready`/`not-ready` state, a timestamp, and at most a safe field or dependency
-name, and exits `0` only when ready. It never mutates anything — in particular it never writes
-media and never creates a missing media mount.
+- remove ad-hoc containers the task itself created, owned synthetic fixtures and test media,
+  and private credential/token scratch files;
+- **never** stop or remove the shared `songhealth-dev-app` / `songhealth-dev-postgres`
+  containers, and never delete or prune their named volumes
+  (`songhealth-dev-postgres-data-v1`, `songhealth-dev-media-v1`), persistent data, media,
+  accepted sources, or evidence.
 
-## 9. Verification commands
-
-```bash
-node --test "tests/node/*.test.ts"   # focused Node test suites (no npm test script exists)
-npm run test:browser                 # browser smoke against the running application (see §7)
-npm run build                        # production build; emits dist/server/entry.mjs and the
-                                     # native .emdash/migrations.json manifest
-```
-
-The planned `npm test`, `npm run check`, and `npm run start` scripts referenced by
-[specs/001-platform-foundation/quickstart.md](specs/001-platform-foundation/quickstart.md) do not
-exist at this baseline.
-
-## 10. Shutdown
-
-1. Stop the dev server with `Ctrl+C`.
-2. `npm run dev-db:stop` — the container and its data volume are preserved; nothing is deleted.
-
-Restart later with `npm run dev-db:start`; the preserved volume is reused and existing data is
-never reinitialized.
-
-### Task-run automatic cleanup
-
-Every Multica task run that starts a task-owned temporary container must stop or remove it
-before the run ends:
-
-- stop the development database with `npm run dev-db:stop`;
-- remove any ad-hoc container the task itself created (`podman rm -f <name>`).
-
-Cleanup is part of task completion, never deferred to a later task or left to the next run. It
-stops or removes **containers only**: named volumes (`songhealth-dev-db-data`), persistent data,
-accepted sources, and evidence are never deleted by cleanup — the dev-db helper provides no
-delete behavior at all. A task run that cannot clean up a container it owns reports that fact in
-its result instead of leaving it silently.
+Cleanup is part of task completion, never deferred to a later task. A task run that cannot
+clean up a resource it owns reports that fact in its result instead of leaving it silently. An
+occupied origin or a running shared runtime is a precondition to coordinate with — never
+permission to terminate another process.
 
 ## Common failures and recovery
 
-Recovery uses current helper behavior only; no reset or recreate tooling exists.
-
-| Symptom | Cause and recovery |
+| Symptom | Cause and response |
 | --- | --- |
-| `astro dev` / `astro build` fails closed listing field names (for example `missing required input PGHOST` or `host identity disagrees between PGHOST and EMDASH_MIGRATION_DATABASE_URL`) | A required input is missing or malformed, or the `PG*` and migration-URL identities disagree. Fix `.env` and re-source it (§2). Configured values are never echoed. |
-| `dev-db` exit `5` | Podman is missing or not running rootless. Install or repair the rootless Podman setup and run as a non-root user. |
-| `dev-db` exit `4` reporting missing input(s) or a non-loopback `PGHOST` | Provide the five `PG*` inputs; `PGHOST` must be loopback (`127.0.0.1`, `localhost`, or `::1`). |
-| `dev-db` exit `4` naming a mismatching field or resource on the existing `songhealth-dev-db` container | An existing same-name container does not match this helper's contract or the requested configuration. The helper refuses to start, stop, or otherwise mutate it; inspect it with `podman container inspect songhealth-dev-db` and align your `PG*` values with the resource you intend to use. |
-| `dev-db:start` exit `1` (not ready within 60 s, or the container stopped during startup) | Inspect `podman logs songhealth-dev-db` (also `podman healthcheck run songhealth-dev-db`). Resolve an occupied `PGPORT` at its cause: starting against an existing container with a different `PGPORT` fails closed by design. |
-| Readiness reports `not-ready` naming the **media** dependency | `./media` is missing or unreadable. Create or repair it manually (§3); no tool substitutes an empty replacement automatically. The startup gate additionally fails on an unwritable mount. |
-| Readiness reports `not-ready` naming the **runtime** dependency | The application is not running at `HOST`:`PORT`, or `/` is not serving the expected marker. Start it (§6) and rerun the check. |
-| Readiness reports `missing required input: <NAME>` | The values are not in this shell; re-source `.env` (§2). |
-| `npm run verify:startup` fails (exit `1`/`2`/`4`/`64`) | Read the named step and field in its secret-scrubbed output — typically an unreachable database (§4), a missing `./media` mount (§3), or an identity disagreement (§2) — fix the cause, and rerun; the gate is idempotent. |
+| `status` reports a container not running, or `verify` exits nonzero / prints `HOLD` | Report the exact secret-scrubbed output in the task/issue. Do not restart, reset, re-bootstrap, or delete anything: partial or failed states are preserved deliberately, and recovery actions require their own authorization. |
+| `runtime.sh` refuses an operation (approval-binding refusal) | The operation is not in the current activation list. Only `status` and `verify` are routine; anything else needs separate review and Product Owner authorization. |
+| Something else already listens on `127.0.0.1:4322` | The runtime publishes loopback-only and fails closed on collision; it never picks another port or kills an occupant. Resolve the collision at its cause under proper authorization. |
+| Browser tests target `localhost:4321` or get connection-refused | The Playwright default is 4321; set `PLAYWRIGHT_BASE_URL=http://127.0.0.1:4322` for the shared runtime. |
+| Temptation to `podman exec` into the shared containers or edit `/home/multica-agent/projects/songhealth-dev` directly | Don't. The controller CLI has no `exec` operation, and the stable source is guarded (clean, detached, exact SHA); the controller refuses drifted state. Source changes go through separately authorized promotion/maintenance. |
+| A task needs a schema/dependency/configuration change consumed by the runtime | It cannot arrive via code-only promotion (the controller refuses changes to `package.json`, `package-lock.json`, `astro.config.mjs`, `src/live.config.ts`, `seed/seed.json`). Plan and request separately reviewed maintenance first. |
+
+Production prerequisites, deployment and recovery live in
+[docs/operations/production-foundation.md](docs/operations/production-foundation.md) and are
+unchanged by the development-runtime decision; T022/T028 remain PENDING.

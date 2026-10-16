@@ -10,31 +10,38 @@ and [public-read contract](contracts/public-read.md).
 
 ## Prerequisites and Environment
 
-Use the single existing [README](../../README.md) workflow (pinned Node/npm,
-EmDash 1.1.0, rootless-Podman PostgreSQL 18 helper, configured ignored environment
-and persistent local `./media`). No parallel dev runtime or containerized Node.
-T022/T028 Feature 001 durability/recovery are still **PENDING** and are not
-redefined, waived or silently passed here. T028 still requires T022 PASS plus accepted T023–T027
-sources (including runtime-secret recovery); T030 still requires T028 PASS plus accepted T029
-sources. Required readiness belongs to later bounded implementation/acceptance authorization.
-The current shell's Node 24.11.0/npm 11.6.1 are not pinned 24.21.0/12.2.0, so no integration
-result is produced here. Use the pinned native environment before executing this guide.
+Use the single persistent development runtime documented in the [README](../../README.md):
+the single Fedora environment, account `multica-agent` (UID 1001), rootless Podman +
+Podman Compose; containers `songhealth-dev-app` (Astro 7.3.5 SSR + EmDash 1.1.0 on the pinned
+Node 24.21.0/npm 12.2.0 tooling image) and `songhealth-dev-postgres` (PostgreSQL 18.6);
+dedicated persistent database/media volumes; stable source
+`/home/multica-agent/projects/songhealth-dev` pinned to the accepted Feature 002 SHA; Runtime
+Controller `/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh`; development
+origin `http://127.0.0.1:4322/`. The runtime and its data survive Multica issues and agent
+sessions; `status` and `verify` are the only authorized routine controller operations. No
+parallel dev runtime and no second development stack. T022/T028 Feature 001 durability/recovery
+are still **PENDING** and are not redefined, waived or silently passed here. T028 still
+requires T022 PASS plus accepted T023–T027 sources (including runtime-secret recovery); T030
+still requires T028 PASS plus accepted T029 sources. Required readiness belongs to later
+bounded implementation/acceptance authorization. The pinned toolchain runs inside the shared
+runtime's tooling image; this guide produces no new runtime result by itself. Accepted
+activation evidence covers SSR, Admin authentication, native build, migration 90/90 and
+existing persistence with `state.complete=true`; live HMR, a new full persistence-restart test
+and automatic startup after a Fedora reboot remain **NOT TESTED** — never documented as PASS.
 
-After bounded implementation authorization and accepted schema setup:
+After bounded implementation authorization and accepted schema setup, check the shared runtime
+(it is already running detached; do not start another server against its origin):
 
 ```bash
-node --version
-npm --version
-npm ci
-npm run dev-db:start
-npm run dev-db:status
-npm run dev
+/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh status
+/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh verify
 ```
 
-Run the application in a foreground terminal. For automated development Admin/API
-access use the native `POST /_emdash/api/setup/dev-bypass?token=1` path documented
-in README §7. Keep any token in ignored mode-0600 files; never log or commit it.
-No production Passkey automation. Use synthetic public-publishable test data.
+For automated development Admin/API access use the native
+`POST /_emdash/api/setup/dev-bypass?token=1` path against the development origin
+`http://127.0.0.1:4322`, documented in the README. Keep any token in ignored mode-0600 files;
+never log or commit it. No production Passkey automation. Use synthetic public-publishable
+test data.
 For permission fixtures prepare distinct native Contributor, Author/Editor and Administrator
 access via supported native account/role operations; an Admin token alone does not prove
 draft-only refusal or own/others boundaries. Do not invent a role or impersonation layer.
@@ -70,7 +77,8 @@ or taxonomies do **not** cause a Songhealth publish/schedule rejection.
 Prepare private `.tmp/feature002/curl-auth.cfg` with the development token, and payload files
 `.tmp/feature002/report-missing-reference.json` and `report-with-reference.json` using the examples
 above and actual fixture IDs. The auth file must be ignored/mode-0600; never include it in evidence.
-From the configured native development environment, send each payload to the existing endpoint:
+Export `EMDASH_SITE_URL=http://127.0.0.1:4322` (the shared runtime's development origin) for the
+examples below, then send each payload to the existing endpoint:
 
 ```bash
 curl --silent --show-error --config .tmp/feature002/curl-auth.cfg \
@@ -124,37 +132,42 @@ D-ITA/D-REF historical and cross-record guarantees are deferred.
 
 ## Verification Commands and Cleanup
 
-When the actual implementation/tests exist and are authorized:
+When the actual implementation/tests exist and are authorized. Execution against the shared
+runtime is bounded task work: the only authorized routine controller operations are
+`status`/`verify`, and the application is already running detached at
+`http://127.0.0.1:4322` — do not start another server against that origin.
 
 Analyze finding **I1** is an existing T021/T033/T034 execution/documentation correction, not a
-new task or gate. Against ordinary `npm run dev`, select the relevant ordinary test files explicitly
-(example below); exclude `cms-public-reads.spec.ts`. T033 runs all applicable ordinary checks and
-then the dedicated public-read runner. Stop only the run-owned ordinary server before that runner;
-an occupied origin is a precondition failure, not permission to terminate another process. T021
-owns the temporary route and awaited failure/signal cleanup; T034 records final verified invocations.
+new task or gate. Select the relevant ordinary test files explicitly (example below); exclude
+`cms-public-reads.spec.ts`. T033 runs all applicable ordinary checks and then the dedicated
+public-read runner. Stop only a run-owned ordinary server before that runner; an occupied origin
+is a precondition failure, not permission to terminate another process. T021 owns the temporary
+route and awaited failure/signal cleanup; T034 records final verified invocations. Browser checks
+against the shared runtime must set the explicit origin override — the Playwright default
+remains `http://localhost:4321`:
 
 ```bash
-npm run build
-PLAYWRIGHT_BASE_URL="$EMDASH_SITE_URL" npm run test:browser -- tests/browser/cms-lifecycle.spec.ts
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:4322 npm run test:browser -- tests/browser/cms-lifecycle.spec.ts
 ```
 
-After stopping the owned ordinary server, run the public-read check separately:
+The dedicated public-read runner is future T021/T022/T033 work under its own authorization:
 
 ```bash
 node tests/browser/run-cms-public-reads.mjs
 ```
 
+Its documented assumption that it can own the ordinary origin/server must be reconciled with the
+persistent runtime when that task is authorized: the shared origin `127.0.0.1:4322` is occupied
+by design, and that is a precondition failure, never permission to stop the shared runtime or
+switch it to another port. Any needed maintenance or source transition is separately reviewed
+and Product Owner-authorized, and the runner must not be claimed currently executable unchanged
+against the pinned shared source.
+
 Record exact commit, versions, native schema state and observed results
 without secrets; never call planned checks PASS until actually executed. Report unavailable staff
 evidence and real inventory inputs as pending, not completed by source inspection. Check only the
 affected journeys during development; run a cohesive feature smoke before claiming the active SCs.
-Stop the foreground application with Ctrl-C in its owning terminal and stop only database
-containers started by this run:
-
-```bash
-npm run dev-db:stop
-```
-
+Stop nothing shared: the persistent runtime's containers and volumes stay up across tasks.
 Clean only owned synthetic fixtures and private credential scratch after recording secret-free
 results. Do not delete named volumes, existing media or production data. No merge,
 deployment or Feature 001 recovery gate is authorized by this guide.

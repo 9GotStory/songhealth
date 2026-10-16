@@ -87,21 +87,36 @@ changes execution/review ownership only; task deliverables, gates, architecture 
 - Historical agent names, branch names and accepted Codex source-review evidence retain their
   provenance; they do not assign future execution or Independent Review duties. Existing accepted
   evidence and Feature 001 dependency joins are not invalidated by the accepted ownership change.
-- The single development environment is the native workflow documented in `README.md` (native
-  Node.js/npm tooling plus the rootless-Podman development PostgreSQL helper). Do not create or
-  maintain a second development environment, containerized Node/npm tooling, or a Compose-style
-  development stack.
+- The single development environment is the persistent rootless-Podman development runtime
+  documented in `README.md`: on the single Fedora environment, account `multica-agent` (UID 1001),
+  containers `songhealth-dev-app` (Astro/EmDash dev server on the pinned Node/npm tooling image)
+  and `songhealth-dev-postgres` (PostgreSQL 18.6), dedicated persistent database/media volumes,
+  stable source at `/home/multica-agent/projects/songhealth-dev`, and the Runtime Controller at
+  `/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh` serving the development
+  origin `http://127.0.0.1:4322/`. The Product Owner decision of 2026-10-16 (Multica issue
+  9GOTSTORY-232) supersedes the earlier native-host development workflow as the canonical
+  development instructions; it does not change native-only CMS/Product meaning. Do not create or
+  maintain a second development environment or development stack.
 - Development testing uses EmDash's native development-only bootstrap for programmatic
-  Admin/API access (documented in `README.md` §7: `POST /_emdash/api/setup/dev-bypass`,
+  Admin/API access (documented in `README.md`: `POST /_emdash/api/setup/dev-bypass`,
   development builds only). Never automate passkey login; production Admin authentication stays
   the native passkey flow.
 - Production deployment remains rootless Podman + systemd Quadlet
   (`docs/operations/production-foundation.md`); development tooling must not grow into a
   parallel production-like stack.
-- Every task run that starts a task-owned temporary container must clean it up before the run
-  ends (stop the development database with `npm run dev-db:stop`; remove any ad-hoc container
-  the task itself created). Cleanup stops or removes containers only: it never deletes named
-  volumes, persistent data, accepted sources, or evidence. A task run that cannot clean up a
-  container it owns reports that fact in its result instead of leaving it silently.
+- The shared persistent runtime survives Multica issues and agent sessions. Task cleanup covers
+  task-owned temporary resources only: remove ad-hoc containers the task itself created,
+  owned synthetic fixtures/media, and private credential scratch. Cleanup must never stop or
+  remove the shared `songhealth-dev-app`/`songhealth-dev-postgres` containers, and never
+  deletes named volumes, persistent data, accepted sources, or evidence. A task run that cannot
+  clean up a resource it owns reports that fact in its result instead of leaving it silently.
+- Runtime Controller operations are authorization-gated by its recorded activation; routine
+  documentation describes only `status` and `verify`. Startup, shutdown, restart, build or
+  persistence tests, promotion, bootstrap and recovery are not standing operations and require
+  their own explicit review and Product Owner authorization; the controller CLI has no general
+  `exec` operation. Advancing the stable runtime source to a new SHA likewise requires
+  separately reviewed and Product Owner-authorized promotion/maintenance: never bypass the
+  controller's clean/detached/source-SHA protection, overwrite the stable source, edit
+  controller approval/state records, or perform automatic checkout/rebase/restart.
 - The T022 and T028 runtime gates stay pending until separately authorized; no development
   workflow change may claim runtime acceptance that has not been produced.

@@ -12,6 +12,14 @@ Direct GitHub edits were inspected as candidates, not promoted to accepted workf
 No implementation, integration/UAT/runtime PASS, final foundation acceptance or merge.
 Command stops here. Do not start Checklist, Tasks, Analyze or Implementation in this run.
 
+**Development-runtime reconciliation (2026-10-16)**: the Product Owner's persistent
+development-runtime decision (Multica issue 9GOTSTORY-232) supersedes the native-host
+development workflow this Plan's earlier environment wording assumed. Development-platform
+operational assumptions are reconciled accordingly (single persistent rootless-Podman runtime;
+see [quickstart.md](quickstart.md) and the [README](../../README.md)) without changing the
+approved Product Model, native-only CMS architecture, verification design or the Production
+design.
+
 ## Summary
 
 Extend the canonical platform with native semantic collections, classifications,
@@ -36,8 +44,11 @@ configuration and one bounded staff-maintenance assessment in the existing devel
 Native public-query integration remains required; production Passkey automation, full browser UAT
 per task, durability/recovery drills and deployment checks are not this feature's development work.
 Pinned-runtime readiness is a prerequisite; source/Markdown checks here are not runtime acceptance.
-**Platform:** Linux Astro SSR; native Node/npm development with rootless-Podman PostgreSQL helper;
-existing rootless Podman + systemd Quadlet production/private database contract remains unchanged.
+**Platform:** Linux Astro SSR; development runs on the single persistent rootless-Podman
+development runtime (containers `songhealth-dev-app`/`songhealth-dev-postgres`, stable pinned
+source, Runtime Controller — see [quickstart.md](quickstart.md) and the
+[README](../../README.md)); existing rootless Podman + systemd Quadlet production/private
+database contract remains unchanged.
 **Project type:** One integrated CMS-backed website, native Admin primary staff interface.
 **Performance goals:** No new quantitative target; representative maintenance/reuse and seven active
 SC outcomes. Paginate native selectors/reads, avoid per-consumer duplicate files/records; no search
@@ -141,7 +152,7 @@ Q1 behavior is revised in current acceptance. No result is counted as passed by 
 
 ## Verification Design and Implementation Dependencies
 
-[quickstart.md](quickstart.md) supplies prerequisites, runnable native environment commands and
+[quickstart.md](quickstart.md) supplies prerequisites, persistent-runtime environment commands and
 end-to-end acceptance journeys tied to the two contracts/model. Verify native create/save refusal
 for missing/cleared required title, Document file and mandatory Report Document, optional relations,
 valid cardinality and otherwise incomplete drafts,
