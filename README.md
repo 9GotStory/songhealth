@@ -8,9 +8,12 @@ canonical platform; its production deployment sources (rootless Podman + Quadlet
 sources are committed and independently reviewed, with their runtime verification gates — T022
 (production durability) and T028 (recovery drill) — pending, separately authorized tasks (see §11
 of [docs/operations/production-foundation.md](docs/operations/production-foundation.md)).
-Feature 002 `002-cms-content-model` is the active feature; its shared native model work is
-accepted through T007. Development, testing and review run against the single persistent
-development runtime documented in this README.
+Feature 002 `002-cms-content-model` is the active feature; shared native model tasks T001–T007
+are checked (executed) and T008–T035 are pending. A checked marker records task completion
+only: bounded Lead review PASS, ChatGPT Independent Review PASS and Product Owner Final
+Acceptance are distinct states evidenced per artifact — not established by task markers, an
+issue's status, or acceptance of the development runtime. Development, testing and review run
+against the single persistent development runtime documented in this README.
 
 ## Authority
 
