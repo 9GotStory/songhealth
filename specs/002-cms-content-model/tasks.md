@@ -76,7 +76,7 @@ description: "Native-only CMS content-model development tasks, ordered by user s
 
 ### Focused Tests
 
-- [ ] T014 [US2] Author native reuse checks in `tests/browser/cms-reuse.spec.ts` for shared IDs/file selection across Announcement/Service/Report, raw Media reuse, native alt/caption/type/size/dimensions/available usage metadata, Document successor context, Report missing/empty/wrong-target/excessive/cleared references, valid-selection incomplete drafts and optional empty relations; native publication rechecks requiredness/cardinality, but Schedule has no custom reference predicate and authorized target/media maintenance has no D-REF veto.
+- [x] T014 [US2] Author native reuse checks in `tests/browser/cms-reuse.spec.ts` for shared IDs/file selection across Announcement/Service/Report, raw Media reuse, native alt/caption/type/size/dimensions/available usage metadata, Document successor context, Report missing/empty/wrong-target/excessive/cleared references, valid-selection incomplete drafts and optional empty relations; native publication rechecks requiredness/cardinality, but Schedule has no custom reference predicate and authorized target/media maintenance has no D-REF veto.
 
 ### Implementation
 
