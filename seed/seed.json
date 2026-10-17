@@ -3,7 +3,7 @@
   "version": "1",
   "meta": {
     "name": "Songhealth CMS Content Model",
-    "description": "Feature 002 seed intent for the existing canonical platform: defines the shared native documents collection (required title and native file selection, optional domain metadata and the document_successor self-relation), the native pages collection for general information (required title, optional summary and portable-text body, no conditional media fields yet) bound to the optional page_documents relation (Page parent → Document, many-to-many), the native news collection for time-oriented public-information stories (required title, optional summary, portable-text body, featured image and source text, no speculative relations) and the shared native taxonomies — topic, audience and hierarchical area — plus the Document-only document_type and News-only news_category classifications, with topic attached to documents and news, document_type to documents, news_category to news, and audience and area attached to news while later owning collections remain pending. Still defines zero menus, redirects, widgetAreas, sections and content, suppressing EmDash's built-in example Posts/Pages model. Term inventories are intentionally empty pending authoritative sources; no official terms, geographic codes or inventories are supplied. Taxonomy attachments are added as each owning collection is introduced. Area terms model the applicable Province → District → Subdistrict → Village hierarchy: explicit official/stable code in the native term slug, name in the native label, parent via native group identity."
+    "description": "Feature 002 seed intent for the existing canonical platform: defines the shared native documents collection (required title and native file selection, optional domain metadata and the document_successor self-relation), the native pages collection for general information (required title, optional summary and portable-text body, no conditional media fields yet) bound to the optional page_documents relation (Page parent → Document, many-to-many), the native news collection for time-oriented public-information stories (required title, optional summary, portable-text body, featured image and source text, no speculative relations), the native activities collection for activity/meeting/field-work/event records (required title, optional summary, native offset-aware activity datetime distinct from native publication/scheduling time, location text, featured image, gallery repeater of image rows with optional captions preserving array order, and external participants kept as text — no separate participant/place identities or speculative relations) and the shared native taxonomies — topic, audience and hierarchical area — plus the Document-only document_type and News-only news_category classifications, with topic attached to documents, news and activities, document_type to documents, news_category to news, audience attached to news, and area attached to news and activities while later owning collections remain pending. Still defines zero menus, redirects, widgetAreas, sections and content, suppressing EmDash's built-in example Posts/Pages model. Term inventories are intentionally empty pending authoritative sources; no official terms, geographic codes or inventories are supplied. Taxonomy attachments are added as each owning collection is introduced. Area terms model the applicable Province → District → Subdistrict → Village hierarchy: explicit official/stable code in the native term slug, name in the native label, parent via native group identity."
   },
   "collections": [
     {
@@ -133,6 +133,67 @@
           "type": "text"
         }
       ]
+    },
+    {
+      "slug": "activities",
+      "label": "กิจกรรม",
+      "labelSingular": "กิจกรรม",
+      "supports": ["drafts", "revisions", "preview", "scheduling"],
+      "titleField": "title",
+      "dateField": "activity_at",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อเรื่อง",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "summary",
+          "label": "สรุป",
+          "type": "text"
+        },
+        {
+          "slug": "activity_at",
+          "label": "วัน/เวลาจัดกิจกรรม",
+          "type": "datetime"
+        },
+        {
+          "slug": "location_text",
+          "label": "สถานที่จัดกิจกรรม",
+          "type": "string"
+        },
+        {
+          "slug": "featured_image",
+          "label": "ภาพประกอบ",
+          "type": "image"
+        },
+        {
+          "slug": "gallery",
+          "label": "แกลเลอรีภาพ",
+          "type": "repeater",
+          "validation": {
+            "subFields": [
+              {
+                "slug": "image",
+                "label": "ภาพ",
+                "type": "image",
+                "required": true
+              },
+              {
+                "slug": "caption",
+                "label": "คำบรรยายภาพ",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        {
+          "slug": "participants_text",
+          "label": "ผู้เข้าร่วม/บริบท",
+          "type": "text"
+        }
+      ]
     }
   ],
   "relations": [
@@ -165,7 +226,7 @@
       "label": "หัวข้อ",
       "labelSingular": "หัวข้อ",
       "hierarchical": false,
-      "collections": ["documents", "news"]
+      "collections": ["documents", "news", "activities"]
     },
     {
       "name": "audience",
@@ -179,7 +240,7 @@
       "label": "พื้นที่",
       "labelSingular": "พื้นที่",
       "hierarchical": true,
-      "collections": ["news"]
+      "collections": ["news", "activities"]
     },
     {
       "name": "document_type",
