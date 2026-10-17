@@ -3,7 +3,7 @@
   "version": "1",
   "meta": {
     "name": "Songhealth CMS Content Model",
-    "description": "Feature 002 seed intent for the existing canonical platform: defines the shared native documents collection (required title and native file selection, optional domain metadata and the document_successor self-relation), the native pages collection for general information (required title, optional summary and portable-text body, no conditional media fields yet) bound to the optional page_documents relation (Page parent → Document, many-to-many), the native news collection for time-oriented public-information stories (required title, optional summary, portable-text body, featured image and source text, no speculative relations), the native activities collection for activity/meeting/field-work/event records (required title, optional summary, native offset-aware activity datetime distinct from native publication/scheduling time, location text, featured image, gallery repeater of image rows with optional captions preserving array order, and external participants kept as text — no separate participant/place identities or speculative relations), the native announcements collection for official notices (required title, optional portable-text details, native offset-aware announcement/opening/closing domain datetimes distinct from native publication/scheduling time, and optional related documents bound to the announcement_documents relation — Announcement parent → Document, many-to-many, no date-driven automatic unpublish) and the shared native taxonomies — topic, audience and hierarchical area — plus the Document-only document_type, News-only news_category and Announcement-only announcement_type classifications, with topic attached to documents, news, activities and announcements, document_type to documents, news_category to news, announcement_type to announcements, audience attached to news and announcements, and area attached to news and activities while later owning collections remain pending. Still defines zero menus, redirects, widgetAreas, sections and content, suppressing EmDash's built-in example Posts/Pages model. Term inventories are intentionally empty pending authoritative sources; no official terms, geographic codes or inventories are supplied. Taxonomy attachments are added as each owning collection is introduced. Area terms model the applicable Province → District → Subdistrict → Village hierarchy: explicit official/stable code in the native term slug, name in the native label, parent via native group identity."
+    "description": "Feature 002 seed intent for the existing canonical platform: defines the shared native documents collection (required title and native file selection, optional domain metadata and the document_successor self-relation), the native pages collection for general information (required title, optional summary and portable-text body, no conditional media fields yet) bound to the optional page_documents relation (Page parent → Document, many-to-many), the native news collection for time-oriented public-information stories (required title, optional summary, portable-text body, featured image and source text, no speculative relations), the native activities collection for activity/meeting/field-work/event records (required title, optional summary, native offset-aware activity datetime distinct from native publication/scheduling time, location text, featured image, gallery repeater of image rows with optional captions preserving array order, and external participants kept as text — no separate participant/place identities or speculative relations), the native announcements collection for official notices (required title, optional portable-text details, native offset-aware announcement/opening/closing domain datetimes distinct from native publication/scheduling time, and optional related documents bound to the announcement_documents relation — Announcement parent → Document, many-to-many, no date-driven automatic unpublish), the native health_content collection for evergreen health-knowledge guidance (required title, optional summary, portable-text body, source text, featured image and native offset-aware reviewed_at/next_review_at domain datetimes distinct from native publication/scheduling time, with no review-date-driven automatic unpublish) and the shared native taxonomies — topic, audience and hierarchical area — plus the Document-only document_type, News-only news_category and Announcement-only announcement_type classifications, with topic attached to documents, news, activities, announcements and health_content, document_type to documents, news_category to news, announcement_type to announcements, audience attached to news, announcements and health_content, and area attached to news and activities while later owning collections remain pending. Still defines zero menus, redirects, widgetAreas, sections and content, suppressing EmDash's built-in example Posts/Pages model. Term inventories are intentionally empty pending authoritative sources; no official terms, geographic codes or inventories are supplied. Taxonomy attachments are added as each owning collection is introduced. Area terms model the applicable Province → District → Subdistrict → Village hierarchy: explicit official/stable code in the native term slug, name in the native label, parent via native group identity."
   },
   "collections": [
     {
@@ -239,6 +239,51 @@
           }
         }
       ]
+    },
+    {
+      "slug": "health_content",
+      "label": "ความรู้สุขภาพ",
+      "labelSingular": "ความรู้สุขภาพ",
+      "supports": ["drafts", "revisions", "preview", "scheduling"],
+      "titleField": "title",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อเรื่อง",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "summary",
+          "label": "สรุป",
+          "type": "text"
+        },
+        {
+          "slug": "body",
+          "label": "เนื้อหา",
+          "type": "portableText"
+        },
+        {
+          "slug": "source_text",
+          "label": "แหล่งที่มา",
+          "type": "text"
+        },
+        {
+          "slug": "featured_image",
+          "label": "ภาพประกอบ",
+          "type": "image"
+        },
+        {
+          "slug": "reviewed_at",
+          "label": "วันที่ทบทวน",
+          "type": "datetime"
+        },
+        {
+          "slug": "next_review_at",
+          "label": "วันที่ทบทวนครั้งถัดไป",
+          "type": "datetime"
+        }
+      ]
     }
   ],
   "relations": [
@@ -282,14 +327,14 @@
       "label": "หัวข้อ",
       "labelSingular": "หัวข้อ",
       "hierarchical": false,
-      "collections": ["documents", "news", "activities", "announcements"]
+      "collections": ["documents", "news", "activities", "announcements", "health_content"]
     },
     {
       "name": "audience",
       "label": "กลุ่มเป้าหมาย",
       "labelSingular": "กลุ่มเป้าหมาย",
       "hierarchical": false,
-      "collections": ["news", "announcements"]
+      "collections": ["news", "announcements", "health_content"]
     },
     {
       "name": "area",
