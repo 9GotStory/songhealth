@@ -113,12 +113,15 @@
 // - POST /_emdash/api/media — multipart form field "file" (+ optional
 //   deduplicate/ensureUniqueFilename/folderId/fieldId/width/height/thumbnail),
 //   media:upload permission, response data { item: { id, ... } }.
-//   CRITICAL for fixture ownership: with a "deduplicate" flag an existing
-//   content hash makes the route return the PRE-EXISTING item as
-//   { item, deduplicated: true } (src/astro/routes/api/media.ts ~:217) —
-//   these helpers therefore never request deduplication and never register
-//   a deduplicated id as an owned fixture, so cleanup can never delete an
-//   asset it did not create
+//   CRITICAL for fixture ownership: the pinned 1.1.0 upload form parses
+//   `deduplicate` with .default("true") (api/schemas/media.ts
+//   mediaUploadDeduplicateForm), so an OMITTED flag makes an existing
+//   content hash return the PRE-EXISTING item as { item, deduplicated: true }
+//   (src/astro/routes/api/media.ts ~:217) — these helpers therefore send an
+//   explicit deduplicate=false (every upload is a fresh owned fixture) and
+//   would never register a deduplicated id as owned, so cleanup can never
+//   delete an asset it did not create (T013 runtime observation: the
+//   deterministic fixture bytes deduplicate onto the first upload otherwise)
 // - GET/PUT/DELETE /_emdash/api/media/{id} — media:read;
 //   media:edit_own + ownership (editors+ any); media:delete_own + ownership
 //   (editors+ any)
@@ -341,6 +344,70 @@ export async function readSecretScratch(path: string): Promise<string> {
 		throw new CmsHelperError("SECRET_SCRATCH_INVALID", `${path} must hold exactly one credential`);
 	}
 	return credential;
+}
+
+/**
+ * Environment variable naming the existing Songhealth development credential
+ * (controller-format JSON `{ token, source }`) for the PAT-based suites. The
+ * path is configuration, never a source constant (Constitution III).
+ */
+export const DEV_ACCESS_CREDENTIAL_ENV = "SONGHEALTH_DEV_ACCESS";
+
+/**
+ * Load the existing Songhealth development credential's PAT from its
+ * controller-format JSON file into memory only (T013 test-authentication
+ * adaptation: the suites consume the pre-existing development credential
+ * instead of re-running the seed-applying dev-bypass bootstrap, which would
+ * replace same-named tokens and reapply seed intent on every run). The file
+ * must be a regular, non-symlink, mode-0600 file — the same fail-closed
+ * discipline as readSecretScratch. The JSON is parsed in memory; the token is
+ * returned to the caller and never logged, hashed, or rewritten.
+ *
+ * Path resolution: the explicit argument, else DEV_ACCESS_CREDENTIAL_ENV.
+ * node:fs is loaded through a dynamic non-literal import because the pinned
+ * dependency baseline intentionally ships no @types/node.
+ */
+export async function loadDevAccessToken(path?: string): Promise<string> {
+	const processSpecifier = "node:process";
+	const nodeProcess = (await import(processSpecifier)) as unknown as {
+		env: Record<string, string | undefined>;
+	};
+	const fsSpecifier = "node:fs/promises";
+	const fsPromises = (await import(fsSpecifier)) as unknown as {
+		lstat: (p: string) => Promise<{ isFile(): boolean; isSymbolicLink(): boolean; mode: number }>;
+		readFile: (p: string, encoding: "utf8") => Promise<string>;
+	};
+	const resolved = path ?? nodeProcess.env[DEV_ACCESS_CREDENTIAL_ENV];
+	if (resolved === undefined || resolved.trim().length === 0) {
+		throw new CmsHelperError(
+			"DEV_ACCESS_PATH_MISSING",
+			`no development credential path: pass one or set ${DEV_ACCESS_CREDENTIAL_ENV}`,
+		);
+	}
+	const stats = await fsPromises.lstat(resolved);
+	if (!stats.isFile() || stats.isSymbolicLink()) {
+		throw new CmsHelperError("DEV_ACCESS_INVALID", `${resolved} is not a regular non-symlink file`);
+	}
+	if ((stats.mode & 0o777) !== 0o600) {
+		throw new CmsHelperError(
+			"DEV_ACCESS_INVALID",
+			`refusing to read ${resolved}: the development credential must be mode 0600, never group/world readable`,
+		);
+	}
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(await fsPromises.readFile(resolved, "utf8"));
+	} catch {
+		throw new CmsHelperError("DEV_ACCESS_INVALID", `${resolved} is not valid JSON`);
+	}
+	const token =
+		parsed !== null && typeof parsed === "object"
+			? (parsed as Record<string, unknown>).token
+			: undefined;
+	if (typeof token !== "string" || token.trim().length === 0) {
+		throw new CmsHelperError("DEV_ACCESS_INVALID", `${resolved} carries no non-empty string token field`);
+	}
+	return token;
 }
 
 // ---------------------------------------------------------------------------
@@ -1168,13 +1235,16 @@ export interface SyntheticMediaResult {
 
 /**
  * Upload one synthetic public-publishable PNG through the native media API
- * (POST /_emdash/api/media, multipart field "file"). Deduplication is never
- * requested: the deterministic fixture bytes would otherwise resolve to a
- * pre-existing asset, and a reused asset is not an owned fixture. If a
- * native response nevertheless reports `deduplicated: true`, the returned
- * id is exposed read-only via the result body and NEVER registered for
- * cleanup. The id used by callers is the one the native response returned —
- * never a fabricated value.
+ * (POST /_emdash/api/media, multipart field "file"). Deduplication is
+ * explicitly DISABLED (`deduplicate=false`): the pinned 1.1.0 form field
+ * defaults to "true", so an omitted flag resolves the deterministic fixture
+ * bytes onto a pre-existing asset — and a reused asset is not an owned
+ * fixture. Opting out is the documented supported control for that default
+ * and keeps every upload a fresh, owned asset. If a native response
+ * nevertheless reports `deduplicated: true`, the returned id is exposed
+ * read-only via the result body and NEVER registered for cleanup. The id
+ * used by callers is the one the native response returned — never a
+ * fabricated value.
  */
 export async function uploadSyntheticMedia(
 	actor: CmsActor,
@@ -1188,6 +1258,11 @@ export async function uploadSyntheticMedia(
 		"file",
 		new File([syntheticMediaPng()], filename, { type: "image/png" }),
 	);
+	// The pinned 1.1.0 upload form parses `deduplicate` with
+	// .default("true") (api/schemas/media.ts mediaUploadDeduplicateForm),
+	// so silence is NOT an opt-out — the explicit "false" is required for
+	// each upload to be a fresh owned fixture (T013 runtime observation).
+	form.append("deduplicate", "false");
 	const result = await cmsRequest(actor, "/_emdash/api/media", { method: "POST", form });
 	const item = nativeItemOf(result);
 	const mediaId = item?.id;

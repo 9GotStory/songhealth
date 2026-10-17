@@ -115,8 +115,12 @@
 //   uploaded fixture media `id`: NO file immutability, continued byte
 //   availability, published-target or removal-protection outcome is asserted
 //   (D-REF stays deferred; native-editorial.md "Availability")
-// - the actor is the README §7 development-only dev-bypass Administrator
-//   fixture, pinned to the RUNNER-CONFIGURED origin (playwright.config.ts
+// - the actor is the pre-existing development credential's Administrator
+//   fixture (dev@emdash.local, role 50), loaded from its controller-format
+//   mode-0600 JSON through the T013 test-authentication adaptation
+//   (loadDevAccessToken + createPatActor — never the dev-bypass bootstrap,
+//   whose native endpoint replaces same-named tokens and applies seed intent),
+//   pinned to the RUNNER-CONFIGURED origin (playwright.config.ts
 //   contract: PLAYWRIGHT_BASE_URL or the documented development origin —
 //   never the helper default, which could silently target a different
 //   running app); the unauthenticated control builds its request from the
@@ -147,11 +151,13 @@ import { expect, test } from "@playwright/test";
 
 import {
 	cleanupOwnedFixtures,
-	createDevBypassActor,
+	createPatActor,
 	createSyntheticEntry,
 	cmsRequest,
 	DEFAULT_DEVELOPMENT_ORIGIN,
+	loadDevAccessToken,
 	nativeItemOf,
+	NATIVE_ROLES,
 	readEntry,
 	updateEntry,
 	uploadSyntheticMedia,
@@ -179,7 +185,7 @@ type SchemaReadiness =
 	| { outcome: "missing" }
 	| { outcome: "misconfigured"; detail: string };
 
-/** The dev-bypass fixture actor owning every synthetic fixture made here. */
+/** The development-credential fixture actor owning every synthetic fixture made here. */
 let admin: CmsActor;
 
 /** Set by beforeAll; consumed by the per-test readiness gate. */
@@ -272,20 +278,31 @@ function expectValidationRefusal(result: NativeResult, caseLabel: string): void 
 // ---------------------------------------------------------------------------
 
 test.beforeAll(async () => {
-	// Development-only native access (README §7), pinned to the
+	// Development native access through the pre-existing development
+	// credential (T013 test-authentication adaptation), pinned to the
 	// runner-configured origin so a nondefault PLAYWRIGHT_BASE_URL run
-	// cannot silently exercise another app. An unreachable app, a production
-	// refusal (403) or an unverified identity throws a scrubbed helper error
-	// here — a truthful environment failure for every test in this file,
-	// never a field-validation result. This hook deliberately creates no
-	// owned fixtures (bootstrap and a schema read only), so a partial setup
-	// cannot leak anything for teardown to miss.
-	admin = await createDevBypassActor({
+	// cannot silently exercise another app. createPatActor verifies the live
+	// identity through /auth/me and pins the expected Administrator role; the
+	// expected development fixture account is asserted by email. An
+	// unreachable app or an unverified identity throws a scrubbed helper
+	// error here — a truthful environment failure for every test in this
+	// file, never a field-validation result. This hook deliberately creates
+	// no owned fixtures (credential load, identity verification and a schema
+	// read only), so a partial setup cannot leak anything for teardown to
+	// miss.
+	admin = await createPatActor({
 		baseUrl: await configuredDevelopmentOrigin(),
+		token: await loadDevAccessToken(),
+		expected: { role: NATIVE_ROLES.administrator },
 	});
+	expect(
+		admin.email,
+		"the development credential must belong to the intended dev@emdash.local fixture account",
+	).toBe("dev@emdash.local");
 
-	// One live schema read decides readiness. The dev-bypass PAT carries
-	// schema:read; the request stays inside the configured app's native API.
+	// One live schema read decides readiness. The credential's effective
+	// permissions are proven by the native responses themselves; the request
+	// stays inside the configured app's native API.
 	const schemaRead = await cmsRequest(
 		admin,
 		`/_emdash/api/schema/collections/${DOCUMENT_COLLECTION}`,

@@ -138,8 +138,9 @@
 //   classification, never inventing an official term inventory; the fixture
 //   term below is clearly synthetic, owned-cleaned with its registration
 //   retained until deletion is proven (corrective round 1, finding F2), and
-//   the dev-bypass PAT's `admin` scope grants taxonomies:manage/read per
-//   @emdash-cms/auth "The `admin` scope grants access to everything"
+//   the development credential's taxonomies:manage/read authority is proven
+//   by the native responses themselves (the supplied PAT's scope metadata is
+//   not assumed from its role)
 // - publish/schedule: POST …/publish `{ _rev?, overrideLock? }` and POST
 //   …/schedule `{ scheduledAt, _rev?, overrideLock? }` both gate on
 //   content:publish_own/content:publish_any (requireOwnerPerm in the routes);
@@ -201,8 +202,12 @@
 //   no actual due-time scheduler execution (T019/T022 — the schedule checks
 //   below verify native schedule ACCEPTANCE and read-back of a future
 //   explicit-offset time only), no Admin UI journey (T031)
-// - the actor is the README §7 development-only dev-bypass Administrator
-//   fixture, pinned to the RUNNER-CONFIGURED origin (playwright.config.ts
+// - the actor is the pre-existing development credential's Administrator
+//   fixture (dev@emdash.local, role 50), loaded from its controller-format
+//   mode-0600 JSON through the T013 test-authentication adaptation
+//   (loadDevAccessToken + createPatActor — never the dev-bypass bootstrap,
+//   whose native endpoint replaces same-named tokens and applies seed intent)
+//   and pinned to the RUNNER-CONFIGURED origin (playwright.config.ts
 //   contract: PLAYWRIGHT_BASE_URL or the documented development origin —
 //   never the helper default). It carries native publishing authority
 //   (content:publish_any), which is exactly what "direct permitted
@@ -246,13 +251,15 @@ import { expect, test } from "@playwright/test";
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
-	createDevBypassActor,
+	createPatActor,
 	createSyntheticEntry,
 	CmsHelperError,
 	DEFAULT_DEVELOPMENT_ORIGIN,
+	loadDevAccessToken,
 	nativeDataOf,
 	nativeItemOf,
 	nativeRefusalOf,
+	NATIVE_ROLES,
 	publishEntry,
 	readEntry,
 	scheduleEntry,
@@ -412,7 +419,7 @@ type KindReadiness =
 	| { outcome: "missing" }
 	| { outcome: "misconfigured"; detail: string };
 
-/** The dev-bypass fixture actor owning every synthetic fixture made here. */
+/** The development-credential fixture actor owning every synthetic fixture made here. */
 let admin: CmsActor;
 
 /** Per-kind readiness, keyed by collection slug; set by beforeAll. */
@@ -619,7 +626,7 @@ function optionalValuesFor(
 /**
  * Ensure one clearly-synthetic classification term exists in the shared
  * `topic` taxonomy (native POST /_emdash/api/taxonomies/{name}/terms,
- * taxonomies:manage via the dev-bypass admin scope) and register it for
+ * taxonomies:manage authority proven by the native response) and register it for
  * teardown deletion. The term is a synthetic public-publishable fixture, not
  * an official inventory entry; its identity comes from the native response.
  */
@@ -831,14 +838,24 @@ function expectTargetRefusal(result: NativeResult, caseLabel: string): void {
 // ---------------------------------------------------------------------------
 
 test.beforeAll(async () => {
-	// Development-only native access (README §7), pinned to the
+	// Development native access through the pre-existing development
+	// credential (T013 test-authentication adaptation), pinned to the
 	// runner-configured origin so a nondefault PLAYWRIGHT_BASE_URL run cannot
-	// silently exercise another app. This hook deliberately creates no owned
-	// fixtures (bootstrap and schema/taxonomy reads only), so a partial setup
-	// cannot leak anything for teardown to miss.
-	admin = await createDevBypassActor({
+	// silently exercise another app. createPatActor verifies the live identity
+	// through /auth/me and pins the expected Administrator role; the expected
+	// development fixture account is asserted by email. This hook deliberately
+	// creates no owned fixtures (credential load, identity verification and
+	// schema/taxonomy reads only), so a partial setup cannot leak anything for
+	// teardown to miss.
+	admin = await createPatActor({
 		baseUrl: await configuredDevelopmentOrigin(),
+		token: await loadDevAccessToken(),
+		expected: { role: NATIVE_ROLES.administrator },
 	});
+	expect(
+		admin.email,
+		"the development credential must belong to the intended dev@emdash.local fixture account",
+	).toBe("dev@emdash.local");
 
 	// One live taxonomy read for the approved shared classification, parsed
 	// and validated locally through topicAttachmentFrom (corrective round 1,
@@ -1116,6 +1133,20 @@ test("valid control: representative optional supplied values save and read back"
 					(data?.[slug] as { id?: unknown } | undefined)?.id,
 					`${kind.collection}: the ${slug} selection must read back the uploaded media id`,
 				).toBe((value as { id: unknown }).id);
+			} else if (
+				kind.exercisedOptionalFields.find((field) => field.slug === slug)?.type === "datetime"
+			) {
+				// Native datetime storage normalization (pinned 1.1.0
+				// normalizeDatetime): an explicit-offset supplied value is
+				// stored as its UTC ISO instant, so the read-back asserts the
+				// INSTANT, not the string — the same discipline as the
+				// schedule read-back below (T013 runtime observation).
+				expect(
+					typeof data?.[slug] === "string" &&
+						!Number.isNaN(new Date(data![slug] as string).getTime()) &&
+						new Date(data![slug] as string).getTime() === new Date(value as string).getTime(),
+					`${kind.collection}: the supplied ${slug} instant must read back (native UTC ISO normalization)`,
+				).toBe(true);
 			} else {
 				expect(
 					data?.[slug],
@@ -1400,7 +1431,7 @@ test("direct native Publish accepts valid incomplete title-only content and read
 	for (const kind of kinds) {
 		// A title-only draft is valid-but-incomplete under the native-only Q1
 		// matrix: every other field is a permitted omission at Publish. The
-		// dev-bypass Administrator carries native publishing authority
+		// development-credential Administrator carries native publishing authority
 		// (content:publish_any); no article review, confirmation, or
 		// Songhealth completeness hook exists to expect (native-only
 		// architecture) — only the native outcome is asserted.
