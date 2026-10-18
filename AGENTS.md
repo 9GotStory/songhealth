@@ -120,3 +120,46 @@ changes execution/review ownership only; task deliverables, gates, architecture 
   controller approval/state records, or perform automatic checkout/rebase/restart.
 - The T022 and T028 runtime gates stay pending until separately authorized; no development
   workflow change may claim runtime acceptance that has not been produced.
+
+## Single Persistent Development Runtime — Mandatory Design and Test Gate
+
+Product Owner clarification (2026-10-19): **one development application/server, one
+PostgreSQL database, one media store, and one test target**. This is a repository-wide
+design constraint, not merely a port convention.
+
+- Multica task workspaces may contain separate source checkouts for isolated authoring and
+  static checks. They MUST NOT start a second Astro/EmDash server, a parallel development
+  stack, or an alternate database/media store for functional/integration verification.
+  All authorized runtime tests target the **existing** shared development application
+  at `http://127.0.0.1:4322` with its existing PostgreSQL and media volumes.
+- Never resolve a test-port collision by killing/restarting the shared app, switching
+  ports, using another host/process as a substitute, or claiming a separate server is
+  the accepted runtime. An occupied shared origin is its intended state, not permission
+  to free it.
+- Tests requiring server-rendered Astro/EmDash context (including native public-query
+  and signed-preview checks) MUST use a separately reviewed **development-only test
+  integration on the existing server**. A test runner must not call Astro `dev()`,
+  `npm run dev`, or another startup path to introduce a second server. Verify the
+  test-only route's native request-context support, access boundary, and exclusion
+  from normal/production builds; never place a test route in production `src/pages/`
+  or register a test integration in canonical production configuration.
+- A dev-only integration not yet installed on the persistent source/server is
+  **NOT READY**: identify the source/config lifecycle prerequisite and STOP. Source
+  advancement, integration registration, and any app restart require their own exact
+  SHA/config review, controller-supported procedure, and explicit Product Owner
+  authorization; editing the controller's private state/configuration or bypassing
+  its guards is never an alternative. No standing authorization is created here.
+- A task must verify both the repository candidate SHA and the stable runtime source
+  SHA before interpreting runtime results. A committed test or merged PR does not
+  implicitly update the persistent application; version mismatch and missing
+  test-integration prerequisites are BLOCKED/UNVERIFIED, never PASS.
+- Tests and agents may use the existing scoped development credential via the
+  approved mode-0600 PAT loader. Do not rerun `setup/dev-bypass` on an initialized
+  shared runtime, rotate existing credentials, expose tokens, or impersonate native
+  roles. Require distinct test-owned native accounts for role/lock tests; absent
+  prerequisites are reported rather than silently skipped as success.
+- This rule applies to planning, Spec Kit Tasks, source implementation, runtime
+  testing, cleanup, and handoff. If an accepted task describes a competing-server
+  harness, reconcile its execution contract **before implementation** under review
+  and Product Owner approval; do not implement the conflicting runner and defer
+  its failure until a later integration task.
