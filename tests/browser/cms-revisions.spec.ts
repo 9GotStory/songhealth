@@ -14,6 +14,34 @@
 // runtime execution is claimed by authoring this file — the T022 serial
 // join owns actually running these checks.
 //
+// Corrective round 1 (Lead review of candidate c1eb6cc, findings F1–F6)
+// hardened: the synthetic term/byline fixtures now RETAIN their owned unique
+// identity BEFORE creation and reconcile UNCERTAIN creations/deletions
+// through supported native reads (the term read; the byline LISTING with
+// search/cursor pagination — no byline-by-slug GET exists in 1.1.0), so a
+// creation that commits while its response is lost stays registered for
+// teardown, a lost DELETE response is reconciled through a read before
+// exactly one re-attempt, and unreadable state is reported without another
+// mutation (F1); the lock case runs its primary phase inside a failure-safe
+// wrapper whose holder-lease reconciliation executes on EVERY exit path —
+// covering uncertain acquisition and uncertain release — BEFORE the role is
+// restored and before ordinary fixture cleanup could be refused by a
+// stranded lease, preserving the original failure alongside any
+// reconciliation failure (F2); the pending-reference case asserts the exact
+// chosen Document translation-group identity on the staged draft selection,
+// the UNCHANGED live selection while the draft exists, and the promoted live
+// identity after publication, all through the native compare/`_references`
+// surfaces (F3); the interrupted-edit recovery read now verifies the last
+// AUTOSAVED content immediately after the second autosave, before the
+// separate explicit-save/history control (F4); a dedicated lost-
+// acknowledgment case issues a real native update, discards its response
+// envelope test-only, and proves the unknown outcome is never success while
+// current state is read before any retry decision (F5); and the
+// publish-invalidation control captures a CURRENT token immediately before
+// the successful publish, passes it to that publish, and reuses THAT token
+// for the post-publish conflict control with preserved-state verification
+// (F6). No behavior beyond the authorized T020 scope.
+//
 // Authority:
 // - specs/002-cms-content-model/tasks.md T020 ("Author native
 //   revision/concurrency checks in tests/browser/cms-revisions.spec.ts for
@@ -186,12 +214,18 @@
 //   SEO/byline attribution on the ordinary read
 // - synthetic classification/byline fixtures: POST
 //   /_emdash/api/taxonomies/{name}/terms (taxonomies:manage) `{ slug, label }`
-//   with DELETE …/terms/{slug} (404 = already absent) — the accepted T013
+//   with GET/DELETE …/terms/{slug} (404 = absent) — the accepted T013
 //   pattern; bylines are native entities: POST /_emdash/api/admin/bylines
 //   (bylines:manage) `{ slug, displayName }` → `data` = the created byline
 //   (`{ id, slug, displayName, … }`), DELETE /_emdash/api/admin/bylines/{id}
-//   → `{ deleted: true }` / 404 — both created and removed by the
-//   development Administrator as owned synthetic fixtures
+//   → `{ deleted: true }` / 404. There is NO byline-by-slug GET in 1.1.0 —
+//   presence/id reconciliation goes through the supported LISTING
+//   GET /_emdash/api/admin/bylines?search=…&limit=…&cursor=… (bylines:read)
+//   → `{ items: [{ id, slug, … }], nextCursor? }` (BylineRepository.findMany,
+//   slug LIKE-searched and the exact owned slug matched). Both fixture kinds
+//   are created and removed by the development Administrator as owned
+//   synthetic fixtures, with the uncertain-creation/deletion protocol of
+//   corrective round 1 F1
 // - media asset metadata (src/api/schemas/media.ts mediaUpdateBody; PUT
 //   /_emdash/api/media/{id}): `alt`/`caption`/dimensions/focal point are
 //   CURRENT-STATE asset metadata; a content revision's file value carries
@@ -365,11 +399,19 @@ let pagesReadiness: CollectionReadiness = { outcome: "missing" };
 let newsReadiness: CollectionReadiness = { outcome: "missing" };
 let documentsReadiness: CollectionReadiness = { outcome: "missing" };
 
-/** Registration for the synthetic topic term (retained until proven deleted). */
+/**
+ * Registration for the synthetic topic term — retained from BEFORE its
+ * creation until its deletion is proven (corrective round 1, F1).
+ */
 let syntheticTerm: { taxonomy: string; slug: string } | undefined;
 
-/** Registration for the synthetic byline (retained until proven deleted). */
-let syntheticByline: { id: string; slug: string } | undefined;
+/**
+ * Registration for the synthetic byline — the owned unique slug is retained
+ * from BEFORE creation; `id` is present once a native response (create
+ * response or supported listing) established it, and deletion reconciles it
+ * through the listing when absent (corrective round 1, F1).
+ */
+let syntheticByline: { id?: string; slug: string } | undefined;
 
 /** One clearly synthetic unique title (never real editorial data). */
 function uniqueTitle(kind: string): string {
@@ -477,6 +519,32 @@ function recordData(record: RevisionRecord): Record<string, unknown> {
 	return record.data !== null && typeof record.data === "object"
 		? (record.data as Record<string, unknown>)
 		: {};
+}
+
+/**
+ * The selected ids for one reference field on a compare side (`_references`),
+ * or undefined when the side carries no selection for the field. The values
+ * are native translation-group identities exactly as the pinned compare
+ * handler emits them — compared by identity, never decoded or reconstructed
+ * (corrective round 1, F3).
+ */
+function referenceSelectionOf(
+	side: Record<string, unknown> | null | undefined,
+	fieldSlug: string,
+): string[] | undefined {
+	const references = side?._references as Record<string, unknown> | undefined;
+	const selection = references?.[fieldSlug];
+	if (!Array.isArray(selection)) return undefined;
+	return selection.filter((value): value is string => typeof value === "string");
+}
+
+/** True when a compare side carries NO selection for the field (F3 helper). */
+function hasNoSelection(
+	side: Record<string, unknown> | null | undefined,
+	fieldSlug: string,
+): boolean {
+	const selection = referenceSelectionOf(side, fieldSlug);
+	return selection === undefined || selection.length === 0;
 }
 
 /** Secret-free rendering of an arbitrary caught failure for reports. */
@@ -621,118 +689,500 @@ async function readEntryTerms(
 // ---------------------------------------------------------------------------
 
 /**
- * Ensure one clearly-synthetic topic term exists (the accepted T013
- * discipline) and register it for teardown deletion. Identity comes from the
- * native response path (the term is read back by slug before use).
+ * Native presence of one owned synthetic term, read through the supported
+ * term read (GET /_emdash/api/taxonomies/{name}/terms/{slug}: 404 proves
+ * absence, success proves presence, anything else is unknown). Never throws —
+ * an unreadable state is data, not an exception (corrective round 1, F1).
+ */
+async function termPresence(
+	slug: string,
+): Promise<{ presence: "absent" } | { presence: "present" } | { presence: "unknown"; detail: string }> {
+	const termPath = `/_emdash/api/taxonomies/${encodeURIComponent(TOPIC_TAXONOMY)}/terms/${encodeURIComponent(slug)}`;
+	let probe: NativeResult;
+	try {
+		probe = await cmsRequest(admin, termPath);
+	} catch (cause) {
+		return { presence: "unknown", detail: `the term read failed before reaching the app (${renderFailure(cause)})` };
+	}
+	if (probe.status === 404) return { presence: "absent" };
+	if (probe.ok) return { presence: "present" };
+	return { presence: "unknown", detail: `term read: ${nativeRefusalOf(probe)}` };
+}
+
+/**
+ * Native presence and id of one owned synthetic byline, reconciled through
+ * the SUPPORTED LISTING (GET /_emdash/api/admin/bylines?search=…&limit=…,
+ * cursor-paginated `{ items: [{ id, slug, … }], nextCursor? }`). There is no
+ * byline-by-slug GET in pinned 1.1.0, so the exact owned slug is searched and
+ * the returned record's id is used — never an assumed id and never a custom
+ * reconstruction (corrective round 1, F1). The traversal is bounded and
+ * treats a malformed or cyclic page as unknown, never as proven absence.
+ */
+async function bylinePresenceBySlug(
+	slug: string,
+): Promise<
+	| { presence: "absent" }
+	| { presence: "present"; id: string }
+	| { presence: "unknown"; detail: string }
+> {
+	const MAX_PAGES = 100;
+	const followedCursors = new Set<string>();
+	let cursor: string | undefined;
+	for (let page = 0; page < MAX_PAGES; page += 1) {
+		let result: NativeResult;
+		try {
+			result = await cmsRequest(admin, "/_emdash/api/admin/bylines", {
+				searchParams: {
+					search: slug,
+					limit: "100",
+					...(cursor !== undefined ? { cursor } : {}),
+				},
+			});
+		} catch (cause) {
+			return { presence: "unknown", detail: `the byline listing failed before reaching the app (${renderFailure(cause)})` };
+		}
+		if (!result.ok) {
+			return { presence: "unknown", detail: `byline listing: ${nativeRefusalOf(result)}` };
+		}
+		const data = nativeDataOf(result);
+		const items = data?.items;
+		if (!Array.isArray(items)) {
+			return { presence: "unknown", detail: "the byline listing success page lacked its items array" };
+		}
+		for (const item of items as Array<Record<string, unknown>>) {
+			if (item?.slug === slug && typeof item.id === "string") {
+				return { presence: "present", id: item.id };
+			}
+		}
+		const nextCursor: unknown = data?.nextCursor;
+		if (nextCursor === undefined || nextCursor === "") {
+			return { presence: "absent" };
+		}
+		if (typeof nextCursor !== "string" || nextCursor === cursor || followedCursors.has(nextCursor)) {
+			return { presence: "unknown", detail: "the byline listing pagination stalled or was malformed" };
+		}
+		if (cursor !== undefined) followedCursors.add(cursor);
+		cursor = nextCursor;
+	}
+	return { presence: "unknown", detail: "the byline listing exceeded its bounded page budget" };
+}
+
+/**
+ * Ensure one clearly-synthetic topic term exists and is registered for
+ * teardown (the accepted T013 discipline, hardened for UNCERTAIN creation —
+ * corrective round 1, F1): the owned unique identity is registered BEFORE the
+ * creation request, so a create that commits while its response is lost still
+ * has a registration to recover. An uncertain creation is reconciled through
+ * the supported native term read — a present term under this test-unique slug
+ * is this run's owned fixture (the registration guarantees cleanup); a
+ * proven-absent term never landed (the registration is dropped and the
+ * original failure rethrown); an unreadable state keeps the registration and
+ * fails loudly.
  */
 async function ensureSyntheticTopicTerm(): Promise<string> {
 	if (syntheticTerm !== undefined) {
 		return syntheticTerm.slug;
 	}
 	const slug = `${SYNTHETIC_FIXTURE_MARK}-topic-${crypto.randomUUID().slice(0, 8)}`;
-	const created = await cmsRequest(
-		admin,
-		`/_emdash/api/taxonomies/${encodeURIComponent(TOPIC_TAXONOMY)}/terms`,
-		{ method: "POST", body: { slug, label: `${SYNTHETIC_FIXTURE_MARK} topic term` } },
-	);
-	if (!created.ok) {
-		throw new Error(
-			`creating the synthetic topic term must succeed when ${TOPIC_TAXONOMY} is attached (${nativeRefusalOf(created)})`,
-		);
-	}
+	// Retained BEFORE creation: an owned identity must never depend on a
+	// response arriving (F1).
 	syntheticTerm = { taxonomy: TOPIC_TAXONOMY, slug };
-	return slug;
+	let creationFailure: unknown;
+	let refused: NativeResult | undefined;
+	try {
+		const created = await cmsRequest(
+			admin,
+			`/_emdash/api/taxonomies/${encodeURIComponent(TOPIC_TAXONOMY)}/terms`,
+			{ method: "POST", body: { slug, label: `${SYNTHETIC_FIXTURE_MARK} topic term` } },
+		);
+		if (created.ok) {
+			return slug;
+		}
+		refused = created;
+		creationFailure = new Error(
+			`creating the synthetic topic term was refused when ${TOPIC_TAXONOMY} is attached (${nativeRefusalOf(created)})`,
+		);
+	} catch (cause) {
+		creationFailure = cause;
+	}
+	// Unknown or definitely-refused outcome: reconcile through the supported
+	// read before claiming anything. Only a proven-absent term may drop the
+	// registration (nothing was created); presence keeps the owned fixture.
+	const reconciled = await termPresence(slug);
+	if (reconciled.presence === "present") {
+		if (refused !== undefined) {
+			// A definite refusal contradicted by a present term is not ours to
+			// interpret — the slug is test-unique, so report loudly.
+			throw new Error(
+				`the synthetic term creation was refused (${nativeRefusalOf(refused)}) yet a term with the test-unique slug is present; it stays registered for teardown and is reported unresolved`,
+			);
+		}
+		console.log(
+			`[cms-revisions] synthetic term creation outcome unknown (${renderFailure(creationFailure)}); native read confirms the owned term is present and registered for teardown`,
+		);
+		return slug;
+	}
+	if (reconciled.presence === "absent") {
+		syntheticTerm = undefined;
+		throw new Error(`synthetic term creation did not land: ${renderFailure(creationFailure)}`);
+	}
+	throw new Error(
+		`synthetic term creation outcome unknown (${renderFailure(creationFailure)}) and reconciliation could not settle it (${reconciled.detail}); the slug stays registered for the safety-net teardown`,
+	);
 }
 
 /**
- * Delete the registered synthetic term, reconciling uncertain outcomes
- * through a native presence read before any absence claim (the accepted T013
- * retain-until-resolved contract; 404 on DELETE = already absent). Never
- * throws past a failed step without reporting it.
+ * Delete the registered synthetic term with the full uncertain-outcome
+ * protocol (the accepted cms-authoring.spec.ts contract, corrective round 1
+ * F1): native presence is verified BEFORE every DELETE (an already-absent
+ * term resolves with no mutation; an unreadable state never sees a DELETE);
+ * an uncertain DELETE (lost response) is reconciled through a read before
+ * EXACTLY ONE re-attempt; a definite refusal is reconciled through a read
+ * before any absence claim. The registration is retained until deletion is
+ * actually proven.
  */
 async function deleteSyntheticTerm(): Promise<void> {
 	const term = syntheticTerm;
 	if (term === undefined) return;
 	const termPath = `/_emdash/api/taxonomies/${term.taxonomy}/terms/${encodeURIComponent(term.slug)}`;
+	const resolved = (): void => {
+		syntheticTerm = undefined;
+	};
+	const unresolved = (detail: string): never => {
+		throw new Error(
+			`the owned synthetic ${term.taxonomy} term '${term.slug}' could not be proven deleted (${detail}); it stays registered for the safety-net retry`,
+		);
+	};
+
+	// Entry reconciliation: verify presence BEFORE any DELETE.
+	const entry = await termPresence(term.slug);
+	if (entry.presence === "absent") {
+		resolved();
+		return;
+	}
+	if (entry.presence === "unknown") {
+		unresolved(`the pre-deletion presence read could not establish native state (${entry.detail})`);
+	}
+
 	let removal: NativeResult | undefined;
 	try {
 		removal = await cmsRequest(admin, termPath, { method: "DELETE" });
 	} catch (cause) {
-		throw new Error(`synthetic term deletion transport failure: ${renderFailure(cause)}`);
+		// Lost response: the deletion outcome is uncertain — read native state
+		// BEFORE any repeated DELETE.
+		const afterLoss = await termPresence(term.slug);
+		if (afterLoss.presence === "absent") {
+			resolved();
+			return;
+		}
+		if (afterLoss.presence === "present") {
+			try {
+				removal = await cmsRequest(admin, termPath, { method: "DELETE" });
+			} catch (causeAgain) {
+				unresolved(
+					`transport failure on the re-attempted deletion after a verified-present read (${renderFailure(causeAgain)})`,
+				);
+			}
+		} else {
+			unresolved(`transport failure on the deletion and ${afterLoss.detail}`);
+		}
 	}
-	if (removal.ok || removal.status === 404) {
-		syntheticTerm = undefined;
+	const deletion: NativeResult = removal!;
+	if (deletion.ok || deletion.status === 404) {
+		resolved();
 		return;
 	}
 	// Definite refusal: reconcile through a native read before any claim.
-	const probe = await cmsRequest(admin, termPath);
-	if (probe.status === 404) {
-		syntheticTerm = undefined;
+	const afterRefusal = await termPresence(term.slug);
+	if (afterRefusal.presence === "absent") {
+		resolved();
 		return;
 	}
-	throw new Error(
-		`the owned synthetic ${term.taxonomy} term '${term.slug}' could not be proven deleted (${nativeRefusalOf(removal)}; follow-up read ${probe.status})`,
+	unresolved(
+		afterRefusal.presence === "present"
+			? `${nativeRefusalOf(deletion)}; a native read still finds the term`
+			: `${nativeRefusalOf(deletion)}; ${afterRefusal.detail}`,
 	);
 }
 
 /**
  * Ensure one clearly-synthetic native byline entity exists (bylines:manage;
- * POST /_emdash/api/admin/bylines) and register it for teardown deletion.
- * The byline is an attribution fixture, not a person.
+ * POST /_emdash/api/admin/bylines) and is registered for teardown. The same
+ * uncertain-creation discipline as the term (corrective round 1, F1): the
+ * owned unique slug is registered BEFORE the request; the id comes from a
+ * native response — the create response when it carries one, otherwise the
+ * supported listing reconciled by the exact owned slug (a success envelope
+ * without a usable id never abandons the owned entity); an uncertain creation
+ * is reconciled through the listing; only a proven-absent byline drops the
+ * registration.
  */
 async function ensureSyntheticByline(): Promise<string> {
-	if (syntheticByline !== undefined) {
+	if (syntheticByline?.id !== undefined) {
 		return syntheticByline.id;
 	}
 	const slug = `${SYNTHETIC_FIXTURE_MARK}-byline-${crypto.randomUUID().slice(0, 8)}`;
-	const created = await cmsRequest(admin, "/_emdash/api/admin/bylines", {
-		method: "POST",
-		body: { slug, displayName: `${SYNTHETIC_FIXTURE_MARK} byline` },
-	});
-	if (!created.ok) {
-		throw new Error(
-			`creating the synthetic byline must succeed (${nativeRefusalOf(created)})`,
+	// Retained BEFORE creation; the id is filled in from a native response.
+	syntheticByline = { slug };
+	let creationFailure: unknown;
+	let refused: NativeResult | undefined;
+	try {
+		const created = await cmsRequest(admin, "/_emdash/api/admin/bylines", {
+			method: "POST",
+			body: { slug, displayName: `${SYNTHETIC_FIXTURE_MARK} byline` },
+		});
+		if (created.ok) {
+			// The pinned create handler returns the byline object directly in
+			// `data`; fall back defensively to `data.item.id`.
+			const data = nativeDataOf(created);
+			const directId = typeof data?.id === "string" ? data.id : undefined;
+			const itemId = typeof nativeItemOf(created)?.id === "string"
+				? (nativeItemOf(created)!.id as string)
+				: undefined;
+			const id = directId ?? itemId;
+			if (id !== undefined) {
+				syntheticByline = { id, slug };
+				return id;
+			}
+			creationFailure = new Error(
+				"the byline create response succeeded but carried no usable id; reconciling through the supported listing",
+			);
+		} else {
+			refused = created;
+			creationFailure = new Error(
+				`creating the synthetic byline was refused (${nativeRefusalOf(created)})`,
+			);
+		}
+	} catch (cause) {
+		creationFailure = cause;
+	}
+	// Unknown outcome, definite refusal, or an unusable id: reconcile the
+	// exact owned slug through the supported listing before claiming anything.
+	const reconciled = await bylinePresenceBySlug(slug);
+	if (reconciled.presence === "present") {
+		if (refused !== undefined) {
+			throw new Error(
+				`the synthetic byline creation was refused (${nativeRefusalOf(refused)}) yet a byline with the test-unique slug is listed; it stays registered for teardown and is reported unresolved`,
+			);
+		}
+		syntheticByline = { id: reconciled.id, slug };
+		console.log(
+			`[cms-revisions] synthetic byline creation outcome unusable (${renderFailure(creationFailure)}); the supported listing reconciled the owned byline and its id`,
 		);
+		return reconciled.id;
 	}
-	// The pinned create handler returns the byline object directly in `data`.
-	const data = nativeDataOf(created);
-	const id =
-		typeof data?.id === "string" ? data.id : typeof nativeItemOf(created)?.id === "string"
-			? (nativeItemOf(created)!.id as string)
-			: undefined;
-	if (id === undefined) {
-		throw new Error("the byline create response carried no usable id");
+	if (reconciled.presence === "absent") {
+		syntheticByline = undefined;
+		throw new Error(`synthetic byline creation did not land: ${renderFailure(creationFailure)}`);
 	}
-	syntheticByline = { id, slug };
-	return id;
+	throw new Error(
+		`synthetic byline creation outcome unknown (${renderFailure(creationFailure)}) and reconciliation could not settle it (${reconciled.detail}); the slug stays registered for the safety-net teardown`,
+	);
 }
 
 /**
- * Delete the registered synthetic byline (DELETE /_emdash/api/admin/bylines/
- * {id}; 404 = already absent), reconciling an uncertain outcome through a
- * native read before any absence claim.
+ * Delete the registered synthetic byline with the same uncertain-outcome
+ * protocol as the term (corrective round 1, F1), reconciled through the
+ * supported listing (no byline-by-slug GET exists): the exact owned slug is
+ * searched BEFORE any DELETE to establish presence AND the record id; only a
+ * proven-present byline is deleted (by its listed id); an uncertain DELETE is
+ * reconciled through the listing before EXACTLY ONE re-attempt; an unreadable
+ * state is reported without another mutation.
  */
 async function deleteSyntheticByline(): Promise<void> {
 	const byline = syntheticByline;
 	if (byline === undefined) return;
-	const bylinePath = `/_emdash/api/admin/bylines/${encodeURIComponent(byline.id)}`;
+	const resolved = (): void => {
+		syntheticByline = undefined;
+	};
+	const unresolved = (detail: string): never => {
+		throw new Error(
+			`the owned synthetic byline '${byline.slug}' could not be proven deleted (${detail}); it stays registered for the safety-net retry`,
+		);
+	};
+
+	// Entry reconciliation: establish presence and the record id BEFORE any
+	// DELETE (a registration without an id is resolved here, never assumed).
+	const entry = await bylinePresenceBySlug(byline.slug);
+	if (entry.presence === "absent") {
+		resolved();
+		return;
+	}
+	if (entry.presence === "unknown") {
+		throw new Error(
+			`the owned synthetic byline '${byline.slug}' could not be proven deleted (the pre-deletion listing could not establish native state: ${entry.detail}); it stays registered for the safety-net retry`,
+		);
+	}
+	let bylineId = entry.id;
+	const bylinePath = `/_emdash/api/admin/bylines/${encodeURIComponent(bylineId)}`;
+
 	let removal: NativeResult | undefined;
 	try {
 		removal = await cmsRequest(admin, bylinePath, { method: "DELETE" });
 	} catch (cause) {
-		throw new Error(`synthetic byline deletion transport failure: ${renderFailure(cause)}`);
+		// Lost response: reconcile through the listing BEFORE any re-attempt.
+		const afterLoss = await bylinePresenceBySlug(byline.slug);
+		if (afterLoss.presence === "absent") {
+			resolved();
+			return;
+		}
+		if (afterLoss.presence === "present") {
+			bylineId = afterLoss.id;
+			try {
+				removal = await cmsRequest(
+					admin,
+					`/_emdash/api/admin/bylines/${encodeURIComponent(bylineId)}`,
+					{ method: "DELETE" },
+				);
+			} catch (causeAgain) {
+				unresolved(
+					`transport failure on the re-attempted deletion after a verified-present listing (${renderFailure(causeAgain)})`,
+				);
+			}
+		} else {
+			unresolved(`transport failure on the deletion and ${afterLoss.detail}`);
+		}
 	}
-	if (removal.ok || removal.status === 404) {
-		syntheticByline = undefined;
+	const deletion: NativeResult = removal!;
+	if (deletion.ok || deletion.status === 404) {
+		resolved();
 		return;
 	}
-	const probe = await cmsRequest(admin, bylinePath);
-	if (probe.status === 404) {
-		syntheticByline = undefined;
+	const afterRefusal = await bylinePresenceBySlug(byline.slug);
+	if (afterRefusal.presence === "absent") {
+		resolved();
+		return;
+	}
+	unresolved(
+		afterRefusal.presence === "present"
+			? `${nativeRefusalOf(deletion)}; the supported listing still finds the byline`
+			: `${nativeRefusalOf(deletion)}; ${afterRefusal.detail}`,
+	);
+}
+
+// ---------------------------------------------------------------------------
+// Edit-lease reconciliation (corrective round 1, F2)
+// ---------------------------------------------------------------------------
+
+/**
+ * The live lease state read through the native lock endpoint: "held" (with
+ * the holder's userId), "unheld", or "unknown" (the read never proves
+ * anything when it fails or carries no usable holder shape). Never throws.
+ */
+async function leasePresence(
+	actor: CmsActor,
+	collection: string,
+	id: string,
+): Promise<
+	| { state: "held"; holderUserId: string }
+	| { state: "unheld" }
+	| { state: "unknown"; detail: string }
+> {
+	let read: NativeResult;
+	try {
+		read = await readEntryLock(actor, collection, id);
+	} catch (cause) {
+		return { state: "unknown", detail: `the lock read failed before reaching the app (${renderFailure(cause)})` };
+	}
+	if (!read.ok) {
+		return { state: "unknown", detail: `lock read: ${nativeRefusalOf(read)}` };
+	}
+	const data = nativeDataOf(read);
+	if (data?.holder === null || data?.holder === undefined) {
+		return { state: "unheld" };
+	}
+	const holderUserId = (data.holder as Record<string, unknown> | undefined)?.userId;
+	if (typeof holderUserId !== "string") {
+		return { state: "unknown", detail: "the lock read carried a holder without a usable userId" };
+	}
+	return { state: "held", holderUserId };
+}
+
+/**
+ * Failure-safe holder-lease release, run on EVERY exit path of the lock
+ * case's role callback (corrective round 1, F2): an assertion or request
+ * failure must never strand another account's lease, because the pinned
+ * content DELETE used by ordinary fixture cleanup also claims the entry lock
+ * and would be refused (409 ENTRY_LOCKED) until the 7-minute lease expires.
+ *
+ * The reconciliation covers UNCERTAIN ACQUISITION (the acquire response was
+ * lost — the read decides whether a lease exists to release) and UNCERTAIN
+ * RELEASE (a lost DELETE response is reconciled through a read before
+ * EXACTLY ONE re-attempt). It uses only the holder's own supported release —
+ * no takeover, no lock override, no write on an unknown state; an unreadable
+ * state is reported unresolved instead of mutated.
+ */
+async function reconcileHolderLease(
+	holder: CmsActor,
+	collection: string,
+	id: string,
+): Promise<void> {
+	const entryState = await leasePresence(holder, collection, id);
+	if (entryState.state === "unheld") {
+		return;
+	}
+	if (entryState.state === "unknown") {
+		throw new Error(
+			`could not read the entry-lock state to reconcile the holder's lease (${entryState.detail}); cleanup may be refused until the native lease expires`,
+		);
+	}
+	if (entryState.holderUserId !== holder.userId) {
+		throw new Error(
+			`the lease is held by account ${entryState.holderUserId}, not the fixture holder; no release is issued (only the holder's own supported release is used)`,
+		);
+	}
+	const releaseOnce = async (): Promise<NativeResult> => releaseEntryLock(holder, collection, id);
+	let release: NativeResult | undefined;
+	try {
+		release = await releaseOnce();
+	} catch (cause) {
+		// Uncertain release: read state BEFORE any re-attempt.
+		const afterLoss = await leasePresence(holder, collection, id);
+		if (afterLoss.state === "unheld") {
+			return;
+		}
+		if (afterLoss.state === "held" && afterLoss.holderUserId === holder.userId) {
+			try {
+				release = await releaseOnce();
+			} catch (causeAgain) {
+				throw new Error(
+					`the holder lease release failed before its outcome was known (${renderFailure(cause)}) and the single re-attempt after a verified-held read also failed (${renderFailure(causeAgain)}); the lease may still be held and cleanup may be refused until the native lease expires`,
+				);
+			}
+		} else if (afterLoss.state === "held") {
+			throw new Error(
+				`the release outcome is unknown and the lease is now held by account ${afterLoss.holderUserId}; no further mutation is issued`,
+			);
+		} else {
+			throw new Error(
+				`the release outcome is unknown (${renderFailure(cause)}) and the follow-up lock read could not settle it (${afterLoss.detail}); the lease may still be held`,
+			);
+		}
+	}
+	const deletion: NativeResult = release!;
+	if (deletion.ok) {
+		// A native `released: false` means the caller held no lease — verify
+		// through the state read before treating the registration as settled.
+		const releasedFlag = nativeDataOf(deletion)?.released;
+		if (releasedFlag === false) {
+			const afterFalse = await leasePresence(holder, collection, id);
+			if (afterFalse.state === "unheld") {
+				return;
+			}
+			throw new Error(
+				`the native release reported released=false but the lease read still shows ${afterFalse.state === "held" ? `account ${afterFalse.holderUserId} holding` : "an unreadable state"}`,
+			);
+		}
+		return;
+	}
+	// Definite refusal: reconcile through the read before any claim.
+	const afterRefusal = await leasePresence(holder, collection, id);
+	if (afterRefusal.state === "unheld") {
 		return;
 	}
 	throw new Error(
-		`the owned synthetic byline '${byline.slug}' could not be proven deleted (${nativeRefusalOf(removal)}; follow-up read ${probe.status})`,
+		`the holder lease release was refused (${nativeRefusalOf(deletion)}) and the lease read still shows ${
+			afterRefusal.state === "held" ? `account ${afterRefusal.holderUserId} holding` : "an unreadable state"
+		}; cleanup may be refused until the native lease expires`,
 	);
 }
 
@@ -1108,6 +1558,108 @@ test("current _rev: a fresh token carries an update; a stale token is refused wi
 });
 
 // ---------------------------------------------------------------------------
+// A. Uncertain mutation outcome — lost acknowledgment (US6.6, FR-026)
+// ---------------------------------------------------------------------------
+
+/**
+ * Bounded test-only lost-acknowledgment wrapper (corrective round 1, F5):
+ * issues the REAL native update, awaits it, then DISCARDS the response
+ * envelope and throws — modeling a client whose acknowledgment was lost in
+ * transit, so the mutation's commit state is genuinely unknown to the
+ * caller. The mutation itself runs against the real native app; only the
+ * observation of its outcome is withheld. This is test authoring around a
+ * native mutation, not a retry service, scheduler or production protocol.
+ */
+async function updateWithLostAcknowledgment(
+	actor: CmsActor,
+	collection: string,
+	id: string,
+	payload: { data: Record<string, unknown> },
+	rev: string,
+): Promise<never> {
+	await updateEntry(actor, collection, id, { data: payload.data, rev });
+	throw new Error(
+		"test-only lost acknowledgment: the native update completed server-side but its response was discarded before the outcome was observed",
+	);
+}
+
+test("uncertain outcome: a lost write acknowledgment is never success, and current state is read before any retry", async () => {
+	gatePages();
+
+	const entry = await createSyntheticEntry(admin, PAGES_COLLECTION, {
+		data: { title: uniqueTitle("uncertain-base") },
+	});
+	expect(entry.result.ok, "the uncertain-outcome fixture must save").toBe(true);
+	const intendedTitle = uniqueTitle("uncertain-intended");
+	const revBefore = await currentRev(admin, PAGES_COLLECTION, entry.entryId!);
+
+	// The mutation is issued for real; its acknowledgment is lost. The
+	// outcome is UNKNOWN — there is no success envelope, so nothing about
+	// the write may be reported as success (F5).
+	let acknowledgmentLost = false;
+	// Set ONLY from an actually-observed success envelope; by construction
+	// none can exist for this write, and the assertion below proves the
+	// unknown result is never reported as success.
+	let successClaimed = false;
+	try {
+		await updateWithLostAcknowledgment(
+			admin,
+			PAGES_COLLECTION,
+			entry.entryId!,
+			{ data: { title: intendedTitle } },
+			revBefore,
+		);
+		successClaimed = true;
+	} catch {
+		// The wrapper's thrown error IS the lost acknowledgment: the write's
+		// outcome stays UNKNOWN — never converted into success or an assumed
+		// failure. (successClaimed is unreachable: the wrapper returns never.)
+		acknowledgmentLost = true;
+	}
+	expect(
+		acknowledgmentLost,
+		"the lost acknowledgment must surface as an unknown outcome",
+	).toBe(true);
+	expect(
+		successClaimed,
+		"no success envelope exists for the lost write — the unknown result is never reported as success",
+	).toBe(false);
+
+	// Reconciliation BEFORE any retry (US6.6/FR-026): read the actual
+	// current state and decide from the READ, not from the lost response.
+	const reconciled = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!));
+	const committedWithoutAck = dataOfItem(reconciled).title === intendedTitle;
+	let retriedAfterRead = false;
+	if (!committedWithoutAck) {
+		// Only now — decided from the reconciling read — is a retry needed,
+		// and it carries a FRESH precondition captured after that read.
+		retriedAfterRead = true;
+		const freshRev = await currentRev(admin, PAGES_COLLECTION, entry.entryId!);
+		const retry = await updateEntry(admin, PAGES_COLLECTION, entry.entryId!, {
+			data: { title: intendedTitle },
+			rev: freshRev,
+		});
+		expect(
+			retry.ok,
+			`the reconciled retry with a fresh _rev must succeed (${nativeRefusalOf(retry)})`,
+		).toBe(true);
+	}
+
+	// Either branch ends with the intended change as the current pending
+	// draft data, and the branch taken is reported truthfully.
+	const settled = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!));
+	expect(
+		dataOfItem(settled).title,
+		"the uncertain write settles to the intended content whether it had already committed or the reconciled retry carried it",
+	).toBe(intendedTitle);
+	console.log(
+		`[cms-revisions] uncertain-outcome reconciliation: committed-without-acknowledgment=${String(
+			committedWithoutAck,
+		)}; retried-after-current-state-read=${String(retriedAfterRead)}`,
+	);
+});
+
+// ---------------------------------------------------------------------------
 // A. Optimistic concurrency — publish precondition (US6.5/US6.6)
 // ---------------------------------------------------------------------------
 
@@ -1138,11 +1690,20 @@ test("stale _rev publish: refused as a native conflict with publication state un
 	);
 	expect(refusedState?.publishedAt, "the refused publish must record no publication time").toBeNull();
 
-	// Re-read current state, then the retry publishes (the deeper matrix
-	// slice beyond the accepted T019 control: refusal read-back plus the
-	// verified promoted read-back).
-	const retried = await publishEntry(admin, PAGES_COLLECTION, entry.entryId!);
-	expect(retried.ok, "the re-read retry with a fresh _rev must publish").toBe(true);
+	// Re-read current state, then the retry publishes. The CURRENT token is
+	// captured immediately before the successful publish and PASSED to it
+	// (corrective round 1, F6) — so the post-publish control below reuses a
+	// token that was demonstrably valid for THAT publication, and its later
+	// refusal proves the publication itself invalidated it (not the earlier
+	// update, whose invalidation the first control above already covered).
+	const prePublishRev = await currentRev(admin, PAGES_COLLECTION, entry.entryId!);
+	const retried = await publishEntry(admin, PAGES_COLLECTION, entry.entryId!, {
+		rev: prePublishRev,
+	});
+	expect(
+		retried.ok,
+		"the retry carrying the CURRENT pre-publish _rev must publish",
+	).toBe(true);
 	const published = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!));
 	expect(statusOfItem(published), "the retried publish must show the published state").toBe(
 		"published",
@@ -1152,12 +1713,22 @@ test("stale _rev publish: refused as a native conflict with publication state un
 		"publication promotes the pending draft data (the bumped write) to the live columns",
 	).toBe(dataOfItem(nativeItemOf(newer)).title);
 
-	// The publication itself bumped the row, so the pre-publish token is
-	// now stale for a further publish too — one more truthfully refused.
+	// The publication itself bumped the row, so the very token that carried
+	// it is now stale for a further publish — refused, with the published
+	// state preserved by the refusal (F6).
 	expectConflictRefusal(
-		await publishEntry(admin, PAGES_COLLECTION, entry.entryId!, { rev: staleRev }),
-		"publishing again with the pre-publication _rev",
+		await publishEntry(admin, PAGES_COLLECTION, entry.entryId!, { rev: prePublishRev }),
+		"publishing again with the token the successful publication itself consumed",
 	);
+	const preservedState = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!));
+	expect(
+		statusOfItem(preservedState),
+		"the refused second publish must leave the entry published",
+	).toBe("published");
+	expect(
+		dataOfItem(preservedState).title,
+		"the refused second publish must leave the promoted data unchanged",
+	).toBe(dataOfItem(nativeItemOf(newer)).title);
 });
 
 // ---------------------------------------------------------------------------
@@ -1333,8 +1904,49 @@ test("native autosave: skipRevision saves replace the superseded autosave revisi
 		"the surviving autosave revision is the newest autosaved content",
 	).toBe(autosaveTwoTitle);
 
-	// An ORDINARY save after the autosave keeps its own revision (history
-	// resumes) — the replacement semantics belong to skipRevision alone.
+	// Interrupted-edit draft recovery, exercised IMMEDIATELY after the last
+	// AUTOSAVE and before any explicit save (corrective round 1, F4): there
+	// is NO session-resume API in pinned 1.1.0 — the native recovery
+	// mechanism IS the persisted pending draft revision. A fresh read (a
+	// re-opened editor context; nothing from the writing session is reused)
+	// must return the AUTOSAVED pending content as the entry's data, with the
+	// pre-edit column data exposed as liveData — an interrupted autosave
+	// session recovers its unsaved-explicitly work server-side.
+	const recoveredAutosave = nativeItemOf(
+		await readEntry(admin, PAGES_COLLECTION, entry.entryId!),
+	);
+	expect(
+		dataOfItem(recoveredAutosave).title,
+		"a fresh authorized read recovers the AUTOSAVED pending content after the interrupted edit",
+	).toBe(autosaveTwoTitle);
+	expect(
+		typeof recoveredAutosave?.draftRevisionId === "string",
+		"the recovered read identifies the pending draft revision",
+	).toBe(true);
+	expect(
+		liveDataOfItem(recoveredAutosave).title,
+		"the recovery read still exposes the pre-edit column data as liveData (the unpublished base)",
+	).toBe(createTitle);
+	const comparedAutosave = nativeDataOf(
+		await compareEntry(admin, PAGES_COLLECTION, entry.entryId!),
+	);
+	expect(
+		comparedAutosave?.hasChanges,
+		"a pending draft with no live revision reports changes",
+	).toBe(true);
+	expect(
+		comparedAutosave?.live,
+		"an unpublished entry has no live revision to compare",
+	).toBeNull();
+	expect(
+		(comparedAutosave?.draft as Record<string, unknown> | null)?.title,
+		"the compare draft is the recovered AUTOSAVED pending content",
+	).toBe(autosaveTwoTitle);
+
+	// A separate explicit-save/history control AFTER the recovery evidence
+	// (F4: kept distinct from the recovery assertion): an ORDINARY save after
+	// the autosaves keeps its own revision — the replacement semantics
+	// belong to skipRevision alone.
 	const explicitTitle = uniqueTitle("autosave-explicit-save");
 	const explicitSave = await contentPut(admin, PAGES_COLLECTION, entry.entryId!, {
 		data: { title: explicitTitle },
@@ -1342,40 +1954,9 @@ test("native autosave: skipRevision saves replace the superseded autosave revisi
 	expect(explicitSave.ok, "the ordinary save after autosaves must succeed").toBe(true);
 	listing = revisionsOf(await listRevisions(admin, PAGES_COLLECTION, entry.entryId!));
 	expect(listing.total, "an ordinary save after autosaves keeps a new revision").toBe(2);
-
-	// Interrupted-edit draft recovery: there is NO session-resume API in
-	// pinned 1.1.0 — the native recovery mechanism IS the persisted pending
-	// draft revision. A fresh read (a re-opened editor context; nothing from
-	// the writing session is reused) returns the latest saved pending
-	// content as the entry's data, with the pre-edit column data exposed as
-	// liveData — the interrupted edit is recovered server-side.
-	const recovered = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!));
 	expect(
-		dataOfItem(recovered).title,
-		"a fresh authorized read recovers the pending draft content after the interrupted edit",
-	).toBe(explicitTitle);
-	expect(
-		typeof recovered?.draftRevisionId === "string",
-		"the recovered read identifies the pending draft revision",
-	).toBe(true);
-	expect(
-		liveDataOfItem(recovered).title,
-		"the recovery read still exposes the pre-edit column data as liveData (the unpublished base)",
-	).toBe(createTitle);
-
-	// The compare surface states the same boundary over the revisions
-	// themselves: before the first publication there is no live revision, so
-	// live is null while the draft holds the recovered content.
-	const compared = nativeDataOf(
-		await compareEntry(admin, PAGES_COLLECTION, entry.entryId!),
-	);
-	expect(compared?.hasChanges, "a pending draft with no live revision reports changes").toBe(
-		true,
-	);
-	expect(compared?.live, "an unpublished entry has no live revision to compare").toBeNull();
-	expect(
-		(compared?.draft as Record<string, unknown> | null)?.title,
-		"the compare draft is the recovered pending content",
+		recordData(listing.items[0]).title,
+		"the ordinary save heads the history with its own revision",
 	).toBe(explicitTitle);
 });
 
@@ -1397,123 +1978,164 @@ test("edit locks: a distinct account's lease blocks a second writer with ENTRY_L
 	const originalTitle = dataOfItem(nativeItemOf(entry.result)).title;
 
 	await withNativeRole(admin, fixture, NATIVE_ROLES.editor, async (editor: CmsActor) => {
-		// The editor opens the entry: takes the lease.
-		const acquired = nativeDataOf(await acquireEntryLock(editor, PAGES_COLLECTION, entry.entryId!));
-		expect(acquired?.enabled, "edit locking is enabled for the seed collections (native default)").toBe(true);
-		expect(
-			acquired?.heldByCaller,
-			"the acquiring account holds the lease it just took",
-		).toBe(true);
-		const holder = acquired?.holder as Record<string, unknown> | null | undefined;
-		const holderUserId = typeof holder?.userId === "string" ? holder.userId : undefined;
-		expect(
-			holderUserId === editor.userId,
-			"the reported holder is the acquiring (distinct) account",
-		).toBe(true);
-		const acquiredAt = typeof holder?.acquiredAt === "string" ? holder.acquiredAt : undefined;
-		const expiresAt = typeof holder?.expiresAt === "string" ? holder.expiresAt : undefined;
-		expect(
-			acquiredAt !== undefined && expiresAt !== undefined && expiresAt > acquiredAt,
-			"the lease reports its acquisition and future expiry (ISO strings, 7-minute native lease)",
-		).toBe(true);
+		// Failure-safe phase shape (corrective round 1, F2): the primary
+		// assertions run first, and the holder-lease reconciliation runs on
+		// EVERY exit path — an assertion or request failure must never strand
+		// the lease for the ordinary fixture cleanup that follows (the pinned
+		// content DELETE claims the entry lock too and would be refused until
+		// lease expiry). The original failure is preserved and reported
+		// alongside any reconciliation failure, never replaced by it.
+		let primaryFailure: unknown;
+		let primaryFailed = false;
+		try {
+			// The editor opens the entry: takes the lease.
+			const acquired = nativeDataOf(await acquireEntryLock(editor, PAGES_COLLECTION, entry.entryId!));
+			expect(acquired?.enabled, "edit locking is enabled for the seed collections (native default)").toBe(true);
+			expect(
+				acquired?.heldByCaller,
+				"the acquiring account holds the lease it just took",
+			).toBe(true);
+			const holder = acquired?.holder as Record<string, unknown> | null | undefined;
+			const holderUserId = typeof holder?.userId === "string" ? holder.userId : undefined;
+			expect(
+				holderUserId === editor.userId,
+				"the reported holder is the acquiring (distinct) account",
+			).toBe(true);
+			const acquiredAt = typeof holder?.acquiredAt === "string" ? holder.acquiredAt : undefined;
+			const expiresAt = typeof holder?.expiresAt === "string" ? holder.expiresAt : undefined;
+			expect(
+				acquiredAt !== undefined && expiresAt !== undefined && expiresAt > acquiredAt,
+				"the lease reports its acquisition and future expiry (ISO strings, 7-minute native lease)",
+			).toBe(true);
 
-		// A second account's acquire WITHOUT takeover is not an error: it
-		// reports the existing holder and heldByCaller false (the soft
-		// "held" outcome — the documented way to discover the conflict).
-		const secondAcquire = nativeDataOf(
-			await acquireEntryLock(admin, PAGES_COLLECTION, entry.entryId!),
-		);
-		expect(
-			secondAcquire?.heldByCaller,
-			"the second account does not hold the lease it could not take",
-		).toBe(false);
-		expect(
-			(secondAcquire?.holder as Record<string, unknown> | null | undefined)?.userId,
-			"the holder is unchanged by the refused-without-takeover acquire",
-		).toBe(editor.userId);
-		const readBySecond = nativeDataOf(
-			await readEntryLock(admin, PAGES_COLLECTION, entry.entryId!),
-		);
-		expect(
-			(readBySecond?.holder as Record<string, unknown> | null | undefined)?.userId,
-			"the lock read by the second account names the holding account",
-		).toBe(editor.userId);
+			// A second account's acquire WITHOUT takeover is not an error: it
+			// reports the existing holder and heldByCaller false (the soft
+			// "held" outcome — the documented way to discover the conflict).
+			const secondAcquire = nativeDataOf(
+				await acquireEntryLock(admin, PAGES_COLLECTION, entry.entryId!),
+			);
+			expect(
+				secondAcquire?.heldByCaller,
+				"the second account does not hold the lease it could not take",
+			).toBe(false);
+			expect(
+				(secondAcquire?.holder as Record<string, unknown> | null | undefined)?.userId,
+				"the holder is unchanged by the refused-without-takeover acquire",
+			).toBe(editor.userId);
+			const readBySecond = nativeDataOf(
+				await readEntryLock(admin, PAGES_COLLECTION, entry.entryId!),
+			);
+			expect(
+				(readBySecond?.holder as Record<string, unknown> | null | undefined)?.userId,
+				"the lock read by the second account names the holding account",
+			).toBe(editor.userId);
 
-		// The second writer's save is refused with the native lock conflict,
-		// naming the holder — and the refusal changes nothing.
-		const freshRev = await currentRev(admin, PAGES_COLLECTION, entry.entryId!);
-		expectEntryLockedRefusal(
-			await updateEntry(admin, PAGES_COLLECTION, entry.entryId!, {
-				data: { title: uniqueTitle("lock-blocked-write") },
+			// The second writer's save is refused with the native lock conflict,
+			// naming the holder — and the refusal changes nothing.
+			const freshRev = await currentRev(admin, PAGES_COLLECTION, entry.entryId!);
+			expectEntryLockedRefusal(
+				await updateEntry(admin, PAGES_COLLECTION, entry.entryId!, {
+					data: { title: uniqueTitle("lock-blocked-write") },
+					rev: freshRev,
+				}),
+				"the second writer's save against the held entry lock",
+				editor.userId,
+			);
+			expect(
+				dataOfItem(nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!))).title,
+				"the lock-refused write must not change the stored data",
+			).toBe(originalTitle);
+
+			// Reading the item again does not clear the refusal (the lease is
+			// the gate, not read staleness) — still refused after a re-read.
+			await readEntry(admin, PAGES_COLLECTION, entry.entryId!);
+			expectEntryLockedRefusal(
+				await updateEntry(admin, PAGES_COLLECTION, entry.entryId!, {
+					data: { title: uniqueTitle("lock-blocked-write-2") },
+					rev: freshRev,
+				}),
+				"the second writer's save after re-reading (the lease still governs)",
+				editor.userId,
+			);
+
+			// overrideLock is the pinned, schema-documented write-anyway control
+			// (contentUpdateBody overrideLockFlag; claimEntryLockForWrite returns
+			// null when it is set) — the explained native override, not a bypass
+			// invented here. The lock-refused writes consumed nothing, so the
+			// SAME precondition token carries the overridden write.
+			const overridden = await updateEntry(admin, PAGES_COLLECTION, entry.entryId!, {
+				data: { title: uniqueTitle("lock-overridden-write") },
 				rev: freshRev,
-			}),
-			"the second writer's save against the held entry lock",
-			editor.userId,
-		);
-		expect(
-			dataOfItem(nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!))).title,
-			"the lock-refused write must not change the stored data",
-		).toBe(originalTitle);
+				overrideLock: true,
+			});
+			expect(
+				overridden.ok,
+				`the documented overrideLock write must succeed (${nativeRefusalOf(overridden)})`,
+			).toBe(true);
+			expect(
+				dataOfItem(nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!))).title,
+				"the overridden write is the current pending draft data",
+			).toBe(dataOfItem(nativeItemOf(overridden)).title);
+			// The override writes anyway; it does not steal or drop the lease.
+			const afterOverride = nativeDataOf(
+				await readEntryLock(admin, PAGES_COLLECTION, entry.entryId!),
+			);
+			expect(
+				(afterOverride?.holder as Record<string, unknown> | null | undefined)?.userId,
+				"the overriding write leaves the holder's lease in place",
+			).toBe(editor.userId);
 
-		// Reading the item again does not clear the refusal (the lease is
-		// the gate, not read staleness) — still refused after a re-read.
-		await readEntry(admin, PAGES_COLLECTION, entry.entryId!);
-		expectEntryLockedRefusal(
-			await updateEntry(admin, PAGES_COLLECTION, entry.entryId!, {
-				data: { title: uniqueTitle("lock-blocked-write-2") },
-				rev: freshRev,
-			}),
-			"the second writer's save after re-reading (the lease still governs)",
-			editor.userId,
-		);
-
-		// overrideLock is the pinned, schema-documented write-anyway control
-		// (contentUpdateBody overrideLockFlag; claimEntryLockForWrite returns
-		// null when it is set) — the explained native override, not a bypass
-		// invented here. The lock-refused writes consumed nothing, so the
-		// SAME precondition token carries the overridden write.
-		const overridden = await updateEntry(admin, PAGES_COLLECTION, entry.entryId!, {
-			data: { title: uniqueTitle("lock-overridden-write") },
-			rev: freshRev,
-			overrideLock: true,
-		});
-		expect(
-			overridden.ok,
-			`the documented overrideLock write must succeed (${nativeRefusalOf(overridden)})`,
-		).toBe(true);
-		expect(
-			dataOfItem(nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!))).title,
-			"the overridden write is the current pending draft data",
-		).toBe(dataOfItem(nativeItemOf(overridden)).title);
-		// The override writes anyway; it does not steal or drop the lease.
-		const afterOverride = nativeDataOf(
-			await readEntryLock(admin, PAGES_COLLECTION, entry.entryId!),
-		);
-		expect(
-			(afterOverride?.holder as Record<string, unknown> | null | undefined)?.userId,
-			"the overriding write leaves the holder's lease in place",
-		).toBe(editor.userId);
-
-		// The holder releases; the second writer can then write again with
-		// no override and no refusal.
-		const released = nativeDataOf(
-			await releaseEntryLock(editor, PAGES_COLLECTION, entry.entryId!),
-		);
-		expect(released?.released, "the holder's release must report released").toBe(true);
-		const afterRelease = nativeDataOf(
-			await readEntryLock(admin, PAGES_COLLECTION, entry.entryId!),
-		);
-		expect(
-			afterRelease?.holder,
-			"the released entry has no lock holder",
-		).toBeNull();
-		const unlockedWrite = await updateEntry(admin, PAGES_COLLECTION, entry.entryId!, {
-			data: { title: uniqueTitle("lock-post-release-write") },
-		});
-		expect(
-			unlockedWrite.ok,
-			`after release the second writer's save must succeed with no override (${nativeRefusalOf(unlockedWrite)})`,
-		).toBe(true);
+			// The holder releases; the second writer can then write again with
+			// no override and no refusal.
+			const released = nativeDataOf(
+				await releaseEntryLock(editor, PAGES_COLLECTION, entry.entryId!),
+			);
+			expect(released?.released, "the holder's release must report released").toBe(true);
+			const afterRelease = nativeDataOf(
+				await readEntryLock(admin, PAGES_COLLECTION, entry.entryId!),
+			);
+			expect(
+				afterRelease?.holder,
+				"the released entry has no lock holder",
+			).toBeNull();
+			const unlockedWrite = await updateEntry(admin, PAGES_COLLECTION, entry.entryId!, {
+				data: { title: uniqueTitle("lock-post-release-write") },
+			});
+			expect(
+				unlockedWrite.ok,
+				`after release the second writer's save must succeed with no override (${nativeRefusalOf(unlockedWrite)})`,
+			).toBe(true);
+		} catch (cause) {
+			primaryFailed = true;
+			primaryFailure = cause;
+		}
+		// F2 tail: reconcile the holder's lease on EVERY exit path — this
+		// also covers an uncertain acquisition (a lost acquire response: the
+		// read inside decides whether a lease exists to release) and an
+		// uncertain release (read before exactly one re-attempt). On the
+		// happy path the lease is already released and this is a verified
+		// no-op read. This runs BEFORE withNativeRole restores the role and
+		// before the ordinary fixture cleanup that a stranded lease would
+		// refuse.
+		let leaseFailure: unknown;
+		let leaseFailed = false;
+		try {
+			await reconcileHolderLease(editor, PAGES_COLLECTION, entry.entryId!);
+		} catch (cause) {
+			leaseFailed = true;
+			leaseFailure = cause;
+		}
+		if (primaryFailed && leaseFailed) {
+			throw new Error(
+				`lock phase failed AND its lease reconciliation is unresolved — primary failure: ${renderFailure(primaryFailure)}; lease reconciliation: ${renderFailure(leaseFailure)}`,
+			);
+		}
+		if (leaseFailed) {
+			throw leaseFailure;
+		}
+		if (primaryFailed) {
+			throw primaryFailure;
+		}
 	});
 });
 
@@ -1536,6 +2158,22 @@ test("published vs pending: content-data and reference edits stage under the dra
 	const publishedDocument = await publishEntry(admin, DOCUMENTS_COLLECTION, document.entryId!);
 	expect(publishedDocument.ok, "the document fixture must publish").toBe(true);
 
+	// The chosen target's native identity for the selection assertions: its
+	// translation group as the document's own native read returns it — the
+	// exact identity the pinned staging and live-link surfaces carry (the
+	// staged `_references` values and compare's live selection are
+	// translation-group ids). Compared by identity throughout; no custom
+	// reconstruction (corrective round 1, F3).
+	const documentItem = nativeItemOf(
+		await readEntry(admin, DOCUMENTS_COLLECTION, document.entryId!),
+	);
+	const documentIdentity =
+		typeof documentItem?.translationGroup === "string" ? documentItem.translationGroup : undefined;
+	expect(
+		documentIdentity,
+		"the chosen Document must expose its native translation-group identity",
+	).toBeTruthy();
+
 	// The page fixture: publish the initial content.
 	const initialTitle = uniqueTitle("pending-initial");
 	const page = await createSyntheticEntry(admin, PAGES_COLLECTION, {
@@ -1554,6 +2192,19 @@ test("published vs pending: content-data and reference edits stage under the dra
 		afterInitialPublish?.draftRevisionId,
 		"a freshly published entry with no edits has no pending draft",
 	).toBeNull();
+
+	// The INITIAL live selection baseline (F3): the freshly published page
+	// has no documents selection on the live side — compare builds the live
+	// `_references` from the actual live links, so this is the live state.
+	const comparedBefore = nativeDataOf(await compareEntry(admin, PAGES_COLLECTION, page.entryId!));
+	expect(comparedBefore?.hasChanges, "a freshly published entry has no pending changes").toBe(
+		false,
+	);
+	const liveBefore = comparedBefore?.live as Record<string, unknown> | null | undefined;
+	expect(
+		hasNoSelection(liveBefore, "documents"),
+		"the initial live selection for documents is empty",
+	).toBe(true);
 
 	// Stage the pending edits: changed content data PLUS a reference
 	// selection, in one native save.
@@ -1589,9 +2240,11 @@ test("published vs pending: content-data and reference edits stage under the dra
 	).toBe(true);
 
 	// The compare surface states the same boundary over the revisions: the
-	// live revision still carries the published data, the draft carries the
-	// staged data AND the staged reference selection (`_references`; the
-	// values are native translation-group ids, so the length is asserted).
+	// live revision still carries the published data AND the UNCHANGED live
+	// selection (F3: staging must not touch the live links while the draft
+	// exists), while the draft carries the staged data and the EXACT staged
+	// selection identity — the chosen Document's translation group, not just
+	// any single selection.
 	const compared = nativeDataOf(await compareEntry(admin, PAGES_COLLECTION, page.entryId!));
 	expect(compared?.hasChanges, "a staged edit against a live revision reports changes").toBe(true);
 	const liveCompare = compared?.live as Record<string, unknown> | null | undefined;
@@ -1599,15 +2252,17 @@ test("published vs pending: content-data and reference edits stage under the dra
 	expect(liveCompare?.title, "the compare live side is the published content data").toBe(
 		initialTitle,
 	);
+	expect(
+		hasNoSelection(liveCompare, "documents"),
+		"the live selection is UNCHANGED while the draft exists (no premature live-link change)",
+	).toBe(true);
 	expect(draftCompare?.title, "the compare draft side is the staged content data").toBe(
 		pendingTitle,
 	);
-	const stagedReferences = draftCompare?._references as
-		| Record<string, unknown[]>
-		| undefined;
+	const stagedSelection = referenceSelectionOf(draftCompare, "documents");
 	expect(
-		Array.isArray(stagedReferences?.documents) && stagedReferences.documents.length === 1,
-		"the pending draft carries the staged reference selection under the native _references key",
+		stagedSelection?.length === 1 && stagedSelection[0] === documentIdentity,
+		"the pending draft stages EXACTLY the chosen Document's native identity under _references",
 	).toBe(true);
 
 	// Publish Changes: the pending content-data and reference edits become
@@ -1634,21 +2289,23 @@ test("published vs pending: content-data and reference edits stage under the dra
 	expect(comparedAfter?.draft, "no draft revision remains after publication").toBeNull();
 	const liveAfter = comparedAfter?.live as Record<string, unknown> | null | undefined;
 	expect(liveAfter?.title, "the live revision is the promoted content data").toBe(pendingTitle);
-	const liveReferences = liveAfter?._references as Record<string, unknown[]> | undefined;
+	const promotedSelection = referenceSelectionOf(liveAfter, "documents");
 	expect(
-		Array.isArray(liveReferences?.documents) && liveReferences.documents.length === 1,
-		"the staged reference selection was promoted to the live selection",
+		promotedSelection?.length === 1 && promotedSelection[0] === documentIdentity,
+		"the promoted live selection is EXACTLY the chosen Document's native identity (the staged selection became the live links)",
 	).toBe(true);
 
 	// The shared Document target keeps its identity through the promotion —
-	// the same authoritative record, never a duplicate (SC-002 boundary).
+	// the same authoritative record its native read still resolves, never a
+	// duplicate (SC-002 boundary; the selection identity above is the one it
+	// exposed before staging).
 	const documentAfter = nativeItemOf(
 		await readEntry(admin, DOCUMENTS_COLLECTION, document.entryId!),
 	);
 	expect(
-		documentAfter?.id,
-		"the selected Document keeps its authoritative identity after publication",
-	).toBe(document.entryId!);
+		documentAfter?.translationGroup,
+		"the selected Document's native identity is unchanged after the promotion",
+	).toBe(documentIdentity);
 });
 
 // ---------------------------------------------------------------------------
