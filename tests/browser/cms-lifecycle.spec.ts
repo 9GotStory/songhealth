@@ -10,6 +10,19 @@
 // is made here, and NO runtime execution is claimed by authoring this file —
 // the T022 serial join owns actually running these checks.
 //
+// Corrective round 1 (Lead review of candidate 32575f6, findings F1–F3)
+// hardened: the /auth/me identity is verified through its actual envelope
+// (`data.role`, not `data.item.role` — F1); fixture-account reconciliation
+// is state-driven rather than flag-driven (an uncertain disable or role
+// switch still triggers the supported repair), REPAIRS a drifted role to the
+// captured original instead of merely asserting it, and afterEach/afterAll
+// attempt every cleanup and reconciliation INDEPENDENTLY, reporting combined
+// failures only after all attempts (F2); and the due-time case decides from
+// the recorded observation TIMELINE — a publication observed strictly before
+// the due instant is REJECTED as a no-early-publication violation instead of
+// satisfying the case, with every sample verified inside its observation
+// window (F3). No behavior beyond the authorized T019 scope.
+//
 // Authority:
 // - specs/002-cms-content-model/tasks.md T019 ("Author native
 //   role/lifecycle/scheduling checks in tests/browser/cms-lifecycle.spec.ts:
@@ -260,12 +273,15 @@ import {
 	nativeDataOf,
 	nativeErrorOf,
 	nativeItemOf,
+	nativeRefusalOf,
+	nativeRoleName,
 	NATIVE_ROLES,
 	permanentlyDeleteEntry,
 	publishEntry,
 	readEntry,
 	restoreEntry,
 	scheduleEntry,
+	setUserRole,
 	trashEntry,
 	unpublishEntry,
 	unscheduleEntry,
@@ -275,6 +291,7 @@ import {
 	SYNTHETIC_FIXTURE_MARK,
 	type CmsActor,
 	type NativeResult,
+	type NativeRoleLevel,
 } from "./cms.helpers";
 
 // ---------------------------------------------------------------------------
@@ -550,47 +567,110 @@ function expectNonFutureScheduleRefusal(result: NativeResult, caseLabel: string)
 // ---------------------------------------------------------------------------
 
 /**
- * Reconcile the test-owned fixture account's role and disabled state through
- * supported native reads, repairing only what is observed broken and
- * verifying every repair by RE-READ — restoration is never claimed from a
- * request alone. Used by the afterAll safety net so an interrupted phase
- * cannot silently strand a mutated account.
+ * Reconcile the test-owned fixture account back to its CAPTURED original
+ * state (corrective round 1, F2): state-driven, never flag-driven — a
+ * disable or role switch may have committed even when no response proved it,
+ * so an UNCERTAIN read still triggers the supported repair attempt. Every
+ * repair is verified by RE-READ (administrative user record plus the live
+ * credential's own /auth/me), never claimed from a request alone, and every
+ * step is ATTEMPTED before any failure is reported: the collected failures
+ * are thrown combined at the end, so one broken step can never prevent the
+ * remaining reconciliations. Only the test-owned fixture account and its
+ * captured original role are ever touched.
  */
 async function reconcileFixtureAccountState(): Promise<void> {
 	if (roleFixture === undefined || roleFixtureOriginalRole === undefined) {
 		return;
 	}
-	const observed = nativeItemOf(await getUser(admin, roleFixture.userId));
-	expect(
-		observed !== undefined,
-		"final reconciliation: the fixture account record must be readable",
-	).toBe(true);
-	if (observed?.disabled === true) {
-		const enable = await cmsRequest(
-			admin,
-			`/_emdash/api/admin/users/${encodeURIComponent(roleFixture.userId)}/enable`,
-			{ method: "POST" },
-		);
-		expect(
-			enable.ok,
-			"final reconciliation: re-enabling the fixture account must succeed (an unresolved disabled state is a reported failure, never a silent leftover)",
-		).toBe(true);
-		const reRead = nativeItemOf(await getUser(admin, roleFixture.userId));
-		expect(
-			reRead?.disabled,
-			"final reconciliation: the fixture account must be VERIFIED re-enabled by re-read",
-		).toBe(false);
+	const fixtureUserId = roleFixture.userId;
+	const originalRole = roleFixtureOriginalRole as NativeRoleLevel;
+	const failures: string[] = [];
+
+	// --- Disabled state: repair by OBSERVED state. `undefined` (unread or
+	// uncertain) is treated like `true` — the enable attempt is always safe
+	// (an idempotent supported operation on the test-owned account) and is
+	// never skipped, so an uncertain commit cannot silently strand a disabled
+	// account (F2).
+	let disabledObserved: boolean | undefined;
+	try {
+		const observed = nativeItemOf(await getUser(admin, fixtureUserId));
+		disabledObserved = typeof observed?.disabled === "boolean" ? observed.disabled : undefined;
+	} catch {
+		disabledObserved = undefined;
 	}
-	const roleAfter = nativeItemOf(await getUser(admin, roleFixture.userId))?.role;
-	expect(
-		roleAfter,
-		"final reconciliation: the fixture account must be back at its original native role (verified by re-read, not by the restore request alone)",
-	).toBe(roleFixtureOriginalRole);
-	const live = await getMe(roleFixture);
-	expect(
-		live.ok,
-		"final reconciliation: the fixture credential must be live again after reconciliation",
-	).toBe(true);
+	if (disabledObserved !== false) {
+		try {
+			const enable = await cmsRequest(
+				admin,
+				`/_emdash/api/admin/users/${encodeURIComponent(fixtureUserId)}/enable`,
+				{ method: "POST" },
+			);
+			if (!enable.ok) {
+				failures.push(`enable request refused (${nativeRefusalOf(enable)})`);
+			}
+			const reRead = nativeItemOf(await getUser(admin, fixtureUserId));
+			if (reRead?.disabled !== false) {
+				failures.push(
+					`disabled state not verified false by re-read (observed ${String(reRead?.disabled)})`,
+				);
+			}
+		} catch (cause) {
+			failures.push(`enable/verify attempt failed: ${cause instanceof Error ? cause.message : String(cause)}`);
+		}
+	}
+
+	// --- Role: REPAIR to the captured original through the supported users
+	// operation, then verify — not merely assert — the original is back (F2).
+	try {
+		const current = nativeItemOf(await getUser(admin, fixtureUserId));
+		const currentRole = typeof current?.role === "number" ? current.role : undefined;
+		if (currentRole !== originalRole) {
+			const restore = await setUserRole(admin, fixtureUserId, originalRole);
+			if (!restore.ok) {
+				failures.push(
+					`role restore to ${nativeRoleName(originalRole)} refused (${nativeRefusalOf(restore)})`,
+				);
+			}
+		}
+		const afterAdmin = nativeItemOf(await getUser(admin, fixtureUserId));
+		const afterRole = typeof afterAdmin?.role === "number" ? afterAdmin.role : undefined;
+		if (afterRole !== originalRole) {
+			failures.push(
+				`role not verified back at ${nativeRoleName(originalRole)} by administrative re-read (observed ${
+					afterRole === undefined ? "unknown" : nativeRoleName(afterRole)
+				})`,
+			);
+		}
+	} catch (cause) {
+		failures.push(`role repair/verify attempt failed: ${cause instanceof Error ? cause.message : String(cause)}`);
+	}
+
+	// --- Live credential: the same PAT must verify at the original role
+	// through the supported /auth/me envelope — `data.role`, NOT `data.item`
+	// (corrective round 1, F1: /auth/me carries its identity in `data`
+	// directly; reading `data.item.role` could never verify).
+	try {
+		const live = await getMe(roleFixture);
+		const liveRoleValue = nativeDataOf(live)?.role;
+		const liveRole = typeof liveRoleValue === "number" ? liveRoleValue : undefined;
+		if (!live.ok || liveRole !== originalRole) {
+			failures.push(
+				`live credential did not verify at ${nativeRoleName(originalRole)} via /auth/me (${
+					live.ok
+						? `observed ${liveRole === undefined ? "unknown" : nativeRoleName(liveRole)}`
+						: nativeRefusalOf(live)
+				})`,
+			);
+		}
+	} catch (cause) {
+		failures.push(`live credential verification failed: ${cause instanceof Error ? cause.message : String(cause)}`);
+	}
+
+	if (failures.length > 0) {
+		throw new Error(
+			`fixture-account reconciliation unresolved after all attempts: ${failures.join("; ")}`,
+		);
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -679,61 +759,100 @@ test.beforeAll(async () => {
 
 test.afterEach(async () => {
 	// Partial-setup guard: beforeAll creates no owned fixtures, so actors
-	// that never finished bootstrapping have nothing to reconcile.
+	// that never finished bootstrapping have nothing to reconcile. Each
+	// cleanup runs INDEPENDENTLY (corrective round 1, F2): an earlier
+	// failure is recorded and the remaining cleanups still attempted, with
+	// the combined failures reported only after all attempts.
+	const failures: string[] = [];
 	if (roleFixture !== undefined) {
 		// The fixture account's registry defines WHAT may be touched; the
 		// development Administrator (assertSameNativeApp-enforced) supplies
 		// the deletion authority, since the fixture's original role may be
 		// below the trash/purge minimums.
-		const report = await cleanupOwnedFixtures(roleFixture, {
-			adminActor: admin,
-			permanent: true,
-		});
-		console.log(
-			`[cms-lifecycle] role-fixture owned-fixture cleanup after test: ${
-				report.complete ? "complete" : "UNRESOLVED"
-			} (entries attempted ${report.entries.length}, media attempted ${report.media.length})`,
-		);
-		expect(
-			report.complete,
-			"every owned synthetic fixture created by the role fixture must be proven resolved",
-		).toBe(true);
+		try {
+			const report = await cleanupOwnedFixtures(roleFixture, {
+				adminActor: admin,
+				permanent: true,
+			});
+			console.log(
+				`[cms-lifecycle] role-fixture owned-fixture cleanup after test: ${
+					report.complete ? "complete" : "UNRESOLVED"
+				} (entries attempted ${report.entries.length}, media attempted ${report.media.length})`,
+			);
+			expect(
+				report.complete,
+				"every owned synthetic fixture created by the role fixture must be proven resolved",
+			).toBe(true);
+		} catch (cause) {
+			failures.push(`role-fixture cleanup: ${cause instanceof Error ? cause.message : String(cause)}`);
+		}
 	}
 	if (admin !== undefined) {
-		const report = await cleanupOwnedFixtures(admin, { permanent: true });
-		console.log(
-			`[cms-lifecycle] admin owned-fixture cleanup after test: ${
-				report.complete ? "complete" : "UNRESOLVED"
-			} (entries attempted ${report.entries.length}, media attempted ${report.media.length})`,
-		);
-		expect(
-			report.complete,
-			"every owned synthetic fixture created by this test must be proven resolved (unresolved cleanup is a reported failure, not a silent leftover)",
-		).toBe(true);
+		try {
+			const report = await cleanupOwnedFixtures(admin, { permanent: true });
+			console.log(
+				`[cms-lifecycle] admin owned-fixture cleanup after test: ${
+					report.complete ? "complete" : "UNRESOLVED"
+				} (entries attempted ${report.entries.length}, media attempted ${report.media.length})`,
+			);
+			expect(
+				report.complete,
+				"every owned synthetic fixture created by this test must be proven resolved (unresolved cleanup is a reported failure, not a silent leftover)",
+			).toBe(true);
+		} catch (cause) {
+			failures.push(`admin cleanup: ${cause instanceof Error ? cause.message : String(cause)}`);
+		}
+	}
+	if (failures.length > 0) {
+		throw new Error(`afterTest cleanup failures after all attempts: ${failures.join("; ")}`);
 	}
 });
 
 test.afterAll(async () => {
-	// Safety net: normally a no-op (afterEach resolved everything); anything
-	// still registered is retried and reported truthfully.
+	// Safety net: normally a no-op (afterEach resolved everything). Every
+	// reconciliation attempt runs INDEPENDENTLY — role-fixture cleanup, admin
+	// cleanup, then the fixture-account state — so a failed cleanup assertion
+	// can never prevent the account reconciliation (corrective round 1, F2);
+	// the combined failures are reported only after ALL attempts.
+	const failures: string[] = [];
 	if (roleFixture !== undefined) {
-		const report = await cleanupOwnedFixtures(roleFixture, {
-			adminActor: admin,
-			permanent: true,
-		});
-		expect(report.complete, "the final role-fixture cleanup must leave zero unresolved owned fixtures").toBe(
-			true,
-		);
+		try {
+			const report = await cleanupOwnedFixtures(roleFixture, {
+				adminActor: admin,
+				permanent: true,
+			});
+			expect(
+				report.complete,
+				"the final role-fixture cleanup must leave zero unresolved owned fixtures",
+			).toBe(true);
+		} catch (cause) {
+			failures.push(`role-fixture cleanup: ${cause instanceof Error ? cause.message : String(cause)}`);
+		}
 	}
 	if (admin !== undefined) {
-		const report = await cleanupOwnedFixtures(admin, { permanent: true });
-		expect(report.complete, "the final admin cleanup must leave zero unresolved owned fixtures").toBe(
-			true,
-		);
+		try {
+			const report = await cleanupOwnedFixtures(admin, { permanent: true });
+			expect(
+				report.complete,
+				"the final admin cleanup must leave zero unresolved owned fixtures",
+			).toBe(true);
+		} catch (cause) {
+			failures.push(`admin cleanup: ${cause instanceof Error ? cause.message : String(cause)}`);
+		}
 	}
-	// Reconcile the possibly-mutated fixture account (role/disabled state)
-	// by re-read, so an interrupted phase cannot strand it silently.
-	await reconcileFixtureAccountState();
+	// Reconcile the possibly-mutated fixture account (disabled state and role,
+	// repaired to the captured original and verified by re-read) so an
+	// interrupted phase cannot strand it silently.
+	if (roleFixture !== undefined && roleFixtureOriginalRole !== undefined) {
+		try {
+			await reconcileFixtureAccountState();
+		} catch (cause) {
+			failures.push(`fixture-account reconciliation: ${cause instanceof Error ? cause.message : String(cause)}`);
+		}
+	}
+	if (failures.length > 0) {
+		throw new Error(`afterAll reconciliation failures after all attempts: ${failures.join("; ")}`);
+	}
 });
 
 // ---------------------------------------------------------------------------
@@ -1069,9 +1188,6 @@ test("administrator: permanent content deletion is trash-first and administrator
 test("disabled account: direct requests are refused by the authorization layer, and restoration is verified by re-read", async () => {
 	const fixture = gateRoleFixture();
 	gatePages();
-	// The original role captured before the phase, for the typed restoration
-	// check below (never an undefined-against-undefined coincidence).
-	const originalRole = roleFixtureOriginalRole;
 
 	// The fixture account must start enabled (its verified live /auth/me in
 	// beforeAll already proved the credential works).
@@ -1092,8 +1208,13 @@ test("disabled account: direct requests are refused by the authorization layer, 
 	// read itself would be the 401) — the refusal under test is the request's.
 	const disabledPhaseControlRev = "authorization-layer-control";
 
-	let disableCommitted = false;
+	// The disable is marked ATTEMPTED before its request is sent, and the
+	// finally reconciles by OBSERVED state — never by a committed flag: a
+	// request that errors or loses its response after committing must still
+	// be reconciled (corrective round 1, F2).
+	let disableAttempted = false;
 	try {
+		disableAttempted = true;
 		const disable = await cmsRequest(
 			admin,
 			`/_emdash/api/admin/users/${encodeURIComponent(fixture.userId)}/disable`,
@@ -1103,7 +1224,6 @@ test("disabled account: direct requests are refused by the authorization layer, 
 			disable.ok,
 			"the supported native disable operation must succeed for the distinct test-owned fixture account (never the shared Administrator)",
 		).toBe(true);
-		disableCommitted = true;
 
 		const observed = nativeItemOf(await getUser(admin, fixture.userId));
 		expect(observed?.disabled, "the native user record must read back disabled").toBe(true);
@@ -1128,31 +1248,13 @@ test("disabled account: direct requests are refused by the authorization layer, 
 			"draft",
 		);
 	} finally {
-		if (disableCommitted) {
-			// Restoration is proven by RE-READS, never by the request alone:
-			// the enable request, the administrative user record, and the
-			// live credential's own /auth/me (same role as before the phase).
-			const enable = await cmsRequest(
-				admin,
-				`/_emdash/api/admin/users/${encodeURIComponent(fixture.userId)}/enable`,
-				{ method: "POST" },
-			);
-			expect(
-				enable.ok,
-				"re-enabling the fixture account must succeed (an unresolved disabled state is a reported failure, never a silent leftover)",
-			).toBe(true);
-			const reRead = nativeItemOf(await getUser(admin, fixture.userId));
-			expect(
-				reRead?.disabled,
-				"the fixture account must be VERIFIED re-enabled by re-read, not by the enable request alone",
-			).toBe(false);
-			const live = await getMe(fixture);
-			expect(
-				live.ok &&
-					typeof originalRole === "number" &&
-					nativeItemOf(live)?.role === originalRole,
-				"the fixture credential must be live again at its original native role (verified by live /auth/me re-read)",
-			).toBe(true);
+		if (disableAttempted) {
+			// State-driven restoration of the test-owned account: repairs the
+			// disabled state and any role drift back to the CAPTURED original,
+			// verifies everything by re-read (administrative record + live
+			// /auth/me at data.role), attempts every step, and reports any
+			// combined failures after all attempts (F1/F2).
+			await reconcileFixtureAccountState();
 		}
 	}
 });
@@ -1348,6 +1450,79 @@ test("scheduling: nothing is published before the scheduled time (bounded pre-du
 // Scheduling: actual native due-time execution (FR-023 / SC-006)
 // ---------------------------------------------------------------------------
 
+/** One bounded-observation sample of the scheduled entry's current state. */
+interface DueTimeSample {
+	/** Epoch ms when the sample was taken (after its preceding sleep). */
+	at: number;
+	/** The observed native lifecycle status, when the read succeeded. */
+	status?: string;
+}
+
+/** The bounded observation window the due-time case samples inside. */
+interface DueTimeWindow {
+	/** Epoch ms when the schedule request was initiated. */
+	commitAt: number;
+	/** Epoch ms the entry was scheduled for (the due instant). */
+	dueAt: number;
+	/** Epoch ms after which observation stops (due + budget). */
+	deadline: number;
+	/** The poll interval (one sleep may cross the deadline before its sample lands). */
+	pollIntervalMs: number;
+}
+
+/**
+ * Decide a due-time observation truthfully (corrective round 1, F3). The
+ * intended `publishedAt` alone does NOT prove the scheduler waited until
+ * due, so the decision is made from the OBSERVATION TIMELINE:
+ * - "accepted" — publication first observed at/after the due instant, with
+ *   every sample inside the observation window (each at/after the schedule
+ *   commit and not beyond deadline + one poll interval);
+ * - "rejected-early" — publication observed STRICTLY BEFORE the due instant:
+ *   a no-early-publication violation that must FAIL the case, never satisfy
+ *   it (the intended publishedAt of an early publication proves nothing);
+ * - "overdue" — the window exhausted without any publication observed: the
+ *   truthful native failure/overdue observation, also a failure;
+ * - "window-violation" — a sample outside the observation window, so the
+ *   timeline itself cannot be trusted to prove anything.
+ * Pure and synchronous; the read-only bounded observation loop below only
+ * records samples and defers every decision to this evaluator.
+ */
+function evaluateDueTimeObservation(
+	samples: readonly DueTimeSample[],
+	window: DueTimeWindow,
+): { outcome: "accepted" | "rejected-early" | "overdue" | "window-violation"; detail: string } {
+	const windowSlack = window.pollIntervalMs;
+	const at = (instant: number): string => `+${Math.round((instant - window.commitAt) / 100) / 10}s from commit`;
+	for (const sample of samples) {
+		if (sample.at < window.commitAt || sample.at > window.deadline + windowSlack) {
+			return {
+				outcome: "window-violation",
+				detail: `sample at ${at(sample.at)} falls outside the observation window [commit, deadline + one poll interval] — the timeline cannot prove the publication waited until due`,
+			};
+		}
+		if (sample.status === "published") {
+			if (sample.at < window.dueAt) {
+				return {
+					outcome: "rejected-early",
+					detail: `publication observed at ${at(sample.at)}, STRICTLY BEFORE the due instant ${at(window.dueAt)} — a no-early-publication violation that never satisfies this case`,
+				};
+			}
+			return {
+				outcome: "accepted",
+				detail: `publication observed at ${at(sample.at)}, at/after the due instant ${at(window.dueAt)}, with all samples inside the observation window`,
+			};
+		}
+	}
+	const lastSample = samples.at(-1);
+	return {
+		outcome: "overdue",
+		detail:
+			samples.length === 0
+				? "no sample was taken inside the observation window"
+				: `no publication observed by the deadline; last sample at ${at(lastSample!.at)} observed status "${String(lastSample!.status ?? "unknown")}"`,
+	};
+}
+
 test("scheduling: the native scheduler publishes at the due time (bounded observation, current-state assertion)", async () => {
 	gatePages();
 	// The budget exceeds the verified ≤60 s native sweep cadence by a wide
@@ -1363,7 +1538,8 @@ test("scheduling: the native scheduler publishes at the due time (bounded observ
 	});
 	expect(draft.result.ok, "the due-time fixture must save").toBe(true);
 
-	const dueAt = Date.now() + DUE_TIME_OFFSET_MS;
+	const commitAt = Date.now();
+	const dueAt = commitAt + DUE_TIME_OFFSET_MS;
 	const scheduledFor = isoWithBangkokOffset(new Date(dueAt));
 	const scheduled = await scheduleEntry(admin, PAGES_COLLECTION, draft.entryId!, scheduledFor);
 	expect(scheduled.ok, "the short-future explicit-offset schedule must be accepted").toBe(true);
@@ -1372,12 +1548,13 @@ test("scheduling: the native scheduler publishes at the due time (bounded observ
 		Date.parse(scheduledFor),
 	);
 
-	// Bounded observation: poll current state until published or budget
-	// exhausted. Reads only — a failed or overdue publication is NOT a
-	// success case and FAILS below with its observed state rendered.
+	// Bounded observation: poll current state, recording each sample with its
+	// timestamp, until the deadline. Reads only — no retry, no substitution;
+	// the decision (including REJECTING a publication observed before the due
+	// instant) is made by the evaluator below from the recorded timeline.
 	const deadline = dueAt + DUE_TIME_OBSERVATION_BUDGET_MS;
-	let lastObserved: Record<string, unknown> | undefined;
-	let publishedItem: Record<string, unknown> | undefined;
+	const samples: DueTimeSample[] = [];
+	let lastItem: Record<string, unknown> | undefined;
 	while (Date.now() < deadline) {
 		await sleep(DUE_TIME_POLL_INTERVAL_MS);
 		const read = await readEntry(admin, PAGES_COLLECTION, draft.entryId!);
@@ -1385,33 +1562,35 @@ test("scheduling: the native scheduler publishes at the due time (bounded observ
 			read.ok,
 			"each observation sample must read the entry successfully (a read failure is a reported failure, never skipped)",
 		).toBe(true);
-		lastObserved = nativeItemOf(read);
-		if (statusOfItem(lastObserved) === "published") {
-			publishedItem = lastObserved;
-			break;
-		}
+		lastItem = nativeItemOf(read);
+		samples.push({ at: Date.now(), status: statusOfItem(lastItem) });
 	}
 
-	const overdueRendering =
-		lastObserved === undefined
-			? "no sample was taken"
-			: `observed native status "${String(statusOfItem(lastObserved) ?? "unknown")}" with scheduledAt "${String(
-					lastObserved.scheduledAt ?? "absent",
-				)}" still recorded`;
+	const verdict = evaluateDueTimeObservation(samples, {
+		commitAt,
+		dueAt,
+		deadline,
+		pollIntervalMs: DUE_TIME_POLL_INTERVAL_MS,
+	});
 	expect(
-		publishedItem !== undefined,
-		`the native scheduler must publish the entry at the due time within the bounded observation (failed or overdue publication never satisfies this case; ${overdueRendering})`,
+		verdict.outcome === "accepted",
+		`the native scheduler must publish the entry at the due time within the bounded observation — ${verdict.outcome}: ${verdict.detail}`,
 	).toBe(true);
 
-	// The current-state publication assertion: published, the scheduled time
-	// cleared, and the FIRST scheduled publication recording the intended
-	// scheduled time as publishedAt (the pinned scheduler behavior).
+	// The current-state publication assertion on the accepted sample's item:
+	// published, the scheduled time cleared, and the FIRST scheduled
+	// publication recording the intended scheduled time as publishedAt (the
+	// pinned scheduler behavior).
 	expect(
-		instantOf(publishedItem?.scheduledAt),
+		instantOf(lastItem?.scheduledAt),
 		"a completed due-time publication must clear the scheduled time",
 	).toBeNull();
 	expect(
-		instantOf(publishedItem?.publishedAt),
+		instantOf(lastItem?.publishedAt),
 		"the first scheduled publication must record the INTENDED scheduled time as publishedAt (not the sweep time)",
 	).toBe(Date.parse(scheduledFor));
+	expect(
+		statusOfItem(lastItem),
+		"the accepted observation must be the published current state",
+	).toBe("published");
 });
