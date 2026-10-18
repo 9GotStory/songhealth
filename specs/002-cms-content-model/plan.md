@@ -20,6 +20,17 @@ see [quickstart.md](quickstart.md) and the [README](../../README.md)) without ch
 approved Product Model, native-only CMS architecture, verification design or the Production
 design.
 
+**Single-runtime test-architecture correction (2026-10-19; pending independent
+review):** the Product Owner reaffirmed that all integration checks share the
+one persistent Astro/EmDash server, PostgreSQL and media. T021's earlier
+standalone programmatic-`dev()` harness is incompatible with this boundary and
+must not be implemented. A development-only SSR fixture may be registered in
+the **existing** server only after pinned-version feasibility, production
+exclusion, runtime source identity and separately authorized controller-compatible
+source/config maintenance are verified; the test coordinator never starts
+another app. This operational reconciliation changes no native CMS/Product
+requirements and does not authorize source promotion, restart or T022 execution.
+
 ## Summary
 
 Extend the canonical platform with native semantic collections, classifications,
