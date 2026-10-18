@@ -120,17 +120,49 @@
 //   handleContentUpdate), so an omitted references key on update leaves the
 //   selection unchanged while an explicit empty array is an invalid clear
 //   that validation refuses for a required field
-// - publication recheck (src/api/handlers/content.ts handleContentPublish):
+// - publication recheck (src/api/handlers/content.ts handleContentPublish;
+//   src/api/handlers/staged-references.ts validateStagedReferences):
 //   before the publishing statement, `validateStagedReferences` revalidates
-//   the staged selection's requiredness/cardinality and
+//   the effective selection's requiredness/cardinality and
 //   `applyStagedReferences` promotes it — native publication rechecks run on
-//   every publish of a revision-supporting collection; a natively valid
-//   selection with optional omissions publishes without any Songhealth
-//   predicate. Schedule acceptance (`schedule()` repository call) applies
-//   native role/time/entry checks and does NOT run the reference predicate —
-//   the editorial contract's "Schedule retains its actual native action
-//   semantics"; `contentScheduleBody` requires ISO 8601 with Z or an explicit
-//   offset and the repository refuses a non-future time
+//   every publish of a revision-supporting collection. For a bound field with
+//   NOTHING staged, the effective selection falls back to the field's
+//   CURRENT LIVE edges (`groups ??= await liveFieldSelection(...)`), so the
+//   recheck also guards live selections emptied by later target mutation —
+//   the basis of the required-boundary case below (corrective round 1, F1).
+//   A natively valid selection with optional omissions publishes without any
+//   Songhealth predicate. Re-publishing an already-published entry is a
+//   supported native operation that preserves the existing `published_at`
+//   (publish route/repository). NO over-limit publication refusal is claimed
+//   anywhere in this file: an over-limit selection cannot be staged through
+//   the supported API in the first place, and no negative cardinality
+//   outcome is fabricated
+// - schedule semantics (src/api/handlers/content.ts handleContentSchedule;
+//   src/database/repositories/content.ts schedule()): handleContentSchedule
+//   performs routable-slug and role/time/entry checks only — NO reference
+//   validation exists anywhere in its path (the editorial contract's
+//   "Schedule retains its actual native action semantics"); the repository
+//   `schedule()` sets status "scheduled" for UNPUBLISHED entries but
+//   PRESERVES "published" for already-published ones (the schedule applies
+//   to the pending draft; FR-023's live-until-update-success boundary),
+//   refuses a non-future time, and `contentScheduleBody` requires ISO 8601
+//   with Z or an explicit offset. DELETE …/schedule unschedules with
+//   published staying published
+// - permanent target purge (src/api/handlers/content.ts
+//   handleContentPermanentDelete): trash-first, and when the row is the last
+//   of its translation group (trashed rows included) the group's live
+//   reference edges are cleared BEFORE the row goes
+//   (clearReferencesForGroup) — the authorized route by which a sole
+//   required Document target can leave a published Report's live selection
+//   empty. The trash (DELETE …/{id}) and purge (DELETE …/{id}/permanent)
+//   carry no published-consumer veto (no custom D-REF refusal exists)
+// - read overlay for drafts-reading callers (src/emdash-runtime.ts
+//   hydrateDraftData, applied by the runtime's handleContentGet/Update): an
+//   item with a draftRevisionId returns `data` = the STAGED draft revision's
+//   data and exposes the published values as `liveData`; the REST GET strips
+//   those members only for callers WITHOUT content:read_drafts. This is the
+//   exact staged/live distinction the successor-domain-status assertions
+//   rely on (corrective round 1, F3)
 // - relation children read-back: GET
 //   /_emdash/api/content/{collection}/{id}/references/{relation}/children →
 //   `data { children: [{ id, slug, collection, title, … }], nextCursor? }`;
@@ -144,8 +176,12 @@
 // - content listing: GET /_emdash/api/content/{collection}?q=<text>&status=all
 //   (content:read; `q` searches the display fields; `status=all` lists every
 //   status for callers with content:read_drafts) → `data { items: […] }` —
-//   used below only to prove reuse created no duplicate Document/media
-//   records, by exact unique synthetic fixture title/filename
+//   used below only to prove reuse created no duplicate Document records, by
+//   exact unique synthetic fixture title. The parallel MEDIA duplicate check
+//   lists GET /_emdash/api/media?q=<filename> (mediaListQuery,
+//   cursor-paginated, `nextCursor` present only while more pages remain) and
+//   traverses it to EXPLICIT cursor exhaustion before asserting the full
+//   result set equals the original asset (corrective round 1, F2)
 // - media metadata (src/api/schemas/media.ts; src/astro/routes/api/media/
 //   [id].ts): the media item carries `{ id, filename, mimeType, size, width,
 //   height, focalX, focalY, alt, caption, storageKey, status, contentHash,
@@ -195,7 +231,10 @@
 //   schema, so every Report/Service-dependent check SKIPS explicitly on that
 //   missing-schema precondition — a skip is not a failure and never PASS;
 //   actually running these checks against an applied schema is T018's
-//   verification join, not claimed here
+//   verification join, not claimed here. The corrective-round-1 required
+//   publication-boundary lifecycle case (trash → administrator purge →
+//   refused re-Publish → predicate-free Schedule acceptance) is AUTHORED for
+//   T018 and is NOT executed at authoring time
 // - the actor is the pre-existing development credential's Administrator
 //   fixture (dev@emdash.local, role 50), loaded from its controller-format
 //   mode-0600 JSON through the accepted T013 test-authentication adaptation
@@ -246,10 +285,12 @@ import {
 	nativeItemOf,
 	nativeItemsOf,
 	NATIVE_ROLES,
+	permanentlyDeleteEntry,
 	publishEntry,
 	readEntry,
 	readMedia,
 	scheduleEntry,
+	trashEntry,
 	unscheduleEntry,
 	updateEntry,
 	uploadSyntheticMedia,
@@ -425,12 +466,21 @@ async function createOwnedDocument(): Promise<{
 		created.entryId,
 		"the Document id must come from the native response",
 	).toBeTruthy();
+	// The returned filename is REQUIRED, not optional (corrective round 1,
+	// finding F2): it is the exact identity the zero-duplicate media check
+	// lists by, and an absent filename must fail loudly rather than silently
+	// bypass that check.
 	const filename = nativeItemOf(upload.result)?.filename;
+	if (typeof filename !== "string" || filename.length === 0) {
+		throw new Error(
+			"the media upload response must carry the fixture's non-empty native filename (the identity the zero-duplicate media check lists by)",
+		);
+	}
 	return {
 		entryId: created.entryId!,
 		mediaId: upload.mediaId!,
 		title,
-		filename: typeof filename === "string" ? filename : "",
+		filename,
 	};
 }
 
@@ -902,26 +952,65 @@ test("shared identity: one Document and its native file are selected unchanged f
 	).toBe(source.mediaId);
 
 	// Zero duplicates: the marker-unique title still lists exactly ONE
-	// Document, and the marker-unique filename still lists exactly ONE media
-	// item — reuse created no context copies of either.
+	// Document, and no media asset other than the original upload exists
+	// anywhere in the library under the marker-unique fixture filename —
+	// reuse created no context copies of either (corrective round 1, F2: the
+	// media check traverses the filename-filtered native listing to EXPLICIT
+	// cursor exhaustion and asserts the FULL result set equals the original
+	// asset — no filter-before-count that could hide a copied asset under a
+	// different id, and no silent bypass when the shape is unexpected).
 	expect(
 		await countListedByQuery(DOCUMENT_COLLECTION, source.title),
 		"reuse across three contexts must not create any duplicate Document record",
 	).toBe(1);
-	if (source.filename.length > 0) {
-		const mediaListed = await cmsRequest(admin, "/_emdash/api/media", {
-			searchParams: { q: source.filename },
+	const listedMediaIds: string[] = [];
+	let mediaCursor: string | undefined;
+	let mediaPages = 0;
+	do {
+		const page = await cmsRequest(admin, "/_emdash/api/media", {
+			searchParams: {
+				q: source.filename,
+				limit: "100",
+				...(mediaCursor !== undefined ? { cursor: mediaCursor } : {}),
+			},
 		});
 		expect(
-			mediaListed.ok,
+			page.ok,
 			"the native media listing used for the duplicate check must succeed",
 		).toBe(true);
+		const pageData = nativeDataOf(page);
+		const items = pageData?.items;
 		expect(
-			nativeItemsOf(mediaListed).filter((item) => (item as { id?: unknown }).id === source.mediaId)
-				.length,
-			"reuse across three contexts must not create any additional upload of the same fixture file",
-		).toBe(1);
-	}
+			Array.isArray(items),
+			"the media listing must return its documented items array",
+		).toBe(true);
+		for (const item of items as Array<{ id?: unknown }>) {
+			expect(
+				typeof item?.id === "string",
+				"every listed media item must carry its native id",
+			).toBe(true);
+			listedMediaIds.push(item.id as string);
+		}
+		const nextCursor: unknown = pageData?.nextCursor;
+		expect(
+			nextCursor === undefined || (typeof nextCursor === "string" && nextCursor.length > 0),
+			"the media listing pagination must follow its documented nextCursor contract (absent, or a non-empty string while more pages remain)",
+		).toBe(true);
+		mediaCursor = typeof nextCursor === "string" ? nextCursor : undefined;
+		mediaPages += 1;
+		expect(
+			mediaPages <= 50,
+			"the filename-filtered media listing must exhaust within a bounded page budget",
+		).toBe(true);
+	} while (mediaCursor !== undefined);
+	expect(
+		listedMediaIds.length,
+		"the exhausted filename-filtered media library must contain exactly one asset for the fixture file (no duplicate uploads from reuse)",
+	).toBe(1);
+	expect(
+		listedMediaIds[0],
+		"the single matching asset must be the original uploaded media id",
+	).toBe(source.mediaId);
 });
 
 // ---------------------------------------------------------------------------
@@ -1207,6 +1296,10 @@ test("document successor: domain status and successor identity stay distinct fro
 		"an expired domain status must NOT change editorial state: the Document remains a draft",
 	).toBe("draft");
 	expect(
+		(nativeItemOf(reopened)?.data as { domain_status?: unknown } | undefined)?.domain_status,
+		"the supplied domain_status=expired must read back exactly (domain context is stored editorial data, correctively asserted per F3)",
+	).toBe("expired");
+	expect(
 		await selectedChildIds(DOCUMENT_COLLECTION, predecessor.entryId!, SUCCESSOR_RELATION.relation),
 		"the successor selection must read back exactly the selected successor identity",
 	).toEqual([successor.entryId]);
@@ -1218,6 +1311,11 @@ test("document successor: domain status and successor identity stay distinct fro
 	expect(
 		published.ok,
 		"publishing the successor Document must succeed under native authority",
+	).toBe(true);
+	const capturedPublishedAt = nativeItemOf(published)?.publishedAt;
+	expect(
+		typeof capturedPublishedAt === "string" && capturedPublishedAt.length > 0,
+		"the initial publish must return a native publishedAt for the exact pre-edit comparison",
 	).toBe(true);
 	const superseded = await updateEntry(admin, DOCUMENT_COLLECTION, successor.entryId!, {
 		data: { domain_status: "superseded" },
@@ -1234,9 +1332,22 @@ test("document successor: domain status and successor identity stay distinct fro
 		"a superseded domain status must NOT automatically unpublish: the Document remains published",
 	).toBe("published");
 	expect(
-		typeof supersededItem?.publishedAt === "string" && supersededItem.publishedAt.length > 0,
-		"the native publishedAt must remain recorded after the domain-context edit",
+		supersededItem?.publishedAt,
+		"the domain-context edit must not alter the recorded publication time (exact captured pre-edit value)",
+	).toBe(capturedPublishedAt);
+	expect(
+		(supersededItem?.data as { domain_status?: unknown } | undefined)?.domain_status,
+		"the supplied domain_status=superseded must read back exactly in the staged draft data a drafts-reading caller sees (correctively asserted per F3)",
+	).toBe("superseded");
+	const supersededLive = (supersededItem as { liveData?: unknown } | undefined)?.liveData;
+	expect(
+		supersededLive !== null && typeof supersededLive === "object",
+		"the drafts-reading read-back must expose the published values as liveData alongside the staged draft (pinned hydrateDraftData overlay)",
 	).toBe(true);
+	expect(
+		(supersededLive as { domain_status?: unknown } | undefined)?.domain_status,
+		"the published values exposed as liveData must still carry no domain status (staged domain context and live publication data remain separate)",
+	).toBeUndefined();
 });
 
 // ---------------------------------------------------------------------------
@@ -1417,6 +1528,15 @@ test("publication: native Publish accepts valid incomplete reports and multi-Doc
 	gateCollection(DOCUMENT_COLLECTION, "T005/T006");
 	gateCollection(ANNOUNCEMENT_COLLECTION, "T011/T013");
 	gateCollection(REPORT_COLLECTION, "T016/T017");
+	// COVERAGE SCOPE (corrective round 1, finding F1): this test exercises
+	// the publication recheck's ACCEPTANCE side — a valid required selection
+	// with every optional omission, and a VALID many-side two-Document
+	// cardinality. It deliberately claims NO over-limit publication refusal:
+	// an over-limit selection cannot be staged through the supported native
+	// API in the first place (save/update refuse it), so no negative
+	// cardinality outcome is fabricated here. The actually exercised
+	// publication REFUSAL — the emptied REQUIRED selection boundary — is the
+	// dedicated test after the schedule check below.
 	const source = await createOwnedDocument();
 	const secondDocument = await createOwnedDocument();
 
@@ -1542,6 +1662,154 @@ test("schedule: a valid incomplete report schedules under native semantics with 
 		unscheduled.ok,
 		"the owned schedule must be clearable through the native endpoint before cleanup",
 	).toBe(true);
+});
+
+// ---------------------------------------------------------------------------
+// Required publication boundary (corrective round 1, finding F1): the case
+// that actually DISTINGUISHES "Publish enforces required references" from
+// "Schedule acquires the reference predicate the contract excludes". The
+// route is fully supported-native and source-verified in pinned 1.1.0:
+// authorized trash + administrator trash-first purge of the sole owned
+// Document clears its translation group's live reference edges
+// (handleContentPermanentDelete → clearReferencesForGroup, last-of-group,
+// edges before row); with no pending replacement selection staged, the next
+// Publish re-validates requiredness against the CURRENT LIVE edges
+// (validateStagedReferences falls back to liveFieldSelection for unstaged
+// fields) and must refuse the emptied required selection, while
+// handleContentSchedule applies role/time/entry checks only — no reference
+// validation exists anywhere in its path. Authored for T018's runtime
+// verification join; not executed at authoring time.
+// ---------------------------------------------------------------------------
+
+test("publication boundary: an emptied required selection refuses re-Publish while Schedule acceptance applies no reference predicate", async () => {
+	gateCollection(DOCUMENT_COLLECTION, "T005/T006");
+	gateCollection(REPORT_COLLECTION, "T016/T017");
+	const source = await createOwnedDocument();
+
+	// A valid Report with its required selection, published — the starting
+	// state whose required boundary the rest of this check empties through
+	// entirely authorized, entirely native operations (no schema mutation,
+	// no custom veto, no fabricated state).
+	const report = await createSyntheticEntry(admin, REPORT_COLLECTION, {
+		data: { title: uniqueTitle(REPORT_COLLECTION) },
+		references: { [REPORT_DOCUMENT_RELATION.field]: [source.entryId] },
+	});
+	expect(report.result.ok, "the valid report fixture must save").toBe(true);
+	const published = await publishEntry(admin, REPORT_COLLECTION, report.entryId!);
+	expect(published.ok, "the initial publish must succeed").toBe(true);
+	expect(
+		await selectedChildIds(REPORT_COLLECTION, report.entryId!, REPORT_DOCUMENT_RELATION.relation),
+		"the required selection must be live after the initial publication",
+	).toEqual([source.entryId]);
+
+	// Authorized maintenance taken to completion: trash the sole owned
+	// Document, then purge it. The purge is the native administrator-only,
+	// trash-first permanent deletion; the pinned last-of-group path clears
+	// the live edges before the row goes, emptying the published Report's
+	// required selection. This simultaneously exercises the required-target
+	// maintenance boundary the optional Announcement trash case cannot.
+	const trashed = await trashEntry(admin, DOCUMENT_COLLECTION, source.entryId);
+	expect(
+		trashed.ok,
+		"authorized target trash must be accepted (no custom D-REF veto exists)",
+	).toBe(true);
+	const purged = await permanentlyDeleteEntry(admin, DOCUMENT_COLLECTION, source.entryId);
+	expect(
+		purged.ok,
+		"the authorized administrator purge (trash-first precondition satisfied) must be accepted, clearing the last-of-group live edges",
+	).toBe(true);
+
+	// Current state, observed truthfully: the required selection is now empty.
+	expect(
+		await selectedChildIds(REPORT_COLLECTION, report.entryId!, REPORT_DOCUMENT_RELATION.relation),
+		"the purged target must leave the required live selection empty",
+	).toEqual([]);
+
+	// THE distinguishing publication assertion: with no pending replacement
+	// selection staged, native Publish re-validates requiredness against the
+	// now-empty effective selection and REFUSES. This assertion fails if
+	// Publish stops enforcing required references. Exact family per the
+	// pinned source: 400 VALIDATION_ERROR (distinguishable from 401/403/409),
+	// naming the emptied required field. publishEntry supplies the fresh
+	// `_rev` precondition.
+	const refused = await publishEntry(admin, REPORT_COLLECTION, report.entryId!);
+	expectValidationRefusal(
+		refused,
+		"re-Publish of a published Report whose required selection was emptied by the authorized target purge",
+	);
+	const refusalError = refused.body as { error?: { message?: unknown } };
+	expect(
+		typeof refusalError?.error?.message === "string" &&
+			refusalError.error.message.includes(REPORT_DOCUMENT_RELATION.field),
+		"the publish refusal must name the emptied required field",
+	).toBe(true);
+
+	// Refused-state re-read (fresh native state, never the response alone):
+	// the entry is unchanged — still published (the refusal published
+	// nothing new), selection still empty.
+	const afterRefusal = await readEntry(admin, REPORT_COLLECTION, report.entryId!);
+	expect(
+		afterRefusal.ok,
+		"the report must remain readable after the refused re-publish",
+	).toBe(true);
+	expect(
+		nativeItemOf(afterRefusal)?.status,
+		"the refused re-publish must not change editorial state",
+	).toBe("published");
+	expect(
+		await selectedChildIds(REPORT_COLLECTION, report.entryId!, REPORT_DOCUMENT_RELATION.relation),
+		"the refused re-publish must not resurrect the purged selection",
+	).toEqual([]);
+
+	// THE distinguishing schedule assertion: the same emptied required
+	// selection that Publish refused is ACCEPTED at schedule time —
+	// handleContentSchedule performs no reference validation. This assertion
+	// fails if Schedule acquires the reference predicate the contract
+	// excludes. Pinned status semantics: scheduling an already-published
+	// item PRESERVES `published` (the schedule applies to the pending draft;
+	// FR-023's live-until-update-success boundary).
+	const scheduledInstant = Date.now() + 60 * 60 * 1000;
+	const offsetScheduledAt = `${new Date(scheduledInstant + 7 * 60 * 60 * 1000)
+		.toISOString()
+		.slice(0, 19)}.000+07:00`;
+	const scheduled = await scheduleEntry(
+		admin,
+		REPORT_COLLECTION,
+		report.entryId!,
+		offsetScheduledAt,
+	);
+	expect(
+		scheduled.ok,
+		"native Schedule acceptance must apply no reference predicate (the emptied required selection is not a schedule-time refusal)",
+	).toBe(true);
+	const scheduledItem = nativeItemOf(scheduled);
+	expect(
+		scheduledItem?.status,
+		"scheduling an already-published item preserves the published status (the schedule applies to the pending draft)",
+	).toBe("published");
+	expect(
+		typeof scheduledItem?.scheduledAt === "string" &&
+			Math.abs(new Date(scheduledItem.scheduledAt).getTime() - scheduledInstant) < 1000,
+		"the schedule read-back must express the supplied future instant",
+	).toBe(true);
+	const scheduleError = scheduled.body as { error?: { code?: unknown } };
+	expect(
+		scheduleError?.error?.code,
+		"no custom policy-cancellation code may appear on a native schedule acceptance",
+	).toBeUndefined();
+
+	// Clear the schedule through the native endpoint so the owned fixture
+	// state is normalized before teardown (unscheduling preserves published).
+	const unscheduled = await unscheduleEntry(admin, REPORT_COLLECTION, report.entryId!);
+	expect(
+		unscheduled.ok,
+		"the owned schedule must be clearable through the native endpoint before cleanup",
+	).toBe(true);
+	const afterUnschedule = await readEntry(admin, REPORT_COLLECTION, report.entryId!);
+	expect(
+		nativeItemOf(afterUnschedule)?.status,
+		"unscheduling a published item must leave it published",
+	).toBe("published");
 });
 
 // ---------------------------------------------------------------------------
