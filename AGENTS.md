@@ -97,10 +97,11 @@ changes execution/review ownership only; task deliverables, gates, architecture 
   9GOTSTORY-232) supersedes the earlier native-host development workflow as the canonical
   development instructions; it does not change native-only CMS/Product meaning. Do not create or
   maintain a second development environment or development stack.
-- Development testing uses EmDash's native development-only bootstrap for programmatic
-  Admin/API access (documented in `README.md`: `POST /_emdash/api/setup/dev-bypass`,
-  development builds only). Never automate passkey login; production Admin authentication stays
-  the native passkey flow.
+- Programmatic Admin/API tests on the already-initialized shared application reuse
+  its existing development-scoped PAT via the approved mode-0600 loader. EmDash's native
+  development-only bootstrap (`POST /_emdash/api/setup/dev-bypass`) was an initial-setup
+  action, not a recurring test setup operation; do not re-run it on the shared runtime.
+  Never automate passkey login; production Admin authentication stays the native passkey flow.
 - Production deployment remains rootless Podman + systemd Quadlet
   (`docs/operations/production-foundation.md`); development tooling must not grow into a
   parallel production-like stack.
