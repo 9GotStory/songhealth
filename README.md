@@ -200,6 +200,45 @@ workspace checkouts; the shared runtime never consumes a new candidate implicitl
   controller approval/state records, or perform automatic checkout/rebase/restart of the stable
   worktree or the runtime.
 
+## Single-runtime design and test integration rule (2026-10-19)
+
+The Product Owner confirmed that the persistent development application is the **only**
+functional/integration-test server: one Astro/EmDash instance at
+`http://127.0.0.1:4322`, one PostgreSQL database, one media store. Separate task
+checkouts remain suitable for code editing and offline/static verification, but
+must not start a second server/stack to simulate runtime acceptance.
+
+- Browser/native API tests target the already-running shared origin. An occupied
+  port 4322 is normal. Do not kill/restart the shared application, launch another
+  Astro server, select an alternate port, or replace the development database/media.
+- Astro SSR native-query tests need the **same app's request context**. A development-only
+  test integration/route may be used only after its compatibility with pinned
+  Astro 7.3.5 / EmDash 1.1.0 is independently verified, its loopback/dev-only
+  access and production-build exclusion are proven, and its registration in the
+  persistent dev server has a separately accepted source/config maintenance plan.
+  The test runner orchestrates requests/owned fixtures; it must not invoke
+  programmatic `dev()` or spawn a second application server.
+- The stable runtime source remains independently pinned (currently
+  `6ab72780c1a531956acc3c06838c3028e10ad77d`). A Git merge or task-worktree
+  commit does not advance it. A missing test route, a source SHA mismatch, or
+  a required restart means **HOLD**, not an invitation to use a second server.
+  Source promotion, runtime configuration changes, and app restart are subject
+  to separate reviewed controller-compatible approval; routine verbs remain
+  only `status` / `verify`.
+- On the initialized shared app, reuse the existing mode-0600 development PAT
+  through `loadDevAccessToken()`/`createPatActor()`. The earlier dev-bypass
+  bootstrap instructions describe initial provisioning only: do **not** call
+  that setup endpoint again merely to run tests or rotate the working token.
+  Distinct test-owned role credentials remain a prerequisite where needed.
+- Exclude development-only test integrations/routes from normal and production
+  builds; do not persist a test page in production `src/pages/`, modify
+  canonical production integration/configuration, or expose privileged
+  private API data through a public test route. Unverified integration
+  feasibility or missing approval must be reported before implementation.
+
+Feature 002 T021/T022/T033 instructions must follow this rule; see
+`specs/002-cms-content-model/tasks.md` and its quickstart.
+
 ## Browser tests and the development origin
 
 Browser suites run under the pinned `@playwright/test` 1.63.0
