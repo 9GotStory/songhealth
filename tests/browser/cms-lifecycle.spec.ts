@@ -21,7 +21,17 @@
 // the recorded observation TIMELINE — a publication observed strictly before
 // the due instant is REJECTED as a no-early-publication violation instead of
 // satisfying the case, with every sample verified inside its observation
-// window (F3). No behavior beyond the authorized T019 scope.
+// window (F3). Corrective round 2 (findings R2-F2/R2-F3 on candidate
+// 7f942fc) further hardened: the disabled-account phase runs through
+// runPhaseWithRestoration so a restoration error can never REPLACE the
+// primary phase evidence (primary-only rethrown unchanged; both failures
+// reported together — R2-F2); and the pre-due case CLOCK-VALIDATES every
+// read and the unschedule against the due instant, reporting an overrun
+// honestly as inconclusive instead of mislabeling a correct at-due
+// publication as early, while the due-time evaluator validates the COMPLETE
+// collected timeline (any out-of-window sample, wherever it falls, is a
+// window violation) and the observation loop stops at the decisive published
+// sample (R2-F3). No behavior beyond the authorized T019 scope.
 //
 // Authority:
 // - specs/002-cms-content-model/tasks.md T019 ("Author native
@@ -673,6 +683,62 @@ async function reconcileFixtureAccountState(): Promise<void> {
 	}
 }
 
+/** Secret-free rendering of an arbitrary caught failure for reports. */
+function renderFailure(cause: unknown): string {
+	return cause instanceof Error ? cause.message : String(cause);
+}
+
+/**
+ * Run one mutation phase and ALWAYS run `restore` afterward (corrective
+ * round 2, R2-F2). Restoration failures must never REPLACE the primary
+ * phase evidence, so all four outcomes preserve it:
+ * - phase failure only → the ORIGINAL error is rethrown unchanged;
+ * - restoration failure only → the truthful restoration error is thrown;
+ * - both → ONE combined error carrying BOTH renderings, so a committed
+ *   mutation whose response was lost keeps its original evidence next to
+ *   the unresolved-restoration report;
+ * - neither → the phase's value is returned.
+ * `restore` itself is expected to attempt every reconciliation before
+ * throwing (see reconcileFixtureAccountState); secret safety relies on the
+ * T002 helpers' scrubbed messages plus this file's own assertion strings.
+ */
+async function runPhaseWithRestoration<T>(
+	phase: () => Promise<T>,
+	restore: () => Promise<void>,
+): Promise<T> {
+	let value: T | undefined;
+	let primaryFailure: unknown;
+	let primaryFailed = false;
+	try {
+		value = await phase();
+	} catch (cause) {
+		primaryFailed = true;
+		primaryFailure = cause;
+	}
+	let restorationFailure: unknown;
+	let restorationFailed = false;
+	try {
+		await restore();
+	} catch (cause) {
+		restorationFailed = true;
+		restorationFailure = cause;
+	}
+	if (primaryFailed && restorationFailed) {
+		throw new Error(
+			`phase failed AND its restoration is unresolved — primary failure: ${renderFailure(
+				primaryFailure,
+			)}; restoration: ${renderFailure(restorationFailure)}`,
+		);
+	}
+	if (restorationFailed) {
+		throw restorationFailure;
+	}
+	if (primaryFailed) {
+		throw primaryFailure;
+	}
+	return value as T;
+}
+
 // ---------------------------------------------------------------------------
 // Worker setup: development access, role-fixture prerequisite, schema reads
 // ---------------------------------------------------------------------------
@@ -1209,54 +1275,61 @@ test("disabled account: direct requests are refused by the authorization layer, 
 	const disabledPhaseControlRev = "authorization-layer-control";
 
 	// The disable is marked ATTEMPTED before its request is sent, and the
-	// finally reconciles by OBSERVED state — never by a committed flag: a
+	// restoration reconciles by OBSERVED state — never by a committed flag: a
 	// request that errors or loses its response after committing must still
-	// be reconciled (corrective round 1, F2).
+	// be reconciled (corrective round 1, F2). runPhaseWithRestoration keeps
+	// the PRIMARY failure evidence alongside any restoration failure instead
+	// of letting the restoration error replace it (corrective round 2,
+	// R2-F2).
 	let disableAttempted = false;
-	try {
-		disableAttempted = true;
-		const disable = await cmsRequest(
-			admin,
-			`/_emdash/api/admin/users/${encodeURIComponent(fixture.userId)}/disable`,
-			{ method: "POST" },
-		);
-		expect(
-			disable.ok,
-			"the supported native disable operation must succeed for the distinct test-owned fixture account (never the shared Administrator)",
-		).toBe(true);
+	await runPhaseWithRestoration(
+		async () => {
+			disableAttempted = true;
+			const disable = await cmsRequest(
+				admin,
+				`/_emdash/api/admin/users/${encodeURIComponent(fixture.userId)}/disable`,
+				{ method: "POST" },
+			);
+			expect(
+				disable.ok,
+				"the supported native disable operation must succeed for the distinct test-owned fixture account (never the shared Administrator)",
+			).toBe(true);
 
-		const observed = nativeItemOf(await getUser(admin, fixture.userId));
-		expect(observed?.disabled, "the native user record must read back disabled").toBe(true);
+			const observed = nativeItemOf(await getUser(admin, fixture.userId));
+			expect(observed?.disabled, "the native user record must read back disabled").toBe(true);
 
-		// The live credential: every request resolves the owning user record,
-		// so the disabled account's PAT is INVALID_TOKEN 401 — regardless of
-		// the account's role or the target's ownership (US6.7).
-		expectDisabledTokenRefusal(
-			await getMe(fixture),
-			"disabled account identity read",
-		);
-		expectDisabledTokenRefusal(
-			await publishEntry(fixture, PAGES_COLLECTION, target.entryId!, {
-				rev: disabledPhaseControlRev,
-			}),
-			"disabled account direct publish",
-		);
+			// The live credential: every request resolves the owning user record,
+			// so the disabled account's PAT is INVALID_TOKEN 401 — regardless of
+			// the account's role or the target's ownership (US6.7).
+			expectDisabledTokenRefusal(
+				await getMe(fixture),
+				"disabled account identity read",
+			);
+			expectDisabledTokenRefusal(
+				await publishEntry(fixture, PAGES_COLLECTION, target.entryId!, {
+					rev: disabledPhaseControlRev,
+				}),
+				"disabled account direct publish",
+			);
 
-		// The target was untouched by the refused request.
-		const targetIntact = statusOfItem(nativeItemOf(await readEntry(admin, PAGES_COLLECTION, target.entryId!)));
-		expect(targetIntact, "the refused disabled-account publish must leave the target a draft").toBe(
-			"draft",
-		);
-	} finally {
-		if (disableAttempted) {
+			// The target was untouched by the refused request.
+			const targetIntact = statusOfItem(nativeItemOf(await readEntry(admin, PAGES_COLLECTION, target.entryId!)));
+			expect(targetIntact, "the refused disabled-account publish must leave the target a draft").toBe(
+				"draft",
+			);
+		},
+		async () => {
+			if (!disableAttempted) {
+				return;
+			}
 			// State-driven restoration of the test-owned account: repairs the
 			// disabled state and any role drift back to the CAPTURED original,
 			// verifies everything by re-read (administrative record + live
 			// /auth/me at data.role), attempts every step, and reports any
 			// combined failures after all attempts (F1/F2).
 			await reconcileFixtureAccountState();
-		}
-	}
+		},
+	);
 });
 
 // ---------------------------------------------------------------------------
@@ -1406,11 +1479,37 @@ test("scheduling: an explicit-offset future time is accepted for an incomplete d
 	expect(instantOf(after?.publishedAt), "the entry must never have been published").toBeNull();
 });
 
+/**
+ * Validate the timing of one pre-due observation against the due instant
+ * (corrective round 2, R2-F3): a sample (or the unschedule request) taken
+ * at/after due is NO LONGER pre-due evidence — an at-due publication
+ * observed there is CORRECT behavior and must never be mislabeled an
+ * early-publication violation. The honest outcome is "overran": the
+ * observation window was missed, so the case's evidence is inconclusive and
+ * must be reported as its own failure, not interpreted. Pure and
+ * synchronous.
+ */
+function evaluatePreDueTiming(
+	observedAt: number,
+	dueAt: number,
+): { outcome: "in-window" | "overran"; detail: string } {
+	if (observedAt >= dueAt) {
+		return {
+			outcome: "overran",
+			detail: `observation taken at ${observedAt} is not before the due instant ${dueAt} — the pre-due window was missed, so this evidence is inconclusive and is reported as an overrun (an at-due publication observed here would be correct behavior, not an early publication)`,
+		};
+	}
+	return { outcome: "in-window", detail: "observation is strictly before the due instant" };
+}
+
 test("scheduling: nothing is published before the scheduled time (bounded pre-due observation, then native unschedule)", async () => {
 	gatePages();
 	// Two pre-due samples strictly inside a 90 s window; this case never
 	// waits past due, so it can never observe — let alone force — a
-	// publication, and it ends by unscheduling natively.
+	// publication, and it ends by unscheduling natively. Every read and the
+	// unschedule are CLOCK-VALIDATED against the due instant first: a timing
+	// overrun is reported honestly as an overrun, never misread as an
+	// early-publication violation (corrective round 2, R2-F3).
 	test.setTimeout(120_000);
 
 	const draft = await createSyntheticEntry(admin, PAGES_COLLECTION, {
@@ -1425,12 +1524,21 @@ test("scheduling: nothing is published before the scheduled time (bounded pre-du
 
 	for (let sample = 1; sample <= 2; sample += 1) {
 		await sleep(NO_EARLY_SAMPLE_GAP_MS);
+		const sampledAt = Date.now();
+		const timing = evaluatePreDueTiming(sampledAt, dueAt);
+		expect(
+			timing.outcome === "in-window",
+			`pre-due sample ${sample}: ${timing.detail}`,
+		).toBe(true);
 		const read = await readEntry(admin, PAGES_COLLECTION, draft.entryId!);
 		expect(read.ok, `pre-due sample ${sample}: the scheduled entry must be readable`).toBe(true);
 		const item = nativeItemOf(read);
+		// Only a CLOCK-VALIDATED pre-due sample may judge publication here:
+		// "published" at this instant is a genuine early-publication
+		// violation; anything else would be an overrun above.
 		expect(
 			statusOfItem(item),
-			`pre-due sample ${sample}: publication must NOT occur before the scheduled time (FR-023)`,
+			`pre-due sample ${sample} (validated at +${sampledAt - (dueAt - NO_EARLY_DUE_MS)}ms from schedule, before due): publication must NOT occur before the scheduled time (FR-023)`,
 		).toBe("scheduled");
 		expect(
 			instantOf(item?.publishedAt),
@@ -1438,8 +1546,14 @@ test("scheduling: nothing is published before the scheduled time (bounded pre-du
 		).toBeNull();
 	}
 
-	// End the case before due: the native unschedule (never a wait-past-due
-	// or a forced publication), leaving a plain unpublished draft.
+	// End the case BEFORE due: the unschedule is clock-validated too — past
+	// due it would race the scheduler, so an overrun is reported honestly
+	// instead of unscheduling blindly.
+	const unscheduleTiming = evaluatePreDueTiming(Date.now(), dueAt);
+	expect(
+		unscheduleTiming.outcome === "in-window",
+		`unschedule: ${unscheduleTiming.detail}`,
+	).toBe(true);
 	const unscheduled = await unscheduleEntry(admin, PAGES_COLLECTION, draft.entryId!);
 	expect(unscheduled.ok, "the native unschedule must succeed").toBe(true);
 	const after = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, draft.entryId!));
@@ -1471,21 +1585,24 @@ interface DueTimeWindow {
 }
 
 /**
- * Decide a due-time observation truthfully (corrective round 1, F3). The
- * intended `publishedAt` alone does NOT prove the scheduler waited until
- * due, so the decision is made from the OBSERVATION TIMELINE:
- * - "accepted" — publication first observed at/after the due instant, with
- *   every sample inside the observation window (each at/after the schedule
- *   commit and not beyond deadline + one poll interval);
- * - "rejected-early" — publication observed STRICTLY BEFORE the due instant:
- *   a no-early-publication violation that must FAIL the case, never satisfy
- *   it (the intended publishedAt of an early publication proves nothing);
- * - "overdue" — the window exhausted without any publication observed: the
- *   truthful native failure/overdue observation, also a failure;
- * - "window-violation" — a sample outside the observation window, so the
- *   timeline itself cannot be trusted to prove anything.
- * Pure and synchronous; the read-only bounded observation loop below only
- * records samples and defers every decision to this evaluator.
+ * Decide a due-time observation truthfully (corrective rounds 1 F3 and 2
+ * R2-F3). The intended `publishedAt` alone does NOT prove the scheduler
+ * waited until due, so the decision is made from the OBSERVATION TIMELINE —
+ * validating the COMPLETE collected timeline before any acceptance, not
+ * just the first published sample:
+ * - first, EVERY sample must sit inside the observation window (each
+ *   at/after the schedule commit and not beyond deadline + one poll
+ *   interval) — any out-of-window sample, wherever it falls, is a
+ *   "window-violation": the timeline cannot be trusted to prove anything;
+ * - then the FIRST published sample decides: before the due instant →
+ *   "rejected-early" (a no-early-publication violation that must FAIL the
+ *   case — the intended publishedAt of an early publication proves
+ *   nothing); at/after it → "accepted";
+ * - no published sample at all → "overdue": the truthful native
+ *   failure/overdue observation, also a failure.
+ * Pure and synchronous; the read-only bounded observation loop below stops
+ * at the decisive published sample and defers every decision to this
+ * evaluator over everything actually collected.
  */
 function evaluateDueTimeObservation(
 	samples: readonly DueTimeSample[],
@@ -1493,13 +1610,17 @@ function evaluateDueTimeObservation(
 ): { outcome: "accepted" | "rejected-early" | "overdue" | "window-violation"; detail: string } {
 	const windowSlack = window.pollIntervalMs;
 	const at = (instant: number): string => `+${Math.round((instant - window.commitAt) / 100) / 10}s from commit`;
+	// Complete-timeline validation FIRST (R2-F3): an out-of-window sample
+	// invalidates the timeline even when it follows a valid published one.
 	for (const sample of samples) {
 		if (sample.at < window.commitAt || sample.at > window.deadline + windowSlack) {
 			return {
 				outcome: "window-violation",
-				detail: `sample at ${at(sample.at)} falls outside the observation window [commit, deadline + one poll interval] — the timeline cannot prove the publication waited until due`,
+				detail: `sample at ${at(sample.at)} falls outside the observation window [commit, deadline + one poll interval] — the complete timeline cannot be trusted to prove the publication waited until due`,
 			};
 		}
+	}
+	for (const sample of samples) {
 		if (sample.status === "published") {
 			if (sample.at < window.dueAt) {
 				return {
@@ -1509,7 +1630,7 @@ function evaluateDueTimeObservation(
 			}
 			return {
 				outcome: "accepted",
-				detail: `publication observed at ${at(sample.at)}, at/after the due instant ${at(window.dueAt)}, with all samples inside the observation window`,
+				detail: `publication observed at ${at(sample.at)}, at/after the due instant ${at(window.dueAt)}, with all ${samples.length} collected samples validated inside the observation window`,
 			};
 		}
 	}
@@ -1549,9 +1670,10 @@ test("scheduling: the native scheduler publishes at the due time (bounded observ
 	);
 
 	// Bounded observation: poll current state, recording each sample with its
-	// timestamp, until the deadline. Reads only — no retry, no substitution;
-	// the decision (including REJECTING a publication observed before the due
-	// instant) is made by the evaluator below from the recorded timeline.
+	// timestamp, STOPPING at the decisive published sample. Reads only — no
+	// retry, no substitution; the evaluator below validates the COMPLETE
+	// collected timeline (including rejecting a publication observed before
+	// the due instant, and any out-of-window sample) before any acceptance.
 	const deadline = dueAt + DUE_TIME_OBSERVATION_BUDGET_MS;
 	const samples: DueTimeSample[] = [];
 	let lastItem: Record<string, unknown> | undefined;
@@ -1564,6 +1686,11 @@ test("scheduling: the native scheduler publishes at the due time (bounded observ
 		).toBe(true);
 		lastItem = nativeItemOf(read);
 		samples.push({ at: Date.now(), status: statusOfItem(lastItem) });
+		if (statusOfItem(lastItem) === "published") {
+			// Decisive sample reached: stop collecting here so the validated
+			// timeline is exactly what was observed up to publication.
+			break;
+		}
 	}
 
 	const verdict = evaluateDueTimeObservation(samples, {
