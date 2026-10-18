@@ -31,7 +31,16 @@
 // publication as early, while the due-time evaluator validates the COMPLETE
 // collected timeline (any out-of-window sample, wherever it falls, is a
 // window violation) and the observation loop stops at the decisive published
-// sample (R2-F3). No behavior beyond the authorized T019 scope.
+// sample (R2-F3). Corrective round 3 (finding R3-F3 on candidate d1813b5)
+// closed the last timing boundary: in the pre-due case, time is validated
+// again IMMEDIATELY AFTER each awaited read, the unschedule and the final
+// state read — before interpreting any state — because a response that
+// starts before due may complete at/after it and then observed the post-due
+// world, where publication is correct; crossing/reaching due reports the
+// explicit overrun/inconclusive outcome (evaluatePreDueSample /
+// expectPreDueInstant), never an early-publication verdict or an
+// unconditional draft assertion. No behavior beyond the authorized T019
+// scope.
 //
 // Authority:
 // - specs/002-cms-content-model/tasks.md T019 ("Author native
@@ -1502,14 +1511,65 @@ function evaluatePreDueTiming(
 	return { outcome: "in-window", detail: "observation is strictly before the due instant" };
 }
 
+/**
+ * Assert an instant is still strictly before due, throwing the honest
+ * overrun/inconclusive report otherwise (corrective round 3, R3-F3). Used
+ * both as the pre-request gate (kept from round 2) and as the completion
+ * gate immediately after each awaited operation in the pre-due case.
+ */
+function expectPreDueInstant(instant: number, dueAt: number, label: string): void {
+	const timing = evaluatePreDueTiming(instant, dueAt);
+	if (timing.outcome !== "in-window") {
+		throw new Error(`${label}: ${timing.detail}`);
+	}
+}
+
+/**
+ * Decide one pre-due observation from its COMPLETION timing (corrective
+ * round 3, R3-F3): a read may START strictly before due and still COMPLETE
+ * at/after it, in which case it observed the post-due world — where
+ * publication is CORRECT behavior — so the only honest outcome is
+ * "inconclusive", never an early-publication verdict:
+ * - "inconclusive" — the response completed at/after due: report the
+ *   overrun; the state is NOT interpreted;
+ * - "early-violation" — completed strictly before due AND publication
+ *   observed (status "published" or a parseable publishedAt): a genuine
+ *   no-early-publication violation;
+ * - "on-schedule" — completed strictly before due with no publication.
+ * Pure and synchronous.
+ */
+function evaluatePreDueSample(
+	completedAt: number,
+	dueAt: number,
+	status: string | undefined,
+	publishedAt: unknown,
+): { outcome: "on-schedule" | "early-violation" | "inconclusive"; detail: string } {
+	const timing = evaluatePreDueTiming(completedAt, dueAt);
+	if (timing.outcome !== "in-window") {
+		return {
+			outcome: "inconclusive",
+			detail: `the read response completed at ${completedAt} — ${timing.detail}`,
+		};
+	}
+	if (status === "published" || instantOf(publishedAt) !== null) {
+		return {
+			outcome: "early-violation",
+			detail: `publication observed strictly before the due instant (status "${status ?? "unknown"}"${instantOf(publishedAt) !== null ? ", publishedAt recorded" : ""}) — a no-early-publication violation that must fail this case`,
+		};
+	}
+	return { outcome: "on-schedule", detail: "no publication observed strictly before the due instant" };
+}
+
 test("scheduling: nothing is published before the scheduled time (bounded pre-due observation, then native unschedule)", async () => {
 	gatePages();
 	// Two pre-due samples strictly inside a 90 s window; this case never
 	// waits past due, so it can never observe — let alone force — a
 	// publication, and it ends by unscheduling natively. Every read and the
-	// unschedule are CLOCK-VALIDATED against the due instant first: a timing
-	// overrun is reported honestly as an overrun, never misread as an
-	// early-publication violation (corrective round 2, R2-F3).
+	// unschedule are CLOCK-VALIDATED against the due instant BOTH before the
+	// request and immediately after the response completes, before any state
+	// is interpreted (corrective rounds 2–3, R2-F3/R3-F3): a timing overrun
+	// is reported honestly as an overrun, never misread as an
+	// early-publication violation.
 	test.setTimeout(120_000);
 
 	const draft = await createSyntheticEntry(admin, PAGES_COLLECTION, {
@@ -1524,39 +1584,45 @@ test("scheduling: nothing is published before the scheduled time (bounded pre-du
 
 	for (let sample = 1; sample <= 2; sample += 1) {
 		await sleep(NO_EARLY_SAMPLE_GAP_MS);
-		const sampledAt = Date.now();
-		const timing = evaluatePreDueTiming(sampledAt, dueAt);
-		expect(
-			timing.outcome === "in-window",
-			`pre-due sample ${sample}: ${timing.detail}`,
-		).toBe(true);
+		// Pre-request gate (kept): fail fast when the sleep already overran.
+		expectPreDueInstant(Date.now(), dueAt, `pre-due sample ${sample} before its read`);
 		const read = await readEntry(admin, PAGES_COLLECTION, draft.entryId!);
 		expect(read.ok, `pre-due sample ${sample}: the scheduled entry must be readable`).toBe(true);
 		const item = nativeItemOf(read);
-		// Only a CLOCK-VALIDATED pre-due sample may judge publication here:
-		// "published" at this instant is a genuine early-publication
-		// violation; anything else would be an overrun above.
-		expect(
+		// Completion gate (corrective round 3, R3-F3): a read that STARTED
+		// before due may COMPLETE at/after it — only the response's
+		// completion time decides whether the observed state is pre-due
+		// evidence. A crossing/reaching read reports the inconclusive
+		// overrun and its state is NEVER interpreted (an at-due publication
+		// there is correct behavior, never an "early" violation); a read
+		// completed strictly before due that shows publication is a genuine
+		// early-publication violation.
+		const verdict = evaluatePreDueSample(
+			Date.now(),
+			dueAt,
 			statusOfItem(item),
-			`pre-due sample ${sample} (validated at +${sampledAt - (dueAt - NO_EARLY_DUE_MS)}ms from schedule, before due): publication must NOT occur before the scheduled time (FR-023)`,
-		).toBe("scheduled");
+			item?.publishedAt,
+		);
 		expect(
-			instantOf(item?.publishedAt),
-			`pre-due sample ${sample}: no publishedAt may exist before the due time`,
-		).toBeNull();
+			verdict.outcome === "on-schedule",
+			`pre-due sample ${sample}: ${verdict.outcome} — ${verdict.detail}`,
+		).toBe(true);
 	}
 
-	// End the case BEFORE due: the unschedule is clock-validated too — past
-	// due it would race the scheduler, so an overrun is reported honestly
-	// instead of unscheduling blindly.
-	const unscheduleTiming = evaluatePreDueTiming(Date.now(), dueAt);
-	expect(
-		unscheduleTiming.outcome === "in-window",
-		`unschedule: ${unscheduleTiming.detail}`,
-	).toBe(true);
+	// End the case BEFORE due. The unschedule keeps its pre-request gate and
+	// gains a completion gate (R3-F3): an unschedule whose response crosses
+	// due may have raced the scheduler's at-due publication, so the honest
+	// outcome is the explicit inconclusive-window report — never an
+	// unconditional draft assertion. The final state read is gated the same
+	// way before its state is interpreted.
+	expectPreDueInstant(Date.now(), dueAt, "unschedule before its request");
 	const unscheduled = await unscheduleEntry(admin, PAGES_COLLECTION, draft.entryId!);
 	expect(unscheduled.ok, "the native unschedule must succeed").toBe(true);
-	const after = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, draft.entryId!));
+	expectPreDueInstant(Date.now(), dueAt, "unschedule completed");
+	const afterRead = await readEntry(admin, PAGES_COLLECTION, draft.entryId!);
+	expect(afterRead.ok, "the post-unschedule state read must succeed").toBe(true);
+	expectPreDueInstant(Date.now(), dueAt, "final state read completed");
+	const after = nativeItemOf(afterRead);
 	expect(statusOfItem(after), "the unscheduled entry must be a draft again").toBe("draft");
 });
 
