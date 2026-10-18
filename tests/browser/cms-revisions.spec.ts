@@ -42,6 +42,25 @@
 // for the post-publish conflict control with preserved-state verification
 // (F6). No behavior beyond the authorized T020 scope.
 //
+// Corrective round 2 (Lead review of candidate 4045f26, residual findings
+// R2-F1–R2-F3) hardened: fixture creation INTENT is now separate from
+// established OWNERSHIP — a DEFINITE native creation refusal (the pinned
+// duplicate-slug CONFLICT, src/api/handlers/bylines.ts:190-223 and
+// src/api/handlers/taxonomies.ts:980-987) proves this run created nothing,
+// claims no ownership, registers nothing and never deletes a pre-existing
+// same-slug record, while the uncertain-create recovery (outcome never
+// observed; record found under this run's fresh random slug) is kept
+// (R2-F1); the lost-acknowledgment case decides committed-versus-absent ONLY
+// from a successful, usable current-state snapshot (an unreadable/invalid
+// reconciliation read stays unknown and authorizes no retry; reads repeat a
+// bounded number of times; the retry precondition comes from the SAME
+// validated decision snapshot) (R2-F2); and three shape guards keep
+// malformed observations unknown instead of resolved — a byline listing
+// record matching the exact owned slug without a usable id is unknown, only
+// a valid lock status with an EXPLICIT holder:null proves unheld, and a
+// release settles only on an explicit released:true or a valid confirming
+// lock read (R2-F3). No behavior beyond the authorized T020 scope.
+//
 // Authority:
 // - specs/002-cms-content-model/tasks.md T020 ("Author native
 //   revision/concurrency checks in tests/browser/cms-revisions.spec.ts for
@@ -307,6 +326,7 @@ import {
 	nativeErrorOf,
 	nativeItemOf,
 	nativeRefusalOf,
+	nativeRevOf,
 	NATIVE_ROLES,
 	publishEntry,
 	readEntry,
@@ -750,8 +770,19 @@ async function bylinePresenceBySlug(
 			return { presence: "unknown", detail: "the byline listing success page lacked its items array" };
 		}
 		for (const item of items as Array<Record<string, unknown>>) {
-			if (item?.slug === slug && typeof item.id === "string") {
-				return { presence: "present", id: item.id };
+			if (item?.slug === slug) {
+				// An EXACT slug match settles presence immediately — but only
+				// with a usable record id. A matching record whose id is
+				// missing or malformed is UNKNOWN, never absence (corrective
+				// round 2, R2-F3): continuing the traversal could classify the
+				// page as exhausted and drop a live registration.
+				if (typeof item.id === "string") {
+					return { presence: "present", id: item.id };
+				}
+				return {
+					presence: "unknown",
+					detail: "a byline matching the exact owned slug carried no usable id",
+				};
 			}
 		}
 		const nextCursor: unknown = data?.nextCursor;
@@ -769,65 +800,75 @@ async function bylinePresenceBySlug(
 
 /**
  * Ensure one clearly-synthetic topic term exists and is registered for
- * teardown (the accepted T013 discipline, hardened for UNCERTAIN creation —
- * corrective round 1, F1): the owned unique identity is registered BEFORE the
- * creation request, so a create that commits while its response is lost still
- * has a registration to recover. An uncertain creation is reconciled through
- * the supported native term read — a present term under this test-unique slug
- * is this run's owned fixture (the registration guarantees cleanup); a
- * proven-absent term never landed (the registration is dropped and the
- * original failure rethrown); an unreadable state keeps the registration and
- * fails loudly.
+ * teardown, with creation INTENT separated from established OWNERSHIP
+ * (corrective round 2, R2-F1): the OWNED registration is established only by
+ * (a) a definite native create success, or (b) the uncertain-create recovery —
+ * the request's outcome was never observed (transport loss) and a supported
+ * native read finds the record under this run's fresh random slug. A DEFINITE
+ * native refusal — including the pinned duplicate-slug CONFLICT
+ * (src/api/handlers/taxonomies.ts:980-987) — proves this run created nothing:
+ * no ownership is claimed, nothing is registered, and a pre-existing record
+ * carrying the same slug is never deleted. An uncertain creation reconciled
+ * ABSENT never landed (nothing registered, original failure rethrown); an
+ * unreadable reconciliation keeps the registration for the read-first
+ * safety-net teardown and fails loudly.
  */
 async function ensureSyntheticTopicTerm(): Promise<string> {
 	if (syntheticTerm !== undefined) {
 		return syntheticTerm.slug;
 	}
 	const slug = `${SYNTHETIC_FIXTURE_MARK}-topic-${crypto.randomUUID().slice(0, 8)}`;
-	// Retained BEFORE creation: an owned identity must never depend on a
-	// response arriving (F1).
-	syntheticTerm = { taxonomy: TOPIC_TAXONOMY, slug };
-	let creationFailure: unknown;
-	let refused: NativeResult | undefined;
+	// The intent is local until ownership is established (R2-F1): only a
+	// success envelope or the uncertain-create recovery below may register an
+	// owned fixture for teardown.
+	let created: NativeResult | undefined;
+	let transportFailure: unknown;
 	try {
-		const created = await cmsRequest(
+		created = await cmsRequest(
 			admin,
 			`/_emdash/api/taxonomies/${encodeURIComponent(TOPIC_TAXONOMY)}/terms`,
 			{ method: "POST", body: { slug, label: `${SYNTHETIC_FIXTURE_MARK} topic term` } },
 		);
-		if (created.ok) {
-			return slug;
-		}
-		refused = created;
-		creationFailure = new Error(
-			`creating the synthetic topic term was refused when ${TOPIC_TAXONOMY} is attached (${nativeRefusalOf(created)})`,
-		);
 	} catch (cause) {
-		creationFailure = cause;
+		transportFailure = cause;
 	}
-	// Unknown or definitely-refused outcome: reconcile through the supported
-	// read before claiming anything. Only a proven-absent term may drop the
-	// registration (nothing was created); presence keeps the owned fixture.
+	if (created !== undefined && created.ok) {
+		// Definite commit by this run: owned.
+		syntheticTerm = { taxonomy: TOPIC_TAXONOMY, slug };
+		return slug;
+	}
+	if (created !== undefined) {
+		// Definite native refusal — a definite NON-commit (the duplicate-slug
+		// guard answers CONFLICT for an existing slug). Never owned, never
+		// registered, never deleted: a same-slug record, if one exists, is
+		// pre-existing and stays untouched (R2-F1).
+		throw new Error(
+			`creating the synthetic topic term was refused (${nativeRefusalOf(created)}); no ownership is claimed and nothing is registered — a same-slug record the native duplicate guard reports pre-existed this request and is not deleted`,
+		);
+	}
+	// The request's outcome was never observed: a genuinely UNCERTAIN
+	// creation. Reconcile through the supported native term read.
 	const reconciled = await termPresence(slug);
 	if (reconciled.presence === "present") {
-		if (refused !== undefined) {
-			// A definite refusal contradicted by a present term is not ours to
-			// interpret — the slug is test-unique, so report loudly.
-			throw new Error(
-				`the synthetic term creation was refused (${nativeRefusalOf(refused)}) yet a term with the test-unique slug is present; it stays registered for teardown and is reported unresolved`,
-			);
-		}
+		// Uncertain-commit recovery (kept per R2-F1): a present record under
+		// this run's fresh random slug is recovered as owned so teardown
+		// cleans it.
+		syntheticTerm = { taxonomy: TOPIC_TAXONOMY, slug };
 		console.log(
-			`[cms-revisions] synthetic term creation outcome unknown (${renderFailure(creationFailure)}); native read confirms the owned term is present and registered for teardown`,
+			`[cms-revisions] synthetic term creation outcome never observed (${renderFailure(transportFailure)}); native read confirms the record is present — recovered as owned and registered for teardown`,
 		);
 		return slug;
 	}
 	if (reconciled.presence === "absent") {
-		syntheticTerm = undefined;
-		throw new Error(`synthetic term creation did not land: ${renderFailure(creationFailure)}`);
+		throw new Error(
+			`synthetic term creation did not land (reconciled absent after: ${renderFailure(transportFailure)})`,
+		);
 	}
+	// Unreadable reconciliation: keep the registration (the read-first
+	// teardown decides again from actual state) and fail loudly.
+	syntheticTerm = { taxonomy: TOPIC_TAXONOMY, slug };
 	throw new Error(
-		`synthetic term creation outcome unknown (${renderFailure(creationFailure)}) and reconciliation could not settle it (${reconciled.detail}); the slug stays registered for the safety-net teardown`,
+		`synthetic term creation outcome never observed (${renderFailure(transportFailure)}) and reconciliation could not settle it (${reconciled.detail}); the slug stays registered for the read-first safety-net teardown`,
 	);
 }
 
@@ -907,75 +948,94 @@ async function deleteSyntheticTerm(): Promise<void> {
 
 /**
  * Ensure one clearly-synthetic native byline entity exists (bylines:manage;
- * POST /_emdash/api/admin/bylines) and is registered for teardown. The same
- * uncertain-creation discipline as the term (corrective round 1, F1): the
- * owned unique slug is registered BEFORE the request; the id comes from a
- * native response — the create response when it carries one, otherwise the
- * supported listing reconciled by the exact owned slug (a success envelope
- * without a usable id never abandons the owned entity); an uncertain creation
- * is reconciled through the listing; only a proven-absent byline drops the
- * registration.
+ * POST /_emdash/api/admin/bylines) and is registered for teardown, with the
+ * R2-F1 ownership discipline: a DEFINITE native refusal — including the
+ * pinned duplicate-slug CONFLICT (src/api/handlers/bylines.ts:190-223) —
+ * never claims ownership, never registers, and never deletes a pre-existing
+ * same-slug record. Ownership is established by (a) a definite success
+ * envelope (its id from the response, or reconciled through the supported
+ * listing when the envelope carries none), or (b) the uncertain-create
+ * recovery (outcome never observed; the listing finds the record under this
+ * run's fresh random slug). An uncertain creation reconciled ABSENT never
+ * landed; an unreadable reconciliation keeps the registration (id resolved
+ * by the read-first teardown listing) and fails loudly.
  */
 async function ensureSyntheticByline(): Promise<string> {
 	if (syntheticByline?.id !== undefined) {
 		return syntheticByline.id;
 	}
 	const slug = `${SYNTHETIC_FIXTURE_MARK}-byline-${crypto.randomUUID().slice(0, 8)}`;
-	// Retained BEFORE creation; the id is filled in from a native response.
-	syntheticByline = { slug };
-	let creationFailure: unknown;
-	let refused: NativeResult | undefined;
+	// The intent is local until ownership is established (R2-F1).
+	let created: NativeResult | undefined;
+	let transportFailure: unknown;
 	try {
-		const created = await cmsRequest(admin, "/_emdash/api/admin/bylines", {
+		created = await cmsRequest(admin, "/_emdash/api/admin/bylines", {
 			method: "POST",
 			body: { slug, displayName: `${SYNTHETIC_FIXTURE_MARK} byline` },
 		});
-		if (created.ok) {
-			// The pinned create handler returns the byline object directly in
-			// `data`; fall back defensively to `data.item.id`.
-			const data = nativeDataOf(created);
-			const directId = typeof data?.id === "string" ? data.id : undefined;
-			const itemId = typeof nativeItemOf(created)?.id === "string"
-				? (nativeItemOf(created)!.id as string)
-				: undefined;
-			const id = directId ?? itemId;
-			if (id !== undefined) {
-				syntheticByline = { id, slug };
-				return id;
-			}
-			creationFailure = new Error(
-				"the byline create response succeeded but carried no usable id; reconciling through the supported listing",
-			);
-		} else {
-			refused = created;
-			creationFailure = new Error(
-				`creating the synthetic byline was refused (${nativeRefusalOf(created)})`,
-			);
-		}
 	} catch (cause) {
-		creationFailure = cause;
+		transportFailure = cause;
 	}
-	// Unknown outcome, definite refusal, or an unusable id: reconcile the
-	// exact owned slug through the supported listing before claiming anything.
+	if (created !== undefined && created.ok) {
+		// Definite commit by this run: owned. The pinned create handler
+		// returns the byline object directly in `data`; fall back defensively
+		// to `data.item.id`.
+		const data = nativeDataOf(created);
+		const directId = typeof data?.id === "string" ? data.id : undefined;
+		const itemId = typeof nativeItemOf(created)?.id === "string"
+			? (nativeItemOf(created)!.id as string)
+			: undefined;
+		const id = directId ?? itemId;
+		if (id !== undefined) {
+			syntheticByline = { id, slug };
+			return id;
+		}
+		// Definite commit with an unusable envelope: reconcile the id through
+		// the supported listing (never abandon the owned entity).
+		const listed = await bylinePresenceBySlug(slug);
+		if (listed.presence === "present") {
+			syntheticByline = { id: listed.id, slug };
+			return listed.id;
+		}
+		// Ownership is definite; only the id is unresolved. Register without
+		// the id — the read-first teardown listing reconciles it (absent there
+		// resolves the registration with nothing further to delete).
+		syntheticByline = { slug };
+		throw new Error(
+			`the byline create succeeded but its id could not be established from the response or the supported listing (${
+				listed.presence === "absent" ? "the listing proves absence" : listed.detail
+			}); the slug stays registered and the read-first teardown reconciles it`,
+		);
+	}
+	if (created !== undefined) {
+		// Definite native refusal — a definite NON-commit (the duplicate-slug
+		// guard answers CONFLICT for an existing slug). Never owned, never
+		// registered, never deleted (R2-F1).
+		throw new Error(
+			`creating the synthetic byline was refused (${nativeRefusalOf(created)}); no ownership is claimed and nothing is registered — a same-slug record the native duplicate guard reports pre-existed this request and is not deleted`,
+		);
+	}
+	// The request's outcome was never observed: a genuinely UNCERTAIN
+	// creation. Reconcile the exact owned slug through the supported listing.
 	const reconciled = await bylinePresenceBySlug(slug);
 	if (reconciled.presence === "present") {
-		if (refused !== undefined) {
-			throw new Error(
-				`the synthetic byline creation was refused (${nativeRefusalOf(refused)}) yet a byline with the test-unique slug is listed; it stays registered for teardown and is reported unresolved`,
-			);
-		}
+		// Uncertain-commit recovery (kept per R2-F1).
 		syntheticByline = { id: reconciled.id, slug };
 		console.log(
-			`[cms-revisions] synthetic byline creation outcome unusable (${renderFailure(creationFailure)}); the supported listing reconciled the owned byline and its id`,
+			`[cms-revisions] synthetic byline creation outcome never observed (${renderFailure(transportFailure)}); the supported listing finds the record — recovered as owned and registered for teardown`,
 		);
 		return reconciled.id;
 	}
 	if (reconciled.presence === "absent") {
-		syntheticByline = undefined;
-		throw new Error(`synthetic byline creation did not land: ${renderFailure(creationFailure)}`);
+		throw new Error(
+			`synthetic byline creation did not land (reconciled absent after: ${renderFailure(transportFailure)})`,
+		);
 	}
+	// Unreadable reconciliation: keep the registration without an id (the
+	// read-first teardown listing decides again from actual state).
+	syntheticByline = { slug };
 	throw new Error(
-		`synthetic byline creation outcome unknown (${renderFailure(creationFailure)}) and reconciliation could not settle it (${reconciled.detail}); the slug stays registered for the safety-net teardown`,
+		`synthetic byline creation outcome never observed (${renderFailure(transportFailure)}) and reconciliation could not settle it (${reconciled.detail}); the slug stays registered for the read-first safety-net teardown`,
 	);
 }
 
@@ -1065,8 +1125,11 @@ async function deleteSyntheticByline(): Promise<void> {
 
 /**
  * The live lease state read through the native lock endpoint: "held" (with
- * the holder's userId), "unheld", or "unknown" (the read never proves
- * anything when it fails or carries no usable holder shape). Never throws.
+ * the holder's userId), "unheld", or "unknown". Shape-strict (corrective
+ * round 2, R2-F3): only a VALID lock-status response with an EXPLICIT
+ * `holder: null` proves unheld — a missing data object, a missing `holder`
+ * key, or a malformed holder value is UNKNOWN, never unheld, so a malformed
+ * observation can never release a live lease registration. Never throws.
  */
 async function leasePresence(
 	actor: CmsActor,
@@ -1087,10 +1150,22 @@ async function leasePresence(
 		return { state: "unknown", detail: `lock read: ${nativeRefusalOf(read)}` };
 	}
 	const data = nativeDataOf(read);
-	if (data?.holder === null || data?.holder === undefined) {
+	if (data === undefined) {
+		return { state: "unknown", detail: "the lock read success carried no data object" };
+	}
+	const holder: unknown = data.holder;
+	// The native unheld status is `{ enabled, holder: null, heldByCaller }` —
+	// only the explicit null proves no lease (R2-F3).
+	if (holder === null) {
 		return { state: "unheld" };
 	}
-	const holderUserId = (data.holder as Record<string, unknown> | undefined)?.userId;
+	if (holder === undefined) {
+		return { state: "unknown", detail: "the lock read success carried no holder key" };
+	}
+	if (typeof holder !== "object") {
+		return { state: "unknown", detail: "the lock read success carried a malformed holder value" };
+	}
+	const holderUserId = (holder as Record<string, unknown>).userId;
 	if (typeof holderUserId !== "string") {
 		return { state: "unknown", detail: "the lock read carried a holder without a usable userId" };
 	}
@@ -1160,19 +1235,26 @@ async function reconcileHolderLease(
 	}
 	const deletion: NativeResult = release!;
 	if (deletion.ok) {
-		// A native `released: false` means the caller held no lease — verify
-		// through the state read before treating the registration as settled.
+		// Shape-strict resolution (corrective round 2, R2-F3): only an
+		// EXPLICIT `released: true` resolves directly. `released: false`, a
+		// missing flag, or a malformed value settles ONLY through a valid
+		// confirming lock read that proves an explicit unheld state — a
+		// malformed success response is never accepted as released.
 		const releasedFlag = nativeDataOf(deletion)?.released;
-		if (releasedFlag === false) {
-			const afterFalse = await leasePresence(holder, collection, id);
-			if (afterFalse.state === "unheld") {
-				return;
-			}
-			throw new Error(
-				`the native release reported released=false but the lease read still shows ${afterFalse.state === "held" ? `account ${afterFalse.holderUserId} holding` : "an unreadable state"}`,
-			);
+		if (releasedFlag === true) {
+			return;
 		}
-		return;
+		const confirmed = await leasePresence(holder, collection, id);
+		if (confirmed.state === "unheld") {
+			return;
+		}
+		throw new Error(
+			`the native release response carried ${
+				releasedFlag === false ? "released=false" : "no explicit released:true"
+			} and the confirming lock read shows ${
+				confirmed.state === "held" ? `account ${confirmed.holderUserId} still holding` : "an unreadable state"
+			}; the lease may still be held`,
+		);
 	}
 	// Definite refusal: reconcile through the read before any claim.
 	const afterRefusal = await leasePresence(holder, collection, id);
@@ -1625,23 +1707,50 @@ test("uncertain outcome: a lost write acknowledgment is never success, and curre
 		"no success envelope exists for the lost write — the unknown result is never reported as success",
 	).toBe(false);
 
-	// Reconciliation BEFORE any retry (US6.6/FR-026): read the actual
-	// current state and decide from the READ, not from the lost response.
-	const reconciled = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!));
-	const committedWithoutAck = dataOfItem(reconciled).title === intendedTitle;
+	// Reconciliation BEFORE any retry (US6.6/FR-026), decided ONLY from a
+	// successful, usable current-state snapshot (corrective round 2, R2-F2):
+	// an unreadable or invalid reconciliation read stays UNKNOWN and never
+	// authorizes a retry (a failed GET must not masquerade as "not
+	// committed"). Reads are safe, so the decision read is repeated a bounded
+	// number of times; the precondition for any retry comes from the SAME
+	// validated snapshot the decision was made on — a second, unvalidated
+	// token read could observe different content than the decision did.
+	let decision: "committed" | "absent" | "unknown" = "unknown";
+	let decisionRev: string | undefined;
+	for (let attempt = 1; attempt <= 3 && decision === "unknown"; attempt += 1) {
+		const read = await readEntry(admin, PAGES_COLLECTION, entry.entryId!);
+		if (!read.ok) {
+			continue;
+		}
+		const item = nativeItemOf(read);
+		const title = dataOfItem(item).title;
+		const rev = nativeRevOf(read);
+		if (typeof title !== "string" || rev === undefined) {
+			// A success response without a usable title/_rev is not a
+			// decision-grade snapshot (R2-F3 discipline applied here too).
+			continue;
+		}
+		decision = title === intendedTitle ? "committed" : "absent";
+		decisionRev = rev;
+	}
+	expect(
+		decision !== "unknown",
+		"the reconciliation must settle on a successful, usable current-state snapshot before any retry decision — an unreadable/invalid state stays unknown and authorizes no retry",
+	).toBe(true);
+	const committedWithoutAck = decision === "committed";
 	let retriedAfterRead = false;
-	if (!committedWithoutAck) {
-		// Only now — decided from the reconciling read — is a retry needed,
-		// and it carries a FRESH precondition captured after that read.
+	if (decision === "absent") {
+		// Only now — decided from the validated snapshot — is a retry needed,
+		// and it carries the precondition OF THAT SNAPSHOT (any state change
+		// between snapshot and retry surfaces truthfully as a conflict).
 		retriedAfterRead = true;
-		const freshRev = await currentRev(admin, PAGES_COLLECTION, entry.entryId!);
 		const retry = await updateEntry(admin, PAGES_COLLECTION, entry.entryId!, {
 			data: { title: intendedTitle },
-			rev: freshRev,
+			rev: decisionRev!,
 		});
 		expect(
 			retry.ok,
-			`the reconciled retry with a fresh _rev must succeed (${nativeRefusalOf(retry)})`,
+			`the reconciled retry carrying the decision snapshot's _rev must succeed (${nativeRefusalOf(retry)})`,
 		).toBe(true);
 	}
 
