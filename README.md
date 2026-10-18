@@ -43,9 +43,9 @@ and the development-runtime decision of 2026-10-16 (Multica issue 9GOTSTORY-232)
   helper) as the canonical development instructions; those committed helpers remain accepted
   implementation files, not the path for the shared runtime (see “Superseded native-host
   workflow”).
-- Development testing uses EmDash's native development-only bootstrap for programmatic
-  Admin/API access (see “Verify the public and Admin surfaces”); passkey login is never
-  automated.
+- Development testing reuses the existing native development-scoped PAT for
+  programmatic Admin/API access; EmDash's dev-only bootstrap was an initial-provisioning
+  step, not a recurring test action. Passkey login is never automated.
 - Production deployment remains rootless Podman + systemd Quadlet
   ([docs/operations/production-foundation.md](docs/operations/production-foundation.md)). The
   development runtime is Podman Compose-based tooling and must not grow into a parallel
@@ -153,16 +153,18 @@ comments.
   database; see “The existing development database” for bootstrap-versus-existing-schema
   behavior.
 
-**Development testing access — native EmDash dev bypass.** For headless/CLI development testing
-(the standard path under the Multica-first workflow), use the platform's own development-only
-bootstrap `POST /_emdash/api/setup/dev-bypass?token=1` against the development origin
-(`http://127.0.0.1:4322`), documented in the installed `emdash` package. Verified behavior
-(installed `emdash@1.1.0`, recorded in
+**Development testing access — existing native PAT.** The already-initialized
+shared runtime has a native development-scoped personal access token in an
+account-private mode-`0600` credential file (`dev-access.json`). Reuse it through
+`loadDevAccessToken()` / `createPatActor()` from `tests/browser/cms.helpers.ts`;
+never print, commit, or rotate it during ordinary test runs. The upstream
+development-only `POST /_emdash/api/setup/dev-bypass?token=1` was used at
+**initial provisioning** (verified in
 [specs/001-platform-foundation/evidence/T015-us1-canonical-platform.md](specs/001-platform-foundation/evidence/T015-us1-canonical-platform.md)
-§4): it mints a scoped personal access token for native EmDash API access (no login ceremony);
-it is gated to development builds — production builds answer `403`. The minted token is
-secret-bearing: keep it only in ignored mode-`0600` scratch space, never print it in full, and
-never commit it. This path supplements — never replaces — the native passkey authentication.
+§4; production builds refuse this route). It can re-apply setup/seed or mint a
+replacement credential, so **do not call it again on the initialized shared
+runtime** unless separately reviewed and Product Owner-authorized. This
+development PAT never replaces native production passkey authentication.
 
 ## The existing development database
 
