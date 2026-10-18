@@ -37,11 +37,12 @@ After bounded implementation authorization and accepted schema setup, check the 
 /home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh verify
 ```
 
-For automated development Admin/API access use the native
-`POST /_emdash/api/setup/dev-bypass?token=1` path against the development origin
-`http://127.0.0.1:4322`, documented in the README. Keep any token in ignored mode-0600 files;
-never log or commit it. No production Passkey automation. Use synthetic public-publishable
-test data.
+For automated development Admin/API access on the already-initialized shared runtime,
+reuse the existing mode-0600 native development PAT through
+`loadDevAccessToken()` / `createPatActor()` in `tests/browser/cms.helpers.ts`.
+The README's dev-bypass route was for initial provisioning; **do not re-call**
+`POST /_emdash/api/setup/dev-bypass?token=1` here, as it may rotate access or
+re-apply seed. Never log or commit credentials. Use synthetic public-publishable test data.
 For permission fixtures prepare distinct native Contributor, Author/Editor and Administrator
 access via supported native account/role operations; an Admin token alone does not prove
 draft-only refusal or own/others boundaries. Do not invent a role or impersonation layer.
@@ -137,31 +138,43 @@ runtime is bounded task work: the only authorized routine controller operations 
 `status`/`verify`, and the application is already running detached at
 `http://127.0.0.1:4322` — do not start another server against that origin.
 
-Analyze finding **I1** is an existing T021/T033/T034 execution/documentation correction, not a
-new task or gate. Select the relevant ordinary test files explicitly (example below); exclude
-`cms-public-reads.spec.ts`. T033 runs all applicable ordinary checks and then the dedicated
-public-read runner. Stop only a run-owned ordinary server before that runner; an occupied origin
-is a precondition failure, not permission to terminate another process. T021 owns the temporary
-route and awaited failure/signal cleanup; T034 records final verified invocations. Browser checks
-against the shared runtime must set the explicit origin override — the Playwright default
-remains `http://localhost:4321`:
+**2026-10-19 single-runtime reconciliation:** T021/T022/T033/T034 use the same
+persistent Astro/EmDash app, PostgreSQL and media at `127.0.0.1:4322`.
+Ordinary Playwright tests and the special native public-read harness target that
+running app. **No runner starts another Astro server or substitutes a second
+instance**. The old standalone programmatic-`dev()` T021 runner assumption is
+superseded by the approved single-runtime design constraint.
+
+The public-read SSR fixture requires a **dev-only route on that existing server**.
+Before any T022 run, independently verify the integration against pinned
+Astro 7.3.5 / EmDash 1.1.0, ensure its native public/preview request context is
+authentic, prove the fixture is excluded from normal/production builds, and
+obtain separate Product Owner authorization for any source promotion, private
+dev-config registration or app restart through the Runtime Controller's
+reviewed maintenance path. The stable source is not updated by PR merge.
+A missing fixture route, unsupported installation method or source mismatch is
+`HOLD`, not a reason to free occupied port 4322, start a second process or
+silently change the controller. Routine controller permissions remain
+`status` and `verify`.
+
+For focused ordinary suites (without the fixture route):
 
 ```bash
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:4322 npm run test:browser -- tests/browser/cms-lifecycle.spec.ts
 ```
 
-The dedicated public-read runner is future T021/T022/T033 work under its own authorization:
+When **separately authorized** T022 preconditions and route registration have
+been satisfied, invoke the single-runtime coordinator:
 
 ```bash
 node tests/browser/run-cms-public-reads.mjs
 ```
 
-Its documented assumption that it can own the ordinary origin/server must be reconciled with the
-persistent runtime when that task is authorized: the shared origin `127.0.0.1:4322` is occupied
-by design, and that is a precondition failure, never permission to stop the shared runtime or
-switch it to another port. Any needed maintenance or source transition is separately reviewed
-and Product Owner-authorized, and the runner must not be claimed currently executable unchanged
-against the pinned shared source.
+It must only coordinate Playwright and owned fixture cleanup against the
+existing origin; it must not call programmatic `dev()`, `npm run dev`, or
+terminate/restart the persistent server. The public-read suite is excluded
+from ordinary suite invocations and run through this dedicated coordinator.
+T033 uses that same sequence; T034 records only executed and verified commands.
 
 Record exact commit, versions, native schema state and observed results
 without secrets; never call planned checks PASS until actually executed. Report unavailable staff
