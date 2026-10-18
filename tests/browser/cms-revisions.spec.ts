@@ -61,6 +61,25 @@
 // release settles only on an explicit released:true or a valid confirming
 // lock read (R2-F3). No behavior beyond the authorized T020 scope.
 //
+// Corrective round 3 (Lead review of candidate e979262, finding R3-F1)
+// refined the ownership classification: a received 4xx is a SOURCE-PROVEN
+// non-commit (every 4xx these create routes answer — route authorization,
+// body validation, and the duplicate-slug CONFLICT — is decided BEFORE the
+// insert), so it still claims no ownership and never deletes a pre-existing
+// same-slug record. A 5xx (TERM_CREATE_ERROR / BYLINE_CREATE_ERROR) does NOT
+// prove rollback — the pinned repositories commit the insert transaction and
+// only then read the record back (src/database/repositories/taxonomy.ts:189-218
+// and byline.ts:770-805; the handlers convert a post-commit read failure
+// into the observed 500 at src/api/handlers/taxonomies.ts:1111-1113 and
+// bylines.ts:241-255) — so 5xx and transport losses share the AMBIGUOUS path:
+// the exact attempted fixture identity is preserved and reconciled through
+// the existing supported read/listing; a present record under this run's
+// fresh random slug is recovered as owned for teardown (original server
+// failure reported, never converted into success); proven absence rethrows
+// the original failure with nothing registered; an unreadable reconciliation
+// retains the cleanup registration and fails loudly. No POST is ever blindly
+// retried. No behavior beyond the authorized T020 scope.
+//
 // Authority:
 // - specs/002-cms-content-model/tasks.md T020 ("Author native
 //   revision/concurrency checks in tests/browser/cms-revisions.spec.ts for
@@ -801,28 +820,36 @@ async function bylinePresenceBySlug(
 /**
  * Ensure one clearly-synthetic topic term exists and is registered for
  * teardown, with creation INTENT separated from established OWNERSHIP
- * (corrective round 2, R2-F1): the OWNED registration is established only by
- * (a) a definite native create success, or (b) the uncertain-create recovery —
- * the request's outcome was never observed (transport loss) and a supported
- * native read finds the record under this run's fresh random slug. A DEFINITE
- * native refusal — including the pinned duplicate-slug CONFLICT
- * (src/api/handlers/taxonomies.ts:980-987) — proves this run created nothing:
+ * (corrective rounds 2–3, R2-F1/R3-F1). The OWNED registration is
+ * established only by (a) a definite native create success, or (b) the
+ * ambiguous-outcome recovery — the creation's outcome does not prove a
+ * rollback (transport loss, or a 5xx TERM_CREATE_ERROR: the pinned
+ * repository commits the insert and only then reads the record back,
+ * src/database/repositories/taxonomy.ts:189-218, so a post-commit read
+ * failure surfaces as an observed 500 while the term exists,
+ * src/api/handlers/taxonomies.ts:1111-1113) — and a supported native read
+ * finds the record under this run's fresh random slug. A 4xx refusal is
+ * SOURCE-PROVEN non-commit: every 4xx these create routes answer (route
+ * authorization, body validation, and the duplicate-slug CONFLICT of
+ * src/api/handlers/taxonomies.ts:980-987) is decided BEFORE the insert, so
  * no ownership is claimed, nothing is registered, and a pre-existing record
- * carrying the same slug is never deleted. An uncertain creation reconciled
+ * carrying the same slug is never deleted. An ambiguous creation reconciled
  * ABSENT never landed (nothing registered, original failure rethrown); an
  * unreadable reconciliation keeps the registration for the read-first
- * safety-net teardown and fails loudly.
+ * safety-net teardown and fails loudly. The original server failure is
+ * always reported — never silently converted into a successful creation,
+ * never blindly retried.
  */
 async function ensureSyntheticTopicTerm(): Promise<string> {
 	if (syntheticTerm !== undefined) {
 		return syntheticTerm.slug;
 	}
 	const slug = `${SYNTHETIC_FIXTURE_MARK}-topic-${crypto.randomUUID().slice(0, 8)}`;
-	// The intent is local until ownership is established (R2-F1): only a
-	// success envelope or the uncertain-create recovery below may register an
-	// owned fixture for teardown.
+	// The intent is local until ownership is established: only a success
+	// envelope or the ambiguous-outcome recovery below may register an owned
+	// fixture for teardown.
 	let created: NativeResult | undefined;
-	let transportFailure: unknown;
+	let unprovenFailure: unknown;
 	try {
 		created = await cmsRequest(
 			admin,
@@ -830,45 +857,57 @@ async function ensureSyntheticTopicTerm(): Promise<string> {
 			{ method: "POST", body: { slug, label: `${SYNTHETIC_FIXTURE_MARK} topic term` } },
 		);
 	} catch (cause) {
-		transportFailure = cause;
+		unprovenFailure = cause;
 	}
 	if (created !== undefined && created.ok) {
 		// Definite commit by this run: owned.
 		syntheticTerm = { taxonomy: TOPIC_TAXONOMY, slug };
 		return slug;
 	}
-	if (created !== undefined) {
-		// Definite native refusal — a definite NON-commit (the duplicate-slug
-		// guard answers CONFLICT for an existing slug). Never owned, never
-		// registered, never deleted: a same-slug record, if one exists, is
-		// pre-existing and stays untouched (R2-F1).
+	if (created !== undefined && created.status >= 400 && created.status < 500) {
+		// SOURCE-PROVEN non-commit (R3-F1): every 4xx from these create routes
+		// precedes the insert — authorization, body validation, and the
+		// duplicate-slug CONFLICT are all decided before any write. Never
+		// owned, never registered, never deleted: a same-slug record, if one
+		// exists, pre-existed this request and stays untouched.
 		throw new Error(
 			`creating the synthetic topic term was refused (${nativeRefusalOf(created)}); no ownership is claimed and nothing is registered — a same-slug record the native duplicate guard reports pre-existed this request and is not deleted`,
 		);
 	}
-	// The request's outcome was never observed: a genuinely UNCERTAIN
-	// creation. Reconcile through the supported native term read.
+	if (created !== undefined) {
+		// A 5xx (TERM_CREATE_ERROR) does NOT prove rollback (R3-F1): the
+		// pinned path commits the insert and only then reads the record back,
+		// so the observed server error may carry a committed fixture. Keep the
+		// exact attempted identity and reconcile below; the original failure
+		// is reported in every outcome.
+		unprovenFailure = new Error(
+			`the term create answered a server error that does not prove rollback (${nativeRefusalOf(created)}; the pinned repository commits the insert before the read-back that failed)`,
+		);
+	}
+	// Ambiguous (unobserved or non-rollback-proving) creation outcome:
+	// reconcile through the supported native term read.
 	const reconciled = await termPresence(slug);
 	if (reconciled.presence === "present") {
-		// Uncertain-commit recovery (kept per R2-F1): a present record under
-		// this run's fresh random slug is recovered as owned so teardown
-		// cleans it.
+		// Ambiguous-commit recovery (R3-F1): a present record under this run's
+		// fresh random slug is recovered as owned so teardown cleans it; the
+		// original server failure is reported, not converted into success.
 		syntheticTerm = { taxonomy: TOPIC_TAXONOMY, slug };
 		console.log(
-			`[cms-revisions] synthetic term creation outcome never observed (${renderFailure(transportFailure)}); native read confirms the record is present — recovered as owned and registered for teardown`,
+			`[cms-revisions] synthetic term creation outcome does not prove rollback (${renderFailure(unprovenFailure)}); native read confirms the record is present — recovered as owned and registered for teardown`,
 		);
 		return slug;
 	}
 	if (reconciled.presence === "absent") {
 		throw new Error(
-			`synthetic term creation did not land (reconciled absent after: ${renderFailure(transportFailure)})`,
+			`synthetic term creation did not land (reconciled absent after: ${renderFailure(unprovenFailure)})`,
 		);
 	}
 	// Unreadable reconciliation: keep the registration (the read-first
-	// teardown decides again from actual state) and fail loudly.
+	// teardown decides again from actual state) and fail loudly with the
+	// original failure retained.
 	syntheticTerm = { taxonomy: TOPIC_TAXONOMY, slug };
 	throw new Error(
-		`synthetic term creation outcome never observed (${renderFailure(transportFailure)}) and reconciliation could not settle it (${reconciled.detail}); the slug stays registered for the read-first safety-net teardown`,
+		`synthetic term creation outcome does not prove rollback (${renderFailure(unprovenFailure)}) and reconciliation could not settle it (${reconciled.detail}); the slug stays registered for the read-first safety-net teardown`,
 	);
 }
 
@@ -949,32 +988,41 @@ async function deleteSyntheticTerm(): Promise<void> {
 /**
  * Ensure one clearly-synthetic native byline entity exists (bylines:manage;
  * POST /_emdash/api/admin/bylines) and is registered for teardown, with the
- * R2-F1 ownership discipline: a DEFINITE native refusal — including the
- * pinned duplicate-slug CONFLICT (src/api/handlers/bylines.ts:190-223) —
+ * R2-F1/R3-F1 ownership discipline. A 4xx refusal is SOURCE-PROVEN
+ * non-commit — every 4xx these create routes answer (route authorization,
+ * body validation, and the duplicate-slug CONFLICT of
+ * src/api/handlers/bylines.ts:190-223) is decided BEFORE the insert — so it
  * never claims ownership, never registers, and never deletes a pre-existing
- * same-slug record. Ownership is established by (a) a definite success
- * envelope (its id from the response, or reconciled through the supported
- * listing when the envelope carries none), or (b) the uncertain-create
- * recovery (outcome never observed; the listing finds the record under this
- * run's fresh random slug). An uncertain creation reconciled ABSENT never
- * landed; an unreadable reconciliation keeps the registration (id resolved
- * by the read-first teardown listing) and fails loudly.
+ * same-slug record. A 5xx (BYLINE_CREATE_ERROR) does NOT prove rollback: the
+ * pinned repository commits the insert transaction and only then performs
+ * findById (src/database/repositories/byline.ts:770-805), and a failure of
+ * that post-commit read is caught and returned as the observed server error
+ * (src/api/handlers/bylines.ts:241-255) while the byline exists. Ownership
+ * is therefore established by (a) a definite success envelope (its id from
+ * the response, or reconciled through the supported listing when the
+ * envelope carries none), or (b) the ambiguous-outcome recovery — transport
+ * loss or a non-rollback-proving server error — with the listing finding
+ * the record under this run's fresh random slug. An ambiguous creation
+ * reconciled ABSENT never landed; an unreadable reconciliation keeps the
+ * registration (id resolved by the read-first teardown listing) and fails
+ * loudly. The original server failure is always reported — never silently
+ * converted into successful creation, never blindly retried.
  */
 async function ensureSyntheticByline(): Promise<string> {
 	if (syntheticByline?.id !== undefined) {
 		return syntheticByline.id;
 	}
 	const slug = `${SYNTHETIC_FIXTURE_MARK}-byline-${crypto.randomUUID().slice(0, 8)}`;
-	// The intent is local until ownership is established (R2-F1).
+	// The intent is local until ownership is established.
 	let created: NativeResult | undefined;
-	let transportFailure: unknown;
+	let unprovenFailure: unknown;
 	try {
 		created = await cmsRequest(admin, "/_emdash/api/admin/bylines", {
 			method: "POST",
 			body: { slug, displayName: `${SYNTHETIC_FIXTURE_MARK} byline` },
 		});
 	} catch (cause) {
-		transportFailure = cause;
+		unprovenFailure = cause;
 	}
 	if (created !== undefined && created.ok) {
 		// Definite commit by this run: owned. The pinned create handler
@@ -1007,35 +1055,45 @@ async function ensureSyntheticByline(): Promise<string> {
 			}); the slug stays registered and the read-first teardown reconciles it`,
 		);
 	}
-	if (created !== undefined) {
-		// Definite native refusal — a definite NON-commit (the duplicate-slug
-		// guard answers CONFLICT for an existing slug). Never owned, never
-		// registered, never deleted (R2-F1).
+	if (created !== undefined && created.status >= 400 && created.status < 500) {
+		// SOURCE-PROVEN non-commit (R3-F1): every 4xx from these create routes
+		// precedes the insert. Never owned, never registered, never deleted.
 		throw new Error(
 			`creating the synthetic byline was refused (${nativeRefusalOf(created)}); no ownership is claimed and nothing is registered — a same-slug record the native duplicate guard reports pre-existed this request and is not deleted`,
 		);
 	}
-	// The request's outcome was never observed: a genuinely UNCERTAIN
-	// creation. Reconcile the exact owned slug through the supported listing.
+	if (created !== undefined) {
+		// A 5xx (BYLINE_CREATE_ERROR) does NOT prove rollback (R3-F1): the
+		// pinned path commits the insert before the read-back whose failure
+		// produced this envelope. Keep the exact attempted identity and
+		// reconcile below; the original failure is reported in every outcome.
+		unprovenFailure = new Error(
+			`the byline create answered a server error that does not prove rollback (${nativeRefusalOf(created)}; the pinned repository commits the insert before the read-back that failed)`,
+		);
+	}
+	// Ambiguous (unobserved or non-rollback-proving) creation outcome:
+	// reconcile the exact attempted slug through the supported listing.
 	const reconciled = await bylinePresenceBySlug(slug);
 	if (reconciled.presence === "present") {
-		// Uncertain-commit recovery (kept per R2-F1).
+		// Ambiguous-commit recovery (R3-F1): the record is recovered as owned
+		// so teardown cleans it; the original server failure is reported, not
+		// converted into success.
 		syntheticByline = { id: reconciled.id, slug };
 		console.log(
-			`[cms-revisions] synthetic byline creation outcome never observed (${renderFailure(transportFailure)}); the supported listing finds the record — recovered as owned and registered for teardown`,
+			`[cms-revisions] synthetic byline creation outcome does not prove rollback (${renderFailure(unprovenFailure)}); the supported listing finds the record — recovered as owned and registered for teardown`,
 		);
 		return reconciled.id;
 	}
 	if (reconciled.presence === "absent") {
 		throw new Error(
-			`synthetic byline creation did not land (reconciled absent after: ${renderFailure(transportFailure)})`,
+			`synthetic byline creation did not land (reconciled absent after: ${renderFailure(unprovenFailure)})`,
 		);
 	}
 	// Unreadable reconciliation: keep the registration without an id (the
 	// read-first teardown listing decides again from actual state).
 	syntheticByline = { slug };
 	throw new Error(
-		`synthetic byline creation outcome never observed (${renderFailure(transportFailure)}) and reconciliation could not settle it (${reconciled.detail}); the slug stays registered for the read-first safety-net teardown`,
+		`synthetic byline creation outcome does not prove rollback (${renderFailure(unprovenFailure)}) and reconciliation could not settle it (${reconciled.detail}); the slug stays registered for the read-first safety-net teardown`,
 	);
 }
 
