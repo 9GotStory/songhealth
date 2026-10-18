@@ -47,7 +47,14 @@ later work; native query integration still needs focused verification before fea
 
 Future model integration tests exercise the native helpers within the Astro runtime with public
 versus authorized preview context, including a published parent and unavailable linked target.
-These can be test-harness consumers; no new production route is needed. The foundation marker test
+These must be test-harness consumers of the **one existing persistent development
+Astro/EmDash server**, not a separately started Astro `dev()` instance; no new
+production route is needed. A development-only SSR fixture requires a reviewed
+and explicitly authorized integration into that running server's native request
+context, with production-build exclusion and stable-source/config lifecycle
+verification. If the runtime lacks the approved fixture, report HOLD rather
+than bypass public context with privileged reads or claim test success.
+The foundation marker test
 alone does not establish these model-read outcomes. Staff tests also verify current shared-source
 reuse and safe errors; later public-page implementation owns actual unavailable-file presentation.
 
