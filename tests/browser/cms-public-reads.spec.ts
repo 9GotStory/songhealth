@@ -314,6 +314,18 @@ let admin: CmsActor;
 /** The coordinated route access token (client copy; in memory only). */
 let routeAccessToken: string;
 
+/**
+ * The named historical HOLD that rejected this worker's bootstrap (P1
+ * corrective, PO authorization 01a15682-d9d6-7d79-99fe-f5dbeadbeb10). Once
+ * set, it binds the ENTIRE worker lifecycle: Playwright still runs
+ * afterEach/afterAll after a failed beforeAll, and those hooks must not
+ * clean, reconcile, settle or remove the rejected historical evidence —
+ * the primary bootstrap failure stays visible and the journal's bytes are
+ * preserved. Null after a successful (historical-free) bootstrap, leaving
+ * normal current-run cleanup untouched.
+ */
+let startupHistoricalHoldReason: string | null = null;
+
 /** Readiness of the exercised collections; set by beforeAll only. */
 let pagesReadiness: CollectionReadiness = { outcome: "missing" };
 let documentsReadiness: CollectionReadiness = { outcome: "missing" };
@@ -1545,6 +1557,7 @@ test.beforeAll(async () => {
 		manifestPathOf(),
 	);
 	if (holdReason !== null) {
+		startupHistoricalHoldReason = holdReason;
 		throw new Error(holdReason);
 	}
 });
@@ -1636,6 +1649,19 @@ test.afterEach(async () => {
 	// journal is frozen.)
 	await statusRecord({ title: test.info().title, status: test.info().status ?? "unknown" });
 
+	// P1 corrective: a bootstrap rejected for historical evidence binds this
+	// whole worker — Playwright still runs afterEach after a failed beforeAll,
+	// and this hook must not clean, reconcile, settle or remove the rejected
+	// journal. The primary bootstrap failure stays visible; the evidence is
+	// preserved byte-for-byte. (Cleared only by a successful bootstrap.)
+	if (startupHistoricalHoldReason !== null) {
+		expect(
+			[startupHistoricalHoldReason],
+			"afterEach after a historical-evidence bootstrap HOLD must perform NO cleanup/reconciliation/removal and keep the primary bootstrap failure visible",
+		).toEqual([]);
+		return;
+	}
+
 	// Remediation contract: validate the COMPLETE current manifest BEFORE
 	// any native cleanup — including before cleanupOwned(), so the unchanged
 	// helper registry can never bypass the gate. A blocked (invalid)
@@ -1689,6 +1715,16 @@ test.afterEach(async () => {
 	expect(cleared.failure ?? "", "no manifest evidence may be lost silently").toBe("");
 });
 test.afterAll(async () => {
+	// P1 corrective: the historical-evidence bootstrap HOLD binds this hook
+	// too — no cleanup, reconciliation, settlement or manifest removal may
+	// touch the rejected evidence, and no diagnostic is appended to it. The
+	// primary bootstrap failure is re-reported truthfully.
+	if (startupHistoricalHoldReason !== null) {
+		throw new Error(
+			`afterAll blocked by the bootstrap HOLD — historical evidence is preserved untouched and no cleanup ran: ${startupHistoricalHoldReason}`,
+		);
+	}
+
 	// Same remediation gate as afterEach — the later hook cannot bypass a
 	// prior rejection, and a frozen manifest receives no diagnostic append.
 	const manifestTarget = manifestPathOf();
