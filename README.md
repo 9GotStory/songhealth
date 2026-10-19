@@ -256,8 +256,9 @@ own authorization — the current routine activation covers `status`/`verify` on
 `npm test` script at this baseline; focused Node suites (`node --test "tests/node/*.test.ts"`)
 run under a task's own authorized pinned toolchain (the pinned host toolchain
 `/home/multica-agent/toolchain/node-v24.21.0-linux-x64` remains available for task workspaces).
-Use synthetic public-publishable test data, mint access through the dev bypass, and clean up
-only owned fixtures and scratch.
+Use synthetic public-publishable test data, reuse the existing mode-0600 development
+PAT through `loadDevAccessToken()` / `createPatActor()`, and clean up only owned fixtures
+and scratch. Never repeat dev-bypass bootstrap on the initialized shared runtime.
 
 ## Superseded native-host workflow
 
