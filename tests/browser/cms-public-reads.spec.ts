@@ -621,7 +621,12 @@ async function readManifest(
 			continue;
 		}
 		try {
-			records.push(JSON.parse(trimmed) as OwnershipRecord);
+			const parsed: unknown = JSON.parse(trimmed);
+			if (parsed === null || typeof parsed !== "object") {
+				records.push({ phase: "unreadable", raw: trimmed });
+			} else {
+				records.push(parsed as OwnershipRecord);
+			}
 		} catch {
 			records.push({ phase: "unreadable", raw: trimmed });
 		}
@@ -702,31 +707,84 @@ function identityKey(record: OwnershipRecord): string {
  * attempts that MUST be reconciled before any evidence is cleared. An
  * unreadable line keeps the whole file unresolved (fail closed).
  */
-function unresolvedIdentities(records: OwnershipRecord[]): OwnershipRecord[] {
-	const resolved = new Set<string>();
-	for (const record of records) {
-		// `resolved` marks proven resolution; `refused` marks a
-		// SOURCE-PROVEN NON-COMMIT (R3-A, corrective round 2): the native
-		// create/upload was definitely refused before any insert — a 4xx
-		// decided before the write, or a deduplicated upload returning a
-		// pre-existing asset. This run owns NOTHING under that identity, so
-		// it is settled without adoption or deletion; any pre-existing
-		// record under the same slug belongs to whoever created it earlier.
-		if (record.phase === "resolved" || record.phase === "refused") {
-			resolved.add(identityKey(record));
+/**
+ * Kind-specific synthetic ownership identity validation (R3-B, corrective
+ * round 4 — validation BEFORE settlement matching). EVERY journal row that
+ * is to enter a settlement set, match another row, or be skipped as settled
+ * must pass this first — including `resolved`/`refused` settlement records
+ * themselves. Parsing JSON and TypeScript casts are insufficient: every
+ * identity-bearing field that is PRESENT must be a string, and the row's
+ * ownership identity must carry this suite's synthetic namespace.
+ *
+ * entry: `collection` is a non-empty string; `slug`/`id`, when present, are
+ *   strings; the identity (`slug` falling back to `id`) starts with the
+ *   synthetic prefix. Settlement/intent records written by this suite always
+ *   use bare synthetic slugs (its creators never record locale-prefixed
+ *   ids), so a bare-prefix requirement admits every legitimate record and
+ *   refuses foreign or malformed identifiers.
+ * media: `id`/`filename`, when present, are strings; a present `filename`
+ *   must carry the synthetic prefix (this suite's unique upload names); an
+ *   id-only row remains a valid reference whose ownership is separately
+ *   proven against the live asset's own filename before any deletion
+ *   (round 3) — but it can only ever settle the record whose key already
+ *   carries that id, never a filename-keyed intent.
+ */
+function validOwnershipIdentity(record: OwnershipRecord): boolean {
+	if (record.kind === "entry") {
+		if (typeof record.collection !== "string" || record.collection.length === 0) {
+			return false;
 		}
+		for (const field of ["slug", "id"] as const) {
+			if (record[field] !== undefined && typeof record[field] !== "string") {
+				return false;
+			}
+		}
+		const slug = record.slug ?? record.id;
+		return typeof slug === "string" && slug.startsWith(`${SYNTHETIC_FIXTURE_MARK}-`);
 	}
+	if (record.kind === "media") {
+		for (const field of ["id", "filename"] as const) {
+			if (record[field] !== undefined && typeof record[field] !== "string") {
+				return false;
+			}
+		}
+		if (record.filename !== undefined) {
+			return record.filename.startsWith(`${SYNTHETIC_FIXTURE_MARK}-`);
+		}
+		return typeof record.id === "string" && record.id.length > 0;
+	}
+	return false;
+}
+
+/**
+ * Every ownership identity still outstanding (R3-B). A `resolved`/`refused`
+ * record settles an identity ONLY when its own phase, kind and synthetic
+ * ownership identity all validate; an INVALID settlement record settles
+ * nothing, stays outstanding itself, and can never suppress a valid
+ * `intent`/`created` row — so its manifest survives and recovery/teardown
+ * reports an explicit failure. Valid `intent`/`created` rows likewise
+ * validate before settlement matching; malformed attempt rows stay
+ * outstanding. Nothing is silently repaired or migrated.
+ */
+export function unresolvedIdentities(records: OwnershipRecord[]): OwnershipRecord[] {
 	const KNOWN_PHASES = new Set(["intent", "created", "resolved", "refused", "unreadable"]);
-	const KNOWN_KINDS = new Set(["entry", "media"]);
+	const settled = new Set<string>();
+	for (const record of records) {
+		if (record.phase !== "resolved" && record.phase !== "refused") {
+			continue;
+		}
+		// Validation BEFORE the settlement set: a settlement record with an
+		// unknown kind, a missing identity, a malformed identity type (e.g.
+		// an object-valued id) or a non-synthetic identifier enters nothing.
+		if (!validOwnershipIdentity(record)) {
+			continue;
+		}
+		settled.add(identityKey(record));
+	}
 	const outstanding: OwnershipRecord[] = [];
 	const seen = new Set<string>();
+	const seenInvalid = new Set<string>();
 	for (const record of records) {
-		// R3-B (corrective round 3): an UNKNOWN phase or kind is unknown
-		// ownership evidence — it stays outstanding so its file can never be
-		// silently consumed as "nothing unresolved". Only the settlement
-		// markers (resolved/refused) and the handled attempt shapes
-		// (intent/created of a known kind) are non-outstanding; `unreadable`
-		// lines were already preserved.
 		if (typeof record.phase !== "string" || !KNOWN_PHASES.has(record.phase)) {
 			outstanding.push(record);
 			continue;
@@ -735,15 +793,27 @@ function unresolvedIdentities(records: OwnershipRecord[]): OwnershipRecord[] {
 			outstanding.push(record);
 			continue;
 		}
-		if (record.phase !== "intent" && record.phase !== "created") {
-			continue; // resolved / refused settlement markers
+		if (record.phase === "resolved" || record.phase === "refused") {
+			// A settlement marker is consumable ONLY when it validates; an
+			// invalid settlement stays outstanding evidence (it settles
+			// nothing and its file can never be removed as consumed).
+			if (!validOwnershipIdentity(record)) {
+				outstanding.push(record);
+			}
+			continue;
 		}
-		if (typeof record.kind !== "string" || !KNOWN_KINDS.has(record.kind)) {
-			outstanding.push(record);
+		// intent / created: known kind and a validated synthetic ownership
+		// identity are required BEFORE settlement matching.
+		if (!validOwnershipIdentity(record)) {
+			const raw = JSON.stringify(record);
+			if (!seenInvalid.has(raw)) {
+				seenInvalid.add(raw);
+				outstanding.push(record);
+			}
 			continue;
 		}
 		const key = identityKey(record);
-		if (resolved.has(key) || seen.has(key)) {
+		if (settled.has(key) || seen.has(key)) {
 			continue;
 		}
 		seen.add(key);
@@ -1053,6 +1123,12 @@ async function reconcileManifest(target: string): Promise<string[]> {
 	for (const record of unresolvedIdentities(records)) {
 		if (record.phase === "unreadable") {
 			failures.push(`an unreadable ownership line survives in ${target} — preserving it unresolved`);
+			continue;
+		}
+		if (record.phase === "resolved" || record.phase === "refused") {
+			failures.push(
+				`an invalid ${String(record.phase)} settlement record ${JSON.stringify(record)} survives in ${target} — invalid evidence settles nothing and is preserved, never consumed`,
+			);
 			continue;
 		}
 		if (typeof record.phase !== "string" || (record.phase !== "intent" && record.phase !== "created")) {
@@ -2320,4 +2396,91 @@ test("native error channel: a malformed pagination cursor surfaces the real nati
 	});
 	expect(missingAnchor.body.error, "a missing anchor is an empty page, never an error").toBeUndefined();
 	expect(missingAnchor.body.entries).toEqual([]);
+});
+
+test("R3-B settlement validation (regression): invalid resolved/refused records settle nothing and stay outstanding; valid settlements still function", async () => {
+	// Corrective round 4 (R3-B only): validation of phase, kind and the
+	// kind-specific synthetic ownership identity happens BEFORE a record
+	// enters the settlement set, matches another row, or is skipped as
+	// settled. These assertions drive the ACTUAL exported classifier with
+	// crafted journals — the committed regression coverage for the defect
+	// the Lead reproduced (a malformed settlement suppressing a valid
+	// intent and erasing its manifest).
+	const entryIntent = {
+		phase: "intent",
+		kind: "entry",
+		collection: "pages",
+		slug: "songhealth-f002-synthetic-prior-run-abc",
+	};
+	const entrySettlement = {
+		phase: "resolved",
+		kind: "entry",
+		collection: "pages",
+		slug: "songhealth-f002-synthetic-prior-run-abc",
+	};
+	const mediaCreated = {
+		phase: "created",
+		kind: "media",
+		id: "offline-media-id",
+		filename: "songhealth-f002-synthetic-media-abcd1234.png",
+	};
+
+	// Positive controls: VALID settlements (both phases) settle their
+	// matching intent/created identities — entry by slug, media by id — and
+	// a valid source-proven refusal settles without deleting anything.
+	expect(unresolvedIdentities([entryIntent, entrySettlement])).toEqual([]);
+	expect(
+		unresolvedIdentities([
+			mediaCreated,
+			{ phase: "resolved", kind: "media", id: "offline-media-id", how: "proven-absent" },
+		]),
+	).toEqual([]);
+	expect(
+		unresolvedIdentities([
+			{ phase: "intent", kind: "media", filename: "songhealth-f002-synthetic-media-abcd1234.png" },
+			{ phase: "refused", kind: "media", filename: "songhealth-f002-synthetic-media-abcd1234.png", reason: "native-refusal-409" },
+		]),
+	).toEqual([]);
+
+	// Invalid settlements never settle: unknown kind, missing kind, missing
+	// identity, malformed identity TYPES (the Lead's exact object-valued id
+	// collision), and malformed synthetic identifiers. Each leaves the valid
+	// intent/created OUTSTANDING and the invalid settlement itself
+	// outstanding.
+	const invalidSettlements: OwnershipRecord[] = [
+		{ phase: "resolved", kind: "alien", id: "anything" },
+		{ phase: "refused", kind: "alien", id: "anything" },
+		{ phase: "resolved" },
+		{ phase: "refused", kind: "entry" },
+		{ ...entrySettlement, id: { invalid: "identity" } as unknown as string },
+		{ phase: "resolved", kind: "entry", collection: "pages", slug: "real-editorial-homepage" },
+		{ phase: "resolved", kind: "media", filename: "real-editorial-photo.jpg" },
+		{ phase: "resolved", kind: "media", id: 12345 as unknown as string },
+	];
+	for (const invalid of invalidSettlements) {
+		const outstanding = unresolvedIdentities([entryIntent, invalid]);
+		expect(
+			outstanding.length,
+			`the invalid settlement ${JSON.stringify(invalid)} must not suppress the valid intent`,
+		).toBe(2);
+	}
+	// The exact Lead collision pair: intent + object-id settlement.
+	const collision = unresolvedIdentities([
+		entryIntent,
+		{ ...entrySettlement, id: { invalid: "identity" } as unknown as string },
+	]);
+	expect(collision.length, "the malformed settlement AND the intent both stay outstanding").toBe(2);
+
+	// Malformed intent/created rows also stay outstanding (never matched,
+	// never silently consumed), including mixed valid+invalid journals.
+	const mixed = unresolvedIdentities([
+		entryIntent,
+		entrySettlement,
+		{ phase: "created", kind: "entry", collection: "pages", slug: { no: "slug" } as unknown as string },
+		{ phase: "intent", kind: "widget", id: "x" },
+		{ phase: "resolved", kind: "entry", collection: "", slug: "songhealth-f002-synthetic-x" },
+	]);
+	// The valid pair settles; the malformed created row, the unknown-kind
+	// intent and the empty-collection settlement all remain outstanding.
+	expect(mixed.length).toBe(3);
 });
