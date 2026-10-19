@@ -20,11 +20,12 @@
 //      runner installed; the mode-0600 development credential input and the
 //      mode-0600 route-access token input present — existence/mode only for
 //      the PAT; the token file is read to probe the route and nothing else);
-//   3. CONSUMES prior interrupted-run ownership manifests (R3): their
-//      recorded synthetic fixture identities are handed to the fresh worker
-//      as recovery inputs (SONGHEALTH_T021_RECOVERY_MANIFESTS), whose
-//      bounded awaited reconciliation adopts or resolves them through
-//      supported native reads; leftover files are never merely printed;
+//   3. PRIOR-RUN EVIDENCE HOLDs (scope reduction): historical ownership
+//      journals are never replayed, adopted, consumed or deleted — any
+//      leftover manifest (valid-looking, settled, malformed, unreadable or
+//      EMPTY) is retained untouched and produces a named prerequisite HOLD
+//      before any worker spawns; disposition is a separately authorized
+//      operator action. The worker itself equally refuses recovery inputs;
 //   4. runs the ONE T021 spec file through the repo-pinned Playwright
 //      runner with PLAYWRIGHT_BASE_URL pinned to the persistent origin and
 //      the explicit opt-in that keeps ordinary `npm run test:browser` from
@@ -47,8 +48,7 @@
 //   0  child passed, every recorded test status passed, no residue remained
 //   1  child Playwright run failed (its exit code propagated)
 //   2  child exited zero but coverage/residue is incomplete (skipped or
-//      non-passed recorded statuses, unresolved owned fixtures, or recovery
-//      inputs that could not be consumed)
+//      non-passed recorded statuses, or unresolved owned fixtures)
 //   3  HOLD — a prerequisite failed; nothing was spawned or started
 //   4  interrupted (SIGINT/SIGTERM) or timed out; child terminated/reaped
 //
@@ -120,9 +120,6 @@ const DEV_ACCESS_CREDENTIAL_ENV = "SONGHEALTH_DEV_ACCESS";
 
 /** Per-run owned-fixture manifest passed to the worker. */
 const OWNERSHIP_MANIFEST_ENV = "SONGHEALTH_T021_OWNERSHIP_MANIFEST";
-
-/** Prior-run manifests the worker must reconcile (":"-separated list). */
-const RECOVERY_MANIFESTS_ENV = "SONGHEALTH_T021_RECOVERY_MANIFESTS";
 
 /** Per-run test-status journal the worker appends to (R5). */
 const RUN_STATUS_ENV = "SONGHEALTH_T021_RUN_STATUS";
@@ -386,41 +383,40 @@ async function fixtureReadinessHolds(routeAccessToken, expectedSha) {
 }
 
 /**
- * CONSUME prior interrupted-run manifests (R3): a manifest file that still
- * exists after a run means owned synthetic fixtures may remain. Their
- * recorded identities are handed to the fresh worker as recovery inputs —
- * never merely printed. Returns the recovery paths and any read failures.
+ * PRIOR-RUN EVIDENCE SCAN (scope reduction): a manifest file that still
+ * exists after an earlier run is HISTORICAL ownership evidence. Journal
+ * replay, adoption and automatic deletion are retired, so such evidence is
+ * never handed to a worker, never consumed, and never deleted — even an
+ * EMPTY or unreadable leftover is evidence of an unfinished earlier run,
+ * not proof of absence or cleanup success. Encountering any of it is a
+ * named prerequisite HOLD before the worker spawns; disposition is a
+ * separately authorized operator action.
  */
-async function collectRecoveryManifests(currentManifest) {
-	const recoveryPaths = [];
-	const failures = [];
+export async function priorRunEvidencePaths(currentManifest) {
+	const found = [];
+	const unreadable = [];
 	try {
 		const entries = await readdir(path.join(repoRoot, SCRATCH_DIR), { withFileTypes: true });
 		for (const entry of entries) {
 			if (!entry.isFile() || !entry.name.startsWith("t021-ownership-")) {
 				continue;
 			}
-			if (path.join(repoRoot, SCRATCH_DIR, entry.name) === currentManifest) {
+			const leftover = path.join(repoRoot, SCRATCH_DIR, entry.name);
+			if (leftover === currentManifest) {
 				continue;
 			}
-			const leftover = path.join(repoRoot, SCRATCH_DIR, entry.name);
 			try {
 				const contents = await readFile(leftover, "utf8");
-				if (contents.trim().length > 0) {
-					recoveryPaths.push(leftover);
-				} else {
-					// An empty leftover is inert; remove it so it cannot be
-					// mistaken for recoverable ownership.
-					await import("node:fs/promises").then((fs) => fs.unlink(leftover));
-				}
+				// Presence is the signal: empty and non-empty alike HOLD.
+				found.push({ path: leftover, empty: contents.trim().length === 0 });
 			} catch (error) {
-				failures.push(`leftover manifest ${path.relative(repoRoot, leftover)} could not be read (${error.code ?? error.message}) — preserved for manual recovery`);
+				unreadable.push(`${path.relative(repoRoot, leftover)} (${error.code ?? error.message})`);
 			}
 		}
 	} catch {
 		// Scratch absent — no leftovers.
 	}
-	return { recoveryPaths, failures };
+	return { found, unreadable };
 }
 
 /** Terminated-and-reaped child outcome. */
@@ -738,19 +734,24 @@ async function main() {
 		`t021-run-status-${new Date().toISOString().replaceAll(/[:.]/g, "-")}-${process.pid}.jsonl`,
 	);
 
-	// R3 — CONSUME prior manifests: hand their recorded identities to the
-	// fresh worker for bounded awaited reconciliation.
-	const recovery = await collectRecoveryManifests(manifestPath);
-	for (const failure of recovery.failures) {
-		reasons.push(failure);
-	}
-	if (recovery.recoveryPaths.length > 0) {
-		process.stderr.write(
-			`coordinator: consuming ${recovery.recoveryPaths.length} prior interrupted-run ownership manifest(s) — the worker reconciles their recorded synthetic fixtures before reporting success\n`,
+	// SCOPE REDUCTION — prior-run evidence HOLDs before any spawn: no worker
+	// (fixture-writing or otherwise) is launched to recover historical
+	// journals, and nothing is deleted or consumed. Empty/unreadable
+	// leftovers are equally evidence of an unfinished earlier run.
+	const priorEvidence = await priorRunEvidencePaths(manifestPath);
+	const priorReasons = [];
+	for (const item of priorEvidence.found) {
+		priorReasons.push(
+			`prior-run ownership evidence at ${path.relative(repoRoot, item.path)}${item.empty ? " (empty file — not proof of absence)" : ""} is retained untouched: journal replay, adoption and automatic deletion are retired; separately authorized operator disposition is required`,
 		);
 	}
-	if (reasons.length > 0) {
-		await hold(reasons);
+	for (const item of priorEvidence.unreadable) {
+		priorReasons.push(
+			`unreadable prior-run ownership evidence at ${item} — retained untouched; operator disposition required`,
+		);
+	}
+	if (priorReasons.length > 0) {
+		await hold(priorReasons);
 		return;
 	}
 
@@ -760,9 +761,6 @@ async function main() {
 		[OPT_IN_ENV]: "1",
 		[OWNERSHIP_MANIFEST_ENV]: manifestPath,
 		[RUN_STATUS_ENV]: statusPath,
-		...(recovery.recoveryPaths.length > 0
-			? { [RECOVERY_MANIFESTS_ENV]: recovery.recoveryPaths.join(":") }
-			: {}),
 	};
 
 	process.stderr.write(
@@ -837,30 +835,18 @@ async function main() {
 		coverageFailure = `incomplete T021 coverage despite a passing worker exit (${coverageProblems.length} problem(s)): ${coverageProblems.join("; ")}`;
 	}
 
-	// Owned-fixture residue (R3): the worker deletes the manifest when its
-	// verified cleanup (including recovery of prior-run identities) resolved
-	// everything; a manifest that still exists means recoverable owned
-	// fixtures — preserved and reported, never silently discarded.
+	// Owned-fixture residue: the worker removes the manifest only when its
+	// verified current-run cleanup resolved everything; a manifest that
+	// still exists means unresolved owned fixtures — preserved and reported,
+	// never silently discarded, and never automatically replayed: a rerun
+	// will HOLD on it as prior-run evidence until an operator disposes of it.
 	let residueFailure;
 	const manifestStats = await stat(manifestPath).catch(() => undefined);
 	if (manifestStats !== undefined && manifestStats.size > 0) {
-		residueFailure = `owned-fixture residue may remain: the worker's ownership manifest ${path.relative(repoRoot, manifestPath)} still exists — re-run the coordinator (its worker consumes this manifest as a recovery input and retries owned cleanup) or perform the documented recovery before claiming a residue-free run`;
+		residueFailure = `owned-fixture residue may remain: this run's ownership manifest ${path.relative(repoRoot, manifestPath)} still exists — historical replay is retired, so the next coordinator attempt will HOLD on it; separately authorized operator disposition is required before claiming a residue-free run`;
 	} else if (manifestStats !== undefined) {
 		residueFailure = `the ownership manifest ${path.relative(repoRoot, manifestPath)} is empty but was not removed — treating as incomplete cleanup`;
 	}
-	// Recovery inputs that could not be fully consumed also stay non-success.
-	let recoveryFailure;
-	const remainingRecovery = [];
-	for (const recovered of recovery.recoveryPaths) {
-		const stats = await stat(recovered).catch(() => undefined);
-		if (stats !== undefined && stats.size > 0) {
-			remainingRecovery.push(path.relative(repoRoot, recovered));
-		}
-	}
-	if (remainingRecovery.length > 0) {
-		recoveryFailure = `prior-run ownership manifest(s) could not be fully consumed: ${remainingRecovery.join(", ")} still hold unresolved recorded identities`;
-	}
-
 	if (primaryFailure !== undefined) {
 		process.stderr.write(`PRIMARY FAILURE: ${primaryFailure}\n`);
 	}
@@ -869,9 +855,6 @@ async function main() {
 	}
 	if (residueFailure !== undefined) {
 		process.stderr.write(`CLEANUP FAILURE: ${residueFailure}\n`);
-	}
-	if (recoveryFailure !== undefined) {
-		process.stderr.write(`RECOVERY FAILURE: ${recoveryFailure}\n`);
 	}
 
 	if (outcome.timedOut === true || outcome.interrupted !== undefined) {
@@ -882,7 +865,7 @@ async function main() {
 		process.exitCode = childCode === 0 ? 1 : childCode;
 		return;
 	}
-	if (coverageFailure !== undefined || residueFailure !== undefined || recoveryFailure !== undefined) {
+	if (coverageFailure !== undefined || residueFailure !== undefined) {
 		process.exitCode = 2;
 		return;
 	}

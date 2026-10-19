@@ -534,7 +534,7 @@ async function collectPublishedIds(collection: string, maxPages = 25): Promise<s
 // Coordinator-owned fixture ownership (R3, corrective round 1): intent is
 // retained BEFORE every native write, ambiguous attempts are reconciled
 // through supported native reads before ANY ownership evidence is cleared,
-// and prior interrupted-run manifests are consumed as recovery inputs.
+// and prior-run manifests are REFUSED (scope reduction: replay retired).
 // ---------------------------------------------------------------------------
 
 /** One retained ownership/intent record (JSONL line). */
@@ -554,7 +554,7 @@ type OwnershipIdentity = Omit<OwnershipRecord, "phase">;
 /** The run's test-status journal path (R5), when coordinated. */
 const RUN_STATUS_ENV = "SONGHEALTH_T021_RUN_STATUS";
 
-/** Prior-run manifests handed over by the coordinator for recovery (R3). */
+/** Prior-run manifests directly presented to this worker (always refused). */
 const RECOVERY_MANIFESTS_ENV = "SONGHEALTH_T021_RECOVERY_MANIFESTS";
 
 async function fsPromisesOf(): Promise<{
@@ -1526,76 +1526,84 @@ test.beforeAll(async () => {
 		return problems;
 	});
 
-	// R3 — CONSUME prior interrupted-run manifests handed over by the
-	// coordinator: every recorded synthetic identity is reconciled through
-	// supported native reads (adopted-and-deleted, or proven non-committed)
-	// BEFORE this run claims anything. A fully consumed file is removed;
-	// anything unresolved fails this worker loudly with the evidence
-	// preserved — a fresh worker never erases old intent merely because its
-	// in-memory registry is empty.
-	// R3/remediation — CONSUME prior interrupted-run manifests. Batch
-	// preflight FIRST: every recovery input (and any existing current-run
-	// manifest from an earlier worker on this path) is read and admitted
-	// BEFORE any recovery mutation, so one invalid input blocks the whole
-	// batch with all validation issues reported and every file retained.
+	// SCOPE REDUCTION (PO authorization 01a154fa-df88-7ee6-a304-dc6e3b686732):
+	// historical journal replay, adoption and automatic deletion are
+	// RETIRED. Prior-run ownership evidence — valid-looking, settled,
+	// refused, malformed, mixed, unreadable or EMPTY — never authorizes
+	// native adoption, deletion, settlement or automatic evidence removal
+	// in this worker, and this worker is never a callable replay bypass.
+	// Encountering it is a named HOLD with the evidence retained untouched
+	// for separately authorized operator disposition; no fixture-writing
+	// worker is launched to recover it and nothing is silently repaired.
 	const recoveryRaw = ambientNodeProcess?.env?.[RECOVERY_MANIFESTS_ENV];
-	const recoveryPaths = (recoveryRaw ?? "")
-		.split(":")
-		.map((value) => value.trim())
-		.filter((value) => value.length > 0);
-	const recoveryPreflight: string[] = [];
-	for (const recoveryPath of recoveryPaths) {
-		const admission = await readAdmission(recoveryPath);
-		if (admission.status === "unreadable") {
-			recoveryPreflight.push(
-				`the recovery manifest ${recoveryPath} could not be read (${admission.reason}) — preserved unresolved`,
-			);
-		} else if (admission.status === "admitted" && admission.blocked) {
-			recoveryPreflight.push(
-				`the recovery manifest ${recoveryPath} contains INVALID evidence and is frozen: ${admission.reasons.join("; ")}`,
-			);
-		}
-	}
-	// A prior worker on THIS run's manifest path left frozen evidence: no new
-	// fixture writes or cleanup may proceed against it.
-	const currentManifestPath = manifestPathOf();
-	if (currentManifestPath !== undefined) {
-		const admission = await readAdmission(currentManifestPath);
-		if (admission.status === "unreadable") {
-			recoveryPreflight.push(
-				`the current ownership manifest ${currentManifestPath} could not be read (${admission.reason}) — preserved unresolved`,
-			);
-		} else if (admission.status === "admitted" && admission.blocked) {
-			recoveryPreflight.push(
-				`the current ownership manifest ${currentManifestPath} contains INVALID evidence and is frozen: ${admission.reasons.join("; ")}`,
-			);
-		}
-	}
-	if (recoveryPreflight.length > 0) {
-		throw new Error(
-			`prior-run owned-fixture recovery could not be completed — frozen/unknown evidence is preserved for authorized disposition, no recovery mutation ran: ${recoveryPreflight.join("; ")}`,
-		);
-	}
-	const recoveryFailures: string[] = [];
-	for (const recoveryPath of recoveryPaths) {
-		const failures = await reconcileManifest(recoveryPath);
-		if (failures.length > 0) {
-			recoveryFailures.push(...failures);
-			continue;
-		}
-		const removal = await unlinkIfProvenAbsent(recoveryPath);
-		if (!removal.removed) {
-			recoveryFailures.push(
-				`the consumed recovery manifest ${recoveryPath} could not be removed (${removal.failure}) — preserved as evidence`,
-			);
-		}
-	}
-	if (recoveryFailures.length > 0) {
-		throw new Error(
-			`prior-run owned-fixture recovery could not be completed — unresolved recorded identities are preserved for the next run: ${recoveryFailures.join("; ")}`,
-		);
+	const holdReason = historicalRecoveryHoldReasons(
+		(recoveryRaw ?? "")
+			.split(":")
+			.map((value) => value.trim())
+			.filter((value) => value.length > 0),
+		await currentManifestPathExists(),
+		manifestPathOf(),
+	);
+	if (holdReason !== null) {
+		throw new Error(holdReason);
 	}
 });
+
+/**
+ * The named HOLD produced when historical (prior-run) ownership evidence is
+ * encountered (scope reduction): replay, adoption and automatic deletion are
+ * retired, so ANY prior-run input — valid, settled, refused, malformed,
+ * mixed, unreadable or empty — refuses the whole worker before a single
+ * native operation, credential load beyond the identity bootstrap above, or
+ * fixture write. `currentManifestExists` is an offline-existence probe for
+ * this run's own journal path: a file already present before this worker
+ * wrote anything is prior-run evidence by construction (the coordinator
+ * mints a fresh path per run), and equally HOLDs.
+ */
+export function historicalRecoveryHoldReasons(
+	presentedInputs: string[],
+	currentManifestExists: boolean,
+	currentManifestPath: string | undefined,
+): string | null {
+	const inputs = presentedInputs.filter((value) => value.length > 0);
+	const priorCurrent =
+		currentManifestPath !== undefined && currentManifestExists
+			? [`an existing ownership journal at this run's fresh path ${currentManifestPath} predates this worker`]
+			: [];
+	const total = inputs.length + priorCurrent.length;
+	if (total === 0) {
+		return null;
+	}
+	const details = [
+		...inputs.map((input) => `prior-run ownership evidence at ${input}`),
+		...priorCurrent,
+	].join("; ");
+	return (
+		`HOLD — historical ownership evidence encountered (${details}): ` +
+		"journal replay, adoption and automatic deletion are retired; the evidence is retained untouched " +
+		"(no native mutation, settlement or removal was performed and no fixture was written); " +
+		"separately authorized operator disposition is required before any further coordinated run"
+	);
+}
+
+/**
+ * Offline existence probe for this worker's own journal path (no content
+ * read): a file already present before this worker wrote anything is
+ * prior-run evidence by construction — the coordinator mints a fresh
+ * timestamped+pid path per run. node:fs is loaded through a dynamic
+ * non-literal import like every other node builtin in this file.
+ */
+async function currentManifestPathExists(): Promise<boolean> {
+	const target = manifestPathOf();
+	if (target === undefined) {
+		return false;
+	}
+	const fsSpecifier = "node:fs";
+	const nodeFs = (await import(fsSpecifier)) as unknown as {
+		existsSync: (p: string) => boolean;
+	};
+	return nodeFs.existsSync(target);
+}
 
 /** Owned-fixture cleanup for the acting actors; never throws past a failure. */
 async function cleanupOwned(actor: CmsActor | undefined): Promise<string[]> {
@@ -2757,4 +2765,47 @@ test("R3-B whole-manifest admission (remediation regression): any invalid row fr
 	// entry intent and the id-bearing created media row remain pending (the
 	// opaque id settles nothing until the live ownership proof).
 	expect(admitted.outstanding.length, "exactly the unsettled identities remain pending").toBe(2);
+});
+
+test("scope reduction (regression): historical ownership evidence always HOLDs — no replay, no adoption, no evidence removal", async () => {
+	// PO authorization 01a154fa-df88-7ee6-a304-dc6e3b686732 retires
+	// historical journal replay, adoption and automatic deletion. The ACTUAL
+	// exported refusal gate is driven directly: ANY prior-run input —
+	// valid-looking, settled, refused, malformed, mixed, unreadable or
+	// empty — must produce the named HOLD, and the worker's own fresh-path
+	// journal already existing at startup is equally prior-run evidence.
+	const holdFor = (inputs: string[], currentExists: boolean, currentPath?: string) =>
+		historicalRecoveryHoldReasons(inputs, currentExists, currentPath);
+
+	// No evidence at all → no HOLD (the ordinary fresh-run path).
+	expect(holdFor([], false, "/fresh/manifest.jsonl")).toBeNull();
+
+	// Every presented input form HOLDs — including files that look fully
+	// settled, were refused, are empty paths filtered out, or a mix.
+	for (const inputs of [
+		["/prior-run/valid.jsonl"],
+		["/prior-run/resolved.jsonl"],
+		["/prior-run/refused.jsonl"],
+		["/prior-run/malformed.jsonl", "/prior-run/mixed.jsonl"],
+		["", "  ", "/prior-run/one.jsonl"],
+	]) {
+		const reason = holdFor(inputs, false, "/fresh/manifest.jsonl");
+		expect(reason !== null, `inputs ${JSON.stringify(inputs)} must HOLD`).toBe(true);
+		expect(
+			reason ?? "",
+			"the HOLD names the retired behavior and the retained evidence",
+		).toContain("journal replay, adoption and automatic deletion are retired");
+		expect(reason ?? "").toContain("retained untouched");
+	}
+
+	// An existing journal at this worker's FRESH path predates the worker
+	// (the coordinator mints a new path per run) → equally a HOLD.
+	const freshPathReason = holdFor([], true, "/fresh/manifest.jsonl");
+	expect(freshPathReason !== null).toBe(true);
+	expect(freshPathReason ?? "").toContain("predates this worker");
+
+	// Combined inputs and fresh-path evidence all appear in one named HOLD.
+	const combined = holdFor(["/prior-run/a.jsonl"], true, "/fresh/manifest.jsonl");
+	expect(combined ?? "").toContain("/prior-run/a.jsonl");
+	expect(combined ?? "").toContain("predates this worker");
 });
