@@ -666,18 +666,23 @@ async function manifestRemove(): Promise<{ ok: boolean; failure?: string }> {
 	if (target === undefined) {
 		return { ok: true };
 	}
-	const read = await readManifest(target);
-	if (read.status === "absent") {
+	const admission = await readAdmission(target);
+	if (admission.status === "absent") {
 		return { ok: true };
 	}
-	if (read.status === "unreadable") {
+	if (admission.status === "unreadable") {
 		return {
 			ok: false,
-			failure: `the ownership manifest ${target} could not be read (${read.reason}) — unknown evidence is preserved, never removed`,
+			failure: `the ownership manifest ${target} could not be read (${admission.reason}) — unknown evidence is preserved, never removed`,
 		};
 	}
-	const unresolved = unresolvedIdentities(read.records);
-	if (unresolved.length > 0) {
+	if (admission.blocked) {
+		return {
+			ok: false,
+			failure: `the ownership manifest ${target} holds invalid evidence and is frozen — it is never removed: ${admission.reasons.join("; ")}`,
+		};
+	}
+	if (admission.outstanding.length > 0) {
 		return { ok: false };
 	}
 	const removal = await unlinkIfProvenAbsent(target);
@@ -754,6 +759,97 @@ function validOwnershipIdentity(record: OwnershipRecord): boolean {
 		return typeof record.id === "string" && record.id.length > 0;
 	}
 	return false;
+}
+
+/** The phases/kinds this suite's journal contract knows. */
+const KNOWN_PHASES = new Set(["intent", "created", "resolved", "refused", "unreadable"]);
+const KNOWN_KINDS = new Set(["entry", "media"]);
+
+/**
+ * Whole-manifest ADMISSION (bounded recovery remediation): classify EVERY
+ * row of the complete journal before any native mutation is planned, and
+ * separate **invalid evidence** from **valid pending ownership** and **valid
+ * settlements**. An empty error list or a filtered list is never inferred to
+ * be completeness — validity is established row by row, up front, for the
+ * whole file, so a bad row blocks the manifest regardless of its position.
+ *
+ * Blocked manifests are FROZEN: no recovery dispatch, no helper cleanup, no
+ * adoption, no native cleanup write, no replacement settlement append, no
+ * repair, truncation or unlink — the original bytes are preserved and the
+ * failure is reported outside the ownership file. Valid manifests carry the
+ * pending (outstanding) identities for the existing bounded reconciliation.
+ */
+export function manifestAdmission(records: OwnershipRecord[]): {
+	blocked: boolean;
+	reasons: string[];
+	outstanding: OwnershipRecord[];
+} {
+	const reasons: string[] = [];
+	for (const record of records) {
+		if (record === null || typeof record !== "object" || Array.isArray(record)) {
+			reasons.push(
+				`an ownership line is a ${Array.isArray(record) ? "array" : String(record === null ? "null" : typeof record)} value, not a record object`,
+			);
+			continue;
+		}
+		if (typeof record.phase !== "string" || !KNOWN_PHASES.has(record.phase)) {
+			reasons.push(
+				`an unknown ownership record shape (phase=${JSON.stringify(record.phase)}, kind=${JSON.stringify(record.kind)}) is invalid evidence`,
+			);
+			continue;
+		}
+		if (record.phase === "unreadable") {
+			reasons.push("an unreadable ownership line survives — invalid evidence");
+			continue;
+		}
+		if (record.phase === "resolved" || record.phase === "refused") {
+			if (!validOwnershipIdentity(record)) {
+				reasons.push(
+					`an invalid ${record.phase} settlement record ${JSON.stringify(record)} is invalid evidence — invalid settlements settle nothing`,
+				);
+			}
+			continue;
+		}
+		// intent / created attempt rows: known kind + validated synthetic
+		// ownership identity are structural admission requirements.
+		if (typeof record.kind !== "string" || !KNOWN_KINDS.has(record.kind)) {
+			reasons.push(
+				`an unknown ownership kind ${JSON.stringify(record.kind)} on a ${record.phase} row is invalid evidence`,
+			);
+			continue;
+		}
+		if (!validOwnershipIdentity(record)) {
+			reasons.push(
+				`a malformed ${record.phase} ownership row ${JSON.stringify(record)} is invalid evidence (identity fields/types/synthetic namespace)`,
+			);
+		}
+	}
+	if (reasons.length > 0) {
+		return { blocked: true, reasons, outstanding: [] };
+	}
+	return { blocked: false, reasons: [], outstanding: unresolvedIdentities(records) };
+}
+
+/**
+ * Read + admit one manifest file (tri-state): `absent` (nothing owned),
+ * `unreadable` (unknown evidence — preserved), or the admission verdict.
+ */
+async function readAdmission(
+	target: string,
+): Promise<
+	| { status: "absent" }
+	| { status: "unreadable"; reason: string }
+	| { status: "admitted"; blocked: boolean; reasons: string[]; outstanding: OwnershipRecord[] }
+> {
+	const read = await readManifest(target);
+	if (read.status === "absent") {
+		return { status: "absent" };
+	}
+	if (read.status === "unreadable") {
+		return { status: "unreadable", reason: read.reason };
+	}
+	const admission = manifestAdmission(read.records);
+	return { status: "admitted", ...admission };
 }
 
 /**
@@ -1111,38 +1207,26 @@ async function reconcileMediaIdentity(
  * the SAME file so the coordinator can observe consumption.
  */
 async function reconcileManifest(target: string): Promise<string[]> {
-	const read = await readManifest(target);
-	if (read.status === "absent") {
+	// Whole-manifest admission BEFORE any native mutation (remediation
+	// contract): an invalid row anywhere in the file freezes the entire
+	// manifest — no per-row dispatch, no helper/native cleanup, no
+	// settlement append, nothing unlinked. Original bytes preserved.
+	const admission = await readAdmission(target);
+	if (admission.status === "absent") {
 		return [];
 	}
-	if (read.status === "unreadable") {
-		return [`the ownership manifest ${target} could not be read (${read.reason}) — unknown evidence is preserved unresolved`];
+	if (admission.status === "unreadable") {
+		return [`the ownership manifest ${target} could not be read (${admission.reason}) — unknown evidence is preserved unresolved`];
 	}
-	const records = read.records;
+	if (admission.blocked) {
+		return [
+			`the ownership manifest ${target} contains INVALID evidence and is frozen for the whole run — no recovery, helper cleanup, settlement append or removal may proceed: ${admission.reasons.join("; ")}`,
+		];
+	}
 	const failures: string[] = [];
-	for (const record of unresolvedIdentities(records)) {
-		if (record.phase === "unreadable") {
-			failures.push(`an unreadable ownership line survives in ${target} — preserving it unresolved`);
-			continue;
-		}
-		if (record.phase === "resolved" || record.phase === "refused") {
-			failures.push(
-				`an invalid ${String(record.phase)} settlement record ${JSON.stringify(record)} survives in ${target} — invalid evidence settles nothing and is preserved, never consumed`,
-			);
-			continue;
-		}
-		if (typeof record.phase !== "string" || (record.phase !== "intent" && record.phase !== "created")) {
-			failures.push(
-				`an unknown ownership record shape (phase=${JSON.stringify(record.phase)}, kind=${JSON.stringify(record.kind)}) survives in ${target} — unknown evidence is preserved, never consumed`,
-			);
-			continue;
-		}
-		if (record.kind !== "entry" && record.kind !== "media") {
-			failures.push(
-				`an unknown ownership kind ${JSON.stringify(record.kind)} survives in ${target} — unknown evidence is preserved, never consumed`,
-			);
-			continue;
-		}
+	for (const record of admission.outstanding) {
+		// Only structurally valid pending rows reach here; the existing
+		// read-side ownership proofs still run before any mutation.
 		const failure =
 			record.kind === "entry"
 				? await reconcileEntryIdentity(record, target)
@@ -1151,7 +1235,27 @@ async function reconcileManifest(target: string): Promise<string[]> {
 			failures.push(failure);
 		}
 	}
-	return failures;
+	if (failures.length > 0) {
+		return failures;
+	}
+	// Proof before removal (remediation contract): freshly re-read and
+	// re-admit the target journal after proof recording. An "empty error
+	// list" alone is never permission — the file must still parse, admit
+	// and hold ZERO outstanding identities before anything may unlink it.
+	const reread = await readAdmission(target);
+	if (reread.status === "absent") {
+		return [`the ownership manifest ${target} disappeared during reconciliation — completeness unproven`];
+	}
+	if (reread.status === "unreadable") {
+		return [`the ownership manifest ${target} became unreadable after reconciliation (${reread.reason}) — completeness unproven, evidence preserved`];
+	}
+	if (reread.blocked) {
+		return [`the ownership manifest ${target} drifted into invalid evidence during reconciliation: ${reread.reasons.join("; ")} — completeness unproven, evidence preserved`];
+	}
+	if (reread.outstanding.length > 0) {
+		return [`the ownership manifest ${target} still holds ${reread.outstanding.length} unresolved identit${reread.outstanding.length === 1 ? "y" : "ies"} after reconciliation — completeness unproven`];
+	}
+	return [];
 }
 
 /** The synthetic slug a fixture entry will use (known BEFORE creation). */
@@ -1429,11 +1533,49 @@ test.beforeAll(async () => {
 	// anything unresolved fails this worker loudly with the evidence
 	// preserved — a fresh worker never erases old intent merely because its
 	// in-memory registry is empty.
+	// R3/remediation — CONSUME prior interrupted-run manifests. Batch
+	// preflight FIRST: every recovery input (and any existing current-run
+	// manifest from an earlier worker on this path) is read and admitted
+	// BEFORE any recovery mutation, so one invalid input blocks the whole
+	// batch with all validation issues reported and every file retained.
 	const recoveryRaw = ambientNodeProcess?.env?.[RECOVERY_MANIFESTS_ENV];
 	const recoveryPaths = (recoveryRaw ?? "")
 		.split(":")
 		.map((value) => value.trim())
 		.filter((value) => value.length > 0);
+	const recoveryPreflight: string[] = [];
+	for (const recoveryPath of recoveryPaths) {
+		const admission = await readAdmission(recoveryPath);
+		if (admission.status === "unreadable") {
+			recoveryPreflight.push(
+				`the recovery manifest ${recoveryPath} could not be read (${admission.reason}) — preserved unresolved`,
+			);
+		} else if (admission.status === "admitted" && admission.blocked) {
+			recoveryPreflight.push(
+				`the recovery manifest ${recoveryPath} contains INVALID evidence and is frozen: ${admission.reasons.join("; ")}`,
+			);
+		}
+	}
+	// A prior worker on THIS run's manifest path left frozen evidence: no new
+	// fixture writes or cleanup may proceed against it.
+	const currentManifestPath = manifestPathOf();
+	if (currentManifestPath !== undefined) {
+		const admission = await readAdmission(currentManifestPath);
+		if (admission.status === "unreadable") {
+			recoveryPreflight.push(
+				`the current ownership manifest ${currentManifestPath} could not be read (${admission.reason}) — preserved unresolved`,
+			);
+		} else if (admission.status === "admitted" && admission.blocked) {
+			recoveryPreflight.push(
+				`the current ownership manifest ${currentManifestPath} contains INVALID evidence and is frozen: ${admission.reasons.join("; ")}`,
+			);
+		}
+	}
+	if (recoveryPreflight.length > 0) {
+		throw new Error(
+			`prior-run owned-fixture recovery could not be completed — frozen/unknown evidence is preserved for authorized disposition, no recovery mutation ran: ${recoveryPreflight.join("; ")}`,
+		);
+	}
 	const recoveryFailures: string[] = [];
 	for (const recoveryPath of recoveryPaths) {
 		const failures = await reconcileManifest(recoveryPath);
@@ -1482,19 +1624,44 @@ async function cleanupOwned(actor: CmsActor | undefined): Promise<string[]> {
 test.afterEach(async () => {
 	// R5 — the coverage journal: the coordinator turns any non-passed
 	// recorded status into a non-success run even when the worker exits 0.
+	// (A separate file: reporting stays possible even when the ownership
+	// journal is frozen.)
 	await statusRecord({ title: test.info().title, status: test.info().status ?? "unknown" });
+
+	// Remediation contract: validate the COMPLETE current manifest BEFORE
+	// any native cleanup — including before cleanupOwned(), so the unchanged
+	// helper registry can never bypass the gate. A blocked (invalid)
+	// manifest freezes the whole run: no helper cleanup, no reconciliation,
+	// no append into the frozen file, no removal; the failure is reported
+	// here and the original bytes are preserved.
+	const manifestTarget = manifestPathOf();
+	if (manifestTarget !== undefined) {
+		const gate = await readAdmission(manifestTarget);
+		if (gate.status === "unreadable") {
+			expect(
+				[
+					`the ownership manifest ${manifestTarget} could not be read (${gate.reason}) — unknown evidence is preserved; no cleanup may proceed`,
+				],
+				"unreadable ownership evidence must block ALL cleanup (helper and native) and stay preserved",
+			).toEqual([]);
+			return;
+		}
+		if (gate.status === "admitted" && gate.blocked) {
+			expect(
+				gate.reasons,
+				"invalid ownership evidence must block ALL cleanup (helper and native) for the WHOLE manifest and stay preserved byte-for-byte",
+			).toEqual([]);
+			return;
+		}
+	}
 
 	// Each cleanup runs INDEPENDENTLY; combined failures are reported only
 	// after all attempts, and unresolved fixtures stay registered (the
 	// helpers' reconciliation contract) so a later cleanup can retry them.
 	const failures = await cleanupOwned(admin);
 
-	// R3 — reconcile every retained intent/created identity that the in-memory
-	// registry does not account for (an ambiguous committed create, an
-	// uncertain media upload, a Report attempt) BEFORE any ownership evidence
-	// may be cleared. Ownership evidence is removed only when nothing
-	// outstanding remains.
-	const manifestTarget = manifestPathOf();
+	// Reconcile every retained pending identity the in-memory registry does
+	// not account for, then prove completeness before any evidence clears.
 	const reconciliationFailures =
 		manifestTarget === undefined ? [] : await reconcileManifest(manifestTarget);
 	const cleared = await manifestRemove();
@@ -1513,12 +1680,27 @@ test.afterEach(async () => {
 	).toBe(true);
 	expect(cleared.failure ?? "", "no manifest evidence may be lost silently").toBe("");
 });
-
 test.afterAll(async () => {
+	// Same remediation gate as afterEach — the later hook cannot bypass a
+	// prior rejection, and a frozen manifest receives no diagnostic append.
+	const manifestTarget = manifestPathOf();
+	if (manifestTarget !== undefined) {
+		const gate = await readAdmission(manifestTarget);
+		if (gate.status === "unreadable") {
+			throw new Error(
+				`afterAll blocked: the ownership manifest ${manifestTarget} could not be read (${gate.reason}) — unknown evidence preserved; no cleanup ran`,
+			);
+		}
+		if (gate.status === "admitted" && gate.blocked) {
+			throw new Error(
+				`afterAll blocked: the ownership manifest ${manifestTarget} holds invalid evidence and is frozen — no cleanup ran and the original bytes are preserved: ${gate.reasons.join("; ")}`,
+			);
+		}
+	}
+
 	// Safety net: normally a no-op (afterEach resolved everything). Every
 	// attempt is still made and reported before failing loudly.
 	const failures = await cleanupOwned(admin);
-	const manifestTarget = manifestPathOf();
 	const reconciliationFailures =
 		manifestTarget === undefined ? [] : await reconcileManifest(manifestTarget);
 	const cleared = await manifestRemove();
@@ -2483,4 +2665,96 @@ test("R3-B settlement validation (regression): invalid resolved/refused records 
 	// The valid pair settles; the malformed created row, the unknown-kind
 	// intent and the empty-collection settlement all remain outstanding.
 	expect(mixed.length).toBe(3);
+});
+
+test("R3-B whole-manifest admission (remediation regression): any invalid row freezes the entire journal before any native work", async () => {
+	// Bounded recovery remediation: the complete manifest is validated row
+	// by row BEFORE any native mutation is planned — an invalid row blocks
+	// the WHOLE file (no helper cleanup, no reconciliation, no settlement
+	// append, no removal), independently of row order. These assertions
+	// drive the ACTUAL exported admission gate over the remediation
+	// matrix's structural cases.
+	const validEntryIntent = {
+		phase: "intent",
+		kind: "entry",
+		collection: "pages",
+		slug: "songhealth-f002-synthetic-prior-run-abc",
+	};
+	const validMediaCreated = {
+		phase: "created",
+		kind: "media",
+		id: "offline-media-id",
+		filename: "songhealth-f002-synthetic-media-abcd1234.png",
+	};
+
+	// The exact remediation reproduction rows (malformed object-valued id),
+	// under BOTH attempt phases: the whole manifest is invalid.
+	for (const phase of ["intent", "created"] as const) {
+		const admission = manifestAdmission([
+			validEntryIntent,
+			{ ...validEntryIntent, phase, id: { invalid: "identity" } as unknown as string },
+		]);
+		expect(admission.blocked, `a malformed ${phase} row must freeze the manifest`).toBe(true);
+		expect(admission.outstanding, "a blocked manifest plans no pending work").toEqual([]);
+	}
+
+	// Row order independence: a bad row before OR after valid live
+	// ownership rows blocks the same.
+	const badRow = { phase: "created", kind: "entry", collection: "pages", slug: 42 as unknown as string };
+	expect(manifestAdmission([badRow, validEntryIntent, validMediaCreated]).blocked).toBe(true);
+	expect(manifestAdmission([validEntryIntent, validMediaCreated, badRow]).blocked).toBe(true);
+
+	// Malformed settlement collisions in BOTH settlement phases freeze the
+	// file (the round-4 collision, whole-manifest rule).
+	for (const phase of ["resolved", "refused"] as const) {
+		expect(
+			manifestAdmission([
+				validEntryIntent,
+				{ phase, kind: "entry", collection: "pages", slug: validEntryIntent.slug, id: { invalid: "identity" } as unknown as string },
+			]).blocked,
+			`an invalid ${phase} settlement is invalid evidence for the whole file`,
+		).toBe(true);
+	}
+
+	// Non-object rows, unknown phase/kind, foreign identities, contradictory
+	// bindings — every one freezes the file; nothing is silently repaired.
+	const invalidRows: OwnershipRecord[] = [
+		null as unknown as OwnershipRecord,
+		"string-row" as unknown as OwnershipRecord,
+		42 as unknown as OwnershipRecord,
+		["array-row"] as unknown as OwnershipRecord,
+		{ phase: "mystery", kind: "entry" },
+		{ phase: "intent", kind: "widget" },
+		{ phase: "intent", kind: "entry", collection: "", slug: "songhealth-f002-synthetic-x" },
+		{ phase: "intent", kind: "entry", collection: "pages", slug: "real-editorial-homepage" },
+		{ phase: "created", kind: "media", filename: "real-editorial-photo.jpg" },
+		{ phase: "created", kind: "media", id: 7 as unknown as string },
+		{ phase: "after-all-residual", failures: [] },
+	];
+	for (const row of invalidRows) {
+		expect(
+			manifestAdmission([validEntryIntent, row]).blocked,
+			`the row ${JSON.stringify(row)} is invalid evidence that freezes the whole manifest`,
+		).toBe(true);
+	}
+	// Unreadable lines (how malformed JSON/null/truncated lines surface).
+	expect(
+		manifestAdmission([{ phase: "unreadable", raw: "{trunc" }, validEntryIntent]).blocked,
+	).toBe(true);
+
+	// Valid manifests are NOT blocked and carry exactly their pending work:
+	// open intent/created, valid settlements of BOTH phases, both media
+	// identity forms (synthetic filename; opaque id pending live-proof).
+	const admitted = manifestAdmission([
+		validEntryIntent,
+		validMediaCreated,
+		{ phase: "intent", kind: "media", filename: "songhealth-f002-synthetic-media-efgh5678.png" },
+		{ phase: "refused", kind: "media", filename: "songhealth-f002-synthetic-media-efgh5678.png", reason: "deduplicated-pre-existing-asset" },
+		{ phase: "resolved", kind: "entry", collection: "pages", slug: "songhealth-f002-synthetic-settled-1", how: "proven-absent" },
+	]);
+	expect(admitted.blocked).toBe(false);
+	// The source-proven refusal settles the filename-keyed media intent; the
+	// entry intent and the id-bearing created media row remain pending (the
+	// opaque id settles nothing until the live ownership proof).
+	expect(admitted.outstanding.length, "exactly the unsettled identities remain pending").toBe(2);
 });
