@@ -460,6 +460,116 @@ export function resolvedTimeoutMs() {
 	return parsed;
 }
 
+/**
+ * Derive the EXACT expected test identities for the one spec file through
+ * the pinned Playwright runner itself (R5-B, corrective round 2):
+ * `playwright test <spec> --list --reporter=json` is the same side-effect
+ * free discovery the Lead reviews, executed offline against no app. Its JSON
+ * suites/specs tree yields the complete expected title set; a failing,
+ * hanging or malformed discovery is a prerequisite HOLD — coverage can never
+ * be judged against an unknown expected set.
+ */
+export async function expectedTestTitles() {
+	const child = spawn(process.execPath, [PLAYWRIGHT_CLI, "test", SPEC_FILE, "--list", "--reporter=json"], {
+		cwd: repoRoot,
+		env: { ...process.env },
+		stdio: ["ignore", "pipe", "pipe"],
+	});
+	let stdout = "";
+	let stderr = "";
+	child.stdout.on("data", (chunk) => (stdout += chunk));
+	child.stderr.on("data", (chunk) => (stderr += chunk));
+	const onExit = (code, signal) => resolveOutcome({ code, signal });
+	const onError = (error) => resolveOutcome({ spawnError: error.code ?? error.message });
+	let resolveOutcome;
+	const outcomePromise = new Promise((resolve) => {
+		resolveOutcome = resolve;
+	});
+	child.once("exit", onExit);
+	child.once("error", onError);
+	const discoveryTimer = setTimeout(() => resolveOutcome({ timedOut: true }), 60_000);
+	discoveryTimer.unref?.();
+	const outcome = await outcomePromise;
+	clearTimeout(discoveryTimer);
+	child.removeListener("exit", onExit);
+	child.removeListener("error", onError);
+	if (outcome.timedOut === true) {
+		child.kill("SIGKILL");
+		return { error: "the discovery pre-pass did not finish within its bounded budget" };
+	}
+	if (outcome.spawnError !== undefined) {
+		return { error: `the discovery pre-pass could not run (${outcome.spawnError})` };
+	}
+	if (outcome.code !== 0) {
+		return { error: `the discovery pre-pass failed with exit code ${String(outcome.code)}${stderr.trim().length > 0 ? `: ${stderr.trim().split("\n").pop()}` : ""}` };
+	}
+	let parsed;
+	try {
+		parsed = JSON.parse(stdout);
+	} catch {
+		return { error: "the discovery pre-pass produced no parsable report" };
+	}
+	const titles = [];
+	const walk = (suites) => {
+		for (const suite of suites ?? []) {
+			for (const spec of suite.specs ?? []) {
+				if (typeof spec?.title === "string" && spec.title.length > 0) {
+					titles.push(spec.title);
+				}
+			}
+			walk(suite.suites);
+		}
+	};
+	walk(parsed.suites);
+	if (titles.length === 0) {
+		return { error: "the discovery pre-pass reported zero expected tests — refusing to accept an empty expected set" };
+	}
+	return { titles };
+}
+
+/**
+ * Compare the worker's recorded statuses against the COMPLETE expected set
+ * (R5-B): every expected title must appear EXACTLY ONCE with a terminal
+ * "passed" status. Empty, partial, duplicated, unexpected, malformed or
+ * missing journals are explicit failures; repeating one passing row can
+ * never satisfy a multi-test expected set.
+ */
+function coverageFailures(statuses, expectedTitles) {
+	const failures = [];
+	if (statuses.length === 0) {
+		failures.push("the coverage journal is empty — no test result was recorded");
+	}
+	if (expectedTitles.length > 0 && statuses.length > 0 && statuses.length < expectedTitles.length) {
+		failures.push(
+			`the coverage journal holds ${statuses.length} of ${expectedTitles.length} expected test results`,
+		);
+	}
+	const seen = new Map();
+	for (const entry of statuses) {
+		const title = String(entry.title ?? "");
+		const status = String(entry.status ?? "unknown");
+		if (status !== "passed") {
+			failures.push(`test ${JSON.stringify(title)} recorded status ${JSON.stringify(status)}, not a terminal "passed"`);
+		}
+		const count = (seen.get(title) ?? 0) + 1;
+		seen.set(title, count);
+		if (count > 1) {
+			failures.push(`test ${JSON.stringify(title)} recorded ${count} result rows — duplicated/retried results cannot satisfy coverage`);
+		}
+	}
+	for (const title of expectedTitles) {
+		if (!seen.has(title)) {
+			failures.push(`expected test ${JSON.stringify(title)} has no recorded result`);
+		}
+	}
+	for (const title of seen.keys()) {
+		if (!expectedTitles.includes(title)) {
+			failures.push(`unexpected recorded test ${JSON.stringify(title)} is not part of the expected suite`);
+		}
+	}
+	return failures;
+}
+
 /** Parse the worker's test-status journal (one JSON per line). */
 async function readRunStatuses(statusPath) {
 	const statuses = [];
@@ -508,7 +618,11 @@ async function main() {
 		return;
 	}
 
-	// R2 — exact source identity, both directions, before anything else.
+	// R2 (corrective round 2) — exact source identity, both directions, is an
+	// EARLY GATE: a failed, missing or mismatched identity HOLDs here, BEFORE
+	// any credential is read and before any authenticated request. Only
+	// unauthenticated observations (the public origin marker) and the offline
+	// discovery pre-pass may precede credentials.
 	const expected = await expectedSourceIdentity();
 	if (expected.error !== undefined) {
 		reasons.push(expected.error);
@@ -527,31 +641,46 @@ async function main() {
 			);
 		}
 	}
-
-	const originReason = await originIdentityHolds();
-	if (originReason !== undefined) {
-		reasons.push(originReason);
+	if (reasons.length > 0) {
+		await hold(reasons);
+		return;
 	}
 
+	// Unauthenticated application-identity observation.
+	const originReason = await originIdentityHolds();
+	if (originReason !== undefined) {
+		await hold([originReason]);
+		return;
+	}
+
+	// R5-B — the COMPLETE expected test set, derived offline through the
+	// pinned runner's own discovery BEFORE any worker runs.
+	const expectedSet = await expectedTestTitles();
+	if (expectedSet.error !== undefined) {
+		await hold([expectedSet.error]);
+		return;
+	}
+	process.stderr.write(
+		`coordinator: discovery pre-pass established ${expectedSet.titles.length} expected T021 test identities\n`,
+	);
+
+	// Credential prerequisites and the AUTHENTICATED fixture probe — only
+	// after the identity gate above.
 	const devAccessReason = await credentialInputHolds(DEV_ACCESS_CREDENTIAL_ENV, "development credential");
 	if (devAccessReason !== undefined) {
-		reasons.push(devAccessReason);
+		await hold([devAccessReason]);
+		return;
 	}
 
 	const routeAccess = await readRouteAccessToken();
 	if (routeAccess.error !== undefined) {
-		reasons.push(routeAccess.error);
+		await hold([routeAccess.error]);
+		return;
 	}
 
-	if (routeAccess.token !== undefined && originReason === undefined && expected.sha !== undefined) {
-		const fixtureReason = await fixtureReadinessHolds(routeAccess.token, expected.sha);
-		if (fixtureReason !== undefined) {
-			reasons.push(fixtureReason);
-		}
-	}
-
-	if (reasons.length > 0) {
-		await hold(reasons);
+	const fixtureReason = await fixtureReadinessHolds(routeAccess.token, expected.sha);
+	if (fixtureReason !== undefined) {
+		await hold([fixtureReason]);
 		return;
 	}
 
@@ -657,16 +786,15 @@ async function main() {
 		}
 	}
 
-	// R5 — the worker's recorded test statuses decide coverage: a zero exit
-	// with skipped/unknown/missing statuses is NOT a passing run.
+	// R5-B — coverage is judged against the COMPLETE expected set: every
+	// expected identity exactly once, terminal "passed". Empty, partial,
+	// duplicated, unexpected or malformed journals are explicit failures; a
+	// zero worker exit cannot make them success.
 	const statuses = await readRunStatuses(statusPath);
-	const nonPassed = statuses.filter((entry) => entry.status !== "passed");
+	const coverageProblems = coverageFailures(statuses, expectedSet.titles);
 	let coverageFailure;
-	if (nonPassed.length > 0) {
-		const summary = nonPassed
-			.map((entry) => `${String(entry.title)} (${String(entry.status)})`)
-			.join("; ");
-		coverageFailure = `incomplete T021 coverage despite a passing worker exit: ${nonPassed.length} recorded test status(es) are not "passed" — ${summary}`;
+	if (coverageProblems.length > 0) {
+		coverageFailure = `incomplete T021 coverage despite a passing worker exit (${coverageProblems.length} problem(s)): ${coverageProblems.join("; ")}`;
 	}
 
 	// Owned-fixture residue (R3): the worker deletes the manifest when its

@@ -548,6 +548,9 @@ interface OwnershipRecord {
 	[key: string]: unknown;
 }
 
+/** The identity part of an ownership record, without its phase. */
+type OwnershipIdentity = Omit<OwnershipRecord, "phase">;
+
 /** The run's test-status journal path (R5), when coordinated. */
 const RUN_STATUS_ENV = "SONGHEALTH_T021_RUN_STATUS";
 
@@ -586,55 +589,100 @@ async function manifestRecord(record: OwnershipRecord): Promise<void> {
 	await appendRecord(target, record);
 }
 
-/** Parse one manifest file's records (unreadable → undefined). */
-async function readManifest(target: string): Promise<OwnershipRecord[] | undefined> {
+/**
+ * Read one manifest file (R3-B, corrective round 2): tri-state, never a
+ * silent empty. `absent` (ENOENT) is a legitimate nothing-owned outcome;
+ * `unreadable` (any other read failure) is UNKNOWN evidence that must be
+ * preserved; `ok` carries the parsed records (malformed lines included as
+ * phase "unreadable" records so they can never silently count as resolved).
+ */
+async function readManifest(
+	target: string,
+): Promise<
+	| { status: "ok"; records: OwnershipRecord[] }
+	| { status: "absent" }
+	| { status: "unreadable"; reason: string }
+> {
+	let contents: string;
 	try {
 		const fsPromises = await fsPromisesOf();
-		const contents = await fsPromises.readFile(target, "utf8");
-		const records: OwnershipRecord[] = [];
-		for (const line of contents.split("\n")) {
-			const trimmed = line.trim();
-			if (trimmed.length === 0) {
-				continue;
-			}
-			try {
-				records.push(JSON.parse(trimmed) as OwnershipRecord);
-			} catch {
-				records.push({ phase: "unreadable", raw: trimmed });
-			}
+		contents = await fsPromises.readFile(target, "utf8");
+	} catch (cause) {
+		const code = (cause as { code?: unknown }).code;
+		if (code === "ENOENT") {
+			return { status: "absent" };
 		}
-		return records;
-	} catch {
-		return undefined;
+		return { status: "unreadable", reason: String(code ?? (cause as Error).message) };
 	}
+	const records: OwnershipRecord[] = [];
+	for (const line of contents.split("\n")) {
+		const trimmed = line.trim();
+		if (trimmed.length === 0) {
+			continue;
+		}
+		try {
+			records.push(JSON.parse(trimmed) as OwnershipRecord);
+		} catch {
+			records.push({ phase: "unreadable", raw: trimmed });
+		}
+	}
+	return { status: "ok", records };
 }
 
-async function unlinkIfExists(target: string): Promise<void> {
-	const fsPromises = await fsPromisesOf();
+/**
+ * Remove one file; ONLY a successful removal or a proven ENOENT returns
+ * true (R3-B: a non-ENOENT removal failure is reported, never swallowed —
+ * the ownership evidence may still exist).
+ */
+async function unlinkIfProvenAbsent(target: string): Promise<{ removed: boolean; failure?: string }> {
 	try {
+		const fsPromises = await fsPromisesOf();
 		await fsPromises.unlink(target);
-	} catch {
-		// Already absent.
+		return { removed: true };
+	} catch (cause) {
+		const code = (cause as { code?: unknown }).code;
+		if (code === "ENOENT") {
+			return { removed: true };
+		}
+		return { removed: false, failure: String(code ?? (cause as Error).message) };
 	}
 }
 
 /**
- * Remove the manifest ONLY after every retained identity is proven resolved
- * (R3): its continued existence after a run always means recoverable owned
- * fixtures. Returns false when evidence must be preserved.
+ * Remove the manifest ONLY after a successful, validated read establishes
+ * that every retained identity is proven resolved (R3-B, corrective round
+ * 2): an UNREADABLE file is unknown evidence that is never unlinked, and a
+ * failed removal (non-ENOENT) is reported rather than treated as success.
+ * Returns {ok, failure?}; its continued existence after a run always means
+ * recoverable-or-unknown owned-fixture evidence.
  */
-async function manifestRemove(): Promise<boolean> {
+async function manifestRemove(): Promise<{ ok: boolean; failure?: string }> {
 	const target = manifestPathOf();
 	if (target === undefined) {
-		return true;
+		return { ok: true };
 	}
-	const records = (await readManifest(target)) ?? [];
-	const unresolved = unresolvedIdentities(records);
+	const read = await readManifest(target);
+	if (read.status === "absent") {
+		return { ok: true };
+	}
+	if (read.status === "unreadable") {
+		return {
+			ok: false,
+			failure: `the ownership manifest ${target} could not be read (${read.reason}) — unknown evidence is preserved, never removed`,
+		};
+	}
+	const unresolved = unresolvedIdentities(read.records);
 	if (unresolved.length > 0) {
-		return false;
+		return { ok: false };
 	}
-	await unlinkIfExists(target);
-	return true;
+	const removal = await unlinkIfProvenAbsent(target);
+	if (!removal.removed) {
+		return {
+			ok: false,
+			failure: `the ownership manifest ${target} could not be removed (${removal.failure}) — treating as preserved evidence`,
+		};
+	}
+	return { ok: true };
 }
 
 /** The stable identity key of one ownership record. */
@@ -657,7 +705,14 @@ function identityKey(record: OwnershipRecord): string {
 function unresolvedIdentities(records: OwnershipRecord[]): OwnershipRecord[] {
 	const resolved = new Set<string>();
 	for (const record of records) {
-		if (record.phase === "resolved") {
+		// `resolved` marks proven resolution; `refused` marks a
+		// SOURCE-PROVEN NON-COMMIT (R3-A, corrective round 2): the native
+		// create/upload was definitely refused before any insert — a 4xx
+		// decided before the write, or a deduplicated upload returning a
+		// pre-existing asset. This run owns NOTHING under that identity, so
+		// it is settled without adoption or deletion; any pre-existing
+		// record under the same slug belongs to whoever created it earlier.
+		if (record.phase === "resolved" || record.phase === "refused") {
 			resolved.add(identityKey(record));
 		}
 	}
@@ -949,10 +1004,14 @@ async function reconcileMediaIdentity(
  * the SAME file so the coordinator can observe consumption.
  */
 async function reconcileManifest(target: string): Promise<string[]> {
-	const records = await readManifest(target);
-	if (records === undefined) {
-		return [`the ownership manifest ${target} could not be read — preserving it unresolved`];
+	const read = await readManifest(target);
+	if (read.status === "absent") {
+		return [];
 	}
+	if (read.status === "unreadable") {
+		return [`the ownership manifest ${target} could not be read (${read.reason}) — unknown evidence is preserved unresolved`];
+	}
+	const records = read.records;
 	const failures: string[] = [];
 	for (const record of unresolvedIdentities(records)) {
 		if (record.phase === "unreadable") {
@@ -988,6 +1047,43 @@ async function statusRecord(entry: { title: string; status: string }): Promise<v
 }
 
 /**
+ * Record the create-side outcome classification for one retained intent
+ * (R3-A, corrective round 2). A received **4xx** is a SOURCE-PROVEN
+ * NON-COMMIT on the pinned native create/upload routes — authorization,
+ * body validation and the duplicate-slug CONFLICT are all decided BEFORE the
+ * insert (the same pinned-source discipline the accepted T020 round-3
+ * correction established) — so the intent is settled as `refused`: this run
+ * owns NOTHING under it and a pre-existing record with the same synthetic
+ * slug is never adopted or deleted by that intent. A `deduplicated` upload
+ * likewise returned a PRE-EXISTING asset and is refused/not-ours. 5xx and
+ * transport losses stay AMBIGUOUS (the pinned repositories commit the insert
+ * and only then read back): no record is appended and the read-side
+ * reconciliation decides from current state.
+ */
+async function recordCreateOutcome(
+	identity: OwnershipIdentity,
+	result: { ok: boolean; status: number },
+	options: { reusedExistingMedia?: boolean } = {},
+): Promise<void> {
+	if (result.ok && options.reusedExistingMedia !== true) {
+		await manifestRecord({ ...identity, phase: "created" });
+		return;
+	}
+	if (result.ok || (result.status >= 400 && result.status < 500)) {
+		await manifestRecord({
+			...identity,
+			phase: "refused",
+			reason:
+				options.reusedExistingMedia === true
+					? "deduplicated-pre-existing-asset"
+					: `native-refusal-${result.status}`,
+		});
+	}
+	// 5xx / lost acknowledgment: ambiguous — the intent stands for
+	// read-side reconciliation.
+}
+
+/**
  * Create one OWNED synthetic page fixture: the creation intent (collection +
  * fresh unique slug) is retained in the manifest BEFORE the native call, and
  * the native-returned identity after it — an uncertain create stays
@@ -1006,15 +1102,12 @@ async function createOwnedPage(options: {
 		slug,
 		...(options.references !== undefined ? { references: options.references } : {}),
 	});
+	await recordCreateOutcome(
+		{ kind: "entry", collection: PAGES_COLLECTION, slug, ...(created.entryId !== undefined ? { id: created.entryId } : {}) },
+		created.result,
+	);
 	expect(created.result.ok, "the synthetic page fixture must save").toBe(true);
 	expect(created.entryId, "the page fixture id must come from the native response").toBeTruthy();
-	await manifestRecord({
-		phase: "created",
-		kind: "entry",
-		collection: PAGES_COLLECTION,
-		id: created.entryId,
-		slug,
-	});
 	return { entryId: created.entryId!, slug, title };
 }
 
@@ -1034,9 +1127,13 @@ async function createOwnedDocument(kind: string): Promise<{
 	const filename = `${SYNTHETIC_FIXTURE_MARK}-media-${crypto.randomUUID().slice(0, 8)}.png`;
 	await manifestRecord({ phase: "intent", kind: "media", filename });
 	const upload = await uploadSyntheticMedia(admin, { filename });
+	await recordCreateOutcome(
+		{ kind: "media", filename, ...(upload.mediaId !== undefined ? { id: upload.mediaId } : {}) },
+		upload.result,
+		{ reusedExistingMedia: upload.reusedExistingMedia === true },
+	);
 	expect(upload.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
 	expect(upload.mediaId, "a media id must be returned and registered for owned cleanup").toBeTruthy();
-	await manifestRecord({ phase: "created", kind: "media", id: upload.mediaId, filename });
 	const title = uniqueTitle(kind);
 	const slug = nextSyntheticSlug(kind);
 	await manifestRecord({ phase: "intent", kind: "entry", collection: DOCUMENTS_COLLECTION, slug });
@@ -1044,14 +1141,11 @@ async function createOwnedDocument(kind: string): Promise<{
 		data: { title, file: fileValueFor(upload.mediaId!) },
 		slug,
 	});
+	await recordCreateOutcome(
+		{ kind: "entry", collection: DOCUMENTS_COLLECTION, slug, ...(created.entryId !== undefined ? { id: created.entryId } : {}) },
+		created.result,
+	);
 	expect(created.result.ok, "the synthetic Document fixture must save").toBe(true);
-	await manifestRecord({
-		phase: "created",
-		kind: "entry",
-		collection: DOCUMENTS_COLLECTION,
-		id: created.entryId,
-		slug,
-	});
 	return { entryId: created.entryId!, slug, title, mediaId: upload.mediaId!, filename };
 }
 
@@ -1077,18 +1171,15 @@ async function createOwnedHealthReport(
 		slug,
 		references: { report_document: [documentEntryId] },
 	});
+	await recordCreateOutcome(
+		{ kind: "entry", collection: HEALTH_REPORTS_COLLECTION, slug, ...(created.entryId !== undefined ? { id: created.entryId } : {}) },
+		created.result,
+	);
 	expect(
 		created.result.ok,
 		"the synthetic health report must save with its required reference",
 	).toBe(true);
 	expect(created.entryId, "the report fixture id must come from the native response").toBeTruthy();
-	await manifestRecord({
-		phase: "created",
-		kind: "entry",
-		collection: HEALTH_REPORTS_COLLECTION,
-		id: created.entryId,
-		slug,
-	});
 	return { entryId: created.entryId!, slug, title };
 }
 
@@ -1223,11 +1314,16 @@ test.beforeAll(async () => {
 	const recoveryFailures: string[] = [];
 	for (const recoveryPath of recoveryPaths) {
 		const failures = await reconcileManifest(recoveryPath);
-		if (failures.length === 0) {
-			await unlinkIfExists(recoveryPath);
+		if (failures.length > 0) {
+			recoveryFailures.push(...failures);
 			continue;
 		}
-		recoveryFailures.push(...failures);
+		const removal = await unlinkIfProvenAbsent(recoveryPath);
+		if (!removal.removed) {
+			recoveryFailures.push(
+				`the consumed recovery manifest ${recoveryPath} could not be removed (${removal.failure}) — preserved as evidence`,
+			);
+		}
 	}
 	if (recoveryFailures.length > 0) {
 		throw new Error(
@@ -1289,9 +1385,10 @@ test.afterEach(async () => {
 		"every ambiguous owned attempt must be reconciled through supported native reads before ownership evidence is cleared (primary failures are preserved alongside)",
 	).toEqual([]);
 	expect(
-		cleared,
-		"the ownership manifest may be removed only after every retained identity is proven resolved — unresolved evidence is preserved, never erased",
+		cleared.ok,
+		"the ownership manifest may be removed only after a successful validated read proves every retained identity resolved — unreadable or failed-removal evidence is preserved, never erased",
 	).toBe(true);
+	expect(cleared.failure ?? "", "no manifest evidence may be lost silently").toBe("");
 });
 
 test.afterAll(async () => {
@@ -1302,13 +1399,14 @@ test.afterAll(async () => {
 	const reconciliationFailures =
 		manifestTarget === undefined ? [] : await reconcileManifest(manifestTarget);
 	const cleared = await manifestRemove();
-	if (failures.length > 0 || reconciliationFailures.length > 0 || !cleared) {
+	const clearFailures = cleared.ok ? [] : [cleared.failure ?? "ownership evidence could not be cleared"];
+	if (failures.length > 0 || reconciliationFailures.length > 0 || clearFailures.length > 0) {
 		await manifestRecord({
 			phase: "after-all-residual",
-			failures: [...failures, ...reconciliationFailures],
+			failures: [...failures, ...reconciliationFailures, ...clearFailures],
 		});
 		throw new Error(
-			`afterAll reconciliation failures after all attempts: ${[...failures, ...reconciliationFailures].join("; ")}${cleared ? "" : " (ownership evidence preserved)"}`,
+			`afterAll reconciliation failures after all attempts: ${[...failures, ...reconciliationFailures, ...clearFailures].join("; ")} (ownership evidence preserved)`,
 		);
 	}
 });
@@ -2102,73 +2200,77 @@ test("truthful not-found and empty states, and no privileged fallback on anonymo
 	expect(adminRest.status, "an anonymous Admin REST read is an authorization refusal").toBe(401);
 });
 
-test("native error channel: a malformed pagination cursor is a real native error, never an empty success (R5)", async () => {
+test("native error channel: a malformed pagination cursor surfaces the real native error contract, never an empty success (R5)", async () => {
 	gatePages();
 
-	// Bounded, input-driven, genuine NATIVE error path (corrective round 1,
-	// R5): the pinned loader deliberately PROPAGATES InvalidCursorError for a
-	// cursor that is not its base64/JSON orderValue+id encoding
-	// (src/database/repositories/types.ts decodeCursor; loader.ts
-	// sortCursorCondition — "callers should let this propagate so users see a
-	// real error rather than silently falling back to the first page"). The
-	// length-bounded garbage cursor below passes the route's syntactic input
-	// contract and reaches the native decoder.
+	// Corrective round 2 (R5-A), pinned to the exact implementation rather
+	// than an invented contract: a length-bounded garbage cursor passes the
+	// route's syntactic input check and reaches the native decoder.
+	//
+	// COLLECTION path — the pinned emdash loader CATCHES the cursor failure
+	// and returns a WRAPPED error result (src/loader.ts:1835–1848: `error:
+	// new Error("Failed to load collection: " + message)`, re-thrown only
+	// for nothing here), so `getEmDashCollection` yields { entries: [],
+	// error } (src/query.ts:887–927) and the fixture serves it as HTTP 200
+	// with its native error channel. The wrapped name is "Error" — the exact
+	// source controls this, not an assumed InvalidCursorError name.
 	const garbageCursor = "definitely-not-a-native-cursor";
+	const collectionError = await fetchFixtureRoute({
+		case: "collection",
+		collection: PAGES_COLLECTION,
+		marker: SYNTHETIC_FIXTURE_MARK,
+		limit: "10",
+		cursor: garbageCursor,
+	});
+	expect(
+		typeof collectionError.body.error === "object" && collectionError.body.error !== null,
+		"the collection read with a malformed cursor must carry its (wrapped) native error — the pinned loader catches it into the error channel at HTTP 200",
+	).toBe(true);
+	expect(
+		collectionError.body.entries,
+		"an error result never presents entries as a successful page",
+	).toEqual([]);
+	expect(collectionError.body.nextCursor, "an error result carries no continuation cursor").toBeUndefined();
 
-	// Collection read: the error must surface as a NON-SUCCESS response with
-	// the native error name — an HTTP 500 (the thrown native error reaches
-	// the fixture's catch) or the native error channel on a 200 — and in
-	// BOTH forms the response must NOT present entries as a successful page.
-	const collectionError = await fetchFixtureRoute(
-		{
-			case: "collection",
-			collection: PAGES_COLLECTION,
-			marker: SYNTHETIC_FIXTURE_MARK,
-			limit: "10",
-			cursor: garbageCursor,
-		},
-		{ expectStatus: 500 },
-	);
-	if (collectionError.body.error === "FIXTURE_INTERNAL_ERROR") {
-		expect(
-			collectionError.body.nativeErrorName,
-			"a thrown native error surfaces its name (no stack/message), proving the error channel",
-		).toBe("InvalidCursorError");
-	} else {
-		expect(
-			typeof collectionError.body.error === "object" &&
-				(collectionError.body.error as { name?: unknown }).name === "InvalidCursorError",
-			"the native error channel carries the InvalidCursorError name",
-		).toBe(true);
-		expect(collectionError.body.entries, "an error result never presents entries").toEqual([]);
-	}
-
-	// References read: the standalone helper reports the same native failure
-	// through its own error channel (entries [] + error), which must be
-	// distinguishable from a genuinely empty selection — asserted here on an
-	// anchor that does not exist, so the ONLY possible non-empty outcome is
-	// the error channel.
-	const anchorSlug = nextSyntheticSlug("native-error-anchor");
+	// REFERENCES path — reachable per the pinned source (src/query.ts:1391–
+	// 1428): the anchor lookup and published-status checks run BEFORE cursor
+	// decoding (a nonexistent anchor returns { entries: [] } immediately and
+	// can never produce this error), so the anchor is a REAL owned published
+	// parent. Its garbage cursor then fails inside reference resolution and
+	// the helper's own catch returns the RAW error — name preserved
+	// ("InvalidCursorError", src/database/repositories/types.ts:264–295).
+	const anchor = await createOwnedPage({ kind: "native-error-anchor" });
+	await publishOwned(PAGES_COLLECTION, anchor.entryId);
 	const referencesError = await fetchFixtureRoute({
 		case: "references",
 		collection: PAGES_COLLECTION,
-		id: anchorSlug,
+		id: anchor.slug,
 		field: "documents",
 		limit: "10",
 		cursor: garbageCursor,
 	});
 	const channel = referencesError.body.error as { name?: unknown } | string | undefined;
-	const channelName = typeof channel === "object" ? channel?.name : channel;
 	expect(
-		channelName === "InvalidCursorError" || channelName === "FIXTURE_INTERNAL_ERROR",
-		`the references read with a malformed cursor must report the native error (got ${String(channelName)})`,
+		typeof channel === "object" && channel?.name === "InvalidCursorError",
+		`the references read on a real published anchor with a malformed cursor must carry the raw native InvalidCursorError (got ${String(channel === undefined ? undefined : typeof channel === "object" ? channel?.name : channel)})`,
 	).toBe(true);
 	expect(
 		referencesError.body.entries,
 		"an error result is never presented as an empty successful page",
 	).toEqual([]);
-	expect(
-		referencesError.body.nextCursor,
-		"an error result carries no continuation cursor",
-	).toBeUndefined();
+	expect(referencesError.body.nextCursor, "an error result carries no continuation cursor").toBeUndefined();
+
+	// The legitimate missing-anchor outcome stays a SEPARATE, valid empty:
+	// no error, genuinely empty page (kept explicit here so the two shapes
+	// can never be confused).
+	const missingAnchor = await fetchFixtureRoute({
+		case: "references",
+		collection: PAGES_COLLECTION,
+		id: `${SYNTHETIC_FIXTURE_MARK}-does-not-exist`,
+		field: "documents",
+		limit: "10",
+		cursor: garbageCursor,
+	});
+	expect(missingAnchor.body.error, "a missing anchor is an empty page, never an error").toBeUndefined();
+	expect(missingAnchor.body.entries).toEqual([]);
 });
