@@ -46,7 +46,10 @@
 // transition installs the integration on the persistent server.
 
 import { getEmDashCollection, getEmDashEntry, getEmDashReferences } from "emdash";
-import { resolveT021FixtureRequest } from "./cms-public-reads.integration.mjs";
+import {
+	resolveT021FixtureRequest,
+	T021_SYNTHETIC_MARKER,
+} from "./cms-public-reads.integration.mjs";
 
 export const prerender = false;
 
@@ -119,14 +122,26 @@ const query = resolved.body.query;
 try {
 	if (query.kind === "collection") {
 		const filter = {
-			...(query.limit !== undefined ? { limit: query.limit } : {}),
+			limit: query.limit,
 			...(query.cursor !== undefined ? { cursor: query.cursor } : {}),
 		};
 		const result = await getEmDashCollection(query.collection, filter);
+		// R1: the response is bound to the approved synthetic namespace. The
+		// native page's own pagination (cursor/hasMore over the NATIVE rows)
+		// is preserved verbatim; entries outside the synthetic namespace are
+		// omitted AND counted, so a filtered page can never read as a
+		// complete native listing.
+		const pageEntries = result.entries.map((entry) => publicEntryShape(entry));
+		const syntheticEntries = pageEntries.filter((entry) =>
+			String(entry.id).startsWith(`${T021_SYNTHETIC_MARKER}-`),
+		);
 		return jsonResponse(200, {
 			case: "collection",
 			collection: query.collection,
-			entries: result.entries.map((entry) => publicEntryShape(entry)),
+			syntheticFiltered: true,
+			pageTotal: pageEntries.length,
+			syntheticCount: syntheticEntries.length,
+			entries: syntheticEntries,
 			...(result.nextCursor === undefined ? {} : { nextCursor: result.nextCursor }),
 			...(result.hasMore === undefined ? {} : { hasMore: result.hasMore }),
 			...(result.error === undefined ? {} : { error: errorShape(result.error) }),
@@ -185,8 +200,10 @@ try {
 	});
 } catch (error) {
 	// Truthful refusal without internals: a fixture failure is a non-success
-	// result, never a fallback to privileged reads or partial data.
+	// result, never a fallback to privileged reads or partial data. The error
+	// NAME (e.g. the native InvalidCursorError) travels out so error handling
+	// stays verifiable; no message, stack or internals are exposed.
 	console.error("[songhealth-t021] fixture request failed:", errorShape(error).name);
-	return jsonResponse(500, { error: "FIXTURE_INTERNAL_ERROR" });
+	return jsonResponse(500, { error: "FIXTURE_INTERNAL_ERROR", nativeErrorName: errorShape(error).name });
 }
 ---

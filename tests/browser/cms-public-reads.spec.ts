@@ -184,9 +184,14 @@ import {
 	DEFAULT_DEVELOPMENT_ORIGIN,
 	deleteMedia,
 	loadDevAccessToken,
+	nativeDataOf,
 	nativeItemOf,
+	nativeRefusalOf,
 	NATIVE_ROLES,
+	permanentlyDeleteEntry,
 	publishEntry,
+	readEntry,
+	readMedia,
 	restoreEntry,
 	trashEntry,
 	unpublishEntry,
@@ -314,12 +319,21 @@ let pagesReadiness: CollectionReadiness = { outcome: "missing" };
 let documentsReadiness: CollectionReadiness = { outcome: "missing" };
 let healthReportsReadiness: CollectionReadiness = { outcome: "missing" };
 
-/** Truthful schema gate (T014 gateCollection shape). */
+/**
+ * Truthful schema gate (T014 gateCollection shape; R5 corrective round 1):
+ * inside the coordinator this file only ever runs opted-in, so a MISSING
+ * initialized collection is a runtime-prerequisite FAILURE (UNVERIFIED,
+ * never green), not a skip — the coordinator's coverage journal makes any
+ * non-passed status non-success as well, and this keeps the worker itself
+ * honest. Outside the coordinator the whole file is already skipped at
+ * collection time.
+ */
 function gateCollection(readiness: CollectionReadiness, slug: string, what: string): void {
-	test.skip(
-		readiness.outcome === "missing",
-		`the ${slug} collection is not initialized in the active native schema (owning definition task outstanding; this run cannot exercise ${what})`,
-	);
+	if (readiness.outcome === "missing") {
+		throw new Error(
+			`RUNTIME PREREQUISITE MISSING — the ${slug} collection is not initialized in the active native schema, so ${what} cannot be exercised; this coordinated run is UNVERIFIED, never a passing skip (the ordinary no-opt-in skip gate is unaffected)`,
+		);
+	}
 	if (readiness.outcome === "misconfigured") {
 		throw new Error(
 			`the active native ${slug} collection does not match the approved definition this file relies on: ${readiness.detail}`,
@@ -366,6 +380,10 @@ interface RouteBody {
 	hasMore?: boolean;
 	fixtureId?: string;
 	fixtureVersion?: number;
+	syntheticFiltered?: boolean;
+	pageTotal?: number;
+	syntheticCount?: number;
+	nativeErrorName?: string;
 }
 
 /**
@@ -377,7 +395,7 @@ interface RouteBody {
  */
 async function fetchFixtureRoute(
 	searchParams: Record<string, string>,
-	options: { previewToken?: string } = {},
+	options: { previewToken?: string; expectStatus?: number } = {},
 ): Promise<{ status: number; body: RouteBody; cacheControl: string }> {
 	const url = new URL(T021_ROUTE_PATTERN, PERSISTENT_DEVELOPMENT_ORIGIN);
 	for (const [key, value] of Object.entries(searchParams)) {
@@ -397,11 +415,32 @@ async function fetchFixtureRoute(
 	} catch {
 		body = { error: "NON_JSON_BODY" };
 	}
+	// R5 (corrective round 1): an error status is never interpreted as data.
+	// Every caller that does not explicitly expect another status gets the
+	// success assertion here, so a 500 cannot silently become "empty".
+	const expected = options.expectStatus ?? 200;
+	expect(
+		response.status,
+		`the fixture-route ${searchParams.case ?? "probe"} request must answer HTTP ${expected} (got ${response.status}${typeof body.error === "string" ? ` ${body.error}` : ""}; an error response is never interpreted as data)`,
+	).toBe(expected);
 	return {
 		status: response.status,
 		body,
 		cacheControl: response.headers.get("cache-control") ?? "",
 	};
+}
+
+/**
+ * The entries array of a fixture-route list response, with its SHAPE
+ * validated before any interpretation (R5): a missing or non-array entries
+ * field fails loudly instead of reading as an empty page.
+ */
+function entriesOf(response: { status: number; body: RouteBody }): RouteEntry[] {
+	expect(
+		Array.isArray(response.body.entries),
+		"a fixture-route list response must carry an array entries field (malformed shape is never an empty page)",
+	).toBe(true);
+	return response.body.entries as RouteEntry[];
 }
 
 /** The fixture path with any query string removed (evidence-safe label). */
@@ -463,18 +502,19 @@ async function collectPublishedIds(collection: string, maxPages = 25): Promise<s
 		const response = await fetchFixtureRoute({
 			case: "collection",
 			collection,
+			marker: SYNTHETIC_FIXTURE_MARK,
 			limit: "100",
 			...(cursor !== undefined ? { cursor } : {}),
 		});
 		expect(
-			response.status,
-			`the fixture-route collection case for ${collection} must succeed`,
-		).toBe(200);
-		expect(
 			response.body.error,
 			`the ${collection} collection read must not report a native error`,
 		).toBeUndefined();
-		const entries = response.body.entries ?? [];
+		expect(
+			response.body.syntheticFiltered,
+			`the ${collection} collection read must declare its synthetic-namespace filtering`,
+		).toBe(true);
+		const entries = entriesOf(response);
 		for (const entry of entries) {
 			if (typeof entry.id === "string") {
 				ids.push(entry.id);
@@ -491,48 +531,460 @@ async function collectPublishedIds(collection: string, maxPages = 25): Promise<s
 }
 
 // ---------------------------------------------------------------------------
-// Coordinator-owned fixture-creation manifest (intent retained BEFORE the
-// native call, reconciled on every exit path)
+// Coordinator-owned fixture ownership (R3, corrective round 1): intent is
+// retained BEFORE every native write, ambiguous attempts are reconciled
+// through supported native reads before ANY ownership evidence is cleared,
+// and prior interrupted-run manifests are consumed as recovery inputs.
 // ---------------------------------------------------------------------------
 
+/** One retained ownership/intent record (JSONL line). */
+interface OwnershipRecord {
+	phase: string;
+	kind?: string;
+	collection?: string;
+	id?: string;
+	slug?: string;
+	filename?: string;
+	[key: string]: unknown;
+}
+
+/** The run's test-status journal path (R5), when coordinated. */
+const RUN_STATUS_ENV = "SONGHEALTH_T021_RUN_STATUS";
+
+/** Prior-run manifests handed over by the coordinator for recovery (R3). */
+const RECOVERY_MANIFESTS_ENV = "SONGHEALTH_T021_RECOVERY_MANIFESTS";
+
+async function fsPromisesOf(): Promise<{
+	appendFile: (p: string, data: string, encoding: "utf8") => Promise<void>;
+	readFile: (p: string, encoding: "utf8") => Promise<string>;
+	unlink: (p: string) => Promise<void>;
+}> {
+	const specifier = "node:fs/promises";
+	return (await import(specifier)) as unknown as {
+		appendFile: (p: string, data: string, encoding: "utf8") => Promise<void>;
+		readFile: (p: string, encoding: "utf8") => Promise<string>;
+		unlink: (p: string) => Promise<void>;
+	};
+}
+
+function manifestPathOf(): string | undefined {
+	const value = ambientNodeProcess?.env?.[OWNERSHIP_MANIFEST_ENV];
+	return value !== undefined && value.trim().length > 0 ? value : undefined;
+}
+
+async function appendRecord(target: string, record: OwnershipRecord): Promise<void> {
+	const fsPromises = await fsPromisesOf();
+	await fsPromises.appendFile(target, `${JSON.stringify(record)}\n`, "utf8");
+}
+
 /** Append one ownership record to the coordinator-owned manifest, if any. */
-async function manifestRecord(
-	record: Record<string, unknown>,
-): Promise<void> {
-	const path = ambientNodeProcess?.env?.[OWNERSHIP_MANIFEST_ENV];
-	if (path === undefined || path.trim().length === 0) {
+async function manifestRecord(record: OwnershipRecord): Promise<void> {
+	const target = manifestPathOf();
+	if (target === undefined) {
 		return;
 	}
-	const fsSpecifier = "node:fs/promises";
-	const fsPromises = (await import(fsSpecifier)) as unknown as {
-		appendFile: (p: string, data: string, encoding: "utf8") => Promise<void>;
-	};
-	await fsPromises.appendFile(path, `${JSON.stringify(record)}\n`, "utf8");
+	await appendRecord(target, record);
+}
+
+/** Parse one manifest file's records (unreadable → undefined). */
+async function readManifest(target: string): Promise<OwnershipRecord[] | undefined> {
+	try {
+		const fsPromises = await fsPromisesOf();
+		const contents = await fsPromises.readFile(target, "utf8");
+		const records: OwnershipRecord[] = [];
+		for (const line of contents.split("\n")) {
+			const trimmed = line.trim();
+			if (trimmed.length === 0) {
+				continue;
+			}
+			try {
+				records.push(JSON.parse(trimmed) as OwnershipRecord);
+			} catch {
+				records.push({ phase: "unreadable", raw: trimmed });
+			}
+		}
+		return records;
+	} catch {
+		return undefined;
+	}
+}
+
+async function unlinkIfExists(target: string): Promise<void> {
+	const fsPromises = await fsPromisesOf();
+	try {
+		await fsPromises.unlink(target);
+	} catch {
+		// Already absent.
+	}
 }
 
 /**
- * Remove the manifest after a verified residue-free worker cleanup, so its
- * continued existence after a run always means recoverable owned fixtures.
+ * Remove the manifest ONLY after every retained identity is proven resolved
+ * (R3): its continued existence after a run always means recoverable owned
+ * fixtures. Returns false when evidence must be preserved.
  */
-async function manifestRemove(): Promise<void> {
-	const path = ambientNodeProcess?.env?.[OWNERSHIP_MANIFEST_ENV];
-	if (path === undefined || path.trim().length === 0) {
-		return;
+async function manifestRemove(): Promise<boolean> {
+	const target = manifestPathOf();
+	if (target === undefined) {
+		return true;
 	}
-	const fsSpecifier = "node:fs/promises";
-	const fsPromises = (await import(fsSpecifier)) as unknown as {
-		unlink: (p: string) => Promise<void>;
-	};
+	const records = (await readManifest(target)) ?? [];
+	const unresolved = unresolvedIdentities(records);
+	if (unresolved.length > 0) {
+		return false;
+	}
+	await unlinkIfExists(target);
+	return true;
+}
+
+/** The stable identity key of one ownership record. */
+function identityKey(record: OwnershipRecord): string {
+	if (record.kind === "entry") {
+		return `entry:${String(record.collection ?? "")}:${String(record.slug ?? record.id ?? "")}`;
+	}
+	if (record.kind === "media") {
+		return `media:${String(record.id ?? record.filename ?? "")}`;
+	}
+	return `${String(record.phase)}:${String(record.id ?? record.slug ?? record.filename ?? "")}`;
+}
+
+/**
+ * Every intent/created identity not yet proven resolved by a matching
+ * `resolved` record (R3): these are the ambiguous-or-outstanding owned
+ * attempts that MUST be reconciled before any evidence is cleared. An
+ * unreadable line keeps the whole file unresolved (fail closed).
+ */
+function unresolvedIdentities(records: OwnershipRecord[]): OwnershipRecord[] {
+	const resolved = new Set<string>();
+	for (const record of records) {
+		if (record.phase === "resolved") {
+			resolved.add(identityKey(record));
+		}
+	}
+	const outstanding: OwnershipRecord[] = [];
+	const seen = new Set<string>();
+	for (const record of records) {
+		if (record.phase !== "intent" && record.phase !== "created") {
+			if (record.phase === "unreadable") {
+				outstanding.push(record);
+			}
+			continue;
+		}
+		const key = identityKey(record);
+		if (resolved.has(key) || seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		outstanding.push(record);
+	}
+	return outstanding;
+}
+
+/** Mark one identity proven resolved (append-only; never erase the intent). */
+async function manifestMarkResolved(record: OwnershipRecord): Promise<void> {
+	await manifestRecord({
+		phase: "resolved",
+		kind: record.kind,
+		...(record.collection !== undefined ? { collection: record.collection } : {}),
+		...(record.slug !== undefined ? { slug: record.slug } : {}),
+		...(record.id !== undefined ? { id: record.id } : {}),
+		...(record.filename !== undefined ? { filename: record.filename } : {}),
+	});
+}
+
+/**
+ * Trash-aware lookup of an entry by SLUG through the supported native trash
+ * listing (the accepted helper's id-based matcher cannot match slugs). Same
+ * terminal-cursor discipline: only an exhausted well-formed listing proves
+ * absence; anything else is unknown.
+ */
+async function findTrashedBySlug(
+	collection: string,
+	slug: string,
+): Promise<"in-trash" | "not-in-trash" | "unknown"> {
+	const followed = new Set<string>();
+	let cursor: string | undefined;
+	for (let page = 0; page < 200; page += 1) {
+		let result;
+		try {
+			result = await cmsRequest(
+				admin,
+				`/_emdash/api/content/${encodeURIComponent(collection)}/trash`,
+				{ searchParams: { limit: "100", ...(cursor !== undefined ? { cursor } : {}) } },
+			);
+		} catch {
+			return "unknown";
+		}
+		if (!result.ok) {
+			return "unknown";
+		}
+		const data = nativeDataOf(result);
+		const items = data?.items;
+		if (data === undefined || !Array.isArray(items)) {
+			return "unknown";
+		}
+		for (const item of items) {
+			const record = item as Record<string, unknown>;
+			if (record.slug === slug || record.id === slug) {
+				return "in-trash";
+			}
+		}
+		const nextCursor: unknown = data.nextCursor;
+		if (nextCursor === undefined || nextCursor === "") {
+			return "not-in-trash";
+		}
+		if (typeof nextCursor !== "string" || nextCursor === cursor || followed.has(nextCursor)) {
+			return "unknown";
+		}
+		if (cursor !== undefined) {
+			followed.add(cursor);
+		}
+		cursor = nextCursor;
+	}
+	return "unknown";
+}
+
+/** Prove an owned entry identity fully absent (live read AND trash listing). */
+async function entryProvenAbsent(collection: string, slug: string): Promise<boolean> {
+	const trash = await findTrashedBySlug(collection, slug);
+	if (trash !== "not-in-trash") {
+		return false;
+	}
 	try {
-		await fsPromises.unlink(path);
+		const read = await readEntry(admin, collection, slug);
+		return read.status === 404;
 	} catch {
-		// Already absent — nothing this worker still owns.
+		return false;
 	}
+}
+
+/**
+ * Reconcile ONE retained entry identity (R3): a create whose outcome was
+ * never observed is decided ONLY from a successful, usable current-state
+ * read. A live entry under THIS run's fresh unique synthetic slug is
+ * demonstrably this suite's committed fixture (a pre-existing record cannot
+ * carry the fresh random slug) — it is adopted and deleted through the
+ * supported native operations, with the synthetic-prefix validation
+ * refusing anything else. Proven absence resolves the intent as a
+ * non-commit; an unreadable state stays unresolved and preserves evidence.
+ */
+async function reconcileEntryIdentity(
+	record: OwnershipRecord,
+	target: string,
+): Promise<string | undefined> {
+	const collection = record.collection;
+	const slug = record.slug ?? record.id;
+	if (
+		typeof collection !== "string" ||
+		typeof slug !== "string" ||
+		!slug.startsWith(`${SYNTHETIC_FIXTURE_MARK}-`)
+	) {
+		return `retained entry identity ${JSON.stringify(record)} is not a validatable synthetic fixture identity — preserving it unresolved`;
+	}
+	let live = false;
+	try {
+		const read = await readEntry(admin, collection, slug);
+		if (read.ok) {
+			live = true;
+		} else if (read.status !== 404) {
+			return `the reconciliation read for ${collection}/${slug} was refused (${nativeRefusalOf(read)}) — outcome unknown`;
+		}
+	} catch (cause) {
+		return `the reconciliation read for ${collection}/${slug} failed (${cause instanceof Error ? cause.message : String(cause)}) — outcome unknown`;
+	}
+	if (!live) {
+		const trash = await findTrashedBySlug(collection, slug);
+		if (trash === "not-in-trash") {
+			await appendRecord(target, { phase: "resolved", kind: "entry", collection, slug, how: "proven-absent" });
+			return undefined;
+		}
+		if (trash === "in-trash") {
+			// A committed fixture already sitting in trash: purge it through
+			// the supported administrator path, then prove the absence.
+			try {
+				const purge = await permanentlyDeleteEntry(admin, collection, slug);
+				if (!purge.ok && purge.status !== 404) {
+					return `purging the trashed fixture ${collection}/${slug} was refused (${nativeRefusalOf(purge)}) — still owned`;
+				}
+			} catch (cause) {
+				return `purging the trashed fixture ${collection}/${slug} failed (${cause instanceof Error ? cause.message : String(cause)}) — still owned`;
+			}
+			if (await entryProvenAbsent(collection, slug)) {
+				await appendRecord(target, { phase: "resolved", kind: "entry", collection, slug, how: "adopted-from-trash" });
+				return undefined;
+			}
+			return `the trashed fixture ${collection}/${slug} could not be proven purged — still owned`;
+		}
+		return `the trash state of ${collection}/${slug} is unknown — outcome unknown`;
+	}
+	// Live committed fixture: trash-first, then purge, then prove absence.
+	try {
+		const trashed = await trashEntry(admin, collection, slug);
+		if (!trashed.ok && trashed.status !== 404) {
+			return `trashing the adopted fixture ${collection}/${slug} was refused (${nativeRefusalOf(trashed)}) — still owned`;
+		}
+		const purge = await permanentlyDeleteEntry(admin, collection, slug);
+		if (!purge.ok && purge.status !== 404) {
+			return `purging the adopted fixture ${collection}/${slug} was refused (${nativeRefusalOf(purge)}) — still owned`;
+		}
+	} catch (cause) {
+		return `deleting the adopted fixture ${collection}/${slug} failed (${cause instanceof Error ? cause.message : String(cause)}) — still owned`;
+	}
+	if (await entryProvenAbsent(collection, slug)) {
+		await appendRecord(target, { phase: "resolved", kind: "entry", collection, slug, how: "adopted-and-purged" });
+		return undefined;
+	}
+	return `the adopted fixture ${collection}/${slug} could not be proven absent after deletion — still owned`;
+}
+
+/**
+ * Reconcile ONE retained media identity (R3): an id-bearing record is
+ * reconciled through the media read; an ambiguous upload (no id) through
+ * the supported media LISTING searched by this run's unique synthetic
+ * filename — a found exact filename is demonstrably this suite's committed
+ * upload. The synthetic-prefix validation applies before any deletion.
+ */
+async function reconcileMediaIdentity(
+	record: OwnershipRecord,
+	target: string,
+): Promise<string | undefined> {
+	if (typeof record.id === "string") {
+		let present = true;
+		try {
+			const read = await readMedia(admin, record.id);
+			if (read.status === 404) {
+				present = false;
+			} else if (!read.ok) {
+				return `the media read for ${record.id} was refused (${nativeRefusalOf(read)}) — outcome unknown`;
+			}
+		} catch (cause) {
+			return `the media read for ${record.id} failed (${cause instanceof Error ? cause.message : String(cause)}) — outcome unknown`;
+		}
+		if (!present) {
+			await appendRecord(target, { phase: "resolved", kind: "media", id: record.id, how: "proven-absent" });
+			return undefined;
+		}
+		try {
+			const removal = await deleteMedia(admin, record.id);
+			if (!removal.ok && removal.status !== 404) {
+				return `removing the adopted media ${record.id} was refused (${nativeRefusalOf(removal)}) — still owned`;
+			}
+			const verify = await readMedia(admin, record.id);
+			if (verify.ok || verify.status !== 404) {
+				return `the adopted media ${record.id} could not be proven removed — still owned`;
+			}
+		} catch (cause) {
+			return `removing the adopted media ${record.id} failed (${cause instanceof Error ? cause.message : String(cause)}) — still owned`;
+		}
+		await appendRecord(target, { phase: "resolved", kind: "media", id: record.id, how: "adopted-and-removed" });
+		return undefined;
+	}
+	const filename = record.filename;
+	if (typeof filename !== "string" || !filename.startsWith(`${SYNTHETIC_FIXTURE_MARK}-`)) {
+		return `retained media identity ${JSON.stringify(record)} is not a validatable synthetic fixture identity — preserving it unresolved`;
+	}
+	// Ambiguous upload: full traversal of the supported listing, matched by
+	// the exact unique synthetic filename.
+	const followed = new Set<string>();
+	let cursor: string | undefined;
+	for (let page = 0; page < 200; page += 1) {
+		let result;
+		try {
+			result = await cmsRequest(admin, "/_emdash/api/media", {
+				searchParams: {
+					q: filename,
+					limit: "100",
+					...(cursor !== undefined ? { cursor } : {}),
+				},
+			});
+		} catch (cause) {
+			return `the media listing search for ${filename} failed (${cause instanceof Error ? cause.message : String(cause)}) — outcome unknown`;
+		}
+		if (!result.ok) {
+			return `the media listing search for ${filename} was refused (${nativeRefusalOf(result)}) — outcome unknown`;
+		}
+		const data = nativeDataOf(result);
+		const items = data?.items;
+		if (data === undefined || !Array.isArray(items)) {
+			return `the media listing search for ${filename} returned a malformed page — outcome unknown`;
+		}
+		const match = items.find(
+			(item) => (item as Record<string, unknown>).filename === filename,
+		) as Record<string, unknown> | undefined;
+		if (match !== undefined && typeof match.id === "string") {
+			try {
+				const removal = await deleteMedia(admin, match.id);
+				if (!removal.ok && removal.status !== 404) {
+					return `removing the adopted media for ${filename} was refused (${nativeRefusalOf(removal)}) — still owned`;
+				}
+				const verify = await readMedia(admin, match.id);
+				if (verify.ok || verify.status !== 404) {
+					return `the adopted media for ${filename} could not be proven removed — still owned`;
+				}
+			} catch (cause) {
+				return `removing the adopted media for ${filename} failed (${cause instanceof Error ? cause.message : String(cause)}) — still owned`;
+			}
+			await appendRecord(target, { phase: "resolved", kind: "media", filename, how: "adopted-and-removed" });
+			return undefined;
+		}
+		const nextCursor: unknown = data?.nextCursor;
+		if (nextCursor === undefined || nextCursor === "") {
+			await appendRecord(target, { phase: "resolved", kind: "media", filename, how: "proven-absent" });
+			return undefined;
+		}
+		if (typeof nextCursor !== "string" || nextCursor === cursor || followed.has(nextCursor)) {
+			return `the media listing search for ${filename} could not be fully traversed — outcome unknown`;
+		}
+		if (cursor !== undefined) {
+			followed.add(cursor);
+		}
+		cursor = nextCursor;
+	}
+	return `the media listing search for ${filename} did not terminate — outcome unknown`;
+}
+
+/**
+ * Reconcile every outstanding identity in one manifest file (R3). Returns
+ * the unresolved failure strings; every proven resolution is appended to
+ * the SAME file so the coordinator can observe consumption.
+ */
+async function reconcileManifest(target: string): Promise<string[]> {
+	const records = await readManifest(target);
+	if (records === undefined) {
+		return [`the ownership manifest ${target} could not be read — preserving it unresolved`];
+	}
+	const failures: string[] = [];
+	for (const record of unresolvedIdentities(records)) {
+		if (record.phase === "unreadable") {
+			failures.push(`an unreadable ownership line survives in ${target} — preserving it unresolved`);
+			continue;
+		}
+		const failure =
+			record.kind === "entry"
+				? await reconcileEntryIdentity(record, target)
+				: record.kind === "media"
+					? await reconcileMediaIdentity(record, target)
+					: undefined;
+		if (failure !== undefined) {
+			failures.push(failure);
+		}
+	}
+	return failures;
 }
 
 /** The synthetic slug a fixture entry will use (known BEFORE creation). */
 function nextSyntheticSlug(kind: string): string {
 	return `${SYNTHETIC_FIXTURE_MARK}-${kind}-${crypto.randomUUID().slice(0, 13)}`;
+}
+
+/** Append one test-status line to the coordinator's coverage journal (R5). */
+async function statusRecord(entry: { title: string; status: string }): Promise<void> {
+	const target = ambientNodeProcess?.env?.[RUN_STATUS_ENV];
+	if (target === undefined || target.trim().length === 0) {
+		return;
+	}
+	const fsPromises = await fsPromisesOf();
+	await fsPromises.appendFile(target, `${JSON.stringify(entry)}\n`, "utf8");
 }
 
 /**
@@ -568,23 +1020,28 @@ async function createOwnedPage(options: {
 
 /**
  * Create one OWNED synthetic Document fixture around a fresh owned media
- * upload (the same intent-retention discipline as createOwnedPage).
+ * upload (R3: the media INTENT — this run's unique synthetic filename — is
+ * retained BEFORE the upload, so an upload that commits while its
+ * acknowledgment is lost stays recoverable through the listing search).
  */
 async function createOwnedDocument(kind: string): Promise<{
 	entryId: string;
 	slug: string;
 	title: string;
 	mediaId: string;
+	filename: string;
 }> {
-	const upload = await uploadSyntheticMedia(admin);
+	const filename = `${SYNTHETIC_FIXTURE_MARK}-media-${crypto.randomUUID().slice(0, 8)}.png`;
+	await manifestRecord({ phase: "intent", kind: "media", filename });
+	const upload = await uploadSyntheticMedia(admin, { filename });
 	expect(upload.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
 	expect(upload.mediaId, "a media id must be returned and registered for owned cleanup").toBeTruthy();
-	await manifestRecord({ phase: "intent", kind: "media", id: upload.mediaId });
+	await manifestRecord({ phase: "created", kind: "media", id: upload.mediaId, filename });
 	const title = uniqueTitle(kind);
 	const slug = nextSyntheticSlug(kind);
 	await manifestRecord({ phase: "intent", kind: "entry", collection: DOCUMENTS_COLLECTION, slug });
 	const created = await createSyntheticEntry(admin, DOCUMENTS_COLLECTION, {
-		data: { title, file: { id: upload.mediaId! } },
+		data: { title, file: fileValueFor(upload.mediaId!) },
 		slug,
 	});
 	expect(created.result.ok, "the synthetic Document fixture must save").toBe(true);
@@ -595,7 +1052,44 @@ async function createOwnedDocument(kind: string): Promise<{
 		id: created.entryId,
 		slug,
 	});
-	return { entryId: created.entryId!, slug, title, mediaId: upload.mediaId! };
+	return { entryId: created.entryId!, slug, title, mediaId: upload.mediaId!, filename };
+}
+
+/**
+ * Create one OWNED synthetic health-report fixture with the same discipline
+ * (R3: the Report had no pre-write intent in the reviewed candidate). The
+ * required `report_document` reference is supplied by the caller from an
+ * already-created owned Document.
+ */
+async function createOwnedHealthReport(
+	documentEntryId: string,
+): Promise<{ entryId: string; slug: string; title: string }> {
+	const title = uniqueTitle("report");
+	const slug = nextSyntheticSlug("report");
+	await manifestRecord({
+		phase: "intent",
+		kind: "entry",
+		collection: HEALTH_REPORTS_COLLECTION,
+		slug,
+	});
+	const created = await createSyntheticEntry(admin, HEALTH_REPORTS_COLLECTION, {
+		data: { title },
+		slug,
+		references: { report_document: [documentEntryId] },
+	});
+	expect(
+		created.result.ok,
+		"the synthetic health report must save with its required reference",
+	).toBe(true);
+	expect(created.entryId, "the report fixture id must come from the native response").toBeTruthy();
+	await manifestRecord({
+		phase: "created",
+		kind: "entry",
+		collection: HEALTH_REPORTS_COLLECTION,
+		id: created.entryId,
+		slug,
+	});
+	return { entryId: created.entryId!, slug, title };
 }
 
 // ---------------------------------------------------------------------------
@@ -713,6 +1207,33 @@ test.beforeAll(async () => {
 		}
 		return problems;
 	});
+
+	// R3 — CONSUME prior interrupted-run manifests handed over by the
+	// coordinator: every recorded synthetic identity is reconciled through
+	// supported native reads (adopted-and-deleted, or proven non-committed)
+	// BEFORE this run claims anything. A fully consumed file is removed;
+	// anything unresolved fails this worker loudly with the evidence
+	// preserved — a fresh worker never erases old intent merely because its
+	// in-memory registry is empty.
+	const recoveryRaw = ambientNodeProcess?.env?.[RECOVERY_MANIFESTS_ENV];
+	const recoveryPaths = (recoveryRaw ?? "")
+		.split(":")
+		.map((value) => value.trim())
+		.filter((value) => value.length > 0);
+	const recoveryFailures: string[] = [];
+	for (const recoveryPath of recoveryPaths) {
+		const failures = await reconcileManifest(recoveryPath);
+		if (failures.length === 0) {
+			await unlinkIfExists(recoveryPath);
+			continue;
+		}
+		recoveryFailures.push(...failures);
+	}
+	if (recoveryFailures.length > 0) {
+		throw new Error(
+			`prior-run owned-fixture recovery could not be completed — unresolved recorded identities are preserved for the next run: ${recoveryFailures.join("; ")}`,
+		);
+	}
 });
 
 /** Owned-fixture cleanup for the acting actors; never throws past a failure. */
@@ -740,26 +1261,56 @@ async function cleanupOwned(actor: CmsActor | undefined): Promise<string[]> {
 }
 
 test.afterEach(async () => {
+	// R5 — the coverage journal: the coordinator turns any non-passed
+	// recorded status into a non-success run even when the worker exits 0.
+	await statusRecord({ title: test.info().title, status: test.info().status ?? "unknown" });
+
 	// Each cleanup runs INDEPENDENTLY; combined failures are reported only
 	// after all attempts, and unresolved fixtures stay registered (the
 	// helpers' reconciliation contract) so a later cleanup can retry them.
 	const failures = await cleanupOwned(admin);
+
+	// R3 — reconcile every retained intent/created identity that the in-memory
+	// registry does not account for (an ambiguous committed create, an
+	// uncertain media upload, a Report attempt) BEFORE any ownership evidence
+	// may be cleared. Ownership evidence is removed only when nothing
+	// outstanding remains.
+	const manifestTarget = manifestPathOf();
+	const reconciliationFailures =
+		manifestTarget === undefined ? [] : await reconcileManifest(manifestTarget);
+	const cleared = await manifestRemove();
+
 	expect(
 		failures,
 		"owned synthetic fixtures must be reconciled after each case (unresolved fixtures stay registered for a later retry and are reported, never hidden)",
 	).toEqual([]);
-	await manifestRemove();
+	expect(
+		reconciliationFailures,
+		"every ambiguous owned attempt must be reconciled through supported native reads before ownership evidence is cleared (primary failures are preserved alongside)",
+	).toEqual([]);
+	expect(
+		cleared,
+		"the ownership manifest may be removed only after every retained identity is proven resolved — unresolved evidence is preserved, never erased",
+	).toBe(true);
 });
 
 test.afterAll(async () => {
 	// Safety net: normally a no-op (afterEach resolved everything). Every
 	// attempt is still made and reported before failing loudly.
 	const failures = await cleanupOwned(admin);
-	if (failures.length > 0) {
-		await manifestRecord({ phase: "after-all-residual", failures });
-		throw new Error(`afterAll reconciliation failures after all attempts: ${failures.join("; ")}`);
+	const manifestTarget = manifestPathOf();
+	const reconciliationFailures =
+		manifestTarget === undefined ? [] : await reconcileManifest(manifestTarget);
+	const cleared = await manifestRemove();
+	if (failures.length > 0 || reconciliationFailures.length > 0 || !cleared) {
+		await manifestRecord({
+			phase: "after-all-residual",
+			failures: [...failures, ...reconciliationFailures],
+		});
+		throw new Error(
+			`afterAll reconciliation failures after all attempts: ${[...failures, ...reconciliationFailures].join("; ")}${cleared ? "" : " (ownership evidence preserved)"}`,
+		);
 	}
-	await manifestRemove();
 });
 
 // ---------------------------------------------------------------------------
@@ -824,28 +1375,68 @@ test("fixture route contract: identity probe, no-store, fail-closed access, meth
 		});
 		expect(response.status, `${label} must be refused`).toBe(405);
 	}
+	const syntheticProbeId = nextSyntheticSlug("contract-probe");
 	for (const [label, params] of [
 		["unknown case", { case: "dump-everything" }],
-		["non-allowlisted collection", { case: "collection", collection: "_emdash" }],
-		["draft status filter", { case: "collection", collection: PAGES_COLLECTION, status: "draft" }],
-		["where filter", { case: "collection", collection: PAGES_COLLECTION, where: "1=1" }],
-		["out-of-range limit", { case: "collection", collection: PAGES_COLLECTION, limit: "1000" }],
-		["non-integer limit", { case: "collection", collection: PAGES_COLLECTION, limit: "two" }],
+		["non-allowlisted collection", { case: "collection", collection: "_emdash", marker: SYNTHETIC_FIXTURE_MARK }],
+		[
+			"collection read without the synthetic marker",
+			{ case: "collection", collection: PAGES_COLLECTION },
+		],
+		[
+			"collection read with a foreign marker",
+			{ case: "collection", collection: PAGES_COLLECTION, marker: "some-other-namespace" },
+		],
+		[
+			"real-record slug refused (R1)",
+			{ case: "entry", collection: PAGES_COLLECTION, id: "real-editorial-homepage" },
+		],
+		[
+			"internal ULID refused (R1)",
+			{ case: "entry", collection: PAGES_COLLECTION, id: "01HXYZULIDINTERNAL0000000" },
+		],
+		[
+			"references on a real-record slug refused (R1)",
+			{
+				case: "references",
+				collection: PAGES_COLLECTION,
+				id: "real-editorial-homepage",
+				field: "documents",
+			},
+		],
 		[
 			"non-allowlisted reference field",
 			{
 				case: "references",
 				collection: PAGES_COLLECTION,
-				id: "some-slug",
+				id: syntheticProbeId,
 				field: "not-a-bound-field",
 			},
 		],
-		["malformed entry id", { case: "entry", collection: PAGES_COLLECTION, id: "../_emdash/api" }],
+		[
+			"malformed entry id",
+			{ case: "entry", collection: PAGES_COLLECTION, id: "../_emdash/api" },
+		],
 	] as [string, Record<string, string>][]) {
-		const response = await fetchFixtureRoute(params);
-		expect(response.status, `${label} must be refused as a bounded-input error`).toBe(400);
+		const response = await fetchFixtureRoute(params, { expectStatus: 400 });
 		expect(response.body.error, `${label} refusal carries its error code`).toBeTruthy();
 	}
+	// R1: the synthetic-namespace refusals carry their distinct codes.
+	const nonSynthetic = await fetchFixtureRoute(
+		{ case: "entry", collection: PAGES_COLLECTION, id: "real-editorial-homepage" },
+		{ expectStatus: 400 },
+	);
+	expect(nonSynthetic.body.error, "a non-synthetic id is refused as NON_SYNTHETIC_ID").toBe(
+		"NON_SYNTHETIC_ID",
+	);
+	const unmarked = await fetchFixtureRoute(
+		{ case: "collection", collection: PAGES_COLLECTION },
+		{ expectStatus: 400 },
+	);
+	expect(
+		unmarked.body.error,
+		"a collection read without the synthetic marker is refused",
+	).toBe("SYNTHETIC_MARKER_REQUIRED");
 });
 
 test("published-only collection reads: drafts, pending titles, unpublished and trashed entries never appear; published ones do", async () => {
@@ -1033,7 +1624,7 @@ test("live versus pending: staged content-data and reference selections stay inv
 	// collection reads to published rows; a preview token is not a
 	// collection-wide draft grant).
 	const collectionUnderPreview = await fetchFixtureRoute(
-		{ case: "collection", collection: PAGES_COLLECTION, limit: "100" },
+		{ case: "collection", collection: PAGES_COLLECTION, marker: SYNTHETIC_FIXTURE_MARK, limit: "100" },
 		{ previewToken },
 	);
 	expect(
@@ -1250,22 +1841,9 @@ test("a save-time required reference is not a read-time availability guarantee (
 	// omits the unavailable target — no error, no privileged snapshot.
 	const documentFixture = await createOwnedDocument("report-target");
 	await publishOwned(DOCUMENTS_COLLECTION, documentFixture.entryId);
-	const report = await createSyntheticEntry(admin, HEALTH_REPORTS_COLLECTION, {
-		data: { title: uniqueTitle("report-missing-target") },
-		slug: nextSyntheticSlug("report-missing-target"),
-		references: { report_document: [documentFixture.entryId] },
-	});
-	expect(report.result.ok, "the synthetic health report must save with its required reference").toBe(
-		true,
-	);
-	await manifestRecord({
-		phase: "created",
-		kind: "entry",
-		collection: HEALTH_REPORTS_COLLECTION,
-		id: report.entryId,
-	});
-	await publishOwned(HEALTH_REPORTS_COLLECTION, report.entryId!);
-	const reportSlug = (nativeItemOf(report.result)?.slug as string | undefined) ?? "";
+	const report = await createOwnedHealthReport(documentFixture.entryId);
+	await publishOwned(HEALTH_REPORTS_COLLECTION, report.entryId);
+	const reportSlug = report.slug;
 
 	const unpublished = await unpublishEntry(admin, DOCUMENTS_COLLECTION, documentFixture.entryId);
 	expect(unpublished.ok).toBe(true);
@@ -1340,7 +1918,7 @@ test("reference identity, opt-in hydration and multi-page traversal", async () =
 		id: parent.slug,
 		field: "documents",
 	});
-	expect((standalone.body.entries ?? []).map((entry: RouteEntry) => entry.id)).toEqual(
+	expect(entriesOf(standalone).map((entry: RouteEntry) => entry.id)).toEqual(
 		targets.map((target) => target.slug),
 	);
 
@@ -1353,7 +1931,7 @@ test("reference identity, opt-in hydration and multi-page traversal", async () =
 		field: "documents",
 		limit: "2",
 	});
-	const pageOneIds = (pageOne.body.entries ?? []).map((entry: RouteEntry) => entry.id);
+	const pageOneIds = entriesOf(pageOne).map((entry: RouteEntry) => entry.id);
 	expect(pageOneIds).toEqual(targets.slice(0, 2).map((target) => target.slug));
 	expect(typeof pageOne.body.nextCursor, "a bounded page that truncates carries a cursor").toBe(
 		"string",
@@ -1366,28 +1944,37 @@ test("reference identity, opt-in hydration and multi-page traversal", async () =
 		limit: "2",
 		cursor: pageOne.body.nextCursor as string,
 	});
-	const pageTwoIds = (pageTwo.body.entries ?? []).map((entry: RouteEntry) => entry.id);
+	const pageTwoIds = entriesOf(pageTwo).map((entry: RouteEntry) => entry.id);
 	expect(pageTwoIds).toEqual(targets.slice(2).map((target) => target.slug));
 	expect(pageTwo.body.nextCursor, "the terminal page carries no cursor").toBeUndefined();
 	expect(new Set([...pageOneIds, ...pageTwoIds]).size).toBe(3);
 
 	// Collection-level pagination stays structural (no claim about unrelated
-	// real content): bounded pages, disjoint ids, an explicit terminal page.
+	// real content — the pages are explicitly synthetic-filtered): bounded
+	// pages, disjoint ids, an explicit terminal page. R5: status, error and
+	// entries SHAPE are validated before any emptiness is interpreted, so an
+	// error response can never pass as a short terminal page.
 	const collectionPageOne = await fetchFixtureRoute({
 		case: "collection",
 		collection: PAGES_COLLECTION,
+		marker: SYNTHETIC_FIXTURE_MARK,
 		limit: "2",
 	});
-	expect((collectionPageOne.body.entries ?? []).length).toBeLessThanOrEqual(2);
+	expect(collectionPageOne.body.error, "the collection page must not report an error").toBeUndefined();
+	expect(collectionPageOne.body.syntheticFiltered).toBe(true);
+	const collectionPageOneEntries = entriesOf(collectionPageOne);
+	expect(collectionPageOneEntries.length).toBeLessThanOrEqual(2);
 	if (collectionPageOne.body.nextCursor !== undefined) {
 		const collectionPageTwo = await fetchFixtureRoute({
 			case: "collection",
 			collection: PAGES_COLLECTION,
+			marker: SYNTHETIC_FIXTURE_MARK,
 			limit: "2",
 			cursor: collectionPageOne.body.nextCursor,
 		});
-		const pageOneSet = new Set((collectionPageOne.body.entries ?? []).map((entry: RouteEntry) => entry.id));
-		for (const entry of collectionPageTwo.body.entries ?? []) {
+		expect(collectionPageTwo.body.error, "the second collection page must not report an error").toBeUndefined();
+		const pageOneSet = new Set(entriesOf(collectionPageOne).map((entry: RouteEntry) => entry.id));
+		for (const entry of entriesOf(collectionPageTwo)) {
 			expect(
 				pageOneSet.has(entry.id as string),
 				"keyset pagination pages must be disjoint",
@@ -1400,9 +1987,13 @@ test("missing files: a published Document whose media asset was removed reads as
 	gateDocuments();
 
 	// The owned media asset behind the required file value is deleted after
-	// publication. The public read keeps the SELECTION IDENTITY (no byte or
-	// availability guarantee exists — D-REF stays deferred) and never
-	// fabricates a successful download.
+	// publication. R5 (corrective round 1): availability is established with
+	// a POSITIVE control first — the asset's supported public address is read
+	// from the native media metadata and fetched successfully BEFORE removal —
+	// and the SAME address must be safely unavailable AFTER removal. A
+	// retained selection id alone never establishes the boundary, and the
+	// check is never conditionally omitted: no usable address is a loud
+	// failure, not a pass.
 	const fixture = await createOwnedDocument("missing-file");
 	await publishOwned(DOCUMENTS_COLLECTION, fixture.entryId);
 
@@ -1416,12 +2007,40 @@ test("missing files: a published Document whose media asset was removed reads as
 		fixture.mediaId,
 	);
 
+	// Establish the owned asset's supported public address (native media
+	// metadata: local assets carry a relative src under the app's media file
+	// endpoint; the listing adds a relative url). Confined to the one
+	// authorized origin.
+	const mediaRead = await readMedia(admin, fixture.mediaId);
+	expect(mediaRead.ok, "the owned media metadata must be readable before removal").toBe(true);
+	const mediaItem = (nativeItemOf(mediaRead) ?? {}) as Record<string, unknown>;
+	const addressCandidate = [mediaItem.src, mediaItem.url].find(
+		(value) => typeof value === "string" && value.length > 0,
+	) as string | undefined;
+	expect(
+		typeof addressCandidate === "string" && addressCandidate.length > 0,
+		"the owned asset must expose a supported public address (src/url) for the availability control — a selection id alone does not establish the boundary",
+	).toBe(true);
+	const assetUrl = new URL(addressCandidate as string, PERSISTENT_DEVELOPMENT_ORIGIN);
+	expect(
+		assetUrl.origin,
+		"the asset address must resolve onto the one authorized development origin",
+	).toBe(PERSISTENT_DEVELOPMENT_ORIGIN);
+
+	// Positive control: the address serves the asset while it exists.
+	const positive = await fetch(assetUrl, { redirect: "error" });
+	expect(
+		positive.ok,
+		`the availability control must first observe the owned asset as servable (${assetUrl.pathname})`,
+	).toBe(true);
+
 	// Remove the owned asset (native media removal, own asset).
 	const removed = await deleteMedia(admin, fixture.mediaId);
 	expect(removed.ok, "the owned media asset must be removable").toBe(true);
 
 	// The Document stays published and readable; its file value keeps the
-	// now-dangling selection identity.
+	// now-dangling selection identity (no byte or availability guarantee
+	// exists — D-REF stays deferred)...
 	const after = await fetchFixtureRoute({
 		case: "entry",
 		collection: DOCUMENTS_COLLECTION,
@@ -1433,16 +2052,13 @@ test("missing files: a published Document whose media asset was removed reads as
 		fixture.mediaId,
 	);
 
-	// Safe unavailability: whatever address the value still carries must NOT
-	// serve a successful download for the removed asset.
-	if (typeof fileAfter?.src === "string" && fileAfter.src.length > 0) {
-		const assetUrl = new URL(fileAfter.src, PERSISTENT_DEVELOPMENT_ORIGIN);
-		const asset = await fetch(assetUrl, { redirect: "error" });
-		expect(
-			asset.ok,
-			`a removed asset must not serve a successful download (${assetUrl.pathname})`,
-		).toBe(false);
-	}
+	// ...and the SAME address is now safely unavailable: a non-success fetch,
+	// never an unverified successful download.
+	const unavailable = await fetch(assetUrl, { redirect: "error" });
+	expect(
+		unavailable.ok,
+		`the removed asset must not serve a successful download at the same address (${assetUrl.pathname})`,
+	).toBe(false);
 });
 
 test("truthful not-found and empty states, and no privileged fallback on anonymous surfaces", async () => {
@@ -1484,4 +2100,75 @@ test("truthful not-found and empty states, and no privileged fallback on anonymo
 		{ redirect: "error" },
 	);
 	expect(adminRest.status, "an anonymous Admin REST read is an authorization refusal").toBe(401);
+});
+
+test("native error channel: a malformed pagination cursor is a real native error, never an empty success (R5)", async () => {
+	gatePages();
+
+	// Bounded, input-driven, genuine NATIVE error path (corrective round 1,
+	// R5): the pinned loader deliberately PROPAGATES InvalidCursorError for a
+	// cursor that is not its base64/JSON orderValue+id encoding
+	// (src/database/repositories/types.ts decodeCursor; loader.ts
+	// sortCursorCondition — "callers should let this propagate so users see a
+	// real error rather than silently falling back to the first page"). The
+	// length-bounded garbage cursor below passes the route's syntactic input
+	// contract and reaches the native decoder.
+	const garbageCursor = "definitely-not-a-native-cursor";
+
+	// Collection read: the error must surface as a NON-SUCCESS response with
+	// the native error name — an HTTP 500 (the thrown native error reaches
+	// the fixture's catch) or the native error channel on a 200 — and in
+	// BOTH forms the response must NOT present entries as a successful page.
+	const collectionError = await fetchFixtureRoute(
+		{
+			case: "collection",
+			collection: PAGES_COLLECTION,
+			marker: SYNTHETIC_FIXTURE_MARK,
+			limit: "10",
+			cursor: garbageCursor,
+		},
+		{ expectStatus: 500 },
+	);
+	if (collectionError.body.error === "FIXTURE_INTERNAL_ERROR") {
+		expect(
+			collectionError.body.nativeErrorName,
+			"a thrown native error surfaces its name (no stack/message), proving the error channel",
+		).toBe("InvalidCursorError");
+	} else {
+		expect(
+			typeof collectionError.body.error === "object" &&
+				(collectionError.body.error as { name?: unknown }).name === "InvalidCursorError",
+			"the native error channel carries the InvalidCursorError name",
+		).toBe(true);
+		expect(collectionError.body.entries, "an error result never presents entries").toEqual([]);
+	}
+
+	// References read: the standalone helper reports the same native failure
+	// through its own error channel (entries [] + error), which must be
+	// distinguishable from a genuinely empty selection — asserted here on an
+	// anchor that does not exist, so the ONLY possible non-empty outcome is
+	// the error channel.
+	const anchorSlug = nextSyntheticSlug("native-error-anchor");
+	const referencesError = await fetchFixtureRoute({
+		case: "references",
+		collection: PAGES_COLLECTION,
+		id: anchorSlug,
+		field: "documents",
+		limit: "10",
+		cursor: garbageCursor,
+	});
+	const channel = referencesError.body.error as { name?: unknown } | string | undefined;
+	const channelName = typeof channel === "object" ? channel?.name : channel;
+	expect(
+		channelName === "InvalidCursorError" || channelName === "FIXTURE_INTERNAL_ERROR",
+		`the references read with a malformed cursor must report the native error (got ${String(channelName)})`,
+	).toBe(true);
+	expect(
+		referencesError.body.entries,
+		"an error result is never presented as an empty successful page",
+	).toEqual([]);
+	expect(
+		referencesError.body.nextCursor,
+		"an error result carries no continuation cursor",
+	).toBeUndefined();
 });

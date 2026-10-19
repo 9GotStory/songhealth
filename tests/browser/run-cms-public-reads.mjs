@@ -9,37 +9,46 @@
 // `webServer`, no second server/port/DB/media stack, no port fallback. An
 // occupied shared origin is the intended state. It only:
 //
-//   1. verifies the origin answers as the expected Songhealth source (the
-//      public songhealth-foundation SSR marker) — an unexpected origin or
-//      source identity is a non-success HOLD, before anything is spawned;
-//   2. verifies the dev-only fixture route is installed there with the
-//      expected identity (access-token-gated probe) — a missing or
-//      unexpected fixture is a non-success HOLD (the reviewed source/config
-//      transition that installs it is a separate authorization), never a
-//      reason to start a substitute server;
-//   3. verifies the coordinated prerequisites (pinned local Playwright
+//   1. verifies the EXACT source identity both ways (Lead corrective round
+//      1, R2): the full 40-hex candidate identity this checkout is being
+//      tested at, and the stable runtime source SHA observed through the
+//      documented read-only Runtime Controller `status` operation — plus the
+//      app's own marker and the fixture's identity probe. Missing,
+//      malformed, stale or mismatched identities are a non-success HOLD
+//      BEFORE credentials, fixture mutations or any worker spawn;
+//   2. verifies the coordinated prerequisites (pinned local Playwright
 //      runner installed; the mode-0600 development credential input and the
 //      mode-0600 route-access token input present — existence/mode only for
 //      the PAT; the token file is read to probe the route and nothing else);
+//   3. CONSUMES prior interrupted-run ownership manifests (R3): their
+//      recorded synthetic fixture identities are handed to the fresh worker
+//      as recovery inputs (SONGHEALTH_T021_RECOVERY_MANIFESTS), whose
+//      bounded awaited reconciliation adopts or resolves them through
+//      supported native reads; leftover files are never merely printed;
 //   4. runs the ONE T021 spec file through the repo-pinned Playwright
 //      runner with PLAYWRIGHT_BASE_URL pinned to the persistent origin and
 //      the explicit opt-in that keeps ordinary `npm run test:browser` from
 //      ever executing this runtime suite or reading its credentials
 //      (discovery stays side-effect free);
-//   5. owns exactly its Playwright child and a per-run ownership manifest:
+//   5. owns exactly its Playwright child and the run's ownership manifest:
 //      on failure, timeout, SIGINT or SIGTERM it terminates, awaits and
 //      reaps ONLY that child (SIGTERM, bounded grace, SIGKILL), preserves
 //      the manifest whenever owned synthetic fixtures may remain (worker
 //      interruption never silently discards ownership records), and reports
-//      primary AND cleanup/residue failures together. The shared app, DB,
-//      media volumes, credentials, stable source and controller are never
-//      test-owned resources; runtime fixture creation/cleanup itself is the
-//      separately authorized T022 serial join's to execute.
+//      primary AND cleanup/residue failures together. Every timer and
+//      transient listener is cleared on every completion path (R4), all
+//      prerequisite requests carry an abort deadline, and a child spawn
+//      failure is handled with the same truthful cleanup. The shared app,
+//      DB, media volumes, credentials, stable source and controller are
+//      never test-owned resources; runtime fixture creation/cleanup itself
+//      is the separately authorized T022 serial join's to execute.
 //
 // Exit codes (truthful outcomes, never false success):
-//   0  child passed and no owned-fixture residue remained
+//   0  child passed, every recorded test status passed, no residue remained
 //   1  child Playwright run failed (its exit code propagated)
-//   2  child passed but owned-fixture residue may remain (manifest kept)
+//   2  child exited zero but coverage/residue is incomplete (skipped or
+//      non-passed recorded statuses, unresolved owned fixtures, or recovery
+//      inputs that could not be consumed)
 //   3  HOLD — a prerequisite failed; nothing was spawned or started
 //   4  interrupted (SIGINT/SIGTERM) or timed out; child terminated/reaped
 //
@@ -56,21 +65,30 @@
 // - AGENTS.md "Single Persistent Development Runtime" (one server/DB/media
 //   store/test target; never free the port or substitute; a dev-only
 //   integration not yet installed is NOT READY → HOLD; task cleanup covers
-//   task-owned temporary resources only)
+//   task-owned temporary resources only) and the Multica runtime brief's
+//   never-terminate-by-name rule (only this coordinator's own child PID)
+// - specs/002-cms-content-model/quickstart.md "Prerequisites and
+//   Environment" — `runtime.sh status`/`verify` are the only authorized
+//   ROUTINE controller operations; this coordinator uses `status` (read
+//   only) as the approved observation of the stable runtime source SHA
 // - tests/browser/foundation.spec.ts — the public songhealth-foundation SSR
-//   marker contract used for the source-identity check
+//   marker contract (application identity, NOT by itself source identity)
 // - tests/browser/fixtures/cms-public-reads.integration.mjs — the fixture
 //   route contract (route pattern, access header, identity, env names)
 //
 // Verified API surface (recorded per AGENTS.md §External Documentation):
-// Node 24 global fetch with redirect:"error" (redirects refused, matching
-// the accepted helper discipline); node:child_process spawn/exit events for
-// awaited child termination and reaping; the repo-local pinned
-// @playwright/test 1.63.0 CLI (node_modules/@playwright/test/cli.js) as the
-// runner — `npm run test:browser` is deliberately NOT used so the ordinary
-// suite never drags this runtime file along.
+// Node 24 global fetch with redirect:"error" and AbortSignal.timeout for
+// bounded requests; node:child_process spawn with explicit 'error'/'exit'
+// event handling and awaited termination/reaping; node:child_process.execFile
+// for the bounded read-only `git rev-parse HEAD` (expected candidate
+// identity) and `runtime.sh status` (observed stable source identity, a JSON
+// object with a "source" field — verified against the pinned runtime); the
+// repo-local pinned @playwright/test 1.63.0 CLI
+// (node_modules/@playwright/test/cli.js) as the runner — `npm run
+// test:browser` is deliberately NOT used so the ordinary suite never drags
+// this runtime file along.
 
-import { spawn } from "node:child_process";
+import { spawn, execFile } from "node:child_process";
 import { mkdir, readFile, readdir, stat } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
@@ -84,7 +102,7 @@ const SPEC_FILE = "tests/browser/cms-public-reads.spec.ts";
 /** The repo-local pinned Playwright CLI (NOT `npm run test:browser`). */
 const PLAYWRIGHT_CLI = "node_modules/@playwright/test/cli.js";
 
-/** The public SSR marker proving the origin is the Songhealth source. */
+/** The public SSR marker proving the origin is the Songhealth application. */
 const SSR_MARKER_PATTERN =
 	/<meta\s+name="songhealth-foundation"\s+content="public-runtime"\s*\/?>/;
 
@@ -103,13 +121,35 @@ const DEV_ACCESS_CREDENTIAL_ENV = "SONGHEALTH_DEV_ACCESS";
 /** Per-run owned-fixture manifest passed to the worker. */
 const OWNERSHIP_MANIFEST_ENV = "SONGHEALTH_T021_OWNERSHIP_MANIFEST";
 
+/** Prior-run manifests the worker must reconcile (":"-separated list). */
+const RECOVERY_MANIFESTS_ENV = "SONGHEALTH_T021_RECOVERY_MANIFESTS";
+
+/** Per-run test-status journal the worker appends to (R5). */
+const RUN_STATUS_ENV = "SONGHEALTH_T021_RUN_STATUS";
+
+/** Optional explicit expected candidate identity (40-hex), else git HEAD. */
+const EXPECTED_SOURCE_ENV = "SONGHEALTH_T021_EXPECTED_SOURCE_SHA";
+
 /** Overall child timeout (ms); overridable, bounded 60s..2h. */
 const TIMEOUT_ENV = "SONGHEALTH_T021_TIMEOUT_MS";
 const DEFAULT_TIMEOUT_MS = 20 * 60 * 1000;
 const TERMINATION_GRACE_MS = 10_000;
 
+/** Bounded deadline for every prerequisite request/observation (R4). */
+const PREREQUISITE_DEADLINE_MS = 10_000;
+
+/**
+ * The documented read-only Runtime Controller (AGENTS.md; quickstart). Only
+ * its routine `status` operation is ever invoked, and only to OBSERVE the
+ * stable runtime source identity. Overridable path for offline controls.
+ */
+const RUNTIME_CONTROLLER_DEFAULT = "/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh";
+const RUNTIME_CONTROLLER_ENV = "SONGHEALTH_RUNTIME_CONTROLLER";
+
 /** Bounded run scratch under the already-gitignored .tmp/ path. */
 const SCRATCH_DIR = ".tmp/feature002";
+
+const FULL_SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 const HOLD_EXIT = 3;
 const INTERRUPTED_EXIT = 4;
@@ -124,9 +164,94 @@ async function hold(reasons) {
 	process.exitCode = HOLD_EXIT;
 }
 
-/** A minimal JSON response read with redirects refused. */
+/** Run one bounded, read-only helper command and capture its stdout. */
+function boundedExec(file, args, label) {
+	return new Promise((resolve) => {
+		try {
+			execFile(
+				file,
+				args,
+				{ cwd: repoRoot, timeout: PREREQUISITE_DEADLINE_MS, maxBuffer: 1024 * 1024 },
+				(error, stdout) => {
+					if (error) {
+						resolve({ error: `${label} failed (${error.code ?? error.message})` });
+					} else {
+						resolve({ stdout: String(stdout) });
+					}
+				},
+			);
+		} catch (error) {
+			resolve({ error: `${label} failed (${error.code ?? error.message})` });
+		}
+	});
+}
+
+/**
+ * The EXPECTED full candidate identity (R2): an explicit 40-hex override
+ * when provided, else the exact HEAD of THIS checkout (the candidate under
+ * test). A git failure or malformed value is a HOLD — never a guess.
+ */
+export async function expectedSourceIdentity() {
+	const explicit = process.env[EXPECTED_SOURCE_ENV];
+	if (explicit !== undefined && explicit.trim().length > 0) {
+		const trimmed = explicit.trim();
+		if (!FULL_SHA_PATTERN.test(trimmed)) {
+			return { error: `${EXPECTED_SOURCE_ENV} must be a full 40-hex SHA (got a malformed value)` };
+		}
+		return { sha: trimmed, provenance: `explicit ${EXPECTED_SOURCE_ENV}` };
+	}
+	const git = await boundedExec("git", ["rev-parse", "HEAD"], "git rev-parse HEAD");
+	if (git.error !== undefined) {
+		return { error: `could not establish the expected candidate identity: ${git.error}` };
+	}
+	const sha = (git.stdout ?? "").trim();
+	if (!FULL_SHA_PATTERN.test(sha)) {
+		return { error: `git rev-parse HEAD returned a non-SHA value — refusing to guess the candidate identity` };
+	}
+	return { sha, provenance: "git rev-parse HEAD of this checkout" };
+}
+
+/**
+ * The OBSERVED stable runtime source identity (R2), through the only
+ * approved read-only observation: the documented Runtime Controller `status`
+ * routine operation (quickstart "Prerequisites"; the preflight observed the
+ * same field). The controller prints a JSON object whose "source" field is
+ * the stable source SHA. Any failure, missing field or malformed value is a
+ * HOLD — missing identity evidence must never let a worker spawn.
+ */
+export async function observedRuntimeSourceIdentity() {
+	const controller = process.env[RUNTIME_CONTROLLER_ENV] ?? RUNTIME_CONTROLLER_DEFAULT;
+	const status = await boundedExec(controller, ["status"], `controller status (${controller})`);
+	if (status.error !== undefined) {
+		return {
+			error: `the stable runtime source identity could not be observed: ${status.error}; missing identity evidence is a HOLD, never an assumption`,
+		};
+	}
+	let parsed;
+	try {
+		parsed = JSON.parse(status.stdout ?? "");
+	} catch {
+		return { error: "the Runtime Controller status output was not the expected JSON identity record" };
+	}
+	const source = parsed?.source;
+	if (typeof source !== "string" || !FULL_SHA_PATTERN.test(source)) {
+		return {
+			error: `the Runtime Controller status record carries no full 40-hex "source" identity (observed ${JSON.stringify(source)})`,
+		};
+	}
+	return {
+		sha: source,
+		provenance: `Runtime Controller status (${controller}) — the documented read-only observation`,
+	};
+}
+
+/** A minimal JSON response read with redirects refused and bounded time. */
 async function fetchJson(url, headers = {}) {
-	const response = await fetch(url, { headers, redirect: "error" });
+	const response = await fetch(url, {
+		headers,
+		redirect: "error",
+		signal: AbortSignal.timeout(PREREQUISITE_DEADLINE_MS),
+	});
 	let body;
 	try {
 		body = await response.json();
@@ -173,7 +298,12 @@ export async function readRouteAccessToken() {
 			return { error: `route access input ${value} must be a mode-0600 regular file` };
 		}
 		const parsed = JSON.parse(await readFile(value.trim(), "utf8"));
-		if (parsed === null || typeof parsed !== "object" || typeof parsed.token !== "string" || parsed.token.trim().length === 0) {
+		if (
+			parsed === null ||
+			typeof parsed !== "object" ||
+			typeof parsed.token !== "string" ||
+			parsed.token.trim().length === 0
+		) {
 			return { error: `route access input ${value} carries no non-empty string token field` };
 		}
 		return { token: parsed.token };
@@ -183,41 +313,48 @@ export async function readRouteAccessToken() {
 }
 
 /**
- * Prerequisite 1 — origin identity: the persistent origin must answer as
- * the expected Songhealth source. No server is ever started here; a
- * connection failure is a HOLD, not something to boot around.
+ * Prerequisite — application identity: the persistent origin must answer as
+ * the expected Songhealth application (the public SSR marker). This alone
+ * is NOT source identity (R2); the SHA comparison below is. No server is
+ * ever started here; a connection failure is a HOLD, not something to boot
+ * around. Bounded by an abort deadline (R4).
  */
 async function originIdentityHolds() {
 	try {
 		const response = await fetch(new URL("/", PERSISTENT_DEVELOPMENT_ORIGIN), {
 			redirect: "error",
+			signal: AbortSignal.timeout(PREREQUISITE_DEADLINE_MS),
 		});
 		if (response.status !== 200) {
 			return `unexpected origin response: GET / answered ${response.status} (expected 200 from the persistent development application)`;
 		}
 		const body = await response.text();
 		if (!SSR_MARKER_PATTERN.test(body)) {
-			return "unexpected source identity: the origin does not serve the songhealth-foundation public SSR marker — refusing to treat it as the persistent Songhealth application";
+			return "unexpected application identity: the origin does not serve the songhealth-foundation public SSR marker — refusing to treat it as the persistent Songhealth application";
 		}
 		return undefined;
 	} catch (error) {
-		return `the persistent development origin ${PERSISTENT_DEVELOPMENT_ORIGIN} did not answer (${error.cause?.code ?? error.cause?.message ?? error.message}); an unavailable shared app is a HOLD prerequisite — never authorization to start, restart or substitute a server`;
+		const reason = error?.name === "TimeoutError" ? "deadline exceeded" : (error.cause?.code ?? error.cause?.message ?? error.message);
+		return `the persistent development origin ${PERSISTENT_DEVELOPMENT_ORIGIN} did not answer (${reason}); an unavailable shared app is a HOLD prerequisite — never authorization to start, restart or substitute a server`;
 	}
 }
 
 /**
- * Prerequisite 2 — fixture readiness: the dev-only public-read fixture must
- * be installed on THAT server with the expected identity. 404 (integration
- * not installed), 503 (route access capability unprovisioned) and identity
+ * Prerequisite — fixture readiness: the dev-only public-read fixture must
+ * be installed on THAT server with the expected identity, and (when the
+ * route declares one) its server-side source identity must AGREE with the
+ * expected candidate SHA. 404 (integration not installed), 503 (route
+ * access capability unprovisioned), 403 (token mismatch) and identity
  * mismatch are each distinct HOLD reasons naming the missing prerequisite.
  */
-async function fixtureReadinessHolds(routeAccessToken) {
+async function fixtureReadinessHolds(routeAccessToken, expectedSha) {
 	const url = new URL("/__feature002/public-reads?case=probe", PERSISTENT_DEVELOPMENT_ORIGIN);
 	let probe;
 	try {
 		probe = await fetchJson(url, { "x-songhealth-t021-route-access": routeAccessToken });
 	} catch (error) {
-		return `the fixture route probe failed to reach the persistent origin (${error.cause?.code ?? error.message})`;
+		const reason = error?.name === "TimeoutError" ? "deadline exceeded" : (error.cause?.code ?? error.message);
+		return `the fixture route probe failed against the persistent origin (${reason})`;
 	}
 	if (probe.status === 404) {
 		return "the dev-only fixture route /__feature002/public-reads is not installed on the persistent server (the reviewed source/config transition is a separate authorization) — HOLD, not a substitute server";
@@ -235,27 +372,51 @@ async function fixtureReadinessHolds(routeAccessToken) {
 	if (body.fixtureId !== "songhealth:t021:cms-public-reads" || body.fixtureVersion !== 1) {
 		return `unexpected fixture identity at /__feature002/public-reads (fixtureId=${String(body.fixtureId)}, fixtureVersion=${String(body.fixtureVersion)}) — refusing to run against an unknown fixture`;
 	}
+	if (body.sourceIdentity !== undefined && body.sourceIdentity !== null && body.sourceIdentity !== expectedSha) {
+		return `the fixture route declares source identity ${String(body.sourceIdentity)} but the candidate under test is ${expectedSha} — refusing to run against a different source`;
+	}
 	if (!(probe.headers.get("cache-control") ?? "").includes("no-store")) {
 		return "the fixture route does not serve no-store responses as the approved contract requires";
 	}
 	return undefined;
 }
 
-/** Report leftover manifests from previously interrupted runs (recovery input). */
-async function reportLeftoverManifests(currentManifest) {
+/**
+ * CONSUME prior interrupted-run manifests (R3): a manifest file that still
+ * exists after a run means owned synthetic fixtures may remain. Their
+ * recorded identities are handed to the fresh worker as recovery inputs —
+ * never merely printed. Returns the recovery paths and any read failures.
+ */
+async function collectRecoveryManifests(currentManifest) {
+	const recoveryPaths = [];
+	const failures = [];
 	try {
 		const entries = await readdir(path.join(repoRoot, SCRATCH_DIR), { withFileTypes: true });
-		const leftovers = entries
-			.filter((entry) => entry.isFile() && entry.name.startsWith("t021-ownership-") && entry.name !== path.basename(currentManifest))
-			.map((entry) => path.join(SCRATCH_DIR, entry.name));
-		if (leftovers.length > 0) {
-			process.stderr.write(
-				`NOTE: ${leftovers.length} ownership manifest(s) from earlier interrupted run(s) remain (${leftovers.join(", ")}); recoverable owned fixtures may exist — they are never auto-deleted or auto-claimed by this run\n`,
-			);
+		for (const entry of entries) {
+			if (!entry.isFile() || !entry.name.startsWith("t021-ownership-")) {
+				continue;
+			}
+			if (path.join(repoRoot, SCRATCH_DIR, entry.name) === currentManifest) {
+				continue;
+			}
+			const leftover = path.join(repoRoot, SCRATCH_DIR, entry.name);
+			try {
+				const contents = await readFile(leftover, "utf8");
+				if (contents.trim().length > 0) {
+					recoveryPaths.push(leftover);
+				} else {
+					// An empty leftover is inert; remove it so it cannot be
+					// mistaken for recoverable ownership.
+					await import("node:fs/promises").then((fs) => fs.unlink(leftover));
+				}
+			} catch (error) {
+				failures.push(`leftover manifest ${path.relative(repoRoot, leftover)} could not be read (${error.code ?? error.message}) — preserved for manual recovery`);
+			}
 		}
 	} catch {
-		// Scratch absent — nothing to report.
+		// Scratch absent — no leftovers.
 	}
+	return { recoveryPaths, failures };
 }
 
 /** Terminated-and-reaped child outcome. */
@@ -266,10 +427,16 @@ export async function terminateChild(child, reason) {
 	if (!child.kill("SIGTERM")) {
 		child.kill("SIGKILL");
 	}
+	const graceTimer = setTimeout(() => resolveGrace(undefined), TERMINATION_GRACE_MS);
+	let resolveGrace;
+	const gracePromise = new Promise((resolve) => {
+		resolveGrace = resolve;
+	});
 	const exited = await Promise.race([
 		new Promise((resolve) => child.once("exit", (code, signal) => resolve({ code, signal }))),
-		new Promise((resolve) => setTimeout(() => resolve(undefined), TERMINATION_GRACE_MS)),
+		gracePromise,
 	]);
+	clearTimeout(graceTimer);
 	if (exited === undefined) {
 		child.kill("SIGKILL");
 		const reaped = await new Promise((resolve) => child.once("exit", (code, signal) => resolve({ code, signal })));
@@ -291,6 +458,30 @@ export function resolvedTimeoutMs() {
 		return { invalid: `invalid ${TIMEOUT_ENV}=${raw} (use an integer between 60000 and 7200000)` };
 	}
 	return parsed;
+}
+
+/** Parse the worker's test-status journal (one JSON per line). */
+async function readRunStatuses(statusPath) {
+	const statuses = [];
+	try {
+		const contents = await readFile(statusPath, "utf8");
+		for (const line of contents.split("\n")) {
+			const trimmed = line.trim();
+			if (trimmed.length === 0) {
+				continue;
+			}
+			try {
+				statuses.push(JSON.parse(trimmed));
+			} catch {
+				// A malformed line is itself incomplete evidence.
+				statuses.push({ title: "<unreadable>", status: "unknown" });
+			}
+		}
+	} catch {
+		// No journal at all is incomplete coverage evidence.
+		statuses.push({ title: "<missing>", status: "missing" });
+	}
+	return statuses;
 }
 
 async function main() {
@@ -317,6 +508,26 @@ async function main() {
 		return;
 	}
 
+	// R2 — exact source identity, both directions, before anything else.
+	const expected = await expectedSourceIdentity();
+	if (expected.error !== undefined) {
+		reasons.push(expected.error);
+	}
+	const observed = await observedRuntimeSourceIdentity();
+	if (observed.error !== undefined) {
+		reasons.push(observed.error);
+	} else if (expected.sha !== undefined) {
+		if (observed.sha !== expected.sha) {
+			reasons.push(
+				`source identity mismatch: the stable runtime source is ${observed.sha} (${observed.provenance}) but the candidate under test is ${expected.sha} (${expected.provenance}) — advancing the runtime requires the separately reviewed controller-compatible maintenance; a committed candidate does not implicitly update the persistent application`,
+			);
+		} else {
+			process.stderr.write(
+				`coordinator: exact source identity verified — stable runtime source ${observed.sha} equals the candidate under test (${expected.provenance})\n`,
+			);
+		}
+	}
+
 	const originReason = await originIdentityHolds();
 	if (originReason !== undefined) {
 		reasons.push(originReason);
@@ -332,9 +543,8 @@ async function main() {
 		reasons.push(routeAccess.error);
 	}
 
-	let fixtureReason;
-	if (routeAccess.token !== undefined && originReason === undefined) {
-		fixtureReason = await fixtureReadinessHolds(routeAccess.token);
+	if (routeAccess.token !== undefined && originReason === undefined && expected.sha !== undefined) {
+		const fixtureReason = await fixtureReadinessHolds(routeAccess.token, expected.sha);
 		if (fixtureReason !== undefined) {
 			reasons.push(fixtureReason);
 		}
@@ -345,20 +555,45 @@ async function main() {
 		return;
 	}
 
-	// Per-run owned-fixture manifest under the ignored scratch path.
+	// Per-run owned-fixture manifest + test-status journal under the ignored
+	// scratch path (R3/R5).
 	await mkdir(path.join(repoRoot, SCRATCH_DIR), { recursive: true });
 	const manifestPath = path.join(
 		repoRoot,
 		SCRATCH_DIR,
 		`t021-ownership-${new Date().toISOString().replaceAll(/[:.]/g, "-")}-${process.pid}.jsonl`,
 	);
-	await reportLeftoverManifests(manifestPath);
+	const statusPath = path.join(
+		repoRoot,
+		SCRATCH_DIR,
+		`t021-run-status-${new Date().toISOString().replaceAll(/[:.]/g, "-")}-${process.pid}.jsonl`,
+	);
+
+	// R3 — CONSUME prior manifests: hand their recorded identities to the
+	// fresh worker for bounded awaited reconciliation.
+	const recovery = await collectRecoveryManifests(manifestPath);
+	for (const failure of recovery.failures) {
+		reasons.push(failure);
+	}
+	if (recovery.recoveryPaths.length > 0) {
+		process.stderr.write(
+			`coordinator: consuming ${recovery.recoveryPaths.length} prior interrupted-run ownership manifest(s) — the worker reconciles their recorded synthetic fixtures before reporting success\n`,
+		);
+	}
+	if (reasons.length > 0) {
+		await hold(reasons);
+		return;
+	}
 
 	const childEnv = {
 		...process.env,
 		PLAYWRIGHT_BASE_URL: PERSISTENT_DEVELOPMENT_ORIGIN,
 		[OPT_IN_ENV]: "1",
 		[OWNERSHIP_MANIFEST_ENV]: manifestPath,
+		[RUN_STATUS_ENV]: statusPath,
+		...(recovery.recoveryPaths.length > 0
+			? { [RECOVERY_MANIFESTS_ENV]: recovery.recoveryPaths.join(":") }
+			: {}),
 	};
 
 	process.stderr.write(
@@ -371,22 +606,41 @@ async function main() {
 		stdio: "inherit",
 	});
 
-	const signalPromise = new Promise((resolve) => {
-		process.once("SIGINT", () => resolve({ interrupted: "SIGINT" }));
-		process.once("SIGTERM", () => resolve({ interrupted: "SIGTERM" }));
+	// R4 — every wait is bounded and every timer/listener is cleared on
+	// EVERY completion path; a spawn failure is an outcome, not a crash.
+	const onSignalInt = () => resolveOutcome({ interrupted: "SIGINT" });
+	const onSignalTerm = () => resolveOutcome({ interrupted: "SIGTERM" });
+	let resolveOutcome;
+	const outcomePromise = new Promise((resolve) => {
+		resolveOutcome = resolve;
 	});
-	const exitPromise = new Promise((resolve) => {
-		child.once("exit", (code, signal) => resolve({ code, signal }));
-	});
-	const timeoutPromise = new Promise((resolve) => {
-		setTimeout(() => resolve({ timedOut: true }), timeout);
-	});
+	const onChildError = (error) =>
+		resolveOutcome({ spawnError: error.code ?? error.message });
+	const onChildExit = (code, signal) => resolveOutcome({ code, signal });
+	child.once("error", onChildError);
+	child.once("exit", onChildExit);
+	process.once("SIGINT", onSignalInt);
+	process.once("SIGTERM", onSignalTerm);
+	const timeoutHandle = setTimeout(
+		() => resolveOutcome({ timedOut: true }),
+		timeout,
+	);
+	// The timeout must never be the thing keeping a completed run alive.
+	timeoutHandle.unref?.();
 
-	const outcome = await Promise.race([exitPromise, timeoutPromise, signalPromise]);
+	const outcome = await outcomePromise;
+	clearTimeout(timeoutHandle);
+	process.removeListener("SIGINT", onSignalInt);
+	process.removeListener("SIGTERM", onSignalTerm);
+	child.removeListener("error", onChildError);
+	child.removeListener("exit", onChildExit);
 
 	let primaryFailure;
 	let childCode = 0;
-	if (outcome.timedOut === true) {
+	if (outcome.spawnError !== undefined) {
+		primaryFailure = `the pinned Playwright child could not be spawned (${outcome.spawnError})`;
+		childCode = 1;
+	} else if (outcome.timedOut === true) {
 		primaryFailure = `the T021 run exceeded its ${timeout}ms budget`;
 		const reaped = await terminateChild(child, "timeout");
 		childCode = reaped.code ?? INTERRUPTED_EXIT;
@@ -403,23 +657,53 @@ async function main() {
 		}
 	}
 
-	// Owned-fixture residue: the worker deletes the manifest when its
-	// verified cleanup resolved everything, so a manifest that still exists
-	// means recoverable owned fixtures — preserved and reported, never
-	// silently discarded and never auto-cleaned by the coordinator.
+	// R5 — the worker's recorded test statuses decide coverage: a zero exit
+	// with skipped/unknown/missing statuses is NOT a passing run.
+	const statuses = await readRunStatuses(statusPath);
+	const nonPassed = statuses.filter((entry) => entry.status !== "passed");
+	let coverageFailure;
+	if (nonPassed.length > 0) {
+		const summary = nonPassed
+			.map((entry) => `${String(entry.title)} (${String(entry.status)})`)
+			.join("; ");
+		coverageFailure = `incomplete T021 coverage despite a passing worker exit: ${nonPassed.length} recorded test status(es) are not "passed" — ${summary}`;
+	}
+
+	// Owned-fixture residue (R3): the worker deletes the manifest when its
+	// verified cleanup (including recovery of prior-run identities) resolved
+	// everything; a manifest that still exists means recoverable owned
+	// fixtures — preserved and reported, never silently discarded.
 	let residueFailure;
 	const manifestStats = await stat(manifestPath).catch(() => undefined);
 	if (manifestStats !== undefined && manifestStats.size > 0) {
-		residueFailure = `owned-fixture residue may remain: the worker's ownership manifest ${path.relative(repoRoot, manifestPath)} still exists — run the coordinator again (its worker reconciles and retries owned cleanup) or perform the documented recovery before claiming a residue-free run`;
+		residueFailure = `owned-fixture residue may remain: the worker's ownership manifest ${path.relative(repoRoot, manifestPath)} still exists — re-run the coordinator (its worker consumes this manifest as a recovery input and retries owned cleanup) or perform the documented recovery before claiming a residue-free run`;
 	} else if (manifestStats !== undefined) {
 		residueFailure = `the ownership manifest ${path.relative(repoRoot, manifestPath)} is empty but was not removed — treating as incomplete cleanup`;
+	}
+	// Recovery inputs that could not be fully consumed also stay non-success.
+	let recoveryFailure;
+	const remainingRecovery = [];
+	for (const recovered of recovery.recoveryPaths) {
+		const stats = await stat(recovered).catch(() => undefined);
+		if (stats !== undefined && stats.size > 0) {
+			remainingRecovery.push(path.relative(repoRoot, recovered));
+		}
+	}
+	if (remainingRecovery.length > 0) {
+		recoveryFailure = `prior-run ownership manifest(s) could not be fully consumed: ${remainingRecovery.join(", ")} still hold unresolved recorded identities`;
 	}
 
 	if (primaryFailure !== undefined) {
 		process.stderr.write(`PRIMARY FAILURE: ${primaryFailure}\n`);
 	}
+	if (coverageFailure !== undefined) {
+		process.stderr.write(`COVERAGE FAILURE: ${coverageFailure}\n`);
+	}
 	if (residueFailure !== undefined) {
 		process.stderr.write(`CLEANUP FAILURE: ${residueFailure}\n`);
+	}
+	if (recoveryFailure !== undefined) {
+		process.stderr.write(`RECOVERY FAILURE: ${recoveryFailure}\n`);
 	}
 
 	if (outcome.timedOut === true || outcome.interrupted !== undefined) {
@@ -430,7 +714,7 @@ async function main() {
 		process.exitCode = childCode === 0 ? 1 : childCode;
 		return;
 	}
-	if (residueFailure !== undefined) {
+	if (coverageFailure !== undefined || residueFailure !== undefined || recoveryFailure !== undefined) {
 		process.exitCode = 2;
 		return;
 	}

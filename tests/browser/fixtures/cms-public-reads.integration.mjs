@@ -111,6 +111,22 @@ export const T021_REFERENCE_FIELDS = Object.freeze({
 	health_reports: Object.freeze(["report_document"]),
 });
 
+/**
+ * The approved synthetic fixture namespace (the accepted helpers'
+ * SYNTHETIC_FIXTURE_MARK): every slug/fixture this suite creates carries it,
+ * and real editorial content never does. Entry-family reads are admitted
+ * ONLY for ids in this namespace, and collection reads are admitted only
+ * when the request itself binds to it via the `marker` parameter.
+ */
+export const T021_SYNTHETIC_MARKER = "songhealth-f002-synthetic";
+
+/**
+ * Bounded default page size for collection reads when the caller omits
+ * `limit` (Lead corrective round 1, R1): an omitted limit must never become
+ * an unbounded native read.
+ */
+export const T021_DEFAULT_COLLECTION_LIMIT = 10;
+
 /** Longest accepted opaque pagination cursor (defense in depth). */
 export const T021_MAX_CURSOR_LENGTH = 512;
 
@@ -166,6 +182,10 @@ export async function resolveT021FixtureRequest(request, url, env) {
 			if (collection === null || !T021_ALLOWED_COLLECTIONS.includes(collection)) {
 				return { status: 400, body: { error: "UNKNOWN_COLLECTION" } };
 			}
+			const marker = params.get("marker");
+			if (marker !== T021_SYNTHETIC_MARKER) {
+				return { status: 400, body: { error: "SYNTHETIC_MARKER_REQUIRED" } };
+			}
 			const forbidden = forbiddenFilterParams(params);
 			if (forbidden !== undefined) {
 				return { status: 400, body: { error: "FORBIDDEN_FILTER", param: forbidden } };
@@ -181,7 +201,14 @@ export async function resolveT021FixtureRequest(request, url, env) {
 			return {
 				status: 200,
 				body: {
-					query: { kind: "collection", collection, limit: limit.value, cursor: cursor.value },
+					query: {
+						kind: "collection",
+						collection,
+						// Bounded default (R1): an omitted limit is never an
+						// unbounded native read.
+						limit: limit.value ?? T021_DEFAULT_COLLECTION_LIMIT,
+						cursor: cursor.value,
+					},
 				},
 			};
 		}
@@ -200,6 +227,12 @@ export async function resolveT021FixtureRequest(request, url, env) {
 				!/^[A-Za-z0-9][A-Za-z0-9._~:/-]*$/.test(id)
 			) {
 				return { status: 400, body: { error: "INVALID_ID" } };
+			}
+			if (!isSyntheticEntryId(id)) {
+				// R1: arbitrary real-record ids/slugs/ULIDs are refused before
+				// any native query; only the synthetic fixture namespace is
+				// admitted.
+				return { status: 400, body: { error: "NON_SYNTHETIC_ID" } };
 			}
 			let field;
 			if (queryCase !== "entry") {
@@ -238,6 +271,19 @@ export async function resolveT021FixtureRequest(request, url, env) {
 		default:
 			return { status: 400, body: { error: "UNKNOWN_CASE" } };
 	}
+}
+
+/**
+ * Admit an entry id only inside the synthetic fixture namespace (corrective
+ * round 1, R1): after one optional locale-prefix segment, the id must START
+ * with the synthetic slug prefix. Real editorial slugs and internal ULIDs
+ * never carry it, so arbitrary real-record reads are refused here — before
+ * any native query. Returns true when the id is synthetic-namespaced.
+ */
+function isSyntheticEntryId(id) {
+	const slash = id.indexOf("/");
+	const bare = slash === -1 ? id : id.slice(slash + 1);
+	return bare.startsWith(`${T021_SYNTHETIC_MARKER}-`);
 }
 
 /**
