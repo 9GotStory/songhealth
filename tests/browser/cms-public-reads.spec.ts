@@ -716,13 +716,30 @@ function unresolvedIdentities(records: OwnershipRecord[]): OwnershipRecord[] {
 			resolved.add(identityKey(record));
 		}
 	}
+	const KNOWN_PHASES = new Set(["intent", "created", "resolved", "refused", "unreadable"]);
+	const KNOWN_KINDS = new Set(["entry", "media"]);
 	const outstanding: OwnershipRecord[] = [];
 	const seen = new Set<string>();
 	for (const record of records) {
+		// R3-B (corrective round 3): an UNKNOWN phase or kind is unknown
+		// ownership evidence — it stays outstanding so its file can never be
+		// silently consumed as "nothing unresolved". Only the settlement
+		// markers (resolved/refused) and the handled attempt shapes
+		// (intent/created of a known kind) are non-outstanding; `unreadable`
+		// lines were already preserved.
+		if (typeof record.phase !== "string" || !KNOWN_PHASES.has(record.phase)) {
+			outstanding.push(record);
+			continue;
+		}
+		if (record.phase === "unreadable") {
+			outstanding.push(record);
+			continue;
+		}
 		if (record.phase !== "intent" && record.phase !== "created") {
-			if (record.phase === "unreadable") {
-				outstanding.push(record);
-			}
+			continue; // resolved / refused settlement markers
+		}
+		if (typeof record.kind !== "string" || !KNOWN_KINDS.has(record.kind)) {
+			outstanding.push(record);
 			continue;
 		}
 		const key = identityKey(record);
@@ -905,6 +922,7 @@ async function reconcileMediaIdentity(
 ): Promise<string | undefined> {
 	if (typeof record.id === "string") {
 		let present = true;
+		let itemFilename: string | undefined;
 		try {
 			const read = await readMedia(admin, record.id);
 			if (read.status === 404) {
@@ -912,12 +930,31 @@ async function reconcileMediaIdentity(
 			} else if (!read.ok) {
 				return `the media read for ${record.id} was refused (${nativeRefusalOf(read)}) — outcome unknown`;
 			}
+			const item = nativeItemOf(read);
+			if (present && typeof item?.filename === "string") {
+				itemFilename = item.filename;
+			}
 		} catch (cause) {
 			return `the media read for ${record.id} failed (${cause instanceof Error ? cause.message : String(cause)}) — outcome unknown`;
 		}
 		if (!present) {
 			await appendRecord(target, { phase: "resolved", kind: "media", id: record.id, how: "proven-absent" });
 			return undefined;
+		}
+		// R3-B (corrective round 3): an id alone authorizes NOTHING. Deletion
+		// requires a VALIDATED synthetic ownership identity — the live
+		// asset's own filename must carry this suite's synthetic prefix, and
+		// when the retained record also carries a filename it must agree. A
+		// media id without validated synthetic ownership is preserved
+		// unresolved, never deleted.
+		const syntheticPrefix = `${SYNTHETIC_FIXTURE_MARK}-`;
+		const recordedFilename = typeof record.filename === "string" ? record.filename : undefined;
+		if (
+			typeof itemFilename !== "string" ||
+			!itemFilename.startsWith(syntheticPrefix) ||
+			(recordedFilename !== undefined && recordedFilename !== itemFilename)
+		) {
+			return `the media record ${JSON.stringify({ id: record.id, filename: recordedFilename })} has no validated synthetic ownership identity (asset filename ${JSON.stringify(itemFilename)}) — preserving it unresolved, never deleting`;
 		}
 		try {
 			const removal = await deleteMedia(admin, record.id);
@@ -1018,12 +1055,22 @@ async function reconcileManifest(target: string): Promise<string[]> {
 			failures.push(`an unreadable ownership line survives in ${target} — preserving it unresolved`);
 			continue;
 		}
+		if (typeof record.phase !== "string" || (record.phase !== "intent" && record.phase !== "created")) {
+			failures.push(
+				`an unknown ownership record shape (phase=${JSON.stringify(record.phase)}, kind=${JSON.stringify(record.kind)}) survives in ${target} — unknown evidence is preserved, never consumed`,
+			);
+			continue;
+		}
+		if (record.kind !== "entry" && record.kind !== "media") {
+			failures.push(
+				`an unknown ownership kind ${JSON.stringify(record.kind)} survives in ${target} — unknown evidence is preserved, never consumed`,
+			);
+			continue;
+		}
 		const failure =
 			record.kind === "entry"
 				? await reconcileEntryIdentity(record, target)
-				: record.kind === "media"
-					? await reconcileMediaIdentity(record, target)
-					: undefined;
+				: await reconcileMediaIdentity(record, target);
 		if (failure !== undefined) {
 			failures.push(failure);
 		}

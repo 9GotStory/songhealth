@@ -130,6 +130,10 @@ const RUN_STATUS_ENV = "SONGHEALTH_T021_RUN_STATUS";
 /** Optional explicit expected candidate identity (40-hex), else git HEAD. */
 const EXPECTED_SOURCE_ENV = "SONGHEALTH_T021_EXPECTED_SOURCE_SHA";
 
+/** Discovery pre-pass budget (ms); overridable, bounded 5s..10min. */
+const DISCOVERY_TIMEOUT_ENV = "SONGHEALTH_T021_DISCOVERY_TIMEOUT_MS";
+const DEFAULT_DISCOVERY_TIMEOUT_MS = 60_000;
+
 /** Overall child timeout (ms); overridable, bounded 60s..2h. */
 const TIMEOUT_ENV = "SONGHEALTH_T021_TIMEOUT_MS";
 const DEFAULT_TIMEOUT_MS = 20 * 60 * 1000;
@@ -470,6 +474,21 @@ export function resolvedTimeoutMs() {
  * be judged against an unknown expected set.
  */
 export async function expectedTestTitles() {
+	// Bounded budget (corrective round 3, R4): the discovery child gets the
+	// SAME lifecycle discipline as the worker — signal-aware, awaited
+	// termination and reaping on timeout/interrupt, with every timer and
+	// transient listener cleared on every path.
+	const rawBudget = process.env[DISCOVERY_TIMEOUT_ENV];
+	let budgetMs = DEFAULT_DISCOVERY_TIMEOUT_MS;
+	if (rawBudget !== undefined && rawBudget.trim().length > 0) {
+		const parsed = Number.parseInt(rawBudget, 10);
+		if (!Number.isInteger(parsed) || parsed < 5_000 || parsed > 10 * 60 * 1000) {
+			return {
+				error: `invalid ${DISCOVERY_TIMEOUT_ENV}=${rawBudget} (use an integer between 5000 and 600000)`,
+			};
+		}
+		budgetMs = parsed;
+	}
 	const child = spawn(process.execPath, [PLAYWRIGHT_CLI, "test", SPEC_FILE, "--list", "--reporter=json"], {
 		cwd: repoRoot,
 		env: { ...process.env },
@@ -477,25 +496,41 @@ export async function expectedTestTitles() {
 	});
 	let stdout = "";
 	let stderr = "";
-	child.stdout.on("data", (chunk) => (stdout += chunk));
-	child.stderr.on("data", (chunk) => (stderr += chunk));
+	const onData = (chunk) => {
+		stdout += chunk;
+	};
+	const onErrorData = (chunk) => {
+		stderr += chunk;
+	};
 	const onExit = (code, signal) => resolveOutcome({ code, signal });
 	const onError = (error) => resolveOutcome({ spawnError: error.code ?? error.message });
+	const onSignalInt = () => resolveOutcome({ interrupted: "SIGINT" });
+	const onSignalTerm = () => resolveOutcome({ interrupted: "SIGTERM" });
 	let resolveOutcome;
 	const outcomePromise = new Promise((resolve) => {
 		resolveOutcome = resolve;
 	});
+	child.stdout.on("data", onData);
+	child.stderr.on("data", onErrorData);
 	child.once("exit", onExit);
 	child.once("error", onError);
-	const discoveryTimer = setTimeout(() => resolveOutcome({ timedOut: true }), 60_000);
+	process.once("SIGINT", onSignalInt);
+	process.once("SIGTERM", onSignalTerm);
+	const discoveryTimer = setTimeout(() => resolveOutcome({ timedOut: true }), budgetMs);
 	discoveryTimer.unref?.();
 	const outcome = await outcomePromise;
 	clearTimeout(discoveryTimer);
 	child.removeListener("exit", onExit);
 	child.removeListener("error", onError);
+	process.removeListener("SIGINT", onSignalInt);
+	process.removeListener("SIGTERM", onSignalTerm);
 	if (outcome.timedOut === true) {
-		child.kill("SIGKILL");
-		return { error: "the discovery pre-pass did not finish within its bounded budget" };
+		await terminateChild(child, "discovery timeout");
+		return { error: `the discovery pre-pass did not finish within its ${budgetMs}ms budget (child terminated and reaped)` };
+	}
+	if (outcome.interrupted !== undefined) {
+		await terminateChild(child, `discovery interrupted by ${outcome.interrupted}`);
+		return { interrupted: true, error: `the discovery pre-pass was interrupted by ${outcome.interrupted} (child terminated and reaped)` };
 	}
 	if (outcome.spawnError !== undefined) {
 		return { error: `the discovery pre-pass could not run (${outcome.spawnError})` };
@@ -656,6 +691,11 @@ async function main() {
 	// R5-B — the COMPLETE expected test set, derived offline through the
 	// pinned runner's own discovery BEFORE any worker runs.
 	const expectedSet = await expectedTestTitles();
+	if (expectedSet.interrupted === true) {
+		process.stderr.write(`INTERRUPTED: ${expectedSet.error}\n`);
+		process.exitCode = INTERRUPTED_EXIT;
+		return;
+	}
 	if (expectedSet.error !== undefined) {
 		await hold([expectedSet.error]);
 		return;
