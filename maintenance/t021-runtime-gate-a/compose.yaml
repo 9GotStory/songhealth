@@ -1,9 +1,10 @@
 # PROPOSED PAYLOAD — T021 Gate A maintenance bundle. NOT INSTALLED.
 # Identical to the reviewed installed compose.yaml except ONE addition:
-# the app environment gains SONGHEALTH_T021_ROUTE_TOKEN (private env key
-# with digits in its name), delivered through the existing --env-file.
-# Environment change requires app-only container replacement, not a bare
-# restart; postgres/volumes/networks/ports are unchanged.
+# the app service reads a PRIVATE env_file (mode 0600, UID 1001) holding
+# SONGHEALTH_T021_ROUTE_TOKEN. runtime.env and its five reviewed keys are
+# untouched (the installed controller's [A-Z_]+ env grammar cannot read a
+# digits key), the token never enters a public/hashed artifact, and the
+# environment change requires app-only container replacement.
 
 name: songhealth-dev
 x-podman:
@@ -54,7 +55,8 @@ services:
       PGPASSWORD: ${PGPASSWORD:?required}
       EMDASH_MIGRATION_DATABASE_URL: ${EMDASH_MIGRATION_DATABASE_URL:?required}
       EMDASH_ENCRYPTION_KEY: ${EMDASH_ENCRYPTION_KEY:?required}
-      SONGHEALTH_T021_ROUTE_TOKEN: ${SONGHEALTH_T021_ROUTE_TOKEN:?required}
+    env_file:
+      - maintenance/t021-gate-a/route-token.env
     ports:
       - "127.0.0.1:4322:4321"
     volumes:

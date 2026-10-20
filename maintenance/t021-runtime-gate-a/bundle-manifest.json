@@ -1,16 +1,16 @@
 {
   "schema": 1,
   "name": "t021-runtime-gate-a-maintenance",
-  "status": "GATE_A_PREPARATION_ONLY_GATE_B_NOT_APPROVED",
-  "self_note": "bundle-manifest.json does not hash itself; Gate B binds the resulting candidate SHA and this manifest's sha256 externally (gate-b-record.bundle_manifest_sha256).",
+  "status": "GATE_A_PREPARATION_ONLY_CORRECTIVE_ROUND_1_GATE_B_NOT_APPROVED",
+  "self_note": "bundle-manifest.json does not hash itself; Gate B binds the resulting candidate SHA and this manifest's sha256 externally (gate-b-record.bundle_manifest_sha256 + installer-recorded candidate.json).",
   "files": {
-    "GATE-B-EXECUTION.md": "e2c025e6db5525cbf7eedf79caec527e01c41f66888fce8095058f420995a1d4",
-    "compose.yaml": "172e040a2c0f108657bfa2a2695ce96d8e9f9953420ef779f01b1dbdc4efb716",
+    "GATE-B-EXECUTION.md": "a5b6547989f224b3bd10a945a149522be9424faaf27b509f243248d445add397",
+    "compose.yaml": "1cc301eb7af60c8d7fd55f297b24e8270744dc1c3aa1e2dc7687e22ef2f9f5b8",
     "config/astro.dev.config.mjs": "9e8bc3034423143ec0550efae3a72b0d8480b681db852b8f6fc570f7992a1c9d",
-    "install-maintenance.py": "db06261f908a08e8bbf961f4f59cf6c1ec69e2f3b945db1df7490c168ce0dda4",
-    "maintenance-contract.json": "687f0775758f33e4bcf5d4f2ff5cad6bf50a03c05b0a49f384ddef86169546da",
-    "runtime.py": "656d1f699e51236cbe9ece39d48363a187db03e54b071050da940243ee563645",
-    "tests/test_t021_maintenance.py": "3c7380ba7ad8471132e8a67c79079282642015759ba11520b6f34ac6af82bdc9"
+    "install-maintenance.py": "173ad1d004bbac834caf0cb0c10774d317715ef4861647bc5cb2e7565c69fe06",
+    "maintenance-contract.json": "7b81dcee9d240693ecd37df4e77b929ea49b2524b7bc7b92316e48cfe2bc34ef",
+    "runtime.py": "c9c5b516e9d773360c8341bdfbabf432d7ab65a653379bab122f1b8a067f6306",
+    "tests/test_t021_maintenance.py": "dfe487b381d8dc80d4b0173c1fec700dbca06fb357aa9d70e95cca674d3e6f3b"
   },
   "modes": {
     "GATE-B-EXECUTION.md": "0644",
@@ -28,7 +28,7 @@
       "uid": 1001
     },
     "maintenance/t021-runtime-gate-a/compose.yaml": {
-      "path": "<live>/maintenance/t021-gate-a/compose.yaml (proposed payload; live compose.yaml updated only by the Gate-B-reviewed forward transition)",
+      "path": "<live>/maintenance/t021-gate-a/compose.yaml (proposed payload; installed as the LIVE compose.yaml by the Gate-B forward transition)",
       "mode": "0644",
       "uid": 1001
     },
@@ -58,6 +58,12 @@
       "uid": 1001
     }
   },
+  "mutable_private_records_not_manifest_bound": [
+    "maintenance/t021-gate-a/state.json (durable per-stage progress, mode 0600, produced by the live verbs)",
+    "maintenance/t021-gate-a/gate-b-record.json (Gate B decision, mode 0600)",
+    "maintenance/t021-gate-a/candidate.json (installer-recorded accepted candidate binding, mode 0600)",
+    "maintenance/t021-gate-a/route-token.env (server-only token, mode 0600, written by apply, removed by rollback)"
+  ],
   "preimage_capture": {
     "authority": "PO Gate A 01a156d7-aac7-72f6-bb2e-9a60624aba0d; O_RDONLY | O_NOFOLLOW | O_NOATIME; UID1001 regular files; unchanged inode/size/mtime/ctime/atime; no subprocess/controller/engine/native request",
     "recorded_containers": {

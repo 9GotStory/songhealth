@@ -30,13 +30,15 @@
       "to_bytes": 474,
       "to_sha256": "9e8bc3034423143ec0550efae3a72b0d8480b681db852b8f6fc570f7992a1c9d",
       "payload_in_bundle": "maintenance/t021-runtime-gate-a/config/astro.dev.config.mjs",
-      "note": "Exactly the accepted unapplied T021 registration proposal: foundation import preserved, root /app, vite spreads preserved, strictPort preserved, one dev-only integration appended. Proposed payload only — no live registration in Gate A."
+      "note": "Exactly the accepted unapplied T021 registration proposal: foundation import preserved, root /app, vite spreads preserved, strictPort preserved, one dev-only integration appended. Proposed payload only \u2014 no live registration in Gate A."
     },
     "compose_environment": {
-      "new_private_key": "SONGHEALTH_T021_ROUTE_TOKEN",
-      "grammar_note": "Key contains digits; the private-env key grammar for this maintenance accepts [A-Z_][A-Z0-9_]* with all previously required keys still mandatory and no arbitrary keys accepted.",
-      "app_env_addition": "SONGHEALTH_T021_ROUTE_TOKEN: ${SONGHEALTH_T021_ROUTE_TOKEN:?required}",
-      "constraint": "Environment change requires app-only container replacement (not a bare restart). PostgreSQL, persistent volumes, networks and all pre-existing secrets are untouched."
+      "new_server_only_key": "SONGHEALTH_T021_ROUTE_TOKEN",
+      "delivery": "PRIVATE Compose service env_file at maintenance/t021-gate-a/route-token.env (mode 0600, UID 1001), written only by the Gate-B-approved forward transition from the record's token_input path; removed by the paired rollback",
+      "runtime_env_unchanged": "runtime.env keeps exactly the installed controller's five reviewed keys \u2014 its [A-Z_]+ grammar cannot read a digits key, so original routines (env_read/status/verify) stay compatible and runtime.env bytes never change",
+      "proposed_compose_from_sha256": "1646eec55f3ed8e888356389423c3cd4945ba7c9a829aab0922275f3f6052117",
+      "proposed_compose_sha256": "1cc301eb7af60c8d7fd55f297b24e8270744dc1c3aa1e2dc7687e22ef2f9f5b8",
+      "constraint": "Environment change requires app-only container replacement (not a bare restart). The forward transition installs the proposed compose as the LIVE compose.yaml before the provider runs, so the actual execution path delivers the key to the single replacement app. PostgreSQL, persistent volumes, networks and all pre-existing secrets are untouched."
     },
     "capability_client_copy": {
       "env_name": "SONGHEALTH_T021_ROUTE_ACCESS",
@@ -74,14 +76,15 @@
   "gate_b_binding": {
     "required_record_fields": [
       "schema == 2",
-      "operation in {apply, rollback, deliver-capability}",
-      "gate_a_candidate_sha (the exact Gate A commit carrying this bundle)",
-      "bundle_manifest_sha256 (sha256 of maintenance-contract's sibling bundle-manifest.json)",
+      "operation in {install, apply, rollback, deliver-capability}",
+      "gate_a_candidate_sha (must equal the installer-recorded candidate.json SHA \u2014 a wrong-but-valid 40-hex refuses)",
+      "bundle_manifest_sha256 (sha256 of maintenance/t021-runtime-gate-a/bundle-manifest.json)",
       "gate_a_review_reference (Lead PASS)",
       "independent_review_reference (ChatGPT)",
       "po_reference (Gate B PO approval)",
       "capture_preimages (must equal the preimage_capture section)",
-      "for rollback: forward_record_sha256 + rollback_authorization"
+      "token_input (private mode-0600 UID1001 file holding the raw server-only token; validated BEFORE the app is stopped)",
+      "for rollback: forward_record_sha256 (must hash the ACTUAL recorded forward progress record) + rollback_authorization"
     ],
     "refusal_conditions": [
       "absent or unreadable record",
@@ -93,7 +96,7 @@
     "no_auto_approval": "Gate A never manufactures an active approval; a record is only valid when produced by the Gate B PO/IR decision itself."
   },
   "prerequisites_not_delegated": [
-    "Distinct second test-owned native role account/PAT — a Gate B prerequisite; this bundle implements NO account/PAT provisioning and never mutates the shared Administrator",
+    "Distinct second test-owned native role account/PAT \u2014 a Gate B prerequisite; this bundle implements NO account/PAT provisioning and never mutates the shared Administrator",
     "SONGHEALTH_T021_ROUTE_TOKEN value generation and SONGHEALTH_T021_ROUTE_ACCESS client-copy placement (executed only by the Gate-B-authorized apply)",
     "Any live installation, transition, restart/stop, registration, reseed or verification"
   ],
@@ -101,5 +104,15 @@
     "any refusal before mutation leaves all preimages untouched",
     "failure after a consequential stage preserves truthful partial state in the maintenance state record and stops; bounded rollback runs only under an explicit Gate B rollback record",
     "unknown/stale/drifted state refuses; a failed or unknown rollback stops for PO decision (no automated retry/recovery loop)"
-  ]
+  ],
+  "corrective_round": {
+    "authorization": "01a1579a-9ff8-7b94-b366-6fed7070b38e + GitHub issuecomment-6283492804",
+    "start_candidate": "49f90709d6c902a6ebccfd98fee9b978e34131fb",
+    "closures": {
+      "A1": "stage-aware admission (installed manifest internally truthful; changed-by-install files admitted; original artifact_guard passes at every legitimate stage); installer validates authority+activation BEFORE any write, so a rejected installation leaves every preimage untouched; no phantom hash-bound state file",
+      "A2": "token delivered through the actual execution path: private Compose env_file written by apply from the record's token_input, proposed compose installed as the LIVE compose before the provider runs, runtime.env untouched, single app-only replacement",
+      "A3": "durable per-stage progress record (schema 3); failure preserves truthful partial state and names the stage; paired rollback works from a completed apply OR any recorded interrupted stage at/after app-stopped, binds the CURRENT replacement ID, and restores the exact source/seed/config/compose/token-file identities",
+      "A4": "candidate.json binds the externally accepted candidate SHA + manifest identity; wrong-but-valid 40-hex refuses; rollback forward_record_sha256 must hash the actual recorded forward record; original controller lock (flock runtime.lock) and live resource admission (postgres/volumes/networks by recorded identities) gate every mutation"
+    }
+  }
 }
