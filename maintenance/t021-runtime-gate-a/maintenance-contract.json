@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "name": "t021-runtime-gate-a-maintenance",
+  "purpose": "Offline-prepared, Gate-B-authorized one-exact-forward-transition plus paired rollback for the T021 dev-only public-read fixture (Feature 002, Multica 9GOTSTORY-249). PREPARATION ONLY: no operation in this bundle touches the live runtime unless a valid Gate B approval record is presented.",
+  "authority": {
+    "po_multica_authorization": "01a156d7-aac7-72f6-bb2e-9a60624aba0d",
+    "github_gate_a_approval": "https://github.com/9GotStory/songhealth/issues/26#issuecomment-6280752180",
+    "accepted_t021_source": "e7e21d685563aded31ee9908320426dc7b4d9690",
+    "canonical_base": "01ae470ddc10e60c107c1e4d68be75c43d236736",
+    "pr27_state_at_preparation": "OPEN/unmerged at e7e21d685563aded31ee9908320426dc7b4d9690 (frozen; not modified by this bundle)"
+  },
+  "transition": {
+    "source": {
+      "from_sha": "6ab72780c1a531956acc3c06838c3028e10ad77d",
+      "to_sha": "e7e21d685563aded31ee9908320426dc7b4d9690",
+      "rollback_to": "6ab72780c1a531956acc3c06838c3028e10ad77d",
+      "note": "Exact pair only; ordinary descendant-only promotion is NOT rollback authority. The recorded stable source is the only permitted rollback target."
+    },
+    "protected_seed": {
+      "from_sha256": "003a0aaf3f5e7da3859a5a17ef1a98c8a5da5d135838fbed7301260fe8830568",
+      "from_bytes": 4260,
+      "to_sha256": "a5de2d9913106fc0d2336a1a67505a3f57d6d9acca283722fde6582b6f36586e",
+      "to_bytes": 21715,
+      "handling": "Advance the checked-out seed/seed.json file together with the exact source SHA without applying seed content or changing native schema. The guard is never omitted or disabled; only this exact hash pair is admitted."
+    },
+    "external_dev_config": {
+      "installed_path": "config/astro.dev.config.mjs",
+      "from_bytes": 285,
+      "from_sha256": "14cafeaef2ced6052defdce9c8fea24ebec83e4864270e7e1e25523bd58dd48a",
+      "to_bytes": 474,
+      "to_sha256": "9e8bc3034423143ec0550efae3a72b0d8480b681db852b8f6fc570f7992a1c9d",
+      "payload_in_bundle": "maintenance/t021-runtime-gate-a/config/astro.dev.config.mjs",
+      "note": "Exactly the accepted unapplied T021 registration proposal: foundation import preserved, root /app, vite spreads preserved, strictPort preserved, one dev-only integration appended. Proposed payload only — no live registration in Gate A."
+    },
+    "compose_environment": {
+      "new_private_key": "SONGHEALTH_T021_ROUTE_TOKEN",
+      "grammar_note": "Key contains digits; the private-env key grammar for this maintenance accepts [A-Z_][A-Z0-9_]* with all previously required keys still mandatory and no arbitrary keys accepted.",
+      "app_env_addition": "SONGHEALTH_T021_ROUTE_TOKEN: ${SONGHEALTH_T021_ROUTE_TOKEN:?required}",
+      "constraint": "Environment change requires app-only container replacement (not a bare restart). PostgreSQL, persistent volumes, networks and all pre-existing secrets are untouched."
+    },
+    "capability_client_copy": {
+      "env_name": "SONGHEALTH_T021_ROUTE_ACCESS",
+      "format": "JSON {\"token\": \"...\"}",
+      "mode": "0600",
+      "owner_uid": 1001,
+      "constraint": "Private path configured by environment; no token values, hashes or lengths ever appear in logs, stdout, stderr, argv or evidence. Delivery happens only inside a Gate-B-authorized apply."
+    }
+  },
+  "resource_scope": {
+    "app_only_lifecycle": [
+      "validated app stop before any stable-source or live config/environment change (avoids HMR/partial transitions)",
+      "single replacement app container through the reviewed Compose file",
+      "guarded recording of the new app container ID (a removed old container ID is never treated as restorable)",
+      "bounded unauthenticated health checks; any native-PAT verification is separately authorized and its bookkeeping writes acknowledged"
+    ],
+    "never_touched": [
+      "postgres container lifecycle",
+      "persistent volumes (postgres-data-v1, media-v1) and networks",
+      "database/schema/seed application",
+      "media store contents",
+      "pre-existing secrets and runtime.env values",
+      "second app instance or any additional port"
+    ]
+  },
+  "preimage_capture": {
+    "authority": "PO Gate A authorization; O_RDONLY | O_NOFOLLOW | O_NOATIME; UID1001 regular files; unchanged inode/size/mtime/ctime/atime; no subprocess/controller/engine/native request",
+    "capture_manifest_sha256_input": "see bundle-manifest.json 'preimage_capture' section (hash-only entries copied verbatim from the Lead's capture manifest)",
+    "recorded_containers": {
+      "postgres": "d91afe9ed3198d7fc1abd48634f230ca4b6d1349f044d19e722f2a174676ca9a",
+      "app": "56a74583da82df514f18a45969032b59b0f8938bd4a4da605aceb8c7e93d6e6d"
+    },
+    "excluded": "runtime.env, dev-access.json, PAT/capability files, raw private state/activation content"
+  },
+  "gate_b_binding": {
+    "required_record_fields": [
+      "schema == 2",
+      "operation in {apply, rollback, deliver-capability}",
+      "gate_a_candidate_sha (the exact Gate A commit carrying this bundle)",
+      "bundle_manifest_sha256 (sha256 of maintenance-contract's sibling bundle-manifest.json)",
+      "gate_a_review_reference (Lead PASS)",
+      "independent_review_reference (ChatGPT)",
+      "po_reference (Gate B PO approval)",
+      "capture_preimages (must equal the preimage_capture section)",
+      "for rollback: forward_record_sha256 + rollback_authorization"
+    ],
+    "refusal_conditions": [
+      "absent or unreadable record",
+      "wrong candidate SHA or bundle-manifest hash (stale bundle)",
+      "operation not approved in the record",
+      "record fields incomplete or self-inconsistent",
+      "installed preimage drift (any installed artifact hash differs from the recorded preimage)"
+    ],
+    "no_auto_approval": "Gate A never manufactures an active approval; a record is only valid when produced by the Gate B PO/IR decision itself."
+  },
+  "prerequisites_not_delegated": [
+    "Distinct second test-owned native role account/PAT — a Gate B prerequisite; this bundle implements NO account/PAT provisioning and never mutates the shared Administrator",
+    "SONGHEALTH_T021_ROUTE_TOKEN value generation and SONGHEALTH_T021_ROUTE_ACCESS client-copy placement (executed only by the Gate-B-authorized apply)",
+    "Any live installation, transition, restart/stop, registration, reseed or verification"
+  ],
+  "stop_conditions": [
+    "any refusal before mutation leaves all preimages untouched",
+    "failure after a consequential stage preserves truthful partial state in the maintenance state record and stops; bounded rollback runs only under an explicit Gate B rollback record",
+    "unknown/stale/drifted state refuses; a failed or unknown rollback stops for PO decision (no automated retry/recovery loop)"
+  ]
+}

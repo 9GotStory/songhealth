@@ -1,0 +1,84 @@
+# PROPOSED PAYLOAD — T021 Gate A maintenance bundle. NOT INSTALLED.
+# Identical to the reviewed installed compose.yaml except ONE addition:
+# the app environment gains SONGHEALTH_T021_ROUTE_TOKEN (private env key
+# with digits in its name), delivered through the existing --env-file.
+# Environment change requires app-only container replacement, not a bare
+# restart; postgres/volumes/networks/ports are unchanged.
+
+name: songhealth-dev
+x-podman:
+  in_pod: false
+services:
+  postgres:
+    image: docker.io/library/postgres:18.6@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf
+    pull_policy: never
+    container_name: songhealth-dev-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: songhealth_dev
+      POSTGRES_USER: songhealth_dev_bootstrap
+      POSTGRES_PASSWORD: ${SONGHEALTH_DEV_BOOTSTRAP_PASSWORD:?required}
+      SONGHEALTH_DEV_APP_PASSWORD: ${PGPASSWORD:?required}
+      PGDATA: /var/lib/postgresql/18/docker
+    volumes:
+      - songhealth-dev-postgres-data-v1:/var/lib/postgresql
+      - /home/multica-agent/.local/share/dev-runtimes/songhealth/config/initdb/10-songhealth-dev-role.sh:/docker-entrypoint-initdb.d/10-songhealth-dev-role.sh:ro,z
+    networks:
+      - database
+    labels:
+      io.9gotstory.dev-runtime.application: songhealth
+      io.9gotstory.dev-runtime.owner-uid: "1001"
+      io.9gotstory.dev-runtime.generation: ${SONGHEALTH_DEV_GENERATION:?required}
+  app:
+    image: localhost/songhealth-dev-tooling:node24.21.0-npm12.2.0-r1
+    pull_policy: never
+    container_name: songhealth-dev-app
+    restart: unless-stopped
+    userns_mode: keep-id
+    user: "1001:1001"
+    working_dir: /app
+    entrypoint: ["/bin/sh", "/runtime/config/app-entry.sh"]
+    command: ["dev"]
+    environment:
+      NODE_ENV: development
+      HOME: /app/.cache/home
+      npm_config_cache: /app/.cache/npm
+      HOST: 0.0.0.0
+      PORT: "4321"
+      EMDASH_SITE_URL: http://localhost:4322
+      EMDASH_MIGRATIONS_MODE: check
+      PGHOST: songhealth-dev-postgres
+      PGPORT: "5432"
+      PGDATABASE: songhealth_dev
+      PGUSER: songhealth_dev_app
+      PGPASSWORD: ${PGPASSWORD:?required}
+      EMDASH_MIGRATION_DATABASE_URL: ${EMDASH_MIGRATION_DATABASE_URL:?required}
+      EMDASH_ENCRYPTION_KEY: ${EMDASH_ENCRYPTION_KEY:?required}
+      SONGHEALTH_T021_ROUTE_TOKEN: ${SONGHEALTH_T021_ROUTE_TOKEN:?required}
+    ports:
+      - "127.0.0.1:4322:4321"
+    volumes:
+      - /home/multica-agent/projects/songhealth-dev:/app:rw,z
+      - songhealth-dev-media-v1:/app/media
+      - /home/multica-agent/.local/share/dev-runtimes/songhealth/config:/runtime/config:ro,z
+    networks:
+      - application
+      - database
+    labels:
+      io.9gotstory.dev-runtime.application: songhealth
+      io.9gotstory.dev-runtime.owner-uid: "1001"
+      io.9gotstory.dev-runtime.generation: ${SONGHEALTH_DEV_GENERATION:?required}
+networks:
+  application:
+    name: songhealth-dev-app-net
+    external: true
+  database:
+    name: songhealth-dev-db-net
+    external: true
+volumes:
+  songhealth-dev-postgres-data-v1:
+    name: songhealth-dev-postgres-data-v1
+    external: true
+  songhealth-dev-media-v1:
+    name: songhealth-dev-media-v1
+    external: true

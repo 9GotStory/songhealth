@@ -1,0 +1,142 @@
+{
+  "schema": 1,
+  "name": "t021-runtime-gate-a-maintenance",
+  "status": "GATE_A_PREPARATION_ONLY_GATE_B_NOT_APPROVED",
+  "self_note": "bundle-manifest.json does not hash itself; Gate B binds the resulting candidate SHA and this manifest's sha256 externally (gate-b-record.bundle_manifest_sha256).",
+  "files": {
+    "GATE-B-EXECUTION.md": "e2c025e6db5525cbf7eedf79caec527e01c41f66888fce8095058f420995a1d4",
+    "compose.yaml": "172e040a2c0f108657bfa2a2695ce96d8e9f9953420ef779f01b1dbdc4efb716",
+    "config/astro.dev.config.mjs": "9e8bc3034423143ec0550efae3a72b0d8480b681db852b8f6fc570f7992a1c9d",
+    "install-maintenance.py": "db06261f908a08e8bbf961f4f59cf6c1ec69e2f3b945db1df7490c168ce0dda4",
+    "maintenance-contract.json": "687f0775758f33e4bcf5d4f2ff5cad6bf50a03c05b0a49f384ddef86169546da",
+    "runtime.py": "656d1f699e51236cbe9ece39d48363a187db03e54b071050da940243ee563645",
+    "tests/test_t021_maintenance.py": "3c7380ba7ad8471132e8a67c79079282642015759ba11520b6f34ac6af82bdc9"
+  },
+  "modes": {
+    "GATE-B-EXECUTION.md": "0644",
+    "compose.yaml": "0644",
+    "config/astro.dev.config.mjs": "0644",
+    "install-maintenance.py": "0755",
+    "maintenance-contract.json": "0644",
+    "runtime.py": "0755",
+    "tests/test_t021_maintenance.py": "0644"
+  },
+  "installed_path_mapping": {
+    "maintenance/t021-runtime-gate-a/runtime.py": {
+      "path": "<live>/maintenance/t021-gate-a/runtime.py",
+      "mode": "0755",
+      "uid": 1001
+    },
+    "maintenance/t021-runtime-gate-a/compose.yaml": {
+      "path": "<live>/maintenance/t021-gate-a/compose.yaml (proposed payload; live compose.yaml updated only by the Gate-B-reviewed forward transition)",
+      "mode": "0644",
+      "uid": 1001
+    },
+    "maintenance/t021-runtime-gate-a/config/astro.dev.config.mjs": {
+      "path": "<live>/config/astro.dev.config.mjs at apply time (474-byte payload, hash-bound); rollback restores the embedded 285-byte preimage",
+      "mode": "0644",
+      "uid": 1001
+    },
+    "maintenance/t021-runtime-gate-a/install-maintenance.py": {
+      "path": "<live>/maintenance/t021-gate-a/install-maintenance.py",
+      "mode": "0755",
+      "uid": 1001
+    },
+    "maintenance/t021-runtime-gate-a/maintenance-contract.json": {
+      "path": "<live>/maintenance/t021-gate-a/maintenance-contract.json",
+      "mode": "0644",
+      "uid": 1001
+    },
+    "maintenance/t021-runtime-gate-a/GATE-B-EXECUTION.md": {
+      "path": "<live>/maintenance/t021-gate-a/GATE-B-EXECUTION.md",
+      "mode": "0644",
+      "uid": 1001
+    },
+    "maintenance/t021-runtime-gate-a/tests/test_t021_maintenance.py": {
+      "path": "<live>/maintenance/t021-gate-a/tests/test_t021_maintenance.py",
+      "mode": "0644",
+      "uid": 1001
+    }
+  },
+  "preimage_capture": {
+    "authority": "PO Gate A 01a156d7-aac7-72f6-bb2e-9a60624aba0d; O_RDONLY | O_NOFOLLOW | O_NOATIME; UID1001 regular files; unchanged inode/size/mtime/ctime/atime; no subprocess/controller/engine/native request",
+    "recorded_containers": {
+      "postgres": "d91afe9ed3198d7fc1abd48634f230ca4b6d1349f044d19e722f2a174676ca9a",
+      "app": "56a74583da82df514f18a45969032b59b0f8938bd4a4da605aceb8c7e93d6e6d"
+    },
+    "recorded_source_sha": "6ab72780c1a531956acc3c06838c3028e10ad77d",
+    "files": {
+      "runtime.py": {
+        "sha256": "94b98143354fc1aab8569b136710e3bf0f71a56812f23dde1327b6cb453b01e5",
+        "bytes": 76383,
+        "mode": "0o644",
+        "uid": 1001,
+        "captured_content": true
+      },
+      "runtime.sh": {
+        "sha256": "d7b31c5fcec555bce6b7e31489a1bfd3dd4c131024ab12e51dd15917db5aabbe",
+        "bytes": 74,
+        "mode": "0o700",
+        "uid": 1001,
+        "captured_content": true
+      },
+      "compose.yaml": {
+        "sha256": "1646eec55f3ed8e888356389423c3cd4945ba7c9a829aab0922275f3f6052117",
+        "bytes": 2704,
+        "mode": "0o644",
+        "uid": 1001,
+        "captured_content": true
+      },
+      "config/astro.dev.config.mjs": {
+        "sha256": "14cafeaef2ced6052defdce9c8fea24ebec83e4864270e7e1e25523bd58dd48a",
+        "bytes": 285,
+        "mode": "0o644",
+        "uid": 1001,
+        "captured_content": true
+      },
+      "manifest.json": {
+        "sha256": "b61ba40471dd5204cc590c60c7bb6c752ca75c5f0b54c007129ef19479bc9a23",
+        "bytes": 2783,
+        "mode": "0o644",
+        "uid": 1001,
+        "captured_content": true
+      },
+      "tests/test_runtime.py": {
+        "sha256": "f8290e5341e41caf4f10cfc6d9672ebad6048c3a5316f1bd1a8c84c73cbbb156",
+        "bytes": 51276,
+        "mode": "0o644",
+        "uid": 1001,
+        "captured_content": true
+      },
+      "config/runtime.json": {
+        "sha256": "f54fb4d616a6fab7f781838dbbd0ada7a83deb12902a1f8fc96575d481ea6cd1",
+        "bytes": 1294,
+        "mode": "0o644",
+        "uid": 1001,
+        "captured_content": false
+      },
+      "activation.json": {
+        "sha256": "3892baf3d3b4bd529bcc39dbc13b9113d19fd5b97c51a0e4129f9301de7292e9",
+        "bytes": 9115,
+        "mode": "0o600",
+        "uid": 1001,
+        "captured_content": false
+      },
+      "state.json": {
+        "sha256": "d4dc8d510cae3a4f56bae90bf54e6e76eefde54803a51c7bbd006e9d97599e3e",
+        "bytes": 1618,
+        "mode": "0o600",
+        "uid": 1001,
+        "captured_content": false
+      },
+      "source-state.json": {
+        "sha256": "8ddc0c5c50821b393ee3ae0a46f1559870623effafcf10651ab5455989a06f3b",
+        "bytes": 212,
+        "mode": "0o600",
+        "uid": 1001,
+        "captured_content": false
+      }
+    },
+    "excluded": "runtime.env, dev-access.json, PAT/capability files, raw private state/activation content; no secrets copied or credential fingerprints produced"
+  }
+}
