@@ -183,3 +183,131 @@ FAILURE with per-test terminal states). Stable failures:
   route token, access JSON); `.tmp/t022/` deleted entirely.
 - The persistent shared runtime was not stopped, restarted or otherwise
   touched (nothing to restore — it was never accessed).
+
+---
+
+# Corrective round 1/1 — 2026-10-21 (PO authorization 6319293398)
+
+Start SHA `2c897e38d7a85e17dc0de522a2f4d94b67b28bd4` (Lead BLOCKED verdict
+above preserved verbatim). Execution SHA **`0c58a93947561cb4674a850cf8e380082536cf02`**
+(two commits: `0c09b5e` — role-ready coverage, three T020 expectation fixes,
+T021 null/media/expiry corrections, serving-process admission, fail-closed
+disposable inputs, guard/TS fixes; `0c58a93` — restore-pointer assertion
+corrected to the verified native invariant). Final SHA adds only this
+appendix. All prior failed-run records above are retained untouched.
+
+## Corrections (each verified against pinned source AND the live runtime)
+
+1. **C1 role fixtures** — ONE distinct test-owned native account provisioned
+   on the disposable app through the product's own dev-provisioning pattern
+   (direct user row insert, exactly what `setup/dev-bypass` does, plus the
+   native `handleApiTokenCreate` for the PAT): id `01M5GBMFA11NTR6HTW0CH51325`,
+   `t022r2-role-fixture@songhealth.test`, Author (30) — verified live via
+   `GET /_emdash/api/auth/me` and the suites' `assertDistinctActors` /
+   email-not-dev assertions. PAT scopes mirror the native dev token (scopes
+   are route admission only; RBAC decisions stay role-based —
+   `authorize.ts requirePerm`). With `SONGHEALTH_ROLE_FIXTURE_ACCESS` set,
+   the previously skipped T019 role-phase cases and the T020 second-writer
+   case all RAN (no skip remained in either suite).
+2. **C2/T020 restore** — controlled probe (two PUT saves → publish → restore)
+   proved the pinned runtime RETAINS the restore-created audit revision as
+   `draftRevisionId` (pointer == post-restore history head, ≠ the originally
+   selected revision id, ≠ null) while the restored data is live. Assertion
+   now pins exactly that; the history/authorship/version assertions are
+   unchanged.
+3. **C2/T020 SEO** — SEO enabled on `news` in the disposable setup only
+   (`PUT /_emdash/api/schema/collections/news {hasSeo:true}`, native schema
+   API; repo seed unchanged). The successful current-state metadata test
+   (taxonomy/SEO/byline) now exercises its positive path, and a NEW
+   boundary test asserts the truthful disabled refusal (400
+   VALIDATION_ERROR on non-SEO `pages`) with zero partial state.
+4. **C2/T020 anonymous reads** — expected code corrected to
+   `NOT_AUTHENTICATED` (401) with the verified citation
+   `src/astro/middleware/auth.ts:79,702`; the authenticated-insufficient
+   family (403 FORBIDDEN) remains covered by the T019 role controls.
+5. **C3/T021 optional null** — omitted optional fields admit the native
+   public-loader representation (`null` or key-absent, `src/loader.ts:529-564`)
+   while any fabricated value still fails.
+6. **C3/T021 media availability** — the single-media read (no address field)
+   is replaced by the supported LIST surface
+   (`GET /_emdash/api/media`, `url: /_emdash/api/media/file/{key}`,
+   `src/astro/routes/api/media.ts addUrlToMedia`) bound to the exact owned
+   asset id: positive fetch before removal, native removal, same-address
+   unavailability after — no invented URL, no foreign host.
+7. **C4 preview expiry** — the fixed 1500ms sleep is replaced by a bounded
+   clock-boundary wait derived from the returned integer-second `expiresAt`
+   (verifier floors seconds and refuses only when `exp < now`,
+   `src/preview/tokens.ts:136-142,256-259`); offline guard drives the
+   INSTALLED native verifier with dummy material (valid vs expired). The
+   first-run anomaly stays recorded above; its timing explanation is now
+   structural, not speculative.
+8. **C5 coordinator** — (a) disposable inputs are all-or-nothing: a partial
+   request HOLDs (exit 3) BEFORE the controller observation, credential
+   reads, HTTP and child start — proven by a guard CLI run with a fake
+   controller spy that is never invoked; (b) the admitted endpoint is bound
+   to the real serving process — listener → pid → astro-dev command line →
+   cwd == this checkout → HEAD == declared execution SHA (run log:
+   `bound to serving process pid 3616394`), with dead/foreign/wrong-root/
+   wrong-HEAD/multi-listener refusals guard-tested; (c) tracked source
+   integrity is re-verified AFTER the run (SOURCE FAILURE otherwise);
+   (d) spec target validation aligned with the coordinator (99999 and
+   malformed ports refused, executed-initializer guard).
+
+## Corrective serial execution (ONE fresh task-owned disposable app)
+
+Pinned toolchain unchanged. Fresh resources: volume `t022r2-songhealth-db-data`,
+container `t022r2-songhealth-db` (postgres 18.6, pinned repo digest
+`fc973eb9…`, `127.0.0.1:45432`), host astro dev on `127.0.0.1:4323` with the
+T021 integration, fresh `./media`, 91 migrations, dev-bypass bootstrap +
+fresh admin PAT, role fixture (above), SEO-on-news setup, route token probe
+403/200. Execution SHA declared to the coordinator = clean-checkout HEAD.
+
+| Suite | Result | Exit |
+| --- | --- | --- |
+| T019 `cms-lifecycle.spec.ts` (role fixture supplied) | **13 passed / 0 failed / 0 skipped** (role-phase RBAC, disabled-account, second-writer, due-time scheduling all exercised) | 0 |
+| T020 `cms-revisions.spec.ts` (role fixture supplied) | **12 passed / 0 failed / 0 skipped** (second-writer lock case included; new SEO boundary test included) | 0 |
+| T021 coordinator, disposable mode | **14 passed / 0 failed / 0 skipped**, coverage journal complete, owned-fixture cleanup verified, serving-process admission + post-run source check green | 0 |
+
+Offline verification at the same SHAs: guard suite
+`tests/node/cms-public-reads-target.test.ts` **14/14** (incl. the CLI
+partial-input HOLD sentinel with fake-controller spy, serving-process
+admission positives/negatives, native-verifier expiry boundary, executed
+spec-initializer target validation); TypeScript `node_modules/.bin/tsc
+--noEmit` with the same pinned dependencies: **2 diagnostics, both
+pre-existing at base `e7e21d6` (`config.test.ts:173`,
+`foundation.test.ts:304`), zero introduced** (the six prior guard-file
+diagnostics and one interim spec diagnostic are resolved; the Lead's
+comparison harness reported the base as 3 — both totals disclosed).
+
+## Truthful disclosures
+
+- **Interrupted predecessor instance**: a first corrective serial attempt
+  ran T019 (13/0/0) and T020 (11/1) on an earlier task-owned instance; a
+  workspace session boundary removed that instance's container, volume and
+  credential scratch before the serial run completed (no operator cleanup,
+  no persistent-runtime involvement). Its single failure was the
+  restore-pointer assertion, root-caused via the controlled probe above and
+  corrected (`0c58a93`). The FINAL serial results in the table come entirely
+  from the replacement instance; the interrupted attempt's numbers are
+  recorded here, not discarded.
+- The role-fixture account/PAT and all synthetic fixtures lived only in the
+  disposable database and are removed with it at cleanup; nothing was
+  provisioned or written on the persistent runtime (never contacted).
+- `emdash-env.d.ts` (untracked astro-sync artifact) is removed before each
+  coordinator run so the clean-worktree identity gate reflects the checkout;
+  the post-run source check ignores untracked artifacts by design (tracked
+  changes or a moved HEAD fail the run).
+
+## Corrective cleanup record
+
+- App terminated by its exact recorded PID (cmdline verified as this task's
+  `astro dev` process; compared against the workspace daemon PID first);
+  port 4323 confirmed closed.
+- `t022r2-songhealth-db` container and `t022r2-songhealth-db-data` volume
+  removed after identity/label checks; zero task-owned containers/volumes
+  remain.
+- All credential scratch (admin PAT, role-fixture PAT, route token, DB
+  password, encryption key) and the provisioning scripts removed; run-status
+  journals retained per the scope-reduction contract.
+- PR #27 verified OPEN/unmerged at `e7e21d6…` throughout; persistent 4322
+  never contacted; production untouched.
