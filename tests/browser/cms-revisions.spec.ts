@@ -1975,15 +1975,16 @@ test("revision history: saves create distinct native revisions newest-first with
 	).toBe(true);
 
 	// Post-restore read-back. Verified pinned native restore semantics
-	// (ContentRepository.restoreRevision, src/database/repositories/content.ts
-	// ~1080-1178): the restore inserts a restore-audit revision carrying the
-	// restored snapshot, writes the snapshot's field values back into the
-	// content columns through its CAS fence, uses that audit revision as a
-	// transaction-local draft marker, and then RELEASES the draft pointer back
-	// to its prior value (releaseMarker) before re-reading. With no pending
-	// draft before the restore, the post-restore read returns the restored
-	// live data directly, the entry stays published, and the row's version
-	// moved — while the audit revision joins the entry's working history.
+	// (ContentRepository.restoreRevision, src+dist confirmed and reproduced
+	// deterministically against the pinned runtime): the restore inserts a
+	// RESTORE-AUDIT revision carrying the restored snapshot, writes the
+	// snapshot's field values back into the content columns, and RETAINS the
+	// audit revision as the pending-draft pointer — a selected restore
+	// re-stages the restored snapshot as the recoverable pending draft
+	// (hydrateDraftData) while the restored data itself is live. The retained
+	// pointer is the restore-CREATED audit revision (the new history head),
+	// NOT the originally-selected revision id, and never null after a
+	// restore. The entry stays published and the row's version moved.
 	const afterRestore = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!));
 	expect(statusOfItem(afterRestore), "restore does not change the published lifecycle state").toBe(
 		"published",
@@ -1992,7 +1993,19 @@ test("revision history: saves create distinct native revisions newest-first with
 		dataOfItem(afterRestore).title,
 		"the restored content must read back as the selected revision's data",
 	).toBe(firstTitle);
-	expect(afterRestore?.draftRevisionId, "restore leaves no pending draft behind here").toBeNull();
+	const restoreAuditPointer = nativeItemOf(restored)?.draftRevisionId;
+	expect(
+		typeof restoreAuditPointer === "string" && restoreAuditPointer.length > 0,
+		"the restore response carries the restore-created revision as its pending-draft pointer",
+	).toBe(true);
+	expect(
+		afterRestore?.draftRevisionId,
+		"restore re-stages the restored snapshot as the pending draft (the restore-created audit revision is retained, not cleared)",
+	).toBe(restoreAuditPointer);
+	expect(
+		afterRestore?.draftRevisionId,
+		"the retained pointer is the restore-created revision, never the originally-selected revision id",
+	).not.toBe(String(listing.items[1]?.id));
 	const versionAfterRestore = typeof afterRestore?.version === "number" ? afterRestore.version : undefined;
 	expect(
 		typeof versionAfterRestore === "number" &&
@@ -2023,6 +2036,10 @@ test("revision history: saves create distinct native revisions newest-first with
 		listingAfterRestore.items[0]?.authorId,
 		"the restore revision records the restoring caller as its author",
 	).toBe(admin.userId);
+	expect(
+		listingAfterRestore.items[0]?.id,
+		"the retained pending-draft pointer is exactly the restore-created history head",
+	).toBe(restoreAuditPointer);
 	expect(
 		recordData(listingAfterRestore.items[1]).title,
 		"the pre-restore newest revision is still listed (current state)",
