@@ -88,6 +88,22 @@ HMR behavior (excluded from activation), a new full persistence-restart test, an
 startup after a Fedora reboot — `restart: unless-stopped` supports daemon/session independence,
 but host-reboot autostart is not promised.
 
+## T022 disposable-runtime test exception (2026-10-21, bounded)
+
+Product Owner decision [6305625001](https://github.com/9GotStory/songhealth/issues/26#issuecomment-6305625001)
+(Multica authorization `01a15c0f-067c-756c-85a1-0331f764b5de`) permits the Feature 002
+T022 serial join (`T019 → T020 → T021`) to run against **one task-owned disposable
+runtime** instead of the persistent app: a fresh checkout of the accepted source, a
+task-unique PostgreSQL 18.6 container (pinned digest) with its own volume on a recorded
+free loopback port, one host `astro dev` process on a loopback port other than 4322 with
+a fresh `./media`, and a task-private dev config registering the **existing** T021
+integration. The coordinator's explicit disposable mode verifies the checkout's clean HEAD
+against the declared execution SHA plus the protected route identity, and refuses the
+persistent origin in that mode. This exception is bounded to that authorized execution;
+it is not a standing second development environment, and the disposable resources are
+cleaned up as task-owned afterward. All other development/testing remains persistent-only
+against `http://127.0.0.1:4322` as documented below.
+
 ## Runtime status and verification — the authorized routine operations
 
 The controller gates every operation against its recorded activation. The currently authorized

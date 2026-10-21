@@ -255,11 +255,41 @@ const HEALTH_REPORTS_COLLECTION = "health_reports";
 
 /**
  * The ONE existing persistent development origin (AGENTS.md; quickstart
- * "Prerequisites and Environment"; tasks.md T021). This suite refuses any
- * other origin: an occupied shared origin is its intended state, and no port
- * fallback or substitute server is ever acceptable evidence.
+ * "Prerequisites and Environment"; tasks.md T021). Outside T022 disposable
+ * mode this suite refuses any other origin: an occupied shared origin is its
+ * intended state, and no port fallback or substitute server is ever
+ * acceptable evidence.
  */
 const PERSISTENT_DEVELOPMENT_ORIGIN = "http://127.0.0.1:4322";
+
+/**
+ * T022 disposable-mode target plumbing (PO authorizations
+ * 01a15c0f-067c-756c-85a1-0331f764b5de / GitHub issuecomment-6305625001 —
+ * the only authorization under which a second, task-owned disposable app is
+ * permitted). SONGHEALTH_T021_TARGET_ORIGIN names the disposable origin the
+ * coordinator admitted; it must be explicit, must NOT be the persistent
+ * origin (fixture/preview/media traffic must never reach the shared app),
+ * and must equal the runner-configured origin. No arbitrary-origin
+ * acceptance and no silent fallback exist: without the variable the suite
+ * keeps its unchanged persistent-only contract.
+ */
+const DISPOSABLE_TARGET_ENV = "SONGHEALTH_T021_TARGET_ORIGIN";
+const disposableTargetRaw = ambientNodeProcess?.env?.[DISPOSABLE_TARGET_ENV];
+const ADMITTED_TARGET_ORIGIN = (() => {
+	if (disposableTargetRaw === undefined || disposableTargetRaw.trim().length === 0) {
+		return PERSISTENT_DEVELOPMENT_ORIGIN;
+	}
+	const target = disposableTargetRaw.trim().replace(/\/+$/, "");
+	expect(
+		target !== PERSISTENT_DEVELOPMENT_ORIGIN,
+		`${DISPOSABLE_TARGET_ENV} must not name the persistent shared origin — disposable-mode traffic may never reach the shared app`,
+	).toBe(true);
+	expect(
+		/^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/.test(target),
+		`${DISPOSABLE_TARGET_ENV} must be an explicit loopback http origin`,
+	).toBe(true);
+	return target;
+})();
 
 /**
  * Mode-0600 controller-format JSON ({ token }) holding the CLIENT copy of
@@ -409,7 +439,7 @@ async function fetchFixtureRoute(
 	searchParams: Record<string, string>,
 	options: { previewToken?: string; expectStatus?: number } = {},
 ): Promise<{ status: number; body: RouteBody; cacheControl: string }> {
-	const url = new URL(T021_ROUTE_PATTERN, PERSISTENT_DEVELOPMENT_ORIGIN);
+	const url = new URL(T021_ROUTE_PATTERN, ADMITTED_TARGET_ORIGIN);
 	for (const [key, value] of Object.entries(searchParams)) {
 		url.searchParams.set(key, value);
 	}
@@ -457,7 +487,7 @@ function entriesOf(response: { status: number; body: RouteBody }): RouteEntry[] 
 
 /** The fixture path with any query string removed (evidence-safe label). */
 function redactPreviewUrl(url: string): string {
-	return new URL(url, PERSISTENT_DEVELOPMENT_ORIGIN).pathname;
+	return new URL(url, ADMITTED_TARGET_ORIGIN).pathname;
 }
 
 /**
@@ -490,7 +520,7 @@ async function mintPreviewToken(
 		typeof data?.data?.expiresAt === "number",
 		"the native preview-url API must return the token expiry",
 	).toBe(true);
-	const previewToken = new URL(url as string, PERSISTENT_DEVELOPMENT_ORIGIN).searchParams.get(
+	const previewToken = new URL(url as string, ADMITTED_TARGET_ORIGIN).searchParams.get(
 		"_preview",
 	);
 	expect(
@@ -1433,10 +1463,17 @@ test.beforeAll(async () => {
 		return;
 	}
 	const origin = configuredOrigin();
-	expect(
-		origin,
-		"this suite runs only against the ONE existing persistent development origin (unexpected origin is a prerequisite failure, never a port fallback)",
-	).toBe(PERSISTENT_DEVELOPMENT_ORIGIN);
+	if (disposableTargetRaw !== undefined && disposableTargetRaw.trim().length > 0) {
+		expect(
+			origin,
+			"T022 disposable mode runs only against the coordinator-admitted disposable target (never the persistent shared app, never a port fallback)",
+		).toBe(ADMITTED_TARGET_ORIGIN);
+	} else {
+		expect(
+			origin,
+			"outside T022 disposable mode this suite runs only against the ONE existing persistent development origin (unexpected origin is a prerequisite failure, never a port fallback)",
+		).toBe(PERSISTENT_DEVELOPMENT_ORIGIN);
+	}
 
 	// Development native access through the pre-existing development
 	// credential (T013 adaptation; never the dev-bypass bootstrap). This
@@ -1793,7 +1830,7 @@ test("fixture route contract: identity probe, no-store, fail-closed access, meth
 
 	// Fail-closed access BEFORE any data read: no token, and a wrong token,
 	// are both refused — Host/Origin headers are never the boundary.
-	const anonymous = await fetch(`${new URL(T021_ROUTE_PATTERN, PERSISTENT_DEVELOPMENT_ORIGIN)}`, {
+	const anonymous = await fetch(`${new URL(T021_ROUTE_PATTERN, ADMITTED_TARGET_ORIGIN)}`, {
 		redirect: "error",
 	});
 	expect(
@@ -1801,7 +1838,7 @@ test("fixture route contract: identity probe, no-store, fail-closed access, meth
 		"a request without the route access token must be refused before any data read",
 	).toBe(403);
 	expect(anonymous.headers.get("cache-control") ?? "").toContain("no-store");
-	const wrongToken = await fetch(new URL(T021_ROUTE_PATTERN, PERSISTENT_DEVELOPMENT_ORIGIN), {
+	const wrongToken = await fetch(new URL(T021_ROUTE_PATTERN, ADMITTED_TARGET_ORIGIN), {
 		headers: { [T021_ROUTE_ACCESS_HEADER]: `wrong-${crypto.randomUUID()}` },
 		redirect: "error",
 	});
@@ -1811,7 +1848,7 @@ test("fixture route contract: identity probe, no-store, fail-closed access, meth
 	// data): non-GET, unknown case, non-allowlisted collection, non-allowlisted
 	// reference field, out-of-range limit, and the filter inputs the route
 	// must never accept (a draft-status or arbitrary-filter query surface).
-	const url = new URL(T021_ROUTE_PATTERN, PERSISTENT_DEVELOPMENT_ORIGIN);
+	const url = new URL(T021_ROUTE_PATTERN, ADMITTED_TARGET_ORIGIN);
 	for (const [label, init, params] of [
 		["non-GET method", { method: "POST" }, new URLSearchParams({ case: "probe" })],
 	] as const) {
@@ -2468,11 +2505,11 @@ test("missing files: a published Document whose media asset was removed reads as
 		typeof addressCandidate === "string" && addressCandidate.length > 0,
 		"the owned asset must expose a supported public address (src/url) for the availability control — a selection id alone does not establish the boundary",
 	).toBe(true);
-	const assetUrl = new URL(addressCandidate as string, PERSISTENT_DEVELOPMENT_ORIGIN);
+	const assetUrl = new URL(addressCandidate as string, ADMITTED_TARGET_ORIGIN);
 	expect(
 		assetUrl.origin,
-		"the asset address must resolve onto the one authorized development origin",
-	).toBe(PERSISTENT_DEVELOPMENT_ORIGIN);
+		"the asset address must resolve onto the one admitted target origin (persistent outside T022 disposable mode, the coordinator-admitted disposable loopback inside it)",
+	).toBe(ADMITTED_TARGET_ORIGIN);
 
 	// Positive control: the address serves the asset while it exists.
 	const positive = await fetch(assetUrl, { redirect: "error" });
@@ -2542,7 +2579,7 @@ test("truthful not-found and empty states, and no privileged fallback on anonymo
 	const adminRest = await fetch(
 		new URL(
 			`/_emdash/api/content/${PAGES_COLLECTION}/${SYNTHETIC_FIXTURE_MARK}-does-not-exist`,
-			PERSISTENT_DEVELOPMENT_ORIGIN,
+			ADMITTED_TARGET_ORIGIN,
 		),
 		{ redirect: "error" },
 	);

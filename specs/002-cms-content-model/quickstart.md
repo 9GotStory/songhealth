@@ -176,6 +176,37 @@ terminate/restart the persistent server. The public-read suite is excluded
 from ordinary suite invocations and run through this dedicated coordinator.
 T033 uses that same sequence; T034 records only executed and verified commands.
 
+**2026-10-21 T022 disposable-runtime exception (PO decision
+[6305625001](https://github.com/9GotStory/songhealth/issues/26#issuecomment-6305625001),
+Multica authorization `01a15c0f-067c-756c-85a1-0331f764b5de`):** the serial
+T022 join may instead run against ONE task-owned disposable runtime — a
+fresh checkout of the accepted source, a task-unique PostgreSQL (pinned 18.6
+digest) with its own volume on a recorded free loopback port, a host `astro
+dev` process on a loopback port other than 4322 with a fresh `./media`, and
+a task-private dev config registering the existing T021 integration. The
+coordinator's explicit disposable mode (`SONGHEALTH_T021_DISPOSABLE_ORIGIN`
+plus `SONGHEALTH_T021_DISPOSABLE_SOURCE_SHA` — the committed execution SHA
+the checkout's clean HEAD must match) replaces the controller observation
+with verified checkout provenance plus the protected route identity probe,
+pins `PLAYWRIGHT_BASE_URL` to the disposable origin and exports
+`SONGHEALTH_T021_TARGET_ORIGIN` for the spec's target guard; the persistent
+origin 4322 is refused in this mode before any request or credential read.
+Serial usage on that one disposable app:
+
+```bash
+PLAYWRIGHT_BASE_URL=<disposable origin> npm run test:browser -- tests/browser/cms-lifecycle.spec.ts --workers=1
+PLAYWRIGHT_BASE_URL=<same origin> npm run test:browser -- tests/browser/cms-revisions.spec.ts --workers=1
+SONGHEALTH_T021_DISPOSABLE_ORIGIN=<same origin> \
+SONGHEALTH_T021_DISPOSABLE_SOURCE_SHA=<execution SHA> node tests/browser/run-cms-public-reads.mjs
+```
+
+The exception is bounded to T022 execution: it creates no standing second
+development environment, does not change the persistent-only policy for any
+other task, and the disposable PostgreSQL/app/media/credentials are cleaned
+up as task-owned resources afterward. No controller, sidecar or recovery
+framework is introduced. Outside this mode the coordinator keeps its
+persistent-only contract unchanged.
+
 Record exact commit, versions, native schema state and observed results
 without secrets; never call planned checks PASS until actually executed. Report unavailable staff
 evidence and real inventory inputs as pending, not completed by source inspection. Check only the

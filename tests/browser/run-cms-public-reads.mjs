@@ -127,6 +127,63 @@ const RUN_STATUS_ENV = "SONGHEALTH_T021_RUN_STATUS";
 /** Optional explicit expected candidate identity (40-hex), else git HEAD. */
 const EXPECTED_SOURCE_ENV = "SONGHEALTH_T021_EXPECTED_SOURCE_SHA";
 
+/**
+ * T022 disposable mode (PO authorizations 01a15c0f-067c-756c-85a1-0331f764b5de
+ * / GitHub issuecomment-6305625001 — the ONLY authorization under which a
+ * task-owned disposable app is permitted). Explicit opt-in variables:
+ * SONGHEALTH_T021_DISPOSABLE_ORIGIN (the disposable loopback origin; must
+ * NOT be the persistent shared origin) and SONGHEALTH_T021_DISPOSABLE_SOURCE_SHA
+ * (the committed execution SHA of this checkout — never an unverified
+ * expected-SHA override: the checkout's ACTUAL clean git HEAD must equal
+ * it). The controller observation is replaced ONLY in this mode by that
+ * verified checkout provenance plus the protected route identity probe; no
+ * fallback from disposable to the persistent controller exists.
+ */
+const DISPOSABLE_ORIGIN_ENV = "SONGHEALTH_T021_DISPOSABLE_ORIGIN";
+const DISPOSABLE_SOURCE_ENV = "SONGHEALTH_T021_DISPOSABLE_SOURCE_SHA";
+
+export function disposableMode() {
+	const origin = process.env[DISPOSABLE_ORIGIN_ENV];
+	return origin !== undefined && origin.trim().length > 0;
+}
+
+export function disposableOrigin() {
+	const raw = (process.env[DISPOSABLE_ORIGIN_ENV] ?? "").trim().replace(/\/+$/, "");
+	const portMatch = /^http:\/\/127\.0\.0\.1:([0-9]+)$/.exec(raw);
+	const portValid = portMatch !== null && Number(portMatch[1]) <= 65535 &&
+		 portMatch[1].length <= 5 && !portMatch[1].startsWith("0");
+	if (!portValid || raw === PERSISTENT_DEVELOPMENT_ORIGIN) {
+		return { error: `${DISPOSABLE_ORIGIN_ENV} must be an explicit loopback http origin other than the persistent shared origin ${PERSISTENT_DEVELOPMENT_ORIGIN}` };
+	}
+	return { origin: raw };
+}
+
+/**
+ * T022 disposable source identity: the checkout's ACTUAL clean detached HEAD
+ * must equal the explicitly declared execution SHA. A caller merely
+ * supplying a SHA is not runtime evidence — the observable task-owned
+ * provenance (real git state of this checkout) is the observation.
+ */
+export async function disposableSourceIdentity() {
+	const declared = (process.env[DISPOSABLE_SOURCE_ENV] ?? "").trim();
+	if (!FULL_SHA_PATTERN.test(declared)) {
+		return { error: `${DISPOSABLE_SOURCE_ENV} must be the full 40-hex committed execution SHA of this checkout` };
+	}
+	const head = await boundedExec("git", ["rev-parse", "HEAD"], "git rev-parse HEAD");
+	if (head.error !== undefined) {
+		return { error: `could not observe the checkout HEAD for disposable source identity: ${head.error}` };
+	}
+	const sha = (head.stdout ?? "").trim();
+	if (sha !== declared) {
+		return { error: `disposable source identity mismatch: this checkout's actual HEAD is ${sha} but ${DISPOSABLE_SOURCE_ENV} declares ${declared}` };
+	}
+	const status = await boundedExec("git", ["status", "--porcelain=v1", "--untracked-files=all"], "git status");
+	if (status.error !== undefined || (status.stdout ?? "").trim().length > 0) {
+		return { error: `the disposable checkout must be a clean worktree at the declared execution SHA (git status not clean)` };
+	}
+	return { sha, provenance: `verified clean checkout HEAD == declared ${DISPOSABLE_SOURCE_ENV} (task-owned disposable execution)` };
+}
+
 /** Discovery pre-pass budget (ms); overridable, bounded 5s..10min. */
 const DISCOVERY_TIMEOUT_ENV = "SONGHEALTH_T021_DISCOVERY_TIMEOUT_MS";
 const DEFAULT_DISCOVERY_TIMEOUT_MS = 60_000;
@@ -221,6 +278,13 @@ export async function expectedSourceIdentity() {
  * HOLD — missing identity evidence must never let a worker spawn.
  */
 export async function observedRuntimeSourceIdentity() {
+	if (disposableMode()) {
+		// No controller exists for the disposable app and no fallback to the
+		// persistent controller is permitted: the verified checkout
+		// provenance IS the observation (with the protected route identity
+		// probe still performed later in the prerequisites).
+		return disposableSourceIdentity();
+	}
 	const controller = process.env[RUNTIME_CONTROLLER_ENV] ?? RUNTIME_CONTROLLER_DEFAULT;
 	const status = await boundedExec(controller, ["status"], `controller status (${controller})`);
 	if (status.error !== undefined) {
@@ -320,23 +384,44 @@ export async function readRouteAccessToken() {
  * ever started here; a connection failure is a HOLD, not something to boot
  * around. Bounded by an abort deadline (R4).
  */
+/** The origin this run targets: the admitted disposable loopback in T022
+ * disposable mode, else the persistent shared origin. No silent fallback
+ * between the two exists. */
+function admittedOrigin() {
+	if (!disposableMode()) {
+		return { origin: PERSISTENT_DEVELOPMENT_ORIGIN };
+	}
+	const target = disposableOrigin();
+	if (target.error !== undefined) {
+		return target;
+	}
+	return { origin: target.origin };
+}
+
 async function originIdentityHolds() {
+	const admitted = admittedOrigin();
+	if (admitted.error !== undefined) {
+		return admitted.error;
+	}
+	const label = admitted.origin === PERSISTENT_DEVELOVELOPMENT_ORIGIN
+		? "persistent development"
+		: "disposable T022";
 	try {
-		const response = await fetch(new URL("/", PERSISTENT_DEVELOPMENT_ORIGIN), {
+		const response = await fetch(new URL("/", admitted.origin), {
 			redirect: "error",
 			signal: AbortSignal.timeout(PREREQUISITE_DEADLINE_MS),
 		});
 		if (response.status !== 200) {
-			return `unexpected origin response: GET / answered ${response.status} (expected 200 from the persistent development application)`;
+			return `unexpected origin response: GET / answered ${response.status} (expected 200 from the ${label} application)`;
 		}
 		const body = await response.text();
 		if (!SSR_MARKER_PATTERN.test(body)) {
-			return "unexpected application identity: the origin does not serve the songhealth-foundation public SSR marker — refusing to treat it as the persistent Songhealth application";
+			return `unexpected application identity: the origin does not serve the songhealth-foundation public SSR marker — refusing to treat it as the ${label} Songhealth application`;
 		}
 		return undefined;
 	} catch (error) {
 		const reason = error?.name === "TimeoutError" ? "deadline exceeded" : (error.cause?.code ?? error.cause?.message ?? error.message);
-		return `the persistent development origin ${PERSISTENT_DEVELOPMENT_ORIGIN} did not answer (${reason}); an unavailable shared app is a HOLD prerequisite — never authorization to start, restart or substitute a server`;
+		return `the ${label} origin ${admitted.origin} did not answer (${reason}); an unavailable app is a HOLD prerequisite — never authorization to start, restart or substitute a server`;
 	}
 }
 
@@ -349,16 +434,20 @@ async function originIdentityHolds() {
  * mismatch are each distinct HOLD reasons naming the missing prerequisite.
  */
 async function fixtureReadinessHolds(routeAccessToken, expectedSha) {
-	const url = new URL("/__feature002/public-reads?case=probe", PERSISTENT_DEVELOPMENT_ORIGIN);
+	const admitted = admittedOrigin();
+	if (admitted.error !== undefined) {
+		return admitted.error;
+	}
+	const url = new URL("/__feature002/public-reads?case=probe", admitted.origin);
 	let probe;
 	try {
 		probe = await fetchJson(url, { "x-songhealth-t021-route-access": routeAccessToken });
 	} catch (error) {
 		const reason = error?.name === "TimeoutError" ? "deadline exceeded" : (error.cause?.code ?? error.message);
-		return `the fixture route probe failed against the persistent origin (${reason})`;
+		return `the fixture route probe failed against the admitted origin (${reason})`;
 	}
 	if (probe.status === 404) {
-		return "the dev-only fixture route /__feature002/public-reads is not installed on the persistent server (the reviewed source/config transition is a separate authorization) — HOLD, not a substitute server";
+		return "the dev-only fixture route /__feature002/public-reads is not installed on the admitted server (the reviewed source/config transition is a separate authorization) — HOLD, not a substitute server";
 	}
 	if (probe.status === 503) {
 		return "the fixture route is installed but its server-only access capability is unprovisioned (503) — the route access token pair is provisioned by the separately authorized maintenance — HOLD";
@@ -755,16 +844,26 @@ async function main() {
 		return;
 	}
 
+	const admitted = admittedOrigin();
+	if (admitted.error !== undefined) {
+		await hold([admitted.error]);
+		return;
+	}
+	if (disposableMode()) {
+		// The spec-side target guard must agree with the coordinator's
+		// admitted disposable origin (and can never name 4322 there).
+		process.env.SONGHEALTH_T021_TARGET_ORIGIN = admitted.origin;
+	}
 	const childEnv = {
 		...process.env,
-		PLAYWRIGHT_BASE_URL: PERSISTENT_DEVELOPMENT_ORIGIN,
+		PLAYWRIGHT_BASE_URL: admitted.origin,
 		[OPT_IN_ENV]: "1",
 		[OWNERSHIP_MANIFEST_ENV]: manifestPath,
 		[RUN_STATUS_ENV]: statusPath,
 	};
 
 	process.stderr.write(
-		`coordinator: running ${SPEC_FILE} through the pinned Playwright runner against ${PERSISTENT_DEVELOPMENT_ORIGIN} (timeout ${timeout}ms; owned-fixture manifest ${path.relative(repoRoot, manifestPath)})\n`,
+		`coordinator: running ${SPEC_FILE} through the pinned Playwright runner against ${admitted.origin}${disposableMode() ? " (T022 disposable mode)" : ""} (timeout ${timeout}ms; owned-fixture manifest ${path.relative(repoRoot, manifestPath)})\n`,
 	);
 
 	const child = spawn(process.execPath, [PLAYWRIGHT_CLI, "test", SPEC_FILE, "--project=chromium"], {
