@@ -1974,9 +1974,16 @@ test("revision history: saves create distinct native revisions newest-first with
 		`the native revision restore must succeed (${nativeRefusalOf(restored)})`,
 	).toBe(true);
 
-	// Post-restore read-back: with no pending draft the read returns the
-	// restored live data directly; the entry stays published; the row's
-	// version moved.
+	// Post-restore read-back. Verified pinned native restore semantics
+	// (ContentRepository.restoreRevision, src/database/repositories/content.ts
+	// ~1080-1178): the restore inserts a restore-audit revision carrying the
+	// restored snapshot, writes the snapshot's field values back into the
+	// content columns through its CAS fence, uses that audit revision as a
+	// transaction-local draft marker, and then RELEASES the draft pointer back
+	// to its prior value (releaseMarker) before re-reading. With no pending
+	// draft before the restore, the post-restore read returns the restored
+	// live data directly, the entry stays published, and the row's version
+	// moved — while the audit revision joins the entry's working history.
 	const afterRestore = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!));
 	expect(statusOfItem(afterRestore), "restore does not change the published lifecycle state").toBe(
 		"published",
@@ -2582,6 +2589,51 @@ test("live metadata: taxonomy, SEO and byline writes apply to current state imme
 	).toBe(revisionsBeforeMetadata);
 });
 
+test("SEO boundary: a collection without SEO enabled refuses SEO writes truthfully and leaves all state untouched", async () => {
+	gatePages();
+
+	// The complement of the metadata test above (which exercises the
+	// successful current-state SEO path on `news`, where the runtime's native
+	// schema configuration enables SEO): the same native write against a
+	// collection whose schema has SEO DISABLED is a validation refusal, never
+	// a partial write. Verified pinned gate: src/api/handlers/content.ts:1202
+	// (VALIDATION_ERROR "Collection … does not have SEO enabled") backed by
+	// plugins/context.ts assertSeoEnabled — the refusal precedes every data,
+	// taxonomy and reference effect.
+	const entry = await createSyntheticEntry(admin, PAGES_COLLECTION, {
+		data: { title: uniqueTitle("seo-disabled") },
+	});
+	expect(entry.result.ok, "the SEO-boundary fixture must save").toBe(true);
+	expect(
+		(await publishEntry(admin, PAGES_COLLECTION, entry.entryId!)).ok,
+		"the SEO-boundary fixture must publish",
+	).toBe(true);
+
+	const revisionsBefore = revisionsOf(
+		await listRevisions(admin, PAGES_COLLECTION, entry.entryId!),
+	).total;
+	const refused = await contentPut(admin, PAGES_COLLECTION, entry.entryId!, {
+		seo: { title: `${SYNTHETIC_FIXTURE_MARK} must never land` },
+	});
+	expect(refused.ok, "the SEO write on a non-SEO collection is refused").toBe(false);
+	expect(refused.status, "the refusal is the native validation failure").toBe(400);
+	expect(nativeErrorOf(refused)?.code, "the refusal carries the native VALIDATION_ERROR code").toBe(
+		"VALIDATION_ERROR",
+	);
+
+	// Nothing landed anywhere: no content revision, no live-data change, and
+	// the entry's current state is byte-for-byte its pre-refusal state.
+	expect(
+		revisionsOf(await listRevisions(admin, PAGES_COLLECTION, entry.entryId!)).total,
+		"the refused SEO write creates no content revision",
+	).toBe(revisionsBefore);
+	const current = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!));
+	expect(
+		String(dataOfItem(current).title ?? "").startsWith(`${SYNTHETIC_FIXTURE_MARK} seo-disabled`),
+		"the live data is untouched: the entry keeps its original fixture title",
+	).toBe(true);
+});
+
 // ---------------------------------------------------------------------------
 // E. Shared media identity: asset changes are current-state only (US6.2)
 // ---------------------------------------------------------------------------
@@ -2685,9 +2737,14 @@ test("unauthenticated revision-surface reads are authorization refusals, never d
 		).toBe(401);
 		expect(result.ok, `${label}: the refusal is never success`).toBe(false);
 		const error = result.body as { error?: { code?: unknown } };
+		// Verified pinned native behavior (src/astro/middleware/auth.ts:79,702):
+		// an anonymous API request is refused by the AUTHENTICATION layer as
+		// 401 NOT_AUTHENTICATED — distinct from the authenticated-but-
+		// insufficient-permission family (403 FORBIDDEN via authorize.ts
+		// requirePerm/requireOwnerPerm) covered by the T019 role controls.
 		expect(
 			error?.error?.code,
-			`${label}: the refusal carries its native authorization code`,
-		).toBe("UNAUTHORIZED");
+			`${label}: the refusal carries its native authentication-layer code`,
+		).toBe("NOT_AUTHENTICATED");
 	}
 });

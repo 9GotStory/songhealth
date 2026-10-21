@@ -147,6 +147,31 @@ export function disposableMode() {
 	return origin !== undefined && origin.trim().length > 0;
 }
 
+/**
+ * T022 corrective C5 — disposable inputs are all-or-nothing. Presence of
+ * EITHER input without its complete counterpart must fail closed BEFORE the
+ * controller observation, credential loading, any HTTP request or any child
+ * start: a partial disposable request can never select the legacy persistent
+ * path (whose first observation would be the runtime controller).
+ */
+export function disposableInputCompleteness() {
+	const originPresent =
+		process.env[DISPOSABLE_ORIGIN_ENV] !== undefined &&
+		process.env[DISPOSABLE_ORIGIN_ENV].trim().length > 0;
+	const shaPresent =
+		process.env[DISPOSABLE_SOURCE_ENV] !== undefined &&
+		process.env[DISPOSABLE_SOURCE_ENV].trim().length > 0;
+	if (originPresent !== shaPresent) {
+		const present = originPresent ? DISPOSABLE_ORIGIN_ENV : DISPOSABLE_SOURCE_ENV;
+		const missing = originPresent ? DISPOSABLE_SOURCE_ENV : DISPOSABLE_ORIGIN_ENV;
+		return {
+			complete: false,
+			error: `incomplete disposable inputs: ${present} is supplied but ${missing} is missing/blank — a partial disposable request is a HOLD before the persistent controller path could ever be selected`,
+		};
+	}
+	return { complete: true };
+}
+
 export function disposableOrigin() {
 	const raw = (process.env[DISPOSABLE_ORIGIN_ENV] ?? "").trim().replace(/\/+$/, "");
 	const portMatch = /^http:\/\/127\.0\.0\.1:([0-9]+)$/.exec(raw);
@@ -164,7 +189,8 @@ export function disposableOrigin() {
  * supplying a SHA is not runtime evidence — the observable task-owned
  * provenance (real git state of this checkout) is the observation.
  */
-export async function disposableSourceIdentity() {
+export async function disposableSourceIdentity(options = {}) {
+	const trackedOnly = options.trackedOnly === true;
 	const declared = (process.env[DISPOSABLE_SOURCE_ENV] ?? "").trim();
 	if (!FULL_SHA_PATTERN.test(declared)) {
 		return { error: `${DISPOSABLE_SOURCE_ENV} must be the full 40-hex committed execution SHA of this checkout` };
@@ -177,11 +203,152 @@ export async function disposableSourceIdentity() {
 	if (sha !== declared) {
 		return { error: `disposable source identity mismatch: this checkout's actual HEAD is ${sha} but ${DISPOSABLE_SOURCE_ENV} declares ${declared}` };
 	}
-	const status = await boundedExec("git", ["status", "--porcelain=v1", "--untracked-files=all"], "git status");
+	const statusArgs = trackedOnly
+		? ["status", "--porcelain=v1", "--untracked-files=no"]
+		: ["status", "--porcelain=v1", "--untracked-files=all"];
+	const status = await boundedExec("git", statusArgs, "git status");
 	if (status.error !== undefined || (status.stdout ?? "").trim().length > 0) {
-		return { error: `the disposable checkout must be a clean worktree at the declared execution SHA (git status not clean)` };
+		return {
+			error: trackedOnly
+				? `the source under test changed: tracked files differ from the declared execution SHA (${DISPOSABLE_SOURCE_ENV})`
+				: `the disposable checkout must be a clean worktree at the declared execution SHA (git status not clean)`,
+		};
 	}
-	return { sha, provenance: `verified clean checkout HEAD == declared ${DISPOSABLE_SOURCE_ENV} (task-owned disposable execution)` };
+	return {
+		sha,
+		provenance: trackedOnly
+			? `post-run tracked-source identity intact at the declared ${DISPOSABLE_SOURCE_ENV}`
+			: `verified clean checkout HEAD == declared ${DISPOSABLE_SOURCE_ENV} (task-owned disposable execution)`,
+	};
+}
+
+/**
+ * T022 corrective C5 — bind the admitted disposable endpoint to the REAL
+ * task-owned serving app PROCESS and its actual source root, using existing
+ * local tools only (`ss` for the loopback listener, /proc for the process's
+ * command line and working directory, git in that directory for its HEAD).
+ * A declared PID or SHA alone — or two copies of the same environment value
+ * — is not an independent observation: the listener, its process identity,
+ * its cwd (== this checkout) and that checkout's HEAD are each observed
+ * here, and every refusal names the exact gap. Refused: no listener on the
+ * port, a dead/foreign process, a process whose cwd is not this checkout's
+ * root, a non-dev/astro command line, and a HEAD that is not the declared
+ * execution SHA. Dependency-injectable for the offline guards; the defaults
+ * are the real local observations.
+ */
+export async function admittedServingProcess(origin, expectedSha, deps = {}) {
+	const runSs = deps.runSs ?? defaultSsListeners;
+	const readCmdline = deps.readCmdline ?? defaultProcCmdline;
+	const readCwd = deps.readCwd ?? defaultProcCwd;
+	const gitHead = deps.gitHead ?? defaultGitHeadIn;
+
+	const parsed = /^http:\/\/127\.0\.0\.1:([0-9]+)$/.exec(origin ?? "");
+	if (parsed === null) {
+		return { error: `serving-process admission needs the admitted loopback origin (got ${JSON.stringify(origin)})` };
+	}
+	const port = parsed[1];
+	const ss = await runSs();
+	if (ss.error !== undefined) {
+		return { error: `could not observe local listeners for serving-process admission (${ss.error})` };
+	}
+	const matching = [];
+	for (const line of String(ss.stdout ?? "").split("\n")) {
+		if (!line.includes(`127.0.0.1:${port} `)) continue;
+		const pid = /pid=([0-9]+)/.exec(line)?.[1];
+		if (pid !== undefined) matching.push({ pid, line: line.trim() });
+	}
+	if (matching.length === 0) {
+		return { error: `no process is listening on 127.0.0.1:${port} — the disposable app is not serving; an unavailable app is a HOLD, never authorization to start one` };
+	}
+	if (matching.length > 1) {
+		return { error: `multiple listeners claim 127.0.0.1:${port} (${matching.map((m) => `pid ${m.pid}`).join(", ")}) — refusing to guess which process serves the endpoint` };
+	}
+	const pid = matching[0].pid;
+	const cmdline = await readCmdline(pid);
+	if (cmdline.error !== undefined) {
+		return { error: `the listener pid ${pid} on 127.0.0.1:${port} has no readable command line (${cmdline.error}) — a dead or foreign process never receives test traffic` };
+	}
+	const command = String(cmdline.value ?? "");
+	if (!/astro(\.mjs|\/bin\/astro)?\b/.test(command) || !/\bdev\b/.test(command)) {
+		return { error: `the listener pid ${pid} on 127.0.0.1:${port} is not an astro dev process (command line unrecognized) — a foreign process never receives test traffic` };
+	}
+	const cwd = await readCwd(pid);
+	if (cwd.error !== undefined) {
+		return { error: `the serving process pid ${pid} has no readable working directory (${cwd.error}) — its source root cannot be bound to this checkout` };
+	}
+	if (cwd.value !== repoRoot) {
+		return { error: `the serving process pid ${pid} runs from ${cwd.value}, not this checkout (${repoRoot}) — the endpoint is not bound to the source under test` };
+	}
+	const head = await gitHead(cwd.value);
+	if (head.error !== undefined) {
+		return { error: `the serving process's source root ${cwd.value} has no observable HEAD (${head.error})` };
+	}
+	const sha = String(head.value ?? "").trim();
+	if (sha !== expectedSha) {
+		return { error: `the serving process's source HEAD is ${sha}, not the declared execution SHA ${expectedSha} — the endpoint is not serving the candidate under test` };
+	}
+	return {
+		pid: Number(pid),
+		sourceRoot: cwd.value,
+		sha,
+		provenance: `listener 127.0.0.1:${port} → pid ${pid} (astro dev, cwd = this checkout, HEAD = declared execution SHA)`,
+	};
+}
+
+/** Default local observations for admittedServingProcess (overridable offline). */
+async function defaultSsListeners() {
+	const result = await new Promise((resolve) => {
+		try {
+			execFile(
+				"ss",
+				["-ltnp"],
+				{ timeout: PREREQUISITE_DEADLINE_MS, maxBuffer: 1024 * 1024 },
+				(error, stdout) => {
+					if (error) resolve({ error: error.code ?? error.message });
+					else resolve({ stdout: String(stdout) });
+				},
+			);
+		} catch (error) {
+			resolve({ error: error.code ?? error.message });
+		}
+	});
+	return result;
+}
+
+async function defaultProcCmdline(pid) {
+	try {
+		const raw = await readFile(`/proc/${pid}/cmdline`, "utf8");
+		return { value: raw.split("\0").filter((part) => part.length > 0).join(" ") };
+	} catch (error) {
+		return { error: error.code ?? error.message };
+	}
+}
+
+async function defaultProcCwd(pid) {
+	try {
+		const { readlink } = await import("node:fs/promises");
+		return { value: await readlink(`/proc/${pid}/cwd`) };
+	} catch (error) {
+		return { error: error.code ?? error.message };
+	}
+}
+
+async function defaultGitHeadIn(cwd) {
+	return new Promise((resolve) => {
+		try {
+			execFile(
+				"git",
+				["rev-parse", "HEAD"],
+				{ cwd, timeout: PREREQUISITE_DEADLINE_MS, maxBuffer: 1024 * 1024 },
+				(error, stdout) => {
+					if (error) resolve({ error: error.code ?? error.message });
+					else resolve({ value: String(stdout).trim() });
+				},
+			);
+		} catch (error) {
+			resolve({ error: error.code ?? error.message });
+		}
+	});
 }
 
 /** Discovery pre-pass budget (ms); overridable, bounded 5s..10min. */
@@ -717,6 +884,16 @@ async function readRunStatuses(statusPath) {
 async function main() {
 	const reasons = [];
 
+	// T022 corrective C5 — FIRST, before anything else: a PARTIAL disposable
+	// request fails closed here, before the controller observation, any
+	// credential read, any HTTP request and any child start, so incomplete
+	// disposable inputs can never fall back to the persistent path.
+	const completeness = disposableInputCompleteness();
+	if (!completeness.complete) {
+		await hold([completeness.error]);
+		return;
+	}
+
 	// Toolchain honesty: record the running Node, and HOLD on a major
 	// mismatch with the pinned 24.x line (engines: 24.21.0).
 	const major = Number.parseInt(process.versions.node.split(".")[0], 10);
@@ -764,6 +941,29 @@ async function main() {
 	if (reasons.length > 0) {
 		await hold(reasons);
 		return;
+	}
+
+	// T022 corrective C5 — in disposable mode the admitted endpoint is bound
+	// to the REAL serving app process and its source root BEFORE any HTTP
+	// identity probe or credential read: listener → pid → command line →
+	// cwd == this checkout → that checkout's HEAD == the declared execution
+	// SHA. (In persistent mode the controller observation above is the
+	// runtime provenance; the serving process belongs to the shared runtime
+	// and is not this coordinator's to inspect.)
+	if (disposableMode()) {
+		const admitted = admittedOrigin();
+		if (admitted.error !== undefined) {
+			await hold([admitted.error]);
+			return;
+		}
+		const serving = await admittedServingProcess(admitted.origin, expected.sha);
+		if (serving.error !== undefined) {
+			await hold([serving.error]);
+			return;
+		}
+		process.stderr.write(
+			`coordinator: disposable endpoint ${admitted.origin} bound to serving process pid ${serving.pid} (${serving.provenance})\n`,
+		);
 	}
 
 	// Unauthenticated application-identity observation.
@@ -956,12 +1156,37 @@ async function main() {
 		process.stderr.write(`CLEANUP FAILURE: ${residueFailure}\n`);
 	}
 
+	// T022 corrective C5 — in disposable mode the source under test must be
+	// UNCHANGED from admission through execution: the same clean-HEAD
+	// observation taken before the worker ran is repeated after it. A changed
+	// or dirtied tree invalidates the run's provenance regardless of the
+	// worker outcome; the evidence files above are retained, never deleted.
+	let sourceFailure;
+	if (disposableMode()) {
+		// trackedOnly: untracked build artifacts the dev server may generate
+		// mid-run (e.g. astro sync's emdash-env.d.ts) do not alter the source
+		// under test; tracked modifications or a moved HEAD do.
+		const afterRun = await disposableSourceIdentity({ trackedOnly: true });
+		if (afterRun.error !== undefined) {
+			sourceFailure = `the source under test changed during execution: post-run identity observation refused (${afterRun.error})`;
+		} else if (afterRun.sha !== expected.sha) {
+			sourceFailure = `the source under test changed during execution: post-run HEAD ${afterRun.sha} is not the admitted execution SHA ${expected.sha}`;
+		}
+		if (sourceFailure !== undefined) {
+			process.stderr.write(`SOURCE FAILURE: ${sourceFailure}\n`);
+		}
+	}
+
 	if (outcome.timedOut === true || outcome.interrupted !== undefined) {
 		process.exitCode = INTERRUPTED_EXIT;
 		return;
 	}
 	if (primaryFailure !== undefined) {
 		process.exitCode = childCode === 0 ? 1 : childCode;
+		return;
+	}
+	if (sourceFailure !== undefined) {
+		process.exitCode = 1;
 		return;
 	}
 	if (coverageFailure !== undefined || residueFailure !== undefined) {

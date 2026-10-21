@@ -284,9 +284,18 @@ const ADMITTED_TARGET_ORIGIN = (() => {
 		target !== PERSISTENT_DEVELOPMENT_ORIGIN,
 		`${DISPOSABLE_TARGET_ENV} must not name the persistent shared origin — disposable-mode traffic may never reach the shared app`,
 	).toBe(true);
+	// Exactly the coordinator's admission predicate (run-cms-public-reads.mjs
+	// disposableOrigin): loopback http, decimal port ≤ 65535, no leading zero,
+	// at most 5 digits — so a port like 99999 is refused here exactly as it is
+	// refused there, and `new URL` below can never receive an unparseable
+	// target.
+	const targetPort = /^http:\/\/127\.0\.0\.1:([0-9]+)$/.exec(target)?.[1];
 	expect(
-		/^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/.test(target),
-		`${DISPOSABLE_TARGET_ENV} must be an explicit loopback http origin`,
+		targetPort !== undefined &&
+			targetPort.length <= 5 &&
+			!targetPort.startsWith("0") &&
+			Number(targetPort) <= 65535,
+		`${DISPOSABLE_TARGET_ENV} must be an explicit loopback http origin with a valid port (≤ 65535, no leading zero)`,
 	).toBe(true);
 	return target;
 })();
@@ -488,6 +497,43 @@ function entriesOf(response: { status: number; body: RouteBody }): RouteEntry[] 
 /** The fixture path with any query string removed (evidence-safe label). */
 function redactPreviewUrl(url: string): string {
 	return new URL(url, ADMITTED_TARGET_ORIGIN).pathname;
+}
+
+/**
+ * Resolve the supported native public address of one EXACT owned media asset
+ * through the media LIST endpoint (the single-media read carries no address
+ * field; the listing attaches the relative `url` per item — see the citation
+ * in the missing-files case). Bounded walk over the native pages; the asset
+ * must appear bound to its own identity — a missing asset or an address-less
+ * item is a loud undefined, never an invented URL.
+ */
+async function mediaPublicAddress(
+	actor: Parameters<typeof cmsRequest>[0],
+	mediaId: string,
+	maxPages = 10,
+): Promise<string | undefined> {
+	let cursor: string | undefined;
+	for (let page = 0; page < maxPages; page += 1) {
+		const query = new URLSearchParams({ limit: "100" });
+		if (cursor !== undefined) query.set("cursor", cursor);
+		const result = await cmsRequest(
+			actor,
+			`/_emdash/api/media?${query.toString()}`,
+		);
+		expect(result.ok, "the native media listing must be readable").toBe(true);
+		const data = (result.body as { data?: { items?: unknown[]; nextCursor?: unknown } }).data;
+		const items = Array.isArray(data?.items) ? data!.items : [];
+		for (const raw of items) {
+			const item = raw as { id?: unknown; url?: unknown };
+			if (item.id === mediaId) {
+				return typeof item.url === "string" && item.url.length > 0 ? item.url : undefined;
+			}
+		}
+		const next = data?.nextCursor;
+		if (typeof next !== "string" || next.length === 0) return undefined;
+		cursor = next;
+	}
+	return undefined;
 }
 
 /**
@@ -2008,10 +2054,18 @@ test("published entry reads: optional omissions stay absent and never fabricated
 	expect(read.body.entry, "the published entry must be readable").not.toBeNull();
 	expect(read.body.entry?.id, "the public entry identity is its slug").toBe(fixture.slug);
 	expect(read.body.entry?.data?.title).toBe(fixture.title);
+	// Verified pinned native representation (src/loader.ts:529-564): the
+	// PUBLIC query loader materializes every declared collection field,
+	// copying NULL column values into data — an omitted optional field reads
+	// as `null` on public surfaces (the admin repository mapper, by contrast,
+	// skips nulls). The US6 requirement is the absence of FABRICATION: the
+	// omitted field must never carry an inferred/default text or any other
+	// value. Native null (or key-absent) is admitted; anything else fails.
+	const omittedSummary = read.body.entry?.data?.summary;
 	expect(
-		read.body.entry?.data?.summary,
-		"an omitted optional field must stay absent (no fabricated value)",
-	).toBeUndefined();
+		omittedSummary === undefined || omittedSummary === null,
+		"an omitted optional field stays native-absent/null — never a fabricated value",
+	).toBe(true);
 	expect(
 		read.body.entry?.references,
 		"references stay absent unless the caller opted in",
@@ -2183,9 +2237,26 @@ test("native signed preview boundary: absent, malformed, expired, wrong-entry, w
 	expect(malformed.body.isPreview).toBe(false);
 
 	// Expired token: minted with the native API at the minimum duration,
-	// then aged past its expiry — the middleware leaves the request public.
+	// then aged PAST its expiry. The wait is derived from the native expiry
+	// math, not a fixed delay: the pinned verifier computes both `iat`/`exp`
+	// and its comparison clock with Math.floor-to-seconds and refuses only
+	// when exp < now (src/preview/tokens.ts:136-142,256-259), so a token
+	// minted inside second S stays valid through the whole second S and
+	// expires only once the clock's floored second strictly exceeds exp. A
+	// fixed 1500ms sleep can therefore still read a token as valid (the
+	// first T022 execution recorded exactly that once — preserved in the
+	// evidence as a timing anomaly, now explained by this granularity).
+	// Waiting until the wall clock's floored second is strictly greater than
+	// the returned expiresAt is deterministic under that math; the budget
+	// bound keeps a stuck clock from hanging the case.
 	const expired = await mintPreviewToken(PAGES_COLLECTION, target.entryId, "1s");
-	await new Promise((resolve) => setTimeout(resolve, 1500));
+	const expiryDeadline = Date.now() + 10_000;
+	while (Math.floor(Date.now() / 1000) <= expired.expiresAt) {
+		if (Date.now() > expiryDeadline) {
+			throw new Error("bounded expiry wait exceeded its budget — the native clock never crossed the token expiry");
+		}
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	}
 	const expiredRead = await readTitle(expired.previewToken);
 	expect(
 		expiredRead.body.entry?.data?.title,
@@ -2491,20 +2562,22 @@ test("missing files: a published Document whose media asset was removed reads as
 		fixture.mediaId,
 	);
 
-	// Establish the owned asset's supported public address (native media
-	// metadata: local assets carry a relative src under the app's media file
-	// endpoint; the listing adds a relative url). Confined to the one
-	// authorized origin.
-	const mediaRead = await readMedia(admin, fixture.mediaId);
-	expect(mediaRead.ok, "the owned media metadata must be readable before removal").toBe(true);
-	const mediaItem = (nativeItemOf(mediaRead) ?? {}) as Record<string, unknown>;
-	const addressCandidate = [mediaItem.src, mediaItem.url].find(
-		(value) => typeof value === "string" && value.length > 0,
-	) as string | undefined;
+	// Establish the owned asset's supported public address. Verified pinned
+	// native shape: the SINGLE-media metadata read (GET /_emdash/api/media/
+	// {id}) returns the raw repository item with NO public address field
+	// (src/api/handlers/media.ts:104-134; MediaItem has no src/url —
+	// src/database/repositories/media.ts:57-76); the LIST endpoint is the
+	// supported surface that attaches the relative public url
+	// `/_emdash/api/media/file/{storageKey}` to every item
+	// (src/astro/routes/api/media.ts addUrlToMedia). The address is therefore
+	// taken from the listing, bound to the EXACT owned asset identity — never
+	// invented, never taken from a foreign host.
+	const address = await mediaPublicAddress(admin, fixture.mediaId);
 	expect(
-		typeof addressCandidate === "string" && addressCandidate.length > 0,
-		"the owned asset must expose a supported public address (src/url) for the availability control — a selection id alone does not establish the boundary",
+		typeof address === "string" && address.length > 0,
+		"the owned asset must appear in the native media listing bound to its exact identity, carrying its supported public address — a selection id alone does not establish the boundary",
 	).toBe(true);
+	const addressCandidate = address as string;
 	const assetUrl = new URL(addressCandidate as string, ADMITTED_TARGET_ORIGIN);
 	expect(
 		assetUrl.origin,

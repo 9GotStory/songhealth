@@ -136,10 +136,12 @@
 //   media:delete_own 30, media:delete_any 40, users:read 50, users:manage 50.
 //   canActOnOwn answers the OWN permission when user.id === ownerId (an
 //   empty-string ownerId never matches), else the ANY permission
-// - refusal families (emdash src/api/authorize.ts requirePerm/
-//   requireOwnerPerm; src/api/error.ts): anonymous → UNAUTHORIZED 401;
-//   authenticated insufficient permission → FORBIDDEN 403 "Insufficient
-//   permissions" — never VALIDATION_ERROR, so a permission refusal can never
+// - refusal families (verified pinned 1.1.0): an ANONYMOUS API request is
+//   refused by the authentication layer as 401 NOT_AUTHENTICATED
+//   (src/astro/middleware/auth.ts:79,702); an authenticated but
+//   insufficient-permission request is refused 403 FORBIDDEN "Insufficient
+//   permissions" (src/api/authorize.ts requirePerm/requireOwnerPerm) —
+//   never VALIDATION_ERROR, so a permission refusal can never
 //   masquerade as a validation outcome (and vice versa)
 // - publish/unpublish/schedule/unschedule (src/astro/routes/api/content/
 //   [collection]/[id]/{publish,unpublish,schedule}.ts): all four gate on

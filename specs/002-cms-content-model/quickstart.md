@@ -186,18 +186,28 @@ dev` process on a loopback port other than 4322 with a fresh `./media`, and
 a task-private dev config registering the existing T021 integration. The
 coordinator's explicit disposable mode (`SONGHEALTH_T021_DISPOSABLE_ORIGIN`
 plus `SONGHEALTH_T021_DISPOSABLE_SOURCE_SHA` — the committed execution SHA
-the checkout's clean HEAD must match) replaces the controller observation
-with verified checkout provenance plus the protected route identity probe,
+the checkout's clean HEAD must match; **corrective round 1/1**: the two
+inputs are all-or-nothing — a partial disposable request HOLDs before the
+controller observation, credential loading, any HTTP request or any child
+start) replaces the controller observation with verified checkout provenance,
+the real serving-process binding (loopback listener → pid → astro dev command
+line → cwd = this checkout → HEAD = the declared execution SHA; re-verified
+tracked-source-intact after the run) plus the protected route identity probe,
 pins `PLAYWRIGHT_BASE_URL` to the disposable origin and exports
 `SONGHEALTH_T021_TARGET_ORIGIN` for the spec's target guard; the persistent
 origin 4322 is refused in this mode before any request or credential read.
 Serial usage on that one disposable app:
 
 ```bash
-PLAYWRIGHT_BASE_URL=<disposable origin> npm run test:browser -- tests/browser/cms-lifecycle.spec.ts --workers=1
-PLAYWRIGHT_BASE_URL=<same origin> npm run test:browser -- tests/browser/cms-revisions.spec.ts --workers=1
+PLAYWRIGHT_BASE_URL=<disposable origin> SONGHEALTH_ROLE_FIXTURE_ACCESS=<mode-0600 role-fixture JSON> \
+  npm run test:browser -- tests/browser/cms-lifecycle.spec.ts --workers=1
+PLAYWRIGHT_BASE_URL=<same origin> SONGHEALTH_ROLE_FIXTURE_ACCESS=<same role fixture> \
+  npm run test:browser -- tests/browser/cms-revisions.spec.ts --workers=1
 SONGHEALTH_T021_DISPOSABLE_ORIGIN=<same origin> \
-SONGHEALTH_T021_DISPOSABLE_SOURCE_SHA=<execution SHA> node tests/browser/run-cms-public-reads.mjs
+SONGHEALTH_T021_DISPOSABLE_SOURCE_SHA=<execution SHA> \
+SONGHEALTH_DEV_ACCESS=<mode-0600 development credential JSON> \
+SONGHEALTH_T021_ROUTE_ACCESS=<mode-0600 route-access JSON> \
+  node tests/browser/run-cms-public-reads.mjs
 ```
 
 The exception is bounded to T022 execution: it creates no standing second

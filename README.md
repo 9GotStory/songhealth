@@ -99,10 +99,17 @@ free loopback port, one host `astro dev` process on a loopback port other than 4
 a fresh `./media`, and a task-private dev config registering the **existing** T021
 integration. The coordinator's explicit disposable mode verifies the checkout's clean HEAD
 against the declared execution SHA plus the protected route identity, and refuses the
-persistent origin in that mode. This exception is bounded to that authorized execution;
-it is not a standing second development environment, and the disposable resources are
-cleaned up as task-owned afterward. All other development/testing remains persistent-only
-against `http://127.0.0.1:4322` as documented below.
+persistent origin in that mode. Corrective round 1/1 (PO decision
+[6319293398](https://github.com/9GotStory/songhealth/issues/26#issuecomment-6319293398))
+additionally requires: the two disposable inputs (`SONGHEALTH_T021_DISPOSABLE_ORIGIN` and
+`SONGHEALTH_T021_DISPOSABLE_SOURCE_SHA`) are all-or-nothing — a partial disposable request
+HOLDs before the controller observation, credential loading, any HTTP request or any child
+start — and the admitted endpoint is bound to the real serving process (loopback listener →
+pid → astro dev command line → cwd = this checkout → that checkout's HEAD = the declared
+execution SHA), with the source re-verified after the run. This exception is bounded to that
+authorized execution; it is not a standing second development environment, and the disposable
+resources are cleaned up as task-owned afterward. All other development/testing remains
+persistent-only against `http://127.0.0.1:4322` as documented below.
 
 ## Runtime status and verification — the authorized routine operations
 
