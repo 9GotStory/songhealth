@@ -403,7 +403,7 @@ async function originIdentityHolds() {
 	if (admitted.error !== undefined) {
 		return admitted.error;
 	}
-	const label = admitted.origin === PERSISTENT_DEVELOVELOPMENT_ORIGIN
+	const label = admitted.origin === PERSISTENT_DEVELOPMENT_ORIGIN
 		? "persistent development"
 		: "disposable T022";
 	try {
