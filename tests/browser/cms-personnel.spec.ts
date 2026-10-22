@@ -101,15 +101,28 @@
 // - boolean content fields (src/schema/zod-generator.ts `case "boolean"`):
 //   boolean fields map to INTEGER columns; the validator wraps
 //   `z.preprocess((v) => (v === 0 || v === 1 ? Boolean(v) : v),
-//   z.boolean())`, so supplied `true`/`false` AND the native stored shape
-//   `0`/`1` both pass validation (no truthiness-based rejection of a
-//   valid `false`), while any other number or a string falls through to
-//   `z.boolean()` and is refused. `serializeValue`
-//   (src/database/repositories/content.ts) writes booleans as 0/1 and
-//   `deserializeValue` passes numbers through unchanged, so the READ-BACK
-//   of a boolean field is the NUMBER 0/1, never a JS boolean — the
-//   read-back assertions below expect exactly that native normalization
-//   instead of inventing a boolean round-trip
+//   z.boolean())`, so supplied `true`/`false` AND the native `0`/`1`
+//   shapes both pass validation (no truthiness-based rejection of a valid
+//   `false`), while any other number or a string falls through to
+//   `z.boolean()` and is refused. The validation is acceptance-only: its
+//   0/1→boolean preprocess never replaces the saved payload. The READ-BACK
+//   shape therefore depends on which native path serves the read:
+//   - content-column serialization (src/database/repositories/content.ts
+//     `serializeValue`/`deserializeValue`): booleans are written to the
+//     columns as the integers 0/1 and numbers pass back through
+//     unchanged, so a read served from the columns — a fresh CREATE
+//     stages no revision — returns the NUMBER 0/1;
+//   - revision JSON hydration (src/emdash-runtime.ts update staging +
+//     hydrateDraftData + src/database/repositories/revision.ts): an
+//     update stages a draft revision whose data is the ORIGINAL SUPPLIED
+//     data JSON-serialized (datetime normalization only), and an
+//     authorized read overlays that revision JSON over the live data
+//     without conversion, so after an update the value reads back EXACTLY
+//     as supplied — boolean `true`/`false` stay booleans and a supplied
+//     numeric `0` stays the number 0.
+//   The assertions below expect each path's exact native shape (create
+//   false → 0; update true → true; update false → false; update 0 → 0)
+//   rather than a blanket numeric or boolean round-trip
 // - optional fields (src/schema/zod-generator.ts generateFieldSchema):
 //   non-required fields use `.nullish()`, so `null` is a valid supplied
 //   value for an optional field (an ended assignment may clear
@@ -627,7 +640,7 @@ test("create/save/reopen: title-only minimal Personnel record saves with permitt
 	expect(item?.status, "a fresh native create is a draft").toBe("draft");
 });
 
-test("valid control: optional current fields save and read back, with boolean false/native 0 surviving as native 0", async () => {
+test("valid control: optional current fields save and read back, with boolean false/0 accepted and each native read-back path asserted exactly", async () => {
 	gatePersonnel();
 	// One synthetic fixture media id for profile_image; the read-back
 	// asserts the SELECTION identity only (no byte-availability claim —
@@ -681,15 +694,19 @@ test("valid control: optional current fields save and read back, with boolean fa
 		(data.profile_image as { id?: unknown } | undefined)?.id,
 		"the profile image selection must read back the uploaded media id",
 	).toBe(upload.mediaId);
-	// Boolean false is a VALID value (no truthiness-based rejection), and
-	// the pinned native storage returns it as the INTEGER 0 — the verified
-	// normalization/read-back, not an invented boolean round-trip.
+	// Boolean false is a VALID value (no truthiness-based rejection). A
+	// fresh create stages no revision, so this read is served from the
+	// content columns, where the pinned serialization stores booleans as
+	// the INTEGER 0/1 — create false reads back as the number 0.
 	expect(
 		data.public_visible,
-		"supplied boolean false must persist (native 0 integer read-back, the pinned normalization)",
+		"supplied boolean false must persist; the column-served create read-back is the native integer 0",
 	).toBe(0);
 
-	// The same field updated to true reads back as native 1 …
+	// The same field updated to true reads back as the boolean true: the
+	// update stages a draft revision preserving the SUPPLIED value
+	// (validation accepts it without replacing the payload), and the
+	// authorized read overlays that revision JSON without conversion …
 	const visibleTrue = await updateEntry(admin, PERSONNEL_COLLECTION, created.entryId!, {
 		data: { public_visible: true },
 	});
@@ -698,12 +715,14 @@ test("valid control: optional current fields save and read back, with boolean fa
 	expect(readTrue.ok, "the updated record must be readable").toBe(true);
 	expect(
 		dataOfItem(nativeItemOf(readTrue)).public_visible,
-		"supplied boolean true must read back as native 1",
-	).toBe(1);
+		"the revision-hydrated read-back preserves the supplied boolean true exactly",
+	).toBe(true);
 
 	// … and supplying the NATIVE 0/1 shape directly is equally valid input
-	// (the pinned boolean preprocess coerces exactly 0/1), still without
-	// truthiness-based rejection.
+	// (the pinned boolean preprocess accepts exactly 0/1), still without
+	// truthiness-based rejection. Revision hydration preserves the ORIGINAL
+	// SUPPLIED data, so the numeric 0 input reads back as the number 0 —
+	// the update path does not convert it to a boolean.
 	const visibleZero = await updateEntry(admin, PERSONNEL_COLLECTION, created.entryId!, {
 		data: { public_visible: 0 },
 	});
@@ -714,7 +733,7 @@ test("valid control: optional current fields save and read back, with boolean fa
 	expect(readZero.ok, "the updated record must be readable").toBe(true);
 	expect(
 		dataOfItem(nativeItemOf(readZero)).public_visible,
-		"the native 0 input must persist as 0 (valid false, not a missing value)",
+		"the revision-hydrated read-back preserves the supplied numeric 0 exactly (valid false, not a missing value)",
 	).toBe(0);
 });
 
@@ -857,8 +876,8 @@ test("assignment, unit and visibility changes update the SAME Personnel identity
 	).toBe(syntheticText("unit-updated"));
 	expect(
 		afterChangeData.public_visible,
-		"the visibility change must read back as native 0 (valid false) on the same identity",
-	).toBe(0);
+		"the revision-hydrated visibility change must read back as the supplied boolean false on the same identity",
+	).toBe(false);
 	// The untouched required display name survived an update that omitted
 	// it (partial update mode), and the native `_rev` advanced on the same
 	// identity — current-native-`_rev` maintenance, not a recreate.
