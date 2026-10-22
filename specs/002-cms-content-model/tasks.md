@@ -181,7 +181,7 @@ All edges below are prerequisites. Applicable runtime readiness and bounded auth
 | T014 → T015 → T016 → T017 → T018 | T013 for T014; previous task thereafter | US2 tests, shared Service/Report, required relation, verification |
 | T019, T020, T021 | T018 | Separate US6 test-authoring files, completed helper/schema |
 | T022 | T019, T020, T021 | Serial runtime join |
-| T023 → T024 → T025 → T026 | T022 for T023; previous task thereafter | Current directory and conditional reuse disposition |
+| T023 → T024 → T025 → T026 | T022 for T023, except T023 test-source authoring only under the bounded 2026-10-22 Product Owner exception below; previous task thereafter | Current directory and conditional reuse disposition |
 | T027 → T028 → T029 → T030 | T026 for T027; previous task thereafter | Facility tests/definition/reciprocal relation/verification |
 | T031 → T032 | T030 for T031 | Native maintenance smoke then staff evidence |
 | T033 | T022, T026, T030, T032 | Final delivered configuration and accurate story evidence |
@@ -189,6 +189,8 @@ All edges below are prerequisites. Applicable runtime readiness and bounded auth
 | T035 | T033, T034 | Complete handoff with evidence standing |
 
 T025 is conditional: a recorded **N/A** owner-text disposition satisfies its edge without claiming Organization implementation. Missing evidence for an applicable outcome is pending, not N/A or PASS. T032's artifact may report staff evidence pending; T033/T035 can report source/development findings with that limitation, but cannot close SC-007/full feature acceptance until actual staff verification exists.
+
+**T023 bounded source-authoring exception (Product Owner decision, 2026-10-22 — GitHub issue #26 comment 6333413235, plus this feature's original workflow instruction):** accepted T018 inputs and the already-authored US6 test sources (T019/T020) permit **T023 test-source authoring only** ahead of the serial T022 runtime join. **T022 remains DEFERRED — NOT PASSED** and stays the unmet runtime acceptance dependency: this exception authorizes no US6 runtime execution or PASS, no relaxation of T024–T026 prerequisites or later-task authorization, and no change to T033's T022 join or to any task/acceptance marker. The native model still defines no `personnel` collection (T024 owns it), so T023's runtime execution remains with its separately authorized verification join (T026).
 
 ### User Story Dependency Graph
 
@@ -198,8 +200,12 @@ Accepted existing platform + approved Feature 002 artifacts
   → Shared prerequisites {T003 || T004} → T005 → T006
   → US1 T007–T013 (P1; smallest MVP)
   → US2 T014–T018 (P1; introduces shared Service)
-  → US6 {T019 || T020 || T021} → T022 (P1; native safety)
-  → US3 T023–T026 (P2; conditional Organization or N/A)
+  → US6 {T019 || T020 || T021} → T022 (P1; native safety; DEFERRED — NOT PASSED)
+  → US3 T023–T026 (P2; conditional Organization or N/A; T023 test-source
+    authoring only proceeds from accepted T018 inputs plus the authored US6
+    tests per the 2026-10-22 Product Owner decision — GitHub issue #26
+    comment 6333413235 — while T022 stays the unmet runtime acceptance
+    dependency)
   → US4 T027–T030 (P2; facility + reciprocal offerings)
   → US7 T031–T032 (P3; native maintenance)
   → Cross-cutting T033–T035
