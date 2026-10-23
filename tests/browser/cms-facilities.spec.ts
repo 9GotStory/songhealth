@@ -335,12 +335,17 @@ const OWNERSHIP_MODES: readonly string[] = [
 const OPERATIONAL_STATUSES: readonly string[] = ["active", "temporarily_closed", "inactive"];
 
 /**
- * The approved T028 health_services field set: `title` (official name,
+ * The approved T028 health_services DATA-field set: `title` (official name,
  * ชื่อทางการ) is the save-time required string; every other data field is
- * optional; latitude/longitude carry the approved native inclusive ranges;
- * `offered_services` is the parent-side selector of the one reciprocal
- * relation. Nothing outside this set (plus the single conditional
- * `organization` reference) may exist on the collection.
+ * optional; latitude/longitude carry the approved native inclusive ranges.
+ * T028 owns the collection and its taxonomy attachments — NOT the
+ * `facility_services` relation: `offered_services` is T029's parent-side
+ * selector, so its absence is the outstanding T029 prerequisite (a valid
+ * T028-only collection must qualify for these facility-field checks), its
+ * presence is tolerated here, and the relation gate below validates it
+ * (present-but-wrong FAILS). Nothing outside this set (plus `offered_services`
+ * and the single conditional `organization` reference) may exist on the
+ * collection.
  */
 const APPROVED_FACILITY_FIELDS: ReadonlyArray<{
 	slug: string;
@@ -348,7 +353,6 @@ const APPROVED_FACILITY_FIELDS: ReadonlyArray<{
 	required?: boolean;
 	selectOptions?: readonly string[];
 	range?: { min: number; max: number };
-	relation?: { relation: string; side: "parent" };
 }> = [
 	{ slug: "title", type: "string", required: true },
 	{ slug: "facility_code", type: "string" },
@@ -361,10 +365,30 @@ const APPROVED_FACILITY_FIELDS: ReadonlyArray<{
 	{ slug: "public_contact", type: "text" },
 	{ slug: "affiliation_text", type: "string" },
 	{ slug: "image", type: "image" },
+];
+
+/**
+ * The T029-owned reciprocal selectors, with the binding each side must carry:
+ * health_services `offered_services` on the parent side and services
+ * `offering_facilities` on the child side of the ONE `facility_services` edge
+ * set. Both belong to T029's declaration/binding scope — the relation gate
+ * treats their absence (together with the relation's) as the truthful T029
+ * prerequisite and any present-but-wrong binding as a loud failure.
+ */
+const FACILITY_SERVICES_SELECTORS: ReadonlyArray<{
+	collection: string;
+	field: string;
+	side: "parent" | "child";
+}> = [
 	{
-		slug: "offered_services",
-		type: "reference",
-		relation: { relation: FACILITY_SERVICES.relation, side: "parent" },
+		collection: HEALTH_SERVICE_COLLECTION,
+		field: FACILITY_SERVICES.parentField,
+		side: "parent",
+	},
+	{
+		collection: SERVICE_COLLECTION,
+		field: FACILITY_SERVICES.childField,
+		side: "child",
 	},
 ];
 
@@ -409,10 +433,11 @@ interface SchemaField {
 /**
  * Readiness for one exercised aspect, decided once per worker in beforeAll
  * from live supported native reads: `missing` (the owning definition task's
- * prerequisite outstanding — T028's health_services/facility_type/area
- * attachment or T029's facility_services declaration) SKIPS explicitly with
- * that prerequisite named; `misconfigured` (present but not matching the
- * approved definition these checks rely on — including a duplicated
+ * prerequisite outstanding — T028's health_services collection data fields,
+ * its facility_type/area taxonomy attachments, or T029's facility_services
+ * declaration/binding) SKIPS explicitly with that prerequisite named;
+ * `misconfigured` (present but not matching the approved definition these
+ * checks rely on — including a wrong selector binding or a duplicated
  * backlink relation between the two collections) FAILS loudly so an
  * unexpected schema mismatch stays visible instead of producing wrong
  * expectations.
@@ -431,10 +456,10 @@ let serviceReadiness: Readiness = { outcome: "missing", prerequisite: "T015 serv
 /** health_services collection readiness (T028). */
 let facilityReadiness: Readiness = { outcome: "missing", prerequisite: "T028 health_services definition" };
 
-/** facility_services reciprocal relation readiness (T029). */
+/** facility_services reciprocal relation readiness (T029 declaration/binding). */
 let relationReadiness: Readiness = {
 	outcome: "missing",
-	prerequisite: "T029 facility_services relation",
+	prerequisite: "T029 facility_services relation declaration/binding",
 };
 
 /** area-taxonomy-for-coverage readiness (hierarchical + attached by T028). */
@@ -448,6 +473,9 @@ let facilityTypeReadiness: Readiness = {
 
 /** The services collection's fields as read in beforeAll (relation gate input). */
 let serviceFieldsBySlug: Map<string, SchemaField> | undefined;
+
+/** The health_services collection's fields as read in beforeAll (relation gate input). */
+let facilityFieldsBySlug: Map<string, SchemaField> | undefined;
 
 /**
  * Synthetic taxonomy terms created by this worker, in creation order
@@ -594,8 +622,15 @@ function termOf(result: NativeResult): Record<string, unknown> | undefined {
  * Create one clearly synthetic taxonomy term through the supported native
  * term API (POST /_emdash/api/taxonomies/{name}/terms) with the supplied
  * synthetic code AS the term slug, the marker-carrying label, and the
- * synthetic source description; optionally under a parent term id. On
- * success the term is registered for owned synthetic-term cleanup.
+ * synthetic source description; optionally under a parent term id. The
+ * known synthetic identity (slug + label) is registered for owned cleanup
+ * BEFORE the create request is issued: once the request has been sent, the
+ * term may exist on the server whatever happens next — a malformed success
+ * envelope, a committed-but-refused response, or a transport failure
+ * mid-flight — so no later fallible assertion can leave a created term
+ * untracked. Cleanup reconciles the registration: proven-absent counts as
+ * resolved, proven present-and-ours is deleted, and anything unproven
+ * stays explicitly unresolved.
  */
 async function createSyntheticAreaTerm(
 	taxonomy: string,
@@ -604,6 +639,7 @@ async function createSyntheticAreaTerm(
 ): Promise<{ slug: string; termId: string; label: string }> {
 	const slug = syntheticTermCode(kind);
 	const label = syntheticTermLabel(kind);
+	ownedAreaTerms.push({ taxonomy, slug, label });
 	const created = await cmsRequest(
 		admin,
 		`/_emdash/api/taxonomies/${encodeURIComponent(taxonomy)}/terms`,
@@ -630,7 +666,6 @@ async function createSyntheticAreaTerm(
 		term?.slug,
 		`the created ${taxonomy} term must retain the supplied synthetic code as its slug`,
 	).toBe(slug);
-	ownedAreaTerms.push({ taxonomy, slug, label });
 	return { slug, termId: term!.id as string, label };
 }
 
@@ -645,6 +680,81 @@ async function readTerm(
 			`/_emdash/api/taxonomies/${encodeURIComponent(taxonomy)}/terms/${encodeURIComponent(slug)}`,
 		),
 	);
+}
+
+/**
+ * Reconcile a registered owned term's expected label from the term's
+ * readable current state after an UNCERTAIN label mutation (a refused or
+ * transport-failed PUT whose commit state is not proven). Only the two
+ * labels this file could have written — the attempted edit and the standing
+ * expectation — are adopted; any other value, or an unreadable term,
+ * leaves the standing expectation untouched so cleanup can only report the
+ * term unresolved, never delete on an unproven identity.
+ */
+async function reconcileOwnedTermLabel(
+	taxonomy: string,
+	slug: string,
+	attemptedLabel: string,
+): Promise<void> {
+	const owned = ownedAreaTerms.find((entry) => entry.taxonomy === taxonomy && entry.slug === slug);
+	if (owned === undefined) {
+		return;
+	}
+	let current: Record<string, unknown> | undefined;
+	try {
+		current = await readTerm(taxonomy, slug);
+	} catch {
+		return;
+	}
+	if (current?.label === attemptedLabel || current?.label === owned.label) {
+		owned.label = current.label;
+	}
+}
+
+/**
+ * Rename one registered synthetic term through the native term API
+ * (PUT …/terms/{slug}) while keeping the cleanup ownership expectation
+ * truthful on every outcome: a CONFIRMED PUT updates the registered
+ * expected label immediately, before any read-back verification runs, so a
+ * later failed read can never strand the renamed term behind the original
+ * label at cleanup's identity guard; an UNCERTAIN PUT (refused or
+ * transport-failed) is reconciled from the term's readable state, and an
+ * unreadable term keeps the standing expectation — reported as unresolved
+ * by cleanup rather than deleted. The caller still asserts the returned
+ * result truthfully; this helper only keeps ownership tracking correct.
+ */
+async function renameOwnedAreaTerm(
+	taxonomy: string,
+	slug: string,
+	editedLabel: string,
+): Promise<NativeResult> {
+	let result: NativeResult;
+	try {
+		result = await cmsRequest(
+			admin,
+			`/_emdash/api/taxonomies/${encodeURIComponent(taxonomy)}/terms/${encodeURIComponent(slug)}`,
+			{ method: "PUT", body: { label: editedLabel } },
+		);
+	} catch (cause) {
+		// The transport failed after the request was issued — the commit
+		// state is uncertain. Reconcile what is readable, then surface the
+		// original failure unchanged.
+		await reconcileOwnedTermLabel(taxonomy, slug, editedLabel);
+		throw cause;
+	}
+	const owned = ownedAreaTerms.find((entry) => entry.taxonomy === taxonomy && entry.slug === slug);
+	if (result.ok) {
+		// Confirmed mutation: the owned term's expected label is the edited
+		// one from this point onward, BEFORE any fallible read-back.
+		if (owned !== undefined) {
+			owned.label = editedLabel;
+		}
+	} else {
+		// A refused PUT is ordinarily a clean non-commit, but the commit
+		// state of an error response is not proven — reconcile.
+		await reconcileOwnedTermLabel(taxonomy, slug, editedLabel);
+	}
+	return result;
 }
 
 /**
@@ -833,7 +943,7 @@ test.beforeAll(async () => {
 				: { outcome: "ready" };
 	}
 
-	// --- health_services collection: the approved T028 definition, exactly ---
+	// --- health_services collection: the approved T028 DATA fields, exactly ---
 	const facilityRead = await cmsRequest(
 		admin,
 		`/_emdash/api/schema/collections/${encodeURIComponent(HEALTH_SERVICE_COLLECTION)}`,
@@ -865,6 +975,7 @@ test.beforeAll(async () => {
 				bySlug.set(field.slug, field);
 			}
 		}
+		facilityFieldsBySlug = bySlug;
 		const facilityProblems: string[] = [];
 		for (const approved of APPROVED_FACILITY_FIELDS) {
 			const field = bySlug.get(approved.slug);
@@ -899,24 +1010,16 @@ test.beforeAll(async () => {
 					);
 				}
 			}
-			if (approved.relation !== undefined) {
-				const validation = field.validation;
-				if (
-					validation?.relation !== approved.relation.relation ||
-					validation?.relationSide !== approved.relation.side ||
-					field.required === true
-				) {
-					facilityProblems.push(
-						`${approved.slug} must be an optional native reference field bound to the ${approved.relation.relation} relation on the ${approved.relation.side} side`,
-					);
-				}
-			}
 		}
-		// No field outside the approved set: the single approved conditional
+		// No field outside the approved set: the T029-owned `offered_services`
+		// selector is tolerated here (its absence is T029's outstanding
+		// prerequisite, never a T028 failure; the relation gate validates its
+		// binding when present), and the single approved conditional
 		// `organization` reference is tolerated (never exercised — the
 		// accepted T025 N/A disposition keeps Organization unactivated).
 		const approvedSlugs = new Set([
 			...APPROVED_FACILITY_FIELDS.map((field) => field.slug),
+			FACILITY_SERVICES.parentField,
 			CONDITIONAL_ORGANIZATION_FIELD_SLUG,
 		]);
 		for (const slug of bySlug.keys()) {
@@ -932,7 +1035,7 @@ test.beforeAll(async () => {
 				: { outcome: "ready" };
 	}
 
-	// --- the one reciprocal facility_services edge set (T029) ---
+	// --- the one reciprocal facility_services edge set (T029 declaration/binding) ---
 	const relationsRead = await cmsRequest(admin, "/_emdash/api/relations");
 	expect(
 		relationsRead.ok,
@@ -948,15 +1051,20 @@ test.beforeAll(async () => {
 			(relation.parentCollection === SERVICE_COLLECTION &&
 				relation.childCollection === HEALTH_SERVICE_COLLECTION),
 	);
-	if (facilityReadiness.outcome !== "ready" || connecting.length === 0) {
-		// health_services itself outstanding, or the relation not declared:
-		// T028/T029 prerequisites, truthfully skipped.
+	if (facilityReadiness.outcome === "misconfigured") {
+		// A present-but-wrong T028 definition is a loud failure, not a
+		// prerequisite: the relation checks cannot stand on a schema that
+		// already failed its own definition gate.
+		relationReadiness = {
+			outcome: "misconfigured",
+			detail: `the health_services collection does not match the approved T028 definition: ${facilityReadiness.detail}`,
+		};
+	} else if (facilityReadiness.outcome === "missing") {
+		// health_services itself outstanding: T028 prerequisite, truthfully
+		// skipped — never called a T029 problem.
 		relationReadiness = {
 			outcome: "missing",
-			prerequisite:
-				facilityReadiness.outcome !== "ready"
-					? "T028 health_services definition"
-					: "T029 facility_services relation",
+			prerequisite: "T028 health_services definition",
 		};
 	} else {
 		const relationProblems: string[] = [];
@@ -970,44 +1078,63 @@ test.beforeAll(async () => {
 		const declared = connecting.find(
 			(relation) => relation.slug === FACILITY_SERVICES.relation,
 		);
+		if (connecting.length > 0 && declared === undefined) {
+			relationProblems.push(
+				`a relation connects ${HEALTH_SERVICE_COLLECTION} and ${SERVICE_COLLECTION} but is not the approved ${FACILITY_SERVICES.relation} edge set (${connecting
+					.map((relation) => String(relation.slug))
+					.join(", ")})`,
+			);
+		}
 		if (
-			declared === undefined ||
-			declared.parentCollection !== FACILITY_SERVICES.parentCollection ||
-			declared.childCollection !== FACILITY_SERVICES.childCollection
+			declared !== undefined &&
+			(declared.parentCollection !== FACILITY_SERVICES.parentCollection ||
+				declared.childCollection !== FACILITY_SERVICES.childCollection)
 		) {
 			relationProblems.push(
 				`the ${FACILITY_SERVICES.relation} relation must be declared with parent ${FACILITY_SERVICES.parentCollection} and child ${FACILITY_SERVICES.childCollection}`,
 			);
 		} else if (
-			declared.maxChildrenPerParent !== null ||
-			declared.maxParentsPerChild !== null
+			declared !== undefined &&
+			(declared.maxChildrenPerParent !== null || declared.maxParentsPerChild !== null)
 		) {
 			relationProblems.push(
 				`the ${FACILITY_SERVICES.relation} relation must keep unbounded maxima (many; many), found maxChildrenPerParent=${String(declared.maxChildrenPerParent)} maxParentsPerChild=${String(declared.maxParentsPerChild)}`,
 			);
 		}
-		// The child-side selector must be bound on services: absent is the
-		// T029 field-binding prerequisite outstanding; present but wrongly
-		// bound is drift.
-		const childField = serviceFieldsBySlug?.get(FACILITY_SERVICES.childField);
-		if (childField === undefined) {
-			relationProblems.push(
-				`services.${FACILITY_SERVICES.childField} must exist as the child-side selector (T029 binding prerequisite)`,
-			);
-		} else if (
-			childField.type !== "reference" ||
-			childField.validation?.relation !== FACILITY_SERVICES.relation ||
-			childField.validation?.relationSide !== "child" ||
-			childField.required === true
-		) {
-			relationProblems.push(
-				`services.${FACILITY_SERVICES.childField} must be an optional native reference field bound to the ${FACILITY_SERVICES.relation} relation on the child side`,
-			);
+		// Present-but-invalid selector bindings FAIL, independently of the
+		// relation declaration; ABSENT selectors are the T029 binding
+		// prerequisite outstanding and only ever skip.
+		const selectorFields = new Map<string, SchemaField | undefined>([
+			[HEALTH_SERVICE_COLLECTION, facilityFieldsBySlug?.get(FACILITY_SERVICES.parentField)],
+			[SERVICE_COLLECTION, serviceFieldsBySlug?.get(FACILITY_SERVICES.childField)],
+		]);
+		for (const selector of FACILITY_SERVICES_SELECTORS) {
+			const field = selectorFields.get(selector.collection);
+			if (
+				field !== undefined &&
+				(field.type !== "reference" ||
+					field.validation?.relation !== FACILITY_SERVICES.relation ||
+					field.validation?.relationSide !== selector.side ||
+					field.required === true)
+			) {
+				relationProblems.push(
+					`${selector.collection}.${selector.field} must be an optional native reference field bound to the ${FACILITY_SERVICES.relation} relation on the ${selector.side} side`,
+				);
+			}
 		}
-		relationReadiness =
-			relationProblems.length > 0
-				? { outcome: "misconfigured", detail: relationProblems.join("; ") }
-				: { outcome: "ready" };
+		if (relationProblems.length > 0) {
+			relationReadiness = { outcome: "misconfigured", detail: relationProblems.join("; ") };
+		} else if (declared === undefined || selectorFields.get(HEALTH_SERVICE_COLLECTION) === undefined || selectorFields.get(SERVICE_COLLECTION) === undefined) {
+			// Nothing present is invalid; pieces of the T029 declaration/
+			// binding are still absent — the truthful outstanding T029
+			// prerequisite, never a hidden failure.
+			relationReadiness = {
+				outcome: "missing",
+				prerequisite: "T029 facility_services relation declaration/binding",
+			};
+		} else {
+			relationReadiness = { outcome: "ready" };
+		}
 	}
 
 	// --- taxonomy readiness: hierarchical area attached, facility_type defined ---
@@ -1117,28 +1244,31 @@ test.afterAll(async () => {
 // Schema preconditions — the approved T028/T029 definitions, and nothing else
 // ---------------------------------------------------------------------------
 
-test("health_services schema precondition: approved native definition with inclusive coordinate ranges and no extra fields", () => {
+test("health_services schema precondition: approved native data-field definition with inclusive coordinate ranges and no extra fields", () => {
 	gate(facilityReadiness);
 	// gate() skips when the collection is missing and throws when it is
-	// misconfigured; reaching here with outcome "ready" is the asserted
+	// misconfigured; reaching here with outcome "ready" is the asserted T028
 	// precondition itself: required official-name title, the approved optional
-	// facility fields with their select options and native inclusive
-	// latitude −90..90 / longitude −180..180 ranges, the parent-side
-	// offered_services binding, nothing outside the approved set, and at most
-	// the tolerated conditional `organization` reference (Organization stays
-	// N/A under the accepted T025 disposition — affiliation_text governs).
+	// facility data fields with their select options and native inclusive
+	// latitude −90..90 / longitude −180..180 ranges, and nothing outside the
+	// approved set — the T029-owned offered_services selector is tolerated
+	// whether or not T029 has declared/bound the relation yet (the relation
+	// precondition test owns that), and at most the tolerated conditional
+	// `organization` reference exists (Organization stays N/A under the
+	// accepted T025 disposition — affiliation_text governs).
 	expect(facilityReadiness.outcome).toBe("ready");
 });
 
 test("facility_services precondition: exactly one reciprocal edge set, bound on both sides with unbounded maxima", async () => {
 	gate(relationReadiness);
-	// A fresh live read of the relations inventory (independent of beforeAll's
-	// snapshot): facility_services is the SINGLE relation connecting the two
-	// collections in either orientation — no duplicated backlink edge set —
-	// with parent health_services, child services, many;many maxima, an
-	// optional parent-side offered_services selector on health_services
-	// (asserted by the collection gate) and an optional child-side
-	// offering_facilities selector on services. Two selectors, one edge set.
+	// A fresh live read of the relations inventory and both collection
+	// schemas (independent of beforeAll's snapshot): facility_services is the
+	// SINGLE relation connecting the two collections in either orientation —
+	// no duplicated backlink edge set — with parent health_services, child
+	// services, many;many maxima, an optional parent-side offered_services
+	// selector on health_services and an optional child-side
+	// offering_facilities selector on services, each bound to that one
+	// relation on its own side. Two selectors, one edge set.
 	const relationsRead = await cmsRequest(admin, "/_emdash/api/relations");
 	expect(
 		relationsRead.ok,
@@ -1178,6 +1308,32 @@ test("facility_services precondition: exactly one reciprocal edge set, bound on 
 		declared.maxParentsPerChild,
 		"facility_services must allow many Health Services per Service (unbounded maximum)",
 	).toBeNull();
+	// Both selectors are live-read and verified against the one edge set.
+	for (const selector of FACILITY_SERVICES_SELECTORS) {
+		const schemaRead = await cmsRequest(
+			admin,
+			`/_emdash/api/schema/collections/${encodeURIComponent(selector.collection)}`,
+			{ searchParams: { includeFields: "true" } },
+		);
+		expect(
+			schemaRead.ok,
+			`the live ${selector.collection} schema must be readable for the selector-binding precondition`,
+		).toBe(true);
+		const fields = nativeItemOf(schemaRead)?.fields;
+		expect(Array.isArray(fields), `the ${selector.collection} schema read must include fields`).toBe(
+			true,
+		);
+		const field = (fields as SchemaField[]).find(
+			(entry) => entry.slug === selector.field,
+		);
+		expect(
+			field?.type === "reference" &&
+				field.validation?.relation === FACILITY_SERVICES.relation &&
+				field.validation?.relationSide === selector.side &&
+				field.required !== true,
+			`${selector.collection}.${selector.field} must be an optional native reference field bound to the ${FACILITY_SERVICES.relation} relation on the ${selector.side} side (two selectors over one edge set)`,
+		).toBe(true);
+	}
 });
 
 // ---------------------------------------------------------------------------
@@ -1616,23 +1772,17 @@ test("synthetic area hierarchy retains supplied codes in slugs, parent identitie
 	// Label edit on the Province term: the display name changes while the
 	// supplied code (slug) and native identity survive the edit — the exact
 	// "preserve code slugs during label edits" behavior the model requires.
+	// renameOwnedAreaTerm reconciles the cleanup ownership expectation at the
+	// confirmed write itself, so a failed read below can never strand the
+	// renamed term behind the original label at cleanup's identity guard.
 	const editedLabel = `${syntheticTermLabel("province")} แก้ไขชื่อ`;
-	const updatedLabel = await cmsRequest(
-		admin,
-		`/_emdash/api/taxonomies/${encodeURIComponent(AREA_TAXONOMY)}/terms/${encodeURIComponent(province.slug)}`,
-		{ method: "PUT", body: { label: editedLabel } },
-	);
+	const updatedLabel = await renameOwnedAreaTerm(AREA_TAXONOMY, province.slug, editedLabel);
 	expect(updatedLabel.ok, "the area term label edit must succeed").toBe(true);
 	const afterEdit = await readTerm(AREA_TAXONOMY, province.slug);
 	expect(afterEdit !== undefined, "the edited term must still be reachable by its original code slug").toBe(true);
 	expect(afterEdit?.label, "the edited label must read back").toBe(editedLabel);
 	expect(afterEdit?.slug, "the label edit must NOT change the supplied code slug").toBe(province.slug);
 	expect(afterEdit?.id, "the label edit must NOT change the term identity").toBe(province.termId);
-	// Track the edited label so cleanup's identity guard still recognizes it.
-	const owned = ownedAreaTerms.find((entry) => entry.slug === province.slug);
-	if (owned !== undefined) {
-		owned.label = editedLabel;
-	}
 	// The hierarchy below the renamed term is unaffected: the District still
 	// points at the same parent identity.
 	const districtAfterEdit = await readTerm(AREA_TAXONOMY, district.slug);
