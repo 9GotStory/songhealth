@@ -149,17 +149,26 @@
 //   option outside `active`/`temporarily_closed`/`inactive`
 //   (operational_status) or the four ownership meanings is a native
 //   VALIDATION_ERROR refusal
-// - native term operations (dist/astro/routes/api/taxonomies/[name]/terms/):
-//   POST `/_emdash/api/taxonomies/{name}/terms` creates a term
-//   (taxonomies:manage) with body `{ slug?, label (min 1), parentId?
-//   (nullish), description?, locale?, translationOf? }` — an explicit slug is
-//   retained instead of deriving one from the label; GET `…/terms` lists
-//   `data { terms: [{ id, name, slug, label, parentId, description?, … }] }`
-//   and GET `…/terms/{slug}` reads one term back by its CURRENT slug
-//   (taxonomies:read); PUT `…/terms/{slug}` updates `{ slug?, label?,
-//   parentId?, description? }` (taxonomies:manage) — a label-only edit leaves
-//   the slug and id identity intact, which is the "code in slug survives
-//   label edits" mechanism; DELETE `…/terms/{slug}` removes the term. Terms
+// - native term operations (dist/astro/routes/api/taxonomies/[name]/terms/,
+//   handlers in dist/taxonomies-*.mjs): POST `/_emdash/api/taxonomies/{name}/terms`
+//   creates a term (taxonomies:manage) with body `{ slug?, label (min 1),
+//   parentId? (nullish), description?, locale?, translationOf? }` — an explicit
+//   slug is retained instead of deriving one from the label, and a create whose
+//   slug already exists in the taxonomy is refused `409 CONFLICT` ("Term
+//   '<slug>' already exists", handleTermCreate) — the native collision guard
+//   behind the ownership states below; GET `…/terms` lists
+//   `data { terms: [{ id, name, slug, label, parentId, description?, children:
+//   […], … }] }` — a HIERARCHICAL tree whose descendants appear ONLY nested
+//   under their ancestors' `children`, never in the root array, so absence is
+//   provable only against the complete tree — and GET `…/terms/{slug}` reads
+//   one term back by its CURRENT slug (taxonomies:read); PUT `…/terms/{slug}`
+//   updates `{ slug?, label?, parentId?, description? }` (taxonomies:manage) —
+//   a label-only edit leaves the slug and id identity intact, which is the
+//   "code in slug survives label edits" mechanism; DELETE `…/terms/{slug}`
+//   removes the term but is REFUSED `400 VALIDATION_ERROR` ("Cannot delete
+//   term with children. Delete children first.", handleTermDelete) while
+//   children survive — the native behavior behind the child-before-parent
+//   deletion order and the tree-reconciled refused-delete path below. Terms
 //   have no content publication lifecycle (current metadata), which is why
 //   these fixtures are cleaned up as terms, not trashed as content
 // - taxonomy definitions: GET `/_emdash/api/taxonomies` →
@@ -261,11 +270,18 @@
 //   update/lifecycle call supplies a fresh re-read `_rev` through the T002
 //   helpers. Owned-fixture cleanup runs as failure-safe teardown in the
 //   owning worker (afterEvery pass/fail plus an afterAll safety net). The
-//   synthetic area/facility_type terms are tracked separately and deleted
-//   deepest-parent-first, only after their slug AND label both match the
-//   synthetic fixture identity this file created — a term this file did not
-//   create is never deleted, and an unresolvable term cleanup is reported,
-//   never silently dropped
+//   synthetic area/facility_type terms are tracked separately with an
+//   explicit OWNERSHIP state per registration: only a natively CONFIRMED
+//   create (2xx — a duplicate slug would be refused 409) is ever deleted,
+//   deepest-parent-first and only after its slug AND label both match the
+//   synthetic fixture identity; a definitively refused create (4xx,
+//   including 409 on a pre-existing slug) owns nothing and never deletes
+//   the pre-existing term; unconfirmed outcomes (transport failure / 5xx)
+//   stay explicitly unresolved — registration alone never authorizes
+//   deletion. Absence is reconciled against the COMPLETE hierarchical
+//   listing (nested children included), never a root-only scan or a failed
+//   single read; an unresolvable term cleanup is reported, never silently
+//   dropped
 // - this file performs no schema operations: the schema/relations/taxonomies
 //   reads below are read-only readiness gates; applying T028/T029 definitions
 //   to the shared runtime is those tasks' separately authorized scope
@@ -478,12 +494,35 @@ let serviceFieldsBySlug: Map<string, SchemaField> | undefined;
 let facilityFieldsBySlug: Map<string, SchemaField> | undefined;
 
 /**
- * Synthetic taxonomy terms created by this worker, in creation order
- * (cleanup deletes them reversed — deepest/last-created first). Each entry
- * records the exact slug AND label minted here so cleanup only ever deletes
- * a term whose identity proves this file created it.
+ * Synthetic taxonomy terms this worker has attempted to create, in creation
+ * order (cleanup visits them reversed — deepest/last-created first). Each
+ * entry records the exact slug AND label minted here plus the OWNERSHIP
+ * state established from the native outcome:
+ * - "unconfirmed" — a create was issued but native confirmation is absent
+ *   (transport failure, a 5xx, or an outcome not yet classified). Cleanup
+ *   NEVER deletes on an unconfirmed registration — it stays explicitly
+ *   unresolved — because registration alone cannot prove this file created
+ *   whatever term may sit at that slug.
+ * - "confirmed" — the native create was ACCEPTED (2xx): the platform
+ *   created this file's term (a duplicate slug is refused 409 CONFLICT, so
+ *   an accepted create is this file's creation). Cleanup may delete it
+ *   after the slug+label identity guard; the native term id is recorded
+ *   when the response carries one.
+ * - "not-created" — the native platform definitively REFUSED the create
+ *   (4xx, including 409 CONFLICT on a pre-existing slug): nothing of this
+ *   file's exists at that slug, and any term found there is pre-existing
+ *   and NOT ours — cleanup neither deletes it nor reports it as residue.
  */
-const ownedAreaTerms: Array<{ taxonomy: string; slug: string; label: string }> = [];
+type OwnedAreaTerm = {
+	taxonomy: string;
+	slug: string;
+	label: string;
+	ownership: "unconfirmed" | "confirmed" | "not-created";
+	/** Native term id from the accepted create response, when carried. */
+	termId?: string;
+};
+
+const ownedAreaTerms: OwnedAreaTerm[] = [];
 
 /** One clearly synthetic unique title (never real editorial data). */
 function uniqueTitle(kind: string): string {
@@ -623,14 +662,16 @@ function termOf(result: NativeResult): Record<string, unknown> | undefined {
  * term API (POST /_emdash/api/taxonomies/{name}/terms) with the supplied
  * synthetic code AS the term slug, the marker-carrying label, and the
  * synthetic source description; optionally under a parent term id. The
- * known synthetic identity (slug + label) is registered for owned cleanup
- * BEFORE the create request is issued: once the request has been sent, the
- * term may exist on the server whatever happens next — a malformed success
- * envelope, a committed-but-refused response, or a transport failure
- * mid-flight — so no later fallible assertion can leave a created term
- * untracked. Cleanup reconciles the registration: proven-absent counts as
- * resolved, proven present-and-ours is deleted, and anything unproven
- * stays explicitly unresolved.
+ * known synthetic identity (slug + label) is registered BEFORE the create
+ * request is issued (an in-flight create must never be untracked), and the
+ * registration's OWNERSHIP state is classified from the native outcome
+ * BEFORE any fallible response-shape assertion: a 2xx acceptance confirms
+ * this file's creation (and records the native term id when carried); a
+ * definitive 4xx refusal — including 409 CONFLICT on a colliding slug —
+ * marks the registration not-created, so a pre-existing same-slug term can
+ * NEVER be deleted by this file's cleanup; transport failures and 5xx
+ * leave the registration unconfirmed, which cleanup only ever reports as
+ * explicitly unresolved, never deletes on.
  */
 async function createSyntheticAreaTerm(
 	taxonomy: string,
@@ -639,7 +680,8 @@ async function createSyntheticAreaTerm(
 ): Promise<{ slug: string; termId: string; label: string }> {
 	const slug = syntheticTermCode(kind);
 	const label = syntheticTermLabel(kind);
-	ownedAreaTerms.push({ taxonomy, slug, label });
+	const registration: OwnedAreaTerm = { taxonomy, slug, label, ownership: "unconfirmed" };
+	ownedAreaTerms.push(registration);
 	const created = await cmsRequest(
 		admin,
 		`/_emdash/api/taxonomies/${encodeURIComponent(taxonomy)}/terms`,
@@ -653,6 +695,18 @@ async function createSyntheticAreaTerm(
 			},
 		},
 	);
+	// Ownership classification precedes the fallible assertions below: even
+	// when they fail (a malformed success envelope), the registration already
+	// carries the truthful ownership state for cleanup.
+	if (created.ok) {
+		registration.ownership = "confirmed";
+		const nativeId = termOf(created)?.id;
+		if (typeof nativeId === "string" && nativeId.length > 0) {
+			registration.termId = nativeId;
+		}
+	} else if (created.status >= 400 && created.status < 500) {
+		registration.ownership = "not-created";
+	}
 	expect(
 		created.ok,
 		`the synthetic ${taxonomy} term fixture (${kind}) must be created through the native term API`,
@@ -680,6 +734,77 @@ async function readTerm(
 			`/_emdash/api/taxonomies/${encodeURIComponent(taxonomy)}/terms/${encodeURIComponent(slug)}`,
 		),
 	);
+}
+
+/**
+ * Locate one slug in the COMPLETE supported hierarchical term listing
+ * (GET /_emdash/api/taxonomies/{name}/terms). The pinned 1.1.0 listing
+ * returns each term WITH its nested `children`, and hierarchical
+ * descendants appear ONLY under their ancestors — never in the root array —
+ * so a root-only scan can neither prove a child's absence nor find a
+ * surviving child whose single-term read failed. Returns `{ known: false }`
+ * when the listing itself cannot be trusted (request refusal, transport
+ * failure, or a malformed success — non-array terms/children, a non-object
+ * node, or unbounded nesting): an unknown listing proves NOTHING about
+ * absence. `{ known: true, node }` is the located term node (carrying its
+ * label for the identity guard); `{ known: true }` with no node is absence
+ * proven against a fully trusted tree.
+ */
+async function findTermNodeInListing(
+	taxonomy: string,
+	slug: string,
+): Promise<{ known: boolean; node?: Record<string, unknown> }> {
+	let listing: NativeResult;
+	try {
+		listing = await cmsRequest(
+			admin,
+			`/_emdash/api/taxonomies/${encodeURIComponent(taxonomy)}/terms`,
+		);
+	} catch {
+		return { known: false };
+	}
+	if (!listing.ok) {
+		return { known: false };
+	}
+	const roots = nativeDataOf(listing)?.terms;
+	if (!Array.isArray(roots)) {
+		return { known: false };
+	}
+	let trusted = true;
+	let found: Record<string, unknown> | undefined;
+	const walk = (nodes: unknown[], depth: number): void => {
+		if (!trusted || depth > 64) {
+			trusted = false;
+			return;
+		}
+		for (const entry of nodes) {
+			if (entry === null || typeof entry !== "object") {
+				trusted = false;
+				return;
+			}
+			const node = entry as Record<string, unknown>;
+			if (node.slug === slug) {
+				found = node;
+				return;
+			}
+			const children = node.children;
+			if (children !== undefined && !Array.isArray(children)) {
+				trusted = false;
+				return;
+			}
+			if (Array.isArray(children)) {
+				walk(children, depth + 1);
+			}
+			if (!trusted || found !== undefined) {
+				return;
+			}
+		}
+	};
+	walk(roots, 0);
+	if (!trusted) {
+		return { known: false };
+	}
+	return { known: true, node: found };
 }
 
 /**
@@ -758,41 +883,59 @@ async function renameOwnedAreaTerm(
 }
 
 /**
- * Failure-safe cleanup of the synthetic taxonomy terms this worker created
- * and registered — and only those: each deletion is guarded by a fresh read
- * whose slug AND label must both still match the exact synthetic fixture
- * identity minted here, so a slug collision with any pre-existing term can
- * never cause this file to delete data it does not own. Deletion runs
- * reversed (deepest/last-created first) so a hierarchical parent is never
- * removed before its fixture children; each term is attempted independently,
- * an already-absent term counts as resolved, and an unresolvable term stays
- * registered and reported. Never throws; returns the unresolved slugs.
+ * Failure-safe cleanup of the synthetic taxonomy terms this worker
+ * registered — and only those it can PROVE it created. Ownership state
+ * decides everything: a "not-created" registration (definitive 4xx refusal,
+ * including 409 CONFLICT on a pre-existing slug) resolves with no request
+ * at all — any term at that slug is pre-existing and NOT ours; an
+ * "unconfirmed" registration (transport failure / 5xx / unclassified) is
+ * reported explicitly unresolved and NEVER deleted, because registration
+ * alone cannot authorize deletion; only a "confirmed" registration may be
+ * deleted, guarded by the slug+label identity match. For confirmed terms a
+ * failed or ambiguous single-term read is NOT treated as absence:
+ * reconciliation goes through the COMPLETE hierarchical listing (nested
+ * `children` included, `known` distinguishing a trusted traversal from an
+ * unknown one), so a surviving child whose single read failed is found in
+ * the tree and deleted rather than silently dropped, and a refused parent
+ * deletion (the native platform refuses deleting a term that still has
+ * children) is reconciled against the tree, not assumed. Deletion runs
+ * reversed (deepest/last-created first); every term is attempted
+ * independently; an unresolvable term stays registered and reported. Never
+ * throws; returns the unresolved slugs.
  */
 async function deleteOwnedAreaTerms(): Promise<string[]> {
 	const unresolved: string[] = [];
 	for (const owned of ownedAreaTerms.slice().reverse()) {
 		try {
-			const current = await readTerm(owned.taxonomy, owned.slug);
+			if (owned.ownership === "not-created") {
+				// The native platform definitively refused this create: this
+				// file created nothing at the slug, and any term found there
+				// is pre-existing — never deleted, never reported as residue.
+				ownedAreaTerms.splice(ownedAreaTerms.indexOf(owned), 1);
+				continue;
+			}
+			if (owned.ownership !== "confirmed") {
+				// Unconfirmed ownership: a term may exist at the slug (a
+				// mid-flight commit), but this file cannot prove it created
+				// it — keep the registration and report it unresolved.
+				unresolved.push(owned.slug);
+				continue;
+			}
+			let current = await readTerm(owned.taxonomy, owned.slug);
 			if (current === undefined) {
-				// The single-term read already answered non-success/absent —
-				// resolved only if the listing agrees the slug is gone.
-				const listing = await cmsRequest(
-					admin,
-					`/_emdash/api/taxonomies/${encodeURIComponent(owned.taxonomy)}/terms`,
-				);
-				const terms = Array.isArray(nativeDataOf(listing)?.terms)
-					? (nativeDataOf(listing)!.terms as Array<{ slug?: unknown }>)
-					: undefined;
-				if (terms === undefined) {
+				// The single-term read failed or was ambiguous — that is not
+				// absence. Reconcile through the complete hierarchical tree.
+				const located = await findTermNodeInListing(owned.taxonomy, owned.slug);
+				if (!located.known) {
 					unresolved.push(owned.slug);
 					continue;
 				}
-				if (!terms.some((term) => term.slug === owned.slug)) {
+				if (located.node === undefined) {
+					// Absence proven against a fully trusted tree listing.
 					ownedAreaTerms.splice(ownedAreaTerms.indexOf(owned), 1);
 					continue;
 				}
-				unresolved.push(owned.slug);
-				continue;
+				current = located.node;
 			}
 			if (current.label !== owned.label) {
 				// Not provably this file's fixture (label drifted or a
@@ -806,6 +949,14 @@ async function deleteOwnedAreaTerms(): Promise<string[]> {
 				{ method: "DELETE" },
 			);
 			if (!removed.ok) {
+				// A refused deletion (e.g. the native "Cannot delete term with
+				// children" refusal while a child survives) is resolved only
+				// if the term is proven gone from the trusted tree.
+				const located = await findTermNodeInListing(owned.taxonomy, owned.slug);
+				if (located.known && located.node === undefined) {
+					ownedAreaTerms.splice(ownedAreaTerms.indexOf(owned), 1);
+					continue;
+				}
 				unresolved.push(owned.slug);
 				continue;
 			}
@@ -814,7 +965,14 @@ async function deleteOwnedAreaTerms(): Promise<string[]> {
 				unresolved.push(owned.slug);
 				continue;
 			}
-			ownedAreaTerms.splice(ownedAreaTerms.indexOf(owned), 1);
+			// Post-delete verification: a failed re-read is not proof of
+			// deletion either — the trusted tree decides.
+			const located = await findTermNodeInListing(owned.taxonomy, owned.slug);
+			if (located.known && located.node === undefined) {
+				ownedAreaTerms.splice(ownedAreaTerms.indexOf(owned), 1);
+				continue;
+			}
+			unresolved.push(owned.slug);
 		} catch {
 			unresolved.push(owned.slug);
 		}
@@ -1075,10 +1233,15 @@ test.beforeAll(async () => {
 					.join(", ")}) — a duplicated backlink edge set is not the approved model`,
 			);
 		}
-		const declared = connecting.find(
+		// The named declaration is located in the FULL relations inventory —
+		// NOT the expected-pair subset — so a present `facility_services`
+		// with wrong endpoints (e.g. health_services → pages) is validated
+		// and FAILS loudly here instead of being invisible to the pair filter
+		// and skipped as a missing T029 prerequisite.
+		const declared = relations.find(
 			(relation) => relation.slug === FACILITY_SERVICES.relation,
 		);
-		if (connecting.length > 0 && declared === undefined) {
+		if (connecting.length > 0 && !connecting.some((relation) => relation.slug === FACILITY_SERVICES.relation)) {
 			relationProblems.push(
 				`a relation connects ${HEALTH_SERVICE_COLLECTION} and ${SERVICE_COLLECTION} but is not the approved ${FACILITY_SERVICES.relation} edge set (${connecting
 					.map((relation) => String(relation.slug))
@@ -1091,7 +1254,7 @@ test.beforeAll(async () => {
 				declared.childCollection !== FACILITY_SERVICES.childCollection)
 		) {
 			relationProblems.push(
-				`the ${FACILITY_SERVICES.relation} relation must be declared with parent ${FACILITY_SERVICES.parentCollection} and child ${FACILITY_SERVICES.childCollection}`,
+				`the ${FACILITY_SERVICES.relation} relation is declared with parent ${String(declared.parentCollection)} and child ${String(declared.childCollection)}; the approved edge set must connect parent ${FACILITY_SERVICES.parentCollection} and child ${FACILITY_SERVICES.childCollection}`,
 			);
 		} else if (
 			declared !== undefined &&
