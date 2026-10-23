@@ -742,13 +742,19 @@ async function readTerm(
  * returns each term WITH its nested `children`, and hierarchical
  * descendants appear ONLY under their ancestors — never in the root array —
  * so a root-only scan can neither prove a child's absence nor find a
- * surviving child whose single-term read failed. Returns `{ known: false }`
- * when the listing itself cannot be trusted (request refusal, transport
- * failure, or a malformed success — non-array terms/children, a non-object
- * node, or unbounded nesting): an unknown listing proves NOTHING about
- * absence. `{ known: true, node }` is the located term node (carrying its
- * label for the identity guard); `{ known: true }` with no node is absence
- * proven against a fully trusted tree.
+ * surviving child whose single-term read failed. The tree is trusted only
+ * when EVERY node at every depth is a well-formed native term node — a
+ * non-null, non-array object with a nonempty string `slug` and an EXPLICIT
+ * array-valued `children` member (leaves carry empty arrays) — validated
+ * completely before any match is accepted, with no early match or
+ * traversal return bypassing a malformed descendant. Returns
+ * `{ known: false }` when the listing cannot be trusted (request refusal,
+ * transport failure, or any malformed/incomplete tree — non-array
+ * terms/children, an array/non-object/empty-slug/non-string-slug node, an
+ * omitted children member, or unbounded nesting): an unknown listing
+ * proves NOTHING about absence. `{ known: true, node }` is the located
+ * term node (carrying its label for the identity guard); `{ known: true }`
+ * with no node is absence proven against a fully trusted tree.
  */
 async function findTermNodeInListing(
 	taxonomy: string,
@@ -770,6 +776,17 @@ async function findTermNodeInListing(
 	if (!Array.isArray(roots)) {
 		return { known: false };
 	}
+	// The tree is trusted ONLY when every node, at every depth, is a
+	// well-formed native term node: a non-null, NON-ARRAY object carrying a
+	// nonempty string `slug` and an EXPLICIT array-valued `children` member
+	// (the pinned 1.1.0 termWithCount shape — leaves carry empty arrays, so
+	// an omitted children member means an incomplete tree). Structural
+	// validation is complete before any match is accepted, and NO early
+	// match or traversal return can bypass validation: a match records the
+	// node but the walk keeps validating every remaining sibling and
+	// descendant, so a single malformed node anywhere — even one discovered
+	// after the match — makes the whole listing untrusted. An incomplete
+	// tree can hide a surviving term and must never be read as absence.
 	let trusted = true;
 	let found: Record<string, unknown> | undefined;
 	const walk = (nodes: unknown[], depth: number): void => {
@@ -778,24 +795,28 @@ async function findTermNodeInListing(
 			return;
 		}
 		for (const entry of nodes) {
-			if (entry === null || typeof entry !== "object") {
+			if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
 				trusted = false;
 				return;
 			}
 			const node = entry as Record<string, unknown>;
-			if (node.slug === slug) {
-				found = node;
-				return;
-			}
-			const children = node.children;
-			if (children !== undefined && !Array.isArray(children)) {
+			const nodeSlug = node.slug;
+			if (typeof nodeSlug !== "string" || nodeSlug.length === 0) {
 				trusted = false;
 				return;
 			}
-			if (Array.isArray(children)) {
-				walk(children, depth + 1);
+			const children = node.children;
+			if (!Array.isArray(children)) {
+				trusted = false;
+				return;
 			}
-			if (!trusted || found !== undefined) {
+			if (nodeSlug === slug && found === undefined) {
+				found = node;
+			}
+			// Descendants are validated unconditionally — the walk does not
+			// stop at a match.
+			walk(children as unknown[], depth + 1);
+			if (!trusted) {
 				return;
 			}
 		}
