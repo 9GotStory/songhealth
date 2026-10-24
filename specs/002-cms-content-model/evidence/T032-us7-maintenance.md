@@ -99,3 +99,73 @@ HTTP 302 → http://localhost:4322/_emdash/admin/login?redirect=%2F_emdash%2Fadm
 | `t032-admission.mjs` | The exact read-only driver (GETs only, T030 credential discipline) that produced both captures |
 | `pre-state.json` / `post-state.json` | The 19-GET admission and post-test captures (identical schema/data state; no credential material) |
 | *(external provenance)* | Full test console log delivered as an issue attachment (`t032-cms-editor-run.log`); `*.log` is gitignored (T018/T030 precedent) |
+
+---
+
+# Corrective Round 1 — 2026-10-24 (Asia/Bangkok)
+
+**Authorization**: Product Owner corrective comment `01a16e14-5201-754c-8701-ae772f71f1ec` ("Proceed with **T032 Corrective Round 1/3**… Fix only the Thai locale cookie propagation between `127.0.0.1:4322` and `localhost:4322`"), following the Lead's BLOCKED verdict (`01a16e05-4d92-7d42-9f36-56d1c89e9cce`) on the initial candidate. Lead corrective handoff: `01a16e15-6b06-7201-ac8a-104c51797a83`. **Corrective baseline**: `4314cb28438e32be361123b7c6efcdf94b91b0db` (Draft PR #37 OPEN, verified). Everything above in this file is the **historical initial-execution record and is preserved unchanged**: the original suite result **1 FAIL / 4 SKIP / 0 PASS**, the §3b diagnosis, and the original captures/log all stand exactly as recorded. This section records only Round 1.
+
+## R1.1 The correction (smallest test-side change)
+
+`tests/browser/cms-editor.spec.ts` `beforeEach` — before (baseline `4314cb2`):
+
+```ts
+test.beforeEach(async ({ page }) => {
+	const origin = (await configuredDevelopmentOrigin()).replace(/\/+$/, "");
+	await page.context().addCookies([{ name: "emdash-locale", value: "th", url: `${origin}/` }]);
+});
+```
+
+After (Round 1): the same `url`-cookie for the configured origin, plus the **same non-authentication locale cookie for exactly the other verified loopback alias** of the configured port (dot-free `domain` = that host only — no subdomain or arbitrary-host expansion), with the corrective rationale documented in the file:
+
+```ts
+const LOOPBACK_HOST_ALIASES = ["127.0.0.1", "localhost"] as const;
+
+test.beforeEach(async ({ page }) => {
+	const origin = (await configuredDevelopmentOrigin()).replace(/\/+$/, "");
+	const originHost = new URL(origin).hostname;
+	await page.context().addCookies([
+		{ name: "emdash-locale", value: "th", url: `${origin}/` },
+		...LOOPBACK_HOST_ALIASES.filter((host) => host !== originHost).map((host) => ({
+			name: "emdash-locale",
+			value: "th",
+			domain: host,
+			path: "/",
+		})),
+	]);
+});
+```
+
+Net diff: **+24/−1 lines in one function**. No assertion, timeout, redirect handling, session gate, helper, fixture or cleanup change anywhere; every assertion — including `lang=th` (`:1046`→`:1069` after the comment insert) and the native sign-in copy — is intact. TypeScript diagnostics: `npx tsc --noEmit` → **exactly the 3 unchanged pre-existing diagnostics** (all in `tests/node/foundation.test.ts`), before and after the change. Version-sensitive API usage verified against pinned Playwright documentation per repository policy (Context7 `/microsoft/playwright` v1.63.0, `BrowserContext.addCookies`): a cookie set with `url` is scoped to that URL's host; `domain`+`path` is the documented alternative and a dot-free domain value applies to exactly that host — which is what makes the alias entry the bounded propagation the authorization names, nothing broader.
+
+## R1.2 Admission re-verification (before execution)
+
+Controller `status`: serving source exactly `6ab72780c1a531956acc3c06838c3028e10ad77d`, app `56a74583da82…` / postgres `d91afe9ed319…` both running — unchanged identity vs every prior record. Controller `verify`: full PASS. Checkout at the exact corrective baseline `4314cb2` (+ this round's test edit only). No runtime, site-URL, schema, seed or dependency change; no lifecycle verb; no `podman exec`.
+
+## R1.3 Discovery and execution — only the localization boundary test
+
+- **Discovery**: `npx playwright test tests/browser/cms-editor.spec.ts --grep "native Admin boundary is reachable and localized in Thai with correct English fallback" --list` → **exactly 1 test in 1 file** (confirmed before running). The full suite and the authenticated journeys were NOT run.
+- **Execution 1 (cold)**: same grep with `--workers=1 --retries=0`, `PLAYWRIGHT_BASE_URL=http://127.0.0.1:4322` → **1 failed**. **The corrected locale propagation is proven effective: the `lang="th"` assertion PASSED** (the run moved past it), and the redirected login document — reached at `http://localhost:4322/_emdash/admin/login?redirect=…` — now renders server-side Thai. The failure moved to the **next** fixed assertion, the native sign-in copy's `toBeVisible` (5.0s timeout, `cms-editor.spec.ts:1078`): the page snapshot still showed the un-hydrated `Loading EmDash...` shell when the window closed.
+- **Execution 2 (warm re-run, to separate cold-start latency from determinism)**: identical outcome — `lang=th` passes; sign-in copy not visible within the fixed 5.0s; same snapshot.
+- **Read-only timing probe** (diagnostic only, `.tmp/`, not a test change and not committed): with the same two loopback cookie entries — redirect answered in **147ms** with **`lang=th`** on the redirected host; the sign-in copy ("เข้าสู่ระบบด้วย Passkey", matched by the assertion's Thai|`Passkey` alternation) became **visible 5173ms after the redirect (5320ms total)**; **zero console/page errors**. Every hydration resource serves 200 on both hosts (island `PluginRegistry.mjs`, React renderer, the virtual registries, and the 46.3MB pre-bundled `@emdash-cms_admin.js` in ~0.6s).
+
+**Mechanism conclusion (Round 1 finding)**: dev-mode hydration of the Admin SPA on this runtime takes ≈5.2s after redirect — deterministically just past the assertion's fixed 5.0s visibility window — while the authorized correction itself achieves exactly what it was scoped to do: the native Thai locale now propagates across the verified loopback redirect and the document (and the embedded island locale props) render Thai. The remaining failure is a **fixed-timeout margin, not absent functionality and not a localization defect**; adjusting that assertion's window was not part of this round's authorized correction ("keep the real … native sign-in-copy assertions intact"), so it is reported, not changed.
+
+## R1.4 Cleanup and preservation (after execution)
+
+Suite cleanup lines: `complete (entries attempted 0, media attempted 0, terms registered 0)` — this boundary test owns no fixtures and none were created; **zero residue, nothing UNKNOWN**. Post-run 19-GET read-only re-check (the committed admission driver, output not added to captures): zero synthetic entries/trash/media, schema state identical. Controller `status` after: same source SHA, same app/postgres container IDs, both running; `verify` → full PASS. Credential file untouched.
+
+## R1.5 Round 1 standing
+
+- **Correction proven effective end-to-end**: locale cookie propagates across `127.0.0.1:4322 → localhost:4322` (Lead-reproduced redirect), server renders `lang=th`, island carries `locale: th`, Thai sign-in copy renders.
+- **The single authorized test still reports FAIL** at the next fixed assertion (sign-in-copy visibility, 5.0s window vs ≈5.2s observed hydration) — outside Round 1's authorized scope to alter; recorded for Lead/PO decision.
+- Historical initial-suite record unchanged (1 FAIL / 4 SKIP / 0 PASS). Authenticated journeys remain HELD; staff evidence and **SC-007 remain PENDING**. No PASS claim. **T022 remains DEFERRED — NOT PASSED**; all other accepted outcomes/deferrals unchanged.
+
+## Round 1 artifact provenance
+
+| Item | Provenance |
+| --- | --- |
+| Commit | appended on `task/t032-9gotstory-269-maintenance-evidence` (descendant of `4314cb2`); Draft PR #37 updated, base `task/t031-9gotstory-268-cms-editor-smoke` unchanged |
+| Changed files | `tests/browser/cms-editor.spec.ts` (+24/−1, §R1.1) and this evidence file (Round 1 section only) |
+| Attachments | both Round 1 boundary-run console logs delivered on the corrective-result comment (gitignored `*.log`, T018/T030 precedent); probe output quoted verbatim in §R1.3 |

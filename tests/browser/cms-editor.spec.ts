@@ -507,10 +507,33 @@ async function configuredDevelopmentOrigin(): Promise<string> {
  * the admin shell resolves the `emdash-locale` cookie (the native switcher
  * writes exactly `emdash-locale=th; Path=/_emdash`). This is browser-side
  * locale configuration — not an Admin fork, patch, or translation layer.
+ *
+ * The cookie is set for the configured origin AND its verified loopback alias
+ * on the same port (T032 corrective round 1): the application's
+ * unauthenticated Admin redirect answers from its configured site-URL host
+ * (`127.0.0.1:4322/_emdash/admin/` → `localhost:4322/_emdash/admin/login`),
+ * and cookies are host-scoped (Playwright 1.63.0 addCookies: a `url`-set
+ * cookie belongs to that URL's host; `domain`+`path` is the documented
+ * host-scoped alternative, dot-free = exactly that host), so a cookie set
+ * for one loopback host never reaches the redirected document on the other.
+ * Both entries carry the SAME non-authentication locale preference — only
+ * the two loopback aliases of the configured port receive it, never an
+ * arbitrary host.
  */
+const LOOPBACK_HOST_ALIASES = ["127.0.0.1", "localhost"] as const;
+
 test.beforeEach(async ({ page }) => {
 	const origin = (await configuredDevelopmentOrigin()).replace(/\/+$/, "");
-	await page.context().addCookies([{ name: "emdash-locale", value: "th", url: `${origin}/` }]);
+	const originHost = new URL(origin).hostname;
+	await page.context().addCookies([
+		{ name: "emdash-locale", value: "th", url: `${origin}/` },
+		...LOOPBACK_HOST_ALIASES.filter((host) => host !== originHost).map((host) => ({
+			name: "emdash-locale",
+			value: "th",
+			domain: host,
+			path: "/",
+		})),
+	]);
 });
 
 /** The native unauthenticated Admin outcomes (the accepted T010 contract). */
