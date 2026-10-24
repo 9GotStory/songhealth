@@ -3,12 +3,13 @@
 // EmDash Admin UI with understandable Thai collection/field labels and the
 // platform's correct English fallback — ordinary list + available
 // search/status filter, finding and reopening an existing task-owned entry,
-// the applicable native media/reference/taxonomy selectors, selecting and
-// reusing task-owned native fixtures, an explicit Save, one real native
-// validation error surfaced readably and corrected, and the domain date kept
-// separate from publication state and system metadata. Test support in
-// tests/browser/ only: no application, schema, seed, dependency,
-// infrastructure, or production change is made here.
+// the applicable native media/reference/taxonomy selectors plus the native
+// activities.gallery repeater, selecting and reusing task-owned native
+// fixtures, an explicit Save, one real native validation error surfaced
+// readably and corrected, and the domain date kept separate from publication
+// state and system metadata. Test support in tests/browser/ only: no
+// application, schema, seed, dependency, infrastructure, or production
+// change is made here.
 //
 // Authority:
 // - specs/002-cms-content-model/tasks.md T031 ("Author a compact native Admin
@@ -117,14 +118,17 @@
 // - CORRECT ENGLISH PLATFORM FALLBACK verified in the th locale (FR-029
 //   permits this; asserted below as Thai|English alternations, never as
 //   failure): the reference picker stays "Add references"/"Add selected"
-//   (rUWN6C/wiQMMj), the taxonomy picker trigger "Add term" (yk6YSd), the
-//   entry-select checkbox aria "Select {title}" (135JuL), "Open {0} in a
-//   new tab" (rSCGc2), the validation sentence frames "{name} is required."
-//   (05MRDk) and "{name} must be a valid URL." (2sfwCE) — the SCHEMA's Thai
-//   field label inside the platform's English frame — and the
+//   (rUWN6C/wiQMMj), the taxonomy picker trigger frames "Choose
+//   {label}"/"Edit {label}" (hBlIcx/wIP0Ho), its scoped search placeholder
+//   "Search {label}…" (0JMPeZ) and group name "{label} options" (75js2e),
+//   the entry-select checkbox aria "Select {title}" (135JuL), "Open {0} in
+//   a new tab" (rSCGc2), the validation sentence frames "{name} is
+//   required." (05MRDk) and "{name} must be a valid URL." (2sfwCE) — the
+//   SCHEMA's Thai field label inside the platform's English frame — and the
 //   immediate-term-save note (8nzS9o). Field/collection labels themselves
 //   come from the applied Songhealth schema, so they are the seed's Thai
-//   labels in every locale
+//   labels in every locale. The repeater chrome is natively Thai (เพิ่ม
+//   รายการแรก/เพิ่มรายการ/ยังไม่มีรายการ — 924qJl/qgF8ew/bWmJ0A)
 // - entry editor form (dist/index.js ContentEditor): fields render labeled
 //   inputs (label association via htmlFor); SaveButton is type=submit whose
 //   text walks บันทึก → กำลังบันทึก... → บันทึกแล้ว (Saved) with a
@@ -148,28 +152,43 @@
 //   native relation children listing (T027-verified shape data.children) —
 //   identity only, no availability claim (D-REF stays deferred)
 // - taxonomy selector (TaxonomySection → TaxonomyTermPicker): each attached
-//   taxonomy renders under its schema label; the picker's "Add term" trigger
-//   opens an input that filters terms by label/slug as you type, and
-//   selecting a term saves IMMEDIATELY through setEntryTerms with the
-//   "อัปเดต {label} แล้ว" toast (the platform's own immediate-save semantics
-//   — asserted as observed, not re-saved). facility_type is hierarchical
-//   with an intentionally empty inventory (T004 evidence), so this file
-//   creates ONE clearly synthetic task-owned term through the native term
-//   API and selects it; synthetic terms are never presented as official
-//   inventories
+//   taxonomy renders under its schema label. With no assignment yet the
+//   picker's empty state exposes a square trigger button labeled "Choose
+//   {label}" (hBlIcx — the English frame carries the schema's Thai label;
+//   once terms are selected the overlay trigger becomes "Edit {label}",
+//   wIP0Ho). Opening it reveals a scoped search input (placeholder
+//   "Search {label}…" 0JMPeZ) and a role=group "{label} options" (75js2e)
+//   whose choices are CHECKBOX rows labeled by each term.label — not
+//   listbox options. Checking a term saves IMMEDIATELY through setEntryTerms
+//   with the "อัปเดต {label} แล้ว" toast (KDffey; the platform's own
+//   immediate-save semantics — asserted as observed, not re-saved).
+//   facility_type is NONhierarchical (`hierarchical: false` in the accepted
+//   seed; the term listing still emits the uniform TermWithCount shape with
+//   an explicit children array on every node — leaves carry empty arrays —
+//   so the trusted-tree identity guard below stays valid), and its term
+//   inventory is intentionally empty (T004 evidence), so this file creates
+//   ONE clearly synthetic task-owned term through the native term API and
+//   selects it; synthetic terms are never presented as official inventories
 // - media selector (image field → MediaPickerModal): the empty image field
 //   offers เลือกมีเดีย; the picker searches by filename and lists library
 //   assets; the task-owned upload (a fresh owned fixture, deduplicate=false
 //   — the T002 helper) is selected by its unique filename. The saved image
 //   value is the selected asset identity only ({ id } — T027-verified
 //   read-back)
-// - NO gallery field exists anywhere in the approved Songhealth model
-//   (seed.json field types are string/text/file/datetime/integer/select/
-//   reference/portableText/image/repeater/url/boolean/number only), so no
-//   gallery selector is exercised: "where actually available" is a truthful
-//   N/A here, not an omission. Pagination is likewise source-verified
-//   native behavior (หน้าถัดไป/หน้าก่อนหน้า aria labels) but cannot be
-//   exercised deterministically with one task-owned fixture, so no
+// - gallery selector: `activities.gallery` (แกลเลอรีภาพ) IS the approved
+//   model's gallery — a native repeater (seed.json) whose subFields are the
+//   REQUIRED image ภาพ and the optional caption คำบรรยายภาพ (string). The
+//   pinned RepeaterField renders the empty state "ยังไม่มีรายการ" with an
+//   "เพิ่มรายการแรก"/"Add First Item" button (924qJl; subsequent rows
+//   "เพิ่มรายการ"/qgF8ew), adds rows EXPANDED (a new item is never in the
+//   collapsed set), renders each subField through SubFieldInput keyed by its
+//   slug — the image subField reuses the same ImageFieldRenderer (เลือกมีเดีย
+//   → the same MediaPickerModal) — and emits row values keyed by subField
+//   slug, so the saved data shape is [{ image: { id }, caption }]. One
+//   focused representative interaction below exercises it with a task-owned
+//   asset; no gallery primitive/widget is invented. Pagination is likewise
+//   source-verified native behavior (หน้าถัดไป/หน้าก่อนหน้า aria labels) but
+//   cannot be exercised deterministically with one task-owned fixture, so no
 //   multi-page state is manufactured to force it
 // - domain dates (dist/index.js toDatetimeLocalInputValue): a datetime
 //   field renders a datetime-local input whose value is the STORED domain
@@ -183,9 +202,18 @@
 // - native term API (the T027-verified contract reused here): POST
 //   /_emdash/api/taxonomies/{name}/terms { slug, label, description? }
 //   (taxonomies:manage; a duplicate slug is refused 409); GET
-//   /_emdash/api/taxonomies/{name}/terms returns the hierarchical tree as
-//   data.terms with nested children on every node; DELETE
-//   /_emdash/api/taxonomies/{name}/terms/{slug} removes a term
+//   /_emdash/api/taxonomies/{name}/terms returns the term tree as
+//   data.terms (TermWithCount: an explicit children array on every node,
+//   leaves empty — uniform for hierarchical AND nonhierarchical taxonomies);
+//   DELETE /_emdash/api/taxonomies/{name}/terms/{slug} removes a term
+// - Playwright 1.63.0 URL-wait semantics (pinned
+//   playwright-core lib — Context7 /microsoft/playwright v1.63.0):
+//   page.waitForURL matches a RegExp/substring against the COMPLETE URL
+//   string, never against URL.pathname alone, so a pathname-anchored
+//   pattern can never match http://host/_emdash/admin/login. Both redirect
+//   waits below therefore use a URL PREDICATE examining url.pathname —
+//   with an unexpected path or a settle failure treated as FAIL, never as
+//   the session prerequisite
 //
 // Authentication and session truth (the dispatch's explicit boundary):
 // - within accepted access there is NO legitimate way to establish a
@@ -252,10 +280,13 @@
 //   unresolved and are reported, never silently dropped). No official
 //   inventory, personal/clinical/HR data, or real/shared record is adopted
 //   as owned
-// - cleanup is failure-safe: afterEach (plus an afterAll safety net)
-//   reconciles entries first, then media, then the synthetic term;
-//   unresolved outcomes remain registered and are reported loudly as
-//   failures rather than left silently
+// - cleanup is failure-safe and two-phase (corrective round 1, finding S1):
+//   afterEach (plus an afterAll safety net) ALWAYS attempts the entry/media
+//   reconciliation first and the synthetic-term reconciliation second, even
+//   when the first phase returns incomplete or throws; scrubbed failures and
+//   unresolved identities from BOTH phases are collected, reported as one
+//   combined standing, and only then asserted. Unresolved outcomes remain
+//   registered and are reported loudly as failures rather than left silently
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
@@ -275,6 +306,7 @@ import {
 	uploadSyntheticMedia,
 	SYNTHETIC_FIXTURE_MARK,
 	type CmsActor,
+	type CleanupReport,
 	type NativeResult,
 } from "./cms.helpers";
 
@@ -291,6 +323,9 @@ const SERVICE_COLLECTION = "services";
 /** The US1 Announcement collection — the domain-date/timezone journey. */
 const ANNOUNCEMENT_COLLECTION = "announcements";
 
+/** The US1 Activities collection — the native gallery repeater journey. */
+const ACTIVITIES_COLLECTION = "activities";
+
 // Schema-defined Thai labels (seed.json — deterministic in every UI locale).
 const HEALTH_SERVICE_LABEL = "หน่วยบริการสุขภาพ";
 const SERVICE_LABEL = "บริการ";
@@ -302,6 +337,30 @@ const FACILITY_TYPE_LABEL = "ประเภทหน่วยบริการ
 const SERVICE_TITLE_FIELD_LABEL = "ชื่อบริการ";
 const SERVICE_EXTERNAL_URL_FIELD_LABEL = "ลิงก์บริการภายนอก";
 const ANNOUNCEMENT_AT_FIELD_LABEL = "วันที่ประกาศ";
+const ACTIVITIES_LABEL = "กิจกรรม";
+const GALLERY_FIELD_LABEL = "แกลเลอรีภาพ";
+const GALLERY_IMAGE_SUBFIELD_LABEL = "ภาพ";
+const GALLERY_CAPTION_SUBFIELD_LABEL = "คำบรรยายภาพ";
+
+/**
+ * The taxonomy picker's native trigger/search/group names for one taxonomy
+ * label (TaxonomyTermPicker): "Choose {label}" when nothing is assigned
+ * ("Edit {label}" once terms are selected), the scoped search placeholder
+ * "Search {label}…", and the "{label} options" checkbox group. All three
+ * keep their English frame around the schema's Thai label in the th locale
+ * (verified fallback), so each pattern accepts the Thai frame as well.
+ */
+const chooseTermsTrigger = (label: string): RegExp =>
+	new RegExp(`(?:Choose|เลือก)\\s*${label}`);
+const editTermsTrigger = (label: string): RegExp => new RegExp(`(?:Edit|แก้ไข)\\s*${label}`);
+const searchTermsPlaceholder = (label: string): RegExp =>
+	new RegExp(`(?:Search|ค้นหา)\\s*${label}`);
+const termsOptionsGroup = (label: string): RegExp =>
+	new RegExp(`${label}\\s*(?:options|ตัวเลือก)`);
+
+/** Native repeater chrome (natively Thai in the th locale; fallback kept). */
+const REPEATER_ADD_FIRST_ITEM = /^(เพิ่มรายการแรก|Add First Item)$/;
+const REPEATER_EMPTY_STATE = /(ยังไม่มีรายการ|No items yet)/;
 
 // Verified platform chrome, asserted as Thai|English alternations because
 // the pinned th locale itself keeps these strings/frames in English (FR-029
@@ -314,7 +373,6 @@ const MEDIA_PICKER_TITLE = /^(เลือกรูปภาพ|Select image)$/;
 const MEDIA_PICKER_SEARCH = /(ค้นหามีเดีย|Search media)/;
 const ADD_REFERENCES_LABEL = /^Add references?$/;
 const ADD_SELECTED_LABEL = /^Add selected$/;
-const ADD_TERM_LABEL = /^Add term$/;
 const INVALID_URL_ERROR = /(ป้อน URL ที่ถูกต้อง|Enter a valid URL)/;
 const TERM_UPDATED_TOAST = /(อัปเดต\s|\bupdated\b)/;
 const DRAFT_BADGE = /(ฉบับร่าง|Draft)/;
@@ -420,6 +478,15 @@ test.beforeEach(async ({ page }) => {
 /** The native unauthenticated Admin outcomes (the accepted T010 contract). */
 const UNAUTHENTICATED_ADMIN_PATHS = /^\/_emdash\/admin\/(login|setup)\/?$/;
 
+/**
+ * The URL predicate for the native login/setup redirect. Playwright 1.63.0's
+ * page.waitForURL matches a RegExp against the COMPLETE URL string, so the
+ * pathname-anchored pattern above is applied through this predicate on
+ * url.pathname instead — never handed to waitForURL directly.
+ */
+const isUnauthenticatedAdminUrl = (url: URL): boolean =>
+	UNAUTHENTICATED_ADMIN_PATHS.test(url.pathname);
+
 /** The list search input locator for a collection's Thai label. */
 function listSearchInput(page: Page, collectionLabel: string): Locator {
 	return page.getByLabel(new RegExp(`(?:ค้นหา|Search)\\s*${collectionLabel}`));
@@ -442,7 +509,7 @@ async function requireAdminSession(
 	const searchInput = listSearchInput(page, collectionLabel);
 	const outcome = await Promise.race([
 		page
-			.waitForURL(UNAUTHENTICATED_ADMIN_PATHS, { timeout: 20_000 })
+			.waitForURL(isUnauthenticatedAdminUrl, { timeout: 20_000 })
 			.then(() => "unauthenticated" as const),
 		searchInput.waitFor({ state: "visible", timeout: 20_000 }).then(() => "authenticated" as const),
 	]).catch(() => {
@@ -468,6 +535,7 @@ let journeyReadiness: Readiness = {
 	detail: "T028/T029/T030 health_services + facility_services definitions",
 };
 let announcementReadiness: Readiness = { outcome: "missing", detail: "announcements definition" };
+let galleryReadiness: Readiness = { outcome: "missing", detail: "activities gallery repeater definition" };
 let siteTimezone: string | undefined;
 
 /** Truthful schema gate: missing SKIPS with the prerequisite; misconfigured FAILS. */
@@ -621,6 +689,49 @@ test.beforeAll(async () => {
 		}
 	}
 
+	// --- activities: the native gallery repeater journey ---
+	const activities = await cmsRequest(
+		admin,
+		`/_emdash/api/schema/collections/${encodeURIComponent(ACTIVITIES_COLLECTION)}`,
+		{ searchParams: { includeFields: "true" } },
+	);
+	if (activities.status === 404) {
+		galleryReadiness = { outcome: "missing", detail: "activities gallery repeater definition" };
+	} else {
+		expect(
+			activities.ok,
+			`reading the native ${ACTIVITIES_COLLECTION} schema must succeed when it is not a 404 (got ${activities.status})`,
+		).toBe(true);
+		const galleryField = (
+			nativeItemOf(activities)?.fields as
+				| Array<{ slug?: string; type?: string; validation?: { subFields?: unknown } }>
+				| undefined
+		)?.find((field) => field.slug === "gallery");
+		const subFields = Array.isArray(galleryField?.validation?.subFields)
+			? (galleryField!.validation!.subFields as Array<{
+					slug?: string;
+					type?: string;
+					required?: boolean;
+				}>)
+			: [];
+		const imageSub = subFields.find((sub) => sub.slug === "image");
+		const captionSub = subFields.find((sub) => sub.slug === "caption");
+		if (
+			galleryField?.type !== "repeater" ||
+			imageSub?.type !== "image" ||
+			imageSub.required !== true ||
+			captionSub?.type !== "string" ||
+			captionSub.required === true
+		) {
+			galleryReadiness = {
+				outcome: "misconfigured",
+				detail: "activities.gallery must be the native repeater with the required image (ภาพ) and optional caption (คำบรรยายภาพ) subfields",
+			};
+		} else {
+			galleryReadiness = { outcome: "ready" };
+		}
+	}
+
 	// --- the site timezone (best effort; used only to state the EXPECTED
 	// datetime-local rendering of the domain date). A refusal here is not a
 	// journey failure: the separation assertions do not depend on it. ---
@@ -718,51 +829,100 @@ async function deleteOwnedSyntheticTerms(): Promise<string[]> {
 	return unresolved;
 }
 
+/**
+ * Run BOTH cleanup phases in the authorized order and collect every scrubbed
+ * failure and unresolved identity from each, so the second phase is ALWAYS
+ * attempted — even when the first phase returns incomplete or throws
+ * (corrective round 1, finding S1). Phase A reconciles owned entries then
+ * media through the shared T002 registry (its own resilience contract never
+ * throws past a failed step, but a throw is still captured here rather than
+ * allowed to skip phase B). Phase B reconciles the registered synthetic
+ * terms (already per-term try/catch internally). Ownership registrations,
+ * identity guards and unresolved retention are preserved exactly: only a
+ * proven-resolved fixture leaves the registry, and only a trusted-tree
+ * slug+label identity match is ever deleted. Returns the combined problem
+ * list for the caller to report and then assert.
+ */
+async function reconcileOwnedResources(phase: string): Promise<string[]> {
+	const problems: string[] = [];
+
+	// Phase A — entries first (their deletion releases term assignments),
+	// then media, through the shared owned-fixture registry.
+	let report: CleanupReport | undefined;
+	try {
+		report = await cleanupOwnedFixtures(admin!, { permanent: true });
+	} catch (cause) {
+		problems.push(
+			`entry/media cleanup threw: ${
+				cause instanceof Error ? scrubEmbeddedSecrets(cause.message) : "non-error rejection"
+			}`,
+		);
+	}
+	if (report !== undefined) {
+		for (const entry of report.entries) {
+			if (!entry.resolved) {
+				problems.push(
+					`entry ${entry.collection}/${entry.id} unresolved (${entry.refusal ?? entry.note ?? "no reason recorded"})`,
+				);
+			}
+		}
+		for (const media of report.media) {
+			if (!media.resolved) {
+				problems.push(
+					`media ${media.id} unresolved (${media.refusal ?? media.note ?? "no reason recorded"})`,
+				);
+			}
+		}
+	}
+
+	// Phase B — the synthetic term cleanup runs REGARDLESS of phase A's
+	// outcome; deleteOwnedSyntheticTerms already captures per-term failures
+	// as unresolved identities and never throws past one.
+	let unresolvedTerms: string[] = [];
+	try {
+		unresolvedTerms = await deleteOwnedSyntheticTerms();
+	} catch (cause) {
+		unresolvedTerms = [
+			`term cleanup threw: ${
+				cause instanceof Error ? scrubEmbeddedSecrets(cause.message) : "non-error rejection"
+			}`,
+		];
+	}
+	problems.push(...unresolvedTerms);
+
+	console.log(
+		`[cms-editor] owned-resource cleanup ${phase}: ${
+			problems.length === 0 ? "complete" : `UNRESOLVED (${problems.length} problem(s))`
+		} (entries attempted ${report?.entries.length ?? 0}, media attempted ${report?.media.length ?? 0}, terms registered ${ownedSyntheticTerms.length})`,
+	);
+	if (problems.length > 0) {
+		console.log(`[cms-editor] unresolved identities/failures: ${problems.join("; ")}`);
+	}
+	return problems;
+}
+
 test.afterEach(async () => {
 	// Partial-setup guard: beforeAll creates no owned fixtures, so an actor
 	// that never finished bootstrapping has nothing to reconcile.
 	if (admin === undefined) return;
-	// Entries first (their deletion releases term assignments), then media
-	// through the shared registry, then the synthetic term — all
-	// failure-safe and truthfully reported.
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	console.log(
-		`[cms-editor] owned-fixture cleanup after test: ${
-			report.complete ? "complete" : "UNRESOLVED"
-		} (entries attempted ${report.entries.length}, media attempted ${report.media.length})`,
-	);
+	const problems = await reconcileOwnedResources("after test");
 	expect(
-		report.complete,
-		"every owned synthetic entry/media fixture created by this test must be proven resolved (unresolved cleanup is a reported failure, not a silent leftover)",
-	).toBe(true);
-	const termsAttempted = ownedSyntheticTerms.length;
-	const unresolvedTerms = await deleteOwnedSyntheticTerms();
-	console.log(
-		`[cms-editor] synthetic-term cleanup after test: ${
-			unresolvedTerms.length === 0 ? "complete" : `UNRESOLVED (${unresolvedTerms.join(", ")})`
-		} (terms attempted ${termsAttempted})`,
-	);
-	expect(
-		unresolvedTerms.length,
-		"every synthetic taxonomy term created by this test must be proven deleted, proven absent, or explicitly reported unresolved — never silently dropped",
-	).toBe(0);
+		problems,
+		"every owned synthetic entry/media fixture and synthetic taxonomy term created by this test must be proven resolved (entries/media first, then terms, with all phases attempted and every unresolved identity reported — never a silent leftover)",
+	).toEqual([]);
 });
 
 test.afterAll(async () => {
 	// Safety net: normally a no-op (afterEach resolved everything); anything
-	// still registered here is an unresolved earlier attempt, retried and
-	// reported truthfully as the worker's final standing.
+	// still registered here is an unresolved earlier attempt, retried through
+	// the same two-phase reconciliation and reported truthfully as the
+	// worker's final standing.
 	if (admin === undefined) return;
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
+	const problems = await reconcileOwnedResources("final worker");
 	expect(
-		report.complete,
-		"the final worker cleanup must leave zero unresolved owned entry/media fixtures",
-	).toBe(true);
-	const unresolvedTerms = await deleteOwnedSyntheticTerms();
-	expect(
-		unresolvedTerms.length,
-		"the final worker cleanup must leave zero unresolved synthetic taxonomy terms",
-	).toBe(0);
+		problems,
+		"the final worker cleanup must leave zero unresolved owned entries, media or synthetic taxonomy terms, with every phase attempted and every unresolved identity reported",
+	).toEqual([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -830,14 +990,16 @@ test("native Admin boundary is reachable and localized in Thai with correct Engl
 }) => {
 	// Availability + localization only, exactly the accepted T010 boundary:
 	// navigate to the native Admin root and accept exactly the two native
-	// unauthenticated outcomes, plus the authenticated outcome when a session
-	// exists. The passkey flow is never completed or automated.
+	// unauthenticated outcomes, or a POSITIVELY VERIFIED authenticated
+	// surface. The passkey flow is never completed or automated. Any other
+	// settled path — or no recognizable surface at all — FAILS this check
+	// rather than being silently accepted.
 	await page.goto("/_emdash/admin/");
 	// The SPA may redirect client-side to sign-in; give that a bounded window
-	// before sampling the settled URL (a settled unknown path is asserted
-	// below as the authenticated outcome, never silently accepted).
+	// (predicate form: waitForURL matches RegExps against the complete URL,
+	// so the pathname pattern is applied through the URL predicate).
 	await page
-		.waitForURL(UNAUTHENTICATED_ADMIN_PATHS, { timeout: 8_000 })
+		.waitForURL(isUnauthenticatedAdminUrl, { timeout: 8_000 })
 		.catch(() => undefined);
 
 	// The native shell resolves the locale per request (the emdash-locale
@@ -845,8 +1007,8 @@ test("native Admin boundary is reachable and localized in Thai with correct Engl
 	// the document language is the first localization truth.
 	await expect(page.locator("html")).toHaveAttribute("lang", "th");
 
-	const finalPath = new URL(page.url()).pathname.replace(/\/+$/, "");
-	if (UNAUTHENTICATED_ADMIN_PATHS.test(finalPath)) {
+	if (isUnauthenticatedAdminUrl(new URL(page.url()))) {
+		const finalPath = new URL(page.url()).pathname.replace(/\/+$/, "");
 		// Unauthenticated: the sign-in surface must present the native Thai
 		// passkey copy (or the correct English fallback — never a third,
 		// unrecognizable state). The first-admin setup outcome carries its own
@@ -858,10 +1020,16 @@ test("native Admin boundary is reachable and localized in Thai with correct Engl
 			`[cms-editor] Admin boundary reached at ${finalPath} (unauthenticated; no session attempted)`,
 		);
 	} else {
-		// Authenticated (e.g. T032's staff passkey session): the shell is in
-		// Thai and the gated journey tests below carry the coverage.
+		// Any non-login/setup outcome must prove a real authenticated surface:
+		// the admin sidebar renders the applied collections (SidebarNav links
+		// carry the schema's Thai collection labels). Without this landmark
+		// the check fails — an unexpected path is never accepted as coverage.
+		await expect(
+			page.getByRole("link", { name: HEALTH_SERVICE_LABEL }).first(),
+			"a non-login/setup Admin path must render the authenticated sidebar with the applied collections' Thai labels",
+		).toBeVisible();
 		console.log(
-			`[cms-editor] Admin boundary reached at ${finalPath} (an authenticated session exists in this context)`,
+			`[cms-editor] Admin boundary reached at ${new URL(page.url()).pathname} (an authenticated session exists in this context)`,
 		);
 	}
 });
@@ -972,15 +1140,31 @@ test("maintenance journey: Thai labels, search/status filter, find and reopen, n
 	).toBeHidden();
 
 	// --- the native taxonomy selector: select the task-owned Thai term ---
-	// The picker's trigger opens an input that filters terms by label as you
-	// type (source-verified), and a selection saves immediately through the
-	// platform's own semantics — asserted as observed, never re-saved.
-	await page.getByRole("button", { name: ADD_TERM_LABEL }).first().click();
-	await page.keyboard.type(term.label, { delay: 20 });
-	await page.getByRole("option", { name: new RegExp(term.label) }).first().click();
+	// The pinned TaxonomyTermPicker's empty state exposes a "Choose {label}"
+	// trigger (the English frame carries the schema's Thai taxonomy label —
+	// verified fallback); opening it reveals the scoped "Search {label}…"
+	// input and the "{label} options" CHECKBOX group. Checking the term
+	// saves immediately through the platform's own setEntryTerms semantics —
+	// asserted as observed, never re-saved — and the field's overlay trigger
+	// becomes "Edit {label}" once a term is assigned.
+	await page
+		.getByRole("button", { name: chooseTermsTrigger(FACILITY_TYPE_LABEL) })
+		.first()
+		.click();
+	await page
+		.getByPlaceholder(searchTermsPlaceholder(FACILITY_TYPE_LABEL))
+		.fill(term.label);
+	await page
+		.getByRole("group", { name: termsOptionsGroup(FACILITY_TYPE_LABEL) })
+		.getByRole("checkbox", { name: term.label, exact: true })
+		.click();
 	await expect(
 		page.getByText(TERM_UPDATED_TOAST).first(),
 		"the native immediate term-assignment toast must surface the taxonomy's Thai label",
+	).toBeVisible();
+	await expect(
+		page.getByRole("button", { name: editTermsTrigger(FACILITY_TYPE_LABEL) }).first(),
+		"the assigned taxonomy field must now expose its native Edit trigger",
 	).toBeVisible();
 
 	// --- edit, then explicit Save through the native button ---
@@ -1156,6 +1340,89 @@ test("the domain date stays separate from publication state and system metadata 
 		updatedAt !== undefined && updatedAt !== savedData.announcement_at,
 		"the system update timestamp must be a different value from the domain date (FR-030 separation)",
 	).toBe(true);
+});
+
+test("the native gallery repeater: one task-owned image row with its optional caption, saved explicitly (activities แกลเลอรีภาพ)", async ({
+	page,
+}) => {
+	gate(galleryReadiness);
+	// DETECTION-BASED SESSION GATE (see SESSION_PREREQUISITE).
+	const searchInput = await requireAdminSession(page, ACTIVITIES_COLLECTION, ACTIVITIES_LABEL);
+
+	// Task-owned fixtures: the activity entry and a fresh owned media asset
+	// (deduplicate=false keeps the upload a fresh owned fixture).
+	const activityTitle = uniqueTitle("gallery");
+	const activity = await createSyntheticEntry(admin!, ACTIVITIES_COLLECTION, {
+		data: { title: activityTitle },
+	});
+	expect(activity.result.ok, "the task-owned Activity fixture must be created").toBe(true);
+	const mediaFilename = `${SYNTHETIC_FIXTURE_MARK}-gallery-${crypto.randomUUID().slice(0, 8)}.png`;
+	const media = await uploadSyntheticMedia(admin!, { filename: mediaFilename });
+	expect(media.result.ok, "the task-owned gallery media fixture must upload").toBe(true);
+	expect(media.mediaId, "the upload must return a fresh owned media id").toBeTruthy();
+
+	// Find and reopen the fixture in the ordinary list.
+	const fragment = activityTitle.slice(-8);
+	await searchInput.fill(fragment);
+	await page.getByRole("link", { name: new RegExp(fragment) }).click();
+	await page.waitForURL(new RegExp(`/_emdash/admin/content/${ACTIVITIES_COLLECTION}/[^/]+`));
+
+	// The gallery is the native repeater under its Thai schema label,
+	// initially empty (ยังไม่มีรายการ / No items yet).
+	await expect(page.getByText(GALLERY_FIELD_LABEL).first()).toBeVisible();
+	await expect(page.getByText(REPEATER_EMPTY_STATE).first()).toBeVisible();
+
+	// Add the FIRST row through the native button (rows render expanded).
+	// The image subfield reuses the same ImageFieldRenderer (เลือกมีเดีย → the
+	// same MediaPickerModal) as the top-level image field; the row's control
+	// is the newly appeared Select-media button — the count delta pins it,
+	// and the gallery renders after featured_image in the applied field
+	// order, so the new control is the last one in DOM order.
+	const selectMediaButtons = page.getByRole("button", { name: MEDIA_SELECT_LABEL });
+	const selectMediaCountBeforeRow = await selectMediaButtons.count();
+	await page.getByRole("button", { name: REPEATER_ADD_FIRST_ITEM }).first().click();
+	await expect(
+		selectMediaButtons,
+		"adding the first gallery row must expose exactly one new native Select-media control (the row's required image subfield)",
+	).toHaveCount(selectMediaCountBeforeRow + 1);
+	// The expanded row surfaces the required image subfield's Thai label
+	// (exact text — ภาพ is a prefix of other labels such as ภาพปก).
+	await expect(
+		page.getByText(GALLERY_IMAGE_SUBFIELD_LABEL, { exact: true }).first(),
+	).toBeVisible();
+	await selectMediaButtons.last().click();
+	const mediaDialog = page.getByRole("dialog");
+	await expect(mediaDialog.getByText(MEDIA_PICKER_TITLE)).toBeVisible();
+	await mediaDialog.getByLabel(MEDIA_PICKER_SEARCH).fill(mediaFilename);
+	await mediaDialog.getByText(mediaFilename).first().click();
+	await expect(mediaDialog, "the media picker must close after the selection").toBeHidden();
+
+	// The optional caption subfield (คำบรรยายภาพ) on the same expanded row.
+	const caption = `${SYNTHETIC_FIXTURE_MARK} gallery caption`;
+	await page.getByLabel(GALLERY_CAPTION_SUBFIELD_LABEL).first().fill(caption);
+
+	// Explicit Save, then the persisted row identity read back through the
+	// native API (the repeater emits row values keyed by subField slug).
+	const saveButton = page.getByRole("button", { name: SAVE_LABEL }).first();
+	await expect(saveButton, "the Save button must enable after the gallery edits").toBeEnabled();
+	await saveButton.click();
+	await expect(
+		page.getByRole("button", { name: SAVED_LABEL }).first(),
+		"the native editor must reach its saved state (บันทึกแล้ว/Saved)",
+	).toBeVisible();
+
+	const read = await readEntry(admin!, ACTIVITIES_COLLECTION, activity.entryId!);
+	expect(read.ok, "the saved fixture must be readable through the native API").toBe(true);
+	const gallery = dataOfItem(nativeItemOf(read)).gallery;
+	expect(Array.isArray(gallery), "the saved gallery must read back as the native repeater array").toBe(
+		true,
+	);
+	const galleryRow = (gallery as Array<Record<string, unknown>>)[0];
+	expect(
+		(galleryRow?.image as { id?: unknown } | undefined)?.id,
+		"the gallery row's image must be the selected task-owned asset identity",
+	).toBe(media.mediaId);
+	expect(galleryRow?.caption, "the gallery row's optional caption must read back").toBe(caption);
 });
 
 // ---------------------------------------------------------------------------
