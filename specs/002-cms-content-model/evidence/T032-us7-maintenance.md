@@ -237,6 +237,7 @@ Appended on `task/t032-9gotstory-269-maintenance-evidence` as a descendant of `9
 # PO Deferral Record — 2026-10-24 (Asia/Bangkok)
 
 **Provenance**: [Product Owner T032 deferral decision (PR #37 comment 6386273659)](https://github.com/9GotStory/songhealth/pull/37#issuecomment-6386273659), following the [Option B secure-test-authentication architecture NO-GO (PR #37 comment 6386211045)](https://github.com/9GotStory/songhealth/pull/37#issuecomment-6386211045) and the [Independent reconciliation review (PR #37 comment 6386381150)](https://github.com/9GotStory/songhealth/pull/37#issuecomment-6386381150); this record is authored under the [T032 Governance-only Deferral Record gate (PR #37 comment 6386423257)](https://github.com/9GotStory/songhealth/pull/37#issuecomment-6386423257). Evidence baseline: this file's entire prior content (initial record, R1, R2) is preserved byte-identically as the prefix of this appended section.
+**Evidence baseline SHA (pre-record):** `8e6e12b4a4b50a1ac1e22260ad69a1a358a02f65`
 
 **Recorded standing**:
 
