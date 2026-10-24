@@ -1,0 +1,454 @@
+{
+	"stamp": "2026-10-24T12:58:06.131Z",
+	"baseUrl": "http://127.0.0.1:4322",
+	"purpose": "T032 read-only runtime admission (controller status/verify run separately through runtime.sh)",
+	"identity": {
+		"email": "dev@emdash.local",
+		"name": "Dev Admin",
+		"role": 50
+	},
+	"schema": {
+		"health_services": {
+			"label": "หน่วยบริการสุขภาพ",
+			"labelSingular": "หน่วยบริการสุขภาพ",
+			"titleField": "title",
+			"fields": [
+				{
+					"slug": "title",
+					"type": "string",
+					"label": "ชื่อทางการ",
+					"required": true
+				},
+				{
+					"slug": "facility_code",
+					"type": "string",
+					"label": "รหัสหน่วยบริการ",
+					"required": false
+				},
+				{
+					"slug": "display_name",
+					"type": "string",
+					"label": "ชื่อที่แสดง",
+					"required": false
+				},
+				{
+					"slug": "operational_status",
+					"type": "select",
+					"label": "สถานะการให้บริการ",
+					"required": false
+				},
+				{
+					"slug": "address",
+					"type": "text",
+					"label": "ที่อยู่",
+					"required": false
+				},
+				{
+					"slug": "latitude",
+					"type": "number",
+					"label": "ละติจูด",
+					"required": false
+				},
+				{
+					"slug": "longitude",
+					"type": "number",
+					"label": "ลองจิจูด",
+					"required": false
+				},
+				{
+					"slug": "opening_hours",
+					"type": "text",
+					"label": "เวลาทำการ",
+					"required": false
+				},
+				{
+					"slug": "public_contact",
+					"type": "text",
+					"label": "ช่องทางติดต่อสาธารณะ",
+					"required": false
+				},
+				{
+					"slug": "affiliation_text",
+					"type": "string",
+					"label": "หน่วยงานที่สังกัด",
+					"required": false
+				},
+				{
+					"slug": "image",
+					"type": "image",
+					"label": "ภาพหน่วยบริการ",
+					"required": false
+				},
+				{
+					"slug": "offered_services",
+					"type": "reference",
+					"label": "บริการที่ให้",
+					"required": false,
+					"relation": "facility_services",
+					"relationSide": "parent"
+				}
+			]
+		},
+		"services": {
+			"label": "บริการ",
+			"labelSingular": "บริการ",
+			"titleField": "title",
+			"fields": [
+				{
+					"slug": "title",
+					"type": "string",
+					"label": "ชื่อบริการ",
+					"required": true
+				},
+				{
+					"slug": "summary",
+					"type": "text",
+					"label": "สรุป",
+					"required": false
+				},
+				{
+					"slug": "ownership_type",
+					"type": "select",
+					"label": "บทบาทของหน่วยงาน",
+					"required": false
+				},
+				{
+					"slug": "provider_text",
+					"type": "string",
+					"label": "หน่วยงานผู้ให้บริการ",
+					"required": false
+				},
+				{
+					"slug": "channels",
+					"type": "repeater",
+					"label": "ช่องทางรับบริการ",
+					"required": false,
+					"subFieldSlugs": [
+						"label",
+						"url"
+					]
+				},
+				{
+					"slug": "eligibility",
+					"type": "portableText",
+					"label": "คุณสมบัติ/เงื่อนไข",
+					"required": false
+				},
+				{
+					"slug": "steps",
+					"type": "portableText",
+					"label": "ขั้นตอนการรับบริการ",
+					"required": false
+				},
+				{
+					"slug": "required_documents_guidance",
+					"type": "portableText",
+					"label": "เอกสารที่ต้องเตรียม",
+					"required": false
+				},
+				{
+					"slug": "contact_location_guidance",
+					"type": "portableText",
+					"label": "สถานที่/ช่องทางติดต่อ",
+					"required": false
+				},
+				{
+					"slug": "duration",
+					"type": "text",
+					"label": "ระยะเวลาดำเนินการ",
+					"required": false
+				},
+				{
+					"slug": "fees",
+					"type": "text",
+					"label": "ค่าธรรมเนียม",
+					"required": false
+				},
+				{
+					"slug": "notes",
+					"type": "text",
+					"label": "หมายเหตุ",
+					"required": false
+				},
+				{
+					"slug": "external_url",
+					"type": "url",
+					"label": "ลิงก์บริการภายนอก",
+					"required": false
+				},
+				{
+					"slug": "documents",
+					"type": "reference",
+					"label": "เอกสารที่เกี่ยวข้อง",
+					"required": false,
+					"relation": "service_documents",
+					"relationSide": "parent"
+				},
+				{
+					"slug": "offering_facilities",
+					"type": "reference",
+					"label": "หน่วยบริการสุขภาพที่ให้บริการ",
+					"required": false,
+					"relation": "facility_services",
+					"relationSide": "child"
+				}
+			]
+		},
+		"announcements": {
+			"label": "ประกาศ",
+			"labelSingular": "ประกาศ",
+			"titleField": "title",
+			"dateField": "announcement_at",
+			"fields": [
+				{
+					"slug": "title",
+					"type": "string",
+					"label": "ชื่อเรื่อง",
+					"required": true
+				},
+				{
+					"slug": "details",
+					"type": "portableText",
+					"label": "รายละเอียด",
+					"required": false
+				},
+				{
+					"slug": "announcement_at",
+					"type": "datetime",
+					"label": "วันที่ประกาศ",
+					"required": false
+				},
+				{
+					"slug": "opens_at",
+					"type": "datetime",
+					"label": "วันที่เริ่มต้น",
+					"required": false
+				},
+				{
+					"slug": "closes_at",
+					"type": "datetime",
+					"label": "วันที่สิ้นสุด",
+					"required": false
+				},
+				{
+					"slug": "documents",
+					"type": "reference",
+					"label": "เอกสารที่เกี่ยวข้อง",
+					"required": false,
+					"relation": "announcement_documents",
+					"relationSide": "parent"
+				}
+			]
+		},
+		"activities": {
+			"label": "กิจกรรม",
+			"labelSingular": "กิจกรรม",
+			"titleField": "title",
+			"dateField": "activity_at",
+			"fields": [
+				{
+					"slug": "title",
+					"type": "string",
+					"label": "ชื่อเรื่อง",
+					"required": true
+				},
+				{
+					"slug": "summary",
+					"type": "text",
+					"label": "สรุป",
+					"required": false
+				},
+				{
+					"slug": "activity_at",
+					"type": "datetime",
+					"label": "วัน/เวลาจัดกิจกรรม",
+					"required": false
+				},
+				{
+					"slug": "location_text",
+					"type": "string",
+					"label": "สถานที่จัดกิจกรรม",
+					"required": false
+				},
+				{
+					"slug": "featured_image",
+					"type": "image",
+					"label": "ภาพประกอบ",
+					"required": false
+				},
+				{
+					"slug": "gallery",
+					"type": "repeater",
+					"label": "แกลเลอรีภาพ",
+					"required": false,
+					"subFieldSlugs": [
+						"image",
+						"caption"
+					]
+				},
+				{
+					"slug": "participants_text",
+					"type": "text",
+					"label": "ผู้เข้าร่วม/บริบท",
+					"required": false
+				}
+			]
+		},
+		"facility_type": {
+			"label": "ประเภทหน่วยบริการ",
+			"hierarchical": false,
+			"collections": [
+				"health_services"
+			]
+		},
+		"facility_type_terms": {
+			"count": 0
+		},
+		"facility_services_relation": [
+			{
+				"parentCollection": "health_services",
+				"childCollection": "services",
+				"maxChildrenPerParent": null,
+				"maxParentsPerChild": null,
+				"boundFields": [
+					{
+						"collectionSlug": "services",
+						"fieldSlug": "offering_facilities",
+						"side": "child"
+					},
+					{
+						"collectionSlug": "health_services",
+						"fieldSlug": "offered_services",
+						"side": "parent"
+					}
+				],
+				"linkCount": 0
+			}
+		],
+		"area_attachments": [
+			"news",
+			"activities",
+			"health_reports",
+			"health_services"
+		],
+		"settingsDataEmpty": true
+	},
+	"preState": {
+		"health_services": {
+			"syntheticLiveCount": 0,
+			"trashCount": 0
+		},
+		"services": {
+			"syntheticLiveCount": 0,
+			"trashCount": 0
+		},
+		"announcements": {
+			"syntheticLiveCount": 0,
+			"trashCount": 0
+		},
+		"activities": {
+			"syntheticLiveCount": 0,
+			"trashCount": 0
+		},
+		"media": {
+			"syntheticOrAnyCount": 0
+		}
+	},
+	"calls": [
+		{
+			"method": "GET",
+			"path": "/_emdash/api/auth/me",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/schema/collections/health_services?includeFields=true",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/schema/collections/services?includeFields=true",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/schema/collections/announcements?includeFields=true",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/schema/collections/activities?includeFields=true",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/taxonomies/facility_type",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/taxonomies/facility_type/terms",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/relations",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/taxonomies/area",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/settings",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/content/health_services?q=songhealth-f002-synthetic&status=all&limit=1",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/content/health_services/trash?limit=100",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/content/services?q=songhealth-f002-synthetic&status=all&limit=1",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/content/services/trash?limit=100",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/content/announcements?q=songhealth-f002-synthetic&status=all&limit=1",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/content/announcements/trash?limit=100",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/content/activities?q=songhealth-f002-synthetic&status=all&limit=1",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/content/activities/trash?limit=100",
+			"status": 200
+		},
+		{
+			"method": "GET",
+			"path": "/_emdash/api/media?limit=1",
+			"status": 200
+		}
+	]
+}
