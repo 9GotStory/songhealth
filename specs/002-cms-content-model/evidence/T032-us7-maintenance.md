@@ -169,3 +169,65 @@ Suite cleanup lines: `complete (entries attempted 0, media attempted 0, terms re
 | Commit | appended on `task/t032-9gotstory-269-maintenance-evidence` (descendant of `4314cb2`); Draft PR #37 updated, base `task/t031-9gotstory-268-cms-editor-smoke` unchanged |
 | Changed files | `tests/browser/cms-editor.spec.ts` (+24/−1, §R1.1) and this evidence file (Round 1 section only) |
 | Attachments | both Round 1 boundary-run console logs delivered on the corrective-result comment (gitignored `*.log`, T018/T030 precedent); probe output quoted verbatim in §R1.3 |
+
+---
+
+# Corrective Round 2 addendum — 2026-10-24 (Asia/Bangkok)
+
+**Authorization**: [PO R2 Human Gate (PR #37 comment 6384941329)](https://github.com/9GotStory/songhealth/pull/37#issuecomment-6384941329) ("NATIVE SIGN-IN READINESS ONLY"), PO issue comment `01a16e27-8d73-7034-ace9-84b3eb815590`, Lead R2 handoff `01a16e28-a1e3-7e28-b348-f36644c85a8d`; follows the Lead R1 BLOCKED verdict (`01a16e20-c155-7b53-b779-bf513722a5f6`) and the [ChatGPT R1 Independent Review](https://github.com/9GotStory/songhealth/pull/37#issuecomment-6384919135). **R2 baseline**: `9bfbff22d437851ce6a6eb52253f535f76406dc5` (Draft PR #37 OPEN head, verified). Everything above — the initial record (§1–§6, **1 FAIL / 4 SKIP / 0 PASS**) and the whole Round 1 section — is preserved verbatim; this addendum appends R2 only. No other tracked file changed; no new tracked files.
+
+**Qualifications required this round** (correcting R1 overcertainty per the ChatGPT R1 review):
+- R1's "dev-mode hydration takes ≈5.2s … deterministically just past" wording is **provisional, now superseded by the R2 measurements below**: three fresh-load observations put AdminApp mount at 5.26–5.33s post-redirect on THIS runtime at THIS time — a measured distribution, not a universal threshold, and the R2 correction is bounded with ~4× margin rather than tuned to it.
+- Cookies are **host/path-scoped, not port-isolated** (Playwright/browser cookie model): the R1 test comment's "loopback aliases of the configured port" phrasing describes the verified navigation/redirect destination, not a cookie-level port restriction. No authentication cookie is involved — the propagated value is the non-authentication locale preference only.
+
+## R2.1 Admission (before diagnosis)
+
+Controller `status`/`verify` only: serving source exactly `6ab72780c1a531956acc3c06838c3028e10ad77d`, app `56a74583da82…` / postgres `d91afe9ed319…` unchanged and running, full PASS; checkout clean at the exact R2 baseline. Origin `http://127.0.0.1:4322`.
+
+## R2.2 Diagnosis before any edit (bounded, read-only, unauthenticated)
+
+Three fresh browser contexts (fresh cookie jar each), navigating exactly as the boundary test does, milestone-instrumented; no session, no writes, not committed (`.tmp/` diagnostic, output below verbatim):
+
+```
+load 1: redirect settled +147ms → http://localhost:4322/_emdash/admin/login?redirect=… ;
+  html lang "th" readable +187ms (loader still present: true);
+  AdminApp mounted (loader detached) +5404ms (5257ms post-redirect);
+  sign-in copy visible +5420ms (5273ms post-redirect, 16ms post-mount); copy: เข้าสู่ระบบด้วย Passkey;
+  console/page/request errors: none; >=400 responses: none
+load 2: redirect +129ms; lang "th" +165ms; mounted +5460ms (5331ms post-redirect);
+  copy visible +5467ms (5338ms post-redirect, 7ms post-mount); errors none; >=400 none
+load 3: redirect +129ms; lang "th" +177ms; mounted +5428ms (5299ms post-redirect);
+  copy visible +5443ms (5314ms post-redirect, 15ms post-mount); errors none; >=400 none
+```
+
+**Diagnosis**: the redirect completes in ~130–150ms and the login document is server-rendered Thai (`lang=th` readable ~30–50ms later — the R1 locale propagation confirmed again on every load, loader shell still present at that moment). The sign-in copy is SPA-rendered: `AdminApp` mounts 5.26–5.33s post-redirect (download + parse of the 46.3MB pre-bundled admin app dominates), and the copy appears **7–16ms after mount**. The assertion's own 5.0s window starts when the `lang` check passes (~0.17s post-redirect) and therefore closes ~0.1–0.2s **before mount on every observed load** — matching the R1 runs' and the Lead's independent `Loading EmDash...` failure snapshots. **Alternative causes excluded by observation**: zero console errors, zero page errors, zero failed requests, zero ≥400 responses across all loads; every hydration resource serves 200 (R1 §R1.3). Residual uncertainty recorded honestly: three loads + R1's runs characterize THIS runtime now; load-dependent variance (host contention, colder caches) is why the correction below carries ~4× margin instead of a tuned threshold.
+
+**Platform behavior source-verified** (pinned `@emdash-cms/admin@1.1.0` dist in this lockfile-exact checkout, the T031 verification method): `AdminApp`'s mount `useEffect` removes the boot loader — `document.getElementById("emdash-boot-loader")?.remove()` (`dist/index.js:77213`) — with i18n activated during the render that precedes it; the login UI renders with that same mount. The loader's dismissal is therefore the platform's OWN "SPA mounted" landmark, present server-rendered before mount.
+
+## R2.3 The correction (smallest, boundary-test-only, login branch only)
+
+`tests/browser/cms-editor.spec.ts` — inside the `/login` branch, one bounded readiness wait on the platform's own mount landmark, immediately before the unchanged real assertion (+19 lines including the directly necessary comment; nothing else changed):
+
+```ts
+// … the platform's OWN mount signal is the boot loader's dismissal …
+await page.locator("#emdash-boot-loader").waitFor({ state: "detached", timeout: 20_000 });
+await expect(page.getByText(PASSKEY_SIGNIN_COPY).first()).toBeVisible();   // unchanged, default window
+```
+
+- **Landmark, not a widened assertion**: the real sign-in-copy assertion keeps its default window byte-identical; `PASSKEY_SIGNIN_COPY`'s Thai|English fallback alternation is untouched, as are the `lang=th` assertion, the pathname predicate/redirect handling, the positive authenticated sidebar landmark, the R1 locale hook, all four gated journeys, helpers, fixtures and cleanup.
+- **Bound justification**: 20s ≈ 4× the measured 5.26–5.33s mount, margin for colder transforms/host contention, still narrowly bounded and per-site (no global `expect.timeout` change, no sleep); a loader that never dismisses fails loudly as an environment truth — no FAIL→PASS/SKIP conversion is possible (the visible-copy assertion still guards the outcome; if the landmark element were ever absent pre-mount, `waitFor detached` simply proceeds and the unchanged assertion decides).
+- **Playwright 1.63.0 semantics verified** (Context7 `/microsoft/playwright` v1.63.0): `waitFor` state `"detached"` = "wait for element to not be present in DOM"; per-assertion/per-wait `timeout` is the documented bounded option. `git diff --check` clean; `npx tsc --noEmit` → exactly the 3 pre-existing diagnostics, unchanged. The setup branch and the authenticated branch are untouched (the authenticated sidebar assertion may warrant the same readiness treatment when a legitimate session first exists — noted for a future authorized round; not changed on unexercised speculation).
+
+## R2.4 Execution (single run, exactly the authorized case)
+
+- **Discovery**: `--grep "native Admin boundary is reachable and localized in Thai with correct English fallback" --list` → **exactly 1 test in 1 file** (confirmed before running).
+- **Execution** (`PLAYWRIGHT_BASE_URL=http://127.0.0.1:4322`, `--workers=1 --retries=0`, pinned tooling, run ONCE — no retry-to-green): **1 passed, 0 failed, 0 skipped** (test 5.4s, total 6.3s). The run's own console line records the completed journey: `[cms-editor] Admin boundary reached at /_emdash/admin/login (unauthenticated; no session attempted)` — redirect → server-rendered `lang=th` → loader-detached mount landmark → native Thai sign-in copy visible. Full log attached to the R2 result comment.
+- **Scope of this PASS — deliberately narrow**: it establishes the **localized unauthenticated Admin boundary only** (Thai document language + native Thai sign-in copy at the login outcome on the authorized origin). It is NOT the historical suite's rerun, NOT any authenticated journey, and NOT T032/US7/SC-007 acceptance: the four authenticated editor journeys remain **HELD/PENDING** (no legitimate browser session; PAT authorizes REST only), staff observation and **SC-007 remain PENDING**, and the initial **1 FAIL / 4 SKIP / 0 PASS** record plus all R1 results stand unchanged.
+
+## R2.5 Cleanup and preservation
+
+Suite cleanup: `complete (entries attempted 0, media attempted 0, terms registered 0)` — the boundary test owns no fixtures; none created; zero residue, nothing UNKNOWN. Post-run 19-GET read-only re-check: zero synthetic entries/trash/media, schema identical. Controller `status` after: serving SHA `6ab72780…`, same app/postgres container IDs, both running; `verify` → full PASS. No runtime/config/auth/schema/seed/dependency change, no lifecycle verb, no `podman exec`, no bypass endpoint, no second server. Worktree: only `tests/browser/cms-editor.spec.ts` modified plus this addendum; `t032/` captures and driver untouched.
+
+## R2.6 Delivery
+
+Appended on `task/t032-9gotstory-269-maintenance-evidence` as a descendant of `9bfbff2…` (ancestry: `4f4abe3` → `4314cb2` → `9bfbff2` → this commit); Draft PR #37 updated in place, base `task/t031-9gotstory-268-cms-editor-smoke` preserved; accepted T031 `4f4abe3…` and the canonical target unchanged. Changed files (exactly the two authorized paths): `tests/browser/cms-editor.spec.ts` (+19), `specs/002-cms-content-model/evidence/T032-us7-maintenance.md` (this addendum). R2 execution log delivered as a Multica attachment (not committed; `*.log` gitignored, T018/T030 precedent). **T022 remains DEFERRED — NOT PASSED**; T025 N/A, T026 acceptance, T030 limits and D-ITA/D-REF deferrals unchanged. No R3 is authorized.

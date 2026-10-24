@@ -1075,6 +1075,25 @@ test("native Admin boundary is reachable and localized in Thai with correct Engl
 		// unrecognizable state). The first-admin setup outcome carries its own
 		// wizard copy; only the document language is asserted there, truthfully.
 		if (finalPath.endsWith("/login")) {
+			// Bounded native readiness wait (T032 corrective round 2): the
+			// sign-in copy is SPA-rendered, and on this development runtime the
+			// AdminApp mounts ~5.3s after the redirect (three fresh-load
+			// observations: mount 5257/5331/5299ms post-redirect, copy visible
+			// 7–16ms after mount; zero console/request errors) — just past this
+			// assertion's default 5s window, which the `lang` check starts at
+			// the server-rendered document. The platform's OWN mount signal is
+			// the boot loader's dismissal — AdminApp's mount useEffect removes
+			// #emdash-boot-loader (pinned @emdash-cms/admin 1.1.0 dist/index.js
+			// "document.getElementById(\"emdash-boot-loader\")?.remove()"), and
+			// the login UI renders with that same mount. Waiting for that
+			// detached landmark (Playwright 1.63.0: state "detached" = not
+			// present in the DOM) bounds readiness at ~4x the observed mount
+			// time instead of widening the real assertion: the copy assertion
+			// below keeps its default window unchanged, and a loader that
+			// never dismisses still fails this check as an environment truth.
+			await page
+				.locator("#emdash-boot-loader")
+				.waitFor({ state: "detached", timeout: 20_000 });
 			await expect(page.getByText(PASSKEY_SIGNIN_COPY).first()).toBeVisible();
 		}
 		console.log(
