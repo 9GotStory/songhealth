@@ -109,9 +109,11 @@
 //   save-failed toast title บันทึกไม่สำเร็จ (+Ya+b9) whose description is
 //   describeContentValidationError — per-issue readable sentences built from
 //   the SCHEMA field labels (describeIssue/fieldName; getFieldLabel returns
-//   field.label verbatim); media select เลือกมีเดีย (1Tq98c), picker title
-//   เลือกรูปภาพ (oDodff) with search aria ค้นหามีเดีย (GzM+mT) /
-//   placeholder ค้นหาตามชื่อไฟล์... (Fwo2VZ); the term-assignment toast
+//   field.label verbatim); the image field's empty-state button เลือกรูปภาพ
+//   (oDodff), the field-specific picker titles "เลือก {label}" (pov/PW) and
+//   the fresh single-select confirmation เลือก (rG3WVm), with search aria
+//   ค้นหามีเดีย (GzM+mT) / placeholder ค้นหาตามชื่อไฟล์... (Fwo2VZ); the
+//   term-assignment toast
 //   "อัปเดต {label} แล้ว" (KDffey); the draft badge ฉบับร่าง (M8kJqa); the
 //   passkey sign-in copy "ใช้ Passkey ที่ลงทะเบียนไว้เพื่อเข้าสู่ระบบอย่าง
 //   ปลอดภัย" (+ET/av)
@@ -169,12 +171,24 @@
 //   inventory is intentionally empty (T004 evidence), so this file creates
 //   ONE clearly synthetic task-owned term through the native term API and
 //   selects it; synthetic terms are never presented as official inventories
-// - media selector (image field → MediaPickerModal): the empty image field
-//   offers เลือกมีเดีย; the picker searches by filename and lists library
-//   assets; the task-owned upload (a fresh owned fixture, deduplicate=false
-//   — the T002 helper) is selected by its unique filename. The saved image
-//   value is the selected asset identity only ({ id } — T027-verified
-//   read-back)
+// - media selector (schema image field → ImageFieldRenderer →
+//   MediaPickerModal): the empty image field renders an h-32 dashed button
+//   labeled "Select image" (oDodff — natively Thai เลือกรูปภาพ; the
+//   "Select media"/1Tq98c string belongs to a different compact renderer,
+//   never to the schema image field). It opens the picker titled with the
+//   FIELD-SPECIFIC "Select {label}" (pov/PW — Thai "เลือก {label}"; an
+//   existing value would switch it to "Replace {label}" with confirmLabel
+//   "Replace", not the fresh-selection case here): เลือก ภาพหน่วยบริการ for
+//   the facility image and เลือก ภาพ for the gallery subfield. The picker
+//   searches by filename and lists library assets; CLICKING an item only
+//   runs updateSelection (toggling it into selectedItems — dist
+//   :8837/:9801/:9831), so the journey then clicks the dialog's native
+//   single-select confirmation — "Select"/rG3WVm (Thai เลือก), enabled by
+//   the marked selection, whose handleConfirm sends the item and closes
+//   the picker (:9016, wiring :9942). The task-owned upload (a fresh owned
+//   fixture, deduplicate=false — the T002 helper) is selected by its
+//   unique filename this way. The saved image value is the selected asset
+//   identity only ({ id } — T027-verified read-back)
 // - gallery selector: `activities.gallery` (แกลเลอรีภาพ) IS the approved
 //   model's gallery — a native repeater (seed.json) whose subFields are the
 //   REQUIRED image ภาพ and the optional caption คำบรรยายภาพ (string). The
@@ -182,8 +196,9 @@
 //   "เพิ่มรายการแรก"/"Add First Item" button (924qJl; subsequent rows
 //   "เพิ่มรายการ"/qgF8ew), adds rows EXPANDED (a new item is never in the
 //   collapsed set), renders each subField through SubFieldInput keyed by its
-//   slug — the image subField reuses the same ImageFieldRenderer (เลือกมีเดีย
-//   → the same MediaPickerModal) — and emits row values keyed by subField
+//   slug — the image subField reuses the same ImageFieldRenderer
+//   (เลือกรูปภาพ → the same MediaPickerModal, here titled เลือก ภาพ) — and
+//   emits row values keyed by subField
 //   slug, so the saved data shape is [{ image: { id }, caption }]. One
 //   focused representative interaction below exercises it with a task-owned
 //   asset; no gallery primitive/widget is invented. Pagination is likewise
@@ -368,8 +383,31 @@ const REPEATER_EMPTY_STATE = /(ยังไม่มีรายการ|No ite
 // are recorded in the header above).
 const SAVE_LABEL = /^(บันทึก|Save)$/;
 const SAVED_LABEL = /^(บันทึกแล้ว|Saved)$/;
-const MEDIA_SELECT_LABEL = /^(เลือกมีเดีย|Select media)$/;
-const MEDIA_PICKER_TITLE = /^(เลือกรูปภาพ|Select image)$/;
+/**
+ * The schema image field's native empty-state control (ImageFieldRenderer):
+ * the h-32 dashed button labeled "Select image" (oDodff — natively Thai
+ * เลือกรูปภาพ). The unrelated "Select media"/1Tq98c string belongs to a
+ * different compact renderer, never to the schema image field.
+ */
+const MEDIA_SELECT_LABEL = /^(เลือกรูปภาพ|Select image)$/;
+/**
+ * The image picker dialog's FIELD-SPECIFIC title for a fresh selection:
+ * ImageFieldRenderer passes "Select {label}" (pov/PW — Thai "เลือก {label}")
+ * with the field's own schema label, so the facility dialog is titled
+ * "เลือก ภาพหน่วยบริการ" and the gallery row's subfield dialog "เลือก ภาพ".
+ * (An existing value switches the title to "Replace {label}" 7w2lA2 with
+ * confirmLabel "Replace" — never the fresh-selection case exercised here.)
+ */
+const selectImageDialogTitle = (fieldLabel: string): RegExp =>
+	new RegExp(`^(?:เลือก|Select)\\s*${fieldLabel}$`);
+/**
+ * The picker's native single-select confirmation: clicking a library item
+ * only runs updateSelection (toggling it into selectedItems), and the
+ * dialog's footer confirm button — enabled by that selection, labeled
+ * "Select" (rG3WVm — Thai เลือก) for a fresh single-select — is what sends
+ * the item through handleConfirm and closes the picker.
+ */
+const MEDIA_CONFIRM_LABEL = /^(เลือก|Select)$/;
 const MEDIA_PICKER_SEARCH = /(ค้นหามีเดีย|Search media)/;
 const ADD_REFERENCES_LABEL = /^Add references?$/;
 const ADD_SELECTED_LABEL = /^Add selected$/;
@@ -1118,12 +1156,27 @@ test("maintenance journey: Thai labels, search/status filter, find and reopen, n
 	await expect(titleInput, "the required Thai-labeled title field must be present").toBeVisible();
 
 	// --- the native media selector: select the task-owned asset ---
+	// The empty image field's button (เลือกรูปภาพ/Select image) opens the
+	// picker titled with the FIELD's own Thai label (เลือก ภาพหน่วยบริการ).
 	await page.getByRole("button", { name: MEDIA_SELECT_LABEL }).first().click();
 	const mediaDialog = page.getByRole("dialog");
-	await expect(mediaDialog.getByText(MEDIA_PICKER_TITLE)).toBeVisible();
+	await expect(
+		mediaDialog.getByText(selectImageDialogTitle(FACILITY_IMAGE_FIELD_LABEL)),
+	).toBeVisible();
 	await mediaDialog.getByLabel(MEDIA_PICKER_SEARCH).fill(mediaFilename);
+	// Clicking the library item only MARKS the selection; the native Select
+	// confirmation (เลือก) inside the dialog is what confirms and closes.
 	await mediaDialog.getByText(mediaFilename).first().click();
-	await expect(mediaDialog, "the media picker must close after the selection").toBeHidden();
+	const confirmButton = mediaDialog.getByRole("button", { name: MEDIA_CONFIRM_LABEL });
+	await expect(
+		confirmButton,
+		"marking the task-owned asset must enable the picker's native Select confirmation",
+	).toBeEnabled();
+	await confirmButton.click();
+	await expect(
+		mediaDialog,
+		"the media picker must close after the native Select confirmation",
+	).toBeHidden();
 
 	// --- the native reference selector: select and reuse the Service fixture ---
 	await page.getByRole("button", { name: ADD_REFERENCES_LABEL }).first().click();
@@ -1373,17 +1426,18 @@ test("the native gallery repeater: one task-owned image row with its optional ca
 	await expect(page.getByText(REPEATER_EMPTY_STATE).first()).toBeVisible();
 
 	// Add the FIRST row through the native button (rows render expanded).
-	// The image subfield reuses the same ImageFieldRenderer (เลือกมีเดีย → the
-	// same MediaPickerModal) as the top-level image field; the row's control
-	// is the newly appeared Select-media button — the count delta pins it,
-	// and the gallery renders after featured_image in the applied field
-	// order, so the new control is the last one in DOM order.
+	// The image subfield reuses the same ImageFieldRenderer (เลือกรูปภาพ → the
+	// same MediaPickerModal, here titled with the subfield's own label เลือก
+	// ภาพ) as the top-level image field; the row's control is the newly
+	// appeared Select-image button — the count delta pins it, and the gallery
+	// renders after featured_image in the applied field order, so the new
+	// control is the last one in DOM order.
 	const selectMediaButtons = page.getByRole("button", { name: MEDIA_SELECT_LABEL });
 	const selectMediaCountBeforeRow = await selectMediaButtons.count();
 	await page.getByRole("button", { name: REPEATER_ADD_FIRST_ITEM }).first().click();
 	await expect(
 		selectMediaButtons,
-		"adding the first gallery row must expose exactly one new native Select-media control (the row's required image subfield)",
+		"adding the first gallery row must expose exactly one new native Select-image control (the row's required image subfield)",
 	).toHaveCount(selectMediaCountBeforeRow + 1);
 	// The expanded row surfaces the required image subfield's Thai label
 	// (exact text — ภาพ is a prefix of other labels such as ภาพปก).
@@ -1392,10 +1446,23 @@ test("the native gallery repeater: one task-owned image row with its optional ca
 	).toBeVisible();
 	await selectMediaButtons.last().click();
 	const mediaDialog = page.getByRole("dialog");
-	await expect(mediaDialog.getByText(MEDIA_PICKER_TITLE)).toBeVisible();
+	await expect(
+		mediaDialog.getByText(selectImageDialogTitle(GALLERY_IMAGE_SUBFIELD_LABEL)),
+	).toBeVisible();
 	await mediaDialog.getByLabel(MEDIA_PICKER_SEARCH).fill(mediaFilename);
+	// Clicking the library item only MARKS the selection; the native Select
+	// confirmation (เลือก) inside the dialog is what confirms and closes.
 	await mediaDialog.getByText(mediaFilename).first().click();
-	await expect(mediaDialog, "the media picker must close after the selection").toBeHidden();
+	const confirmButton = mediaDialog.getByRole("button", { name: MEDIA_CONFIRM_LABEL });
+	await expect(
+		confirmButton,
+		"marking the task-owned asset must enable the picker's native Select confirmation",
+	).toBeEnabled();
+	await confirmButton.click();
+	await expect(
+		mediaDialog,
+		"the media picker must close after the native Select confirmation",
+	).toBeHidden();
 
 	// The optional caption subfield (คำบรรยายภาพ) on the same expanded row.
 	const caption = `${SYNTHETIC_FIXTURE_MARK} gallery caption`;
