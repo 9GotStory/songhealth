@@ -231,3 +231,18 @@ Suite cleanup: `complete (entries attempted 0, media attempted 0, terms register
 ## R2.6 Delivery
 
 Appended on `task/t032-9gotstory-269-maintenance-evidence` as a descendant of `9bfbff2…` (ancestry: `4f4abe3` → `4314cb2` → `9bfbff2` → this commit); Draft PR #37 updated in place, base `task/t031-9gotstory-268-cms-editor-smoke` preserved; accepted T031 `4f4abe3…` and the canonical target unchanged. Changed files (exactly the two authorized paths): `tests/browser/cms-editor.spec.ts` (+19), `specs/002-cms-content-model/evidence/T032-us7-maintenance.md` (this addendum). R2 execution log delivered as a Multica attachment (not committed; `*.log` gitignored, T018/T030 precedent). **T022 remains DEFERRED — NOT PASSED**; T025 N/A, T026 acceptance, T030 limits and D-ITA/D-REF deferrals unchanged. No R3 is authorized.
+
+---
+
+# PO Deferral Record — 2026-10-24 (Asia/Bangkok)
+
+**Provenance**: [Product Owner T032 deferral decision (PR #37 comment 6386273659)](https://github.com/9GotStory/songhealth/pull/37#issuecomment-6386273659), following the [Option B secure-test-authentication architecture NO-GO (PR #37 comment 6386211045)](https://github.com/9GotStory/songhealth/pull/37#issuecomment-6386211045) and the [Independent reconciliation review (PR #37 comment 6386381150)](https://github.com/9GotStory/songhealth/pull/37#issuecomment-6386381150); this record is authored under the [T032 Governance-only Deferral Record gate (PR #37 comment 6386423257)](https://github.com/9GotStory/songhealth/pull/37#issuecomment-6386423257). Evidence baseline: this file's entire prior content (initial record, R1, R2) is preserved byte-identically as the prefix of this appended section.
+
+**Recorded standing**:
+
+- **T032 [US7] = DEFERRED — NOT PASSED / NOT ACCEPTED.** This is an owner disposition concerning unmet authenticated-browser/session admission-security prerequisites (independently validated; Option B NO-GO), **not a demonstrated CMS failure and not task acceptance**.
+- **Accepted isolated result preserved**: the R2 **localized unauthenticated native Admin login boundary — 1 PASS** ([Independent Review PR #37 comment 6385094908](https://github.com/9GotStory/songhealth/pull/37#issuecomment-6385094908); [limited PO acceptance PR #37 comment 6385115750](https://github.com/9GotStory/songhealth/pull/37#issuecomment-6385115750)) — an isolated single-case result, not a full-suite rerun and not T032 acceptance.
+- **Historical record preserved**: initial execution **5 discovered / 0 PASS / 1 FAIL / 4 SKIP** (§3a) and the R1 diagnostic/correction history (§R1) stand unchanged; the four authenticated editor journeys remain **HELD/PENDING — never executed authenticated, not PASS, not SKIP-reclassified**.
+- **SC-007 = DEFERRED — NOT VERIFIED / NOT PASSED** for the current phase: no staff participation was obtained, and automation never establishes staff comprehension. The requirement remains in force for a future phase.
+- **Dependency standing**: **T022 remains DEFERRED — NOT PASSED**, independently blocking T033 alongside T032; T026 accepted, T030 bounded accepted, T025 conditional N/A, D-ITA/D-REF deferrals — all unchanged. Corrective rounds remain **2/3**; R3 neither used nor authorized.
+- **No new tests, runs, or evidence were produced for this record**; no authentication, bypass, session or runtime work was performed.

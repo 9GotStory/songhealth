@@ -650,6 +650,13 @@ counted as PASS. Runtime outcomes remain unverified by this document-only reconc
 
 - **SC-007**: Staff demonstrate author/select/reuse/find/correct journeys with recognizable labels
   and zero undocumented technical intervention to maintain representative records.
+  - *Status annotation (2026-10-24 Product Owner decision,
+    [PR #37 comment 6386273659](https://github.com/9GotStory/songhealth/pull/37#issuecomment-6386273659);
+    record authored under [PR #37 comment 6386423257](https://github.com/9GotStory/songhealth/pull/37#issuecomment-6386423257))*:
+    **SC-007 is DEFERRED — NOT VERIFIED / NOT PASSED for the current phase**, and T032's evidence
+    record is likewise deferred (**DEFERRED — NOT PASSED / NOT ACCEPTED**). Automated coverage does
+    not satisfy or replace real staff comprehension. This is a phase deferral only: the original
+    requirement above remains in force, unedited and unsoftened — it is not converted to N/A or PASS.
 - **SC-008**: Review accounts for every proposed resource/relation under all four mapping questions,
   with zero speculative collections, duplicate mechanisms, confidential-data fields, or
   unjustified extensions/second foundations.
