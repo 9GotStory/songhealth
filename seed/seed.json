@@ -3,7 +3,7 @@
   "version": "1",
   "meta": {
     "name": "Songhealth CMS Content Model",
-    "description": "Feature 002 seed intent for the existing canonical platform: defines the shared native documents collection (required title and native file selection, optional domain metadata and the document_successor self-relation), the native pages collection for general information (required title, optional summary and portable-text body, no conditional media fields yet) bound to the optional page_documents relation (Page parent → Document, many-to-many), the native news collection for time-oriented public-information stories (required title, optional summary, portable-text body, featured image and source text, no speculative relations), the native activities collection for activity/meeting/field-work/event records (required title, optional summary, native offset-aware activity datetime distinct from native publication/scheduling time, location text, featured image, gallery repeater of image rows with optional captions preserving array order, and external participants kept as text — no separate participant/place identities or speculative relations), the native announcements collection for official notices (required title, optional portable-text details, native offset-aware announcement/opening/closing domain datetimes distinct from native publication/scheduling time, and optional related documents bound to the announcement_documents relation — Announcement parent → Document, many-to-many, no date-driven automatic unpublish), the native health_content collection for evergreen health-knowledge guidance (required title, optional summary, portable-text body, source text, featured image and native offset-aware reviewed_at/next_review_at domain datetimes distinct from native publication/scheduling time, with no review-date-driven automatic unpublish), the native services collection for citizen-service guidance (required title; optional summary, ownership_type select preserving the four approved direct/coordinated/related_health_service/external_digital meanings, provider text, channel repeater rows with optional label string and optional native url, eligibility/steps/required-documents/contact-location portable-text guidance, duration/fees/notes text and external url — editorial guidance only, with no transaction, payment or attachment engine) bound to the optional service_documents relation (Service parent → Document, many-to-many with unlimited maxima), and the native health_reports collection for health-report metadata describing one selected authoritative Document (required title; optional summary, reporting period, owner/source, native offset-aware report datetime distinct from native publication/scheduling time and fiscal year — explanatory metadata only, with no analytical metrics, dataset or extra publication rule) appended to shared topic and hierarchical area with the Report-only report_type classification. T017 defines that mandatory single report_document reference: the seed declares the report_document relation (Health Report parent → Document, one child maximum per Report and unlimited Report parents per Document) and explicitly binds the Report's report_document reference field with native top-level required true on the parent side, so automatic field-created relation naming cannot introduce a duplicate edge set and the Document selection stays in the separate native references payload rather than data; schema application and runtime verification remain separate scope and are not claimed here. The shared native taxonomies remain topic, audience and hierarchical area — plus the Document-only document_type, News-only news_category, Announcement-only announcement_type, Service-only service_category and Report-only report_type classifications, with topic attached to documents, news, activities, announcements, health_content, services and health_reports, document_type to documents, news_category to news, announcement_type to announcements, service_category to services, report_type to health_reports, audience attached to news, announcements, health_content and services, and area attached to news, activities and health_reports while later owning collections remain pending. Still defines zero menus, redirects, widgetAreas, sections and content, suppressing EmDash's built-in example Posts/Pages model. Term inventories are intentionally empty pending authoritative sources; no official terms, geographic codes or inventories are supplied. Taxonomy attachments are added as each owning collection is introduced. Area terms model the applicable Province → District → Subdistrict → Village hierarchy: explicit official/stable code in the native term slug, name in the native label, parent via native group identity."
+    "description": "Feature 002 seed intent for the existing canonical platform: defines the shared native documents collection (required title and native file selection, optional domain metadata and the document_successor self-relation), the native pages collection for general information (required title, optional summary and portable-text body, no conditional media fields yet) bound to the optional page_documents relation (Page parent → Document, many-to-many), the native news collection for time-oriented public-information stories (required title, optional summary, portable-text body, featured image and source text, no speculative relations), the native activities collection for activity/meeting/field-work/event records (required title, optional summary, native offset-aware activity datetime distinct from native publication/scheduling time, location text, featured image, gallery repeater of image rows with optional captions preserving array order, and external participants kept as text — no separate participant/place identities or speculative relations), the native announcements collection for official notices (required title, optional portable-text details, native offset-aware announcement/opening/closing domain datetimes distinct from native publication/scheduling time, and optional related documents bound to the announcement_documents relation — Announcement parent → Document, many-to-many, no date-driven automatic unpublish), the native health_content collection for evergreen health-knowledge guidance (required title, optional summary, portable-text body, source text, featured image and native offset-aware reviewed_at/next_review_at domain datetimes distinct from native publication/scheduling time, with no review-date-driven automatic unpublish), the native services collection for citizen-service guidance (required title; optional summary, ownership_type select preserving the four approved direct/coordinated/related_health_service/external_digital meanings, provider text, channel repeater rows with optional label string and optional native url, eligibility/steps/required-documents/contact-location portable-text guidance, duration/fees/notes text and external url — editorial guidance only, with no transaction, payment or attachment engine) bound to the optional service_documents relation (Service parent → Document, many-to-many with unlimited maxima), and the native health_reports collection for health-report metadata describing one selected authoritative Document (required title; optional summary, reporting period, owner/source, native offset-aware report datetime distinct from native publication/scheduling time and fiscal year — explanatory metadata only, with no analytical metrics, dataset or extra publication rule) appended to shared topic and hierarchical area with the Report-only report_type classification. T017 defines that mandatory single report_document reference: the seed declares the report_document relation (Health Report parent → Document, one child maximum per Report and unlimited Report parents per Document) and explicitly binds the Report's report_document reference field with native top-level required true on the parent side, so automatic field-created relation naming cannot introduce a duplicate edge set and the Document selection stays in the separate native references payload rather than data; schema application and runtime verification remain separate scope and are not claimed here. T028 adds the native health_services collection for real health-service facilities, not an HIS (required official-name title; optional facility code, display name, operational-status select preserving the approved active/temporarily_closed/inactive values, address text, latitude/longitude numbers under the native inclusive −90..90 and −180..180 coordinate ranges, opening-hours and public-contact text, affiliation owner text per the accepted T025 Organization N/A disposition, and facility image), with physical address/coordinates distinct from service-coverage area selection, no offered-services or Organization links (the reciprocal relation is T029 scope and the conditional Organization stays unactivated), and no records, terms, facility codes or inventories populated. The shared native taxonomies remain topic, audience and hierarchical area — plus the Document-only document_type, News-only news_category, Announcement-only announcement_type, Service-only service_category, Report-only report_type and Health-Service-only facility_type classifications, with topic attached to documents, news, activities, announcements, health_content, services and health_reports, document_type to documents, news_category to news, announcement_type to announcements, service_category to services, report_type to health_reports, facility_type to health_services, audience attached to news, announcements, health_content and services, and area attached to news, activities, health_reports and health_services. Still defines zero menus, redirects, widgetAreas, sections and content, suppressing EmDash's built-in example Posts/Pages model. Term inventories are intentionally empty pending authoritative sources; no official terms, geographic codes or inventories are supplied. Taxonomy attachments are added as each owning collection is introduced. Area terms model the applicable Province → District → Subdistrict → Village hierarchy: explicit official/stable code in the native term slug, name in the native label, parent via native group identity."
   },
   "collections": [
     {
@@ -491,6 +491,82 @@
           "type": "text"
         }
       ]
+    },
+    {
+      "slug": "health_services",
+      "label": "หน่วยบริการสุขภาพ",
+      "labelSingular": "หน่วยบริการสุขภาพ",
+      "supports": ["drafts", "revisions", "preview", "scheduling"],
+      "titleField": "title",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อทางการ",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "facility_code",
+          "label": "รหัสหน่วยบริการ",
+          "type": "string"
+        },
+        {
+          "slug": "display_name",
+          "label": "ชื่อที่แสดง",
+          "type": "string"
+        },
+        {
+          "slug": "operational_status",
+          "label": "สถานะการให้บริการ",
+          "type": "select",
+          "validation": {
+            "options": ["active", "temporarily_closed", "inactive"]
+          }
+        },
+        {
+          "slug": "address",
+          "label": "ที่อยู่",
+          "type": "text"
+        },
+        {
+          "slug": "latitude",
+          "label": "ละติจูด",
+          "type": "number",
+          "validation": {
+            "min": -90,
+            "max": 90
+          }
+        },
+        {
+          "slug": "longitude",
+          "label": "ลองจิจูด",
+          "type": "number",
+          "validation": {
+            "min": -180,
+            "max": 180
+          }
+        },
+        {
+          "slug": "opening_hours",
+          "label": "เวลาทำการ",
+          "type": "text"
+        },
+        {
+          "slug": "public_contact",
+          "label": "ช่องทางติดต่อสาธารณะ",
+          "type": "text"
+        },
+        {
+          "slug": "affiliation_text",
+          "label": "หน่วยงานที่สังกัด",
+          "type": "string"
+        },
+        {
+          "slug": "image",
+          "label": "ภาพหน่วยบริการ",
+          "type": "image"
+        }
+      ]
     }
   ],
   "relations": [
@@ -570,7 +646,7 @@
       "label": "พื้นที่",
       "labelSingular": "พื้นที่",
       "hierarchical": true,
-      "collections": ["news", "activities", "health_reports"]
+      "collections": ["news", "activities", "health_reports", "health_services"]
     },
     {
       "name": "document_type",
@@ -606,6 +682,13 @@
       "labelSingular": "ประเภทรายงาน",
       "hierarchical": false,
       "collections": ["health_reports"]
+    },
+    {
+      "name": "facility_type",
+      "label": "ประเภทหน่วยบริการ",
+      "labelSingular": "ประเภทหน่วยบริการ",
+      "hierarchical": false,
+      "collections": ["health_services"]
     }
   ],
   "menus": [],
