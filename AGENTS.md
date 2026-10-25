@@ -73,37 +73,33 @@ Implementation may begin only when an active feature has approved `spec.md`, `pl
 
 Do not create application code, infrastructure, schema, or dependencies merely because the repository is currently empty.
 
-## Development Workflow (local CLI — proposed, pending ratification)
+## Development Workflow (local CLI)
 
 Product Owner decisions of 2026-10-13 (Multica issue 9GOTSTORY-202) and 2026-10-14
 (governance reconciliation `01a13882-2e10-7cbf-b207-409fdd20b9b3`, accepted by approval
 `01a13896-b7d9-700e-9ea6-00973f11d963`) established the Multica-first execution/review
-assignments and, with the ratified Constitution 3.0.0, remain the standing assignments. A
-Product Owner authorization of 2026-10-25 permits preparing and independently reviewing a
-governance proposal that would replace those assignments with the local CLI workflow below;
-that authorization covers proposal preparation and Independent Review only, and no verifiable
-decision reference yet establishes the transition's effectiveness. The proposal becomes the
-standing assignment only after Independent Review PASS and explicit Product Owner
-ratification recorded with a verifiable decision reference, together with the matching
-Constitution amendment (3.0.0 → 4.0.0) recorded in `.specify/memory/constitution.md` as
-proposed. Bounded preparation or review expressly authorized by the Product Owner is distinct
-from standing authorization for future implementation. Historical Multica decisions, existing
-Feature 002 acceptance and deferral records, Spec Kit stages, Human Authorization Gates and
-runtime restrictions are unchanged. Until ratification, the items below describe the proposed
-workflow, not standing assignments:
+assignments. The Product Owner ratified the local CLI governance transition on 2026-10-25
+(official decision:
+https://github.com/9GotStory/songhealth/pull/38#issuecomment-6395631601), replacing those
+assignments with the local CLI workflow below; task deliverables, gates, architecture and
+requirements remain. The matching Constitution amendment (3.0.0 → 4.0.0) is recorded in
+`.specify/memory/constitution.md`. Bounded preparation or review expressly authorized by the
+Product Owner remains distinct from standing authorization for future implementation.
+Historical Multica decisions, existing Feature 002 acceptance and deferral records, Spec Kit
+stages, Human Authorization Gates and runtime restrictions are unchanged:
 
-- Claude Code CLI is the proposed primary Developer, executing bounded authorized development,
-  testing and pull-request preparation tasks; Codex CLI is the proposed Independent Reviewer of
-  the resulting artifacts and evidence. The author does not review their own artifact. The
-  Product Owner provides final acceptance and explicit bounded implementation authorization.
-  The Spec Kit stages and Human Authorization Gate are preserved.
+- Claude Code CLI is the primary Developer, executing bounded authorized development, testing
+  and pull-request preparation tasks; Codex CLI is the Independent Reviewer of the resulting
+  artifacts and evidence. The author does not review their own artifact. The Product Owner
+  provides final acceptance and explicit bounded implementation authorization. The Spec Kit
+  stages and Human Authorization Gate are preserved.
 - Spec Kit and GitHub remain authoritative; GitHub (`9GotStory/songhealth`) is the source of
   truth for source, issues, pull requests and CI. One authorized implementation task is in
   effect at a time; an authorization applies only to its named bounded scope.
 - Historical Multica decisions, agent names, branch names and accepted Codex/ChatGPT
   source-review evidence retain their provenance; they do not assign future execution or
   Independent Review duties. Existing accepted evidence and Feature 001 dependency joins are
-  not invalidated by the proposed transition.
+  not invalidated by this transition.
 - The single development environment is the persistent rootless-Podman development runtime
   documented in `README.md`: on the single Fedora environment, account `multica-agent` (UID 1001),
   containers `songhealth-dev-app` (Astro/EmDash dev server on the pinned Node/npm tooling image)
@@ -153,9 +149,9 @@ Product Owner clarification (2026-10-19): **one development application/server, 
 PostgreSQL database, one media store, and one test target**. This is a repository-wide
 design constraint, not merely a port convention.
 
-- Task workspaces (Multica issues historically; local CLI task branches under the proposed
-  workflow) may contain separate source checkouts for isolated authoring and static checks.
-  They MUST NOT start a second Astro/EmDash server, a parallel development
+- Task workspaces (Multica issues historically; local CLI task branches) may contain separate
+  source checkouts for isolated authoring and static checks. They MUST NOT start a second
+  Astro/EmDash server, a parallel development
   stack, or an alternate database/media store for functional/integration verification.
   All authorized runtime tests target the **existing** shared development application
   at `http://127.0.0.1:4322` with its existing PostgreSQL and media volumes.

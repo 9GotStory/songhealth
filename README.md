@@ -13,10 +13,9 @@ are checked (executed) and T008–T035 are pending. A checked marker records tas
 only: bounded Lead review PASS, Independent Review PASS and Product Owner Final
 Acceptance are distinct states evidenced per artifact — not established by task markers, an
 issue's status, or acceptance of the development runtime. Source development, review and
-pull-request preparation are proposed to follow the local CLI workflow below pending
-Product Owner ratification; authorized runtime testing still targets the existing persistent
-development runtime documented in this README, whose ownership and access are pending
-explicit review.
+pull-request preparation follow the ratified local CLI workflow below; authorized runtime
+testing still targets the existing persistent development runtime documented in this README,
+whose ownership and access are pending explicit review.
 
 ## Authority
 
@@ -29,27 +28,22 @@ explicit review.
 
 Do not reconstruct removed architecture from Git history or old branch names (see `AGENTS.md`).
 
-## Development workflow (local CLI — proposed, pending ratification)
+## Development workflow (local CLI)
 
-A Product Owner authorization of 2026-10-25 permits preparing and independently reviewing a
-governance proposal that would replace the Multica-first execution/review assignments of
-2026-10-13/2026-10-14 (recorded in `AGENTS.md` and the Constitution) with the local CLI
-workflow below, while preserving the 2026-10-16 development-runtime decision (Multica issue
-9GOTSTORY-232). The proposal becomes the standing workflow only after Independent Review PASS
-and explicit Product Owner ratification with a verifiable decision reference; until then the
-ratified Constitution 3.0.0 remains the standing governance authority, and the current
-authorization covers proposal preparation and review only — not standing activation or
-implementation:
+The Product Owner ratified the local CLI governance transition on 2026-10-25 (official
+decision: https://github.com/9GotStory/songhealth/pull/38#issuecomment-6395631601), replacing
+the Multica-first execution/review assignments of 2026-10-13/2026-10-14 (recorded in
+`AGENTS.md` and the Constitution as accepted history) with the local CLI workflow below, while
+preserving the 2026-10-16 development-runtime decision (Multica issue 9GOTSTORY-232). The
+matching Constitution amendment (3.0.0 → 4.0.0) is ratified:
 
-- Proposed: source development would take place in the local workspace
-  `/home/thanakorn/dev/songhealth` (local user `thanakorn`, UID 1000), with Claude Code CLI as
-  the primary Developer and Codex CLI performing Independent Review of the resulting
-  artifacts/evidence; the Product Owner gives final acceptance and implementation
-  authorization. Authors do not independently review their own artifacts; Spec Kit
-  stages/Human Gate remain. One authorized implementation task is in effect at a time. GitHub
-  (`9GotStory/songhealth`) is the source of truth for source, issues, pull requests and CI.
-  The matching Constitution amendment (proposed 4.0.0) is not ratified until the Product Owner
-  accepts it with a verifiable decision reference.
+- Source development takes place in the local workspace `/home/thanakorn/dev/songhealth` (local
+  user `thanakorn`, UID 1000), with Claude Code CLI as the primary Developer and Codex CLI
+  performing Independent Review of the resulting artifacts/evidence; the Product Owner gives
+  final acceptance and implementation authorization. Authors do not independently review their
+  own artifacts; Spec Kit stages/Human Gate remain. One authorized implementation task is in
+  effect at a time. GitHub (`9GotStory/songhealth`) is the source of truth for source, issues,
+  pull requests and CI.
 - The persistent development runtime described below remains the **single existing development
   runtime**. It was created and activated under the Multica workflow on account `multica-agent`
   (UID 1001) and stays a separate historical/existing runtime whose ownership and access are
@@ -216,8 +210,8 @@ with no auto-migration:
 The stable runtime source is pinned to the exact accepted SHA recorded by the controller
 (`6ab72780c1a531956acc3c06838c3028e10ad77d`). Task branches are developed in separate task
 workspaces (historically Multica checkouts; currently the local CLI workspace
-`/home/thanakorn/dev/songhealth` under the pending transition); the shared runtime never
-consumes a new candidate implicitly:
+`/home/thanakorn/dev/songhealth`); the shared runtime never consumes a new candidate
+implicitly:
 
 - Moving the stable source to a new SHA requires a **separately reviewed and Product
   Owner-authorized promotion** recorded in a matching promotion approval (from/to full SHA plus
@@ -307,8 +301,8 @@ controller's `verify` operation.
 
 ## Task-run cleanup
 
-Every task run (Multica issues historically; local CLI task branches under the proposed
-workflow) cleans up only **task-owned temporary resources** before it ends:
+Every task run (Multica issues historically; local CLI task branches) cleans up only
+**task-owned temporary resources** before it ends:
 
 - remove ad-hoc containers the task itself created, owned synthetic fixtures and test media,
   and private credential/token scratch files;
