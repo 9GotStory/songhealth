@@ -76,8 +76,9 @@ Spec Kit phase and MUST NOT implement future tasks opportunistically.
 
 ## Independent Implementation Review
 
-Multica agents execute only bounded, explicitly authorized tasks. ChatGPT performs Independent
-Review; the Product Owner provides final acceptance and implementation authorization. The author
+Claude Code CLI executes only bounded, explicitly authorized tasks. Codex CLI performs
+Independent Review; the Product Owner provides final acceptance and implementation
+authorization. The author
 MUST NOT act as the Independent Reviewer of the same artifact. An implementation task is not
 complete merely because its executor reports success. Every bounded implementation MUST provide
 verification proportionate to its risk and MUST receive Independent Review before Product Owner
@@ -141,4 +142,21 @@ Owner approval are recorded in `01a13896-b7d9-700e-9ea6-00973f11d963`. That appr
 finalization, commit and push of this documentation reconciliation only; it authorizes no Feature 002
 implementation, Feature 001 runtime gate execution, merge or deployment.
 
-**Version**: 3.0.0 | **Ratified**: 2026-08-16 | **Last Amended**: 2026-10-14
+### Accepted Amendment — 2026-10-25
+
+Product Owner ratification of 2026-10-25 (official decision:
+https://github.com/9GotStory/songhealth/pull/38#issuecomment-6395631601) amends §Independent
+Implementation Review: Claude Code CLI is the primary Developer and Codex CLI the Independent
+Reviewer, with GitHub as the source of truth for source, issues, pull requests and CI, one
+authorized implementation task at a time, no self-review, and all existing Spec Kit stages,
+Human Authorization Gates, evidence requirements and Product Owner authority unchanged.
+Version 3.0.0 → 4.0.0 is MAJOR because these assigned governance responsibilities change
+incompatibly, reversing the executor/reviewer assignments accepted at 3.0.0. Principles I–V,
+security and data-protection rules, dependency policy, production operations, PO authority,
+accepted amendment records, Feature 001 dependency joins and Feature 002 acceptance records
+are preserved. The 2026-10-13/2026-10-14 Multica-first assignments and their accepted evidence
+remain valid provenance, not standing assignments. This amendment was prepared and
+independently reviewed in PR #38 (Codex CLI re-review R1 PASS) and became effective with the
+recorded Product Owner ratification above.
+
+**Version**: 4.0.0 | **Ratified**: 2026-08-16 | **Last Amended**: 2026-10-25

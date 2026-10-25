@@ -73,20 +73,33 @@ Implementation may begin only when an active feature has approved `spec.md`, `pl
 
 Do not create application code, infrastructure, schema, or dependencies merely because the repository is currently empty.
 
-## Development Workflow (Multica-first)
+## Development Workflow (local CLI)
 
 Product Owner decisions of 2026-10-13 (Multica issue 9GOTSTORY-202) and 2026-10-14
 (governance reconciliation `01a13882-2e10-7cbf-b207-409fdd20b9b3`, accepted by approval
-`01a13896-b7d9-700e-9ea6-00973f11d963`). This accepted reconciliation
-changes execution/review ownership only; task deliverables, gates, architecture and requirements remain.
+`01a13896-b7d9-700e-9ea6-00973f11d963`) established the Multica-first execution/review
+assignments. The Product Owner ratified the local CLI governance transition on 2026-10-25
+(official decision:
+https://github.com/9GotStory/songhealth/pull/38#issuecomment-6395631601), replacing those
+assignments with the local CLI workflow below; task deliverables, gates, architecture and
+requirements remain. The matching Constitution amendment (3.0.0 → 4.0.0) is recorded in
+`.specify/memory/constitution.md`. Bounded preparation or review expressly authorized by the
+Product Owner remains distinct from standing authorization for future implementation.
+Historical Multica decisions, existing Feature 002 acceptance and deferral records, Spec Kit
+stages, Human Authorization Gates and runtime restrictions are unchanged:
 
-- Multica agents execute bounded authorized development, testing and pull-request preparation
-  tasks. ChatGPT performs Independent Review of the resulting artifacts and evidence; the author
-  does not review their own artifact. The Product Owner provides final acceptance and explicit
-  bounded implementation authorization. Preserve the Spec Kit stages and Human Authorization Gate.
-- Historical agent names, branch names and accepted Codex source-review evidence retain their
-  provenance; they do not assign future execution or Independent Review duties. Existing accepted
-  evidence and Feature 001 dependency joins are not invalidated by the accepted ownership change.
+- Claude Code CLI is the primary Developer, executing bounded authorized development, testing
+  and pull-request preparation tasks; Codex CLI is the Independent Reviewer of the resulting
+  artifacts and evidence. The author does not review their own artifact. The Product Owner
+  provides final acceptance and explicit bounded implementation authorization. The Spec Kit
+  stages and Human Authorization Gate are preserved.
+- Spec Kit and GitHub remain authoritative; GitHub (`9GotStory/songhealth`) is the source of
+  truth for source, issues, pull requests and CI. One authorized implementation task is in
+  effect at a time; an authorization applies only to its named bounded scope.
+- Historical Multica decisions, agent names, branch names and accepted Codex/ChatGPT
+  source-review evidence retain their provenance; they do not assign future execution or
+  Independent Review duties. Existing accepted evidence and Feature 001 dependency joins are
+  not invalidated by this transition.
 - The single development environment is the persistent rootless-Podman development runtime
   documented in `README.md`: on the single Fedora environment, account `multica-agent` (UID 1001),
   containers `songhealth-dev-app` (Astro/EmDash dev server on the pinned Node/npm tooling image)
@@ -96,7 +109,14 @@ changes execution/review ownership only; task deliverables, gates, architecture 
   origin `http://127.0.0.1:4322/`. The Product Owner decision of 2026-10-16 (Multica issue
   9GOTSTORY-232) supersedes the earlier native-host development workflow as the canonical
   development instructions; it does not change native-only CMS/Product meaning. Do not create or
-  maintain a second development environment or development stack.
+  maintain a second development environment or development stack. That runtime was created under
+  the Multica workflow and remains a separate existing runtime whose ownership and access are
+  pending explicit Product Owner review: local source development under
+  `/home/thanakorn/dev/songhealth` does not migrate, replicate or inherit access to the runtime,
+  its database, media volumes, Runtime Controller or credentials. The local CLI workspace
+  (UID 1000) has no default permission to access, copy, expose or reuse those UID 1001
+  credentials; the approved-loader PAT reuse permitted below for separately authorized tasks on
+  the existing runtime grants no credential access to the local workspace.
 - Programmatic Admin/API tests on the already-initialized shared application reuse
   its existing development-scoped PAT via the approved mode-0600 loader. EmDash's native
   development-only bootstrap (`POST /_emdash/api/setup/dev-bypass`) was an initial-setup
@@ -105,7 +125,8 @@ changes execution/review ownership only; task deliverables, gates, architecture 
 - Production deployment remains rootless Podman + systemd Quadlet
   (`docs/operations/production-foundation.md`); development tooling must not grow into a
   parallel production-like stack.
-- The shared persistent runtime survives Multica issues and agent sessions. Task cleanup covers
+- The shared persistent runtime survives Multica issues, agent sessions and workflow
+  transitions. Task cleanup covers
   task-owned temporary resources only: remove ad-hoc containers the task itself created,
   owned synthetic fixtures/media, and private credential scratch. Cleanup must never stop or
   remove the shared `songhealth-dev-app`/`songhealth-dev-postgres` containers, and never
@@ -128,8 +149,9 @@ Product Owner clarification (2026-10-19): **one development application/server, 
 PostgreSQL database, one media store, and one test target**. This is a repository-wide
 design constraint, not merely a port convention.
 
-- Multica task workspaces may contain separate source checkouts for isolated authoring and
-  static checks. They MUST NOT start a second Astro/EmDash server, a parallel development
+- Task workspaces (Multica issues historically; local CLI task branches) may contain separate
+  source checkouts for isolated authoring and static checks. They MUST NOT start a second
+  Astro/EmDash server, a parallel development
   stack, or an alternate database/media store for functional/integration verification.
   All authorized runtime tests target the **existing** shared development application
   at `http://127.0.0.1:4322` with its existing PostgreSQL and media volumes.
