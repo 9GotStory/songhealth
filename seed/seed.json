@@ -436,6 +436,61 @@
           }
         }
       ]
+    },
+    {
+      "slug": "personnel",
+      "label": "บุคลากร",
+      "labelSingular": "บุคลากร",
+      "supports": ["drafts", "revisions", "preview", "scheduling"],
+      "titleField": "title",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อที่แสดง",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "prefix",
+          "label": "คำนำหน้าชื่อ",
+          "type": "string"
+        },
+        {
+          "slug": "first_name",
+          "label": "ชื่อ",
+          "type": "string"
+        },
+        {
+          "slug": "last_name",
+          "label": "นามสกุล",
+          "type": "string"
+        },
+        {
+          "slug": "profile_image",
+          "label": "ภาพประจำตัว",
+          "type": "image"
+        },
+        {
+          "slug": "current_assignment",
+          "label": "ตำแหน่ง/หน้าที่ปัจจุบัน",
+          "type": "string"
+        },
+        {
+          "slug": "organizational_unit",
+          "label": "หน่วยงานสังกัด",
+          "type": "string"
+        },
+        {
+          "slug": "public_visible",
+          "label": "แสดงต่อสาธารณะ",
+          "type": "boolean"
+        },
+        {
+          "slug": "public_contact",
+          "label": "ช่องทางติดต่อสาธารณะ",
+          "type": "text"
+        }
+      ]
     }
   ],
   "relations": [
