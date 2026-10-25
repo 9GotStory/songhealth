@@ -1,0 +1,601 @@
+{
+	"capturedAt": "2026-10-23T23:57:21.662Z",
+	"checks": [
+		{
+			"name": "collection set equals accepted ten (nine + health_services)",
+			"ok": true,
+			"detail": [
+				"activities",
+				"announcements",
+				"documents",
+				"health_content",
+				"health_reports",
+				"health_services",
+				"news",
+				"pages",
+				"personnel",
+				"services"
+			]
+		},
+		{
+			"name": "documents definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "pages definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "news definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "activities definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "announcements definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "health_content definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "services definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "health_reports definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "personnel definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "health_services definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "relation set equals accepted six",
+			"ok": true,
+			"detail": [
+				"announcement_documents",
+				"document_successor",
+				"facility_services",
+				"page_documents",
+				"report_document",
+				"service_documents"
+			]
+		},
+		{
+			"name": "exactly one relation connects health_services and services",
+			"ok": true,
+			"detail": [
+				"facility_services"
+			]
+		},
+		{
+			"name": "relation document_successor endpoints/limits/binding",
+			"ok": true,
+			"detail": {
+				"maxC": 1,
+				"maxP": null,
+				"bound": [
+					{
+						"collectionSlug": "documents",
+						"fieldSlug": "successor",
+						"side": "parent"
+					}
+				]
+			}
+		},
+		{
+			"name": "relation page_documents endpoints/limits/binding",
+			"ok": true,
+			"detail": {
+				"maxC": null,
+				"maxP": null,
+				"bound": [
+					{
+						"collectionSlug": "pages",
+						"fieldSlug": "documents",
+						"side": "parent"
+					}
+				]
+			}
+		},
+		{
+			"name": "relation announcement_documents endpoints/limits/binding",
+			"ok": true,
+			"detail": {
+				"maxC": null,
+				"maxP": null,
+				"bound": [
+					{
+						"collectionSlug": "announcements",
+						"fieldSlug": "documents",
+						"side": "parent"
+					}
+				]
+			}
+		},
+		{
+			"name": "relation service_documents endpoints/limits/binding",
+			"ok": true,
+			"detail": {
+				"maxC": null,
+				"maxP": null,
+				"bound": [
+					{
+						"collectionSlug": "services",
+						"fieldSlug": "documents",
+						"side": "parent"
+					}
+				]
+			}
+		},
+		{
+			"name": "relation report_document endpoints/limits/binding",
+			"ok": true,
+			"detail": {
+				"maxC": 1,
+				"maxP": null,
+				"bound": [
+					{
+						"collectionSlug": "health_reports",
+						"fieldSlug": "report_document",
+						"side": "parent"
+					}
+				]
+			}
+		},
+		{
+			"name": "relation facility_services endpoints/limits/binding",
+			"ok": true,
+			"detail": {
+				"maxC": null,
+				"maxP": null,
+				"bound": [
+					{
+						"collectionSlug": "services",
+						"fieldSlug": "offering_facilities",
+						"side": "child"
+					},
+					{
+						"collectionSlug": "health_services",
+						"fieldSlug": "offered_services",
+						"side": "parent"
+					}
+				]
+			}
+		},
+		{
+			"name": "taxonomy topic attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"activities",
+					"announcements",
+					"documents",
+					"health_content",
+					"health_reports",
+					"news",
+					"services"
+				],
+				"seed": [
+					"activities",
+					"announcements",
+					"documents",
+					"health_content",
+					"health_reports",
+					"news",
+					"services"
+				]
+			}
+		},
+		{
+			"name": "taxonomy topic hierarchical",
+			"ok": true,
+			"detail": false
+		},
+		{
+			"name": "taxonomy audience attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"announcements",
+					"health_content",
+					"news",
+					"services"
+				],
+				"seed": [
+					"announcements",
+					"health_content",
+					"news",
+					"services"
+				]
+			}
+		},
+		{
+			"name": "taxonomy audience hierarchical",
+			"ok": true,
+			"detail": false
+		},
+		{
+			"name": "taxonomy area attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"activities",
+					"health_reports",
+					"health_services",
+					"news"
+				],
+				"seed": [
+					"activities",
+					"health_reports",
+					"health_services",
+					"news"
+				]
+			}
+		},
+		{
+			"name": "taxonomy area hierarchical",
+			"ok": true,
+			"detail": true
+		},
+		{
+			"name": "taxonomy document_type attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"documents"
+				],
+				"seed": [
+					"documents"
+				]
+			}
+		},
+		{
+			"name": "taxonomy document_type hierarchical",
+			"ok": true,
+			"detail": false
+		},
+		{
+			"name": "taxonomy news_category attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"news"
+				],
+				"seed": [
+					"news"
+				]
+			}
+		},
+		{
+			"name": "taxonomy news_category hierarchical",
+			"ok": true,
+			"detail": false
+		},
+		{
+			"name": "taxonomy announcement_type attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"announcements"
+				],
+				"seed": [
+					"announcements"
+				]
+			}
+		},
+		{
+			"name": "taxonomy announcement_type hierarchical",
+			"ok": true,
+			"detail": false
+		},
+		{
+			"name": "taxonomy service_category attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"services"
+				],
+				"seed": [
+					"services"
+				]
+			}
+		},
+		{
+			"name": "taxonomy service_category hierarchical",
+			"ok": true,
+			"detail": false
+		},
+		{
+			"name": "taxonomy report_type attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"health_reports"
+				],
+				"seed": [
+					"health_reports"
+				]
+			}
+		},
+		{
+			"name": "taxonomy report_type hierarchical",
+			"ok": true,
+			"detail": false
+		},
+		{
+			"name": "taxonomy facility_type attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"health_services"
+				],
+				"seed": [
+					"health_services"
+				]
+			}
+		},
+		{
+			"name": "taxonomy facility_type hierarchical",
+			"ok": true,
+			"detail": false
+		},
+		{
+			"name": "activities zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "activities zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "announcements zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "announcements zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "documents zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "documents zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "health_content zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "health_content zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "health_reports zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "health_reports zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "health_services zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "health_services zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "news zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "news zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "pages zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "pages zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "personnel zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "personnel zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "services zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "services zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "zero synthetic media",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "media store empty",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "taxonomy area zero synthetic terms (complete tree)",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "taxonomy facility_type zero synthetic terms (complete tree)",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "taxonomy topic zero synthetic terms (complete tree)",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "orphan tables empty",
+			"ok": true,
+			"detail": {
+				"items": []
+			}
+		},
+		{
+			"name": "deletion queue pending empty",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "deletion queue retry empty",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "deletion queue leased empty",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "deletion queue failed empty",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "credential file still mode 0600 regular file",
+			"ok": true,
+			"detail": {
+				"mode": "600",
+				"size": 123
+			}
+		}
+	],
+	"problems": []
+}
