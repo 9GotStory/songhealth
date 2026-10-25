@@ -10,10 +10,13 @@ sources are committed and independently reviewed, with their runtime verificatio
 of [docs/operations/production-foundation.md](docs/operations/production-foundation.md)).
 Feature 002 `002-cms-content-model` is the active feature; shared native model tasks T001–T007
 are checked (executed) and T008–T035 are pending. A checked marker records task completion
-only: bounded Lead review PASS, ChatGPT Independent Review PASS and Product Owner Final
+only: bounded Lead review PASS, Independent Review PASS and Product Owner Final
 Acceptance are distinct states evidenced per artifact — not established by task markers, an
-issue's status, or acceptance of the development runtime. Development, testing and review run
-against the single persistent development runtime documented in this README.
+issue's status, or acceptance of the development runtime. Source development, review and
+pull-request preparation are proposed to follow the local CLI workflow below pending
+Product Owner ratification; authorized runtime testing still targets the existing persistent
+development runtime documented in this README, whose ownership and access are pending
+explicit review.
 
 ## Authority
 
@@ -26,26 +29,47 @@ against the single persistent development runtime documented in this README.
 
 Do not reconstruct removed architecture from Git history or old branch names (see `AGENTS.md`).
 
-## Development workflow (Multica-first)
+## Development workflow (local CLI — proposed, pending ratification)
 
-Per the Product Owner development decision of 2026-10-13 (Multica issue 9GOTSTORY-202), the
-accepted governance reconciliation of 2026-10-14 (recorded in `AGENTS.md` and the Constitution),
-and the development-runtime decision of 2026-10-16 (Multica issue 9GOTSTORY-232):
+A Product Owner authorization of 2026-10-25 permits preparing and independently reviewing a
+governance proposal that would replace the Multica-first execution/review assignments of
+2026-10-13/2026-10-14 (recorded in `AGENTS.md` and the Constitution) with the local CLI
+workflow below, while preserving the 2026-10-16 development-runtime decision (Multica issue
+9GOTSTORY-232). The proposal becomes the standing workflow only after Independent Review PASS
+and explicit Product Owner ratification with a verifiable decision reference; until then the
+ratified Constitution 3.0.0 remains the standing governance authority, and the current
+authorization covers proposal preparation and review only — not standing activation or
+implementation:
 
-- Multica agents execute bounded authorized tasks; ChatGPT performs Independent Review of their
-  artifacts/evidence, and the Product Owner gives final acceptance and implementation
+- Proposed: source development would take place in the local workspace
+  `/home/thanakorn/dev/songhealth` (local user `thanakorn`, UID 1000), with Claude Code CLI as
+  the primary Developer and Codex CLI performing Independent Review of the resulting
+  artifacts/evidence; the Product Owner gives final acceptance and implementation
   authorization. Authors do not independently review their own artifacts; Spec Kit
-  stages/Human Gate remain.
-- Development, testing and pull-request preparation happen in Multica task runs against the
-  **single persistent development runtime** described below. There is one development
-  environment; no second development stack may be created. The 2026-10-16 decision supersedes
-  the earlier native-host development workflow (host `npm ci` / `npm run dev` plus the `dev-db`
-  helper) as the canonical development instructions; those committed helpers remain accepted
-  implementation files, not the path for the shared runtime (see “Superseded native-host
-  workflow”).
-- Development testing reuses the existing native development-scoped PAT for
-  programmatic Admin/API access; EmDash's dev-only bootstrap was an initial-provisioning
-  step, not a recurring test action. Passkey login is never automated.
+  stages/Human Gate remain. One authorized implementation task is in effect at a time. GitHub
+  (`9GotStory/songhealth`) is the source of truth for source, issues, pull requests and CI.
+  The matching Constitution amendment (proposed 4.0.0) is not ratified until the Product Owner
+  accepts it with a verifiable decision reference.
+- The persistent development runtime described below remains the **single existing development
+  runtime**. It was created and activated under the Multica workflow on account `multica-agent`
+  (UID 1001) and stays a separate historical/existing runtime whose ownership and access are
+  pending explicit Product Owner review. Local source migration does **not** imply runtime,
+  database or media migration: moving development to `/home/thanakorn/dev/songhealth` does not
+  migrate, replicate or grant access to that runtime, its PostgreSQL database, media volumes,
+  Runtime Controller or credentials.
+- No second runtime, PostgreSQL database or media store may be created automatically. The
+  earlier native-host workflow (host `npm ci` / `npm run dev` plus the `dev-db` helper) stays
+  superseded; those committed helpers remain accepted implementation files, not a path to a
+  second stack (see “Superseded native-host workflow”).
+- Existing Runtime Controller protections remain in force. The local CLI workspace under
+  UID 1000 has no default permission to access, copy, expose or reuse the existing UID 1001
+  credentials (`runtime.env`, `dev-access.json` and the mode-0600 development PAT). For
+  separately authorized tasks on the existing runtime, the approved mode-0600 PAT-loader
+  reuse contract (see “Verify the public and Admin surfaces” and `AGENTS.md`) is preserved
+  unchanged; it grants no credential access to the local workspace and no new permission.
+  Local CLI execution grants no standing runtime, authentication, promotion or deployment
+  permissions; runtime operations beyond the routine `status`/`verify` still require separate
+  review and Product Owner authorization. Passkey login is never automated.
 - Production deployment remains rootless Podman + systemd Quadlet
   ([docs/operations/production-foundation.md](docs/operations/production-foundation.md)). The
   development runtime is Podman Compose-based tooling and must not grow into a parallel
@@ -59,7 +83,12 @@ and the development-runtime decision of 2026-10-16 (Multica issue 9GOTSTORY-232)
 
 Provisioned once and accepted through ChatGPT Final Independent Review and Product Owner
 activation (2026-10-16). It is shared infrastructure: the containers, the stable source and the
-dedicated volumes survive completion of Multica issues and agent sessions.
+dedicated volumes survive completion of Multica issues, agent sessions and workflow
+transitions. It was created under the Multica workflow on account `multica-agent` (UID 1001):
+until its ownership and access are explicitly reviewed by the Product Owner, the local CLI
+workspace has no default access to it, and the credential-handling and testing instructions
+below describe authorized operations on that existing runtime, not permissions granted by
+local CLI execution.
 
 | Resource | Value |
 | --- | --- |
@@ -185,8 +214,10 @@ with no auto-migration:
 ## Source advancement boundary
 
 The stable runtime source is pinned to the exact accepted SHA recorded by the controller
-(`6ab72780c1a531956acc3c06838c3028e10ad77d`). Task branches are developed in separate Multica
-workspace checkouts; the shared runtime never consumes a new candidate implicitly:
+(`6ab72780c1a531956acc3c06838c3028e10ad77d`). Task branches are developed in separate task
+workspaces (historically Multica checkouts; currently the local CLI workspace
+`/home/thanakorn/dev/songhealth` under the pending transition); the shared runtime never
+consumes a new candidate implicitly:
 
 - Moving the stable source to a new SHA requires a **separately reviewed and Product
   Owner-authorized promotion** recorded in a matching promotion approval (from/to full SHA plus
@@ -255,7 +286,9 @@ Executing test suites or builds that touch the shared runtime is bounded task wo
 own authorization — the current routine activation covers `status`/`verify` only. There is no
 `npm test` script at this baseline; focused Node suites (`node --test "tests/node/*.test.ts"`)
 run under a task's own authorized pinned toolchain (the pinned host toolchain
-`/home/multica-agent/toolchain/node-v24.21.0-linux-x64` remains available for task workspaces).
+`/home/multica-agent/toolchain/node-v24.21.0-linux-x64` belongs to the existing runtime
+account and remains available to authorized task workspaces on it; local CLI workspaces must
+not assume access to it).
 Use synthetic public-publishable test data, reuse the existing mode-0600 development
 PAT through `loadDevAccessToken()` / `createPatActor()`, and clean up only owned fixtures
 and scratch. Never repeat dev-bypass bootstrap on the initialized shared runtime.
@@ -274,7 +307,8 @@ controller's `verify` operation.
 
 ## Task-run cleanup
 
-Every Multica task run cleans up only **task-owned temporary resources** before it ends:
+Every task run (Multica issues historically; local CLI task branches under the proposed
+workflow) cleans up only **task-owned temporary resources** before it ends:
 
 - remove ad-hoc containers the task itself created, owned synthetic fixtures and test media,
   and private credential/token scratch files;

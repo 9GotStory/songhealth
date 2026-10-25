@@ -141,4 +141,30 @@ Owner approval are recorded in `01a13896-b7d9-700e-9ea6-00973f11d963`. That appr
 finalization, commit and push of this documentation reconciliation only; it authorizes no Feature 002
 implementation, Feature 001 runtime gate execution, merge or deployment.
 
+### Proposed Amendment — 2026-10-25 (NOT RATIFIED)
+
+Product Owner authorization of 2026-10-25 (local CLI governance transition, bounded governance
+synchronization) proposes amending §Independent Implementation Review: Claude Code CLI becomes
+the primary Developer and Codex CLI the Independent Reviewer, with GitHub as the source of
+truth for source, issues, pull requests and CI, one authorized implementation task at a time,
+no self-review, and all existing Spec Kit stages, Human Authorization Gates, evidence
+requirements and Product Owner authority unchanged. Version 3.0.0 → 4.0.0 is MAJOR because
+these assigned governance responsibilities change incompatibly, reversing the
+executor/reviewer assignments accepted at 3.0.0. Principles I–V, security and data-protection
+rules, dependency policy, production operations, PO authority, accepted amendment records,
+Feature 001 dependency joins and Feature 002 acceptance records are preserved. The 2026-10-25
+authorization permits preparing and independently reviewing this amendment only; it does not
+make the proposed assignments effective, and bounded preparation or review expressly
+authorized by the Product Owner is distinct from standing authorization for future
+implementation. The ratified Constitution
+3.0.0 — including the §Independent Implementation Review assignments established by the
+2026-10-14 amendment — remains the standing governance authority until formal ratification.
+
+This amendment is PROPOSED ONLY. The §Independent Implementation Review text and the version
+footer remain the ratified 3.0.0 governance until the Product Owner explicitly accepts this
+amendment following an Independent Review PASS, with a verifiable decision reference recorded
+here. Only then do the proposed local CLI assignments become the standing assignments,
+§Independent Implementation Review is updated to them, and the version footer advances to
+4.0.0.
+
 **Version**: 3.0.0 | **Ratified**: 2026-08-16 | **Last Amended**: 2026-10-14
