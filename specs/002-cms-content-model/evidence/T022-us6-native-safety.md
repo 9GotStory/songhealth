@@ -370,3 +370,58 @@ terminal live-run prohibition remains binding until a separate PO runtime gate.*
 - **Toolchain honesty**: node v24.19.0 / npm 12.0.2 at this workstation (toolchain pin
   24.21.0); the coordinator's own Node-major gate (24.x) passed. Any future runtime gate must
   re-verify the pinned toolchain on its execution host.
+
+---
+
+# Offline corrective round 1 — 2026-10-26 (Asia/Bangkok; PO gate 6405426682, P1/P2 only)
+
+Append-only record on the same preparation branch. Parent candidate `2061d37f125e90f597ffc7443962e5bcf486bc81`.
+**Still offline-only: no runtime, controller, credential, HTTP, browser or live Playwright execution; T022 remains
+DEFERRED — NOT PASSED; the terminal live-run prohibition stays binding.**
+
+- **Provenance count correction (P2, disclosure)**: the offline paragraph above states "18/18 controls (14 retained +
+  4 new)". That sentence was written after the first guard batch and predates the final two additions to the same
+  submission (the `--root=--config` regression case and the fifth test, the actual-file leading-zero-port guard).
+  The committed parent source defines **19 top-level `test(...)` definitions (14 retained + 5 new)**, and the
+  developer-executed run at the parent SHA reported **19/19 PASS** (command: `node --test
+  tests/node/cms-public-reads-target.test.ts`; result lines `ℹ tests 19 / ℹ pass 19 / ℹ fail 0`). The 18/18 figure
+  is retained above as the historical mid-round observation; the 19-test/19-pass state is the actual parent-candidate
+  state. Static test-count inspection is ChatGPT-verified (6405365406); the execution count is
+  developer/Lead-attested, not independently re-run by ChatGPT.
+- **P1 fix — tokenized Astro subcommand admission** (`tests/browser/run-cms-public-reads.mjs`): the serving-process
+  gate no longer tests `/\bdev\b/` against the joined `/proc/<pid>/cmdline` string. New `astroDevSubcommand()` finds
+  the Astro CLI entry token within a short wrapper prefix (non-flag prefix tokens must be recognized interpreters —
+  node/nodejs/bun/bunx/deno/npx/pnpm/yarn; anything else is "not safely attributable to the Astro CLI" and fails
+  closed), then requires the first non-flag token after the entry — skipping known value-taking flags — to be
+  exactly `dev`. `preview`, `build`, `sync`, any other subcommand, a missing subcommand and unattributable wrappers
+  are refused. This closes the exact false positive identified by ChatGPT: `/usr/bin/node
+  /home/…/dev/…/astro/bin/astro.mjs preview --root .` previously satisfied both the astro and dev regexes through
+  the "/dev/" path segment.
+- **P2 fix — blank root values**: `parseAstroRootArg()` now refuses empty/whitespace successors to `--root`/`-r`
+  and empty/whitespace `--root=` values (previously `["astro.mjs","dev","--root",""]` yielded `root:""`, resolving
+  to the process cwd). Approved split/equals/short forms, effective-root identity binding, foreign/unobservable-root
+  refusal and the blank disposable-input fail-closed behavior are unchanged.
+- **New regressions** (`tests/node/cms-public-reads-target.test.ts`): the parseAstroRootArg matrix gained the four
+  blank/whitespace refusals; two new tests cover (a) the `astroDevSubcommand` matrix — positive tokenized `dev`
+  (array and string argv, global-flag-before-subcommand), negative `preview`/`build`/`sync` from a `/dev/`-bearing
+  path, missing subcommand, no-entry and foreign-wrapper cases — and (b) actual `admittedServingProcess` admission
+  through hermetic injected stubs: `preview` and `build` from a `/dev/` path are refused while genuine tokenized
+  `dev` from the same path is admitted with mocked source identity. All prior assertions are retained unweakened.
+- **Codex final-review residual finding (closed in this same round, before any push)**: the first final review of
+  this draft returned BLOCKED on one case — `["node","--require","/tmp/astro.js","dev"]` was admitted because the
+  `--require` preload VALUE matched the Astro entry pattern. Hardened in `astroDevSubcommand()`: interpreter
+  value-flags (`--require`/`-r`/`--import`/`--loader`/`--experimental-loader`) consume their value, and a value
+  matching the Astro entry pattern is refused as "an interpreter preload/option value is not the Astro CLI entry";
+  every other `-`-prefixed token in the wrapper prefix is now an "unsupported interpreter option" refusal (fail
+  closed). Three regressions added (`--require` and `--import` preload masquerades, unsupported-option example).
+  The re-review outcome is NOT claimed in this file: it is reported in the T022_OFFLINE_CORRECTIVE_R1_PACKET after
+  the review has actually run. Both review rounds are recorded; no corrective round beyond this single authorized
+  submission occurred.
+- **Offline verification at this round (commands and observed results, developer-executed on this workstation)**:
+  `node --test tests/node/cms-public-reads-target.test.ts` → **21/21 pass / 0 fail** (19 top-level tests retained from the parent + 2 new top-level tests; the three interpreter-option regressions are assertions inside the existing subcommand-matrix test);
+  `tsc --noEmit -p tsconfig.json` candidate-vs-parent → identical **3 pre-existing** diagnostics (never clean);
+  `playwright test --list` → unchanged discovery **89 tests / 8 files** (no new/removed cases; UI file untouched);
+  `git diff --check` clean; CLI negative admission matrix re-run under `unshare -rn` (empty network namespace) —
+  8 refusal cases (both-blank, blank-either-side, whitespace, partial, persistent-4322, malformed port, SHA
+  mismatch) all HOLD exit 3 with the spy controller never invoked. Toolchain honesty: node v24.19.0 / npm 12.0.2
+  (pin 24.21.0 — any runtime gate must re-verify the pinned toolchain on its execution host).

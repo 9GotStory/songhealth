@@ -278,11 +278,17 @@ export function parseAstroRootArg(argv) {
 			if (next === undefined || (next.startsWith("-") && next.length > 1)) {
 				return { error: `${JSON.stringify(token)} is not followed by a path value` };
 			}
+			if (next.trim().length === 0) {
+				return { error: `${JSON.stringify(token)} is followed by an empty/whitespace root value` };
+			}
 			roots.push(next);
 		} else if (token.startsWith("--root=")) {
 			const value = token.slice("--root=".length);
 			if (value.length === 0) {
 				return { error: '"--root=" carries no path value' };
+			}
+			if (value.trim().length === 0) {
+				return { error: '"--root=" carries an empty/whitespace root value' };
 			}
 			if (value.startsWith("-") && value.length > 1) {
 				return { error: `"--root=${value}" is not a path value` };
@@ -297,6 +303,110 @@ export function parseAstroRootArg(argv) {
 		return { error: `conflicting values ${roots.map((root) => JSON.stringify(root)).join(", ")}` };
 	}
 	return { root: roots[roots.length - 1] };
+}
+
+/**
+ * P1 (ChatGPT review 6405365406; PO gate 6405426682): identify Astro's
+ * subcommand from TOKENIZED argv, never from a substring of the joined
+ * command line — a path containing "/dev/" made `astro preview` satisfy the
+ * old /\bdev\b/ predicate. The Astro CLI entry must be an argv token naming
+ * an astro executable (astro, astro.mjs, .../astro, .../bin/astro.js, ...)
+ * appearing within a short wrapper prefix whose non-flag tokens are
+ * recognized interpreters (node/bun/denoi/npm-runner family); anything else
+ * is not safely attributable to the Astro CLI and fails closed. The first
+ * non-flag token after the entry — skipping known value-taking flags so
+ * their values are not mistaken for the subcommand — must be exactly
+ * `dev`; `preview`, `build`, every other subcommand, and a missing or
+ * ambiguous command are refused.
+ */
+const ASTRO_ENTRY_PATTERN = /(^|\/)(bin\/)?astro(\.(mjs|cjs|js))?$/;
+const ASTRO_INTERPRETER_PATTERN =
+	/(^|\/)(node|nodejs|bun|bunx|deno|npx|pnpm|yarn)(-[0-9][0-9.]*)?(\.(exe|cmd|bat))?$/;
+const ASTRO_VALUE_FLAGS = new Set([
+	"--root",
+	"-r",
+	"--config",
+	"-c",
+	"--host",
+	"--port",
+	"-p",
+	"--site",
+	"--base",
+	"--mode",
+]);
+/**
+ * Interpreter options that CONSUME a following value. Anything else in the
+ * wrapper prefix that starts with "-" is an unsupported interpreter option
+ * and fails closed (Codex R1 final review: `node --require /tmp/astro.js
+ * dev` must not be admitted — the preload value is not the Astro CLI entry,
+ * and `dev` there is Node's script operand).
+ */
+const ASTRO_INTERPRETER_VALUE_FLAGS = new Set([
+	"--require",
+	"-r",
+	"--import",
+	"--loader",
+	"--experimental-loader",
+]);
+
+export function astroDevSubcommand(argv) {
+	const args = Array.isArray(argv)
+		? argv
+		: String(argv ?? "").split(/\s+/).filter((part) => part.length > 0);
+	const prefixLimit = Math.min(args.length, 4);
+	let entry = -1;
+	for (let i = 0; i < prefixLimit; i += 1) {
+		if (ASTRO_ENTRY_PATTERN.test(args[i])) {
+			entry = i;
+			break;
+		}
+	}
+	if (entry === -1) {
+		return { error: "no Astro CLI entry token in the process wrapper prefix" };
+	}
+	for (let i = 0; i < entry; i += 1) {
+		const token = args[i];
+		if (token.startsWith("-")) {
+			if (ASTRO_INTERPRETER_VALUE_FLAGS.has(token)) {
+				const value = args[i + 1];
+				if (value !== undefined && ASTRO_ENTRY_PATTERN.test(value)) {
+					return {
+						error: "an interpreter preload/option value is not the Astro CLI entry",
+					};
+				}
+				i += 1;
+			} else {
+				return {
+					error: `unsupported interpreter option ${JSON.stringify(token)} in the wrapper prefix`,
+				};
+			}
+			continue;
+		}
+		if (!ASTRO_INTERPRETER_PATTERN.test(token)) {
+			return {
+				error: `the wrapper prefix token ${JSON.stringify(token)} is not a recognized interpreter — not safely attributable to the Astro CLI`,
+			};
+		}
+	}
+	let subcommand;
+	for (let i = entry + 1; i < args.length; i += 1) {
+		const token = args[i];
+		if (token.startsWith("-")) {
+			if (ASTRO_VALUE_FLAGS.has(token)) {
+				i += 1;
+			}
+			continue;
+		}
+		subcommand = token;
+		break;
+	}
+	if (subcommand === undefined) {
+		return { error: "no subcommand token after the Astro CLI entry" };
+	}
+	if (subcommand !== "dev") {
+		return { error: `the Astro subcommand is ${JSON.stringify(subcommand)}, not "dev"` };
+	}
+	return { dev: true };
 }
 
 export async function admittedServingProcess(origin, expectedSha, deps = {}) {
@@ -333,8 +443,9 @@ export async function admittedServingProcess(origin, expectedSha, deps = {}) {
 		return { error: `the listener pid ${pid} on 127.0.0.1:${port} has no readable command line (${cmdline.error}) — a dead or foreign process never receives test traffic` };
 	}
 	const command = String(cmdline.value ?? "");
-	if (!/astro(\.mjs|\/bin\/astro)?\b/.test(command) || !/\bdev\b/.test(command)) {
-		return { error: `the listener pid ${pid} on 127.0.0.1:${port} is not an astro dev process (command line unrecognized) — a foreign process never receives test traffic` };
+	const subcommand = astroDevSubcommand(cmdline.args ?? command);
+	if (subcommand.error !== undefined) {
+		return { error: `the listener pid ${pid} on 127.0.0.1:${port} is not an astro dev process (${subcommand.error}) — a foreign process never receives test traffic` };
 	}
 	// Bind to Astro's EFFECTIVE root, not merely the process cwd (PO gate
 	// 6404739593 item 3(ii)): a process whose cwd is this checkout but whose

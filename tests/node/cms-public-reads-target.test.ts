@@ -34,6 +34,10 @@ const coordinator = (await import(coordinatorUrl.href)) as unknown as {
 		absent?: boolean;
 		error?: string;
 	};
+	astroDevSubcommand: (argv: string[] | string) => {
+		dev?: boolean;
+		error?: string;
+	};
 	disposableSourceIdentity: (options?: {
 		trackedOnly?: boolean;
 	}) => Promise<{ error?: string; sha?: string; provenance?: string }>;
@@ -597,6 +601,137 @@ test("parseAstroRootArg accepts split, equals and short forms and refuses ambigu
 		coordinator.parseAstroRootArg(["node", "astro.mjs", "dev", "--root", "/a", "--root", "/a"]),
 		{ root: "/a" },
 	);
+	// P2 (ChatGPT 6405365406; PO gate 6405426682): empty/whitespace root
+	// values must be refused in every supported form, never resolved to cwd.
+	assert.deepEqual(
+		coordinator.parseAstroRootArg(["node", "astro.mjs", "dev", "--root", ""]),
+		{ error: '"--root" is followed by an empty/whitespace root value' },
+	);
+	assert.deepEqual(
+		coordinator.parseAstroRootArg(["node", "astro.mjs", "dev", "--root", "   "]),
+		{ error: '"--root" is followed by an empty/whitespace root value' },
+	);
+	assert.deepEqual(
+		coordinator.parseAstroRootArg(["node", "astro.mjs", "dev", "-r", " "]),
+		{ error: '"-r" is followed by an empty/whitespace root value' },
+	);
+	assert.deepEqual(
+		coordinator.parseAstroRootArg(["node", "astro.mjs", "dev", "--root=   "]),
+		{ error: '"--root=" carries an empty/whitespace root value' },
+	);
+});
+
+test("astroDevSubcommand identifies dev from tokenized argv and refuses preview/build and unattributable wrappers", () => {
+	// P1 (ChatGPT 6405365406; PO gate 6405426682): `dev` must be the actual
+	// Astro CLI subcommand token. A process path containing "/dev/" must not
+	// make `preview`/`build` satisfy the admission (the joined-string
+	// /\bdev\b/ predicate this replaces had exactly that false positive).
+	const devPathEntry = "/home/thanakorn/dev/songhealth/node_modules/astro/bin/astro.mjs";
+	assert.deepEqual(
+		coordinator.astroDevSubcommand(["/usr/bin/node", devPathEntry, "dev", "--config", ".tmp/x.mjs"]),
+		{ dev: true },
+	);
+	assert.match(
+		coordinator.astroDevSubcommand(["/usr/bin/node", devPathEntry, "preview", "--root", "."])
+			.error ?? "",
+		/the Astro subcommand is "preview", not "dev"/,
+	);
+	assert.match(
+		coordinator.astroDevSubcommand(["/usr/bin/node", devPathEntry, "build"]).error ?? "",
+		/the Astro subcommand is "build", not "dev"/,
+	);
+	assert.match(
+		coordinator.astroDevSubcommand(["/usr/bin/node", devPathEntry, "sync"]).error ?? "",
+		/the Astro subcommand is "sync", not "dev"/,
+	);
+	// Global value flags before the subcommand are skipped, not misread.
+	assert.deepEqual(
+		coordinator.astroDevSubcommand(["astro", "--root", "x", "dev"]),
+		{ dev: true },
+	);
+	// Missing subcommand and string-form argv behave the same.
+	assert.match(
+		coordinator.astroDevSubcommand(["/usr/bin/node", devPathEntry]).error ?? "",
+		/no subcommand token/,
+	);
+	assert.deepEqual(coordinator.astroDevSubcommand("/toolchain/node node astro.mjs dev"), {
+		dev: true,
+	});
+	// Not safely attributable to the Astro CLI: no astro entry token at all,
+	// or an astro-looking token buried behind a foreign (non-interpreter)
+	// wrapper token. Both fail closed.
+	assert.match(
+		coordinator.astroDevSubcommand(["/usr/bin/some-other-server", "--port", "4323"]).error ?? "",
+		/no Astro CLI entry token/,
+	);
+	assert.match(
+		coordinator.astroDevSubcommand([
+			"/usr/bin/some-other-server",
+			"--config",
+			"/dev/songhealth/node_modules/astro/bin/astro.mjs",
+			"dev",
+		]).error ?? "",
+		/not safely attributable to the Astro CLI/,
+	);
+	// Interpreter-option hardening (Codex R1 final review): a preload value
+	// that merely looks like the Astro entry is not one, and unknown
+	// interpreter options fail closed rather than being skipped.
+	assert.match(
+		coordinator.astroDevSubcommand(["node", "--require", "/tmp/astro.js", "dev"])
+			.error ?? "",
+		/interpreter preload\/option value is not the Astro CLI entry/,
+	);
+	assert.match(
+		coordinator.astroDevSubcommand(["node", "--import", "/dev/astro.mjs", "dev"])
+			.error ?? "",
+		/interpreter preload\/option value is not the Astro CLI entry/,
+	);
+	assert.match(
+		coordinator.astroDevSubcommand(["node", "--enable-source-maps", "astro.mjs", "dev"])
+			.error ?? "",
+		/unsupported interpreter option/,
+	);
+});
+
+test("serving-process admission refuses astro preview/build from a /dev/ path and admits tokenized dev (hermetic stubs)", async () => {
+	const sha = "f".repeat(40);
+	const ssOne =
+		'LISTEN 0 511 127.0.0.1:4323 0.0.0.0:* users:(("MainThread",pid=4321,fd=26))';
+	const devPathEntry = "/home/thanakorn/dev/songhealth/node_modules/astro/bin/astro.mjs";
+	const depsFor = (args: string[]) => ({
+		runSs: async () => ({ stdout: ssOne }),
+		readCmdline: async () => ({ value: args.join(" "), args }),
+		readCwd: async () => ({ value: repoRoot }),
+		gitHead: async () => ({ value: sha }),
+		resolveRoot: async (rootValue: string) => ({
+			value: rootValue === "." ? repoRoot : rootValue,
+		}),
+	});
+	// The exact P1 false positive: joined cmdline contains "/dev/" AND the
+	// word "dev" in the path, but the subcommand is preview — must refuse.
+	const preview = await coordinator.admittedServingProcess(
+		"http://127.0.0.1:4323",
+		sha,
+		depsFor(["/usr/bin/node", devPathEntry, "preview", "--root", "."]),
+	);
+	assert.match(preview.error ?? "", /not an astro dev process/);
+	assert.match(preview.error ?? "", /the Astro subcommand is "preview", not "dev"/);
+	const build = await coordinator.admittedServingProcess(
+		"http://127.0.0.1:4323",
+		sha,
+		depsFor(["/usr/bin/node", devPathEntry, "build", "--root=" + repoRoot]),
+	);
+	assert.match(build.error ?? "", /the Astro subcommand is "build", not "dev"/);
+	// Positive control: genuine tokenized `dev` from the SAME /dev/-bearing
+	// path is admitted with mocked source identity.
+	const admitted = await coordinator.admittedServingProcess(
+		"http://127.0.0.1:4323",
+		sha,
+		depsFor(["/usr/bin/node", devPathEntry, "dev", "--root", "."]),
+	);
+	assert.equal(admitted.error, undefined);
+	assert.equal(admitted.pid, 4321);
+	assert.equal(admitted.sourceRoot, repoRoot);
 });
 
 test("serving-process admission binds Astro's effective --root and refuses foreign or ambiguous roots", async () => {
