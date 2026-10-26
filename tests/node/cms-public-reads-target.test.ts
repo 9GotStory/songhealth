@@ -29,6 +29,11 @@ const coordinator = (await import(coordinatorUrl.href)) as unknown as {
 	disposableMode: () => boolean;
 	disposableOrigin: () => { error?: string; origin?: string };
 	disposableInputCompleteness: () => { complete: boolean; error?: string };
+	parseAstroRootArg: (argv: string[] | string) => {
+		root?: string;
+		absent?: boolean;
+		error?: string;
+	};
 	disposableSourceIdentity: (options?: {
 		trackedOnly?: boolean;
 	}) => Promise<{ error?: string; sha?: string; provenance?: string }>;
@@ -39,9 +44,13 @@ const coordinator = (await import(coordinatorUrl.href)) as unknown as {
 			runSs?: () => Promise<{ error?: string; stdout?: string }>;
 			readCmdline?: (
 				pid: string,
-			) => Promise<{ error?: string; value?: string }>;
+			) => Promise<{ error?: string; value?: string; args?: string[] }>;
 			readCwd?: (pid: string) => Promise<{ error?: string; value?: string }>;
 			gitHead?: (cwd: string) => Promise<{ error?: string; value?: string }>;
+			resolveRoot?: (
+				rootValue: string,
+				cwd: string,
+			) => Promise<{ error?: string; value?: string }>;
 		},
 	) => Promise<{
 		error?: string;
@@ -107,7 +116,7 @@ test("the persistent shared origin is refused in disposable mode", () => {
 test("malformed disposable origins refuse", () => {
 	for (const value of ["", "   ", "http://0.0.0.0:4323", "http://localhost:4323",
 		"https://127.0.0.1:4323", "http://127.0.0.1:0", "http://127.0.0.1:99999",
-		"http://127.0.0.1:4323/path", "not-a-url"]) {
+		"http://127.0.0.1:04322", "http://127.0.0.1:4323/path", "not-a-url"]) {
 		withEnv({ SONGHEALTH_T021_DISPOSABLE_ORIGIN: value }, () => {
 			const outcome = coordinator.disposableOrigin();
 			assert.ok(outcome.error !== undefined, `must refuse ${JSON.stringify(value)}`);
@@ -456,4 +465,248 @@ test("the missing-files control uses the supported native LIST address and admit
 	assert.match(spec, /omittedSummary === undefined \|\| omittedSummary === null/);
 	// The persistent refusal stays: the target variable must not name 4322.
 	assert.match(spec, /must not name the persistent shared origin/);
+});
+
+// --- offline-recovery regressions (PO gate 6404739593; the both-blank
+// admission gap and the Astro effective --root binding were authorized but
+// never completed by the interrupted final close-out round) ---
+
+test("explicitly present blank disposable inputs fail closed and can never select the persistent path", () => {
+	// The both-blank combination previously passed completeness and made
+	// disposableMode() false, silently selecting the persistent/controller
+	// branch (ChatGPT assessment 6404697598; Codex review finding 2).
+	const cases: Array<Record<string, string | undefined>> = [
+		{ SONGHEALTH_T021_DISPOSABLE_ORIGIN: "", SONGHEALTH_T021_DISPOSABLE_SOURCE_SHA: "" },
+		{ SONGHEALTH_T021_DISPOSABLE_ORIGIN: "   ", SONGHEALTH_T021_DISPOSABLE_SOURCE_SHA: " \t " },
+		{ SONGHEALTH_T021_DISPOSABLE_ORIGIN: "", SONGHEALTH_T021_DISPOSABLE_SOURCE_SHA: undefined },
+		{ SONGHEALTH_T021_DISPOSABLE_ORIGIN: undefined, SONGHEALTH_T021_DISPOSABLE_SOURCE_SHA: "  " },
+	];
+	for (const env of cases) {
+		withEnv(
+			{
+				SONGHEALTH_T021_DISPOSABLE_ORIGIN: undefined,
+				SONGHEALTH_T021_DISPOSABLE_SOURCE_SHA: undefined,
+				...env,
+			},
+			() => {
+				assert.equal(
+					coordinator.disposableMode(),
+					true,
+					`a present-but-blank input must still mark a disposable request: ${JSON.stringify(env)}`,
+				);
+				const outcome = coordinator.disposableInputCompleteness();
+				assert.equal(outcome.complete, false, `must refuse ${JSON.stringify(env)}`);
+				assert.match(outcome.error ?? "", /incomplete disposable inputs/);
+				assert.match(outcome.error ?? "", /blank/);
+			},
+		);
+	}
+});
+
+test("a both-blank disposable CLI request HOLDs BEFORE any controller, credential or child observation", async () => {
+	// Same hermetic sentinel pattern as the partial-request CLI guard above,
+	// for the both-explicitly-present-but-blank combination.
+	const scratch = path.join(repoRoot, ".tmp", "t022-guard-cli-blank");
+	await rm(scratch, { recursive: true, force: true });
+	await mkdir(scratch, { recursive: true });
+	const spy = path.join(scratch, "fake-controller.sh");
+	await writeFile(
+		spy,
+		`#!/bin/sh\nprintf ran > "${path.join(scratch, "spy-ran")}"\nexit 0\n`,
+		{ mode: 0o700 },
+	);
+	await writeFile(path.join(scratch, "dev-access.json"), '{"token":"not-a-real-token"}', { mode: 0o600 });
+	await writeFile(path.join(scratch, "route-access.json"), '{"token":"not-a-real-token"}', { mode: 0o600 });
+	try {
+		const exit = await new Promise<{ code: number | null; stderr: string }>((resolve) => {
+			const child = spawn(process.execPath, [coordinatorPath], {
+				cwd: repoRoot,
+				env: {
+					...process.env,
+					SONGHEALTH_T021_DISPOSABLE_ORIGIN: "",
+					SONGHEALTH_T021_DISPOSABLE_SOURCE_SHA: "",
+					SONGHEALTH_RUNTIME_CONTROLLER: spy,
+					SONGHEALTH_DEV_ACCESS: path.join(scratch, "dev-access.json"),
+					SONGHEALTH_T021_ROUTE_ACCESS: path.join(scratch, "route-access.json"),
+				} as NodeJS.ProcessEnv,
+			});
+			let stderr = "";
+			child.stderr.on("data", (chunk) => {
+				stderr += String(chunk);
+			});
+			child.on("error", () => resolve({ code: -1, stderr }));
+			child.on("close", (code) => resolve({ code: code ?? -1, stderr }));
+		});
+		assert.equal(exit.code, 3, `HOLD exit expected, got ${exit.code}: ${exit.stderr}`);
+		assert.match(exit.stderr, /incomplete disposable inputs/);
+		assert.match(exit.stderr, /blank/);
+		const spyRan = await readFile(path.join(scratch, "spy-ran"), "utf8").then(
+			() => true,
+			() => false,
+		);
+		assert.equal(
+			spyRan,
+			false,
+			"the fake controller must never be invoked for a blank disposable request",
+		);
+	} finally {
+		await rm(scratch, { recursive: true, force: true });
+	}
+});
+
+test("parseAstroRootArg accepts split, equals and short forms and refuses ambiguous ones", () => {
+	assert.deepEqual(
+		coordinator.parseAstroRootArg(["node", "astro.mjs", "dev", "--root", "/srv/app"]),
+		{ root: "/srv/app" },
+	);
+	assert.deepEqual(
+		coordinator.parseAstroRootArg(["node", "astro.mjs", "dev", "--root=/srv/app"]),
+		{ root: "/srv/app" },
+	);
+	assert.deepEqual(
+		coordinator.parseAstroRootArg(["node", "astro.mjs", "dev", "-r", "/srv/app"]),
+		{ root: "/srv/app" },
+	);
+	assert.deepEqual(coordinator.parseAstroRootArg(["node", "astro.mjs", "dev"]), { absent: true });
+	assert.deepEqual(
+		coordinator.parseAstroRootArg("node astro.mjs dev --root /srv/app"),
+		{ root: "/srv/app" },
+	);
+	assert.deepEqual(
+		coordinator.parseAstroRootArg(["node", "astro.mjs", "dev", "--root", "--config", "x.mjs"]),
+		{ error: '"--root" is not followed by a path value' },
+	);
+	assert.deepEqual(
+		coordinator.parseAstroRootArg(["node", "astro.mjs", "dev", "--root"]),
+		{ error: '"--root" is not followed by a path value' },
+	);
+	assert.deepEqual(
+		coordinator.parseAstroRootArg(["node", "astro.mjs", "dev", "--root="]),
+		{ error: '"--root=" carries no path value' },
+	);
+	assert.deepEqual(
+		coordinator.parseAstroRootArg(["node", "astro.mjs", "dev", "--root=--config"]),
+		{ error: '"--root=--config" is not a path value' },
+	);
+	assert.match(
+		coordinator.parseAstroRootArg(["node", "astro.mjs", "dev", "--root", "/a", "--root", "/b"])
+			.error ?? "",
+		/conflicting values/,
+	);
+	assert.deepEqual(
+		coordinator.parseAstroRootArg(["node", "astro.mjs", "dev", "--root", "/a", "--root", "/a"]),
+		{ root: "/a" },
+	);
+});
+
+test("serving-process admission binds Astro's effective --root and refuses foreign or ambiguous roots", async () => {
+	const sha = "f".repeat(40);
+	const ssOne =
+		'LISTEN 0 511 127.0.0.1:4323 0.0.0.0:* users:(("MainThread",pid=4321,fd=26))';
+	const astroArgs = [
+		"/toolchain/node",
+		"node",
+		`${repoRoot}/node_modules/astro/bin/astro.mjs`,
+		"dev",
+		"--config",
+		".tmp/x.mjs",
+	];
+	const depsFor = (
+		over: {
+			args?: string[];
+			resolveRoot?: (
+				rootValue: string,
+				cwd: string,
+			) => Promise<{ error?: string; value?: string }>;
+			gitHead?: (dir: string) => Promise<{ error?: string; value?: string }>;
+		} = {},
+	) => ({
+		runSs: async () => ({ stdout: ssOne }),
+		readCmdline: async () => ({
+			value: (over.args ?? astroArgs).join(" "),
+			args: over.args ?? astroArgs,
+		}),
+		readCwd: async () => ({ value: repoRoot }),
+		gitHead: over.gitHead ?? (async () => ({ value: sha })),
+		resolveRoot:
+			over.resolveRoot ??
+			(async (rootValue: string) => ({
+				value: rootValue.startsWith("/") ? rootValue : `${repoRoot}/${rootValue}`,
+			})),
+	});
+
+	const foreignEquals = await coordinator.admittedServingProcess(
+		"http://127.0.0.1:4323",
+		sha,
+		depsFor({ args: [...astroArgs, "--root=/foreign/checkout"] }),
+	);
+	assert.match(foreignEquals.error ?? "", /effective Astro root .* is not this checkout/);
+
+	const foreignSplit = await coordinator.admittedServingProcess(
+		"http://127.0.0.1:4323",
+		sha,
+		depsFor({ args: [...astroArgs, "--root", "/foreign/checkout"] }),
+	);
+	assert.match(foreignSplit.error ?? "", /effective Astro root .* is not this checkout/);
+
+	const foreignShort = await coordinator.admittedServingProcess(
+		"http://127.0.0.1:4323",
+		sha,
+		depsFor({ args: [...astroArgs, "-r", "/foreign/checkout"] }),
+	);
+	assert.match(foreignShort.error ?? "", /effective Astro root .* is not this checkout/);
+
+	const unobservable = await coordinator.admittedServingProcess(
+		"http://127.0.0.1:4323",
+		sha,
+		depsFor({
+			args: [...astroArgs, "--root", "/gone"],
+			resolveRoot: async () => ({ error: "ENOENT" }),
+		}),
+	);
+	assert.match(unobservable.error ?? "", /cannot be resolved to an observable directory/);
+
+	const ambiguous = await coordinator.admittedServingProcess(
+		"http://127.0.0.1:4323",
+		sha,
+		depsFor({ args: [...astroArgs, "--root"] }),
+	);
+	assert.match(ambiguous.error ?? "", /ambiguous --root/);
+
+	// A --root that resolves to THIS checkout admits, and the HEAD is read
+	// at the EFFECTIVE root — proven with a resolveRoot double that returns
+	// a spelling DISTINCT from the literal cwd (as a real realpath of a
+	// symlinked checkout would), so the old cwd-only implementation would
+	// fail this assertion.
+	const realSpelling = `${repoRoot}${path.sep}realpath-spelling`;
+	let observedHeadDir = "";
+	const bound = await coordinator.admittedServingProcess("http://127.0.0.1:4323", sha, depsFor({
+		args: [...astroArgs, "--root", "."],
+		resolveRoot: async () => ({ value: realSpelling }),
+		gitHead: async (dir: string) => {
+			observedHeadDir = dir;
+			return { value: sha };
+		},
+	}));
+	assert.equal(bound.error, undefined);
+	assert.equal(bound.sourceRoot, realSpelling);
+	assert.equal(
+		observedHeadDir,
+		realSpelling,
+		"git HEAD must be observed at the effective root, not the process cwd",
+	);
+	assert.match(bound.provenance ?? "", /--root/);
+});
+
+test("the t022 native-UI calibration source refuses the persistent origin by numeric port (actual file)", async () => {
+	// Offline-recovery regression (Codex review round 1, finding E): the
+	// leading-zero spelling http://127.0.0.1:04322 numerically targets the
+	// persistent shared port and must be refused by the spec's own lazy
+	// origin resolver, not only by string inequality.
+	const spec = await readFile(
+		path.join(repoRoot, "tests/browser/t022-native-ui.spec.ts"),
+		"utf8",
+	);
+	assert.match(spec, /port === 4322/, "the UI calibration must refuse the persistent port numerically");
+	assert.match(spec, /startsWith\("0"\)/, "the UI calibration must refuse non-canonical leading-zero ports");
 });

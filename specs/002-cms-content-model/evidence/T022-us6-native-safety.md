@@ -311,3 +311,62 @@ comparison harness reported the base as 3 — both totals disclosed).
   journals retained per the scope-reduction contract.
 - PR #27 verified OPEN/unmerged at `e7e21d6…` throughout; persistent 4322
   never contacted; production untouched.
+
+---
+
+# Offline recovery preparation — 2026-10-26 (Asia/Bangkok; PO gate 6404739593, OFFLINE ONLY)
+
+Append-only record of the authorized offline source-hardening candidate on branch
+`prep/t022-final-closeout-offline-recovery` (created directly from this branch's frozen HEAD
+`7e9b01947844db6a1ac722617a376e188fbdda81`). Context that stays binding: the final close-out
+round authorized by 6328849596 was interrupted (`agent_error.provider_quota_limit`) before its
+final serial/UI cycle, so the terminal disposition 6333221236 records T022 as **DEFERRED — NOT
+PASSED** with no `FINAL_CLOSEOUT_RESULT`; the corrective functional serial results above
+(T019 13/0/0, T020 12/0/0, T021 14/0/0 at execution SHA `0c58a93`) remain retained PARTIAL
+evidence only. **No runtime, disposable or shared, was created, accessed or run by this
+preparation; nothing here is execution evidence, a PASS claim, or a cleanup claim, and the
+terminal live-run prohibition remains binding until a separate PO runtime gate.**
+
+- **Unrecoverable interrupted artifacts**: the unpushed commit `165b1b3…` and the uncommitted
+  `tests/browser/t022-native-ui.spec.ts` calibration could NOT be recovered — the Multica
+  workspace (`/home/multica-agent`) is mode-0700 inaccessible from the working account; a
+  system-wide search found no copy; local reflog/fsck holds no such object (only two unrelated
+  2026-10-06 governance dangling commits). The fixes below are therefore bounded RECREATIONS
+  per gate item 3(i)–(iv), not transplants; equivalence with `165b1b3` is unverified and
+  unclaimed.
+- **(i) Fail-closed blank inputs** (`tests/browser/run-cms-public-reads.mjs`): presence is now
+  `!== undefined`; any explicitly present blank/whitespace disposable input — including BOTH
+  present but blank — HOLDs at the completeness gate before any controller observation,
+  credential read, HTTP request or child start. `disposableMode()` likewise treats any present
+  input as a disposable request, so blank inputs can no longer silently select the
+  persistent/controller path (closes the gap recorded by ChatGPT assessment 6404697598 and
+  Codex finding 2).
+- **(ii) Effective Astro `--root` binding** (same file): new `parseAstroRootArg()` recognizes
+  `--root <path>`, `--root=<path>` and `-r <path>` (valueless, flag-like and conflicting
+  occurrences are AMBIGUOUS refusals); `admittedServingProcess()` now resolves the effective
+  root (relative to the process cwd, realpath-normalized), refuses roots outside this
+  checkout or non-observable roots, and reads the serving HEAD at the EFFECTIVE root rather
+  than the process cwd.
+- **(iii) Negative regression guards** (`tests/node/cms-public-reads-target.test.ts`):
+  18/18 offline controls pass (14 retained + 4 new: blank-input matrix incl. both-blank; a
+  both-blank CLI sentinel HOLD proving the spy controller is never invoked; `parseAstroRootArg`
+  form/ambiguity matrix; effective-root admission with foreign split/equals/short roots,
+  unobservable root, ambiguous root, and HEAD-at-effective-root binding).
+- **(iv) Minimal native UI test source** (`tests/browser/t022-native-ui.spec.ts`, NEW):
+  three source-only calibration tests (unauthenticated Admin boundary sign-in copy, no
+  authenticated surface without a session, Thai locale propagation on the admitted origin).
+  **Never executed under this gate**; prepared for a future separately authorized runtime
+  gate per 6328849596 item 4.
+- **Offline verification (actual commands, this checkout)**: `git diff --check` clean;
+  changed paths exactly the four allowlisted files; TypeScript A/B (`tsc --noEmit`) shows the
+  SAME 3 pre-existing diagnostics as the frozen baseline (zero new); Playwright `--list`
+  discovery 86 tests/7 files at baseline vs 89/8 with the new UI file (+3 only); CLI negative
+  admission matrix — 8 cases (both-blank, origin-blank-only, sha-blank-only, both-whitespace,
+  origin-only partial, persistent-4322, malformed-origin port 99999, SHA-mismatch) — every
+  case HOLD exit 3 with the spy controller NEVER invoked, each run under `unshare -rn`
+  (empty network namespace: no HTTP egress was possible at all). The three identity-refusal
+  cases (4322/malformed/mismatch) did observe local `git` state by design before refusing;
+  no controller, credential or network observation occurred in any case.
+- **Toolchain honesty**: node v24.19.0 / npm 12.0.2 at this workstation (toolchain pin
+  24.21.0); the coordinator's own Node-major gate (24.x) passed. Any future runtime gate must
+  re-verify the pinned toolchain on its execution host.

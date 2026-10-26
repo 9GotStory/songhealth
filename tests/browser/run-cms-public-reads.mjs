@@ -143,8 +143,16 @@ const DISPOSABLE_ORIGIN_ENV = "SONGHEALTH_T021_DISPOSABLE_ORIGIN";
 const DISPOSABLE_SOURCE_ENV = "SONGHEALTH_T021_DISPOSABLE_SOURCE_SHA";
 
 export function disposableMode() {
-	const origin = process.env[DISPOSABLE_ORIGIN_ENV];
-	return origin !== undefined && origin.trim().length > 0;
+	// Offline-recovery hardening (PO gate 6404739593, item 3(i)): ANY
+	// explicitly present input — even blank/whitespace — marks this as a
+	// disposable request that must clear the fail-closed completeness gate.
+	// A present-but-blank input can no longer silently select the persistent
+	// controller path (the both-blank admission gap recorded by ChatGPT
+	// assessment 6404697598 and Codex review finding 2).
+	return (
+		process.env[DISPOSABLE_ORIGIN_ENV] !== undefined ||
+		process.env[DISPOSABLE_SOURCE_ENV] !== undefined
+	);
 }
 
 /**
@@ -155,18 +163,33 @@ export function disposableMode() {
  * path (whose first observation would be the runtime controller).
  */
 export function disposableInputCompleteness() {
-	const originPresent =
-		process.env[DISPOSABLE_ORIGIN_ENV] !== undefined &&
-		process.env[DISPOSABLE_ORIGIN_ENV].trim().length > 0;
-	const shaPresent =
-		process.env[DISPOSABLE_SOURCE_ENV] !== undefined &&
-		process.env[DISPOSABLE_SOURCE_ENV].trim().length > 0;
+	// Offline-recovery hardening (PO gate 6404739593, item 3(i), completing
+	// the last-round scope 6328849596 #1): presence is `!== undefined`, so
+	// explicitly present blank/whitespace values fail closed here — including
+	// BOTH present but blank — before the controller observation, credential
+	// loading, any HTTP request or any child start.
+	const origin = process.env[DISPOSABLE_ORIGIN_ENV];
+	const sha = process.env[DISPOSABLE_SOURCE_ENV];
+	const originPresent = origin !== undefined;
+	const shaPresent = sha !== undefined;
+	if (!originPresent && !shaPresent) {
+		return { complete: true };
+	}
+	const blank = [];
+	if (originPresent && origin.trim().length === 0) blank.push(DISPOSABLE_ORIGIN_ENV);
+	if (shaPresent && sha.trim().length === 0) blank.push(DISPOSABLE_SOURCE_ENV);
+	if (blank.length > 0) {
+		return {
+			complete: false,
+			error: `incomplete disposable inputs: ${blank.join(" and ")} ${blank.length === 1 ? "is" : "are"} explicitly present but blank — a blank disposable request is a HOLD before the persistent controller path could ever be selected`,
+		};
+	}
 	if (originPresent !== shaPresent) {
 		const present = originPresent ? DISPOSABLE_ORIGIN_ENV : DISPOSABLE_SOURCE_ENV;
 		const missing = originPresent ? DISPOSABLE_SOURCE_ENV : DISPOSABLE_ORIGIN_ENV;
 		return {
 			complete: false,
-			error: `incomplete disposable inputs: ${present} is supplied but ${missing} is missing/blank — a partial disposable request is a HOLD before the persistent controller path could ever be selected`,
+			error: `incomplete disposable inputs: ${present} is supplied but ${missing} is missing — a partial disposable request is a HOLD before the persistent controller path could ever be selected`,
 		};
 	}
 	return { complete: true };
@@ -236,11 +259,52 @@ export async function disposableSourceIdentity(options = {}) {
  * execution SHA. Dependency-injectable for the offline guards; the defaults
  * are the real local observations.
  */
+export function parseAstroRootArg(argv) {
+	// Offline-recovery hardening (PO gate 6404739593, item 3(ii), completing
+	// the last-round scope 6328849596 #2): parse Astro's effective `--root`
+	// from the serving process's argument vector. Split (`--root <path>`,
+	// `-r <path>`) and equals (`--root=<path>`) forms are recognized;
+	// valueless, flag-like, or conflicting occurrences are AMBIGUOUS (refuse
+	// to guess), and an absent flag yields { absent: true } (Astro then
+	// serves from the process cwd).
+	const args = Array.isArray(argv)
+		? argv
+		: String(argv ?? "").split(/\s+/).filter((part) => part.length > 0);
+	const roots = [];
+	for (let i = 0; i < args.length; i += 1) {
+		const token = args[i];
+		if (token === "--root" || token === "-r") {
+			const next = args[i + 1];
+			if (next === undefined || (next.startsWith("-") && next.length > 1)) {
+				return { error: `${JSON.stringify(token)} is not followed by a path value` };
+			}
+			roots.push(next);
+		} else if (token.startsWith("--root=")) {
+			const value = token.slice("--root=".length);
+			if (value.length === 0) {
+				return { error: '"--root=" carries no path value' };
+			}
+			if (value.startsWith("-") && value.length > 1) {
+				return { error: `"--root=${value}" is not a path value` };
+			}
+			roots.push(value);
+		}
+	}
+	if (roots.length === 0) {
+		return { absent: true };
+	}
+	if (new Set(roots).size > 1) {
+		return { error: `conflicting values ${roots.map((root) => JSON.stringify(root)).join(", ")}` };
+	}
+	return { root: roots[roots.length - 1] };
+}
+
 export async function admittedServingProcess(origin, expectedSha, deps = {}) {
 	const runSs = deps.runSs ?? defaultSsListeners;
 	const readCmdline = deps.readCmdline ?? defaultProcCmdline;
 	const readCwd = deps.readCwd ?? defaultProcCwd;
 	const gitHead = deps.gitHead ?? defaultGitHeadIn;
+	const resolveRoot = deps.resolveRoot ?? defaultResolveAstroRoot;
 
 	const parsed = /^http:\/\/127\.0\.0\.1:([0-9]+)$/.exec(origin ?? "");
 	if (parsed === null) {
@@ -272,6 +336,13 @@ export async function admittedServingProcess(origin, expectedSha, deps = {}) {
 	if (!/astro(\.mjs|\/bin\/astro)?\b/.test(command) || !/\bdev\b/.test(command)) {
 		return { error: `the listener pid ${pid} on 127.0.0.1:${port} is not an astro dev process (command line unrecognized) — a foreign process never receives test traffic` };
 	}
+	// Bind to Astro's EFFECTIVE root, not merely the process cwd (PO gate
+	// 6404739593 item 3(ii)): a process whose cwd is this checkout but whose
+	// `--root` points elsewhere serves foreign code and must be refused.
+	const rootArg = parseAstroRootArg(cmdline.args ?? command);
+	if (rootArg.error !== undefined) {
+		return { error: `the serving process pid ${pid} on 127.0.0.1:${port} has an ambiguous --root (${rootArg.error}) — refusing to guess the effective source root` };
+	}
 	const cwd = await readCwd(pid);
 	if (cwd.error !== undefined) {
 		return { error: `the serving process pid ${pid} has no readable working directory (${cwd.error}) — its source root cannot be bound to this checkout` };
@@ -279,9 +350,25 @@ export async function admittedServingProcess(origin, expectedSha, deps = {}) {
 	if (cwd.value !== repoRoot) {
 		return { error: `the serving process pid ${pid} runs from ${cwd.value}, not this checkout (${repoRoot}) — the endpoint is not bound to the source under test` };
 	}
-	const head = await gitHead(cwd.value);
+	let effectiveRoot = cwd.value;
+	if (rootArg.root !== undefined) {
+		const resolved = await resolveRoot(rootArg.root, cwd.value);
+		if (resolved.error !== undefined) {
+			return { error: `the serving process's --root ${rootArg.root} cannot be resolved to an observable directory (${resolved.error}) — the effective source root is non-observable` };
+		}
+		effectiveRoot = resolved.value;
+		const expectedRoots = new Set([repoRoot]);
+		const realRepoRoot = await resolveRoot(".", repoRoot);
+		if (realRepoRoot.value !== undefined) {
+			expectedRoots.add(realRepoRoot.value);
+		}
+		if (!expectedRoots.has(effectiveRoot)) {
+			return { error: `the serving process's effective Astro root ${effectiveRoot} (--root ${JSON.stringify(rootArg.root)}) is not this checkout (${repoRoot}) — the endpoint is not bound to the source under test` };
+		}
+	}
+	const head = await gitHead(effectiveRoot);
 	if (head.error !== undefined) {
-		return { error: `the serving process's source root ${cwd.value} has no observable HEAD (${head.error})` };
+		return { error: `the serving process's source root ${effectiveRoot} has no observable HEAD (${head.error})` };
 	}
 	const sha = String(head.value ?? "").trim();
 	if (sha !== expectedSha) {
@@ -289,9 +376,11 @@ export async function admittedServingProcess(origin, expectedSha, deps = {}) {
 	}
 	return {
 		pid: Number(pid),
-		sourceRoot: cwd.value,
+		sourceRoot: effectiveRoot,
 		sha,
-		provenance: `listener 127.0.0.1:${port} → pid ${pid} (astro dev, cwd = this checkout, HEAD = declared execution SHA)`,
+		provenance: `listener 127.0.0.1:${port} → pid ${pid} (astro dev, effective root = ${
+			rootArg.root !== undefined ? `--root ${JSON.stringify(rootArg.root)} → ` : ""
+		}${effectiveRoot}, HEAD = declared execution SHA)`,
 	};
 }
 
@@ -318,7 +407,19 @@ async function defaultSsListeners() {
 async function defaultProcCmdline(pid) {
 	try {
 		const raw = await readFile(`/proc/${pid}/cmdline`, "utf8");
-		return { value: raw.split("\0").filter((part) => part.length > 0).join(" ") };
+		const args = raw.split("\0").filter((part) => part.length > 0);
+		return { value: args.join(" "), args };
+	} catch (error) {
+		return { error: error.code ?? error.message };
+	}
+}
+
+/** Resolve an Astro `--root` value (possibly relative to the process cwd) to its real absolute path. */
+async function defaultResolveAstroRoot(rootValue, cwdValue) {
+	try {
+		const { realpath } = await import("node:fs/promises");
+		const value = await realpath(path.resolve(cwdValue, rootValue));
+		return { value };
 	} catch (error) {
 		return { error: error.code ?? error.message };
 	}
