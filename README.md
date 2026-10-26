@@ -287,6 +287,17 @@ Use synthetic public-publishable test data, reuse the existing mode-0600 develop
 PAT through `loadDevAccessToken()` / `createPatActor()`, and clean up only owned fixtures
 and scratch. Never repeat dev-bypass bootstrap on the initialized shared runtime.
 
+## Development runtime — prospective Quadlet architecture (Phase 1, source-only)
+
+A **prospective** UID-1000 rootless Podman + systemd Quadlet development architecture was
+approved as SOURCE IMPLEMENTATION ONLY on 2026-10-26 (PO gate 6410811185): see
+`deploy/dev-quadlet/`, `scripts/dev-runtime-{install,verify,backup,restore}.sh` and
+`docs/operations/development-quadlet.md`. Nothing is installed or running: activation requires
+a separate Phase 2 provisioning Human Gate. The existing persistent development runtime
+described above (UID 1001, `127.0.0.1:4322`) remains the only running development runtime and
+the only authorized test target; it is untouched by this prospective architecture. Production
+Quadlet definitions in `deploy/quadlet/` are unchanged and remain the production authority.
+
 ## Superseded native-host workflow
 
 The earlier canonical workflow — host `npm ci`, sourcing `.env` into the shell, the
