@@ -29,15 +29,21 @@ DEFERRED; T033–T035 BLOCKED; edge exceptions remain PROPOSED only.
 ## Images and pins
 - PostgreSQL: `docker.io/library/postgres:18.6@sha256:fc973eb…` — **digest proven** (identical
   to the accepted production pin).
-- Node: `docker.io/library/node:24.21.0` — **tag pinned, digest PINNED-PENDING**: Phase 2
-  must resolve and record the immutable digest before first start. npm 12.2.0/Node 24.21.0
+- Node: `docker.io/library/node:24.21.0` — the REPOSITORY unit keeps the version tag, but the
+  Phase 2 installer resolves the immutable digest BEFORE any start, REWRITES the deployed copy
+  under `~/.config/containers/systemd/` to `Image=docker.io/library/node@sha256:<digest>`, uses
+  that same digest reference for the migration runner, and fails closed if resolution or the
+  rewrite verification fails. Production image definitions are unchanged. npm 12.2.0/Node 24.21.0
   toolchain, Astro 7.3.5, EmDash 1.1.0 come from the checkout's lockfile (pinned dependencies
   installed into the source checkout with the pinned Node, not baked into an image).
 - SELinux Enforcing: the source bind mount uses `:Z`; named volumes are labeled by Podman;
   no boolean changes are required by this design (to be confirmed at Phase 2 activation).
 
 ## Fresh-install initialization (Phase 2, native only)
-`scripts/dev-runtime-install.sh` provisions a **fresh empty** development database — never a
+`scripts/dev-runtime-install.sh` requires `SONGHEALTH_QDEV_SOURCE_SHA` (the exact
+PO-authorized 40-hex SHA; fail-closed, no default), refuses dirty trees and git inspection
+errors, and records the identity marker the app unit enforces at every start. It provisions
+a **fresh empty** development database — never a
 transfer of UID-1001 assets/credentials — then: least-privilege app role (`songhealth_qdev_app`,
 NOSUPERUSER/NOCREATEDB/NOCREATEROLE), native EmDash migrations through the pinned in-container
 CLI (`emdash migrate --from-config`), then app start. Authentication stays native passkey;
@@ -62,8 +68,37 @@ proven port/resource non-interference. There is no automatic stop/disable of the
 - `scripts/dev-runtime-verify.sh` — read-only checks; exit non-zero on any FAIL.
 - `scripts/dev-runtime-backup.sh <dir>` — logical `pg_dump -Fc` + media tar + sha256; recovery
   additionally requires the external 0600 env files and podman secrets.
-- `scripts/dev-runtime-restore.sh --confirm <dump> <tar>` — guarded replacement of qdev DB/media
-  only; refuses with the app running; requires typed confirmations; never prunes other resources.
+- Backup writes FOUR files per run: `qdev-db-<ts>.dump`, `qdev-media-<ts>.tar`, a PURE
+  `qdev-checksums-<ts>.sha256` manifest (exactly `sha256sum --check --strict` grammar; no
+  metadata lines), and `qdev-meta-<ts>.txt` (dump-name/media-name/source-sha/created-utc).
+- `scripts/dev-runtime-restore.sh --confirm <dump> <tar> <checksums> <meta>` — guarded
+  replacement of qdev DB/media only; refuses with the app running; requires typed
+  confirmations; never prunes other resources. Archive admission (all BEFORE any destructive
+  step): the manifest passes `sha256sum --check --strict`; the metadata supplies the 40-hex
+  source-sha provenance — which must EXACTLY equal the installer-provisioned approved runtime
+  source identity (`~/dev/songhealth-quadlet/.songhealth-qdev-source-identity`; missing or
+  malformed record is fail-closed, never format-only) — and the EXACT dump/media basenames;
+  the supplied files must equal those
+  recorded names (swapped/reordered/wrong archives are refused) and must hash to their own
+  manifest entries (computed on absolute, caller-cwd-independent paths); tar admission is an
+  embedded `python3` strict POSIX-ustar 512-byte header WALKER (no tar output parsing):
+  backups are written `--format=ustar`, and the walker accepts regular files/directories
+  ONLY — hardlinks, symlinks, devices, FIFOs, PAX `x`/`g` and GNU `L`/`K` extension headers,
+  non-ustar magics, bad header checksums (bytes [148:156), recomputed exactly), malformed
+  numeric fields, unsafe member names (charset/absolute/`..`), non-zero directory sizes,
+  truncation and nonzero trailing bytes are each rejected with a named stage (host
+  prerequisite: `python3`); the dump must also pass `pg_restore --list`. Post-restore verification enforces
+  database/schema/every-public-relation ownership by the app role (the reset runs AS that
+  role), table DML and sequence privileges, and the EXACT public-only schema contract
+  (creation schema `public`, `current_schemas(false)` exactly `{public}`, no temp schema) —
+  substring matches like `public_shadow` cannot pass, and the NON-SYSTEM schema set of the
+  database must be EXACTLY `{public}` (native exact-set comparison; extra or missing schemas,
+  including empty results, fail closed).
+  Known limitations: a failed mid-restore leaves a PARTIAL database (stop and review; the last
+  backup remains the rollback); media is replaced only after a second typed confirmation and
+  the previous media is NOT retained unless the operator saved it first. PAX/GNU extension
+  headers are rejected outright at the byte level (their effective paths are never trusted);
+  restore only archives produced by `dev-runtime-backup.sh`.
 No successful restore/backup/health outcome is claimed until actually executed under Phase 2.
 
 ## Not claimed (Phase 1)

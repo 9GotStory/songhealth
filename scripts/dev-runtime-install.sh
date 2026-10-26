@@ -24,16 +24,17 @@ command -v systemctl >/dev/null || die "systemctl not found"
 [[ "$(id -u)" -eq 1000 ]] || die "this installer provisions the UID-1000 development runtime only"
 systemctl --user is-system-running >/dev/null 2>&1 || die "systemd user session is not available (log in via loginctl enable-linger first)"
 # --- fail-closed preflight: refuse any pre-existing qdev resource or port conflict
+exists_rc() { # exists_rc <kind> <cmd...>: rc 0=exists(die) 1=absent(ok) other=inspection error(die)
+  local kind="$1" rc=0
+  shift
+  "$@" >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -eq 0 ]; then die "$kind already exists (${1} ${2}): this installer never adopts or resets existing resources"; fi
+  if [ "$rc" -ne 1 ]; then die "$kind existence check failed (rc=$rc): an inspection error is never treated as absence"; fi
+}
 for n in "${NAMES[@]}"; do
-  podman container exists "$n"; rc=$?
-  [[ $rc -eq 0 ]] && die "container $n already exists: this installer never adopts or resets existing resources"
-  [[ $rc -eq 1 ]] || die "container existence check for $n failed (rc=$rc): an inspection error is never treated as absence"
-  podman network exists "$n"; rc=$?
-  [[ $rc -eq 0 ]] && die "network $n already exists"
-  [[ $rc -eq 1 ]] || die "network existence check for $n failed (rc=$rc)"
-  podman volume exists "$n"; rc=$?
-  [[ $rc -eq 0 ]] && die "volume $n already exists"
-  [[ $rc -eq 1 ]] || die "volume existence check for $n failed (rc=$rc)"
+  exists_rc container podman container exists "$n"
+  exists_rc network   podman network   exists "$n"
+  exists_rc volume    podman volume    exists "$n"
 done
 SS_OUT="$(ss -ltn)" || die "ss failed: port availability could not be observed"
 grep -Eq "(^|[[:space:]])(\*|0\.0\.0\.0|127\.0\.0\.1|\[::\]):${APP_PORT}([[:space:]]|$)" <<<"$SS_OUT" \
@@ -50,8 +51,23 @@ note "Node image digest resolved BEFORE any start: $NODE_DIGEST (record this in 
 [[ -d "$SRC_CHECKOUT/.git" ]] || die "versioned source checkout missing at $SRC_CHECKOUT (clone the repository there first)"
 ( cd "$SRC_CHECKOUT" && git rev-parse --verify HEAD >/dev/null 2>&1 ) || die "$SRC_CHECKOUT is not a git checkout"
 [[ -d "$SRC_CHECKOUT/node_modules/astro" ]] || die "pinned dependencies not installed in $SRC_CHECKOUT (run the documented npm ci step with the pinned Node first)"
-SRC_SHA="$( cd "$SRC_CHECKOUT" && git rev-parse HEAD )"
-note "source checkout: $SRC_CHECKOUT @ $SRC_SHA (this exact SHA is the runtime source identity)"
+EXPECTED_SHA="${SONGHEALTH_QDEV_SOURCE_SHA:-}"
+[[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] \
+  || die "SONGHEALTH_QDEV_SOURCE_SHA must name the exact PO-authorized 40-hex source SHA (fail-closed: no default)"
+if ! SRC_SHA="$( cd "$SRC_CHECKOUT" && git rev-parse HEAD 2>&1 )"; then
+  die "git inspection of the source checkout failed: $SRC_SHA (a git error is never accepted)"
+fi
+[[ "$SRC_SHA" == "$EXPECTED_SHA" ]] \
+  || die "source HEAD $SRC_SHA does not equal the PO-authorized SONGHEALTH_QDEV_SOURCE_SHA $EXPECTED_SHA: refusing"
+if DRIFT="$( cd "$SRC_CHECKOUT" && git status --porcelain --untracked-files=no 2>&1 )"; then
+  [[ -z "$DRIFT" ]] || die "source checkout has tracked-file drift: a dirty tree is never installed"
+else
+  die "source tree inspection failed: $DRIFT"
+fi
+note "source checkout: $SRC_CHECKOUT @ $SRC_SHA (matches the PO-authorized SHA)"
+printf '%s\n' "$SRC_SHA" > "$SRC_CHECKOUT/.songhealth-qdev-source-identity" \
+  || die "could not write the source-identity marker"
+[ -x "$SRC_CHECKOUT/node_modules/.bin/astro" ] || die "pinned dependencies incomplete in the checkout"
 # --- environment files (0600; refuse overwrite) and podman secrets
 ENV_DB="$UNIT_DIR/songhealth-dev-db.env"; ENV_APP="$UNIT_DIR/songhealth-dev-app.env"
 for f in "$ENV_DB" "$ENV_APP"; do [[ -e "$f" ]] && die "$f already exists: refusing to overwrite existing credentials"; done
@@ -71,9 +87,17 @@ printf '%s' "$DB_PASS" | podman secret create songhealth-qdev-db-password - || d
 note "store $ENV_DB/$ENV_APP and secret names in the operator password vault now; then record the app-role password from $ENV_APP"
 # --- quadlet units (idempotent copy, explicit list, nothing else)
 confirm "install Quadlet units into $UNIT_DIR and reload the user systemd manager?"
-for f in songhealth-dev.network songhealth-dev-db-data.volume songhealth-dev-media.volume songhealth-dev-db.container songhealth-dev-app.container; do
+for f in songhealth-dev.network songhealth-dev-db-data.volume songhealth-dev-media.volume songhealth-dev-db.container; do
   install -m 0644 "$QUADLET_SRC/$f" "$UNIT_DIR/$f" || die "install $f failed"
 done
+# F-04: the DEPLOYED app unit is rewritten to the immutable digest reference resolved
+# above; the repository file stays tag-pinned with this behavior documented.
+sed "s#^Image=docker.io/library/node:24.21.0\$#Image=docker.io/library/node@${NODE_DIGEST}#" \
+  "$QUADLET_SRC/songhealth-dev-app.container" > "$UNIT_DIR/songhealth-dev-app.container" \
+  || die "could not render the digest-pinned app unit"
+grep -q "^Image=docker.io/library/node@sha256:" "$UNIT_DIR/songhealth-dev-app.container" \
+  || die "digest pinning of the deployed app unit failed: refusing to continue"
+install -m 0644 "$UNIT_DIR/songhealth-dev-app.container" "$UNIT_DIR/songhealth-dev-app.container" || true
 systemctl --user daemon-reload || die "daemon-reload failed"
 # --- media store marker (operator-provisioned store; the app unit requires it)
 podman volume create --label io.songhealth.runtime=qdev songhealth-qdev-media >/dev/null || die "media volume create failed"
@@ -98,7 +122,7 @@ confirm "apply native EmDash migrations to the FRESH songhealth_qdev database no
     -e PGHOST=songhealth-qdev-db -e PGPORT=5432 -e PGDATABASE=songhealth_qdev -e PGUSER=songhealth_qdev_app -e PGPASSWORD="$APP_PW" \
     -e EMDASH_MIGRATION_DATABASE_URL="postgres://songhealth_qdev_app:${APP_PW}@songhealth-qdev-db:5432/songhealth_qdev" \
     -e EMDASH_ENCRYPTION_KEY="$ENC_KEY" \
-    docker.io/library/node:24.21.0 node node_modules/emdash/dist/cli/index.mjs migrate --from-config --config astro.config.mjs ) \
+    docker.io/library/node@${NODE_DIGEST} node node_modules/emdash/dist/cli/index.mjs migrate --from-config --config astro.config.mjs ) \
   || die "native migration failed: STOPPING before app start (database remains initialized; rerun requires Phase 2 gate re-authorization)"
 confirm "enable + start songhealth-dev-app.service now?"
 systemctl --user enable --now songhealth-dev-app.service || die "app service enable/start failed"

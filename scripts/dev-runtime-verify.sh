@@ -17,8 +17,15 @@ BODY="$(curl -fsS --max-time 10 http://127.0.0.1:4324/ 2>/dev/null || true)"
 curl -fsS --max-time 10 -o /dev/null http://127.0.0.1:4324/_emdash/admin/ && ok "native Admin UI reachable (unauthenticated boundary)" || bad "native Admin UI unreachable"
 SRC="$HOME/dev/songhealth-quadlet"
 if [[ -d "$SRC/.git" ]]; then
-  SHA="$( cd "$SRC" && git rev-parse HEAD )" && ok "source identity: $SHA" || bad "source checkout unreadable"
-  ( cd "$SRC" && git status --porcelain --untracked-files=no | grep -q . ) && bad "source checkout has tracked-file drift" || ok "source checkout clean (tracked files)"
+  if SHA="$( cd "$SRC" && git rev-parse HEAD 2>&1 )"; then ok "source identity: $SHA"; else bad "source HEAD unreadable: $SHA"; fi
+  EXPECTED="$(cat "$SRC/.songhealth-qdev-source-identity" 2>/dev/null || true)"
+  [[ -n "$EXPECTED" ]] && [[ "$SHA" == "$EXPECTED" ]] && ok "source identity matches the installed record" || bad "source identity does not match the installed record (expected: ${EXPECTED:-<missing record>})"
+  if DRIFT="$( cd "$SRC" && git status --porcelain --untracked-files=no 2>&1 )"; then
+    [[ -z "$DRIFT" ]] && ok "source checkout clean (tracked files)" || bad "source checkout has tracked-file drift"
+  else
+    bad "source tree inspection failed: $DRIFT"
+  fi
+  [[ -x "$SRC/node_modules/.bin/astro" ]] && ok "pinned dependencies present" || bad "pinned dependencies incomplete"
 else
   bad "source checkout missing at $SRC"
 fi
