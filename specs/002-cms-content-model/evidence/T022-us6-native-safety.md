@@ -425,3 +425,33 @@ DEFERRED — NOT PASSED; the terminal live-run prohibition stays binding.**
   8 refusal cases (both-blank, blank-either-side, whitespace, partial, persistent-4322, malformed port, SHA
   mismatch) all HOLD exit 3 with the spy controller never invoked. Toolchain honesty: node v24.19.0 / npm 12.0.2
   (pin 24.21.0 — any runtime gate must re-verify the pinned toolchain on its execution host).
+
+---
+
+# Final runtime closeout — 2026-10-26 (PO gates 6405835690 + 6406085900; execution SHA d985b1a, append-only)
+
+**FINAL_CLOSEOUT_RESULT: NOT PASSED — one genuine FAIL (terminal, no retry). Genuine results: T019 13/13 PASS ·
+T020 11 PASS / 1 FAIL · T021 14/14 PASS · UI calibration 3/3 PASS (unauthenticated boundary/locale only).**
+
+- **Phase A**: PRE_EXECUTION_PASS issued across three Codex Lead rounds (identity/toolchain/Astro-provenance;
+  env/volume/issuance; cleanup ordering). Toolchain: node v24.21.0 + npm 12.2.0 (fnm), astro 7.3.5, emdash 1.1.0,
+  @playwright/test 1.63.0 + chromium-1243, postgres pinned digest sha256:fc973eb…, podman 5.8.4 rootless.
+  Role-fixture procedure derived from installed EmDash source (dev-bypass insert shape; generatePrefixedToken
+  "ec_pat_" + _emdash_api_tokens storage; probes: fixture /auth/me role 30 ✓, no-token 401 ✓, dev PAT role 50 ✓).
+- **Phase B (one disposable instance, task-owned t022f-*, ports 4323/45432)**: 91 migrations (fingerprint
+  6d2b7e02…); app start argv verified pre-traffic (astro dev, frozen-checkout realpath, cwd = repoRoot, HEAD =
+  d985b1a, effective root = checkout). Admission notes: `emdash-env.d.ts` dev-typegen artifact (created by app
+  start, absent before) was removed pre-traffic to restore the clean worktree; one route-access file mode-0600
+  chmod — both before any T021 test executed.
+- **T020 FAIL (genuine, root-caused)**: "live metadata: taxonomy, SEO and byline…" — the positive-path SEO write
+  to `news` was refused by native validation because the ORIGINAL run's disposable setup step (enable SEO on
+  `news` via native schema API) was not replicated in this run's recipe; the seed default leaves SEO disabled.
+  The truthful-refusal boundary test (non-SEO collection refuses SEO writes) PASSED. Not a product failure
+  regression vs 0c58a93; an environment-setup omission by this execution. Per terminal rule: recorded, not retried.
+- **Cleanup (ledger-first, verified zero residue)**: app pid 1079131 killed (cmdline verified task-owned);
+  port 4323 closed; container+named volume removed after Mounts-ledger capture; `podman volume ls` before/after
+  ZERO-DIFF; no t022f containers/volumes; ./media 0 files (unchanged); secrets/.tmp/t022f removed; shared
+  127.0.0.1:4322 listener present and untouched throughout. Logs retained at /tmp/t022final/ (temporary).
+- **UI coverage limits**: 3/3 unauthenticated login/locale calibration only — authenticated US6 UI journeys
+  remain PENDING; not proof of every native US6/UI requirement. T022 remains DEFERRED — NOT PASSED until PO
+  decision; no task marker changed; PR #28/#37 and canonical untouched.
