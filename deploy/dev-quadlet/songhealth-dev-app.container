@@ -3,10 +3,12 @@
 # builds from (deploy/Containerfile), serving the runtime source checkout
 # ~/dev/songhealth-quadlet bind-mounted at /src. It listens on 4324 both inside and
 # outside the container (loopback publication only), so the public origin, the Vite HMR
-# socket and EMDASH_SITE_URL agree. Non-secret configuration is set here; the three secrets
-# are podman secret files that scripts/dev-runtime-entrypoint.sh exports into the dev
-# process only. The entrypoint also refuses to start (exit 78, not restarted) on missing
-# dependencies, an unpromoted checkout or a missing media store.
+# socket and EMDASH_SITE_URL agree. Non-secret configuration is set here; the four secrets
+# (three runtime credentials and the T021 fixture route token) are podman secret files that
+# scripts/dev-runtime-entrypoint.sh exports into the dev process only. The dev server runs
+# with deploy/dev-quadlet/astro.dev.config.mjs (canonical configuration plus the
+# development-only T021 fixture route; T037). The entrypoint also refuses to start (exit
+# 78, not restarted) on missing dependencies, an unpromoted checkout or a missing media store.
 # Contract: docs/operations/development-quadlet.md.
 [Unit]
 Description=Songhealth dev Astro + EmDash app (http://127.0.0.1:4324)
@@ -34,6 +36,7 @@ Environment=ASTRO_TELEMETRY_DISABLED=1
 Secret=songhealth-qdev-app-password
 Secret=songhealth-qdev-migration-database-url
 Secret=songhealth-qdev-encryption-key
+Secret=songhealth-qdev-t021-route-token
 Exec=/bin/sh /src/scripts/dev-runtime-entrypoint.sh dev
 HealthCmd=node -e "fetch('http://127.0.0.1:4324/').then(r=>r.text()).then(t=>process.exit(t.includes('songhealth-foundation')?0:1)).catch(()=>process.exit(1))"
 HealthInterval=15s

@@ -34,6 +34,22 @@ pat_ok() { # the development PAT authenticates (sent on stdin: never in argv or 
   printf 'Authorization: Bearer %s\n' "$token" \
     | curl -fsS --max-time 30 -H @- -o /dev/null "$ORIGIN/_emdash/api/auth/me"
 }
+route_ok() { # the dev-only T021 fixture answers its probe with the 0600 client token, refuses without
+  [[ $(stat -c %a "$ROUTE_ACCESS" 2>/dev/null) == 600 ]] || return 1
+  python3 -I - "$ROUTE_ACCESS" "$ORIGIN$ROUTE_PATH?case=probe" <<'PY'
+import json, sys, urllib.error, urllib.request
+token = json.load(open(sys.argv[1]))["token"]
+def get(headers):
+    try:
+        with urllib.request.urlopen(urllib.request.Request(sys.argv[2], headers=headers), timeout=30) as r:
+            return r.status, json.load(r)
+    except urllib.error.HTTPError as e:
+        return e.code, {}
+status, body = get({"x-songhealth-t021-route-access": token})
+anonymous, _ = get({})
+sys.exit(0 if (status, body.get("fixtureId"), anonymous) == (200, "songhealth:t021:cms-public-reads", 403) else 1)
+PY
+}
 
 check "$DB active" systemctl --user is-active --quiet "$DB"
 check "$APP active" systemctl --user is-active --quiet "$APP"
@@ -48,6 +64,7 @@ check "least-privilege app role owns songhealth_qdev" role_ok
 check "runtime source is the promoted commit, clean" source_ok
 check "EmDash accepted EMDASH_ENCRYPTION_KEY" key_ok
 check "development PAT (mode 0600) authenticates" pat_ok
+check "T021 fixture route answers its 0600 route token and refuses without it" route_ok
 printf 'runtime source: %s @ %s\n' "$SRC" "$(git -C "$SRC" rev-parse HEAD 2>/dev/null || printf unknown)"
 if (( failed )); then echo "VERIFY: FAIL"; exit 1; fi
 echo "VERIFY: PASS"

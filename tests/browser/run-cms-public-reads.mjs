@@ -1,19 +1,21 @@
 #!/usr/bin/env node
 // T021 — the Feature 002 public-read SINGLE-RUNTIME TEST COORDINATOR.
 //
-// One existing persistent development application at http://127.0.0.1:4322
-// (containers songhealth-dev-app + songhealth-dev-postgres, dedicated
-// volumes, stable source, Runtime Controller) is the SOLE runtime test
-// target. This coordinator NEVER starts, stops, restarts or substitutes a
+// The single development runtime at http://127.0.0.1:4324 (T036; retargeted
+// by T037): the UID-1000 rootless Quadlet runtime of
+// docs/operations/development-quadlet.md, with containers songhealth-qdev-app
+// + songhealth-qdev-db, persistent volumes and a runtime checkout at a
+// promoted commit. It is the SOLE runtime test target. This coordinator NEVER starts, stops, restarts or substitutes a
 // server: no Astro programmatic dev(), no `npm run dev`, no Playwright
 // `webServer`, no second server/port/DB/media stack, no port fallback. An
 // occupied shared origin is the intended state. It only:
 //
 //   1. verifies the EXACT source identity both ways (Lead corrective round
 //      1, R2): the full 40-hex candidate identity this checkout is being
-//      tested at, and the stable runtime source SHA observed through the
-//      documented read-only Runtime Controller `status` operation — plus the
-//      app's own marker and the fixture's identity probe. Missing,
+//      tested at, and the runtime source SHA observed through the runtime's
+//      documented read-only dev-runtime-verify.sh, which must also report
+//      VERIFY: PASS — plus the app's own marker and the fixture's identity
+//      probe. Missing,
 //      malformed, stale or mismatched identities are a non-success HOLD
 //      BEFORE credentials, fixture mutations or any worker spawn;
 //   2. verifies the coordinated prerequisites (pinned local Playwright
@@ -40,8 +42,8 @@
 //      transient listener is cleared on every completion path (R4), all
 //      prerequisite requests carry an abort deadline, and a child spawn
 //      failure is handled with the same truthful cleanup. The shared app,
-//      DB, media volumes, credentials, stable source and controller are
-//      never test-owned resources; runtime fixture creation/cleanup itself
+//      DB, media volumes, credentials and runtime checkout are never
+//      test-owned resources; runtime fixture creation/cleanup itself
 //      is the separately authorized T022 serial join's to execute.
 //
 // Exit codes (truthful outcomes, never false success):
@@ -61,16 +63,19 @@
 //   Playwright command with PLAYWRIGHT_BASE_URL=http://127.0.0.1:4322 and
 //   owned synthetic fixtures"; "On failures, timeouts, SIGINT or SIGTERM,
 //   perform awaited cleanup/reconciliation with the existing server still
-//   available; report cleanup failures alongside original failures")
+//   available; report cleanup failures alongside original failures"), as
+//   retargeted by T037: the origin is the single runtime's
+//   http://127.0.0.1:4324 and its verify replaces the retired UID-1001
+//   Runtime Controller observation
 // - AGENTS.md "Single Persistent Development Runtime" (one server/DB/media
 //   store/test target; never free the port or substitute; a dev-only
 //   integration not yet installed is NOT READY → HOLD; task cleanup covers
 //   task-owned temporary resources only) and the Multica runtime brief's
 //   never-terminate-by-name rule (only this coordinator's own child PID)
-// - specs/002-cms-content-model/quickstart.md "Prerequisites and
-//   Environment" — `runtime.sh status`/`verify` are the only authorized
-//   ROUTINE controller operations; this coordinator uses `status` (read
-//   only) as the approved observation of the stable runtime source SHA
+// - docs/operations/development-quadlet.md "Verify" — dev-runtime-verify.sh
+//   is read-only, and runtime results are interpreted only against the
+//   commit it reports; this coordinator uses it as the approved observation
+//   of the runtime source SHA
 // - tests/browser/foundation.spec.ts — the public songhealth-foundation SSR
 //   marker contract (application identity, NOT by itself source identity)
 // - tests/browser/fixtures/cms-public-reads.integration.mjs — the fixture
@@ -81,8 +86,9 @@
 // bounded requests; node:child_process spawn with explicit 'error'/'exit'
 // event handling and awaited termination/reaping; node:child_process.execFile
 // for the bounded read-only `git rev-parse HEAD` (expected candidate
-// identity) and `runtime.sh status` (observed stable source identity, a JSON
-// object with a "source" field — verified against the pinned runtime); the
+// identity) and the runtime's dev-runtime-verify.sh (observed runtime source
+// identity: its `runtime source: <checkout> @ <sha>` line before the final
+// VERIFY: PASS — verified against the installed runtime); the
 // repo-local pinned @playwright/test 1.63.0 CLI
 // (node_modules/@playwright/test/cli.js) as the runner — `npm run
 // test:browser` is deliberately NOT used so the ordinary suite never drags
@@ -91,10 +97,11 @@
 import { spawn, execFile } from "node:child_process";
 import { mkdir, readFile, readdir, stat } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import os from "node:os";
 import path from "node:path";
 
-/** The ONE existing persistent development origin (AGENTS.md; tasks.md). */
-export const PERSISTENT_DEVELOPMENT_ORIGIN = "http://127.0.0.1:4322";
+/** The ONE existing persistent development origin (AGENTS.md; tasks.md T037). */
+export const PERSISTENT_DEVELOPMENT_ORIGIN = "http://127.0.0.1:4324";
 
 /** The single spec file this coordinator may run. */
 const SPEC_FILE = "tests/browser/cms-public-reads.spec.ts";
@@ -115,7 +122,7 @@ const ROUTE_ACCESS_CREDENTIAL_ENV = "SONGHEALTH_T021_ROUTE_ACCESS";
 /** Server-only token env the fixture route fails closed without. */
 const ROUTE_TOKEN_ENV = "SONGHEALTH_T021_ROUTE_TOKEN";
 
-/** Mode-0600 controller-format development PAT input (existence only). */
+/** Mode-0600 development PAT input, the runtime's dev-pat (existence only). */
 const DEV_ACCESS_CREDENTIAL_ENV = "SONGHEALTH_DEV_ACCESS";
 
 /** Per-run owned-fixture manifest passed to the worker. */
@@ -140,12 +147,15 @@ const TERMINATION_GRACE_MS = 10_000;
 const PREREQUISITE_DEADLINE_MS = 10_000;
 
 /**
- * The documented read-only Runtime Controller (AGENTS.md; quickstart). Only
- * its routine `status` operation is ever invoked, and only to OBSERVE the
- * stable runtime source identity. Overridable path for offline controls.
+ * The single runtime's documented read-only verify, run from the runtime's
+ * own checkout (docs/operations/development-quadlet.md): it checks health and
+ * the promoted, clean source and reports `runtime source: <checkout> @ <sha>`.
+ * It is invoked only to OBSERVE the runtime source identity. Overridable path
+ * for offline controls.
  */
-const RUNTIME_CONTROLLER_DEFAULT = "/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh";
-const RUNTIME_CONTROLLER_ENV = "SONGHEALTH_RUNTIME_CONTROLLER";
+const RUNTIME_VERIFY_DEFAULT = path.join(os.homedir(), "dev/songhealth-quadlet/scripts/dev-runtime-verify.sh");
+const RUNTIME_VERIFY_ENV = "SONGHEALTH_RUNTIME_VERIFY";
+const RUNTIME_VERIFY_DEADLINE_MS = 120_000;
 
 /** Bounded run scratch under the already-gitignored .tmp/ path. */
 const SCRATCH_DIR = ".tmp/feature002";
@@ -166,16 +176,16 @@ async function hold(reasons) {
 }
 
 /** Run one bounded, read-only helper command and capture its stdout. */
-function boundedExec(file, args, label) {
+function boundedExec(file, args, label, timeoutMs = PREREQUISITE_DEADLINE_MS) {
 	return new Promise((resolve) => {
 		try {
 			execFile(
 				file,
 				args,
-				{ cwd: repoRoot, timeout: PREREQUISITE_DEADLINE_MS, maxBuffer: 1024 * 1024 },
+				{ cwd: repoRoot, timeout: timeoutMs, maxBuffer: 1024 * 1024 },
 				(error, stdout) => {
 					if (error) {
-						resolve({ error: `${label} failed (${error.code ?? error.message})` });
+						resolve({ error: `${label} failed (${error.code ?? error.message})`, stdout: String(stdout ?? "") });
 					} else {
 						resolve({ stdout: String(stdout) });
 					}
@@ -213,36 +223,32 @@ export async function expectedSourceIdentity() {
 }
 
 /**
- * The OBSERVED stable runtime source identity (R2), through the only
- * approved read-only observation: the documented Runtime Controller `status`
- * routine operation (quickstart "Prerequisites"; the preflight observed the
- * same field). The controller prints a JSON object whose "source" field is
- * the stable source SHA. Any failure, missing field or malformed value is a
- * HOLD — missing identity evidence must never let a worker spawn.
+ * The OBSERVED runtime source identity (R2), through the only approved
+ * read-only observation: the single runtime's dev-runtime-verify.sh (T037; it
+ * replaces the retired UID-1001 Runtime Controller `status`). Verify must end
+ * with VERIFY: PASS — an unverified runtime is a HOLD that names its FAIL
+ * lines — and its `runtime source: <checkout> @ <sha>` line carries the
+ * promoted commit, which verify itself checked against the checkout's HEAD
+ * and clean tree. Any failure, missing line or malformed value is a HOLD —
+ * missing identity evidence must never let a worker spawn.
  */
 export async function observedRuntimeSourceIdentity() {
-	const controller = process.env[RUNTIME_CONTROLLER_ENV] ?? RUNTIME_CONTROLLER_DEFAULT;
-	const status = await boundedExec(controller, ["status"], `controller status (${controller})`);
-	if (status.error !== undefined) {
+	const verify = process.env[RUNTIME_VERIFY_ENV] ?? RUNTIME_VERIFY_DEFAULT;
+	const run = await boundedExec(verify, [], `runtime verify (${verify})`, RUNTIME_VERIFY_DEADLINE_MS);
+	const lines = (run.stdout ?? "").trim().split("\n");
+	if (run.error !== undefined || lines.at(-1) !== "VERIFY: PASS") {
+		const failing = lines.filter((line) => line.startsWith("FAIL: ")).map((line) => line.slice("FAIL: ".length));
 		return {
-			error: `the stable runtime source identity could not be observed: ${status.error}; missing identity evidence is a HOLD, never an assumption`,
+			error: `the runtime source identity could not be observed: ${run.error ?? `verify ended with ${JSON.stringify(lines.at(-1) ?? "")}`}${failing.length > 0 ? ` (failing: ${failing.join("; ")})` : ""}; an unverified runtime is a HOLD, never an assumption`,
 		};
 	}
-	let parsed;
-	try {
-		parsed = JSON.parse(status.stdout ?? "");
-	} catch {
-		return { error: "the Runtime Controller status output was not the expected JSON identity record" };
-	}
-	const source = parsed?.source;
-	if (typeof source !== "string" || !FULL_SHA_PATTERN.test(source)) {
-		return {
-			error: `the Runtime Controller status record carries no full 40-hex "source" identity (observed ${JSON.stringify(source)})`,
-		};
+	const source = /^runtime source: .+ @ ([0-9a-f]{40})$/.exec(lines.at(-2) ?? "")?.[1];
+	if (source === undefined || !FULL_SHA_PATTERN.test(source)) {
+		return { error: "the runtime verify output carries no full 40-hex `runtime source` identity line" };
 	}
 	return {
 		sha: source,
-		provenance: `Runtime Controller status (${controller}) — the documented read-only observation`,
+		provenance: `runtime verify (${verify}) — the documented read-only observation`,
 	};
 }
 
@@ -358,13 +364,13 @@ async function fixtureReadinessHolds(routeAccessToken, expectedSha) {
 		return `the fixture route probe failed against the persistent origin (${reason})`;
 	}
 	if (probe.status === 404) {
-		return "the dev-only fixture route /__feature002/public-reads is not installed on the persistent server (the reviewed source/config transition is a separate authorization) — HOLD, not a substitute server";
+		return "the dev-only fixture route /__feature002/public-reads is not installed on the runtime (its development configuration deploy/dev-quadlet/astro.dev.config.mjs arrives with T037: promote a commit that contains it) — HOLD, not a substitute server";
 	}
 	if (probe.status === 503) {
-		return "the fixture route is installed but its server-only access capability is unprovisioned (503) — the route access token pair is provisioned by the separately authorized maintenance — HOLD";
+		return "the fixture route is installed but its server-only access token is unprovisioned (503) — the runtime installer provisions the token pair; re-run it — HOLD";
 	}
 	if (probe.status === 403) {
-		return "the fixture route refused the coordinated route access token (403) — the client/server token pair does not match; re-provision through the authorized maintenance";
+		return "the fixture route refused the coordinated route access token (403) — the client/server token pair does not match; delete the client copy and re-run the runtime installer, which replaces the pair whole";
 	}
 	if (probe.status !== 200) {
 		return `unexpected fixture probe status ${probe.status}`;
@@ -664,11 +670,11 @@ async function main() {
 	} else if (expected.sha !== undefined) {
 		if (observed.sha !== expected.sha) {
 			reasons.push(
-				`source identity mismatch: the stable runtime source is ${observed.sha} (${observed.provenance}) but the candidate under test is ${expected.sha} (${expected.provenance}) — advancing the runtime requires the separately reviewed controller-compatible maintenance; a committed candidate does not implicitly update the persistent application`,
+				`source identity mismatch: the runtime source is ${observed.sha} (${observed.provenance}) but the candidate under test is ${expected.sha} (${expected.provenance}) — promote the candidate with the runtime's dev-runtime-update.sh first; a committed candidate does not implicitly update the persistent application`,
 			);
 		} else {
 			process.stderr.write(
-				`coordinator: exact source identity verified — stable runtime source ${observed.sha} equals the candidate under test (${expected.provenance})\n`,
+				`coordinator: exact source identity verified — runtime source ${observed.sha} equals the candidate under test (${expected.provenance})\n`,
 			);
 		}
 	}

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Songhealth development runtime — UNINSTALL (Feature 002 T036).
+# Songhealth development runtime — UNINSTALL (Feature 002 T036, T037).
 #   scripts/dev-runtime-uninstall.sh          stop the runtime and remove its units; keep the
 #                                             data volumes, secrets, PAT, backups and checkout
 #   scripts/dev-runtime-uninstall.sh --purge  ALSO delete the qdev database and media volumes,
-#                                             secrets, network and PAT (typed confirmation)
+#                                             secrets, network, PAT and T021 route token
+#                                             (typed confirmation)
 # Only the exact songhealth-qdev names below are touched. The source checkout and the
 # backups under ~/.local/state/songhealth-qdev/backups are never deleted.
 set -Eeuo pipefail
@@ -40,10 +41,10 @@ podman rm --force --ignore "$APP_CTR" "$DB_CTR" >/dev/null
 for v in "$DB_VOLUME" "$MEDIA_VOLUME"; do
   if podman volume exists "$v"; then podman volume rm "$v" >/dev/null; note "deleted volume $v"; fi
 done
-for s in "${SECRETS[@]}"; do
+for s in "${SECRETS[@]}" "$ROUTE_SECRET"; do
   if podman secret exists "$s"; then podman secret rm "$s" >/dev/null; note "deleted secret $s"; fi
 done
 if podman network exists "$NETWORK"; then podman network rm "$NETWORK" >/dev/null; note "deleted network $NETWORK"; fi
-rm -f -- "$STATE_DIR/dev-pat" "$STATE_DIR/db-first-init"
+rm -f -- "$STATE_DIR/dev-pat" "$ROUTE_ACCESS" "$STATE_DIR/db-first-init"
 rm -rf -- "$SHARE_DIR"
 note "purged; kept $SRC and $STATE_DIR/backups"

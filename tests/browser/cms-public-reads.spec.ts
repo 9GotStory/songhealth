@@ -2,18 +2,19 @@
 // native public query helpers (getEmDashCollection / getEmDashEntry /
 // getEmDashReferences) read PUBLISHED content only inside the authentic
 // Astro/EmDash request context of the ONE existing persistent development
-// server (origin http://127.0.0.1:4322); a native signed preview token for
-// one entry serves that entry's pending draft and nothing else; drafts,
+// server (origin http://127.0.0.1:4324, the single runtime; T037); a native
+// signed preview token for one entry serves that entry's pending draft and
+// nothing else; drafts,
 // trashed and unpublished targets are omitted without blocking the parent;
 // optional omissions stay absent; missing files degrade to a safe
 // unavailable state, never a false download success; and errors, not-found
 // and empty results stay truthful — with no privileged/draft fallback ever.
 // Test support in tests/browser/ only: no application, schema, seed,
 // dependency, infrastructure, or production change is made here, and NO
-// runtime execution is claimed by authoring this file — the T022 serial
-// join owns actually running these checks, and only after the reviewed
-// source/config transition installs the dev-only fixture route on the
-// persistent server.
+// runtime execution is claimed by authoring this file — a task that runs
+// these checks records its own evidence (T037 on the single runtime; US6
+// acceptance stays with the T022 serial join), and only where the runtime's
+// development configuration installs the dev-only fixture route.
 //
 // Authority:
 // - specs/002-cms-content-model/tasks.md T021 ("Tests exercise native
@@ -28,7 +29,8 @@
 //   orchestrates the pinned Playwright command with
 //   PLAYWRIGHT_BASE_URL=http://127.0.0.1:4322; a missing dev-only SSR
 //   fixture route is a prerequisite HOLD, never authorization for another
-//   server; runtime fixture creation/cleanup happens only in T022)
+//   server; runtime fixture creation/cleanup happens only in T022), as
+//   retargeted by T037 to the single runtime at http://127.0.0.1:4324
 // - specs/002-cms-content-model/contracts/public-read.md — "Native Reads"
 //   (server-side consumers use the three native helpers; ordinary public
 //   request context reads published content and live selections; authorized
@@ -65,13 +67,14 @@
 //   EmDash's signed preview flow)
 // - AGENTS.md "Single Persistent Development Runtime" (all authorized
 //   runtime tests target the existing shared development application at
-//   http://127.0.0.1:4322; never a second server; tests may use the existing
+//   http://127.0.0.1:4324; never a second server; tests may use the existing
 //   scoped development credential through the approved mode-0600 loader;
 //   never re-run setup/dev-bypass, rotate credentials or impersonate roles)
 // - tests/browser/cms.helpers.ts — the accepted T002/T013 native request/
-//   fixture helpers this file consumes UNCHANGED (loadDevAccessToken for
-//   both the development PAT and the coordinated route-access token — both
-//   mode-0600 controller-format { token } JSON; createPatActor with live
+//   fixture helpers this file consumes (loadDevAccessToken for both the
+//   development PAT — the runtime's mode-0600 bare-token dev-pat, read since
+//   T037 — and the coordinated route-access token, a mode-0600 { token }
+//   JSON client copy; createPatActor with live
 //   identity verification; createSyntheticEntry/uploadSyntheticMedia with
 //   owned-fixture registration; publish/unpublish/trash/restore and
 //   readEntry; cleanupOwnedFixtures with trash-aware reconciliation)
@@ -171,8 +174,8 @@
 //   discarding them. Failure-safe owned-fixture cleanup runs per test
 //   (afterEach) plus an afterAll safety net; unresolved fixtures stay
 //   registered and are reported, never hidden. The shared app, database,
-//   media volumes, credentials, stable source and controller are never
-//   test-owned resources
+//   media volumes, credentials and runtime checkout are never test-owned
+//   resources
 
 import { expect, test } from "@playwright/test";
 
@@ -255,18 +258,18 @@ const HEALTH_REPORTS_COLLECTION = "health_reports";
 
 /**
  * The ONE existing persistent development origin (AGENTS.md; quickstart
- * "Prerequisites and Environment"; tasks.md T021). This suite refuses any
- * other origin: an occupied shared origin is its intended state, and no port
- * fallback or substitute server is ever acceptable evidence.
+ * "Prerequisites and Environment"; tasks.md T021, retargeted by T037). This
+ * suite refuses any other origin: an occupied shared origin is its intended
+ * state, and no port fallback or substitute server is ever acceptable
+ * evidence.
  */
-const PERSISTENT_DEVELOPMENT_ORIGIN = "http://127.0.0.1:4322";
+const PERSISTENT_DEVELOPMENT_ORIGIN = "http://127.0.0.1:4324";
 
 /**
- * Mode-0600 controller-format JSON ({ token }) holding the CLIENT copy of
- * the fixture route access token. It is provisioned together with the
- * server-side SONGHEALTH_T021_ROUTE_TOKEN input by the separately
- * authorized source/config maintenance; a missing file is a prerequisite
- * failure (HOLD), never a reason to bypass the route boundary.
+ * Mode-0600 JSON ({ token }) holding the CLIENT copy of the fixture route
+ * access token. The runtime installer provisions it together with the
+ * server-side SONGHEALTH_T021_ROUTE_TOKEN podman secret; a missing file is a
+ * prerequisite failure (HOLD), never a reason to bypass the route boundary.
  */
 const ROUTE_ACCESS_CREDENTIAL_ENV = "SONGHEALTH_T021_ROUTE_ACCESS";
 

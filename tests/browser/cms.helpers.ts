@@ -348,20 +348,26 @@ export async function readSecretScratch(path: string): Promise<string> {
 
 /**
  * Environment variable naming the existing Songhealth development credential
- * (controller-format JSON `{ token, source }`) for the PAT-based suites. The
- * path is configuration, never a source constant (Constitution III).
+ * for the PAT-based suites: the single runtime's bare-token `dev-pat` (T037)
+ * or a JSON `{ token }` file. The path is configuration, never a source
+ * constant (Constitution III).
  */
 export const DEV_ACCESS_CREDENTIAL_ENV = "SONGHEALTH_DEV_ACCESS";
 
+/** One bare EmDash personal access token, as the single runtime stores it. */
+const BARE_PAT_PATTERN = /^ec_pat_[A-Za-z0-9_-]+$/;
+
 /**
- * Load the existing Songhealth development credential's PAT from its
- * controller-format JSON file into memory only (T013 test-authentication
- * adaptation: the suites consume the pre-existing development credential
- * instead of re-running the seed-applying dev-bypass bootstrap, which would
- * replace same-named tokens and reapply seed intent on every run). The file
- * must be a regular, non-symlink, mode-0600 file — the same fail-closed
- * discipline as readSecretScratch. The JSON is parsed in memory; the token is
- * returned to the caller and never logged, hashed, or rewritten.
+ * Load the existing Songhealth development credential's PAT into memory only
+ * (T013 test-authentication adaptation: the suites consume the pre-existing
+ * development credential instead of re-running the seed-applying dev-bypass
+ * bootstrap, which would replace same-named tokens and reapply seed intent on
+ * every run). Two formats are accepted: the single development runtime's
+ * `dev-pat`, one bare `ec_pat_` token (T037), and a JSON `{ token }` file
+ * (such as the T021 route-access client copy). The file must be a regular,
+ * non-symlink, mode-0600 file — the same fail-closed discipline as
+ * readSecretScratch. It is parsed in memory; the token is returned to the
+ * caller and never logged, hashed, or rewritten.
  *
  * Path resolution: the explicit argument, else DEV_ACCESS_CREDENTIAL_ENV.
  * node:fs is loaded through a dynamic non-literal import because the pinned
@@ -394,11 +400,15 @@ export async function loadDevAccessToken(path?: string): Promise<string> {
 			`refusing to read ${resolved}: the development credential must be mode 0600, never group/world readable`,
 		);
 	}
+	const text = (await fsPromises.readFile(resolved, "utf8")).trim();
+	if (BARE_PAT_PATTERN.test(text)) {
+		return text;
+	}
 	let parsed: unknown;
 	try {
-		parsed = JSON.parse(await fsPromises.readFile(resolved, "utf8"));
+		parsed = JSON.parse(text);
 	} catch {
-		throw new CmsHelperError("DEV_ACCESS_INVALID", `${resolved} is not valid JSON`);
+		throw new CmsHelperError("DEV_ACCESS_INVALID", `${resolved} is neither one bare ec_pat_ token nor valid JSON`);
 	}
 	const token =
 		parsed !== null && typeof parsed === "object"

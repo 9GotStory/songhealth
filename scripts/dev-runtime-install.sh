@@ -130,6 +130,32 @@ ensure_secrets() {
   note "secrets: created (${#SECRETS[@]} podman secrets)"
 }
 
+ensure_route_token() { # the T021 fixture route token pair: server podman secret + 0600 client copy
+  local token
+  if podman secret exists "$ROUTE_SECRET" && [[ -s $ROUTE_ACCESS ]]; then
+    note "T021 route token: present"
+    return
+  fi
+  # A half pair is replaced whole (the client copy is never read back from the secret). The
+  # token protects no data; the app only has to restart to load the new one.
+  if systemctl --user is-active --quiet "$APP"; then
+    note "stopping $APP to replace the T021 route token"
+    systemctl --user stop "$APP"
+  fi
+  install -d -m 0700 -- "$STATE_DIR"
+  rm -f -- "$ROUTE_ACCESS"
+  token=$(openssl rand -hex 32)
+  [[ $token =~ ^[0-9a-f]{64}$ ]] || die "T021 route token generation failed"
+  printf '%s' "$token" | podman secret create --replace --label "$LABEL" "$ROUTE_SECRET" - >/dev/null
+  printf '%s' "$token" | python3 -I -c '
+import json, os, sys
+fd = os.open(sys.argv[1], os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+os.write(fd, json.dumps({"token": sys.stdin.read()}).encode())
+os.close(fd)' "$ROUTE_ACCESS"
+  token=''
+  note "T021 route token: created (podman secret $ROUTE_SECRET; client copy $ROUTE_ACCESS, mode 0600)"
+}
+
 ensure_volume() { # ensure_volume NAME [MARKER] — a label-owned volume; MARKER for a new media store
   local name=$1 marker=${2:-} p
   if ! podman volume exists "$name"; then
@@ -251,6 +277,7 @@ fi
 ensure_images
 ensure_dependencies
 ensure_secrets
+ensure_route_token
 ensure_volume "$DB_VOLUME"
 ensure_volume "$MEDIA_VOLUME" "$MEDIA_MARKER"
 install_units
@@ -263,6 +290,7 @@ cat <<EOF
 Songhealth development runtime is ready: $ORIGIN/
   Admin (dev-bypass login): $ORIGIN/_emdash/api/auth/dev-bypass?redirect=/_emdash/admin
   Development PAT (0600):   $STATE_DIR/dev-pat
+  T021 route token (0600):  $ROUTE_ACCESS
   Logs:                     journalctl --user -u $APP -f
-  Promote a new commit:     scripts/dev-runtime-update.sh --sha <commit>
+  Promote a new commit:     $SRC/scripts/dev-runtime-update.sh --sha <commit>
 EOF

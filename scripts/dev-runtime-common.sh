@@ -28,6 +28,12 @@ UNITS=(songhealth-dev.network songhealth-dev-db-data.volume songhealth-dev-media
   songhealth-dev-db.container songhealth-dev-app.container)
 SECRETS=(songhealth-qdev-db-password songhealth-qdev-app-password
   songhealth-qdev-migration-database-url songhealth-qdev-encryption-key)
+# The T021 public-read fixture route token (T037): a test-only pair, the server's podman
+# secret plus a 0600 client copy for the coordinator, always created and replaced together.
+# It protects no data, so it stays outside the all-or-none runtime secrets above.
+ROUTE_SECRET=songhealth-qdev-t021-route-token
+ROUTE_ACCESS=$STATE_DIR/t021-route-access.json
+ROUTE_PATH=/__feature002/public-reads
 # Expected least-privilege role vector: login, not superuser/createdb/createrole, owns the db.
 ROLE_SQL="SELECT concat_ws('|', r.rolcanlogin, r.rolsuper, r.rolcreatedb, r.rolcreaterole, pg_get_userbyid(d.datdba))
   FROM pg_roles r, pg_database d WHERE r.rolname = 'songhealth_qdev_app' AND d.datname = 'songhealth_qdev'"

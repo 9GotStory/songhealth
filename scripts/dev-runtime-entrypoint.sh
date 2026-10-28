@@ -1,11 +1,13 @@
 #!/bin/sh
-# Songhealth development runtime — application container entrypoint (Feature 002 T036).
+# Songhealth development runtime — application container entrypoint (Feature 002 T036, T037).
 # Runs INSIDE songhealth-qdev-app (deploy/dev-quadlet/songhealth-dev-app.container):
-#   dev            start the Astro + EmDash dev server (the unit's command)
+#   dev            start the Astro + EmDash dev server (the unit's command) with
+#                  deploy/dev-quadlet/astro.dev.config.mjs: the canonical configuration plus
+#                  the development-only T021 public-read fixture integration
 #   migrate-check  the native, non-mutating `emdash migrate --check` (used by verify)
 # It refuses with exit 78, which the unit does not restart, when dependencies are missing,
 # the checkout is not the promoted commit, or the persistent media store is absent. The
-# three podman secret files are exported into this process only; values are never printed.
+# four podman secret files are exported into this process only; values are never printed.
 set -eu
 refuse() { echo "songhealth-qdev-app: $* - refusing" >&2; exit 78; }
 
@@ -36,10 +38,11 @@ load() { # load VAR FILE — the whole file must be one non-empty line without a
 load PGPASSWORD /run/secrets/songhealth-qdev-app-password
 load EMDASH_MIGRATION_DATABASE_URL /run/secrets/songhealth-qdev-migration-database-url
 load EMDASH_ENCRYPTION_KEY /run/secrets/songhealth-qdev-encryption-key
+load SONGHEALTH_T021_ROUTE_TOKEN /run/secrets/songhealth-qdev-t021-route-token
 unset value
 
 case "${1:-dev}" in
-  dev) exec node node_modules/astro/bin/astro.mjs dev ;;
+  dev) exec node node_modules/astro/bin/astro.mjs dev --config deploy/dev-quadlet/astro.dev.config.mjs ;;
   migrate-check) exec node node_modules/emdash/dist/cli/index.mjs migrate --from-config --config astro.config.mjs --check ;;
   *) refuse "unknown mode: $1" ;;
 esac
