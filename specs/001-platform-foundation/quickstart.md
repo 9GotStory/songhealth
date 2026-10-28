@@ -287,3 +287,5 @@ The implementation is not accepted solely because its Multica executor reports s
 accepted governance reconciliation, ChatGPT performs Independent Review against `spec.md`, `plan.md`,
 the approved `tasks.md`, the Constitution and `current/10`; the author does not perform that review.
 The Product Owner provides final acceptance and explicit bounded implementation authorization.
+
+**Governance note (Constitution 5.0.0)**: for work in this feature that is still open, each requirement in this file to obtain ChatGPT (or Codex) Independent Review PASS/REWORK, to hand off to an independent reviewer, or to execute through a Multica handoff is satisfied by Claude Code execution and self-review with evidence-based Product Owner acceptance (Constitution 5.0.0, Governance). Recorded reviews, verdicts and Codex-accepted source joins remain unchanged provenance; the task requirements, runtime gates, acceptance criteria and required Product Owner authorizations are unchanged.

@@ -10,12 +10,12 @@ sources are committed and independently reviewed, with their runtime verificatio
 of [docs/operations/production-foundation.md](docs/operations/production-foundation.md)).
 Feature 002 `002-cms-content-model` is the active feature; shared native model tasks T001–T007
 are checked (executed) and T008–T035 are pending. A checked marker records task completion
-only: bounded Lead review PASS, Independent Review PASS and Product Owner Final
-Acceptance are distinct states evidenced per artifact — not established by task markers, an
-issue's status, or acceptance of the development runtime. Source development, review and
-pull-request preparation follow the ratified local CLI workflow below; authorized runtime
-testing still targets the existing persistent development runtime documented in this README,
-whose ownership and access are pending explicit review.
+only: Product Owner Final Acceptance — and, for work reviewed before Constitution 5.0.0, the
+recorded Lead and Independent Review outcomes — are distinct states evidenced per artifact, not
+established by task markers, an issue's status, or acceptance of the development runtime. Source
+development, testing, self-review and pull-request preparation follow the Claude Code workflow
+below; authorized runtime testing still targets the existing persistent development runtime
+documented in this README, whose ownership and access are pending explicit review.
 
 ## Authority
 
@@ -28,22 +28,27 @@ whose ownership and access are pending explicit review.
 
 Do not reconstruct removed architecture from Git history or old branch names (see `AGENTS.md`).
 
-## Development workflow (local CLI)
+## Development workflow (Claude Code)
 
 The Product Owner ratified the local CLI governance transition on 2026-10-25 (official
 decision: https://github.com/9GotStory/songhealth/pull/38#issuecomment-6395631601), replacing
 the Multica-first execution/review assignments of 2026-10-13/2026-10-14 (recorded in
-`AGENTS.md` and the Constitution as accepted history) with the local CLI workflow below, while
-preserving the 2026-10-16 development-runtime decision (Multica issue 9GOTSTORY-232). The
-matching Constitution amendment (3.0.0 → 4.0.0) is ratified:
+`AGENTS.md` and the Constitution as accepted history) while preserving the 2026-10-16
+development-runtime decision (Multica issue 9GOTSTORY-232). The governance reform recorded as
+Constitution 5.0.0 (ratified 2026-10-28) then removed Codex and ChatGPT from that workflow
+entirely; until Feature 002 is complete, development uses Claude Code with Spec Kit and GitHub only:
+**Product Owner → Claude Code + Spec Kit → automated tests / GitHub CI → Product Owner
+acceptance** (details in `AGENTS.md` and the Constitution):
 
 - Source development takes place in the local workspace `/home/thanakorn/dev/songhealth` (local
-  user `thanakorn`, UID 1000), with Claude Code CLI as the primary Developer and Codex CLI
-  performing Independent Review of the resulting artifacts/evidence; the Product Owner gives
-  final acceptance and implementation authorization. Authors do not independently review their
-  own artifacts; Spec Kit stages/Human Gate remain. One authorized implementation task is in
-  effect at a time. GitHub (`9GotStory/songhealth`) is the source of truth for source, issues,
-  pull requests and CI.
+  user `thanakorn`, UID 1000). Claude Code is the sole AI development tool: it implements, tests,
+  self-reviews and corrects within an authorized scope, and its self-review is never presented as
+  independent review; Codex, ChatGPT and other external AI tools are not used. Completion is
+  evidence-based (approved requirements, correct implementation, passing applicable tests,
+  risk-proportionate security verification, CI where configured, required runtime evidence), and
+  the Product Owner gives final acceptance and implementation authorization. Spec Kit stages and
+  the Human Gate remain. One authorized implementation task is in effect at a time. GitHub
+  (`9GotStory/songhealth`) is the source of truth for source, issues, pull requests and CI.
 - The persistent development runtime described below remains the **single existing development
   runtime**. It was created and activated under the Multica workflow on account `multica-agent`
   (UID 1001) and stays a separate historical/existing runtime whose ownership and access are
