@@ -164,6 +164,25 @@ description: "Native-only CMS content-model development tasks, ordered by user s
 - [ ] T034 Update `README.md` and `specs/002-cms-content-model/quickstart.md` with the actual delivered native schema/bootstrap-versus-existing-DB process, direct RBAC publishing, Save requiredness, focused test invocation, native dev-bypass secret handling/cleanup, optional-content/public-read limitations and conditional Organization disposition; preserve D-ITA/D-REF, legacy ITA policy, unchanged pins and Feature 001 T022/T028 dependencies without amending Product meaning.
 - [ ] T035 Produce the implementation handoff in `specs/002-cms-content-model/evidence/T035-implementation-handoff.md` with exact commits/diff/files, task/story/FR/SC coverage, independent verification evidence, pending staff/inventory/foundation dependencies and conditional N/A reasons; exclude deferred guarantees from V1 denominators and make no final foundation acceptance, merge or deployment claim.
 
+## Phase 10: Development Runtime Replacement (Product Owner decision 2026-10-28)
+
+**Purpose**: Make the UID-1000 rootless Podman + systemd Quadlet runtime at `http://127.0.0.1:4324` the single development runtime and test target, replacing the UID-1001 runtime, which is left untouched (not used, stopped, migrated or deleted) pending a separate Product Owner deletion decision.
+
+- [ ] T036 Replace the development runtime with the converging `scripts/dev-runtime-install.sh --sha <commit>`.
+  - **Installer behavior.** Idempotent and safe to re-run. It:
+    - clones or verifies `~/dev/songhealth-quadlet` at a detached promoted commit and continues with that commit's installer;
+    - pulls the digest-pinned images;
+    - runs npm 12.2.0 `npm ci` in a temporary container;
+    - creates four podman secrets through stdin only, including an EmDash-format `EMDASH_ENCRYPTION_KEY`;
+    - creates labeled volumes with store guards;
+    - creates the least-privilege app role through the postgres image's `/docker-entrypoint-initdb.d`;
+    - relies on the native `migrations.dev: "auto"` migrations;
+    - runs the native `setup/dev-bypass` once, with a 0600 development PAT.
+  - **Companion sources.** `dev-runtime-update.sh` (backup first), `dev-runtime-verify.sh` (read-only), `dev-runtime-uninstall.sh`, `dev-runtime-entrypoint.sh`, the units in `deploy/dev-quadlet/`, and `docs/operations/development-quadlet.md`.
+  - **Designation.** Name the runtime in `README.md`, `AGENTS.md`, `CLAUDE.md` and this feature's plan and quickstart.
+  - **Evidence.** Record the offline checks and the live install/verify results in `specs/002-cms-content-model/evidence/T036-dev-runtime.md`.
+  - **Exclusions.** Do not touch the UID-1001 runtime. Adapt the T021 coordinator and other tests that assume it in their own tasks.
+
 ## Dependencies & Execution Order
 
 ### Phase and Task Dependencies
@@ -173,6 +192,7 @@ All edges below are prerequisites. Applicable runtime readiness and bounded auth
 | Tasks | Direct prerequisites | Reason |
 | --- | --- | --- |
 | T001 | Existing approved baseline, no Feature 002 predecessor | Inputs and actual foundation standing |
+| T036 | Accepted dev-quadlet Phase 1/2A sources (`cd390b0`, `5d31acc`), no Feature 002 story predecessor | Development runtime replacement; later runtime checks (T033) target the runtime T036 delivers |
 | T002 | T001 | Native access/test support |
 | T003, T004 | T002 | Independent test authoring versus shared taxonomy configuration |
 | T005 | T003, T004 | Shared Document tests/classification before native definitions |

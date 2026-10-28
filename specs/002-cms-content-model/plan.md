@@ -31,6 +31,14 @@ source/config maintenance are verified; the test coordinator never starts
 another app. This operational reconciliation changes no native CMS/Product
 requirements and does not authorize source promotion, restart or T022 execution.
 
+**Development-runtime replacement (2026-10-28, Product Owner decision; T036):** the
+UID-1000 rootless Podman + systemd Quadlet runtime at `http://127.0.0.1:4324`
+(`docs/operations/development-quadlet.md`) replaces the UID-1001 runtime as the single
+development runtime and test target. The single-runtime rule above is unchanged and now
+applies to that runtime; source reaches it through `scripts/dev-runtime-update.sh`. The
+UID-1001 runtime is left untouched pending a separate deletion decision. No native
+CMS/Product requirement, verification design or Production design changes.
+
 ## Summary
 
 Extend the canonical platform with native semantic collections, classifications,
@@ -55,10 +63,10 @@ configuration and one bounded staff-maintenance assessment in the existing devel
 Native public-query integration remains required; production Passkey automation, full browser UAT
 per task, durability/recovery drills and deployment checks are not this feature's development work.
 Pinned-runtime readiness is a prerequisite; source/Markdown checks here are not runtime acceptance.
-**Platform:** Linux Astro SSR; development runs on the single persistent rootless-Podman
-development runtime (containers `songhealth-dev-app`/`songhealth-dev-postgres`, stable pinned
-source, Runtime Controller — see [quickstart.md](quickstart.md) and the
-[README](../../README.md)); existing rootless Podman + systemd Quadlet production/private
+**Platform:** Linux Astro SSR; development runs on the single UID-1000 rootless Podman +
+systemd Quadlet development runtime (containers `songhealth-qdev-app`/`songhealth-qdev-db`,
+promoted source checkout, `http://127.0.0.1:4324` — see T036, [quickstart.md](quickstart.md)
+and the [README](../../README.md)); existing rootless Podman + systemd Quadlet production/private
 database contract remains unchanged.
 **Project type:** One integrated CMS-backed website, native Admin primary staff interface.
 **Performance goals:** No new quantitative target; representative maintenance/reuse and seven active

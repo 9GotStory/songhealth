@@ -14,6 +14,9 @@ coverage/
 # Generated output (EmDash migration manifest emitted by the exact application build)
 .emdash/migrations.json
 
+# Development runtime checkout identity marker (written by scripts/dev-runtime-{install,update}.sh)
+/.songhealth-qdev-source-identity
+
 # Development media (local EmDash media store at the approved stable ./media application mount path; see 10-system-blueprint.md §20.1)
 /media/
 

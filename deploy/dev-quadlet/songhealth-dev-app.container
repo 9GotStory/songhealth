@@ -1,68 +1,52 @@
-# Songhealth DEVELOPMENT application container (UID 1000 Quadlet runtime; PO
-# gate 6410811185, Phase 1 SOURCE-ONLY — nothing here is installed or running).
-# Production reference deploy/quadlet/songhealth-app.container (T020) is NOT
-# modified. Deliberate development differences from production:
-#   - stock pinned Node image (docker.io/library/node:24.21.0) instead of the
-#     built production OCI image: the dev server bind-mounts a versioned source
-#     checkout at /src and runs the pinned repo-local Astro CLI in dev mode.
-#     The image DIGEST is PINNED-PENDING: Phase 2 provisioning must resolve and
-#     record the immutable digest for this tag before first start (docs/operations/
-#     development-quadlet.md); the mutable tag below is the version pin.
-#   - host loopback publication 127.0.0.1:4324 -> in-container 4321 (proposed;
-#     Phase 2 verifies availability; NEVER 4322/4323 and no fallback).
-#   - distinct names everywhere: ContainerName songhealth-qdev-app, network
-#     songhealth-qdev, volumes songhealth-qdev-*, env file songhealth-dev-app.env,
-#     podman secrets songhealth-qdev-* (all disjoint from production and from any
-#     UID-1001 Compose resource; rootless stores are per-UID).
-#   - no T021 SSR test route registration is presumed or configured here: route
-#     registration, role fixtures and PATs are future separately reviewed
-#     permissions (docs/operations/development-quadlet.md). Existing browser
-#     tests cannot run against this origin merely by setting PLAYWRIGHT_BASE_URL.
-# External runtime inputs mirror the accepted native contract (astro.config.mjs
-# REQUIRED_INPUT_NAMES): the env file supplies HOST/PORT/PGHOST/PGPORT/PGDATABASE/
-# PGUSER/PGPASSWORD/EMDASH_SITE_URL; the migration URL and encryption key are
-# operator podman secrets read at start and exported only into the dev process.
+# Songhealth development application (UID-1000 rootless Quadlet runtime; Feature 002 T036):
+# the Astro + EmDash dev server on the same Node 24.21.0 image digest that production
+# builds from (deploy/Containerfile), serving the runtime source checkout
+# ~/dev/songhealth-quadlet bind-mounted at /src. It listens on 4324 both inside and
+# outside the container (loopback publication only), so the public origin, the Vite HMR
+# socket and EMDASH_SITE_URL agree. Non-secret configuration is set here; the three secrets
+# are podman secret files that scripts/dev-runtime-entrypoint.sh exports into the dev
+# process only. The entrypoint also refuses to start (exit 78, not restarted) on missing
+# dependencies, an unpromoted checkout or a missing media store.
+# Contract: docs/operations/development-quadlet.md.
 [Unit]
-Description=Songhealth dev Astro+EmDash app (qdev network, loopback 4324, source bind, fail-closed store/identity gates)
+Description=Songhealth dev Astro + EmDash app (http://127.0.0.1:4324)
 Requires=songhealth-dev-db.service
 After=songhealth-dev-db.service
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
 [Container]
-Image=docker.io/library/node:24.21.0
+Image=docker.io/library/node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
 ContainerName=songhealth-qdev-app
 Network=songhealth-dev.network
-Volume=%h/dev/songhealth-quadlet:/src:Z
+Volume=%h/dev/songhealth-quadlet:/src:z
 Volume=songhealth-dev-media.volume:/src/media
 WorkingDir=/src
-PublishPort=127.0.0.1:4324:4321
-Environment=HOST
-Environment=PORT
-Environment=PGHOST
-Environment=PGPORT
-Environment=PGDATABASE
-Environment=PGUSER
-Environment=PGPASSWORD
-Environment=EMDASH_SITE_URL
+PublishPort=127.0.0.1:4324:4324
+Environment=HOST=0.0.0.0
+Environment=PORT=4324
+Environment=EMDASH_SITE_URL=http://127.0.0.1:4324
+Environment=PGHOST=songhealth-qdev-db
+Environment=PGPORT=5432
+Environment=PGDATABASE=songhealth_qdev
+Environment=PGUSER=songhealth_qdev_app
+Environment=ASTRO_TELEMETRY_DISABLED=1
+Secret=songhealth-qdev-app-password
 Secret=songhealth-qdev-migration-database-url
 Secret=songhealth-qdev-encryption-key
-Exec=sh -c "test -x /src/node_modules/astro/bin/astro.mjs || { echo songhealth-qdev-app: pinned dependencies are not installed in the source checkout at /src - run the documented install step first - refusing to start >&2; exit 1; }; git -C /src rev-parse --verify HEAD >/dev/null 2>&1 || { echo songhealth-qdev-app: /src is not the versioned source checkout - refusing to start >&2; exit 1; }; test -r /src/.songhealth-qdev-source-identity || { echo songhealth-qdev-app: source-identity marker missing - refusing to start >&2; exit 1; }; git -C /src rev-parse HEAD >/tmp/qdev-head 2>/dev/null || { echo songhealth-qdev-app: source HEAD unreadable - refusing to start >&2; exit 1; }; cmp -s /src/.songhealth-qdev-source-identity /tmp/qdev-head || { echo songhealth-qdev-app: source HEAD does not equal the recorded identity - refusing to start >&2; exit 1; }; grep -q ' /src/media ' /proc/mounts || { echo songhealth-qdev-app: required persistent media volume songhealth-qdev-media is not attached at /src/media - refusing to start >&2; exit 1; }; test -r /src/media/.songhealth-qdev-media-store || { echo songhealth-qdev-app: operator-managed existing media store marker .songhealth-qdev-media-store is missing at /src/media - the persistent store was not provisioned or has been replaced - refusing to start >&2; exit 1; }; IFS= read -r EMDASH_MIGRATION_DATABASE_URL </run/secrets/songhealth-qdev-migration-database-url; IFS= read -r EMDASH_ENCRYPTION_KEY </run/secrets/songhealth-qdev-encryption-key; export EMDASH_MIGRATION_DATABASE_URL EMDASH_ENCRYPTION_KEY; exec node node_modules/astro/bin/astro.mjs dev --host 0.0.0.0 --port 4321"
-HealthCmd=node -e "fetch('http://127.0.0.1:4321/').then(r=>r.text()).then(t=>{if(!t.includes('songhealth-foundation'))process.exit(1)}).catch(()=>process.exit(1))"
+Exec=/bin/sh /src/scripts/dev-runtime-entrypoint.sh dev
+HealthCmd=node -e "fetch('http://127.0.0.1:4324/').then(r=>r.text()).then(t=>process.exit(t.includes('songhealth-foundation')?0:1)).catch(()=>process.exit(1))"
 HealthInterval=15s
 HealthTimeout=10s
 HealthRetries=5
-HealthStartPeriod=120s
+HealthStartPeriod=180s
 Notify=healthy
+
 [Service]
-EnvironmentFile=%h/.config/containers/systemd/songhealth-dev-app.env
-ExecCondition=/usr/bin/test "${HOST}" = 0.0.0.0
-ExecCondition=/usr/bin/test "${PORT}" = 4321
-ExecCondition=/usr/bin/test -n "${PGHOST}"
-ExecCondition=/usr/bin/test "${PGPORT}" = 5432
-ExecCondition=/usr/bin/test -n "${PGDATABASE}"
-ExecCondition=/usr/bin/test -n "${PGUSER}"
-ExecCondition=/usr/bin/sh -c 'test -n "$$PGPASSWORD"'
-ExecCondition=/usr/bin/test "${EMDASH_SITE_URL}" = http://127.0.0.1:4324
-Restart=always
-RestartSec=5s
-TimeoutStartSec=300s
+Restart=on-failure
+RestartSec=10s
+RestartPreventExitStatus=78
+TimeoutStartSec=420
+
 [Install]
 WantedBy=default.target

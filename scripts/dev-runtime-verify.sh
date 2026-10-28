@@ -1,35 +1,51 @@
 #!/usr/bin/env bash
-# Songhealth development Quadlet runtime — VERIFY (read-only checks only).
-# Never mutates, restarts, or secrets-reads; safe to run any time after Phase 2
-# installation. Exits non-zero on any failed check with one PASS/FAIL line each.
-set -Euo pipefail
-fail=0
-ok()   { echo "PASS: $*"; }
-bad()  { echo "FAIL: $*" >&2; fail=1; }
-systemctl --user is-active --quiet songhealth-dev-db.service  && ok "songhealth-dev-db.service active" || bad "songhealth-dev-db.service not active"
-systemctl --user is-active --quiet songhealth-dev-app.service && ok "songhealth-dev-app.service active" || bad "songhealth-dev-app.service not active"
-podman container exists songhealth-qdev-db  && ok "db container exists" || bad "db container missing"
-podman container exists songhealth-qdev-app && ok "app container exists" || bad "app container missing"
-[[ "$(podman inspect --format '{{.State.Health.Status}}' songhealth-qdev-db 2>/dev/null)" == "healthy" ]] && ok "db healthy" || bad "db not healthy"
-[[ "$(podman inspect --format '{{.State.Health.Status}}' songhealth-qdev-app 2>/dev/null)" == "healthy" ]] && ok "app healthy" || bad "app not healthy"
-BODY="$(curl -fsS --max-time 10 http://127.0.0.1:4324/ 2>/dev/null || true)"
-[[ "$BODY" == *songhealth-foundation* ]] && ok "public SSR marker served on 127.0.0.1:4324" || bad "public SSR marker not served on 127.0.0.1:4324"
-curl -fsS --max-time 10 -o /dev/null http://127.0.0.1:4324/_emdash/admin/ && ok "native Admin UI reachable (unauthenticated boundary)" || bad "native Admin UI unreachable"
-SRC="$HOME/dev/songhealth-quadlet"
-if [[ -d "$SRC/.git" ]]; then
-  if SHA="$( cd "$SRC" && git rev-parse HEAD 2>&1 )"; then ok "source identity: $SHA"; else bad "source HEAD unreadable: $SHA"; fi
-  EXPECTED="$(cat "$SRC/.songhealth-qdev-source-identity" 2>/dev/null || true)"
-  [[ -n "$EXPECTED" ]] && [[ "$SHA" == "$EXPECTED" ]] && ok "source identity matches the installed record" || bad "source identity does not match the installed record (expected: ${EXPECTED:-<missing record>})"
-  if DRIFT="$( cd "$SRC" && git status --porcelain --untracked-files=no 2>&1 )"; then
-    [[ -z "$DRIFT" ]] && ok "source checkout clean (tracked files)" || bad "source checkout has tracked-file drift"
-  else
-    bad "source tree inspection failed: $DRIFT"
-  fi
-  [[ -x "$SRC/node_modules/.bin/astro" ]] && ok "pinned dependencies present" || bad "pinned dependencies incomplete"
-else
-  bad "source checkout missing at $SRC"
-fi
-# non-mutating native migration check inside the running app container
-podman exec songhealth-qdev-app sh -c 'IFS= read -r U </run/secrets/songhealth-qdev-migration-database-url; export EMDASH_MIGRATION_DATABASE_URL="$U"; IFS= read -r K </run/secrets/songhealth-qdev-encryption-key; export EMDASH_ENCRYPTION_KEY="$K"; node node_modules/emdash/dist/cli/index.mjs migrate --from-config --config astro.config.mjs --check' \
-  && ok "native migration check: no pending/unknown migrations" || bad "native migration check failed (pending/unknown or error)"
-[[ "$fail" -eq 0 ]] && echo "VERIFY: PASS" || { echo "VERIFY: FAIL" >&2; exit 1; }
+# Songhealth development runtime — VERIFY (Feature 002 T036). Read-only: it changes
+# nothing and prints no secret. One PASS/FAIL line per check, then VERIFY: PASS, or
+# VERIFY: FAIL with a non-zero exit. Safe to run at any time after installation.
+set -uo pipefail
+set +a
+# shellcheck source=scripts/dev-runtime-common.sh
+. "$(dirname "${BASH_SOURCE[0]}")/dev-runtime-common.sh"
+
+failed=0
+check() { # check DESCRIPTION COMMAND... — the command's output is discarded
+  local d=$1
+  shift
+  if "$@" >/dev/null 2>&1; then printf 'PASS: %s\n' "$d"; else printf 'FAIL: %s\n' "$d"; failed=1; fi
+}
+healthy() { [[ $(podman inspect --format '{{.State.Health.Status}}' "$1" 2>/dev/null) == healthy ]]; }
+ports_ok() { [[ $(podman port "$APP_CTR") == "$PORT/tcp -> 127.0.0.1:$PORT" && -z $(podman port "$DB_CTR") ]]; }
+ssr_ok() { curl -fsS --max-time 30 "$ORIGIN/" | grep -q 'name="songhealth-foundation"'; }
+admin_ok() { [[ $(curl -sS -L -o /dev/null -w '%{http_code}' --max-time 30 "$ORIGIN/_emdash/admin/") == 200 ]]; }
+setup_ok() { [[ $(setup_needed) == false ]]; }
+migrations_ok() { podman exec "$APP_CTR" /bin/sh /src/scripts/dev-runtime-entrypoint.sh migrate-check; }
+role_ok() { [[ $(db_sql "$ROLE_SQL") == "$ROLE_OK" ]]; }
+source_ok() {
+  [[ $(git -C "$SRC" rev-parse HEAD) == "$(<"$SRC/$MARKER")" ]] \
+    && [[ -z $(git -C "$SRC" status --porcelain --untracked-files=no) ]]
+}
+key_ok() { ! podman logs "$APP_CTR" 2>&1 | grep -q 'EMDASH_ENCRYPTION_KEY is invalid'; }
+pat_ok() { # the development PAT authenticates (sent on stdin: never in argv or output)
+  local token
+  [[ -s $STATE_DIR/dev-pat && $(stat -c %a "$STATE_DIR/dev-pat") == 600 ]] || return 1
+  token=$(<"$STATE_DIR/dev-pat")
+  printf 'Authorization: Bearer %s\n' "$token" \
+    | curl -fsS --max-time 30 -H @- -o /dev/null "$ORIGIN/_emdash/api/auth/me"
+}
+
+check "$DB active" systemctl --user is-active --quiet "$DB"
+check "$APP active" systemctl --user is-active --quiet "$APP"
+check "database container healthy" healthy "$DB_CTR"
+check "application container healthy" healthy "$APP_CTR"
+check "published only on 127.0.0.1:$PORT (database has no host port)" ports_ok
+check "public SSR marker served at $ORIGIN/" ssr_ok
+check "native Admin UI reachable at $ORIGIN/_emdash/admin/" admin_ok
+check "EmDash setup complete" setup_ok
+check "native migrations: none pending or unknown (emdash migrate --check)" migrations_ok
+check "least-privilege app role owns songhealth_qdev" role_ok
+check "runtime source is the promoted commit, clean" source_ok
+check "EmDash accepted EMDASH_ENCRYPTION_KEY" key_ok
+check "development PAT (mode 0600) authenticates" pat_ok
+printf 'runtime source: %s @ %s\n' "$SRC" "$(git -C "$SRC" rev-parse HEAD 2>/dev/null || printf unknown)"
+if (( failed )); then echo "VERIFY: FAIL"; exit 1; fi
+echo "VERIFY: PASS"

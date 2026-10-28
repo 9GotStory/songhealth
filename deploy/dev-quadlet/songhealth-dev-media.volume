@@ -1,7 +1,7 @@
-# Songhealth DEVELOPMENT media volume (UID 1000 Quadlet runtime; PO gate 6410811185
-# Phase 1). Distinct VolumeName (songhealth-qdev-media) from production and from any
-# UID-1001 store. An operator-provisioned store marker (.songhealth-qdev-media-store)
-# is REQUIRED by the app unit before start: a silently recreated/empty replacement
-# store never appears healthy (fail-closed, mirroring the production T018 pattern).
+# Songhealth development media volume (Feature 002 T036), mounted at the application's
+# stable ./media path. The installer writes the store marker .songhealth-qdev-media-store
+# when it creates the volume; the app refuses to start without it, so a recreated empty
+# store never appears healthy.
 [Volume]
 VolumeName=songhealth-qdev-media
+Label=io.songhealth.runtime=qdev

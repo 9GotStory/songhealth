@@ -1,7 +1,8 @@
-# Songhealth DEVELOPMENT database volume (UID 1000 Quadlet runtime; PO gate
-# 6410811185 Phase 1). Production reference deploy/quadlet/songhealth-db-data.volume
-# is untouched. VolumeName is deliberately distinct (songhealth-qdev-db-data) from
-# the production volume and from any UID-1001 store; first-start semantics and the
-# fresh-install initialization plan are documented in docs/operations/development-quadlet.md.
+# Songhealth development PostgreSQL data volume (Feature 002 T036). Created and labeled
+# by scripts/dev-runtime-install.sh before the first database start. The database unit
+# refuses to start on this volume when it holds no cluster unless the installer has
+# authorized a first initialization, so a silently recreated empty volume never comes up
+# as a fresh database.
 [Volume]
 VolumeName=songhealth-qdev-db-data
+Label=io.songhealth.runtime=qdev

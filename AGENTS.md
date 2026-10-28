@@ -127,60 +127,49 @@ architecture, security requirements and runtime restrictions are unchanged:
   open, the evidence-based completion above satisfies it. Findings from those reviews that are
   still open remain open defects until corrected and verified. Existing accepted evidence and
   Feature 001 dependency joins are not invalidated.
-- The single development environment is the persistent rootless-Podman development runtime
-  documented in `README.md`: on the single Fedora environment, account `multica-agent` (UID 1001),
-  containers `songhealth-dev-app` (Astro/EmDash dev server on the pinned Node/npm tooling image)
-  and `songhealth-dev-postgres` (PostgreSQL 18.6), dedicated persistent database/media volumes,
-  stable source at `/home/multica-agent/projects/songhealth-dev`, and the Runtime Controller at
-  `/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh` serving the development
-  origin `http://127.0.0.1:4322/`. The Product Owner decision of 2026-10-16 (Multica issue
-  9GOTSTORY-232) supersedes the earlier native-host development workflow as the canonical
-  development instructions; it does not change native-only CMS/Product meaning. Do not create or
-  maintain a second development environment or development stack. That runtime was created under
-  the Multica workflow and remains a separate existing runtime whose ownership and access are
-  pending explicit Product Owner review: local source development under
-  `/home/thanakorn/dev/songhealth` does not migrate, replicate or inherit access to the runtime,
-  its database, media volumes, Runtime Controller or credentials. The local CLI workspace
-  (UID 1000) has no default permission to access, copy, expose or reuse those UID 1001
-  credentials; the approved-loader PAT reuse permitted below for separately authorized tasks on
-  the existing runtime grants no credential access to the local workspace.
-- Programmatic Admin/API tests on the already-initialized shared application reuse
-  its existing development-scoped PAT via the approved mode-0600 loader. EmDash's native
-  development-only bootstrap (`POST /_emdash/api/setup/dev-bypass`) was an initial-setup
-  action, not a recurring test setup operation; do not re-run it on the shared runtime.
-  Never automate passkey login; production Admin authentication stays the native passkey flow.
+- The single development environment is the UID-1000 rootless Podman + systemd Quadlet
+  development runtime (Product Owner decision 2026-10-28; Feature 002 T036; contract in
+  `docs/operations/development-quadlet.md`): user units from `deploy/dev-quadlet/`, containers
+  `songhealth-qdev-app` (Astro/EmDash dev server on the digest-pinned Node 24.21.0 production
+  build base) and `songhealth-qdev-db` (PostgreSQL 18.6, no host port), volumes
+  `songhealth-qdev-db-data`/`songhealth-qdev-media`, the runtime source checkout
+  `~/dev/songhealth-quadlet` at a detached promoted commit, and the development origin
+  `http://127.0.0.1:4324/`. Do not create or maintain any other development environment or
+  development stack.
+- The earlier UID-1001 (`multica-agent`) runtime at `127.0.0.1:4322` is retired as a development
+  and test target and left untouched — not used, stopped, migrated, copied or deleted — until a
+  separate Product Owner deletion decision. Its credentials stay inaccessible to the local
+  workspace, and nothing is taken from it.
+- Programmatic Admin/API tests use the runtime's own development PAT
+  (`~/.local/state/songhealth-qdev/dev-pat`, mode 0600), minted once by EmDash's native
+  development-only bootstrap (`POST /_emdash/api/setup/dev-bypass`) during installation. That
+  bootstrap is an initial-setup action, not a recurring test setup operation; do not re-run it on
+  an initialized runtime. Never print, commit or copy the PAT into evidence. Never automate
+  passkey login; production Admin authentication stays the native passkey flow.
 - Production deployment remains rootless Podman + systemd Quadlet
   (`docs/operations/production-foundation.md`); development tooling must not grow into a
   parallel production-like stack.
-- The shared persistent runtime survives Multica issues, agent sessions and workflow
-  transitions. Task cleanup covers
-  task-owned temporary resources only: remove ad-hoc containers the task itself created,
-  owned synthetic fixtures/media, and private credential scratch. Cleanup must never stop or
-  remove the shared `songhealth-dev-app`/`songhealth-dev-postgres` containers, and never
-  deletes named volumes, persistent data, accepted sources, or evidence. A task run that cannot
-  clean up a resource it owns reports that fact in its result instead of leaving it silently.
-- Runtime Controller operations are authorization-gated by its recorded activation; routine
-  documentation describes only `status` and `verify`. Startup, shutdown, restart, build or
-  persistence tests, promotion, bootstrap and recovery are not standing operations and require
-  their own explicit review and Product Owner authorization; the controller CLI has no general
-  `exec` operation. Advancing the stable runtime source to a new SHA likewise requires
-  separately reviewed and Product Owner-authorized promotion/maintenance: never bypass the
-  controller's clean/detached/source-SHA protection, overwrite the stable source, edit
-  controller approval/state records, or perform automatic checkout/rebase/restart.
+- The runtime persists across tasks and sessions. Task cleanup covers task-owned temporary
+  resources only: remove ad-hoc containers the task itself created, owned synthetic
+  fixtures/media, and private credential scratch. Cleanup must never stop or remove the runtime's
+  containers, and never deletes its volumes, persistent data, accepted sources, or evidence. A
+  task run that cannot clean up a resource it owns reports that fact in its result instead of
+  leaving it silently.
+- Source reaches the runtime only through `scripts/dev-runtime-update.sh --sha <commit>`
+  (backup first, clean detached commit); never edit the runtime checkout in place or bypass the
+  entrypoint's promoted-commit and store-marker checks. Installing or updating the runtime and
+  destructive operations (`uninstall --purge`, restore) remain Product Owner-authorized actions.
 - The T022 and T028 runtime gates stay pending until separately authorized; no development
   workflow change may claim runtime acceptance that has not been produced.
 
-### Prospective UID-1000 development Quadlet (Phase 1 source-only; PO gate 6410811185)
+### Development runtime history
 
-A prospective rootless Podman + systemd Quadlet development architecture owned by `thanakorn`
-(UID 1000) exists as committed SOURCE ONLY (`deploy/dev-quadlet/`, `scripts/dev-runtime-*.sh`,
-`docs/operations/development-quadlet.md`). Installing, starting, migrating, backing up or
-activating any part of it requires the separate Phase 2 provisioning Human Gate; no standing
-authorization for a second running development runtime is created by the source. The existing
-UID-1001 runtime, its controller and credentials remain protected exactly as above. Any future
-coexistence, T021 route registration, role/PAT provisioning or test-target change on the new
-runtime is separately reviewed work; existing tests do not become runnable there by setting
-`PLAYWRIGHT_BASE_URL` alone.
+The UID-1000 Quadlet sources were accepted as source-only Phase 1 (`cd390b0`, PO gate 6410811185)
+and Phase 2A (`5d31acc`); Feature 002 T036 replaced the Phase 2B staged-installer design with the
+converging installer and designated the runtime as the single development runtime (Product Owner
+decision 2026-10-28). Browser tests that still assume the retired runtime (including the T021
+coordinator, its controller and PAT loader) are adapted in their own tasks; setting
+`PLAYWRIGHT_BASE_URL` alone does not make them runnable here.
 
 ## Single Persistent Development Runtime — Mandatory Design and Test Gate
 
@@ -192,8 +181,8 @@ design constraint, not merely a port convention.
   source checkouts for isolated authoring and static checks. They MUST NOT start a second
   Astro/EmDash server, a parallel development
   stack, or an alternate database/media store for functional/integration verification.
-  All authorized runtime tests target the **existing** shared development application
-  at `http://127.0.0.1:4322` with its existing PostgreSQL and media volumes.
+  All authorized runtime tests target the single development application at
+  `http://127.0.0.1:4324` with its PostgreSQL and media volumes.
 - Never resolve a test-port collision by killing/restarting the shared app, switching
   ports, using another host/process as a substitute, or claiming a separate server is
   the accepted runtime. An occupied shared origin is its intended state, not permission
@@ -205,20 +194,20 @@ design constraint, not merely a port convention.
   test-only route's native request-context support, access boundary, and exclusion
   from normal/production builds; never place a test route in production `src/pages/`
   or register a test integration in canonical production configuration.
-- A dev-only integration not yet installed on the persistent source/server is
+- A dev-only integration not yet installed on the runtime source/server is
   **NOT READY**: identify the source/config lifecycle prerequisite and STOP. Source
-  advancement, integration registration, and any app restart require their own exact
-  SHA/config review, controller-supported procedure, and explicit Product Owner
-  authorization; editing the controller's private state/configuration or bypassing
-  its guards is never an alternative. No standing authorization is created here.
-- A task must verify both the repository candidate SHA and the stable runtime source
-  SHA before interpreting runtime results. A committed test or merged PR does not
+  advancement and integration registration go through `scripts/dev-runtime-update.sh`
+  with an exact commit and explicit Product Owner authorization; editing the runtime
+  checkout in place or bypassing its guards is never an alternative. No standing
+  authorization is created here.
+- A task must verify both the repository candidate SHA and the runtime source SHA
+  (`scripts/dev-runtime-verify.sh` reports it) before interpreting runtime results. A committed test or merged PR does not
   implicitly update the persistent application; version mismatch and missing
   test-integration prerequisites are BLOCKED/UNVERIFIED, never PASS.
-- Tests and agents may use the existing scoped development credential via the
-  approved mode-0600 PAT loader. Do not rerun `setup/dev-bypass` on an initialized
-  shared runtime, rotate existing credentials, expose tokens, or impersonate native
-  roles. Require distinct test-owned native accounts for role/lock tests; absent
+- Tests and agents may use the runtime's development PAT
+  (`~/.local/state/songhealth-qdev/dev-pat`, mode 0600). Do not rerun `setup/dev-bypass`
+  on an initialized runtime, rotate existing credentials, expose tokens, or impersonate
+  native roles. Require distinct test-owned native accounts for role/lock tests; absent
   prerequisites are reported rather than silently skipped as success.
 - This rule applies to planning, Spec Kit Tasks, source implementation, runtime
   testing, cleanup, and handoff. If an accepted task describes a competing-server
