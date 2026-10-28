@@ -170,6 +170,18 @@ architecture, security requirements and runtime restrictions are unchanged:
 - The T022 and T028 runtime gates stay pending until separately authorized; no development
   workflow change may claim runtime acceptance that has not been produced.
 
+### Prospective UID-1000 development Quadlet (Phase 1 source-only; PO gate 6410811185)
+
+A prospective rootless Podman + systemd Quadlet development architecture owned by `thanakorn`
+(UID 1000) exists as committed SOURCE ONLY (`deploy/dev-quadlet/`, `scripts/dev-runtime-*.sh`,
+`docs/operations/development-quadlet.md`). Installing, starting, migrating, backing up or
+activating any part of it requires the separate Phase 2 provisioning Human Gate; no standing
+authorization for a second running development runtime is created by the source. The existing
+UID-1001 runtime, its controller and credentials remain protected exactly as above. Any future
+coexistence, T021 route registration, role/PAT provisioning or test-target change on the new
+runtime is separately reviewed work; existing tests do not become runnable there by setting
+`PLAYWRIGHT_BASE_URL` alone.
+
 ## Single Persistent Development Runtime — Mandatory Design and Test Gate
 
 Product Owner clarification (2026-10-19): **one development application/server, one

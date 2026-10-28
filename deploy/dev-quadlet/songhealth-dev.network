@@ -1,0 +1,8 @@
+# Songhealth DEVELOPMENT private network (UID 1000 Quadlet runtime, Phase 1
+# source-only under PO gate 6410811185). Mirrors deploy/quadlet/songhealth.network
+# (T018 production reference — NOT modified) with a fully distinct resource name:
+# NetworkName=songhealth-qdev differs from the production network (songhealth)
+# and from any UID-1001 Compose network; rootless stores are per-UID, and the
+# explicit name keeps the development boundary unambiguous in every listing.
+[Network]
+NetworkName=songhealth-qdev
