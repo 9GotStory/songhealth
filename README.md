@@ -84,7 +84,8 @@ contract, procedures and failure handling:
 | Database | `songhealth-dev-db.service` → container `songhealth-qdev-db`: PostgreSQL 18.6 pinned by digest, database `songhealth_qdev`, least-privilege app role `songhealth_qdev_app`, no host port |
 | Volumes | `songhealth-qdev-db-data`, `songhealth-qdev-media` (media at the application's stable `./media` path) |
 | Source | `~/dev/songhealth-quadlet` — a full clone at a detached, promoted commit, bind-mounted at `/src` |
-| Secrets | podman secrets `songhealth-qdev-*`; development PAT `~/.local/state/songhealth-qdev/dev-pat` (0600) |
+| Dev configuration | `deploy/dev-quadlet/astro.dev.config.mjs`: the canonical configuration plus the development-only T021 public-read fixture route (token-guarded, `astro dev` only; T037) |
+| Secrets | podman secrets `songhealth-qdev-*`; development PAT `~/.local/state/songhealth-qdev/dev-pat` and T021 route token copy `~/.local/state/songhealth-qdev/t021-route-access.json` (both 0600) |
 
 ```bash
 # First install: from any checkout that contains T036. Afterwards: from the runtime's own
@@ -94,6 +95,18 @@ scripts/dev-runtime-update.sh --sha <commit>    # promote another commit (backs 
 scripts/dev-runtime-verify.sh                   # read-only checks; ends with VERIFY: PASS|FAIL
 scripts/dev-runtime-backup.sh <dir>             # database dump + media archive
 scripts/dev-runtime-uninstall.sh [--purge]      # remove the units (keep data) | delete everything
+```
+
+Tests target the runtime with its own credentials, which are never printed or committed:
+
+```bash
+# ordinary suites
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
+  npm run test:browser -- tests/browser/<suite>.spec.ts
+# T021 public reads, only through the coordinator, from a checkout at the promoted commit
+SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
+SONGHEALTH_T021_ROUTE_ACCESS=~/.local/state/songhealth-qdev/t021-route-access.json \
+  node tests/browser/run-cms-public-reads.mjs
 ```
 
 Admin login uses EmDash's development-only bypass (browsers accept passkeys only on a domain

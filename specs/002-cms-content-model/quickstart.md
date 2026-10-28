@@ -143,41 +143,43 @@ D-ITA/D-REF historical and cross-record guarantees are deferred.
 
 ## Verification Commands and Cleanup
 
-When the actual implementation/tests exist and are authorized. Execution against the shared
-runtime is bounded task work: the only authorized routine controller operations are
-`status`/`verify`, and the application is already running detached at
-`http://127.0.0.1:4322` — do not start another server against that origin.
+When the actual implementation/tests exist and are authorized. Execution against the single
+development runtime is bounded task work. The application is already running at
+`http://127.0.0.1:4324`, so do not start another server against that origin. Its read-only
+check is `~/dev/songhealth-quadlet/scripts/dev-runtime-verify.sh`
+(`docs/operations/development-quadlet.md`).
 
-**2026-10-19 single-runtime reconciliation:** T021/T022/T033/T034 use the same
-persistent Astro/EmDash app, PostgreSQL and media at `127.0.0.1:4322`.
-Ordinary Playwright tests and the special native public-read harness target that
-running app. **No runner starts another Astro server or substitutes a second
-instance**. The old standalone programmatic-`dev()` T021 runner assumption is
-superseded by the approved single-runtime design constraint.
+**Single-runtime reconciliation (2026-10-19; retargeted by T036/T037).**
+- T021/T022/T033/T034 use the same persistent Astro/EmDash app, PostgreSQL and media at
+  `127.0.0.1:4324`.
+- Ordinary Playwright tests and the special native public-read harness target that running
+  app. **No runner starts another Astro server or substitutes a second instance**.
+- The old standalone programmatic-`dev()` T021 runner assumption is superseded by the
+  approved single-runtime design constraint.
 
-The public-read SSR fixture requires a **dev-only route on that existing server**.
-Before any T022 run, independently verify the integration against pinned
-Astro 7.3.5 / EmDash 1.1.0, ensure its native public/preview request context is
-authentic, prove the fixture is excluded from normal/production builds, and
-obtain separate Product Owner authorization for any source promotion, private
-dev-config registration or app restart through the Runtime Controller's
-reviewed maintenance path. The stable source is not updated by PR merge.
-A missing fixture route, unsupported installation method or source mismatch is
-`HOLD`, not a reason to free occupied port 4322, start a second process or
-silently change the controller. Routine controller permissions remain
-`status` and `verify`.
+**The public-read SSR fixture** is a **dev-only route on that existing server**.
+- **Installation (T037).** The runtime's committed development configuration
+  (`deploy/dev-quadlet/astro.dev.config.mjs`) installs it in `astro dev` only, and the
+  installer provisions its route token. The fixture is verified against pinned Astro 7.3.5 /
+  EmDash 1.1.0 and excluded from normal and production builds.
+- **Updates.** It reaches the runtime only through promotion
+  (`dev-runtime-update.sh --sha <commit>`); merging a PR does not update the runtime.
+- **HOLD conditions.** A missing fixture route or a source mismatch is `HOLD`. It is not a
+  reason to free port 4324 or to start a second process.
 
 For focused ordinary suites (without the fixture route):
 
 ```bash
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 npm run test:browser -- tests/browser/cms-lifecycle.spec.ts
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
+  npm run test:browser -- tests/browser/cms-lifecycle.spec.ts
 ```
 
-When **separately authorized** T022 preconditions and route registration have
-been satisfied, invoke the single-runtime coordinator:
+Invoke the single-runtime coordinator from a checkout at the runtime's promoted commit:
 
 ```bash
-node tests/browser/run-cms-public-reads.mjs
+SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
+SONGHEALTH_T021_ROUTE_ACCESS=~/.local/state/songhealth-qdev/t021-route-access.json \
+  node tests/browser/run-cms-public-reads.mjs
 ```
 
 It must only coordinate Playwright and owned fixture cleanup against the

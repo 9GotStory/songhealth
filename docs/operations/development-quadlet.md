@@ -1,4 +1,4 @@
-# Development runtime — UID-1000 rootless Podman + systemd Quadlet (Feature 002 T036)
+# Development runtime — UID-1000 rootless Podman + systemd Quadlet (Feature 002 T036, T037)
 
 The **single development runtime** for Songhealth (Product Owner decision 2026-10-28): one
 application server, one PostgreSQL database, one media store and one test target, owned
@@ -24,8 +24,9 @@ credentials) is taken from it: this runtime starts from a fresh database.
 | Network | `songhealth-qdev` (private) |
 | Volumes | `songhealth-qdev-db-data` (PostgreSQL 18 parent path `/var/lib/postgresql`), `songhealth-qdev-media` (the application's stable `./media` path, marker `.songhealth-qdev-media-store`) |
 | Source | `~/dev/songhealth-quadlet` — a full clone of the workspace repository at a **detached, promoted commit**, bind-mounted at `/src`; the promoted commit is recorded in `.songhealth-qdev-source-identity` |
-| Secrets | podman secrets `songhealth-qdev-db-password`, `-app-password`, `-migration-database-url`, `-encryption-key` (EmDash format `emdash_enc_v1_<43 base64url>`) |
-| Local state | `~/.local/state/songhealth-qdev/` (0700): development PAT `dev-pat` (0600), `backups/`; `~/.local/share/songhealth-qdev/initdb/` (app-role init script) |
+| Dev configuration | `deploy/dev-quadlet/astro.dev.config.mjs`: the canonical `astro.config.mjs` plus the development-only T021 public-read fixture route `/__feature002/public-reads`, which exists in `astro dev` only and answers only requests carrying the route token |
+| Secrets | podman secrets `songhealth-qdev-db-password`, `-app-password`, `-migration-database-url`, `-encryption-key` (EmDash format `emdash_enc_v1_<43 base64url>`), and the T021 fixture route token `songhealth-qdev-t021-route-token` |
+| Local state | `~/.local/state/songhealth-qdev/` (0700): development PAT `dev-pat` (0600), T021 route token client copy `t021-route-access.json` (0600), `backups/`; `~/.local/share/songhealth-qdev/initdb/` (app-role init script) |
 
 ## Install
 
@@ -51,8 +52,12 @@ the real state first and only adds what is missing:
    - Pulls the two digest-pinned images.
    - Runs `npm ci` with npm 12.2.0 in a temporary container from the app image. It re-runs
      only when `package-lock.json` or the image changes.
-4. **Secrets.** Generates the four podman secrets once. Values pass only through stdin pipes
-   from shell builtins, so they never reach argv, the environment or any output.
+4. **Secrets.**
+   - Generates the four runtime secrets once.
+   - Generates the T021 route token pair: a podman secret plus a 0600 client copy. It replaces
+     the pair whole if half of it is missing.
+   - Values pass only through stdin pipes, so they never reach argv, the environment or any
+     output.
 5. **Volumes.**
    - Creates the two labeled volumes and the media store marker.
    - Never adopts an unlabeled volume or a media volume without its marker.
@@ -86,11 +91,29 @@ the real state first and only adds what is missing:
   - Both services start with the user session. Linger is **not** enabled, so the runtime
     stops when the last session ends. Enabling linger (`loginctl enable-linger`) is a
     separate decision.
-- **Programmatic Admin/API tests.**
-  - Read the PAT from `~/.local/state/songhealth-qdev/dev-pat`. Never print, commit or copy
-    it into evidence.
-  - Do not re-run `setup/dev-bypass` as test setup.
-  - Target `http://127.0.0.1:4324` (`PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324`).
+- **Browser and API tests.** Target `http://127.0.0.1:4324`.
+  - **Credentials.** Never print, commit or copy the PAT or the route token into evidence.
+    Do not re-run `setup/dev-bypass` as test setup.
+  - **Ordinary suites:**
+
+    ```bash
+    PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
+      npm run test:browser -- tests/browser/<suite>.spec.ts
+    ```
+
+    Suites that need a second native role account (T019) report that prerequisite until one
+    exists.
+  - **T021 public-read suite.** It runs only through its coordinator, from a checkout at the
+    promoted commit:
+
+    ```bash
+    SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
+    SONGHEALTH_T021_ROUTE_ACCESS=~/.local/state/songhealth-qdev/t021-route-access.json \
+      node tests/browser/run-cms-public-reads.mjs
+    ```
+
+    It holds (exit 3, nothing run) unless verify passes and the runtime source equals that
+    checkout's HEAD.
 - **Source edits.** Make them in the workspace and promote them. The runtime checkout is never
   edited in place: the app refuses to start when its HEAD is not the promoted commit, and
   verify fails on a dirty tree.
@@ -137,7 +160,8 @@ scripts/dev-runtime-install.sh --sha <old-commit>    # reinstalls deps/units if 
 - the least-privilege app role owns `songhealth_qdev`;
 - the runtime source is the promoted commit, with a clean tree;
 - EmDash accepted `EMDASH_ENCRYPTION_KEY`;
-- the development PAT authenticates.
+- the development PAT authenticates;
+- the dev-only T021 fixture route answers its 0600 route token and refuses requests without it.
 
 Runtime results are interpreted only against the commit verify reports.
 
@@ -158,7 +182,8 @@ Runtime results are interpreted only against the commit verify reports.
 - `scripts/dev-runtime-uninstall.sh` stops the runtime and removes its units. It keeps the
   data, secrets, PAT, backups and checkout, so the installer brings the runtime back as it was.
 - `scripts/dev-runtime-uninstall.sh --purge` additionally deletes the two volumes, the four
-  secrets, the network and the PAT, after a typed confirmation. It never deletes the checkout
+  runtime secrets, the T021 route token pair, the network and the PAT, after a typed
+  confirmation. It never deletes the checkout
   or backups.
 
 ## Guards and failure handling
@@ -171,6 +196,7 @@ Runtime results are interpreted only against the commit verify reports.
 | Install refuses an unlabeled volume, a media volume without its marker, or partial secrets | A foreign or half-made resource. Inspect it; purge only what this runtime created. |
 | Port 4324 is in use | Something else listens there. There is no fallback port: resolve the conflict at its cause. |
 | The PAT check fails | `dev-pat` is missing, has the wrong mode or was revoked. Minting a new one means running `setup/dev-bypass?token=1`, which rotates the token; do that only deliberately. |
+| The T021 coordinator holds | The message names the prerequisite. Verify fails: fix the runtime first. The runtime is at another commit: promote the tested commit. The route is missing (404): the commit predates the dev configuration. The token is unprovisioned (503) or does not match (403): delete `t021-route-access.json` and re-run the installer. |
 
 **Never run `podman volume prune` or `podman system prune --volumes` while the runtime is
 stopped.** Stopped containers do not hold the volumes, so prune deletes the development database
@@ -181,6 +207,5 @@ and media.
 - Production definitions (`deploy/quadlet/`, `deploy/Containerfile`,
   `docs/operations/production-foundation.md`) are unchanged.
 - This runtime must not grow into a parallel production stack. T022/T028 remain pending.
-- The browser tests that still assume the retired runtime are adapted to this origin in their
-  own tasks. That includes the T021 coordinator, which assumes the UID-1001 controller and its
-  PAT loader. Setting `PLAYWRIGHT_BASE_URL` alone is not enough.
+- The T021 fixture route exists only in this runtime's `astro dev`. `astro build` and
+  `deploy/Containerfile` never load the dev configuration or `tests/browser/`.

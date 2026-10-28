@@ -167,9 +167,14 @@ architecture, security requirements and runtime restrictions are unchanged:
 The UID-1000 Quadlet sources were accepted as source-only Phase 1 (`cd390b0`, PO gate 6410811185)
 and Phase 2A (`5d31acc`); Feature 002 T036 replaced the Phase 2B staged-installer design with the
 converging installer and designated the runtime as the single development runtime (Product Owner
-decision 2026-10-28). Browser tests that still assume the retired runtime (including the T021
-coordinator, its controller and PAT loader) are adapted in their own tasks; setting
-`PLAYWRIGHT_BASE_URL` alone does not make them runnable here.
+decision 2026-10-28). T037 (Product Owner decision 2026-10-29) moved the T021 public-read
+coordinator to this runtime:
+- the runtime's committed development configuration
+  (`deploy/dev-quadlet/astro.dev.config.mjs`) installs the dev-only fixture route;
+- the installer provisions its route token;
+- the coordinator observes the runtime source through `dev-runtime-verify.sh`;
+- ordinary suites read the PAT through `SONGHEALTH_DEV_ACCESS` (commands in
+  `docs/operations/development-quadlet.md`).
 
 ## Single Persistent Development Runtime — Mandatory Design and Test Gate
 
