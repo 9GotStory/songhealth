@@ -9,7 +9,7 @@ sources are committed and independently reviewed, with their runtime verificatio
 (production durability) and T028 (recovery drill) — pending, separately authorized tasks (see §11
 of [docs/operations/production-foundation.md](docs/operations/production-foundation.md)).
 Feature 002 `002-cms-content-model` is the active feature; shared native model tasks T001–T007
-are checked (executed) and T008–T035 are pending. A checked marker records task completion
+and the development-runtime task T036 are checked (executed) and T008–T035 are pending. A checked marker records task completion
 only: Product Owner Final Acceptance — and, for work reviewed before Constitution 5.0.0, the
 recorded Lead and Independent Review outcomes — are distinct states evidenced per artifact, not
 established by task markers, an issue's status, or acceptance of the development runtime. Source
