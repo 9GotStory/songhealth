@@ -83,7 +83,22 @@ Output: [t036/acceptance-output.txt](t036/acceptance-output.txt) — **ACCEPTANC
 | Fixture cleanup | synthetic media deleted through the API; only the store marker remains in the volume; probe page removed |
 | Resource use (informational) | app ≈ 513 MB, db ≈ 33 MB |
 
-## Idempotency, security and boundaries
+## Live update — `scripts/dev-runtime-update.sh --sha 3deb34a…`
+
+2026-10-28T16:55:09Z → 16:55:32Z (**23 s**), exit 0. The run backed up, stopped the app,
+moved the checkout, handed over to the new commit's installer and finished with VERIFY: PASS
+13/13. Output: [t036/update-1-output.txt](t036/update-1-output.txt).
+
+- **Installer hand-over.** The new commit's installer reported dependencies, secrets,
+  volumes and units as up to date, and restarted only the app.
+- **Backup set** `~/.local/state/songhealth-qdev/backups/20261028T165509Z/` (directory 0700):
+  - four files;
+  - `sha256sum --check --strict` passes;
+  - the metadata records the pre-update commit `a52d02d…`, which is what restore needs for a
+    rollback;
+  - `pg_restore --list` reads the dump (81 table-data entries);
+  - the media archive contains the store marker.
+
 
 - **Re-run.** A second `install.sh --sha a52d02d…` exited 0. Every step reported
   present/up to date, VERIFY: PASS, and the container IDs and start times were unchanged.
@@ -114,5 +129,5 @@ Output: [t036/acceptance-output.txt](t036/acceptance-output.txt) — **ACCEPTANC
 - **Rollback.** Not exercised live. The update/backup path and the rollback procedure in
   `docs/operations/development-quadlet.md` are documented; restore admits only a backup whose
   commit matches the runtime marker.
-- **Accepted, not exercised.** The accepted backup and restore scripts (`5d31acc`) were not
-  exercised in this run.
+- **Restore not exercised.** The accepted restore script (`5d31acc`) was not exercised; backup
+  was exercised through the update.

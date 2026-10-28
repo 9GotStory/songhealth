@@ -22,7 +22,7 @@ MP="$(podman volume inspect --format '{{.Mountpoint}}' songhealth-qdev-media)"
 podman unshare tar --format=ustar -cf "$OUT/qdev-media-${TS}.tar" -C "$MP" . || die "media tar failed"
 echo "dev-runtime-backup: wrote $OUT/qdev-db-${TS}.dump and $OUT/qdev-media-${TS}.tar"
 if [ -d "$SRC/.git" ]; then echo "dev-runtime-backup: source identity: $( cd "$SRC" && git rev-parse HEAD )"; else echo "dev-runtime-backup: WARNING: source checkout not found at $SRC (identity not recorded)" >&2; fi
-echo "dev-runtime-backup: record file sizes and sha256 in the operator log; recovery requires the EXTERNAL env files and podman secrets (see docs)"
+echo "dev-runtime-backup: recovery also requires the runtime podman secrets (songhealth-qdev-*), which no backup contains (see docs/operations/development-quadlet.md)"
 # F-02 (R3): the checksum manifest is PURE sha256sum records (any metadata line
 # would break `sha256sum --check --strict`); provenance lives in a separate file.
 DUMPNAME="qdev-db-${TS}.dump"; MEDIANAME="qdev-media-${TS}.tar"
