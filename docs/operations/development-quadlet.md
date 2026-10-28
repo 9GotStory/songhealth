@@ -30,9 +30,14 @@ credentials) is taken from it: this runtime starts from a fresh database.
 ## Install
 
 ```bash
-cd ~/dev/songhealth                          # any checkout of the repository
+cd ~/dev/songhealth                          # any checkout that contains T036
 scripts/dev-runtime-install.sh --sha <commit>
 ```
+
+After the first install, run every runtime script from the runtime's own checkout,
+`~/dev/songhealth-quadlet/scripts/`: those scripts always belong to the promoted commit. A
+checkout that predates T036 (such as a branch at the Phase 1 commits) still has the Phase 1
+scripts, which do not operate this runtime.
 
 The installer converges the host to this runtime and is **safe to re-run**. Each step checks
 the real state first and only adds what is missing:
@@ -93,7 +98,7 @@ the real state first and only adds what is missing:
 ## Promote a new commit
 
 ```bash
-scripts/dev-runtime-update.sh --sha <commit>   # [--no-backup]
+~/dev/songhealth-quadlet/scripts/dev-runtime-update.sh --sha <commit>   # [--no-backup]
 ```
 
 The update runs these steps:
@@ -110,6 +115,7 @@ its recorded commit equals the runtime's promoted commit, so first point the che
 the backup's commit while the app is stopped:
 
 ```bash
+cd ~/dev/songhealth-quadlet
 systemctl --user stop songhealth-dev-app.service
 git -C ~/dev/songhealth-quadlet checkout --detach <old-commit>
 printf '%s\n' <old-commit> > ~/dev/songhealth-quadlet/.songhealth-qdev-source-identity

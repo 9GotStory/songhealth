@@ -1,0 +1,102 @@
+# T036 recheck 2026-10-28T23:07:39Z: runtime source 35e8bc2e3af794be9a2ce42e99ad4c813542a928
+# checks run from the working tree of task/002-dev-runtime-quadlet (fixes of this commit); read-only unless noted
+
+$ systemctl --user show -p Id,ActiveEnterTimestamp,NRestarts songhealth-dev-db.service songhealth-dev-app.service
+Id=songhealth-dev-db.service
+ActiveEnterTimestamp=Wed 2026-10-28 23:52:42 +07
+NRestarts=0
+
+Id=songhealth-dev-app.service
+ActiveEnterTimestamp=Wed 2026-10-28 23:56:38 +07
+NRestarts=0
+$ ~/dev/songhealth-quadlet/scripts/dev-runtime-verify.sh   # verify of the promoted commit
+PASS: songhealth-dev-db.service active
+PASS: songhealth-dev-app.service active
+PASS: database container healthy
+PASS: application container healthy
+PASS: published only on 127.0.0.1:4324 (database has no host port)
+PASS: public SSR marker served at http://127.0.0.1:4324/
+PASS: native Admin UI reachable at http://127.0.0.1:4324/_emdash/admin/
+PASS: EmDash setup complete
+PASS: native migrations: none pending or unknown (emdash migrate --check)
+PASS: least-privilege app role owns songhealth_qdev
+PASS: runtime source is the promoted commit, clean
+PASS: EmDash accepted EMDASH_ENCRYPTION_KEY
+PASS: development PAT (mode 0600) authenticates
+runtime source: /home/thanakorn/dev/songhealth-quadlet @ 35e8bc2e3af794be9a2ce42e99ad4c813542a928
+VERIFY: PASS
+
+$ scripts/dev-runtime-verify.sh   # fixed verify (this commit), same runtime
+PASS: songhealth-dev-db.service active
+PASS: songhealth-dev-app.service active
+PASS: database container healthy
+PASS: application container healthy
+PASS: published only on 127.0.0.1:4324 (database has no host port)
+PASS: public SSR marker served at http://127.0.0.1:4324/
+PASS: native Admin UI reachable at http://127.0.0.1:4324/_emdash/admin/
+PASS: EmDash setup complete
+PASS: native migrations: none pending or unknown (emdash migrate --check)
+PASS: least-privilege app role owns songhealth_qdev
+PASS: runtime source is the promoted commit, clean
+PASS: EmDash accepted EMDASH_ENCRYPTION_KEY
+PASS: development PAT (mode 0600) authenticates
+runtime source: /home/thanakorn/dev/songhealth-quadlet @ 35e8bc2e3af794be9a2ce42e99ad4c813542a928
+VERIFY: PASS
+
+$ running versions and images
+node v24.21.0
+astro 7.3.5
+emdash 1.1.0
+vite 8.3.3
+songhealth-qdev-app docker.io/library/node@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+songhealth-qdev-db docker.io/library/postgres@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf
+
+$ python3 -I specs/002-cms-content-model/evidence/t036/seed-schema-check.py seed/seed.json
+collections: 10 in the seed; missing live: none
+fields: 80 in the seed; missing live: none
+taxonomies: 9 in the seed; missing live: none; live only (EmDash built-ins): ['category', 'tag']
+relations: 6 in the seed; missing live: none
+seed items that setup's content=0 skips: {'content': 0, 'terms': 0, 'bylines': 0}
+SEED-SCHEMA: PASS
+
+$ python3 -I specs/002-cms-content-model/evidence/t036/hmr-ws-probe.py
+PASS: browser-equivalent HMR handshake (Origin http://127.0.0.1:4324, vite-hmr, page token) -> HTTP/1.1 101 Switching Protocols; first message type 'connected'
+PASS: negative control: tokenless connection with an Origin header refused (HTTP/1.1 400 Bad Request)
+HMR-WS: PASS
+
+$ backup fix (writes a backup set to a scratch directory, then deletes it): scripts/dev-runtime-backup.sh <scratch>
+shell LC_TIME=th_TH.UTF-8; plain 'date -u +%Y' prints 2569
+dev-runtime-backup: wrote <scratch>/qdev-db-20261028T230745Z.dump and <scratch>/qdev-media-20261028T230745Z.tar
+dev-runtime-backup: source identity: 35e8bc2e3af794be9a2ce42e99ad4c813542a928
+dev-runtime-backup: recovery also requires the runtime podman secrets (songhealth-qdev-*), which no backup contains (see docs/operations/development-quadlet.md)
+dev-runtime-backup: SUCCESS - backup set is FOUR files (qdev-db-20261028T230745Z.dump, qdev-media-20261028T230745Z.tar, qdev-checksums-20261028T230745Z.sha256, qdev-meta-20261028T230745Z.txt)
+qdev-checksums-20261028T230745Z.sha256
+qdev-db-20261028T230745Z.dump
+qdev-media-20261028T230745Z.tar
+qdev-meta-20261028T230745Z.txt
+qdev-db-20261028T230745Z.dump: OK
+qdev-media-20261028T230745Z.tar: OK
+source-sha 35e8bc2e3af794be9a2ce42e99ad4c813542a928
+created-utc 20261028T230745Z
+
+$ static checks
+bash -n: done
+shellcheck (common/install/update/verify/uninstall): clean
+shellcheck -s sh (entrypoint): clean
+shellcheck (backup): clean
+
+$ secret leak scan (values compared in memory; counts only)
+  0  journal: app + db units (89526 bytes)
+  0  podman logs: app (37318 bytes)
+  0  podman logs: db (28687 bytes)
+  0  podman inspect: app + db (39340 bytes)
+  0  git: every patch and message of PR #41 (includes PR #40) (333468 bytes)
+  0  git: working-tree changes not yet committed (21219 bytes)
+  0  GitHub: PR #40/#41 bodies and comments (7901 bytes)
+  0  session log: acceptance-1.log (674 bytes)
+  0  session log: install-1.log (4573 bytes)
+  0  session log: install-2.log (1927 bytes)
+  0  session log: pr41.md (5504 bytes)
+  0  session log: update-1.log (2765 bytes)
+  0  session log: update-2.log (2765 bytes)
+LEAK-SCAN: PASS (5 values, 13 sources, 0 occurrences)

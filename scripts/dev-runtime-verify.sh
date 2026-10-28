@@ -15,7 +15,9 @@ check() { # check DESCRIPTION COMMAND... — the command's output is discarded
 }
 healthy() { [[ $(podman inspect --format '{{.State.Health.Status}}' "$1" 2>/dev/null) == healthy ]]; }
 ports_ok() { [[ $(podman port "$APP_CTR") == "$PORT/tcp -> 127.0.0.1:$PORT" && -z $(podman port "$DB_CTR") ]]; }
-ssr_ok() { curl -fsS --max-time 30 "$ORIGIN/" | grep -q 'name="songhealth-foundation"'; }
+# Outputs are captured whole before matching: under pipefail, `| grep -q` fails the check
+# (curl exit 23) or hides a match (SIGPIPE) once the output outgrows the pipe buffer.
+ssr_ok() { local page; page=$(curl -fsS --max-time 30 "$ORIGIN/") && [[ $page == *'name="songhealth-foundation"'* ]]; }
 admin_ok() { [[ $(curl -sS -L -o /dev/null -w '%{http_code}' --max-time 30 "$ORIGIN/_emdash/admin/") == 200 ]]; }
 setup_ok() { [[ $(setup_needed) == false ]]; }
 migrations_ok() { podman exec "$APP_CTR" /bin/sh /src/scripts/dev-runtime-entrypoint.sh migrate-check; }
@@ -24,7 +26,7 @@ source_ok() {
   [[ $(git -C "$SRC" rev-parse HEAD) == "$(<"$SRC/$MARKER")" ]] \
     && [[ -z $(git -C "$SRC" status --porcelain --untracked-files=no) ]]
 }
-key_ok() { ! podman logs "$APP_CTR" 2>&1 | grep -q 'EMDASH_ENCRYPTION_KEY is invalid'; }
+key_ok() { local logs; logs=$(podman logs "$APP_CTR" 2>&1) && [[ $logs != *'EMDASH_ENCRYPTION_KEY is invalid'* ]]; }
 pat_ok() { # the development PAT authenticates (sent on stdin: never in argv or output)
   local token
   [[ -s $STATE_DIR/dev-pat && $(stat -c %a "$STATE_DIR/dev-pat") == 600 ]] || return 1

@@ -1,7 +1,8 @@
 # T036 — Single development runtime (UID-1000 rootless Quadlet): evidence
 
-**Status: EXECUTED — offline checks and live install/verify PASS; awaiting Product Owner
-acceptance.** Claude Code self-review only (Constitution 5.0.0); no external review exists.
+**Status: EXECUTED — offline checks, live install/verify and the 2026-10-28T23:07Z recheck
+PASS; awaiting Product Owner acceptance.** Claude Code self-review only (Constitution 5.0.0);
+no external review exists.
 
 ## Authorization and scope
 
@@ -99,6 +100,7 @@ moved the checkout, handed over to the new commit's installer and finished with 
   - `pg_restore --list` reads the dump (81 table-data entries);
   - the media archive contains the store marker.
 
+## Idempotency, security and boundaries
 
 - **Re-run.** A second `install.sh --sha a52d02d…` exited 0. Every step reported
   present/up to date, VERIFY: PASS, and the container IDs and start times were unchanged.
@@ -115,10 +117,44 @@ moved the checkout, handed over to the new commit's installer and finished with 
 - **Retired UID-1001 runtime.** Untouched: `127.0.0.1:4322` is still listening; nothing was
   read from or written to it.
 
+## Recheck — 2026-10-28T23:07Z (runtime at `35e8bc2`)
+
+All checks were read-only except one scratch backup, which was written and then deleted. The
+Admin UI was in use during the recheck, so nothing was restarted. The runtime was not promoted
+to this commit, which changes no application code. Output:
+[t036/recheck-output.txt](t036/recheck-output.txt).
+
+| Check | Result |
+| --- | --- |
+| Verify: the promoted commit's script, and this commit's fixed script | VERIFY: PASS (13/13) each. Both services active with 0 automatic restarts since they last started (database 16:52:42Z, app 16:56:38Z) |
+| Running versions and images | Node `v24.21.0`, Astro `7.3.5`, EmDash `1.1.0`, Vite `8.3.3`; both containers run the digests pinned in the units |
+| Seed versus live schema ([t036/seed-schema-check.py](t036/seed-schema-check.py), GET only) | All 10 collections, 80 fields, 9 taxonomies and 6 relations are present; the live-only `category` and `tag` are EmDash built-ins. The seed defines no content, terms or bylines, so the `content=0` setup skipped nothing |
+| HMR WebSocket ([t036/hmr-ws-probe.py](t036/hmr-ws-probe.py)) | The handshake a browser tab makes through the published port (same origin, `vite-hmr`, page token) returns `101` and the `connected` message; a tokenless connection is refused with `400` |
+| Secret leakage (method as above) | 0 occurrences of the 4 secrets and the PAT in the unit journal, both container logs, `podman inspect`, every patch and message of PR #41 (which includes PR #40), this commit's changes, both PR texts and the session logs |
+| GitHub | PR #40 and #41 are open, draft and `MERGEABLE`. Neither head has workflow runs: the repository's only workflow (the T016 self-test) exists on `main` only |
+
+Defects found and fixed in this commit:
+
+- **`dev-runtime-verify.sh`.** Two checks piped into `grep -q` under `pipefail`. Once the
+  output outgrew the 64 KiB pipe buffer, the SSR check would fail spuriously (curl exit 23)
+  and the key check could pass despite a match (SIGPIPE). Both now capture the whole output
+  before matching.
+- **`dev-runtime-backup.sh`.** Run directly from a shell with the host's `th_TH` `LC_TIME`,
+  it named the backup set with the Buddhist-era year (`2569…`). It now formats the timestamp
+  in the C locale. The scratch backup above, run from such a shell, is named `2026…` and
+  passes `sha256sum --check --strict`. Through `dev-runtime-update.sh` it already ran in the C
+  locale.
+- **Where to run the scripts.** The documentation now says to operate the runtime with the
+  scripts of its own checkout, `~/dev/songhealth-quadlet/scripts/`. A pre-T036 checkout, such
+  as the workspace's Phase 1 branch, still has the Phase 1 scripts.
+- **This file.** The "Idempotency, security and boundaries" heading lost in `35e8bc2` is
+  restored.
+
 ## Limits and open items (not claimed)
 
-- **HMR.** Browser HMR over the WebSocket was not exercised. File watching and route reload
-  are proven by the probe page.
+- **HMR.** File watching and route reload are proven by the probe page, and the HMR
+  WebSocket channel by the recheck probe. An update applied in a real browser was not
+  exercised.
 - **Generated file.** The dev server creates an untracked `emdash-env.d.ts` in the runtime
   checkout. Verify ignores untracked files.
 - **Passkeys.** They cannot work on the IP-literal origin, by design (dev-bypass is the

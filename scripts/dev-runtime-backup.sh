@@ -9,7 +9,8 @@ OUT="${1:-}"
 [[ -n "$OUT" && -d "$OUT" ]] || die "usage: dev-runtime-backup.sh <existing-output-directory>"
 command -v podman >/dev/null || die "podman not found"
 podman container exists songhealth-qdev-db || die "db container missing: nothing to back up"
-TS="$(date -u +%Y%m%dT%H%M%SZ)"
+# C locale: the host's th_TH LC_TIME makes %Y the Buddhist-era year (2569 for 2026).
+TS="$(LC_ALL=C date -u +%Y%m%dT%H%M%SZ)"
 SRC="$HOME/dev/songhealth-quadlet"
 podman exec songhealth-qdev-db pg_dump -U songhealth_qdev_admin -d songhealth_qdev -Fc -f "/tmp/qdev-${TS}.dump" \
   || die "pg_dump failed"
