@@ -73,7 +73,7 @@ describe("filterDirectory by name", () => {
 		const match = (name: string) => ids(filterDirectory(entries, { area: "", name }));
 		assert.deepEqual(match("CAFÉ"), ["latin"], "NFD input matches the NFC name");
 		assert.deepEqual(match("songkhla"), ["latin"], "Latin letters in any case");
-		assert.deepEqual(match("บ้าน ​กลาง﻿"), ["latin"], "zero-width characters removed");
+		assert.deepEqual(match("บ้าน \u200Bกลาง\uFEFF"), ["latin"], "zero-width characters removed");
 		assert.deepEqual(match("  บ้าน   กลาง  "), ["latin"], "whitespace collapsed and trimmed");
 		assert.deepEqual(match("บ้านกลาง"), [], "a space in the name still separates its words");
 	});
