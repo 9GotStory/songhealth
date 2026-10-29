@@ -149,6 +149,9 @@ The update runs these steps:
    restart in steps 3–5 would cut off someone editing in the Admin, and the Product Owner uses
    this Admin. Verify's own probe of the Admin does not count.
    - After an Admin UI test run of your own, wait or pass `--force`.
+   - Before a restart the update does not make (`systemctl --user restart …`), run
+     `scripts/dev-runtime-admin-activity.sh`. It lists recent Admin loads with this same filter, so
+     verify's probe never reads as a person.
    - The guard sees page loads only. The Admin routes its screens in the browser
      (`@tanstack/react-router`), so an editor who opened it earlier and kept working passes
      unseen.
