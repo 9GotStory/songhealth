@@ -1,0 +1,18 @@
+# runtime verify (after) — 2026-10-29T02:43:34Z — workspace HEAD f71d56ee8f725e07485d8d2d45273e90424363e9 — node v24.21.0
+PASS: songhealth-dev-db.service active
+PASS: songhealth-dev-app.service active
+PASS: database container healthy
+PASS: application container healthy
+PASS: published only on 127.0.0.1:4324 (database has no host port)
+PASS: public SSR marker served at http://127.0.0.1:4324/
+PASS: native Admin UI reachable at http://127.0.0.1:4324/_emdash/admin/
+PASS: EmDash setup complete
+PASS: native migrations: none pending or unknown (emdash migrate --check)
+PASS: least-privilege app role owns songhealth_qdev
+PASS: runtime source is the promoted commit, clean
+PASS: EmDash accepted EMDASH_ENCRYPTION_KEY
+PASS: development PAT (mode 0600) authenticates
+PASS: role fixture PAT (mode 0600) authenticates as an enabled Author
+PASS: T021 fixture route answers its 0600 route token and refuses without it
+runtime source: /home/thanakorn/dev/songhealth-quadlet @ f71d56ee8f725e07485d8d2d45273e90424363e9
+VERIFY: PASS

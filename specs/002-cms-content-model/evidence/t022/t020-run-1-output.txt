@@ -1,0 +1,46 @@
+# T020 run 1 — 2026-10-29T02:27:24Z — workspace HEAD 5ade411944a52f9f8d81e16753b9363be97913b5
+npm notice run songhealth@0.0.1 npx
+npm notice run 'playwright' test tests/browser/cms-revisions.spec.ts --workers=1 --retries=0
+
+Running 12 tests using 1 worker
+
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   1 [chromium] › tests/browser/cms-revisions.spec.ts:1612:1 › schema precondition: the approved native pages, news and documents definitions are active (6ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   2 [chromium] › tests/browser/cms-revisions.spec.ts:1628:1 › current _rev: a fresh token carries an update; a stale token is refused without touching newer work, and the re-read retry succeeds (440ms)
+[cms-revisions] uncertain-outcome reconciliation: committed-without-acknowledgment=true; retried-after-current-state-read=false
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   3 [chromium] › tests/browser/cms-revisions.spec.ts:1733:1 › uncertain outcome: a lost write acknowledgment is never success, and current state is read before any retry (213ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   4 [chromium] › tests/browser/cms-revisions.spec.ts:1840:1 › stale _rev publish: refused as a native conflict with publication state unchanged, then the re-read retry publishes (394ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   5 [chromium] › tests/browser/cms-revisions.spec.ts:1912:1 › revision history: saves create distinct native revisions newest-first with caller authorship, and a selected native restore reverts the content through a new revision (546ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   6 [chromium] › tests/browser/cms-revisions.spec.ts:2060:1 › native autosave: skipRevision saves replace the superseded autosave revision, and the pending draft survives an interrupted edit server-side (409ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   7 [chromium] › tests/browser/cms-revisions.spec.ts:2165:1 › edit locks: a distinct account's lease blocks a second writer with ENTRY_LOCKED until the documented override or release (495ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 2, media attempted 1)
+  ✓   8 [chromium] › tests/browser/cms-revisions.spec.ts:2344:1 › published vs pending: content-data and reference edits stage under the draft revision while the live published data stays intact until Publish Changes (667ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   9 [chromium] › tests/browser/cms-revisions.spec.ts:2513:1 › live metadata: taxonomy, SEO and byline writes apply to current state immediately, create no content revisions, and leave the pending content draft pending (564ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓  10 [chromium] › tests/browser/cms-revisions.spec.ts:2630:1 › SEO boundary: a collection without SEO enabled refuses SEO writes truthfully and leaves all state untouched (218ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 1)
+  ✓  11 [chromium] › tests/browser/cms-revisions.spec.ts:2682:1 › shared media: asset metadata changes are current-state only; the content revision keeps the selection identity, with no byte or availability claim (261ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓  12 [chromium] › tests/browser/cms-revisions.spec.ts:2750:1 › unauthenticated revision-surface reads are authorization refusals, never data exposure (139ms)
+
+  12 passed (5.3s)
+exit=0
