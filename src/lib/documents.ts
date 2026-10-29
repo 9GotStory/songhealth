@@ -35,6 +35,13 @@ const FISCAL_YEAR = /^[0-9]{4}$/;
 /** A Document's status in its own domain (`02` §13), not its publication state. */
 export type DomainStatus = "current" | "superseded" | "expired";
 
+/** Each Document status as citizens read it. */
+export const DOMAIN_STATUS_LABELS: Record<DomainStatus, string> = {
+	current: "ฉบับปัจจุบัน",
+	superseded: "ถูกแทนที่แล้ว",
+	expired: "หมดอายุแล้ว",
+};
+
 /** A Document's fields (seed/seed.json) and the system fields public pages read. */
 export interface DocumentData {
 	/** The database id; the entry's own `id` is its slug. */

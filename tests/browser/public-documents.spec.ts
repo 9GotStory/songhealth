@@ -29,6 +29,7 @@ import type { Page } from "@playwright/test";
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
+	deleteMedia,
 	createPatActor,
 	createSyntheticEntry,
 	loadDevAccessToken,
@@ -207,6 +208,24 @@ async function listedTitles(page: Page): Promise<string[]> {
 function ownTitles(titles: string[], fixtures: DocumentFixture[]): string[] {
 	const own = new Set(fixtures.map((document) => document.title));
 	return titles.filter((title) => own.has(title));
+}
+
+/** The heading of the site-designed 404 page. */
+const NOT_FOUND_HEADING = "ไม่พบหน้าที่คุณต้องการ";
+
+async function expectSiteNotFound(page: Page, path: string, label: string): Promise<void> {
+	const response = await page.goto(path);
+	expect(response?.status(), `${label} must answer 404`).toBe(404);
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(NOT_FOUND_HEADING);
+}
+
+/** The value a Document page states for one of its details, by the detail's Thai name. */
+function detailOf(page: Page, name: string) {
+	return page
+		.getByRole("main")
+		.locator("dl > div")
+		.filter({ has: page.getByRole("term").filter({ hasText: new RegExp(`^${name}$`) }) })
+		.getByRole("definition");
 }
 
 /** The row a list page shows for `document`. */
@@ -414,4 +433,203 @@ test("an empty filtered result shows the empty state, and a fiscal year that is 
 			`${origin}/documents`,
 		);
 	}
+});
+
+test("a Document page shows its details, its file for download at EmDash's media URL, and its breadcrumb", async ({
+	page,
+	request,
+}) => {
+	const type = await createTerm("document_type", "แผนงาน");
+	const topic = await createTerm("topic", "ไข้เลือดออก");
+	const file = await uploadPdf(
+		`${SYNTHETIC_FIXTURE_MARK}-แผนปฏิบัติการ-${crypto.randomUUID().slice(0, 6)}.pdf`,
+	);
+	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปแผนปฏิบัติการด้านสุขภาพ`;
+	const ownerSource = `${SYNTHETIC_FIXTURE_MARK} กลุ่มงานควบคุมโรค`;
+	const document = await createDocument("detail", {
+		file,
+		data: {
+			summary,
+			// 23 Sep 2026 17:30 UTC is already 24 Sep in Bangkok.
+			document_at: "2026-09-23T17:30:00.000Z",
+			fiscal_year: 2569,
+			owner_source: ownerSource,
+			domain_status: "current",
+		},
+		taxonomies: { document_type: [type.slug], topic: [topic.slug] },
+	});
+	await publish(document);
+
+	const response = await page.goto(`/documents/${document.slug}`);
+	expect(response?.status(), "GET the Document page").toBe(200);
+	const main = page.getByRole("main");
+	await expect(main.getByRole("heading", { level: 1 })).toHaveText(document.title);
+	await expect(main.getByText(summary)).toBeVisible();
+	await expect(detailOf(page, "ประเภทเอกสาร")).toHaveText(type.label);
+	await expect(detailOf(page, "วันที่เอกสาร")).toHaveText("24 ก.ย. 2569");
+	await expect(detailOf(page, "ปีงบประมาณ")).toHaveText("2569");
+	await expect(detailOf(page, "เจ้าของ/แหล่งที่มา")).toHaveText(ownerSource);
+	await expect(detailOf(page, "สถานะเอกสาร")).toHaveText("ฉบับปัจจุบัน");
+	await expect(detailOf(page, "หัวข้อ").getByRole("link", { name: topic.label })).toHaveAttribute(
+		"href",
+		`/documents?topic=${topic.slug}`,
+	);
+
+	const download = main.getByRole("link", { name: /ดาวน์โหลด/ });
+	await expect(download).toHaveAttribute("href", `/_emdash/api/media/file/${file.storageKey}`);
+	await expect(download).toHaveAttribute("download", file.filename);
+	await expect(download).toContainText("PDF");
+	await expect(download).toContainText("2 KB");
+	const served = await request.get(`/_emdash/api/media/file/${file.storageKey}`);
+	expect(served.status(), "EmDash serves the file at that address").toBe(200);
+	expect(served.headers()["content-type"]).toBe("application/pdf");
+	expect((await served.body()).length).toBe(PDF_BYTES);
+
+	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
+	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก", "เอกสารเผยแพร่"]);
+	await expect(breadcrumb.getByRole("link", { name: "เอกสารเผยแพร่" })).toHaveAttribute(
+		"href",
+		"/documents",
+	);
+	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(document.title);
+	await expect(
+		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "เอกสารเผยแพร่" }),
+	).toHaveAttribute("aria-current", "true");
+});
+
+test("a Document page leaves out the optional details that are not set", async ({ page }) => {
+	const document = await createDocument("minimal");
+	await publish(document);
+
+	await page.goto(`/documents/${document.slug}`);
+	const main = page.getByRole("main");
+	await expect(main.getByRole("heading", { level: 1 })).toHaveText(document.title);
+	await expect(main.getByRole("link", { name: /ดาวน์โหลด/ })).toBeVisible();
+	for (const name of [
+		"ประเภทเอกสาร",
+		"วันที่เอกสาร",
+		"ปีงบประมาณ",
+		"เจ้าของ/แหล่งที่มา",
+		"สถานะเอกสาร",
+		"หัวข้อ",
+	]) {
+		await expect(main.getByRole("term").filter({ hasText: name }), name).toHaveCount(0);
+	}
+	await expect(main.locator("time")).toHaveCount(0);
+	await expect(main.getByText("เอกสารฉบับถัดไป")).toHaveCount(0);
+});
+
+test("a superseded or expired Document says so in text and links to its published successor", async ({
+	page,
+}) => {
+	const successor = await createDocument("successor");
+	await publish(successor);
+	const draftSuccessor = await createDocument("successor-draft");
+	const superseded = await createDocument("superseded", {
+		data: { domain_status: "superseded" },
+		references: { successor: [successor.id] },
+	});
+	const expired = await createDocument("expired", { data: { domain_status: "expired" } });
+	const pointsAtDraft = await createDocument("superseded-by-draft", {
+		data: { domain_status: "superseded" },
+		references: { successor: [draftSuccessor.id] },
+	});
+	await publish(superseded);
+	await publish(expired);
+	await publish(pointsAtDraft);
+
+	await page.goto(`/documents/${superseded.slug}`);
+	await expect(detailOf(page, "สถานะเอกสาร")).toHaveText("ถูกแทนที่แล้ว");
+	await expect(page.getByRole("main").getByRole("link", { name: successor.title })).toHaveAttribute(
+		"href",
+		`/documents/${successor.slug}`,
+	);
+
+	await page.goto(`/documents/${expired.slug}`);
+	await expect(detailOf(page, "สถานะเอกสาร")).toHaveText("หมดอายุแล้ว");
+	await expect(page.getByRole("main").getByText("เอกสารฉบับถัดไป")).toHaveCount(0);
+
+	await page.goto(`/documents/${pointsAtDraft.slug}`);
+	await expect(detailOf(page, "สถานะเอกสาร")).toHaveText("ถูกแทนที่แล้ว");
+	await expect(page.getByRole("main").getByText(draftSuccessor.title)).toHaveCount(0);
+	await expect(page.getByRole("main").getByText("เอกสารฉบับถัดไป")).toHaveCount(0);
+
+	await page.goto("/documents");
+	await expect(rowOf(page, superseded)).toContainText("ถูกแทนที่แล้ว");
+	await expect(rowOf(page, expired)).toContainText("หมดอายุแล้ว");
+});
+
+test("a Document whose file was deleted shows the unavailable state with status 200 and no storage detail", async ({
+	page,
+}) => {
+	const document = await createDocument("file-gone");
+	await publish(document);
+	const removed = await deleteMedia(admin, document.file.mediaId);
+	expect(removed.ok, `deleting the media item: ${nativeRefusalOf(removed)}`).toBe(true);
+
+	const response = await page.goto(`/documents/${document.slug}`);
+	expect(response?.status(), "the page still renders").toBe(200);
+	const main = page.getByRole("main");
+	await expect(main.getByRole("heading", { level: 1 })).toHaveText(document.title);
+	await expect(main.getByText("ไฟล์ไม่พร้อมให้บริการ")).toBeVisible();
+	await expect(main.getByRole("link", { name: /ดาวน์โหลด/ })).toHaveCount(0);
+	const html = await page.content();
+	for (const detail of [
+		document.file.storageKey,
+		document.file.mediaId,
+		document.file.filename,
+		"/_emdash/api/media/file",
+	]) {
+		expect(html.includes(detail), `the page must not reveal ${detail}`).toBe(false);
+	}
+
+	await page.goto("/documents");
+	await expect(rowOf(page, document)).toContainText("ไฟล์ไม่พร้อมให้บริการ");
+});
+
+test("a draft, unpublished or trashed Document answers the site 404 and stays out of the list", async ({
+	page,
+}) => {
+	const type = await createTerm("document_type", "ประกาศ");
+	const tagged = { taxonomies: { document_type: [type.slug] } };
+	const draft = await createDocument("hidden-draft", tagged);
+	const unpublished = await createDocument("hidden-unpublished", tagged);
+	const trashed = await createDocument("hidden-trashed", tagged);
+	await publish(unpublished);
+	await publish(trashed);
+	expect((await unpublishEntry(admin, "documents", unpublished.id)).ok, "unpublish").toBe(true);
+	expect((await trashEntry(admin, "documents", trashed.id)).ok, "trash").toBe(true);
+	const hidden = [draft, unpublished, trashed];
+
+	for (const document of hidden) {
+		await expectSiteNotFound(page, `/documents/${document.slug}`, document.title);
+	}
+	for (const list of ["/documents", `/documents?type=${type.slug}`]) {
+		await page.goto(list);
+		expect(ownTitles(await listedTitles(page), hidden), `${list} hides them`).toEqual([]);
+	}
+});
+
+test("a signed preview link renders a draft Document, and the same address without a valid token answers 404", async ({
+	page,
+}) => {
+	const draft = await createDocument("preview");
+	const minted = await cmsRequest(
+		admin,
+		`/_emdash/api/content/documents/${encodeURIComponent(draft.id)}/preview-url`,
+		{ method: "POST", body: {} },
+	);
+	expect(minted.ok, nativeRefusalOf(minted)).toBe(true);
+	// The signed token stays out of every message.
+	const link = new URL(String(nativeDataOf(minted)?.url), origin);
+	expect(link.pathname, "the preview link is the draft's canonical address").toBe(
+		`/documents/${draft.slug}`,
+	);
+
+	const preview = await page.goto(link.toString());
+	expect(preview?.status(), "the preview renders").toBe(200);
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(draft.title);
+	await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+
+	await expectSiteNotFound(page, link.pathname, "the draft without a token");
 });

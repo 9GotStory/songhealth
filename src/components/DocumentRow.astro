@@ -1,9 +1,9 @@
 ---
 // A Document in a list (Feature 003 #55; spec #51 "Shared building blocks"): its title linking to
 // its own page, its type, Document date and fiscal year, the file's type and size, and a status
-// that needs attention. A file that cannot be served reads "ไฟล์ไม่พร้อมให้บริการ" here as it does
-// on the Document's page (src/lib/media.ts).
-import { documentPath, type DocumentEntry } from "../lib/documents";
+// that needs attention (superseded or expired). A file that cannot be served reads
+// "ไฟล์ไม่พร้อมให้บริการ" here as it does on the Document's page (src/lib/media.ts).
+import { DOMAIN_STATUS_LABELS, documentPath, type DocumentEntry } from "../lib/documents";
 import { downloadableFile } from "../lib/media";
 import { termsOf } from "../lib/terms";
 import DateText from "./DateText.astro";
@@ -16,6 +16,11 @@ const { document } = Astro.props;
 const data = document.data;
 const type = termsOf(data, "document_type")[0];
 const file = await downloadableFile(data.file, Astro.locals.emdash);
+/** Only a status that changes what a citizen should do is shown in a list. */
+const status =
+	data.domain_status === "superseded" || data.domain_status === "expired"
+		? DOMAIN_STATUS_LABELS[data.domain_status]
+		: undefined;
 ---
 
 <article class="flex flex-col gap-2 rounded-24 bg-surface-base p-5 shadow-card">
@@ -37,7 +42,14 @@ const file = await downloadableFile(data.file, Astro.locals.emdash);
 		</a>
 	</h2>
 	{data.summary && <p class="line-clamp-2 text-text-secondary">{data.summary}</p>}
-	<p class="text-small text-text-secondary">
-		{file ? `ไฟล์ ${file.type ?? ""} ${file.size}` : "ไฟล์ไม่พร้อมให้บริการ"}
+	<p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-small text-text-secondary">
+		<span>
+			{file ? `ไฟล์ ${[file.type, file.size].filter(Boolean).join(", ")}` : "ไฟล์ไม่พร้อมให้บริการ"}
+		</span>
+		{status && (
+			<span class="inline-flex rounded-pill bg-accent-warm px-3 text-label text-brand-dark">
+				{status}
+			</span>
+		)}
 	</p>
 </article>
