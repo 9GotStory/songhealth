@@ -8,8 +8,8 @@ canonical platform; its production deployment sources (rootless Podman + Quadlet
 sources are committed and independently reviewed, with their runtime verification gates — T022
 (production durability) and T028 (recovery drill) — pending, separately authorized tasks (see §11
 of [docs/operations/production-foundation.md](docs/operations/production-foundation.md)).
-Feature 002 `002-cms-content-model` is the active feature. All its tasks, T001–T037, are
-checked (executed). For T032, the Product Owner waived the staff session on 2026-10-29 and
+Feature 002 `002-cms-content-model` is complete. The Product Owner gave it Final Acceptance on
+2026-10-29, and it was merged into `main`. All its tasks, T001–T037, are checked (executed). For T032, the Product Owner waived the staff session on 2026-10-29 and
 accepted the automated Admin journeys as the SC-007 evidence. A
 checked marker records task completion
 only: Product Owner Final Acceptance — and, for work reviewed before Constitution 5.0.0, the
@@ -26,7 +26,7 @@ README — the UID-1000 rootless Quadlet runtime at `http://127.0.0.1:4324`.
 3. `docs/website-modernization-docs/current/` — Product/behavior truth (`00`–`09`) and technical
    architecture ([10-system-blueprint.md](docs/website-modernization-docs/current/10-system-blueprint.md))
 4. `specs/001-platform-foundation/` — accepted Feature 001 artifacts;
-   `specs/002-cms-content-model/` — active Feature 002 artifacts
+   `specs/002-cms-content-model/` — accepted Feature 002 artifacts
 
 Do not reconstruct removed architecture from Git history or old branch names (see `AGENTS.md`).
 

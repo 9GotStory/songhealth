@@ -1,10 +1,12 @@
 # T035 — Feature 002 implementation handoff
 
-**Status: implementation complete; every task is checked.**
+**Status: ACCEPTED — Product Owner Final Acceptance on 2026-10-29 ("accept merge
+002-cms-content-model เข้า main"); merged into `main`. Every task is checked.**
 - For T032, the Product Owner waived the staff session on 2026-10-29 and accepted the
   automated Admin journeys as the SC-007 evidence.
-- This handoff makes no Feature 002 acceptance, Feature 001 acceptance, merge or deployment
-  claim. The Product Owner decides acceptance and merges.
+- The Feature 002 acceptance and the merge into `main` are the Product Owner's decision of
+  2026-10-29. This handoff makes no Feature 001 acceptance or deployment claim: Feature 001
+  T022 and T028 remain open.
 
 The work was checked by Claude Code self-review and automated tests only
 (Constitution 5.0.0). No independent third-party review exists. Under the 5.0.0 workflow,
@@ -87,8 +89,7 @@ Success criteria:
 2. **Feature 001 production-host gates.** T022 (execute T016 on a production-capable host)
    and T028 (recovery drill) remain open. The earlier production-foundation stack on UID 1001
    was deleted (T037), and the accepted production image is preserved on UID 1000.
-3. **Merge into `main`.** `002-cms-content-model` goes into `main` when the Product Owner
-   gives Feature 002 its final acceptance.
+3. **Merge into `main`.** Done on 2026-10-29, after the Product Owner's Final Acceptance.
 4. **Upstream observations for the Product Owner's information.** These are not Songhealth
    defects:
    - EmDash's reference-picker checkboxes are named after the field, not the item
