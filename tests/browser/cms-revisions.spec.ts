@@ -1,332 +1,68 @@
-// T020 — focused native revision/concurrency checks for Feature 002
-// US6: the native optimistic-concurrency matrix (current/stale `_rev` for
-// update and publish, concurrent saves never silently overwriting newer
-// work, refusal read-backs and the re-read-before-retry discipline), the
-// native revision history and selected-revision restore, the native
-// autosave shape (`skipRevision`) with interrupted-edit draft recovery, the
-// native edit lock (lease holder, second-writer ENTRY_LOCKED refusal, the
-// documented overrideLock control and release), and the published-versus-
-// pending boundary for staged content-data/reference selections — with the
-// separately current taxonomy/SEO/byline metadata and shared media asset
-// state observed as NOT being staged atomically with a content revision.
-// Test support in tests/browser/ only: no application, schema, seed,
-// dependency, infrastructure, or production change is made here, and NO
-// runtime execution is claimed by authoring this file — the T022 serial
-// join owns actually running these checks.
+// Native revisions and concurrency (Feature 002 T020, US6; specs/002-cms-content-model/).
 //
-// Corrective round 1 (Lead review of candidate c1eb6cc, findings F1–F6)
-// hardened: the synthetic term/byline fixtures now RETAIN their owned unique
-// identity BEFORE creation and reconcile UNCERTAIN creations/deletions
-// through supported native reads (the term read; the byline LISTING with
-// search/cursor pagination — no byline-by-slug GET exists in 1.1.0), so a
-// creation that commits while its response is lost stays registered for
-// teardown, a lost DELETE response is reconciled through a read before
-// exactly one re-attempt, and unreadable state is reported without another
-// mutation (F1); the lock case runs its primary phase inside a failure-safe
-// wrapper whose holder-lease reconciliation executes on EVERY exit path —
-// covering uncertain acquisition and uncertain release — BEFORE the role is
-// restored and before ordinary fixture cleanup could be refused by a
-// stranded lease, preserving the original failure alongside any
-// reconciliation failure (F2); the pending-reference case asserts the exact
-// chosen Document translation-group identity on the staged draft selection,
-// the UNCHANGED live selection while the draft exists, and the promoted live
-// identity after publication, all through the native compare/`_references`
-// surfaces (F3); the interrupted-edit recovery read now verifies the last
-// AUTOSAVED content immediately after the second autosave, before the
-// separate explicit-save/history control (F4); a dedicated lost-
-// acknowledgment case issues a real native update, discards its response
-// envelope test-only, and proves the unknown outcome is never success while
-// current state is read before any retry decision (F5); and the
-// publish-invalidation control captures a CURRENT token immediately before
-// the successful publish, passes it to that publish, and reuses THAT token
-// for the post-publish conflict control with preserved-state verification
-// (F6). No behavior beyond the authorized T020 scope.
+// The suite checks EmDash's editorial safety on the Songhealth collections:
+// - optimistic concurrency: a current `_rev` succeeds and a stale one is refused for update and
+//   publish, concurrent saves never silently overwrite newer work, and an uncertain outcome is
+//   read again before any retry;
+// - revision history and restoring a chosen revision;
+// - autosave (`skipRevision`) and recovering an interrupted edit from its pending draft;
+// - edit locks: the holder's lease, a second writer's ENTRY_LOCKED refusal, the documented
+//   `overrideLock` control, and release;
+// - published versus pending content data and reference selections;
+// - taxonomy, SEO, byline and shared media metadata, which are current state and are not staged
+//   with a content revision.
 //
-// Corrective round 2 (Lead review of candidate 4045f26, residual findings
-// R2-F1–R2-F3) hardened: fixture creation INTENT is now separate from
-// established OWNERSHIP — a DEFINITE native creation refusal (the pinned
-// duplicate-slug CONFLICT, src/api/handlers/bylines.ts:190-223 and
-// src/api/handlers/taxonomies.ts:980-987) proves this run created nothing,
-// claims no ownership, registers nothing and never deletes a pre-existing
-// same-slug record, while the uncertain-create recovery (outcome never
-// observed; record found under this run's fresh random slug) is kept
-// (R2-F1); the lost-acknowledgment case decides committed-versus-absent ONLY
-// from a successful, usable current-state snapshot (an unreadable/invalid
-// reconciliation read stays unknown and authorizes no retry; reads repeat a
-// bounded number of times; the retry precondition comes from the SAME
-// validated decision snapshot) (R2-F2); and three shape guards keep
-// malformed observations unknown instead of resolved — a byline listing
-// record matching the exact owned slug without a usable id is unknown, only
-// a valid lock status with an EXPLICIT holder:null proves unheld, and a
-// release settles only on an explicit released:true or a valid confirming
-// lock read (R2-F3). No behavior beyond the authorized T020 scope.
+// Platform behaviour relied on (emdash 1.1.0; where the unversioned docs differ, the pinned
+// source wins: the lock route acquires with POST, not PUT):
+// - `_rev` (src/api/rev.ts) is base64("version:updated_at"), and a mismatch answers 409
+//   CONFLICT. Staged saves, publish and restore all bump `version`, so any newer write
+//   invalidates an older token (src/database/repositories/content.ts
+//   replaceDraftRevisionForUpdate).
+// - Draft staging (src/emdash-runtime.ts handleContentUpdate): on a collection with revisions,
+//   the content columns hold published data only, and each data or reference save becomes a new
+//   revision staged as `draft_revision_id`. Creating an entry stages no revision.
+// - History (src/database/repositories/revision.ts; GET …/revisions, content:read_drafts,
+//   `limit` 1–100) lists the newest first and is pruned to 50 per entry: a working history, not
+//   an audit archive.
+// - Restore (src/api/handlers/revision.ts handleRevisionRestore) claims the entry lock, writes
+//   the snapshot back through a version fence (409 on a concurrent change), records a restore
+//   revision and bumps `version`.
+// - Autosave is `skipRevision` on the ordinary update (src/api/schemas/content.ts
+//   contentUpdateBody), which replaces the previous autosave revision. There is no autosave
+//   endpoint and no session-recovery API: the pending draft is the recovery.
+// - Reads (src/emdash-runtime.ts hydrateDraftData): with a pending draft, `item.data` is the
+//   draft and `item.liveData` the published values. Compare (…/compare) returns `hasChanges`,
+//   `live` and `draft`; the draft's `_references` hold translation-group ids.
+// - Publish (src/database/repositories/content.ts publish) promotes the draft revision and its
+//   staged reference selection (src/api/handlers/content.ts handleContentPublish).
+// - Edit locks (src/api/handlers/entry-lock.ts): GET reads the holder, POST takes or refreshes a
+//   7-minute lease, DELETE releases it. A second account's POST without `takeover` answers 200
+//   with `heldByCaller: false`. Every write claims the lock first, so another holder's lease
+//   refuses it with 409 ENTRY_LOCKED unless the write sends `overrideLock: true`. Locking is on
+//   for every Songhealth collection (migration 075 default).
+// - Live metadata (src/emdash-runtime.ts DRAFT_ONLY_UPDATE_KEYS): `taxonomies`, `seo`,
+//   `bylines`, `authorId` and `publishedAt` are written to the current row, create no revision
+//   and never publish a pending draft. An SEO write on a collection without SEO is refused with
+//   400 VALIDATION_ERROR (src/api/handlers/content.ts).
+// - Fixture terms go through POST, GET and DELETE /_emdash/api/taxonomies/{name}/terms, and
+//   bylines through POST and DELETE /_emdash/api/admin/bylines. A byline is found again through
+//   its listing (`search`, `cursor`), because 1.1.0 has no byline-by-slug read. Only a 4xx
+//   proves that a create did not commit: the repositories commit before they read the record
+//   back (src/database/repositories/taxonomy.ts and byline.ts). After a 5xx or a lost response
+//   the fixture is looked up before anything else. Malformed observations stay unknown: a lock
+//   counts as unheld only on an explicit `holder: null`, a release only on `released: true` or
+//   a confirming read.
+// - Media metadata (PUT /_emdash/api/media/{id}) is current state. A revision keeps only the
+//   media id, and no availability is guaranteed.
 //
-// Corrective round 3 (Lead review of candidate e979262, finding R3-F1)
-// refined the ownership classification: a received 4xx is a SOURCE-PROVEN
-// non-commit (every 4xx these create routes answer — route authorization,
-// body validation, and the duplicate-slug CONFLICT — is decided BEFORE the
-// insert), so it still claims no ownership and never deletes a pre-existing
-// same-slug record. A 5xx (TERM_CREATE_ERROR / BYLINE_CREATE_ERROR) does NOT
-// prove rollback — the pinned repositories commit the insert transaction and
-// only then read the record back (src/database/repositories/taxonomy.ts:189-218
-// and byline.ts:770-805; the handlers convert a post-commit read failure
-// into the observed 500 at src/api/handlers/taxonomies.ts:1111-1113 and
-// bylines.ts:241-255) — so 5xx and transport losses share the AMBIGUOUS path:
-// the exact attempted fixture identity is preserved and reconciled through
-// the existing supported read/listing; a present record under this run's
-// fresh random slug is recovered as owned for teardown (original server
-// failure reported, never converted into success); proven absence rethrows
-// the original failure with nothing registered; an unreadable reconciliation
-// retains the cleanup registration and fails loudly. No POST is ever blindly
-// retried. No behavior beyond the authorized T020 scope.
-//
-// Authority:
-// - specs/002-cms-content-model/tasks.md T020 ("Author native
-//   revision/concurrency checks in tests/browser/cms-revisions.spec.ts for
-//   current/stale `_rev`, locks, autosave/draft recovery and revision
-//   restore, live versus pending content-data/reference selections, and
-//   truthful uncertain-result re-reads; separately observe current
-//   taxonomy/SEO/byline/shared-media behavior without an atomic staging or
-//   historical-snapshot claim") and the shared "Path Conventions and Shared
-//   Constraints" section (dev-bypass access discipline, distinct native
-//   role credentials, returned IDs/current `_rev`, re-read uncertain
-//   outcomes, serial runtime checks, clean only owned synthetic fixtures)
-// - specs/002-cms-content-model/spec.md — US6 acceptance scenarios 2, 5, 6
-//   (staged content-data edits keep the previous live content-data revision
-//   public until authorized publication, with no promise that shared media,
-//   linked records or separately maintained taxonomy/SEO/byline metadata
-//   are staged/frozen atomically with it; stale/conflicting saves never
-//   silently overwrite newer work and supported revision review/restore and
-//   autosave/draft recovery remain usable; failed or uncertain outcomes are
-//   never falsely reported and current state is re-read before a retry),
-//   FR-022 (staging limits), FR-024 (supported revisions/autosave/draft
-//   recovery/locks/concurrency), FR-026 (truthful outcomes), SC-005/SC-006
-// - specs/002-cms-content-model/contracts/native-editorial.md — "Native
-//   Request Shapes" (the latest returned `_rev` for update/publish
-//   preconditions; re-read uncertain results), "Outcomes and Revision
-//   Limits" (published content-data/reference edits stage under native
-//   revisions while taxonomy/SEO/byline side writes and shared asset
-//   changes are not frozen with them; no custom hook fixtures)
-// - specs/002-cms-content-model/plan.md and data-model.md — native
-//   revisions/drafts/preview/scheduling enabled on the content collections;
-//   saved content-data and reference changes stage in native revisions
-// - specs/002-cms-content-model/research.md §3 — revision staging and
-//   finite native revision pruning as the traceability baseline
-// - specs/002-cms-content-model/evidence/T018-us2-reuse.md — the applied
-//   live schema standing (all eight US1+US2 collections active with their
-//   `supports` and reference bindings) and the pinned-toolchain facts;
-//   T001-development-inputs.md §6 — the distinct-role fixture input
-//   truthfully recorded as missing at this baseline, which the prerequisite
-//   gating below reports rather than invents
-// - tests/browser/cms.helpers.ts — the accepted T002 native request/fixture
-//   helpers this file consumes (loadDevAccessToken/createPatActor
-//   development-credential actors, cmsRequest as the bounded request core,
-//   NATIVE_ROLES, assertDistinctActors, assertSameNativeApp, withNativeRole
-//   supported-operation role phases with verified restoration, native
-//   content/lifecycle request helpers, owned-fixture cleanup with
-//   trash-aware reconciliation)
-// - tests/browser/cms-lifecycle.spec.ts (accepted T019), cms-document.spec.ts,
-//   cms-authoring.spec.ts and cms-reuse.spec.ts (accepted T003/T007/T014) —
-//   the patterns this file follows: schema-readiness gating, refusal-family
-//   assertions, synthetic classification-term/byline discipline, the
-//   unauthenticated authorization control, failure-safe teardown, the
-//   runner-configured origin, and the T013 test-authentication adaptation
-//
-// Verified API surface (recorded per CLAUDE.md §Current documentation):
-// checked first through Context7 (/websites/emdashcms — the REST reference's
-// compare and edit-lock pages and the MCP "Content lifecycle and bylines"
-// note that content_update/delete/publish/unpublish/schedule/unschedule/
-// discard_draft and revision_restore fail with ENTRY_LOCKED while another
-// user holds an entry's edit lock, with overrideLock as the documented
-// write-anywhere control; /microsoft/playwright for `--list` semantics),
-// then controlled by the PINNED FIRST-PARTY PACKAGE SOURCE: the `emdash@1.1.0`
-// npm tarball (sha512-VXo1fIMr44PEiE1A9Z5aFWvjsqhdLDHLqat2iPkFYoam2kYV6h+2LGkEDovkXdLmmWWDY9w7ekP0CP6ziYMFhg==,
-// byte-equal to package-lock.json — the same integrity the T002/T003/T007/
-// T014/T019 files independently verified). The unversioned docs page shows a
-// `PUT .../lock` acquire; the pinned 1.1.0 route registers GET/POST/DELETE —
-// the pinned source controls and this file uses POST to acquire. Facts
-// actually relied on below:
-// - `_rev` token (src/api/rev.ts): base64("version:updated_at"); omitted →
-//   blind write; mismatch on either component → `{ success: false, error:
-//   { code: "CONFLICT" } }` HTTP 409 ("Content has been modified since last
-//   read (version conflict)"). Every staged data/reference save fences on
-//   the row (draft CAS `version = version + 1`, src/database/repositories/
-//   content.ts replaceDraftRevisionForUpdate), and publish/restore also
-//   bump `version`/`updated_at`, so any newer write invalidates an older
-//   token. The T002 helpers always send a `_rev` (currentRev re-read or an
-//   explicit token), so nothing here relies on the blind-write path
-// - draft staging (src/emdash-runtime.ts handleContentUpdate): a collection
-//   with `supports: ["revisions"]` (all eight Songhealth seed collections)
-//   writes content columns = published data only; each data/reference save
-//   merges over the pending draft (or live base) into a NEW revision and
-//   CAS-stages it as `draft_revision_id`. With `body._rev` supplied, a fence
-//   failure is 409 CONFLICT; `ContentMutationConflictError` maps to 409
-//   (src/api/handlers/revision.ts, src/api/error.ts mapErrorStatus).
-//   CREATE stages no revision — `ContentRepository.create`
-//   (src/database/repositories/content.ts:377) writes columns only, so a
-//   fresh entry's revision listing is empty until its first save
-// - revision history (src/database/repositories/revision.ts): a revision is
-//   `{ id, collection, entryId, data, authorId, createdAt }`; `id` is a
-//   monotonic ULID (version identity); `findByEntry` orders `id DESC`
-//   (newest first). GET /_emdash/api/content/{collection}/{id}/revisions
-//   (src/astro/routes/api/content/[collection]/[id]/revisions.ts;
-//   permission content:read_drafts; `?limit=` clamped 1..100, default 50)
-//   → `data { items, total }`. History is FINITELY PRUNED to the newest 50
-//   per entry (pruneQueuedEntry(..., 50) — the runtime staging path and the
-//   restore handler both queue it), so it is a bounded working history, NOT
-//   an immutable audit archive; no restoration/retention guarantee is
-//   claimed anywhere below
-// - revision restore (src/astro/routes/api/revisions/[revisionId]/restore.ts;
-//   src/api/handlers/revision.ts handleRevisionRestore; ContentRepository
-//   restoreRevision): POST with optional body `{ overrideLock? }`;
-//   permission content:edit_own/edit_any on the entry's author; claims the
-//   entry lock for the write (ENTRY_LOCKED refusal possible); validates a
-//   staged selection against current relation cardinality; writes the
-//   snapshot's field values back into the content columns through a CAS
-//   fence (version/updated_at/status/live_revision_id/draft_revision_id/
-//   scheduled_at) that throws ContentMutationConflictError → 409 on a
-//   concurrent mutation; inserts a restore audit revision carrying the
-//   restored snapshot (authorId = the restoring caller); bumps version; and
-//   releases the draft pointer back to its prior value, so with no pending
-//   draft the post-restore read returns the restored data directly
-// - native autosave (src/api/schemas/content.ts contentUpdateBody
-//   `skipRevision: z.boolean().optional()` — "Replace the previous autosave
-//   revision after staging this save"; src/emdash-runtime.ts staging: when
-//   `skipRevision` is set AND a draft revision already existed, the
-//   superseded autosave draft revision is deleted via deleteIfUnreferenced,
-//   while ordinary saves keep their revisions, pruned to 50). There is NO
-//   separate autosave endpoint and NO session-resume/recovery API in 1.1.0:
-//   interrupted-edit recovery IS the persisted pending draft revision — the
-//   next authorized GET returns it (hydrateDraftData). That capability
-//   boundary is asserted as observed, not worked around
-// - reads (src/astro/routes/api/content/[collection]/[id].ts;
-//   src/emdash-runtime.ts hydrateDraftData): when `draftRevisionId` is set,
-//   GET returns `item.data` = the PENDING draft data and `item.liveData` =
-//   the published values; without a pending draft, `item.data` is the live
-//   column data. Users without content:read_drafts get published data only
-//   (draft hydration stripped)
-// - compare (src/astro/routes/api/content/[collection]/[id]/compare.ts →
-//   handleContentCompare): GET, content:read_drafts → `data { hasChanges,
-//   live, draft }` over the live/draft REVISIONS (`live` is null before the
-//   first publication); the draft side carries `_references`
-//   (src/references/staged.ts STAGED_REFERENCES_KEY) = the live selection
-//   overlaid with the staged one, values being native translation-group
-//   ids — lengths are asserted, never decoded back to entry ids
-// - publish (ContentRepository.publish, src/database/repositories/content.ts
-//   :2428): promotes `draft_revision_id` → `live_revision_id`, clears the
-//   draft pointer, syncs the draft revision's data into the content
-//   columns, and bumps version — "If no draft revision exists, creates one
-//   from current data and publishes it". A staged reference selection is
-//   validated and promoted to the live links in the same publish
-//   (applyStagedReferences, src/api/handlers/content.ts handleContentPublish)
-// - edit locks (src/astro/routes/api/content/[collection]/[id]/lock.ts;
-//   src/api/handlers/entry-lock.ts; src/database/repositories/entry-locks.ts):
-//   GET reads the current holder, POST takes/refreshes the lease (optional
-//   body `{ takeover?, token? }`), DELETE releases the caller's lease; all
-//   three require content:edit_own/edit_any on the entry. Status data is
-//   `{ enabled, holder: { userId, userName, acquiredAt, expiresAt } | null,
-//   heldByCaller }`. `enabled` comes from `_emdash_collections.edit_locking`
-//   (migration 075 defaults it to 1; the schema registry maps an unset
-//   editLocking to 1 — every Songhealth seed collection leaves it unset, so
-//   locking is ON). The lease is 7 minutes (ENTRY_LOCK_LEASE_MS), refreshed
-//   by the holder's own writes (refreshHeld). A POST by a second account
-//   without `takeover` is NOT an error: it returns 200 with
-//   `heldByCaller: false` and the existing holder. Every write route claims
-//   the lock first (claimEntryLockForWrite): another holder's enforceable
-//   lease → 409 ENTRY_LOCKED naming the holder (src/api/errors.ts maps
-//   ENTRY_LOCKED to 409); `overrideLock: true` is the SCHEMA-DOCUMENTED
-//   write-anyway control (contentUpdateBody overrideLockFlag), not a bypass
-//   invented here. A write never takes a lock it was not given, so API
-//   writes to an unlocked entry leave it unlocked
-// - live metadata vs staged content (src/emdash-runtime.ts
-//   DRAFT_ONLY_UPDATE_KEYS = { data, slug, locale, skipRevision, references,
-//   actor, migrateBlocks, replaceBlocks }): `taxonomies`, `seo`, `bylines`,
-//   `authorId`, `publishedAt` are LIVE metadata — "Public HTML comes from
-//   live columns / SEO / taxonomies, not draft revisions" — written straight
-//   to the current row (assignTaxonomies / seo / byline junction writes in
-//   src/api/handlers/content.ts handleContentUpdate), creating NO content
-//   revision and never publishing a pending draft. Entry terms read through
-//   GET /_emdash/api/content/{collection}/{id}/terms/{taxonomy} → `data
-//   { terms: [{ id, name, slug, label, … }] }`; `item.seo` and the hydrated
-//   `item.bylines` (source "explicit") / `item.byline` carry the current
-//   SEO/byline attribution on the ordinary read
-// - synthetic classification/byline fixtures: POST
-//   /_emdash/api/taxonomies/{name}/terms (taxonomies:manage) `{ slug, label }`
-//   with GET/DELETE …/terms/{slug} (404 = absent) — the accepted T013
-//   pattern; bylines are native entities: POST /_emdash/api/admin/bylines
-//   (bylines:manage) `{ slug, displayName }` → `data` = the created byline
-//   (`{ id, slug, displayName, … }`), DELETE /_emdash/api/admin/bylines/{id}
-//   → `{ deleted: true }` / 404. There is NO byline-by-slug GET in 1.1.0 —
-//   presence/id reconciliation goes through the supported LISTING
-//   GET /_emdash/api/admin/bylines?search=…&limit=…&cursor=… (bylines:read)
-//   → `{ items: [{ id, slug, … }], nextCursor? }` (BylineRepository.findMany,
-//   slug LIKE-searched and the exact owned slug matched). Both fixture kinds
-//   are created and removed by the development Administrator as owned
-//   synthetic fixtures, with the uncertain-creation/deletion protocol of
-//   corrective round 1 F1
-// - media asset metadata (src/api/schemas/media.ts mediaUpdateBody; PUT
-//   /_emdash/api/media/{id}): `alt`/`caption`/dimensions/focal point are
-//   CURRENT-STATE asset metadata; a content revision's file value carries
-//   the media `id` only — no byte or metadata snapshot is retained by the
-//   revision, and no availability/retention guarantee exists (D-REF stays
-//   deferred; FR-022/FR-026 boundaries)
-//
-// Boundaries and non-claims (tasks.md T020; Constitution v3.0.0 II–V):
-// - test authoring and static/discovery verification only. Every scenario
-//   below is AUTHORED for the T022 serial runtime join; nothing here is
-//   executed at authoring time and no runtime PASS, revision outcome, lock
-//   observation or recovery result is claimed. Playwright `--list` performs
-//   no native calls (hooks run only at execution), so discovery loads no
-//   credentials and touches no app
-// - NO shared-helper change is made: every T020-specific request shape
-//   (skipRevision autosave body, seo/byline writes, lock GET/POST/DELETE,
-//   revisions listing/restore, compare, terms read, byline and media-asset
-//   writes) goes through the unchanged cmsRequest core, so the accepted
-//   T002 helper surface and its consumers are untouched (zero regression
-//   surface; the regression analysis is "no shared file changed")
-// - the preparation/administration actor is the pre-existing development
-//   credential's Administrator fixture (dev@emdash.local, role 50), loaded
-//   from its controller-format mode-0600 JSON through the accepted T013
-//   adaptation (loadDevAccessToken + createPatActor — never the dev-bypass
-//   bootstrap) and pinned to the RUNNER-CONFIGURED origin. It is NEVER
-//   presented as coverage of another role (assertDistinctActors refuses
-//   that shortcut)
-// - lock/conflict coverage requiring a second writer uses the SAME distinct
-//   test-owned role-fixture prerequisite as T019
-//   (SONGHEALTH_ROLE_FIXTURE_ACCESS, a mode-0600 controller-format JSON
-//   credential of a second PAT-owning native account — never
-//   dev@emdash.local). Without it those cases SKIP truthfully with the
-//   prerequisite named; with it set but unreadable the suite FAILS loudly.
-//   The role phase runs through withNativeRole (the supported two-account
-//   users-API operation with verified restoration on every exit path); the
-//   fixture account is test-owned and the shared dev Administrator and any
-//   real/shared user is never mutated
-// - overrideLock is exercised ONLY as the pinned, schema-documented native
-//   write-anyway control on a test-owned entry after a refused write, with
-//   the source cited above — no unexplained lock bypass exists in this file
-//   and no lock of another actor's entry is taken over without the
-//   documented `takeover`/`overrideLock` semantics being the object under
-//   test
-// - restore coverage asserts CURRENT native state (read-back data, new
-//   audit revision in the listing, bumped version). It deliberately claims
-//   nothing about historical preservation: native revision history is
-//   finitely pruned (50) and restore itself rewrites current state, so it
-//   is NOT an immutable audit archive or historical evidence guarantee
-//   (spec.md US6.2/FR-022 staging limits; D-ITA stays deferred)
-// - taxonomy/SEO/byline/media cases assert CURRENT state only: these
-//   side writes are immediately live, create no content revision, and do
-//   not publish a pending draft — the exact anti-atomic-staging evidence.
-//   No historical snapshot, media byte archive, cross-record lock or
-//   atomic staging system is claimed or built
-// - public anonymous reads of draft/pending data are T021's boundary; here
-//   the authorized surfaces (GET hydration, compare) and one unauthenticated
-//   control on the revision endpoints carry the evidence
-// - fixtures are clearly-marked synthetic public-publishable data; entry
-//   IDs, `_rev` values, revision ids, media ids, term and byline ids come
-//   from native responses only. Failure-safe owned-fixture cleanup runs per
-//   test (afterEach) plus an afterAll safety net for BOTH actors' registries
-//   and the synthetic term/byline registrations. No D-ITA/D-REF guarantee is
-//   claimed anywhere
+// Credentials and fixtures:
+// - The development Administrator PAT (SONGHEALTH_DEV_ACCESS) prepares fixtures and never stands
+//   in for another role.
+// - The second-writer lock cases need the role fixture PAT (SONGHEALTH_ROLE_FIXTURE_ACCESS) and
+//   skip without it. Its role changes run through withNativeRole, which restores the role on
+//   every exit path.
+// - Fixtures are synthetic. Cleanup runs after each test, with an afterAll safety net for both
+//   actors and the synthetic term and byline.
 
 import { expect, test } from "@playwright/test";
 
@@ -2546,9 +2282,8 @@ test("live metadata: taxonomy, SEO and byline writes apply to current state imme
 	// is pending: taxonomy assignment, SEO metadata, byline attribution.
 	// None of these is a DRAFT_ONLY key, so none stages a content revision
 	// and none publishes the pending draft. The SEO write follows the active
-	// native schema: on a collection without the SEO opt-in (news before the
-	// Feature 003 model) it is the native VALIDATION_ERROR refusal, which lands
-	// nothing.
+	// native schema: on a collection without the SEO opt-in it is the native
+	// VALIDATION_ERROR refusal, which lands nothing.
 	const newsHasSeo = seoEnabled.get(NEWS_COLLECTION) === true;
 	const termWrite = await contentPut(admin, NEWS_COLLECTION, entry.entryId!, {
 		taxonomies: { [TOPIC_TAXONOMY]: [termSlug] },
