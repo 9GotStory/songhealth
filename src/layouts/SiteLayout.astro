@@ -1,0 +1,72 @@
+---
+// Songhealth public page shell (Feature 003 #52; spec #51 Presentation, ADR 0001).
+//
+// Every public page renders inside this layout: the utility bar, the header
+// with the site identity and the main navigation (`03` §2), the page's own
+// main content, and the footer. The page passes its title and the
+// main-navigation section it belongs to; the shell marks that section.
+import { MAIN_NAVIGATION, UTILITY_LINKS, currentMark, type Section } from "../lib/navigation";
+
+interface Props {
+	/** The page's own title. The Homepage passes none and is titled by the site title alone. */
+	title?: string;
+	/** The main-navigation section this page belongs to; none marks no section. */
+	section?: Section;
+}
+
+const { title, section } = Astro.props;
+
+/** The office's official name, fixed interface text (Figma utility bar and footer). */
+const OFFICE_NAME = "สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่";
+const siteTitle = "สำนักงานสาธารณสุขอำเภอสอง";
+const pageTitle = title === undefined ? siteTitle : `${title} | ${siteTitle}`;
+const { pathname } = Astro.url;
+---
+
+<!doctype html>
+<html lang="th">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>{pageTitle}</title>
+		<slot name="head" />
+	</head>
+	<body>
+		<header>
+			<div>
+				<p>{OFFICE_NAME}</p>
+				<ul>
+					{UTILITY_LINKS.map((link) => (
+						<li>
+							<a href={link.href}>{link.label}</a>
+						</li>
+					))}
+				</ul>
+			</div>
+			<div>
+				<a href="/">{siteTitle}</a>
+				<nav aria-label="เมนูหลัก">
+					<ul>
+						{MAIN_NAVIGATION.map((item) => (
+							<li>
+								<a href={item.href} aria-current={currentMark(item, section, pathname)}>
+									{item.label}
+								</a>
+							</li>
+						))}
+					</ul>
+				</nav>
+			</div>
+		</header>
+		<main id="main" tabindex="-1">
+			<slot />
+		</main>
+		<footer>
+			<p>{siteTitle}</p>
+			<p>{OFFICE_NAME}</p>
+			<ul>
+				<li><a href="/contact">ติดต่อเรา</a></li>
+			</ul>
+		</footer>
+	</body>
+</html>

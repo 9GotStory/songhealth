@@ -203,6 +203,14 @@ export default defineConfig({
     host: process.env.HOST,
     port: Number(process.env.PORT),
   },
+  // Feature 003 (#52): `astro dev` serves public pages as citizens get them.
+  // The dev toolbar would add its client scripts and overlay to every page and
+  // annotate the server-rendered HTML (including the Feature 001 marker), so
+  // the browser suites and Product Owner review would see a different page.
+  // Production builds never include the toolbar.
+  devToolbar: {
+    enabled: false,
+  },
   integrations: [
     react(),
     emdash({
