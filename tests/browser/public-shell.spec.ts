@@ -23,8 +23,10 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	MOBILE_VIEWPORT,
+	VIEWPORTS,
 	expect,
 	expectNoHorizontalScroll,
+	expectVisibleFocusOnEveryStop,
 	test,
 } from "./public.helpers";
 
@@ -128,6 +130,34 @@ test.describe("at the 320 px mobile width without JavaScript", () => {
 		await page.goto(`/songhealth-f003-unknown-${crypto.randomUUID()}`);
 		await expectNoHorizontalScroll(page, "the 404 page");
 	});
+});
+
+test.describe("keyboard", () => {
+	test("the skip link is the first stop and moves focus to the main content", async ({ page }) => {
+		await page.goto("/");
+		await page.keyboard.press("Tab");
+		const skipLink = page.getByRole("link", { name: "ข้ามไปยังเนื้อหาหลัก" });
+		await expect(skipLink).toBeFocused();
+		await expect(skipLink).toBeInViewport();
+		await page.keyboard.press("Enter");
+		await expect(page.getByRole("main")).toBeFocused();
+	});
+
+	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
+		test(`focus is always visible at the ${width} width`, async ({ page }) => {
+			await page.setViewportSize(viewport);
+			await page.goto("/");
+			await expectVisibleFocusOnEveryStop(page, `/ at ${width}`);
+
+			await page.goto(`/songhealth-f003-unknown-${crypto.randomUUID()}`);
+			if (width === "mobile") {
+				// With the menu open, the walk continues from the menu button through
+				// the navigation into the page: nothing it opens may cover the page.
+				await page.getByText("เมนู", { exact: true }).click();
+			}
+			await expectVisibleFocusOnEveryStop(page, `the 404 page at ${width}`);
+		});
+	}
 });
 
 test.describe("site identity from the native site settings", () => {

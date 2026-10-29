@@ -58,6 +58,40 @@ export const test = base.extend<{ thirdPartyRequests: string[] }>({
 	],
 });
 
+/**
+ * Walk the page with the Tab key from the current focus starting point to the
+ * end of the document. Every element that takes focus must show a focus
+ * indicator (an outline of at least 2 px, or a box shadow) and must not be
+ * covered by other content (WCAG 2.2 SC 2.4.7 and 2.4.11). Returns the stops
+ * it visited, so a caller can also check the focus order.
+ */
+export async function expectVisibleFocusOnEveryStop(page: Page, label: string): Promise<string[]> {
+	const stops: string[] = [];
+	for (let step = 0; step < 100; step += 1) {
+		await page.keyboard.press("Tab");
+		const stop = await page.evaluate(() => {
+			const element = document.activeElement;
+			if (element === null || element === document.body) return null;
+			const style = getComputedStyle(element);
+			const rect = element.getBoundingClientRect();
+			const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+			return {
+				name: `<${element.tagName.toLowerCase()}> ${(element.textContent ?? "").replace(/\s+/g, " ").trim()}`,
+				indicator:
+					(style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) >= 2) ||
+					style.boxShadow !== "none",
+				unobscured: rect.width > 0 && rect.height > 0 && hit !== null && element.contains(hit),
+			};
+		});
+		if (stop === null) break;
+		expect(stop.indicator, `${label}: ${stop.name} must show a focus indicator`).toBe(true);
+		expect(stop.unobscured, `${label}: ${stop.name} must not be covered while focused`).toBe(true);
+		stops.push(stop.name);
+	}
+	expect(stops.length, `${label}: the page must have focusable elements`).toBeGreaterThan(0);
+	return stops;
+}
+
 /** Fail when the page as it is now scrolls sideways at the current viewport width. */
 export async function expectNoHorizontalScroll(page: Page, label: string): Promise<void> {
 	const overflow = await page.evaluate(

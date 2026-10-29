@@ -88,6 +88,17 @@
 }
 
 @layer base {
+	/* Side gutter of the page container: 16 px on phones, 24 px from `sm` up. */
+	:root {
+		--page-gutter: 1rem;
+	}
+
+	@media (width >= 40rem) {
+		:root {
+			--page-gutter: 1.5rem;
+		}
+	}
+
 	/*
 	 * Every focusable element shows a visible focus ring (WCAG 2.2 SC 2.4.7):
 	 * brand-primary on light surfaces; dark surfaces switch it with
@@ -102,6 +113,17 @@
 	[tabindex="-1"]:focus {
 		outline: none;
 	}
+}
+
+/*
+ * The page container: the 1200 px content column, centred, with the gutter
+ * outside it, so a 1440 px window has 120 px either side as in the Figma frame.
+ */
+@utility page-container {
+	margin-inline: auto;
+	width: 100%;
+	max-width: calc(var(--container-content) + 2 * var(--page-gutter));
+	padding-inline: var(--page-gutter);
 }
 
 /* Focus ring on brand-dark surfaces: accent-warm, 7.75:1 against brand-dark. */

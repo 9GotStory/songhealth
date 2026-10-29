@@ -9,7 +9,11 @@
 // The layout is mobile-first and ships no client JavaScript. Below the `lg`
 // breakpoint the main navigation sits in a native <details> disclosure that
 // opens without JavaScript; from `lg` up it is a row in the header. Both
-// placements render the same MAIN_NAVIGATION, and CSS shows exactly one.
+// placements render the same MAIN_NAVIGATION, and CSS shows exactly one. The
+// menu button sits in the identity row, and the opened menu flows in the page
+// and pushes it down: nothing can close it from the keyboard without
+// JavaScript, so it must never cover the content focus moves on to (WCAG 2.2
+// SC 2.4.11).
 import "../styles/global.css";
 import { MAIN_NAVIGATION, UTILITY_LINKS, currentMark, type Section } from "../lib/navigation";
 import { OFFICE_NAME, getSiteIdentity } from "../lib/site-identity";
@@ -40,10 +44,16 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 		<slot name="head" />
 	</head>
 	<body class="flex min-h-dvh flex-col bg-bg-page text-body text-text-primary">
-		<header class="relative bg-surface-base">
+		<a
+			href="#main"
+			class="absolute top-2 left-4 z-30 -translate-y-[200%] rounded-14 bg-accent-warm px-4 py-3 text-label text-text-primary focus:translate-y-0"
+		>
+			ข้ามไปยังเนื้อหาหลัก
+		</a>
+		<header class="bg-surface-base">
 			<div class="focus-ring-on-dark bg-brand-dark text-small text-surface-base">
 				<div
-					class="mx-auto flex min-h-10.5 max-w-content flex-wrap items-center justify-between gap-x-6 gap-y-1 px-4 py-1.5 sm:px-6"
+					class="page-container flex min-h-10.5 flex-wrap items-center justify-between gap-x-6 gap-y-1 py-1.5"
 				>
 					<p>{OFFICE_NAME}</p>
 					<ul class="flex gap-5">
@@ -57,59 +67,61 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 					</ul>
 				</div>
 			</div>
-			<div
-				class="mx-auto flex max-w-content items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:min-h-22"
-			>
-				<a href="/" class="flex min-w-0 items-center gap-3">
-					{identity.logo ? (
-						<img
-							class="size-10 shrink-0 object-contain lg:size-12"
-							src={identity.logo.url}
-							alt=""
-							width={identity.logo.width ?? 48}
-							height={identity.logo.height ?? 48}
-						/>
-					) : (
-						<span
-							data-testid="placeholder-mark"
-							aria-hidden="true"
-							class="flex size-10 shrink-0 items-center justify-center rounded-16 bg-brand-primary text-surface-base lg:size-12"
-						>
-							<svg class="size-6 lg:size-7" viewBox="0 0 24 24" fill="currentColor">
-								<path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z" />
-							</svg>
-						</span>
-					)}
-					<span class="flex min-w-0 flex-col">
-						<span class="text-body font-semibold wrap-anywhere text-brand-dark sm:text-body-large lg:text-h3">
-							{identity.title}
-						</span>
-						{identity.tagline && (
-							<span class="text-small wrap-anywhere text-text-secondary">{identity.tagline}</span>
+			<div class="relative">
+				<div
+					class="page-container flex items-start justify-between gap-4 py-3 lg:min-h-22 lg:items-center"
+				>
+					<a href="/" class="mr-28 flex min-w-0 items-start gap-3 lg:mr-0 lg:items-center">
+						{identity.logo ? (
+							<img
+								class="size-11 shrink-0 object-contain lg:size-12"
+								src={identity.logo.url}
+								alt=""
+								width={identity.logo.width ?? 48}
+								height={identity.logo.height ?? 48}
+							/>
+						) : (
+							<span
+								data-testid="placeholder-mark"
+								aria-hidden="true"
+								class="flex size-11 shrink-0 items-center justify-center rounded-16 bg-brand-primary text-surface-base lg:size-12"
+							>
+								<svg class="size-6 lg:size-7" viewBox="0 0 24 24" fill="currentColor">
+									<path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z" />
+								</svg>
+							</span>
 						)}
-					</span>
-				</a>
-				<nav aria-label="เมนูหลัก" class="hidden shrink-0 lg:block">
-					<ul class="flex gap-6 text-label">
-						{navigation.map((item) => (
-							<li>
-								<a
-									href={item.href}
-									aria-current={item.current}
-									class:list={[
-										"block border-b-3 py-2 hover:text-brand-primary",
-										item.current ? "border-brand-primary text-brand-primary" : "border-transparent",
-									]}
-								>
-									{item.label}
-								</a>
-							</li>
-						))}
-					</ul>
-				</nav>
-				<details class="group shrink-0 lg:hidden">
+						<span class="flex min-w-0 flex-col pt-2 lg:pt-0">
+							<span class="text-body font-semibold wrap-anywhere text-brand-dark sm:text-body-large lg:text-h3">
+								{identity.title}
+							</span>
+							{identity.tagline && (
+								<span class="text-small wrap-anywhere text-text-secondary">{identity.tagline}</span>
+							)}
+						</span>
+					</a>
+					<nav aria-label="เมนูหลัก" class="hidden shrink-0 lg:block">
+						<ul class="flex gap-6 text-label">
+							{navigation.map((item) => (
+								<li>
+									<a
+										href={item.href}
+										aria-current={item.current}
+										class:list={[
+											"block border-b-3 py-2 hover:text-brand-primary",
+											item.current ? "border-brand-primary text-brand-primary" : "border-transparent",
+										]}
+									>
+										{item.label}
+									</a>
+								</li>
+							))}
+						</ul>
+					</nav>
+				</div>
+				<details class="group lg:hidden">
 					<summary
-						class="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-pill border border-border-input px-4 text-label [&::-webkit-details-marker]:hidden"
+						class="absolute top-3 right-(--page-gutter) flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-pill border border-border-input bg-surface-base px-4 text-label [&::-webkit-details-marker]:hidden"
 					>
 						<svg
 							class="size-5 group-open:hidden"
@@ -135,11 +147,8 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 						</svg>
 						<span>เมนู</span>
 					</summary>
-					<nav
-						aria-label="เมนูหลัก"
-						class="absolute inset-x-0 top-full z-20 border-y border-border-default bg-surface-base shadow-card"
-					>
-						<ul class="mx-auto max-w-content px-4 py-2 sm:px-6">
+					<nav aria-label="เมนูหลัก" class="border-t border-border-default">
+						<ul class="page-container py-2">
 							{navigation.map((item) => (
 								<li>
 									<a
@@ -165,9 +174,7 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 			<slot />
 		</main>
 		<footer class="focus-ring-on-dark bg-brand-dark text-surface-base">
-			<div
-				class="mx-auto flex max-w-content flex-col gap-6 px-4 py-12 sm:px-6 lg:flex-row lg:items-start lg:justify-between"
-			>
+			<div class="page-container flex flex-col gap-6 py-12 lg:flex-row lg:items-start lg:justify-between">
 				<div class="flex flex-col gap-1.5">
 					<p class="text-h3 wrap-anywhere">{identity.title}</p>
 					<p class="text-small">{OFFICE_NAME}</p>
