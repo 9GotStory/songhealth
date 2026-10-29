@@ -1,7 +1,8 @@
 # Coding standards
 
 Judgement calls for review. The mechanical rules are enforced by the checks that CI runs on every
-pull request: `npm run build`, `npm run typecheck`, `npm run test:node` and `npm run format:check`.
+pull request: `npm run build`, `npm run typecheck`, `npm run test:node`, `npm run format:check` and
+`npm run lint:shell`.
 
 ## Comments
 
@@ -32,3 +33,8 @@ pull request: `npm run build`, `npm run typecheck`, `npm run test:node` and `npm
   only an element with no accessible role or name, such as a decorative mark.
 - A test that changes shared runtime state (site settings, menus, plugin settings) saves it first
   and restores it in `finally`, and says what the native API cannot restore.
+- A test leaves nothing it can remove. A slug change leaves a native redirect after its entry is
+  deleted, so the test deletes that too.
+- A request for a missing page stays in EmDash's 404 log, which only clears as a whole. Such a
+  request is deliberate and uses a synthetic path. Where a native API can show the outcome first
+  (a redirect list, an entry read), the test asks it before requesting the page.

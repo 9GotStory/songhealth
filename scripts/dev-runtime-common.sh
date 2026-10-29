@@ -46,6 +46,7 @@ ROLE_SQL="SELECT concat_ws('|', r.rolcanlogin, r.rolsuper, r.rolcreatedb, r.rolc
   FROM pg_roles r, pg_database d WHERE r.rolname = 'songhealth_qdev_app' AND d.datname = 'songhealth_qdev'"
 ROLE_OK='t|f|f|f|songhealth_qdev_app'
 MODEL_PENDING=3                                   # model_update --check: changes are pending
+ADMIN_QUIET_MINUTES=10                            # a promotion waits this long after an Admin page load
 
 die()  { printf '%s: FAIL: %s\n' "${0##*/}" "$*" >&2; exit 1; }
 note() { printf '%s: %s\n' "${0##*/}" "$*"; }
@@ -72,6 +73,10 @@ backup_runtime() { # database and media into a new $STATE_DIR/backups/<UTC> dire
   install -d -m 0700 -- "$STATE_DIR/backups" "$BACKUP_DIR"
   "$SRC/scripts/dev-runtime-backup.sh" "$BACKUP_DIR" || die "backup failed: nothing was changed"
   note "backup written to $BACKUP_DIR"
+}
+admin_page_loads() { # the Admin pages opened in the last ADMIN_QUIET_MINUTES; verify's probe left out
+  podman logs --since "${ADMIN_QUIET_MINUTES}m" "$APP_CTR" 2>&1 \
+    | grep -aE '\] /_emdash/admin/' | grep -avE '\] /_emdash/admin/(login)? [0-9]' || :
 }
 model_update() { # model_update [--check] — the promoted commit's scripts/model-update.mjs, run in the
   # app container on its pinned Node, with the development PAT on stdin

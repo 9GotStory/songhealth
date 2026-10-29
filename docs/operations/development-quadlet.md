@@ -126,6 +126,13 @@ the real state first and only adds what is missing:
 
     It holds (exit 3, nothing run) unless verify passes and the runtime source equals that
     checkout's HEAD.
+  - **Residue.** At the end of a task run, `scripts/dev-runtime-residue.sh` counts what the tests
+    left behind: synthetic entries (live or in trash), media, terms, bylines and redirects. It
+    exits 1 while any remain.
+  - **The 404 log.** EmDash logs every miss, including the tests' deliberate requests for
+    missing pages. That log can only be cleared as a whole, so its synthetic misses stay until
+    one clear just before the Product Owner's review (Feature 003 handoff, #67). Residue
+    reports them and does not fail on them.
 - **Source edits.** Make them in the workspace and promote them. The runtime checkout is never
   edited in place: the app refuses to start when its HEAD is not the promoted commit, and
   verify fails on a dirty tree.
@@ -133,15 +140,22 @@ the real state first and only adds what is missing:
 ## Promote a new commit
 
 ```bash
-~/dev/songhealth-quadlet/scripts/dev-runtime-update.sh --sha <commit>   # [--no-backup]
+~/dev/songhealth-quadlet/scripts/dev-runtime-update.sh --sha <commit>   # [--no-backup] [--force]
 ```
 
 The update runs these steps:
 
-1. Backs up the database and media to `~/.local/state/songhealth-qdev/backups/<UTC>/`.
-2. Stops the app.
-3. Moves the checkout to the commit and records it.
-4. Hands over to that commit's installer. The installer runs `npm ci` only if the lockfile
+1. Refuses when an Admin page was opened in the last 10 minutes, and lists those page loads. The
+   restart in steps 3–5 would cut off someone editing in the Admin, and the Product Owner uses
+   this Admin. Verify's own probe of the Admin does not count.
+   - After an Admin UI test run of your own, wait or pass `--force`.
+   - The guard sees page loads only. The Admin routes its screens in the browser
+     (`@tanstack/react-router`), so an editor who opened it earlier and kept working passes
+     unseen.
+2. Backs up the database and media to `~/.local/state/songhealth-qdev/backups/<UTC>/`.
+3. Stops the app.
+4. Moves the checkout to the commit and records it.
+5. Hands over to that commit's installer. The installer runs `npm ci` only if the lockfile
    changed, refreshes changed units, starts the app and runs verify.
 
 Keep the backup whenever the commit can change data: a new `package-lock.json` (an EmDash upgrade

@@ -14,7 +14,6 @@ scripts/verify-restored-foundation.mjs
 tests/node/config.test.ts
 tests/node/foundation.test.ts
 tests/browser/foundation.spec.ts
-tests/browser/cms.helpers.ts
 tests/browser/cms-authoring.spec.ts
 tests/browser/cms-document.spec.ts
 tests/browser/cms-editor.spec.ts

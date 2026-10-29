@@ -19,6 +19,7 @@
     "test:node": "node --test 'tests/node/*.test.ts'",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "lint:shell": "./scripts/lint-shell.sh",
     "test:browser": "playwright test",
     "verify:startup": "./tests/operations/verify-startup.sh"
   },

@@ -1,186 +1,43 @@
-// T002 — bounded native request/fixture helpers for the Feature 002 focused
-// CMS checks. Test support in tests/browser/ only: no application, schema,
-// seed, dependency, infrastructure, or production change is made here.
-// Corrective round 1 (reviewer findings 1–6) hardened: the bootstrap
-// credential path, role-restoration failure coverage, media-deduplication
-// ownership safety, cleanup resilience/retention, embedded-secret redaction,
-// and the configured-origin request boundary. Corrective round 2 (findings
-// 1–3) further hardened: trash-aware cleanup reconciliation through the
-// native trash listing (an ordinary content GET 404 is not proof of
-// permanent deletion), known-secret scrubbing of response-body read
-// failures, and same-application binding for administrative executors and
-// role orchestrators. Corrective round 3 (findings 1–2) further hardened:
-// callback failures are tracked by occurrence (a rejection with undefined
-// is still a failure) and surface only as scrubbed CmsHelperError
-// renderings — never the raw cause object — and combine with restore
-// failures under known-secret scrubbing; trash-listing traversal validates
-// the native success/list/pagination shape and treats malformed pages and
-// stalled or cyclic cursors as unknown, never as proven absence; the
-// one-time Product Owner-authorized corrective round 4 narrowed terminal
-// validity to the native contract: only an actually absent (or explicitly
-// empty) terminal cursor proves exhaustion, and any other supplied cursor
-// value type is unknown. No behavior beyond the authorized T002 scope.
+// Native request and fixture helpers for the browser suites (Feature 002 T002; every Feature 002
+// and 003 suite builds on them).
 //
-// Authority:
-// - specs/002-cms-content-model/tasks.md T002 ("Add bounded native
-//   request/fixture helpers in tests/browser/cms.helpers.ts for the configured
-//   existing development app, dev-bypass access, distinct native roles, public
-//   synthetic media/records, fresh IDs/`_rev`, secret-redacted results and
-//   owned-fixture cleanup; use existing tooling, with no production
-//   authentication, permission or reference-management abstraction") and the
-//   shared "Path Conventions and Shared Constraints" section (dev-bypass,
-//   distinct native role credentials, returned IDs/current `_rev`, re-read
-//   uncertain outcomes, clean only owned synthetic fixtures)
-// - specs/002-cms-content-model/contracts/native-editorial.md — "Native
-//   Request Shapes" table, `_rev` preconditions, truthful native outcomes,
-//   revisions/lifecycle boundaries
-// - specs/002-cms-content-model/contracts/public-read.md — published-only
-//   visibility boundary these synthetic fixtures eventually exercise
-// - specs/002-cms-content-model/quickstart.md — Prerequisites (single README
-//   environment, dev-bypass, distinct Contributor/Author/Editor/Administrator
-//   fixtures via supported native operations, mode-0600 credential scratch,
-//   synthetic public-publishable data, no invented official inventories)
-// - README.md §7 (development-only POST /_emdash/api/setup/dev-bypass?token=1;
-//   token is secret-bearing; passkey login is never automated)
-// - specs/002-cms-content-model/evidence/T001-development-inputs.md — the
-//   existing fixed-name development instance, preserved data, and the
-//   truthfully-pending distinct-role fixture input (§6) these helpers consume
-//   without inventing
+// What they provide:
+// - actors: the development Administrator from its 0600 PAT file (loadDevAccessToken and
+//   createPatActor) and distinct role accounts (withNativeRole), each verified through
+//   /_emdash/api/auth/me. An Administrator token never stands in for another role
+//   (assertDistinctActors).
+// - cmsRequest, the one request core. It reaches only the configured origin's /_emdash/ API,
+//   refuses redirects, and returns native refusals as results instead of throwing them.
+// - synthetic entries and media marked with SYNTHETIC_FIXTURE_MARK, lifecycle calls with a fresh
+//   `_rev`, and cleanupOwnedFixtures, which removes only what these helpers registered as owned.
+// - secret handling: every reported result and message is scrubbed of credentials, and
+//   credential files load only at mode 0600.
 //
-// Verified API surface (recorded per CLAUDE.md §Current documentation):
-// Context7 /websites/emdashcms (docs.emdashcms.com REST API, roles and
-// permissions) first for unversioned capability orientation; every
-// release-sensitive claim below is controlled by the pinned `emdash@1.1.0`
-// archive (npm tarball sha512-VXo1fIMr44PEiE1A9Z5aFWvjsqhdLDHqat2iPkFYoam2kYV6h+2LGkEDovkXdLmmWWDY9w7ekP0CP6ziYMFhg==,
-// byte-equal to package-lock.json, the same integrity research.md §Evidence
-// independently verified), inspected at:
-// - envelope: `{ success: true, data }` / `{ success: false, error: { code,
-//   message, details? } }` (src/api/error.ts apiSuccess/apiError)
-// - POST /_emdash/api/setup/dev-bypass?token=1 — development builds only
-//   (production answers 403 "FORBIDDEN"); finds/creates the fixed dev
-//   Administrator account dev@emdash.local (role 50), applies the committed
-//   seed with onConflict "skip", and with ?token=1 mints the raw
-//   "dev-bypass-token" PAT (scopes content:read/write, media:read/write,
-//   schema:read/write, admin) that appears only in that response
-//   (src/astro/routes/api/setup/dev-bypass.ts)
-// - Authorization: Bearer <PAT>; the middleware resolves the token's owning
-//   user record on EVERY request, so a token's effective role and disabled
-//   state track the user's current database state
-//   (src/astro/middleware/auth.ts handleBearerAuth)
-// - native role levels Subscriber 10 / Contributor 20 / Author 30 /
-//   Editor 40 / Admin 50 (docs.emdashcms.com "User roles"; source
-//   ROLE_ADMIN = 50)
-// - GET/PUT /_emdash/api/admin/users[/{id}] — Administrator-only;
-//   userUpdateBody { name?, email?, role? } with numeric roleLevel; PUT
-//   refuses changing the caller's own role (SELF_ROLE_CHANGE) and demoting
-//   the last administrator (LAST_ADMIN) (src/astro/routes/api/admin/users/
-//   [id]/index.ts) — these native guards are why distinct-role fixture
-//   support below is a two-account operation by design, never a self
-//   role-switch; users are created only by the platform's authentication
-//   flows (no REST user creation exists in 1.1.0)
-// - POST/GET/DELETE /_emdash/api/admin/api-tokens — mint/list/revoke PATs
-//   for the CALLING administrator only (no userId parameter)
-// - GET /_emdash/api/auth/me → data { id, email, name, role, ... }
-// - POST /_emdash/api/content/{collection} { data, slug?, status? "draft",
-//   taxonomies?, references? } — authorId is set to the caller; 201 with the
-//   created item; the native API create status is draft-only
-//   (src/astro/routes/api/content/[collection]/index.ts,
-//   src/api/schemas/content.ts contentCreateBody)
-// - GET /_emdash/api/content/{collection}/{id} → data { item, _rev }
-// - PUT  …/{id} { data?, references?, taxonomies?, slug?, _rev?,
-//   overrideLock? } (body required)
-// - POST …/{id}/publish   { publishedAt?, _rev?, overrideLock? } (optional
-//   body; publishedAt additionally needs content:publish_any)
-// - POST …/{id}/schedule  { scheduledAt, _rev?, overrideLock? } (body
-//   required; ISO 8601 with Z or an explicit offset);
-//   DELETE …/{id}/schedule unschedules
-// - POST …/{id}/unpublish { _rev?, overrideLock? } (optional body)
-// - DELETE …/{id} trash (content:delete_own/any; overrideLock rides the
-//   query string), POST …/{id}/restore (no body),
-//   DELETE …/{id}/permanent (content:delete_permanent — Administrator-only,
-//   trash-first; no body)
-// - GET …/{collection}/trash — native trash listing (content:read_drafts;
-//   cursor pagination `cursor?`/`limit?` 1-100 default 50; response
-//   data { items: [{ id, … }], nextCursor? })
-//   (src/astro/routes/api/content/[collection]/trash.ts;
-//   src/api/handlers/content.ts handleContentListTrashed). CRITICAL for
-//   cleanup reconciliation: the ORDINARY content GET excludes soft-deleted
-//   entries (src/database/repositories/content.ts findByIdOrSlug →
-//   _findByIdOrSlug includeTrashed=false), so an ordinary 404 is NOT proof
-//   of permanent deletion — an entry sitting in Trash 404s there while the
-//   trash listing still shows it. Cleanup therefore reconciles uncertain
-//   outcomes through the trash listing first (corrective round 2, finding 1)
-// - POST /_emdash/api/media — multipart form field "file" (+ optional
-//   deduplicate/ensureUniqueFilename/folderId/fieldId/width/height/thumbnail),
-//   media:upload permission, response data { item: { id, ... } }.
-//   CRITICAL for fixture ownership: the pinned 1.1.0 upload form parses
-//   `deduplicate` with .default("true") (api/schemas/media.ts
-//   mediaUploadDeduplicateForm), so an OMITTED flag makes an existing
-//   content hash return the PRE-EXISTING item as { item, deduplicated: true }
-//   (src/astro/routes/api/media.ts ~:217) — these helpers therefore send an
-//   explicit deduplicate=false (every upload is a fresh owned fixture) and
-//   would never register a deduplicated id as owned, so cleanup can never
-//   delete an asset it did not create (T013 runtime observation: the
-//   deterministic fixture bytes deduplicate onto the first upload otherwise)
-// - GET/PUT/DELETE /_emdash/api/media/{id} — media:read;
-//   media:edit_own + ownership (editors+ any); media:delete_own + ownership
-//   (editors+ any)
+// Platform behaviour relied on (emdash 1.1.0):
+// - Responses are `{ success: true, data }` or `{ success: false, error: { code, message } }`
+//   (src/api/error.ts).
+// - A Bearer PAT resolves its user on every request, so a role change applies at once
+//   (src/astro/middleware/auth.ts handleBearerAuth). Role levels: Subscriber 10, Contributor 20,
+//   Author 30, Editor 40, Administrator 50.
+// - Users change only through GET and PUT /_emdash/api/admin/users/{id}, which refuses a change
+//   of the caller's own role and the demotion of the last administrator. Role phases therefore
+//   need a second account; REST cannot create users.
+// - Content (src/api/schemas/content.ts): POST /_emdash/api/content/{collection} creates a draft
+//   owned by the caller. PUT, …/publish, …/schedule (ISO 8601 with Z or an offset), …/unpublish,
+//   DELETE (to trash), …/restore and …/permanent (Administrator, trash first) take `_rev` and
+//   `overrideLock`.
+// - The ordinary content read hides trashed entries, so its 404 does not prove deletion. Cleanup
+//   reads the trash listing (…/{collection}/trash, cursor pagination) before it reports an
+//   outcome (src/database/repositories/content.ts findByIdOrSlug).
+// - A media upload returns an existing asset with the same content unless `deduplicate=false` is
+//   sent (src/api/schemas/media.ts). These helpers always send it, so cleanup never deletes an
+//   asset it did not create.
+// - setup/dev-bypass applies the seed and, with ?token=1, rotates the development PAT
+//   (src/astro/routes/api/setup/dev-bypass.ts). createDevBypassActor wraps it for a fresh
+//   install only; no suite calls it.
 //
-// Boundaries (tasks.md shared constraints; Constitution v3.0.0 II–V):
-// - development-only access: dev-bypass is used exactly as README §7
-//   documents it; no production Passkey automation, no custom authentication
-// - request boundary (corrective finding 6): every helper request is
-//   confined to the configured origin's /_emdash/ native API — absolute,
-//   protocol-relative, non-/_emdash/, and dot-escaping paths are rejected
-//   before any transport (so no credential-bearing request can leave the
-//   configured app), and redirects are refused rather than followed. This is
-//   the bounded T002 request boundary, not a new authentication layer
-// - no RBAC/impersonation abstraction: role fixtures use only the supported
-//   native account/role operations above. An Administrator token is never
-//   presented as coverage of another role — assertDistinctActors refuses the
-//   shortcut and every role phase is verified live through /auth/me. Where
-//   the environment lacks a second PAT-owning account (T001 §6 records that
-//   standing truthfully), the calling tests must report the gap; these
-//   helpers do not manufacture identities. A role mutation is reconciled on
-//   every exit path: uncertain switch responses are re-read, and the
-//   original role is restored and verified even when the identity check or
-//   the callback fails (corrective finding 2)
-// - no reference-management abstraction: `references`/`taxonomies` maps are
-//   passed through in EmDash's native request shapes untouched
-// - no schema operations and no synthetic official inventories: these
-//   helpers only create/read/lifecycle content and clearly-marked synthetic
-//   public-publishable media; Feature 002 schema/taxonomy work belongs to
-//   its owning tasks
-// - secrets (corrective findings 1/5): the dev-bypass PAT travels from the
-//   native bootstrap response into the actor's private in-memory field
-//   through an internal unredacted path that never appears in any returned
-//   result; every externally reportable result, error message, non-JSON
-//   body, and transport-failure message is scrubbed of embedded credential
-//   strings (ec_pat_/ec_oat_ and "Bearer <token>" anywhere in a string) and
-//   of the request's own supplied credential. CmsActor serializes to a
-//   secret-free view; credential scratch loads fail closed below mode 0600
-// - cleanup (corrective findings 3/4) is restricted to fixture IDs these
-//   helpers themselves registered as owned (WeakMap registry). It never
-//   throws past a failed step: each fixture is attempted independently,
-//   uncertain/already-trashed outcomes are reconciled by re-reading state,
-//   unresolved IDs REMAIN registered so a later cleanup can retry them, and
-//   only proven-resolved IDs are dropped. A separate administrator actor may
-//   supply the deletion authority while the owning actor's registry still
-//   defines what may be touched. Volumes, real media, pre-existing data, and
-//   anything unregistered are never touched
-// - truthful outcomes: native validation/permission/conflict/uncertain
-//   results are returned as { ok, status, body } results, never converted
-//   into exceptions or false success; only helper preconditions (transport
-//   failures, missing identity fields, failed precondition reads) throw
-//   CmsHelperError with secret-free messages, and uncertain lifecycle
-//   actions are re-read (currentRev) before any retry-oriented use
-//
-// These helpers perform no verification by themselves and claim nothing as
-// PASS. They are consumed by the T003/T007/T019/T020/T021 spec files against
-// the externally configured running development application
-// (playwright.config.ts contract: PLAYWRIGHT_BASE_URL or the documented
-// http://localhost:4321 origin). Runtime prerequisites the environment does
-// not provide (per T001 §3–§7) remain the calling tests' truthful skips.
+// Cleanup never throws past a failed step. Each owned fixture is attempted on its own, an
+// uncertain outcome is read again, and an unresolved fixture stays registered for a later retry.
 
 // ---------------------------------------------------------------------------
 // Constants and small shared types
@@ -408,14 +265,20 @@ export async function loadDevAccessToken(path?: string): Promise<string> {
 	try {
 		parsed = JSON.parse(text);
 	} catch {
-		throw new CmsHelperError("DEV_ACCESS_INVALID", `${resolved} is neither one bare ec_pat_ token nor valid JSON`);
+		throw new CmsHelperError(
+			"DEV_ACCESS_INVALID",
+			`${resolved} is neither one bare ec_pat_ token nor valid JSON`,
+		);
 	}
 	const token =
 		parsed !== null && typeof parsed === "object"
 			? (parsed as Record<string, unknown>).token
 			: undefined;
 	if (typeof token !== "string" || token.trim().length === 0) {
-		throw new CmsHelperError("DEV_ACCESS_INVALID", `${resolved} carries no non-empty string token field`);
+		throw new CmsHelperError(
+			"DEV_ACCESS_INVALID",
+			`${resolved} carries no non-empty string token field`,
+		);
 	}
 	return token;
 }
@@ -510,9 +373,7 @@ function requireString(value: unknown, what: string): string {
 
 /** Narrow an unknown native value to a plain record (empty when not one). */
 function recordOf(value: unknown): Record<string, unknown> {
-	return value !== null && typeof value === "object"
-		? (value as Record<string, unknown>)
-		: {};
+	return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
 /**
@@ -811,7 +672,7 @@ export async function createDevBypassActor(options: DevBypassOptions = {}): Prom
 	// credential; nothing below returns it.
 	const rawData =
 		raw.rawBody !== null && typeof raw.rawBody === "object"
-			? ((raw.rawBody as Record<string, unknown>).data ?? {}) as Record<string, unknown>
+			? (((raw.rawBody as Record<string, unknown>).data ?? {}) as Record<string, unknown>)
 			: {};
 	const token = requireString(rawData.token, "the minted PAT (only present with ?token=1)");
 	const user = recordOf(rawData.user);
@@ -889,10 +750,7 @@ export async function createPatActor(options: PatActorOptions): Promise<CmsActor
 		},
 		options.token.trim(),
 	);
-	if (
-		options.expected?.userId !== undefined &&
-		options.expected.userId !== verified.userId
-	) {
+	if (options.expected?.userId !== undefined && options.expected.userId !== verified.userId) {
 		throw new CmsHelperError(
 			"IDENTITY_MISMATCH",
 			`the supplied credential belongs to user ${verified.userId}, not the expected ${options.expected.userId}`,
@@ -959,7 +817,10 @@ export interface ListUsersOptions {
 }
 
 /** GET /_emdash/api/admin/users — Administrator-only user listing. */
-export async function listUsers(admin: CmsActor, options: ListUsersOptions = {}): Promise<NativeResult> {
+export async function listUsers(
+	admin: CmsActor,
+	options: ListUsersOptions = {},
+): Promise<NativeResult> {
 	const searchParams: Record<string, string> = {};
 	if (options.search !== undefined) searchParams.search = options.search;
 	if (options.role !== undefined) searchParams.role = options.role;
@@ -1083,7 +944,12 @@ export async function withNativeRole<T>(
 			const afterLive = await getMe(actor);
 			const adminRole = userRoleOf(afterAdmin);
 			const liveRole = nativeDataOf(afterLive)?.role;
-			if (!afterAdmin.ok || adminRole !== originalRole || !afterLive.ok || liveRole !== originalRole) {
+			if (
+				!afterAdmin.ok ||
+				adminRole !== originalRole ||
+				!afterLive.ok ||
+				liveRole !== originalRole
+			) {
 				return new CmsHelperError(
 					"ROLE_RESTORE_UNVERIFIED",
 					`restoration of ${nativeRoleName(originalRole)} for account ${actor.userId} was requested but not verified (${roleStateText(adminRole, afterLive.ok ? liveRole : nativeRefusalOf(afterLive))})`,
@@ -1261,13 +1127,9 @@ export async function uploadSyntheticMedia(
 	options: { filename?: string } = {},
 ): Promise<SyntheticMediaResult> {
 	const filename =
-		options.filename ??
-		`${SYNTHETIC_SLUG_PREFIX}media-${crypto.randomUUID().slice(0, 8)}.png`;
+		options.filename ?? `${SYNTHETIC_SLUG_PREFIX}media-${crypto.randomUUID().slice(0, 8)}.png`;
 	const form = new FormData();
-	form.append(
-		"file",
-		new File([syntheticMediaPng()], filename, { type: "image/png" }),
-	);
+	form.append("file", new File([syntheticMediaPng()], filename, { type: "image/png" }));
 	// The pinned 1.1.0 upload form parses `deduplicate` with
 	// .default("true") (api/schemas/media.ts mediaUploadDeduplicateForm),
 	// so silence is NOT an opt-out — the explicit "false" is required for
@@ -1326,8 +1188,13 @@ export interface SyntheticEntryResult {
 	rev?: string;
 }
 
-function syntheticSlug(): string {
-	return `${SYNTHETIC_SLUG_PREFIX}${crypto.randomUUID().slice(0, 13)}`;
+/**
+ * A unique synthetic slug. A label names the fixture's role in the slug, so a failure says which
+ * fixture it was.
+ */
+export function syntheticSlug(label?: string): string {
+	const role = label === undefined ? "" : `${label}-`;
+	return `${SYNTHETIC_SLUG_PREFIX}${role}${crypto.randomUUID().slice(0, 13)}`;
 }
 
 /**
@@ -1342,19 +1209,15 @@ export async function createSyntheticEntry(
 	collection: string,
 	input: SyntheticEntryInput,
 ): Promise<SyntheticEntryResult> {
-	const result = await cmsRequest(
-		actor,
-		`/_emdash/api/content/${encodeURIComponent(collection)}`,
-		{
-			method: "POST",
-			body: {
-				data: input.data,
-				slug: input.slug ?? syntheticSlug(),
-				...(input.references !== undefined ? { references: input.references } : {}),
-				...(input.taxonomies !== undefined ? { taxonomies: input.taxonomies } : {}),
-			},
+	const result = await cmsRequest(actor, `/_emdash/api/content/${encodeURIComponent(collection)}`, {
+		method: "POST",
+		body: {
+			data: input.data,
+			slug: input.slug ?? syntheticSlug(),
+			...(input.references !== undefined ? { references: input.references } : {}),
+			...(input.taxonomies !== undefined ? { taxonomies: input.taxonomies } : {}),
 		},
-	);
+	});
 	const entryId = nativeItemOf(result)?.id;
 	const rev = nativeRevOf(result);
 	if (result.ok && typeof entryId === "string") {
@@ -1388,11 +1251,7 @@ export async function readEntry(
  * reusing a stale token. Tests that want the refusal itself should use
  * readEntry and handle the result.
  */
-export async function currentRev(
-	actor: CmsActor,
-	collection: string,
-	id: string,
-): Promise<string> {
+export async function currentRev(actor: CmsActor, collection: string, id: string): Promise<string> {
 	const read = await readEntry(actor, collection, id);
 	const rev = nativeRevOf(read);
 	if (!read.ok || rev === undefined) {
@@ -1443,9 +1302,7 @@ export async function updateEntry(
 			method: "PUT",
 			body: {
 				_rev: rev,
-				...(payload.overrideLock !== undefined
-					? { overrideLock: payload.overrideLock }
-					: {}),
+				...(payload.overrideLock !== undefined ? { overrideLock: payload.overrideLock } : {}),
 				...(payload.data !== undefined ? { data: payload.data } : {}),
 				...(payload.references !== undefined ? { references: payload.references } : {}),
 				...(payload.taxonomies !== undefined ? { taxonomies: payload.taxonomies } : {}),
@@ -1549,9 +1406,7 @@ export async function trashEntry(
 		`/_emdash/api/content/${encodeURIComponent(collection)}/${encodeURIComponent(id)}`,
 		{
 			method: "DELETE",
-			...(options.overrideLock === true
-				? { searchParams: { overrideLock: "true" } }
-				: {}),
+			...(options.overrideLock === true ? { searchParams: { overrideLock: "true" } } : {}),
 		},
 	);
 }
@@ -1834,7 +1689,8 @@ export async function cleanupOwnedFixtures(
 				entryReport.permanentlyDeleted = true;
 				entryReport.note = "already absent (not in the native trash listing; ordinary read 404)";
 			} else if (presence === "live") {
-				entryReport.note = "still a live entry; the native trash-first path must succeed before purge";
+				entryReport.note =
+					"still a live entry; the native trash-first path must succeed before purge";
 			}
 			// "unknown" keeps the observed refusal and stays unresolved.
 		}
@@ -1858,7 +1714,8 @@ export async function cleanupOwnedFixtures(
 				}
 			}
 		}
-		entryReport.resolved = absent || (permanent ? entryReport.permanentlyDeleted : entryReport.trashed);
+		entryReport.resolved =
+			absent || (permanent ? entryReport.permanentlyDeleted : entryReport.trashed);
 		if (entryReport.resolved) {
 			resolvedEntryIds.add(entry.id);
 		} else {
@@ -1923,10 +1780,7 @@ export const ADMIN_SESSION_ENV = "SONGHEALTH_ADMIN_SESSION";
 export interface SessionContext {
 	request: {
 		get(url: string): Promise<{ status(): number; json(): Promise<unknown> }>;
-		post(
-			url: string,
-			options: { headers: Record<string, string> },
-		): Promise<{ status(): number }>;
+		post(url: string, options: { headers: Record<string, string> }): Promise<{ status(): number }>;
 	};
 }
 
@@ -1951,8 +1805,7 @@ export async function devAdminSessionRequested(): Promise<boolean> {
 export async function openDevAdminSession(context: SessionContext): Promise<void> {
 	const response = await context.request.get("/_emdash/api/auth/dev-bypass");
 	const body = (await response.json().catch(() => undefined)) as
-		| { data?: { user?: { email?: unknown; role?: unknown } } }
-		| undefined;
+		{ data?: { user?: { email?: unknown; role?: unknown } } } | undefined;
 	const user = body?.data?.user;
 	if (response.status() !== 200 || user?.email !== "dev@emdash.local" || user?.role !== 50) {
 		throw new CmsHelperError(

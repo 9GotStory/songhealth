@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Songhealth development database — least-privilege application role (Feature 002 T036).
 # Sourced (mode 0644) by the official postgres image entrypoint from
 # /docker-entrypoint-initdb.d during the FIRST cluster initialization only, against its

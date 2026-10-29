@@ -28,6 +28,7 @@ import {
 	NATIVE_ROLES,
 	publishEntry,
 	SYNTHETIC_FIXTURE_MARK,
+	syntheticSlug,
 	updateEntry,
 	uploadSyntheticMedia,
 	type CmsActor,
@@ -37,11 +38,6 @@ let admin: CmsActor;
 let origin: string;
 /** Old slugs of entries whose slug a test changed: their redirects are removed at the end. */
 const movedSlugs: string[] = [];
-
-/** A unique synthetic slug that names the fixture's role, so a failure says which one. */
-function syntheticSlug(label: string): string {
-	return `${SYNTHETIC_FIXTURE_MARK}-${label}-${crypto.randomUUID().slice(0, 8)}`;
-}
 
 /** The `03` §15 address of an entry. */
 function addressOf(collection: string, slug: string): string {
