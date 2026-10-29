@@ -15,7 +15,7 @@
     "dev-db:start": "./scripts/dev-db.sh start",
     "dev-db:stop": "./scripts/dev-db.sh stop",
     "dev-db:status": "./scripts/dev-db.sh status",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && node scripts/check-astro.mjs",
     "test:node": "node --test 'tests/node/*.test.ts'",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -35,6 +35,7 @@
     "tailwindcss": "4.3.3"
   },
   "devDependencies": {
+    "@astrojs/check": "0.9.10",
     "@axe-core/playwright": "4.14.0",
     "@playwright/test": "1.63.0",
     "@types/react": "19.2.18",
