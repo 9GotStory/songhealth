@@ -1,0 +1,12 @@
+PASS: dev-bypass login -> session user dev@emdash.local 50
+PASS: media upload accepted (id 01M61PV5Q55QGV742TCR4Y9X25)
+PASS: media volume holds the uploaded file (1 file(s) besides the marker)
+PASS: database + app restarted
+PASS: uploaded media still served after restart (/_emdash/api/media/file/01M61PV5PMVYAHKZ01R6MPTGJ1.png)
+PASS: PAT still authenticates after restart (data persisted)
+PASS: dev server picked up a new page without restart (file watching works)
+PASS: probe page removed again (404)
+PASS: synthetic media fixture deleted
+INFO: songhealth-qdev-app mem=513.2MB / 16.63GB cpu=56.48%
+INFO: songhealth-qdev-db mem=33.37MB / 16.63GB cpu=1.99%
+ACCEPTANCE: PASS

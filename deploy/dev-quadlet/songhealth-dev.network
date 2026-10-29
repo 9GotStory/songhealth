@@ -1,0 +1,7 @@
+# Songhealth development network (UID-1000 rootless Quadlet runtime; Feature 002 T036).
+# Private bridge shared by the development app and database only; the database publishes
+# no host port. The name is disjoint from production (songhealth) and from the retired
+# UID-1001 runtime. Contract: docs/operations/development-quadlet.md.
+[Network]
+NetworkName=songhealth-qdev
+Label=io.songhealth.runtime=qdev

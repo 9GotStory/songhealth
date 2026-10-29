@@ -1,0 +1,59 @@
+dev-runtime-install.sh: cloning the runtime source checkout into /home/thanakorn/dev/songhealth-quadlet
+dev-runtime-install.sh: runtime source: /home/thanakorn/dev/songhealth-quadlet @ a52d02d7a1d38b9fde7b03feb085a36635a0a4c2
+dev-runtime-install.sh: continuing with the installer of the promoted commit
+dev-runtime-install.sh: runtime source: /home/thanakorn/dev/songhealth-quadlet @ a52d02d7a1d38b9fde7b03feb085a36635a0a4c2
+dev-runtime-install.sh: pulling docker.io/library/node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+dev-runtime-install.sh: installing pinned dependencies (npm 12.2.0 ci) in a temporary container
+
+removed 8 packages, and changed 76 packages in 5s
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+npm warn deprecated @oslojs/jwt@0.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated @oslojs/webauthn@1.0.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated @oslojs/asn1@1.0.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated @oslojs/cbor@1.0.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated @oslojs/binary@1.0.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated @oslojs/crypto@1.0.1: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated arctic@3.7.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated @oslojs/crypto@1.0.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+added 599 packages in 16s
+npm warn install-scripts 1 package had install scripts blocked because they are not covered by allowScripts:
+npm warn install-scripts   esbuild@0.28.2 (postinstall: node install.js)
+npm warn install-scripts
+npm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.
+npm notice
+npm notice New patch version of npm available! 12.2.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+dev-runtime-install.sh: secrets: created (4 podman secrets)
+dev-runtime-install.sh: volume songhealth-qdev-db-data: created
+dev-runtime-install.sh: volume songhealth-qdev-media: created
+dev-runtime-install.sh: units installed or updated: songhealth-dev.network songhealth-dev-db-data.volume songhealth-dev-media.volume songhealth-dev-db.container songhealth-dev-app.container
+dev-runtime-install.sh: starting songhealth-dev-db.service (first start: initializing the database cluster)
+dev-runtime-install.sh: database: ready (least-privilege role songhealth_qdev_app owns songhealth_qdev)
+dev-runtime-install.sh: starting songhealth-dev-app.service (the first start compiles and applies EmDash migrations: allow a few minutes)
+dev-runtime-install.sh: EmDash setup: running the native dev-bypass once (Feature 002 seed, dev admin, test PAT)
+dev-runtime-install.sh: EmDash setup: complete; development PAT saved to /home/thanakorn/.local/state/songhealth-qdev/dev-pat (mode 0600)
+PASS: songhealth-dev-db.service active
+PASS: songhealth-dev-app.service active
+PASS: database container healthy
+PASS: application container healthy
+PASS: published only on 127.0.0.1:4324 (database has no host port)
+PASS: public SSR marker served at http://127.0.0.1:4324/
+PASS: native Admin UI reachable at http://127.0.0.1:4324/_emdash/admin/
+PASS: EmDash setup complete
+PASS: native migrations: none pending or unknown (emdash migrate --check)
+PASS: least-privilege app role owns songhealth_qdev
+PASS: runtime source is the promoted commit, clean
+PASS: EmDash accepted EMDASH_ENCRYPTION_KEY
+PASS: development PAT (mode 0600) authenticates
+runtime source: /home/thanakorn/dev/songhealth-quadlet @ a52d02d7a1d38b9fde7b03feb085a36635a0a4c2
+VERIFY: PASS
+
+Songhealth development runtime is ready: http://127.0.0.1:4324/
+  Admin (dev-bypass login): http://127.0.0.1:4324/_emdash/api/auth/dev-bypass?redirect=/_emdash/admin
+  Development PAT (0600):   /home/thanakorn/.local/state/songhealth-qdev/dev-pat
+  Logs:                     journalctl --user -u songhealth-dev-app.service -f
+  Promote a new commit:     scripts/dev-runtime-update.sh --sha <commit>
+exit=0

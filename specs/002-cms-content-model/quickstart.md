@@ -10,7 +10,17 @@ and [public-read contract](contracts/public-read.md).
 
 ## Prerequisites and Environment
 
-Use the single persistent development runtime documented in the [README](../../README.md):
+**Development runtime replacement (2026-10-28, T036):** the single development runtime is now
+the UID-1000 rootless Podman + systemd Quadlet runtime at `http://127.0.0.1:4324/` described in
+the [README](../../README.md) and
+[docs/operations/development-quadlet.md](../../docs/operations/development-quadlet.md). Its
+read-only check is `scripts/dev-runtime-verify.sh`, and programmatic Admin/API calls use its
+development PAT `~/.local/state/songhealth-qdev/dev-pat` (mode 0600). The UID-1001 runtime,
+controller and auth-file loader described below are retired as development and test targets
+(left untouched pending deletion); the remaining wording of this quickstart is reconciled with
+the delivered runtime by T034.
+
+Earlier wording (retired runtime): use the single persistent development runtime documented in the [README](../../README.md):
 the single Fedora environment, account `multica-agent` (UID 1001), rootless Podman +
 Podman Compose; containers `songhealth-dev-app` (Astro 7.3.5 SSR + EmDash 1.1.0 on the pinned
 Node 24.21.0/npm 12.2.0 tooling image) and `songhealth-dev-postgres` (PostgreSQL 18.6);
@@ -78,7 +88,7 @@ or taxonomies do **not** cause a Songhealth publish/schedule rejection.
 Prepare private `.tmp/feature002/curl-auth.cfg` with the development token, and payload files
 `.tmp/feature002/report-missing-reference.json` and `report-with-reference.json` using the examples
 above and actual fixture IDs. The auth file must be ignored/mode-0600; never include it in evidence.
-Export `EMDASH_SITE_URL=http://127.0.0.1:4322` (the shared runtime's development origin) for the
+Export `EMDASH_SITE_URL=http://127.0.0.1:4324` (the development runtime's origin) for the
 examples below, then send each payload to the existing endpoint:
 
 ```bash
@@ -160,7 +170,7 @@ silently change the controller. Routine controller permissions remain
 For focused ordinary suites (without the fixture route):
 
 ```bash
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:4322 npm run test:browser -- tests/browser/cms-lifecycle.spec.ts
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 npm run test:browser -- tests/browser/cms-lifecycle.spec.ts
 ```
 
 When **separately authorized** T022 preconditions and route registration have

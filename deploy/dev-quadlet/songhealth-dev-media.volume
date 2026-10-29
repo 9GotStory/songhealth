@@ -1,0 +1,7 @@
+# Songhealth development media volume (Feature 002 T036), mounted at the application's
+# stable ./media path. The installer writes the store marker .songhealth-qdev-media-store
+# when it creates the volume; the app refuses to start without it, so a recreated empty
+# store never appears healthy.
+[Volume]
+VolumeName=songhealth-qdev-media
+Label=io.songhealth.runtime=qdev
