@@ -27,21 +27,9 @@ jobs:
       - run: npm install -g npm@12.2.0
       - run: npm ci
       # The build also generates the .astro/ types that typecheck reads. Its
-      # inputs are the build-only placeholders deploy/Containerfile uses: not
-      # secrets, not routable, and the build reaches no database or network.
-      - run: npm run build
-        env:
-          PGHOST: build.internal
-          PGPORT: "5432"
-          PGDATABASE: build
-          PGUSER: build
-          PGPASSWORD: build-time-placeholder-not-a-secret
-          EMDASH_MIGRATION_DATABASE_URL: postgresql://build:build-time-placeholder-not-a-secret@build.internal:5432/build
-          EMDASH_SITE_URL: http://build.invalid
-          HOST: 127.0.0.1
-          PORT: "4321"
-          EMDASH_ENCRYPTION_KEY: build-time-placeholder-not-a-secret
-          ASTRO_TELEMETRY_DISABLED: "1"
+      # inputs are the build-only placeholders in scripts/with-build-inputs.mjs:
+      # not secrets, not routable, and the build reaches no database or network.
+      - run: npm run build:check
       - run: npm run typecheck
       - run: npm run test:node
       - run: npm run format:check
