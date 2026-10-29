@@ -1,11 +1,31 @@
-# Publishing Workflow — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
+# Native Publishing Lifecycle — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 07-publishing-workflow
-> **Status:** CLEAN REBASELINE v2.2 — CURRENT
-> **Version:** 2.2
-> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-only publication
+> **Version:** 2.4
+> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`, `06-roles-permissions.md`
 > **Purpose:** กำหนด publishing semantics ที่ Songhealth ต้องการโดยใช้ lifecycle ของ CMS เป็น baseline และไม่สร้าง workflow engine ซ้ำ
+
+
+> **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
+> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
+> publication, permissions and supported validation remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan; deferral is not implementation or PASS. No upstream
+> change, new subsystem, replacement ITA workflow or production action is authorized.
+
+> **Prior native Q1 decision (save-time requiredness retained; publication hook superseded):** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
+> save-time requiredness for genuinely mandatory native references. Missing such a reference need
+> not be saveable as a draft. Other incomplete drafts follow native field validation. Optional/
+> conditional relationships are not automatic publication gates where native enforcement lacks
+> adequate data. D-ITA/D-REF remain deferred; no custom reference adapter or internal-table access.
+
+> **Current V1 simplification (Product Owner, 2026-10-14):** Songhealth uses native EmDash
+> field/type/required-reference/cardinality checks at save and native RBAC/lifecycle at
+> Publish/Schedule. No Songhealth-specific publication validation hook, editorial review,
+> approval queue or confirmation step. Incomplete optional content may publish under
+> native permissions; editorial completeness is the publisher's responsibility.
+> D-ITA/D-REF remain deferred; this decision is not runtime acceptance.
 
 ---
 
@@ -40,19 +60,16 @@ Published
 
 ---
 
-# 3. No Formal Approval Workflow in Version 1
+# 3. Direct Native Publishing — No Article Approval
 
-Version 1 ไม่มี Approval Workflow engine.
-
-กรณีผู้เขียนไม่ควร Publish เอง ให้ใช้ access-control boundary:
+Version 1 ไม่มี Approval Workflow engine, reviewer/approver หรือการส่งบทความเพื่อรอตรวจ/ยืนยัน. ผู้มีสิทธิ์ Publish/Schedule ตาม Native RBAC ใช้ปุ่มมาตรฐานของ EmDash ได้โดยตรง ไม่มี Songhealth-specific confirmation step.
 
 ```text
-Draft-only author
-      ↓
-ผู้มี publish authority ตรวจ
-      ↓
-Publish
+Authorized publisher → Native Publish / Schedule
+Draft-only author    → Native Save Draft
 ```
+
+ผู้มีสิทธิ์ Publish สามารถเผยแพร่ Draft ที่เข้าถึงได้ตาม Native RBAC โดยไม่ต้องรอการตรวจสอบจากผู้ใช้คนอื่น. สิทธิ์การเขียน Draft และสิทธิ์เผยแพร่ยังเป็นคนละ permission ตาม native CMS.
 
 ไม่ต้องมี:
 
@@ -114,8 +131,8 @@ Version 1 รองรับ one-time future publishing ผ่าน native sche
 - Announcement: วันที่เริ่ม/สิ้นสุดความเกี่ยวข้อง
 - Health Service: operational status เช่น active / temporarily closed / inactive
 - Document: current / superseded / expired ตามความหมายของเอกสาร
-- Personnel: current/historical visibility ตามนโยบายข้อมูล
-- ITA: fiscal year และ historical evidence context
+- Personnel: current public assignment/visibility; assignment history is outside V1 (Q2)
+- ITA: fiscal-year historical evidence semantics are deferred from V1
 
 กฎเหล่านี้อยู่ใน Content Model/domain feature ที่เกี่ยวข้อง ไม่สร้าง universal workflow engine.
 
@@ -123,15 +140,22 @@ Version 1 รองรับ one-time future publishing ผ่าน native sche
 
 ---
 
-# 7. Validation
+# 7. Native Validation Only
 
-ใช้ field required/unique/validation และ relation constraints ก่อน.
+ใช้ EmDash native schema `required`, type/format, unique, reference/cardinality
+constraints at create/save and native built-in checks at Publish/Schedule.
+Native semantic title, Document file and mandatory Health Report → Document
+are save-time requirements. Other fields and classifications remain optional
+where native schema permits. Editorial completeness is the publisher's responsibility.
 
-เพิ่ม publish hook/custom validation เฉพาะ invariant ที่ native schema validation แสดงไม่ได้ เช่น dependency ที่ต้องตรวจข้ามหลาย resource ก่อน publish.
+**No Songhealth-specific `content:beforePublish` or `content:beforeSchedule`
+hooks, custom completeness predicates, article review/approval or confirmation UI.**
+Native RBAC-authorized staff publish or schedule directly. Native errors, revisions,
+concurrency, secure preview and scheduler semantics remain. Missing optional
+information does not cause a Songhealth-specific publication refusal.
 
-Validation ต้อง deterministic และ human-readable.
-
-Version 1 ไม่มี AI quality gate, readiness score หรือ generic rule builder.
+D-ITA/D-REF historical preservation and cross-record target availability/removal
+guarantees remain deferred; save-time requiredness does not establish them.
 
 ---
 
@@ -156,6 +180,12 @@ Public route ต้องไม่เปิด Draft ผ่าน query paramete
 - edit lock
 - optimistic concurrency/version token
 
+These are native entry-level protections, not cross-record atomicity. Pending-draft guarantees
+cover data the platform actually stages in the content revision; shared media bytes, linked records
+and separately maintained taxonomy/SEO/byline metadata are not assumed to be frozen together.
+The reviewed Feature 002 Plan documents these native boundaries; focused implementation verification remains future work.
+No blanket pending-change or cross-resource PASS is inferred.
+
 Songhealth ไม่สร้าง revision tables, locking service หรือ conflict protocol แยก.
 
 Automation/agent writes ต้องใช้ concurrency precondition ที่ platform รองรับเมื่อมี เพื่อไม่ overwrite งานใหม่กว่า.
@@ -166,7 +196,12 @@ Automation/agent writes ต้องใช้ concurrency precondition ที่
 
 ใช้ Trash/Restore เป็นค่าเริ่มต้นแทน hard delete.
 
-Permanent delete จำกัดเฉพาะ privileged administrator และต้องใช้เมื่อไม่มี retention/reference need แล้ว.
+Permanent content delete จำกัดเฉพาะ privileged administrator through native permissions and the native
+already-trashed precondition. Staff should consider usage/retention and repair references before
+destructive maintenance. This is an operational precaution, not a server-enforced dependency veto:
+the pinned native purge path does not invoke the trash before-delete hook or refuse published
+backlinks. Media deletion/replacement likewise lacks historical/required-reference policy vetoes.
+The unavailable Q3/Q4 guarantees are deferred, not passed through permissions or staff review.
 
 ไม่สร้าง custom Archive Center หาก native Trash + domain status เพียงพอ.
 
@@ -181,17 +216,20 @@ Version 1 ใช้:
 - revision history
 - native operational logs
 
-เป็น baseline evidence.
+เป็น baseline evidence for ordinary native editing. Native revisions are finite/prunable and
+do not retain overwritten media bytes; V1 promises no immutable historical-evidence/audit archive.
 
 ไม่สร้าง Central Audit Log ของ Songhealth เว้นแต่ requirement ด้านกฎหมาย/กำกับดูแลระบุเหตุการณ์และ retention ที่ native evidence ไม่ครอบคลุม.
 
 ---
 
-# 12. Homepage and ITA
+# 12. Homepage and Deferred ITA
 
-Homepage curation และ ITA publication ใช้ editorial lifecycle เดียวกันเท่าที่ model เป็น content collection ได้.
-
-อย่าสร้าง Homepage-specific หรือ ITA-specific workflow engine. Domain-specific validation เพิ่มเฉพาะเมื่อ required relationship/evidence semantics ต้องการจริง.
+Homepage curation reuses ordinary native content publication. Structured ITA history/evidence is
+deferred (`02` §18), not a V1 publishing journey. No Homepage/ITA workflow engine or snapshot
+subsystem is created. A missing linked target is omitted or represented as safely unavailable in
+public reads, without exposing editorial content; native lifecycle permission alone does not
+guarantee linked-record availability or immutability.
 
 ---
 

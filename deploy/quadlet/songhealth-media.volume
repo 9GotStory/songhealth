@@ -1,0 +1,8 @@
+# Songhealth persistent media volume (Feature 001, T018).
+# Rootless Podman Quadlet definition: one named volume holding public-
+# publishable media files outside the ephemeral container layer, mapped to
+# the stable in-container ./media application path. Attachment belongs to
+# the T020 application container unit; this volume's lifecycle is
+# independent of the PostgreSQL data volume.
+[Volume]
+VolumeName=songhealth-media

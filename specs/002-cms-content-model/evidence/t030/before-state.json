@@ -1,0 +1,1666 @@
+{
+	"capturedAt": "2026-10-23T23:54:42.710Z",
+	"origin": "http://127.0.0.1:4322",
+	"actor": {
+		"id": "01M52A3PGD2PS0WM525YD7A8KX",
+		"email": "dev@emdash.local",
+		"role": 50
+	},
+	"collectionSlugs": [
+		"activities",
+		"announcements",
+		"documents",
+		"health_content",
+		"health_reports",
+		"news",
+		"pages",
+		"personnel",
+		"services"
+	],
+	"collections": {
+		"documents": {
+			"id": "01M5240YZ1YW6ZYTR8SD8W374R",
+			"slug": "documents",
+			"label": "เอกสาร",
+			"labelSingular": "เอกสาร",
+			"supports": [
+				"drafts",
+				"revisions",
+				"preview",
+				"scheduling"
+			],
+			"source": "seed",
+			"hasSeo": false,
+			"titleField": "title",
+			"dateField": "document_at",
+			"routable": true,
+			"hidden": false,
+			"commentsEnabled": false,
+			"commentsModeration": "first_time",
+			"commentsClosedAfterDays": 90,
+			"commentsAutoApproveUsers": true,
+			"editLocking": true,
+			"createdAt": "2026-10-16 10:27:19.139965+00",
+			"updatedAt": "2026-10-16T10:27:19.214Z",
+			"fields": [
+				{
+					"id": "01M5240YZ2GX27G353QTT9BAMD",
+					"collectionId": "01M5240YZ1YW6ZYTR8SD8W374R",
+					"slug": "title",
+					"label": "ชื่อเรื่อง",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": true,
+					"unique": false,
+					"sortOrder": 0,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-16 10:27:19.139965+00"
+				},
+				{
+					"id": "01M5240YZ23JAVPCAA7RY5BGTN",
+					"collectionId": "01M5240YZ1YW6ZYTR8SD8W374R",
+					"slug": "summary",
+					"label": "สรุป",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 1,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-16 10:27:19.139965+00"
+				},
+				{
+					"id": "01M5240YZ212Z224N61H2QG0NY",
+					"collectionId": "01M5240YZ1YW6ZYTR8SD8W374R",
+					"slug": "file",
+					"label": "ไฟล์เอกสาร",
+					"type": "file",
+					"columnType": "TEXT",
+					"required": true,
+					"unique": false,
+					"sortOrder": 2,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-16 10:27:19.139965+00"
+				},
+				{
+					"id": "01M5240YZ27A34F73GPE8YFR5C",
+					"collectionId": "01M5240YZ1YW6ZYTR8SD8W374R",
+					"slug": "document_at",
+					"label": "วันที่เอกสาร",
+					"type": "datetime",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 3,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-16 10:27:19.139965+00"
+				},
+				{
+					"id": "01M5240YZ2NHE1FAE57QCXZ7FJ",
+					"collectionId": "01M5240YZ1YW6ZYTR8SD8W374R",
+					"slug": "fiscal_year",
+					"label": "ปีงบประมาณ",
+					"type": "integer",
+					"columnType": "INTEGER",
+					"required": false,
+					"unique": false,
+					"sortOrder": 4,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-16 10:27:19.139965+00"
+				},
+				{
+					"id": "01M5240YZ2CY9FRY0G2HBW8GVA",
+					"collectionId": "01M5240YZ1YW6ZYTR8SD8W374R",
+					"slug": "owner_source",
+					"label": "เจ้าของ/แหล่งที่มา",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 5,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-16 10:27:19.139965+00"
+				},
+				{
+					"id": "01M5240YZ207P6KXGRQQ731ZXS",
+					"collectionId": "01M5240YZ1YW6ZYTR8SD8W374R",
+					"slug": "domain_status",
+					"label": "สถานะเอกสาร",
+					"type": "select",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"validation": {
+						"options": [
+							"current",
+							"superseded",
+							"expired"
+						]
+					},
+					"sortOrder": 6,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-16 10:27:19.139965+00"
+				},
+				{
+					"id": "01M5240YZ203V0C09P2FRWEPWW",
+					"collectionId": "01M5240YZ1YW6ZYTR8SD8W374R",
+					"slug": "successor",
+					"label": "เอกสารฉบับถัดไป",
+					"type": "reference",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"validation": {
+						"relation": "document_successor",
+						"relationSide": "parent",
+						"targetCollection": "documents"
+					},
+					"sortOrder": 7,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-16 10:27:19.139965+00"
+				}
+			]
+		},
+		"pages": {
+			"id": "01M54GTR6CX1K93MGJRHKM4W8P",
+			"slug": "pages",
+			"label": "ข้อมูลทั่วไป",
+			"labelSingular": "ข้อมูลทั่วไป",
+			"supports": [
+				"drafts",
+				"revisions",
+				"preview",
+				"scheduling"
+			],
+			"source": "manual",
+			"hasSeo": false,
+			"titleField": "title",
+			"routable": true,
+			"hidden": false,
+			"commentsEnabled": false,
+			"commentsModeration": "first_time",
+			"commentsClosedAfterDays": 90,
+			"commentsAutoApproveUsers": true,
+			"editLocking": true,
+			"createdAt": "2026-10-17 08:49:35.953605+00",
+			"updatedAt": "2026-10-17T08:49:37.348Z",
+			"fields": [
+				{
+					"id": "01M54GTRFDN52G6PV2C740RARX",
+					"collectionId": "01M54GTR6CX1K93MGJRHKM4W8P",
+					"slug": "title",
+					"label": "ชื่อเรื่อง",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": true,
+					"unique": false,
+					"sortOrder": 0,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.24729+00"
+				},
+				{
+					"id": "01M54GTRGF08PXJ7MXCMZ49Y72",
+					"collectionId": "01M54GTR6CX1K93MGJRHKM4W8P",
+					"slug": "summary",
+					"label": "สรุป",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 1,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.280293+00"
+				},
+				{
+					"id": "01M54GTRHB77VQR5MHYNVB755H",
+					"collectionId": "01M54GTR6CX1K93MGJRHKM4W8P",
+					"slug": "body",
+					"label": "เนื้อหา",
+					"type": "portableText",
+					"columnType": "JSON",
+					"required": false,
+					"unique": false,
+					"sortOrder": 2,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.304903+00"
+				},
+				{
+					"id": "01M54GTSG60YKAKWDKD1SG8A2R",
+					"collectionId": "01M54GTR6CX1K93MGJRHKM4W8P",
+					"slug": "documents",
+					"label": "เอกสารที่เกี่ยวข้อง",
+					"type": "reference",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"validation": {
+						"relation": "page_documents",
+						"relationSide": "parent",
+						"targetCollection": "documents"
+					},
+					"sortOrder": 3,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:37.293927+00"
+				}
+			]
+		},
+		"news": {
+			"id": "01M54GTR9KGHZ94TBR287ADP7S",
+			"slug": "news",
+			"label": "ข่าว",
+			"labelSingular": "ข่าว",
+			"supports": [
+				"drafts",
+				"revisions",
+				"preview",
+				"scheduling"
+			],
+			"source": "manual",
+			"hasSeo": false,
+			"titleField": "title",
+			"routable": true,
+			"hidden": false,
+			"commentsEnabled": false,
+			"commentsModeration": "first_time",
+			"commentsClosedAfterDays": 90,
+			"commentsAutoApproveUsers": true,
+			"editLocking": true,
+			"createdAt": "2026-10-17 08:49:36.054507+00",
+			"updatedAt": "2026-10-17T08:49:37.384Z",
+			"fields": [
+				{
+					"id": "01M54GTRJ3D6XY29FA6ZMY7CJZ",
+					"collectionId": "01M54GTR9KGHZ94TBR287ADP7S",
+					"slug": "title",
+					"label": "ชื่อเรื่อง",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": true,
+					"unique": false,
+					"sortOrder": 0,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.331073+00"
+				},
+				{
+					"id": "01M54GTRK01RQS8ZNZACM9XW0V",
+					"collectionId": "01M54GTR9KGHZ94TBR287ADP7S",
+					"slug": "summary",
+					"label": "สรุป",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 1,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.361094+00"
+				},
+				{
+					"id": "01M54GTRM1BF3NNT7DMER0EZDD",
+					"collectionId": "01M54GTR9KGHZ94TBR287ADP7S",
+					"slug": "body",
+					"label": "เนื้อหา",
+					"type": "portableText",
+					"columnType": "JSON",
+					"required": false,
+					"unique": false,
+					"sortOrder": 2,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.394326+00"
+				},
+				{
+					"id": "01M54GTRNB8MKWJNY44W5CF29Z",
+					"collectionId": "01M54GTR9KGHZ94TBR287ADP7S",
+					"slug": "featured_image",
+					"label": "ภาพประกอบ",
+					"type": "image",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 3,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.441247+00"
+				},
+				{
+					"id": "01M54GTRQ4CZ7AG4VAD0SXJ74N",
+					"collectionId": "01M54GTR9KGHZ94TBR287ADP7S",
+					"slug": "source_text",
+					"label": "แหล่งที่มา",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 4,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.495503+00"
+				}
+			]
+		},
+		"activities": {
+			"id": "01M54GTRB286FTHHKDDDBJX839",
+			"slug": "activities",
+			"label": "กิจกรรม",
+			"labelSingular": "กิจกรรม",
+			"supports": [
+				"drafts",
+				"revisions",
+				"preview",
+				"scheduling"
+			],
+			"source": "manual",
+			"hasSeo": false,
+			"titleField": "title",
+			"dateField": "activity_at",
+			"routable": true,
+			"hidden": false,
+			"commentsEnabled": false,
+			"commentsModeration": "first_time",
+			"commentsClosedAfterDays": 90,
+			"commentsAutoApproveUsers": true,
+			"editLocking": true,
+			"createdAt": "2026-10-17 08:49:36.100147+00",
+			"updatedAt": "2026-10-17T08:49:37.402Z",
+			"fields": [
+				{
+					"id": "01M54GTRRHYA113K10SE5H5TCE",
+					"collectionId": "01M54GTRB286FTHHKDDDBJX839",
+					"slug": "title",
+					"label": "ชื่อเรื่อง",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": true,
+					"unique": false,
+					"sortOrder": 0,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.540024+00"
+				},
+				{
+					"id": "01M54GTRT0RRDQMB40CAK9CNEF",
+					"collectionId": "01M54GTRB286FTHHKDDDBJX839",
+					"slug": "summary",
+					"label": "สรุป",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 1,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.583133+00"
+				},
+				{
+					"id": "01M54GTRVRW8EJTTFG6XWHZB4H",
+					"collectionId": "01M54GTRB286FTHHKDDDBJX839",
+					"slug": "activity_at",
+					"label": "วัน/เวลาจัดกิจกรรม",
+					"type": "datetime",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 2,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.644336+00"
+				},
+				{
+					"id": "01M54GTRX4ZT23XEQSJPTVZ0KD",
+					"collectionId": "01M54GTRB286FTHHKDDDBJX839",
+					"slug": "location_text",
+					"label": "สถานที่จัดกิจกรรม",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 3,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.688137+00"
+				},
+				{
+					"id": "01M54GTRYE52G30F54H40PT5XZ",
+					"collectionId": "01M54GTRB286FTHHKDDDBJX839",
+					"slug": "featured_image",
+					"label": "ภาพประกอบ",
+					"type": "image",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 4,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.7255+00"
+				},
+				{
+					"id": "01M54GTRZW0QBQN39HVJ9FAVF7",
+					"collectionId": "01M54GTRB286FTHHKDDDBJX839",
+					"slug": "gallery",
+					"label": "แกลเลอรีภาพ",
+					"type": "repeater",
+					"columnType": "JSON",
+					"required": false,
+					"unique": false,
+					"validation": {
+						"subFields": [
+							{
+								"slug": "image",
+								"type": "image",
+								"label": "ภาพ",
+								"required": true
+							},
+							{
+								"slug": "caption",
+								"type": "string",
+								"label": "คำบรรยายภาพ"
+							}
+						]
+					},
+					"sortOrder": 5,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.77189+00"
+				},
+				{
+					"id": "01M54GTS0NYN4Z1DFN2DHN48V0",
+					"collectionId": "01M54GTRB286FTHHKDDDBJX839",
+					"slug": "participants_text",
+					"label": "ผู้เข้าร่วม/บริบท",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 6,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.795607+00"
+				}
+			]
+		},
+		"announcements": {
+			"id": "01M54GTRCCKBK4JC7B2GSPDXT4",
+			"slug": "announcements",
+			"label": "ประกาศ",
+			"labelSingular": "ประกาศ",
+			"supports": [
+				"drafts",
+				"revisions",
+				"preview",
+				"scheduling"
+			],
+			"source": "manual",
+			"hasSeo": false,
+			"titleField": "title",
+			"dateField": "announcement_at",
+			"routable": true,
+			"hidden": false,
+			"commentsEnabled": false,
+			"commentsModeration": "first_time",
+			"commentsClosedAfterDays": 90,
+			"commentsAutoApproveUsers": true,
+			"editLocking": true,
+			"createdAt": "2026-10-17 08:49:36.141895+00",
+			"updatedAt": "2026-10-17T08:49:37.421Z",
+			"fields": [
+				{
+					"id": "01M54GTS1EKH6QXR6H7S46ZC8M",
+					"collectionId": "01M54GTRCCKBK4JC7B2GSPDXT4",
+					"slug": "title",
+					"label": "ชื่อเรื่อง",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": true,
+					"unique": false,
+					"sortOrder": 0,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.823241+00"
+				},
+				{
+					"id": "01M54GTS2EZK4PFMFB77PQD6P0",
+					"collectionId": "01M54GTRCCKBK4JC7B2GSPDXT4",
+					"slug": "details",
+					"label": "รายละเอียด",
+					"type": "portableText",
+					"columnType": "JSON",
+					"required": false,
+					"unique": false,
+					"sortOrder": 1,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.854994+00"
+				},
+				{
+					"id": "01M54GTS3DQ7ARPSQGHF9BAKT5",
+					"collectionId": "01M54GTRCCKBK4JC7B2GSPDXT4",
+					"slug": "announcement_at",
+					"label": "วันที่ประกาศ",
+					"type": "datetime",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 2,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.885801+00"
+				},
+				{
+					"id": "01M54GTS46XV3A3Y6WW5T9T77N",
+					"collectionId": "01M54GTRCCKBK4JC7B2GSPDXT4",
+					"slug": "opens_at",
+					"label": "วันที่เริ่มต้น",
+					"type": "datetime",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 3,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.906707+00"
+				},
+				{
+					"id": "01M54GTS4SANQW9AT0KPAGEA69",
+					"collectionId": "01M54GTRCCKBK4JC7B2GSPDXT4",
+					"slug": "closes_at",
+					"label": "วันที่สิ้นสุด",
+					"type": "datetime",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 4,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.927888+00"
+				},
+				{
+					"id": "01M54GTSH6MT6B5M8DCYT28C3Q",
+					"collectionId": "01M54GTRCCKBK4JC7B2GSPDXT4",
+					"slug": "documents",
+					"label": "เอกสารที่เกี่ยวข้อง",
+					"type": "reference",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"validation": {
+						"relation": "announcement_documents",
+						"relationSide": "parent",
+						"targetCollection": "documents"
+					},
+					"sortOrder": 5,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:37.325272+00"
+				}
+			]
+		},
+		"health_content": {
+			"id": "01M54GTRDMCD4HAGWCY0ZN45TE",
+			"slug": "health_content",
+			"label": "ความรู้สุขภาพ",
+			"labelSingular": "ความรู้สุขภาพ",
+			"supports": [
+				"drafts",
+				"revisions",
+				"preview",
+				"scheduling"
+			],
+			"source": "manual",
+			"hasSeo": false,
+			"titleField": "title",
+			"routable": true,
+			"hidden": false,
+			"commentsEnabled": false,
+			"commentsModeration": "first_time",
+			"commentsClosedAfterDays": 90,
+			"commentsAutoApproveUsers": true,
+			"editLocking": true,
+			"createdAt": "2026-10-17 08:49:36.181091+00",
+			"updatedAt": "2026-10-17T08:49:37.445Z",
+			"fields": [
+				{
+					"id": "01M54GTS5HF38PWCET237H6VAT",
+					"collectionId": "01M54GTRDMCD4HAGWCY0ZN45TE",
+					"slug": "title",
+					"label": "ชื่อเรื่อง",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": true,
+					"unique": false,
+					"sortOrder": 0,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.953753+00"
+				},
+				{
+					"id": "01M54GTS6EGHBP2ERSRGB7WX4T",
+					"collectionId": "01M54GTRDMCD4HAGWCY0ZN45TE",
+					"slug": "summary",
+					"label": "สรุป",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 1,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:36.983334+00"
+				},
+				{
+					"id": "01M54GTS7C8TWKYXP68YGKW81J",
+					"collectionId": "01M54GTRDMCD4HAGWCY0ZN45TE",
+					"slug": "body",
+					"label": "เนื้อหา",
+					"type": "portableText",
+					"columnType": "JSON",
+					"required": false,
+					"unique": false,
+					"sortOrder": 2,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:37.031608+00"
+				},
+				{
+					"id": "01M54GTS9C0DAT2Y0P32HXG0KH",
+					"collectionId": "01M54GTRDMCD4HAGWCY0ZN45TE",
+					"slug": "source_text",
+					"label": "แหล่งที่มา",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 3,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:37.081041+00"
+				},
+				{
+					"id": "01M54GTSAXQNHNP5RBB2RZGDWB",
+					"collectionId": "01M54GTRDMCD4HAGWCY0ZN45TE",
+					"slug": "featured_image",
+					"label": "ภาพประกอบ",
+					"type": "image",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 4,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:37.129289+00"
+				},
+				{
+					"id": "01M54GTSCHNAR8TCD7ZNYZ54HB",
+					"collectionId": "01M54GTRDMCD4HAGWCY0ZN45TE",
+					"slug": "reviewed_at",
+					"label": "วันที่ทบทวน",
+					"type": "datetime",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 5,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:37.179365+00"
+				},
+				{
+					"id": "01M54GTSDT7XJFPBC6X37SW8B7",
+					"collectionId": "01M54GTRDMCD4HAGWCY0ZN45TE",
+					"slug": "next_review_at",
+					"label": "วันที่ทบทวนครั้งถัดไป",
+					"type": "datetime",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 6,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-17 08:49:37.220492+00"
+				}
+			]
+		},
+		"services": {
+			"id": "01M56XCRWNVY28YPNNRK45MBKB",
+			"slug": "services",
+			"label": "บริการ",
+			"labelSingular": "บริการ",
+			"supports": [
+				"drafts",
+				"revisions",
+				"preview",
+				"scheduling"
+			],
+			"source": "manual",
+			"hasSeo": false,
+			"titleField": "title",
+			"routable": true,
+			"hidden": false,
+			"commentsEnabled": false,
+			"commentsModeration": "first_time",
+			"commentsClosedAfterDays": 90,
+			"commentsAutoApproveUsers": true,
+			"editLocking": true,
+			"createdAt": "2026-10-18 07:07:38.2629+00",
+			"updatedAt": "2026-10-18T07:07:39.015Z",
+			"fields": [
+				{
+					"id": "01M56XCS0TQ5FVPRPPR1C4B5V2",
+					"collectionId": "01M56XCRWNVY28YPNNRK45MBKB",
+					"slug": "title",
+					"label": "ชื่อบริการ",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": true,
+					"unique": false,
+					"sortOrder": 0,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.40373+00"
+				},
+				{
+					"id": "01M56XCS1YFDK15RYP6AC7CD38",
+					"collectionId": "01M56XCRWNVY28YPNNRK45MBKB",
+					"slug": "summary",
+					"label": "สรุป",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 1,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.436328+00"
+				},
+				{
+					"id": "01M56XCS2PYZBAQMVW2WTKH0NN",
+					"collectionId": "01M56XCRWNVY28YPNNRK45MBKB",
+					"slug": "ownership_type",
+					"label": "บทบาทของหน่วยงาน",
+					"type": "select",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"validation": {
+						"options": [
+							"direct",
+							"coordinated",
+							"related_health_service",
+							"external_digital"
+						]
+					},
+					"sortOrder": 2,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.462158+00"
+				},
+				{
+					"id": "01M56XCS3HYD50FMTTBB1B7472",
+					"collectionId": "01M56XCRWNVY28YPNNRK45MBKB",
+					"slug": "provider_text",
+					"label": "หน่วยงานผู้ให้บริการ",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 3,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.488346+00"
+				},
+				{
+					"id": "01M56XCS4H81NMBJV2GM2FKWYS",
+					"collectionId": "01M56XCRWNVY28YPNNRK45MBKB",
+					"slug": "channels",
+					"label": "ช่องทางรับบริการ",
+					"type": "repeater",
+					"columnType": "JSON",
+					"required": false,
+					"unique": false,
+					"validation": {
+						"subFields": [
+							{
+								"slug": "label",
+								"type": "string",
+								"label": "ชื่อช่องทาง"
+							},
+							{
+								"slug": "url",
+								"type": "url",
+								"label": "ลิงก์"
+							}
+						]
+					},
+					"sortOrder": 4,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.521208+00"
+				},
+				{
+					"id": "01M56XCS5HE9HEK2N8K1YBZG0V",
+					"collectionId": "01M56XCRWNVY28YPNNRK45MBKB",
+					"slug": "eligibility",
+					"label": "คุณสมบัติ/เงื่อนไข",
+					"type": "portableText",
+					"columnType": "JSON",
+					"required": false,
+					"unique": false,
+					"sortOrder": 5,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.552925+00"
+				},
+				{
+					"id": "01M56XCS6GYYPRN3M9C5SQFA33",
+					"collectionId": "01M56XCRWNVY28YPNNRK45MBKB",
+					"slug": "steps",
+					"label": "ขั้นตอนการรับบริการ",
+					"type": "portableText",
+					"columnType": "JSON",
+					"required": false,
+					"unique": false,
+					"sortOrder": 6,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.583247+00"
+				},
+				{
+					"id": "01M56XCS7755NNPSCT5SEAJNE8",
+					"collectionId": "01M56XCRWNVY28YPNNRK45MBKB",
+					"slug": "required_documents_guidance",
+					"label": "เอกสารที่ต้องเตรียม",
+					"type": "portableText",
+					"columnType": "JSON",
+					"required": false,
+					"unique": false,
+					"sortOrder": 7,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.60566+00"
+				},
+				{
+					"id": "01M56XCS7Z40JMJXTXE23FKXQS",
+					"collectionId": "01M56XCRWNVY28YPNNRK45MBKB",
+					"slug": "contact_location_guidance",
+					"label": "สถานที่/ช่องทางติดต่อ",
+					"type": "portableText",
+					"columnType": "JSON",
+					"required": false,
+					"unique": false,
+					"sortOrder": 8,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.630105+00"
+				},
+				{
+					"id": "01M56XCS8ND07568EMKYXMXDPS",
+					"collectionId": "01M56XCRWNVY28YPNNRK45MBKB",
+					"slug": "duration",
+					"label": "ระยะเวลาดำเนินการ",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 9,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.65473+00"
+				},
+				{
+					"id": "01M56XCS9P8DHBNBSW45C8Y7C1",
+					"collectionId": "01M56XCRWNVY28YPNNRK45MBKB",
+					"slug": "fees",
+					"label": "ค่าธรรมเนียม",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 10,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.685965+00"
+				},
+				{
+					"id": "01M56XCSAQAHF2G3V7NNX7R63V",
+					"collectionId": "01M56XCRWNVY28YPNNRK45MBKB",
+					"slug": "notes",
+					"label": "หมายเหตุ",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 11,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.718752+00"
+				},
+				{
+					"id": "01M56XCSBGEGJ43M066QKBK22B",
+					"collectionId": "01M56XCRWNVY28YPNNRK45MBKB",
+					"slug": "external_url",
+					"label": "ลิงก์บริการภายนอก",
+					"type": "url",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 12,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.743494+00"
+				},
+				{
+					"id": "01M56XCSJ6BVBVAWY6PGVWJGZZ",
+					"collectionId": "01M56XCRWNVY28YPNNRK45MBKB",
+					"slug": "documents",
+					"label": "เอกสารที่เกี่ยวข้อง",
+					"type": "reference",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"validation": {
+						"relation": "service_documents",
+						"relationSide": "parent",
+						"targetCollection": "documents"
+					},
+					"sortOrder": 13,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.958516+00"
+				}
+			]
+		},
+		"health_reports": {
+			"id": "01M56XCRYW9BMYXFHBAZJMVZMW",
+			"slug": "health_reports",
+			"label": "รายงานสุขภาพ",
+			"labelSingular": "รายงานสุขภาพ",
+			"supports": [
+				"drafts",
+				"revisions",
+				"preview",
+				"scheduling"
+			],
+			"source": "manual",
+			"hasSeo": false,
+			"titleField": "title",
+			"dateField": "report_at",
+			"routable": true,
+			"hidden": false,
+			"commentsEnabled": false,
+			"commentsModeration": "first_time",
+			"commentsClosedAfterDays": 90,
+			"commentsAutoApproveUsers": true,
+			"editLocking": true,
+			"createdAt": "2026-10-18 07:07:38.335036+00",
+			"updatedAt": "2026-10-18T07:07:39.031Z",
+			"fields": [
+				{
+					"id": "01M56XCSC82XAAQSA7MQM37N59",
+					"collectionId": "01M56XCRYW9BMYXFHBAZJMVZMW",
+					"slug": "title",
+					"label": "ชื่อเรื่อง",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": true,
+					"unique": false,
+					"sortOrder": 0,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.76575+00"
+				},
+				{
+					"id": "01M56XCSCX6ZMADRNJZJTG2CGR",
+					"collectionId": "01M56XCRYW9BMYXFHBAZJMVZMW",
+					"slug": "summary",
+					"label": "สรุป",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 1,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.789419+00"
+				},
+				{
+					"id": "01M56XCSDW10ANDE1WC3S24W9R",
+					"collectionId": "01M56XCRYW9BMYXFHBAZJMVZMW",
+					"slug": "reporting_period",
+					"label": "ช่วงเวลาของรายงาน",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 2,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.820178+00"
+				},
+				{
+					"id": "01M56XCSEW4JS0KYA1369P0Q5Q",
+					"collectionId": "01M56XCRYW9BMYXFHBAZJMVZMW",
+					"slug": "owner_source",
+					"label": "เจ้าของ/แหล่งที่มา",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 3,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.8523+00"
+				},
+				{
+					"id": "01M56XCSFWN3G709FJZ3XPYSP8",
+					"collectionId": "01M56XCRYW9BMYXFHBAZJMVZMW",
+					"slug": "report_at",
+					"label": "วันที่รายงาน",
+					"type": "datetime",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 4,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.881764+00"
+				},
+				{
+					"id": "01M56XCSGJHEAH8TNWJPNX3Y03",
+					"collectionId": "01M56XCRYW9BMYXFHBAZJMVZMW",
+					"slug": "fiscal_year",
+					"label": "ปีงบประมาณ",
+					"type": "integer",
+					"columnType": "INTEGER",
+					"required": false,
+					"unique": false,
+					"sortOrder": 5,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.904751+00"
+				},
+				{
+					"id": "01M56XCSK647X606FJCK14XWAW",
+					"collectionId": "01M56XCRYW9BMYXFHBAZJMVZMW",
+					"slug": "report_document",
+					"label": "เอกสารรายงาน",
+					"type": "reference",
+					"columnType": "TEXT",
+					"required": true,
+					"unique": false,
+					"validation": {
+						"relation": "report_document",
+						"relationSide": "parent",
+						"targetCollection": "documents"
+					},
+					"sortOrder": 6,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-18 07:07:38.991268+00"
+				}
+			]
+		},
+		"personnel": {
+			"id": "01M5K0H849JZDMXTQ00TZWFDYN",
+			"slug": "personnel",
+			"label": "บุคลากร",
+			"labelSingular": "บุคลากร",
+			"supports": [
+				"drafts",
+				"revisions",
+				"preview",
+				"scheduling"
+			],
+			"source": "manual",
+			"hasSeo": false,
+			"titleField": "title",
+			"routable": true,
+			"hidden": false,
+			"commentsEnabled": false,
+			"commentsModeration": "first_time",
+			"commentsClosedAfterDays": 90,
+			"commentsAutoApproveUsers": true,
+			"editLocking": true,
+			"createdAt": "2026-10-22 23:53:23.85224+00",
+			"updatedAt": "2026-10-22T23:53:24.295Z",
+			"fields": [
+				{
+					"id": "01M5K0H85X32GDZVE4JK2M8KDF",
+					"collectionId": "01M5K0H849JZDMXTQ00TZWFDYN",
+					"slug": "title",
+					"label": "ชื่อที่แสดง",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": true,
+					"unique": false,
+					"sortOrder": 0,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-22 23:53:23.91148+00"
+				},
+				{
+					"id": "01M5K0H86YN0PA8RVK6YYQPRTE",
+					"collectionId": "01M5K0H849JZDMXTQ00TZWFDYN",
+					"slug": "prefix",
+					"label": "คำนำหน้าชื่อ",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 1,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-22 23:53:23.943299+00"
+				},
+				{
+					"id": "01M5K0H888YJAZW6YVAYJ0VACC",
+					"collectionId": "01M5K0H849JZDMXTQ00TZWFDYN",
+					"slug": "first_name",
+					"label": "ชื่อ",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 2,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-22 23:53:23.988668+00"
+				},
+				{
+					"id": "01M5K0H89M9Z23RP8YFYRPHF9W",
+					"collectionId": "01M5K0H849JZDMXTQ00TZWFDYN",
+					"slug": "last_name",
+					"label": "นามสกุล",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 3,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-22 23:53:24.029594+00"
+				},
+				{
+					"id": "01M5K0H8AXYZXXZN39YJY1CH00",
+					"collectionId": "01M5K0H849JZDMXTQ00TZWFDYN",
+					"slug": "profile_image",
+					"label": "ภาพประจำตัว",
+					"type": "image",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 4,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-22 23:53:24.072349+00"
+				},
+				{
+					"id": "01M5K0H8C9F4E9MDJBCHY3DP0D",
+					"collectionId": "01M5K0H849JZDMXTQ00TZWFDYN",
+					"slug": "current_assignment",
+					"label": "ตำแหน่ง/หน้าที่ปัจจุบัน",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 5,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-22 23:53:24.11749+00"
+				},
+				{
+					"id": "01M5K0H8DR8CVEQ14R23QFZC4V",
+					"collectionId": "01M5K0H849JZDMXTQ00TZWFDYN",
+					"slug": "organizational_unit",
+					"label": "หน่วยงานสังกัด",
+					"type": "string",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 6,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-22 23:53:24.16516+00"
+				},
+				{
+					"id": "01M5K0H8FA7SD362SCJ2K9AYQJ",
+					"collectionId": "01M5K0H849JZDMXTQ00TZWFDYN",
+					"slug": "public_visible",
+					"label": "แสดงต่อสาธารณะ",
+					"type": "boolean",
+					"columnType": "INTEGER",
+					"required": false,
+					"unique": false,
+					"sortOrder": 7,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-22 23:53:24.21409+00"
+				},
+				{
+					"id": "01M5K0H8GP2XHG15AB3PC6ZY7C",
+					"collectionId": "01M5K0H849JZDMXTQ00TZWFDYN",
+					"slug": "public_contact",
+					"label": "ช่องทางติดต่อสาธารณะ",
+					"type": "text",
+					"columnType": "TEXT",
+					"required": false,
+					"unique": false,
+					"sortOrder": 8,
+					"searchable": false,
+					"indexed": false,
+					"translatable": true,
+					"createdAt": "2026-10-22 23:53:24.256874+00"
+				}
+			]
+		},
+		"health_services": null
+	},
+	"relations": [
+		{
+			"id": "01M54GTSFMM2FBAGAADJF1W335",
+			"slug": "announcement_documents",
+			"parentCollection": "announcements",
+			"childCollection": "documents",
+			"parentLabel": "ประกาศที่เกี่ยวข้อง",
+			"childLabel": "เอกสารที่เกี่ยวข้อง",
+			"parentLabelSingular": "ประกาศที่เกี่ยวข้อง",
+			"childLabelSingular": "เอกสารที่เกี่ยวข้อง",
+			"maxChildrenPerParent": null,
+			"maxParentsPerChild": null,
+			"boundFields": [
+				{
+					"collectionSlug": "announcements",
+					"fieldSlug": "documents",
+					"side": "parent"
+				}
+			],
+			"linkCount": 0
+		},
+		{
+			"id": "01M5240YYKJWEK5DSNJ3FVQAAK",
+			"slug": "document_successor",
+			"parentCollection": "documents",
+			"childCollection": "documents",
+			"parentLabel": "เอกสารฉบับก่อนหน้า",
+			"childLabel": "เอกสารฉบับถัดไป",
+			"parentLabelSingular": "เอกสารฉบับก่อนหน้า",
+			"childLabelSingular": "เอกสารฉบับถัดไป",
+			"maxChildrenPerParent": 1,
+			"maxParentsPerChild": null,
+			"boundFields": [
+				{
+					"collectionSlug": "documents",
+					"fieldSlug": "successor",
+					"side": "parent"
+				}
+			],
+			"linkCount": 0
+		},
+		{
+			"id": "01M54GTSF58HNBXRQ3BXGDG3NM",
+			"slug": "page_documents",
+			"parentCollection": "pages",
+			"childCollection": "documents",
+			"parentLabel": "หน้าที่เกี่ยวข้อง",
+			"childLabel": "เอกสารที่เกี่ยวข้อง",
+			"parentLabelSingular": "หน้าที่เกี่ยวข้อง",
+			"childLabelSingular": "เอกสารที่เกี่ยวข้อง",
+			"maxChildrenPerParent": null,
+			"maxParentsPerChild": null,
+			"boundFields": [
+				{
+					"collectionSlug": "pages",
+					"fieldSlug": "documents",
+					"side": "parent"
+				}
+			],
+			"linkCount": 0
+		},
+		{
+			"id": "01M56XCSHNMKFMGZCXMHTYKJRB",
+			"slug": "report_document",
+			"parentCollection": "health_reports",
+			"childCollection": "documents",
+			"parentLabel": "รายงานสุขภาพที่เกี่ยวข้อง",
+			"childLabel": "เอกสารรายงาน",
+			"parentLabelSingular": "รายงานสุขภาพที่เกี่ยวข้อง",
+			"childLabelSingular": "เอกสารรายงาน",
+			"maxChildrenPerParent": 1,
+			"maxParentsPerChild": null,
+			"boundFields": [
+				{
+					"collectionSlug": "health_reports",
+					"fieldSlug": "report_document",
+					"side": "parent"
+				}
+			],
+			"linkCount": 0
+		},
+		{
+			"id": "01M56XCSHB37DK2EV8503SPAS0",
+			"slug": "service_documents",
+			"parentCollection": "services",
+			"childCollection": "documents",
+			"parentLabel": "บริการที่เกี่ยวข้อง",
+			"childLabel": "เอกสารที่เกี่ยวข้อง",
+			"parentLabelSingular": "บริการที่เกี่ยวข้อง",
+			"childLabelSingular": "เอกสารที่เกี่ยวข้อง",
+			"maxChildrenPerParent": null,
+			"maxParentsPerChild": null,
+			"boundFields": [
+				{
+					"collectionSlug": "services",
+					"fieldSlug": "documents",
+					"side": "parent"
+				}
+			],
+			"linkCount": 0
+		}
+	],
+	"taxonomies": [
+		{
+			"id": "taxdef_category",
+			"name": "category",
+			"label": "Categories",
+			"labelSingular": "Category",
+			"hierarchical": true,
+			"collections": [],
+			"locale": "en",
+			"translationGroup": "taxdef_category"
+		},
+		{
+			"id": "taxdef_tag",
+			"name": "tag",
+			"label": "Tags",
+			"labelSingular": "Tag",
+			"hierarchical": false,
+			"collections": [],
+			"locale": "en",
+			"translationGroup": "taxdef_tag"
+		},
+		{
+			"id": "01M5240Z3DYYNGHR2F97VS4592",
+			"name": "document_type",
+			"label": "ประเภทเอกสาร",
+			"labelSingular": "ประเภทเอกสาร",
+			"hierarchical": false,
+			"collections": [
+				"documents"
+			],
+			"locale": "en",
+			"translationGroup": "01M5240Z3DYYNGHR2F97VS4592"
+		},
+		{
+			"id": "01M54GTSRNCPDN99ZV6VVNY29B",
+			"name": "news_category",
+			"label": "หมวดข่าว",
+			"labelSingular": "หมวดข่าว",
+			"hierarchical": false,
+			"collections": [
+				"news"
+			],
+			"locale": "en",
+			"translationGroup": "01M54GTSRNCPDN99ZV6VVNY29B"
+		},
+		{
+			"id": "01M54GTSS28DZK7HYJT4M9ZZH9",
+			"name": "announcement_type",
+			"label": "ประเภทประกาศ",
+			"labelSingular": "ประเภทประกาศ",
+			"hierarchical": false,
+			"collections": [
+				"announcements"
+			],
+			"locale": "en",
+			"translationGroup": "01M54GTSS28DZK7HYJT4M9ZZH9"
+		},
+		{
+			"id": "01M56XCSN4N7FYRZQ1KVFKRBM1",
+			"name": "service_category",
+			"label": "หมวดบริการ",
+			"labelSingular": "หมวดบริการ",
+			"hierarchical": false,
+			"collections": [
+				"services"
+			],
+			"locale": "en",
+			"translationGroup": "01M56XCSN4N7FYRZQ1KVFKRBM1"
+		},
+		{
+			"id": "01M56XCSNMTT19285HPX83Y9B1",
+			"name": "report_type",
+			"label": "ประเภทรายงาน",
+			"labelSingular": "ประเภทรายงาน",
+			"hierarchical": false,
+			"collections": [
+				"health_reports"
+			],
+			"locale": "en",
+			"translationGroup": "01M56XCSNMTT19285HPX83Y9B1"
+		},
+		{
+			"id": "01M5240Z1TTD9ZBXQCFV5WZMAC",
+			"name": "topic",
+			"label": "หัวข้อ",
+			"labelSingular": "หัวข้อ",
+			"hierarchical": false,
+			"collections": [
+				"documents",
+				"news",
+				"activities",
+				"announcements",
+				"health_content",
+				"services",
+				"health_reports"
+			],
+			"locale": "en",
+			"translationGroup": "01M5240Z1TTD9ZBXQCFV5WZMAC"
+		},
+		{
+			"id": "01M5240Z2BE1NK7AMTBGCWZ90T",
+			"name": "audience",
+			"label": "กลุ่มเป้าหมาย",
+			"labelSingular": "กลุ่มเป้าหมาย",
+			"hierarchical": false,
+			"collections": [
+				"news",
+				"announcements",
+				"health_content",
+				"services"
+			],
+			"locale": "en",
+			"translationGroup": "01M5240Z2BE1NK7AMTBGCWZ90T"
+		},
+		{
+			"id": "01M5240Z2Y7JF4FG9TNSKWJQZC",
+			"name": "area",
+			"label": "พื้นที่",
+			"labelSingular": "พื้นที่",
+			"hierarchical": true,
+			"collections": [
+				"news",
+				"activities",
+				"health_reports"
+			],
+			"locale": "en",
+			"translationGroup": "01M5240Z2Y7JF4FG9TNSKWJQZC"
+		}
+	],
+	"orphans": {
+		"items": []
+	},
+	"collectionDeletionQueue": {
+		"pending": {
+			"status": 200,
+			"ok": true,
+			"items": []
+		},
+		"retry": {
+			"status": 200,
+			"ok": true,
+			"items": []
+		},
+		"leased": {
+			"status": 200,
+			"ok": true,
+			"items": []
+		},
+		"failed": {
+			"status": 200,
+			"ok": true,
+			"items": []
+		}
+	},
+	"mediaUsageProbe": {
+		"status": 404,
+		"ok": false
+	},
+	"contentCounts": {
+		"activities": {
+			"liveStatus": 200,
+			"liveCount": 0,
+			"liveNextCursor": null,
+			"trashStatus": 200,
+			"trashCount": 0
+		},
+		"announcements": {
+			"liveStatus": 200,
+			"liveCount": 0,
+			"liveNextCursor": null,
+			"trashStatus": 200,
+			"trashCount": 0
+		},
+		"documents": {
+			"liveStatus": 200,
+			"liveCount": 0,
+			"liveNextCursor": null,
+			"trashStatus": 200,
+			"trashCount": 0
+		},
+		"health_content": {
+			"liveStatus": 200,
+			"liveCount": 0,
+			"liveNextCursor": null,
+			"trashStatus": 200,
+			"trashCount": 0
+		},
+		"health_reports": {
+			"liveStatus": 200,
+			"liveCount": 0,
+			"liveNextCursor": null,
+			"trashStatus": 200,
+			"trashCount": 0
+		},
+		"news": {
+			"liveStatus": 200,
+			"liveCount": 0,
+			"liveNextCursor": null,
+			"trashStatus": 200,
+			"trashCount": 0
+		},
+		"pages": {
+			"liveStatus": 200,
+			"liveCount": 0,
+			"liveNextCursor": null,
+			"trashStatus": 200,
+			"trashCount": 0
+		},
+		"personnel": {
+			"liveStatus": 200,
+			"liveCount": 0,
+			"liveNextCursor": null,
+			"trashStatus": 200,
+			"trashCount": 0
+		},
+		"services": {
+			"liveStatus": 200,
+			"liveCount": 0,
+			"liveNextCursor": null,
+			"trashStatus": 200,
+			"trashCount": 0
+		}
+	},
+	"media": {
+		"status": 200,
+		"count": 0,
+		"nextCursor": null
+	},
+	"personnelStanding": "present (verified below; T026 scope untouched)"
+}

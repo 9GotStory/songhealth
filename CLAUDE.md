@@ -1,14 +1,17 @@
-# CLAUDE.md — Songhealth DEV Executor
+# CLAUDE.md — Songhealth Development (Claude Code)
 
 @AGENTS.md
 
 ## Role
 
-Act only as the implementation executor for an explicitly authorized active Spec Kit task.
+Claude Code is the sole AI development tool for Songhealth (Constitution 5.0.0). Work only within an
+explicitly authorized active Spec Kit task or other Product Owner-authorized scope: plan, implement,
+test, self-review, correct and prepare acceptance evidence there; the Product Owner authorizes scope
+and accepts results.
 
 ## Current repository state
 
-The repository is a clean baseline with no active application implementation and no active feature specification.
+Feature 002 `cms-content-model` (`specs/002-cms-content-model/`) is complete. The Product Owner gave it Final Acceptance on 2026-10-29, and it was merged into `main`. No feature is active until the Product Owner starts the next one. Feature 001 `platform-foundation` provides the accepted foundation: the canonical Astro + EmDash platform (US1, T015) is accepted with runtime evidence; the production Podman/Quadlet deployment sources (T017–T021), the recovery sources (T023–T027), and the T029 canonical-extension evidence are committed and independently reviewed; the T022/T028 runtime gates are pending, separately authorized tasks. Development, testing, self-review, and PR preparation follow the Claude Code workflow recorded in `AGENTS.md` and `README.md` (Constitution 5.0.0): Claude Code develops and self-reviews (never presented as independent review), Codex and ChatGPT are removed from the workflow, development uses Claude Code with Spec Kit and GitHub only until Feature 002 is complete, acceptance is evidence-based, and the Product Owner retains the Human Authorization Gates and Final Acceptance; GitHub and Spec Kit remain authoritative. Source development takes place in the local workspace `/home/thanakorn/dev/songhealth`. The single development runtime is the UID-1000 rootless Quadlet runtime at `http://127.0.0.1:4324` (Feature 002 T036; `README.md`, `docs/operations/development-quadlet.md`); the earlier UID-1001 (`multica-agent`) Songhealth runtimes were deleted on 2026-10-29 (Feature 002 T037). There is no standing implementation authorization.
 
 If no current authorized task exists, do not implement, scaffold, install dependencies, create infrastructure, or restore historical code.
 
@@ -28,5 +31,12 @@ If no current authorized task exists, do not implement, scaffold, install depend
   upstream documentation;
 - if verified platform behavior conflicts with the approved plan or task, stop and report
   the conflict instead of inventing a workaround or new architecture;
+- within the authorized scope, fix defects, improve tests, re-run them and repeat self-review
+  without asking for a new approval each time; stop and ask the Product Owner before new source
+  scope, an architectural change, a destructive or sensitive operation, an unauthorized runtime
+  action, or a security exception;
+- report self-review as self-review, with the verification evidence (tests, CI where configured,
+  runtime evidence where required) and every unresolved risk; a self-reported PASS is never
+  acceptance.
 
 Historical commits and removed files are not implementation authority.

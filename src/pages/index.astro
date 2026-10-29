@@ -1,0 +1,29 @@
+---
+// T011 — Minimum public-runtime SSR verification page (Feature 001).
+//
+// Authority:
+// - specs/001-platform-foundation/tasks.md T011 (implement only the minimum
+//   public-runtime verification page with a stable SSR marker)
+// - specs/001-platform-foundation/spec.md FR-002 (the public runtime serves
+//   its minimum verification behavior), FR-003 (readiness is a separate,
+//   private concern — this is not a health/readiness endpoint), FR-019
+//   (no out-of-scope capability)
+// - specs/001-platform-foundation/plan.md ("One Astro + EmDash platform":
+//   src/pages/index.astro is only the minimum SSR verification surface)
+//
+// The single meta element below is the stable Songhealth-owned contract
+// asserted by tests/browser/foundation.spec.ts (T010): it proves normal
+// public runtime behavior through a normal server-rendered page response.
+// Deliberately no Homepage composition, Product content, navigation,
+// styling, CMS-driven sections, API behavior, or readiness logic.
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="songhealth-foundation" content="public-runtime" />
+    <title>Songhealth</title>
+  </head>
+  <body></body>
+</html>

@@ -1,11 +1,31 @@
 # Admin CMS — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 05-admin-cms
-> **Status:** CLEAN REBASELINE v2.2 — CURRENT
-> **Version:** 2.2
-> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-only publication
+> **Version:** 2.4
+> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`
 > **Purpose:** กำหนดความต้องการของ Admin CMS ที่จำเป็นต่อการดูแล Songhealth โดยใช้ความสามารถมาตรฐานของ CMS ก่อน และสร้างส่วนขยายเฉพาะเมื่อมี gap ที่พิสูจน์แล้ว
+
+
+> **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
+> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
+> publication, permissions and supported validation remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan; deferral is not implementation or PASS. No upstream
+> change, new subsystem, replacement ITA workflow or production action is authorized.
+
+> **Prior native Q1 decision (save-time requiredness retained; publication hook superseded):** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
+> save-time requiredness for genuinely mandatory native references. Missing such a reference need
+> not be saveable as a draft. Other incomplete drafts follow native field validation. Optional/
+> conditional relationships are not automatic publication gates where native enforcement lacks
+> adequate data. D-ITA/D-REF remain deferred; no custom reference adapter or internal-table access.
+
+> **Current V1 simplification (Product Owner, 2026-10-14):** Songhealth uses native EmDash
+> field/type/required-reference/cardinality checks at save and native RBAC/lifecycle at
+> Publish/Schedule. No Songhealth-specific publication validation hook, editorial review,
+> approval queue or confirmation step. Incomplete optional content may publish under
+> native permissions; editorial completeness is the publisher's responsibility.
+> D-ITA/D-REF remain deferred; this decision is not runtime acceptance.
 
 ---
 
@@ -40,7 +60,7 @@ Admin ควรสะท้อน Content Model และงานของเ�
 - หน่วยบริการสุขภาพ
 - เอกสาร
 - บุคลากร / องค์กร
-- ITA
+- Structured ITA: deferred from V1 (§7)
 - Homepage curation
 - Media
 - Users / Settings เฉพาะผู้มีสิทธิ์
@@ -65,7 +85,7 @@ Dashboard analytical data ภายใต้ `/dashboard` ไม่ใช่ CMS
 - slug management
 - taxonomy / relation selectors
 - media picker
-- validation จาก Content Model
+- only native field/type/required-reference/cardinality validation and native RBAC at Publish/Schedule; no Songhealth completeness hook or article confirmation; see Feature 002 native-only matrix
 - conflict/edit-lock protection ตาม platform capability
 
 Songhealth ไม่สร้าง editor, revision engine, preview system, autosave engine หรือ scheduling UI ของตนเองหาก CMS มี capability เหล่านี้อยู่แล้ว.
@@ -98,10 +118,14 @@ Songhealth ไม่สร้าง editor, revision engine, preview system, aut
 - search/filter
 - metadata
 - image/file selection
-- replace/delete ตาม platform safety
+- native replace/delete with explicit platform limitations; no required-published-reference veto or immutable-history claim
 - media usage/reference information เมื่อ platform รองรับ
 
 Songhealth ไม่สร้าง DAM, folder hierarchy, image editor, check-in/check-out หรือ custom media-usage database ใน Version 1.
+
+Native usage reporting may be incomplete/stale and is not a deletion lock. Authorized native
+media removal can break consumers; in-place image replacement can change shared bytes without an
+ITA publication. Staff precautions do not enforce historical retention or cross-record safety.
 
 CMS นี้ใช้สำหรับ **public-publishable website assets**. ห้ามใช้เป็นที่เก็บไฟล์ลับ ข้อมูลผู้ป่วย หรือเอกสารภายในที่ต้องการ confidential access control โดยไม่มี requirement และ security design แยกต่างหาก.
 
@@ -119,23 +143,16 @@ Version 1 ควร model การเลือก/ลำดับ/ช่วง�
 
 ---
 
-# 7. ITA Management
+# 7. ITA Management — Deferred from V1
 
-ITA ใช้ structured collections/relations ตาม `02-content-model.md`:
+The structured yearly ITA hierarchy, ordered evidence maintenance and historical correction/
+preservation workflow are deferred under `02-content-model.md` §18. No V1 ITA Admin collections,
+upload workflow, custom workspace or acceptance journey is required. No generic-page substitute,
+scoring/compliance engine, automatic carry-forward or custom approval chain is authorized.
 
-Fiscal Year → Section/MOIT → Requirement/Item → Evidence
-
-เป้าหมาย Admin คือให้เจ้าหน้าที่กรอก/เลือกข้อมูลได้ง่าย ไม่ใช่สร้าง compliance engine.
-
-ใช้ native collection editor และ relation picker ก่อน. Custom ITA workspace จะสร้างได้เฉพาะเมื่อ UAT พิสูจน์ว่างานจริงทำผ่าน native forms ได้ยากอย่างมีนัยสำคัญ.
-
-Version 1 ไม่มี:
-
-- scoring engine
-- workflow designer
-- automatic evidence carry-forward
-- generic compliance rules engine
-- custom approval chain
+Ordinary Document/Media maintenance remains available for public-publishable website information;
+it must not be represented as immutable yearly evidence management. Future re-entry requires
+separate Product/Architecture approval and supported historical-target enforcement evidence.
 
 ---
 
@@ -153,7 +170,7 @@ Publishing UI ใช้ native draft/publish/schedule/revision/preview behavior 
 
 Version 1 ไม่มี custom approval engine, Pending Review queue หรือ Approved state ของ Songhealth.
 
-หากผู้เขียนไม่มีสิทธิ์ Publish ให้บันทึก Draft และผู้ที่มี publish authority เป็นผู้ตรวจแล้ว Publish ผ่าน workflow มาตรฐานของ CMS.
+ผู้มี Native RBAC publish authority สามารถ Publish/Schedule บทความได้โดยตรง ไม่ต้องส่งตรวจ ขออนุมัติ หรือกดยืนยันผ่านขั้นตอนเพิ่มเติมของ Songhealth. ผู้ไม่มีสิทธิ์ Publish บันทึก Draft ได้ตาม native permissions; ไม่มีการส่งคำขออนุมัติหรือคิวผู้ตรวจ.
 
 ---
 
@@ -227,7 +244,7 @@ Admin CMS baseline ผ่านเมื่อ:
 - Content Model แสดงเป็น collection/field/relation ที่เข้าใจได้
 - Draft/Publish/Schedule/Preview/Revision ใช้งานได้ตาม collection ที่ต้องการ
 - media และ relation reuse ไม่ทำให้เกิดไฟล์/ข้อมูลซ้ำโดยไม่จำเป็น
-- ITA และ Homepage ทำงานได้โดยยังไม่ต้องมี custom application ขนาดใหญ่
+- Homepage uses supported native primitives; structured ITA/historical evidence is deferred, not part of V1 Admin acceptance
 - ไม่มี custom capability ที่ platform มีอยู่แล้วถูกสร้างซ้ำ
 
 > **Simple for staff, native by default, custom only for proven gaps.**

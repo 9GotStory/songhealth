@@ -1,11 +1,32 @@
 # Content Model — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 02-content-model
-> **Status:** CLEAN REBASELINE v2.2 — CURRENT
-> **Version:** 2.2
-> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-only publication
+> **Version:** 2.4
+> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`
 > **Purpose:** กำหนด semantic resources, fields และ relationships ที่ Songhealth ต้องการ โดยไม่สร้าง model ซ้ำกับ native CMS resources
+
+
+> **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
+> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
+> publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
+> independent review and human acceptance; deferral is not implementation or PASS. No upstream
+> change, new subsystem, replacement ITA workflow or production action is authorized.
+
+> **Prior native Q1 decision (save-time requiredness retained; publication hook superseded):** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
+> save-time requiredness for genuinely mandatory native references. Missing such a reference need
+> not be saveable as a draft. Other incomplete drafts follow native field validation. Optional/
+> conditional relationships are not automatic publication gates where native enforcement lacks
+> adequate data. D-ITA/D-REF remain deferred; no custom reference adapter or internal-table access.
+
+> **Current V1 simplification (Product Owner, 2026-10-14):** Songhealth uses native EmDash
+> field/type/required-reference/cardinality checks at save and native RBAC/lifecycle at
+> Publish/Schedule. No Songhealth-specific publication validation hook, editorial review,
+> approval queue or confirmation step. Incomplete optional content may publish under
+> native permissions; editorial completeness is the publisher's responsibility.
+> D-ITA/D-REF remain deferred; this decision is not runtime acceptance.
 
 ---
 
@@ -142,7 +163,7 @@ Logical data:
 - Profile Image
 - public position/assignment information
 - Organizational Unit
-- assignment start/endเมื่อ historical accuracyจำเป็น
+- current public assignment/unit/visibility only (accepted Q2); assignment history is outside V1
 - public contactเฉพาะที่เหมาะสม
 - public visibility/current status
 
@@ -152,7 +173,7 @@ CMS login account ≠ Personnel record.
 
 เก็บเฉพาะข้อมูลที่เหมาะต่อการเผยแพร่; ไม่เก็บ Citizen ID, private address, DOB, HR-sensitive data.
 
-Exact storage ของ Assignment (repeater vs related collection) ให้เลือกวิธีเล็กที่สุดที่รองรับ historical requirementจริง.
+V1 updates the same Personnel identity. No assignment-history dates, retained past assignments or public past-assignment directory; later history needs require a separately confirmed use case.
 
 ---
 
@@ -256,9 +277,9 @@ Fields:
 - successor/current-version relation optional
 - status/context metadataเมื่อ domainต้องการ เช่น superseded/expired
 
-Document reuse ได้ใน About, Service, Health Report, Announcement และ ITA.
+Document reuse ได้ใน About, Service, Health Report และ Announcement. ITA evidence reuse belongs to the deferred structured-ITA scope (§18).
 
-Do not duplicate the same authoritative file merely because it appears in multiple contexts.
+Do not duplicate the same authoritative file merely because it appears in multiple contexts. Native reuse shares the current source; it does not freeze historical bytes or metadata. Native replacement/deletion may affect those consumers; immutable targets and published-reference removal vetoes are deferred (§20).
 
 Document ไม่ใช่ DMS/สารบรรณ/digital-signature workflow.
 
@@ -337,60 +358,36 @@ Database/API/process topologyของ Dashboardอยู่นอก Content Mo
 
 ---
 
-# 18. ITA
+# 18. ITA — Deferred from V1
 
-ITA เป็น structured yearly evidence directory.
+Structured Fiscal Year → Section/MOIT → Requirement/Item → ordered Document/media/URL Evidence
+is deferred as a whole from the reduced V1 content model. No ITA collections, selectors,
+historical correction workflow, dedicated Admin workspace or associated acceptance fixtures are
+required in V1. Do not substitute Basic Page or ordinary Document reuse for historical guarantees.
 
-Logical hierarchy:
+Deferred requirements retain their meaning: year-specific configurable structure/order, reusable
+targets, public retention of published years without automatic expiry, no silent changes under
+current/shared edits, and authorized traceable deliberate correction identifying prior/replacement
+targets. Labels/order and the original Q1 ITA field rules remain future-scope requirements, not
+current V1 validation obligations. No automatic evidence carry-forward or compliance engine.
 
-```text
-Fiscal Year
-  → Section / MOIT
-    → Requirement / Item
-      → ordered Evidence
-```
+The existing logical attributes remain traceable for that deferred scope, without selecting storage:
 
-### Fiscal Year
-- fiscal year
-- title/description optional
-- display order
-- publication state via native CMS lifecycle
+| Deferred resource | Preserved meaning / attributes |
+| --- | --- |
+| Fiscal Year | Fiscal year; optional title/description; display order; native publication lifecycle |
+| Section / MOIT | Code, title, optional description, display order; belongs to Fiscal Year |
+| Requirement / Item | Code/number, title, description, display order; belongs to Section |
+| Evidence item | One Document, native media or external URL target; optional label/order; no required standalone route or minimum evidence count |
 
-### Section / MOIT
-- code
-- title
-- description optional
-- display order
-- belongs to Fiscal Year
+The hierarchy may vary by year. Existing Document reuse remains a future possibility, not proof
+that current-source media/metadata can satisfy preserved historical targets.
 
-### Requirement / Item
-- code/number
-- title
-- description
-- display order
-- belongs to Section
-
-### Evidence
-Evidence is **not required to be a standalone routable collection**.
-
-An ordered evidence item points to one of:
-
-- Document
-- native Media asset
-- External URL
-
-plus optional label/display order.
-
-Implementation may use relation/repeater/structured fields as long as historical evidence and editor usability are preserved.
-
-Rules:
-
-- structure configurable per fiscal year
-- historical years remain public as required
-- evidence of a past year does not dynamically change when current Personnel/Organization changes
-- reuse existing Document when practical
-- uploading new evidence from ITA UI may create/select native media or Document depending on semantic type
-- no compliance scoring/workflow/legal interpretation engine
+EmDash 1.1.0 replacement can overwrite a shared media key; content revisions do not preserve those
+bytes. Published-required-target removal/atomicity cannot be assumed. These guarantees are neither
+implemented nor passed. Re-entry needs a separate Product/Architecture decision and supported
+capability evidence. Existing legacy/public ITA material is not deleted, migrated or assigned a
+replacement delivery policy by this deferral. See Feature 002 spec deferred register D-ITA/D-REF.
 
 ---
 
@@ -408,11 +405,9 @@ Service ── Health Service
 
 Health Report ── Document
 
-ITA Fiscal Year ── Section ── Requirement
-ITA Requirement ── Document / Media / External URL evidence
 ```
 
-News/Activity/etc. add relations only where real discovery/reuse needs them.
+News/Activity/etc. add relations only where real discovery/reuse needs them. The ITA hierarchy/evidence relationships are deferred (§18), not V1 relation obligations.
 
 ---
 
@@ -428,6 +423,28 @@ Examples:
 - Document superseded/expired = document context
 
 อย่าสร้าง universal lifecycle enumให้ทุก collection.
+
+### V1 validation and native limitation boundary
+
+V1 uses only EmDash native schema required/type/format/unique/reference/cardinality checks
+at create/save and native RBAC, lifecycle, revision, scheduling and built-in validation
+at Publish/Schedule. Native `title` for semantic records, a Document's `file`, and
+Health Report → Document are required on create/save; other missing fields and
+classifications are optional unless an explicitly accepted native save rule applies.
+Incomplete drafts that violate a native required rule are refused; staff are responsible
+for editorial completeness before publishing.
+
+No Songhealth-specific `content:beforePublish` / `content:beforeSchedule`
+validation hook or extra data/taxonomy completeness rule is proposed. No editorial
+review, approval, confirmation, reference adapter or promoted-reference mirror.
+Missing optional data is not a Songhealth publish/schedule refusal. Native errors and
+permissions remain binding.
+
+Native references and media are not immutable. A selection does not guarantee
+availability under concurrent/later target changes. D-REF cross-record availability/
+removal veto and D-ITA historical evidence guarantees remain deferred. Public reads
+exclude draft targets and safely omit unavailable links/files. Staff may manually
+inspect reuse; this is not an automated dependency lock.
 
 ---
 
@@ -493,8 +510,8 @@ Canonical Songhealth semantic collectionsสำหรับ Version 1 มีแ�
 - Service
 - Document
 - Health Report
-- ITA structural resourcesที่จำเป็นต่อ hierarchy
+- ITA structural resources and historical evidence: **deferred from V1** (§18)
 
-Area representation, assignment representation และ ITA evidence storageเลือก primitive ที่เล็กที่สุดตอน implementation planning.
+Area and current-assignment representationเลือก primitive ที่เล็กที่สุดตอน implementation planning. ITA evidence storage is not selected or built in V1; §23 still applies if that deferred scope is separately reopened.
 
 > **Model meaning; reuse platform primitives; do not model infrastructure twice.**

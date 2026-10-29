@@ -1,0 +1,97 @@
+# 2026-10-28T23:38:00Z T021 coordinator run 2 (same commit, unchanged) from /home/thanakorn/dev/songhealth-t037 @ c416ea993b9fa54e1af547bee3fbc00c94528ee4
+coordinator: exact source identity verified — runtime source c416ea993b9fa54e1af547bee3fbc00c94528ee4 equals the candidate under test (git rev-parse HEAD of this checkout)
+coordinator: discovery pre-pass established 14 expected T021 test identities
+coordinator: running tests/browser/cms-public-reads.spec.ts through the pinned Playwright runner against http://127.0.0.1:4324 (timeout 1200000ms; owned-fixture manifest .tmp/feature002/t021-ownership-2026-10-28T23-38-03-910Z-1542864.jsonl)
+
+Running 14 tests using 1 worker
+
+  ✓   1 [chromium] › tests/browser/cms-public-reads.spec.ts:1788:1 › fixture route contract: identity probe, no-store, fail-closed access, method and bounded-input refusals (542ms)
+  ✓   2 [chromium] › tests/browser/cms-public-reads.spec.ts:1892:1 › published-only collection reads: drafts, pending titles, unpublished and trashed entries never appear; published ones do (723ms)
+  ✘   3 [chromium] › tests/browser/cms-public-reads.spec.ts:1958:1 › published entry reads: optional omissions stay absent and never fabricated (301ms)
+  ✓   4 [chromium] › tests/browser/cms-public-reads.spec.ts:2001:1 › live versus pending: staged content-data and reference selections stay invisible to public reads until publication (1.3s)
+  ✘   5 [chromium] › tests/browser/cms-public-reads.spec.ts:2108:1 › native signed preview boundary: absent, malformed, expired, wrong-entry, wrong-collection and untrusted edit parameters never expose drafts (2.5s)
+  ✓   6 [chromium] › tests/browser/cms-public-reads.spec.ts:2221:1 › draft, trashed and unavailable linked targets are omitted from public reference reads without blocking the parent (1.5s)
+  ✓   7 [chromium] › tests/browser/cms-public-reads.spec.ts:2283:1 › a save-time required reference is not a read-time availability guarantee (D-REF stays deferred) (692ms)
+  ✓   8 [chromium] › tests/browser/cms-public-reads.spec.ts:2325:1 › reference identity, opt-in hydration and multi-page traversal (1.5s)
+  ✘   9 [chromium] › tests/browser/cms-public-reads.spec.ts:2436:1 › missing files: a published Document whose media asset was removed reads as safe unavailability, never a false download success (329ms)
+  ✓  10 [chromium] › tests/browser/cms-public-reads.spec.ts:2514:1 › truthful not-found and empty states, and no privileged fallback on anonymous surfaces (84ms)
+  ✓  11 [chromium] › tests/browser/cms-public-reads.spec.ts:2555:1 › native error channel: a malformed pagination cursor surfaces the real native error contract, never an empty success (R5) (307ms)
+  ✓  12 [chromium] › tests/browser/cms-public-reads.spec.ts:2630:1 › R3-B settlement validation (regression): invalid resolved/refused records settle nothing and stay outstanding; valid settlements still function (10ms)
+  ✓  13 [chromium] › tests/browser/cms-public-reads.spec.ts:2717:1 › R3-B whole-manifest admission (remediation regression): any invalid row freezes the entire journal before any native work (20ms)
+  ✓  14 [chromium] › tests/browser/cms-public-reads.spec.ts:2809:1 › scope reduction (regression): historical ownership evidence always HOLDs — no replay, no adoption, no evidence removal (9ms)
+
+
+  1) [chromium] › tests/browser/cms-public-reads.spec.ts:1958:1 › published entry reads: optional omissions stay absent and never fabricated 
+
+    Error: an omitted optional field must stay absent (no fabricated value)
+
+    expect(received).toBeUndefined()
+
+    Received: null
+
+      1978 | 		read.body.entry?.data?.summary,
+      1979 | 		"an omitted optional field must stay absent (no fabricated value)",
+    > 1980 | 	).toBeUndefined();
+           | 	  ^
+      1981 | 	expect(
+      1982 | 		read.body.entry?.references,
+      1983 | 		"references stay absent unless the caller opted in",
+        at /home/thanakorn/dev/songhealth-t037/tests/browser/cms-public-reads.spec.ts:1980:4
+
+    Error Context: .tmp/playwright-results/cms-public-reads-published-1e8b6-absent-and-never-fabricated-chromium/error-context.md
+
+    Error Context: .tmp/playwright-results/cms-public-reads-published-1e8b6-absent-and-never-fabricated-chromium/error-context.md
+
+  2) [chromium] › tests/browser/cms-public-reads.spec.ts:2108:1 › native signed preview boundary: absent, malformed, expired, wrong-entry, wrong-collection and untrusted edit parameters never expose drafts 
+
+    Error: an expired signed token must not expose the draft
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "songhealth-f002-synthetic preview-target b27caa91"
+    Received: "songhealth-f002-synthetic preview-staged e3ecba0e"
+
+      2157 | 		expiredRead.body.entry?.data?.title,
+      2158 | 		"an expired signed token must not expose the draft",
+    > 2159 | 	).toBe(target.title);
+           | 	  ^
+      2160 | 	expect(expiredRead.body.isPreview).toBe(false);
+      2161 |
+      2162 | 	// Wrong entry: a VALID token for another entry of the same collection
+        at /home/thanakorn/dev/songhealth-t037/tests/browser/cms-public-reads.spec.ts:2159:4
+
+    Error Context: .tmp/playwright-results/cms-public-reads-native-si-55b67-ameters-never-expose-drafts-chromium/error-context.md
+
+    Error Context: .tmp/playwright-results/cms-public-reads-native-si-55b67-ameters-never-expose-drafts-chromium/error-context.md
+
+  3) [chromium] › tests/browser/cms-public-reads.spec.ts:2436:1 › missing files: a published Document whose media asset was removed reads as safe unavailability, never a false download success 
+
+    Error: the owned asset must expose a supported public address (src/url) for the availability control — a selection id alone does not establish the boundary
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      2471 | 		typeof addressCandidate === "string" && addressCandidate.length > 0,
+      2472 | 		"the owned asset must expose a supported public address (src/url) for the availability control — a selection id alone does not establish the boundary",
+    > 2473 | 	).toBe(true);
+           | 	  ^
+      2474 | 	const assetUrl = new URL(addressCandidate as string, PERSISTENT_DEVELOPMENT_ORIGIN);
+      2475 | 	expect(
+      2476 | 		assetUrl.origin,
+        at /home/thanakorn/dev/songhealth-t037/tests/browser/cms-public-reads.spec.ts:2473:4
+
+    Error Context: .tmp/playwright-results/cms-public-reads-missing-f-7b9bd-er-a-false-download-success-chromium/error-context.md
+
+    Error Context: .tmp/playwright-results/cms-public-reads-missing-f-7b9bd-er-a-false-download-success-chromium/error-context.md
+
+  3 failed
+    [chromium] › tests/browser/cms-public-reads.spec.ts:1958:1 › published entry reads: optional omissions stay absent and never fabricated 
+    [chromium] › tests/browser/cms-public-reads.spec.ts:2108:1 › native signed preview boundary: absent, malformed, expired, wrong-entry, wrong-collection and untrusted edit parameters never expose drafts 
+    [chromium] › tests/browser/cms-public-reads.spec.ts:2436:1 › missing files: a published Document whose media asset was removed reads as safe unavailability, never a false download success 
+  11 passed (13.0s)
+PRIMARY FAILURE: the T021 Playwright run failed with exit code 1
+COVERAGE FAILURE: incomplete T021 coverage despite a passing worker exit (3 problem(s)): test "published entry reads: optional omissions stay absent and never fabricated" recorded status "failed", not a terminal "passed"; test "native signed preview boundary: absent, malformed, expired, wrong-entry, wrong-collection and untrusted edit parameters never expose drafts" recorded status "failed", not a terminal "passed"; test "missing files: a published Document whose media asset was removed reads as safe unavailability, never a false download success" recorded status "failed", not a terminal "passed"
+coordinator exit 1
+# 2026-10-28T23:38:17Z end

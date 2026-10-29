@@ -1,0 +1,728 @@
+{
+  "$schema": "https://emdashcms.com/seed.schema.json",
+  "version": "1",
+  "meta": {
+    "name": "Songhealth CMS Content Model",
+    "description": "Feature 002 seed intent for the existing canonical platform: defines the shared native documents collection (required title and native file selection, optional domain metadata and the document_successor self-relation), the native pages collection for general information (required title, optional summary and portable-text body, no conditional media fields yet) bound to the optional page_documents relation (Page parent → Document, many-to-many), the native news collection for time-oriented public-information stories (required title, optional summary, portable-text body, featured image and source text, no speculative relations), the native activities collection for activity/meeting/field-work/event records (required title, optional summary, native offset-aware activity datetime distinct from native publication/scheduling time, location text, featured image, gallery repeater of image rows with optional captions preserving array order, and external participants kept as text — no separate participant/place identities or speculative relations), the native announcements collection for official notices (required title, optional portable-text details, native offset-aware announcement/opening/closing domain datetimes distinct from native publication/scheduling time, and optional related documents bound to the announcement_documents relation — Announcement parent → Document, many-to-many, no date-driven automatic unpublish), the native health_content collection for evergreen health-knowledge guidance (required title, optional summary, portable-text body, source text, featured image and native offset-aware reviewed_at/next_review_at domain datetimes distinct from native publication/scheduling time, with no review-date-driven automatic unpublish), the native services collection for citizen-service guidance (required title; optional summary, ownership_type select preserving the four approved direct/coordinated/related_health_service/external_digital meanings, provider text, channel repeater rows with optional label string and optional native url, eligibility/steps/required-documents/contact-location portable-text guidance, duration/fees/notes text and external url — editorial guidance only, with no transaction, payment or attachment engine) bound to the optional service_documents relation (Service parent → Document, many-to-many with unlimited maxima), and the native health_reports collection for health-report metadata describing one selected authoritative Document (required title; optional summary, reporting period, owner/source, native offset-aware report datetime distinct from native publication/scheduling time and fiscal year — explanatory metadata only, with no analytical metrics, dataset or extra publication rule) appended to shared topic and hierarchical area with the Report-only report_type classification. T017 defines that mandatory single report_document reference: the seed declares the report_document relation (Health Report parent → Document, one child maximum per Report and unlimited Report parents per Document) and explicitly binds the Report's report_document reference field with native top-level required true on the parent side, so automatic field-created relation naming cannot introduce a duplicate edge set and the Document selection stays in the separate native references payload rather than data; schema application and runtime verification remain separate scope and are not claimed here. T028 adds the native health_services collection for real health-service facilities, not an HIS (required official-name title; optional facility code, display name, operational-status select preserving the approved active/temporarily_closed/inactive values, address text, latitude/longitude numbers under the native inclusive −90..90 and −180..180 coordinate ranges, opening-hours and public-contact text, affiliation owner text per the accepted T025 Organization N/A disposition, and facility image), with physical address/coordinates distinct from service-coverage area selection, no Organization links (the conditional Organization stays unactivated), and no records, terms, facility codes or inventories populated. T029 declares the single reciprocal facility_services relation (Health Service parent → Service, many-to-many with unlimited maxima on both ends and no duplicate reverse relation) and explicitly binds its two optional selectors over that one edge set — health_services.offered_services on the parent side and services.offering_facilities on the child side, both non-required so empty selections remain valid and automatic field-created relation naming cannot introduce a second edge set — preserving native staged/live reciprocal semantics with no backlink index, custom adapter or availability constraint; schema application and runtime verification remain separate scope and are not claimed here. The shared native taxonomies remain topic, audience and hierarchical area — plus the Document-only document_type, News-only news_category, Announcement-only announcement_type, Service-only service_category, Report-only report_type and Health-Service-only facility_type classifications, with topic attached to documents, news, activities, announcements, health_content, services and health_reports, document_type to documents, news_category to news, announcement_type to announcements, service_category to services, report_type to health_reports, facility_type to health_services, audience attached to news, announcements, health_content and services, and area attached to news, activities, health_reports and health_services. Still defines zero menus, redirects, widgetAreas, sections and content, suppressing EmDash's built-in example Posts/Pages model. Term inventories are intentionally empty pending authoritative sources; no official terms, geographic codes or inventories are supplied. Taxonomy attachments are added as each owning collection is introduced. Area terms model the applicable Province → District → Subdistrict → Village hierarchy: explicit official/stable code in the native term slug, name in the native label, parent via native group identity."
+  },
+  "collections": [
+    {
+      "slug": "documents",
+      "label": "เอกสาร",
+      "labelSingular": "เอกสาร",
+      "supports": ["drafts", "revisions", "preview", "scheduling"],
+      "titleField": "title",
+      "dateField": "document_at",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อเรื่อง",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "summary",
+          "label": "สรุป",
+          "type": "text"
+        },
+        {
+          "slug": "file",
+          "label": "ไฟล์เอกสาร",
+          "type": "file",
+          "required": true
+        },
+        {
+          "slug": "document_at",
+          "label": "วันที่เอกสาร",
+          "type": "datetime"
+        },
+        {
+          "slug": "fiscal_year",
+          "label": "ปีงบประมาณ",
+          "type": "integer"
+        },
+        {
+          "slug": "owner_source",
+          "label": "เจ้าของ/แหล่งที่มา",
+          "type": "text"
+        },
+        {
+          "slug": "domain_status",
+          "label": "สถานะเอกสาร",
+          "type": "select",
+          "validation": {
+            "options": ["current", "superseded", "expired"]
+          }
+        },
+        {
+          "slug": "successor",
+          "label": "เอกสารฉบับถัดไป",
+          "type": "reference",
+          "validation": {
+            "relation": "document_successor",
+            "relationSide": "parent"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "pages",
+      "label": "ข้อมูลทั่วไป",
+      "labelSingular": "ข้อมูลทั่วไป",
+      "supports": ["drafts", "revisions", "preview", "scheduling"],
+      "titleField": "title",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อเรื่อง",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "summary",
+          "label": "สรุป",
+          "type": "text"
+        },
+        {
+          "slug": "body",
+          "label": "เนื้อหา",
+          "type": "portableText"
+        },
+        {
+          "slug": "documents",
+          "label": "เอกสารที่เกี่ยวข้อง",
+          "type": "reference",
+          "validation": {
+            "relation": "page_documents",
+            "relationSide": "parent"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "news",
+      "label": "ข่าว",
+      "labelSingular": "ข่าว",
+      "supports": ["drafts", "revisions", "preview", "scheduling"],
+      "titleField": "title",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อเรื่อง",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "summary",
+          "label": "สรุป",
+          "type": "text"
+        },
+        {
+          "slug": "body",
+          "label": "เนื้อหา",
+          "type": "portableText"
+        },
+        {
+          "slug": "featured_image",
+          "label": "ภาพประกอบ",
+          "type": "image"
+        },
+        {
+          "slug": "source_text",
+          "label": "แหล่งที่มา",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "slug": "activities",
+      "label": "กิจกรรม",
+      "labelSingular": "กิจกรรม",
+      "supports": ["drafts", "revisions", "preview", "scheduling"],
+      "titleField": "title",
+      "dateField": "activity_at",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อเรื่อง",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "summary",
+          "label": "สรุป",
+          "type": "text"
+        },
+        {
+          "slug": "activity_at",
+          "label": "วัน/เวลาจัดกิจกรรม",
+          "type": "datetime"
+        },
+        {
+          "slug": "location_text",
+          "label": "สถานที่จัดกิจกรรม",
+          "type": "string"
+        },
+        {
+          "slug": "featured_image",
+          "label": "ภาพประกอบ",
+          "type": "image"
+        },
+        {
+          "slug": "gallery",
+          "label": "แกลเลอรีภาพ",
+          "type": "repeater",
+          "validation": {
+            "subFields": [
+              {
+                "slug": "image",
+                "label": "ภาพ",
+                "type": "image",
+                "required": true
+              },
+              {
+                "slug": "caption",
+                "label": "คำบรรยายภาพ",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        {
+          "slug": "participants_text",
+          "label": "ผู้เข้าร่วม/บริบท",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "slug": "announcements",
+      "label": "ประกาศ",
+      "labelSingular": "ประกาศ",
+      "supports": ["drafts", "revisions", "preview", "scheduling"],
+      "titleField": "title",
+      "dateField": "announcement_at",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อเรื่อง",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "details",
+          "label": "รายละเอียด",
+          "type": "portableText"
+        },
+        {
+          "slug": "announcement_at",
+          "label": "วันที่ประกาศ",
+          "type": "datetime"
+        },
+        {
+          "slug": "opens_at",
+          "label": "วันที่เริ่มต้น",
+          "type": "datetime"
+        },
+        {
+          "slug": "closes_at",
+          "label": "วันที่สิ้นสุด",
+          "type": "datetime"
+        },
+        {
+          "slug": "documents",
+          "label": "เอกสารที่เกี่ยวข้อง",
+          "type": "reference",
+          "validation": {
+            "relation": "announcement_documents",
+            "relationSide": "parent"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "health_content",
+      "label": "ความรู้สุขภาพ",
+      "labelSingular": "ความรู้สุขภาพ",
+      "supports": ["drafts", "revisions", "preview", "scheduling"],
+      "titleField": "title",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อเรื่อง",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "summary",
+          "label": "สรุป",
+          "type": "text"
+        },
+        {
+          "slug": "body",
+          "label": "เนื้อหา",
+          "type": "portableText"
+        },
+        {
+          "slug": "source_text",
+          "label": "แหล่งที่มา",
+          "type": "text"
+        },
+        {
+          "slug": "featured_image",
+          "label": "ภาพประกอบ",
+          "type": "image"
+        },
+        {
+          "slug": "reviewed_at",
+          "label": "วันที่ทบทวน",
+          "type": "datetime"
+        },
+        {
+          "slug": "next_review_at",
+          "label": "วันที่ทบทวนครั้งถัดไป",
+          "type": "datetime"
+        }
+      ]
+    },
+    {
+      "slug": "services",
+      "label": "บริการ",
+      "labelSingular": "บริการ",
+      "supports": ["drafts", "revisions", "preview", "scheduling"],
+      "titleField": "title",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อบริการ",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "summary",
+          "label": "สรุป",
+          "type": "text"
+        },
+        {
+          "slug": "ownership_type",
+          "label": "บทบาทของหน่วยงาน",
+          "type": "select",
+          "validation": {
+            "options": ["direct", "coordinated", "related_health_service", "external_digital"]
+          }
+        },
+        {
+          "slug": "provider_text",
+          "label": "หน่วยงานผู้ให้บริการ",
+          "type": "string"
+        },
+        {
+          "slug": "channels",
+          "label": "ช่องทางรับบริการ",
+          "type": "repeater",
+          "validation": {
+            "subFields": [
+              {
+                "slug": "label",
+                "label": "ชื่อช่องทาง",
+                "type": "string"
+              },
+              {
+                "slug": "url",
+                "label": "ลิงก์",
+                "type": "url"
+              }
+            ]
+          }
+        },
+        {
+          "slug": "eligibility",
+          "label": "คุณสมบัติ/เงื่อนไข",
+          "type": "portableText"
+        },
+        {
+          "slug": "steps",
+          "label": "ขั้นตอนการรับบริการ",
+          "type": "portableText"
+        },
+        {
+          "slug": "required_documents_guidance",
+          "label": "เอกสารที่ต้องเตรียม",
+          "type": "portableText"
+        },
+        {
+          "slug": "contact_location_guidance",
+          "label": "สถานที่/ช่องทางติดต่อ",
+          "type": "portableText"
+        },
+        {
+          "slug": "duration",
+          "label": "ระยะเวลาดำเนินการ",
+          "type": "text"
+        },
+        {
+          "slug": "fees",
+          "label": "ค่าธรรมเนียม",
+          "type": "text"
+        },
+        {
+          "slug": "notes",
+          "label": "หมายเหตุ",
+          "type": "text"
+        },
+        {
+          "slug": "external_url",
+          "label": "ลิงก์บริการภายนอก",
+          "type": "url"
+        },
+        {
+          "slug": "documents",
+          "label": "เอกสารที่เกี่ยวข้อง",
+          "type": "reference",
+          "validation": {
+            "relation": "service_documents",
+            "relationSide": "parent"
+          }
+        },
+        {
+          "slug": "offering_facilities",
+          "label": "หน่วยบริการสุขภาพที่ให้บริการ",
+          "type": "reference",
+          "validation": {
+            "relation": "facility_services",
+            "relationSide": "child"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "health_reports",
+      "label": "รายงานสุขภาพ",
+      "labelSingular": "รายงานสุขภาพ",
+      "supports": ["drafts", "revisions", "preview", "scheduling"],
+      "titleField": "title",
+      "dateField": "report_at",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อเรื่อง",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "summary",
+          "label": "สรุป",
+          "type": "text"
+        },
+        {
+          "slug": "reporting_period",
+          "label": "ช่วงเวลาของรายงาน",
+          "type": "text"
+        },
+        {
+          "slug": "owner_source",
+          "label": "เจ้าของ/แหล่งที่มา",
+          "type": "text"
+        },
+        {
+          "slug": "report_at",
+          "label": "วันที่รายงาน",
+          "type": "datetime"
+        },
+        {
+          "slug": "fiscal_year",
+          "label": "ปีงบประมาณ",
+          "type": "integer"
+        },
+        {
+          "slug": "report_document",
+          "label": "เอกสารรายงาน",
+          "type": "reference",
+          "required": true,
+          "validation": {
+            "relation": "report_document",
+            "relationSide": "parent"
+          }
+        }
+      ]
+    },
+    {
+      "slug": "personnel",
+      "label": "บุคลากร",
+      "labelSingular": "บุคลากร",
+      "supports": ["drafts", "revisions", "preview", "scheduling"],
+      "titleField": "title",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อที่แสดง",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "prefix",
+          "label": "คำนำหน้าชื่อ",
+          "type": "string"
+        },
+        {
+          "slug": "first_name",
+          "label": "ชื่อ",
+          "type": "string"
+        },
+        {
+          "slug": "last_name",
+          "label": "นามสกุล",
+          "type": "string"
+        },
+        {
+          "slug": "profile_image",
+          "label": "ภาพประจำตัว",
+          "type": "image"
+        },
+        {
+          "slug": "current_assignment",
+          "label": "ตำแหน่ง/หน้าที่ปัจจุบัน",
+          "type": "string"
+        },
+        {
+          "slug": "organizational_unit",
+          "label": "หน่วยงานสังกัด",
+          "type": "string"
+        },
+        {
+          "slug": "public_visible",
+          "label": "แสดงต่อสาธารณะ",
+          "type": "boolean"
+        },
+        {
+          "slug": "public_contact",
+          "label": "ช่องทางติดต่อสาธารณะ",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "slug": "health_services",
+      "label": "หน่วยบริการสุขภาพ",
+      "labelSingular": "หน่วยบริการสุขภาพ",
+      "supports": ["drafts", "revisions", "preview", "scheduling"],
+      "titleField": "title",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อทางการ",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "facility_code",
+          "label": "รหัสหน่วยบริการ",
+          "type": "string"
+        },
+        {
+          "slug": "display_name",
+          "label": "ชื่อที่แสดง",
+          "type": "string"
+        },
+        {
+          "slug": "operational_status",
+          "label": "สถานะการให้บริการ",
+          "type": "select",
+          "validation": {
+            "options": ["active", "temporarily_closed", "inactive"]
+          }
+        },
+        {
+          "slug": "address",
+          "label": "ที่อยู่",
+          "type": "text"
+        },
+        {
+          "slug": "latitude",
+          "label": "ละติจูด",
+          "type": "number",
+          "validation": {
+            "min": -90,
+            "max": 90
+          }
+        },
+        {
+          "slug": "longitude",
+          "label": "ลองจิจูด",
+          "type": "number",
+          "validation": {
+            "min": -180,
+            "max": 180
+          }
+        },
+        {
+          "slug": "opening_hours",
+          "label": "เวลาทำการ",
+          "type": "text"
+        },
+        {
+          "slug": "public_contact",
+          "label": "ช่องทางติดต่อสาธารณะ",
+          "type": "text"
+        },
+        {
+          "slug": "affiliation_text",
+          "label": "หน่วยงานที่สังกัด",
+          "type": "string"
+        },
+        {
+          "slug": "image",
+          "label": "ภาพหน่วยบริการ",
+          "type": "image"
+        },
+        {
+          "slug": "offered_services",
+          "label": "บริการที่ให้",
+          "type": "reference",
+          "validation": {
+            "relation": "facility_services",
+            "relationSide": "parent"
+          }
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "slug": "document_successor",
+      "parentCollection": "documents",
+      "childCollection": "documents",
+      "parentLabel": "เอกสารฉบับก่อนหน้า",
+      "parentLabelSingular": "เอกสารฉบับก่อนหน้า",
+      "childLabel": "เอกสารฉบับถัดไป",
+      "childLabelSingular": "เอกสารฉบับถัดไป",
+      "maxChildrenPerParent": 1,
+      "maxParentsPerChild": null
+    },
+    {
+      "slug": "page_documents",
+      "parentCollection": "pages",
+      "childCollection": "documents",
+      "parentLabel": "หน้าที่เกี่ยวข้อง",
+      "parentLabelSingular": "หน้าที่เกี่ยวข้อง",
+      "childLabel": "เอกสารที่เกี่ยวข้อง",
+      "childLabelSingular": "เอกสารที่เกี่ยวข้อง",
+      "maxChildrenPerParent": null,
+      "maxParentsPerChild": null
+    },
+    {
+      "slug": "announcement_documents",
+      "parentCollection": "announcements",
+      "childCollection": "documents",
+      "parentLabel": "ประกาศที่เกี่ยวข้อง",
+      "parentLabelSingular": "ประกาศที่เกี่ยวข้อง",
+      "childLabel": "เอกสารที่เกี่ยวข้อง",
+      "childLabelSingular": "เอกสารที่เกี่ยวข้อง",
+      "maxChildrenPerParent": null,
+      "maxParentsPerChild": null
+    },
+    {
+      "slug": "service_documents",
+      "parentCollection": "services",
+      "childCollection": "documents",
+      "parentLabel": "บริการที่เกี่ยวข้อง",
+      "parentLabelSingular": "บริการที่เกี่ยวข้อง",
+      "childLabel": "เอกสารที่เกี่ยวข้อง",
+      "childLabelSingular": "เอกสารที่เกี่ยวข้อง",
+      "maxChildrenPerParent": null,
+      "maxParentsPerChild": null
+    },
+    {
+      "slug": "report_document",
+      "parentCollection": "health_reports",
+      "childCollection": "documents",
+      "parentLabel": "รายงานสุขภาพที่เกี่ยวข้อง",
+      "parentLabelSingular": "รายงานสุขภาพที่เกี่ยวข้อง",
+      "childLabel": "เอกสารรายงาน",
+      "childLabelSingular": "เอกสารรายงาน",
+      "maxChildrenPerParent": 1,
+      "maxParentsPerChild": null
+    },
+    {
+      "slug": "facility_services",
+      "parentCollection": "health_services",
+      "childCollection": "services",
+      "parentLabel": "หน่วยบริการสุขภาพที่ให้บริการ",
+      "parentLabelSingular": "หน่วยบริการสุขภาพที่ให้บริการ",
+      "childLabel": "บริการที่ให้",
+      "childLabelSingular": "บริการที่ให้",
+      "maxChildrenPerParent": null,
+      "maxParentsPerChild": null
+    }
+  ],
+  "taxonomies": [
+    {
+      "name": "topic",
+      "label": "หัวข้อ",
+      "labelSingular": "หัวข้อ",
+      "hierarchical": false,
+      "collections": ["documents", "news", "activities", "announcements", "health_content", "services", "health_reports"]
+    },
+    {
+      "name": "audience",
+      "label": "กลุ่มเป้าหมาย",
+      "labelSingular": "กลุ่มเป้าหมาย",
+      "hierarchical": false,
+      "collections": ["news", "announcements", "health_content", "services"]
+    },
+    {
+      "name": "area",
+      "label": "พื้นที่",
+      "labelSingular": "พื้นที่",
+      "hierarchical": true,
+      "collections": ["news", "activities", "health_reports", "health_services"]
+    },
+    {
+      "name": "document_type",
+      "label": "ประเภทเอกสาร",
+      "labelSingular": "ประเภทเอกสาร",
+      "hierarchical": false,
+      "collections": ["documents"]
+    },
+    {
+      "name": "news_category",
+      "label": "หมวดข่าว",
+      "labelSingular": "หมวดข่าว",
+      "hierarchical": false,
+      "collections": ["news"]
+    },
+    {
+      "name": "announcement_type",
+      "label": "ประเภทประกาศ",
+      "labelSingular": "ประเภทประกาศ",
+      "hierarchical": false,
+      "collections": ["announcements"]
+    },
+    {
+      "name": "service_category",
+      "label": "หมวดบริการ",
+      "labelSingular": "หมวดบริการ",
+      "hierarchical": false,
+      "collections": ["services"]
+    },
+    {
+      "name": "report_type",
+      "label": "ประเภทรายงาน",
+      "labelSingular": "ประเภทรายงาน",
+      "hierarchical": false,
+      "collections": ["health_reports"]
+    },
+    {
+      "name": "facility_type",
+      "label": "ประเภทหน่วยบริการ",
+      "labelSingular": "ประเภทหน่วยบริการ",
+      "hierarchical": false,
+      "collections": ["health_services"]
+    }
+  ],
+  "menus": [],
+  "redirects": [],
+  "widgetAreas": [],
+  "sections": [],
+  "content": {}
+}

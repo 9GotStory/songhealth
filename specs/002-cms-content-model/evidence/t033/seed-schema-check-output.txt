@@ -1,0 +1,6 @@
+collections: 10 in the seed; missing live: none
+fields: 80 in the seed; missing live: none
+taxonomies: 9 in the seed; missing live: none; live only (EmDash built-ins): ['category', 'tag']
+relations: 6 in the seed; missing live: none
+seed items that setup's content=0 skips: {'content': 0, 'terms': 0, 'bylines': 0}
+SEED-SCHEMA: PASS

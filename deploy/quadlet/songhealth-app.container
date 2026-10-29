@@ -1,0 +1,478 @@
+# Songhealth production application container (Feature 001, T020).
+#
+# Authority:
+# - specs/001-platform-foundation/tasks.md T020 — the single Astro + EmDash
+#   application Quadlet with the persistent media volume, private network,
+#   proxy-facing loopback publication, external secrets/configuration,
+#   restart behavior, and startup ordering that runs T013's
+#   exact-build-manifest status/apply/check migration gate before the
+#   application is accepted ready; block readiness on migration failure
+#   without adding a migration container, service, or orchestration layer
+# - docs/website-modernization-docs/current/10-system-blueprint.md §2 (pin
+#   dependency/image versions in production deployment definitions; no
+#   unbounded `latest`), §3.1 (rootless Podman + systemd Quadlet baseline:
+#   app + PostgreSQL on one private network, only the application published
+#   on the proxy-facing loopback boundary, secrets never baked into images,
+#   Quadlet defines startup/restart and health/readiness), §20/§20.1
+#   (environment-specific values stay external; the native runtime input
+#   contract PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD,
+#   EMDASH_MIGRATION_DATABASE_URL, EMDASH_SITE_URL, HOST/PORT,
+#   EMDASH_ENCRYPTION_KEY; media at the stable ./media path)
+# - specs/001-platform-foundation/plan.md — "Technical Context"/"Configuration
+#   and secrets" (pin the built application image by explicit version AND
+#   immutable digest; non-secret values may use an external environment file;
+#   secret-bearing values stay in operator-managed Podman/systemd secrets or
+#   equivalent host-protected files), "Production topology and durability"
+#   (publish only the application port to the proxy-facing host boundary; a
+#   missing expected attachment or an accidentally empty replacement store
+#   must never appear as a healthy platform), "Runtime verification and
+#   readiness" (the native migration sequence is a deployment/startup gate
+#   before the application is declared ready; recurring readiness is private
+#   and non-mutating; Quadlet health + Notify=healthy make the state
+#   observable)
+# - accepted contracts consumed as-is, never reconstructed here:
+#   deploy/Containerfile (T017 single production OCI runtime, whose /app tree
+#   is deliberately writable by its non-root `node` user so this unit can run
+#   the gate's exact in-place rebuild), deploy/quadlet/songhealth.network and
+#   songhealth-media.volume (T018 private network and persistent media
+#   volume), deploy/quadlet/songhealth-db.container (T019 private-only
+#   PostgreSQL, resolved on the network as systemd-songhealth-db),
+#   tests/operations/verify-startup.sh driven through package.json's
+#   committed verify:startup mapping (T013 startup-acceptance gate:
+#   S1 input/identity validation -> S2 exact build + native manifest ->
+#   S3 status/fingerprint inspection -> S4 fingerprint-guarded apply ->
+#   S5 check -> S6 bounded disposable media write/read/remove probe),
+#   scripts/verify-readiness.mjs (T012 private non-mutating aggregate
+#   readiness helper, also wired into container health below),
+#   tests/operations/verify-foundation.sh (T016 harness; it resolves this
+#   container as systemd-songhealth-app, so ContainerName is deliberately
+#   NOT set and keeps the Quadlet default naming)
+#
+# Image identity (rework r1 finding 1; digest re-pinned in rework r2 to the
+# retained inspectable canonical artifact): the full immutable production
+# identity is pinned below as explicit repository name + explicit version +
+# immutable digest of the canonical build of THIS checkout's T017
+# Containerfile (podman build -f deploy/Containerfile -t
+# localhost/songhealth-app:0.0.1 .; the build's only base is itself pinned
+# by version and immutable digest inside the Containerfile). 0.0.1 is the
+# repository application version (package.json). The digest is the exact
+# build this deployment definition accepts — podman resolves the digest
+# against local image storage, so a different or rebuilt image never
+# satisfies it and container creation fails closed; changing the accepted
+# build therefore requires changing this pinned identity. Because default
+# image builds are not bit-reproducible across build times, the accepted
+# artifact is RETAINED in the deployment verification runtime's rootless
+# Podman storage (inspectable as localhost/songhealth-app@sha256:<digest>)
+# so the pinned identity can be independently verified; the r1 build was
+# discarded during that round's teardown and is superseded by this
+# retained artifact. The tag is kept alongside the digest for
+# human-readable identity only; the digest is the enforcement. Never
+# `latest`, never a bare mutable tag.
+#
+# External runtime inputs (never committed; every absence fails closed):
+#
+# - ~/.config/containers/systemd/songhealth-app.env — the operator-managed,
+#   host-protected environment file loaded at the [Service] level (the %h
+#   specifier is expanded by user systemd; no host-specific absolute path is
+#   committed), supplying the approved native runtime inputs:
+#     HOST=127.0.0.1        loopback application address for the accepted
+#                           T012 readiness contract (see the server-bind
+#                           note below)
+#     PORT=4321             application port; must equal the published
+#                           container port below — enforced before container
+#                           creation by an ExecCondition skip on mismatch
+#     PGHOST=systemd-songhealth-db
+#                           the T019 container's resolvable name on the
+#                           private songhealth network
+#     PGPORT=5432           PostgreSQL port inside the private network
+#     PGDATABASE=<target application database>
+#     PGUSER=<least-privilege application role — enforced below>
+#     PGPASSWORD=<application role credential>
+#     EMDASH_SITE_URL=<absolute production origin>
+#   Only these eight named variables are forwarded into the container
+#   (Environment= bare-name forwarding below); no other key in the file
+#   reaches it. PGPASSWORD is secret-bearing and lives in this host-protected
+#   file rather than a Podman file-secret because the accepted recurring
+#   readiness contract reads it from the container environment itself:
+#   scripts/verify-readiness.mjs is executed by the T016 harness through
+#   `podman exec` and by the container healthcheck below, both of which
+#   inherit only the container's configured environment — a file-mounted
+#   secret can never satisfy those contracts (plan.md permits exactly this:
+#   operator-managed Podman/systemd secrets or equivalent host-protected
+#   files). The file must be operator-protected (0600); systemd does not
+#   expose EnvironmentFile values in unit definitions, `systemctl show`, or
+#   the journal.
+#
+# - the Podman secrets `songhealth-migration-database-url` and
+#   `songhealth-encryption-key` — the two most sensitive inputs (the
+#   migration connection URL with its embedded password, and the EmDash
+#   encryption key), injected through the native Quadlet Secret= mechanism
+#   and mounted read-only at /run/secrets/<name>. They are read by the
+#   container's own startup command below and exported only into the
+#   application process environment: they never appear in this file, in the
+#   container's configured environment (so `podman inspect` cannot leak
+#   them), in Git, or in any image layer, and they are not exec-visible.
+#   Container creation fails when either secret does not exist.
+#
+# Operator-managed persistence prerequisite (rework r1, finding 3): the
+# persistent media store must already exist as an explicitly provisioned
+# store. The T018 volume unit (and Podman generally) creates a missing named
+# volume as an empty replacement (`podman volume create --ignore`), which a
+# mount-only check cannot distinguish from the operator's existing store —
+# so this unit additionally requires the operator-created store marker
+# `.songhealth-media-store` at the root of the media volume. The operator
+# creates the marker ONCE when provisioning the store (a small non-secret
+# provisioning record, e.g. an ISO timestamp and host identifier, owned by
+# the runtime user). The marker travels with the persistent bytes only: a
+# deleted-and-recreated volume, a wiped store, or an unprovisioned
+# deployment has no marker, and this unit refuses to start — it never
+# creates, initializes, or repairs the store itself. The same
+# deleted-volume recreation hazard exists for the T019 database volume;
+# that store's enforcement belongs to the T019 unit and is noted for
+# review, not changed here.
+#
+# Least-privilege application-role prerequisite (rework r1 finding 4,
+# completed in rework r2): the approved contract (T019/T020) is ONE stable,
+# non-superuser, least-privilege application role with database CONNECT,
+# schema USAGE/CREATE, DML, and ownership/inherited ownership of the EmDash
+# objects — provisioned by the operator against the running T019 database,
+# never the bootstrap administrator (POSTGRES_USER, initialized WITH
+# SUPERUSER by the official image) and never the bootstrap secret
+# songhealth-db-password. T013 proves identity agreement and migration
+# state, not role privileges, and a merely-applied migration state or a
+# SELECT-only probe establishes no CMS write permission, so before any
+# migration mutation runs, this unit's startup command enforces the
+# privilege prerequisite itself through the application's own pinned pg
+# client, connecting exactly as the configured PG* application identity:
+# the connecting role must exist, must NOT be SUPERUSER or hold CREATEDB or
+# CREATEROLE (which also structurally rejects the bootstrap administrator),
+# and must hold CONNECT on the target database plus USAGE and CREATE on
+# schema public — and, completing the contract, every EXISTING EmDash
+# object is verified read-only for BOTH ownership/inherited ownership AND
+# effective required DML against the ESTABLISHED public schema.
+#
+# PUBLIC-ONLY SCHEMA CONTRACT (S01 correction; predicate aligned in S01-R1):
+# Feature 001 supports exactly one effective EmDash schema — public — for
+# both the application connection (the PG* inputs) and the migration
+# connection (EMDASH_MIGRATION_DATABASE_URL). Unqualified EmDash names
+# alone do NOT prove where objects live: PostgreSQL 18 resolves unqualified
+# creation and lookups through the effective search path, whose default is
+# "$user", public and may place a role-named schema before public. Per the
+# PostgreSQL 18 documentation, the prerequisite queries, on EACH connection
+# independently: current_schema() — the documented first effective schema,
+# i.e. where unqualified CREATE statements land (NULL for an empty search
+# path); current_schemas(false) — the documented effective search path with
+# $user resolved (an existing role-named schema the user may USE is
+# substituted; nonexistent or non-usable entries are dropped), reflecting
+# any connection-level search_path override; and pg_my_temp_schema() — the
+# documented session temporary schema OID, zero when none exists.
+# Cast the effective lookup to text[] on both connections: pinned
+# pg@8.23.1/pg-types@2.2.0 parses text[] (OID 1009) into an array, while
+# native name[] (OID 1003) arrives as an unparsed string and is refused.
+# The accepted contract is: current_schema() == public; the current_schemas
+# (false) list minus ONE pg_catalog entry (pg_catalog is always searched
+# whether implicit or explicitly listed — ordinary system lookup, not an
+# application schema) is EXACTLY [public]; and pg_my_temp_schema() == 0,
+# because an existing temporary schema is documented to be searched FIRST
+# for relations and would shadow EmDash lookups. Together these prove that
+# unqualified EmDash DDL creates only into public and unqualified lookups
+# resolve only through public plus the system catalog, which is what makes
+# the hard-coded public catalog filter (below) a proof rather than an
+# assumption. Any other result — a role-named schema, an override, an
+# extra entry that could capture creation or shadow resolution, a
+# temporary schema, an explicit pg_temp entry, or a NULL/failed
+# inspection — is refused BEFORE any migration mutation. Identity
+# agreement between the two connections (proven separately by the T013
+# gate) does not substitute for this: search_path is per-connection. In
+# the established public schema, each existing ordinary/partitioned table
+# or sequence must be owned by the connecting role directly or through
+# role membership
+# (pg_has_role USAGE — the native ownership/inherited-ownership test) AND
+# hold its full required DML set (tables: SELECT, INSERT, UPDATE, DELETE;
+# sequences: SELECT, USAGE, UPDATE — distinct privileges per PostgreSQL 18
+# ddl-priv). Neither condition alone satisfies the approved contract:
+# PostgreSQL 18 GRANT keeps ownership and grantable DML distinct — an owner
+# can revoke its own ordinary DML privileges (owned with no effective DML),
+# and a non-owner can hold full grants without ownership — so both invalid
+# shapes are rejected, each naming the violated condition(s). A database
+# with no such objects yet is the legitimate pre-first-migration state and
+# passes; after the first native apply the role owns the objects it created
+# with their privileges intact. Any failure names the failed prerequisite
+# or object only
+# (identity components are the documented non-secret ones; credentials and
+# connection errors never print values) and blocks the start before the
+# T013 gate's apply step. The migration URL must still identify the same
+# intended database as the PG* inputs; the gate's S1 enforces that
+# agreement by non-secret identity components only, and S3 re-proves it
+# against the inspected native target label. This unit provisions nothing,
+# grants nothing, repairs nothing, and initializes nothing.
+#
+# Startup sequence (one container; no migration container, migration
+# service, custom server, or orchestration layer exists): the image's native
+# entrypoint receives one `sh -c` payload that, in order,
+#   1. proves the expected persistent media attachment is live: /app/media
+#      must be a real mount point (the same /proc/mounts field-2 primitive
+#      the T016 harness uses). The T017 image ships an empty placeholder
+#      directory at /app/media, so an omitted Volume= attachment would
+#      otherwise silently present a writable ephemeral replacement store as
+#      healthy — plan.md forbids exactly that. Refusal names the missing
+#      attachment and exits before anything else runs.
+#   2. proves the store is the operator-provisioned existing store: the
+#      store marker above must exist and be readable. A missing marker (an
+#      unprovisioned or replaced store) refuses to start with the
+#      prerequisite named — no initialization, no repair.
+#   3. reads the two Podman secrets into the process environment (missing
+#      secret files surface as named missing inputs in the gate's S1);
+#   4. enforces the public-only schema prerequisite and the
+#      least-privilege application-role prerequisite above — on each
+#      connection, current_schema() must be public, the effective lookup
+#      path current_schemas(false) minus the documented pg_catalog system
+#      lookup must be exactly [public], and pg_my_temp_schema() must be 0;
+#      then role
+#      attributes, database CONNECT, schema USAGE/CREATE, and read-only
+#      verification that every existing EmDash object in the ESTABLISHED
+#      public schema carries BOTH required ownership (direct or through
+#      role membership) AND effective required DML — all before the gate
+#      runs and therefore strictly before any migration mutation,
+#      printing one secret-safe verification line (with the verified
+#      existing-object count) on success;
+#   5. runs the accepted T013 startup-acceptance gate as-is through the
+#      committed verify:startup mapping — input/identity validation, the
+#      exact application rebuild and its native manifest checks, native
+#      status -> inspected-fingerprint-guarded apply -> post-apply
+#      inspection -> check, and the bounded disposable media
+#      write/read/remove probe (the only migration/write probes; they stay
+#      startup-only). Any failure exits nonzero, the container never starts
+#      the application, and the unit follows its restart policy; the gate's
+#      full [S1..S6] PASS markers land in this unit's journal for every
+#      start.
+#   6. only then execs the native standalone server emitted by that exact
+#      build (dist/server/entry.mjs), with the in-container bind widened to
+#      0.0.0.0 for this one process.
+#
+# Server bind note (verified against rootless Podman 5.8.4 on the
+# verification host, both for the bridge network used here and for pasta):
+# a container process bound to the container's own loopback is NOT reachable
+# through a published host port — rootless port forwarding delivers to the
+# container's network address (pasta(1) likewise targets the namespace's
+# public address unless --host-lo-to-ns-lo is set, and that option does not
+# apply to bridge-network containers). The HOST input above stays the
+# loopback application address the accepted T012 helper probes
+# (http://127.0.0.1:4321/ inside the container), and a 0.0.0.0 bind answers
+# that loopback probe — so this unit starts the server process with
+# HOST=0.0.0.0 as explicit deployment configuration while the external
+# boundary remains loopback-only: PublishPort below binds the host side to
+# 127.0.0.1 only, and the container's second interface is the private
+# songhealth network shared only with PostgreSQL. No unintended interface
+# is exposed (.env.example: production HOST must match the container/proxy
+# boundary and must not expose an unintended interface).
+#
+# T016 verification status (canonical rebaseline): the two limitations this
+# unit previously recorded as outstanding are RESOLVED at source level by
+# the accepted canonical T016 harness and specification, and the outdated
+# statements are withdrawn: (a) C1 — the accepted harness now recognizes
+# the approved in-container startup-gate wiring form, including a
+# startup-payload identity contract that requires this unit's Exec payload
+# to be BYTE-EQUAL to the accepted T020 payload authority embedded in the
+# harness; this file preserves that payload byte-for-byte (verified at
+# rebaseline), so the wiring contract is satisfied without changing either
+# side; (b) C7 — the accepted Feature 001 specification (Session
+# 2026-10-09 clarification) recognizes the Product Owner-approved STARTUP
+# REFUSAL evidence class: when this unit refuses to start because the
+# persistent media attachment is absent, the harness accepts the
+# invocation-scoped, media-specific refusal emitted by step 1 above
+# (guard diagnostic shape: volume ... not attached at /app/media ...
+# refusing to start) as the operational not-ready evidence, alongside
+# genuine T012 results from a running container. Runtime verification of
+# both stages — like all deployed behavior — remains pending and belongs
+# to T022's separate authorization; nothing here claims runtime
+# acceptance.
+
+[Unit]
+Description=Songhealth Astro + EmDash application (T013 startup gate, least-privilege role prerequisite, private network, loopback-only publication)
+# Hard ordering and dependency on the T019 PostgreSQL unit: starting this
+# unit starts the database first, and the database unit's own Notify=healthy
+# semantics mean "started" there is "healthy". The network and media-volume
+# dependencies are generated natively by the Network=/Volume= unit
+# references below.
+#
+# T019 skip semantics (canonical rebaseline): Requires=/After= is ordering
+# convenience only, NOT proof that the intended database is operationally
+# usable — a skipped PostgreSQL ExecCondition can complete its systemd start
+# job without propagating an error through this dependency edge, and T019
+# health or completed store provisioning does not by itself prove the
+# application identity is provisioned. The authoritative verification is
+# this unit's own in-container prerequisites (step 4: least-privilege
+# application-role connectivity and privilege gate) and the T013 gate's
+# S1/S3 identity checks, which fail closed regardless of the dependency
+# edge. No T019 behavior is modified or reimplemented here.
+Requires=songhealth-db.service
+After=songhealth-db.service
+
+[Container]
+# The single T017 production application image, pinned by the FULL immutable
+# identity: explicit repository + explicit version + the immutable digest of
+# the canonical build of this checkout's deploy/Containerfile (see the
+# image-identity note above). Only that exact image satisfies this
+# reference; any other or rebuilt image fails container creation closed.
+Image=localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407
+
+# Attach exclusively to the accepted T018 private application network
+# (NetworkName=songhealth). The Quadlet reference generates
+# Requires=/After= on songhealth-network.service; PostgreSQL is reachable
+# only here and publishes no host port of its own (T019).
+Network=songhealth.network
+
+# Persistent public-publishable media: the accepted T018 volume
+# (VolumeName=songhealth-media) mounted at the image's canonical stable
+# application path /app/media (blueprint §20.1; no MEDIA_DIRECTORY input
+# exists). The Quadlet reference generates a dependency on
+# songhealth-media-volume.service; container recreation replaces only the
+# ephemeral container layer, never the named volume. The operator-managed
+# existing-store marker is enforced by the startup command below.
+Volume=songhealth-media.volume:/app/media
+
+# The only publication in this deployment: the application port on the host
+# loopback, for the external HTTPS/reverse-proxy boundary. The host side is
+# bound to 127.0.0.1 only — never all interfaces — and the committed
+# container port (4321) is the single authority for the whole port
+# configuration: the standalone server, the T012 readiness probe, and the
+# healthcheck all consume the same inherited PORT input, and an
+# ExecCondition below rejects any PORT that disagrees with this publication
+# before any container exists, so listener, probe, and publication can
+# never silently diverge. PostgreSQL is not published in any form.
+PublishPort=127.0.0.1:4321:4321
+
+# Approved native runtime inputs forwarded by bare name — each value is
+# inherited from the unit environment that user systemd loaded from the
+# external environment file, exactly as the accepted T019 unit forwards its
+# identity inputs. No other key from that file reaches the container.
+Environment=HOST
+Environment=PORT
+Environment=PGHOST
+Environment=PGPORT
+Environment=PGDATABASE
+Environment=PGUSER
+Environment=PGPASSWORD
+Environment=EMDASH_SITE_URL
+
+# Operator-managed Podman secrets for the two most sensitive inputs, mounted
+# read-only at /run/secrets/<name> and read by the startup command below.
+# Missing secrets fail container creation.
+Secret=songhealth-migration-database-url
+Secret=songhealth-encryption-key
+
+# One startup payload (see the startup-sequence note above): media
+# attachment guard -> existing-store marker guard -> secret reads ->
+# least-privilege application-role prerequisite -> the accepted T013 gate
+# via the committed verify:startup mapping -> exec the native standalone
+# server with the deployment's in-container 0.0.0.0 bind. Every failure
+# exits nonzero before the application starts; each prerequisite's verdict
+# and the gate's per-stage output land in this unit's journal.
+Exec=sh -c "grep -q ' /app/media ' /proc/mounts || { echo songhealth-app: required persistent media volume songhealth-media is not attached at /app/media - refusing to start >&2; exit 1; }; test -r /app/media/.songhealth-media-store || { echo songhealth-app: operator-managed existing media store marker .songhealth-media-store is missing at /app/media - the persistent store was not provisioned or has been replaced - refusing to start >&2; exit 1; }; IFS= read -r EMDASH_MIGRATION_DATABASE_URL </run/secrets/songhealth-migration-database-url; IFS= read -r EMDASH_ENCRYPTION_KEY </run/secrets/songhealth-encryption-key; export EMDASH_MIGRATION_DATABASE_URL EMDASH_ENCRYPTION_KEY; node -e 'const pg=require(`pg`);const fail=m=>{console.error(`songhealth-app: `+m);process.exit(1)};const schemaContractOk=r=>!!r&&String(r.creation_schema)===`public`&&Array.isArray(r.lookup_schemas)&&r.lookup_schemas.filter(x=>String(x)!==`pg_catalog`).length===1&&String(r.lookup_schemas.filter(x=>String(x)!==`pg_catalog`)[0])===`public`&&String(r.temp_schema)===`0`;(async()=>{const c=new pg.Client({host:process.env.PGHOST,port:Number(process.env.PGPORT),database:process.env.PGDATABASE,user:process.env.PGUSER,password:process.env.PGPASSWORD,connectionTimeoutMillis:5000,query_timeout:5000});await c.connect();const sa=(await c.query(`select current_schema() as creation_schema, current_schemas(false)::text[] as lookup_schemas, pg_my_temp_schema() as temp_schema`)).rows[0];if(!schemaContractOk(sa))fail(`public-only schema prerequisite failed: the application connection does not satisfy the public-only schema contract (creation schema current_schema() must be public, the effective lookup path current_schemas(false) minus the documented implicit or explicit pg_catalog system lookup must be exactly public, and pg_my_temp_schema() must be 0 so no temporary schema shadows EmDash relation lookup) - refusing before any migration mutation`);const mc=new pg.Client({connectionString:process.env.EMDASH_MIGRATION_DATABASE_URL,connectionTimeoutMillis:5000,query_timeout:5000});await mc.connect();const sm=(await mc.query(`select current_schema() as creation_schema, current_schemas(false)::text[] as lookup_schemas, pg_my_temp_schema() as temp_schema`)).rows[0];await mc.end();if(!schemaContractOk(sm))fail(`public-only schema prerequisite failed: the migration connection does not satisfy the public-only schema contract (the same creation-schema, effective-lookup-path, and temporary-schema conditions) - refusing before any migration mutation`);const r=await c.query(`select rolsuper s,rolcreatedb cd,rolcreaterole cr,has_database_privilege(current_user,current_database(),$q$CONNECT$q$) dbc,has_schema_privilege(current_user,$q$public$q$,$q$USAGE$q$) su,has_schema_privilege(current_user,$q$public$q$,$q$CREATE$q$) sc from pg_roles where rolname=current_user`);const b=r.rows[0];if(!b)fail(`least-privilege application-role prerequisite failed: the connecting role has no pg_roles row`);if(b.s)fail(`least-privilege application-role prerequisite failed: the connecting role is SUPERUSER - the bootstrap administrator is not the application identity`);if(b.cd)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEDB`);if(b.cr)fail(`least-privilege application-role prerequisite failed: the connecting role has CREATEROLE`);if(!b.dbc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CONNECT on the target database`);if(!b.su)fail(`least-privilege application-role prerequisite failed: the connecting role lacks USAGE on schema public`);if(!b.sc)fail(`least-privilege application-role prerequisite failed: the connecting role lacks CREATE on schema public`);const o=await c.query(`select case c.relkind when $q$S$q$ then $q$sequence$q$ else $q$table$q$ end kind,c.relname obj,pg_has_role(current_user,c.relowner,$q$USAGE$q$) owned,case c.relkind when $q$S$q$ then has_sequence_privilege(current_user,c.oid,$q$SELECT$q$) and has_sequence_privilege(current_user,c.oid,$q$USAGE$q$) and has_sequence_privilege(current_user,c.oid,$q$UPDATE$q$) else has_table_privilege(current_user,c.oid,$q$SELECT$q$) and has_table_privilege(current_user,c.oid,$q$INSERT$q$) and has_table_privilege(current_user,c.oid,$q$UPDATE$q$) and has_table_privilege(current_user,c.oid,$q$DELETE$q$) end dml from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind in ($q$r$q$,$q$p$q$,$q$S$q$) and n.nspname=$q$public$q$`);await c.end();for(const x of o.rows){const p=[];if(!x.owned)p.push(`not owned by the connecting role directly or through role membership`);if(!x.dml)p.push(`lacking effective required DML privileges`);if(p.length>0)fail(`least-privilege application-role prerequisite failed: existing EmDash `+x.kind+` `+x.obj+` in the established public schema is `+p.join(` and `))}console.error(`songhealth-app: least-privilege application-role and public-only schema prerequisites verified: both connections create into public (current_schema) with effective lookup exactly public beyond the documented pg_catalog system lookup (current_schemas(false)) and no temporary schema (pg_my_temp_schema 0); non-superuser, no CREATEDB, no CREATEROLE, database CONNECT, schema public USAGE and CREATE, and `+o.rows.length+` existing EmDash relation(s) in the established public schema pass required ownership (direct or inherited) and full DML verification`)})().catch(e=>fail(`least-privilege application-role and public-only schema prerequisite failed: `+((e&&e.code)||`error`)))' && npm run verify:startup && HOST=0.0.0.0 exec node dist/server/entry.mjs"
+
+# Native container health = the accepted T012 aggregate readiness, wired
+# verbatim (rework r1, finding 2): the helper runs inside the container
+# (private boundary, no public endpoint), consumes only the container's own
+# configured environment, and performs its bounded non-mutating checks —
+# loopback SSR probe with the expected marker, bounded PostgreSQL
+# connectivity, and media-mount presence/readability — self-terminating
+# within its own 8s overall bound and exiting nonzero on any not-ready
+# result. A mere HTTP 200 is therefore never sufficient: with the database
+# unreachable or the media mount unreadable, health fails while the SSR
+# page may still be served. The migration/write probes are NOT part of
+# health — they remain startup-only in the T013 gate above, so recurring
+# health never mutates persistent state. HealthTimeout exceeds the
+# helper's own wall-clock bound; failures during the startup gate fall
+# inside HealthStartPeriod and do not count. Notify=healthy postpones the
+# generated unit's startup notification until this aggregate check passes,
+# so user systemd never considers this service started before the gate has
+# passed AND the application is actually, completely ready.
+HealthCmd=node scripts/verify-readiness.mjs
+HealthInterval=10s
+HealthTimeout=15s
+HealthRetries=3
+HealthStartPeriod=300s
+Notify=healthy
+
+# Rootless user-systemd lifecycle behavior — no alternative orchestration
+# layer exists, and no boot-time enablement is defined here: the unit runs
+# when the operator starts or enables it through user systemd.
+#
+# The environment file supplies the runtime inputs at the systemd level. A
+# missing file fails the unit load before any container exists, and the
+# ExecCondition gates skip the unit — exit 1-254 semantics: skipped, not
+# failed, and not restarted — when a required input is missing, empty, or
+# (for PORT) in disagreement with the committed publication port, naming
+# the field or conflict only (values are never printed). In every gated
+# case no container is created, no secret is read, and the healthy
+# notification cannot fire.
+#
+# Port consistency (rework r4, F01): the PORT input must equal the
+# committed publication container port 4321 above. The equality
+# ExecCondition rejects any conflicting PORT before startup side effects;
+# PORT is a documented non-secret identity component, so its expansion in
+# this one argument is safe (no secret is involved).
+#
+# Secret-safe presence check (rework r4, F03): PGPASSWORD must be
+# non-empty in the effective environment systemd loaded from the
+# EnvironmentFile, but its value must never be interpolated into a host
+# command argument. The ':' command prefix disables systemd's command-line
+# environment variable substitution entirely (systemd.service(5) v259: an
+# Exec prefixed with ':' passes a literal "$USER"), so the shell below
+# receives the literal text test -n "$PGPASSWORD" and its BUILT-IN test
+# inspects the variable inside the process environment the shell inherits
+# from the unit: the credential appears in no argv, no log line, and no
+# diagnostic. ConditionEnvironment= was considered and rejected: it checks
+# the service manager's environment, not EnvironmentFile= values
+# (systemd.unit(5)); a pattern match on the file was rejected by the
+# Product Owner: quoted and multi-line EnvironmentFile values are not
+# reliably validated that way (systemd.exec(5)). The value necessarily
+# remains in the service's own process environment — inherent to any
+# environment-injection mechanism, including the container runtime itself —
+# but never in world-readable command-line metadata.
+#
+# Precise input validation (port ranges, URL form, PG*/URL identity
+# agreement) belongs to the accepted T008 configuration boundary and the
+# T013 gate's S1, which fail closed inside the container.
+[Service]
+EnvironmentFile=%h/.config/containers/systemd/songhealth-app.env
+ExecCondition=/usr/bin/test -n "${HOST}"
+ExecCondition=/usr/bin/test "${PORT}" = 4321
+ExecCondition=/usr/bin/test -n "${PGHOST}"
+ExecCondition=/usr/bin/test -n "${PGPORT}"
+ExecCondition=/usr/bin/test -n "${PGDATABASE}"
+ExecCondition=/usr/bin/test -n "${PGUSER}"
+ExecCondition=:/usr/bin/sh -c 'test -n "$PGPASSWORD"'
+ExecCondition=/usr/bin/test -n "${EMDASH_SITE_URL}"
+
+# The unit returns after any unplanned container exit (application crash,
+# failed startup gate, OOM kill, external signal shutdown); an explicit
+# `systemctl --user stop` is never restarted, and systemd's built-in start
+# rate limiting bounds any retry loop. A failed gate therefore never
+# escalates to a healthy state — it can only retry or stay down.
+Restart=always
+RestartSec=5s
+
+# Startup timeout budget (rework r4 F02; comment corrected in rework r5 per
+# the Product Owner decision). The verified part is the accepted T013
+# sequence as committed — never shortened or bypassed here: the exact
+# application build is bounded at 900s plus a 30s kill-after (930s), and
+# the four sequential bounded native CLI calls — S3 status, S4 apply, S4
+# post-apply status, S5 check — at 600s plus a 30s kill-after each (2520s),
+# for 3450s of bounded command allowance. TimeoutStartSec=3600s is the
+# Product Owner accepted operational policy ceiling for each start
+# attempt; the remaining 150s is an overhead reserve for everything else —
+# the role-prerequisite connection and its two bounded queries (10s bounds
+# each), container start and npm/npx startup overhead, the T013 S6 bounded
+# media claim/write/read/remove operations, standalone server boot, and
+# the first healthcheck pass that releases the Notify=healthy startup
+# notification — and that reserve is UNVERIFIED: the S6 filesystem
+# operations and the standalone server startup have no independently
+# proven wall-clock limits, so no overall worst-case duration is claimed
+# here. A start attempt whose legitimate progress exceeds the ceiling will
+# be terminated by systemd; that possibility is accepted by the Product
+# Owner decision rather than eliminated by this unit. Actual startup
+# durations, and whether this ceiling accommodates them, remain subject to
+# separately authorized runtime validation.
+TimeoutStartSec=3600s

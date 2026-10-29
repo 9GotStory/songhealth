@@ -1,0 +1,42 @@
+# Songhealth development PostgreSQL 18.6 (UID-1000 rootless Quadlet runtime; Feature 002
+# T036). Same immutable image digest as production (deploy/quadlet/songhealth-db.container);
+# no host port: only the app reaches it on the private songhealth-qdev network. The volume
+# mounts at the PostgreSQL 18 parent path /var/lib/postgresql (PGDATA=/var/lib/postgresql/
+# 18/docker). The first start on the installer-provisioned empty volume runs the image's
+# native initialization, including the least-privilege app-role script that the installer
+# copies to ~/.local/share/songhealth-qdev/initdb (it reads the app password from the
+# mounted secret). Contract: docs/operations/development-quadlet.md.
+[Unit]
+Description=Songhealth dev PostgreSQL 18.6 (private network, no host port)
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Container]
+Image=docker.io/library/postgres:18.6@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf
+ContainerName=songhealth-qdev-db
+Network=songhealth-dev.network
+Volume=songhealth-dev-db-data.volume:/var/lib/postgresql
+Volume=%h/.local/share/songhealth-qdev/initdb:/docker-entrypoint-initdb.d:ro,Z
+Environment=POSTGRES_USER=songhealth_qdev_admin
+Environment=POSTGRES_DB=songhealth_qdev
+Environment=POSTGRES_PASSWORD_FILE=/run/secrets/songhealth-qdev-db-password
+Secret=songhealth-qdev-db-password
+Secret=songhealth-qdev-app-password
+HealthCmd=pg_isready -U songhealth_qdev_admin -d songhealth_qdev -h 127.0.0.1
+HealthInterval=5s
+HealthTimeout=3s
+HealthRetries=3
+HealthStartPeriod=60s
+Notify=healthy
+
+[Service]
+# Refuse an empty data volume unless the installer authorized the first initialization
+# (it creates the flag file before the first start and removes it once the app role is
+# verified): a lost or recreated volume must be restored, never silently re-initialized.
+ExecStartPre=/bin/sh -c 'p=$$(podman volume inspect --format "{{.Mountpoint}}" songhealth-qdev-db-data) || exit 1; podman unshare test -e "$$p/18/docker/PG_VERSION" && exit 0; test -e %h/.local/state/songhealth-qdev/db-first-init && exit 0; echo "songhealth-qdev-db: data volume has no database cluster and no first-initialization authorization - refusing to start (restore a backup or reinstall; see docs/operations/development-quadlet.md)" >&2; exit 1'
+Restart=on-failure
+RestartSec=10s
+TimeoutStartSec=180
+
+[Install]
+WantedBy=default.target

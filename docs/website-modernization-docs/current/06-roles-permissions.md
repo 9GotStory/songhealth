@@ -1,9 +1,9 @@
 # Roles & Permissions — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 06-roles-permissions
-> **Status:** CLEAN REBASELINE v2.2 — CURRENT
-> **Version:** 2.2
-> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Status:** CLEAN REBASELINE v2.3 — CURRENT native-first V1
+> **Version:** 2.3
+> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`
 > **Purpose:** กำหนด access-control requirements ที่จำเป็นต่อ Songhealth โดยไม่สร้าง role/permission model ซ้ำกับ CMS
 
@@ -38,7 +38,7 @@ Songhealth ต้อง enforce least privilege ที่ trusted server/system 
 
 > **สิทธิ์เขียน Draft ไม่จำเป็นต้องเท่ากับสิทธิ์ Publish.**
 
-ผู้ใช้งานที่มีหน้าที่เขียนแต่ไม่ควรเผยแพร่เองต้องสามารถสร้าง/แก้ Draft แล้วให้ผู้ที่มี publish authority ตรวจและ Publish ได้.
+ผู้ที่มี native publish authority เผยแพร่หรือกำหนดเวลาบทความได้โดยตรงโดยไม่ต้องผ่านการตรวจบทความ การยืนยัน หรือการอนุมัติเพิ่มเติม. ผู้ที่ไม่มีสิทธิ์ Publish สร้าง/แก้ Draft ได้ตาม native permissions แต่ไม่มี workflow ส่งตรวจหรือขออนุมัติ.
 
 นี่เป็น permission boundary ไม่ใช่เหตุผลให้สร้าง Approval Workflow หรือ Pending Review state แยก.
 
@@ -93,11 +93,18 @@ Version 1 ไม่มี public self-registration สำหรับ Admin CMS.
 - plugins
 - site-wide authentication/settings
 - backups/import/transfer
-- permanent deletion
+- permanent content deletion (native administrator-only purge after trash)
 
 ต้องถูกจำกัดด้วย native administrator-level permission ของ platform.
 
 ไม่สร้าง super-admin/override role เพิ่มเอง.
+
+V1 scope decision `01a135e9-23e0-78c3-bcea-c752516828a8` (2026-10-13): native media deletion
+uses its separate media/ownership permissions; it is not a trash-first content purge or an
+administrator-only guarantee for every raw asset. Authorization of an actor does not establish
+published-required-reference or historical-retention enforcement. Those unavailable Q3/Q4
+guarantees are deferred from V1 under `02` §18/20 and `07` §10, not implemented or passed.
+This is the current V1 boundary; no custom RBAC or editorial approval flow.
 
 ---
 

@@ -1,0 +1,55 @@
+# Songhealth development application (UID-1000 rootless Quadlet runtime; Feature 002 T036):
+# the Astro + EmDash dev server on the same Node 24.21.0 image digest that production
+# builds from (deploy/Containerfile), serving the runtime source checkout
+# ~/dev/songhealth-quadlet bind-mounted at /src. It listens on 4324 both inside and
+# outside the container (loopback publication only), so the public origin, the Vite HMR
+# socket and EMDASH_SITE_URL agree. Non-secret configuration is set here; the four secrets
+# (three runtime credentials and the T021 fixture route token) are podman secret files that
+# scripts/dev-runtime-entrypoint.sh exports into the dev process only. The dev server runs
+# with deploy/dev-quadlet/astro.dev.config.mjs (canonical configuration plus the
+# development-only T021 fixture route; T037). The entrypoint also refuses to start (exit
+# 78, not restarted) on missing dependencies, an unpromoted checkout or a missing media store.
+# Contract: docs/operations/development-quadlet.md.
+[Unit]
+Description=Songhealth dev Astro + EmDash app (http://127.0.0.1:4324)
+Requires=songhealth-dev-db.service
+After=songhealth-dev-db.service
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Container]
+Image=docker.io/library/node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+ContainerName=songhealth-qdev-app
+Network=songhealth-dev.network
+Volume=%h/dev/songhealth-quadlet:/src:z
+Volume=songhealth-dev-media.volume:/src/media
+WorkingDir=/src
+PublishPort=127.0.0.1:4324:4324
+Environment=HOST=0.0.0.0
+Environment=PORT=4324
+Environment=EMDASH_SITE_URL=http://127.0.0.1:4324
+Environment=PGHOST=songhealth-qdev-db
+Environment=PGPORT=5432
+Environment=PGDATABASE=songhealth_qdev
+Environment=PGUSER=songhealth_qdev_app
+Environment=ASTRO_TELEMETRY_DISABLED=1
+Secret=songhealth-qdev-app-password
+Secret=songhealth-qdev-migration-database-url
+Secret=songhealth-qdev-encryption-key
+Secret=songhealth-qdev-t021-route-token
+Exec=/bin/sh /src/scripts/dev-runtime-entrypoint.sh dev
+HealthCmd=node -e "fetch('http://127.0.0.1:4324/').then(r=>r.text()).then(t=>process.exit(t.includes('songhealth-foundation')?0:1)).catch(()=>process.exit(1))"
+HealthInterval=15s
+HealthTimeout=10s
+HealthRetries=5
+HealthStartPeriod=180s
+Notify=healthy
+
+[Service]
+Restart=on-failure
+RestartSec=10s
+RestartPreventExitStatus=78
+TimeoutStartSec=420
+
+[Install]
+WantedBy=default.target

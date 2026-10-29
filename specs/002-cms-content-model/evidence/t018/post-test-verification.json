@@ -1,0 +1,454 @@
+{
+	"capturedAt": "2026-10-18T07:09:40.310Z",
+	"checks": [
+		{
+			"name": "collection set equals accepted ten",
+			"ok": true,
+			"detail": [
+				"activities",
+				"announcements",
+				"documents",
+				"health_content",
+				"health_reports",
+				"news",
+				"pages",
+				"services"
+			]
+		},
+		{
+			"name": "documents definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "pages definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "news definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "activities definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "announcements definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "health_content definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "services definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "health_reports definition equals seed",
+			"ok": true,
+			"detail": []
+		},
+		{
+			"name": "relation set equals accepted five",
+			"ok": true,
+			"detail": [
+				"announcement_documents",
+				"document_successor",
+				"page_documents",
+				"report_document",
+				"service_documents"
+			]
+		},
+		{
+			"name": "relation document_successor endpoints/limits/binding",
+			"ok": true,
+			"detail": {
+				"maxC": 1,
+				"maxP": null,
+				"bound": [
+					{
+						"collectionSlug": "documents",
+						"fieldSlug": "successor",
+						"side": "parent"
+					}
+				]
+			}
+		},
+		{
+			"name": "relation page_documents endpoints/limits/binding",
+			"ok": true,
+			"detail": {
+				"maxC": null,
+				"maxP": null,
+				"bound": [
+					{
+						"collectionSlug": "pages",
+						"fieldSlug": "documents",
+						"side": "parent"
+					}
+				]
+			}
+		},
+		{
+			"name": "relation announcement_documents endpoints/limits/binding",
+			"ok": true,
+			"detail": {
+				"maxC": null,
+				"maxP": null,
+				"bound": [
+					{
+						"collectionSlug": "announcements",
+						"fieldSlug": "documents",
+						"side": "parent"
+					}
+				]
+			}
+		},
+		{
+			"name": "relation service_documents endpoints/limits/binding",
+			"ok": true,
+			"detail": {
+				"maxC": null,
+				"maxP": null,
+				"bound": [
+					{
+						"collectionSlug": "services",
+						"fieldSlug": "documents",
+						"side": "parent"
+					}
+				]
+			}
+		},
+		{
+			"name": "relation report_document endpoints/limits/binding",
+			"ok": true,
+			"detail": {
+				"maxC": 1,
+				"maxP": null,
+				"bound": [
+					{
+						"collectionSlug": "health_reports",
+						"fieldSlug": "report_document",
+						"side": "parent"
+					}
+				]
+			}
+		},
+		{
+			"name": "taxonomy topic attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"activities",
+					"announcements",
+					"documents",
+					"health_content",
+					"health_reports",
+					"news",
+					"services"
+				],
+				"seed": [
+					"activities",
+					"announcements",
+					"documents",
+					"health_content",
+					"health_reports",
+					"news",
+					"services"
+				]
+			}
+		},
+		{
+			"name": "taxonomy audience attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"announcements",
+					"health_content",
+					"news",
+					"services"
+				],
+				"seed": [
+					"announcements",
+					"health_content",
+					"news",
+					"services"
+				]
+			}
+		},
+		{
+			"name": "taxonomy area attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"activities",
+					"health_reports",
+					"news"
+				],
+				"seed": [
+					"activities",
+					"health_reports",
+					"news"
+				]
+			}
+		},
+		{
+			"name": "taxonomy document_type attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"documents"
+				],
+				"seed": [
+					"documents"
+				]
+			}
+		},
+		{
+			"name": "taxonomy news_category attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"news"
+				],
+				"seed": [
+					"news"
+				]
+			}
+		},
+		{
+			"name": "taxonomy announcement_type attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"announcements"
+				],
+				"seed": [
+					"announcements"
+				]
+			}
+		},
+		{
+			"name": "taxonomy service_category attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"services"
+				],
+				"seed": [
+					"services"
+				]
+			}
+		},
+		{
+			"name": "taxonomy report_type attachments",
+			"ok": true,
+			"detail": {
+				"live": [
+					"health_reports"
+				],
+				"seed": [
+					"health_reports"
+				]
+			}
+		},
+		{
+			"name": "activities zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "activities zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "announcements zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "announcements zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "documents zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "documents zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "health_content zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "health_content zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "health_reports zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "health_reports zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "news zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "news zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "pages zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "pages zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "services zero synthetic entries",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "services zero trash residue",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "zero synthetic media",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "media store empty",
+			"ok": true,
+			"detail": {
+				"count": 0
+			}
+		},
+		{
+			"name": "zero synthetic topic terms",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"body": 0
+			}
+		},
+		{
+			"name": "orphan tables empty",
+			"ok": true,
+			"detail": {
+				"items": []
+			}
+		},
+		{
+			"name": "deletion queue pending empty",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "deletion queue retry empty",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "deletion queue leased empty",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		},
+		{
+			"name": "deletion queue failed empty",
+			"ok": true,
+			"detail": {
+				"status": 200,
+				"count": 0
+			}
+		}
+	],
+	"problems": []
+}

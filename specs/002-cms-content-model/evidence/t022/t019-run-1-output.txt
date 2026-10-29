@@ -1,0 +1,48 @@
+# T019 run 1 — 2026-10-29T02:25:50Z — workspace HEAD 5ade411944a52f9f8d81e16753b9363be97913b5
+npm notice run songhealth@0.0.1 npx
+npm notice run 'playwright' test tests/browser/cms-lifecycle.spec.ts --workers=1 --retries=0
+
+Running 13 tests using 1 worker
+
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   1 [chromium] › tests/browser/cms-lifecycle.spec.ts:939:1 › pages schema precondition: the approved native definition is active (5ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 0, media attempted 1)
+  ✓   2 [chromium] › tests/browser/cms-lifecycle.spec.ts:950:1 › contributor: saves drafts while direct publish, schedule, trash and media removal are refused by native RBAC (515ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   3 [chromium] › tests/browser/cms-lifecycle.spec.ts:1017:1 › author: publishes and unpublishes own incomplete draft directly with no approval step, and is refused on others' content (628ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 1)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 0, media attempted 1)
+  ✓   4 [chromium] › tests/browser/cms-lifecycle.spec.ts:1083:1 › author: native media removal is ownership-bound — own media deletable, others' refused (201ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   5 [chromium] › tests/browser/cms-lifecycle.spec.ts:1125:1 › editor: publishes and manages others' content directly, and is refused the administrator-only purge and users administration (422ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 0, media attempted 1)
+  ✓   6 [chromium] › tests/browser/cms-lifecycle.spec.ts:1182:1 › editor: media removal of another account's asset succeeds at editor level (the separate native media authority) (123ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   7 [chromium] › tests/browser/cms-lifecycle.spec.ts:1209:1 › administrator: permanent content deletion is trash-first and administrator-only, and users administration is an administrator boundary (178ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   8 [chromium] › tests/browser/cms-lifecycle.spec.ts:1265:1 › disabled account: direct requests are refused by the authorization layer, and restoration is verified by re-read (320ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   9 [chromium] › tests/browser/cms-lifecycle.spec.ts:1350:1 › unauthenticated lifecycle requests are authorization refusals, never validation outcomes (9ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 2, media attempted 0)
+  ✓  10 [chromium] › tests/browser/cms-lifecycle.spec.ts:1392:1 › stale _rev: publish and schedule refuse a stale revision token, and a re-read retry succeeds (434ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓  11 [chromium] › tests/browser/cms-lifecycle.spec.ts:1445:1 › scheduling: an explicit-offset future time is accepted for an incomplete draft and read back; a non-future time is a native validation refusal (243ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓  12 [chromium] › tests/browser/cms-lifecycle.spec.ts:1565:1 › scheduling: nothing is published before the scheduled time (bounded pre-due observation, then native unschedule) (40.3s)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓  13 [chromium] › tests/browser/cms-lifecycle.spec.ts:1715:1 › scheduling: the native scheduler publishes at the due time (bounded observation, current-state assertion) (40.5s)
+
+  13 passed (1.4m)
+exit=0

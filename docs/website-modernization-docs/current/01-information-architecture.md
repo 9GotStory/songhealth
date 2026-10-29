@@ -1,11 +1,19 @@
 # Information Architecture — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 01-information-architecture
-> **Status:** CLEAN REBASELINE v2.2 — CURRENT
-> **Version:** 2.2
-> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Status:** CLEAN REBASELINE v2.3 — V1 scope revision for Independent Review / Human Acceptance
+> **Version:** 2.3
+> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md`
 > **Purpose:** กำหนดว่า “ข้อมูลอะไรอยู่ที่ไหน ใครเป็นเจ้าของความหมาย และเชื่อมกันอย่างไร” โดยไม่กำหนด framework, database topology หรือ UI implementation
+
+
+> **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
+> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
+> publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
+> independent review and human acceptance; deferral is not implementation or PASS. No upstream
+> change, new subsystem, replacement ITA workflow or production action is authorized.
 
 ---
 
@@ -24,7 +32,7 @@
 
 # 2. Public Information Domains
 
-Songhealth มี 8 public information domains:
+Songhealth information domains (structured ITA is deferred from the reduced V1 scope):
 
 1. เกี่ยวกับเรา
 2. ข่าวสารและการสื่อสาร
@@ -32,7 +40,7 @@ Songhealth มี 8 public information domains:
 4. หน่วยบริการสุขภาพ
 5. ข้อมูลสุขภาพ
 6. เอกสารเผยแพร่
-7. ITA
+7. ITA — structured historical evidence deferred from V1 (§9)
 8. ติดต่อและช่องทางดิจิทัล
 
 Domains เป็น ownership ของข้อมูล ไม่จำเป็นต้อง map 1:1 กับ CMS collections หรือเมนูทุกกรณี.
@@ -174,7 +182,7 @@ Document เป็น semantic record สำหรับไฟล์เผยแ
 - แผน
 - รายงาน
 - ประกาศแนบ
-- ITA evidence
+- ITA evidence: future deferred scope only (§9)
 
 หนึ่ง Document สามารถปรากฏในหลายบริบทโดยไม่ upload ซ้ำ.
 
@@ -182,30 +190,16 @@ Raw media/file asset ไม่เท่ากับ Document record; Document �
 
 ---
 
-# 9. ITA
+# 9. ITA — Deferred from V1
 
-ITA เป็น **Structured Yearly Evidence Directory**:
+The Structured Yearly Evidence Directory (Fiscal Year → Section/MOIT → Requirement/Item →
+ordered Document/media/URL Evidence) is a deferred future information domain, not a V1 resource,
+navigation or Admin obligation. Historical public retention, preserved targets under shared edits
+and traceable correction remain deferred requirements under `02-content-model.md` §18.
 
-```text
-Fiscal Year
-  → MOIT / Section
-    → Requirement / Item
-      → Evidence
-```
-
-Evidence รองรับ:
-
-- Document
-- Media asset เมื่อรูป/screenshot เป็นหลักฐานจริง
-- External URL เมื่อหลักฐานอยู่ภายนอก
-
-Rules:
-
-- structure เปลี่ยนได้รายปี
-- historical year ยังเปิดดูได้
-- preserve history; improve forward
-- ไม่ผูก historical evidence กับ current Personnel/Organization แบบ dynamic
-- ไม่สร้าง scoring/compliance/workflow engine ใน Version 1
+Ordinary public Document/Media reuse does not satisfy these guarantees. No Basic Page fallback,
+automatic carry-forward, scoring/compliance engine or alternate delivery architecture is approved.
+Existing legacy/public ITA material is not deleted or migrated by this scope decision.
 
 ---
 
@@ -271,11 +265,9 @@ News / Activity / Announcement / Health Content ── Topic/Area/Audience
 
 Health Report ── Document
 
-ITA Requirement ── Evidence
-Evidence ── Document / Media / External URL
 ```
 
-Relationship เกิดเมื่อช่วย reuse/navigation/history จริง ไม่ต้องเชื่อมทุก entity เข้าหากันเพื่อความสมบูรณ์เชิงทฤษฎี.
+Relationship เกิดเมื่อช่วย reuse/navigation/history จริง ไม่ต้องเชื่อมทุก entity เข้าหากันเพื่อความสมบูรณ์เชิงทฤษฎี. ITA hierarchy/evidence relations are deferred (§9), not V1 relationships.
 
 ---
 
@@ -325,7 +317,7 @@ Dashboard analytical systemไม่เป็น CMS editing module.
 - Document เป็น semantic resource; raw media/file assetไม่ใช่ Document record
 - Media ใช้ platform media capability ไม่สร้าง public information domain
 - Contact structuredแต่ไม่บังคับ standalone collection
-- ITA = structured yearly evidence directory
+- ITA structured yearly evidence directory = **deferred from V1**, with no historical-preservation PASS
 - Homepage/Search reuse canonical resources
 
 ---

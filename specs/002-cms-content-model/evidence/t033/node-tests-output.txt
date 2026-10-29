@@ -1,0 +1,80 @@
+# T033 node foundation tests — 2026-10-29T02:47:29Z — HEAD 7567a293718369ee35d82b09d52428f5f32f8232 — node --test tests/node/config.test.ts tests/node/foundation.test.ts (clean checkout)
+▶ valid native runtime configuration (control)
+  ✔ loads the canonical application configuration successfully without echoing any configured value (848.108249ms)
+✔ valid native runtime configuration (control) (849.57101ms)
+▶ missing or empty required values fail closed
+  ✔ fails closed naming PGHOST when it is unset (822.031225ms)
+  ✔ fails closed naming PGHOST when it is empty (830.960997ms)
+  ✔ fails closed naming PGPORT when it is unset (783.004541ms)
+  ✔ fails closed naming PGPORT when it is empty (803.044301ms)
+  ✔ fails closed naming PGDATABASE when it is unset (762.747403ms)
+  ✔ fails closed naming PGDATABASE when it is empty (804.313983ms)
+  ✔ fails closed naming PGUSER when it is unset (849.4985ms)
+  ✔ fails closed naming PGUSER when it is empty (814.863929ms)
+  ✔ fails closed naming PGPASSWORD when it is unset (796.844628ms)
+  ✔ fails closed naming PGPASSWORD when it is empty (859.797658ms)
+  ✔ fails closed naming EMDASH_MIGRATION_DATABASE_URL when it is unset (803.543047ms)
+  ✔ fails closed naming EMDASH_MIGRATION_DATABASE_URL when it is empty (797.910056ms)
+  ✔ fails closed naming EMDASH_SITE_URL when it is unset (791.211355ms)
+  ✔ fails closed naming EMDASH_SITE_URL when it is empty (791.417161ms)
+  ✔ fails closed naming HOST when it is unset (805.067447ms)
+  ✔ fails closed naming HOST when it is empty (772.857255ms)
+  ✔ fails closed naming PORT when it is unset (793.50419ms)
+  ✔ fails closed naming PORT when it is empty (836.294863ms)
+  ✔ fails closed naming EMDASH_ENCRYPTION_KEY when it is unset (845.200307ms)
+  ✔ fails closed naming EMDASH_ENCRYPTION_KEY when it is empty (788.350509ms)
+✔ missing or empty required values fail closed (16154.355986ms)
+▶ malformed required values fail closed
+  ✔ fails closed naming PGPORT for non-numeric TCP port (781.994472ms)
+  ✔ fails closed naming PGPORT for negative TCP port below the usable 1-65535 range (868.76662ms)
+  ✔ fails closed naming PGPORT for TCP port above 65535 (804.445005ms)
+  ✔ fails closed naming PORT for non-numeric TCP port (870.885743ms)
+  ✔ fails closed naming PORT for TCP port above 65535 (795.586509ms)
+  ✔ fails closed naming EMDASH_SITE_URL when the origin has no scheme (bare host) (801.224942ms)
+  ✔ fails closed naming EMDASH_SITE_URL when the origin has a scheme but no host (769.194828ms)
+  ✔ fails closed naming EMDASH_MIGRATION_DATABASE_URL when it is not a parsable URL (797.100474ms)
+  ✔ fails closed naming EMDASH_MIGRATION_DATABASE_URL when the scheme is not PostgreSQL (929.759362ms)
+  ✔ fails closed naming EMDASH_MIGRATION_DATABASE_URL when it is incomplete (no user or database identity) (775.760243ms)
+✔ malformed required values fail closed (8199.001795ms)
+▶ PG* runtime inputs and migration URL must agree on the intended database
+  ✔ fails closed when PGHOST disagrees with the migration URL host component (819.961318ms)
+  ✔ fails closed when PGPORT disagrees with the migration URL port component (776.886752ms)
+  ✔ fails closed when PGDATABASE disagrees with the migration URL database component (830.654719ms)
+  ✔ fails closed when PGUSER disagrees with the migration URL user component (809.652788ms)
+✔ PG* runtime inputs and migration URL must agree on the intended database (3237.528942ms)
+▶ validated HOST/PORT are carried in the exported Astro server configuration
+  ✔ exports the configured host and the numeric configured port as the native server boundary (821.861668ms)
+✔ validated HOST/PORT are carried in the exported Astro server configuration (822.057342ms)
+▶ fixture controls (harness soundness)
+  ✔ SSR fixture serves the canonical marker body on loopback / (138.295313ms)
+  ✔ responsive PostgreSQL fixture completes a real query through the pinned pg client (160.349968ms)
+  ✔ a reserved-then-freed loopback port deterministically refuses connections (135.091571ms)
+✔ fixture controls (harness soundness) (435.2107ms)
+▶ aggregate ready contract
+  ✔ exits 0 stating ready, without mutating any media entry, when all recurring dependencies pass (389.508776ms)
+✔ aggregate ready contract (390.00657ms)
+▶ loopback SSR reachability contract
+  ✔ reports not-ready naming the runtime dependency when loopback / cannot be reached (215.052288ms)
+  ✔ reports not-ready naming the runtime dependency when loopback / responds without the expected SSR marker (272.841062ms)
+✔ loopback SSR reachability contract (488.435169ms)
+▶ bounded PostgreSQL connectivity contract
+  ✔ reports not-ready naming the database dependency when PostgreSQL is unavailable (223.696082ms)
+  ✔ reports not-ready within the deterministic bound when PostgreSQL accepts but never responds (3751.34308ms)
+✔ bounded PostgreSQL connectivity contract (3975.723672ms)
+▶ expected media mount contract
+  ✔ reports not-ready naming the media dependency when the expected media mount is missing (285.662148ms)
+  ✔ reports not-ready naming the media dependency when the expected media mount is unreadable (303.551639ms)
+✔ expected media mount contract (589.744293ms)
+▶ missing required inputs contract
+  ✔ fails naming PGUSER when the PostgreSQL runtime user input is missing (232.241907ms)
+  ✔ fails naming PORT when the application server port input is missing (231.646421ms)
+✔ missing required inputs contract (464.290336ms)
+ℹ tests 48
+ℹ suites 11
+ℹ pass 48
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 29427.444227
+exit=0

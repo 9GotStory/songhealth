@@ -1,0 +1,228 @@
+# Development runtime — UID-1000 rootless Podman + systemd Quadlet (Feature 002 T036, T037)
+
+The **single development runtime** for Songhealth (Product Owner decision 2026-10-28): one
+application server, one PostgreSQL database, one media store and one test target, owned
+end-to-end by the local workspace user (`thanakorn`, UID 1000). It reuses the accepted
+production pattern (rootless Podman + systemd Quadlet, digest-pinned images, podman secrets,
+private network, marker-guarded persistent stores) with development simplifications: the
+Astro dev server instead of the built image, and loopback publication only.
+
+It replaced the earlier UID-1001 (`multica-agent`) runtime at `127.0.0.1:4322`, which was
+deleted on 2026-10-29 together with that account's production-foundation stack (T037). No data,
+media or credentials were taken from it: this runtime started from a fresh database.
+
+## Topology
+
+| Resource | Value |
+| --- | --- |
+| Origin | `http://127.0.0.1:4324/` — loopback only; the same port inside the container keeps the origin, the Vite HMR socket and `EMDASH_SITE_URL` equal |
+| Units (`~/.config/containers/systemd/`) | `songhealth-dev.network`, `songhealth-dev-db-data.volume`, `songhealth-dev-media.volume`, `songhealth-dev-db.container`, `songhealth-dev-app.container` (sources in `deploy/dev-quadlet/`) |
+| Services | `songhealth-dev-db.service`, `songhealth-dev-app.service` (user manager; started with the user session) |
+| Application | container `songhealth-qdev-app`: `node:24.21.0-bookworm-slim@sha256:d6aa754f…` (the production build base), Astro 7.3.5 + EmDash 1.1.0 dev server, dependencies installed with npm 12.2.0 |
+| Database | container `songhealth-qdev-db`: `postgres:18.6@sha256:fc973eb9…` (same as production), database `songhealth_qdev`, bootstrap superuser `songhealth_qdev_admin`, least-privilege app role `songhealth_qdev_app` (owns the database and schema `public`), no host port |
+| Network | `songhealth-qdev` (private) |
+| Volumes | `songhealth-qdev-db-data` (PostgreSQL 18 parent path `/var/lib/postgresql`), `songhealth-qdev-media` (the application's stable `./media` path, marker `.songhealth-qdev-media-store`) |
+| Source | `~/dev/songhealth-quadlet` — a full clone of the workspace repository at a **detached, promoted commit**, bind-mounted at `/src`; the promoted commit is recorded in `.songhealth-qdev-source-identity` |
+| Dev configuration | `deploy/dev-quadlet/astro.dev.config.mjs`: the canonical `astro.config.mjs` plus the development-only T021 public-read fixture route `/__feature002/public-reads`, which exists in `astro dev` only and answers only requests carrying the route token |
+| Secrets | podman secrets `songhealth-qdev-db-password`, `-app-password`, `-migration-database-url`, `-encryption-key` (EmDash format `emdash_enc_v1_<43 base64url>`), and the T021 fixture route token `songhealth-qdev-t021-route-token` |
+| Local state | `~/.local/state/songhealth-qdev/` (0700): development PAT `dev-pat` (0600), role fixture PAT `role-fixture-pat` (0600), T021 route token client copy `t021-route-access.json` (0600), `backups/`; `~/.local/share/songhealth-qdev/initdb/` (app-role init script) |
+
+## Install
+
+```bash
+cd ~/dev/songhealth                          # any checkout that contains T036
+scripts/dev-runtime-install.sh --sha <commit>
+```
+
+After the first install, run every runtime script from the runtime's own checkout,
+`~/dev/songhealth-quadlet/scripts/`: those scripts always belong to the promoted commit. A
+checkout that predates T036 (such as a branch at the Phase 1 commits) still has the Phase 1
+scripts, which do not operate this runtime.
+
+The installer converges the host to this runtime and is **safe to re-run**. Each step checks
+the real state first and only adds what is missing:
+
+1. **Preflight.** UID 1000; the required tools; the user manager is running; port 4324 is
+   free; at least 4 GiB of available memory (6 GiB recommended).
+2. **Source.** Clones the workspace repository into `~/dev/songhealth-quadlet` at the commit,
+   then continues with **that commit's** installer, so the runtime is defined by exactly one
+   commit.
+3. **Images and dependencies.**
+   - Pulls the two digest-pinned images.
+   - Runs `npm ci` with npm 12.2.0 in a temporary container from the app image. It re-runs
+     only when `package-lock.json` or the image changes.
+4. **Secrets.**
+   - Generates the four runtime secrets once.
+   - Generates the T021 route token pair: a podman secret plus a 0600 client copy. It replaces
+     the pair whole if half of it is missing.
+   - Values pass only through stdin pipes, so they never reach argv, the environment or any
+     output.
+5. **Volumes.**
+   - Creates the two labeled volumes and the media store marker.
+   - Never adopts an unlabeled volume or a media volume without its marker.
+6. **Units.** Copies the units and the init script, checks the Quadlet generation, then runs
+   `daemon-reload`.
+7. **Database.**
+   - On the first start, the official image initializes the cluster and runs
+     `initdb/10-songhealth-app-role.sh`. That script creates the app role, reading its
+     password through psql from the mounted secret, with statement logging disabled.
+   - The installer then verifies the role vector.
+8. **Application.**
+   - Starts the app. On its first request in development EmDash applies its core migrations
+     itself (`astro.config.mjs` sets `migrations.dev: "auto"`), so no separate migration
+     step exists.
+   - Then runs EmDash's native `setup/dev-bypass` **once**. That call applies the Feature 002
+     seed, creates the development admin `dev@emdash.local` and mints the development PAT
+     into `dev-pat` (0600, never printed).
+   - Then creates the role fixture once: a second native account `role-fixture@songhealth.test`
+     (Author) with its own PAT in `role-fixture-pat` (0600) for the T019/T020 role cases.
+     EmDash has no native way to create it here: an invite completes only with a passkey, and
+     browsers reject the rpId `127.0.0.1`. So the installer writes the same user row as
+     EmDash's dev-bypass and a token row in EmDash's own format (SHA-256 hash only). It
+     re-mints only the PAT when the file is missing, and stops if the account was left with
+     another role or disabled.
+9. **Verify.** Runs `scripts/dev-runtime-verify.sh`.
+
+## Daily use
+
+- **Admin login.** Use EmDash's development-only bypass:
+  `http://127.0.0.1:4324/_emdash/api/auth/dev-bypass?redirect=/_emdash/admin`. Passkeys
+  need a domain origin: browsers reject the IP literal `127.0.0.1` as a WebAuthn rpId. To
+  use passkeys later, change the origin to `http://localhost:4324` in the app unit; that is
+  a reviewed change.
+- **Logs.** `journalctl --user -u songhealth-dev-app.service -f` (and `…-db.service`).
+- **Start/stop.**
+  - `systemctl --user start|stop|restart songhealth-dev-app.service`. Stopping the database
+    also stops the app.
+  - Both services start with the user session. Linger is **not** enabled, so the runtime
+    stops when the last session ends. Enabling linger (`loginctl enable-linger`) is a
+    separate decision.
+- **Browser and API tests.** Target `http://127.0.0.1:4324`.
+  - **Credentials.** Never print, commit or copy the PAT or the route token into evidence.
+    Do not re-run `setup/dev-bypass` as test setup.
+  - **Ordinary suites:**
+
+    ```bash
+    PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
+    SONGHEALTH_ROLE_FIXTURE_ACCESS=~/.local/state/songhealth-qdev/role-fixture-pat \
+      npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
+    ```
+
+    Without `SONGHEALTH_ROLE_FIXTURE_ACCESS` the T019/T020 role cases skip. The role cases
+    change the fixture's role and restore it to Author at the end.
+  - **Admin UI suites** (`cms-lifecycle-ui.spec.ts`, `cms-editor.spec.ts`). Add
+    `SONGHEALTH_ADMIN_SESSION=dev-bypass` to sign the test browser in through EmDash's
+    development-only `auth/dev-bypass` session route (Product Owner decision 2026-10-29). For
+    the existing dev admin it only sets the session cookie; each test logs out afterwards.
+    Without it the authenticated journeys skip with that prerequisite.
+  - **T021 public-read suite.** It runs only through its coordinator, from a checkout at the
+    promoted commit:
+
+    ```bash
+    SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
+    SONGHEALTH_T021_ROUTE_ACCESS=~/.local/state/songhealth-qdev/t021-route-access.json \
+      node tests/browser/run-cms-public-reads.mjs
+    ```
+
+    It holds (exit 3, nothing run) unless verify passes and the runtime source equals that
+    checkout's HEAD.
+- **Source edits.** Make them in the workspace and promote them. The runtime checkout is never
+  edited in place: the app refuses to start when its HEAD is not the promoted commit, and
+  verify fails on a dirty tree.
+
+## Promote a new commit
+
+```bash
+~/dev/songhealth-quadlet/scripts/dev-runtime-update.sh --sha <commit>   # [--no-backup]
+```
+
+The update runs these steps:
+
+1. Backs up the database and media to `~/.local/state/songhealth-qdev/backups/<UTC>/`.
+2. Stops the app.
+3. Moves the checkout to the commit and records it.
+4. Hands over to that commit's installer. The installer runs `npm ci` only if the lockfile
+   changed, refreshes changed units, starts the app and runs verify.
+
+If that commit upgrades EmDash, its new core migrations run on the first request. Going
+**back** afterwards means restoring the pre-update backup. Restore admits a backup only when
+its recorded commit equals the runtime's promoted commit, so first point the checkout back at
+the backup's commit while the app is stopped:
+
+```bash
+cd ~/dev/songhealth-quadlet
+systemctl --user stop songhealth-dev-app.service
+git -C ~/dev/songhealth-quadlet checkout --detach <old-commit>
+printf '%s\n' <old-commit> > ~/dev/songhealth-quadlet/.songhealth-qdev-source-identity
+scripts/dev-runtime-restore.sh --confirm <dir>/qdev-db-<ts>.dump <dir>/qdev-media-<ts>.tar \
+  <dir>/qdev-checksums-<ts>.sha256 <dir>/qdev-meta-<ts>.txt
+scripts/dev-runtime-install.sh --sha <old-commit>    # reinstalls deps/units if needed, starts, verifies
+```
+
+## Verify
+
+`scripts/dev-runtime-verify.sh` is read-only and prints one PASS/FAIL line per check, then
+`VERIFY: PASS` or `VERIFY: FAIL`. It checks:
+
+- both services are active and both containers healthy;
+- publication is loopback 4324 only, and the database has no host port;
+- the public SSR marker is served and the native Admin UI is reachable;
+- EmDash setup is complete;
+- `emdash migrate --check` reports no pending or unknown migrations (run inside the app container);
+- the least-privilege app role owns `songhealth_qdev`;
+- the runtime source is the promoted commit, with a clean tree;
+- EmDash accepted `EMDASH_ENCRYPTION_KEY`;
+- the development PAT authenticates as `dev@emdash.local` (Administrator);
+- the role fixture PAT authenticates as `role-fixture@songhealth.test`, enabled, with role Author;
+- the dev-only T021 fixture route answers its 0600 route token and refuses requests without it.
+
+Runtime results are interpreted only against the commit verify reports.
+
+## Backup and restore
+
+- **Backup.** `scripts/dev-runtime-backup.sh <existing-dir>` writes four files: a `pg_dump -Fc`
+  of `songhealth_qdev`, a ustar archive of the media volume, a sha256 manifest and provenance
+  metadata.
+- **Restore.** `scripts/dev-runtime-restore.sh --confirm <dump> <media-tar> <checksums> <meta>`
+  restores into the running database with the app stopped. It admits only a backup whose
+  recorded commit equals the runtime's promoted commit (see the rollback steps above).
+- **What a backup covers.** Database and media only. The secrets (including
+  `EMDASH_ENCRYPTION_KEY`, needed to read encrypted plugin settings) live in the podman secret
+  store and are not part of any backup.
+
+## Uninstall
+
+- `scripts/dev-runtime-uninstall.sh` stops the runtime and removes its units. It keeps the
+  data, secrets, PAT, backups and checkout, so the installer brings the runtime back as it was.
+- `scripts/dev-runtime-uninstall.sh --purge` additionally deletes the two volumes, the four
+  runtime secrets, the T021 route token pair, the network and both PATs, after a typed
+  confirmation. It never deletes the checkout
+  or backups.
+
+## Guards and failure handling
+
+| Symptom | Cause and response |
+| --- | --- |
+| The app exits with `refusing` (exit 78; not restarted) | The message names the cause: dependencies are missing (re-run the installer), the checkout is not the promoted commit (use `update`), the media store marker is missing, or a secret is malformed. |
+| The database refuses: "no database cluster and no first-initialization authorization" | The data volume was recreated or emptied. Restore a backup; never let it re-initialize silently. |
+| Install stops: "app role missing or wrong" | The first initialization failed partway. The database holds no application data yet, so run `uninstall --purge` and install again. |
+| Install refuses an unlabeled volume, a media volume without its marker, or partial secrets | A foreign or half-made resource. Inspect it; purge only what this runtime created. |
+| Port 4324 is in use | Something else listens there. There is no fallback port: resolve the conflict at its cause. |
+| The PAT check fails | `dev-pat` is missing, has the wrong mode or was revoked. Minting a new one means running `setup/dev-bypass?token=1`, which rotates the token; do that only deliberately. |
+| The role fixture check fails | `role-fixture-pat` is missing, or a role test was interrupted and left the account with another role or disabled. Restore it in the Admin (Users: Author, enabled), or delete the file; then re-run the installer, which re-mints the PAT. |
+| The T021 coordinator holds | The message names the prerequisite. Verify fails: fix the runtime first. The runtime is at another commit: promote the tested commit. The route is missing (404): the commit predates the dev configuration. The token is unprovisioned (503) or does not match (403): delete `t021-route-access.json` and re-run the installer. |
+
+**Never run `podman volume prune` or `podman system prune --volumes` while the runtime is
+stopped.** Stopped containers do not hold the volumes, so prune deletes the development database
+and media. **Never run `podman image prune -a` or `podman system prune -a` either.** This
+account's storage also holds the accepted Feature 001 production image
+`localhost/songhealth-app:0.0.1@sha256:4cfccf41…`, which no rebuild can reproduce
+(`docs/operations/production-foundation.md` §4.5).
+
+## Boundaries
+
+- Production definitions (`deploy/quadlet/`, `deploy/Containerfile`,
+  `docs/operations/production-foundation.md`) are unchanged.
+- This runtime must not grow into a parallel production stack. T022/T028 remain pending.
+- The T021 fixture route exists only in this runtime's `astro dev`. `astro build` and
+  `deploy/Containerfile` never load the dev configuration or `tests/browser/`.

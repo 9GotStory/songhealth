@@ -1,0 +1,8 @@
+# Songhealth development PostgreSQL data volume (Feature 002 T036). Created and labeled
+# by scripts/dev-runtime-install.sh before the first database start. The database unit
+# refuses to start on this volume when it holds no cluster unless the installer has
+# authorized a first initialization, so a silently recreated empty volume never comes up
+# as a fresh database.
+[Volume]
+VolumeName=songhealth-qdev-db-data
+Label=io.songhealth.runtime=qdev

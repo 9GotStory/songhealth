@@ -1,0 +1,25 @@
+# T021 coordinator run 1 — 2026-10-29T02:27:39Z — workspace HEAD 5ade411944a52f9f8d81e16753b9363be97913b5
+coordinator: exact source identity verified — runtime source 5ade411944a52f9f8d81e16753b9363be97913b5 equals the candidate under test (git rev-parse HEAD of this checkout)
+coordinator: discovery pre-pass established 14 expected T021 test identities
+coordinator: running tests/browser/cms-public-reads.spec.ts through the pinned Playwright runner against http://127.0.0.1:4324 (timeout 1200000ms; owned-fixture manifest .tmp/feature002/t021-ownership-2026-10-29T02-27-42-673Z-2451169.jsonl)
+
+Running 14 tests using 1 worker
+
+  ✓   1 [chromium] › tests/browser/cms-public-reads.spec.ts:1826:1 › fixture route contract: identity probe, no-store, fail-closed access, method and bounded-input refusals (485ms)
+  ✓   2 [chromium] › tests/browser/cms-public-reads.spec.ts:1930:1 › published-only collection reads: drafts, pending titles, unpublished and trashed entries never appear; published ones do (785ms)
+  ✓   3 [chromium] › tests/browser/cms-public-reads.spec.ts:1996:1 › published entry reads: optional omissions stay absent and never fabricated (582ms)
+  ✓   4 [chromium] › tests/browser/cms-public-reads.spec.ts:2048:1 › live versus pending: staged content-data and reference selections stay invisible to public reads until publication (1.2s)
+  ✓   5 [chromium] › tests/browser/cms-public-reads.spec.ts:2155:1 › native signed preview boundary: absent, malformed, expired, wrong-entry, wrong-collection and untrusted edit parameters never expose drafts (2.7s)
+  ✓   6 [chromium] › tests/browser/cms-public-reads.spec.ts:2284:1 › draft, trashed and unavailable linked targets are omitted from public reference reads without blocking the parent (1.5s)
+  ✓   7 [chromium] › tests/browser/cms-public-reads.spec.ts:2346:1 › a save-time required reference is not a read-time availability guarantee (D-REF stays deferred) (754ms)
+  ✓   8 [chromium] › tests/browser/cms-public-reads.spec.ts:2388:1 › reference identity, opt-in hydration and multi-page traversal (1.4s)
+  ✓   9 [chromium] › tests/browser/cms-public-reads.spec.ts:2499:1 › missing files: a published Document whose media asset was removed reads as safe unavailability, never a false download success (401ms)
+  ✓  10 [chromium] › tests/browser/cms-public-reads.spec.ts:2580:1 › truthful not-found and empty states, and no privileged fallback on anonymous surfaces (89ms)
+  ✓  11 [chromium] › tests/browser/cms-public-reads.spec.ts:2621:1 › native error channel: a malformed pagination cursor surfaces the real native error contract, never an empty success (R5) (258ms)
+  ✓  12 [chromium] › tests/browser/cms-public-reads.spec.ts:2696:1 › R3-B settlement validation (regression): invalid resolved/refused records settle nothing and stay outstanding; valid settlements still function (6ms)
+  ✓  13 [chromium] › tests/browser/cms-public-reads.spec.ts:2783:1 › R3-B whole-manifest admission (remediation regression): any invalid row freezes the entire journal before any native work (8ms)
+  ✓  14 [chromium] › tests/browser/cms-public-reads.spec.ts:2875:1 › scope reduction (regression): historical ownership evidence always HOLDs — no replay, no adoption, no evidence removal (19ms)
+
+  14 passed (11.1s)
+coordinator: T021 run passed with no owned-fixture residue
+exit=0

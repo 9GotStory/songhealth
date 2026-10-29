@@ -1,0 +1,69 @@
+# Songhealth OCI build-context exclusions (Feature 001, T017).
+#
+# The build context is the clean source tree: every file needed to produce and
+# operate the exact application build stays reachable, while Git metadata,
+# local environment files, local media, dependency/build output, the generated
+# migration manifest, logs, caches, temporary/evidence captures, and
+# recovery/database artifacts — the same local state .gitignore keeps out of
+# the repository — never enter the context, so they can never reach an image
+# layer, the image configuration/history, or the build's emitted artifacts.
+# Image content itself is governed by deploy/Containerfile's explicit COPY
+# list; nothing enters the image merely by being present in the context.
+
+# Git metadata
+.git
+
+# Local environment files (real values never enter any image; the committed
+# placeholder-only configuration example stays available to the build)
+.env
+.env.*
+!.env.example
+
+# Dependency and build output (regenerated inside the image build)
+node_modules
+dist
+build
+coverage
+.astro
+.vite
+
+# Generated EmDash migration manifest: the image build emits its own exact
+# manifest, and a stale local copy must never reach the build
+.emdash
+
+# Local media at the stable ./media application mount path (development store;
+# production maps the persistent volume to the same path at run time)
+media
+
+# Local caches / temporary state / test and evidence captures
+.cache
+.tmp
+tmp
+*.tmp
+*.bak
+test-results
+playwright-report
+
+# Logs (including raw validation logs/captures; redacted evidence under
+# specs/ is tracked source and stays available)
+logs
+**/*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE / OS local state
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+
+# Local database / backup / export / recovery artifacts
+*.sqlite
+*.sqlite3
+*.dump
+*.sql
+*.sql.gz
+*.tar
+*.tgz

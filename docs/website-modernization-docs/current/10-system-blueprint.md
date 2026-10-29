@@ -1,12 +1,33 @@
 # System Blueprint — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 10-system-blueprint
-> **Status:** CLEAN REBASELINE v2.2 — CURRENT
-> **Version:** 2.2
-> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Status:** CLEAN REBASELINE v2.5 — CURRENT native-only publication
+> **Version:** 2.5
+> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md` through `09-migration-plan.md`
 > **Purpose:** กำหนด architecture ปัจจุบันที่ใช้ Astro + EmDash แบบ platform-native และเพิ่ม Songhealth-specific code เฉพาะ gap ที่พิสูจน์แล้ว
 > **Implementation Authorization:** NONE
+
+
+> **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
+> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
+> publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
+> independent review and human acceptance; deferral is not implementation or PASS. No upstream
+> change, new subsystem, replacement ITA workflow or production action is authorized.
+
+> **Prior native Q1 decision (save-time requiredness retained; publication hook superseded):** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
+> save-time requiredness for genuinely mandatory native references. Missing such a reference need
+> not be saveable as a draft. Other incomplete drafts follow native field validation. Optional/
+> conditional relationships are not automatic publication gates where native enforcement lacks
+> adequate data. D-ITA/D-REF remain deferred; no custom reference adapter or internal-table access.
+
+> **Current V1 simplification (Product Owner, 2026-10-14):** Songhealth uses native EmDash
+> field/type/required-reference/cardinality checks at save and native RBAC/lifecycle at
+> Publish/Schedule. No Songhealth-specific publication validation hook, editorial review,
+> approval queue or confirmation step. Incomplete optional content may publish under
+> native permissions; editorial completeness is the publisher's responsibility.
+> D-ITA/D-REF remain deferred; this decision is not runtime acceptance.
 
 ---
 
@@ -26,7 +47,8 @@ Clean Rebaseline v2.2 ยืนยันจาก adversarial review ว่า S
 - CMS/Admin: **EmDash integrated in the Astro application**
 - Language: **TypeScript**
 - Database: **PostgreSQL**
-- Media: **persistent storage supported by deployment**
+- Media: **persistent native local storage supported by deployment; not immutable evidence storage**
+- Pinned CMS for this V1 scope: **EmDash 1.1.0; no upgrade/vendor patch/fork**
 - Runtime: **supported Node.js version compatible with selected Astro/EmDash release**
 - Production container runtime: **rootless Podman (OCI containers)**
 - Production service lifecycle: **systemd Quadlet**
@@ -169,11 +191,18 @@ Exact assignment เป็น operational policy ของสำนักงา�
 
 ไม่มี custom Approval Workflow ใน Version 1.
 
-Contributor ที่ไม่มี publish permission เขียน Draft แล้ว Author/Editor ที่เหมาะสมตรวจและ Publish.
+Authorized publishers may Publish/Schedule immediately under EmDash native RBAC.
+Draft-only staff Save Draft according to native permissions without a review queue,
+article approval or Songhealth confirmation action.
 
-ใช้ hooks เฉพาะ mandatory Songhealth validation ที่ schema/relation constraints ทำไม่ได้.
+Feature 002 uses native schema required/type/reference/cardinality validation on
+create/save, and native publish/schedule checks. **No custom publication-validation
+plugin, `content:beforePublish` or `content:beforeSchedule` hook is planned.**
+Optional fields/taxonomies are staff editorial responsibilities, not custom
+publication blockers. Native errors remain real refusals. Cross-record
+availability/removal and historical guarantees remain D-REF/D-ITA.
 
-Domain metadata เช่น announcement expiry, health-service operational status, document successor/expiry และ ITA fiscal-year semantics ไม่กลายเป็น universal CMS workflow states.
+Domain metadata เช่น announcement expiry, health-service operational status และ document successor/expiry ไม่กลายเป็น universal CMS workflow states. Structured ITA historical semantics are deferred from V1 (§15).
 
 ---
 
@@ -217,7 +246,10 @@ Dedicated search technologyพิจารณาใหม่เฉพาะเ�
 
 # 11. Media
 
-ใช้ EmDash Media Library + storage adapter + media usage tracking.
+ใช้ EmDash Media Library + existing local storage adapter + available media usage tracking.
+EmDash 1.1.0 media delete removes the row before storage cleanup without a required-published-usage
+veto; native image replace can overwrite the existing key. Reporting/permissions/staff precautions
+do not enforce Q3/Q4. Immutable historical assets and reference removal vetoes are deferred.
 
 ไม่สร้าง DAM, media reference database หรือ protected-file delivery layer ใน Version 1.
 
@@ -233,7 +265,11 @@ Security boundary สำคัญ:
 
 ใช้ EmDash relations/reference fields สำหรับ shared structured relationships ตาม Content Model.
 
-ใช้ native transaction/relation validation ก่อน custom relationship service.
+Use native relation/cardinality/value validation and the platform's supported entry mutations.
+Those primitives do not guarantee published target availability through concurrent removal. A
+before-hook preflight is outside the later handler transaction; native permanent deletion bypasses
+the trash hook. Cross-record atomic enforcement and published-required-reference removal vetoes
+are deferred from V1. Do not create a custom relationship service/locking subsystem to restore them.
 
 Document/Media/Personnel/Organization/Health Service reuse ยึด model semantics ใน `02`; ไม่ duplicate data เพียงเพราะ presentation ต่างกัน.
 
@@ -259,13 +295,16 @@ Homepage เป็น Astro presentation ที่อ่าน canonical CMS dat
 
 ---
 
-# 15. ITA
+# 15. ITA — Deferred from V1
 
-ITA ใช้ collections/relations ตาม Content Model.
+Structured yearly ITA collections/relations, immutable/historically preserved evidence and its
+correction/retention guarantees are outside the reduced V1 scope (`02` §18). No ITA application,
+snapshot/media subsystem, custom workflow or upstream change is pursued. Ordinary Document/Media
+reuse remains and must not be advertised as historical evidence enforcement.
 
-เริ่มจาก native editor. Custom widget/page เพิ่มเฉพาะ UAT gap ที่ชัดเจน.
-
-ไม่มี compliance engine, scoring engine หรือ approval workflow ของ ITA ใน Version 1.
+The canonical Astro + EmDash 1.1.0 + PostgreSQL foundation, native local-media mount and rootless
+Podman/Quadlet production contract are preserved. A later ITA re-entry needs explicit approved
+scope and supported capability evidence; no alternate foundation is authorized here.
 
 ---
 
@@ -304,13 +343,17 @@ Runtime monitoringขั้นต่ำต้องเห็น:
 
 # 18. Backup and Recovery
 
-Production recovery ใช้ **raw PostgreSQL backup/PITR + media backup** ตาม deployment capability.
+Version 1 ต้องมี **complete, restorable PostgreSQL database backup + persistent media backup** ที่กู้กลับเข้าสู่ clean/recreated runtime และตรวจสอบความครบถ้วนของข้อมูลได้.
 
-PostgreSQL data และ media persistence ต้องอยู่นอก ephemeral container layer. การ replace/recreate application หรือ database container ต้องไม่ใช่เหตุให้ข้อมูลถาวรสูญหาย และ restore verification ต้องพิสูจน์การกู้กลับเข้าสู่ clean/recreated runtime ได้.
+Full logical PostgreSQL backup/restore เป็น minimum baseline ที่เพียงพอได้ เมื่อพิสูจน์ได้ว่ากู้ database state ที่ระบบต้องใช้ครบถ้วนและผ่าน integrity verification. EmDash JSON backup/export เพียงอย่างเดียวยังไม่เพียงพอเป็น sole disaster-recovery backup เพราะไม่ครอบคลุม system state ทั้งหมดและ media files.
 
-EmDash JSON backup/export ไม่ใช่ sole disaster-recovery point เพราะไม่ครอบคลุมข้อมูลระบบทุกชนิดและไม่ใช่ raw database restore path.
+Physical base backup, WAL archiving, point-in-time recovery (PITR), replication-class recovery และ infrastructure ที่เกี่ยวข้อง **ไม่ใช่ mandatory Version 1 baseline**. เพิ่ม capability เหล่านี้เมื่อ accepted RPO/RTO, scale, operational risk หรือ current requirement อื่นพิสูจน์ว่าจำเป็น.
 
-ก่อน schema change, bulk import หรือ major upgrade ต้องมี restorable database backup และ restore verificationตามความเสี่ยง.
+PostgreSQL data และ media persistence ต้องอยู่นอก ephemeral container layer. การ replace/recreate application หรือ database container ต้องไม่ทำให้ข้อมูลถาวรสูญหาย และ recovery verification ต้องพิสูจน์การกู้ PostgreSQL และ media กลับเข้าสู่ clean/recreated runtime ได้.
+
+Runtime secrets/keys ที่จำเป็นต่อการใช้งานระบบหลัง restore ต้องมี independently protected recovery path. Secret values ต้องอยู่นอก Git, database/media backup artifacts, generated planning artifacts และ logs; recovery design ระดับนี้ไม่บังคับ secret-management platform เฉพาะราย.
+
+ก่อน risky schema change, bulk import หรือ major upgrade ต้องมี restorable database backup และ restore verification ตามระดับความเสี่ยง.
 
 ---
 
@@ -336,14 +379,31 @@ EmDash JSON backup/export ไม่ใช่ sole disaster-recovery point เพ
 Environment-specific valuesไม่ hard-code:
 
 - host/domain
-- database URL/credentials
+- database connection inputs/credentials
 - auth provider secrets
-- storage credentials/path
+- storage credentials
 - proxy/deployment settings
 - production container image references
 - Podman network/storage names or pathsที่ขึ้นกับ environment
 
 Use supported config/env mechanisms. Production container/service definitionsต้องแยก configuration ออกจาก secrets และหลีกเลี่ยง host-specific hard-code ที่ไม่จำเป็น.
+
+## 20.1 Native Runtime Configuration Contract
+
+Runtime/configuration contract ปัจจุบันของ Songhealth คือ platform-native contract ที่ Product Owner ตรวจสอบและอนุมัติแล้ว (T004 Human Gate architecture correction, 2026-10-07):
+
+- Application PostgreSQL runtime: `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`
+- EmDash migration connection: `EMDASH_MIGRATION_DATABASE_URL`
+- Public origin: `EMDASH_SITE_URL`
+- Application server: `HOST`, `PORT`
+- EmDash secret: `EMDASH_ENCRYPTION_KEY`
+- Native media storage ใช้ stable application mount path `./media` (persistent media volume ใน production จะ map มาที่ path เดียวกันนี้); media ไม่ได้ runtime-configure ผ่าน `MEDIA_DIRECTORY`
+
+ข้อกำหนดของ contract:
+
+1. Runtime PostgreSQL inputs และ migration URL ต้องระบุ intended database เดียวกัน; consistency check/evidence เทียบเฉพาะ non-secret identity components (host, port, database, user) เท่านั้น และต้องไม่พิมพ์ password หรือ full URL ออกมา
+2. Secret หรือ environment-specific credential ใดๆ ต้องไม่ถูก serialize ลง build artifacts หรือ images; migration manifest ที่ application build/sync emit ต้องมีเฉพาะ secret-free target information ตาม native EmDash behavior
+3. ชื่อ `DATABASE_URL` เดิมถูกแทนที่ด้วย contract นี้แล้ว และไม่ใช่ current configuration authority — การปรากฏของชื่อนั้นในที่อื่นเป็น historical/rejected context เท่านั้น
 
 ---
 
@@ -359,7 +419,7 @@ Use supported config/env mechanisms. Production container/service definitionsต
 - role assignment scenarios
 - scheduling/preview smoke tests
 - Thai search UAT
-- Homepage/ITA domain behavior
+- Homepage and retained V1 content behavior; structured ITA historical-evidence acceptance is deferred
 - migration mapping and old-URL redirects
 - production build/start
 - rootless Podman + Quadlet deployment smoke test
@@ -424,7 +484,12 @@ Version 1 ไม่มี baseline requirement สำหรับ:
 - Songhealth Public ID: **NO; use native ID internally + slug URL**
 - Native EmDash Search: **YES; Thai trigram baseline**
 - Custom Search Projection: **NO**
-- Native relations/media/redirects: **YES**
+- Native relations/media/redirects: **YES, with documented native limitations; no Q3/Q4 enforcement claim**
+- Structured ITA historical evidence: **DEFERRED from V1**
+- Published-required-reference removal veto / cross-record atomicity: **DEFERRED from V1**
+- Upstream-change pursuit / upgrade / vendor patch / custom history or relationship-locking subsystem: **NO**
+- Runtime configuration contract: **native `PG*` PostgreSQL inputs + `EMDASH_MIGRATION_DATABASE_URL` migration connection + `EMDASH_SITE_URL` + `HOST`/`PORT` + `EMDASH_ENCRYPTION_KEY`; runtime and migration inputs identify the same intended database**
+- Media storage path: **stable application path `./media`; no `MEDIA_DIRECTORY` runtime input**
 - Named Songhealth Policy/Domain Layer: **NO baseline requirement**
 - Feature-local helpers/hooks: **only for proven gaps**
 - WordPress migration: **native EmDash importer first**

@@ -1,11 +1,18 @@
 # Migration Plan — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 09-migration-plan
-> **Status:** CLEAN REBASELINE v2.2 — CURRENT
-> **Version:** 2.2
-> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Status:** CLEAN REBASELINE v2.3 — CURRENT native-first V1
+> **Version:** 2.3
+> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
 > **Depends On:** `00-website-foundation.md` through `08-search.md`
 > **Purpose:** กำหนดการย้ายจาก Legacy WordPress เข้าสู่ Songhealth ใหม่โดยใช้ importer ของ CMS ก่อน และเพิ่ม custom migration code เฉพาะ semantic gaps
+
+
+> **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
+> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
+> publication, permissions and supported validation remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan; deferral is not implementation or PASS. No upstream
+> change, new subsystem, replacement ITA workflow or production action is authorized.
 
 ---
 
@@ -82,7 +89,7 @@ Legacy content map ตาม public meaning เช่น:
 - evergreen health knowledge → Health Content
 - reusable PDF/form/report → Document
 - office/facility/personnel structured data → corresponding structured collection
-- ITA evidence → Fiscal Year/Section/Requirement/Evidence model
+- ITA evidence → **deferred mapping**, not a V1 target hierarchy; preserve source evidence pending a separately approved scope/cutover decision
 - leftover standalone prose → Basic Page only when no structured model fits
 
 Native importer mappingใช้ได้เฉพาะเมื่อ target semantics ตรง. Custom conversion script/source เพิ่มเฉพาะกลุ่มที่ต้อง decompose/transform จริง.
@@ -188,6 +195,11 @@ Use target CMS native redirects/404 log first.
 
 ระดับความเสี่ยงเดิมเป็น migration evidence; การแก้แต่ละรายการต้องไม่ขยาย Product modelโดยเงียบ ๆ.
 
+ITA-specific anomalies remain unresolved source-evidence exceptions, not closed/PASS by deferral.
+No legacy ITA binary, URL or public year is deleted/migrated/withdrawn by Feature 002's scope
+reconciliation. Any later trial/cutover must obtain explicit disposition of deferred ITA material
+and continuity obligations; reduced V1 acceptance cannot silently dispose of that evidence.
+
 ---
 
 # 13. Trial Migration
@@ -257,7 +269,7 @@ Target CMS native importerไม่จำเป็นต้อง solveทุก
 
 - source dataต้อง split/merge into multiple target collections
 - plugin/ACF structureต้อง transform
-- ITA relation mapping native importerทำไม่ได้
+- ITA relation mapping is deferred from V1; it is not authorization for custom conversion code or generic-page substitution
 - legacy date/statusต้อง deriveจาก evidenceอื่น
 
 Custom codeควรเป็น temporary migration tooling ไม่ใช่ permanent application layer.

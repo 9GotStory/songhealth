@@ -1,0 +1,209 @@
+---
+// T021 — the Feature 002 native public-read SSR test fixture. This page is
+// INJECTED ONLY into the one existing persistent development server
+// (origin http://127.0.0.1:4324; T037) by the dev-only integration
+// ./cms-public-reads.integration.mjs, after that integration verified the
+// Astro command is `dev`. It is never a production src/pages/ route, is
+// never registered in the canonical astro.config.mjs, and never prerenders.
+//
+// What this fixture is: a minimal, bounded, read-only consumer of the
+// NATIVE public query helpers — getEmDashCollection / getEmDashEntry /
+// getEmDashReferences from `emdash` — executed inside the authentic Astro
+// request context the running server already establishes for every request
+// (EmDash registers its runtime/auth/request-context middleware with order
+// "pre"; an injected route passes through the same chain). The page never
+// constructs a preview/ALS context itself, never reads EmDash internal
+// tables, never elevates CMS roles, and never substitutes Admin REST or
+// privileged ctx.content.get snapshots for public evidence.
+//
+// Preview semantics stay native end to end: this page NEVER reads the
+// `_preview` parameter. When a request carries one, EmDash's request-context
+// middleware verifies the signed token and establishes the preview request
+// context; the native helpers then apply their own entry-scoped draft rules.
+// The page only reports the helpers' own `isPreview` result verbatim.
+//
+// Access boundary (fail closed BEFORE any data read, including for callers
+// inside container networks — Host/Origin strings are not the boundary):
+// every request must present the route access token in the
+// x-songhealth-t021-route-access header, constant-time-compared against the
+// server-only SONGHEALTH_T021_ROUTE_TOKEN environment value. Missing token
+// input on the server → 503 ROUTE_ACCESS_UNPROVISIONED; missing/mismatched
+// presented token → 403 ROUTE_ACCESS_DENIED. Until the runtime installer has
+// provisioned that capability, every consumer must HOLD on it.
+//
+// Bounded operation surface: an enumerated case set over the Feature 002
+// seed collections and their seed reference fields only (allowlists in the
+// integration module), integer limits 1..100, opaque cursors passed through
+// untouched, and NO status/where/orderBy/locale/draft filter is ever
+// accepted — the published-only native default is the only visibility this
+// fixture ever requests. Responses are JSON only, `private, no-store` on
+// every path (test/preview responses must never be cached), carry no
+// secrets, no raw stack traces and no preview tokens.
+//
+// Authoring only (tasks.md T021): no runtime execution, public-read PASS or
+// security acceptance is claimed by this file existing; the T022 serial
+// join owns actually running it, only after the reviewed source/config
+// transition installs the integration on the persistent server.
+
+import { getEmDashCollection, getEmDashEntry, getEmDashReferences } from "emdash";
+import {
+	resolveT021FixtureRequest,
+	T021_SYNTHETIC_MARKER,
+} from "./cms-public-reads.integration.mjs";
+
+export const prerender = false;
+
+const JSON_HEADERS = {
+	"content-type": "application/json; charset=utf-8",
+	"cache-control": "private, no-store",
+};
+
+function jsonResponse(status, body) {
+	return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
+}
+
+/** Revision pointer keys a public/preview shape never needs to expose. */
+const REVISION_METADATA_KEYS = ["draftRevisionId", "liveRevisionId"];
+
+/**
+ * The public serialization of one native entry: slug identity (`id`), field
+ * `data`, and the reference pages the caller opted into — nothing else. The
+ * native edit proxy is symbol-keyed and non-enumerable, so it never
+ * serializes; revision pointers are dropped defensively even though the
+ * native helpers already strip them for public contexts.
+ */
+function publicEntryShape(entry, references) {
+	if (entry === null || entry === undefined) {
+		return null;
+	}
+	const data = { ...(entry.data ?? {}) };
+	for (const key of REVISION_METADATA_KEYS) {
+		delete data[key];
+	}
+	return {
+		id: entry.id,
+		data,
+		...(references !== undefined ? { references } : {}),
+	};
+}
+
+function referencePageShape(page) {
+	return {
+		entries: page.entries.map((child) => publicEntryShape(child)),
+		...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }),
+	};
+}
+
+/** Truthful but minimal error channel: the native error name only. */
+function errorShape(error) {
+	return { name: error instanceof Error ? error.name : "Error" };
+}
+
+// ---------------------------------------------------------------------------
+// Request resolution — access boundary and input contract first, no data
+// read before them (see the integration module's resolver).
+// ---------------------------------------------------------------------------
+const resolved = await resolveT021FixtureRequest(Astro.request, Astro.url, process.env);
+
+if (resolved.status !== 200 || resolved.body.query === undefined) {
+	// probe response, access refusal, method refusal or input refusal —
+	// already fully formed, and no native query has run.
+	return jsonResponse(resolved.status, resolved.body);
+}
+
+const query = resolved.body.query;
+
+// ---------------------------------------------------------------------------
+// The one bounded native query per request, inside the authentic request
+// context. No status filter is ever supplied: the pinned native loader
+// defaults collection reads to published entries, and entry reads return
+// only published entries outside a matching preview/edit context.
+// ---------------------------------------------------------------------------
+try {
+	if (query.kind === "collection") {
+		const filter = {
+			limit: query.limit,
+			...(query.cursor !== undefined ? { cursor: query.cursor } : {}),
+		};
+		const result = await getEmDashCollection(query.collection, filter);
+		// R1: the response is bound to the approved synthetic namespace. The
+		// native page's own pagination (cursor/hasMore over the NATIVE rows)
+		// is preserved verbatim; entries outside the synthetic namespace are
+		// omitted AND counted, so a filtered page can never read as a
+		// complete native listing.
+		const pageEntries = result.entries.map((entry) => publicEntryShape(entry));
+		const syntheticEntries = pageEntries.filter((entry) =>
+			String(entry.id).startsWith(`${T021_SYNTHETIC_MARKER}-`),
+		);
+		return jsonResponse(200, {
+			case: "collection",
+			collection: query.collection,
+			syntheticFiltered: true,
+			pageTotal: pageEntries.length,
+			syntheticCount: syntheticEntries.length,
+			entries: syntheticEntries,
+			...(result.nextCursor === undefined ? {} : { nextCursor: result.nextCursor }),
+			...(result.hasMore === undefined ? {} : { hasMore: result.hasMore }),
+			...(result.error === undefined ? {} : { error: errorShape(result.error) }),
+		});
+	}
+
+	if (query.kind === "entry") {
+		const result = await getEmDashEntry(query.collection, query.id);
+		return jsonResponse(200, {
+			case: "entry",
+			collection: query.collection,
+			id: query.id,
+			entry: publicEntryShape(result.entry),
+			isPreview: result.isPreview,
+			...(result.error === undefined ? {} : { error: errorShape(result.error) }),
+		});
+	}
+
+	if (query.kind === "entry-with-references") {
+		const result = await getEmDashEntry(query.collection, query.id, {
+			references: { [query.field]: true },
+		});
+		const references =
+			result.entry?.references?.[query.field] === undefined
+				? undefined
+				: { [query.field]: referencePageShape(result.entry.references[query.field]) };
+		return jsonResponse(200, {
+			case: "entry-with-references",
+			collection: query.collection,
+			id: query.id,
+			field: query.field,
+			entry: publicEntryShape(result.entry, references),
+			isPreview: result.isPreview,
+			...(result.error === undefined ? {} : { error: errorShape(result.error) }),
+		});
+	}
+
+	// query.kind === "references"
+	const result = await getEmDashReferences(
+		query.collection,
+		query.id,
+		query.field,
+		{
+			...(query.limit !== undefined ? { limit: query.limit } : {}),
+			...(query.cursor !== undefined ? { cursor: query.cursor } : {}),
+		},
+	);
+	return jsonResponse(200, {
+		case: "references",
+		collection: query.collection,
+		id: query.id,
+		field: query.field,
+		entries: result.entries.map((entry) => publicEntryShape(entry)),
+		...(result.nextCursor === undefined ? {} : { nextCursor: result.nextCursor }),
+		...(result.error === undefined ? {} : { error: errorShape(result.error) }),
+	});
+} catch (error) {
+	// Truthful refusal without internals: a fixture failure is a non-success
+	// result, never a fallback to privileged reads or partial data. The error
+	// NAME (e.g. the native InvalidCursorError) travels out so error handling
+	// stays verifiable; no message, stack or internals are exposed.
+	console.error("[songhealth-t021] fixture request failed:", errorShape(error).name);
+	return jsonResponse(500, { error: "FIXTURE_INTERNAL_ERROR", nativeErrorName: errorShape(error).name });
+}
+---
