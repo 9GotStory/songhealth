@@ -105,6 +105,10 @@ description: "Native-only CMS content-model development tasks, ordered by user s
 - Use the same app's authentic Astro/EmDash request context for `getEmDashCollection`, `getEmDashEntry`, and `getEmDashReferences`; privileged `ctx.content.get` and Admin REST snapshots cannot substitute for anonymous native public-query evidence. Implement any route injection as a dev-only test integration, guarded before `injectRoute({ pattern: '/__feature002/public-reads', entrypoint: new URL('./cms-public-reads.astro', import.meta.url), prerender: false })`, with no production `src/pages/` route, canonical `astro.config.mjs` modification, or additional server. **Feasibility and registration in the existing server are not proven by this task document**: verify against pinned Astro/EmDash and present an exact reviewed, controller-compatible source/config maintenance method for separate Product Owner authorization. Do not modify private controller config/state directly or assume live HMR/restart works.
 - Normal application builds and `deploy/Containerfile` must exclude the reserved route/fixture/test integration; verify manifest/bundle exclusion and the unchanged explicit production COPY list. The coordinator tracks and cleans only its Playwright child, owned synthetic entries/media, and private scratch/credentials. On failures, timeouts, SIGINT or SIGTERM, perform awaited cleanup/reconciliation with the existing server still available; report cleanup failures alongside original failures. The persistent app, database, media volumes, source and controller are never test-owned resources.
 - Preserve **T021 source/test authoring vs T022 runtime execution**. Discovery/offline checks do not establish a functioning dev-only route or public-read PASS. No parallel runtime, bypass of source promotion/maintenance review, or new Product capability is created by these test artifacts.
+- **T037 retarget (Product Owner decision 2026-10-29).** The sole runtime test target is now the single development runtime at `http://127.0.0.1:4324` (T036), and the rules above apply to it unchanged.
+  - Route registration: its committed development configuration, `deploy/dev-quadlet/astro.dev.config.mjs`, installs the fixture route.
+  - Route token: its installer provisions the token pair.
+  - Source identity: the coordinator observes the runtime source through `dev-runtime-verify.sh` instead of the retired UID-1001 Runtime Controller.
 
 **Analyze I1 — single-runtime execution correction (not yet executed):** T033 must select ordinary browser suites explicitly, run them against the persistent origin, and invoke the T021 coordinator only after the dev-only fixture route is installed through approved maintenance. T034 documents verified commands and prerequisites; neither may start/stop another server or silently alter the shared runtime. A missing integration/role fixture/source transition is reported as a blocker.
 
@@ -166,7 +170,7 @@ description: "Native-only CMS content-model development tasks, ordered by user s
 
 ## Phase 10: Development Runtime Replacement (Product Owner decision 2026-10-28)
 
-**Purpose**: Make the UID-1000 rootless Podman + systemd Quadlet runtime at `http://127.0.0.1:4324` the single development runtime and test target, replacing the UID-1001 runtime, which is left untouched (not used, stopped, migrated or deleted) pending a separate Product Owner deletion decision.
+**Purpose**: Make the UID-1000 rootless Podman + systemd Quadlet runtime at `http://127.0.0.1:4324` the single development runtime and test target, replacing the UID-1001 runtime. T036 left that runtime untouched; T037 then deleted it (Product Owner decision 2026-10-29).
 
 - [x] T036 Replace the development runtime with the converging `scripts/dev-runtime-install.sh --sha <commit>`.
   - **Installer behavior.** Idempotent and safe to re-run. It:
@@ -182,6 +186,20 @@ description: "Native-only CMS content-model development tasks, ordered by user s
   - **Designation.** Name the runtime in `README.md`, `AGENTS.md`, `CLAUDE.md` and this feature's plan and quickstart.
   - **Evidence.** Record the offline checks and the live install/verify results in `specs/002-cms-content-model/evidence/T036-dev-runtime.md`.
   - **Exclusions.** Do not touch the UID-1001 runtime. Adapt the T021 coordinator and other tests that assume it in their own tasks.
+- [x] T037 Complete the single-runtime replacement (Product Owner decision 2026-10-29): move the T021 coordinator to `http://127.0.0.1:4324` first, then delete the UID-1001 runtime.
+  - **T021 on the single runtime.**
+    - **Dev config.** `deploy/dev-quadlet/astro.dev.config.mjs` is the canonical configuration plus the development-only `cmsPublicReadsIntegration()`. The runtime entrypoint runs `astro dev` with it. `astro.config.mjs` and the production build stay unchanged.
+    - **Route token.** The installer provisions the T021 route token pair: podman secret `songhealth-qdev-t021-route-token` plus a 0600 client copy. Verify checks the fixture route.
+    - **Coordinator and spec.** `run-cms-public-reads.mjs` and `cms-public-reads.spec.ts` target 4324. The coordinator observes the runtime source through `dev-runtime-verify.sh`. `loadDevAccessToken` also reads the runtime's bare-token `dev-pat`.
+    - **Proof run.** Promote the commit and run the coordinator once on 4324 before any deletion.
+  - **Delete the UID-1001 runtime.** After T021 passes on 4324, the Product Owner runs the reviewed deletion with sudo; the local workspace user has no access to UID 1001.
+    - **Deleted (Product Owner scope "(a)+(b) songhealth ทั้งหมด").**
+      - The development runtime at 4322: containers, volumes, networks, tooling image, Runtime Controller, and the stable source with its git store.
+      - The production-foundation Quadlet stack at 4321: units, environment files, containers, volumes, network, secrets and images.
+      - The superseded `dev-db` container, Songhealth caches, and the `projects/songhealth` checkout (git confirmed nothing outside GitHub).
+    - **Untouched.** Other UID-1001 workloads, and anything they share.
+    - **No backup** (Product Owner decision). The accepted Feature 001 production image is first moved to UID 1000 with its digest preserved.
+  - **Evidence.** Record the results in `specs/002-cms-content-model/evidence/T037-single-runtime-completion.md`.
 
 ## Dependencies & Execution Order
 
@@ -193,6 +211,7 @@ All edges below are prerequisites. Applicable runtime readiness and bounded auth
 | --- | --- | --- |
 | T001 | Existing approved baseline, no Feature 002 predecessor | Inputs and actual foundation standing |
 | T036 | Accepted dev-quadlet Phase 1/2A sources (`cd390b0`, `5d31acc`), no Feature 002 story predecessor | Development runtime replacement; later runtime checks (T033) target the runtime T036 delivers |
+| T037 | T036, T021 | T021 coordinator moved to the single runtime, then the UID-1001 runtime deleted |
 | T002 | T001 | Native access/test support |
 | T003, T004 | T002 | Independent test authoring versus shared taxonomy configuration |
 | T005 | T003, T004 | Shared Document tests/classification before native definitions |

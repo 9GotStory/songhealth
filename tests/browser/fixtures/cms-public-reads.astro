@@ -1,7 +1,7 @@
 ---
 // T021 — the Feature 002 native public-read SSR test fixture. This page is
 // INJECTED ONLY into the one existing persistent development server
-// (origin http://127.0.0.1:4322) by the dev-only integration
+// (origin http://127.0.0.1:4324; T037) by the dev-only integration
 // ./cms-public-reads.integration.mjs, after that integration verified the
 // Astro command is `dev`. It is never a production src/pages/ route, is
 // never registered in the canonical astro.config.mjs, and never prerenders.
@@ -28,8 +28,8 @@
 // x-songhealth-t021-route-access header, constant-time-compared against the
 // server-only SONGHEALTH_T021_ROUTE_TOKEN environment value. Missing token
 // input on the server → 503 ROUTE_ACCESS_UNPROVISIONED; missing/mismatched
-// presented token → 403 ROUTE_ACCESS_DENIED. Until the separately authorized
-// maintenance provisions that capability, every consumer must HOLD on it.
+// presented token → 403 ROUTE_ACCESS_DENIED. Until the runtime installer has
+// provisioned that capability, every consumer must HOLD on it.
 //
 // Bounded operation surface: an enumerated case set over the Feature 002
 // seed collections and their seed reference fields only (allowlists in the

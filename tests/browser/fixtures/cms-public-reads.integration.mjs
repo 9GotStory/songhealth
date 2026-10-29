@@ -1,6 +1,6 @@
 // T021 — development-only Astro integration that injects the Feature 002
 // public-read SSR test fixture into the ONE existing persistent development
-// server (origin http://127.0.0.1:4322). Test support only: no application,
+// server (origin http://127.0.0.1:4324; T037). Test support only: no application,
 // schema, seed, dependency, infrastructure, production page or packaging
 // change is made here.
 //
@@ -43,19 +43,18 @@
 // authentic per-request ALS context established by
 // emdash/src/astro/middleware/request-context.ts.
 //
-// Registration lifecycle (tasks.md / Lead handoff; NOT proven here):
-// this file only DEFINES the integration. Installing it on the persistent
-// development server requires the account-private development configuration
-// (config/astro.dev.config.mjs) to append `cmsPublicReadsIntegration()` to
-// the existing integrations, through the separately reviewed
-// controller-compatible source/config maintenance procedure and Product
-// Owner authorization. Do not assume HMR/reload installs it: a config-level
-// integration is evaluated at server startup, so installation needs the
-// approved source/config transition (including any restart), not a hot
-// reload. Until then the route is absent and every consumer must HOLD.
+// Registration lifecycle (T037): this file only DEFINES the integration. The
+// single development runtime installs it through its committed development
+// configuration, deploy/dev-quadlet/astro.dev.config.mjs, which appends
+// `cmsPublicReadsIntegration()` to the canonical integrations; the runtime
+// entrypoint starts `astro dev` with that configuration. A config-level
+// integration is evaluated at server startup, so it arrives by promoting a
+// commit that contains it (scripts/dev-runtime-update.sh restarts the app),
+// never by a hot reload. Without it the route is absent and every consumer
+// must HOLD.
 //
-// Server-only input (the route access boundary; provisioning deferred to
-// the separately authorized maintenance):
+// Server-only input (the route access boundary; the runtime installer
+// provisions it as the podman secret songhealth-qdev-t021-route-token):
 // - SONGHEALTH_T021_ROUTE_TOKEN: a non-empty secret string held ONLY in the
 //   application server's environment (never in the repository, client
 //   bundles, logs or evidence). The injected route refuses EVERY request —
@@ -63,8 +62,8 @@
 //   the x-songhealth-t021-route-access header. When the variable is absent
 //   the route still fails closed (503 ROUTE_ACCESS_UNPROVISIONED): the
 //   token, and the mode-0600 client-side copy the coordinated tests read
-//   through SONGHEALTH_T021_ROUTE_ACCESS, are provisioned together by that
-//   maintenance procedure. Host/Origin strings are deliberately NOT the
+//   through SONGHEALTH_T021_ROUTE_ACCESS, are provisioned together by the
+//   runtime installer. Host/Origin strings are deliberately NOT the
 //   boundary: they are spoofable inside container networks.
 
 /** The single reserved route pattern this integration may inject. */

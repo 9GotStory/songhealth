@@ -1,0 +1,194 @@
+# UID-1001 Songhealth retirement (delete) 2026-10-29T00:20:40Z as multica-agent (uid 1001)
+
+== containers to stop and remove (5)
+  songhealth-dev-app
+  songhealth-dev-postgres
+  systemd-songhealth-app
+  systemd-songhealth-db
+  songhealth-dev-db
+
+== pods to remove (0)
+  (none)
+
+== systemd user units to stop (5)
+  songhealth-app.service
+  songhealth-db-data-volume.service
+  songhealth-db.service
+  songhealth-media-volume.service
+  songhealth-network.service
+
+== unit, Quadlet and environment files to remove (names only) (7)
+  /home/multica-agent/.config/containers/systemd/songhealth-app.container
+  /home/multica-agent/.config/containers/systemd/songhealth-app.env
+  /home/multica-agent/.config/containers/systemd/songhealth-db-data.volume
+  /home/multica-agent/.config/containers/systemd/songhealth-db.container
+  /home/multica-agent/.config/containers/systemd/songhealth-db.env
+  /home/multica-agent/.config/containers/systemd/songhealth-media.volume
+  /home/multica-agent/.config/containers/systemd/songhealth.network
+
+== volumes to remove (no other user) (5)
+  songhealth-db-data
+  songhealth-dev-db-data
+  songhealth-dev-media-v1
+  songhealth-dev-postgres-data-v1
+  songhealth-media
+
+== networks to remove (no other user) (3)
+  songhealth
+  songhealth-dev-app-net
+  songhealth-dev-db-net
+
+== podman secrets to remove (names only) (3)
+  songhealth-encryption-key
+  songhealth-migration-database-url
+  songhealth-db-password
+
+== images to remove, every tag (no other user) (3)
+  localhost/songhealth-dev-tooling:node24.21.0-npm12.2.0-r1 (0f63981da9e9)
+  localhost/songhealth-app:0.0.1 (8fbe6e02d2e2)
+  localhost/songhealth-app:t017-canary localhost/songhealth-app:t017-clean localhost/songhealth-app:t017 (bc2009a79dec)
+
+== directories to remove (6)
+  /home/multica-agent/.local/share/dev-runtimes/songhealth (412K)
+  /home/multica-agent/projects/songhealth-dev (853M)
+  /home/multica-agent/projects/.songhealth-dev.git (6.9M; git store of the stable source only)
+  /home/multica-agent/projects/songhealth (3.3M; git: nothing outside GitHub; modified=0 unpushed=0 stashes=0 worktrees=1)
+  /home/multica-agent/.cache/songhealth-t029-scratch (16K; cache)
+  /home/multica-agent/.cache/songhealth-wp-core-t029 (119M; cache)
+
+== other Songhealth-named items: NOT removed, listed for review (0)
+  (none)
+
+== kept because another workload uses them (1)
+  image localhost/postgres:18.6-alpine (also used by: s2_test_pg_1792063553180 s2_devsh_3567537_postgres s2_devsh_3573952_postgres s2_devsh_3580575_postgres lucid_ardinghelli distracted_ptolemy )
+
+== crontab lines mentioning songhealth (not changed) (0)
+
+== other containers of this account (untouched) (listing)
+  s2_test_pg_1792063553180 | localhost/postgres:18.6-alpine | Created
+  s2_devsh_3567537_postgres | localhost/postgres:18.6-alpine | Exited (0) 11 days ago
+  s2_devsh_3573952_postgres | localhost/postgres:18.6-alpine | Exited (0) 11 days ago
+  s2_devsh_3580575_postgres | localhost/postgres:18.6-alpine | Exited (0) 11 days ago
+  s2-assets-dev-postgres | docker.io/library/postgres:18.6-alpine | Up 13 days (healthy)
+  s2-assets-dev-api | localhost/s2-assets-dev-runtime:9b126bd | Exited (0) 3 days ago
+  s2-assets-dev-web | localhost/s2-assets-dev-runtime:9b126bd | Up 13 days
+  s2-e2e-runner-testrun1-inv-2357222-15a98464 | localhost/s2-assets-e2e-runner:local | Exited (0) 12 days ago
+  s2-e2e-precedence-1792162077684 | localhost/s2-assets-e2e-runner:local | Exited (47) 12 days ago
+  s2-e2e-precedence-1792162078467 | localhost/s2-assets-e2e-runner:local | Exited (47) 12 days ago
+  s2-e2e-precedence-1792162079880 | localhost/s2-assets-e2e-runner:local | Exited (0) 12 days ago
+  s2-e2e-precedence-1792162080822 | localhost/s2-assets-e2e-runner:local | Exited (0) 12 days ago
+  s2-e2e-precedence-1792162222190 | localhost/s2-assets-e2e-runner:local | Exited (47) 12 days ago
+  s2-e2e-precedence-1792162222983 | localhost/s2-assets-e2e-runner:local | Exited (47) 12 days ago
+  s2-e2e-precedence-1792162224488 | localhost/s2-assets-e2e-runner:local | Exited (0) 12 days ago
+  s2-e2e-precedence-1792162225269 | localhost/s2-assets-e2e-runner:local | Exited (0) 12 days ago
+  lucid_ardinghelli | localhost/postgres:18.6-alpine | Up 2 days (healthy)
+  distracted_ptolemy | localhost/postgres:18.6-alpine | Up 2 days (healthy)
+
+This permanently deletes every item listed above. No backup is taken.
+Type "delete songhealth uid1001" to continue: == stopping units
+  ok: systemctl --user stop songhealth-app.service
+  ok: systemctl --user stop songhealth-db-data-volume.service
+  ok: systemctl --user stop songhealth-db.service
+  ok: systemctl --user stop songhealth-media-volume.service
+  ok: systemctl --user stop songhealth-network.service
+== removing containers
+[ERROR netavark::dns::aardvark] aardvark-dns runs in a different netns, dns will not work for this container. To resolve please stop all containers, kill the aardvark-dns process, remove the /tmp/multica-task-3662115369/storage-run-1001/containers/networks/aardvark-dns directory and then start the containers again
+Error: cleaning up container 56a74583da82df514f18a45969032b59b0f8938bd4a4da605aceb8c7e93d6e6d: removing container 56a74583da82df514f18a45969032b59b0f8938bd4a4da605aceb8c7e93d6e6d network: netavark: netavark encountered multiple errors:
+	- failed to get bridge interface: Netlink error: No such device (os error 19)
+	- failed to get bridge interface: Netlink error: No such device (os error 19)
+  FAILED: podman rm --force --time 10 songhealth-dev-app
+[ERROR netavark::dns::aardvark] aardvark-dns runs in a different netns, dns will not work for this container. To resolve please stop all containers, kill the aardvark-dns process, remove the /tmp/multica-task-3662115369/storage-run-1001/containers/networks/aardvark-dns directory and then start the containers again
+Error: cleaning up container d91afe9ed3198d7fc1abd48634f230ca4b6d1349f044d19e722f2a174676ca9a: removing container d91afe9ed3198d7fc1abd48634f230ca4b6d1349f044d19e722f2a174676ca9a network: netavark: failed to get bridge interface: Netlink error: No such device (os error 19)
+  FAILED: podman rm --force --time 10 songhealth-dev-postgres
+songhealth-dev-db
+  ok: podman rm --force --time 10 songhealth-dev-db
+== removing unit and environment files
+  ok: rm -rf -- /home/multica-agent/.config/containers/systemd/songhealth-app.container
+  ok: rm -rf -- /home/multica-agent/.config/containers/systemd/songhealth-app.env
+  ok: rm -rf -- /home/multica-agent/.config/containers/systemd/songhealth-db-data.volume
+  ok: rm -rf -- /home/multica-agent/.config/containers/systemd/songhealth-db.container
+  ok: rm -rf -- /home/multica-agent/.config/containers/systemd/songhealth-db.env
+  ok: rm -rf -- /home/multica-agent/.config/containers/systemd/songhealth-media.volume
+  ok: rm -rf -- /home/multica-agent/.config/containers/systemd/songhealth.network
+  ok: systemctl --user daemon-reload
+== removing volumes, networks, secrets and images
+songhealth-db-data
+  ok: podman volume rm songhealth-db-data
+songhealth-dev-db-data
+  ok: podman volume rm songhealth-dev-db-data
+songhealth-dev-media-v1
+  ok: podman volume rm songhealth-dev-media-v1
+songhealth-dev-postgres-data-v1
+  ok: podman volume rm songhealth-dev-postgres-data-v1
+songhealth-media
+  ok: podman volume rm songhealth-media
+songhealth
+  ok: podman network rm songhealth
+songhealth-dev-app-net
+  ok: podman network rm songhealth-dev-app-net
+songhealth-dev-db-net
+  ok: podman network rm songhealth-dev-db-net
+26e81335033191fbeb09ac3ac
+  ok: podman secret rm songhealth-encryption-key
+a5d6d2ae184e4e618ccf4d591
+  ok: podman secret rm songhealth-migration-database-url
+c815e2360c70e3998a3fc588a
+  ok: podman secret rm songhealth-db-password
+Untagged: localhost/songhealth-dev-tooling:node24.21.0-npm12.2.0-r1
+Deleted: 0f63981da9e9dbcb7acaca6270d7511008254b50ec168fb75e238793e6109cb0
+Deleted: 7face134f0c27370917d5c367348d9861b0878a3dfe1a4cc0f313742742f83ca
+Deleted: 375f2c58422b6a44bd72da7464ee4f16d50f7482380e96e713ed2e72f19fd399
+Deleted: 0b44e6e0de54f78275a8b1e116e32a39e381eacc92f985e53a4a1017182b5ef7
+Deleted: c5a9ad42fb48f0528d4d5b29b24c81043b88298ab7c4b7813f9941a357853de4
+  ok: podman image rm localhost/songhealth-dev-tooling:node24.21.0-npm12.2.0-r1
+Untagged: localhost/songhealth-app:0.0.1
+Deleted: 8fbe6e02d2e2a18d87d7beb657b5a36827f619b4f198a6b2e8b0081f5172781c
+Deleted: 7c8be07141cce24454973f6edeefa5cb63fd9f5e1d11bc591bdb642b7cde73ac
+Deleted: 0836d999b9c5a45e8e6ea2c353febb151692dfd90c726a57c02069aae8905af6
+Deleted: c225f28d76beab64eb18b3d5837e98683ebda6d0821594925b43f2b5127b1112
+Deleted: d96b8c941511fb5bb4b05bc0feded5e01676dd72a0a87843813add760a82184d
+Deleted: 46fd788566075f51289cb14646c55c0f69117c366920107f75f9b2076f06111b
+Deleted: e63890ca6ce242d5ef55a4fb569c6fd9252d0481063d93508407d2f7752530c8
+Deleted: d0d00721f75224479c91aac9165f1ad75c79d369c1d49a8a7ea0f593ddb1c005
+Deleted: 38fdaea80a7c9be95516a1d7dc4c6824d8b6051863bae62331187fcfc375f525
+Deleted: 6533df2cbed53bf93cc0da249f041ea053ca5f7a068f1193410734a1d591a82c
+Deleted: 32ea3aa872a4af3f4b60ae58b6a47a546f6782f9c6a5feffba873b59d08a086a
+Deleted: fef688d4793a32fe979b4919dcd7f6a7d23c0b974898c3278feec8dcd59b6538
+Deleted: 4e7e1ff32d5a6167e164779cc7dc38bb6403cc72d69f741935d491acbd06df0d
+  ok: podman image rm localhost/songhealth-app:0.0.1
+Untagged: localhost/songhealth-app:t017-canary
+  ok: podman image rm localhost/songhealth-app:t017-canary
+Untagged: localhost/songhealth-app:t017-clean
+  ok: podman image rm localhost/songhealth-app:t017-clean
+Untagged: localhost/songhealth-app:t017
+Deleted: bc2009a79deca75ca98a6294bc1bf6345ccc09ac889e4fe891d2aac7b2a8d24a
+Deleted: 587392984a3899f4aa9cfdba749c599f9c13f66d9adbb6129b5ecb6cec60ecab
+Deleted: 8a95a1ee23dba7787c86c5bf38e29db69da1fab2dbd1b81f46d450ba9be4f5e0
+Deleted: 2bd326946d7be2011c4711551d994c3524debe01f4e9c7914292ee7ae05cabf5
+Deleted: 6734edd19bd1cb96655ff3e8db13d734af33121b02238ff6ef529c2063e8ff36
+Deleted: b715b662f6d5274d3474fb4e1e078a3238f089f47d6ea0cd30841907d0d289a8
+Deleted: 897673c95e518bcf815902b7b91f7d6728c4d15158eae6c5f20b2fcc15e68c16
+Deleted: e052b702c7d5fe122b59972854f9b20f983c7a95d8a24c0275690992aa3ca20e
+Deleted: 57fcac096e91eed2d67fba3f39359a75bd7754d1df86db192debde382db06b3f
+Deleted: 59fc0d30e94dfea46caa5037b2fd82a629ee2636629060519f48eb7763cfdc69
+Deleted: d27c502bf0a195aba3e58a1e98bf034add424b83ae71f138eeb36d7db105f7cb
+Deleted: 497908bc311370e78c053eaca1aa9b84b90361ba08d333179608cac051f0c11e
+Deleted: bf0b0fb4046227f76994e4be78a45ea5f7d35a39426b8ad7273265f2fec2724c
+  ok: podman image rm localhost/songhealth-app:t017
+== removing directories (as the rootless user namespace's root, for files containers created)
+  ok: podman unshare rm -rf -- /home/multica-agent/.local/share/dev-runtimes/songhealth
+  ok: podman unshare rm -rf -- /home/multica-agent/projects/songhealth-dev
+  ok: podman unshare rm -rf -- /home/multica-agent/projects/.songhealth-dev.git
+  ok: podman unshare rm -rf -- /home/multica-agent/projects/songhealth
+  ok: podman unshare rm -rf -- /home/multica-agent/.cache/songhealth-t029-scratch
+  ok: podman unshare rm -rf -- /home/multica-agent/.cache/songhealth-wp-core-t029
+== what remains
+  containers: 0
+  volumes:    0
+  networks:   0
+  secrets:    0
+  images:     0
+  units:      0
+  files/dirs: 0
+  listening on 127.0.0.1:4321/4322: 0
+RETIRE: INCOMPLETE (see FAILED lines)

@@ -14,37 +14,26 @@ and [public-read contract](contracts/public-read.md).
 the UID-1000 rootless Podman + systemd Quadlet runtime at `http://127.0.0.1:4324/` described in
 the [README](../../README.md) and
 [docs/operations/development-quadlet.md](../../docs/operations/development-quadlet.md). Its
-read-only check is `scripts/dev-runtime-verify.sh`, and programmatic Admin/API calls use its
-development PAT `~/.local/state/songhealth-qdev/dev-pat` (mode 0600). The UID-1001 runtime,
-controller and auth-file loader described below are retired as development and test targets
-(left untouched pending deletion); the remaining wording of this quickstart is reconciled with
-the delivered runtime by T034.
+read-only check is `~/dev/songhealth-quadlet/scripts/dev-runtime-verify.sh`, and programmatic
+Admin/API calls use its development PAT `~/.local/state/songhealth-qdev/dev-pat` (mode 0600).
+The earlier UID-1001 runtime (origin `http://127.0.0.1:4322/`, Runtime Controller and auth-file
+loader) was deleted on 2026-10-29 (T037); its wording remains in Git history. The remaining
+wording of this quickstart is reconciled with the delivered runtime by T034.
 
-Earlier wording (retired runtime): use the single persistent development runtime documented in the [README](../../README.md):
-the single Fedora environment, account `multica-agent` (UID 1001), rootless Podman +
-Podman Compose; containers `songhealth-dev-app` (Astro 7.3.5 SSR + EmDash 1.1.0 on the pinned
-Node 24.21.0/npm 12.2.0 tooling image) and `songhealth-dev-postgres` (PostgreSQL 18.6);
-dedicated persistent database/media volumes; stable source
-`/home/multica-agent/projects/songhealth-dev` pinned to the accepted Feature 002 SHA; Runtime
-Controller `/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh`; development
-origin `http://127.0.0.1:4322/`. The runtime and its data survive Multica issues and agent
-sessions; `status` and `verify` are the only authorized routine controller operations. No
-parallel dev runtime and no second development stack. T022/T028 Feature 001 durability/recovery
-are still **PENDING** and are not redefined, waived or silently passed here. T028 still
-requires T022 PASS plus accepted T023–T027 sources (including runtime-secret recovery); T030
-still requires T028 PASS plus accepted T029 sources. Required readiness belongs to later
-bounded implementation/acceptance authorization. The pinned toolchain runs inside the shared
-runtime's tooling image; this guide produces no new runtime result by itself. Accepted
-activation evidence covers SSR, Admin authentication, native build, migration 90/90 and
-existing persistence with `state.complete=true`; live HMR, a new full persistence-restart test
-and automatic startup after a Fedora reboot remain **NOT TESTED** — never documented as PASS.
+There is no parallel dev runtime and no second development stack. T022/T028 Feature 001
+durability/recovery are still **PENDING** and are not redefined, waived or silently passed here.
+- T028 still requires T022 PASS plus accepted T023–T027 sources, including runtime-secret
+  recovery.
+- T030 still requires T028 PASS plus accepted T029 sources.
+- Required readiness belongs to later bounded implementation/acceptance authorization.
 
-After bounded implementation authorization and accepted schema setup, check the shared runtime
-(it is already running detached; do not start another server against its origin):
+This guide produces no new runtime result by itself.
+
+After bounded implementation authorization and accepted schema setup, check the runtime (it is
+already running; do not start another server against its origin):
 
 ```bash
-/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh status
-/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh verify
+~/dev/songhealth-quadlet/scripts/dev-runtime-verify.sh
 ```
 
 For automated development Admin/API access on the already-initialized shared runtime,
@@ -143,41 +132,43 @@ D-ITA/D-REF historical and cross-record guarantees are deferred.
 
 ## Verification Commands and Cleanup
 
-When the actual implementation/tests exist and are authorized. Execution against the shared
-runtime is bounded task work: the only authorized routine controller operations are
-`status`/`verify`, and the application is already running detached at
-`http://127.0.0.1:4322` — do not start another server against that origin.
+When the actual implementation/tests exist and are authorized. Execution against the single
+development runtime is bounded task work. The application is already running at
+`http://127.0.0.1:4324`, so do not start another server against that origin. Its read-only
+check is `~/dev/songhealth-quadlet/scripts/dev-runtime-verify.sh`
+(`docs/operations/development-quadlet.md`).
 
-**2026-10-19 single-runtime reconciliation:** T021/T022/T033/T034 use the same
-persistent Astro/EmDash app, PostgreSQL and media at `127.0.0.1:4322`.
-Ordinary Playwright tests and the special native public-read harness target that
-running app. **No runner starts another Astro server or substitutes a second
-instance**. The old standalone programmatic-`dev()` T021 runner assumption is
-superseded by the approved single-runtime design constraint.
+**Single-runtime reconciliation (2026-10-19; retargeted by T036/T037).**
+- T021/T022/T033/T034 use the same persistent Astro/EmDash app, PostgreSQL and media at
+  `127.0.0.1:4324`.
+- Ordinary Playwright tests and the special native public-read harness target that running
+  app. **No runner starts another Astro server or substitutes a second instance**.
+- The old standalone programmatic-`dev()` T021 runner assumption is superseded by the
+  approved single-runtime design constraint.
 
-The public-read SSR fixture requires a **dev-only route on that existing server**.
-Before any T022 run, independently verify the integration against pinned
-Astro 7.3.5 / EmDash 1.1.0, ensure its native public/preview request context is
-authentic, prove the fixture is excluded from normal/production builds, and
-obtain separate Product Owner authorization for any source promotion, private
-dev-config registration or app restart through the Runtime Controller's
-reviewed maintenance path. The stable source is not updated by PR merge.
-A missing fixture route, unsupported installation method or source mismatch is
-`HOLD`, not a reason to free occupied port 4322, start a second process or
-silently change the controller. Routine controller permissions remain
-`status` and `verify`.
+**The public-read SSR fixture** is a **dev-only route on that existing server**.
+- **Installation (T037).** The runtime's committed development configuration
+  (`deploy/dev-quadlet/astro.dev.config.mjs`) installs it in `astro dev` only, and the
+  installer provisions its route token. The fixture is verified against pinned Astro 7.3.5 /
+  EmDash 1.1.0 and excluded from normal and production builds.
+- **Updates.** It reaches the runtime only through promotion
+  (`dev-runtime-update.sh --sha <commit>`); merging a PR does not update the runtime.
+- **HOLD conditions.** A missing fixture route or a source mismatch is `HOLD`. It is not a
+  reason to free port 4324 or to start a second process.
 
 For focused ordinary suites (without the fixture route):
 
 ```bash
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 npm run test:browser -- tests/browser/cms-lifecycle.spec.ts
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
+  npm run test:browser -- tests/browser/cms-lifecycle.spec.ts
 ```
 
-When **separately authorized** T022 preconditions and route registration have
-been satisfied, invoke the single-runtime coordinator:
+Invoke the single-runtime coordinator from a checkout at the runtime's promoted commit:
 
 ```bash
-node tests/browser/run-cms-public-reads.mjs
+SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
+SONGHEALTH_T021_ROUTE_ACCESS=~/.local/state/songhealth-qdev/t021-route-access.json \
+  node tests/browser/run-cms-public-reads.mjs
 ```
 
 It must only coordinate Playwright and owned fixture cleanup against the

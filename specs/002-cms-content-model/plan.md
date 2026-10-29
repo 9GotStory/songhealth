@@ -36,7 +36,7 @@ UID-1000 rootless Podman + systemd Quadlet runtime at `http://127.0.0.1:4324`
 (`docs/operations/development-quadlet.md`) replaces the UID-1001 runtime as the single
 development runtime and test target. The single-runtime rule above is unchanged and now
 applies to that runtime; source reaches it through `scripts/dev-runtime-update.sh`. The
-UID-1001 runtime is left untouched pending a separate deletion decision. No native
+UID-1001 runtime was deleted on 2026-10-29 (T037). No native
 CMS/Product requirement, verification design or Production design changes.
 
 ## Summary

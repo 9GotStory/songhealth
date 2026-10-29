@@ -2,18 +2,19 @@
 // native public query helpers (getEmDashCollection / getEmDashEntry /
 // getEmDashReferences) read PUBLISHED content only inside the authentic
 // Astro/EmDash request context of the ONE existing persistent development
-// server (origin http://127.0.0.1:4322); a native signed preview token for
-// one entry serves that entry's pending draft and nothing else; drafts,
+// server (origin http://127.0.0.1:4324, the single runtime; T037); a native
+// signed preview token for one entry serves that entry's pending draft and
+// nothing else; drafts,
 // trashed and unpublished targets are omitted without blocking the parent;
 // optional omissions stay absent; missing files degrade to a safe
 // unavailable state, never a false download success; and errors, not-found
 // and empty results stay truthful — with no privileged/draft fallback ever.
 // Test support in tests/browser/ only: no application, schema, seed,
 // dependency, infrastructure, or production change is made here, and NO
-// runtime execution is claimed by authoring this file — the T022 serial
-// join owns actually running these checks, and only after the reviewed
-// source/config transition installs the dev-only fixture route on the
-// persistent server.
+// runtime execution is claimed by authoring this file — a task that runs
+// these checks records its own evidence (T037 on the single runtime; US6
+// acceptance stays with the T022 serial join), and only where the runtime's
+// development configuration installs the dev-only fixture route.
 //
 // Authority:
 // - specs/002-cms-content-model/tasks.md T021 ("Tests exercise native
@@ -28,7 +29,8 @@
 //   orchestrates the pinned Playwright command with
 //   PLAYWRIGHT_BASE_URL=http://127.0.0.1:4322; a missing dev-only SSR
 //   fixture route is a prerequisite HOLD, never authorization for another
-//   server; runtime fixture creation/cleanup happens only in T022)
+//   server; runtime fixture creation/cleanup happens only in T022), as
+//   retargeted by T037 to the single runtime at http://127.0.0.1:4324
 // - specs/002-cms-content-model/contracts/public-read.md — "Native Reads"
 //   (server-side consumers use the three native helpers; ordinary public
 //   request context reads published content and live selections; authorized
@@ -65,13 +67,14 @@
 //   EmDash's signed preview flow)
 // - AGENTS.md "Single Persistent Development Runtime" (all authorized
 //   runtime tests target the existing shared development application at
-//   http://127.0.0.1:4322; never a second server; tests may use the existing
+//   http://127.0.0.1:4324; never a second server; tests may use the existing
 //   scoped development credential through the approved mode-0600 loader;
 //   never re-run setup/dev-bypass, rotate credentials or impersonate roles)
 // - tests/browser/cms.helpers.ts — the accepted T002/T013 native request/
-//   fixture helpers this file consumes UNCHANGED (loadDevAccessToken for
-//   both the development PAT and the coordinated route-access token — both
-//   mode-0600 controller-format { token } JSON; createPatActor with live
+//   fixture helpers this file consumes (loadDevAccessToken for both the
+//   development PAT — the runtime's mode-0600 bare-token dev-pat, read since
+//   T037 — and the coordinated route-access token, a mode-0600 { token }
+//   JSON client copy; createPatActor with live
 //   identity verification; createSyntheticEntry/uploadSyntheticMedia with
 //   owned-fixture registration; publish/unpublish/trash/restore and
 //   readEntry; cleanupOwnedFixtures with trash-aware reconciliation)
@@ -171,8 +174,8 @@
 //   discarding them. Failure-safe owned-fixture cleanup runs per test
 //   (afterEach) plus an afterAll safety net; unresolved fixtures stay
 //   registered and are reported, never hidden. The shared app, database,
-//   media volumes, credentials, stable source and controller are never
-//   test-owned resources
+//   media volumes, credentials and runtime checkout are never test-owned
+//   resources
 
 import { expect, test } from "@playwright/test";
 
@@ -255,18 +258,18 @@ const HEALTH_REPORTS_COLLECTION = "health_reports";
 
 /**
  * The ONE existing persistent development origin (AGENTS.md; quickstart
- * "Prerequisites and Environment"; tasks.md T021). This suite refuses any
- * other origin: an occupied shared origin is its intended state, and no port
- * fallback or substitute server is ever acceptable evidence.
+ * "Prerequisites and Environment"; tasks.md T021, retargeted by T037). This
+ * suite refuses any other origin: an occupied shared origin is its intended
+ * state, and no port fallback or substitute server is ever acceptable
+ * evidence.
  */
-const PERSISTENT_DEVELOPMENT_ORIGIN = "http://127.0.0.1:4322";
+const PERSISTENT_DEVELOPMENT_ORIGIN = "http://127.0.0.1:4324";
 
 /**
- * Mode-0600 controller-format JSON ({ token }) holding the CLIENT copy of
- * the fixture route access token. It is provisioned together with the
- * server-side SONGHEALTH_T021_ROUTE_TOKEN input by the separately
- * authorized source/config maintenance; a missing file is a prerequisite
- * failure (HOLD), never a reason to bypass the route boundary.
+ * Mode-0600 JSON ({ token }) holding the CLIENT copy of the fixture route
+ * access token. The runtime installer provisions it together with the
+ * server-side SONGHEALTH_T021_ROUTE_TOKEN podman secret; a missing file is a
+ * prerequisite failure (HOLD), never a reason to bypass the route boundary.
  */
 const ROUTE_ACCESS_CREDENTIAL_ENV = "SONGHEALTH_T021_ROUTE_ACCESS";
 
@@ -458,6 +461,44 @@ function entriesOf(response: { status: number; body: RouteBody }): RouteEntry[] 
 /** The fixture path with any query string removed (evidence-safe label). */
 function redactPreviewUrl(url: string): string {
 	return new URL(url, PERSISTENT_DEVELOPMENT_ORIGIN).pathname;
+}
+
+/**
+ * Resolve the supported native public address of one EXACT owned media asset
+ * through the media LIST endpoint (the single-media read carries no address
+ * field; the listing attaches the relative `url` per item — see the citation
+ * in the missing-files case). Bounded walk over the native pages; the asset
+ * must appear bound to its own identity — a missing asset or an address-less
+ * item is a loud undefined, never an invented URL. Ported by T037 from the
+ * T022 native-expectation fixes (0c09b5e).
+ */
+async function mediaPublicAddress(
+	actor: Parameters<typeof cmsRequest>[0],
+	mediaId: string,
+	maxPages = 10,
+): Promise<string | undefined> {
+	let cursor: string | undefined;
+	for (let page = 0; page < maxPages; page += 1) {
+		const query = new URLSearchParams({ limit: "100" });
+		if (cursor !== undefined) query.set("cursor", cursor);
+		const result = await cmsRequest(
+			actor,
+			`/_emdash/api/media?${query.toString()}`,
+		);
+		expect(result.ok, "the native media listing must be readable").toBe(true);
+		const data = (result.body as { data?: { items?: unknown[]; nextCursor?: unknown } }).data;
+		const items = Array.isArray(data?.items) ? data!.items : [];
+		for (const raw of items) {
+			const item = raw as { id?: unknown; url?: unknown };
+			if (item.id === mediaId) {
+				return typeof item.url === "string" && item.url.length > 0 ? item.url : undefined;
+			}
+		}
+		const next = data?.nextCursor;
+		if (typeof next !== "string" || next.length === 0) return undefined;
+		cursor = next;
+	}
+	return undefined;
 }
 
 /**
@@ -1971,10 +2012,19 @@ test("published entry reads: optional omissions stay absent and never fabricated
 	expect(read.body.entry, "the published entry must be readable").not.toBeNull();
 	expect(read.body.entry?.id, "the public entry identity is its slug").toBe(fixture.slug);
 	expect(read.body.entry?.data?.title).toBe(fixture.title);
+	// Verified pinned native representation (src/loader.ts:529-564): the
+	// PUBLIC query loader materializes every declared collection field,
+	// copying NULL column values into data — an omitted optional field reads
+	// as `null` on public surfaces (the admin repository mapper, by contrast,
+	// skips nulls). The US6 requirement is the absence of FABRICATION: the
+	// omitted field must never carry an inferred/default text or any other
+	// value. Native null (or key-absent) is admitted; anything else fails.
+	// (T022 native-expectation fix 0c09b5e, ported by T037.)
+	const omittedSummary = read.body.entry?.data?.summary;
 	expect(
-		read.body.entry?.data?.summary,
-		"an omitted optional field must stay absent (no fabricated value)",
-	).toBeUndefined();
+		omittedSummary === undefined || omittedSummary === null,
+		"an omitted optional field stays native-absent/null — never a fabricated value",
+	).toBe(true);
 	expect(
 		read.body.entry?.references,
 		"references stay absent unless the caller opted in",
@@ -2146,9 +2196,25 @@ test("native signed preview boundary: absent, malformed, expired, wrong-entry, w
 	expect(malformed.body.isPreview).toBe(false);
 
 	// Expired token: minted with the native API at the minimum duration,
-	// then aged past its expiry — the middleware leaves the request public.
+	// then aged PAST its expiry. The wait is derived from the native expiry
+	// math, not a fixed delay: the pinned verifier computes both `iat`/`exp`
+	// and its comparison clock with Math.floor-to-seconds and refuses only
+	// when exp < now (src/preview/tokens.ts:136-142,256-259), so a token
+	// minted inside second S stays valid through the whole second S and
+	// expires only once the clock's floored second strictly exceeds exp. A
+	// fixed 1500ms sleep can therefore still read a token as valid. Waiting
+	// until the wall clock's floored second is strictly greater than the
+	// returned expiresAt is deterministic under that math; the budget bound
+	// keeps a stuck clock from hanging the case. (T022 native-expectation
+	// fix 0c09b5e, ported by T037.)
 	const expired = await mintPreviewToken(PAGES_COLLECTION, target.entryId, "1s");
-	await new Promise((resolve) => setTimeout(resolve, 1500));
+	const expiryDeadline = Date.now() + 10_000;
+	while (Math.floor(Date.now() / 1000) <= expired.expiresAt) {
+		if (Date.now() > expiryDeadline) {
+			throw new Error("bounded expiry wait exceeded its budget — the native clock never crossed the token expiry");
+		}
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	}
 	const expiredRead = await readTitle(expired.previewToken);
 	expect(
 		expiredRead.body.entry?.data?.title,
@@ -2454,20 +2520,23 @@ test("missing files: a published Document whose media asset was removed reads as
 		fixture.mediaId,
 	);
 
-	// Establish the owned asset's supported public address (native media
-	// metadata: local assets carry a relative src under the app's media file
-	// endpoint; the listing adds a relative url). Confined to the one
-	// authorized origin.
-	const mediaRead = await readMedia(admin, fixture.mediaId);
-	expect(mediaRead.ok, "the owned media metadata must be readable before removal").toBe(true);
-	const mediaItem = (nativeItemOf(mediaRead) ?? {}) as Record<string, unknown>;
-	const addressCandidate = [mediaItem.src, mediaItem.url].find(
-		(value) => typeof value === "string" && value.length > 0,
-	) as string | undefined;
+	// Establish the owned asset's supported public address. Verified pinned
+	// native shape: the SINGLE-media metadata read (GET /_emdash/api/media/
+	// {id}) returns the raw repository item with NO public address field
+	// (src/api/handlers/media.ts:104-134; MediaItem has no src/url —
+	// src/database/repositories/media.ts:57-76); the LIST endpoint is the
+	// supported surface that attaches the relative public url
+	// `/_emdash/api/media/file/{storageKey}` to every item
+	// (src/astro/routes/api/media.ts addUrlToMedia). The address is therefore
+	// taken from the listing, bound to the EXACT owned asset identity — never
+	// invented, never taken from a foreign host. (T022 native-expectation fix
+	// 0c09b5e, ported by T037.)
+	const address = await mediaPublicAddress(admin, fixture.mediaId);
 	expect(
-		typeof addressCandidate === "string" && addressCandidate.length > 0,
-		"the owned asset must expose a supported public address (src/url) for the availability control — a selection id alone does not establish the boundary",
+		typeof address === "string" && address.length > 0,
+		"the owned asset must appear in the native media listing bound to its exact identity, carrying its supported public address — a selection id alone does not establish the boundary",
 	).toBe(true);
+	const addressCandidate = address as string;
 	const assetUrl = new URL(addressCandidate as string, PERSISTENT_DEVELOPMENT_ORIGIN);
 	expect(
 		assetUrl.origin,
