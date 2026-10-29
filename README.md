@@ -96,6 +96,14 @@ SONGHEALTH_T021_ROUTE_ACCESS=~/.local/state/songhealth-qdev/t021-route-access.js
   node tests/browser/run-cms-public-reads.mjs
 ```
 
+Public-page suites (Feature 003) take `test` from `tests/browser/public.helpers.ts`. It guards
+every page against third-party requests, and it provides the axe (WCAG 2.2 AA), focus and reflow
+checks and the desktop and 320 px viewports.
+
+Pull-request screenshots of public pages come from
+`node scripts/capture-screenshots.mjs <out-dir> <path>...`. The script's header shows how to put
+them on an image-only `evidence/` branch, so no image enters the code tree.
+
 Admin login uses EmDash's development-only bypass (browsers accept passkeys only on a domain
 origin, not `127.0.0.1`):
 `http://127.0.0.1:4324/_emdash/api/auth/dev-bypass?redirect=/_emdash/admin`. The services start

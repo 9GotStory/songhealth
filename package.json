@@ -17,6 +17,8 @@
     "dev-db:status": "./scripts/dev-db.sh status",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:node": "node --test 'tests/node/*.test.ts'",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test:browser": "playwright test",
     "verify:startup": "./tests/operations/verify-startup.sh"
   },
@@ -36,6 +38,8 @@
     "@playwright/test": "1.63.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
+    "prettier": "3.9.10",
+    "prettier-plugin-astro": "1.1.1",
     "typescript": "6.0.3"
   }
 }

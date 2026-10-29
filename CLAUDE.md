@@ -51,8 +51,12 @@ with `/code-review` → `/pr` → `/retro`.
 The feedback loop for `/implement` and `/tdd` (Node 24.21.0, npm 12.2.0):
 - `npm run typecheck`;
 - `npm run test:node`;
+- `npm run format` before each commit;
 - the browser suites against the development runtime. Their commands and credential variables
   are in `README.md`; the public-read suite runs through `tests/browser/run-cms-public-reads.mjs`.
+
+CI (`.github/workflows/checks.yml`) runs the build, typecheck, node tests and `format:check` on
+every pull request; the browser suites stay local to the development runtime.
 
 ## Agent skills
 
