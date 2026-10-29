@@ -67,7 +67,7 @@ const fixtures: Fixtures = async ({ admin, helpers, term, picture, block }) => {
 		if (!published.ok) throw new Error(`publish: ${helpers.nativeRefusalOf(published)}`);
 		lastSlug = slug;
 	}
-	return ["/news", "/news/health", `/news/${lastSlug}`];
+	return ["/news", "/news/health", { name: "news-item", path: `/news/${lastSlug}` }];
 };
 
 export default fixtures;

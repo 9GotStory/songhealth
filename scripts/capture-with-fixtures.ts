@@ -5,7 +5,8 @@
 //   SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
 //     node scripts/capture-with-fixtures.ts scripts/screenshot-fixtures/<name>.ts <out-dir>
 //
-// A fixtures module's default export receives a FixtureKit and returns the paths to capture.
+// A fixtures module's default export receives a FixtureKit and returns the paths to capture. A
+// path with a synthetic slug comes with a name, which names its screenshot files.
 // Titles start with "[ตัวอย่าง]", like the demo dataset. Every slug carries the synthetic mark, so
 // scripts/dev-runtime-residue.sh finds anything a failed cleanup leaves. The origin is
 // PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324.
@@ -28,7 +29,10 @@ export interface FixtureKit {
 	block(text: string, style?: string): Record<string, unknown>;
 }
 
-export type Fixtures = (kit: FixtureKit) => Promise<string[]>;
+/** A page to capture: a path, or a path with the name its screenshot files take. */
+export type Capture = string | { name: string; path: string };
+
+export type Fixtures = (kit: FixtureKit) => Promise<Capture[]>;
 
 const [fixturesPath, outDir] = process.argv.slice(2);
 if (fixturesPath === undefined || outDir === undefined) {
@@ -125,8 +129,10 @@ const kit: FixtureKit = {
 const failures: string[] = [];
 try {
 	const fixtures = (await import(pathToFileURL(resolve(fixturesPath)).href)).default as Fixtures;
-	const paths = await fixtures(kit);
-	const capture = spawnSync("node", ["scripts/capture-screenshots.mjs", outDir, ...paths], {
+	const targets = (await fixtures(kit)).map((page) =>
+		typeof page === "string" ? page : `${page.name}=${page.path}`,
+	);
+	const capture = spawnSync("node", ["scripts/capture-screenshots.mjs", outDir, ...targets], {
 		stdio: "inherit",
 	});
 	if (capture.status !== 0) failures.push("capture-screenshots.mjs failed");

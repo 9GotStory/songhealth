@@ -1,10 +1,11 @@
 // Pull-request screenshots of public pages, taken from the development runtime.
 //
-//   node scripts/capture-screenshots.mjs <out-dir> <path> [<path>...]
+//   node scripts/capture-screenshots.mjs <out-dir> <[name=]path> [<[name=]path>...]
 //
-// Each path is captured full-page at 1440 px (desktop), 375 px and 320 px (mobile).
-// At the mobile widths the first path is captured again with the menu open. The
-// origin is PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324. Pages are read
+// Each path is captured full-page at 1440 px (desktop), 375 px and 320 px (mobile), into
+// <name>-<width>.png. Without a name, the path gives it ("/news/x" is "news-x"), so name a path
+// whose slug is synthetic. At the mobile widths the first path is captured again with the menu
+// open. The origin is PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324. Pages are read
 // anonymously, with no credential.
 //
 // To show the images in a pull request without adding them to the code tree, commit
@@ -27,9 +28,11 @@ const WIDTHS = [
 	{ name: "320", viewport: { width: 320, height: 640 } },
 ];
 
-const [outDir, ...paths] = process.argv.slice(2);
-if (outDir === undefined || paths.length === 0) {
-	console.error("usage: node scripts/capture-screenshots.mjs <out-dir> <path> [<path>...]");
+const [outDir, ...targets] = process.argv.slice(2);
+if (outDir === undefined || targets.length === 0) {
+	console.error(
+		"usage: node scripts/capture-screenshots.mjs <out-dir> <[name=]path> [<[name=]path>...]",
+	);
 	process.exit(2);
 }
 const origin = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4324";
@@ -40,11 +43,19 @@ function stem(path) {
 	return trimmed === "" ? "home" : trimmed;
 }
 
+/** A target as its file-name base and path: "name=/path" names it, a bare "/path" names itself. */
+const pages = targets.map((target) => {
+	const split = target.startsWith("/") ? -1 : target.indexOf("=");
+	return split === -1
+		? { base: stem(target), path: target }
+		: { base: target.slice(0, split), path: target.slice(split + 1) };
+});
+
 await mkdir(outDir, { recursive: true });
 const browser = await chromium.launch();
 const written = [];
 try {
-	for (const [index, path] of paths.entries()) {
+	for (const [index, { base, path }] of pages.entries()) {
 		for (const { name, viewport } of WIDTHS) {
 			const page = await browser.newPage({ viewport });
 			await page.goto(new URL(path, origin).href);
@@ -55,12 +66,12 @@ try {
 				for (const image of document.images) image.loading = "eager";
 				await Promise.all([...document.images].map((image) => image.decode().catch(() => {})));
 			});
-			const file = join(outDir, `${stem(path)}-${name}.png`);
+			const file = join(outDir, `${base}-${name}.png`);
 			await page.screenshot({ path: file, fullPage: true });
 			written.push(file);
 			if (index === 0 && name !== "desktop") {
 				await page.getByText("เมนู", { exact: true }).click();
-				const menuFile = join(outDir, `${stem(path)}-${name}-menu.png`);
+				const menuFile = join(outDir, `${base}-${name}-menu.png`);
 				await page.screenshot({ path: menuFile, fullPage: true });
 				written.push(menuFile);
 			}
