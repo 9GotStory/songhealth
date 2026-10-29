@@ -3,7 +3,7 @@
 // Service Directory), "Maps" and "Errors, redirects, preview and SEO", `03` §8).
 //
 // The page shows the Health Service by its shown name, then the details that are set: the official
-// name, type, affiliation, operational status in text, address with the "เปิดแผนที่" link built
+// name, facility code (`01` §6), type, affiliation, operational status in text, address with the "เปิดแผนที่" link built
 // from the coordinates, opening hours, public contact and Area. The Services it offers follow in
 // the order staff linked them, each linking to its Service page. The reference field resolves a
 // target only while it is published, or a draft in preview (emdash 1.1.0
@@ -44,6 +44,7 @@ const services = (entry.references?.offered_services.entries ?? []).flatMap((ser
 );
 const hasDetails =
 	name !== healthService.title ||
+	!!healthService.facility_code ||
 	types.length > 0 ||
 	!!healthService.affiliation_text ||
 	!!healthService.operational_status ||
@@ -78,6 +79,9 @@ const hasDetails =
 			<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
 				{name !== healthService.title && (
 					<DetailItem term="ชื่อทางการ">{healthService.title}</DetailItem>
+				)}
+				{healthService.facility_code && (
+					<DetailItem term="รหัสหน่วยบริการ">{healthService.facility_code}</DetailItem>
 				)}
 				{types.length > 0 && (
 					<DetailItem term="ประเภทหน่วยบริการ">

@@ -3,7 +3,7 @@
 // blocks"): temporarily closed and inactive need attention.
 import {
 	OPERATIONAL_STATUS_LABELS,
-	isClosed,
+	isOutOfService,
 	type OperationalStatus,
 } from "../lib/health-service-directory";
 import StatusLabel from "./StatusLabel.astro";
@@ -15,4 +15,4 @@ interface Props {
 const { status } = Astro.props;
 ---
 
-<StatusLabel attention={isClosed(status)}>{OPERATIONAL_STATUS_LABELS[status]}</StatusLabel>
+<StatusLabel attention={isOutOfService(status)}>{OPERATIONAL_STATUS_LABELS[status]}</StatusLabel>

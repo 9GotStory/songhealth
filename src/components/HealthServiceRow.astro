@@ -3,7 +3,7 @@
 // Health Service summary): its type and Area, its shown name linking to its own page, its official
 // name when the display name differs, its address, and a status that should stop a citizen from
 // travelling there (temporarily closed or inactive).
-import { healthServicePath, isClosed, shownName } from "../lib/health-service-directory";
+import { healthServicePath, isOutOfService, shownName } from "../lib/health-service-directory";
 import type { HealthServiceEntry } from "../lib/health-services";
 import { termsOf } from "../lib/terms";
 import HealthServiceStatus from "./HealthServiceStatus.astro";
@@ -17,7 +17,7 @@ const data = healthService.data;
 const name = shownName(data);
 const types = termsOf(data, "facility_type");
 const areas = termsOf(data, "area");
-const status = isClosed(data.operational_status) ? data.operational_status : undefined;
+const status = isOutOfService(data.operational_status) ? data.operational_status : undefined;
 ---
 
 <article class="flex flex-col gap-2 rounded-24 bg-surface-base p-5 shadow-card">

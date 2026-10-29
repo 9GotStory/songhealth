@@ -9,6 +9,7 @@ interface Option {
 }
 
 interface SelectField {
+	kind?: "select";
 	/** The query parameter the field sets. */
 	name: string;
 	label: string;
@@ -38,6 +39,9 @@ interface Props {
 
 const { label, action, fields } = Astro.props;
 const filtered = fields.some((field) => field.value !== "");
+/** Every control's box: at least 44 px high, with a 3:1 boundary (spec #51 "Contrast fixes"). */
+const control =
+	"min-h-11 w-full min-w-0 rounded-14 border border-border-input bg-surface-base px-3 text-body";
 ---
 
 <form
@@ -51,20 +55,16 @@ const filtered = fields.some((field) => field.value !== "");
 			<label class="text-label" for={`filter-${field.name}`}>
 				{field.label}
 			</label>
-			{"kind" in field ? (
+			{field.kind === "text" ? (
 				<input
 					id={`filter-${field.name}`}
 					name={field.name}
 					type="search"
 					value={field.value}
-					class="min-h-11 w-full min-w-0 rounded-14 border border-border-input bg-surface-base px-3 text-body"
+					class={control}
 				/>
 			) : (
-				<select
-					id={`filter-${field.name}`}
-					name={field.name}
-					class="min-h-11 w-full min-w-0 rounded-14 border border-border-input bg-surface-base px-3 text-body"
-				>
+				<select id={`filter-${field.name}`} name={field.name} class={control}>
 					<option value="">{field.anyLabel}</option>
 					{field.options.map((option) => (
 						<option value={option.value} selected={option.value === field.value}>

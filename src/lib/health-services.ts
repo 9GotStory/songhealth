@@ -29,6 +29,7 @@ export interface HealthServiceData {
 	id: string;
 	/** The official name. */
 	title: string;
+	facility_code?: string | null;
 	display_name?: string | null;
 	operational_status?: OperationalStatus | null;
 	address?: string | null;

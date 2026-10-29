@@ -29,7 +29,7 @@ import {
 import { mapHref } from "../../src/lib/map-link.ts";
 
 /** A published Health Service as the query functions return it. */
-function facility(
+function healthService(
 	id: string,
 	title: string,
 	options: { display_name?: string | null; areas?: string[] } = {},
@@ -47,8 +47,8 @@ function facility(
 const ids = (entries: ReadonlyArray<{ id: string }>) => entries.map(({ id }) => id);
 
 describe("filterDirectory by name", () => {
-	const hospital = facility("hospital", "โรงพยาบาลสอง");
-	const clinic = facility("clinic", "โรงพยาบาลส่งเสริมสุขภาพตำบลบ้านกลาง", {
+	const hospital = healthService("hospital", "โรงพยาบาลสอง");
+	const clinic = healthService("clinic", "โรงพยาบาลส่งเสริมสุขภาพตำบลบ้านกลาง", {
 		display_name: "รพ.สต.บ้านกลาง",
 	});
 	const all = [hospital, clinic];
@@ -68,7 +68,7 @@ describe("filterDirectory by name", () => {
 	});
 
 	it("compares names in NFC, ignoring Latin case, zero-width characters and extra whitespace", () => {
-		const latin = facility("latin", "Songkhla Café Clinic", { display_name: "บ้าน  กลาง" });
+		const latin = healthService("latin", "Songkhla Café Clinic", { display_name: "บ้าน  กลาง" });
 		const entries = [latin];
 		const match = (name: string) => ids(filterDirectory(entries, { area: "", name }));
 		assert.deepEqual(match("CAFÉ"), ["latin"], "NFD input matches the NFC name");
@@ -80,10 +80,10 @@ describe("filterDirectory by name", () => {
 });
 
 describe("filterDirectory by Area", () => {
-	const north = facility("north", "รพ.สต.บ้านเหนือ", { areas: ["tambon-north"] });
-	const both = facility("both", "โรงพยาบาลสอง", { areas: ["tambon-north", "tambon-south"] });
-	const village = facility("village", "รพ.สต.บ้านใต้", { areas: ["moo-1-south"] });
-	const none = facility("none", "หน่วยบริการไม่มีพื้นที่");
+	const north = healthService("north", "รพ.สต.บ้านเหนือ", { areas: ["tambon-north"] });
+	const both = healthService("both", "โรงพยาบาลสอง", { areas: ["tambon-north", "tambon-south"] });
+	const village = healthService("village", "รพ.สต.บ้านใต้", { areas: ["moo-1-south"] });
+	const none = healthService("none", "หน่วยบริการไม่มีพื้นที่");
 	const all = [north, both, village, none];
 
 	it("keeps the Health Services tagged with exactly that Area term", () => {
@@ -146,12 +146,14 @@ describe("shownName and byName", () => {
 
 	it("lists by the shown name in Thai dictionary order, then by slug", () => {
 		const entries = [
-			facility("office", "สำนักงานสาธารณสุขอำเภอสอง"),
-			facility("kok-2", "รพ.สต.บ้านกอก"),
-			facility("klang", "รพ.สต.บ้านกลาง"),
+			healthService("office", "สำนักงานสาธารณสุขอำเภอสอง"),
+			healthService("kok-2", "รพ.สต.บ้านกอก"),
+			healthService("klang", "รพ.สต.บ้านกลาง"),
 			// By its official name (ศ) it would come after ร; it is shown, and listed, as ค.
-			facility("clinic", "ศูนย์สุขภาพชุมชนบ้านกลาง", { display_name: "คลินิกหมอครอบครัวบ้านกลาง" }),
-			facility("kok-1", "รพ.สต.บ้านกอก"),
+			healthService("clinic", "ศูนย์สุขภาพชุมชนบ้านกลาง", {
+				display_name: "คลินิกหมอครอบครัวบ้านกลาง",
+			}),
+			healthService("kok-1", "รพ.สต.บ้านกอก"),
 		];
 		// ค < ร < ส, and ล < อ, in the Thai alphabet.
 		assert.deepEqual(ids(byName(entries)), ["clinic", "klang", "kok-1", "kok-2", "office"]);

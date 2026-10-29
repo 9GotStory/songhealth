@@ -1365,6 +1365,26 @@ export async function createSyntheticTerm(
 	return { taxonomy, slug, label };
 }
 
+/**
+ * A synthetic term of `taxonomy` labelled like a real one: `label` behind the synthetic mark, with
+ * a unique ending. It is added to `owned`, which the suite hands to deleteSyntheticTerms at its end.
+ */
+export async function createOwnedTerm(
+	actor: CmsActor,
+	taxonomy: string,
+	label: string,
+	owned: SyntheticTerm[],
+): Promise<SyntheticTerm> {
+	const unique = crypto.randomUUID().slice(0, 6);
+	const term = await createSyntheticTerm(
+		actor,
+		taxonomy,
+		`${SYNTHETIC_FIXTURE_MARK} ${label} ${unique}`,
+	);
+	owned.push(term);
+	return term;
+}
+
 /** Delete terms through the native taxonomy API. Returns a line for each that was not deleted. */
 export async function deleteSyntheticTerms(
 	actor: CmsActor,

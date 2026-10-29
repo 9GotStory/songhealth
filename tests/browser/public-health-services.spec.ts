@@ -26,7 +26,7 @@ import {
 	cmsRequest,
 	createPatActor,
 	createSyntheticEntry,
-	createSyntheticTerm,
+	createOwnedTerm,
 	deleteSyntheticTerms,
 	loadDevAccessToken,
 	nativeDataOf,
@@ -66,16 +66,8 @@ let origin: string;
 const ownedTerms: SyntheticTerm[] = [];
 
 /** A synthetic term of `taxonomy`, labelled in Thai so it reads like a real one. */
-async function createTerm(taxonomy: string, label: string): Promise<SyntheticTerm> {
-	const unique = crypto.randomUUID().slice(0, 6);
-	const term = await createSyntheticTerm(
-		admin,
-		taxonomy,
-		`${SYNTHETIC_FIXTURE_MARK} ${label} ${unique}`,
-	);
-	ownedTerms.push(term);
-	return term;
-}
+const createTerm = (taxonomy: string, label: string) =>
+	createOwnedTerm(admin, taxonomy, label, ownedTerms);
 
 interface EntryFixture {
 	id: string;
@@ -388,6 +380,7 @@ test("a Health Service page shows its names, type, affiliation, status, address,
 	const healthService = await createHealthService("detail", {
 		displayName: "รพ.สต.บ้านกลาง",
 		data: {
+			facility_code: "07999",
 			affiliation_text: affiliation,
 			operational_status: "temporarily_closed",
 			address,
@@ -406,6 +399,7 @@ test("a Health Service page shows its names, type, affiliation, status, address,
 	const main = page.getByRole("main");
 	await expect(main.getByRole("heading", { level: 1 })).toHaveText(healthService.title);
 	await expect(detailOf(page, "ชื่อทางการ")).toHaveText(healthService.officialName);
+	await expect(detailOf(page, "รหัสหน่วยบริการ")).toHaveText("07999");
 	await expect(detailOf(page, "ประเภทหน่วยบริการ")).toHaveText(type.label);
 	await expect(detailOf(page, "สังกัด")).toHaveText(affiliation);
 	await expect(detailOf(page, "สถานะการให้บริการ")).toHaveText("ปิดให้บริการชั่วคราว");
@@ -443,6 +437,11 @@ test("a Health Service page shows its names, type, affiliation, status, address,
 	await expect(
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "บริการประชาชน" }),
 	).toHaveAttribute("aria-current", "true");
+
+	const body = await page.content();
+	for (const word of ["ใกล้บ้าน", "ในพื้นที่"]) {
+		expect(body.includes(word), `a Health Service page never says "${word}"`).toBe(false);
+	}
 });
 
 test("a Health Service page leaves out what is not set, and the map link without both coordinates", async ({
@@ -463,6 +462,7 @@ test("a Health Service page leaves out what is not set, and the map link without
 	await expect(main.getByRole("heading", { level: 1 })).toHaveText(minimal.title);
 	for (const name of [
 		"ชื่อทางการ",
+		"รหัสหน่วยบริการ",
 		"ประเภทหน่วยบริการ",
 		"สังกัด",
 		"สถานะการให้บริการ",

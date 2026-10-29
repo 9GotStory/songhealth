@@ -17,8 +17,8 @@ version changes, re-verify every line.
   - an exact value, an array (IN), or a range `{ gt, gte, lt, lte }`;
   - range values are strings, and PostgreSQL casts them to the column type;
   - a `null` value is skipped, so no filter selects entries whose field is empty;
-  - there is no substring (`LIKE`) match, so the Health Service Directory's name filter reads
-    every published Health Service and matches in code (`src/lib/health-service-directory.ts`);
+  - there is no substring (`LIKE`) match (`buildFieldConditions`), so the Health Service
+    Directory's name filter reads every published Health Service and matches in code;
   - a reference field bound to a relation can be neither filtered nor sorted (`buildFieldConditions`,
     `findStoragelessQueryKey`).
 - `orderBy` is a plain `field DESC|ASC`, with `id` as the tiebreaker. On PostgreSQL, DESC puts

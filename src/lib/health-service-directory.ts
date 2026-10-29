@@ -32,7 +32,7 @@ export const OPERATIONAL_STATUS_LABELS: Record<OperationalStatus, string> = {
 };
 
 /** A status that should stop a citizen from travelling there (#51 user story 41). */
-export function isClosed(
+export function isOutOfService(
 	status: OperationalStatus | null | undefined,
 ): status is OperationalStatus {
 	return status === "temporarily_closed" || status === "inactive";
@@ -45,7 +45,7 @@ export interface DirectoryFilters {
 }
 
 /** The directory's address. */
-export const DIRECTORY_PATH = "/health-services";
+const DIRECTORY_PATH = "/health-services";
 
 /**
  * The query parameter of each filter. The Homepage's Health Service Discovery form submits the
@@ -66,6 +66,11 @@ export function parseDirectoryFilters(params: URLSearchParams): DirectoryFilters
 	};
 }
 
+/** Whether any filter is set. */
+export function isFiltered(filters: DirectoryFilters): boolean {
+	return filters.area !== "" || filters.name !== "";
+}
+
 /** The list's address with the filters that are set. */
 export function directoryPath(filters: Partial<DirectoryFilters> = {}): string {
 	const params = new URLSearchParams();
@@ -76,13 +81,13 @@ export function directoryPath(filters: Partial<DirectoryFilters> = {}): string {
 }
 
 /** Zero-width space, non-joiner and joiner, and the byte order mark. */
-const ZERO_WIDTH = /[​-‍﻿]/g;
+const ZERO_WIDTH = /[\u200B-\u200D\uFEFF]/g;
 
 /**
  * Text as names are compared: NFC, Latin letters lower-cased, zero-width characters removed and
  * whitespace collapsed (spec #51 "Search", Normalisation). Thai has no letter case.
  */
-export function normalizeText(text: string): string {
+function normalizeText(text: string): string {
 	return text.normalize("NFC").toLowerCase().replace(ZERO_WIDTH, "").replace(/\s+/g, " ").trim();
 }
 
