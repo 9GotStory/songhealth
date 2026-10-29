@@ -1,11 +1,15 @@
 # Homepage — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 04-homepage
-> **Status:** CLEAN REBASELINE v2.2 — CURRENT
-> **Version:** 2.2
-> **Last Updated:** 6 ตุลาคม 2569 (2026-10-06)
+> **Status:** CLEAN REBASELINE v2.3 — CURRENT
+> **Version:** 2.3
+> **Last Updated:** 29 ตุลาคม 2569 (2026-10-29)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`
 > **Purpose:** กำหนด homepage information priority, sections, curation, responsive/accessibility behavior โดยไม่กำหนด component implementation หรือสร้าง homepage CMS subsystem
+
+> **Feature 003 decision (Product Owner, 2026-10-29):** the Homepage includes a staff-maintained
+> Quick Access section (§10.1) before the Contact Summary. Quick Access repeats navigation by
+> design. It creates no content and no second sitemap.
 
 ---
 
@@ -49,6 +53,7 @@ Latest News + Current Announcements
 Health Information
 Health Service Discovery
 Activities
+Quick Access
 Contact Summary
 Footer
 ```
@@ -167,6 +172,15 @@ Query/filter stateที่เริ่มจาก homepageสามารถ�
 
 Link ไป canonical Activity route.
 
+## 10.1 Quick Access
+
+แสดงทางลัดจำนวนเล็กน้อยไปยัง canonical destinations ที่มีอยู่แล้ว เช่น เอกสารเผยแพร่ หรือข้อมูลสุขภาพ.
+
+- staff ดูแลรายการและลำดับเองผ่าน native CMS primitive; composition เป็น evidence-driven value (`01` §17)
+- ซ้ำกับ navigation ได้โดยตั้งใจ; ไม่สร้าง content หรือ sitemap ชุดที่สอง
+- ไม่ใช้เป็นทางเข้า scope ที่ deferred เช่น ITA หรือ Dashboard
+- section ซ่อนเมื่อไม่มีรายการ (§17)
+
 ---
 
 # 11. Contact Summary
@@ -217,6 +231,7 @@ Announcements           Announcement
 Health Information      Health Content
 Health Service CTA      Health Service Directory
 Activities              Activity
+Quick Access            curated shortcuts → existing destinations
 Contact                 office/contact owner
 ```
 

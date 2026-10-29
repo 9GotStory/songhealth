@@ -1,9 +1,9 @@
 # Public Search / Search & Discovery — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 08-search
-> **Status:** CLEAN REBASELINE v2.3 — CURRENT native-first V1
-> **Version:** 2.3
-> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
+> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-first V1
+> **Version:** 2.4
+> **Last Updated:** 29 ตุลาคม 2569 (2026-10-29)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`, `06-roles-permissions.md`, `07-publishing-workflow.md`
 > **Purpose:** กำหนด Public Search ที่ใช้ง่ายสำหรับประชาชนโดยใช้ search capability ของ CMS/database ก่อน และไม่สร้าง search platform แยก
 
@@ -13,6 +13,11 @@
 > management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
 > publication, permissions and supported validation remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan; deferral is not implementation or PASS. No upstream
 > change, new subsystem, replacement ITA workflow or production action is authorized.
+
+> **Feature 003 finding and decision (Product Owner, 2026-10-29):** EmDash 1.1.0 native full-text
+> search runs only on SQLite. `enableSearch` refuses PostgreSQL. Songhealth keeps PostgreSQL, and
+> `/search` reads the published entries of the searchable collections through EmDash's public
+> query API when a search is made (`docs/adr/0002`). The requirements below are unchanged.
 
 ---
 
@@ -150,7 +155,9 @@ Search result pages เป็น discovery views ไม่ใช่ canonical co
 
 Search index เป็น infrastructure ของ platform ที่เลือก ไม่ใช่ Songhealth domain store.
 
-Version 1 **ไม่สร้าง custom Search Projection** หรือ synchronization pipeline หาก native search index ติดตาม CMS lifecycle อยู่แล้ว.
+EmDash 1.1.0 native search ใช้ได้เฉพาะ SQLite จึงไม่มี native index บน PostgreSQL ของ Songhealth. Version 1 ค้นจาก published content ผ่าน EmDash public query API ขณะมีการค้นหา (`docs/adr/0002`) โดยไม่สร้าง index ของตนเอง.
+
+Version 1 **ไม่สร้าง custom Search Projection** หรือ synchronization pipeline.
 
 ไม่สร้าง:
 
@@ -159,8 +166,9 @@ Version 1 **ไม่สร้าง custom Search Projection** หรือ syn
 - reindex dashboard
 - Search health admin subsystem
 - duplicate canonical/search database
+- database extension หรือ query ตรงต่อ internal tables ของ EmDash เพื่อการค้นหา
 
-ใช้ native rebuild/maintenance capability เมื่อจำเป็น.
+หากวัดได้ว่าช้าเกินไปกับข้อมูลจริง หรือ Thai search UAT ไม่ผ่าน ให้ทบทวนตาม `docs/adr/0002` ก่อนเพิ่ม search layer.
 
 ---
 
