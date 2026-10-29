@@ -12,7 +12,7 @@ import { describe, it } from "node:test";
 const ROOT = new URL("../../", import.meta.url);
 
 /** Soft hyphen, zero-width and directional marks, bidi embeddings and isolates, BOM. */
-const INVISIBLE = /[­​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
+const INVISIBLE = /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
 
 /** Every file git tracks, relative to the repository root. */
 function trackedFiles(): string[] {
