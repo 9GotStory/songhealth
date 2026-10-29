@@ -650,11 +650,13 @@ counted as PASS. Runtime outcomes remain unverified by this document-only reconc
 
 - **SC-007**: Staff demonstrate author/select/reuse/find/correct journeys with recognizable labels
   and zero undocumented technical intervention to maintain representative records.
-  - *Status (2026-10-29):* **DEFERRED — NOT VERIFIED / NOT PASSED.**
-    - The automated native Admin journeys pass on the single runtime (T032 evidence).
-    - Automation does not satisfy or replace real staff comprehension: this criterion needs
-      the pending bounded staff session.
-    - The requirement above is unchanged.
+  - *Status (2026-10-29):* **ACCEPTED by Product Owner decision on automated evidence.**
+    - The Product Owner waived the bounded staff session: "ถ้าคุณทดสอบด้วย playwright แล้วว่า
+      มันผ่าน ก็ถือว่าผ่านเลย".
+    - The accepted evidence is the native Admin journeys that pass on the single runtime
+      (`cms-editor.spec.ts` 5 of 5; T032 evidence).
+    - No staff session was observed. This is a documented Product Owner exception, not a
+      measurement of staff comprehension. The requirement text above is unchanged.
 - **SC-008**: Review accounts for every proposed resource/relation under all four mapping questions,
   with zero speculative collections, duplicate mechanisms, confidential-data fields, or
   unjustified extensions/second foundations.

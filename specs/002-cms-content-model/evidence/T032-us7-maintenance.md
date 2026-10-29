@@ -1,10 +1,11 @@
 # T032 — US7 native Admin maintenance: automated journeys on the single runtime
 
-**Status: automated part EXECUTED — 5 of 5 passed. The staff session is PENDING, so T032 is
-not complete and SC-007 stays DEFERRED (not verified, not passed).**
+**Status: EXECUTED — 5 of 5 passed. T032 and SC-007 are ACCEPTED by Product Owner decision
+(2026-10-29). The staff session was waived.**
 
-This is a Claude Code self-review only (Constitution 5.0.0). Automated coverage does not
-prove staff comprehension and does not replace the staff session.
+This is a Claude Code self-review only (Constitution 5.0.0). The automated journeys are the
+accepted evidence. No staff session was observed, so this record makes no claim about staff
+comprehension.
 
 ## Authorization and scope
 
@@ -66,15 +67,22 @@ platform was changed.
 - **Sign-in copy timing.** The copy renders only after the Admin app mounts. The test waits
   for `#emdash-boot-loader` to detach. This fix is ported from the PR #37 corrective round.
 
-## Pending: the staff session (SC-007)
+## Product Owner decision: staff session waived (2026-10-29)
 
-T032 also requires one bounded staff session. Real staff author, select, reuse, find and
-correct representative records in the native Admin, and the outcomes are recorded here. That
-needs people and cannot be automated:
-- **T032 is not complete.** Its checkbox stays open.
-- **SC-007 stays DEFERRED (not verified, not passed),** as annotated in `spec.md`.
-- **What T033 and T035 can still do.** Per `tasks.md`, they can proceed and report this
-  limitation, but cannot close SC-007 or full feature acceptance.
+The Product Owner decided: "T032 (SC-007) ฉันไม่อยากทำละ ถ้าคุณทดสอบด้วย playwright แล้วว่ามันผ่าน
+ก็ถือว่าผ่านเลย". As a result:
+- T032 is checked;
+- SC-007 is accepted on the automated evidence above, as a documented Product Owner
+  exception;
+- the requirement text in `spec.md` is unchanged.
+
+If a staff session is run later, its outcomes can still be added here.
+
+### How to run an optional staff session later
+
+The original requirement was one bounded staff session: real staff author, select, reuse,
+find and correct representative records in the native Admin. Its earlier pending status is
+in Git history.
 - **How to run it.** On `http://127.0.0.1:4324`, a staff member signs in to the Admin
   through `/_emdash/api/auth/dev-bypass?redirect=/_emdash/admin`. Passkeys do not work on the
   IP origin. They maintain a few representative records while someone records each journey's

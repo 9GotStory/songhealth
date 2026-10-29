@@ -1,8 +1,8 @@
 # T035 — Feature 002 implementation handoff
 
-**Status: implementation complete except the T032 staff session.**
-- Every task is checked except T032. It stays open because SC-007 needs a bounded staff
-  session.
+**Status: implementation complete; every task is checked.**
+- For T032, the Product Owner waived the staff session on 2026-10-29 and accepted the
+  automated Admin journeys as the SC-007 evidence.
 - This handoff makes no Feature 002 acceptance, Feature 001 acceptance, merge or deployment
   claim. The Product Owner decides acceptance and merges.
 
@@ -16,8 +16,8 @@ earlier artifacts named for still-open work.
 | Item | Value |
 | --- | --- |
 | Canonical `002-cms-content-model` | `7530366` (PRs #40–#42 merged 2026-10-29) |
-| PR #43, T022 + T032 automated | head `7567a29`, open: the merge needs the Product Owner |
-| Closeout PR, T033–T035 | stacked on PR #43, open: the merge needs the Product Owner |
+| PR #43, T022 + T032 automated | merged 2026-10-29 as `448a2b1` |
+| PR #44, T033–T035 | merged 2026-10-29 as `018125d` |
 | Runtime under test | `http://127.0.0.1:4324` serving `7567a29`; VERIFY PASS (15 checks) |
 | Pins (unchanged) | Node 24.21.0, npm 12.2.0, Astro 7.3.5, EmDash 1.1.0, `@emdash-cms/admin` 1.1.0, Playwright 1.63.0, PostgreSQL 18.6 |
 
@@ -49,7 +49,7 @@ configuration was added. `astro.config.mjs` and `src/` are unchanged since Featu
 | T023–T026 (US3 Personnel; T025 Organization N/A) | checked | `T026-us3-directory.md`; `cms-personnel` 11 passed (T033) |
 | T027–T030 (US4 facilities) | checked | `T030-us4-facilities.md`; `cms-facilities` 20 passed (T033) |
 | T031 (US7 editor smoke) | checked | `cms-editor.spec.ts`, 5 passed |
-| T032 (US7 runtime + staff session) | **open** | `T032-us7-maintenance.md`: the automated part passed 5 of 5; the staff session is pending |
+| T032 (US7 runtime + staff session) | checked (staff session waived by the Product Owner) | `T032-us7-maintenance.md`: the automated part passed 5 of 5; the staff session is pending |
 | T033 (model review + integrated run) | checked | `T033-model-verification.md`: model check PASS, build PASS, node 48 passed, browser 125 passed |
 | T034 (README + quickstart) | checked | `README.md`, `quickstart.md` |
 | T035 (this handoff) | checked | this file |
@@ -60,15 +60,17 @@ configuration was added. `astro.config.mjs` and `src/` are unchanged since Featu
 User stories:
 - **US1, US2, US3, US4, US6:** delivered and verified on the single runtime with synthetic
   fixtures.
-- **US7:** the automated Admin journeys are verified; staff comprehension is pending.
+- **US7:** the automated Admin journeys are verified and accepted with SC-007 by Product Owner
+  decision (2026-10-29). No staff session was observed.
 - **US5 (ITA):** DEFERRED (D-ITA). It is excluded from the V1 denominators, together with
   FR-014–FR-017 and SC-004.
 
 Success criteria:
 - **Verified:** SC-002, SC-003, SC-005, SC-006 and SC-008.
 - **SC-001:** create, save and reopen are verified by automation; staff identification
-  shares the pending staff session.
-- **SC-007:** DEFERRED — NOT VERIFIED / NOT PASSED.
+  is accepted with SC-007.
+- **SC-007:** ACCEPTED by Product Owner decision (2026-10-29) on the automated evidence; no
+  staff session was observed.
 - The per-FR table is in `T033-model-verification.md`.
 
 ## Conditional N/A
@@ -79,18 +81,15 @@ Success criteria:
 
 ## Pending dependencies (not passed)
 
-1. **The SC-007 staff session (T032).** Real staff author, select, reuse, find and correct
-   representative records in the native Admin, and the outcomes are recorded in the T032
-   evidence. The login route and the procedure are in that file.
-2. **Official inventory population.** Real Area codes, facilities and services. Official
+1. **Official inventory population.** Real Area codes, facilities and services. Official
    source discovery is paused. This is data entry into the delivered model, not a schema
    change.
-3. **Feature 001 production-host gates.** T022 (execute T016 on a production-capable host)
+2. **Feature 001 production-host gates.** T022 (execute T016 on a production-capable host)
    and T028 (recovery drill) remain open. The earlier production-foundation stack on UID 1001
    was deleted (T037), and the accepted production image is preserved on UID 1000.
-4. **Merges.** PR #43, then the closeout PR, into `002-cms-content-model`. Later the
-   feature branch goes into `main`, when the Product Owner accepts Feature 002.
-5. **Upstream observations for the Product Owner's information.** These are not Songhealth
+3. **Merge into `main`.** `002-cms-content-model` goes into `main` when the Product Owner
+   gives Feature 002 its final acceptance.
+4. **Upstream observations for the Product Owner's information.** These are not Songhealth
    defects:
    - EmDash's reference-picker checkboxes are named after the field, not the item
      (`aria-labelledby`);

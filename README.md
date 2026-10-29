@@ -8,8 +8,9 @@ canonical platform; its production deployment sources (rootless Podman + Quadlet
 sources are committed and independently reviewed, with their runtime verification gates — T022
 (production durability) and T028 (recovery drill) — pending, separately authorized tasks (see §11
 of [docs/operations/production-foundation.md](docs/operations/production-foundation.md)).
-Feature 002 `002-cms-content-model` is the active feature. Its tasks T001–T031 and T033–T037
-are checked (executed). T032 stays open until its bounded staff session supplies SC-007. A
+Feature 002 `002-cms-content-model` is the active feature. All its tasks, T001–T037, are
+checked (executed). For T032, the Product Owner waived the staff session on 2026-10-29 and
+accepted the automated Admin journeys as the SC-007 evidence. A
 checked marker records task completion
 only: Product Owner Final Acceptance — and, for work reviewed before Constitution 5.0.0, the
 recorded Lead and Independent Review outcomes — are distinct states evidenced per artifact, not
