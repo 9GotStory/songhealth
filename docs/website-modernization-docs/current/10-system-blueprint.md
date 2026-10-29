@@ -1,9 +1,9 @@
 # System Blueprint — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 10-system-blueprint
-> **Status:** CLEAN REBASELINE v2.5 — CURRENT native-only publication
-> **Version:** 2.5
-> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
+> **Status:** CLEAN REBASELINE v2.6 — CURRENT native-only publication
+> **Version:** 2.6
+> **Last Updated:** 29 ตุลาคม 2569 (2026-10-29)
 > **Depends On:** `00-website-foundation.md` through `09-migration-plan.md`
 > **Purpose:** กำหนด architecture ปัจจุบันที่ใช้ Astro + EmDash แบบ platform-native และเพิ่ม Songhealth-specific code เฉพาะ gap ที่พิสูจน์แล้ว
 > **Implementation Authorization:** NONE
@@ -28,6 +28,13 @@
 > approval queue or confirmation step. Incomplete optional content may publish under
 > native permissions; editorial completeness is the publisher's responsibility.
 > D-ITA/D-REF remain deferred; this decision is not runtime acceptance.
+
+> **Feature 003 decisions (Product Owner, 2026-10-29):**
+> - EmDash 1.1.0 full-text search is SQLite-only. On PostgreSQL, public search reads published
+>   content through EmDash query functions when a search is made (§10, `docs/adr/0002`).
+> - Public presentation uses Tailwind CSS v4 with the Figma Homepage Concept v1 tokens
+>   (`docs/adr/0001`).
+> - `/dashboard` is deferred from V1 (`03` §9).
 
 ---
 
@@ -234,13 +241,13 @@ Feature-local helper สร้างได้เมื่อช่วย reuse p
 
 # 10. Search
 
-ใช้ EmDash built-in search เป็น baselineตาม `08-search.md`.
+Public Search ทำตาม `08-search.md`.
 
-สำหรับภาษาไทยใช้ collection search configuration/tokenizer ที่เหมาะกับข้อความไม่มี word separators (trigram) และกำหนด searchable fields/weightsอย่างพอดี.
+EmDash 1.1.0 built-in full-text search (FTS5 พร้อม trigram tokenizer) ใช้ได้เฉพาะ SQLite: `enableSearch` ปฏิเสธ PostgreSQL. Songhealth ใช้ PostgreSQL จึงไม่มี native search index.
 
-ใช้ native global search API/function จาก server-side Astro; ไม่สร้าง Search Projection, index synchronization service, queue หรือ dedicated search engine.
+Version 1 บน PostgreSQL: `/search` ฝั่ง server-side Astro อ่าน published entries ของ searchable collections ผ่าน EmDash query functions ขณะค้นหา, จับคู่ข้อความไทยแบบ substring และจัดลำดับ title > summary > body (`docs/adr/0002`). ไม่สร้าง Search Projection, index synchronization service, queue, database extension, dedicated search engine หรือ query ตรงต่อ internal tables.
 
-Dedicated search technologyพิจารณาใหม่เฉพาะเมื่อ native search ไม่ผ่าน measured relevance/scale/UAT requirement.
+ทบทวนเมื่อ measured latency กับข้อมูลจริงหรือ Thai search UAT ไม่ผ่าน. ทางเลือกรวมถึงการย้ายไป SQLite (native FTS5) ก่อนที่ production จะมีข้อมูลจริง.
 
 ---
 
@@ -482,7 +489,7 @@ Version 1 ไม่มี baseline requirement สำหรับ:
 - Formal Approval Workflow: **NO baseline requirement**
 - Native lifecycle/revisions/preview/scheduling: **YES**
 - Songhealth Public ID: **NO; use native ID internally + slug URL**
-- Native EmDash Search: **YES; Thai trigram baseline**
+- Public search: **request-time read of published content through EmDash query functions (native FTS is SQLite-only; ADR 0002)**
 - Custom Search Projection: **NO**
 - Native relations/media/redirects: **YES, with documented native limitations; no Q3/Q4 enforcement claim**
 - Structured ITA historical evidence: **DEFERRED from V1**

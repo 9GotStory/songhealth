@@ -1,9 +1,9 @@
 # Sitemap — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 03-sitemap
-> **Status:** CLEAN REBASELINE v2.3 — CURRENT native-first V1
-> **Version:** 2.3
-> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
+> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-first V1
+> **Version:** 2.4
+> **Last Updated:** 29 ตุลาคม 2569 (2026-10-29)
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`
 > **Purpose:** กำหนด public navigation, canonical routes, URL rules, redirects และ public error behavior โดยใช้ slug-based URLs ที่เรียบง่าย
 
@@ -13,6 +13,11 @@
 > management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
 > publication, permissions and supported validation remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan; deferral is not implementation or PASS. No upstream
 > change, new subsystem, replacement ITA workflow or production action is authorized.
+
+> **Feature 003 decision (Product Owner, 2026-10-29):** `/dashboard` is deferred from V1. It has
+> no V1 route, navigation entry or Homepage shortcut. Dashboard stays a separate analytical domain
+> (`00` §1.3), and a later Dashboard needs its own accepted scope. ITA stays outside V1 navigation
+> (§11).
 
 ---
 
@@ -169,14 +174,13 @@ Health Service detail แสดงข้อมูล facility, contact, location
 /health
 ├── /health/content
 │   └── /health/content/{slug}
-├── /health/reports
-│   └── /health/reports/{slug}
-└── /dashboard
+└── /health/reports
+    └── /health/reports/{slug}
 ```
 
 - Health Content = evergreen public-health knowledge
 - Health Report = metadata page linked to Document/PDF
-- Dashboard = separate analytical domain entry point
+- `/dashboard` = separate analytical domain entry point, **deferred from V1**: no V1 route or navigation entry
 - Health Topic เป็น filter/taxonomy ก่อน ไม่สร้าง route hierarchy โดยอัตโนมัติ
 
 ---
@@ -347,8 +351,7 @@ Legacy WordPress permalink structure never controls the new IA.
 │   └── /health-services/{slug}
 ├── /health
 │   ├── /health/content/{slug}
-│   ├── /health/reports/{slug}
-│   └── /dashboard
+│   └── /health/reports/{slug}
 ├── /documents
 │   └── /documents/{slug}
 ├── /pages/{slug}
@@ -356,9 +359,11 @@ Legacy WordPress permalink structure never controls the new IA.
 └── /contact
 ```
 
-**Deferred future scope — not active V1 routes (§11):**
+**Deferred future scope — not active V1 routes (§9, §11):**
 
 ```text
+/dashboard
+
 /ita
 ├── /ita/{fiscal-year}
 └── /ita/{fiscal-year}/{section-key}
