@@ -1,8 +1,9 @@
 # EmDash 1.1.0: verified behaviour
 
-Facts the Songhealth pages and tests rely on, read from the installed package. Paths are relative
-to `node_modules/emdash/`. Add a new fact under its topic with its source path. When the pinned
-version changes, re-verify every line.
+Facts the Songhealth pages and tests rely on, read from the installed package. Add a new fact under
+its topic with its source path, relative to `node_modules/emdash/`. Write a Songhealth file with a
+leading `./` and another package's file from its package name; `./tests/node/emdash-facts.test.ts`
+checks that every cited file exists. When the pinned version changes, re-verify every line.
 
 ## Public reads
 
@@ -23,13 +24,13 @@ version changes, re-verify every line.
     `findStoragelessQueryKey`).
 - `orderBy` is a plain `field DESC|ASC`, with `id` as the tiebreaker. On PostgreSQL, DESC puts
   NULLs first (`buildOrderByClause`). An optional date therefore cannot sort with a publish-date
-  fallback inside the query; `src/lib/dated-lists.ts` sorts in code instead (ADR 0004).
+  fallback inside the query; `./src/lib/dated-lists.ts` sorts in code instead (ADR 0004).
 - Without a `limit`, `getEmDashCollection` returns every matching entry: the query has no `LIMIT`
   (`src/loader.ts`, `fetchLimit`).
 - A `number` field is a `REAL` column (`src/schema/types.ts` `FIELD_TYPE_TO_COLUMN`), which is
   `float4` on PostgreSQL: about 7 significant digits. A Thai longitude keeps 5 decimal places
   (`100.1234567` reads back as `100.12346`, about 1 m), enough for a map link.
-- No query returns distinct values. `src/lib/documents.ts` `fiscalYears` walks down instead.
+- No query returns distinct values. `./src/lib/documents.ts` `fiscalYears` walks down instead.
 - `getEmDashEntry(type, slug, { references: { field: true } })` adds
   `entry.references.field.entries`. A target resolves only while it is published, or is a draft in
   preview (`src/query.ts` `attachReferences`). If you pass explicit type arguments, pass the
@@ -61,7 +62,7 @@ version changes, re-verify every line.
   are served inline; anything else is an attachment (`src/astro/routes/api/media/file/[...key].ts`).
 - Deleting a media item has no in-use guard. It removes the stored file unless another media row
   shares the key, and content keeps the stale value (`src/api/handlers/media.ts` `handleMediaDelete`).
-  Pages therefore check media through `src/lib/media.ts`.
+  Pages therefore check media through `./src/lib/media.ts`.
 - The storage adapter offers `exists(key)` and `download(key)`, which returns `{ body, contentType,
   size }` (`src/storage/local.ts`, `src/storage/s3.ts`).
   - A missing key throws code `NOT_FOUND`.
@@ -79,14 +80,14 @@ version changes, re-verify every line.
 - On an anonymous public request, `Astro.locals.emdash` holds only `storage`, `getPublicMediaUrl`
   and the page-contribution hooks. A signed-in request gets every handler. It is undefined when
   runtime init failed (`src/astro/middleware.ts`).
-- `emdash/locals` (`locals.d.ts`) types `App.Locals`. `src/env.d.ts` references it, because the
+- `emdash/locals` (`locals.d.ts`) types `App.Locals`. `./src/env.d.ts` references it, because the
   generated `emdash-env.d.ts` is not kept.
 
 ## Admin input
 
 - A datetime field is a UTC instant. The Admin edits it as `<input type="datetime-local">` in the
-  site's `timezone` setting and saves canonical UTC ISO (`@emdash-cms/admin` 1.1.0
-  `dist/index.js`, `src/lib/datetime-local.ts` region).
+  site's `timezone` setting and saves canonical UTC ISO (`@emdash-cms/admin/dist/index.js`
+  1.1.0, the region bundled from its src/lib/datetime-local.ts).
 
 ## Head, settings, menus, sitemap
 
@@ -108,7 +109,7 @@ version changes, re-verify every line.
   ADR 0002).
 - Seed taxonomy terms are applied only with content (`src/seed/apply.ts`), and `emdash seed` opens
   SQLite only (`src/cli/commands/seed.ts`). The model-update step uses the schema API instead
-  (`scripts/model-update.mjs`).
+  (`./scripts/model-update.mjs`).
 
 ## Native API for tests
 
@@ -117,5 +118,5 @@ version changes, re-verify every line.
 - `POST …/preview-url` mints a draft's signed preview link
   (`src/astro/routes/api/content/[collection]/[id]/preview-url.ts`).
 - A create takes `references: { field: [id] }` and `taxonomies: { name: [slug] }`. Terms are created
-  and deleted at `/_emdash/api/taxonomies/{name}/terms[/{slug}]`. `tests/browser/cms.helpers.ts`
+  and deleted at `/_emdash/api/taxonomies/{name}/terms[/{slug}]`. `./tests/browser/cms.helpers.ts`
   wraps all of these.
