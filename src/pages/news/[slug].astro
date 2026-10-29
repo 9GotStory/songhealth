@@ -1,0 +1,79 @@
+---
+// A News page, /news/{slug} (Feature 003 #54; spec #51 "Public reads" and "Errors, redirects,
+// preview and SEO").
+//
+// getEmDashEntry returns the published entry, or the draft when the request carries a valid
+// signed preview token for it; EmDash's middleware checks the token (emdash 1.1.0 src/query.ts
+// resolveEmDashEntry). Anything else (an unknown slug, a draft, an unpublished or trashed entry)
+// answers with the site 404 page, which EmDash records in its 404 log. A slug that changed is
+// redirected by EmDash's middleware before this page runs.
+import { getEmDashEntry } from "emdash";
+import { Image } from "emdash/ui";
+import DateText from "../../components/DateText.astro";
+import RichText from "../../components/RichText.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { newsPath, termsOf, type NewsData } from "../../lib/news";
+
+const slug = Astro.params.slug ?? "";
+const { entry, isPreview, error } = await getEmDashEntry<"news", NewsData>("news", slug);
+if (error) throw error;
+if (!entry) return Astro.rewrite("/404");
+
+const news = entry.data;
+const category = termsOf(news, "news_category")[0];
+const topics = termsOf(news, "topic");
+---
+
+<SiteLayout
+	title={news.seo?.title || news.title}
+	section="news"
+	description={news.summary}
+	canonical={newsPath(entry.id)}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		{ label: "ข่าวสาร", href: "/news" },
+		{ label: news.title },
+	]}
+	entry={{ collection: "news", id: news.id, slug: entry.id, publishedAt: news.publishedAt }}
+	noindex={isPreview}
+>
+	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<header class="flex max-w-3xl flex-col gap-3">
+			{category && <p class="text-label text-brand-primary">{category.label}</p>}
+			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">{news.title}</h1>
+			{news.publishedAt && (
+				<p class="text-small text-text-secondary">
+					เผยแพร่ <DateText value={news.publishedAt} />
+				</p>
+			)}
+		</header>
+		{news.featured_image && (
+			<Image
+				image={news.featured_image}
+				priority
+				class="h-auto w-full max-w-3xl rounded-24 bg-surface-soft"
+			/>
+		)}
+		<div class="flex max-w-3xl flex-col gap-8">
+			{news.body && news.body.length > 0 && <RichText value={news.body} />}
+			{news.source_text && <p class="text-text-secondary">แหล่งที่มา: {news.source_text}</p>}
+			{topics.length > 0 && (
+				<div class="flex flex-col gap-3 border-t border-divider pt-6">
+					<h2 class="text-label">หัวข้อ</h2>
+					<ul class="flex flex-wrap gap-2">
+						{topics.map((topic) => (
+							<li>
+								<a
+									class="inline-flex min-h-11 items-center rounded-pill bg-surface-soft px-4 text-label text-brand-dark underline-offset-4 hover:underline"
+									href={`/news/health?topic=${encodeURIComponent(topic.slug)}`}
+								>
+									{topic.label}
+								</a>
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
+		</div>
+	</article>
+</SiteLayout>

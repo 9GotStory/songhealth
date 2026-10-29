@@ -139,3 +139,67 @@
 @utility focus-ring-on-dark {
 	--focus-ring-color: var(--color-accent-warm);
 }
+
+/*
+ * Rich text (src/components/RichText.astro): the typography of Portable Text bodies, which
+ * EmDash renders as plain HTML. Links are underlined, so colour is never their only cue
+ * (WCAG 2.2 SC 1.4.1).
+ */
+@layer components {
+	.rich-text {
+		font-size: var(--text-body-large);
+		line-height: var(--text-body-large--line-height);
+		overflow-wrap: anywhere;
+	}
+
+	.rich-text > * + * {
+		margin-top: 1.25rem;
+	}
+
+	.rich-text :where(h2, h3, h4, h5, h6) {
+		margin-top: 2rem;
+		color: var(--color-brand-dark);
+		font-weight: var(--text-h3--font-weight);
+	}
+
+	.rich-text h2 {
+		font-size: var(--text-h3);
+		line-height: var(--text-h3--line-height);
+	}
+
+	.rich-text :where(h3, h4, h5, h6) {
+		font-size: var(--text-body-large);
+		line-height: var(--text-body-large--line-height);
+	}
+
+	.rich-text a {
+		color: var(--color-brand-primary);
+		text-decoration: underline;
+		text-underline-offset: 4px;
+	}
+
+	.rich-text ul {
+		list-style: disc;
+		padding-inline-start: 1.5rem;
+	}
+
+	.rich-text ol {
+		list-style: decimal;
+		padding-inline-start: 1.5rem;
+	}
+
+	.rich-text li + li {
+		margin-top: 0.5rem;
+	}
+
+	.rich-text blockquote {
+		border-inline-start: 4px solid var(--color-border-default);
+		padding-inline-start: 1rem;
+		color: var(--color-text-secondary);
+	}
+
+	.rich-text :where(img, video, iframe) {
+		max-width: 100%;
+		height: auto;
+	}
+}

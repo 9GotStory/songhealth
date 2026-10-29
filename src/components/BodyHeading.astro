@@ -1,0 +1,9 @@
+---
+// A heading-1 block of rich text, rendered one level down (see RichText.astro). astro-portabletext
+// passes the block as `node` with its position; neither belongs on the element.
+const { node: _node, index: _index, isInline: _isInline, ...attrs } = Astro.props;
+---
+
+<h2 {...attrs}>
+	<slot />
+</h2>

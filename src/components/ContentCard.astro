@@ -1,0 +1,47 @@
+---
+// The content card of a list (Feature 003 #54; spec #51 "Shared building blocks"): News now,
+// Health Content later. The title links to the item's own page. The picture is decorative here,
+// because the title already names the link; without one, a plain visual keeps the grid even.
+//
+// Images go through EmDash's Image component, which gives a responsive srcset where Astro's
+// image service can transform the media, and otherwise the original file. Either way the card's
+// CSS sets the picture's box, so a large or odd-shaped image never changes the card.
+import { Image } from "emdash/ui";
+import type { ImageFieldValue } from "../lib/news";
+import DateText from "./DateText.astro";
+
+interface Props {
+	href: string;
+	title: string;
+	/** A short classification shown above the title, such as the News category. */
+	label?: string;
+	date?: Date | string | null;
+	summary?: string;
+	image?: ImageFieldValue;
+}
+
+const { href, title, label, date, summary, image } = Astro.props;
+---
+
+<article class="flex h-full flex-col overflow-hidden rounded-24 bg-surface-base shadow-card">
+	{image ? (
+		<Image image={image} alt="" class="aspect-16/10 w-full object-cover" />
+	) : (
+		<div aria-hidden="true" class="aspect-16/10 w-full bg-surface-soft" />
+	)}
+	<div class="flex flex-1 flex-col gap-2 p-5">
+		{(label || date) && (
+			<p class="flex flex-wrap gap-x-2 text-small text-text-secondary">
+				{label && <span class="wrap-anywhere">{label}</span>}
+				{label && date && <span aria-hidden="true">•</span>}
+				{date && <DateText value={date} />}
+			</p>
+		)}
+		<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
+			<a class="underline-offset-4 hover:text-brand-primary hover:underline" href={href}>
+				{title}
+			</a>
+		</h2>
+		{summary && <p class="line-clamp-3 text-text-secondary">{summary}</p>}
+	</div>
+</article>

@@ -1,0 +1,85 @@
+---
+// Health News, /news/health (Feature 003 #54; spec #51 "Public reads"): published News tagged
+// with any `topic` term, newest first. `?topic=<slug>` narrows it to one topic; a topic that
+// does not exist simply matches nothing.
+import ContentCard from "../../components/ContentCard.astro";
+import EmptyState from "../../components/EmptyState.astro";
+import FilterForm from "../../components/FilterForm.astro";
+import PageHeading from "../../components/PageHeading.astro";
+import Pagination from "../../components/Pagination.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { listNews, newsPath, termsOf, topicTerms } from "../../lib/news";
+import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
+
+const TOPIC_PARAM = "topic";
+const title = "ข่าวสุขภาพ";
+const lead = "ข่าวสารด้านสุขภาพจากสำนักงานสาธารณสุขอำเภอสอง เลือกหัวข้อที่สนใจได้";
+const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
+const topic = Astro.url.searchParams.get(TOPIC_PARAM)?.trim() ?? "";
+const topics = await topicTerms();
+const { entries, hasMore } = await listNews(
+	page,
+	topic === "" ? topics.map((term) => term.slug) : [topic],
+);
+
+const firstPage = new URL("/news/health", Astro.url);
+if (topic !== "") firstPage.searchParams.set(TOPIC_PARAM, topic);
+---
+
+<SiteLayout
+	title={title}
+	section="news"
+	description={lead}
+	canonical={pageHref(firstPage, page)}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		{ label: "ข่าวสาร", href: "/news" },
+		{ label: title },
+	]}
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading title={title} lead={lead} />
+		<FilterForm
+			label="กรองข่าวสุขภาพ"
+			action="/news/health"
+			fields={[
+				{
+					name: TOPIC_PARAM,
+					label: "หัวข้อ",
+					anyLabel: "ทุกหัวข้อ",
+					value: topic,
+					options: topics.map((term) => ({ value: term.slug, label: term.label })),
+				},
+			]}
+		/>
+		{entries.length > 0 ? (
+			<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+				{entries.map((entry) => (
+					<li>
+						<ContentCard
+							href={newsPath(entry.id)}
+							title={entry.data.title}
+							label={termsOf(entry.data, "topic")[0]?.label}
+							date={entry.data.publishedAt}
+							summary={entry.data.summary}
+							image={entry.data.featured_image}
+						/>
+					</li>
+				))}
+			</ul>
+		) : page > 1 ? (
+			<EmptyState
+				message="ไม่พบข่าวในหน้านี้"
+				action={{ href: pageHref(firstPage, 1), label: "กลับไปหน้าแรกของรายการ" }}
+			/>
+		) : topic !== "" ? (
+			<EmptyState
+				message="ไม่พบข่าวสุขภาพในหัวข้อนี้"
+				action={{ href: "/news/health", label: "ดูข่าวสุขภาพทุกหัวข้อ" }}
+			/>
+		) : (
+			<EmptyState message="ยังไม่มีข่าวสุขภาพ" />
+		)}
+		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
+	</div>
+</SiteLayout>

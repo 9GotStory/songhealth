@@ -1,0 +1,16 @@
+---
+// The heading of an inner page (Feature 003 #54): the page's one H1 and an optional lead.
+// Anything the page adds below the lead, such as a related link, goes in the default slot.
+interface Props {
+	title: string;
+	lead?: string;
+}
+
+const { title, lead } = Astro.props;
+---
+
+<div class="flex flex-col gap-3">
+	<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">{title}</h1>
+	{lead && <p class="max-w-prose text-body-large text-text-secondary">{lead}</p>}
+	<slot />
+</div>

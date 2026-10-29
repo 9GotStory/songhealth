@@ -1,0 +1,13 @@
+---
+// A stored date as citizens read it, "24 ก.ย. 2569", with the instant in `datetime`
+// (Feature 003 #54; spec #51 "Dates").
+import { formatThaiDate } from "../lib/thai-date";
+
+interface Props {
+	value: Date | string;
+}
+
+const date = new Date(Astro.props.value);
+---
+
+<time datetime={date.toISOString()}>{formatThaiDate(date)}</time>

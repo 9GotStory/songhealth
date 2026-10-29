@@ -1,0 +1,59 @@
+---
+// The News list, /news (Feature 003 #54; spec #51 "Public reads", `03` §19): published News,
+// newest publication first, a fixed number per page with the page number in the query string.
+import ContentCard from "../../components/ContentCard.astro";
+import EmptyState from "../../components/EmptyState.astro";
+import PageHeading from "../../components/PageHeading.astro";
+import Pagination from "../../components/Pagination.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { listNews, newsPath, termsOf } from "../../lib/news";
+import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
+
+const title = "ข่าวสาร";
+const lead = "ข่าวและประชาสัมพันธ์จากสำนักงานสาธารณสุขอำเภอสอง";
+const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
+const { entries, hasMore } = await listNews(page);
+const firstPage = "/news";
+---
+
+<SiteLayout
+	title={title}
+	section="news"
+	description={lead}
+	canonical={pageHref(new URL(firstPage, Astro.url), page)}
+	breadcrumbs={[{ label: "หน้าแรก", href: "/" }, { label: title }]}
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading title={title} lead={lead}>
+			<p>
+				<a class="text-label text-brand-primary underline underline-offset-4" href="/news/health">
+					ดูเฉพาะข่าวสุขภาพ
+				</a>
+			</p>
+		</PageHeading>
+		{entries.length > 0 ? (
+			<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+				{entries.map((entry) => (
+					<li>
+						<ContentCard
+							href={newsPath(entry.id)}
+							title={entry.data.title}
+							label={termsOf(entry.data, "news_category")[0]?.label}
+							date={entry.data.publishedAt}
+							summary={entry.data.summary}
+							image={entry.data.featured_image}
+						/>
+					</li>
+				))}
+			</ul>
+		) : page > 1 ? (
+			<EmptyState
+				message="ไม่พบข่าวในหน้านี้"
+				action={{ href: firstPage, label: "กลับไปหน้าแรกของรายการ" }}
+			/>
+		) : (
+			<EmptyState message="ยังไม่มีข่าว" />
+		)}
+		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
+	</div>
+</SiteLayout>

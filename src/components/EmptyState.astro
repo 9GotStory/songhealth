@@ -1,0 +1,22 @@
+---
+// What a list shows when it has nothing to show (Feature 003 #54; spec #51 "Shared building
+// blocks"): a message, and optionally a way to go on.
+interface Props {
+	message: string;
+	action?: { href: string; label: string };
+}
+
+const { message, action } = Astro.props;
+---
+
+<div class="flex flex-col items-center gap-4 rounded-24 bg-surface-base px-6 py-12 text-center shadow-card">
+	<p class="text-body-large">{message}</p>
+	{action && (
+		<a
+			class="inline-flex min-h-11 items-center rounded-pill border border-border-input px-5 text-label text-brand-primary hover:bg-surface-soft"
+			href={action.href}
+		>
+			{action.label}
+		</a>
+	)}
+</div>
