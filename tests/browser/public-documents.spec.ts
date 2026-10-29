@@ -39,16 +39,33 @@ import {
 	NATIVE_ROLES,
 	readEntry,
 	SYNTHETIC_FIXTURE_MARK,
+	SYNTHETIC_PDF_BYTES,
+	syntheticMediaPdf,
 	syntheticSlug,
 	trashEntry,
 	unpublishEntry,
 	uploadSyntheticMedia,
 	type CmsActor,
 } from "./cms.helpers";
-import { DESKTOP_VIEWPORT, expect, test } from "./public.helpers";
+import {
+	DESKTOP_VIEWPORT,
+	MOBILE_VIEWPORT,
+	VIEWPORTS,
+	expect,
+	expectNoAxeViolations,
+	expectNoHorizontalScroll,
+	expectVisibleFocusOnEveryStop,
+	test,
+} from "./public.helpers";
 
-/** The exact size of every synthetic PDF, which the pages state as "2 KB". */
-const PDF_BYTES = 2048;
+/** The site title shown while the native site settings name none. */
+const DEFAULT_SITE_TITLE = "สำนักงานสาธารณสุขอำเภอสอง";
+
+/** The fixed number of Documents a list page shows. */
+const PAGE_SIZE = 20;
+
+/** The exact size of every synthetic PDF (SYNTHETIC_PDF_BYTES), which the pages state as "2 KB". */
+const PDF_BYTES = SYNTHETIC_PDF_BYTES;
 
 const THAI_MONTHS = [
 	"ม.ค.",
@@ -69,23 +86,6 @@ const THAI_MONTHS = [
 function thaiDate(iso: string): string {
 	const bangkok = new Date(Date.parse(iso) + 7 * 60 * 60 * 1000);
 	return `${bangkok.getUTCDate()} ${THAI_MONTHS[bangkok.getUTCMonth()]} ${bangkok.getUTCFullYear() + 543}`;
-}
-
-/** A valid one-page PDF of exactly PDF_BYTES bytes, padded with a comment that makes it unique. */
-function syntheticPdf(): Uint8Array<ArrayBuffer> {
-	const body = [
-		"%PDF-1.4",
-		"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
-		"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
-		"3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] >> endobj",
-		"trailer << /Root 1 0 R >>",
-		`% ${SYNTHETIC_FIXTURE_MARK} ${crypto.randomUUID()}`,
-	].join("\n");
-	const end = "\n%%EOF\n";
-	const text = `${body}\n%${" ".repeat(PDF_BYTES - body.length - end.length - 2)}${end}`;
-	const bytes = new TextEncoder().encode(text);
-	expect(bytes.length, "the synthetic PDF has its fixed size").toBe(PDF_BYTES);
-	return new Uint8Array(bytes);
 }
 
 let admin: CmsActor;
@@ -125,7 +125,7 @@ interface UploadedFile {
 async function uploadPdf(filename?: string): Promise<UploadedFile> {
 	const uploaded = await uploadSyntheticMedia(admin, {
 		filename: filename ?? `${SYNTHETIC_FIXTURE_MARK}-${crypto.randomUUID().slice(0, 8)}.pdf`,
-		file: { bytes: syntheticPdf(), type: "application/pdf" },
+		file: { bytes: syntheticMediaPdf(), type: "application/pdf" },
 	});
 	expect(uploaded.mediaId, `the synthetic PDF: ${nativeRefusalOf(uploaded.result)}`).toBeDefined();
 	const item = nativeItemOf(uploaded.result) as {
@@ -381,6 +381,47 @@ test("the Document Type, topic and fiscal year filters narrow /documents alone a
 	await expect(page).toHaveURL("/documents");
 });
 
+test("a filtered /documents pages through its Documents with the filters and page number kept in the address", async ({
+	page,
+}) => {
+	const type = await createTerm("document_type", "รายงาน");
+	const file = await uploadPdf();
+	const fixtures: DocumentFixture[] = [];
+	for (let index = 0; index <= PAGE_SIZE; index += 1) {
+		fixtures.push(
+			await createDocument(`page-${String(index).padStart(2, "0")}`, {
+				file,
+				taxonomies: { document_type: [type.slug] },
+			}),
+		);
+	}
+	for (const document of fixtures) await publish(document);
+	const newestFirst = fixtures.toReversed().map((document) => document.title);
+
+	await page.goto(`/documents?type=${type.slug}`);
+	expect(await listedTitles(page), "the first page").toEqual(newestFirst.slice(0, PAGE_SIZE));
+	await page
+		.getByRole("navigation", { name: "การแบ่งหน้า" })
+		.getByRole("link", { name: "หน้าถัดไป" })
+		.click();
+	await expect(page).toHaveURL(`/documents?type=${type.slug}&page=2`);
+	expect(await listedTitles(page), "the second page").toEqual(newestFirst.slice(PAGE_SIZE));
+	await expect(
+		page.getByRole("form", { name: "กรองเอกสาร" }).getByLabel("ประเภทเอกสาร"),
+	).toHaveValue(type.slug);
+	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+		"href",
+		`${origin}/documents?type=${type.slug}&page=2`,
+	);
+
+	const beyond = await page.goto(`/documents?type=${type.slug}&page=10000`);
+	expect(beyond?.status(), "a page past the end is not an error").toBe(200);
+	await expect(page.getByRole("main").getByText("ไม่พบเอกสารในหน้านี้")).toBeVisible();
+	await expect(
+		page.getByRole("main").getByRole("link", { name: "กลับไปหน้าแรกของรายการ" }),
+	).toHaveAttribute("href", `/documents?type=${type.slug}`);
+});
+
 test("the fiscal year filter offers the years of published Documents, newest first", async ({
 	page,
 }) => {
@@ -632,4 +673,111 @@ test("a signed preview link renders a draft Document, and the same address witho
 	await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
 
 	await expectSiteNotFound(page, link.pathname, "the draft without a token");
+});
+
+test("the Document pages carry their title, description, absolute canonical address and OG tags, with the SEO fields first and the summary as the fallback", async ({
+	page,
+}) => {
+	const settings = (nativeDataOf(await cmsRequest(admin, "/_emdash/api/settings")) ?? {}) as {
+		title?: string;
+		seo?: { titleSeparator?: string };
+	};
+	const siteTitle = settings.title?.trim() || DEFAULT_SITE_TITLE;
+	const separator = settings.seo?.titleSeparator || " | ";
+	const meta = (selector: string) => page.locator(selector).first();
+	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปเอกสารสำหรับเครื่องมือค้นหา`;
+	const plain = await createDocument("seo-plain", { data: { summary } });
+	const seoTitle = `${SYNTHETIC_FIXTURE_MARK} ชื่อเอกสารสำหรับเครื่องมือค้นหา`;
+	const seoDescription = `${SYNTHETIC_FIXTURE_MARK} คำอธิบายเอกสารจากช่อง SEO`;
+	const tuned = await createDocument("seo-tuned", {
+		data: { summary },
+		seo: { title: seoTitle, description: seoDescription },
+	});
+	await publish(plain);
+	await publish(tuned);
+
+	await page.goto(`/documents/${plain.slug}`);
+	await expect(page).toHaveTitle(`${plain.title}${separator}${siteTitle}`);
+	await expect(meta('meta[name="description"]')).toHaveAttribute("content", summary);
+	await expect(meta('link[rel="canonical"]')).toHaveAttribute(
+		"href",
+		`${origin}/documents/${plain.slug}`,
+	);
+	await expect(meta('meta[property="og:title"]')).toHaveAttribute("content", plain.title);
+	await expect(meta('meta[property="og:url"]')).toHaveAttribute(
+		"content",
+		`${origin}/documents/${plain.slug}`,
+	);
+	await expect(meta('meta[name="robots"]')).toHaveCount(0);
+
+	await page.goto(`/documents/${tuned.slug}`);
+	await expect(page).toHaveTitle(`${seoTitle}${separator}${siteTitle}`);
+	await expect(meta('meta[name="description"]')).toHaveAttribute("content", seoDescription);
+	await expect(meta('meta[property="og:title"]')).toHaveAttribute("content", seoTitle);
+
+	await page.goto("/documents");
+	await expect(page).toHaveTitle(`เอกสารเผยแพร่${separator}${siteTitle}`);
+	await expect(meta('meta[name="description"]')).toHaveAttribute("content", /.+/);
+	await expect(meta('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/documents`);
+	await expect(meta('meta[property="og:type"]')).toHaveAttribute("content", "website");
+});
+
+test.describe("accessibility and reflow", () => {
+	let paths: string[];
+
+	test.beforeAll(async () => {
+		const type = await createTerm("document_type", "คู่มือ");
+		const topic = await createTerm("topic", "ผู้สูงอายุ");
+		const successor = await createDocument("a11y-successor", {
+			taxonomies: { document_type: [type.slug] },
+		});
+		await publish(successor);
+		const detailed = await createDocument("a11y", {
+			data: {
+				summary: `${SYNTHETIC_FIXTURE_MARK} สรุปเอกสารสำหรับตรวจการเข้าถึง`,
+				document_at: "2026-09-23T17:30:00.000Z",
+				fiscal_year: 2569,
+				owner_source: `${SYNTHETIC_FIXTURE_MARK} งานยุทธศาสตร์`,
+				domain_status: "superseded",
+			},
+			taxonomies: { document_type: [type.slug], topic: [topic.slug] },
+			references: { successor: [successor.id] },
+		});
+		await publish(detailed);
+		const fileGone = await createDocument("a11y-file-gone", {
+			data: { domain_status: "expired" },
+		});
+		await publish(fileGone);
+		const removed = await deleteMedia(admin, fileGone.file.mediaId);
+		expect(removed.ok, `deleting the media item: ${nativeRefusalOf(removed)}`).toBe(true);
+		paths = [
+			"/documents",
+			`/documents?type=${type.slug}&topic=${topic.slug}&year=2569`,
+			`/documents?type=${syntheticSlug("no-such-type")}`,
+			`/documents/${detailed.slug}`,
+			`/documents/${fileGone.slug}`,
+		];
+	});
+
+	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
+		test(`axe reports no WCAG 2.2 AA violation and focus stays visible on the Document pages at the ${width} width`, async ({
+			page,
+		}) => {
+			await page.setViewportSize(viewport);
+			for (const path of paths) {
+				const response = await page.goto(path);
+				expect(response?.status(), `GET ${path}`).toBe(200);
+				await expectNoAxeViolations(page, `${path} at ${width}`);
+				await expectVisibleFocusOnEveryStop(page, `${path} at ${width}`);
+			}
+		});
+	}
+
+	test("no Document page scrolls sideways at 320 px", async ({ page }) => {
+		await page.setViewportSize(MOBILE_VIEWPORT);
+		for (const path of paths) {
+			await page.goto(path);
+			await expectNoHorizontalScroll(page, path);
+		}
+	});
 });

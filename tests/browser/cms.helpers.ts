@@ -1096,6 +1096,30 @@ export function syntheticMediaPng(): Uint8Array<ArrayBuffer> {
 	return bytes;
 }
 
+/** The exact size in bytes of every synthetic PDF. */
+export const SYNTHETIC_PDF_BYTES = 2048;
+
+/**
+ * A valid one-page, blank PDF of exactly SYNTHETIC_PDF_BYTES bytes: public-publishable, clearly
+ * synthetic, and unique per call through a padding comment, so no upload deduplicates onto another.
+ */
+export function syntheticMediaPdf(): Uint8Array<ArrayBuffer> {
+	const body = [
+		"%PDF-1.4",
+		"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
+		"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
+		"3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] >> endobj",
+		"trailer << /Root 1 0 R >>",
+		`% ${SYNTHETIC_FIXTURE_MARK} ${crypto.randomUUID()}`,
+	].join("\n");
+	const end = "\n%%EOF\n";
+	const padding = " ".repeat(SYNTHETIC_PDF_BYTES - body.length - end.length - 2);
+	const bytes = new TextEncoder().encode(`${body}\n%${padding}${end}`);
+	if (bytes.length !== SYNTHETIC_PDF_BYTES)
+		throw new CmsHelperError("synthetic-pdf", "synthetic PDF size drifted");
+	return new Uint8Array(bytes);
+}
+
 export interface SyntheticMediaResult {
 	result: NativeResult;
 	/** Media id from the native response, registered for owned cleanup. */
