@@ -14,6 +14,7 @@ const HEALTH_SERVICES = [
 	{
 		key: "hospital",
 		title: "[ตัวอย่าง] โรงพยาบาลสอง",
+		code: "00000",
 		displayName: undefined,
 		type: "โรงพยาบาลชุมชน",
 		areas: ["ตำบลบ้านกลาง", "ตำบลห้วยหม้าย"],
@@ -27,6 +28,7 @@ const HEALTH_SERVICES = [
 	},
 	{
 		key: "ban-klang",
+		code: undefined,
 		title: "[ตัวอย่าง] โรงพยาบาลส่งเสริมสุขภาพตำบลบ้านกลาง",
 		displayName: "[ตัวอย่าง] รพ.สต.บ้านกลาง",
 		type: "โรงพยาบาลส่งเสริมสุขภาพตำบล",
@@ -41,6 +43,7 @@ const HEALTH_SERVICES = [
 	},
 	{
 		key: "huai-mai",
+		code: undefined,
 		title: "[ตัวอย่าง] โรงพยาบาลส่งเสริมสุขภาพตำบลห้วยหม้าย",
 		displayName: "[ตัวอย่าง] รพ.สต.ห้วยหม้าย",
 		type: "โรงพยาบาลส่งเสริมสุขภาพตำบล",
@@ -55,6 +58,7 @@ const HEALTH_SERVICES = [
 	},
 	{
 		key: "old-station",
+		code: undefined,
 		title: "[ตัวอย่าง] สถานีอนามัยบ้านเหล่า",
 		displayName: undefined,
 		type: "สถานีอนามัย",
@@ -96,6 +100,7 @@ const fixtures: Fixtures = async ({ admin, helpers, term }) => {
 			slug,
 			data: {
 				title: healthService.title,
+				...(healthService.code ? { facility_code: healthService.code } : {}),
 				...(healthService.displayName ? { display_name: healthService.displayName } : {}),
 				operational_status: healthService.status,
 				...(healthService.affiliation ? { affiliation_text: healthService.affiliation } : {}),
