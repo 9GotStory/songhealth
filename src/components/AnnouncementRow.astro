@@ -1,11 +1,16 @@
 ---
 // An Announcement in a list (Feature 003 #56; spec #51 "Shared building blocks"): its type and
 // date, its title linking to its own page, and its close date when it has one, with "ปิดแล้ว"
-// once that date has passed. The list decides `closed` at one instant for every row, so the rows agree with the
-// order the list puts them in.
-import { announcementDate, announcementPath, type AnnouncementEntry } from "../lib/announcements";
+// once that date has passed. The list decides `closed` at one instant for every row, so the rows
+// agree with the order the list puts them in.
+import {
+	CLOSED_LABEL,
+	announcementDate,
+	announcementPath,
+	type AnnouncementEntry,
+} from "../lib/announcements";
 import { termsOf } from "../lib/terms";
-import AnnouncementStatus from "./AnnouncementStatus.astro";
+import StatusLabel from "./StatusLabel.astro";
 import DateText from "./DateText.astro";
 
 interface Props {
@@ -40,7 +45,7 @@ const date = announcementDate(data);
 			<span>
 				วันที่สิ้นสุด <DateText value={data.closes_at} />
 			</span>
-			{closed && <AnnouncementStatus />}
+			{closed && <StatusLabel attention>{CLOSED_LABEL}</StatusLabel>}
 		</p>
 	)}
 </article>

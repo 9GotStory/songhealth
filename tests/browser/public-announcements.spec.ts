@@ -23,8 +23,6 @@
 // - A reference field resolves a target only while it is published, in link order
 //   (src/query.ts attachReferences, src/references/resolve.ts).
 
-import type { Page } from "@playwright/test";
-
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
@@ -34,12 +32,10 @@ import {
 	deleteSyntheticTerms,
 	loadDevAccessToken,
 	nativeDataOf,
-	nativeItemOf,
 	nativeRefusalOf,
 	NATIVE_ROLES,
 	portableTextBlock,
-	publishEntry,
-	readEntry,
+	publishEntryAt,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	trashEntry,
@@ -50,17 +46,19 @@ import {
 	type SyntheticTerm,
 } from "./cms.helpers";
 import {
-	DEFAULT_SITE_TITLE,
 	DESKTOP_VIEWPORT,
 	MOBILE_VIEWPORT,
 	VIEWPORTS,
+	detailOf,
 	expect,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectSiteNotFound,
 	expectVisibleFocusOnEveryStop,
+	listedItem,
 	listedTitles,
 	ownTitles,
+	siteTitleParts,
 	test,
 	thaiDate,
 } from "./public.helpers";
@@ -131,43 +129,30 @@ async function createAnnouncement(
 	return { id: created.entryId!, slug, title };
 }
 
-/** A synthetic Document draft with `file`. */
-async function createDocument(label: string, file: SyntheticPdf): Promise<Fixture> {
+/** A synthetic Document draft with `file`, and the terms given. */
+async function createDocument(
+	label: string,
+	file: SyntheticPdf,
+	taxonomies?: Record<string, string[]>,
+): Promise<Fixture> {
 	const slug = syntheticSlug(label);
 	const title = `${SYNTHETIC_FIXTURE_MARK} เอกสาร ${label} ${slug.slice(-6)}`;
 	const created = await createSyntheticEntry(admin, "documents", {
 		data: { title, file: file.value },
 		slug,
+		...(taxonomies ? { taxonomies } : {}),
 	});
 	expect(created.result.ok, `document ${label}: ${nativeRefusalOf(created.result)}`).toBe(true);
 	return { id: created.entryId!, slug, title };
 }
 
 /** Publish an entry of `collection` now, or backdated. Returns the stored publication instant. */
-async function publish(
+function publish(
 	fixture: Fixture,
 	publishedAt?: string,
 	collection = "announcements",
 ): Promise<string> {
-	const published = await publishEntry(admin, collection, fixture.id, { publishedAt });
-	expect(published.ok, `publishing ${fixture.title}: ${nativeRefusalOf(published)}`).toBe(true);
-	const stored = nativeItemOf(await readEntry(admin, collection, fixture.id))?.publishedAt;
-	expect(typeof stored, "publishing records publishedAt").toBe("string");
-	return String(stored);
-}
-
-/** The row a list page shows for `announcement`. */
-function rowOf(page: Page, announcement: Fixture) {
-	return page.getByRole("main").getByRole("article").filter({ hasText: announcement.title });
-}
-
-/** The value an Announcement page states for one of its details, by the detail's Thai name. */
-function detailOf(page: Page, name: string) {
-	return page
-		.getByRole("main")
-		.locator("dl > div")
-		.filter({ has: page.getByRole("term").filter({ hasText: new RegExp(`^${name}$`) }) })
-		.getByRole("definition");
+	return publishEntryAt(admin, collection, fixture.id, publishedAt);
 }
 
 test.use({ viewport: DESKTOP_VIEWPORT });
@@ -263,20 +248,25 @@ test("/announcements lists current Announcements first and closed ones after, ea
 	]);
 
 	for (const closed of [closedRecent, closedOld]) {
-		await expect(rowOf(page, closed), `${closed.title} is marked`).toContainText("ปิดแล้ว");
-	}
-	for (const current of [currentUndated, currentRecent, currentOld]) {
-		await expect(rowOf(page, current), `${current.title} is not marked`).not.toContainText(
+		await expect(listedItem(page, closed.title), `${closed.title} is marked`).toContainText(
 			"ปิดแล้ว",
 		);
 	}
-	await expect(rowOf(page, closedRecent)).toContainText(
+	for (const current of [currentUndated, currentRecent, currentOld]) {
+		await expect(
+			listedItem(page, current.title),
+			`${current.title} is not marked`,
+		).not.toContainText("ปิดแล้ว");
+	}
+	await expect(listedItem(page, closedRecent.title)).toContainText(
 		`วันที่สิ้นสุด ${thaiDate(closes.yesterday)}`,
 	);
-	await expect(rowOf(page, currentRecent)).toContainText(`วันที่สิ้นสุด ${thaiDate(closes.today)}`);
-	await expect(rowOf(page, currentOld)).not.toContainText("วันที่สิ้นสุด");
+	await expect(listedItem(page, currentRecent.title)).toContainText(
+		`วันที่สิ้นสุด ${thaiDate(closes.today)}`,
+	);
+	await expect(listedItem(page, currentOld.title)).not.toContainText("วันที่สิ้นสุด");
 
-	const row = rowOf(page, currentUndated);
+	const row = listedItem(page, currentUndated.title);
 	await expect(row.getByRole("link", { name: currentUndated.title })).toHaveAttribute(
 		"href",
 		`/announcements/${currentUndated.slug}`,
@@ -284,7 +274,7 @@ test("/announcements lists current Announcements first and closed ones after, ea
 	await expect(row.locator("time").first(), "dated by its publication").toHaveText(
 		thaiDate(undatedAt),
 	);
-	await expect(rowOf(page, currentOld).locator("time")).toHaveText(
+	await expect(listedItem(page, currentOld.title).locator("time")).toHaveText(
 		thaiDate("2026-09-01T03:00:00.000Z"),
 	);
 });
@@ -303,9 +293,9 @@ test("an Announcement closing today is current, one that closed yesterday is clo
 	await page.goto("/announcements");
 	const listed = ownTitles(await listedTitles(page), [today, yesterday, none]);
 	expect(listed.indexOf(yesterday.title), "the closed one comes after both current ones").toBe(2);
-	await expect(rowOf(page, yesterday)).toContainText("ปิดแล้ว");
-	await expect(rowOf(page, today)).not.toContainText("ปิดแล้ว");
-	await expect(rowOf(page, none)).not.toContainText("ปิดแล้ว");
+	await expect(listedItem(page, yesterday.title)).toContainText("ปิดแล้ว");
+	await expect(listedItem(page, today.title)).not.toContainText("ปิดแล้ว");
+	await expect(listedItem(page, none.title)).not.toContainText("ปิดแล้ว");
 
 	await page.goto(`/announcements/${yesterday.slug}`);
 	await expect(detailOf(page, "สถานะ")).toHaveText("ปิดแล้ว");
@@ -367,8 +357,11 @@ test("an Announcement page shows its type, dates, details and its published atta
 	page,
 }) => {
 	const type = await createTerm("announcement_type", "รับสมัคร");
+	const documentType = await createTerm("document_type", "ใบสมัคร");
 	const file = await uploadSyntheticPdf(admin);
-	const first = await createDocument("attached-first", file);
+	const first = await createDocument("attached-first", file, {
+		document_type: [documentType.slug],
+	});
 	const second = await createDocument("attached-second", file);
 	const draft = await createDocument("attached-draft", file);
 	const unpublished = await createDocument("attached-unpublished", file);
@@ -416,7 +409,11 @@ test("an Announcement page shows its type, dates, details and its published atta
 			`/documents/${document.slug}`,
 		);
 	}
-	await expect(attached.getByRole("article").first()).toContainText("PDF, 2 KB");
+	const firstRow = attached.getByRole("article").filter({ hasText: first.title });
+	await expect(firstRow, "a related Document's row names its type").toContainText(
+		documentType.label,
+	);
+	await expect(firstRow).toContainText("PDF, 2 KB");
 	for (const hidden of [draft, unpublished, trashed]) {
 		await expect(main.getByText(hidden.title), hidden.title).toHaveCount(0);
 	}
@@ -492,12 +489,7 @@ test("a signed preview link renders a draft Announcement, and the same address w
 test("the Announcement pages carry their title, description, absolute canonical address and OG tags, with the SEO fields first and the start of the details as the fallback", async ({
 	page,
 }) => {
-	const settings = (nativeDataOf(await cmsRequest(admin, "/_emdash/api/settings")) ?? {}) as {
-		title?: string;
-		seo?: { titleSeparator?: string };
-	};
-	const siteTitle = settings.title?.trim() || DEFAULT_SITE_TITLE;
-	const separator = settings.seo?.titleSeparator || " | ";
+	const { siteTitle, separator } = await siteTitleParts(admin);
 	const meta = (selector: string) => page.locator(selector).first();
 	const opening = `${SYNTHETIC_FIXTURE_MARK} ประกาศรับสมัครอาสาสมัครสาธารณสุขประจำหมู่บ้าน`;
 	const details = [portableTextBlock(opening), portableTextBlock("ย่อหน้าที่สอง ".repeat(30))];

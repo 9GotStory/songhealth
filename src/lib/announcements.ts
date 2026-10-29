@@ -5,8 +5,9 @@
 // valid preview token asks for a draft (emdash 1.1.0 src/loader.ts, src/query.ts
 // resolveEmDashEntry). Pages never pass a status. The list shows current Announcements first, then
 // closed ones, each newest first by announcement date, falling back to the publication. EmDash
-// cannot sort that way, so the list reads every published Announcement and sorts it in
-// src/lib/dated-lists.ts (ADR 0004), which also holds the current-or-closed rule.
+// cannot sort that way, so the list reads every published Announcement (a query without a `limit`
+// has none: src/loader.ts `fetchLimit`) and sorts it in src/lib/dated-lists.ts (ADR 0004), which
+// also holds the current-or-closed rule.
 
 import {
 	getEmDashCollection,
@@ -14,7 +15,14 @@ import {
 	type PortableTextBlock,
 	type TaxonomyTerm,
 } from "emdash";
-import { isCurrent, listPage, newestFirst, type Instant, type ListPage } from "./dated-lists";
+import {
+	isCurrent,
+	listDate,
+	listPage,
+	newestFirst,
+	type Instant,
+	type ListPage,
+} from "./dated-lists";
 
 /** The fixed number of Announcements a list page shows. */
 const ANNOUNCEMENTS_PAGE_SIZE = 20;
@@ -53,7 +61,7 @@ export function announcementPath(slug: string): string {
 
 /** The date an Announcement is listed by: its announcement date, else its publication. */
 export function announcementDate(data: AnnouncementData): Instant {
-	return data.announcement_at || data.publishedAt;
+	return listDate(data.announcement_at, data.publishedAt);
 }
 
 /** Whether the Announcement is closed at `now`: its close date has passed in Bangkok. */

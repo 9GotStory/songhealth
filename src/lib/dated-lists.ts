@@ -4,11 +4,12 @@
 // entry without that date takes its place by its publication (`04` §10). EmDash cannot sort that
 // way: its `orderBy` is one column, and on PostgreSQL a descending sort puts the entries without
 // the date first (emdash 1.1.0 src/loader.ts buildOrderByClause). So these lists read every
-// published entry, sort it here and show one page of the result (ADR 0004). This module holds the
+// published entry, a query without a `limit` (src/loader.ts `fetchLimit`), sort it here and show
+// one page of the result (ADR 0004). This module holds the
 // ordering, the paging and the Announcement's current-or-closed rule, with no import, so node:test
 // checks it directly.
 
-/** A date as the query functions return a datetime field or the publication. */
+/** A date as the query functions return a datetime field or the publication; unset when empty. */
 export type Instant = Date | string | null | undefined;
 
 /** The instant's time in milliseconds, or undefined when it is not set or not a date. */
@@ -18,16 +19,21 @@ function timeOf(value: Instant): number | undefined {
 	return Number.isNaN(time) ? undefined : time;
 }
 
+/** The date an entry is listed and shown by: its own date when it is one, else its publication. */
+export function listDate(own: Instant, publishedAt: Instant): Instant {
+	return timeOf(own) === undefined ? publishedAt : own;
+}
+
 /**
- * The entries newest first by their own date (`dateOf`), each without one placed by its
- * publication. The sort is stable, so entries with the same date keep the order they came in.
+ * The entries newest first by their list date: their own date (`dateOf`), else their publication.
+ * The sort is stable, so entries with the same date keep the order they came in.
  */
 export function newestFirst<E extends { data: { publishedAt?: Instant } }>(
 	entries: readonly E[],
 	dateOf: (data: E["data"]) => Instant,
 ): E[] {
 	const keyOf = (entry: E) =>
-		timeOf(dateOf(entry.data)) ?? timeOf(entry.data.publishedAt) ?? Number.NEGATIVE_INFINITY;
+		timeOf(listDate(dateOf(entry.data), entry.data.publishedAt)) ?? Number.NEGATIVE_INFINITY;
 	return entries
 		.map((entry) => ({ entry, key: keyOf(entry) }))
 		.sort((a, b) => (a.key === b.key ? 0 : a.key < b.key ? 1 : -1))
@@ -46,22 +52,31 @@ export function listPage<E>(entries: readonly E[], page: number, size: number): 
 	return { entries: entries.slice(start, start + size), hasMore: entries.length > start + size };
 }
 
-/** A calendar day in Bangkok as "YYYY-MM-DD", which sorts as the days do. */
-const BANGKOK_DAY = new Intl.DateTimeFormat("en-CA", {
+/** The Gregorian year, month and day of an instant on the Bangkok calendar. */
+const BANGKOK_DATE = new Intl.DateTimeFormat("en-US", {
+	calendar: "gregory",
+	numberingSystem: "latn",
 	year: "numeric",
-	month: "2-digit",
-	day: "2-digit",
+	month: "numeric",
+	day: "numeric",
 	timeZone: "Asia/Bangkok",
 });
+
+/** The instant's calendar day in Bangkok as a number YYYYMMDD, which orders as the days do. */
+function bangkokDay(time: number | Date): number {
+	const part = (type: string) =>
+		Number(BANGKOK_DATE.formatToParts(time).find((p) => p.type === type)?.value);
+	return part("year") * 10_000 + part("month") * 100 + part("day");
+}
 
 /**
  * Whether an Announcement with this close date is current at `now`: it has no close date, or its
  * close date is today or later on the Bangkok calendar (spec #51 "Public reads"). Pages show the
  * close date as a day, so the Announcement stays current through that whole day and is closed
- * from the next one.
+ * from the next one, whatever time staff entered.
  */
 export function isCurrent(closesAt: Instant, now: Date): boolean {
 	const closes = timeOf(closesAt);
 	if (closes === undefined) return true;
-	return BANGKOK_DAY.format(closes) >= BANGKOK_DAY.format(now);
+	return bangkokDay(closes) >= bangkokDay(now);
 }

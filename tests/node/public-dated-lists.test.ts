@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { isCurrent, listPage, newestFirst } from "../../src/lib/dated-lists.ts";
+import { isCurrent, listDate, listPage, newestFirst } from "../../src/lib/dated-lists.ts";
 
 /** A published entry as the query functions return it, with an optional own date. */
 function entry(id: string, publishedAt: string, at?: string | null) {
@@ -70,6 +70,18 @@ describe("newestFirst", () => {
 		];
 		newestFirst(entries, (data) => data.at);
 		assert.deepEqual(ids(entries), ["older", "newer"]);
+	});
+});
+
+describe("listDate", () => {
+	it("is the entry's own date when it has one, else its publication", () => {
+		const published = "2026-10-01T03:00:00.000Z";
+		assert.equal(listDate("2026-07-15T03:00:00.000Z", published), "2026-07-15T03:00:00.000Z");
+		for (const none of [null, undefined, ""]) assert.equal(listDate(none, published), published);
+	});
+
+	it("is the publication when the own date is not a date, as the order takes it", () => {
+		assert.equal(listDate("not a date", "2026-10-01T03:00:00.000Z"), "2026-10-01T03:00:00.000Z");
 	});
 });
 

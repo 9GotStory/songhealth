@@ -20,16 +20,21 @@ EmDash 1.1.0 cannot express that order in a query (`node_modules/emdash/src/load
   (`buildFieldConditions`).
 
 These lists therefore read every published entry of their collection through `getEmDashCollection`,
-newest publication first, and order it in `src/lib/dated-lists.ts`:
+newest publication first, with no `limit`, so the query has no `LIMIT` (`src/loader.ts`,
+`fetchLimit`). `src/lib/dated-lists.ts` then orders the entries:
 
-- by the own date, else the publication, newest first;
+- by their own date, else their publication, newest first;
 - stably, so entries with the same date keep their publication order;
 - then cut to the requested page.
 
 The Product Owner chose this option on 2026-10-29 (#56, "เห็นด้วยกับทาง A").
 
-The Announcement's current-or-closed rule lives in the same module. An Announcement is current
-when it has no close date, or its close date is today or later on the Bangkok calendar.
+The same module holds the Announcement's current-or-closed rule: the Announcements list shows the
+current ones first, then the closed ones, each in that order. The spec says an Announcement is current "when it has no close date, or
+its close date is still ahead in Bangkok time". The module reads that by the Bangkok calendar day:
+an Announcement stays current through its whole close date, since pages show the close date as a
+day, and it is closed from the next Bangkok day. That reading awaits the Product Owner's
+confirmation in the #56 pull request; it is one comparison to change.
 
 ## Considered options
 
@@ -47,8 +52,9 @@ this option.
 ## Consequences
 
 - Each list request reads the whole published collection, and its time grows with that
-  collection. The #56 pull request records the median and p95 latency with about 1,000 entries per
-  collection on the development runtime.
+  collection. On the development runtime (`astro dev`, 2026-10-29), with 1,000 published Activities
+  and 1,000 published Announcements, 50 requests per page gave a median of 97–122 ms and a p95 of
+  125–164 ms, against about 38 ms with an empty collection (#56 pull request).
 - No cache is added (`08` §3): a cache could keep unpublished content visible.
 - Revisit when a list's latency passes about 200 ms, for example after the WordPress import (`09`)
   brings real volumes.

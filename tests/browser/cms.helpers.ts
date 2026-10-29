@@ -1490,6 +1490,27 @@ export async function publishEntry(
 }
 
 /**
+ * Publish now, or backdated to `publishedAt`, and return the publication instant EmDash stored,
+ * as a page dates the entry. A refusal throws.
+ */
+export async function publishEntryAt(
+	actor: CmsActor,
+	collection: string,
+	id: string,
+	publishedAt?: string,
+): Promise<string> {
+	const published = await publishEntry(actor, collection, id, { publishedAt });
+	if (!published.ok) {
+		throw new CmsHelperError("publish", `${collection}/${id}: ${nativeRefusalOf(published)}`);
+	}
+	const stored = nativeItemOf(await readEntry(actor, collection, id))?.publishedAt;
+	if (typeof stored !== "string") {
+		throw new CmsHelperError("publish", `${collection}/${id} has no stored publishedAt`);
+	}
+	return stored;
+}
+
+/**
  * POST …/schedule — one-time future publication with an explicit timezone.
  * `scheduledAt` must be ISO 8601 with "Z" or an explicit numeric offset
  * (FR-023 / native-editorial contract); anything else is refused locally as

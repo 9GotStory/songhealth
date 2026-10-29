@@ -23,8 +23,6 @@
 // - Deleting a media item removes its stored file and leaves the Activity that uses it unchanged
 //   (src/api/handlers/media.ts handleMediaDelete).
 
-import type { Page } from "@playwright/test";
-
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
@@ -33,11 +31,9 @@ import {
 	deleteMedia,
 	loadDevAccessToken,
 	nativeDataOf,
-	nativeItemOf,
 	nativeRefusalOf,
 	NATIVE_ROLES,
-	publishEntry,
-	readEntry,
+	publishEntryAt,
 	setMediaAlt,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
@@ -47,17 +43,19 @@ import {
 	type CmsActor,
 } from "./cms.helpers";
 import {
-	DEFAULT_SITE_TITLE,
 	DESKTOP_VIEWPORT,
 	MOBILE_VIEWPORT,
 	VIEWPORTS,
+	detailOf,
 	expect,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectSiteNotFound,
 	expectVisibleFocusOnEveryStop,
+	listedItem,
 	listedTitles,
 	ownTitles,
+	siteTitleParts,
 	test,
 	thaiDate,
 } from "./public.helpers";
@@ -91,12 +89,8 @@ async function createActivity(
 }
 
 /** Publish now, or backdated to `publishedAt`. Returns the stored publication instant. */
-async function publish(activity: ActivityFixture, publishedAt?: string): Promise<string> {
-	const published = await publishEntry(admin, "activities", activity.id, { publishedAt });
-	expect(published.ok, `publishing ${activity.title}: ${nativeRefusalOf(published)}`).toBe(true);
-	const stored = nativeItemOf(await readEntry(admin, "activities", activity.id))?.publishedAt;
-	expect(typeof stored, "publishing records publishedAt").toBe("string");
-	return String(stored);
+function publish(activity: ActivityFixture, publishedAt?: string): Promise<string> {
+	return publishEntryAt(admin, "activities", activity.id, publishedAt);
 }
 
 /** A synthetic picture in the media library with `alt` as its alt text. Returns its id. */
@@ -106,20 +100,6 @@ async function uploadPicture(alt: string): Promise<string> {
 	const described = await setMediaAlt(admin, media.mediaId!, alt);
 	expect(described.ok, `the picture's alt text: ${nativeRefusalOf(described)}`).toBe(true);
 	return media.mediaId!;
-}
-
-/** The card a list page shows for `activity`. */
-function cardOf(page: Page, activity: ActivityFixture) {
-	return page.getByRole("main").getByRole("article").filter({ hasText: activity.title });
-}
-
-/** The value an Activity page states for one of its details, by the detail's Thai name. */
-function detailOf(page: Page, name: string) {
-	return page
-		.getByRole("main")
-		.locator("dl > div")
-		.filter({ has: page.getByRole("term").filter({ hasText: new RegExp(`^${name}$`) }) })
-		.getByRole("definition");
 }
 
 test.use({ viewport: DESKTOP_VIEWPORT });
@@ -199,7 +179,7 @@ test("/activities lists only published Activities, the most recently held first,
 		[heldInJuly, "2026-07-15T03:00:00.000Z"],
 		[undatedMay, mayAt],
 	] as const) {
-		const card = cardOf(page, activity);
+		const card = listedItem(page, activity.title);
 		await expect(card.getByRole("link", { name: activity.title })).toHaveAttribute(
 			"href",
 			`/activities/${activity.slug}`,
@@ -228,11 +208,14 @@ test("an Activity card shows its picture, or the neutral visual when it has none
 	expect((await deleteMedia(admin, goneId)).ok, "deleting the media item").toBe(true);
 
 	await page.goto("/activities");
-	await expect(cardOf(page, pictured).locator("img")).toHaveCount(1);
-	await expect(cardOf(page, pictured).getByTestId("card-visual")).toHaveCount(0);
+	await expect(listedItem(page, pictured.title).locator("img")).toHaveCount(1);
+	await expect(listedItem(page, pictured.title).getByTestId("card-visual")).toHaveCount(0);
 	for (const activity of [plain, pictureGone]) {
-		await expect(cardOf(page, activity).locator("img"), activity.title).toHaveCount(0);
-		await expect(cardOf(page, activity).getByTestId("card-visual"), activity.title).toHaveCount(1);
+		await expect(listedItem(page, activity.title).locator("img"), activity.title).toHaveCount(0);
+		await expect(
+			listedItem(page, activity.title).getByTestId("card-visual"),
+			activity.title,
+		).toHaveCount(1);
 	}
 });
 
@@ -410,12 +393,7 @@ test("a signed preview link renders a draft Activity, and the same address witho
 test("the Activity pages carry their title, description, absolute canonical address and OG tags, with the SEO fields first and the summary as the fallback", async ({
 	page,
 }) => {
-	const settings = (nativeDataOf(await cmsRequest(admin, "/_emdash/api/settings")) ?? {}) as {
-		title?: string;
-		seo?: { titleSeparator?: string };
-	};
-	const siteTitle = settings.title?.trim() || DEFAULT_SITE_TITLE;
-	const separator = settings.seo?.titleSeparator || " | ";
+	const { siteTitle, separator } = await siteTitleParts(admin);
 	const meta = (selector: string) => page.locator(selector).first();
 	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปกิจกรรมสำหรับเครื่องมือค้นหา`;
 	const plain = await createActivity("seo-plain", { data: { summary } });

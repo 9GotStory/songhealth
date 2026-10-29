@@ -8,8 +8,8 @@
 // unpublished or trashed Document is left out (emdash 1.1.0 src/query.ts attachReferences,
 // src/references/resolve.ts). A first page holds at most 100 targets
 // (src/references/staged.ts REFERENCE_PAGE_MAX_LIMIT), far more than an Announcement attaches.
-// Referenced entries come without their taxonomy terms (src/loader.ts loadEntriesByGroups),
-// so their rows show no Document Type.
+// The targets come without their taxonomy terms, so their rows are read again with them
+// (src/lib/documents.ts documentsById).
 //
 // getEmDashEntry returns the published entry, or the draft when the request carries a valid
 // signed preview token for it (src/query.ts resolveEmDashEntry). Anything else answers with the
@@ -19,7 +19,7 @@
 // An Announcement has no summary, so its description is the start of its details, unless its SEO
 // panel sets one.
 import { extractPlainText, getEmDashEntry } from "emdash";
-import AnnouncementStatus from "../../components/AnnouncementStatus.astro";
+import StatusLabel from "../../components/StatusLabel.astro";
 import DateText from "../../components/DateText.astro";
 import DetailItem from "../../components/DetailItem.astro";
 import DocumentRow from "../../components/DocumentRow.astro";
@@ -27,16 +27,17 @@ import RichText from "../../components/RichText.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import {
 	ANNOUNCEMENTS_PATH,
+	CLOSED_LABEL,
 	announcementPath,
 	isClosed,
 	type AnnouncementData,
 } from "../../lib/announcements";
-import type { DocumentEntry } from "../../lib/documents";
+import { documentsById } from "../../lib/documents";
 import { excerpt } from "../../lib/excerpt";
 import { termsOf } from "../../lib/terms";
 
-/** The most attached Documents one read returns. */
-const ATTACHED_LIMIT = 100;
+/** The most related Documents one read returns. */
+const DOCUMENTS_LIMIT = 100;
 /** The longest description, in characters, taken from the details. */
 const DESCRIPTION_LENGTH = 160;
 
@@ -45,16 +46,16 @@ const { entry, isPreview, error } = await getEmDashEntry<
 	"announcements",
 	AnnouncementData,
 	{ documents: { limit: number } }
->("announcements", slug, { references: { documents: { limit: ATTACHED_LIMIT } } });
+>("announcements", slug, { references: { documents: { limit: DOCUMENTS_LIMIT } } });
 if (error) throw error;
 if (!entry) return Astro.rewrite("/404");
 
 const announcement = entry.data;
 const types = termsOf(announcement, "announcement_type");
 const closed = isClosed(announcement, new Date());
-// The field targets the documents collection; without generated types EmDash types its entries
-// as plain records.
-const documents = (entry.references?.documents.entries ?? []) as unknown as DocumentEntry[];
+const documents = await documentsById(
+	(entry.references?.documents.entries ?? []).map((target) => String(target.data.id)),
+);
 const description = excerpt(extractPlainText(announcement.details), DESCRIPTION_LENGTH);
 const hasDetails =
 	types.length > 0 ||
@@ -115,7 +116,7 @@ const hasDetails =
 				)}
 				{closed && (
 					<DetailItem term="สถานะ">
-						<AnnouncementStatus />
+						<StatusLabel attention>{CLOSED_LABEL}</StatusLabel>
 					</DetailItem>
 				)}
 			</dl>

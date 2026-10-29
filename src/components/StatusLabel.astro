@@ -1,0 +1,20 @@
+---
+// A status as a label (Feature 003 #55, #56; spec #51 "Shared building blocks"): the text in the
+// slot states it, and a warm fill marks a status that needs attention, so colour is never the only
+// signal.
+interface Props {
+	/** The status needs attention, such as a superseded Document or a closed Announcement. */
+	attention?: boolean;
+}
+
+const { attention = false } = Astro.props;
+---
+
+<span
+	class:list={[
+		"inline-flex rounded-pill px-3 text-label text-brand-dark",
+		attention ? "bg-accent-warm" : "bg-surface-soft",
+	]}
+>
+	<slot />
+</span>

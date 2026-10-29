@@ -36,13 +36,11 @@ import {
 	deleteSyntheticTerms,
 	loadDevAccessToken,
 	nativeDataOf,
-	nativeItemOf,
 	nativeItemsOf,
 	nativeRefusalOf,
 	NATIVE_ROLES,
 	portableTextBlock,
-	publishEntry,
-	readEntry,
+	publishEntryAt,
 	setMediaAlt,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
@@ -54,7 +52,6 @@ import {
 	type SyntheticTerm,
 } from "./cms.helpers";
 import {
-	DEFAULT_SITE_TITLE,
 	DESKTOP_VIEWPORT,
 	MOBILE_VIEWPORT,
 	VIEWPORTS,
@@ -65,6 +62,7 @@ import {
 	expectVisibleFocusOnEveryStop,
 	listedTitles,
 	ownTitles,
+	siteTitleParts,
 	test,
 	thaiDate,
 } from "./public.helpers";
@@ -118,26 +116,8 @@ async function createNews(
 }
 
 /** Publish now, or backdated to `publishedAt`. Returns the stored publication instant. */
-async function publish(news: NewsFixture, publishedAt?: string): Promise<string> {
-	const published = await publishEntry(admin, "news", news.id, { publishedAt });
-	expect(published.ok, `publishing ${news.title}: ${nativeRefusalOf(published)}`).toBe(true);
-	const stored = nativeItemOf(await readEntry(admin, "news", news.id))?.publishedAt;
-	expect(typeof stored, "publishing records publishedAt").toBe("string");
-	return String(stored);
-}
-
-/** What the native settings name, with the shell's fallbacks. */
-async function siteTitleParts(): Promise<{ siteTitle: string; separator: string }> {
-	const read = await cmsRequest(admin, "/_emdash/api/settings");
-	expect(read.ok, "the native settings read").toBe(true);
-	const settings = (nativeDataOf(read) ?? {}) as {
-		title?: string;
-		seo?: { titleSeparator?: string };
-	};
-	return {
-		siteTitle: settings.title?.trim() || DEFAULT_SITE_TITLE,
-		separator: settings.seo?.titleSeparator || " | ",
-	};
+function publish(news: NewsFixture, publishedAt?: string): Promise<string> {
+	return publishEntryAt(admin, "news", news.id, publishedAt);
 }
 
 /** The head metadata a search engine or a social preview reads. */
@@ -522,7 +502,7 @@ test.describe("the head of each News page", () => {
 	test("a News page carries its title, description, absolute canonical address and OG tags, with the SEO fields first and the summary as the fallback", async ({
 		page,
 	}) => {
-		const { siteTitle, separator } = await siteTitleParts();
+		const { siteTitle, separator } = await siteTitleParts(admin);
 		const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปข่าวสำหรับเครื่องมือค้นหา`;
 		const plain = await createNews("seo-plain", { data: { summary } });
 		const seoTitle = `${SYNTHETIC_FIXTURE_MARK} ชื่อสำหรับเครื่องมือค้นหา`;
@@ -560,7 +540,7 @@ test.describe("the head of each News page", () => {
 	test("the lists carry their title, a description, an absolute canonical address and the default OG image from settings", async ({
 		page,
 	}) => {
-		const { siteTitle, separator } = await siteTitleParts();
+		const { siteTitle, separator } = await siteTitleParts(admin);
 		const saved = await cmsRequest(admin, "/_emdash/api/settings");
 		expect(saved.ok, "the native settings read").toBe(true);
 		const before = (nativeDataOf(saved) ?? {}) as {

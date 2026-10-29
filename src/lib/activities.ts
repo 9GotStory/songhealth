@@ -5,10 +5,11 @@
 // valid preview token asks for a draft (emdash 1.1.0 src/loader.ts, src/query.ts
 // resolveEmDashEntry). Pages never pass a status. The list orders by when each Activity was held,
 // falling back to its publication, which EmDash cannot sort, so it reads every published Activity
-// and sorts it in src/lib/dated-lists.ts (ADR 0004).
+// (a query without a `limit` has none: src/loader.ts `fetchLimit`) and sorts it in
+// src/lib/dated-lists.ts (ADR 0004).
 
 import { getEmDashCollection, type ContentEntry, type TaxonomyTerm } from "emdash";
-import { listPage, newestFirst, type Instant, type ListPage } from "./dated-lists";
+import { listDate, listPage, newestFirst, type Instant, type ListPage } from "./dated-lists";
 import type { ImageFieldValue } from "./news";
 
 /** The fixed number of Activities a list page shows. */
@@ -43,14 +44,16 @@ export interface ActivityData {
 
 export type ActivityEntry = ContentEntry<ActivityData>;
 
-/** An Activity's canonical address, `/activities/{slug}` (`03` §15), encoded as EmDash encodes it. */
+/**
+ * An Activity's canonical address, `/activities/{slug}` (`03` §15), encoded as EmDash encodes it.
+ */
 export function activityPath(slug: string): string {
 	return `${ACTIVITIES_PATH}/${encodeURIComponent(slug)}`;
 }
 
 /** The date an Activity is listed by: when it was held, else when it was published. */
 export function activityDate(data: ActivityData): Instant {
-	return data.activity_at || data.publishedAt;
+	return listDate(data.activity_at, data.publishedAt);
 }
 
 /** One page of published Activities, the most recently held first. */
