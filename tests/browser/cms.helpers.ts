@@ -408,14 +408,20 @@ export async function loadDevAccessToken(path?: string): Promise<string> {
 	try {
 		parsed = JSON.parse(text);
 	} catch {
-		throw new CmsHelperError("DEV_ACCESS_INVALID", `${resolved} is neither one bare ec_pat_ token nor valid JSON`);
+		throw new CmsHelperError(
+			"DEV_ACCESS_INVALID",
+			`${resolved} is neither one bare ec_pat_ token nor valid JSON`,
+		);
 	}
 	const token =
 		parsed !== null && typeof parsed === "object"
 			? (parsed as Record<string, unknown>).token
 			: undefined;
 	if (typeof token !== "string" || token.trim().length === 0) {
-		throw new CmsHelperError("DEV_ACCESS_INVALID", `${resolved} carries no non-empty string token field`);
+		throw new CmsHelperError(
+			"DEV_ACCESS_INVALID",
+			`${resolved} carries no non-empty string token field`,
+		);
 	}
 	return token;
 }
@@ -510,9 +516,7 @@ function requireString(value: unknown, what: string): string {
 
 /** Narrow an unknown native value to a plain record (empty when not one). */
 function recordOf(value: unknown): Record<string, unknown> {
-	return value !== null && typeof value === "object"
-		? (value as Record<string, unknown>)
-		: {};
+	return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
 /**
@@ -811,7 +815,7 @@ export async function createDevBypassActor(options: DevBypassOptions = {}): Prom
 	// credential; nothing below returns it.
 	const rawData =
 		raw.rawBody !== null && typeof raw.rawBody === "object"
-			? ((raw.rawBody as Record<string, unknown>).data ?? {}) as Record<string, unknown>
+			? (((raw.rawBody as Record<string, unknown>).data ?? {}) as Record<string, unknown>)
 			: {};
 	const token = requireString(rawData.token, "the minted PAT (only present with ?token=1)");
 	const user = recordOf(rawData.user);
@@ -889,10 +893,7 @@ export async function createPatActor(options: PatActorOptions): Promise<CmsActor
 		},
 		options.token.trim(),
 	);
-	if (
-		options.expected?.userId !== undefined &&
-		options.expected.userId !== verified.userId
-	) {
+	if (options.expected?.userId !== undefined && options.expected.userId !== verified.userId) {
 		throw new CmsHelperError(
 			"IDENTITY_MISMATCH",
 			`the supplied credential belongs to user ${verified.userId}, not the expected ${options.expected.userId}`,
@@ -959,7 +960,10 @@ export interface ListUsersOptions {
 }
 
 /** GET /_emdash/api/admin/users — Administrator-only user listing. */
-export async function listUsers(admin: CmsActor, options: ListUsersOptions = {}): Promise<NativeResult> {
+export async function listUsers(
+	admin: CmsActor,
+	options: ListUsersOptions = {},
+): Promise<NativeResult> {
 	const searchParams: Record<string, string> = {};
 	if (options.search !== undefined) searchParams.search = options.search;
 	if (options.role !== undefined) searchParams.role = options.role;
@@ -1083,7 +1087,12 @@ export async function withNativeRole<T>(
 			const afterLive = await getMe(actor);
 			const adminRole = userRoleOf(afterAdmin);
 			const liveRole = nativeDataOf(afterLive)?.role;
-			if (!afterAdmin.ok || adminRole !== originalRole || !afterLive.ok || liveRole !== originalRole) {
+			if (
+				!afterAdmin.ok ||
+				adminRole !== originalRole ||
+				!afterLive.ok ||
+				liveRole !== originalRole
+			) {
 				return new CmsHelperError(
 					"ROLE_RESTORE_UNVERIFIED",
 					`restoration of ${nativeRoleName(originalRole)} for account ${actor.userId} was requested but not verified (${roleStateText(adminRole, afterLive.ok ? liveRole : nativeRefusalOf(afterLive))})`,
@@ -1261,13 +1270,9 @@ export async function uploadSyntheticMedia(
 	options: { filename?: string } = {},
 ): Promise<SyntheticMediaResult> {
 	const filename =
-		options.filename ??
-		`${SYNTHETIC_SLUG_PREFIX}media-${crypto.randomUUID().slice(0, 8)}.png`;
+		options.filename ?? `${SYNTHETIC_SLUG_PREFIX}media-${crypto.randomUUID().slice(0, 8)}.png`;
 	const form = new FormData();
-	form.append(
-		"file",
-		new File([syntheticMediaPng()], filename, { type: "image/png" }),
-	);
+	form.append("file", new File([syntheticMediaPng()], filename, { type: "image/png" }));
 	// The pinned 1.1.0 upload form parses `deduplicate` with
 	// .default("true") (api/schemas/media.ts mediaUploadDeduplicateForm),
 	// so silence is NOT an opt-out — the explicit "false" is required for
@@ -1342,19 +1347,15 @@ export async function createSyntheticEntry(
 	collection: string,
 	input: SyntheticEntryInput,
 ): Promise<SyntheticEntryResult> {
-	const result = await cmsRequest(
-		actor,
-		`/_emdash/api/content/${encodeURIComponent(collection)}`,
-		{
-			method: "POST",
-			body: {
-				data: input.data,
-				slug: input.slug ?? syntheticSlug(),
-				...(input.references !== undefined ? { references: input.references } : {}),
-				...(input.taxonomies !== undefined ? { taxonomies: input.taxonomies } : {}),
-			},
+	const result = await cmsRequest(actor, `/_emdash/api/content/${encodeURIComponent(collection)}`, {
+		method: "POST",
+		body: {
+			data: input.data,
+			slug: input.slug ?? syntheticSlug(),
+			...(input.references !== undefined ? { references: input.references } : {}),
+			...(input.taxonomies !== undefined ? { taxonomies: input.taxonomies } : {}),
 		},
-	);
+	});
 	const entryId = nativeItemOf(result)?.id;
 	const rev = nativeRevOf(result);
 	if (result.ok && typeof entryId === "string") {
@@ -1388,11 +1389,7 @@ export async function readEntry(
  * reusing a stale token. Tests that want the refusal itself should use
  * readEntry and handle the result.
  */
-export async function currentRev(
-	actor: CmsActor,
-	collection: string,
-	id: string,
-): Promise<string> {
+export async function currentRev(actor: CmsActor, collection: string, id: string): Promise<string> {
 	const read = await readEntry(actor, collection, id);
 	const rev = nativeRevOf(read);
 	if (!read.ok || rev === undefined) {
@@ -1443,9 +1440,7 @@ export async function updateEntry(
 			method: "PUT",
 			body: {
 				_rev: rev,
-				...(payload.overrideLock !== undefined
-					? { overrideLock: payload.overrideLock }
-					: {}),
+				...(payload.overrideLock !== undefined ? { overrideLock: payload.overrideLock } : {}),
 				...(payload.data !== undefined ? { data: payload.data } : {}),
 				...(payload.references !== undefined ? { references: payload.references } : {}),
 				...(payload.taxonomies !== undefined ? { taxonomies: payload.taxonomies } : {}),
@@ -1549,9 +1544,7 @@ export async function trashEntry(
 		`/_emdash/api/content/${encodeURIComponent(collection)}/${encodeURIComponent(id)}`,
 		{
 			method: "DELETE",
-			...(options.overrideLock === true
-				? { searchParams: { overrideLock: "true" } }
-				: {}),
+			...(options.overrideLock === true ? { searchParams: { overrideLock: "true" } } : {}),
 		},
 	);
 }
@@ -1834,7 +1827,8 @@ export async function cleanupOwnedFixtures(
 				entryReport.permanentlyDeleted = true;
 				entryReport.note = "already absent (not in the native trash listing; ordinary read 404)";
 			} else if (presence === "live") {
-				entryReport.note = "still a live entry; the native trash-first path must succeed before purge";
+				entryReport.note =
+					"still a live entry; the native trash-first path must succeed before purge";
 			}
 			// "unknown" keeps the observed refusal and stays unresolved.
 		}
@@ -1858,7 +1852,8 @@ export async function cleanupOwnedFixtures(
 				}
 			}
 		}
-		entryReport.resolved = absent || (permanent ? entryReport.permanentlyDeleted : entryReport.trashed);
+		entryReport.resolved =
+			absent || (permanent ? entryReport.permanentlyDeleted : entryReport.trashed);
 		if (entryReport.resolved) {
 			resolvedEntryIds.add(entry.id);
 		} else {
@@ -1923,10 +1918,7 @@ export const ADMIN_SESSION_ENV = "SONGHEALTH_ADMIN_SESSION";
 export interface SessionContext {
 	request: {
 		get(url: string): Promise<{ status(): number; json(): Promise<unknown> }>;
-		post(
-			url: string,
-			options: { headers: Record<string, string> },
-		): Promise<{ status(): number }>;
+		post(url: string, options: { headers: Record<string, string> }): Promise<{ status(): number }>;
 	};
 }
 
@@ -1951,8 +1943,7 @@ export async function devAdminSessionRequested(): Promise<boolean> {
 export async function openDevAdminSession(context: SessionContext): Promise<void> {
 	const response = await context.request.get("/_emdash/api/auth/dev-bypass");
 	const body = (await response.json().catch(() => undefined)) as
-		| { data?: { user?: { email?: unknown; role?: unknown } } }
-		| undefined;
+		{ data?: { user?: { email?: unknown; role?: unknown } } } | undefined;
 	const user = body?.data?.user;
 	if (response.status() !== 200 || user?.email !== "dev@emdash.local" || user?.role !== 50) {
 		throw new CmsHelperError(
