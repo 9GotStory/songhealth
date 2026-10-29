@@ -31,6 +31,9 @@ pull request: `npm run build`, `npm run typecheck`, `npm run test:node`, `npm ru
 - CMS images go through EmDash's `Image` with a `sizes` that matches their box. Image size
   evidence from the development runtime shows renditions that production does not serve
   (ADR 0003).
+- A CMS image or file is shown only while `src/lib/media.ts` (`availableMedia`,
+  `downloadableFile`) says its media can be served, because Admin can delete a media item that
+  content still uses. `tests/node/public-media.test.ts` checks this for EmDash's `Image`.
 
 ## Tests
 
@@ -38,6 +41,9 @@ pull request: `npm run build`, `npm run typecheck`, `npm run test:node`, `npm ru
   third-party request guard runs. Each template is checked at both `VIEWPORTS` with
   `expectNoAxeViolations` and `expectVisibleFocusOnEveryStop`, and at 320 px with
   `expectNoHorizontalScroll`.
+- A helper that a second suite needs moves to a shared module: page checks (the 404 page, Thai
+  dates, list titles) to `tests/browser/public.helpers.ts`, native API fixtures (entries, media,
+  terms) to `tests/browser/cms.helpers.ts`.
 - Tests assert what people see and use: text, links, status and focus. A `data-testid` marks
   only an element with no accessible role or name, such as a decorative mark.
 - A test that changes shared runtime state (site settings, menus, plugin settings) saves it first
