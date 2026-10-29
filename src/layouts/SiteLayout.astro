@@ -71,10 +71,6 @@ const pageContext = createPublicPageContext({
 	articleMeta: publishedAt ? { publishedTime: publishedAt } : undefined,
 	siteName: identity.title,
 	siteUrl: identity.origin,
-	breadcrumbs: breadcrumbs?.map((crumb) => ({
-		name: crumb.label,
-		url: crumb.href ?? canonical ?? "",
-	})),
 });
 const { pathname } = Astro.url;
 const navigation = MAIN_NAVIGATION.map((item) => ({

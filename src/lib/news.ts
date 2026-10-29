@@ -15,7 +15,10 @@ import {
 } from "emdash";
 
 /** The fixed number of News a list page shows. */
-export const NEWS_PAGE_SIZE = 12;
+const NEWS_PAGE_SIZE = 12;
+
+/** The query parameter that narrows Health News to one Health Topic. */
+export const TOPIC_PARAM = "topic";
 
 /** An image field value, as EmDash's Image component takes it. */
 export interface ImageFieldValue {
@@ -46,6 +49,11 @@ export type NewsEntry = ContentEntry<NewsData>;
 /** A News item's canonical address, `/news/{slug}` (`03` §15), encoded as EmDash encodes it. */
 export function newsPath(slug: string): string {
 	return `/news/${encodeURIComponent(slug)}`;
+}
+
+/** The Health News address, narrowed to one Health Topic by its `topic` term slug when given. */
+export function healthNewsPath(topic?: string): string {
+	return topic ? `/news/health?${new URLSearchParams({ [TOPIC_PARAM]: topic })}` : "/news/health";
 }
 
 /** The terms of `taxonomy` on an entry, in the order EmDash hydrates them (by label). */

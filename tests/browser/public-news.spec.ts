@@ -396,17 +396,17 @@ test("/news/health lists News with any topic, ?topic= narrows it, and an unknown
 
 	// The filter is a plain GET form: it works without JavaScript and keeps the topic in the address.
 	const filter = page.getByRole("form", { name: "กรองข่าวสุขภาพ" });
-	await filter.getByLabel("หัวข้อ").selectOption({ label: vaccine.label });
+	await filter.getByLabel("ประเด็นสุขภาพ").selectOption({ label: vaccine.label });
 	await filter.getByRole("button", { name: "แสดงผล" }).click();
 	await expect(page).toHaveURL(`/news/health?topic=${vaccine.slug}`);
-	await expect(filter.getByLabel("หัวข้อ")).toHaveValue(vaccine.slug);
+	await expect(filter.getByLabel("ประเด็นสุขภาพ")).toHaveValue(vaccine.slug);
 	expect(ownTitles(await listedTitles(page), all)).toEqual([vaccineNews.title]);
 	expect((await headOf(page)).canonical).toBe(`${origin}/news/health?topic=${vaccine.slug}`);
 
 	const unknown = await page.goto(`/news/health?topic=${syntheticSlug("no-such-topic")}`);
 	expect(unknown?.status(), "an unknown topic is not an error").toBe(200);
 	await expect(page.getByRole("article")).toHaveCount(0);
-	await expect(page.getByRole("main").getByText("ไม่พบข่าวสุขภาพในหัวข้อนี้")).toBeVisible();
+	await expect(page.getByRole("main").getByText("ไม่พบข่าวสุขภาพในประเด็นนี้")).toBeVisible();
 });
 
 test("a News page shows its title, Thai date, category, topics, image with its alt text, body and breadcrumb", async ({
@@ -669,10 +669,13 @@ test.describe("accessibility and reflow", () => {
 		const topic = await createTerm("topic", "ผู้สูงอายุ");
 		const category = await createTerm("news_category", "กิจกรรม");
 		const media = await uploadSyntheticMedia(admin);
-		await cmsRequest(admin, `/_emdash/api/media/${encodeURIComponent(media.mediaId!)}`, {
-			method: "PUT",
-			body: { alt: `${SYNTHETIC_FIXTURE_MARK} ภาพประกอบข่าว` },
-		});
+		expect(media.mediaId, "the synthetic image must upload").toBeDefined();
+		const described = await cmsRequest(
+			admin,
+			`/_emdash/api/media/${encodeURIComponent(media.mediaId!)}`,
+			{ method: "PUT", body: { alt: `${SYNTHETIC_FIXTURE_MARK} ภาพประกอบข่าว` } },
+		);
+		expect(described.ok, `the media alt text: ${nativeRefusalOf(described)}`).toBe(true);
 		news = await createNews("a11y", {
 			data: {
 				summary: `${SYNTHETIC_FIXTURE_MARK} สรุปข่าวสำหรับตรวจการเข้าถึง`,

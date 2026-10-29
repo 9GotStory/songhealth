@@ -3,9 +3,13 @@
 // Health Content later. The title links to the item's own page. The picture is decorative here,
 // because the title already names the link; without one, a plain visual keeps the grid even.
 //
-// Images go through EmDash's Image component, which gives a responsive srcset where Astro's
-// image service can transform the media, and otherwise the original file. Either way the card's
-// CSS sets the picture's box, so a large or odd-shaped image never changes the card.
+// Images go through EmDash's Image component (emdash 1.1.0 src/components/EmDashImage.astro). It
+// gives a responsive srcset where Astro's image service may transform the media, which is the
+// development server; a production build authorizes no media source, so the image service
+// returns the original file and sharp is never used (src/astro/integration/index.ts
+// buildImageRemotePatterns; astro 7.3.5 dist/assets/services/service.js getURL). Either way the
+// card's CSS sets the picture's box, so a large or odd-shaped image never changes the card. A
+// `loading` attribute passed to the component overrides its lazy default.
 import { Image } from "emdash/ui";
 import type { ImageFieldValue } from "../lib/news";
 import DateText from "./DateText.astro";
@@ -18,14 +22,21 @@ interface Props {
 	date?: Date | string | null;
 	summary?: string;
 	image?: ImageFieldValue;
+	/** Load the picture at once, for a card in view when the page opens. */
+	eager?: boolean;
 }
 
-const { href, title, label, date, summary, image } = Astro.props;
+const { href, title, label, date, summary, image, eager = false } = Astro.props;
 ---
 
 <article class="flex h-full flex-col overflow-hidden rounded-24 bg-surface-base shadow-card">
 	{image ? (
-		<Image image={image} alt="" class="aspect-16/10 w-full object-cover" />
+		<Image
+			image={image}
+			alt=""
+			loading={eager ? "eager" : "lazy"}
+			class="aspect-16/10 w-full object-cover"
+		/>
 	) : (
 		<div aria-hidden="true" class="aspect-16/10 w-full bg-surface-soft" />
 	)}

@@ -1,6 +1,7 @@
 ---
 // A heading-1 block of rich text, rendered one level down (see RichText.astro). astro-portabletext
-// passes the block as `node` with its position; neither belongs on the element.
+// passes a block component the block as `node`, with `index` and `isInline`
+// (astro-portabletext 0.11.4 lib/types.ts); none of them belongs on the element.
 const { node: _node, index: _index, isInline: _isInline, ...attrs } = Astro.props;
 ---
 
