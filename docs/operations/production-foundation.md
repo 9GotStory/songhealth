@@ -676,6 +676,29 @@ Deliberately absent, and not to be improvised as "maintenance":
   missing/replaced store** (§5.3).
 - **No second production stack** — no Docker/Compose or Kubernetes variant is maintained.
 
+### 7.4 Content model updates
+
+EmDash applies `seed/seed.json` only when it sets up a fresh database. A database set up from an
+earlier seed gets a later content model from the model-update step, `scripts/model-update.mjs`
+(`10` §4). The step uses only EmDash's native schema API:
+
+1. Back up the database and its media (`10` §18). The production backup procedure belongs to the
+   pending recovery work (§11).
+2. Use a checkout at the deployed commit, Node 24.21.0 and an API token of an Administrator with
+   the `schema:read` and `schema:write` scopes. Check what is pending, then apply it:
+
+   ```bash
+   node scripts/model-update.mjs --origin <public origin> --check < <token file>  # 0: nothing pending, 3: changes pending
+   node scripts/model-update.mjs --origin <public origin> < <token file>
+   ```
+
+   The token goes in on standard input and is never printed. A problem, such as a URL pattern
+   that differs from the seed's, changes nothing and needs a Product Owner decision.
+3. Verify the public and Admin paths.
+
+The development runtime runs the same step through `scripts/dev-runtime-model-update.sh`
+(`development-quadlet.md`).
+
 ## 8. Readiness interpretation
 
 ### 8.1 What each observable signal proves — and does not

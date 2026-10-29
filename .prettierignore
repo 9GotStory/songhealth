@@ -11,9 +11,18 @@ seed/
 # touches them. That change formats the file in a commit of its own and removes it here.
 scripts/verify-readiness.mjs
 scripts/verify-restored-foundation.mjs
-tests/node/
+tests/node/config.test.ts
+tests/node/foundation.test.ts
 tests/browser/foundation.spec.ts
 tests/browser/cms.helpers.ts
-tests/browser/cms-*.spec.ts
+tests/browser/cms-authoring.spec.ts
+tests/browser/cms-document.spec.ts
+tests/browser/cms-editor.spec.ts
+tests/browser/cms-facilities.spec.ts
+tests/browser/cms-lifecycle.spec.ts
+tests/browser/cms-lifecycle-ui.spec.ts
+tests/browser/cms-personnel.spec.ts
+tests/browser/cms-public-reads.spec.ts
+tests/browser/cms-reuse.spec.ts
 tests/browser/run-cms-public-reads.mjs
 tests/browser/fixtures/
