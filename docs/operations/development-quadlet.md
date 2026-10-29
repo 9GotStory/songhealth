@@ -144,6 +144,11 @@ The update runs these steps:
 4. Hands over to that commit's installer. The installer runs `npm ci` only if the lockfile
    changed, refreshes changed units, starts the app and runs verify.
 
+Keep the backup whenever the commit can change data: a new `package-lock.json` (an EmDash upgrade
+runs its migrations on the first request), the seed, the content model, or a model-update step.
+A commit that changes only code, tests or docs can skip it with `--no-backup`. That suits the
+repeated promotions of a test-first loop, where the last backup taken already holds the data.
+
 If that commit upgrades EmDash, its new core migrations run on the first request. Going
 **back** afterwards means restoring the pre-update backup. Restore admits a backup only when
 its recorded commit equals the runtime's promoted commit, so first point the checkout back at
