@@ -13,14 +13,11 @@
 // EmDash's middleware before this page runs.
 import { getEmDashEntry } from "emdash";
 import DateText from "../../components/DateText.astro";
+import DetailItem from "../../components/DetailItem.astro";
 import DocumentDownload from "../../components/DocumentDownload.astro";
+import DocumentStatus from "../../components/DocumentStatus.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import {
-	DOMAIN_STATUS_LABELS,
-	documentPath,
-	documentsPath,
-	type DocumentData,
-} from "../../lib/documents";
+import { documentPath, documentsPath, type DocumentData } from "../../lib/documents";
 import { termsOf } from "../../lib/terms";
 
 const slug = Astro.params.slug ?? "";
@@ -35,7 +32,6 @@ if (!entry) return Astro.rewrite("/404");
 const document = entry.data;
 const types = termsOf(document, "document_type");
 const topics = termsOf(document, "topic");
-const status = document.domain_status ? DOMAIN_STATUS_LABELS[document.domain_status] : undefined;
 const successor = entry.references?.successor.entries[0];
 const successorTitle = typeof successor?.data.title === "string" ? successor.data.title : undefined;
 const hasDetails =
@@ -43,7 +39,7 @@ const hasDetails =
 	!!document.document_at ||
 	!!document.fiscal_year ||
 	!!document.owner_source ||
-	!!status ||
+	!!document.domain_status ||
 	topics.length > 0;
 ---
 
@@ -73,66 +69,37 @@ const hasDetails =
 		{hasDetails && (
 			<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
 				{types.length > 0 && (
-					<div class="flex flex-col gap-1 sm:flex-row sm:gap-6">
-						<dt class="text-label text-text-secondary sm:w-44 sm:shrink-0">ประเภทเอกสาร</dt>
-						<dd class="wrap-anywhere">{types.map((type) => type.label).join(", ")}</dd>
-					</div>
+					<DetailItem term="ประเภทเอกสาร">{types.map((type) => type.label).join(", ")}</DetailItem>
 				)}
 				{document.document_at && (
-					<div class="flex flex-col gap-1 sm:flex-row sm:gap-6">
-						<dt class="text-label text-text-secondary sm:w-44 sm:shrink-0">วันที่เอกสาร</dt>
-						<dd>
-							<DateText value={document.document_at} />
-						</dd>
-					</div>
+					<DetailItem term="วันที่เอกสาร">
+						<DateText value={document.document_at} />
+					</DetailItem>
 				)}
-				{document.fiscal_year && (
-					<div class="flex flex-col gap-1 sm:flex-row sm:gap-6">
-						<dt class="text-label text-text-secondary sm:w-44 sm:shrink-0">ปีงบประมาณ</dt>
-						<dd>{document.fiscal_year}</dd>
-					</div>
-				)}
+				{document.fiscal_year && <DetailItem term="ปีงบประมาณ">{document.fiscal_year}</DetailItem>}
 				{document.owner_source && (
-					<div class="flex flex-col gap-1 sm:flex-row sm:gap-6">
-						<dt class="text-label text-text-secondary sm:w-44 sm:shrink-0">เจ้าของ/แหล่งที่มา</dt>
-						<dd class="wrap-anywhere">{document.owner_source}</dd>
-					</div>
+					<DetailItem term="เจ้าของ/แหล่งที่มา">{document.owner_source}</DetailItem>
 				)}
-				{status && (
-					<div class="flex flex-col gap-1 sm:flex-row sm:gap-6">
-						<dt class="text-label text-text-secondary sm:w-44 sm:shrink-0">สถานะเอกสาร</dt>
-						<dd>
-							<span
-								class:list={[
-									"inline-flex rounded-pill px-3 text-label",
-									document.domain_status === "current"
-										? "bg-surface-soft text-brand-dark"
-										: "bg-accent-warm text-brand-dark",
-								]}
-							>
-								{status}
-							</span>
-						</dd>
-					</div>
+				{document.domain_status && (
+					<DetailItem term="สถานะเอกสาร">
+						<DocumentStatus status={document.domain_status} />
+					</DetailItem>
 				)}
 				{topics.length > 0 && (
-					<div class="flex flex-col gap-1 sm:flex-row sm:gap-6">
-						<dt class="text-label text-text-secondary sm:w-44 sm:shrink-0">หัวข้อ</dt>
-						<dd>
-							<ul class="flex flex-wrap gap-x-4 gap-y-1">
-								{topics.map((topic) => (
-									<li>
-										<a
-											class="inline-flex min-h-11 items-center text-brand-primary underline underline-offset-4"
-											href={documentsPath({ type: "", topic: topic.slug, year: "" })}
-										>
-											{topic.label}
-										</a>
-									</li>
-								))}
-							</ul>
-						</dd>
-					</div>
+					<DetailItem term="หัวข้อ">
+						<ul class="flex flex-wrap gap-x-4 gap-y-1">
+							{topics.map((topic) => (
+								<li>
+									<a
+										class="inline-flex min-h-11 items-center text-brand-primary underline underline-offset-4"
+										href={documentsPath({ topic: topic.slug })}
+									>
+										{topic.label}
+									</a>
+								</li>
+							))}
+						</ul>
+					</DetailItem>
 				)}
 			</dl>
 		)}

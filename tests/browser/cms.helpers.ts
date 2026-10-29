@@ -1260,6 +1260,55 @@ export async function createSyntheticEntry(
 }
 
 // ---------------------------------------------------------------------------
+// Synthetic taxonomy terms (native request shapes)
+// ---------------------------------------------------------------------------
+
+export interface SyntheticTerm {
+	taxonomy: string;
+	slug: string;
+	label: string;
+}
+
+/**
+ * Create one term of `taxonomy` labelled exactly `label`, under a synthetic slug, through the
+ * native taxonomy API (POST /_emdash/api/taxonomies/{taxonomy}/terms). Terms are not in the
+ * owned-fixture registry: the caller keeps them and hands them to deleteSyntheticTerms. A refusal
+ * throws.
+ */
+export async function createSyntheticTerm(
+	actor: CmsActor,
+	taxonomy: string,
+	label: string,
+): Promise<SyntheticTerm> {
+	const slug = syntheticSlug(taxonomy.replaceAll("_", "-"));
+	const created = await cmsRequest(actor, `/_emdash/api/taxonomies/${taxonomy}/terms`, {
+		method: "POST",
+		body: { slug, label },
+	});
+	if (!created.ok) {
+		throw new CmsHelperError("synthetic-term", `${taxonomy} term: ${nativeRefusalOf(created)}`);
+	}
+	return { taxonomy, slug, label };
+}
+
+/** Delete terms through the native taxonomy API. Returns a line for each that was not deleted. */
+export async function deleteSyntheticTerms(
+	actor: CmsActor,
+	terms: ReadonlyArray<Pick<SyntheticTerm, "taxonomy" | "slug">>,
+): Promise<string[]> {
+	const failures: string[] = [];
+	for (const { taxonomy, slug } of terms) {
+		const removed = await cmsRequest(
+			actor,
+			`/_emdash/api/taxonomies/${taxonomy}/terms/${encodeURIComponent(slug)}`,
+			{ method: "DELETE" },
+		);
+		if (!removed.ok) failures.push(`the ${taxonomy} term ${slug}: ${nativeRefusalOf(removed)}`);
+	}
+	return failures;
+}
+
+// ---------------------------------------------------------------------------
 // Native content reads, fresh `_rev` preconditions, lifecycle requests
 // ---------------------------------------------------------------------------
 

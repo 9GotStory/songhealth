@@ -67,7 +67,8 @@ const fixtures: Fixtures = async ({ admin, helpers, term }) => {
 			file: { bytes: helpers.syntheticMediaPdf(), type: "application/pdf" },
 		});
 		const item = helpers.nativeItemOf(uploaded.result) as
-			{ id: string; filename: string; mimeType: string; storageKey: string } | undefined;
+			| { id: string; filename: string; mimeType: string; size: number; storageKey: string }
+			| undefined;
 		if (item === undefined || uploaded.mediaId === undefined) {
 			throw new Error(`file: ${helpers.nativeRefusalOf(uploaded.result)}`);
 		}
@@ -82,6 +83,7 @@ const fixtures: Fixtures = async ({ admin, helpers, term }) => {
 					provider: "local",
 					filename: item.filename,
 					mimeType: item.mimeType,
+					size: item.size,
 					meta: { storageKey: item.storageKey },
 				},
 				document_at: document.documentAt,

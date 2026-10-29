@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { downloadableFile, isMediaAvailable } from "../../src/lib/media.ts";
+import { availableMedia, downloadableFile } from "../../src/lib/media.ts";
 
 /**
  * A stand-in for EmDash's storage adapter holding `files` (storage key → size in bytes), and the
@@ -46,44 +46,49 @@ function runtimeWith(files: Record<string, number> = {}) {
 	};
 }
 
-describe("isMediaAvailable", () => {
-	it("is true for local media whose stored file exists, looked up by its storage key", async () => {
+describe("availableMedia", () => {
+	it("gives back local media whose stored file exists, looked up by its storage key", async () => {
 		const { asked, runtime } = runtimeWith({ "01JX0001.png": 2_048 });
 		const image = { id: "01JX0001", provider: "local", meta: { storageKey: "01JX0001.png" } };
-		assert.equal(await isMediaAvailable(image, runtime), true);
+		assert.equal(await availableMedia(image, runtime), image);
 		assert.deepEqual(asked, ["01JX0001.png"]);
 	});
 
-	it("is false once the stored file is gone, as after its media item was deleted", async () => {
+	it("gives nothing once the stored file is gone, as after its media item was deleted", async () => {
 		const { runtime } = runtimeWith();
 		const image = { id: "01JX0002", provider: "local", meta: { storageKey: "01JX0002.png" } };
-		assert.equal(await isMediaAvailable(image, runtime), false);
+		assert.equal(await availableMedia(image, runtime), undefined);
 	});
 
 	it("takes a value without a provider as local media, the way EmDash does", async () => {
 		const { runtime } = runtimeWith({ "01JX0003.pdf": 10 });
-		assert.equal(
-			await isMediaAvailable({ id: "01JX0003", meta: { storageKey: "01JX0003.pdf" } }, runtime),
-			true,
-		);
+		const file = { id: "01JX0003", meta: { storageKey: "01JX0003.pdf" } };
+		assert.equal(await availableMedia(file, runtime), file);
 	});
 
-	it("is false for media of another provider, which a page could only show from another origin", async () => {
+	it("looks a value without a cached storage key up by its id, as EmDash's image URL does", async () => {
+		const { asked, runtime } = runtimeWith({ "01JX0005": 10 });
+		const image = { id: "01JX0005", provider: "local" };
+		assert.equal(await availableMedia(image, runtime), image);
+		assert.deepEqual(asked, ["01JX0005"]);
+	});
+
+	it("gives nothing for media of another provider, which a page could only show from another origin", async () => {
 		const { asked, runtime } = runtimeWith({ "photo-1": 10 });
 		const image = {
 			id: "photo-1",
 			provider: "external",
 			src: "https://images.example/photo-1.jpg",
 		};
-		assert.equal(await isMediaAvailable(image, runtime), false);
+		assert.equal(await availableMedia(image, runtime), undefined);
 		assert.deepEqual(asked, [], "the storage is not asked about another provider's media");
 	});
 
-	it("is false without a value or without a storage adapter to serve it", async () => {
+	it("gives nothing without a value or without a storage adapter to serve it", async () => {
 		const image = { id: "01JX0004", meta: { storageKey: "01JX0004.png" } };
-		assert.equal(await isMediaAvailable(undefined, runtimeWith().runtime), false);
-		assert.equal(await isMediaAvailable(image, undefined), false);
-		assert.equal(await isMediaAvailable(image, { storage: null }), false);
+		assert.equal(await availableMedia(undefined, runtimeWith().runtime), undefined);
+		assert.equal(await availableMedia(image, undefined), undefined);
+		assert.equal(await availableMedia(image, { storage: null }), undefined);
 	});
 });
 
@@ -102,14 +107,13 @@ describe("downloadableFile", () => {
 		};
 	}
 
-	it("offers a stored file at EmDash's media URL, with its file type, size and original name", async () => {
+	it("offers a stored file at EmDash's media URL, labelled with its file type and size, under its original name", async () => {
 		const { runtime } = runtimeWith({ "01JX0010.pdf": 1_258_291 });
 		assert.deepEqual(
 			await downloadableFile(pickedFile("01JX0010.pdf", "แผนปฏิบัติการ 2569.pdf"), runtime),
 			{
 				href: "/_emdash/api/media/file/01JX0010.pdf",
-				type: "PDF",
-				size: "1.2 MB",
+				label: "PDF, 1.2 MB",
 				filename: "แผนปฏิบัติการ 2569.pdf",
 			},
 		);
@@ -126,10 +130,13 @@ describe("downloadableFile", () => {
 		assert.equal(await downloadableFile(pickedFile("01JX0011.pdf", "a.pdf"), runtime), undefined);
 	});
 
-	it("offers nothing for another provider's file or without a storage adapter", async () => {
+	it("offers nothing for another provider's file, or without EmDash's storage and media URL", async () => {
 		const external = { id: "", provider: "external", src: "https://files.example/a.pdf" };
 		assert.equal(await downloadableFile(external, runtimeWith().runtime), undefined);
-		assert.equal(await downloadableFile(pickedFile("01JX0016.pdf", "a.pdf"), undefined), undefined);
+		const file = pickedFile("01JX0016.pdf", "a.pdf");
+		assert.equal(await downloadableFile(file, undefined), undefined);
+		const { storage } = runtimeWith({ "01JX0016.pdf": 10 }).runtime;
+		assert.equal(await downloadableFile(file, { storage }), undefined);
 	});
 
 	it("passes on a storage failure other than a missing file", async () => {
@@ -140,6 +147,7 @@ describe("downloadableFile", () => {
 					throw Object.assign(new Error("disk unreadable"), { code: "DOWNLOAD_FAILED" });
 				},
 			},
+			getPublicMediaUrl: (key: string) => `/_emdash/api/media/file/${key}`,
 		};
 		await assert.rejects(
 			downloadableFile(pickedFile("01JX0017.pdf", "a.pdf"), runtime),
@@ -148,23 +156,29 @@ describe("downloadableFile", () => {
 	});
 
 	it("writes the size in the Admin's units, with at most one decimal", async () => {
-		const sizeOf = async (bytes: number) =>
+		const labelOf = async (bytes: number) =>
 			(
 				await downloadableFile(
 					pickedFile("01JX0012.pdf", "a.pdf"),
 					runtimeWith({ "01JX0012.pdf": bytes }).runtime,
 				)
-			)?.size;
-		assert.equal(await sizeOf(0), "0 B");
-		assert.equal(await sizeOf(820), "820 B");
-		assert.equal(await sizeOf(358_400), "350 KB");
-		assert.equal(await sizeOf(1_536), "1.5 KB");
-		assert.equal(await sizeOf(5_368_709_120), "5 GB");
+			)?.label;
+		assert.equal(await labelOf(0), "PDF, 0 B");
+		assert.equal(await labelOf(820), "PDF, 820 B");
+		assert.equal(await labelOf(358_400), "PDF, 350 KB");
+		assert.equal(await labelOf(1_536), "PDF, 1.5 KB");
+		assert.equal(await labelOf(5_368_709_120), "PDF, 5 GB");
 	});
 
 	it("takes the type from the stored file's key when the filename has no extension", async () => {
 		const { runtime } = runtimeWith({ "01JX0014.pdf": 2_048 });
 		const file = await downloadableFile(pickedFile("01JX0014.pdf", "ตารางสรุป"), runtime);
-		assert.equal(file?.type, "PDF");
+		assert.equal(file?.label, "PDF, 2 KB");
+	});
+
+	it("labels a file with neither extension by its size alone", async () => {
+		const { runtime } = runtimeWith({ "01JX0018": 2_048 });
+		const file = await downloadableFile(pickedFile("01JX0018", "ตารางสรุป"), runtime);
+		assert.equal(file?.label, "2 KB");
 	});
 });

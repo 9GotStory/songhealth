@@ -73,21 +73,16 @@ const admin = await helpers.createPatActor({
 	token: await helpers.loadDevAccessToken(),
 	expected: { role: helpers.NATIVE_ROLES.administrator },
 });
-const terms: Array<{ taxonomy: string; slug: string }> = [];
+const terms: helpers.SyntheticTerm[] = [];
 const media: string[] = [];
 
 const kit: FixtureKit = {
 	admin,
 	helpers,
 	async term(taxonomy, label) {
-		const slug = helpers.syntheticSlug(taxonomy.replaceAll("_", "-"));
-		const created = await helpers.cmsRequest(admin, `/_emdash/api/taxonomies/${taxonomy}/terms`, {
-			method: "POST",
-			body: { slug, label },
-		});
-		if (!created.ok) throw new Error(`${taxonomy} term: ${helpers.nativeRefusalOf(created)}`);
-		terms.push({ taxonomy, slug });
-		return slug;
+		const term = await helpers.createSyntheticTerm(admin, taxonomy, label);
+		terms.push(term);
+		return term.slug;
 	},
 	async picture(alt, from, to) {
 		const [a, b] = [rgb(from), rgb(to)];
@@ -145,14 +140,7 @@ try {
 		});
 		if (!removed.ok) failures.push(`picture ${id}: ${helpers.nativeRefusalOf(removed)}`);
 	}
-	for (const { taxonomy, slug } of terms) {
-		const removed = await helpers.cmsRequest(
-			admin,
-			`/_emdash/api/taxonomies/${taxonomy}/terms/${encodeURIComponent(slug)}`,
-			{ method: "DELETE" },
-		);
-		if (!removed.ok) failures.push(`${taxonomy} term ${slug}: ${helpers.nativeRefusalOf(removed)}`);
-	}
+	failures.push(...(await helpers.deleteSyntheticTerms(admin, terms)));
 }
 if (failures.length > 0) {
 	console.error(failures.join("\n"));

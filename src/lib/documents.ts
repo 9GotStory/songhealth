@@ -7,9 +7,10 @@
 // never pass a status.
 //
 // The list filters by Document Type, topic and fiscal year through GET parameters, so a filtered
-// list has its own address. A `where` on a taxonomy matches the exact term, and one that does not
-// exist matches nothing; a fiscal year is a four-digit Buddhist Era year, and any other value is
-// ignored rather than sent to the database.
+// list has its own address. A `where` on a taxonomy matches the exact term, and a term that does
+// not exist matches nothing (emdash 1.1.0 src/loader.ts resolveTermGroups), as on Health News. A
+// fiscal year is a whole number as the integer field stores it; any other value is ignored rather
+// than sent to the database.
 
 import {
 	getEmDashCollection,
@@ -23,14 +24,27 @@ import { TOPIC_PARAM } from "./terms";
 /** The fixed number of Documents a list page shows. */
 const DOCUMENTS_PAGE_SIZE = 20;
 
-/** The query parameter that narrows the list to one Document Type (`document_type` term). */
-export const TYPE_PARAM = "type";
+/** Each filter of the list: its query parameter and the taxonomy or field it matches. */
+const FILTERS = {
+	type: { param: "type", field: "document_type" },
+	topic: { param: TOPIC_PARAM, field: "topic" },
+	year: { param: "year", field: "fiscal_year" },
+} as const;
 
-/** The query parameter that narrows the list to one fiscal year. */
-export const FISCAL_YEAR_PARAM = "year";
+type FilterName = keyof typeof FILTERS;
 
-/** A fiscal year as Songhealth writes it: four digits of the Buddhist Era, such as 2569. */
-const FISCAL_YEAR = /^[0-9]{4}$/;
+/** The list's filters by name: a term slug or a fiscal year, empty when not set. */
+export type DocumentFilters = Record<FilterName, string>;
+
+/** The query parameter of each filter, for the filter form. */
+export const FILTER_PARAMS = {
+	type: FILTERS.type.param,
+	topic: FILTERS.topic.param,
+	year: FILTERS.year.param,
+} as const;
+
+/** A fiscal year as the integer field holds it: a whole number from 1 to 9999, such as 2569. */
+const FISCAL_YEAR = /^[1-9][0-9]{0,3}$/;
 
 /** A Document's status in its own domain (`02` §13), not its publication state. */
 export type DomainStatus = "current" | "superseded" | "expired";
@@ -67,34 +81,29 @@ export function documentPath(slug: string): string {
 	return `/documents/${encodeURIComponent(slug)}`;
 }
 
-/** The list's filters, each a term slug or a fiscal year; empty means not filtered. */
-export interface DocumentFilters {
-	type: string;
-	topic: string;
-	year: string;
-}
-
 /** The filters a list address asks for. A fiscal year that is not one is ignored. */
 export function parseDocumentFilters(params: URLSearchParams): DocumentFilters {
-	const year = params.get(FISCAL_YEAR_PARAM) ?? "";
+	const valueOf = (name: FilterName) => params.get(FILTERS[name].param)?.trim() ?? "";
+	const year = valueOf("year");
 	return {
-		type: params.get(TYPE_PARAM)?.trim() ?? "",
-		topic: params.get(TOPIC_PARAM)?.trim() ?? "",
+		type: valueOf("type"),
+		topic: valueOf("topic"),
 		year: FISCAL_YEAR.test(year) ? year : "",
 	};
 }
 
 /** Whether any filter is set. */
 export function isFiltered(filters: DocumentFilters): boolean {
-	return filters.type !== "" || filters.topic !== "" || filters.year !== "";
+	return Object.values(filters).some((value) => value !== "");
 }
 
 /** The list's address with the filters that are set. */
-export function documentsPath(filters?: DocumentFilters): string {
+export function documentsPath(filters: Partial<DocumentFilters> = {}): string {
 	const params = new URLSearchParams();
-	if (filters?.type) params.set(TYPE_PARAM, filters.type);
-	if (filters?.topic) params.set(TOPIC_PARAM, filters.topic);
-	if (filters?.year) params.set(FISCAL_YEAR_PARAM, filters.year);
+	for (const name of Object.keys(FILTERS) as FilterName[]) {
+		const value = filters[name];
+		if (value) params.set(FILTERS[name].param, value);
+	}
 	const query = params.toString();
 	return query === "" ? "/documents" : `/documents?${query}`;
 }
@@ -110,9 +119,9 @@ export async function listDocuments(
 	filters: DocumentFilters,
 ): Promise<DocumentsPage> {
 	const where: Record<string, WhereValue> = {};
-	if (filters.type) where.document_type = filters.type;
-	if (filters.topic) where.topic = filters.topic;
-	if (filters.year) where.fiscal_year = filters.year;
+	for (const name of Object.keys(FILTERS) as FilterName[]) {
+		if (filters[name]) where[FILTERS[name].field] = filters[name];
+	}
 	const { entries, hasMore, error } = await getEmDashCollection<"documents", DocumentData>(
 		"documents",
 		{
@@ -127,10 +136,10 @@ export async function listDocuments(
 }
 
 /**
- * The fiscal years of published Documents, newest first, each once. EmDash's query functions offer
- * no distinct values, so this walks down the years: each step reads the one Document with the
- * highest year below the last one found (a range on a field column, emdash 1.1.0 src/loader.ts
- * buildFieldConditions), one read per year.
+ * The fiscal years of published Documents that the filter accepts, newest first, each once.
+ * EmDash's query functions offer no distinct values, so this walks down the years: each step reads
+ * the one Document with the highest year below the last one found (a range on a field column,
+ * emdash 1.1.0 src/loader.ts buildFieldConditions), one read per year.
  */
 export async function fiscalYears(): Promise<number[]> {
 	const years: number[] = [];
@@ -139,7 +148,12 @@ export async function fiscalYears(): Promise<number[]> {
 		const { entries, error } = await getEmDashCollection<"documents", DocumentData>("documents", {
 			limit: 1,
 			orderBy: { fiscal_year: "desc" },
-			where: { fiscal_year: below === undefined ? { gte: "0" } : { lt: String(below) } },
+			where: {
+				fiscal_year: {
+					gte: "1",
+					...(below === undefined ? { lte: "9999" } : { lt: String(below) }),
+				},
+			},
 		});
 		if (error) throw error;
 		const year = entries[0]?.data.fiscal_year;

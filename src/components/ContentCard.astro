@@ -16,7 +16,7 @@
 // A picture whose media item was deleted in Admin is left out and the card shows its plain visual,
 // so the card never shows a broken image (src/lib/media.ts).
 import { Image } from "emdash/ui";
-import { isMediaAvailable } from "../lib/media";
+import { availableMedia } from "../lib/media";
 import type { ImageFieldValue } from "../lib/news";
 import DateText from "./DateText.astro";
 
@@ -33,9 +33,7 @@ interface Props {
 }
 
 const { href, title, label, date, summary, eager = false } = Astro.props;
-const image = (await isMediaAvailable(Astro.props.image, Astro.locals.emdash))
-	? Astro.props.image
-	: undefined;
+const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
 
 /** The card's width in the grids it sits in: three to a row from `lg`, two from `sm`. */
 const CARD_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw";

@@ -30,8 +30,10 @@ import {
 	cleanupOwnedFixtures,
 	cmsRequest,
 	createPatActor,
-	deleteMedia,
 	createSyntheticEntry,
+	createSyntheticTerm,
+	deleteMedia,
+	deleteSyntheticTerms,
 	loadDevAccessToken,
 	nativeDataOf,
 	nativeItemOf,
@@ -46,72 +48,43 @@ import {
 	updateEntry,
 	uploadSyntheticMedia,
 	type CmsActor,
+	type SyntheticTerm,
 } from "./cms.helpers";
 import {
+	DEFAULT_SITE_TITLE,
 	DESKTOP_VIEWPORT,
 	MOBILE_VIEWPORT,
 	VIEWPORTS,
 	expect,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
+	expectSiteNotFound,
 	expectVisibleFocusOnEveryStop,
+	listedTitles,
+	ownTitles,
 	test,
+	thaiDate,
 } from "./public.helpers";
 
 /** The fixed number of News a list page shows. */
 const PAGE_SIZE = 12;
 
-/** The heading of the site-designed 404 page. */
-const NOT_FOUND_HEADING = "ไม่พบหน้าที่คุณต้องการ";
-
-/** The site title shown while the native site settings name none. */
-const DEFAULT_SITE_TITLE = "สำนักงานสาธารณสุขอำเภอสอง";
-
-const THAI_MONTHS = [
-	"ม.ค.",
-	"ก.พ.",
-	"มี.ค.",
-	"เม.ย.",
-	"พ.ค.",
-	"มิ.ย.",
-	"ก.ค.",
-	"ส.ค.",
-	"ก.ย.",
-	"ต.ค.",
-	"พ.ย.",
-	"ธ.ค.",
-];
-
-/** A stored instant as citizens read it: the Bangkok (UTC+7) day with the Buddhist Era year. */
-function thaiDate(iso: string): string {
-	const bangkok = new Date(Date.parse(iso) + 7 * 60 * 60 * 1000);
-	return `${bangkok.getUTCDate()} ${THAI_MONTHS[bangkok.getUTCMonth()]} ${bangkok.getUTCFullYear() + 543}`;
-}
-
 let admin: CmsActor;
 let origin: string;
 /** Synthetic terms this suite created, removed at the end. */
-const ownedTerms: Array<{ taxonomy: string; slug: string }> = [];
+const ownedTerms: SyntheticTerm[] = [];
 /** Old slugs of News whose slug a test changed: their redirects are removed at the end. */
 const movedSlugs: string[] = [];
 
-interface Term {
-	slug: string;
-	label: string;
-}
-
 /** A synthetic term of `taxonomy`, labelled in Thai so it reads like a real one. */
-async function createTerm(taxonomy: string, label: string): Promise<Term> {
-	const term = {
-		slug: syntheticSlug(taxonomy.replaceAll("_", "-")),
-		label: `${SYNTHETIC_FIXTURE_MARK} ${label} ${crypto.randomUUID().slice(0, 6)}`,
-	};
-	const created = await cmsRequest(admin, `/_emdash/api/taxonomies/${taxonomy}/terms`, {
-		method: "POST",
-		body: term,
-	});
-	expect(created.ok, `${taxonomy} term: ${nativeRefusalOf(created)}`).toBe(true);
-	ownedTerms.push({ taxonomy, slug: term.slug });
+async function createTerm(taxonomy: string, label: string): Promise<SyntheticTerm> {
+	const unique = crypto.randomUUID().slice(0, 6);
+	const term = await createSyntheticTerm(
+		admin,
+		taxonomy,
+		`${SYNTHETIC_FIXTURE_MARK} ${label} ${unique}`,
+	);
+	ownedTerms.push(term);
 	return term;
 }
 
@@ -168,19 +141,6 @@ async function publish(news: NewsFixture, publishedAt?: string): Promise<string>
 	return String(stored);
 }
 
-/** The titles of the News cards a list page shows, in order. */
-async function listedTitles(page: Page): Promise<string[]> {
-	return (
-		await page.getByRole("main").getByRole("article").getByRole("heading").allTextContents()
-	).map((text) => text.trim());
-}
-
-/** Only the given fixtures' titles, in the order the page lists them. */
-function ownTitles(titles: string[], fixtures: NewsFixture[]): string[] {
-	const own = new Set(fixtures.map((news) => news.title));
-	return titles.filter((title) => own.has(title));
-}
-
 /** What the native settings name, with the shell's fallbacks. */
 async function siteTitleParts(): Promise<{ siteTitle: string; separator: string }> {
 	const read = await cmsRequest(admin, "/_emdash/api/settings");
@@ -218,12 +178,6 @@ async function headOf(page: Page) {
 		ogImage: await meta('meta[property="og:image"]'),
 		robots: await meta('meta[name="robots"]'),
 	};
-}
-
-async function expectSiteNotFound(page: Page, path: string, label: string): Promise<void> {
-	const response = await page.goto(path);
-	expect(response?.status(), `${label} must answer 404`).toBe(404);
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText(NOT_FOUND_HEADING);
 }
 
 test.use({ viewport: DESKTOP_VIEWPORT });
@@ -267,15 +221,7 @@ test.afterAll(async () => {
 	}
 	const report = await cleanupOwnedFixtures(admin, { permanent: true });
 	if (!report.complete) failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
-	for (const term of ownedTerms) {
-		const removed = await cmsRequest(
-			admin,
-			`/_emdash/api/taxonomies/${term.taxonomy}/terms/${encodeURIComponent(term.slug)}`,
-			{ method: "DELETE" },
-		);
-		if (!removed.ok)
-			failures.push(`the ${term.taxonomy} term ${term.slug}: ${nativeRefusalOf(removed)}`);
-	}
+	failures.push(...(await deleteSyntheticTerms(admin, ownedTerms)));
 	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
 });
 

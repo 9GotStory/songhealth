@@ -14,7 +14,7 @@ import { Image } from "emdash/ui";
 import DateText from "../../components/DateText.astro";
 import RichText from "../../components/RichText.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { isMediaAvailable } from "../../lib/media";
+import { availableMedia } from "../../lib/media";
 import { healthNewsPath, newsPath, type NewsData } from "../../lib/news";
 import { termsOf } from "../../lib/terms";
 
@@ -26,9 +26,7 @@ if (!entry) return Astro.rewrite("/404");
 const news = entry.data;
 const category = termsOf(news, "news_category")[0];
 const topics = termsOf(news, "topic");
-const image = (await isMediaAvailable(news.featured_image, Astro.locals.emdash))
-	? news.featured_image
-	: undefined;
+const image = await availableMedia(news.featured_image, Astro.locals.emdash);
 ---
 
 <SiteLayout

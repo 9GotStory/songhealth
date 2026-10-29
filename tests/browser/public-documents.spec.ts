@@ -29,15 +29,17 @@ import type { Page } from "@playwright/test";
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
-	deleteMedia,
 	createPatActor,
 	createSyntheticEntry,
+	createSyntheticTerm,
+	deleteMedia,
+	deleteSyntheticTerms,
 	loadDevAccessToken,
 	nativeDataOf,
 	nativeItemOf,
 	nativeRefusalOf,
 	NATIVE_ROLES,
-	readEntry,
+	publishEntry,
 	SYNTHETIC_FIXTURE_MARK,
 	SYNTHETIC_PDF_BYTES,
 	syntheticMediaPdf,
@@ -46,70 +48,41 @@ import {
 	unpublishEntry,
 	uploadSyntheticMedia,
 	type CmsActor,
+	type SyntheticTerm,
 } from "./cms.helpers";
 import {
+	DEFAULT_SITE_TITLE,
 	DESKTOP_VIEWPORT,
 	MOBILE_VIEWPORT,
 	VIEWPORTS,
 	expect,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
+	expectSiteNotFound,
 	expectVisibleFocusOnEveryStop,
+	listedTitles,
+	ownTitles,
 	test,
+	thaiDate,
 } from "./public.helpers";
-
-/** The site title shown while the native site settings name none. */
-const DEFAULT_SITE_TITLE = "สำนักงานสาธารณสุขอำเภอสอง";
 
 /** The fixed number of Documents a list page shows. */
 const PAGE_SIZE = 20;
 
-/** The exact size of every synthetic PDF (SYNTHETIC_PDF_BYTES), which the pages state as "2 KB". */
-const PDF_BYTES = SYNTHETIC_PDF_BYTES;
-
-const THAI_MONTHS = [
-	"ม.ค.",
-	"ก.พ.",
-	"มี.ค.",
-	"เม.ย.",
-	"พ.ค.",
-	"มิ.ย.",
-	"ก.ค.",
-	"ส.ค.",
-	"ก.ย.",
-	"ต.ค.",
-	"พ.ย.",
-	"ธ.ค.",
-];
-
-/** A stored instant as citizens read it: the Bangkok (UTC+7) day with the Buddhist Era year. */
-function thaiDate(iso: string): string {
-	const bangkok = new Date(Date.parse(iso) + 7 * 60 * 60 * 1000);
-	return `${bangkok.getUTCDate()} ${THAI_MONTHS[bangkok.getUTCMonth()]} ${bangkok.getUTCFullYear() + 543}`;
-}
-
 let admin: CmsActor;
 let origin: string;
 /** Synthetic terms this suite created, removed at the end. */
-const ownedTerms: Array<{ taxonomy: string; slug: string }> = [];
-
-interface Term {
-	slug: string;
-	label: string;
-}
+const ownedTerms: SyntheticTerm[] = [];
 
 /** A synthetic term of `taxonomy`, labelled in Thai so it reads like a real one. */
-async function createTerm(taxonomy: string, label: string): Promise<Term> {
-	const term = {
-		slug: syntheticSlug(taxonomy.replaceAll("_", "-")),
-		label: `${SYNTHETIC_FIXTURE_MARK} ${label} ${crypto.randomUUID().slice(0, 6)}`,
-	};
-	const created = await cmsRequest(admin, `/_emdash/api/taxonomies/${taxonomy}/terms`, {
-		method: "POST",
-		body: term,
-	});
-	expect(created.ok, `${taxonomy} term: ${nativeRefusalOf(created)}`).toBe(true);
-	ownedTerms.push({ taxonomy, slug: term.slug });
+async function createTerm(taxonomy: string, label: string): Promise<SyntheticTerm> {
+	const unique = crypto.randomUUID().slice(0, 6);
+	const term = await createSyntheticTerm(
+		admin,
+		taxonomy,
+		`${SYNTHETIC_FIXTURE_MARK} ${label} ${unique}`,
+	);
+	ownedTerms.push(term);
 	return term;
 }
 
@@ -182,41 +155,10 @@ async function createDocument(
 	return { id: created.entryId!, slug, title, file };
 }
 
-/** Publish now. Returns the stored publication instant. */
-async function publish(document: DocumentFixture): Promise<string> {
-	const read = await readEntry(admin, "documents", document.id);
-	const rev = (nativeDataOf(read) as { _rev?: string } | undefined)?._rev;
-	const published = await cmsRequest(
-		admin,
-		`/_emdash/api/content/documents/${encodeURIComponent(document.id)}/publish`,
-		{ method: "POST", body: { _rev: rev } },
-	);
+/** Publish now. */
+async function publish(document: DocumentFixture): Promise<void> {
+	const published = await publishEntry(admin, "documents", document.id);
 	expect(published.ok, `publishing ${document.title}: ${nativeRefusalOf(published)}`).toBe(true);
-	const stored = nativeItemOf(await readEntry(admin, "documents", document.id))?.publishedAt;
-	expect(typeof stored, "publishing records publishedAt").toBe("string");
-	return String(stored);
-}
-
-/** The titles of the Document rows a list page shows, in order. */
-async function listedTitles(page: Page): Promise<string[]> {
-	return (
-		await page.getByRole("main").getByRole("article").getByRole("heading").allTextContents()
-	).map((text) => text.trim());
-}
-
-/** Only the given fixtures' titles, in the order the page lists them. */
-function ownTitles(titles: string[], fixtures: DocumentFixture[]): string[] {
-	const own = new Set(fixtures.map((document) => document.title));
-	return titles.filter((title) => own.has(title));
-}
-
-/** The heading of the site-designed 404 page. */
-const NOT_FOUND_HEADING = "ไม่พบหน้าที่คุณต้องการ";
-
-async function expectSiteNotFound(page: Page, path: string, label: string): Promise<void> {
-	const response = await page.goto(path);
-	expect(response?.status(), `${label} must answer 404`).toBe(404);
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText(NOT_FOUND_HEADING);
 }
 
 /** The value a Document page states for one of its details, by the detail's Thai name. */
@@ -253,15 +195,7 @@ test.afterAll(async () => {
 	const failures: string[] = [];
 	const report = await cleanupOwnedFixtures(admin, { permanent: true });
 	if (!report.complete) failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
-	for (const term of ownedTerms) {
-		const removed = await cmsRequest(
-			admin,
-			`/_emdash/api/taxonomies/${term.taxonomy}/terms/${encodeURIComponent(term.slug)}`,
-			{ method: "DELETE" },
-		);
-		if (!removed.ok)
-			failures.push(`the ${term.taxonomy} term ${term.slug}: ${nativeRefusalOf(removed)}`);
-	}
+	failures.push(...(await deleteSyntheticTerms(admin, ownedTerms)));
 	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
 });
 
@@ -427,9 +361,12 @@ test("the fiscal year filter offers the years of published Documents, newest fir
 }) => {
 	const recent = await createDocument("years-recent", { data: { fiscal_year: 2569 } });
 	const older = await createDocument("years-older", { data: { fiscal_year: 2568 } });
+	// A year written short, as staff might type it: offered, and choosing it filters by it.
+	const short = await createDocument("years-short", { data: { fiscal_year: 69 } });
 	await createDocument("years-draft", { data: { fiscal_year: 2401 } });
 	await publish(recent);
 	await publish(older);
+	await publish(short);
 
 	await page.goto("/documents");
 	const years = (
@@ -444,8 +381,14 @@ test("the fiscal year filter offers the years of published Documents, newest fir
 	expect(numeric, "newest first, each year once").toEqual(
 		[...new Set(numeric)].sort((a, b) => b - a),
 	);
-	expect(numeric).toEqual(expect.arrayContaining([2569, 2568]));
+	expect(numeric).toEqual(expect.arrayContaining([2569, 2568, 69]));
 	expect(numeric, "a draft's fiscal year is not offered").not.toContain(2401);
+
+	await page.goto("/documents?year=69");
+	expect(
+		ownTitles(await listedTitles(page), [recent, older, short]),
+		"every offered year filters",
+	).toEqual([short.title]);
 });
 
 test("an empty filtered result shows the empty state, and a fiscal year that is not one is ignored", async ({
@@ -462,7 +405,7 @@ test("an empty filtered result shows the empty state, and a fiscal year that is 
 		page.getByRole("main").getByRole("link", { name: "ดูเอกสารทั้งหมด" }),
 	).toHaveAttribute("href", "/documents");
 
-	for (const invalid of ["abc", "25690", "256", "2569.5", "-2569"]) {
+	for (const invalid of ["abc", "25690", "2569.5", "-2569", "0", "02569"]) {
 		const response = await page.goto(`/documents?year=${encodeURIComponent(invalid)}`);
 		expect(response?.status(), `?year=${invalid} is ignored, not an error`).toBe(200);
 		expect(
@@ -524,7 +467,7 @@ test("a Document page shows its details, its file for download at EmDash's media
 	const served = await request.get(`/_emdash/api/media/file/${file.storageKey}`);
 	expect(served.status(), "EmDash serves the file at that address").toBe(200);
 	expect(served.headers()["content-type"]).toBe("application/pdf");
-	expect((await served.body()).length).toBe(PDF_BYTES);
+	expect((await served.body()).length).toBe(SYNTHETIC_PDF_BYTES);
 
 	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
 	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก", "เอกสารเผยแพร่"]);

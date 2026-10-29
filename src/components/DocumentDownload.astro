@@ -4,7 +4,7 @@
 // file's name, or, when the file cannot be served, the unavailable state. That state names nothing
 // about storage and points to the office (#51 user story 49).
 import type { FileValue } from "emdash";
-import { downloadableFile } from "../lib/media";
+import { FILE_UNAVAILABLE, downloadableFile } from "../lib/media";
 
 interface Props {
 	file: FileValue | null | undefined;
@@ -33,11 +33,11 @@ const file = await downloadableFile(Astro.props.file, Astro.locals.emdash);
 			<path d="M7 10l5 5 5-5" />
 			<path d="M5 21h14" />
 		</svg>
-		<span>ดาวน์โหลดเอกสาร ({[file.type, file.size].filter(Boolean).join(", ")})</span>
+		<span>ดาวน์โหลดเอกสาร ({file.label})</span>
 	</a>
 ) : (
 	<div class="flex flex-col items-start gap-2 rounded-24 bg-surface-soft p-5">
-		<p class="font-semibold text-brand-dark">ไฟล์ไม่พร้อมให้บริการ</p>
+		<p class="font-semibold text-brand-dark">{FILE_UNAVAILABLE}</p>
 		<p class="text-text-secondary-on-soft">หากต้องการเอกสารนี้ โปรดติดต่อสำนักงาน</p>
 		<a class="text-label text-brand-primary underline underline-offset-4" href="/contact">
 			ติดต่อเรา
