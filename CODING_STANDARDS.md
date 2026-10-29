@@ -1,7 +1,8 @@
 # Coding standards
 
 Judgement calls for review. The mechanical rules are enforced by the checks that CI runs on every
-pull request: `npm run build`, `npm run typecheck`, `npm run test:node` and `npm run format:check`.
+pull request: `npm run build`, `npm run typecheck`, `npm run test:node`, `npm run format:check` and
+`npm run lint:shell`.
 
 ## Comments
 
