@@ -385,6 +385,13 @@ const NEWS_COLLECTION = "news";
  */
 const DOCUMENTS_COLLECTION = "documents";
 
+/**
+ * The `personnel` collection for the SEO boundary: the content model enables
+ * SEO on the nine public collections but not on personnel (#51, approved Q9),
+ * so a personnel SEO write is the native refusal.
+ */
+const PERSONNEL_COLLECTION = "personnel";
+
 /** The shared `topic` taxonomy (attached to news; T004/T013/T018 standing). */
 const TOPIC_TAXONOMY = "topic";
 
@@ -435,10 +442,11 @@ let roleFixtureOriginalRole: number | undefined;
 let pagesReadiness: CollectionReadiness = { outcome: "missing" };
 let newsReadiness: CollectionReadiness = { outcome: "missing" };
 let documentsReadiness: CollectionReadiness = { outcome: "missing" };
+let personnelReadiness: CollectionReadiness = { outcome: "missing" };
 /**
  * Native per-collection SEO opt-in (`hasSeo`) as read by beforeAll. The
- * approved seed enables SEO on no collection, so the SEO side-write path is
- * exercised as the native refusal unless the active schema opts in.
+ * content model enables SEO on news but not on personnel, so news exercises
+ * the SEO side-write path and personnel the native refusal.
  */
 const seoEnabled = new Map<string, boolean>();
 
@@ -499,6 +507,10 @@ function gateNews(): void {
 
 function gateDocuments(): void {
 	gateCollection(documentsReadiness, DOCUMENTS_COLLECTION, "the shared-media identity fixtures");
+}
+
+function gatePersonnel(): void {
+	gateCollection(personnelReadiness, PERSONNEL_COLLECTION, "the SEO-boundary fixture");
 }
 
 /**
@@ -1485,6 +1497,7 @@ test.beforeAll(async () => {
 	pagesReadiness = await readinessOf(PAGES_COLLECTION);
 	newsReadiness = await readinessOf(NEWS_COLLECTION);
 	documentsReadiness = await readinessOf(DOCUMENTS_COLLECTION);
+	personnelReadiness = await readinessOf(PERSONNEL_COLLECTION);
 });
 
 // ---------------------------------------------------------------------------
@@ -2533,8 +2546,9 @@ test("live metadata: taxonomy, SEO and byline writes apply to current state imme
 	// is pending: taxonomy assignment, SEO metadata, byline attribution.
 	// None of these is a DRAFT_ONLY key, so none stages a content revision
 	// and none publishes the pending draft. The SEO write follows the active
-	// native schema: on a collection without the SEO opt-in (the approved
-	// seed) it is the native VALIDATION_ERROR refusal, which lands nothing.
+	// native schema: on a collection without the SEO opt-in (news before the
+	// Feature 003 model) it is the native VALIDATION_ERROR refusal, which lands
+	// nothing.
 	const newsHasSeo = seoEnabled.get(NEWS_COLLECTION) === true;
 	const termWrite = await contentPut(admin, NEWS_COLLECTION, entry.entryId!, {
 		taxonomies: { [TOPIC_TAXONOMY]: [termSlug] },
@@ -2624,10 +2638,10 @@ test("live metadata: taxonomy, SEO and byline writes apply to current state imme
 });
 
 test("SEO boundary: a collection without SEO enabled refuses SEO writes truthfully and leaves all state untouched", async () => {
-	gatePages();
+	gatePersonnel();
 	test.skip(
-		seoEnabled.get(PAGES_COLLECTION) === true,
-		"the active pages schema enables SEO, so it cannot exercise the SEO-disabled boundary",
+		seoEnabled.get(PERSONNEL_COLLECTION) === true,
+		"the active personnel schema enables SEO, so it cannot exercise the SEO-disabled boundary",
 	);
 
 	// The complement of the metadata test above (which exercises the
@@ -2637,19 +2651,19 @@ test("SEO boundary: a collection without SEO enabled refuses SEO writes truthful
 	// (VALIDATION_ERROR "Collection … does not have SEO enabled") backed by
 	// plugins/context.ts assertSeoEnabled — the refusal precedes every data,
 	// taxonomy and reference effect.
-	const entry = await createSyntheticEntry(admin, PAGES_COLLECTION, {
+	const entry = await createSyntheticEntry(admin, PERSONNEL_COLLECTION, {
 		data: { title: uniqueTitle("seo-disabled") },
 	});
 	expect(entry.result.ok, "the SEO-boundary fixture must save").toBe(true);
 	expect(
-		(await publishEntry(admin, PAGES_COLLECTION, entry.entryId!)).ok,
+		(await publishEntry(admin, PERSONNEL_COLLECTION, entry.entryId!)).ok,
 		"the SEO-boundary fixture must publish",
 	).toBe(true);
 
 	const revisionsBefore = revisionsOf(
-		await listRevisions(admin, PAGES_COLLECTION, entry.entryId!),
+		await listRevisions(admin, PERSONNEL_COLLECTION, entry.entryId!),
 	).total;
-	const refused = await contentPut(admin, PAGES_COLLECTION, entry.entryId!, {
+	const refused = await contentPut(admin, PERSONNEL_COLLECTION, entry.entryId!, {
 		seo: { title: `${SYNTHETIC_FIXTURE_MARK} must never land` },
 	});
 	expect(refused.ok, "the SEO write on a non-SEO collection is refused").toBe(false);
@@ -2661,10 +2675,10 @@ test("SEO boundary: a collection without SEO enabled refuses SEO writes truthful
 	// Nothing landed anywhere: no content revision, no live-data change, and
 	// the entry's current state is byte-for-byte its pre-refusal state.
 	expect(
-		revisionsOf(await listRevisions(admin, PAGES_COLLECTION, entry.entryId!)).total,
+		revisionsOf(await listRevisions(admin, PERSONNEL_COLLECTION, entry.entryId!)).total,
 		"the refused SEO write creates no content revision",
 	).toBe(revisionsBefore);
-	const current = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!));
+	const current = nativeItemOf(await readEntry(admin, PERSONNEL_COLLECTION, entry.entryId!));
 	expect(
 		String(dataOfItem(current).title ?? "").startsWith(`${SYNTHETIC_FIXTURE_MARK} seo-disabled`),
 		"the live data is untouched: the entry keeps its original fixture title",
