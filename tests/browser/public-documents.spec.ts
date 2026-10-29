@@ -292,3 +292,126 @@ test("/documents lists only published Documents, newest first, each row with its
 	await expect(row).toContainText("PDF");
 	await expect(row).toContainText("2 KB");
 });
+
+test("the Document Type, topic and fiscal year filters narrow /documents alone and combined, and stay in the address", async ({
+	page,
+}) => {
+	const form = await createTerm("document_type", "แบบฟอร์ม");
+	const plan = await createTerm("document_type", "แผนงาน");
+	const topic = await createTerm("topic", "วัคซีน");
+	const formVaccine = await createDocument("filter-form-vaccine", {
+		data: { fiscal_year: 2569 },
+		taxonomies: { document_type: [form.slug], topic: [topic.slug] },
+	});
+	const formOlder = await createDocument("filter-form-older", {
+		data: { fiscal_year: 2568 },
+		taxonomies: { document_type: [form.slug] },
+	});
+	const planVaccine = await createDocument("filter-plan-vaccine", {
+		data: { fiscal_year: 2569 },
+		taxonomies: { document_type: [plan.slug], topic: [topic.slug] },
+	});
+	const plain = await createDocument("filter-plain");
+	const all = [formVaccine, formOlder, planVaccine, plain];
+	for (const document of all) await publish(document);
+
+	await page.goto("/documents");
+	const filters = page.getByRole("form", { name: "กรองเอกสาร" });
+	const submit = async () => {
+		await filters.getByRole("button", { name: "แสดงผล" }).click();
+		await page.waitForLoadState();
+	};
+	const params = () => Object.fromEntries(new URL(page.url()).searchParams);
+
+	await filters.getByLabel("ประเภทเอกสาร").selectOption({ label: form.label });
+	await submit();
+	expect(params()).toMatchObject({ type: form.slug });
+	expect(ownTitles(await listedTitles(page), all), "by type").toEqual([
+		formOlder.title,
+		formVaccine.title,
+	]);
+	await expect(filters.getByLabel("ประเภทเอกสาร")).toHaveValue(form.slug);
+
+	await filters.getByLabel("หัวข้อ").selectOption({ label: topic.label });
+	await submit();
+	expect(params()).toMatchObject({ type: form.slug, topic: topic.slug });
+	expect(ownTitles(await listedTitles(page), all), "by type and topic").toEqual([
+		formVaccine.title,
+	]);
+
+	await filters.getByLabel("ประเภทเอกสาร").selectOption({ label: "ทุกประเภท" });
+	await filters.getByLabel("ปีงบประมาณ").selectOption({ label: "2569" });
+	await submit();
+	expect(params()).toMatchObject({ type: "", topic: topic.slug, year: "2569" });
+	expect(ownTitles(await listedTitles(page), all), "by topic and fiscal year").toEqual([
+		planVaccine.title,
+		formVaccine.title,
+	]);
+	await expect(filters.getByLabel("ปีงบประมาณ")).toHaveValue("2569");
+	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+		"href",
+		`${origin}/documents?topic=${topic.slug}&year=2569`,
+	);
+
+	await page.goto(`/documents?year=2568`);
+	expect(ownTitles(await listedTitles(page), all), "by fiscal year alone").toEqual([
+		formOlder.title,
+	]);
+
+	await filters.getByRole("link", { name: "ล้างตัวกรอง" }).click();
+	await expect(page).toHaveURL("/documents");
+});
+
+test("the fiscal year filter offers the years of published Documents, newest first", async ({
+	page,
+}) => {
+	const recent = await createDocument("years-recent", { data: { fiscal_year: 2569 } });
+	const older = await createDocument("years-older", { data: { fiscal_year: 2568 } });
+	await createDocument("years-draft", { data: { fiscal_year: 2401 } });
+	await publish(recent);
+	await publish(older);
+
+	await page.goto("/documents");
+	const years = (
+		await page
+			.getByRole("form", { name: "กรองเอกสาร" })
+			.getByLabel("ปีงบประมาณ")
+			.locator("option")
+			.allTextContents()
+	).map((text) => text.trim());
+	expect(years[0], "the first choice is no filter").toBe("ทุกปีงบประมาณ");
+	const numeric = years.slice(1).map(Number);
+	expect(numeric, "newest first, each year once").toEqual(
+		[...new Set(numeric)].sort((a, b) => b - a),
+	);
+	expect(numeric).toEqual(expect.arrayContaining([2569, 2568]));
+	expect(numeric, "a draft's fiscal year is not offered").not.toContain(2401);
+});
+
+test("an empty filtered result shows the empty state, and a fiscal year that is not one is ignored", async ({
+	page,
+}) => {
+	const document = await createDocument("filter-safe");
+	await publish(document);
+
+	const unknown = await page.goto(`/documents?type=${syntheticSlug("no-such-type")}`);
+	expect(unknown?.status(), "an unknown Document Type is not an error").toBe(200);
+	await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
+	await expect(page.getByRole("main").getByText("ไม่พบเอกสารตามตัวกรองที่เลือก")).toBeVisible();
+	await expect(
+		page.getByRole("main").getByRole("link", { name: "ดูเอกสารทั้งหมด" }),
+	).toHaveAttribute("href", "/documents");
+
+	for (const invalid of ["abc", "25690", "256", "2569.5", "-2569"]) {
+		const response = await page.goto(`/documents?year=${encodeURIComponent(invalid)}`);
+		expect(response?.status(), `?year=${invalid} is ignored, not an error`).toBe(200);
+		expect(
+			ownTitles(await listedTitles(page), [document]),
+			`?year=${invalid} lists every Document`,
+		).toEqual([document.title]);
+		await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+			"href",
+			`${origin}/documents`,
+		);
+	}
+});
