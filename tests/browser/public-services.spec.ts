@@ -24,27 +24,40 @@
 
 import {
 	cleanupOwnedFixtures,
+	cmsRequest,
 	createOwnedTerm,
 	createPatActor,
 	createSyntheticEntry,
 	deleteSyntheticTerms,
 	loadDevAccessToken,
+	nativeDataOf,
 	nativeRefusalOf,
 	NATIVE_ROLES,
+	portableTextBlock,
 	publishEntryAt,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	trashEntry,
 	unpublishEntry,
+	uploadSyntheticPdf,
 	type CmsActor,
+	type SyntheticPdf,
 	type SyntheticTerm,
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
+	MOBILE_VIEWPORT,
+	VIEWPORTS,
+	detailOf,
 	expect,
+	expectNoAxeViolations,
+	expectNoHorizontalScroll,
+	expectSiteNotFound,
+	expectVisibleFocusOnEveryStop,
 	listedItem,
 	listedTitles,
 	ownTitles,
+	siteTitleParts,
 	test,
 } from "./public.helpers";
 
@@ -281,4 +294,402 @@ test("a filtered catalog pages through with its filter kept", async ({ page }) =
 	await expect(page.getByRole("form", { name: "กรองบริการ" }).getByLabel("หมวดบริการ")).toHaveValue(
 		category.slug,
 	);
+});
+
+/** The wording a Service page gives each ownership type: who actually provides it (`00` §8.1). */
+const OWNERSHIP_WORDING = {
+	direct: "สำนักงานสาธารณสุขอำเภอสองให้บริการเอง",
+	coordinated: "สำนักงานสาธารณสุขอำเภอสองรับเรื่องและประสานให้ โดยมีหน่วยงานอื่นร่วมดำเนินการ",
+	related_health_service:
+		"หน่วยบริการสุขภาพที่เกี่ยวข้อง เช่น โรงพยาบาลหรือ รพ.สต. เป็นผู้ให้บริการ",
+	external_digital: "หน่วยงานภายนอกให้บริการทางออนไลน์ เว็บไซต์นี้แนะนำช่องทางเข้าถึงเท่านั้น",
+} as const;
+
+test("a Service page says who actually provides it, in plain Thai, for each ownership type", async ({
+	page,
+}) => {
+	const category = await createCategory("ร้องเรียน เสนอแนะ");
+	const provider = `${SYNTHETIC_FIXTURE_MARK} สำนักงานหลักประกันสุขภาพแห่งชาติ เขต 1 เชียงใหม่`;
+	const fixtures = [];
+	for (const type of Object.keys(OWNERSHIP_WORDING) as (keyof typeof OWNERSHIP_WORDING)[]) {
+		const service = await createService(`ownership-${type.replaceAll("_", "-")}`, {
+			data: {
+				ownership_type: type,
+				...(type === "external_digital" ? { provider_text: provider } : {}),
+			},
+			taxonomies: { service_category: [category.slug] },
+		});
+		await publish("services", service);
+		fixtures.push({ type, service });
+	}
+
+	for (const { type, service } of fixtures) {
+		const response = await page.goto(`/services/${service.slug}`);
+		expect(response?.status(), `GET the ${type} Service`).toBe(200);
+		await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toHaveText(
+			service.title,
+		);
+		await expect(detailOf(page, "ผู้ให้บริการ"), type).toHaveText(OWNERSHIP_WORDING[type]);
+		await expect(
+			detailOf(page, "หมวดบริการ").getByRole("link", { name: category.label }),
+		).toHaveAttribute("href", `/services?category=${category.slug}`);
+		if (type === "external_digital") {
+			await expect(detailOf(page, "หน่วยงานผู้ให้บริการ")).toHaveText(provider);
+		} else {
+			await expect(page.getByRole("term").filter({ hasText: "หน่วยงานผู้ให้บริการ" })).toHaveCount(
+				0,
+			);
+		}
+	}
+
+	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
+	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก", "บริการประชาชน"]);
+	await expect(breadcrumb.getByRole("link", { name: "บริการประชาชน" })).toHaveAttribute(
+		"href",
+		"/services",
+	);
+	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(
+		fixtures.at(-1)!.service.title,
+	);
+	await expect(
+		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "บริการประชาชน" }),
+	).toHaveAttribute("aria-current", "true");
+});
+
+/** The guidance headings of a Service page, in the order the page gives them. */
+const GUIDANCE_HEADINGS = [
+	"ช่องทางรับบริการ",
+	"คุณสมบัติและเงื่อนไข",
+	"ขั้นตอนการรับบริการ",
+	"เอกสารที่ต้องเตรียม",
+	"สถานที่และช่องทางติดต่อ",
+	"ระยะเวลาดำเนินการ",
+	"ค่าธรรมเนียม",
+	"หมายเหตุ",
+];
+
+test("a Service page shows each guidance field that is set, in order, and leaves out the empty ones", async ({
+	page,
+}) => {
+	const text = (name: string) => `${SYNTHETIC_FIXTURE_MARK} ${name}`;
+	const full = await createService("guidance-full", {
+		data: {
+			summary: text("ร้องเรียนการปฏิบัติงานของเจ้าหน้าที่"),
+			channels: [
+				{ label: "ยื่นเรื่องด้วยตนเองที่สำนักงาน" },
+				{ label: "โทรศัพท์ 054 000 000", url: "tel:054000000" },
+				{ label: "ดาวน์โหลดแบบคำร้อง", url: "/documents" },
+			],
+			eligibility: [portableTextBlock(text("ประชาชนทั่วไปที่ได้รับผลกระทบ"))],
+			steps: [
+				portableTextBlock(text("กรอกแบบคำร้อง")),
+				portableTextBlock(text("ยื่นต่อเจ้าหน้าที่")),
+			],
+			required_documents_guidance: [portableTextBlock(text("สำเนาบัตรประจำตัวประชาชน"))],
+			contact_location_guidance: [portableTextBlock(text("งานบริหารทั่วไป ชั้น 1"))],
+			duration: text("ภายใน 15 วันทำการ"),
+			fees: text("ไม่มีค่าธรรมเนียม"),
+			notes: text("เก็บข้อมูลผู้ร้องเรียนเป็นความลับ"),
+		},
+	});
+	const minimal = await createService("guidance-minimal");
+	await publish("services", full);
+	await publish("services", minimal);
+
+	await page.goto(`/services/${full.slug}`);
+	const main = page.getByRole("main");
+	await expect(main.getByText(text("ร้องเรียนการปฏิบัติงานของเจ้าหน้าที่"))).toBeVisible();
+	await expect(main.getByRole("heading", { level: 2 })).toHaveText(GUIDANCE_HEADINGS);
+	const section = (name: string) => main.getByRole("region", { name });
+
+	const channels = section("ช่องทางรับบริการ").getByRole("listitem");
+	await expect(channels).toHaveText([
+		"ยื่นเรื่องด้วยตนเองที่สำนักงาน",
+		"โทรศัพท์ 054 000 000",
+		"ดาวน์โหลดแบบคำร้อง",
+	]);
+	await expect(channels.nth(0).getByRole("link"), "a channel without a link").toHaveCount(0);
+	const phone = channels.nth(1).getByRole("link", { name: "โทรศัพท์ 054 000 000" });
+	await expect(phone).toHaveAttribute("href", "tel:054000000");
+	await expect(phone, "a telephone number opens no new tab").not.toHaveAttribute("target");
+	const onSite = channels.nth(2).getByRole("link", { name: "ดาวน์โหลดแบบคำร้อง", exact: true });
+	await expect(onSite).toHaveAttribute("href", "/documents");
+	await expect(onSite, "a link on this site opens no new tab").not.toHaveAttribute("target");
+
+	await expect(section("คุณสมบัติและเงื่อนไข")).toContainText(
+		text("ประชาชนทั่วไปที่ได้รับผลกระทบ"),
+	);
+	await expect(section("ขั้นตอนการรับบริการ")).toContainText(text("กรอกแบบคำร้อง"));
+	await expect(section("ขั้นตอนการรับบริการ")).toContainText(text("ยื่นต่อเจ้าหน้าที่"));
+	await expect(section("เอกสารที่ต้องเตรียม")).toContainText(text("สำเนาบัตรประจำตัวประชาชน"));
+	await expect(section("สถานที่และช่องทางติดต่อ")).toContainText(text("งานบริหารทั่วไป ชั้น 1"));
+	await expect(section("ระยะเวลาดำเนินการ")).toContainText(text("ภายใน 15 วันทำการ"));
+	await expect(section("ค่าธรรมเนียม")).toContainText(text("ไม่มีค่าธรรมเนียม"));
+	await expect(section("หมายเหตุ")).toContainText(text("เก็บข้อมูลผู้ร้องเรียนเป็นความลับ"));
+
+	await page.goto(`/services/${minimal.slug}`);
+	await expect(main.getByRole("heading", { level: 1 })).toHaveText(minimal.title);
+	await expect(main.getByRole("heading", { level: 2 }), "no empty guidance").toHaveCount(0);
+	await expect(main.locator("dl"), "no empty details").toHaveCount(0);
+	await expect(main.getByRole("link", { name: /เว็บไซต์ภายนอก/ })).toHaveCount(0);
+});
+
+test("the external service link and a channel on another website are marked as leaving the site and open with rel=noopener", async ({
+	page,
+}) => {
+	const service = await createService("external", {
+		data: {
+			ownership_type: "external_digital",
+			external_url: "https://www.nhso.go.th/page/service",
+			channels: [{ label: "ยื่นคำขอออนไลน์", url: "https://eservice.example.go.th/form" }],
+		},
+	});
+	await publish("services", service);
+
+	await page.goto(`/services/${service.slug}`);
+	const main = page.getByRole("main");
+	const external = main.getByRole("link", { name: /^ไปยังเว็บไซต์ของบริการ/ });
+	await expect(external).toHaveAttribute("href", "https://www.nhso.go.th/page/service");
+	await expect(external).toHaveAccessibleName(/เว็บไซต์ภายนอก/);
+	await expect(external).toHaveAttribute("target", "_blank");
+	await expect(external).toHaveAttribute("rel", "noopener");
+	await expect(
+		main.getByText("ลิงก์นี้พาออกจากเว็บไซต์ของสำนักงานไปยัง www.nhso.go.th"),
+	).toBeVisible();
+
+	const channel = main
+		.getByRole("region", { name: "ช่องทางรับบริการ" })
+		.getByRole("link", { name: /^ยื่นคำขอออนไลน์/ });
+	await expect(channel).toHaveAttribute("href", "https://eservice.example.go.th/form");
+	await expect(channel).toHaveAccessibleName(/เว็บไซต์ภายนอก/);
+	await expect(channel).toHaveAttribute("target", "_blank");
+	await expect(channel).toHaveAttribute("rel", "noopener");
+});
+
+/** A synthetic Document draft with `file`. */
+async function createDocument(label: string, file: SyntheticPdf): Promise<EntryFixture> {
+	const slug = syntheticSlug(label);
+	const title = `${SYNTHETIC_FIXTURE_MARK} เอกสาร ${label} ${slug.slice(-6)}`;
+	const created = await createSyntheticEntry(admin, "documents", {
+		data: { title, file: file.value },
+		slug,
+	});
+	expect(created.result.ok, `document ${label}: ${nativeRefusalOf(created.result)}`).toBe(true);
+	return { id: created.entryId!, slug, title };
+}
+
+/** A synthetic Health Service draft shown by `displayName`, offering `services`. */
+async function createHealthService(
+	label: string,
+	displayName: string,
+	fields: { data?: Record<string, unknown>; services?: string[] } = {},
+): Promise<EntryFixture> {
+	const slug = syntheticSlug(label);
+	const title = `${SYNTHETIC_FIXTURE_MARK} ${displayName} ${slug.slice(-6)}`;
+	const created = await createSyntheticEntry(admin, "health_services", {
+		data: {
+			title: `${SYNTHETIC_FIXTURE_MARK} หน่วยบริการ ${label} ${slug.slice(-6)}`,
+			display_name: title,
+			...fields.data,
+		},
+		slug,
+		...(fields.services ? { references: { offered_services: fields.services } } : {}),
+	});
+	expect(created.result.ok, `health service ${label}: ${nativeRefusalOf(created.result)}`).toBe(
+		true,
+	);
+	return { id: created.entryId!, slug, title };
+}
+
+test("a Service page links its related Documents in staff order and the Health Services that offer it by name, leaving out unavailable ones", async ({
+	page,
+}) => {
+	const file = await uploadSyntheticPdf(admin);
+	const firstDocument = await createDocument("related-first", file);
+	const secondDocument = await createDocument("related-second", file);
+	const draftDocument = await createDocument("related-draft", file);
+	await publish("documents", firstDocument);
+	await publish("documents", secondDocument);
+	// Staff attach the second Document before the first: the page keeps that order.
+	const service = await createService("related", {
+		references: { documents: [secondDocument.id, draftDocument.id, firstDocument.id] },
+	});
+	await publish("services", service);
+	// "ข" links first and "ก" second: the page orders the offering side by name instead.
+	const later = await createHealthService("offer-later", "ข รพ.สต.บ้านใต้", {
+		data: { operational_status: "temporarily_closed" },
+		services: [service.id],
+	});
+	const sooner = await createHealthService("offer-sooner", "ก โรงพยาบาลสอง", {
+		services: [service.id],
+	});
+	const hidden = await createHealthService("offer-draft", "ก ฉบับร่าง", { services: [service.id] });
+	await publish("health_services", later);
+	await publish("health_services", sooner);
+
+	await page.goto(`/services/${service.slug}`);
+	const main = page.getByRole("main");
+	const documents = main.getByRole("region", { name: "เอกสารที่เกี่ยวข้อง" });
+	await expect(documents.getByRole("heading", { level: 3 })).toHaveText([
+		secondDocument.title,
+		firstDocument.title,
+	]);
+	await expect(documents.getByRole("link", { name: firstDocument.title })).toHaveAttribute(
+		"href",
+		`/documents/${firstDocument.slug}`,
+	);
+	await expect(documents.getByText(draftDocument.title), "a draft Document").toHaveCount(0);
+
+	const offering = main.getByRole("region", { name: "หน่วยบริการสุขภาพที่ให้บริการนี้" });
+	await expect(offering.getByRole("heading", { level: 3 })).toHaveText([sooner.title, later.title]);
+	await expect(offering.getByRole("link", { name: sooner.title })).toHaveAttribute(
+		"href",
+		`/health-services/${sooner.slug}`,
+	);
+	await expect(
+		offering.getByRole("article").filter({ hasText: later.title }),
+		"a temporarily closed Health Service says so in text",
+	).toContainText("ปิดให้บริการชั่วคราว");
+	await expect(offering.getByText(hidden.title), "a draft Health Service").toHaveCount(0);
+	expect((await page.content()).includes("ใกล้บ้าน"), 'a Service page never says "ใกล้บ้าน"').toBe(
+		false,
+	);
+});
+
+test("a draft, unpublished or trashed Service answers the site 404, and a signed preview renders a draft", async ({
+	page,
+}) => {
+	const draft = await createService("hidden-draft");
+	const unpublished = await createService("hidden-unpublished");
+	const trashed = await createService("hidden-trashed");
+	await publish("services", unpublished);
+	await publish("services", trashed);
+	expect((await unpublishEntry(admin, "services", unpublished.id)).ok, "unpublish").toBe(true);
+	expect((await trashEntry(admin, "services", trashed.id)).ok, "trash").toBe(true);
+	for (const fixture of [draft, unpublished, trashed]) {
+		await expectSiteNotFound(page, `/services/${fixture.slug}`, fixture.title);
+	}
+
+	const minted = await cmsRequest(
+		admin,
+		`/_emdash/api/content/services/${encodeURIComponent(draft.id)}/preview-url`,
+		{ method: "POST", body: {} },
+	);
+	expect(minted.ok, nativeRefusalOf(minted)).toBe(true);
+	// The signed token stays out of every message.
+	const link = new URL(String(nativeDataOf(minted)?.url), origin);
+	expect(link.pathname, "the preview link is the draft's canonical address").toBe(
+		`/services/${draft.slug}`,
+	);
+	const preview = await page.goto(link.toString());
+	expect(preview?.status(), "the preview renders").toBe(200);
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(draft.title);
+	await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+});
+
+test("the Service pages carry their title, description, absolute canonical address and OG tags, with the SEO fields first", async ({
+	page,
+}) => {
+	const { siteTitle, separator } = await siteTitleParts(admin);
+	const meta = (selector: string) => page.locator(selector).first();
+	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปบริการสำหรับคำอธิบายหน้า`;
+	const summarised = await createService("seo-summary", { data: { summary } });
+	const plain = await createService("seo-plain");
+	const seoTitle = `${SYNTHETIC_FIXTURE_MARK} ชื่อบริการสำหรับเครื่องมือค้นหา`;
+	const seoDescription = `${SYNTHETIC_FIXTURE_MARK} คำอธิบายบริการจากช่อง SEO`;
+	const tuned = await createService("seo-tuned", {
+		data: { summary },
+		seo: { title: seoTitle, description: seoDescription },
+	});
+	for (const fixture of [summarised, plain, tuned]) await publish("services", fixture);
+
+	await page.goto(`/services/${summarised.slug}`);
+	await expect(page).toHaveTitle(`${summarised.title}${separator}${siteTitle}`);
+	await expect(meta('meta[name="description"]')).toHaveAttribute("content", summary);
+	await expect(meta('link[rel="canonical"]')).toHaveAttribute(
+		"href",
+		`${origin}/services/${summarised.slug}`,
+	);
+	await expect(meta('meta[property="og:title"]')).toHaveAttribute("content", summarised.title);
+	await expect(meta('meta[name="robots"]')).toHaveCount(0);
+
+	await page.goto(`/services/${plain.slug}`);
+	await expect(meta('meta[name="description"]')).toHaveAttribute(
+		"content",
+		`ผู้ให้บริการ ช่องทาง ขั้นตอน และเอกสารที่ต้องเตรียมสำหรับ ${plain.title}`,
+	);
+
+	await page.goto(`/services/${tuned.slug}`);
+	await expect(page).toHaveTitle(`${seoTitle}${separator}${siteTitle}`);
+	await expect(meta('meta[name="description"]')).toHaveAttribute("content", seoDescription);
+
+	await page.goto("/services?page=1");
+	await expect(page).toHaveTitle(`บริการประชาชน${separator}${siteTitle}`);
+	await expect(meta('meta[name="description"]')).toHaveAttribute("content", /.+/);
+	await expect(meta('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/services`);
+});
+
+test.describe("accessibility and reflow", () => {
+	let paths: string[];
+
+	test.beforeAll(async () => {
+		const category = await createCategory("แจ้งปัญหาสุขภาพ");
+		const file = await uploadSyntheticPdf(admin);
+		const document = await createDocument("a11y", file);
+		await publish("documents", document);
+		const detailed = await createService("a11y", {
+			name: "แจ้งปัญหาผลิตภัณฑ์สุขภาพ",
+			data: {
+				summary: `${SYNTHETIC_FIXTURE_MARK} แจ้งผลิตภัณฑ์สุขภาพที่ไม่ปลอดภัยหรือโฆษณาเกินจริง`,
+				ownership_type: "coordinated",
+				provider_text: `${SYNTHETIC_FIXTURE_MARK} สำนักงานสาธารณสุขจังหวัดแพร่`,
+				channels: [
+					{ label: "ยื่นเรื่องด้วยตนเองที่สำนักงาน" },
+					{ label: "แจ้งทางออนไลน์", url: "https://www.example.go.th/report" },
+				],
+				steps: [portableTextBlock(`${SYNTHETIC_FIXTURE_MARK} แจ้งรายละเอียดผลิตภัณฑ์`)],
+				duration: `${SYNTHETIC_FIXTURE_MARK} ภายใน 7 วันทำการ`,
+				external_url: "https://www.example.go.th/service",
+			},
+			taxonomies: { service_category: [category.slug] },
+			references: { documents: [document.id] },
+		});
+		await publish("services", detailed);
+		const offering = await createHealthService("a11y", "รพ.สต.บ้านกลาง", {
+			data: { operational_status: "temporarily_closed" },
+			services: [detailed.id],
+		});
+		await publish("health_services", offering);
+		const minimal = await createService("a11y-minimal");
+		await publish("services", minimal);
+		paths = [
+			"/services",
+			`/services?category=${category.slug}`,
+			`/services?category=${syntheticSlug("no-such-category")}`,
+			`/services/${detailed.slug}`,
+			`/services/${minimal.slug}`,
+		];
+	});
+
+	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
+		test(`axe reports no WCAG 2.2 AA violation and focus stays visible on the Service pages at the ${width} width`, async ({
+			page,
+		}) => {
+			await page.setViewportSize(viewport);
+			for (const path of paths) {
+				const response = await page.goto(path);
+				expect(response?.status(), `GET ${path}`).toBe(200);
+				await expectNoAxeViolations(page, `${path} at ${width}`);
+				await expectVisibleFocusOnEveryStop(page, `${path} at ${width}`);
+			}
+		});
+	}
+
+	test("no Service page scrolls sideways at 320 px", async ({ page }) => {
+		await page.setViewportSize(MOBILE_VIEWPORT);
+		for (const path of paths) {
+			await page.goto(path);
+			await expectNoHorizontalScroll(page, path);
+		}
+	});
 });

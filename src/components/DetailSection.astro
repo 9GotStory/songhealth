@@ -1,0 +1,18 @@
+---
+// A titled section of a record page (Feature 003 #58), such as one kind of a Service's guidance:
+// an H2 that names the section, so assistive technology lists it as a region.
+interface Props {
+	/** The heading's id, unique on the page. */
+	id: string;
+	heading: string;
+}
+
+const { id, heading } = Astro.props;
+---
+
+<section aria-labelledby={id} class="flex max-w-3xl flex-col gap-3">
+	<h2 id={id} class="text-h3 text-brand-dark">
+		{heading}
+	</h2>
+	<slot />
+</section>

@@ -17,12 +17,10 @@ import {
 	type PortableTextBlock,
 	type TaxonomyTerm,
 } from "emdash";
+import type { OwnershipType } from "./service-catalog";
 
 /** The fixed number of Services a catalog page shows: four rows of the three-column grid. */
 const SERVICES_PAGE_SIZE = 12;
-
-/** Who actually provides a Service (`00` §8.1), as the select field stores it. */
-type OwnershipType = "direct" | "coordinated" | "related_health_service" | "external_digital";
 
 /** One way to receive a Service: a label and an optional link, as staff enter them. */
 interface ServiceChannel {
@@ -31,7 +29,7 @@ interface ServiceChannel {
 }
 
 /** A Service's fields (seed/seed.json) and the system fields public pages read. */
-interface ServiceData {
+export interface ServiceData {
 	/** The database id; the entry's own `id` is its slug. */
 	id: string;
 	title: string;

@@ -5,12 +5,15 @@
 // - A Service's canonical address is `/services/{slug}`, encoded as EmDash encodes it.
 // - A link to another website is marked as leaving the site and opens in a new tab; a link on
 //   this site, an email address or a telephone number is not (#51 user story 38).
+// - A guidance field that holds no text is left out of a Service page, however the editor saved it
+//   empty: no blocks, or a paragraph with no text in it.
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { isExternalHref } from "../../src/lib/links.ts";
 import {
-	isExternalHref,
+	hasGuidance,
 	parseServiceFilters,
 	servicePath,
 	servicesPath,
@@ -59,5 +62,24 @@ describe("isExternalHref", () => {
 	it("is false for an email address or a telephone number, which open no website", () => {
 		assert.equal(isExternalHref("mailto:office@example.go.th", site), false);
 		assert.equal(isExternalHref("tel:054000000", site), false);
+	});
+});
+
+describe("hasGuidance", () => {
+	const paragraph = (...texts: string[]) => ({
+		_type: "block",
+		children: texts.map((text) => ({ _type: "span", text })),
+	});
+
+	it("is false for a field with no blocks, or only paragraphs without text", () => {
+		assert.equal(hasGuidance(undefined), false);
+		assert.equal(hasGuidance(null), false);
+		assert.equal(hasGuidance([]), false);
+		assert.equal(hasGuidance([paragraph(""), paragraph(" ", "\n")]), false);
+	});
+
+	it("is true once any paragraph has text, or the field holds a block that is not a paragraph", () => {
+		assert.equal(hasGuidance([paragraph(""), paragraph("ยื่นแบบคำร้อง")]), true);
+		assert.equal(hasGuidance([{ _type: "image" }]), true);
 	});
 });

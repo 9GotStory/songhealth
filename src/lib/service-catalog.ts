@@ -1,6 +1,6 @@
-// The Service catalog's rules (Feature 003 #58; spec #51 "Public reads" (Services), `03` §7 and
-// §15). The module has no import, so node:test checks it directly; src/lib/services.ts reads
-// through EmDash and uses it.
+// The Service catalog's rules (Feature 003 #58; spec #51 "Public reads" (Services), `00` §8.1,
+// `03` §7 and §15). The module has no import, so node:test checks it directly;
+// src/lib/services.ts reads through EmDash and uses it.
 
 /** The Service catalog's address. */
 const SERVICES_PATH = "/services";
@@ -29,16 +29,35 @@ export function servicesPath(filters: Partial<ServiceFilters> = {}): string {
 	return `${SERVICES_PATH}?${new URLSearchParams({ [CATEGORY_PARAM]: filters.category })}`;
 }
 
+/** Who actually provides a Service (`00` §8.1), as the select field stores it. */
+export type OwnershipType =
+	"direct" | "coordinated" | "related_health_service" | "external_digital";
+
 /**
- * Whether a link leaves this site for another website: an http or https address on another
- * origin than `siteOrigin`. A site-relative path, an email address or a telephone number does not.
+ * Each ownership type as citizens read it: who actually provides the Service, so that no one
+ * takes the office for the provider of every Service on its website (`00` §8.1).
  */
-export function isExternalHref(href: string, siteOrigin: string): boolean {
-	let url: URL;
-	try {
-		url = new URL(href, siteOrigin);
-	} catch {
-		return false;
-	}
-	return (url.protocol === "https:" || url.protocol === "http:") && url.origin !== siteOrigin;
+export const OWNERSHIP_LABELS: Record<OwnershipType, string> = {
+	direct: "สำนักงานสาธารณสุขอำเภอสองให้บริการเอง",
+	coordinated: "สำนักงานสาธารณสุขอำเภอสองรับเรื่องและประสานให้ โดยมีหน่วยงานอื่นร่วมดำเนินการ",
+	related_health_service:
+		"หน่วยบริการสุขภาพที่เกี่ยวข้อง เช่น โรงพยาบาลหรือ รพ.สต. เป็นผู้ให้บริการ",
+	external_digital: "หน่วยงานภายนอกให้บริการทางออนไลน์ เว็บไซต์นี้แนะนำช่องทางเข้าถึงเท่านั้น",
+};
+
+/** A Portable Text block as a guidance field stores it; only what the emptiness rule reads. */
+interface GuidanceBlock {
+	_type: string;
+	children?: ReadonlyArray<{ text?: string }>;
+}
+
+/**
+ * Whether a Portable Text guidance field holds anything to show: a paragraph with text in it, or a
+ * block that is not a paragraph, such as an image. A field the editor left or cleared to empty
+ * paragraphs holds nothing.
+ */
+export function hasGuidance(blocks: readonly GuidanceBlock[] | null | undefined): boolean {
+	return (blocks ?? []).some(
+		(block) => block._type !== "block" || (block.children ?? []).some((span) => span.text?.trim()),
+	);
 }
