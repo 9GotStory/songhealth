@@ -100,18 +100,20 @@ the real state first and only adds what is missing:
 - **Browser and API tests.** Target `http://127.0.0.1:4324`.
   - **Credentials.** Never print, commit or copy the PAT or the route token into evidence.
     Do not re-run `setup/dev-bypass` as test setup.
+  - **Variables.** `scripts/dev-runtime-env.sh <command>` runs a command with
+    `PLAYWRIGHT_BASE_URL`, the credential file paths (`SONGHEALTH_DEV_ACCESS`,
+    `SONGHEALTH_ROLE_FIXTURE_ACCESS`, `SONGHEALTH_T021_ROUTE_ACCESS`) and
+    `SONGHEALTH_ADMIN_SESSION=dev-bypass`. A variable set beforehand, even to empty, wins.
   - **Ordinary suites:**
 
     ```bash
-    PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
-    SONGHEALTH_ROLE_FIXTURE_ACCESS=~/.local/state/songhealth-qdev/role-fixture-pat \
-      npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
+    scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
     ```
 
     Without `SONGHEALTH_ROLE_FIXTURE_ACCESS` the T019/T020 role cases skip. The role cases
     change the fixture's role and restore it to Author at the end.
-  - **Admin UI suites** (`cms-lifecycle-ui.spec.ts`, `cms-editor.spec.ts`). Add
-    `SONGHEALTH_ADMIN_SESSION=dev-bypass` to sign the test browser in through EmDash's
+  - **Admin UI suites** (`cms-lifecycle-ui.spec.ts`, `cms-editor.spec.ts`).
+    `SONGHEALTH_ADMIN_SESSION=dev-bypass` signs the test browser in through EmDash's
     development-only `auth/dev-bypass` session route (Product Owner decision 2026-10-29). For
     the existing dev admin it only sets the session cookie; each test logs out afterwards.
     Without it the authenticated journeys skip with that prerequisite.
@@ -119,9 +121,7 @@ the real state first and only adds what is missing:
     promoted commit:
 
     ```bash
-    SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
-    SONGHEALTH_T021_ROUTE_ACCESS=~/.local/state/songhealth-qdev/t021-route-access.json \
-      node tests/browser/run-cms-public-reads.mjs
+    scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs
     ```
 
     It holds (exit 3, nothing run) unless verify passes and the runtime source equals that

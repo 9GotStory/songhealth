@@ -27,7 +27,7 @@ import { cmsRequest, nativeDataOf, type CmsActor } from "./cms.helpers";
 export { expect };
 
 /** WCAG 2.2 level A and AA, as axe-core tags (#51 Testing Decisions). */
-export const WCAG_22_AA_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+const WCAG_22_AA_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 /** The Figma Homepage Concept v1 desktop frame width. */
 export const DESKTOP_VIEWPORT = { width: 1440, height: 900 };

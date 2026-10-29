@@ -83,19 +83,16 @@ scripts/dev-runtime-backup.sh <dir>             # database dump + media archive
 scripts/dev-runtime-uninstall.sh [--purge]      # remove the units (keep data) | delete everything
 ```
 
-Tests target the runtime with its own credentials, which are never printed or committed:
+Tests target the runtime with its own credentials, which are never printed or committed.
+`scripts/dev-runtime-env.sh` runs a command with the origin and the credential file paths
+(`docs/operations/development-quadlet.md`, Browser and API tests):
 
 ```bash
 # ordinary suites (the role fixture enables the T019/T020 role cases; the dev Admin session
 # enables the Admin UI journeys of cms-lifecycle-ui and cms-editor; one worker at a time)
-S=~/.local/state/songhealth-qdev
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 SONGHEALTH_DEV_ACCESS=$S/dev-pat \
-SONGHEALTH_ROLE_FIXTURE_ACCESS=$S/role-fixture-pat SONGHEALTH_ADMIN_SESSION=dev-bypass \
-  npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
+scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
 # T021 public reads, only through the coordinator, from a checkout at the promoted commit
-SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
-SONGHEALTH_T021_ROUTE_ACCESS=~/.local/state/songhealth-qdev/t021-route-access.json \
-  node tests/browser/run-cms-public-reads.mjs
+scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs
 ```
 
 Public-page suites (Feature 003) take `test` from `tests/browser/public.helpers.ts`. It guards
@@ -105,13 +102,12 @@ checks and the desktop and 320 px viewports.
 Pull-request screenshots of public pages come from
 `node scripts/capture-screenshots.mjs <out-dir> <path>...`. The script's header shows how to put
 them on an image-only `evidence/` branch, so no image enters the code tree. A page that needs
-content to show takes it from `node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir>`
-(with `SONGHEALTH_DEV_ACCESS`). The runner makes the module's synthetic content, captures the paths
+content to show takes it from `scripts/dev-runtime-env.sh node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir>`. The runner makes the module's synthetic content, captures the paths
 the module returns, and removes everything it made. `scripts/screenshot-fixtures/news.ts` is the
 example.
 
 Latency evidence for a list that reads more than one page (ADR 0002, ADR 0004) comes from
-`node scripts/measure-latency.ts <fixtures-module> [runs]` (with `SONGHEALTH_DEV_ACCESS`). It times
+`scripts/dev-runtime-env.sh node scripts/measure-latency.ts <fixtures-module> [runs]`. It times
 the module's paths before and after making its synthetic content, then removes the content, and
 prints a table for the pull request. `scripts/latency-fixtures/dated-lists.ts` is the example.
 
