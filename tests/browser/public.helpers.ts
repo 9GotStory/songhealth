@@ -62,10 +62,9 @@ export const test = base.extend<{ thirdPartyRequests: string[] }>({
  * Walk the page with the Tab key from the current focus starting point to the
  * end of the document. Every element that takes focus must show a focus
  * indicator (an outline of at least 2 px, or a box shadow) and must not be
- * covered by other content (WCAG 2.2 SC 2.4.7 and 2.4.11). Returns the stops
- * it visited, so a caller can also check the focus order.
+ * covered by other content (WCAG 2.2 SC 2.4.7 and 2.4.11).
  */
-export async function expectVisibleFocusOnEveryStop(page: Page, label: string): Promise<string[]> {
+export async function expectVisibleFocusOnEveryStop(page: Page, label: string): Promise<void> {
 	const stops: string[] = [];
 	for (let step = 0; step < 100; step += 1) {
 		await page.keyboard.press("Tab");
@@ -89,7 +88,6 @@ export async function expectVisibleFocusOnEveryStop(page: Page, label: string): 
 		stops.push(stop.name);
 	}
 	expect(stops.length, `${label}: the page must have focusable elements`).toBeGreaterThan(0);
-	return stops;
 }
 
 /** Fail when the page as it is now scrolls sideways at the current viewport width. */

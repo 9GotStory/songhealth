@@ -118,8 +118,8 @@
 		outline-offset: 2px;
 	}
 
-	/* A skip-link target takes focus without outlining the whole region. */
-	[tabindex="-1"]:focus {
+	/* The skip link's target takes focus without outlining the whole page region. */
+	#main:focus {
 		outline: none;
 	}
 }

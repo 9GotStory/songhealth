@@ -208,7 +208,9 @@ export default defineConfig({
   // The dev toolbar would add its client scripts and overlay to every page and
   // annotate the server-rendered HTML (including the Feature 001 marker), so
   // the browser suites and Product Owner review would see a different page.
-  // Production builds never include the toolbar.
+  // In astro 7.3.5 the source annotations are on exactly while the toolbar is
+  // (dist/core/compile/compile.js, `annotateSourceFile`). Production builds
+  // never include the toolbar.
   devToolbar: {
     enabled: false,
   },

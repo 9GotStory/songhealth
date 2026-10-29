@@ -1,10 +1,10 @@
-// Songhealth site navigation (Feature 003 #52): the one source the page shell
-// renders its links from.
+// Songhealth site navigation (Feature 003 #52): the main navigation and the
+// utility links the page shell renders on every page.
 //
 // - MAIN_NAVIGATION is `03` §2 in order. Each page names the section it belongs
 //   to, and the shell marks that item as current. The section is declared by
 //   the page, not derived from URL segments (`03` §14).
-// - UTILITY_LINKS are the `03` §2 utility items, shown on every page.
+// - UTILITY_LINKS are the `03` §2 utility items.
 
 export const MAIN_NAVIGATION = [
 	{ section: "home", label: "หน้าแรก", href: "/" },
@@ -15,7 +15,7 @@ export const MAIN_NAVIGATION = [
 	{ section: "documents", label: "เอกสารเผยแพร่", href: "/documents" },
 ] as const;
 
-export type Section = (typeof MAIN_NAVIGATION)[number]["section"];
+export type NavigationSection = (typeof MAIN_NAVIGATION)[number]["section"];
 
 export const UTILITY_LINKS = [
 	{ label: "ค้นหา", href: "/search" },
@@ -28,7 +28,7 @@ export const UTILITY_LINKS = [
  */
 export function currentMark(
 	item: (typeof MAIN_NAVIGATION)[number],
-	section: Section | undefined,
+	section: NavigationSection | undefined,
 	pathname: string,
 ): "page" | "true" | undefined {
 	if (item.section !== section) return undefined;

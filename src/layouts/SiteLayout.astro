@@ -11,24 +11,30 @@
 // opens without JavaScript; from `lg` up it is a row in the header. Both
 // placements render the same MAIN_NAVIGATION, and CSS shows exactly one. The
 // menu button sits in the identity row, and the opened menu flows in the page
-// and pushes it down: nothing can close it from the keyboard without
-// JavaScript, so it must never cover the content focus moves on to (WCAG 2.2
-// SC 2.4.11).
+// and pushes it down. Without JavaScript the menu closes only from its own
+// button, never with Escape or when focus moves on, so an overlay would cover
+// the content focus moves on to (WCAG 2.2 SC 2.4.11).
 import { Font } from "astro:assets";
 import "../styles/global.css";
-import { MAIN_NAVIGATION, UTILITY_LINKS, currentMark, type Section } from "../lib/navigation";
+import {
+	MAIN_NAVIGATION,
+	UTILITY_LINKS,
+	currentMark,
+	type NavigationSection,
+} from "../lib/navigation";
 import { OFFICE_NAME, getSiteIdentity } from "../lib/site-identity";
 
 interface Props {
 	/** The page's own title. The Homepage passes none and is titled by the site title alone. */
 	title?: string;
 	/** The main-navigation section this page belongs to; none marks no section. */
-	section?: Section;
+	section?: NavigationSection;
 }
 
 const { title, section } = Astro.props;
 const identity = await getSiteIdentity();
-const pageTitle = title === undefined ? identity.title : `${title} | ${identity.title}`;
+const pageTitle =
+	title === undefined ? identity.title : `${title}${identity.titleSeparator}${identity.title}`;
 const { pathname } = Astro.url;
 const navigation = MAIN_NAVIGATION.map((item) => ({
 	...item,
@@ -48,7 +54,7 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 	<body class="flex min-h-dvh flex-col bg-bg-page text-body text-text-primary">
 		<a
 			href="#main"
-			class="absolute top-2 left-4 z-30 -translate-y-[200%] rounded-14 bg-accent-warm px-4 py-3 text-label text-text-primary focus:translate-y-0"
+			class="focus-ring-on-dark absolute top-2 left-4 z-30 -translate-y-[200%] rounded-14 bg-accent-warm px-4 py-3 text-label text-text-primary focus:translate-y-0"
 		>
 			ข้ามไปยังเนื้อหาหลัก
 		</a>
@@ -74,6 +80,7 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 					class="page-container flex items-start justify-between gap-4 py-3 lg:min-h-22 lg:items-center"
 				>
 					<a href="/" class="mr-28 flex min-w-0 items-start gap-3 lg:mr-0 lg:items-center">
+						{/* The logo or mark is decorative: the title beside it names the link. */}
 						{identity.logo ? (
 							<img
 								class="size-11 shrink-0 object-contain lg:size-12"
