@@ -1,0 +1,124 @@
+---
+// A Document page, /documents/{slug} (Feature 003 #55; spec #51 "Public reads" (Documents) and
+// "Errors, redirects, preview and SEO", `03` §10 and §17).
+//
+// The page shows the Document's details that are set, its domain status in text, a link to its
+// successor, and its file (src/components/DocumentDownload.astro). The successor is read through
+// the reference field, and EmDash resolves it only while it is published, or a draft in preview
+// (emdash 1.1.0 src/query.ts attachReferences).
+//
+// getEmDashEntry returns the published entry, or the draft when the request carries a valid
+// signed preview token for it (src/query.ts resolveEmDashEntry). Anything else answers with the
+// site 404 page, which EmDash records in its 404 log. A slug that changed is redirected by
+// EmDash's middleware before this page runs.
+import { getEmDashEntry } from "emdash";
+import DateText from "../../components/DateText.astro";
+import DetailItem from "../../components/DetailItem.astro";
+import DocumentDownload from "../../components/DocumentDownload.astro";
+import DocumentStatus from "../../components/DocumentStatus.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { documentPath, documentsPath, type DocumentData } from "../../lib/documents";
+import { termsOf } from "../../lib/terms";
+
+const slug = Astro.params.slug ?? "";
+const { entry, isPreview, error } = await getEmDashEntry<
+	"documents",
+	DocumentData,
+	{ successor: true }
+>("documents", slug, { references: { successor: true } });
+if (error) throw error;
+if (!entry) return Astro.rewrite("/404");
+
+const document = entry.data;
+const types = termsOf(document, "document_type");
+const topics = termsOf(document, "topic");
+const successor = entry.references?.successor.entries[0];
+const successorTitle = typeof successor?.data.title === "string" ? successor.data.title : undefined;
+const hasDetails =
+	types.length > 0 ||
+	!!document.document_at ||
+	!!document.fiscal_year ||
+	!!document.owner_source ||
+	!!document.domain_status ||
+	topics.length > 0;
+---
+
+<SiteLayout
+	title={document.seo?.title || document.title}
+	section="documents"
+	description={document.summary ?? undefined}
+	canonical={documentPath(entry.id)}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		{ label: "เอกสารเผยแพร่", href: documentsPath() },
+		{ label: document.title },
+	]}
+	entry={{
+		collection: "documents",
+		id: document.id,
+		slug: entry.id,
+		publishedAt: document.publishedAt,
+	}}
+	noindex={isPreview}
+>
+	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<header class="flex max-w-3xl flex-col gap-3">
+			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">{document.title}</h1>
+			{document.summary && <p class="text-body-large text-text-secondary">{document.summary}</p>}
+		</header>
+		{hasDetails && (
+			<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
+				{types.length > 0 && (
+					<DetailItem term="ประเภทเอกสาร">{types.map((type) => type.label).join(", ")}</DetailItem>
+				)}
+				{document.document_at && (
+					<DetailItem term="วันที่เอกสาร">
+						<DateText value={document.document_at} />
+					</DetailItem>
+				)}
+				{document.fiscal_year && <DetailItem term="ปีงบประมาณ">{document.fiscal_year}</DetailItem>}
+				{document.owner_source && (
+					<DetailItem term="เจ้าของ/แหล่งที่มา">{document.owner_source}</DetailItem>
+				)}
+				{document.domain_status && (
+					<DetailItem term="สถานะเอกสาร">
+						<DocumentStatus status={document.domain_status} />
+					</DetailItem>
+				)}
+				{topics.length > 0 && (
+					<DetailItem term="ประเด็นสุขภาพ">
+						<ul class="flex flex-wrap gap-x-4 gap-y-1">
+							{topics.map((topic) => (
+								<li>
+									<a
+										class="inline-flex min-h-11 items-center text-brand-primary underline underline-offset-4"
+										href={documentsPath({ topic: topic.slug })}
+									>
+										{topic.label}
+									</a>
+								</li>
+							))}
+						</ul>
+					</DetailItem>
+				)}
+			</dl>
+		)}
+		{successor && successorTitle && (
+			<p class="max-w-3xl rounded-24 bg-surface-soft p-5 text-brand-dark">
+				เอกสารฉบับถัดไป:{" "}
+				<a
+					class="font-semibold wrap-anywhere text-brand-primary underline underline-offset-4"
+					href={documentPath(successor.id)}
+				>
+					{successorTitle}
+				</a>
+			</p>
+		)}
+		<section aria-labelledby="document-file" class="flex max-w-3xl flex-col gap-3">
+			<h2 id="document-file" class="text-h3 text-brand-dark">
+				ไฟล์เอกสาร
+			</h2>
+			<DocumentDownload file={document.file} />
+		</section>
+	</article>
+</SiteLayout>

@@ -8,17 +8,14 @@
 
 import {
 	getEmDashCollection,
-	getTaxonomyTerms,
 	type ContentEntry,
 	type PortableTextBlock,
 	type TaxonomyTerm,
 } from "emdash";
+import { TOPIC_PARAM } from "./terms";
 
 /** The fixed number of News a list page shows. */
 const NEWS_PAGE_SIZE = 12;
-
-/** The query parameter that narrows Health News to one Health Topic. */
-export const TOPIC_PARAM = "topic";
 
 /** An image field value, as EmDash's Image component takes it. */
 export interface ImageFieldValue {
@@ -56,11 +53,6 @@ export function healthNewsPath(topic?: string): string {
 	return topic ? `/news/health?${new URLSearchParams({ [TOPIC_PARAM]: topic })}` : "/news/health";
 }
 
-/** The terms of `taxonomy` on an entry, in the order EmDash hydrates them (by label). */
-export function termsOf(news: NewsData, taxonomy: string): TaxonomyTerm[] {
-	return news.terms?.[taxonomy] ?? [];
-}
-
 export interface NewsPage {
 	entries: NewsEntry[];
 	hasMore: boolean;
@@ -79,13 +71,4 @@ export async function listNews(page: number, topics?: string[]): Promise<NewsPag
 	});
 	if (error) throw error;
 	return { entries, hasMore: hasMore === true };
-}
-
-/** Every `topic` term, flattened and sorted by label in Thai order. */
-export async function topicTerms(): Promise<TaxonomyTerm[]> {
-	const flatten = (terms: TaxonomyTerm[]): TaxonomyTerm[] =>
-		terms.flatMap((term) => [term, ...flatten(term.children ?? [])]);
-	return flatten(await getTaxonomyTerms("topic", { includeCounts: false })).sort((a, b) =>
-		a.label.localeCompare(b.label, "th"),
-	);
 }

@@ -11,6 +11,8 @@
 // - `DESKTOP_VIEWPORT` / `MOBILE_VIEWPORT`: the two widths every template is
 //   checked at. The mobile width is 320 CSS px, the narrowest width the site
 //   must reflow to without horizontal scrolling (WCAG 2.2 SC 1.4.10).
+// - What the shell shows every page: the 404 page, the default site title,
+//   Thai dates and the titles a list shows.
 //
 // Verified against the pinned @axe-core/playwright 4.14.0 (axe-core 4.14.0,
 // node_modules/@axe-core/playwright/dist/index.d.ts): `new AxeBuilder({ page })
@@ -113,4 +115,51 @@ export async function expectNoAxeViolations(page: Page, label: string): Promise<
 				.join(", ")}`,
 	);
 	expect(violations, `${label}: axe must report no WCAG 2.2 AA violations`).toEqual([]);
+}
+
+/** The heading of the site-designed 404 page. */
+export const NOT_FOUND_HEADING = "ไม่พบหน้าที่คุณต้องการ";
+
+/** The site title shown while the native site settings name none (src/lib/site-identity.ts). */
+export const DEFAULT_SITE_TITLE = "สำนักงานสาธารณสุขอำเภอสอง";
+
+const THAI_MONTHS = [
+	"ม.ค.",
+	"ก.พ.",
+	"มี.ค.",
+	"เม.ย.",
+	"พ.ค.",
+	"มิ.ย.",
+	"ก.ค.",
+	"ส.ค.",
+	"ก.ย.",
+	"ต.ค.",
+	"พ.ย.",
+	"ธ.ค.",
+];
+
+/** A stored instant as citizens read it: the Bangkok (UTC+7) day with the Buddhist Era year. */
+export function thaiDate(iso: string): string {
+	const bangkok = new Date(Date.parse(iso) + 7 * 60 * 60 * 1000);
+	return `${bangkok.getUTCDate()} ${THAI_MONTHS[bangkok.getUTCMonth()]} ${bangkok.getUTCFullYear() + 543}`;
+}
+
+/** Fail unless `path` answers the site 404 page with status 404. */
+export async function expectSiteNotFound(page: Page, path: string, label: string): Promise<void> {
+	const response = await page.goto(path);
+	expect(response?.status(), `${label} must answer 404`).toBe(404);
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(NOT_FOUND_HEADING);
+}
+
+/** The titles of the cards or rows a list page shows, in order. */
+export async function listedTitles(page: Page): Promise<string[]> {
+	return (
+		await page.getByRole("main").getByRole("article").getByRole("heading").allTextContents()
+	).map((text) => text.trim());
+}
+
+/** Only the given fixtures' titles, in the order the page lists them. */
+export function ownTitles(titles: string[], fixtures: ReadonlyArray<{ title: string }>): string[] {
+	const own = new Set(fixtures.map((fixture) => fixture.title));
+	return titles.filter((title) => own.has(title));
 }

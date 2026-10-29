@@ -1,0 +1,100 @@
+---
+// The Document repository, /documents (Feature 003 #55; spec #51 "Public reads" (Documents),
+// `03` §10): published Documents, newest publication first, a fixed number per page with the page
+// number in the query string. `?type=`, `?topic=` and `?year=` narrow it by Document Type, topic
+// and fiscal year, alone or together (src/lib/documents.ts).
+//
+// The canonical address keeps the filters that are set and a valid page number, so each view stays
+// its own address for search engines, as on the News lists.
+import DocumentRow from "../../components/DocumentRow.astro";
+import EmptyState from "../../components/EmptyState.astro";
+import FilterForm from "../../components/FilterForm.astro";
+import PageHeading from "../../components/PageHeading.astro";
+import Pagination from "../../components/Pagination.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import {
+	FILTER_PARAMS,
+	documentsPath,
+	fiscalYears,
+	isFiltered,
+	listDocuments,
+	parseDocumentFilters,
+} from "../../lib/documents";
+import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
+import { listTerms } from "../../lib/terms";
+
+const title = "เอกสารเผยแพร่";
+const lead = "แบบฟอร์ม คู่มือ แผนงาน รายงาน และเอกสารอื่นของสำนักงานสาธารณสุขอำเภอสอง";
+const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
+const filters = parseDocumentFilters(Astro.url.searchParams);
+const [{ entries, hasMore }, types, topics, years] = await Promise.all([
+	listDocuments(page, filters),
+	listTerms("document_type"),
+	listTerms("topic"),
+	fiscalYears(),
+]);
+const listUrl = new URL(documentsPath(filters), Astro.url);
+const termOptions = (terms: typeof types) =>
+	terms.map((term) => ({ value: term.slug, label: term.label }));
+---
+
+<SiteLayout
+	title={title}
+	section="documents"
+	description={lead}
+	canonical={pageHref(listUrl, page)}
+	breadcrumbs={[{ label: "หน้าแรก", href: "/" }, { label: title }]}
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading title={title} lead={lead} />
+		<FilterForm
+			label="กรองเอกสาร"
+			action={documentsPath()}
+			fields={[
+				{
+					name: FILTER_PARAMS.type,
+					label: "ประเภทเอกสาร",
+					anyLabel: "ทุกประเภท",
+					value: filters.type,
+					options: termOptions(types),
+				},
+				{
+					name: FILTER_PARAMS.topic,
+					label: "ประเด็นสุขภาพ",
+					anyLabel: "ทุกประเด็น",
+					value: filters.topic,
+					options: termOptions(topics),
+				},
+				{
+					name: FILTER_PARAMS.year,
+					label: "ปีงบประมาณ",
+					anyLabel: "ทุกปีงบประมาณ",
+					value: filters.year,
+					options: years.map((year) => ({ value: String(year), label: String(year) })),
+				},
+			]}
+		/>
+		{entries.length > 0 ? (
+			<ul class="flex flex-col gap-4">
+				{entries.map((document) => (
+					<li>
+						<DocumentRow document={document} />
+					</li>
+				))}
+			</ul>
+		) : page > 1 ? (
+			<EmptyState
+				message="ไม่พบเอกสารในหน้านี้"
+				action={{ href: pageHref(listUrl, 1), label: "กลับไปหน้าแรกของรายการ" }}
+			/>
+		) : isFiltered(filters) ? (
+			<EmptyState
+				message="ไม่พบเอกสารตามตัวกรองที่เลือก"
+				action={{ href: documentsPath(), label: "ดูเอกสารทั้งหมด" }}
+			/>
+		) : (
+			<EmptyState message="ยังไม่มีเอกสาร" />
+		)}
+		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
+	</div>
+</SiteLayout>

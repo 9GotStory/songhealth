@@ -1,0 +1,20 @@
+---
+// A Document's status in its own domain as a label (Feature 003 #55; spec #51 "Shared building
+// blocks"): the text states it, and a warm fill marks the statuses that need attention.
+import { DOMAIN_STATUS_LABELS, type DomainStatus } from "../lib/documents";
+
+interface Props {
+	status: DomainStatus;
+}
+
+const { status } = Astro.props;
+---
+
+<span
+	class:list={[
+		"inline-flex rounded-pill px-3 text-label text-brand-dark",
+		status === "current" ? "bg-surface-soft" : "bg-accent-warm",
+	]}
+>
+	{DOMAIN_STATUS_LABELS[status]}
+</span>

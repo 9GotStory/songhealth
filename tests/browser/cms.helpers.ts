@@ -1096,6 +1096,30 @@ export function syntheticMediaPng(): Uint8Array<ArrayBuffer> {
 	return bytes;
 }
 
+/** The exact size in bytes of every synthetic PDF. */
+export const SYNTHETIC_PDF_BYTES = 2048;
+
+/**
+ * A valid one-page, blank PDF of exactly SYNTHETIC_PDF_BYTES bytes: public-publishable, clearly
+ * synthetic, and unique per call through a padding comment, so no upload deduplicates onto another.
+ */
+export function syntheticMediaPdf(): Uint8Array<ArrayBuffer> {
+	const body = [
+		"%PDF-1.4",
+		"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
+		"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
+		"3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] >> endobj",
+		"trailer << /Root 1 0 R >>",
+		`% ${SYNTHETIC_FIXTURE_MARK} ${crypto.randomUUID()}`,
+	].join("\n");
+	const end = "\n%%EOF\n";
+	const padding = " ".repeat(SYNTHETIC_PDF_BYTES - body.length - end.length - 2);
+	const bytes = new TextEncoder().encode(`${body}\n%${padding}${end}`);
+	if (bytes.length !== SYNTHETIC_PDF_BYTES)
+		throw new CmsHelperError("synthetic-pdf", "synthetic PDF size drifted");
+	return new Uint8Array(bytes);
+}
+
 export interface SyntheticMediaResult {
 	result: NativeResult;
 	/** Media id from the native response, registered for owned cleanup. */
@@ -1124,12 +1148,17 @@ export interface SyntheticMediaResult {
  */
 export async function uploadSyntheticMedia(
 	actor: CmsActor,
-	options: { filename?: string } = {},
+	options: {
+		filename?: string;
+		/** Other bytes than the synthetic PNG, with their MIME type, such as a synthetic PDF. */
+		file?: { bytes: Uint8Array<ArrayBuffer>; type: string };
+	} = {},
 ): Promise<SyntheticMediaResult> {
 	const filename =
 		options.filename ?? `${SYNTHETIC_SLUG_PREFIX}media-${crypto.randomUUID().slice(0, 8)}.png`;
+	const { bytes, type } = options.file ?? { bytes: syntheticMediaPng(), type: "image/png" };
 	const form = new FormData();
-	form.append("file", new File([syntheticMediaPng()], filename, { type: "image/png" }));
+	form.append("file", new File([bytes], filename, { type }));
 	// The pinned 1.1.0 upload form parses `deduplicate` with
 	// .default("true") (api/schemas/media.ts mediaUploadDeduplicateForm),
 	// so silence is NOT an opt-out — the explicit "false" is required for
@@ -1228,6 +1257,55 @@ export async function createSyntheticEntry(
 		return { result, entryId, rev };
 	}
 	return { result, rev };
+}
+
+// ---------------------------------------------------------------------------
+// Synthetic taxonomy terms (native request shapes)
+// ---------------------------------------------------------------------------
+
+export interface SyntheticTerm {
+	taxonomy: string;
+	slug: string;
+	label: string;
+}
+
+/**
+ * Create one term of `taxonomy` labelled exactly `label`, under a synthetic slug, through the
+ * native taxonomy API (POST /_emdash/api/taxonomies/{taxonomy}/terms). Terms are not in the
+ * owned-fixture registry: the caller keeps them and hands them to deleteSyntheticTerms. A refusal
+ * throws.
+ */
+export async function createSyntheticTerm(
+	actor: CmsActor,
+	taxonomy: string,
+	label: string,
+): Promise<SyntheticTerm> {
+	const slug = syntheticSlug(taxonomy.replaceAll("_", "-"));
+	const created = await cmsRequest(actor, `/_emdash/api/taxonomies/${taxonomy}/terms`, {
+		method: "POST",
+		body: { slug, label },
+	});
+	if (!created.ok) {
+		throw new CmsHelperError("synthetic-term", `${taxonomy} term: ${nativeRefusalOf(created)}`);
+	}
+	return { taxonomy, slug, label };
+}
+
+/** Delete terms through the native taxonomy API. Returns a line for each that was not deleted. */
+export async function deleteSyntheticTerms(
+	actor: CmsActor,
+	terms: ReadonlyArray<Pick<SyntheticTerm, "taxonomy" | "slug">>,
+): Promise<string[]> {
+	const failures: string[] = [];
+	for (const { taxonomy, slug } of terms) {
+		const removed = await cmsRequest(
+			actor,
+			`/_emdash/api/taxonomies/${taxonomy}/terms/${encodeURIComponent(slug)}`,
+			{ method: "DELETE" },
+		);
+		if (!removed.ok) failures.push(`the ${taxonomy} term ${slug}: ${nativeRefusalOf(removed)}`);
+	}
+	return failures;
 }
 
 // ---------------------------------------------------------------------------

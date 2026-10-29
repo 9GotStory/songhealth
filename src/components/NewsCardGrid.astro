@@ -2,7 +2,8 @@
 // A page of News as a grid of content cards, shared by the News and Health News lists. Each card
 // carries one term of `labelTaxonomy` as its label. The first row is in view when the page
 // opens, so its pictures load at once; the rest load lazily.
-import { newsPath, termsOf, type NewsEntry } from "../lib/news";
+import { newsPath, type NewsEntry } from "../lib/news";
+import { termsOf } from "../lib/terms";
 import ContentCard from "./ContentCard.astro";
 
 interface Props {

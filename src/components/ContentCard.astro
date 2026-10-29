@@ -12,7 +12,11 @@
 // `sizes` tells the browser how wide the card is, so it picks a rendition near that width rather
 // than the full image (Astro keeps a given `sizes`: astro 7.3.5 dist/assets/internal.js), and a
 // `loading` attribute overrides the component's lazy default.
+//
+// A picture whose media item was deleted in Admin is left out and the card shows its plain visual,
+// so the card never shows a broken image (src/lib/media.ts).
 import { Image } from "emdash/ui";
+import { availableMedia } from "../lib/media";
 import type { ImageFieldValue } from "../lib/news";
 import DateText from "./DateText.astro";
 
@@ -28,7 +32,8 @@ interface Props {
 	eager?: boolean;
 }
 
-const { href, title, label, date, summary, image, eager = false } = Astro.props;
+const { href, title, label, date, summary, eager = false } = Astro.props;
+const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
 
 /** The card's width in the grids it sits in: three to a row from `lg`, two from `sm`. */
 const CARD_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw";
@@ -44,7 +49,7 @@ const CARD_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw";
 			class="aspect-16/10 w-full object-cover"
 		/>
 	) : (
-		<div aria-hidden="true" class="aspect-16/10 w-full bg-surface-soft" />
+		<div aria-hidden="true" data-testid="card-visual" class="aspect-16/10 w-full bg-surface-soft" />
 	)}
 	<div class="flex flex-1 flex-col gap-2 p-5">
 		{(label || date) && (
