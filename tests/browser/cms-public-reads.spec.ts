@@ -971,18 +971,6 @@ export function unresolvedIdentities(records: OwnershipRecord[]): OwnershipRecor
 	return outstanding;
 }
 
-/** Mark one identity proven resolved (append-only; never erase the intent). */
-async function manifestMarkResolved(record: OwnershipRecord): Promise<void> {
-	await manifestRecord({
-		phase: "resolved",
-		kind: record.kind,
-		...(record.collection !== undefined ? { collection: record.collection } : {}),
-		...(record.slug !== undefined ? { slug: record.slug } : {}),
-		...(record.id !== undefined ? { id: record.id } : {}),
-		...(record.filename !== undefined ? { filename: record.filename } : {}),
-	});
-}
-
 /**
  * Trash-aware lookup of an entry by SLUG through the supported native trash
  * listing (the accepted helper's id-based matcher cannot match slugs). Same

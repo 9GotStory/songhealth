@@ -110,6 +110,11 @@ content to show takes it from `node scripts/capture-with-fixtures.ts <fixtures-m
 the module returns, and removes everything it made. `scripts/screenshot-fixtures/news.ts` is the
 example.
 
+Latency evidence for a list that reads more than one page (ADR 0002, ADR 0004) comes from
+`node scripts/measure-latency.ts <fixtures-module> [runs]` (with `SONGHEALTH_DEV_ACCESS`). It times
+the module's paths before and after making its synthetic content, then removes the content, and
+prints a table for the pull request. `scripts/latency-fixtures/dated-lists.ts` is the example.
+
 Admin login uses EmDash's development-only bypass (browsers accept passkeys only on a domain
 origin, not `127.0.0.1`):
 `http://127.0.0.1:4324/_emdash/api/auth/dev-bypass?redirect=/_emdash/admin`. The services start

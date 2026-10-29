@@ -1,8 +1,8 @@
 # Coding standards
 
 Judgement calls for review. The mechanical rules are enforced by the checks that CI runs on every
-pull request: `npm run build`, `npm run typecheck`, `npm run test:node`, `npm run format:check` and
-`npm run lint:shell`.
+pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
+`npm run format:check` and `npm run lint:shell`.
 
 ## Comments
 
@@ -48,6 +48,12 @@ pull request: `npm run build`, `npm run typecheck`, `npm run test:node`, `npm ru
   only an element with no accessible role or name, such as a decorative mark.
 - A test that changes shared runtime state (site settings, menus, plugin settings) saves it first
   and restores it in `finally`, and says what the native API cannot restore.
+- A suite's fixtures stay until the suite ends, so a test that needs its fixtures to lead an
+  ordered list (newest first, a page boundary) dates them after every earlier test's fixtures.
+- Logic that `tests/node` checks lives in a `src/lib` module with no runtime import, because
+  node:test loads it with plain Node: no `emdash`, no extensionless relative import.
+  `src/lib/dated-lists.ts` and `src/lib/excerpt.ts` are examples; the module that reads through
+  EmDash imports them.
 - A test leaves nothing it can remove. A slug change leaves a native redirect after its entry is
   deleted, so the test deletes that too.
 - A request for a missing page stays in EmDash's 404 log, which only clears as a whole. Such a

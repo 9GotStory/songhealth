@@ -1,5 +1,6 @@
 {
   "extends": "astro/tsconfigs/strict",
+  "compilerOptions": { "noUnusedLocals": true },
   "include": [".astro/types.d.ts", "**/*"],
   "exclude": ["dist", "tests/browser/fixtures/cms-public-reads.astro"]
 }

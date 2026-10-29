@@ -4,7 +4,9 @@
 # runtime checkout to the commit, then hands over to THAT commit's installer, which
 # reinstalls dependencies only when the lockfile changed, refreshes changed units, starts
 # the app (EmDash applies pending core migrations in development) and runs verify.
-#   scripts/dev-runtime-update.sh --sha <40-hex commit> [--no-backup] [--force]
+#   scripts/dev-runtime-update.sh --sha <commit> [--no-backup] [--force]
+# The commit may be abbreviated (7 or more hex digits); it is resolved after the fetch, and the
+# installer and the runtime's marker get the full 40-hex SHA.
 # The restart would cut off someone editing in the Admin, so the update refuses while an Admin
 # page was opened in the last 10 minutes; --force overrides once those loads are known to be a
 # test run's.
@@ -18,7 +20,7 @@ umask 077
 trap '[[ $BASH_SUBSHELL == 0 ]] && die "unexpected failure (line $LINENO): $BASH_COMMAND"' ERR
 
 SHA='' BACKUP=yes FORCE=no
-USAGE="usage: ${0##*/} --sha <40-hex commit> [--no-backup] [--force]"
+USAGE="usage: ${0##*/} --sha <commit> [--no-backup] [--force]"
 while (( $# )); do
   case $1 in
     --sha) (( $# >= 2 )) || die "$USAGE"; SHA=$2; shift 2 ;;
@@ -27,7 +29,7 @@ while (( $# )); do
     *) die "$USAGE" ;;
   esac
 done
-require_sha "$SHA"
+[[ $SHA =~ ^[0-9a-f]{7,40}$ ]] || die "--sha must name a commit: 7 to 40 hex digits"
 [[ $(id -u) == 1000 ]] || die "the development runtime belongs to UID 1000"
 [[ -d $SRC/.git && -f $UNIT_DIR/songhealth-dev-app.container ]] \
   || die "the runtime is not installed: use scripts/dev-runtime-install.sh --sha <commit>"
@@ -40,8 +42,11 @@ $recent
 wait until nobody is editing, or pass --force when these loads are a test run's"
 fi
 git -C "$SRC" fetch --quiet origin
-git -C "$SRC" cat-file -e "$SHA^{commit}" 2>/dev/null \
-  || die "commit $SHA is not on a branch of the repository: commit it in the workspace first"
+full=$(git -C "$SRC" rev-parse --verify --quiet "$SHA^{commit}") \
+  || die "commit $SHA is not on a branch of the repository, or names more than one commit:
+commit it in the workspace first, or give more digits"
+SHA=$full
+require_sha "$SHA"
 git -C "$SRC" cat-file -e "$SHA:scripts/dev-runtime-install.sh" 2>/dev/null \
   || die "commit $SHA predates this development runtime (no scripts/dev-runtime-install.sh)"
 

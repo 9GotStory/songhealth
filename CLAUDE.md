@@ -51,6 +51,7 @@ with `/code-review` → `/pr` → `/retro`.
 The feedback loop for `/implement` and `/tdd` (Node 24.21.0, npm 12.2.0):
 - `npm run typecheck`;
 - `npm run test:node`;
+- `npm run build:check` when a page, the layout or the Astro config changes;
 - `npm run format` before each commit, and `npm run lint:shell` when a shell script changes;
 - the browser suites against the development runtime. Their commands and credential variables
   are in `README.md`; the public-read suite runs through `tests/browser/run-cms-public-reads.mjs`.

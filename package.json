@@ -11,11 +11,12 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "build:check": "node scripts/with-build-inputs.mjs astro build",
     "preview": "astro preview",
     "dev-db:start": "./scripts/dev-db.sh start",
     "dev-db:stop": "./scripts/dev-db.sh stop",
     "dev-db:status": "./scripts/dev-db.sh status",
-    "typecheck": "tsc --noEmit -p tsconfig.json && node scripts/check-astro.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json && node scripts/with-build-inputs.mjs astro check",
     "test:node": "node --test 'tests/node/*.test.ts'",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
