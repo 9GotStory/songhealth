@@ -8,8 +8,8 @@ procedure into the existing external runtime boundary, the same-key requirement 
 evidence procedure. This document describes the accepted deployment **as built**; it selects no
 secret-management platform, adds no policy or mechanism, and performs no runtime operation.
 
-**Authority** (in the repository's authority order): the Constitution
-([`.specify/memory/constitution.md`](../../.specify/memory/constitution.md));
+**Authority** (in the repository's authority order): the repository rules in
+[`CLAUDE.md`](../../CLAUDE.md);
 [`docs/website-modernization-docs/current/10-system-blueprint.md`](../website-modernization-docs/current/10-system-blueprint.md)
 §§18–20.1; the approved Feature 001 artifacts in
 [`specs/001-platform-foundation/`](../../specs/001-platform-foundation/) — in particular
@@ -885,8 +885,8 @@ integration requires separate Product Owner approval.
 ## Appendix B. Verified external documentation sources
 
 Version-sensitive facts this document relies on were verified against current first-party
-upstream documentation (first via Context7, per the repository contract in
-[`AGENTS.md`](../../AGENTS.md)), on 2026-10-11:
+upstream documentation (first via Context7, per the repository rules, now in
+[`CLAUDE.md`](../../CLAUDE.md)), on 2026-10-11:
 
 - **EmDash** (docs.emdashcms.com — deployment/secrets, deployment/nodejs, reference/cli, and
   deployment/cloudflare, via Context7): `EMDASH_ENCRYPTION_KEY` encrypts plugin settings declared

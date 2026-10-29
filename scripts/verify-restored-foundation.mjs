@@ -50,7 +50,7 @@
 //   runtime configuration contract, secrets outside artifacts and output).
 //
 // Verified version-sensitive external semantics (Context7 first where
-// supported, per AGENTS.md; record dated 2026-10-12):
+// supported, per the repository rules (now CLAUDE.md); record dated 2026-10-12):
 // - EmDash 1.1.0 (the package.json pin): verified from the pinned package
 //   source — npm registry tarball emdash-1.1.0.tgz, SHA-512
 //   integrity-matched byte-for-byte against package-lock.json — NOT from

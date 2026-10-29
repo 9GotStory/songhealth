@@ -113,7 +113,7 @@
 //   baseline, which the prerequisite gating below reports rather than
 //   invents
 //
-// Verified API surface (recorded per AGENTS.md §External Documentation):
+// Verified API surface (recorded per CLAUDE.md §Current documentation):
 // checked first through Context7 (/websites/emdashcms — "User roles" table
 // Subscriber 10 / Contributor 20 / Author 30 / Editor 40 / Admin 50, the
 // admin-panel "Roles and permissions" section, and the MCP role-requirements

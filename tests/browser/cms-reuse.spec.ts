@@ -90,7 +90,7 @@
 //   their relations NOT yet applied — their definitions are T015–T017 scope
 //   and their runtime verification is T018) and the pinned toolchain facts
 //
-// Verified API surface (recorded per AGENTS.md §External Documentation;
+// Verified API surface (recorded per CLAUDE.md §Current documentation;
 // checked first through Context7 (/websites/emdashcms REST API reference for
 // unversioned orientation; /microsoft/playwright v1.63.0 for Playwright
 // semantics) and then against the pinned `emdash@1.1.0` archive, npm tarball

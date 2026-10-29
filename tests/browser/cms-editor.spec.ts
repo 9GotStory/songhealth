@@ -80,7 +80,7 @@
 //   OWNERSHIP classification and a trusted-tree identity guard, failure-safe
 //   owned-fixture teardown, the runner-configured origin) this file follows
 //
-// Verified UI/auth surface (recorded per AGENTS.md §External Documentation;
+// Verified UI/auth surface (recorded per CLAUDE.md §Current documentation;
 // checked first through Context7 — /websites/emdashcms for unversioned
 // orientation and /microsoft/playwright v1.63.0 for Playwright semantics —
 // then against the pinned `emdash@1.1.0` / `@emdash-cms/admin@1.1.0` dist

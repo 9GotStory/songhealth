@@ -5,8 +5,8 @@ Quadlet deployment defined by `deploy/` (Feature 001, tasks T017–T020) and its
 verification contracts. This document describes the accepted deployment **as built**; it adds no
 policy, unit, or mechanism.
 
-**Authority** (in the repository's authority order): the Constitution
-([`.specify/memory/constitution.md`](../../.specify/memory/constitution.md));
+**Authority** (in the repository's authority order): the repository rules in
+[`CLAUDE.md`](../../CLAUDE.md);
 [`docs/website-modernization-docs/current/10-system-blueprint.md`](../website-modernization-docs/current/10-system-blueprint.md)
 §§2–3.1 and 17–20.1; the approved Feature 001 artifacts in
 [`specs/001-platform-foundation/`](../../specs/001-platform-foundation/); and, as the as-built
@@ -830,8 +830,8 @@ branch.
 ## Appendix B. Verified external documentation sources
 
 Version-sensitive facts in this document were verified against current upstream documentation
-(first via Context7, per the repository contract in
-[`AGENTS.md`](../../AGENTS.md)), on 2026-10-11:
+(first via Context7, per the repository rules, now in
+[`CLAUDE.md`](../../CLAUDE.md)), on 2026-10-11:
 
 - **Podman / Quadlet** (docs.podman.io; the T001 evidence additionally verified the same
   capabilities against the versioned v6.1.3 release-tag man pages): rootless user-unit search

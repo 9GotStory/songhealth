@@ -20,7 +20,7 @@
 //   explicitly authorized integration into the running server's native
 //   request context, with production-build exclusion; HOLD rather than
 //   bypass when the runtime lacks the approved fixture)
-// - AGENTS.md "Single Persistent Development Runtime" (never register a test
+// - CLAUDE.md "Runtimes" (never register a test
 //   integration in canonical production configuration; a dev-only
 //   integration not yet installed on the persistent source/server is NOT
 //   READY → HOLD)
@@ -28,7 +28,7 @@
 //   (Astro SSR uses the EmDash query functions directly; draft preview uses
 //   EmDash's signed preview flow)
 //
-// Verified API surface (recorded per AGENTS.md §External Documentation):
+// Verified API surface (recorded per CLAUDE.md §Current documentation):
 // checked through Context7 (/withastro/docs, integrations reference — the
 // `astro:config:setup` hook receives `command: 'dev' | 'build' | 'preview' |
 // 'sync'` and an `injectRoute({ pattern, entrypoint, prerender? })` callback)

@@ -132,7 +132,7 @@
 //   unauthenticated authorization control, failure-safe teardown, the
 //   runner-configured origin, and the T013 test-authentication adaptation
 //
-// Verified API surface (recorded per AGENTS.md §External Documentation):
+// Verified API surface (recorded per CLAUDE.md §Current documentation):
 // checked first through Context7 (/websites/emdashcms — the REST reference's
 // compare and edit-lock pages and the MCP "Content lifecycle and bylines"
 // note that content_update/delete/publish/unpublish/schedule/unschedule/
