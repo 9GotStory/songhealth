@@ -268,6 +268,53 @@ PY
   note "EmDash setup: complete; development PAT saved to $STATE_DIR/dev-pat (mode 0600)"
 }
 
+ensure_role_fixture() { # the T019/T020 second native account and its 0600 PAT (see dev-runtime-common.sh)
+  local d ids uid tid hash prefix
+  if [[ $(pat_identity "$ROLE_FIXTURE" 2>/dev/null) == "$ROLE_FIXTURE_EMAIL $ROLE_FIXTURE_ROLE" ]]; then
+    note "role fixture: present"
+    return
+  fi
+  [[ -z $(db_sql "SELECT 1 FROM users WHERE email = '$ROLE_FIXTURE_EMAIL' AND (role <> $ROLE_FIXTURE_ROLE OR disabled <> 0)") ]] \
+    || die "$ROLE_FIXTURE_EMAIL exists with another role or disabled (an interrupted role test?): restore it to Author and enabled in the Admin, then re-run"
+  d=$(mktemp -d)
+  # The raw token goes straight to a new 0600 file; only non-secret values come back:
+  # two ULIDs, the SHA-256 base64url token hash and the display prefix (EmDash's format).
+  ids=$(python3 -I - "$d/pat" <<'PY'
+import base64, hashlib, os, secrets, sys, time
+b64 = lambda b: base64.urlsafe_b64encode(b).rstrip(b"=").decode()
+def ulid():
+    n = (int(time.time() * 1000) << 80) | secrets.randbits(80)
+    return "".join("0123456789ABCDEFGHJKMNPQRSTVWXYZ"[(n >> 5 * i) & 31] for i in reversed(range(26)))
+raw = "ec_pat_" + b64(secrets.token_bytes(32))
+fd = os.open(sys.argv[1], os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+os.write(fd, raw.encode())
+os.close(fd)
+print(ulid(), ulid(), b64(hashlib.sha256(raw.encode()).digest()), raw[:11])
+PY
+  ) || { rm -rf -- "$d"; die "role fixture token generation failed"; }
+  read -r uid tid hash prefix <<<"$ids"
+  if ! db_sql "
+    INSERT INTO users (id, email, name, role, email_verified, created_at, updated_at)
+      SELECT '$uid', '$ROLE_FIXTURE_EMAIL', 'Songhealth role fixture', $ROLE_FIXTURE_ROLE, 1,
+             to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'),
+             to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"')
+      WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = '$ROLE_FIXTURE_EMAIL');
+    DELETE FROM _emdash_api_tokens WHERE name = 'songhealth-role-fixture'
+      AND user_id = (SELECT id FROM users WHERE email = '$ROLE_FIXTURE_EMAIL');
+    INSERT INTO _emdash_api_tokens (id, name, token_hash, prefix, user_id, scopes)
+      SELECT '$tid', 'songhealth-role-fixture', '$hash', '$prefix', id,
+             '[\"content:read\",\"content:write\",\"media:read\",\"media:write\",\"schema:read\",\"schema:write\",\"admin\"]'
+      FROM users WHERE email = '$ROLE_FIXTURE_EMAIL';" >/dev/null; then
+    rm -rf -- "$d"
+    die "could not write the role fixture account"
+  fi
+  mv -f -- "$d/pat" "$ROLE_FIXTURE"
+  rm -rf -- "$d"
+  [[ $(pat_identity "$ROLE_FIXTURE") == "$ROLE_FIXTURE_EMAIL $ROLE_FIXTURE_ROLE" ]] \
+    || die "the new role fixture PAT does not authenticate as $ROLE_FIXTURE_EMAIL (Author)"
+  note "role fixture: $ROLE_FIXTURE_EMAIL (Author); PAT saved to $ROLE_FIXTURE (mode 0600)"
+}
+
 preflight
 ensure_checkout
 if [[ $HERE != "$(cd "$SRC" && pwd -P)" ]]; then
@@ -284,12 +331,14 @@ install_units
 start_db
 start_app
 ensure_setup
+ensure_role_fixture
 "$SRC/scripts/dev-runtime-verify.sh" || die "verification failed: see the FAIL lines above"
 cat <<EOF
 
 Songhealth development runtime is ready: $ORIGIN/
   Admin (dev-bypass login): $ORIGIN/_emdash/api/auth/dev-bypass?redirect=/_emdash/admin
   Development PAT (0600):   $STATE_DIR/dev-pat
+  Role fixture PAT (0600):  $ROLE_FIXTURE
   T021 route token (0600):  $ROUTE_ACCESS
   Logs:                     journalctl --user -u $APP -f
   Promote a new commit:     $SRC/scripts/dev-runtime-update.sh --sha <commit>

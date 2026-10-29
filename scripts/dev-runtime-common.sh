@@ -34,6 +34,13 @@ SECRETS=(songhealth-qdev-db-password songhealth-qdev-app-password
 ROUTE_SECRET=songhealth-qdev-t021-route-token
 ROUTE_ACCESS=$STATE_DIR/t021-route-access.json
 ROUTE_PATH=/__feature002/public-reads
+# The T019/T020 role fixture (T022): a second native account with its own 0600 PAT. EmDash
+# offers no native way to create it on this runtime (an invite completes only with a passkey,
+# and browsers reject the IP rpId 127.0.0.1), so the installer writes the same user row as
+# EmDash's dev-bypass and a token row in EmDash's own format. Its home role is Author (30).
+ROLE_FIXTURE=$STATE_DIR/role-fixture-pat
+ROLE_FIXTURE_EMAIL=role-fixture@songhealth.test
+ROLE_FIXTURE_ROLE=30
 # Expected least-privilege role vector: login, not superuser/createdb/createrole, owns the db.
 ROLE_SQL="SELECT concat_ws('|', r.rolcanlogin, r.rolsuper, r.rolcreatedb, r.rolcreaterole, pg_get_userbyid(d.datdba))
   FROM pg_roles r, pg_database d WHERE r.rolname = 'songhealth_qdev_app' AND d.datname = 'songhealth_qdev'"
@@ -59,3 +66,11 @@ setup_needed() { # prints true or false from EmDash's native setup status endpoi
     | python3 -I -c 'import json, sys; print(str(json.load(sys.stdin)["data"]["needsSetup"]).lower())'
 }
 require_sha() { [[ ${1:-} =~ ^[0-9a-f]{40}$ ]] || die "--sha must name a full 40-hex commit"; }
+pat_identity() { # pat_identity FILE — prints "email role" for a 0600 PAT file (token sent on stdin)
+  local token
+  [[ -s $1 && $(stat -c %a "$1") == 600 ]] || return 1
+  token=$(<"$1")
+  printf 'Authorization: Bearer %s\n' "$token" \
+    | curl -fsS --max-time 30 -H @- "$ORIGIN/_emdash/api/auth/me" \
+    | python3 -I -c 'import json, sys; d = json.load(sys.stdin)["data"]; print(d["email"], d["role"])'
+}

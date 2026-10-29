@@ -437,6 +437,12 @@ let roleFixtureOriginalRole: number | undefined;
 let pagesReadiness: CollectionReadiness = { outcome: "missing" };
 let newsReadiness: CollectionReadiness = { outcome: "missing" };
 let documentsReadiness: CollectionReadiness = { outcome: "missing" };
+/**
+ * Native per-collection SEO opt-in (`hasSeo`) as read by beforeAll. The
+ * approved seed enables SEO on no collection, so the SEO side-write path is
+ * exercised as the native refusal unless the active schema opts in.
+ */
+const seoEnabled = new Map<string, boolean>();
 
 /**
  * Registration for the synthetic topic term — retained from BEFORE its
@@ -1447,6 +1453,7 @@ test.beforeAll(async () => {
 			schemaRead.ok,
 			`reading the native ${collection} collection schema must succeed when it is not a 404 (got ${schemaRead.status})`,
 		).toBe(true);
+		seoEnabled.set(collection, nativeItemOf(schemaRead)?.hasSeo === true);
 		const fields = nativeItemOf(schemaRead)?.fields;
 		expect(Array.isArray(fields), `the ${collection} schema read must include fields`).toBe(
 			true,
@@ -1974,9 +1981,17 @@ test("revision history: saves create distinct native revisions newest-first with
 		`the native revision restore must succeed (${nativeRefusalOf(restored)})`,
 	).toBe(true);
 
-	// Post-restore read-back: with no pending draft the read returns the
-	// restored live data directly; the entry stays published; the row's
-	// version moved.
+	// Post-restore read-back. Verified pinned native restore semantics
+	// (ContentRepository.restoreRevision, src+dist confirmed and reproduced
+	// deterministically against the pinned runtime): the restore inserts a
+	// RESTORE-AUDIT revision carrying the restored snapshot, writes the
+	// snapshot's field values back into the content columns, and RETAINS the
+	// audit revision as the pending-draft pointer — a selected restore
+	// re-stages the restored snapshot as the recoverable pending draft
+	// (hydrateDraftData) while the restored data itself is live. The retained
+	// pointer is the restore-CREATED audit revision (the new history head),
+	// NOT the originally-selected revision id, and never null after a
+	// restore. The entry stays published and the row's version moved.
 	const afterRestore = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!));
 	expect(statusOfItem(afterRestore), "restore does not change the published lifecycle state").toBe(
 		"published",
@@ -1985,7 +2000,19 @@ test("revision history: saves create distinct native revisions newest-first with
 		dataOfItem(afterRestore).title,
 		"the restored content must read back as the selected revision's data",
 	).toBe(firstTitle);
-	expect(afterRestore?.draftRevisionId, "restore leaves no pending draft behind here").toBeNull();
+	const restoreAuditPointer = nativeItemOf(restored)?.draftRevisionId;
+	expect(
+		typeof restoreAuditPointer === "string" && restoreAuditPointer.length > 0,
+		"the restore response carries the restore-created revision as its pending-draft pointer",
+	).toBe(true);
+	expect(
+		afterRestore?.draftRevisionId,
+		"restore re-stages the restored snapshot as the pending draft (the restore-created audit revision is retained, not cleared)",
+	).toBe(restoreAuditPointer);
+	expect(
+		afterRestore?.draftRevisionId,
+		"the retained pointer is the restore-created revision, never the originally-selected revision id",
+	).not.toBe(String(listing.items[1]?.id));
 	const versionAfterRestore = typeof afterRestore?.version === "number" ? afterRestore.version : undefined;
 	expect(
 		typeof versionAfterRestore === "number" &&
@@ -2016,6 +2043,10 @@ test("revision history: saves create distinct native revisions newest-first with
 		listingAfterRestore.items[0]?.authorId,
 		"the restore revision records the restoring caller as its author",
 	).toBe(admin.userId);
+	expect(
+		listingAfterRestore.items[0]?.id,
+		"the retained pending-draft pointer is exactly the restore-created history head",
+	).toBe(restoreAuditPointer);
 	expect(
 		recordData(listingAfterRestore.items[1]).title,
 		"the pre-restore newest revision is still listed (current state)",
@@ -2511,7 +2542,10 @@ test("live metadata: taxonomy, SEO and byline writes apply to current state imme
 	// Three separate current-state metadata writes while the content draft
 	// is pending: taxonomy assignment, SEO metadata, byline attribution.
 	// None of these is a DRAFT_ONLY key, so none stages a content revision
-	// and none publishes the pending draft.
+	// and none publishes the pending draft. The SEO write follows the active
+	// native schema: on a collection without the SEO opt-in (the approved
+	// seed) it is the native VALIDATION_ERROR refusal, which lands nothing.
+	const newsHasSeo = seoEnabled.get(NEWS_COLLECTION) === true;
 	const termWrite = await contentPut(admin, NEWS_COLLECTION, entry.entryId!, {
 		taxonomies: { [TOPIC_TAXONOMY]: [termSlug] },
 	});
@@ -2520,7 +2554,14 @@ test("live metadata: taxonomy, SEO and byline writes apply to current state imme
 	const seoWrite = await contentPut(admin, NEWS_COLLECTION, entry.entryId!, {
 		seo: { title: seoTitle },
 	});
-	expect(seoWrite.ok, `the SEO metadata write must succeed (${nativeRefusalOf(seoWrite)})`).toBe(true);
+	if (newsHasSeo) {
+		expect(seoWrite.ok, `the SEO metadata write must succeed (${nativeRefusalOf(seoWrite)})`).toBe(true);
+	} else {
+		expect(seoWrite.status, "SEO is not enabled on news: the native validation refusal").toBe(400);
+		expect(nativeErrorOf(seoWrite)?.code, "the refusal carries the native VALIDATION_ERROR code").toBe(
+			"VALIDATION_ERROR",
+		);
+	}
 	const bylineWrite = await contentPut(admin, NEWS_COLLECTION, entry.entryId!, {
 		bylines: [{ bylineId, roleLabel: "Written by" }],
 	});
@@ -2541,7 +2582,11 @@ test("live metadata: taxonomy, SEO and byline writes apply to current state imme
 	).toBe(true);
 	// SEO: the current item carries the written SEO metadata.
 	const seo = current?.seo as Record<string, unknown> | null | undefined;
-	expect(seo?.title, "the SEO metadata is current state immediately").toBe(seoTitle);
+	if (newsHasSeo) {
+		expect(seo?.title, "the SEO metadata is current state immediately").toBe(seoTitle);
+	} else {
+		expect(seo?.title, "the refused SEO write left no SEO metadata").toBeUndefined();
+	}
 	// Byline: the current item carries the explicit byline attribution.
 	const bylinesRaw = current?.bylines;
 	const bylines = Array.isArray(bylinesRaw)
@@ -2580,6 +2625,54 @@ test("live metadata: taxonomy, SEO and byline writes apply to current state imme
 		revisionsAfterMetadata,
 		"taxonomy/SEO/byline writes create no content revisions (they are live metadata, not staged content)",
 	).toBe(revisionsBeforeMetadata);
+});
+
+test("SEO boundary: a collection without SEO enabled refuses SEO writes truthfully and leaves all state untouched", async () => {
+	gatePages();
+	test.skip(
+		seoEnabled.get(PAGES_COLLECTION) === true,
+		"the active pages schema enables SEO, so it cannot exercise the SEO-disabled boundary",
+	);
+
+	// The complement of the metadata test above (which exercises the
+	// current-state SEO path on `news` when its schema opts in to SEO): the
+	// same native write against a collection whose schema has SEO DISABLED is
+	// a validation refusal, never a partial write. Verified pinned gate: src/api/handlers/content.ts:1202
+	// (VALIDATION_ERROR "Collection … does not have SEO enabled") backed by
+	// plugins/context.ts assertSeoEnabled — the refusal precedes every data,
+	// taxonomy and reference effect.
+	const entry = await createSyntheticEntry(admin, PAGES_COLLECTION, {
+		data: { title: uniqueTitle("seo-disabled") },
+	});
+	expect(entry.result.ok, "the SEO-boundary fixture must save").toBe(true);
+	expect(
+		(await publishEntry(admin, PAGES_COLLECTION, entry.entryId!)).ok,
+		"the SEO-boundary fixture must publish",
+	).toBe(true);
+
+	const revisionsBefore = revisionsOf(
+		await listRevisions(admin, PAGES_COLLECTION, entry.entryId!),
+	).total;
+	const refused = await contentPut(admin, PAGES_COLLECTION, entry.entryId!, {
+		seo: { title: `${SYNTHETIC_FIXTURE_MARK} must never land` },
+	});
+	expect(refused.ok, "the SEO write on a non-SEO collection is refused").toBe(false);
+	expect(refused.status, "the refusal is the native validation failure").toBe(400);
+	expect(nativeErrorOf(refused)?.code, "the refusal carries the native VALIDATION_ERROR code").toBe(
+		"VALIDATION_ERROR",
+	);
+
+	// Nothing landed anywhere: no content revision, no live-data change, and
+	// the entry's current state is byte-for-byte its pre-refusal state.
+	expect(
+		revisionsOf(await listRevisions(admin, PAGES_COLLECTION, entry.entryId!)).total,
+		"the refused SEO write creates no content revision",
+	).toBe(revisionsBefore);
+	const current = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!));
+	expect(
+		String(dataOfItem(current).title ?? "").startsWith(`${SYNTHETIC_FIXTURE_MARK} seo-disabled`),
+		"the live data is untouched: the entry keeps its original fixture title",
+	).toBe(true);
 });
 
 // ---------------------------------------------------------------------------
@@ -2685,9 +2778,14 @@ test("unauthenticated revision-surface reads are authorization refusals, never d
 		).toBe(401);
 		expect(result.ok, `${label}: the refusal is never success`).toBe(false);
 		const error = result.body as { error?: { code?: unknown } };
+		// Verified pinned native behavior (src/astro/middleware/auth.ts:79,702):
+		// an anonymous API request is refused by the AUTHENTICATION layer as
+		// 401 NOT_AUTHENTICATED — distinct from the authenticated-but-
+		// insufficient-permission family (403 FORBIDDEN via authorize.ts
+		// requirePerm/requireOwnerPerm) covered by the T019 role controls.
 		expect(
 			error?.error?.code,
-			`${label}: the refusal carries its native authorization code`,
-		).toBe("UNAUTHORIZED");
+			`${label}: the refusal carries its native authentication-layer code`,
+		).toBe("NOT_AUTHENTICATED");
 	}
 });
