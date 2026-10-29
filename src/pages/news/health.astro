@@ -11,14 +11,15 @@ import NewsCardGrid from "../../components/NewsCardGrid.astro";
 import PageHeading from "../../components/PageHeading.astro";
 import Pagination from "../../components/Pagination.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { TOPIC_PARAM, healthNewsPath, listNews, topicTerms } from "../../lib/news";
+import { healthNewsPath, listNews } from "../../lib/news";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
+import { TOPIC_PARAM, listTerms } from "../../lib/terms";
 
 const title = "ข่าวสุขภาพ";
 const lead = "ข่าวสารด้านสุขภาพจากสำนักงานสาธารณสุขอำเภอสอง เลือกประเด็นสุขภาพที่สนใจได้";
 const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
 const topic = Astro.url.searchParams.get(TOPIC_PARAM)?.trim() ?? "";
-const topics = await topicTerms();
+const topics = await listTerms("topic");
 const { entries, hasMore } = await listNews(
 	page,
 	topic === "" ? topics.map((term) => term.slug) : [topic],

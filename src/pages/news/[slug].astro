@@ -12,7 +12,8 @@ import { Image } from "emdash/ui";
 import DateText from "../../components/DateText.astro";
 import RichText from "../../components/RichText.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { healthNewsPath, newsPath, termsOf, type NewsData } from "../../lib/news";
+import { healthNewsPath, newsPath, type NewsData } from "../../lib/news";
+import { termsOf } from "../../lib/terms";
 
 const slug = Astro.params.slug ?? "";
 const { entry, isPreview, error } = await getEmDashEntry<"news", NewsData>("news", slug);

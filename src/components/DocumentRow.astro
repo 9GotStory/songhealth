@@ -1,0 +1,43 @@
+---
+// A Document in a list (Feature 003 #55; spec #51 "Shared building blocks"): its title linking to
+// its own page, its type, Document date and fiscal year, the file's type and size, and a status
+// that needs attention. A file that cannot be served reads "ไฟล์ไม่พร้อมให้บริการ" here as it does
+// on the Document's page (src/lib/media.ts).
+import { documentPath, type DocumentEntry } from "../lib/documents";
+import { downloadableFile } from "../lib/media";
+import { termsOf } from "../lib/terms";
+import DateText from "./DateText.astro";
+
+interface Props {
+	document: DocumentEntry;
+}
+
+const { document } = Astro.props;
+const data = document.data;
+const type = termsOf(data, "document_type")[0];
+const file = await downloadableFile(data.file, Astro.locals.emdash);
+---
+
+<article class="flex flex-col gap-2 rounded-24 bg-surface-base p-5 shadow-card">
+	{(type || data.document_at || data.fiscal_year) && (
+		<p class="flex flex-wrap gap-x-2 text-small text-text-secondary">
+			{type && <span class="wrap-anywhere">{type.label}</span>}
+			{type && data.document_at && <span aria-hidden="true">•</span>}
+			{data.document_at && <DateText value={data.document_at} />}
+			{(type || data.document_at) && data.fiscal_year && <span aria-hidden="true">•</span>}
+			{data.fiscal_year && <span>ปีงบประมาณ {data.fiscal_year}</span>}
+		</p>
+	)}
+	<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
+		<a
+			class="underline-offset-4 hover:text-brand-primary hover:underline"
+			href={documentPath(document.id)}
+		>
+			{data.title}
+		</a>
+	</h2>
+	{data.summary && <p class="line-clamp-2 text-text-secondary">{data.summary}</p>}
+	<p class="text-small text-text-secondary">
+		{file ? `ไฟล์ ${file.type ?? ""} ${file.size}` : "ไฟล์ไม่พร้อมให้บริการ"}
+	</p>
+</article>

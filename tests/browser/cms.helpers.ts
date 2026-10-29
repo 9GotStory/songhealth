@@ -1124,12 +1124,17 @@ export interface SyntheticMediaResult {
  */
 export async function uploadSyntheticMedia(
 	actor: CmsActor,
-	options: { filename?: string } = {},
+	options: {
+		filename?: string;
+		/** Other bytes than the synthetic PNG, with their MIME type, such as a synthetic PDF. */
+		file?: { bytes: Uint8Array<ArrayBuffer>; type: string };
+	} = {},
 ): Promise<SyntheticMediaResult> {
 	const filename =
 		options.filename ?? `${SYNTHETIC_SLUG_PREFIX}media-${crypto.randomUUID().slice(0, 8)}.png`;
+	const { bytes, type } = options.file ?? { bytes: syntheticMediaPng(), type: "image/png" };
 	const form = new FormData();
-	form.append("file", new File([syntheticMediaPng()], filename, { type: "image/png" }));
+	form.append("file", new File([bytes], filename, { type }));
 	// The pinned 1.1.0 upload form parses `deduplicate` with
 	// .default("true") (api/schemas/media.ts mediaUploadDeduplicateForm),
 	// so silence is NOT an opt-out — the explicit "false" is required for
