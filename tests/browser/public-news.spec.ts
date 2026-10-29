@@ -21,6 +21,8 @@
 //   (src/media/normalize.ts mergeProviderData).
 // - POST …/preview-url mints the signed preview link of a draft, and the site's settings `seo`
 //   object is patched key by key, where null removes a key (src/settings/index.ts).
+// - Deleting a media item removes its stored file and leaves the News that uses it unchanged
+//   (src/api/handlers/media.ts handleMediaDelete).
 
 import type { Page } from "@playwright/test";
 
@@ -28,6 +30,7 @@ import {
 	cleanupOwnedFixtures,
 	cmsRequest,
 	createPatActor,
+	deleteMedia,
 	createSyntheticEntry,
 	loadDevAccessToken,
 	nativeDataOf,
@@ -471,6 +474,36 @@ test("a News page shows its title, Thai date, category, topics, image with its a
 	await expect(
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "ข่าวสาร" }),
 	).toHaveAttribute("aria-current", "true");
+});
+
+test("a News item whose featured image was deleted from the media library shows no broken image on the lists or its page", async ({
+	page,
+}) => {
+	const topic = await createTerm("topic", "อนามัยแม่และเด็ก");
+	const media = await uploadSyntheticMedia(admin);
+	expect(media.mediaId, "the synthetic image must upload").toBeDefined();
+	const news = await createNews("image-gone", {
+		data: { featured_image: { id: media.mediaId } },
+		taxonomies: { topic: [topic.slug] },
+	});
+	await publish(news);
+	const removed = await deleteMedia(admin, media.mediaId!);
+	expect(removed.ok, `deleting the media item: ${nativeRefusalOf(removed)}`).toBe(true);
+
+	for (const list of ["/news", `/news/health?topic=${topic.slug}`]) {
+		await page.goto(list);
+		const card = page.getByRole("article").filter({ hasText: news.title });
+		await expect(card, `${list} still lists the News`).toHaveCount(1);
+		await expect(card.locator("img"), `${list} shows no picture for it`).toHaveCount(0);
+		await expect(card.getByTestId("card-visual"), `${list} shows the plain visual`).toHaveCount(1);
+	}
+
+	const response = await page.goto(`/news/${news.slug}`);
+	expect(response?.status(), "the News page still renders").toBe(200);
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(news.title);
+	await expect(page.getByRole("main").locator("img"), "the page leaves the image out").toHaveCount(
+		0,
+	);
 });
 
 test("a draft, unpublished or trashed News item answers the site 404 and stays out of every list", async ({
