@@ -24,8 +24,10 @@ import {
 	type CmsActor,
 } from "./cms.helpers";
 import {
+	DEFAULT_SITE_TITLE,
 	DESKTOP_VIEWPORT,
 	MOBILE_VIEWPORT,
+	NOT_FOUND_HEADING,
 	VIEWPORTS,
 	expect,
 	expectNoAxeViolations,
@@ -36,12 +38,6 @@ import {
 
 /** The office's official name, fixed interface text in the utility bar. */
 const OFFICE_NAME = "สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่";
-
-/** The site title shown while the native site settings name none. */
-const DEFAULT_SITE_TITLE = "สำนักงานสาธารณสุขอำเภอสอง";
-
-/** The heading, and the page title, of the site-designed 404 page. */
-const NOT_FOUND_HEADING = "ไม่พบหน้าที่คุณต้องการ";
 
 /** `03` §2 main navigation, in order. */
 const MAIN_NAVIGATION = [

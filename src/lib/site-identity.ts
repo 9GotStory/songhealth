@@ -24,10 +24,10 @@ import { getSiteSettings } from "emdash";
 export const OFFICE_NAME = "สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่";
 
 /** The site title while the native site settings name none. */
-export const DEFAULT_SITE_TITLE = "สำนักงานสาธารณสุขอำเภอสอง";
+const DEFAULT_SITE_TITLE = "สำนักงานสาธารณสุขอำเภอสอง";
 
 /** The resolved fields of the native logo setting that the shell renders. */
-export interface SiteLogo {
+interface SiteLogo {
 	url: string;
 	width?: number;
 	height?: number;

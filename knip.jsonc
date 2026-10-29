@@ -1,0 +1,23 @@
+// Knip finds unused files, dependencies and exports (`npm run knip`, run by CI). The Astro,
+// Playwright and node:test plugins add the pages, suites and node tests as entries; the lines
+// below add what only a command line or the development runtime loads.
+{
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"entry": [
+		// Run by hand or by an npm script: `node scripts/<name>`.
+		"scripts/*.{mjs,ts}",
+		// Loaded by path by capture-with-fixtures.ts and measure-latency.ts.
+		"scripts/{screenshot,latency}-fixtures/*.ts",
+		// The T021 coordinator (README.md).
+		"tests/browser/run-cms-public-reads.mjs",
+		// The development runtime's Astro config and the T021 integration it adds. Inside the
+		// runtime container the checkout is /src, so the config imports by that absolute path.
+		"deploy/dev-quadlet/astro.dev.config.mjs",
+		"tests/browser/fixtures/cms-public-reads.integration.mjs",
+		// Astro loads the live-collection registration by its file name.
+		"src/live.config.ts",
+	],
+	"ignoreUnresolved": ["^/src/"],
+	// Accepted Feature 002 evidence drivers: records, not maintained code.
+	"ignore": ["specs/**"],
+}

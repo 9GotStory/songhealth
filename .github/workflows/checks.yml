@@ -1,5 +1,5 @@
-# Songhealth checks: the production build, typecheck, node tests, formatting and
-# ShellCheck on the development-runtime scripts,
+# Songhealth checks: the production build, typecheck, node tests, formatting, unused
+# files, dependencies and exports (Knip), and ShellCheck on the development-runtime scripts,
 # on every pull request into and push to main or the Feature 003 integration
 # branch. The browser suites need the development runtime's database and
 # credentials, so they run there instead (README.md).
@@ -33,4 +33,5 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:node
       - run: npm run format:check
+      - run: npm run knip
       - run: npm run lint:shell

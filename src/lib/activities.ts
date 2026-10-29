@@ -19,7 +19,7 @@ const ACTIVITIES_PAGE_SIZE = 12;
 export const ACTIVITIES_PATH = "/activities";
 
 /** One picture of an Activity's gallery, as the repeater field holds it (seed/seed.json). */
-export interface GalleryItem {
+interface GalleryItem {
 	image?: ImageFieldValue | null;
 	caption?: string | null;
 }

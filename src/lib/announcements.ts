@@ -79,7 +79,7 @@ export function statusOf(data: AnnouncementData, now: Date): AnnouncementStatus 
 }
 
 /** Whether the Announcement is closed at `now`: its close date has passed in Bangkok. */
-export function isClosed(data: AnnouncementData, now: Date): boolean {
+function isClosed(data: AnnouncementData, now: Date): boolean {
 	return !isCurrent(data.closes_at, now);
 }
 
