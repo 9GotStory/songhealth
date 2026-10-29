@@ -30,11 +30,17 @@ newest publication first, with no `limit`, so the query has no `LIMIT` (`src/loa
 The Product Owner chose this option on 2026-10-29 (#56, "เห็นด้วยกับทาง A").
 
 The same module holds the Announcement's current-or-closed rule: the Announcements list shows the
-current ones first, then the closed ones, each in that order. The spec says an Announcement is current "when it has no close date, or
-its close date is still ahead in Bangkok time". The module reads that by the Bangkok calendar day:
-an Announcement stays current through its whole close date, since pages show the close date as a
-day, and it is closed from the next Bangkok day. That reading awaits the Product Owner's
-confirmation in the #56 pull request; it is one comparison to change.
+current ones first, then the closed ones, each in that order. The spec says an Announcement is
+current "when it has no close date, or its close date is still ahead in Bangkok time". The module
+reads that by the Bangkok calendar day: an Announcement stays current through its whole close date,
+whatever time staff entered, and is closed from the next Bangkok day. Thai official usage counts the
+close date in ("ถึงวันที่ …"), a time left at 00:00 would otherwise close it a day early, and pages
+show the close date as a day. The Product Owner confirmed this reading on 2026-10-29 (#56,
+"เห็นด้วย"), with staff guidance in the #67 handoff.
+
+By the same day rule, an Announcement with an open or close date states its status in text:
+ยังไม่เปิด before its open date, เปิดอยู่ from then through its close date, and ปิดแล้ว after it. One
+with neither date states none (Product Owner, 2026-10-29, #56).
 
 ## Considered options
 

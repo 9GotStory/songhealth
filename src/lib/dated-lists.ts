@@ -80,3 +80,23 @@ export function isCurrent(closesAt: Instant, now: Date): boolean {
 	if (closes === undefined) return true;
 	return bangkokDay(closes) >= bangkokDay(now);
 }
+
+/** Where an Announcement with an open or close date stands: not open yet, open, or closed. */
+export type AnnouncementStatus = "upcoming" | "open" | "closed";
+
+/**
+ * The status an Announcement states at `now`, by the Bangkok day like `isCurrent`: closed once its
+ * close date has passed, not open yet before its open date, else open. An Announcement with
+ * neither date, such as a plain notice, states none (Product Owner, 2026-10-29, #56).
+ */
+export function announcementStatus(
+	opensAt: Instant,
+	closesAt: Instant,
+	now: Date,
+): AnnouncementStatus | undefined {
+	const opens = timeOf(opensAt);
+	if (opens === undefined && timeOf(closesAt) === undefined) return undefined;
+	if (!isCurrent(closesAt, now)) return "closed";
+	if (opens !== undefined && bangkokDay(opens) > bangkokDay(now)) return "upcoming";
+	return "open";
+}

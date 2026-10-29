@@ -1,7 +1,8 @@
 ---
 // An Announcement page, /announcements/{slug} (Feature 003 #56; spec #51 "Public reads"
 // (Announcements) and "Errors, redirects, preview and SEO"): its type, its announcement, open and
-// close dates, "ปิดแล้ว" once it is closed, its details, and the Documents attached to it.
+// close dates, its status in text when it has those dates (ยังไม่เปิด, เปิดอยู่ or ปิดแล้ว), its details,
+// and the Documents attached to it.
 //
 // The attached Documents are read through the reference field in the order staff attached them.
 // EmDash resolves a target only while it is published, or a draft in preview, so a draft,
@@ -19,7 +20,7 @@
 // An Announcement has no summary, so its description is the start of its details, unless its SEO
 // panel sets one.
 import { extractPlainText, getEmDashEntry } from "emdash";
-import StatusLabel from "../../components/StatusLabel.astro";
+import AnnouncementStatus from "../../components/AnnouncementStatus.astro";
 import DateText from "../../components/DateText.astro";
 import DetailItem from "../../components/DetailItem.astro";
 import DocumentRow from "../../components/DocumentRow.astro";
@@ -27,9 +28,8 @@ import RichText from "../../components/RichText.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import {
 	ANNOUNCEMENTS_PATH,
-	CLOSED_LABEL,
 	announcementPath,
-	isClosed,
+	statusOf,
 	type AnnouncementData,
 } from "../../lib/announcements";
 import { documentsById } from "../../lib/documents";
@@ -52,7 +52,7 @@ if (!entry) return Astro.rewrite("/404");
 
 const announcement = entry.data;
 const types = termsOf(announcement, "announcement_type");
-const closed = isClosed(announcement, new Date());
+const status = statusOf(announcement, new Date());
 const documents = await documentsById(
 	(entry.references?.documents.entries ?? []).map((target) => String(target.data.id)),
 );
@@ -114,9 +114,9 @@ const hasDetails =
 						<DateText value={announcement.closes_at} />
 					</DetailItem>
 				)}
-				{closed && (
+				{status && (
 					<DetailItem term="สถานะ">
-						<StatusLabel attention>{CLOSED_LABEL}</StatusLabel>
+						<AnnouncementStatus status={status} />
 					</DetailItem>
 				)}
 			</dl>

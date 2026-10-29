@@ -7,7 +7,8 @@
 // closed ones, each newest first by announcement date, falling back to the publication. EmDash
 // cannot sort that way, so the list reads every published Announcement (a query without a `limit`
 // has none: src/loader.ts `fetchLimit`) and sorts it in src/lib/dated-lists.ts (ADR 0004), which
-// also holds the current-or-closed rule.
+// also holds the current-or-closed rule and the status an Announcement states: not open yet, open
+// or closed, by the Bangkok day (Product Owner, 2026-10-29).
 
 import {
 	getEmDashCollection,
@@ -16,13 +17,17 @@ import {
 	type TaxonomyTerm,
 } from "emdash";
 import {
+	announcementStatus,
 	isCurrent,
 	listDate,
 	listPage,
 	newestFirst,
+	type AnnouncementStatus,
 	type Instant,
 	type ListPage,
 } from "./dated-lists";
+
+export type { AnnouncementStatus };
 
 /** The fixed number of Announcements a list page shows. */
 const ANNOUNCEMENTS_PAGE_SIZE = 20;
@@ -30,8 +35,12 @@ const ANNOUNCEMENTS_PAGE_SIZE = 20;
 /** The Announcements list's address. */
 export const ANNOUNCEMENTS_PATH = "/announcements";
 
-/** How a closed Announcement is marked, in text (spec #51 "Public reads"). */
-export const CLOSED_LABEL = "ปิดแล้ว";
+/** Each Announcement status as citizens read it, in text (spec #51 "Public reads"). */
+export const STATUS_LABELS: Record<AnnouncementStatus, string> = {
+	upcoming: "ยังไม่เปิด",
+	open: "เปิดอยู่",
+	closed: "ปิดแล้ว",
+};
 
 /** An Announcement's fields (seed/seed.json) and the system fields public pages read. */
 export interface AnnouncementData {
@@ -62,6 +71,11 @@ export function announcementPath(slug: string): string {
 /** The date an Announcement is listed by: its announcement date, else its publication. */
 export function announcementDate(data: AnnouncementData): Instant {
 	return listDate(data.announcement_at, data.publishedAt);
+}
+
+/** The status the Announcement states at `now`, or none without open and close dates. */
+export function statusOf(data: AnnouncementData, now: Date): AnnouncementStatus | undefined {
+	return announcementStatus(data.opens_at, data.closes_at, now);
 }
 
 /** Whether the Announcement is closed at `now`: its close date has passed in Bangkok. */

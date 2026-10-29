@@ -2,8 +2,9 @@
 // The Announcements list, /announcements (Feature 003 #56; spec #51 "Public reads"
 // (Announcements), `03` §19): published Announcements, the current ones first and then the closed
 // ones, each newest first by announcement date, falling back to the publication
-// (src/lib/announcements.ts, ADR 0004). A closed Announcement says "ปิดแล้ว" in text. A fixed
-// number per page, with the page number in the query string.
+// (src/lib/announcements.ts, ADR 0004). An Announcement with open or close dates states in text
+// whether it is not open yet, open or closed (ยังไม่เปิด, เปิดอยู่, ปิดแล้ว). A fixed number per
+// page, with the page number in the query string.
 //
 // Announcements sit under ข่าวสาร in the public hierarchy (`03` §6), so the breadcrumb and the main
 // navigation mark that section. The canonical address keeps a valid page number, as on the News
@@ -13,13 +14,13 @@ import EmptyState from "../../components/EmptyState.astro";
 import PageHeading from "../../components/PageHeading.astro";
 import Pagination from "../../components/Pagination.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { ANNOUNCEMENTS_PATH, isClosed, listAnnouncements } from "../../lib/announcements";
+import { ANNOUNCEMENTS_PATH, listAnnouncements, statusOf } from "../../lib/announcements";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
 
 const title = "ประกาศ";
 const lead = "ประกาศของสำนักงานสาธารณสุขอำเภอสองที่ประชาชนควรทราบหรือต้องดำเนินการ";
 const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
-/** One instant for the whole list, so the order and every row's mark agree. */
+/** One instant for the whole list, so the order and every row's status agree. */
 const now = new Date();
 const { entries, hasMore } = await listAnnouncements(page, now);
 const listUrl = new URL(ANNOUNCEMENTS_PATH, Astro.url);
@@ -44,7 +45,7 @@ const listUrl = new URL(ANNOUNCEMENTS_PATH, Astro.url);
 					<li>
 						<AnnouncementRow
 							announcement={announcement}
-							closed={isClosed(announcement.data, now)}
+							status={statusOf(announcement.data, now)}
 						/>
 					</li>
 				))}

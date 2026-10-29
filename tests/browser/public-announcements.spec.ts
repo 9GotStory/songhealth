@@ -4,7 +4,8 @@
 // A citizen reads published Announcements at /announcements: the current ones first, then the
 // closed ones, each newest first by announcement date, where an Announcement without one takes its
 // place by its publication. An Announcement is current when it has no close date, or its close
-// date is today or later in Bangkok; a closed one says "ปิดแล้ว" in text. Each Announcement's page
+// date is today or later in Bangkok. One with open or close dates states in text whether it is not
+// open yet, open or closed (ยังไม่เปิด, เปิดอยู่, ปิดแล้ว), by the Bangkok day. Each Announcement's page
 // at /announcements/{slug} shows its type, its announcement, open and close dates, its details and
 // the Documents attached to it, each linking to its Document page. Drafts, unpublished and trashed
 // Announcements never show, and attached Documents that are not published are left out.
@@ -179,7 +180,7 @@ test.afterAll(async () => {
 	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
 });
 
-test("/announcements lists current Announcements first and closed ones after, each newest first by announcement date with the publication as the fallback", async ({
+test("/announcements lists current Announcements first and closed ones after, each newest first by announcement date with the publication as the fallback, and states their status in text", async ({
 	page,
 }) => {
 	const closes = closeDates();
@@ -189,7 +190,15 @@ test("/announcements lists current Announcements first and closed ones after, ea
 	const currentRecent = await createAnnouncement("current-recent", {
 		data: { announcement_at: "2026-10-20T03:00:00.000Z", closes_at: closes.today },
 	});
-	// Published before the recent one but announced after the old one, with no close date.
+	// Not open until tomorrow, but not closed either: it is listed among the current ones.
+	const upcoming = await createAnnouncement("upcoming", {
+		data: {
+			announcement_at: "2026-10-10T03:00:00.000Z",
+			opens_at: closes.tomorrow,
+			closes_at: "2030-11-30T10:00:00.000Z",
+		},
+	});
+	// Published before the recent one but announced after the old one, with no open or close date.
 	const currentOld = await createAnnouncement("current-old", {
 		data: { announcement_at: "2026-09-01T03:00:00.000Z" },
 	});
@@ -213,6 +222,7 @@ test("/announcements lists current Announcements first and closed ones after, ea
 	await publish(closedOld);
 	await publish(closedRecent);
 	await publish(currentOld, "2026-09-05T03:00:00.000Z");
+	await publish(upcoming);
 	await publish(currentRecent, "2026-08-01T03:00:00.000Z");
 	const undatedAt = await publish(currentUndated);
 
@@ -229,6 +239,7 @@ test("/announcements lists current Announcements first and closed ones after, ea
 	const all = [
 		currentUndated,
 		currentRecent,
+		upcoming,
 		currentOld,
 		closedRecent,
 		closedOld,
@@ -242,6 +253,7 @@ test("/announcements lists current Announcements first and closed ones after, ea
 	).toEqual([
 		currentUndated.title,
 		currentRecent.title,
+		upcoming.title,
 		currentOld.title,
 		closedRecent.title,
 		closedOld.title,
@@ -252,11 +264,25 @@ test("/announcements lists current Announcements first and closed ones after, ea
 			"ปิดแล้ว",
 		);
 	}
-	for (const current of [currentUndated, currentRecent, currentOld]) {
+	for (const current of [currentUndated, currentRecent, upcoming, currentOld]) {
 		await expect(
 			listedItem(page, current.title),
-			`${current.title} is not marked`,
+			`${current.title} is not marked closed`,
 		).not.toContainText("ปิดแล้ว");
+	}
+	for (const open of [currentUndated, currentRecent]) {
+		await expect(listedItem(page, open.title), `${open.title} is open`).toContainText("เปิดอยู่");
+	}
+	await expect(listedItem(page, upcoming.title)).toContainText("ยังไม่เปิด");
+	await expect(listedItem(page, upcoming.title)).toContainText(
+		`วันที่เริ่มต้น ${thaiDate(closes.tomorrow)}`,
+	);
+	await expect(listedItem(page, upcoming.title)).not.toContainText("เปิดอยู่");
+	const plain = listedItem(page, currentOld.title);
+	for (const label of ["ยังไม่เปิด", "เปิดอยู่", "ปิดแล้ว"]) {
+		await expect(plain, `an Announcement without dates states no ${label}`).not.toContainText(
+			label,
+		);
 	}
 	await expect(listedItem(page, closedRecent.title)).toContainText(
 		`วันที่สิ้นสุด ${thaiDate(closes.yesterday)}`,
@@ -279,7 +305,7 @@ test("/announcements lists current Announcements first and closed ones after, ea
 	);
 });
 
-test("an Announcement closing today is current, one that closed yesterday is closed, and one without a close date is current, on its own page too", async ({
+test("an Announcement closing today is current and open, one that closed yesterday is closed, and one without a close date is current, on its own page too", async ({
 	page,
 }) => {
 	const closes = closeDates();
@@ -295,16 +321,20 @@ test("an Announcement closing today is current, one that closed yesterday is clo
 	expect(listed.indexOf(yesterday.title), "the closed one comes after both current ones").toBe(2);
 	await expect(listedItem(page, yesterday.title)).toContainText("ปิดแล้ว");
 	await expect(listedItem(page, today.title)).not.toContainText("ปิดแล้ว");
+	await expect(listedItem(page, today.title)).toContainText("เปิดอยู่");
 	await expect(listedItem(page, none.title)).not.toContainText("ปิดแล้ว");
 
 	await page.goto(`/announcements/${yesterday.slug}`);
 	await expect(detailOf(page, "สถานะ")).toHaveText("ปิดแล้ว");
 	await expect(detailOf(page, "วันที่สิ้นสุด")).toHaveText(thaiDate(closes.yesterday));
-	for (const current of [today, none]) {
-		await page.goto(`/announcements/${current.slug}`);
-		await expect(page.getByRole("heading", { level: 1 })).toHaveText(current.title);
-		await expect(page.getByRole("main").getByText("ปิดแล้ว"), current.title).toHaveCount(0);
-	}
+	await page.goto(`/announcements/${today.slug}`);
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(today.title);
+	await expect(detailOf(page, "สถานะ")).toHaveText("เปิดอยู่");
+	await page.goto(`/announcements/${none.slug}`);
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(none.title);
+	await expect(page.getByRole("main").getByRole("term").filter({ hasText: "สถานะ" })).toHaveCount(
+		0,
+	);
 });
 
 test("/announcements pages through its Announcements, current ones before closed ones across pages", async ({
@@ -393,7 +423,9 @@ test("an Announcement page shows its type, dates, details and its published atta
 	await expect(detailOf(page, "วันที่ประกาศ")).toHaveText("24 ก.ย. 2569");
 	await expect(detailOf(page, "วันที่เริ่มต้น")).toHaveText("1 ต.ค. 2569");
 	await expect(detailOf(page, "วันที่สิ้นสุด")).toHaveText("31 ต.ค. 2573");
-	await expect(main.getByRole("term").filter({ hasText: "สถานะ" })).toHaveCount(0);
+	await expect(detailOf(page, "สถานะ"), "opened on 1 Oct 2026, closing in 2030").toHaveText(
+		"เปิดอยู่",
+	);
 	await expect(main.getByText(detailsText)).toBeVisible();
 
 	const attached = main.getByRole("region", { name: "เอกสารที่เกี่ยวข้อง" });

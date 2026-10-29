@@ -1,7 +1,7 @@
 // Screenshot content for the Activities and Announcements pages (#56): three published Activities,
-// two with a picture and one without, the first with a captioned gallery; three published
-// Announcements, one open with an attached Document, one without a close date and one closed.
-// Captures both lists, an Activity page and the open and the closed Announcement.
+// two with a picture and one without, the first with a captioned gallery; four published
+// Announcements: one open with an attached Document, one not open yet, one without dates and one
+// closed. Captures both lists, an Activity page and the open and the closed Announcement.
 
 import type { Fixtures } from "../capture-with-fixtures.ts";
 
@@ -118,6 +118,18 @@ const fixtures: Fixtures = async ({ admin, helpers, term, picture, block }) => {
 				),
 			],
 			documents: [document.entryId!],
+		},
+		{
+			key: "upcoming",
+			title: "[ตัวอย่าง] เปิดรับสมัครผู้เข้าร่วมโครงการเลิกบุหรี่ รุ่นที่ 2/2570",
+			type: recruit,
+			announcementAt: new Date(now - 1 * DAY).toISOString(),
+			opensAt: new Date(now + 10 * DAY).toISOString(),
+			closesAt: new Date(now + 40 * DAY).toISOString(),
+			details: [
+				block("ผู้สนใจเลิกบุหรี่สมัครได้ที่ รพ.สต. ทุกแห่งในอำเภอสอง เมื่อถึงวันเปิดรับสมัคร"),
+			],
+			documents: [],
 		},
 		{
 			key: "notice",

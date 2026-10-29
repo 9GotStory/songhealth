@@ -1,24 +1,25 @@
 ---
 // An Announcement in a list (Feature 003 #56; spec #51 "Shared building blocks"): its type and
-// date, its title linking to its own page, and its close date when it has one, with "ปิดแล้ว"
-// once that date has passed. The list decides `closed` at one instant for every row, so the rows
-// agree with the order the list puts them in.
+// date, its title linking to its own page, and, when it has open or close dates, its status
+// (ยังไม่เปิด, เปิดอยู่ or ปิดแล้ว) with its close date, and its open date while it is not open yet.
+// The list decides the status at one instant for every row, so the rows agree with the order the
+// list puts them in.
 import {
-	CLOSED_LABEL,
 	announcementDate,
 	announcementPath,
 	type AnnouncementEntry,
+	type AnnouncementStatus as Status,
 } from "../lib/announcements";
 import { termsOf } from "../lib/terms";
-import StatusLabel from "./StatusLabel.astro";
+import AnnouncementStatus from "./AnnouncementStatus.astro";
 import DateText from "./DateText.astro";
 
 interface Props {
 	announcement: AnnouncementEntry;
-	closed: boolean;
+	status: Status | undefined;
 }
 
-const { announcement, closed } = Astro.props;
+const { announcement, status } = Astro.props;
 const data = announcement.data;
 const type = termsOf(data, "announcement_type")[0];
 const date = announcementDate(data);
@@ -40,12 +41,19 @@ const date = announcementDate(data);
 			{data.title}
 		</a>
 	</h2>
-	{data.closes_at && (
+	{status && (
 		<p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-small text-text-secondary">
-			<span>
-				วันที่สิ้นสุด <DateText value={data.closes_at} />
-			</span>
-			{closed && <StatusLabel attention>{CLOSED_LABEL}</StatusLabel>}
+			<AnnouncementStatus status={status} />
+			{status === "upcoming" && data.opens_at && (
+				<span>
+					วันที่เริ่มต้น <DateText value={data.opens_at} />
+				</span>
+			)}
+			{data.closes_at && (
+				<span>
+					วันที่สิ้นสุด <DateText value={data.closes_at} />
+				</span>
+			)}
 		</p>
 	)}
 </article>

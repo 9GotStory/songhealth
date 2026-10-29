@@ -5,11 +5,19 @@
 // - A list page is a fixed-size slice of that order.
 // - An Announcement is current when it has no close date, or its close date is today or later on
 //   the Bangkok calendar; it is closed from the next Bangkok day.
+// - An Announcement with an open or close date states it is not open yet, open or closed, by the
+//   Bangkok day (Product Owner, 2026-10-29).
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { isCurrent, listDate, listPage, newestFirst } from "../../src/lib/dated-lists.ts";
+import {
+	announcementStatus,
+	isCurrent,
+	listDate,
+	listPage,
+	newestFirst,
+} from "../../src/lib/dated-lists.ts";
 
 /** A published entry as the query functions return it, with an optional own date. */
 function entry(id: string, publishedAt: string, at?: string | null) {
@@ -136,5 +144,38 @@ describe("isCurrent", () => {
 		assert.equal(isCurrent(closesOn29th, new Date("2026-10-29T16:59:59.000Z")), true);
 		// 00:00 on 30 Oct in Bangkok, while UTC is still on the 29th.
 		assert.equal(isCurrent(closesOn29th, new Date("2026-10-29T17:00:00.000Z")), false);
+	});
+});
+
+describe("announcementStatus", () => {
+	// 10:00 on 29 Oct 2026 in Bangkok (UTC+7).
+	const now = new Date("2026-10-29T03:00:00.000Z");
+	const yesterday = "2026-10-28T03:00:00.000Z";
+	// Midnight starting 29 Oct in Bangkok, still 28 Oct in UTC.
+	const today = "2026-10-28T17:00:00.000Z";
+	// Midnight starting 30 Oct in Bangkok.
+	const tomorrow = "2026-10-29T17:00:00.000Z";
+
+	it("states nothing for an Announcement without open or close dates", () => {
+		assert.equal(announcementStatus(null, undefined, now), undefined);
+		assert.equal(announcementStatus("", "", now), undefined);
+	});
+
+	it("is not open yet before its open date in Bangkok", () => {
+		assert.equal(announcementStatus(tomorrow, undefined, now), "upcoming");
+		assert.equal(announcementStatus(tomorrow, "2026-11-30T03:00:00.000Z", now), "upcoming");
+	});
+
+	it("is open from its open date through its close date in Bangkok", () => {
+		assert.equal(announcementStatus(today, undefined, now), "open");
+		assert.equal(announcementStatus(yesterday, today, now), "open");
+		assert.equal(announcementStatus(undefined, tomorrow, now), "open");
+		assert.equal(announcementStatus(undefined, today, now), "open");
+	});
+
+	it("is closed once its close date has passed in Bangkok, whatever its open date says", () => {
+		assert.equal(announcementStatus(undefined, yesterday, now), "closed");
+		assert.equal(announcementStatus(yesterday, yesterday, now), "closed");
+		assert.equal(announcementStatus(tomorrow, yesterday, now), "closed");
 	});
 });
