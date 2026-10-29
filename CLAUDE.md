@@ -81,6 +81,9 @@ tools before relying on it:
 - **Context7 MCP first:** resolve the actual library at the version the manifests pin
   (`package.json`, `package-lock.json`, the digest-pinned images). Where Context7 lacks the
   technology or the fact, use first-party upstream documentation or package metadata.
+- **EmDash:** Context7 lacks its 1.1.0 internals. Start from the verified facts in
+  `docs/agents/emdash-1.1.0.md`, read the installed `node_modules/emdash/src` for the rest, and add
+  each new fact to that file with its source path.
 - **Pinned versions:** use the versions the manifests pin; upgrading or substituting a dependency
   needs the Product Owner's approval.
 - **Capability versus requirement:** documentation tells what a technology can do; the Product
