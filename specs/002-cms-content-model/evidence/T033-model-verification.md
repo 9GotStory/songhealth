@@ -5,7 +5,6 @@
 - The production build, the node foundation tests and every Feature 002 browser suite pass
   on the single development runtime.
 - Open items, which this record does not close:
-  - SC-007, which needs the staff session;
   - the official inventory population;
   - the deferred D-ITA/D-REF scope;
   - the Feature 001 production-host gates T022 and T028.
@@ -106,16 +105,15 @@ All runs used the commit under test.
 | FR-021, FR-025, FR-027 (roles, trash, administration) | `cms-lifecycle` with the role fixture | verified |
 | FR-022–FR-024 (editorial state, scheduling, revisions, locks) | `cms-lifecycle`, `cms-revisions`, UI lock and publish checks | verified |
 | FR-028 (public data only) | model review: no sensitive fields | verified by review |
-| FR-029 (Thai staff maintenance) | `cms-editor` journeys | automated part verified; staff comprehension is pending (SC-007) |
+| FR-029 (Thai staff maintenance) | `cms-editor` journeys | verified by automation; accepted with SC-007 by Product Owner decision (2026-10-29) |
 | FR-030–FR-032 (native identity reuse, mapping, scope) | model check, §23 table, unchanged canonical configuration | verified |
 | FR-014–FR-017, SC-004 (ITA) | — | DEFERRED (D-ITA), not V1 acceptance |
-| SC-001 | `cms-authoring`, `cms-personnel`, `cms-facilities`, `cms-editor` | create, save and reopen verified by automation; staff identification shares SC-007's pending staff session |
+| SC-001 | `cms-authoring`, `cms-personnel`, `cms-facilities`, `cms-editor` | create, save and reopen verified by automation; staff identification accepted with SC-007 by Product Owner decision (2026-10-29) |
 | SC-002, SC-003, SC-005, SC-006, SC-008 | the suites above and this review | verified with synthetic fixtures |
-| SC-007 | T032 | DEFERRED — NOT VERIFIED / NOT PASSED: the staff session is pending |
+| SC-007 | T032 (`cms-editor` 5 passed) | ACCEPTED by Product Owner decision (2026-10-29): the staff session was waived and the automated evidence accepted |
 
 ## Pending, not passed
 
-- **SC-007 staff session:** T032 stays open.
 - **Official inventory population:** real Area codes, facilities and services. This is a
   data input, not a schema change.
 - **Deferred guarantees:** D-ITA and D-REF.
