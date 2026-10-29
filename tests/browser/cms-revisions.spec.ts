@@ -416,9 +416,7 @@ interface SchemaField {
  * visible (the accepted T014 gating pattern).
  */
 type CollectionReadiness =
-	| { outcome: "ready" }
-	| { outcome: "missing" }
-	| { outcome: "misconfigured"; detail: string };
+	{ outcome: "ready" } | { outcome: "missing" } | { outcome: "misconfigured"; detail: string };
 
 /** The development-credential Administrator fixture (preparation + admin side). */
 let admin: CmsActor;
@@ -479,11 +477,7 @@ async function configuredDevelopmentOrigin(): Promise<string> {
 }
 
 /** Truthful schema gate for one exercised collection (T014 gateCollection shape). */
-function gateCollection(
-	readiness: CollectionReadiness,
-	slug: string,
-	what: string,
-): void {
+function gateCollection(readiness: CollectionReadiness, slug: string, what: string): void {
 	test.skip(
 		readiness.outcome === "missing",
 		`the ${slug} collection is not initialized in the active native schema (owning definition task outstanding; this run cannot exercise ${what})`,
@@ -504,11 +498,7 @@ function gateNews(): void {
 }
 
 function gateDocuments(): void {
-	gateCollection(
-		documentsReadiness,
-		DOCUMENTS_COLLECTION,
-		"the shared-media identity fixtures",
-	);
+	gateCollection(documentsReadiness, DOCUMENTS_COLLECTION, "the shared-media identity fixtures");
 }
 
 /**
@@ -656,10 +646,7 @@ async function listRevisions(
 }
 
 /** POST /_emdash/api/revisions/{revisionId}/restore — the selected native restore. */
-async function restoreRevision(
-	actor: CmsActor,
-	revisionId: string,
-): Promise<NativeResult> {
+async function restoreRevision(actor: CmsActor, revisionId: string): Promise<NativeResult> {
 	return cmsRequest(actor, `/_emdash/api/revisions/${encodeURIComponent(revisionId)}/restore`, {
 		method: "POST",
 		body: {},
@@ -741,13 +728,18 @@ async function readEntryTerms(
  */
 async function termPresence(
 	slug: string,
-): Promise<{ presence: "absent" } | { presence: "present" } | { presence: "unknown"; detail: string }> {
+): Promise<
+	{ presence: "absent" } | { presence: "present" } | { presence: "unknown"; detail: string }
+> {
 	const termPath = `/_emdash/api/taxonomies/${encodeURIComponent(TOPIC_TAXONOMY)}/terms/${encodeURIComponent(slug)}`;
 	let probe: NativeResult;
 	try {
 		probe = await cmsRequest(admin, termPath);
 	} catch (cause) {
-		return { presence: "unknown", detail: `the term read failed before reaching the app (${renderFailure(cause)})` };
+		return {
+			presence: "unknown",
+			detail: `the term read failed before reaching the app (${renderFailure(cause)})`,
+		};
 	}
 	if (probe.status === 404) return { presence: "absent" };
 	if (probe.ok) return { presence: "present" };
@@ -784,7 +776,10 @@ async function bylinePresenceBySlug(
 				},
 			});
 		} catch (cause) {
-			return { presence: "unknown", detail: `the byline listing failed before reaching the app (${renderFailure(cause)})` };
+			return {
+				presence: "unknown",
+				detail: `the byline listing failed before reaching the app (${renderFailure(cause)})`,
+			};
 		}
 		if (!result.ok) {
 			return { presence: "unknown", detail: `byline listing: ${nativeRefusalOf(result)}` };
@@ -792,7 +787,10 @@ async function bylinePresenceBySlug(
 		const data = nativeDataOf(result);
 		const items = data?.items;
 		if (!Array.isArray(items)) {
-			return { presence: "unknown", detail: "the byline listing success page lacked its items array" };
+			return {
+				presence: "unknown",
+				detail: "the byline listing success page lacked its items array",
+			};
 		}
 		for (const item of items as Array<Record<string, unknown>>) {
 			if (item?.slug === slug) {
@@ -814,8 +812,15 @@ async function bylinePresenceBySlug(
 		if (nextCursor === undefined || nextCursor === "") {
 			return { presence: "absent" };
 		}
-		if (typeof nextCursor !== "string" || nextCursor === cursor || followedCursors.has(nextCursor)) {
-			return { presence: "unknown", detail: "the byline listing pagination stalled or was malformed" };
+		if (
+			typeof nextCursor !== "string" ||
+			nextCursor === cursor ||
+			followedCursors.has(nextCursor)
+		) {
+			return {
+				presence: "unknown",
+				detail: "the byline listing pagination stalled or was malformed",
+			};
 		}
 		if (cursor !== undefined) followedCursors.add(cursor);
 		cursor = nextCursor;
@@ -1036,9 +1041,10 @@ async function ensureSyntheticByline(): Promise<string> {
 		// to `data.item.id`.
 		const data = nativeDataOf(created);
 		const directId = typeof data?.id === "string" ? data.id : undefined;
-		const itemId = typeof nativeItemOf(created)?.id === "string"
-			? (nativeItemOf(created)!.id as string)
-			: undefined;
+		const itemId =
+			typeof nativeItemOf(created)?.id === "string"
+				? (nativeItemOf(created)!.id as string)
+				: undefined;
 		const id = directId ?? itemId;
 		if (id !== undefined) {
 			syntheticByline = { id, slug };
@@ -1208,7 +1214,10 @@ async function leasePresence(
 	try {
 		read = await readEntryLock(actor, collection, id);
 	} catch (cause) {
-		return { state: "unknown", detail: `the lock read failed before reaching the app (${renderFailure(cause)})` };
+		return {
+			state: "unknown",
+			detail: `the lock read failed before reaching the app (${renderFailure(cause)})`,
+		};
 	}
 	if (!read.ok) {
 		return { state: "unknown", detail: `lock read: ${nativeRefusalOf(read)}` };
@@ -1316,7 +1325,9 @@ async function reconcileHolderLease(
 			`the native release response carried ${
 				releasedFlag === false ? "released=false" : "no explicit released:true"
 			} and the confirming lock read shows ${
-				confirmed.state === "held" ? `account ${confirmed.holderUserId} still holding` : "an unreadable state"
+				confirmed.state === "held"
+					? `account ${confirmed.holderUserId} still holding`
+					: "an unreadable state"
 			}; the lease may still be held`,
 		);
 	}
@@ -1327,7 +1338,9 @@ async function reconcileHolderLease(
 	}
 	throw new Error(
 		`the holder lease release was refused (${nativeRefusalOf(deletion)}) and the lease read still shows ${
-			afterRefusal.state === "held" ? `account ${afterRefusal.holderUserId} holding` : "an unreadable state"
+			afterRefusal.state === "held"
+				? `account ${afterRefusal.holderUserId} holding`
+				: "an unreadable state"
 		}; cleanup may be refused until the native lease expires`,
 	);
 }
@@ -1347,10 +1360,7 @@ function expectConflictRefusal(result: NativeResult, caseLabel: string): void {
 		result.ok,
 		`${caseLabel}: the native operation must be refused, not reported as success`,
 	).toBe(false);
-	expect(
-		result.status,
-		`${caseLabel}: a stale _rev precondition is refused with 409`,
-	).toBe(409);
+	expect(result.status, `${caseLabel}: a stale _rev precondition is refused with 409`).toBe(409);
 	expect(
 		result.status === 400 || result.status === 401 || result.status === 403,
 		`${caseLabel}: a concurrency refusal must stay distinguishable from validation (400) and authorization (401/403) failures`,
@@ -1373,10 +1383,7 @@ function expectEntryLockedRefusal(
 	caseLabel: string,
 	expectedHolderUserId: string,
 ): void {
-	expect(
-		result.ok,
-		`${caseLabel}: the write must be refused, not reported as success`,
-	).toBe(false);
+	expect(result.ok, `${caseLabel}: the write must be refused, not reported as success`).toBe(false);
 	expect(
 		result.status,
 		`${caseLabel}: a write against another editor's held entry lock is refused with 409`,
@@ -1455,9 +1462,7 @@ test.beforeAll(async () => {
 		).toBe(true);
 		seoEnabled.set(collection, nativeItemOf(schemaRead)?.hasSeo === true);
 		const fields = nativeItemOf(schemaRead)?.fields;
-		expect(Array.isArray(fields), `the ${collection} schema read must include fields`).toBe(
-			true,
-		);
+		expect(Array.isArray(fields), `the ${collection} schema read must include fields`).toBe(true);
 		const bySlug = new Map<string, SchemaField>();
 		for (const field of fields as SchemaField[]) {
 			if (typeof field.slug === "string") bySlug.set(field.slug, field);
@@ -1763,10 +1768,9 @@ test("uncertain outcome: a lost write acknowledgment is never success, and curre
 		// failure. (successClaimed is unreachable: the wrapper returns never.)
 		acknowledgmentLost = true;
 	}
-	expect(
-		acknowledgmentLost,
-		"the lost acknowledgment must surface as an unknown outcome",
-	).toBe(true);
+	expect(acknowledgmentLost, "the lost acknowledgment must surface as an unknown outcome").toBe(
+		true,
+	);
 	expect(
 		successClaimed,
 		"no success envelope exists for the lost write — the unknown result is never reported as success",
@@ -1862,7 +1866,10 @@ test("stale _rev publish: refused as a native conflict with publication state un
 	expect(statusOfItem(refusedState), "the refused publish must leave the entry a draft").toBe(
 		"draft",
 	);
-	expect(refusedState?.publishedAt, "the refused publish must record no publication time").toBeNull();
+	expect(
+		refusedState?.publishedAt,
+		"the refused publish must record no publication time",
+	).toBeNull();
 
 	// Re-read current state, then the retry publishes. The CURRENT token is
 	// captured immediately before the successful publish and PASSED to it
@@ -1874,10 +1881,7 @@ test("stale _rev publish: refused as a native conflict with publication state un
 	const retried = await publishEntry(admin, PAGES_COLLECTION, entry.entryId!, {
 		rev: prePublishRev,
 	});
-	expect(
-		retried.ok,
-		"the retry carrying the CURRENT pre-publish _rev must publish",
-	).toBe(true);
+	expect(retried.ok, "the retry carrying the CURRENT pre-publish _rev must publish").toBe(true);
 	const published = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!));
 	expect(statusOfItem(published), "the retried publish must show the published state").toBe(
 		"published",
@@ -1918,9 +1922,7 @@ test("revision history: saves create distinct native revisions newest-first with
 		data: { title: uniqueTitle("history-create") },
 	});
 	expect(entry.result.ok, "the history fixture must save").toBe(true);
-	const initialListing = revisionsOf(
-		await listRevisions(admin, PAGES_COLLECTION, entry.entryId!),
-	);
+	const initialListing = revisionsOf(await listRevisions(admin, PAGES_COLLECTION, entry.entryId!));
 	expect(initialListing.total, "a freshly created entry has no revisions yet").toBe(0);
 	expect(initialListing.items.length, "the fresh listing must be empty").toBe(0);
 
@@ -1971,7 +1973,8 @@ test("revision history: saves create distinct native revisions newest-first with
 		typeof beforeRestore?.liveRevisionId === "string",
 		"publication records the promoted live revision",
 	).toBe(true);
-	const versionBeforeRestore = typeof beforeRestore?.version === "number" ? beforeRestore.version : undefined;
+	const versionBeforeRestore =
+		typeof beforeRestore?.version === "number" ? beforeRestore.version : undefined;
 	expect(versionBeforeRestore, "the entry carries its native version counter").not.toBeUndefined();
 
 	// Selected native restore of the FIRST save's revision.
@@ -2013,7 +2016,8 @@ test("revision history: saves create distinct native revisions newest-first with
 		afterRestore?.draftRevisionId,
 		"the retained pointer is the restore-created revision, never the originally-selected revision id",
 	).not.toBe(String(listing.items[1]?.id));
-	const versionAfterRestore = typeof afterRestore?.version === "number" ? afterRestore.version : undefined;
+	const versionAfterRestore =
+		typeof afterRestore?.version === "number" ? afterRestore.version : undefined;
 	expect(
 		typeof versionAfterRestore === "number" &&
 			typeof versionBeforeRestore === "number" &&
@@ -2031,10 +2035,9 @@ test("revision history: saves create distinct native revisions newest-first with
 	const listingAfterRestore = revisionsOf(
 		await listRevisions(admin, PAGES_COLLECTION, entry.entryId!),
 	);
-	expect(
-		listingAfterRestore.total,
-		"the restore appends its audit revision to the history",
-	).toBe(3);
+	expect(listingAfterRestore.total, "the restore appends its audit revision to the history").toBe(
+		3,
+	);
 	expect(
 		recordData(listingAfterRestore.items[0]).title,
 		"the restore-created revision heads the listing with the restored snapshot",
@@ -2069,12 +2072,10 @@ test("native autosave: skipRevision saves replace the superseded autosave revisi
 	// First autosave (skipRevision): with no prior draft there is nothing to
 	// replace — it stages exactly one pending draft revision.
 	const autosaveOneTitle = uniqueTitle("autosave-one");
-	const firstAutosave = await contentPut(
-		admin,
-		PAGES_COLLECTION,
-		entry.entryId!,
-		{ data: { title: autosaveOneTitle }, skipRevision: true },
-	);
+	const firstAutosave = await contentPut(admin, PAGES_COLLECTION, entry.entryId!, {
+		data: { title: autosaveOneTitle },
+		skipRevision: true,
+	});
 	expect(
 		firstAutosave.ok,
 		`a skipRevision autosave save must succeed (${nativeRefusalOf(firstAutosave)})`,
@@ -2085,12 +2086,10 @@ test("native autosave: skipRevision saves replace the superseded autosave revisi
 	// Second autosave: the pinned behavior — the superseded autosave draft
 	// revision is REPLACED (deleted), not accumulated.
 	const autosaveTwoTitle = uniqueTitle("autosave-two");
-	const secondAutosave = await contentPut(
-		admin,
-		PAGES_COLLECTION,
-		entry.entryId!,
-		{ data: { title: autosaveTwoTitle }, skipRevision: true },
-	);
+	const secondAutosave = await contentPut(admin, PAGES_COLLECTION, entry.entryId!, {
+		data: { title: autosaveTwoTitle },
+		skipRevision: true,
+	});
 	expect(secondAutosave.ok, "the second skipRevision autosave save must succeed").toBe(true);
 	listing = revisionsOf(await listRevisions(admin, PAGES_COLLECTION, entry.entryId!));
 	expect(
@@ -2110,9 +2109,7 @@ test("native autosave: skipRevision saves replace the superseded autosave revisi
 	// must return the AUTOSAVED pending content as the entry's data, with the
 	// pre-edit column data exposed as liveData — an interrupted autosave
 	// session recovers its unsaved-explicitly work server-side.
-	const recoveredAutosave = nativeItemOf(
-		await readEntry(admin, PAGES_COLLECTION, entry.entryId!),
-	);
+	const recoveredAutosave = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, entry.entryId!));
 	expect(
 		dataOfItem(recoveredAutosave).title,
 		"a fresh authorized read recovers the AUTOSAVED pending content after the interrupted edit",
@@ -2132,10 +2129,7 @@ test("native autosave: skipRevision saves replace the superseded autosave revisi
 		comparedAutosave?.hasChanges,
 		"a pending draft with no live revision reports changes",
 	).toBe(true);
-	expect(
-		comparedAutosave?.live,
-		"an unpublished entry has no live revision to compare",
-	).toBeNull();
+	expect(comparedAutosave?.live, "an unpublished entry has no live revision to compare").toBeNull();
 	expect(
 		(comparedAutosave?.draft as Record<string, unknown> | null)?.title,
 		"the compare draft is the recovered AUTOSAVED pending content",
@@ -2187,12 +2181,16 @@ test("edit locks: a distinct account's lease blocks a second writer with ENTRY_L
 		let primaryFailed = false;
 		try {
 			// The editor opens the entry: takes the lease.
-			const acquired = nativeDataOf(await acquireEntryLock(editor, PAGES_COLLECTION, entry.entryId!));
-			expect(acquired?.enabled, "edit locking is enabled for the seed collections (native default)").toBe(true);
+			const acquired = nativeDataOf(
+				await acquireEntryLock(editor, PAGES_COLLECTION, entry.entryId!),
+			);
 			expect(
-				acquired?.heldByCaller,
-				"the acquiring account holds the lease it just took",
+				acquired?.enabled,
+				"edit locking is enabled for the seed collections (native default)",
 			).toBe(true);
+			expect(acquired?.heldByCaller, "the acquiring account holds the lease it just took").toBe(
+				true,
+			);
 			const holder = acquired?.holder as Record<string, unknown> | null | undefined;
 			const holderUserId = typeof holder?.userId === "string" ? holder.userId : undefined;
 			expect(
@@ -2292,10 +2290,7 @@ test("edit locks: a distinct account's lease blocks a second writer with ENTRY_L
 			const afterRelease = nativeDataOf(
 				await readEntryLock(admin, PAGES_COLLECTION, entry.entryId!),
 			);
-			expect(
-				afterRelease?.holder,
-				"the released entry has no lock holder",
-			).toBeNull();
+			expect(afterRelease?.holder, "the released entry has no lock holder").toBeNull();
 			const unlockedWrite = await updateEntry(admin, PAGES_COLLECTION, entry.entryId!, {
 				data: { title: uniqueTitle("lock-post-release-write") },
 			});
@@ -2382,9 +2377,7 @@ test("published vs pending: content-data and reference edits stage under the dra
 		(await publishEntry(admin, PAGES_COLLECTION, page.entryId!)).ok,
 		"the initial content must publish",
 	).toBe(true);
-	const afterInitialPublish = nativeItemOf(
-		await readEntry(admin, PAGES_COLLECTION, page.entryId!),
-	);
+	const afterInitialPublish = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, page.entryId!));
 	expect(statusOfItem(afterInitialPublish), "the initial publication is live").toBe("published");
 	expect(
 		afterInitialPublish?.draftRevisionId,
@@ -2424,10 +2417,9 @@ test("published vs pending: content-data and reference edits stage under the dra
 	expect(statusOfItem(pending), "staged edits do not change the published lifecycle state").toBe(
 		"published",
 	);
-	expect(
-		dataOfItem(pending).title,
-		"the authorized read surfaces the pending staged data",
-	).toBe(pendingTitle);
+	expect(dataOfItem(pending).title, "the authorized read surfaces the pending staged data").toBe(
+		pendingTitle,
+	);
 	expect(
 		liveDataOfItem(pending).title,
 		"the live published data is preserved untouched under the pending draft",
@@ -2468,9 +2460,7 @@ test("published vs pending: content-data and reference edits stage under the dra
 	// no further changes (the live selection is the promoted one).
 	const publishedChanges = await publishEntry(admin, PAGES_COLLECTION, page.entryId!);
 	expect(publishedChanges.ok, "publishing the pending changes must succeed").toBe(true);
-	const afterPublishChanges = nativeItemOf(
-		await readEntry(admin, PAGES_COLLECTION, page.entryId!),
-	);
+	const afterPublishChanges = nativeItemOf(await readEntry(admin, PAGES_COLLECTION, page.entryId!));
 	expect(statusOfItem(afterPublishChanges), "the entry remains published").toBe("published");
 	expect(
 		dataOfItem(afterPublishChanges).title,
@@ -2480,9 +2470,7 @@ test("published vs pending: content-data and reference edits stage under the dra
 		afterPublishChanges?.draftRevisionId,
 		"publishing the changes clears the pending draft pointer",
 	).toBeNull();
-	const comparedAfter = nativeDataOf(
-		await compareEntry(admin, PAGES_COLLECTION, page.entryId!),
-	);
+	const comparedAfter = nativeDataOf(await compareEntry(admin, PAGES_COLLECTION, page.entryId!));
 	expect(comparedAfter?.hasChanges, "no pending changes remain after publication").toBe(false);
 	expect(comparedAfter?.draft, "no draft revision remains after publication").toBeNull();
 	const liveAfter = comparedAfter?.live as Record<string, unknown> | null | undefined;
@@ -2530,9 +2518,11 @@ test("live metadata: taxonomy, SEO and byline writes apply to current state imme
 	).toBe(true);
 	const pendingTitle = uniqueTitle("metadata-pending");
 	expect(
-		(await contentPut(admin, NEWS_COLLECTION, entry.entryId!, {
-			data: { title: pendingTitle },
-		})).ok,
+		(
+			await contentPut(admin, NEWS_COLLECTION, entry.entryId!, {
+				data: { title: pendingTitle },
+			})
+		).ok,
 		"staging the pending content draft must succeed",
 	).toBe(true);
 	const revisionsBeforeMetadata = revisionsOf(
@@ -2549,23 +2539,32 @@ test("live metadata: taxonomy, SEO and byline writes apply to current state imme
 	const termWrite = await contentPut(admin, NEWS_COLLECTION, entry.entryId!, {
 		taxonomies: { [TOPIC_TAXONOMY]: [termSlug] },
 	});
-	expect(termWrite.ok, `the taxonomy assignment write must succeed (${nativeRefusalOf(termWrite)})`).toBe(true);
+	expect(
+		termWrite.ok,
+		`the taxonomy assignment write must succeed (${nativeRefusalOf(termWrite)})`,
+	).toBe(true);
 	const seoTitle = `${SYNTHETIC_FIXTURE_MARK} seo title`;
 	const seoWrite = await contentPut(admin, NEWS_COLLECTION, entry.entryId!, {
 		seo: { title: seoTitle },
 	});
 	if (newsHasSeo) {
-		expect(seoWrite.ok, `the SEO metadata write must succeed (${nativeRefusalOf(seoWrite)})`).toBe(true);
+		expect(seoWrite.ok, `the SEO metadata write must succeed (${nativeRefusalOf(seoWrite)})`).toBe(
+			true,
+		);
 	} else {
 		expect(seoWrite.status, "SEO is not enabled on news: the native validation refusal").toBe(400);
-		expect(nativeErrorOf(seoWrite)?.code, "the refusal carries the native VALIDATION_ERROR code").toBe(
-			"VALIDATION_ERROR",
-		);
+		expect(
+			nativeErrorOf(seoWrite)?.code,
+			"the refusal carries the native VALIDATION_ERROR code",
+		).toBe("VALIDATION_ERROR");
 	}
 	const bylineWrite = await contentPut(admin, NEWS_COLLECTION, entry.entryId!, {
 		bylines: [{ bylineId, roleLabel: "Written by" }],
 	});
-	expect(bylineWrite.ok, `the byline attribution write must succeed (${nativeRefusalOf(bylineWrite)})`).toBe(true);
+	expect(
+		bylineWrite.ok,
+		`the byline attribution write must succeed (${nativeRefusalOf(bylineWrite)})`,
+	).toBe(true);
 
 	// Immediate current-state read-back with NO publication in between.
 	const current = nativeItemOf(await readEntry(admin, NEWS_COLLECTION, entry.entryId!));
@@ -2589,12 +2588,9 @@ test("live metadata: taxonomy, SEO and byline writes apply to current state imme
 	}
 	// Byline: the current item carries the explicit byline attribution.
 	const bylinesRaw = current?.bylines;
-	const bylines = Array.isArray(bylinesRaw)
-		? (bylinesRaw as Array<Record<string, unknown>>)
-		: [];
+	const bylines = Array.isArray(bylinesRaw) ? (bylinesRaw as Array<Record<string, unknown>>) : [];
 	const assignedByline = bylines.find(
-		(credit) =>
-			(credit.byline as Record<string, unknown> | undefined)?.id === bylineId,
+		(credit) => (credit.byline as Record<string, unknown> | undefined)?.id === bylineId,
 	);
 	expect(
 		assignedByline !== undefined,
@@ -2697,9 +2693,7 @@ test("shared media: asset metadata changes are current-state only; the content r
 
 	// The content revision carries the file selection as the media IDENTITY
 	// only — `{ id }`, not a copy of the asset or its bytes.
-	const listing = revisionsOf(
-		await listRevisions(admin, DOCUMENTS_COLLECTION, document.entryId!),
-	);
+	const listing = revisionsOf(await listRevisions(admin, DOCUMENTS_COLLECTION, document.entryId!));
 	expect(listing.total, "the published document has its promoted live revision").toBeGreaterThan(0);
 	const revisionData = listing.items[0]?.data as Record<string, unknown> | undefined;
 	const revisionFile = revisionData?.file as Record<string, unknown> | undefined;
