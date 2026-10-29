@@ -60,9 +60,7 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 		</a>
 		<header class="bg-surface-base">
 			<div class="focus-ring-on-dark bg-brand-dark text-small text-surface-base">
-				<div
-					class="page-container flex min-h-10.5 flex-wrap items-center justify-between gap-x-6 gap-y-1 py-1.5"
-				>
+				<div class="page-container flex min-h-10.5 flex-wrap items-center justify-between gap-x-6 gap-y-1 py-1.5">
 					<p>{OFFICE_NAME}</p>
 					<ul class="flex gap-5">
 						{UTILITY_LINKS.map((link) => (
@@ -76,9 +74,7 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 				</div>
 			</div>
 			<div class="relative">
-				<div
-					class="page-container flex items-start justify-between gap-4 py-3 lg:min-h-22 lg:items-center"
-				>
+				<div class="page-container flex items-start justify-between gap-4 py-3 lg:min-h-22 lg:items-center">
 					<a href="/" class="mr-28 flex min-w-0 items-start gap-3 lg:mr-0 lg:items-center">
 						{/* The logo or mark is decorative: the title beside it names the link. */}
 						{identity.logo ? (
@@ -118,7 +114,9 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 										aria-current={item.current}
 										class:list={[
 											"block border-b-3 py-2 hover:text-brand-primary",
-											item.current ? "border-brand-primary text-brand-primary" : "border-transparent",
+											item.current
+												? "border-brand-primary text-brand-primary"
+												: "border-transparent",
 										]}
 									>
 										{item.label}
@@ -129,9 +127,7 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 					</nav>
 				</div>
 				<details class="group lg:hidden">
-					<summary
-						class="absolute top-3 right-(--page-gutter) flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-pill border border-border-input bg-surface-base px-4 text-label [&::-webkit-details-marker]:hidden"
-					>
+					<summary class="absolute top-3 right-(--page-gutter) flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-pill border border-border-input bg-surface-base px-4 text-label [&::-webkit-details-marker]:hidden">
 						<svg
 							class="size-5 group-open:hidden"
 							aria-hidden="true"
@@ -190,7 +186,9 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 				</div>
 				<ul class="flex flex-wrap gap-x-6 gap-y-2 text-small">
 					<li>
-						<a class="underline-offset-4 hover:underline" href="/contact">ติดต่อเรา</a>
+						<a class="underline-offset-4 hover:underline" href="/contact">
+							ติดต่อเรา
+						</a>
 					</li>
 				</ul>
 			</div>

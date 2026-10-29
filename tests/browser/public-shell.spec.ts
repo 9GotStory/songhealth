@@ -93,7 +93,10 @@ test("the Homepage carries the site shell: utility bar, main navigation and foot
 		"aria-current",
 		"page",
 	);
-	await expect(navigation.locator("[aria-current]"), "only the current section is marked").toHaveCount(1);
+	await expect(
+		navigation.locator("[aria-current]"),
+		"only the current section is marked",
+	).toHaveCount(1);
 
 	const footer = page.getByRole("contentinfo");
 	await expect(footer.getByRole("link", { name: "ติดต่อเรา", exact: true })).toHaveAttribute(
@@ -118,18 +121,24 @@ test("an unknown address answers 404 with the site-designed page inside the shel
 
 	const navigation = page.getByRole("navigation", { name: "เมนูหลัก" });
 	await expect(navigation.getByRole("link")).toHaveCount(MAIN_NAVIGATION.length);
-	await expect(navigation.locator("[aria-current]"), "the 404 page marks no section").toHaveCount(0);
+	await expect(navigation.locator("[aria-current]"), "the 404 page marks no section").toHaveCount(
+		0,
+	);
 	await expect(page.getByRole("contentinfo")).toBeVisible();
 });
 
 test.describe("at the 320 px mobile width without JavaScript", () => {
 	test.use({ viewport: MOBILE_VIEWPORT, javaScriptEnabled: false });
 
-	test("the main navigation opens from the menu, and no page scrolls sideways", async ({ page }) => {
+	test("the main navigation opens from the menu, and no page scrolls sideways", async ({
+		page,
+	}) => {
 		await page.goto("/");
 		const navigation = page.getByRole("navigation", { name: "เมนูหลัก" });
 		await expect(navigation, "the menu starts closed").toBeHidden();
-		await expect(page.getByRole("banner").getByRole("link", { name: "ค้นหา", exact: true })).toBeVisible();
+		await expect(
+			page.getByRole("banner").getByRole("link", { name: "ค้นหา", exact: true }),
+		).toBeVisible();
 		await expectNoHorizontalScroll(page, "/ with the menu closed");
 
 		await openMenu(page);
@@ -210,7 +219,10 @@ test("Noto Sans Thai comes from the site's own origin, in four weights, with fon
 	// installed on the visitor's device can never stand in for the site's files.
 	const { family, faces } = await page.evaluate(async () => {
 		await document.fonts.ready;
-		const primary = getComputedStyle(document.body).fontFamily.split(",")[0].trim().replaceAll('"', "");
+		const primary = getComputedStyle(document.body)
+			.fontFamily.split(",")[0]
+			.trim()
+			.replaceAll('"', "");
 		return {
 			family: primary,
 			faces: [...document.fonts]
@@ -220,8 +232,13 @@ test("Noto Sans Thai comes from the site's own origin, in four weights, with fon
 	});
 	expect(family, "the page text is set in Noto Sans Thai").toMatch(/^Noto Sans Thai(?:-\w+)?$/);
 	expect(faces.map((face) => face.weight).sort()).toEqual(["400", "500", "600", "700"]);
-	expect(faces.every((face) => face.display === "swap"), "every face uses font-display: swap").toBe(true);
-	expect(faces.find((face) => face.weight === "400")?.status, "body text loads its face").toBe("loaded");
+	expect(
+		faces.every((face) => face.display === "swap"),
+		"every face uses font-display: swap",
+	).toBe(true);
+	expect(faces.find((face) => face.weight === "400")?.status, "body text loads its face").toBe(
+		"loaded",
+	);
 
 	expect(fontRequests.length, "the page loads its font files").toBeGreaterThan(0);
 	const siteOrigin = new URL(baseURL ?? "").origin;
@@ -265,8 +282,13 @@ test.describe("site identity from the native site settings", () => {
 		admin: CmsActor,
 		update: Record<string, unknown>,
 	): Promise<SiteSettingsView> {
-		const result = await cmsRequest(admin, "/_emdash/api/settings", { method: "POST", body: update });
-		expect(result.ok, `the native settings update must succeed (status ${result.status})`).toBe(true);
+		const result = await cmsRequest(admin, "/_emdash/api/settings", {
+			method: "POST",
+			body: update,
+		});
+		expect(result.ok, `the native settings update must succeed (status ${result.status})`).toBe(
+			true,
+		);
 		return nativeDataOf(result) as SiteSettingsView;
 	}
 
@@ -308,7 +330,12 @@ test.describe("site identity from the native site settings", () => {
 			await expect(page).toHaveTitle(`${NOT_FOUND_HEADING} — ${title}`);
 
 			// Nothing set: the placeholder mark, the office name and "|" stand in.
-			await writeSettings(admin, { title: "", tagline: "", logo: null, seo: { titleSeparator: "" } });
+			await writeSettings(admin, {
+				title: "",
+				tagline: "",
+				logo: null,
+				seo: { titleSeparator: "" },
+			});
 			await page.goto("/");
 			const fallback = page.getByRole("banner").getByRole("link", { name: DEFAULT_SITE_TITLE });
 			await expect(fallback).toHaveAttribute("href", "/");
@@ -324,7 +351,8 @@ test.describe("site identity from the native site settings", () => {
 			await writeSettings(admin, {
 				title: before.title ?? "",
 				tagline: before.tagline ?? "",
-				logo: before.logo === undefined ? null : { mediaId: before.logo.mediaId, alt: before.logo.alt },
+				logo:
+					before.logo === undefined ? null : { mediaId: before.logo.mediaId, alt: before.logo.alt },
 				seo: { titleSeparator: before.seo?.titleSeparator ?? "" },
 			});
 			const report = await cleanupOwnedFixtures(admin, { permanent: true });

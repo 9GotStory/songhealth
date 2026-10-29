@@ -1,0 +1,19 @@
+# Prettier also skips everything .gitignore lists.
+
+# Prose, records and data are not formatted.
+**/*.md
+**/*.json
+docs/
+specs/
+seed/
+
+# Accepted Feature 001 and 002 files keep their present formatting until a change
+# touches them. That change formats the file in a commit of its own and removes it here.
+scripts/verify-readiness.mjs
+scripts/verify-restored-foundation.mjs
+tests/node/
+tests/browser/foundation.spec.ts
+tests/browser/cms.helpers.ts
+tests/browser/cms-*.spec.ts
+tests/browser/run-cms-public-reads.mjs
+tests/browser/fixtures/
