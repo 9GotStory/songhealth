@@ -13,8 +13,9 @@
 // native API. They are removed afterwards, together with the redirects their slug changes
 // created, which deleting an entry leaves in place.
 
-import { expect, test, type TestInfo } from "@playwright/test";
+import { expect, test, type APIRequestContext, type TestInfo } from "@playwright/test";
 
+import { CANONICAL_URL_PATTERNS } from "../canonical-url-patterns";
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
@@ -32,30 +33,19 @@ import {
 	type CmsActor,
 } from "./cms.helpers";
 
-/** `03` §15: where each public collection's entries live. */
-const CANONICAL_PREFIXES: Record<string, string> = {
-	news: "/news",
-	activities: "/activities",
-	announcements: "/announcements",
-	services: "/services",
-	health_services: "/health-services",
-	health_content: "/health/content",
-	health_reports: "/health/reports",
-	documents: "/documents",
-	pages: "/pages",
-};
-
 let admin: CmsActor;
 let origin: string;
 /** Old slugs of entries whose slug a test changed: their redirects are removed at the end. */
 const movedSlugs: string[] = [];
 
+/** A unique synthetic slug that names the fixture's role, so a failure says which one. */
 function syntheticSlug(label: string): string {
 	return `${SYNTHETIC_FIXTURE_MARK}-${label}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
-function syntheticTitle(label: string): string {
-	return `${SYNTHETIC_FIXTURE_MARK} ${label}`;
+/** The `03` §15 address of an entry. */
+function addressOf(collection: string, slug: string): string {
+	return CANONICAL_URL_PATTERNS[collection].replace("{slug}", slug);
 }
 
 /** Create a synthetic entry and fail with the native refusal when it is refused. */
@@ -65,7 +55,7 @@ async function createEntry(
 	fields: { data?: Record<string, unknown>; references?: Record<string, string[]> } = {},
 ): Promise<string> {
 	const created = await createSyntheticEntry(admin, collection, {
-		data: { title: syntheticTitle(slug), ...fields.data },
+		data: { title: `${SYNTHETIC_FIXTURE_MARK} ${slug}`, ...fields.data },
 		slug,
 		...(fields.references !== undefined ? { references: fields.references } : {}),
 	});
@@ -78,8 +68,11 @@ async function publish(collection: string, id: string): Promise<void> {
 	expect(published.ok, `${collection}: ${nativeRefusalOf(published)}`).toBe(true);
 }
 
-/** The `<loc>` values of a sitemap document. */
-function locations(xml: string): string[] {
+/** The `<loc>` values of a sitemap document, which must be served. */
+async function sitemapLocations(request: APIRequestContext, path: string): Promise<string[]> {
+	const response = await request.get(path);
+	expect(response.status(), `GET ${path}`).toBe(200);
+	const xml = await response.text();
 	return [...xml.matchAll(/<loc>([^<]*)<\/loc>/g)].map((match) => match[1]);
 }
 
@@ -131,9 +124,7 @@ test.afterAll(async () => {
 // News is what #53 names. Health Content shows that the pattern, not EmDash's fallback
 // `/{collection}/{slug}`, builds the address: the fallback would give /health_content/….
 for (const collection of ["news", "health_content"]) {
-	const prefix = CANONICAL_PREFIXES[collection];
-
-	test(`${collection}: a published entry whose slug changes answers its old address with a 301 to ${prefix}/<new slug>`, async ({
+	test(`${collection}: a published entry whose slug changes answers its old address with a 301 to its new ${CANONICAL_URL_PATTERNS[collection]} address`, async ({
 		request,
 	}) => {
 		const oldSlug = syntheticSlug("old");
@@ -157,13 +148,15 @@ for (const collection of ["news", "health_content"]) {
 		const moves = (nativeItemsOf(listed) as Array<Record<string, unknown>>).map(
 			({ source, destination, type }) => ({ source, destination, type }),
 		);
+		const oldAddress = addressOf(collection, oldSlug);
+		const newAddress = addressOf(collection, newSlug);
 		expect(moves, "the native redirect list").toEqual([
-			{ source: `${prefix}/${oldSlug}`, destination: `${prefix}/${newSlug}`, type: 301 },
+			{ source: oldAddress, destination: newAddress, type: 301 },
 		]);
 
-		const response = await request.get(`${prefix}/${oldSlug}`, { maxRedirects: 0 });
-		expect(response.status(), `GET ${prefix}/${oldSlug}`).toBe(301);
-		expect(response.headers().location).toBe(`${prefix}/${newSlug}`);
+		const response = await request.get(oldAddress, { maxRedirects: 0 });
+		expect(response.status(), `GET ${oldAddress}`).toBe(301);
+		expect(response.headers().location).toBe(newAddress);
 	});
 }
 
@@ -172,7 +165,7 @@ test("the preview link of a draft in each public collection is its canonical, sl
 	expect(media.mediaId, "the synthetic file must upload").toBeDefined();
 	const slugs: Record<string, string> = {};
 	const ids: Record<string, string> = {};
-	for (const collection of Object.keys(CANONICAL_PREFIXES)) {
+	for (const collection of Object.keys(CANONICAL_URL_PATTERNS)) {
 		slugs[collection] = syntheticSlug(collection.replaceAll("_", "-"));
 	}
 	// A Document needs its file, and a Health Report needs the Document it describes.
@@ -182,11 +175,11 @@ test("the preview link of a draft in each public collection is its canonical, sl
 	ids.health_reports = await createEntry("health_reports", slugs.health_reports, {
 		references: { report_document: [ids.documents] },
 	});
-	for (const collection of Object.keys(CANONICAL_PREFIXES)) {
+	for (const collection of Object.keys(CANONICAL_URL_PATTERNS)) {
 		ids[collection] ??= await createEntry(collection, slugs[collection]);
 	}
 
-	for (const [collection, prefix] of Object.entries(CANONICAL_PREFIXES)) {
+	for (const collection of Object.keys(CANONICAL_URL_PATTERNS)) {
 		const minted = await cmsRequest(
 			admin,
 			`/_emdash/api/content/${collection}/${encodeURIComponent(ids[collection])}/preview-url`,
@@ -195,7 +188,9 @@ test("the preview link of a draft in each public collection is its canonical, sl
 		expect(minted.ok, `${collection}: ${nativeRefusalOf(minted)}`).toBe(true);
 		const link = new URL(String(nativeDataOf(minted)?.url), origin);
 		// The signed token stays out of every message.
-		expect(link.pathname, `the ${collection} preview link`).toBe(`${prefix}/${slugs[collection]}`);
+		expect(link.pathname, `the ${collection} preview link`).toBe(
+			addressOf(collection, slugs[collection]),
+		);
 		expect(
 			link.searchParams.get("_preview"),
 			`the ${collection} preview link is signed`,
@@ -203,30 +198,37 @@ test("the preview link of a draft in each public collection is its canonical, sl
 	}
 });
 
-test("the sitemap lists a published entry at its canonical absolute address, and never a draft or Personnel", async ({
+test("the sitemap lists published entries at their canonical absolute addresses, and never a draft or Personnel", async ({
 	request,
 }) => {
-	const publishedSlug = syntheticSlug("sitemap-published");
+	// Health Content shows the pattern at work, as in the redirect tests.
+	const published: Record<string, string> = {
+		news: syntheticSlug("sitemap-published"),
+		health_content: syntheticSlug("sitemap-published"),
+	};
+	for (const [collection, slug] of Object.entries(published)) {
+		await publish(collection, await createEntry(collection, slug));
+	}
 	const draftSlug = syntheticSlug("sitemap-draft");
-	await publish("news", await createEntry("news", publishedSlug));
 	await createEntry("news", draftSlug);
 	const personnelSlug = syntheticSlug("sitemap-personnel");
 	await publish("personnel", await createEntry("personnel", personnelSlug));
 
-	const index = await request.get("/sitemap.xml");
-	expect(index.status(), "GET /sitemap.xml").toBe(200);
-	const sitemaps = locations(await index.text());
-	expect(sitemaps).toContain(`${origin}/sitemap-news.xml`);
+	const sitemaps = await sitemapLocations(request, "/sitemap.xml");
 	expect(sitemaps).not.toContain(`${origin}/sitemap-personnel.xml`);
-
-	const news = await request.get("/sitemap-news.xml");
-	expect(news.status(), "GET /sitemap-news.xml").toBe(200);
-	const addresses = locations(await news.text());
-	expect(addresses).toContain(`${origin}/news/${publishedSlug}`);
-	expect(addresses.filter((address) => address.endsWith(`/${draftSlug}`))).toEqual([]);
+	for (const [collection, slug] of Object.entries(published)) {
+		expect(sitemaps).toContain(`${origin}/sitemap-${collection}.xml`);
+		expect(await sitemapLocations(request, `/sitemap-${collection}.xml`)).toContain(
+			`${origin}${addressOf(collection, slug)}`,
+		);
+	}
 
 	for (const sitemap of sitemaps) {
-		const listed = locations(await (await request.get(new URL(sitemap).pathname)).text());
+		const listed = await sitemapLocations(request, new URL(sitemap).pathname);
+		expect(
+			listed.filter((address) => address.endsWith(`/${draftSlug}`)),
+			`${sitemap} must not list the draft`,
+		).toEqual([]);
 		expect(
 			listed.filter((address) => address.endsWith(`/${personnelSlug}`)),
 			`${sitemap} must not list Personnel`,

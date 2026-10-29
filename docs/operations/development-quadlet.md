@@ -196,12 +196,8 @@ content model from the model-update step:
   address of the collection, so that is a Product Owner decision, not a step.
 - **Types.** Nothing needs regenerating. The repository does not use EmDash's generated types, and
   the dev server rewrites its untracked `emdash-env.d.ts` after each schema change.
-- **Other databases.** The same script serves any database of this application (`10` §4):
-  1. back up the database and its media (`10` §18);
-  2. from a checkout at the deployed commit, run
-     `node scripts/model-update.mjs --origin <public origin> [--check] < <Administrator PAT file>`;
-     `--check` only reads and exits 0 when nothing is pending, 3 when changes are pending;
-  3. verify the public and Admin paths.
+- **Production.** The same script updates a production database:
+  `production-foundation.md` §7.4.
 
 ## Verify
 

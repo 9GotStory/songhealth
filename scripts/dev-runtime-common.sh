@@ -45,6 +45,7 @@ ROLE_FIXTURE_ROLE=30
 ROLE_SQL="SELECT concat_ws('|', r.rolcanlogin, r.rolsuper, r.rolcreatedb, r.rolcreaterole, pg_get_userbyid(d.datdba))
   FROM pg_roles r, pg_database d WHERE r.rolname = 'songhealth_qdev_app' AND d.datname = 'songhealth_qdev'"
 ROLE_OK='t|f|f|f|songhealth_qdev_app'
+MODEL_PENDING=3                                   # model_update --check: changes are pending
 
 die()  { printf '%s: FAIL: %s\n' "${0##*/}" "$*" >&2; exit 1; }
 note() { printf '%s: %s\n' "${0##*/}" "$*"; }
@@ -66,6 +67,19 @@ setup_needed() { # prints true or false from EmDash's native setup status endpoi
     | python3 -I -c 'import json, sys; print(str(json.load(sys.stdin)["data"]["needsSetup"]).lower())'
 }
 require_sha() { [[ ${1:-} =~ ^[0-9a-f]{40}$ ]] || die "--sha must name a full 40-hex commit"; }
+backup_runtime() { # database and media into a new $STATE_DIR/backups/<UTC> directory, named in BACKUP_DIR
+  BACKUP_DIR=$STATE_DIR/backups/$(date -u +%Y%m%dT%H%M%SZ)
+  install -d -m 0700 -- "$STATE_DIR/backups" "$BACKUP_DIR"
+  "$SRC/scripts/dev-runtime-backup.sh" "$BACKUP_DIR" || die "backup failed: nothing was changed"
+  note "backup written to $BACKUP_DIR"
+}
+model_update() { # model_update [--check] — the promoted commit's scripts/model-update.mjs, run in the
+  # app container on its pinned Node, with the development PAT on stdin
+  [[ -s $STATE_DIR/dev-pat && $(stat -c %a "$STATE_DIR/dev-pat") == 600 ]] \
+    || { warn "the development PAT $STATE_DIR/dev-pat is missing or not mode 0600"; return 1; }
+  podman exec -i "$APP_CTR" node /src/scripts/model-update.mjs --origin "$ORIGIN" "$@" \
+    < "$STATE_DIR/dev-pat"
+}
 pat_identity() { # pat_identity FILE — prints "email role" for a 0600 PAT file (token sent on stdin)
   local token
   [[ -s $1 && $(stat -c %a "$1") == 600 ]] || return 1

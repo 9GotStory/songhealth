@@ -16,25 +16,15 @@ trap '[[ $BASH_SUBSHELL == 0 ]] && die "unexpected failure (line $LINENO): $BASH
 
 (( $# == 0 )) || die "usage: ${0##*/}"
 [[ $(id -u) == 1000 ]] || die "the development runtime belongs to UID 1000"
-[[ -s $STATE_DIR/dev-pat && $(stat -c %a "$STATE_DIR/dev-pat") == 600 ]] \
-  || die "the development PAT $STATE_DIR/dev-pat is missing or not mode 0600"
 
-model_update() {
-  podman exec -i "$APP_CTR" node /src/scripts/model-update.mjs --origin "$ORIGIN" "$@" \
-    < "$STATE_DIR/dev-pat"
-}
-
-pending=0
-model_update --check || pending=$?
-case $pending in
+check_status=0
+model_update --check || check_status=$?
+case $check_status in
   0) ;;
-  3)
-    backup=$STATE_DIR/backups/$(date -u +%Y%m%dT%H%M%SZ)
-    install -d -m 0700 -- "$STATE_DIR/backups" "$backup"
-    "$SRC/scripts/dev-runtime-backup.sh" "$backup" || die "backup failed: nothing was changed"
-    note "backup written to $backup"
+  "$MODEL_PENDING")
+    backup_runtime
     model_update \
-      || die "the model update stopped partway: run it again, or restore $backup (docs/operations/development-quadlet.md)"
+      || die "the model update stopped partway: run it again, or restore $BACKUP_DIR (docs/operations/development-quadlet.md)"
     ;;
   *) die "the model check failed: nothing was changed" ;;
 esac

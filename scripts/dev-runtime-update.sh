@@ -35,10 +35,7 @@ git -C "$SRC" cat-file -e "$SHA:scripts/dev-runtime-install.sh" 2>/dev/null \
   || die "commit $SHA predates this development runtime (no scripts/dev-runtime-install.sh)"
 
 if [[ $BACKUP == yes ]]; then
-  backup=$STATE_DIR/backups/$(date -u +%Y%m%dT%H%M%SZ)
-  install -d -m 0700 -- "$STATE_DIR/backups" "$backup"
-  "$SRC/scripts/dev-runtime-backup.sh" "$backup" || die "backup failed: nothing was changed"
-  note "backup written to $backup"
+  backup_runtime
 fi
 note "stopping $APP"
 systemctl --user stop "$APP"

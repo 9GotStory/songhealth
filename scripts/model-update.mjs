@@ -3,37 +3,46 @@
 //
 //   node scripts/model-update.mjs --origin <origin> [--check] < <Administrator PAT file>
 //
-// The seed applies only when EmDash sets up a fresh database, so a database set up from an
-// earlier seed gets the later model from this step. The token is read from standard input
-// and never printed. With --check the step only reads: it lists the pending changes and exits
-// 0 when there are none and 3 when there are. Without it, the step applies them and reads the
-// model again to confirm. A problem changes nothing and exits 1: a URL pattern the database
-// already has, which the step never replaces because that would move every public address
-// of the collection, or a collection the database lacks.
+// The native gap it fills, in emdash 1.1.0: EmDash applies the seed only at setup, and with
+// `onConflict: "skip"`, so an existing collection keeps its settings
+// (src/astro/routes/api/setup/index.ts and dev-bypass.ts). `emdash seed` opens only a SQLite
+// file (src/cli/commands/seed.ts), and `emdash schema` cannot update a collection
+// (src/cli/commands/schema.ts). The step therefore uses the schema REST API that the Admin uses:
+// GET and PUT /_emdash/api/schema/collections (src/astro/routes/api/schema/collections/).
+//
+// The token is read from standard input and never printed. With --check the step only reads:
+// it lists the pending changes and exits 0 when there are none and 3 when there are. Without
+// it, the step applies them and reads the model again to confirm. A problem changes nothing
+// and exits 1: a URL pattern the database already has, which the step never replaces because
+// that would move every public address of the collection, or a collection the database lacks.
 //
 // The caller backs up first (on the development runtime, scripts/dev-runtime-model-update.sh
 // does). No types need regenerating: the repository does not use EmDash's generated types, and
 // in development the EmDash dev server rewrites its own emdash-env.d.ts after every schema
-// change (emdash 1.1.0 src/schema/registry.ts notifyTypegen).
+// change (src/schema/registry.ts notifyTypegen).
 
 import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
 /**
- * @typedef {object} SeedCollection A collection of seed/seed.json.
+ * @typedef {object} SeedCollection A collection of seed/seed.json (src/seed/types.ts).
  * @property {string} slug
  * @property {string[]} [supports]
  * @property {string} [urlPattern]
  * @property {boolean} [routable]
  *
- * @typedef {object} LiveCollection A collection as GET /_emdash/api/schema/collections lists it.
+ * @typedef {object} LiveCollection A collection as GET /_emdash/api/schema/collections lists it
+ *   (src/schema/registry.ts mapCollectionRow, which leaves out an unset URL pattern).
  * @property {string} slug
  * @property {string[]} supports
  * @property {string | null} [urlPattern]
  * @property {boolean} hasSeo
  * @property {boolean} routable
  *
- * @typedef {object} CollectionUpdate The body of PUT /_emdash/api/schema/collections/{slug}.
+ * @typedef {{ collections: LiveCollection[] }} LiveModel
+ *
+ * @typedef {object} CollectionUpdate Settings for PUT /_emdash/api/schema/collections/{slug}
+ *   (src/api/schemas/schema.ts updateCollectionBody).
  * @property {string} [urlPattern]
  * @property {string[]} [supports]
  * @property {boolean} [hasSeo]
@@ -47,11 +56,12 @@ import { parseArgs } from "node:util";
  * of the collection as it is:
  * - the URL pattern is set when the database has none;
  * - the seed's `supports` values that the database lacks are added, and none is removed;
- *   SEO also sets `hasSeo`, which the native sitemap reads;
+ *   SEO also sets `hasSeo`, which the native sitemap reads (src/api/handlers/seo.ts
+ *   handleSitemapData);
  * - routability is set to the seed's value, routable unless the seed says otherwise.
  *
  * @param {{ collections: SeedCollection[] }} seed the parsed seed/seed.json
- * @param {{ collections: LiveCollection[] }} live the live model
+ * @param {LiveModel} live the live model
  * @returns {{ collections: { slug: string, update: CollectionUpdate }[], problems: string[] }}
  */
 export function planModelUpdate(seed, live) {
@@ -96,7 +106,9 @@ export function planModelUpdate(seed, live) {
 }
 
 const USAGE = "usage: node scripts/model-update.mjs --origin <origin> [--check] < <PAT file>";
-const PENDING = 3;
+
+/** Exit statuses. PENDING is --check finding changes to apply. */
+const EXIT = { MATCHES: 0, FAILED: 1, USAGE: 2, PENDING: 3 };
 
 /** @param {CollectionUpdate} update */
 function describe(update) {
@@ -108,6 +120,19 @@ function describe(update) {
 /** @param {string} line */
 function say(line) {
 	console.log(`model-update: ${line}`);
+}
+
+/**
+ * An error's message followed by its causes: fetch reports why a request failed in `cause`.
+ *
+ * @param {unknown} error
+ * @returns {string}
+ */
+function failureText(error) {
+	if (!(error instanceof Error)) return String(error);
+	return error.cause === undefined
+		? error.message
+		: `${error.message}: ${failureText(error.cause)}`;
 }
 
 async function readStandardInput() {
@@ -124,7 +149,12 @@ async function readStandardInput() {
  * @param {string} token
  */
 function nativeApi(origin, token) {
-	return async (/** @type {string} */ method, /** @type {string} */ path, body) => {
+	/**
+	 * @param {string} method
+	 * @param {string} path
+	 * @param {unknown} [body]
+	 */
+	return async function call(method, path, body) {
 		const response = await fetch(new URL(path, origin), {
 			method,
 			headers: {
@@ -164,16 +194,17 @@ async function main(args) {
 	}
 	if (options?.origin === undefined || process.stdin.isTTY) {
 		console.error(USAGE);
-		return 2;
+		return EXIT.USAGE;
 	}
 	const token = await readStandardInput();
 	if (token === "") {
 		console.error("model-update: no token on standard input");
-		return 2;
+		return EXIT.USAGE;
 	}
 	try {
 		const seed = JSON.parse(await readFile(new URL("../seed/seed.json", import.meta.url), "utf8"));
 		const api = nativeApi(options.origin, token);
+		/** @returns {Promise<LiveModel>} */
 		const readModel = async () => ({
 			collections: (await api("GET", "/_emdash/api/schema/collections")).items,
 		});
@@ -182,11 +213,11 @@ async function main(args) {
 		for (const problem of plan.problems) say(`PROBLEM: ${problem}`);
 		if (plan.problems.length > 0) {
 			say("nothing was changed");
-			return 1;
+			return EXIT.FAILED;
 		}
 		if (plan.collections.length === 0) {
 			say("the database has the seed's content model; nothing to change");
-			return 0;
+			return EXIT.MATCHES;
 		}
 		for (const { slug, update } of plan.collections) {
 			if (options.check) {
@@ -197,19 +228,18 @@ async function main(args) {
 			}
 		}
 		if (options.check) {
-			return PENDING;
+			return EXIT.PENDING;
 		}
 		const after = planModelUpdate(seed, await readModel());
 		if (after.problems.length > 0 || after.collections.length > 0) {
 			say("FAIL: the database still differs from the seed after the update");
-			return 1;
+			return EXIT.FAILED;
 		}
 		say("the database has the seed's content model");
-		return 0;
+		return EXIT.MATCHES;
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		say(`FAIL: ${message.replaceAll(token, "[token]")}`);
-		return 1;
+		say(`FAIL: ${failureText(error).replaceAll(token, "[token]")}`);
+		return EXIT.FAILED;
 	}
 }
 

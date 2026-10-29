@@ -5,44 +5,28 @@
 // seed's model. The step applies the plan, and the development runtime's verify check passes
 // only while the plan is empty.
 //
-// Expected values come from `03` §15 (the canonical route table) and `03` §5 (no per-person
-// route), never from the seed itself.
+// Expected values come from `03` §15 (the canonical route table in
+// tests/canonical-url-patterns.ts) and `03` §5 (no per-person route), never from the seed.
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
-import { planModelUpdate } from "../../scripts/model-update.mjs";
+import {
+	planModelUpdate,
+	type LiveCollection,
+	type LiveModel,
+} from "../../scripts/model-update.mjs";
+import { CANONICAL_URL_PATTERNS } from "../canonical-url-patterns.ts";
 
 const seed = JSON.parse(readFileSync(new URL("../../seed/seed.json", import.meta.url), "utf8"));
 
-/** `03` §15: the canonical address of each public collection's entries. */
-const CANONICAL_PATTERNS: Record<string, string> = {
-	news: "/news/{slug}",
-	activities: "/activities/{slug}",
-	announcements: "/announcements/{slug}",
-	services: "/services/{slug}",
-	health_services: "/health-services/{slug}",
-	health_content: "/health/content/{slug}",
-	health_reports: "/health/reports/{slug}",
-	documents: "/documents/{slug}",
-	pages: "/pages/{slug}",
-};
-
 const FEATURE_002_SUPPORTS = ["drafts", "revisions", "preview", "scheduling"];
 
-interface LiveCollection {
-	slug: string;
-	urlPattern?: string;
-	supports: string[];
-	hasSeo: boolean;
-	routable: boolean;
-}
-
 /** The ten collections as the schema API lists them on a Feature 002 database. */
-function feature002Model(): { collections: LiveCollection[] } {
+function feature002Model(): LiveModel {
 	return {
-		collections: [...Object.keys(CANONICAL_PATTERNS), "personnel"].map((slug) => ({
+		collections: [...Object.keys(CANONICAL_URL_PATTERNS), "personnel"].map((slug) => ({
 			slug,
 			supports: [...FEATURE_002_SUPPORTS],
 			hasSeo: false,
@@ -52,10 +36,10 @@ function feature002Model(): { collections: LiveCollection[] } {
 }
 
 /** The same collections once the Feature 003 model is applied. */
-function feature003Model(): { collections: LiveCollection[] } {
+function feature003Model(): LiveModel {
 	return {
 		collections: [
-			...Object.entries(CANONICAL_PATTERNS).map(([slug, urlPattern]) => ({
+			...Object.entries(CANONICAL_URL_PATTERNS).map(([slug, urlPattern]) => ({
 				slug,
 				urlPattern,
 				supports: [...FEATURE_002_SUPPORTS, "seo"],
@@ -67,7 +51,7 @@ function feature003Model(): { collections: LiveCollection[] } {
 	};
 }
 
-function collectionOf(model: { collections: LiveCollection[] }, slug: string): LiveCollection {
+function collectionOf(model: LiveModel, slug: string): LiveCollection {
 	const collection = model.collections.find((candidate) => candidate.slug === slug);
 	assert.ok(collection, `the test model has no ${slug} collection`);
 	return collection;
@@ -79,7 +63,7 @@ describe("planModelUpdate", () => {
 
 		assert.deepEqual(plan.problems, []);
 		const updates = new Map(plan.collections.map(({ slug, update }) => [slug, update]));
-		for (const [slug, urlPattern] of Object.entries(CANONICAL_PATTERNS)) {
+		for (const [slug, urlPattern] of Object.entries(CANONICAL_URL_PATTERNS)) {
 			assert.deepEqual(
 				updates.get(slug),
 				{ urlPattern, supports: [...FEATURE_002_SUPPORTS, "seo"], hasSeo: true },
