@@ -25,7 +25,7 @@ media or credentials were taken from it: this runtime started from a fresh datab
 | Source | `~/dev/songhealth-quadlet` — a full clone of the workspace repository at a **detached, promoted commit**, bind-mounted at `/src`; the promoted commit is recorded in `.songhealth-qdev-source-identity` |
 | Dev configuration | `deploy/dev-quadlet/astro.dev.config.mjs`: the canonical `astro.config.mjs` plus the development-only T021 public-read fixture route `/__feature002/public-reads`, which exists in `astro dev` only and answers only requests carrying the route token |
 | Secrets | podman secrets `songhealth-qdev-db-password`, `-app-password`, `-migration-database-url`, `-encryption-key` (EmDash format `emdash_enc_v1_<43 base64url>`), and the T021 fixture route token `songhealth-qdev-t021-route-token` |
-| Local state | `~/.local/state/songhealth-qdev/` (0700): development PAT `dev-pat` (0600), T021 route token client copy `t021-route-access.json` (0600), `backups/`; `~/.local/share/songhealth-qdev/initdb/` (app-role init script) |
+| Local state | `~/.local/state/songhealth-qdev/` (0700): development PAT `dev-pat` (0600), role fixture PAT `role-fixture-pat` (0600), T021 route token client copy `t021-route-access.json` (0600), `backups/`; `~/.local/share/songhealth-qdev/initdb/` (app-role init script) |
 
 ## Install
 
@@ -74,6 +74,13 @@ the real state first and only adds what is missing:
    - Then runs EmDash's native `setup/dev-bypass` **once**. That call applies the Feature 002
      seed, creates the development admin `dev@emdash.local` and mints the development PAT
      into `dev-pat` (0600, never printed).
+   - Then creates the role fixture once: a second native account `role-fixture@songhealth.test`
+     (Author) with its own PAT in `role-fixture-pat` (0600) for the T019/T020 role cases.
+     EmDash has no native way to create it here: an invite completes only with a passkey, and
+     browsers reject the rpId `127.0.0.1`. So the installer writes the same user row as
+     EmDash's dev-bypass and a token row in EmDash's own format (SHA-256 hash only). It
+     re-mints only the PAT when the file is missing, and stops if the account was left with
+     another role or disabled.
 9. **Verify.** Runs `scripts/dev-runtime-verify.sh`.
 
 ## Daily use
@@ -97,11 +104,17 @@ the real state first and only adds what is missing:
 
     ```bash
     PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
-      npm run test:browser -- tests/browser/<suite>.spec.ts
+    SONGHEALTH_ROLE_FIXTURE_ACCESS=~/.local/state/songhealth-qdev/role-fixture-pat \
+      npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
     ```
 
-    Suites that need a second native role account (T019) report that prerequisite until one
-    exists.
+    Without `SONGHEALTH_ROLE_FIXTURE_ACCESS` the T019/T020 role cases skip. The role cases
+    change the fixture's role and restore it to Author at the end.
+  - **Admin UI suites** (`cms-lifecycle-ui.spec.ts`, `cms-editor.spec.ts`). Add
+    `SONGHEALTH_ADMIN_SESSION=dev-bypass` to sign the test browser in through EmDash's
+    development-only `auth/dev-bypass` session route (Product Owner decision 2026-10-29). For
+    the existing dev admin it only sets the session cookie; each test logs out afterwards.
+    Without it the authenticated journeys skip with that prerequisite.
   - **T021 public-read suite.** It runs only through its coordinator, from a checkout at the
     promoted commit:
 
@@ -159,7 +172,8 @@ scripts/dev-runtime-install.sh --sha <old-commit>    # reinstalls deps/units if 
 - the least-privilege app role owns `songhealth_qdev`;
 - the runtime source is the promoted commit, with a clean tree;
 - EmDash accepted `EMDASH_ENCRYPTION_KEY`;
-- the development PAT authenticates;
+- the development PAT authenticates as `dev@emdash.local` (Administrator);
+- the role fixture PAT authenticates as `role-fixture@songhealth.test`, enabled, with role Author;
 - the dev-only T021 fixture route answers its 0600 route token and refuses requests without it.
 
 Runtime results are interpreted only against the commit verify reports.
@@ -181,7 +195,7 @@ Runtime results are interpreted only against the commit verify reports.
 - `scripts/dev-runtime-uninstall.sh` stops the runtime and removes its units. It keeps the
   data, secrets, PAT, backups and checkout, so the installer brings the runtime back as it was.
 - `scripts/dev-runtime-uninstall.sh --purge` additionally deletes the two volumes, the four
-  runtime secrets, the T021 route token pair, the network and the PAT, after a typed
+  runtime secrets, the T021 route token pair, the network and both PATs, after a typed
   confirmation. It never deletes the checkout
   or backups.
 
@@ -195,6 +209,7 @@ Runtime results are interpreted only against the commit verify reports.
 | Install refuses an unlabeled volume, a media volume without its marker, or partial secrets | A foreign or half-made resource. Inspect it; purge only what this runtime created. |
 | Port 4324 is in use | Something else listens there. There is no fallback port: resolve the conflict at its cause. |
 | The PAT check fails | `dev-pat` is missing, has the wrong mode or was revoked. Minting a new one means running `setup/dev-bypass?token=1`, which rotates the token; do that only deliberately. |
+| The role fixture check fails | `role-fixture-pat` is missing, or a role test was interrupted and left the account with another role or disabled. Restore it in the Admin (Users: Author, enabled), or delete the file; then re-run the installer, which re-mints the PAT. |
 | The T021 coordinator holds | The message names the prerequisite. Verify fails: fix the runtime first. The runtime is at another commit: promote the tested commit. The route is missing (404): the commit predates the dev configuration. The token is unprovisioned (503) or does not match (403): delete `t021-route-access.json` and re-run the installer. |
 
 **Never run `podman volume prune` or `podman system prune --volumes` while the runtime is

@@ -27,13 +27,8 @@ source_ok() {
     && [[ -z $(git -C "$SRC" status --porcelain --untracked-files=no) ]]
 }
 key_ok() { local logs; logs=$(podman logs "$APP_CTR" 2>&1) && [[ $logs != *'EMDASH_ENCRYPTION_KEY is invalid'* ]]; }
-pat_ok() { # the development PAT authenticates (sent on stdin: never in argv or output)
-  local token
-  [[ -s $STATE_DIR/dev-pat && $(stat -c %a "$STATE_DIR/dev-pat") == 600 ]] || return 1
-  token=$(<"$STATE_DIR/dev-pat")
-  printf 'Authorization: Bearer %s\n' "$token" \
-    | curl -fsS --max-time 30 -H @- -o /dev/null "$ORIGIN/_emdash/api/auth/me"
-}
+pat_ok() { [[ $(pat_identity "$STATE_DIR/dev-pat") == 'dev@emdash.local 50' ]]; }
+fixture_ok() { [[ $(pat_identity "$ROLE_FIXTURE") == "$ROLE_FIXTURE_EMAIL $ROLE_FIXTURE_ROLE" ]]; }
 route_ok() { # the dev-only T021 fixture answers its probe with the 0600 client token, refuses without
   [[ $(stat -c %a "$ROUTE_ACCESS" 2>/dev/null) == 600 ]] || return 1
   python3 -I - "$ROUTE_ACCESS" "$ORIGIN$ROUTE_PATH?case=probe" <<'PY'
@@ -64,6 +59,7 @@ check "least-privilege app role owns songhealth_qdev" role_ok
 check "runtime source is the promoted commit, clean" source_ok
 check "EmDash accepted EMDASH_ENCRYPTION_KEY" key_ok
 check "development PAT (mode 0600) authenticates" pat_ok
+check "role fixture PAT (mode 0600) authenticates as an enabled Author" fixture_ok
 check "T021 fixture route answers its 0600 route token and refuses without it" route_ok
 printf 'runtime source: %s @ %s\n' "$SRC" "$(git -C "$SRC" rev-parse HEAD 2>/dev/null || printf unknown)"
 if (( failed )); then echo "VERIFY: FAIL"; exit 1; fi

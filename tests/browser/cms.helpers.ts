@@ -1906,3 +1906,70 @@ export async function cleanupOwnedFixtures(
 	registry.media = registry.media.filter((mediaId) => !resolvedMediaIds.has(mediaId));
 	return redactSecrets(report, scrubSecrets) as CleanupReport;
 }
+
+// ---------------------------------------------------------------------------
+// Development Admin browser session (Product Owner decision 2026-10-29)
+// ---------------------------------------------------------------------------
+
+/**
+ * Opt-in switch for the development Admin browser session: set it to
+ * `dev-bypass` to let a browser suite sign in through EmDash's own
+ * development-only session route. Unset, the gated browser journeys skip
+ * with their session prerequisite, as before.
+ */
+export const ADMIN_SESSION_ENV = "SONGHEALTH_ADMIN_SESSION";
+
+/** The minimal browser-context surface the session helpers use. */
+export interface SessionContext {
+	request: {
+		get(url: string): Promise<{ status(): number; json(): Promise<unknown> }>;
+		post(
+			url: string,
+			options: { headers: Record<string, string> },
+		): Promise<{ status(): number }>;
+	};
+}
+
+/** True when the runner opted in to the development Admin session. */
+export async function devAdminSessionRequested(): Promise<boolean> {
+	const processSpecifier = "node:process";
+	const nodeProcess = (await import(processSpecifier)) as unknown as {
+		env: Record<string, string | undefined>;
+	};
+	return nodeProcess.env[ADMIN_SESSION_ENV]?.trim() === "dev-bypass";
+}
+
+/**
+ * Sign the browser context in as the development administrator through
+ * GET /_emdash/api/auth/dev-bypass (pinned 1.1.0, import.meta.env.DEV only).
+ * For the existing dev@emdash.local account the route only sets the native
+ * session cookie: it inserts nothing, applies no seed and mints no token —
+ * unlike the forbidden setup bootstrap /_emdash/api/setup/dev-bypass. The
+ * context's request client shares the browser cookie jar, so the page is
+ * signed in afterwards. Anything but the dev administrator fails loudly.
+ */
+export async function openDevAdminSession(context: SessionContext): Promise<void> {
+	const response = await context.request.get("/_emdash/api/auth/dev-bypass");
+	const body = (await response.json().catch(() => undefined)) as
+		| { data?: { user?: { email?: unknown; role?: unknown } } }
+		| undefined;
+	const user = body?.data?.user;
+	if (response.status() !== 200 || user?.email !== "dev@emdash.local" || user?.role !== 50) {
+		throw new CmsHelperError(
+			"DEV_SESSION_FAILED",
+			`the development Admin session was not established (status ${response.status()}); a production build refuses this route by design`,
+		);
+	}
+}
+
+/**
+ * End the development Admin session through the native logout route
+ * (POST /_emdash/api/auth/logout, which destroys the server-side session).
+ * Returns the HTTP status so the caller can report a failed logout.
+ */
+export async function closeDevAdminSession(context: SessionContext): Promise<number> {
+	const response = await context.request.post("/_emdash/api/auth/logout", {
+		headers: { "X-EmDash-Request": "1" },
+	});
+	return response.status();
+}

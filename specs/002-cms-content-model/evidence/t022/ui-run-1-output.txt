@@ -1,0 +1,16 @@
+# T022 native Admin UI (serial 4/4) — 2026-10-29T02:42:28Z — workspace HEAD f71d56ee8f725e07485d8d2d45273e90424363e9 — node v24.21.0
+
+Running 3 tests using 1 worker
+
+[cms-lifecycle-ui] role-fixture owned-fixture cleanup: complete (entries 0)
+[cms-lifecycle-ui] admin owned-fixture cleanup: complete (entries 1)
+  ✓  1 [chromium] › tests/browser/cms-lifecycle-ui.spec.ts:122:1 › native Admin publish: the editor's Publish now action publishes a draft, read back through the API (9.7s)
+[cms-lifecycle-ui] role-fixture owned-fixture cleanup: complete (entries 1)
+[cms-lifecycle-ui] admin owned-fixture cleanup: complete (entries 0)
+  ✓  2 [chromium] › tests/browser/cms-lifecycle-ui.spec.ts:145:1 › native Admin lock: another account's lease opens read-only with the holder named, and the holder keeps the lease (6.1s)
+[cms-lifecycle-ui] role-fixture owned-fixture cleanup: complete (entries 0)
+[cms-lifecycle-ui] admin owned-fixture cleanup: complete (entries 0)
+  ✓  3 [chromium] › tests/browser/cms-lifecycle-ui.spec.ts:174:1 › native Admin mandatory reference: a Health Report without its Document is held by the editor and never created (7.6s)
+
+  3 passed (24.2s)
+exit=0

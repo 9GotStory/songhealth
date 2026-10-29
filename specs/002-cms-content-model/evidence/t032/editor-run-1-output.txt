@@ -1,0 +1,19 @@
+# T031/T032 native Admin editor — 2026-10-29T02:42:53Z — workspace HEAD f71d56ee8f725e07485d8d2d45273e90424363e9 — node v24.21.0
+
+Running 5 tests using 1 worker
+
+[cms-editor] Admin boundary reached at /_emdash/admin/login (unauthenticated; no session attempted)
+[cms-editor] owned-resource cleanup after test: complete (entries attempted 0, media attempted 0, terms registered 0)
+  ✓  1 [chromium] › tests/browser/cms-editor.spec.ts:1046:1 › native Admin boundary is reachable and localized in Thai with correct English fallback (always runs) (5.5s)
+[cms-editor] owned-resource cleanup after test: complete (entries attempted 2, media attempted 1, terms registered 1)
+  ✓  2 [chromium] › tests/browser/cms-editor.spec.ts:1103:1 › maintenance journey: Thai labels, search/status filter, find and reopen, native media/reference/taxonomy selectors, reuse, and explicit save (9.6s)
+[cms-editor] owned-resource cleanup after test: complete (entries attempted 1, media attempted 0, terms registered 1)
+  ✓  3 [chromium] › tests/browser/cms-editor.spec.ts:1311:1 › a real native validation error surfaces readably and is corrected (services ลิงก์บริการภายนอก) (8.8s)
+[cms-editor] owned-resource cleanup after test: complete (entries attempted 1, media attempted 0, terms registered 1)
+  ✓  4 [chromium] › tests/browser/cms-editor.spec.ts:1370:1 › the domain date stays separate from publication state and system metadata (announcements วันที่ประกาศ) (7.1s)
+[cms-editor] owned-resource cleanup after test: complete (entries attempted 1, media attempted 1, terms registered 1)
+[cms-editor] owned-resource cleanup final worker: complete (entries attempted 0, media attempted 0, terms registered 1)
+  ✓  5 [chromium] › tests/browser/cms-editor.spec.ts:1439:1 › the native gallery repeater: one task-owned image row with its optional caption, saved explicitly (activities แกลเลอรีภาพ) (8.2s)
+
+  5 passed (40.1s)
+exit=0

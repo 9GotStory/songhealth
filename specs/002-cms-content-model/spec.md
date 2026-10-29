@@ -650,6 +650,11 @@ counted as PASS. Runtime outcomes remain unverified by this document-only reconc
 
 - **SC-007**: Staff demonstrate author/select/reuse/find/correct journeys with recognizable labels
   and zero undocumented technical intervention to maintain representative records.
+  - *Status (2026-10-29):* **DEFERRED — NOT VERIFIED / NOT PASSED.**
+    - The automated native Admin journeys pass on the single runtime (T032 evidence).
+    - Automation does not satisfy or replace real staff comprehension: this criterion needs
+      the pending bounded staff session.
+    - The requirement above is unchanged.
 - **SC-008**: Review accounts for every proposed resource/relation under all four mapping questions,
   with zero speculative collections, duplicate mechanisms, confidential-data fields, or
   unjustified extensions/second foundations.

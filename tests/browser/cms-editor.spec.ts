@@ -241,6 +241,12 @@
 //   only — it establishes no browser session and proves no editor journey,
 //   and no REST check is substituted for UI evidence below (the API calls
 //   here only PREPARE task-owned fixtures and read back what the UI wrote)
+// - Product Owner decision 2026-10-29 (T032 on the single development
+//   runtime): the development-only session route below MAY now be used,
+//   opted in with SONGHEALTH_ADMIN_SESSION=dev-bypass. The gated journeys
+//   then sign in through openDevAdminSession() (cms.helpers.ts) and log out
+//   after each test; without the opt-in they keep the detection-based skip.
+//   The text that follows is the original T031 finding, kept as written:
 // - a pinned-source FINDING for the Lead/Product Owner, surfaced here
 //   rather than used: EmDash 1.1.0 ships a development-only native session
 //   facility, GET/POST /_emdash/api/auth/dev-bypass
@@ -306,16 +312,20 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import {
+	ADMIN_SESSION_ENV,
 	cleanupOwnedFixtures,
+	closeDevAdminSession,
 	cmsRequest,
 	createPatActor,
 	createSyntheticEntry,
 	DEFAULT_DEVELOPMENT_ORIGIN,
+	devAdminSessionRequested,
 	loadDevAccessToken,
 	nativeDataOf,
 	nativeItemOf,
 	nativeRefusalOf,
 	NATIVE_ROLES,
+	openDevAdminSession,
 	readEntry,
 	scrubEmbeddedSecrets,
 	uploadSyntheticMedia,
@@ -438,9 +448,8 @@ const SESSION_PREREQUISITE =
 	"Sign in to the native Admin through the native passkey flow in this browser context " +
 	"(T032's bounded staff session), then re-run — this skip is a detected prerequisite, " +
 	"not a PASS. Pinned 1.1.0 source also ships a development-only native session facility " +
-	"(GET /_emdash/api/auth/dev-bypass?redirect=/_emdash/admin, import.meta.env.DEV-gated, " +
-	"'for agent/browser testing') that is NOT part of accepted access and is deliberately " +
-	"not used here; authorizing it is a separate Lead/Product Owner decision.";
+	"(GET /_emdash/api/auth/dev-bypass, import.meta.env.DEV-gated): set " +
+	`${ADMIN_SESSION_ENV}=dev-bypass to sign in with it (Product Owner decision 2026-10-29).`;
 
 // ---------------------------------------------------------------------------
 // Synthetic-fixture identity helpers (the accepted T027 discipline)
@@ -538,11 +547,18 @@ function listSearchInput(page: Page, collectionLabel: string): Locator {
  * silent PASS). Otherwise the authenticated list's search input is awaited
  * so the caller continues on a settled, session-backed page.
  */
+/** Set when a test signed in with the development session; afterEach logs it out. */
+let sessionOpened = false;
+
 async function requireAdminSession(
 	page: Page,
 	collection: string,
 	collectionLabel: string,
 ): Promise<Locator> {
+	if (await devAdminSessionRequested()) {
+		await openDevAdminSession(page.context());
+		sessionOpened = true;
+	}
 	await page.goto(`/_emdash/admin/content/${encodeURIComponent(collection)}`);
 	const searchInput = listSearchInput(page, collectionLabel);
 	const outcome = await Promise.race([
@@ -939,7 +955,11 @@ async function reconcileOwnedResources(phase: string): Promise<string[]> {
 	return problems;
 }
 
-test.afterEach(async () => {
+test.afterEach(async ({ context }) => {
+	if (sessionOpened) {
+		sessionOpened = false;
+		expect(await closeDevAdminSession(context), "the development Admin session must log out").toBe(200);
+	}
 	// Partial-setup guard: beforeAll creates no owned fixtures, so an actor
 	// that never finished bootstrapping has nothing to reconcile.
 	if (admin === undefined) return;
@@ -1052,6 +1072,14 @@ test("native Admin boundary is reachable and localized in Thai with correct Engl
 		// unrecognizable state). The first-admin setup outcome carries its own
 		// wizard copy; only the document language is asserted there, truthfully.
 		if (finalPath.endsWith("/login")) {
+			// Bounded native readiness wait (ported from the T032 PR #37
+			// corrective round 2): the sign-in copy is SPA-rendered after the
+			// AdminApp mounts, and the mount removes #emdash-boot-loader
+			// (pinned @emdash-cms/admin 1.1.0). Waiting for that landmark keeps
+			// the copy assertion's default window unchanged.
+			await page
+				.locator("#emdash-boot-loader")
+				.waitFor({ state: "detached", timeout: 20_000 });
 			await expect(page.getByText(PASSKEY_SIGNIN_COPY).first()).toBeVisible();
 		}
 		console.log(
@@ -1118,7 +1146,10 @@ test("maintenance journey: Thai labels, search/status filter, find and reopen, n
 	// fragment appears in both the title and the slug, so client- and
 	// server-side matching modes both find it).
 	const facilityFragment = facilityTitle.slice(-8);
-	const facilityRow = () => page.getByRole("link", { name: new RegExp(facilityFragment) });
+	// Each list row carries two native links to the editor: the title link
+	// and the edit icon, whose accessible name is "แก้ไข <title>"; the exact
+	// full title selects the title link alone (strict-mode safe).
+	const facilityRow = () => page.getByRole("link", { name: facilityTitle, exact: true });
 	await searchInput.fill(facilityFragment);
 	await expect(
 		facilityRow(),
@@ -1182,10 +1213,16 @@ test("maintenance journey: Thai labels, search/status filter, find and reopen, n
 	await page.getByRole("button", { name: ADD_REFERENCES_LABEL }).first().click();
 	const referenceDialog = page.getByRole("dialog");
 	await expect(referenceDialog).toBeVisible();
-	await referenceDialog
-		.getByRole("checkbox", { name: new RegExp(serviceTitle) })
-		.first()
-		.click();
+	// Pinned @emdash-cms/admin 1.1.0: each picker checkbox carries the item
+	// title as aria-label but also aria-labelledby pointing at the FIELD
+	// label, which wins the accessible-name computation, so every checkbox is
+	// named after the field. Each row is a <label>: clicking the item's title
+	// toggles its checkbox, which is then identified by its title aria-label.
+	await referenceDialog.getByText(serviceTitle, { exact: true }).click();
+	await expect(
+		referenceDialog.locator(`[role="checkbox"][aria-label="${serviceTitle}"]`),
+		"clicking the Service row must check its native picker checkbox",
+	).toHaveAttribute("aria-checked", "true");
 	await referenceDialog.getByRole("button", { name: ADD_SELECTED_LABEL }).click();
 	await expect(
 		referenceDialog,
@@ -1288,7 +1325,7 @@ test("a real native validation error surfaces readably and is corrected (service
 	// Find and reopen it in the ordinary list.
 	const fragment = serviceTitle.slice(-8);
 	await searchInput.fill(fragment);
-	await page.getByRole("link", { name: new RegExp(fragment) }).click();
+	await page.getByRole("link", { name: serviceTitle, exact: true }).click();
 	await page.waitForURL(new RegExp(`/_emdash/admin/content/${SERVICE_COLLECTION}/[^/]+`));
 
 	// Recognizable Thai labels on this collection's editor too.
@@ -1348,7 +1385,7 @@ test("the domain date stays separate from publication state and system metadata 
 	// Find and reopen it in the ordinary list.
 	const fragment = announcementTitle.slice(-8);
 	await searchInput.fill(fragment);
-	await page.getByRole("link", { name: new RegExp(fragment) }).click();
+	await page.getByRole("link", { name: announcementTitle, exact: true }).click();
 	await page.waitForURL(new RegExp(`/_emdash/admin/content/${ANNOUNCEMENT_COLLECTION}/[^/]+`));
 
 	// The domain date is its own Thai-labeled control. The platform renders
@@ -1380,9 +1417,13 @@ test("the domain date stays separate from publication state and system metadata 
 	expect(read.ok, "the fixture must be readable through the native API").toBe(true);
 	const item = nativeItemOf(read);
 	const savedData = dataOfItem(item);
-	expect(savedData.announcement_at, "the stored domain date must read back unchanged").toBe(
-		DOMAIN_DATE_WITH_OFFSET,
-	);
+	// EmDash 1.1.0 stores datetimes normalized to UTC ISO (observed on the
+	// single runtime: 2026-10-24T09:00:00+07:00 reads back as
+	// 2026-10-24T02:00:00.000Z), so the domain date must keep its INSTANT.
+	expect(
+		Date.parse(String(savedData.announcement_at)),
+		`the stored domain date must keep its instant (read back ${String(savedData.announcement_at)})`,
+	).toBe(Date.parse(DOMAIN_DATE_WITH_OFFSET));
 	const createdAt = typeof item?.createdAt === "string" ? item.createdAt : undefined;
 	const updatedAt = typeof item?.updatedAt === "string" ? item.updatedAt : undefined;
 	expect(
@@ -1417,7 +1458,7 @@ test("the native gallery repeater: one task-owned image row with its optional ca
 	// Find and reopen the fixture in the ordinary list.
 	const fragment = activityTitle.slice(-8);
 	await searchInput.fill(fragment);
-	await page.getByRole("link", { name: new RegExp(fragment) }).click();
+	await page.getByRole("link", { name: activityTitle, exact: true }).click();
 	await page.waitForURL(new RegExp(`/_emdash/admin/content/${ACTIVITIES_COLLECTION}/[^/]+`));
 
 	// The gallery is the native repeater under its Thai schema label,

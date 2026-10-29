@@ -45,6 +45,6 @@ for s in "${SECRETS[@]}" "$ROUTE_SECRET"; do
   if podman secret exists "$s"; then podman secret rm "$s" >/dev/null; note "deleted secret $s"; fi
 done
 if podman network exists "$NETWORK"; then podman network rm "$NETWORK" >/dev/null; note "deleted network $NETWORK"; fi
-rm -f -- "$STATE_DIR/dev-pat" "$ROUTE_ACCESS" "$STATE_DIR/db-first-init"
+rm -f -- "$STATE_DIR/dev-pat" "$ROLE_FIXTURE" "$ROUTE_ACCESS" "$STATE_DIR/db-first-init"
 rm -rf -- "$SHARE_DIR"
 note "purged; kept $SRC and $STATE_DIR/backups"
