@@ -78,6 +78,7 @@ scripts/dev-runtime-install.sh --sha <commit>   # install (converges; safe to re
 scripts/dev-runtime-update.sh --sha <commit>    # promote another commit (backs up first)
 scripts/dev-runtime-model-update.sh             # give the database the seed's content model (backs up first)
 scripts/dev-runtime-verify.sh                   # read-only checks; ends with VERIFY: PASS|FAIL
+scripts/dev-runtime-admin-activity.sh           # read-only: Admin pages opened in the last 10 minutes
 scripts/dev-runtime-backup.sh <dir>             # database dump + media archive
 scripts/dev-runtime-uninstall.sh [--purge]      # remove the units (keep data) | delete everything
 ```
@@ -103,7 +104,11 @@ checks and the desktop and 320 px viewports.
 
 Pull-request screenshots of public pages come from
 `node scripts/capture-screenshots.mjs <out-dir> <path>...`. The script's header shows how to put
-them on an image-only `evidence/` branch, so no image enters the code tree.
+them on an image-only `evidence/` branch, so no image enters the code tree. A page that needs
+content to show takes it from `node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir>`
+(with `SONGHEALTH_DEV_ACCESS`). The runner makes the module's synthetic content, captures the paths
+the module returns, and removes everything it made. `scripts/screenshot-fixtures/news.ts` is the
+example.
 
 Admin login uses EmDash's development-only bypass (browsers accept passkeys only on a domain
 origin, not `127.0.0.1`):

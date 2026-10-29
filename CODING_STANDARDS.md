@@ -6,8 +6,10 @@ pull request: `npm run build`, `npm run typecheck`, `npm run test:node`, `npm ru
 
 ## Comments
 
-- A comment states the contract and the reason for it. History (task numbers, review rounds,
-  what an earlier version did) belongs in git and the pull request.
+- A comment states the contract and the reason for it. A file header may cite the ticket and
+  spec section that define its contract, such as `(#54; spec #51 "Public reads")`. History
+  (review rounds, task-by-task changes, what an earlier version did) belongs in git and the pull
+  request.
 - When code relies on platform behaviour, the comment names the package, its pinned version and
   the source path, for example `emdash 1.1.0 src/api/schemas/settings.ts`.
 - Accepted Feature 001 and 002 files carry long historical headers. Trim them when a change
@@ -22,6 +24,13 @@ pull request: `npm run build`, `npm run typecheck`, `npm run test:node`, `npm ru
 - Status is stated in text; colour supports it.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page.
+- A list or detail page reuses the shared pieces in `src/components/` and follows the shape of
+  `src/pages/news/`. That shape covers reads through EmDash's query functions, `?page=` and GET
+  filters, `Astro.rewrite("/404")` for anything not visible, and the SiteLayout head props. A
+  piece that two pages need moves into `src/components/` or `src/lib/`.
+- CMS images go through EmDash's `Image` with a `sizes` that matches their box. Image size
+  evidence from the development runtime shows renditions that production does not serve
+  (ADR 0003).
 
 ## Tests
 
