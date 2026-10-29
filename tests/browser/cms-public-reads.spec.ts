@@ -65,7 +65,7 @@
 // - docs/website-modernization-docs/current/10-system-blueprint.md §9
 //   (Astro SSR uses the EmDash query functions directly; draft preview uses
 //   EmDash's signed preview flow)
-// - AGENTS.md "Single Persistent Development Runtime" (all authorized
+// - CLAUDE.md "Runtimes" (all authorized
 //   runtime tests target the existing shared development application at
 //   http://127.0.0.1:4324; never a second server; tests may use the existing
 //   scoped development credential through the approved mode-0600 loader;
@@ -83,7 +83,7 @@
 //   schema-readiness gating, the unauthenticated authorization control,
 //   failure-safe teardown, and the runner-configured origin
 //
-// Verified API surface (recorded per AGENTS.md §External Documentation):
+// Verified API surface (recorded per CLAUDE.md §Current documentation):
 // checked first through Context7 (/withastro/docs for Playwright file-level
 // conditional skip semantics — via the pinned
 // node_modules/playwright/types/test.d.ts skip(condition, description)
@@ -257,7 +257,7 @@ const DOCUMENTS_COLLECTION = "documents";
 const HEALTH_REPORTS_COLLECTION = "health_reports";
 
 /**
- * The ONE existing persistent development origin (AGENTS.md; quickstart
+ * The ONE existing persistent development origin (CLAUDE.md Runtimes; quickstart
  * "Prerequisites and Environment"; tasks.md T021, retargeted by T037). This
  * suite refuses any other origin: an occupied shared origin is its intended
  * state, and no port fallback or substitute server is ever acceptable

@@ -127,7 +127,7 @@
 //   teardown, the runner-configured origin, the T013 test-authentication
 //   adaptation)
 //
-// Verified API surface (recorded per AGENTS.md §External Documentation; checked
+// Verified API surface (recorded per CLAUDE.md §Current documentation; checked
 // first through Context7 — /websites/emdashcms for unversioned orientation and
 // /microsoft/playwright v1.63.0 for Playwright semantics — then against the
 // pinned `emdash@1.1.0` dist sources installed by the lockfile-exact `npm ci`

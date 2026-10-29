@@ -210,7 +210,7 @@
 # values.
 #
 # Version-sensitive external semantics verified for this script (Context7
-# first where supported, per AGENTS.md; see the T026 implementation evidence
+# first where supported, per the repository rules (now CLAUDE.md); see the T026 implementation evidence
 # for the dated record): PostgreSQL 18 `pg_restore` — `--exit-on-error` exits
 # at the first error while sending SQL commands (the default is to continue
 # and report an error count), `--no-owner` and `--no-privileges` suppress

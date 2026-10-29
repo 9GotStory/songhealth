@@ -47,7 +47,7 @@
 //   truthfully-pending distinct-role fixture input (§6) these helpers consume
 //   without inventing
 //
-// Verified API surface (recorded per AGENTS.md §External Documentation):
+// Verified API surface (recorded per CLAUDE.md §Current documentation):
 // Context7 /websites/emdashcms (docs.emdashcms.com REST API, roles and
 // permissions) first for unversioned capability orientation; every
 // release-sensitive claim below is controlled by the pinned `emdash@1.1.0`

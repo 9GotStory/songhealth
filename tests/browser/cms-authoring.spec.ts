@@ -81,7 +81,7 @@
 //   the truthful readiness limitations these checks skip on rather than
 //   masquerading as field-validation results
 //
-// Verified API surface (recorded per AGENTS.md §External Documentation; every
+// Verified API surface (recorded per CLAUDE.md §Current documentation; every
 // release-sensitive claim below was checked first through Context7
 // (/microsoft/playwright v1.63.0 for Playwright semantics; /websites/emdashcms
 // for unversioned REST orientation) and then against the pinned `emdash@1.1.0`

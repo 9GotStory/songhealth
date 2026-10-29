@@ -67,7 +67,7 @@
 //   retargeted by T037: the origin is the single runtime's
 //   http://127.0.0.1:4324 and its verify replaces the retired UID-1001
 //   Runtime Controller observation
-// - AGENTS.md "Single Persistent Development Runtime" (one server/DB/media
+// - CLAUDE.md "Runtimes" (one server/DB/media
 //   store/test target; never free the port or substitute; a dev-only
 //   integration not yet installed is NOT READY → HOLD; task cleanup covers
 //   task-owned temporary resources only) and the Multica runtime brief's
@@ -81,7 +81,7 @@
 // - tests/browser/fixtures/cms-public-reads.integration.mjs — the fixture
 //   route contract (route pattern, access header, identity, env names)
 //
-// Verified API surface (recorded per AGENTS.md §External Documentation):
+// Verified API surface (recorded per CLAUDE.md §Current documentation):
 // Node 24 global fetch with redirect:"error" and AbortSignal.timeout for
 // bounded requests; node:child_process spawn with explicit 'error'/'exit'
 // event handling and awaited termination/reaping; node:child_process.execFile
@@ -100,7 +100,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import os from "node:os";
 import path from "node:path";
 
-/** The ONE existing persistent development origin (AGENTS.md; tasks.md T037). */
+/** The ONE existing persistent development origin (CLAUDE.md Runtimes; tasks.md T037). */
 export const PERSISTENT_DEVELOPMENT_ORIGIN = "http://127.0.0.1:4324";
 
 /** The single spec file this coordinator may run. */

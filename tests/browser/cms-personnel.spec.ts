@@ -91,7 +91,7 @@
 //   envelope, create-stages-no-revision, bounded 50-revision working
 //   history)
 //
-// Verified API surface (recorded per AGENTS.md §External Documentation; the
+// Verified API surface (recorded per CLAUDE.md §Current documentation; the
 // release-sensitive claims below were verified for this file against the
 // pinned `emdash@1.1.0` archive extracted from the offline npm cache, npm
 // tarball sha512-VXo1fIMr44PEiE1A9Z5aFWvjsqhdLDHqat2iPkFYoam2kYV6h+2LGkEDovkXdLmmWWDY9w7ekP0CP6ziYMFhg==

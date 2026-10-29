@@ -43,7 +43,7 @@
 //   the truthful readiness limitations these checks skip on rather than
 //   masquerading as field-validation results
 //
-// Verified API surface (recorded per AGENTS.md §External Documentation; every
+// Verified API surface (recorded per CLAUDE.md §Current documentation; every
 // release-sensitive claim below was checked against the pinned `emdash@1.1.0`
 // archive, npm tarball integrity sha512-VXo1fIMr44PEiE1A9Z5aFWvjsqhdLDHqat2iPkFYoam2kYV6h+2LGkEDovkXdLmmWWDY9w7ekP0CP6ziYMFhg==
 // — byte-equal to package-lock.json, the same integrity research.md §Evidence
