@@ -1,0 +1,141 @@
+/*
+ * Songhealth design tokens and base styles (Feature 003 #52; ADR 0001).
+ *
+ * The tokens come from the Product Owner's Figma file "Songhealth — Homepage
+ * Concept v1" (file Lxdfd1dBgNNO28Rx62zGYO, frame 5:2) and keep its variable
+ * names; spec #51 (Presentation) records the table. Tailwind CSS v4 turns each
+ * @theme variable into utilities at build time (`--color-brand-primary` gives
+ * `bg-brand-primary`, `text-brand-primary`, …) and ships no client JavaScript.
+ * Tailwind's default palette, type scale, radii and shadows are cleared, so the
+ * templates can only use these tokens.
+ */
+
+@import "tailwindcss" source("../");
+
+@theme {
+	/* Figma colour variables */
+	--color-*: initial;
+	--color-brand-primary: #0b6b57;
+	--color-brand-dark: #123c33;
+	--color-accent-warm: #f3c95f;
+	--color-text-primary: #16211d;
+	--color-text-secondary: #65736d;
+	--color-bg-page: #f6f9f7;
+	--color-surface-base: #ffffff;
+	--color-surface-soft: #eaf5f0;
+	--color-border-default: #dce7e2;
+
+	/* Colours the Figma frame uses without a variable */
+	--color-topic-green: #ebf7f0; /* Health Information cards */
+	--color-topic-blue: #f0f5fc;
+	--color-divider: #dbe8e3; /* Announcement list separators */
+	--color-hero-visual-from: #bae0cf; /* Featured hero visual */
+	--color-hero-visual-to: #f2d17a;
+	--color-activity-visual-from: #bfdcce; /* Activity card without an image */
+	--color-activity-visual-to: #e8f0d9;
+	--color-contact-visual-from: #d1ebde; /* Contact Summary map stand-in */
+	--color-contact-visual-to: #e8f0cc;
+
+	/*
+	 * Contrast fixes (#51). Figma's text-secondary on surface-soft is 4.45:1,
+	 * below the 4.5:1 text minimum, and border-default on white is 1.27:1,
+	 * below the 3:1 minimum for an input boundary (WCAG 2.2 SC 1.4.3, 1.4.11).
+	 */
+	--color-text-secondary-on-soft: #5d6a64; /* 5.07:1 on surface-soft, more on the other light fills */
+	--color-border-input: #7a8a83; /* 3.63:1 on surface-base, 3.42:1 on bg-page, 3.25:1 on surface-soft */
+
+	/* Figma type styles (Noto Sans Thai): size / line height / weight in px */
+	--text-*: initial;
+	--text-display: 3.75rem; /* 60 / 72 / 700 */
+	--text-display--line-height: 4.5rem;
+	--text-display--font-weight: 700;
+	--text-h1: 2.875rem; /* 46 / 58 / 700 */
+	--text-h1--line-height: 3.625rem;
+	--text-h1--font-weight: 700;
+	--text-h2: 2.125rem; /* 34 / 46 / 600 */
+	--text-h2--line-height: 2.875rem;
+	--text-h2--font-weight: 600;
+	--text-h3: 1.5rem; /* 24 / 34 / 600 */
+	--text-h3--line-height: 2.125rem;
+	--text-h3--font-weight: 600;
+	--text-body-large: 1.125rem; /* 18 / 30 / 400 */
+	--text-body-large--line-height: 1.875rem;
+	--text-body: 1rem; /* 16 / 26 / 400 */
+	--text-body--line-height: 1.625rem;
+	--text-label: 0.875rem; /* 14 / 22 / 500 */
+	--text-label--line-height: 1.375rem;
+	--text-label--font-weight: 500;
+	--text-small: 0.8125rem; /* 13 / 20 / 400 */
+	--text-small--line-height: 1.25rem;
+
+	/* Figma corner radii, named by their size in px */
+	--radius-*: initial;
+	--radius-14: 0.875rem;
+	--radius-16: 1rem;
+	--radius-18: 1.125rem;
+	--radius-20: 1.25rem;
+	--radius-22: 1.375rem;
+	--radius-24: 1.5rem;
+	--radius-26: 1.625rem;
+	--radius-32: 2rem;
+	--radius-pill: 999px;
+
+	--shadow-*: initial;
+	--shadow-card: 0 10px 15px rgb(13 46 36 / 0.08);
+
+	/* The 1200 px content container of the 1440 px desktop frame */
+	--container-content: 75rem;
+}
+
+/*
+ * The page font: Noto Sans Thai, self-hosted by Astro's Fonts API, which
+ * defines --font-noto-sans-thai (astro.config.mjs). `inline` hands Tailwind the
+ * variable itself, so the page's default font follows it.
+ */
+@theme inline {
+	--font-sans: var(--font-noto-sans-thai);
+}
+
+@layer base {
+	/* Side gutter of the page container: 16 px on phones, 24 px from `sm` up. */
+	:root {
+		--page-gutter: 1rem;
+	}
+
+	@media (width >= 40rem) {
+		:root {
+			--page-gutter: 1.5rem;
+		}
+	}
+
+	/*
+	 * Every focusable element shows a visible focus ring (WCAG 2.2 SC 2.4.7):
+	 * brand-primary on light surfaces; dark surfaces switch it with
+	 * focus-ring-on-dark.
+	 */
+	:focus-visible {
+		outline: 3px solid var(--focus-ring-color, var(--color-brand-primary));
+		outline-offset: 2px;
+	}
+
+	/* The skip link's target takes focus without outlining the whole page region. */
+	#main:focus {
+		outline: none;
+	}
+}
+
+/*
+ * The page container: the 1200 px content column, centred, with the gutter
+ * outside it, so a 1440 px window has 120 px either side as in the Figma frame.
+ */
+@utility page-container {
+	margin-inline: auto;
+	width: 100%;
+	max-width: calc(var(--container-content) + 2 * var(--page-gutter));
+	padding-inline: var(--page-gutter);
+}
+
+/* Focus ring on brand-dark surfaces: accent-warm, 7.75:1 against brand-dark. */
+@utility focus-ring-on-dark {
+	--focus-ring-color: var(--color-accent-warm);
+}
