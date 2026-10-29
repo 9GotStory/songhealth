@@ -2,7 +2,7 @@
 // through the native API, capture it with capture-screenshots.mjs, then remove everything that
 // was made, even when a step fails (scripts/fixture-kit.ts).
 //
-//   SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
+//   scripts/dev-runtime-env.sh \
 //     node scripts/capture-with-fixtures.ts scripts/screenshot-fixtures/<name>.ts <out-dir>
 //
 // A fixtures module's default export receives a FixtureKit and returns the paths to capture. A

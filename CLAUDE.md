@@ -52,12 +52,13 @@ The feedback loop for `/implement` and `/tdd` (Node 24.21.0, npm 12.2.0):
 - `npm run typecheck`;
 - `npm run test:node`;
 - `npm run build:check` when a page, the layout or the Astro config changes;
-- `npm run format` before each commit, and `npm run lint:shell` when a shell script changes;
-- the browser suites against the development runtime. Their commands and credential variables
-  are in `README.md`; the public-read suite runs through `tests/browser/run-cms-public-reads.mjs`.
+- `npm run format` and `npm run knip` before each commit, and `npm run lint:shell` when a shell
+  script changes;
+- the browser suites against the development runtime, through `scripts/dev-runtime-env.sh`
+  (`README.md`); the public-read suite runs through `tests/browser/run-cms-public-reads.mjs`.
 
-CI (`.github/workflows/checks.yml`) runs the build, typecheck, node tests, `format:check` and
-`lint:shell` on every pull request; the browser suites stay local to the development runtime.
+CI (`.github/workflows/checks.yml`) runs the build, typecheck, node tests, `format:check`, `knip`
+and `lint:shell` on every pull request; the browser suites stay local to the development runtime.
 
 ## Agent skills
 

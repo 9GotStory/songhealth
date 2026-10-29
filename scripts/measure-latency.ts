@@ -3,7 +3,7 @@
 // runtime as it is, then with the fixtures module's synthetic content, which is removed afterwards
 // (scripts/fixture-kit.ts).
 //
-//   SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
+//   scripts/dev-runtime-env.sh \
 //     node scripts/measure-latency.ts scripts/latency-fixtures/<name>.ts [runs]
 //
 // A fixtures module exports `paths`, the addresses to time, and a default export that receives a
