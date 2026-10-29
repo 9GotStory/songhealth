@@ -1,0 +1,27 @@
+---
+// The "เปิดแผนที่" link (Feature 003 #57; spec #51 "Maps", "Shared building blocks"): it opens the
+// place in a map app in a new tab, built from its coordinates (src/lib/map-link.ts), and renders
+// nothing without both. Its accessible name says it opens a new tab.
+import { mapHref } from "../lib/map-link";
+
+interface Props {
+	latitude: number | null | undefined;
+	longitude: number | null | undefined;
+}
+
+const { latitude, longitude } = Astro.props;
+const href = mapHref(latitude, longitude);
+---
+
+{href && (
+	<a
+		class="inline-flex min-h-11 items-center gap-2 rounded-pill border border-border-input px-5 text-label text-brand-primary hover:bg-surface-soft"
+		href={href}
+		target="_blank"
+		rel="noopener"
+	>
+		เปิดแผนที่
+		<span class="sr-only">(เปิดในแท็บใหม่)</span>
+		<span aria-hidden="true">↗</span>
+	</a>
+)}

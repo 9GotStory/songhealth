@@ -23,11 +23,13 @@
 
 import {
 	cleanupOwnedFixtures,
+	cmsRequest,
 	createPatActor,
 	createSyntheticEntry,
 	createSyntheticTerm,
 	deleteSyntheticTerms,
 	loadDevAccessToken,
+	nativeDataOf,
 	nativeRefusalOf,
 	NATIVE_ROLES,
 	publishEntryAt,
@@ -40,10 +42,18 @@ import {
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
+	MOBILE_VIEWPORT,
+	VIEWPORTS,
+	detailOf,
 	expect,
+	expectNoAxeViolations,
+	expectNoHorizontalScroll,
+	expectSiteNotFound,
+	expectVisibleFocusOnEveryStop,
 	listedItem,
 	listedTitles,
 	ownTitles,
+	siteTitleParts,
 	test,
 } from "./public.helpers";
 
@@ -345,4 +355,262 @@ test("an unmatched filter shows the empty state, and a filtered directory pages 
 			page.getByRole("main").getByRole("link", { name: "ดูหน่วยบริการทั้งหมด" }),
 		).toHaveAttribute("href", "/health-services");
 	}
+});
+
+/** A synthetic published Service, which a Health Service can offer. */
+async function createService(label: string): Promise<EntryFixture> {
+	const slug = syntheticSlug(label);
+	const title = `${SYNTHETIC_FIXTURE_MARK} บริการ ${label} ${slug.slice(-6)}`;
+	const created = await createSyntheticEntry(admin, "services", { data: { title }, slug });
+	expect(created.result.ok, `service ${label}: ${nativeRefusalOf(created.result)}`).toBe(true);
+	return { id: created.entryId!, slug, title };
+}
+
+/** The Google Maps link the page builds from these coordinates (Maps URLs, search action). */
+const mapLinkOf = (latitude: number, longitude: number) =>
+	`https://www.google.com/maps/search/?api=1&query=${latitude}%2C${longitude}`;
+
+test("a Health Service page shows its names, type, affiliation, status, address, hours, contact, Area, map link and offered Services in staff order", async ({
+	page,
+}) => {
+	const type = await createTerm("facility_type", "โรงพยาบาลส่งเสริมสุขภาพตำบล");
+	const area = await createTerm("area", "ตำบลบ้านกลาง");
+	// Staff link "second" before "first": the page keeps that order, not the name order.
+	const first = await createService("first");
+	const second = await createService("second");
+	const draftService = await createService("draft");
+	await publish("services", first);
+	await publish("services", second);
+	const affiliation = `${SYNTHETIC_FIXTURE_MARK} องค์การบริหารส่วนจังหวัดแพร่`;
+	const address = `${SYNTHETIC_FIXTURE_MARK} 12 หมู่ 3 ตำบลบ้านกลาง\nอำเภอสอง จังหวัดแพร่ 54120`;
+	const hours = `${SYNTHETIC_FIXTURE_MARK} จันทร์–ศุกร์ 08.30–16.30 น.`;
+	const contact = `${SYNTHETIC_FIXTURE_MARK} โทร 054 000 000`;
+	const healthService = await createHealthService("detail", {
+		displayName: "รพ.สต.บ้านกลาง",
+		data: {
+			affiliation_text: affiliation,
+			operational_status: "temporarily_closed",
+			address,
+			opening_hours: hours,
+			public_contact: contact,
+			latitude: 18.12345,
+			longitude: 100.12346,
+		},
+		taxonomies: { facility_type: [type.slug], area: [area.slug] },
+		references: { offered_services: [second.id, draftService.id, first.id] },
+	});
+	await publish("health_services", healthService);
+
+	const response = await page.goto(`/health-services/${healthService.slug}`);
+	expect(response?.status(), "GET the Health Service page").toBe(200);
+	const main = page.getByRole("main");
+	await expect(main.getByRole("heading", { level: 1 })).toHaveText(healthService.title);
+	await expect(detailOf(page, "ชื่อทางการ")).toHaveText(healthService.officialName);
+	await expect(detailOf(page, "ประเภทหน่วยบริการ")).toHaveText(type.label);
+	await expect(detailOf(page, "สังกัด")).toHaveText(affiliation);
+	await expect(detailOf(page, "สถานะการให้บริการ")).toHaveText("ปิดให้บริการชั่วคราว");
+	await expect(detailOf(page, "ที่ตั้ง")).toContainText("12 หมู่ 3 ตำบลบ้านกลาง");
+	await expect(detailOf(page, "ที่ตั้ง")).toContainText("อำเภอสอง จังหวัดแพร่ 54120");
+	await expect(detailOf(page, "เวลาทำการ")).toHaveText(hours);
+	await expect(detailOf(page, "ช่องทางติดต่อ")).toHaveText(contact);
+	await expect(
+		detailOf(page, "พื้นที่รับผิดชอบ").getByRole("link", { name: area.label }),
+	).toHaveAttribute("href", `/health-services?area=${area.slug}`);
+
+	const map = detailOf(page, "ที่ตั้ง").getByRole("link", { name: /เปิดแผนที่/ });
+	await expect(map).toHaveAttribute("href", mapLinkOf(18.12345, 100.12346));
+	await expect(map).toHaveAttribute("target", "_blank");
+	await expect(map).toHaveAttribute("rel", "noopener");
+	await expect(main.locator("iframe, embed, object"), "no map is embedded").toHaveCount(0);
+
+	const offered = main.getByRole("region", { name: "บริการที่ให้" });
+	await expect(offered.getByRole("link")).toHaveText([second.title, first.title]);
+	await expect(offered.getByRole("link", { name: first.title })).toHaveAttribute(
+		"href",
+		`/services/${first.slug}`,
+	);
+	await expect(offered.getByText(draftService.title), "a draft Service is left out").toHaveCount(0);
+
+	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
+	await expect(breadcrumb.getByRole("link")).toHaveText([
+		"หน้าแรก",
+		"หน่วยบริการสุขภาพที่เกี่ยวข้อง",
+	]);
+	await expect(
+		breadcrumb.getByRole("link", { name: "หน่วยบริการสุขภาพที่เกี่ยวข้อง" }),
+	).toHaveAttribute("href", "/health-services");
+	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(healthService.title);
+	await expect(
+		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "บริการประชาชน" }),
+	).toHaveAttribute("aria-current", "true");
+});
+
+test("a Health Service page leaves out what is not set, and the map link without both coordinates", async ({
+	page,
+}) => {
+	const minimal = await createHealthService("minimal");
+	const latitudeOnly = await createHealthService("latitude-only", {
+		data: { address: `${SYNTHETIC_FIXTURE_MARK} ที่อยู่ไม่มีพิกัด`, latitude: 18.1 },
+	});
+	const inactive = await createHealthService("inactive-detail", {
+		data: { operational_status: "inactive", latitude: 18.1, longitude: 100.1 },
+	});
+	for (const fixture of [minimal, latitudeOnly, inactive])
+		await publish("health_services", fixture);
+
+	await page.goto(`/health-services/${minimal.slug}`);
+	const main = page.getByRole("main");
+	await expect(main.getByRole("heading", { level: 1 })).toHaveText(minimal.title);
+	for (const name of [
+		"ชื่อทางการ",
+		"ประเภทหน่วยบริการ",
+		"สังกัด",
+		"สถานะการให้บริการ",
+		"ที่ตั้ง",
+		"เวลาทำการ",
+		"ช่องทางติดต่อ",
+		"พื้นที่รับผิดชอบ",
+	]) {
+		await expect(main.getByRole("term").filter({ hasText: name }), name).toHaveCount(0);
+	}
+	await expect(main.getByRole("link", { name: /เปิดแผนที่/ })).toHaveCount(0);
+	await expect(main.getByRole("region", { name: "บริการที่ให้" })).toHaveCount(0);
+
+	await page.goto(`/health-services/${latitudeOnly.slug}`);
+	await expect(detailOf(page, "ที่ตั้ง")).toHaveText(`${SYNTHETIC_FIXTURE_MARK} ที่อยู่ไม่มีพิกัด`);
+	await expect(main.getByRole("link", { name: /เปิดแผนที่/ })).toHaveCount(0);
+
+	await page.goto(`/health-services/${inactive.slug}`);
+	await expect(detailOf(page, "สถานะการให้บริการ")).toHaveText("ไม่เปิดให้บริการแล้ว");
+	await expect(
+		detailOf(page, "ที่ตั้ง").getByRole("link", { name: /เปิดแผนที่/ }),
+		"coordinates alone give the map link",
+	).toHaveAttribute("href", mapLinkOf(18.1, 100.1));
+});
+
+test("a draft, unpublished or trashed Health Service answers the site 404, and a signed preview renders a draft", async ({
+	page,
+}) => {
+	const draft = await createHealthService("hidden-draft");
+	const unpublished = await createHealthService("hidden-unpublished");
+	const trashed = await createHealthService("hidden-trashed");
+	await publish("health_services", unpublished);
+	await publish("health_services", trashed);
+	expect((await unpublishEntry(admin, "health_services", unpublished.id)).ok, "unpublish").toBe(
+		true,
+	);
+	expect((await trashEntry(admin, "health_services", trashed.id)).ok, "trash").toBe(true);
+	for (const fixture of [draft, unpublished, trashed]) {
+		await expectSiteNotFound(page, `/health-services/${fixture.slug}`, fixture.title);
+	}
+
+	const minted = await cmsRequest(
+		admin,
+		`/_emdash/api/content/health_services/${encodeURIComponent(draft.id)}/preview-url`,
+		{ method: "POST", body: {} },
+	);
+	expect(minted.ok, nativeRefusalOf(minted)).toBe(true);
+	// The signed token stays out of every message.
+	const link = new URL(String(nativeDataOf(minted)?.url), origin);
+	expect(link.pathname, "the preview link is the draft's canonical address").toBe(
+		`/health-services/${draft.slug}`,
+	);
+	const preview = await page.goto(link.toString());
+	expect(preview?.status(), "the preview renders").toBe(200);
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(draft.title);
+	await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+});
+
+test("the directory pages carry their title, description, absolute canonical address and OG tags, with the SEO fields first", async ({
+	page,
+}) => {
+	const { siteTitle, separator } = await siteTitleParts(admin);
+	const meta = (selector: string) => page.locator(selector).first();
+	const plain = await createHealthService("seo-plain", { displayName: "รพ.สต.ค้นหาได้" });
+	const seoTitle = `${SYNTHETIC_FIXTURE_MARK} ชื่อหน่วยบริการสำหรับเครื่องมือค้นหา`;
+	const seoDescription = `${SYNTHETIC_FIXTURE_MARK} คำอธิบายหน่วยบริการจากช่อง SEO`;
+	const tuned = await createHealthService("seo-tuned", {
+		seo: { title: seoTitle, description: seoDescription },
+	});
+	await publish("health_services", plain);
+	await publish("health_services", tuned);
+
+	await page.goto(`/health-services/${plain.slug}`);
+	await expect(page).toHaveTitle(`${plain.title}${separator}${siteTitle}`);
+	await expect(meta('meta[name="description"]')).toHaveAttribute(
+		"content",
+		`ที่อยู่ เวลาทำการ ช่องทางติดต่อ และบริการของ ${plain.title}`,
+	);
+	await expect(meta('link[rel="canonical"]')).toHaveAttribute(
+		"href",
+		`${origin}/health-services/${plain.slug}`,
+	);
+	await expect(meta('meta[property="og:title"]')).toHaveAttribute("content", plain.title);
+	await expect(meta('meta[name="robots"]')).toHaveCount(0);
+
+	await page.goto(`/health-services/${tuned.slug}`);
+	await expect(page).toHaveTitle(`${seoTitle}${separator}${siteTitle}`);
+	await expect(meta('meta[name="description"]')).toHaveAttribute("content", seoDescription);
+
+	await page.goto("/health-services?page=1");
+	await expect(page).toHaveTitle(`หน่วยบริการสุขภาพที่เกี่ยวข้อง${separator}${siteTitle}`);
+	await expect(meta('meta[name="description"]')).toHaveAttribute("content", /.+/);
+	await expect(meta('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/health-services`);
+});
+
+test.describe("accessibility and reflow", () => {
+	let paths: string[];
+
+	test.beforeAll(async () => {
+		const type = await createTerm("facility_type", "โรงพยาบาลชุมชน");
+		const area = await createTerm("area", "ตำบลสอง");
+		const service = await createService("a11y");
+		await publish("services", service);
+		const detailed = await createHealthService("a11y", {
+			displayName: "โรงพยาบาลสอง",
+			data: {
+				affiliation_text: `${SYNTHETIC_FIXTURE_MARK} สำนักงานปลัดกระทรวงสาธารณสุข`,
+				operational_status: "temporarily_closed",
+				address: `${SYNTHETIC_FIXTURE_MARK} 1 หมู่ 1 ตำบลสอง อำเภอสอง จังหวัดแพร่`,
+				opening_hours: `${SYNTHETIC_FIXTURE_MARK} ทุกวัน 24 ชั่วโมง`,
+				public_contact: `${SYNTHETIC_FIXTURE_MARK} โทร 054 000 001`,
+				latitude: 18.48,
+				longitude: 100.19,
+			},
+			taxonomies: { facility_type: [type.slug], area: [area.slug] },
+			references: { offered_services: [service.id] },
+		});
+		await publish("health_services", detailed);
+		const minimal = await createHealthService("a11y-minimal");
+		await publish("health_services", minimal);
+		paths = [
+			"/health-services",
+			`/health-services?area=${area.slug}&name=${encodeURIComponent("โรงพยาบาล")}`,
+			`/health-services?area=${syntheticSlug("no-such-area")}`,
+			`/health-services/${detailed.slug}`,
+			`/health-services/${minimal.slug}`,
+		];
+	});
+
+	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
+		test(`axe reports no WCAG 2.2 AA violation and focus stays visible on the directory pages at the ${width} width`, async ({
+			page,
+		}) => {
+			await page.setViewportSize(viewport);
+			for (const path of paths) {
+				const response = await page.goto(path);
+				expect(response?.status(), `GET ${path}`).toBe(200);
+				await expectNoAxeViolations(page, `${path} at ${width}`);
+				await expectVisibleFocusOnEveryStop(page, `${path} at ${width}`);
+			}
+		});
+	}
+
+	test("no directory page scrolls sideways at 320 px", async ({ page }) => {
+		await page.setViewportSize(MOBILE_VIEWPORT);
+		for (const path of paths) {
+			await page.goto(path);
+			await expectNoHorizontalScroll(page, path);
+		}
+	});
 });

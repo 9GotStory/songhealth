@@ -1,0 +1,151 @@
+---
+// A Health Service page, /health-services/{slug} (Feature 003 #57; spec #51 "Public reads" (Health
+// Service Directory), "Maps" and "Errors, redirects, preview and SEO", `03` §8).
+//
+// The page shows the Health Service by its shown name, then the details that are set: the official
+// name, type, affiliation, operational status in text, address with the "เปิดแผนที่" link built
+// from the coordinates, opening hours, public contact and Area. The Services it offers follow in
+// the order staff linked them, each linking to its Service page. The reference field resolves a
+// target only while it is published, or a draft in preview (emdash 1.1.0
+// src/references/resolve.ts), and one page holds at most 100 targets
+// (src/references/staged.ts), which no Health Service comes near.
+//
+// getEmDashEntry returns the published entry, or the draft when the request carries a valid
+// signed preview token for it (src/query.ts resolveEmDashEntry). Anything else answers with the
+// site 404 page, which EmDash records in its 404 log. A slug that changed is redirected by
+// EmDash's middleware before this page runs.
+import { getEmDashEntry } from "emdash";
+import DetailItem from "../../components/DetailItem.astro";
+import HealthServiceStatus from "../../components/HealthServiceStatus.astro";
+import MapLink from "../../components/MapLink.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { directoryPath, healthServicePath, shownName } from "../../lib/health-service-directory";
+import type { HealthServiceData } from "../../lib/health-services";
+import { mapHref } from "../../lib/map-link";
+import { servicePath } from "../../lib/services";
+import { termsOf } from "../../lib/terms";
+
+const slug = Astro.params.slug ?? "";
+const { entry, isPreview, error } = await getEmDashEntry<
+	"health_services",
+	HealthServiceData,
+	{ offered_services: { limit: number } }
+>("health_services", slug, { references: { offered_services: { limit: 100 } } });
+if (error) throw error;
+if (!entry) return Astro.rewrite("/404");
+
+const healthService = entry.data;
+const name = shownName(healthService);
+const types = termsOf(healthService, "facility_type");
+const areas = termsOf(healthService, "area");
+const hasMap = mapHref(healthService.latitude, healthService.longitude) !== undefined;
+const services = (entry.references?.offered_services.entries ?? []).flatMap((service) =>
+	typeof service.data.title === "string" ? [{ slug: service.id, title: service.data.title }] : [],
+);
+const hasDetails =
+	name !== healthService.title ||
+	types.length > 0 ||
+	!!healthService.affiliation_text ||
+	!!healthService.operational_status ||
+	!!healthService.address ||
+	hasMap ||
+	!!healthService.opening_hours ||
+	!!healthService.public_contact ||
+	areas.length > 0;
+---
+
+<SiteLayout
+	title={healthService.seo?.title || name}
+	section="services"
+	description={`ที่อยู่ เวลาทำการ ช่องทางติดต่อ และบริการของ ${name}`}
+	canonical={healthServicePath(entry.id)}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		{ label: "หน่วยบริการสุขภาพที่เกี่ยวข้อง", href: directoryPath() },
+		{ label: name },
+	]}
+	entry={{
+		collection: "health_services",
+		id: healthService.id,
+		slug: entry.id,
+		publishedAt: healthService.publishedAt,
+	}}
+	noindex={isPreview}
+>
+	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<h1 class="max-w-3xl text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">{name}</h1>
+		{hasDetails && (
+			<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
+				{name !== healthService.title && (
+					<DetailItem term="ชื่อทางการ">{healthService.title}</DetailItem>
+				)}
+				{types.length > 0 && (
+					<DetailItem term="ประเภทหน่วยบริการ">
+						{types.map((type) => type.label).join(", ")}
+					</DetailItem>
+				)}
+				{healthService.affiliation_text && (
+					<DetailItem term="สังกัด">{healthService.affiliation_text}</DetailItem>
+				)}
+				{healthService.operational_status && (
+					<DetailItem term="สถานะการให้บริการ">
+						<HealthServiceStatus status={healthService.operational_status} />
+					</DetailItem>
+				)}
+				{(healthService.address || hasMap) && (
+					<DetailItem term="ที่ตั้ง">
+						<div class="flex flex-col items-start gap-3">
+							{healthService.address && <p class="whitespace-pre-line">{healthService.address}</p>}
+							<MapLink latitude={healthService.latitude} longitude={healthService.longitude} />
+						</div>
+					</DetailItem>
+				)}
+				{healthService.opening_hours && (
+					<DetailItem term="เวลาทำการ">
+						<p class="whitespace-pre-line">{healthService.opening_hours}</p>
+					</DetailItem>
+				)}
+				{healthService.public_contact && (
+					<DetailItem term="ช่องทางติดต่อ">
+						<p class="whitespace-pre-line">{healthService.public_contact}</p>
+					</DetailItem>
+				)}
+				{areas.length > 0 && (
+					<DetailItem term="พื้นที่รับผิดชอบ">
+						<ul class="flex flex-wrap gap-x-4 gap-y-1">
+							{areas.map((area) => (
+								<li>
+									<a
+										class="inline-flex min-h-11 items-center text-brand-primary underline underline-offset-4"
+										href={directoryPath({ area: area.slug })}
+									>
+										{area.label}
+									</a>
+								</li>
+							))}
+						</ul>
+					</DetailItem>
+				)}
+			</dl>
+		)}
+		{services.length > 0 && (
+			<section aria-labelledby="offered-services" class="flex max-w-3xl flex-col gap-3">
+				<h2 id="offered-services" class="text-h3 text-brand-dark">
+					บริการที่ให้
+				</h2>
+				<ul class="flex flex-col gap-2">
+					{services.map((service) => (
+						<li>
+							<a
+								class="inline-flex min-h-11 items-center font-semibold wrap-anywhere text-brand-primary underline underline-offset-4"
+								href={servicePath(service.slug)}
+							>
+								{service.title}
+							</a>
+						</li>
+					))}
+				</ul>
+			</section>
+		)}
+	</article>
+</SiteLayout>
