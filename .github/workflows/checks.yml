@@ -1,0 +1,46 @@
+# Songhealth checks: the production build, typecheck, node tests and formatting,
+# on every pull request into and push to main or the Feature 003 integration
+# branch. The browser suites need the development runtime's database and
+# credentials, so they run there instead (README.md).
+name: checks
+
+on:
+  pull_request:
+    branches: [main, 003-public-website]
+  push:
+    branches: [main, 003-public-website]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          cache: npm
+      - run: npm install -g npm@12.2.0
+      - run: npm ci
+      # The build also generates the .astro/ types that typecheck reads. Its
+      # inputs are the build-only placeholders deploy/Containerfile uses: not
+      # secrets, not routable, and the build reaches no database or network.
+      - run: npm run build
+        env:
+          PGHOST: build.internal
+          PGPORT: "5432"
+          PGDATABASE: build
+          PGUSER: build
+          PGPASSWORD: build-time-placeholder-not-a-secret
+          EMDASH_MIGRATION_DATABASE_URL: postgresql://build:build-time-placeholder-not-a-secret@build.internal:5432/build
+          EMDASH_SITE_URL: http://build.invalid
+          HOST: 127.0.0.1
+          PORT: "4321"
+          EMDASH_ENCRYPTION_KEY: build-time-placeholder-not-a-secret
+          ASTRO_TELEMETRY_DISABLED: "1"
+      - run: npm run typecheck
+      - run: npm run test:node
+      - run: npm run format:check
