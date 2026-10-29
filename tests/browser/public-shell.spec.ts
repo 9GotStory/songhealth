@@ -188,23 +188,51 @@ test("Noto Sans Thai comes from the site's own origin, in four weights, with fon
 		if (request.resourceType() === "font") fontRequests.push(request.url());
 	});
 	await page.goto("/");
-	const faces = await page.evaluate(async () => {
+	// The faces of the family the page text is set in. Astro's Fonts API makes
+	// the family name unique ("Noto Sans Thai-<hash>"), so a copy installed on
+	// the visitor's device can never stand in for the site's own files.
+	const { family, faces } = await page.evaluate(async () => {
 		await document.fonts.ready;
-		return [...document.fonts]
-			.filter((face) => face.family.replaceAll('"', "") === "Noto Sans Thai")
-			.map((face) => ({ weight: face.weight, display: face.display, status: face.status }));
+		const primary = getComputedStyle(document.body).fontFamily.split(",")[0].trim().replaceAll('"', "");
+		return {
+			family: primary,
+			faces: [...document.fonts]
+				.filter((face) => face.family.replaceAll('"', "") === primary)
+				.map((face) => ({ weight: face.weight, display: face.display, status: face.status })),
+		};
 	});
+	expect(family, "the page text is set in Noto Sans Thai").toMatch(/^Noto Sans Thai(?:-\w+)?$/);
 	expect(faces.map((face) => face.weight).sort()).toEqual(["400", "500", "600", "700"]);
 	expect(faces.every((face) => face.display === "swap"), "every face uses font-display: swap").toBe(true);
 	expect(faces.find((face) => face.weight === "400")?.status, "body text loads its face").toBe("loaded");
-	expect(await page.evaluate(() => getComputedStyle(document.body).fontFamily)).toMatch(
-		/^"?Noto Sans Thai"?,/,
-	);
 
 	expect(fontRequests.length, "the page loads its font files").toBeGreaterThan(0);
 	const siteOrigin = new URL(baseURL ?? "").origin;
 	for (const url of fontRequests) {
 		expect(new URL(url).origin, `${url} must come from the site itself`).toBe(siteOrigin);
+	}
+});
+
+/**
+ * The scripts `astro dev` adds to every page for hot reloading: Vite's client
+ * and one module per stylesheet. A production page carries none of them.
+ */
+const DEV_SERVER_SCRIPT_SRC = /^\/@vite\/client$|\.css(\?url)?$/;
+
+test("the shell adds no client JavaScript", async ({ page }) => {
+	for (const path of ["/", `/songhealth-f003-unknown-${crypto.randomUUID()}`]) {
+		const response = await page.goto(path);
+		const html = (await response?.text()) ?? "";
+		const pageScripts = [...html.matchAll(/<script\b[^>]*>/gi)]
+			.map((match) => match[0])
+			.filter((tag) => {
+				const type = /\btype="([^"]*)"/i.exec(tag)?.[1] ?? "";
+				// Scripts of a non-JavaScript type, such as JSON-LD, are data.
+				if (type !== "" && type !== "module" && !/javascript/i.test(type)) return false;
+				const src = /\bsrc="([^"]*)"/i.exec(tag)?.[1];
+				return src === undefined || !DEV_SERVER_SCRIPT_SRC.test(src);
+			});
+		expect(pageScripts, `${path} must not run page JavaScript`).toEqual([]);
 	}
 });
 
