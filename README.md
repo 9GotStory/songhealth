@@ -8,8 +8,9 @@ canonical platform; its production deployment sources (rootless Podman + Quadlet
 sources are committed and independently reviewed, with their runtime verification gates — T022
 (production durability) and T028 (recovery drill) — pending, separately authorized tasks (see §11
 of [docs/operations/production-foundation.md](docs/operations/production-foundation.md)).
-Feature 002 `002-cms-content-model` is the active feature; shared native model tasks T001–T007
-and the development-runtime task T036 are checked (executed) and T008–T035 are pending. A checked marker records task completion
+Feature 002 `002-cms-content-model` is the active feature. Its tasks T001–T031 and T033–T037
+are checked (executed). T032 stays open until its bounded staff session supplies SC-007. A
+checked marker records task completion
 only: Product Owner Final Acceptance — and, for work reviewed before Constitution 5.0.0, the
 recorded Lead and Independent Review outcomes — are distinct states evidenced per artifact, not
 established by task markers, an issue's status, or acceptance of the development runtime. Source
@@ -85,7 +86,7 @@ contract, procedures and failure handling:
 | Volumes | `songhealth-qdev-db-data`, `songhealth-qdev-media` (media at the application's stable `./media` path) |
 | Source | `~/dev/songhealth-quadlet` — a full clone at a detached, promoted commit, bind-mounted at `/src` |
 | Dev configuration | `deploy/dev-quadlet/astro.dev.config.mjs`: the canonical configuration plus the development-only T021 public-read fixture route (token-guarded, `astro dev` only; T037) |
-| Secrets | podman secrets `songhealth-qdev-*`; development PAT `~/.local/state/songhealth-qdev/dev-pat` and T021 route token copy `~/.local/state/songhealth-qdev/t021-route-access.json` (both 0600) |
+| Secrets | podman secrets `songhealth-qdev-*`; development PAT `~/.local/state/songhealth-qdev/dev-pat`, role fixture PAT `~/.local/state/songhealth-qdev/role-fixture-pat` (a second native account, Author, for the T019/T020 role cases) and T021 route token copy `~/.local/state/songhealth-qdev/t021-route-access.json` (all 0600) |
 
 ```bash
 # First install: from any checkout that contains T036. Afterwards: from the runtime's own
@@ -100,9 +101,12 @@ scripts/dev-runtime-uninstall.sh [--purge]      # remove the units (keep data) |
 Tests target the runtime with its own credentials, which are never printed or committed:
 
 ```bash
-# ordinary suites
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
-  npm run test:browser -- tests/browser/<suite>.spec.ts
+# ordinary suites (the role fixture enables the T019/T020 role cases; the dev Admin session
+# enables the Admin UI journeys of cms-lifecycle-ui and cms-editor; one worker at a time)
+S=~/.local/state/songhealth-qdev
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 SONGHEALTH_DEV_ACCESS=$S/dev-pat \
+SONGHEALTH_ROLE_FIXTURE_ACCESS=$S/role-fixture-pat SONGHEALTH_ADMIN_SESSION=dev-bypass \
+  npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
 # T021 public reads, only through the coordinator, from a checkout at the promoted commit
 SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
 SONGHEALTH_T021_ROUTE_ACCESS=~/.local/state/songhealth-qdev/t021-route-access.json \

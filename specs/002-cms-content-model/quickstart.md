@@ -1,6 +1,8 @@
 # CMS Content Model — Quickstart Verification Guide
 
-**Reconciled official Phase 1 guide for Independent Review; no runtime PASS.** These are
+**Reconciled with the delivered model and the executed commands (T034, 2026-10-29).** Results
+are recorded in the evidence files, not here: T022 and T033 executed every command below on the
+single runtime (`evidence/T022-us6-native-safety.md`, `evidence/T033-model-verification.md`). These are
 proportionate future development checks for the approved native-only Product scope, instruction
 `01a137d4-3956-7621-92a5-a654dea51ef2`. No custom publication
 validation hook, human article approval or extra confirmation is planned.
@@ -17,8 +19,27 @@ the [README](../../README.md) and
 read-only check is `~/dev/songhealth-quadlet/scripts/dev-runtime-verify.sh`, and programmatic
 Admin/API calls use its development PAT `~/.local/state/songhealth-qdev/dev-pat` (mode 0600).
 The earlier UID-1001 runtime (origin `http://127.0.0.1:4322/`, Runtime Controller and auth-file
-loader) was deleted on 2026-10-29 (T037); its wording remains in Git history. The remaining
-wording of this quickstart is reconciled with the delivered runtime by T034.
+loader) was deleted on 2026-10-29 (T037); its wording remains in Git history.
+
+**Delivered native model.** The model is verified by `evidence/t033/model-check.py`.
+- **Collections and fields.** Ten collections with 80 fields, matching `data-model.md`. Only
+  `title`, `documents.file` and `health_reports.report_document` are required at save.
+- **Taxonomies and relations.** Nine Songhealth taxonomies (`area` is hierarchical) and six
+  relation edge sets.
+- **Supports.** Every collection has native `drafts`, `revisions`, `preview` and
+  `scheduling`. No collection enables SEO, so a native SEO write is refused with
+  `VALIDATION_ERROR`.
+- **Organization.** The conditional `organizations` variant is **N/A**: no shared-organization
+  case is recorded, so owner text fields carry ownership (T025).
+- **Datetimes.** EmDash stores them as UTC ISO: `…T09:00:00+07:00` reads back as
+  `…T02:00:00.000Z`.
+
+**Schema: bootstrap versus an existing database.** The installer runs EmDash's
+`setup/dev-bypass` once, on a fresh database only, and that applies `seed/seed.json`.
+- On an existing database, editing the seed changes nothing: apply a schema change with
+  EmDash's native schema operations, then re-run the T033 model check.
+- `dev-runtime-update.sh` promotes source only; EmDash applies its own core migrations in
+  development.
 
 There is no parallel dev runtime and no second development stack. T022/T028 Feature 001
 durability/recovery are still **PENDING** and are not redefined, waived or silently passed here.
@@ -39,12 +60,19 @@ already running; do not start another server against its origin):
 For automated development Admin/API access on the already-initialized shared runtime,
 reuse the existing mode-0600 native development PAT through
 `loadDevAccessToken()` / `createPatActor()` in `tests/browser/cms.helpers.ts`.
+- **Role cases.** They use the installer's role fixture: `role-fixture@songhealth.test`, an
+  Author with its own 0600 PAT in `role-fixture-pat`. EmDash offers no native way to create a
+  second account on the IP origin: an invite needs a passkey.
+- **Admin UI journeys.** They sign the test browser in through EmDash's development-only
+  `GET /_emdash/api/auth/dev-bypass` (`SONGHEALTH_ADMIN_SESSION=dev-bypass`) and log out after
+  each test. For the existing dev admin that route only sets the session cookie.
 The README's dev-bypass route was for initial provisioning; **do not re-call**
 `POST /_emdash/api/setup/dev-bypass?token=1` here, as it may rotate access or
 re-apply seed. Never log or commit credentials. Use synthetic public-publishable test data.
-For permission fixtures prepare distinct native Contributor, Author/Editor and Administrator
-access via supported native account/role operations; an Admin token alone does not prove
-draft-only refusal or own/others boundaries. Do not invent a role or impersonation layer.
+For permission fixtures, the role suites move the role fixture between native roles with the
+Administrator's native user API and restore it to Author afterwards. An Admin token alone does
+not prove draft-only refusal or own/others boundaries. Do not invent a role or impersonation
+layer.
 Editing `seed/seed.json` alone does not update an existing DB; inspect/apply
 native schema with authorized EmDash operations before testing.
 No publication plugin, custom hook capability or additional confirmation is a prerequisite.
@@ -156,12 +184,25 @@ check is `~/dev/songhealth-quadlet/scripts/dev-runtime-verify.sh`
 - **HOLD conditions.** A missing fixture route or a source mismatch is `HOLD`. It is not a
   reason to free port 4324 or to start a second process.
 
-For focused ordinary suites (without the fixture route):
+For focused ordinary suites (without the fixture route), run one suite at a time:
 
 ```bash
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
-  npm run test:browser -- tests/browser/cms-lifecycle.spec.ts
+S=~/.local/state/songhealth-qdev
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 SONGHEALTH_DEV_ACCESS=$S/dev-pat \
+SONGHEALTH_ROLE_FIXTURE_ACCESS=$S/role-fixture-pat SONGHEALTH_ADMIN_SESSION=dev-bypass \
+  npm run test:browser -- tests/browser/cms-lifecycle.spec.ts --workers=1
 ```
+
+The suites are:
+- `cms-document`, `cms-authoring` and `cms-reuse` (US1/US2);
+- `cms-personnel` (US3) and `cms-facilities` (US4);
+- `cms-lifecycle` and `cms-revisions` (US6, with role cases);
+- `cms-lifecycle-ui` (the US6 Admin UI: publish, lock, required Document);
+- `cms-editor` (the US7 Admin journeys);
+- `foundation` (the Feature 001 regression).
+
+Without the role fixture, the role cases skip. Without the dev Admin session, the Admin UI
+journeys skip.
 
 Invoke the single-runtime coordinator from a checkout at the runtime's promoted commit:
 
@@ -176,6 +217,11 @@ existing origin; it must not call programmatic `dev()`, `npm run dev`, or
 terminate/restart the persistent server. The public-read suite is excluded
 from ordinary suite invocations and run through this dedicated coordinator.
 T033 uses that same sequence; T034 records only executed and verified commands.
+
+The production build is checked in a clean checkout with `npm ci`. `astro.config.mjs`
+validates its runtime inputs at build time, so supply the non-secret placeholder values of
+`deploy/Containerfile`. Then confirm that `dist/` contains no reference to the T021 fixture
+(`__feature002`, `cms-public-reads`).
 
 Record exact commit, versions, native schema state and observed results
 without secrets; never call planned checks PASS until actually executed. Report unavailable staff

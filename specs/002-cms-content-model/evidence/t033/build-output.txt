@@ -1,0 +1,31 @@
+# T033 npm run build — 2026-10-29T02:47:17Z — clean checkout of 7567a293718369ee35d82b09d52428f5f32f8232, npm ci, Containerfile placeholder inputs
+npm notice run songhealth@0.0.1 build
+npm notice run astro build
+09:46:56 [@astrojs/node] Enabling sessions with filesystem storage
+
+
+  [1m[36m— E M D A S H —[39m[22m  [2mv1.1.0[22m
+   
+09:46:57 [vite] [optimizer] bundling dependencies...
+09:46:59 [types] Generated 3.05s
+09:46:59 [build] output: "server"
+09:46:59 [build] mode: "server"
+09:46:59 [build] directory: /tmp/claude-1000/-home-thanakorn-dev-songhealth/75ab1ca9-b018-470b-a08a-dd97f05ec49b/scratchpad/t033-build/dist/
+09:46:59 [build] adapter: @astrojs/node
+09:46:59 [build] Collecting build info...
+09:46:59 [build] ✓ Completed in 3.25s.
+09:46:59 [build] Building server entrypoints...
+09:47:01 [assets] Copying fonts (16 files)...
+09:47:02 [vite] ✓ built in 2.32s
+09:47:03 [vite] ✓ built in 1.86s
+09:47:08 [WARN] [vite] [plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+09:47:08 [vite] ✓ built in 4.13s
+09:47:08 [build] Rearranging server assets...
+09:47:08 [build] ✓ Completed in 8.46s.
+09:47:08 [emdash] Build complete
+09:47:08 [build] Server built in 11.72s
+09:47:08 [build] Complete!
