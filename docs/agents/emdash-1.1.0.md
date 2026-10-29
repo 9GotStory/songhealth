@@ -17,6 +17,8 @@ version changes, re-verify every line.
   - an exact value, an array (IN), or a range `{ gt, gte, lt, lte }`;
   - range values are strings, and PostgreSQL casts them to the column type;
   - a `null` value is skipped, so no filter selects entries whose field is empty;
+  - there is no substring (`LIKE`) match, so the Health Service Directory's name filter reads
+    every published Health Service and matches in code (`src/lib/health-service-directory.ts`);
   - a reference field bound to a relation can be neither filtered nor sorted (`buildFieldConditions`,
     `findStoragelessQueryKey`).
 - `orderBy` is a plain `field DESC|ASC`, with `id` as the tiebreaker. On PostgreSQL, DESC puts
@@ -24,6 +26,9 @@ version changes, re-verify every line.
   fallback inside the query; `src/lib/dated-lists.ts` sorts in code instead (ADR 0004).
 - Without a `limit`, `getEmDashCollection` returns every matching entry: the query has no `LIMIT`
   (`src/loader.ts`, `fetchLimit`).
+- A `number` field is a `REAL` column (`src/schema/types.ts` `FIELD_TYPE_TO_COLUMN`), which is
+  `float4` on PostgreSQL: about 7 significant digits. A Thai longitude keeps 5 decimal places
+  (`100.1234567` reads back as `100.12346`, about 1 m), enough for a map link.
 - No query returns distinct values. `src/lib/documents.ts` `fiscalYears` walks down instead.
 - `getEmDashEntry(type, slug, { references: { field: true } })` adds
   `entry.references.field.entries`. A target resolves only while it is published, or is a draft in
