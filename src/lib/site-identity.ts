@@ -11,6 +11,12 @@
 // src/api/schemas/settings.ts: only the media references accept null), and
 // EmDash's own SEO helper treats an empty separator as unset too
 // (src/seo/index.ts).
+//
+// The public origin makes canonical addresses absolute. It resolves the way
+// EmDash's native sitemap does (emdash 1.1.0 src/astro/routes/sitemap.xml.ts):
+// the settings' site URL, then the configured EMDASH_SITE_URL
+// (src/api/public-url.ts getPublicOrigin), then the request's own origin. So a
+// page's canonical address and its sitemap entry always agree.
 
 import { getSiteSettings } from "emdash";
 
@@ -34,9 +40,19 @@ export interface SiteIdentity {
 	logo?: SiteLogo;
 	/** Placed between a page's own title and the site title. */
 	titleSeparator: string;
+	/** The site's public origin, such as "https://example.org", without a trailing slash. */
+	origin: string;
 }
 
-export async function getSiteIdentity(): Promise<SiteIdentity> {
+/** The configured EMDASH_SITE_URL as an origin, or undefined when unset or not http(s). */
+function configuredOrigin(): string | undefined {
+	const configured = process.env.EMDASH_SITE_URL;
+	if (!configured || !URL.canParse(configured)) return undefined;
+	const url = new URL(configured);
+	return url.protocol === "http:" || url.protocol === "https:" ? url.origin : undefined;
+}
+
+export async function getSiteIdentity(requestUrl: URL): Promise<SiteIdentity> {
 	const settings = await getSiteSettings();
 	const title = settings.title?.trim();
 	const tagline = settings.tagline?.trim();
@@ -46,5 +62,6 @@ export async function getSiteIdentity(): Promise<SiteIdentity> {
 		tagline: tagline || undefined,
 		logo: logo?.url ? { url: logo.url, width: logo.width, height: logo.height } : undefined,
 		titleSeparator: settings.seo?.titleSeparator || " | ",
+		origin: (settings.url?.trim() || configuredOrigin() || requestUrl.origin).replace(/\/$/, ""),
 	};
 }

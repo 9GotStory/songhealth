@@ -1,0 +1,72 @@
+---
+// Health News, /news/health (Feature 003 #54; spec #51 "Public reads"): published News tagged
+// with any Health Topic (`topic` term), newest first. `?topic=<slug>` narrows it to one Health
+// Topic; one that does not exist simply matches nothing.
+//
+// The canonical address keeps the chosen Health Topic and a valid page number, so each view stays
+// its own address for search engines.
+import EmptyState from "../../components/EmptyState.astro";
+import FilterForm from "../../components/FilterForm.astro";
+import NewsCardGrid from "../../components/NewsCardGrid.astro";
+import PageHeading from "../../components/PageHeading.astro";
+import Pagination from "../../components/Pagination.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { TOPIC_PARAM, healthNewsPath, listNews, topicTerms } from "../../lib/news";
+import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
+
+const title = "ข่าวสุขภาพ";
+const lead = "ข่าวสารด้านสุขภาพจากสำนักงานสาธารณสุขอำเภอสอง เลือกประเด็นสุขภาพที่สนใจได้";
+const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
+const topic = Astro.url.searchParams.get(TOPIC_PARAM)?.trim() ?? "";
+const topics = await topicTerms();
+const { entries, hasMore } = await listNews(
+	page,
+	topic === "" ? topics.map((term) => term.slug) : [topic],
+);
+const listUrl = new URL(healthNewsPath(topic), Astro.url);
+---
+
+<SiteLayout
+	title={title}
+	section="news"
+	description={lead}
+	canonical={pageHref(listUrl, page)}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		{ label: "ข่าวสาร", href: "/news" },
+		{ label: title },
+	]}
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading title={title} lead={lead} />
+		<FilterForm
+			label="กรองข่าวสุขภาพ"
+			action={healthNewsPath()}
+			fields={[
+				{
+					name: TOPIC_PARAM,
+					label: "ประเด็นสุขภาพ",
+					anyLabel: "ทุกประเด็น",
+					value: topic,
+					options: topics.map((term) => ({ value: term.slug, label: term.label })),
+				},
+			]}
+		/>
+		{entries.length > 0 ? (
+			<NewsCardGrid entries={entries} labelTaxonomy="topic" />
+		) : page > 1 ? (
+			<EmptyState
+				message="ไม่พบข่าวในหน้านี้"
+				action={{ href: pageHref(listUrl, 1), label: "กลับไปหน้าแรกของรายการ" }}
+			/>
+		) : topic !== "" ? (
+			<EmptyState
+				message="ไม่พบข่าวสุขภาพในประเด็นนี้"
+				action={{ href: healthNewsPath(), label: "ดูข่าวสุขภาพทุกประเด็น" }}
+			/>
+		) : (
+			<EmptyState message="ยังไม่มีข่าวสุขภาพ" />
+		)}
+		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
+	</div>
+</SiteLayout>

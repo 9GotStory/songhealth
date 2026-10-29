@@ -48,8 +48,12 @@ try {
 		for (const { name, viewport } of WIDTHS) {
 			const page = await browser.newPage({ viewport });
 			await page.goto(new URL(path, origin).href);
+			// A full-page screenshot does not scroll, so lazy pictures below the fold would never
+			// load. Load and decode every picture first, as a reader scrolling down would see it.
 			await page.evaluate(async () => {
 				await document.fonts.ready;
+				for (const image of document.images) image.loading = "eager";
+				await Promise.all([...document.images].map((image) => image.decode().catch(() => {})));
 			});
 			const file = join(outDir, `${stem(path)}-${name}.png`);
 			await page.screenshot({ path: file, fullPage: true });

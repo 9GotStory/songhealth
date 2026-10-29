@@ -14,8 +14,21 @@
 // and pushes it down. Without JavaScript the menu closes only from its own
 // button, never with Escape or when focus moves on, so an overlay would cover
 // the content focus moves on to (WCAG 2.2 SC 2.4.11).
+//
+// The head's metadata comes from EmDash's own EmDashHead (emdash 1.1.0
+// src/components/EmDashHead.astro): the description, canonical link, Open
+// Graph and Twitter tags, the default OG image from the site settings, and the
+// favicon. For a page that renders a content entry it lays the entry's SEO
+// panel over what the page passed, so an editor's SEO description wins over
+// the summary. The <title> stays the page's own (src/page/seo-contributions.ts).
+//
+// An inner page passes its breadcrumb, which the shell shows above the page's
+// main content.
 import { Font } from "astro:assets";
+import { createPublicPageContext } from "emdash/page";
+import { EmDashHead } from "emdash/ui";
 import "../styles/global.css";
+import Breadcrumb, { type Crumb } from "../components/Breadcrumb.astro";
 import {
 	MAIN_NAVIGATION,
 	UTILITY_LINKS,
@@ -29,12 +42,36 @@ interface Props {
 	title?: string;
 	/** The main-navigation section this page belongs to; none marks no section. */
 	section?: NavigationSection;
+	/** The page's meta description. */
+	description?: string;
+	/** The page's canonical address on this site, a path with any query string. */
+	canonical?: string;
+	/** The breadcrumb, root first, ending with the current page. */
+	breadcrumbs?: Crumb[];
+	/** The content entry the page renders, by its database id and slug. */
+	entry?: { collection: string; id: string; slug: string; publishedAt?: Date | string | null };
+	/** Keep the page out of search engines, as for a draft preview. */
+	noindex?: boolean;
 }
 
-const { title, section } = Astro.props;
-const identity = await getSiteIdentity();
+const { title, section, description, canonical, breadcrumbs, entry, noindex } = Astro.props;
+const identity = await getSiteIdentity(Astro.url);
 const pageTitle =
 	title === undefined ? identity.title : `${title}${identity.titleSeparator}${identity.title}`;
+const publishedAt = entry?.publishedAt ? new Date(entry.publishedAt).toISOString() : undefined;
+const pageContext = createPublicPageContext({
+	Astro,
+	kind: entry ? "content" : "custom",
+	title: pageTitle,
+	pageTitle: title ?? identity.title,
+	description,
+	canonical: canonical === undefined ? null : `${identity.origin}${canonical}`,
+	content: entry && { collection: entry.collection, id: entry.id, slug: entry.slug },
+	seo: noindex ? { robots: "noindex, nofollow" } : undefined,
+	articleMeta: publishedAt ? { publishedTime: publishedAt } : undefined,
+	siteName: identity.title,
+	siteUrl: identity.origin,
+});
 const { pathname } = Astro.url;
 const navigation = MAIN_NAVIGATION.map((item) => ({
 	...item,
@@ -49,6 +86,7 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>{pageTitle}</title>
 		<Font cssVariable="--font-noto-sans-thai" preload={[{ weight: "400" }]} />
+		<EmDashHead page={pageContext} />
 		<slot name="head" />
 	</head>
 	<body class="flex min-h-dvh flex-col bg-bg-page text-body text-text-primary">
@@ -176,6 +214,11 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 			</div>
 		</header>
 		<main id="main" tabindex="-1" class="flex-1">
+			{breadcrumbs && (
+				<div class="page-container pt-6">
+					<Breadcrumb items={breadcrumbs} />
+				</div>
+			)}
 			<slot />
 		</main>
 		<footer class="focus-ring-on-dark bg-brand-dark text-surface-base">

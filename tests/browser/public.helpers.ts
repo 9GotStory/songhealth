@@ -72,7 +72,9 @@ export async function expectVisibleFocusOnEveryStop(page: Page, label: string): 
 			const element = document.activeElement;
 			if (element === null || element === document.body) return null;
 			const style = getComputedStyle(element);
-			const rect = element.getBoundingClientRect();
+			// A link that wraps has one box per line, and the middle of its bounding box can fall
+			// beside a short last line. The first line box always holds the element.
+			const rect = element.getClientRects()[0] ?? element.getBoundingClientRect();
 			const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
 			return {
 				name: `<${element.tagName.toLowerCase()}> ${(element.textContent ?? "").replace(/\s+/g, " ").trim()}`,

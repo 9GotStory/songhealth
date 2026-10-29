@@ -1178,6 +1178,8 @@ export interface SyntheticEntryInput {
 	references?: Record<string, string[]>;
 	/** Native taxonomy assignments: { taxonomyName: [termSlug, ...] }. */
 	taxonomies?: Record<string, string[]>;
+	/** Native SEO panel values ({ title, description, … }) for a collection that supports SEO. */
+	seo?: Record<string, unknown>;
 }
 
 export interface SyntheticEntryResult {
@@ -1216,6 +1218,7 @@ export async function createSyntheticEntry(
 			slug: input.slug ?? syntheticSlug(),
 			...(input.references !== undefined ? { references: input.references } : {}),
 			...(input.taxonomies !== undefined ? { taxonomies: input.taxonomies } : {}),
+			...(input.seo !== undefined ? { seo: input.seo } : {}),
 		},
 	});
 	const entryId = nativeItemOf(result)?.id;

@@ -1,0 +1,61 @@
+---
+// Pagination of a list (Feature 003 #54; spec #51 "Lists and filters"). The page number travels
+// in the query string with the list's other parameters, so the links work without JavaScript and
+// can be shared. The list knows only whether a further page exists, not how many there are.
+import { pageHref } from "../lib/pagination";
+
+interface Props {
+	page: number;
+	hasMore: boolean;
+}
+
+const { page, hasMore } = Astro.props;
+const linkClasses =
+	"inline-flex min-h-11 items-center gap-2 rounded-pill border border-border-input bg-surface-base px-5 text-label text-brand-primary hover:bg-surface-soft";
+---
+
+{(page > 1 || hasMore) && (
+	<nav aria-label="การแบ่งหน้า">
+		<ul class="flex flex-wrap items-center justify-between gap-4">
+			<li>
+				{page > 1 && (
+					<a class={linkClasses} rel="prev" href={pageHref(Astro.url, page - 1)}>
+						<svg
+							class="size-4"
+							aria-hidden="true"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M15 6l-6 6 6 6" />
+						</svg>
+						หน้าก่อนหน้า
+					</a>
+				)}
+			</li>
+			<li class="text-label text-text-secondary">หน้า {page}</li>
+			<li>
+				{hasMore && (
+					<a class={linkClasses} rel="next" href={pageHref(Astro.url, page + 1)}>
+						หน้าถัดไป
+						<svg
+							class="size-4"
+							aria-hidden="true"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M9 6l6 6-6 6" />
+						</svg>
+					</a>
+				)}
+			</li>
+		</ul>
+	</nav>
+)}
