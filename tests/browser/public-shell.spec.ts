@@ -63,3 +63,23 @@ test("the Homepage carries the site shell: utility bar, main navigation and foot
 		"/contact",
 	);
 });
+
+test("an unknown address answers 404 with the site-designed page inside the shell", async ({
+	page,
+}) => {
+	// A nested path inside a section: the 404 page still marks no section.
+	const response = await page.goto(`/news/songhealth-f003-unknown-${crypto.randomUUID()}`);
+	expect(response?.status(), "an unknown route must answer 404").toBe(404);
+	await expect(page.locator("html")).toHaveAttribute("lang", "th");
+	await expect(page).toHaveTitle(/^ไม่พบหน้าที่คุณต้องการ/);
+
+	const main = page.getByRole("main");
+	await expect(main.getByRole("heading", { level: 1 })).toHaveText("ไม่พบหน้าที่คุณต้องการ");
+	await expect(main.getByRole("link", { name: "กลับไปหน้าแรก" })).toHaveAttribute("href", "/");
+	await expect(main.getByRole("link", { name: "ค้นหาข้อมูล" })).toHaveAttribute("href", "/search");
+
+	const navigation = page.getByRole("navigation", { name: "เมนูหลัก" });
+	await expect(navigation.getByRole("link")).toHaveCount(MAIN_NAVIGATION.length);
+	await expect(navigation.locator("[aria-current]"), "the 404 page marks no section").toHaveCount(0);
+	await expect(page.getByRole("contentinfo")).toBeVisible();
+});
