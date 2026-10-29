@@ -24,8 +24,6 @@
 // - Deleting a media item removes its stored file (src/api/handlers/media.ts handleMediaDelete);
 //   the Document that uses it keeps the value (no published-reference veto, `02` §13).
 
-import type { Page } from "@playwright/test";
-
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
@@ -36,32 +34,33 @@ import {
 	deleteSyntheticTerms,
 	loadDevAccessToken,
 	nativeDataOf,
-	nativeItemOf,
 	nativeRefusalOf,
 	NATIVE_ROLES,
-	publishEntry,
+	publishEntryAt,
 	SYNTHETIC_FIXTURE_MARK,
 	SYNTHETIC_PDF_BYTES,
-	syntheticMediaPdf,
 	syntheticSlug,
 	trashEntry,
 	unpublishEntry,
-	uploadSyntheticMedia,
+	uploadSyntheticPdf,
 	type CmsActor,
+	type SyntheticPdf,
 	type SyntheticTerm,
 } from "./cms.helpers";
 import {
-	DEFAULT_SITE_TITLE,
 	DESKTOP_VIEWPORT,
 	MOBILE_VIEWPORT,
 	VIEWPORTS,
+	detailOf,
 	expect,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectSiteNotFound,
 	expectVisibleFocusOnEveryStop,
+	listedItem,
 	listedTitles,
 	ownTitles,
+	siteTitleParts,
 	test,
 	thaiDate,
 } from "./public.helpers";
@@ -86,48 +85,11 @@ async function createTerm(taxonomy: string, label: string): Promise<SyntheticTer
 	return term;
 }
 
-interface UploadedFile {
-	mediaId: string;
-	filename: string;
-	storageKey: string;
-	/** The file field value the Admin's picker saves for it. */
-	value: Record<string, unknown>;
-}
-
-/** Upload a synthetic PDF named `filename` (a unique one by default). */
-async function uploadPdf(filename?: string): Promise<UploadedFile> {
-	const uploaded = await uploadSyntheticMedia(admin, {
-		filename: filename ?? `${SYNTHETIC_FIXTURE_MARK}-${crypto.randomUUID().slice(0, 8)}.pdf`,
-		file: { bytes: syntheticMediaPdf(), type: "application/pdf" },
-	});
-	expect(uploaded.mediaId, `the synthetic PDF: ${nativeRefusalOf(uploaded.result)}`).toBeDefined();
-	const item = nativeItemOf(uploaded.result) as {
-		id: string;
-		filename: string;
-		mimeType: string;
-		size: number;
-		storageKey: string;
-	};
-	return {
-		mediaId: item.id,
-		filename: item.filename,
-		storageKey: item.storageKey,
-		value: {
-			id: item.id,
-			provider: "local",
-			filename: item.filename,
-			mimeType: item.mimeType,
-			size: item.size,
-			meta: { storageKey: item.storageKey },
-		},
-	};
-}
-
 interface DocumentFixture {
 	id: string;
 	slug: string;
 	title: string;
-	file: UploadedFile;
+	file: SyntheticPdf;
 }
 
 /** A synthetic Document draft with its own synthetic PDF. Its title is unique. */
@@ -138,12 +100,12 @@ async function createDocument(
 		taxonomies?: Record<string, string[]>;
 		references?: Record<string, string[]>;
 		seo?: Record<string, unknown>;
-		file?: UploadedFile;
+		file?: SyntheticPdf;
 	} = {},
 ): Promise<DocumentFixture> {
 	const slug = syntheticSlug(label);
 	const title = `${SYNTHETIC_FIXTURE_MARK} เอกสาร ${label} ${slug.slice(-6)}`;
-	const file = fields.file ?? (await uploadPdf());
+	const file = fields.file ?? (await uploadSyntheticPdf(admin));
 	const created = await createSyntheticEntry(admin, "documents", {
 		data: { title, file: file.value, ...fields.data },
 		slug,
@@ -157,22 +119,7 @@ async function createDocument(
 
 /** Publish now. */
 async function publish(document: DocumentFixture): Promise<void> {
-	const published = await publishEntry(admin, "documents", document.id);
-	expect(published.ok, `publishing ${document.title}: ${nativeRefusalOf(published)}`).toBe(true);
-}
-
-/** The value a Document page states for one of its details, by the detail's Thai name. */
-function detailOf(page: Page, name: string) {
-	return page
-		.getByRole("main")
-		.locator("dl > div")
-		.filter({ has: page.getByRole("term").filter({ hasText: new RegExp(`^${name}$`) }) })
-		.getByRole("definition");
-}
-
-/** The row a list page shows for `document`. */
-function rowOf(page: Page, document: DocumentFixture) {
-	return page.getByRole("main").getByRole("article").filter({ hasText: document.title });
+	await publishEntryAt(admin, "documents", document.id);
 }
 
 test.use({ viewport: DESKTOP_VIEWPORT });
@@ -234,7 +181,7 @@ test("/documents lists only published Documents, newest first, each row with its
 		"published only, newest first",
 	).toEqual([newer.title, older.title]);
 
-	const row = rowOf(page, older);
+	const row = listedItem(page, older.title);
 	await expect(row.getByRole("link", { name: older.title })).toHaveAttribute(
 		"href",
 		`/documents/${older.slug}`,
@@ -319,7 +266,7 @@ test("a filtered /documents pages through its Documents with the filters and pag
 	page,
 }) => {
 	const type = await createTerm("document_type", "รายงาน");
-	const file = await uploadPdf();
+	const file = await uploadSyntheticPdf(admin);
 	const fixtures: DocumentFixture[] = [];
 	for (let index = 0; index <= PAGE_SIZE; index += 1) {
 		fixtures.push(
@@ -425,7 +372,8 @@ test("a Document page shows its details, its file for download at EmDash's media
 }) => {
 	const type = await createTerm("document_type", "แผนงาน");
 	const topic = await createTerm("topic", "ไข้เลือดออก");
-	const file = await uploadPdf(
+	const file = await uploadSyntheticPdf(
+		admin,
 		`${SYNTHETIC_FIXTURE_MARK}-แผนปฏิบัติการ-${crypto.randomUUID().slice(0, 6)}.pdf`,
 	);
 	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปแผนปฏิบัติการด้านสุขภาพ`;
@@ -538,8 +486,8 @@ test("a superseded or expired Document says so in text and links to its publishe
 	await expect(page.getByRole("main").getByText("เอกสารฉบับถัดไป")).toHaveCount(0);
 
 	await page.goto("/documents");
-	await expect(rowOf(page, superseded)).toContainText("ถูกแทนที่แล้ว");
-	await expect(rowOf(page, expired)).toContainText("หมดอายุแล้ว");
+	await expect(listedItem(page, superseded.title)).toContainText("ถูกแทนที่แล้ว");
+	await expect(listedItem(page, expired.title)).toContainText("หมดอายุแล้ว");
 });
 
 test("a Document whose file was deleted shows the unavailable state with status 200 and no storage detail", async ({
@@ -567,7 +515,7 @@ test("a Document whose file was deleted shows the unavailable state with status 
 	}
 
 	await page.goto("/documents");
-	await expect(rowOf(page, document)).toContainText("ไฟล์ไม่พร้อมให้บริการ");
+	await expect(listedItem(page, document.title)).toContainText("ไฟล์ไม่พร้อมให้บริการ");
 });
 
 test("a draft, unpublished or trashed Document answers the site 404 and stays out of the list", async ({
@@ -620,12 +568,7 @@ test("a signed preview link renders a draft Document, and the same address witho
 test("the Document pages carry their title, description, absolute canonical address and OG tags, with the SEO fields first and the summary as the fallback", async ({
 	page,
 }) => {
-	const settings = (nativeDataOf(await cmsRequest(admin, "/_emdash/api/settings")) ?? {}) as {
-		title?: string;
-		seo?: { titleSeparator?: string };
-	};
-	const siteTitle = settings.title?.trim() || DEFAULT_SITE_TITLE;
-	const separator = settings.seo?.titleSeparator || " | ";
+	const { siteTitle, separator } = await siteTitleParts(admin);
 	const meta = (selector: string) => page.locator(selector).first();
 	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปเอกสารสำหรับเครื่องมือค้นหา`;
 	const plain = await createDocument("seo-plain", { data: { summary } });

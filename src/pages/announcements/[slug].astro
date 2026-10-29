@@ -1,0 +1,144 @@
+---
+// An Announcement page, /announcements/{slug} (Feature 003 #56; spec #51 "Public reads"
+// (Announcements) and "Errors, redirects, preview and SEO"): its type, its announcement, open and
+// close dates, its status in text when it has those dates (ยังไม่เปิด, เปิดอยู่ or ปิดแล้ว), its details,
+// and the Documents attached to it.
+//
+// The attached Documents are read through the reference field in the order staff attached them.
+// EmDash resolves a target only while it is published, or a draft in preview, so a draft,
+// unpublished or trashed Document is left out (emdash 1.1.0 src/query.ts attachReferences,
+// src/references/resolve.ts). A first page holds at most 100 targets
+// (src/references/staged.ts REFERENCE_PAGE_MAX_LIMIT), far more than an Announcement attaches.
+// The targets come without their taxonomy terms, so their rows are read again with them
+// (src/lib/documents.ts documentsById).
+//
+// getEmDashEntry returns the published entry, or the draft when the request carries a valid
+// signed preview token for it (src/query.ts resolveEmDashEntry). Anything else answers with the
+// site 404 page, which EmDash records in its 404 log. A slug that changed is redirected by
+// EmDash's middleware before this page runs.
+//
+// An Announcement has no summary, so its description is the start of its details, unless its SEO
+// panel sets one.
+import { extractPlainText, getEmDashEntry } from "emdash";
+import AnnouncementStatus from "../../components/AnnouncementStatus.astro";
+import DateText from "../../components/DateText.astro";
+import DetailItem from "../../components/DetailItem.astro";
+import DocumentRow from "../../components/DocumentRow.astro";
+import RichText from "../../components/RichText.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import {
+	ANNOUNCEMENTS_PATH,
+	announcementPath,
+	statusOf,
+	type AnnouncementData,
+} from "../../lib/announcements";
+import { documentsById } from "../../lib/documents";
+import { excerpt } from "../../lib/excerpt";
+import { termsOf } from "../../lib/terms";
+
+/** The most related Documents one read returns. */
+const DOCUMENTS_LIMIT = 100;
+/** The longest description, in characters, taken from the details. */
+const DESCRIPTION_LENGTH = 160;
+
+const slug = Astro.params.slug ?? "";
+const { entry, isPreview, error } = await getEmDashEntry<
+	"announcements",
+	AnnouncementData,
+	{ documents: { limit: number } }
+>("announcements", slug, { references: { documents: { limit: DOCUMENTS_LIMIT } } });
+if (error) throw error;
+if (!entry) return Astro.rewrite("/404");
+
+const announcement = entry.data;
+const types = termsOf(announcement, "announcement_type");
+const status = statusOf(announcement, new Date());
+const documents = await documentsById(
+	(entry.references?.documents.entries ?? []).map((target) => String(target.data.id)),
+);
+const description = excerpt(extractPlainText(announcement.details), DESCRIPTION_LENGTH);
+const hasDetails =
+	types.length > 0 ||
+	!!announcement.announcement_at ||
+	!!announcement.opens_at ||
+	!!announcement.closes_at;
+---
+
+<SiteLayout
+	title={announcement.seo?.title || announcement.title}
+	section="news"
+	description={description || undefined}
+	canonical={announcementPath(entry.id)}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		{ label: "ข่าวสาร", href: "/news" },
+		{ label: "ประกาศ", href: ANNOUNCEMENTS_PATH },
+		{ label: announcement.title },
+	]}
+	entry={{
+		collection: "announcements",
+		id: announcement.id,
+		slug: entry.id,
+		publishedAt: announcement.publishedAt,
+	}}
+	noindex={isPreview}
+>
+	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<header class="flex max-w-3xl flex-col gap-3">
+			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
+				{announcement.title}
+			</h1>
+			{announcement.publishedAt && (
+				<p class="text-small text-text-secondary">
+					เผยแพร่ <DateText value={announcement.publishedAt} />
+				</p>
+			)}
+		</header>
+		{hasDetails && (
+			<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
+				{types.length > 0 && (
+					<DetailItem term="ประเภทประกาศ">{types.map((type) => type.label).join(", ")}</DetailItem>
+				)}
+				{announcement.announcement_at && (
+					<DetailItem term="วันที่ประกาศ">
+						<DateText value={announcement.announcement_at} />
+					</DetailItem>
+				)}
+				{announcement.opens_at && (
+					<DetailItem term="วันที่เริ่มต้น">
+						<DateText value={announcement.opens_at} />
+					</DetailItem>
+				)}
+				{announcement.closes_at && (
+					<DetailItem term="วันที่สิ้นสุด">
+						<DateText value={announcement.closes_at} />
+					</DetailItem>
+				)}
+				{status && (
+					<DetailItem term="สถานะ">
+						<AnnouncementStatus status={status} />
+					</DetailItem>
+				)}
+			</dl>
+		)}
+		{announcement.details && announcement.details.length > 0 && (
+			<div class="max-w-3xl">
+				<RichText value={announcement.details} />
+			</div>
+		)}
+		{documents.length > 0 && (
+			<section aria-labelledby="announcement-documents" class="flex max-w-3xl flex-col gap-4">
+				<h2 id="announcement-documents" class="text-h3 text-brand-dark">
+					เอกสารที่เกี่ยวข้อง
+				</h2>
+				<ul class="flex flex-col gap-4">
+					{documents.map((document) => (
+						<li>
+							<DocumentRow document={document} headingLevel={3} />
+						</li>
+					))}
+				</ul>
+			</section>
+		)}
+	</article>
+</SiteLayout>

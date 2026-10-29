@@ -12,7 +12,7 @@
 //   checked at. The mobile width is 320 CSS px, the narrowest width the site
 //   must reflow to without horizontal scrolling (WCAG 2.2 SC 1.4.10).
 // - What the shell shows every page: the 404 page, the default site title,
-//   Thai dates and the titles a list shows.
+//   Thai dates, the titles and items a list shows, and a record page's details.
 //
 // Verified against the pinned @axe-core/playwright 4.14.0 (axe-core 4.14.0,
 // node_modules/@axe-core/playwright/dist/index.d.ts): `new AxeBuilder({ page })
@@ -21,6 +21,8 @@
 
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test as base, type Page } from "@playwright/test";
+
+import { cmsRequest, nativeDataOf, type CmsActor } from "./cms.helpers";
 
 export { expect };
 
@@ -162,4 +164,34 @@ export async function listedTitles(page: Page): Promise<string[]> {
 export function ownTitles(titles: string[], fixtures: ReadonlyArray<{ title: string }>): string[] {
 	const own = new Set(fixtures.map((fixture) => fixture.title));
 	return titles.filter((title) => own.has(title));
+}
+
+/** The card or row a list page shows for the item titled `title`. */
+export function listedItem(page: Page, title: string) {
+	return page.getByRole("main").getByRole("article").filter({ hasText: title });
+}
+
+/** The value a record page states for one of its details, by the detail's Thai name. */
+export function detailOf(page: Page, name: string) {
+	return page
+		.getByRole("main")
+		.locator("dl > div")
+		.filter({ has: page.getByRole("term").filter({ hasText: new RegExp(`^${name}$`) }) })
+		.getByRole("definition");
+}
+
+/** The site title and title separator the native settings name, with the shell's fallbacks. */
+export async function siteTitleParts(
+	admin: CmsActor,
+): Promise<{ siteTitle: string; separator: string }> {
+	const read = await cmsRequest(admin, "/_emdash/api/settings");
+	expect(read.ok, "the native settings read").toBe(true);
+	const settings = (nativeDataOf(read) ?? {}) as {
+		title?: string;
+		seo?: { titleSeparator?: string };
+	};
+	return {
+		siteTitle: settings.title?.trim() || DEFAULT_SITE_TITLE,
+		separator: settings.seo?.titleSeparator || " | ",
+	};
 }

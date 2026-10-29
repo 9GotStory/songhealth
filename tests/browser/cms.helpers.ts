@@ -1178,6 +1178,68 @@ export async function uploadSyntheticMedia(
 	return { result };
 }
 
+/** A synthetic PDF in the media library, and the file field value that points at it. */
+export interface SyntheticPdf {
+	mediaId: string;
+	filename: string;
+	storageKey: string;
+	/** The file field value the Admin's file picker saves for it. */
+	value: Record<string, unknown>;
+}
+
+/**
+ * Upload a synthetic PDF named `filename` (a unique one by default) as an owned fixture, with the
+ * file field value the Admin's picker sends (@emdash-cms/admin 1.1.0 FileFieldRenderer). A Document
+ * needs one, since its file is required. A refusal throws.
+ */
+export async function uploadSyntheticPdf(
+	actor: CmsActor,
+	filename = `${SYNTHETIC_FIXTURE_MARK}-${crypto.randomUUID().slice(0, 8)}.pdf`,
+): Promise<SyntheticPdf> {
+	const uploaded = await uploadSyntheticMedia(actor, {
+		filename,
+		file: { bytes: syntheticMediaPdf(), type: "application/pdf" },
+	});
+	if (uploaded.mediaId === undefined) {
+		throw new CmsHelperError(
+			"synthetic-pdf",
+			`the synthetic PDF: ${nativeRefusalOf(uploaded.result)}`,
+		);
+	}
+	const item = nativeItemOf(uploaded.result) as {
+		id: string;
+		filename: string;
+		mimeType: string;
+		size: number;
+		storageKey: string;
+	};
+	return {
+		mediaId: item.id,
+		filename: item.filename,
+		storageKey: item.storageKey,
+		value: {
+			id: item.id,
+			provider: "local",
+			filename: item.filename,
+			mimeType: item.mimeType,
+			size: item.size,
+			meta: { storageKey: item.storageKey },
+		},
+	};
+}
+
+/** PUT /_emdash/api/media/{id} — set a media item's alt text, as Admin's media library does. */
+export async function setMediaAlt(
+	actor: CmsActor,
+	mediaId: string,
+	alt: string,
+): Promise<NativeResult> {
+	return cmsRequest(actor, `/_emdash/api/media/${encodeURIComponent(mediaId)}`, {
+		method: "PUT",
+		body: { alt },
+	});
+}
+
 /** GET /_emdash/api/media/{id} — native media metadata read. */
 export async function readMedia(actor: CmsActor, mediaId: string): Promise<NativeResult> {
 	return cmsRequest(actor, `/_emdash/api/media/${encodeURIComponent(mediaId)}`);
@@ -1257,6 +1319,18 @@ export async function createSyntheticEntry(
 		return { result, entryId, rev };
 	}
 	return { result, rev };
+}
+
+/** One Portable Text block of `style` (normal, h2, …), the shape the Admin editor saves. */
+export function portableTextBlock(text: string, style = "normal"): Record<string, unknown> {
+	const key = crypto.randomUUID().slice(0, 8);
+	return {
+		_type: "block",
+		_key: key,
+		style,
+		markDefs: [],
+		children: [{ _type: "span", _key: `${key}s`, text, marks: [] }],
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -1393,21 +1467,47 @@ export async function updateEntry(
 	);
 }
 
-/** POST …/publish — native RBAC/lifecycle checks only; refusals returned. */
+/**
+ * POST …/publish — native RBAC/lifecycle checks only; refusals returned. `publishedAt` backdates
+ * the publication (emdash 1.1.0 src/astro/routes/api/content/[collection]/[id]/publish.ts).
+ */
 export async function publishEntry(
 	actor: CmsActor,
 	collection: string,
 	id: string,
-	pre: RevPrecondition = {},
+	options: RevPrecondition & { publishedAt?: string } = {},
 ): Promise<NativeResult> {
+	const { publishedAt, ...pre } = options;
 	const body = preconditionBody(
 		pre.rev === undefined ? { ...pre, rev: await currentRev(actor, collection, id) } : pre,
 	);
+	if (publishedAt !== undefined) body.publishedAt = publishedAt;
 	return cmsRequest(
 		actor,
 		`/_emdash/api/content/${encodeURIComponent(collection)}/${encodeURIComponent(id)}/publish`,
 		{ method: "POST", body },
 	);
+}
+
+/**
+ * Publish now, or backdated to `publishedAt`, and return the publication instant EmDash stored,
+ * as a page dates the entry. A refusal throws.
+ */
+export async function publishEntryAt(
+	actor: CmsActor,
+	collection: string,
+	id: string,
+	publishedAt?: string,
+): Promise<string> {
+	const published = await publishEntry(actor, collection, id, { publishedAt });
+	if (!published.ok) {
+		throw new CmsHelperError("publish", `${collection}/${id}: ${nativeRefusalOf(published)}`);
+	}
+	const stored = nativeItemOf(await readEntry(actor, collection, id))?.publishedAt;
+	if (typeof stored !== "string") {
+		throw new CmsHelperError("publish", `${collection}/${id} has no stored publishedAt`);
+	}
+	return stored;
 }
 
 /**

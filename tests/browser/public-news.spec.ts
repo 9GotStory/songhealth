@@ -36,11 +36,12 @@ import {
 	deleteSyntheticTerms,
 	loadDevAccessToken,
 	nativeDataOf,
-	nativeItemOf,
 	nativeItemsOf,
 	nativeRefusalOf,
 	NATIVE_ROLES,
-	readEntry,
+	portableTextBlock,
+	publishEntryAt,
+	setMediaAlt,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	trashEntry,
@@ -51,7 +52,6 @@ import {
 	type SyntheticTerm,
 } from "./cms.helpers";
 import {
-	DEFAULT_SITE_TITLE,
 	DESKTOP_VIEWPORT,
 	MOBILE_VIEWPORT,
 	VIEWPORTS,
@@ -62,6 +62,7 @@ import {
 	expectVisibleFocusOnEveryStop,
 	listedTitles,
 	ownTitles,
+	siteTitleParts,
 	test,
 	thaiDate,
 } from "./public.helpers";
@@ -94,18 +95,6 @@ interface NewsFixture {
 	title: string;
 }
 
-/** One Portable Text paragraph, the shape the Admin editor saves. */
-function paragraph(text: string): Record<string, unknown> {
-	const key = crypto.randomUUID().slice(0, 8);
-	return {
-		_type: "block",
-		_key: key,
-		style: "normal",
-		markDefs: [],
-		children: [{ _type: "span", _key: `${key}s`, text, marks: [] }],
-	};
-}
-
 /** A synthetic News draft. Its title is unique, so a page shows it or does not. */
 async function createNews(
 	label: string,
@@ -127,32 +116,8 @@ async function createNews(
 }
 
 /** Publish now, or backdated to `publishedAt`. Returns the stored publication instant. */
-async function publish(news: NewsFixture, publishedAt?: string): Promise<string> {
-	const read = await readEntry(admin, "news", news.id);
-	const rev = (nativeDataOf(read) as { _rev?: string } | undefined)?._rev;
-	const published = await cmsRequest(
-		admin,
-		`/_emdash/api/content/news/${encodeURIComponent(news.id)}/publish`,
-		{ method: "POST", body: { _rev: rev, ...(publishedAt ? { publishedAt } : {}) } },
-	);
-	expect(published.ok, `publishing ${news.title}: ${nativeRefusalOf(published)}`).toBe(true);
-	const stored = nativeItemOf(await readEntry(admin, "news", news.id))?.publishedAt;
-	expect(typeof stored, "publishing records publishedAt").toBe("string");
-	return String(stored);
-}
-
-/** What the native settings name, with the shell's fallbacks. */
-async function siteTitleParts(): Promise<{ siteTitle: string; separator: string }> {
-	const read = await cmsRequest(admin, "/_emdash/api/settings");
-	expect(read.ok, "the native settings read").toBe(true);
-	const settings = (nativeDataOf(read) ?? {}) as {
-		title?: string;
-		seo?: { titleSeparator?: string };
-	};
-	return {
-		siteTitle: settings.title?.trim() || DEFAULT_SITE_TITLE,
-		separator: settings.seo?.titleSeparator || " | ",
-	};
+function publish(news: NewsFixture, publishedAt?: string): Promise<string> {
+	return publishEntryAt(admin, "news", news.id, publishedAt);
 }
 
 /** The head metadata a search engine or a social preview reads. */
@@ -366,20 +331,13 @@ test("a News page shows its title, Thai date, category, topics, image with its a
 	const media = await uploadSyntheticMedia(admin);
 	expect(media.mediaId, "the synthetic image must upload").toBeDefined();
 	const alt = `${SYNTHETIC_FIXTURE_MARK} ภาพกิจกรรมรณรงค์`;
-	const described = await cmsRequest(
-		admin,
-		`/_emdash/api/media/${encodeURIComponent(media.mediaId!)}`,
-		{
-			method: "PUT",
-			body: { alt },
-		},
-	);
+	const described = await setMediaAlt(admin, media.mediaId!, alt);
 	expect(described.ok, `the media alt text: ${nativeRefusalOf(described)}`).toBe(true);
 	const bodyText = `${SYNTHETIC_FIXTURE_MARK} เนื้อหาข่าวย่อหน้าแรก`;
 	const news = await createNews("detail", {
 		data: {
 			summary: `${SYNTHETIC_FIXTURE_MARK} สรุปข่าว`,
-			body: [paragraph(bodyText)],
+			body: [portableTextBlock(bodyText)],
 			featured_image: { id: media.mediaId },
 		},
 		taxonomies: { topic: [topic.slug], news_category: [category.slug] },
@@ -544,7 +502,7 @@ test.describe("the head of each News page", () => {
 	test("a News page carries its title, description, absolute canonical address and OG tags, with the SEO fields first and the summary as the fallback", async ({
 		page,
 	}) => {
-		const { siteTitle, separator } = await siteTitleParts();
+		const { siteTitle, separator } = await siteTitleParts(admin);
 		const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปข่าวสำหรับเครื่องมือค้นหา`;
 		const plain = await createNews("seo-plain", { data: { summary } });
 		const seoTitle = `${SYNTHETIC_FIXTURE_MARK} ชื่อสำหรับเครื่องมือค้นหา`;
@@ -582,7 +540,7 @@ test.describe("the head of each News page", () => {
 	test("the lists carry their title, a description, an absolute canonical address and the default OG image from settings", async ({
 		page,
 	}) => {
-		const { siteTitle, separator } = await siteTitleParts();
+		const { siteTitle, separator } = await siteTitleParts(admin);
 		const saved = await cmsRequest(admin, "/_emdash/api/settings");
 		expect(saved.ok, "the native settings read").toBe(true);
 		const before = (nativeDataOf(saved) ?? {}) as {
@@ -658,7 +616,7 @@ test.describe("accessibility and reflow", () => {
 		news = await createNews("a11y", {
 			data: {
 				summary: `${SYNTHETIC_FIXTURE_MARK} สรุปข่าวสำหรับตรวจการเข้าถึง`,
-				body: [paragraph(`${SYNTHETIC_FIXTURE_MARK} เนื้อหาข่าว`)],
+				body: [portableTextBlock(`${SYNTHETIC_FIXTURE_MARK} เนื้อหาข่าว`)],
 				featured_image: { id: media.mediaId },
 			},
 			taxonomies: { topic: [topic.slug], news_category: [category.slug] },

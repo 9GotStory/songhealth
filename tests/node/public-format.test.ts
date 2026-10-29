@@ -4,10 +4,13 @@
 //   EmDash stores (#51 user story 12, for example "24 ก.ย. 2569").
 // - A list's page number travels in the `page` query parameter. A value that is not a page
 //   number is ignored and the first page is shown.
+// - A page without a summary describes itself with the start of its text, cut between words
+//   (#56: an Announcement's details).
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { excerpt } from "../../src/lib/excerpt.ts";
 import { pageHref, parsePageNumber } from "../../src/lib/pagination.ts";
 import { formatThaiDate } from "../../src/lib/thai-date.ts";
 
@@ -74,5 +77,36 @@ describe("pageHref", () => {
 		const url = new URL("http://site.test/news/health");
 		url.searchParams.set("topic", "วัคซีน");
 		assert.equal(pageHref(url, 2), `/news/health?topic=${encodeURIComponent("วัคซีน")}&page=2`);
+	});
+});
+
+describe("excerpt", () => {
+	it("keeps a short text whole, with its spacing tidied", () => {
+		assert.equal(excerpt("  ประกาศรับสมัคร\n\nอาสาสมัคร  ", 160), "ประกาศรับสมัคร อาสาสมัคร");
+	});
+
+	it("cuts a long Thai text between words and marks the cut", () => {
+		const text = "ประกาศรับสมัครอาสาสมัครสาธารณสุขประจำหมู่บ้าน";
+		const cut = excerpt(text, 20);
+		assert.ok(cut.endsWith("…"), cut);
+		assert.ok(cut.length <= 20, cut);
+		const kept = cut.slice(0, -1);
+		assert.ok(kept.length > 0 && text.startsWith(kept), cut);
+		const words = [...new Intl.Segmenter("th", { granularity: "word" }).segment(text)];
+		assert.ok(
+			words.some(({ index }) => index === kept.length),
+			`the cut falls between words: ${cut}`,
+		);
+	});
+
+	it("never splits a character from its vowel or tone mark, even inside one long word", () => {
+		const cut = excerpt("กี่".repeat(20), 10);
+		assert.ok(cut.length <= 10, cut);
+		assert.match(cut.slice(0, -1), /^(กี่)+$/u);
+	});
+
+	it("is empty for an empty text", () => {
+		assert.equal(excerpt("", 160), "");
+		assert.equal(excerpt(" \n ", 160), "");
 	});
 });

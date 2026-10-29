@@ -136,6 +136,23 @@ export async function listDocuments(
 }
 
 /**
+ * The published Documents with these database ids, in the order given. A page reads the Documents
+ * a reference field links to through this, because EmDash loads reference targets without their
+ * taxonomy terms (emdash 1.1.0 src/loader.ts loadEntriesByGroups), and a Document row shows its
+ * Document Type. A `where` on the `id` column selects them (src/loader.ts buildFieldConditions),
+ * published only like every list read, with their terms hydrated.
+ */
+export async function documentsById(ids: string[]): Promise<DocumentEntry[]> {
+	if (ids.length === 0) return [];
+	const { entries, error } = await getEmDashCollection<"documents", DocumentData>("documents", {
+		where: { id: ids },
+	});
+	if (error) throw error;
+	const byId = new Map(entries.map((entry) => [entry.data.id, entry]));
+	return ids.flatMap((id) => byId.get(id) ?? []);
+}
+
+/**
  * The fiscal years of published Documents that the filter accepts, newest first, each once.
  * EmDash's query functions offer no distinct values, so this walks down the years: each step reads
  * the one Document with the highest year below the last one found (a range on a field column,

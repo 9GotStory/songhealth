@@ -1,0 +1,59 @@
+---
+// An Announcement in a list (Feature 003 #56; spec #51 "Shared building blocks"): its type and
+// date, its title linking to its own page, and, when it has open or close dates, its status
+// (ยังไม่เปิด, เปิดอยู่ or ปิดแล้ว) with its close date, and its open date while it is not open yet.
+// The list decides the status at one instant for every row, so the rows agree with the order the
+// list puts them in.
+import {
+	announcementDate,
+	announcementPath,
+	type AnnouncementEntry,
+	type AnnouncementStatus as Status,
+} from "../lib/announcements";
+import { termsOf } from "../lib/terms";
+import AnnouncementStatus from "./AnnouncementStatus.astro";
+import DateText from "./DateText.astro";
+
+interface Props {
+	announcement: AnnouncementEntry;
+	status: Status | undefined;
+}
+
+const { announcement, status } = Astro.props;
+const data = announcement.data;
+const type = termsOf(data, "announcement_type")[0];
+const date = announcementDate(data);
+---
+
+<article class="flex flex-col gap-2 rounded-24 bg-surface-base p-5 shadow-card">
+	{(type || date) && (
+		<p class="flex flex-wrap gap-x-2 text-small text-text-secondary">
+			{type && <span class="wrap-anywhere">{type.label}</span>}
+			{type && date && <span aria-hidden="true">•</span>}
+			{date && <DateText value={date} />}
+		</p>
+	)}
+	<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
+		<a
+			class="underline-offset-4 hover:text-brand-primary hover:underline"
+			href={announcementPath(announcement.id)}
+		>
+			{data.title}
+		</a>
+	</h2>
+	{status && (
+		<p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-small text-text-secondary">
+			<AnnouncementStatus status={status} />
+			{status === "upcoming" && data.opens_at && (
+				<span>
+					วันที่เริ่มต้น <DateText value={data.opens_at} />
+				</span>
+			)}
+			{data.closes_at && (
+				<span>
+					วันที่สิ้นสุด <DateText value={data.closes_at} />
+				</span>
+			)}
+		</p>
+	)}
+</article>

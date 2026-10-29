@@ -107,23 +107,11 @@ const kit: FixtureKit = {
 			throw new Error(`picture: ${helpers.nativeRefusalOf(uploaded)}`);
 		}
 		media.push(id);
-		const described = await helpers.cmsRequest(admin, `/_emdash/api/media/${id}`, {
-			method: "PUT",
-			body: { alt },
-		});
+		const described = await helpers.setMediaAlt(admin, id, alt);
 		if (!described.ok) throw new Error(`picture alt: ${helpers.nativeRefusalOf(described)}`);
 		return id;
 	},
-	block(text, style = "normal") {
-		const key = crypto.randomUUID().slice(0, 8);
-		return {
-			_type: "block",
-			_key: key,
-			style,
-			markDefs: [],
-			children: [{ _type: "span", _key: `${key}s`, text, marks: [] }],
-		};
-	},
+	block: helpers.portableTextBlock,
 };
 
 const failures: string[] = [];

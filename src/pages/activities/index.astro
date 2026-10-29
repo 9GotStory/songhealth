@@ -1,0 +1,50 @@
+---
+// The Activities list, /activities (Feature 003 #56; spec #51 "Public reads" (Activities), `03`
+// §19): published Activities, the most recently held first, each without an Activity date placed
+// by its publication (src/lib/activities.ts, ADR 0004). A fixed number per page, with the page
+// number in the query string.
+//
+// Activities sit under ข่าวสาร in the public hierarchy (`03` §6), so the breadcrumb and the main
+// navigation mark that section. The canonical address keeps a valid page number, as on the News
+// lists.
+import ActivityCardGrid from "../../components/ActivityCardGrid.astro";
+import EmptyState from "../../components/EmptyState.astro";
+import PageHeading from "../../components/PageHeading.astro";
+import Pagination from "../../components/Pagination.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ACTIVITIES_PATH, listActivities } from "../../lib/activities";
+import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
+
+const title = "กิจกรรม";
+const lead = "กิจกรรม การประชุม และการลงพื้นที่ของสำนักงานสาธารณสุขอำเภอสองและเครือข่าย";
+const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
+const { entries, hasMore } = await listActivities(page);
+const listUrl = new URL(ACTIVITIES_PATH, Astro.url);
+---
+
+<SiteLayout
+	title={title}
+	section="news"
+	description={lead}
+	canonical={pageHref(listUrl, page)}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		{ label: "ข่าวสาร", href: "/news" },
+		{ label: title },
+	]}
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading title={title} lead={lead} />
+		{entries.length > 0 ? (
+			<ActivityCardGrid entries={entries} />
+		) : page > 1 ? (
+			<EmptyState
+				message="ไม่พบกิจกรรมในหน้านี้"
+				action={{ href: pageHref(listUrl, 1), label: "กลับไปหน้าแรกของรายการ" }}
+			/>
+		) : (
+			<EmptyState message="ยังไม่มีกิจกรรม" />
+		)}
+		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
+	</div>
+</SiteLayout>

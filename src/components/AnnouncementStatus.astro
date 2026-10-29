@@ -1,0 +1,14 @@
+---
+// An Announcement's status as a label (Feature 003 #56; spec #51 "Shared building blocks"): not
+// open yet, open or closed, stated in text; a closed one needs attention.
+import { STATUS_LABELS, type AnnouncementStatus } from "../lib/announcements";
+import StatusLabel from "./StatusLabel.astro";
+
+interface Props {
+	status: AnnouncementStatus;
+}
+
+const { status } = Astro.props;
+---
+
+<StatusLabel attention={status === "closed"}>{STATUS_LABELS[status]}</StatusLabel>

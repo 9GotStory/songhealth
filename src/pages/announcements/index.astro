@@ -1,0 +1,63 @@
+---
+// The Announcements list, /announcements (Feature 003 #56; spec #51 "Public reads"
+// (Announcements), `03` §19): published Announcements, the current ones first and then the closed
+// ones, each newest first by announcement date, falling back to the publication
+// (src/lib/announcements.ts, ADR 0004). An Announcement with open or close dates states in text
+// whether it is not open yet, open or closed (ยังไม่เปิด, เปิดอยู่, ปิดแล้ว). A fixed number per
+// page, with the page number in the query string.
+//
+// Announcements sit under ข่าวสาร in the public hierarchy (`03` §6), so the breadcrumb and the main
+// navigation mark that section. The canonical address keeps a valid page number, as on the News
+// lists.
+import AnnouncementRow from "../../components/AnnouncementRow.astro";
+import EmptyState from "../../components/EmptyState.astro";
+import PageHeading from "../../components/PageHeading.astro";
+import Pagination from "../../components/Pagination.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ANNOUNCEMENTS_PATH, listAnnouncements, statusOf } from "../../lib/announcements";
+import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
+
+const title = "ประกาศ";
+const lead = "ประกาศของสำนักงานสาธารณสุขอำเภอสองที่ประชาชนควรทราบหรือต้องดำเนินการ";
+const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
+/** One instant for the whole list, so the order and every row's status agree. */
+const now = new Date();
+const { entries, hasMore } = await listAnnouncements(page, now);
+const listUrl = new URL(ANNOUNCEMENTS_PATH, Astro.url);
+---
+
+<SiteLayout
+	title={title}
+	section="news"
+	description={lead}
+	canonical={pageHref(listUrl, page)}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		{ label: "ข่าวสาร", href: "/news" },
+		{ label: title },
+	]}
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading title={title} lead={lead} />
+		{entries.length > 0 ? (
+			<ul class="flex flex-col gap-4">
+				{entries.map((announcement) => (
+					<li>
+						<AnnouncementRow
+							announcement={announcement}
+							status={statusOf(announcement.data, now)}
+						/>
+					</li>
+				))}
+			</ul>
+		) : page > 1 ? (
+			<EmptyState
+				message="ไม่พบประกาศในหน้านี้"
+				action={{ href: pageHref(listUrl, 1), label: "กลับไปหน้าแรกของรายการ" }}
+			/>
+		) : (
+			<EmptyState message="ยังไม่มีประกาศ" />
+		)}
+		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
+	</div>
+</SiteLayout>
