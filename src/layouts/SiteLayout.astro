@@ -14,6 +14,7 @@
 // and pushes it down: nothing can close it from the keyboard without
 // JavaScript, so it must never cover the content focus moves on to (WCAG 2.2
 // SC 2.4.11).
+import { Font } from "astro:assets";
 import "../styles/global.css";
 import { MAIN_NAVIGATION, UTILITY_LINKS, currentMark, type Section } from "../lib/navigation";
 import { OFFICE_NAME, getSiteIdentity } from "../lib/site-identity";
@@ -41,6 +42,7 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>{pageTitle}</title>
+		<Font cssVariable="--font-noto-sans-thai" preload={[{ weight: "400" }]} />
 		<slot name="head" />
 	</head>
 	<body class="flex min-h-dvh flex-col bg-bg-page text-body text-text-primary">

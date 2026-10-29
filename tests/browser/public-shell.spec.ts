@@ -25,6 +25,7 @@ import {
 	MOBILE_VIEWPORT,
 	VIEWPORTS,
 	expect,
+	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectVisibleFocusOnEveryStop,
 	test,
@@ -157,6 +158,53 @@ test.describe("keyboard", () => {
 			}
 			await expectVisibleFocusOnEveryStop(page, `the 404 page at ${width}`);
 		});
+	}
+});
+
+for (const [width, viewport] of Object.entries(VIEWPORTS)) {
+	test(`axe reports no WCAG 2.2 AA violation on / and the 404 page at the ${width} width`, async ({
+		page,
+	}) => {
+		await page.setViewportSize(viewport);
+		await page.goto("/");
+		await expectNoAxeViolations(page, `/ at ${width}`);
+		if (width === "mobile") {
+			await page.getByText("เมนู", { exact: true }).click();
+			await expectNoAxeViolations(page, `/ at ${width} with the menu open`);
+		}
+
+		const response = await page.goto(`/songhealth-f003-unknown-${crypto.randomUUID()}`);
+		expect(response?.status()).toBe(404);
+		await expectNoAxeViolations(page, `the 404 page at ${width}`);
+	});
+}
+
+test("Noto Sans Thai comes from the site's own origin, in four weights, with font-display swap", async ({
+	page,
+	baseURL,
+}) => {
+	const fontRequests: string[] = [];
+	page.on("request", (request) => {
+		if (request.resourceType() === "font") fontRequests.push(request.url());
+	});
+	await page.goto("/");
+	const faces = await page.evaluate(async () => {
+		await document.fonts.ready;
+		return [...document.fonts]
+			.filter((face) => face.family.replaceAll('"', "") === "Noto Sans Thai")
+			.map((face) => ({ weight: face.weight, display: face.display, status: face.status }));
+	});
+	expect(faces.map((face) => face.weight).sort()).toEqual(["400", "500", "600", "700"]);
+	expect(faces.every((face) => face.display === "swap"), "every face uses font-display: swap").toBe(true);
+	expect(faces.find((face) => face.weight === "400")?.status, "body text loads its face").toBe("loaded");
+	expect(await page.evaluate(() => getComputedStyle(document.body).fontFamily)).toMatch(
+		/^"?Noto Sans Thai"?,/,
+	);
+
+	expect(fontRequests.length, "the page loads its font files").toBeGreaterThan(0);
+	const siteOrigin = new URL(baseURL ?? "").origin;
+	for (const url of fontRequests) {
+		expect(new URL(url).origin, `${url} must come from the site itself`).toBe(siteOrigin);
 	}
 });
 

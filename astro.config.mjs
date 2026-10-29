@@ -32,7 +32,7 @@
 import node from "@astrojs/node";
 import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig } from "astro/config";
+import { defineConfig, fontProviders } from "astro/config";
 import emdash, { local } from "emdash/astro";
 import { postgres } from "emdash/db";
 
@@ -218,6 +218,31 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
   },
+  // The public site's typeface (#52): Noto Sans Thai in the four weights the
+  // Figma type styles use, self-hosted through Astro's Fonts API. The local
+  // provider serves the committed files (src/assets/fonts/, with their OFL
+  // licence and provenance) from the site's own origin, so no page sends a
+  // font request elsewhere.
+  fonts: [
+    {
+      provider: fontProviders.local(),
+      name: "Noto Sans Thai",
+      cssVariable: "--font-noto-sans-thai",
+      options: {
+        variants: [
+          [400, "Regular"],
+          [500, "Medium"],
+          [600, "SemiBold"],
+          [700, "Bold"],
+        ].map(([weight, file]) => ({
+          weight,
+          style: "normal",
+          display: "swap",
+          src: [`./src/assets/fonts/NotoSansThai-${file}.woff2`],
+        })),
+      },
+    },
+  ],
   integrations: [
     react(),
     emdash({

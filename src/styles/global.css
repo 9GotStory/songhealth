@@ -87,6 +87,15 @@
 	--container-content: 75rem;
 }
 
+/*
+ * The page font: Noto Sans Thai, self-hosted by Astro's Fonts API, which
+ * defines --font-noto-sans-thai (astro.config.mjs). `inline` hands Tailwind the
+ * variable itself, so the page's default font follows it.
+ */
+@theme inline {
+	--font-sans: var(--font-noto-sans-thai);
+}
+
 @layer base {
 	/* Side gutter of the page container: 16 px on phones, 24 px from `sm` up. */
 	:root {
