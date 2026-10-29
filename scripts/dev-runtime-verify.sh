@@ -45,6 +45,11 @@ anonymous, _ = get({})
 sys.exit(0 if (status, body.get("fixtureId"), anonymous) == (200, "songhealth:t021:cms-public-reads", 403) else 1)
 PY
 }
+model_ok() { # the model-update step's own read-only check, on the promoted commit's seed
+  [[ $(stat -c %a "$STATE_DIR/dev-pat" 2>/dev/null) == 600 ]] || return 1
+  podman exec -i "$APP_CTR" node /src/scripts/model-update.mjs --check --origin "$ORIGIN" \
+    < "$STATE_DIR/dev-pat"
+}
 
 check "$DB active" systemctl --user is-active --quiet "$DB"
 check "$APP active" systemctl --user is-active --quiet "$APP"
@@ -61,6 +66,7 @@ check "EmDash accepted EMDASH_ENCRYPTION_KEY" key_ok
 check "development PAT (mode 0600) authenticates" pat_ok
 check "role fixture PAT (mode 0600) authenticates as an enabled Author" fixture_ok
 check "T021 fixture route answers its 0600 route token and refuses without it" route_ok
+check "the database has the seed's content model (scripts/dev-runtime-model-update.sh applies it)" model_ok
 printf 'runtime source: %s @ %s\n' "$SRC" "$(git -C "$SRC" rev-parse HEAD 2>/dev/null || printf unknown)"
 if (( failed )); then echo "VERIFY: FAIL"; exit 1; fi
 echo "VERIFY: PASS"
