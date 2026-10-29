@@ -175,7 +175,7 @@ function runConfigChild(env: Record<string, string>, childSource: string): Confi
     env,
     encoding: "utf8",
     timeout: CHILD_TIMEOUT_MS,
-    stdin: "ignore",
+    stdio: ["ignore", "pipe", "pipe"],
   });
 
   const output = `${spawned.stdout ?? ""}\n${spawned.stderr ?? ""}`;

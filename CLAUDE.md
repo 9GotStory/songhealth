@@ -46,6 +46,14 @@ with `/code-review` → `/pr` → `/retro`.
 
   A feature the Product Owner has not accepted goes into `main` only on their word.
 
+## Checks
+
+The feedback loop for `/implement` and `/tdd` (Node 24.21.0, npm 12.2.0):
+- `npm run typecheck`;
+- `npm run test:node`;
+- the browser suites against the development runtime. Their commands and credential variables
+  are in `README.md`; the public-read suite runs through `tests/browser/run-cms-public-reads.mjs`.
+
 ## Agent skills
 
 ### Issue tracker
@@ -97,8 +105,9 @@ tools before relying on it:
 `http://127.0.0.1:4324`; its contract and commands are in `docs/operations/development-quadlet.md`.
 - **One of each:** one application, database, media store and test target. Every runtime test
   targets this origin, and an occupied port is its normal state.
-- **Source:** it reaches the runtime only through `scripts/dev-runtime-update.sh --sha <commit>`.
-  Read results only against the commit `dev-runtime-verify.sh` reports.
+- **Source:** it reaches the runtime only through
+  `~/dev/songhealth-quadlet/scripts/dev-runtime-update.sh --sha <commit>`. Read results only
+  against the commit `dev-runtime-verify.sh` reports.
 - **Credentials:** the 0600 files under `~/.local/state/songhealth-qdev/` (`dev-pat`,
   `role-fixture-pat`, `t021-route-access.json`) feed the tests through environment variables
   (`README.md`). Keep their values out of every output.
