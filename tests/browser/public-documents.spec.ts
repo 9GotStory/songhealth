@@ -285,7 +285,7 @@ test("the Document Type, topic and fiscal year filters narrow /documents alone a
 	]);
 	await expect(filters.getByLabel("ประเภทเอกสาร")).toHaveValue(form.slug);
 
-	await filters.getByLabel("หัวข้อ").selectOption({ label: topic.label });
+	await filters.getByLabel("ประเด็นสุขภาพ").selectOption({ label: topic.label });
 	await submit();
 	expect(params()).toMatchObject({ type: form.slug, topic: topic.slug });
 	expect(ownTitles(await listedTitles(page), all), "by type and topic").toEqual([
@@ -454,10 +454,9 @@ test("a Document page shows its details, its file for download at EmDash's media
 	await expect(detailOf(page, "ปีงบประมาณ")).toHaveText("2569");
 	await expect(detailOf(page, "เจ้าของ/แหล่งที่มา")).toHaveText(ownerSource);
 	await expect(detailOf(page, "สถานะเอกสาร")).toHaveText("ฉบับปัจจุบัน");
-	await expect(detailOf(page, "หัวข้อ").getByRole("link", { name: topic.label })).toHaveAttribute(
-		"href",
-		`/documents?topic=${topic.slug}`,
-	);
+	await expect(
+		detailOf(page, "ประเด็นสุขภาพ").getByRole("link", { name: topic.label }),
+	).toHaveAttribute("href", `/documents?topic=${topic.slug}`);
 
 	const download = main.getByRole("link", { name: /ดาวน์โหลด/ });
 	await expect(download).toHaveAttribute("href", `/_emdash/api/media/file/${file.storageKey}`);
@@ -495,7 +494,7 @@ test("a Document page leaves out the optional details that are not set", async (
 		"ปีงบประมาณ",
 		"เจ้าของ/แหล่งที่มา",
 		"สถานะเอกสาร",
-		"หัวข้อ",
+		"ประเด็นสุขภาพ",
 	]) {
 		await expect(main.getByRole("term").filter({ hasText: name }), name).toHaveCount(0);
 	}

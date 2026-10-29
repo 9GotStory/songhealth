@@ -6,11 +6,11 @@
 // token asks for a draft (emdash 1.1.0 src/loader.ts, src/query.ts resolveEmDashEntry). Pages
 // never pass a status.
 //
-// The list filters by Document Type, topic and fiscal year through GET parameters, so a filtered
-// list has its own address. A `where` on a taxonomy matches the exact term, and a term that does
-// not exist matches nothing (emdash 1.1.0 src/loader.ts resolveTermGroups), as on Health News. A
-// fiscal year is a whole number as the integer field stores it; any other value is ignored rather
-// than sent to the database.
+// The list filters by Document Type, Health Topic (the `topic` taxonomy, GLOSSARY) and fiscal year
+// through GET parameters, so a filtered list has its own address. A `where` on a taxonomy matches
+// the exact term, and a term that does not exist matches nothing (emdash 1.1.0 src/loader.ts
+// resolveTermGroups), as on Health News. A fiscal year is a whole number as the integer field
+// stores it; any other value is ignored rather than sent to the database.
 
 import {
 	getEmDashCollection,
