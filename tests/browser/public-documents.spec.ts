@@ -36,18 +36,17 @@ import {
 	deleteSyntheticTerms,
 	loadDevAccessToken,
 	nativeDataOf,
-	nativeItemOf,
 	nativeRefusalOf,
 	NATIVE_ROLES,
 	publishEntry,
 	SYNTHETIC_FIXTURE_MARK,
 	SYNTHETIC_PDF_BYTES,
-	syntheticMediaPdf,
 	syntheticSlug,
 	trashEntry,
 	unpublishEntry,
-	uploadSyntheticMedia,
+	uploadSyntheticPdf,
 	type CmsActor,
+	type SyntheticPdf,
 	type SyntheticTerm,
 } from "./cms.helpers";
 import {
@@ -86,48 +85,16 @@ async function createTerm(taxonomy: string, label: string): Promise<SyntheticTer
 	return term;
 }
 
-interface UploadedFile {
-	mediaId: string;
-	filename: string;
-	storageKey: string;
-	/** The file field value the Admin's picker saves for it. */
-	value: Record<string, unknown>;
-}
-
 /** Upload a synthetic PDF named `filename` (a unique one by default). */
-async function uploadPdf(filename?: string): Promise<UploadedFile> {
-	const uploaded = await uploadSyntheticMedia(admin, {
-		filename: filename ?? `${SYNTHETIC_FIXTURE_MARK}-${crypto.randomUUID().slice(0, 8)}.pdf`,
-		file: { bytes: syntheticMediaPdf(), type: "application/pdf" },
-	});
-	expect(uploaded.mediaId, `the synthetic PDF: ${nativeRefusalOf(uploaded.result)}`).toBeDefined();
-	const item = nativeItemOf(uploaded.result) as {
-		id: string;
-		filename: string;
-		mimeType: string;
-		size: number;
-		storageKey: string;
-	};
-	return {
-		mediaId: item.id,
-		filename: item.filename,
-		storageKey: item.storageKey,
-		value: {
-			id: item.id,
-			provider: "local",
-			filename: item.filename,
-			mimeType: item.mimeType,
-			size: item.size,
-			meta: { storageKey: item.storageKey },
-		},
-	};
+function uploadPdf(filename?: string): Promise<SyntheticPdf> {
+	return uploadSyntheticPdf(admin, filename);
 }
 
 interface DocumentFixture {
 	id: string;
 	slug: string;
 	title: string;
-	file: UploadedFile;
+	file: SyntheticPdf;
 }
 
 /** A synthetic Document draft with its own synthetic PDF. Its title is unique. */
@@ -138,7 +105,7 @@ async function createDocument(
 		taxonomies?: Record<string, string[]>;
 		references?: Record<string, string[]>;
 		seo?: Record<string, unknown>;
-		file?: UploadedFile;
+		file?: SyntheticPdf;
 	} = {},
 ): Promise<DocumentFixture> {
 	const slug = syntheticSlug(label);

@@ -1,0 +1,9 @@
+---
+// A closed Announcement's mark (Feature 003 #56; spec #51 "Shared building blocks"): the text
+// "ปิดแล้ว" states it, and the warm fill that marks Document statuses needing attention supports it.
+import { CLOSED_LABEL } from "../lib/announcements";
+---
+
+<span class="inline-flex rounded-pill bg-accent-warm px-3 text-label text-brand-dark">
+	{CLOSED_LABEL}
+</span>

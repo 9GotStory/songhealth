@@ -40,7 +40,10 @@ import {
 	nativeItemsOf,
 	nativeRefusalOf,
 	NATIVE_ROLES,
+	portableTextBlock,
+	publishEntry,
 	readEntry,
+	setMediaAlt,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	trashEntry,
@@ -94,18 +97,6 @@ interface NewsFixture {
 	title: string;
 }
 
-/** One Portable Text paragraph, the shape the Admin editor saves. */
-function paragraph(text: string): Record<string, unknown> {
-	const key = crypto.randomUUID().slice(0, 8);
-	return {
-		_type: "block",
-		_key: key,
-		style: "normal",
-		markDefs: [],
-		children: [{ _type: "span", _key: `${key}s`, text, marks: [] }],
-	};
-}
-
 /** A synthetic News draft. Its title is unique, so a page shows it or does not. */
 async function createNews(
 	label: string,
@@ -128,13 +119,7 @@ async function createNews(
 
 /** Publish now, or backdated to `publishedAt`. Returns the stored publication instant. */
 async function publish(news: NewsFixture, publishedAt?: string): Promise<string> {
-	const read = await readEntry(admin, "news", news.id);
-	const rev = (nativeDataOf(read) as { _rev?: string } | undefined)?._rev;
-	const published = await cmsRequest(
-		admin,
-		`/_emdash/api/content/news/${encodeURIComponent(news.id)}/publish`,
-		{ method: "POST", body: { _rev: rev, ...(publishedAt ? { publishedAt } : {}) } },
-	);
+	const published = await publishEntry(admin, "news", news.id, { publishedAt });
 	expect(published.ok, `publishing ${news.title}: ${nativeRefusalOf(published)}`).toBe(true);
 	const stored = nativeItemOf(await readEntry(admin, "news", news.id))?.publishedAt;
 	expect(typeof stored, "publishing records publishedAt").toBe("string");
@@ -366,20 +351,13 @@ test("a News page shows its title, Thai date, category, topics, image with its a
 	const media = await uploadSyntheticMedia(admin);
 	expect(media.mediaId, "the synthetic image must upload").toBeDefined();
 	const alt = `${SYNTHETIC_FIXTURE_MARK} ภาพกิจกรรมรณรงค์`;
-	const described = await cmsRequest(
-		admin,
-		`/_emdash/api/media/${encodeURIComponent(media.mediaId!)}`,
-		{
-			method: "PUT",
-			body: { alt },
-		},
-	);
+	const described = await setMediaAlt(admin, media.mediaId!, alt);
 	expect(described.ok, `the media alt text: ${nativeRefusalOf(described)}`).toBe(true);
 	const bodyText = `${SYNTHETIC_FIXTURE_MARK} เนื้อหาข่าวย่อหน้าแรก`;
 	const news = await createNews("detail", {
 		data: {
 			summary: `${SYNTHETIC_FIXTURE_MARK} สรุปข่าว`,
-			body: [paragraph(bodyText)],
+			body: [portableTextBlock(bodyText)],
 			featured_image: { id: media.mediaId },
 		},
 		taxonomies: { topic: [topic.slug], news_category: [category.slug] },
@@ -658,7 +636,7 @@ test.describe("accessibility and reflow", () => {
 		news = await createNews("a11y", {
 			data: {
 				summary: `${SYNTHETIC_FIXTURE_MARK} สรุปข่าวสำหรับตรวจการเข้าถึง`,
-				body: [paragraph(`${SYNTHETIC_FIXTURE_MARK} เนื้อหาข่าว`)],
+				body: [portableTextBlock(`${SYNTHETIC_FIXTURE_MARK} เนื้อหาข่าว`)],
 				featured_image: { id: media.mediaId },
 			},
 			taxonomies: { topic: [topic.slug], news_category: [category.slug] },

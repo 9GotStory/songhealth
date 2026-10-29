@@ -1,0 +1,31 @@
+---
+// A page of Activities as a grid of content cards (Feature 003 #56; spec #51 "Shared building
+// blocks"): each card dated by when the Activity was held, else its publication, the order the
+// list follows. An Activity without a picture shows the card's plain visual. The first row is in
+// view when the page opens, so its pictures load at once; the rest load lazily.
+import { activityDate, activityPath, type ActivityEntry } from "../lib/activities";
+import ContentCard from "./ContentCard.astro";
+
+interface Props {
+	entries: ActivityEntry[];
+}
+
+const { entries } = Astro.props;
+/** Cards per row at the widest layout (lg:grid-cols-3). */
+const FIRST_ROW = 3;
+---
+
+<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+	{entries.map((entry, index) => (
+		<li>
+			<ContentCard
+				href={activityPath(entry.id)}
+				title={entry.data.title}
+				date={activityDate(entry.data)}
+				summary={entry.data.summary ?? undefined}
+				image={entry.data.featured_image ?? undefined}
+				eager={index < FIRST_ROW}
+			/>
+		</li>
+	))}
+</ul>
