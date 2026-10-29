@@ -1,0 +1,18 @@
+---
+// A Health Service's operational status as a label (Feature 003 #57; spec #51 "Shared building
+// blocks"): temporarily closed and inactive need attention.
+import {
+	OPERATIONAL_STATUS_LABELS,
+	isOutOfService,
+	type OperationalStatus,
+} from "../lib/health-service-directory";
+import StatusLabel from "./StatusLabel.astro";
+
+interface Props {
+	status: OperationalStatus;
+}
+
+const { status } = Astro.props;
+---
+
+<StatusLabel attention={isOutOfService(status)}>{OPERATIONAL_STATUS_LABELS[status]}</StatusLabel>

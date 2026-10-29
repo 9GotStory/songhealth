@@ -1,0 +1,52 @@
+---
+// A Health Service in the directory (Feature 003 #57; spec #51 "Shared building blocks", the
+// Health Service summary): its type and Area, its shown name linking to its own page, its official
+// name when the display name differs, its address, and a status that should stop a citizen from
+// travelling there (temporarily closed or inactive).
+import { healthServicePath, isOutOfService, shownName } from "../lib/health-service-directory";
+import type { HealthServiceEntry } from "../lib/health-services";
+import { termsOf } from "../lib/terms";
+import HealthServiceStatus from "./HealthServiceStatus.astro";
+
+interface Props {
+	healthService: HealthServiceEntry;
+}
+
+const { healthService } = Astro.props;
+const data = healthService.data;
+const name = shownName(data);
+const types = termsOf(data, "facility_type");
+const areas = termsOf(data, "area");
+const status = isOutOfService(data.operational_status) ? data.operational_status : undefined;
+---
+
+<article class="flex flex-col gap-2 rounded-24 bg-surface-base p-5 shadow-card">
+	{(types.length > 0 || areas.length > 0) && (
+		<p class="flex flex-wrap gap-x-2 text-small text-text-secondary">
+			{types.length > 0 && (
+				<span class="wrap-anywhere">{types.map((type) => type.label).join(", ")}</span>
+			)}
+			{types.length > 0 && areas.length > 0 && <span aria-hidden="true">•</span>}
+			{areas.length > 0 && (
+				<span class="wrap-anywhere">{areas.map((area) => area.label).join(", ")}</span>
+			)}
+		</p>
+	)}
+	<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
+		<a
+			class="underline-offset-4 hover:text-brand-primary hover:underline"
+			href={healthServicePath(healthService.id)}
+		>
+			{name}
+		</a>
+	</h2>
+	{name !== data.title && <p class="text-small wrap-anywhere text-text-secondary">{data.title}</p>}
+	{data.address && (
+		<p class="line-clamp-2 wrap-anywhere whitespace-pre-line text-text-secondary">{data.address}</p>
+	)}
+	{status && (
+		<p>
+			<HealthServiceStatus status={status} />
+		</p>
+	)}
+</article>

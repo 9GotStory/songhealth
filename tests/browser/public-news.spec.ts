@@ -31,7 +31,7 @@ import {
 	cmsRequest,
 	createPatActor,
 	createSyntheticEntry,
-	createSyntheticTerm,
+	createOwnedTerm,
 	deleteMedia,
 	deleteSyntheticTerms,
 	loadDevAccessToken,
@@ -78,16 +78,8 @@ const ownedTerms: SyntheticTerm[] = [];
 const movedSlugs: string[] = [];
 
 /** A synthetic term of `taxonomy`, labelled in Thai so it reads like a real one. */
-async function createTerm(taxonomy: string, label: string): Promise<SyntheticTerm> {
-	const unique = crypto.randomUUID().slice(0, 6);
-	const term = await createSyntheticTerm(
-		admin,
-		taxonomy,
-		`${SYNTHETIC_FIXTURE_MARK} ${label} ${unique}`,
-	);
-	ownedTerms.push(term);
-	return term;
-}
+const createTerm = (taxonomy: string, label: string) =>
+	createOwnedTerm(admin, taxonomy, label, ownedTerms);
 
 interface NewsFixture {
 	id: string;

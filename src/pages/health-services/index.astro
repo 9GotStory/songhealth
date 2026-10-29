@@ -1,0 +1,82 @@
+---
+// The Health Service Directory, /health-services (Feature 003 #57; spec #51 "Public reads" (Health
+// Service Directory), `03` §8): published Health Services by name, a fixed number per page with the
+// page number in the query string. `?area=` narrows it to the Health Services tagged with exactly
+// that Area term, and `?name=` to those whose official or display name contains the text, alone or
+// together (src/lib/health-service-directory.ts). The Area filter offers the Area terms Health
+// Services use.
+//
+// The canonical address keeps the filters that are set and a valid page number, so each view stays
+// its own address, as on the Document repository. The directory belongs with the citizen services
+// (`00` §8.2), so it marks บริการประชาชน in the main navigation.
+import EmptyState from "../../components/EmptyState.astro";
+import FilterForm from "../../components/FilterForm.astro";
+import HealthServiceRow from "../../components/HealthServiceRow.astro";
+import PageHeading from "../../components/PageHeading.astro";
+import Pagination from "../../components/Pagination.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import {
+	FILTER_PARAMS,
+	directoryPath,
+	isFiltered,
+	parseDirectoryFilters,
+} from "../../lib/health-service-directory";
+import { listHealthServices } from "../../lib/health-services";
+import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
+
+const title = "หน่วยบริการสุขภาพที่เกี่ยวข้อง";
+const lead =
+	"ค้นหาโรงพยาบาล รพ.สต. และหน่วยบริการสุขภาพอื่นที่เกี่ยวข้องกับอำเภอสอง ตามพื้นที่รับผิดชอบหรือชื่อ พร้อมที่อยู่ เวลาทำการ ช่องทางติดต่อ และลิงก์เปิดแผนที่";
+const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
+const filters = parseDirectoryFilters(Astro.url.searchParams);
+const { entries, hasMore, areas } = await listHealthServices(page, filters);
+const listUrl = new URL(directoryPath(filters), Astro.url);
+---
+
+<SiteLayout
+	title={title}
+	section="services"
+	description={lead}
+	canonical={pageHref(listUrl, page)}
+	breadcrumbs={[{ label: "หน้าแรก", href: "/" }, { label: title }]}
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading title={title} lead={lead} />
+		<FilterForm
+			label="ค้นหาหน่วยบริการ"
+			action={directoryPath()}
+			fields={[
+				{
+					name: FILTER_PARAMS.area,
+					label: "พื้นที่รับผิดชอบ",
+					anyLabel: "ทุกพื้นที่",
+					value: filters.area,
+					options: areas.map((area) => ({ value: area.slug, label: area.label })),
+				},
+				{ kind: "text", name: FILTER_PARAMS.name, label: "ชื่อหน่วยบริการ", value: filters.name },
+			]}
+		/>
+		{entries.length > 0 ? (
+			<ul class="flex flex-col gap-4">
+				{entries.map((healthService) => (
+					<li>
+						<HealthServiceRow healthService={healthService} />
+					</li>
+				))}
+			</ul>
+		) : page > 1 ? (
+			<EmptyState
+				message="ไม่พบหน่วยบริการในหน้านี้"
+				action={{ href: pageHref(listUrl, 1), label: "กลับไปหน้าแรกของรายการ" }}
+			/>
+		) : isFiltered(filters) ? (
+			<EmptyState
+				message="ไม่พบหน่วยบริการตามที่ค้นหา"
+				action={{ href: directoryPath(), label: "ดูหน่วยบริการทั้งหมด" }}
+			/>
+		) : (
+			<EmptyState message="ยังไม่มีข้อมูลหน่วยบริการ" />
+		)}
+		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
+	</div>
+</SiteLayout>
