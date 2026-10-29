@@ -9,14 +9,37 @@
 import SiteLayout from "../layouts/SiteLayout.astro";
 
 const heading = "ไม่พบหน้าที่คุณต้องการ";
+const action = "inline-flex min-h-11 items-center rounded-pill px-5 text-label";
 ---
 
 <SiteLayout title={heading}>
-	<h1>{heading}</h1>
-	<p>ที่อยู่นี้อาจพิมพ์ไม่ถูกต้อง หรือหน้านี้อาจถูกย้ายหรือนำออกแล้ว</p>
-	<ul>
-		<li><a href="/">กลับไปหน้าแรก</a></li>
-		<li><a href="/search">ค้นหาข้อมูล</a></li>
-		<li><a href="/contact">ติดต่อเรา</a></li>
-	</ul>
+	<div class="mx-auto max-w-content px-4 py-16 sm:px-6 lg:py-20">
+		<h1 class="text-h3 text-brand-dark sm:text-h2 lg:text-h1">{heading}</h1>
+		<p class="mt-4 max-w-prose text-body-large text-text-secondary">
+			ที่อยู่นี้อาจพิมพ์ไม่ถูกต้อง หรือหน้านี้อาจถูกย้ายหรือนำออกแล้ว
+		</p>
+		<ul class="mt-8 flex flex-wrap gap-3">
+			<li>
+				<a class:list={[action, "bg-brand-primary text-surface-base hover:bg-brand-dark"]} href="/">
+					กลับไปหน้าแรก
+				</a>
+			</li>
+			<li>
+				<a
+					class:list={[action, "border border-border-input bg-surface-base text-brand-primary hover:bg-surface-soft"]}
+					href="/search"
+				>
+					ค้นหาข้อมูล
+				</a>
+			</li>
+			<li>
+				<a
+					class:list={[action, "border border-border-input bg-surface-base text-brand-primary hover:bg-surface-soft"]}
+					href="/contact"
+				>
+					ติดต่อเรา
+				</a>
+			</li>
+		</ul>
+	</div>
 </SiteLayout>

@@ -20,7 +20,13 @@ import {
 	uploadSyntheticMedia,
 	type CmsActor,
 } from "./cms.helpers";
-import { DESKTOP_VIEWPORT, expect, test } from "./public.helpers";
+import {
+	DESKTOP_VIEWPORT,
+	MOBILE_VIEWPORT,
+	expect,
+	expectNoHorizontalScroll,
+	test,
+} from "./public.helpers";
 
 /** The office's official name, fixed interface text in the utility bar. */
 const OFFICE_NAME = "สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่";
@@ -95,6 +101,33 @@ test("an unknown address answers 404 with the site-designed page inside the shel
 	await expect(navigation.getByRole("link")).toHaveCount(MAIN_NAVIGATION.length);
 	await expect(navigation.locator("[aria-current]"), "the 404 page marks no section").toHaveCount(0);
 	await expect(page.getByRole("contentinfo")).toBeVisible();
+});
+
+test.describe("at the 320 px mobile width without JavaScript", () => {
+	test.use({ viewport: MOBILE_VIEWPORT, javaScriptEnabled: false });
+
+	test("the main navigation opens from the menu, and no page scrolls sideways", async ({ page }) => {
+		await page.goto("/");
+		const navigation = page.getByRole("navigation", { name: "เมนูหลัก" });
+		await expect(navigation, "the menu starts closed").toBeHidden();
+		await expect(page.getByRole("banner").getByRole("link", { name: "ค้นหา", exact: true })).toBeVisible();
+		await expectNoHorizontalScroll(page, "/ with the menu closed");
+
+		await page.getByText("เมนู", { exact: true }).click();
+		const links = navigation.getByRole("link");
+		await expect(links).toHaveText(MAIN_NAVIGATION.map((item) => item.name));
+		await expect(navigation.getByRole("link", { name: "หน้าแรก" })).toHaveAttribute(
+			"aria-current",
+			"page",
+		);
+		await expectNoHorizontalScroll(page, "/ with the menu open");
+
+		await navigation.getByRole("link", { name: "เอกสารเผยแพร่" }).click();
+		await expect(page).toHaveURL(/\/documents$/);
+
+		await page.goto(`/songhealth-f003-unknown-${crypto.randomUUID()}`);
+		await expectNoHorizontalScroll(page, "the 404 page");
+	});
 });
 
 test.describe("site identity from the native site settings", () => {

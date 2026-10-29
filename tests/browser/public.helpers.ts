@@ -58,6 +58,14 @@ export const test = base.extend<{ thirdPartyRequests: string[] }>({
 	],
 });
 
+/** Fail when the page as it is now scrolls sideways at the current viewport width. */
+export async function expectNoHorizontalScroll(page: Page, label: string): Promise<void> {
+	const overflow = await page.evaluate(
+		() => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+	);
+	expect(overflow, `${label}: the page must not scroll horizontally`).toBeLessThanOrEqual(0);
+}
+
 /**
  * Run axe with the WCAG 2.2 AA tag set on the page as it is now, and fail with
  * a readable summary (rule, impact and the offending nodes) on any violation.

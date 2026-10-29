@@ -31,6 +31,7 @@
 
 import node from "@astrojs/node";
 import react from "@astrojs/react";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "astro/config";
 import emdash, { local } from "emdash/astro";
 import { postgres } from "emdash/db";
@@ -210,6 +211,12 @@ export default defineConfig({
   // Production builds never include the toolbar.
   devToolbar: {
     enabled: false,
+  },
+  // Public presentation (ADR 0001): Tailwind CSS v4 through its official Vite
+  // plugin. It generates CSS at build time and ships no client JavaScript; the
+  // design tokens live in src/styles/global.css.
+  vite: {
+    plugins: [tailwindcss()],
   },
   integrations: [
     react(),
