@@ -110,9 +110,9 @@ const fixtures: Fixtures = async ({ admin, helpers, term }) => {
 	}
 	return [
 		"/documents",
-		`/documents/${created.get("form")!.slug}`,
-		`/documents/${created.get("old-plan")!.slug}`,
-		`/documents/${created.get("report")!.slug}`,
+		{ name: "document-form", path: `/documents/${created.get("form")!.slug}` },
+		{ name: "document-superseded", path: `/documents/${created.get("old-plan")!.slug}` },
+		{ name: "document-file-gone", path: `/documents/${created.get("report")!.slug}` },
 	];
 };
 
