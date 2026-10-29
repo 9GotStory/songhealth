@@ -306,7 +306,7 @@ function runReadinessHelper(
     env,
     encoding: "utf8",
     timeout: timeoutMs,
-    stdin: "ignore",
+    stdio: ["ignore", "pipe", "pipe"],
   });
   return {
     status: spawned.status,
