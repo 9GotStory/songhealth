@@ -73,33 +73,60 @@ Implementation may begin only when an active feature has approved `spec.md`, `pl
 
 Do not create application code, infrastructure, schema, or dependencies merely because the repository is currently empty.
 
-## Development Workflow (local CLI)
+## Development Workflow (Claude Code, Constitution 5.0.0)
 
 Product Owner decisions of 2026-10-13 (Multica issue 9GOTSTORY-202) and 2026-10-14
 (governance reconciliation `01a13882-2e10-7cbf-b207-409fdd20b9b3`, accepted by approval
 `01a13896-b7d9-700e-9ea6-00973f11d963`) established the Multica-first execution/review
-assignments. The Product Owner ratified the local CLI governance transition on 2026-10-25
-(official decision:
-https://github.com/9GotStory/songhealth/pull/38#issuecomment-6395631601), replacing those
-assignments with the local CLI workflow below; task deliverables, gates, architecture and
-requirements remain. The matching Constitution amendment (3.0.0 → 4.0.0) is recorded in
-`.specify/memory/constitution.md`. Bounded preparation or review expressly authorized by the
-Product Owner remains distinct from standing authorization for future implementation.
-Historical Multica decisions, existing Feature 002 acceptance and deferral records, Spec Kit
-stages, Human Authorization Gates and runtime restrictions are unchanged:
+assignments. The Product Owner's 2026-10-25 ratification (official decision:
+https://github.com/9GotStory/songhealth/pull/38#issuecomment-6395631601) replaced them with the
+local CLI workflow of Constitution 4.0.0 (Claude Code CLI as Developer, Codex CLI as Independent
+Reviewer). The Product Owner's governance reform recorded as Constitution 5.0.0 (see its amendment
+record in `.specify/memory/constitution.md`) replaces that review arrangement with one workflow:
 
-- Claude Code CLI is the primary Developer, executing bounded authorized development, testing
-  and pull-request preparation tasks; Codex CLI is the Independent Reviewer of the resulting
-  artifacts and evidence. The author does not review their own artifact. The Product Owner
-  provides final acceptance and explicit bounded implementation authorization. The Spec Kit
-  stages and Human Authorization Gate are preserved.
-- Spec Kit and GitHub remain authoritative; GitHub (`9GotStory/songhealth`) is the source of
-  truth for source, issues, pull requests and CI. One authorized implementation task is in
-  effect at a time; an authorization applies only to its named bounded scope.
-- Historical Multica decisions, agent names, branch names and accepted Codex/ChatGPT
-  source-review evidence retain their provenance; they do not assign future execution or
-  Independent Review duties. Existing accepted evidence and Feature 001 dependency joins are
-  not invalidated by this transition.
+**Product Owner → Claude Code + Spec Kit → automated tests / GitHub CI → Product Owner acceptance**
+
+Bounded preparation or review expressly authorized by the Product Owner remains distinct from
+standing authorization for future implementation. Task deliverables and requirements, existing
+Feature 002 acceptance and deferral records, Spec Kit stages, Human Authorization Gates,
+architecture, security requirements and runtime restrictions are unchanged:
+
+- Claude Code is the sole AI development tool. Within an authorized scope it clarifies
+  requirements, plans, prepares Spec Kit artifacts, implements, writes and runs automated tests,
+  debugs and corrects, self-reviews (including security-focused inspection), refactors where
+  necessary, prepares acceptance evidence and reports unresolved risks to the Product Owner. It
+  may use separate sessions or subagents when technically useful; that remains self-review and is
+  never presented as independent third-party review. Codex and ChatGPT are removed from this
+  workflow: no Codex, ChatGPT or other external AI tool develops, reviews, assesses or approves
+  Songhealth work.
+- Until Feature 002 is complete, development uses Claude Code with Spec Kit and GitHub only.
+  After Feature 002 the Product Owner intends to move to Claude Code with the "Matt skills"
+  workflow; that change takes effect only through its own Constitution amendment.
+- Inside an authorized bounded task, Claude Code fixes defects, improves tests, corrects or
+  refactors the implementation, re-runs tests and repeats self-review without a new approval for
+  each correction, and does not start new documentation-correction cycles, approval gates or
+  verification frameworks. It stops for a new Product Owner decision before new source scope, an
+  architectural change, a destructive or sensitive operation, a runtime action not yet authorized,
+  or an exception to a security or other mandatory requirement.
+- Completion is evidence-based: approved requirements, a correct implementation, passing
+  applicable automated tests, security verification proportionate to the risk, GitHub CI results
+  where CI is configured, required runtime evidence, and Product Owner acceptance. A Claude Code
+  PASS never accepts work by itself; failed required tests, known material security defects and
+  unresolved mandatory runtime checks block acceptance.
+- The Product Owner alone approves new features and material scope changes, architecture and
+  governance changes, destructive or sensitive operations, production deployment and runtime
+  provisioning, Git merges, final feature acceptance, and documented exceptions.
+- Spec Kit remains the specification and task framework, and GitHub (`9GotStory/songhealth`)
+  the source of truth for source, issues, pull requests, CI and decision history. One authorized
+  implementation task is in effect at a time; an authorization applies only to its named bounded
+  scope.
+- Historical Multica decisions, agent names, branch names, and accepted Codex/ChatGPT reviews,
+  verdicts and evidence retain their provenance and are not rewritten; they assign no future
+  execution or review duties. Where an artifact written before 5.0.0 asks for a Codex, ChatGPT,
+  Lead or other external Independent Review step (or Multica execution) for work that is still
+  open, the evidence-based completion above satisfies it. Findings from those reviews that are
+  still open remain open defects until corrected and verified. Existing accepted evidence and
+  Feature 001 dependency joins are not invalidated.
 - The single development environment is the persistent rootless-Podman development runtime
   documented in `README.md`: on the single Fedora environment, account `multica-agent` (UID 1001),
   containers `songhealth-dev-app` (Astro/EmDash dev server on the pinned Node/npm tooling image)

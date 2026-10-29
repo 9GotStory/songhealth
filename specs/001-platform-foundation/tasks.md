@@ -13,6 +13,8 @@ description: "Actionable task graph for the Songhealth Platform Foundation"
 
 **Organization**: Tasks are grouped by shared prerequisites and the four approved user stories. Each task is a bounded authorized Multica handoff that must receive ChatGPT Independent Review before dependent work proceeds, under the accepted governance reconciliation. The Product Owner provides final acceptance and implementation authorization; author and reviewer remain separate. Existing Codex-accepted source references record prior accepted evidence, not future reviewer assignments. Task definitions, dependency joins and pending T022/T028 gates remain unchanged.
 
+**Governance note (Constitution 5.0.0)**: for work in this feature that is still open, each requirement in this file to obtain ChatGPT (or Codex) Independent Review PASS/REWORK, to hand off to an independent reviewer, or to execute through a Multica handoff is satisfied by Claude Code execution and self-review with evidence-based Product Owner acceptance (Constitution 5.0.0, Governance). Recorded reviews, verdicts and Codex-accepted source joins remain unchanged provenance; the task requirements, runtime gates, acceptance criteria and required Product Owner authorizations are unchanged.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Safe to execute in parallel only after the stated prerequisites are complete; marked tasks own different files and no shared mutable runtime resource.

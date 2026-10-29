@@ -315,6 +315,8 @@ ChatGPT independently reviews this evidence and bounded authorized Multica imple
 plan, tasks, Constitution, and `current/10`. An implementation agent's success report alone does not
 complete the feature.
 
+**Governance note (Constitution 5.0.0)**: for work in this feature that is still open, each requirement in this file to obtain ChatGPT (or Codex) Independent Review PASS/REWORK, to hand off to an independent reviewer, or to execute through a Multica handoff is satisfied by Claude Code execution and self-review with evidence-based Product Owner acceptance (Constitution 5.0.0, Governance). Recorded reviews, verdicts and Codex-accepted source joins remain unchanged provenance; the task requirements, runtime gates, acceptance criteria and required Product Owner authorizations are unchanged.
+
 ## Deferred Work
 
 All Product content collections and public routes beyond the verification page; editorial content;
