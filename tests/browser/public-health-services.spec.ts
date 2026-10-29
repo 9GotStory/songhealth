@@ -47,6 +47,9 @@ import {
 	test,
 } from "./public.helpers";
 
+/** The fixed number of Health Services a list page shows. */
+const PAGE_SIZE = 20;
+
 let admin: CmsActor;
 let origin: string;
 /** Synthetic terms this suite created, removed at the end. */
@@ -203,5 +206,143 @@ test("/health-services lists only published Health Services by name, each with i
 	const body = await page.content();
 	for (const word of ["ใกล้บ้าน", "ในพื้นที่"]) {
 		expect(body.includes(word), `the directory never says "${word}"`).toBe(false);
+	}
+});
+
+test("the Area and name filters narrow /health-services alone and combined, and a shared filtered address reproduces the results", async ({
+	page,
+	browser,
+}) => {
+	const north = await createTerm("area", "ตำบลเหนือ");
+	const south = await createTerm("area", "ตำบลใต้");
+	const unused = await createTerm("area", "ตำบลที่ไม่มีหน่วยบริการ");
+	const draftOnly = await createTerm("area", "ตำบลที่มีแต่ฉบับร่าง");
+	// A word only this test's names contain, so a name filter selects exactly its fixtures.
+	const word = `ทดสอบ${crypto.randomUUID().slice(0, 6)}`;
+	const northClinic = await createHealthService("filter-north-clinic", {
+		displayName: `ก รพ.สต.${word}เหนือ`,
+		taxonomies: { area: [north.slug] },
+	});
+	const bothHospital = await createHealthService("filter-both-hospital", {
+		displayName: `ข โรงพยาบาล${word}`,
+		taxonomies: { area: [north.slug, south.slug] },
+	});
+	const southClinic = await createHealthService("filter-south-clinic", {
+		displayName: `ค รพ.สต.${word}ใต้`,
+		taxonomies: { area: [south.slug] },
+	});
+	await createHealthService("filter-draft", { taxonomies: { area: [draftOnly.slug] } });
+	const all = [northClinic, bothHospital, southClinic];
+	for (const fixture of all) await publish("health_services", fixture);
+
+	await page.goto("/health-services");
+	const filters = page.getByRole("form", { name: "ค้นหาหน่วยบริการ" });
+	const areaField = filters.getByLabel("พื้นที่รับผิดชอบ");
+	const nameField = filters.getByLabel("ชื่อหน่วยบริการ");
+	const submit = async () => {
+		await filters.getByRole("button", { name: "แสดงผล" }).click();
+		await page.waitForLoadState();
+	};
+	const params = () => Object.fromEntries(new URL(page.url()).searchParams);
+
+	const offered = (await areaField.locator("option").allTextContents()).map((text) => text.trim());
+	expect(offered[0], "the first choice is no filter").toBe("ทุกพื้นที่");
+	expect(offered).toEqual(expect.arrayContaining([north.label, south.label]));
+	expect(offered, "an Area no Health Service uses is not offered").not.toContain(unused.label);
+	expect(offered, "an Area only a draft uses is not offered").not.toContain(draftOnly.label);
+
+	await areaField.selectOption({ label: north.label });
+	await submit();
+	expect(params()).toMatchObject({ area: north.slug });
+	expect(ownTitles(await listedTitles(page), all), "by Area").toEqual([
+		northClinic.title,
+		bothHospital.title,
+	]);
+	await expect(areaField).toHaveValue(north.slug);
+
+	await nameField.fill("รพ.สต.");
+	await submit();
+	expect(params()).toMatchObject({ area: north.slug, name: "รพ.สต." });
+	expect(ownTitles(await listedTitles(page), all), "by Area and name").toEqual([northClinic.title]);
+	await expect(nameField).toHaveValue("รพ.สต.");
+	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+		"href",
+		`${origin}/health-services?${new URLSearchParams({ area: north.slug, name: "รพ.สต." })}`,
+	);
+
+	const shared = page.url();
+	const context = await browser.newContext();
+	try {
+		const other = await context.newPage();
+		await other.goto(shared);
+		expect(
+			ownTitles(await listedTitles(other), all),
+			"the shared address reproduces the results",
+		).toEqual([northClinic.title]);
+	} finally {
+		await context.close();
+	}
+
+	await areaField.selectOption({ label: "ทุกพื้นที่" });
+	await nameField.fill(word);
+	await submit();
+	expect(params()).toMatchObject({ area: "", name: word });
+	expect(ownTitles(await listedTitles(page), all), "by name alone").toEqual(
+		all.map((fixture) => fixture.title),
+	);
+
+	// The official name counts too, in any Latin case.
+	await page.goto(`/health-services?name=${encodeURIComponent("FILTER-BOTH-HOSPITAL")}`);
+	expect(ownTitles(await listedTitles(page), all), "by the official name").toEqual([
+		bothHospital.title,
+	]);
+
+	await page.goto(`/health-services?area=${south.slug}`);
+	expect(ownTitles(await listedTitles(page), all), "by the other Area").toEqual([
+		bothHospital.title,
+		southClinic.title,
+	]);
+	await filters.getByRole("link", { name: "ล้างตัวกรอง" }).click();
+	await expect(page).toHaveURL("/health-services");
+});
+
+test("an unmatched filter shows the empty state, and a filtered directory pages through with its filters kept", async ({
+	page,
+}) => {
+	const word = `หน้า${crypto.randomUUID().slice(0, 6)}`;
+	const fixtures: EntryFixture[] = [];
+	for (let index = 0; index <= PAGE_SIZE; index += 1) {
+		fixtures.push(
+			await createHealthService(`page-${index}`, {
+				displayName: `${word} ${String(index).padStart(2, "0")}`,
+			}),
+		);
+	}
+	for (const fixture of fixtures) await publish("health_services", fixture);
+	const byName = fixtures.map((fixture) => fixture.title);
+
+	await page.goto(`/health-services?name=${encodeURIComponent(word)}`);
+	expect(await listedTitles(page), "the first page").toEqual(byName.slice(0, PAGE_SIZE));
+	await page
+		.getByRole("navigation", { name: "การแบ่งหน้า" })
+		.getByRole("link", { name: "หน้าถัดไป" })
+		.click();
+	await expect(page).toHaveURL(`/health-services?name=${encodeURIComponent(word)}&page=2`);
+	expect(await listedTitles(page), "the second page").toEqual(byName.slice(PAGE_SIZE));
+	await expect(
+		page.getByRole("form", { name: "ค้นหาหน่วยบริการ" }).getByLabel("ชื่อหน่วยบริการ"),
+	).toHaveValue(word);
+
+	for (const path of [
+		`/health-services?area=${syntheticSlug("no-such-area")}`,
+		`/health-services?name=${encodeURIComponent(`ไม่มีชื่อนี้${word}`)}`,
+	]) {
+		const response = await page.goto(path);
+		expect(response?.status(), `${path} is not an error`).toBe(200);
+		await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
+		await expect(page.getByRole("main").getByText("ไม่พบหน่วยบริการตามที่ค้นหา")).toBeVisible();
+		await expect(
+			page.getByRole("main").getByRole("link", { name: "ดูหน่วยบริการทั้งหมด" }),
+		).toHaveAttribute("href", "/health-services");
 	}
 });
