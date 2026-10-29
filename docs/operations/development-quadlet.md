@@ -110,6 +110,11 @@ the real state first and only adds what is missing:
 
     Without `SONGHEALTH_ROLE_FIXTURE_ACCESS` the T019/T020 role cases skip. The role cases
     change the fixture's role and restore it to Author at the end.
+  - **Admin UI suites** (`cms-lifecycle-ui.spec.ts`, `cms-editor.spec.ts`). Add
+    `SONGHEALTH_ADMIN_SESSION=dev-bypass` to sign the test browser in through EmDash's
+    development-only `auth/dev-bypass` session route (Product Owner decision 2026-10-29). For
+    the existing dev admin it only sets the session cookie; each test logs out afterwards.
+    Without it the authenticated journeys skip with that prerequisite.
   - **T021 public-read suite.** It runs only through its coordinator, from a checkout at the
     promoted commit:
 
