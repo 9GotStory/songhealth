@@ -162,6 +162,8 @@ Every task run cleans up only **task-owned temporary resources** before it ends:
 
 Cleanup is part of task completion, never deferred to a later task. A task run that cannot
 clean up a resource it owns reports that fact in its result instead of leaving it silently.
+`scripts/dev-runtime-residue.sh` checks the runtime's share of it: synthetic entries, media,
+terms, bylines and redirects (`docs/operations/development-quadlet.md`, Daily use).
 
 Production prerequisites, deployment and recovery live in
 [docs/operations/production-foundation.md](docs/operations/production-foundation.md) and are

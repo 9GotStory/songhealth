@@ -126,6 +126,13 @@ the real state first and only adds what is missing:
 
     It holds (exit 3, nothing run) unless verify passes and the runtime source equals that
     checkout's HEAD.
+  - **Residue.** At the end of a task run, `scripts/dev-runtime-residue.sh` counts what the tests
+    left behind: synthetic entries (live or in trash), media, terms, bylines and redirects. It
+    exits 1 while any remain.
+  - **The 404 log.** EmDash logs every miss, including the tests' deliberate requests for
+    missing pages. That log can only be cleared as a whole, so its synthetic misses stay until
+    one clear just before the Product Owner's review (Feature 003 handoff, #67). Residue
+    reports them and does not fail on them.
 - **Source edits.** Make them in the workspace and promote them. The runtime checkout is never
   edited in place: the app refuses to start when its HEAD is not the promoted commit, and
   verify fails on a dirty tree.
