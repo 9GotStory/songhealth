@@ -1,0 +1,416 @@
+# T033 integrated run — 2026-10-29T02:48:49Z — workspace HEAD 7567a293718369ee35d82b09d52428f5f32f8232 — node v24.21.0
+## runtime verify (before)
+PASS: songhealth-dev-db.service active
+PASS: songhealth-dev-app.service active
+PASS: database container healthy
+PASS: application container healthy
+PASS: published only on 127.0.0.1:4324 (database has no host port)
+PASS: public SSR marker served at http://127.0.0.1:4324/
+PASS: native Admin UI reachable at http://127.0.0.1:4324/_emdash/admin/
+PASS: EmDash setup complete
+PASS: native migrations: none pending or unknown (emdash migrate --check)
+PASS: least-privilege app role owns songhealth_qdev
+PASS: runtime source is the promoted commit, clean
+PASS: EmDash accepted EMDASH_ENCRYPTION_KEY
+PASS: development PAT (mode 0600) authenticates
+PASS: role fixture PAT (mode 0600) authenticates as an enabled Author
+PASS: T021 fixture route answers its 0600 route token and refuses without it
+runtime source: /home/thanakorn/dev/songhealth-quadlet @ 7567a293718369ee35d82b09d52428f5f32f8232
+VERIFY: PASS
+
+## tests/browser/foundation.spec.ts
+
+Running 2 tests using 1 worker
+
+  ✓  1 [chromium] › tests/browser/foundation.spec.ts:60:1 › public / serves the minimum Songhealth SSR verification marker (234ms)
+  ✓  2 [chromium] › tests/browser/foundation.spec.ts:88:1 › native EmDash Admin is available at /_emdash/admin/ (native setup or sign-in) (219ms)
+
+  2 passed (2.4s)
+exit=0
+
+## tests/browser/cms-document.spec.ts
+
+Running 13 tests using 1 worker
+
+[cms-document] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   1 [chromium] › tests/browser/cms-document.spec.ts:414:1 › documents schema precondition: required title/file configuration is active (3ms)
+[cms-document] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 1)
+  ✓   2 [chromium] › tests/browser/cms-document.spec.ts:428:1 › valid control: minimal Document saves with only required fields and permitted optional omissions (273ms)
+[cms-document] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 1)
+  ✓   3 [chromium] › tests/browser/cms-document.spec.ts:462:1 › valid control: optional supplied values save (summary, offset-aware datetime, integer year, owner, select) (258ms)
+[cms-document] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 1)
+  ✓   4 [chromium] › tests/browser/cms-document.spec.ts:488:1 › valid control: an update may omit unchanged required fields (305ms)
+[cms-document] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 1)
+  ✓   5 [chromium] › tests/browser/cms-document.spec.ts:521:1 › create refuses missing, null and empty required title (75ms)
+[cms-document] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   6 [chromium] › tests/browser/cms-document.spec.ts:555:1 › create refuses missing, null and empty-object required file values (36ms)
+[cms-document] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   7 [chromium] › tests/browser/cms-document.spec.ts:583:1 › accepted V1 limitation: bare empty-string file input stores an empty external reference, not a real file selection (137ms)
+[cms-document] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   8 [chromium] › tests/browser/cms-document.spec.ts:609:1 › accepted V1 limitation: bare non-URL string file input stores the string as an external src with empty id (132ms)
+[cms-document] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   9 [chromium] › tests/browser/cms-document.spec.ts:635:1 › accepted V1 limitation: non-string file id is coerced to an empty local-provider id (122ms)
+[cms-document] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 1)
+  ✓  10 [chromium] › tests/browser/cms-document.spec.ts:664:1 › update refuses invalid clearing of required title and file (279ms)
+[cms-document] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 1)
+  ✓  11 [chromium] › tests/browser/cms-document.spec.ts:702:1 › create refuses supplied invalid types, select values and dates (128ms)
+[cms-document] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 1)
+  ✓  12 [chromium] › tests/browser/cms-document.spec.ts:732:1 › update refuses a representative supplied invalid select value (179ms)
+[cms-document] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 1)
+  ✓  13 [chromium] › tests/browser/cms-document.spec.ts:753:1 › unauthenticated Save is an authorization refusal, distinct from native validation (50ms)
+
+  13 passed (3.0s)
+exit=0
+
+## tests/browser/cms-authoring.spec.ts
+
+Running 16 tests using 1 worker
+
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   1 [chromium] › tests/browser/cms-authoring.spec.ts:1007:2 › pages schema precondition: approved native definition is active (4ms)
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   2 [chromium] › tests/browser/cms-authoring.spec.ts:1007:2 › news schema precondition: approved native definition is active (2ms)
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   3 [chromium] › tests/browser/cms-authoring.spec.ts:1007:2 › activities schema precondition: approved native definition is active (2ms)
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   4 [chromium] › tests/browser/cms-authoring.spec.ts:1007:2 › announcements schema precondition: approved native definition is active (2ms)
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   5 [chromium] › tests/browser/cms-authoring.spec.ts:1007:2 › health_content schema precondition: approved native definition is active (1ms)
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 5, media attempted 0)
+  ✓   6 [chromium] › tests/browser/cms-authoring.spec.ts:1022:1 › create/save/reopen: title-only minimal drafts save with permitted optional omissions (630ms)
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 5, media attempted 3)
+  ✓   7 [chromium] › tests/browser/cms-authoring.spec.ts:1070:1 › valid control: representative optional supplied values save and read back (994ms)
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 4, media attempted 0)
+  ✓   8 [chromium] › tests/browser/cms-authoring.spec.ts:1160:1 › native classification attachment saves and reads back by returned term identity (713ms)
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   9 [chromium] › tests/browser/cms-authoring.spec.ts:1205:1 › create refuses missing, null and empty required title (149ms)
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 5, media attempted 0)
+  ✓  10 [chromium] › tests/browser/cms-authoring.spec.ts:1230:1 › update refuses invalid clearing of the required title (1.0s)
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓  11 [chromium] › tests/browser/cms-authoring.spec.ts:1275:1 › create refuses representative invalid supplied values for the approved native field types (131ms)
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 4, media attempted 2)
+  ✓  12 [chromium] › tests/browser/cms-authoring.spec.ts:1305:1 › optional Page/Announcement Document selections save via separate native references payloads and read back by returned identity (697ms)
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 5, media attempted 0)
+  ✓  13 [chromium] › tests/browser/cms-authoring.spec.ts:1425:1 › direct native Publish accepts valid incomplete title-only content and read-back shows published (938ms)
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 5, media attempted 0)
+  ✓  14 [chromium] › tests/browser/cms-authoring.spec.ts:1475:1 › direct native Schedule accepts valid incomplete title-only content with an explicit-offset future time (1.3s)
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓  15 [chromium] › tests/browser/cms-authoring.spec.ts:1545:1 › unauthenticated Save is an authorization refusal, distinct from native validation (9ms)
+[cms-authoring] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓  16 [chromium] › tests/browser/cms-authoring.spec.ts:1591:1 › a stale _rev update is a native state conflict, distinct from validation and authorization (209ms)
+
+  16 passed (7.8s)
+exit=0
+
+## tests/browser/cms-reuse.spec.ts
+
+Running 16 tests using 1 worker
+
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   1 [chromium] › tests/browser/cms-reuse.spec.ts:830:1 › documents and announcements schema precondition: approved native definitions are active (4ms)
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   2 [chromium] › tests/browser/cms-reuse.spec.ts:841:1 › services schema precondition: approved native definition is active (2ms)
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   3 [chromium] › tests/browser/cms-reuse.spec.ts:846:1 › health_reports schema precondition: approved native definition with the required report_document binding is active (2ms)
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 4, media attempted 1)
+  ✓   4 [chromium] › tests/browser/cms-reuse.spec.ts:859:1 › shared identity: one Document and its native file are selected unchanged from Announcement, Service and Health Report with zero duplicates (773ms)
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 2, media attempted 1)
+  ✓   5 [chromium] › tests/browser/cms-reuse.spec.ts:1020:1 › raw media: a public image is selected and reused without any semantic Document (366ms)
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 1)
+  ✓   6 [chromium] › tests/browser/cms-reuse.spec.ts:1083:1 › raw media: native alt and caption are maintainable and MIME type, size and dimensions read back (232ms)
+[cms-reuse] media usage observation for songhealth-f002-synthetic fixture: count=null coverage=stale (asynchronous indexing; no immediacy claimed)
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 1)
+  ✓   7 [chromium] › tests/browser/cms-reuse.spec.ts:1148:1 › raw media: usage metadata is an opt-in native read whose count-or-null shape is asserted truthfully (173ms)
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 3, media attempted 3)
+  ✓   8 [chromium] › tests/browser/cms-reuse.spec.ts:1222:1 › document successor: domain status and successor identity stay distinct from publication state (953ms)
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 3, media attempted 2)
+  ✓   9 [chromium] › tests/browser/cms-reuse.spec.ts:1357:1 › health report: create refuses omitted, empty, wrong-target and excessive report_document selections (525ms)
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 2, media attempted 1)
+  ✓  10 [chromium] › tests/browser/cms-reuse.spec.ts:1432:1 › health report: an invalid clear of the required selection is refused and the selection survives (306ms)
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 4, media attempted 1)
+  ✓  11 [chromium] › tests/browser/cms-reuse.spec.ts:1466:1 › health report: a valid selection permits incomplete drafts and optional relations may be supplied empty (712ms)
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 4, media attempted 2)
+  ✓  12 [chromium] › tests/browser/cms-reuse.spec.ts:1527:1 › publication: native Publish accepts valid incomplete reports and multi-Document announcements after its requiredness/cardinality recheck (786ms)
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 2, media attempted 1)
+  ✓  13 [chromium] › tests/browser/cms-reuse.spec.ts:1605:1 › schedule: a valid incomplete report schedules under native semantics with no Songhealth reference predicate (461ms)
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 2, media attempted 1)
+  ✓  14 [chromium] › tests/browser/cms-reuse.spec.ts:1684:1 › publication boundary: an emptied required selection refuses re-Publish while Schedule acceptance applies no reference predicate (675ms)
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 2, media attempted 1)
+  ✓  15 [chromium] › tests/browser/cms-reuse.spec.ts:1820:1 › maintenance: authorized target removal has no custom veto and current state is observed truthfully (532ms)
+[cms-reuse] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 1)
+  ✓  16 [chromium] › tests/browser/cms-reuse.spec.ts:1897:1 › maintenance: authorized media replacement and removal keep selection identity with no availability promise (322ms)
+
+  16 passed (7.9s)
+exit=0
+
+## tests/browser/cms-personnel.spec.ts
+
+Running 11 tests using 1 worker
+
+[cms-personnel] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   1 [chromium] › tests/browser/cms-personnel.spec.ts:600:1 › personnel schema precondition: approved native definition is active with no sensitive/history/account-link fields (4ms)
+[cms-personnel] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   2 [chromium] › tests/browser/cms-personnel.spec.ts:616:1 › create/save/reopen: title-only minimal Personnel record saves with permitted optional omissions (127ms)
+[cms-personnel] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 1)
+  ✓   3 [chromium] › tests/browser/cms-personnel.spec.ts:643:1 › valid control: optional current fields save and read back, with boolean false/0 accepted and each native read-back path asserted exactly (363ms)
+[cms-personnel] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   4 [chromium] › tests/browser/cms-personnel.spec.ts:744:1 › create refuses missing, null and empty required display-name title (30ms)
+[cms-personnel] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   5 [chromium] › tests/browser/cms-personnel.spec.ts:763:1 › update refuses invalid clearing of the required display-name title; the record stays intact (162ms)
+[cms-personnel] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   6 [chromium] › tests/browser/cms-personnel.spec.ts:797:1 › create refuses representative invalid supplied values for the approved optional field types (60ms)
+[cms-personnel] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   7 [chromium] › tests/browser/cms-personnel.spec.ts:832:1 › assignment, unit and visibility changes update the SAME Personnel identity with a current native _rev (295ms)
+[cms-personnel] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   8 [chromium] › tests/browser/cms-personnel.spec.ts:920:1 › Personnel visibility changes leave the editing account's identity/permissions and the record's authorship unchanged (214ms)
+[cms-personnel] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   9 [chromium] › tests/browser/cms-personnel.spec.ts:981:1 › native editorial revisions record the same-identity maintenance (traceability baseline, not an assignment-history feature) (292ms)
+[cms-personnel] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓  10 [chromium] › tests/browser/cms-personnel.spec.ts:1045:1 › unauthenticated Save is an authorization refusal, distinct from native validation (6ms)
+[cms-personnel] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓  11 [chromium] › tests/browser/cms-personnel.spec.ts:1087:1 › a stale _rev assignment update is a native state conflict, distinct from validation and authorization (183ms)
+
+  11 passed (2.6s)
+exit=0
+
+## tests/browser/cms-facilities.spec.ts
+
+Running 20 tests using 1 worker
+
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓   1 [chromium] › tests/browser/cms-facilities.spec.ts:1431:1 › health_services schema precondition: approved native data-field definition with inclusive coordinate ranges and no extra fields (4ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓   2 [chromium] › tests/browser/cms-facilities.spec.ts:1446:1 › facility_services precondition: exactly one reciprocal edge set, bound on both sides with unbounded maxima (32ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 4, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓   3 [chromium] › tests/browser/cms-facilities.spec.ts:1527:1 › the four Service ownership modes save and read back distinctly, ownership independent from channels (515ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓   4 [chromium] › tests/browser/cms-facilities.spec.ts:1602:1 › Service ownership guidance omissions are permitted and an invalid ownership value is refused (164ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓   5 [chromium] › tests/browser/cms-facilities.spec.ts:1630:1 › create/save/reopen: title-only minimal Health Service saves with permitted optional omissions (124ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓   6 [chromium] › tests/browser/cms-facilities.spec.ts:1652:1 › create refuses missing, null and empty required official-name title (28ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓   7 [chromium] › tests/browser/cms-facilities.spec.ts:1671:1 › update refuses invalid clearing of the required official-name title; the record stays intact (167ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 1)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓   8 [chromium] › tests/browser/cms-facilities.spec.ts:1699:1 › valid control: optional facility fields save and read back, including affiliation owner text and an image selection (176ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 3, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓   9 [chromium] › tests/browser/cms-facilities.spec.ts:1755:1 › coordinates: valid numeric zero and inclusive boundaries save and read back; invalid types and out-of-range values are refused (503ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓  10 [chromium] › tests/browser/cms-facilities.spec.ts:1810:1 › create refuses representative invalid supplied values for the approved optional facility types (58ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 2, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓  11 [chromium] › tests/browser/cms-facilities.spec.ts:1845:1 › operational_status changes alone never change publication state; no completeness rule gates publishing (482ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 4)
+  ✓  12 [chromium] › tests/browser/cms-facilities.spec.ts:1915:1 › synthetic area hierarchy retains supplied codes in slugs, parent identities and source description; label edits retain code/identity (298ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 4)
+  ✓  13 [chromium] › tests/browser/cms-facilities.spec.ts:1979:1 › facility physical address/coordinates are distinct from the coverage area selection (338ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 1)
+  ✓  14 [chromium] › tests/browser/cms-facilities.spec.ts:2035:1 › optional facility_type classification selects a clearly synthetic term (179ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 3, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓  15 [chromium] › tests/browser/cms-facilities.spec.ts:2076:1 › one shared Service at two facilities: exact reciprocal identities in both directions, no copied Service (460ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 2, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓  16 [chromium] › tests/browser/cms-facilities.spec.ts:2143:1 › the child-side offering_facilities selector writes the same single edge set (308ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 2, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓  17 [chromium] › tests/browser/cms-facilities.spec.ts:2176:1 › empty optional selections are permitted on both sides of the relation (287ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 3, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓  18 [chromium] › tests/browser/cms-facilities.spec.ts:2206:1 › staged versus live reciprocal semantics: a pending published-side edit is not a live edge until native publication (604ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓  19 [chromium] › tests/browser/cms-facilities.spec.ts:2293:1 › unauthenticated Save is an authorization refusal, distinct from native validation (8ms)
+[cms-facilities] owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+[cms-facilities] synthetic-term cleanup after test: complete (terms attempted 0)
+  ✓  20 [chromium] › tests/browser/cms-facilities.spec.ts:2335:1 › a stale _rev facility update is a native state conflict, distinct from validation and authorization (185ms)
+
+  20 passed (6.0s)
+exit=0
+
+## tests/browser/cms-lifecycle.spec.ts
+
+Running 13 tests using 1 worker
+
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   1 [chromium] › tests/browser/cms-lifecycle.spec.ts:939:1 › pages schema precondition: the approved native definition is active (9ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 0, media attempted 1)
+  ✓   2 [chromium] › tests/browser/cms-lifecycle.spec.ts:950:1 › contributor: saves drafts while direct publish, schedule, trash and media removal are refused by native RBAC (345ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   3 [chromium] › tests/browser/cms-lifecycle.spec.ts:1017:1 › author: publishes and unpublishes own incomplete draft directly with no approval step, and is refused on others' content (397ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 1)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 0, media attempted 1)
+  ✓   4 [chromium] › tests/browser/cms-lifecycle.spec.ts:1083:1 › author: native media removal is ownership-bound — own media deletable, others' refused (150ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   5 [chromium] › tests/browser/cms-lifecycle.spec.ts:1125:1 › editor: publishes and manages others' content directly, and is refused the administrator-only purge and users administration (421ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 0, media attempted 1)
+  ✓   6 [chromium] › tests/browser/cms-lifecycle.spec.ts:1182:1 › editor: media removal of another account's asset succeeds at editor level (the separate native media authority) (126ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   7 [chromium] › tests/browser/cms-lifecycle.spec.ts:1209:1 › administrator: permanent content deletion is trash-first and administrator-only, and users administration is an administrator boundary (176ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   8 [chromium] › tests/browser/cms-lifecycle.spec.ts:1265:1 › disabled account: direct requests are refused by the authorization layer, and restoration is verified by re-read (232ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   9 [chromium] › tests/browser/cms-lifecycle.spec.ts:1350:1 › unauthenticated lifecycle requests are authorization refusals, never validation outcomes (6ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 2, media attempted 0)
+  ✓  10 [chromium] › tests/browser/cms-lifecycle.spec.ts:1392:1 › stale _rev: publish and schedule refuse a stale revision token, and a re-read retry succeeds (489ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓  11 [chromium] › tests/browser/cms-lifecycle.spec.ts:1445:1 › scheduling: an explicit-offset future time is accepted for an incomplete draft and read back; a non-future time is a native validation refusal (278ms)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓  12 [chromium] › tests/browser/cms-lifecycle.spec.ts:1565:1 › scheduling: nothing is published before the scheduled time (bounded pre-due observation, then native unschedule) (40.3s)
+[cms-lifecycle] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-lifecycle] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓  13 [chromium] › tests/browser/cms-lifecycle.spec.ts:1715:1 › scheduling: the native scheduler publishes at the due time (bounded observation, current-state assertion) (1.2m)
+
+  13 passed (1.9m)
+exit=0
+
+## tests/browser/cms-revisions.spec.ts
+
+Running 12 tests using 1 worker
+
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+  ✓   1 [chromium] › tests/browser/cms-revisions.spec.ts:1612:1 › schema precondition: the approved native pages, news and documents definitions are active (6ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   2 [chromium] › tests/browser/cms-revisions.spec.ts:1628:1 › current _rev: a fresh token carries an update; a stale token is refused without touching newer work, and the re-read retry succeeds (468ms)
+[cms-revisions] uncertain-outcome reconciliation: committed-without-acknowledgment=true; retried-after-current-state-read=false
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   3 [chromium] › tests/browser/cms-revisions.spec.ts:1733:1 › uncertain outcome: a lost write acknowledgment is never success, and current state is read before any retry (212ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   4 [chromium] › tests/browser/cms-revisions.spec.ts:1840:1 › stale _rev publish: refused as a native conflict with publication state unchanged, then the re-read retry publishes (301ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   5 [chromium] › tests/browser/cms-revisions.spec.ts:1912:1 › revision history: saves create distinct native revisions newest-first with caller authorship, and a selected native restore reverts the content through a new revision (453ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   6 [chromium] › tests/browser/cms-revisions.spec.ts:2060:1 › native autosave: skipRevision saves replace the superseded autosave revision, and the pending draft survives an interrupted edit server-side (433ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   7 [chromium] › tests/browser/cms-revisions.spec.ts:2165:1 › edit locks: a distinct account's lease blocks a second writer with ENTRY_LOCKED until the documented override or release (478ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 2, media attempted 1)
+  ✓   8 [chromium] › tests/browser/cms-revisions.spec.ts:2344:1 › published vs pending: content-data and reference edits stage under the draft revision while the live published data stays intact until Publish Changes (600ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓   9 [chromium] › tests/browser/cms-revisions.spec.ts:2513:1 › live metadata: taxonomy, SEO and byline writes apply to current state immediately, create no content revisions, and leave the pending content draft pending (543ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓  10 [chromium] › tests/browser/cms-revisions.spec.ts:2630:1 › SEO boundary: a collection without SEO enabled refuses SEO writes truthfully and leaves all state untouched (207ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 1)
+  ✓  11 [chromium] › tests/browser/cms-revisions.spec.ts:2682:1 › shared media: asset metadata changes are current-state only; the content revision keeps the selection identity, with no byte or availability claim (241ms)
+[cms-revisions] role-fixture owned-fixture cleanup after test: complete (entries attempted 0, media attempted 0)
+[cms-revisions] admin owned-fixture cleanup after test: complete (entries attempted 1, media attempted 0)
+  ✓  12 [chromium] › tests/browser/cms-revisions.spec.ts:2750:1 › unauthenticated revision-surface reads are authorization refusals, never data exposure (136ms)
+
+  12 passed (5.0s)
+exit=0
+
+## tests/browser/cms-lifecycle-ui.spec.ts
+
+Running 3 tests using 1 worker
+
+[cms-lifecycle-ui] role-fixture owned-fixture cleanup: complete (entries 0)
+[cms-lifecycle-ui] admin owned-fixture cleanup: complete (entries 1)
+  ✓  1 [chromium] › tests/browser/cms-lifecycle-ui.spec.ts:122:1 › native Admin publish: the editor's Publish now action publishes a draft, read back through the API (6.9s)
+[cms-lifecycle-ui] role-fixture owned-fixture cleanup: complete (entries 1)
+[cms-lifecycle-ui] admin owned-fixture cleanup: complete (entries 0)
+  ✓  2 [chromium] › tests/browser/cms-lifecycle-ui.spec.ts:145:1 › native Admin lock: another account's lease opens read-only with the holder named, and the holder keeps the lease (6.0s)
+[cms-lifecycle-ui] role-fixture owned-fixture cleanup: complete (entries 0)
+[cms-lifecycle-ui] admin owned-fixture cleanup: complete (entries 0)
+  ✓  3 [chromium] › tests/browser/cms-lifecycle-ui.spec.ts:174:1 › native Admin mandatory reference: a Health Report without its Document is held by the editor and never created (7.6s)
+
+  3 passed (21.3s)
+exit=0
+
+## tests/browser/cms-editor.spec.ts
+
+Running 5 tests using 1 worker
+
+[cms-editor] Admin boundary reached at /_emdash/admin/login (unauthenticated; no session attempted)
+[cms-editor] owned-resource cleanup after test: complete (entries attempted 0, media attempted 0, terms registered 0)
+  ✓  1 [chromium] › tests/browser/cms-editor.spec.ts:1046:1 › native Admin boundary is reachable and localized in Thai with correct English fallback (always runs) (5.7s)
+[cms-editor] owned-resource cleanup after test: complete (entries attempted 2, media attempted 1, terms registered 1)
+  ✓  2 [chromium] › tests/browser/cms-editor.spec.ts:1103:1 › maintenance journey: Thai labels, search/status filter, find and reopen, native media/reference/taxonomy selectors, reuse, and explicit save (9.6s)
+[cms-editor] owned-resource cleanup after test: complete (entries attempted 1, media attempted 0, terms registered 1)
+  ✓  3 [chromium] › tests/browser/cms-editor.spec.ts:1311:1 › a real native validation error surfaces readably and is corrected (services ลิงก์บริการภายนอก) (8.8s)
+[cms-editor] owned-resource cleanup after test: complete (entries attempted 1, media attempted 0, terms registered 1)
+  ✓  4 [chromium] › tests/browser/cms-editor.spec.ts:1370:1 › the domain date stays separate from publication state and system metadata (announcements วันที่ประกาศ) (7.2s)
+[cms-editor] owned-resource cleanup after test: complete (entries attempted 1, media attempted 1, terms registered 1)
+[cms-editor] owned-resource cleanup final worker: complete (entries attempted 0, media attempted 0, terms registered 1)
+  ✓  5 [chromium] › tests/browser/cms-editor.spec.ts:1439:1 › the native gallery repeater: one task-owned image row with its optional caption, saved explicitly (activities แกลเลอรีภาพ) (8.1s)
+
+  5 passed (40.3s)
+exit=0
+
+## T021 coordinator (cms-public-reads.spec.ts)
+coordinator: exact source identity verified — runtime source 7567a293718369ee35d82b09d52428f5f32f8232 equals the candidate under test (git rev-parse HEAD of this checkout)
+coordinator: discovery pre-pass established 14 expected T021 test identities
+coordinator: running tests/browser/cms-public-reads.spec.ts through the pinned Playwright runner against http://127.0.0.1:4324 (timeout 1200000ms; owned-fixture manifest .tmp/feature002/t021-ownership-2026-10-29T02-52-35-070Z-2583214.jsonl)
+
+Running 14 tests using 1 worker
+
+  ✓   1 [chromium] › tests/browser/cms-public-reads.spec.ts:1826:1 › fixture route contract: identity probe, no-store, fail-closed access, method and bounded-input refusals (512ms)
+  ✓   2 [chromium] › tests/browser/cms-public-reads.spec.ts:1930:1 › published-only collection reads: drafts, pending titles, unpublished and trashed entries never appear; published ones do (699ms)
+  ✓   3 [chromium] › tests/browser/cms-public-reads.spec.ts:1996:1 › published entry reads: optional omissions stay absent and never fabricated (439ms)
+  ✓   4 [chromium] › tests/browser/cms-public-reads.spec.ts:2048:1 › live versus pending: staged content-data and reference selections stay invisible to public reads until publication (1.2s)
+  ✓   5 [chromium] › tests/browser/cms-public-reads.spec.ts:2155:1 › native signed preview boundary: absent, malformed, expired, wrong-entry, wrong-collection and untrusted edit parameters never expose drafts (2.5s)
+  ✓   6 [chromium] › tests/browser/cms-public-reads.spec.ts:2284:1 › draft, trashed and unavailable linked targets are omitted from public reference reads without blocking the parent (1.3s)
+  ✓   7 [chromium] › tests/browser/cms-public-reads.spec.ts:2346:1 › a save-time required reference is not a read-time availability guarantee (D-REF stays deferred) (601ms)
+  ✓   8 [chromium] › tests/browser/cms-public-reads.spec.ts:2388:1 › reference identity, opt-in hydration and multi-page traversal (1.2s)
+  ✓   9 [chromium] › tests/browser/cms-public-reads.spec.ts:2499:1 › missing files: a published Document whose media asset was removed reads as safe unavailability, never a false download success (336ms)
+  ✓  10 [chromium] › tests/browser/cms-public-reads.spec.ts:2580:1 › truthful not-found and empty states, and no privileged fallback on anonymous surfaces (71ms)
+  ✓  11 [chromium] › tests/browser/cms-public-reads.spec.ts:2621:1 › native error channel: a malformed pagination cursor surfaces the real native error contract, never an empty success (R5) (298ms)
+  ✓  12 [chromium] › tests/browser/cms-public-reads.spec.ts:2696:1 › R3-B settlement validation (regression): invalid resolved/refused records settle nothing and stay outstanding; valid settlements still function (7ms)
+  ✓  13 [chromium] › tests/browser/cms-public-reads.spec.ts:2783:1 › R3-B whole-manifest admission (remediation regression): any invalid row freezes the entire journal before any native work (11ms)
+  ✓  14 [chromium] › tests/browser/cms-public-reads.spec.ts:2875:1 › scope reduction (regression): historical ownership evidence always HOLDs — no replay, no adoption, no evidence removal (11ms)
+
+  14 passed (10.2s)
+coordinator: T021 run passed with no owned-fixture residue
+exit=0
+
+## runtime verify (after)
+PASS: songhealth-dev-db.service active
+PASS: songhealth-dev-app.service active
+PASS: database container healthy
+PASS: application container healthy
+PASS: published only on 127.0.0.1:4324 (database has no host port)
+PASS: public SSR marker served at http://127.0.0.1:4324/
+PASS: native Admin UI reachable at http://127.0.0.1:4324/_emdash/admin/
+PASS: EmDash setup complete
+PASS: native migrations: none pending or unknown (emdash migrate --check)
+PASS: least-privilege app role owns songhealth_qdev
+PASS: runtime source is the promoted commit, clean
+PASS: EmDash accepted EMDASH_ENCRYPTION_KEY
+PASS: development PAT (mode 0600) authenticates
+PASS: role fixture PAT (mode 0600) authenticates as an enabled Author
+PASS: T021 fixture route answers its 0600 route token and refuses without it
+runtime source: /home/thanakorn/dev/songhealth-quadlet @ 7567a293718369ee35d82b09d52428f5f32f8232
+VERIFY: PASS

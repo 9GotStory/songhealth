@@ -1,0 +1,7 @@
+# T033 model check — 2026-10-29T02:53:54Z — runtime source 7567a293718369ee35d82b09d52428f5f32f8232
+collections: 10 live, 10 in the model; organizations variant absent: True
+fields checked: 80 (type, save-time requiredness, options, ranges, subfields)
+taxonomies checked: 9 attached + built-ins ['category', 'tag'] unattached
+relations checked: 6 (parent/child, maxima, bound fields)
+MODEL-CHECK: PASS
+exit=0
