@@ -6,6 +6,7 @@
 // main content, and the footer. The page passes its title and the
 // main-navigation section it belongs to; the shell marks that section.
 import { MAIN_NAVIGATION, UTILITY_LINKS, currentMark, type Section } from "../lib/navigation";
+import { OFFICE_NAME, getSiteIdentity } from "../lib/site-identity";
 
 interface Props {
 	/** The page's own title. The Homepage passes none and is titled by the site title alone. */
@@ -15,11 +16,8 @@ interface Props {
 }
 
 const { title, section } = Astro.props;
-
-/** The office's official name, fixed interface text (Figma utility bar and footer). */
-const OFFICE_NAME = "สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่";
-const siteTitle = "สำนักงานสาธารณสุขอำเภอสอง";
-const pageTitle = title === undefined ? siteTitle : `${title} | ${siteTitle}`;
+const identity = await getSiteIdentity();
+const pageTitle = title === undefined ? identity.title : `${title} | ${identity.title}`;
 const { pathname } = Astro.url;
 ---
 
@@ -44,7 +42,26 @@ const { pathname } = Astro.url;
 				</ul>
 			</div>
 			<div>
-				<a href="/">{siteTitle}</a>
+				<a href="/">
+					{identity.logo ? (
+						<img
+							src={identity.logo.url}
+							alt=""
+							width={identity.logo.width ?? 48}
+							height={identity.logo.height ?? 48}
+						/>
+					) : (
+						<span data-testid="placeholder-mark" aria-hidden="true">
+							<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+								<path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z" />
+							</svg>
+						</span>
+					)}
+					<span>
+						<span>{identity.title}</span>
+						{identity.tagline && <span>{identity.tagline}</span>}
+					</span>
+				</a>
 				<nav aria-label="เมนูหลัก">
 					<ul>
 						{MAIN_NAVIGATION.map((item) => (
@@ -62,7 +79,7 @@ const { pathname } = Astro.url;
 			<slot />
 		</main>
 		<footer>
-			<p>{siteTitle}</p>
+			<p>{identity.title}</p>
 			<p>{OFFICE_NAME}</p>
 			<ul>
 				<li><a href="/contact">ติดต่อเรา</a></li>

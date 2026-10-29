@@ -10,10 +10,23 @@
 // HTTP status and focus. It never asserts Tailwind classes or markup for its
 // own sake.
 
+import {
+	cleanupOwnedFixtures,
+	cmsRequest,
+	createPatActor,
+	loadDevAccessToken,
+	nativeDataOf,
+	NATIVE_ROLES,
+	uploadSyntheticMedia,
+	type CmsActor,
+} from "./cms.helpers";
 import { DESKTOP_VIEWPORT, expect, test } from "./public.helpers";
 
 /** The office's official name, fixed interface text in the utility bar. */
 const OFFICE_NAME = "สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่";
+
+/** The site title shown while the native site settings name none. */
+const DEFAULT_SITE_TITLE = "สำนักงานสาธารณสุขอำเภอสอง";
 
 /** `03` §2 main navigation, in order. */
 const MAIN_NAVIGATION = [
@@ -82,4 +95,73 @@ test("an unknown address answers 404 with the site-designed page inside the shel
 	await expect(navigation.getByRole("link")).toHaveCount(MAIN_NAVIGATION.length);
 	await expect(navigation.locator("[aria-current]"), "the 404 page marks no section").toHaveCount(0);
 	await expect(page.getByRole("contentinfo")).toBeVisible();
+});
+
+test.describe("site identity from the native site settings", () => {
+	interface SiteSettingsView {
+		title?: string;
+		tagline?: string;
+		logo?: { mediaId: string; alt?: string; url?: string };
+	}
+
+	async function writeSettings(
+		admin: CmsActor,
+		update: Record<string, unknown>,
+	): Promise<SiteSettingsView> {
+		const result = await cmsRequest(admin, "/_emdash/api/settings", { method: "POST", body: update });
+		expect(result.ok, `the native settings update must succeed (status ${result.status})`).toBe(true);
+		return nativeDataOf(result) as SiteSettingsView;
+	}
+
+	test("the header and footer show the title, tagline and logo, falling back to the placeholder mark", async ({
+		page,
+		baseURL,
+	}) => {
+		const admin = await createPatActor({
+			baseUrl: baseURL,
+			token: await loadDevAccessToken(),
+			expected: { role: NATIVE_ROLES.administrator },
+		});
+		const saved = await cmsRequest(admin, "/_emdash/api/settings");
+		expect(saved.ok, "the native settings read must succeed").toBe(true);
+		const before = (nativeDataOf(saved) ?? {}) as SiteSettingsView;
+		const marker = crypto.randomUUID().slice(0, 8);
+		const title = `songhealth-f003-synthetic ชื่อเว็บไซต์ ${marker}`;
+		const tagline = `songhealth-f003-synthetic คำโปรย ${marker}`;
+		try {
+			const media = await uploadSyntheticMedia(admin);
+			expect(media.mediaId, "the synthetic logo must upload").toBeDefined();
+			const written = await writeSettings(admin, { title, tagline, logo: { mediaId: media.mediaId } });
+			expect(written.logo?.url, "the native settings resolve the logo URL").toBeTruthy();
+
+			await page.goto("/");
+			const identity = page.getByRole("banner").getByRole("link", { name: title });
+			await expect(identity).toHaveAttribute("href", "/");
+			await expect(identity).toContainText(tagline);
+			await expect(identity.locator("img")).toHaveAttribute("src", written.logo!.url!);
+			await expect(identity.getByTestId("placeholder-mark")).toHaveCount(0);
+			await expect(page.getByRole("contentinfo")).toContainText(title);
+			await expect(page).toHaveTitle(title);
+
+			// No logo, title or tagline: the placeholder mark and the default title stand in.
+			await writeSettings(admin, { title: "", tagline: "", logo: null });
+			await page.reload();
+			const fallback = page.getByRole("banner").getByRole("link", { name: DEFAULT_SITE_TITLE });
+			await expect(fallback).toHaveAttribute("href", "/");
+			await expect(fallback.getByTestId("placeholder-mark")).toBeVisible();
+			await expect(fallback.locator("img")).toHaveCount(0);
+			await expect(page.getByRole("banner")).not.toContainText(tagline);
+			await expect(page).toHaveTitle(DEFAULT_SITE_TITLE);
+		} finally {
+			// Restore what was there. The native API cannot delete a title or
+			// tagline, so an unset one is restored as empty, which renders the same.
+			await writeSettings(admin, {
+				title: before.title ?? "",
+				tagline: before.tagline ?? "",
+				logo: before.logo === undefined ? null : { mediaId: before.logo.mediaId, alt: before.logo.alt },
+			});
+			const report = await cleanupOwnedFixtures(admin, { permanent: true });
+			expect(report.complete, "the synthetic logo must be removed").toBe(true);
+		}
+	});
 });
