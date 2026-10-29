@@ -21,13 +21,21 @@ version changes, re-verify every line.
     `findStoragelessQueryKey`).
 - `orderBy` is a plain `field DESC|ASC`, with `id` as the tiebreaker. On PostgreSQL, DESC puts
   NULLs first (`buildOrderByClause`). An optional date therefore cannot sort with a publish-date
-  fallback inside the query.
+  fallback inside the query; `src/lib/dated-lists.ts` sorts in code instead (ADR 0004).
+- Without a `limit`, `getEmDashCollection` returns every matching entry: the query has no `LIMIT`
+  (`src/loader.ts`, `fetchLimit`).
 - No query returns distinct values. `src/lib/documents.ts` `fiscalYears` walks down instead.
 - `getEmDashEntry(type, slug, { references: { field: true } })` adds
   `entry.references.field.entries`. A target resolves only while it is published, or is a draft in
   preview (`src/query.ts` `attachReferences`). If you pass explicit type arguments, pass the
   selection as the third one, `getEmDashEntry<"documents", DocumentData, { successor: true }>`,
   otherwise `references` types as `{}`.
+- A reference field's page holds 50 targets by default and at most 100 with `{ limit }`, in the
+  order staff linked them (`src/references/staged.ts` `REFERENCE_PAGE_LIMIT`,
+  `src/references/resolve.ts`). Referenced entries come without taxonomy terms or bylines
+  (`src/loader.ts` `loadEntriesByGroups`).
+- `extractPlainText`, exported from `emdash`, turns Portable Text into plain text
+  (`src/search/text-extraction.ts`). It needs no search index, so it works on PostgreSQL.
 - `Astro.rewrite("/404")` answers 404, and EmDash logs the miss (`src/astro/middleware/redirect.ts`).
   A slug change gets a native 301, which needs the collection's `urlPattern`.
 
@@ -41,6 +49,9 @@ version changes, re-verify every line.
   `mimeType`, the dimensions, `alt` and `meta.storageKey`, and drops `size`
   (`src/media/normalize.ts` `recordToMediaValue`). An image saved as `{ id }` takes its alt text
   from the library (`mergeProviderData`).
+- An image inside a repeater item is normalised on save the way an image field is, so an item saved
+  as `{ id }` takes its alt text from the library too (`src/emdash-runtime.ts`, the repeater
+  sub-field loop beside the image fields).
 - `/_emdash/api/media/file/{key}` serves the stored file by key. Safe image, video and audio types
   are served inline; anything else is an attachment (`src/astro/routes/api/media/file/[...key].ts`).
 - Deleting a media item has no in-use guard. It removes the stored file unless another media row
@@ -65,6 +76,12 @@ version changes, re-verify every line.
   runtime init failed (`src/astro/middleware.ts`).
 - `emdash/locals` (`locals.d.ts`) types `App.Locals`. `src/env.d.ts` references it, because the
   generated `emdash-env.d.ts` is not kept.
+
+## Admin input
+
+- A datetime field is a UTC instant. The Admin edits it as `<input type="datetime-local">` in the
+  site's `timezone` setting and saves canonical UTC ISO (`@emdash-cms/admin` 1.1.0
+  `dist/index.js`, `src/lib/datetime-local.ts` region).
 
 ## Head, settings, menus, sitemap
 

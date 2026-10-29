@@ -52,6 +52,8 @@ if (!entry) return Astro.rewrite("/404");
 const announcement = entry.data;
 const types = termsOf(announcement, "announcement_type");
 const closed = isClosed(announcement, new Date());
+// The field targets the documents collection; without generated types EmDash types its entries
+// as plain records.
 const documents = (entry.references?.documents.entries ?? []) as unknown as DocumentEntry[];
 const description = excerpt(extractPlainText(announcement.details), DESCRIPTION_LENGTH);
 const hasDetails =
