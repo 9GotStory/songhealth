@@ -1,0 +1,87 @@
+# UID-1001 Songhealth retirement (plan) 2026-10-29T00:05:17Z as multica-agent (uid 1001)
+
+== containers to stop and remove (5)
+  songhealth-dev-app
+  songhealth-dev-postgres
+  systemd-songhealth-app
+  systemd-songhealth-db
+  songhealth-dev-db
+
+== pods to remove (0)
+  (none)
+
+== systemd user units to stop (5)
+  songhealth-app.service
+  songhealth-db-data-volume.service
+  songhealth-db.service
+  songhealth-media-volume.service
+  songhealth-network.service
+
+== unit, Quadlet and environment files to remove (names only) (7)
+  /home/multica-agent/.config/containers/systemd/songhealth-app.container
+  /home/multica-agent/.config/containers/systemd/songhealth-app.env
+  /home/multica-agent/.config/containers/systemd/songhealth-db-data.volume
+  /home/multica-agent/.config/containers/systemd/songhealth-db.container
+  /home/multica-agent/.config/containers/systemd/songhealth-db.env
+  /home/multica-agent/.config/containers/systemd/songhealth-media.volume
+  /home/multica-agent/.config/containers/systemd/songhealth.network
+
+== volumes to remove (no other user) (5)
+  songhealth-db-data
+  songhealth-dev-db-data
+  songhealth-dev-media-v1
+  songhealth-dev-postgres-data-v1
+  songhealth-media
+
+== networks to remove (no other user) (3)
+  songhealth
+  songhealth-dev-app-net
+  songhealth-dev-db-net
+
+== podman secrets to remove (names only) (3)
+  songhealth-encryption-key
+  songhealth-migration-database-url
+  songhealth-db-password
+
+== images to remove, every tag (no other user) (3)
+  localhost/songhealth-dev-tooling:node24.21.0-npm12.2.0-r1 (0f63981da9e9)
+  localhost/songhealth-app:0.0.1 (8fbe6e02d2e2)
+  localhost/songhealth-app:t017-canary localhost/songhealth-app:t017-clean localhost/songhealth-app:t017 (bc2009a79dec)
+
+== directories to remove (6)
+  /home/multica-agent/.local/share/dev-runtimes/songhealth (412K)
+  /home/multica-agent/projects/songhealth-dev (853M)
+  /home/multica-agent/projects/.songhealth-dev.git (6.9M; git store of the stable source only)
+  /home/multica-agent/projects/songhealth (3.3M; git: nothing outside GitHub; modified=0 unpushed=0 stashes=0 worktrees=1)
+  /home/multica-agent/.cache/songhealth-t029-scratch (16K; cache)
+  /home/multica-agent/.cache/songhealth-wp-core-t029 (119M; cache)
+
+== other Songhealth-named items: NOT removed, listed for review (0)
+  (none)
+
+== kept because another workload uses them (1)
+  image localhost/postgres:18.6-alpine (also used by: s2_test_pg_1792063553180 s2_devsh_3567537_postgres s2_devsh_3573952_postgres s2_devsh_3580575_postgres lucid_ardinghelli distracted_ptolemy )
+
+== crontab lines mentioning songhealth (not changed) (0)
+
+== other containers of this account (untouched) (listing)
+  s2_test_pg_1792063553180 | localhost/postgres:18.6-alpine | Created
+  s2_devsh_3567537_postgres | localhost/postgres:18.6-alpine | Exited (0) 11 days ago
+  s2_devsh_3573952_postgres | localhost/postgres:18.6-alpine | Exited (0) 11 days ago
+  s2_devsh_3580575_postgres | localhost/postgres:18.6-alpine | Exited (0) 11 days ago
+  s2-assets-dev-postgres | docker.io/library/postgres:18.6-alpine | Up 13 days (healthy)
+  s2-assets-dev-api | localhost/s2-assets-dev-runtime:9b126bd | Exited (0) 3 days ago
+  s2-assets-dev-web | localhost/s2-assets-dev-runtime:9b126bd | Up 13 days
+  s2-e2e-runner-testrun1-inv-2357222-15a98464 | localhost/s2-assets-e2e-runner:local | Exited (0) 12 days ago
+  s2-e2e-precedence-1792162077684 | localhost/s2-assets-e2e-runner:local | Exited (47) 12 days ago
+  s2-e2e-precedence-1792162078467 | localhost/s2-assets-e2e-runner:local | Exited (47) 12 days ago
+  s2-e2e-precedence-1792162079880 | localhost/s2-assets-e2e-runner:local | Exited (0) 12 days ago
+  s2-e2e-precedence-1792162080822 | localhost/s2-assets-e2e-runner:local | Exited (0) 12 days ago
+  s2-e2e-precedence-1792162222190 | localhost/s2-assets-e2e-runner:local | Exited (47) 12 days ago
+  s2-e2e-precedence-1792162222983 | localhost/s2-assets-e2e-runner:local | Exited (47) 12 days ago
+  s2-e2e-precedence-1792162224488 | localhost/s2-assets-e2e-runner:local | Exited (0) 12 days ago
+  s2-e2e-precedence-1792162225269 | localhost/s2-assets-e2e-runner:local | Exited (0) 12 days ago
+  lucid_ardinghelli | localhost/postgres:18.6-alpine | Up 2 days (healthy)
+  distracted_ptolemy | localhost/postgres:18.6-alpine | Up 2 days (healthy)
+
+# plan only: nothing was changed. Re-run with "delete" to remove exactly the items above.

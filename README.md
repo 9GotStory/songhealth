@@ -51,9 +51,9 @@ acceptance** (details in `AGENTS.md` and the Constitution):
   (`9GotStory/songhealth`) is the source of truth for source, issues, pull requests and CI.
 - The **single development runtime** is the UID-1000 rootless Podman + systemd Quadlet runtime
   described below (`http://127.0.0.1:4324`), owned end-to-end by the local workspace user
-  (Product Owner decision 2026-10-28; Feature 002 T036). It replaces the earlier UID-1001
-  (`multica-agent`) runtime, which is left untouched — not used, stopped, migrated or deleted —
-  until a separate Product Owner deletion decision; it is no longer a development or test target,
+  (Product Owner decision 2026-10-28; Feature 002 T036). It replaced the earlier UID-1001
+  (`multica-agent`) runtime, which was deleted on 2026-10-29 (T037; see "Deleted UID-1001
+  runtimes" below); it is no longer a development or test target,
   and no data, media or credential is taken from it.
 - No other development runtime, PostgreSQL database or media store is created. The earlier
   native-host workflow (host `npm ci` / `npm run dev` plus the `dev-db` helper) stays superseded
@@ -125,14 +125,24 @@ with the user session; linger is not enabled, so the runtime stops when the last
 - `setup/dev-bypass` (initial setup) runs once, during installation; it is not a test setup step.
 - Never run `podman volume prune` / `podman system prune --volumes` while the runtime is stopped:
   that deletes the development database and media.
+- Never run `podman image prune -a` / `podman system prune -a` as UID 1000. This account's
+  storage also holds the accepted Feature 001 production image
+  `localhost/songhealth-app:0.0.1@sha256:4cfccf41…`, and a rebuild cannot reproduce it.
 
-### Retired UID-1001 runtime
+### Deleted UID-1001 runtimes
 
-The earlier persistent runtime on account `multica-agent` (UID 1001) — containers
-`songhealth-dev-app`/`songhealth-dev-postgres`, origin `http://127.0.0.1:4322`, Runtime Controller
-under `/home/multica-agent/.local/share/dev-runtimes/songhealth/` — is retired as a development and
-test target. It is left untouched (not stopped, migrated or deleted) pending a separate Product
-Owner deletion decision; its operating procedures remain in Git history.
+On 2026-10-29 the Product Owner deleted every Songhealth runtime of account `multica-agent`
+(UID 1001), without a backup (Feature 002 T037; evidence in
+`specs/002-cms-content-model/evidence/T037-single-runtime-completion.md`). That covered:
+
+- the controller-managed development runtime at `http://127.0.0.1:4322`, with its Runtime
+  Controller and stable source;
+- the production-foundation Quadlet stack at `127.0.0.1:4321`;
+- the superseded `dev-db` container.
+
+The accepted Feature 001 production image was first moved, digest-preserved, to UID 1000. Other
+workloads of that account were not touched. The runtimes' operating procedures remain in Git
+history.
 
 ## Superseded native-host workflow
 
@@ -152,7 +162,7 @@ Every task run cleans up only **task-owned temporary resources** before it ends:
   and private credential/token scratch files;
 - **never** stop or remove the runtime's `songhealth-qdev-app` / `songhealth-qdev-db` containers
   or delete its volumes (`songhealth-qdev-db-data`, `songhealth-qdev-media`), persistent data,
-  media, accepted sources, or evidence — and never touch the retired UID-1001 runtime.
+  media, accepted sources, or evidence.
 
 Cleanup is part of task completion, never deferred to a later task. A task run that cannot
 clean up a resource it owns reports that fact in its result instead of leaving it silently.

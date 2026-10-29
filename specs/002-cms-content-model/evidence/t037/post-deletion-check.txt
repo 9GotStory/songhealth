@@ -1,0 +1,9 @@
+# 2026-10-29T00:25:14Z post-deletion check from UID 1000 (read-only; no access to UID 1001 files)
+listeners on 127.0.0.1:4321/4322: 0
+GET http://127.0.0.1:4322/ -> HTTP 000
+UID-1001 processes whose arguments mention songhealth: 0
+UID-1001 containers running (conmon -n), Songhealth-named: 0
+UID-1001 containers running (conmon -n), all: distracted_ptolemy lucid_ardinghelli s2-assets-dev-postgres s2-assets-dev-web
+accepted Feature 001 image on UID 1000: 8fbe6e02d2e2 sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407
+runtime source: /home/thanakorn/dev/songhealth-quadlet @ 76b1d3034a1466fc4a5945618a5f8d4fe1327486
+VERIFY: PASS

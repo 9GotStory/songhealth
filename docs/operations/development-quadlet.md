@@ -7,10 +7,9 @@ production pattern (rootless Podman + systemd Quadlet, digest-pinned images, pod
 private network, marker-guarded persistent stores) with development simplifications: the
 Astro dev server instead of the built image, and loopback publication only.
 
-It replaces the earlier UID-1001 (`multica-agent`) runtime at `127.0.0.1:4322`. That runtime is
-**left untouched** — not stopped, migrated, copied or deleted — until a separate Product Owner
-deletion decision. It is no longer a development or test target, and nothing (data, media or
-credentials) is taken from it: this runtime starts from a fresh database.
+It replaced the earlier UID-1001 (`multica-agent`) runtime at `127.0.0.1:4322`, which was
+deleted on 2026-10-29 together with that account's production-foundation stack (T037). No data,
+media or credentials were taken from it: this runtime started from a fresh database.
 
 ## Topology
 
@@ -200,7 +199,10 @@ Runtime results are interpreted only against the commit verify reports.
 
 **Never run `podman volume prune` or `podman system prune --volumes` while the runtime is
 stopped.** Stopped containers do not hold the volumes, so prune deletes the development database
-and media.
+and media. **Never run `podman image prune -a` or `podman system prune -a` either.** This
+account's storage also holds the accepted Feature 001 production image
+`localhost/songhealth-app:0.0.1@sha256:4cfccf41…`, which no rebuild can reproduce
+(`docs/operations/production-foundation.md` §4.5).
 
 ## Boundaries
 

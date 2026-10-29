@@ -136,10 +136,12 @@ architecture, security requirements and runtime restrictions are unchanged:
   `~/dev/songhealth-quadlet` at a detached promoted commit, and the development origin
   `http://127.0.0.1:4324/`. Do not create or maintain any other development environment or
   development stack.
-- The earlier UID-1001 (`multica-agent`) runtime at `127.0.0.1:4322` is retired as a development
-  and test target and left untouched — not used, stopped, migrated, copied or deleted — until a
-  separate Product Owner deletion decision. Its credentials stay inaccessible to the local
-  workspace, and nothing is taken from it.
+- The earlier UID-1001 (`multica-agent`) Songhealth runtimes were deleted on 2026-10-29 (Product
+  Owner decision; Feature 002 T037). These were the development runtime at `127.0.0.1:4322` and
+  the production-foundation Quadlet stack at `127.0.0.1:4321`. Nothing of them is a
+  development, test or deployment target. The accepted Feature 001 production image
+  `localhost/songhealth-app:0.0.1@sha256:4cfccf41…` now lives in UID 1000's rootless storage; never
+  prune it (`podman image prune -a` / `podman system prune -a`).
 - Programmatic Admin/API tests use the runtime's own development PAT
   (`~/.local/state/songhealth-qdev/dev-pat`, mode 0600), minted once by EmDash's native
   development-only bootstrap (`POST /_emdash/api/setup/dev-bypass`) during installation. That
@@ -175,6 +177,9 @@ coordinator to this runtime:
 - the coordinator observes the runtime source through `dev-runtime-verify.sh`;
 - ordinary suites read the PAT through `SONGHEALTH_DEV_ACCESS` (commands in
   `docs/operations/development-quadlet.md`).
+
+T037 then deleted the UID-1001 Songhealth runtimes, after the accepted production image had been
+moved to UID 1000.
 
 ## Single Persistent Development Runtime — Mandatory Design and Test Gate
 

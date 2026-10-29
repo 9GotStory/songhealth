@@ -14,37 +14,26 @@ and [public-read contract](contracts/public-read.md).
 the UID-1000 rootless Podman + systemd Quadlet runtime at `http://127.0.0.1:4324/` described in
 the [README](../../README.md) and
 [docs/operations/development-quadlet.md](../../docs/operations/development-quadlet.md). Its
-read-only check is `scripts/dev-runtime-verify.sh`, and programmatic Admin/API calls use its
-development PAT `~/.local/state/songhealth-qdev/dev-pat` (mode 0600). The UID-1001 runtime,
-controller and auth-file loader described below are retired as development and test targets
-(left untouched pending deletion); the remaining wording of this quickstart is reconciled with
-the delivered runtime by T034.
+read-only check is `~/dev/songhealth-quadlet/scripts/dev-runtime-verify.sh`, and programmatic
+Admin/API calls use its development PAT `~/.local/state/songhealth-qdev/dev-pat` (mode 0600).
+The earlier UID-1001 runtime (origin `http://127.0.0.1:4322/`, Runtime Controller and auth-file
+loader) was deleted on 2026-10-29 (T037); its wording remains in Git history. The remaining
+wording of this quickstart is reconciled with the delivered runtime by T034.
 
-Earlier wording (retired runtime): use the single persistent development runtime documented in the [README](../../README.md):
-the single Fedora environment, account `multica-agent` (UID 1001), rootless Podman +
-Podman Compose; containers `songhealth-dev-app` (Astro 7.3.5 SSR + EmDash 1.1.0 on the pinned
-Node 24.21.0/npm 12.2.0 tooling image) and `songhealth-dev-postgres` (PostgreSQL 18.6);
-dedicated persistent database/media volumes; stable source
-`/home/multica-agent/projects/songhealth-dev` pinned to the accepted Feature 002 SHA; Runtime
-Controller `/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh`; development
-origin `http://127.0.0.1:4322/`. The runtime and its data survive Multica issues and agent
-sessions; `status` and `verify` are the only authorized routine controller operations. No
-parallel dev runtime and no second development stack. T022/T028 Feature 001 durability/recovery
-are still **PENDING** and are not redefined, waived or silently passed here. T028 still
-requires T022 PASS plus accepted T023–T027 sources (including runtime-secret recovery); T030
-still requires T028 PASS plus accepted T029 sources. Required readiness belongs to later
-bounded implementation/acceptance authorization. The pinned toolchain runs inside the shared
-runtime's tooling image; this guide produces no new runtime result by itself. Accepted
-activation evidence covers SSR, Admin authentication, native build, migration 90/90 and
-existing persistence with `state.complete=true`; live HMR, a new full persistence-restart test
-and automatic startup after a Fedora reboot remain **NOT TESTED** — never documented as PASS.
+There is no parallel dev runtime and no second development stack. T022/T028 Feature 001
+durability/recovery are still **PENDING** and are not redefined, waived or silently passed here.
+- T028 still requires T022 PASS plus accepted T023–T027 sources, including runtime-secret
+  recovery.
+- T030 still requires T028 PASS plus accepted T029 sources.
+- Required readiness belongs to later bounded implementation/acceptance authorization.
 
-After bounded implementation authorization and accepted schema setup, check the shared runtime
-(it is already running detached; do not start another server against its origin):
+This guide produces no new runtime result by itself.
+
+After bounded implementation authorization and accepted schema setup, check the runtime (it is
+already running; do not start another server against its origin):
 
 ```bash
-/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh status
-/home/multica-agent/.local/share/dev-runtimes/songhealth/runtime.sh verify
+~/dev/songhealth-quadlet/scripts/dev-runtime-verify.sh
 ```
 
 For automated development Admin/API access on the already-initialized shared runtime,

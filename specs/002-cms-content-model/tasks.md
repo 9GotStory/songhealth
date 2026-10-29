@@ -170,7 +170,7 @@ description: "Native-only CMS content-model development tasks, ordered by user s
 
 ## Phase 10: Development Runtime Replacement (Product Owner decision 2026-10-28)
 
-**Purpose**: Make the UID-1000 rootless Podman + systemd Quadlet runtime at `http://127.0.0.1:4324` the single development runtime and test target, replacing the UID-1001 runtime, which is left untouched (not used, stopped, migrated or deleted) pending a separate Product Owner deletion decision.
+**Purpose**: Make the UID-1000 rootless Podman + systemd Quadlet runtime at `http://127.0.0.1:4324` the single development runtime and test target, replacing the UID-1001 runtime. T036 left that runtime untouched; T037 then deleted it (Product Owner decision 2026-10-29).
 
 - [x] T036 Replace the development runtime with the converging `scripts/dev-runtime-install.sh --sha <commit>`.
   - **Installer behavior.** Idempotent and safe to re-run. It:
@@ -186,16 +186,19 @@ description: "Native-only CMS content-model development tasks, ordered by user s
   - **Designation.** Name the runtime in `README.md`, `AGENTS.md`, `CLAUDE.md` and this feature's plan and quickstart.
   - **Evidence.** Record the offline checks and the live install/verify results in `specs/002-cms-content-model/evidence/T036-dev-runtime.md`.
   - **Exclusions.** Do not touch the UID-1001 runtime. Adapt the T021 coordinator and other tests that assume it in their own tasks.
-- [ ] T037 Complete the single-runtime replacement (Product Owner decision 2026-10-29): move the T021 coordinator to `http://127.0.0.1:4324` first, then delete the UID-1001 runtime.
+- [x] T037 Complete the single-runtime replacement (Product Owner decision 2026-10-29): move the T021 coordinator to `http://127.0.0.1:4324` first, then delete the UID-1001 runtime.
   - **T021 on the single runtime.**
     - **Dev config.** `deploy/dev-quadlet/astro.dev.config.mjs` is the canonical configuration plus the development-only `cmsPublicReadsIntegration()`. The runtime entrypoint runs `astro dev` with it. `astro.config.mjs` and the production build stay unchanged.
     - **Route token.** The installer provisions the T021 route token pair: podman secret `songhealth-qdev-t021-route-token` plus a 0600 client copy. Verify checks the fixture route.
     - **Coordinator and spec.** `run-cms-public-reads.mjs` and `cms-public-reads.spec.ts` target 4324. The coordinator observes the runtime source through `dev-runtime-verify.sh`. `loadDevAccessToken` also reads the runtime's bare-token `dev-pat`.
     - **Proof run.** Promote the commit and run the coordinator once on 4324 before any deletion.
   - **Delete the UID-1001 runtime.** After T021 passes on 4324, the Product Owner runs the reviewed deletion with sudo; the local workspace user has no access to UID 1001.
-    - **Deleted.** The UID-1001 Songhealth development runtime: its containers, volumes and network, its Runtime Controller, and its stable source.
-    - **Untouched.** Other UID-1001 workloads.
-    - **Backup.** A final backup stays in that account.
+    - **Deleted (Product Owner scope "(a)+(b) songhealth ทั้งหมด").**
+      - The development runtime at 4322: containers, volumes, networks, tooling image, Runtime Controller, and the stable source with its git store.
+      - The production-foundation Quadlet stack at 4321: units, environment files, containers, volumes, network, secrets and images.
+      - The superseded `dev-db` container, Songhealth caches, and the `projects/songhealth` checkout (git confirmed nothing outside GitHub).
+    - **Untouched.** Other UID-1001 workloads, and anything they share.
+    - **No backup** (Product Owner decision). The accepted Feature 001 production image is first moved to UID 1000 with its digest preserved.
   - **Evidence.** Record the results in `specs/002-cms-content-model/evidence/T037-single-runtime-completion.md`.
 
 ## Dependencies & Execution Order

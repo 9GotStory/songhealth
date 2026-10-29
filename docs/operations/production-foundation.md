@@ -280,6 +280,13 @@ container creation closed. Two consequences for operators:
    `podman build -f deploy/Containerfile …` does **not** satisfy the pinned identity: default
    image builds are not bit-reproducible across build times, so a rebuilt image has a different
    digest by construction. Never rebuild onto a deployment host expecting it to match.
+   - **Where the artifact is.** As of 2026-10-29 (Feature 002 T037) the accepted artifact is
+     held in the rootless Podman storage of `thanakorn` (UID 1000). Its build account, UID 1001,
+     was retired.
+   - **Moving it.** Move it between accounts or hosts with
+     `podman save --format oci-archive --uncompressed` and `podman load`, which keep the
+     manifest digest. The default `oci-archive`, `docker-archive` and `docker-dir` formats
+     rewrite the manifest and change the digest.
 2. **Changing the accepted build is a review-gated change to the pinned identity** in the
    committed unit — never an automatic re-pin, and never a fallback to a bare mutable tag or
    `latest`. (The PostgreSQL image is an upstream registry reference and is pulled by digest if
