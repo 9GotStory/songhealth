@@ -93,7 +93,7 @@ import { parseArgs } from "node:util";
  *   handleSitemapData);
  * - routability is set to the seed's value, routable unless the seed says otherwise.
  *
- * The seed's fields that a collection lacks, such as Personnel's Leadership rank, are created as
+ * The seed's fields that a collection lacks, such as Personnel's Leadership order, are created as
  * the seed declares them. A field the database has beyond the seed is kept.
  *
  * For each taxonomy the seed gives reference terms, such as the Document Types the About pages
@@ -177,6 +177,15 @@ export function planModelUpdate(seed, live) {
 		}
 	}
 	return { collections, fields, terms, problems };
+}
+
+/**
+ * Whether a plan changes nothing.
+ *
+ * @param {ReturnType<typeof planModelUpdate>} plan
+ */
+function isEmpty({ collections, fields, terms }) {
+	return collections.length === 0 && fields.length === 0 && terms.length === 0;
 }
 
 const USAGE = "usage: node scripts/model-update.mjs --origin <origin> [--check] < <PAT file>";
@@ -334,7 +343,7 @@ async function main(args) {
 			say("nothing was changed");
 			return EXIT.FAILED;
 		}
-		if (plan.collections.length === 0 && plan.fields.length === 0 && plan.terms.length === 0) {
+		if (isEmpty(plan)) {
 			say("the database has the seed's content model; nothing to change");
 			return EXIT.MATCHES;
 		}
@@ -374,12 +383,7 @@ async function main(args) {
 			return EXIT.PENDING;
 		}
 		const after = planModelUpdate(seed, await readModel());
-		if (
-			after.problems.length > 0 ||
-			after.collections.length > 0 ||
-			after.fields.length > 0 ||
-			after.terms.length > 0
-		) {
+		if (after.problems.length > 0 || !isEmpty(after)) {
 			say("FAIL: the database still differs from the seed after the update");
 			return EXIT.FAILED;
 		}

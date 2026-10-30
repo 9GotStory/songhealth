@@ -52,7 +52,7 @@ import {
 } from "./cms.helpers";
 
 // ---------------------------------------------------------------------------
-// The approved T024 personnel definition (data-model.md collection row)
+// The approved personnel definition (data-model.md collection row, and #61's leadership_order)
 // ---------------------------------------------------------------------------
 
 /** One native schema field as the collection read returns it. */
@@ -65,7 +65,7 @@ interface SchemaField {
 /**
  * The approved personnel field set: `title` (display name, ชื่อที่แสดง) is
  * the save-time required string; every current-directory data field is
- * optional. These are the ONLY unconditional fields the approved T024
+ * optional. These are the ONLY unconditional fields the approved
  * definition declares, so the schema gate also uses this set to prove the
  * FR-028/SC-008 schema absence of sensitive, history and account-link
  * fields (nothing outside the approved set may exist).
@@ -80,7 +80,7 @@ const APPROVED_FIELDS: ReadonlyArray<{ slug: string; type: string; required?: bo
 	{ slug: "organizational_unit", type: "string" },
 	{ slug: "public_visible", type: "boolean" },
 	{ slug: "public_contact", type: "text" },
-	// The Leadership rank (#61; spec #51): empty means the person is not Leadership.
+	// The Leadership order (#61; spec #51): empty means the person is not Leadership.
 	{ slug: "leadership_order", type: "integer" },
 ];
 
@@ -186,7 +186,7 @@ function gatePersonnel(): void {
 	);
 	if (personnelReadiness.outcome === "misconfigured") {
 		throw new Error(
-			`the active native personnel collection does not match the approved T024 definition this file relies on: ${personnelReadiness.detail}`,
+			`the active native personnel collection does not match the approved definition this file relies on: ${personnelReadiness.detail}`,
 		);
 	}
 }
@@ -360,7 +360,7 @@ test.beforeAll(async () => {
 	for (const slug of bySlug.keys()) {
 		if (!approvedSlugs.has(slug)) {
 			problems.push(
-				`unexpected field '${slug}' is outside the approved T024 personnel definition (no speculative, sensitive, history or account-link field may exist)`,
+				`unexpected field '${slug}' is outside the approved personnel definition (no speculative, sensitive, history or account-link field may exist)`,
 			);
 		}
 	}
@@ -412,7 +412,7 @@ test.afterAll(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Schema precondition — the approved T024 definition, and nothing else
+// Schema precondition — the approved definition, and nothing else
 // ---------------------------------------------------------------------------
 
 test("personnel schema precondition: approved native definition is active with no sensitive/history/account-link fields", () => {

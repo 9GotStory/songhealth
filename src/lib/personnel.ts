@@ -11,14 +11,12 @@ import type { ImageFieldValue } from "./news";
 import {
 	leadership,
 	personnelByUnit,
-	type PersonnelData as DirectoryData,
+	type DirectoryData,
 	type UnitGroup,
 } from "./personnel-directory";
 
 /** A Personnel entry's fields (seed/seed.json) and the system fields public pages read. */
 interface PersonnelData extends DirectoryData {
-	/** The database id; Personnel is non-routable, so the slug may be empty. */
-	id: string;
 	profile_image?: ImageFieldValue | null;
 	/** The person's current position or assignment. */
 	current_assignment?: string | null;
@@ -33,7 +31,7 @@ async function listPublishedPersonnel(): Promise<PersonnelEntry[]> {
 	return entries;
 }
 
-/** The Leadership, in rank order. */
+/** The Leadership, by Leadership order. */
 export async function listLeadership(): Promise<PersonnelEntry[]> {
 	return leadership(await listPublishedPersonnel());
 }

@@ -9,13 +9,13 @@
 // src/lib/personnel.ts reads through EmDash and uses it.
 
 /** The fields of a Personnel entry the rules read (seed/seed.json). */
-export interface PersonnelData {
+export interface DirectoryData {
 	/** The display name. */
 	title: string;
 	prefix?: string | null;
 	organizational_unit?: string | null;
 	public_visible?: boolean | null;
-	/** The person's rank among the Leadership, 1 first; empty when they are not Leadership. */
+	/** The person's Leadership order, 1 first; empty when they are not Leadership. */
 	leadership_order?: number | null;
 }
 
@@ -30,32 +30,31 @@ export interface UnitGroup<E> {
 const THAI = new Intl.Collator("th");
 
 /** Whether the person may appear on the public site. */
-function isVisible(data: PersonnelData): boolean {
+function isVisible(data: DirectoryData): boolean {
 	return data.public_visible === true;
 }
 
 /** The person's Leadership order, or undefined when they are not Leadership. */
-function orderOf(data: PersonnelData): number | undefined {
+function orderOf(data: DirectoryData): number | undefined {
 	const order = data.leadership_order;
 	return typeof order === "number" && Number.isFinite(order) ? order : undefined;
 }
 
 /** By display name in Thai order, then by id so the order is the same on every request. */
-function compareNames<E extends { id: string; data: PersonnelData }>(a: E, b: E): number {
+function compareNames<E extends { id: string; data: DirectoryData }>(a: E, b: E): number {
 	return THAI.compare(a.data.title, b.data.title) || THAI.compare(a.id, b.id);
 }
 
 /**
  * A person as the site names them: the prefix before the display name, joined as Thai writes a
- * title such as นาย or นายแพทย์. A display name that already starts with the prefix is shown alone.
+ * title such as นาย or นายแพทย์.
  */
-export function shownName(data: Pick<PersonnelData, "title" | "prefix">): string {
-	const prefix = data.prefix?.trim() ?? "";
-	return prefix === "" || data.title.startsWith(prefix) ? data.title : `${prefix}${data.title}`;
+export function shownName(data: Pick<DirectoryData, "title" | "prefix">): string {
+	return `${data.prefix?.trim() ?? ""}${data.title}`;
 }
 
 /** The Leadership: the visible Personnel with a Leadership order, ascending, ties by name. */
-export function leadership<E extends { id: string; data: PersonnelData }>(
+export function leadership<E extends { id: string; data: DirectoryData }>(
 	entries: readonly E[],
 ): E[] {
 	return entries
@@ -68,7 +67,7 @@ export function leadership<E extends { id: string; data: PersonnelData }>(
  * name. A unit is matched with the spaces around it trimmed. The Personnel without a unit come
  * last.
  */
-export function personnelByUnit<E extends { id: string; data: PersonnelData }>(
+export function personnelByUnit<E extends { id: string; data: DirectoryData }>(
 	entries: readonly E[],
 ): UnitGroup<E>[] {
 	const byUnit = new Map<string | undefined, E[]>();

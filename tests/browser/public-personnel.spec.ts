@@ -47,7 +47,7 @@ import {
 	MOBILE_VIEWPORT,
 	VIEWPORTS,
 	expect,
-	expectBreadcrumb,
+	expectAboutSubpage,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectSiteNotFound,
@@ -62,9 +62,6 @@ import {
 const LEADERSHIP = { path: "/about/leadership", title: "ผู้บริหาร" } as const;
 const PERSONNEL = { path: "/about/personnel", title: "บุคลากร" } as const;
 const PAGES = [LEADERSHIP, PERSONNEL] as const;
-
-const HOME_CRUMB = ["หน้าแรก", "/"] as const;
-const ABOUT_CRUMB = ["เกี่ยวกับเรา", "/about"] as const;
 
 /** The heading of the Personnel whose unit is not set. */
 const NO_UNIT = "ไม่ระบุหน่วยงาน";
@@ -107,7 +104,7 @@ async function createPerson(
 
 async function publish(...people: DraftFixture[]): Promise<void> {
 	for (const person of people) {
-		await publishEntryAt(admin, "personnel", person.id, borrowed.publishedAtOf(person.id));
+		await publishEntryAt(admin, "personnel", person.id);
 	}
 }
 
@@ -152,16 +149,12 @@ async function namesIn(page: Page, unit: string): Promise<string[]> {
 	).map((text) => text.trim());
 }
 
-/** Fail unless the page carries the About sub-page's title, crumb, canonical and section mark. */
-async function expectAboutSubpage(page: Page, path: string, title: string): Promise<void> {
+/** Fail unless the page is the About sub-page `title` at `path`, headed and titled `title`. */
+async function expectPersonnelPage(page: Page, path: string, title: string): Promise<void> {
 	const { siteTitle, separator } = await siteTitleParts(admin);
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
 	await expect(page).toHaveTitle(`${title}${separator}${siteTitle}`);
-	await expectBreadcrumb(page, [HOME_CRUMB, ABOUT_CRUMB], title);
-	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}${path}`);
-	await expect(
-		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "เกี่ยวกับเรา" }),
-	).toHaveAttribute("aria-current", "true");
+	await expectAboutSubpage(page, path, title);
 }
 
 test.use({ viewport: DESKTOP_VIEWPORT });
@@ -202,7 +195,7 @@ test("/about/leadership and /about/personnel show their empty states while no pu
 	] as const) {
 		const response = await page.goto(path);
 		expect(response?.status(), `GET ${path}`).toBe(200);
-		await expectAboutSubpage(page, path, title);
+		await expectPersonnelPage(page, path, title);
 		await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
 		await expect(page.getByRole("main").getByText(message)).toBeVisible();
 		for (const [width, viewport] of Object.entries(VIEWPORTS)) {
@@ -230,10 +223,10 @@ test("/about/leadership lists the publicly visible Personnel with a Leadership o
 
 	const response = await page.goto(LEADERSHIP.path);
 	expect(response?.status(), `GET ${LEADERSHIP.path}`).toBe(200);
-	await expectAboutSubpage(page, LEADERSHIP.path, LEADERSHIP.title);
+	await expectPersonnelPage(page, LEADERSHIP.path, LEADERSHIP.title);
 	expect(
 		ownTitles(await listedTitles(page), all),
-		"rank order, 10 after 2, and เกด before ขวัญ at the same rank",
+		"Leadership order, 10 after 2, and เกด before ขวัญ at the same order",
 	).toEqual([chief, ked, khwan, tenth].map((person) => person.title));
 });
 
@@ -263,7 +256,7 @@ test("/about/personnel groups the publicly visible Personnel by unit in Thai ord
 
 	const response = await page.goto(PERSONNEL.path);
 	expect(response?.status(), `GET ${PERSONNEL.path}`).toBe(200);
-	await expectAboutSubpage(page, PERSONNEL.path, PERSONNEL.title);
+	await expectPersonnelPage(page, PERSONNEL.path, PERSONNEL.title);
 	const units = await unitHeadings(page);
 	expect(
 		units.filter((unit) => unit.endsWith(run)),

@@ -14,33 +14,28 @@ export const ABOUT_PATH = "/about";
 /** Where the reserved Basic Page `organization` renders (src/lib/basic-pages.ts). */
 export const ORGANIZATION_PATH = "/about/organization";
 
-/** An About page that lists Personnel: its address and how it reads. */
-interface AboutPersonnelPage {
+/** An About sub-page that lists records: its address and how it reads. */
+interface AboutListPage {
 	path: string;
 	title: string;
 	lead: string;
 }
 
-export const LEADERSHIP_PAGE: AboutPersonnelPage = {
+export const LEADERSHIP_PAGE: AboutListPage = {
 	path: "/about/leadership",
 	title: "ผู้บริหาร",
 	lead: "ผู้บริหารของสำนักงานสาธารณสุขอำเภอสอง",
 };
 
-export const PERSONNEL_PAGE: AboutPersonnelPage = {
+export const PERSONNEL_PAGE: AboutListPage = {
 	path: "/about/personnel",
 	title: "บุคลากร",
 	lead: "บุคลากรของสำนักงานสาธารณสุขอำเภอสอง แยกตามหน่วยงาน",
 };
 
-/** An About Document page: the Document Type it lists, by term slug, and how it reads. */
-export interface AboutDocumentList {
-	/** The page's address. */
-	path: string;
-	/** The Document Type's term slug. */
+/** An About Document page: an About list page of one Document Type, by term slug. */
+export interface AboutDocumentList extends AboutListPage {
 	type: string;
-	title: string;
-	lead: string;
 }
 
 export const ABOUT_DOCUMENT_LISTS = {
@@ -67,6 +62,7 @@ export const ABOUT_DOCUMENT_LISTS = {
 /** Every About sub-page, in `01` §3 order. */
 export const ABOUT_SUBPAGES = [
 	{ label: "โครงสร้างองค์กร", href: ORGANIZATION_PATH },
-	...[LEADERSHIP_PAGE, PERSONNEL_PAGE].map(({ title, path }) => ({ label: title, href: path })),
-	...Object.values(ABOUT_DOCUMENT_LISTS).map(({ title, path }) => ({ label: title, href: path })),
+	...[LEADERSHIP_PAGE, PERSONNEL_PAGE, ...Object.values(ABOUT_DOCUMENT_LISTS)].map(
+		({ title, path }) => ({ label: title, href: path }),
+	),
 ];

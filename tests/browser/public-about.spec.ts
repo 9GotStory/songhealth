@@ -52,9 +52,11 @@ import {
 import {
 	BorrowedEntries,
 	DESKTOP_VIEWPORT,
+	HOME_CRUMB,
 	MOBILE_VIEWPORT,
 	VIEWPORTS,
 	expect,
+	expectAboutSubpage,
 	expectBreadcrumb,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
@@ -89,9 +91,6 @@ const FOOTER_PAGES = [
 	{ slug: "privacy", label: "นโยบายความเป็นส่วนตัว" },
 	{ slug: "accessibility", label: "การเข้าถึงเว็บไซต์" },
 ] as const;
-
-const HOME_CRUMB = ["หน้าแรก", "/"] as const;
-const ABOUT_CRUMB = ["เกี่ยวกับเรา", "/about"] as const;
 
 let admin: CmsActor;
 let origin: string;
@@ -275,9 +274,7 @@ test("/about/policies, /about/plans and /about/results list only the published D
 		expect(response?.status(), `GET ${path}`).toBe(200);
 		await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
 		await expect(page).toHaveTitle(`${title}${separator}${siteTitle}`);
-		await expect(navigationLink(page, "เกี่ยวกับเรา")).toHaveAttribute("aria-current", "true");
-		await expectBreadcrumb(page, [HOME_CRUMB, ABOUT_CRUMB], title);
-		await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}${path}`);
+		await expectAboutSubpage(page, path, title);
 		expect(ownTitles(await listedTitles(page), all), `${path}: its own type, newest first`).toEqual(
 			expected[type].map((document) => document.title),
 		);
@@ -419,12 +416,7 @@ test("/about/organization renders the published organization Basic Page under �
 	expect(response?.status(), "GET /pages/organization, redirected").toBe(200);
 	expect(new URL(page.url()).pathname).toBe("/about/organization");
 	await expectBasicPage(page, organization, content);
-	await expect(navigationLink(page, "เกี่ยวกับเรา")).toHaveAttribute("aria-current", "true");
-	await expectBreadcrumb(page, [HOME_CRUMB, ABOUT_CRUMB], organization.title);
-	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
-		"href",
-		`${origin}/about/organization`,
-	);
+	await expectAboutSubpage(page, "/about/organization", organization.title);
 });
 
 test("the footer links to the privacy and accessibility Basic Pages only while they are published", async ({

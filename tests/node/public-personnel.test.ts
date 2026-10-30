@@ -18,11 +18,11 @@ import {
 	leadership,
 	personnelByUnit,
 	shownName,
-	type PersonnelData,
+	type DirectoryData,
 } from "../../src/lib/personnel-directory.ts";
 
 /** A published Personnel entry as the query functions return it, visible unless told otherwise. */
-function person(id: string, title: string, data: Partial<PersonnelData> = {}) {
+function person(id: string, title: string, data: Partial<DirectoryData> = {}) {
 	return { id, data: { title, public_visible: true, ...data } };
 }
 
@@ -118,12 +118,12 @@ describe("shownName", () => {
 		assert.equal(shownName({ title: "สมชาย ใจดี", prefix: "นาย" }), "นายสมชาย ใจดี");
 	});
 
-	it("shows the display name alone when it has no prefix, or already starts with it", () => {
+	it("keeps the prefix when the display name starts with the same letters", () => {
+		assert.equal(shownName({ title: "นางนวล ใจดี", prefix: "นาง" }), "นางนางนวล ใจดี");
+	});
+
+	it("shows the display name alone when it has no prefix", () => {
 		assert.equal(shownName({ title: "สมชาย ใจดี" }), "สมชาย ใจดี");
 		assert.equal(shownName({ title: "สมชาย ใจดี", prefix: " " }), "สมชาย ใจดี");
-		assert.equal(
-			shownName({ title: "นายแพทย์สมชาย ใจดี", prefix: "นายแพทย์" }),
-			"นายแพทย์สมชาย ใจดี",
-		);
 	});
 });

@@ -184,6 +184,24 @@ export async function expectBreadcrumb(
 	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(current);
 }
 
+/** The breadcrumb's root crumb, the Homepage. */
+export const HOME_CRUMB = ["หน้าแรก", "/"] as const;
+
+/**
+ * Fail unless the page is an About sub-page at `path`: the main navigation marks เกี่ยวกับเรา as its
+ * section, the breadcrumb leads through it to `current`, and the canonical address is `path`.
+ */
+export async function expectAboutSubpage(page: Page, path: string, current: string): Promise<void> {
+	await expect(
+		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "เกี่ยวกับเรา" }),
+	).toHaveAttribute("aria-current", "true");
+	await expectBreadcrumb(page, [HOME_CRUMB, ["เกี่ยวกับเรา", "/about"]], current);
+	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+		"href",
+		`${new URL(page.url()).origin}${path}`,
+	);
+}
+
 /** The titles of the cards or rows a list page shows, in order. */
 export async function listedTitles(page: Page): Promise<string[]> {
 	return (

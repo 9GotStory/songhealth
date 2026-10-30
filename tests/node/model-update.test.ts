@@ -34,7 +34,7 @@ const DOCUMENT_TYPE_TERMS = [
 	{ taxonomy: "document_type", slug: "result", label: "ผลการดำเนินงาน" },
 ];
 
-/** The Leadership rank Feature 003 adds to Personnel (spec #51; empty means not Leadership). */
+/** The Leadership order Feature 003 adds to Personnel (spec #51; empty means not Leadership). */
 const LEADERSHIP_ORDER = { slug: "leadership_order", label: "ลำดับผู้บริหาร", type: "integer" };
 
 /** The fields of a seed collection as the schema API lists them, by slug and type. */
@@ -46,7 +46,7 @@ function seedFields(slug: string): LiveField[] {
 	return collection.fields.map(({ slug, type }: LiveField) => ({ slug, type }));
 }
 
-/** The fields Feature 002 gave a collection: Personnel had no Leadership rank yet. */
+/** The fields Feature 002 gave a collection: Personnel had no Leadership order yet. */
 function feature002Fields(slug: string): LiveField[] {
 	return seedFields(slug).filter((field) => field.slug !== LEADERSHIP_ORDER.slug);
 }
