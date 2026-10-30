@@ -1,0 +1,40 @@
+---
+// A Basic Page, /pages/{slug} (Feature 003 #60; spec #51 "Public reads" (Basic Pages) and
+// "Errors, redirects, preview and SEO", `03` §3 and §17). There is no /pages listing.
+//
+// The reserved slugs `about` and `organization` render in the About section, so their /pages/
+// addresses redirect there permanently, whatever their state, before anything is read
+// (src/lib/basic-pages.ts). The query string goes along, so the signed preview link EmDash builds
+// from the URL pattern opens the draft there (emdash 1.1.0 src/preview/tokens.ts reads the token
+// from the query string).
+//
+// getEmDashEntry returns the published entry, or the draft when the request carries a valid signed
+// preview token for it (src/query.ts resolveEmDashEntry). Anything else answers with the site 404
+// page, which EmDash records in its 404 log. A slug that changed is redirected by EmDash's
+// middleware before this page runs. A Basic Page belongs to no main-navigation section.
+import BasicPageContent from "../../components/BasicPageContent.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { aboutSectionPath, basicPagePath, readBasicPage } from "../../lib/basic-pages";
+
+const slug = Astro.params.slug ?? "";
+const aboutPath = aboutSectionPath(slug);
+if (aboutPath) return Astro.redirect(`${aboutPath}${Astro.url.search}`, 301);
+
+const page = await readBasicPage(slug);
+if (!page) return Astro.rewrite("/404");
+const { entry, isPreview } = page;
+const data = entry.data;
+---
+
+<SiteLayout
+	title={data.seo?.title || data.title}
+	description={data.summary ?? undefined}
+	canonical={basicPagePath(entry.id)}
+	breadcrumbs={[{ label: "หน้าแรก", href: "/" }, { label: data.title }]}
+	entry={{ collection: "pages", id: data.id, slug: entry.id, publishedAt: data.publishedAt }}
+	noindex={isPreview}
+>
+	<div class="page-container pt-6 pb-16 lg:pb-20">
+		<BasicPageContent page={page} />
+	</div>
+</SiteLayout>

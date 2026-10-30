@@ -1,0 +1,22 @@
+---
+// A Quick Link card (Feature 003 #60; Figma Card / Quick Link 4:43,
+// docs/design/homepage-concept-v1.md §10): a label and the "→" mark, the whole card one link to a
+// page on this site. /about links to its sub-pages with it. The arrow is decorative: the label
+// names the link.
+interface Props {
+	href: string;
+	label: string;
+}
+
+const { href, label } = Astro.props;
+---
+
+<a
+	class="flex h-full min-h-22 items-center justify-between gap-4 rounded-18 border border-border-default bg-surface-base px-5.5 pt-5.5 pb-5 text-h3 text-text-primary shadow-card hover:border-brand-primary hover:text-brand-primary"
+	href={href}
+>
+	<span class="wrap-anywhere">{label}</span>
+	<span aria-hidden="true" class="text-brand-primary">
+		→
+	</span>
+</a>

@@ -1,0 +1,55 @@
+---
+// The office information page, /about (Feature 003 #60; spec #51 "Public reads" (Basic Pages,
+// About), `03` §5 and §14).
+//
+// It renders the reserved Basic Page `about` (src/lib/basic-pages.ts), then links to every About
+// sub-page (src/lib/about.ts). Without a published `about` page it still answers, titled
+// เกี่ยวกับเรา with only the links, so the About section always has its landing page. A draft opens
+// here only through its signed preview link, which /pages/about passes on. The breadcrumb names the
+// section, เกี่ยวกับเรา, whatever the page's title, as the sub-pages' breadcrumbs do.
+import BasicPageContent from "../../components/BasicPageContent.astro";
+import DetailSection from "../../components/DetailSection.astro";
+import PageHeading from "../../components/PageHeading.astro";
+import QuickLinkCard from "../../components/QuickLinkCard.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ABOUT_SUBPAGES, ABOUT_TITLE } from "../../lib/about";
+import { basicPagePath, readBasicPage } from "../../lib/basic-pages";
+
+/** The page's description while the `about` Basic Page gives none. */
+const DESCRIPTION =
+	"ข้อมูลสำนักงานสาธารณสุขอำเภอสอง โครงสร้างองค์กร ผู้บริหาร บุคลากร นโยบาย แผนงาน และผลการดำเนินงาน";
+
+const page = await readBasicPage("about");
+const data = page?.entry.data;
+const title = data?.title ?? ABOUT_TITLE;
+---
+
+<SiteLayout
+	title={data?.seo?.title || title}
+	section="about"
+	description={data?.summary || DESCRIPTION}
+	canonical={basicPagePath("about")}
+	breadcrumbs={[{ label: "หน้าแรก", href: "/" }, { label: ABOUT_TITLE }]}
+	entry={
+		page && {
+			collection: "pages",
+			id: page.entry.data.id,
+			slug: page.entry.id,
+			publishedAt: page.entry.data.publishedAt,
+		}
+	}
+	noindex={page?.isPreview}
+>
+	<div class="page-container flex flex-col gap-12 pt-6 pb-16 lg:pb-20">
+		{page ? <BasicPageContent page={page} /> : <PageHeading title={title} />}
+		<DetailSection id="about-subpages" heading="ข้อมูลเกี่ยวกับสำนักงาน">
+			<ul class="grid gap-4 sm:grid-cols-2">
+				{ABOUT_SUBPAGES.map((subpage) => (
+					<li>
+						<QuickLinkCard href={subpage.href} label={subpage.label} />
+					</li>
+				))}
+			</ul>
+		</DetailSection>
+	</div>
+</SiteLayout>

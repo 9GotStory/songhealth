@@ -11,8 +11,9 @@
 // - `DESKTOP_VIEWPORT` / `MOBILE_VIEWPORT`: the two widths every template is
 //   checked at. The mobile width is 320 CSS px, the narrowest width the site
 //   must reflow to without horizontal scrolling (WCAG 2.2 SC 1.4.10).
-// - What the shell shows every page: the 404 page, the default site title,
-//   Thai dates, the titles and items a list shows, and a record page's details.
+// - What the shell shows every page: the 404 page, the default site title, the
+//   breadcrumb, Thai dates, the titles and items a list shows, and a record
+//   page's details.
 //
 // Verified against the pinned @axe-core/playwright 4.14.0 (axe-core 4.14.0,
 // node_modules/@axe-core/playwright/dist/index.d.ts): `new AxeBuilder({ page })
@@ -151,6 +152,24 @@ export async function expectSiteNotFound(page: Page, path: string, label: string
 	const response = await page.goto(path);
 	expect(response?.status(), `${label} must answer 404`).toBe(404);
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText(NOT_FOUND_HEADING);
+}
+
+/**
+ * Fail unless the breadcrumb links to `links` ([label, address] pairs, root first) and then names
+ * the current page `current` as text.
+ */
+export async function expectBreadcrumb(
+	page: Page,
+	links: ReadonlyArray<readonly [label: string, href: string]>,
+	current: string,
+): Promise<void> {
+	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
+	const crumbs = breadcrumb.getByRole("link");
+	await expect(crumbs).toHaveText(links.map(([label]) => label));
+	for (const [index, [label, href]] of links.entries()) {
+		await expect(crumbs.nth(index), `the ${label} crumb`).toHaveAttribute("href", href);
+	}
+	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(current);
 }
 
 /** The titles of the cards or rows a list page shows, in order. */

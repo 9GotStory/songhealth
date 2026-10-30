@@ -1,0 +1,33 @@
+---
+// The organization page, /about/organization (Feature 003 #60; spec #51 "Public reads" (Basic
+// Pages), `03` §5 and §14): the reserved Basic Page `organization` under เกี่ยวกับเรา
+// (src/lib/basic-pages.ts). Without a published one it answers the site 404 like any Basic Page;
+// a draft opens here only through its signed preview link, which /pages/organization passes on.
+import BasicPageContent from "../../components/BasicPageContent.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ABOUT_PATH, ABOUT_TITLE } from "../../lib/about";
+import { basicPagePath, readBasicPage } from "../../lib/basic-pages";
+
+const page = await readBasicPage("organization");
+if (!page) return Astro.rewrite("/404");
+const { entry, isPreview } = page;
+const data = entry.data;
+---
+
+<SiteLayout
+	title={data.seo?.title || data.title}
+	section="about"
+	description={data.summary ?? undefined}
+	canonical={basicPagePath("organization")}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		{ label: ABOUT_TITLE, href: ABOUT_PATH },
+		{ label: data.title },
+	]}
+	entry={{ collection: "pages", id: data.id, slug: entry.id, publishedAt: data.publishedAt }}
+	noindex={isPreview}
+>
+	<div class="page-container pt-6 pb-16 lg:pb-20">
+		<BasicPageContent page={page} />
+	</div>
+</SiteLayout>

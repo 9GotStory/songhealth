@@ -24,6 +24,9 @@
 //
 // An inner page passes its breadcrumb, which the shell shows above the page's
 // main content.
+//
+// The footer links to the reserved Basic Pages `privacy` and `accessibility`
+// while they are published, before ติดต่อเรา (src/lib/basic-pages.ts).
 import { Font } from "astro:assets";
 import { createPublicPageContext } from "emdash/page";
 import { EmDashHead } from "emdash/ui";
@@ -35,6 +38,7 @@ import {
 	currentMark,
 	type NavigationSection,
 } from "../lib/navigation";
+import { footerPageLinks } from "../lib/basic-pages";
 import { OFFICE_NAME, getSiteIdentity } from "../lib/site-identity";
 
 interface Props {
@@ -55,7 +59,8 @@ interface Props {
 }
 
 const { title, section, description, canonical, breadcrumbs, entry, noindex } = Astro.props;
-const identity = await getSiteIdentity(Astro.url);
+const [identity, footerPages] = await Promise.all([getSiteIdentity(Astro.url), footerPageLinks()]);
+const footerLinks = [...footerPages, { label: "ติดต่อเรา", href: "/contact" }];
 const pageTitle =
 	title === undefined ? identity.title : `${title}${identity.titleSeparator}${identity.title}`;
 const publishedAt = entry?.publishedAt ? new Date(entry.publishedAt).toISOString() : undefined;
@@ -228,11 +233,13 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 					<p class="text-small">{OFFICE_NAME}</p>
 				</div>
 				<ul class="flex flex-wrap gap-x-6 gap-y-2 text-small">
-					<li>
-						<a class="underline-offset-4 hover:underline" href="/contact">
-							ติดต่อเรา
-						</a>
-					</li>
+					{footerLinks.map((link) => (
+						<li>
+							<a class="underline-offset-4 hover:underline" href={link.href}>
+								{link.label}
+							</a>
+						</li>
+					))}
 				</ul>
 			</div>
 		</footer>
