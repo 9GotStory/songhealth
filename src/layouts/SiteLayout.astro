@@ -26,12 +26,15 @@
 // main content.
 //
 // The footer links to the reserved Basic Pages `privacy` and `accessibility`
-// while they are published, before ติดต่อเรา (src/lib/basic-pages.ts).
+// while they are published, before ติดต่อเรา (src/lib/basic-pages.ts). Above
+// them it lists the official channels that are set (#62,
+// src/lib/office-contact.ts), each a link to another website.
 import { Font } from "astro:assets";
 import { createPublicPageContext } from "emdash/page";
 import { EmDashHead } from "emdash/ui";
 import "../styles/global.css";
 import Breadcrumb, { type Crumb } from "../components/Breadcrumb.astro";
+import ContentLink from "../components/ContentLink.astro";
 import {
 	MAIN_NAVIGATION,
 	UTILITY_LINKS,
@@ -39,6 +42,7 @@ import {
 	type NavigationSection,
 } from "../lib/navigation";
 import { footerPageLinks } from "../lib/basic-pages";
+import { readOfficeContact } from "../lib/office-contact";
 import { OFFICE_NAME, getSiteIdentity } from "../lib/site-identity";
 
 interface Props {
@@ -59,7 +63,11 @@ interface Props {
 }
 
 const { title, section, description, canonical, breadcrumbs, entry, noindex } = Astro.props;
-const [identity, footerPages] = await Promise.all([getSiteIdentity(Astro.url), footerPageLinks()]);
+const [identity, footerPages, { channels }] = await Promise.all([
+	getSiteIdentity(Astro.url),
+	footerPageLinks(),
+	readOfficeContact(),
+]);
 const footerLinks = [...footerPages, { label: "ติดต่อเรา", href: "/contact" }];
 const pageTitle =
 	title === undefined ? identity.title : `${title}${identity.titleSeparator}${identity.title}`;
@@ -232,15 +240,33 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 					<p class="text-h3 wrap-anywhere">{identity.title}</p>
 					<p class="text-small">{OFFICE_NAME}</p>
 				</div>
-				<ul class="flex flex-wrap gap-x-6 gap-y-2 text-small">
-					{footerLinks.map((link) => (
-						<li>
-							<a class="underline-offset-4 hover:underline" href={link.href}>
-								{link.label}
-							</a>
-						</li>
-					))}
-				</ul>
+				<div class="flex flex-col gap-4 text-small lg:items-end">
+					{channels.length > 0 && (
+						<div class="flex flex-col gap-2 lg:items-end">
+							<p id="footer-channels" class="font-semibold">
+								ช่องทางทางการ
+							</p>
+							<ul aria-labelledby="footer-channels" class="flex flex-wrap gap-x-6 gap-y-2">
+								{channels.map((channel) => (
+									<li>
+										<ContentLink class="underline-offset-4 hover:underline" href={channel.href}>
+											{channel.label}
+										</ContentLink>
+									</li>
+								))}
+							</ul>
+						</div>
+					)}
+					<ul class="flex flex-wrap gap-x-6 gap-y-2">
+						{footerLinks.map((link) => (
+							<li>
+								<a class="underline-offset-4 hover:underline" href={link.href}>
+									{link.label}
+								</a>
+							</li>
+						))}
+					</ul>
+				</div>
 			</div>
 		</footer>
 	</body>

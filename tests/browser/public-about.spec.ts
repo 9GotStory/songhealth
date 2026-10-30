@@ -182,11 +182,14 @@ function navigationLink(page: Page, label: string) {
 	return page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: label });
 }
 
-/** The links of the footer, by their text. */
+/** The footer's page links, by their text. */
 async function footerLinks(page: Page): Promise<string[]> {
-	return (await page.getByRole("contentinfo").getByRole("link").allTextContents()).map((text) =>
-		text.trim(),
-	);
+	// The footer's page links end in ติดต่อเรา; its official channels are a list of their own (#62).
+	const pageLinks = page
+		.getByRole("contentinfo")
+		.getByRole("list")
+		.filter({ hasText: "ติดต่อเรา" });
+	return (await pageLinks.getByRole("link").allTextContents()).map((text) => text.trim());
 }
 
 /** The slugs of the Documents an About Document page lists, over all its list pages. */

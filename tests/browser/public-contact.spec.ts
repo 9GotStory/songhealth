@@ -1,0 +1,282 @@
+// The Contact page and the footer's official channels (#62; spec #51 "Public reads" (Contact),
+// "Maps" and "Office Contact plugin", `01` §10, `03` §12).
+//
+// A citizen reaches the office from /contact: the Office Contact staff saved in the Office Contact
+// plugin's settings (address with an "เปิดแผนที่" link built from the coordinates, telephone,
+// email, opening hours), the official channels (the native `social` settings and LINE), a
+// complaint and feedback call to action that leads to the Service catalog, and a pointer to the
+// Health Service Directory for facility contacts. Every page's footer shows the official channels
+// that are set. An empty value leaves its line out, and /contact still answers with nothing set.
+// No map is embedded: the map link opens a new tab with rel="noopener".
+//
+// The suite drives the single development runtime over public HTTP through the public-page
+// harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
+// widths). It saves synthetic Office Contact values and `social` handles through the native
+// settings APIs, the way the Admin saves them, and restores what was there afterwards. The plugin
+// settings API restores exactly, deleting a value that was unset; the site settings API cannot
+// delete a `social` handle (emdash 1.1.0 src/api/schemas/settings.ts accepts only strings), so an
+// unset handle is restored as empty, which the site shows the same way.
+
+import type { Page } from "@playwright/test";
+
+import {
+	cmsRequest,
+	createPatActor,
+	loadDevAccessToken,
+	nativeDataOf,
+	NATIVE_ROLES,
+	readOfficeContact,
+	SYNTHETIC_FIXTURE_MARK,
+	writeOfficeContact,
+	type CmsActor,
+	type OfficeContactValues,
+} from "./cms.helpers";
+import {
+	DESKTOP_VIEWPORT,
+	HOME_CRUMB,
+	MOBILE_VIEWPORT,
+	VIEWPORTS,
+	detailOf,
+	expect,
+	expectBreadcrumb,
+	expectNoAxeViolations,
+	expectNoHorizontalScroll,
+	expectVisibleFocusOnEveryStop,
+	test,
+} from "./public.helpers";
+
+const CONTACT_TITLE = "ติดต่อเรา";
+const CHANNELS_HEADING = "ช่องทางทางการ";
+
+/** The Office Contact settings keys, each unset. */
+const NOTHING_SET: OfficeContactValues = {
+	address: null,
+	telephone: null,
+	email: null,
+	opening_hours: null,
+	latitude: null,
+	longitude: null,
+	line_url: null,
+};
+
+/** The native `social` networks (emdash 1.1.0 src/settings/types.ts). The suite blanks those it does not set. */
+const NETWORKS = ["twitter", "github", "facebook", "instagram", "linkedin", "youtube"] as const;
+type Social = Partial<Record<(typeof NETWORKS)[number], string>>;
+
+let admin: CmsActor;
+
+/** Write `social` handles through the native site settings API. */
+async function writeSocial(social: Social): Promise<void> {
+	const result = await cmsRequest(admin, "/_emdash/api/settings", {
+		method: "POST",
+		body: { social },
+	});
+	expect(result.ok, `the native settings update must succeed (status ${result.status})`).toBe(true);
+}
+
+/**
+ * Run `body` with exactly `values` as Office Contact and `social` as the suite's networks, then
+ * restore what the runtime had.
+ */
+async function withContact(
+	values: OfficeContactValues,
+	social: Social,
+	body: () => Promise<void>,
+): Promise<void> {
+	const stored = await readOfficeContact(admin);
+	expect(stored.ok, `Office Contact must read (status ${stored.status})`).toBe(true);
+	const before = (nativeDataOf(stored)?.values ?? {}) as OfficeContactValues;
+	const site = await cmsRequest(admin, "/_emdash/api/settings");
+	expect(site.ok, "the native settings must read").toBe(true);
+	const socialBefore = (nativeDataOf(site)?.social ?? {}) as Social;
+	try {
+		const written = await writeOfficeContact(admin, { ...NOTHING_SET, ...values });
+		expect(written.ok, `Office Contact must save (status ${written.status})`).toBe(true);
+		await writeSocial(
+			Object.fromEntries(NETWORKS.map((network) => [network, social[network] ?? ""])),
+		);
+		await body();
+	} finally {
+		const restored = await writeOfficeContact(admin, { ...NOTHING_SET, ...before });
+		expect(restored.ok, "Office Contact must be restored").toBe(true);
+		await writeSocial(
+			Object.fromEntries(NETWORKS.map((network) => [network, socialBefore[network] ?? ""])),
+		);
+	}
+}
+
+/** A full synthetic Office Contact and two `social` handles, unique to this run. */
+function syntheticContact(): { values: OfficeContactValues; social: Social; marker: string } {
+	const marker = crypto.randomUUID().slice(0, 8);
+	return {
+		marker,
+		values: {
+			address: `${SYNTHETIC_FIXTURE_MARK} 123 หมู่ 1 ${marker}\nอำเภอสอง จังหวัดแพร่ 54120`,
+			telephone: "054 591 234",
+			email: `contact-${marker}@example.invalid`,
+			opening_hours: `จันทร์–ศุกร์ 08:30–16:30 น. ${marker}`,
+			latitude: 18.4686,
+			longitude: 100.1834,
+			line_url: `https://lin.ee/${marker}`,
+		},
+		social: { facebook: `songhealth.${marker}`, youtube: `@songhealth${marker}` },
+	};
+}
+
+/** The official channel links /contact (`main`) or the footer (`contentinfo`) shows. */
+function channelLinks(page: Page, scope: "main" | "contentinfo") {
+	return page.getByRole(scope).getByRole("list", { name: CHANNELS_HEADING }).getByRole("link");
+}
+
+test.use({ viewport: DESKTOP_VIEWPORT });
+
+test.beforeAll(async ({}, testInfo) => {
+	const baseURL = testInfo.project.use.baseURL;
+	if (baseURL === undefined) {
+		throw new Error("this suite needs a configured baseURL (PLAYWRIGHT_BASE_URL)");
+	}
+	admin = await createPatActor({
+		baseUrl: baseURL,
+		token: await loadDevAccessToken(),
+		expected: { role: NATIVE_ROLES.administrator },
+	});
+});
+
+test("/contact shows the Office Contact saved in the plugin settings, with a map link built from its coordinates", async ({
+	page,
+}) => {
+	const { values, social } = syntheticContact();
+	await withContact(values, social, async () => {
+		const response = await page.goto("/contact");
+		expect(response?.status(), "GET /contact").toBe(200);
+		await expect(page.getByRole("heading", { level: 1 })).toHaveText(CONTACT_TITLE);
+		await expectBreadcrumb(page, [HOME_CRUMB], CONTACT_TITLE);
+		await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+			"href",
+			`${new URL(page.url()).origin}/contact`,
+		);
+
+		const location = detailOf(page, "ที่ตั้ง");
+		await expect(location).toContainText(String(values.address).split("\n")[0]!);
+		await expect(location).toContainText("อำเภอสอง จังหวัดแพร่ 54120");
+		const map = location.getByRole("link", { name: "เปิดแผนที่ (เปิดในแท็บใหม่)" });
+		await expect(map).toHaveAttribute(
+			"href",
+			"https://www.google.com/maps/search/?api=1&query=18.4686%2C100.1834",
+		);
+		await expect(map).toHaveAttribute("target", "_blank");
+		await expect(map).toHaveAttribute("rel", "noopener");
+		await expect(page.locator("iframe, embed, object"), "no map is embedded").toHaveCount(0);
+
+		await expect(
+			detailOf(page, "โทรศัพท์").getByRole("link", { name: "054 591 234" }),
+		).toHaveAttribute("href", "tel:054591234");
+		await expect(
+			detailOf(page, "อีเมล").getByRole("link", { name: String(values.email) }),
+		).toHaveAttribute("href", `mailto:${values.email}`);
+		await expect(detailOf(page, "เวลาทำการ")).toHaveText(String(values.opening_hours));
+	});
+});
+
+test("/contact and the footer of every page link the official channels that are set, each in a new tab", async ({
+	page,
+}) => {
+	const { values, social, marker } = syntheticContact();
+	const expected = [
+		["Facebook (เว็บไซต์ภายนอก) (เปิดในแท็บใหม่)", `https://www.facebook.com/songhealth.${marker}`],
+		["LINE (เว็บไซต์ภายนอก) (เปิดในแท็บใหม่)", `https://lin.ee/${marker}`],
+		["YouTube (เว็บไซต์ภายนอก) (เปิดในแท็บใหม่)", `https://www.youtube.com/@songhealth${marker}`],
+	];
+	await withContact(values, social, async () => {
+		await page.goto("/contact");
+		await expect(page.getByRole("heading", { level: 2, name: CHANNELS_HEADING })).toBeVisible();
+		for (const scope of ["main", "contentinfo"] as const) {
+			const links = channelLinks(page, scope);
+			await expect(links).toHaveCount(expected.length);
+			for (const [index, [name, href]] of expected.entries()) {
+				await expect(links.nth(index), `${scope}: ${name}`).toHaveAccessibleName(name);
+				await expect(links.nth(index)).toHaveAttribute("href", href);
+				await expect(links.nth(index)).toHaveAttribute("target", "_blank");
+				await expect(links.nth(index)).toHaveAttribute("rel", "noopener");
+			}
+		}
+
+		await page.goto("/");
+		await expect(channelLinks(page, "contentinfo"), "the Homepage footer").toHaveCount(
+			expected.length,
+		);
+	});
+});
+
+test("an empty value leaves its line out, and /contact still answers with no Office Contact set", async ({
+	page,
+}) => {
+	// Only a telephone number that is not one number, and a latitude without its longitude.
+	await withContact({ telephone: "054 591 234 ต่อ 12", latitude: 18.4686 }, {}, async () => {
+		await page.goto("/contact");
+		await expect(page.getByRole("main").getByRole("term")).toHaveText(["โทรศัพท์"]);
+		await expect(detailOf(page, "โทรศัพท์")).toHaveText("054 591 234 ต่อ 12");
+		await expect(detailOf(page, "โทรศัพท์").getByRole("link")).toHaveCount(0);
+		await expect(page.getByRole("link", { name: /เปิดแผนที่/ })).toHaveCount(0);
+	});
+
+	await withContact({}, {}, async () => {
+		const response = await page.goto("/contact");
+		expect(response?.status(), "GET /contact with nothing set").toBe(200);
+		await expect(page.getByRole("heading", { level: 1 })).toHaveText(CONTACT_TITLE);
+		await expect(page.getByRole("main").getByRole("term")).toHaveCount(0);
+		await expect(page.getByRole("heading", { name: CHANNELS_HEADING })).toHaveCount(0);
+		await expect(page.getByRole("list", { name: CHANNELS_HEADING })).toHaveCount(0);
+		await expect(page.getByRole("link", { name: "ดูบริการประชาชน" })).toBeVisible();
+	});
+});
+
+test("the complaint and feedback call to action leads to the Service catalog, and facility contacts to the Health Service Directory", async ({
+	page,
+}) => {
+	await page.goto("/contact");
+	const complaints = page.getByRole("region", { name: "ร้องเรียนและเสนอแนะ" });
+	await expect(complaints.getByRole("link", { name: "ดูบริการประชาชน" })).toHaveAttribute(
+		"href",
+		"/services",
+	);
+	const facilities = page.getByRole("region", { name: "ติดต่อหน่วยบริการสุขภาพ" });
+	await expect(
+		facilities.getByRole("link", { name: "ดูหน่วยบริการสุขภาพที่เกี่ยวข้อง" }),
+	).toHaveAttribute("href", "/health-services");
+
+	await complaints.getByRole("link", { name: "ดูบริการประชาชน" }).click();
+	await expect(page).toHaveURL("/services");
+});
+
+test.describe("accessibility and reflow", () => {
+	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
+		test(`axe reports no WCAG 2.2 AA violation and focus stays visible on /contact at the ${width} width`, async ({
+			page,
+		}) => {
+			await page.setViewportSize(viewport);
+			const { values, social } = syntheticContact();
+			await withContact(values, social, async () => {
+				for (const label of ["with Office Contact set", "with no Office Contact set"]) {
+					if (label === "with no Office Contact set") await writeOfficeContact(admin, NOTHING_SET);
+					const response = await page.goto("/contact");
+					expect(response?.status(), `GET /contact ${label}`).toBe(200);
+					await expectNoAxeViolations(page, `/contact ${label} at ${width}`);
+					await expectVisibleFocusOnEveryStop(page, `/contact ${label} at ${width}`);
+				}
+			});
+		});
+	}
+
+	test("/contact does not scroll sideways at 320 px, even with a long email address", async ({
+		page,
+	}) => {
+		await page.setViewportSize(MOBILE_VIEWPORT);
+		const { values, social } = syntheticContact();
+		const email = `songhealth-district-public-health-office-${crypto.randomUUID()}@example.invalid`;
+		await withContact({ ...values, email }, social, async () => {
+			await page.goto("/contact");
+			await expectNoHorizontalScroll(page, "/contact");
+		});
+	});
+});

@@ -1909,6 +1909,37 @@ async function probeEntryPresence(
 }
 
 // ---------------------------------------------------------------------------
+// Office Contact plugin settings (#62)
+// ---------------------------------------------------------------------------
+
+/** The Songhealth Office Contact plugin's id (src/lib/contact.ts OFFICE_CONTACT_PLUGIN). */
+export const OFFICE_CONTACT_PLUGIN_ID = "songhealth-office-contact";
+
+/**
+ * The Office Contact plugin's settings API (emdash 1.1.0
+ * src/astro/routes/api/admin/plugins/[id]/settings.ts). GET answers `{ schema, values }` with
+ * `null` for an unset value, and PUT `{ values }` writes the keys it names, deleting one set to
+ * `null` (src/api/handlers/plugin-settings.ts).
+ */
+const OFFICE_CONTACT_SETTINGS_PATH = `/_emdash/api/admin/plugins/${OFFICE_CONTACT_PLUGIN_ID}/settings`;
+
+/** Office Contact values by settings key; `null` is unset. */
+export type OfficeContactValues = Record<string, string | number | null>;
+
+/** GET the Office Contact settings: `data.schema` and `data.values`. */
+export async function readOfficeContact(actor: CmsActor): Promise<NativeResult> {
+	return cmsRequest(actor, OFFICE_CONTACT_SETTINGS_PATH);
+}
+
+/** PUT Office Contact values, as Admin's settings form saves them. */
+export async function writeOfficeContact(
+	actor: CmsActor,
+	values: OfficeContactValues,
+): Promise<NativeResult> {
+	return cmsRequest(actor, OFFICE_CONTACT_SETTINGS_PATH, { method: "PUT", body: { values } });
+}
+
+// ---------------------------------------------------------------------------
 // Cleanup — restricted to fixtures these helpers registered as owned
 // ---------------------------------------------------------------------------
 

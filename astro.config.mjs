@@ -29,12 +29,15 @@
 // PG* runtime inputs and EMDASH_MIGRATION_DATABASE_URL must agree on the intended
 // database's non-secret identity (host, port, database, user).
 
+import { fileURLToPath } from "node:url";
+
 import node from "@astrojs/node";
 import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, fontProviders } from "astro/config";
 import emdash, { local } from "emdash/astro";
 import { postgres } from "emdash/db";
+import { OFFICE_CONTACT_PLUGIN } from "./src/lib/contact.ts";
 
 // Fail-fast runtime configuration validation (Feature 001, T008). This module is
 // the canonical configuration boundary — every `astro dev`, `astro build`,
@@ -259,6 +262,15 @@ export default defineConfig({
         runtime: "check",
         dev: "auto",
       },
+      // The Songhealth Office Contact plugin (#62): a native-format plugin whose entrypoint
+      // exports createPlugin() (emdash 1.1.0 src/astro/integration/runtime.ts PluginDescriptor).
+      // The path is absolute, so it resolves the same under the development runtime's /src root.
+      plugins: [
+        {
+          ...OFFICE_CONTACT_PLUGIN,
+          entrypoint: fileURLToPath(new URL("./src/plugins/office-contact.ts", import.meta.url)),
+        },
+      ],
     }),
   ],
 });

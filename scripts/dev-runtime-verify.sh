@@ -28,6 +28,18 @@ source_ok() {
 }
 key_ok() { local logs; logs=$(podman logs "$APP_CTR" 2>&1) && [[ $logs != *'EMDASH_ENCRYPTION_KEY is invalid'* ]]; }
 pat_ok() { [[ $(pat_identity "$STATE_DIR/dev-pat") == 'dev@emdash.local 50' ]]; }
+plugin_ok() { # the Office Contact plugin (#62) is registered and enabled, with its settings form
+  local token plugins
+  [[ -s $STATE_DIR/dev-pat && $(stat -c %a "$STATE_DIR/dev-pat") == 600 ]] || return 1
+  token=$(<"$STATE_DIR/dev-pat")
+  plugins=$(printf 'Authorization: Bearer %s\n' "$token" \
+    | curl -fsS --max-time 30 -H @- "$ORIGIN/_emdash/api/admin/plugins") || return 1
+  python3 -I -c '
+import json, sys
+items = json.loads(sys.argv[1])["data"]["items"]
+sys.exit(0 if any(p["id"] == "songhealth-office-contact" and p["enabled"] and p["hasSettings"] for p in items) else 1)
+' "$plugins"
+}
 fixture_ok() { [[ $(pat_identity "$ROLE_FIXTURE") == "$ROLE_FIXTURE_EMAIL $ROLE_FIXTURE_ROLE" ]]; }
 route_ok() { # the dev-only T021 fixture answers its probe with the 0600 client token, refuses without
   [[ $(stat -c %a "$ROUTE_ACCESS" 2>/dev/null) == 600 ]] || return 1
@@ -63,6 +75,7 @@ check "role fixture PAT (mode 0600) authenticates as an enabled Author" fixture_
 check "T021 fixture route answers its 0600 route token and refuses without it" route_ok
 check "the database has the seed's content model, fields and reference terms (scripts/dev-runtime-model-update.sh applies them)" \
   model_update --check
+check "the Office Contact plugin is registered and enabled, with its settings form" plugin_ok
 printf 'runtime source: %s @ %s\n' "$SRC" "$(git -C "$SRC" rev-parse HEAD 2>/dev/null || printf unknown)"
 if (( failed )); then echo "VERIFY: FAIL"; exit 1; fi
 echo "VERIFY: PASS"

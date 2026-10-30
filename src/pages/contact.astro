@@ -1,0 +1,125 @@
+---
+// The Contact page, /contact (Feature 003 #62; spec #51 "Public reads" (Contact) and "Maps", `01`
+// §10, `03` §12).
+//
+// /contact is the office's canonical contact page. It shows the Office Contact staff keep on the
+// Office Contact plugin's settings form (src/lib/office-contact.ts): the address with the
+// "เปิดแผนที่" link built from the coordinates, the telephone number, the email address and the
+// opening hours. A value that is not set leaves its line out, and with none set the details are
+// left out whole; the page still answers. The official channels follow: the native `social`
+// settings and LINE, each a link to another website. Complaints and feedback go through the
+// Service catalog, and the Health Services keep their own contacts in the Health Service
+// Directory (`03` §12). No map is embedded (approved Q3). The page belongs to no main-navigation
+// section: the utility bar and the footer link here.
+import ContentLink from "../components/ContentLink.astro";
+import DetailItem from "../components/DetailItem.astro";
+import DetailSection from "../components/DetailSection.astro";
+import MapLink from "../components/MapLink.astro";
+import PageHeading from "../components/PageHeading.astro";
+import SiteLayout from "../layouts/SiteLayout.astro";
+import { telephoneHref } from "../lib/contact";
+import { directoryPath } from "../lib/health-service-directory";
+import { mapHref } from "../lib/map-link";
+import { readOfficeContact } from "../lib/office-contact";
+import { servicesPath } from "../lib/service-catalog";
+import { OFFICE_NAME } from "../lib/site-identity";
+
+const TITLE = "ติดต่อเรา";
+
+const { contact, channels } = await readOfficeContact();
+const hasMap = mapHref(contact.latitude, contact.longitude) !== undefined;
+const telephoneLink = contact.telephone && telephoneHref(contact.telephone);
+const hasDetails =
+	!!contact.address || hasMap || !!contact.telephone || !!contact.email || !!contact.openingHours;
+
+const linkClass =
+	"inline-flex min-h-11 items-center text-brand-primary underline underline-offset-4";
+const actionClass = "inline-flex min-h-11 items-center rounded-pill px-5 text-label";
+---
+
+<SiteLayout
+	title={TITLE}
+	description={`ที่อยู่ โทรศัพท์ อีเมล เวลาทำการ และช่องทางทางการของ${OFFICE_NAME}`}
+	canonical="/contact"
+	breadcrumbs={[{ label: "หน้าแรก", href: "/" }, { label: TITLE }]}
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading title={TITLE} lead={`ที่อยู่ เวลาทำการ และช่องทางติดต่อ${OFFICE_NAME}`} />
+		{hasDetails && (
+			<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
+				{(contact.address || hasMap) && (
+					<DetailItem term="ที่ตั้ง">
+						<div class="flex flex-col items-start gap-3">
+							{contact.address && <p class="whitespace-pre-line">{contact.address}</p>}
+							<MapLink latitude={contact.latitude} longitude={contact.longitude} />
+						</div>
+					</DetailItem>
+				)}
+				{contact.telephone && (
+					<DetailItem term="โทรศัพท์">
+						{telephoneLink ? (
+							<a class={linkClass} href={telephoneLink}>
+								{contact.telephone}
+							</a>
+						) : (
+							contact.telephone
+						)}
+					</DetailItem>
+				)}
+				{contact.email && (
+					<DetailItem term="อีเมล">
+						<ContentLink class={`${linkClass} wrap-anywhere`} href={`mailto:${contact.email}`}>
+							{contact.email}
+						</ContentLink>
+					</DetailItem>
+				)}
+				{contact.openingHours && (
+					<DetailItem term="เวลาทำการ">
+						<p class="whitespace-pre-line">{contact.openingHours}</p>
+					</DetailItem>
+				)}
+			</dl>
+		)}
+		{channels.length > 0 && (
+			<DetailSection id="official-channels" heading="ช่องทางทางการ">
+				<ul aria-labelledby="official-channels" class="flex flex-col gap-1">
+					{channels.map((channel) => (
+						<li>
+							<ContentLink class={linkClass} href={channel.href}>
+								{channel.label}
+							</ContentLink>
+						</li>
+					))}
+				</ul>
+			</DetailSection>
+		)}
+		<DetailSection id="complaints" heading="ร้องเรียนและเสนอแนะ">
+			<p>ขั้นตอนและช่องทางการร้องเรียน แจ้งเรื่อง หรือเสนอแนะ อยู่ในบริการประชาชน</p>
+			<p>
+				<a
+					class:list={[actionClass, "bg-brand-primary text-surface-base hover:bg-brand-dark"]}
+					href={servicesPath()}
+				>
+					ดูบริการประชาชน
+				</a>
+			</p>
+		</DetailSection>
+		<DetailSection id="health-service-contacts" heading="ติดต่อหน่วยบริการสุขภาพ">
+			<p>
+				ที่อยู่ เวลาทำการ และช่องทางติดต่อของโรงพยาบาลและ รพ.สต.
+				อยู่ในหน่วยบริการสุขภาพที่เกี่ยวข้อง
+			</p>
+			<p>
+				<a
+					class:list={[
+						actionClass,
+						"border border-border-input bg-surface-base text-brand-primary hover:bg-surface-soft",
+					]}
+					href={directoryPath()}
+				>
+					ดูหน่วยบริการสุขภาพที่เกี่ยวข้อง
+				</a>
+			</p>
+		</DetailSection>
+	</div>
+</SiteLayout>
