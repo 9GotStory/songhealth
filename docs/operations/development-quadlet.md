@@ -210,15 +210,18 @@ content model from the model-update step:
   - its URL pattern;
   - its `supports` values: it adds the missing ones and removes none, and SEO also sets the flag
     that puts the collection in the native sitemap;
-  - whether it is routable.
+  - whether it is routable;
+  - its fields: it creates the seed's fields that the collection lacks, such as Personnel's
+    `leadership_order`, and removes none.
 
   For each taxonomy the seed gives reference terms, such as the Document Types `policy`, `plan` and
   `result` that the About pages list by, it adds the terms whose slug the taxonomy lacks. A term
   staff relabelled keeps its label, and no term is removed.
 
-  A URL pattern that the database already has with another value, or a collection or taxonomy the
-  database lacks, stops the step before it changes anything. Replacing a pattern would move every
-  public address of the collection, so that is a Product Owner decision, not a step.
+  A URL pattern that the database already has with another value, a field it has with another
+  type, or a collection or taxonomy the database lacks, stops the step before it changes anything.
+  Replacing a pattern would move every public address of the collection, and changing a field's
+  type would change its stored values, so each is a Product Owner decision, not a step.
 - **Types.** Nothing needs regenerating. The repository does not use EmDash's generated types, and
   the dev server rewrites its untracked `emdash-env.d.ts` after each schema change.
 - **Production.** The same script updates a production database:
@@ -240,8 +243,8 @@ content model from the model-update step:
 - the development PAT authenticates as `dev@emdash.local` (Administrator);
 - the role fixture PAT authenticates as `role-fixture@songhealth.test`, enabled, with role Author;
 - the dev-only T021 fixture route answers its 0600 route token and refuses requests without it;
-- the database has the promoted seed's content model and reference terms: the model-update step's
-  read-only check, run in the app container.
+- the database has the promoted seed's content model, fields and reference terms: the
+  model-update step's read-only check, run in the app container.
 
 Runtime results are interpreted only against the commit verify reports.
 
@@ -277,7 +280,7 @@ Runtime results are interpreted only against the commit verify reports.
 | Port 4324 is in use | Something else listens there. There is no fallback port: resolve the conflict at its cause. |
 | The PAT check fails | `dev-pat` is missing, has the wrong mode or was revoked. Minting a new one means running `setup/dev-bypass?token=1`, which rotates the token; do that only deliberately. |
 | The role fixture check fails | `role-fixture-pat` is missing, or a role test was interrupted and left the account with another role or disabled. Restore it in the Admin (Users: Author, enabled), or delete the file; then re-run the installer, which re-mints the PAT. |
-| The content-model check fails | The database lacks part of the promoted seed's model: run `scripts/dev-runtime-model-update.sh`. If the step reports a problem instead, a URL pattern differs from the seed's, or a collection or taxonomy is missing. Bring that to the Product Owner before changing either. |
+| The content-model check fails | The database lacks part of the promoted seed's model: run `scripts/dev-runtime-model-update.sh`. If the step reports a problem instead, a URL pattern or a field type differs from the seed's, or a collection or taxonomy is missing. Bring that to the Product Owner before changing any of them. |
 | The T021 coordinator holds | The message names the prerequisite. Verify fails: fix the runtime first. The runtime is at another commit: promote the tested commit. The route is missing (404): the commit predates the dev configuration. The token is unprovisioned (503) or does not match (403): delete `t021-route-access.json` and re-run the installer. |
 
 **Never run `podman volume prune` or `podman system prune --volumes` while the runtime is

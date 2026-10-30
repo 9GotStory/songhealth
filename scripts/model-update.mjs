@@ -1,4 +1,4 @@
-// The model-update step (#53, #60): brings an existing database to the content model of
+// The model-update step (#53, #60, #61): brings an existing database to the content model of
 // seed/seed.json through EmDash's native schema and taxonomy APIs, and tells whether it is there.
 //
 //   node scripts/model-update.mjs --origin <origin> [--check] < <Administrator PAT file>
@@ -9,16 +9,18 @@
 // file (src/cli/commands/seed.ts), and `emdash schema` cannot update a collection
 // (src/cli/commands/schema.ts). Setup also skips the seed's taxonomy terms unless it installs
 // sample content (src/seed/apply.ts `includeContent`). The step therefore uses the REST APIs that
-// the Admin uses: GET and PUT /_emdash/api/schema/collections (src/astro/routes/api/schema/
-// collections/), GET /_emdash/api/taxonomies, and GET and POST /_emdash/api/taxonomies/{name}/terms
+// the Admin uses: GET and PUT /_emdash/api/schema/collections, GET and POST
+// /_emdash/api/schema/collections/{slug}/fields (src/astro/routes/api/schema/collections/),
+// GET /_emdash/api/taxonomies, and GET and POST /_emdash/api/taxonomies/{name}/terms
 // (src/astro/routes/api/taxonomies/).
 //
 // The token is read from standard input and never printed. With --check the step only reads:
 // it lists the pending changes and exits 0 when there are none and 3 when there are. Without
 // it, the step applies them and reads the model again to confirm. A problem changes nothing
 // and exits 1: a URL pattern the database already has, which the step never replaces because
-// that would move every public address of the collection, or a collection or taxonomy the
-// database lacks.
+// that would move every public address of the collection; a field the database has with another
+// type, which the step never changes because that would change its stored values; or a
+// collection or taxonomy the database lacks.
 //
 // The caller backs up first (on the development runtime, scripts/dev-runtime-model-update.sh
 // does). No types need regenerating: the repository does not use EmDash's generated types, and
@@ -29,11 +31,19 @@ import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
 /**
+ * @typedef {object} SeedField A field of a seed collection, which is also the body that creates it
+ *   with POST /_emdash/api/schema/collections/{slug}/fields (src/seed/types.ts SeedField,
+ *   src/api/schemas/schema.ts createFieldBody).
+ * @property {string} slug
+ * @property {string} label
+ * @property {string} type
+ *
  * @typedef {object} SeedCollection A collection of seed/seed.json (src/seed/types.ts).
  * @property {string} slug
  * @property {string[]} [supports]
  * @property {string} [urlPattern]
  * @property {boolean} [routable]
+ * @property {SeedField[]} [fields]
  *
  * @typedef {object} SeedTaxonomy A taxonomy of seed/seed.json, with the reference terms it
  *   starts with (src/seed/types.ts SeedTaxonomyTerm).
@@ -47,6 +57,10 @@ import { parseArgs } from "node:util";
  * @property {string | null} [urlPattern]
  * @property {boolean} hasSeo
  * @property {boolean} routable
+ * @property {LiveField[]} fields its fields, from GET /_emdash/api/schema/collections/{slug}/fields
+ *
+ * @typedef {{ slug: string, type: string }} LiveField A field the database has
+ *   (src/schema/registry.ts mapFieldRow).
  *
  * @typedef {object} LiveTaxonomy A taxonomy the database has, with the slug and label of each of
  *   its terms (GET /_emdash/api/taxonomies/{name}/terms, src/api/handlers/taxonomies.ts).
@@ -54,6 +68,8 @@ import { parseArgs } from "node:util";
  * @property {{ slug: string, label: string }[]} terms
  *
  * @typedef {{ collections: LiveCollection[], taxonomies: LiveTaxonomy[] }} LiveModel
+ *
+ * @typedef {{ collection: string, field: SeedField }} FieldCreate A field to create in a collection.
  *
  * @typedef {{ taxonomy: string, slug: string, label: string }} TermCreate A term to create with
  *   POST /_emdash/api/taxonomies/{taxonomy}/terms (src/api/schemas/taxonomies.ts createTermBody).
@@ -77,6 +93,9 @@ import { parseArgs } from "node:util";
  *   handleSitemapData);
  * - routability is set to the seed's value, routable unless the seed says otherwise.
  *
+ * The seed's fields that a collection lacks, such as Personnel's Leadership order, are created as
+ * the seed declares them. A field the database has beyond the seed is kept.
+ *
  * For each taxonomy the seed gives reference terms, such as the Document Types the About pages
  * list by, the step adds the terms whose slug the taxonomy lacks. A term staff relabelled keeps
  * its label, and no term is removed.
@@ -86,6 +105,7 @@ import { parseArgs } from "node:util";
  * @param {LiveModel} live the live model
  * @returns {{
  *   collections: { slug: string, update: CollectionUpdate }[],
+ *   fields: FieldCreate[],
  *   terms: TermCreate[],
  *   problems: string[],
  * }}
@@ -94,6 +114,8 @@ export function planModelUpdate(seed, live) {
 	const current = new Map(live.collections.map((collection) => [collection.slug, collection]));
 	/** @type {{ slug: string, update: CollectionUpdate }[]} */
 	const collections = [];
+	/** @type {FieldCreate[]} */
+	const fields = [];
 	/** @type {string[]} */
 	const problems = [];
 	for (const wanted of seed.collections) {
@@ -127,6 +149,17 @@ export function planModelUpdate(seed, live) {
 		if (Object.keys(update).length > 0) {
 			collections.push({ slug: wanted.slug, update });
 		}
+		const types = new Map(have.fields.map((field) => [field.slug, field.type]));
+		for (const field of wanted.fields ?? []) {
+			const type = types.get(field.slug);
+			if (type === undefined) {
+				fields.push({ collection: wanted.slug, field });
+			} else if (type !== field.type) {
+				problems.push(
+					`${wanted.slug}: the database has the field ${field.slug} as ${type}, the seed as ${field.type}`,
+				);
+			}
+		}
 	}
 	const taxonomies = new Map(live.taxonomies.map((taxonomy) => [taxonomy.name, taxonomy]));
 	/** @type {TermCreate[]} */
@@ -143,7 +176,16 @@ export function planModelUpdate(seed, live) {
 			if (!slugs.has(slug)) terms.push({ taxonomy: wanted.name, slug, label });
 		}
 	}
-	return { collections, terms, problems };
+	return { collections, fields, terms, problems };
+}
+
+/**
+ * Whether a plan changes nothing.
+ *
+ * @param {ReturnType<typeof planModelUpdate>} plan
+ */
+function isEmpty({ collections, fields, terms }) {
+	return collections.length === 0 && fields.length === 0 && terms.length === 0;
 }
 
 const USAGE = "usage: node scripts/model-update.mjs --origin <origin> [--check] < <PAT file>";
@@ -276,10 +318,23 @@ async function main(args) {
 				);
 				taxonomies.push({ name, terms: flattenTerms(listed.terms) });
 			}
-			return {
-				collections: (await api("GET", "/_emdash/api/schema/collections")).items,
-				taxonomies,
-			};
+			const wanted = new Set(
+				seed.collections.map((/** @type {SeedCollection} */ { slug }) => slug),
+			);
+			/** @type {LiveCollection[]} */
+			const collections = [];
+			for (const collection of (await api("GET", "/_emdash/api/schema/collections")).items) {
+				if (!wanted.has(collection.slug)) continue;
+				const listed = await api(
+					"GET",
+					`/_emdash/api/schema/collections/${encodeURIComponent(collection.slug)}/fields`,
+				);
+				collections.push({
+					...collection,
+					fields: listed.items.map((/** @type {LiveField} */ { slug, type }) => ({ slug, type })),
+				});
+			}
+			return { collections, taxonomies };
 		};
 
 		const plan = planModelUpdate(seed, await readModel());
@@ -288,7 +343,7 @@ async function main(args) {
 			say("nothing was changed");
 			return EXIT.FAILED;
 		}
-		if (plan.collections.length === 0 && plan.terms.length === 0) {
+		if (isEmpty(plan)) {
 			say("the database has the seed's content model; nothing to change");
 			return EXIT.MATCHES;
 		}
@@ -298,6 +353,19 @@ async function main(args) {
 			} else {
 				await api("PUT", `/_emdash/api/schema/collections/${encodeURIComponent(slug)}`, update);
 				say(`applied: ${slug}: ${describe(update)}`);
+			}
+		}
+		for (const { collection, field } of plan.fields) {
+			const change = `${collection}: field ${field.slug} (${field.type}, ${field.label})`;
+			if (options.check) {
+				say(`pending: ${change}`);
+			} else {
+				await api(
+					"POST",
+					`/_emdash/api/schema/collections/${encodeURIComponent(collection)}/fields`,
+					field,
+				);
+				say(`applied: ${change}`);
 			}
 		}
 		for (const { taxonomy, slug, label } of plan.terms) {
@@ -315,7 +383,7 @@ async function main(args) {
 			return EXIT.PENDING;
 		}
 		const after = planModelUpdate(seed, await readModel());
-		if (after.problems.length > 0 || after.collections.length > 0 || after.terms.length > 0) {
+		if (after.problems.length > 0 || !isEmpty(after)) {
 			say("FAIL: the database still differs from the seed after the update");
 			return EXIT.FAILED;
 		}

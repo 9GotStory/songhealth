@@ -17,19 +17,11 @@
 //
 // The runtime may already hold its own Basic Pages at the reserved slugs, and its own Documents of
 // the About types (the demo dataset, the Product Owner's). A test that needs one of them in draft
-// borrows it: the test returns it to draft, and afterEach publishes it again at its own publication
-// date (CODING_STANDARDS "Tests", shared runtime state). Its revision history keeps the round trip,
-// which the native API cannot undo. An entry that is scheduled, unpublished, or has unpublished
-// changes that publishing would release, is left alone and the test skips. /about/organization is
-// requested only while a Basic Page is published there, so the suite leaves no real address in
-// EmDash's 404 log.
+// borrows it (public.helpers.ts BorrowedEntries), and afterEach publishes it again at its own
+// publication date. /about/organization is requested only while a Basic Page is published there,
+// so the suite leaves no real address in EmDash's 404 log.
 //
 // Platform behaviour relied on (emdash 1.1.0):
-// - A content read by slug finds an entry that is not in the trash
-//   (src/database/repositories/content.ts findByIdOrSlug). It carries `draftRevisionId` while the
-//   entry has changes not yet published (src/emdash-runtime.ts hydrateDraftData).
-// - POST …/publish takes `publishedAt`, so a borrowed entry is published again at its own date
-//   (src/astro/routes/api/content/[collection]/[id]/publish.ts).
 // - POST …/preview-url mints a draft's signed preview link at its URL pattern, /pages/{slug}
 //   (src/astro/routes/api/content/[collection]/[id]/preview-url.ts), and the preview token travels
 //   in the query string (src/preview/tokens.ts).
@@ -58,10 +50,13 @@ import {
 	type DraftFixture,
 } from "./cms.helpers";
 import {
+	BorrowedEntries,
 	DESKTOP_VIEWPORT,
+	HOME_CRUMB,
 	MOBILE_VIEWPORT,
 	VIEWPORTS,
 	expect,
+	expectAboutSubpage,
 	expectBreadcrumb,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
@@ -97,9 +92,6 @@ const FOOTER_PAGES = [
 	{ slug: "accessibility", label: "การเข้าถึงเว็บไซต์" },
 ] as const;
 
-const HOME_CRUMB = ["หน้าแรก", "/"] as const;
-const ABOUT_CRUMB = ["เกี่ยวกับเรา", "/about"] as const;
-
 let admin: CmsActor;
 let origin: string;
 
@@ -120,40 +112,11 @@ async function createPage(
 
 type Collection = "pages" | "documents";
 
-/** A published entry of the runtime's own that the running test returned to draft. */
-interface Borrowed {
-	collection: Collection;
-	fixture: DraftFixture;
-	publishedAt: string;
-}
-
 /** What the running test borrowed; afterEach gives it back. */
-const borrowed: Borrowed[] = [];
+const borrowed = new BorrowedEntries();
 
-/**
- * The runtime's own entry at `slug`, returned to draft for the running test, or undefined when
- * there is none. The test skips when the entry is not simply published.
- */
-async function borrow(collection: Collection, slug: string): Promise<DraftFixture | undefined> {
-	const read = await readEntry(admin, collection, slug);
-	if (!read.ok) {
-		expect(read.status, `reading ${collection}/${slug}: ${nativeRefusalOf(read)}`).toBe(404);
-		return undefined;
-	}
-	const item = nativeItemOf(read)!;
-	test.skip(
-		item.status !== "published" || typeof item.draftRevisionId === "string",
-		`the runtime's ${collection} entry "${slug}" is ${item.status}${item.draftRevisionId ? " with unpublished changes" : ""}; the suite leaves it alone`,
-	);
-	const fixture = {
-		id: String(item.id),
-		slug,
-		title: String((item.data as { title?: unknown }).title),
-	};
-	borrowed.push({ collection, fixture, publishedAt: String(item.publishedAt) });
-	await unpublish(collection, fixture);
-	return fixture;
-}
+/** The runtime's own entry at `slug`, returned to draft for the running test. */
+const borrow = (collection: Collection, slug: string) => borrowed.borrow(admin, collection, slug);
 
 /**
  * The Basic Page at a reserved slug, as a draft for the running test: the runtime's own, borrowed,
@@ -175,8 +138,7 @@ const createDocument = (label: string, type?: string) =>
 
 /** Publish now, or a borrowed entry at its own publication date. */
 async function publish(collection: Collection, fixture: DraftFixture): Promise<void> {
-	const own = borrowed.find((entry) => entry.fixture.id === fixture.id);
-	await publishEntryAt(admin, collection, fixture.id, own?.publishedAt);
+	await publishEntryAt(admin, collection, fixture.id, borrowed.publishedAtOf(fixture.id));
 }
 
 /** Return a published fixture to draft. */
@@ -262,26 +224,7 @@ test.beforeAll(async ({}, testInfo) => {
 });
 
 test.afterEach(async () => {
-	const failures: string[] = [];
-	for (const { collection, fixture, publishedAt } of borrowed.splice(0)) {
-		try {
-			const status = nativeItemOf(await readEntry(admin, collection, fixture.id))?.status;
-			const stored =
-				status === "published"
-					? nativeItemOf(await readEntry(admin, collection, fixture.id))?.publishedAt
-					: await publishEntryAt(admin, collection, fixture.id, publishedAt);
-			if (Date.parse(String(stored)) !== Date.parse(publishedAt)) {
-				failures.push(
-					`${collection}/${fixture.slug} is published at ${stored}, not ${publishedAt}`,
-				);
-			}
-		} catch (error) {
-			failures.push(
-				`${collection}/${fixture.slug}: ${error instanceof Error ? error.message : error}`,
-			);
-		}
-	}
-	expect(failures, "the runtime's own entries are published again as they were").toEqual([]);
+	await borrowed.giveBack(admin);
 });
 
 test.afterAll(async () => {
@@ -331,9 +274,7 @@ test("/about/policies, /about/plans and /about/results list only the published D
 		expect(response?.status(), `GET ${path}`).toBe(200);
 		await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
 		await expect(page).toHaveTitle(`${title}${separator}${siteTitle}`);
-		await expect(navigationLink(page, "เกี่ยวกับเรา")).toHaveAttribute("aria-current", "true");
-		await expectBreadcrumb(page, [HOME_CRUMB, ABOUT_CRUMB], title);
-		await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}${path}`);
+		await expectAboutSubpage(page, path, title);
 		expect(ownTitles(await listedTitles(page), all), `${path}: its own type, newest first`).toEqual(
 			expected[type].map((document) => document.title),
 		);
@@ -475,12 +416,7 @@ test("/about/organization renders the published organization Basic Page under �
 	expect(response?.status(), "GET /pages/organization, redirected").toBe(200);
 	expect(new URL(page.url()).pathname).toBe("/about/organization");
 	await expectBasicPage(page, organization, content);
-	await expect(navigationLink(page, "เกี่ยวกับเรา")).toHaveAttribute("aria-current", "true");
-	await expectBreadcrumb(page, [HOME_CRUMB, ABOUT_CRUMB], organization.title);
-	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
-		"href",
-		`${origin}/about/organization`,
-	);
+	await expectAboutSubpage(page, "/about/organization", organization.title);
 });
 
 test("the footer links to the privacy and accessibility Basic Pages only while they are published", async ({

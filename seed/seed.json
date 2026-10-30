@@ -507,6 +507,11 @@
           "slug": "public_contact",
           "label": "ช่องทางติดต่อสาธารณะ",
           "type": "text"
+        },
+        {
+          "slug": "leadership_order",
+          "label": "ลำดับผู้บริหาร",
+          "type": "integer"
         }
       ]
     },
