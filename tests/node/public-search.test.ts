@@ -10,6 +10,10 @@
 //   to the newer entry. Each group counts its results, and a page shows a fixed number of them.
 // - A result's snippet is HTML-escaped plain text: the summary, or the text around the match, cut
 //   between words, with the terms marked.
+// - A search answers the start page, too short, nothing found or results, and any failure, while
+//   reading or matching, becomes the failed state, logged without the query. The browser suite
+//   cannot make the development runtime fail, so this is where the failed state is driven
+//   (Product Owner, 2026-10-30: #63 comment 6518347225).
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -22,6 +26,7 @@ import {
 	parseGroup,
 	parseQuery,
 	parseSearchRequest,
+	runSearch,
 	searchPage,
 	type Searchable,
 	type SearchKind,
@@ -439,5 +444,52 @@ describe("search snippets", () => {
 		assert.ok(inside.includes("<mark>วัคซีน</mark>"), inside);
 		const kept = inside.slice(1, -1).replace(/<\/?mark>/g, "");
 		assert.ok(kept.length <= SNIPPET_LENGTH, `at most ${SNIPPET_LENGTH} characters: ${inside}`);
+	});
+});
+
+describe("runSearch", () => {
+	const entries = [entry("dengue", { title: "ไข้เลือดออก" })];
+	const run = (params: Record<string, string>, read = async () => entries) =>
+		runSearch(parseSearchRequest(new URLSearchParams(params)), read);
+
+	it("answers the start page without a query, and too short below two characters, without reading", async () => {
+		let reads = 0;
+		const counting = async () => {
+			reads += 1;
+			return entries;
+		};
+		assert.equal((await run({}, counting)).state, "start");
+		assert.equal((await run({ q: "ก" }, counting)).state, "too-short");
+		assert.equal(reads, 0, "nothing is read");
+	});
+
+	it("answers nothing found, or one page of results", async () => {
+		assert.equal((await run({ q: "มาลาเรีย" })).state, "nothing");
+		const outcome = await run({ q: "ไข้" });
+		assert.equal(outcome.state, "found");
+		if (outcome.state === "found") {
+			assert.deepEqual(
+				outcome.found.results.map((result) => result.entry.id),
+				["dengue"],
+			);
+		}
+	});
+
+	it("turns a failed read into the failed state, and logs the failure without the query", async (t) => {
+		const logged = t.mock.method(console, "error", () => {});
+		const outcome = await run({ q: "ประวัติผู้ป่วย" }, async () => {
+			throw new Error("connect ECONNREFUSED 10.0.0.5:5432");
+		});
+		assert.equal(outcome.state, "failed");
+		assert.equal(logged.mock.callCount(), 1, "the failure is logged");
+		const line = logged.mock.calls[0].arguments.map(String).join(" ");
+		assert.ok(!line.includes("ประวัติผู้ป่วย"), `the log leaves the query out: ${line}`);
+	});
+
+	it("turns a failure while matching into the failed state too", async (t) => {
+		t.mock.method(console, "error", () => {});
+		const broken = entry("broken", { title: "ข่าว" });
+		broken.text.title = [undefined as unknown as string];
+		assert.equal((await run({ q: "ข่าว" }, async () => [broken])).state, "failed");
 	});
 });

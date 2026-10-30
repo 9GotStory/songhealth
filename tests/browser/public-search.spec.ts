@@ -17,7 +17,9 @@
 // never shows in its results.
 //
 // The error state is not driven here: the shared development runtime offers no way to make the
-// search's reads fail without a fault seam in the page.
+// search's reads fail without a fault switch in the page. tests/node/public-search.test.ts makes a
+// read fail instead, and the failed state reuses the nothing-found state's block, links and page,
+// which this suite checks (Product Owner, 2026-10-30: #63 comment 6518347225).
 
 import type { Page } from "@playwright/test";
 
@@ -383,6 +385,7 @@ test("the start page, a too-short or empty query and a query that finds nothing 
 	const nothing = `<img src=x onerror="document.title='x'">${thaiWord()}`;
 	await search(page, { q: nothing });
 	await expect(main).toContainText(`ไม่พบข้อมูลที่ตรงกับ “${nothing}”`);
+	await expect(main).toContainText("ตรวจสอบตัวสะกด");
 	await expect(main.locator("img")).toHaveCount(0);
 	await expect(groups).toHaveCount(0);
 	for (const [label, href] of [

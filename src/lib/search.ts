@@ -12,7 +12,8 @@
 // Each collection's fields by tier follow spec #51 "Search" (Searchable collections). Personnel is
 // not searched, because it has no page of its own. Rich text is read as plain text through
 // EmDash's `extractPlainText` (emdash 1.1.0 src/search/text-extraction.ts), which needs no search
-// index. A result shows the date and status the list of its kind shows.
+// index. A result shows the date and status the list of its kind shows (Product Owner,
+// 2026-10-30: #63 comment 6518347225).
 
 import { extractPlainText, getEmDashCollection, type ContentEntry } from "emdash";
 import { activityDate, activityPath, type ActivityData } from "./activities";
@@ -43,10 +44,9 @@ import type { HealthServiceData } from "./health-services";
 import { newsPath, type NewsData } from "./news";
 import {
 	parseSearchRequest,
-	searchPage,
+	runSearch,
 	type Searchable,
-	type SearchPage,
-	type SearchRequest,
+	type SearchOutcome,
 } from "./search-matcher";
 import { servicePath } from "./service-catalog";
 import type { ServiceData } from "./services";
@@ -67,13 +67,6 @@ export interface SearchEntry extends Searchable {
 	shownDate?: Instant;
 	status?: ResultStatus;
 }
-
-/** What a search found, with what it was asked. */
-export type SearchOutcome = SearchRequest &
-	(
-		| { state: "start" | "too-short" | "nothing" | "failed" }
-		| { state: "found"; found: SearchPage<SearchEntry> }
-	);
 
 /** The texts of these fields: a string as it is, rich text as plain text, anything else empty. */
 function texts(...values: unknown[]): string[] {
@@ -205,25 +198,12 @@ const SOURCES: Source[] = [
 ];
 
 /**
- * The search an address asks for (`?q=`, `?group=`, `?page=`) at `now`: the start page without a
- * query, too short, nothing found, a failure, or one page of results with the count of each group.
- * A failure is logged here and shows no detail.
+ * The search an address asks for (`?q=`, `?group=`, `?page=`) at `now`, over the published entries
+ * of the searchable collections (src/lib/search-matcher.ts runSearch). A failure is logged and
+ * shows no detail.
  */
-export async function search(params: URLSearchParams, now: Date): Promise<SearchOutcome> {
-	const request = parseSearchRequest(params);
-	const { query, group, page } = request;
-	if (query.kind === "none") return { ...request, state: "start" };
-	if (query.kind === "too-short") return { ...request, state: "too-short" };
-	let found: SearchPage<SearchEntry>;
-	try {
-		const entries = (await Promise.all(SOURCES.map((read) => read(now)))).flat();
-		found = searchPage(entries, query.terms, group, page);
-	} catch (error) {
-		// The query is a citizen's own words, so the log leaves it out.
-		console.error("/search: the search failed", error);
-		return { ...request, state: "failed" };
-	}
-	return found.counts.all === 0
-		? { ...request, state: "nothing" }
-		: { ...request, state: "found", found };
+export function search(params: URLSearchParams, now: Date): Promise<SearchOutcome<SearchEntry>> {
+	return runSearch(parseSearchRequest(params), async () =>
+		(await Promise.all(SOURCES.map((read) => read(now)))).flat(),
+	);
 }

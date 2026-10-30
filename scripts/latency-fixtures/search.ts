@@ -7,11 +7,12 @@
 
 import type { FixtureKit } from "../fixture-kit.ts";
 
+// fetch encodes the Thai in each path, and the table shows it as written.
 export const paths = [
-	`/search?q=${encodeURIComponent("สาธารณสุข")}`,
-	`/search?q=${encodeURIComponent("ไข้เลือดออก ยุงลาย")}`,
-	`/search?q=${encodeURIComponent("คำที่ไม่มีในเนื้อหา")}`,
-	`/search?q=${encodeURIComponent("สาธารณสุข")}&group=health&page=5`,
+	"/search?q=สาธารณสุข",
+	"/search?q=ไข้เลือดออก ยุงลาย",
+	"/search?q=คำที่ไม่มีในเนื้อหา",
+	"/search?q=สาธารณสุข&group=health&page=5",
 ];
 
 /** Entries of each collection. */

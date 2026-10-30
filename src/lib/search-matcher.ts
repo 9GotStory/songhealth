@@ -2,8 +2,9 @@
 //
 // src/lib/search.ts reads the published entries of the searchable collections when a search is
 // made. This module holds the rules for what a search asks and what it finds: reading the request,
-// normalising text, matching, ranking, grouping and building snippets. It imports only
-// src/lib/pagination.ts, which has no import, so node:test checks it directly.
+// normalising text, matching, ranking, grouping and building snippets, and turning a failure into
+// the failed state. It imports only src/lib/pagination.ts, which has no import, so node:test
+// checks it directly, a failed read included (Product Owner, 2026-10-30: #63 comment 6518347225).
 
 import { PAGE_PARAM, parsePageNumber } from "./pagination.ts";
 
@@ -30,8 +31,9 @@ export const SEARCH_PAGE_SIZE = 20;
 
 /**
  * The kinds of content the search finds, one per searchable collection, each as citizens read it:
- * the GLOSSARY's Thai names, except two that are pending the Product Owner (#63). A Health Service
- * is shortened from หน่วยบริการสุขภาพที่เกี่ยวข้อง, and a Basic Page (หน้าเนื้อหาพื้นฐาน) reads as หน้าข้อมูล.
+ * the GLOSSARY's Thai names, except two (Product Owner, 2026-10-30: #63 comment 6518347225). A
+ * Health Service is shortened from หน่วยบริการสุขภาพที่เกี่ยวข้อง, and a Basic Page (หน้าเนื้อหาพื้นฐาน) reads
+ * as หน้าข้อมูล.
  */
 export const KIND_LABELS = {
 	news: "ข่าว",
@@ -351,4 +353,37 @@ export function searchPage<E extends Searchable>(
 		counts,
 		hasMore: inGroup.length > start + SEARCH_PAGE_SIZE,
 	};
+}
+
+/** What a search found, with what it was asked. */
+export type SearchOutcome<E> = SearchRequest &
+	(
+		| { state: "start" | "too-short" | "nothing" | "failed" }
+		| { state: "found"; found: SearchPage<E> }
+	);
+
+/**
+ * The search a request asks for, over the published entries `read` returns: the start page without
+ * a query, too short, nothing found, or one page of results with the count of each group. A
+ * failure, while reading or matching, is logged and becomes the failed state, which shows no
+ * detail.
+ */
+export async function runSearch<E extends Searchable>(
+	request: SearchRequest,
+	read: () => Promise<E[]>,
+): Promise<SearchOutcome<E>> {
+	const { query, group, page } = request;
+	if (query.kind === "none") return { ...request, state: "start" };
+	if (query.kind === "too-short") return { ...request, state: "too-short" };
+	let found: SearchPage<E>;
+	try {
+		found = searchPage(await read(), query.terms, group, page);
+	} catch (error) {
+		// The query is a citizen's own words, so the log leaves it out.
+		console.error("/search: the search failed", error);
+		return { ...request, state: "failed" };
+	}
+	return found.counts.all === 0
+		? { ...request, state: "nothing" }
+		: { ...request, state: "found", found };
 }

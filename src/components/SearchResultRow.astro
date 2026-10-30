@@ -5,7 +5,9 @@
 // status label. No internal field shows.
 //
 // The snippet is HTML that src/lib/search-matcher.ts builds: the entry's plain text, escaped, with
-// the matched terms in <mark>. Nothing else is set as HTML.
+// the matched terms in <mark>. Nothing else is set as HTML. A mark is semibold text-primary without
+// a fill, because the warm fill marks a status that needs attention (Product Owner, 2026-10-30:
+// #63 comment 6518347225).
 import type { SearchEntry } from "../lib/search";
 import { KIND_LABELS } from "../lib/search-matcher";
 import AnnouncementStatus from "./AnnouncementStatus.astro";
@@ -33,7 +35,7 @@ const { status } = entry;
 	</h2>
 	{snippet && (
 		<p
-			class="wrap-anywhere text-text-secondary [&_mark]:bg-accent-warm [&_mark]:text-text-primary"
+			class="wrap-anywhere text-text-secondary [&_mark]:bg-transparent [&_mark]:font-semibold [&_mark]:text-text-primary"
 			set:html={snippet}
 		/>
 	)}
