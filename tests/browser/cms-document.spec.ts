@@ -1,151 +1,39 @@
-// T003 — focused native Document Save checks for the Feature 002 shared
-// `documents` collection. Test support in tests/browser/ only: no application,
-// schema, seed, dependency, infrastructure, or production change is made here.
+// Saving a Document (Feature 002 T003; specs/002-cms-content-model/, data-model.md, the
+// `documents` row; `02` §13 and §20).
 //
-// Authority:
-// - specs/002-cms-content-model/tasks.md T003 ("Author focused native Document
-//   Save checks in tests/browser/cms-document.spec.ts using T002: missing/
-//   null/empty title, missing/malformed/cleared file object, valid
-//   uploaded-media `id`, permitted optional omissions and supplied invalid
-//   type/select/date values; distinguish native validation from authorization
-//   and do not assert file immutability or continued byte availability") and
-//   the shared "Path Conventions and Shared Constraints" section (dev-bypass
-//   access, returned IDs/current `_rev`, re-read uncertain outcomes, clean
-//   only owned synthetic fixtures, serial runtime checks)
-// - specs/002-cms-content-model/contracts/native-editorial.md — "Native
-//   Request Shapes" (create must supply required fields; an update may omit
-//   an unchanged field but must not invalidly clear it) and "Validation
-//   Contract — Native Only" §1 (EmDash schema enforces required fields,
-//   type/format values; native validation failures remain distinguishable
-//   from permission/state refusals)
-// - specs/002-cms-content-model/data-model.md — `documents` row (`title`
-//   string S; `summary` text O; `file` file S; `document_at` datetime O;
-//   `fiscal_year` integer O; `owner_source` text O; `domain_status` select O
-//   (current/superseded/expired)) and the Common Native Contract ("Native
-//   Save validation rejects missing required values and empty required
-//   strings; malformed supplied values retain native refusal")
-// - specs/002-cms-content-model/spec.md — Q1 matrix Document row ("Title and
-//   native file required at save; Native RBAC/lifecycle only; Type, owner,
-//   dates, successor editorial") and FR-002/FR-026
-// - specs/002-cms-content-model/quickstart.md — "Focused Native API Checks"
-//   (cover missing/null/empty title, missing or malformed Document file
-//   object, invalid clear of a required value, and representative invalid
-//   supplied type/format/select values; a valid native file value has an
-//   uploaded fixture media `id`; its presence does not prove later byte
-//   availability)
-// - docs/website-modernization-docs/current/02-content-model.md §13
-//   (Document fields) and §20 "V1 validation and native limitation boundary"
-// - tests/browser/cms.helpers.ts — the accepted T002 native request/fixture
-//   helpers this file consumes (dev-bypass actor, synthetic media/entries,
-//   fresh `_rev` preconditions, secret-redacted results, owned-fixture
-//   cleanup)
-// - specs/002-cms-content-model/evidence/T001-development-inputs.md §6–§7 —
-//   the truthful readiness limitations these checks skip on rather than
-//   masquerading as field-validation results
+// The suite checks the native save of the shared `documents` collection: a missing, null or empty
+// title, a missing, null or empty-object file, invalid supplied types, select values and dates,
+// and an invalid clear of the title or file are refused as native validation; a valid uploaded
+// media `id`, the optional values and the permitted omissions save. An unauthenticated save is
+// refused by the authorization layer instead, and every validation refusal is checked not to be
+// one. A saved file selection proves only that the save accepted the media id: no immutability or
+// continued byte availability is asserted. Publishing, lifecycle and public reads belong to other
+// suites.
 //
-// Verified API surface (recorded per CLAUDE.md §Current documentation; every
-// release-sensitive claim below was checked against the pinned `emdash@1.1.0`
-// archive, npm tarball integrity sha512-VXo1fIMr44PEiE1A9Z5aFWvjsqhdLDHqat2iPkFYoam2kYV6h+2LGkEDovkXdLmmWWDY9w7ekP0CP6ziYMFhg==
-// — byte-equal to package-lock.json, the same integrity research.md §Evidence
-// and the T002 helpers independently verified):
-// - create validates content data with `partial: false` and update with
-//   `partial: true` (src/emdash-runtime.ts handleContentCreate/handleContent
-//   Update call sites) — so a create may omit nothing required, while an
-//   update may omit an unchanged required field but has every SUPPLIED value
-//   validated, including invalid clears of required fields
-// - required-field and supplied-value issues surface as the native envelope
-//   `{ success: false, error: { code: "VALIDATION_ERROR", message, details:
-//   { issues: [{ path, code, message }] } } }` with HTTP 400
-//   (src/api/handlers/validation.ts validateContentData; src/api/errors.ts
-//   mapErrorStatus)
-// - empty-string on a required field is refused as `required (empty value
-//   not allowed)` even though z.string() itself accepts "" (validation.ts
-//   separate pass; in partial mode only fields present in `data` are checked)
-// - a native file value is an object whose REQUIRED member is a string media
-//   `id` (src/schema/zod-generator.ts file case: z.object({ id: z.string(),
-//   url?, src?, filename?, mimeType?, size?, provider?, meta? })) — a missing
-//   `file`, null, or an object with neither `id` nor `src` is a supplied-value
-//   type refusal, never a valid clear
-// - CORRECTIVE ROUND 1 (Product Owner approval 01a13ed2-7a42-7aa7-b8a9-546c558ef316,
-//   Human Gate 01a13ecf-ec08-7d27-8b6d-c0d292c1e943, Lead reproduction in the
-//   T006 review): a DOCUMENTED media value normalization layer runs at content
-//   create/update time BEFORE the field schema (src/media/normalize.ts, invoked
-//   from src/emdash-runtime.ts before create/update validation) and makes a
-//   BARE STRING a first-class native file shape (the URL-input path:
-//   "seed scripts, media picker, WP import, URL input"):
-//   file:"" and file:"not-an-object" → {provider:"external", id:"", src:<the
-//   string>}; file:{id:123} is coerced to {id:"", provider:"local"}. These
-//   three inputs are ACCEPTED (201) with exactly those stored representations,
-//   and the Product Owner accepts this pinned behavior as a documented V1
-//   limitation. Observed results for these exact inputs only — not universal
-//   rules. An accepted normalized value with id:"" is NOT a real file
-//   selection — the regression tests below assert the exact degenerate stored
-//   shape through native read-back and never imply an empty id/src selects an
-//   available file (no availability guarantee exists; D-REF stays deferred)
-// - string → z.string(); integer → z.number().int(); datetime →
-//   z.iso.datetime({ offset: true }) (offset-aware; an offset-less timestamp
-//   is refused); select → z.enum(configured options) (zod-generator.ts)
-// - authorization refusals are a different family entirely: an
-//   unauthenticated request is `UNAUTHORIZED` 401 and an insufficient
-//   permission is `FORBIDDEN` 403 (src/api/authorize.ts requirePerm) — the
-//   authorization-failure control below proves that boundary live and every
-//   validation-refusal assertion below also asserts the refusal is NOT
-//   401/403, so an authorization problem can never masquerade as a
-//   field-validation outcome (and vice versa)
-// - an unknown collection is `COLLECTION_NOT_FOUND` 404 (errors.ts) — used
-//   here as the truthful schema-readiness gate, not a validation result
-// - GET /_emdash/api/schema/collections/{slug}?includeFields=true
-//   (schema:read) → data { item: { …collection, fields: [{ slug, type,
-//   required, … }] } } (src/astro/routes/api/schema/collections/[slug]/
-//   index.ts; src/api/handlers/schema.ts handleSchemaCollectionGet)
-// - Playwright 1.63.0 semantics (Context7 /microsoft/playwright v1.63.0):
-//   tests in one file run sequentially in one worker; test-scoped hooks
-//   (afterEach) and fixture teardown are guaranteed to run when a test
-//   finishes — including after a failure — in the SAME worker, while a
-//   FAILED test causes Playwright to discard that worker for LATER tests
-//   (docs/test-retries#failures). Owned-fixture cleanup therefore runs as
-//   test-scoped teardown below, never as a trailing ordinary test whose
-//   fresh-worker registry would make cleanup vacuously "complete" after a
-//   failure, and never as something a test filter could exclude
+// Platform behaviour relied on (emdash 1.1.0):
+// - A create validates with `partial: false` and an update with `partial: true`, so an update may
+//   omit an unchanged required field but every supplied value is checked, including an invalid
+//   clear (src/emdash-runtime.ts handleContentCreate, handleContentUpdate).
+// - A refused value answers 400 VALIDATION_ERROR with `details.issues`
+//   (src/api/handlers/validation.ts validateContentData; src/api/errors.ts mapErrorStatus). An
+//   empty string on a required field is refused, although z.string() accepts "".
+// - A file value is an object whose required member is a string media `id`
+//   (src/schema/zod-generator.ts). Media normalization runs first and turns a bare string into an
+//   external file value and `{ id: 123 }` into `{ id: "", provider: "local" }`
+//   (src/media/normalize.ts), so `file: ""`, `file: "not-an-object"` and `file: { id: 123 }` save
+//   with those degenerate values, a V1 limitation the Product Owner accepted. Such a value selects
+//   no file.
+// - string, integer, datetime (with an offset) and select fields map to z.string(),
+//   z.number().int(), z.iso.datetime({ offset: true }) and z.enum (zod-generator.ts).
+// - An unauthenticated request is refused 401 and an insufficient one 403 FORBIDDEN
+//   (src/api/authorize.ts); an unknown collection answers 404 COLLECTION_NOT_FOUND, which the
+//   schema gate reports as a skip, never a PASS.
+// - GET /_emdash/api/schema/collections/{slug}?includeFields=true lists the fields
+//   (src/api/handlers/schema.ts handleSchemaCollectionGet).
 //
-// Boundaries and non-claims (tasks.md T003; Constitution v3.0.0 II–V):
-// - Save checks only: no publish/schedule/lifecycle/revision/public-read
-//   assertion (owned by T007/T014/T019–T022), no Admin UI journey (T031)
-// - a valid file selection proves only that the native save accepted the
-//   uploaded fixture media `id`: NO file immutability, continued byte
-//   availability, published-target or removal-protection outcome is asserted
-//   (D-REF stays deferred; native-editorial.md "Availability")
-// - the actor is the pre-existing development credential's Administrator
-//   fixture (dev@emdash.local, role 50), loaded from its controller-format
-//   mode-0600 JSON through the T013 test-authentication adaptation
-//   (loadDevAccessToken + createPatActor — never the dev-bypass bootstrap,
-//   whose native endpoint replaces same-named tokens and applies seed intent),
-//   pinned to the RUNNER-CONFIGURED origin (playwright.config.ts
-//   contract: PLAYWRIGHT_BASE_URL or the documented development origin —
-//   never the helper default, which could silently target a different
-//   running app); the unauthenticated control builds its request from the
-//   same actor origin. Distinct-role coverage is NOT claimed from this
-//   actor (T001 §6 records that input as pending; an Administrator token
-//   cannot prove role boundaries). The unauthenticated control below proves
-//   the authorization REFUSAL side only
-// - fixtures are clearly-marked synthetic public-publishable data; IDs come
-//   from native responses only; every update sends a fresh re-read `_rev`
-//   (updateEntry re-reads when none is supplied). Owned-fixture cleanup runs
-//   as FAILURE-SAFE TEARDOWN in the worker whose actor created the fixtures:
-//   after every test (pass, fail, or individually selected — after an
-//   earlier failure Playwright discards the worker only for LATER tests, so
-//   this teardown has already reconciled that worker's registry) plus an
-//   afterAll safety net that retries anything still registered. beforeAll
-//   deliberately creates no owned fixtures, so a partial setup cannot leak
-//   any; a hard worker kill (SIGKILL) is the one path no in-process teardown
-//   can cover, and the run reports it through the helper's unresolved
-//   registry instead of claiming success. Cleanup touches only the T002
-//   owned-fixture registry, and unresolved cleanup FAILS the run truthfully
-// - runtime prerequisites the environment does not provide are reported
-//   truthfully: an unreachable app fails the worker loudly (helper transport
-//   error), and a missing `documents` collection skips as an explicit
-//   T005/T006 schema precondition — a skip or discovery listing is NOT a
-//   runtime PASS claim
+// Credentials and fixtures: the development Administrator PAT (SONGHEALTH_DEV_ACCESS) acts on the
+// configured origin, and no role boundary is claimed from it. Fixtures are synthetic; cleanup runs
+// after every test, passed or failed, and again in afterAll, and beforeAll creates none.
 
 import { expect, test } from "@playwright/test";
 
