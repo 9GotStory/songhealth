@@ -1,313 +1,48 @@
-// T031 — compact native Admin maintenance smoke for the Feature 002 CMS
-// content model (US7): one representative editor journey through the NATIVE
-// EmDash Admin UI with understandable Thai collection/field labels and the
-// platform's correct English fallback — ordinary list + available
-// search/status filter, finding and reopening an existing task-owned entry,
-// the applicable native media/reference/taxonomy selectors plus the native
-// activities.gallery repeater, selecting and reusing task-owned native
-// fixtures, an explicit Save, one real native validation error surfaced
-// readably and corrected, and the domain date kept separate from publication
-// state and system metadata. Test support in tests/browser/ only: no
-// application, schema, seed, dependency, infrastructure, or production
-// change is made here.
+// One editor journey through the native Admin (Feature 002 T031, US7, FR-026, FR-029, FR-030;
+// specs/002-cms-content-model/; `05` §1, §3–§5 and §12).
 //
-// Authority:
-// - specs/002-cms-content-model/tasks.md T031 ("Author a compact native Admin
-//   maintenance smoke in tests/browser/cms-editor.spec.ts using T002
-//   development access and representative existing fixtures: recognize
-//   labels, find/reopen/select/reuse and correct one agreed native
-//   validation error; reuse native controls and available
-//   search/filter/pagination, with no production Passkey ceremony or
-//   repetition of every API fixture in browser UI") and its T030 dependency
-//   edge, under the bounded Product Owner authorization of 2026-10-24
-//   (GitHub issue #26 comment 6377440215): T031 authors test source ONLY —
-//   static checks and Playwright --list discovery; no live browser/runtime
-//   execution, no helper/seed/config/accepted-test change, no T032 dispatch.
-//   T032 separately runs this smoke with actual staff evidence; this file
-//   claims no SC-007 PASS and no staff comprehension
-// - specs/002-cms-content-model/spec.md — User Story 7 (staff recognize,
-//   find, select/reuse and correct retained records through native Admin),
-//   FR-026 (native required/type/value validation returns truthful
-//   outcomes; no Songhealth completeness hook), FR-029 ("Staff MUST maintain
-//   content with understandable Thai content/field labels, ordinary CMS
-//   lists and available search/filter/pagination/bulk
-//   operations/reusable selectors. Correct English platform fallback is
-//   permitted; no replacement Admin is required"), FR-030 (domain dates
-//   stay separate from system metadata), SC-007 (staff demonstrate the
-//   journeys — pending until actual staff evidence exists)
-// - specs/002-cms-content-model/data-model.md — the applied model's Thai
-//   collection labels (health_services หน่วยบริการสุขภาพ, services บริการ,
-//   announcements ประกาศ), field labels (health_services title ชื่อทางการ
-//   S, image ภาพหน่วยบริการ O, offered_services บริการที่ให้ O; services
-//   title ชื่อบริการ S, external_url ลิงก์บริการภายนอก url O;
-//   announcements announcement_at วันที่ประกาศ O), the facility_type /
-//   area taxonomies attached to health_services with intentionally EMPTY
-//   term inventories pending authoritative sources, and the single
-//   facility_services reciprocal edge set behind offered_services
-// - specs/002-cms-content-model/contracts/native-editorial.md — "Native
-//   Request Shapes", latest `_rev` preconditions, truthful native outcomes
-// - docs/website-modernization-docs/current/05-admin-cms.md §1 (use the
-//   CMS, do not rebuild the CMS), §3 (editor baseline: explicit Save,
-//   preview, taxonomy/relation selectors, media picker, native validation
-//   only), §4 (native lists with search/filter/pagination as baseline; no
-//   custom list framework), §5 (native Media Library baseline), §12
-//   (collection/field labels in understandable Thai; platform
-//   localization where available; untranslated platform strings MAY fall
-//   back to English in V1; no Admin UI fork just to translate), §13
-//   (extension gate — no custom Admin component is created here)
-// - docs/website-modernization-docs/current/06-roles-permissions.md §7 (no
-//   super-admin/override role; native permission boundaries untouched) and
-//   10-system-blueprint.md §21 (test Songhealth configuration and
-//   assumptions, not EmDash internals)
-// - specs/002-cms-content-model/evidence/T030-us4-facilities.md — the
-//   accepted T030 apply/verification join that put health_services,
-//   facility_services and facility_type on the shared runtime; this file
-//   gates on that schema readably and skips (never fabricates) if it is
-//   absent on the runtime it faces
-// - tests/browser/cms.helpers.ts — the accepted T002 helpers this file
-//   consumes: the mode-0600 development-credential PAT actor
-//   (loadDevAccessToken + createPatActor), synthetic entries/media with
-//   owned-fixture registry cleanup, secret-redacted results. API FIXTURE
-//   PREPARATION ONLY: a PAT cannot establish a browser session (see
-//   "Authentication and session truth" below), so every browser-evidenced
-//   step below runs in the real native Admin UI
-// - tests/browser/foundation.spec.ts — the accepted T010 Admin availability
-//   boundary (the two native unauthenticated outcomes are /_emdash/admin/
-//   setup and /_emdash/admin/login; passkey login is never automated) and
-//   tests/browser/cms-facilities.spec.ts — the accepted T027 pattern
-//   (schema-readiness gating with explicit prerequisite skips, synthetic
-//   taxonomy terms through the native term API with per-registration
-//   OWNERSHIP classification and a trusted-tree identity guard, failure-safe
-//   owned-fixture teardown, the runner-configured origin) this file follows
+// The suite walks the native EmDash Admin in Thai, with the platform's English fallback where its
+// strings have no Thai: a collection list with its search and status filter; finding and
+// reopening a synthetic entry; the reference, taxonomy and media selectors and the
+// `activities.gallery` repeater, picking synthetic fixtures; an explicit Save; one native
+// validation error, an invalid `services.external_url`, shown readably and then corrected; and
+// the domain date `announcements.announcement_at` kept apart from the publication state and the
+// system timestamps. What the Admin saved is read back through the native API. Nothing here is a
+// custom Admin control, filter or validation rule, and pagination is not forced.
 //
-// Verified UI/auth surface (recorded per CLAUDE.md §Current documentation;
-// checked first through Context7 — /websites/emdashcms for unversioned
-// orientation and /microsoft/playwright v1.63.0 for Playwright semantics —
-// then against the pinned `emdash@1.1.0` / `@emdash-cms/admin@1.1.0` dist
-// sources installed by the lockfile-exact `npm ci` under node_modules (the
-// same package-lock.json integrity sha512-VXo1fIMr44PEiE1A9Z5aFWvjs
-// qhdLDHqat2iPkFYoam2kYV6h+2LGkEDovkXdLmmWWDY9w7ekP0CP6ziYMFhg== the T002
-// helpers record):
-// - Admin SPA routes (dist/index.js createAdminRouter): /content/$collection
-//   (list), /content/$collection/$id (entry editor), /login, plus /media;
-//   the unauthenticated Admin outcomes are exactly the two foundation.spec
-//   accepts (setup / login)
-// - localization: the admin shell resolves the locale server-side per
-//   request (emdash-locale cookie → Accept-Language → en,
-//   @emdash-cms/admin dist/locales/config.js resolveLocale) and renders
-//   <html lang={resolvedLocale}>; the NATIVE locale switcher persists
-//   exactly `emdash-locale=<code>; Path=/_emdash` (dist
-//   LocaleDirectionProvider-*.js), and `th` is a fully bundled locale
-//   (dist/locales/th/messages.mjs, 3184 messages). This file selects Thai
-//   through that same native cookie mechanism — ordinary browser-side
-//   configuration, not an Admin fork or a translation layer
-// - Thai platform chrome asserted below (th/messages.mjs ids): the list
-//   search aria-label "ค้นหา {collectionLabel}" (vvZIY6) and placeholder
-//   "ค้นหา {label}..." (FpEIAP); the status filter "กรองตามสถานะ" (KwybLi)
-//   with the "ฉบับร่าง" Draft option (eneWvv); Save states
-//   บันทึก/กำลังบันทึก.../บันทึกแล้ว (tfDRzk/XvjC4F/idD8Ev); the
-//   save-failed toast title บันทึกไม่สำเร็จ (+Ya+b9) whose description is
-//   describeContentValidationError — per-issue readable sentences built from
-//   the SCHEMA field labels (describeIssue/fieldName; getFieldLabel returns
-//   field.label verbatim); the image field's empty-state button เลือกรูปภาพ
-//   (oDodff), the field-specific picker titles "เลือก {label}" (pov/PW) and
-//   the fresh single-select confirmation เลือก (rG3WVm), with search aria
-//   ค้นหามีเดีย (GzM+mT) / placeholder ค้นหาตามชื่อไฟล์... (Fwo2VZ); the
-//   term-assignment toast
-//   "อัปเดต {label} แล้ว" (KDffey); the draft badge ฉบับร่าง (M8kJqa); the
-//   passkey sign-in copy "ใช้ Passkey ที่ลงทะเบียนไว้เพื่อเข้าสู่ระบบอย่าง
-//   ปลอดภัย" (+ET/av)
-// - CORRECT ENGLISH PLATFORM FALLBACK verified in the th locale (FR-029
-//   permits this; asserted below as Thai|English alternations, never as
-//   failure): the reference picker stays "Add references"/"Add selected"
-//   (rUWN6C/wiQMMj), the taxonomy picker trigger frames "Choose
-//   {label}"/"Edit {label}" (hBlIcx/wIP0Ho), its scoped search placeholder
-//   "Search {label}…" (0JMPeZ) and group name "{label} options" (75js2e),
-//   the entry-select checkbox aria "Select {title}" (135JuL), "Open {0} in
-//   a new tab" (rSCGc2), the validation sentence frames "{name} is
-//   required." (05MRDk) and "{name} must be a valid URL." (2sfwCE) — the
-//   SCHEMA's Thai field label inside the platform's English frame — and the
-//   immediate-term-save note (8nzS9o). Field/collection labels themselves
-//   come from the applied Songhealth schema, so they are the seed's Thai
-//   labels in every locale. The repeater chrome is natively Thai (เพิ่ม
-//   รายการแรก/เพิ่มรายการ/ยังไม่มีรายการ — 924qJl/qgF8ew/bWmJ0A)
-// - entry editor form (dist/index.js ContentEditor): fields render labeled
-//   inputs (label association via htmlFor); SaveButton is type=submit whose
-//   text walks บันทึก → กำลังบันทึก... → บันทึกแล้ว (Saved) with a
-//   PreviewButton beside it when the collection supports preview. The
-//   search input, list rows (an entry-title Link per row), and the status
-//   filter combobox are the only list controls exercised — nothing invented
-// - THE VALIDATION VECTOR (dist/index.js UrlFieldEditor): a url field
-//   renders type="text" inputMode="url" — NO browser URL constraint can
-//   intercept the interaction — and on blur of an invalid URL the PLATFORM
-//   itself renders the readable inline native error "ป้อน URL ที่ถูกต้อง
-//   (เช่น https://example.com)" (KPnpQW), which clears when the value is
-//   corrected. services.external_url (ลิงก์บริการภายนอก) carries it; the
-//   corrected value is then Saved explicitly and read back through the
-//   native API. This is the ONE agreed native validation error corrected
-//   below — no stronger validation requirement is invented (FR-026)
-// - reference selector (ReferenceFieldRenderer → ContentPickerModal): the
-//   optional offered_services field renders an "Add references" button; the
-//   modal lists target-collection entries by their titles (getEntryTitle
-//   over titleField), multi-select rows carry a "Select {title}" checkbox,
-//   and "Add selected" confirms. The saved selection is verified through the
-//   native relation children listing (T027-verified shape data.children) —
-//   identity only, no availability claim (D-REF stays deferred)
-// - taxonomy selector (TaxonomySection → TaxonomyTermPicker): each attached
-//   taxonomy renders under its schema label. With no assignment yet the
-//   picker's empty state exposes a square trigger button labeled "Choose
-//   {label}" (hBlIcx — the English frame carries the schema's Thai label;
-//   once terms are selected the overlay trigger becomes "Edit {label}",
-//   wIP0Ho). Opening it reveals a scoped search input (placeholder
-//   "Search {label}…" 0JMPeZ) and a role=group "{label} options" (75js2e)
-//   whose choices are CHECKBOX rows labeled by each term.label — not
-//   listbox options. Checking a term saves IMMEDIATELY through setEntryTerms
-//   with the "อัปเดต {label} แล้ว" toast (KDffey; the platform's own
-//   immediate-save semantics — asserted as observed, not re-saved).
-//   facility_type is NONhierarchical (`hierarchical: false` in the accepted
-//   seed; the term listing still emits the uniform TermWithCount shape with
-//   an explicit children array on every node — leaves carry empty arrays —
-//   so the trusted-tree identity guard below stays valid), and its term
-//   inventory is intentionally empty (T004 evidence), so this file creates
-//   ONE clearly synthetic task-owned term through the native term API and
-//   selects it; synthetic terms are never presented as official inventories
-// - media selector (schema image field → ImageFieldRenderer →
-//   MediaPickerModal): the empty image field renders an h-32 dashed button
-//   labeled "Select image" (oDodff — natively Thai เลือกรูปภาพ; the
-//   "Select media"/1Tq98c string belongs to a different compact renderer,
-//   never to the schema image field). It opens the picker titled with the
-//   FIELD-SPECIFIC "Select {label}" (pov/PW — Thai "เลือก {label}"; an
-//   existing value would switch it to "Replace {label}" with confirmLabel
-//   "Replace", not the fresh-selection case here): เลือก ภาพหน่วยบริการ for
-//   the facility image and เลือก ภาพ for the gallery subfield. The picker
-//   searches by filename and lists library assets; CLICKING an item only
-//   runs updateSelection (toggling it into selectedItems — dist
-//   :8837/:9801/:9831), so the journey then clicks the dialog's native
-//   single-select confirmation — "Select"/rG3WVm (Thai เลือก), enabled by
-//   the marked selection, whose handleConfirm sends the item and closes
-//   the picker (:9016, wiring :9942). The task-owned upload (a fresh owned
-//   fixture, deduplicate=false — the T002 helper) is selected by its
-//   unique filename this way. The saved image value is the selected asset
-//   identity only ({ id } — T027-verified read-back)
-// - gallery selector: `activities.gallery` (แกลเลอรีภาพ) IS the approved
-//   model's gallery — a native repeater (seed.json) whose subFields are the
-//   REQUIRED image ภาพ and the optional caption คำบรรยายภาพ (string). The
-//   pinned RepeaterField renders the empty state "ยังไม่มีรายการ" with an
-//   "เพิ่มรายการแรก"/"Add First Item" button (924qJl; subsequent rows
-//   "เพิ่มรายการ"/qgF8ew), adds rows EXPANDED (a new item is never in the
-//   collapsed set), renders each subField through SubFieldInput keyed by its
-//   slug — the image subField reuses the same ImageFieldRenderer
-//   (เลือกรูปภาพ → the same MediaPickerModal, here titled เลือก ภาพ) — and
-//   emits row values keyed by subField
-//   slug, so the saved data shape is [{ image: { id }, caption }]. One
-//   focused representative interaction below exercises it with a task-owned
-//   asset; no gallery primitive/widget is invented. Pagination is likewise
-//   source-verified native behavior (หน้าถัดไป/หน้าก่อนหน้า aria labels) but
-//   cannot be exercised deterministically with one task-owned fixture, so no
-//   multi-page state is manufactured to force it
-// - domain dates (dist/index.js toDatetimeLocalInputValue): a datetime
-//   field renders a datetime-local input whose value is the STORED domain
-//   date converted into the site's configured timezone (settings.timezone,
-//   default UTC; readable through GET /_emdash/api/settings,
-//   settings:read). announcements.announcement_at (วันที่ประกาศ) carries
-//   the domain date below; publication state (the ฉบับร่าง draft badge) and
-//   system timestamps are asserted as SEPARATE surfaced concepts, and the
-//   native API read keeps the stored domain value distinct from
-//   createdAt/updatedAt
-// - native term API (the T027-verified contract reused here): POST
-//   /_emdash/api/taxonomies/{name}/terms { slug, label, description? }
-//   (taxonomies:manage; a duplicate slug is refused 409); GET
-//   /_emdash/api/taxonomies/{name}/terms returns the term tree as
-//   data.terms (TermWithCount: an explicit children array on every node,
-//   leaves empty — uniform for hierarchical AND nonhierarchical taxonomies);
-//   DELETE /_emdash/api/taxonomies/{name}/terms/{slug} removes a term
-// - Playwright 1.63.0 URL-wait semantics (pinned
-//   playwright-core lib — Context7 /microsoft/playwright v1.63.0):
-//   page.waitForURL matches a RegExp/substring against the COMPLETE URL
-//   string, never against URL.pathname alone, so a pathname-anchored
-//   pattern can never match http://host/_emdash/admin/login. Both redirect
-//   waits below therefore use a URL PREDICATE examining url.pathname —
-//   with an unexpected path or a settle failure treated as FAIL, never as
-//   the session prerequisite
+// Platform behaviour relied on (emdash 1.1.0 and @emdash-cms/admin 1.1.0):
+// - The Admin resolves its locale from the `emdash-locale` cookie, then Accept-Language, then en
+//   (@emdash-cms/admin dist/locales/config.js resolveLocale), and `th` is bundled
+//   (dist/locales/th/messages.mjs). The suite sets the cookie as the native locale switcher
+//   does; the Thai strings it asserts are message ids of that file, and the English fallback is
+//   asserted as Thai|English alternatives.
+// - The url field is a text input; on blur an invalid URL shows the native inline error "ป้อน URL
+//   ที่ถูกต้อง (เช่น https://example.com)", which clears once corrected (dist/index.js
+//   UrlFieldEditor).
+// - The reference picker (ContentPickerModal) lists target entries by title with "Select {title}"
+//   checkboxes and confirms with "Add selected". The taxonomy picker opens from "Choose {label}"
+//   and saves a checked term at once, with the "อัปเดต {label} แล้ว" toast. The media picker opens
+//   from the empty image field's เลือกรูปภาพ, is titled "เลือก {label}", and a clicked item is
+//   confirmed with เลือก. The gallery repeater adds expanded rows saved as
+//   `[{ image: { id }, caption }]`.
+// - A datetime field shows the stored instant in the site's timezone setting (dist/index.js
+//   toDatetimeLocalInputValue; GET /_emdash/api/settings).
+// - `facility_type` is not hierarchical and has no terms, so the suite makes one synthetic term
+//   (POST /_emdash/api/taxonomies/{name}/terms, which refuses a duplicate slug with 409) and
+//   deletes it only after the term tree read shows its slug and label.
+// - page.waitForURL matches the whole URL, so the redirect waits test the pathname with a
+//   predicate (@playwright/test 1.63.0).
 //
-// Authentication and session truth (the dispatch's explicit boundary):
-// - within accepted access there is NO legitimate way to establish a
-//   browser Admin session from this suite. The pinned 1.1.0 source creates
-//   native sessions only in: passkey verification (a WebAuthn ceremony —
-//   never automated here), email magic-link verification, OAuth provider
-//   callbacks, invite/signup completion, and the development-only
-//   /_emdash/api/auth/dev-bypass session endpoint. The development PAT the
-//   T002 helpers carry authenticates REST requests (Authorization: Bearer)
-//   only — it establishes no browser session and proves no editor journey,
-//   and no REST check is substituted for UI evidence below (the API calls
-//   here only PREPARE task-owned fixtures and read back what the UI wrote)
-// - Product Owner decision 2026-10-29 (T032 on the single development
-//   runtime): the development-only session route below MAY now be used,
-//   opted in with SONGHEALTH_ADMIN_SESSION=dev-bypass. The gated journeys
-//   then sign in through openDevAdminSession() (cms.helpers.ts) and log out
-//   after each test; without the opt-in they keep the detection-based skip.
-//   The text that follows is the original T031 finding, kept as written:
-// - a pinned-source FINDING for the Lead/Product Owner, surfaced here
-//   rather than used: EmDash 1.1.0 ships a development-only native session
-//   facility, GET/POST /_emdash/api/auth/dev-bypass
-//   (src/astro/routes/api/auth/dev-bypass.ts, gated on import.meta.env.DEV,
-//   403 otherwise), which finds-or-creates the fixed dev@emdash.local
-//   administrator and sets the native session cookie — its own header
-//   documents it "for agent/browser testing" via
-//   /_emdash/api/auth/dev-bypass?redirect=/_emdash/admin. It is DISTINCT
-//   from the forbidden setup bootstrap (POST /_emdash/api/setup/dev-bypass,
-//   which mints PATs and applies the seed and must not be re-run on the
-//   initialized shared runtime), but it is NOT part of any accepted access
-//   evidence, so this file does NOT call it. Should automated development
-//   browser sessions be wanted, that endpoint needs its own explicit
-//   review and Product Owner authorization first
-// - therefore every browser-journey test below first DETECTS the session
-//   state through the native UI itself: navigating to the collection list
-//   either lands on the native sign-in/setup outcome (unauthenticated — the
-//   test SKIPs with this prerequisite named verbatim: an authenticated
-//   native Admin browser session is required, as T032's bounded staff
-//   session provides through the native passkey sign-in) or shows the
-//   authenticated list (the journey proceeds). The skip is detection-based,
-//   never assumed: a session that exists — a staff member signed in with
-//   their own passkey in this browser context — runs the full journey. One
-//   availability test runs UNGATED so a reachable runtime always yields at
-//   least one live check (the native sign-in boundary and its Thai
-//   localization), exactly the T010/T027 discipline
-//
-// Boundaries and non-claims (tasks.md T031; Constitution v3.0.0 II–V):
-// - test authoring only: nothing here executes at authoring time and no
-//   runtime PASS, staff comprehension, SC-007 outcome, or T032 claim is
-//   made. A skip, a --list discovery count, or a source review is never a
-//   functional PASS
-// - no custom Admin control, filter, bulk capability, saved view, or
-//   stronger validation requirement is invented: only the native controls
-//   verified above are exercised (list, typed search, the status filter
-//   combobox, the reference/taxonomy/media selectors, explicit Save)
-// - no production Passkey automation, no setup/dev-bypass re-run, no
-//   cookie forging, no auth bypass, no second server/stack: the suite
-//   targets the runner-configured existing application only
-//   (playwright.config.ts contract; PLAYWRIGHT_BASE_URL or the documented
-//   development origin), exactly like every accepted cms-*.spec.ts. The
-//   emdash-locale cookie set below is locale selection through the
-//   platform's own documented mechanism, not authentication
-// - fixtures are clearly-marked synthetic public-publishable data created
-//   through the native API by the development credential; entry/media IDs
-//   come from native responses only and are registered for owned-fixture
-//   cleanup; the synthetic facility_type term is tracked with an explicit
-//   per-registration OWNERSHIP state (a natively CONFIRMED 2xx create — a
-//   duplicate slug is refused 409 — is this file's own term and is deleted
-//   only after a trusted-tree slug+label identity guard; a definitively
-//   refused 4xx create owns nothing; transport failures/5xx stay explicitly
-//   unresolved and are reported, never silently dropped). No official
-//   inventory, personal/clinical/HR data, or real/shared record is adopted
-//   as owned
-// - cleanup is failure-safe and two-phase (corrective round 1, finding S1):
-//   afterEach (plus an afterAll safety net) ALWAYS attempts the entry/media
-//   reconciliation first and the synthetic-term reconciliation second, even
-//   when the first phase returns incomplete or throws; scrubbed failures and
-//   unresolved identities from BOTH phases are collected, reported as one
-//   combined standing, and only then asserted. Unresolved outcomes remain
-//   registered and are reported loudly as failures rather than left silently
+// Session and fixtures:
+// - The journeys sign in through EmDash's development-only GET /_emdash/api/auth/dev-bypass
+//   (openDevAdminSession; Product Owner decision 2026-10-29), opted in with
+//   SONGHEALTH_ADMIN_SESSION=dev-bypass, and log out after each test. Without the opt-in a
+//   journey detects the sign-in page and skips. One availability check of the Thai sign-in page
+//   always runs. The development PAT only prepares fixtures and reads back what the Admin wrote;
+//   no passkey is automated and setup/dev-bypass is never called.
+// - Fixtures are synthetic. Cleanup runs after each test and again in afterAll: entries and media
+//   first, then the term, each phase attempted even when the other fails, with every unresolved
+//   item reported as a failure.
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
