@@ -12,6 +12,8 @@ pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
   request.
 - When code relies on platform behaviour, the comment names the package, its pinned version and
   the source path, for example `emdash 1.1.0 src/api/schemas/settings.ts`.
+- Code that departs from the spec or the current docs on a Product Owner decision cites the
+  decision (issue and comment) where it departs, so a later change does not "fix" it back.
 - Accepted Feature 001 and 002 files carry long historical headers. Trim them when a change
   touches the file.
 
@@ -45,8 +47,8 @@ pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
   `expectNoAxeViolations` and `expectVisibleFocusOnEveryStop`, and at 320 px with
   `expectNoHorizontalScroll`.
 - A helper that a second suite needs moves to a shared module: page checks (the 404 page, Thai
-  dates, list titles) to `tests/browser/public.helpers.ts`, native API fixtures (entries, media,
-  terms) to `tests/browser/cms.helpers.ts`.
+  dates, list titles, an image's load) to `tests/browser/public.helpers.ts`, native API fixtures
+  (entries, media, terms) to `tests/browser/cms.helpers.ts`.
 - Tests assert what people see and use: text, links, status and focus. A link or button is
   checked by its accessible name (`getByRole(…, { name })`, `toHaveAccessibleName`), which leaves
   out decorative `aria-hidden` marks such as "→". A `data-testid` marks only an element with no

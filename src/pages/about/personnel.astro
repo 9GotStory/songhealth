@@ -2,7 +2,9 @@
 // /about/personnel (Feature 003 #61; spec #51 "Public reads" (About), `03` §5): the publicly
 // visible Personnel, a section per organizational unit in Thai order, each unit's people by name
 // (src/lib/personnel-directory.ts). The Personnel without a unit come last, under their own
-// heading.
+// heading. Everyone is on one page, so that no unit's section is split: the Product Owner made
+// this exception to spec #51's fixed page size for a list grouped by unit (#61 comment 6514145827,
+// 2026-10-30). Past about 100 people, the agreed next step is links to each unit, not pages.
 import EmptyState from "../../components/EmptyState.astro";
 import PageHeading from "../../components/PageHeading.astro";
 import PersonCard from "../../components/PersonCard.astro";
