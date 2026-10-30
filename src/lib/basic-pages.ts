@@ -20,7 +20,7 @@ import {
 } from "emdash";
 import { ABOUT_PATH, ORGANIZATION_PATH } from "./about";
 import { documentsById, type DocumentEntry } from "./documents";
-import { targetIds } from "./references";
+import { REFERENCES_LIMIT, targetIds } from "./references";
 
 /** The reserved slugs that render inside the About section, and their addresses there. */
 const ABOUT_SECTION_PAGES: Record<string, string> = {
@@ -33,9 +33,6 @@ const FOOTER_PAGES = [
 	{ slug: "privacy", label: "นโยบายความเป็นส่วนตัว" },
 	{ slug: "accessibility", label: "การเข้าถึงเว็บไซต์" },
 ] as const;
-
-/** The most related Documents one read returns (emdash 1.1.0 src/references/staged.ts). */
-const REFERENCES_LIMIT = 100;
 
 /** A Basic Page's fields (seed/seed.json) and the system fields public pages read. */
 interface BasicPageData {

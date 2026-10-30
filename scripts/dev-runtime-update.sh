@@ -8,8 +8,9 @@
 # The commit may be abbreviated (7 or more hex digits); it is resolved after the fetch, and the
 # installer and the runtime's marker get the full 40-hex SHA.
 # The restart would cut off someone editing in the Admin, so the update refuses while an Admin
-# page was opened in the last 10 minutes; --force overrides once those loads are known to be a
-# test run's.
+# page was opened in the last 10 minutes, leaving out the browser suites' own Admin sessions
+# (dev-runtime-common.sh admin_page_loads); --force overrides once the listed loads are known to
+# be your own.
 # Rolling back after new EmDash migrations ran means restoring the backup taken here, after
 # pointing the checkout back at the backup's commit (docs/operations/development-quadlet.md).
 set -Eeuo pipefail
@@ -39,7 +40,7 @@ if [[ $FORCE == no ]]; then
   recent=$(admin_page_loads)
   [[ -z $recent ]] || die "an Admin page was opened in the last $ADMIN_QUIET_MINUTES minutes:
 $recent
-wait until nobody is editing, or pass --force when these loads are a test run's"
+wait until nobody is editing, or pass --force when these loads are your own"
 fi
 git -C "$SRC" fetch --quiet origin
 full=$(git -C "$SRC" rev-parse --verify --quiet "$SHA^{commit}") \

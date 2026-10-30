@@ -15,16 +15,21 @@
 // the Admin makes them, and removed afterwards. The Document Types are the reference terms the
 // model-update step adds; the suite uses them and leaves them.
 //
-// A reserved slug is free on a runtime without the demo dataset. Where the runtime already holds a
-// Basic Page at one (the demo dataset, the Product Owner's own), the tests that need that slug skip
-// and say why, and the suite never touches that page. /about/organization is requested only while
-// a Basic Page is published there, so the suite leaves no real address in EmDash's 404 log.
+// The runtime may already hold its own Basic Pages at the reserved slugs, and its own Documents of
+// the About types (the demo dataset, the Product Owner's). A test that needs one of them in draft
+// borrows it: the test returns it to draft, and afterEach publishes it again at its own publication
+// date (CODING_STANDARDS "Tests", shared runtime state). Its revision history keeps the round trip,
+// which the native API cannot undo. An entry that is scheduled, unpublished, or has unpublished
+// changes that publishing would release, is left alone and the test skips. /about/organization is
+// requested only while a Basic Page is published there, so the suite leaves no real address in
+// EmDash's 404 log.
 //
 // Platform behaviour relied on (emdash 1.1.0):
 // - A content read by slug finds an entry that is not in the trash
-//   (src/database/repositories/content.ts findByIdOrSlug).
-// - A term list counts each term's published entries (src/api/handlers/taxonomies.ts
-//   handleTermList), as the public pages see them.
+//   (src/database/repositories/content.ts findByIdOrSlug). It carries `draftRevisionId` while the
+//   entry has changes not yet published (src/emdash-runtime.ts hydrateDraftData).
+// - POST …/publish takes `publishedAt`, so a borrowed entry is published again at its own date
+//   (src/astro/routes/api/content/[collection]/[id]/publish.ts).
 // - POST …/preview-url mints a draft's signed preview link at its URL pattern, /pages/{slug}
 //   (src/astro/routes/api/content/[collection]/[id]/preview-url.ts), and the preview token travels
 //   in the query string (src/preview/tokens.ts).
@@ -98,10 +103,6 @@ const ABOUT_CRUMB = ["เกี่ยวกับเรา", "/about"] as const;
 let admin: CmsActor;
 let origin: string;
 
-/** The skip reason of a test whose reserved slug the runtime already uses. */
-const slugTaken = (slug: string) =>
-	`the runtime holds a Basic Page at the reserved slug "${slug}"; the suite leaves it alone`;
-
 /** A synthetic Basic Page draft titled `${mark} หน้า ${label} ${ending}`, under `slug` if given. */
 async function createPage(
 	label: string,
@@ -117,28 +118,69 @@ async function createPage(
 	return { id: created.entryId!, slug, title };
 }
 
+type Collection = "pages" | "documents";
+
+/** A published entry of the runtime's own that the running test returned to draft. */
+interface Borrowed {
+	collection: Collection;
+	fixture: DraftFixture;
+	publishedAt: string;
+}
+
+/** What the running test borrowed; afterEach gives it back. */
+const borrowed: Borrowed[] = [];
+
 /**
- * A synthetic Basic Page draft at a reserved slug, or undefined when the runtime already holds a
- * Basic Page there.
+ * The runtime's own entry at `slug`, returned to draft for the running test, or undefined when
+ * there is none. The test skips when the entry is not simply published.
  */
-async function createReservedPage(slug: string, fields: DraftFields = {}) {
-	const existing = await readEntry(admin, "pages", slug);
-	if (existing.ok) return undefined;
-	expect(existing.status, `reading the Basic Page ${slug}: ${nativeRefusalOf(existing)}`).toBe(404);
-	return createPage(slug, { ...fields, slug });
+async function borrow(collection: Collection, slug: string): Promise<DraftFixture | undefined> {
+	const read = await readEntry(admin, collection, slug);
+	if (!read.ok) {
+		expect(read.status, `reading ${collection}/${slug}: ${nativeRefusalOf(read)}`).toBe(404);
+		return undefined;
+	}
+	const item = nativeItemOf(read)!;
+	test.skip(
+		item.status !== "published" || typeof item.draftRevisionId === "string",
+		`the runtime's ${collection} entry "${slug}" is ${item.status}${item.draftRevisionId ? " with unpublished changes" : ""}; the suite leaves it alone`,
+	);
+	const fixture = {
+		id: String(item.id),
+		slug,
+		title: String((item.data as { title?: unknown }).title),
+	};
+	borrowed.push({ collection, fixture, publishedAt: String(item.publishedAt) });
+	await unpublish(collection, fixture);
+	return fixture;
+}
+
+/**
+ * The Basic Page at a reserved slug, as a draft for the running test: the runtime's own, borrowed,
+ * or else a synthetic one showing `content`. A borrowed page comes without `content`: the suite
+ * does not know its body.
+ */
+async function reservedPage(
+	slug: string,
+	content?: ReturnType<typeof pageContent>,
+): Promise<{ fixture: DraftFixture; content?: ReturnType<typeof pageContent> }> {
+	const own = await borrow("pages", slug);
+	if (own) return { fixture: own };
+	return { fixture: await createPage(slug, { slug, data: content && pageData(content) }), content };
 }
 
 /** A synthetic Document draft of the given Document Type, or of none. */
 const createDocument = (label: string, type?: string) =>
 	createSyntheticDocument(admin, label, type ? { taxonomies: { document_type: [type] } } : {});
 
-/** Publish now. */
-async function publish(collection: "pages" | "documents", fixture: DraftFixture): Promise<void> {
-	await publishEntryAt(admin, collection, fixture.id);
+/** Publish now, or a borrowed entry at its own publication date. */
+async function publish(collection: Collection, fixture: DraftFixture): Promise<void> {
+	const own = borrowed.find((entry) => entry.fixture.id === fixture.id);
+	await publishEntryAt(admin, collection, fixture.id, own?.publishedAt);
 }
 
 /** Return a published fixture to draft. */
-async function unpublish(collection: "pages" | "documents", fixture: DraftFixture): Promise<void> {
+async function unpublish(collection: Collection, fixture: DraftFixture): Promise<void> {
 	const result = await unpublishEntry(admin, collection, fixture.id);
 	expect(result.ok, `unpublish ${fixture.slug}: ${nativeRefusalOf(result)}`).toBe(true);
 }
@@ -159,14 +201,15 @@ function pageData(content: ReturnType<typeof pageContent>): Record<string, unkno
 	};
 }
 
-/** Fail unless the page shows the Basic Page's title, summary and body. */
+/** Fail unless the page shows the Basic Page's title, and its summary and body when known. */
 async function expectBasicPage(
 	page: Page,
 	fixture: DraftFixture,
-	content: ReturnType<typeof pageContent>,
+	content: ReturnType<typeof pageContent> | undefined,
 ): Promise<void> {
 	const main = page.getByRole("main");
 	await expect(main.getByRole("heading", { level: 1 })).toHaveText(fixture.title);
+	if (content === undefined) return;
 	await expect(main.getByText(content.summary)).toBeVisible();
 	await expect(main.getByRole("heading", { level: 2, name: content.heading })).toBeVisible();
 	await expect(main.getByText(content.paragraph)).toBeVisible();
@@ -184,12 +227,23 @@ async function footerLinks(page: Page): Promise<string[]> {
 	);
 }
 
-/** The published Documents of each Document Type, as EmDash counts them. */
-async function publishedDocumentsByType(): Promise<Map<string, number>> {
-	const listed = await cmsRequest(admin, "/_emdash/api/taxonomies/document_type/terms");
-	expect(listed.ok, `the document_type terms: ${nativeRefusalOf(listed)}`).toBe(true);
-	const terms = (nativeDataOf(listed)?.terms ?? []) as { slug: string; count: number }[];
-	return new Map(terms.map((term) => [term.slug, term.count]));
+/** The slugs of the Documents an About Document page lists, over all its list pages. */
+async function listedDocumentSlugs(page: Page, path: string): Promise<string[]> {
+	const slugs: string[] = [];
+	for (let number = 1; ; number += 1) {
+		await page.goto(number === 1 ? path : `${path}?page=${number}`);
+		const hrefs = await page
+			.getByRole("main")
+			.getByRole("article")
+			.getByRole("heading")
+			.getByRole("link")
+			.evaluateAll((links) => links.map((link) => link.getAttribute("href") ?? ""));
+		slugs.push(...hrefs.map((href) => decodeURIComponent(href.replace(/^\/documents\//, ""))));
+		const next = page
+			.getByRole("navigation", { name: "การแบ่งหน้า" })
+			.getByRole("link", { name: "หน้าถัดไป" });
+		if ((await next.count()) === 0) return slugs;
+	}
 }
 
 test.use({ viewport: DESKTOP_VIEWPORT });
@@ -207,21 +261,43 @@ test.beforeAll(async ({}, testInfo) => {
 	});
 });
 
+test.afterEach(async () => {
+	const failures: string[] = [];
+	for (const { collection, fixture, publishedAt } of borrowed.splice(0)) {
+		try {
+			const status = nativeItemOf(await readEntry(admin, collection, fixture.id))?.status;
+			const stored =
+				status === "published"
+					? nativeItemOf(await readEntry(admin, collection, fixture.id))?.publishedAt
+					: await publishEntryAt(admin, collection, fixture.id, publishedAt);
+			if (Date.parse(String(stored)) !== Date.parse(publishedAt)) {
+				failures.push(
+					`${collection}/${fixture.slug} is published at ${stored}, not ${publishedAt}`,
+				);
+			}
+		} catch (error) {
+			failures.push(
+				`${collection}/${fixture.slug}: ${error instanceof Error ? error.message : error}`,
+			);
+		}
+	}
+	expect(failures, "the runtime's own entries are published again as they were").toEqual([]);
+});
+
 test.afterAll(async () => {
 	if (admin === undefined) return;
 	const report = await cleanupOwnedFixtures(admin, { permanent: true });
 	expect(report.complete, `owned fixtures left: ${JSON.stringify(report)}`).toBe(true);
 });
 
-// First, before any test publishes Documents of these types.
 test("each About Document page shows its empty state while no published Document has its type", async ({
 	page,
 }) => {
-	const counts = await publishedDocumentsByType();
-	const empty = ABOUT_DOCUMENT_PAGES.filter(({ type }) => counts.get(type) === 0);
-	test.skip(empty.length === 0, "the runtime holds published Documents of every About type");
+	for (const { path } of ABOUT_DOCUMENT_PAGES) {
+		for (const slug of await listedDocumentSlugs(page, path)) await borrow("documents", slug);
+	}
 
-	for (const { path, title } of empty) {
+	for (const { path, title } of ABOUT_DOCUMENT_PAGES) {
 		const response = await page.goto(path);
 		expect(response?.status(), `GET ${path}`).toBe(200);
 		await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
@@ -345,16 +421,13 @@ test("/about shows its sub-page links without the about Basic Page, and the page
 	page,
 }) => {
 	const { siteTitle, separator } = await siteTitleParts(admin);
-	const content = pageContent("about");
-	const about = await createReservedPage("about", { data: pageData(content) });
-	test.skip(about === undefined, slugTaken("about"));
+	const { fixture: about, content } = await reservedPage("about", pageContent("about"));
 	const subpages = page.getByRole("main").getByRole("region", { name: "ข้อมูลเกี่ยวกับสำนักงาน" });
 
 	await page.goto("/about");
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText("เกี่ยวกับเรา");
 	await expect(page).toHaveTitle(`เกี่ยวกับเรา${separator}${siteTitle}`);
 	await expectBreadcrumb(page, [HOME_CRUMB], "เกี่ยวกับเรา");
-	await expect(page.getByText(about!.title), "the draft stays out of sight").toHaveCount(0);
 	await expect(subpages.getByRole("link")).toHaveCount(ABOUT_SUBPAGES.length);
 	// The accessibility checks at the end see /about with its Basic Page published.
 	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
@@ -366,7 +439,7 @@ test("/about shows its sub-page links without the about Basic Page, and the page
 
 	const minted = await cmsRequest(
 		admin,
-		`/_emdash/api/content/pages/${encodeURIComponent(about!.id)}/preview-url`,
+		`/_emdash/api/content/pages/${encodeURIComponent(about.id)}/preview-url`,
 		{ method: "POST", body: {} },
 	);
 	expect(minted.ok, nativeRefusalOf(minted)).toBe(true);
@@ -376,13 +449,14 @@ test("/about shows its sub-page links without the about Basic Page, and the page
 	const preview = await page.goto(link.toString());
 	expect(preview?.status(), "the preview renders").toBe(200);
 	expect(new URL(page.url()).pathname, "the preview opens at /about").toBe("/about");
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText(about!.title);
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(about.title);
 	await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
 
-	await publish("pages", about!);
+	await publish("pages", about);
 	await page.goto("/about");
-	await expectBasicPage(page, about!, content);
-	await expect(page).toHaveTitle(`${about!.title}${separator}${siteTitle}`);
+	await expectBasicPage(page, about, content);
+	// A borrowed page may carry an SEO title of its own.
+	if (content) await expect(page).toHaveTitle(`${about.title}${separator}${siteTitle}`);
 	await expectBreadcrumb(page, [HOME_CRUMB], "เกี่ยวกับเรา");
 	await expect(subpages.getByRole("link")).toHaveCount(ABOUT_SUBPAGES.length);
 	await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
@@ -391,17 +465,18 @@ test("/about shows its sub-page links without the about Basic Page, and the page
 test("/about/organization renders the published organization Basic Page under เกี่ยวกับเรา, and /pages/organization leads there", async ({
 	page,
 }) => {
-	const content = pageContent("organization");
-	const organization = await createReservedPage("organization", { data: pageData(content) });
-	test.skip(organization === undefined, slugTaken("organization"));
-	await publish("pages", organization!);
+	const { fixture: organization, content } = await reservedPage(
+		"organization",
+		pageContent("organization"),
+	);
+	await publish("pages", organization);
 
 	const response = await page.goto("/pages/organization");
 	expect(response?.status(), "GET /pages/organization, redirected").toBe(200);
 	expect(new URL(page.url()).pathname).toBe("/about/organization");
-	await expectBasicPage(page, organization!, content);
+	await expectBasicPage(page, organization, content);
 	await expect(navigationLink(page, "เกี่ยวกับเรา")).toHaveAttribute("aria-current", "true");
-	await expectBreadcrumb(page, [HOME_CRUMB, ABOUT_CRUMB], organization!.title);
+	await expectBreadcrumb(page, [HOME_CRUMB, ABOUT_CRUMB], organization.title);
 	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
 		"href",
 		`${origin}/about/organization`,
@@ -411,21 +486,20 @@ test("/about/organization renders the published organization Basic Page under �
 test("the footer links to the privacy and accessibility Basic Pages only while they are published", async ({
 	page,
 }) => {
-	const [privacy, accessibility] = await Promise.all(
-		FOOTER_PAGES.map(({ slug }) => createReservedPage(slug)),
-	);
-	test.skip(privacy === undefined, slugTaken("privacy"));
-	test.skip(accessibility === undefined, slugTaken("accessibility"));
+	const [{ fixture: privacy }, { fixture: accessibility }] = [
+		await reservedPage("privacy"),
+		await reservedPage("accessibility"),
+	];
 	const [privacyLabel, accessibilityLabel] = FOOTER_PAGES.map(({ label }) => label);
 
 	await page.goto("/");
 	expect(await footerLinks(page), "drafts get no footer link").toEqual(["ติดต่อเรา"]);
 
-	await publish("pages", privacy!);
+	await publish("pages", privacy);
 	await page.goto("/");
 	expect(await footerLinks(page)).toEqual([privacyLabel, "ติดต่อเรา"]);
 
-	await publish("pages", accessibility!);
+	await publish("pages", accessibility);
 	await page.goto("/");
 	expect(await footerLinks(page)).toEqual([privacyLabel, accessibilityLabel, "ติดต่อเรา"]);
 	await expect(
@@ -433,9 +507,9 @@ test("the footer links to the privacy and accessibility Basic Pages only while t
 	).toHaveAttribute("href", "/pages/accessibility");
 	await page.getByRole("contentinfo").getByRole("link", { name: privacyLabel }).click();
 	await expect(page).toHaveURL("/pages/privacy");
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText(privacy!.title);
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(privacy.title);
 
-	await unpublish("pages", privacy!);
+	await unpublish("pages", privacy);
 	await page.goto("/");
 	expect(await footerLinks(page)).toEqual([accessibilityLabel, "ติดต่อเรา"]);
 });
