@@ -287,7 +287,12 @@ interface SchemaField {
 	slug?: unknown;
 	type?: unknown;
 	required?: unknown;
-	validation?: { options?: unknown; subFields?: unknown; relation?: unknown; relationSide?: unknown };
+	validation?: {
+		options?: unknown;
+		subFields?: unknown;
+		relation?: unknown;
+		relationSide?: unknown;
+	};
 }
 
 /**
@@ -338,7 +343,10 @@ const KINDS: readonly KindCase[] = [
 			{ slug: "source_text", type: "text" },
 		],
 		invalidSuppliedCases: [
-			{ label: "featured_image (image) supplied as an object without id", data: { featured_image: {} } },
+			{
+				label: "featured_image (image) supplied as an object without id",
+				data: { featured_image: {} },
+			},
 			{ label: "featured_image (image) supplied as a number", data: { featured_image: 123 } },
 			{ label: "source_text (text) supplied as a number", data: { source_text: 123 } },
 		],
@@ -355,10 +363,19 @@ const KINDS: readonly KindCase[] = [
 			{ slug: "participants_text", type: "text" },
 		],
 		invalidSuppliedCases: [
-			{ label: "activity_at supplied as a non-datetime string", data: { activity_at: "not-a-datetime" } },
-			{ label: "activity_at supplied without a timezone offset", data: { activity_at: "2026-10-15T10:00:00" } },
+			{
+				label: "activity_at supplied as a non-datetime string",
+				data: { activity_at: "not-a-datetime" },
+			},
+			{
+				label: "activity_at supplied without a timezone offset",
+				data: { activity_at: "2026-10-15T10:00:00" },
+			},
 			{ label: "gallery (repeater) supplied as a string", data: { gallery: "not-an-array" } },
-			{ label: "featured_image (image) supplied as an object without id", data: { featured_image: {} } },
+			{
+				label: "featured_image (image) supplied as an object without id",
+				data: { featured_image: {} },
+			},
 		],
 		classificationTaxonomy: "topic",
 	},
@@ -371,8 +388,14 @@ const KINDS: readonly KindCase[] = [
 			{ slug: "closes_at", type: "datetime" },
 		],
 		invalidSuppliedCases: [
-			{ label: "announcement_at supplied as a non-datetime string", data: { announcement_at: "not-a-datetime" } },
-			{ label: "announcement_at supplied without a timezone offset", data: { announcement_at: "2026-10-15T10:00:00" } },
+			{
+				label: "announcement_at supplied as a non-datetime string",
+				data: { announcement_at: "not-a-datetime" },
+			},
+			{
+				label: "announcement_at supplied without a timezone offset",
+				data: { announcement_at: "2026-10-15T10:00:00" },
+			},
 			{ label: "details (portableText) supplied as a number", data: { details: 123 } },
 		],
 		classificationTaxonomy: "topic",
@@ -389,9 +412,18 @@ const KINDS: readonly KindCase[] = [
 			{ slug: "next_review_at", type: "datetime" },
 		],
 		invalidSuppliedCases: [
-			{ label: "next_review_at supplied without a timezone offset", data: { next_review_at: "2026-10-15T10:00:00" } },
-			{ label: "reviewed_at supplied as a non-datetime string", data: { reviewed_at: "not-a-datetime" } },
-			{ label: "featured_image (image) supplied as an object without id", data: { featured_image: {} } },
+			{
+				label: "next_review_at supplied without a timezone offset",
+				data: { next_review_at: "2026-10-15T10:00:00" },
+			},
+			{
+				label: "reviewed_at supplied as a non-datetime string",
+				data: { reviewed_at: "not-a-datetime" },
+			},
+			{
+				label: "featured_image (image) supplied as an object without id",
+				data: { featured_image: {} },
+			},
 		],
 		classificationTaxonomy: "topic",
 	},
@@ -415,9 +447,7 @@ const VALID_OFFSET_DATETIME = "2026-10-15T10:00:00+07:00";
  * so an unexpected schema mismatch stays visible.
  */
 type KindReadiness =
-	| { outcome: "ready" }
-	| { outcome: "missing" }
-	| { outcome: "misconfigured"; detail: string };
+	{ outcome: "ready" } | { outcome: "missing" } | { outcome: "misconfigured"; detail: string };
 
 /** The development-credential fixture actor owning every synthetic fixture made here. */
 let admin: CmsActor;
@@ -590,10 +620,7 @@ function syntheticGalleryRow(kind: KindCase, mediaId: string): Record<string, un
  * Representative valid optional values for one kind, from the approved
  * data-model row. Media-bearing kinds need the uploaded fixture media id.
  */
-function optionalValuesFor(
-	kind: KindCase,
-	mediaId: string | undefined,
-): Record<string, unknown> {
+function optionalValuesFor(kind: KindCase, mediaId: string | undefined): Record<string, unknown> {
 	const data: Record<string, unknown> = {};
 	for (const field of kind.exercisedOptionalFields) {
 		switch (field.type) {
@@ -747,9 +774,7 @@ async function deleteSyntheticTerm(): Promise<void> {
 				);
 			}
 		} else {
-			unresolved(
-				`transport failure on the deletion and ${afterLoss.detail}`,
-			);
+			unresolved(`transport failure on the deletion and ${afterLoss.detail}`);
 		}
 	}
 	if (removal === undefined) {
@@ -791,14 +816,10 @@ async function deleteSyntheticTerm(): Promise<void> {
  * validation outcomes (and vice versa).
  */
 function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
-	expect(
-		result.ok,
-		`${caseLabel}: the native save must be refused, not reported as success`,
-	).toBe(false);
-	expect(
-		result.status,
-		`${caseLabel}: a native validation refusal is HTTP 400`,
-	).toBe(400);
+	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
+		false,
+	);
+	expect(result.status, `${caseLabel}: a native validation refusal is HTTP 400`).toBe(400);
 	expect(
 		result.status === 401 || result.status === 403 || result.status === 409,
 		`${caseLabel}: a validation refusal must stay distinguishable from authorization (401/403) and state-conflict (409) failures`,
@@ -817,10 +838,9 @@ function expectValidationRefusal(result: NativeResult, caseLabel: string): void 
  * resolveReferenceSelectionTargets.)
  */
 function expectTargetRefusal(result: NativeResult, caseLabel: string): void {
-	expect(
-		result.ok,
-		`${caseLabel}: the native save must be refused, not reported as success`,
-	).toBe(false);
+	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
+		false,
+	);
 	expect(result.status, `${caseLabel}: an unknown reference target is refused with 404`).toBe(404);
 	expect(
 		result.status === 401 || result.status === 403,
@@ -886,7 +906,9 @@ test.beforeAll(async () => {
 			`reading the native ${kind.collection} collection schema must succeed when it is not a 404 (got ${schemaRead.status})`,
 		).toBe(true);
 		const fields = nativeItemOf(schemaRead)?.fields;
-		expect(Array.isArray(fields), `the ${kind.collection} schema read must include fields`).toBe(true);
+		expect(Array.isArray(fields), `the ${kind.collection} schema read must include fields`).toBe(
+			true,
+		);
 		const bySlug = new Map<string, SchemaField>();
 		for (const field of fields as SchemaField[]) {
 			if (typeof field.slug === "string") bySlug.set(field.slug, field);
@@ -929,9 +951,7 @@ test.beforeAll(async () => {
 		if (kind.documentsRelation !== undefined) {
 			const documentsField = bySlug.get(kind.documentsRelation.fieldSlug);
 			if (documentsField?.type !== "reference") {
-				problems.push(
-					`${kind.documentsRelation.fieldSlug} must exist as a native reference field`,
-				);
+				problems.push(`${kind.documentsRelation.fieldSlug} must exist as a native reference field`);
 			} else if (documentsField.validation?.relation !== kind.documentsRelation.relation) {
 				problems.push(
 					`${kind.documentsRelation.fieldSlug} must be bound to the ${kind.documentsRelation.relation} relation`,
@@ -1035,35 +1055,27 @@ test("create/save/reopen: title-only minimal drafts save with permitted optional
 			created.result.ok,
 			`${kind.collection}: the title-only minimal draft must save (optional omissions are permitted)`,
 		).toBe(true);
-		expect(
-			created.result.status,
-			`${kind.collection}: a native create succeeds with 201`,
-		).toBe(201);
+		expect(created.result.status, `${kind.collection}: a native create succeeds with 201`).toBe(
+			201,
+		);
 		expect(
 			created.entryId,
 			`${kind.collection}: the entry id must come from the native response`,
 		).toBeTruthy();
-		expect(
-			created.rev,
-			`${kind.collection}: a native \`_rev\` must be returned`,
-		).toBeTruthy();
+		expect(created.rev, `${kind.collection}: a native \`_rev\` must be returned`).toBeTruthy();
 
 		// Reopen by returned id only: the same title reads back and the entry
 		// is a native draft.
 		const read = await readEntry(admin, kind.collection, created.entryId!);
-		expect(
-			read.ok,
-			`${kind.collection}: the saved draft must be readable by returned id`,
-		).toBe(true);
+		expect(read.ok, `${kind.collection}: the saved draft must be readable by returned id`).toBe(
+			true,
+		);
 		const item = nativeItemOf(read);
 		expect(
 			(item?.data as Record<string, unknown> | undefined)?.title,
 			`${kind.collection}: the read-back title must match the supplied title`,
 		).toBe(title);
-		expect(
-			item?.status,
-			`${kind.collection}: a fresh native create is a draft`,
-		).toBe("draft");
+		expect(item?.status, `${kind.collection}: a fresh native create is a draft`).toBe("draft");
 	}
 });
 
@@ -1115,10 +1127,9 @@ test("valid control: representative optional supplied values save and read back"
 		// Read back the supplied values by returned id; media selections come
 		// back with the uploaded media id (the returned native identity).
 		const read = await readEntry(admin, kind.collection, created.entryId!);
-		expect(
-			read.ok,
-			`${kind.collection}: the saved entry must be readable by returned id`,
-		).toBe(true);
+		expect(read.ok, `${kind.collection}: the saved entry must be readable by returned id`).toBe(
+			true,
+		);
 		const data = nativeItemOf(read)?.data as Record<string, unknown> | undefined;
 		for (const [slug, value] of Object.entries(optional)) {
 			if (slug === "gallery") {
@@ -1236,10 +1247,7 @@ test("update refuses invalid clearing of the required title", async () => {
 	for (const kind of kinds) {
 		const title = uniqueTitle(kind.collection);
 		const created = await createSyntheticEntry(admin, kind.collection, { data: { title } });
-		expect(
-			created.result.ok,
-			`${kind.collection}: the valid draft fixture must save`,
-		).toBe(true);
+		expect(created.result.ok, `${kind.collection}: the valid draft fixture must save`).toBe(true);
 
 		// Each invalid clear is its own update with a fresh `_rev` (updateEntry
 		// re-reads), so the refusal is about the supplied value, never a stale
@@ -1257,10 +1265,9 @@ test("update refuses invalid clearing of the required title", async () => {
 
 		// Re-read after the refused clears: the required title is intact.
 		const read = await readEntry(admin, kind.collection, created.entryId!);
-		expect(
-			read.ok,
-			`${kind.collection}: the draft must remain readable after refused clears`,
-		).toBe(true);
+		expect(read.ok, `${kind.collection}: the draft must remain readable after refused clears`).toBe(
+			true,
+		);
 		expect(
 			(nativeItemOf(read)?.data as { title?: unknown } | undefined)?.title,
 			`${kind.collection}: the refused title clear must not have taken effect`,
@@ -1358,10 +1365,9 @@ test("optional Page/Announcement Document selections save via separate native re
 		// `data` carries no references key: the selection stays in the native
 		// references channel.
 		const read = await readEntry(admin, kind.collection, created.entryId!);
-		expect(
-			read.ok,
-			`${kind.collection}: the saved entry must be readable by returned id`,
-		).toBe(true);
+		expect(read.ok, `${kind.collection}: the saved entry must be readable by returned id`).toBe(
+			true,
+		);
 		expect(
 			(nativeItemOf(read)?.data as Record<string, unknown> | undefined)?.[relation.fieldSlug],
 			`${kind.collection}: the references payload must not be stored inside data`,
@@ -1456,15 +1462,13 @@ test("direct native Publish accepts valid incomplete title-only content and read
 
 		// Read the state back by returned id (never assume the response alone).
 		const read = await readEntry(admin, kind.collection, created.entryId!);
-		expect(
-			read.ok,
-			`${kind.collection}: the published entry must be readable by returned id`,
-		).toBe(true);
+		expect(read.ok, `${kind.collection}: the published entry must be readable by returned id`).toBe(
+			true,
+		);
 		const item = nativeItemOf(read);
-		expect(
-			item?.status,
-			`${kind.collection}: the read-back status must be published`,
-		).toBe("published");
+		expect(item?.status, `${kind.collection}: the read-back status must be published`).toBe(
+			"published",
+		);
 		expect(
 			typeof item?.publishedAt === "string" && item.publishedAt.length > 0,
 			`${kind.collection}: publishing must record a native publishedAt`,
@@ -1499,7 +1503,12 @@ test("direct native Schedule accepts valid incomplete title-only content with an
 		// scheduleEntry supplies a fresh re-read `_rev` precondition and
 		// refuses an offset-less timestamp locally; the supplied time is
 		// future with an explicit offset.
-		const scheduled = await scheduleEntry(admin, kind.collection, created.entryId!, offsetScheduledAt);
+		const scheduled = await scheduleEntry(
+			admin,
+			kind.collection,
+			created.entryId!,
+			offsetScheduledAt,
+		);
 		expect(
 			scheduled.ok,
 			`${kind.collection}: direct native Schedule of valid incomplete content by an authorized publisher must be accepted (native RBAC/time checks only; no completeness hook)`,
@@ -1512,15 +1521,13 @@ test("direct native Schedule accepts valid incomplete title-only content with an
 		// Read the state back by returned id; the stored scheduledAt may be
 		// normalized, so the INSTANT is compared, not the string.
 		const read = await readEntry(admin, kind.collection, created.entryId!);
-		expect(
-			read.ok,
-			`${kind.collection}: the scheduled entry must be readable by returned id`,
-		).toBe(true);
+		expect(read.ok, `${kind.collection}: the scheduled entry must be readable by returned id`).toBe(
+			true,
+		);
 		const item = nativeItemOf(read);
-		expect(
-			item?.status,
-			`${kind.collection}: the read-back status must be scheduled`,
-		).toBe("scheduled");
+		expect(item?.status, `${kind.collection}: the read-back status must be scheduled`).toBe(
+			"scheduled",
+		);
 		expect(
 			typeof item?.scheduledAt === "string" &&
 				Math.abs(new Date(item.scheduledAt).getTime() - scheduledInstant) < 1000,
@@ -1573,10 +1580,7 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 		result.status === 401 || result.status === 403,
 		`an unauthenticated native save must be refused by the authorization layer (401/403)`,
 	).toBe(true);
-	expect(
-		result.ok,
-		"an unauthenticated native save must not be reported as success",
-	).toBe(false);
+	expect(result.ok, "an unauthenticated native save must not be reported as success").toBe(false);
 	const error = result.body as { error?: { code?: unknown } };
 	expect(
 		error?.error?.code,
@@ -1597,10 +1601,7 @@ test("a stale _rev update is a native state conflict, distinct from validation a
 	const kind = kinds[0];
 	const title = uniqueTitle(kind.collection);
 	const created = await createSyntheticEntry(admin, kind.collection, { data: { title } });
-	expect(
-		created.result.ok,
-		`${kind.collection}: the valid draft fixture must save`,
-	).toBe(true);
+	expect(created.result.ok, `${kind.collection}: the valid draft fixture must save`).toBe(true);
 
 	// Consume the create `_rev` with a first update (updateEntry re-reads a
 	// fresh one), then replay the ORIGINAL token: the platform must refuse the
@@ -1612,10 +1613,9 @@ test("a stale _rev update is a native state conflict, distinct from validation a
 	const first = await updateEntry(admin, kind.collection, created.entryId!, {
 		data: { title: uniqueTitle(kind.collection) },
 	});
-	expect(
-		first.ok,
-		`${kind.collection}: the first update with a fresh \`_rev\` must succeed`,
-	).toBe(true);
+	expect(first.ok, `${kind.collection}: the first update with a fresh \`_rev\` must succeed`).toBe(
+		true,
+	);
 
 	const replay = await updateEntry(admin, kind.collection, created.entryId!, {
 		data: { title: uniqueTitle(kind.collection) },
