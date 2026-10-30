@@ -25,9 +25,10 @@ import {
 	loadDevAccessToken,
 	nativeDataOf,
 	NATIVE_ROLES,
-	readOfficeContact,
+	readOfficeContactSettings,
 	SYNTHETIC_FIXTURE_MARK,
-	writeOfficeContact,
+	writeOfficeContactSettings,
+	writeSiteSettings,
 	type CmsActor,
 	type OfficeContactValues,
 } from "./cms.helpers";
@@ -67,10 +68,7 @@ let admin: CmsActor;
 
 /** Write `social` handles through the native site settings API. */
 async function writeSocial(social: Social): Promise<void> {
-	const result = await cmsRequest(admin, "/_emdash/api/settings", {
-		method: "POST",
-		body: { social },
-	});
+	const result = await writeSiteSettings(admin, { social });
 	expect(result.ok, `the native settings update must succeed (status ${result.status})`).toBe(true);
 }
 
@@ -84,7 +82,7 @@ async function withContact(
 	social: Social,
 	body: () => Promise<void>,
 ): Promise<void> {
-	const stored = await readOfficeContact(admin);
+	const stored = await readOfficeContactSettings(admin);
 	expect(stored.ok, `Office Contact must read (status ${stored.status})`).toBe(true);
 	const before = (nativeDataOf(stored)?.values ?? {}) as OfficeContactValues;
 	const site = await cmsRequest(admin, "/_emdash/api/settings");
@@ -92,14 +90,14 @@ async function withContact(
 	const socialBefore = (nativeDataOf(site)?.social ?? {}) as Social;
 	const networks = NETWORKS.filter((network) => social[network] || socialBefore[network]);
 	try {
-		const written = await writeOfficeContact(admin, { ...NOTHING_SET, ...values });
+		const written = await writeOfficeContactSettings(admin, { ...NOTHING_SET, ...values });
 		expect(written.ok, `Office Contact must save (status ${written.status})`).toBe(true);
 		await writeSocial(
 			Object.fromEntries(networks.map((network) => [network, social[network] ?? ""])),
 		);
 		await body();
 	} finally {
-		const restored = await writeOfficeContact(admin, { ...NOTHING_SET, ...before });
+		const restored = await writeOfficeContactSettings(admin, { ...NOTHING_SET, ...before });
 		expect(restored.ok, "Office Contact must be restored").toBe(true);
 		await writeSocial(
 			Object.fromEntries(networks.map((network) => [network, socialBefore[network] ?? ""])),
@@ -257,16 +255,15 @@ test.describe("accessibility and reflow", () => {
 			page,
 		}) => {
 			await page.setViewportSize(viewport);
+			const check = async (label: string) => {
+				const response = await page.goto("/contact");
+				expect(response?.status(), `GET /contact ${label}`).toBe(200);
+				await expectNoAxeViolations(page, `/contact ${label} at ${width}`);
+				await expectVisibleFocusOnEveryStop(page, `/contact ${label} at ${width}`);
+			};
 			const { values, social } = syntheticContact();
-			await withContact(values, social, async () => {
-				for (const label of ["with Office Contact set", "with no Office Contact set"]) {
-					if (label === "with no Office Contact set") await writeOfficeContact(admin, NOTHING_SET);
-					const response = await page.goto("/contact");
-					expect(response?.status(), `GET /contact ${label}`).toBe(200);
-					await expectNoAxeViolations(page, `/contact ${label} at ${width}`);
-					await expectVisibleFocusOnEveryStop(page, `/contact ${label} at ${width}`);
-				}
-			});
+			await withContact(values, social, () => check("with Office Contact set"));
+			await withContact({}, {}, () => check("with nothing set"));
 		});
 	}
 

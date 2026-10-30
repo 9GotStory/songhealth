@@ -37,7 +37,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, fontProviders } from "astro/config";
 import emdash, { local } from "emdash/astro";
 import { postgres } from "emdash/db";
-import { OFFICE_CONTACT_PLUGIN } from "./src/lib/contact.ts";
+import { OFFICE_CONTACT_PLUGIN } from "./src/lib/office-contact-settings.ts";
 
 // Fail-fast runtime configuration validation (Feature 001, T008). This module is
 // the canonical configuration boundary — every `astro dev`, `astro build`,

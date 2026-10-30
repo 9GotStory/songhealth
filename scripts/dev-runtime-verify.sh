@@ -29,11 +29,8 @@ source_ok() {
 key_ok() { local logs; logs=$(podman logs "$APP_CTR" 2>&1) && [[ $logs != *'EMDASH_ENCRYPTION_KEY is invalid'* ]]; }
 pat_ok() { [[ $(pat_identity "$STATE_DIR/dev-pat") == 'dev@emdash.local 50' ]]; }
 plugin_ok() { # the Office Contact plugin (#62) is registered and enabled, with its settings form
-  local token plugins
-  [[ -s $STATE_DIR/dev-pat && $(stat -c %a "$STATE_DIR/dev-pat") == 600 ]] || return 1
-  token=$(<"$STATE_DIR/dev-pat")
-  plugins=$(printf 'Authorization: Bearer %s\n' "$token" \
-    | curl -fsS --max-time 30 -H @- "$ORIGIN/_emdash/api/admin/plugins") || return 1
+  local plugins
+  plugins=$(pat_get "$STATE_DIR/dev-pat" /_emdash/api/admin/plugins) || return 1
   python3 -I -c '
 import json, sys
 items = json.loads(sys.argv[1])["data"]["items"]

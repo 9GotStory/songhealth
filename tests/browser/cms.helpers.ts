@@ -800,6 +800,30 @@ export function assertSameNativeApp(a: CmsActor, b: CmsActor): void {
 	}
 }
 
+/** Environment variable naming the role fixture's 0600 PAT file (scripts/dev-runtime-env.sh). */
+export const ROLE_FIXTURE_CREDENTIAL_ENV = "SONGHEALTH_ROLE_FIXTURE_ACCESS";
+
+/**
+ * The role fixture account's actor, for role phases beside `admin` (withNativeRole), or undefined
+ * when ROLE_FIXTURE_CREDENTIAL_ENV is unset. It must be another account of the same application.
+ * node:process loads through a non-literal import, as in loadDevAccessToken.
+ */
+export async function roleFixtureActor(admin: CmsActor): Promise<CmsActor | undefined> {
+	const processSpecifier = "node:process";
+	const nodeProcess = (await import(processSpecifier)) as unknown as {
+		env: Record<string, string | undefined>;
+	};
+	const path = nodeProcess.env[ROLE_FIXTURE_CREDENTIAL_ENV]?.trim();
+	if (!path) return undefined;
+	const fixture = await createPatActor({
+		baseUrl: admin.baseUrl,
+		token: await loadDevAccessToken(path),
+	});
+	assertDistinctActors(admin, fixture);
+	assertSameNativeApp(admin, fixture);
+	return fixture;
+}
+
 /** GET /_emdash/api/auth/me — live identity/role of the actor. */
 export async function getMe(actor: CmsActor): Promise<NativeResult> {
 	return cmsRequest(actor, "/_emdash/api/auth/me");
@@ -1909,8 +1933,20 @@ async function probeEntryPresence(
 }
 
 // ---------------------------------------------------------------------------
-// Office Contact plugin settings (#62)
+// Site settings and Office Contact plugin settings (#52, #62)
 // ---------------------------------------------------------------------------
+
+/**
+ * POST /_emdash/api/settings — update the native site settings, as Admin's settings page does. The
+ * nested `seo` and `social` objects are patched key by key (emdash 1.1.0 src/settings/index.ts
+ * setSiteSettings); only the media references accept `null` (src/api/schemas/settings.ts).
+ */
+export async function writeSiteSettings(
+	actor: CmsActor,
+	update: Record<string, unknown>,
+): Promise<NativeResult> {
+	return cmsRequest(actor, "/_emdash/api/settings", { method: "POST", body: update });
+}
 
 /** The Songhealth Office Contact plugin's id (src/lib/contact.ts OFFICE_CONTACT_PLUGIN). */
 export const OFFICE_CONTACT_PLUGIN_ID = "songhealth-office-contact";
@@ -1927,12 +1963,12 @@ const OFFICE_CONTACT_SETTINGS_PATH = `/_emdash/api/admin/plugins/${OFFICE_CONTAC
 export type OfficeContactValues = Record<string, string | number | null>;
 
 /** GET the Office Contact settings: `data.schema` and `data.values`. */
-export async function readOfficeContact(actor: CmsActor): Promise<NativeResult> {
+export async function readOfficeContactSettings(actor: CmsActor): Promise<NativeResult> {
 	return cmsRequest(actor, OFFICE_CONTACT_SETTINGS_PATH);
 }
 
 /** PUT Office Contact values, as Admin's settings form saves them. */
-export async function writeOfficeContact(
+export async function writeOfficeContactSettings(
 	actor: CmsActor,
 	values: OfficeContactValues,
 ): Promise<NativeResult> {

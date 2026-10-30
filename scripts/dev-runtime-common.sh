@@ -105,11 +105,13 @@ model_update() { # model_update [--check] — the promoted commit's scripts/mode
   podman exec -i "$APP_CTR" node /src/scripts/model-update.mjs --origin "$ORIGIN" "$@" \
     < "$STATE_DIR/dev-pat"
 }
-pat_identity() { # pat_identity FILE — prints "email role" for a 0600 PAT file (token sent on stdin)
+pat_get() { # pat_get FILE PATH — GET an API path with a 0600 PAT file's token (sent on stdin)
   local token
   [[ -s $1 && $(stat -c %a "$1") == 600 ]] || return 1
   token=$(<"$1")
-  printf 'Authorization: Bearer %s\n' "$token" \
-    | curl -fsS --max-time 30 -H @- "$ORIGIN/_emdash/api/auth/me" \
+  printf 'Authorization: Bearer %s\n' "$token" | curl -fsS --max-time 30 -H @- "$ORIGIN$2"
+}
+pat_identity() { # pat_identity FILE — prints "email role" for a 0600 PAT file
+  pat_get "$1" /_emdash/api/auth/me \
     | python3 -I -c 'import json, sys; d = json.load(sys.stdin)["data"]; print(d["email"], d["role"])'
 }

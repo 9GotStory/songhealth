@@ -29,9 +29,11 @@ import {
 	NATIVE_ROLES,
 	OFFICE_CONTACT_PLUGIN_ID,
 	openDevAdminSession,
-	readOfficeContact,
+	readOfficeContactSettings,
+	ROLE_FIXTURE_CREDENTIAL_ENV,
+	roleFixtureActor,
 	withNativeRole,
-	writeOfficeContact,
+	writeOfficeContactSettings,
 	type CmsActor,
 	type OfficeContactValues,
 } from "./cms.helpers";
@@ -47,8 +49,6 @@ const FORM_FIELDS = [
 	["line_url", "ลิงก์ LINE"],
 ] as const;
 
-const ROLE_FIXTURE_CREDENTIAL_ENV = "SONGHEALTH_ROLE_FIXTURE_ACCESS";
-
 let admin: CmsActor;
 let roleFixture: CmsActor | undefined;
 
@@ -62,17 +62,7 @@ test.beforeAll(async ({}, testInfo) => {
 		token: await loadDevAccessToken(),
 		expected: { role: NATIVE_ROLES.administrator },
 	});
-	const processSpecifier = "node:process";
-	const { env } = (await import(processSpecifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	const fixturePath = env[ROLE_FIXTURE_CREDENTIAL_ENV]?.trim();
-	if (fixturePath) {
-		roleFixture = await createPatActor({
-			baseUrl: baseURL,
-			token: await loadDevAccessToken(fixturePath),
-		});
-	}
+	roleFixture = await roleFixtureActor(admin);
 });
 
 test("the Office Contact plugin is registered and enabled, with a settings field for every Office Contact value", async () => {
@@ -86,7 +76,7 @@ test("the Office Contact plugin is registered and enabled, with a settings field
 		hasSettings: true,
 	});
 
-	const settings = await readOfficeContact(admin);
+	const settings = await readOfficeContactSettings(admin);
 	expect(settings.ok, `the settings must read (status ${settings.status})`).toBe(true);
 	const schema = (nativeDataOf(settings)?.schema ?? {}) as Record<string, { label?: string }>;
 	expect(Object.entries(schema).map(([key, field]) => [key, field.label])).toEqual(
@@ -99,13 +89,13 @@ test("only an Administrator can read or save Office Contact: an Editor is refuse
 		roleFixture === undefined,
 		`set ${ROLE_FIXTURE_CREDENTIAL_ENV} to the role fixture PAT`,
 	);
-	const stored = await readOfficeContact(admin);
+	const stored = await readOfficeContactSettings(admin);
 	expect(stored.ok, "the Administrator reads Office Contact").toBe(true);
 	const values = (nativeDataOf(stored)?.values ?? {}) as OfficeContactValues;
 
 	await withNativeRole(admin, roleFixture!, NATIVE_ROLES.editor, async (editor) => {
-		expect((await readOfficeContact(editor)).status, "an Editor reading").toBe(403);
-		expect((await writeOfficeContact(editor, values)).status, "an Editor saving").toBe(403);
+		expect((await readOfficeContactSettings(editor)).status, "an Editor reading").toBe(403);
+		expect((await writeOfficeContactSettings(editor, values)).status, "an Editor saving").toBe(403);
 	});
 });
 

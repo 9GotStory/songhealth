@@ -1,7 +1,7 @@
 // The Songhealth Office Contact plugin (Feature 003 #62; spec #51 "Office Contact plugin", approved
 // Q10). Its only capability is a settings form in Admin, where staff maintain Office Contact:
 // address, telephone, email, opening hours, coordinates and the LINE address
-// (src/lib/contact.ts OFFICE_CONTACT_SETTINGS).
+// (src/lib/office-contact-settings.ts OFFICE_CONTACT_SETTINGS).
 //
 // Extension gate (`10` §22): EmDash's native site settings accept only a fixed key set (emdash
 // 1.1.0 src/api/schemas/settings.ts), and a plugin's settings schema is the platform's own way to
@@ -13,7 +13,7 @@
 // astro.config.mjs registers this file as a native-format plugin entrypoint, which EmDash imports
 // and calls as `createPlugin()` (src/astro/integration/virtual-modules.ts generatePluginsModule).
 import { definePlugin } from "emdash";
-import { OFFICE_CONTACT_PLUGIN, OFFICE_CONTACT_SETTINGS } from "../lib/contact";
+import { OFFICE_CONTACT_PLUGIN, OFFICE_CONTACT_SETTINGS } from "../lib/office-contact-settings";
 
 export function createPlugin() {
 	return definePlugin({

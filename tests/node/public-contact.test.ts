@@ -3,19 +3,19 @@
 //
 // - Office Contact comes from the Office Contact plugin's settings. A value that is empty, or not
 //   of its field's type, is left out, so its line disappears from the page.
+// - A telephone number or an email address is linked only when it is one number or one address.
 // - The official channels are the native `social` settings and LINE. The Admin asks for a
 //   username or handle in each `social` field (@emdash-cms/admin 1.1.0), so a handle becomes the
-//   network's profile address; a pasted web address is kept as it is.
+//   network's profile address; a pasted web address is kept, with or without its https://.
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { emailHref, officialChannels, telephoneHref } from "../../src/lib/contact-links.ts";
 import {
 	OFFICE_CONTACT_SETTINGS,
 	officeContactFrom,
-	officialChannels,
-	telephoneHref,
-} from "../../src/lib/contact.ts";
+} from "../../src/lib/office-contact-settings.ts";
 
 describe("the Office Contact plugin's settings form", () => {
 	it("asks for each Office Contact value with the field type that checks it", () => {
@@ -52,7 +52,7 @@ describe("the Office Contact plugin's settings form", () => {
 
 	it("labels every field in Thai", () => {
 		const unlabelled = Object.entries(OFFICE_CONTACT_SETTINGS)
-			.filter(([, field]) => !/[\u0E00-\u0E7F]/.test(field.label))
+			.filter(([, field]) => !/[฀-๿]/.test(field.label))
 			.map(([key]) => key);
 		assert.deepEqual(unlabelled, []);
 	});
@@ -108,6 +108,20 @@ describe("the telephone link", () => {
 	});
 });
 
+describe("the email link", () => {
+	it("writes to one address", () => {
+		assert.equal(emailHref("songhealth@example.go.th"), "mailto:songhealth@example.go.th");
+	});
+
+	it("is absent when the text is not one plain address, so the text shows unlinked", () => {
+		// EmDash's email field checks only for an "@" (emdash 1.1.0 src/api/handlers/plugin-settings.ts).
+		assert.equal(emailHref("สสอ.สอง @example.go.th"), undefined);
+		assert.equal(emailHref("a@example.go.th, b@example.go.th"), undefined);
+		assert.equal(emailHref("a@example.go.th?subject=x"), undefined);
+		assert.equal(emailHref("@example.go.th"), undefined);
+	});
+});
+
 describe("the official channels", () => {
 	const LINE = "https://line.me/R/ti/p/@songhealth";
 
@@ -130,26 +144,36 @@ describe("the official channels", () => {
 				{ label: "YouTube", href: "https://www.youtube.com/@songhealthtv" },
 				{ label: "X (Twitter)", href: "https://x.com/songhealth" },
 				{ label: "Instagram", href: "https://www.instagram.com/songhealth_" },
-				{ label: "LinkedIn", href: "https://www.linkedin.com/in/songhealth" },
+				{ label: "LinkedIn", href: "https://www.linkedin.com/company/songhealth" },
 				{ label: "GitHub", href: "https://github.com/songhealth" },
 			],
 		);
 	});
 
-	it("open a YouTube channel by its ID, and a handle given without its @", () => {
+	it("open a YouTube channel by its ID, and a handle given without its @ or in Thai", () => {
 		assert.deepEqual(officialChannels({ youtube: "UCabcdefghijklmnopqrstuv" }), [
 			{ label: "YouTube", href: "https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv" },
 		]);
 		assert.deepEqual(officialChannels({ youtube: "songhealthtv" }), [
 			{ label: "YouTube", href: "https://www.youtube.com/@songhealthtv" },
 		]);
+		assert.deepEqual(officialChannels({ youtube: "@สาธารณสุขอำเภอสอง" }), [
+			{ label: "YouTube", href: "https://www.youtube.com/@สาธารณสุขอำเภอสอง" },
+		]);
 	});
 
-	it("keep a web address staff pasted instead of a handle", () => {
+	it("keep a web address staff pasted instead of a handle, adding https:// when it is missing", () => {
 		const page = "https://www.facebook.com/profile.php?id=100064000000000";
 		assert.deepEqual(officialChannels({ facebook: ` ${page} ` }), [
 			{ label: "Facebook", href: page },
 		]);
+		assert.deepEqual(
+			officialChannels({ facebook: "www.facebook.com/songhealth", youtube: "youtube.com/@tv" }),
+			[
+				{ label: "Facebook", href: "https://www.facebook.com/songhealth" },
+				{ label: "YouTube", href: "https://youtube.com/@tv" },
+			],
+		);
 	});
 
 	it("leave out a channel that is unset, empty, or neither a handle nor a web address", () => {
@@ -157,7 +181,7 @@ describe("the official channels", () => {
 		assert.deepEqual(officialChannels({ facebook: "", youtube: "  " }), []);
 		assert.deepEqual(
 			officialChannels(
-				{ facebook: "สสอ.สอง", twitter: "javascript:alert(1)", github: "songhealth/x" },
+				{ facebook: "สสอ. สอง", twitter: "javascript:alert(1)", github: "songhealth/x" },
 				"line://ti/p/@songhealth",
 			),
 			[],

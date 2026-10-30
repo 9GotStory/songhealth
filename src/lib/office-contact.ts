@@ -5,16 +5,16 @@
 // Office Contact is the Office Contact plugin's stored settings. `getPluginSettings` returns only
 // stored values, without the schema's defaults (emdash 1.1.0 src/settings/index.ts), and the
 // Admin deletes a value saved empty, so an unset value is simply absent. The channels are the
-// native `social` site settings and the plugin's LINE address. src/lib/contact.ts shapes both.
+// native `social` site settings and the plugin's LINE address. src/lib/office-contact-settings.ts
+// and src/lib/contact-links.ts shape them.
 
 import { getPluginSettings, getSiteSettings } from "emdash";
+import { officialChannels, type OfficialChannel } from "./contact-links";
 import {
 	OFFICE_CONTACT_PLUGIN,
 	officeContactFrom,
-	officialChannels,
 	type OfficeContact,
-	type OfficialChannel,
-} from "./contact";
+} from "./office-contact-settings";
 
 export async function readOfficeContact(): Promise<{
 	contact: OfficeContact;
