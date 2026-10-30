@@ -20,9 +20,8 @@ export interface FixtureKit {
 	/** One Portable Text block of `style` (normal, h2, …), the shape the Admin editor saves. */
 	block(text: string, style?: string): Record<string, unknown>;
 	/**
-	 * Show `values` as Office Contact and `social` as the site's `social` handles until the run
-	 * ends, which restores the earlier ones. The native API cannot delete a handle, so one that was
-	 * unset comes back empty, which the site shows the same way.
+	 * Show `values` as Office Contact and `social` as the only `social` handles until the run ends,
+	 * which restores the earlier ones (cms.helpers.ts showOfficeContact).
 	 */
 	officeContact(values: helpers.OfficeContactValues, social: Record<string, string>): Promise<void>;
 }
@@ -76,7 +75,7 @@ export async function withFixtureKit<T>(work: (kit: FixtureKit) => Promise<T>): 
 	const slugs = new Map<string, string>();
 	const media: string[] = [];
 	/** What restores the settings the run changed, newest first. */
-	const restores: (() => Promise<string | undefined>)[] = [];
+	const restores: (() => Promise<void>)[] = [];
 	const kit: FixtureKit = {
 		admin,
 		helpers,
@@ -114,31 +113,7 @@ export async function withFixtureKit<T>(work: (kit: FixtureKit) => Promise<T>): 
 		},
 		block: helpers.portableTextBlock,
 		async officeContact(values, social) {
-			const stored = await helpers.readOfficeContactSettings(admin);
-			const site = await helpers.cmsRequest(admin, "/_emdash/api/settings");
-			if (!stored.ok || !site.ok) throw new Error("office contact: the settings must read");
-			const before = (helpers.nativeDataOf(stored)?.values ?? {}) as helpers.OfficeContactValues;
-			const socialBefore = (helpers.nativeDataOf(site)?.social ?? {}) as Record<string, string>;
-			const keys = [...new Set([...Object.keys(before), ...Object.keys(values)])];
-			const handles = Object.keys(social).filter((network) => social[network]);
-			/** Write these Office Contact values and handles; an absent value is unset. */
-			const show = async (
-				contact: helpers.OfficeContactValues,
-				networks: Record<string, string | undefined>,
-			) => {
-				const written = await helpers.writeOfficeContactSettings(
-					admin,
-					Object.fromEntries(keys.map((key) => [key, contact[key] ?? null])),
-				);
-				const set = await helpers.writeSiteSettings(admin, {
-					social: Object.fromEntries(handles.map((network) => [network, networks[network] ?? ""])),
-				});
-				return written.ok && set.ok;
-			};
-			restores.unshift(async () =>
-				(await show(before, socialBefore)) ? undefined : "office contact: not restored",
-			);
-			if (!(await show(values, social))) throw new Error("office contact: the settings must save");
+			restores.unshift(await helpers.showOfficeContact(admin, values, social));
 		},
 	};
 
@@ -150,8 +125,9 @@ export async function withFixtureKit<T>(work: (kit: FixtureKit) => Promise<T>): 
 		throw error;
 	} finally {
 		for (const restore of restores) {
-			const failure = await restore();
-			if (failure) failures.push(failure);
+			await restore().catch((error: unknown) =>
+				failures.push(`settings not restored: ${error instanceof Error ? error.message : error}`),
+			);
 		}
 		// Entries first, so no entry still uses a picture or term when it goes.
 		const report = await helpers.cleanupOwnedFixtures(admin, { permanent: true });

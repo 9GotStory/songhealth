@@ -12,23 +12,17 @@
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
 // widths). It saves synthetic Office Contact values and `social` handles through the native
-// settings APIs, the way the Admin saves them, and restores what was there afterwards. The plugin
-// settings API restores exactly, deleting a value that was unset; the site settings API cannot
-// delete a `social` handle (emdash 1.1.0 src/api/schemas/settings.ts accepts only strings), so an
-// unset handle is restored as empty, which the site shows the same way.
+// settings APIs, the way the Admin saves them, and restores what was there afterwards
+// (cms.helpers.ts showOfficeContact says what the native API cannot restore).
 
 import type { Page } from "@playwright/test";
 
 import {
-	cmsRequest,
 	createPatActor,
 	loadDevAccessToken,
-	nativeDataOf,
 	NATIVE_ROLES,
-	readOfficeContactSettings,
+	showOfficeContact,
 	SYNTHETIC_FIXTURE_MARK,
-	writeOfficeContactSettings,
-	writeSiteSettings,
 	type CmsActor,
 	type OfficeContactValues,
 } from "./cms.helpers";
@@ -49,64 +43,28 @@ import {
 const CONTACT_TITLE = "ติดต่อเรา";
 const CHANNELS_HEADING = "ช่องทางทางการ";
 
-/** The Office Contact settings keys, each unset. */
-const NOTHING_SET: OfficeContactValues = {
-	address: null,
-	telephone: null,
-	email: null,
-	opening_hours: null,
-	latitude: null,
-	longitude: null,
-	line_url: null,
-};
-
-/** The native `social` networks (emdash 1.1.0 src/settings/types.ts). */
-const NETWORKS = ["twitter", "github", "facebook", "instagram", "linkedin", "youtube"] as const;
-type Social = Partial<Record<(typeof NETWORKS)[number], string>>;
-
 let admin: CmsActor;
 
-/** Write `social` handles through the native site settings API. */
-async function writeSocial(social: Social): Promise<void> {
-	const result = await writeSiteSettings(admin, { social });
-	expect(result.ok, `the native settings update must succeed (status ${result.status})`).toBe(true);
-}
-
-/**
- * Run `body` with exactly `values` as Office Contact and `social` as the only handles, then
- * restore what the runtime had. Only the networks `social` sets and those already holding a handle
- * are written, so an unset handle stays unset unless the test sets it.
- */
+/** Run `body` with exactly `values` as Office Contact and `social` as the only handles, then restore. */
 async function withContact(
 	values: OfficeContactValues,
-	social: Social,
+	social: Record<string, string>,
 	body: () => Promise<void>,
 ): Promise<void> {
-	const stored = await readOfficeContactSettings(admin);
-	expect(stored.ok, `Office Contact must read (status ${stored.status})`).toBe(true);
-	const before = (nativeDataOf(stored)?.values ?? {}) as OfficeContactValues;
-	const site = await cmsRequest(admin, "/_emdash/api/settings");
-	expect(site.ok, "the native settings must read").toBe(true);
-	const socialBefore = (nativeDataOf(site)?.social ?? {}) as Social;
-	const networks = NETWORKS.filter((network) => social[network] || socialBefore[network]);
+	const restore = await showOfficeContact(admin, values, social);
 	try {
-		const written = await writeOfficeContactSettings(admin, { ...NOTHING_SET, ...values });
-		expect(written.ok, `Office Contact must save (status ${written.status})`).toBe(true);
-		await writeSocial(
-			Object.fromEntries(networks.map((network) => [network, social[network] ?? ""])),
-		);
 		await body();
 	} finally {
-		const restored = await writeOfficeContactSettings(admin, { ...NOTHING_SET, ...before });
-		expect(restored.ok, "Office Contact must be restored").toBe(true);
-		await writeSocial(
-			Object.fromEntries(networks.map((network) => [network, socialBefore[network] ?? ""])),
-		);
+		await restore();
 	}
 }
 
 /** A full synthetic Office Contact and two `social` handles, unique to this run. */
-function syntheticContact(): { values: OfficeContactValues; social: Social; marker: string } {
+function syntheticContact(): {
+	values: OfficeContactValues;
+	social: Record<string, string>;
+	marker: string;
+} {
 	const marker = crypto.randomUUID().slice(0, 8);
 	return {
 		marker,

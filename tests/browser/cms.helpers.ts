@@ -1975,6 +1975,62 @@ export async function writeOfficeContactSettings(
 	return cmsRequest(actor, OFFICE_CONTACT_SETTINGS_PATH, { method: "PUT", body: { values } });
 }
 
+/**
+ * Show exactly `values` as Office Contact and `social` as the only `social` handles, and return the
+ * function that puts back what was there. A refused read or write throws, after putting back what
+ * a half-done write changed.
+ *
+ * Office Contact comes back exactly. The settings API cannot delete a `social` handle, only empty
+ * it (emdash 1.1.0 src/api/schemas/settings.ts), so a handle that was unset comes back empty, which
+ * the site shows the same way. Only the networks `social` sets and those already holding a handle
+ * are written, so the others stay unset.
+ */
+export async function showOfficeContact(
+	actor: CmsActor,
+	values: OfficeContactValues,
+	social: Record<string, string>,
+): Promise<() => Promise<void>> {
+	const [stored, site] = await Promise.all([
+		readOfficeContactSettings(actor),
+		cmsRequest(actor, "/_emdash/api/settings"),
+	]);
+	if (!stored.ok || !site.ok) {
+		throw new CmsHelperError(
+			"OFFICE_CONTACT_READ",
+			`Office Contact ${nativeRefusalOf(stored)}, site settings ${nativeRefusalOf(site)}`,
+		);
+	}
+	const before = (nativeDataOf(stored)?.values ?? {}) as OfficeContactValues;
+	const socialBefore = (nativeDataOf(site)?.social ?? {}) as Record<string, string>;
+	const keys = [...new Set([...Object.keys(before), ...Object.keys(values)])];
+	const networks = [...new Set([...Object.keys(social), ...Object.keys(socialBefore)])].filter(
+		(network) => social[network] || socialBefore[network],
+	);
+	const apply = async (contact: OfficeContactValues, handles: Record<string, string>) => {
+		const written = await writeOfficeContactSettings(
+			actor,
+			Object.fromEntries(keys.map((key) => [key, contact[key] ?? null])),
+		);
+		const set = await writeSiteSettings(actor, {
+			social: Object.fromEntries(networks.map((network) => [network, handles[network] ?? ""])),
+		});
+		if (!written.ok || !set.ok) {
+			throw new CmsHelperError(
+				"OFFICE_CONTACT_WRITE",
+				`Office Contact ${nativeRefusalOf(written)}, site settings ${nativeRefusalOf(set)}`,
+			);
+		}
+	};
+	const restore = () => apply(before, socialBefore);
+	try {
+		await apply(values, social);
+	} catch (error) {
+		await restore().catch(() => undefined);
+		throw error;
+	}
+	return restore;
+}
+
 // ---------------------------------------------------------------------------
 // Cleanup — restricted to fixtures these helpers registered as owned
 // ---------------------------------------------------------------------------
