@@ -21,7 +21,12 @@ import HealthServiceStatus from "../../components/HealthServiceStatus.astro";
 import MapLink from "../../components/MapLink.astro";
 import TermLinks from "../../components/TermLinks.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { directoryPath, healthServicePath, shownName } from "../../lib/health-service-directory";
+import {
+	DIRECTORY_TITLE,
+	directoryPath,
+	healthServicePath,
+	shownName,
+} from "../../lib/health-service-directory";
 import type { HealthServiceData } from "../../lib/health-services";
 import { mapHref } from "../../lib/map-link";
 import { REFERENCES_LIMIT } from "../../lib/references";
@@ -65,7 +70,7 @@ const hasDetails =
 	section="services"
 	description={`ที่อยู่ เวลาทำการ ช่องทางติดต่อ และบริการของ ${name}`}
 	canonical={healthServicePath(entry.id)}
-	crumbs={[{ label: "หน่วยบริการสุขภาพที่เกี่ยวข้อง", href: directoryPath() }, { label: name }]}
+	crumbs={[{ label: DIRECTORY_TITLE, href: directoryPath() }, { label: name }]}
 	entry={{
 		collection: "health_services",
 		id: healthService.id,

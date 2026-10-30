@@ -1,5 +1,6 @@
 // Songhealth site navigation (Feature 003 #52, #86): the main navigation, the utility links the
-// page shell renders on every page, and the breadcrumb of each inner page.
+// page shell renders on every page, and the breadcrumb of each inner page. The module imports no
+// runtime module, so node:test checks it directly.
 //
 // - MAIN_NAVIGATION is `03` §2 in order. Each page names the section it belongs
 //   to, and the shell marks that item as current. The section is declared by
@@ -11,9 +12,9 @@
 //   MAIN_NAVIGATION, so no page writes them (`03` §14). EmDash 1.1.0 builds and
 //   renders none; its page context only carries a trail for SEO plugins
 //   (docs/agents/emdash-1.1.0.md "Head, settings, menus, sitemap").
-import { ABOUT_PATH, ABOUT_TITLE } from "./about";
-import { HEALTH_PATH, HEALTH_TITLE } from "./health";
-import { SERVICES_PATH } from "./service-catalog";
+import { ABOUT_PATH, ABOUT_TITLE } from "./about.ts";
+import { HEALTH_PATH, HEALTH_TITLE } from "./health.ts";
+import { SERVICES_PATH } from "./service-catalog.ts";
 
 export const MAIN_NAVIGATION = [
 	{ section: "home", label: "หน้าแรก", href: "/" },

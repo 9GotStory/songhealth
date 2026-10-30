@@ -14,6 +14,9 @@ import type { ImageFieldValue } from "./news";
 /** The fixed number of Activities a list page shows. */
 const ACTIVITIES_PAGE_SIZE = 12;
 
+/** The Activities list's title, also its crumb on each Activity page. */
+export const ACTIVITIES_TITLE = "กิจกรรม";
+
 /** The Activities list's address. */
 export const ACTIVITIES_PATH = "/activities";
 

@@ -12,10 +12,10 @@ import EmptyState from "../../components/EmptyState.astro";
 import PageHeading from "../../components/PageHeading.astro";
 import Pagination from "../../components/Pagination.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { ACTIVITIES_PATH, listActivities } from "../../lib/activities";
+import { ACTIVITIES_PATH, ACTIVITIES_TITLE, listActivities } from "../../lib/activities";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
 
-const title = "กิจกรรม";
+const title = ACTIVITIES_TITLE;
 const lead = "กิจกรรม การประชุม และการลงพื้นที่ของสำนักงานสาธารณสุขอำเภอสองและเครือข่าย";
 const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
 const { entries, hasMore } = await listActivities(page);

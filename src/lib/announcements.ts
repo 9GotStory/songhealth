@@ -32,6 +32,9 @@ export type { AnnouncementStatus };
 /** The fixed number of Announcements a list page shows. */
 const ANNOUNCEMENTS_PAGE_SIZE = 20;
 
+/** The Announcements list's title, also its crumb on each Announcement page. */
+export const ANNOUNCEMENTS_TITLE = "ประกาศ";
+
 /** The Announcements list's address. */
 export const ANNOUNCEMENTS_PATH = "/announcements";
 

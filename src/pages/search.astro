@@ -20,7 +20,7 @@ import SearchResultRow from "../components/SearchResultRow.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { documentsPath } from "../lib/documents";
 import { HEALTH_PATH } from "../lib/health";
-import { directoryPath } from "../lib/health-service-directory";
+import { DIRECTORY_TITLE, directoryPath } from "../lib/health-service-directory";
 import { pageHref } from "../lib/pagination";
 import { search } from "../lib/search";
 import { GROUP_PARAM, SEARCH_GROUPS, type SearchGroup } from "../lib/search-matcher";
@@ -46,7 +46,7 @@ function groupHref(other: SearchGroup): string {
 /** Where to browse instead when a search finds nothing or fails (`08` §12). */
 const browse = [
 	{ label: "บริการประชาชน", href: servicesPath() },
-	{ label: "หน่วยบริการสุขภาพที่เกี่ยวข้อง", href: directoryPath() },
+	{ label: DIRECTORY_TITLE, href: directoryPath() },
 	{ label: "เอกสารเผยแพร่", href: documentsPath() },
 	{ label: "ข่าวสาร", href: "/news" },
 	{ label: "ข้อมูลสุขภาพ", href: HEALTH_PATH },

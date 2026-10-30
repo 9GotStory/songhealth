@@ -28,6 +28,7 @@ import RichText from "../../components/RichText.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import {
 	ANNOUNCEMENTS_PATH,
+	ANNOUNCEMENTS_TITLE,
 	announcementPath,
 	statusOf,
 	type AnnouncementData,
@@ -68,7 +69,7 @@ const hasDetails =
 	section="news"
 	description={description || undefined}
 	canonical={announcementPath(entry.id)}
-	crumbs={[{ label: "ประกาศ", href: ANNOUNCEMENTS_PATH }, { label: announcement.title }]}
+	crumbs={[{ label: ANNOUNCEMENTS_TITLE, href: ANNOUNCEMENTS_PATH }, { label: announcement.title }]}
 	entry={{
 		collection: "announcements",
 		id: announcement.id,

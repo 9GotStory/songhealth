@@ -16,7 +16,12 @@ import { Image } from "emdash/ui";
 import DateText from "../../components/DateText.astro";
 import DetailItem from "../../components/DetailItem.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { ACTIVITIES_PATH, activityPath, type ActivityData } from "../../lib/activities";
+import {
+	ACTIVITIES_PATH,
+	ACTIVITIES_TITLE,
+	activityPath,
+	type ActivityData,
+} from "../../lib/activities";
 import { availableMedia } from "../../lib/media";
 
 const slug = Astro.params.slug ?? "";
@@ -49,7 +54,7 @@ const GALLERY_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw"
 	section="news"
 	description={activity.summary ?? undefined}
 	canonical={activityPath(entry.id)}
-	crumbs={[{ label: "กิจกรรม", href: ACTIVITIES_PATH }, { label: activity.title }]}
+	crumbs={[{ label: ACTIVITIES_TITLE, href: ACTIVITIES_PATH }, { label: activity.title }]}
 	entry={{
 		collection: "activities",
 		id: activity.id,

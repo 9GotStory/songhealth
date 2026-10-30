@@ -16,6 +16,7 @@ import PageHeading from "../../components/PageHeading.astro";
 import Pagination from "../../components/Pagination.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import {
+	DIRECTORY_TITLE,
 	FILTER_PARAMS,
 	directoryPath,
 	isFiltered,
@@ -24,7 +25,7 @@ import {
 import { listHealthServices } from "../../lib/health-services";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
 
-const title = "หน่วยบริการสุขภาพที่เกี่ยวข้อง";
+const title = DIRECTORY_TITLE;
 const lead =
 	"ค้นหาโรงพยาบาล รพ.สต. และหน่วยบริการสุขภาพอื่นที่เกี่ยวข้องกับอำเภอสอง ตามพื้นที่รับผิดชอบหรือชื่อ พร้อมที่อยู่ เวลาทำการ ช่องทางติดต่อ และลิงก์เปิดแผนที่";
 const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
