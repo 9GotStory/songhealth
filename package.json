@@ -21,7 +21,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip",
-    "jscpd": "jscpd --config .jscpd.json",
+    "jscpd": "jscpd --config .jscpd.json && jscpd --config .jscpd.json --update-baseline --silent && git diff --exit-code -- .jscpd-baseline.json",
     "lint:shell": "./scripts/lint-shell.sh",
     "test:browser": "playwright test",
     "verify:startup": "./tests/operations/verify-startup.sh"

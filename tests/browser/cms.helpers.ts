@@ -39,12 +39,16 @@
 // - setup/dev-bypass applies the seed and, with ?token=1, rotates the development PAT
 //   (src/astro/routes/api/setup/dev-bypass.ts). createDevBypassActor wraps it for a fresh
 //   install only; no suite calls it.
-// - A state-changing API request without a token is refused 403 CSRF_REJECTED unless it sends
-//   `X-EmDash-Request: 1`; with that header, or as a read, a request without a credential is
-//   refused 401 NOT_AUTHENTICATED (src/astro/middleware/auth.ts).
+// - A content API request with no token and no session is refused before its route runs: a
+//   state-changing one without `X-EmDash-Request: 1` with 403 CSRF_REJECTED, any other with 401
+//   NOT_AUTHENTICATED (src/astro/middleware/auth.ts). Public API routes check CSRF by Origin
+//   instead (src/api/csrf.ts checkPublicCsrf).
 //
 // Cleanup never throws past a failed step. Each owned fixture is attempted on its own, an
 // uncertain outcome is read again, and an unresolved fixture stays registered for a later retry.
+
+import { appendFile, lstat, readFile, stat } from "node:fs/promises";
+import { env } from "node:process";
 
 import { expect } from "@playwright/test";
 
@@ -178,34 +182,13 @@ function redactWalk<T>(value: T, secrets: readonly string[], seen: WeakSet<objec
 }
 
 /**
- * The process environment. node:process loads through a non-literal import because the pinned
- * dependency baseline ships no @types/node; the structural cast keeps this file strict-typed.
- */
-async function processEnv(): Promise<Record<string, string | undefined>> {
-	const processSpecifier = "node:process";
-	return (
-		(await import(processSpecifier)) as unknown as { env: Record<string, string | undefined> }
-	).env;
-}
-
-/**
  * Read one credential from an ignored mode-0600 scratch file (quickstart
  * "Prerequisites": token scratch lives under e.g. .tmp/feature002/). Fails
  * closed on any looser mode, a non-regular file, or multi-line content —
  * the credential is returned into memory only.
- *
- * node:fs is loaded through a dynamic non-literal import because the pinned
- * dependency baseline intentionally ships no @types/node (tests/browser and
- * tests/node run under Node's own TypeScript support, like the existing
- * tests/node suites); the structural cast keeps this file strict-typed.
  */
 export async function readSecretScratch(path: string): Promise<string> {
-	const specifier = "node:fs/promises";
-	const fsPromises = (await import(specifier)) as unknown as {
-		stat: (p: string) => Promise<{ mode: number; isFile(): boolean }>;
-		readFile: (p: string, encoding: "utf8") => Promise<string>;
-	};
-	const stats = await fsPromises.stat(path);
+	const stats = await stat(path);
 	if (!stats.isFile()) {
 		throw new CmsHelperError("SECRET_SCRATCH_INVALID", `${path} is not a regular file`);
 	}
@@ -215,7 +198,7 @@ export async function readSecretScratch(path: string): Promise<string> {
 			`refusing to read ${path}: credential scratch must be mode 0600 (git-ignored), never group/world readable`,
 		);
 	}
-	const raw = await fsPromises.readFile(path, "utf8");
+	const raw = await readFile(path, "utf8");
 	const credential = raw.trim();
 	if (credential.length === 0 || credential.includes("\n")) {
 		throw new CmsHelperError("SECRET_SCRATCH_INVALID", `${path} must hold exactly one credential`);
@@ -247,15 +230,8 @@ const BARE_PAT_PATTERN = /^ec_pat_[A-Za-z0-9_-]+$/;
  * caller and never logged, hashed, or rewritten.
  *
  * Path resolution: the explicit argument, else DEV_ACCESS_CREDENTIAL_ENV.
- * node:fs is loaded through a dynamic non-literal import, as in processEnv.
  */
 export async function loadDevAccessToken(path?: string): Promise<string> {
-	const env = await processEnv();
-	const fsSpecifier = "node:fs/promises";
-	const fsPromises = (await import(fsSpecifier)) as unknown as {
-		lstat: (p: string) => Promise<{ isFile(): boolean; isSymbolicLink(): boolean; mode: number }>;
-		readFile: (p: string, encoding: "utf8") => Promise<string>;
-	};
 	const resolved = path ?? env[DEV_ACCESS_CREDENTIAL_ENV];
 	if (resolved === undefined || resolved.trim().length === 0) {
 		throw new CmsHelperError(
@@ -263,7 +239,7 @@ export async function loadDevAccessToken(path?: string): Promise<string> {
 			`no development credential path: pass one or set ${DEV_ACCESS_CREDENTIAL_ENV}`,
 		);
 	}
-	const stats = await fsPromises.lstat(resolved);
+	const stats = await lstat(resolved);
 	if (!stats.isFile() || stats.isSymbolicLink()) {
 		throw new CmsHelperError("DEV_ACCESS_INVALID", `${resolved} is not a regular non-symlink file`);
 	}
@@ -273,7 +249,7 @@ export async function loadDevAccessToken(path?: string): Promise<string> {
 			`refusing to read ${resolved}: the development credential must be mode 0600, never group/world readable`,
 		);
 	}
-	const text = (await fsPromises.readFile(resolved, "utf8")).trim();
+	const text = (await readFile(resolved, "utf8")).trim();
 	if (BARE_PAT_PATTERN.test(text)) {
 		return text;
 	}
@@ -852,8 +828,7 @@ export function assertSameNativeApp(a: CmsActor, b: CmsActor): void {
  * The origin the suites run against, as playwright.config.ts resolves it: PLAYWRIGHT_BASE_URL, else
  * the documented development origin.
  */
-export async function configuredDevelopmentOrigin(): Promise<string> {
-	const env = await processEnv();
+export function configuredDevelopmentOrigin(): string {
 	return new URL(env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN).origin;
 }
 
@@ -867,7 +842,7 @@ const DEV_ADMIN_EMAIL = "dev@emdash.local";
  */
 export async function devAdminActor(origin?: string): Promise<CmsActor> {
 	const admin = await createPatActor({
-		baseUrl: origin ?? (await configuredDevelopmentOrigin()),
+		baseUrl: origin ?? configuredDevelopmentOrigin(),
 		token: await loadDevAccessToken(),
 		expected: { role: NATIVE_ROLES.administrator },
 	});
@@ -888,7 +863,6 @@ export const ROLE_FIXTURE_CREDENTIAL_ENV = "SONGHEALTH_ROLE_FIXTURE_ACCESS";
  * when ROLE_FIXTURE_CREDENTIAL_ENV is unset. It must be another account of the same application.
  */
 export async function roleFixtureActor(admin: CmsActor): Promise<CmsActor | undefined> {
-	const env = await processEnv();
 	const path = env[ROLE_FIXTURE_CREDENTIAL_ENV]?.trim();
 	if (!path) return undefined;
 	const fixture = await createPatActor({
@@ -2455,20 +2429,20 @@ export function expectTargetRefusal(result: NativeResult, caseLabel: string): vo
 }
 
 /**
- * Fail unless `result` is refused for want of a credential, before any route logic: 401 or 403 with
- * a native error code other than VALIDATION_ERROR. An anonymousRequest save gets 403 CSRF_REJECTED
- * and a read 401 NOT_AUTHENTICATED (emdash 1.1.0 src/astro/middleware/auth.ts). `request` names
- * what was refused, such as "an unauthenticated native save".
+ * Fail unless `result` is a refusal that is no validation outcome: 401 or 403, with a native error
+ * code other than VALIDATION_ERROR. From the content API, an anonymousRequest save gets 403
+ * CSRF_REJECTED and a read 401 NOT_AUTHENTICATED (emdash 1.1.0 src/astro/middleware/auth.ts).
+ * `request` names what was refused, such as "an unauthenticated native save".
  */
 export function expectAuthorizationRefusal(result: NativeResult, request: string): void {
 	expect(
 		result.status === 401 || result.status === 403,
-		`${request} must be refused by the authorization layer (401/403)`,
+		`${request} must be refused with 401 or 403`,
 	).toBe(true);
 	expect(result.ok, `${request} must not be reported as success`).toBe(false);
 	const code = nativeErrorOf(result)?.code;
-	expect(code, "the authorization refusal must carry its native error code").toBeTruthy();
-	expect(code, "an authorization refusal must not be mistaken for a validation refusal").not.toBe(
+	expect(code, `the refusal of ${request} must carry its native error code`).toBeTruthy();
+	expect(code, `the refusal of ${request} must not be mistaken for a validation refusal`).not.toBe(
 		"VALIDATION_ERROR",
 	);
 }
@@ -2506,7 +2480,6 @@ export interface SessionContext {
 
 /** True when the runner opted in to the development Admin session. */
 export async function devAdminSessionRequested(): Promise<boolean> {
-	const env = await processEnv();
 	return env[ADMIN_SESSION_ENV]?.trim() === "dev-bypass";
 }
 
@@ -2547,19 +2520,13 @@ export async function closeDevAdminSession(context: SessionContext): Promise<num
 }
 
 /**
- * Append the context's Admin session window to ADMIN_TEST_SESSIONS_ENV's file, when set. node:fs
- * loads through a non-literal import, as in processEnv.
+ * Append the context's Admin session window to ADMIN_TEST_SESSIONS_ENV's file, when set.
  */
 async function recordAdminSession(context: SessionContext): Promise<void> {
 	const start = adminSessionStarts.get(context);
 	adminSessionStarts.delete(context);
-	const env = await processEnv();
 	const file = env[ADMIN_TEST_SESSIONS_ENV]?.trim();
 	if (start === undefined || !file) return;
-	const fsSpecifier = "node:fs/promises";
-	const fsPromises = (await import(fsSpecifier)) as unknown as {
-		appendFile: (p: string, data: string, options: { mode: number }) => Promise<void>;
-	};
 	const seconds = (ms: number) => (ms / 1000).toFixed(3);
-	await fsPromises.appendFile(file, `${seconds(start)} ${seconds(Date.now())}\n`, { mode: 0o600 });
+	await appendFile(file, `${seconds(start)} ${seconds(Date.now())}\n`, { mode: 0o600 });
 }

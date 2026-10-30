@@ -2412,7 +2412,7 @@ test("unauthenticated revision-surface reads are authorization refusals, never d
 		const result = await anonymousRequest(admin.baseUrl, path);
 		expect(
 			result.status,
-			`${label}: an unauthenticated native read must be refused by the authorization layer with 401`,
+			`${label}: an unauthenticated native read must be refused by the authentication layer with 401`,
 		).toBe(401);
 		expect(result.ok, `${label}: the refusal is never success`).toBe(false);
 		const error = result.body as { error?: { code?: unknown } };

@@ -236,7 +236,7 @@ const ownedSyntheticTerms: OwnedSyntheticTerm[] = [];
  * locale configuration — not an Admin fork, patch, or translation layer.
  */
 test.beforeEach(async ({ page }) => {
-	const origin = await configuredDevelopmentOrigin();
+	const origin = configuredDevelopmentOrigin();
 	await page.context().addCookies([{ name: "emdash-locale", value: "th", url: `${origin}/` }]);
 });
 
