@@ -3,10 +3,11 @@
 // CODING_STANDARDS "Comments" asks a comment that relies on platform behaviour to name the package,
 // its pinned version and the source path, such as `emdash 1.1.0 src/api/schemas/settings.ts`. A
 // path that moved or was mistyped still reads as evidence: in #93 a trimmed header cited
-// src/relations/, which emdash 1.1.0 does not have, and a helper still cited src/lib/contact.ts
-// after the file was renamed. Each path a comment cites must exist in the repository, in EmDash, or
-// in an installed package the same comment block names. tests/node/emdash-facts.test.ts checks the
-// facts file's paths.
+// src/relations/, which emdash 1.1.0 does not have, and a helper still named the Office Contact
+// settings module by a file name it no longer has. Each path a comment cites must exist in the
+// repository, in EmDash, or in an installed package the same comment block names. The check reads
+// git-tracked files, so it sees a new file once it is staged. tests/node/emdash-facts.test.ts
+// checks the facts file's paths.
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
