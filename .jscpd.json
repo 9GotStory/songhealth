@@ -1,0 +1,28 @@
+{
+	"//": [
+		"The duplicate-code check (#93): `npm run jscpd`, run by CI on every pull request. Any clone of at least 100 tokens over at least 5 lines fails it (threshold 0).",
+		"The script passes --config: jscpd 5.4.1 only warns when a config file it finds by itself does not parse, then runs with its defaults. This file is plain JSON; `//` is the comment key jscpd drops (rust/crates/cpd/src/cli.rs normalize_v4_config).",
+		"A clone is folded into a shared module (CODING_STANDARDS.md \"Tests\" names the browser suites' two). A clone that stays has its file under `ignore`, with a line here saying why.",
+		"docs/, specs/, seed/: prose, records and data, not code. Dependencies and build output stay out through .gitignore.",
+		"scripts/backup-foundation.sh, scripts/restore-foundation.sh, tests/operations/: the accepted Feature 001 backup, restore and recovery checks. Each script stands alone with its own copy of the secret scrubbing and service probes, and folding them would change the accepted recovery procedure.",
+		"tests/node/foundation.test.ts: an accepted Feature 001 test that repeats tests/node/config.test.ts's URL-component helper; no change has touched it since (.prettierignore).",
+		"tests/browser/fixtures/cms-public-reads.integration.mjs: the accepted T021 route fixture, which checks each query case's parameters in a branch of its own. The development runtime loads it, so a change to it needs a promotion and the T021 run."
+	],
+	"path": ["."],
+	"format": ["typescript", "javascript", "astro", "css", "bash"],
+	"minTokens": 100,
+	"minLines": 5,
+	"threshold": 0,
+	"gitignore": true,
+	"ignore": [
+		"docs/**",
+		"specs/**",
+		"seed/**",
+		"scripts/backup-foundation.sh",
+		"scripts/restore-foundation.sh",
+		"tests/operations/**",
+		"tests/node/foundation.test.ts",
+		"tests/browser/fixtures/cms-public-reads.integration.mjs"
+	],
+	"reporters": ["console"]
+}

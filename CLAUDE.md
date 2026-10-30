@@ -57,8 +57,9 @@ The feedback loop for `/implement` and `/tdd` (Node 24.21.0, npm 12.2.0):
 - the browser suites against the development runtime, through `scripts/dev-runtime-env.sh`
   (`README.md`); the public-read suite runs through `tests/browser/run-cms-public-reads.mjs`.
 
-CI (`.github/workflows/checks.yml`) runs the build, typecheck, node tests, `format:check`, `knip`
-and `lint:shell` on every pull request; the browser suites stay local to the development runtime.
+CI (`.github/workflows/checks.yml`) runs the build, typecheck, node tests, `format:check`, `knip`,
+`jscpd` and `lint:shell` on every pull request; the browser suites stay local to the development
+runtime.
 
 `/tdd`'s agreed seams are the public browser suites on the development runtime, node:test on a
 `src/lib` module without runtime imports, and the runtime's verify checks for the model state

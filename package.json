@@ -21,6 +21,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip",
+    "jscpd": "jscpd --config .jscpd.json",
     "lint:shell": "./scripts/lint-shell.sh",
     "test:browser": "playwright test",
     "verify:startup": "./tests/operations/verify-startup.sh"
@@ -42,6 +43,7 @@
     "@playwright/test": "1.63.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
+    "jscpd": "5.4.1",
     "knip": "6.41.0",
     "prettier": "3.9.10",
     "prettier-plugin-astro": "1.1.1",

@@ -2,7 +2,8 @@
 
 Judgement calls for review. The mechanical rules are enforced by the checks that CI runs on every
 pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
-`npm run format:check`, `npm run knip` and `npm run lint:shell`.
+`npm run format:check`, `npm run knip`, `npm run jscpd` and `npm run lint:shell`. `npm run jscpd`
+fails on a clone of 100 tokens or more; `.jscpd.json` lists the files it leaves out and why.
 
 ## Comments
 
