@@ -1,0 +1,40 @@
+---
+// A search result (Feature 003 #63; spec #51 "Search", `08` §8), shaped like a Document row
+// (DocumentRow.astro): its kind in Thai and the date its kind is listed by, its title linking to
+// its canonical address, the snippet, and a status that needs attention. No internal field shows.
+//
+// The snippet is HTML that src/lib/search-matcher.ts builds: the entry's plain text, escaped, with
+// the matched terms in <mark>. Nothing else is set as HTML.
+import { KIND_LABELS, type SearchEntry } from "../lib/search";
+import MetaLine from "./MetaLine.astro";
+import StatusLabel from "./StatusLabel.astro";
+
+interface Props {
+	entry: SearchEntry;
+	snippet: string;
+}
+
+const { entry, snippet } = Astro.props;
+---
+
+<article class="flex flex-col gap-2 rounded-24 bg-surface-base p-5 shadow-card">
+	<MetaLine
+		facts={[{ text: KIND_LABELS[entry.kind] }, entry.shownDate && { date: entry.shownDate }]}
+	/>
+	<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
+		<a class="underline-offset-4 hover:text-brand-primary hover:underline" href={entry.href}>
+			{entry.shownTitle}
+		</a>
+	</h2>
+	{snippet && (
+		<p
+			class="wrap-anywhere text-text-secondary [&_mark]:bg-accent-warm [&_mark]:px-0.5 [&_mark]:text-text-primary"
+			set:html={snippet}
+		/>
+	)}
+	{entry.status && (
+		<p>
+			<StatusLabel attention={entry.status.attention}>{entry.status.label}</StatusLabel>
+		</p>
+	)}
+</article>

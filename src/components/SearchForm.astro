@@ -1,0 +1,45 @@
+---
+// The search form (Feature 003 #63; spec #51 "Shared building blocks"): a plain GET form to
+// /search, so it works without JavaScript and the query stays in the address. /search shows it,
+// and the Homepage's Search section reuses it (#64). The field follows the Figma Search section
+// (docs/design/homepage-concept-v1.md §4): radius 20, 72 px high, a border-input boundary for the
+// 3:1 contrast fix, the placeholder, and a primary "ค้นหา" button inside the field. A new query
+// starts from ทุกประเภท and the first page, since the form carries no group or page.
+import { MAX_QUERY_LENGTH, QUERY_PARAM } from "../lib/search-matcher";
+
+interface Props {
+	/** The query to show in the field. */
+	value?: string;
+}
+
+const { value = "" } = Astro.props;
+---
+
+<form
+	role="search"
+	method="get"
+	action="/search"
+	aria-label="ค้นหาในเว็บไซต์"
+	class="flex flex-col gap-1.5"
+>
+	<label class="text-label" for="search-query">
+		คำค้นหา
+	</label>
+	<div class="flex min-h-18 items-center gap-2 rounded-20 border border-border-input bg-surface-base py-2.5 pr-2.5 pl-4 sm:pl-5.5">
+		<input
+			id="search-query"
+			name={QUERY_PARAM}
+			type="search"
+			value={value}
+			maxlength={MAX_QUERY_LENGTH}
+			placeholder="ค้นหาบริการ ข่าวสาร หน่วยบริการ หรือเอกสาร…"
+			class="min-h-11 w-full min-w-0 flex-1 rounded-14 bg-transparent text-body placeholder:text-text-secondary"
+		/>
+		<button
+			type="submit"
+			class="inline-flex min-h-11 shrink-0 cursor-pointer items-center rounded-14 bg-brand-primary px-5 text-label text-surface-base hover:bg-brand-dark"
+		>
+			ค้นหา
+		</button>
+	</div>
+</form>
