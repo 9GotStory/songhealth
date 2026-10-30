@@ -470,7 +470,10 @@ let admin: CmsActor;
 let serviceReadiness: Readiness = { outcome: "missing", prerequisite: "T015 services definition" };
 
 /** health_services collection readiness (T028). */
-let facilityReadiness: Readiness = { outcome: "missing", prerequisite: "T028 health_services definition" };
+let facilityReadiness: Readiness = {
+	outcome: "missing",
+	prerequisite: "T028 health_services definition",
+};
 
 /** facility_services reciprocal relation readiness (T029 declaration/binding). */
 let relationReadiness: Readiness = {
@@ -639,11 +642,9 @@ async function offeringFacilityIds(serviceId: string): Promise<string[]> {
 
 /** Count entries whose display fields match an exact text (native listing). */
 async function countListedByQuery(collection: string, text: string): Promise<number> {
-	const listed = await cmsRequest(
-		admin,
-		`/_emdash/api/content/${encodeURIComponent(collection)}`,
-		{ searchParams: { q: text, status: "all" } },
-	);
+	const listed = await cmsRequest(admin, `/_emdash/api/content/${encodeURIComponent(collection)}`, {
+		searchParams: { q: text, status: "all" },
+	});
 	expect(
 		listed.ok,
 		`${collection}: the native listing used for the duplicate check must succeed`,
@@ -1013,16 +1014,15 @@ async function deleteOwnedAreaTerms(): Promise<string[]> {
  * (and vice versa).
  */
 function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
+	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
+		false,
+	);
+	expect(result.status, `${caseLabel}: a native validation refusal is HTTP 400`).toBe(400);
 	expect(
-		result.ok,
-		`${caseLabel}: the native save must be refused, not reported as success`,
-	).toBe(false);
-	expect(
-		result.status,
-		`${caseLabel}: a native validation refusal is HTTP 400`,
-	).toBe(400);
-	expect(
-		result.status === 401 || result.status === 403 || result.status === 404 || result.status === 409,
+		result.status === 401 ||
+			result.status === 403 ||
+			result.status === 404 ||
+			result.status === 409,
 		`${caseLabel}: a validation refusal must stay distinguishable from authorization (401/403), missing-schema (404) and state-conflict (409) failures`,
 	).toBe(false);
 	const error = result.body as { success?: unknown; error?: { code?: unknown } };
@@ -1097,7 +1097,9 @@ test.beforeAll(async () => {
 		}
 		const channels = serviceFieldsBySlug.get("channels");
 		if (channels?.type !== "repeater") {
-			serviceProblems.push("channels must exist as a native repeater field (ownership's distinct companion)");
+			serviceProblems.push(
+				"channels must exist as a native repeater field (ownership's distinct companion)",
+			);
 		} else {
 			const subFields = Array.isArray(channels.validation?.subFields)
 				? (channels.validation!.subFields as SchemaField[])
@@ -1180,10 +1182,7 @@ test.beforeAll(async () => {
 			}
 			if (approved.range !== undefined) {
 				const validation = field.validation;
-				if (
-					validation?.min !== approved.range.min ||
-					validation?.max !== approved.range.max
-				) {
+				if (validation?.min !== approved.range.min || validation?.max !== approved.range.max) {
 					facilityProblems.push(
 						`${approved.slug} must carry the approved native inclusive range ${approved.range.min}..${approved.range.max}`,
 					);
@@ -1259,10 +1258,11 @@ test.beforeAll(async () => {
 		// with wrong endpoints (e.g. health_services → pages) is validated
 		// and FAILS loudly here instead of being invisible to the pair filter
 		// and skipped as a missing T029 prerequisite.
-		const declared = relations.find(
-			(relation) => relation.slug === FACILITY_SERVICES.relation,
-		);
-		if (connecting.length > 0 && !connecting.some((relation) => relation.slug === FACILITY_SERVICES.relation)) {
+		const declared = relations.find((relation) => relation.slug === FACILITY_SERVICES.relation);
+		if (
+			connecting.length > 0 &&
+			!connecting.some((relation) => relation.slug === FACILITY_SERVICES.relation)
+		) {
 			relationProblems.push(
 				`a relation connects ${HEALTH_SERVICE_COLLECTION} and ${SERVICE_COLLECTION} but is not the approved ${FACILITY_SERVICES.relation} edge set (${connecting
 					.map((relation) => String(relation.slug))
@@ -1308,7 +1308,11 @@ test.beforeAll(async () => {
 		}
 		if (relationProblems.length > 0) {
 			relationReadiness = { outcome: "misconfigured", detail: relationProblems.join("; ") };
-		} else if (declared === undefined || selectorFields.get(HEALTH_SERVICE_COLLECTION) === undefined || selectorFields.get(SERVICE_COLLECTION) === undefined) {
+		} else if (
+			declared === undefined ||
+			selectorFields.get(HEALTH_SERVICE_COLLECTION) === undefined ||
+			selectorFields.get(SERVICE_COLLECTION) === undefined
+		) {
 			// Nothing present is invalid; pieces of the T029 declaration/
 			// binding are still absent — the truthful outstanding T029
 			// prerequisite, never a hidden failure.
@@ -1336,7 +1340,8 @@ test.beforeAll(async () => {
 	} else if (areaTaxonomy.hierarchical !== true) {
 		areaReadiness = {
 			outcome: "misconfigured",
-			detail: "the area taxonomy must stay hierarchical for the Province → District → Subdistrict → Village model",
+			detail:
+				"the area taxonomy must stay hierarchical for the Province → District → Subdistrict → Village model",
 		};
 	} else {
 		const collections = Array.isArray(areaTaxonomy.collections)
@@ -1504,12 +1509,11 @@ test("facility_services precondition: exactly one reciprocal edge set, bound on 
 			`the live ${selector.collection} schema must be readable for the selector-binding precondition`,
 		).toBe(true);
 		const fields = nativeItemOf(schemaRead)?.fields;
-		expect(Array.isArray(fields), `the ${selector.collection} schema read must include fields`).toBe(
-			true,
-		);
-		const field = (fields as SchemaField[]).find(
-			(entry) => entry.slug === selector.field,
-		);
+		expect(
+			Array.isArray(fields),
+			`the ${selector.collection} schema read must include fields`,
+		).toBe(true);
+		const field = (fields as SchemaField[]).find((entry) => entry.slug === selector.field);
 		expect(
 			field?.type === "reference" &&
 				field.validation?.relation === FACILITY_SERVICES.relation &&
@@ -1531,7 +1535,10 @@ test("the four Service ownership modes save and read back distinctly, ownership 
 	// carries ownership on one field and channels on another, each holding
 	// its own supplied value. The external_digital mode carries the useful
 	// external URL editorially (still optional in native validation).
-	const channelRow = { label: syntheticText("channel-online"), url: "https://example.org/songhealth-f002-synthetic-service" };
+	const channelRow = {
+		label: syntheticText("channel-online"),
+		url: "https://example.org/songhealth-f002-synthetic-service",
+	};
 	const externalUrlValue = "https://example.org/songhealth-f002-synthetic-external";
 	const cases: Array<{ label: string; data: Record<string, unknown> }> = [
 		{
@@ -1559,7 +1566,10 @@ test("the four Service ownership modes save and read back distinctly, ownership 
 			created.result.ok,
 			`the ${ownershipCase.label} ownership-mode Service fixture must save (ownership and channel are distinct optional fields)`,
 		).toBe(true);
-		expect(created.entryId, "the created Service id must come from the native response").toBeTruthy();
+		expect(
+			created.entryId,
+			"the created Service id must come from the native response",
+		).toBeTruthy();
 		createdIds.push(created.entryId!);
 
 		const read = await readEntry(admin, SERVICE_COLLECTION, created.entryId!);
@@ -1576,7 +1586,9 @@ test("the four Service ownership modes save and read back distinctly, ownership 
 			).toBe(ownershipCase.data.provider_text);
 		}
 		if (ownershipCase.data.channels !== undefined) {
-			const rows = Array.isArray(data.channels) ? (data.channels as Array<Record<string, unknown>>) : [];
+			const rows = Array.isArray(data.channels)
+				? (data.channels as Array<Record<string, unknown>>)
+				: [];
 			expect(
 				rows.length,
 				`the ${ownershipCase.label} channel selection must read back its supplied row (channels ≠ ownership)`,
@@ -1606,7 +1618,10 @@ test("Service ownership guidance omissions are permitted and an invalid ownershi
 	// save — no completeness rule exists. Supplying an ownership value outside
 	// the four approved meanings is a native validation refusal.
 	const minimal = await createSyntheticEntry(admin, SERVICE_COLLECTION, {
-		data: { title: uniqueTitle("service-ownership-only"), ownership_type: "related_health_service" },
+		data: {
+			title: uniqueTitle("service-ownership-only"),
+			ownership_type: "related_health_service",
+		},
 	});
 	expect(
 		minimal.result.ok,
@@ -1616,7 +1631,10 @@ test("Service ownership guidance omissions are permitted and an invalid ownershi
 	const refusal = await createSyntheticEntry(admin, SERVICE_COLLECTION, {
 		data: { title: uniqueTitle("service-ownership-invalid"), ownership_type: "internal" },
 	});
-	expectValidationRefusal(refusal.result, "ownership_type supplied outside the four approved meanings");
+	expectValidationRefusal(
+		refusal.result,
+		"ownership_type supplied outside the four approved meanings",
+	);
 	expect(
 		refusal.entryId,
 		"no entry id may be returned for a refused ownership value",
@@ -1645,7 +1663,9 @@ test("create/save/reopen: title-only minimal Health Service saves with permitted
 	const read = await readEntry(admin, HEALTH_SERVICE_COLLECTION, created.entryId!);
 	expect(read.ok, "the saved Health Service must be readable by returned id").toBe(true);
 	const item = nativeItemOf(read);
-	expect(dataOfItem(item).title, "the read-back title must match the supplied official name").toBe(title);
+	expect(dataOfItem(item).title, "the read-back title must match the supplied official name").toBe(
+		title,
+	);
 	expect(item?.status, "a fresh native create is a draft").toBe("draft");
 });
 
@@ -1734,14 +1754,20 @@ test("valid control: optional facility fields save and read back, including affi
 	const read = await readEntry(admin, HEALTH_SERVICE_COLLECTION, created.entryId!);
 	expect(read.ok, "the saved Health Service must be readable by returned id").toBe(true);
 	const data = dataOfItem(nativeItemOf(read));
-	expect(data.facility_code, "the supplied facility code must read back").toBe(optional.facility_code);
+	expect(data.facility_code, "the supplied facility code must read back").toBe(
+		optional.facility_code,
+	);
 	expect(data.display_name, "the supplied display name must read back").toBe(optional.display_name);
 	expect(data.operational_status, "the supplied operational status must read back").toBe("active");
 	expect(data.address, "the supplied address must read back").toBe(optional.address);
 	expect(data.latitude, "the supplied latitude must read back exactly").toBe(16.4321);
 	expect(data.longitude, "the supplied longitude must read back exactly").toBe(102.8375);
-	expect(data.opening_hours, "the supplied opening hours must read back").toBe(optional.opening_hours);
-	expect(data.public_contact, "the supplied public contact must read back").toBe(optional.public_contact);
+	expect(data.opening_hours, "the supplied opening hours must read back").toBe(
+		optional.opening_hours,
+	);
+	expect(data.public_contact, "the supplied public contact must read back").toBe(
+		optional.public_contact,
+	);
 	expect(
 		data.affiliation_text,
 		"the supplied affiliation owner text must read back (Organization stays N/A)",
@@ -1854,7 +1880,11 @@ test("operational_status changes alone never change publication state; no comple
 		data: { title: uniqueTitle("facility-title-only-publish") },
 	});
 	expect(titleOnly.result.ok, "the title-only facility fixture must save").toBe(true);
-	const publishedTitleOnly = await publishEntry(admin, HEALTH_SERVICE_COLLECTION, titleOnly.entryId!);
+	const publishedTitleOnly = await publishEntry(
+		admin,
+		HEALTH_SERVICE_COLLECTION,
+		titleOnly.entryId!,
+	);
 	expect(
 		publishedTitleOnly.ok,
 		"a natively valid title-only facility must publish directly (no completeness gate)",
@@ -1922,7 +1952,11 @@ test("synthetic area hierarchy retains supplied codes in slugs, parent identitie
 	// input (T001 §6) and are never fabricated into acceptance here.
 	const province = await createSyntheticAreaTerm(AREA_TAXONOMY, "area-province");
 	const district = await createSyntheticAreaTerm(AREA_TAXONOMY, "area-district", province.termId);
-	const subdistrict = await createSyntheticAreaTerm(AREA_TAXONOMY, "area-subdistrict", district.termId);
+	const subdistrict = await createSyntheticAreaTerm(
+		AREA_TAXONOMY,
+		"area-subdistrict",
+		district.termId,
+	);
 	const village = await createSyntheticAreaTerm(AREA_TAXONOMY, "area-village", subdistrict.termId);
 
 	// Read each term back by its code slug: the slug is the supplied code,
@@ -1940,11 +1974,14 @@ test("synthetic area hierarchy retains supplied codes in slugs, parent identitie
 			read !== undefined,
 			`the ${expectation.term.slug} term must be readable back by its code slug`,
 		).toBe(true);
-		expect(read?.slug, "the term slug must be the supplied synthetic code").toBe(expectation.term.slug);
-		expect(read?.id, "the term identity must be its native id").toBe(expectation.term.termId);
-		expect(read?.description, "the term description must record the synthetic source provenance").toBe(
-			SYNTHETIC_AREA_DESCRIPTION,
+		expect(read?.slug, "the term slug must be the supplied synthetic code").toBe(
+			expectation.term.slug,
 		);
+		expect(read?.id, "the term identity must be its native id").toBe(expectation.term.termId);
+		expect(
+			read?.description,
+			"the term description must record the synthetic source provenance",
+		).toBe(SYNTHETIC_AREA_DESCRIPTION);
 		expect(
 			read?.parentId,
 			expectation.parentTermId === undefined
@@ -1963,9 +2000,14 @@ test("synthetic area hierarchy retains supplied codes in slugs, parent identitie
 	const updatedLabel = await renameOwnedAreaTerm(AREA_TAXONOMY, province.slug, editedLabel);
 	expect(updatedLabel.ok, "the area term label edit must succeed").toBe(true);
 	const afterEdit = await readTerm(AREA_TAXONOMY, province.slug);
-	expect(afterEdit !== undefined, "the edited term must still be reachable by its original code slug").toBe(true);
+	expect(
+		afterEdit !== undefined,
+		"the edited term must still be reachable by its original code slug",
+	).toBe(true);
 	expect(afterEdit?.label, "the edited label must read back").toBe(editedLabel);
-	expect(afterEdit?.slug, "the label edit must NOT change the supplied code slug").toBe(province.slug);
+	expect(afterEdit?.slug, "the label edit must NOT change the supplied code slug").toBe(
+		province.slug,
+	);
 	expect(afterEdit?.id, "the label edit must NOT change the term identity").toBe(province.termId);
 	// The hierarchy below the renamed term is unaffected: the District still
 	// points at the same parent identity.
@@ -1985,7 +2027,11 @@ test("facility physical address/coordinates are distinct from the coverage area 
 	const village = (async () => {
 		const province = await createSyntheticAreaTerm(AREA_TAXONOMY, "area-province");
 		const district = await createSyntheticAreaTerm(AREA_TAXONOMY, "area-district", province.termId);
-		const subdistrict = await createSyntheticAreaTerm(AREA_TAXONOMY, "area-subdistrict", district.termId);
+		const subdistrict = await createSyntheticAreaTerm(
+			AREA_TAXONOMY,
+			"area-subdistrict",
+			district.termId,
+		);
 		return createSyntheticAreaTerm(AREA_TAXONOMY, "area-village", subdistrict.termId);
 	})();
 
@@ -2007,7 +2053,9 @@ test("facility physical address/coordinates are distinct from the coverage area 
 	const read = await readEntry(admin, HEALTH_SERVICE_COLLECTION, created.entryId!);
 	expect(read.ok, "the location/area facility must be readable").toBe(true);
 	const data = dataOfItem(nativeItemOf(read));
-	expect(data.address, "the physical address must read back").toBe(syntheticText("physical-address"));
+	expect(data.address, "the physical address must read back").toBe(
+		syntheticText("physical-address"),
+	);
 	expect(data.latitude, "the physical latitude must read back exactly").toBe(16.4321);
 	expect(data.longitude, "the physical longitude must read back exactly").toBe(102.8375);
 
@@ -2022,7 +2070,9 @@ test("facility physical address/coordinates are distinct from the coverage area 
 		"the facility's area term assignment must be readable through the native terms endpoint",
 	).toBe(true);
 	const terms = nativeDataOf(assignments)?.terms;
-	expect(Array.isArray(terms), "the area assignment read must return its documented array").toBe(true);
+	expect(Array.isArray(terms), "the area assignment read must return its documented array").toBe(
+		true,
+	);
 	const assignedSlugs = (terms as Array<{ slug?: unknown }>)
 		.map((term) => term.slug)
 		.filter((slug): slug is string => typeof slug === "string");
@@ -2059,7 +2109,10 @@ test("optional facility_type classification selects a clearly synthetic term", a
 		"the facility_type assignment must be readable through the native terms endpoint",
 	).toBe(true);
 	const terms = nativeDataOf(assignments)?.terms;
-	expect(Array.isArray(terms), "the facility_type assignment read must return its documented array").toBe(true);
+	expect(
+		Array.isArray(terms),
+		"the facility_type assignment read must return its documented array",
+	).toBe(true);
 	const assignedSlugs = (terms as Array<{ slug?: unknown }>)
 		.map((term) => term.slug)
 		.filter((slug): slug is string => typeof slug === "string");
@@ -2225,7 +2278,9 @@ test("staged versus live reciprocal semantics: a pending published-side edit is 
 		data: { title: uniqueTitle("facility-staged") },
 		references: { [FACILITY_SERVICES.parentField]: [serviceOne.entryId!] },
 	});
-	expect(facility.result.ok, "the facility fixture must save with its initial selection").toBe(true);
+	expect(facility.result.ok, "the facility fixture must save with its initial selection").toBe(
+		true,
+	);
 	const published = await publishEntry(admin, HEALTH_SERVICE_COLLECTION, facility.entryId!);
 	expect(published.ok, "the facility with its initial selection must publish").toBe(true);
 
@@ -2299,10 +2354,7 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 	// the actor's origin (the runner-configured origin the actor was pinned
 	// to in beforeAll); no credential is sent, so nothing can leave the
 	// configured app.
-	const url = new URL(
-		`/_emdash/api/content/${HEALTH_SERVICE_COLLECTION}`,
-		`${admin.baseUrl}/`,
-	);
+	const url = new URL(`/_emdash/api/content/${HEALTH_SERVICE_COLLECTION}`, `${admin.baseUrl}/`);
 	const response = await fetch(url, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
@@ -2353,13 +2405,15 @@ test("a stale _rev facility update is a native state conflict, distinct from val
 		data: { address: syntheticText("address-replay") },
 		rev: stale,
 	});
-	expect(
-		replay.ok,
-		"a stale `_rev` facility update must be refused, not reported as success",
-	).toBe(false);
+	expect(replay.ok, "a stale `_rev` facility update must be refused, not reported as success").toBe(
+		false,
+	);
 	expect(replay.status, "a stale precondition refusal is the native 409 CONFLICT family").toBe(409);
 	expect(
-		replay.status === 400 || replay.status === 401 || replay.status === 403 || replay.status === 404,
+		replay.status === 400 ||
+			replay.status === 401 ||
+			replay.status === 403 ||
+			replay.status === 404,
 		"a state conflict must stay distinguishable from validation (400), authorization (401/403) and missing-schema (404)",
 	).toBe(false);
 	const error = replay.body as { error?: { code?: unknown } };
