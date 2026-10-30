@@ -1,0 +1,57 @@
+---
+// An About Document page (Feature 003 #60; spec #51 "Public reads" (About), `03` §5 and §14): the
+// published Documents of one Document Type, newest publication first as in the Document repository
+// (src/lib/documents.ts listDocuments), a fixed number per page with the page number in the query
+// string. /about/policies, /about/plans and /about/results each render it for their type
+// (src/lib/about.ts).
+import SiteLayout from "../layouts/SiteLayout.astro";
+import { ABOUT_PATH, ABOUT_TITLE, type AboutDocumentList } from "../lib/about";
+import { listDocuments } from "../lib/documents";
+import { PAGE_PARAM, pageHref, parsePageNumber } from "../lib/pagination";
+import DocumentRow from "./DocumentRow.astro";
+import EmptyState from "./EmptyState.astro";
+import PageHeading from "./PageHeading.astro";
+import Pagination from "./Pagination.astro";
+
+interface Props {
+	list: AboutDocumentList;
+}
+
+const { list } = Astro.props;
+const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
+const { entries, hasMore } = await listDocuments(page, { type: list.type, topic: "", year: "" });
+const listUrl = new URL(list.path, Astro.url);
+---
+
+<SiteLayout
+	title={list.title}
+	section="about"
+	description={list.lead}
+	canonical={pageHref(listUrl, page)}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		{ label: ABOUT_TITLE, href: ABOUT_PATH },
+		{ label: list.title },
+	]}
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading title={list.title} lead={list.lead} />
+		{entries.length > 0 ? (
+			<ul class="flex flex-col gap-4">
+				{entries.map((document) => (
+					<li>
+						<DocumentRow document={document} />
+					</li>
+				))}
+			</ul>
+		) : page > 1 ? (
+			<EmptyState
+				message="ไม่พบเอกสารในหน้านี้"
+				action={{ href: pageHref(listUrl, 1), label: "กลับไปหน้าแรกของรายการ" }}
+			/>
+		) : (
+			<EmptyState message={`ยังไม่มีเอกสาร${list.title}`} />
+		)}
+		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
+	</div>
+</SiteLayout>

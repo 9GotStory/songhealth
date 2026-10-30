@@ -1,0 +1,28 @@
+---
+// A Basic Page's own content (Feature 003 #60; spec #51 "Public reads" (Basic Pages), `02` §3): its
+// title as the page's one H1, its summary as the lead, its body, and the published Documents it
+// links to. /pages/{slug}, /about and /about/organization render a Basic Page with it.
+import type { BasicPage } from "../lib/basic-pages";
+import RelatedDocuments from "./RelatedDocuments.astro";
+import RichText from "./RichText.astro";
+
+interface Props {
+	page: BasicPage;
+}
+
+const { entry, documents } = Astro.props.page;
+const { title, summary, body } = entry.data;
+---
+
+<article class="flex flex-col gap-8">
+	<header class="flex max-w-3xl flex-col gap-3">
+		<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">{title}</h1>
+		{summary && <p class="text-body-large text-text-secondary">{summary}</p>}
+	</header>
+	{body && body.length > 0 && (
+		<div class="max-w-3xl">
+			<RichText value={body} />
+		</div>
+	)}
+	<RelatedDocuments documents={documents} />
+</article>
