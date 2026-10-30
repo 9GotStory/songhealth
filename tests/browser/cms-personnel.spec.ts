@@ -143,9 +143,7 @@ const PERSONNEL_COLLECTION = "personnel";
  * stays visible instead of producing wrong expectations.
  */
 type PersonnelReadiness =
-	| { outcome: "ready" }
-	| { outcome: "missing" }
-	| { outcome: "misconfigured"; detail: string };
+	{ outcome: "ready" } | { outcome: "missing" } | { outcome: "misconfigured"; detail: string };
 
 /** The development-credential fixture actor owning every synthetic fixture made here. */
 let admin: CmsActor;
@@ -260,16 +258,15 @@ function revisionsOf(result: NativeResult): { ok: boolean; items: RevisionRecord
  * never masquerade as field-validation outcomes (and vice versa).
  */
 function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
+	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
+		false,
+	);
+	expect(result.status, `${caseLabel}: a native validation refusal is HTTP 400`).toBe(400);
 	expect(
-		result.ok,
-		`${caseLabel}: the native save must be refused, not reported as success`,
-	).toBe(false);
-	expect(
-		result.status,
-		`${caseLabel}: a native validation refusal is HTTP 400`,
-	).toBe(400);
-	expect(
-		result.status === 401 || result.status === 403 || result.status === 404 || result.status === 409,
+		result.status === 401 ||
+			result.status === 403 ||
+			result.status === 404 ||
+			result.status === 409,
 		`${caseLabel}: a validation refusal must stay distinguishable from authorization (401/403), missing-schema (404) and state-conflict (409) failures`,
 	).toBe(false);
 	const error = result.body as { success?: unknown; error?: { code?: unknown } };
@@ -320,10 +317,9 @@ test.beforeAll(async () => {
 		`reading the native ${PERSONNEL_COLLECTION} collection schema must succeed when it is not a 404 (got ${schemaRead.status})`,
 	).toBe(true);
 	const fields = nativeItemOf(schemaRead)?.fields;
-	expect(
-		Array.isArray(fields),
-		`the ${PERSONNEL_COLLECTION} schema read must include fields`,
-	).toBe(true);
+	expect(Array.isArray(fields), `the ${PERSONNEL_COLLECTION} schema read must include fields`).toBe(
+		true,
+	);
 	const bySlug = new Map<string, SchemaField>();
 	for (const field of fields as SchemaField[]) {
 		if (typeof field.slug === "string") {
@@ -372,7 +368,9 @@ test.beforeAll(async () => {
 		}
 	}
 	personnelReadiness =
-		problems.length > 0 ? { outcome: "misconfigured", detail: problems.join("; ") } : { outcome: "ready" };
+		problems.length > 0
+			? { outcome: "misconfigured", detail: problems.join("; ") }
+			: { outcome: "ready" };
 });
 
 // ---------------------------------------------------------------------------
@@ -443,10 +441,7 @@ test("create/save/reopen: title-only minimal Personnel record saves with permitt
 		"the title-only minimal Personnel record must save (optional omissions are permitted)",
 	).toBe(true);
 	expect(created.result.status, "a native create succeeds with 201").toBe(201);
-	expect(
-		created.entryId,
-		"the entry id must come from the native response",
-	).toBeTruthy();
+	expect(created.entryId, "the entry id must come from the native response").toBeTruthy();
 	expect(created.rev, "a native `_rev` must be returned").toBeTruthy();
 
 	// Reopen by returned id only: the same display name reads back and the
@@ -454,7 +449,9 @@ test("create/save/reopen: title-only minimal Personnel record saves with permitt
 	const read = await readEntry(admin, PERSONNEL_COLLECTION, created.entryId!);
 	expect(read.ok, "the saved Personnel record must be readable by returned id").toBe(true);
 	const item = nativeItemOf(read);
-	expect(dataOfItem(item).title, "the read-back title must match the supplied display name").toBe(title);
+	expect(dataOfItem(item).title, "the read-back title must match the supplied display name").toBe(
+		title,
+	);
 	expect(item?.status, "a fresh native create is a draft").toBe("draft");
 });
 
@@ -546,9 +543,10 @@ test("valid control: optional current fields save and read back, with boolean fa
 	const visibleZero = await updateEntry(admin, PERSONNEL_COLLECTION, created.entryId!, {
 		data: { public_visible: 0 },
 	});
-	expect(visibleZero.ok, "supplying the native 0 boolean shape must be accepted (0/1 are valid values)").toBe(
-		true,
-	);
+	expect(
+		visibleZero.ok,
+		"supplying the native 0 boolean shape must be accepted (0/1 are valid values)",
+	).toBe(true);
 	const readZero = await readEntry(admin, PERSONNEL_COLLECTION, created.entryId!);
 	expect(readZero.ok, "the updated record must be readable").toBe(true);
 	expect(
@@ -630,7 +628,10 @@ test("create refuses representative invalid supplied values for the approved opt
 		// unchanged and are refused. Bare strings are NOT asserted — the
 		// documented media normalization path may accept them (the same
 		// accepted V1 limitation boundary the authoring checks record).
-		{ label: "profile_image (image) supplied as an object without id", data: { profile_image: {} } },
+		{
+			label: "profile_image (image) supplied as an object without id",
+			data: { profile_image: {} },
+		},
 		{ label: "profile_image (image) supplied as a number", data: { profile_image: 123 } },
 		// An integer field takes whole numbers only (src/schema/zod-generator.ts).
 		{ label: "leadership_order (integer) supplied as a fraction", data: { leadership_order: 1.5 } },
@@ -685,7 +686,9 @@ test("assignment, unit and visibility changes update the SAME Personnel identity
 	).toBe(true);
 
 	const afterChange = await readEntry(admin, PERSONNEL_COLLECTION, personId);
-	expect(afterChange.ok, "the same Personnel identity must be readable after the change").toBe(true);
+	expect(afterChange.ok, "the same Personnel identity must be readable after the change").toBe(
+		true,
+	);
 	const afterChangeItem = nativeItemOf(afterChange);
 	const afterChangeData = dataOfItem(afterChangeItem);
 	expect(afterChangeItem?.id, "the read-back must be the SAME Personnel entry id").toBe(personId);
@@ -710,7 +713,9 @@ test("assignment, unit and visibility changes update the SAME Personnel identity
 	).toBe(title);
 	const revAfterChange = nativeRevOf(afterChange);
 	expect(
-		typeof revAfterChange === "string" && revAfterChange.length > 0 && revAfterChange !== created.rev,
+		typeof revAfterChange === "string" &&
+			revAfterChange.length > 0 &&
+			revAfterChange !== created.rev,
 		"the native _rev must have advanced on the same identity (no recreate)",
 	).toBe(true);
 
@@ -726,10 +731,15 @@ test("assignment, unit and visibility changes update the SAME Personnel identity
 		"ending the current assignment (clearing the optional field to null) must save on the same identity",
 	).toBe(true);
 	const afterEnd = await readEntry(admin, PERSONNEL_COLLECTION, personId);
-	expect(afterEnd.ok, "the same Personnel identity must be readable after the assignment ends").toBe(true);
+	expect(
+		afterEnd.ok,
+		"the same Personnel identity must be readable after the assignment ends",
+	).toBe(true);
 	const afterEndItem = nativeItemOf(afterEnd);
 	const afterEndData = dataOfItem(afterEndItem);
-	expect(afterEndItem?.id, "the ended-assignment record keeps the SAME Personnel entry id").toBe(personId);
+	expect(afterEndItem?.id, "the ended-assignment record keeps the SAME Personnel entry id").toBe(
+		personId,
+	);
 	expect(
 		afterEndData.current_assignment,
 		"the ended assignment must read back as a cleared scalar (null), not a history entry",
@@ -771,7 +781,10 @@ test("Personnel visibility changes leave the editing account's identity/permissi
 
 	// The public visibility/current-directory edit on the same identity.
 	const edited = await updateEntry(admin, PERSONNEL_COLLECTION, personId, {
-		data: { public_visible: false, current_assignment: syntheticText("assignment-after-visibility") },
+		data: {
+			public_visible: false,
+			current_assignment: syntheticText("assignment-after-visibility"),
+		},
 	});
 	expect(edited.ok, "the visibility/assignment edit must save").toBe(true);
 
@@ -814,7 +827,9 @@ test("native editorial revisions record the same-identity maintenance (traceabil
 	});
 	expect(created.result.ok, "the initial Personnel fixture must save").toBe(true);
 
-	const initialRevisions = revisionsOf(await listRevisions(admin, PERSONNEL_COLLECTION, created.entryId!));
+	const initialRevisions = revisionsOf(
+		await listRevisions(admin, PERSONNEL_COLLECTION, created.entryId!),
+	);
 	expect(
 		initialRevisions.ok,
 		"the native revision listing must be readable for the Personnel record",
@@ -833,10 +848,9 @@ test("native editorial revisions record the same-identity maintenance (traceabil
 	).toBeGreaterThan(initialRevisions.items.length);
 	expect(listing.items.length).toBeGreaterThan(0);
 	for (const revision of listing.items) {
-		expect(
-			revision.entryId,
-			"every revision must belong to the SAME Personnel entry",
-		).toBe(created.entryId);
+		expect(revision.entryId, "every revision must belong to the SAME Personnel entry").toBe(
+			created.entryId,
+		);
 		expect(
 			revision.authorId,
 			"every revision must carry its native authorship (the traceability baseline)",
@@ -874,10 +888,7 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 	// coverage from it. The URL is built from the actor's origin (the
 	// runner-configured origin the actor was pinned to in beforeAll); no
 	// credential is sent, so nothing can leave the configured app.
-	const url = new URL(
-		`/_emdash/api/content/${PERSONNEL_COLLECTION}`,
-		`${admin.baseUrl}/`,
-	);
+	const url = new URL(`/_emdash/api/content/${PERSONNEL_COLLECTION}`, `${admin.baseUrl}/`);
 	const response = await fetch(url, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
@@ -936,7 +947,10 @@ test("a stale _rev assignment update is a native state conflict, distinct from v
 	).toBe(false);
 	expect(replay.status, "a stale precondition refusal is the native 409 CONFLICT family").toBe(409);
 	expect(
-		replay.status === 400 || replay.status === 401 || replay.status === 403 || replay.status === 404,
+		replay.status === 400 ||
+			replay.status === 401 ||
+			replay.status === 403 ||
+			replay.status === 404,
 		"a state conflict must stay distinguishable from validation (400), authorization (401/403) and missing-schema (404)",
 	).toBe(false);
 	const error = replay.body as { error?: { code?: unknown } };
