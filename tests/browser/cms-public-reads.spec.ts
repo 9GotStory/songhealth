@@ -307,9 +307,7 @@ interface SchemaField {
  * gating pattern): `missing` SKIPS explicitly; `misconfigured` FAILS loudly.
  */
 type CollectionReadiness =
-	| { outcome: "ready" }
-	| { outcome: "missing" }
-	| { outcome: "misconfigured"; detail: string };
+	{ outcome: "ready" } | { outcome: "missing" } | { outcome: "misconfigured"; detail: string };
 
 /** The development-credential Administrator fixture (preparation side). */
 let admin: CmsActor;
@@ -481,10 +479,7 @@ async function mediaPublicAddress(
 	for (let page = 0; page < maxPages; page += 1) {
 		const query = new URLSearchParams({ limit: "100" });
 		if (cursor !== undefined) query.set("cursor", cursor);
-		const result = await cmsRequest(
-			actor,
-			`/_emdash/api/media?${query.toString()}`,
-		);
+		const result = await cmsRequest(actor, `/_emdash/api/media?${query.toString()}`);
 		expect(result.ok, "the native media listing must be readable").toBe(true);
 		const data = (result.body as { data?: { items?: unknown[]; nextCursor?: unknown } }).data;
 		const items = Array.isArray(data?.items) ? data!.items : [];
@@ -692,7 +687,9 @@ async function readManifest(
  * true (R3-B: a non-ENOENT removal failure is reported, never swallowed —
  * the ownership evidence may still exist).
  */
-async function unlinkIfProvenAbsent(target: string): Promise<{ removed: boolean; failure?: string }> {
+async function unlinkIfProvenAbsent(
+	target: string,
+): Promise<{ removed: boolean; failure?: string }> {
 	try {
 		const fsPromises = await fsPromisesOf();
 		await fsPromises.unlink(target);
@@ -1074,7 +1071,13 @@ async function reconcileEntryIdentity(
 	if (!live) {
 		const trash = await findTrashedBySlug(collection, slug);
 		if (trash === "not-in-trash") {
-			await appendRecord(target, { phase: "resolved", kind: "entry", collection, slug, how: "proven-absent" });
+			await appendRecord(target, {
+				phase: "resolved",
+				kind: "entry",
+				collection,
+				slug,
+				how: "proven-absent",
+			});
 			return undefined;
 		}
 		if (trash === "in-trash") {
@@ -1089,7 +1092,13 @@ async function reconcileEntryIdentity(
 				return `purging the trashed fixture ${collection}/${slug} failed (${cause instanceof Error ? cause.message : String(cause)}) — still owned`;
 			}
 			if (await entryProvenAbsent(collection, slug)) {
-				await appendRecord(target, { phase: "resolved", kind: "entry", collection, slug, how: "adopted-from-trash" });
+				await appendRecord(target, {
+					phase: "resolved",
+					kind: "entry",
+					collection,
+					slug,
+					how: "adopted-from-trash",
+				});
 				return undefined;
 			}
 			return `the trashed fixture ${collection}/${slug} could not be proven purged — still owned`;
@@ -1110,7 +1119,13 @@ async function reconcileEntryIdentity(
 		return `deleting the adopted fixture ${collection}/${slug} failed (${cause instanceof Error ? cause.message : String(cause)}) — still owned`;
 	}
 	if (await entryProvenAbsent(collection, slug)) {
-		await appendRecord(target, { phase: "resolved", kind: "entry", collection, slug, how: "adopted-and-purged" });
+		await appendRecord(target, {
+			phase: "resolved",
+			kind: "entry",
+			collection,
+			slug,
+			how: "adopted-and-purged",
+		});
 		return undefined;
 	}
 	return `the adopted fixture ${collection}/${slug} could not be proven absent after deletion — still owned`;
@@ -1145,7 +1160,12 @@ async function reconcileMediaIdentity(
 			return `the media read for ${record.id} failed (${cause instanceof Error ? cause.message : String(cause)}) — outcome unknown`;
 		}
 		if (!present) {
-			await appendRecord(target, { phase: "resolved", kind: "media", id: record.id, how: "proven-absent" });
+			await appendRecord(target, {
+				phase: "resolved",
+				kind: "media",
+				id: record.id,
+				how: "proven-absent",
+			});
 			return undefined;
 		}
 		// R3-B (corrective round 3): an id alone authorizes NOTHING. Deletion
@@ -1175,7 +1195,12 @@ async function reconcileMediaIdentity(
 		} catch (cause) {
 			return `removing the adopted media ${record.id} failed (${cause instanceof Error ? cause.message : String(cause)}) — still owned`;
 		}
-		await appendRecord(target, { phase: "resolved", kind: "media", id: record.id, how: "adopted-and-removed" });
+		await appendRecord(target, {
+			phase: "resolved",
+			kind: "media",
+			id: record.id,
+			how: "adopted-and-removed",
+		});
 		return undefined;
 	}
 	const filename = record.filename;
@@ -1207,9 +1232,8 @@ async function reconcileMediaIdentity(
 		if (data === undefined || !Array.isArray(items)) {
 			return `the media listing search for ${filename} returned a malformed page — outcome unknown`;
 		}
-		const match = items.find(
-			(item) => (item as Record<string, unknown>).filename === filename,
-		) as Record<string, unknown> | undefined;
+		const match = items.find((item) => (item as Record<string, unknown>).filename === filename) as
+			Record<string, unknown> | undefined;
 		if (match !== undefined && typeof match.id === "string") {
 			try {
 				const removal = await deleteMedia(admin, match.id);
@@ -1223,12 +1247,22 @@ async function reconcileMediaIdentity(
 			} catch (cause) {
 				return `removing the adopted media for ${filename} failed (${cause instanceof Error ? cause.message : String(cause)}) — still owned`;
 			}
-			await appendRecord(target, { phase: "resolved", kind: "media", filename, how: "adopted-and-removed" });
+			await appendRecord(target, {
+				phase: "resolved",
+				kind: "media",
+				filename,
+				how: "adopted-and-removed",
+			});
 			return undefined;
 		}
 		const nextCursor: unknown = data?.nextCursor;
 		if (nextCursor === undefined || nextCursor === "") {
-			await appendRecord(target, { phase: "resolved", kind: "media", filename, how: "proven-absent" });
+			await appendRecord(target, {
+				phase: "resolved",
+				kind: "media",
+				filename,
+				how: "proven-absent",
+			});
 			return undefined;
 		}
 		if (typeof nextCursor !== "string" || nextCursor === cursor || followed.has(nextCursor)) {
@@ -1257,7 +1291,9 @@ async function reconcileManifest(target: string): Promise<string[]> {
 		return [];
 	}
 	if (admission.status === "unreadable") {
-		return [`the ownership manifest ${target} could not be read (${admission.reason}) — unknown evidence is preserved unresolved`];
+		return [
+			`the ownership manifest ${target} could not be read (${admission.reason}) — unknown evidence is preserved unresolved`,
+		];
 	}
 	if (admission.blocked) {
 		return [
@@ -1285,16 +1321,24 @@ async function reconcileManifest(target: string): Promise<string[]> {
 	// and hold ZERO outstanding identities before anything may unlink it.
 	const reread = await readAdmission(target);
 	if (reread.status === "absent") {
-		return [`the ownership manifest ${target} disappeared during reconciliation — completeness unproven`];
+		return [
+			`the ownership manifest ${target} disappeared during reconciliation — completeness unproven`,
+		];
 	}
 	if (reread.status === "unreadable") {
-		return [`the ownership manifest ${target} became unreadable after reconciliation (${reread.reason}) — completeness unproven, evidence preserved`];
+		return [
+			`the ownership manifest ${target} became unreadable after reconciliation (${reread.reason}) — completeness unproven, evidence preserved`,
+		];
 	}
 	if (reread.blocked) {
-		return [`the ownership manifest ${target} drifted into invalid evidence during reconciliation: ${reread.reasons.join("; ")} — completeness unproven, evidence preserved`];
+		return [
+			`the ownership manifest ${target} drifted into invalid evidence during reconciliation: ${reread.reasons.join("; ")} — completeness unproven, evidence preserved`,
+		];
 	}
 	if (reread.outstanding.length > 0) {
-		return [`the ownership manifest ${target} still holds ${reread.outstanding.length} unresolved identit${reread.outstanding.length === 1 ? "y" : "ies"} after reconciliation — completeness unproven`];
+		return [
+			`the ownership manifest ${target} still holds ${reread.outstanding.length} unresolved identit${reread.outstanding.length === 1 ? "y" : "ies"} after reconciliation — completeness unproven`,
+		];
 	}
 	return [];
 }
@@ -1371,7 +1415,12 @@ async function createOwnedPage(options: {
 		...(options.references !== undefined ? { references: options.references } : {}),
 	});
 	await recordCreateOutcome(
-		{ kind: "entry", collection: PAGES_COLLECTION, slug, ...(created.entryId !== undefined ? { id: created.entryId } : {}) },
+		{
+			kind: "entry",
+			collection: PAGES_COLLECTION,
+			slug,
+			...(created.entryId !== undefined ? { id: created.entryId } : {}),
+		},
 		created.result,
 	);
 	expect(created.result.ok, "the synthetic page fixture must save").toBe(true);
@@ -1401,7 +1450,10 @@ async function createOwnedDocument(kind: string): Promise<{
 		{ reusedExistingMedia: upload.reusedExistingMedia === true },
 	);
 	expect(upload.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
-	expect(upload.mediaId, "a media id must be returned and registered for owned cleanup").toBeTruthy();
+	expect(
+		upload.mediaId,
+		"a media id must be returned and registered for owned cleanup",
+	).toBeTruthy();
 	const title = uniqueTitle(kind);
 	const slug = nextSyntheticSlug(kind);
 	await manifestRecord({ phase: "intent", kind: "entry", collection: DOCUMENTS_COLLECTION, slug });
@@ -1410,7 +1462,12 @@ async function createOwnedDocument(kind: string): Promise<{
 		slug,
 	});
 	await recordCreateOutcome(
-		{ kind: "entry", collection: DOCUMENTS_COLLECTION, slug, ...(created.entryId !== undefined ? { id: created.entryId } : {}) },
+		{
+			kind: "entry",
+			collection: DOCUMENTS_COLLECTION,
+			slug,
+			...(created.entryId !== undefined ? { id: created.entryId } : {}),
+		},
 		created.result,
 	);
 	expect(created.result.ok, "the synthetic Document fixture must save").toBe(true);
@@ -1440,7 +1497,12 @@ async function createOwnedHealthReport(
 		references: { report_document: [documentEntryId] },
 	});
 	await recordCreateOutcome(
-		{ kind: "entry", collection: HEALTH_REPORTS_COLLECTION, slug, ...(created.entryId !== undefined ? { id: created.entryId } : {}) },
+		{
+			kind: "entry",
+			collection: HEALTH_REPORTS_COLLECTION,
+			slug,
+			...(created.entryId !== undefined ? { id: created.entryId } : {}),
+		},
 		created.result,
 	);
 	expect(
@@ -1500,10 +1562,9 @@ test.beforeAll(async () => {
 	expect(probe.body.fixtureVersion, "the fixture route must report the expected version").toBe(
 		T021_FIXTURE_VERSION,
 	);
-	expect(
-		probe.cacheControl,
-		"every fixture-route response must be marked no-store",
-	).toContain("no-store");
+	expect(probe.cacheControl, "every fixture-route response must be marked no-store").toContain(
+		"no-store",
+	);
 
 	// One live schema read per exercised collection decides readiness. The
 	// definition facts relied on below: a required semantic title everywhere,
@@ -1526,9 +1587,7 @@ test.beforeAll(async () => {
 			`reading the native ${collection} collection schema must succeed when it is not a 404 (got ${schemaRead.status})`,
 		).toBe(true);
 		const fields = nativeItemOf(schemaRead)?.fields;
-		expect(Array.isArray(fields), `the ${collection} schema read must include fields`).toBe(
-			true,
-		);
+		expect(Array.isArray(fields), `the ${collection} schema read must include fields`).toBe(true);
 		const bySlug = new Map<string, SchemaField>();
 		for (const field of fields as SchemaField[]) {
 			if (typeof field.slug === "string") {
@@ -1610,7 +1669,9 @@ export function historicalRecoveryHoldReasons(
 	const inputs = presentedInputs.filter((value) => value.length > 0);
 	const priorCurrent =
 		currentManifestPath !== undefined && currentManifestExists
-			? [`an existing ownership journal at this run's fresh path ${currentManifestPath} predates this worker`]
+			? [
+					`an existing ownership journal at this run's fresh path ${currentManifestPath} predates this worker`,
+				]
 			: [];
 	const total = inputs.length + priorCurrent.length;
 	if (total === 0) {
@@ -1777,7 +1838,9 @@ test.afterAll(async () => {
 	const reconciliationFailures =
 		manifestTarget === undefined ? [] : await reconcileManifest(manifestTarget);
 	const cleared = await manifestRemove();
-	const clearFailures = cleared.ok ? [] : [cleared.failure ?? "ownership evidence could not be cleared"];
+	const clearFailures = cleared.ok
+		? []
+		: [cleared.failure ?? "ownership evidence could not be cleared"];
 	if (failures.length > 0 || reconciliationFailures.length > 0 || clearFailures.length > 0) {
 		await manifestRecord({
 			phase: "after-all-residual",
@@ -1854,7 +1917,10 @@ test("fixture route contract: identity probe, no-store, fail-closed access, meth
 	const syntheticProbeId = nextSyntheticSlug("contract-probe");
 	for (const [label, params] of [
 		["unknown case", { case: "dump-everything" }],
-		["non-allowlisted collection", { case: "collection", collection: "_emdash", marker: SYNTHETIC_FIXTURE_MARK }],
+		[
+			"non-allowlisted collection",
+			{ case: "collection", collection: "_emdash", marker: SYNTHETIC_FIXTURE_MARK },
+		],
 		[
 			"collection read without the synthetic marker",
 			{ case: "collection", collection: PAGES_COLLECTION },
@@ -1889,10 +1955,7 @@ test("fixture route contract: identity probe, no-store, fail-closed access, meth
 				field: "not-a-bound-field",
 			},
 		],
-		[
-			"malformed entry id",
-			{ case: "entry", collection: PAGES_COLLECTION, id: "../_emdash/api" },
-		],
+		["malformed entry id", { case: "entry", collection: PAGES_COLLECTION, id: "../_emdash/api" }],
 	] as [string, Record<string, string>][]) {
 		const response = await fetchFixtureRoute(params, { expectStatus: 400 });
 		expect(response.body.error, `${label} refusal carries its error code`).toBeTruthy();
@@ -1909,10 +1972,9 @@ test("fixture route contract: identity probe, no-store, fail-closed access, meth
 		{ case: "collection", collection: PAGES_COLLECTION },
 		{ expectStatus: 400 },
 	);
-	expect(
-		unmarked.body.error,
-		"a collection read without the synthetic marker is refused",
-	).toBe("SYNTHETIC_MARKER_REQUIRED");
+	expect(unmarked.body.error, "a collection read without the synthetic marker is refused").toBe(
+		"SYNTHETIC_MARKER_REQUIRED",
+	);
 });
 
 test("published-only collection reads: drafts, pending titles, unpublished and trashed entries never appear; published ones do", async () => {
@@ -2085,15 +2147,18 @@ test("live versus pending: staged content-data and reference selections stay inv
 		{ case: "entry", collection: PAGES_COLLECTION, id: parent.slug },
 		{ previewToken },
 	);
-	expect(previewEntry.body.isPreview, "a matching signed preview must report isPreview").toBe(
-		true,
-	);
+	expect(previewEntry.body.isPreview, "a matching signed preview must report isPreview").toBe(true);
 	expect(
 		previewEntry.body.entry?.data?.title,
 		"a matching signed preview serves the pending draft data",
 	).toBe(stagedTitle);
 	const previewWithRefs = await fetchFixtureRoute(
-		{ case: "entry-with-references", collection: PAGES_COLLECTION, id: parent.slug, field: "documents" },
+		{
+			case: "entry-with-references",
+			collection: PAGES_COLLECTION,
+			id: parent.slug,
+			field: "documents",
+		},
 		{ previewToken },
 	);
 	const previewIds = (previewWithRefs.body.entry?.references?.documents?.entries ?? []).map(
@@ -2109,7 +2174,12 @@ test("live versus pending: staged content-data and reference selections stay inv
 	// collection reads to published rows; a preview token is not a
 	// collection-wide draft grant).
 	const collectionUnderPreview = await fetchFixtureRoute(
-		{ case: "collection", collection: PAGES_COLLECTION, marker: SYNTHETIC_FIXTURE_MARK, limit: "100" },
+		{
+			case: "collection",
+			collection: PAGES_COLLECTION,
+			marker: SYNTHETIC_FIXTURE_MARK,
+			limit: "100",
+		},
 		{ previewToken },
 	);
 	expect(
@@ -2169,7 +2239,10 @@ test("native signed preview boundary: absent, malformed, expired, wrong-entry, w
 	await publishOwned(DOCUMENTS_COLLECTION, documentFixture.entryId);
 
 	const readTitle = async (previewToken?: string) =>
-		fetchFixtureRoute({ case: "entry", collection: PAGES_COLLECTION, id: target.slug }, { previewToken });
+		fetchFixtureRoute(
+			{ case: "entry", collection: PAGES_COLLECTION, id: target.slug },
+			{ previewToken },
+		);
 
 	// Absent token: plain anonymous public read.
 	const absent = await readTitle();
@@ -2178,9 +2251,10 @@ test("native signed preview boundary: absent, malformed, expired, wrong-entry, w
 
 	// Malformed token: no preview context is established at all.
 	const malformed = await readTitle("definitely-not-a-signed-token");
-	expect(malformed.body.entry?.data?.title, "a malformed _preview token must not expose the draft").toBe(
-		target.title,
-	);
+	expect(
+		malformed.body.entry?.data?.title,
+		"a malformed _preview token must not expose the draft",
+	).toBe(target.title);
 	expect(malformed.body.isPreview).toBe(false);
 
 	// Expired token: minted with the native API at the minimum duration,
@@ -2199,7 +2273,9 @@ test("native signed preview boundary: absent, malformed, expired, wrong-entry, w
 	const expiryDeadline = Date.now() + 10_000;
 	while (Math.floor(Date.now() / 1000) <= expired.expiresAt) {
 		if (Date.now() > expiryDeadline) {
-			throw new Error("bounded expiry wait exceeded its budget — the native clock never crossed the token expiry");
+			throw new Error(
+				"bounded expiry wait exceeded its budget — the native clock never crossed the token expiry",
+			);
 		}
 		await new Promise((resolve) => setTimeout(resolve, 100));
 	}
@@ -2222,7 +2298,11 @@ test("native signed preview boundary: absent, malformed, expired, wrong-entry, w
 
 	// Wrong collection: a valid token minted for a documents entry gives no
 	// pages preview at all.
-	const wrongCollection = await mintPreviewToken(DOCUMENTS_COLLECTION, documentFixture.entryId, "10m");
+	const wrongCollection = await mintPreviewToken(
+		DOCUMENTS_COLLECTION,
+		documentFixture.entryId,
+		"10m",
+	);
 	const wrongCollectionRead = await readTitle(wrongCollection.previewToken);
 	expect(
 		wrongCollectionRead.body.entry?.data?.title,
@@ -2266,7 +2346,6 @@ test("native signed preview boundary: absent, malformed, expired, wrong-entry, w
 		draftRead.body.entry,
 		"a never-published entry stays invisible even with a valid foreign token",
 	).toBeNull();
-
 });
 
 test("draft, trashed and unavailable linked targets are omitted from public reference reads without blocking the parent", async () => {
@@ -2283,7 +2362,9 @@ test("draft, trashed and unavailable linked targets are omitted from public refe
 	}
 	const parent = await createOwnedPage({
 		kind: "unavailable-targets-parent",
-		references: { documents: [available.entryId, unpublishedTarget.entryId, trashedTarget.entryId] },
+		references: {
+			documents: [available.entryId, unpublishedTarget.entryId, trashedTarget.entryId],
+		},
 	});
 	await publishOwned(PAGES_COLLECTION, parent.entryId);
 
@@ -2461,7 +2542,10 @@ test("reference identity, opt-in hydration and multi-page traversal", async () =
 		marker: SYNTHETIC_FIXTURE_MARK,
 		limit: "2",
 	});
-	expect(collectionPageOne.body.error, "the collection page must not report an error").toBeUndefined();
+	expect(
+		collectionPageOne.body.error,
+		"the collection page must not report an error",
+	).toBeUndefined();
 	expect(collectionPageOne.body.syntheticFiltered).toBe(true);
 	const collectionPageOneEntries = entriesOf(collectionPageOne);
 	expect(collectionPageOneEntries.length).toBeLessThanOrEqual(2);
@@ -2473,13 +2557,15 @@ test("reference identity, opt-in hydration and multi-page traversal", async () =
 			limit: "2",
 			cursor: collectionPageOne.body.nextCursor,
 		});
-		expect(collectionPageTwo.body.error, "the second collection page must not report an error").toBeUndefined();
+		expect(
+			collectionPageTwo.body.error,
+			"the second collection page must not report an error",
+		).toBeUndefined();
 		const pageOneSet = new Set(entriesOf(collectionPageOne).map((entry: RouteEntry) => entry.id));
 		for (const entry of entriesOf(collectionPageTwo)) {
-			expect(
-				pageOneSet.has(entry.id as string),
-				"keyset pagination pages must be disjoint",
-			).toBe(false);
+			expect(pageOneSet.has(entry.id as string), "keyset pagination pages must be disjoint").toBe(
+				false,
+			);
 		}
 	}
 });
@@ -2552,9 +2638,10 @@ test("missing files: a published Document whose media asset was removed reads as
 	});
 	expect(after.status, "the parent Document read keeps succeeding").toBe(200);
 	const fileAfter = after.body.entry?.data?.file as { id?: unknown; src?: unknown } | undefined;
-	expect(fileAfter?.id, "the selection identity is retained; no availability guarantee exists").toBe(
-		fixture.mediaId,
-	);
+	expect(
+		fileAfter?.id,
+		"the selection identity is retained; no availability guarantee exists",
+	).toBe(fixture.mediaId);
 
 	// ...and the SAME address is now safely unavailable: a non-success fetch,
 	// never an unverified successful download.
@@ -2636,7 +2723,10 @@ test("native error channel: a malformed pagination cursor surfaces the real nati
 		collectionError.body.entries,
 		"an error result never presents entries as a successful page",
 	).toEqual([]);
-	expect(collectionError.body.nextCursor, "an error result carries no continuation cursor").toBeUndefined();
+	expect(
+		collectionError.body.nextCursor,
+		"an error result carries no continuation cursor",
+	).toBeUndefined();
 
 	// REFERENCES path — reachable per the pinned source (src/query.ts:1391–
 	// 1428): the anchor lookup and published-status checks run BEFORE cursor
@@ -2664,7 +2754,10 @@ test("native error channel: a malformed pagination cursor surfaces the real nati
 		referencesError.body.entries,
 		"an error result is never presented as an empty successful page",
 	).toEqual([]);
-	expect(referencesError.body.nextCursor, "an error result carries no continuation cursor").toBeUndefined();
+	expect(
+		referencesError.body.nextCursor,
+		"an error result carries no continuation cursor",
+	).toBeUndefined();
 
 	// The legitimate missing-anchor outcome stays a SEPARATE, valid empty:
 	// no error, genuinely empty page (kept explicit here so the two shapes
@@ -2677,7 +2770,10 @@ test("native error channel: a malformed pagination cursor surfaces the real nati
 		limit: "10",
 		cursor: garbageCursor,
 	});
-	expect(missingAnchor.body.error, "a missing anchor is an empty page, never an error").toBeUndefined();
+	expect(
+		missingAnchor.body.error,
+		"a missing anchor is an empty page, never an error",
+	).toBeUndefined();
 	expect(missingAnchor.body.entries).toEqual([]);
 });
 
@@ -2721,7 +2817,12 @@ test("R3-B settlement validation (regression): invalid resolved/refused records 
 	expect(
 		unresolvedIdentities([
 			{ phase: "intent", kind: "media", filename: "songhealth-f002-synthetic-media-abcd1234.png" },
-			{ phase: "refused", kind: "media", filename: "songhealth-f002-synthetic-media-abcd1234.png", reason: "native-refusal-409" },
+			{
+				phase: "refused",
+				kind: "media",
+				filename: "songhealth-f002-synthetic-media-abcd1234.png",
+				reason: "native-refusal-409",
+			},
 		]),
 	).toEqual([]);
 
@@ -2759,7 +2860,12 @@ test("R3-B settlement validation (regression): invalid resolved/refused records 
 	const mixed = unresolvedIdentities([
 		entryIntent,
 		entrySettlement,
-		{ phase: "created", kind: "entry", collection: "pages", slug: { no: "slug" } as unknown as string },
+		{
+			phase: "created",
+			kind: "entry",
+			collection: "pages",
+			slug: { no: "slug" } as unknown as string,
+		},
 		{ phase: "intent", kind: "widget", id: "x" },
 		{ phase: "resolved", kind: "entry", collection: "", slug: "songhealth-f002-synthetic-x" },
 	]);
@@ -2801,7 +2907,12 @@ test("R3-B whole-manifest admission (remediation regression): any invalid row fr
 
 	// Row order independence: a bad row before OR after valid live
 	// ownership rows blocks the same.
-	const badRow = { phase: "created", kind: "entry", collection: "pages", slug: 42 as unknown as string };
+	const badRow = {
+		phase: "created",
+		kind: "entry",
+		collection: "pages",
+		slug: 42 as unknown as string,
+	};
 	expect(manifestAdmission([badRow, validEntryIntent, validMediaCreated]).blocked).toBe(true);
 	expect(manifestAdmission([validEntryIntent, validMediaCreated, badRow]).blocked).toBe(true);
 
@@ -2811,7 +2922,13 @@ test("R3-B whole-manifest admission (remediation regression): any invalid row fr
 		expect(
 			manifestAdmission([
 				validEntryIntent,
-				{ phase, kind: "entry", collection: "pages", slug: validEntryIntent.slug, id: { invalid: "identity" } as unknown as string },
+				{
+					phase,
+					kind: "entry",
+					collection: "pages",
+					slug: validEntryIntent.slug,
+					id: { invalid: "identity" } as unknown as string,
+				},
 			]).blocked,
 			`an invalid ${phase} settlement is invalid evidence for the whole file`,
 		).toBe(true);
@@ -2850,8 +2967,19 @@ test("R3-B whole-manifest admission (remediation regression): any invalid row fr
 		validEntryIntent,
 		validMediaCreated,
 		{ phase: "intent", kind: "media", filename: "songhealth-f002-synthetic-media-efgh5678.png" },
-		{ phase: "refused", kind: "media", filename: "songhealth-f002-synthetic-media-efgh5678.png", reason: "deduplicated-pre-existing-asset" },
-		{ phase: "resolved", kind: "entry", collection: "pages", slug: "songhealth-f002-synthetic-settled-1", how: "proven-absent" },
+		{
+			phase: "refused",
+			kind: "media",
+			filename: "songhealth-f002-synthetic-media-efgh5678.png",
+			reason: "deduplicated-pre-existing-asset",
+		},
+		{
+			phase: "resolved",
+			kind: "entry",
+			collection: "pages",
+			slug: "songhealth-f002-synthetic-settled-1",
+			how: "proven-absent",
+		},
 	]);
 	expect(admitted.blocked).toBe(false);
 	// The source-proven refusal settles the filename-keyed media intent; the
@@ -2884,10 +3012,9 @@ test("scope reduction (regression): historical ownership evidence always HOLDs �
 	]) {
 		const reason = holdFor(inputs, false, "/fresh/manifest.jsonl");
 		expect(reason !== null, `inputs ${JSON.stringify(inputs)} must HOLD`).toBe(true);
-		expect(
-			reason ?? "",
-			"the HOLD names the retired behavior and the retained evidence",
-		).toContain("journal replay, adoption and automatic deletion are retired");
+		expect(reason ?? "", "the HOLD names the retired behavior and the retained evidence").toContain(
+			"journal replay, adoption and automatic deletion are retired",
+		);
 		expect(reason ?? "").toContain("retained untouched");
 	}
 
