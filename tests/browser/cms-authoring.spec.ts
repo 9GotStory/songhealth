@@ -24,7 +24,8 @@
 // - POST /_emdash/api/content/{collection} takes `data`, `slug`, `taxonomies` and `references`,
 //   and resolves the references in the create (src/api/handlers/content.ts handleContentCreate).
 //   A field that is not a reference field is refused 400 VALIDATION_ERROR and an unknown target
-//   404 NOT_FOUND; a draft target resolves (src/relations/ resolveReferenceSelectionTargets).
+//   404 NOT_FOUND; a draft target resolves (src/api/handlers/relations.ts
+//   resolveReferenceSelectionTargets).
 // - GET …/{id}/references/{relation}/children reads a draft's staged selection first
 //   (handleReferenceChildrenGet).
 // - `taxonomies` refuses an unknown term slug with VALIDATION_ERROR; GET …/{id}/terms/{taxonomy}
@@ -41,9 +42,11 @@
 //   here. An object without `id` and a number are still refused.
 // - Datetime fields need an offset; text fields refuse a number; portableText and repeater
 //   fields refuse a non-array (src/schema/zod-generator.ts).
-// - A stale `_rev` answers 409 CONFLICT (src/api/rev.ts); an unauthenticated request 401 and an
-//   insufficient one 403 (src/api/authorize.ts); an unknown collection 404 COLLECTION_NOT_FOUND,
-//   which the schema gate reports as a skip, never a PASS.
+// - A stale `_rev` answers 409 CONFLICT (src/api/rev.ts). A save without a credential or an
+//   `X-EmDash-Request` header answers 403 CSRF_REJECTED before authentication
+//   (src/astro/middleware/auth.ts), and an insufficient one 403 FORBIDDEN (src/api/authorize.ts). An
+//   unknown collection answers 404 COLLECTION_NOT_FOUND, which the schema gate reports as a skip,
+//   never a PASS.
 //
 // Credentials and fixtures: the development Administrator PAT (SONGHEALTH_DEV_ACCESS), which
 // holds content:publish_any, acts on the configured origin; no role boundary is claimed from it.
@@ -1282,12 +1285,8 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 		"no US1 collection is initialized in the active native schema (T008–T012 schema prerequisites outstanding)",
 	);
 	const kind = kinds[0];
-	// One unauthenticated request to the same native endpoint with a VALID
-	// body: only the authorization layer can refuse it. The URL is built from
-	// the actor's origin — the runner-configured origin the actor was pinned
-	// to in beforeAll — plus the native API path (the same on-origin
-	// discipline as the T002 helpers); no credential is sent, so nothing can
-	// leave the configured app.
+	// One request without a credential to the same native endpoint with a valid body: only the
+	// refusal of the credential's absence can stop it.
 	const result = await anonymousRequest(admin.baseUrl, `/_emdash/api/content/${kind.collection}`, {
 		method: "POST",
 		body: { data: { title: uniqueTitle(kind.collection) } },

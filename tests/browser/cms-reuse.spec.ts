@@ -67,6 +67,7 @@ import {
 	publishEntry,
 	readEntry,
 	readMedia,
+	removeSuiteFixtures,
 	scheduleEntry,
 	trashEntry,
 	unscheduleEntry,
@@ -239,7 +240,7 @@ async function createOwnedDocument(): Promise<{
 }
 
 // ---------------------------------------------------------------------------
-// Shared refusal-family assertions (the same contracts as T003/T007)
+// Relation read-backs
 // ---------------------------------------------------------------------------
 
 /**
@@ -492,19 +493,9 @@ test.afterEach(async () => {
 	).toBe(true);
 });
 
-test.afterAll(async () => {
-	// Safety net: normally a no-op (afterEach resolved everything); anything
-	// still registered here is an unresolved earlier attempt, retried and
-	// reported truthfully as the worker's final standing.
-	if (admin === undefined) {
-		return;
-	}
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	expect(
-		report.complete,
-		"the final worker cleanup must leave zero unresolved owned fixtures",
-	).toBe(true);
-});
+// Safety net: normally a no-op, since afterEach resolved everything; anything still registered is
+// retried and reported.
+test.afterAll(() => removeSuiteFixtures(admin));
 
 // ---------------------------------------------------------------------------
 // Per-collection schema preconditions

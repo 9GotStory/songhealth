@@ -32,10 +32,10 @@ import {
 	createSyntheticDocument,
 	createSyntheticEntry,
 	devAdminActor,
+	mintPreviewLink,
 	nativeItemOf,
 	nativeRefusalOf,
 	portableTextBlock,
-	previewLink,
 	publishEntryAt,
 	readEntry,
 	removeSuiteFixtures,
@@ -50,13 +50,11 @@ import {
 	BorrowedEntries,
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
-	VIEWPORTS,
 	expect,
 	expectAboutSubpage,
+	expectAccessibleAtEachWidth,
 	expectBreadcrumb,
-	expectNoAxeViolations,
 	expectSiteNotFound,
-	expectVisibleFocusOnEveryStop,
 	listedItem,
 	listedTitles,
 	ownTitles,
@@ -358,14 +356,9 @@ test("/about shows its sub-page links without the about Basic Page, and the page
 	await expectBreadcrumb(page, [HOME_CRUMB], "เกี่ยวกับเรา");
 	await expect(subpages.getByRole("link")).toHaveCount(ABOUT_SUBPAGES.length);
 	// The accessibility checks at the end see /about with its Basic Page published.
-	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
-		await page.setViewportSize(viewport);
-		await expectNoAxeViolations(page, `/about without its Basic Page at ${width}`);
-		await expectVisibleFocusOnEveryStop(page, `/about without its Basic Page at ${width}`);
-	}
-	await page.setViewportSize(DESKTOP_VIEWPORT);
+	await expectAccessibleAtEachWidth(page, "/about without its Basic Page");
 
-	const link = await previewLink(admin, "pages", about.id);
+	const link = await mintPreviewLink(admin, "pages", about.id);
 	expect(link.pathname, "the preview link is the draft's URL pattern address").toBe("/pages/about");
 	const preview = await page.goto(link.toString());
 	expect(preview?.status(), "the preview renders").toBe(200);

@@ -20,9 +20,9 @@ import {
 	cmsRequest,
 	createSyntheticEntry,
 	devAdminActor,
+	mintPreviewLink,
 	nativeItemsOf,
 	nativeRefusalOf,
-	previewLink,
 	publishEntry,
 	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
@@ -136,7 +136,7 @@ test("the preview link of a draft in each public collection is its canonical, sl
 	}
 
 	for (const collection of Object.keys(CANONICAL_URL_PATTERNS)) {
-		const link = await previewLink(admin, collection, ids[collection]);
+		const link = await mintPreviewLink(admin, collection, ids[collection]);
 		expect(link.pathname, `the ${collection} preview link`).toBe(
 			addressOf(collection, slugs[collection]),
 		);

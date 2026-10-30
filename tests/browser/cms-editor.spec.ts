@@ -31,7 +31,7 @@
 //   (POST /_emdash/api/taxonomies/{name}/terms, which refuses a duplicate slug with 409) and
 //   deletes it only after the term tree read shows its slug and label.
 // - page.waitForURL matches the whole URL, so the redirect waits test the pathname with a
-//   predicate (@playwright/test 1.63.0).
+//   predicate (playwright-core 1.63.0 lib/coreBundle.js urlMatches).
 //
 // Session and fixtures:
 // - The journeys sign in through EmDash's development-only GET /_emdash/api/auth/dev-bypass

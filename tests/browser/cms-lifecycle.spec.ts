@@ -18,8 +18,10 @@
 //   delete_permanent 50, publish_own 30, publish_any 40; media:upload 20, media:delete_own 30,
 //   media:delete_any 40; users:manage 50. canActOnOwn asks for the own permission on the
 //   caller's own item and the any permission otherwise.
-// - An anonymous request is refused 401 NOT_AUTHENTICATED (src/astro/middleware/auth.ts) and an
-//   insufficient one 403 FORBIDDEN (src/api/authorize.ts), never VALIDATION_ERROR.
+// - A request without a credential is refused before any route logic: a save without an
+//   `X-EmDash-Request` header 403 CSRF_REJECTED, otherwise 401 NOT_AUTHENTICATED
+//   (src/astro/middleware/auth.ts). An insufficient one is refused 403 FORBIDDEN
+//   (src/api/authorize.ts). None of them is VALIDATION_ERROR.
 // - Publish, unpublish, schedule and unschedule need content:publish_own or publish_any by
 //   ownership, and a `publishedAt` backdate needs publish_any
 //   (src/astro/routes/api/content/[collection]/[id]/). Trash needs delete_own or delete_any, and
@@ -604,7 +606,7 @@ test.afterAll(async () => {
 	// Safety net: normally a no-op (afterEach resolved everything). The role fixture's cleanup, the
 	// Administrator's and the account's reconciliation are each attempted whatever the others'
 	// outcome, and the failures are reported together.
-	const failures = await cleanupRoleFixtureAndAdmin(admin, roleFixture);
+	const failures = await cleanupRoleFixtureAndAdmin(roleFixture, admin);
 	// Reconcile the possibly-mutated fixture account (disabled state and role,
 	// repaired to the captured original and verified by re-read) so an
 	// interrupted phase cannot strand it silently.
@@ -1043,11 +1045,8 @@ test("disabled account: direct requests are refused by the authorization layer, 
 test("unauthenticated lifecycle requests are authorization refusals, never validation outcomes", async () => {
 	gatePages();
 
-	// One unauthenticated create to the same native endpoint with a VALID
-	// body: only the authorization layer can refuse it (the accepted
-	// T003/T007 control shape). The URL is built from the actor's origin —
-	// the runner-configured origin the actor was pinned to in beforeAll; no
-	// credential is sent, so nothing can leave the configured app.
+	// One create without a credential to the same native endpoint with a valid body: only the
+	// refusal of the credential's absence can stop it.
 	const result = await anonymousRequest(admin.baseUrl, `/_emdash/api/content/${PAGES_COLLECTION}`, {
 		method: "POST",
 		body: { data: { title: uniqueTitle("unauthenticated") } },

@@ -12,6 +12,10 @@
 //   `_rev`, and cleanupOwnedFixtures, which removes only what these helpers registered as owned.
 // - secret handling: every reported result and message is scrubbed of credentials, and
 //   credential files load only at mode 0600.
+// - refusal checks the CMS suites share (a validation refusal, an unresolvable reference target,
+//   an authorization refusal) and anonymousRequest, a request without a credential. They assert
+//   with Playwright's expect, which also runs outside the test runner (@playwright/test 1.63.0,
+//   playwright/lib/matchers/expect.js), so FixtureKit's plain Node scripts load this module too.
 //
 // Platform behaviour relied on (emdash 1.1.0):
 // - Responses are `{ success: true, data }` or `{ success: false, error: { code, message } }`
@@ -35,10 +39,9 @@
 // - setup/dev-bypass applies the seed and, with ?token=1, rotates the development PAT
 //   (src/astro/routes/api/setup/dev-bypass.ts). createDevBypassActor wraps it for a fresh
 //   install only; no suite calls it.
-//
-// - refusal checks the CMS suites share: a native validation refusal, an unresolvable reference
-//   target and an authorization refusal, with anonymousRequest for a request without a credential.
-//   They assert with Playwright's expect, which also runs outside the test runner.
+// - A state-changing API request without a token is refused 403 CSRF_REJECTED unless it sends
+//   `X-EmDash-Request: 1`; with that header, or as a read, a request without a credential is
+//   refused 401 NOT_AUTHENTICATED (src/astro/middleware/auth.ts).
 //
 // Cleanup never throws past a failed step. Each owned fixture is attempted on its own, an
 // uncertain outcome is read again, and an unresolved fixture stays registered for a later retry.
@@ -175,6 +178,17 @@ function redactWalk<T>(value: T, secrets: readonly string[], seen: WeakSet<objec
 }
 
 /**
+ * The process environment. node:process loads through a non-literal import because the pinned
+ * dependency baseline ships no @types/node; the structural cast keeps this file strict-typed.
+ */
+async function processEnv(): Promise<Record<string, string | undefined>> {
+	const processSpecifier = "node:process";
+	return (
+		(await import(processSpecifier)) as unknown as { env: Record<string, string | undefined> }
+	).env;
+}
+
+/**
  * Read one credential from an ignored mode-0600 scratch file (quickstart
  * "Prerequisites": token scratch lives under e.g. .tmp/feature002/). Fails
  * closed on any looser mode, a non-regular file, or multi-line content —
@@ -233,20 +247,16 @@ const BARE_PAT_PATTERN = /^ec_pat_[A-Za-z0-9_-]+$/;
  * caller and never logged, hashed, or rewritten.
  *
  * Path resolution: the explicit argument, else DEV_ACCESS_CREDENTIAL_ENV.
- * node:fs is loaded through a dynamic non-literal import because the pinned
- * dependency baseline intentionally ships no @types/node.
+ * node:fs is loaded through a dynamic non-literal import, as in processEnv.
  */
 export async function loadDevAccessToken(path?: string): Promise<string> {
-	const processSpecifier = "node:process";
-	const nodeProcess = (await import(processSpecifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
+	const env = await processEnv();
 	const fsSpecifier = "node:fs/promises";
 	const fsPromises = (await import(fsSpecifier)) as unknown as {
 		lstat: (p: string) => Promise<{ isFile(): boolean; isSymbolicLink(): boolean; mode: number }>;
 		readFile: (p: string, encoding: "utf8") => Promise<string>;
 	};
-	const resolved = path ?? nodeProcess.env[DEV_ACCESS_CREDENTIAL_ENV];
+	const resolved = path ?? env[DEV_ACCESS_CREDENTIAL_ENV];
 	if (resolved === undefined || resolved.trim().length === 0) {
 		throw new CmsHelperError(
 			"DEV_ACCESS_PATH_MISSING",
@@ -639,7 +649,8 @@ export async function cmsRequest(
 
 /**
  * One native API request without a credential, through the same core as cmsRequest: on `origin`'s
- * /_emdash/ API only, following no redirect, and answering a refusal as a result.
+ * /_emdash/ API only, following no redirect, and answering a refusal as a result. It sends no
+ * `X-EmDash-Request` header, so a state-changing request meets EmDash's CSRF check first.
  */
 export async function anonymousRequest(
 	origin: string,
@@ -654,8 +665,8 @@ function baseUrlOrDefault(baseUrl?: string): string {
 	if (baseUrl !== undefined) {
 		return baseUrl;
 	}
-	// Mirrors playwright.config.ts: the suite is pointed at the configured
-	// origin by its runner; helpers default to the documented dev origin.
+	// The documented development origin for a caller that names none; the suites pass
+	// configuredDevelopmentOrigin's.
 	return DEFAULT_DEVELOPMENT_ORIGIN;
 }
 
@@ -839,15 +850,11 @@ export function assertSameNativeApp(a: CmsActor, b: CmsActor): void {
 
 /**
  * The origin the suites run against, as playwright.config.ts resolves it: PLAYWRIGHT_BASE_URL, else
- * the documented development origin. node:process loads through a non-literal import, as in
- * loadDevAccessToken.
+ * the documented development origin.
  */
 export async function configuredDevelopmentOrigin(): Promise<string> {
-	const processSpecifier = "node:process";
-	const nodeProcess = (await import(processSpecifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	return new URL(nodeProcess.env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN).origin;
+	const env = await processEnv();
+	return new URL(env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN).origin;
 }
 
 /** The development Administrator's account, which the development PAT belongs to. */
@@ -879,14 +886,10 @@ export const ROLE_FIXTURE_CREDENTIAL_ENV = "SONGHEALTH_ROLE_FIXTURE_ACCESS";
 /**
  * The role fixture account's actor, for role phases beside `admin` (withNativeRole), or undefined
  * when ROLE_FIXTURE_CREDENTIAL_ENV is unset. It must be another account of the same application.
- * node:process loads through a non-literal import, as in loadDevAccessToken.
  */
 export async function roleFixtureActor(admin: CmsActor): Promise<CmsActor | undefined> {
-	const processSpecifier = "node:process";
-	const nodeProcess = (await import(processSpecifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	const path = nodeProcess.env[ROLE_FIXTURE_CREDENTIAL_ENV]?.trim();
+	const env = await processEnv();
+	const path = env[ROLE_FIXTURE_CREDENTIAL_ENV]?.trim();
 	if (!path) return undefined;
 	const fixture = await createPatActor({
 		baseUrl: admin.baseUrl,
@@ -1673,7 +1676,8 @@ export async function deleteAutoRedirects(
 
 /**
  * Remove what a suite made, as its afterAll: the redirects left by `movedSlugs`, the actor's owned
- * fixtures, then `terms`, and fail on anything left. An actor that never loaded made nothing.
+ * fixtures, then `terms`, each step attempted whatever the others' outcome, and fail on anything
+ * left. An actor that never loaded made nothing.
  */
 export async function removeSuiteFixtures(
 	actor: CmsActor | undefined,
@@ -1686,10 +1690,20 @@ export async function removeSuiteFixtures(
 	} = {},
 ): Promise<void> {
 	if (actor === undefined) return;
-	const failures = await deleteAutoRedirects(actor, movedSlugs);
-	const report = await cleanupOwnedFixtures(actor, { permanent: true });
-	if (!report.complete) failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
-	failures.push(...(await deleteSyntheticTerms(actor, terms)));
+	const failures: string[] = [];
+	const attempt = async (step: string, run: () => Promise<string[]>) => {
+		try {
+			failures.push(...(await run()));
+		} catch (cause) {
+			failures.push(`${step}: ${failureText(cause)}`);
+		}
+	};
+	await attempt("the redirects", () => deleteAutoRedirects(actor, movedSlugs));
+	await attempt("the owned fixtures", async () => {
+		const report = await cleanupOwnedFixtures(actor, { permanent: true });
+		return report.complete ? [] : [`owned fixtures left: ${JSON.stringify(report)}`];
+	});
+	await attempt("the terms", () => deleteSyntheticTerms(actor, terms));
 	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
 }
 
@@ -1826,7 +1840,11 @@ export async function publishEntryAt(
  * src/astro/routes/api/content/[collection]/[id]/preview-url.ts). The link carries the signed
  * token, so a test names it in no message. A refusal throws.
  */
-export async function previewLink(actor: CmsActor, collection: string, id: string): Promise<URL> {
+export async function mintPreviewLink(
+	actor: CmsActor,
+	collection: string,
+	id: string,
+): Promise<URL> {
 	const minted = await cmsRequest(
 		actor,
 		`/_emdash/api/content/${encodeURIComponent(collection)}/${encodeURIComponent(id)}/preview-url`,
@@ -2379,8 +2397,8 @@ export async function cleanupOwnedFixtures(
  * fixtures are not all resolved.
  */
 export async function cleanupRoleFixtureAndAdmin(
-	admin: CmsActor | undefined,
 	roleFixture: CmsActor | undefined,
+	admin: CmsActor | undefined,
 ): Promise<string[]> {
 	const failures: string[] = [];
 	for (const [label, owner] of [
@@ -2437,9 +2455,10 @@ export function expectTargetRefusal(result: NativeResult, caseLabel: string): vo
 }
 
 /**
- * Fail unless `result` is refused by the authorization layer: 401 or 403, with a native error code
- * other than VALIDATION_ERROR (emdash 1.1.0 src/astro/middleware/auth.ts, src/api/authorize.ts).
- * `request` names what was refused, such as "an unauthenticated native save".
+ * Fail unless `result` is refused for want of a credential, before any route logic: 401 or 403 with
+ * a native error code other than VALIDATION_ERROR. An anonymousRequest save gets 403 CSRF_REJECTED
+ * and a read 401 NOT_AUTHENTICATED (emdash 1.1.0 src/astro/middleware/auth.ts). `request` names
+ * what was refused, such as "an unauthenticated native save".
  */
 export function expectAuthorizationRefusal(result: NativeResult, request: string): void {
 	expect(
@@ -2487,11 +2506,8 @@ export interface SessionContext {
 
 /** True when the runner opted in to the development Admin session. */
 export async function devAdminSessionRequested(): Promise<boolean> {
-	const processSpecifier = "node:process";
-	const nodeProcess = (await import(processSpecifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	return nodeProcess.env[ADMIN_SESSION_ENV]?.trim() === "dev-bypass";
+	const env = await processEnv();
+	return env[ADMIN_SESSION_ENV]?.trim() === "dev-bypass";
 }
 
 /**
@@ -2531,17 +2547,14 @@ export async function closeDevAdminSession(context: SessionContext): Promise<num
 }
 
 /**
- * Append the context's Admin session window to ADMIN_TEST_SESSIONS_ENV's file, when set. Node
- * modules load through non-literal imports, as in loadDevAccessToken.
+ * Append the context's Admin session window to ADMIN_TEST_SESSIONS_ENV's file, when set. node:fs
+ * loads through a non-literal import, as in processEnv.
  */
 async function recordAdminSession(context: SessionContext): Promise<void> {
 	const start = adminSessionStarts.get(context);
 	adminSessionStarts.delete(context);
-	const processSpecifier = "node:process";
-	const nodeProcess = (await import(processSpecifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	const file = nodeProcess.env[ADMIN_TEST_SESSIONS_ENV]?.trim();
+	const env = await processEnv();
+	const file = env[ADMIN_TEST_SESSIONS_ENV]?.trim();
 	if (start === undefined || !file) return;
 	const fsSpecifier = "node:fs/promises";
 	const fsPromises = (await import(fsSpecifier)) as unknown as {

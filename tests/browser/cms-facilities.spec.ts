@@ -2038,10 +2038,7 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 	// native request path resolves authorization before the collection, so an
 	// unauthenticated create is refused by the authorization layer regardless
 	// of the T028/T029 standing — keeping one live check in every runtime run
-	// while never claiming facility coverage from it. The URL is built from
-	// the actor's origin (the runner-configured origin the actor was pinned
-	// to in beforeAll); no credential is sent, so nothing can leave the
-	// configured app.
+	// while never claiming facility coverage from it.
 	const result = await anonymousRequest(
 		admin.baseUrl,
 		`/_emdash/api/content/${HEALTH_SERVICE_COLLECTION}`,

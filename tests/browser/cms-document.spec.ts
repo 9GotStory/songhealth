@@ -25,8 +25,9 @@
 //   no file.
 // - string, integer, datetime (with an offset) and select fields map to z.string(),
 //   z.number().int(), z.iso.datetime({ offset: true }) and z.enum (zod-generator.ts).
-// - An unauthenticated request is refused 401 and an insufficient one 403 FORBIDDEN
-//   (src/api/authorize.ts); an unknown collection answers 404 COLLECTION_NOT_FOUND, which the
+// - A save without a credential or an `X-EmDash-Request` header is refused 403 CSRF_REJECTED
+//   before authentication (src/astro/middleware/auth.ts), and an insufficient one 403 FORBIDDEN
+//   (src/api/authorize.ts). An unknown collection answers 404 COLLECTION_NOT_FOUND, which the
 //   schema gate reports as a skip, never a PASS.
 // - GET /_emdash/api/schema/collections/{slug}?includeFields=true lists the fields
 //   (src/api/handlers/schema.ts handleSchemaCollectionGet).
@@ -47,6 +48,7 @@ import {
 	expectValidationRefusal,
 	nativeItemOf,
 	readEntry,
+	removeSuiteFixtures,
 	updateEntry,
 	uploadSyntheticMedia,
 	SYNTHETIC_FIXTURE_MARK,
@@ -214,19 +216,9 @@ test.afterEach(async () => {
 	).toBe(true);
 });
 
-test.afterAll(async () => {
-	// Safety net: normally a no-op (afterEach resolved everything); anything
-	// still registered here is an unresolved earlier attempt, retried and
-	// reported truthfully as the worker's final standing.
-	if (admin === undefined) {
-		return;
-	}
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	expect(
-		report.complete,
-		"the final worker cleanup must leave zero unresolved owned fixtures",
-	).toBe(true);
-});
+// Safety net: normally a no-op, since afterEach resolved everything; anything still registered is
+// retried and reported.
+test.afterAll(() => removeSuiteFixtures(admin));
 
 // ---------------------------------------------------------------------------
 // Precondition
@@ -603,14 +595,8 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 	const upload = await uploadSyntheticMedia(admin);
 	expect(upload.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
 
-	// One unauthenticated request to the same native endpoint with a VALID
-	// body: only the authorization layer can refuse it. The URL is built from
-	// the actor's origin — the runner-configured origin the actor was pinned
-	// to in beforeAll — plus the native API path (the same on-origin
-	// discipline as the T002 helpers); no credential is sent, so nothing can
-	// leave the configured app. Pinned 1.1.0: requirePerm answers
-	// UNAUTHORIZED 401 for an anonymous caller (FORBIDDEN 403 for an
-	// authenticated insufficient permission).
+	// One request without a credential to the same native endpoint with a valid body: only the
+	// refusal of the credential's absence can stop it.
 	const result = await anonymousRequest(
 		admin.baseUrl,
 		`/_emdash/api/content/${DOCUMENT_COLLECTION}`,

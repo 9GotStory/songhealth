@@ -12,12 +12,13 @@
 //   checked at. The mobile width is 320 CSS px, the narrowest width the site
 //   must reflow to without horizontal scrolling (WCAG 2.2 SC 1.4.10).
 // - `testAccessibilityAndReflow`: the axe, focus and reflow tests of a
-//   template's pages at those widths.
+//   template's pages at those widths; `expectAccessibleAtEachWidth` checks
+//   the page as it is now at both.
 // - What the shell shows every page: the 404 page, the default site title, the
 //   breadcrumb, Thai dates, the titles and items a list shows, and a record
 //   page's details.
 // - `expectPreviewRenders`: a draft's signed preview link (cms.helpers.ts
-//   previewLink) at the draft's address, rendering it out of search engines.
+//   mintPreviewLink) at the draft's address, rendering it out of search engines.
 // - `BorrowedEntries`: the runtime's own published entries a test returns to
 //   draft, published again afterwards at their own publication date.
 //
@@ -31,10 +32,10 @@ import { expect, test as base, type Locator, type Page } from "@playwright/test"
 
 import {
 	cmsRequest,
+	mintPreviewLink,
 	nativeDataOf,
 	nativeItemOf,
 	nativeRefusalOf,
-	previewLink,
 	publishEntryAt,
 	readEntry,
 	unpublishEntry,
@@ -135,6 +136,19 @@ export async function expectNoAxeViolations(page: Page, label: string): Promise<
 				.join(", ")}`,
 	);
 	expect(violations, `${label}: axe must report no WCAG 2.2 AA violations`).toEqual([]);
+}
+
+/**
+ * Fail unless the page as it is now has no WCAG 2.2 AA violation and keeps focus visible at each of
+ * `VIEWPORTS`, named `label` in the failures. The viewport ends at the desktop width.
+ */
+export async function expectAccessibleAtEachWidth(page: Page, label: string): Promise<void> {
+	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
+		await page.setViewportSize(viewport);
+		await expectNoAxeViolations(page, `${label} at ${width}`);
+		await expectVisibleFocusOnEveryStop(page, `${label} at ${width}`);
+	}
+	await page.setViewportSize(DESKTOP_VIEWPORT);
 }
 
 /**
@@ -276,7 +290,7 @@ export async function expectPreviewRenders(
 	draft: DraftFixture,
 	path: string,
 ): Promise<URL> {
-	const link = await previewLink(admin, collection, draft.id);
+	const link = await mintPreviewLink(admin, collection, draft.id);
 	expect(link.pathname, "the preview link is the draft's canonical address").toBe(path);
 	const preview = await page.goto(link.toString());
 	expect(preview?.status(), `the ${collection} preview renders`).toBe(200);

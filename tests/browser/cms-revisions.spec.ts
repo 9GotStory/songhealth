@@ -67,6 +67,7 @@
 import { expect, test } from "@playwright/test";
 
 import {
+	anonymousRequest,
 	cleanupOwnedFixtures,
 	cleanupRoleFixtureAndAdmin,
 	cmsRequest,
@@ -1232,7 +1233,7 @@ test.afterEach(async () => {
 test.afterAll(async () => {
 	// Safety net: normally a no-op (afterEach resolved everything). Each step is attempted whatever
 	// the others' outcome, and the failures are reported together.
-	const failures = await cleanupRoleFixtureAndAdmin(admin, roleFixture);
+	const failures = await cleanupRoleFixtureAndAdmin(roleFixture, admin);
 	try {
 		await deleteSyntheticTerm();
 	} catch (cause) {
@@ -2402,23 +2403,13 @@ test("unauthenticated revision-surface reads are authorization refusals, never d
 	});
 	expect(entry.result.ok, "the unauthenticated-control fixture must save").toBe(true);
 
-	// One unauthenticated read against each revision surface (listing and
-	// compare) with no credential sent: only the authorization layer can
-	// refuse (the accepted control shape; the URL is built from the actor's
-	// runner-configured origin).
-	const base = `${admin.baseUrl}/`;
+	// One read without a credential against each revision surface (listing and compare): only the
+	// authentication layer can refuse it.
 	for (const [label, path] of [
 		["revision listing", `/_emdash/api/content/${PAGES_COLLECTION}/${entry.entryId}/revisions`],
 		["live/draft compare", `/_emdash/api/content/${PAGES_COLLECTION}/${entry.entryId}/compare`],
 	] as const) {
-		const response = await fetch(new URL(path, base), { redirect: "error" });
-		let parsed: unknown;
-		try {
-			parsed = await response.json();
-		} catch {
-			parsed = { nonJsonBody: await response.text() };
-		}
-		const result: NativeResult = { ok: response.ok, status: response.status, body: parsed };
+		const result = await anonymousRequest(admin.baseUrl, path);
 		expect(
 			result.status,
 			`${label}: an unauthenticated native read must be refused by the authorization layer with 401`,

@@ -45,6 +45,7 @@ import {
 	nativeRevOf,
 	NATIVE_ROLES,
 	readEntry,
+	removeSuiteFixtures,
 	updateEntry,
 	uploadSyntheticMedia,
 	SYNTHETIC_FIXTURE_MARK,
@@ -330,19 +331,9 @@ test.afterEach(async () => {
 	).toBe(true);
 });
 
-test.afterAll(async () => {
-	// Safety net: normally a no-op (afterEach resolved everything); anything
-	// still registered here is an unresolved earlier attempt, retried and
-	// reported truthfully as the worker's final standing.
-	if (admin === undefined) {
-		return;
-	}
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	expect(
-		report.complete,
-		"the final worker cleanup must leave zero unresolved owned fixtures",
-	).toBe(true);
-});
+// Safety net: normally a no-op, since afterEach resolved everything; anything still registered is
+// retried and reported.
+test.afterAll(() => removeSuiteFixtures(admin));
 
 // ---------------------------------------------------------------------------
 // Schema precondition — the approved definition, and nothing else
@@ -820,9 +811,7 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 	// so an unauthenticated create is refused by the authorization layer
 	// regardless of the personnel collection's T024 standing — keeping one
 	// live check in every runtime run while never claiming personnel
-	// coverage from it. The URL is built from the actor's origin (the
-	// runner-configured origin the actor was pinned to in beforeAll); no
-	// credential is sent, so nothing can leave the configured app.
+	// coverage from it.
 	const result = await anonymousRequest(
 		admin.baseUrl,
 		`/_emdash/api/content/${PERSONNEL_COLLECTION}`,

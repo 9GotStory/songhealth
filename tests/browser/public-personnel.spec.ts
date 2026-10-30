@@ -42,13 +42,11 @@ import {
 import {
 	BorrowedEntries,
 	DESKTOP_VIEWPORT,
-	VIEWPORTS,
 	expect,
 	expectAboutSubpage,
+	expectAccessibleAtEachWidth,
 	expectImageLoaded,
-	expectNoAxeViolations,
 	expectSiteNotFound,
-	expectVisibleFocusOnEveryStop,
 	listedItem,
 	listedTitles,
 	ownTitles,
@@ -182,12 +180,7 @@ test("/about/leadership and /about/personnel show their empty states while no pu
 		await expectPersonnelPage(page, path, title);
 		await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
 		await expect(page.getByRole("main").getByText(message)).toBeVisible();
-		for (const [width, viewport] of Object.entries(VIEWPORTS)) {
-			await page.setViewportSize(viewport);
-			await expectNoAxeViolations(page, `${path} empty at ${width}`);
-			await expectVisibleFocusOnEveryStop(page, `${path} empty at ${width}`);
-		}
-		await page.setViewportSize(DESKTOP_VIEWPORT);
+		await expectAccessibleAtEachWidth(page, `${path} empty`);
 	}
 });
 
