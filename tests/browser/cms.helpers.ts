@@ -1240,6 +1240,22 @@ export async function setMediaAlt(
 	});
 }
 
+/**
+ * Upload a synthetic picture as an owned fixture, give it `alt` as its alt text in the media
+ * library, and return its media id. A refusal throws.
+ */
+export async function uploadSyntheticPicture(actor: CmsActor, alt: string): Promise<string> {
+	const media = await uploadSyntheticMedia(actor);
+	if (media.mediaId === undefined) {
+		throw new CmsHelperError("synthetic-picture", `the picture: ${nativeRefusalOf(media.result)}`);
+	}
+	const described = await setMediaAlt(actor, media.mediaId, alt);
+	if (!described.ok) {
+		throw new CmsHelperError("synthetic-picture", `its alt text: ${nativeRefusalOf(described)}`);
+	}
+	return media.mediaId;
+}
+
 /** GET /_emdash/api/media/{id} — native media metadata read. */
 export async function readMedia(actor: CmsActor, mediaId: string): Promise<NativeResult> {
 	return cmsRequest(actor, `/_emdash/api/media/${encodeURIComponent(mediaId)}`);

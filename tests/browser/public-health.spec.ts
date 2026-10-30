@@ -50,12 +50,12 @@ import {
 	portableTextBlock,
 	portableTextImage,
 	publishEntryAt,
-	setMediaAlt,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	trashEntry,
 	unpublishEntry,
 	uploadSyntheticMedia,
+	uploadSyntheticPicture,
 	type CmsActor,
 	type DraftFields,
 	type DraftFixture,
@@ -142,15 +142,6 @@ const publishContent = (content: DraftFixture, publishedAt?: string) =>
 	publishEntryAt(admin, "health_content", content.id, publishedAt);
 const publishReport = (report: DraftFixture, publishedAt?: string) =>
 	publishEntryAt(admin, "health_reports", report.id, publishedAt);
-
-/** A synthetic picture in the media library with `alt` as its alt text. Returns its id. */
-async function uploadPicture(alt: string): Promise<string> {
-	const media = await uploadSyntheticMedia(admin);
-	expect(media.mediaId, `the synthetic picture: ${nativeRefusalOf(media.result)}`).toBeDefined();
-	const described = await setMediaAlt(admin, media.mediaId!, alt);
-	expect(described.ok, `the picture's alt text: ${nativeRefusalOf(described)}`).toBe(true);
-	return media.mediaId!;
-}
 
 /** The main navigation's ข้อมูลสุขภาพ item. */
 const healthNavItem = (page: Page) =>
@@ -330,7 +321,7 @@ test("a Health Content page shows its topics, source, last review date, picture 
 			summary: `${SYNTHETIC_FIXTURE_MARK} สรุปความรู้สุขภาพ`,
 			body: [portableTextBlock(bodyText)],
 			source_text: source,
-			featured_image: { id: await uploadPicture(alt) },
+			featured_image: { id: await uploadSyntheticPicture(admin, alt) },
 			// 23 Sep 2026 17:30 UTC is already 24 Sep in Bangkok.
 			reviewed_at: "2026-09-23T17:30:00.000Z",
 			next_review_at: "2027-03-01T03:00:00.000Z",
@@ -576,7 +567,7 @@ test("a Health Report page shows its summary, type, report date, reporting perio
 	);
 });
 
-test("a Health Report whose report Document is not published says the report file is unavailable, without a link to it", async ({
+test("a Health Report whose report Document is not published says the report Document is unavailable, without a link to it", async ({
 	page,
 }) => {
 	const draftDocument = await createSyntheticDocument(admin, "report-draft");
@@ -586,7 +577,11 @@ test("a Health Report whose report Document is not published says the report fil
 	const response = await page.goto(`/health/reports/${report.slug}`);
 	expect(response?.status(), "the Health Report page still renders").toBe(200);
 	const documentSection = page.getByRole("main").getByRole("region", { name: "เอกสารรายงาน" });
-	await expect(documentSection.getByText("ไฟล์ไม่พร้อมให้บริการ")).toBeVisible();
+	await expect(documentSection.getByText("เอกสารรายงานไม่พร้อมให้บริการ")).toBeVisible();
+	await expect(documentSection.getByRole("link", { name: "ติดต่อเรา" })).toHaveAttribute(
+		"href",
+		"/contact",
+	);
 	await expect(documentSection.getByText(draftDocument.title)).toHaveCount(0);
 	await expect(
 		page.getByRole("main").locator(`a[href="/documents/${draftDocument.slug}"]`),
@@ -706,7 +701,7 @@ test.describe("accessibility and reflow", () => {
 				body: [portableTextBlock(`${SYNTHETIC_FIXTURE_MARK} เนื้อหาความรู้`)],
 				source_text: `${SYNTHETIC_FIXTURE_MARK} แหล่งที่มา`,
 				featured_image: {
-					id: await uploadPicture(`${SYNTHETIC_FIXTURE_MARK} ภาพประกอบความรู้`),
+					id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพประกอบความรู้`),
 				},
 				reviewed_at: "2026-09-01T03:00:00.000Z",
 			},

@@ -1,8 +1,7 @@
 // Media on public pages (Feature 003 #55, #59; spec #51 "Public reads", `03` §17).
 //
 // A CMS image, an image in a rich-text body or a Document's file is shown only while its file can
-// be served. EmDash serves local
-// media from its storage adapter by storage key (emdash 1.1.0
+// be served. EmDash serves local media from its storage adapter by storage key (emdash 1.1.0
 // src/astro/routes/api/media/file/[...key].ts), and deleting a media item in Admin removes its
 // stored file too (src/api/handlers/media.ts handleMediaDelete). So the stored file under the key
 // decides whether the page's picture or link would work: an image asks whether it exists, and a
@@ -90,7 +89,8 @@ async function bodyImageAvailable(image: BodyImage, runtime: MediaRuntime | unde
 /**
  * A rich-text body as a page can show it: an image block whose stored file cannot be served is
  * left out, and so is such a picture of a gallery block, and a gallery left with none. EmDash's
- * renderer would show a broken image for each (Product Owner, 2026-10-29, on #55; #59). Every
+ * renderer would show a broken image for each (Product Owner, 2026-10-29: #55 comment 6500495649,
+ * built in #59). Every
  * other block stays as it is, in order.
  */
 export async function availableBody<B extends { _type: string }>(

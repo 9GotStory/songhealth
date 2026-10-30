@@ -7,9 +7,9 @@
 // The report Document is read through the reference field. EmDash resolves it only while it is
 // published, or a draft in preview (emdash 1.1.0 src/query.ts attachReferences), and loads it
 // without its taxonomy terms, so its row is read again with them (src/lib/documents.ts
-// documentsById). The row links to the Document's own page, /documents/{slug}. While the Document
-// is not published, the section shows the unavailable state instead, as a Document page does for
-// a file that cannot be served.
+// documentsById). The row links to the Document's own page, /documents/{slug}. The Document is
+// required, so while it is not published the section says the report Document is unavailable and
+// points to the office, as a Document page does for a file that cannot be served.
 //
 // getEmDashEntry returns the published entry, or the draft when the request carries a valid
 // signed preview token for it (src/query.ts resolveEmDashEntry). Anything else answers with the
@@ -19,8 +19,8 @@ import { getEmDashEntry } from "emdash";
 import DateText from "../../../components/DateText.astro";
 import DetailItem from "../../../components/DetailItem.astro";
 import DetailSection from "../../../components/DetailSection.astro";
-import DocumentDownload from "../../../components/DocumentDownload.astro";
 import DocumentRow from "../../../components/DocumentRow.astro";
+import UnavailableNotice from "../../../components/UnavailableNotice.astro";
 import SiteLayout from "../../../layouts/SiteLayout.astro";
 import { documentsById } from "../../../lib/documents";
 import { HEALTH_CRUMB, HEALTH_REPORTS_PATH, HEALTH_REPORTS_TITLE } from "../../../lib/health";
@@ -95,7 +95,7 @@ const hasDetails =
 			{document ? (
 				<DocumentRow document={document} headingLevel={3} />
 			) : (
-				<DocumentDownload file={null} />
+				<UnavailableNotice message="เอกสารรายงานไม่พร้อมให้บริการ" />
 			)}
 		</DetailSection>
 	</article>

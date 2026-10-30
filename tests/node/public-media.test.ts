@@ -20,18 +20,20 @@ const IMPORTS_IMAGE = /import\s*\{[^}]*\bImage\b[^}]*\}\s*from\s*["']emdash\/ui[
 /** An import of EmDash's rich-text renderer. */
 const IMPORTS_PORTABLE_TEXT = /import\s*\{[^}]*\bPortableText\b[^}]*\}\s*from\s*["']emdash\/ui["']/;
 
-/** An import of `check` from src/lib/media.ts. */
-function importsCheck(check: string): RegExp {
-	return new RegExp(`import\\s*\\{[^}]*\\b${check}\\b[^}]*\\}\\s*from\\s*["'][./]*lib\\/media["']`);
+/** An import of the media check named `checkName` from src/lib/media.ts. */
+function importsCheck(checkName: string): RegExp {
+	return new RegExp(
+		`import\\s*\\{[^}]*\\b${checkName}\\b[^}]*\\}\\s*from\\s*["'][./]*lib\\/media["']`,
+	);
 }
 
 /**
- * The src/ files, relative to src/, that import a renderer by `renders`, each with whether it also
- * imports `check`.
+ * The src/ files, relative to src/, whose source matches `rendererImport`, each with whether it
+ * also imports the media check named `checkName`.
  */
 async function renderersOf(
-	renders: RegExp,
-	check: string,
+	rendererImport: RegExp,
+	checkName: string,
 ): Promise<Array<{ file: string; checks: boolean }>> {
 	const files = (await readdir(SRC, { recursive: true })).filter((file) =>
 		/\.(astro|ts)$/.test(file),
@@ -39,7 +41,9 @@ async function renderersOf(
 	const renderers = [];
 	for (const file of files) {
 		const source = await readFile(new URL(file, SRC), "utf8");
-		if (renders.test(source)) renderers.push({ file, checks: importsCheck(check).test(source) });
+		if (rendererImport.test(source)) {
+			renderers.push({ file, checks: importsCheck(checkName).test(source) });
+		}
 	}
 	return renderers;
 }

@@ -38,7 +38,10 @@ pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
   (ADR 0003).
 - A CMS image or file is shown only while `src/lib/media.ts` (`availableMedia`,
   `downloadableFile`) says its media can be served, because Admin can delete a media item that
-  content still uses. `tests/node/public-media.test.ts` checks this for EmDash's `Image`.
+  content still uses. A rich-text body goes through `availableBody` before EmDash's
+  `PortableText` renders it, which leaves out its images whose media is gone; `RichText.astro`
+  does this. `tests/node/public-media.test.ts` checks both for EmDash's `Image` and
+  `PortableText`.
 
 ## Tests
 

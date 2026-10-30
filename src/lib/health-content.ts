@@ -59,7 +59,7 @@ export function healthContentListPath(topic?: string): string {
 
 /**
  * One page of published Health Content, newest publication first, narrowed to the Health Topic
- * with this `topic` term slug when one is given.
+ * with this `topic` term slug; an empty slug, the filter's "ทุกประเด็น", lists every topic.
  */
 export async function listHealthContent(
 	page: number,
