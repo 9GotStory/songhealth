@@ -4,10 +4,11 @@
 // The single development runtime at http://127.0.0.1:4324 (docs/operations/development-quadlet.md)
 // is the only target. The coordinator never starts, stops, restarts or substitutes a server, and an
 // occupied origin is its intended state. It:
-//   1. checks the exact source identity both ways: this checkout's full HEAD, and the runtime
-//      source that dev-runtime-verify.sh reports with VERIFY: PASS, plus the app's marker and the
-//      fixture route's identity probe. A missing, malformed, stale or mismatched identity is a
-//      HOLD before any credential, fixture or worker;
+//   1. checks the exact source identity both ways: this checkout's full HEAD (or a 40-hex
+//      SONGHEALTH_T021_EXPECTED_SOURCE_SHA), and the runtime source that dev-runtime-verify.sh
+//      reports with VERIFY: PASS, plus the app's marker and the fixture route's identity probe. A
+//      missing, malformed, stale or mismatched identity is a HOLD before any fixture is made or
+//      any test runs;
 //   2. checks the prerequisites: the Node major package.json engines pins, the pinned local
 //      Playwright runner, and the mode-0600 development credential and route-access token (the
 //      token is read only to probe the route);
@@ -20,10 +21,11 @@
 //      remain, and reports the primary and the cleanup failures together.
 //
 // Exit codes: 0 every test passed and no residue remained; 1 the Playwright run failed (its code);
-// 2 the run passed but coverage or cleanup is incomplete; 3 HOLD, nothing was started; 4
-// interrupted or timed out, the child terminated and reaped.
+// 2 the run passed but coverage or cleanup is incomplete; 3 HOLD, a prerequisite failed before the
+// test run; 4 interrupted or timed out, the child terminated and reaped.
 //
-// Platform behaviour relied on: Node's global fetch with redirect "error" and AbortSignal.timeout;
+// Platform behaviour relied on (Node 26.13.0): global fetch with redirect "error" and
+// AbortSignal.timeout;
 // child_process spawn with awaited termination, and execFile for `git rev-parse HEAD` and
 // dev-runtime-verify.sh (its `runtime source: <checkout> @ <sha>` line); the pinned
 // @playwright/test 1.63.0 CLI (node_modules/@playwright/test/cli.js).
@@ -620,10 +622,14 @@ async function main() {
 
 	// Toolchain honesty: HOLD when the running Node's major differs from the one package.json
 	// engines pins.
-	const manifest = JSON.parse(await readFile(path.join(repoRoot, "package.json"), "utf8"));
-	const pinned = manifest.engines.node;
+	const packageJson = await readFile(path.join(repoRoot, "package.json"), "utf8")
+		.then(JSON.parse)
+		.catch(() => undefined);
+	const pinned = packageJson?.engines?.node;
 	const majorOf = (version) => Number.parseInt(String(version).split(".")[0], 10);
-	if (majorOf(process.versions.node) !== majorOf(pinned)) {
+	if (pinned === undefined) {
+		reasons.push("package.json names no engines.node pin to check the running Node against");
+	} else if (majorOf(process.versions.node) !== majorOf(pinned)) {
 		reasons.push(
 			`running under Node ${process.versions.node}, outside the pinned ${majorOf(pinned)}.x line (package.json engines ${pinned}) — refusing to produce runtime evidence on an unpinned toolchain`,
 		);

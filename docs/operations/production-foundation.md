@@ -270,7 +270,7 @@ Every production image is pinned by explicit version **and** immutable digest:
 - Application: `localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407`
 - PostgreSQL: `docker.io/library/postgres:18.6@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf`
 - The application image's build base is itself digest-pinned inside the Containerfile
-  (official Node 26.13.0 image since #101). The accepted artifact below was built on Node 24.21.0
+  (official Node 26.13.0 image since #101). The accepted artifact above was built on Node 24.21.0
   and stays pinned until a reviewed re-pin replaces it.
 
 Podman resolves the digest against local image storage, so any other or rebuilt image fails
@@ -685,9 +685,10 @@ earlier seed gets a later content model from the model-update step, `scripts/mod
 
 1. Back up the database and its media (`10` §18). The production backup procedure belongs to the
    pending recovery work (§11).
-2. Use a checkout at the deployed commit, Node 26.13.0 and an API token of an Administrator with
-   the `schema:read`, `schema:write`, `content:read` and `taxonomies:manage` scopes
-   (emdash 1.1.0 `src/astro/middleware/auth.ts`). Check what is pending, then apply it:
+2. Use a checkout at the deployed commit, the Node its `package.json` engines pins, and an API
+   token of an Administrator with the `schema:read`, `schema:write`, `content:read` and
+   `taxonomies:manage` scopes (emdash 1.1.0 `src/astro/middleware/auth.ts`). Check what is
+   pending, then apply it:
 
    ```bash
    node scripts/model-update.mjs --origin <public origin> --check < <token file>  # 0: nothing pending, 3: changes pending

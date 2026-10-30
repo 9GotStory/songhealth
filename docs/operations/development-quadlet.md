@@ -50,7 +50,7 @@ the real state first and only adds what is missing:
 3. **Images and dependencies.**
    - Pulls the two digest-pinned images.
    - Runs `npm ci` with npm 12.2.1 in a temporary container from the app image. It re-runs
-     only when `package-lock.json` or the image changes.
+     only when `package-lock.json`, the image or the npm version changes.
 4. **Secrets.**
    - Generates the four runtime secrets once.
    - Generates the T021 route token pair: a podman secret plus a 0600 client copy. It replaces
