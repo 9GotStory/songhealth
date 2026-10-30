@@ -1731,6 +1731,24 @@ export async function publishEntryAt(
 }
 
 /**
+ * POST …/preview-url — the signed preview link of entry `id`, on the actor's origin (emdash 1.1.0
+ * src/astro/routes/api/content/[collection]/[id]/preview-url.ts). The link carries the signed
+ * token, so a test names it in no message. A refusal throws.
+ */
+export async function previewLink(actor: CmsActor, collection: string, id: string): Promise<URL> {
+	const minted = await cmsRequest(
+		actor,
+		`/_emdash/api/content/${encodeURIComponent(collection)}/${encodeURIComponent(id)}/preview-url`,
+		{ method: "POST", body: {} },
+	);
+	const url = nativeDataOf(minted)?.url;
+	if (!minted.ok || typeof url !== "string") {
+		throw new CmsHelperError("PREVIEW_URL", `${collection}/${id}: ${nativeRefusalOf(minted)}`);
+	}
+	return new URL(url, actor.baseUrl);
+}
+
+/**
  * POST …/schedule — one-time future publication with an explicit timezone.
  * `scheduledAt` must be ISO 8601 with "Z" or an explicit numeric offset
  * (FR-023 / native-editorial contract); anything else is refused locally as

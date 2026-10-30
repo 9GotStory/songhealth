@@ -30,14 +30,13 @@ import type { Page } from "@playwright/test";
 
 import {
 	cleanupOwnedFixtures,
-	cmsRequest,
 	createSyntheticDocument,
 	createSyntheticEntry,
 	devAdminActor,
-	nativeDataOf,
 	nativeItemOf,
 	nativeRefusalOf,
 	portableTextBlock,
+	previewLink,
 	publishEntryAt,
 	readEntry,
 	SYNTHETIC_FIXTURE_MARK,
@@ -371,14 +370,7 @@ test("/about shows its sub-page links without the about Basic Page, and the page
 	}
 	await page.setViewportSize(DESKTOP_VIEWPORT);
 
-	const minted = await cmsRequest(
-		admin,
-		`/_emdash/api/content/pages/${encodeURIComponent(about.id)}/preview-url`,
-		{ method: "POST", body: {} },
-	);
-	expect(minted.ok, nativeRefusalOf(minted)).toBe(true);
-	// The signed token stays out of every message.
-	const link = new URL(String(nativeDataOf(minted)?.url), origin);
+	const link = await previewLink(admin, "pages", about.id);
 	expect(link.pathname, "the preview link is the draft's URL pattern address").toBe("/pages/about");
 	const preview = await page.goto(link.toString());
 	expect(preview?.status(), "the preview renders").toBe(200);

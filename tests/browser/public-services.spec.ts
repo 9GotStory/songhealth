@@ -24,15 +24,12 @@
 
 import {
 	cleanupOwnedFixtures,
-	cmsRequest,
 	createOwnedTerm,
 	createSyntheticDocument,
 	createSyntheticHealthService,
 	createSyntheticService,
 	deleteSyntheticTerms,
 	devAdminActor,
-	nativeDataOf,
-	nativeRefusalOf,
 	portableTextBlock,
 	publishEntryAt,
 	SYNTHETIC_FIXTURE_MARK,
@@ -56,6 +53,7 @@ import {
 	expectBreadcrumb,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
+	expectPreviewRenders,
 	expectSiteNotFound,
 	expectVisibleFocusOnEveryStop,
 	listedItem,
@@ -550,21 +548,7 @@ test("a draft, unpublished or trashed Service answers the site 404, and a signed
 		await expectSiteNotFound(page, `/services/${fixture.slug}`, fixture.title);
 	}
 
-	const minted = await cmsRequest(
-		admin,
-		`/_emdash/api/content/services/${encodeURIComponent(draft.id)}/preview-url`,
-		{ method: "POST", body: {} },
-	);
-	expect(minted.ok, nativeRefusalOf(minted)).toBe(true);
-	// The signed token stays out of every message.
-	const link = new URL(String(nativeDataOf(minted)?.url), origin);
-	expect(link.pathname, "the preview link is the draft's canonical address").toBe(
-		`/services/${draft.slug}`,
-	);
-	const preview = await page.goto(link.toString());
-	expect(preview?.status(), "the preview renders").toBe(200);
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText(draft.title);
-	await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+	await expectPreviewRenders(page, admin, "services", draft, `/services/${draft.slug}`);
 });
 
 test("the Service pages carry their title, description, absolute canonical address and OG tags, with the SEO fields first", async ({

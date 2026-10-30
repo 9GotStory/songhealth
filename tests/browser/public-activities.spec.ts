@@ -25,12 +25,9 @@
 
 import {
 	cleanupOwnedFixtures,
-	cmsRequest,
 	createSyntheticDraft,
 	deleteMedia,
 	devAdminActor,
-	nativeDataOf,
-	nativeRefusalOf,
 	publishEntryAt,
 	SYNTHETIC_FIXTURE_MARK,
 	trashEntry,
@@ -51,6 +48,7 @@ import {
 	expectBreadcrumb,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
+	expectPreviewRenders,
 	expectSiteNotFound,
 	expectVisibleFocusOnEveryStop,
 	listedItem,
@@ -333,22 +331,13 @@ test("a signed preview link renders a draft Activity, and the same address witho
 	page,
 }) => {
 	const draft = await createActivity("preview");
-	const minted = await cmsRequest(
+	const link = await expectPreviewRenders(
+		page,
 		admin,
-		`/_emdash/api/content/activities/${encodeURIComponent(draft.id)}/preview-url`,
-		{ method: "POST", body: {} },
-	);
-	expect(minted.ok, nativeRefusalOf(minted)).toBe(true);
-	// The signed token stays out of every message.
-	const link = new URL(String(nativeDataOf(minted)?.url), origin);
-	expect(link.pathname, "the preview link is the draft's canonical address").toBe(
+		"activities",
+		draft,
 		`/activities/${draft.slug}`,
 	);
-
-	const preview = await page.goto(link.toString());
-	expect(preview?.status(), "the preview renders").toBe(200);
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText(draft.title);
-	await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
 
 	await expectSiteNotFound(page, link.pathname, "the draft without a token");
 });

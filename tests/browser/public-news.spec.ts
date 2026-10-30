@@ -63,6 +63,7 @@ import {
 	expectImageLoaded,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
+	expectPreviewRenders,
 	expectSiteNotFound,
 	expectVisibleFocusOnEveryStop,
 	listedTitles,
@@ -429,24 +430,7 @@ test("a signed preview link renders a draft, and the same address without a vali
 	page,
 }) => {
 	const draft = await createNews("preview");
-	const minted = await cmsRequest(
-		admin,
-		`/_emdash/api/content/news/${encodeURIComponent(draft.id)}/preview-url`,
-		{ method: "POST", body: {} },
-	);
-	expect(minted.ok, nativeRefusalOf(minted)).toBe(true);
-	// The signed token stays out of every message.
-	const link = new URL(String(nativeDataOf(minted)?.url), origin);
-	expect(link.pathname, "the preview link is the draft's canonical address").toBe(
-		`/news/${draft.slug}`,
-	);
-
-	const preview = await page.goto(link.toString());
-	expect(preview?.status(), "the preview renders").toBe(200);
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText(draft.title);
-	expect((await headOf(page)).robots, "a preview is kept out of search engines").toContain(
-		"noindex",
-	);
+	const link = await expectPreviewRenders(page, admin, "news", draft, `/news/${draft.slug}`);
 
 	await expectSiteNotFound(page, link.pathname, "the draft without a token");
 	const forged = new URL(link);

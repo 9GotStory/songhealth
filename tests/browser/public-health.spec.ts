@@ -36,14 +36,12 @@ import type { Page } from "@playwright/test";
 
 import {
 	cleanupOwnedFixtures,
-	cmsRequest,
 	createOwnedTerm,
 	createSyntheticDocument,
 	createSyntheticDraft,
 	deleteMedia,
 	deleteSyntheticTerms,
 	devAdminActor,
-	nativeDataOf,
 	nativeRefusalOf,
 	portableTextBlock,
 	portableTextImage,
@@ -72,6 +70,7 @@ import {
 	expectImageLoaded,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
+	expectPreviewRenders,
 	expectSiteNotFound,
 	expectVisibleFocusOnEveryStop,
 	listedItem,
@@ -637,21 +636,7 @@ test("a signed preview link renders a draft Health Content or Health Report, kep
 		["health_content", await createContent("preview"), "/health/content"],
 		["health_reports", await createReport("preview"), "/health/reports"],
 	] as const) {
-		const minted = await cmsRequest(
-			admin,
-			`/_emdash/api/content/${collection}/${encodeURIComponent(draft.id)}/preview-url`,
-			{ method: "POST", body: {} },
-		);
-		expect(minted.ok, nativeRefusalOf(minted)).toBe(true);
-		// The signed token stays out of every message.
-		const link = new URL(String(nativeDataOf(minted)?.url), origin);
-		expect(link.pathname, "the preview link is the draft's canonical address").toBe(
-			`${path}/${draft.slug}`,
-		);
-		const preview = await page.goto(link.toString());
-		expect(preview?.status(), `the ${collection} preview renders`).toBe(200);
-		await expect(page.getByRole("heading", { level: 1 })).toHaveText(draft.title);
-		await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+		await expectPreviewRenders(page, admin, collection, draft, `${path}/${draft.slug}`);
 	}
 });
 

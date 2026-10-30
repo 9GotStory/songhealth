@@ -14,6 +14,8 @@
 // - What the shell shows every page: the 404 page, the default site title, the
 //   breadcrumb, Thai dates, the titles and items a list shows, and a record
 //   page's details.
+// - `expectPreviewRenders`: a draft's signed preview link (cms.helpers.ts
+//   previewLink) at the draft's address, rendering it out of search engines.
 // - `BorrowedEntries`: the runtime's own published entries a test returns to
 //   draft, published again afterwards at their own publication date.
 //
@@ -30,6 +32,7 @@ import {
 	nativeDataOf,
 	nativeItemOf,
 	nativeRefusalOf,
+	previewLink,
 	publishEntryAt,
 	readEntry,
 	unpublishEntry,
@@ -227,6 +230,27 @@ export async function expectImageLoaded(image: Locator, label: string): Promise<
 			{ message: `${label} loads` },
 		)
 		.toBe(true);
+}
+
+/**
+ * Fail unless `draft`'s signed preview link is its address `path` and renders the draft, headed by
+ * its title and kept out of search engines. Returns the link, whose token a test names in no
+ * message.
+ */
+export async function expectPreviewRenders(
+	page: Page,
+	admin: CmsActor,
+	collection: string,
+	draft: DraftFixture,
+	path: string,
+): Promise<URL> {
+	const link = await previewLink(admin, collection, draft.id);
+	expect(link.pathname, "the preview link is the draft's canonical address").toBe(path);
+	const preview = await page.goto(link.toString());
+	expect(preview?.status(), `the ${collection} preview renders`).toBe(200);
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(draft.title);
+	await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+	return link;
 }
 
 /** The titles of the cards or rows a list page shows, in order. */

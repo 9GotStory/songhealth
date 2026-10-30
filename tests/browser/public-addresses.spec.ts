@@ -21,9 +21,9 @@ import {
 	cmsRequest,
 	createSyntheticEntry,
 	devAdminActor,
-	nativeDataOf,
 	nativeItemsOf,
 	nativeRefusalOf,
+	previewLink,
 	publishEntry,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
@@ -166,14 +166,7 @@ test("the preview link of a draft in each public collection is its canonical, sl
 	}
 
 	for (const collection of Object.keys(CANONICAL_URL_PATTERNS)) {
-		const minted = await cmsRequest(
-			admin,
-			`/_emdash/api/content/${collection}/${encodeURIComponent(ids[collection])}/preview-url`,
-			{ method: "POST", body: {} },
-		);
-		expect(minted.ok, `${collection}: ${nativeRefusalOf(minted)}`).toBe(true);
-		const link = new URL(String(nativeDataOf(minted)?.url), origin);
-		// The signed token stays out of every message.
+		const link = await previewLink(admin, collection, ids[collection]);
 		expect(link.pathname, `the ${collection} preview link`).toBe(
 			addressOf(collection, slugs[collection]),
 		);
