@@ -9,15 +9,8 @@ export const ABOUT_TITLE = "เกี่ยวกับเรา";
 
 export const ABOUT_PATH = "/about";
 
-/** Every About sub-page, in `01` §3 order. */
-export const ABOUT_SUBPAGES = [
-	{ label: "โครงสร้างองค์กร", href: "/about/organization" },
-	{ label: "ผู้บริหาร", href: "/about/leadership" },
-	{ label: "บุคลากร", href: "/about/personnel" },
-	{ label: "นโยบาย", href: "/about/policies" },
-	{ label: "แผนงาน", href: "/about/plans" },
-	{ label: "ผลการดำเนินงาน", href: "/about/results" },
-] as const;
+/** Where the reserved Basic Page `organization` renders (src/lib/basic-pages.ts). */
+export const ORGANIZATION_PATH = "/about/organization";
 
 /** An About Document page: the Document Type it lists, by term slug, and how it reads. */
 export interface AboutDocumentList {
@@ -49,3 +42,11 @@ export const ABOUT_DOCUMENT_LISTS = {
 		lead: "เอกสารผลการดำเนินงานของสำนักงานสาธารณสุขอำเภอสอง",
 	},
 } as const satisfies Record<string, AboutDocumentList>;
+
+/** Every About sub-page, in `01` §3 order. */
+export const ABOUT_SUBPAGES = [
+	{ label: "โครงสร้างองค์กร", href: ORGANIZATION_PATH },
+	{ label: "ผู้บริหาร", href: "/about/leadership" },
+	{ label: "บุคลากร", href: "/about/personnel" },
+	...Object.values(ABOUT_DOCUMENT_LISTS).map(({ title, path }) => ({ label: title, href: path })),
+];

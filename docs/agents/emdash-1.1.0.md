@@ -136,3 +136,9 @@ checks that every cited file exists. When the pinned version changes, re-verify 
 - A create takes `references: { field: [id] }` and `taxonomies: { name: [slug] }`. Terms are created
   and deleted at `/_emdash/api/taxonomies/{name}/terms[/{slug}]`. `./tests/browser/cms.helpers.ts`
   wraps all of these.
+- `GET …/content/{collection}/{id}` takes an id or a slug, and finds only an entry outside the trash
+  (`src/api/handlers/content.ts` `handleContentGet`, `src/database/repositories/content.ts`
+  `findByIdOrSlug`).
+- A term list counts each term's entries as the public site sees them: published, or scheduled and
+  due, and not in the trash (`src/api/handlers/taxonomies.ts` `handleTermList`,
+  `src/taxonomies/term-counts.ts` `fetchVisibleTermCounts`).

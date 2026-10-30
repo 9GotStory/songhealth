@@ -341,7 +341,7 @@ test("/about links to every About sub-page", async ({ page }) => {
 	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/about`);
 });
 
-test("/about shows its sub-page links without the about Basic Page, and the page's own title, summary and body once it is published", async ({
+test("/about shows its sub-page links without the about Basic Page, and the page's own title, summary and body once it is published, under the เกี่ยวกับเรา crumb", async ({
 	page,
 }) => {
 	const { siteTitle, separator } = await siteTitleParts(admin);
@@ -356,6 +356,13 @@ test("/about shows its sub-page links without the about Basic Page, and the page
 	await expectBreadcrumb(page, [HOME_CRUMB], "เกี่ยวกับเรา");
 	await expect(page.getByText(about!.title), "the draft stays out of sight").toHaveCount(0);
 	await expect(subpages.getByRole("link")).toHaveCount(ABOUT_SUBPAGES.length);
+	// The accessibility checks at the end see /about with its Basic Page published.
+	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
+		await page.setViewportSize(viewport);
+		await expectNoAxeViolations(page, `/about without its Basic Page at ${width}`);
+		await expectVisibleFocusOnEveryStop(page, `/about without its Basic Page at ${width}`);
+	}
+	await page.setViewportSize(DESKTOP_VIEWPORT);
 
 	const minted = await cmsRequest(
 		admin,
@@ -376,7 +383,7 @@ test("/about shows its sub-page links without the about Basic Page, and the page
 	await page.goto("/about");
 	await expectBasicPage(page, about!, content);
 	await expect(page).toHaveTitle(`${about!.title}${separator}${siteTitle}`);
-	await expectBreadcrumb(page, [HOME_CRUMB], about!.title);
+	await expectBreadcrumb(page, [HOME_CRUMB], "เกี่ยวกับเรา");
 	await expect(subpages.getByRole("link")).toHaveCount(ABOUT_SUBPAGES.length);
 	await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
 });
@@ -451,7 +458,10 @@ test.describe("accessibility and reflow", () => {
 			"/about",
 			`/pages/${basic.slug}`,
 			"/about/policies",
+			"/about/plans",
 			"/about/results",
+			// The empty page past the end of a list.
+			"/about/policies?page=2",
 			// Only while it is published, so that no real address lands in the 404 log.
 			...(organization?.status === "published" ? ["/about/organization"] : []),
 		];

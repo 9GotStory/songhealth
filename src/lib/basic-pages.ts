@@ -18,13 +18,14 @@ import {
 	type ContentEntry,
 	type PortableTextBlock,
 } from "emdash";
+import { ABOUT_PATH, ORGANIZATION_PATH } from "./about";
 import { documentsById, type DocumentEntry } from "./documents";
 import { targetIds } from "./references";
 
 /** The reserved slugs that render inside the About section, and their addresses there. */
 const ABOUT_SECTION_PAGES: Record<string, string> = {
-	about: "/about",
-	organization: "/about/organization",
+	about: ABOUT_PATH,
+	organization: ORGANIZATION_PATH,
 };
 
 /** The reserved Basic Pages the footer links to, in footer order (docs/design/homepage-concept-v1.md §12). */
