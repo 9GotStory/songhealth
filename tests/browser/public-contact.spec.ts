@@ -59,7 +59,7 @@ const NOTHING_SET: OfficeContactValues = {
 	line_url: null,
 };
 
-/** The native `social` networks (emdash 1.1.0 src/settings/types.ts). The suite blanks those it does not set. */
+/** The native `social` networks (emdash 1.1.0 src/settings/types.ts). */
 const NETWORKS = ["twitter", "github", "facebook", "instagram", "linkedin", "youtube"] as const;
 type Social = Partial<Record<(typeof NETWORKS)[number], string>>;
 
@@ -75,8 +75,9 @@ async function writeSocial(social: Social): Promise<void> {
 }
 
 /**
- * Run `body` with exactly `values` as Office Contact and `social` as the suite's networks, then
- * restore what the runtime had.
+ * Run `body` with exactly `values` as Office Contact and `social` as the only handles, then
+ * restore what the runtime had. Only the networks `social` sets and those already holding a handle
+ * are written, so an unset handle stays unset unless the test sets it.
  */
 async function withContact(
 	values: OfficeContactValues,
@@ -89,18 +90,19 @@ async function withContact(
 	const site = await cmsRequest(admin, "/_emdash/api/settings");
 	expect(site.ok, "the native settings must read").toBe(true);
 	const socialBefore = (nativeDataOf(site)?.social ?? {}) as Social;
+	const networks = NETWORKS.filter((network) => social[network] || socialBefore[network]);
 	try {
 		const written = await writeOfficeContact(admin, { ...NOTHING_SET, ...values });
 		expect(written.ok, `Office Contact must save (status ${written.status})`).toBe(true);
 		await writeSocial(
-			Object.fromEntries(NETWORKS.map((network) => [network, social[network] ?? ""])),
+			Object.fromEntries(networks.map((network) => [network, social[network] ?? ""])),
 		);
 		await body();
 	} finally {
 		const restored = await writeOfficeContact(admin, { ...NOTHING_SET, ...before });
 		expect(restored.ok, "Office Contact must be restored").toBe(true);
 		await writeSocial(
-			Object.fromEntries(NETWORKS.map((network) => [network, socialBefore[network] ?? ""])),
+			Object.fromEntries(networks.map((network) => [network, socialBefore[network] ?? ""])),
 		);
 	}
 }
