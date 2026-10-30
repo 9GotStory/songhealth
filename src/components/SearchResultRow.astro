@@ -1,0 +1,53 @@
+---
+// A search result (Feature 003 #63; spec #51 "Search", `08` §8), shaped like a Document row
+// (DocumentRow.astro): its kind in Thai and the date its kind is listed by, its title linking to
+// its canonical address, the snippet, and the status the list of its kind states, with that list's
+// status label. No internal field shows.
+//
+// The snippet is HTML that src/lib/search-matcher.ts builds: the entry's plain text, escaped, with
+// the matched terms in <mark>. Nothing else is set as HTML. A mark is semibold text-primary without
+// a fill, because the warm fill marks a status that needs attention (Product Owner, 2026-10-30:
+// #63 comment 6518347225).
+import type { SearchEntry } from "../lib/search";
+import { KIND_LABELS } from "../lib/search-matcher";
+import AnnouncementStatus from "./AnnouncementStatus.astro";
+import DocumentStatus from "./DocumentStatus.astro";
+import HealthServiceStatus from "./HealthServiceStatus.astro";
+import MetaLine from "./MetaLine.astro";
+
+interface Props {
+	entry: SearchEntry;
+	snippet: string;
+}
+
+const { entry, snippet } = Astro.props;
+const { status } = entry;
+---
+
+<article class="flex flex-col gap-2 rounded-24 bg-surface-base p-5 shadow-card">
+	<MetaLine
+		facts={[{ text: KIND_LABELS[entry.kind] }, entry.shownDate && { date: entry.shownDate }]}
+	/>
+	<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
+		<a class="underline-offset-4 hover:text-brand-primary hover:underline" href={entry.href}>
+			{entry.title}
+		</a>
+	</h2>
+	{snippet && (
+		<p
+			class="wrap-anywhere text-text-secondary [&_mark]:bg-transparent [&_mark]:font-semibold [&_mark]:text-text-primary"
+			set:html={snippet}
+		/>
+	)}
+	{status && (
+		<p>
+			{status.kind === "announcement" ? (
+				<AnnouncementStatus status={status.value} />
+			) : status.kind === "document" ? (
+				<DocumentStatus status={status.value} />
+			) : (
+				<HealthServiceStatus status={status.value} />
+			)}
+		</p>
+	)}
+</article>

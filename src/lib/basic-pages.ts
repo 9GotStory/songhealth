@@ -35,7 +35,7 @@ const FOOTER_PAGES = [
 ] as const;
 
 /** A Basic Page's fields (seed/seed.json) and the system fields public pages read. */
-interface BasicPageData {
+export interface BasicPageData {
 	/** The database id; the entry's own `id` is its slug. */
 	id: string;
 	title: string;

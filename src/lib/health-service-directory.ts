@@ -3,9 +3,12 @@
 //
 // The directory filters by Area and by name. EmDash's `where` offers equality, `IN` and ranges
 // but no substring match (emdash 1.1.0 src/loader.ts buildFieldConditions), so the list reads
-// every published Health Service and this module filters and orders them. The module has no
-// import, so node:test checks it directly; src/lib/health-services.ts reads through EmDash and
-// uses it.
+// every published Health Service and this module filters and orders them. Names are compared as
+// the search compares text (src/lib/search-matcher.ts normalizeText). The module imports no
+// runtime module, so node:test checks it directly; src/lib/health-services.ts reads through EmDash
+// and uses it.
+
+import { normalizeText } from "./search-matcher.ts";
 
 /** A taxonomy term as the query functions hydrate it on an entry. */
 export interface DirectoryTerm {
@@ -78,17 +81,6 @@ export function directoryPath(filters: Partial<DirectoryFilters> = {}): string {
 	if (filters.name) params.set(FILTER_PARAMS.name, filters.name);
 	const query = params.toString();
 	return query === "" ? DIRECTORY_PATH : `${DIRECTORY_PATH}?${query}`;
-}
-
-/** Zero-width space, non-joiner and joiner, and the byte order mark. */
-const ZERO_WIDTH = /[\u200B-\u200D\uFEFF]/g;
-
-/**
- * Text as names are compared: NFC, Latin letters lower-cased, zero-width characters removed and
- * whitespace collapsed (spec #51 "Search", Normalisation). Thai has no letter case.
- */
-function normalizeText(text: string): string {
-	return text.normalize("NFC").toLowerCase().replace(ZERO_WIDTH, "").replace(/\s+/g, " ").trim();
 }
 
 /** Whether `name` appears in the Health Service's official name or display name. */
