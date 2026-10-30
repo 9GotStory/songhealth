@@ -8,7 +8,7 @@
 //
 // The canonical address keeps the filters that are set and a valid page number, so each view stays
 // its own address, as on the Document repository. The directory belongs with the citizen services
-// (`00` §8.2), so it marks บริการประชาชน in the main navigation.
+// (`00` §8.2), so the breadcrumb (#80) and the main navigation mark บริการประชาชน.
 import EmptyState from "../../components/EmptyState.astro";
 import FilterForm from "../../components/FilterForm.astro";
 import HealthServiceRow from "../../components/HealthServiceRow.astro";
@@ -23,6 +23,7 @@ import {
 } from "../../lib/health-service-directory";
 import { listHealthServices } from "../../lib/health-services";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
+import { servicesPath } from "../../lib/service-catalog";
 
 const title = "หน่วยบริการสุขภาพที่เกี่ยวข้อง";
 const lead =
@@ -38,7 +39,11 @@ const listUrl = new URL(directoryPath(filters), Astro.url);
 	section="services"
 	description={lead}
 	canonical={pageHref(listUrl, page)}
-	breadcrumbs={[{ label: "หน้าแรก", href: "/" }, { label: title }]}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		{ label: "บริการประชาชน", href: servicesPath() },
+		{ label: title },
+	]}
 >
 	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 		<PageHeading title={title} lead={lead} />
