@@ -181,9 +181,7 @@ const DOMAIN_STATUS_OPTION = "current";
  * beforeAll from the live native schema read.
  */
 type SchemaReadiness =
-	| { outcome: "ready" }
-	| { outcome: "missing" }
-	| { outcome: "misconfigured"; detail: string };
+	{ outcome: "ready" } | { outcome: "missing" } | { outcome: "misconfigured"; detail: string };
 
 /** The development-credential fixture actor owning every synthetic fixture made here. */
 let admin: CmsActor;
@@ -254,14 +252,10 @@ function gateDocumentsSchema(): void {
  * problems cannot masquerade as field-validation outcomes.
  */
 function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
-	expect(
-		result.ok,
-		`${caseLabel}: the native save must be refused, not reported as success`,
-	).toBe(false);
-	expect(
-		result.status,
-		`${caseLabel}: a native validation refusal is HTTP 400`,
-	).toBe(400);
+	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
+		false,
+	);
+	expect(result.status, `${caseLabel}: a native validation refusal is HTTP 400`).toBe(400);
 	expect(
 		result.status === 401 || result.status === 403,
 		`${caseLabel}: a validation refusal must stay distinguishable from an authorization failure (401/403)`,
@@ -357,7 +351,9 @@ test.beforeAll(async () => {
 		}
 	}
 	documentsSchema =
-		problems.length > 0 ? { outcome: "misconfigured", detail: problems.join("; ") } : { outcome: "ready" };
+		problems.length > 0
+			? { outcome: "misconfigured", detail: problems.join("; ") }
+			: { outcome: "ready" };
 });
 
 // ---------------------------------------------------------------------------
@@ -532,7 +528,10 @@ test("create refuses missing, null and empty required title", async () => {
 			data: fieldCase.data,
 		});
 		expectValidationRefusal(refusal.result, fieldCase.label);
-		expect(refusal.entryId, `${fieldCase.label}: no entry id may be returned for a refused save`).toBeUndefined();
+		expect(
+			refusal.entryId,
+			`${fieldCase.label}: no entry id may be returned for a refused save`,
+		).toBeUndefined();
 	}
 });
 
@@ -565,7 +564,10 @@ test("create refuses missing, null and empty-object required file values", async
 			data: fieldCase.data,
 		});
 		expectValidationRefusal(refusal.result, fieldCase.label);
-		expect(refusal.entryId, `${fieldCase.label}: no entry id may be returned for a refused save`).toBeUndefined();
+		expect(
+			refusal.entryId,
+			`${fieldCase.label}: no entry id may be returned for a refused save`,
+		).toBeUndefined();
 	}
 });
 
@@ -590,7 +592,10 @@ test("accepted V1 limitation: bare empty-string file input stores an empty exter
 		"file:'' is accepted by the pinned platform's documented normalization (URL-input path) and the Product Owner accepts this as a V1 limitation",
 	).toBe(true);
 	expect(created.result.status).toBe(201);
-	expect(created.entryId, "the accepted create must return a native entry id for read-back").toBeTruthy();
+	expect(
+		created.entryId,
+		"the accepted create must return a native entry id for read-back",
+	).toBeTruthy();
 
 	const read = await readEntry(admin, DOCUMENT_COLLECTION, created.entryId!);
 	expect(read.ok, "the stored Document must be readable by returned id").toBe(true);
@@ -621,7 +626,10 @@ test("accepted V1 limitation: bare non-URL string file input stores the string a
 	const read = await readEntry(admin, DOCUMENT_COLLECTION, created.entryId!);
 	expect(read.ok, "the stored Document must be readable by returned id").toBe(true);
 	const file = (nativeItemOf(read)?.data as Record<string, unknown> | undefined)?.file;
-	expect(file, "the stored file value must preserve the raw string as src under the external provider").toEqual({
+	expect(
+		file,
+		"the stored file value must preserve the raw string as src under the external provider",
+	).toEqual({
 		provider: "external",
 		id: "",
 		src: "not-an-object",
@@ -639,7 +647,7 @@ test("accepted V1 limitation: non-string file id is coerced to an empty local-pr
 	});
 	expect(
 		created.result.ok,
-		"the pinned normalization coerces a non-string id object to {id:\"\", provider:\"local\"}; acceptance is a Product-Owner-approved V1 limitation",
+		'the pinned normalization coerces a non-string id object to {id:"", provider:"local"}; acceptance is a Product-Owner-approved V1 limitation',
 	).toBe(true);
 	expect(created.result.status).toBe(201);
 	expect(created.entryId).toBeTruthy();
@@ -647,7 +655,10 @@ test("accepted V1 limitation: non-string file id is coerced to an empty local-pr
 	const read = await readEntry(admin, DOCUMENT_COLLECTION, created.entryId!);
 	expect(read.ok, "the stored Document must be readable by returned id").toBe(true);
 	const file = (nativeItemOf(read)?.data as Record<string, unknown> | undefined)?.file;
-	expect(file, "the stored file value must be the coerced local-provider representation with an empty id").toEqual({
+	expect(
+		file,
+		"the stored file value must be the coerced local-provider representation with an empty id",
+	).toEqual({
 		id: "",
 		provider: "local",
 	});
@@ -709,13 +720,22 @@ test("create refuses supplied invalid types, select values and dates", async () 
 	});
 	const cases: Array<{ label: string; data: Record<string, unknown> }> = [
 		{ label: "title supplied as a number", data: { ...valid(), title: 123 } },
-		{ label: "fiscal_year supplied as a string", data: { ...valid(), fiscal_year: "not-a-number" } },
-		{ label: "fiscal_year supplied as a non-integer number", data: { ...valid(), fiscal_year: 2568.5 } },
+		{
+			label: "fiscal_year supplied as a string",
+			data: { ...valid(), fiscal_year: "not-a-number" },
+		},
+		{
+			label: "fiscal_year supplied as a non-integer number",
+			data: { ...valid(), fiscal_year: 2568.5 },
+		},
 		{
 			label: "domain_status supplied outside the approved select options",
 			data: { ...valid(), domain_status: `${SYNTHETIC_FIXTURE_MARK}-not-an-option` },
 		},
-		{ label: "document_at supplied as a non-datetime string", data: { ...valid(), document_at: "not-a-datetime" } },
+		{
+			label: "document_at supplied as a non-datetime string",
+			data: { ...valid(), document_at: "not-a-datetime" },
+		},
 		{
 			label: "document_at supplied without a timezone offset",
 			data: { ...valid(), document_at: "2026-10-15T10:00:00" },
@@ -743,7 +763,10 @@ test("update refuses a representative supplied invalid select value", async () =
 	const refusal = await updateEntry(admin, DOCUMENT_COLLECTION, created.entryId!, {
 		data: { domain_status: `${SYNTHETIC_FIXTURE_MARK}-not-an-option` },
 	});
-	expectValidationRefusal(refusal, "domain_status supplied outside the approved select options on update");
+	expectValidationRefusal(
+		refusal,
+		"domain_status supplied outside the approved select options on update",
+	);
 });
 
 // ---------------------------------------------------------------------------
@@ -783,10 +806,7 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 		result.status === 401 || result.status === 403,
 		"an unauthenticated native save must be refused by the authorization layer (401/403)",
 	).toBe(true);
-	expect(
-		result.ok,
-		"an unauthenticated native save must not be reported as success",
-	).toBe(false);
+	expect(result.ok, "an unauthenticated native save must not be reported as success").toBe(false);
 	const error = result.body as { error?: { code?: unknown } };
 	expect(
 		error?.error?.code,
