@@ -64,7 +64,8 @@ pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
   `expectNoHorizontalScroll`; `testAccessibilityAndReflow` declares those tests.
 - A helper that a second suite needs moves to a shared module: page checks (the 404 page, Thai
   dates, list titles, an image's load) to `tests/browser/public.helpers.ts`, native API fixtures
-  (entries, media, terms) to `tests/browser/cms.helpers.ts`.
+  (entries, media, terms) and refusal checks (`expectValidationRefusal`) to
+  `tests/browser/cms.helpers.ts`.
 - Tests assert what people see and use: text, links, status and focus. A link or button is
   checked by its accessible name (`getByRole(…, { name })`, `toHaveAccessibleName`), which leaves
   out decorative `aria-hidden` marks such as "→". A `data-testid` marks only an element with no

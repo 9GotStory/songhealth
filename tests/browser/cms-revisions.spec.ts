@@ -68,11 +68,14 @@ import { expect, test } from "@playwright/test";
 
 import {
 	cleanupOwnedFixtures,
+	cleanupRoleFixtureAndAdmin,
 	cmsRequest,
 	createSyntheticEntry,
 	currentRev,
+	dataOfItem,
 	devAdminActor,
 	getMe,
+	liveDataOfItem,
 	nativeDataOf,
 	nativeErrorOf,
 	nativeItemOf,
@@ -83,6 +86,7 @@ import {
 	readEntry,
 	ROLE_FIXTURE_CREDENTIAL_ENV,
 	roleFixtureActor,
+	statusOfItem,
 	updateEntry,
 	uploadSyntheticMedia,
 	withNativeRole,
@@ -235,25 +239,6 @@ function gateRoleFixture(): CmsActor {
 		`set ${ROLE_FIXTURE_CREDENTIAL_ENV} to the role fixture PAT`,
 	);
 	return roleFixture!;
-}
-
-/** The entry's lifecycle status as the native read returns it, when present. */
-function statusOfItem(item: Record<string, unknown> | undefined): string | undefined {
-	return typeof item?.status === "string" ? item.status : undefined;
-}
-
-/** The entry's field-data object as the native read returns it, when present. */
-function dataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
-	return item?.data !== null && typeof item?.data === "object"
-		? (item.data as Record<string, unknown>)
-		: {};
-}
-
-/** The entry's `liveData` object (published values under a pending draft). */
-function liveDataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
-	return item?.liveData !== null && typeof item?.liveData === "object"
-		? (item.liveData as Record<string, unknown>)
-		: {};
 }
 
 /** One revision record from a listing item. */
@@ -1245,35 +1230,9 @@ test.afterEach(async () => {
 });
 
 test.afterAll(async () => {
-	// Safety net: normally a no-op (afterEach resolved everything). Every
-	// attempt runs INDEPENDENTLY; the combined failures are reported only
-	// after ALL attempts.
-	const failures: string[] = [];
-	if (roleFixture !== undefined) {
-		try {
-			const report = await cleanupOwnedFixtures(roleFixture, {
-				adminActor: admin,
-				permanent: true,
-			});
-			expect(
-				report.complete,
-				"the final role-fixture cleanup must leave zero unresolved owned fixtures",
-			).toBe(true);
-		} catch (cause) {
-			failures.push(`role-fixture cleanup: ${renderFailure(cause)}`);
-		}
-	}
-	if (admin !== undefined) {
-		try {
-			const report = await cleanupOwnedFixtures(admin, { permanent: true });
-			expect(
-				report.complete,
-				"the final admin cleanup must leave zero unresolved owned fixtures",
-			).toBe(true);
-		} catch (cause) {
-			failures.push(`admin cleanup: ${renderFailure(cause)}`);
-		}
-	}
+	// Safety net: normally a no-op (afterEach resolved everything). Each step is attempted whatever
+	// the others' outcome, and the failures are reported together.
+	const failures = await cleanupRoleFixtureAndAdmin(admin, roleFixture);
 	try {
 		await deleteSyntheticTerm();
 	} catch (cause) {

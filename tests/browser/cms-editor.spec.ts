@@ -53,6 +53,7 @@ import {
 	cmsRequest,
 	configuredDevelopmentOrigin,
 	createSyntheticEntry,
+	dataOfItem,
 	devAdminActor,
 	devAdminSessionRequested,
 	nativeDataOf,
@@ -690,13 +691,6 @@ test.afterAll(async () => {
 // ---------------------------------------------------------------------------
 // Fixture preparation through the native API (task-owned, returned IDs only)
 // ---------------------------------------------------------------------------
-
-/** The data object of a native entry read (`data.item.data`). */
-function dataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
-	return item?.data !== null && typeof item?.data === "object"
-		? (item.data as Record<string, unknown>)
-		: {};
-}
 
 /** Create one task-owned synthetic facility_type term (guarded ownership). */
 async function createSyntheticFacilityTypeTerm(): Promise<{ slug: string; label: string }> {

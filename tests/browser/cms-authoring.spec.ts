@@ -53,18 +53,21 @@
 import { expect, test } from "@playwright/test";
 
 import {
+	anonymousRequest,
 	cleanupOwnedFixtures,
 	cmsRequest,
 	createSyntheticEntry,
 	CmsHelperError,
 	devAdminActor,
+	expectAuthorizationRefusal,
+	expectTargetRefusal,
+	expectValidationRefusal,
 	nativeDataOf,
 	nativeItemOf,
 	nativeRefusalOf,
 	publishEntry,
 	readEntry,
 	scheduleEntry,
-	scrubEmbeddedSecrets,
 	unscheduleEntry,
 	updateEntry,
 	uploadSyntheticMedia,
@@ -589,54 +592,6 @@ async function deleteSyntheticTerm(): Promise<void> {
 			? `${nativeRefusalOf(deletion)}; a native read still finds the term`
 			: `${nativeRefusalOf(deletion)}; ${afterRefusal.detail}`,
 	);
-}
-
-// ---------------------------------------------------------------------------
-// Shared refusal-family assertions
-// ---------------------------------------------------------------------------
-
-/**
- * A native field-validation refusal: HTTP 400 with the VALIDATION_ERROR code,
- * and explicitly NOT an authorization (401/403) or state (409) refusal — so
- * authorization and concurrency problems can never masquerade as field
- * validation outcomes (and vice versa).
- */
-function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
-	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
-		false,
-	);
-	expect(result.status, `${caseLabel}: a native validation refusal is HTTP 400`).toBe(400);
-	expect(
-		result.status === 401 || result.status === 403 || result.status === 409,
-		`${caseLabel}: a validation refusal must stay distinguishable from authorization (401/403) and state-conflict (409) failures`,
-	).toBe(false);
-	const error = result.body as { success?: unknown; error?: { code?: unknown } };
-	expect(
-		error?.error?.code,
-		`${caseLabel}: the refusal must carry the native VALIDATION_ERROR code`,
-	).toBe("VALIDATION_ERROR");
-}
-
-/**
- * A native reference-target refusal: HTTP 404 with a NOT_FOUND-family code,
- * and explicitly NOT success and NOT an authorization failure. (Pinned 1.1.0:
- * an unknown selected entry id is refused `404 NOT_FOUND` by
- * resolveReferenceSelectionTargets.)
- */
-function expectTargetRefusal(result: NativeResult, caseLabel: string): void {
-	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
-		false,
-	);
-	expect(result.status, `${caseLabel}: an unknown reference target is refused with 404`).toBe(404);
-	expect(
-		result.status === 401 || result.status === 403,
-		`${caseLabel}: a target refusal must stay distinguishable from an authorization failure`,
-	).toBe(false);
-	const error = result.body as { success?: unknown; error?: { code?: unknown } };
-	expect(
-		typeof error?.error?.code === "string" && error.error.code.includes("NOT_FOUND"),
-		`${caseLabel}: the refusal must carry a native NOT_FOUND-family code`,
-	).toBe(true);
 }
 
 // ---------------------------------------------------------------------------
@@ -1333,34 +1288,11 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 	// to in beforeAll — plus the native API path (the same on-origin
 	// discipline as the T002 helpers); no credential is sent, so nothing can
 	// leave the configured app.
-	const url = new URL(`/_emdash/api/content/${kind.collection}`, `${admin.baseUrl}/`);
-	const response = await fetch(url, {
+	const result = await anonymousRequest(admin.baseUrl, `/_emdash/api/content/${kind.collection}`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ data: { title: uniqueTitle(kind.collection) } }),
-		redirect: "error",
+		body: { data: { title: uniqueTitle(kind.collection) } },
 	});
-	let parsed: unknown;
-	try {
-		parsed = await response.json();
-	} catch {
-		parsed = { nonJsonBody: scrubEmbeddedSecrets(await response.text()) };
-	}
-	const result: NativeResult = { ok: response.ok, status: response.status, body: parsed };
-	expect(
-		result.status === 401 || result.status === 403,
-		`an unauthenticated native save must be refused by the authorization layer (401/403)`,
-	).toBe(true);
-	expect(result.ok, "an unauthenticated native save must not be reported as success").toBe(false);
-	const error = result.body as { error?: { code?: unknown } };
-	expect(
-		error?.error?.code,
-		"the authorization refusal must carry its native error code (not VALIDATION_ERROR)",
-	).toBeTruthy();
-	expect(
-		error?.error?.code,
-		"an authorization refusal must not be mistaken for a field-validation refusal",
-	).not.toBe("VALIDATION_ERROR");
+	expectAuthorizationRefusal(result, "an unauthenticated native save");
 });
 
 test("a stale _rev update is a native state conflict, distinct from validation and authorization", async () => {

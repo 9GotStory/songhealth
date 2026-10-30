@@ -36,8 +36,14 @@
 //   (src/astro/routes/api/setup/dev-bypass.ts). createDevBypassActor wraps it for a fresh
 //   install only; no suite calls it.
 //
+// - refusal checks the CMS suites share: a native validation refusal, an unresolvable reference
+//   target and an authorization refusal, with anonymousRequest for a request without a credential.
+//   They assert with Playwright's expect, which also runs outside the test runner.
+//
 // Cleanup never throws past a failed step. Each owned fixture is attempted on its own, an
 // uncertain outcome is read again, and an unresolved fixture stays registered for a later retry.
+
+import { expect } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
 // Constants and small shared types
@@ -364,6 +370,24 @@ export function nativeItemsOf(result: NativeResult): unknown[] {
 	return [];
 }
 
+/** A content item's lifecycle `status`, when the read carries one. */
+export function statusOfItem(item: Record<string, unknown> | undefined): string | undefined {
+	return typeof item?.status === "string" ? item.status : undefined;
+}
+
+/** A content item's field `data`; a drafts read answers a pending draft's values here. */
+export function dataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
+	return recordOf(item?.data);
+}
+
+/**
+ * The published values a drafts read gives as `liveData` while an entry has a pending draft
+ * (emdash 1.1.0 src/emdash-runtime.ts hydrateDraftData).
+ */
+export function liveDataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
+	return recordOf(item?.liveData);
+}
+
 function requireString(value: unknown, what: string): string {
 	if (typeof value !== "string" || value.length === 0) {
 		throw new CmsHelperError("NATIVE_SHAPE_UNEXPECTED", `native response lacked ${what}`);
@@ -610,6 +634,19 @@ export async function cmsRequest(
 	options: CmsRequestOptions = {},
 ): Promise<NativeResult> {
 	const raw = await rawRequest(actor.baseUrl, path, actor.bearerValue(), options);
+	return { ok: raw.ok, status: raw.status, body: raw.body };
+}
+
+/**
+ * One native API request without a credential, through the same core as cmsRequest: on `origin`'s
+ * /_emdash/ API only, following no redirect, and answering a refusal as a result.
+ */
+export async function anonymousRequest(
+	origin: string,
+	path: string,
+	options: CmsRequestOptions = {},
+): Promise<NativeResult> {
+	const raw = await rawRequest(origin, path, null, options);
 	return { ok: raw.ok, status: raw.status, body: raw.body };
 }
 
@@ -2333,6 +2370,87 @@ export async function cleanupOwnedFixtures(
 	registry.entries = registry.entries.filter((entry) => !resolvedEntryIds.has(entry.id));
 	registry.media = registry.media.filter((mediaId) => !resolvedMediaIds.has(mediaId));
 	return redactSecrets(report, scrubSecrets) as CleanupReport;
+}
+
+/**
+ * Clean up the role fixture's owned fixtures, under the Administrator's authority, and the
+ * Administrator's, each attempted whatever the other's outcome. Returns a line for each actor whose
+ * fixtures are not all resolved.
+ */
+export async function cleanupRoleFixtureAndAdmin(
+	admin: CmsActor | undefined,
+	roleFixture: CmsActor | undefined,
+): Promise<string[]> {
+	const failures: string[] = [];
+	for (const [label, owner] of [
+		["role-fixture", roleFixture],
+		["admin", admin],
+	] as const) {
+		if (owner === undefined) continue;
+		try {
+			const report = await cleanupOwnedFixtures(owner, { adminActor: admin, permanent: true });
+			if (!report.complete) failures.push(`${label} cleanup left: ${JSON.stringify(report)}`);
+		} catch (cause) {
+			failures.push(`${label} cleanup: ${failureText(cause)}`);
+		}
+	}
+	return failures;
+}
+
+// ---------------------------------------------------------------------------
+// Refusal checks the CMS suites share
+// ---------------------------------------------------------------------------
+
+/**
+ * Fail unless `result` is a native validation refusal, 400 VALIDATION_ERROR (emdash 1.1.0
+ * src/api/handlers/validation.ts, src/api/errors.ts mapErrorStatus), so that an authorization,
+ * missing-schema or state refusal never passes for one.
+ */
+export function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
+	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
+		false,
+	);
+	expect(result.status, `${caseLabel}: a native validation refusal is HTTP 400`).toBe(400);
+	expect(
+		nativeErrorOf(result)?.code,
+		`${caseLabel}: the refusal must carry the native VALIDATION_ERROR code`,
+	).toBe("VALIDATION_ERROR");
+}
+
+/**
+ * Fail unless `result` refuses an unresolvable reference target, 404 with a NOT_FOUND-family code
+ * (emdash 1.1.0 src/api/handlers/relations.ts resolveReferenceTargets).
+ */
+export function expectTargetRefusal(result: NativeResult, caseLabel: string): void {
+	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
+		false,
+	);
+	expect(result.status, `${caseLabel}: an unresolvable reference target is refused with 404`).toBe(
+		404,
+	);
+	const code = nativeErrorOf(result)?.code;
+	expect(
+		typeof code === "string" && code.includes("NOT_FOUND"),
+		`${caseLabel}: the refusal must carry a native NOT_FOUND-family code`,
+	).toBe(true);
+}
+
+/**
+ * Fail unless `result` is refused by the authorization layer: 401 or 403, with a native error code
+ * other than VALIDATION_ERROR (emdash 1.1.0 src/astro/middleware/auth.ts, src/api/authorize.ts).
+ * `request` names what was refused, such as "an unauthenticated native save".
+ */
+export function expectAuthorizationRefusal(result: NativeResult, request: string): void {
+	expect(
+		result.status === 401 || result.status === 403,
+		`${request} must be refused by the authorization layer (401/403)`,
+	).toBe(true);
+	expect(result.ok, `${request} must not be reported as success`).toBe(false);
+	const code = nativeErrorOf(result)?.code;
+	expect(code, "the authorization refusal must carry its native error code").toBeTruthy();
+	expect(code, "an authorization refusal must not be mistaken for a validation refusal").not.toBe(
+		"VALIDATION_ERROR",
+	);
 }
 
 // ---------------------------------------------------------------------------

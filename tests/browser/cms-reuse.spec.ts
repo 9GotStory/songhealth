@@ -58,6 +58,8 @@ import {
 	cmsRequest,
 	createSyntheticEntry,
 	devAdminActor,
+	expectTargetRefusal,
+	expectValidationRefusal,
 	nativeDataOf,
 	nativeItemOf,
 	nativeItemsOf,
@@ -72,7 +74,6 @@ import {
 	uploadSyntheticMedia,
 	SYNTHETIC_FIXTURE_MARK,
 	type CmsActor,
-	type NativeResult,
 } from "./cms.helpers";
 
 // ---------------------------------------------------------------------------
@@ -240,54 +241,6 @@ async function createOwnedDocument(): Promise<{
 // ---------------------------------------------------------------------------
 // Shared refusal-family assertions (the same contracts as T003/T007)
 // ---------------------------------------------------------------------------
-
-/**
- * A native field-validation refusal: HTTP 400 with the VALIDATION_ERROR code,
- * and explicitly NOT an authorization (401/403) or state-conflict (409)
- * refusal — so authorization and concurrency problems can never masquerade as
- * reference-validation outcomes (and vice versa).
- */
-function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
-	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
-		false,
-	);
-	expect(result.status, `${caseLabel}: a native validation refusal is HTTP 400`).toBe(400);
-	expect(
-		result.status === 401 || result.status === 403 || result.status === 409,
-		`${caseLabel}: a validation refusal must stay distinguishable from authorization (401/403) and state-conflict (409) failures`,
-	).toBe(false);
-	const error = result.body as { success?: unknown; error?: { code?: unknown } };
-	expect(
-		error?.error?.code,
-		`${caseLabel}: the refusal must carry the native VALIDATION_ERROR code`,
-	).toBe("VALIDATION_ERROR");
-}
-
-/**
- * A native reference-target refusal: HTTP 404 with a NOT_FOUND-family code,
- * and explicitly NOT success and NOT an authorization failure. (Pinned 1.1.0:
- * an unknown selected id AND a valid id belonging to another collection both
- * fail resolution inside the relation's target collection and are refused
- * `404 NOT_FOUND` by resolveReferenceTargets — the truthful "wrong target"
- * family; no separate fabricated error code is asserted.)
- */
-function expectTargetRefusal(result: NativeResult, caseLabel: string): void {
-	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
-		false,
-	);
-	expect(result.status, `${caseLabel}: an unresolvable reference target is refused with 404`).toBe(
-		404,
-	);
-	expect(
-		result.status === 401 || result.status === 403,
-		`${caseLabel}: a target refusal must stay distinguishable from an authorization failure`,
-	).toBe(false);
-	const error = result.body as { success?: unknown; error?: { code?: unknown } };
-	expect(
-		typeof error?.error?.code === "string" && error.error.code.includes("NOT_FOUND"),
-		`${caseLabel}: the refusal must carry a native NOT_FOUND-family code`,
-	).toBe(true);
-}
 
 /**
  * Read a saved selection back through the native relation children listing

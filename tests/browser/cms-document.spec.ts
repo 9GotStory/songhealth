@@ -38,17 +38,19 @@
 import { expect, test } from "@playwright/test";
 
 import {
+	anonymousRequest,
 	cleanupOwnedFixtures,
 	createSyntheticEntry,
 	cmsRequest,
 	devAdminActor,
+	expectAuthorizationRefusal,
+	expectValidationRefusal,
 	nativeItemOf,
 	readEntry,
 	updateEntry,
 	uploadSyntheticMedia,
 	SYNTHETIC_FIXTURE_MARK,
 	type CmsActor,
-	type NativeResult,
 } from "./cms.helpers";
 
 // ---------------------------------------------------------------------------
@@ -106,28 +108,6 @@ function gateDocumentsSchema(): void {
 			`the active native documents collection does not match the approved definitions: ${documentsSchema.detail}`,
 		);
 	}
-}
-
-/**
- * The shared native-validation refusal assertion. A field-validation refusal
- * is the 400 VALIDATION_ERROR envelope — and, explicitly, NOT an
- * authorization (401/403) or any other refusal family, so authorization
- * problems cannot masquerade as field-validation outcomes.
- */
-function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
-	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
-		false,
-	);
-	expect(result.status, `${caseLabel}: a native validation refusal is HTTP 400`).toBe(400);
-	expect(
-		result.status === 401 || result.status === 403,
-		`${caseLabel}: a validation refusal must stay distinguishable from an authorization failure (401/403)`,
-	).toBe(false);
-	const error = result.body as { success?: unknown; error?: { code?: unknown } };
-	expect(
-		error?.error?.code,
-		`${caseLabel}: the refusal must carry the native VALIDATION_ERROR code`,
-	).toBe("VALIDATION_ERROR");
 }
 
 // ---------------------------------------------------------------------------
@@ -631,34 +611,15 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 	// leave the configured app. Pinned 1.1.0: requirePerm answers
 	// UNAUTHORIZED 401 for an anonymous caller (FORBIDDEN 403 for an
 	// authenticated insufficient permission).
-	const url = new URL(`/_emdash/api/content/${DOCUMENT_COLLECTION}`, `${admin.baseUrl}/`);
-	const response = await fetch(url, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			data: { title: uniqueTitle(), file: fileValueFor(upload.mediaId!) },
-		}),
-		redirect: "error",
-	});
-	let parsed: unknown;
-	try {
-		parsed = await response.json();
-	} catch {
-		parsed = { nonJsonBody: await response.text() };
-	}
-	const result: NativeResult = { ok: response.ok, status: response.status, body: parsed };
-	expect(
-		result.status === 401 || result.status === 403,
-		"an unauthenticated native save must be refused by the authorization layer (401/403)",
-	).toBe(true);
-	expect(result.ok, "an unauthenticated native save must not be reported as success").toBe(false);
-	const error = result.body as { error?: { code?: unknown } };
-	expect(
-		error?.error?.code,
-		"the authorization refusal must carry its native error code (not VALIDATION_ERROR)",
-	).toBeTruthy();
-	expect(
-		error?.error?.code,
-		"an authorization refusal must not be mistaken for a field-validation refusal",
-	).not.toBe("VALIDATION_ERROR");
+	const result = await anonymousRequest(
+		admin.baseUrl,
+		`/_emdash/api/content/${DOCUMENT_COLLECTION}`,
+		{
+			method: "POST",
+			body: {
+				data: { title: uniqueTitle(), file: fileValueFor(upload.mediaId!) },
+			},
+		},
+	);
+	expectAuthorizationRefusal(result, "an unauthenticated native save");
 });

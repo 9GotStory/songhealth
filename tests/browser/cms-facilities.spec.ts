@@ -51,16 +51,20 @@
 import { expect, test } from "@playwright/test";
 
 import {
+	anonymousRequest,
 	cleanupOwnedFixtures,
 	cmsRequest,
 	createSyntheticEntry,
+	dataOfItem,
 	devAdminActor,
+	expectAuthorizationRefusal,
+	expectValidationRefusal,
+	liveDataOfItem,
 	nativeDataOf,
 	nativeItemOf,
 	nativeItemsOf,
 	publishEntry,
 	readEntry,
-	scrubEmbeddedSecrets,
 	updateEntry,
 	uploadSyntheticMedia,
 	SYNTHETIC_FIXTURE_MARK,
@@ -320,20 +324,6 @@ function gate(readiness: Readiness): void {
 			`the active native schema does not match the approved US4 definition these checks rely on: ${readiness.detail}`,
 		);
 	}
-}
-
-/** The entry's field-data object as the native read returns it, when present. */
-function dataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
-	return item?.data !== null && typeof item?.data === "object"
-		? (item.data as Record<string, unknown>)
-		: {};
-}
-
-/** The entry's published live values (`liveData`), when a drafts read exposes them. */
-function liveDataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
-	return item?.liveData !== null && typeof item?.liveData === "object"
-		? (item.liveData as Record<string, unknown>)
-		: {};
 }
 
 /**
@@ -744,36 +734,6 @@ async function deleteOwnedAreaTerms(): Promise<string[]> {
 		}
 	}
 	return unresolved;
-}
-
-// ---------------------------------------------------------------------------
-// Shared refusal-family assertion (the accepted T003/T007/T023 contract)
-// ---------------------------------------------------------------------------
-
-/**
- * A native field-validation refusal: HTTP 400 with the VALIDATION_ERROR code,
- * and explicitly NOT an authorization (401/403), missing-schema (404) or
- * state-conflict (409) refusal — so authorization, prerequisite and
- * concurrency problems can never masquerade as field-validation outcomes
- * (and vice versa).
- */
-function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
-	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
-		false,
-	);
-	expect(result.status, `${caseLabel}: a native validation refusal is HTTP 400`).toBe(400);
-	expect(
-		result.status === 401 ||
-			result.status === 403 ||
-			result.status === 404 ||
-			result.status === 409,
-		`${caseLabel}: a validation refusal must stay distinguishable from authorization (401/403), missing-schema (404) and state-conflict (409) failures`,
-	).toBe(false);
-	const error = result.body as { success?: unknown; error?: { code?: unknown } };
-	expect(
-		error?.error?.code,
-		`${caseLabel}: the refusal must carry the native VALIDATION_ERROR code`,
-	).toBe("VALIDATION_ERROR");
 }
 
 // ---------------------------------------------------------------------------
@@ -2082,34 +2042,15 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 	// the actor's origin (the runner-configured origin the actor was pinned
 	// to in beforeAll); no credential is sent, so nothing can leave the
 	// configured app.
-	const url = new URL(`/_emdash/api/content/${HEALTH_SERVICE_COLLECTION}`, `${admin.baseUrl}/`);
-	const response = await fetch(url, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ data: { title: uniqueTitle("facility-unauthenticated") } }),
-		redirect: "error",
-	});
-	let parsed: unknown;
-	try {
-		parsed = await response.json();
-	} catch {
-		parsed = { nonJsonBody: scrubEmbeddedSecrets(await response.text()) };
-	}
-	const result: NativeResult = { ok: response.ok, status: response.status, body: parsed };
-	expect(
-		result.status === 401 || result.status === 403,
-		"an unauthenticated native save must be refused by the authorization layer (401/403)",
-	).toBe(true);
-	expect(result.ok, "an unauthenticated native save must not be reported as success").toBe(false);
-	const error = result.body as { error?: { code?: unknown } };
-	expect(
-		error?.error?.code,
-		"the authorization refusal must carry its native error code (not VALIDATION_ERROR)",
-	).toBeTruthy();
-	expect(
-		error?.error?.code,
-		"an authorization refusal must not be mistaken for a field-validation refusal",
-	).not.toBe("VALIDATION_ERROR");
+	const result = await anonymousRequest(
+		admin.baseUrl,
+		`/_emdash/api/content/${HEALTH_SERVICE_COLLECTION}`,
+		{
+			method: "POST",
+			body: { data: { title: uniqueTitle("facility-unauthenticated") } },
+		},
+	);
+	expectAuthorizationRefusal(result, "an unauthenticated native save");
 });
 
 test("a stale _rev facility update is a native state conflict, distinct from validation and authorization", async () => {

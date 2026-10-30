@@ -52,12 +52,15 @@
 import { expect, test } from "@playwright/test";
 
 import {
+	anonymousRequest,
 	cleanupOwnedFixtures,
+	cleanupRoleFixtureAndAdmin,
 	cmsRequest,
 	createSyntheticEntry,
 	currentRev,
 	deleteMedia,
 	devAdminActor,
+	expectAuthorizationRefusal,
 	findTrashedEntry,
 	getMe,
 	getUser,
@@ -76,6 +79,7 @@ import {
 	roleFixtureActor,
 	scheduleEntry,
 	setUserRole,
+	statusOfItem,
 	trashEntry,
 	unpublishEntry,
 	unscheduleEntry,
@@ -200,11 +204,6 @@ function gateRoleFixture(): CmsActor {
 		`set ${ROLE_FIXTURE_CREDENTIAL_ENV} to the role fixture PAT`,
 	);
 	return roleFixture!;
-}
-
-/** The entry's lifecycle status as the native read returns it, when present. */
-function statusOfItem(item: Record<string, unknown> | undefined): string | undefined {
-	return typeof item?.status === "string" ? item.status : undefined;
 }
 
 /** Parse a native datetime field into an epoch instant, or null. */
@@ -602,39 +601,10 @@ test.afterEach(async () => {
 });
 
 test.afterAll(async () => {
-	// Safety net: normally a no-op (afterEach resolved everything). Every
-	// reconciliation attempt runs INDEPENDENTLY — role-fixture cleanup, admin
-	// cleanup, then the fixture-account state — so a failed cleanup assertion
-	// can never prevent the account reconciliation (corrective round 1, F2);
-	// the combined failures are reported only after ALL attempts.
-	const failures: string[] = [];
-	if (roleFixture !== undefined) {
-		try {
-			const report = await cleanupOwnedFixtures(roleFixture, {
-				adminActor: admin,
-				permanent: true,
-			});
-			expect(
-				report.complete,
-				"the final role-fixture cleanup must leave zero unresolved owned fixtures",
-			).toBe(true);
-		} catch (cause) {
-			failures.push(
-				`role-fixture cleanup: ${cause instanceof Error ? cause.message : String(cause)}`,
-			);
-		}
-	}
-	if (admin !== undefined) {
-		try {
-			const report = await cleanupOwnedFixtures(admin, { permanent: true });
-			expect(
-				report.complete,
-				"the final admin cleanup must leave zero unresolved owned fixtures",
-			).toBe(true);
-		} catch (cause) {
-			failures.push(`admin cleanup: ${cause instanceof Error ? cause.message : String(cause)}`);
-		}
-	}
+	// Safety net: normally a no-op (afterEach resolved everything). The role fixture's cleanup, the
+	// Administrator's and the account's reconciliation are each attempted whatever the others'
+	// outcome, and the failures are reported together.
+	const failures = await cleanupRoleFixtureAndAdmin(admin, roleFixture);
 	// Reconcile the possibly-mutated fixture account (disabled state and role,
 	// repaired to the captured original and verified by re-read) so an
 	// interrupted phase cannot strand it silently.
@@ -1078,36 +1048,11 @@ test("unauthenticated lifecycle requests are authorization refusals, never valid
 	// T003/T007 control shape). The URL is built from the actor's origin —
 	// the runner-configured origin the actor was pinned to in beforeAll; no
 	// credential is sent, so nothing can leave the configured app.
-	const url = new URL(`/_emdash/api/content/${PAGES_COLLECTION}`, `${admin.baseUrl}/`);
-	const response = await fetch(url, {
+	const result = await anonymousRequest(admin.baseUrl, `/_emdash/api/content/${PAGES_COLLECTION}`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ data: { title: uniqueTitle("unauthenticated") } }),
-		redirect: "error",
+		body: { data: { title: uniqueTitle("unauthenticated") } },
 	});
-	let parsed: unknown;
-	try {
-		parsed = await response.json();
-	} catch {
-		parsed = { nonJsonBody: await response.text() };
-	}
-	const result: NativeResult = { ok: response.ok, status: response.status, body: parsed };
-	expect(
-		result.status === 401 || result.status === 403,
-		"an unauthenticated native request must be refused by the authorization layer (401/403)",
-	).toBe(true);
-	expect(result.ok, "an unauthenticated native request must not be reported as success").toBe(
-		false,
-	);
-	const error = result.body as { error?: { code?: unknown } };
-	expect(
-		error?.error?.code,
-		"the authorization refusal must carry its native error code",
-	).toBeTruthy();
-	expect(
-		error?.error?.code,
-		"an authorization refusal must not be mistaken for a validation refusal",
-	).not.toBe("VALIDATION_ERROR");
+	expectAuthorizationRefusal(result, "an unauthenticated native request");
 });
 
 // ---------------------------------------------------------------------------
