@@ -24,7 +24,7 @@
 //
 // An inner page passes its own crumbs, and the shell shows its breadcrumb above
 // the page's main content: หน้าแรก and the page's section, then those crumbs
-// (src/lib/navigation.ts breadcrumb).
+// (src/lib/navigation.ts breadcrumbTrail).
 //
 // The footer links to the reserved Basic Pages `privacy` and `accessibility`
 // while they are published, before ติดต่อเรา (src/lib/basic-pages.ts). Above
@@ -39,7 +39,7 @@ import ContentLink from "../components/ContentLink.astro";
 import {
 	MAIN_NAVIGATION,
 	UTILITY_LINKS,
-	breadcrumb,
+	breadcrumbTrail,
 	currentMark,
 	type Crumb,
 	type NavigationSection,
@@ -59,8 +59,8 @@ interface Props {
 	canonical?: string;
 	/**
 	 * The page's own crumbs, after หน้าแรก and its section: any page between the section and this
-	 * one, then this page's title. A section's landing page passes none (`[]`), and its breadcrumb
-	 * ends at the section. A page that passes no crumbs at all has no breadcrumb.
+	 * one, then this page's title. A section's landing page passes an empty list, and its
+	 * breadcrumb ends at the section. A page that omits `crumbs` has no breadcrumb.
 	 */
 	crumbs?: Crumb[];
 	/** The content entry the page renders, by its database id and slug. */
@@ -236,7 +236,7 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 		<main id="main" tabindex="-1" class="flex-1">
 			{crumbs && (
 				<div class="page-container pt-6">
-					<Breadcrumb items={breadcrumb(section, crumbs)} />
+					<Breadcrumb items={breadcrumbTrail(section, crumbs)} />
 				</div>
 			)}
 			<slot />

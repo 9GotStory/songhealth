@@ -89,7 +89,7 @@ const CONTENT_PAGE_SIZE = 12;
 /** The fixed number of Health Reports a list page shows. */
 const REPORTS_PAGE_SIZE = 20;
 
-/** Each area's crumb, which its own pages pass through after the section's. */
+// Each area's crumb, which its own pages pass through after the section's.
 const CONTENT_CRUMB = ["ความรู้สุขภาพ", "/health/content"] as const;
 const REPORTS_CRUMB = ["รายงานสุขภาพ", "/health/reports"] as const;
 

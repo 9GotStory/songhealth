@@ -3,11 +3,14 @@
 //
 // - MAIN_NAVIGATION is `03` §2 in order. Each page names the section it belongs
 //   to, and the shell marks that item as current. The section is declared by
-//   the page, not derived from URL segments (`03` §14). A section whose module
-//   names its title or address takes them from there.
+//   the page, not derived from URL segments (`03` §14). About, Services and
+//   Health Information take their address, and About and Health Information
+//   their title, from the constants their own modules export for their pages.
 // - UTILITY_LINKS are the `03` §2 utility items.
 // - The breadcrumb leads with หน้าแรก and the page's section, both taken from
-//   MAIN_NAVIGATION, so no page writes them (`03` §14).
+//   MAIN_NAVIGATION, so no page writes them (`03` §14). EmDash 1.1.0 builds and
+//   renders none; its page context only carries a trail for SEO plugins
+//   (docs/agents/emdash-1.1.0.md "Head, settings, menus, sitemap").
 import { ABOUT_PATH, ABOUT_TITLE } from "./about";
 import { HEALTH_PATH, HEALTH_TITLE } from "./health";
 import { SERVICES_PATH } from "./service-catalog";
@@ -49,13 +52,18 @@ export function currentMark(
 }
 
 /**
- * An inner page's breadcrumb, root first: หน้าแรก, the page's section when it has one, then the
- * page's own `crumbs`, which end with its title. The last crumb is the current page and has no
- * address, so a section's landing page, which has no crumbs of its own, ends at the section.
+ * An inner page's breadcrumb, root first: หน้าแรก, which leads MAIN_NAVIGATION, the page's section
+ * when it has one, then the page's own `crumbs`, which end with its title. The last crumb is the
+ * current page and has no address, so a section's landing page, which has no crumbs of its own,
+ * ends at the section.
  */
-export function breadcrumb(section: NavigationSection | undefined, crumbs: Crumb[]): Crumb[] {
-	const [home, ...sections] = MAIN_NAVIGATION;
-	const trail: Crumb[] = [home, ...sections.filter((item) => item.section === section), ...crumbs];
+export function breadcrumbTrail(section: NavigationSection | undefined, crumbs: Crumb[]): Crumb[] {
+	const [home, ...sectionItems] = MAIN_NAVIGATION;
+	const trail: Crumb[] = [
+		home,
+		...sectionItems.filter((item) => item.section === section),
+		...crumbs,
+	];
 	return trail.map(({ label, href }, index) =>
 		index === trail.length - 1 ? { label } : { label, href },
 	);

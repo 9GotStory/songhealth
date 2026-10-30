@@ -144,6 +144,11 @@ checks that every cited file exists. When the pinned version changes, re-verify 
   and titleAttr, and does not check publication (`src/api/schemas/menus.ts`, `src/menus/index.ts`).
   `resolveEmDashPath` maps a URL back to its entry (`src/query.ts`).
 - The sitemap lists routable collections with SEO enabled (`src/api/handlers/seo.ts`).
+- EmDash builds and renders no breadcrumb. `createPublicPageContext` takes an optional
+  `breadcrumbs` trail (`{ name, url }` items, root first), which plugins' page hooks receive, so an
+  SEO plugin can emit a `BreadcrumbList` from it: `[]` means the page has none, and an omitted
+  field lets the plugin derive its own. Nothing in core reads it (`src/page/context.ts`,
+  `src/plugins/types.ts` `PublicPageContext`).
 
 ## Plugins and plugin settings
 
