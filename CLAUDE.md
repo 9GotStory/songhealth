@@ -52,8 +52,8 @@ The feedback loop for `/implement` and `/tdd` (Node 24.21.0, npm 12.2.0):
 - `npm run typecheck`;
 - `npm run test:node`;
 - `npm run build:check` when a page, the layout or the Astro config changes;
-- `npm run format` and `npm run knip` before each commit, and `npm run lint:shell` when a shell
-  script changes;
+- each commit passes `.githooks/pre-commit` (once per clone: `git config core.hooksPath .githooks`);
+  `npm run format` fixes what it reports;
 - the browser suites against the development runtime, through `scripts/dev-runtime-env.sh`
   (`README.md`); the public-read suite runs through `tests/browser/run-cms-public-reads.mjs`.
 
