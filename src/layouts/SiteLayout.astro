@@ -28,7 +28,7 @@
 // The footer links to the reserved Basic Pages `privacy` and `accessibility`
 // while they are published, before ติดต่อเรา (src/lib/basic-pages.ts). Above
 // them it lists the official channels that are set (#62,
-// src/lib/office-contact.ts), each a link to another website.
+// src/lib/office-contact.ts), each a compact link to another website.
 import { Font } from "astro:assets";
 import { createPublicPageContext } from "emdash/page";
 import { EmDashHead } from "emdash/ui";
@@ -249,7 +249,11 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 							<ul aria-labelledby="footer-channels" class="flex flex-wrap gap-x-6 gap-y-2">
 								{channels.map((channel) => (
 									<li>
-										<ContentLink class="underline-offset-4 hover:underline" href={channel.href}>
+										<ContentLink
+											compact
+											class="underline-offset-4 hover:underline"
+											href={channel.href}
+										>
 											{channel.label}
 										</ContentLink>
 									</li>
