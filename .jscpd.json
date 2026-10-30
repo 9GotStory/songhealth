@@ -1,6 +1,6 @@
 {
 	"//": [
-		"The duplicate-code check (#93): `npm run jscpd`, run by CI on every pull request. A clone of at least 100 tokens over at least 5 lines that .jscpd-baseline.json does not hold fails it (failOnNewClones 0). That includes a new copy of a clone listed below, and an edit inside one.",
+		"The duplicate-code check (#93): `npm run jscpd`, run by CI on every pull request. A clone of at least 100 tokens over at least 5 lines that .jscpd-baseline.json does not hold fails it (failOnNewClones 0). That includes a new copy of a clone listed below, and an edit inside one. The baseline and the size are the Product Owner's choice (2026-10-30, #93 comment 6522507876).",
 		"A clone that stays is listed below with its reason and recorded with `npx jscpd --config .jscpd.json --update-baseline`. Fold any other clone into a shared module (CODING_STANDARDS.md \"Tests\" names the browser suites' two). After a fold, `npm run jscpd` records the baseline again and fails until that change is committed, so no stale entry lets a copy of the folded code back in; drop its line here too.",
 		"The script passes --config: jscpd 5.4.1 only warns when a config file it finds by itself does not parse, then runs with its defaults. This file is plain JSON; `//` is the comment key jscpd drops (rust/crates/cpd/src/cli.rs normalize_v4_config).",
 		"Not scanned: .git/, and docs/, specs/ and seed/, which hold prose, records and data. Dependencies and build output stay out through .gitignore.",
