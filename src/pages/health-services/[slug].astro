@@ -25,7 +25,7 @@ import { directoryPath, healthServicePath, shownName } from "../../lib/health-se
 import type { HealthServiceData } from "../../lib/health-services";
 import { mapHref } from "../../lib/map-link";
 import { REFERENCES_LIMIT } from "../../lib/references";
-import { servicePath, servicesPath } from "../../lib/service-catalog";
+import { servicePath } from "../../lib/service-catalog";
 import { termsOf } from "../../lib/terms";
 
 const slug = Astro.params.slug ?? "";
@@ -65,12 +65,7 @@ const hasDetails =
 	section="services"
 	description={`ที่อยู่ เวลาทำการ ช่องทางติดต่อ และบริการของ ${name}`}
 	canonical={healthServicePath(entry.id)}
-	breadcrumbs={[
-		{ label: "หน้าแรก", href: "/" },
-		{ label: "บริการประชาชน", href: servicesPath() },
-		{ label: "หน่วยบริการสุขภาพที่เกี่ยวข้อง", href: directoryPath() },
-		{ label: name },
-	]}
+	crumbs={[{ label: "หน่วยบริการสุขภาพที่เกี่ยวข้อง", href: directoryPath() }, { label: name }]}
 	entry={{
 		collection: "health_services",
 		id: healthService.id,

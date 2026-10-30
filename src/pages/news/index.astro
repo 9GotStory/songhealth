@@ -24,7 +24,7 @@ const listUrl = new URL("/news", Astro.url);
 	section="news"
 	description={lead}
 	canonical={pageHref(listUrl, page)}
-	breadcrumbs={[{ label: "หน้าแรก", href: "/" }, { label: title }]}
+	crumbs={[]}
 >
 	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 		<PageHeading title={title} lead={lead}>

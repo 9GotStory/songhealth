@@ -48,10 +48,13 @@ import {
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
+	HOME_CRUMB,
 	MOBILE_VIEWPORT,
+	SECTION_CRUMBS,
 	VIEWPORTS,
 	detailOf,
 	expect,
+	expectBreadcrumb,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectSiteNotFound,
@@ -137,9 +140,7 @@ test("/documents lists only published Documents, newest first, each row with its
 	await expect(
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "เอกสารเผยแพร่" }),
 	).toHaveAttribute("aria-current", "page");
-	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
-	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก"]);
-	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText("เอกสารเผยแพร่");
+	await expectBreadcrumb(page, [HOME_CRUMB], "เอกสารเผยแพร่");
 
 	expect(
 		ownTitles(await listedTitles(page), [older, newer, draft, unpublished, trashed]),
@@ -381,13 +382,7 @@ test("a Document page shows its details, its file for download at EmDash's media
 	expect(served.headers()["content-type"]).toBe("application/pdf");
 	expect((await served.body()).length).toBe(SYNTHETIC_PDF_BYTES);
 
-	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
-	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก", "เอกสารเผยแพร่"]);
-	await expect(breadcrumb.getByRole("link", { name: "เอกสารเผยแพร่" })).toHaveAttribute(
-		"href",
-		"/documents",
-	);
-	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(document.title);
+	await expectBreadcrumb(page, [HOME_CRUMB, SECTION_CRUMBS.documents], document.title);
 	await expect(
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "เอกสารเผยแพร่" }),
 	).toHaveAttribute("aria-current", "true");

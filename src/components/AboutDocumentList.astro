@@ -5,7 +5,7 @@
 // string. /about/policies, /about/plans and /about/results each render it for their type
 // (src/lib/about.ts).
 import SiteLayout from "../layouts/SiteLayout.astro";
-import { ABOUT_PATH, ABOUT_TITLE, type AboutDocumentList } from "../lib/about";
+import type { AboutDocumentList } from "../lib/about";
 import { listDocuments } from "../lib/documents";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../lib/pagination";
 import DocumentRow from "./DocumentRow.astro";
@@ -28,11 +28,7 @@ const listUrl = new URL(list.path, Astro.url);
 	section="about"
 	description={list.lead}
 	canonical={pageHref(listUrl, page)}
-	breadcrumbs={[
-		{ label: "หน้าแรก", href: "/" },
-		{ label: ABOUT_TITLE, href: ABOUT_PATH },
-		{ label: list.title },
-	]}
+	crumbs={[{ label: list.title }]}
 >
 	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 		<PageHeading title={list.title} lead={list.lead} />

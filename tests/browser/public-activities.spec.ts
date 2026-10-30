@@ -44,10 +44,13 @@ import {
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
+	HOME_CRUMB,
 	MOBILE_VIEWPORT,
+	SECTION_CRUMBS,
 	VIEWPORTS,
 	detailOf,
 	expect,
+	expectBreadcrumb,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectSiteNotFound,
@@ -128,10 +131,7 @@ test("/activities lists only published Activities, the most recently held first,
 	await expect(
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "ข่าวสาร" }),
 	).toHaveAttribute("aria-current", "true");
-	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
-	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก", "ข่าวสาร"]);
-	await expect(breadcrumb.getByRole("link", { name: "ข่าวสาร" })).toHaveAttribute("href", "/news");
-	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText("กิจกรรม");
+	await expectBreadcrumb(page, [HOME_CRUMB, SECTION_CRUMBS.news], "กิจกรรม");
 
 	expect(
 		ownTitles(await listedTitles(page), [
@@ -293,13 +293,11 @@ test("an Activity page shows its date, place, description, participants, picture
 	await expect(figures.nth(1).locator("figcaption")).toHaveCount(0);
 	await expect(gallery.getByText("ภาพที่ไม่มีแล้ว")).toHaveCount(0);
 
-	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
-	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก", "ข่าวสาร", "กิจกรรม"]);
-	await expect(breadcrumb.getByRole("link", { name: "กิจกรรม" })).toHaveAttribute(
-		"href",
-		"/activities",
+	await expectBreadcrumb(
+		page,
+		[HOME_CRUMB, SECTION_CRUMBS.news, ["กิจกรรม", "/activities"]],
+		activity.title,
 	);
-	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(activity.title);
 	await expect(
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "ข่าวสาร" }),
 	).toHaveAttribute("aria-current", "true");

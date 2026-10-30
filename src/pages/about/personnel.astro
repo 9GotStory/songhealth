@@ -9,7 +9,7 @@ import EmptyState from "../../components/EmptyState.astro";
 import PageHeading from "../../components/PageHeading.astro";
 import PersonCard from "../../components/PersonCard.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { ABOUT_PATH, ABOUT_TITLE, PERSONNEL_PAGE } from "../../lib/about";
+import { PERSONNEL_PAGE } from "../../lib/about";
 import { listPersonnelByUnit } from "../../lib/personnel";
 
 /** The heading of the Personnel whose unit is not set. */
@@ -24,11 +24,7 @@ const groups = await listPersonnelByUnit();
 	section="about"
 	description={lead}
 	canonical={path}
-	breadcrumbs={[
-		{ label: "หน้าแรก", href: "/" },
-		{ label: ABOUT_TITLE, href: ABOUT_PATH },
-		{ label: title },
-	]}
+	crumbs={[{ label: title }]}
 >
 	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 		<PageHeading title={title} lead={lead} />

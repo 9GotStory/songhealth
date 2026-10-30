@@ -26,6 +26,3 @@ export const HEALTH_AREAS = [
 	{ label: HEALTH_CONTENT_TITLE, href: HEALTH_CONTENT_PATH },
 	{ label: HEALTH_REPORTS_TITLE, href: HEALTH_REPORTS_PATH },
 ] as const;
-
-/** The breadcrumb's crumb for the hub, which every page of the section passes through. */
-export const HEALTH_CRUMB = { label: HEALTH_TITLE, href: HEALTH_PATH };

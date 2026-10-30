@@ -66,6 +66,7 @@ import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
 	MOBILE_VIEWPORT,
+	SECTION_CRUMBS,
 	VIEWPORTS,
 	detailOf,
 	expect,
@@ -88,8 +89,7 @@ const CONTENT_PAGE_SIZE = 12;
 /** The fixed number of Health Reports a list page shows. */
 const REPORTS_PAGE_SIZE = 20;
 
-/** The hub's crumb, which every Health Information page passes through. */
-const HEALTH_CRUMB = ["ข้อมูลสุขภาพ", "/health"] as const;
+// Each area's crumb, which its own pages pass through after the section's.
 const CONTENT_CRUMB = ["ความรู้สุขภาพ", "/health/content"] as const;
 const REPORTS_CRUMB = ["รายงานสุขภาพ", "/health/reports"] as const;
 
@@ -200,7 +200,7 @@ test("/health/content lists only published Health Content, newest first, each wi
 	expect(response?.status(), "GET /health/content").toBe(200);
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText("ความรู้สุขภาพ");
 	await expect(healthNavItem(page)).toHaveAttribute("aria-current", "true");
-	await expectBreadcrumb(page, [HOME_CRUMB, HEALTH_CRUMB], "ความรู้สุขภาพ");
+	await expectBreadcrumb(page, [HOME_CRUMB, SECTION_CRUMBS.health], "ความรู้สุขภาพ");
 	expect(ownTitles(await listedTitles(page), all), "published only, newest first").toEqual([
 		newer.title,
 		older.title,
@@ -328,7 +328,7 @@ test("a Health Content page shows its topics, source, last review date, picture 
 	}
 	await expectImageLoaded(main.getByRole("img", { name: alt }), "the picture");
 	await expect(healthNavItem(page)).toHaveAttribute("aria-current", "true");
-	await expectBreadcrumb(page, [HOME_CRUMB, HEALTH_CRUMB, CONTENT_CRUMB], content.title);
+	await expectBreadcrumb(page, [HOME_CRUMB, SECTION_CRUMBS.health, CONTENT_CRUMB], content.title);
 	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
 		"href",
 		`${origin}/health/content/${content.slug}`,
@@ -426,7 +426,7 @@ test("/health/reports lists only published Health Reports by report date, an und
 	expect(response?.status(), "GET /health/reports").toBe(200);
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText("รายงานสุขภาพ");
 	await expect(healthNavItem(page)).toHaveAttribute("aria-current", "true");
-	await expectBreadcrumb(page, [HOME_CRUMB, HEALTH_CRUMB], "รายงานสุขภาพ");
+	await expectBreadcrumb(page, [HOME_CRUMB, SECTION_CRUMBS.health], "รายงานสุขภาพ");
 	expect(
 		ownTitles(await listedTitles(page), [
 			september,
@@ -550,7 +550,7 @@ test("a Health Report page shows its summary, type, report date, reporting perio
 	await expect(download).toContainText("PDF, 2 KB");
 
 	await expect(healthNavItem(page)).toHaveAttribute("aria-current", "true");
-	await expectBreadcrumb(page, [HOME_CRUMB, HEALTH_CRUMB, REPORTS_CRUMB], report.title);
+	await expectBreadcrumb(page, [HOME_CRUMB, SECTION_CRUMBS.health, REPORTS_CRUMB], report.title);
 	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
 		"href",
 		`${origin}/health/reports/${report.slug}`,

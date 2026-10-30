@@ -5,8 +5,8 @@
 // It renders the reserved Basic Page `about` (src/lib/basic-pages.ts), then links to every About
 // sub-page (src/lib/about.ts). Without a published `about` page it still answers, titled
 // เกี่ยวกับเรา with only the links, so the About section always has its landing page. A draft opens
-// here only through its signed preview link, which /pages/about passes on. The breadcrumb names the
-// section, เกี่ยวกับเรา, whatever the page's title, as the sub-pages' breadcrumbs do.
+// here only through its signed preview link, which /pages/about passes on. As the section's
+// landing page, its breadcrumb ends at the section, เกี่ยวกับเรา, whatever the page's title.
 import BasicPageContent from "../../components/BasicPageContent.astro";
 import DetailSection from "../../components/DetailSection.astro";
 import PageHeading from "../../components/PageHeading.astro";
@@ -29,7 +29,7 @@ const title = data?.title ?? ABOUT_TITLE;
 	section="about"
 	description={data?.summary || DESCRIPTION}
 	canonical={basicPagePath("about")}
-	breadcrumbs={[{ label: "หน้าแรก", href: "/" }, { label: ABOUT_TITLE }]}
+	crumbs={[]}
 	entry={
 		page && {
 			collection: "pages",

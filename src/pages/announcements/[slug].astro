@@ -68,12 +68,7 @@ const hasDetails =
 	section="news"
 	description={description || undefined}
 	canonical={announcementPath(entry.id)}
-	breadcrumbs={[
-		{ label: "หน้าแรก", href: "/" },
-		{ label: "ข่าวสาร", href: "/news" },
-		{ label: "ประกาศ", href: ANNOUNCEMENTS_PATH },
-		{ label: announcement.title },
-	]}
+	crumbs={[{ label: "ประกาศ", href: ANNOUNCEMENTS_PATH }, { label: announcement.title }]}
 	entry={{
 		collection: "announcements",
 		id: announcement.id,

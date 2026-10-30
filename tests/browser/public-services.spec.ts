@@ -49,10 +49,13 @@ import {
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
+	HOME_CRUMB,
 	MOBILE_VIEWPORT,
+	SECTION_CRUMBS,
 	VIEWPORTS,
 	detailOf,
 	expect,
+	expectBreadcrumb,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectSiteNotFound,
@@ -133,9 +136,7 @@ test("/services lists only published Services by name, each with its summary and
 	await expect(
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "บริการประชาชน" }),
 	).toHaveAttribute("aria-current", "page");
-	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
-	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก"]);
-	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText("บริการประชาชน");
+	await expectBreadcrumb(page, [HOME_CRUMB], "บริการประชาชน");
 
 	expect(
 		ownTitles(await listedTitles(page), [first, middle, last, draft, unpublished, trashed]),
@@ -320,13 +321,9 @@ test("a Service page says who actually provides it, in plain Thai, for each owne
 		}
 	}
 
-	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
-	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก", "บริการประชาชน"]);
-	await expect(breadcrumb.getByRole("link", { name: "บริการประชาชน" })).toHaveAttribute(
-		"href",
-		"/services",
-	);
-	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(
+	await expectBreadcrumb(
+		page,
+		[HOME_CRUMB, SECTION_CRUMBS.services],
 		fixtures.at(-1)!.service.title,
 	);
 	await expect(

@@ -23,7 +23,6 @@ import {
 } from "../../lib/health-service-directory";
 import { listHealthServices } from "../../lib/health-services";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
-import { servicesPath } from "../../lib/service-catalog";
 
 const title = "หน่วยบริการสุขภาพที่เกี่ยวข้อง";
 const lead =
@@ -39,11 +38,7 @@ const listUrl = new URL(directoryPath(filters), Astro.url);
 	section="services"
 	description={lead}
 	canonical={pageHref(listUrl, page)}
-	breadcrumbs={[
-		{ label: "หน้าแรก", href: "/" },
-		{ label: "บริการประชาชน", href: servicesPath() },
-		{ label: title },
-	]}
+	crumbs={[{ label: title }]}
 >
 	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 		<PageHeading title={title} lead={lead} />

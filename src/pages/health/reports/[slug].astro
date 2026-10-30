@@ -26,7 +26,7 @@ import DocumentRow from "../../../components/DocumentRow.astro";
 import UnavailableNotice from "../../../components/UnavailableNotice.astro";
 import SiteLayout from "../../../layouts/SiteLayout.astro";
 import { documentsById } from "../../../lib/documents";
-import { HEALTH_CRUMB, HEALTH_REPORTS_PATH, HEALTH_REPORTS_TITLE } from "../../../lib/health";
+import { HEALTH_REPORTS_PATH, HEALTH_REPORTS_TITLE } from "../../../lib/health";
 import { healthReportPath, type HealthReportData } from "../../../lib/health-reports";
 import { targetIds } from "../../../lib/references";
 import { termsOf } from "../../../lib/terms";
@@ -56,12 +56,7 @@ const hasDetails =
 	section="health"
 	description={report.summary ?? undefined}
 	canonical={healthReportPath(entry.id)}
-	breadcrumbs={[
-		{ label: "หน้าแรก", href: "/" },
-		HEALTH_CRUMB,
-		{ label: HEALTH_REPORTS_TITLE, href: HEALTH_REPORTS_PATH },
-		{ label: report.title },
-	]}
+	crumbs={[{ label: HEALTH_REPORTS_TITLE, href: HEALTH_REPORTS_PATH }, { label: report.title }]}
 	entry={{
 		collection: "health_reports",
 		id: report.id,

@@ -30,7 +30,7 @@ const data = entry.data;
 	title={data.seo?.title || data.title}
 	description={data.summary ?? undefined}
 	canonical={basicPagePath(entry.id)}
-	breadcrumbs={[{ label: "หน้าแรก", href: "/" }, { label: data.title }]}
+	crumbs={[{ label: data.title }]}
 	entry={{ collection: "pages", id: data.id, slug: entry.id, publishedAt: data.publishedAt }}
 	noindex={isPreview}
 >
