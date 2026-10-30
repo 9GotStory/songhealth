@@ -212,7 +212,9 @@ content model from the model-update step:
     that puts the collection in the native sitemap;
   - whether it is routable;
   - its fields: it creates the seed's fields that the collection lacks, such as Personnel's
-    `leadership_order`, and removes none.
+    `leadership_order`, and removes none. A new seed field also joins the approved field list of
+    the Feature 002 suite that allow-lists that collection (`tests/browser/cms-personnel.spec.ts`,
+    `cms-facilities.spec.ts`), or that suite fails on the unexpected field.
 
   For each taxonomy the seed gives reference terms, such as the Document Types `policy`, `plan` and
   `result` that the About pages list by, it adds the terms whose slug the taxonomy lacks. A term

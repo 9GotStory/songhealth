@@ -48,6 +48,7 @@ import {
 	VIEWPORTS,
 	expect,
 	expectAboutSubpage,
+	expectImageLoaded,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectSiteNotFound,
@@ -305,15 +306,7 @@ test("each person shows their profile image, prefix and name, position and unit,
 		await expect(card.getByRole("heading"), `${path}: the prefix leads the name`).toHaveText(
 			`นาย${withContact.displayName}`,
 		);
-		const picture = card.locator("img");
-		await expect(picture, `${path}: the profile image`).toBeVisible();
-		await expect
-			.poll(
-				() =>
-					picture.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0),
-				{ message: `${path}: the profile image loads` },
-			)
-			.toBe(true);
+		await expectImageLoaded(card.locator("img"), `${path}: the profile image`);
 		await expect(card).toContainText(position);
 		await expect(card).toContainText(CONTACT_LABEL);
 		for (const line of contact) await expect(card.getByText(line)).toBeVisible();

@@ -5,6 +5,8 @@
 //   scripts/dev-runtime-env.sh \
 //     node scripts/capture-with-fixtures.ts scripts/screenshot-fixtures/<name>.ts <out-dir>
 //
+// scripts/evidence-branch.sh then puts the screenshots on an image-only branch for the PR.
+//
 // A fixtures module's default export receives a FixtureKit and returns the paths to capture. A
 // path with a synthetic slug comes with a name, which names its screenshot files.
 // Titles start with "[ตัวอย่าง]", like the demo dataset.

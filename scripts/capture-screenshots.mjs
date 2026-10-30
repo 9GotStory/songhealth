@@ -8,15 +8,9 @@
 // open. The origin is PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324. Pages are read
 // anonymously, with no credential.
 //
-// To show the images in a pull request without adding them to the code tree, commit
-// them on an image-only branch and embed
-// `https://github.com/9GotStory/songhealth/blob/<commit>/<file>?raw=true`:
-//
-//   tree=$(for f in <out-dir>/*.png; do
-//     printf '100644 blob %s\t%s\n' "$(git hash-object -w "$f")" "$(basename "$f")"
-//   done | git mktree)
-//   commit=$(git commit-tree "$tree" -m "evidence: <ticket> screenshots")
-//   git push origin "$commit:refs/heads/evidence/<ticket>-screenshots"
+// To show the images in a pull request without adding them to the code tree, put them on an
+// image-only branch with scripts/evidence-branch.sh <ticket> <out-dir>, which prints how to push
+// and embed them.
 
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";

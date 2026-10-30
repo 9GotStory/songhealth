@@ -56,6 +56,7 @@ import {
 	MOBILE_VIEWPORT,
 	VIEWPORTS,
 	expect,
+	expectImageLoaded,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectSiteNotFound,
@@ -350,14 +351,12 @@ test("a News page shows its title, Thai date, category, topics, image with its a
 	await expect(main.getByText(bodyText)).toBeVisible();
 
 	const image = main.getByRole("img", { name: alt });
-	await expect(image).toBeVisible();
+	await expectImageLoaded(image, "the image");
 	const sizing = await image.evaluate((element: HTMLImageElement) => ({
-		loaded: element.complete && element.naturalWidth > 0,
 		width: element.getAttribute("width"),
 		height: element.getAttribute("height"),
 		fits: element.getBoundingClientRect().width <= (element.closest("main")?.clientWidth ?? 0),
 	}));
-	expect(sizing.loaded, "the image loads").toBe(true);
 	expect(sizing.width, "the image declares its width").toBeTruthy();
 	expect(sizing.height, "the image declares its height").toBeTruthy();
 	expect(sizing.fits, "the image fits the page").toBe(true);

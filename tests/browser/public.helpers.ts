@@ -23,7 +23,7 @@
 // lists each failed rule with the nodes it failed on.
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test as base, type Page } from "@playwright/test";
+import { expect, test as base, type Locator, type Page } from "@playwright/test";
 
 import {
 	cmsRequest,
@@ -200,6 +200,21 @@ export async function expectAboutSubpage(page: Page, path: string, current: stri
 		"href",
 		`${new URL(page.url()).origin}${path}`,
 	);
+}
+
+/**
+ * Fail unless `image` is visible and its file has loaded. A lazy image starts loading only as it
+ * nears the viewport, which can be after the page's load event, so the check waits for it.
+ */
+export async function expectImageLoaded(image: Locator, label: string): Promise<void> {
+	await expect(image, label).toBeVisible();
+	await expect
+		.poll(
+			() =>
+				image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0),
+			{ message: `${label} loads` },
+		)
+		.toBe(true);
 }
 
 /** The titles of the cards or rows a list page shows, in order. */
