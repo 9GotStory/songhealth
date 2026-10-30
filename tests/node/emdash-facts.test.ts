@@ -35,6 +35,14 @@ describe("EmDash facts", () => {
 		assert.ok((await citedPaths()).includes("src/loader.ts"));
 	});
 
+	it("keep each code span on one line, so the check reads every cited path", async () => {
+		const text = await readFile(FACTS, "utf8");
+		const wrapped = text
+			.split("\n")
+			.flatMap((line, index) => ((line.match(/`/g) ?? []).length % 2 === 1 ? [index + 1] : []));
+		assert.deepEqual(wrapped, [], "lines whose code span runs onto the next line");
+	});
+
 	it("cite files that exist: EmDash paths bare, Songhealth paths with ./", async () => {
 		const missing = (await citedPaths()).filter((path) => !existsSync(resolveCited(path)));
 		assert.deepEqual(missing, []);

@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# Songhealth commit checks (#58 retro): formatting, Knip, types and the invisible-character scan,
-# plus ShellCheck when a shell script is staged. The scan reads git-tracked files, so it sees a new
-# file once it is staged. A check prints only when it fails. CI runs these with the build and the
-# full node tests on every pull request (.github/workflows/checks.yml). Enable once per clone:
+# Songhealth commit checks (#58 retro): formatting, Knip, types, duplicated code (#93) and the
+# invisible-character scan, plus ShellCheck when a shell script is staged. The scan reads
+# git-tracked files, so it sees a new file once it is staged. A check prints only when it fails. CI
+# runs these with the build and the full node tests on every pull request
+# (.github/workflows/checks.yml). The checks read the working tree, not the staged snapshot: to
+# commit part of the changes, set the rest aside first (git stash push --keep-index). Enable once
+# per clone:
 #   git config core.hooksPath .githooks
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -19,6 +22,7 @@ check() {
 check npm run --silent format:check
 check npm run --silent knip
 check npm run --silent typecheck
+check npm run --silent jscpd
 check node --test tests/node/invisible-characters.test.ts
 if git diff --cached --name-only --diff-filter=ACMR | grep -q -e '\.sh$' -e '^\.githooks/'; then
   check npm run --silent lint:shell

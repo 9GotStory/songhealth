@@ -2085,7 +2085,10 @@ export async function writeSiteSettings(
 	return cmsRequest(actor, "/_emdash/api/settings", { method: "POST", body: update });
 }
 
-/** The Songhealth Office Contact plugin's id (src/lib/contact.ts OFFICE_CONTACT_PLUGIN). */
+/**
+ * The Songhealth Office Contact plugin's id (src/lib/office-contact-settings.ts
+ * OFFICE_CONTACT_PLUGIN).
+ */
 export const OFFICE_CONTACT_PLUGIN_ID = "songhealth-office-contact";
 
 /**
