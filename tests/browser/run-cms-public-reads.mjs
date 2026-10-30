@@ -110,8 +110,7 @@ const SPEC_FILE = "tests/browser/cms-public-reads.spec.ts";
 const PLAYWRIGHT_CLI = "node_modules/@playwright/test/cli.js";
 
 /** The public SSR marker proving the origin is the Songhealth application. */
-const SSR_MARKER_PATTERN =
-	/<meta\s+name="songhealth-foundation"\s+content="public-runtime"\s*\/?>/;
+const SSR_MARKER_PATTERN = /<meta\s+name="songhealth-foundation"\s+content="public-runtime"\s*\/?>/;
 
 /** Explicit coordinator opt-in consumed by the spec file. */
 const OPT_IN_ENV = "SONGHEALTH_T021_COORDINATOR";
@@ -153,7 +152,10 @@ const PREREQUISITE_DEADLINE_MS = 10_000;
  * It is invoked only to OBSERVE the runtime source identity. Overridable path
  * for offline controls.
  */
-const RUNTIME_VERIFY_DEFAULT = path.join(os.homedir(), "dev/songhealth-quadlet/scripts/dev-runtime-verify.sh");
+const RUNTIME_VERIFY_DEFAULT = path.join(
+	os.homedir(),
+	"dev/songhealth-quadlet/scripts/dev-runtime-verify.sh",
+);
 const RUNTIME_VERIFY_ENV = "SONGHEALTH_RUNTIME_VERIFY";
 const RUNTIME_VERIFY_DEADLINE_MS = 120_000;
 
@@ -185,7 +187,10 @@ function boundedExec(file, args, label, timeoutMs = PREREQUISITE_DEADLINE_MS) {
 				{ cwd: repoRoot, timeout: timeoutMs, maxBuffer: 1024 * 1024 },
 				(error, stdout) => {
 					if (error) {
-						resolve({ error: `${label} failed (${error.code ?? error.message})`, stdout: String(stdout ?? "") });
+						resolve({
+							error: `${label} failed (${error.code ?? error.message})`,
+							stdout: String(stdout ?? ""),
+						});
 					} else {
 						resolve({ stdout: String(stdout) });
 					}
@@ -217,7 +222,9 @@ export async function expectedSourceIdentity() {
 	}
 	const sha = (git.stdout ?? "").trim();
 	if (!FULL_SHA_PATTERN.test(sha)) {
-		return { error: `git rev-parse HEAD returned a non-SHA value — refusing to guess the candidate identity` };
+		return {
+			error: `git rev-parse HEAD returned a non-SHA value — refusing to guess the candidate identity`,
+		};
 	}
 	return { sha, provenance: "git rev-parse HEAD of this checkout" };
 }
@@ -234,17 +241,26 @@ export async function expectedSourceIdentity() {
  */
 export async function observedRuntimeSourceIdentity() {
 	const verify = process.env[RUNTIME_VERIFY_ENV] ?? RUNTIME_VERIFY_DEFAULT;
-	const run = await boundedExec(verify, [], `runtime verify (${verify})`, RUNTIME_VERIFY_DEADLINE_MS);
+	const run = await boundedExec(
+		verify,
+		[],
+		`runtime verify (${verify})`,
+		RUNTIME_VERIFY_DEADLINE_MS,
+	);
 	const lines = (run.stdout ?? "").trim().split("\n");
 	if (run.error !== undefined || lines.at(-1) !== "VERIFY: PASS") {
-		const failing = lines.filter((line) => line.startsWith("FAIL: ")).map((line) => line.slice("FAIL: ".length));
+		const failing = lines
+			.filter((line) => line.startsWith("FAIL: "))
+			.map((line) => line.slice("FAIL: ".length));
 		return {
 			error: `the runtime source identity could not be observed: ${run.error ?? `verify ended with ${JSON.stringify(lines.at(-1) ?? "")}`}${failing.length > 0 ? ` (failing: ${failing.join("; ")})` : ""}; an unverified runtime is a HOLD, never an assumption`,
 		};
 	}
 	const source = /^runtime source: .+ @ ([0-9a-f]{40})$/.exec(lines.at(-2) ?? "")?.[1];
 	if (source === undefined || !FULL_SHA_PATTERN.test(source)) {
-		return { error: "the runtime verify output carries no full 40-hex `runtime source` identity line" };
+		return {
+			error: "the runtime verify output carries no full 40-hex `runtime source` identity line",
+		};
 	}
 	return {
 		sha: source,
@@ -315,7 +331,9 @@ export async function readRouteAccessToken() {
 		}
 		return { token: parsed.token };
 	} catch (error) {
-		return { error: `route access input ${value} could not be read (${error.code ?? error.message})` };
+		return {
+			error: `route access input ${value} could not be read (${error.code ?? error.message})`,
+		};
 	}
 }
 
@@ -341,7 +359,10 @@ async function originIdentityHolds() {
 		}
 		return undefined;
 	} catch (error) {
-		const reason = error?.name === "TimeoutError" ? "deadline exceeded" : (error.cause?.code ?? error.cause?.message ?? error.message);
+		const reason =
+			error?.name === "TimeoutError"
+				? "deadline exceeded"
+				: (error.cause?.code ?? error.cause?.message ?? error.message);
 		return `the persistent development origin ${PERSISTENT_DEVELOPMENT_ORIGIN} did not answer (${reason}); an unavailable shared app is a HOLD prerequisite — never authorization to start, restart or substitute a server`;
 	}
 }
@@ -360,7 +381,8 @@ async function fixtureReadinessHolds(routeAccessToken, expectedSha) {
 	try {
 		probe = await fetchJson(url, { "x-songhealth-t021-route-access": routeAccessToken });
 	} catch (error) {
-		const reason = error?.name === "TimeoutError" ? "deadline exceeded" : (error.cause?.code ?? error.message);
+		const reason =
+			error?.name === "TimeoutError" ? "deadline exceeded" : (error.cause?.code ?? error.message);
 		return `the fixture route probe failed against the persistent origin (${reason})`;
 	}
 	if (probe.status === 404) {
@@ -379,7 +401,11 @@ async function fixtureReadinessHolds(routeAccessToken, expectedSha) {
 	if (body.fixtureId !== "songhealth:t021:cms-public-reads" || body.fixtureVersion !== 1) {
 		return `unexpected fixture identity at /__feature002/public-reads (fixtureId=${String(body.fixtureId)}, fixtureVersion=${String(body.fixtureVersion)}) — refusing to run against an unknown fixture`;
 	}
-	if (body.sourceIdentity !== undefined && body.sourceIdentity !== null && body.sourceIdentity !== expectedSha) {
+	if (
+		body.sourceIdentity !== undefined &&
+		body.sourceIdentity !== null &&
+		body.sourceIdentity !== expectedSha
+	) {
 		return `the fixture route declares source identity ${String(body.sourceIdentity)} but the candidate under test is ${expectedSha} — refusing to run against a different source`;
 	}
 	if (!(probe.headers.get("cache-control") ?? "").includes("no-store")) {
@@ -445,8 +471,12 @@ export async function terminateChild(child, reason) {
 	clearTimeout(graceTimer);
 	if (exited === undefined) {
 		child.kill("SIGKILL");
-		const reaped = await new Promise((resolve) => child.once("exit", (code, signal) => resolve({ code, signal })));
-		process.stderr.write(`${reason}: child did not exit within ${TERMINATION_GRACE_MS}ms of SIGTERM; SIGKILLed and reaped\n`);
+		const reaped = await new Promise((resolve) =>
+			child.once("exit", (code, signal) => resolve({ code, signal })),
+		);
+		process.stderr.write(
+			`${reason}: child did not exit within ${TERMINATION_GRACE_MS}ms of SIGTERM; SIGKILLed and reaped\n`,
+		);
 		return reaped;
 	}
 	process.stderr.write(`${reason}: child terminated and reaped\n`);
@@ -491,11 +521,15 @@ export async function expectedTestTitles() {
 		}
 		budgetMs = parsed;
 	}
-	const child = spawn(process.execPath, [PLAYWRIGHT_CLI, "test", SPEC_FILE, "--list", "--reporter=json"], {
-		cwd: repoRoot,
-		env: { ...process.env },
-		stdio: ["ignore", "pipe", "pipe"],
-	});
+	const child = spawn(
+		process.execPath,
+		[PLAYWRIGHT_CLI, "test", SPEC_FILE, "--list", "--reporter=json"],
+		{
+			cwd: repoRoot,
+			env: { ...process.env },
+			stdio: ["ignore", "pipe", "pipe"],
+		},
+	);
 	let stdout = "";
 	let stderr = "";
 	const onData = (chunk) => {
@@ -528,17 +562,24 @@ export async function expectedTestTitles() {
 	process.removeListener("SIGTERM", onSignalTerm);
 	if (outcome.timedOut === true) {
 		await terminateChild(child, "discovery timeout");
-		return { error: `the discovery pre-pass did not finish within its ${budgetMs}ms budget (child terminated and reaped)` };
+		return {
+			error: `the discovery pre-pass did not finish within its ${budgetMs}ms budget (child terminated and reaped)`,
+		};
 	}
 	if (outcome.interrupted !== undefined) {
 		await terminateChild(child, `discovery interrupted by ${outcome.interrupted}`);
-		return { interrupted: true, error: `the discovery pre-pass was interrupted by ${outcome.interrupted} (child terminated and reaped)` };
+		return {
+			interrupted: true,
+			error: `the discovery pre-pass was interrupted by ${outcome.interrupted} (child terminated and reaped)`,
+		};
 	}
 	if (outcome.spawnError !== undefined) {
 		return { error: `the discovery pre-pass could not run (${outcome.spawnError})` };
 	}
 	if (outcome.code !== 0) {
-		return { error: `the discovery pre-pass failed with exit code ${String(outcome.code)}${stderr.trim().length > 0 ? `: ${stderr.trim().split("\n").pop()}` : ""}` };
+		return {
+			error: `the discovery pre-pass failed with exit code ${String(outcome.code)}${stderr.trim().length > 0 ? `: ${stderr.trim().split("\n").pop()}` : ""}`,
+		};
 	}
 	let parsed;
 	try {
@@ -559,7 +600,10 @@ export async function expectedTestTitles() {
 	};
 	walk(parsed.suites);
 	if (titles.length === 0) {
-		return { error: "the discovery pre-pass reported zero expected tests — refusing to accept an empty expected set" };
+		return {
+			error:
+				"the discovery pre-pass reported zero expected tests — refusing to accept an empty expected set",
+		};
 	}
 	return { titles };
 }
@@ -586,12 +630,16 @@ function coverageFailures(statuses, expectedTitles) {
 		const title = String(entry.title ?? "");
 		const status = String(entry.status ?? "unknown");
 		if (status !== "passed") {
-			failures.push(`test ${JSON.stringify(title)} recorded status ${JSON.stringify(status)}, not a terminal "passed"`);
+			failures.push(
+				`test ${JSON.stringify(title)} recorded status ${JSON.stringify(status)}, not a terminal "passed"`,
+			);
 		}
 		const count = (seen.get(title) ?? 0) + 1;
 		seen.set(title, count);
 		if (count > 1) {
-			failures.push(`test ${JSON.stringify(title)} recorded ${count} result rows — duplicated/retried results cannot satisfy coverage`);
+			failures.push(
+				`test ${JSON.stringify(title)} recorded ${count} result rows — duplicated/retried results cannot satisfy coverage`,
+			);
 		}
 	}
 	for (const title of expectedTitles) {
@@ -601,7 +649,9 @@ function coverageFailures(statuses, expectedTitles) {
 	}
 	for (const title of seen.keys()) {
 		if (!expectedTitles.includes(title)) {
-			failures.push(`unexpected recorded test ${JSON.stringify(title)} is not part of the expected suite`);
+			failures.push(
+				`unexpected recorded test ${JSON.stringify(title)} is not part of the expected suite`,
+			);
 		}
 	}
 	return failures;
@@ -646,7 +696,9 @@ async function main() {
 	// Pinned runner presence (isolated static prerequisite).
 	const cliStats = await stat(path.join(repoRoot, PLAYWRIGHT_CLI)).catch(() => undefined);
 	if (cliStats === undefined) {
-		reasons.push(`the repo-local pinned Playwright runner ${PLAYWRIGHT_CLI} is not installed (run the repo install step in this checkout first)`);
+		reasons.push(
+			`the repo-local pinned Playwright runner ${PLAYWRIGHT_CLI} is not installed (run the repo install step in this checkout first)`,
+		);
 	}
 
 	const timeout = resolvedTimeoutMs();
@@ -708,7 +760,10 @@ async function main() {
 
 	// Credential prerequisites and the AUTHENTICATED fixture probe — only
 	// after the identity gate above.
-	const devAccessReason = await credentialInputHolds(DEV_ACCESS_CREDENTIAL_ENV, "development credential");
+	const devAccessReason = await credentialInputHolds(
+		DEV_ACCESS_CREDENTIAL_ENV,
+		"development credential",
+	);
 	if (devAccessReason !== undefined) {
 		await hold([devAccessReason]);
 		return;
@@ -787,17 +842,13 @@ async function main() {
 	const outcomePromise = new Promise((resolve) => {
 		resolveOutcome = resolve;
 	});
-	const onChildError = (error) =>
-		resolveOutcome({ spawnError: error.code ?? error.message });
+	const onChildError = (error) => resolveOutcome({ spawnError: error.code ?? error.message });
 	const onChildExit = (code, signal) => resolveOutcome({ code, signal });
 	child.once("error", onChildError);
 	child.once("exit", onChildExit);
 	process.once("SIGINT", onSignalInt);
 	process.once("SIGTERM", onSignalTerm);
-	const timeoutHandle = setTimeout(
-		() => resolveOutcome({ timedOut: true }),
-		timeout,
-	);
+	const timeoutHandle = setTimeout(() => resolveOutcome({ timedOut: true }), timeout);
 	// The timeout must never be the thing keeping a completed run alive.
 	timeoutHandle.unref?.();
 
