@@ -25,14 +25,13 @@
 //   the Document that uses it keeps the value (no published-reference veto, `02` §13).
 
 import {
-	cleanupOwnedFixtures,
 	createSyntheticDocument,
 	createOwnedTerm,
 	deleteMedia,
-	deleteSyntheticTerms,
 	devAdminActor,
 	nativeRefusalOf,
 	publishEntryAt,
+	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
 	SYNTHETIC_PDF_BYTES,
 	syntheticSlug,
@@ -92,11 +91,10 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
 	if (admin === undefined) return;
-	const failures: string[] = [];
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	if (!report.complete) failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
-	failures.push(...(await deleteSyntheticTerms(admin, ownedTerms)));
-	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
+	expect(
+		await removeSuiteFixtures(admin, { terms: ownedTerms }),
+		"the suite's synthetic fixtures must all be removed",
+	).toEqual([]);
 });
 
 test("/documents lists only published Documents, newest first, each row with its type, date, fiscal year, file type and size", async ({

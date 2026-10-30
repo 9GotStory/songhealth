@@ -24,7 +24,6 @@
 import type { Page } from "@playwright/test";
 
 import {
-	cleanupOwnedFixtures,
 	createSyntheticDocument,
 	createSyntheticDraft,
 	createSyntheticEntry,
@@ -36,6 +35,7 @@ import {
 	portableTextBlock,
 	publishEntryAt,
 	readEntry,
+	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
 	trashEntry,
 	unpublishEntry,
@@ -111,8 +111,10 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
 	if (admin === undefined) return;
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	expect(report.complete, `owned fixtures left: ${JSON.stringify(report)}`).toBe(true);
+	expect(
+		await removeSuiteFixtures(admin),
+		"the suite's synthetic fixtures must all be removed",
+	).toEqual([]);
 });
 
 test("a Thai substring finds a title without word spaces, a title match ranks above a body-only match, and a result shows its kind, snippet, date and address", async ({

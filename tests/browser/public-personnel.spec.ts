@@ -26,13 +26,13 @@
 import type { Page } from "@playwright/test";
 
 import {
-	cleanupOwnedFixtures,
 	cmsRequest,
 	createSyntheticEntry,
 	devAdminActor,
 	nativeDataOf,
 	nativeRefusalOf,
 	publishEntryAt,
+	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	uploadSyntheticMedia,
@@ -166,8 +166,10 @@ test.afterEach(async () => {
 
 test.afterAll(async () => {
 	if (admin === undefined) return;
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	expect(report.complete, `owned fixtures left: ${JSON.stringify(report)}`).toBe(true);
+	expect(
+		await removeSuiteFixtures(admin),
+		"the suite's synthetic fixtures must all be removed",
+	).toEqual([]);
 });
 
 test("/about/leadership and /about/personnel show their empty states while no publicly visible Personnel is published", async ({

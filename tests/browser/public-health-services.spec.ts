@@ -22,13 +22,12 @@
 // - A reference target resolves only while it is published (src/references/resolve.ts).
 
 import {
-	cleanupOwnedFixtures,
 	createOwnedTerm,
 	createSyntheticHealthService,
 	createSyntheticService,
-	deleteSyntheticTerms,
 	devAdminActor,
 	publishEntryAt,
+	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	trashEntry,
@@ -86,11 +85,10 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
 	if (admin === undefined) return;
-	const failures: string[] = [];
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	if (!report.complete) failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
-	failures.push(...(await deleteSyntheticTerms(admin, ownedTerms)));
-	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
+	expect(
+		await removeSuiteFixtures(admin, { terms: ownedTerms }),
+		"the suite's synthetic fixtures must all be removed",
+	).toEqual([]);
 });
 
 test("/health-services lists only published Health Services by name, each with its type, Area, address and a closed status in text", async ({

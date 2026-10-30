@@ -17,7 +17,6 @@ import { expect, test, type APIRequestContext } from "@playwright/test";
 
 import { CANONICAL_URL_PATTERNS } from "../canonical-url-patterns";
 import {
-	cleanupOwnedFixtures,
 	cmsRequest,
 	createSyntheticEntry,
 	devAdminActor,
@@ -25,6 +24,7 @@ import {
 	nativeRefusalOf,
 	previewLink,
 	publishEntry,
+	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	updateEntry,
@@ -77,34 +77,10 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
 	if (admin === undefined) return;
-	const failures: string[] = [];
-	for (const slug of movedSlugs) {
-		const listed = await cmsRequest(admin, "/_emdash/api/redirects", {
-			searchParams: { search: slug, limit: "100" },
-		});
-		if (!listed.ok) {
-			failures.push(`listing the redirects of ${slug}: ${nativeRefusalOf(listed)}`);
-			continue;
-		}
-		const redirects = nativeItemsOf(listed) as Array<{ id: string; source: string; auto: boolean }>;
-		for (const redirect of redirects.filter(
-			({ source, auto }) => auto && source.endsWith(`/${slug}`),
-		)) {
-			const removed = await cmsRequest(
-				admin,
-				`/_emdash/api/redirects/${encodeURIComponent(redirect.id)}`,
-				{ method: "DELETE" },
-			);
-			if (!removed.ok) {
-				failures.push(`deleting the redirect from ${redirect.source}: ${nativeRefusalOf(removed)}`);
-			}
-		}
-	}
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	if (!report.complete) {
-		failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
-	}
-	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
+	expect(
+		await removeSuiteFixtures(admin, { movedSlugs }),
+		"the suite's synthetic fixtures must all be removed",
+	).toEqual([]);
 });
 
 // News is what #53 names. Health Content shows that the pattern, not EmDash's fallback

@@ -24,11 +24,11 @@
 //   (src/api/handlers/media.ts handleMediaDelete).
 
 import {
-	cleanupOwnedFixtures,
 	createSyntheticDraft,
 	deleteMedia,
 	devAdminActor,
 	publishEntryAt,
+	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
 	trashEntry,
 	unpublishEntry,
@@ -79,8 +79,10 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
 	if (admin === undefined) return;
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	expect(report.complete, `owned fixtures left: ${JSON.stringify(report)}`).toBe(true);
+	expect(
+		await removeSuiteFixtures(admin),
+		"the suite's synthetic fixtures must all be removed",
+	).toEqual([]);
 });
 
 test("/activities lists only published Activities, the most recently held first, an undated one placed by its publication", async ({

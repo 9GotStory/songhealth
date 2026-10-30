@@ -35,17 +35,16 @@
 import type { Page } from "@playwright/test";
 
 import {
-	cleanupOwnedFixtures,
 	createOwnedTerm,
 	createSyntheticDocument,
 	createSyntheticDraft,
 	deleteMedia,
-	deleteSyntheticTerms,
 	devAdminActor,
 	nativeRefusalOf,
 	portableTextBlock,
 	portableTextImage,
 	publishEntryAt,
+	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	trashEntry,
@@ -132,11 +131,10 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
 	if (admin === undefined) return;
-	const failures: string[] = [];
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	if (!report.complete) failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
-	failures.push(...(await deleteSyntheticTerms(admin, ownedTerms)));
-	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
+	expect(
+		await removeSuiteFixtures(admin, { terms: ownedTerms }),
+		"the suite's synthetic fixtures must all be removed",
+	).toEqual([]);
 });
 
 test("/health links to Health Content and to Health Reports under its own breadcrumb", async ({

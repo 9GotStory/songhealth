@@ -27,12 +27,10 @@
 import type { Page } from "@playwright/test";
 
 import {
-	cleanupOwnedFixtures,
 	cmsRequest,
 	createOwnedTerm,
 	createSyntheticDraft,
 	deleteMedia,
-	deleteSyntheticTerms,
 	devAdminActor,
 	nativeDataOf,
 	nativeItemsOf,
@@ -40,6 +38,7 @@ import {
 	portableTextBlock,
 	portableTextImage,
 	publishEntryAt,
+	removeSuiteFixtures,
 	setMediaAlt,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
@@ -126,32 +125,10 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
 	if (admin === undefined) return;
-	const failures: string[] = [];
-	for (const slug of movedSlugs) {
-		const listed = await cmsRequest(admin, "/_emdash/api/redirects", {
-			searchParams: { search: slug, limit: "100" },
-		});
-		if (!listed.ok) {
-			failures.push(`listing the redirects of ${slug}: ${nativeRefusalOf(listed)}`);
-			continue;
-		}
-		const redirects = nativeItemsOf(listed) as Array<{ id: string; source: string; auto: boolean }>;
-		for (const redirect of redirects.filter(
-			({ source, auto }) => auto && source.endsWith(`/${slug}`),
-		)) {
-			const removed = await cmsRequest(
-				admin,
-				`/_emdash/api/redirects/${encodeURIComponent(redirect.id)}`,
-				{ method: "DELETE" },
-			);
-			if (!removed.ok)
-				failures.push(`the redirect from ${redirect.source}: ${nativeRefusalOf(removed)}`);
-		}
-	}
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	if (!report.complete) failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
-	failures.push(...(await deleteSyntheticTerms(admin, ownedTerms)));
-	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
+	expect(
+		await removeSuiteFixtures(admin, { terms: ownedTerms, movedSlugs }),
+		"the suite's synthetic fixtures must all be removed",
+	).toEqual([]);
 });
 
 test("/news lists only published News, newest first, each with its date and its own address", async ({

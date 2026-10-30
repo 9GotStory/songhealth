@@ -25,14 +25,13 @@
 //   (src/query.ts attachReferences, src/references/resolve.ts).
 
 import {
-	cleanupOwnedFixtures,
 	createOwnedTerm,
 	createSyntheticDocument,
 	createSyntheticDraft,
-	deleteSyntheticTerms,
 	devAdminActor,
 	portableTextBlock,
 	publishEntryAt,
+	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
 	trashEntry,
 	unpublishEntry,
@@ -118,11 +117,10 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
 	if (admin === undefined) return;
-	const failures: string[] = [];
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	if (!report.complete) failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
-	failures.push(...(await deleteSyntheticTerms(admin, ownedTerms)));
-	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
+	expect(
+		await removeSuiteFixtures(admin, { terms: ownedTerms }),
+		"the suite's synthetic fixtures must all be removed",
+	).toEqual([]);
 });
 
 test("/announcements lists current Announcements first and closed ones after, each newest first by announcement date with the publication as the fallback, and states their status in text", async ({

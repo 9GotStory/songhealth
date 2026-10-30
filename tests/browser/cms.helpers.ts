@@ -1602,6 +1602,59 @@ export async function deleteSyntheticTerms(
 	return failures;
 }
 
+/**
+ * Delete the automatic redirects EmDash made when a test changed an entry's slug away from one of
+ * `slugs` (emdash 1.1.0 src/astro/routes/api/redirects/, src/api/schemas/redirects.ts: the list
+ * takes `search` and its items carry `source` and `auto`). Returns a line for each that is not
+ * deleted.
+ */
+export async function deleteAutoRedirects(
+	actor: CmsActor,
+	slugs: readonly string[],
+): Promise<string[]> {
+	const failures: string[] = [];
+	for (const slug of slugs) {
+		const listed = await cmsRequest(actor, "/_emdash/api/redirects", {
+			searchParams: { search: slug, limit: "100" },
+		});
+		if (!listed.ok) {
+			failures.push(`listing the redirects of ${slug}: ${nativeRefusalOf(listed)}`);
+			continue;
+		}
+		const redirects = nativeItemsOf(listed) as Array<{ id: string; source: string; auto: boolean }>;
+		for (const { id, source } of redirects.filter(
+			({ source, auto }) => auto && source.endsWith(`/${slug}`),
+		)) {
+			const removed = await cmsRequest(actor, `/_emdash/api/redirects/${encodeURIComponent(id)}`, {
+				method: "DELETE",
+			});
+			if (!removed.ok) failures.push(`the redirect from ${source}: ${nativeRefusalOf(removed)}`);
+		}
+	}
+	return failures;
+}
+
+/**
+ * Remove what a suite made, for its afterAll: the redirects left by `movedSlugs`, the actor's owned
+ * fixtures, then `terms`. Returns a line for each thing left.
+ */
+export async function removeSuiteFixtures(
+	actor: CmsActor,
+	{
+		terms = [],
+		movedSlugs = [],
+	}: {
+		terms?: ReadonlyArray<Pick<SyntheticTerm, "taxonomy" | "slug">>;
+		movedSlugs?: readonly string[];
+	} = {},
+): Promise<string[]> {
+	const failures = await deleteAutoRedirects(actor, movedSlugs);
+	const report = await cleanupOwnedFixtures(actor, { permanent: true });
+	if (!report.complete) failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
+	failures.push(...(await deleteSyntheticTerms(actor, terms)));
+	return failures;
+}
+
 // ---------------------------------------------------------------------------
 // Native content reads, fresh `_rev` preconditions, lifecycle requests
 // ---------------------------------------------------------------------------

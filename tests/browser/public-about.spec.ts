@@ -29,7 +29,6 @@
 import type { Page } from "@playwright/test";
 
 import {
-	cleanupOwnedFixtures,
 	createSyntheticDocument,
 	createSyntheticEntry,
 	devAdminActor,
@@ -39,6 +38,7 @@ import {
 	previewLink,
 	publishEntryAt,
 	readEntry,
+	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	unpublishEntry,
@@ -220,8 +220,10 @@ test.afterEach(async () => {
 
 test.afterAll(async () => {
 	if (admin === undefined) return;
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	expect(report.complete, `owned fixtures left: ${JSON.stringify(report)}`).toBe(true);
+	expect(
+		await removeSuiteFixtures(admin),
+		"the suite's synthetic fixtures must all be removed",
+	).toEqual([]);
 });
 
 test("each About Document page shows its empty state while no published Document has its type", async ({
