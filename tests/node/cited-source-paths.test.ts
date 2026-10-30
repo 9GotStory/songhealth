@@ -6,8 +6,9 @@
 // src/relations/, which emdash 1.1.0 does not have, and a helper still named the Office Contact
 // settings module by a file name it no longer has. Each path a comment cites must exist in the
 // repository, in EmDash, or in an installed package the same comment block names. The check reads
-// git-tracked files, so it sees a new file once it is staged. tests/node/emdash-facts.test.ts
-// checks the facts file's paths.
+// git-tracked files, so it sees a new file once it is staged. An EmDash source path that src/ or
+// scripts/ cites must also be recorded in docs/agents/emdash-1.1.0.md (#64 retro), whose own paths
+// tests/node/emdash-facts.test.ts checks.
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -79,5 +80,24 @@ describe("cited source paths", () => {
 			.filter(({ path, roots }) => !roots.some((root) => existsSync(new URL(root + path, ROOT))))
 			.map(({ at, path }) => `${at} ${path}`);
 		assert.deepEqual(missing, []);
+	});
+
+	it("found only in EmDash are recorded in docs/agents/emdash-1.1.0.md, for the site's code", async () => {
+		// CLAUDE.md asks for each EmDash fact the code relies on to be added to the facts file with
+		// its source path, so a new EmDash version has one list to verify again (#64 retro). The
+		// check covers EmDash's own source, src/, as src/ and scripts/ cite it: the code the site and
+		// its operations run. A test cites the platform to explain what it checks, and an accepted
+		// Feature 001 or 002 file's claims, such as a bundle name under EmDash's dist/, are checked
+		// again when a change touches it (CODING_STANDARDS "Comments").
+		const facts = await readFile(new URL("docs/agents/emdash-1.1.0.md", ROOT), "utf8");
+		const unrecorded = (await citedPaths())
+			.filter(({ at, path }) => /^(?:src|scripts)\//.test(at) && path.startsWith("src/"))
+			.filter(({ path, roots }) => {
+				const holders = roots.filter((root) => existsSync(new URL(root + path, ROOT)));
+				return holders.length > 0 && holders.every((root) => root === "node_modules/emdash/");
+			})
+			.filter(({ path }) => !facts.includes(path))
+			.map(({ at, path }) => `${at} ${path}`);
+		assert.deepEqual(unrecorded, []);
 	});
 });

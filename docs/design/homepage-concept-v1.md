@@ -6,6 +6,10 @@ read once, on 2026-10-29, through the Figma MCP (`get_design_context` and `get_v
 The account has very few Figma reads, so build from this page and re-read the file only when the
 Product Owner changes it.
 
+The Product Owner's draft design system for the whole public UI is `docs/design/DESIGN.md`
+(v0.2, not yet accepted). A difference between the two, or between the draft and a built page, is
+a pending confirmation (#64 comment 6535747409).
+
 - **Tokens:** colour and type names are the tokens in `src/styles/global.css` (ADR 0001).
 - **Units:** sizes are px in the 1440 frame.
 - **Sections:** each spans the frame, with 120 px side padding around the 1200 px content (the

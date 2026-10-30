@@ -31,6 +31,9 @@ and why, and `.jscpd-baseline.json` records them.
   `src/styles/global.css` (ADR 0001; the Figma frame is described in
   `docs/design/homepage-concept-v1.md`). A colour or type style that the tokens lack becomes a
   named token there, with its source.
+- `docs/design/DESIGN.md` is the Product Owner's draft design system for the public UI (v0.2, not
+  yet accepted; its §1 and §10). It sets direction. A difference between it and an accepted page
+  or decision is a pending confirmation (Product Owner, 2026-10-31: #64 comment 6535747409).
 - A colour keeps the meaning its token's comment states, such as accent-warm's status that needs
   attention. Emphasis inside text takes weight and text-primary, as search marks the words it
   matched (Product Owner, 2026-10-30: #63 comment 6518347225).
