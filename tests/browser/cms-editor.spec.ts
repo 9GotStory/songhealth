@@ -375,13 +375,11 @@ const GALLERY_CAPTION_SUBFIELD_LABEL = "คำบรรยายภาพ";
  * keep their English frame around the schema's Thai label in the th locale
  * (verified fallback), so each pattern accepts the Thai frame as well.
  */
-const chooseTermsTrigger = (label: string): RegExp =>
-	new RegExp(`(?:Choose|เลือก)\\s*${label}`);
+const chooseTermsTrigger = (label: string): RegExp => new RegExp(`(?:Choose|เลือก)\\s*${label}`);
 const editTermsTrigger = (label: string): RegExp => new RegExp(`(?:Edit|แก้ไข)\\s*${label}`);
 const searchTermsPlaceholder = (label: string): RegExp =>
 	new RegExp(`(?:Search|ค้นหา)\\s*${label}`);
-const termsOptionsGroup = (label: string): RegExp =>
-	new RegExp(`${label}\\s*(?:options|ตัวเลือก)`);
+const termsOptionsGroup = (label: string): RegExp => new RegExp(`${label}\\s*(?:options|ตัวเลือก)`);
 
 /** Native repeater chrome (natively Thai in the th locale; fallback kept). */
 const REPEATER_ADD_FIRST_ITEM = /^(เพิ่มรายการแรก|Add First Item)$/;
@@ -589,7 +587,10 @@ let journeyReadiness: Readiness = {
 	detail: "T028/T029/T030 health_services + facility_services definitions",
 };
 let announcementReadiness: Readiness = { outcome: "missing", detail: "announcements definition" };
-let galleryReadiness: Readiness = { outcome: "missing", detail: "activities gallery repeater definition" };
+let galleryReadiness: Readiness = {
+	outcome: "missing",
+	detail: "activities gallery repeater definition",
+};
 let siteTimezone: string | undefined;
 
 /** Truthful schema gate: missing SKIPS with the prerequisite; misconfigured FAILS. */
@@ -609,9 +610,7 @@ function gate(readiness: Readiness): void {
 }
 
 /** Field map of a native collection schema read (`data.item.fields`). */
-function fieldsOf(
-	result: NativeResult,
-): Map<string, { type?: string; required?: boolean }> {
+function fieldsOf(result: NativeResult): Map<string, { type?: string; required?: boolean }> {
 	const fields = nativeItemOf(result)?.fields;
 	const map = new Map<string, { type?: string; required?: boolean }>();
 	if (Array.isArray(fields)) {
@@ -758,8 +757,7 @@ test.beforeAll(async () => {
 		).toBe(true);
 		const galleryField = (
 			nativeItemOf(activities)?.fields as
-				| Array<{ slug?: string; type?: string; validation?: { subFields?: unknown } }>
-				| undefined
+				Array<{ slug?: string; type?: string; validation?: { subFields?: unknown } }> | undefined
 		)?.find((field) => field.slug === "gallery");
 		const subFields = Array.isArray(galleryField?.validation?.subFields)
 			? (galleryField!.validation!.subFields as Array<{
@@ -779,7 +777,8 @@ test.beforeAll(async () => {
 		) {
 			galleryReadiness = {
 				outcome: "misconfigured",
-				detail: "activities.gallery must be the native repeater with the required image (ภาพ) and optional caption (คำบรรยายภาพ) subfields",
+				detail:
+					"activities.gallery must be the native repeater with the required image (ภาพ) and optional caption (คำบรรยายภาพ) subfields",
 			};
 		} else {
 			galleryReadiness = { outcome: "ready" };
@@ -958,7 +957,9 @@ async function reconcileOwnedResources(phase: string): Promise<string[]> {
 test.afterEach(async ({ context }) => {
 	if (sessionOpened) {
 		sessionOpened = false;
-		expect(await closeDevAdminSession(context), "the development Admin session must log out").toBe(200);
+		expect(await closeDevAdminSession(context), "the development Admin session must log out").toBe(
+			200,
+		);
 	}
 	// Partial-setup guard: beforeAll creates no owned fixtures, so an actor
 	// that never finished bootstrapping has nothing to reconcile.
@@ -1033,7 +1034,9 @@ async function createSyntheticFacilityTypeTerm(): Promise<{ slug: string; label:
 	).toBe(true);
 	const term = nativeDataOf(created)?.term;
 	expect(
-		term !== null && typeof term === "object" && typeof (term as Record<string, unknown>).id === "string",
+		term !== null &&
+			typeof term === "object" &&
+			typeof (term as Record<string, unknown>).id === "string",
 		"the created term must carry its native id",
 	).toBe(true);
 	return { slug, label };
@@ -1056,9 +1059,7 @@ test("native Admin boundary is reachable and localized in Thai with correct Engl
 	// The SPA may redirect client-side to sign-in; give that a bounded window
 	// (predicate form: waitForURL matches RegExps against the complete URL,
 	// so the pathname pattern is applied through the URL predicate).
-	await page
-		.waitForURL(isUnauthenticatedAdminUrl, { timeout: 8_000 })
-		.catch(() => undefined);
+	await page.waitForURL(isUnauthenticatedAdminUrl, { timeout: 8_000 }).catch(() => undefined);
 
 	// The native shell resolves the locale per request (the emdash-locale
 	// cookie set in beforeEach — the platform's own switcher mechanism), so
@@ -1077,9 +1078,7 @@ test("native Admin boundary is reachable and localized in Thai with correct Engl
 			// AdminApp mounts, and the mount removes #emdash-boot-loader
 			// (pinned @emdash-cms/admin 1.1.0). Waiting for that landmark keeps
 			// the copy assertion's default window unchanged.
-			await page
-				.locator("#emdash-boot-loader")
-				.waitFor({ state: "detached", timeout: 20_000 });
+			await page.locator("#emdash-boot-loader").waitFor({ state: "detached", timeout: 20_000 });
 			await expect(page.getByText(PASSKEY_SIGNIN_COPY).first()).toBeVisible();
 		}
 		console.log(
@@ -1107,7 +1106,11 @@ test("maintenance journey: Thai labels, search/status filter, find and reopen, n
 	// DETECTION-BASED SESSION GATE (see SESSION_PREREQUISITE): skip — never
 	// silently pass — when no authenticated Admin session exists. Fixtures are
 	// created only after the gate, so a session-less runtime owns nothing.
-	const searchInput = await requireAdminSession(page, HEALTH_SERVICE_COLLECTION, HEALTH_SERVICE_LABEL);
+	const searchInput = await requireAdminSession(
+		page,
+		HEALTH_SERVICE_COLLECTION,
+		HEALTH_SERVICE_LABEL,
+	);
 
 	// --- task-owned native fixtures through the API (returned IDs only) ---
 	const serviceTitle = uniqueTitle("service");
@@ -1241,9 +1244,7 @@ test("maintenance journey: Thai labels, search/status filter, find and reopen, n
 		.getByRole("button", { name: chooseTermsTrigger(FACILITY_TYPE_LABEL) })
 		.first()
 		.click();
-	await page
-		.getByPlaceholder(searchTermsPlaceholder(FACILITY_TYPE_LABEL))
-		.fill(term.label);
+	await page.getByPlaceholder(searchTermsPlaceholder(FACILITY_TYPE_LABEL)).fill(term.label);
 	await page
 		.getByRole("group", { name: termsOptionsGroup(FACILITY_TYPE_LABEL) })
 		.getByRole("checkbox", { name: term.label, exact: true })
@@ -1482,9 +1483,7 @@ test("the native gallery repeater: one task-owned image row with its optional ca
 	).toHaveCount(selectMediaCountBeforeRow + 1);
 	// The expanded row surfaces the required image subfield's Thai label
 	// (exact text — ภาพ is a prefix of other labels such as ภาพปก).
-	await expect(
-		page.getByText(GALLERY_IMAGE_SUBFIELD_LABEL, { exact: true }).first(),
-	).toBeVisible();
+	await expect(page.getByText(GALLERY_IMAGE_SUBFIELD_LABEL, { exact: true }).first()).toBeVisible();
 	await selectMediaButtons.last().click();
 	const mediaDialog = page.getByRole("dialog");
 	await expect(
@@ -1522,9 +1521,10 @@ test("the native gallery repeater: one task-owned image row with its optional ca
 	const read = await readEntry(admin!, ACTIVITIES_COLLECTION, activity.entryId!);
 	expect(read.ok, "the saved fixture must be readable through the native API").toBe(true);
 	const gallery = dataOfItem(nativeItemOf(read)).gallery;
-	expect(Array.isArray(gallery), "the saved gallery must read back as the native repeater array").toBe(
-		true,
-	);
+	expect(
+		Array.isArray(gallery),
+		"the saved gallery must read back as the native repeater array",
+	).toBe(true);
 	const galleryRow = (gallery as Array<Record<string, unknown>>)[0];
 	expect(
 		(galleryRow?.image as { id?: unknown } | undefined)?.id,
