@@ -35,11 +35,7 @@ const image = await availableMedia(news.featured_image, Astro.locals.emdash);
 	section="news"
 	description={news.summary}
 	canonical={newsPath(entry.id)}
-	breadcrumbs={[
-		{ label: "หน้าแรก", href: "/" },
-		{ label: "ข่าวสาร", href: "/news" },
-		{ label: news.title },
-	]}
+	crumbs={[{ label: news.title }]}
 	entry={{ collection: "news", id: news.id, slug: entry.id, publishedAt: news.publishedAt }}
 	noindex={isPreview}
 >

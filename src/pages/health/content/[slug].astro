@@ -18,7 +18,7 @@ import DateText from "../../../components/DateText.astro";
 import RichText from "../../../components/RichText.astro";
 import TopicPills from "../../../components/TopicPills.astro";
 import SiteLayout from "../../../layouts/SiteLayout.astro";
-import { HEALTH_CONTENT_PATH, HEALTH_CONTENT_TITLE, HEALTH_CRUMB } from "../../../lib/health";
+import { HEALTH_CONTENT_PATH, HEALTH_CONTENT_TITLE } from "../../../lib/health";
 import {
 	healthContentListPath,
 	healthContentPath,
@@ -45,12 +45,7 @@ const image = await availableMedia(content.featured_image, Astro.locals.emdash);
 	section="health"
 	description={content.summary}
 	canonical={healthContentPath(entry.id)}
-	breadcrumbs={[
-		{ label: "หน้าแรก", href: "/" },
-		HEALTH_CRUMB,
-		{ label: HEALTH_CONTENT_TITLE, href: HEALTH_CONTENT_PATH },
-		{ label: content.title },
-	]}
+	crumbs={[{ label: HEALTH_CONTENT_TITLE, href: HEALTH_CONTENT_PATH }, { label: content.title }]}
 	entry={{
 		collection: "health_content",
 		id: content.id,

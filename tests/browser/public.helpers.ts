@@ -188,6 +188,18 @@ export async function expectBreadcrumb(
 export const HOME_CRUMB = ["หน้าแรก", "/"] as const;
 
 /**
+ * Each main-navigation section's crumb, which follows หน้าแรก on every page inside the section but
+ * its landing page, where the breadcrumb ends at the section itself.
+ */
+export const SECTION_CRUMBS = {
+	about: ["เกี่ยวกับเรา", "/about"],
+	news: ["ข่าวสาร", "/news"],
+	services: ["บริการประชาชน", "/services"],
+	health: ["ข้อมูลสุขภาพ", "/health"],
+	documents: ["เอกสารเผยแพร่", "/documents"],
+} as const;
+
+/**
  * Fail unless the page is an About sub-page at `path`: the main navigation marks เกี่ยวกับเรา as its
  * section, the breadcrumb leads through it to `current`, and the canonical address is `path`.
  */
@@ -195,7 +207,7 @@ export async function expectAboutSubpage(page: Page, path: string, current: stri
 	await expect(
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "เกี่ยวกับเรา" }),
 	).toHaveAttribute("aria-current", "true");
-	await expectBreadcrumb(page, [HOME_CRUMB, ["เกี่ยวกับเรา", "/about"]], current);
+	await expectBreadcrumb(page, [HOME_CRUMB, SECTION_CRUMBS.about], current);
 	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
 		"href",
 		`${new URL(page.url()).origin}${path}`,

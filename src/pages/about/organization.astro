@@ -5,7 +5,6 @@
 // a draft opens here only through its signed preview link, which /pages/organization passes on.
 import BasicPageContent from "../../components/BasicPageContent.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { ABOUT_PATH, ABOUT_TITLE } from "../../lib/about";
 import { basicPagePath, readBasicPage } from "../../lib/basic-pages";
 
 const page = await readBasicPage("organization");
@@ -19,11 +18,7 @@ const data = entry.data;
 	section="about"
 	description={data.summary ?? undefined}
 	canonical={basicPagePath("organization")}
-	breadcrumbs={[
-		{ label: "หน้าแรก", href: "/" },
-		{ label: ABOUT_TITLE, href: ABOUT_PATH },
-		{ label: data.title },
-	]}
+	crumbs={[{ label: data.title }]}
 	entry={{ collection: "pages", id: data.id, slug: entry.id, publishedAt: data.publishedAt }}
 	noindex={isPreview}
 >

@@ -2,8 +2,8 @@
 // `03` §7 and §15). The module has no import, so node:test checks it directly;
 // src/lib/services.ts reads through EmDash and uses it.
 
-/** The Service catalog's address. */
-const SERVICES_PATH = "/services";
+/** The Service catalog's address, where the main navigation's บริการประชาชน leads. */
+export const SERVICES_PATH = "/services";
 
 /** The query parameter of the Service Category filter. */
 export const CATEGORY_PARAM = "category";

@@ -56,9 +56,12 @@ import {
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
+	HOME_CRUMB,
 	MOBILE_VIEWPORT,
+	SECTION_CRUMBS,
 	VIEWPORTS,
 	expect,
+	expectBreadcrumb,
 	expectImageLoaded,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
@@ -185,6 +188,7 @@ test("/news lists only published News, newest first, each with its date and its 
 	await expect(
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "ข่าวสาร" }),
 	).toHaveAttribute("aria-current", "page");
+	await expectBreadcrumb(page, [HOME_CRUMB], "ข่าวสาร");
 
 	const titles = await listedTitles(page);
 	expect(
@@ -273,10 +277,7 @@ test("/news/health lists News with any topic, ?topic= narrows it, and an unknown
 	const response = await page.goto("/news/health");
 	expect(response?.status(), "GET /news/health").toBe(200);
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText("ข่าวสุขภาพ");
-	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
-	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก", "ข่าวสาร"]);
-	await expect(breadcrumb.getByRole("link", { name: "ข่าวสาร" })).toHaveAttribute("href", "/news");
-	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText("ข่าวสุขภาพ");
+	await expectBreadcrumb(page, [HOME_CRUMB, SECTION_CRUMBS.news], "ข่าวสุขภาพ");
 	expect(ownTitles(await listedTitles(page), all), "News with a topic, newest first").toEqual([
 		dengueNews.title,
 		vaccineNews.title,
@@ -342,11 +343,7 @@ test("a News page shows its title, Thai date, category, topics, image with its a
 	expect(sizing.height, "the image declares its height").toBeTruthy();
 	expect(sizing.fits, "the image fits the page").toBe(true);
 
-	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
-	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก", "ข่าวสาร"]);
-	await expect(breadcrumb.getByRole("link", { name: "หน้าแรก" })).toHaveAttribute("href", "/");
-	await expect(breadcrumb.getByRole("link", { name: "ข่าวสาร" })).toHaveAttribute("href", "/news");
-	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(news.title);
+	await expectBreadcrumb(page, [HOME_CRUMB, SECTION_CRUMBS.news], news.title);
 	await expect(
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "ข่าวสาร" }),
 	).toHaveAttribute("aria-current", "true");
@@ -504,7 +501,7 @@ test("after a slug change, the old address redirects with a 301 and the new addr
 });
 
 test.describe("the head of each News page", () => {
-	test("a News page carries its title, description, absolute canonical address and OG tags, with the SEO fields first and the summary as the fallback", async ({
+	test("a News page carries its title, description, absolute canonical address and OG tags, with the SEO fields first and the summary as the fallback, while its breadcrumb keeps its own title", async ({
 		page,
 	}) => {
 		const { siteTitle, separator } = await siteTitleParts(admin);
@@ -540,6 +537,7 @@ test.describe("the head of each News page", () => {
 			ogTitle: seoTitle,
 			ogDescription: seoDescription,
 		});
+		await expectBreadcrumb(page, [HOME_CRUMB, SECTION_CRUMBS.news], tuned.title);
 	});
 
 	test("the lists carry their title, a description, an absolute canonical address and the default OG image from settings", async ({

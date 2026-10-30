@@ -2,12 +2,9 @@
 // The breadcrumb on inner pages (Feature 003 #54; spec #51 user story 5, `03` §14).
 //
 // It follows the public information hierarchy, root first, and ends with the current page, which
-// is text marked aria-current rather than a link. The separators are decorative.
-export interface Crumb {
-	label: string;
-	/** The crumb's address; the current page, last, has none. */
-	href?: string;
-}
+// is text marked aria-current rather than a link. The separators are decorative. The shell
+// derives the items from the page's section (src/lib/navigation.ts breadcrumb).
+import type { Crumb } from "../lib/navigation";
 
 interface Props {
 	items: Crumb[];

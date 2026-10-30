@@ -48,11 +48,7 @@ const hasDetails =
 	section="documents"
 	description={document.summary ?? undefined}
 	canonical={documentPath(entry.id)}
-	breadcrumbs={[
-		{ label: "หน้าแรก", href: "/" },
-		{ label: "เอกสารเผยแพร่", href: documentsPath() },
-		{ label: document.title },
-	]}
+	crumbs={[{ label: document.title }]}
 	entry={{
 		collection: "documents",
 		id: document.id,

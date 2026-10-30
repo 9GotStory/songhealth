@@ -44,10 +44,13 @@ import {
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
+	HOME_CRUMB,
 	MOBILE_VIEWPORT,
+	SECTION_CRUMBS,
 	VIEWPORTS,
 	detailOf,
 	expect,
+	expectBreadcrumb,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectSiteNotFound,
@@ -145,13 +148,9 @@ test("/health-services lists only published Health Services by name, each with i
 	await expect(
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "บริการประชาชน" }),
 	).toHaveAttribute("aria-current", "true");
-	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
-	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก", "บริการประชาชน"]);
-	await expect(breadcrumb.getByRole("link", { name: "บริการประชาชน" })).toHaveAttribute(
-		"href",
-		"/services",
-	);
-	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(
+	await expectBreadcrumb(
+		page,
+		[HOME_CRUMB, SECTION_CRUMBS.services],
 		"หน่วยบริการสุขภาพที่เกี่ยวข้อง",
 	);
 
@@ -389,20 +388,11 @@ test("a Health Service page shows its names, type, affiliation, status, address,
 	);
 	await expect(offered.getByText(draftService.title), "a draft Service is left out").toHaveCount(0);
 
-	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
-	await expect(breadcrumb.getByRole("link")).toHaveText([
-		"หน้าแรก",
-		"บริการประชาชน",
-		"หน่วยบริการสุขภาพที่เกี่ยวข้อง",
-	]);
-	await expect(breadcrumb.getByRole("link", { name: "บริการประชาชน" })).toHaveAttribute(
-		"href",
-		"/services",
+	await expectBreadcrumb(
+		page,
+		[HOME_CRUMB, SECTION_CRUMBS.services, ["หน่วยบริการสุขภาพที่เกี่ยวข้อง", "/health-services"]],
+		healthService.title,
 	);
-	await expect(
-		breadcrumb.getByRole("link", { name: "หน่วยบริการสุขภาพที่เกี่ยวข้อง" }),
-	).toHaveAttribute("href", "/health-services");
-	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(healthService.title);
 	await expect(
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "บริการประชาชน" }),
 	).toHaveAttribute("aria-current", "true");

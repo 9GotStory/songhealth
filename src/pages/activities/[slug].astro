@@ -49,12 +49,7 @@ const GALLERY_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw"
 	section="news"
 	description={activity.summary ?? undefined}
 	canonical={activityPath(entry.id)}
-	breadcrumbs={[
-		{ label: "หน้าแรก", href: "/" },
-		{ label: "ข่าวสาร", href: "/news" },
-		{ label: "กิจกรรม", href: ACTIVITIES_PATH },
-		{ label: activity.title },
-	]}
+	crumbs={[{ label: "กิจกรรม", href: ACTIVITIES_PATH }, { label: activity.title }]}
 	entry={{
 		collection: "activities",
 		id: activity.id,

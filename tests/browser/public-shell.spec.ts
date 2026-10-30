@@ -94,6 +94,10 @@ test("the Homepage carries the site shell: utility bar, main navigation and foot
 		navigation.locator("[aria-current]"),
 		"only the current section is marked",
 	).toHaveCount(1);
+	await expect(
+		page.getByRole("navigation", { name: "เส้นทางนำทาง" }),
+		"the Homepage has no breadcrumb",
+	).toHaveCount(0);
 
 	const footer = page.getByRole("contentinfo");
 	await expect(footer.getByRole("link", { name: "ติดต่อเรา", exact: true })).toHaveAttribute(
@@ -121,6 +125,10 @@ test("an unknown address answers 404 with the site-designed page inside the shel
 	await expect(navigation.locator("[aria-current]"), "the 404 page marks no section").toHaveCount(
 		0,
 	);
+	await expect(
+		page.getByRole("navigation", { name: "เส้นทางนำทาง" }),
+		"the 404 page has no breadcrumb",
+	).toHaveCount(0);
 	await expect(page.getByRole("contentinfo")).toBeVisible();
 });
 

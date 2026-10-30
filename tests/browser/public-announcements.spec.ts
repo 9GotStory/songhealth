@@ -50,10 +50,13 @@ import {
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
+	HOME_CRUMB,
 	MOBILE_VIEWPORT,
+	SECTION_CRUMBS,
 	VIEWPORTS,
 	detailOf,
 	expect,
+	expectBreadcrumb,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectSiteNotFound,
@@ -190,9 +193,7 @@ test("/announcements lists current Announcements first and closed ones after, ea
 	await expect(
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "ข่าวสาร" }),
 	).toHaveAttribute("aria-current", "true");
-	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
-	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก", "ข่าวสาร"]);
-	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText("ประกาศ");
+	await expectBreadcrumb(page, [HOME_CRUMB, SECTION_CRUMBS.news], "ประกาศ");
 
 	const all = [
 		currentUndated,
@@ -408,13 +409,11 @@ test("an Announcement page shows its type, dates, details and its published atta
 		await expect(main.getByText(hidden.title), hidden.title).toHaveCount(0);
 	}
 
-	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
-	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก", "ข่าวสาร", "ประกาศ"]);
-	await expect(breadcrumb.getByRole("link", { name: "ประกาศ" })).toHaveAttribute(
-		"href",
-		"/announcements",
+	await expectBreadcrumb(
+		page,
+		[HOME_CRUMB, SECTION_CRUMBS.news, ["ประกาศ", "/announcements"]],
+		announcement.title,
 	);
-	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(announcement.title);
 });
 
 test("an Announcement page leaves out the details and Documents it does not have", async ({

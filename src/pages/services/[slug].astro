@@ -109,11 +109,7 @@ const linkClass =
 	section="services"
 	description={service.summary ?? undefined}
 	canonical={servicePath(entry.id)}
-	breadcrumbs={[
-		{ label: "หน้าแรก", href: "/" },
-		{ label: "บริการประชาชน", href: servicesPath() },
-		{ label: service.title },
-	]}
+	crumbs={[{ label: service.title }]}
 	entry={{
 		collection: "services",
 		id: service.id,

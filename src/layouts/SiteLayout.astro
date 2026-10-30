@@ -22,8 +22,9 @@
 // panel over what the page passed, so an editor's SEO description wins over
 // the summary. The <title> stays the page's own (src/page/seo-contributions.ts).
 //
-// An inner page passes its breadcrumb, which the shell shows above the page's
-// main content.
+// An inner page passes its own crumbs, and the shell shows its breadcrumb above
+// the page's main content: หน้าแรก and the page's section, then those crumbs
+// (src/lib/navigation.ts breadcrumb).
 //
 // The footer links to the reserved Basic Pages `privacy` and `accessibility`
 // while they are published, before ติดต่อเรา (src/lib/basic-pages.ts). Above
@@ -33,12 +34,14 @@ import { Font } from "astro:assets";
 import { createPublicPageContext } from "emdash/page";
 import { EmDashHead } from "emdash/ui";
 import "../styles/global.css";
-import Breadcrumb, { type Crumb } from "../components/Breadcrumb.astro";
+import Breadcrumb from "../components/Breadcrumb.astro";
 import ContentLink from "../components/ContentLink.astro";
 import {
 	MAIN_NAVIGATION,
 	UTILITY_LINKS,
+	breadcrumb,
 	currentMark,
+	type Crumb,
 	type NavigationSection,
 } from "../lib/navigation";
 import { footerPageLinks } from "../lib/basic-pages";
@@ -54,15 +57,19 @@ interface Props {
 	description?: string;
 	/** The page's canonical address on this site, a path with any query string. */
 	canonical?: string;
-	/** The breadcrumb, root first, ending with the current page. */
-	breadcrumbs?: Crumb[];
+	/**
+	 * The page's own crumbs, after หน้าแรก and its section: any page between the section and this
+	 * one, then this page's title. A section's landing page passes none (`[]`), and its breadcrumb
+	 * ends at the section. A page that passes no crumbs at all has no breadcrumb.
+	 */
+	crumbs?: Crumb[];
 	/** The content entry the page renders, by its database id and slug. */
 	entry?: { collection: string; id: string; slug: string; publishedAt?: Date | string | null };
 	/** Keep the page out of search engines, as for a draft preview. */
 	noindex?: boolean;
 }
 
-const { title, section, description, canonical, breadcrumbs, entry, noindex } = Astro.props;
+const { title, section, description, canonical, crumbs, entry, noindex } = Astro.props;
 const [identity, footerPages, { channels }] = await Promise.all([
 	getSiteIdentity(Astro.url),
 	footerPageLinks(),
@@ -227,9 +234,9 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 			</div>
 		</header>
 		<main id="main" tabindex="-1" class="flex-1">
-			{breadcrumbs && (
+			{crumbs && (
 				<div class="page-container pt-6">
-					<Breadcrumb items={breadcrumbs} />
+					<Breadcrumb items={breadcrumb(section, crumbs)} />
 				</div>
 			)}
 			<slot />
