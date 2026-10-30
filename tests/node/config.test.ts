@@ -1,48 +1,21 @@
-// T007 — RED test definition for the Songhealth native runtime configuration
-// contract (Feature 001).
+// The native runtime configuration contract (Feature 001 T007/T008; `10` §20.1 and §21;
+// specs/001-platform-foundation/data-model.md §1: "may name the missing field or dependency but
+// must not print values").
 //
-// Authority:
-// - specs/001-platform-foundation/tasks.md T007/T008
-// - docs/website-modernization-docs/current/10-system-blueprint.md §20.1
-//   (Native Runtime Configuration Contract) and §21 (Testing Strategy)
-// - specs/001-platform-foundation/spec.md: FR-007/FR-012, User Story 1
-//   acceptance scenario 3, edge cases, and the 2026-10-07 configuration
-//   clarification
-// - specs/001-platform-foundation/data-model.md §1 (Runtime Configuration:
-//   "may name the missing field or dependency but must not print values")
-// - specs/001-platform-foundation/plan.md ("Configuration and secrets")
+// Each case loads the canonical astro.config.mjs in a child Node process whose environment holds
+// only that case's inputs. Valid inputs load. Missing, empty, malformed or mutually inconsistent
+// inputs fail closed with a message that names the field or component, and the child's output
+// echoes no value configured for that case: no secret, no URL identity fragment, no malformed
+// value. Every value is distinctive synthetic data, so it cannot collide with a generic hint such
+// as a port range or a URL scheme. The PG* and migration-URL check compares the non-secret
+// identity components only. No case reaches a database or the network.
 //
-// These tests define the approved contract and are intentionally RED until T008
-// adds the minimal fail-fast validation to the canonical application
-// configuration. They exercise exactly one black-box surface: loading the
-// canonical Astro application configuration (astro.config.mjs) in a child Node
-// process whose environment contains only this case's inputs. With valid
-// inputs the load must succeed; with missing, empty, malformed, or mutually
-// inconsistent inputs the load must fail closed with an actionable error that
-// identifies field/component names and never echoes configured values
-// (§20.1: the PG*/migration-URL consistency check compares non-secret identity
-// components only; passwords and the full URL are never printed).
-//
-// Field-name-only enforcement (review rounds 1-2): for EVERY case — failure
-// and control alike — the combined child output must not echo ANY non-empty
-// value configured for that exact case (not only secrets or hand-selected
-// divergent values), nor any constant secret marker, nor any distinctive
-// identity FRAGMENT of a configured URL (its host, port, user, or database
-// component). The rule is total, with no exemptions: every configured value
-// in every case — including every malformed value — is unmistakably
-// distinctive synthetic data chosen so it cannot collide with generic
-// actionable hints (TCP port ranges, supported URL schemes such as
-// postgresql:// or http://, loopback/default examples).
-//
-// Per §21 these tests cover Songhealth configuration behavior only: no Astro
-// or EmDash internals, no reusable helper/module API, no configuration
-// service, and no live database or network access (the configuration load
-// itself never connects). Every configured value below is an unmistakably
-// synthetic, non-secret marker; no real credential ever appears in this file,
-// its fixtures, or its output.
+// The children run concurrently, one per core (#58 retro): a load takes about a second, and the
+// 36 cases had run one after another.
 
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
+import { availableParallelism } from "node:os";
 import { describe, it } from "node:test";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -173,22 +146,11 @@ interface ConfigLoadRun {
 	output: string;
 }
 
-function runConfigChild(env: Record<string, string>, childSource: string): ConfigLoadRun {
-	const spawned = spawnSync(process.execPath, ["--input-type=module", "--eval", childSource], {
-		cwd: REPO_ROOT,
-		env,
-		encoding: "utf8",
-		timeout: CHILD_TIMEOUT_MS,
-		stdio: ["ignore", "pipe", "pipe"],
-	});
+/** How many configuration loads run at once: one per core. */
+const CONCURRENT_LOADS = { concurrency: availableParallelism() };
 
-	const output = `${spawned.stdout ?? ""}\n${spawned.stderr ?? ""}`;
-	if (spawned.error) {
-		return { outcome: null, harnessError: `child did not run: ${spawned.error.message}`, output };
-	}
-	if (spawned.status === null) {
-		return { outcome: null, harnessError: `child terminated by signal ${spawned.signal}`, output };
-	}
+/** The outcome the child reported in `output`, or why there is none. */
+function parseRun(output: string): ConfigLoadRun {
 	const at = output.indexOf(RESULT_SENTINEL);
 	if (at === -1) {
 		return { outcome: null, harnessError: "child produced no parseable result report", output };
@@ -203,7 +165,41 @@ function runConfigChild(env: Record<string, string>, childSource: string): Confi
 	}
 }
 
-function loadApplicationConfiguration(env: Record<string, string>): ConfigLoadRun {
+function runConfigChild(env: Record<string, string>, childSource: string): Promise<ConfigLoadRun> {
+	return new Promise((resolve) => {
+		const child = spawn(process.execPath, ["--input-type=module", "--eval", childSource], {
+			cwd: REPO_ROOT,
+			env,
+			timeout: CHILD_TIMEOUT_MS,
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+		let stdout = "";
+		let stderr = "";
+		child.stdout.setEncoding("utf8").on("data", (chunk: string) => (stdout += chunk));
+		child.stderr.setEncoding("utf8").on("data", (chunk: string) => (stderr += chunk));
+		const output = () => `${stdout}\n${stderr}`;
+		child.on("error", (error) =>
+			resolve({
+				outcome: null,
+				harnessError: `child did not run: ${error.message}`,
+				output: output(),
+			}),
+		);
+		child.on("close", (status, signal) =>
+			resolve(
+				status === null
+					? {
+							outcome: null,
+							harnessError: `child terminated by signal ${signal}`,
+							output: output(),
+						}
+					: parseRun(output()),
+			),
+		);
+	});
+}
+
+function loadApplicationConfiguration(env: Record<string, string>): Promise<ConfigLoadRun> {
 	const childSource = `
     const report = (payload) =>
       process.stdout.write(${JSON.stringify(RESULT_SENTINEL)} + JSON.stringify(payload));
@@ -248,11 +244,11 @@ function assertHarnessSound(run: ConfigLoadRun): void {
 /** Run one failure case: load the configuration with exactly `env` and assert
  * that the load fails closed, names the expected field/component names, and
  * echoes none of the values configured for this exact case. */
-function expectFailClosedNaming(
+async function expectFailClosedNaming(
 	env: Record<string, string>,
 	expectedFieldNames: ReadonlyArray<string>,
-): void {
-	const run = loadApplicationConfiguration(env);
+): Promise<void> {
+	const run = await loadApplicationConfiguration(env);
 	const forbidden = echoForbiddenValuesFor(env);
 	assertHarnessSound(run);
 	assert.ok(
@@ -287,10 +283,10 @@ function expectFailClosedNaming(
 // validation behavior, not to a broken harness or missing test dependencies.
 // ---------------------------------------------------------------------------
 
-describe("valid native runtime configuration (control)", () => {
-	it("loads the canonical application configuration successfully without echoing any configured value", () => {
+describe("valid native runtime configuration (control)", CONCURRENT_LOADS, () => {
+	it("loads the canonical application configuration successfully without echoing any configured value", async () => {
 		const env = validBaselineEnv();
-		const run = loadApplicationConfiguration(env);
+		const run = await loadApplicationConfiguration(env);
 		const forbidden = echoForbiddenValuesFor(env);
 		assertHarnessSound(run);
 		assert.ok(
@@ -322,17 +318,17 @@ const REQUIRED_INPUTS = [
 	"EMDASH_ENCRYPTION_KEY",
 ] as const;
 
-describe("missing or empty required values fail closed", () => {
+describe("missing or empty required values fail closed", CONCURRENT_LOADS, () => {
 	for (const inputName of REQUIRED_INPUTS) {
-		it(`fails closed naming ${inputName} when it is unset`, () => {
+		it(`fails closed naming ${inputName} when it is unset`, async () => {
 			const env = validBaselineEnv();
 			delete env[inputName];
-			expectFailClosedNaming(env, [inputName]);
+			await expectFailClosedNaming(env, [inputName]);
 		});
 
-		it(`fails closed naming ${inputName} when it is empty`, () => {
+		it(`fails closed naming ${inputName} when it is empty`, async () => {
 			const env = { ...validBaselineEnv(), [inputName]: "" };
-			expectFailClosedNaming(env, [inputName]);
+			await expectFailClosedNaming(env, [inputName]);
 		});
 	}
 });
@@ -346,7 +342,7 @@ describe("missing or empty required values fail closed", () => {
 // below-range port is the distinctive negative "-54329", not a bare "0").
 // ---------------------------------------------------------------------------
 
-describe("malformed required values fail closed", () => {
+describe("malformed required values fail closed", CONCURRENT_LOADS, () => {
 	const invalidTcpPorts: ReadonlyArray<{ variable: string; value: string; reason: string }> = [
 		{ variable: "PGPORT", value: "synthetic-not-a-port", reason: "non-numeric TCP port" },
 		{
@@ -359,41 +355,41 @@ describe("malformed required values fail closed", () => {
 		{ variable: "PORT", value: "70000", reason: "TCP port above 65535" },
 	];
 	for (const { variable, value, reason } of invalidTcpPorts) {
-		it(`fails closed naming ${variable} for ${reason}`, () => {
+		it(`fails closed naming ${variable} for ${reason}`, async () => {
 			const env = { ...validBaselineEnv(), [variable]: value };
-			expectFailClosedNaming(env, [variable]);
+			await expectFailClosedNaming(env, [variable]);
 		});
 	}
 
-	it("fails closed naming EMDASH_SITE_URL when the origin has no scheme (bare host)", () => {
+	it("fails closed naming EMDASH_SITE_URL when the origin has no scheme (bare host)", async () => {
 		const env = { ...validBaselineEnv(), EMDASH_SITE_URL: "synthetic-site-origin.example.invalid" };
-		expectFailClosedNaming(env, ["EMDASH_SITE_URL"]);
+		await expectFailClosedNaming(env, ["EMDASH_SITE_URL"]);
 	});
 
-	it("fails closed naming EMDASH_SITE_URL when the origin has a scheme but no host", () => {
+	it("fails closed naming EMDASH_SITE_URL when the origin has a scheme but no host", async () => {
 		// Distinctive scheme-with-empty-host value: asserting its absence cannot
 		// collide with a legitimate scheme hint such as "http:// or https://".
 		const env = { ...validBaselineEnv(), EMDASH_SITE_URL: "http://:43219" };
-		expectFailClosedNaming(env, ["EMDASH_SITE_URL"]);
+		await expectFailClosedNaming(env, ["EMDASH_SITE_URL"]);
 	});
 
-	it("fails closed naming EMDASH_MIGRATION_DATABASE_URL when it is not a parsable URL", () => {
+	it("fails closed naming EMDASH_MIGRATION_DATABASE_URL when it is not a parsable URL", async () => {
 		const env = {
 			...validBaselineEnv(),
 			EMDASH_MIGRATION_DATABASE_URL: "synthetic-malformed-not-a-url",
 		};
-		expectFailClosedNaming(env, ["EMDASH_MIGRATION_DATABASE_URL"]);
+		await expectFailClosedNaming(env, ["EMDASH_MIGRATION_DATABASE_URL"]);
 	});
 
-	it("fails closed naming EMDASH_MIGRATION_DATABASE_URL when the scheme is not PostgreSQL", () => {
+	it("fails closed naming EMDASH_MIGRATION_DATABASE_URL when the scheme is not PostgreSQL", async () => {
 		const nonPostgresUrl =
 			`mysql://${SYNTHETIC_IDENTITY.user}:${SYNTHETIC_URL_PASSWORD}` +
 			`@${SYNTHETIC_IDENTITY.host}:${SYNTHETIC_IDENTITY.port}/${SYNTHETIC_IDENTITY.database}`;
 		const env = { ...validBaselineEnv(), EMDASH_MIGRATION_DATABASE_URL: nonPostgresUrl };
-		expectFailClosedNaming(env, ["EMDASH_MIGRATION_DATABASE_URL"]);
+		await expectFailClosedNaming(env, ["EMDASH_MIGRATION_DATABASE_URL"]);
 	});
 
-	it("fails closed naming EMDASH_MIGRATION_DATABASE_URL when it is incomplete (no user or database identity)", () => {
+	it("fails closed naming EMDASH_MIGRATION_DATABASE_URL when it is incomplete (no user or database identity)", async () => {
 		// Distinctive scheme+host+port value with no user or database component;
 		// asserting its absence cannot collide with a legitimate postgresql://
 		// scheme hint.
@@ -401,7 +397,7 @@ describe("malformed required values fail closed", () => {
 			...validBaselineEnv(),
 			EMDASH_MIGRATION_DATABASE_URL: `postgresql://${SYNTHETIC_IDENTITY.host}:${SYNTHETIC_IDENTITY.port}`,
 		};
-		expectFailClosedNaming(env, ["EMDASH_MIGRATION_DATABASE_URL"]);
+		await expectFailClosedNaming(env, ["EMDASH_MIGRATION_DATABASE_URL"]);
 	});
 });
 
@@ -413,27 +409,31 @@ describe("malformed required values fail closed", () => {
 // values are covered automatically by the per-case echo rule).
 // ---------------------------------------------------------------------------
 
-describe("PG* runtime inputs and migration URL must agree on the intended database", () => {
-	it("fails closed when PGHOST disagrees with the migration URL host component", () => {
-		const env = { ...validBaselineEnv(), PGHOST: "synthetic-alt-host.example.invalid" };
-		expectFailClosedNaming(env, ["PGHOST", "EMDASH_MIGRATION_DATABASE_URL"]);
-	});
+describe(
+	"PG* runtime inputs and migration URL must agree on the intended database",
+	CONCURRENT_LOADS,
+	() => {
+		it("fails closed when PGHOST disagrees with the migration URL host component", async () => {
+			const env = { ...validBaselineEnv(), PGHOST: "synthetic-alt-host.example.invalid" };
+			await expectFailClosedNaming(env, ["PGHOST", "EMDASH_MIGRATION_DATABASE_URL"]);
+		});
 
-	it("fails closed when PGPORT disagrees with the migration URL port component", () => {
-		const env = { ...validBaselineEnv(), PGPORT: "65432" };
-		expectFailClosedNaming(env, ["PGPORT", "EMDASH_MIGRATION_DATABASE_URL"]);
-	});
+		it("fails closed when PGPORT disagrees with the migration URL port component", async () => {
+			const env = { ...validBaselineEnv(), PGPORT: "65432" };
+			await expectFailClosedNaming(env, ["PGPORT", "EMDASH_MIGRATION_DATABASE_URL"]);
+		});
 
-	it("fails closed when PGDATABASE disagrees with the migration URL database component", () => {
-		const env = { ...validBaselineEnv(), PGDATABASE: "synthetic_alt_database" };
-		expectFailClosedNaming(env, ["PGDATABASE", "EMDASH_MIGRATION_DATABASE_URL"]);
-	});
+		it("fails closed when PGDATABASE disagrees with the migration URL database component", async () => {
+			const env = { ...validBaselineEnv(), PGDATABASE: "synthetic_alt_database" };
+			await expectFailClosedNaming(env, ["PGDATABASE", "EMDASH_MIGRATION_DATABASE_URL"]);
+		});
 
-	it("fails closed when PGUSER disagrees with the migration URL user component", () => {
-		const env = { ...validBaselineEnv(), PGUSER: "synthetic_alt_user" };
-		expectFailClosedNaming(env, ["PGUSER", "EMDASH_MIGRATION_DATABASE_URL"]);
-	});
-});
+		it("fails closed when PGUSER disagrees with the migration URL user component", async () => {
+			const env = { ...validBaselineEnv(), PGUSER: "synthetic_alt_user" };
+			await expectFailClosedNaming(env, ["PGUSER", "EMDASH_MIGRATION_DATABASE_URL"]);
+		});
+	},
+);
 
 // ---------------------------------------------------------------------------
 // T015 Human Gate regression: a valid synthetic HOST/PORT pair must be present
@@ -447,9 +447,12 @@ describe("PG* runtime inputs and migration URL must agree on the intended databa
 // results are reported, preserving the every-value echo rule above.
 // ---------------------------------------------------------------------------
 
-describe("validated HOST/PORT are carried in the exported Astro server configuration", () => {
-	function loadExportedServerBoundary(env: Record<string, string>): ConfigLoadRun {
-		const childSource = `
+describe(
+	"validated HOST/PORT are carried in the exported Astro server configuration",
+	CONCURRENT_LOADS,
+	() => {
+		function loadExportedServerBoundary(env: Record<string, string>): Promise<ConfigLoadRun> {
+			const childSource = `
       const report = (payload) =>
         process.stdout.write(${JSON.stringify(RESULT_SENTINEL)} + JSON.stringify(payload));
       try {
@@ -469,31 +472,32 @@ describe("validated HOST/PORT are carried in the exported Astro server configura
         });
       }
     `;
-		return runConfigChild(env, childSource);
-	}
-
-	it("exports the configured host and the numeric configured port as the native server boundary", () => {
-		const env = validBaselineEnv();
-		const run = loadExportedServerBoundary(env);
-		const forbidden = echoForbiddenValuesFor(env);
-		assertHarnessSound(run);
-		assert.ok(
-			run.outcome?.ok === true,
-			"valid synthetic inputs must load; failure would indicate a harness or dependency " +
-				`problem: ${sanitizeForReporting(run.output, forbidden)}`,
-		);
-		assert.ok(
-			run.outcome?.carriesConfiguredHost === true,
-			"the exported configuration must carry the configured HOST as server.host, so " +
-				"`astro dev` binds the configured boundary instead of a default localhost resolution",
-		);
-		assert.ok(
-			run.outcome?.carriesNumericPort === true,
-			"the exported configuration must carry the configured PORT as the numeric server.port " +
-				"required by Astro's native server configuration type",
-		);
-		for (const { label, value } of forbidden) {
-			assert.ok(!run.output.includes(value), `load output must not echo the ${label}`);
+			return runConfigChild(env, childSource);
 		}
-	});
-});
+
+		it("exports the configured host and the numeric configured port as the native server boundary", async () => {
+			const env = validBaselineEnv();
+			const run = await loadExportedServerBoundary(env);
+			const forbidden = echoForbiddenValuesFor(env);
+			assertHarnessSound(run);
+			assert.ok(
+				run.outcome?.ok === true,
+				"valid synthetic inputs must load; failure would indicate a harness or dependency " +
+					`problem: ${sanitizeForReporting(run.output, forbidden)}`,
+			);
+			assert.ok(
+				run.outcome?.carriesConfiguredHost === true,
+				"the exported configuration must carry the configured HOST as server.host, so " +
+					"`astro dev` binds the configured boundary instead of a default localhost resolution",
+			);
+			assert.ok(
+				run.outcome?.carriesNumericPort === true,
+				"the exported configuration must carry the configured PORT as the numeric server.port " +
+					"required by Astro's native server configuration type",
+			);
+			for (const { label, value } of forbidden) {
+				assert.ok(!run.output.includes(value), `load output must not echo the ${label}`);
+			}
+		});
+	},
+);
