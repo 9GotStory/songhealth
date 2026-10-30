@@ -146,7 +146,11 @@ test("/health-services lists only published Health Services by name, each with i
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "บริการประชาชน" }),
 	).toHaveAttribute("aria-current", "true");
 	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
-	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก"]);
+	await expect(breadcrumb.getByRole("link")).toHaveText(["หน้าแรก", "บริการประชาชน"]);
+	await expect(breadcrumb.getByRole("link", { name: "บริการประชาชน" })).toHaveAttribute(
+		"href",
+		"/services",
+	);
 	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(
 		"หน่วยบริการสุขภาพที่เกี่ยวข้อง",
 	);
