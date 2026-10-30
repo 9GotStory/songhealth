@@ -52,8 +52,6 @@
 import { expect, test } from "@playwright/test";
 
 import {
-	assertDistinctActors,
-	assertSameNativeApp,
 	cleanupOwnedFixtures,
 	cmsRequest,
 	createPatActor,
@@ -76,6 +74,8 @@ import {
 	publishEntry,
 	readEntry,
 	restoreEntry,
+	ROLE_FIXTURE_CREDENTIAL_ENV,
+	roleFixtureActor,
 	scheduleEntry,
 	setUserRole,
 	trashEntry,
@@ -102,15 +102,6 @@ import {
  * about permission, state or time — never completeness.
  */
 const PAGES_COLLECTION = "pages";
-
-/**
- * Environment variable naming the distinct role-fixture credential: the path
- * to a mode-0600 controller-format JSON file (`{ token }`) whose PAT belongs
- * to a SECOND native account (never dev@emdash.local). The explicit
- * test-owned account/role prerequisite for every role-phase case (quickstart
- * Prerequisites; T001 §6 records the input pending at this baseline).
- */
-const ROLE_FIXTURE_CREDENTIAL_ENV = "SONGHEALTH_ROLE_FIXTURE_ACCESS";
 
 /** Bangkok UTC+7 — the explicit offset every scheduling case below uses. */
 const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -223,7 +214,7 @@ function gatePages(): void {
 function gateRoleFixture(): CmsActor {
 	test.skip(
 		roleFixture === undefined,
-		`distinct role-fixture prerequisite missing: set ${ROLE_FIXTURE_CREDENTIAL_ENV} to the mode-0600 controller-format JSON credential of a second PAT-owning native account (T001 §6 records this input pending at this baseline)`,
+		`set ${ROLE_FIXTURE_CREDENTIAL_ENV} to the role fixture PAT`,
 	);
 	return roleFixture!;
 }
@@ -541,29 +532,10 @@ test.beforeAll(async () => {
 		"the development credential must belong to the intended dev@emdash.local fixture account",
 	).toBe("dev@emdash.local");
 
-	// The distinct role-fixture prerequisite: a CONFIGURED credential that
-	// fails to load/verify is a loud failure (the environment claims role
-	// coverage it cannot deliver); an ABSENT one leaves the role-phase cases
-	// to their truthful skip.
-	const processSpecifier = "node:process";
-	const nodeProcess = (await import(processSpecifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	const fixtureCredentialPath = nodeProcess.env[ROLE_FIXTURE_CREDENTIAL_ENV];
-	if (fixtureCredentialPath !== undefined && fixtureCredentialPath.trim().length > 0) {
-		const fixture = await createPatActor({
-			baseUrl: origin,
-			token: await loadDevAccessToken(fixtureCredentialPath.trim()),
-		});
-		assertDistinctActors(admin, fixture);
-		assertSameNativeApp(admin, fixture);
-		expect(
-			fixture.email,
-			"the role-fixture credential must belong to a genuinely distinct native account (never dev@emdash.local)",
-		).not.toBe("dev@emdash.local");
-		roleFixture = fixture;
-		roleFixtureOriginalRole = fixture.role;
-	}
+	// The role fixture, another account of the same application: a configured credential that
+	// fails to load or verify fails loudly, and an absent one leaves the role cases to their skip.
+	roleFixture = await roleFixtureActor(admin);
+	roleFixtureOriginalRole = roleFixture?.role;
 
 	// One live schema read decides the exercised collection's readiness. The
 	// only unconditional definition fact the checks below rely on is the

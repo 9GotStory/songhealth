@@ -28,8 +28,6 @@ import {
 	DEFAULT_DEVELOPMENT_ORIGIN,
 	NATIVE_ROLES,
 	SYNTHETIC_FIXTURE_MARK,
-	assertDistinctActors,
-	assertSameNativeApp,
 	cleanupOwnedFixtures,
 	closeDevAdminSession,
 	cmsRequest,
@@ -42,11 +40,12 @@ import {
 	nativeItemsOf,
 	openDevAdminSession,
 	readEntry,
+	ROLE_FIXTURE_CREDENTIAL_ENV,
+	roleFixtureActor,
 } from "./cms.helpers";
 
 const PAGES = "pages";
 const HEALTH_REPORTS = "health_reports";
-const ROLE_FIXTURE_CREDENTIAL_ENV = "SONGHEALTH_ROLE_FIXTURE_ACCESS";
 
 let admin: CmsActor;
 let roleFixture: CmsActor | undefined;
@@ -84,15 +83,7 @@ test.beforeAll(async () => {
 		token: await loadDevAccessToken(),
 		expected: { role: NATIVE_ROLES.administrator },
 	});
-	const fixturePath = env[ROLE_FIXTURE_CREDENTIAL_ENV]?.trim();
-	if (fixturePath) {
-		roleFixture = await createPatActor({
-			baseUrl: origin,
-			token: await loadDevAccessToken(fixturePath),
-		});
-		assertDistinctActors(admin, roleFixture);
-		assertSameNativeApp(admin, roleFixture);
-	}
+	roleFixture = await roleFixtureActor(admin);
 });
 
 test.beforeEach(async ({ context }) => {
