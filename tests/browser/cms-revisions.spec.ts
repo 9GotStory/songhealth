@@ -67,16 +67,16 @@
 import { expect, test } from "@playwright/test";
 
 import {
-	assertDistinctActors,
-	assertSameNativeApp,
+	anonymousRequest,
 	cleanupOwnedFixtures,
+	cleanupRoleFixtureAndAdmin,
 	cmsRequest,
-	createPatActor,
 	createSyntheticEntry,
 	currentRev,
-	DEFAULT_DEVELOPMENT_ORIGIN,
+	dataOfItem,
+	devAdminActor,
 	getMe,
-	loadDevAccessToken,
+	liveDataOfItem,
 	nativeDataOf,
 	nativeErrorOf,
 	nativeItemOf,
@@ -85,6 +85,9 @@ import {
 	NATIVE_ROLES,
 	publishEntry,
 	readEntry,
+	ROLE_FIXTURE_CREDENTIAL_ENV,
+	roleFixtureActor,
+	statusOfItem,
 	updateEntry,
 	uploadSyntheticMedia,
 	withNativeRole,
@@ -130,15 +133,6 @@ const PERSONNEL_COLLECTION = "personnel";
 
 /** The shared `topic` taxonomy (attached to news; T004/T013/T018 standing). */
 const TOPIC_TAXONOMY = "topic";
-
-/**
- * Environment variable naming the distinct role-fixture credential: the path
- * to a mode-0600 controller-format JSON file (`{ token }`) whose PAT belongs
- * to a SECOND native account (never dev@emdash.local). The explicit
- * test-owned prerequisite for the second-writer lock cases (quickstart
- * Prerequisites; T001 §6 records the input pending at this baseline).
- */
-const ROLE_FIXTURE_CREDENTIAL_ENV = "SONGHEALTH_ROLE_FIXTURE_ACCESS";
 
 // ---------------------------------------------------------------------------
 // Readiness state, worker scope, and small shared local helpers
@@ -205,21 +199,6 @@ function uniqueTitle(kind: string): string {
 	return `${SYNTHETIC_FIXTURE_MARK} ${kind} ${crypto.randomUUID().slice(0, 8)}`;
 }
 
-/**
- * The runner-configured origin, mirroring playwright.config.ts exactly (the
- * same discipline as the accepted T003/T007/T014/T019 checks):
- * PLAYWRIGHT_BASE_URL when set, otherwise the documented development origin.
- * node:process is loaded through a dynamic non-literal import because the
- * pinned dependency baseline ships no @types/node.
- */
-async function configuredDevelopmentOrigin(): Promise<string> {
-	const specifier = "node:process";
-	const nodeProcess = (await import(specifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	return nodeProcess.env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN;
-}
-
 /** Truthful schema gate for one exercised collection (T014 gateCollection shape). */
 function gateCollection(readiness: CollectionReadiness, slug: string, what: string): void {
 	test.skip(
@@ -258,28 +237,9 @@ function gatePersonnel(): void {
 function gateRoleFixture(): CmsActor {
 	test.skip(
 		roleFixture === undefined,
-		`distinct role-fixture prerequisite missing: set ${ROLE_FIXTURE_CREDENTIAL_ENV} to the mode-0600 controller-format JSON credential of a second PAT-owning native account (T001 §6 records this input pending at this baseline)`,
+		`set ${ROLE_FIXTURE_CREDENTIAL_ENV} to the role fixture PAT`,
 	);
 	return roleFixture!;
-}
-
-/** The entry's lifecycle status as the native read returns it, when present. */
-function statusOfItem(item: Record<string, unknown> | undefined): string | undefined {
-	return typeof item?.status === "string" ? item.status : undefined;
-}
-
-/** The entry's field-data object as the native read returns it, when present. */
-function dataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
-	return item?.data !== null && typeof item?.data === "object"
-		? (item.data as Record<string, unknown>)
-		: {};
-}
-
-/** The entry's `liveData` object (published values under a pending draft). */
-function liveDataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
-	return item?.liveData !== null && typeof item?.liveData === "object"
-		? (item.liveData as Record<string, unknown>)
-		: {};
 }
 
 /** One revision record from a listing item. */
@@ -1152,43 +1112,14 @@ function expectEntryLockedRefusal(
 // ---------------------------------------------------------------------------
 
 test.beforeAll(async () => {
-	const origin = await configuredDevelopmentOrigin();
-	// Development native access through the pre-existing development
-	// credential (T013 test-authentication adaptation). This hook
-	// deliberately creates no owned fixtures; Playwright --list discovery
-	// performs no native calls at all (hooks run only at execution).
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
-	expect(
-		admin.email,
-		"the development credential must belong to the intended dev@emdash.local fixture account",
-	).toBe("dev@emdash.local");
+	// The development Administrator. This hook creates no owned fixtures.
+	admin = await devAdminActor();
 
-	// The distinct role-fixture prerequisite: a CONFIGURED credential that
-	// fails to load/verify is a loud failure; an ABSENT one leaves the
-	// second-writer lock cases to their truthful skip.
-	const processSpecifier = "node:process";
-	const nodeProcess = (await import(processSpecifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	const fixtureCredentialPath = nodeProcess.env[ROLE_FIXTURE_CREDENTIAL_ENV];
-	if (fixtureCredentialPath !== undefined && fixtureCredentialPath.trim().length > 0) {
-		const fixture = await createPatActor({
-			baseUrl: origin,
-			token: await loadDevAccessToken(fixtureCredentialPath.trim()),
-		});
-		assertDistinctActors(admin, fixture);
-		assertSameNativeApp(admin, fixture);
-		expect(
-			fixture.email,
-			"the role-fixture credential must belong to a genuinely distinct native account (never dev@emdash.local)",
-		).not.toBe("dev@emdash.local");
-		roleFixture = fixture;
-		roleFixtureOriginalRole = fixture.role;
-	}
+	// The role fixture, another account of the same application: a configured credential that
+	// fails to load or verify fails loudly, and an absent one leaves the second-writer lock cases
+	// to their skip.
+	roleFixture = await roleFixtureActor(admin);
+	roleFixtureOriginalRole = roleFixture?.role;
 
 	// One live schema read per exercised collection decides readiness. The
 	// only unconditional definition facts the checks below rely on: a
@@ -1300,35 +1231,9 @@ test.afterEach(async () => {
 });
 
 test.afterAll(async () => {
-	// Safety net: normally a no-op (afterEach resolved everything). Every
-	// attempt runs INDEPENDENTLY; the combined failures are reported only
-	// after ALL attempts.
-	const failures: string[] = [];
-	if (roleFixture !== undefined) {
-		try {
-			const report = await cleanupOwnedFixtures(roleFixture, {
-				adminActor: admin,
-				permanent: true,
-			});
-			expect(
-				report.complete,
-				"the final role-fixture cleanup must leave zero unresolved owned fixtures",
-			).toBe(true);
-		} catch (cause) {
-			failures.push(`role-fixture cleanup: ${renderFailure(cause)}`);
-		}
-	}
-	if (admin !== undefined) {
-		try {
-			const report = await cleanupOwnedFixtures(admin, { permanent: true });
-			expect(
-				report.complete,
-				"the final admin cleanup must leave zero unresolved owned fixtures",
-			).toBe(true);
-		} catch (cause) {
-			failures.push(`admin cleanup: ${renderFailure(cause)}`);
-		}
-	}
+	// Safety net: normally a no-op (afterEach resolved everything). Each step is attempted whatever
+	// the others' outcome, and the failures are reported together.
+	const failures = await cleanupRoleFixtureAndAdmin(roleFixture, admin);
 	try {
 		await deleteSyntheticTerm();
 	} catch (cause) {
@@ -2498,26 +2403,16 @@ test("unauthenticated revision-surface reads are authorization refusals, never d
 	});
 	expect(entry.result.ok, "the unauthenticated-control fixture must save").toBe(true);
 
-	// One unauthenticated read against each revision surface (listing and
-	// compare) with no credential sent: only the authorization layer can
-	// refuse (the accepted control shape; the URL is built from the actor's
-	// runner-configured origin).
-	const base = `${admin.baseUrl}/`;
+	// One read without a credential against each revision surface (listing and compare): only the
+	// authentication layer can refuse it.
 	for (const [label, path] of [
 		["revision listing", `/_emdash/api/content/${PAGES_COLLECTION}/${entry.entryId}/revisions`],
 		["live/draft compare", `/_emdash/api/content/${PAGES_COLLECTION}/${entry.entryId}/compare`],
 	] as const) {
-		const response = await fetch(new URL(path, base), { redirect: "error" });
-		let parsed: unknown;
-		try {
-			parsed = await response.json();
-		} catch {
-			parsed = { nonJsonBody: await response.text() };
-		}
-		const result: NativeResult = { ok: response.ok, status: response.status, body: parsed };
+		const result = await anonymousRequest(admin.baseUrl, path);
 		expect(
 			result.status,
-			`${label}: an unauthenticated native read must be refused by the authorization layer with 401`,
+			`${label}: an unauthenticated native read must be refused by the authentication layer with 401`,
 		).toBe(401);
 		expect(result.ok, `${label}: the refusal is never success`).toBe(false);
 		const error = result.body as { error?: { code?: unknown } };

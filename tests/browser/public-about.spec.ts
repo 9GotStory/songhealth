@@ -29,19 +29,16 @@
 import type { Page } from "@playwright/test";
 
 import {
-	cleanupOwnedFixtures,
-	cmsRequest,
-	createPatActor,
 	createSyntheticDocument,
 	createSyntheticEntry,
-	loadDevAccessToken,
-	nativeDataOf,
+	devAdminActor,
+	mintPreviewLink,
 	nativeItemOf,
 	nativeRefusalOf,
-	NATIVE_ROLES,
 	portableTextBlock,
 	publishEntryAt,
 	readEntry,
+	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	unpublishEntry,
@@ -53,20 +50,17 @@ import {
 	BorrowedEntries,
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
-	MOBILE_VIEWPORT,
-	VIEWPORTS,
 	expect,
 	expectAboutSubpage,
+	expectAccessibleAtEachWidth,
 	expectBreadcrumb,
-	expectNoAxeViolations,
-	expectNoHorizontalScroll,
 	expectSiteNotFound,
-	expectVisibleFocusOnEveryStop,
 	listedItem,
 	listedTitles,
 	ownTitles,
 	siteTitleParts,
 	test,
+	testAccessibilityAndReflow,
 } from "./public.helpers";
 
 /** The About sub-pages /about links to, in `01` §3 order. */
@@ -213,28 +207,16 @@ async function listedDocumentSlugs(page: Page, path: string): Promise<string[]> 
 
 test.use({ viewport: DESKTOP_VIEWPORT });
 
-test.beforeAll(async ({}, testInfo) => {
-	const baseURL = testInfo.project.use.baseURL;
-	if (baseURL === undefined) {
-		throw new Error("this suite needs a configured baseURL (PLAYWRIGHT_BASE_URL)");
-	}
-	origin = new URL(baseURL).origin;
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
+test.beforeAll(async () => {
+	admin = await devAdminActor();
+	origin = admin.baseUrl;
 });
 
 test.afterEach(async () => {
 	await borrowed.giveBack(admin);
 });
 
-test.afterAll(async () => {
-	if (admin === undefined) return;
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	expect(report.complete, `owned fixtures left: ${JSON.stringify(report)}`).toBe(true);
-});
+test.afterAll(() => removeSuiteFixtures(admin));
 
 test("each About Document page shows its empty state while no published Document has its type", async ({
 	page,
@@ -374,21 +356,9 @@ test("/about shows its sub-page links without the about Basic Page, and the page
 	await expectBreadcrumb(page, [HOME_CRUMB], "เกี่ยวกับเรา");
 	await expect(subpages.getByRole("link")).toHaveCount(ABOUT_SUBPAGES.length);
 	// The accessibility checks at the end see /about with its Basic Page published.
-	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
-		await page.setViewportSize(viewport);
-		await expectNoAxeViolations(page, `/about without its Basic Page at ${width}`);
-		await expectVisibleFocusOnEveryStop(page, `/about without its Basic Page at ${width}`);
-	}
-	await page.setViewportSize(DESKTOP_VIEWPORT);
+	await expectAccessibleAtEachWidth(page, "/about without its Basic Page");
 
-	const minted = await cmsRequest(
-		admin,
-		`/_emdash/api/content/pages/${encodeURIComponent(about.id)}/preview-url`,
-		{ method: "POST", body: {} },
-	);
-	expect(minted.ok, nativeRefusalOf(minted)).toBe(true);
-	// The signed token stays out of every message.
-	const link = new URL(String(nativeDataOf(minted)?.url), origin);
+	const link = await mintPreviewLink(admin, "pages", about.id);
 	expect(link.pathname, "the preview link is the draft's URL pattern address").toBe("/pages/about");
 	const preview = await page.goto(link.toString());
 	expect(preview?.status(), "the preview renders").toBe(200);
@@ -480,25 +450,5 @@ test.describe("accessibility and reflow", () => {
 		];
 	});
 
-	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
-		test(`axe reports no WCAG 2.2 AA violation and focus stays visible on the About and Basic Pages at the ${width} width`, async ({
-			page,
-		}) => {
-			await page.setViewportSize(viewport);
-			for (const path of paths) {
-				const response = await page.goto(path);
-				expect(response?.status(), `GET ${path}`).toBe(200);
-				await expectNoAxeViolations(page, `${path} at ${width}`);
-				await expectVisibleFocusOnEveryStop(page, `${path} at ${width}`);
-			}
-		});
-	}
-
-	test("no About or Basic Page scrolls sideways at 320 px", async ({ page }) => {
-		await page.setViewportSize(MOBILE_VIEWPORT);
-		for (const path of paths) {
-			await page.goto(path);
-			await expectNoHorizontalScroll(page, path);
-		}
-	});
+	testAccessibilityAndReflow("the About and Basic Pages", () => paths);
 });

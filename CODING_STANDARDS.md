@@ -2,7 +2,9 @@
 
 Judgement calls for review. The mechanical rules are enforced by the checks that CI runs on every
 pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
-`npm run format:check`, `npm run knip` and `npm run lint:shell`.
+`npm run format:check`, `npm run knip`, `npm run jscpd` and `npm run lint:shell`. `npm run jscpd`
+fails on a new clone of 100 tokens or more over 5 lines; `.jscpd.json` lists the clones that stay
+and why, and `.jscpd-baseline.json` records them.
 
 ## Comments
 
@@ -59,12 +61,13 @@ pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
 ## Tests
 
 - Public-page suites take `test` and `expect` from `tests/browser/public.helpers.ts`, so the
-  third-party request guard runs. Each template is checked at both `VIEWPORTS` with
+  third-party request guard runs. Each template's pages are checked at both `VIEWPORTS` with
   `expectNoAxeViolations` and `expectVisibleFocusOnEveryStop`, and at 320 px with
-  `expectNoHorizontalScroll`.
+  `expectNoHorizontalScroll`; `testAccessibilityAndReflow` declares those tests.
 - A helper that a second suite needs moves to a shared module: page checks (the 404 page, Thai
   dates, list titles, an image's load) to `tests/browser/public.helpers.ts`, native API fixtures
-  (entries, media, terms) to `tests/browser/cms.helpers.ts`.
+  (entries, media, terms) and refusal checks (`expectValidationRefusal`) to
+  `tests/browser/cms.helpers.ts`.
 - Tests assert what people see and use: text, links, status and focus. A link or button is
   checked by its accessible name (`getByRole(…, { name })`, `toHaveAccessibleName`), which leaves
   out decorative `aria-hidden` marks such as "→". A `data-testid` marks only an element with no

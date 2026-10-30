@@ -12,6 +12,10 @@
 //   `_rev`, and cleanupOwnedFixtures, which removes only what these helpers registered as owned.
 // - secret handling: every reported result and message is scrubbed of credentials, and
 //   credential files load only at mode 0600.
+// - refusal checks the CMS suites share (a validation refusal, an unresolvable reference target,
+//   an authorization refusal) and anonymousRequest, a request without a credential. They assert
+//   with Playwright's expect, which also runs outside the test runner (@playwright/test 1.63.0,
+//   playwright/lib/matchers/expect.js), so FixtureKit's plain Node scripts load this module too.
 //
 // Platform behaviour relied on (emdash 1.1.0):
 // - Responses are `{ success: true, data }` or `{ success: false, error: { code, message } }`
@@ -35,9 +39,18 @@
 // - setup/dev-bypass applies the seed and, with ?token=1, rotates the development PAT
 //   (src/astro/routes/api/setup/dev-bypass.ts). createDevBypassActor wraps it for a fresh
 //   install only; no suite calls it.
+// - A content API request with no token and no session is refused before its route runs: a
+//   state-changing one without `X-EmDash-Request: 1` with 403 CSRF_REJECTED, any other with 401
+//   NOT_AUTHENTICATED (src/astro/middleware/auth.ts). Public API routes check CSRF by Origin
+//   instead (src/api/csrf.ts checkPublicCsrf).
 //
 // Cleanup never throws past a failed step. Each owned fixture is attempted on its own, an
 // uncertain outcome is read again, and an unresolved fixture stays registered for a later retry.
+
+import { appendFile, lstat, readFile, stat } from "node:fs/promises";
+import { env } from "node:process";
+
+import { expect } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
 // Constants and small shared types
@@ -173,19 +186,9 @@ function redactWalk<T>(value: T, secrets: readonly string[], seen: WeakSet<objec
  * "Prerequisites": token scratch lives under e.g. .tmp/feature002/). Fails
  * closed on any looser mode, a non-regular file, or multi-line content —
  * the credential is returned into memory only.
- *
- * node:fs is loaded through a dynamic non-literal import because the pinned
- * dependency baseline intentionally ships no @types/node (tests/browser and
- * tests/node run under Node's own TypeScript support, like the existing
- * tests/node suites); the structural cast keeps this file strict-typed.
  */
 export async function readSecretScratch(path: string): Promise<string> {
-	const specifier = "node:fs/promises";
-	const fsPromises = (await import(specifier)) as unknown as {
-		stat: (p: string) => Promise<{ mode: number; isFile(): boolean }>;
-		readFile: (p: string, encoding: "utf8") => Promise<string>;
-	};
-	const stats = await fsPromises.stat(path);
+	const stats = await stat(path);
 	if (!stats.isFile()) {
 		throw new CmsHelperError("SECRET_SCRATCH_INVALID", `${path} is not a regular file`);
 	}
@@ -195,7 +198,7 @@ export async function readSecretScratch(path: string): Promise<string> {
 			`refusing to read ${path}: credential scratch must be mode 0600 (git-ignored), never group/world readable`,
 		);
 	}
-	const raw = await fsPromises.readFile(path, "utf8");
+	const raw = await readFile(path, "utf8");
 	const credential = raw.trim();
 	if (credential.length === 0 || credential.includes("\n")) {
 		throw new CmsHelperError("SECRET_SCRATCH_INVALID", `${path} must hold exactly one credential`);
@@ -227,27 +230,16 @@ const BARE_PAT_PATTERN = /^ec_pat_[A-Za-z0-9_-]+$/;
  * caller and never logged, hashed, or rewritten.
  *
  * Path resolution: the explicit argument, else DEV_ACCESS_CREDENTIAL_ENV.
- * node:fs is loaded through a dynamic non-literal import because the pinned
- * dependency baseline intentionally ships no @types/node.
  */
 export async function loadDevAccessToken(path?: string): Promise<string> {
-	const processSpecifier = "node:process";
-	const nodeProcess = (await import(processSpecifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	const fsSpecifier = "node:fs/promises";
-	const fsPromises = (await import(fsSpecifier)) as unknown as {
-		lstat: (p: string) => Promise<{ isFile(): boolean; isSymbolicLink(): boolean; mode: number }>;
-		readFile: (p: string, encoding: "utf8") => Promise<string>;
-	};
-	const resolved = path ?? nodeProcess.env[DEV_ACCESS_CREDENTIAL_ENV];
+	const resolved = path ?? env[DEV_ACCESS_CREDENTIAL_ENV];
 	if (resolved === undefined || resolved.trim().length === 0) {
 		throw new CmsHelperError(
 			"DEV_ACCESS_PATH_MISSING",
 			`no development credential path: pass one or set ${DEV_ACCESS_CREDENTIAL_ENV}`,
 		);
 	}
-	const stats = await fsPromises.lstat(resolved);
+	const stats = await lstat(resolved);
 	if (!stats.isFile() || stats.isSymbolicLink()) {
 		throw new CmsHelperError("DEV_ACCESS_INVALID", `${resolved} is not a regular non-symlink file`);
 	}
@@ -257,7 +249,7 @@ export async function loadDevAccessToken(path?: string): Promise<string> {
 			`refusing to read ${resolved}: the development credential must be mode 0600, never group/world readable`,
 		);
 	}
-	const text = (await fsPromises.readFile(resolved, "utf8")).trim();
+	const text = (await readFile(resolved, "utf8")).trim();
 	if (BARE_PAT_PATTERN.test(text)) {
 		return text;
 	}
@@ -362,6 +354,24 @@ export function nativeItemsOf(result: NativeResult): unknown[] {
 	if (Array.isArray(data?.items)) return data.items;
 	if (Array.isArray(data)) return data;
 	return [];
+}
+
+/** A content item's lifecycle `status`, when the read carries one. */
+export function statusOfItem(item: Record<string, unknown> | undefined): string | undefined {
+	return typeof item?.status === "string" ? item.status : undefined;
+}
+
+/** A content item's field `data`; a drafts read answers a pending draft's values here. */
+export function dataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
+	return recordOf(item?.data);
+}
+
+/**
+ * The published values a drafts read gives as `liveData` while an entry has a pending draft
+ * (emdash 1.1.0 src/emdash-runtime.ts hydrateDraftData).
+ */
+export function liveDataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
+	return recordOf(item?.liveData);
 }
 
 function requireString(value: unknown, what: string): string {
@@ -613,12 +623,26 @@ export async function cmsRequest(
 	return { ok: raw.ok, status: raw.status, body: raw.body };
 }
 
+/**
+ * One native API request without a credential, through the same core as cmsRequest: on `origin`'s
+ * /_emdash/ API only, following no redirect, and answering a refusal as a result. It sends no
+ * `X-EmDash-Request` header, so a state-changing request meets EmDash's CSRF check first.
+ */
+export async function anonymousRequest(
+	origin: string,
+	path: string,
+	options: CmsRequestOptions = {},
+): Promise<NativeResult> {
+	const raw = await rawRequest(origin, path, null, options);
+	return { ok: raw.ok, status: raw.status, body: raw.body };
+}
+
 function baseUrlOrDefault(baseUrl?: string): string {
 	if (baseUrl !== undefined) {
 		return baseUrl;
 	}
-	// Mirrors playwright.config.ts: the suite is pointed at the configured
-	// origin by its runner; helpers default to the documented dev origin.
+	// The documented development origin for a caller that names none; the suites pass
+	// configuredDevelopmentOrigin's.
 	return DEFAULT_DEVELOPMENT_ORIGIN;
 }
 
@@ -800,20 +824,46 @@ export function assertSameNativeApp(a: CmsActor, b: CmsActor): void {
 	}
 }
 
+/**
+ * The origin the suites run against, as playwright.config.ts resolves it: PLAYWRIGHT_BASE_URL, else
+ * the documented development origin.
+ */
+export function configuredDevelopmentOrigin(): string {
+	return new URL(env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN).origin;
+}
+
+/** The development Administrator's account, which the development PAT belongs to. */
+const DEV_ADMIN_EMAIL = "dev@emdash.local";
+
+/**
+ * The development Administrator on `origin`, else the configured origin: the development PAT's
+ * actor (DEV_ACCESS_CREDENTIAL_ENV), verified as the dev@emdash.local account at the
+ * Administrator role. The suites' admin setup.
+ */
+export async function devAdminActor(origin?: string): Promise<CmsActor> {
+	const admin = await createPatActor({
+		baseUrl: origin ?? configuredDevelopmentOrigin(),
+		token: await loadDevAccessToken(),
+		expected: { role: NATIVE_ROLES.administrator },
+	});
+	if (admin.email !== DEV_ADMIN_EMAIL) {
+		throw new CmsHelperError(
+			"IDENTITY_MISMATCH",
+			`the development credential belongs to ${admin.email}, not ${DEV_ADMIN_EMAIL}`,
+		);
+	}
+	return admin;
+}
+
 /** Environment variable naming the role fixture's 0600 PAT file (scripts/dev-runtime-env.sh). */
 export const ROLE_FIXTURE_CREDENTIAL_ENV = "SONGHEALTH_ROLE_FIXTURE_ACCESS";
 
 /**
  * The role fixture account's actor, for role phases beside `admin` (withNativeRole), or undefined
  * when ROLE_FIXTURE_CREDENTIAL_ENV is unset. It must be another account of the same application.
- * node:process loads through a non-literal import, as in loadDevAccessToken.
  */
 export async function roleFixtureActor(admin: CmsActor): Promise<CmsActor | undefined> {
-	const processSpecifier = "node:process";
-	const nodeProcess = (await import(processSpecifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	const path = nodeProcess.env[ROLE_FIXTURE_CREDENTIAL_ENV]?.trim();
+	const path = env[ROLE_FIXTURE_CREDENTIAL_ENV]?.trim();
 	if (!path) return undefined;
 	const fixture = await createPatActor({
 		baseUrl: admin.baseUrl,
@@ -1566,6 +1616,71 @@ export async function deleteSyntheticTerms(
 	return failures;
 }
 
+/**
+ * Delete the automatic redirects EmDash made when a test changed an entry's slug away from one of
+ * `slugs` (emdash 1.1.0 src/astro/routes/api/redirects/, src/api/schemas/redirects.ts: the list
+ * takes `search` and its items carry `source` and `auto`). Returns a line for each that is not
+ * deleted.
+ */
+export async function deleteAutoRedirects(
+	actor: CmsActor,
+	slugs: readonly string[],
+): Promise<string[]> {
+	const failures: string[] = [];
+	for (const slug of slugs) {
+		const listed = await cmsRequest(actor, "/_emdash/api/redirects", {
+			searchParams: { search: slug, limit: "100" },
+		});
+		if (!listed.ok) {
+			failures.push(`listing the redirects of ${slug}: ${nativeRefusalOf(listed)}`);
+			continue;
+		}
+		const redirects = nativeItemsOf(listed) as Array<{ id: string; source: string; auto: boolean }>;
+		for (const { id, source } of redirects.filter(
+			({ source, auto }) => auto && source.endsWith(`/${slug}`),
+		)) {
+			const removed = await cmsRequest(actor, `/_emdash/api/redirects/${encodeURIComponent(id)}`, {
+				method: "DELETE",
+			});
+			if (!removed.ok) failures.push(`the redirect from ${source}: ${nativeRefusalOf(removed)}`);
+		}
+	}
+	return failures;
+}
+
+/**
+ * Remove what a suite made, as its afterAll: the redirects left by `movedSlugs`, the actor's owned
+ * fixtures, then `terms`, each step attempted whatever the others' outcome, and fail on anything
+ * left. An actor that never loaded made nothing.
+ */
+export async function removeSuiteFixtures(
+	actor: CmsActor | undefined,
+	{
+		terms = [],
+		movedSlugs = [],
+	}: {
+		terms?: ReadonlyArray<Pick<SyntheticTerm, "taxonomy" | "slug">>;
+		movedSlugs?: readonly string[];
+	} = {},
+): Promise<void> {
+	if (actor === undefined) return;
+	const failures: string[] = [];
+	const attempt = async (step: string, run: () => Promise<string[]>) => {
+		try {
+			failures.push(...(await run()));
+		} catch (cause) {
+			failures.push(`${step}: ${failureText(cause)}`);
+		}
+	};
+	await attempt("the redirects", () => deleteAutoRedirects(actor, movedSlugs));
+	await attempt("the owned fixtures", async () => {
+		const report = await cleanupOwnedFixtures(actor, { permanent: true });
+		return report.complete ? [] : [`owned fixtures left: ${JSON.stringify(report)}`];
+	});
+	await attempt("the terms", () => deleteSyntheticTerms(actor, terms));
+	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
+}
+
 // ---------------------------------------------------------------------------
 // Native content reads, fresh `_rev` preconditions, lifecycle requests
 // ---------------------------------------------------------------------------
@@ -1692,6 +1807,28 @@ export async function publishEntryAt(
 		throw new CmsHelperError("publish", `${collection}/${id} has no stored publishedAt`);
 	}
 	return stored;
+}
+
+/**
+ * POST …/preview-url — the signed preview link of entry `id`, on the actor's origin (emdash 1.1.0
+ * src/astro/routes/api/content/[collection]/[id]/preview-url.ts). The link carries the signed
+ * token, so a test names it in no message. A refusal throws.
+ */
+export async function mintPreviewLink(
+	actor: CmsActor,
+	collection: string,
+	id: string,
+): Promise<URL> {
+	const minted = await cmsRequest(
+		actor,
+		`/_emdash/api/content/${encodeURIComponent(collection)}/${encodeURIComponent(id)}/preview-url`,
+		{ method: "POST", body: {} },
+	);
+	const url = nativeDataOf(minted)?.url;
+	if (!minted.ok || typeof url !== "string") {
+		throw new CmsHelperError("PREVIEW_URL", `${collection}/${id}: ${nativeRefusalOf(minted)}`);
+	}
+	return new URL(url, actor.baseUrl);
 }
 
 /**
@@ -2228,6 +2365,88 @@ export async function cleanupOwnedFixtures(
 	return redactSecrets(report, scrubSecrets) as CleanupReport;
 }
 
+/**
+ * Clean up the role fixture's owned fixtures, under the Administrator's authority, and the
+ * Administrator's, each attempted whatever the other's outcome. Returns a line for each actor whose
+ * fixtures are not all resolved.
+ */
+export async function cleanupRoleFixtureAndAdmin(
+	roleFixture: CmsActor | undefined,
+	admin: CmsActor | undefined,
+): Promise<string[]> {
+	const failures: string[] = [];
+	for (const [label, owner] of [
+		["role-fixture", roleFixture],
+		["admin", admin],
+	] as const) {
+		if (owner === undefined) continue;
+		try {
+			const report = await cleanupOwnedFixtures(owner, { adminActor: admin, permanent: true });
+			if (!report.complete) failures.push(`${label} cleanup left: ${JSON.stringify(report)}`);
+		} catch (cause) {
+			failures.push(`${label} cleanup: ${failureText(cause)}`);
+		}
+	}
+	return failures;
+}
+
+// ---------------------------------------------------------------------------
+// Refusal checks the CMS suites share
+// ---------------------------------------------------------------------------
+
+/**
+ * Fail unless `result` is a native validation refusal, 400 VALIDATION_ERROR (emdash 1.1.0
+ * src/api/handlers/validation.ts, src/api/errors.ts mapErrorStatus), so that an authorization,
+ * missing-schema or state refusal never passes for one.
+ */
+export function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
+	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
+		false,
+	);
+	expect(result.status, `${caseLabel}: a native validation refusal is HTTP 400`).toBe(400);
+	expect(
+		nativeErrorOf(result)?.code,
+		`${caseLabel}: the refusal must carry the native VALIDATION_ERROR code`,
+	).toBe("VALIDATION_ERROR");
+}
+
+/**
+ * Fail unless `result` refuses an unresolvable reference target, 404 with a NOT_FOUND-family code
+ * (emdash 1.1.0 src/api/handlers/relations.ts resolveReferenceTargets).
+ */
+export function expectTargetRefusal(result: NativeResult, caseLabel: string): void {
+	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
+		false,
+	);
+	expect(result.status, `${caseLabel}: an unresolvable reference target is refused with 404`).toBe(
+		404,
+	);
+	const code = nativeErrorOf(result)?.code;
+	expect(
+		typeof code === "string" && code.includes("NOT_FOUND"),
+		`${caseLabel}: the refusal must carry a native NOT_FOUND-family code`,
+	).toBe(true);
+}
+
+/**
+ * Fail unless `result` is a refusal that is no validation outcome: 401 or 403, with a native error
+ * code other than VALIDATION_ERROR. From the content API, an anonymousRequest save gets 403
+ * CSRF_REJECTED and a read 401 NOT_AUTHENTICATED (emdash 1.1.0 src/astro/middleware/auth.ts).
+ * `request` names what was refused, such as "an unauthenticated native save".
+ */
+export function expectAuthorizationRefusal(result: NativeResult, request: string): void {
+	expect(
+		result.status === 401 || result.status === 403,
+		`${request} must be refused with 401 or 403`,
+	).toBe(true);
+	expect(result.ok, `${request} must not be reported as success`).toBe(false);
+	const code = nativeErrorOf(result)?.code;
+	expect(code, `the refusal of ${request} must carry its native error code`).toBeTruthy();
+	expect(code, `the refusal of ${request} must not be mistaken for a validation refusal`).not.toBe(
+		"VALIDATION_ERROR",
+	);
+}
+
 // ---------------------------------------------------------------------------
 // Development Admin browser session (Product Owner decision 2026-10-29)
 // ---------------------------------------------------------------------------
@@ -2261,11 +2480,7 @@ export interface SessionContext {
 
 /** True when the runner opted in to the development Admin session. */
 export async function devAdminSessionRequested(): Promise<boolean> {
-	const processSpecifier = "node:process";
-	const nodeProcess = (await import(processSpecifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	return nodeProcess.env[ADMIN_SESSION_ENV]?.trim() === "dev-bypass";
+	return env[ADMIN_SESSION_ENV]?.trim() === "dev-bypass";
 }
 
 /**
@@ -2282,7 +2497,7 @@ export async function openDevAdminSession(context: SessionContext): Promise<void
 	const body = (await response.json().catch(() => undefined)) as
 		{ data?: { user?: { email?: unknown; role?: unknown } } } | undefined;
 	const user = body?.data?.user;
-	if (response.status() !== 200 || user?.email !== "dev@emdash.local" || user?.role !== 50) {
+	if (response.status() !== 200 || user?.email !== DEV_ADMIN_EMAIL || user?.role !== 50) {
 		throw new CmsHelperError(
 			"DEV_SESSION_FAILED",
 			`the development Admin session was not established (status ${response.status()}); a production build refuses this route by design`,
@@ -2305,22 +2520,13 @@ export async function closeDevAdminSession(context: SessionContext): Promise<num
 }
 
 /**
- * Append the context's Admin session window to ADMIN_TEST_SESSIONS_ENV's file, when set. Node
- * modules load through non-literal imports, as in loadDevAccessToken.
+ * Append the context's Admin session window to ADMIN_TEST_SESSIONS_ENV's file, when set.
  */
 async function recordAdminSession(context: SessionContext): Promise<void> {
 	const start = adminSessionStarts.get(context);
 	adminSessionStarts.delete(context);
-	const processSpecifier = "node:process";
-	const nodeProcess = (await import(processSpecifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	const file = nodeProcess.env[ADMIN_TEST_SESSIONS_ENV]?.trim();
+	const file = env[ADMIN_TEST_SESSIONS_ENV]?.trim();
 	if (start === undefined || !file) return;
-	const fsSpecifier = "node:fs/promises";
-	const fsPromises = (await import(fsSpecifier)) as unknown as {
-		appendFile: (p: string, data: string, options: { mode: number }) => Promise<void>;
-	};
 	const seconds = (ms: number) => (ms / 1000).toFixed(3);
-	await fsPromises.appendFile(file, `${seconds(start)} ${seconds(Date.now())}\n`, { mode: 0o600 });
+	await appendFile(file, `${seconds(start)} ${seconds(Date.now())}\n`, { mode: 0o600 });
 }

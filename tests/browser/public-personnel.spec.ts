@@ -26,15 +26,13 @@
 import type { Page } from "@playwright/test";
 
 import {
-	cleanupOwnedFixtures,
 	cmsRequest,
-	createPatActor,
 	createSyntheticEntry,
-	loadDevAccessToken,
+	devAdminActor,
 	nativeDataOf,
 	nativeRefusalOf,
-	NATIVE_ROLES,
 	publishEntryAt,
+	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	uploadSyntheticMedia,
@@ -44,20 +42,17 @@ import {
 import {
 	BorrowedEntries,
 	DESKTOP_VIEWPORT,
-	MOBILE_VIEWPORT,
-	VIEWPORTS,
 	expect,
 	expectAboutSubpage,
+	expectAccessibleAtEachWidth,
 	expectImageLoaded,
-	expectNoAxeViolations,
-	expectNoHorizontalScroll,
 	expectSiteNotFound,
-	expectVisibleFocusOnEveryStop,
 	listedItem,
 	listedTitles,
 	ownTitles,
 	siteTitleParts,
 	test,
+	testAccessibilityAndReflow,
 } from "./public.helpers";
 
 const LEADERSHIP = { path: "/about/leadership", title: "ผู้บริหาร" } as const;
@@ -71,7 +66,6 @@ const NO_UNIT = "ไม่ระบุหน่วยงาน";
 const CONTACT_LABEL = "ช่องทางติดต่อ";
 
 let admin: CmsActor;
-let origin: string;
 
 const borrowed = new BorrowedEntries();
 
@@ -160,28 +154,15 @@ async function expectPersonnelPage(page: Page, path: string, title: string): Pro
 
 test.use({ viewport: DESKTOP_VIEWPORT });
 
-test.beforeAll(async ({}, testInfo) => {
-	const baseURL = testInfo.project.use.baseURL;
-	if (baseURL === undefined) {
-		throw new Error("this suite needs a configured baseURL (PLAYWRIGHT_BASE_URL)");
-	}
-	origin = new URL(baseURL).origin;
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
+test.beforeAll(async () => {
+	admin = await devAdminActor();
 });
 
 test.afterEach(async () => {
 	await borrowed.giveBack(admin);
 });
 
-test.afterAll(async () => {
-	if (admin === undefined) return;
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	expect(report.complete, `owned fixtures left: ${JSON.stringify(report)}`).toBe(true);
-});
+test.afterAll(() => removeSuiteFixtures(admin));
 
 test("/about/leadership and /about/personnel show their empty states while no publicly visible Personnel is published", async ({
 	page,
@@ -199,12 +180,7 @@ test("/about/leadership and /about/personnel show their empty states while no pu
 		await expectPersonnelPage(page, path, title);
 		await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
 		await expect(page.getByRole("main").getByText(message)).toBeVisible();
-		for (const [width, viewport] of Object.entries(VIEWPORTS)) {
-			await page.setViewportSize(viewport);
-			await expectNoAxeViolations(page, `${path} empty at ${width}`);
-			await expectVisibleFocusOnEveryStop(page, `${path} empty at ${width}`);
-		}
-		await page.setViewportSize(DESKTOP_VIEWPORT);
+		await expectAccessibleAtEachWidth(page, `${path} empty`);
 	}
 });
 
@@ -359,25 +335,7 @@ test.describe("accessibility and reflow", () => {
 		);
 	});
 
-	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
-		test(`axe reports no WCAG 2.2 AA violation and focus stays visible on the Leadership and Personnel pages at the ${width} width`, async ({
-			page,
-		}) => {
-			await page.setViewportSize(viewport);
-			for (const { path } of PAGES) {
-				const response = await page.goto(path);
-				expect(response?.status(), `GET ${path}`).toBe(200);
-				await expectNoAxeViolations(page, `${path} at ${width}`);
-				await expectVisibleFocusOnEveryStop(page, `${path} at ${width}`);
-			}
-		});
-	}
-
-	test("neither page scrolls sideways at 320 px", async ({ page }) => {
-		await page.setViewportSize(MOBILE_VIEWPORT);
-		for (const { path } of PAGES) {
-			await page.goto(path);
-			await expectNoHorizontalScroll(page, path);
-		}
-	});
+	testAccessibilityAndReflow("the Leadership and Personnel pages", () =>
+		PAGES.map(({ path }) => path),
+	);
 });

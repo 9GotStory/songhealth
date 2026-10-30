@@ -22,18 +22,12 @@
 // - A reference target resolves only while it is published (src/references/resolve.ts).
 
 import {
-	cleanupOwnedFixtures,
-	cmsRequest,
-	createPatActor,
 	createOwnedTerm,
 	createSyntheticHealthService,
 	createSyntheticService,
-	deleteSyntheticTerms,
-	loadDevAccessToken,
-	nativeDataOf,
-	nativeRefusalOf,
-	NATIVE_ROLES,
+	devAdminActor,
 	publishEntryAt,
+	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	trashEntry,
@@ -45,21 +39,18 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
-	MOBILE_VIEWPORT,
 	SECTION_CRUMBS,
-	VIEWPORTS,
 	detailOf,
 	expect,
 	expectBreadcrumb,
-	expectNoAxeViolations,
-	expectNoHorizontalScroll,
+	expectPreviewRenders,
 	expectSiteNotFound,
-	expectVisibleFocusOnEveryStop,
 	listedItem,
 	listedTitles,
 	ownTitles,
 	siteTitleParts,
 	test,
+	testAccessibilityAndReflow,
 } from "./public.helpers";
 
 /** The fixed number of Health Services a list page shows. */
@@ -87,27 +78,12 @@ async function publish(collection: string, fixture: DraftFixture): Promise<void>
 
 test.use({ viewport: DESKTOP_VIEWPORT });
 
-test.beforeAll(async ({}, testInfo) => {
-	const baseURL = testInfo.project.use.baseURL;
-	if (baseURL === undefined) {
-		throw new Error("this suite needs a configured baseURL (PLAYWRIGHT_BASE_URL)");
-	}
-	origin = new URL(baseURL).origin;
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
+test.beforeAll(async () => {
+	admin = await devAdminActor();
+	origin = admin.baseUrl;
 });
 
-test.afterAll(async () => {
-	if (admin === undefined) return;
-	const failures: string[] = [];
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	if (!report.complete) failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
-	failures.push(...(await deleteSyntheticTerms(admin, ownedTerms)));
-	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
-});
+test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
 
 test("/health-services lists only published Health Services by name, each with its type, Area, address and a closed status in text", async ({
 	page,
@@ -463,21 +439,13 @@ test("a draft, unpublished or trashed Health Service answers the site 404, and a
 		await expectSiteNotFound(page, `/health-services/${fixture.slug}`, fixture.title);
 	}
 
-	const minted = await cmsRequest(
+	await expectPreviewRenders(
+		page,
 		admin,
-		`/_emdash/api/content/health_services/${encodeURIComponent(draft.id)}/preview-url`,
-		{ method: "POST", body: {} },
-	);
-	expect(minted.ok, nativeRefusalOf(minted)).toBe(true);
-	// The signed token stays out of every message.
-	const link = new URL(String(nativeDataOf(minted)?.url), origin);
-	expect(link.pathname, "the preview link is the draft's canonical address").toBe(
+		"health_services",
+		draft,
 		`/health-services/${draft.slug}`,
 	);
-	const preview = await page.goto(link.toString());
-	expect(preview?.status(), "the preview renders").toBe(200);
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText(draft.title);
-	await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
 });
 
 test("the directory pages carry their title, description, absolute canonical address and OG tags, with the SEO fields first", async ({
@@ -551,25 +519,5 @@ test.describe("accessibility and reflow", () => {
 		];
 	});
 
-	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
-		test(`axe reports no WCAG 2.2 AA violation and focus stays visible on the directory pages at the ${width} width`, async ({
-			page,
-		}) => {
-			await page.setViewportSize(viewport);
-			for (const path of paths) {
-				const response = await page.goto(path);
-				expect(response?.status(), `GET ${path}`).toBe(200);
-				await expectNoAxeViolations(page, `${path} at ${width}`);
-				await expectVisibleFocusOnEveryStop(page, `${path} at ${width}`);
-			}
-		});
-	}
-
-	test("no directory page scrolls sideways at 320 px", async ({ page }) => {
-		await page.setViewportSize(MOBILE_VIEWPORT);
-		for (const path of paths) {
-			await page.goto(path);
-			await expectNoHorizontalScroll(page, path);
-		}
-	});
+	testAccessibilityAndReflow("the directory pages", () => paths);
 });

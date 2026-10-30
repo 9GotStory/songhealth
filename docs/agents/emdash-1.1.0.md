@@ -199,6 +199,18 @@ checks that every cited file exists. When the pinned version changes, re-verify 
   (`src/astro/routes/api/content/[collection]/[id]/publish.ts`).
 - `POST …/preview-url` mints a draft's signed preview link
   (`src/astro/routes/api/content/[collection]/[id]/preview-url.ts`).
+- A slug change adds a 301 redirect from the old address with `auto: true`
+  (`src/database/repositories/redirect.ts`). `GET /_emdash/api/redirects` lists redirects and
+  takes `search` and `limit`; each item carries `id`, `source` and `auto`.
+  `DELETE /_emdash/api/redirects/{id}` removes one (`src/astro/routes/api/redirects/index.ts`,
+  `src/astro/routes/api/redirects/[id].ts`, `src/api/schemas/redirects.ts`).
+  `./tests/browser/cms.helpers.ts` `deleteAutoRedirects` removes the ones a suite's slug changes
+  left.
+- A content API request with no token and no session is refused before its route runs. A
+  state-changing one without `X-EmDash-Request: 1` answers `403 CSRF_REJECTED`; any other answers
+  `401 NOT_AUTHENTICATED` (`src/astro/middleware/auth.ts`). The development runtime answered both
+  on 2026-10-30. Public API routes check CSRF by `Origin` instead (`src/api/csrf.ts`
+  `checkPublicCsrf`). `./tests/browser/cms.helpers.ts` `anonymousRequest` sends no such header.
 - A create takes `references: { field: [id] }` and `taxonomies: { name: [slug] }`. Terms are created
   and deleted at `/_emdash/api/taxonomies/{name}/terms[/{slug}]`. `./tests/browser/cms.helpers.ts`
   wraps all of these.

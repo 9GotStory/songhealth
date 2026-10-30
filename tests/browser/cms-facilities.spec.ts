@@ -1,307 +1,70 @@
-// T027 — focused US4 facility/Service/Area checks for the Feature 002 CMS
-// content model: the `health_services` collection contract (T028's definition),
-// the single reciprocal `facility_services` relation (T029's declaration), the
-// four Service ownership modes on the applied `services` collection, the
-// hierarchical `area` taxonomy semantics and `operational_status` versus
-// publication state. Test support in tests/browser/ only: no application,
-// schema, seed, dependency, infrastructure, or production change is made here.
+// Health Services, Services and Areas (Feature 002 T027, US4, FR-011–FR-013, FR-019, SC-003;
+// specs/002-cms-content-model/, data-model.md, the health_services, services and area rows and
+// the facility_services relation; `02` §10–§12 and §20).
 //
-// Authority:
-// - specs/002-cms-content-model/tasks.md T027 ("Author native facility/Area
-//   checks in tests/browser/cms-facilities.spec.ts for T015's four Service
-//   ownership modes and optional guidance, one shared offering relation,
-//   official-code/source/hierarchy fixtures, label edits, coordinate
-//   type/range boundaries and valid zero values, optional empty links and
-//   operational status versus publication; distinguish synthetic fixture codes
-//   from actual authoritative inputs and never fabricate inventory
-//   acceptance") under the bounded 2026-10-23 Product Owner authorization
-//   (GitHub issue #26 comment 6355618294, "T027 IMPLEMENTATION AUTHORIZED —
-//   SOURCE/TEST ONLY"): T027 authors test source only, skips explicitly on the
-//   outstanding T028/T029 definition prerequisites, and never claims a
-//   functional PASS or fabricates green; the accepted T026 Final Acceptance
-//   (GitHub issue #26 comment 6354634573) satisfies this task's T026
-//   predecessor edge. Runtime execution of these checks belongs to T030 after
-//   T028/T029 define and apply the US4 schema; T022 stays DEFERRED — NOT PASSED
-// - specs/002-cms-content-model/spec.md — User Story 4 scenarios 1–5 (Service
-//   guidance fields with ownership type and channel distinct; one Service
-//   offered at two facilities referring to the same identities from both
-//   directions without duplicate Services; Health Service official name/code,
-//   optional display name/image/affiliation, type, operational status,
-//   address/coordinates, hours/public contacts, offered services and service
-//   areas representable with location not replacing service area; shared
-//   Province → District → Subdistrict → Village references retaining
-//   applicable hierarchy and official/stable codes; operational metadata
-//   changes alone not changing publication state), FR-011 (Service guidance
-//   attributes; ownership/channel distinction), FR-012 (Health Service real
-//   facility attributes), FR-013 (shared Area references retain hierarchy and
-//   official/stable codes without owning analytical data), FR-019 (facility
-//   contact stays with its owner), FR-030, the Q1 matrix Health Service row
-//   ("Official-name title required; other fields optional, supplied values
-//   type-checked … no Area/code/coordinate hook" at Publish/Schedule) and
-//   SC-003 (service/facility/Area fixtures preserve the same relationship
-//   from both directions)
-// - specs/002-cms-content-model/data-model.md — the health_services collection
-//   row ("`title` (official name) string S; `facility_code` string O;
-//   `display_name` string O; `operational_status` select O
-//   (active/temporarily_closed/inactive); `address` text O; `latitude`/
-//   `longitude` number O; `opening_hours`, `public_contact` text O;
-//   `affiliation_text` string O; `image` image O", "`facility_type` O; `area`
-//   O for service coverage; offered Services O; Organization O if activated"),
-//   the services row (four ownership meanings, channels repeater with label
-//   string O + native url O, guidance fields, `external_url` url O), the
-//   Common Native Contract ("Native Save validation rejects missing required
-//   values and empty required strings … Valid numeric zero and boolean
-//   false/native 0/1 are not missing values"), "Coordinates use supplied
-//   numeric values and native range constraints (latitude −90..90, longitude
-//   −180..180)", the `area` taxonomy row ("Explicit official/stable code in
-//   native term slug, name in label, parent via native group identity"),
-//   "Area terms model applicable Province → District → Subdistrict → Village
-//   hierarchy … Use explicit verified code slugs when connecting data,
-//   preserve them during label edits and record source in native description
-//   when needed … Physical facility address/coordinates remain distinct from
-//   service-area selection", and the `facility_services` relation row
-//   ("Health Service `offered_services` parent → Service; Service
-//   `offering_facilities` child → Health Service; many; many; Both O, two
-//   selectors over one relationship; same identities in both directions")
-//   plus "Native lifecycle decides when a pending reciprocal edit becomes
-//   live; inverse read verification must use the appropriate saved/published
-//   state rather than promise immediate cross-entry draft views"
-// - specs/002-cms-content-model/contracts/native-editorial.md — the "Native
-//   Request Shapes" table (create/update bodies, the separate `references`
-//   and `taxonomies` objects, latest `_rev` preconditions), "Validation
-//   Contract — Native Only" §1 (required fields and supplied invalid values
-//   at create/save) and §2 (no Songhealth publication completeness gate;
-//   native RBAC/lifecycle only; "Announcement dates/close state and review
-//   dates do not auto-unpublish content" — the operational-status analogue
-//   asserted below), and "Outcomes and Revision Limits" (native errors
-//   reported truthfully)
-// - docs/website-modernization-docs/current/02-content-model.md §10 (Area:
-//   shared hierarchical Province → District → Subdistrict → Village
-//   reference; official/stable codes must be retained when connecting data),
-//   §11 (Health Service: real facility, not HIS; official name/code, type,
-//   operational status, affiliation optional, address + map coordinates,
-//   hours, public contacts, service area references, offered-services
-//   relation, image optional; "Location ≠ Service Area"; no patient/EMR/
-//   appointment/queue/billing/stock), §12 (Service: ownership type, provider,
-//   channels, eligibility/steps/documents guidance, external URL when
-//   external; no transaction engine) and §20 (CMS publishing state and domain
-//   state are different things)
-// - docs/website-modernization-docs/current/06-roles-permissions.md §6 (CMS
-//   account ≠ directory data; a government position grants no CMS permission)
-//   and §7 (schema changes stay administrator-bounded; no super-admin/override
-//   role is created)
-// - specs/002-cms-content-model/evidence/T001-development-inputs.md §6 — real
-//   classification/official Area code sources, service/facility inventories
-//   and any demonstrated Organization reuse case are PENDING population/UAT
-//   inputs; no synthetic fixture below is an official inventory and none is
-//   presented as one
-// - specs/002-cms-content-model/evidence/T004-native-taxonomies.md — the
-//   applied taxonomies carry INTENTIONALLY EMPTY term inventories pending
-//   authoritative sources; the synthetic Area/facility-type terms below are
-//   clearly labeled fixtures created and cleaned up through supported native
-//   term operations, never seeded "official" codes
-// - specs/002-cms-content-model/evidence/T018-us2-reuse.md — the applied
-//   native model at the accepted join holds the eight US1/US2 collections,
-//   five relations and ten taxonomies (T025 kept it nine collections +
-//   personnel): `health_services`, `facility_services`, `facility_type` and
-//   the health_services area attachment DO NOT exist yet (they are T028/T029
-//   definitions), so the schema gates below treat those as truthful missing
-//   prerequisites, never as validation results or PASS
-// - specs/002-cms-content-model/evidence/T026-us3-directory.md §2 — the
-//   accepted T025 N/A disposition: no demonstrated shared Organization reuse
-//   case exists, owner text governs, `facility_organization` stays
-//   inactivated and T028 preserves `affiliation_text`; the accepted T026
-//   Final Acceptance (GitHub issue #26 comment 6354634573) records
-//   "Organization remains N/A" — so this file exercises `affiliation_text`
-//   owner text, tolerates (and never exercises) the single conditional
-//   `organization` reference field, and creates no Organization schema,
-//   inventory, relation or link
-// - tests/browser/cms.helpers.ts — the accepted T002 native request/fixture
-//   helpers this file consumes (PAT actor from the mode-0600 development
-//   credential loader, synthetic entries/media with owned-fixture cleanup,
-//   fresh-`_rev` update preconditions, secret-redacted results)
-// - tests/browser/cms-personnel.spec.ts / cms-reuse.spec.ts /
-//   cms-authoring.spec.ts — the accepted T023/T014/T007 patterns this file
-//   follows (schema-readiness gating with explicit prerequisite skips,
-//   refusal-family assertions, relation children read-backs, failure-safe
-//   teardown, the runner-configured origin, the T013 test-authentication
-//   adaptation)
+// The suite checks, over the native content, taxonomy and relation APIs:
+// - the `health_services` schema and the one reciprocal `facility_services` relation: exactly one
+//   edge set between Health Services and Services, bound on both sides;
+// - a Health Service's save: the required official-name title, the optional facility fields with
+//   the `affiliation_text` owner text and an image, coordinates with valid zero and inclusive
+//   range bounds (latitude −90..90, longitude −180..180), and refused invalid values;
+// - the four Service ownership modes and their optional guidance, ownership kept apart from the
+//   channels;
+// - `operational_status` as domain data: changing it never changes publication, and no
+//   completeness rule gates publishing;
+// - a synthetic Province → District → Subdistrict → Village `area` hierarchy whose codes are the
+//   term slugs and survive label edits, and a physical address kept apart from the coverage area;
+// - one Service offered at two facilities, read back with the same identities from both sides, the
+//   child-side `offering_facilities` selector writing the same edge set, empty selections on both
+//   sides, and a pending edit of a published facility that is not a live edge until publication;
+// - an unauthenticated save refused by the authorization layer, and a stale `_rev` as a state
+//   conflict, each distinct from validation.
+// The synthetic codes and terms are never official inventories, and no Organization is made: the
+// single conditional `organization` reference is tolerated, never exercised. A reciprocal read
+// proves only the link state at read time, not the target's availability.
 //
-// Verified API surface (recorded per CLAUDE.md §Current documentation; checked
-// first through Context7 — /websites/emdashcms for unversioned orientation and
-// /microsoft/playwright v1.63.0 for Playwright semantics — then against the
-// pinned `emdash@1.1.0` dist sources installed by the lockfile-exact `npm ci`
-// under node_modules/emdash, the same package-lock.json integrity value
-// (sha512-VXo1fIMr44PEiE1A9Z5aFWvjsqhdLDHqat2iPkFYoam2kYV6h+2LGkEDovkXdLmmWWDY9w7ekP0CP6ziYMFhg==)
-// the T002 helpers and T004 evidence §4 independently recomputed from the
-// registry tarball):
-// - number fields (dist zod-generator bundle, src/schema/zod-generator.ts):
-//   `case "number"` maps to `z.number()` and the field's `validation.min`/
-//   `validation.max` are applied as `z.number().min(...)`/`.max(...` — zod
-//   min/max are INCLUSIVE bounds, so −90/90 and −180/180 are valid supplied
-//   coordinates while 90.0001/−90.5/180.5/−180.5001 are refused; a supplied
-//   string or boolean reaches `z.number()` and is refused (numeric 0 is a
-//   valid value, not a missing one). Optional (non-required) fields are
-//   `.nullish()`, so `null` is a valid supplied value for an optional field
-//   while required fields refuse it; update validation runs the same schema
-//   in partial mode (a present required key with an invalid value is refused)
-// - select fields: options map to a zod enum of the declared options, so an
-//   option outside `active`/`temporarily_closed`/`inactive`
-//   (operational_status) or the four ownership meanings is a native
-//   VALIDATION_ERROR refusal
-// - native term operations (dist/astro/routes/api/taxonomies/[name]/terms/,
-//   handlers in dist/taxonomies-*.mjs): POST `/_emdash/api/taxonomies/{name}/terms`
-//   creates a term (taxonomies:manage) with body `{ slug?, label (min 1),
-//   parentId? (nullish), description?, locale?, translationOf? }` — an explicit
-//   slug is retained instead of deriving one from the label, and a create whose
-//   slug already exists in the taxonomy is refused `409 CONFLICT` ("Term
-//   '<slug>' already exists", handleTermCreate) — the native collision guard
-//   behind the ownership states below; GET `…/terms` lists
-//   `data { terms: [{ id, name, slug, label, parentId, description?, children:
-//   […], … }] }` — a HIERARCHICAL tree whose descendants appear ONLY nested
-//   under their ancestors' `children`, never in the root array, so absence is
-//   provable only against the complete tree — and GET `…/terms/{slug}` reads
-//   one term back by its CURRENT slug (taxonomies:read); PUT `…/terms/{slug}`
-//   updates `{ slug?, label?, parentId?, description? }` (taxonomies:manage) —
-//   a label-only edit leaves the slug and id identity intact, which is the
-//   "code in slug survives label edits" mechanism; DELETE `…/terms/{slug}`
-//   removes the term but is REFUSED `400 VALIDATION_ERROR` ("Cannot delete
-//   term with children. Delete children first.", handleTermDelete) while
-//   children survive — the native behavior behind the child-before-parent
-//   deletion order and the tree-reconciled refused-delete path below. Terms
-//   have no content publication lifecycle (current metadata), which is why
-//   these fixtures are cleaned up as terms, not trashed as content
-// - taxonomy definitions: GET `/_emdash/api/taxonomies` →
-//   `data { taxonomies: [{ name, label, hierarchical, collections, … }] }`
-//   — the readiness gates below read `hierarchical` and the attachment list
-//   from this supported listing
-// - relation inventory: GET `/_emdash/api/relations` →
-//   `data { relations: [{ slug, parentCollection, childCollection,
-//   maxChildrenPerParent, maxParentsPerChild, … }] }` — the one-edge-set
-//   precondition counts every relation connecting health_services and
-//   services in EITHER orientation, so a duplicated backlink relation fails
-//   loudly instead of hiding behind the declared one
-// - reciprocal reference reads (dist relations bundle,
-//   src/api/handlers/relations.ts): GET
-//   `/_emdash/api/content/{collection}/{id}/references/{relation}/children`
-//   answers only on the relation's PARENT side and GET `…/parents` only on
-//   the CHILD side (`data { children|parents: [{ id, slug, collection, … }],
-//   nextCursor? }`; content:read); for a drafts-reading caller an entry with
-//   a pending draft revision shows its STAGED selection for the viewing
-//   field (stagedPageFor), otherwise the live link rows answer — trashed
-//   targets stop resolving in these listings
-// - reference writes (dist api/runtime bundles): a CREATE resolves its whole
-//   `references` payload and writes the link rows in the same transaction
-//   (writeReferenceSelection), so a fresh facility's selection is a live edge
-//   immediately; an UPDATE of a revisions-supporting collection STAGES every
-//   supplied `references` entry into the entry's draft revision instead of
-//   writing links (the runtime handleContentUpdate usesDraftRevisions branch,
-//   with liveSelection baselines), and PUBLISH revalidates the staged
-//   selection (validateStagedReferences) and promotes it
-//   (applyStagedReferences) — the exact staged/live boundary asserted below:
-//   a pending published-side edit is not a live reciprocal edge until native
-//   publication, and no immediate cross-entry draft view is promised. A
-//   child-side bound field (`offering_facilities`) selects the entries
-//   pointing at this one over the SAME edge set — both selectors address one
-//   relation, never two
-// - content taxonomy assignments: create/update `taxonomies` payloads are
-//   `{ taxonomyName: [termSlug, …] }`; GET
-//   `/_emdash/api/content/{collection}/{id}/terms/{taxonomy}` reads one
-//   entry's assignments back as `data { terms: [{ id, name, slug, label,
-//   parentId, … }], unresolved, … }` (content:read)
-// - published-entry read overlay: an item with a draftRevisionId returns
-//   `data` = the staged draft revision's data and exposes the published
-//   values as `liveData` for drafts-reading callers (the accepted T018
-//   record) — the operational-status edit below asserts the staged value,
-//   the live value and the unchanged publication status separately
-// - Playwright 1.63.0 semantics (Context7 /microsoft/playwright v1.63.0):
-//   `test.skip(condition, description)` inside a test body aborts that test
-//   at runtime with a recorded reason; `--list` runs only the load tasks (no
-//   browsers, no global setup, no hooks), so discovery performs no native
-//   calls; tests in one file run in order in one worker
+// Platform behaviour relied on (emdash 1.1.0):
+// - A number field is z.number() with its `validation.min` and `max` as inclusive bounds; a
+//   string or boolean is refused; an optional field is `.nullish()`; select options form a z.enum
+//   (src/schema/zod-generator.ts).
+// - POST /_emdash/api/taxonomies/{name}/terms keeps an explicit slug and refuses an existing one
+//   with 409 CONFLICT (handleTermCreate). GET …/terms answers the tree, with descendants only
+//   under their ancestors' `children`, so absence is proven against the whole tree. PUT
+//   …/terms/{slug} with only a label keeps the slug and id. DELETE …/terms/{slug} refuses a term
+//   with children (400 VALIDATION_ERROR, handleTermDelete), so children are deleted first.
+// - GET /_emdash/api/taxonomies and /_emdash/api/relations list the definitions the gates read.
+// - …/references/{relation}/children answers only on the parent side and …/parents only on the
+//   child side; for a drafts reader a pending draft shows its staged selection
+//   (src/api/handlers/relations.ts stagedPageFor).
+// - A create writes its `references` at once; an update of a collection with revisions stages
+//   them in the draft revision, and publishing validates and promotes them
+//   (handleContentUpdate, validateStagedReferences, applyStagedReferences).
+// - A read of an entry with a pending draft answers the draft as `data` and the published values
+//   as `liveData` (src/emdash-runtime.ts hydrateDraftData).
 //
-// Boundaries and non-claims (tasks.md T027; Constitution v3.0.0 II–V):
-// - test authoring only. Nothing here is executed at authoring time and no
-//   runtime PASS, US4 schema state, or SC-003 acceptance is claimed. The
-//   active native model has NO health_services collection, facility_services
-//   relation, facility_type taxonomy or health_services area attachment yet
-//   (T018/T026 evidence; T028/T029 own them): until those are applied on the
-//   authorized runtime, the gated checks SKIP with the exact prerequisite
-//   named — a skip, a `--list` discovery count, or a source review is never a
-//   functional PASS. The one unauthenticated control runs regardless of the
-//   US4 schema prerequisites (authorization precedes collection resolution in
-//   the native request path), so a reachable runtime always produces at least
-//   one live check; it asserts only the authorization refusal family, never
-//   facility coverage. The Service ownership-mode checks gate only on the
-//   already-applied services collection, so they are runnable the moment an
-//   authorized runtime executes this file — their ownership/channel coverage
-//   is Service-side and claims nothing about health_services
-// - no Organization assertions: the accepted T025 N/A disposition (T026
-//   evidence §2) keeps Organization unactivated, so `affiliation_text` owner
-//   text is the affiliation representation exercised below and the schema
-//   gate at most TOLERATES the single approved conditional `organization`
-//   reference field — no Organization collection, inventory, relation or link
-//   is created, asserted or speculated about here
-// - synthetic fixture codes/terms are explicitly labeled synthetic and are
-//   never presented as official inventories: real official Area
-//   codes/populations and facility inventories remain PENDING population/UAT
-//   inputs (T001 §6, T004 §6) and their absence is not fabricated into
-//   acceptance. No real government geographic code, facility code or service
-//   inventory value is copied; the hierarchy fixture uses clearly-marked
-//   synthetic Province/District/Subdistrict/Village terms whose slugs ARE the
-//   supplied synthetic codes, whose labels carry the synthetic marker, and
-//   whose description records the synthetic source provenance
-// - operational_status is domain metadata on one axis and native publication
-//   state is another: no automatic unpublish/completeness rule is expected or
-//   asserted to exist (the accepted model has none), and no Songhealth
-//   publication hook, policy-cancellation code, role change or account
-//   operation is performed or expected. The acting account is the
-//   pre-existing development credential's Administrator (dev@emdash.local,
-//   role 50) loaded through the accepted T013 test-authentication adaptation
-//   (loadDevAccessToken + createPatActor — never the dev-bypass bootstrap);
-//   native editorial/RBAC behavior is preserved unchanged
-// - no public-read assertions (T021/T022 scope), no role-matrix claims
-//   (T019), no revision/lock depth (T020), no Admin UI journey (T031): a
-//   reciprocal identity proves only the recorded native link state at read
-//   time — no target availability, immutability or retention claim (D-REF
-//   stays deferred); a media selection asserts the returned identity only
-// - fixtures are clearly-marked synthetic public-publishable data; entry and
-//   media IDs and `_rev` values come from native responses only, and every
-//   update/lifecycle call supplies a fresh re-read `_rev` through the T002
-//   helpers. Owned-fixture cleanup runs as failure-safe teardown in the
-//   owning worker (afterEvery pass/fail plus an afterAll safety net). The
-//   synthetic area/facility_type terms are tracked separately with an
-//   explicit OWNERSHIP state per registration: only a natively CONFIRMED
-//   create (2xx — a duplicate slug would be refused 409) is ever deleted,
-//   deepest-parent-first and only after its slug AND label both match the
-//   synthetic fixture identity; a definitively refused create (4xx,
-//   including 409 on a pre-existing slug) owns nothing and never deletes
-//   the pre-existing term; unconfirmed outcomes (transport failure / 5xx)
-//   stay explicitly unresolved — registration alone never authorizes
-//   deletion. Absence is reconciled against the COMPLETE hierarchical
-//   listing (nested children included), never a root-only scan or a failed
-//   single read; an unresolvable term cleanup is reported, never silently
-//   dropped
-// - this file performs no schema operations: the schema/relations/taxonomies
-//   reads below are read-only readiness gates; applying T028/T029 definitions
-//   to the shared runtime is those tasks' separately authorized scope
+// Credentials and fixtures: the development Administrator PAT (SONGHEALTH_DEV_ACCESS) acts on the
+// configured origin. Fixtures are synthetic; cleanup runs after every test, passed or failed, and
+// again in afterAll. A synthetic term is deleted only when its create was confirmed and the tree
+// shows its slug and label, deepest first; a refused create owns nothing, and an unconfirmed one
+// is reported unresolved. The suite reads the schema but never changes it.
 
 import { expect, test } from "@playwright/test";
 
 import {
+	anonymousRequest,
 	cleanupOwnedFixtures,
 	cmsRequest,
-	createPatActor,
 	createSyntheticEntry,
-	DEFAULT_DEVELOPMENT_ORIGIN,
-	loadDevAccessToken,
+	dataOfItem,
+	devAdminActor,
+	expectAuthorizationRefusal,
+	expectValidationRefusal,
+	liveDataOfItem,
 	nativeDataOf,
 	nativeItemOf,
 	nativeItemsOf,
-	NATIVE_ROLES,
 	publishEntry,
 	readEntry,
-	scrubEmbeddedSecrets,
 	updateEntry,
 	uploadSyntheticMedia,
 	SYNTHETIC_FIXTURE_MARK,
@@ -470,7 +233,10 @@ let admin: CmsActor;
 let serviceReadiness: Readiness = { outcome: "missing", prerequisite: "T015 services definition" };
 
 /** health_services collection readiness (T028). */
-let facilityReadiness: Readiness = { outcome: "missing", prerequisite: "T028 health_services definition" };
+let facilityReadiness: Readiness = {
+	outcome: "missing",
+	prerequisite: "T028 health_services definition",
+};
 
 /** facility_services reciprocal relation readiness (T029 declaration/binding). */
 let relationReadiness: Readiness = {
@@ -544,21 +310,6 @@ function syntheticTermLabel(kind: string): string {
 	return `${SYNTHETIC_FIXTURE_MARK} พื้นที่สังเคราะห์ ${kind}`;
 }
 
-/**
- * The runner-configured origin, mirroring playwright.config.ts exactly (the
- * same discipline as the accepted T003/T007/T014/T019/T023 checks):
- * PLAYWRIGHT_BASE_URL when set, otherwise the documented development origin.
- * node:process is loaded through a dynamic non-literal import because the
- * pinned dependency baseline ships no @types/node.
- */
-async function configuredDevelopmentOrigin(): Promise<string> {
-	const specifier = "node:process";
-	const nodeProcess = (await import(specifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	return nodeProcess.env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN;
-}
-
 /** Truthful schema gate: missing SKIPS with the prerequisite; misconfigured FAILS. */
 function gate(readiness: Readiness): void {
 	if (readiness.outcome === "missing") {
@@ -573,20 +324,6 @@ function gate(readiness: Readiness): void {
 			`the active native schema does not match the approved US4 definition these checks rely on: ${readiness.detail}`,
 		);
 	}
-}
-
-/** The entry's field-data object as the native read returns it, when present. */
-function dataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
-	return item?.data !== null && typeof item?.data === "object"
-		? (item.data as Record<string, unknown>)
-		: {};
-}
-
-/** The entry's published live values (`liveData`), when a drafts read exposes them. */
-function liveDataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
-	return item?.liveData !== null && typeof item?.liveData === "object"
-		? (item.liveData as Record<string, unknown>)
-		: {};
 }
 
 /**
@@ -639,11 +376,9 @@ async function offeringFacilityIds(serviceId: string): Promise<string[]> {
 
 /** Count entries whose display fields match an exact text (native listing). */
 async function countListedByQuery(collection: string, text: string): Promise<number> {
-	const listed = await cmsRequest(
-		admin,
-		`/_emdash/api/content/${encodeURIComponent(collection)}`,
-		{ searchParams: { q: text, status: "all" } },
-	);
+	const listed = await cmsRequest(admin, `/_emdash/api/content/${encodeURIComponent(collection)}`, {
+		searchParams: { q: text, status: "all" },
+	});
 	expect(
 		listed.ok,
 		`${collection}: the native listing used for the duplicate check must succeed`,
@@ -1002,60 +737,13 @@ async function deleteOwnedAreaTerms(): Promise<string[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Shared refusal-family assertion (the accepted T003/T007/T023 contract)
-// ---------------------------------------------------------------------------
-
-/**
- * A native field-validation refusal: HTTP 400 with the VALIDATION_ERROR code,
- * and explicitly NOT an authorization (401/403), missing-schema (404) or
- * state-conflict (409) refusal — so authorization, prerequisite and
- * concurrency problems can never masquerade as field-validation outcomes
- * (and vice versa).
- */
-function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
-	expect(
-		result.ok,
-		`${caseLabel}: the native save must be refused, not reported as success`,
-	).toBe(false);
-	expect(
-		result.status,
-		`${caseLabel}: a native validation refusal is HTTP 400`,
-	).toBe(400);
-	expect(
-		result.status === 401 || result.status === 403 || result.status === 404 || result.status === 409,
-		`${caseLabel}: a validation refusal must stay distinguishable from authorization (401/403), missing-schema (404) and state-conflict (409) failures`,
-	).toBe(false);
-	const error = result.body as { success?: unknown; error?: { code?: unknown } };
-	expect(
-		error?.error?.code,
-		`${caseLabel}: the refusal must carry the native VALIDATION_ERROR code`,
-	).toBe("VALIDATION_ERROR");
-}
-
-// ---------------------------------------------------------------------------
 // Worker setup: development access and the live supported native reads
 // ---------------------------------------------------------------------------
 
 test.beforeAll(async () => {
-	// Development native access through the pre-existing development
-	// credential (T013 test-authentication adaptation), pinned to the
-	// runner-configured origin so a nondefault PLAYWRIGHT_BASE_URL run cannot
-	// silently exercise another app. createPatActor verifies the live identity
-	// through /auth/me and pins the expected Administrator role; the expected
-	// development fixture account is asserted by email. This hook deliberately
-	// creates no owned fixtures (credential load, identity verification and
-	// read-only schema/relations/taxonomies reads only), so a partial setup
-	// cannot leak anything for teardown to miss — and Playwright --list
-	// discovery performs no native calls at all (hooks run only at execution).
-	admin = await createPatActor({
-		baseUrl: await configuredDevelopmentOrigin(),
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
-	expect(
-		admin.email,
-		"the development credential must belong to the intended dev@emdash.local fixture account",
-	).toBe("dev@emdash.local");
+	// The development Administrator. This hook creates no owned fixtures, only reads, so a partial
+	// setup leaves nothing for teardown to miss.
+	admin = await devAdminActor();
 
 	// --- services collection: the fields the Service-side checks rely on ---
 	const serviceRead = await cmsRequest(
@@ -1097,7 +785,9 @@ test.beforeAll(async () => {
 		}
 		const channels = serviceFieldsBySlug.get("channels");
 		if (channels?.type !== "repeater") {
-			serviceProblems.push("channels must exist as a native repeater field (ownership's distinct companion)");
+			serviceProblems.push(
+				"channels must exist as a native repeater field (ownership's distinct companion)",
+			);
 		} else {
 			const subFields = Array.isArray(channels.validation?.subFields)
 				? (channels.validation!.subFields as SchemaField[])
@@ -1180,10 +870,7 @@ test.beforeAll(async () => {
 			}
 			if (approved.range !== undefined) {
 				const validation = field.validation;
-				if (
-					validation?.min !== approved.range.min ||
-					validation?.max !== approved.range.max
-				) {
+				if (validation?.min !== approved.range.min || validation?.max !== approved.range.max) {
 					facilityProblems.push(
 						`${approved.slug} must carry the approved native inclusive range ${approved.range.min}..${approved.range.max}`,
 					);
@@ -1259,10 +946,11 @@ test.beforeAll(async () => {
 		// with wrong endpoints (e.g. health_services → pages) is validated
 		// and FAILS loudly here instead of being invisible to the pair filter
 		// and skipped as a missing T029 prerequisite.
-		const declared = relations.find(
-			(relation) => relation.slug === FACILITY_SERVICES.relation,
-		);
-		if (connecting.length > 0 && !connecting.some((relation) => relation.slug === FACILITY_SERVICES.relation)) {
+		const declared = relations.find((relation) => relation.slug === FACILITY_SERVICES.relation);
+		if (
+			connecting.length > 0 &&
+			!connecting.some((relation) => relation.slug === FACILITY_SERVICES.relation)
+		) {
 			relationProblems.push(
 				`a relation connects ${HEALTH_SERVICE_COLLECTION} and ${SERVICE_COLLECTION} but is not the approved ${FACILITY_SERVICES.relation} edge set (${connecting
 					.map((relation) => String(relation.slug))
@@ -1308,7 +996,11 @@ test.beforeAll(async () => {
 		}
 		if (relationProblems.length > 0) {
 			relationReadiness = { outcome: "misconfigured", detail: relationProblems.join("; ") };
-		} else if (declared === undefined || selectorFields.get(HEALTH_SERVICE_COLLECTION) === undefined || selectorFields.get(SERVICE_COLLECTION) === undefined) {
+		} else if (
+			declared === undefined ||
+			selectorFields.get(HEALTH_SERVICE_COLLECTION) === undefined ||
+			selectorFields.get(SERVICE_COLLECTION) === undefined
+		) {
 			// Nothing present is invalid; pieces of the T029 declaration/
 			// binding are still absent — the truthful outstanding T029
 			// prerequisite, never a hidden failure.
@@ -1336,7 +1028,8 @@ test.beforeAll(async () => {
 	} else if (areaTaxonomy.hierarchical !== true) {
 		areaReadiness = {
 			outcome: "misconfigured",
-			detail: "the area taxonomy must stay hierarchical for the Province → District → Subdistrict → Village model",
+			detail:
+				"the area taxonomy must stay hierarchical for the Province → District → Subdistrict → Village model",
 		};
 	} else {
 		const collections = Array.isArray(areaTaxonomy.collections)
@@ -1504,12 +1197,11 @@ test("facility_services precondition: exactly one reciprocal edge set, bound on 
 			`the live ${selector.collection} schema must be readable for the selector-binding precondition`,
 		).toBe(true);
 		const fields = nativeItemOf(schemaRead)?.fields;
-		expect(Array.isArray(fields), `the ${selector.collection} schema read must include fields`).toBe(
-			true,
-		);
-		const field = (fields as SchemaField[]).find(
-			(entry) => entry.slug === selector.field,
-		);
+		expect(
+			Array.isArray(fields),
+			`the ${selector.collection} schema read must include fields`,
+		).toBe(true);
+		const field = (fields as SchemaField[]).find((entry) => entry.slug === selector.field);
 		expect(
 			field?.type === "reference" &&
 				field.validation?.relation === FACILITY_SERVICES.relation &&
@@ -1531,7 +1223,10 @@ test("the four Service ownership modes save and read back distinctly, ownership 
 	// carries ownership on one field and channels on another, each holding
 	// its own supplied value. The external_digital mode carries the useful
 	// external URL editorially (still optional in native validation).
-	const channelRow = { label: syntheticText("channel-online"), url: "https://example.org/songhealth-f002-synthetic-service" };
+	const channelRow = {
+		label: syntheticText("channel-online"),
+		url: "https://example.org/songhealth-f002-synthetic-service",
+	};
 	const externalUrlValue = "https://example.org/songhealth-f002-synthetic-external";
 	const cases: Array<{ label: string; data: Record<string, unknown> }> = [
 		{
@@ -1559,7 +1254,10 @@ test("the four Service ownership modes save and read back distinctly, ownership 
 			created.result.ok,
 			`the ${ownershipCase.label} ownership-mode Service fixture must save (ownership and channel are distinct optional fields)`,
 		).toBe(true);
-		expect(created.entryId, "the created Service id must come from the native response").toBeTruthy();
+		expect(
+			created.entryId,
+			"the created Service id must come from the native response",
+		).toBeTruthy();
 		createdIds.push(created.entryId!);
 
 		const read = await readEntry(admin, SERVICE_COLLECTION, created.entryId!);
@@ -1576,7 +1274,9 @@ test("the four Service ownership modes save and read back distinctly, ownership 
 			).toBe(ownershipCase.data.provider_text);
 		}
 		if (ownershipCase.data.channels !== undefined) {
-			const rows = Array.isArray(data.channels) ? (data.channels as Array<Record<string, unknown>>) : [];
+			const rows = Array.isArray(data.channels)
+				? (data.channels as Array<Record<string, unknown>>)
+				: [];
 			expect(
 				rows.length,
 				`the ${ownershipCase.label} channel selection must read back its supplied row (channels ≠ ownership)`,
@@ -1606,7 +1306,10 @@ test("Service ownership guidance omissions are permitted and an invalid ownershi
 	// save — no completeness rule exists. Supplying an ownership value outside
 	// the four approved meanings is a native validation refusal.
 	const minimal = await createSyntheticEntry(admin, SERVICE_COLLECTION, {
-		data: { title: uniqueTitle("service-ownership-only"), ownership_type: "related_health_service" },
+		data: {
+			title: uniqueTitle("service-ownership-only"),
+			ownership_type: "related_health_service",
+		},
 	});
 	expect(
 		minimal.result.ok,
@@ -1616,7 +1319,10 @@ test("Service ownership guidance omissions are permitted and an invalid ownershi
 	const refusal = await createSyntheticEntry(admin, SERVICE_COLLECTION, {
 		data: { title: uniqueTitle("service-ownership-invalid"), ownership_type: "internal" },
 	});
-	expectValidationRefusal(refusal.result, "ownership_type supplied outside the four approved meanings");
+	expectValidationRefusal(
+		refusal.result,
+		"ownership_type supplied outside the four approved meanings",
+	);
 	expect(
 		refusal.entryId,
 		"no entry id may be returned for a refused ownership value",
@@ -1645,7 +1351,9 @@ test("create/save/reopen: title-only minimal Health Service saves with permitted
 	const read = await readEntry(admin, HEALTH_SERVICE_COLLECTION, created.entryId!);
 	expect(read.ok, "the saved Health Service must be readable by returned id").toBe(true);
 	const item = nativeItemOf(read);
-	expect(dataOfItem(item).title, "the read-back title must match the supplied official name").toBe(title);
+	expect(dataOfItem(item).title, "the read-back title must match the supplied official name").toBe(
+		title,
+	);
 	expect(item?.status, "a fresh native create is a draft").toBe("draft");
 });
 
@@ -1734,14 +1442,20 @@ test("valid control: optional facility fields save and read back, including affi
 	const read = await readEntry(admin, HEALTH_SERVICE_COLLECTION, created.entryId!);
 	expect(read.ok, "the saved Health Service must be readable by returned id").toBe(true);
 	const data = dataOfItem(nativeItemOf(read));
-	expect(data.facility_code, "the supplied facility code must read back").toBe(optional.facility_code);
+	expect(data.facility_code, "the supplied facility code must read back").toBe(
+		optional.facility_code,
+	);
 	expect(data.display_name, "the supplied display name must read back").toBe(optional.display_name);
 	expect(data.operational_status, "the supplied operational status must read back").toBe("active");
 	expect(data.address, "the supplied address must read back").toBe(optional.address);
 	expect(data.latitude, "the supplied latitude must read back exactly").toBe(16.4321);
 	expect(data.longitude, "the supplied longitude must read back exactly").toBe(102.8375);
-	expect(data.opening_hours, "the supplied opening hours must read back").toBe(optional.opening_hours);
-	expect(data.public_contact, "the supplied public contact must read back").toBe(optional.public_contact);
+	expect(data.opening_hours, "the supplied opening hours must read back").toBe(
+		optional.opening_hours,
+	);
+	expect(data.public_contact, "the supplied public contact must read back").toBe(
+		optional.public_contact,
+	);
 	expect(
 		data.affiliation_text,
 		"the supplied affiliation owner text must read back (Organization stays N/A)",
@@ -1854,7 +1568,11 @@ test("operational_status changes alone never change publication state; no comple
 		data: { title: uniqueTitle("facility-title-only-publish") },
 	});
 	expect(titleOnly.result.ok, "the title-only facility fixture must save").toBe(true);
-	const publishedTitleOnly = await publishEntry(admin, HEALTH_SERVICE_COLLECTION, titleOnly.entryId!);
+	const publishedTitleOnly = await publishEntry(
+		admin,
+		HEALTH_SERVICE_COLLECTION,
+		titleOnly.entryId!,
+	);
 	expect(
 		publishedTitleOnly.ok,
 		"a natively valid title-only facility must publish directly (no completeness gate)",
@@ -1922,7 +1640,11 @@ test("synthetic area hierarchy retains supplied codes in slugs, parent identitie
 	// input (T001 §6) and are never fabricated into acceptance here.
 	const province = await createSyntheticAreaTerm(AREA_TAXONOMY, "area-province");
 	const district = await createSyntheticAreaTerm(AREA_TAXONOMY, "area-district", province.termId);
-	const subdistrict = await createSyntheticAreaTerm(AREA_TAXONOMY, "area-subdistrict", district.termId);
+	const subdistrict = await createSyntheticAreaTerm(
+		AREA_TAXONOMY,
+		"area-subdistrict",
+		district.termId,
+	);
 	const village = await createSyntheticAreaTerm(AREA_TAXONOMY, "area-village", subdistrict.termId);
 
 	// Read each term back by its code slug: the slug is the supplied code,
@@ -1940,11 +1662,14 @@ test("synthetic area hierarchy retains supplied codes in slugs, parent identitie
 			read !== undefined,
 			`the ${expectation.term.slug} term must be readable back by its code slug`,
 		).toBe(true);
-		expect(read?.slug, "the term slug must be the supplied synthetic code").toBe(expectation.term.slug);
-		expect(read?.id, "the term identity must be its native id").toBe(expectation.term.termId);
-		expect(read?.description, "the term description must record the synthetic source provenance").toBe(
-			SYNTHETIC_AREA_DESCRIPTION,
+		expect(read?.slug, "the term slug must be the supplied synthetic code").toBe(
+			expectation.term.slug,
 		);
+		expect(read?.id, "the term identity must be its native id").toBe(expectation.term.termId);
+		expect(
+			read?.description,
+			"the term description must record the synthetic source provenance",
+		).toBe(SYNTHETIC_AREA_DESCRIPTION);
 		expect(
 			read?.parentId,
 			expectation.parentTermId === undefined
@@ -1963,9 +1688,14 @@ test("synthetic area hierarchy retains supplied codes in slugs, parent identitie
 	const updatedLabel = await renameOwnedAreaTerm(AREA_TAXONOMY, province.slug, editedLabel);
 	expect(updatedLabel.ok, "the area term label edit must succeed").toBe(true);
 	const afterEdit = await readTerm(AREA_TAXONOMY, province.slug);
-	expect(afterEdit !== undefined, "the edited term must still be reachable by its original code slug").toBe(true);
+	expect(
+		afterEdit !== undefined,
+		"the edited term must still be reachable by its original code slug",
+	).toBe(true);
 	expect(afterEdit?.label, "the edited label must read back").toBe(editedLabel);
-	expect(afterEdit?.slug, "the label edit must NOT change the supplied code slug").toBe(province.slug);
+	expect(afterEdit?.slug, "the label edit must NOT change the supplied code slug").toBe(
+		province.slug,
+	);
 	expect(afterEdit?.id, "the label edit must NOT change the term identity").toBe(province.termId);
 	// The hierarchy below the renamed term is unaffected: the District still
 	// points at the same parent identity.
@@ -1985,7 +1715,11 @@ test("facility physical address/coordinates are distinct from the coverage area 
 	const village = (async () => {
 		const province = await createSyntheticAreaTerm(AREA_TAXONOMY, "area-province");
 		const district = await createSyntheticAreaTerm(AREA_TAXONOMY, "area-district", province.termId);
-		const subdistrict = await createSyntheticAreaTerm(AREA_TAXONOMY, "area-subdistrict", district.termId);
+		const subdistrict = await createSyntheticAreaTerm(
+			AREA_TAXONOMY,
+			"area-subdistrict",
+			district.termId,
+		);
 		return createSyntheticAreaTerm(AREA_TAXONOMY, "area-village", subdistrict.termId);
 	})();
 
@@ -2007,7 +1741,9 @@ test("facility physical address/coordinates are distinct from the coverage area 
 	const read = await readEntry(admin, HEALTH_SERVICE_COLLECTION, created.entryId!);
 	expect(read.ok, "the location/area facility must be readable").toBe(true);
 	const data = dataOfItem(nativeItemOf(read));
-	expect(data.address, "the physical address must read back").toBe(syntheticText("physical-address"));
+	expect(data.address, "the physical address must read back").toBe(
+		syntheticText("physical-address"),
+	);
 	expect(data.latitude, "the physical latitude must read back exactly").toBe(16.4321);
 	expect(data.longitude, "the physical longitude must read back exactly").toBe(102.8375);
 
@@ -2022,7 +1758,9 @@ test("facility physical address/coordinates are distinct from the coverage area 
 		"the facility's area term assignment must be readable through the native terms endpoint",
 	).toBe(true);
 	const terms = nativeDataOf(assignments)?.terms;
-	expect(Array.isArray(terms), "the area assignment read must return its documented array").toBe(true);
+	expect(Array.isArray(terms), "the area assignment read must return its documented array").toBe(
+		true,
+	);
 	const assignedSlugs = (terms as Array<{ slug?: unknown }>)
 		.map((term) => term.slug)
 		.filter((slug): slug is string => typeof slug === "string");
@@ -2059,7 +1797,10 @@ test("optional facility_type classification selects a clearly synthetic term", a
 		"the facility_type assignment must be readable through the native terms endpoint",
 	).toBe(true);
 	const terms = nativeDataOf(assignments)?.terms;
-	expect(Array.isArray(terms), "the facility_type assignment read must return its documented array").toBe(true);
+	expect(
+		Array.isArray(terms),
+		"the facility_type assignment read must return its documented array",
+	).toBe(true);
 	const assignedSlugs = (terms as Array<{ slug?: unknown }>)
 		.map((term) => term.slug)
 		.filter((slug): slug is string => typeof slug === "string");
@@ -2225,7 +1966,9 @@ test("staged versus live reciprocal semantics: a pending published-side edit is 
 		data: { title: uniqueTitle("facility-staged") },
 		references: { [FACILITY_SERVICES.parentField]: [serviceOne.entryId!] },
 	});
-	expect(facility.result.ok, "the facility fixture must save with its initial selection").toBe(true);
+	expect(facility.result.ok, "the facility fixture must save with its initial selection").toBe(
+		true,
+	);
 	const published = await publishEntry(admin, HEALTH_SERVICE_COLLECTION, facility.entryId!);
 	expect(published.ok, "the facility with its initial selection must publish").toBe(true);
 
@@ -2295,41 +2038,16 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 	// native request path resolves authorization before the collection, so an
 	// unauthenticated create is refused by the authorization layer regardless
 	// of the T028/T029 standing — keeping one live check in every runtime run
-	// while never claiming facility coverage from it. The URL is built from
-	// the actor's origin (the runner-configured origin the actor was pinned
-	// to in beforeAll); no credential is sent, so nothing can leave the
-	// configured app.
-	const url = new URL(
+	// while never claiming facility coverage from it.
+	const result = await anonymousRequest(
+		admin.baseUrl,
 		`/_emdash/api/content/${HEALTH_SERVICE_COLLECTION}`,
-		`${admin.baseUrl}/`,
+		{
+			method: "POST",
+			body: { data: { title: uniqueTitle("facility-unauthenticated") } },
+		},
 	);
-	const response = await fetch(url, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ data: { title: uniqueTitle("facility-unauthenticated") } }),
-		redirect: "error",
-	});
-	let parsed: unknown;
-	try {
-		parsed = await response.json();
-	} catch {
-		parsed = { nonJsonBody: scrubEmbeddedSecrets(await response.text()) };
-	}
-	const result: NativeResult = { ok: response.ok, status: response.status, body: parsed };
-	expect(
-		result.status === 401 || result.status === 403,
-		"an unauthenticated native save must be refused by the authorization layer (401/403)",
-	).toBe(true);
-	expect(result.ok, "an unauthenticated native save must not be reported as success").toBe(false);
-	const error = result.body as { error?: { code?: unknown } };
-	expect(
-		error?.error?.code,
-		"the authorization refusal must carry its native error code (not VALIDATION_ERROR)",
-	).toBeTruthy();
-	expect(
-		error?.error?.code,
-		"an authorization refusal must not be mistaken for a field-validation refusal",
-	).not.toBe("VALIDATION_ERROR");
+	expectAuthorizationRefusal(result, "an unauthenticated native save");
 });
 
 test("a stale _rev facility update is a native state conflict, distinct from validation and authorization", async () => {
@@ -2353,13 +2071,15 @@ test("a stale _rev facility update is a native state conflict, distinct from val
 		data: { address: syntheticText("address-replay") },
 		rev: stale,
 	});
-	expect(
-		replay.ok,
-		"a stale `_rev` facility update must be refused, not reported as success",
-	).toBe(false);
+	expect(replay.ok, "a stale `_rev` facility update must be refused, not reported as success").toBe(
+		false,
+	);
 	expect(replay.status, "a stale precondition refusal is the native 409 CONFLICT family").toBe(409);
 	expect(
-		replay.status === 400 || replay.status === 401 || replay.status === 403 || replay.status === 404,
+		replay.status === 400 ||
+			replay.status === 401 ||
+			replay.status === 403 ||
+			replay.status === 404,
 		"a state conflict must stay distinguishable from validation (400), authorization (401/403) and missing-schema (404)",
 	).toBe(false);
 	const error = replay.body as { error?: { code?: unknown } };

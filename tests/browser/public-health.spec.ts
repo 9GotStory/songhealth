@@ -35,21 +35,16 @@
 import type { Page } from "@playwright/test";
 
 import {
-	cleanupOwnedFixtures,
-	cmsRequest,
 	createOwnedTerm,
-	createPatActor,
 	createSyntheticDocument,
 	createSyntheticDraft,
 	deleteMedia,
-	deleteSyntheticTerms,
-	loadDevAccessToken,
-	NATIVE_ROLES,
-	nativeDataOf,
+	devAdminActor,
 	nativeRefusalOf,
 	portableTextBlock,
 	portableTextImage,
 	publishEntryAt,
+	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	trashEntry,
@@ -65,22 +60,19 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
-	MOBILE_VIEWPORT,
 	SECTION_CRUMBS,
-	VIEWPORTS,
 	detailOf,
 	expect,
 	expectBreadcrumb,
 	expectImageLoaded,
-	expectNoAxeViolations,
-	expectNoHorizontalScroll,
+	expectPreviewRenders,
 	expectSiteNotFound,
-	expectVisibleFocusOnEveryStop,
 	listedItem,
 	listedTitles,
 	ownTitles,
 	siteTitleParts,
 	test,
+	testAccessibilityAndReflow,
 	thaiDate,
 } from "./public.helpers";
 
@@ -130,29 +122,14 @@ const healthNavItem = (page: Page) =>
 
 test.use({ viewport: DESKTOP_VIEWPORT });
 
-test.beforeAll(async ({}, testInfo) => {
-	const baseURL = testInfo.project.use.baseURL;
-	if (baseURL === undefined) {
-		throw new Error("this suite needs a configured baseURL (PLAYWRIGHT_BASE_URL)");
-	}
-	origin = new URL(baseURL).origin;
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
+test.beforeAll(async () => {
+	admin = await devAdminActor();
+	origin = admin.baseUrl;
 	reportDocument = await createSyntheticDocument(admin, "health-report");
 	await publishEntryAt(admin, "documents", reportDocument.id);
 });
 
-test.afterAll(async () => {
-	if (admin === undefined) return;
-	const failures: string[] = [];
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	if (!report.complete) failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
-	failures.push(...(await deleteSyntheticTerms(admin, ownedTerms)));
-	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
-});
+test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
 
 test("/health links to Health Content and to Health Reports under its own breadcrumb", async ({
 	page,
@@ -647,21 +624,7 @@ test("a signed preview link renders a draft Health Content or Health Report, kep
 		["health_content", await createContent("preview"), "/health/content"],
 		["health_reports", await createReport("preview"), "/health/reports"],
 	] as const) {
-		const minted = await cmsRequest(
-			admin,
-			`/_emdash/api/content/${collection}/${encodeURIComponent(draft.id)}/preview-url`,
-			{ method: "POST", body: {} },
-		);
-		expect(minted.ok, nativeRefusalOf(minted)).toBe(true);
-		// The signed token stays out of every message.
-		const link = new URL(String(nativeDataOf(minted)?.url), origin);
-		expect(link.pathname, "the preview link is the draft's canonical address").toBe(
-			`${path}/${draft.slug}`,
-		);
-		const preview = await page.goto(link.toString());
-		expect(preview?.status(), `the ${collection} preview renders`).toBe(200);
-		await expect(page.getByRole("heading", { level: 1 })).toHaveText(draft.title);
-		await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+		await expectPreviewRenders(page, admin, collection, draft, `${path}/${draft.slug}`);
 	}
 });
 
@@ -741,25 +704,5 @@ test.describe("accessibility and reflow", () => {
 		`/health/reports/${report.slug}`,
 	];
 
-	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
-		test(`axe reports no WCAG 2.2 AA violation and focus stays visible on the Health Information pages at the ${width} width`, async ({
-			page,
-		}) => {
-			await page.setViewportSize(viewport);
-			for (const path of paths()) {
-				const response = await page.goto(path);
-				expect(response?.status(), `GET ${path}`).toBe(200);
-				await expectNoAxeViolations(page, `${path} at ${width}`);
-				await expectVisibleFocusOnEveryStop(page, `${path} at ${width}`);
-			}
-		});
-	}
-
-	test("no Health Information page scrolls sideways at 320 px", async ({ page }) => {
-		await page.setViewportSize(MOBILE_VIEWPORT);
-		for (const path of paths()) {
-			await page.goto(path);
-			await expectNoHorizontalScroll(page, path);
-		}
-	});
+	testAccessibilityAndReflow("the Health Information pages", paths);
 });

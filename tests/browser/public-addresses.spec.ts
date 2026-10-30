@@ -13,20 +13,18 @@
 // native API. They are removed afterwards, together with the redirects their slug changes
 // created, which deleting an entry leaves in place.
 
-import { expect, test, type APIRequestContext, type TestInfo } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 
 import { CANONICAL_URL_PATTERNS } from "../canonical-url-patterns";
 import {
-	cleanupOwnedFixtures,
 	cmsRequest,
-	createPatActor,
 	createSyntheticEntry,
-	loadDevAccessToken,
-	nativeDataOf,
+	devAdminActor,
+	mintPreviewLink,
 	nativeItemsOf,
 	nativeRefusalOf,
-	NATIVE_ROLES,
 	publishEntry,
+	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	updateEntry,
@@ -72,50 +70,12 @@ async function sitemapLocations(request: APIRequestContext, path: string): Promi
 	return [...xml.matchAll(/<loc>([^<]*)<\/loc>/g)].map((match) => match[1]);
 }
 
-test.beforeAll(async ({}, testInfo: TestInfo) => {
-	const baseURL = testInfo.project.use.baseURL;
-	if (baseURL === undefined) {
-		throw new Error("this suite needs a configured baseURL (PLAYWRIGHT_BASE_URL)");
-	}
-	origin = new URL(baseURL).origin;
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
+test.beforeAll(async () => {
+	admin = await devAdminActor();
+	origin = admin.baseUrl;
 });
 
-test.afterAll(async () => {
-	if (admin === undefined) return;
-	const failures: string[] = [];
-	for (const slug of movedSlugs) {
-		const listed = await cmsRequest(admin, "/_emdash/api/redirects", {
-			searchParams: { search: slug, limit: "100" },
-		});
-		if (!listed.ok) {
-			failures.push(`listing the redirects of ${slug}: ${nativeRefusalOf(listed)}`);
-			continue;
-		}
-		const redirects = nativeItemsOf(listed) as Array<{ id: string; source: string; auto: boolean }>;
-		for (const redirect of redirects.filter(
-			({ source, auto }) => auto && source.endsWith(`/${slug}`),
-		)) {
-			const removed = await cmsRequest(
-				admin,
-				`/_emdash/api/redirects/${encodeURIComponent(redirect.id)}`,
-				{ method: "DELETE" },
-			);
-			if (!removed.ok) {
-				failures.push(`deleting the redirect from ${redirect.source}: ${nativeRefusalOf(removed)}`);
-			}
-		}
-	}
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	if (!report.complete) {
-		failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
-	}
-	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
-});
+test.afterAll(() => removeSuiteFixtures(admin, { movedSlugs }));
 
 // News is what #53 names. Health Content shows that the pattern, not EmDash's fallback
 // `/{collection}/{slug}`, builds the address: the fallback would give /health_content/….
@@ -176,14 +136,7 @@ test("the preview link of a draft in each public collection is its canonical, sl
 	}
 
 	for (const collection of Object.keys(CANONICAL_URL_PATTERNS)) {
-		const minted = await cmsRequest(
-			admin,
-			`/_emdash/api/content/${collection}/${encodeURIComponent(ids[collection])}/preview-url`,
-			{ method: "POST", body: {} },
-		);
-		expect(minted.ok, `${collection}: ${nativeRefusalOf(minted)}`).toBe(true);
-		const link = new URL(String(nativeDataOf(minted)?.url), origin);
-		// The signed token stays out of every message.
+		const link = await mintPreviewLink(admin, collection, ids[collection]);
 		expect(link.pathname, `the ${collection} preview link`).toBe(
 			addressOf(collection, slugs[collection]),
 		);

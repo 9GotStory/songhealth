@@ -11,9 +11,14 @@
 // - `DESKTOP_VIEWPORT` / `MOBILE_VIEWPORT`: the two widths every template is
 //   checked at. The mobile width is 320 CSS px, the narrowest width the site
 //   must reflow to without horizontal scrolling (WCAG 2.2 SC 1.4.10).
+// - `testAccessibilityAndReflow`: the axe, focus and reflow tests of a
+//   template's pages at those widths; `expectAccessibleAtEachWidth` checks
+//   the page as it is now at both.
 // - What the shell shows every page: the 404 page, the default site title, the
 //   breadcrumb, Thai dates, the titles and items a list shows, and a record
 //   page's details.
+// - `expectPreviewRenders`: a draft's signed preview link (cms.helpers.ts
+//   mintPreviewLink) at the draft's address, rendering it out of search engines.
 // - `BorrowedEntries`: the runtime's own published entries a test returns to
 //   draft, published again afterwards at their own publication date.
 //
@@ -27,6 +32,7 @@ import { expect, test as base, type Locator, type Page } from "@playwright/test"
 
 import {
 	cmsRequest,
+	mintPreviewLink,
 	nativeDataOf,
 	nativeItemOf,
 	nativeRefusalOf,
@@ -132,6 +138,49 @@ export async function expectNoAxeViolations(page: Page, label: string): Promise<
 	expect(violations, `${label}: axe must report no WCAG 2.2 AA violations`).toEqual([]);
 }
 
+/**
+ * Fail unless the page as it is now has no WCAG 2.2 AA violation and keeps focus visible at each of
+ * `VIEWPORTS`, named `label` in the failures. The viewport ends at the desktop width.
+ */
+export async function expectAccessibleAtEachWidth(page: Page, label: string): Promise<void> {
+	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
+		await page.setViewportSize(viewport);
+		await expectNoAxeViolations(page, `${label} at ${width}`);
+		await expectVisibleFocusOnEveryStop(page, `${label} at ${width}`);
+	}
+	await page.setViewportSize(DESKTOP_VIEWPORT);
+}
+
+/**
+ * Declare the accessibility and reflow tests of a template's pages: at each of `VIEWPORTS`, every
+ * path `paths` gives answers 200, axe reports no WCAG 2.2 AA violation on it and focus stays
+ * visible; at 320 px none scrolls sideways. `pages` names them in the test titles, such as "the
+ * News pages". `paths` is called when the tests run, after the suite's fixtures exist.
+ */
+export function testAccessibilityAndReflow(pages: string, paths: () => readonly string[]): void {
+	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
+		test(`axe reports no WCAG 2.2 AA violation and focus stays visible on ${pages} at the ${width} width`, async ({
+			page,
+		}) => {
+			await page.setViewportSize(viewport);
+			for (const path of paths()) {
+				const response = await page.goto(path);
+				expect(response?.status(), `GET ${path}`).toBe(200);
+				await expectNoAxeViolations(page, `${path} at ${width}`);
+				await expectVisibleFocusOnEveryStop(page, `${path} at ${width}`);
+			}
+		});
+	}
+
+	test(`${pages} do not scroll sideways at 320 px`, async ({ page }) => {
+		await page.setViewportSize(MOBILE_VIEWPORT);
+		for (const path of paths()) {
+			await page.goto(path);
+			await expectNoHorizontalScroll(page, path);
+		}
+	});
+}
+
 /** The heading of the site-designed 404 page. */
 export const NOT_FOUND_HEADING = "ไม่พบหน้าที่คุณต้องการ";
 
@@ -227,6 +276,27 @@ export async function expectImageLoaded(image: Locator, label: string): Promise<
 			{ message: `${label} loads` },
 		)
 		.toBe(true);
+}
+
+/**
+ * Fail unless `draft`'s signed preview link is its address `path` and renders the draft, headed by
+ * its title and kept out of search engines. Returns the link, whose token a test names in no
+ * message.
+ */
+export async function expectPreviewRenders(
+	page: Page,
+	admin: CmsActor,
+	collection: string,
+	draft: DraftFixture,
+	path: string,
+): Promise<URL> {
+	const link = await mintPreviewLink(admin, collection, draft.id);
+	expect(link.pathname, "the preview link is the draft's canonical address").toBe(path);
+	const preview = await page.goto(link.toString());
+	expect(preview?.status(), `the ${collection} preview renders`).toBe(200);
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(draft.title);
+	await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+	return link;
 }
 
 /** The titles of the cards or rows a list page shows, in order. */

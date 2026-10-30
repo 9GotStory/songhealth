@@ -25,18 +25,13 @@
 //   the Document that uses it keeps the value (no published-reference veto, `02` §13).
 
 import {
-	cleanupOwnedFixtures,
-	cmsRequest,
-	createPatActor,
 	createSyntheticDocument,
 	createOwnedTerm,
 	deleteMedia,
-	deleteSyntheticTerms,
-	loadDevAccessToken,
-	nativeDataOf,
+	devAdminActor,
 	nativeRefusalOf,
-	NATIVE_ROLES,
 	publishEntryAt,
+	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
 	SYNTHETIC_PDF_BYTES,
 	syntheticSlug,
@@ -49,21 +44,18 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
-	MOBILE_VIEWPORT,
 	SECTION_CRUMBS,
-	VIEWPORTS,
 	detailOf,
 	expect,
 	expectBreadcrumb,
-	expectNoAxeViolations,
-	expectNoHorizontalScroll,
+	expectPreviewRenders,
 	expectSiteNotFound,
-	expectVisibleFocusOnEveryStop,
 	listedItem,
 	listedTitles,
 	ownTitles,
 	siteTitleParts,
 	test,
+	testAccessibilityAndReflow,
 	thaiDate,
 } from "./public.helpers";
 
@@ -92,27 +84,12 @@ async function publish(document: DocumentFixture): Promise<void> {
 
 test.use({ viewport: DESKTOP_VIEWPORT });
 
-test.beforeAll(async ({}, testInfo) => {
-	const baseURL = testInfo.project.use.baseURL;
-	if (baseURL === undefined) {
-		throw new Error("this suite needs a configured baseURL (PLAYWRIGHT_BASE_URL)");
-	}
-	origin = new URL(baseURL).origin;
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
+test.beforeAll(async () => {
+	admin = await devAdminActor();
+	origin = admin.baseUrl;
 });
 
-test.afterAll(async () => {
-	if (admin === undefined) return;
-	const failures: string[] = [];
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	if (!report.complete) failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
-	failures.push(...(await deleteSyntheticTerms(admin, ownedTerms)));
-	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
-});
+test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
 
 test("/documents lists only published Documents, newest first, each row with its type, date, fiscal year, file type and size", async ({
 	page,
@@ -505,22 +482,13 @@ test("a signed preview link renders a draft Document, and the same address witho
 	page,
 }) => {
 	const draft = await createDocument("preview");
-	const minted = await cmsRequest(
+	const link = await expectPreviewRenders(
+		page,
 		admin,
-		`/_emdash/api/content/documents/${encodeURIComponent(draft.id)}/preview-url`,
-		{ method: "POST", body: {} },
-	);
-	expect(minted.ok, nativeRefusalOf(minted)).toBe(true);
-	// The signed token stays out of every message.
-	const link = new URL(String(nativeDataOf(minted)?.url), origin);
-	expect(link.pathname, "the preview link is the draft's canonical address").toBe(
+		"documents",
+		draft,
 		`/documents/${draft.slug}`,
 	);
-
-	const preview = await page.goto(link.toString());
-	expect(preview?.status(), "the preview renders").toBe(200);
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText(draft.title);
-	await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
 
 	await expectSiteNotFound(page, link.pathname, "the draft without a token");
 });
@@ -604,25 +572,5 @@ test.describe("accessibility and reflow", () => {
 		];
 	});
 
-	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
-		test(`axe reports no WCAG 2.2 AA violation and focus stays visible on the Document pages at the ${width} width`, async ({
-			page,
-		}) => {
-			await page.setViewportSize(viewport);
-			for (const path of paths) {
-				const response = await page.goto(path);
-				expect(response?.status(), `GET ${path}`).toBe(200);
-				await expectNoAxeViolations(page, `${path} at ${width}`);
-				await expectVisibleFocusOnEveryStop(page, `${path} at ${width}`);
-			}
-		});
-	}
-
-	test("no Document page scrolls sideways at 320 px", async ({ page }) => {
-		await page.setViewportSize(MOBILE_VIEWPORT);
-		for (const path of paths) {
-			await page.goto(path);
-			await expectNoHorizontalScroll(page, path);
-		}
-	});
+	testAccessibilityAndReflow("the Document pages", () => paths);
 });

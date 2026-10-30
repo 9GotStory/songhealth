@@ -1,269 +1,76 @@
-// T007 — table-driven native authoring checks for the five Feature 002 US1
-// content kinds (`pages`, `news`, `activities`, `announcements`,
-// `health_content`). Test support in tests/browser/ only: no application,
-// schema, seed, dependency, infrastructure, or production change is made here.
+// Authoring the five US1 content kinds (Feature 002 T007; specs/002-cms-content-model/,
+// data-model.md, the pages, news, activities, announcements and health_content rows; `02` §3–§7
+// and §20; `07` §3 and §5).
 //
-// Authority:
-// - specs/002-cms-content-model/tasks.md T007 ("Author table-driven native
-//   authoring checks in tests/browser/cms-authoring.spec.ts for all five kinds
-//   using T002/T006, title requiredness, representative supplied-value errors,
-//   optional omissions/classifications/media, optional Page/Announcement
-//   Document selectors, and direct permitted Publish/Schedule of natively
-//   valid incomplete fixtures; include no human-approval or custom
-//   policy-cancellation expectation") and the shared "Path Conventions and
-//   Shared Constraints" section (dev-bypass access, returned IDs/current
-//   `_rev`, re-read uncertain outcomes, clean only owned synthetic fixtures,
-//   synthetic public-publishable fixtures through native APIs, no invented
-//   official inventories)
-// - specs/002-cms-content-model/spec.md — Q1 matrix rows for the five kinds
-//   ("Title required; other fields optional" at create/save; "Native
-//   RBAC/lifecycle only" at Publish/Schedule with no body/image/category/
-//   date/gallery/media hook), US1 acceptance scenarios 1–7 (scenario 7:
-//   publish/schedule applies native RBAC/lifecycle/revision and built-in
-//   validation only — no article reviewer, approval, custom confirm or
-//   completeness hook), FR-001/FR-002/FR-003/FR-026/FR-030, SC-001/SC-006
-// - specs/002-cms-content-model/data-model.md — the five collection rows
-//   (`pages`: title string S; summary text O; body portableText O; image/file
-//   fields only "O when useful"; `news`: title S; summary/body O;
-//   featured_image image O; source_text text O; news_category/topic O;
-//   area/audience O. `activities`: title S; summary/activity_at/location_text/
-//   featured_image/gallery/participants_text O; topic/area O. `announcements`:
-//   title S; details/announcement_at/opens_at/closes_at O; announcement_type/
-//   topic/audience O; Documents O. `health_content`: title S; summary/body/
-//   source_text/featured_image/reviewed_at/next_review_at O; topic/audience O),
-//   the taxonomies table (topic attached to News, Activity, Announcement,
-//   Health Content), the relations table (page_documents and
-//   announcement_documents: "many; many", O) and the Common Native Contract
-//   ("Native Save validation rejects missing required values and empty
-//   required strings; malformed supplied values retain native refusal" with
-//   the accepted file-value normalization limitation below)
-// - specs/002-cms-content-model/contracts/native-editorial.md — "Native
-//   Request Shapes" (create/update/publish/schedule bodies, `references` as a
-//   separate body object mapping bound field slug to selected entry ID arrays,
-//   "it does not belong in `data`"; latest returned `_rev` preconditions) and
-//   "Validation Contract — Native Only" (§1 create/save requiredness with
-//   supplied-value refusal, §2 direct Publish/Schedule under native authority
-//   without article review/approval/confirmation/completeness gate, §3
-//   relationships stay editorial context with no selection adapter, §4 no
-//   availability guarantee)
-// - specs/002-cms-content-model/quickstart.md — "Focused Native API Checks"
-//   (missing/null/empty title, invalid clear, representative invalid supplied
-//   type/format values; publish a title-only Page and schedule another with a
-//   valid future timezone-offset timestamp/current `_rev`; "Do not assert a
-//   universal schedule/reference atomicity guarantee or expect custom
-//   `PUBLISH_REJECTED` policy cancellation") and "Feature Journeys"
-//   (native save requiredness; direct Publish/Schedule)
-// - specs/002-cms-content-model/evidence/T006-shared-model.md — the accepted
-//   shared-model verification, the pinned runtime/toolchain standing, and the
-//   accepted EmDash 1.1.0 file-value normalization limitation (final
-//   corrective-round wording): the three exact observed raw inputs
-//   (`file: ""` / `file: "not-an-object"` → `{provider:"external", id:"",
-//   src:<the string>}`; `file: {id: 123}` with no explicit provider/src →
-//   `{id:"", provider:"local"}`) are accepted-and-normalized results for those
-//   exact inputs, NOT universal rules; omitted/null files and objects with
-//   neither `id` nor `src` remain native refusals
-// - docs/website-modernization-docs/current/02-content-model.md §§3–7 (the
-//   five kinds' owning Product fields) and §20 (V1 validation and native
-//   limitation boundary)
-// - docs/website-modernization-docs/current/07-publishing-workflow.md §3
-//   (direct native publishing, no article approval) and §5 (one-time future
-//   scheduling, explicit timezone, no early publication)
-// - tests/browser/cms.helpers.ts — the accepted T002 native request/fixture
-//   helpers this file consumes (dev-bypass actor pinned to the
-//   runner-configured origin, synthetic media/entries with owned-fixture
-//   cleanup, fresh `_rev` preconditions, publish/schedule/unschedule request
-//   helpers, secret-redacted results)
-// - tests/browser/cms-document.spec.ts — the accepted T003 patterns this file
-//   follows (schema-readiness gating, refusal-family assertions,
-//   failure-safe teardown, the runner-configured origin, the normalization
-//   limitation boundary)
-// - specs/002-cms-content-model/evidence/T001-development-inputs.md §6–§7 —
-//   the truthful readiness limitations these checks skip on rather than
-//   masquerading as field-validation results
+// The suite checks, table-driven over `pages`, `news`, `activities`, `announcements` and
+// `health_content`:
+// - a missing, null or empty title, an invalid clear and representative invalid supplied values
+//   are refused as native validation, and the optional fields, classifications and media may be
+//   omitted;
+// - the optional Page and Announcement Document selections save through the native `references`
+//   payload and read back, while an unknown target and a field that is not a reference field are
+//   refused;
+// - topic terms attach where the approved model attaches `topic`;
+// - a natively valid but incomplete entry publishes, and another schedules for a future time with
+//   an explicit offset, under native permissions only: no approval, confirmation or completeness
+//   hook exists or is expected;
+// - a stale `_rev` is a state conflict, and an unauthenticated save an authorization refusal,
+//   each distinct from validation.
+// A valid media or Document selection proves only that the save accepted the identity: no
+// availability is asserted. Roles, revision depth, the scheduler's due-time run and public reads
+// belong to other suites.
 //
-// Verified API surface (recorded per CLAUDE.md §Current documentation; every
-// release-sensitive claim below was checked first through Context7
-// (/microsoft/playwright v1.63.0 for Playwright semantics; /websites/emdashcms
-// for unversioned REST orientation) and then against the pinned `emdash@1.1.0`
-// archive, npm tarball integrity
-// sha512-VXo1fIMr44PEiE1A9Z5aFWvjsqhdLDHqat2iPkFYoam2kYV6h+2LGkEDovkXdLmmWWDY9w7ekP0CP6ziYMFhg==
-// — byte-equal to package-lock.json, the same integrity research.md §Evidence
-// and the T002/T003 helpers independently verified):
-// - POST /_emdash/api/content/{collection} with `data`, `slug?`, `status?
-//   "draft"`, `taxonomies?`, `references?` (contentCreateBody; the native API
-//   create status is draft-only); `references` maps bound field slug → entry
-//   ID array and is resolved IN the create transaction
-//   (src/api/handlers/content.ts handleContentCreate: every supplied
-//   references entry is resolved by resolveReferenceSelectionTargets and, for
-//   the created entry's translation group, written by writeReferenceSelection
-//   — `if (created.translationGroup)`), so the optional Page/Announcement
-//   Document selections below use the separate native `references` payload
-//   exactly as the editorial contract documents
-// - resolveReferenceSelectionTargets (src/relations/…): a field slug that is
-//   not a bound reference field → `400 VALIDATION_ERROR "Field '…' is not a
-//   reference field"`; an unknown target entry → `404 NOT_FOUND "Parent entry
-//   '…' not found"`; over-limit selection → VALIDATION_ERROR. A draft target
-//   entry resolves (findManyByIdOrSlug does not filter status) — a valid
-//   selection asserts the returned identity only, never the target's
-//   availability (D-REF deferred)
-// - GET /_emdash/api/content/{collection}/{id}/references/{relation}/children
-//   (content:read; `includeDrafts` with content:read_drafts) → `data
-//   { children: [{ id, slug, collection, title, … }], nextCursor? }`; for a
-//   draft entry with a staged selection the staged page is preferred
-//   (handleReferenceChildrenGet → stagedPageFor), so the read-back reflects
-//   the saved/pending native state rather than promising immediate live edges
-// - taxonomies at create/update (`taxonomies: { name: [termSlug, …] }`):
-//   assignTaxonomies refuses a non-array and an unknown term slug
-//   (`VALIDATION_ERROR "Unknown taxonomy term: …"`) — terms must already
-//   exist; the assignment is read back through
-//   GET /_emdash/api/content/{collection}/{id}/terms/{taxonomy}
-//   (content:read) → `data { terms: [{ id, name, slug, label, … }], … }`
-// - synthetic classification fixtures: POST /_emdash/api/taxonomies/{name}/terms
-//   (taxonomies:manage) with `{ slug?, label }` creates a term; DELETE
-//   /_emdash/api/taxonomies/{name}/terms/{slug} removes it and answers 404
-//   NOT_FOUND for an already-absent term (handleTermDelete); GET
-//   /_emdash/api/taxonomies/{name}/terms/{slug} is the native read used to
-//   reconcile an uncertain deletion — including a lost-response transport
-//   failure on the DELETE, whose outcome may have committed: native state is
-//   read BEFORE any repeated DELETE (corrective round 2, F2 residual; the
-//   tasks.md shared constraint "Re-read uncertain outcomes before a retry").
-//   The taxonomy LISTING
-//   GET /_emdash/api/taxonomies (taxonomies:read) returns
-//   `{ success: true, data: { taxonomies: [...] } }` (handleTaxonomyList) —
-//   an envelope key the accepted nativeItemsOf helper does NOT read (it
-//   handles data.items and bare-array envelopes), so the listing is parsed
-//   and validated locally in topicAttachmentFrom below and the accepted
-//   helper stays unchanged (corrective round 1, finding F1). The listing
-//   verifies the approved `topic` attachment per kind before exercising
-//   classification, never inventing an official term inventory; the fixture
-//   term below is clearly synthetic, owned-cleaned with its registration
-//   retained until deletion is proven (corrective round 1, finding F2), and
-//   the development credential's taxonomies:manage/read authority is proven
-//   by the native responses themselves (the supplied PAT's scope metadata is
-//   not assumed from its role)
-// - publish/schedule: POST …/publish `{ _rev?, overrideLock? }` and POST
-//   …/schedule `{ scheduledAt, _rev?, overrideLock? }` both gate on
-//   content:publish_own/content:publish_any (requireOwnerPerm in the routes);
-//   the repository `schedule()` sets status "scheduled" + scheduled_at and
-//   refuses a non-future time (`VALIDATION_ERROR "Scheduled date must be in
-//   the future"`); contentScheduleBody requires ISO 8601 with Z or an
-//   explicit offset; the schedule T002 helper additionally refuses an
-//   offset-less value locally. DELETE …/schedule unschedules (published stays
-//   published; draft/scheduled revert to draft)
-// - the content item shape carries `status` ("draft", "published", or
-//   "scheduled"), `publishedAt`, `scheduledAt`, `data` (contentItemSchema) —
-//   publish/schedule read-backs below assert those native fields by returned
-//   id only; `scheduledAt` may be stored in a normalized equivalent form, so
-//   the schedule read-back compares the INSTANT (Date.getTime()), not the
-//   string
-// - image/file value boundary (pinned zod-generator + normalize): image/file
-//   fields are objects with required string `id`; the create/update-time
-//   media value normalization (src/media/normalize.ts, the documented
-//   URL-input path) runs BEFORE field validation and accepts the three exact
-//   raw inputs recorded in the T006 limitation — a bare string on an image or
-//   file field is therefore NOT asserted as a refusal anywhere in this file
-//   (no extrapolation beyond those exact inputs; the required-file
-//   regressions live in T003). Values that still reach the schema unchanged
-//   ARE genuine refusals and are asserted: an object without `id` (normalize
-//   returns null for it, leaving the raw `{}` for the schema) and a
-//   non-string non-object value (e.g. a number)
-// - offset-less or non-datetime supplied domain dates are refused
-//   (z.iso.datetime({ offset: true }) for datetime fields); string/text fields
-//   refuse a supplied number; portableText/repeater fields refuse a supplied
-//   non-array (only an empty-trimmed STRING on an array-type field is
-//   normalized to null, which an optional field accepts)
-// - stale `_rev` preconditions: PUT with a superseded `_rev` → `409 CONFLICT`
-//   (validateRev → apiError CONFLICT; mapErrorStatus), a native STATE refusal
-//   distinct from both field validation (400 VALIDATION_ERROR) and
-//   authorization (401/403) — one focused distinction control below; the full
-//   revision/lock/concurrency surface is T020's, not T007's
-// - authorization refusals: UNAUTHORIZED 401 / FORBIDDEN 403
-//   (src/api/authorize.ts requirePerm) — the unauthenticated control below
-//   proves that family live against the same endpoint, so an authorization
-//   problem can never masquerade as a field-validation outcome (and vice
-//   versa)
-// - an unknown collection is `404 COLLECTION_NOT_FOUND` (errors.ts) — used as
-//   the truthful schema-readiness gate for the not-yet-defined kinds, never
-//   as a validation result
-// - Playwright 1.63.0 semantics (Context7 /microsoft/playwright v1.63.0,
-//   docs/test-api/class-test + docs/test-retries): `test.skip(condition,
-//   description)` inside a test body aborts that test at runtime with a
-//   recorded reason; tests in one file run sequentially in one worker;
-//   test-scoped hooks (afterEach) run when a test finishes — including after a
-//   failure and for individually selected tests — in the SAME worker, while a
-//   FAILED test causes Playwright to discard that worker for LATER tests.
-//   `--list` collects tests without running them (no browser launch) —
-//   discovery output is never a runtime PASS claim
+// Platform behaviour relied on (emdash 1.1.0):
+// - POST /_emdash/api/content/{collection} takes `data`, `slug`, `taxonomies` and `references`,
+//   and resolves the references in the create (src/api/handlers/content.ts handleContentCreate).
+//   A field that is not a reference field is refused 400 VALIDATION_ERROR and an unknown target
+//   404 NOT_FOUND; a draft target resolves (src/api/handlers/relations.ts
+//   resolveReferenceSelectionTargets).
+// - GET …/{id}/references/{relation}/children reads a draft's staged selection first
+//   (handleReferenceChildrenGet).
+// - `taxonomies` refuses an unknown term slug with VALIDATION_ERROR; GET …/{id}/terms/{taxonomy}
+//   reads the assignment. Terms are made with POST /_emdash/api/taxonomies/{name}/terms and
+//   removed with DELETE …/terms/{slug}, which answers 404 for an absent term; after an uncertain
+//   DELETE the term is read before any retry. GET /_emdash/api/taxonomies answers
+//   `data.taxonomies`, which topicAttachmentFrom parses here (handleTaxonomyList).
+// - Publish and schedule need content:publish_own or publish_any. Scheduling takes ISO 8601 with
+//   Z or an offset, sets status `scheduled` and refuses a non-future time; an entry's
+//   `scheduledAt` may be stored in an equivalent form, so it is compared as an instant.
+// - Media normalization (src/media/normalize.ts) runs before validation and accepts `file: ""`,
+//   `file: "not-an-object"` and `file: { id: 123 }` as degenerate values, a V1 limitation the
+//   Product Owner accepted, so no bare string on an image or file field is asserted as a refusal
+//   here. An object without `id` and a number are still refused.
+// - Datetime fields need an offset; text fields refuse a number; portableText and repeater
+//   fields refuse a non-array (src/schema/zod-generator.ts).
+// - A stale `_rev` answers 409 CONFLICT (src/api/rev.ts). A save without a credential or an
+//   `X-EmDash-Request` header answers 403 CSRF_REJECTED before authentication
+//   (src/astro/middleware/auth.ts), and an insufficient one 403 FORBIDDEN (src/api/authorize.ts). An
+//   unknown collection answers 404 COLLECTION_NOT_FOUND, which the schema gate reports as a skip,
+//   never a PASS.
 //
-// Boundaries and non-claims (tasks.md T007; Constitution v3.0.0 II–V):
-// - authoring checks only: no role-matrix coverage (T001 §6 records the
-//   distinct-role input as pending; T019 owns the Contributor/Author/Editor
-//   matrix), no revision/lock depth (T020), no public-read assertions (T021),
-//   no actual due-time scheduler execution (T019/T022 — the schedule checks
-//   below verify native schedule ACCEPTANCE and read-back of a future
-//   explicit-offset time only), no Admin UI journey (T031)
-// - the actor is the pre-existing development credential's Administrator
-//   fixture (dev@emdash.local, role 50), loaded from its controller-format
-//   mode-0600 JSON through the T013 test-authentication adaptation
-//   (loadDevAccessToken + createPatActor — never the dev-bypass bootstrap,
-//   whose native endpoint replaces same-named tokens and applies seed intent)
-//   and pinned to the RUNNER-CONFIGURED origin (playwright.config.ts
-//   contract: PLAYWRIGHT_BASE_URL or the documented development origin —
-//   never the helper default). It carries native publishing authority
-//   (content:publish_any), which is exactly what "direct permitted
-//   Publish/Schedule under native RBAC" needs; distinct-role coverage is NOT
-//   claimed from this actor
-// - no human-approval or custom policy-cancellation expectation: every
-//   publish/schedule below asserts the NATIVE outcome only (native success
-//   envelope or a truthful native refusal family); no Songhealth
-//   completeness-hook code, article-review step, confirmation, or
-//   `PUBLISH_REJECTED`-style policy cancellation is expected or asserted —
-//   none exists in the native-only architecture
-// - no availability/retention claim: a valid media selection or Document
-//   reference proves only that the native save accepted the returned identity
-//   — NO file immutability, byte availability, published-target or
-//   removal-protection outcome is asserted (D-REF stays deferred;
-//   native-editorial.md "Availability")
-// - no Page media field is exercised or required: the approved `pages`
-//   definition makes image/file fields conditional ("O when useful"), and
-//   this file invents nothing beyond it; the schema gate checks only the
-//   unconditional approved fields each exercised check relies on
-// - fixtures are clearly-marked synthetic public-publishable data; content
-//   IDs, `_rev` values, media IDs and term identities come from native
-//   responses only. Owned-fixture cleanup runs as FAILURE-SAFE TEARDOWN in
-//   the worker whose actor created the fixtures (after every test — pass,
-//   fail, or individually selected — plus an afterAll safety net), and
-//   synthetic classification terms are deleted after the entries that use
-//   them with their registration RETAINED until deletion is proven (direct
-//   success, native 404, or a read-verified absence) so an unresolved term
-//   stays retryable by the safety net and is reported truthfully. beforeAll
-//   deliberately creates no owned fixtures. A hard worker kill (SIGKILL) is
-//   the one path no in-process teardown can cover; the run reports it through
-//   unresolved cleanup instead of claiming success
-// - runtime prerequisites the environment does not provide are reported
-//   truthfully: an unreachable app fails the worker loudly (helper transport
-//   error), and a missing collection skips as an explicit T008–T012 schema
-//   prerequisite — a skip, a discovery listing, or a source review is NOT a
-//   runtime PASS claim; T013 owns the complete US1 runtime verification
+// Credentials and fixtures: the development Administrator PAT (SONGHEALTH_DEV_ACCESS), which
+// holds content:publish_any, acts on the configured origin; no role boundary is claimed from it.
+// Fixtures and terms are synthetic. Cleanup runs after every test, passed or failed, and again in
+// afterAll; a term stays registered until its deletion is proven. beforeAll creates none.
 
 import { expect, test } from "@playwright/test";
 
 import {
+	anonymousRequest,
 	cleanupOwnedFixtures,
 	cmsRequest,
-	createPatActor,
 	createSyntheticEntry,
 	CmsHelperError,
-	DEFAULT_DEVELOPMENT_ORIGIN,
-	loadDevAccessToken,
+	devAdminActor,
+	expectAuthorizationRefusal,
+	expectTargetRefusal,
+	expectValidationRefusal,
 	nativeDataOf,
 	nativeItemOf,
 	nativeRefusalOf,
-	NATIVE_ROLES,
 	publishEntry,
 	readEntry,
 	scheduleEntry,
-	scrubEmbeddedSecrets,
 	unscheduleEntry,
 	updateEntry,
 	uploadSyntheticMedia,
@@ -287,7 +94,12 @@ interface SchemaField {
 	slug?: unknown;
 	type?: unknown;
 	required?: unknown;
-	validation?: { options?: unknown; subFields?: unknown; relation?: unknown; relationSide?: unknown };
+	validation?: {
+		options?: unknown;
+		subFields?: unknown;
+		relation?: unknown;
+		relationSide?: unknown;
+	};
 }
 
 /**
@@ -338,7 +150,10 @@ const KINDS: readonly KindCase[] = [
 			{ slug: "source_text", type: "text" },
 		],
 		invalidSuppliedCases: [
-			{ label: "featured_image (image) supplied as an object without id", data: { featured_image: {} } },
+			{
+				label: "featured_image (image) supplied as an object without id",
+				data: { featured_image: {} },
+			},
 			{ label: "featured_image (image) supplied as a number", data: { featured_image: 123 } },
 			{ label: "source_text (text) supplied as a number", data: { source_text: 123 } },
 		],
@@ -355,10 +170,19 @@ const KINDS: readonly KindCase[] = [
 			{ slug: "participants_text", type: "text" },
 		],
 		invalidSuppliedCases: [
-			{ label: "activity_at supplied as a non-datetime string", data: { activity_at: "not-a-datetime" } },
-			{ label: "activity_at supplied without a timezone offset", data: { activity_at: "2026-10-15T10:00:00" } },
+			{
+				label: "activity_at supplied as a non-datetime string",
+				data: { activity_at: "not-a-datetime" },
+			},
+			{
+				label: "activity_at supplied without a timezone offset",
+				data: { activity_at: "2026-10-15T10:00:00" },
+			},
 			{ label: "gallery (repeater) supplied as a string", data: { gallery: "not-an-array" } },
-			{ label: "featured_image (image) supplied as an object without id", data: { featured_image: {} } },
+			{
+				label: "featured_image (image) supplied as an object without id",
+				data: { featured_image: {} },
+			},
 		],
 		classificationTaxonomy: "topic",
 	},
@@ -371,8 +195,14 @@ const KINDS: readonly KindCase[] = [
 			{ slug: "closes_at", type: "datetime" },
 		],
 		invalidSuppliedCases: [
-			{ label: "announcement_at supplied as a non-datetime string", data: { announcement_at: "not-a-datetime" } },
-			{ label: "announcement_at supplied without a timezone offset", data: { announcement_at: "2026-10-15T10:00:00" } },
+			{
+				label: "announcement_at supplied as a non-datetime string",
+				data: { announcement_at: "not-a-datetime" },
+			},
+			{
+				label: "announcement_at supplied without a timezone offset",
+				data: { announcement_at: "2026-10-15T10:00:00" },
+			},
 			{ label: "details (portableText) supplied as a number", data: { details: 123 } },
 		],
 		classificationTaxonomy: "topic",
@@ -389,9 +219,18 @@ const KINDS: readonly KindCase[] = [
 			{ slug: "next_review_at", type: "datetime" },
 		],
 		invalidSuppliedCases: [
-			{ label: "next_review_at supplied without a timezone offset", data: { next_review_at: "2026-10-15T10:00:00" } },
-			{ label: "reviewed_at supplied as a non-datetime string", data: { reviewed_at: "not-a-datetime" } },
-			{ label: "featured_image (image) supplied as an object without id", data: { featured_image: {} } },
+			{
+				label: "next_review_at supplied without a timezone offset",
+				data: { next_review_at: "2026-10-15T10:00:00" },
+			},
+			{
+				label: "reviewed_at supplied as a non-datetime string",
+				data: { reviewed_at: "not-a-datetime" },
+			},
+			{
+				label: "featured_image (image) supplied as an object without id",
+				data: { featured_image: {} },
+			},
 		],
 		classificationTaxonomy: "topic",
 	},
@@ -415,9 +254,7 @@ const VALID_OFFSET_DATETIME = "2026-10-15T10:00:00+07:00";
  * so an unexpected schema mismatch stays visible.
  */
 type KindReadiness =
-	| { outcome: "ready" }
-	| { outcome: "missing" }
-	| { outcome: "misconfigured"; detail: string };
+	{ outcome: "ready" } | { outcome: "missing" } | { outcome: "misconfigured"; detail: string };
 
 /** The development-credential fixture actor owning every synthetic fixture made here. */
 let admin: CmsActor;
@@ -517,21 +354,6 @@ function imageValueFor(mediaId: string): { id: string } {
 	return { id: mediaId };
 }
 
-/**
- * The runner-configured origin, mirroring playwright.config.ts exactly (the
- * same discipline as the accepted T003 checks): PLAYWRIGHT_BASE_URL when set,
- * otherwise the documented development origin. node:process is loaded through
- * a dynamic non-literal import because the pinned dependency baseline ships
- * no @types/node.
- */
-async function configuredDevelopmentOrigin(): Promise<string> {
-	const specifier = "node:process";
-	const nodeProcess = (await import(specifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	return nodeProcess.env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN;
-}
-
 /** Readiness of one kind, defaulting to missing before beforeAll completes. */
 function readinessOf(kind: KindCase): KindReadiness {
 	return kindReadiness.get(kind.collection) ?? { outcome: "missing" };
@@ -590,10 +412,7 @@ function syntheticGalleryRow(kind: KindCase, mediaId: string): Record<string, un
  * Representative valid optional values for one kind, from the approved
  * data-model row. Media-bearing kinds need the uploaded fixture media id.
  */
-function optionalValuesFor(
-	kind: KindCase,
-	mediaId: string | undefined,
-): Record<string, unknown> {
+function optionalValuesFor(kind: KindCase, mediaId: string | undefined): Record<string, unknown> {
 	const data: Record<string, unknown> = {};
 	for (const field of kind.exercisedOptionalFields) {
 		switch (field.type) {
@@ -747,9 +566,7 @@ async function deleteSyntheticTerm(): Promise<void> {
 				);
 			}
 		} else {
-			unresolved(
-				`transport failure on the deletion and ${afterLoss.detail}`,
-			);
+			unresolved(`transport failure on the deletion and ${afterLoss.detail}`);
 		}
 	}
 	if (removal === undefined) {
@@ -781,81 +598,13 @@ async function deleteSyntheticTerm(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Shared refusal-family assertions
-// ---------------------------------------------------------------------------
-
-/**
- * A native field-validation refusal: HTTP 400 with the VALIDATION_ERROR code,
- * and explicitly NOT an authorization (401/403) or state (409) refusal — so
- * authorization and concurrency problems can never masquerade as field
- * validation outcomes (and vice versa).
- */
-function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
-	expect(
-		result.ok,
-		`${caseLabel}: the native save must be refused, not reported as success`,
-	).toBe(false);
-	expect(
-		result.status,
-		`${caseLabel}: a native validation refusal is HTTP 400`,
-	).toBe(400);
-	expect(
-		result.status === 401 || result.status === 403 || result.status === 409,
-		`${caseLabel}: a validation refusal must stay distinguishable from authorization (401/403) and state-conflict (409) failures`,
-	).toBe(false);
-	const error = result.body as { success?: unknown; error?: { code?: unknown } };
-	expect(
-		error?.error?.code,
-		`${caseLabel}: the refusal must carry the native VALIDATION_ERROR code`,
-	).toBe("VALIDATION_ERROR");
-}
-
-/**
- * A native reference-target refusal: HTTP 404 with a NOT_FOUND-family code,
- * and explicitly NOT success and NOT an authorization failure. (Pinned 1.1.0:
- * an unknown selected entry id is refused `404 NOT_FOUND` by
- * resolveReferenceSelectionTargets.)
- */
-function expectTargetRefusal(result: NativeResult, caseLabel: string): void {
-	expect(
-		result.ok,
-		`${caseLabel}: the native save must be refused, not reported as success`,
-	).toBe(false);
-	expect(result.status, `${caseLabel}: an unknown reference target is refused with 404`).toBe(404);
-	expect(
-		result.status === 401 || result.status === 403,
-		`${caseLabel}: a target refusal must stay distinguishable from an authorization failure`,
-	).toBe(false);
-	const error = result.body as { success?: unknown; error?: { code?: unknown } };
-	expect(
-		typeof error?.error?.code === "string" && error.error.code.includes("NOT_FOUND"),
-		`${caseLabel}: the refusal must carry a native NOT_FOUND-family code`,
-	).toBe(true);
-}
-
-// ---------------------------------------------------------------------------
 // Worker setup: development access and the live schema/taxonomy reads
 // ---------------------------------------------------------------------------
 
 test.beforeAll(async () => {
-	// Development native access through the pre-existing development
-	// credential (T013 test-authentication adaptation), pinned to the
-	// runner-configured origin so a nondefault PLAYWRIGHT_BASE_URL run cannot
-	// silently exercise another app. createPatActor verifies the live identity
-	// through /auth/me and pins the expected Administrator role; the expected
-	// development fixture account is asserted by email. This hook deliberately
-	// creates no owned fixtures (credential load, identity verification and
-	// schema/taxonomy reads only), so a partial setup cannot leak anything for
-	// teardown to miss.
-	admin = await createPatActor({
-		baseUrl: await configuredDevelopmentOrigin(),
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
-	expect(
-		admin.email,
-		"the development credential must belong to the intended dev@emdash.local fixture account",
-	).toBe("dev@emdash.local");
+	// The development Administrator. This hook creates no owned fixtures, only reads, so a partial
+	// setup leaves nothing for teardown to miss.
+	admin = await devAdminActor();
 
 	// One live taxonomy read for the approved shared classification, parsed
 	// and validated locally through topicAttachmentFrom (corrective round 1,
@@ -886,7 +635,9 @@ test.beforeAll(async () => {
 			`reading the native ${kind.collection} collection schema must succeed when it is not a 404 (got ${schemaRead.status})`,
 		).toBe(true);
 		const fields = nativeItemOf(schemaRead)?.fields;
-		expect(Array.isArray(fields), `the ${kind.collection} schema read must include fields`).toBe(true);
+		expect(Array.isArray(fields), `the ${kind.collection} schema read must include fields`).toBe(
+			true,
+		);
 		const bySlug = new Map<string, SchemaField>();
 		for (const field of fields as SchemaField[]) {
 			if (typeof field.slug === "string") bySlug.set(field.slug, field);
@@ -929,9 +680,7 @@ test.beforeAll(async () => {
 		if (kind.documentsRelation !== undefined) {
 			const documentsField = bySlug.get(kind.documentsRelation.fieldSlug);
 			if (documentsField?.type !== "reference") {
-				problems.push(
-					`${kind.documentsRelation.fieldSlug} must exist as a native reference field`,
-				);
+				problems.push(`${kind.documentsRelation.fieldSlug} must exist as a native reference field`);
 			} else if (documentsField.validation?.relation !== kind.documentsRelation.relation) {
 				problems.push(
 					`${kind.documentsRelation.fieldSlug} must be bound to the ${kind.documentsRelation.relation} relation`,
@@ -1035,35 +784,27 @@ test("create/save/reopen: title-only minimal drafts save with permitted optional
 			created.result.ok,
 			`${kind.collection}: the title-only minimal draft must save (optional omissions are permitted)`,
 		).toBe(true);
-		expect(
-			created.result.status,
-			`${kind.collection}: a native create succeeds with 201`,
-		).toBe(201);
+		expect(created.result.status, `${kind.collection}: a native create succeeds with 201`).toBe(
+			201,
+		);
 		expect(
 			created.entryId,
 			`${kind.collection}: the entry id must come from the native response`,
 		).toBeTruthy();
-		expect(
-			created.rev,
-			`${kind.collection}: a native \`_rev\` must be returned`,
-		).toBeTruthy();
+		expect(created.rev, `${kind.collection}: a native \`_rev\` must be returned`).toBeTruthy();
 
 		// Reopen by returned id only: the same title reads back and the entry
 		// is a native draft.
 		const read = await readEntry(admin, kind.collection, created.entryId!);
-		expect(
-			read.ok,
-			`${kind.collection}: the saved draft must be readable by returned id`,
-		).toBe(true);
+		expect(read.ok, `${kind.collection}: the saved draft must be readable by returned id`).toBe(
+			true,
+		);
 		const item = nativeItemOf(read);
 		expect(
 			(item?.data as Record<string, unknown> | undefined)?.title,
 			`${kind.collection}: the read-back title must match the supplied title`,
 		).toBe(title);
-		expect(
-			item?.status,
-			`${kind.collection}: a fresh native create is a draft`,
-		).toBe("draft");
+		expect(item?.status, `${kind.collection}: a fresh native create is a draft`).toBe("draft");
 	}
 });
 
@@ -1115,10 +856,9 @@ test("valid control: representative optional supplied values save and read back"
 		// Read back the supplied values by returned id; media selections come
 		// back with the uploaded media id (the returned native identity).
 		const read = await readEntry(admin, kind.collection, created.entryId!);
-		expect(
-			read.ok,
-			`${kind.collection}: the saved entry must be readable by returned id`,
-		).toBe(true);
+		expect(read.ok, `${kind.collection}: the saved entry must be readable by returned id`).toBe(
+			true,
+		);
 		const data = nativeItemOf(read)?.data as Record<string, unknown> | undefined;
 		for (const [slug, value] of Object.entries(optional)) {
 			if (slug === "gallery") {
@@ -1236,10 +976,7 @@ test("update refuses invalid clearing of the required title", async () => {
 	for (const kind of kinds) {
 		const title = uniqueTitle(kind.collection);
 		const created = await createSyntheticEntry(admin, kind.collection, { data: { title } });
-		expect(
-			created.result.ok,
-			`${kind.collection}: the valid draft fixture must save`,
-		).toBe(true);
+		expect(created.result.ok, `${kind.collection}: the valid draft fixture must save`).toBe(true);
 
 		// Each invalid clear is its own update with a fresh `_rev` (updateEntry
 		// re-reads), so the refusal is about the supplied value, never a stale
@@ -1257,10 +994,9 @@ test("update refuses invalid clearing of the required title", async () => {
 
 		// Re-read after the refused clears: the required title is intact.
 		const read = await readEntry(admin, kind.collection, created.entryId!);
-		expect(
-			read.ok,
-			`${kind.collection}: the draft must remain readable after refused clears`,
-		).toBe(true);
+		expect(read.ok, `${kind.collection}: the draft must remain readable after refused clears`).toBe(
+			true,
+		);
 		expect(
 			(nativeItemOf(read)?.data as { title?: unknown } | undefined)?.title,
 			`${kind.collection}: the refused title clear must not have taken effect`,
@@ -1358,10 +1094,9 @@ test("optional Page/Announcement Document selections save via separate native re
 		// `data` carries no references key: the selection stays in the native
 		// references channel.
 		const read = await readEntry(admin, kind.collection, created.entryId!);
-		expect(
-			read.ok,
-			`${kind.collection}: the saved entry must be readable by returned id`,
-		).toBe(true);
+		expect(read.ok, `${kind.collection}: the saved entry must be readable by returned id`).toBe(
+			true,
+		);
 		expect(
 			(nativeItemOf(read)?.data as Record<string, unknown> | undefined)?.[relation.fieldSlug],
 			`${kind.collection}: the references payload must not be stored inside data`,
@@ -1456,15 +1191,13 @@ test("direct native Publish accepts valid incomplete title-only content and read
 
 		// Read the state back by returned id (never assume the response alone).
 		const read = await readEntry(admin, kind.collection, created.entryId!);
-		expect(
-			read.ok,
-			`${kind.collection}: the published entry must be readable by returned id`,
-		).toBe(true);
+		expect(read.ok, `${kind.collection}: the published entry must be readable by returned id`).toBe(
+			true,
+		);
 		const item = nativeItemOf(read);
-		expect(
-			item?.status,
-			`${kind.collection}: the read-back status must be published`,
-		).toBe("published");
+		expect(item?.status, `${kind.collection}: the read-back status must be published`).toBe(
+			"published",
+		);
 		expect(
 			typeof item?.publishedAt === "string" && item.publishedAt.length > 0,
 			`${kind.collection}: publishing must record a native publishedAt`,
@@ -1499,7 +1232,12 @@ test("direct native Schedule accepts valid incomplete title-only content with an
 		// scheduleEntry supplies a fresh re-read `_rev` precondition and
 		// refuses an offset-less timestamp locally; the supplied time is
 		// future with an explicit offset.
-		const scheduled = await scheduleEntry(admin, kind.collection, created.entryId!, offsetScheduledAt);
+		const scheduled = await scheduleEntry(
+			admin,
+			kind.collection,
+			created.entryId!,
+			offsetScheduledAt,
+		);
 		expect(
 			scheduled.ok,
 			`${kind.collection}: direct native Schedule of valid incomplete content by an authorized publisher must be accepted (native RBAC/time checks only; no completeness hook)`,
@@ -1512,15 +1250,13 @@ test("direct native Schedule accepts valid incomplete title-only content with an
 		// Read the state back by returned id; the stored scheduledAt may be
 		// normalized, so the INSTANT is compared, not the string.
 		const read = await readEntry(admin, kind.collection, created.entryId!);
-		expect(
-			read.ok,
-			`${kind.collection}: the scheduled entry must be readable by returned id`,
-		).toBe(true);
+		expect(read.ok, `${kind.collection}: the scheduled entry must be readable by returned id`).toBe(
+			true,
+		);
 		const item = nativeItemOf(read);
-		expect(
-			item?.status,
-			`${kind.collection}: the read-back status must be scheduled`,
-		).toBe("scheduled");
+		expect(item?.status, `${kind.collection}: the read-back status must be scheduled`).toBe(
+			"scheduled",
+		);
 		expect(
 			typeof item?.scheduledAt === "string" &&
 				Math.abs(new Date(item.scheduledAt).getTime() - scheduledInstant) < 1000,
@@ -1549,43 +1285,13 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 		"no US1 collection is initialized in the active native schema (T008–T012 schema prerequisites outstanding)",
 	);
 	const kind = kinds[0];
-	// One unauthenticated request to the same native endpoint with a VALID
-	// body: only the authorization layer can refuse it. The URL is built from
-	// the actor's origin — the runner-configured origin the actor was pinned
-	// to in beforeAll — plus the native API path (the same on-origin
-	// discipline as the T002 helpers); no credential is sent, so nothing can
-	// leave the configured app.
-	const url = new URL(`/_emdash/api/content/${kind.collection}`, `${admin.baseUrl}/`);
-	const response = await fetch(url, {
+	// One request without a credential to the same native endpoint with a valid body: only the
+	// refusal of the credential's absence can stop it.
+	const result = await anonymousRequest(admin.baseUrl, `/_emdash/api/content/${kind.collection}`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ data: { title: uniqueTitle(kind.collection) } }),
-		redirect: "error",
+		body: { data: { title: uniqueTitle(kind.collection) } },
 	});
-	let parsed: unknown;
-	try {
-		parsed = await response.json();
-	} catch {
-		parsed = { nonJsonBody: scrubEmbeddedSecrets(await response.text()) };
-	}
-	const result: NativeResult = { ok: response.ok, status: response.status, body: parsed };
-	expect(
-		result.status === 401 || result.status === 403,
-		`an unauthenticated native save must be refused by the authorization layer (401/403)`,
-	).toBe(true);
-	expect(
-		result.ok,
-		"an unauthenticated native save must not be reported as success",
-	).toBe(false);
-	const error = result.body as { error?: { code?: unknown } };
-	expect(
-		error?.error?.code,
-		"the authorization refusal must carry its native error code (not VALIDATION_ERROR)",
-	).toBeTruthy();
-	expect(
-		error?.error?.code,
-		"an authorization refusal must not be mistaken for a field-validation refusal",
-	).not.toBe("VALIDATION_ERROR");
+	expectAuthorizationRefusal(result, "an unauthenticated native save");
 });
 
 test("a stale _rev update is a native state conflict, distinct from validation and authorization", async () => {
@@ -1597,10 +1303,7 @@ test("a stale _rev update is a native state conflict, distinct from validation a
 	const kind = kinds[0];
 	const title = uniqueTitle(kind.collection);
 	const created = await createSyntheticEntry(admin, kind.collection, { data: { title } });
-	expect(
-		created.result.ok,
-		`${kind.collection}: the valid draft fixture must save`,
-	).toBe(true);
+	expect(created.result.ok, `${kind.collection}: the valid draft fixture must save`).toBe(true);
 
 	// Consume the create `_rev` with a first update (updateEntry re-reads a
 	// fresh one), then replay the ORIGINAL token: the platform must refuse the
@@ -1612,10 +1315,9 @@ test("a stale _rev update is a native state conflict, distinct from validation a
 	const first = await updateEntry(admin, kind.collection, created.entryId!, {
 		data: { title: uniqueTitle(kind.collection) },
 	});
-	expect(
-		first.ok,
-		`${kind.collection}: the first update with a fresh \`_rev\` must succeed`,
-	).toBe(true);
+	expect(first.ok, `${kind.collection}: the first update with a fresh \`_rev\` must succeed`).toBe(
+		true,
+	);
 
 	const replay = await updateEntry(admin, kind.collection, created.entryId!, {
 		data: { title: uniqueTitle(kind.collection) },

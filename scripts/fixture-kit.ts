@@ -65,11 +65,7 @@ function rgb(hex: string): number[] {
  * `work` fails or anything is left, after the removal ran.
  */
 export async function withFixtureKit<T>(work: (kit: FixtureKit) => Promise<T>): Promise<T> {
-	const admin = await helpers.createPatActor({
-		baseUrl: ORIGIN,
-		token: await helpers.loadDevAccessToken(),
-		expected: { role: helpers.NATIVE_ROLES.administrator },
-	});
+	const admin = await helpers.devAdminActor(ORIGIN);
 	const terms: helpers.SyntheticTerm[] = [];
 	/** The slug of each term made, by `${taxonomy}:${label}`. */
 	const slugs = new Map<string, string>();

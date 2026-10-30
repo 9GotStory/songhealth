@@ -32,18 +32,20 @@
 import { expect, test } from "@playwright/test";
 
 import {
+	anonymousRequest,
 	cleanupOwnedFixtures,
 	cmsRequest,
-	createPatActor,
 	createSyntheticEntry,
-	DEFAULT_DEVELOPMENT_ORIGIN,
-	loadDevAccessToken,
+	dataOfItem,
+	devAdminActor,
+	expectAuthorizationRefusal,
+	expectValidationRefusal,
 	nativeDataOf,
 	nativeItemOf,
 	nativeRevOf,
 	NATIVE_ROLES,
 	readEntry,
-	scrubEmbeddedSecrets,
+	removeSuiteFixtures,
 	updateEntry,
 	uploadSyntheticMedia,
 	SYNTHETIC_FIXTURE_MARK,
@@ -143,9 +145,7 @@ const PERSONNEL_COLLECTION = "personnel";
  * stays visible instead of producing wrong expectations.
  */
 type PersonnelReadiness =
-	| { outcome: "ready" }
-	| { outcome: "missing" }
-	| { outcome: "misconfigured"; detail: string };
+	{ outcome: "ready" } | { outcome: "missing" } | { outcome: "misconfigured"; detail: string };
 
 /** The development-credential fixture actor owning every synthetic fixture made here. */
 let admin: CmsActor;
@@ -163,21 +163,6 @@ function syntheticText(name: string): string {
 	return `${SYNTHETIC_FIXTURE_MARK} ${name}`;
 }
 
-/**
- * The runner-configured origin, mirroring playwright.config.ts exactly (the
- * same discipline as the accepted T003/T007/T014/T019 checks):
- * PLAYWRIGHT_BASE_URL when set, otherwise the documented development
- * origin. node:process is loaded through a dynamic non-literal import
- * because the pinned dependency baseline ships no @types/node.
- */
-async function configuredDevelopmentOrigin(): Promise<string> {
-	const specifier = "node:process";
-	const nodeProcess = (await import(specifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	return nodeProcess.env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN;
-}
-
 /** Truthful schema gate for the personnel collection (accepted T007 shape). */
 function gatePersonnel(): void {
 	test.skip(
@@ -189,13 +174,6 @@ function gatePersonnel(): void {
 			`the active native personnel collection does not match the approved definition this file relies on: ${personnelReadiness.detail}`,
 		);
 	}
-}
-
-/** The entry's field-data object as the native read returns it, when present. */
-function dataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
-	return item?.data !== null && typeof item?.data === "object"
-		? (item.data as Record<string, unknown>)
-		: {};
 }
 
 /** The entry's native authorship identity (`authorId`), when present. */
@@ -250,57 +228,12 @@ function revisionsOf(result: NativeResult): { ok: boolean; items: RevisionRecord
 }
 
 // ---------------------------------------------------------------------------
-// Shared refusal-family assertions (the accepted T003/T007 contracts)
-// ---------------------------------------------------------------------------
-
-/**
- * A native field-validation refusal: HTTP 400 with the VALIDATION_ERROR
- * code, and explicitly NOT an authorization (401/403) or state (409)
- * refusal — so authorization, schema-missing and concurrency problems can
- * never masquerade as field-validation outcomes (and vice versa).
- */
-function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
-	expect(
-		result.ok,
-		`${caseLabel}: the native save must be refused, not reported as success`,
-	).toBe(false);
-	expect(
-		result.status,
-		`${caseLabel}: a native validation refusal is HTTP 400`,
-	).toBe(400);
-	expect(
-		result.status === 401 || result.status === 403 || result.status === 404 || result.status === 409,
-		`${caseLabel}: a validation refusal must stay distinguishable from authorization (401/403), missing-schema (404) and state-conflict (409) failures`,
-	).toBe(false);
-	const error = result.body as { success?: unknown; error?: { code?: unknown } };
-	expect(
-		error?.error?.code,
-		`${caseLabel}: the refusal must carry the native VALIDATION_ERROR code`,
-	).toBe("VALIDATION_ERROR");
-}
-
-// ---------------------------------------------------------------------------
 // Worker setup: development access and the live schema read
 // ---------------------------------------------------------------------------
 
 test.beforeAll(async () => {
-	// Development native access through the pre-existing development
-	// credential (T013 test-authentication adaptation), pinned to the
-	// runner-configured origin so a nondefault PLAYWRIGHT_BASE_URL run
-	// cannot silently exercise another app. createPatActor verifies the
-	// live identity through /auth/me and pins the expected Administrator
-	// role; the expected development fixture account is asserted by email.
-	// This hook deliberately creates no owned fixtures (credential load,
-	// identity verification and the schema read only).
-	admin = await createPatActor({
-		baseUrl: await configuredDevelopmentOrigin(),
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
-	expect(
-		admin.email,
-		"the development credential must belong to the intended dev@emdash.local fixture account",
-	).toBe("dev@emdash.local");
+	// The development Administrator. This hook creates no owned fixtures, only the schema read.
+	admin = await devAdminActor();
 
 	// One live schema read decides personnel readiness. A 404
 	// COLLECTION_NOT_FOUND is the truthful T024 prerequisite (T018 evidence
@@ -320,10 +253,9 @@ test.beforeAll(async () => {
 		`reading the native ${PERSONNEL_COLLECTION} collection schema must succeed when it is not a 404 (got ${schemaRead.status})`,
 	).toBe(true);
 	const fields = nativeItemOf(schemaRead)?.fields;
-	expect(
-		Array.isArray(fields),
-		`the ${PERSONNEL_COLLECTION} schema read must include fields`,
-	).toBe(true);
+	expect(Array.isArray(fields), `the ${PERSONNEL_COLLECTION} schema read must include fields`).toBe(
+		true,
+	);
 	const bySlug = new Map<string, SchemaField>();
 	for (const field of fields as SchemaField[]) {
 		if (typeof field.slug === "string") {
@@ -372,7 +304,9 @@ test.beforeAll(async () => {
 		}
 	}
 	personnelReadiness =
-		problems.length > 0 ? { outcome: "misconfigured", detail: problems.join("; ") } : { outcome: "ready" };
+		problems.length > 0
+			? { outcome: "misconfigured", detail: problems.join("; ") }
+			: { outcome: "ready" };
 });
 
 // ---------------------------------------------------------------------------
@@ -397,19 +331,9 @@ test.afterEach(async () => {
 	).toBe(true);
 });
 
-test.afterAll(async () => {
-	// Safety net: normally a no-op (afterEach resolved everything); anything
-	// still registered here is an unresolved earlier attempt, retried and
-	// reported truthfully as the worker's final standing.
-	if (admin === undefined) {
-		return;
-	}
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	expect(
-		report.complete,
-		"the final worker cleanup must leave zero unresolved owned fixtures",
-	).toBe(true);
-});
+// Safety net: normally a no-op, since afterEach resolved everything; anything still registered is
+// retried and reported.
+test.afterAll(() => removeSuiteFixtures(admin));
 
 // ---------------------------------------------------------------------------
 // Schema precondition — the approved definition, and nothing else
@@ -443,10 +367,7 @@ test("create/save/reopen: title-only minimal Personnel record saves with permitt
 		"the title-only minimal Personnel record must save (optional omissions are permitted)",
 	).toBe(true);
 	expect(created.result.status, "a native create succeeds with 201").toBe(201);
-	expect(
-		created.entryId,
-		"the entry id must come from the native response",
-	).toBeTruthy();
+	expect(created.entryId, "the entry id must come from the native response").toBeTruthy();
 	expect(created.rev, "a native `_rev` must be returned").toBeTruthy();
 
 	// Reopen by returned id only: the same display name reads back and the
@@ -454,7 +375,9 @@ test("create/save/reopen: title-only minimal Personnel record saves with permitt
 	const read = await readEntry(admin, PERSONNEL_COLLECTION, created.entryId!);
 	expect(read.ok, "the saved Personnel record must be readable by returned id").toBe(true);
 	const item = nativeItemOf(read);
-	expect(dataOfItem(item).title, "the read-back title must match the supplied display name").toBe(title);
+	expect(dataOfItem(item).title, "the read-back title must match the supplied display name").toBe(
+		title,
+	);
 	expect(item?.status, "a fresh native create is a draft").toBe("draft");
 });
 
@@ -546,9 +469,10 @@ test("valid control: optional current fields save and read back, with boolean fa
 	const visibleZero = await updateEntry(admin, PERSONNEL_COLLECTION, created.entryId!, {
 		data: { public_visible: 0 },
 	});
-	expect(visibleZero.ok, "supplying the native 0 boolean shape must be accepted (0/1 are valid values)").toBe(
-		true,
-	);
+	expect(
+		visibleZero.ok,
+		"supplying the native 0 boolean shape must be accepted (0/1 are valid values)",
+	).toBe(true);
 	const readZero = await readEntry(admin, PERSONNEL_COLLECTION, created.entryId!);
 	expect(readZero.ok, "the updated record must be readable").toBe(true);
 	expect(
@@ -630,7 +554,10 @@ test("create refuses representative invalid supplied values for the approved opt
 		// unchanged and are refused. Bare strings are NOT asserted — the
 		// documented media normalization path may accept them (the same
 		// accepted V1 limitation boundary the authoring checks record).
-		{ label: "profile_image (image) supplied as an object without id", data: { profile_image: {} } },
+		{
+			label: "profile_image (image) supplied as an object without id",
+			data: { profile_image: {} },
+		},
 		{ label: "profile_image (image) supplied as a number", data: { profile_image: 123 } },
 		// An integer field takes whole numbers only (src/schema/zod-generator.ts).
 		{ label: "leadership_order (integer) supplied as a fraction", data: { leadership_order: 1.5 } },
@@ -685,7 +612,9 @@ test("assignment, unit and visibility changes update the SAME Personnel identity
 	).toBe(true);
 
 	const afterChange = await readEntry(admin, PERSONNEL_COLLECTION, personId);
-	expect(afterChange.ok, "the same Personnel identity must be readable after the change").toBe(true);
+	expect(afterChange.ok, "the same Personnel identity must be readable after the change").toBe(
+		true,
+	);
 	const afterChangeItem = nativeItemOf(afterChange);
 	const afterChangeData = dataOfItem(afterChangeItem);
 	expect(afterChangeItem?.id, "the read-back must be the SAME Personnel entry id").toBe(personId);
@@ -710,7 +639,9 @@ test("assignment, unit and visibility changes update the SAME Personnel identity
 	).toBe(title);
 	const revAfterChange = nativeRevOf(afterChange);
 	expect(
-		typeof revAfterChange === "string" && revAfterChange.length > 0 && revAfterChange !== created.rev,
+		typeof revAfterChange === "string" &&
+			revAfterChange.length > 0 &&
+			revAfterChange !== created.rev,
 		"the native _rev must have advanced on the same identity (no recreate)",
 	).toBe(true);
 
@@ -726,10 +657,15 @@ test("assignment, unit and visibility changes update the SAME Personnel identity
 		"ending the current assignment (clearing the optional field to null) must save on the same identity",
 	).toBe(true);
 	const afterEnd = await readEntry(admin, PERSONNEL_COLLECTION, personId);
-	expect(afterEnd.ok, "the same Personnel identity must be readable after the assignment ends").toBe(true);
+	expect(
+		afterEnd.ok,
+		"the same Personnel identity must be readable after the assignment ends",
+	).toBe(true);
 	const afterEndItem = nativeItemOf(afterEnd);
 	const afterEndData = dataOfItem(afterEndItem);
-	expect(afterEndItem?.id, "the ended-assignment record keeps the SAME Personnel entry id").toBe(personId);
+	expect(afterEndItem?.id, "the ended-assignment record keeps the SAME Personnel entry id").toBe(
+		personId,
+	);
 	expect(
 		afterEndData.current_assignment,
 		"the ended assignment must read back as a cleared scalar (null), not a history entry",
@@ -771,7 +707,10 @@ test("Personnel visibility changes leave the editing account's identity/permissi
 
 	// The public visibility/current-directory edit on the same identity.
 	const edited = await updateEntry(admin, PERSONNEL_COLLECTION, personId, {
-		data: { public_visible: false, current_assignment: syntheticText("assignment-after-visibility") },
+		data: {
+			public_visible: false,
+			current_assignment: syntheticText("assignment-after-visibility"),
+		},
 	});
 	expect(edited.ok, "the visibility/assignment edit must save").toBe(true);
 
@@ -814,7 +753,9 @@ test("native editorial revisions record the same-identity maintenance (traceabil
 	});
 	expect(created.result.ok, "the initial Personnel fixture must save").toBe(true);
 
-	const initialRevisions = revisionsOf(await listRevisions(admin, PERSONNEL_COLLECTION, created.entryId!));
+	const initialRevisions = revisionsOf(
+		await listRevisions(admin, PERSONNEL_COLLECTION, created.entryId!),
+	);
 	expect(
 		initialRevisions.ok,
 		"the native revision listing must be readable for the Personnel record",
@@ -833,10 +774,9 @@ test("native editorial revisions record the same-identity maintenance (traceabil
 	).toBeGreaterThan(initialRevisions.items.length);
 	expect(listing.items.length).toBeGreaterThan(0);
 	for (const revision of listing.items) {
-		expect(
-			revision.entryId,
-			"every revision must belong to the SAME Personnel entry",
-		).toBe(created.entryId);
+		expect(revision.entryId, "every revision must belong to the SAME Personnel entry").toBe(
+			created.entryId,
+		);
 		expect(
 			revision.authorId,
 			"every revision must carry its native authorship (the traceability baseline)",
@@ -871,40 +811,16 @@ test("unauthenticated Save is an authorization refusal, distinct from native val
 	// so an unauthenticated create is refused by the authorization layer
 	// regardless of the personnel collection's T024 standing — keeping one
 	// live check in every runtime run while never claiming personnel
-	// coverage from it. The URL is built from the actor's origin (the
-	// runner-configured origin the actor was pinned to in beforeAll); no
-	// credential is sent, so nothing can leave the configured app.
-	const url = new URL(
+	// coverage from it.
+	const result = await anonymousRequest(
+		admin.baseUrl,
 		`/_emdash/api/content/${PERSONNEL_COLLECTION}`,
-		`${admin.baseUrl}/`,
+		{
+			method: "POST",
+			body: { data: { title: uniqueTitle() } },
+		},
 	);
-	const response = await fetch(url, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ data: { title: uniqueTitle() } }),
-		redirect: "error",
-	});
-	let parsed: unknown;
-	try {
-		parsed = await response.json();
-	} catch {
-		parsed = { nonJsonBody: scrubEmbeddedSecrets(await response.text()) };
-	}
-	const result: NativeResult = { ok: response.ok, status: response.status, body: parsed };
-	expect(
-		result.status === 401 || result.status === 403,
-		"an unauthenticated native save must be refused by the authorization layer (401/403)",
-	).toBe(true);
-	expect(result.ok, "an unauthenticated native save must not be reported as success").toBe(false);
-	const error = result.body as { error?: { code?: unknown } };
-	expect(
-		error?.error?.code,
-		"the authorization refusal must carry its native error code (not VALIDATION_ERROR)",
-	).toBeTruthy();
-	expect(
-		error?.error?.code,
-		"an authorization refusal must not be mistaken for a field-validation refusal",
-	).not.toBe("VALIDATION_ERROR");
+	expectAuthorizationRefusal(result, "an unauthenticated native save");
 });
 
 test("a stale _rev assignment update is a native state conflict, distinct from validation and authorization", async () => {
@@ -936,7 +852,10 @@ test("a stale _rev assignment update is a native state conflict, distinct from v
 	).toBe(false);
 	expect(replay.status, "a stale precondition refusal is the native 409 CONFLICT family").toBe(409);
 	expect(
-		replay.status === 400 || replay.status === 401 || replay.status === 403 || replay.status === 404,
+		replay.status === 400 ||
+			replay.status === 401 ||
+			replay.status === 403 ||
+			replay.status === 404,
 		"a state conflict must stay distinguishable from validation (400), authorization (401/403) and missing-schema (404)",
 	).toBe(false);
 	const error = replay.body as { error?: { code?: unknown } };

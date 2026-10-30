@@ -1,196 +1,58 @@
-// T021 — focused native public-read checks for Feature 002 US6/FR-020: the
-// native public query helpers (getEmDashCollection / getEmDashEntry /
-// getEmDashReferences) read PUBLISHED content only inside the authentic
-// Astro/EmDash request context of the ONE existing persistent development
-// server (origin http://127.0.0.1:4324, the single runtime; T037); a native
-// signed preview token for one entry serves that entry's pending draft and
-// nothing else; drafts,
-// trashed and unpublished targets are omitted without blocking the parent;
-// optional omissions stay absent; missing files degrade to a safe
-// unavailable state, never a false download success; and errors, not-found
-// and empty results stay truthful — with no privileged/draft fallback ever.
-// Test support in tests/browser/ only: no application, schema, seed,
-// dependency, infrastructure, or production change is made here, and NO
-// runtime execution is claimed by authoring this file — a task that runs
-// these checks records its own evidence (T037 on the single runtime; US6
-// acceptance stays with the T022 serial join), and only where the runtime's
-// development configuration installs the dev-only fixture route.
+// Native public reads (Feature 002 T021, US6, FR-020; specs/002-cms-content-model/,
+// contracts/public-read.md; `10` §9).
 //
-// Authority:
-// - specs/002-cms-content-model/tasks.md T021 ("Tests exercise native
-//   getEmDashCollection / getEmDashEntry / getEmDashReferences against the
-//   existing persistent development server (origin http://127.0.0.1:4322)
-//   and its native Astro request context: published-only reads, authorized
-//   signed preview vs unauthenticated query parameters, draft/trashed/
-//   unavailable linked targets, optional omissions, missing files,
-//   reference hydration/identity/pagination and truthful error/not-found
-//   states without privileged fallback") and the "T021 execution and
-//   single-runtime isolation" block consumed by T022 (the coordinator
-//   orchestrates the pinned Playwright command with
-//   PLAYWRIGHT_BASE_URL=http://127.0.0.1:4322; a missing dev-only SSR
-//   fixture route is a prerequisite HOLD, never authorization for another
-//   server; runtime fixture creation/cleanup happens only in T022), as
-//   retargeted by T037 to the single runtime at http://127.0.0.1:4324
-// - specs/002-cms-content-model/contracts/public-read.md — "Native Reads"
-//   (server-side consumers use the three native helpers; ordinary public
-//   request context reads published content and live selections; authorized
-//   signed preview/edit context may read pending data/selections;
-//   unauthenticated query parameters alone do not grant preview;
-//   privileged ctx.content.get and administrative REST snapshots are not
-//   anonymous public read APIs), "Shared Source and Missing Targets"
-//   (unpublished/trashed/unavailable linked content is omitted by the
-//   public read path without falling back to a draft or privileged
-//   snapshot; missing files produce a safe unavailable state, not an
-//   unverified successful download; published status is a visibility
-//   boundary, not an editorial-completeness certificate; relation hydration
-//   is opt-in; native pagination/error/not-found outcomes are honored) and
-//   "Verification Boundary" (test-harness consumers of the one existing
-//   persistent development server; HOLD rather than bypass)
-// - specs/002-cms-content-model/spec.md — US6 acceptance scenario 1
-//   (anonymous reading or unauthorized preview never exposes a saved
-//   draft), FR-020 (public reads exclude drafts/unpublished content;
-//   preview requires authorization; an unauthenticated query parameter MUST
-//   NOT expose drafts; unavailable optional linked content is omitted
-//   without blocking the parent), FR-026/SC-005/SC-006 (truthful outcomes)
-// - specs/002-cms-content-model/contracts/native-editorial.md — "Native
-//   Request Shapes" (POST …/preview-url is the native authorized
-//   signed-preview flow, not an unauthenticated query parameter) and the
-//   availability boundary ("A valid selected reference/file does not
-//   guarantee published target, immutable bytes, future availability or
-//   removal veto. D-REF remains deferred. Public reads follow published-only
-//   safety.")
-// - specs/002-cms-content-model/evidence/T018-us2-reuse.md — the applied
-//   live schema standing (all eight seed collections active with their
-//   reference bindings) these checks gate on
-// - docs/website-modernization-docs/current/10-system-blueprint.md §9
-//   (Astro SSR uses the EmDash query functions directly; draft preview uses
-//   EmDash's signed preview flow)
-// - CLAUDE.md "Runtimes" (all authorized
-//   runtime tests target the existing shared development application at
-//   http://127.0.0.1:4324; never a second server; tests may use the existing
-//   scoped development credential through the approved mode-0600 loader;
-//   never re-run setup/dev-bypass, rotate credentials or impersonate roles)
-// - tests/browser/cms.helpers.ts — the accepted T002/T013 native request/
-//   fixture helpers this file consumes (loadDevAccessToken for both the
-//   development PAT — the runtime's mode-0600 bare-token dev-pat, read since
-//   T037 — and the coordinated route-access token, a mode-0600 { token }
-//   JSON client copy; createPatActor with live
-//   identity verification; createSyntheticEntry/uploadSyntheticMedia with
-//   owned-fixture registration; publish/unpublish/trash/restore and
-//   readEntry; cleanupOwnedFixtures with trash-aware reconciliation)
-// - tests/browser/cms-lifecycle.spec.ts (accepted T019) and
-//   cms-revisions.spec.ts (accepted T020) — the patterns this file follows:
-//   schema-readiness gating, the unauthenticated authorization control,
-//   failure-safe teardown, and the runner-configured origin
+// The suite checks what EmDash's query functions (getEmDashCollection, getEmDashEntry,
+// getEmDashReferences) return inside a real Astro request on the single development runtime:
+// - only published content, with drafts, unpublished and trashed entries and targets left out
+//   without blocking the parent, and no privileged or draft fallback;
+// - a signed preview token for one entry serves that entry's pending draft and nothing else,
+//   while an unauthenticated query parameter grants nothing;
+// - optional omissions stay absent, a missing file degrades to a safe unavailable state, and
+//   errors, not-found and empty results stay truthful, with reference identity and pagination.
 //
-// Verified API surface (recorded per CLAUDE.md §Current documentation):
-// checked first through Context7 (/withastro/docs for Playwright file-level
-// conditional skip semantics — via the pinned
-// node_modules/playwright/types/test.d.ts skip(condition, description)
-// declarations — and the Astro integration reference for injectRoute), then
-// controlled by the PINNED FIRST-PARTY PACKAGE SOURCE: emdash@1.1.0 (npm
-// tarball byte-equal to package-lock.json, the same integrity the
-// T002/T003/T007/T014/T019/T020 files independently verified), inspected at:
-// - getEmDashCollection(type, filter?) → { entries, error?, cacheHint,
-//   nextCursor?, hasMore? } (src/query.ts:523); ContentEntry = { id: slug,
-//   data, references?, edit }; entries hydrate bylines/taxonomies and strip
-//   revision pointers for public contexts. The loader DEFAULTS collection
-//   reads to published rows (src/loader.ts:1545 `filter?.status || "published"`),
-//   so even with a valid preview token in request context a collection list
-//   stays published-only — asserted below, not assumed away
-// - getEmDashEntry(type, id, { references? }) → { entry | null, error?,
-//   isPreview, fallbackLocale?, cacheHint } (src/query.ts:995,
-//   resolveEmDashEntry :1136+). Outside a matching preview/edit context it
-//   returns only VISIBLE (published) entries — entry:null with no error for
-//   not-found/not-visible. With a valid preview token for collection+entry
-//   it serves the pending draft revision (isPreview true). A validly signed
-//   token for a DIFFERENT entry of the same collection serves that target
-//   published-only (isPreview false) or null — never the other entry's
-//   draft; a token for a different collection gives no preview at all
-// - getEmDashReferences(type, id, field, { limit?, cursor?, locale? }) →
-//   { entries, nextCursor?, error?, cacheHint? } (src/query.ts:1391):
-//   unknown field or entry → an EMPTY page, not an error; an unpublished
-//   anchor without a matching preview → empty; reference pages contain only
-//   published children outside a matching preview (serveDrafts decides
-//   "whether an unpublished target resolves at all")
-// - preview flow: POST /_emdash/api/content/{collection}/{id}/preview-url
-//   (permission content:read_drafts; body { expiresIn?: "1s".."2w"|seconds,
-//   pathPattern? } → data { url, expiresAt }) signs
-//   base64url(payload).base64url(HMAC), payload { cid: "collection:id",
-//   exp, iat } (src/astro/routes/api/content/[collection]/[id]/preview-url.ts;
-//   src/preview/tokens.ts). The middleware verifies `?_preview=` on EVERY
-//   request and establishes the request context only for a valid,
-//   unexpired token (src/astro/middleware/request-context.ts:263–295);
-//   invalid/malformed/expired tokens leave the request a plain anonymous
-//   public read. Preview responses are served `private, no-store` by the
-//   native middleware; this fixture keeps every response no-store
-// - the `_edit` query parameter is only meaningful in `toolbar: "client"`
-//   mode (request-context.ts: `hasEditParam = toolbarMode === "client" &&
-//   url.searchParams.has(EDIT_PARAM)`); edit mode additionally requires the
-//   emdash-edit-mode cookie AND an authenticated editor session, so an
-//   anonymous `_edit` parameter grants nothing here
+// Platform behaviour relied on (emdash 1.1.0):
+// - getEmDashCollection answers `{ entries, error?, nextCursor?, … }` and reads published rows
+//   by default, even inside a preview (src/query.ts, src/loader.ts `filter?.status ||
+//   "published"`).
+// - getEmDashEntry answers `{ entry | null, error?, isPreview, … }`: only a visible entry outside a
+//   matching preview, the pending draft with a valid token for that entry, and for a token of
+//   another entry or collection no preview at all (src/query.ts resolveEmDashEntry).
+// - getEmDashReferences answers an empty page for an unknown field or entry and for an
+//   unpublished anchor outside a matching preview, and only published children otherwise
+//   (src/query.ts).
+// - POST …/{id}/preview-url (content:read_drafts; `expiresIn`, `pathPattern`) answers
+//   `{ url, expiresAt }` with an HMAC-signed `_preview` token
+//   (src/astro/routes/api/content/[collection]/[id]/preview-url.ts, src/preview/tokens.ts). The
+//   middleware honours only a valid, unexpired token; any other leaves an anonymous read
+//   (src/astro/middleware/request-context.ts). `_edit` means something only in client toolbar
+//   mode with the edit cookie and an editor session.
 //
-// Boundaries and non-claims (tasks.md T021; Constitution v3.0.0 II–V):
-// - authoring + static/discovery verification only: no scenario below runs
-//   at authoring time; discovery (`playwright --list`) performs no native
-//   calls and reads no credentials (the module-level gate below reads one
-//   environment variable; hooks run only at execution)
-// - the suite executes ONLY through its coordinator
-//   (node tests/browser/run-cms-public-reads.mjs), which pins
-//   PLAYWRIGHT_BASE_URL to the persistent origin and sets the explicit
-//   opt-in. Ordinary `npm run test:browser` lists this file but SKIPS every
-//   test in it at collection time with the prerequisite named, and the
-//   beforeAll returns before loading any credential unless the coordinator
-//   opt-in is present
-// - the SSR evidence comes from the dev-only fixture route
-//   /__feature002/public-reads (injected only in a verified dev context by
-//   tests/browser/fixtures/cms-public-reads.integration.mjs), which runs
-//   the native helpers inside the authentic request context. Privileged
-//   ctx.content.get and Admin REST snapshots are never used as public
-//   evidence (one anonymous Admin-REST control below demonstrates the
-//   refusal boundary instead). The route is access-token gated, fails
-//   closed before any data read, and is bounded to the seed collections
-//   and reference fields; its access token travels in a header, never a
-//   URL, log or assertion message. If the fixture route is absent or
-//   reports an unexpected identity, beforeAll fails loudly with the HOLD
-//   prerequisite named — never a fallback, never a second server
-// - signed preview URLs are obtained ONLY through the native preview-url
-//   API with the development credential, for entries this run owns, with
-//   the fixture route as the per-call pathPattern; the short-lived token is
-//   the only secret-shaped URL value the flow produces and it is never
-//   logged or echoed into evidence (redacted-path helpers below)
-// - no Admin PAT or editor cookie is ever attached to an anonymous SSR
-//   request: every fixture-route fetch sends only the route access header
-// - no privileged/draft fallback, false successful download, atomic
-//   metadata/history/byte-retention or D-ITA/D-REF enforcement claim is
-//   made anywhere below: a missing file is observed as retained selection
-//   identity plus a non-success fetch, with availability/retention
-//   explicitly NOT guaranteed
-// - fixtures are clearly-marked synthetic public-publishable data; entry
-//   ids, `_rev` values and media ids come from native responses only.
-//   Fixture-creation intent is retained in a coordinator-owned manifest
-//   BEFORE creation and reconciled on every exit path, so an interrupted
-//   worker leaves recoverable ownership records instead of silently
-//   discarding them. Failure-safe owned-fixture cleanup runs per test
-//   (afterEach) plus an afterAll safety net; unresolved fixtures stay
-//   registered and are reported, never hidden. The shared app, database,
-//   media volumes, credentials and runtime checkout are never test-owned
-//   resources
+// How it runs:
+// - Only through its coordinator, `node tests/browser/run-cms-public-reads.mjs`, which pins
+//   PLAYWRIGHT_BASE_URL to http://127.0.0.1:4324 and opts in. Under an ordinary
+//   `npm run test:browser` every test skips at collection time and no credential is read.
+// - The evidence comes from the development-only route /__feature002/public-reads
+//   (tests/browser/fixtures/cms-public-reads.integration.mjs), which calls the query functions in
+//   the request. Its access token travels in a header and appears in no URL, log or message. A
+//   missing route or an unexpected identity fails beforeAll as a HOLD, never a fallback.
+// - Preview links are minted only through the native API for this run's own entries, with the
+//   route as the `pathPattern`, and the token is redacted from every report.
+// - Fixtures are synthetic. Each is written to the coordinator's manifest before it is created,
+//   and cleanup runs after each test and again in afterAll; an unresolved fixture is reported.
 
 import { expect, test } from "@playwright/test";
 
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
-	createPatActor,
 	createSyntheticEntry,
 	DEFAULT_DEVELOPMENT_ORIGIN,
 	deleteMedia,
+	devAdminActor,
 	loadDevAccessToken,
 	nativeDataOf,
 	nativeItemOf,
 	nativeRefusalOf,
-	NATIVE_ROLES,
 	permanentlyDeleteEntry,
 	publishEntry,
 	readEntry,
@@ -307,9 +169,7 @@ interface SchemaField {
  * gating pattern): `missing` SKIPS explicitly; `misconfigured` FAILS loudly.
  */
 type CollectionReadiness =
-	| { outcome: "ready" }
-	| { outcome: "missing" }
-	| { outcome: "misconfigured"; detail: string };
+	{ outcome: "ready" } | { outcome: "missing" } | { outcome: "misconfigured"; detail: string };
 
 /** The development-credential Administrator fixture (preparation side). */
 let admin: CmsActor;
@@ -481,10 +341,7 @@ async function mediaPublicAddress(
 	for (let page = 0; page < maxPages; page += 1) {
 		const query = new URLSearchParams({ limit: "100" });
 		if (cursor !== undefined) query.set("cursor", cursor);
-		const result = await cmsRequest(
-			actor,
-			`/_emdash/api/media?${query.toString()}`,
-		);
+		const result = await cmsRequest(actor, `/_emdash/api/media?${query.toString()}`);
 		expect(result.ok, "the native media listing must be readable").toBe(true);
 		const data = (result.body as { data?: { items?: unknown[]; nextCursor?: unknown } }).data;
 		const items = Array.isArray(data?.items) ? data!.items : [];
@@ -692,7 +549,9 @@ async function readManifest(
  * true (R3-B: a non-ENOENT removal failure is reported, never swallowed —
  * the ownership evidence may still exist).
  */
-async function unlinkIfProvenAbsent(target: string): Promise<{ removed: boolean; failure?: string }> {
+async function unlinkIfProvenAbsent(
+	target: string,
+): Promise<{ removed: boolean; failure?: string }> {
 	try {
 		const fsPromises = await fsPromisesOf();
 		await fsPromises.unlink(target);
@@ -1074,7 +933,13 @@ async function reconcileEntryIdentity(
 	if (!live) {
 		const trash = await findTrashedBySlug(collection, slug);
 		if (trash === "not-in-trash") {
-			await appendRecord(target, { phase: "resolved", kind: "entry", collection, slug, how: "proven-absent" });
+			await appendRecord(target, {
+				phase: "resolved",
+				kind: "entry",
+				collection,
+				slug,
+				how: "proven-absent",
+			});
 			return undefined;
 		}
 		if (trash === "in-trash") {
@@ -1089,7 +954,13 @@ async function reconcileEntryIdentity(
 				return `purging the trashed fixture ${collection}/${slug} failed (${cause instanceof Error ? cause.message : String(cause)}) — still owned`;
 			}
 			if (await entryProvenAbsent(collection, slug)) {
-				await appendRecord(target, { phase: "resolved", kind: "entry", collection, slug, how: "adopted-from-trash" });
+				await appendRecord(target, {
+					phase: "resolved",
+					kind: "entry",
+					collection,
+					slug,
+					how: "adopted-from-trash",
+				});
 				return undefined;
 			}
 			return `the trashed fixture ${collection}/${slug} could not be proven purged — still owned`;
@@ -1110,7 +981,13 @@ async function reconcileEntryIdentity(
 		return `deleting the adopted fixture ${collection}/${slug} failed (${cause instanceof Error ? cause.message : String(cause)}) — still owned`;
 	}
 	if (await entryProvenAbsent(collection, slug)) {
-		await appendRecord(target, { phase: "resolved", kind: "entry", collection, slug, how: "adopted-and-purged" });
+		await appendRecord(target, {
+			phase: "resolved",
+			kind: "entry",
+			collection,
+			slug,
+			how: "adopted-and-purged",
+		});
 		return undefined;
 	}
 	return `the adopted fixture ${collection}/${slug} could not be proven absent after deletion — still owned`;
@@ -1145,7 +1022,12 @@ async function reconcileMediaIdentity(
 			return `the media read for ${record.id} failed (${cause instanceof Error ? cause.message : String(cause)}) — outcome unknown`;
 		}
 		if (!present) {
-			await appendRecord(target, { phase: "resolved", kind: "media", id: record.id, how: "proven-absent" });
+			await appendRecord(target, {
+				phase: "resolved",
+				kind: "media",
+				id: record.id,
+				how: "proven-absent",
+			});
 			return undefined;
 		}
 		// R3-B (corrective round 3): an id alone authorizes NOTHING. Deletion
@@ -1175,7 +1057,12 @@ async function reconcileMediaIdentity(
 		} catch (cause) {
 			return `removing the adopted media ${record.id} failed (${cause instanceof Error ? cause.message : String(cause)}) — still owned`;
 		}
-		await appendRecord(target, { phase: "resolved", kind: "media", id: record.id, how: "adopted-and-removed" });
+		await appendRecord(target, {
+			phase: "resolved",
+			kind: "media",
+			id: record.id,
+			how: "adopted-and-removed",
+		});
 		return undefined;
 	}
 	const filename = record.filename;
@@ -1207,9 +1094,8 @@ async function reconcileMediaIdentity(
 		if (data === undefined || !Array.isArray(items)) {
 			return `the media listing search for ${filename} returned a malformed page — outcome unknown`;
 		}
-		const match = items.find(
-			(item) => (item as Record<string, unknown>).filename === filename,
-		) as Record<string, unknown> | undefined;
+		const match = items.find((item) => (item as Record<string, unknown>).filename === filename) as
+			Record<string, unknown> | undefined;
 		if (match !== undefined && typeof match.id === "string") {
 			try {
 				const removal = await deleteMedia(admin, match.id);
@@ -1223,12 +1109,22 @@ async function reconcileMediaIdentity(
 			} catch (cause) {
 				return `removing the adopted media for ${filename} failed (${cause instanceof Error ? cause.message : String(cause)}) — still owned`;
 			}
-			await appendRecord(target, { phase: "resolved", kind: "media", filename, how: "adopted-and-removed" });
+			await appendRecord(target, {
+				phase: "resolved",
+				kind: "media",
+				filename,
+				how: "adopted-and-removed",
+			});
 			return undefined;
 		}
 		const nextCursor: unknown = data?.nextCursor;
 		if (nextCursor === undefined || nextCursor === "") {
-			await appendRecord(target, { phase: "resolved", kind: "media", filename, how: "proven-absent" });
+			await appendRecord(target, {
+				phase: "resolved",
+				kind: "media",
+				filename,
+				how: "proven-absent",
+			});
 			return undefined;
 		}
 		if (typeof nextCursor !== "string" || nextCursor === cursor || followed.has(nextCursor)) {
@@ -1257,7 +1153,9 @@ async function reconcileManifest(target: string): Promise<string[]> {
 		return [];
 	}
 	if (admission.status === "unreadable") {
-		return [`the ownership manifest ${target} could not be read (${admission.reason}) — unknown evidence is preserved unresolved`];
+		return [
+			`the ownership manifest ${target} could not be read (${admission.reason}) — unknown evidence is preserved unresolved`,
+		];
 	}
 	if (admission.blocked) {
 		return [
@@ -1285,16 +1183,24 @@ async function reconcileManifest(target: string): Promise<string[]> {
 	// and hold ZERO outstanding identities before anything may unlink it.
 	const reread = await readAdmission(target);
 	if (reread.status === "absent") {
-		return [`the ownership manifest ${target} disappeared during reconciliation — completeness unproven`];
+		return [
+			`the ownership manifest ${target} disappeared during reconciliation — completeness unproven`,
+		];
 	}
 	if (reread.status === "unreadable") {
-		return [`the ownership manifest ${target} became unreadable after reconciliation (${reread.reason}) — completeness unproven, evidence preserved`];
+		return [
+			`the ownership manifest ${target} became unreadable after reconciliation (${reread.reason}) — completeness unproven, evidence preserved`,
+		];
 	}
 	if (reread.blocked) {
-		return [`the ownership manifest ${target} drifted into invalid evidence during reconciliation: ${reread.reasons.join("; ")} — completeness unproven, evidence preserved`];
+		return [
+			`the ownership manifest ${target} drifted into invalid evidence during reconciliation: ${reread.reasons.join("; ")} — completeness unproven, evidence preserved`,
+		];
 	}
 	if (reread.outstanding.length > 0) {
-		return [`the ownership manifest ${target} still holds ${reread.outstanding.length} unresolved identit${reread.outstanding.length === 1 ? "y" : "ies"} after reconciliation — completeness unproven`];
+		return [
+			`the ownership manifest ${target} still holds ${reread.outstanding.length} unresolved identit${reread.outstanding.length === 1 ? "y" : "ies"} after reconciliation — completeness unproven`,
+		];
 	}
 	return [];
 }
@@ -1371,7 +1277,12 @@ async function createOwnedPage(options: {
 		...(options.references !== undefined ? { references: options.references } : {}),
 	});
 	await recordCreateOutcome(
-		{ kind: "entry", collection: PAGES_COLLECTION, slug, ...(created.entryId !== undefined ? { id: created.entryId } : {}) },
+		{
+			kind: "entry",
+			collection: PAGES_COLLECTION,
+			slug,
+			...(created.entryId !== undefined ? { id: created.entryId } : {}),
+		},
 		created.result,
 	);
 	expect(created.result.ok, "the synthetic page fixture must save").toBe(true);
@@ -1401,7 +1312,10 @@ async function createOwnedDocument(kind: string): Promise<{
 		{ reusedExistingMedia: upload.reusedExistingMedia === true },
 	);
 	expect(upload.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
-	expect(upload.mediaId, "a media id must be returned and registered for owned cleanup").toBeTruthy();
+	expect(
+		upload.mediaId,
+		"a media id must be returned and registered for owned cleanup",
+	).toBeTruthy();
 	const title = uniqueTitle(kind);
 	const slug = nextSyntheticSlug(kind);
 	await manifestRecord({ phase: "intent", kind: "entry", collection: DOCUMENTS_COLLECTION, slug });
@@ -1410,7 +1324,12 @@ async function createOwnedDocument(kind: string): Promise<{
 		slug,
 	});
 	await recordCreateOutcome(
-		{ kind: "entry", collection: DOCUMENTS_COLLECTION, slug, ...(created.entryId !== undefined ? { id: created.entryId } : {}) },
+		{
+			kind: "entry",
+			collection: DOCUMENTS_COLLECTION,
+			slug,
+			...(created.entryId !== undefined ? { id: created.entryId } : {}),
+		},
 		created.result,
 	);
 	expect(created.result.ok, "the synthetic Document fixture must save").toBe(true);
@@ -1440,7 +1359,12 @@ async function createOwnedHealthReport(
 		references: { report_document: [documentEntryId] },
 	});
 	await recordCreateOutcome(
-		{ kind: "entry", collection: HEALTH_REPORTS_COLLECTION, slug, ...(created.entryId !== undefined ? { id: created.entryId } : {}) },
+		{
+			kind: "entry",
+			collection: HEALTH_REPORTS_COLLECTION,
+			slug,
+			...(created.entryId !== undefined ? { id: created.entryId } : {}),
+		},
 		created.result,
 	);
 	expect(
@@ -1467,18 +1391,8 @@ test.beforeAll(async () => {
 		"this suite runs only against the ONE existing persistent development origin (unexpected origin is a prerequisite failure, never a port fallback)",
 	).toBe(PERSISTENT_DEVELOPMENT_ORIGIN);
 
-	// Development native access through the pre-existing development
-	// credential (T013 adaptation; never the dev-bypass bootstrap). This
-	// hook creates no owned fixtures; discovery performs no native calls.
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
-	expect(
-		admin.email,
-		"the development credential must belong to the intended dev@emdash.local fixture account",
-	).toBe("dev@emdash.local");
+	// The development Administrator. This hook creates no owned fixtures.
+	admin = await devAdminActor(origin);
 
 	// The coordinated route access token (client copy of the server-only
 	// capability input; provisioned by the separately authorized maintenance).
@@ -1500,10 +1414,9 @@ test.beforeAll(async () => {
 	expect(probe.body.fixtureVersion, "the fixture route must report the expected version").toBe(
 		T021_FIXTURE_VERSION,
 	);
-	expect(
-		probe.cacheControl,
-		"every fixture-route response must be marked no-store",
-	).toContain("no-store");
+	expect(probe.cacheControl, "every fixture-route response must be marked no-store").toContain(
+		"no-store",
+	);
 
 	// One live schema read per exercised collection decides readiness. The
 	// definition facts relied on below: a required semantic title everywhere,
@@ -1526,9 +1439,7 @@ test.beforeAll(async () => {
 			`reading the native ${collection} collection schema must succeed when it is not a 404 (got ${schemaRead.status})`,
 		).toBe(true);
 		const fields = nativeItemOf(schemaRead)?.fields;
-		expect(Array.isArray(fields), `the ${collection} schema read must include fields`).toBe(
-			true,
-		);
+		expect(Array.isArray(fields), `the ${collection} schema read must include fields`).toBe(true);
 		const bySlug = new Map<string, SchemaField>();
 		for (const field of fields as SchemaField[]) {
 			if (typeof field.slug === "string") {
@@ -1610,7 +1521,9 @@ export function historicalRecoveryHoldReasons(
 	const inputs = presentedInputs.filter((value) => value.length > 0);
 	const priorCurrent =
 		currentManifestPath !== undefined && currentManifestExists
-			? [`an existing ownership journal at this run's fresh path ${currentManifestPath} predates this worker`]
+			? [
+					`an existing ownership journal at this run's fresh path ${currentManifestPath} predates this worker`,
+				]
 			: [];
 	const total = inputs.length + priorCurrent.length;
 	if (total === 0) {
@@ -1777,7 +1690,9 @@ test.afterAll(async () => {
 	const reconciliationFailures =
 		manifestTarget === undefined ? [] : await reconcileManifest(manifestTarget);
 	const cleared = await manifestRemove();
-	const clearFailures = cleared.ok ? [] : [cleared.failure ?? "ownership evidence could not be cleared"];
+	const clearFailures = cleared.ok
+		? []
+		: [cleared.failure ?? "ownership evidence could not be cleared"];
 	if (failures.length > 0 || reconciliationFailures.length > 0 || clearFailures.length > 0) {
 		await manifestRecord({
 			phase: "after-all-residual",
@@ -1854,7 +1769,10 @@ test("fixture route contract: identity probe, no-store, fail-closed access, meth
 	const syntheticProbeId = nextSyntheticSlug("contract-probe");
 	for (const [label, params] of [
 		["unknown case", { case: "dump-everything" }],
-		["non-allowlisted collection", { case: "collection", collection: "_emdash", marker: SYNTHETIC_FIXTURE_MARK }],
+		[
+			"non-allowlisted collection",
+			{ case: "collection", collection: "_emdash", marker: SYNTHETIC_FIXTURE_MARK },
+		],
 		[
 			"collection read without the synthetic marker",
 			{ case: "collection", collection: PAGES_COLLECTION },
@@ -1889,10 +1807,7 @@ test("fixture route contract: identity probe, no-store, fail-closed access, meth
 				field: "not-a-bound-field",
 			},
 		],
-		[
-			"malformed entry id",
-			{ case: "entry", collection: PAGES_COLLECTION, id: "../_emdash/api" },
-		],
+		["malformed entry id", { case: "entry", collection: PAGES_COLLECTION, id: "../_emdash/api" }],
 	] as [string, Record<string, string>][]) {
 		const response = await fetchFixtureRoute(params, { expectStatus: 400 });
 		expect(response.body.error, `${label} refusal carries its error code`).toBeTruthy();
@@ -1909,10 +1824,9 @@ test("fixture route contract: identity probe, no-store, fail-closed access, meth
 		{ case: "collection", collection: PAGES_COLLECTION },
 		{ expectStatus: 400 },
 	);
-	expect(
-		unmarked.body.error,
-		"a collection read without the synthetic marker is refused",
-	).toBe("SYNTHETIC_MARKER_REQUIRED");
+	expect(unmarked.body.error, "a collection read without the synthetic marker is refused").toBe(
+		"SYNTHETIC_MARKER_REQUIRED",
+	);
 });
 
 test("published-only collection reads: drafts, pending titles, unpublished and trashed entries never appear; published ones do", async () => {
@@ -2085,15 +1999,18 @@ test("live versus pending: staged content-data and reference selections stay inv
 		{ case: "entry", collection: PAGES_COLLECTION, id: parent.slug },
 		{ previewToken },
 	);
-	expect(previewEntry.body.isPreview, "a matching signed preview must report isPreview").toBe(
-		true,
-	);
+	expect(previewEntry.body.isPreview, "a matching signed preview must report isPreview").toBe(true);
 	expect(
 		previewEntry.body.entry?.data?.title,
 		"a matching signed preview serves the pending draft data",
 	).toBe(stagedTitle);
 	const previewWithRefs = await fetchFixtureRoute(
-		{ case: "entry-with-references", collection: PAGES_COLLECTION, id: parent.slug, field: "documents" },
+		{
+			case: "entry-with-references",
+			collection: PAGES_COLLECTION,
+			id: parent.slug,
+			field: "documents",
+		},
 		{ previewToken },
 	);
 	const previewIds = (previewWithRefs.body.entry?.references?.documents?.entries ?? []).map(
@@ -2109,7 +2026,12 @@ test("live versus pending: staged content-data and reference selections stay inv
 	// collection reads to published rows; a preview token is not a
 	// collection-wide draft grant).
 	const collectionUnderPreview = await fetchFixtureRoute(
-		{ case: "collection", collection: PAGES_COLLECTION, marker: SYNTHETIC_FIXTURE_MARK, limit: "100" },
+		{
+			case: "collection",
+			collection: PAGES_COLLECTION,
+			marker: SYNTHETIC_FIXTURE_MARK,
+			limit: "100",
+		},
 		{ previewToken },
 	);
 	expect(
@@ -2169,7 +2091,10 @@ test("native signed preview boundary: absent, malformed, expired, wrong-entry, w
 	await publishOwned(DOCUMENTS_COLLECTION, documentFixture.entryId);
 
 	const readTitle = async (previewToken?: string) =>
-		fetchFixtureRoute({ case: "entry", collection: PAGES_COLLECTION, id: target.slug }, { previewToken });
+		fetchFixtureRoute(
+			{ case: "entry", collection: PAGES_COLLECTION, id: target.slug },
+			{ previewToken },
+		);
 
 	// Absent token: plain anonymous public read.
 	const absent = await readTitle();
@@ -2178,9 +2103,10 @@ test("native signed preview boundary: absent, malformed, expired, wrong-entry, w
 
 	// Malformed token: no preview context is established at all.
 	const malformed = await readTitle("definitely-not-a-signed-token");
-	expect(malformed.body.entry?.data?.title, "a malformed _preview token must not expose the draft").toBe(
-		target.title,
-	);
+	expect(
+		malformed.body.entry?.data?.title,
+		"a malformed _preview token must not expose the draft",
+	).toBe(target.title);
 	expect(malformed.body.isPreview).toBe(false);
 
 	// Expired token: minted with the native API at the minimum duration,
@@ -2199,7 +2125,9 @@ test("native signed preview boundary: absent, malformed, expired, wrong-entry, w
 	const expiryDeadline = Date.now() + 10_000;
 	while (Math.floor(Date.now() / 1000) <= expired.expiresAt) {
 		if (Date.now() > expiryDeadline) {
-			throw new Error("bounded expiry wait exceeded its budget — the native clock never crossed the token expiry");
+			throw new Error(
+				"bounded expiry wait exceeded its budget — the native clock never crossed the token expiry",
+			);
 		}
 		await new Promise((resolve) => setTimeout(resolve, 100));
 	}
@@ -2222,7 +2150,11 @@ test("native signed preview boundary: absent, malformed, expired, wrong-entry, w
 
 	// Wrong collection: a valid token minted for a documents entry gives no
 	// pages preview at all.
-	const wrongCollection = await mintPreviewToken(DOCUMENTS_COLLECTION, documentFixture.entryId, "10m");
+	const wrongCollection = await mintPreviewToken(
+		DOCUMENTS_COLLECTION,
+		documentFixture.entryId,
+		"10m",
+	);
 	const wrongCollectionRead = await readTitle(wrongCollection.previewToken);
 	expect(
 		wrongCollectionRead.body.entry?.data?.title,
@@ -2266,7 +2198,6 @@ test("native signed preview boundary: absent, malformed, expired, wrong-entry, w
 		draftRead.body.entry,
 		"a never-published entry stays invisible even with a valid foreign token",
 	).toBeNull();
-
 });
 
 test("draft, trashed and unavailable linked targets are omitted from public reference reads without blocking the parent", async () => {
@@ -2283,7 +2214,9 @@ test("draft, trashed and unavailable linked targets are omitted from public refe
 	}
 	const parent = await createOwnedPage({
 		kind: "unavailable-targets-parent",
-		references: { documents: [available.entryId, unpublishedTarget.entryId, trashedTarget.entryId] },
+		references: {
+			documents: [available.entryId, unpublishedTarget.entryId, trashedTarget.entryId],
+		},
 	});
 	await publishOwned(PAGES_COLLECTION, parent.entryId);
 
@@ -2461,7 +2394,10 @@ test("reference identity, opt-in hydration and multi-page traversal", async () =
 		marker: SYNTHETIC_FIXTURE_MARK,
 		limit: "2",
 	});
-	expect(collectionPageOne.body.error, "the collection page must not report an error").toBeUndefined();
+	expect(
+		collectionPageOne.body.error,
+		"the collection page must not report an error",
+	).toBeUndefined();
 	expect(collectionPageOne.body.syntheticFiltered).toBe(true);
 	const collectionPageOneEntries = entriesOf(collectionPageOne);
 	expect(collectionPageOneEntries.length).toBeLessThanOrEqual(2);
@@ -2473,13 +2409,15 @@ test("reference identity, opt-in hydration and multi-page traversal", async () =
 			limit: "2",
 			cursor: collectionPageOne.body.nextCursor,
 		});
-		expect(collectionPageTwo.body.error, "the second collection page must not report an error").toBeUndefined();
+		expect(
+			collectionPageTwo.body.error,
+			"the second collection page must not report an error",
+		).toBeUndefined();
 		const pageOneSet = new Set(entriesOf(collectionPageOne).map((entry: RouteEntry) => entry.id));
 		for (const entry of entriesOf(collectionPageTwo)) {
-			expect(
-				pageOneSet.has(entry.id as string),
-				"keyset pagination pages must be disjoint",
-			).toBe(false);
+			expect(pageOneSet.has(entry.id as string), "keyset pagination pages must be disjoint").toBe(
+				false,
+			);
 		}
 	}
 });
@@ -2552,9 +2490,10 @@ test("missing files: a published Document whose media asset was removed reads as
 	});
 	expect(after.status, "the parent Document read keeps succeeding").toBe(200);
 	const fileAfter = after.body.entry?.data?.file as { id?: unknown; src?: unknown } | undefined;
-	expect(fileAfter?.id, "the selection identity is retained; no availability guarantee exists").toBe(
-		fixture.mediaId,
-	);
+	expect(
+		fileAfter?.id,
+		"the selection identity is retained; no availability guarantee exists",
+	).toBe(fixture.mediaId);
 
 	// ...and the SAME address is now safely unavailable: a non-success fetch,
 	// never an unverified successful download.
@@ -2636,7 +2575,10 @@ test("native error channel: a malformed pagination cursor surfaces the real nati
 		collectionError.body.entries,
 		"an error result never presents entries as a successful page",
 	).toEqual([]);
-	expect(collectionError.body.nextCursor, "an error result carries no continuation cursor").toBeUndefined();
+	expect(
+		collectionError.body.nextCursor,
+		"an error result carries no continuation cursor",
+	).toBeUndefined();
 
 	// REFERENCES path — reachable per the pinned source (src/query.ts:1391–
 	// 1428): the anchor lookup and published-status checks run BEFORE cursor
@@ -2664,7 +2606,10 @@ test("native error channel: a malformed pagination cursor surfaces the real nati
 		referencesError.body.entries,
 		"an error result is never presented as an empty successful page",
 	).toEqual([]);
-	expect(referencesError.body.nextCursor, "an error result carries no continuation cursor").toBeUndefined();
+	expect(
+		referencesError.body.nextCursor,
+		"an error result carries no continuation cursor",
+	).toBeUndefined();
 
 	// The legitimate missing-anchor outcome stays a SEPARATE, valid empty:
 	// no error, genuinely empty page (kept explicit here so the two shapes
@@ -2677,7 +2622,10 @@ test("native error channel: a malformed pagination cursor surfaces the real nati
 		limit: "10",
 		cursor: garbageCursor,
 	});
-	expect(missingAnchor.body.error, "a missing anchor is an empty page, never an error").toBeUndefined();
+	expect(
+		missingAnchor.body.error,
+		"a missing anchor is an empty page, never an error",
+	).toBeUndefined();
 	expect(missingAnchor.body.entries).toEqual([]);
 });
 
@@ -2721,7 +2669,12 @@ test("R3-B settlement validation (regression): invalid resolved/refused records 
 	expect(
 		unresolvedIdentities([
 			{ phase: "intent", kind: "media", filename: "songhealth-f002-synthetic-media-abcd1234.png" },
-			{ phase: "refused", kind: "media", filename: "songhealth-f002-synthetic-media-abcd1234.png", reason: "native-refusal-409" },
+			{
+				phase: "refused",
+				kind: "media",
+				filename: "songhealth-f002-synthetic-media-abcd1234.png",
+				reason: "native-refusal-409",
+			},
 		]),
 	).toEqual([]);
 
@@ -2759,7 +2712,12 @@ test("R3-B settlement validation (regression): invalid resolved/refused records 
 	const mixed = unresolvedIdentities([
 		entryIntent,
 		entrySettlement,
-		{ phase: "created", kind: "entry", collection: "pages", slug: { no: "slug" } as unknown as string },
+		{
+			phase: "created",
+			kind: "entry",
+			collection: "pages",
+			slug: { no: "slug" } as unknown as string,
+		},
 		{ phase: "intent", kind: "widget", id: "x" },
 		{ phase: "resolved", kind: "entry", collection: "", slug: "songhealth-f002-synthetic-x" },
 	]);
@@ -2801,7 +2759,12 @@ test("R3-B whole-manifest admission (remediation regression): any invalid row fr
 
 	// Row order independence: a bad row before OR after valid live
 	// ownership rows blocks the same.
-	const badRow = { phase: "created", kind: "entry", collection: "pages", slug: 42 as unknown as string };
+	const badRow = {
+		phase: "created",
+		kind: "entry",
+		collection: "pages",
+		slug: 42 as unknown as string,
+	};
 	expect(manifestAdmission([badRow, validEntryIntent, validMediaCreated]).blocked).toBe(true);
 	expect(manifestAdmission([validEntryIntent, validMediaCreated, badRow]).blocked).toBe(true);
 
@@ -2811,7 +2774,13 @@ test("R3-B whole-manifest admission (remediation regression): any invalid row fr
 		expect(
 			manifestAdmission([
 				validEntryIntent,
-				{ phase, kind: "entry", collection: "pages", slug: validEntryIntent.slug, id: { invalid: "identity" } as unknown as string },
+				{
+					phase,
+					kind: "entry",
+					collection: "pages",
+					slug: validEntryIntent.slug,
+					id: { invalid: "identity" } as unknown as string,
+				},
 			]).blocked,
 			`an invalid ${phase} settlement is invalid evidence for the whole file`,
 		).toBe(true);
@@ -2850,8 +2819,19 @@ test("R3-B whole-manifest admission (remediation regression): any invalid row fr
 		validEntryIntent,
 		validMediaCreated,
 		{ phase: "intent", kind: "media", filename: "songhealth-f002-synthetic-media-efgh5678.png" },
-		{ phase: "refused", kind: "media", filename: "songhealth-f002-synthetic-media-efgh5678.png", reason: "deduplicated-pre-existing-asset" },
-		{ phase: "resolved", kind: "entry", collection: "pages", slug: "songhealth-f002-synthetic-settled-1", how: "proven-absent" },
+		{
+			phase: "refused",
+			kind: "media",
+			filename: "songhealth-f002-synthetic-media-efgh5678.png",
+			reason: "deduplicated-pre-existing-asset",
+		},
+		{
+			phase: "resolved",
+			kind: "entry",
+			collection: "pages",
+			slug: "songhealth-f002-synthetic-settled-1",
+			how: "proven-absent",
+		},
 	]);
 	expect(admitted.blocked).toBe(false);
 	// The source-proven refusal settles the filename-keyed media intent; the
@@ -2884,10 +2864,9 @@ test("scope reduction (regression): historical ownership evidence always HOLDs �
 	]) {
 		const reason = holdFor(inputs, false, "/fresh/manifest.jsonl");
 		expect(reason !== null, `inputs ${JSON.stringify(inputs)} must HOLD`).toBe(true);
-		expect(
-			reason ?? "",
-			"the HOLD names the retired behavior and the retained evidence",
-		).toContain("journal replay, adoption and automatic deletion are retired");
+		expect(reason ?? "", "the HOLD names the retired behavior and the retained evidence").toContain(
+			"journal replay, adoption and automatic deletion are retired",
+		);
 		expect(reason ?? "").toContain("retained untouched");
 	}
 

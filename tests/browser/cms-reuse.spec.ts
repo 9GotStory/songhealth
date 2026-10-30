@@ -1,294 +1,73 @@
-// T014 — focused native reuse checks for Feature 002 US2: shared
-// Document/file identity across Announcement/Service/Health Report, raw
-// native Media reuse and metadata, Document successor context, mandatory
-// Health Report reference semantics, native publication rechecks and
-// authorized maintenance boundaries. Test support in tests/browser/ only: no
-// application, schema, seed, dependency, infrastructure, or production change
-// is made here.
+// Reuse of Documents and media (Feature 002 T014, US2, FR-004–FR-007; specs/002-cms-content-model/,
+// data-model.md, the documents, services and health_reports rows and the Native Relationship
+// Accounting table; contracts/public-read.md; `02` §13, §14, §16 and §20).
 //
-// Authority:
-// - specs/002-cms-content-model/tasks.md T014 ("Author native reuse checks in
-//   tests/browser/cms-reuse.spec.ts for shared IDs/file selection across
-//   Announcement/Service/Report, raw Media reuse, native
-//   alt/caption/type/size/dimensions/available usage metadata, Document
-//   successor context, Report missing/empty/wrong-target/excessive/cleared
-//   references, valid-selection incomplete drafts and optional empty
-//   relations; native publication rechecks requiredness/cardinality, but
-//   Schedule has no custom reference predicate and authorized target/media
-//   maintenance has no D-REF veto") and the shared "Path Conventions and
-//   Shared Constraints" section (dev-bypass access discipline, returned
-//   IDs/current `_rev`, re-read uncertain outcomes, clean only owned
-//   synthetic fixtures, synthetic public-publishable fixtures through native
-//   APIs, no invented official inventories)
-// - specs/002-cms-content-model/spec.md — US2 acceptance scenarios 1–8
-//   (scenario 6: mandatory-reference validation refuses a Report with no
-//   selected report Document at native create/save; a draft with that
-//   selection may omit other values; native publication revalidates
-//   requiredness/cardinality; schedule acceptance uses its native behavior
-//   without an invented selection hook; selection validity does not guarantee
-//   target availability or later removal protection. Scenario 8: authorized
-//   replacement/removal reflects current native state; no immutable bytes,
-//   deletion veto or atomic cross-record preservation is claimed), the Q1
-//   matrix Document row ("Title and native file required at save; Native
-//   RBAC/lifecycle only; Type, owner, dates, successor editorial") and Health
-//   Report row ("Title and one Document reference required at save; native
-//   cardinality; Native RBAC/lifecycle and built-in reference checks; no
-//   custom hook"), FR-004/FR-005/FR-006/FR-007/FR-026, SC-002/SC-006
-// - specs/002-cms-content-model/data-model.md — the `documents` row
-//   (`domain_status` select O current/superseded/expired; successor Document
-//   O), the `services` row (T015), the `health_reports` row (T016: single
-//   `report_document` reference **S**), the Native Relationship Accounting
-//   table (`report_document` one maximum/many reports per Document, **S**;
-//   `announcement_documents` and `service_documents` "many; many" O;
-//   `document_successor` one maximum/many predecessors) and its validation
-//   boundary ("Native publication rechecks requiredness/cardinality.
-//   Schedule acceptance does not add a selection hook … This remains D-REF's
-//   stated limit, not a reference lock"), and the Common Native Contract
-// - specs/002-cms-content-model/contracts/native-editorial.md — "Native
-//   Request Shapes" (`references` as a separate body object mapping bound
-//   field slug to selected entry ID arrays; "Omitted/empty required
-//   `report_document`, wrong targets or excessive cardinality follow native
-//   refusal. Other relationship fields permit empty selections"; create must
-//   supply required fields; an update may omit an unchanged field but must
-//   not invalidly clear it) and "Validation Contract — Native Only" (§2
-//   native publication revalidates reference requiredness/cardinality while
-//   Schedule retains its actual native action semantics; §4 availability:
-//   a valid selected reference/file does not guarantee published target,
-//   immutable bytes, future availability or removal veto)
-// - specs/002-cms-content-model/contracts/public-read.md — "Shared Source and
-//   Missing Targets" (the same native Document identity/file selection is
-//   reused from Announcement, Service, Report; raw images do not require a
-//   semantic Document; shared media replacement may affect current consumers
-//   immediately; no immutable bytes or removal veto)
-// - specs/002-cms-content-model/quickstart.md — "Focused Native API Checks"
-//   (the exact Health Report missing-reference and valid-reference payload
-//   shapes; "Do not assert a universal schedule/reference atomicity guarantee
-//   or expect custom `PUBLISH_REJECTED` policy cancellation")
-// - docs/website-modernization-docs/current/02-content-model.md §13
-//   (Document/successor/domain status), §14 (Native Media Resource:
-//   alt text, caption, dimensions/type/size metadata, usage tracking),
-//   §16 (Health Report = metadata + Document) and §20 (V1 validation and
-//   native limitation boundary; CMS publishing state and domain state are
-//   different things)
-// - docs/website-modernization-docs/current/07-publishing-workflow.md §3
-//   (direct native publishing, no article approval) and §5 (one-time future
-//   scheduling, explicit timezone, no early publication)
-// - tests/browser/cms.helpers.ts — the accepted T002 native request/fixture
-//   helpers this file consumes (createPatActor development-credential actor,
-//   synthetic media/entries with owned-fixture cleanup, fresh `_rev`
-//   preconditions, publish/schedule/unschedule request helpers,
-//   secret-redacted results)
-// - tests/browser/cms-document.spec.ts and tests/browser/cms-authoring.spec.ts
-//   — the accepted T003/T007 patterns this file follows (schema-readiness
-//   gating, refusal-family assertions, relation children read-backs, direct
-//   Publish/Schedule of valid incomplete fixtures, failure-safe teardown, the
-//   runner-configured origin, the T013 test-authentication adaptation)
-// - specs/002-cms-content-model/evidence/T013-us1-authoring.md — the applied
-//   live schema standing (documents/pages/news/activities/announcements/
-//   health_content and the document_successor/page_documents/
-//   announcement_documents relations active; `services`/`health_reports` and
-//   their relations NOT yet applied — their definitions are T015–T017 scope
-//   and their runtime verification is T018) and the pinned toolchain facts
+// The suite checks, over the native content and media APIs:
+// - one Document and its file selected unchanged from an Announcement, a Service and a Health
+//   Report, with no duplicate Document or media record;
+// - raw media reused without a Document, its alt text and caption maintained, its MIME type,
+//   size and dimensions read back, and its usage count read as an opt-in of the documented shape;
+// - a Document's domain status and successor kept apart from its publication state;
+// - the Health Report's required `report_document`: an omitted, empty, wrong-target or excessive
+//   selection and an invalid clear refused; a valid selection lets a draft be otherwise
+//   incomplete, and optional relations may stay empty;
+// - publishing rechecks requiredness and cardinality, so a Report whose only target was purged is
+//   refused re-publication, while scheduling applies no reference check;
+// - removing or replacing a target or a media item is not vetoed, and the selection keeps its
+//   identity with no promise of availability.
+// No availability, immutability or atomicity is asserted, and no custom publish predicate exists
+// or is expected.
 //
-// Verified API surface (recorded per CLAUDE.md §Current documentation;
-// checked first through Context7 (/websites/emdashcms REST API reference for
-// unversioned orientation; /microsoft/playwright v1.63.0 for Playwright
-// semantics) and then against the pinned `emdash@1.1.0` archive, npm tarball
-// integrity
-// sha512-VXo1fIMr44PEiE1A9Z5aFWvjsqhdLDHqat2iPkFYoam2kYV6h+2LGkEDovkXdLmmWWDY9w7ekP0CP6ziYMFhg==
-// — recomputed from the freshly downloaded archive and byte-equal to
-// package-lock.json, the same integrity research.md §Evidence and the
-// T002/T003/T007 files independently verified):
-// - reference-selection validation (src/api/handlers/validate-references.ts):
-//   `validateReferenceSelection` refuses an over-limit selection
-//   (`VALIDATION_ERROR` "Field '<slug>' accepts a single reference, received
-//   N." / "… at most N references …") and an empty selection on a required
-//   field ("Field '<slug>' is required and must reference at least one
-//   entry."); `validateRequiredReferencesPresent` refuses a create whose
-//   `references` payload OMITS a required field's key. Cardinality lives on
-//   the relation (maxChildrenPerParent/maxParentsPerChild), not the field
-// - target resolution (src/api/handlers/relations.ts
-//   resolveReferenceTargets/resolveReferenceSelection[Targets]): selected ids
-//   are resolved by `findManyByIdOrSlug` WITHIN the relation's other
-//   collection — an unknown id AND a valid id belonging to a different
-//   collection both fail resolution and are refused `404 NOT_FOUND`
-//   ("Child entry '<id>' not found in <target-collection>"); a non-reference
-//   field slug is `400 VALIDATION_ERROR` ("Field '<slug>' is not a reference
-//   field on <collection>"). Create resolves the whole selection before
-//   writing; update resolves every SUPPLIED references entry inside the
-//   transaction (src/api/handlers/content.ts handleContentCreate/
-//   handleContentUpdate), so an omitted references key on update leaves the
-//   selection unchanged while an explicit empty array is an invalid clear
-//   that validation refuses for a required field
-// - publication recheck (src/api/handlers/content.ts handleContentPublish;
-//   src/api/handlers/staged-references.ts validateStagedReferences):
-//   before the publishing statement, `validateStagedReferences` revalidates
-//   the effective selection's requiredness/cardinality and
-//   `applyStagedReferences` promotes it — native publication rechecks run on
-//   every publish of a revision-supporting collection. For a bound field with
-//   NOTHING staged, the effective selection falls back to the field's
-//   CURRENT LIVE edges (`groups ??= await liveFieldSelection(...)`), so the
-//   recheck also guards live selections emptied by later target mutation —
-//   the basis of the required-boundary case below (corrective round 1, F1).
-//   A natively valid selection with optional omissions publishes without any
-//   Songhealth predicate. Re-publishing an already-published entry is a
-//   supported native operation that preserves the existing `published_at`
-//   (publish route/repository). NO over-limit publication refusal is claimed
-//   anywhere in this file: an over-limit selection cannot be staged through
-//   the supported API in the first place, and no negative cardinality
-//   outcome is fabricated
-// - schedule semantics (src/api/handlers/content.ts handleContentSchedule;
-//   src/database/repositories/content.ts schedule()): handleContentSchedule
-//   performs routable-slug and role/time/entry checks only — NO reference
-//   validation exists anywhere in its path (the editorial contract's
-//   "Schedule retains its actual native action semantics"); the repository
-//   `schedule()` sets status "scheduled" for UNPUBLISHED entries but
-//   PRESERVES "published" for already-published ones (the schedule applies
-//   to the pending draft; FR-023's live-until-update-success boundary),
-//   refuses a non-future time, and `contentScheduleBody` requires ISO 8601
-//   with Z or an explicit offset. DELETE …/schedule unschedules with
-//   published staying published
-// - permanent target purge (src/api/handlers/content.ts
-//   handleContentPermanentDelete): trash-first, and when the row is the last
-//   of its translation group (trashed rows included) the group's live
-//   reference edges are cleared BEFORE the row goes
-//   (clearReferencesForGroup) — the authorized route by which a sole
-//   required Document target can leave a published Report's live selection
-//   empty. The trash (DELETE …/{id}) and purge (DELETE …/{id}/permanent)
-//   carry no published-consumer veto (no custom D-REF refusal exists)
-// - read overlay for drafts-reading callers (src/emdash-runtime.ts
-//   hydrateDraftData, applied by the runtime's handleContentGet/Update): an
-//   item with a draftRevisionId returns `data` = the STAGED draft revision's
-//   data and exposes the published values as `liveData`; the REST GET strips
-//   those members only for callers WITHOUT content:read_drafts. This is the
-//   exact staged/live distinction the successor-domain-status assertions
-//   rely on (corrective round 1, F3)
-// - relation children read-back: GET
-//   /_emdash/api/content/{collection}/{id}/references/{relation}/children →
-//   `data { children: [{ id, slug, collection, title, … }], nextCursor? }`;
-//   the parent collection must be the relation's parent side; for a draft
-//   entry with a staged selection the staged page is preferred
-//   (stagedPageFor), and child entries are resolved through the content
-//   repository's ordinary lookup, which EXCLUDES trashed targets
-//   (findByIdOrSlug includeTrashed=false) — a trashed target therefore
-//   disappears from the children listing while the link row's history is not
-//   asserted either way
-// - content listing: GET /_emdash/api/content/{collection}?q=<text>&status=all
-//   (content:read; `q` searches the display fields; `status=all` lists every
-//   status for callers with content:read_drafts) → `data { items: […] }` —
-//   used below only to prove reuse created no duplicate Document records, by
-//   exact unique synthetic fixture title. The parallel MEDIA duplicate check
-//   lists GET /_emdash/api/media?q=<filename> (mediaListQuery,
-//   cursor-paginated, `nextCursor` present only while more pages remain) and
-//   traverses it to EXPLICIT cursor exhaustion before asserting the full
-//   result set equals the original asset (corrective round 1, F2)
-// - media metadata (src/api/schemas/media.ts; src/astro/routes/api/media/
-//   [id].ts): the media item carries `{ id, filename, mimeType, size, width,
-//   height, focalX, focalY, alt, caption, storageKey, status, contentHash,
-//   … }`; PUT /_emdash/api/media/{id} accepts
-//   `{ alt?, caption?, width?, height?, folderId?, focalX?, focalY? }`
-//   (mediaUpdateBody; media:edit_own + ownership, editors+ any) and returns
-//   `{ item }` — native alt AND caption maintenance is supported, asserted
-//   below. Image dimensions are enriched from the actual uploaded bytes at
-//   upload time (src/astro/routes/api/media.ts → src/media/enrich.ts
-//   enrichImageMetadata reads the image header; caller dimensions only
-//   override), so the canonical 1×1 synthetic PNG reads back width/height 1
-//   with mimeType image/png and size equal to its byte length
-// - media usage metadata: GET /_emdash/api/media/{id}?includeUsage=1 appends
-//   `usage: { count: <non-negative int>|null, coverage: { scope:
-//   "all_content_collections", status: complete|never|running|partial|failed|
-//   stale|unknown } }` to the item (mediaGetQuery includeUsage literal "1";
-//   handleMediaUsageSummaries); WITHOUT the query parameter the item carries
-//   no usage key. `count` is a NUMBER only when the caller may read usage
-//   counts (content:read_drafts + admin scope) AND coverage is exactly
-//   "complete" — usage indexing is asynchronous (DB capture triggers +
-//   background work), so this file asserts the documented shape and records
-//   the observed count truthfully WITHOUT asserting immediacy or an exact
-//   value (the deeper usage-details endpoint /_emdash/api/media/{id}/usage is
-//   admin-scope-gated and not required for this coverage)
-// - media replacement: PUT /_emdash/api/media/{id}/replace (multipart `file`
-//   + `width` + `height`; mediaReplaceMetadataForm) replaces the stored bytes
-//   under the SAME media id and storage key, updates size/dimensions/
-//   contentHash, requires the replacement MIME to match the item's, and
-//   refuses non-ready media — the native "shared current source" mechanism.
-//   A referencing entry's selection identity is unaffected (same id), which
-//   is asserted; NO byte-immutability, availability or atomicity claim is
-//   made (D-REF deferred)
-// - media deletion (DELETE /_emdash/api/media/{id}) follows native
-//   media:delete_own + ownership and has NO published-consumer veto — the
-//   authorized-removal observation below relies on that absence of a custom
-//   D-REF refusal
-// - Playwright 1.63.0 semantics (Context7 /microsoft/playwright v1.63.0):
-//   `--list` collects tests without running them (no browser launch, no
-//   hooks) — discovery output is never a runtime PASS claim; tests in one
-//   file run sequentially in one worker; test-scoped afterEach teardown runs
-//   in the SAME worker after every test — pass, fail, or individually
-//   selected — and a failed test discards the worker only for LATER tests
+// Platform behaviour relied on (emdash 1.1.0):
+// - validateReferenceSelection refuses an over-limit or, on a required field, empty selection
+//   with VALIDATION_ERROR, and validateRequiredReferencesPresent a create that omits a required
+//   field's key; cardinality lives on the relation (src/api/handlers/validate-references.ts).
+// - Selected ids resolve within the relation's other collection, so an unknown id and another
+//   collection's id are both refused 404 NOT_FOUND; a field that is not a reference field is
+//   400 VALIDATION_ERROR. An update resolves only the supplied keys: an omitted key keeps the
+//   selection and an empty array clears it (src/api/handlers/relations.ts,
+//   src/api/handlers/content.ts).
+// - Publishing revalidates the staged selection, or with nothing staged the live edges, then
+//   promotes it, and re-publishing keeps `published_at` (src/api/handlers/staged-references.ts
+//   validateStagedReferences, handleContentPublish). Scheduling checks no references, keeps a
+//   published entry `published` and refuses a non-future time (handleContentSchedule).
+// - Purging the last row of a translation group clears its live reference edges first
+//   (handleContentPermanentDelete clearReferencesForGroup); trash, purge and media deletion carry
+//   no consumer veto.
+// - A read by a drafts reader answers a pending draft as `data` and the published values as
+//   `liveData` (src/emdash-runtime.ts hydrateDraftData). The relation children listing prefers a
+//   draft's staged page and leaves out trashed targets.
+// - GET /_emdash/api/content/{collection}?q=…&status=all and GET /_emdash/api/media?q=… (cursor
+//   pages) find duplicates by the fixture's unique title or filename.
+// - Media items carry filename, mimeType, size, width, height, alt and caption; PUT
+//   /_emdash/api/media/{id} sets alt and caption; upload reads the dimensions from the bytes
+//   (src/media/enrich.ts). `?includeUsage=1` adds `usage: { count, coverage }`, where count is a
+//   number only with complete coverage, so no immediacy or exact count is asserted. PUT
+//   …/{id}/replace swaps the bytes under the same id and storage key and needs the same MIME
+//   type.
 //
-// Boundaries and non-claims (tasks.md T014; Constitution v3.0.0 II–V):
-// - test authoring and static verification only: at this baseline `services`
-//   and `health_reports` (T015–T017) are NOT applied to the development
-//   schema, so every Report/Service-dependent check SKIPS explicitly on that
-//   missing-schema precondition — a skip is not a failure and never PASS;
-//   actually running these checks against an applied schema is T018's
-//   verification join, not claimed here. The corrective-round-1 required
-//   publication-boundary lifecycle case (trash → administrator purge →
-//   refused re-Publish → predicate-free Schedule acceptance) is AUTHORED for
-//   T018 and is NOT executed at authoring time
-// - the actor is the pre-existing development credential's Administrator
-//   fixture (dev@emdash.local, role 50), loaded from its controller-format
-//   mode-0600 JSON through the accepted T013 test-authentication adaptation
-//   (loadDevAccessToken + createPatActor — never the dev-bypass bootstrap,
-//   whose native endpoint replaces same-named tokens and applies seed
-//   intent) and pinned to the RUNNER-CONFIGURED origin (playwright.config.ts
-//   contract: PLAYWRIGHT_BASE_URL or the documented development origin —
-//   never the helper default). Distinct-role coverage is NOT claimed from
-//   this actor (T019 owns the role matrix); the authorization REFUSAL side of
-//   the validation/permission distinction is carried by every refusal
-//   assertion below (never 401/403/409)
-// - no availability, immutability, retention or cross-record atomicity
-//   claim: a valid selection, a successful replace or a surviving selection
-//   id proves only the recorded native identity/state at read time (D-REF
-//   stays deferred); the maintenance observations assert current state
-//   truthfully without promising future availability, immutable bytes or
-//   atomic cross-record preservation
-// - no custom predicate expectation: every publish/schedule outcome below is
-//   the NATIVE outcome; no Songhealth completeness-hook code, article-review
-//   step, confirmation, or `PUBLISH_REJECTED`-style policy cancellation is
-//   expected or asserted — none exists in the native-only architecture
-// - fixtures are clearly-marked synthetic public-publishable data; content
-//   IDs, `_rev` values, media IDs and identities come from native responses
-//   only; every update/lifecycle call supplies a fresh re-read `_rev` (the
-//   T002 helpers re-read when none is supplied). Owned-fixture cleanup runs
-//   as FAILURE-SAFE TEARDOWN in the worker whose actor created the fixtures
-//   (after every test — pass, fail, or individually selected — plus an
-//   afterAll safety net that retries anything still registered).
-//   beforeAll deliberately creates no owned fixtures. Entries deliberately
-//   left trashed by a maintenance observation are reconciled by the T002
-//   trash-aware cleanup; a hard worker kill (SIGKILL) is the one path no
-//   in-process teardown can cover, and the run reports it through the
-//   helper's unresolved registry instead of claiming success
-// - no actual due-time scheduler execution (T019/T022), no revision/lock
-//   depth (T020), no public-read assertions (T021), no Admin UI journey
-//   (T031), no role matrix (T019)
+// Credentials and fixtures: the development Administrator PAT (SONGHEALTH_DEV_ACCESS) acts on the
+// configured origin, and no role boundary is claimed from it. Fixtures are synthetic; cleanup runs
+// after every test, passed or failed, and again in afterAll, including the entries a maintenance
+// case leaves in Trash. beforeAll creates none.
 
 import { expect, test } from "@playwright/test";
 
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
-	createPatActor,
 	createSyntheticEntry,
-	DEFAULT_DEVELOPMENT_ORIGIN,
-	loadDevAccessToken,
+	devAdminActor,
+	expectTargetRefusal,
+	expectValidationRefusal,
 	nativeDataOf,
 	nativeItemOf,
 	nativeItemsOf,
-	NATIVE_ROLES,
 	permanentlyDeleteEntry,
 	publishEntry,
 	readEntry,
 	readMedia,
+	removeSuiteFixtures,
 	scheduleEntry,
 	trashEntry,
 	unscheduleEntry,
@@ -296,7 +75,6 @@ import {
 	uploadSyntheticMedia,
 	SYNTHETIC_FIXTURE_MARK,
 	type CmsActor,
-	type NativeResult,
 } from "./cms.helpers";
 
 // ---------------------------------------------------------------------------
@@ -373,9 +151,7 @@ interface SchemaField {
  * FAILS loudly so an unexpected schema mismatch stays visible.
  */
 type CollectionReadiness =
-	| { outcome: "ready" }
-	| { outcome: "missing" }
-	| { outcome: "misconfigured"; detail: string };
+	{ outcome: "ready" } | { outcome: "missing" } | { outcome: "misconfigured"; detail: string };
 
 /** The development-credential fixture actor owning every synthetic fixture made here. */
 let admin: CmsActor;
@@ -419,21 +195,6 @@ function fileValueFor(mediaId: string): { id: string } {
 }
 
 /**
- * The runner-configured origin, mirroring playwright.config.ts exactly (the
- * same discipline as the accepted T003/T007 checks): PLAYWRIGHT_BASE_URL when
- * set, otherwise the documented development origin. node:process is loaded
- * through a dynamic non-literal import because the pinned dependency
- * baseline ships no @types/node.
- */
-async function configuredDevelopmentOrigin(): Promise<string> {
-	const specifier = "node:process";
-	const nodeProcess = (await import(specifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	return nodeProcess.env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN;
-}
-
-/**
  * Create one owned synthetic Document fixture (uploaded media file + required
  * title) in the shared collection and return its returned identities plus
  * the marker-unique title/filename the duplicate checks list by. Only called
@@ -446,10 +207,7 @@ async function createOwnedDocument(): Promise<{
 	filename: string;
 }> {
 	const upload = await uploadSyntheticMedia(admin);
-	expect(
-		upload.result.ok,
-		"the synthetic fixture media upload must succeed",
-	).toBe(true);
+	expect(upload.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
 	expect(
 		upload.mediaId,
 		"a media id must be returned by the native response and registered for owned cleanup",
@@ -462,10 +220,7 @@ async function createOwnedDocument(): Promise<{
 		created.result.ok,
 		"the synthetic Document fixture must save in the shared documents collection",
 	).toBe(true);
-	expect(
-		created.entryId,
-		"the Document id must come from the native response",
-	).toBeTruthy();
+	expect(created.entryId, "the Document id must come from the native response").toBeTruthy();
 	// The returned filename is REQUIRED, not optional (corrective round 1,
 	// finding F2): it is the exact identity the zero-duplicate media check
 	// lists by, and an absent filename must fail loudly rather than silently
@@ -485,62 +240,8 @@ async function createOwnedDocument(): Promise<{
 }
 
 // ---------------------------------------------------------------------------
-// Shared refusal-family assertions (the same contracts as T003/T007)
+// Relation read-backs
 // ---------------------------------------------------------------------------
-
-/**
- * A native field-validation refusal: HTTP 400 with the VALIDATION_ERROR code,
- * and explicitly NOT an authorization (401/403) or state-conflict (409)
- * refusal — so authorization and concurrency problems can never masquerade as
- * reference-validation outcomes (and vice versa).
- */
-function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
-	expect(
-		result.ok,
-		`${caseLabel}: the native save must be refused, not reported as success`,
-	).toBe(false);
-	expect(
-		result.status,
-		`${caseLabel}: a native validation refusal is HTTP 400`,
-	).toBe(400);
-	expect(
-		result.status === 401 || result.status === 403 || result.status === 409,
-		`${caseLabel}: a validation refusal must stay distinguishable from authorization (401/403) and state-conflict (409) failures`,
-	).toBe(false);
-	const error = result.body as { success?: unknown; error?: { code?: unknown } };
-	expect(
-		error?.error?.code,
-		`${caseLabel}: the refusal must carry the native VALIDATION_ERROR code`,
-	).toBe("VALIDATION_ERROR");
-}
-
-/**
- * A native reference-target refusal: HTTP 404 with a NOT_FOUND-family code,
- * and explicitly NOT success and NOT an authorization failure. (Pinned 1.1.0:
- * an unknown selected id AND a valid id belonging to another collection both
- * fail resolution inside the relation's target collection and are refused
- * `404 NOT_FOUND` by resolveReferenceTargets — the truthful "wrong target"
- * family; no separate fabricated error code is asserted.)
- */
-function expectTargetRefusal(result: NativeResult, caseLabel: string): void {
-	expect(
-		result.ok,
-		`${caseLabel}: the native save must be refused, not reported as success`,
-	).toBe(false);
-	expect(
-		result.status,
-		`${caseLabel}: an unresolvable reference target is refused with 404`,
-	).toBe(404);
-	expect(
-		result.status === 401 || result.status === 403,
-		`${caseLabel}: a target refusal must stay distinguishable from an authorization failure`,
-	).toBe(false);
-	const error = result.body as { success?: unknown; error?: { code?: unknown } };
-	expect(
-		typeof error?.error?.code === "string" && error.error.code.includes("NOT_FOUND"),
-		`${caseLabel}: the refusal must carry a native NOT_FOUND-family code`,
-	).toBe(true);
-}
 
 /**
  * Read a saved selection back through the native relation children listing
@@ -577,11 +278,9 @@ async function selectedChildIds(
  * so an unreadable listing fails the caller rather than reading as zero.
  */
 async function countListedByQuery(collection: string, text: string): Promise<number> {
-	const listed = await cmsRequest(
-		admin,
-		`/_emdash/api/content/${encodeURIComponent(collection)}`,
-		{ searchParams: { q: text, status: "all" } },
-	);
+	const listed = await cmsRequest(admin, `/_emdash/api/content/${encodeURIComponent(collection)}`, {
+		searchParams: { q: text, status: "all" },
+	});
 	expect(
 		listed.ok,
 		`${collection}: the native listing used for the duplicate check must succeed`,
@@ -594,25 +293,9 @@ async function countListedByQuery(collection: string, text: string): Promise<num
 // ---------------------------------------------------------------------------
 
 test.beforeAll(async () => {
-	// Development native access through the pre-existing development
-	// credential (T013 test-authentication adaptation), pinned to the
-	// runner-configured origin so a nondefault PLAYWRIGHT_BASE_URL run cannot
-	// silently exercise another app. createPatActor verifies the live identity
-	// through /auth/me and pins the expected Administrator role; the expected
-	// development fixture account is asserted by email. This hook deliberately
-	// creates no owned fixtures (credential load, identity verification and
-	// schema reads only), so a partial setup cannot leak anything for teardown
-	// to miss — and Playwright --list discovery performs no native calls at
-	// all (hooks run only at execution).
-	admin = await createPatActor({
-		baseUrl: await configuredDevelopmentOrigin(),
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
-	expect(
-		admin.email,
-		"the development credential must belong to the intended dev@emdash.local fixture account",
-	).toBe("dev@emdash.local");
+	// The development Administrator. This hook creates no owned fixtures, only reads, so a partial
+	// setup leaves nothing for teardown to miss.
+	admin = await devAdminActor();
 
 	// One live schema read per exercised collection decides its readiness.
 	// Each check names only the UNCONDITIONAL approved fields the checks below
@@ -641,7 +324,8 @@ test.beforeAll(async () => {
 				},
 				(bySlug) => {
 					const domainStatus = bySlug.get("domain_status");
-					if (domainStatus?.type !== "select") return "domain_status must exist as a native select field";
+					if (domainStatus?.type !== "select")
+						return "domain_status must exist as a native select field";
 					const options = domainStatus.validation?.options;
 					const approved = ["current", "superseded", "expired"];
 					return Array.isArray(options) && approved.every((value) => options.includes(value))
@@ -809,19 +493,9 @@ test.afterEach(async () => {
 	).toBe(true);
 });
 
-test.afterAll(async () => {
-	// Safety net: normally a no-op (afterEach resolved everything); anything
-	// still registered here is an unresolved earlier attempt, retried and
-	// reported truthfully as the worker's final standing.
-	if (admin === undefined) {
-		return;
-	}
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	expect(
-		report.complete,
-		"the final worker cleanup must leave zero unresolved owned fixtures",
-	).toBe(true);
-});
+// Safety net: normally a no-op, since afterEach resolved everything; anything still registered is
+// retried and reported.
+test.afterAll(() => removeSuiteFixtures(admin));
 
 // ---------------------------------------------------------------------------
 // Per-collection schema preconditions
@@ -884,10 +558,9 @@ test("shared identity: one Document and its native file are selected unchanged f
 		data: { title: uniqueTitle(SERVICE_COLLECTION) },
 		references: { [SERVICE_DOCUMENTS_RELATION.field]: [source.entryId] },
 	});
-	expect(
-		service.result.ok,
-		"the Service must save with its optional Document selection",
-	).toBe(true);
+	expect(service.result.ok, "the Service must save with its optional Document selection").toBe(
+		true,
+	);
 	expect(service.entryId).toBeTruthy();
 
 	const report = await createSyntheticEntry(admin, REPORT_COLLECTION, {
@@ -925,10 +598,7 @@ test("shared identity: one Document and its native file are selected unchanged f
 		},
 	]) {
 		const reopened = await readEntry(admin, context.collection, context.entryId);
-		expect(
-			reopened.ok,
-			`${context.label}: the entry must be reopenable by returned id`,
-		).toBe(true);
+		expect(reopened.ok, `${context.label}: the entry must be reopenable by returned id`).toBe(true);
 		const children = await selectedChildIds(context.collection, context.entryId, context.relation);
 		expect(
 			children.filter((id) => id === source.entryId).length,
@@ -939,13 +609,9 @@ test("shared identity: one Document and its native file are selected unchanged f
 	// The Document itself is unchanged by reuse: same returned id, same file
 	// selection of the ORIGINAL uploaded media id (one upload; no copies).
 	const reopenedDocument = await readEntry(admin, DOCUMENT_COLLECTION, source.entryId);
-	expect(
-		reopenedDocument.ok,
-		"the shared Document must be reopenable by returned id",
-	).toBe(true);
+	expect(reopenedDocument.ok, "the shared Document must be reopenable by returned id").toBe(true);
 	const documentData = nativeItemOf(reopenedDocument)?.data as
-		| { file?: { id?: unknown } }
-		| undefined;
+		{ file?: { id?: unknown } } | undefined;
 	expect(
 		documentData?.file?.id,
 		"the shared Document's file selection must still be the original uploaded media id (selection identity only; no byte-availability claim)",
@@ -974,21 +640,18 @@ test("shared identity: one Document and its native file are selected unchanged f
 				...(mediaCursor !== undefined ? { cursor: mediaCursor } : {}),
 			},
 		});
-		expect(
-			page.ok,
-			"the native media listing used for the duplicate check must succeed",
-		).toBe(true);
+		expect(page.ok, "the native media listing used for the duplicate check must succeed").toBe(
+			true,
+		);
 		const pageData = nativeDataOf(page);
 		const items = pageData?.items;
-		expect(
-			Array.isArray(items),
-			"the media listing must return its documented items array",
-		).toBe(true);
+		expect(Array.isArray(items), "the media listing must return its documented items array").toBe(
+			true,
+		);
 		for (const item of items as Array<{ id?: unknown }>) {
-			expect(
-				typeof item?.id === "string",
-				"every listed media item must carry its native id",
-			).toBe(true);
+			expect(typeof item?.id === "string", "every listed media item must carry its native id").toBe(
+				true,
+			);
 			listedMediaIds.push(item.id as string);
 		}
 		const nextCursor: unknown = pageData?.nextCursor;
@@ -1023,10 +686,7 @@ test("raw media: a public image is selected and reused without any semantic Docu
 	// Document — selected directly by a retained V1 content kind's image
 	// field (the same selection shape the accepted T007 checks use).
 	const upload = await uploadSyntheticMedia(admin);
-	expect(
-		upload.result.ok,
-		"the synthetic fixture media upload must succeed",
-	).toBe(true);
+	expect(upload.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
 	expect(
 		upload.mediaId,
 		"a media id must be returned by the native response and registered for owned cleanup",
@@ -1059,20 +719,14 @@ test("raw media: a public image is selected and reused without any semantic Docu
 	// Reopen both by returned id: each carries the SAME media id in its image
 	// selection (selection identity only — never a byte-availability claim).
 	const firstRead = await readEntry(admin, NEWS_COLLECTION, first.entryId!);
-	expect(
-		firstRead.ok,
-		"the first entry must be reopenable by returned id",
-	).toBe(true);
+	expect(firstRead.ok, "the first entry must be reopenable by returned id").toBe(true);
 	expect(
 		(nativeItemOf(firstRead)?.data as { featured_image?: { id?: unknown } } | undefined)
 			?.featured_image?.id,
 		"the first context's image selection must read back the same raw media id",
 	).toBe(upload.mediaId);
 	const secondRead = await readEntry(admin, NEWS_COLLECTION, second.entryId!);
-	expect(
-		secondRead.ok,
-		"the second entry must be reopenable by returned id",
-	).toBe(true);
+	expect(secondRead.ok, "the second entry must be reopenable by returned id").toBe(true);
 	expect(
 		(nativeItemOf(secondRead)?.data as { featured_image?: { id?: unknown } } | undefined)
 			?.featured_image?.id,
@@ -1083,10 +737,7 @@ test("raw media: a public image is selected and reused without any semantic Docu
 test("raw media: native alt and caption are maintainable and MIME type, size and dimensions read back", async () => {
 	gateCollection(NEWS_COLLECTION, "T009/T013");
 	const upload = await uploadSyntheticMedia(admin);
-	expect(
-		upload.result.ok,
-		"the synthetic fixture media upload must succeed",
-	).toBe(true);
+	expect(upload.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
 	expect(upload.mediaId).toBeTruthy();
 	const mediaId = upload.mediaId!;
 
@@ -1114,22 +765,17 @@ test("raw media: native alt and caption are maintainable and MIME type, size and
 	const item = nativeItemOf(read);
 	expect(item?.alt, "the maintained alt text must read back").toBe(alt);
 	expect(item?.caption, "the maintained caption must read back").toBe(caption);
-	expect(
-		item?.mimeType,
-		"the native MIME type must read back the uploaded image/png",
-	).toBe("image/png");
+	expect(item?.mimeType, "the native MIME type must read back the uploaded image/png").toBe(
+		"image/png",
+	);
 	expect(
 		typeof item?.size === "number" && item.size > 0,
 		"the native file size must read back as a positive byte count",
 	).toBe(true);
-	expect(
-		item?.width,
-		"the native width must read back the 1×1 fixture's actual dimension",
-	).toBe(1);
-	expect(
-		item?.height,
-		"the native height must read back the 1×1 fixture's actual dimension",
-	).toBe(1);
+	expect(item?.width, "the native width must read back the 1×1 fixture's actual dimension").toBe(1);
+	expect(item?.height, "the native height must read back the 1×1 fixture's actual dimension").toBe(
+		1,
+	);
 
 	// The raw image is usable by content while carrying this metadata — the
 	// selection and the maintained metadata belong to the same native asset.
@@ -1139,19 +785,15 @@ test("raw media: native alt and caption are maintainable and MIME type, size and
 			featured_image: fileValueFor(mediaId),
 		},
 	});
-	expect(
-		news.result.ok,
-		"the raw image with maintained metadata must remain selectable",
-	).toBe(true);
+	expect(news.result.ok, "the raw image with maintained metadata must remain selectable").toBe(
+		true,
+	);
 });
 
 test("raw media: usage metadata is an opt-in native read whose count-or-null shape is asserted truthfully", async () => {
 	gateCollection(NEWS_COLLECTION, "T009/T013");
 	const upload = await uploadSyntheticMedia(admin);
-	expect(
-		upload.result.ok,
-		"the synthetic fixture media upload must succeed",
-	).toBe(true);
+	expect(upload.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
 	const mediaId = upload.mediaId!;
 	// Reference the asset from one content entry so the usage surface is
 	// exercised on a used item.
@@ -1181,13 +823,11 @@ test("raw media: usage metadata is an opt-in native read whose count-or-null sha
 	const withUsage = await cmsRequest(admin, `/_emdash/api/media/${encodeURIComponent(mediaId)}`, {
 		searchParams: { includeUsage: "1" },
 	});
-	expect(
-		withUsage.ok,
-		"the opt-in usage read must be accepted by the native media endpoint",
-	).toBe(true);
+	expect(withUsage.ok, "the opt-in usage read must be accepted by the native media endpoint").toBe(
+		true,
+	);
 	const usage = nativeItemOf(withUsage)?.usage as
-		| { count?: unknown; coverage?: { scope?: unknown; status?: unknown } }
-		| undefined;
+		{ count?: unknown; coverage?: { scope?: unknown; status?: unknown } } | undefined;
 	expect(
 		usage !== null && typeof usage === "object",
 		"the includeUsage=1 read must carry the documented usage object",
@@ -1197,10 +837,9 @@ test("raw media: usage metadata is an opt-in native read whose count-or-null sha
 			(typeof usage?.count === "number" && Number.isInteger(usage.count) && usage.count >= 0),
 		"usage.count must be a non-negative integer or null (null is the native answer when the caller cannot read counts or coverage is not complete)",
 	).toBe(true);
-	expect(
-		usage?.coverage?.scope,
-		"usage.coverage.scope must read back its documented value",
-	).toBe("all_content_collections");
+	expect(usage?.coverage?.scope, "usage.coverage.scope must read back its documented value").toBe(
+		"all_content_collections",
+	);
 	expect(
 		typeof usage?.coverage?.status === "string" &&
 			["complete", "never", "running", "partial", "failed", "stale", "unknown"].includes(
@@ -1222,15 +861,13 @@ test("raw media: usage metadata is an opt-in native read whose count-or-null sha
 test("document successor: domain status and successor identity stay distinct from publication state", async () => {
 	gateCollection(DOCUMENT_COLLECTION, "T005/T006");
 	const predecessorUpload = await uploadSyntheticMedia(admin);
-	expect(
-		predecessorUpload.result.ok,
-		"the predecessor Document's media upload must succeed",
-	).toBe(true);
+	expect(predecessorUpload.result.ok, "the predecessor Document's media upload must succeed").toBe(
+		true,
+	);
 	const successorUpload = await uploadSyntheticMedia(admin);
-	expect(
-		successorUpload.result.ok,
-		"the successor Document's media upload must succeed",
-	).toBe(true);
+	expect(successorUpload.result.ok, "the successor Document's media upload must succeed").toBe(
+		true,
+	);
 	const extraUpload = await uploadSyntheticMedia(admin);
 	expect(
 		extraUpload.result.ok,
@@ -1320,10 +957,9 @@ test("document successor: domain status and successor identity stay distinct fro
 	const superseded = await updateEntry(admin, DOCUMENT_COLLECTION, successor.entryId!, {
 		data: { domain_status: "superseded" },
 	});
-	expect(
-		superseded.ok,
-		"setting domain_status=superseded on a published Document must save",
-	).toBe(true);
+	expect(superseded.ok, "setting domain_status=superseded on a published Document must save").toBe(
+		true,
+	);
 	reopened = await readEntry(admin, DOCUMENT_COLLECTION, successor.entryId!);
 	expect(reopened.ok, "the superseded Document must be reopenable").toBe(true);
 	const supersededItem = nativeItemOf(reopened);
@@ -1400,10 +1036,7 @@ test("health report: create refuses omitted, empty, wrong-target and excessive r
 			data: { title },
 			references: { [REPORT_DOCUMENT_RELATION.field]: [wrongTarget.id] },
 		});
-		expectTargetRefusal(
-			refusal.result,
-			`report_document selecting ${wrongTarget.label}`,
-		);
+		expectTargetRefusal(refusal.result, `report_document selecting ${wrongTarget.label}`);
 		expect(
 			refusal.entryId,
 			`${wrongTarget.label}: no entry id may be returned for a refused save`,
@@ -1437,10 +1070,9 @@ test("health report: an invalid clear of the required selection is refused and t
 		data: { title: uniqueTitle(REPORT_COLLECTION) },
 		references: { [REPORT_DOCUMENT_RELATION.field]: [source.entryId] },
 	});
-	expect(
-		report.result.ok,
-		"the valid report fixture must save with its required selection",
-	).toBe(true);
+	expect(report.result.ok, "the valid report fixture must save with its required selection").toBe(
+		true,
+	);
 
 	// An explicit empty selection on update is an invalid clear of the
 	// required reference (an update may omit the unchanged selection, but
@@ -1453,10 +1085,7 @@ test("health report: an invalid clear of the required selection is refused and t
 	// Re-read the uncertain outcome (shared constraint): the selection is
 	// still in place.
 	const reopened = await readEntry(admin, REPORT_COLLECTION, report.entryId!);
-	expect(
-		reopened.ok,
-		"the report must remain readable after the refused clear",
-	).toBe(true);
+	expect(reopened.ok, "the report must remain readable after the refused clear").toBe(true);
 	expect(
 		await selectedChildIds(REPORT_COLLECTION, report.entryId!, REPORT_DOCUMENT_RELATION.relation),
 		"the refused clear must not have taken effect: the selection still reads back the Document id",
@@ -1561,10 +1190,9 @@ test("publication: native Publish accepts valid incomplete reports and multi-Doc
 	).toBe("published");
 	const reopened = await readEntry(admin, REPORT_COLLECTION, report.entryId!);
 	expect(reopened.ok, "the published report must be reopenable by returned id").toBe(true);
-	expect(
-		nativeItemOf(reopened)?.status,
-		"the read-back status must be published",
-	).toBe("published");
+	expect(nativeItemOf(reopened)?.status, "the read-back status must be published").toBe(
+		"published",
+	);
 	expect(
 		await selectedChildIds(REPORT_COLLECTION, report.entryId!, REPORT_DOCUMENT_RELATION.relation),
 		"the required selection must remain live after publication (identity only; no target-availability claim)",
@@ -1709,10 +1337,9 @@ test("publication boundary: an emptied required selection refuses re-Publish whi
 	// required selection. This simultaneously exercises the required-target
 	// maintenance boundary the optional Announcement trash case cannot.
 	const trashed = await trashEntry(admin, DOCUMENT_COLLECTION, source.entryId);
-	expect(
-		trashed.ok,
-		"authorized target trash must be accepted (no custom D-REF veto exists)",
-	).toBe(true);
+	expect(trashed.ok, "authorized target trash must be accepted (no custom D-REF veto exists)").toBe(
+		true,
+	);
 	const purged = await permanentlyDeleteEntry(admin, DOCUMENT_COLLECTION, source.entryId);
 	expect(
 		purged.ok,
@@ -1748,10 +1375,9 @@ test("publication boundary: an emptied required selection refuses re-Publish whi
 	// the entry is unchanged — still published (the refusal published
 	// nothing new), selection still empty.
 	const afterRefusal = await readEntry(admin, REPORT_COLLECTION, report.entryId!);
-	expect(
-		afterRefusal.ok,
-		"the report must remain readable after the refused re-publish",
-	).toBe(true);
+	expect(afterRefusal.ok, "the report must remain readable after the refused re-publish").toBe(
+		true,
+	);
 	expect(
 		nativeItemOf(afterRefusal)?.status,
 		"the refused re-publish must not change editorial state",
@@ -1848,10 +1474,7 @@ test("maintenance: authorized target removal has no custom veto and current stat
 		"authorized target trash must be accepted by the native lifecycle (no custom D-REF veto exists)",
 	).toBe(true);
 	const trashError = trashed.body as { error?: { code?: unknown } };
-	expect(
-		trashError?.error?.code,
-		"the accepted trash must carry no error code",
-	).toBeUndefined();
+	expect(trashError?.error?.code, "the accepted trash must carry no error code").toBeUndefined();
 
 	// Current state, observed truthfully: the trashed target disappears from
 	// the parent's live children resolution (the ordinary content lookup
@@ -1872,10 +1495,9 @@ test("maintenance: authorized target removal has no custom veto and current stat
 		ANNOUNCEMENT_COLLECTION,
 		announcement.entryId!,
 	);
-	expect(
-		reopenedAnnouncement.ok,
-		"the parent must remain readable after the target trash",
-	).toBe(true);
+	expect(reopenedAnnouncement.ok, "the parent must remain readable after the target trash").toBe(
+		true,
+	);
 	expect(
 		nativeItemOf(reopenedAnnouncement)?.status,
 		"trashing a reused target must NOT change the parent's publication state (no cascade; D-REF deferred)",
@@ -1897,10 +1519,7 @@ test("maintenance: authorized target removal has no custom veto and current stat
 test("maintenance: authorized media replacement and removal keep selection identity with no availability promise", async () => {
 	gateCollection(NEWS_COLLECTION, "T009/T013");
 	const upload = await uploadSyntheticMedia(admin);
-	expect(
-		upload.result.ok,
-		"the synthetic fixture media upload must succeed",
-	).toBe(true);
+	expect(upload.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
 	const mediaId = upload.mediaId!;
 	const before = await readMedia(admin, mediaId);
 	expect(before.ok, "the media item must be readable before replacement").toBe(true);
@@ -1944,10 +1563,7 @@ test("maintenance: authorized media replacement and removal keep selection ident
 		"authorized media replacement must be accepted by the native endpoint (no custom veto; same-MIME image)",
 	).toBe(true);
 	const replacedRead = await readMedia(admin, mediaId);
-	expect(
-		replacedRead.ok,
-		"the replaced media item must be readable by the same id",
-	).toBe(true);
+	expect(replacedRead.ok, "the replaced media item must be readable by the same id").toBe(true);
 	const replacedItem = nativeItemOf(replacedRead);
 	expect(replacedItem?.id, "replacement must keep the same media identity").toBe(mediaId);
 	expect(
@@ -1963,10 +1579,7 @@ test("maintenance: authorized media replacement and removal keep selection ident
 
 	// The consumer's selection identity is unaffected by the replacement.
 	const reopenedNews = await readEntry(admin, NEWS_COLLECTION, news.entryId!);
-	expect(
-		reopenedNews.ok,
-		"the referencing news must be reopenable after replacement",
-	).toBe(true);
+	expect(reopenedNews.ok, "the referencing news must be reopenable after replacement").toBe(true);
 	expect(
 		(nativeItemOf(reopenedNews)?.data as { featured_image?: { id?: unknown } } | undefined)
 			?.featured_image?.id,
@@ -1978,11 +1591,9 @@ test("maintenance: authorized media replacement and removal keep selection ident
 	// a truthful stale-identity observation — the safe missing-file state for
 	// public reads belongs to T021/T022, and NO availability, retention or
 	// cross-record atomicity outcome is asserted here.
-	const removed = await cmsRequest(
-		admin,
-		`/_emdash/api/media/${encodeURIComponent(mediaId)}`,
-		{ method: "DELETE" },
-	);
+	const removed = await cmsRequest(admin, `/_emdash/api/media/${encodeURIComponent(mediaId)}`, {
+		method: "DELETE",
+	});
 	expect(
 		removed.ok,
 		"authorized media removal must be accepted by the native endpoint even while a consumer's selection references it (no custom D-REF veto)",

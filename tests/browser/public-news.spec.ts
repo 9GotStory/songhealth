@@ -27,21 +27,18 @@
 import type { Page } from "@playwright/test";
 
 import {
-	cleanupOwnedFixtures,
 	cmsRequest,
 	createOwnedTerm,
-	createPatActor,
 	createSyntheticDraft,
 	deleteMedia,
-	deleteSyntheticTerms,
-	loadDevAccessToken,
-	NATIVE_ROLES,
+	devAdminActor,
 	nativeDataOf,
 	nativeItemsOf,
 	nativeRefusalOf,
 	portableTextBlock,
 	portableTextImage,
 	publishEntryAt,
+	removeSuiteFixtures,
 	setMediaAlt,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
@@ -57,20 +54,17 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
-	MOBILE_VIEWPORT,
 	SECTION_CRUMBS,
-	VIEWPORTS,
 	expect,
 	expectBreadcrumb,
 	expectImageLoaded,
-	expectNoAxeViolations,
-	expectNoHorizontalScroll,
+	expectPreviewRenders,
 	expectSiteNotFound,
-	expectVisibleFocusOnEveryStop,
 	listedTitles,
 	ownTitles,
 	siteTitleParts,
 	test,
+	testAccessibilityAndReflow,
 	thaiDate,
 } from "./public.helpers";
 
@@ -124,48 +118,12 @@ async function headOf(page: Page) {
 
 test.use({ viewport: DESKTOP_VIEWPORT });
 
-test.beforeAll(async ({}, testInfo) => {
-	const baseURL = testInfo.project.use.baseURL;
-	if (baseURL === undefined) {
-		throw new Error("this suite needs a configured baseURL (PLAYWRIGHT_BASE_URL)");
-	}
-	origin = new URL(baseURL).origin;
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
+test.beforeAll(async () => {
+	admin = await devAdminActor();
+	origin = admin.baseUrl;
 });
 
-test.afterAll(async () => {
-	if (admin === undefined) return;
-	const failures: string[] = [];
-	for (const slug of movedSlugs) {
-		const listed = await cmsRequest(admin, "/_emdash/api/redirects", {
-			searchParams: { search: slug, limit: "100" },
-		});
-		if (!listed.ok) {
-			failures.push(`listing the redirects of ${slug}: ${nativeRefusalOf(listed)}`);
-			continue;
-		}
-		const redirects = nativeItemsOf(listed) as Array<{ id: string; source: string; auto: boolean }>;
-		for (const redirect of redirects.filter(
-			({ source, auto }) => auto && source.endsWith(`/${slug}`),
-		)) {
-			const removed = await cmsRequest(
-				admin,
-				`/_emdash/api/redirects/${encodeURIComponent(redirect.id)}`,
-				{ method: "DELETE" },
-			);
-			if (!removed.ok)
-				failures.push(`the redirect from ${redirect.source}: ${nativeRefusalOf(removed)}`);
-		}
-	}
-	const report = await cleanupOwnedFixtures(admin, { permanent: true });
-	if (!report.complete) failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
-	failures.push(...(await deleteSyntheticTerms(admin, ownedTerms)));
-	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
-});
+test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms, movedSlugs }));
 
 test("/news lists only published News, newest first, each with its date and its own address", async ({
 	page,
@@ -439,24 +397,7 @@ test("a signed preview link renders a draft, and the same address without a vali
 	page,
 }) => {
 	const draft = await createNews("preview");
-	const minted = await cmsRequest(
-		admin,
-		`/_emdash/api/content/news/${encodeURIComponent(draft.id)}/preview-url`,
-		{ method: "POST", body: {} },
-	);
-	expect(minted.ok, nativeRefusalOf(minted)).toBe(true);
-	// The signed token stays out of every message.
-	const link = new URL(String(nativeDataOf(minted)?.url), origin);
-	expect(link.pathname, "the preview link is the draft's canonical address").toBe(
-		`/news/${draft.slug}`,
-	);
-
-	const preview = await page.goto(link.toString());
-	expect(preview?.status(), "the preview renders").toBe(200);
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText(draft.title);
-	expect((await headOf(page)).robots, "a preview is kept out of search engines").toContain(
-		"noindex",
-	);
+	const link = await expectPreviewRenders(page, admin, "news", draft, `/news/${draft.slug}`);
 
 	await expectSiteNotFound(page, link.pathname, "the draft without a token");
 	const forged = new URL(link);
@@ -627,25 +568,9 @@ test.describe("accessibility and reflow", () => {
 		await publish(news);
 	});
 
-	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
-		test(`axe reports no WCAG 2.2 AA violation and focus stays visible on the News pages at the ${width} width`, async ({
-			page,
-		}) => {
-			await page.setViewportSize(viewport);
-			for (const path of ["/news", "/news/health", `/news/${news.slug}`]) {
-				const response = await page.goto(path);
-				expect(response?.status(), `GET ${path}`).toBe(200);
-				await expectNoAxeViolations(page, `${path} at ${width}`);
-				await expectVisibleFocusOnEveryStop(page, `${path} at ${width}`);
-			}
-		});
-	}
-
-	test("no News page scrolls sideways at 320 px", async ({ page }) => {
-		await page.setViewportSize(MOBILE_VIEWPORT);
-		for (const path of ["/news", "/news/health", `/news/${news.slug}`]) {
-			await page.goto(path);
-			await expectNoHorizontalScroll(page, path);
-		}
-	});
+	testAccessibilityAndReflow("the News pages", () => [
+		"/news",
+		"/news/health",
+		`/news/${news.slug}`,
+	]);
 });
