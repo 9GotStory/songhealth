@@ -28,7 +28,7 @@ const { entry, snippet } = Astro.props;
 	</h2>
 	{snippet && (
 		<p
-			class="wrap-anywhere text-text-secondary [&_mark]:bg-accent-warm [&_mark]:px-0.5 [&_mark]:text-text-primary"
+			class="wrap-anywhere text-text-secondary [&_mark]:bg-accent-warm [&_mark]:text-text-primary"
 			set:html={snippet}
 		/>
 	)}

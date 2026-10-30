@@ -392,7 +392,8 @@ test("the start page, a too-short query and a query that finds nothing each say 
 			href,
 		);
 	}
-	expect(await main.innerText()).not.toMatch(INTERNAL_DETAIL);
+	// The query is quoted back; the rest of the page must reveal nothing.
+	expect((await main.innerText()).replace(nothing, "")).not.toMatch(INTERNAL_DETAIL);
 	expect(await page.title()).not.toBe("x");
 });
 
