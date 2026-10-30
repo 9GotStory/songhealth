@@ -61,23 +61,23 @@ const SYNTHETIC_ENCRYPTION_KEY = "SYNTHETIC-ENCRYPTION-KEY-0123456789abcdefABCDE
 // and port avoid the PostgreSQL defaults so range/default hints cannot
 // collide with the echo assertions).
 const SYNTHETIC_IDENTITY = {
-  host: "songhealth-test-db.synthetic.example.invalid",
-  port: "54329",
-  database: "songhealth_test_synthetic",
-  user: "songhealth_test_user",
+	host: "songhealth-test-db.synthetic.example.invalid",
+	port: "54329",
+	database: "songhealth_test_synthetic",
+	user: "songhealth_test_user",
 } as const;
 
 const SYNTHETIC_MIGRATION_URL =
-  `postgresql://${SYNTHETIC_IDENTITY.user}:${SYNTHETIC_URL_PASSWORD}` +
-  `@${SYNTHETIC_IDENTITY.host}:${SYNTHETIC_IDENTITY.port}/${SYNTHETIC_IDENTITY.database}`;
+	`postgresql://${SYNTHETIC_IDENTITY.user}:${SYNTHETIC_URL_PASSWORD}` +
+	`@${SYNTHETIC_IDENTITY.host}:${SYNTHETIC_IDENTITY.port}/${SYNTHETIC_IDENTITY.database}`;
 
 // Constant secret markers asserted absent in every case, independent of what
 // the case itself configures (the migration-URL password is a fragment of the
 // URL value, so it needs its own entry to catch a fragment-only echo).
 const CONSTANT_SECRET_MARKERS: ReadonlyArray<{ label: string; value: string }> = [
-  { label: "PGPASSWORD value marker", value: SYNTHETIC_PG_PASSWORD },
-  { label: "migration-URL password marker", value: SYNTHETIC_URL_PASSWORD },
-  { label: "EMDASH_ENCRYPTION_KEY value marker", value: SYNTHETIC_ENCRYPTION_KEY },
+	{ label: "PGPASSWORD value marker", value: SYNTHETIC_PG_PASSWORD },
+	{ label: "migration-URL password marker", value: SYNTHETIC_URL_PASSWORD },
+	{ label: "EMDASH_ENCRYPTION_KEY value marker", value: SYNTHETIC_ENCRYPTION_KEY },
 ];
 
 /** Standalone echo-forbidden entries for the distinctive non-secret identity
@@ -88,58 +88,62 @@ const CONSTANT_SECRET_MARKERS: ReadonlyArray<{ label: string; value: string }> =
  * those components, so fragment coverage is required for the rule to be
  * total. URL schemes are deliberately not forbidden: legitimate actionable
  * hints name supported schemes such as postgresql:// or https://. */
-function urlComponentValues(env: Record<string, string>): ReadonlyArray<{ label: string; value: string }> {
-  const components: Array<{ label: string; value: string }> = [];
-  const add = (label: string, value: string) => {
-    if (value.length > 0) {
-      components.push({ label, value });
-    }
-  };
-  const collect = (variable: string, raw: string | undefined, wantsDatabase: boolean) => {
-    if (!raw) return;
-    let parsed: URL;
-    try {
-      parsed = new URL(raw);
-    } catch {
-      return; // unparsable URL: the whole configured value is already forbidden
-    }
-    add(`${variable} URL host component`, parsed.hostname);
-    if (parsed.port !== "") add(`${variable} URL port component`, parsed.port);
-    if (parsed.username !== "") add(`${variable} URL user component`, parsed.username);
-    if (wantsDatabase) {
-      const database = parsed.pathname.replace(/^\//, "");
-      add(`${variable} URL database component`, database);
-    }
-  };
-  collect("EMDASH_MIGRATION_DATABASE_URL", env.EMDASH_MIGRATION_DATABASE_URL, true);
-  collect("EMDASH_SITE_URL", env.EMDASH_SITE_URL, false);
-  return components;
+function urlComponentValues(
+	env: Record<string, string>,
+): ReadonlyArray<{ label: string; value: string }> {
+	const components: Array<{ label: string; value: string }> = [];
+	const add = (label: string, value: string) => {
+		if (value.length > 0) {
+			components.push({ label, value });
+		}
+	};
+	const collect = (variable: string, raw: string | undefined, wantsDatabase: boolean) => {
+		if (!raw) return;
+		let parsed: URL;
+		try {
+			parsed = new URL(raw);
+		} catch {
+			return; // unparsable URL: the whole configured value is already forbidden
+		}
+		add(`${variable} URL host component`, parsed.hostname);
+		if (parsed.port !== "") add(`${variable} URL port component`, parsed.port);
+		if (parsed.username !== "") add(`${variable} URL user component`, parsed.username);
+		if (wantsDatabase) {
+			const database = parsed.pathname.replace(/^\//, "");
+			add(`${variable} URL database component`, database);
+		}
+	};
+	collect("EMDASH_MIGRATION_DATABASE_URL", env.EMDASH_MIGRATION_DATABASE_URL, true);
+	collect("EMDASH_SITE_URL", env.EMDASH_SITE_URL, false);
+	return components;
 }
 
 /** The complete echo-forbidden set for one exact case: the constant secret
  * markers, every non-empty configured input value of that case, and the
  * distinctive identity components of its configured URLs. */
-function echoForbiddenValuesFor(env: Record<string, string>): ReadonlyArray<{ label: string; value: string }> {
-  const configured = Object.entries(env)
-    .filter(([, value]) => value.length > 0)
-    .map(([name, value]) => ({ label: `${name} value`, value }));
-  return [...CONSTANT_SECRET_MARKERS, ...configured, ...urlComponentValues(env)];
+function echoForbiddenValuesFor(
+	env: Record<string, string>,
+): ReadonlyArray<{ label: string; value: string }> {
+	const configured = Object.entries(env)
+		.filter(([, value]) => value.length > 0)
+		.map(([name, value]) => ({ label: `${name} value`, value }));
+	return [...CONSTANT_SECRET_MARKERS, ...configured, ...urlComponentValues(env)];
 }
 
 // The complete approved native runtime input set (§20.1), synthetic and valid.
 function validBaselineEnv(): Record<string, string> {
-  return {
-    HOST: "synthetic-app-host.example.invalid",
-    PORT: "43219",
-    EMDASH_SITE_URL: "http://synthetic-public-origin.example.invalid",
-    PGHOST: SYNTHETIC_IDENTITY.host,
-    PGPORT: SYNTHETIC_IDENTITY.port,
-    PGDATABASE: SYNTHETIC_IDENTITY.database,
-    PGUSER: SYNTHETIC_IDENTITY.user,
-    PGPASSWORD: SYNTHETIC_PG_PASSWORD,
-    EMDASH_MIGRATION_DATABASE_URL: SYNTHETIC_MIGRATION_URL,
-    EMDASH_ENCRYPTION_KEY: SYNTHETIC_ENCRYPTION_KEY,
-  };
+	return {
+		HOST: "synthetic-app-host.example.invalid",
+		PORT: "43219",
+		EMDASH_SITE_URL: "http://synthetic-public-origin.example.invalid",
+		PGHOST: SYNTHETIC_IDENTITY.host,
+		PGPORT: SYNTHETIC_IDENTITY.port,
+		PGDATABASE: SYNTHETIC_IDENTITY.database,
+		PGUSER: SYNTHETIC_IDENTITY.user,
+		PGPASSWORD: SYNTHETIC_PG_PASSWORD,
+		EMDASH_MIGRATION_DATABASE_URL: SYNTHETIC_MIGRATION_URL,
+		EMDASH_ENCRYPTION_KEY: SYNTHETIC_ENCRYPTION_KEY,
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -155,50 +159,52 @@ const RESULT_SENTINEL = "@@SONGHEALTH-CONFIG-LOAD-RESULT@@";
 const CHILD_TIMEOUT_MS = 60_000;
 
 interface ConfigLoadOutcome {
-  ok: boolean;
-  name?: string;
-  message?: string;
-  carriesConfiguredHost?: boolean;
-  carriesNumericPort?: boolean;
+	ok: boolean;
+	name?: string;
+	message?: string;
+	carriesConfiguredHost?: boolean;
+	carriesNumericPort?: boolean;
 }
 
 interface ConfigLoadRun {
-  outcome: ConfigLoadOutcome | null;
-  harnessError: string | null;
-  /** Everything the child printed (stdout + stderr); never surfaced raw. */
-  output: string;
+	outcome: ConfigLoadOutcome | null;
+	harnessError: string | null;
+	/** Everything the child printed (stdout + stderr); never surfaced raw. */
+	output: string;
 }
 
 function runConfigChild(env: Record<string, string>, childSource: string): ConfigLoadRun {
-  const spawned = spawnSync(process.execPath, ["--input-type=module", "--eval", childSource], {
-    cwd: REPO_ROOT,
-    env,
-    encoding: "utf8",
-    timeout: CHILD_TIMEOUT_MS,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+	const spawned = spawnSync(process.execPath, ["--input-type=module", "--eval", childSource], {
+		cwd: REPO_ROOT,
+		env,
+		encoding: "utf8",
+		timeout: CHILD_TIMEOUT_MS,
+		stdio: ["ignore", "pipe", "pipe"],
+	});
 
-  const output = `${spawned.stdout ?? ""}\n${spawned.stderr ?? ""}`;
-  if (spawned.error) {
-    return { outcome: null, harnessError: `child did not run: ${spawned.error.message}`, output };
-  }
-  if (spawned.status === null) {
-    return { outcome: null, harnessError: `child terminated by signal ${spawned.signal}`, output };
-  }
-  const at = output.indexOf(RESULT_SENTINEL);
-  if (at === -1) {
-    return { outcome: null, harnessError: "child produced no parseable result report", output };
-  }
-  try {
-    const outcome = JSON.parse(output.slice(at + RESULT_SENTINEL.length).trim()) as ConfigLoadOutcome;
-    return { outcome, harnessError: null, output };
-  } catch (error) {
-    return { outcome: null, harnessError: `child result not parseable: ${String(error)}`, output };
-  }
+	const output = `${spawned.stdout ?? ""}\n${spawned.stderr ?? ""}`;
+	if (spawned.error) {
+		return { outcome: null, harnessError: `child did not run: ${spawned.error.message}`, output };
+	}
+	if (spawned.status === null) {
+		return { outcome: null, harnessError: `child terminated by signal ${spawned.signal}`, output };
+	}
+	const at = output.indexOf(RESULT_SENTINEL);
+	if (at === -1) {
+		return { outcome: null, harnessError: "child produced no parseable result report", output };
+	}
+	try {
+		const outcome = JSON.parse(
+			output.slice(at + RESULT_SENTINEL.length).trim(),
+		) as ConfigLoadOutcome;
+		return { outcome, harnessError: null, output };
+	} catch (error) {
+		return { outcome: null, harnessError: `child result not parseable: ${String(error)}`, output };
+	}
 }
 
 function loadApplicationConfiguration(env: Record<string, string>): ConfigLoadRun {
-  const childSource = `
+	const childSource = `
     const report = (payload) =>
       process.stdout.write(${JSON.stringify(RESULT_SENTINEL)} + JSON.stringify(payload));
     try {
@@ -212,63 +218,66 @@ function loadApplicationConfiguration(env: Record<string, string>): ConfigLoadRu
       });
     }
   `;
-  return runConfigChild(env, childSource);
+	return runConfigChild(env, childSource);
 }
 
 /** Replace every case-specific configured marker before any child output is
  * used in assertion diagnostics, so a value-echo failure can never republish
  * the value through the test runner's own output. */
 function sanitizeForReporting(
-  text: string,
-  forbidden: ReadonlyArray<{ label: string; value: string }>,
+	text: string,
+	forbidden: ReadonlyArray<{ label: string; value: string }>,
 ): string {
-  let sanitized = text;
-  for (const { value } of forbidden) {
-    if (value.length > 0) {
-      sanitized = sanitized.split(value).join("<redacted-test-marker>");
-    }
-  }
-  return sanitized.length > 400 ? `${sanitized.slice(0, 400)}…` : sanitized;
+	let sanitized = text;
+	for (const { value } of forbidden) {
+		if (value.length > 0) {
+			sanitized = sanitized.split(value).join("<redacted-test-marker>");
+		}
+	}
+	return sanitized.length > 400 ? `${sanitized.slice(0, 400)}…` : sanitized;
 }
 
 function assertHarnessSound(run: ConfigLoadRun): void {
-  assert.ok(run.harnessError === null, `harness failure (not a contract result): ${run.harnessError}`);
-  assert.ok(run.outcome !== null, "harness failure: no configuration-load outcome was reported");
+	assert.ok(
+		run.harnessError === null,
+		`harness failure (not a contract result): ${run.harnessError}`,
+	);
+	assert.ok(run.outcome !== null, "harness failure: no configuration-load outcome was reported");
 }
 
 /** Run one failure case: load the configuration with exactly `env` and assert
  * that the load fails closed, names the expected field/component names, and
  * echoes none of the values configured for this exact case. */
 function expectFailClosedNaming(
-  env: Record<string, string>,
-  expectedFieldNames: ReadonlyArray<string>,
+	env: Record<string, string>,
+	expectedFieldNames: ReadonlyArray<string>,
 ): void {
-  const run = loadApplicationConfiguration(env);
-  const forbidden = echoForbiddenValuesFor(env);
-  assertHarnessSound(run);
-  assert.ok(
-    run.outcome !== null && run.outcome.ok === false,
-    "expected the configuration load to fail closed, but it reported success " +
-      "(the required validation is absent — this is the RED state T008 must resolve)",
-  );
-  const message = run.outcome?.message ?? "";
-  assert.ok(
-    typeof message === "string" && message.trim().length > 0,
-    "failure must include an actionable, non-empty message",
-  );
-  for (const field of expectedFieldNames) {
-    assert.ok(
-      message.includes(field),
-      `failure message must identify the field/component name "${field}"; message: ` +
-        sanitizeForReporting(message, forbidden),
-    );
-  }
-  for (const { label, value } of forbidden) {
-    assert.ok(
-      !run.output.includes(value),
-      `failure output must never echo the configured ${label}`,
-    );
-  }
+	const run = loadApplicationConfiguration(env);
+	const forbidden = echoForbiddenValuesFor(env);
+	assertHarnessSound(run);
+	assert.ok(
+		run.outcome !== null && run.outcome.ok === false,
+		"expected the configuration load to fail closed, but it reported success " +
+			"(the required validation is absent — this is the RED state T008 must resolve)",
+	);
+	const message = run.outcome?.message ?? "";
+	assert.ok(
+		typeof message === "string" && message.trim().length > 0,
+		"failure must include an actionable, non-empty message",
+	);
+	for (const field of expectedFieldNames) {
+		assert.ok(
+			message.includes(field),
+			`failure message must identify the field/component name "${field}"; message: ` +
+				sanitizeForReporting(message, forbidden),
+		);
+	}
+	for (const { label, value } of forbidden) {
+		assert.ok(
+			!run.output.includes(value),
+			`failure output must never echo the configured ${label}`,
+		);
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -279,20 +288,20 @@ function expectFailClosedNaming(
 // ---------------------------------------------------------------------------
 
 describe("valid native runtime configuration (control)", () => {
-  it("loads the canonical application configuration successfully without echoing any configured value", () => {
-    const env = validBaselineEnv();
-    const run = loadApplicationConfiguration(env);
-    const forbidden = echoForbiddenValuesFor(env);
-    assertHarnessSound(run);
-    assert.ok(
-      run.outcome?.ok === true,
-      "valid synthetic inputs must not be rejected; failure would indicate a harness " +
-        `or dependency problem, not a contract result: ${sanitizeForReporting(run.output, forbidden)}`,
-    );
-    for (const { label, value } of forbidden) {
-      assert.ok(!run.output.includes(value), `successful load output must not echo the ${label}`);
-    }
-  });
+	it("loads the canonical application configuration successfully without echoing any configured value", () => {
+		const env = validBaselineEnv();
+		const run = loadApplicationConfiguration(env);
+		const forbidden = echoForbiddenValuesFor(env);
+		assertHarnessSound(run);
+		assert.ok(
+			run.outcome?.ok === true,
+			"valid synthetic inputs must not be rejected; failure would indicate a harness " +
+				`or dependency problem, not a contract result: ${sanitizeForReporting(run.output, forbidden)}`,
+		);
+		for (const { label, value } of forbidden) {
+			assert.ok(!run.output.includes(value), `successful load output must not echo the ${label}`);
+		}
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -301,31 +310,31 @@ describe("valid native runtime configuration (control)", () => {
 // ---------------------------------------------------------------------------
 
 const REQUIRED_INPUTS = [
-  "PGHOST",
-  "PGPORT",
-  "PGDATABASE",
-  "PGUSER",
-  "PGPASSWORD",
-  "EMDASH_MIGRATION_DATABASE_URL",
-  "EMDASH_SITE_URL",
-  "HOST",
-  "PORT",
-  "EMDASH_ENCRYPTION_KEY",
+	"PGHOST",
+	"PGPORT",
+	"PGDATABASE",
+	"PGUSER",
+	"PGPASSWORD",
+	"EMDASH_MIGRATION_DATABASE_URL",
+	"EMDASH_SITE_URL",
+	"HOST",
+	"PORT",
+	"EMDASH_ENCRYPTION_KEY",
 ] as const;
 
 describe("missing or empty required values fail closed", () => {
-  for (const inputName of REQUIRED_INPUTS) {
-    it(`fails closed naming ${inputName} when it is unset`, () => {
-      const env = validBaselineEnv();
-      delete env[inputName];
-      expectFailClosedNaming(env, [inputName]);
-    });
+	for (const inputName of REQUIRED_INPUTS) {
+		it(`fails closed naming ${inputName} when it is unset`, () => {
+			const env = validBaselineEnv();
+			delete env[inputName];
+			expectFailClosedNaming(env, [inputName]);
+		});
 
-    it(`fails closed naming ${inputName} when it is empty`, () => {
-      const env = { ...validBaselineEnv(), [inputName]: "" };
-      expectFailClosedNaming(env, [inputName]);
-    });
-  }
+		it(`fails closed naming ${inputName} when it is empty`, () => {
+			const env = { ...validBaselineEnv(), [inputName]: "" };
+			expectFailClosedNaming(env, [inputName]);
+		});
+	}
 });
 
 // ---------------------------------------------------------------------------
@@ -338,55 +347,62 @@ describe("missing or empty required values fail closed", () => {
 // ---------------------------------------------------------------------------
 
 describe("malformed required values fail closed", () => {
-  const invalidTcpPorts: ReadonlyArray<{ variable: string; value: string; reason: string }> = [
-    { variable: "PGPORT", value: "synthetic-not-a-port", reason: "non-numeric TCP port" },
-    { variable: "PGPORT", value: "-54329", reason: "negative TCP port below the usable 1-65535 range" },
-    { variable: "PGPORT", value: "70000", reason: "TCP port above 65535" },
-    { variable: "PORT", value: "synthetic-not-a-port", reason: "non-numeric TCP port" },
-    { variable: "PORT", value: "70000", reason: "TCP port above 65535" },
-  ];
-  for (const { variable, value, reason } of invalidTcpPorts) {
-    it(`fails closed naming ${variable} for ${reason}`, () => {
-      const env = { ...validBaselineEnv(), [variable]: value };
-      expectFailClosedNaming(env, [variable]);
-    });
-  }
+	const invalidTcpPorts: ReadonlyArray<{ variable: string; value: string; reason: string }> = [
+		{ variable: "PGPORT", value: "synthetic-not-a-port", reason: "non-numeric TCP port" },
+		{
+			variable: "PGPORT",
+			value: "-54329",
+			reason: "negative TCP port below the usable 1-65535 range",
+		},
+		{ variable: "PGPORT", value: "70000", reason: "TCP port above 65535" },
+		{ variable: "PORT", value: "synthetic-not-a-port", reason: "non-numeric TCP port" },
+		{ variable: "PORT", value: "70000", reason: "TCP port above 65535" },
+	];
+	for (const { variable, value, reason } of invalidTcpPorts) {
+		it(`fails closed naming ${variable} for ${reason}`, () => {
+			const env = { ...validBaselineEnv(), [variable]: value };
+			expectFailClosedNaming(env, [variable]);
+		});
+	}
 
-  it("fails closed naming EMDASH_SITE_URL when the origin has no scheme (bare host)", () => {
-    const env = { ...validBaselineEnv(), EMDASH_SITE_URL: "synthetic-site-origin.example.invalid" };
-    expectFailClosedNaming(env, ["EMDASH_SITE_URL"]);
-  });
+	it("fails closed naming EMDASH_SITE_URL when the origin has no scheme (bare host)", () => {
+		const env = { ...validBaselineEnv(), EMDASH_SITE_URL: "synthetic-site-origin.example.invalid" };
+		expectFailClosedNaming(env, ["EMDASH_SITE_URL"]);
+	});
 
-  it("fails closed naming EMDASH_SITE_URL when the origin has a scheme but no host", () => {
-    // Distinctive scheme-with-empty-host value: asserting its absence cannot
-    // collide with a legitimate scheme hint such as "http:// or https://".
-    const env = { ...validBaselineEnv(), EMDASH_SITE_URL: "http://:43219" };
-    expectFailClosedNaming(env, ["EMDASH_SITE_URL"]);
-  });
+	it("fails closed naming EMDASH_SITE_URL when the origin has a scheme but no host", () => {
+		// Distinctive scheme-with-empty-host value: asserting its absence cannot
+		// collide with a legitimate scheme hint such as "http:// or https://".
+		const env = { ...validBaselineEnv(), EMDASH_SITE_URL: "http://:43219" };
+		expectFailClosedNaming(env, ["EMDASH_SITE_URL"]);
+	});
 
-  it("fails closed naming EMDASH_MIGRATION_DATABASE_URL when it is not a parsable URL", () => {
-    const env = { ...validBaselineEnv(), EMDASH_MIGRATION_DATABASE_URL: "synthetic-malformed-not-a-url" };
-    expectFailClosedNaming(env, ["EMDASH_MIGRATION_DATABASE_URL"]);
-  });
+	it("fails closed naming EMDASH_MIGRATION_DATABASE_URL when it is not a parsable URL", () => {
+		const env = {
+			...validBaselineEnv(),
+			EMDASH_MIGRATION_DATABASE_URL: "synthetic-malformed-not-a-url",
+		};
+		expectFailClosedNaming(env, ["EMDASH_MIGRATION_DATABASE_URL"]);
+	});
 
-  it("fails closed naming EMDASH_MIGRATION_DATABASE_URL when the scheme is not PostgreSQL", () => {
-    const nonPostgresUrl =
-      `mysql://${SYNTHETIC_IDENTITY.user}:${SYNTHETIC_URL_PASSWORD}` +
-      `@${SYNTHETIC_IDENTITY.host}:${SYNTHETIC_IDENTITY.port}/${SYNTHETIC_IDENTITY.database}`;
-    const env = { ...validBaselineEnv(), EMDASH_MIGRATION_DATABASE_URL: nonPostgresUrl };
-    expectFailClosedNaming(env, ["EMDASH_MIGRATION_DATABASE_URL"]);
-  });
+	it("fails closed naming EMDASH_MIGRATION_DATABASE_URL when the scheme is not PostgreSQL", () => {
+		const nonPostgresUrl =
+			`mysql://${SYNTHETIC_IDENTITY.user}:${SYNTHETIC_URL_PASSWORD}` +
+			`@${SYNTHETIC_IDENTITY.host}:${SYNTHETIC_IDENTITY.port}/${SYNTHETIC_IDENTITY.database}`;
+		const env = { ...validBaselineEnv(), EMDASH_MIGRATION_DATABASE_URL: nonPostgresUrl };
+		expectFailClosedNaming(env, ["EMDASH_MIGRATION_DATABASE_URL"]);
+	});
 
-  it("fails closed naming EMDASH_MIGRATION_DATABASE_URL when it is incomplete (no user or database identity)", () => {
-    // Distinctive scheme+host+port value with no user or database component;
-    // asserting its absence cannot collide with a legitimate postgresql://
-    // scheme hint.
-    const env = {
-      ...validBaselineEnv(),
-      EMDASH_MIGRATION_DATABASE_URL: `postgresql://${SYNTHETIC_IDENTITY.host}:${SYNTHETIC_IDENTITY.port}`,
-    };
-    expectFailClosedNaming(env, ["EMDASH_MIGRATION_DATABASE_URL"]);
-  });
+	it("fails closed naming EMDASH_MIGRATION_DATABASE_URL when it is incomplete (no user or database identity)", () => {
+		// Distinctive scheme+host+port value with no user or database component;
+		// asserting its absence cannot collide with a legitimate postgresql://
+		// scheme hint.
+		const env = {
+			...validBaselineEnv(),
+			EMDASH_MIGRATION_DATABASE_URL: `postgresql://${SYNTHETIC_IDENTITY.host}:${SYNTHETIC_IDENTITY.port}`,
+		};
+		expectFailClosedNaming(env, ["EMDASH_MIGRATION_DATABASE_URL"]);
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -398,25 +414,25 @@ describe("malformed required values fail closed", () => {
 // ---------------------------------------------------------------------------
 
 describe("PG* runtime inputs and migration URL must agree on the intended database", () => {
-  it("fails closed when PGHOST disagrees with the migration URL host component", () => {
-    const env = { ...validBaselineEnv(), PGHOST: "synthetic-alt-host.example.invalid" };
-    expectFailClosedNaming(env, ["PGHOST", "EMDASH_MIGRATION_DATABASE_URL"]);
-  });
+	it("fails closed when PGHOST disagrees with the migration URL host component", () => {
+		const env = { ...validBaselineEnv(), PGHOST: "synthetic-alt-host.example.invalid" };
+		expectFailClosedNaming(env, ["PGHOST", "EMDASH_MIGRATION_DATABASE_URL"]);
+	});
 
-  it("fails closed when PGPORT disagrees with the migration URL port component", () => {
-    const env = { ...validBaselineEnv(), PGPORT: "65432" };
-    expectFailClosedNaming(env, ["PGPORT", "EMDASH_MIGRATION_DATABASE_URL"]);
-  });
+	it("fails closed when PGPORT disagrees with the migration URL port component", () => {
+		const env = { ...validBaselineEnv(), PGPORT: "65432" };
+		expectFailClosedNaming(env, ["PGPORT", "EMDASH_MIGRATION_DATABASE_URL"]);
+	});
 
-  it("fails closed when PGDATABASE disagrees with the migration URL database component", () => {
-    const env = { ...validBaselineEnv(), PGDATABASE: "synthetic_alt_database" };
-    expectFailClosedNaming(env, ["PGDATABASE", "EMDASH_MIGRATION_DATABASE_URL"]);
-  });
+	it("fails closed when PGDATABASE disagrees with the migration URL database component", () => {
+		const env = { ...validBaselineEnv(), PGDATABASE: "synthetic_alt_database" };
+		expectFailClosedNaming(env, ["PGDATABASE", "EMDASH_MIGRATION_DATABASE_URL"]);
+	});
 
-  it("fails closed when PGUSER disagrees with the migration URL user component", () => {
-    const env = { ...validBaselineEnv(), PGUSER: "synthetic_alt_user" };
-    expectFailClosedNaming(env, ["PGUSER", "EMDASH_MIGRATION_DATABASE_URL"]);
-  });
+	it("fails closed when PGUSER disagrees with the migration URL user component", () => {
+		const env = { ...validBaselineEnv(), PGUSER: "synthetic_alt_user" };
+		expectFailClosedNaming(env, ["PGUSER", "EMDASH_MIGRATION_DATABASE_URL"]);
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -432,8 +448,8 @@ describe("PG* runtime inputs and migration URL must agree on the intended databa
 // ---------------------------------------------------------------------------
 
 describe("validated HOST/PORT are carried in the exported Astro server configuration", () => {
-  function loadExportedServerBoundary(env: Record<string, string>): ConfigLoadRun {
-    const childSource = `
+	function loadExportedServerBoundary(env: Record<string, string>): ConfigLoadRun {
+		const childSource = `
       const report = (payload) =>
         process.stdout.write(${JSON.stringify(RESULT_SENTINEL)} + JSON.stringify(payload));
       try {
@@ -453,31 +469,31 @@ describe("validated HOST/PORT are carried in the exported Astro server configura
         });
       }
     `;
-    return runConfigChild(env, childSource);
-  }
+		return runConfigChild(env, childSource);
+	}
 
-  it("exports the configured host and the numeric configured port as the native server boundary", () => {
-    const env = validBaselineEnv();
-    const run = loadExportedServerBoundary(env);
-    const forbidden = echoForbiddenValuesFor(env);
-    assertHarnessSound(run);
-    assert.ok(
-      run.outcome?.ok === true,
-      "valid synthetic inputs must load; failure would indicate a harness or dependency " +
-        `problem: ${sanitizeForReporting(run.output, forbidden)}`,
-    );
-    assert.ok(
-      run.outcome?.carriesConfiguredHost === true,
-      "the exported configuration must carry the configured HOST as server.host, so " +
-        "`astro dev` binds the configured boundary instead of a default localhost resolution",
-    );
-    assert.ok(
-      run.outcome?.carriesNumericPort === true,
-      "the exported configuration must carry the configured PORT as the numeric server.port " +
-        "required by Astro's native server configuration type",
-    );
-    for (const { label, value } of forbidden) {
-      assert.ok(!run.output.includes(value), `load output must not echo the ${label}`);
-    }
-  });
+	it("exports the configured host and the numeric configured port as the native server boundary", () => {
+		const env = validBaselineEnv();
+		const run = loadExportedServerBoundary(env);
+		const forbidden = echoForbiddenValuesFor(env);
+		assertHarnessSound(run);
+		assert.ok(
+			run.outcome?.ok === true,
+			"valid synthetic inputs must load; failure would indicate a harness or dependency " +
+				`problem: ${sanitizeForReporting(run.output, forbidden)}`,
+		);
+		assert.ok(
+			run.outcome?.carriesConfiguredHost === true,
+			"the exported configuration must carry the configured HOST as server.host, so " +
+				"`astro dev` binds the configured boundary instead of a default localhost resolution",
+		);
+		assert.ok(
+			run.outcome?.carriesNumericPort === true,
+			"the exported configuration must carry the configured PORT as the numeric server.port " +
+				"required by Astro's native server configuration type",
+		);
+		for (const { label, value } of forbidden) {
+			assert.ok(!run.output.includes(value), `load output must not echo the ${label}`);
+		}
+	});
 });
