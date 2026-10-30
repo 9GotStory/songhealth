@@ -120,8 +120,12 @@ checks that every cited file exists. When the pinned version changes, re-verify 
 - Full-text search is SQLite-only: `enableSearch` throws on PostgreSQL (`src/search/fts-manager.ts`;
   ADR 0002).
 - Seed taxonomy terms are applied only with content (`src/seed/apply.ts`), and `emdash seed` opens
-  SQLite only (`src/cli/commands/seed.ts`). The model-update step uses the schema API instead
-  (`./scripts/model-update.mjs`).
+  SQLite only (`src/cli/commands/seed.ts`). The model-update step uses the schema and taxonomy APIs
+  instead (`./scripts/model-update.mjs`).
+- An API token reads `/_emdash/api/taxonomies` with the `content:read` scope and creates terms with
+  `taxonomies:manage` (`src/astro/middleware/auth.ts`). A term list is a tree for a hierarchical
+  taxonomy, and `?includeCounts=false` skips the per-term counts (`src/api/handlers/taxonomies.ts`
+  `handleTermList`, `src/api/schemas/taxonomies.ts` `termListQuery`).
 
 ## Native API for tests
 

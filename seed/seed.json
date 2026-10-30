@@ -692,7 +692,12 @@
       "label": "ประเภทเอกสาร",
       "labelSingular": "ประเภทเอกสาร",
       "hierarchical": false,
-      "collections": ["documents"]
+      "collections": ["documents"],
+      "terms": [
+        { "slug": "policy", "label": "นโยบาย" },
+        { "slug": "plan", "label": "แผนงาน" },
+        { "slug": "result", "label": "ผลการดำเนินงาน" }
+      ]
     },
     {
       "name": "news_category",

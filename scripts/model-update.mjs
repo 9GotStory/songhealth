@@ -1,5 +1,5 @@
-// The model-update step (#53): brings an existing database to the content model of
-// seed/seed.json through EmDash's native schema API, and tells whether it is there.
+// The model-update step (#53, #60): brings an existing database to the content model of
+// seed/seed.json through EmDash's native schema and taxonomy APIs, and tells whether it is there.
 //
 //   node scripts/model-update.mjs --origin <origin> [--check] < <Administrator PAT file>
 //
@@ -7,14 +7,18 @@
 // `onConflict: "skip"`, so an existing collection keeps its settings
 // (src/astro/routes/api/setup/index.ts and dev-bypass.ts). `emdash seed` opens only a SQLite
 // file (src/cli/commands/seed.ts), and `emdash schema` cannot update a collection
-// (src/cli/commands/schema.ts). The step therefore uses the schema REST API that the Admin uses:
-// GET and PUT /_emdash/api/schema/collections (src/astro/routes/api/schema/collections/).
+// (src/cli/commands/schema.ts). Setup also skips the seed's taxonomy terms unless it installs
+// sample content (src/seed/apply.ts `includeContent`). The step therefore uses the REST APIs that
+// the Admin uses: GET and PUT /_emdash/api/schema/collections (src/astro/routes/api/schema/
+// collections/), GET /_emdash/api/taxonomies, and GET and POST /_emdash/api/taxonomies/{name}/terms
+// (src/astro/routes/api/taxonomies/).
 //
 // The token is read from standard input and never printed. With --check the step only reads:
 // it lists the pending changes and exits 0 when there are none and 3 when there are. Without
 // it, the step applies them and reads the model again to confirm. A problem changes nothing
 // and exits 1: a URL pattern the database already has, which the step never replaces because
-// that would move every public address of the collection, or a collection the database lacks.
+// that would move every public address of the collection, or a collection or taxonomy the
+// database lacks.
 //
 // The caller backs up first (on the development runtime, scripts/dev-runtime-model-update.sh
 // does). No types need regenerating: the repository does not use EmDash's generated types, and
@@ -31,6 +35,11 @@ import { parseArgs } from "node:util";
  * @property {string} [urlPattern]
  * @property {boolean} [routable]
  *
+ * @typedef {object} SeedTaxonomy A taxonomy of seed/seed.json, with the reference terms it
+ *   starts with (src/seed/types.ts SeedTaxonomyTerm).
+ * @property {string} name
+ * @property {{ slug: string, label: string }[]} [terms]
+ *
  * @typedef {object} LiveCollection A collection as GET /_emdash/api/schema/collections lists it
  *   (src/schema/registry.ts mapCollectionRow, which leaves out an unset URL pattern).
  * @property {string} slug
@@ -39,7 +48,15 @@ import { parseArgs } from "node:util";
  * @property {boolean} hasSeo
  * @property {boolean} routable
  *
- * @typedef {{ collections: LiveCollection[] }} LiveModel
+ * @typedef {object} LiveTaxonomy A taxonomy the database has, with the slug and label of each of
+ *   its terms (GET /_emdash/api/taxonomies/{name}/terms, src/api/handlers/taxonomies.ts).
+ * @property {string} name
+ * @property {{ slug: string, label: string }[]} terms
+ *
+ * @typedef {{ collections: LiveCollection[], taxonomies: LiveTaxonomy[] }} LiveModel
+ *
+ * @typedef {{ taxonomy: string, slug: string, label: string }} TermCreate A term to create with
+ *   POST /_emdash/api/taxonomies/{taxonomy}/terms (src/api/schemas/taxonomies.ts createTermBody).
  *
  * @typedef {object} CollectionUpdate Settings for PUT /_emdash/api/schema/collections/{slug}
  *   (src/api/schemas/schema.ts updateCollectionBody).
@@ -60,9 +77,18 @@ import { parseArgs } from "node:util";
  *   handleSitemapData);
  * - routability is set to the seed's value, routable unless the seed says otherwise.
  *
- * @param {{ collections: SeedCollection[] }} seed the parsed seed/seed.json
+ * For each taxonomy the seed gives reference terms, such as the Document Types the About pages
+ * list by, the step adds the terms whose slug the taxonomy lacks. A term staff relabelled keeps
+ * its label, and no term is removed.
+ *
+ * @param {{ collections: SeedCollection[], taxonomies?: SeedTaxonomy[] }} seed the parsed
+ *   seed/seed.json
  * @param {LiveModel} live the live model
- * @returns {{ collections: { slug: string, update: CollectionUpdate }[], problems: string[] }}
+ * @returns {{
+ *   collections: { slug: string, update: CollectionUpdate }[],
+ *   terms: TermCreate[],
+ *   problems: string[],
+ * }}
  */
 export function planModelUpdate(seed, live) {
 	const current = new Map(live.collections.map((collection) => [collection.slug, collection]));
@@ -102,7 +128,22 @@ export function planModelUpdate(seed, live) {
 			collections.push({ slug: wanted.slug, update });
 		}
 	}
-	return { collections, problems };
+	const taxonomies = new Map(live.taxonomies.map((taxonomy) => [taxonomy.name, taxonomy]));
+	/** @type {TermCreate[]} */
+	const terms = [];
+	for (const wanted of seed.taxonomies ?? []) {
+		if (!wanted.terms?.length) continue;
+		const have = taxonomies.get(wanted.name);
+		if (have === undefined) {
+			problems.push(`${wanted.name}: the database has no such taxonomy`);
+			continue;
+		}
+		const slugs = new Set(have.terms.map((term) => term.slug));
+		for (const { slug, label } of wanted.terms) {
+			if (!slugs.has(slug)) terms.push({ taxonomy: wanted.name, slug, label });
+		}
+	}
+	return { collections, terms, problems };
 }
 
 const USAGE = "usage: node scripts/model-update.mjs --origin <origin> [--check] < <PAT file>";
@@ -115,6 +156,20 @@ function describe(update) {
 	return Object.entries(update)
 		.map(([setting, value]) => `${setting} ${Array.isArray(value) ? value.join(",") : value}`)
 		.join("; ");
+}
+
+/**
+ * Every term of a term list, children included: a hierarchical taxonomy lists its terms as a tree
+ * (src/api/handlers/taxonomies.ts handleTermList).
+ *
+ * @param {{ slug: string, label: string, children?: unknown[] }[]} terms
+ * @returns {{ slug: string, label: string }[]}
+ */
+function flattenTerms(terms) {
+	return terms.flatMap(({ slug, label, children = [] }) => [
+		{ slug, label },
+		...flattenTerms(/** @type {typeof terms} */ (children)),
+	]);
 }
 
 /** @param {string} line */
@@ -205,9 +260,27 @@ async function main(args) {
 		const seed = JSON.parse(await readFile(new URL("../seed/seed.json", import.meta.url), "utf8"));
 		const api = nativeApi(options.origin, token);
 		/** @returns {Promise<LiveModel>} */
-		const readModel = async () => ({
-			collections: (await api("GET", "/_emdash/api/schema/collections")).items,
-		});
+		const readModel = async () => {
+			const existing = new Set(
+				(await api("GET", "/_emdash/api/taxonomies")).taxonomies.map(
+					(/** @type {{ name: string }} */ taxonomy) => taxonomy.name,
+				),
+			);
+			/** @type {LiveTaxonomy[]} */
+			const taxonomies = [];
+			for (const { name, terms } of seed.taxonomies ?? []) {
+				if (!terms?.length || !existing.has(name)) continue;
+				const listed = await api(
+					"GET",
+					`/_emdash/api/taxonomies/${encodeURIComponent(name)}/terms?includeCounts=false`,
+				);
+				taxonomies.push({ name, terms: flattenTerms(listed.terms) });
+			}
+			return {
+				collections: (await api("GET", "/_emdash/api/schema/collections")).items,
+				taxonomies,
+			};
+		};
 
 		const plan = planModelUpdate(seed, await readModel());
 		for (const problem of plan.problems) say(`PROBLEM: ${problem}`);
@@ -215,7 +288,7 @@ async function main(args) {
 			say("nothing was changed");
 			return EXIT.FAILED;
 		}
-		if (plan.collections.length === 0) {
+		if (plan.collections.length === 0 && plan.terms.length === 0) {
 			say("the database has the seed's content model; nothing to change");
 			return EXIT.MATCHES;
 		}
@@ -227,11 +300,22 @@ async function main(args) {
 				say(`applied: ${slug}: ${describe(update)}`);
 			}
 		}
+		for (const { taxonomy, slug, label } of plan.terms) {
+			if (options.check) {
+				say(`pending: ${taxonomy}: term ${slug} (${label})`);
+			} else {
+				await api("POST", `/_emdash/api/taxonomies/${encodeURIComponent(taxonomy)}/terms`, {
+					slug,
+					label,
+				});
+				say(`applied: ${taxonomy}: term ${slug} (${label})`);
+			}
+		}
 		if (options.check) {
 			return EXIT.PENDING;
 		}
 		const after = planModelUpdate(seed, await readModel());
-		if (after.problems.length > 0 || after.collections.length > 0) {
+		if (after.problems.length > 0 || after.collections.length > 0 || after.terms.length > 0) {
 			say("FAIL: the database still differs from the seed after the update");
 			return EXIT.FAILED;
 		}
