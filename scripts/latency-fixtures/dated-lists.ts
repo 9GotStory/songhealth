@@ -1,11 +1,13 @@
 // Latency content for the lists that sort every published entry in code (#56, ADR 0004): 1,000
 // published Activities and 1,000 published Announcements, half of them without their own date,
 // with pictures, a gallery, details and a type, as real ones carry. Publications are spread from
-// 2022 to now.
+// 2022 to now. The Homepage reads both collections whole for its latest Activities and current
+// Announcements (#64), so it is timed with them.
 
 import type { FixtureKit } from "../fixture-kit.ts";
 
 export const paths = [
+	"/",
 	"/activities",
 	"/activities?page=42",
 	"/announcements",
