@@ -165,6 +165,12 @@ test("an Activity card shows its picture, or the Activity visual when it has non
 	expect((await deleteMedia(admin, goneId)).ok, "deleting the media item").toBe(true);
 
 	await page.goto("/activities");
+	await expect(listedItem(page, pictured.title).getByRole("heading", { level: 2 })).toHaveText(
+		pictured.title,
+	);
+	await expect(
+		listedItem(page, pictured.title).getByText("กิจกรรม", { exact: true }),
+	).toBeVisible();
 	await expect(listedItem(page, pictured.title).locator("img")).toHaveCount(1);
 	await expect(listedItem(page, pictured.title).getByTestId("activity-visual")).toHaveCount(0);
 	for (const activity of [plain, pictureGone]) {

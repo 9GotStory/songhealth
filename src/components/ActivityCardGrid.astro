@@ -19,7 +19,7 @@ const FIRST_ROW = 3;
 <ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
 	{entries.map((entry, index) => (
 		<li>
-			<ActivityCard activity={entry} headingLevel={2} withSummary eager={index < FIRST_ROW} />
+			<ActivityCard activity={entry} showSummary eager={index < FIRST_ROW} />
 		</li>
 	))}
 </ul>

@@ -356,6 +356,20 @@ test("up to 3 current Announcements show beside it, newest first by announcement
 	await expect(
 		section(page, NEWS_HEADING).getByRole("link", { name: "ดูประกาศทั้งหมด" }),
 	).toHaveAttribute("href", "/announcements");
+	// Each list link follows its own box: the order a phone shows them in, and a screen reader reads.
+	const order = [
+		/^อ่านข่าว /,
+		/^ดูข่าวทั้งหมด$/,
+		/^ดูรายละเอียด /,
+		/^ดูรายละเอียด /,
+		/^ดูรายละเอียด /,
+		/^ดูประกาศทั้งหมด$/,
+	];
+	const sectionLinks = section(page, NEWS_HEADING).getByRole("link");
+	await expect(sectionLinks).toHaveCount(order.length);
+	for (const [index, name] of order.entries()) {
+		await expect(sectionLinks.nth(index)).toHaveAccessibleName(name);
+	}
 	for (const hidden of [fourth, closed, draft]) {
 		await expect(page.getByRole("main"), hidden.title).not.toContainText(hidden.title);
 	}
@@ -446,9 +460,11 @@ test("Activities shows the latest 3 by Activity date, each with its picture or t
 	page,
 }) => {
 	const heldAt = (day: number) => `2032-03-${String(day).padStart(2, "0")}T03:00:00.000Z`;
+	const activitySummary = `${SYNTHETIC_FIXTURE_MARK} สรุปกิจกรรมที่หน้าแรกไม่แสดง`;
 	const latest = await create("activities", "latest", {
 		data: {
 			activity_at: heldAt(4),
+			summary: activitySummary,
 			featured_image: {
 				id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพกิจกรรม`),
 			},
@@ -490,6 +506,9 @@ test("Activities shows the latest 3 by Activity date, each with its picture or t
 		await expect(card.locator("img"), activity.title).toHaveCount(0);
 		await expect(card.getByTestId("activity-visual"), activity.title).toHaveCount(1);
 	}
+	await expect(activities, "the Homepage's cards leave the summary out").not.toContainText(
+		activitySummary,
+	);
 	await expect(activities.getByRole("link", { name: "ดูกิจกรรมทั้งหมด" })).toHaveAttribute(
 		"href",
 		"/activities",

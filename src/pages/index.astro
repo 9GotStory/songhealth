@@ -23,9 +23,10 @@
 // The Frequently Used Services and Quick Access come with the Homepage menus (#65).
 //
 // Beyond the Figma frame, on the Product Owner's decision (2026-10-30: #64 comment 6526131459):
-// the links to the News, Announcements and Health Content lists, without which no page linked to
-// the Announcements list; each Announcement's status; and the Contact Summary's lead as the page's
-// description, since EmDash's site settings hold no description and a tagline is a slogan.
+// the links to the News, Announcements and Health Content lists, since the Announcements list is in
+// no navigation; each Announcement's status; and the Contact Summary's lead as the page's
+// description, since a tagline is a slogan and EmDash's site settings hold no description (emdash
+// 1.1.0 src/api/schemas/settings.ts).
 //
 // The meta element named "songhealth-foundation" with content "public-runtime" is the Feature 001
 // public-runtime marker (T011): tests/browser/foundation.spec.ts, the development runtime's verify
@@ -268,7 +269,7 @@ const control =
 				<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
 					{activities.map((activity) => (
 						<li>
-							<ActivityCard activity={activity} />
+							<ActivityCard activity={activity} headingLevel={3} />
 						</li>
 					))}
 				</ul>
