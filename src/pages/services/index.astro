@@ -28,7 +28,7 @@ const lead =
 const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
 const filters = parseServiceFilters(Astro.url.searchParams);
 const [{ entries, hasMore }, categories] = await Promise.all([
-	listServices(page, filters.category),
+	listServices(page, filters),
 	listTerms("service_category"),
 ]);
 const listUrl = new URL(servicesPath(filters), Astro.url);

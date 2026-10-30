@@ -53,8 +53,9 @@ describe("isExternalHref", () => {
 		assert.equal(isExternalHref("http://songhealth.example.other/", site), true);
 	});
 
-	it("is false for an address on this site, absolute or site-relative", () => {
+	it("is false for an address on this site, absolute in either scheme or site-relative", () => {
 		assert.equal(isExternalHref("https://songhealth.example/documents/form", site), false);
+		assert.equal(isExternalHref("http://songhealth.example/documents/form", site), false);
 		assert.equal(isExternalHref("/documents/form", site), false);
 		assert.equal(isExternalHref("#steps", site), false);
 	});

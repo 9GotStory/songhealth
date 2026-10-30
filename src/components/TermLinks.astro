@@ -1,0 +1,26 @@
+---
+// An entry's terms as links to the list each one filters (Feature 003 #57, #58): a Health
+// Service's Areas to the directory, a Service's categories to the catalog.
+import type { TaxonomyTerm } from "emdash";
+
+interface Props {
+	terms: TaxonomyTerm[];
+	/** The address of the list filtered by the term with this slug. */
+	href: (slug: string) => string;
+}
+
+const { terms, href } = Astro.props;
+---
+
+<ul class="flex flex-wrap gap-x-4 gap-y-1">
+	{terms.map((term) => (
+		<li>
+			<a
+				class="inline-flex min-h-11 items-center text-brand-primary underline underline-offset-4"
+				href={href(term.slug)}
+			>
+				{term.label}
+			</a>
+		</li>
+	))}
+</ul>

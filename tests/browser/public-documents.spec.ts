@@ -28,7 +28,7 @@ import {
 	cleanupOwnedFixtures,
 	cmsRequest,
 	createPatActor,
-	createSyntheticEntry,
+	createSyntheticDocument,
 	createOwnedTerm,
 	deleteMedia,
 	deleteSyntheticTerms,
@@ -44,7 +44,6 @@ import {
 	unpublishEntry,
 	uploadSyntheticPdf,
 	type CmsActor,
-	type SyntheticPdf,
 	type SyntheticTerm,
 } from "./cms.helpers";
 import {
@@ -77,37 +76,11 @@ const ownedTerms: SyntheticTerm[] = [];
 const createTerm = (taxonomy: string, label: string) =>
 	createOwnedTerm(admin, taxonomy, label, ownedTerms);
 
-interface DocumentFixture {
-	id: string;
-	slug: string;
-	title: string;
-	file: SyntheticPdf;
-}
+type DocumentFixture = Awaited<ReturnType<typeof createSyntheticDocument>>;
 
-/** A synthetic Document draft with its own synthetic PDF. Its title is unique. */
-async function createDocument(
-	label: string,
-	fields: {
-		data?: Record<string, unknown>;
-		taxonomies?: Record<string, string[]>;
-		references?: Record<string, string[]>;
-		seo?: Record<string, unknown>;
-		file?: SyntheticPdf;
-	} = {},
-): Promise<DocumentFixture> {
-	const slug = syntheticSlug(label);
-	const title = `${SYNTHETIC_FIXTURE_MARK} เอกสาร ${label} ${slug.slice(-6)}`;
-	const file = fields.file ?? (await uploadSyntheticPdf(admin));
-	const created = await createSyntheticEntry(admin, "documents", {
-		data: { title, file: file.value, ...fields.data },
-		slug,
-		...(fields.taxonomies ? { taxonomies: fields.taxonomies } : {}),
-		...(fields.references ? { references: fields.references } : {}),
-		...(fields.seo ? { seo: fields.seo } : {}),
-	});
-	expect(created.result.ok, `document ${label}: ${nativeRefusalOf(created.result)}`).toBe(true);
-	return { id: created.entryId!, slug, title, file };
-}
+/** A synthetic Document draft with its own synthetic PDF unless `fields` gives one. */
+const createDocument = (label: string, fields?: Parameters<typeof createSyntheticDocument>[2]) =>
+	createSyntheticDocument(admin, label, fields);
 
 /** Publish now. */
 async function publish(document: DocumentFixture): Promise<void> {

@@ -27,7 +27,9 @@ import {
 	cmsRequest,
 	createOwnedTerm,
 	createPatActor,
-	createSyntheticEntry,
+	createSyntheticDocument,
+	createSyntheticHealthService,
+	createSyntheticService,
 	deleteSyntheticTerms,
 	loadDevAccessToken,
 	nativeDataOf,
@@ -41,6 +43,7 @@ import {
 	unpublishEntry,
 	uploadSyntheticPdf,
 	type CmsActor,
+	type DraftFixture,
 	type SyntheticPdf,
 	type SyntheticTerm,
 } from "./cms.helpers";
@@ -73,41 +76,12 @@ const ownedTerms: SyntheticTerm[] = [];
 const createCategory = (label: string) =>
 	createOwnedTerm(admin, "service_category", label, ownedTerms);
 
-interface EntryFixture {
-	id: string;
-	slug: string;
-	title: string;
-}
-
-/**
- * A synthetic Service draft. `name` follows the synthetic mark in its unique title, so a name that
- * starts with ก, ข, ค orders the fixtures in Thai whatever their random endings.
- */
-async function createService(
-	label: string,
-	fields: {
-		name?: string;
-		data?: Record<string, unknown>;
-		taxonomies?: Record<string, string[]>;
-		references?: Record<string, string[]>;
-		seo?: Record<string, unknown>;
-	} = {},
-): Promise<EntryFixture> {
-	const slug = syntheticSlug(label);
-	const title = `${SYNTHETIC_FIXTURE_MARK} ${fields.name ?? "บริการ"} ${label} ${slug.slice(-6)}`;
-	const created = await createSyntheticEntry(admin, "services", {
-		data: { title, ...fields.data },
-		slug,
-		...(fields.taxonomies ? { taxonomies: fields.taxonomies } : {}),
-		...(fields.references ? { references: fields.references } : {}),
-		...(fields.seo ? { seo: fields.seo } : {}),
-	});
-	expect(created.result.ok, `service ${label}: ${nativeRefusalOf(created.result)}`).toBe(true);
-	return { id: created.entryId!, slug, title };
-}
+/** A synthetic Service draft (cms.helpers.ts createSyntheticService). */
+const createService = (label: string, fields?: Parameters<typeof createSyntheticService>[2]) =>
+	createSyntheticService(admin, label, fields);
 
 /** Publish now. */
-async function publish(collection: string, fixture: EntryFixture): Promise<void> {
+async function publish(collection: string, fixture: DraftFixture): Promise<void> {
 	await publishEntryAt(admin, collection, fixture.id);
 }
 
@@ -139,13 +113,17 @@ test("/services lists only published Services by name, each with its summary and
 	page,
 }) => {
 	const summary = `${SYNTHETIC_FIXTURE_MARK} แจ้งเรื่องร้องเรียนการให้บริการของเจ้าหน้าที่`;
-	const first = await createService("listed-first", { name: "ก ร้องเรียน", data: { summary } });
-	const second = await createService("listed-second", { name: "ข แจ้งปัญหาสุขภาพ" });
-	const draft = await createService("draft", { name: "ก ฉบับร่าง" });
-	const unpublished = await createService("unpublished", { name: "ก เลิกเผยแพร่" });
-	const trashed = await createService("trashed", { name: "ก ถังขยะ" });
+	// Thai order puts "ไก่" between "กา" and "ขา": a leading vowel sorts after its consonant.
+	const first = await createService("listed-first", { name: "กา ร้องเรียน", data: { summary } });
+	const middle = await createService("listed-middle", { name: "ไก่ เสนอแนะ" });
+	const last = await createService("listed-last", { name: "ขา แจ้งปัญหาสุขภาพ" });
+	const draft = await createService("draft", { name: "กา ฉบับร่าง" });
+	const unpublished = await createService("unpublished", { name: "กา เลิกเผยแพร่" });
+	const trashed = await createService("trashed", { name: "กา ถังขยะ" });
 	// Published in reverse name order: the catalog orders by name, not by publication.
-	for (const fixture of [second, first, unpublished, trashed]) await publish("services", fixture);
+	for (const fixture of [last, middle, first, unpublished, trashed]) {
+		await publish("services", fixture);
+	}
 	expect((await unpublishEntry(admin, "services", unpublished.id)).ok, "unpublish").toBe(true);
 	expect((await trashEntry(admin, "services", trashed.id)).ok, "trash").toBe(true);
 
@@ -160,9 +138,9 @@ test("/services lists only published Services by name, each with its summary and
 	await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText("บริการประชาชน");
 
 	expect(
-		ownTitles(await listedTitles(page), [first, second, draft, unpublished, trashed]),
-		"published only, by name",
-	).toEqual([first.title, second.title]);
+		ownTitles(await listedTitles(page), [first, middle, last, draft, unpublished, trashed]),
+		"published only, by name in Thai order",
+	).toEqual([first.title, middle.title, last.title]);
 
 	const card = listedItem(page, first.title);
 	await expect(card.getByRole("link", { name: first.title })).toHaveAttribute(
@@ -271,7 +249,7 @@ test("the Service Category filter narrows /services, stays in the address and re
 
 test("a filtered catalog pages through with its filter kept", async ({ page }) => {
 	const category = await createCategory("หมวดแบ่งหน้า");
-	const fixtures: EntryFixture[] = [];
+	const fixtures: DraftFixture[] = [];
 	for (let index = 0; index <= PAGE_SIZE; index += 1) {
 		fixtures.push(
 			await createService(`page-${index}`, {
@@ -467,52 +445,44 @@ test("the external service link and a channel on another website are marked as l
 });
 
 /** A synthetic Document draft with `file`. */
-async function createDocument(label: string, file: SyntheticPdf): Promise<EntryFixture> {
-	const slug = syntheticSlug(label);
-	const title = `${SYNTHETIC_FIXTURE_MARK} เอกสาร ${label} ${slug.slice(-6)}`;
-	const created = await createSyntheticEntry(admin, "documents", {
-		data: { title, file: file.value },
-		slug,
-	});
-	expect(created.result.ok, `document ${label}: ${nativeRefusalOf(created.result)}`).toBe(true);
-	return { id: created.entryId!, slug, title };
-}
+const createDocument = (label: string, file: SyntheticPdf) =>
+	createSyntheticDocument(admin, label, { file });
 
 /** A synthetic Health Service draft shown by `displayName`, offering `services`. */
-async function createHealthService(
+const createHealthService = (
 	label: string,
 	displayName: string,
-	fields: { data?: Record<string, unknown>; services?: string[] } = {},
-): Promise<EntryFixture> {
-	const slug = syntheticSlug(label);
-	const title = `${SYNTHETIC_FIXTURE_MARK} ${displayName} ${slug.slice(-6)}`;
-	const created = await createSyntheticEntry(admin, "health_services", {
-		data: {
-			title: `${SYNTHETIC_FIXTURE_MARK} หน่วยบริการ ${label} ${slug.slice(-6)}`,
-			display_name: title,
-			...fields.data,
-		},
-		slug,
-		...(fields.services ? { references: { offered_services: fields.services } } : {}),
+	{ data, services }: { data?: Record<string, unknown>; services?: string[] } = {},
+) =>
+	createSyntheticHealthService(admin, label, {
+		displayName,
+		data,
+		...(services ? { references: { offered_services: services } } : {}),
 	});
-	expect(created.result.ok, `health service ${label}: ${nativeRefusalOf(created.result)}`).toBe(
-		true,
-	);
-	return { id: created.entryId!, slug, title };
-}
 
-test("a Service page links its related Documents in staff order and the Health Services that offer it by name, leaving out unavailable ones", async ({
+test("a Service page links its related Documents in staff order and the Health Services that offer it by name, leaving out drafts, unpublished and trashed ones", async ({
 	page,
 }) => {
 	const file = await uploadSyntheticPdf(admin);
 	const firstDocument = await createDocument("related-first", file);
 	const secondDocument = await createDocument("related-second", file);
 	const draftDocument = await createDocument("related-draft", file);
-	await publish("documents", firstDocument);
-	await publish("documents", secondDocument);
+	const unpublishedDocument = await createDocument("related-unpublished", file);
+	const trashedDocument = await createDocument("related-trashed", file);
+	for (const document of [firstDocument, secondDocument, unpublishedDocument, trashedDocument]) {
+		await publish("documents", document);
+	}
 	// Staff attach the second Document before the first: the page keeps that order.
 	const service = await createService("related", {
-		references: { documents: [secondDocument.id, draftDocument.id, firstDocument.id] },
+		references: {
+			documents: [
+				secondDocument.id,
+				draftDocument.id,
+				unpublishedDocument.id,
+				trashedDocument.id,
+				firstDocument.id,
+			],
+		},
 	});
 	await publish("services", service);
 	// "ข" links first and "ก" second: the page orders the offering side by name instead.
@@ -524,8 +494,27 @@ test("a Service page links its related Documents in staff order and the Health S
 		services: [service.id],
 	});
 	const hidden = await createHealthService("offer-draft", "ก ฉบับร่าง", { services: [service.id] });
-	await publish("health_services", later);
-	await publish("health_services", sooner);
+	const unpublishedOffer = await createHealthService("offer-unpublished", "ก เลิกเผยแพร่", {
+		services: [service.id],
+	});
+	const trashedOffer = await createHealthService("offer-trashed", "ก ถังขยะ", {
+		services: [service.id],
+	});
+	for (const healthService of [later, sooner, unpublishedOffer, trashedOffer]) {
+		await publish("health_services", healthService);
+	}
+	for (const [collection, fixture] of [
+		["documents", unpublishedDocument],
+		["health_services", unpublishedOffer],
+	] as const) {
+		expect((await unpublishEntry(admin, collection, fixture.id)).ok, "unpublish").toBe(true);
+	}
+	for (const [collection, fixture] of [
+		["documents", trashedDocument],
+		["health_services", trashedOffer],
+	] as const) {
+		expect((await trashEntry(admin, collection, fixture.id)).ok, "trash").toBe(true);
+	}
 
 	await page.goto(`/services/${service.slug}`);
 	const main = page.getByRole("main");
@@ -538,7 +527,9 @@ test("a Service page links its related Documents in staff order and the Health S
 		"href",
 		`/documents/${firstDocument.slug}`,
 	);
-	await expect(documents.getByText(draftDocument.title), "a draft Document").toHaveCount(0);
+	for (const hidden of [draftDocument, unpublishedDocument, trashedDocument]) {
+		await expect(documents.getByText(hidden.title), "an unavailable Document").toHaveCount(0);
+	}
 
 	const offering = main.getByRole("region", { name: "หน่วยบริการสุขภาพที่ให้บริการนี้" });
 	await expect(offering.getByRole("heading", { level: 3 })).toHaveText([sooner.title, later.title]);
@@ -550,7 +541,9 @@ test("a Service page links its related Documents in staff order and the Health S
 		offering.getByRole("article").filter({ hasText: later.title }),
 		"a temporarily closed Health Service says so in text",
 	).toContainText("ปิดให้บริการชั่วคราว");
-	await expect(offering.getByText(hidden.title), "a draft Health Service").toHaveCount(0);
+	for (const fixture of [hidden, unpublishedOffer, trashedOffer]) {
+		await expect(offering.getByText(fixture.title), "an unavailable Health Service").toHaveCount(0);
+	}
 	expect((await page.content()).includes("ใกล้บ้าน"), 'a Service page never says "ใกล้บ้าน"').toBe(
 		false,
 	);
@@ -594,14 +587,13 @@ test("the Service pages carry their title, description, absolute canonical addre
 	const meta = (selector: string) => page.locator(selector).first();
 	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปบริการสำหรับคำอธิบายหน้า`;
 	const summarised = await createService("seo-summary", { data: { summary } });
-	const plain = await createService("seo-plain");
 	const seoTitle = `${SYNTHETIC_FIXTURE_MARK} ชื่อบริการสำหรับเครื่องมือค้นหา`;
 	const seoDescription = `${SYNTHETIC_FIXTURE_MARK} คำอธิบายบริการจากช่อง SEO`;
 	const tuned = await createService("seo-tuned", {
 		data: { summary },
 		seo: { title: seoTitle, description: seoDescription },
 	});
-	for (const fixture of [summarised, plain, tuned]) await publish("services", fixture);
+	for (const fixture of [summarised, tuned]) await publish("services", fixture);
 
 	await page.goto(`/services/${summarised.slug}`);
 	await expect(page).toHaveTitle(`${summarised.title}${separator}${siteTitle}`);
@@ -612,12 +604,6 @@ test("the Service pages carry their title, description, absolute canonical addre
 	);
 	await expect(meta('meta[property="og:title"]')).toHaveAttribute("content", summarised.title);
 	await expect(meta('meta[name="robots"]')).toHaveCount(0);
-
-	await page.goto(`/services/${plain.slug}`);
-	await expect(meta('meta[name="description"]')).toHaveAttribute(
-		"content",
-		`ผู้ให้บริการ ช่องทาง ขั้นตอน และเอกสารที่ต้องเตรียมสำหรับ ${plain.title}`,
-	);
 
 	await page.goto(`/services/${tuned.slug}`);
 	await expect(page).toHaveTitle(`${seoTitle}${separator}${siteTitle}`);

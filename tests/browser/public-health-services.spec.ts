@@ -25,8 +25,9 @@ import {
 	cleanupOwnedFixtures,
 	cmsRequest,
 	createPatActor,
-	createSyntheticEntry,
 	createOwnedTerm,
+	createSyntheticHealthService,
+	createSyntheticService,
 	deleteSyntheticTerms,
 	loadDevAccessToken,
 	nativeDataOf,
@@ -38,6 +39,7 @@ import {
 	trashEntry,
 	unpublishEntry,
 	type CmsActor,
+	type DraftFixture,
 	type SyntheticTerm,
 } from "./cms.helpers";
 import {
@@ -69,50 +71,14 @@ const ownedTerms: SyntheticTerm[] = [];
 const createTerm = (taxonomy: string, label: string) =>
 	createOwnedTerm(admin, taxonomy, label, ownedTerms);
 
-interface EntryFixture {
-	id: string;
-	slug: string;
-	/** The name the site shows: the display name when the fixture has one, else its title. */
-	title: string;
-}
-
-/**
- * A synthetic Health Service draft. Its official name is unique; with `displayName`, the site
- * shows that unique display name instead.
- */
-async function createHealthService(
+/** A synthetic Health Service draft (cms.helpers.ts createSyntheticHealthService). */
+const createHealthService = (
 	label: string,
-	fields: {
-		displayName?: string;
-		data?: Record<string, unknown>;
-		taxonomies?: Record<string, string[]>;
-		references?: Record<string, string[]>;
-		seo?: Record<string, unknown>;
-	} = {},
-): Promise<EntryFixture & { officialName: string }> {
-	const slug = syntheticSlug(label);
-	const officialName = `${SYNTHETIC_FIXTURE_MARK} หน่วยบริการ ${label} ${slug.slice(-6)}`;
-	const displayName =
-		fields.displayName && `${SYNTHETIC_FIXTURE_MARK} ${fields.displayName} ${slug.slice(-6)}`;
-	const created = await createSyntheticEntry(admin, "health_services", {
-		data: {
-			title: officialName,
-			...(displayName ? { display_name: displayName } : {}),
-			...fields.data,
-		},
-		slug,
-		...(fields.taxonomies ? { taxonomies: fields.taxonomies } : {}),
-		...(fields.references ? { references: fields.references } : {}),
-		...(fields.seo ? { seo: fields.seo } : {}),
-	});
-	expect(created.result.ok, `health service ${label}: ${nativeRefusalOf(created.result)}`).toBe(
-		true,
-	);
-	return { id: created.entryId!, slug, title: displayName || officialName, officialName };
-}
+	fields?: Parameters<typeof createSyntheticHealthService>[2],
+) => createSyntheticHealthService(admin, label, fields);
 
 /** Publish now. */
-async function publish(collection: string, fixture: EntryFixture): Promise<void> {
+async function publish(collection: string, fixture: DraftFixture): Promise<void> {
 	await publishEntryAt(admin, collection, fixture.id);
 }
 
@@ -312,7 +278,7 @@ test("an unmatched filter shows the empty state, and a filtered directory pages 
 	page,
 }) => {
 	const word = `หน้า${crypto.randomUUID().slice(0, 6)}`;
-	const fixtures: EntryFixture[] = [];
+	const fixtures: DraftFixture[] = [];
 	for (let index = 0; index <= PAGE_SIZE; index += 1) {
 		fixtures.push(
 			await createHealthService(`page-${index}`, {
@@ -349,14 +315,8 @@ test("an unmatched filter shows the empty state, and a filtered directory pages 
 	}
 });
 
-/** A synthetic published Service, which a Health Service can offer. */
-async function createService(label: string): Promise<EntryFixture> {
-	const slug = syntheticSlug(label);
-	const title = `${SYNTHETIC_FIXTURE_MARK} บริการ ${label} ${slug.slice(-6)}`;
-	const created = await createSyntheticEntry(admin, "services", { data: { title }, slug });
-	expect(created.result.ok, `service ${label}: ${nativeRefusalOf(created.result)}`).toBe(true);
-	return { id: created.entryId!, slug, title };
-}
+/** A synthetic Service draft, which a Health Service can offer. */
+const createService = (label: string) => createSyntheticService(admin, label);
 
 /** The Google Maps link the page builds from these coordinates (Maps URLs, search action). */
 const mapLinkOf = (latitude: number, longitude: number) =>

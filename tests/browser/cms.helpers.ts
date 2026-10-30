@@ -1334,6 +1334,95 @@ export function portableTextBlock(text: string, style = "normal"): Record<string
 }
 
 // ---------------------------------------------------------------------------
+// Synthetic public content for the public-page suites
+// ---------------------------------------------------------------------------
+
+/** A synthetic draft as a public-page suite keeps it: its id, slug and the title the site shows. */
+export interface DraftFixture {
+	id: string;
+	slug: string;
+	title: string;
+}
+
+/** What a suite sets on a synthetic draft besides its title: fields, terms, references, SEO. */
+export interface DraftFields {
+	data?: Record<string, unknown>;
+	taxonomies?: Record<string, string[]>;
+	references?: Record<string, string[]>;
+	seo?: Record<string, unknown>;
+}
+
+/** Create a synthetic draft of `collection` under `slug`, shown as `title`. A refusal throws. */
+async function createDraftFixture(
+	actor: CmsActor,
+	collection: string,
+	slug: string,
+	title: string,
+	{ data, ...fields }: DraftFields & { data: Record<string, unknown> },
+): Promise<DraftFixture> {
+	const created = await createSyntheticEntry(actor, collection, { data, slug, ...fields });
+	if (!created.result.ok || created.entryId === undefined) {
+		throw new CmsHelperError(
+			"synthetic-draft",
+			`${collection} ${slug}: ${nativeRefusalOf(created.result)}`,
+		);
+	}
+	return { id: created.entryId, slug, title };
+}
+
+/**
+ * A synthetic Service draft titled `${mark} ${name} ${label} ${ending}`, unique by its slug's
+ * ending. A `name` that starts with ก, ข, ค orders the fixtures in Thai whatever their endings.
+ */
+export async function createSyntheticService(
+	actor: CmsActor,
+	label: string,
+	{ name = "บริการ", data, ...fields }: DraftFields & { name?: string } = {},
+): Promise<DraftFixture> {
+	const slug = syntheticSlug(label);
+	const title = `${SYNTHETIC_FIXTURE_MARK} ${name} ${label} ${slug.slice(-6)}`;
+	return createDraftFixture(actor, "services", slug, title, {
+		data: { title, ...data },
+		...fields,
+	});
+}
+
+/** A synthetic Document draft with a unique title and `file`, else a synthetic PDF of its own. */
+export async function createSyntheticDocument(
+	actor: CmsActor,
+	label: string,
+	{ file, data, ...fields }: DraftFields & { file?: SyntheticPdf } = {},
+): Promise<DraftFixture & { file: SyntheticPdf }> {
+	const slug = syntheticSlug(label);
+	const title = `${SYNTHETIC_FIXTURE_MARK} เอกสาร ${label} ${slug.slice(-6)}`;
+	const pdf = file ?? (await uploadSyntheticPdf(actor));
+	const fixture = await createDraftFixture(actor, "documents", slug, title, {
+		data: { title, file: pdf.value, ...data },
+		...fields,
+	});
+	return { ...fixture, file: pdf };
+}
+
+/**
+ * A synthetic Health Service draft. Its official name is unique; with `displayName`, the site shows
+ * that display name, made unique the same way, instead.
+ */
+export async function createSyntheticHealthService(
+	actor: CmsActor,
+	label: string,
+	{ displayName, data, ...fields }: DraftFields & { displayName?: string } = {},
+): Promise<DraftFixture & { officialName: string }> {
+	const slug = syntheticSlug(label);
+	const officialName = `${SYNTHETIC_FIXTURE_MARK} หน่วยบริการ ${label} ${slug.slice(-6)}`;
+	const shown = displayName && `${SYNTHETIC_FIXTURE_MARK} ${displayName} ${slug.slice(-6)}`;
+	const fixture = await createDraftFixture(actor, "health_services", slug, shown || officialName, {
+		data: { title: officialName, ...(shown ? { display_name: shown } : {}), ...data },
+		...fields,
+	});
+	return { ...fixture, officialName };
+}
+
+// ---------------------------------------------------------------------------
 // Synthetic taxonomy terms (native request shapes)
 // ---------------------------------------------------------------------------
 

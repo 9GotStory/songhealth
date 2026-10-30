@@ -17,7 +17,8 @@ import {
 	type PortableTextBlock,
 	type TaxonomyTerm,
 } from "emdash";
-import type { OwnershipType } from "./service-catalog";
+import type { ListPage } from "./dated-lists";
+import type { OwnershipType, ServiceFilters } from "./service-catalog";
 
 /** The fixed number of Services a catalog page shows: four rows of the three-column grid. */
 const SERVICES_PAGE_SIZE = 12;
@@ -54,20 +55,18 @@ export interface ServiceData {
 
 export type ServiceEntry = ContentEntry<ServiceData>;
 
-export interface ServicesPage {
-	entries: ServiceEntry[];
-	hasMore: boolean;
-}
-
-/** One page of published Services, by name, in the Service Category `category` when it is set. */
-export async function listServices(page: number, category: string): Promise<ServicesPage> {
+/** One page of published Services, by name, in the filter's Service Category when it is set. */
+export async function listServices(
+	page: number,
+	filters: ServiceFilters,
+): Promise<ListPage<ServiceEntry>> {
 	const { entries, hasMore, error } = await getEmDashCollection<"services", ServiceData>(
 		"services",
 		{
 			limit: SERVICES_PAGE_SIZE,
 			offset: (page - 1) * SERVICES_PAGE_SIZE,
 			orderBy: { title: "asc" },
-			...(category ? { where: { service_category: category } } : {}),
+			...(filters.category ? { where: { service_category: filters.category } } : {}),
 		},
 	);
 	if (error) throw error;

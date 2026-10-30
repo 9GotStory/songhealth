@@ -25,13 +25,15 @@ import { getEmDashEntry, isSafeHref } from "emdash";
 import ContentLink from "../../components/ContentLink.astro";
 import DetailItem from "../../components/DetailItem.astro";
 import DetailSection from "../../components/DetailSection.astro";
-import DocumentRow from "../../components/DocumentRow.astro";
 import HealthServiceRow from "../../components/HealthServiceRow.astro";
+import RelatedDocuments from "../../components/RelatedDocuments.astro";
 import RichText from "../../components/RichText.astro";
+import TermLinks from "../../components/TermLinks.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { documentsById } from "../../lib/documents";
 import { healthServicesById } from "../../lib/health-services";
 import { isExternalHref } from "../../lib/links";
+import { targetIds } from "../../lib/references";
 import {
 	OWNERSHIP_LABELS,
 	hasGuidance,
@@ -59,8 +61,6 @@ if (error) throw error;
 if (!entry) return Astro.rewrite("/404");
 
 const service = entry.data;
-const targetIds = (targets: { data: Record<string, unknown> }[] | undefined) =>
-	(targets ?? []).map((target) => String(target.data.id));
 const [documents, healthServices] = await Promise.all([
 	documentsById(targetIds(entry.references?.documents.entries)),
 	healthServicesById(targetIds(entry.references?.offering_facilities.entries)),
@@ -110,9 +110,7 @@ const linkClass =
 <SiteLayout
 	title={service.seo?.title || service.title}
 	section="services"
-	description={
-		service.summary || `ผู้ให้บริการ ช่องทาง ขั้นตอน และเอกสารที่ต้องเตรียมสำหรับ ${service.title}`
-	}
+	description={service.summary ?? undefined}
 	canonical={servicePath(entry.id)}
 	breadcrumbs={[
 		{ label: "หน้าแรก", href: "/" },
@@ -138,18 +136,7 @@ const linkClass =
 				{provider && <DetailItem term="หน่วยงานผู้ให้บริการ">{provider}</DetailItem>}
 				{categories.length > 0 && (
 					<DetailItem term="หมวดบริการ">
-						<ul class="flex flex-wrap gap-x-4 gap-y-1">
-							{categories.map((category) => (
-								<li>
-									<a
-										class="inline-flex min-h-11 items-center text-brand-primary underline underline-offset-4"
-										href={servicesPath({ category: category.slug })}
-									>
-										{category.label}
-									</a>
-								</li>
-							))}
-						</ul>
+						<TermLinks terms={categories} href={(category) => servicesPath({ category })} />
 					</DetailItem>
 				)}
 			</dl>
@@ -196,17 +183,7 @@ const linkClass =
 				<p class="wrap-anywhere whitespace-pre-line">{section.value}</p>
 			</DetailSection>
 		))}
-		{documents.length > 0 && (
-			<DetailSection id="service-documents" heading="เอกสารที่เกี่ยวข้อง">
-				<ul class="flex flex-col gap-4">
-					{documents.map((document) => (
-						<li>
-							<DocumentRow document={document} headingLevel={3} />
-						</li>
-					))}
-				</ul>
-			</DetailSection>
-		)}
+		<RelatedDocuments documents={documents} />
 		{healthServices.length > 0 && (
 			<DetailSection id="service-health-services" heading="หน่วยบริการสุขภาพที่ให้บริการนี้">
 				<ul class="flex flex-col gap-4">

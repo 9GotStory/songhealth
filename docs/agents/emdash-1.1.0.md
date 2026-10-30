@@ -25,9 +25,11 @@ checks that every cited file exists. When the pinned version changes, re-verify 
 - `orderBy` is a plain `field DESC|ASC`, with `id` as the tiebreaker. On PostgreSQL, DESC puts
   NULLs first (`buildOrderByClause`). An optional date therefore cannot sort with a publish-date
   fallback inside the query; `./src/lib/dated-lists.ts` sorts in code instead (ADR 0004).
-- A text column sorts by the database collation. The pinned postgres 18.6 image initialises
-  en_US.utf8 (glibc), which ordered a sample of Thai names as `Intl.Collator("th")` does, so the
-  Service catalog orders by `title` in the query (`./src/lib/services.ts`).
+- `orderBy` on a text field sorts in SQL (`buildOrderByClause`), so by the database collation.
+  The postgres 18.6 image that `./deploy/quadlet/songhealth-db.container` pins initialises it from
+  the image's `LANG`, en_US.utf8 (glibc). On the development database (2026-10-30) it ordered
+  กา, ไก่, ขา, เขียว, คน, โต๊ะ, แมว as `Intl.Collator("th")` does, leading vowels included, and
+  `./tests/browser/public-services.spec.ts` checks a leading vowel in the Service catalog's order.
 - Without a `limit`, `getEmDashCollection` returns every matching entry: the query has no `LIMIT`
   (`src/loader.ts`, `fetchLimit`).
 - A `number` field is a `REAL` column (`src/schema/types.ts` `FIELD_TYPE_TO_COLUMN`), which is
