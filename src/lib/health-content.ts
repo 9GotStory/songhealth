@@ -1,12 +1,12 @@
 // Health Content on the public site (Feature 003 #59; spec #51 "Public reads" (Health Content),
 // `03` §9 and §15).
 //
-// Every read goes through EmDash's query functions, which return published entries only unless a
-// valid preview token asks for a draft (emdash 1.1.0 src/loader.ts, src/query.ts
-// resolveEmDashEntry). Pages never pass a status. The list is newest publication first and narrows
-// to one Health Topic (`topic` term) with `?topic=`; a `where` on a taxonomy matches the exact
-// term, and a term that does not exist matches nothing (src/loader.ts resolveTermGroups), as on
-// Health News. Health Reports are their own collection, so they never mix into this list.
+// Every read is a `getEmDashCollection` read, which returns published entries only, even with a
+// preview token or in edit mode, so pages pass no status (docs/agents/emdash-1.1.0.md "Public
+// reads"). The list is newest publication first and narrows to one Health Topic (`topic` term) with
+// `?topic=`; a `where` on a taxonomy matches the exact term, and a term that does not exist matches
+// nothing (emdash 1.1.0 src/loader.ts resolveTermGroups), as on Health News. Health Reports are
+// their own collection, so they never mix into this list.
 
 import {
 	getEmDashCollection,

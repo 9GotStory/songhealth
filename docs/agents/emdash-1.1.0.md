@@ -13,6 +13,12 @@ checks that every cited file exists. When the pinned version changes, re-verify 
   then: it passes the filter's own `status`, and the loader defaults it to `"published"`
   (`src/query.ts` `getEmDashCollectionUncached`, `src/loader.ts`). `./src/lib/search.ts` relies on
   it.
+- A failed read answers an error instead of throwing: `getEmDashCollection` gives
+  `{ entries: [], error }`, and `getEmDashEntry` gives `{ entry: null, error }`, where `error` stays
+  unset when the entry simply does not exist (`src/query.ts` `EntryResult`,
+  `getEmDashCollectionUncached`; `src/loader.ts`). A read that ignores `error` shows an empty list or
+  the 404 page instead of failing, so every read checks it. `./src/lib/search-matcher.ts`
+  `searchOutcome` turns it into the search's failed state.
 - An entry's `id` is its slug and `data.id` is the database id. Taxonomy terms hydrate as
   `data.terms[taxonomy]`, ordered by label.
 - `where` on a taxonomy name matches exact term slugs, ORed when given as an array. An unknown slug

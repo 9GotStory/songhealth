@@ -17,6 +17,7 @@
 	--color-*: initial;
 	--color-brand-primary: #0b6b57;
 	--color-brand-dark: #123c33;
+	/* A status that needs attention (StatusLabel), the skip link, and the focus ring on brand-dark */
 	--color-accent-warm: #f3c95f;
 	--color-text-primary: #16211d;
 	--color-text-secondary: #65736d;

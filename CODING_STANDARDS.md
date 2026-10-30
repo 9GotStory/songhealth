@@ -23,6 +23,9 @@ pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
   `src/styles/global.css` (ADR 0001; the Figma frame is described in
   `docs/design/homepage-concept-v1.md`). A colour or type style that the tokens lack becomes a
   named token there, with its source.
+- A colour keeps the meaning its token's comment states, such as accent-warm's status that needs
+  attention. Emphasis inside text takes weight and text-primary, as search marks the words it
+  matched (Product Owner, 2026-10-30: #63 comment 6518347225).
 - Interface text the shell or a Homepage section shows (headings, link labels such as the footer's)
   comes from `docs/design/homepage-concept-v1.md` where it names one.
 - Text and choices that follow an accepted page's precedent (the same kind of lead, label, empty
@@ -68,6 +71,10 @@ pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
   node:test loads it with plain Node: no `emdash`, no extensionless relative import.
   `src/lib/dated-lists.ts` and `src/lib/excerpt.ts` are examples; the module that reads through
   EmDash imports them.
+- A state the shared development runtime cannot produce, such as a failed read, is driven in
+  node:test: the module that decides it takes the reads as a function, as
+  `src/lib/search-matcher.ts` `searchOutcome` does (Product Owner, 2026-10-30: #63 comment
+  6518347225).
 - A test leaves nothing it can remove. A slug change leaves a native redirect after its entry is
   deleted, so the test deletes that too.
 - A request for a missing page stays in EmDash's 404 log, which only clears as a whole. Such a

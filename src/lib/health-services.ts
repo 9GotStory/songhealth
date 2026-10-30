@@ -1,11 +1,11 @@
 // Health Services on the public site (Feature 003 #57; spec #51 "Public reads" (Health Service
 // Directory), `03` §8 and §15).
 //
-// Every read goes through EmDash's query functions, which return published entries only unless a
-// valid preview token asks for a draft (emdash 1.1.0 src/loader.ts, src/query.ts
-// resolveEmDashEntry). Pages never pass a status. The directory's name filter is a substring match,
-// which EmDash's `where` cannot express (src/loader.ts buildFieldConditions), so the list reads
-// every published Health Service, a query without a `limit` (src/loader.ts `fetchLimit`), and
+// Every read is a `getEmDashCollection` read, which returns published entries only, even with a
+// preview token or in edit mode, so pages pass no status (docs/agents/emdash-1.1.0.md "Public
+// reads"). The directory's name filter is a substring match, which EmDash's `where` cannot express
+// (emdash 1.1.0 src/loader.ts buildFieldConditions), so the list reads every published Health
+// Service, a query without a `limit` (src/loader.ts `fetchLimit`), and
 // src/lib/health-service-directory.ts filters and orders them. A district has a few dozen Health
 // Services at most; the WordPress inventory lists 17 (`09` ANOM-006).
 

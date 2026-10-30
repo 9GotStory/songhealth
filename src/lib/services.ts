@@ -1,14 +1,14 @@
 // Services on the public site (Feature 003 #58; spec #51 "Public reads" (Services), `03` §7).
 //
-// Every read goes through EmDash's query functions, which return published entries only unless a
-// valid preview token asks for a draft (emdash 1.1.0 src/loader.ts, src/query.ts
-// resolveEmDashEntry). Pages never pass a status.
+// Every read is a `getEmDashCollection` read, which returns published entries only, even with a
+// preview token or in edit mode, so pages pass no status (docs/agents/emdash-1.1.0.md "Public
+// reads").
 //
 // The catalog filters by Service Category through a `where` on the taxonomy, which matches the
-// exact term; an unknown term matches nothing (src/loader.ts resolveTermGroups). It is ordered by
-// name in the query (src/loader.ts buildOrderByClause, `id` breaking ties). PostgreSQL orders the
-// text by the database collation: the pinned postgres 18.6 image initialises it as en_US.utf8
-// (glibc). On the development database it ordered a sample of Thai names, leading vowels
+// exact term; an unknown term matches nothing (emdash 1.1.0 src/loader.ts resolveTermGroups). It is
+// ordered by name in the query (src/loader.ts buildOrderByClause, `id` breaking ties). PostgreSQL
+// orders the text by the database collation: the pinned postgres 18.6 image initialises it as
+// en_US.utf8 (glibc). On the development database it ordered a sample of Thai names, leading vowels
 // included, as `Intl.Collator("th")` does (2026-10-30).
 
 import {
