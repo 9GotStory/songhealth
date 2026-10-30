@@ -15,10 +15,8 @@ import type { Page } from "@playwright/test";
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
-	createPatActor,
-	loadDevAccessToken,
+	devAdminActor,
 	nativeDataOf,
-	NATIVE_ROLES,
 	SYNTHETIC_FIXTURE_MARK,
 	uploadSyntheticMedia,
 	writeSiteSettings,
@@ -296,13 +294,8 @@ test.describe("site identity from the native site settings", () => {
 
 	test("the header, footer and page titles follow the settings, with the placeholder mark and the office name as fallbacks", async ({
 		page,
-		baseURL,
 	}) => {
-		const admin = await createPatActor({
-			baseUrl: baseURL,
-			token: await loadDevAccessToken(),
-			expected: { role: NATIVE_ROLES.administrator },
-		});
+		const admin = await devAdminActor();
 		const saved = await cmsRequest(admin, "/_emdash/api/settings");
 		expect(saved.ok, "the native settings read must succeed").toBe(true);
 		const before = (nativeDataOf(saved) ?? {}) as SiteSettingsView;

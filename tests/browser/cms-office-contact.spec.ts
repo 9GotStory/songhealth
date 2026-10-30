@@ -21,9 +21,8 @@ import {
 	ADMIN_SESSION_ENV,
 	closeDevAdminSession,
 	cmsRequest,
-	createPatActor,
+	devAdminActor,
 	devAdminSessionRequested,
-	loadDevAccessToken,
 	nativeDataOf,
 	nativeItemsOf,
 	NATIVE_ROLES,
@@ -52,16 +51,8 @@ const FORM_FIELDS = [
 let admin: CmsActor;
 let roleFixture: CmsActor | undefined;
 
-test.beforeAll(async ({}, testInfo) => {
-	const baseURL = testInfo.project.use.baseURL;
-	if (baseURL === undefined) {
-		throw new Error("this suite needs a configured baseURL (PLAYWRIGHT_BASE_URL)");
-	}
-	admin = await createPatActor({
-		baseUrl: baseURL,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
+test.beforeAll(async () => {
+	admin = await devAdminActor();
 	roleFixture = await roleFixtureActor(admin);
 });
 

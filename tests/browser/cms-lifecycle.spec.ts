@@ -54,16 +54,14 @@ import { expect, test } from "@playwright/test";
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
-	createPatActor,
 	createSyntheticEntry,
 	currentRev,
-	DEFAULT_DEVELOPMENT_ORIGIN,
 	deleteMedia,
+	devAdminActor,
 	findTrashedEntry,
 	getMe,
 	getUser,
 	listUsers,
-	loadDevAccessToken,
 	nativeDataOf,
 	nativeErrorOf,
 	nativeItemOf,
@@ -175,21 +173,6 @@ let pagesReadiness: CollectionReadiness = { outcome: "missing" };
 /** One clearly synthetic unique title (never real editorial data). */
 function uniqueTitle(kind: string): string {
 	return `${SYNTHETIC_FIXTURE_MARK} ${kind} ${crypto.randomUUID().slice(0, 8)}`;
-}
-
-/**
- * The runner-configured origin, mirroring playwright.config.ts exactly (the
- * same discipline as the accepted T003/T007/T014 checks): PLAYWRIGHT_BASE_URL
- * when set, otherwise the documented development origin. node:process is
- * loaded through a dynamic non-literal import because the pinned dependency
- * baseline ships no @types/node.
- */
-async function configuredDevelopmentOrigin(): Promise<string> {
-	const specifier = "node:process";
-	const nodeProcess = (await import(specifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	return nodeProcess.env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN;
 }
 
 /** Truthful schema gate for the pages collection (T014 gateCollection shape). */
@@ -517,20 +500,8 @@ async function runPhaseWithRestoration<T>(
 // ---------------------------------------------------------------------------
 
 test.beforeAll(async () => {
-	const origin = await configuredDevelopmentOrigin();
-	// Development native access through the pre-existing development
-	// credential (T013 test-authentication adaptation). This hook
-	// deliberately creates no owned fixtures; Playwright --list discovery
-	// performs no native calls at all (hooks run only at execution).
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
-	expect(
-		admin.email,
-		"the development credential must belong to the intended dev@emdash.local fixture account",
-	).toBe("dev@emdash.local");
+	// The development Administrator. This hook creates no owned fixtures.
+	admin = await devAdminActor();
 
 	// The role fixture, another account of the same application: a configured credential that
 	// fails to load or verify fails loudly, and an absent one leaves the role cases to their skip.

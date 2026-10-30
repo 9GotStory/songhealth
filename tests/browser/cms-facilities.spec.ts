@@ -53,14 +53,11 @@ import { expect, test } from "@playwright/test";
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
-	createPatActor,
 	createSyntheticEntry,
-	DEFAULT_DEVELOPMENT_ORIGIN,
-	loadDevAccessToken,
+	devAdminActor,
 	nativeDataOf,
 	nativeItemOf,
 	nativeItemsOf,
-	NATIVE_ROLES,
 	publishEntry,
 	readEntry,
 	scrubEmbeddedSecrets,
@@ -307,21 +304,6 @@ function syntheticTermCode(kind: string): string {
 /** One explicitly synthetic term label carrying the marker. */
 function syntheticTermLabel(kind: string): string {
 	return `${SYNTHETIC_FIXTURE_MARK} พื้นที่สังเคราะห์ ${kind}`;
-}
-
-/**
- * The runner-configured origin, mirroring playwright.config.ts exactly (the
- * same discipline as the accepted T003/T007/T014/T019/T023 checks):
- * PLAYWRIGHT_BASE_URL when set, otherwise the documented development origin.
- * node:process is loaded through a dynamic non-literal import because the
- * pinned dependency baseline ships no @types/node.
- */
-async function configuredDevelopmentOrigin(): Promise<string> {
-	const specifier = "node:process";
-	const nodeProcess = (await import(specifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	return nodeProcess.env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN;
 }
 
 /** Truthful schema gate: missing SKIPS with the prerequisite; misconfigured FAILS. */
@@ -799,25 +781,9 @@ function expectValidationRefusal(result: NativeResult, caseLabel: string): void 
 // ---------------------------------------------------------------------------
 
 test.beforeAll(async () => {
-	// Development native access through the pre-existing development
-	// credential (T013 test-authentication adaptation), pinned to the
-	// runner-configured origin so a nondefault PLAYWRIGHT_BASE_URL run cannot
-	// silently exercise another app. createPatActor verifies the live identity
-	// through /auth/me and pins the expected Administrator role; the expected
-	// development fixture account is asserted by email. This hook deliberately
-	// creates no owned fixtures (credential load, identity verification and
-	// read-only schema/relations/taxonomies reads only), so a partial setup
-	// cannot leak anything for teardown to miss — and Playwright --list
-	// discovery performs no native calls at all (hooks run only at execution).
-	admin = await createPatActor({
-		baseUrl: await configuredDevelopmentOrigin(),
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
-	expect(
-		admin.email,
-		"the development credential must belong to the intended dev@emdash.local fixture account",
-	).toBe("dev@emdash.local");
+	// The development Administrator. This hook creates no owned fixtures, only reads, so a partial
+	// setup leaves nothing for teardown to miss.
+	admin = await devAdminActor();
 
 	// --- services collection: the fields the Service-side checks rely on ---
 	const serviceRead = await cmsRequest(

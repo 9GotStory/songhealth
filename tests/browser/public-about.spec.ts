@@ -31,14 +31,12 @@ import type { Page } from "@playwright/test";
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
-	createPatActor,
 	createSyntheticDocument,
 	createSyntheticEntry,
-	loadDevAccessToken,
+	devAdminActor,
 	nativeDataOf,
 	nativeItemOf,
 	nativeRefusalOf,
-	NATIVE_ROLES,
 	portableTextBlock,
 	publishEntryAt,
 	readEntry,
@@ -213,17 +211,9 @@ async function listedDocumentSlugs(page: Page, path: string): Promise<string[]> 
 
 test.use({ viewport: DESKTOP_VIEWPORT });
 
-test.beforeAll(async ({}, testInfo) => {
-	const baseURL = testInfo.project.use.baseURL;
-	if (baseURL === undefined) {
-		throw new Error("this suite needs a configured baseURL (PLAYWRIGHT_BASE_URL)");
-	}
-	origin = new URL(baseURL).origin;
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
+test.beforeAll(async () => {
+	admin = await devAdminActor();
+	origin = admin.baseUrl;
 });
 
 test.afterEach(async () => {

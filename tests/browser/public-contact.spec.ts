@@ -18,9 +18,7 @@
 import type { Page } from "@playwright/test";
 
 import {
-	createPatActor,
-	loadDevAccessToken,
-	NATIVE_ROLES,
+	devAdminActor,
 	showOfficeContact,
 	SYNTHETIC_FIXTURE_MARK,
 	type CmsActor,
@@ -88,16 +86,8 @@ function channelLinks(page: Page, scope: "main" | "contentinfo") {
 
 test.use({ viewport: DESKTOP_VIEWPORT });
 
-test.beforeAll(async ({}, testInfo) => {
-	const baseURL = testInfo.project.use.baseURL;
-	if (baseURL === undefined) {
-		throw new Error("this suite needs a configured baseURL (PLAYWRIGHT_BASE_URL)");
-	}
-	admin = await createPatActor({
-		baseUrl: baseURL,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
+test.beforeAll(async () => {
+	admin = await devAdminActor();
 });
 
 test("/contact shows the Office Contact saved in the plugin settings, with a map link built from its coordinates", async ({

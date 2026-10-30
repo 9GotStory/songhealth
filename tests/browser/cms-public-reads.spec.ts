@@ -45,15 +45,14 @@ import { expect, test } from "@playwright/test";
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
-	createPatActor,
 	createSyntheticEntry,
 	DEFAULT_DEVELOPMENT_ORIGIN,
 	deleteMedia,
+	devAdminActor,
 	loadDevAccessToken,
 	nativeDataOf,
 	nativeItemOf,
 	nativeRefusalOf,
-	NATIVE_ROLES,
 	permanentlyDeleteEntry,
 	publishEntry,
 	readEntry,
@@ -1392,18 +1391,8 @@ test.beforeAll(async () => {
 		"this suite runs only against the ONE existing persistent development origin (unexpected origin is a prerequisite failure, never a port fallback)",
 	).toBe(PERSISTENT_DEVELOPMENT_ORIGIN);
 
-	// Development native access through the pre-existing development
-	// credential (T013 adaptation; never the dev-bypass bootstrap). This
-	// hook creates no owned fixtures; discovery performs no native calls.
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
-	expect(
-		admin.email,
-		"the development credential must belong to the intended dev@emdash.local fixture account",
-	).toBe("dev@emdash.local");
+	// The development Administrator. This hook creates no owned fixtures.
+	admin = await devAdminActor(origin);
 
 	// The coordinated route access token (client copy of the server-only
 	// capability input; provisioned by the separately authorized maintenance).

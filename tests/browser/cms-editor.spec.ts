@@ -51,15 +51,13 @@ import {
 	cleanupOwnedFixtures,
 	closeDevAdminSession,
 	cmsRequest,
-	createPatActor,
+	configuredDevelopmentOrigin,
 	createSyntheticEntry,
-	DEFAULT_DEVELOPMENT_ORIGIN,
+	devAdminActor,
 	devAdminSessionRequested,
-	loadDevAccessToken,
 	nativeDataOf,
 	nativeItemOf,
 	nativeRefusalOf,
-	NATIVE_ROLES,
 	openDevAdminSession,
 	readEntry,
 	scrubEmbeddedSecrets,
@@ -231,27 +229,13 @@ const ownedSyntheticTerms: OwnedSyntheticTerm[] = [];
 // ---------------------------------------------------------------------------
 
 /**
- * The runner-configured origin, mirroring playwright.config.ts exactly (the
- * same discipline as the accepted T003/T007/T014/T019/T023/T027 checks).
- * node:process is loaded through a dynamic non-literal import because the
- * pinned dependency baseline ships no @types/node.
- */
-async function configuredDevelopmentOrigin(): Promise<string> {
-	const specifier = "node:process";
-	const nodeProcess = (await import(specifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	return nodeProcess.env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN;
-}
-
-/**
  * Select the platform's Thai localization through its OWN native mechanism:
  * the admin shell resolves the `emdash-locale` cookie (the native switcher
  * writes exactly `emdash-locale=th; Path=/_emdash`). This is browser-side
  * locale configuration — not an Admin fork, patch, or translation layer.
  */
 test.beforeEach(async ({ page }) => {
-	const origin = (await configuredDevelopmentOrigin()).replace(/\/+$/, "");
+	const origin = await configuredDevelopmentOrigin();
 	await page.context().addCookies([{ name: "emdash-locale", value: "th", url: `${origin}/` }]);
 });
 
@@ -368,24 +352,8 @@ function fieldsOf(result: NativeResult): Map<string, { type?: string; required?:
 let admin: CmsActor | undefined;
 
 test.beforeAll(async () => {
-	// Development native access through the pre-existing development
-	// credential (the accepted T013 test-authentication adaptation), pinned
-	// to the runner-configured origin so a nondefault PLAYWRIGHT_BASE_URL run
-	// cannot silently exercise another app. createPatActor verifies the live
-	// identity through /auth/me and pins the expected Administrator role; the
-	// expected development fixture account is asserted by email. This hook
-	// creates no owned fixtures (credential load, identity verification and
-	// read-only schema/settings reads only) — Playwright --list discovery
-	// performs no native calls at all (hooks run only at execution).
-	admin = await createPatActor({
-		baseUrl: await configuredDevelopmentOrigin(),
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
-	expect(
-		admin.email,
-		"the development credential must belong to the intended dev@emdash.local fixture account",
-	).toBe("dev@emdash.local");
+	// The development Administrator. This hook creates no owned fixtures, only reads.
+	admin = await devAdminActor();
 
 	// --- the journey collections: exactly the fields this smoke exercises ---
 	const healthServices = await cmsRequest(

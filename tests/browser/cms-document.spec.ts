@@ -39,13 +39,10 @@ import { expect, test } from "@playwright/test";
 
 import {
 	cleanupOwnedFixtures,
-	createPatActor,
 	createSyntheticEntry,
 	cmsRequest,
-	DEFAULT_DEVELOPMENT_ORIGIN,
-	loadDevAccessToken,
+	devAdminActor,
 	nativeItemOf,
-	NATIVE_ROLES,
 	readEntry,
 	updateEntry,
 	uploadSyntheticMedia,
@@ -85,28 +82,6 @@ function uniqueTitle(): string {
 /** A valid native file value for an uploaded fixture media id. */
 function fileValueFor(mediaId: string): { id: string } {
 	return { id: mediaId };
-}
-
-/**
- * The runner-configured origin for this suite, mirroring playwright.config.ts
- * exactly: the PLAYWRIGHT_BASE_URL environment variable when set, otherwise
- * the documented development origin (the helper default constant). Every
- * actor this file creates is pinned to it, so the checks always exercise the
- * application the runner was pointed at — never a silently defaulted origin
- * that could be a different running development app — and the
- * unauthenticated control below inherits the same origin from the actor.
- *
- * node:process is loaded through a dynamic non-literal import because the
- * pinned dependency baseline intentionally ships no @types/node (the same
- * pattern as readSecretScratch in cms.helpers.ts); the structural cast keeps
- * this file strict-typed.
- */
-async function configuredDevelopmentOrigin(): Promise<string> {
-	const specifier = "node:process";
-	const nodeProcess = (await import(specifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	return nodeProcess.env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN;
 }
 
 /**
@@ -160,27 +135,9 @@ function expectValidationRefusal(result: NativeResult, caseLabel: string): void 
 // ---------------------------------------------------------------------------
 
 test.beforeAll(async () => {
-	// Development native access through the pre-existing development
-	// credential (T013 test-authentication adaptation), pinned to the
-	// runner-configured origin so a nondefault PLAYWRIGHT_BASE_URL run
-	// cannot silently exercise another app. createPatActor verifies the live
-	// identity through /auth/me and pins the expected Administrator role; the
-	// expected development fixture account is asserted by email. An
-	// unreachable app or an unverified identity throws a scrubbed helper
-	// error here — a truthful environment failure for every test in this
-	// file, never a field-validation result. This hook deliberately creates
-	// no owned fixtures (credential load, identity verification and a schema
-	// read only), so a partial setup cannot leak anything for teardown to
-	// miss.
-	admin = await createPatActor({
-		baseUrl: await configuredDevelopmentOrigin(),
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
-	expect(
-		admin.email,
-		"the development credential must belong to the intended dev@emdash.local fixture account",
-	).toBe("dev@emdash.local");
+	// The development Administrator: an unreachable app or an unverified identity fails every test
+	// here, never as a validation result. This hook creates no owned fixtures, only a schema read.
+	admin = await devAdminActor();
 
 	// One live schema read decides readiness. The credential's effective
 	// permissions are proven by the native responses themselves; the request

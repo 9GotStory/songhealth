@@ -28,12 +28,10 @@ import type { Page } from "@playwright/test";
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
-	createPatActor,
 	createSyntheticEntry,
-	loadDevAccessToken,
+	devAdminActor,
 	nativeDataOf,
 	nativeRefusalOf,
-	NATIVE_ROLES,
 	publishEntryAt,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
@@ -71,7 +69,6 @@ const NO_UNIT = "ไม่ระบุหน่วยงาน";
 const CONTACT_LABEL = "ช่องทางติดต่อ";
 
 let admin: CmsActor;
-let origin: string;
 
 const borrowed = new BorrowedEntries();
 
@@ -160,17 +157,8 @@ async function expectPersonnelPage(page: Page, path: string, title: string): Pro
 
 test.use({ viewport: DESKTOP_VIEWPORT });
 
-test.beforeAll(async ({}, testInfo) => {
-	const baseURL = testInfo.project.use.baseURL;
-	if (baseURL === undefined) {
-		throw new Error("this suite needs a configured baseURL (PLAYWRIGHT_BASE_URL)");
-	}
-	origin = new URL(baseURL).origin;
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
+test.beforeAll(async () => {
+	admin = await devAdminActor();
 });
 
 test.afterEach(async () => {

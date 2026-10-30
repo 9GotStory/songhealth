@@ -25,22 +25,19 @@ import { expect, test } from "@playwright/test";
 import {
 	ADMIN_SESSION_ENV,
 	CmsActor,
-	DEFAULT_DEVELOPMENT_ORIGIN,
-	NATIVE_ROLES,
+	ROLE_FIXTURE_CREDENTIAL_ENV,
 	SYNTHETIC_FIXTURE_MARK,
 	cleanupOwnedFixtures,
 	closeDevAdminSession,
 	cmsRequest,
-	createPatActor,
 	createSyntheticEntry,
+	devAdminActor,
 	devAdminSessionRequested,
-	loadDevAccessToken,
 	nativeDataOf,
 	nativeItemOf,
 	nativeItemsOf,
 	openDevAdminSession,
 	readEntry,
-	ROLE_FIXTURE_CREDENTIAL_ENV,
 	roleFixtureActor,
 } from "./cms.helpers";
 
@@ -50,11 +47,6 @@ const HEALTH_REPORTS = "health_reports";
 let admin: CmsActor;
 let roleFixture: CmsActor | undefined;
 let sessionRequested = false;
-
-async function processEnv(): Promise<Record<string, string | undefined>> {
-	const specifier = "node:process";
-	return ((await import(specifier)) as unknown as { env: Record<string, string | undefined> }).env;
-}
 
 function uniqueTitle(kind: string): string {
 	return `${SYNTHETIC_FIXTURE_MARK} ui ${kind} ${crypto.randomUUID().slice(0, 8)}`;
@@ -75,14 +67,8 @@ async function openEditor(page: import("@playwright/test").Page, path: string): 
 }
 
 test.beforeAll(async () => {
-	const env = await processEnv();
-	const origin = env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN;
 	sessionRequested = await devAdminSessionRequested();
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
+	admin = await devAdminActor();
 	roleFixture = await roleFixtureActor(admin);
 });
 
@@ -91,7 +77,7 @@ test.beforeEach(async ({ context }) => {
 		{
 			name: "emdash-locale",
 			value: "th",
-			url: `${(await processEnv()).PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN}/`,
+			url: `${admin.baseUrl}/`,
 		},
 	]);
 	if (sessionRequested) await openDevAdminSession(context);

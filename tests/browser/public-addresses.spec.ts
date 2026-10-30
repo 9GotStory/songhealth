@@ -13,19 +13,17 @@
 // native API. They are removed afterwards, together with the redirects their slug changes
 // created, which deleting an entry leaves in place.
 
-import { expect, test, type APIRequestContext, type TestInfo } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 
 import { CANONICAL_URL_PATTERNS } from "../canonical-url-patterns";
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
-	createPatActor,
 	createSyntheticEntry,
-	loadDevAccessToken,
+	devAdminActor,
 	nativeDataOf,
 	nativeItemsOf,
 	nativeRefusalOf,
-	NATIVE_ROLES,
 	publishEntry,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
@@ -72,17 +70,9 @@ async function sitemapLocations(request: APIRequestContext, path: string): Promi
 	return [...xml.matchAll(/<loc>([^<]*)<\/loc>/g)].map((match) => match[1]);
 }
 
-test.beforeAll(async ({}, testInfo: TestInfo) => {
-	const baseURL = testInfo.project.use.baseURL;
-	if (baseURL === undefined) {
-		throw new Error("this suite needs a configured baseURL (PLAYWRIGHT_BASE_URL)");
-	}
-	origin = new URL(baseURL).origin;
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
+test.beforeAll(async () => {
+	admin = await devAdminActor();
+	origin = admin.baseUrl;
 });
 
 test.afterAll(async () => {

@@ -25,14 +25,12 @@ import type { Page } from "@playwright/test";
 
 import {
 	cleanupOwnedFixtures,
-	createPatActor,
 	createSyntheticDocument,
 	createSyntheticDraft,
 	createSyntheticEntry,
 	createSyntheticHealthService,
 	createSyntheticService,
-	loadDevAccessToken,
-	NATIVE_ROLES,
+	devAdminActor,
 	nativeItemOf,
 	nativeRefusalOf,
 	portableTextBlock,
@@ -107,16 +105,8 @@ const searchBox = (page: Page) =>
 
 test.use({ viewport: DESKTOP_VIEWPORT });
 
-test.beforeAll(async ({}, testInfo) => {
-	const baseURL = testInfo.project.use.baseURL;
-	if (baseURL === undefined) {
-		throw new Error("this suite needs a configured baseURL (PLAYWRIGHT_BASE_URL)");
-	}
-	admin = await createPatActor({
-		baseUrl: new URL(baseURL).origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
+test.beforeAll(async () => {
+	admin = await devAdminActor();
 });
 
 test.afterAll(async () => {

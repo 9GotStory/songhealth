@@ -800,6 +800,42 @@ export function assertSameNativeApp(a: CmsActor, b: CmsActor): void {
 	}
 }
 
+/**
+ * The origin the suites run against, as playwright.config.ts resolves it: PLAYWRIGHT_BASE_URL, else
+ * the documented development origin. node:process loads through a non-literal import, as in
+ * loadDevAccessToken.
+ */
+export async function configuredDevelopmentOrigin(): Promise<string> {
+	const processSpecifier = "node:process";
+	const nodeProcess = (await import(processSpecifier)) as unknown as {
+		env: Record<string, string | undefined>;
+	};
+	return new URL(nodeProcess.env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN).origin;
+}
+
+/** The development Administrator's account, which the development PAT belongs to. */
+const DEV_ADMIN_EMAIL = "dev@emdash.local";
+
+/**
+ * The development Administrator on `origin`, else the configured origin: the development PAT's
+ * actor (DEV_ACCESS_CREDENTIAL_ENV), verified as the dev@emdash.local account at the
+ * Administrator role. The suites' admin setup.
+ */
+export async function devAdminActor(origin?: string): Promise<CmsActor> {
+	const admin = await createPatActor({
+		baseUrl: origin ?? (await configuredDevelopmentOrigin()),
+		token: await loadDevAccessToken(),
+		expected: { role: NATIVE_ROLES.administrator },
+	});
+	if (admin.email !== DEV_ADMIN_EMAIL) {
+		throw new CmsHelperError(
+			"IDENTITY_MISMATCH",
+			`the development credential belongs to ${admin.email}, not ${DEV_ADMIN_EMAIL}`,
+		);
+	}
+	return admin;
+}
+
 /** Environment variable naming the role fixture's 0600 PAT file (scripts/dev-runtime-env.sh). */
 export const ROLE_FIXTURE_CREDENTIAL_ENV = "SONGHEALTH_ROLE_FIXTURE_ACCESS";
 
@@ -2282,7 +2318,7 @@ export async function openDevAdminSession(context: SessionContext): Promise<void
 	const body = (await response.json().catch(() => undefined)) as
 		{ data?: { user?: { email?: unknown; role?: unknown } } } | undefined;
 	const user = body?.data?.user;
-	if (response.status() !== 200 || user?.email !== "dev@emdash.local" || user?.role !== 50) {
+	if (response.status() !== 200 || user?.email !== DEV_ADMIN_EMAIL || user?.role !== 50) {
 		throw new CmsHelperError(
 			"DEV_SESSION_FAILED",
 			`the development Admin session was not established (status ${response.status()}); a production build refuses this route by design`,

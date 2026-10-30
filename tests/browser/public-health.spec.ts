@@ -38,13 +38,11 @@ import {
 	cleanupOwnedFixtures,
 	cmsRequest,
 	createOwnedTerm,
-	createPatActor,
 	createSyntheticDocument,
 	createSyntheticDraft,
 	deleteMedia,
 	deleteSyntheticTerms,
-	loadDevAccessToken,
-	NATIVE_ROLES,
+	devAdminActor,
 	nativeDataOf,
 	nativeRefusalOf,
 	portableTextBlock,
@@ -130,17 +128,9 @@ const healthNavItem = (page: Page) =>
 
 test.use({ viewport: DESKTOP_VIEWPORT });
 
-test.beforeAll(async ({}, testInfo) => {
-	const baseURL = testInfo.project.use.baseURL;
-	if (baseURL === undefined) {
-		throw new Error("this suite needs a configured baseURL (PLAYWRIGHT_BASE_URL)");
-	}
-	origin = new URL(baseURL).origin;
-	admin = await createPatActor({
-		baseUrl: origin,
-		token: await loadDevAccessToken(),
-		expected: { role: NATIVE_ROLES.administrator },
-	});
+test.beforeAll(async () => {
+	admin = await devAdminActor();
+	origin = admin.baseUrl;
 	reportDocument = await createSyntheticDocument(admin, "health-report");
 	await publishEntryAt(admin, "documents", reportDocument.id);
 });
