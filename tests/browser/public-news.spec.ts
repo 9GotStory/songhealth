@@ -29,16 +29,16 @@ import type { Page } from "@playwright/test";
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
-	createPatActor,
-	createSyntheticEntry,
 	createOwnedTerm,
+	createPatActor,
+	createSyntheticDraft,
 	deleteMedia,
 	deleteSyntheticTerms,
 	loadDevAccessToken,
+	NATIVE_ROLES,
 	nativeDataOf,
 	nativeItemsOf,
 	nativeRefusalOf,
-	NATIVE_ROLES,
 	portableTextBlock,
 	portableTextImage,
 	publishEntryAt,
@@ -50,6 +50,8 @@ import {
 	updateEntry,
 	uploadSyntheticMedia,
 	type CmsActor,
+	type DraftFields,
+	type DraftFixture,
 	type SyntheticTerm,
 } from "./cms.helpers";
 import {
@@ -83,34 +85,12 @@ const movedSlugs: string[] = [];
 const createTerm = (taxonomy: string, label: string) =>
 	createOwnedTerm(admin, taxonomy, label, ownedTerms);
 
-interface NewsFixture {
-	id: string;
-	slug: string;
-	title: string;
-}
-
 /** A synthetic News draft. Its title is unique, so a page shows it or does not. */
-async function createNews(
-	label: string,
-	fields: {
-		data?: Record<string, unknown>;
-		taxonomies?: Record<string, string[]>;
-		seo?: Record<string, unknown>;
-	} = {},
-): Promise<NewsFixture> {
-	const slug = syntheticSlug(label);
-	const title = `${SYNTHETIC_FIXTURE_MARK} ข่าว ${label} ${slug.slice(-6)}`;
-	const created = await createSyntheticEntry(admin, "news", {
-		...fields,
-		data: { title, ...fields.data },
-		slug,
-	});
-	expect(created.result.ok, `news ${label}: ${nativeRefusalOf(created.result)}`).toBe(true);
-	return { id: created.entryId!, slug, title };
-}
+const createNews = (label: string, fields: DraftFields = {}) =>
+	createSyntheticDraft(admin, "news", "ข่าว", label, fields);
 
 /** Publish now, or backdated to `publishedAt`. Returns the stored publication instant. */
-function publish(news: NewsFixture, publishedAt?: string): Promise<string> {
+function publish(news: DraftFixture, publishedAt?: string): Promise<string> {
 	return publishEntryAt(admin, "news", news.id, publishedAt);
 }
 
@@ -228,7 +208,7 @@ test("/news lists only published News, newest first, each with its date and its 
 test("/news pages through older News with the page number in the address, and ignores a page number that is not one", async ({
 	page,
 }) => {
-	const fixtures: NewsFixture[] = [];
+	const fixtures: DraftFixture[] = [];
 	for (let index = 0; index <= PAGE_SIZE; index += 1) {
 		fixtures.push(await createNews(`page-${String(index).padStart(2, "0")}`));
 	}
@@ -625,7 +605,7 @@ test.describe("the head of each News page", () => {
 });
 
 test.describe("accessibility and reflow", () => {
-	let news: NewsFixture;
+	let news: DraftFixture;
 
 	test.beforeAll(async () => {
 		const topic = await createTerm("topic", "ผู้สูงอายุ");

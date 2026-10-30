@@ -61,12 +61,6 @@ const REPORTS = [
 ];
 
 const fixtures: Fixtures = async ({ admin, helpers, term, picture, block }) => {
-	const terms = new Map<string, string>();
-	const termOf = async (taxonomy: string, label: string) => {
-		const key = `${taxonomy}:${label}`;
-		if (!terms.has(key)) terms.set(key, await term(taxonomy, label));
-		return terms.get(key)!;
-	};
 	const publish = async (collection: string, id: string) => {
 		const published = await helpers.publishEntry(admin, collection, id);
 		if (!published.ok) throw new Error(`publish: ${helpers.nativeRefusalOf(published)}`);
@@ -93,7 +87,7 @@ const fixtures: Fixtures = async ({ admin, helpers, term, picture, block }) => {
 					),
 				],
 			},
-			taxonomies: { topic: [await termOf("topic", content.topic)] },
+			taxonomies: { topic: [await term("topic", content.topic)] },
 		});
 		if (!created.result.ok) {
 			throw new Error(`health content: ${helpers.nativeRefusalOf(created.result)}`);
@@ -110,7 +104,7 @@ const fixtures: Fixtures = async ({ admin, helpers, term, picture, block }) => {
 				fiscal_year: report.fiscalYear,
 				owner_source: "สำนักงานสาธารณสุขอำเภอสอง",
 			},
-			taxonomies: { document_type: [await termOf("document_type", "รายงาน")] },
+			taxonomies: { document_type: [await term("document_type", "รายงาน")] },
 		});
 		await publish("documents", document.id);
 		const slug = helpers.syntheticSlug("shot");
@@ -124,7 +118,7 @@ const fixtures: Fixtures = async ({ admin, helpers, term, picture, block }) => {
 				owner_source: "สำนักงานสาธารณสุขอำเภอสอง",
 				...(report.reportAt ? { report_at: report.reportAt } : {}),
 			},
-			taxonomies: { report_type: [await termOf("report_type", report.type)] },
+			taxonomies: { report_type: [await term("report_type", report.type)] },
 			references: { report_document: [document.id] },
 		});
 		if (!created.result.ok) {

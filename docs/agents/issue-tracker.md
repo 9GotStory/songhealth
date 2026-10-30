@@ -10,7 +10,8 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Make an issue a sub-issue of a parent**: `gh issue create --parent <parent> ...`, or `gh issue edit <parent> --add-sub-issue <child>` afterwards (`gh` 2.94+). Older `gh`: `gh api --method POST repos/<owner>/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<child-db-id>` (database id, as in **Blocking** below). Without sub-issues, put `Part of #<parent>` at the top of the child body.
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Record a Product Owner decision** on the issue it decides, as a comment, when it is made: what was decided, the PO's words quoted, and the date. A fresh session's `/implement` and `/code-review`'s Spec reviewer read it there with the issue; the PR body repeats it.
-- **List pending confirmations** (choices a PR made that the Product Owner has not yet decided) in the PR body and as one checklist comment on its issue, so a later session finds them with the ticket. Each answer is then recorded as a decision, as above.
+- **Link a decision that moves work** to another issue: the receiving issue cites the decision's comment (`#<n> comment <id>`), so code and PRs can cite it without a search.
+- **List pending confirmations** (choices a PR made that the Product Owner has not yet decided) in the PR body and as one checklist comment on its issue, so a later session finds them with the ticket. Each answer is then recorded as a decision, as above. Choices that follow an accepted page's precedent are not pending: the PR body lists them under "Built on precedent" (CODING_STANDARDS "Public pages").
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
 

@@ -13,6 +13,7 @@ import {
 import { termsOf } from "../lib/terms";
 import AnnouncementStatus from "./AnnouncementStatus.astro";
 import DateText from "./DateText.astro";
+import MetaLine from "./MetaLine.astro";
 
 interface Props {
 	announcement: AnnouncementEntry;
@@ -26,13 +27,7 @@ const date = announcementDate(data);
 ---
 
 <article class="flex flex-col gap-2 rounded-24 bg-surface-base p-5 shadow-card">
-	{(type || date) && (
-		<p class="flex flex-wrap gap-x-2 text-small text-text-secondary">
-			{type && <span class="wrap-anywhere">{type.label}</span>}
-			{type && date && <span aria-hidden="true">•</span>}
-			{date && <DateText value={date} />}
-		</p>
-	)}
+	<MetaLine facts={[type && { text: type.label }, date && { date }]} />
 	<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
 		<a
 			class="underline-offset-4 hover:text-brand-primary hover:underline"

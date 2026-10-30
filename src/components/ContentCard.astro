@@ -18,7 +18,7 @@
 import { Image } from "emdash/ui";
 import { availableMedia } from "../lib/media";
 import type { ImageFieldValue } from "../lib/news";
-import DateText from "./DateText.astro";
+import MetaLine from "./MetaLine.astro";
 
 interface Props {
 	href: string;
@@ -52,13 +52,7 @@ const CARD_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw";
 		<div aria-hidden="true" data-testid="card-visual" class="aspect-16/10 w-full bg-surface-soft" />
 	)}
 	<div class="flex flex-1 flex-col gap-2 p-5">
-		{(label || date) && (
-			<p class="flex flex-wrap gap-x-2 text-small text-text-secondary">
-				{label && <span class="wrap-anywhere">{label}</span>}
-				{label && date && <span aria-hidden="true">•</span>}
-				{date && <DateText value={date} />}
-			</p>
-		)}
+		<MetaLine facts={[label && { text: label }, date && { date }]} />
 		<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
 			<a class="underline-offset-4 hover:text-brand-primary hover:underline" href={href}>
 				{title}

@@ -33,12 +33,6 @@ const NEWS = [
 ];
 
 const fixtures: Fixtures = async ({ admin, helpers, term, picture, block }) => {
-	const terms = new Map<string, string>();
-	const termOf = async (taxonomy: string, label: string) => {
-		const key = `${taxonomy}:${label}`;
-		if (!terms.has(key)) terms.set(key, await term(taxonomy, label));
-		return terms.get(key)!;
-	};
 	let lastSlug = "";
 	for (const news of NEWS) {
 		const slug = helpers.syntheticSlug("shot");
@@ -58,8 +52,8 @@ const fixtures: Fixtures = async ({ admin, helpers, term, picture, block }) => {
 				],
 			},
 			taxonomies: {
-				news_category: [await termOf("news_category", news.category)],
-				...(news.topic ? { topic: [await termOf("topic", news.topic)] } : {}),
+				news_category: [await term("news_category", news.category)],
+				...(news.topic ? { topic: [await term("topic", news.topic)] } : {}),
 			},
 		});
 		if (!created.result.ok) throw new Error(`news: ${helpers.nativeRefusalOf(created.result)}`);

@@ -27,23 +27,24 @@
 import {
 	cleanupOwnedFixtures,
 	cmsRequest,
+	createOwnedTerm,
 	createPatActor,
 	createSyntheticDocument,
-	createSyntheticEntry,
-	createOwnedTerm,
+	createSyntheticDraft,
 	deleteSyntheticTerms,
 	loadDevAccessToken,
+	NATIVE_ROLES,
 	nativeDataOf,
 	nativeRefusalOf,
-	NATIVE_ROLES,
 	portableTextBlock,
 	publishEntryAt,
 	SYNTHETIC_FIXTURE_MARK,
-	syntheticSlug,
 	trashEntry,
 	unpublishEntry,
 	uploadSyntheticPdf,
 	type CmsActor,
+	type DraftFields,
+	type DraftFixture,
 	type SyntheticPdf,
 	type SyntheticTerm,
 } from "./cms.helpers";
@@ -75,12 +76,6 @@ let origin: string;
 /** Synthetic terms this suite created, removed at the end. */
 const ownedTerms: SyntheticTerm[] = [];
 
-interface Fixture {
-	id: string;
-	slug: string;
-	title: string;
-}
-
 /** The instant today began in Bangkok (UTC+7), as an ISO string. */
 function startOfBangkokToday(): string {
 	const bangkok = new Date(Date.now() + 7 * HOUR);
@@ -103,25 +98,8 @@ const createTerm = (taxonomy: string, label: string) =>
 	createOwnedTerm(admin, taxonomy, label, ownedTerms);
 
 /** A synthetic Announcement draft. Its title is unique, so a page shows it or does not. */
-async function createAnnouncement(
-	label: string,
-	fields: {
-		data?: Record<string, unknown>;
-		taxonomies?: Record<string, string[]>;
-		references?: Record<string, string[]>;
-		seo?: Record<string, unknown>;
-	} = {},
-): Promise<Fixture> {
-	const slug = syntheticSlug(label);
-	const title = `${SYNTHETIC_FIXTURE_MARK} ประกาศ ${label} ${slug.slice(-6)}`;
-	const created = await createSyntheticEntry(admin, "announcements", {
-		...fields,
-		data: { title, ...fields.data },
-		slug,
-	});
-	expect(created.result.ok, `announcement ${label}: ${nativeRefusalOf(created.result)}`).toBe(true);
-	return { id: created.entryId!, slug, title };
-}
+const createAnnouncement = (label: string, fields: DraftFields = {}) =>
+	createSyntheticDraft(admin, "announcements", "ประกาศ", label, fields);
 
 /** A synthetic Document draft with `file`, and the terms given. */
 const createDocument = (label: string, file: SyntheticPdf, taxonomies?: Record<string, string[]>) =>
@@ -129,7 +107,7 @@ const createDocument = (label: string, file: SyntheticPdf, taxonomies?: Record<s
 
 /** Publish an entry of `collection` now, or backdated. Returns the stored publication instant. */
 function publish(
-	fixture: Fixture,
+	fixture: DraftFixture,
 	publishedAt?: string,
 	collection = "announcements",
 ): Promise<string> {
@@ -321,7 +299,7 @@ test("/announcements pages through its Announcements, current ones before closed
 	page,
 }) => {
 	// Announced in 2030, after any real Announcement, so the current ones lead the first page.
-	const current: Fixture[] = [];
+	const current: DraftFixture[] = [];
 	for (let index = 0; index < PAGE_SIZE; index += 1) {
 		const day = String(index + 1).padStart(2, "0");
 		current.push(

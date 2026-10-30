@@ -1409,20 +1409,35 @@ async function createDraftFixture(
 }
 
 /**
- * A synthetic Service draft titled `${mark} ${name} ${label} ${ending}`, unique by its slug's
- * ending. A `name` that starts with ก, ข, ค orders the fixtures in Thai whatever their endings.
+ * A synthetic draft of `collection` titled `${mark} ${kind} ${label} ${ending}`, unique by its
+ * slug's ending, so a page shows it or does not. `kind` names the content in Thai, such as ข่าว; a
+ * public-page suite wraps this once per collection it tests. A refusal throws.
+ */
+export async function createSyntheticDraft(
+	actor: CmsActor,
+	collection: string,
+	kind: string,
+	label: string,
+	{ data, ...fields }: DraftFields = {},
+): Promise<DraftFixture> {
+	const slug = syntheticSlug(label);
+	const title = `${SYNTHETIC_FIXTURE_MARK} ${kind} ${label} ${slug.slice(-6)}`;
+	return createDraftFixture(actor, collection, slug, title, {
+		data: { title, ...data },
+		...fields,
+	});
+}
+
+/**
+ * A synthetic Service draft titled `${mark} ${name} ${label} ${ending}`. A `name` that starts with
+ * ก, ข, ค orders the fixtures in Thai whatever their endings.
  */
 export async function createSyntheticService(
 	actor: CmsActor,
 	label: string,
-	{ name = "บริการ", data, ...fields }: DraftFields & { name?: string } = {},
+	{ name = "บริการ", ...fields }: DraftFields & { name?: string } = {},
 ): Promise<DraftFixture> {
-	const slug = syntheticSlug(label);
-	const title = `${SYNTHETIC_FIXTURE_MARK} ${name} ${label} ${slug.slice(-6)}`;
-	return createDraftFixture(actor, "services", slug, title, {
-		data: { title, ...data },
-		...fields,
-	});
+	return createSyntheticDraft(actor, "services", name, label, fields);
 }
 
 /** A synthetic Document draft with a unique title and `file`, else a synthetic PDF of its own. */
@@ -1431,11 +1446,9 @@ export async function createSyntheticDocument(
 	label: string,
 	{ file, data, ...fields }: DraftFields & { file?: SyntheticPdf } = {},
 ): Promise<DraftFixture & { file: SyntheticPdf }> {
-	const slug = syntheticSlug(label);
-	const title = `${SYNTHETIC_FIXTURE_MARK} เอกสาร ${label} ${slug.slice(-6)}`;
 	const pdf = file ?? (await uploadSyntheticPdf(actor));
-	const fixture = await createDraftFixture(actor, "documents", slug, title, {
-		data: { title, file: pdf.value, ...data },
+	const fixture = await createSyntheticDraft(actor, "documents", "เอกสาร", label, {
+		data: { file: pdf.value, ...data },
 		...fields,
 	});
 	return { ...fixture, file: pdf };

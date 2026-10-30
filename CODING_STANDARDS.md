@@ -24,8 +24,12 @@ pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
   `docs/design/homepage-concept-v1.md`). A colour or type style that the tokens lack becomes a
   named token there, with its source.
 - Interface text the shell or a Homepage section shows (headings, link labels such as the footer's)
-  comes from `docs/design/homepage-concept-v1.md` where it names one; text no document names is a
-  pending confirmation for the Product Owner.
+  comes from `docs/design/homepage-concept-v1.md` where it names one.
+- Text and choices that follow an accepted page's precedent (the same kind of lead, label, empty
+  state, page size or card) are accepted as built, and the pull request lists them under "Built on
+  precedent". A choice with no precedent, a departure from the spec or the current docs, or new
+  scope is a pending confirmation for the Product Owner (Product Owner, 2026-10-30: #59 comment
+  6515274921).
 - Status is stated in text; colour supports it.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page.

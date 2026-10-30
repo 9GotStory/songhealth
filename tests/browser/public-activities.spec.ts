@@ -27,19 +27,20 @@ import {
 	cleanupOwnedFixtures,
 	cmsRequest,
 	createPatActor,
-	createSyntheticEntry,
+	createSyntheticDraft,
 	deleteMedia,
 	loadDevAccessToken,
+	NATIVE_ROLES,
 	nativeDataOf,
 	nativeRefusalOf,
-	NATIVE_ROLES,
 	publishEntryAt,
 	SYNTHETIC_FIXTURE_MARK,
-	syntheticSlug,
 	trashEntry,
 	unpublishEntry,
 	uploadSyntheticPicture,
 	type CmsActor,
+	type DraftFields,
+	type DraftFixture,
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
@@ -65,30 +66,12 @@ const PAGE_SIZE = 12;
 let admin: CmsActor;
 let origin: string;
 
-interface ActivityFixture {
-	id: string;
-	slug: string;
-	title: string;
-}
-
 /** A synthetic Activity draft. Its title is unique, so a page shows it or does not. */
-async function createActivity(
-	label: string,
-	fields: { data?: Record<string, unknown>; seo?: Record<string, unknown> } = {},
-): Promise<ActivityFixture> {
-	const slug = syntheticSlug(label);
-	const title = `${SYNTHETIC_FIXTURE_MARK} กิจกรรม ${label} ${slug.slice(-6)}`;
-	const created = await createSyntheticEntry(admin, "activities", {
-		...fields,
-		data: { title, ...fields.data },
-		slug,
-	});
-	expect(created.result.ok, `activity ${label}: ${nativeRefusalOf(created.result)}`).toBe(true);
-	return { id: created.entryId!, slug, title };
-}
+const createActivity = (label: string, fields: DraftFields = {}) =>
+	createSyntheticDraft(admin, "activities", "กิจกรรม", label, fields);
 
 /** Publish now, or backdated to `publishedAt`. Returns the stored publication instant. */
-function publish(activity: ActivityFixture, publishedAt?: string): Promise<string> {
+function publish(activity: DraftFixture, publishedAt?: string): Promise<string> {
 	return publishEntryAt(admin, "activities", activity.id, publishedAt);
 }
 
@@ -214,7 +197,7 @@ test("an Activity card shows its picture, or the neutral visual when it has none
 test("/activities pages through older Activities in the same order, with the page number in the address", async ({
 	page,
 }) => {
-	const fixtures: ActivityFixture[] = [];
+	const fixtures: DraftFixture[] = [];
 	for (let index = 0; index <= PAGE_SIZE; index += 1) {
 		const day = String(index + 1).padStart(2, "0");
 		fixtures.push(
