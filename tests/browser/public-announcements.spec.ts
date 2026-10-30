@@ -115,13 +115,7 @@ test.beforeAll(async () => {
 	origin = admin.baseUrl;
 });
 
-test.afterAll(async () => {
-	if (admin === undefined) return;
-	expect(
-		await removeSuiteFixtures(admin, { terms: ownedTerms }),
-		"the suite's synthetic fixtures must all be removed",
-	).toEqual([]);
-});
+test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
 
 test("/announcements lists current Announcements first and closed ones after, each newest first by announcement date with the publication as the fallback, and states their status in text", async ({
 	page,

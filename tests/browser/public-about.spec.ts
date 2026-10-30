@@ -218,13 +218,7 @@ test.afterEach(async () => {
 	await borrowed.giveBack(admin);
 });
 
-test.afterAll(async () => {
-	if (admin === undefined) return;
-	expect(
-		await removeSuiteFixtures(admin),
-		"the suite's synthetic fixtures must all be removed",
-	).toEqual([]);
-});
+test.afterAll(() => removeSuiteFixtures(admin));
 
 test("each About Document page shows its empty state while no published Document has its type", async ({
 	page,

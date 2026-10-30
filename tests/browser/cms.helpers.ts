@@ -1672,11 +1672,11 @@ export async function deleteAutoRedirects(
 }
 
 /**
- * Remove what a suite made, for its afterAll: the redirects left by `movedSlugs`, the actor's owned
- * fixtures, then `terms`. Returns a line for each thing left.
+ * Remove what a suite made, as its afterAll: the redirects left by `movedSlugs`, the actor's owned
+ * fixtures, then `terms`, and fail on anything left. An actor that never loaded made nothing.
  */
 export async function removeSuiteFixtures(
-	actor: CmsActor,
+	actor: CmsActor | undefined,
 	{
 		terms = [],
 		movedSlugs = [],
@@ -1684,12 +1684,13 @@ export async function removeSuiteFixtures(
 		terms?: ReadonlyArray<Pick<SyntheticTerm, "taxonomy" | "slug">>;
 		movedSlugs?: readonly string[];
 	} = {},
-): Promise<string[]> {
+): Promise<void> {
+	if (actor === undefined) return;
 	const failures = await deleteAutoRedirects(actor, movedSlugs);
 	const report = await cleanupOwnedFixtures(actor, { permanent: true });
 	if (!report.complete) failures.push(`owned fixtures left: ${JSON.stringify(report)}`);
 	failures.push(...(await deleteSyntheticTerms(actor, terms)));
-	return failures;
+	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
 }
 
 // ---------------------------------------------------------------------------

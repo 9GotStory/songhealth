@@ -77,13 +77,7 @@ test.beforeAll(async () => {
 	origin = admin.baseUrl;
 });
 
-test.afterAll(async () => {
-	if (admin === undefined) return;
-	expect(
-		await removeSuiteFixtures(admin),
-		"the suite's synthetic fixtures must all be removed",
-	).toEqual([]);
-});
+test.afterAll(() => removeSuiteFixtures(admin));
 
 test("/activities lists only published Activities, the most recently held first, an undated one placed by its publication", async ({
 	page,

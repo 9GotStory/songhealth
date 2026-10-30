@@ -109,13 +109,7 @@ test.beforeAll(async () => {
 	admin = await devAdminActor();
 });
 
-test.afterAll(async () => {
-	if (admin === undefined) return;
-	expect(
-		await removeSuiteFixtures(admin),
-		"the suite's synthetic fixtures must all be removed",
-	).toEqual([]);
-});
+test.afterAll(() => removeSuiteFixtures(admin));
 
 test("a Thai substring finds a title without word spaces, a title match ranks above a body-only match, and a result shows its kind, snippet, date and address", async ({
 	page,

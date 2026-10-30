@@ -164,13 +164,7 @@ test.afterEach(async () => {
 	await borrowed.giveBack(admin);
 });
 
-test.afterAll(async () => {
-	if (admin === undefined) return;
-	expect(
-		await removeSuiteFixtures(admin),
-		"the suite's synthetic fixtures must all be removed",
-	).toEqual([]);
-});
+test.afterAll(() => removeSuiteFixtures(admin));
 
 test("/about/leadership and /about/personnel show their empty states while no publicly visible Personnel is published", async ({
 	page,

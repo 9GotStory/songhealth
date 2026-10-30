@@ -75,13 +75,7 @@ test.beforeAll(async () => {
 	origin = admin.baseUrl;
 });
 
-test.afterAll(async () => {
-	if (admin === undefined) return;
-	expect(
-		await removeSuiteFixtures(admin, { movedSlugs }),
-		"the suite's synthetic fixtures must all be removed",
-	).toEqual([]);
-});
+test.afterAll(() => removeSuiteFixtures(admin, { movedSlugs }));
 
 // News is what #53 names. Health Content shows that the pattern, not EmDash's fallback
 // `/{collection}/{slug}`, builds the address: the fallback would give /health_content/….

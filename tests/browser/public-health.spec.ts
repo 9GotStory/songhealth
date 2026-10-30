@@ -129,13 +129,7 @@ test.beforeAll(async () => {
 	await publishEntryAt(admin, "documents", reportDocument.id);
 });
 
-test.afterAll(async () => {
-	if (admin === undefined) return;
-	expect(
-		await removeSuiteFixtures(admin, { terms: ownedTerms }),
-		"the suite's synthetic fixtures must all be removed",
-	).toEqual([]);
-});
+test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
 
 test("/health links to Health Content and to Health Reports under its own breadcrumb", async ({
 	page,
