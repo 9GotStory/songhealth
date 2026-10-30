@@ -13,6 +13,5 @@ scripts/verify-readiness.mjs
 scripts/verify-restored-foundation.mjs
 tests/node/foundation.test.ts
 tests/browser/foundation.spec.ts
-tests/browser/cms-reuse.spec.ts
 tests/browser/run-cms-public-reads.mjs
 tests/browser/fixtures/

@@ -373,9 +373,7 @@ interface SchemaField {
  * FAILS loudly so an unexpected schema mismatch stays visible.
  */
 type CollectionReadiness =
-	| { outcome: "ready" }
-	| { outcome: "missing" }
-	| { outcome: "misconfigured"; detail: string };
+	{ outcome: "ready" } | { outcome: "missing" } | { outcome: "misconfigured"; detail: string };
 
 /** The development-credential fixture actor owning every synthetic fixture made here. */
 let admin: CmsActor;
@@ -446,10 +444,7 @@ async function createOwnedDocument(): Promise<{
 	filename: string;
 }> {
 	const upload = await uploadSyntheticMedia(admin);
-	expect(
-		upload.result.ok,
-		"the synthetic fixture media upload must succeed",
-	).toBe(true);
+	expect(upload.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
 	expect(
 		upload.mediaId,
 		"a media id must be returned by the native response and registered for owned cleanup",
@@ -462,10 +457,7 @@ async function createOwnedDocument(): Promise<{
 		created.result.ok,
 		"the synthetic Document fixture must save in the shared documents collection",
 	).toBe(true);
-	expect(
-		created.entryId,
-		"the Document id must come from the native response",
-	).toBeTruthy();
+	expect(created.entryId, "the Document id must come from the native response").toBeTruthy();
 	// The returned filename is REQUIRED, not optional (corrective round 1,
 	// finding F2): it is the exact identity the zero-duplicate media check
 	// lists by, and an absent filename must fail loudly rather than silently
@@ -495,14 +487,10 @@ async function createOwnedDocument(): Promise<{
  * reference-validation outcomes (and vice versa).
  */
 function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
-	expect(
-		result.ok,
-		`${caseLabel}: the native save must be refused, not reported as success`,
-	).toBe(false);
-	expect(
-		result.status,
-		`${caseLabel}: a native validation refusal is HTTP 400`,
-	).toBe(400);
+	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
+		false,
+	);
+	expect(result.status, `${caseLabel}: a native validation refusal is HTTP 400`).toBe(400);
 	expect(
 		result.status === 401 || result.status === 403 || result.status === 409,
 		`${caseLabel}: a validation refusal must stay distinguishable from authorization (401/403) and state-conflict (409) failures`,
@@ -523,14 +511,12 @@ function expectValidationRefusal(result: NativeResult, caseLabel: string): void 
  * family; no separate fabricated error code is asserted.)
  */
 function expectTargetRefusal(result: NativeResult, caseLabel: string): void {
-	expect(
-		result.ok,
-		`${caseLabel}: the native save must be refused, not reported as success`,
-	).toBe(false);
-	expect(
-		result.status,
-		`${caseLabel}: an unresolvable reference target is refused with 404`,
-	).toBe(404);
+	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
+		false,
+	);
+	expect(result.status, `${caseLabel}: an unresolvable reference target is refused with 404`).toBe(
+		404,
+	);
 	expect(
 		result.status === 401 || result.status === 403,
 		`${caseLabel}: a target refusal must stay distinguishable from an authorization failure`,
@@ -577,11 +563,9 @@ async function selectedChildIds(
  * so an unreadable listing fails the caller rather than reading as zero.
  */
 async function countListedByQuery(collection: string, text: string): Promise<number> {
-	const listed = await cmsRequest(
-		admin,
-		`/_emdash/api/content/${encodeURIComponent(collection)}`,
-		{ searchParams: { q: text, status: "all" } },
-	);
+	const listed = await cmsRequest(admin, `/_emdash/api/content/${encodeURIComponent(collection)}`, {
+		searchParams: { q: text, status: "all" },
+	});
 	expect(
 		listed.ok,
 		`${collection}: the native listing used for the duplicate check must succeed`,
@@ -641,7 +625,8 @@ test.beforeAll(async () => {
 				},
 				(bySlug) => {
 					const domainStatus = bySlug.get("domain_status");
-					if (domainStatus?.type !== "select") return "domain_status must exist as a native select field";
+					if (domainStatus?.type !== "select")
+						return "domain_status must exist as a native select field";
 					const options = domainStatus.validation?.options;
 					const approved = ["current", "superseded", "expired"];
 					return Array.isArray(options) && approved.every((value) => options.includes(value))
@@ -884,10 +869,9 @@ test("shared identity: one Document and its native file are selected unchanged f
 		data: { title: uniqueTitle(SERVICE_COLLECTION) },
 		references: { [SERVICE_DOCUMENTS_RELATION.field]: [source.entryId] },
 	});
-	expect(
-		service.result.ok,
-		"the Service must save with its optional Document selection",
-	).toBe(true);
+	expect(service.result.ok, "the Service must save with its optional Document selection").toBe(
+		true,
+	);
 	expect(service.entryId).toBeTruthy();
 
 	const report = await createSyntheticEntry(admin, REPORT_COLLECTION, {
@@ -925,10 +909,7 @@ test("shared identity: one Document and its native file are selected unchanged f
 		},
 	]) {
 		const reopened = await readEntry(admin, context.collection, context.entryId);
-		expect(
-			reopened.ok,
-			`${context.label}: the entry must be reopenable by returned id`,
-		).toBe(true);
+		expect(reopened.ok, `${context.label}: the entry must be reopenable by returned id`).toBe(true);
 		const children = await selectedChildIds(context.collection, context.entryId, context.relation);
 		expect(
 			children.filter((id) => id === source.entryId).length,
@@ -939,13 +920,9 @@ test("shared identity: one Document and its native file are selected unchanged f
 	// The Document itself is unchanged by reuse: same returned id, same file
 	// selection of the ORIGINAL uploaded media id (one upload; no copies).
 	const reopenedDocument = await readEntry(admin, DOCUMENT_COLLECTION, source.entryId);
-	expect(
-		reopenedDocument.ok,
-		"the shared Document must be reopenable by returned id",
-	).toBe(true);
+	expect(reopenedDocument.ok, "the shared Document must be reopenable by returned id").toBe(true);
 	const documentData = nativeItemOf(reopenedDocument)?.data as
-		| { file?: { id?: unknown } }
-		| undefined;
+		{ file?: { id?: unknown } } | undefined;
 	expect(
 		documentData?.file?.id,
 		"the shared Document's file selection must still be the original uploaded media id (selection identity only; no byte-availability claim)",
@@ -974,21 +951,18 @@ test("shared identity: one Document and its native file are selected unchanged f
 				...(mediaCursor !== undefined ? { cursor: mediaCursor } : {}),
 			},
 		});
-		expect(
-			page.ok,
-			"the native media listing used for the duplicate check must succeed",
-		).toBe(true);
+		expect(page.ok, "the native media listing used for the duplicate check must succeed").toBe(
+			true,
+		);
 		const pageData = nativeDataOf(page);
 		const items = pageData?.items;
-		expect(
-			Array.isArray(items),
-			"the media listing must return its documented items array",
-		).toBe(true);
+		expect(Array.isArray(items), "the media listing must return its documented items array").toBe(
+			true,
+		);
 		for (const item of items as Array<{ id?: unknown }>) {
-			expect(
-				typeof item?.id === "string",
-				"every listed media item must carry its native id",
-			).toBe(true);
+			expect(typeof item?.id === "string", "every listed media item must carry its native id").toBe(
+				true,
+			);
 			listedMediaIds.push(item.id as string);
 		}
 		const nextCursor: unknown = pageData?.nextCursor;
@@ -1023,10 +997,7 @@ test("raw media: a public image is selected and reused without any semantic Docu
 	// Document — selected directly by a retained V1 content kind's image
 	// field (the same selection shape the accepted T007 checks use).
 	const upload = await uploadSyntheticMedia(admin);
-	expect(
-		upload.result.ok,
-		"the synthetic fixture media upload must succeed",
-	).toBe(true);
+	expect(upload.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
 	expect(
 		upload.mediaId,
 		"a media id must be returned by the native response and registered for owned cleanup",
@@ -1059,20 +1030,14 @@ test("raw media: a public image is selected and reused without any semantic Docu
 	// Reopen both by returned id: each carries the SAME media id in its image
 	// selection (selection identity only — never a byte-availability claim).
 	const firstRead = await readEntry(admin, NEWS_COLLECTION, first.entryId!);
-	expect(
-		firstRead.ok,
-		"the first entry must be reopenable by returned id",
-	).toBe(true);
+	expect(firstRead.ok, "the first entry must be reopenable by returned id").toBe(true);
 	expect(
 		(nativeItemOf(firstRead)?.data as { featured_image?: { id?: unknown } } | undefined)
 			?.featured_image?.id,
 		"the first context's image selection must read back the same raw media id",
 	).toBe(upload.mediaId);
 	const secondRead = await readEntry(admin, NEWS_COLLECTION, second.entryId!);
-	expect(
-		secondRead.ok,
-		"the second entry must be reopenable by returned id",
-	).toBe(true);
+	expect(secondRead.ok, "the second entry must be reopenable by returned id").toBe(true);
 	expect(
 		(nativeItemOf(secondRead)?.data as { featured_image?: { id?: unknown } } | undefined)
 			?.featured_image?.id,
@@ -1083,10 +1048,7 @@ test("raw media: a public image is selected and reused without any semantic Docu
 test("raw media: native alt and caption are maintainable and MIME type, size and dimensions read back", async () => {
 	gateCollection(NEWS_COLLECTION, "T009/T013");
 	const upload = await uploadSyntheticMedia(admin);
-	expect(
-		upload.result.ok,
-		"the synthetic fixture media upload must succeed",
-	).toBe(true);
+	expect(upload.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
 	expect(upload.mediaId).toBeTruthy();
 	const mediaId = upload.mediaId!;
 
@@ -1114,22 +1076,17 @@ test("raw media: native alt and caption are maintainable and MIME type, size and
 	const item = nativeItemOf(read);
 	expect(item?.alt, "the maintained alt text must read back").toBe(alt);
 	expect(item?.caption, "the maintained caption must read back").toBe(caption);
-	expect(
-		item?.mimeType,
-		"the native MIME type must read back the uploaded image/png",
-	).toBe("image/png");
+	expect(item?.mimeType, "the native MIME type must read back the uploaded image/png").toBe(
+		"image/png",
+	);
 	expect(
 		typeof item?.size === "number" && item.size > 0,
 		"the native file size must read back as a positive byte count",
 	).toBe(true);
-	expect(
-		item?.width,
-		"the native width must read back the 1×1 fixture's actual dimension",
-	).toBe(1);
-	expect(
-		item?.height,
-		"the native height must read back the 1×1 fixture's actual dimension",
-	).toBe(1);
+	expect(item?.width, "the native width must read back the 1×1 fixture's actual dimension").toBe(1);
+	expect(item?.height, "the native height must read back the 1×1 fixture's actual dimension").toBe(
+		1,
+	);
 
 	// The raw image is usable by content while carrying this metadata — the
 	// selection and the maintained metadata belong to the same native asset.
@@ -1139,19 +1096,15 @@ test("raw media: native alt and caption are maintainable and MIME type, size and
 			featured_image: fileValueFor(mediaId),
 		},
 	});
-	expect(
-		news.result.ok,
-		"the raw image with maintained metadata must remain selectable",
-	).toBe(true);
+	expect(news.result.ok, "the raw image with maintained metadata must remain selectable").toBe(
+		true,
+	);
 });
 
 test("raw media: usage metadata is an opt-in native read whose count-or-null shape is asserted truthfully", async () => {
 	gateCollection(NEWS_COLLECTION, "T009/T013");
 	const upload = await uploadSyntheticMedia(admin);
-	expect(
-		upload.result.ok,
-		"the synthetic fixture media upload must succeed",
-	).toBe(true);
+	expect(upload.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
 	const mediaId = upload.mediaId!;
 	// Reference the asset from one content entry so the usage surface is
 	// exercised on a used item.
@@ -1181,13 +1134,11 @@ test("raw media: usage metadata is an opt-in native read whose count-or-null sha
 	const withUsage = await cmsRequest(admin, `/_emdash/api/media/${encodeURIComponent(mediaId)}`, {
 		searchParams: { includeUsage: "1" },
 	});
-	expect(
-		withUsage.ok,
-		"the opt-in usage read must be accepted by the native media endpoint",
-	).toBe(true);
+	expect(withUsage.ok, "the opt-in usage read must be accepted by the native media endpoint").toBe(
+		true,
+	);
 	const usage = nativeItemOf(withUsage)?.usage as
-		| { count?: unknown; coverage?: { scope?: unknown; status?: unknown } }
-		| undefined;
+		{ count?: unknown; coverage?: { scope?: unknown; status?: unknown } } | undefined;
 	expect(
 		usage !== null && typeof usage === "object",
 		"the includeUsage=1 read must carry the documented usage object",
@@ -1197,10 +1148,9 @@ test("raw media: usage metadata is an opt-in native read whose count-or-null sha
 			(typeof usage?.count === "number" && Number.isInteger(usage.count) && usage.count >= 0),
 		"usage.count must be a non-negative integer or null (null is the native answer when the caller cannot read counts or coverage is not complete)",
 	).toBe(true);
-	expect(
-		usage?.coverage?.scope,
-		"usage.coverage.scope must read back its documented value",
-	).toBe("all_content_collections");
+	expect(usage?.coverage?.scope, "usage.coverage.scope must read back its documented value").toBe(
+		"all_content_collections",
+	);
 	expect(
 		typeof usage?.coverage?.status === "string" &&
 			["complete", "never", "running", "partial", "failed", "stale", "unknown"].includes(
@@ -1222,15 +1172,13 @@ test("raw media: usage metadata is an opt-in native read whose count-or-null sha
 test("document successor: domain status and successor identity stay distinct from publication state", async () => {
 	gateCollection(DOCUMENT_COLLECTION, "T005/T006");
 	const predecessorUpload = await uploadSyntheticMedia(admin);
-	expect(
-		predecessorUpload.result.ok,
-		"the predecessor Document's media upload must succeed",
-	).toBe(true);
+	expect(predecessorUpload.result.ok, "the predecessor Document's media upload must succeed").toBe(
+		true,
+	);
 	const successorUpload = await uploadSyntheticMedia(admin);
-	expect(
-		successorUpload.result.ok,
-		"the successor Document's media upload must succeed",
-	).toBe(true);
+	expect(successorUpload.result.ok, "the successor Document's media upload must succeed").toBe(
+		true,
+	);
 	const extraUpload = await uploadSyntheticMedia(admin);
 	expect(
 		extraUpload.result.ok,
@@ -1320,10 +1268,9 @@ test("document successor: domain status and successor identity stay distinct fro
 	const superseded = await updateEntry(admin, DOCUMENT_COLLECTION, successor.entryId!, {
 		data: { domain_status: "superseded" },
 	});
-	expect(
-		superseded.ok,
-		"setting domain_status=superseded on a published Document must save",
-	).toBe(true);
+	expect(superseded.ok, "setting domain_status=superseded on a published Document must save").toBe(
+		true,
+	);
 	reopened = await readEntry(admin, DOCUMENT_COLLECTION, successor.entryId!);
 	expect(reopened.ok, "the superseded Document must be reopenable").toBe(true);
 	const supersededItem = nativeItemOf(reopened);
@@ -1400,10 +1347,7 @@ test("health report: create refuses omitted, empty, wrong-target and excessive r
 			data: { title },
 			references: { [REPORT_DOCUMENT_RELATION.field]: [wrongTarget.id] },
 		});
-		expectTargetRefusal(
-			refusal.result,
-			`report_document selecting ${wrongTarget.label}`,
-		);
+		expectTargetRefusal(refusal.result, `report_document selecting ${wrongTarget.label}`);
 		expect(
 			refusal.entryId,
 			`${wrongTarget.label}: no entry id may be returned for a refused save`,
@@ -1437,10 +1381,9 @@ test("health report: an invalid clear of the required selection is refused and t
 		data: { title: uniqueTitle(REPORT_COLLECTION) },
 		references: { [REPORT_DOCUMENT_RELATION.field]: [source.entryId] },
 	});
-	expect(
-		report.result.ok,
-		"the valid report fixture must save with its required selection",
-	).toBe(true);
+	expect(report.result.ok, "the valid report fixture must save with its required selection").toBe(
+		true,
+	);
 
 	// An explicit empty selection on update is an invalid clear of the
 	// required reference (an update may omit the unchanged selection, but
@@ -1453,10 +1396,7 @@ test("health report: an invalid clear of the required selection is refused and t
 	// Re-read the uncertain outcome (shared constraint): the selection is
 	// still in place.
 	const reopened = await readEntry(admin, REPORT_COLLECTION, report.entryId!);
-	expect(
-		reopened.ok,
-		"the report must remain readable after the refused clear",
-	).toBe(true);
+	expect(reopened.ok, "the report must remain readable after the refused clear").toBe(true);
 	expect(
 		await selectedChildIds(REPORT_COLLECTION, report.entryId!, REPORT_DOCUMENT_RELATION.relation),
 		"the refused clear must not have taken effect: the selection still reads back the Document id",
@@ -1561,10 +1501,9 @@ test("publication: native Publish accepts valid incomplete reports and multi-Doc
 	).toBe("published");
 	const reopened = await readEntry(admin, REPORT_COLLECTION, report.entryId!);
 	expect(reopened.ok, "the published report must be reopenable by returned id").toBe(true);
-	expect(
-		nativeItemOf(reopened)?.status,
-		"the read-back status must be published",
-	).toBe("published");
+	expect(nativeItemOf(reopened)?.status, "the read-back status must be published").toBe(
+		"published",
+	);
 	expect(
 		await selectedChildIds(REPORT_COLLECTION, report.entryId!, REPORT_DOCUMENT_RELATION.relation),
 		"the required selection must remain live after publication (identity only; no target-availability claim)",
@@ -1709,10 +1648,9 @@ test("publication boundary: an emptied required selection refuses re-Publish whi
 	// required selection. This simultaneously exercises the required-target
 	// maintenance boundary the optional Announcement trash case cannot.
 	const trashed = await trashEntry(admin, DOCUMENT_COLLECTION, source.entryId);
-	expect(
-		trashed.ok,
-		"authorized target trash must be accepted (no custom D-REF veto exists)",
-	).toBe(true);
+	expect(trashed.ok, "authorized target trash must be accepted (no custom D-REF veto exists)").toBe(
+		true,
+	);
 	const purged = await permanentlyDeleteEntry(admin, DOCUMENT_COLLECTION, source.entryId);
 	expect(
 		purged.ok,
@@ -1748,10 +1686,9 @@ test("publication boundary: an emptied required selection refuses re-Publish whi
 	// the entry is unchanged — still published (the refusal published
 	// nothing new), selection still empty.
 	const afterRefusal = await readEntry(admin, REPORT_COLLECTION, report.entryId!);
-	expect(
-		afterRefusal.ok,
-		"the report must remain readable after the refused re-publish",
-	).toBe(true);
+	expect(afterRefusal.ok, "the report must remain readable after the refused re-publish").toBe(
+		true,
+	);
 	expect(
 		nativeItemOf(afterRefusal)?.status,
 		"the refused re-publish must not change editorial state",
@@ -1848,10 +1785,7 @@ test("maintenance: authorized target removal has no custom veto and current stat
 		"authorized target trash must be accepted by the native lifecycle (no custom D-REF veto exists)",
 	).toBe(true);
 	const trashError = trashed.body as { error?: { code?: unknown } };
-	expect(
-		trashError?.error?.code,
-		"the accepted trash must carry no error code",
-	).toBeUndefined();
+	expect(trashError?.error?.code, "the accepted trash must carry no error code").toBeUndefined();
 
 	// Current state, observed truthfully: the trashed target disappears from
 	// the parent's live children resolution (the ordinary content lookup
@@ -1872,10 +1806,9 @@ test("maintenance: authorized target removal has no custom veto and current stat
 		ANNOUNCEMENT_COLLECTION,
 		announcement.entryId!,
 	);
-	expect(
-		reopenedAnnouncement.ok,
-		"the parent must remain readable after the target trash",
-	).toBe(true);
+	expect(reopenedAnnouncement.ok, "the parent must remain readable after the target trash").toBe(
+		true,
+	);
 	expect(
 		nativeItemOf(reopenedAnnouncement)?.status,
 		"trashing a reused target must NOT change the parent's publication state (no cascade; D-REF deferred)",
@@ -1897,10 +1830,7 @@ test("maintenance: authorized target removal has no custom veto and current stat
 test("maintenance: authorized media replacement and removal keep selection identity with no availability promise", async () => {
 	gateCollection(NEWS_COLLECTION, "T009/T013");
 	const upload = await uploadSyntheticMedia(admin);
-	expect(
-		upload.result.ok,
-		"the synthetic fixture media upload must succeed",
-	).toBe(true);
+	expect(upload.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
 	const mediaId = upload.mediaId!;
 	const before = await readMedia(admin, mediaId);
 	expect(before.ok, "the media item must be readable before replacement").toBe(true);
@@ -1944,10 +1874,7 @@ test("maintenance: authorized media replacement and removal keep selection ident
 		"authorized media replacement must be accepted by the native endpoint (no custom veto; same-MIME image)",
 	).toBe(true);
 	const replacedRead = await readMedia(admin, mediaId);
-	expect(
-		replacedRead.ok,
-		"the replaced media item must be readable by the same id",
-	).toBe(true);
+	expect(replacedRead.ok, "the replaced media item must be readable by the same id").toBe(true);
 	const replacedItem = nativeItemOf(replacedRead);
 	expect(replacedItem?.id, "replacement must keep the same media identity").toBe(mediaId);
 	expect(
@@ -1963,10 +1890,7 @@ test("maintenance: authorized media replacement and removal keep selection ident
 
 	// The consumer's selection identity is unaffected by the replacement.
 	const reopenedNews = await readEntry(admin, NEWS_COLLECTION, news.entryId!);
-	expect(
-		reopenedNews.ok,
-		"the referencing news must be reopenable after replacement",
-	).toBe(true);
+	expect(reopenedNews.ok, "the referencing news must be reopenable after replacement").toBe(true);
 	expect(
 		(nativeItemOf(reopenedNews)?.data as { featured_image?: { id?: unknown } } | undefined)
 			?.featured_image?.id,
@@ -1978,11 +1902,9 @@ test("maintenance: authorized media replacement and removal keep selection ident
 	// a truthful stale-identity observation — the safe missing-file state for
 	// public reads belongs to T021/T022, and NO availability, retention or
 	// cross-record atomicity outcome is asserted here.
-	const removed = await cmsRequest(
-		admin,
-		`/_emdash/api/media/${encodeURIComponent(mediaId)}`,
-		{ method: "DELETE" },
-	);
+	const removed = await cmsRequest(admin, `/_emdash/api/media/${encodeURIComponent(mediaId)}`, {
+		method: "DELETE",
+	});
 	expect(
 		removed.ok,
 		"authorized media removal must be accepted by the native endpoint even while a consumer's selection references it (no custom D-REF veto)",
