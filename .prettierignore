@@ -11,7 +11,6 @@ seed/
 # touches them. That change formats the file in a commit of its own and removes it here.
 scripts/verify-readiness.mjs
 scripts/verify-restored-foundation.mjs
-tests/node/config.test.ts
 tests/node/foundation.test.ts
 tests/browser/foundation.spec.ts
 tests/browser/cms-authoring.spec.ts

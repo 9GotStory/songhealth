@@ -47,6 +47,9 @@ and their workflow:
 - **Who does what:** Claude Code implements, tests, self-reviews and merges in-scope PRs. The
   Product Owner decides scope, architecture, destructive operations, production deployment and
   feature acceptance.
+- **Commit checks:** `git config core.hooksPath .githooks`, once per clone, makes every commit
+  pass `.githooks/pre-commit` (formatting, Knip, typecheck, the invisible-character scan, and
+  ShellCheck when a shell script is staged).
 - **Workspace and runtime:** source development happens in `/home/thanakorn/dev/songhealth`
   (user `thanakorn`, UID 1000). The single development runtime is the one below
   (`http://127.0.0.1:4324`); no other development runtime, database or media store is created.
