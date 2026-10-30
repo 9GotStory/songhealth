@@ -10,13 +10,15 @@
 //   to the newer entry. Each group counts its results, and a page shows a fixed number of them.
 // - A result's snippet is HTML-escaped plain text: the summary, or the text around the match, cut
 //   between words, with the terms marked.
-// - A search answers the start page, too short, nothing found or results, and any failure, while
-//   reading or matching, becomes the failed state, logged without the query. The browser suite
-//   cannot make the development runtime fail, so this is where the failed state is driven
-//   (Product Owner, 2026-10-30: #63 comment 6518347225).
+// - A search answers the start page, too short, nothing found or results. Any failure becomes the
+//   failed state, logged without the query and carrying no detail: a read that answers an error,
+//   as EmDash's query functions do, a read that throws, or the matching. The browser suite cannot
+//   make the development runtime fail, so this is where the failed state is driven (Product
+//   Owner, 2026-10-30: #63 comment 6518347225).
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { format } from "node:util";
 
 import {
 	KIND_LABELS,
@@ -26,7 +28,7 @@ import {
 	parseGroup,
 	parseQuery,
 	parseSearchRequest,
-	runSearch,
+	searchOutcome,
 	searchPage,
 	type Searchable,
 	type SearchKind,
@@ -447,49 +449,81 @@ describe("search snippets", () => {
 	});
 });
 
-describe("runSearch", () => {
+describe("searchOutcome", () => {
 	const entries = [entry("dengue", { title: "ไข้เลือดออก" })];
-	const run = (params: Record<string, string>, read = async () => entries) =>
-		runSearch(parseSearchRequest(new URLSearchParams(params)), read);
+	type Entry = (typeof entries)[number];
+	const request = (q?: string) =>
+		parseSearchRequest(new URLSearchParams(q === undefined ? {} : { q }));
+	const answering =
+		(...reads: Array<{ entries: Entry[]; error?: unknown }>) =>
+		async () =>
+			reads;
 
 	it("answers the start page without a query, and too short below two characters, without reading", async () => {
 		let reads = 0;
 		const counting = async () => {
 			reads += 1;
-			return entries;
+			return [{ entries }];
 		};
-		assert.equal((await run({}, counting)).state, "start");
-		assert.equal((await run({ q: "ก" }, counting)).state, "too-short");
+		assert.equal((await searchOutcome(request(), counting)).state, "start");
+		assert.equal((await searchOutcome(request("ก"), counting)).state, "too-short");
 		assert.equal(reads, 0, "nothing is read");
 	});
 
-	it("answers nothing found, or one page of results", async () => {
-		assert.equal((await run({ q: "มาลาเรีย" })).state, "nothing");
-		const outcome = await run({ q: "ไข้" });
+	it("answers nothing found, or one page of results over every collection read", async () => {
+		const read = answering(
+			{ entries },
+			{ entries: [entry("vaccine", { title: "วัคซีนไข้หวัด" })] },
+		);
+		assert.equal((await searchOutcome(request("มาลาเรีย"), read)).state, "nothing");
+		const outcome = await searchOutcome(request("ไข้"), read);
 		assert.equal(outcome.state, "found");
 		if (outcome.state === "found") {
 			assert.deepEqual(
 				outcome.found.results.map((result) => result.entry.id),
-				["dengue"],
+				["dengue", "vaccine"],
 			);
 		}
 	});
 
-	it("turns a failed read into the failed state, and logs the failure without the query", async (t) => {
+	it("fails the whole search when a collection's read answers an error, rather than show the rest", async (t) => {
 		const logged = t.mock.method(console, "error", () => {});
-		const outcome = await run({ q: "ประวัติผู้ป่วย" }, async () => {
-			throw new Error("connect ECONNREFUSED 10.0.0.5:5432");
-		});
-		assert.equal(outcome.state, "failed");
+		const query = "ประวัติผู้ป่วย ไข้";
+		const outcome = await searchOutcome(
+			request(query),
+			answering(
+				{ entries },
+				{ entries: [], error: new Error('relation "ec_news" does not exist') },
+			),
+		);
+		assert.deepEqual(outcome, { ...request(query), state: "failed" }, "no detail in the outcome");
 		assert.equal(logged.mock.callCount(), 1, "the failure is logged");
-		const line = logged.mock.calls[0].arguments.map(String).join(" ");
+		const line = format(...logged.mock.calls[0].arguments);
+		assert.match(line, /ec_news/, "the log keeps the error");
 		assert.ok(!line.includes("ประวัติผู้ป่วย"), `the log leaves the query out: ${line}`);
 	});
 
-	it("turns a failure while matching into the failed state too", async (t) => {
-		t.mock.method(console, "error", () => {});
-		const broken = entry("broken", { title: "ข่าว" });
-		broken.text.title = [undefined as unknown as string];
-		assert.equal((await run({ q: "ข่าว" }, async () => [broken])).state, "failed");
+	it("fails the search when a read throws", async (t) => {
+		const logged = t.mock.method(console, "error", () => {});
+		const outcome = await searchOutcome(request("ประวัติผู้ป่วย"), async () => {
+			throw new Error("connect ECONNREFUSED 10.0.0.5:5432");
+		});
+		assert.deepEqual(outcome, { ...request("ประวัติผู้ป่วย"), state: "failed" });
+		const line = format(...logged.mock.calls[0].arguments);
+		assert.ok(!line.includes("ประวัติผู้ป่วย"), `the log leaves the query out: ${line}`);
+	});
+
+	it("fails the search when matching fails", async (t) => {
+		const logged = t.mock.method(console, "error", () => {});
+		const broken = {
+			id: "broken",
+			kind: "news" as const,
+			get text(): Searchable["text"] {
+				throw new TypeError("an entry the search cannot read");
+			},
+		};
+		const outcome = await searchOutcome(request("ข่าว"), async () => [{ entries: [broken] }]);
+		assert.equal(outcome.state, "failed");
+		assert.equal(logged.mock.callCount(), 1, "the failure is logged");
 	});
 });

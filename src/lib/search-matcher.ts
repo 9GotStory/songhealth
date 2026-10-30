@@ -363,21 +363,39 @@ export type SearchOutcome<E> = SearchRequest &
 	);
 
 /**
- * The search a request asks for, over the published entries `read` returns: the start page without
- * a query, too short, nothing found, or one page of results with the count of each group. A
- * failure, while reading or matching, is logged and becomes the failed state, which shows no
- * detail.
+ * One searchable collection as a read through EmDash's query functions answers it: its published
+ * entries, or the error that stopped the read. A failed read answers an error and no entries
+ * rather than throwing (emdash 1.1.0 src/query.ts getEmDashCollection).
  */
-export async function runSearch<E extends Searchable>(
+export interface CollectionRead<E> {
+	entries: E[];
+	error?: unknown;
+}
+
+/**
+ * The outcome of the search a request asks for, over the collections `read` answers: the start
+ * page without a query, too short, nothing found, or one page of results with the count of each
+ * group. Any failure, a read that answers an error or throws, or the matching, is logged and
+ * becomes the failed state, which carries no detail.
+ */
+export async function searchOutcome<E extends Searchable>(
 	request: SearchRequest,
-	read: () => Promise<E[]>,
+	read: () => Promise<CollectionRead<E>[]>,
 ): Promise<SearchOutcome<E>> {
 	const { query, group, page } = request;
 	if (query.kind === "none") return { ...request, state: "start" };
 	if (query.kind === "too-short") return { ...request, state: "too-short" };
 	let found: SearchPage<E>;
 	try {
-		found = searchPage(await read(), query.terms, group, page);
+		const reads = await read();
+		const failed = reads.find((each) => each.error);
+		if (failed) throw failed.error;
+		found = searchPage(
+			reads.flatMap((each) => each.entries),
+			query.terms,
+			group,
+			page,
+		);
 	} catch (error) {
 		// The query is a citizen's own words, so the log leaves it out.
 		console.error("/search: the search failed", error);

@@ -2,7 +2,8 @@
 //
 // EmDash's own search needs SQLite (emdash 1.1.0 src/search/fts-manager.ts), so a search reads the
 // published entries of the nine searchable collections through EmDash's query functions when it
-// is made, and src/lib/search-matcher.ts matches, ranks and builds the snippets. A collection read
+// is made, and src/lib/search-matcher.ts matches, ranks, builds the snippets and decides the
+// outcome, a failed read included. A collection read
 // without a `limit` returns every published entry, and stays published-only whatever a preview
 // token or the editor's edit mode asks for (emdash 1.1.0 src/loader.ts: the status defaults to
 // "published", `fetchLimit`). Songhealth configures no EmDash object cache, so each search reads
@@ -44,7 +45,8 @@ import type { HealthServiceData } from "./health-services";
 import { newsPath, type NewsData } from "./news";
 import {
 	parseSearchRequest,
-	runSearch,
+	searchOutcome,
+	type CollectionRead,
 	type Searchable,
 	type SearchOutcome,
 } from "./search-matcher";
@@ -75,8 +77,8 @@ function texts(...values: unknown[]): string[] {
 	);
 }
 
-/** The published entries of one searchable collection as results, at `now`. */
-type Source = (now: Date) => Promise<SearchEntry[]>;
+/** One searchable collection's published entries as results at `now`, or its read's error. */
+type Source = (now: Date) => Promise<CollectionRead<SearchEntry>>;
 
 /** A searchable collection, and how each of its published entries reads as a result. */
 function source<D>(
@@ -87,8 +89,7 @@ function source<D>(
 		const { entries, error } = await getEmDashCollection<string, D>(collection, {
 			orderBy: { published_at: "desc" },
 		});
-		if (error) throw error;
-		return entries.map((entry) => toEntry(entry, now));
+		return { entries: entries.map((entry) => toEntry(entry, now)), error };
 	};
 }
 
@@ -199,11 +200,11 @@ const SOURCES: Source[] = [
 
 /**
  * The search an address asks for (`?q=`, `?group=`, `?page=`) at `now`, over the published entries
- * of the searchable collections (src/lib/search-matcher.ts runSearch). A failure is logged and
+ * of the searchable collections (src/lib/search-matcher.ts searchOutcome). A failure is logged and
  * shows no detail.
  */
 export function search(params: URLSearchParams, now: Date): Promise<SearchOutcome<SearchEntry>> {
-	return runSearch(parseSearchRequest(params), async () =>
-		(await Promise.all(SOURCES.map((read) => read(now)))).flat(),
+	return searchOutcome(parseSearchRequest(params), () =>
+		Promise.all(SOURCES.map((read) => read(now))),
 	);
 }
