@@ -21,6 +21,7 @@ import {
 	NATIVE_ROLES,
 	SYNTHETIC_FIXTURE_MARK,
 	uploadSyntheticMedia,
+	writeSiteSettings,
 	type CmsActor,
 } from "./cms.helpers";
 import {
@@ -278,10 +279,7 @@ test.describe("site identity from the native site settings", () => {
 		admin: CmsActor,
 		update: Record<string, unknown>,
 	): Promise<SiteSettingsView> {
-		const result = await cmsRequest(admin, "/_emdash/api/settings", {
-			method: "POST",
-			body: update,
-		});
+		const result = await writeSiteSettings(admin, update);
 		expect(result.ok, `the native settings update must succeed (status ${result.status})`).toBe(
 			true,
 		);

@@ -1,7 +1,8 @@
 // Synthetic content for the runners that need some on the development runtime
 // (scripts/capture-with-fixtures.ts, scripts/measure-latency.ts): a FixtureKit that makes entries,
 // terms and pictures through the native API with the development PAT (SONGHEALTH_DEV_ACCESS), and
-// removes everything it made when the run ends, even when a step fails. Every slug carries the
+// removes everything it made when the run ends, even when a step fails. Office Contact and the
+// `social` handles it sets are restored then too. Every slug carries the
 // synthetic mark, so scripts/dev-runtime-residue.sh finds anything a failed cleanup leaves. The
 // origin is PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324.
 
@@ -18,6 +19,12 @@ export interface FixtureKit {
 	picture(alt: string, from: string, to: string): Promise<string>;
 	/** One Portable Text block of `style` (normal, h2, …), the shape the Admin editor saves. */
 	block(text: string, style?: string): Record<string, unknown>;
+	/**
+	 * Show `values` as Office Contact and `social` as the site's `social` handles until the run
+	 * ends, which restores the earlier ones. The native API cannot delete a handle, so one that was
+	 * unset comes back empty, which the site shows the same way.
+	 */
+	officeContact(values: helpers.OfficeContactValues, social: Record<string, string>): Promise<void>;
 }
 
 /** The development runtime's origin. */
@@ -68,6 +75,8 @@ export async function withFixtureKit<T>(work: (kit: FixtureKit) => Promise<T>): 
 	/** The slug of each term made, by `${taxonomy}:${label}`. */
 	const slugs = new Map<string, string>();
 	const media: string[] = [];
+	/** What restores the settings the run changed, newest first. */
+	const restores: (() => Promise<string | undefined>)[] = [];
 	const kit: FixtureKit = {
 		admin,
 		helpers,
@@ -104,6 +113,33 @@ export async function withFixtureKit<T>(work: (kit: FixtureKit) => Promise<T>): 
 			return id;
 		},
 		block: helpers.portableTextBlock,
+		async officeContact(values, social) {
+			const stored = await helpers.readOfficeContactSettings(admin);
+			const site = await helpers.cmsRequest(admin, "/_emdash/api/settings");
+			if (!stored.ok || !site.ok) throw new Error("office contact: the settings must read");
+			const before = (helpers.nativeDataOf(stored)?.values ?? {}) as helpers.OfficeContactValues;
+			const socialBefore = (helpers.nativeDataOf(site)?.social ?? {}) as Record<string, string>;
+			const keys = [...new Set([...Object.keys(before), ...Object.keys(values)])];
+			const handles = Object.keys(social).filter((network) => social[network]);
+			/** Write these Office Contact values and handles; an absent value is unset. */
+			const show = async (
+				contact: helpers.OfficeContactValues,
+				networks: Record<string, string | undefined>,
+			) => {
+				const written = await helpers.writeOfficeContactSettings(
+					admin,
+					Object.fromEntries(keys.map((key) => [key, contact[key] ?? null])),
+				);
+				const set = await helpers.writeSiteSettings(admin, {
+					social: Object.fromEntries(handles.map((network) => [network, networks[network] ?? ""])),
+				});
+				return written.ok && set.ok;
+			};
+			restores.unshift(async () =>
+				(await show(before, socialBefore)) ? undefined : "office contact: not restored",
+			);
+			if (!(await show(values, social))) throw new Error("office contact: the settings must save");
+		},
 	};
 
 	const failures: string[] = [];
@@ -113,6 +149,10 @@ export async function withFixtureKit<T>(work: (kit: FixtureKit) => Promise<T>): 
 		failures.push(error instanceof Error ? error.message : String(error));
 		throw error;
 	} finally {
+		for (const restore of restores) {
+			const failure = await restore();
+			if (failure) failures.push(failure);
+		}
 		// Entries first, so no entry still uses a picture or term when it goes.
 		const report = await helpers.cleanupOwnedFixtures(admin, { permanent: true });
 		if (!report.complete) failures.push(`entries left: ${JSON.stringify(report)}`);

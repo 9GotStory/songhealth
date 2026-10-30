@@ -6,18 +6,10 @@
 // with the same page. It tells the visitor only that the page is not
 // available, never why, so nothing unpublished is revealed. It belongs to no
 // main-navigation section.
+import ActionLink from "../components/ActionLink.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 
 const heading = "ไม่พบหน้าที่คุณต้องการ";
-const actionClasses = "inline-flex min-h-11 items-center rounded-pill px-5 text-label";
-const primaryActionClasses = [
-	actionClasses,
-	"bg-brand-primary text-surface-base hover:bg-brand-dark",
-];
-const secondaryActionClasses = [
-	actionClasses,
-	"border border-border-input bg-surface-base text-brand-primary hover:bg-surface-soft",
-];
 ---
 
 <SiteLayout title={heading}>
@@ -28,19 +20,15 @@ const secondaryActionClasses = [
 		</p>
 		<ul class="mt-8 flex flex-wrap gap-3">
 			<li>
-				<a class:list={primaryActionClasses} href="/">
+				<ActionLink variant="primary" href="/">
 					กลับไปหน้าแรก
-				</a>
+				</ActionLink>
 			</li>
 			<li>
-				<a class:list={secondaryActionClasses} href="/search">
-					ค้นหาข้อมูล
-				</a>
+				<ActionLink href="/search">ค้นหาข้อมูล</ActionLink>
 			</li>
 			<li>
-				<a class:list={secondaryActionClasses} href="/contact">
-					ติดต่อเรา
-				</a>
+				<ActionLink href="/contact">ติดต่อเรา</ActionLink>
 			</li>
 		</ul>
 	</div>

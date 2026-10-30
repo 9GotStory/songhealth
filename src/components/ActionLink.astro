@@ -1,0 +1,23 @@
+---
+// A call to action to another page on this site (Feature 003 #62): a pill-shaped link, primary
+// (brand-primary, docs/design/homepage-concept-v1.md "Primary button") or secondary (outlined).
+// The 404 page and /contact use it.
+interface Props {
+	href: string;
+	variant?: "primary" | "secondary";
+}
+
+const { href, variant = "secondary" } = Astro.props;
+---
+
+<a
+	class:list={[
+		"inline-flex min-h-11 items-center rounded-pill px-5 text-label",
+		variant === "primary"
+			? "bg-brand-primary text-surface-base hover:bg-brand-dark"
+			: "border border-border-input bg-surface-base text-brand-primary hover:bg-surface-soft",
+	]}
+	href={href}
+>
+	<slot />
+</a>

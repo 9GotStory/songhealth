@@ -132,6 +132,30 @@ checks that every cited file exists. When the pinned version changes, re-verify 
   `resolveEmDashPath` maps a URL back to its entry (`src/query.ts`).
 - The sitemap lists routable collections with SEO enabled (`src/api/handlers/seo.ts`).
 
+## Plugins and plugin settings
+
+- A native plugin is a `plugins: []` entry of the `emdash()` integration with an `entrypoint` that
+  exports `createPlugin()`, which returns `definePlugin({ id, version, admin })`
+  (`src/astro/integration/runtime.ts` `PluginDescriptor`, `src/astro/integration/virtual-modules.ts`
+  `generatePluginsModule`, `src/plugins/define-plugin.ts`). The id is lowercase letters, digits and
+  dashes. A configured plugin with no stored state counts as active (`src/api/handlers/plugins.ts`
+  `buildPluginInfo`). `./src/plugins/office-contact.ts` is one.
+- The Admin generates a settings form from `admin.settingsSchema` at
+  `/_emdash/admin/plugins-manager/{id}/settings`, and saves an emptied field as `null`
+  (`@emdash-cms/admin/dist/index.js`, `PluginSettings`). `PUT` with `null` deletes the stored value
+  (`src/api/handlers/plugin-settings.ts`). A `url` field is checked only with `URL.canParse`, so
+  any scheme passes, and an `email` field only for an "@".
+- `GET` and `PUT /_emdash/api/admin/plugins/{id}/settings` need `plugins:manage`, which only the
+  Administrator role holds; an Editor has `plugins:read`, enough for `GET /_emdash/api/admin/plugins`
+  (`src/astro/routes/api/admin/plugins/[id]/settings.ts`, `@emdash-cms/auth/src/rbac.ts`). A token
+  also needs the `admin` scope for any `/_emdash/api/admin` route (`src/astro/middleware/auth.ts`).
+- `getPluginSettings(id)` returns the stored values only, without the schema's defaults
+  (`src/settings/index.ts`).
+- The site settings' `social` fields hold handles, not addresses: the Admin asks for an X handle,
+  a Facebook page username, a YouTube channel ID or handle (`@emdash-cms/admin/dist/index.js`).
+  The settings API patches `social` key by key and accepts only strings, so a handle can be
+  emptied but not deleted (`src/settings/index.ts` `setSiteSettings`, `src/api/schemas/settings.ts`).
+
 ## Search and seeding
 
 - Full-text search is SQLite-only: `enableSearch` throws on PostgreSQL (`src/search/fts-manager.ts`;

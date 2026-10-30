@@ -16,6 +16,8 @@
 		"tests/browser/fixtures/cms-public-reads.integration.mjs",
 		// Astro loads the live-collection registration by its file name.
 		"src/live.config.ts",
+		// EmDash imports the Office Contact plugin by the path astro.config.mjs gives it.
+		"src/plugins/office-contact.ts",
 	],
 	"ignoreUnresolved": ["^/src/"],
 	// Accepted Feature 002 evidence drivers: records, not maintained code.
