@@ -42,13 +42,11 @@ import {
 import {
 	BorrowedEntries,
 	DESKTOP_VIEWPORT,
-	MOBILE_VIEWPORT,
 	VIEWPORTS,
 	expect,
 	expectAboutSubpage,
 	expectImageLoaded,
 	expectNoAxeViolations,
-	expectNoHorizontalScroll,
 	expectSiteNotFound,
 	expectVisibleFocusOnEveryStop,
 	listedItem,
@@ -56,6 +54,7 @@ import {
 	ownTitles,
 	siteTitleParts,
 	test,
+	testAccessibilityAndReflow,
 } from "./public.helpers";
 
 const LEADERSHIP = { path: "/about/leadership", title: "ผู้บริหาร" } as const;
@@ -347,25 +346,7 @@ test.describe("accessibility and reflow", () => {
 		);
 	});
 
-	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
-		test(`axe reports no WCAG 2.2 AA violation and focus stays visible on the Leadership and Personnel pages at the ${width} width`, async ({
-			page,
-		}) => {
-			await page.setViewportSize(viewport);
-			for (const { path } of PAGES) {
-				const response = await page.goto(path);
-				expect(response?.status(), `GET ${path}`).toBe(200);
-				await expectNoAxeViolations(page, `${path} at ${width}`);
-				await expectVisibleFocusOnEveryStop(page, `${path} at ${width}`);
-			}
-		});
-	}
-
-	test("neither page scrolls sideways at 320 px", async ({ page }) => {
-		await page.setViewportSize(MOBILE_VIEWPORT);
-		for (const { path } of PAGES) {
-			await page.goto(path);
-			await expectNoHorizontalScroll(page, path);
-		}
-	});
+	testAccessibilityAndReflow("the Leadership and Personnel pages", () =>
+		PAGES.map(({ path }) => path),
+	);
 });

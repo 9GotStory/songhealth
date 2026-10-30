@@ -11,6 +11,8 @@
 // - `DESKTOP_VIEWPORT` / `MOBILE_VIEWPORT`: the two widths every template is
 //   checked at. The mobile width is 320 CSS px, the narrowest width the site
 //   must reflow to without horizontal scrolling (WCAG 2.2 SC 1.4.10).
+// - `testAccessibilityAndReflow`: the axe, focus and reflow tests of a
+//   template's pages at those widths.
 // - What the shell shows every page: the 404 page, the default site title, the
 //   breadcrumb, Thai dates, the titles and items a list shows, and a record
 //   page's details.
@@ -133,6 +135,36 @@ export async function expectNoAxeViolations(page: Page, label: string): Promise<
 				.join(", ")}`,
 	);
 	expect(violations, `${label}: axe must report no WCAG 2.2 AA violations`).toEqual([]);
+}
+
+/**
+ * Declare the accessibility and reflow tests of a template's pages: at each of `VIEWPORTS`, every
+ * path `paths` gives answers 200, axe reports no WCAG 2.2 AA violation on it and focus stays
+ * visible; at 320 px none scrolls sideways. `pages` names them in the test titles, such as "the
+ * News pages". `paths` is called when the tests run, after the suite's fixtures exist.
+ */
+export function testAccessibilityAndReflow(pages: string, paths: () => readonly string[]): void {
+	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
+		test(`axe reports no WCAG 2.2 AA violation and focus stays visible on ${pages} at the ${width} width`, async ({
+			page,
+		}) => {
+			await page.setViewportSize(viewport);
+			for (const path of paths()) {
+				const response = await page.goto(path);
+				expect(response?.status(), `GET ${path}`).toBe(200);
+				await expectNoAxeViolations(page, `${path} at ${width}`);
+				await expectVisibleFocusOnEveryStop(page, `${path} at ${width}`);
+			}
+		});
+	}
+
+	test(`${pages} do not scroll sideways at 320 px`, async ({ page }) => {
+		await page.setViewportSize(MOBILE_VIEWPORT);
+		for (const path of paths()) {
+			await page.goto(path);
+			await expectNoHorizontalScroll(page, path);
+		}
+	});
 }
 
 /** The heading of the site-designed 404 page. */

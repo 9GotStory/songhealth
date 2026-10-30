@@ -61,23 +61,19 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
-	MOBILE_VIEWPORT,
 	SECTION_CRUMBS,
-	VIEWPORTS,
 	detailOf,
 	expect,
 	expectBreadcrumb,
 	expectImageLoaded,
-	expectNoAxeViolations,
-	expectNoHorizontalScroll,
 	expectPreviewRenders,
 	expectSiteNotFound,
-	expectVisibleFocusOnEveryStop,
 	listedItem,
 	listedTitles,
 	ownTitles,
 	siteTitleParts,
 	test,
+	testAccessibilityAndReflow,
 	thaiDate,
 } from "./public.helpers";
 
@@ -716,25 +712,5 @@ test.describe("accessibility and reflow", () => {
 		`/health/reports/${report.slug}`,
 	];
 
-	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
-		test(`axe reports no WCAG 2.2 AA violation and focus stays visible on the Health Information pages at the ${width} width`, async ({
-			page,
-		}) => {
-			await page.setViewportSize(viewport);
-			for (const path of paths()) {
-				const response = await page.goto(path);
-				expect(response?.status(), `GET ${path}`).toBe(200);
-				await expectNoAxeViolations(page, `${path} at ${width}`);
-				await expectVisibleFocusOnEveryStop(page, `${path} at ${width}`);
-			}
-		});
-	}
-
-	test("no Health Information page scrolls sideways at 320 px", async ({ page }) => {
-		await page.setViewportSize(MOBILE_VIEWPORT);
-		for (const path of paths()) {
-			await page.goto(path);
-			await expectNoHorizontalScroll(page, path);
-		}
-	});
+	testAccessibilityAndReflow("the Health Information pages", paths);
 });

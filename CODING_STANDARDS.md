@@ -59,9 +59,9 @@ pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
 ## Tests
 
 - Public-page suites take `test` and `expect` from `tests/browser/public.helpers.ts`, so the
-  third-party request guard runs. Each template is checked at both `VIEWPORTS` with
+  third-party request guard runs. Each template's pages are checked at both `VIEWPORTS` with
   `expectNoAxeViolations` and `expectVisibleFocusOnEveryStop`, and at 320 px with
-  `expectNoHorizontalScroll`.
+  `expectNoHorizontalScroll`; `testAccessibilityAndReflow` declares those tests.
 - A helper that a second suite needs moves to a shared module: page checks (the 404 page, Thai
   dates, list titles, an image's load) to `tests/browser/public.helpers.ts`, native API fixtures
   (entries, media, terms) to `tests/browser/cms.helpers.ts`.
