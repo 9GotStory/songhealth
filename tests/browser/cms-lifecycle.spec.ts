@@ -388,9 +388,7 @@ interface SchemaField {
  * visible (the accepted T014 gating pattern).
  */
 type CollectionReadiness =
-	| { outcome: "ready" }
-	| { outcome: "missing" }
-	| { outcome: "misconfigured"; detail: string };
+	{ outcome: "ready" } | { outcome: "missing" } | { outcome: "misconfigured"; detail: string };
 
 /** The development-credential Administrator fixture (preparation + admin side). */
 let admin: CmsActor;
@@ -474,9 +472,7 @@ function instantOf(value: unknown): number | null {
  * scheduler substitute.
  */
 function isoWithBangkokOffset(instant: Date): string {
-	return `${new Date(instant.getTime() + BANGKOK_OFFSET_MS)
-		.toISOString()
-		.replace("Z", "")}+07:00`;
+	return `${new Date(instant.getTime() + BANGKOK_OFFSET_MS).toISOString().replace("Z", "")}+07:00`;
 }
 
 /** Read-only wait between bounded-observation samples. */
@@ -523,10 +519,9 @@ function expectForbiddenRefusal(result: NativeResult, caseLabel: string): void {
  * accounts cannot bypass through direct request).
  */
 function expectDisabledTokenRefusal(result: NativeResult, caseLabel: string): void {
-	expect(
-		result.ok,
-		`${caseLabel}: the request must be refused, not reported as success`,
-	).toBe(false);
+	expect(result.ok, `${caseLabel}: the request must be refused, not reported as success`).toBe(
+		false,
+	);
 	expect(
 		result.status,
 		`${caseLabel}: a disabled account's bearer credential is refused at the authorization layer with 401`,
@@ -543,14 +538,10 @@ function expectDisabledTokenRefusal(result: NativeResult, caseLabel: string): vo
  * applicable T019 slice; deeper revision/lock coverage is T020).
  */
 function expectConflictRefusal(result: NativeResult, caseLabel: string): void {
-	expect(
-		result.ok,
-		`${caseLabel}: the operation must be refused, not reported as success`,
-	).toBe(false);
-	expect(
-		result.status,
-		`${caseLabel}: a stale _rev precondition is refused with 409`,
-	).toBe(409);
+	expect(result.ok, `${caseLabel}: the operation must be refused, not reported as success`).toBe(
+		false,
+	);
+	expect(result.status, `${caseLabel}: a stale _rev precondition is refused with 409`).toBe(409);
 	expect(
 		nativeErrorOf(result)?.code,
 		`${caseLabel}: the refusal must carry the native CONFLICT code`,
@@ -564,10 +555,9 @@ function expectConflictRefusal(result: NativeResult, caseLabel: string): void {
  * predicate (SC-006: no false success, no invented policy cancellation).
  */
 function expectNonFutureScheduleRefusal(result: NativeResult, caseLabel: string): void {
-	expect(
-		result.ok,
-		`${caseLabel}: the schedule must be refused, not reported as success`,
-	).toBe(false);
+	expect(result.ok, `${caseLabel}: the schedule must be refused, not reported as success`).toBe(
+		false,
+	);
 	expect(result.status, `${caseLabel}: a non-future time is HTTP 400`).toBe(400);
 	expect(
 		result.status === 401 || result.status === 403 || result.status === 409,
@@ -636,7 +626,9 @@ async function reconcileFixtureAccountState(): Promise<void> {
 				);
 			}
 		} catch (cause) {
-			failures.push(`enable/verify attempt failed: ${cause instanceof Error ? cause.message : String(cause)}`);
+			failures.push(
+				`enable/verify attempt failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+			);
 		}
 	}
 
@@ -663,7 +655,9 @@ async function reconcileFixtureAccountState(): Promise<void> {
 			);
 		}
 	} catch (cause) {
-		failures.push(`role repair/verify attempt failed: ${cause instanceof Error ? cause.message : String(cause)}`);
+		failures.push(
+			`role repair/verify attempt failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+		);
 	}
 
 	// --- Live credential: the same PAT must verify at the original role
@@ -684,7 +678,9 @@ async function reconcileFixtureAccountState(): Promise<void> {
 			);
 		}
 	} catch (cause) {
-		failures.push(`live credential verification failed: ${cause instanceof Error ? cause.message : String(cause)}`);
+		failures.push(
+			`live credential verification failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+		);
 	}
 
 	if (failures.length > 0) {
@@ -861,7 +857,9 @@ test.afterEach(async () => {
 				"every owned synthetic fixture created by the role fixture must be proven resolved",
 			).toBe(true);
 		} catch (cause) {
-			failures.push(`role-fixture cleanup: ${cause instanceof Error ? cause.message : String(cause)}`);
+			failures.push(
+				`role-fixture cleanup: ${cause instanceof Error ? cause.message : String(cause)}`,
+			);
 		}
 	}
 	if (admin !== undefined) {
@@ -903,7 +901,9 @@ test.afterAll(async () => {
 				"the final role-fixture cleanup must leave zero unresolved owned fixtures",
 			).toBe(true);
 		} catch (cause) {
-			failures.push(`role-fixture cleanup: ${cause instanceof Error ? cause.message : String(cause)}`);
+			failures.push(
+				`role-fixture cleanup: ${cause instanceof Error ? cause.message : String(cause)}`,
+			);
 		}
 	}
 	if (admin !== undefined) {
@@ -924,7 +924,9 @@ test.afterAll(async () => {
 		try {
 			await reconcileFixtureAccountState();
 		} catch (cause) {
-			failures.push(`fixture-account reconciliation: ${cause instanceof Error ? cause.message : String(cause)}`);
+			failures.push(
+				`fixture-account reconciliation: ${cause instanceof Error ? cause.message : String(cause)}`,
+			);
 		}
 	}
 	if (failures.length > 0) {
@@ -955,59 +957,58 @@ test("contributor: saves drafts while direct publish, schedule, trash and media 
 	const adminMedia = await uploadSyntheticMedia(admin);
 	expect(adminMedia.result.ok, "the synthetic fixture media upload must succeed").toBe(true);
 
-	await withNativeRole(
-		admin,
-		fixture,
-		NATIVE_ROLES.contributor,
-		async (contributor: CmsActor) => {
-			// Draft authoring: content:create sits at Contributor (20).
-			const draft = await createSyntheticEntry(contributor, PAGES_COLLECTION, {
-				data: { title: uniqueTitle("contributor-draft") },
-			});
-			expect(
-				draft.result.ok,
-				"a native Contributor must save a draft (draft authoring is not publish authority)",
-			).toBe(true);
-			expect(draft.entryId, "the draft id must come from the native response").toBeTruthy();
-			const draftStatus = statusOfItem(nativeItemOf(await readEntry(contributor, PAGES_COLLECTION, draft.entryId!)));
-			expect(draftStatus, "the saved fixture must be a native draft").toBe("draft");
+	await withNativeRole(admin, fixture, NATIVE_ROLES.contributor, async (contributor: CmsActor) => {
+		// Draft authoring: content:create sits at Contributor (20).
+		const draft = await createSyntheticEntry(contributor, PAGES_COLLECTION, {
+			data: { title: uniqueTitle("contributor-draft") },
+		});
+		expect(
+			draft.result.ok,
+			"a native Contributor must save a draft (draft authoring is not publish authority)",
+		).toBe(true);
+		expect(draft.entryId, "the draft id must come from the native response").toBeTruthy();
+		const draftStatus = statusOfItem(
+			nativeItemOf(await readEntry(contributor, PAGES_COLLECTION, draft.entryId!)),
+		);
+		expect(draftStatus, "the saved fixture must be a native draft").toBe("draft");
 
-			// Direct publish of the contributor's OWN draft: publish_own sits
-			// at Author (30) — the trusted boundary refuses the direct
-			// request no matter what any visible control suggests.
-			expectForbiddenRefusal(
-				await publishEntry(contributor, PAGES_COLLECTION, draft.entryId!),
-				"contributor publishing own draft directly",
-			);
-			// Direct schedule of the own draft: the schedule route carries the
-			// same own/any publish permission.
-			expectForbiddenRefusal(
-				await scheduleEntry(
-					contributor,
-					PAGES_COLLECTION,
-					draft.entryId!,
-					isoWithBangkokOffset(new Date(Date.now() + SCHEDULE_ACCEPTANCE_OFFSET_MS)),
-				),
-				"contributor scheduling own draft directly",
-			);
-			// Trashing the own draft: delete_own also sits at Author (30).
-			expectForbiddenRefusal(
-				await trashEntry(contributor, PAGES_COLLECTION, draft.entryId!),
-				"contributor trashing own draft",
-			);
-			// Media removal: the minimum permission gate media:delete_own
-			// (30) refuses a Contributor before ownership is even consulted —
-			// a distinct native authority, not a content-purge rule.
-			expectForbiddenRefusal(
-				await deleteMedia(contributor, adminMedia.mediaId!),
-				"contributor removing administrator-owned media",
-			);
+		// Direct publish of the contributor's OWN draft: publish_own sits
+		// at Author (30) — the trusted boundary refuses the direct
+		// request no matter what any visible control suggests.
+		expectForbiddenRefusal(
+			await publishEntry(contributor, PAGES_COLLECTION, draft.entryId!),
+			"contributor publishing own draft directly",
+		);
+		// Direct schedule of the own draft: the schedule route carries the
+		// same own/any publish permission.
+		expectForbiddenRefusal(
+			await scheduleEntry(
+				contributor,
+				PAGES_COLLECTION,
+				draft.entryId!,
+				isoWithBangkokOffset(new Date(Date.now() + SCHEDULE_ACCEPTANCE_OFFSET_MS)),
+			),
+			"contributor scheduling own draft directly",
+		);
+		// Trashing the own draft: delete_own also sits at Author (30).
+		expectForbiddenRefusal(
+			await trashEntry(contributor, PAGES_COLLECTION, draft.entryId!),
+			"contributor trashing own draft",
+		);
+		// Media removal: the minimum permission gate media:delete_own
+		// (30) refuses a Contributor before ownership is even consulted —
+		// a distinct native authority, not a content-purge rule.
+		expectForbiddenRefusal(
+			await deleteMedia(contributor, adminMedia.mediaId!),
+			"contributor removing administrator-owned media",
+		);
 
-			// The refusals changed nothing: the draft is still a live draft.
-			const after = statusOfItem(nativeItemOf(await readEntry(contributor, PAGES_COLLECTION, draft.entryId!)));
-			expect(after, "the refused lifecycle operations must leave the draft intact").toBe("draft");
-		},
-	);
+		// The refusals changed nothing: the draft is still a live draft.
+		const after = statusOfItem(
+			nativeItemOf(await readEntry(contributor, PAGES_COLLECTION, draft.entryId!)),
+		);
+		expect(after, "the refused lifecycle operations must leave the draft intact").toBe("draft");
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -1038,9 +1039,10 @@ test("author: publishes and unpublishes own incomplete draft directly with no ap
 			"an Author must publish their own natively valid incomplete draft directly, with no other person's approval",
 		).toBe(true);
 		const publishedItem = nativeItemOf(published);
-		expect(statusOfItem(publishedItem), "the published read-back must show the published state").toBe(
-			"published",
-		);
+		expect(
+			statusOfItem(publishedItem),
+			"the published read-back must show the published state",
+		).toBe("published");
 		expect(
 			typeof publishedItem?.publishedAt === "string",
 			"the published read-back must record a native publishedAt",
@@ -1141,9 +1143,10 @@ test("editor: publishes and manages others' content directly, and is refused the
 			published.ok,
 			"an Editor must publish another account's natively valid draft directly, with no approval step",
 		).toBe(true);
-		expect(statusOfItem(nativeItemOf(published)), "the published read-back must show the published state").toBe(
-			"published",
-		);
+		expect(
+			statusOfItem(nativeItemOf(published)),
+			"the published read-back must show the published state",
+		).toBe("published");
 
 		// Unpublish of others' content (the same own/any publish permission).
 		const unpublished = await unpublishEntry(editor, PAGES_COLLECTION, others.entryId!);
@@ -1175,7 +1178,9 @@ test("editor: publishes and manages others' content directly, and is refused the
 		);
 		// The refused purge left the entry restored-and-live, not deleted.
 		const stillLive = await readEntry(editor, PAGES_COLLECTION, others.entryId!);
-		expect(stillLive.ok, "the refused permanent deletion must leave the restored entry live").toBe(true);
+		expect(stillLive.ok, "the refused permanent deletion must leave the restored entry live").toBe(
+			true,
+		);
 	});
 });
 
@@ -1312,10 +1317,7 @@ test("disabled account: direct requests are refused by the authorization layer, 
 			// The live credential: every request resolves the owning user record,
 			// so the disabled account's PAT is INVALID_TOKEN 401 — regardless of
 			// the account's role or the target's ownership (US6.7).
-			expectDisabledTokenRefusal(
-				await getMe(fixture),
-				"disabled account identity read",
-			);
+			expectDisabledTokenRefusal(await getMe(fixture), "disabled account identity read");
 			expectDisabledTokenRefusal(
 				await publishEntry(fixture, PAGES_COLLECTION, target.entryId!, {
 					rev: disabledPhaseControlRev,
@@ -1324,10 +1326,13 @@ test("disabled account: direct requests are refused by the authorization layer, 
 			);
 
 			// The target was untouched by the refused request.
-			const targetIntact = statusOfItem(nativeItemOf(await readEntry(admin, PAGES_COLLECTION, target.entryId!)));
-			expect(targetIntact, "the refused disabled-account publish must leave the target a draft").toBe(
-				"draft",
+			const targetIntact = statusOfItem(
+				nativeItemOf(await readEntry(admin, PAGES_COLLECTION, target.entryId!)),
 			);
+			expect(
+				targetIntact,
+				"the refused disabled-account publish must leave the target a draft",
+			).toBe("draft");
 		},
 		async () => {
 			if (!disableAttempted) {
@@ -1373,7 +1378,9 @@ test("unauthenticated lifecycle requests are authorization refusals, never valid
 		result.status === 401 || result.status === 403,
 		"an unauthenticated native request must be refused by the authorization layer (401/403)",
 	).toBe(true);
-	expect(result.ok, "an unauthenticated native request must not be reported as success").toBe(false);
+	expect(result.ok, "an unauthenticated native request must not be reported as success").toBe(
+		false,
+	);
 	const error = result.body as { error?: { code?: unknown } };
 	expect(
 		error?.error?.code,
@@ -1559,7 +1566,10 @@ function evaluatePreDueSample(
 			detail: `publication observed strictly before the due instant (status "${status ?? "unknown"}"${instantOf(publishedAt) !== null ? ", publishedAt recorded" : ""}) — a no-early-publication violation that must fail this case`,
 		};
 	}
-	return { outcome: "on-schedule", detail: "no publication observed strictly before the due instant" };
+	return {
+		outcome: "on-schedule",
+		detail: "no publication observed strictly before the due instant",
+	};
 }
 
 test("scheduling: nothing is published before the scheduled time (bounded pre-due observation, then native unschedule)", async () => {
@@ -1599,12 +1609,7 @@ test("scheduling: nothing is published before the scheduled time (bounded pre-du
 		// there is correct behavior, never an "early" violation); a read
 		// completed strictly before due that shows publication is a genuine
 		// early-publication violation.
-		const verdict = evaluatePreDueSample(
-			Date.now(),
-			dueAt,
-			statusOfItem(item),
-			item?.publishedAt,
-		);
+		const verdict = evaluatePreDueSample(Date.now(), dueAt, statusOfItem(item), item?.publishedAt);
 		expect(
 			verdict.outcome === "on-schedule",
 			`pre-due sample ${sample}: ${verdict.outcome} — ${verdict.detail}`,
@@ -1677,7 +1682,8 @@ function evaluateDueTimeObservation(
 	window: DueTimeWindow,
 ): { outcome: "accepted" | "rejected-early" | "overdue" | "window-violation"; detail: string } {
 	const windowSlack = window.pollIntervalMs;
-	const at = (instant: number): string => `+${Math.round((instant - window.commitAt) / 100) / 10}s from commit`;
+	const at = (instant: number): string =>
+		`+${Math.round((instant - window.commitAt) / 100) / 10}s from commit`;
 	// Complete-timeline validation FIRST (R2-F3): an out-of-window sample
 	// invalidates the timeline even when it follows a valid published one.
 	for (const sample of samples) {
