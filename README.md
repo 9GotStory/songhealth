@@ -67,7 +67,7 @@ contract, procedures and failure handling:
 | --- | --- |
 | Owner | local user `thanakorn` (UID 1000): rootless Podman + systemd **user** Quadlet units from `deploy/dev-quadlet/` |
 | Origin | `http://127.0.0.1:4324/` — loopback only |
-| Application | `songhealth-dev-app.service` → container `songhealth-qdev-app`: Astro 7.3.5 + EmDash 1.1.0 dev server on `node:24.21.0-bookworm-slim` pinned by digest (the production build base); npm 12.2.0 dependencies |
+| Application | `songhealth-dev-app.service` → container `songhealth-qdev-app`: Astro 7.3.5 + EmDash 1.1.0 dev server on `node:26.13.0-bookworm-slim` pinned by digest (the production build base); npm 12.2.1 dependencies |
 | Database | `songhealth-dev-db.service` → container `songhealth-qdev-db`: PostgreSQL 18.6 pinned by digest, database `songhealth_qdev`, least-privilege app role `songhealth_qdev_app`, no host port |
 | Volumes | `songhealth-qdev-db-data`, `songhealth-qdev-media` (media at the application's stable `./media` path) |
 | Source | `~/dev/songhealth-quadlet` — a full clone at a detached, promoted commit, bind-mounted at `/src` |

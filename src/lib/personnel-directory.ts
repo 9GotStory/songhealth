@@ -26,7 +26,7 @@ export interface UnitGroup<E> {
 	people: E[];
 }
 
-/** Thai collation, for names and units. Node 24.21.0 ships full ICU data. */
+/** Thai collation, for names and units. Node 26.13.0 ships full ICU data. */
 const THAI = new Intl.Collator("th");
 
 /** Whether the person may appear on the public site. */

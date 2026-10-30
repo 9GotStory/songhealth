@@ -111,7 +111,7 @@ function matchesArea(data: DirectoryData, area: string): boolean {
 	return area === "" || areasOf(data).some((term) => term.slug === area);
 }
 
-/** Thai collation, for names and term labels. Node 24.21.0 ships full ICU data. */
+/** Thai collation, for names and term labels. Node 26.13.0 ships full ICU data. */
 const THAI = new Intl.Collator("th");
 
 /**

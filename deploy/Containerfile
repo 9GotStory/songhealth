@@ -17,11 +17,11 @@
 #   Astro + EmDash platform", "Configuration and secrets", "Production
 #   topology and durability"
 #
-# Shape: one multi-stage OCI build on the official Node 24.21.0 image, pinned
+# Shape: one multi-stage OCI build on the official Node 26.13.0 image, pinned
 # in BOTH stages by explicit version and the immutable digest of the upstream
 # multi-arch image index (the same pinning contract scripts/dev-db.sh uses for
 # PostgreSQL 18.6). The `build` stage reproduces the approved exact toolchain
-# (npm 12.2.0 over the image's bundled npm 11.x — T001 evidence R3), installs
+# (npm 12.2.1 over the image's bundled npm 11.20.0 — T001 evidence R3), installs
 # the single committed lockfile, and runs the exact application build so the
 # native `.emdash/migrations.json` manifest and the standalone entry
 # `dist/server/entry.mjs` are emitted by THIS build inside THIS environment.
@@ -45,10 +45,10 @@
 
 # --- build stage: exact toolchain + lockfile install + the exact build ------
 
-FROM docker.io/library/node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS build
+FROM docker.io/library/node:26.13.0-bookworm-slim@sha256:bc0a2afd3b74ce12222fc8bab99271e66257f021078f5f4a5d687a77d280c1d9 AS build
 
 # Approved exact package-manager pin (package.json packageManager/engines).
-RUN npm install -g npm@12.2.0 && npm cache clean --force
+RUN npm install -g npm@12.2.1 && npm cache clean --force
 
 WORKDIR /app
 
@@ -87,12 +87,12 @@ RUN PGHOST=build.internal PGPORT=5432 PGDATABASE=build PGUSER=build \
 
 # --- runtime stage: the one application runtime ------------------------------
 
-FROM docker.io/library/node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+FROM docker.io/library/node:26.13.0-bookworm-slim@sha256:bc0a2afd3b74ce12222fc8bab99271e66257f021078f5f4a5d687a77d280c1d9
 
 # Same approved package-manager pin as the build stage: the accepted T013
 # authority drives `npm run build` / `npm run verify:startup` through this npm
 # inside the container.
-RUN npm install -g npm@12.2.0 && npm cache clean --force
+RUN npm install -g npm@12.2.1 && npm cache clean --force
 
 WORKDIR /app
 

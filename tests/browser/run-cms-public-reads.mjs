@@ -8,8 +8,9 @@
 //      source that dev-runtime-verify.sh reports with VERIFY: PASS, plus the app's marker and the
 //      fixture route's identity probe. A missing, malformed, stale or mismatched identity is a
 //      HOLD before any credential, fixture or worker;
-//   2. checks the prerequisites: the pinned local Playwright runner, and the mode-0600 development
-//      credential and route-access token (the token is read only to probe the route);
+//   2. checks the prerequisites: the Node major package.json engines pins, the pinned local
+//      Playwright runner, and the mode-0600 development credential and route-access token (the
+//      token is read only to probe the route);
 //   3. HOLDs on any earlier run's ownership manifest, which it never replays, adopts or deletes;
 //   4. runs tests/browser/cms-public-reads.spec.ts through the pinned Playwright runner, with
 //      PLAYWRIGHT_BASE_URL pinned to the runtime and the opt-in that keeps an ordinary
@@ -617,12 +618,14 @@ async function readRunStatuses(statusPath) {
 async function main() {
 	const reasons = [];
 
-	// Toolchain honesty: record the running Node, and HOLD on a major
-	// mismatch with the pinned 24.x line (engines: 24.21.0).
-	const major = Number.parseInt(process.versions.node.split(".")[0], 10);
-	if (major !== 24) {
+	// Toolchain honesty: HOLD when the running Node's major differs from the one package.json
+	// engines pins.
+	const manifest = JSON.parse(await readFile(path.join(repoRoot, "package.json"), "utf8"));
+	const pinned = manifest.engines.node;
+	const majorOf = (version) => Number.parseInt(String(version).split(".")[0], 10);
+	if (majorOf(process.versions.node) !== majorOf(pinned)) {
 		reasons.push(
-			`running under Node ${process.versions.node}, outside the pinned 24.x line (package.json engines 24.21.0) — refusing to produce runtime evidence on an unpinned toolchain`,
+			`running under Node ${process.versions.node}, outside the pinned ${majorOf(pinned)}.x line (package.json engines ${pinned}) — refusing to produce runtime evidence on an unpinned toolchain`,
 		);
 	}
 

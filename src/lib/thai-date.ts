@@ -2,7 +2,7 @@
 //
 // EmDash stores instants in UTC. Citizens read them in Thai, with the Buddhist Era year, on the
 // Bangkok calendar day: "24 ก.ย. 2569". The `th-TH` locale's default calendar is the Buddhist
-// one, and Node 24.21.0 (the pinned runtime and node:24.21.0-bookworm-slim image) ships full ICU
+// one, and Node 26.13.0 (the pinned runtime and node:26.13.0-bookworm-slim image) ships full ICU
 // data, so Intl formats this natively.
 
 const THAI_DATE = new Intl.DateTimeFormat("th-TH", {
