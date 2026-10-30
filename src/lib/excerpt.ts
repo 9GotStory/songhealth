@@ -3,7 +3,7 @@
 // description is the start of its details.
 //
 // Thai is written without spaces between words, so the cut falls where Intl's Thai word
-// segmentation says a word ends; Node 24.21.0 ships full ICU data. A word longer than the whole
+// segmentation says a word ends; Node 26.13.0 ships full ICU data. A word longer than the whole
 // excerpt is cut between grapheme clusters instead, so a character never loses its vowel or tone
 // mark.
 

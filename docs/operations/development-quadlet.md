@@ -18,7 +18,7 @@ media or credentials were taken from it: this runtime started from a fresh datab
 | Origin | `http://127.0.0.1:4324/` — loopback only; the same port inside the container keeps the origin, the Vite HMR socket and `EMDASH_SITE_URL` equal |
 | Units (`~/.config/containers/systemd/`) | `songhealth-dev.network`, `songhealth-dev-db-data.volume`, `songhealth-dev-media.volume`, `songhealth-dev-db.container`, `songhealth-dev-app.container` (sources in `deploy/dev-quadlet/`) |
 | Services | `songhealth-dev-db.service`, `songhealth-dev-app.service` (user manager; started with the user session) |
-| Application | container `songhealth-qdev-app`: `node:24.21.0-bookworm-slim@sha256:d6aa754f…` (the production build base), Astro 7.3.5 + EmDash 1.1.0 dev server, dependencies installed with npm 12.2.0 |
+| Application | container `songhealth-qdev-app`: `node:26.13.0-bookworm-slim@sha256:bc0a2afd…` (the production build base), Astro 7.3.5 + EmDash 1.1.0 dev server, dependencies installed with npm 12.2.1 |
 | Database | container `songhealth-qdev-db`: `postgres:18.6@sha256:fc973eb9…` (same as production), database `songhealth_qdev`, bootstrap superuser `songhealth_qdev_admin`, least-privilege app role `songhealth_qdev_app` (owns the database and schema `public`), no host port |
 | Network | `songhealth-qdev` (private) |
 | Volumes | `songhealth-qdev-db-data` (PostgreSQL 18 parent path `/var/lib/postgresql`), `songhealth-qdev-media` (the application's stable `./media` path, marker `.songhealth-qdev-media-store`) |
@@ -49,8 +49,8 @@ the real state first and only adds what is missing:
    commit.
 3. **Images and dependencies.**
    - Pulls the two digest-pinned images.
-   - Runs `npm ci` with npm 12.2.0 in a temporary container from the app image. It re-runs
-     only when `package-lock.json` or the image changes.
+   - Runs `npm ci` with npm 12.2.1 in a temporary container from the app image. It re-runs
+     only when `package-lock.json`, the image or the npm version changes.
 4. **Secrets.**
    - Generates the four runtime secrets once.
    - Generates the T021 route token pair: a podman secret plus a 0600 client copy. It replaces

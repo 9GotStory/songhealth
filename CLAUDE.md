@@ -48,7 +48,7 @@ with `/code-review` → `/pr` → `/retro`.
 
 ## Checks
 
-The feedback loop for `/implement` and `/tdd` (Node 24.21.0, npm 12.2.0):
+The feedback loop for `/implement` and `/tdd` (Node 26.13.0, npm 12.2.1, as `package.json` engines pins):
 - `npm run typecheck`;
 - `npm run test:node`;
 - `npm run build:check` when a page, the layout or the Astro config changes;
