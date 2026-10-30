@@ -32,6 +32,12 @@ checks that every cited file exists. When the pinned version changes, re-verify 
   `./tests/browser/public-services.spec.ts` checks a leading vowel in the Service catalog's order.
 - Without a `limit`, `getEmDashCollection` returns every matching entry: the query has no `LIMIT`
   (`src/loader.ts`, `fetchLimit`).
+- A boolean field is an `INTEGER` column, and the query functions hydrate it as `true`/`false`
+  (`src/loader.ts` `mapRowToData`). A boolean `where` value binds as 1 or 0
+  (`bindableFilterValue`), but the `WhereValue` type admits only strings, so
+  `./src/lib/personnel-directory.ts` filters `public_visible` in code.
+- An entry without a slug, such as a non-routable Personnel entry, takes its database id as its
+  `id` (`src/loader.ts` `entryIdForRow`).
 - A `number` field is a `REAL` column (`src/schema/types.ts` `FIELD_TYPE_TO_COLUMN`), which is
   `float4` on PostgreSQL: about 7 significant digits. A Thai longitude keeps 5 decimal places
   (`100.1234567` reads back as `100.12346`, about 1 m), enough for a map link.
@@ -122,6 +128,13 @@ checks that every cited file exists. When the pinned version changes, re-verify 
 - Seed taxonomy terms are applied only with content (`src/seed/apply.ts`), and `emdash seed` opens
   SQLite only (`src/cli/commands/seed.ts`). The model-update step uses the schema and taxonomy APIs
   instead (`./scripts/model-update.mjs`).
+- `GET` and `POST /_emdash/api/schema/collections/{slug}/fields` list and create a collection's
+  fields (`src/astro/routes/api/schema/collections/[slug]/fields/index.ts`). The create body takes a
+  seed field's own keys, and the collection list carries no fields (`src/api/schemas/schema.ts`
+  `createFieldBody`, `src/api/handlers/schema.ts` `handleSchemaCollectionList`). A created field
+  goes after the existing ones (`src/schema/registry.ts` `createField`).
+- An `integer` field is an `INTEGER` column that takes whole numbers only (`src/schema/types.ts`
+  `FIELD_TYPE_TO_COLUMN`, `src/schema/zod-generator.ts`).
 - An API token reads `/_emdash/api/taxonomies` with the `content:read` scope and creates terms with
   `taxonomies:manage` (`src/astro/middleware/auth.ts`). A term list is a tree for a hierarchical
   taxonomy, and `?includeCounts=false` skips the per-term counts (`src/api/handlers/taxonomies.ts`

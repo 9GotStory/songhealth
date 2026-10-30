@@ -1,0 +1,54 @@
+---
+// /about/personnel (Feature 003 #61; spec #51 "Public reads" (About), `03` §5): the publicly
+// visible Personnel, a section per organizational unit in Thai order, each unit's people by name
+// (src/lib/personnel-directory.ts). The Personnel without a unit come last, under their own
+// heading.
+import EmptyState from "../../components/EmptyState.astro";
+import PageHeading from "../../components/PageHeading.astro";
+import PersonCard from "../../components/PersonCard.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ABOUT_PATH, ABOUT_TITLE, PERSONNEL_PAGE } from "../../lib/about";
+import { listPersonnelByUnit } from "../../lib/personnel";
+
+/** The heading of the Personnel whose unit is not set. */
+const NO_UNIT = "ไม่ระบุหน่วยงาน";
+
+const { path, title, lead } = PERSONNEL_PAGE;
+const groups = await listPersonnelByUnit();
+---
+
+<SiteLayout
+	title={title}
+	section="about"
+	description={lead}
+	canonical={path}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		{ label: ABOUT_TITLE, href: ABOUT_PATH },
+		{ label: title },
+	]}
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading title={title} lead={lead} />
+		{groups.length > 0 ? (
+			<div class="flex flex-col gap-10">
+				{groups.map(({ unit, people }, index) => (
+					<section aria-labelledby={`unit-${index + 1}`} class="flex flex-col gap-4">
+						<h2 id={`unit-${index + 1}`} class="text-h3 wrap-anywhere text-brand-dark">
+							{unit ?? NO_UNIT}
+						</h2>
+						<ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+							{people.map((person) => (
+								<li>
+									<PersonCard person={person} headingLevel={3} showUnit={false} />
+								</li>
+							))}
+						</ul>
+					</section>
+				))}
+			</div>
+		) : (
+			<EmptyState message="ยังไม่มีข้อมูลบุคลากร" />
+		)}
+	</div>
+</SiteLayout>

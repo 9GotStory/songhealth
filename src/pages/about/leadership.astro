@@ -1,0 +1,41 @@
+---
+// /about/leadership (Feature 003 #61; spec #51 "Public reads" (About), `03` §5): the Leadership,
+// the publicly visible Personnel that have a Leadership order, in rank order with ties by name
+// (src/lib/personnel-directory.ts).
+import EmptyState from "../../components/EmptyState.astro";
+import PageHeading from "../../components/PageHeading.astro";
+import PersonCard from "../../components/PersonCard.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ABOUT_PATH, ABOUT_TITLE, LEADERSHIP_PAGE } from "../../lib/about";
+import { listLeadership } from "../../lib/personnel";
+
+const { path, title, lead } = LEADERSHIP_PAGE;
+const leaders = await listLeadership();
+---
+
+<SiteLayout
+	title={title}
+	section="about"
+	description={lead}
+	canonical={path}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		{ label: ABOUT_TITLE, href: ABOUT_PATH },
+		{ label: title },
+	]}
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading title={title} lead={lead} />
+		{leaders.length > 0 ? (
+			<ol class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+				{leaders.map((person) => (
+					<li>
+						<PersonCard person={person} />
+					</li>
+				))}
+			</ol>
+		) : (
+			<EmptyState message="ยังไม่มีข้อมูลผู้บริหาร" />
+		)}
+	</div>
+</SiteLayout>

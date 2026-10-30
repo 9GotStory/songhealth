@@ -14,6 +14,8 @@
 // - What the shell shows every page: the 404 page, the default site title, the
 //   breadcrumb, Thai dates, the titles and items a list shows, and a record
 //   page's details.
+// - `BorrowedEntries`: the runtime's own published entries a test returns to
+//   draft, published again afterwards at their own publication date.
 //
 // Verified against the pinned @axe-core/playwright 4.14.0 (axe-core 4.14.0,
 // node_modules/@axe-core/playwright/dist/index.d.ts): `new AxeBuilder({ page })
@@ -23,7 +25,17 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test as base, type Page } from "@playwright/test";
 
-import { cmsRequest, nativeDataOf, type CmsActor } from "./cms.helpers";
+import {
+	cmsRequest,
+	nativeDataOf,
+	nativeItemOf,
+	nativeRefusalOf,
+	publishEntryAt,
+	readEntry,
+	unpublishEntry,
+	type CmsActor,
+	type DraftFixture,
+} from "./cms.helpers";
 
 export { expect };
 
@@ -213,4 +225,79 @@ export async function siteTitleParts(
 		siteTitle: settings.title?.trim() || DEFAULT_SITE_TITLE,
 		separator: settings.seo?.titleSeparator || " | ",
 	};
+}
+
+/**
+ * The runtime's own published entries that a suite returns to draft for a test, such as the demo
+ * dataset's or the Product Owner's, and publishes again when the test ends at their own
+ * publication date (CODING_STANDARDS "Tests", shared runtime state). Their revision history keeps
+ * the round trip, which the native API cannot undo. An entry that is scheduled, unpublished, or has
+ * unpublished changes that publishing would release, is left alone and the test skips.
+ *
+ * Platform behaviour relied on (emdash 1.1.0): a content read by id or slug finds an entry outside
+ * the trash, and carries `draftRevisionId` while the entry has changes not yet published
+ * (src/database/repositories/content.ts findByIdOrSlug, src/emdash-runtime.ts hydrateDraftData).
+ * POST …/publish takes `publishedAt` (src/astro/routes/api/content/[collection]/[id]/publish.ts).
+ */
+export class BorrowedEntries {
+	readonly #entries: Array<{ collection: string; fixture: DraftFixture; publishedAt: string }> = [];
+
+	/**
+	 * The runtime's own entry `idOrSlug`, returned to draft for the running test, or undefined when
+	 * there is none. The test skips when the entry is not simply published.
+	 */
+	async borrow(
+		admin: CmsActor,
+		collection: string,
+		idOrSlug: string,
+	): Promise<DraftFixture | undefined> {
+		const read = await readEntry(admin, collection, idOrSlug);
+		if (!read.ok) {
+			expect(read.status, `reading ${collection}/${idOrSlug}: ${nativeRefusalOf(read)}`).toBe(404);
+			return undefined;
+		}
+		const item = nativeItemOf(read)!;
+		test.skip(
+			item.status !== "published" || typeof item.draftRevisionId === "string",
+			`the runtime's ${collection} entry "${idOrSlug}" is ${item.status}${item.draftRevisionId ? " with unpublished changes" : ""}; the suite leaves it alone`,
+		);
+		const fixture = {
+			id: String(item.id),
+			slug: typeof item.slug === "string" && item.slug !== "" ? item.slug : idOrSlug,
+			title: String((item.data as { title?: unknown }).title),
+		};
+		this.#entries.push({ collection, fixture, publishedAt: String(item.publishedAt) });
+		const unpublished = await unpublishEntry(admin, collection, fixture.id);
+		expect(unpublished.ok, `unpublish ${fixture.slug}: ${nativeRefusalOf(unpublished)}`).toBe(true);
+		return fixture;
+	}
+
+	/** A borrowed entry's own publication date, or undefined for any other entry. */
+	publishedAtOf(id: string): string | undefined {
+		return this.#entries.find((entry) => entry.fixture.id === id)?.publishedAt;
+	}
+
+	/** Publish every borrowed entry again at its own date, and fail unless each one is. */
+	async giveBack(admin: CmsActor): Promise<void> {
+		const failures: string[] = [];
+		for (const { collection, fixture, publishedAt } of this.#entries.splice(0)) {
+			try {
+				const status = nativeItemOf(await readEntry(admin, collection, fixture.id))?.status;
+				const stored =
+					status === "published"
+						? nativeItemOf(await readEntry(admin, collection, fixture.id))?.publishedAt
+						: await publishEntryAt(admin, collection, fixture.id, publishedAt);
+				if (Date.parse(String(stored)) !== Date.parse(publishedAt)) {
+					failures.push(
+						`${collection}/${fixture.slug} is published at ${stored}, not ${publishedAt}`,
+					);
+				}
+			} catch (error) {
+				failures.push(
+					`${collection}/${fixture.slug}: ${error instanceof Error ? error.message : error}`,
+				);
+			}
+		}
+		expect(failures, "the runtime's own entries are published again as they were").toEqual([]);
+	}
 }

@@ -1,6 +1,8 @@
-// The About section (Feature 003 #60; spec #51 "Public reads" (About), `01` §3, `03` §5 and §14).
+// The About section (Feature 003 #60, #61; spec #51 "Public reads" (About), `01` §3, `03` §5 and
+// §14).
 //
 // /about is the office information page. It links to every About sub-page in `01` §3 order.
+// Leadership and Personnel list the publicly visible Personnel (src/lib/personnel-directory.ts).
 // Policies, Plans and Results list the Documents of one Document Type each: the reference terms
 // `policy`, `plan` and `result` that the model-update step adds (scripts/model-update.mjs).
 
@@ -11,6 +13,25 @@ export const ABOUT_PATH = "/about";
 
 /** Where the reserved Basic Page `organization` renders (src/lib/basic-pages.ts). */
 export const ORGANIZATION_PATH = "/about/organization";
+
+/** An About page that lists Personnel: its address and how it reads. */
+interface AboutPersonnelPage {
+	path: string;
+	title: string;
+	lead: string;
+}
+
+export const LEADERSHIP_PAGE: AboutPersonnelPage = {
+	path: "/about/leadership",
+	title: "ผู้บริหาร",
+	lead: "ผู้บริหารของสำนักงานสาธารณสุขอำเภอสอง",
+};
+
+export const PERSONNEL_PAGE: AboutPersonnelPage = {
+	path: "/about/personnel",
+	title: "บุคลากร",
+	lead: "บุคลากรของสำนักงานสาธารณสุขอำเภอสอง แยกตามหน่วยงาน",
+};
 
 /** An About Document page: the Document Type it lists, by term slug, and how it reads. */
 export interface AboutDocumentList {
@@ -46,7 +67,6 @@ export const ABOUT_DOCUMENT_LISTS = {
 /** Every About sub-page, in `01` §3 order. */
 export const ABOUT_SUBPAGES = [
 	{ label: "โครงสร้างองค์กร", href: ORGANIZATION_PATH },
-	{ label: "ผู้บริหาร", href: "/about/leadership" },
-	{ label: "บุคลากร", href: "/about/personnel" },
+	...[LEADERSHIP_PAGE, PERSONNEL_PAGE].map(({ title, path }) => ({ label: title, href: path })),
 	...Object.values(ABOUT_DOCUMENT_LISTS).map(({ title, path }) => ({ label: title, href: path })),
 ];
