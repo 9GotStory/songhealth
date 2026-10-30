@@ -105,8 +105,8 @@ checks that every cited file exists. When the pinned version changes, re-verify 
 - Deleting a media item has no in-use guard. It removes the stored file unless another media row
   shares the key, and content keeps the stale value (`src/api/handlers/media.ts` `handleMediaDelete`).
   Pages therefore check media through `./src/lib/media.ts`.
-- The storage adapter offers `exists(key)` and `download(key)`, which returns `{ body, contentType,
-  size }` (`src/storage/local.ts`, `src/storage/s3.ts`).
+- The storage adapter offers `exists(key)` and `download(key)`, which returns
+  `{ body, contentType, size }` (`src/storage/local.ts`, `src/storage/s3.ts`).
   - A missing key throws code `NOT_FOUND`.
   - On local storage, `list` reads the whole directory.
 - `Image` from `emdash/ui` builds a local URL from `meta.storageKey`, else from `id`

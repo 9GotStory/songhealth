@@ -14,6 +14,7 @@ and why, and `.jscpd-baseline.json` records them.
   request.
 - When code relies on platform behaviour, the comment names the package, its pinned version and
   the source path, for example `emdash 1.1.0 src/api/schemas/settings.ts`.
+  `tests/node/cited-source-paths.test.ts` checks that each cited path exists.
 - A Songhealth helper, hook or plugin that does what EmDash might do names its native gap: its
   comment cites the fact in `docs/agents/emdash-1.1.0.md` that shows EmDash lacks it, and a
   missing fact is added there with its source path (CLAUDE.md "Platform-native first";
@@ -21,7 +22,8 @@ and why, and `.jscpd-baseline.json` records them.
 - Code that departs from the spec or the current docs on a Product Owner decision cites the
   decision (issue and comment) where it departs, so a later change does not "fix" it back.
 - Accepted Feature 001 and 002 files carry long historical headers. Trim them when a change
-  touches the file.
+  touches the file, keeping only the platform claims checked again against the pinned source: an
+  old header can be wrong, as #93 found a 401 that EmDash answers with 403 CSRF_REJECTED.
 
 ## Public pages
 
