@@ -40,13 +40,13 @@ import {
 	createOwnedTerm,
 	createPatActor,
 	createSyntheticDocument,
-	createSyntheticEntry,
+	createSyntheticDraft,
 	deleteMedia,
 	deleteSyntheticTerms,
 	loadDevAccessToken,
+	NATIVE_ROLES,
 	nativeDataOf,
 	nativeRefusalOf,
-	NATIVE_ROLES,
 	portableTextBlock,
 	portableTextImage,
 	publishEntryAt,
@@ -103,36 +103,16 @@ let reportDocument: DraftFixture;
 const createTerm = (taxonomy: string, label: string) =>
 	createOwnedTerm(admin, taxonomy, label, ownedTerms);
 
-/** A synthetic draft of `collection` titled `${mark} ${kind} ${label} ${ending}`. */
-async function createDraft(
-	collection: string,
-	kind: string,
-	label: string,
-	{ data, ...fields }: DraftFields,
-): Promise<DraftFixture> {
-	const slug = syntheticSlug(label);
-	const title = `${SYNTHETIC_FIXTURE_MARK} ${kind} ${label} ${slug.slice(-6)}`;
-	const created = await createSyntheticEntry(admin, collection, {
-		...fields,
-		data: { title, ...data },
-		slug,
-	});
-	expect(created.result.ok, `${collection} ${label}: ${nativeRefusalOf(created.result)}`).toBe(
-		true,
-	);
-	return { id: created.entryId!, slug, title };
-}
-
 /** A synthetic Health Content draft with a unique title. */
 const createContent = (label: string, fields: DraftFields = {}) =>
-	createDraft("health_content", "ความรู้สุขภาพ", label, fields);
+	createSyntheticDraft(admin, "health_content", "ความรู้สุขภาพ", label, fields);
 
 /** A synthetic Health Report draft pointing to `document`, by default the suite's own. */
 const createReport = (
 	label: string,
 	{ document = reportDocument, ...fields }: DraftFields & { document?: DraftFixture } = {},
 ) =>
-	createDraft("health_reports", "รายงานสุขภาพ", label, {
+	createSyntheticDraft(admin, "health_reports", "รายงานสุขภาพ", label, {
 		...fields,
 		references: { report_document: [document.id] },
 	});

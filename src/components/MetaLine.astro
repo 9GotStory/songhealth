@@ -1,0 +1,32 @@
+---
+// The detail line above a card's or row's title (Feature 003 #54–#59; spec #51 "Shared building
+// blocks"): short facts such as a type, a date and a fiscal year, in order, separated by a "•" that
+// assistive technology skips. A fact that is not set drops out with its separator, and the line
+// drops out when none is set.
+import DateText from "./DateText.astro";
+
+/** One fact: a text, such as a term's label, which may wrap anywhere; or a date. */
+type Fact = { text: string } | { date: Date | string };
+
+interface Props {
+	/** The facts in order; one that is not set (false, null, undefined, "", 0) is left out. */
+	facts: ReadonlyArray<Fact | false | null | undefined | "" | 0>;
+}
+
+const shown = Astro.props.facts.filter((fact): fact is Fact => !!fact);
+---
+
+{shown.length > 0 && (
+	<p class="flex flex-wrap gap-x-2 text-small text-text-secondary">
+		{shown.map((fact, index) => (
+			<>
+				{index > 0 && <span aria-hidden="true">•</span>}
+				{"date" in fact ? (
+					<DateText value={fact.date} />
+				) : (
+					<span class="wrap-anywhere">{fact.text}</span>
+				)}
+			</>
+		))}
+	</p>
+)}

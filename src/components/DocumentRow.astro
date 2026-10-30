@@ -7,8 +7,8 @@
 import { documentPath, type DocumentEntry } from "../lib/documents";
 import { FILE_UNAVAILABLE, downloadableFile } from "../lib/media";
 import { termsOf } from "../lib/terms";
-import DateText from "./DateText.astro";
 import DocumentStatus from "./DocumentStatus.astro";
+import MetaLine from "./MetaLine.astro";
 
 interface Props {
 	document: DocumentEntry;
@@ -28,15 +28,13 @@ const status =
 ---
 
 <article class="flex flex-col gap-2 rounded-24 bg-surface-base p-5 shadow-card">
-	{(type || data.document_at || data.fiscal_year) && (
-		<p class="flex flex-wrap gap-x-2 text-small text-text-secondary">
-			{type && <span class="wrap-anywhere">{type.label}</span>}
-			{type && data.document_at && <span aria-hidden="true">•</span>}
-			{data.document_at && <DateText value={data.document_at} />}
-			{(type || data.document_at) && data.fiscal_year && <span aria-hidden="true">•</span>}
-			{data.fiscal_year && <span>ปีงบประมาณ {data.fiscal_year}</span>}
-		</p>
-	)}
+	<MetaLine
+		facts={[
+			type && { text: type.label },
+			data.document_at && { date: data.document_at },
+			data.fiscal_year && { text: `ปีงบประมาณ ${data.fiscal_year}` },
+		]}
+	/>
 	<Heading class="text-body-large font-semibold wrap-anywhere text-brand-dark">
 		<a
 			class="underline-offset-4 hover:text-brand-primary hover:underline"

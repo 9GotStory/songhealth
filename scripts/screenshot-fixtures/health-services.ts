@@ -74,12 +74,6 @@ const HEALTH_SERVICES = [
 ] as const;
 
 const fixtures: Fixtures = async ({ admin, helpers, term }) => {
-	const terms = new Map<string, string>();
-	const termOf = async (taxonomy: string, label: string) => {
-		const key = `${taxonomy}:${label}`;
-		if (!terms.has(key)) terms.set(key, await term(taxonomy, label));
-		return terms.get(key)!;
-	};
 	const services: string[] = [];
 	for (const title of SERVICES) {
 		const entry = await helpers.createSyntheticEntry(admin, "services", {
@@ -95,7 +89,7 @@ const fixtures: Fixtures = async ({ admin, helpers, term }) => {
 	for (const healthService of HEALTH_SERVICES) {
 		const slug = helpers.syntheticSlug("shot");
 		const areas: string[] = [];
-		for (const area of healthService.areas) areas.push(await termOf("area", area));
+		for (const area of healthService.areas) areas.push(await term("area", area));
 		const entry = await helpers.createSyntheticEntry(admin, "health_services", {
 			slug,
 			data: {
@@ -112,7 +106,7 @@ const fixtures: Fixtures = async ({ admin, helpers, term }) => {
 					: {}),
 			},
 			taxonomies: {
-				facility_type: [await termOf("facility_type", healthService.type)],
+				facility_type: [await term("facility_type", healthService.type)],
 				area: areas,
 			},
 			references: { offered_services: healthService.offers.map((index) => services[index]!) },
@@ -123,7 +117,7 @@ const fixtures: Fixtures = async ({ admin, helpers, term }) => {
 		if (!published.ok) throw new Error(`publish: ${helpers.nativeRefusalOf(published)}`);
 		slugs.set(healthService.key, slug);
 	}
-	const banKlang = await termOf("area", "ตำบลบ้านกลาง");
+	const banKlang = await term("area", "ตำบลบ้านกลาง");
 	return [
 		"/health-services",
 		{

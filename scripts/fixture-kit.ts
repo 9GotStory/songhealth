@@ -12,7 +12,7 @@ import * as helpers from "../tests/browser/cms.helpers.ts";
 export interface FixtureKit {
 	admin: helpers.CmsActor;
 	helpers: typeof helpers;
-	/** A new term of `taxonomy`; returns its slug. */
+	/** A term of `taxonomy` labelled `label`, made once per run; returns its slug. */
 	term(taxonomy: string, label: string): Promise<string>;
 	/** A new 1200×750 picture, a diagonal blend of two hex colours, with `alt`; returns its id. */
 	picture(alt: string, from: string, to: string): Promise<string>;
@@ -65,14 +65,20 @@ export async function withFixtureKit<T>(work: (kit: FixtureKit) => Promise<T>): 
 		expected: { role: helpers.NATIVE_ROLES.administrator },
 	});
 	const terms: helpers.SyntheticTerm[] = [];
+	/** The slug of each term made, by `${taxonomy}:${label}`. */
+	const slugs = new Map<string, string>();
 	const media: string[] = [];
 	const kit: FixtureKit = {
 		admin,
 		helpers,
 		async term(taxonomy, label) {
-			const term = await helpers.createSyntheticTerm(admin, taxonomy, label);
-			terms.push(term);
-			return term.slug;
+			const key = `${taxonomy}:${label}`;
+			if (!slugs.has(key)) {
+				const term = await helpers.createSyntheticTerm(admin, taxonomy, label);
+				terms.push(term);
+				slugs.set(key, term.slug);
+			}
+			return slugs.get(key)!;
 		},
 		async picture(alt, from, to) {
 			const [a, b] = [rgb(from), rgb(to)];

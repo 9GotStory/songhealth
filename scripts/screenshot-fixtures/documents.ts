@@ -50,12 +50,6 @@ const DOCUMENTS = [
 ] as const;
 
 const fixtures: Fixtures = async ({ admin, helpers, term }) => {
-	const terms = new Map<string, string>();
-	const termOf = async (taxonomy: string, label: string) => {
-		const key = `${taxonomy}:${label}`;
-		if (!terms.has(key)) terms.set(key, await term(taxonomy, label));
-		return terms.get(key)!;
-	};
 	const created = new Map<string, { id: string; slug: string }>();
 	// Successors first, so a superseded Document can point at its successor.
 	const ordered = [...DOCUMENTS].sort(
@@ -92,8 +86,8 @@ const fixtures: Fixtures = async ({ admin, helpers, term }) => {
 				...(document.status ? { domain_status: document.status } : {}),
 			},
 			taxonomies: {
-				document_type: [await termOf("document_type", document.type)],
-				...(document.topic ? { topic: [await termOf("topic", document.topic)] } : {}),
+				document_type: [await term("document_type", document.type)],
+				...(document.topic ? { topic: [await term("topic", document.topic)] } : {}),
 			},
 			...("successor" in document
 				? { references: { successor: [created.get(document.successor)!.id] } }
