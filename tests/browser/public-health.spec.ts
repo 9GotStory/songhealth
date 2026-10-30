@@ -59,6 +59,7 @@ import {
 	type CmsActor,
 	type DraftFields,
 	type DraftFixture,
+	type SyntheticPdf,
 	type SyntheticTerm,
 } from "./cms.helpers";
 import {
@@ -97,7 +98,7 @@ let origin: string;
 /** Synthetic terms this suite created, removed at the end. */
 const ownedTerms: SyntheticTerm[] = [];
 /** A published Document the suite's Health Reports point to. */
-let reportDocument: DraftFixture;
+let reportDocument: DraftFixture & { file: SyntheticPdf };
 
 /** A synthetic term of `taxonomy`, labelled in Thai so it reads like a real one. */
 const createTerm = (taxonomy: string, label: string) =>
@@ -538,6 +539,15 @@ test("a Health Report page shows its summary, type, report date, reporting perio
 		"the report Document's own page",
 	).toHaveAttribute("href", `/documents/${reportDocument.slug}`);
 	await expect(documentSection.getByText("ไฟล์ PDF, 2 KB")).toBeVisible();
+	// The report's file downloads from the report page itself (Product Owner, 2026-10-30: #59
+	// comment 6515961560).
+	const download = documentSection.getByRole("link", { name: /ดาวน์โหลด/ });
+	await expect(download).toHaveAttribute(
+		"href",
+		`/_emdash/api/media/file/${reportDocument.file.storageKey}`,
+	);
+	await expect(download).toHaveAttribute("download", reportDocument.file.filename);
+	await expect(download).toContainText("PDF, 2 KB");
 
 	await expect(healthNavItem(page)).toHaveAttribute("aria-current", "true");
 	await expectBreadcrumb(page, [HOME_CRUMB, HEALTH_CRUMB, REPORTS_CRUMB], report.title);
@@ -566,6 +576,28 @@ test("a Health Report whose report Document is not published says the report Doc
 	await expect(
 		page.getByRole("main").locator(`a[href="/documents/${draftDocument.slug}"]`),
 	).toHaveCount(0);
+	await expect(documentSection.getByRole("link", { name: /ดาวน์โหลด/ })).toHaveCount(0);
+});
+
+test("a Health Report whose report Document's file was deleted says so once, without a download", async ({
+	page,
+}) => {
+	const document = await createSyntheticDocument(admin, "report-file-gone");
+	await publishEntryAt(admin, "documents", document.id);
+	const removed = await deleteMedia(admin, document.file.mediaId);
+	expect(removed.ok, `deleting the file: ${nativeRefusalOf(removed)}`).toBe(true);
+	const report = await createReport("document-file-gone", { document });
+	await publishReport(report);
+
+	const response = await page.goto(`/health/reports/${report.slug}`);
+	expect(response?.status(), "the Health Report page still renders").toBe(200);
+	const documentSection = page.getByRole("main").getByRole("region", { name: "เอกสารรายงาน" });
+	await expect(documentSection.getByRole("link", { name: document.title })).toHaveAttribute(
+		"href",
+		`/documents/${document.slug}`,
+	);
+	await expect(documentSection.getByText("ไฟล์ไม่พร้อมให้บริการ")).toHaveCount(1);
+	await expect(documentSection.getByRole("link", { name: /ดาวน์โหลด/ })).toHaveCount(0);
 });
 
 test("a draft, unpublished or trashed Health Content or Health Report answers the site 404 and stays out of every list", async ({
