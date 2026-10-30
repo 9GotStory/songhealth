@@ -1,181 +1,44 @@
-// T021 — focused native public-read checks for Feature 002 US6/FR-020: the
-// native public query helpers (getEmDashCollection / getEmDashEntry /
-// getEmDashReferences) read PUBLISHED content only inside the authentic
-// Astro/EmDash request context of the ONE existing persistent development
-// server (origin http://127.0.0.1:4324, the single runtime; T037); a native
-// signed preview token for one entry serves that entry's pending draft and
-// nothing else; drafts,
-// trashed and unpublished targets are omitted without blocking the parent;
-// optional omissions stay absent; missing files degrade to a safe
-// unavailable state, never a false download success; and errors, not-found
-// and empty results stay truthful — with no privileged/draft fallback ever.
-// Test support in tests/browser/ only: no application, schema, seed,
-// dependency, infrastructure, or production change is made here, and NO
-// runtime execution is claimed by authoring this file — a task that runs
-// these checks records its own evidence (T037 on the single runtime; US6
-// acceptance stays with the T022 serial join), and only where the runtime's
-// development configuration installs the dev-only fixture route.
+// Native public reads (Feature 002 T021, US6, FR-020; specs/002-cms-content-model/,
+// contracts/public-read.md; `10` §9).
 //
-// Authority:
-// - specs/002-cms-content-model/tasks.md T021 ("Tests exercise native
-//   getEmDashCollection / getEmDashEntry / getEmDashReferences against the
-//   existing persistent development server (origin http://127.0.0.1:4322)
-//   and its native Astro request context: published-only reads, authorized
-//   signed preview vs unauthenticated query parameters, draft/trashed/
-//   unavailable linked targets, optional omissions, missing files,
-//   reference hydration/identity/pagination and truthful error/not-found
-//   states without privileged fallback") and the "T021 execution and
-//   single-runtime isolation" block consumed by T022 (the coordinator
-//   orchestrates the pinned Playwright command with
-//   PLAYWRIGHT_BASE_URL=http://127.0.0.1:4322; a missing dev-only SSR
-//   fixture route is a prerequisite HOLD, never authorization for another
-//   server; runtime fixture creation/cleanup happens only in T022), as
-//   retargeted by T037 to the single runtime at http://127.0.0.1:4324
-// - specs/002-cms-content-model/contracts/public-read.md — "Native Reads"
-//   (server-side consumers use the three native helpers; ordinary public
-//   request context reads published content and live selections; authorized
-//   signed preview/edit context may read pending data/selections;
-//   unauthenticated query parameters alone do not grant preview;
-//   privileged ctx.content.get and administrative REST snapshots are not
-//   anonymous public read APIs), "Shared Source and Missing Targets"
-//   (unpublished/trashed/unavailable linked content is omitted by the
-//   public read path without falling back to a draft or privileged
-//   snapshot; missing files produce a safe unavailable state, not an
-//   unverified successful download; published status is a visibility
-//   boundary, not an editorial-completeness certificate; relation hydration
-//   is opt-in; native pagination/error/not-found outcomes are honored) and
-//   "Verification Boundary" (test-harness consumers of the one existing
-//   persistent development server; HOLD rather than bypass)
-// - specs/002-cms-content-model/spec.md — US6 acceptance scenario 1
-//   (anonymous reading or unauthorized preview never exposes a saved
-//   draft), FR-020 (public reads exclude drafts/unpublished content;
-//   preview requires authorization; an unauthenticated query parameter MUST
-//   NOT expose drafts; unavailable optional linked content is omitted
-//   without blocking the parent), FR-026/SC-005/SC-006 (truthful outcomes)
-// - specs/002-cms-content-model/contracts/native-editorial.md — "Native
-//   Request Shapes" (POST …/preview-url is the native authorized
-//   signed-preview flow, not an unauthenticated query parameter) and the
-//   availability boundary ("A valid selected reference/file does not
-//   guarantee published target, immutable bytes, future availability or
-//   removal veto. D-REF remains deferred. Public reads follow published-only
-//   safety.")
-// - specs/002-cms-content-model/evidence/T018-us2-reuse.md — the applied
-//   live schema standing (all eight seed collections active with their
-//   reference bindings) these checks gate on
-// - docs/website-modernization-docs/current/10-system-blueprint.md §9
-//   (Astro SSR uses the EmDash query functions directly; draft preview uses
-//   EmDash's signed preview flow)
-// - CLAUDE.md "Runtimes" (all authorized
-//   runtime tests target the existing shared development application at
-//   http://127.0.0.1:4324; never a second server; tests may use the existing
-//   scoped development credential through the approved mode-0600 loader;
-//   never re-run setup/dev-bypass, rotate credentials or impersonate roles)
-// - tests/browser/cms.helpers.ts — the accepted T002/T013 native request/
-//   fixture helpers this file consumes (loadDevAccessToken for both the
-//   development PAT — the runtime's mode-0600 bare-token dev-pat, read since
-//   T037 — and the coordinated route-access token, a mode-0600 { token }
-//   JSON client copy; createPatActor with live
-//   identity verification; createSyntheticEntry/uploadSyntheticMedia with
-//   owned-fixture registration; publish/unpublish/trash/restore and
-//   readEntry; cleanupOwnedFixtures with trash-aware reconciliation)
-// - tests/browser/cms-lifecycle.spec.ts (accepted T019) and
-//   cms-revisions.spec.ts (accepted T020) — the patterns this file follows:
-//   schema-readiness gating, the unauthenticated authorization control,
-//   failure-safe teardown, and the runner-configured origin
+// The suite checks what EmDash's query functions (getEmDashCollection, getEmDashEntry,
+// getEmDashReferences) return inside a real Astro request on the single development runtime:
+// - only published content, with drafts, unpublished and trashed entries and targets left out
+//   without blocking the parent, and no privileged or draft fallback;
+// - a signed preview token for one entry serves that entry's pending draft and nothing else,
+//   while an unauthenticated query parameter grants nothing;
+// - optional omissions stay absent, a missing file degrades to a safe unavailable state, and
+//   errors, not-found and empty results stay truthful, with reference identity and pagination.
 //
-// Verified API surface (recorded per CLAUDE.md §Current documentation):
-// checked first through Context7 (/withastro/docs for Playwright file-level
-// conditional skip semantics — via the pinned
-// node_modules/playwright/types/test.d.ts skip(condition, description)
-// declarations — and the Astro integration reference for injectRoute), then
-// controlled by the PINNED FIRST-PARTY PACKAGE SOURCE: emdash@1.1.0 (npm
-// tarball byte-equal to package-lock.json, the same integrity the
-// T002/T003/T007/T014/T019/T020 files independently verified), inspected at:
-// - getEmDashCollection(type, filter?) → { entries, error?, cacheHint,
-//   nextCursor?, hasMore? } (src/query.ts:523); ContentEntry = { id: slug,
-//   data, references?, edit }; entries hydrate bylines/taxonomies and strip
-//   revision pointers for public contexts. The loader DEFAULTS collection
-//   reads to published rows (src/loader.ts:1545 `filter?.status || "published"`),
-//   so even with a valid preview token in request context a collection list
-//   stays published-only — asserted below, not assumed away
-// - getEmDashEntry(type, id, { references? }) → { entry | null, error?,
-//   isPreview, fallbackLocale?, cacheHint } (src/query.ts:995,
-//   resolveEmDashEntry :1136+). Outside a matching preview/edit context it
-//   returns only VISIBLE (published) entries — entry:null with no error for
-//   not-found/not-visible. With a valid preview token for collection+entry
-//   it serves the pending draft revision (isPreview true). A validly signed
-//   token for a DIFFERENT entry of the same collection serves that target
-//   published-only (isPreview false) or null — never the other entry's
-//   draft; a token for a different collection gives no preview at all
-// - getEmDashReferences(type, id, field, { limit?, cursor?, locale? }) →
-//   { entries, nextCursor?, error?, cacheHint? } (src/query.ts:1391):
-//   unknown field or entry → an EMPTY page, not an error; an unpublished
-//   anchor without a matching preview → empty; reference pages contain only
-//   published children outside a matching preview (serveDrafts decides
-//   "whether an unpublished target resolves at all")
-// - preview flow: POST /_emdash/api/content/{collection}/{id}/preview-url
-//   (permission content:read_drafts; body { expiresIn?: "1s".."2w"|seconds,
-//   pathPattern? } → data { url, expiresAt }) signs
-//   base64url(payload).base64url(HMAC), payload { cid: "collection:id",
-//   exp, iat } (src/astro/routes/api/content/[collection]/[id]/preview-url.ts;
-//   src/preview/tokens.ts). The middleware verifies `?_preview=` on EVERY
-//   request and establishes the request context only for a valid,
-//   unexpired token (src/astro/middleware/request-context.ts:263–295);
-//   invalid/malformed/expired tokens leave the request a plain anonymous
-//   public read. Preview responses are served `private, no-store` by the
-//   native middleware; this fixture keeps every response no-store
-// - the `_edit` query parameter is only meaningful in `toolbar: "client"`
-//   mode (request-context.ts: `hasEditParam = toolbarMode === "client" &&
-//   url.searchParams.has(EDIT_PARAM)`); edit mode additionally requires the
-//   emdash-edit-mode cookie AND an authenticated editor session, so an
-//   anonymous `_edit` parameter grants nothing here
+// Platform behaviour relied on (emdash 1.1.0):
+// - getEmDashCollection answers `{ entries, error?, nextCursor?, … }` and reads published rows
+//   by default, even inside a preview (src/query.ts, src/loader.ts `filter?.status ||
+//   "published"`).
+// - getEmDashEntry answers `{ entry | null, error?, isPreview, … }`: only a visible entry outside a
+//   matching preview, the pending draft with a valid token for that entry, and for a token of
+//   another entry or collection no preview at all (src/query.ts resolveEmDashEntry).
+// - getEmDashReferences answers an empty page for an unknown field or entry and for an
+//   unpublished anchor outside a matching preview, and only published children otherwise
+//   (src/query.ts).
+// - POST …/{id}/preview-url (content:read_drafts; `expiresIn`, `pathPattern`) answers
+//   `{ url, expiresAt }` with an HMAC-signed `_preview` token
+//   (src/astro/routes/api/content/[collection]/[id]/preview-url.ts, src/preview/tokens.ts). The
+//   middleware honours only a valid, unexpired token; any other leaves an anonymous read
+//   (src/astro/middleware/request-context.ts). `_edit` means something only in client toolbar
+//   mode with the edit cookie and an editor session.
 //
-// Boundaries and non-claims (tasks.md T021; Constitution v3.0.0 II–V):
-// - authoring + static/discovery verification only: no scenario below runs
-//   at authoring time; discovery (`playwright --list`) performs no native
-//   calls and reads no credentials (the module-level gate below reads one
-//   environment variable; hooks run only at execution)
-// - the suite executes ONLY through its coordinator
-//   (node tests/browser/run-cms-public-reads.mjs), which pins
-//   PLAYWRIGHT_BASE_URL to the persistent origin and sets the explicit
-//   opt-in. Ordinary `npm run test:browser` lists this file but SKIPS every
-//   test in it at collection time with the prerequisite named, and the
-//   beforeAll returns before loading any credential unless the coordinator
-//   opt-in is present
-// - the SSR evidence comes from the dev-only fixture route
-//   /__feature002/public-reads (injected only in a verified dev context by
-//   tests/browser/fixtures/cms-public-reads.integration.mjs), which runs
-//   the native helpers inside the authentic request context. Privileged
-//   ctx.content.get and Admin REST snapshots are never used as public
-//   evidence (one anonymous Admin-REST control below demonstrates the
-//   refusal boundary instead). The route is access-token gated, fails
-//   closed before any data read, and is bounded to the seed collections
-//   and reference fields; its access token travels in a header, never a
-//   URL, log or assertion message. If the fixture route is absent or
-//   reports an unexpected identity, beforeAll fails loudly with the HOLD
-//   prerequisite named — never a fallback, never a second server
-// - signed preview URLs are obtained ONLY through the native preview-url
-//   API with the development credential, for entries this run owns, with
-//   the fixture route as the per-call pathPattern; the short-lived token is
-//   the only secret-shaped URL value the flow produces and it is never
-//   logged or echoed into evidence (redacted-path helpers below)
-// - no Admin PAT or editor cookie is ever attached to an anonymous SSR
-//   request: every fixture-route fetch sends only the route access header
-// - no privileged/draft fallback, false successful download, atomic
-//   metadata/history/byte-retention or D-ITA/D-REF enforcement claim is
-//   made anywhere below: a missing file is observed as retained selection
-//   identity plus a non-success fetch, with availability/retention
-//   explicitly NOT guaranteed
-// - fixtures are clearly-marked synthetic public-publishable data; entry
-//   ids, `_rev` values and media ids come from native responses only.
-//   Fixture-creation intent is retained in a coordinator-owned manifest
-//   BEFORE creation and reconciled on every exit path, so an interrupted
-//   worker leaves recoverable ownership records instead of silently
-//   discarding them. Failure-safe owned-fixture cleanup runs per test
-//   (afterEach) plus an afterAll safety net; unresolved fixtures stay
-//   registered and are reported, never hidden. The shared app, database,
-//   media volumes, credentials and runtime checkout are never test-owned
-//   resources
+// How it runs:
+// - Only through its coordinator, `node tests/browser/run-cms-public-reads.mjs`, which pins
+//   PLAYWRIGHT_BASE_URL to http://127.0.0.1:4324 and opts in. Under an ordinary
+//   `npm run test:browser` every test skips at collection time and no credential is read.
+// - The evidence comes from the development-only route /__feature002/public-reads
+//   (tests/browser/fixtures/cms-public-reads.integration.mjs), which calls the query functions in
+//   the request. Its access token travels in a header and appears in no URL, log or message. A
+//   missing route or an unexpected identity fails beforeAll as a HOLD, never a fallback.
+// - Preview links are minted only through the native API for this run's own entries, with the
+//   route as the `pathPattern`, and the token is redacted from every report.
+// - Fixtures are synthetic. Each is written to the coordinator's manifest before it is created,
+//   and cleanup runs after each test and again in afterAll; an unresolved fixture is reported.
 
 import { expect, test } from "@playwright/test";
 
