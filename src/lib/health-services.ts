@@ -73,14 +73,18 @@ export async function listHealthServices(
 	};
 }
 
-/**
- * The Area terms the Homepage's Health Service Discovery form offers (#64): those the published
- * Health Services use, as the directory's own filter does. Undefined while no Health Service is
- * published, so the Homepage leaves the form out.
- */
-export async function discoveryAreas(): Promise<DirectoryTerm[] | undefined> {
+/** What the Homepage's Health Service Discovery form needs from the directory (#64). */
+export interface DirectoryOverview {
+	/** Whether any Health Service is published; the Homepage leaves the form out until one is. */
+	hasHealthServices: boolean;
+	/** The Area terms the published Health Services use, which the directory's filter offers. */
+	areas: DirectoryTerm[];
+}
+
+/** Whether the directory lists anything, and the Areas its filter offers. */
+export async function directoryOverview(): Promise<DirectoryOverview> {
 	const entries = await publishedHealthServices();
-	return entries.length === 0 ? undefined : areasInUse(entries);
+	return { hasHealthServices: entries.length > 0, areas: areasInUse(entries) };
 }
 
 /**

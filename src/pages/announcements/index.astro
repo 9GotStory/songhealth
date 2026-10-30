@@ -18,7 +18,6 @@ import {
 	ANNOUNCEMENTS_PATH,
 	ANNOUNCEMENTS_TITLE,
 	listAnnouncements,
-	statusOf,
 } from "../../lib/announcements";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
 
@@ -44,10 +43,7 @@ const listUrl = new URL(ANNOUNCEMENTS_PATH, Astro.url);
 			<ul class="flex flex-col gap-4">
 				{entries.map((announcement) => (
 					<li>
-						<AnnouncementRow
-							announcement={announcement}
-							status={statusOf(announcement.data, now)}
-						/>
+						<AnnouncementRow announcement={announcement} now={now} />
 					</li>
 				))}
 			</ul>

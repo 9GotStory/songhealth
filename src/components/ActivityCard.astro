@@ -10,7 +10,7 @@
 // The visual's caption is decoration too: the line under it says กิจกรรม.
 import { Image } from "emdash/ui";
 import { activityDate, activityPath, type ActivityEntry } from "../lib/activities";
-import { availableMedia } from "../lib/media";
+import { CARD_PICTURE_SIZES, availableMedia } from "../lib/media";
 import MetaLine from "./MetaLine.astro";
 
 interface Props {
@@ -20,14 +20,16 @@ interface Props {
 const { activity } = Astro.props;
 const image = await availableMedia(activity.data.featured_image, Astro.locals.emdash);
 const date = activityDate(activity.data);
-
-/** The card's width in its grid: three to a row from `lg`, two from `sm`. */
-const CARD_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw";
 ---
 
 <article class="flex h-full flex-col overflow-hidden rounded-22 border border-border-default bg-surface-base">
 	{image ? (
-		<Image image={image} alt="" sizes={CARD_SIZES} class="aspect-16/9 w-full object-cover" />
+		<Image
+			image={image}
+			alt=""
+			sizes={CARD_PICTURE_SIZES}
+			class="aspect-16/9 w-full object-cover"
+		/>
 	) : (
 		<div
 			aria-hidden="true"

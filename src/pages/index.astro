@@ -9,13 +9,13 @@
 //   announcement date, each with its status and dates as the Announcements list shows them
 //   (src/lib/announcements.ts), and links to both lists;
 // - Health Information: the latest 4 Health Content items, each labelled with its first Health
-//   Topic, the `topic` term EmDash hydrates first (by label), and a link to their list;
+//   Topic, the `topic` term EmDash hydrates first (src/lib/terms.ts), and a link to their list;
 // - Health Service Discovery: an Area select and a name field, a GET form to the Health Service
 //   Directory with the directory's own parameters (src/lib/health-service-directory.ts);
 // - the latest 3 Activities by when they were held (ADR 0004), and a link to /activities;
-// - the Contact Summary from Office Contact (src/lib/office-contact.ts): the site title, the
-//   address with the "เปิดแผนที่" link, the main telephone and the opening hours, each only when
-//   set, and a link to /contact. A static visual stands in for the map; no map is embedded.
+// - the Contact Summary: the site title, then Office Contact's address with the "เปิดแผนที่" link,
+//   main telephone and opening hours (OfficeContactDetails), each only when set, and a link to
+//   /contact. A static visual stands in for the map; no map is embedded.
 //
 // A section with nothing to show is left out (`04` §17): News and Announcements together, Health
 // Information, Health Service Discovery while no Health Service is published, and Activities. The
@@ -29,8 +29,7 @@
 import ActivityCard from "../components/ActivityCard.astro";
 import AnnouncementStatusLine from "../components/AnnouncementStatusLine.astro";
 import ArrowLink from "../components/ArrowLink.astro";
-import DetailItem from "../components/DetailItem.astro";
-import MapLink from "../components/MapLink.astro";
+import OfficeContactDetails from "../components/OfficeContactDetails.astro";
 import SearchForm from "../components/SearchForm.astro";
 import SectionHeading from "../components/SectionHeading.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
@@ -40,14 +39,16 @@ import {
 	ANNOUNCEMENTS_TITLE,
 	announcementPath,
 	currentAnnouncements,
-	statusOf,
 } from "../lib/announcements";
-import { telephoneHref } from "../lib/contact-links";
 import { HEALTH_CONTENT_PATH, HEALTH_CONTENT_TITLE } from "../lib/health";
 import { healthContentPath, latestHealthContent } from "../lib/health-content";
-import { DIRECTORY_TITLE, FILTER_PARAMS, directoryPath } from "../lib/health-service-directory";
-import { discoveryAreas } from "../lib/health-services";
-import { mapHref } from "../lib/map-link";
+import {
+	DIRECTORY_TITLE,
+	FILTER_LABELS,
+	FILTER_PARAMS,
+	directoryPath,
+} from "../lib/health-service-directory";
+import { directoryOverview } from "../lib/health-services";
 import { latestNews, newsPath } from "../lib/news";
 import { readOfficeContact } from "../lib/office-contact";
 import { getSiteIdentity } from "../lib/site-identity";
@@ -59,20 +60,17 @@ const OFFICE_SUMMARY =
 
 /** One instant for the current Announcements and the status each states. */
 const now = new Date();
-const [identity, news, announcements, healthContent, areas, activities, { contact }] =
+const [identity, news, announcements, healthContent, directory, activities, { contact }] =
 	await Promise.all([
 		getSiteIdentity(Astro.url),
 		latestNews(),
 		currentAnnouncements(3, now),
 		latestHealthContent(4),
-		discoveryAreas(),
+		directoryOverview(),
 		latestActivities(3),
 		readOfficeContact(),
 	]);
 const newsCategory = news && termsOf(news.data, "news_category")[0];
-const telephoneLink = contact.telephone && telephoneHref(contact.telephone);
-const hasMap = mapHref(contact.latitude, contact.longitude) !== undefined;
-const hasContact = !!contact.address || hasMap || !!contact.telephone || !!contact.openingHours;
 
 /** The Health Service Discovery fields' box: 44 px high, with a 3:1 boundary, as FilterForm's. */
 const control =
@@ -112,7 +110,7 @@ const control =
 					]}
 				>
 					{news && (
-						<article class="focus-ring-on-dark flex flex-col gap-4 rounded-24 bg-brand-primary px-6 py-7 text-surface-base lg:px-7.5">
+						<article class="flex flex-col gap-4 rounded-24 bg-brand-primary px-6 py-7 text-surface-base lg:px-7.5">
 							{newsCategory && <p class="text-label wrap-anywhere">{newsCategory.label}</p>}
 							<h3 class="text-h3 wrap-anywhere lg:text-h1">{news.data.title}</h3>
 							{news.data.summary && <p class="line-clamp-4 text-body-large">{news.data.summary}</p>}
@@ -132,23 +130,18 @@ const control =
 								</p>
 							</div>
 							<ul aria-labelledby="home-announcements">
-								{announcements.map((announcement) => {
-									const status = statusOf(announcement.data, now);
-									return (
-										<li class="flex flex-col gap-1.5 border-t border-divider px-6 py-4.5">
-											<p class="wrap-anywhere">{announcement.data.title}</p>
-											{status && (
-												<AnnouncementStatusLine data={announcement.data} status={status} />
-											)}
-											<ArrowLink
-												href={announcementPath(announcement.id)}
-												context={announcement.data.title}
-											>
-												ดูรายละเอียด
-											</ArrowLink>
-										</li>
-									);
-								})}
+								{announcements.map((announcement) => (
+									<li class="flex flex-col gap-1.5 border-t border-divider px-6 py-4.5">
+										<p class="wrap-anywhere">{announcement.data.title}</p>
+										<AnnouncementStatusLine data={announcement.data} now={now} />
+										<ArrowLink
+											href={announcementPath(announcement.id)}
+											context={announcement.data.title}
+										>
+											ดูรายละเอียด
+										</ArrowLink>
+									</li>
+								))}
 							</ul>
 						</div>
 					)}
@@ -207,11 +200,11 @@ const control =
 		</section>
 	)}
 
-	{areas && (
+	{directory.hasHealthServices && (
 		<section aria-labelledby="home-discovery" class="bg-brand-dark py-16 lg:py-20">
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
-					dark
+					onDark
 					id="home-discovery"
 					eyebrow={DIRECTORY_TITLE}
 					title="ค้นหาหน่วยบริการสุขภาพในอำเภอสอง"
@@ -225,18 +218,18 @@ const control =
 				>
 					<div class="flex min-w-0 flex-1 flex-col gap-1.5">
 						<label class="text-label" for="discovery-area">
-							พื้นที่รับผิดชอบ
+							{FILTER_LABELS.area}
 						</label>
 						<select id="discovery-area" name={FILTER_PARAMS.area} class={control}>
-							<option value="">ทุกพื้นที่</option>
-							{areas.map((area) => (
+							<option value="">{FILTER_LABELS.anyArea}</option>
+							{directory.areas.map((area) => (
 								<option value={area.slug}>{area.label}</option>
 							))}
 						</select>
 					</div>
 					<div class="flex min-w-0 flex-1 flex-col gap-1.5">
 						<label class="text-label" for="discovery-name">
-							ชื่อหน่วยบริการ
+							{FILTER_LABELS.name}
 						</label>
 						<input id="discovery-name" name={FILTER_PARAMS.name} type="search" class={control} />
 					</div>
@@ -279,37 +272,7 @@ const control =
 					{identity.title}
 				</h2>
 				<p class="text-body-large text-text-secondary-on-soft">{OFFICE_SUMMARY}</p>
-				{hasContact && (
-					<dl class="flex flex-col gap-3">
-						{(contact.address || hasMap) && (
-							<DetailItem soft term="ที่ตั้ง">
-								<div class="flex flex-col items-start gap-2">
-									{contact.address && <p class="whitespace-pre-line">{contact.address}</p>}
-									<MapLink latitude={contact.latitude} longitude={contact.longitude} />
-								</div>
-							</DetailItem>
-						)}
-						{contact.telephone && (
-							<DetailItem soft term="โทรศัพท์">
-								{telephoneLink ? (
-									<a
-										class="inline-flex min-h-11 items-center text-brand-primary underline underline-offset-4"
-										href={telephoneLink}
-									>
-										{contact.telephone}
-									</a>
-								) : (
-									contact.telephone
-								)}
-							</DetailItem>
-						)}
-						{contact.openingHours && (
-							<DetailItem soft term="เวลาทำการ">
-								<p class="whitespace-pre-line">{contact.openingHours}</p>
-							</DetailItem>
-						)}
-					</dl>
-				)}
+				<OfficeContactDetails contact={contact} summary />
 				<ArrowLink href="/contact">ดูข้อมูลติดต่อทั้งหมด</ArrowLink>
 			</div>
 			<div

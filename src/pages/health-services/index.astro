@@ -17,6 +17,7 @@ import Pagination from "../../components/Pagination.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import {
 	DIRECTORY_TITLE,
+	FILTER_LABELS,
 	FILTER_PARAMS,
 	directoryPath,
 	isFiltered,
@@ -49,12 +50,12 @@ const listUrl = new URL(directoryPath(filters), Astro.url);
 			fields={[
 				{
 					name: FILTER_PARAMS.area,
-					label: "พื้นที่รับผิดชอบ",
-					anyLabel: "ทุกพื้นที่",
+					label: FILTER_LABELS.area,
+					anyLabel: FILTER_LABELS.anyArea,
 					value: filters.area,
 					options: areas.map((area) => ({ value: area.slug, label: area.label })),
 				},
-				{ kind: "text", name: FILTER_PARAMS.name, label: "ชื่อหน่วยบริการ", value: filters.name },
+				{ kind: "text", name: FILTER_PARAMS.name, label: FILTER_LABELS.name, value: filters.name },
 			]}
 		/>
 		{entries.length > 0 ? (

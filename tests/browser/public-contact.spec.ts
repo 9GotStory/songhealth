@@ -19,8 +19,8 @@ import type { Page } from "@playwright/test";
 
 import {
 	devAdminActor,
-	showOfficeContact,
 	SYNTHETIC_FIXTURE_MARK,
+	withOfficeContact,
 	type CmsActor,
 	type OfficeContactValues,
 } from "./cms.helpers";
@@ -42,20 +42,6 @@ const CONTACT_TITLE = "ติดต่อเรา";
 const CHANNELS_HEADING = "ช่องทางทางการ";
 
 let admin: CmsActor;
-
-/** Run `body` with exactly `values` as Office Contact and `social` as the only handles, then restore. */
-async function withContact(
-	values: OfficeContactValues,
-	social: Record<string, string>,
-	body: () => Promise<void>,
-): Promise<void> {
-	const restore = await showOfficeContact(admin, values, social);
-	try {
-		await body();
-	} finally {
-		await restore();
-	}
-}
 
 /** A full synthetic Office Contact and two `social` handles, unique to this run. */
 function syntheticContact(): {
@@ -94,7 +80,7 @@ test("/contact shows the Office Contact saved in the plugin settings, with a map
 	page,
 }) => {
 	const { values, social } = syntheticContact();
-	await withContact(values, social, async () => {
+	await withOfficeContact(admin, values, social, async () => {
 		const response = await page.goto("/contact");
 		expect(response?.status(), "GET /contact").toBe(200);
 		await expect(page.getByRole("heading", { level: 1 })).toHaveText(CONTACT_TITLE);
@@ -135,7 +121,7 @@ test("/contact and the footer of every page link the official channels that are 
 		["LINE (เว็บไซต์ภายนอก) (เปิดในแท็บใหม่)", `https://lin.ee/${marker}`],
 		["YouTube (เว็บไซต์ภายนอก) (เปิดในแท็บใหม่)", `https://www.youtube.com/@songhealth${marker}`],
 	];
-	await withContact(values, social, async () => {
+	await withOfficeContact(admin, values, social, async () => {
 		await page.goto("/contact");
 		await expect(page.getByRole("heading", { level: 2, name: CHANNELS_HEADING })).toBeVisible();
 		for (const scope of ["main", "contentinfo"] as const) {
@@ -160,15 +146,20 @@ test("an empty value leaves its line out, and /contact still answers with no Off
 	page,
 }) => {
 	// Only a telephone number that is not one number, and a latitude without its longitude.
-	await withContact({ telephone: "054 591 234 ต่อ 12", latitude: 18.4686 }, {}, async () => {
-		await page.goto("/contact");
-		await expect(page.getByRole("main").getByRole("term")).toHaveText(["โทรศัพท์"]);
-		await expect(detailOf(page, "โทรศัพท์")).toHaveText("054 591 234 ต่อ 12");
-		await expect(detailOf(page, "โทรศัพท์").getByRole("link")).toHaveCount(0);
-		await expect(page.getByRole("link", { name: /เปิดแผนที่/ })).toHaveCount(0);
-	});
+	await withOfficeContact(
+		admin,
+		{ telephone: "054 591 234 ต่อ 12", latitude: 18.4686 },
+		{},
+		async () => {
+			await page.goto("/contact");
+			await expect(page.getByRole("main").getByRole("term")).toHaveText(["โทรศัพท์"]);
+			await expect(detailOf(page, "โทรศัพท์")).toHaveText("054 591 234 ต่อ 12");
+			await expect(detailOf(page, "โทรศัพท์").getByRole("link")).toHaveCount(0);
+			await expect(page.getByRole("link", { name: /เปิดแผนที่/ })).toHaveCount(0);
+		},
+	);
 
-	await withContact({}, {}, async () => {
+	await withOfficeContact(admin, {}, {}, async () => {
 		const response = await page.goto("/contact");
 		expect(response?.status(), "GET /contact with nothing set").toBe(200);
 		await expect(page.getByRole("heading", { level: 1 })).toHaveText(CONTACT_TITLE);
@@ -210,8 +201,8 @@ test.describe("accessibility and reflow", () => {
 				await expectVisibleFocusOnEveryStop(page, `/contact ${label} at ${width}`);
 			};
 			const { values, social } = syntheticContact();
-			await withContact(values, social, () => check("with Office Contact set"));
-			await withContact({}, {}, () => check("with nothing set"));
+			await withOfficeContact(admin, values, social, () => check("with Office Contact set"));
+			await withOfficeContact(admin, {}, {}, () => check("with nothing set"));
 		});
 	}
 
@@ -221,7 +212,7 @@ test.describe("accessibility and reflow", () => {
 		await page.setViewportSize(MOBILE_VIEWPORT);
 		const { values, social } = syntheticContact();
 		const email = `songhealth-district-public-health-office-${crypto.randomUUID()}@example.invalid`;
-		await withContact({ ...values, email }, social, async () => {
+		await withOfficeContact(admin, { ...values, email }, social, async () => {
 			await page.goto("/contact");
 			await expectNoHorizontalScroll(page, "/contact");
 		});

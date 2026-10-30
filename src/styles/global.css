@@ -17,7 +17,10 @@
 	--color-*: initial;
 	--color-brand-primary: #0b6b57;
 	--color-brand-dark: #123c33;
-	/* A status that needs attention (StatusLabel), the skip link, and the focus ring on brand-dark */
+	/*
+	 * A status that needs attention (StatusLabel), the skip link, the focus ring on dark surfaces,
+	 * and the eyebrow on the brand-dark Health Service Discovery section (Figma frame §8)
+	 */
 	--color-accent-warm: #f3c95f;
 	--color-text-primary: #16211d;
 	--color-text-secondary: #65736d;
@@ -136,7 +139,10 @@
 	padding-inline: var(--page-gutter);
 }
 
-/* Focus ring on brand-dark surfaces: accent-warm, 7.75:1 against brand-dark. */
+/*
+ * Focus ring on dark surfaces: accent-warm, 7.75:1 against brand-dark and 4.10:1 against
+ * brand-primary, above the 3:1 a focus indicator needs.
+ */
 @utility focus-ring-on-dark {
 	--focus-ring-color: var(--color-accent-warm);
 }

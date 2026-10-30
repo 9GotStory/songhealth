@@ -3,25 +3,20 @@
 // §10, `03` §12).
 //
 // /contact is the office's canonical contact page. It shows the Office Contact staff keep on the
-// Office Contact plugin's settings form (src/lib/office-contact.ts): the address with the
-// "เปิดแผนที่" link built from the coordinates, the telephone number, the email address and the
-// opening hours. The telephone number and the email address are links while each is one number or
-// one address (src/lib/contact-links.ts), and plain text otherwise. A value that is not set leaves
-// its line out, and with none set the details are left out whole; the page still answers. The
-// official channels follow: the native `social` settings and LINE, each a link to another
+// Office Contact plugin's settings form (src/lib/office-contact.ts) as OfficeContactDetails does:
+// the address with the "เปิดแผนที่" link, the telephone number, the email address and the opening
+// hours, each line only when it is set, and none at all while nothing is; the page still answers.
+// The official channels follow: the native `social` settings and LINE, each a link to another
 // website. Complaints and feedback go through the Service catalog, and the Health Services keep
 // their own contacts in the Health Service Directory (`03` §12). No map is embedded (approved
 // Q3). The page belongs to no main-navigation section: the utility bar and the footer link here.
 import ActionLink from "../components/ActionLink.astro";
 import ContentLink from "../components/ContentLink.astro";
-import DetailItem from "../components/DetailItem.astro";
 import DetailSection from "../components/DetailSection.astro";
-import MapLink from "../components/MapLink.astro";
+import OfficeContactDetails from "../components/OfficeContactDetails.astro";
 import PageHeading from "../components/PageHeading.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
-import { emailHref, telephoneHref } from "../lib/contact-links";
 import { directoryPath } from "../lib/health-service-directory";
-import { mapHref } from "../lib/map-link";
 import { readOfficeContact } from "../lib/office-contact";
 import { servicesPath } from "../lib/service-catalog";
 import { OFFICE_NAME } from "../lib/site-identity";
@@ -29,11 +24,6 @@ import { OFFICE_NAME } from "../lib/site-identity";
 const TITLE = "ติดต่อเรา";
 
 const { contact, channels } = await readOfficeContact();
-const hasMap = mapHref(contact.latitude, contact.longitude) !== undefined;
-const telephoneLink = contact.telephone && telephoneHref(contact.telephone);
-const emailLink = contact.email && emailHref(contact.email);
-const hasDetails =
-	!!contact.address || hasMap || !!contact.telephone || !!contact.email || !!contact.openingHours;
 
 const linkClass =
 	"inline-flex min-h-11 items-center text-brand-primary underline underline-offset-4";
@@ -47,45 +37,7 @@ const linkClass =
 >
 	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 		<PageHeading title={TITLE} lead={`ที่อยู่ เวลาทำการ และช่องทางติดต่อ${OFFICE_NAME}`} />
-		{hasDetails && (
-			<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
-				{(contact.address || hasMap) && (
-					<DetailItem term="ที่ตั้ง">
-						<div class="flex flex-col items-start gap-3">
-							{contact.address && <p class="whitespace-pre-line">{contact.address}</p>}
-							<MapLink latitude={contact.latitude} longitude={contact.longitude} />
-						</div>
-					</DetailItem>
-				)}
-				{contact.telephone && (
-					<DetailItem term="โทรศัพท์">
-						{telephoneLink ? (
-							<a class={linkClass} href={telephoneLink}>
-								{contact.telephone}
-							</a>
-						) : (
-							contact.telephone
-						)}
-					</DetailItem>
-				)}
-				{contact.email && (
-					<DetailItem term="อีเมล">
-						{emailLink ? (
-							<a class={`${linkClass} wrap-anywhere`} href={emailLink}>
-								{contact.email}
-							</a>
-						) : (
-							contact.email
-						)}
-					</DetailItem>
-				)}
-				{contact.openingHours && (
-					<DetailItem term="เวลาทำการ">
-						<p class="whitespace-pre-line">{contact.openingHours}</p>
-					</DetailItem>
-				)}
-			</dl>
-		)}
+		<OfficeContactDetails contact={contact} />
 		{channels.length > 0 && (
 			<DetailSection id="official-channels" heading="ช่องทางทางการ">
 				<ul aria-labelledby="official-channels" class="flex flex-col gap-1">

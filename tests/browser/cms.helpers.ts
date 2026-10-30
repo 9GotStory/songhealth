@@ -1704,9 +1704,9 @@ export interface PublishedEntry {
 }
 
 /**
- * Every published entry of `collection` on the runtime, through the native content list
- * (GET /_emdash/api/content/{collection}?status=published, 100 to a page, following `nextCursor`).
- * A refusal throws.
+ * Every published entry of `collection` on the runtime, through the native content list. It lists
+ * entries by `status`, at most 100 a page, with `nextCursor` while more remain (emdash 1.1.0
+ * src/api/schemas/content.ts contentListQuery, src/api/schemas/common.ts). A refusal throws.
  */
 export async function listPublishedEntries(
 	actor: CmsActor,
@@ -2207,6 +2207,21 @@ export async function showOfficeContact(
 		throw error;
 	}
 	return restore;
+}
+
+/** Run `body` with exactly `values` as Office Contact and `social` as the only handles, then restore. */
+export async function withOfficeContact(
+	actor: CmsActor,
+	values: OfficeContactValues,
+	social: Record<string, string>,
+	body: () => Promise<void>,
+): Promise<void> {
+	const restore = await showOfficeContact(actor, values, social);
+	try {
+		await body();
+	} finally {
+		await restore();
+	}
 }
 
 // ---------------------------------------------------------------------------

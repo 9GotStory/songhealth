@@ -11,25 +11,28 @@ interface Props {
 	title: string;
 	lead: string;
 	/** The section is brand-dark. */
-	dark?: boolean;
+	onDark?: boolean;
 }
 
-const { id, eyebrow, title, lead, dark = false } = Astro.props;
+const { id, eyebrow, title, lead, onDark = false } = Astro.props;
 ---
 
 <div class="flex flex-col gap-2">
-	<p class:list={["text-label", dark ? "text-accent-warm" : "text-brand-primary"]}>{eyebrow}</p>
+	<p class:list={["text-label", onDark ? "text-accent-warm" : "text-brand-primary"]}>{eyebrow}</p>
 	<h2
 		id={id}
 		class:list={[
 			"text-h3 wrap-anywhere",
-			dark ? "text-surface-base lg:text-h1" : "text-text-primary lg:text-h2",
+			onDark ? "text-surface-base lg:text-h1" : "text-text-primary lg:text-h2",
 		]}
 	>
 		{title}
 	</h2>
 	<p
-		class:list={["max-w-prose", dark ? "text-body-large text-surface-base" : "text-text-secondary"]}
+		class:list={[
+			"max-w-prose",
+			onDark ? "text-body-large text-surface-base" : "text-text-secondary",
+		]}
 	>
 		{lead}
 	</p>

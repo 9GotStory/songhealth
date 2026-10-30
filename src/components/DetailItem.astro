@@ -5,11 +5,11 @@
 interface Props {
 	term: string;
 	/** The detail sits on surface-soft. */
-	soft?: boolean;
+	onSoft?: boolean;
 }
 
-const { term, soft = false } = Astro.props;
-const termColour = soft ? "text-text-secondary-on-soft" : "text-text-secondary";
+const { term, onSoft = false } = Astro.props;
+const termColour = onSoft ? "text-text-secondary-on-soft" : "text-text-secondary";
 ---
 
 <div class="flex flex-col gap-1 sm:flex-row sm:gap-6">

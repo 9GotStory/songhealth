@@ -16,7 +16,7 @@
 // A picture whose media item was deleted in Admin is left out and the card shows its plain visual,
 // so the card never shows a broken image (src/lib/media.ts).
 import { Image } from "emdash/ui";
-import { availableMedia } from "../lib/media";
+import { CARD_PICTURE_SIZES, availableMedia } from "../lib/media";
 import type { ImageFieldValue } from "../lib/news";
 import MetaLine from "./MetaLine.astro";
 
@@ -34,9 +34,6 @@ interface Props {
 
 const { href, title, label, date, summary, eager = false } = Astro.props;
 const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
-
-/** The card's width in the grids it sits in: three to a row from `lg`, two from `sm`. */
-const CARD_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw";
 ---
 
 <article class="flex h-full flex-col overflow-hidden rounded-24 bg-surface-base shadow-card">
@@ -44,7 +41,7 @@ const CARD_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw";
 		<Image
 			image={image}
 			alt=""
-			sizes={CARD_SIZES}
+			sizes={CARD_PICTURE_SIZES}
 			loading={eager ? "eager" : "lazy"}
 			class="aspect-16/10 w-full object-cover"
 		/>

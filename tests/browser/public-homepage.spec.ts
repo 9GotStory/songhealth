@@ -35,7 +35,7 @@ import {
 	nativeRefusalOf,
 	publishEntryAt,
 	removeSuiteFixtures,
-	showOfficeContact,
+	withOfficeContact,
 	SYNTHETIC_FIXTURE_MARK,
 	trashEntry,
 	unpublishEntry,
@@ -44,7 +44,6 @@ import {
 	type CmsActor,
 	type DraftFields,
 	type DraftFixture,
-	type OfficeContactValues,
 	type SyntheticTerm,
 } from "./cms.helpers";
 import {
@@ -135,16 +134,6 @@ async function borrowAllContent(): Promise<void> {
 	}
 }
 
-/** Run `body` with exactly `values` as Office Contact and no `social` handle, then restore. */
-async function withContact(values: OfficeContactValues, body: () => Promise<void>): Promise<void> {
-	const restore = await showOfficeContact(admin, values, {});
-	try {
-		await body();
-	} finally {
-		await restore();
-	}
-}
-
 /** Run `body` with the site title and tagline set as given, then put back what was there. */
 async function withSiteIdentity(
 	identity: { title: string; tagline: string },
@@ -203,7 +192,7 @@ test("with no published content at all, the Homepage still answers with the band
 	page,
 }) => {
 	await borrowAllContent();
-	await withContact({}, async () => {
+	await withOfficeContact(admin, {}, {}, async () => {
 		const response = await page.goto("/");
 		expect(response?.status(), "GET / with no content").toBe(200);
 		await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
@@ -246,6 +235,19 @@ test("closed Announcements alone leave the News section out, and a current one b
 	await expect(announcementLinks(page)).toHaveCount(1);
 	await expect(announcementLinks(page)).toHaveAccessibleName(`ดูรายละเอียด ${current.title}`);
 	await expect(page.getByRole("main")).not.toContainText(closed.title);
+});
+
+test("a News without a current Announcement brings the News section back with its card alone", async ({
+	page,
+}) => {
+	await borrowAllContent();
+	const lone = await create("news", "without-announcements");
+	await publish("news", lone);
+	await page.goto("/");
+	const news = section(page, NEWS_HEADING);
+	await expect(news.getByRole("article").getByRole("heading", { level: 3 })).toHaveText(lone.title);
+	await expect(news.getByRole("list", { name: ANNOUNCEMENTS_HEADING })).toHaveCount(0);
+	await expect(news.getByRole("link", { name: "ดูประกาศทั้งหมด" })).toHaveCount(0);
 });
 
 test("the band shows the site title and tagline from the site settings, and the title alone without a tagline", async ({
@@ -506,7 +508,7 @@ test("the Contact Summary reads Office Contact: address with the map link, telep
 		latitude: 18.4686,
 		longitude: 100.1834,
 	};
-	await withContact(values, async () => {
+	await withOfficeContact(admin, values, {}, async () => {
 		await page.goto("/");
 		const contact = section(page, siteTitle);
 		await expect(contact.getByRole("heading", { level: 2 })).toHaveText(siteTitle);
@@ -531,22 +533,32 @@ test("the Contact Summary reads Office Contact: address with the map link, telep
 		await expect(page.locator("iframe, embed, object"), "no map is embedded").toHaveCount(0);
 	});
 
-	await withContact({ telephone: "054 591 234 ต่อ 12", latitude: 18.4686 }, async () => {
-		await page.goto("/");
-		const contact = section(page, siteTitle);
-		await expect(contact.getByRole("term")).toHaveText(["โทรศัพท์"]);
-		await expect(detailOf(page, "โทรศัพท์")).toHaveText("054 591 234 ต่อ 12");
-		await expect(detailOf(page, "โทรศัพท์").getByRole("link")).toHaveCount(0);
-		await expect(contact.getByRole("link", { name: /เปิดแผนที่/ })).toHaveCount(0);
-	});
+	await withOfficeContact(
+		admin,
+		{ telephone: "054 591 234 ต่อ 12", latitude: 18.4686 },
+		{},
+		async () => {
+			await page.goto("/");
+			const contact = section(page, siteTitle);
+			await expect(contact.getByRole("term")).toHaveText(["โทรศัพท์"]);
+			await expect(detailOf(page, "โทรศัพท์")).toHaveText("054 591 234 ต่อ 12");
+			await expect(detailOf(page, "โทรศัพท์").getByRole("link")).toHaveCount(0);
+			await expect(contact.getByRole("link", { name: /เปิดแผนที่/ })).toHaveCount(0);
+		},
+	);
 });
 
 test("with every section showing, the sections follow the Figma order, and the page is accessible and reflows at 320 px", async ({
 	page,
 }) => {
-	// The News, Announcements, Health Content, Health Service and Activities of the earlier tests
-	// are still published.
-	await withContact(
+	// One published entry of each kind, so every section shows whichever tests ran before.
+	await publish("news", await create("news", "every-section"));
+	await publish("announcements", await create("announcements", "every-section"));
+	await publish("health_content", await create("health_content", "every-section"));
+	await publish("health_services", await createSyntheticHealthService(admin, "every-section"));
+	await publish("activities", await create("activities", "every-section"));
+	await withOfficeContact(
+		admin,
 		{
 			address: `${SYNTHETIC_FIXTURE_MARK} 99 หมู่ 1\nอำเภอสอง จังหวัดแพร่ 54120`,
 			telephone: "054 591 234",
@@ -554,6 +566,7 @@ test("with every section showing, the sections follow the Figma order, and the p
 			latitude: 18.4686,
 			longitude: 100.1834,
 		},
+		{},
 		async () => {
 			await page.goto("/");
 			await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
