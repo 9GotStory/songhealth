@@ -24,7 +24,7 @@ import SiteLayout from "../../layouts/SiteLayout.astro";
 import { directoryPath, healthServicePath, shownName } from "../../lib/health-service-directory";
 import type { HealthServiceData } from "../../lib/health-services";
 import { mapHref } from "../../lib/map-link";
-import { servicePath } from "../../lib/service-catalog";
+import { servicePath, servicesPath } from "../../lib/service-catalog";
 import { termsOf } from "../../lib/terms";
 
 const slug = Astro.params.slug ?? "";
@@ -64,6 +64,7 @@ const hasDetails =
 	canonical={healthServicePath(entry.id)}
 	breadcrumbs={[
 		{ label: "หน้าแรก", href: "/" },
+		{ label: "บริการประชาชน", href: servicesPath() },
 		{ label: "หน่วยบริการสุขภาพที่เกี่ยวข้อง", href: directoryPath() },
 		{ label: name },
 	]}

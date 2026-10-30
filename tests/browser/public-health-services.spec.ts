@@ -392,8 +392,13 @@ test("a Health Service page shows its names, type, affiliation, status, address,
 	const breadcrumb = page.getByRole("navigation", { name: "เส้นทางนำทาง" });
 	await expect(breadcrumb.getByRole("link")).toHaveText([
 		"หน้าแรก",
+		"บริการประชาชน",
 		"หน่วยบริการสุขภาพที่เกี่ยวข้อง",
 	]);
+	await expect(breadcrumb.getByRole("link", { name: "บริการประชาชน" })).toHaveAttribute(
+		"href",
+		"/services",
+	);
 	await expect(
 		breadcrumb.getByRole("link", { name: "หน่วยบริการสุขภาพที่เกี่ยวข้อง" }),
 	).toHaveAttribute("href", "/health-services");
