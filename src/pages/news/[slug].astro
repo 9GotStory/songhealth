@@ -13,6 +13,7 @@ import { getEmDashEntry } from "emdash";
 import { Image } from "emdash/ui";
 import DateText from "../../components/DateText.astro";
 import RichText from "../../components/RichText.astro";
+import TopicPills from "../../components/TopicPills.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { availableMedia } from "../../lib/media";
 import { healthNewsPath, newsPath, type NewsData } from "../../lib/news";
@@ -63,23 +64,7 @@ const image = await availableMedia(news.featured_image, Astro.locals.emdash);
 		<div class="flex max-w-3xl flex-col gap-8">
 			{news.body && news.body.length > 0 && <RichText value={news.body} />}
 			{news.source_text && <p class="text-text-secondary">แหล่งที่มา: {news.source_text}</p>}
-			{topics.length > 0 && (
-				<div class="flex flex-col gap-3 border-t border-divider pt-6">
-					<h2 class="text-label">ประเด็นสุขภาพ</h2>
-					<ul class="flex flex-wrap gap-2">
-						{topics.map((topic) => (
-							<li>
-								<a
-									class="inline-flex min-h-11 items-center rounded-pill bg-surface-soft px-4 text-label text-brand-dark underline-offset-4 hover:underline"
-									href={healthNewsPath(topic.slug)}
-								>
-									{topic.label}
-								</a>
-							</li>
-						))}
-					</ul>
-				</div>
-			)}
+			<TopicPills topics={topics} href={healthNewsPath} />
 		</div>
 	</article>
 </SiteLayout>

@@ -1,0 +1,102 @@
+---
+// A Health Report page, /health/reports/{slug} (Feature 003 #59; spec #51 "Public reads" (Health
+// Reports) and "Errors, redirects, preview and SEO", `02` §16, `03` §14): its summary, Report
+// Type, report date, reporting period, fiscal year and source, and its report Document, the
+// report's authoritative content (#51 user story 45).
+//
+// The report Document is read through the reference field. EmDash resolves it only while it is
+// published, or a draft in preview (emdash 1.1.0 src/query.ts attachReferences), and loads it
+// without its taxonomy terms, so its row is read again with them (src/lib/documents.ts
+// documentsById). The row links to the Document's own page, /documents/{slug}. While the Document
+// is not published, the section shows the unavailable state instead, as a Document page does for
+// a file that cannot be served.
+//
+// getEmDashEntry returns the published entry, or the draft when the request carries a valid
+// signed preview token for it (src/query.ts resolveEmDashEntry). Anything else answers with the
+// site 404 page, which EmDash records in its 404 log. A slug that changed is redirected by
+// EmDash's middleware before this page runs.
+import { getEmDashEntry } from "emdash";
+import DateText from "../../../components/DateText.astro";
+import DetailItem from "../../../components/DetailItem.astro";
+import DetailSection from "../../../components/DetailSection.astro";
+import DocumentDownload from "../../../components/DocumentDownload.astro";
+import DocumentRow from "../../../components/DocumentRow.astro";
+import SiteLayout from "../../../layouts/SiteLayout.astro";
+import { documentsById } from "../../../lib/documents";
+import { HEALTH_CRUMB, HEALTH_REPORTS_PATH, HEALTH_REPORTS_TITLE } from "../../../lib/health";
+import { healthReportPath, type HealthReportData } from "../../../lib/health-reports";
+import { targetIds } from "../../../lib/references";
+import { termsOf } from "../../../lib/terms";
+
+const slug = Astro.params.slug ?? "";
+const { entry, isPreview, error } = await getEmDashEntry<
+	"health_reports",
+	HealthReportData,
+	{ report_document: true }
+>("health_reports", slug, { references: { report_document: true } });
+if (error) throw error;
+if (!entry) return Astro.rewrite("/404");
+
+const report = entry.data;
+const types = termsOf(report, "report_type");
+const [document] = await documentsById(targetIds(entry.references?.report_document.entries));
+const hasDetails =
+	types.length > 0 ||
+	!!report.report_at ||
+	!!report.reporting_period ||
+	!!report.fiscal_year ||
+	!!report.owner_source;
+---
+
+<SiteLayout
+	title={report.seo?.title || report.title}
+	section="health"
+	description={report.summary ?? undefined}
+	canonical={healthReportPath(entry.id)}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		HEALTH_CRUMB,
+		{ label: HEALTH_REPORTS_TITLE, href: HEALTH_REPORTS_PATH },
+		{ label: report.title },
+	]}
+	entry={{
+		collection: "health_reports",
+		id: report.id,
+		slug: entry.id,
+		publishedAt: report.publishedAt,
+	}}
+	noindex={isPreview}
+>
+	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<header class="flex max-w-3xl flex-col gap-3">
+			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">{report.title}</h1>
+			{report.summary && <p class="text-body-large text-text-secondary">{report.summary}</p>}
+		</header>
+		{hasDetails && (
+			<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
+				{types.length > 0 && (
+					<DetailItem term="ประเภทรายงาน">{types.map((type) => type.label).join(", ")}</DetailItem>
+				)}
+				{report.report_at && (
+					<DetailItem term="วันที่รายงาน">
+						<DateText value={report.report_at} />
+					</DetailItem>
+				)}
+				{report.reporting_period && (
+					<DetailItem term="ช่วงเวลาของรายงาน">{report.reporting_period}</DetailItem>
+				)}
+				{report.fiscal_year && <DetailItem term="ปีงบประมาณ">{report.fiscal_year}</DetailItem>}
+				{report.owner_source && (
+					<DetailItem term="เจ้าของ/แหล่งที่มา">{report.owner_source}</DetailItem>
+				)}
+			</dl>
+		)}
+		<DetailSection id="report-document" heading="เอกสารรายงาน">
+			{document ? (
+				<DocumentRow document={document} headingLevel={3} />
+			) : (
+				<DocumentDownload file={null} />
+			)}
+		</DetailSection>
+	</article>
+</SiteLayout>

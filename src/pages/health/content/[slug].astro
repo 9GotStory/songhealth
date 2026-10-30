@@ -1,0 +1,90 @@
+---
+// A Health Content page, /health/content/{slug} (Feature 003 #59; spec #51 "Public reads" (Health
+// Content) and "Errors, redirects, preview and SEO", `03` §14): its publication date, when staff
+// last reviewed it ("ทบทวนล่าสุด", only when that date is set), its picture, body and source, and its
+// Health Topics linking to the list each one filters (#51 user story 44). The next review date is
+// for staff and is not shown (`02` §7).
+//
+// getEmDashEntry returns the published entry, or the draft when the request carries a valid
+// signed preview token for it (emdash 1.1.0 src/query.ts resolveEmDashEntry). Anything else
+// answers with the site 404 page, which EmDash records in its 404 log. A slug that changed is
+// redirected by EmDash's middleware before this page runs.
+//
+// A picture whose media item was deleted in Admin is left out (src/lib/media.ts), and so is such
+// an image in the body (src/components/RichText.astro).
+import { getEmDashEntry } from "emdash";
+import { Image } from "emdash/ui";
+import DateText from "../../../components/DateText.astro";
+import RichText from "../../../components/RichText.astro";
+import TopicPills from "../../../components/TopicPills.astro";
+import SiteLayout from "../../../layouts/SiteLayout.astro";
+import { HEALTH_CONTENT_PATH, HEALTH_CONTENT_TITLE, HEALTH_CRUMB } from "../../../lib/health";
+import {
+	healthContentListPath,
+	healthContentPath,
+	type HealthContentData,
+} from "../../../lib/health-content";
+import { availableMedia } from "../../../lib/media";
+import { termsOf } from "../../../lib/terms";
+
+const slug = Astro.params.slug ?? "";
+const { entry, isPreview, error } = await getEmDashEntry<"health_content", HealthContentData>(
+	"health_content",
+	slug,
+);
+if (error) throw error;
+if (!entry) return Astro.rewrite("/404");
+
+const content = entry.data;
+const topics = termsOf(content, "topic");
+const image = await availableMedia(content.featured_image, Astro.locals.emdash);
+---
+
+<SiteLayout
+	title={content.seo?.title || content.title}
+	section="health"
+	description={content.summary}
+	canonical={healthContentPath(entry.id)}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		HEALTH_CRUMB,
+		{ label: HEALTH_CONTENT_TITLE, href: HEALTH_CONTENT_PATH },
+		{ label: content.title },
+	]}
+	entry={{
+		collection: "health_content",
+		id: content.id,
+		slug: entry.id,
+		publishedAt: content.publishedAt,
+	}}
+	noindex={isPreview}
+>
+	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<header class="flex max-w-3xl flex-col gap-3">
+			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">{content.title}</h1>
+			{content.publishedAt && (
+				<p class="text-small text-text-secondary">
+					เผยแพร่ <DateText value={content.publishedAt} />
+				</p>
+			)}
+			{content.reviewed_at && (
+				<p class="text-small text-text-secondary">
+					ทบทวนล่าสุด <DateText value={content.reviewed_at} />
+				</p>
+			)}
+		</header>
+		{image && (
+			<Image
+				image={image}
+				priority
+				sizes="(min-width: 48rem) 48rem, 100vw"
+				class="h-auto w-full max-w-3xl rounded-24 bg-surface-soft"
+			/>
+		)}
+		<div class="flex max-w-3xl flex-col gap-8">
+			{content.body && content.body.length > 0 && <RichText value={content.body} />}
+			{content.source_text && <p class="text-text-secondary">แหล่งที่มา: {content.source_text}</p>}
+			<TopicPills topics={topics} href={healthContentListPath} />
+		</div>
+	</article>
+</SiteLayout>

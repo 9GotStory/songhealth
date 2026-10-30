@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { availableMedia, downloadableFile } from "../../src/lib/media.ts";
+import { availableBody, availableMedia, downloadableFile } from "../../src/lib/media.ts";
 
 /**
  * A stand-in for EmDash's storage adapter holding `files` (storage key → size in bytes), and the
@@ -180,5 +180,85 @@ describe("downloadableFile", () => {
 		const { runtime } = runtimeWith({ "01JX0018": 2_048 });
 		const file = await downloadableFile(pickedFile("01JX0018", "ตารางสรุป"), runtime);
 		assert.equal(file?.label, "2 KB");
+	});
+});
+
+describe("availableBody", () => {
+	/**
+	 * An image block as the Admin editor saves a picked media item: its media id as `_ref` and its
+	 * URL, EmDash's media route with the storage key (emdash 1.1.0
+	 * src/content/converters/prosemirror-to-portable-text.ts convertImage; the media item's `url`,
+	 * src/astro/routes/api/media.ts addUrlToMedia).
+	 */
+	function imageBlock(key: string, storageKey: string) {
+		return {
+			_type: "image",
+			_key: key,
+			asset: { _ref: `media-${key}`, url: `/_emdash/api/media/file/${storageKey}` },
+			alt: `ภาพ ${key}`,
+		};
+	}
+
+	function textBlock(key: string) {
+		return { _type: "block", _key: key, style: "normal", children: [] };
+	}
+
+	it("keeps the text and the images whose stored files exist, in order, asking by the storage key in their URL", async () => {
+		const { asked, runtime } = runtimeWith({ "01JX0020.png": 10, "01JX0021.png": 10 });
+		const body = [
+			textBlock("t1"),
+			imageBlock("i1", "01JX0020.png"),
+			textBlock("t2"),
+			imageBlock("i2", "01JX0021.png"),
+		];
+		assert.deepEqual(await availableBody(body, runtime), body);
+		assert.deepEqual(asked, ["01JX0020.png", "01JX0021.png"]);
+	});
+
+	it("leaves out an image whose stored file is gone, as after its media item was deleted", async () => {
+		const { runtime } = runtimeWith({ "01JX0022.png": 10 });
+		const kept = imageBlock("i1", "01JX0022.png");
+		const gone = imageBlock("i2", "01JX0023.png");
+		const body = [textBlock("t1"), gone, kept, textBlock("t2")];
+		assert.deepEqual(await availableBody(body, runtime), [textBlock("t1"), kept, textBlock("t2")]);
+	});
+
+	it("looks an image without a URL up by its media id, as EmDash's renderer does", async () => {
+		const { asked, runtime } = runtimeWith({ "01JX0024": 10 });
+		const image = { _type: "image", _key: "i1", asset: { _ref: "01JX0024" } };
+		assert.deepEqual(await availableBody([image], runtime), [image]);
+		assert.deepEqual(asked, ["01JX0024"]);
+	});
+
+	it("leaves out an image of another provider or at another address, which a page could only show from another origin", async () => {
+		const { asked, runtime } = runtimeWith({ "photo-1": 10 });
+		const otherProvider = {
+			_type: "image",
+			_key: "i1",
+			asset: { _ref: "photo-1", url: "https://images.example/photo-1.jpg", provider: "external" },
+		};
+		const otherAddress = {
+			_type: "image",
+			_key: "i2",
+			asset: { _ref: "photo-1", url: "https://images.example/photo-1.jpg" },
+		};
+		assert.deepEqual(await availableBody([otherProvider, otherAddress], runtime), []);
+		assert.deepEqual(asked, [], "the storage is not asked about media it does not hold");
+	});
+
+	it("keeps only the gallery pictures whose stored files exist, and leaves out a gallery with none", async () => {
+		const { runtime } = runtimeWith({ "01JX0025.png": 10 });
+		const kept = imageBlock("g1", "01JX0025.png");
+		const gone = imageBlock("g2", "01JX0026.png");
+		const gallery = { _type: "gallery", _key: "gal1", images: [gone, kept], columns: 2 };
+		const empty = { _type: "gallery", _key: "gal2", images: [imageBlock("g3", "01JX0027.png")] };
+		assert.deepEqual(await availableBody([gallery, empty], runtime), [
+			{ ...gallery, images: [kept] },
+		]);
+	});
+
+	it("leaves out every image without a storage adapter to serve it", async () => {
+		const body = [textBlock("t1"), imageBlock("i1", "01JX0028.png")];
+		assert.deepEqual(await availableBody(body, undefined), [textBlock("t1")]);
 	});
 });

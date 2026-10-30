@@ -1,6 +1,7 @@
-// Media on public pages (Feature 003 #55; spec #51 "Public reads", `03` §17).
+// Media on public pages (Feature 003 #55, #59; spec #51 "Public reads", `03` §17).
 //
-// A CMS image or a Document's file is shown only while its file can be served. EmDash serves local
+// A CMS image, an image in a rich-text body or a Document's file is shown only while its file can
+// be served. EmDash serves local
 // media from its storage adapter by storage key (emdash 1.1.0
 // src/astro/routes/api/media/file/[...key].ts), and deleting a media item in Admin removes its
 // stored file too (src/api/handlers/media.ts handleMediaDelete). So the stored file under the key
@@ -45,6 +46,74 @@ export async function availableMedia<T extends MediaValue | FileValue>(
 		return undefined;
 	}
 	return value ?? undefined;
+}
+
+/** EmDash's route for a local media file, which a body image's URL names with its storage key. */
+const MEDIA_FILE_ROUTE = "/_emdash/api/media/file/";
+
+/** The image of a body's image block or gallery picture, as the Admin editor saves it. */
+interface BodyImage {
+	asset?: {
+		_ref?: string;
+		url?: string;
+		provider?: string;
+		meta?: { storageKey?: unknown };
+	};
+}
+
+/**
+ * A body image as the media value whose stored file EmDash's renderer would show, or undefined
+ * when it is not local media. The renderer takes the image's URL, else a URL built from a cached
+ * storage key, and serves its own media route by the key in it; without either it falls back to
+ * the media id (emdash 1.1.0 src/content/converters/gallery.ts resolveImageMedia,
+ * src/media/url.ts buildRenderMediaUrl). Any other URL is another origin's, like another
+ * provider's media.
+ */
+function bodyImageMedia(image: BodyImage): MediaValue | undefined {
+	const asset = image.asset ?? {};
+	if ((asset.provider ?? "local") !== "local") return undefined;
+	const storageKey = typeof asset.meta?.storageKey === "string" ? asset.meta.storageKey : "";
+	const url = asset.url || (storageKey && `${MEDIA_FILE_ROUTE}${storageKey}`);
+	if (url) {
+		if (!url.startsWith(MEDIA_FILE_ROUTE)) return undefined;
+		const key = url.slice(MEDIA_FILE_ROUTE.length);
+		return { id: key, provider: "local", meta: { storageKey: key } };
+	}
+	return asset._ref ? { id: asset._ref, provider: "local" } : undefined;
+}
+
+/** Whether a body image's stored file can be served (availableMedia). */
+async function bodyImageAvailable(image: BodyImage, runtime: MediaRuntime | undefined) {
+	return (await availableMedia(bodyImageMedia(image), runtime)) !== undefined;
+}
+
+/**
+ * A rich-text body as a page can show it: an image block whose stored file cannot be served is
+ * left out, and so is such a picture of a gallery block, and a gallery left with none. EmDash's
+ * renderer would show a broken image for each (Product Owner, 2026-10-29, on #55; #59). Every
+ * other block stays as it is, in order.
+ */
+export async function availableBody<B extends { _type: string }>(
+	blocks: readonly B[],
+	runtime: MediaRuntime | undefined,
+): Promise<B[]> {
+	const shown = await Promise.all(
+		blocks.map(async (block): Promise<B | undefined> => {
+			if (block._type === "image") {
+				return (await bodyImageAvailable(block as BodyImage, runtime)) ? block : undefined;
+			}
+			if (block._type === "gallery") {
+				const images = ((block as { images?: unknown }).images ?? []) as BodyImage[];
+				const available = await Promise.all(
+					images.map((image) => bodyImageAvailable(image, runtime)),
+				);
+				const kept = images.filter((_, index) => available[index]);
+				return kept.length > 0 ? { ...block, images: kept } : undefined;
+			}
+			return block;
+		}),
+	);
+	return shown.filter((block) => block !== undefined);
 }
 
 /** A Document's file as a page offers it for download. */

@@ -1,0 +1,44 @@
+---
+// A Health Report in a list (Feature 003 #59; spec #51 "Public reads" (Health Reports), user story
+// 45), shaped like a Document row (DocumentRow.astro): its title linking to its own page, its
+// Report Type, the date it is listed by (its report date, else its publication), its fiscal year,
+// its summary and its reporting period.
+import { healthReportDate, healthReportPath, type HealthReportEntry } from "../lib/health-reports";
+import { termsOf } from "../lib/terms";
+import DateText from "./DateText.astro";
+
+interface Props {
+	report: HealthReportEntry;
+}
+
+const { report } = Astro.props;
+const data = report.data;
+const type = termsOf(data, "report_type")[0];
+const date = healthReportDate(data);
+---
+
+<article class="flex flex-col gap-2 rounded-24 bg-surface-base p-5 shadow-card">
+	{(type || date || data.fiscal_year) && (
+		<p class="flex flex-wrap gap-x-2 text-small text-text-secondary">
+			{type && <span class="wrap-anywhere">{type.label}</span>}
+			{type && date && <span aria-hidden="true">•</span>}
+			{date && <DateText value={date} />}
+			{(type || date) && data.fiscal_year && <span aria-hidden="true">•</span>}
+			{data.fiscal_year && <span>ปีงบประมาณ {data.fiscal_year}</span>}
+		</p>
+	)}
+	<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
+		<a
+			class="underline-offset-4 hover:text-brand-primary hover:underline"
+			href={healthReportPath(report.id)}
+		>
+			{data.title}
+		</a>
+	</h2>
+	{data.summary && <p class="line-clamp-2 text-text-secondary">{data.summary}</p>}
+	{data.reporting_period && (
+		<p class="text-small wrap-anywhere text-text-secondary">
+			ช่วงเวลาของรายงาน: {data.reporting_period}
+		</p>
+	)}
+</article>

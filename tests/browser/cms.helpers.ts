@@ -1333,6 +1333,28 @@ export function portableTextBlock(text: string, style = "normal"): Record<string
 	};
 }
 
+/**
+ * An image block for a Portable Text body, the shape the Admin editor saves when staff pick an
+ * uploaded media item: its id as `_ref` and its URL, EmDash's media route with the storage key
+ * (emdash 1.1.0 src/content/converters/prosemirror-to-portable-text.ts convertImage,
+ * src/astro/routes/api/media.ts addUrlToMedia). A failed upload throws.
+ */
+export function portableTextImage(
+	uploaded: SyntheticMediaResult,
+	alt: string,
+): Record<string, unknown> {
+	const item = nativeItemOf(uploaded.result);
+	if (uploaded.mediaId === undefined || typeof item?.url !== "string") {
+		throw new CmsHelperError("body-image", `the body image: ${nativeRefusalOf(uploaded.result)}`);
+	}
+	return {
+		_type: "image",
+		_key: crypto.randomUUID().slice(0, 8),
+		asset: { _ref: uploaded.mediaId, url: item.url },
+		alt,
+	};
+}
+
 // ---------------------------------------------------------------------------
 // Synthetic public content for the public-page suites
 // ---------------------------------------------------------------------------

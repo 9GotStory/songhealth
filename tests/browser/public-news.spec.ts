@@ -40,6 +40,7 @@ import {
 	nativeRefusalOf,
 	NATIVE_ROLES,
 	portableTextBlock,
+	portableTextImage,
 	publishEntryAt,
 	setMediaAlt,
 	SYNTHETIC_FIXTURE_MARK,
@@ -399,6 +400,39 @@ test("a News item whose featured image was deleted from the media library shows 
 	await expect(page.getByRole("main").locator("img"), "the page leaves the image out").toHaveCount(
 		0,
 	);
+});
+
+test("an image in a News body whose media item was deleted is left out, and the body's other image still shows", async ({
+	page,
+}) => {
+	const keptAlt = `${SYNTHETIC_FIXTURE_MARK} ภาพในเนื้อหาข่าวที่ยังอยู่`;
+	const goneAlt = `${SYNTHETIC_FIXTURE_MARK} ภาพในเนื้อหาข่าวที่ถูกลบ`;
+	const gone = await uploadSyntheticMedia(admin);
+	const kept = await uploadSyntheticMedia(admin);
+	const bodyText = `${SYNTHETIC_FIXTURE_MARK} เนื้อหาข่าวระหว่างภาพ`;
+	const news = await createNews("body-image-gone", {
+		data: {
+			body: [
+				portableTextImage(gone, goneAlt),
+				portableTextBlock(bodyText),
+				portableTextImage(kept, keptAlt),
+			],
+		},
+	});
+	await publish(news);
+	const removed = await deleteMedia(admin, gone.mediaId!);
+	expect(removed.ok, `deleting the media item: ${nativeRefusalOf(removed)}`).toBe(true);
+
+	const response = await page.goto(`/news/${news.slug}`);
+	expect(response?.status(), "the News page still renders").toBe(200);
+	const main = page.getByRole("main");
+	await expect(main.getByText(bodyText)).toBeVisible();
+	await expectImageLoaded(main.getByRole("img", { name: keptAlt }), "the body image that remains");
+	await expect(
+		main.getByRole("img", { name: goneAlt }),
+		"the deleted image is left out",
+	).toHaveCount(0);
+	await expect(main.locator("img"), "no other picture stands in for it").toHaveCount(1);
 });
 
 test("a draft, unpublished or trashed News item answers the site 404 and stays out of every list", async ({
