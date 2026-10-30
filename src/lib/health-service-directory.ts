@@ -62,6 +62,13 @@ const DIRECTORY_PATH = "/health-services";
  */
 export const FILTER_PARAMS = { area: "area", name: "name" } as const;
 
+/** Each filter's label, and the Area filter's "any" choice, which the Homepage's form shares. */
+export const FILTER_LABELS = {
+	area: "พื้นที่รับผิดชอบ",
+	anyArea: "ทุกพื้นที่",
+	name: "ชื่อหน่วยบริการ",
+} as const;
+
 /** A Health Service's canonical address, `/health-services/{slug}` (`03` §15), encoded as EmDash encodes it. */
 export function healthServicePath(slug: string): string {
 	return `${DIRECTORY_PATH}/${encodeURIComponent(slug)}`;

@@ -18,18 +18,13 @@
 //
 // Thai order puts a leading vowel by the consonant after it: เกด before ขวัญ, เกษตร before ขนส่ง.
 // Code point order reverses both, so the fixtures tell the two apart.
-//
-// Platform behaviour relied on (emdash 1.1.0): GET /_emdash/api/content/{collection} lists entries
-// by `status`, at most 100 a page, with `nextCursor` while more remain (src/api/schemas/content.ts
-// contentListQuery, src/api/schemas/common.ts).
 
 import type { Page } from "@playwright/test";
 
 import {
-	cmsRequest,
 	createSyntheticEntry,
 	devAdminActor,
-	nativeDataOf,
+	listPublishedEntries,
 	nativeRefusalOf,
 	publishEntryAt,
 	removeSuiteFixtures,
@@ -105,24 +100,9 @@ async function publish(...people: DraftFixture[]): Promise<void> {
 
 /** The ids of the runtime's published Personnel that are publicly visible. */
 async function visiblePublishedPersonnel(): Promise<string[]> {
-	const ids: string[] = [];
-	let cursor: string | undefined;
-	do {
-		const listed = await cmsRequest(admin, "/_emdash/api/content/personnel", {
-			searchParams: { status: "published", limit: "100", ...(cursor ? { cursor } : {}) },
-		});
-		expect(listed.ok, `listing the published Personnel: ${nativeRefusalOf(listed)}`).toBe(true);
-		const data = nativeDataOf(listed) as {
-			items: Array<{ id: string; data?: { public_visible?: unknown } }>;
-			nextCursor?: string;
-		};
-		for (const item of data.items) {
-			const visible = item.data?.public_visible;
-			if (visible === true || visible === 1) ids.push(item.id);
-		}
-		cursor = data.nextCursor || undefined;
-	} while (cursor !== undefined);
-	return ids;
+	return (await listPublishedEntries(admin, "personnel"))
+		.filter(({ data }) => data?.public_visible === true || data?.public_visible === 1)
+		.map(({ id }) => id);
 }
 
 /** The unit headings /about/personnel shows, in order. */

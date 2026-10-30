@@ -1,8 +1,9 @@
 // Activities (#56; spec #51 "Public reads" (Activities) and "Errors, redirects, preview and SEO").
 //
 // A citizen reads published Activities at /activities, the most recently held first, where an
-// Activity without an Activity date takes its place by its publication (`04` §10). Each card
-// shows the Activity's picture, or a neutral visual when it has none. Each Activity's page at
+// Activity without an Activity date takes its place by its publication (`04` §10). Each card is
+// the Homepage's Activity card: the Activity's picture, or the Activity visual when it has none,
+// and its summary (Product Owner, 2026-10-30: #64 comment 6526131459). Each Activity's page at
 // /activities/{slug} shows its date, place, description, participants and a captioned gallery
 // whose pictures carry their alt text. Drafts, unpublished and trashed Activities never show, and
 // their addresses answer the site 404.
@@ -141,7 +142,7 @@ test("/activities lists only published Activities, the most recently held first,
 	}
 });
 
-test("an Activity card shows its picture, or the neutral visual when it has none or its picture is gone", async ({
+test("an Activity card shows its picture, or the Activity visual when it has none or its picture is gone, and its summary", async ({
 	page,
 }) => {
 	const pictured = await createActivity("card-picture", {
@@ -152,8 +153,9 @@ test("an Activity card shows its picture, or the neutral visual when it has none
 			},
 		},
 	});
+	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปกิจกรรมบนการ์ด`;
 	const plain = await createActivity("card-plain", {
-		data: { activity_at: "2030-03-02T03:00:00.000Z" },
+		data: { activity_at: "2030-03-02T03:00:00.000Z", summary },
 	});
 	const goneId = await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพที่ถูกลบ`);
 	const pictureGone = await createActivity("card-picture-gone", {
@@ -163,15 +165,22 @@ test("an Activity card shows its picture, or the neutral visual when it has none
 	expect((await deleteMedia(admin, goneId)).ok, "deleting the media item").toBe(true);
 
 	await page.goto("/activities");
+	await expect(listedItem(page, pictured.title).getByRole("heading", { level: 2 })).toHaveText(
+		pictured.title,
+	);
+	await expect(
+		listedItem(page, pictured.title).getByText("กิจกรรม", { exact: true }),
+	).toBeVisible();
 	await expect(listedItem(page, pictured.title).locator("img")).toHaveCount(1);
-	await expect(listedItem(page, pictured.title).getByTestId("card-visual")).toHaveCount(0);
+	await expect(listedItem(page, pictured.title).getByTestId("activity-visual")).toHaveCount(0);
 	for (const activity of [plain, pictureGone]) {
 		await expect(listedItem(page, activity.title).locator("img"), activity.title).toHaveCount(0);
 		await expect(
-			listedItem(page, activity.title).getByTestId("card-visual"),
+			listedItem(page, activity.title).getByTestId("activity-visual"),
 			activity.title,
 		).toHaveCount(1);
 	}
+	await expect(listedItem(page, plain.title).getByText(summary, { exact: true })).toBeVisible();
 });
 
 test("/activities pages through older Activities in the same order, with the page number in the address", async ({

@@ -1697,6 +1697,44 @@ export async function readEntry(
 	);
 }
 
+/** A published entry as the native content list gives it: its database id and its fields. */
+export interface PublishedEntry {
+	id: string;
+	data?: Record<string, unknown>;
+}
+
+/**
+ * Every published entry of `collection` on the runtime, through the native content list. It lists
+ * entries by `status`, at most 100 a page, with `nextCursor` while more remain (emdash 1.1.0
+ * src/api/schemas/content.ts contentListQuery, src/api/schemas/common.ts). A refusal throws.
+ */
+export async function listPublishedEntries(
+	actor: CmsActor,
+	collection: string,
+): Promise<PublishedEntry[]> {
+	const entries: PublishedEntry[] = [];
+	let cursor: string | undefined;
+	do {
+		const listed = await cmsRequest(
+			actor,
+			`/_emdash/api/content/${encodeURIComponent(collection)}`,
+			{
+				searchParams: { status: "published", limit: "100", ...(cursor ? { cursor } : {}) },
+			},
+		);
+		if (!listed.ok) {
+			throw new CmsHelperError(
+				"PUBLISHED_LIST",
+				`listing the published ${collection}: ${nativeRefusalOf(listed)}`,
+			);
+		}
+		const data = nativeDataOf(listed) as { items: PublishedEntry[]; nextCursor?: string };
+		entries.push(...data.items);
+		cursor = data.nextCursor || undefined;
+	} while (cursor !== undefined);
+	return entries;
+}
+
 /**
  * Fresh `_rev` for optimistic-concurrency preconditions (native-editorial
  * contract: "use ... the latest returned `_rev`"). This is the mandatory
@@ -2169,6 +2207,21 @@ export async function showOfficeContact(
 		throw error;
 	}
 	return restore;
+}
+
+/** Run `body` with exactly `values` as Office Contact and `social` as the only handles, then restore. */
+export async function withOfficeContact(
+	actor: CmsActor,
+	values: OfficeContactValues,
+	social: Record<string, string>,
+	body: () => Promise<void>,
+): Promise<void> {
+	const restore = await showOfficeContact(actor, values, social);
+	try {
+		await body();
+	} finally {
+		await restore();
+	}
 }
 
 // ---------------------------------------------------------------------------

@@ -77,3 +77,13 @@ export async function listHealthContent(
 	if (error) throw error;
 	return { entries, hasMore: hasMore === true };
 }
+
+/** The `count` most recently published Health Content items, the Homepage's (#64). */
+export async function latestHealthContent(count: number): Promise<HealthContentEntry[]> {
+	const { entries, error } = await getEmDashCollection<"health_content", HealthContentData>(
+		"health_content",
+		{ limit: count, orderBy: { published_at: "desc" } },
+	);
+	if (error) throw error;
+	return entries;
+}

@@ -31,6 +31,14 @@ These were decided in #51 and the current docs.
   - the search and Health Service Discovery inputs use border-input as their boundary.
 - **File defect:** auto-layout frames carry an unintended white fill that hides white text in
   the hero, the utility bar and the footer. Build those frames transparent.
+- **Decided in #64** (Product Owner, 2026-10-30: #64 comment 6526131459):
+  - while nothing is Featured, a brand-dark card in the hero's place holds the site title as the
+    page's H1, with the tagline under it;
+  - "ดูข่าวทั้งหมด →" follows the News card and "ดูประกาศทั้งหมด →" the Announcements panel, each
+    under its own box, and "ดูความรู้สุขภาพทั้งหมด →" follows Health Information;
+  - each current Announcement states its status and dates, as `/announcements` does;
+  - the Contact Summary's lead is the Homepage's meta description;
+  - the Activities list shows Card / Activity too, with each Activity's summary.
 
 ## Shared patterns
 

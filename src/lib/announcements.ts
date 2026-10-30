@@ -8,7 +8,8 @@
 // reads every published Announcement (a query without a `limit` has none: emdash 1.1.0
 // src/loader.ts `fetchLimit`) and sorts it in src/lib/dated-lists.ts (ADR 0004), which also holds
 // the current-or-closed rule and the status an Announcement states: not open yet, open or closed,
-// by the Bangkok day (Product Owner, 2026-10-29).
+// by the Bangkok day (Product Owner, 2026-10-29). The Homepage shows the newest current ones in the
+// same order (#64).
 
 import {
 	getEmDashCollection,
@@ -86,17 +87,22 @@ function isClosed(data: AnnouncementData, now: Date): boolean {
 	return !isCurrent(data.closes_at, now);
 }
 
-/** One page of published Announcements at `now`: the current ones first, then the closed ones. */
-export async function listAnnouncements(
-	page: number,
-	now: Date,
-): Promise<ListPage<AnnouncementEntry>> {
+/** Every published Announcement, newest first by announcement date, else by publication. */
+async function announcementsNewestFirst(): Promise<AnnouncementEntry[]> {
 	const { entries, error } = await getEmDashCollection<"announcements", AnnouncementData>(
 		"announcements",
 		{ orderBy: { published_at: "desc" } },
 	);
 	if (error) throw error;
-	const ordered = newestFirst(entries, (data) => data.announcement_at);
+	return newestFirst(entries, (data) => data.announcement_at);
+}
+
+/** One page of published Announcements at `now`: the current ones first, then the closed ones. */
+export async function listAnnouncements(
+	page: number,
+	now: Date,
+): Promise<ListPage<AnnouncementEntry>> {
+	const ordered = await announcementsNewestFirst();
 	return listPage(
 		[
 			...ordered.filter((entry) => !isClosed(entry.data, now)),
@@ -105,4 +111,11 @@ export async function listAnnouncements(
 		page,
 		ANNOUNCEMENTS_PAGE_SIZE,
 	);
+}
+
+/** The newest current Announcements at `now`, at most `count`: the Homepage's (#64). */
+export async function currentAnnouncements(count: number, now: Date): Promise<AnnouncementEntry[]> {
+	return (await announcementsNewestFirst())
+		.filter((entry) => !isClosed(entry.data, now))
+		.slice(0, count);
 }

@@ -1,0 +1,67 @@
+---
+// The Activity card (Feature 003 #64; spec #51 "Shared building blocks"; Figma Card/Activity 4:48,
+// docs/design/homepage-concept-v1.md §9): the Activity's picture, or the design's visual when it
+// has none, then "กิจกรรม • date" by when it was held, else its publication (`04` §10), and its
+// title linking to its page. The Homepage shows its latest Activities with it, and the Activities
+// list shows every Activity with it, adding the summary (Product Owner, 2026-10-30: #64 comment
+// 6526131459). The title is a heading one level below its list's own: H2 on the Activities list,
+// H3 under a Homepage section.
+//
+// The picture goes through EmDash's Image with a `sizes` for the card's box, as ContentCard's does
+// (src/components/ContentCard.astro says why). A `loading` attribute overrides the component's lazy
+// default, which emdash 1.1.0 src/components/EmDashImage.astro sets before the attributes it is
+// given. It is decorative, because the title names the link. A picture whose media item was
+// deleted in Admin is left out for the visual (src/lib/media.ts). The visual's caption is
+// decoration too: the line under it says กิจกรรม.
+import { Image } from "emdash/ui";
+import { activityDate, activityPath, type ActivityEntry } from "../lib/activities";
+import { CARD_PICTURE_SIZES, availableMedia } from "../lib/media";
+import MetaLine from "./MetaLine.astro";
+
+interface Props {
+	activity: ActivityEntry;
+	headingLevel?: 2 | 3;
+	/** Show the Activity's summary under its title, as the Activities list does. */
+	showSummary?: boolean;
+	/** Load the picture at once, for a card in view when the page opens. */
+	eager?: boolean;
+}
+
+const { activity, headingLevel = 2, showSummary = false, eager = false } = Astro.props;
+const Heading = headingLevel === 3 ? "h3" : "h2";
+const image = await availableMedia(activity.data.featured_image, Astro.locals.emdash);
+const date = activityDate(activity.data);
+const summary = showSummary ? activity.data.summary : undefined;
+---
+
+<article class="flex h-full flex-col overflow-hidden rounded-22 border border-border-default bg-surface-base">
+	{image ? (
+		<Image
+			image={image}
+			alt=""
+			sizes={CARD_PICTURE_SIZES}
+			loading={eager ? "eager" : "lazy"}
+			class="aspect-16/9 w-full object-cover"
+		/>
+	) : (
+		<div
+			aria-hidden="true"
+			data-testid="activity-visual"
+			class="flex aspect-16/9 w-full items-center justify-center bg-linear-to-r from-activity-visual-from to-activity-visual-to text-label text-brand-dark"
+		>
+			กิจกรรมในชุมชน
+		</div>
+	)}
+	<div class="flex flex-1 flex-col gap-2 px-5 py-4.5">
+		<MetaLine facts={[{ text: "กิจกรรม" }, date && { date }]} />
+		<Heading class="text-h3 wrap-anywhere text-text-primary">
+			<a
+				class="underline-offset-4 hover:text-brand-primary hover:underline"
+				href={activityPath(activity.id)}
+			>
+				{activity.data.title}
+			</a>
+		</Heading>
+		{summary && <p class="line-clamp-3 text-text-secondary">{summary}</p>}
+	</div>
+</article>
