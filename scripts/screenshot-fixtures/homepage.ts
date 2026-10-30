@@ -1,0 +1,134 @@
+// Screenshot content for the Homepage's automatic sections (#64): two published News, the newer
+// with a category and summary; three current Announcements and a closed one; four Health Content
+// items with their Health Topics; two Health Services in two Areas; three Activities, two with a
+// picture; and a full Office Contact. Captures /.
+
+import type { Fixtures } from "../capture-with-fixtures.ts";
+
+const DAY = 24 * 60 * 60 * 1000;
+
+const fixtures: Fixtures = async ({ admin, helpers, term, picture, officeContact }) => {
+	/** Create an entry of `collection` with a synthetic slug and publish it. */
+	const published = async (
+		collection: string,
+		data: Record<string, unknown>,
+		taxonomies?: Record<string, string[]>,
+	) => {
+		const created = await helpers.createSyntheticEntry(admin, collection, {
+			slug: helpers.syntheticSlug("shot"),
+			data,
+			...(taxonomies ? { taxonomies } : {}),
+		});
+		if (!created.result.ok) {
+			throw new Error(`${collection}: ${helpers.nativeRefusalOf(created.result)}`);
+		}
+		const done = await helpers.publishEntry(admin, collection, created.entryId!);
+		if (!done.ok) throw new Error(`publish: ${helpers.nativeRefusalOf(done)}`);
+	};
+
+	await published("news", {
+		title: "[ตัวอย่าง] สาธารณสุขอำเภอสองจัดประชุมเตรียมรับมือโรคติดต่อช่วงฤดูหนาว",
+		summary: "ทบทวนแผนเฝ้าระวังโรคไข้หวัดใหญ่และโรคติดเชื้อทางเดินหายใจร่วมกับ รพ.สต. ทุกแห่ง",
+	});
+	await published(
+		"news",
+		{
+			title: "[ตัวอย่าง] อำเภอสองรณรงค์กำจัดแหล่งเพาะพันธุ์ยุงลาย ลดไข้เลือดออกในชุมชน",
+			summary:
+				"อสม. และเจ้าหน้าที่ รพ.สต. ร่วมกับผู้นำชุมชนลงพื้นที่สำรวจลูกน้ำยุงลายทุกหลังคาเรือน พร้อมให้ความรู้การป้องกันโรคแก่ประชาชน",
+		},
+		{ news_category: [await term("news_category", "ข่าวประชาสัมพันธ์")] },
+	);
+
+	const now = Date.now();
+	const recruit = await term("announcement_type", "รับสมัคร");
+	const notice = await term("announcement_type", "ประชาสัมพันธ์");
+	for (const [title, type, daysAgo, closesIn] of [
+		["[ตัวอย่าง] รับสมัครอาสาสมัครสาธารณสุขประจำหมู่บ้าน ประจำปี 2570", recruit, 2, 14],
+		[
+			"[ตัวอย่าง] งดให้บริการคลินิกทันตกรรมชั่วคราว เนื่องจากปรับปรุงห้องตรวจ",
+			notice,
+			5,
+			undefined,
+		],
+		["[ตัวอย่าง] เชิญชวนผู้สูงอายุรับวัคซีนไข้หวัดใหญ่ฟรี ที่ รพ.สต. ใกล้บ้าน", notice, 9, 30],
+		["[ตัวอย่าง] รับสมัครผู้เข้าร่วมโครงการเลิกบุหรี่ รุ่นที่ 1/2569 (ปิดแล้ว)", recruit, 1, -3],
+	] as const) {
+		await published(
+			"announcements",
+			{
+				title,
+				announcement_at: new Date(now - daysAgo * DAY).toISOString(),
+				...(closesIn === undefined
+					? {}
+					: { closes_at: new Date(now + closesIn * DAY).toISOString() }),
+			},
+			{ announcement_type: [type] },
+		);
+	}
+
+	for (const [title, summary, topic] of [
+		[
+			"[ตัวอย่าง] วัคซีนไข้หวัดใหญ่ ใครควรได้รับ",
+			"ผู้สูงอายุ ผู้มีโรคเรื้อรัง และหญิงตั้งครรภ์ควรรับวัคซีนปีละครั้ง",
+			"วัคซีนและการสร้างเสริมภูมิคุ้มกัน",
+		],
+		[
+			"[ตัวอย่าง] ป้องกันการหกล้มในผู้สูงอายุ",
+			"จัดบ้านให้ปลอดภัย เพิ่มแสงสว่าง และออกกำลังกายเสริมการทรงตัว",
+			"ผู้สูงอายุ",
+		],
+		[
+			"[ตัวอย่าง] กินอย่างไรให้ห่างไกลเบาหวาน",
+			"ลดหวาน มัน เค็ม เพิ่มผักผลไม้ และออกกำลังกายสม่ำเสมอ",
+			"โรคไม่ติดต่อเรื้อรัง",
+		],
+		[
+			"[ตัวอย่าง] 3 เก็บ ป้องกัน 3 โรค",
+			"เก็บบ้าน เก็บขยะ เก็บน้ำ ตัดวงจรยุงลาย ป้องกันไข้เลือดออก",
+			"ไข้เลือดออก",
+		],
+	] as const) {
+		await published("health_content", { title, summary }, { topic: [await term("topic", topic)] });
+	}
+
+	for (const [title, area] of [
+		["[ตัวอย่าง] โรงพยาบาลส่งเสริมสุขภาพตำบลบ้านกลาง", "ตำบลบ้านกลาง"],
+		["[ตัวอย่าง] โรงพยาบาลส่งเสริมสุขภาพตำบลสะเอียบ", "ตำบลสะเอียบ"],
+	] as const) {
+		await published("health_services", { title }, { area: [await term("area", area)] });
+	}
+
+	for (const [title, daysAgo, colours] of [
+		["[ตัวอย่าง] ลงพื้นที่คัดกรองผู้สูงอายุ ตำบลบ้านกลาง", 3, ["#bfdcce", "#e8f0d9"]],
+		[
+			"[ตัวอย่าง] ประชุมคณะกรรมการพัฒนาคุณภาพชีวิตระดับอำเภอ ครั้งที่ 3/2569",
+			8,
+			["#d1ebde", "#f2d17a"],
+		],
+		["[ตัวอย่าง] อบรมฟื้นฟูความรู้ อสม. ด้านการป้องกันโรคติดต่อ", 15, undefined],
+	] as const) {
+		await published("activities", {
+			title,
+			activity_at: new Date(now - daysAgo * DAY).toISOString(),
+			...(colours
+				? { featured_image: { id: await picture(`ภาพประกอบ ${title}`, colours[0], colours[1]) } }
+				: {}),
+		});
+	}
+
+	await officeContact(
+		{
+			address: "[ตัวอย่าง] 99 หมู่ 1 ตำบลบ้านกลาง\nอำเภอสอง จังหวัดแพร่ 54120",
+			telephone: "054 591 234",
+			email: "contact@example.invalid",
+			opening_hours: "จันทร์–ศุกร์ 08:30–16:30 น.\nเว้นวันหยุดราชการ",
+			latitude: 18.4686,
+			longitude: 100.1834,
+		},
+		{},
+	);
+	return ["/"];
+};
+
+export default fixtures;

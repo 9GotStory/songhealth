@@ -1,0 +1,30 @@
+---
+// An Announcement's status with the dates it turns on (Feature 003 #56, #64): the status as a label
+// (ยังไม่เปิด, เปิดอยู่ or ปิดแล้ว), its open date while it is not open yet, and its close date. The
+// Announcements list's rows and the Homepage's current Announcements show it. The caller decides
+// the status at one instant for every Announcement it shows, so they agree with its order.
+import type { AnnouncementData, AnnouncementStatus as Status } from "../lib/announcements";
+import AnnouncementStatus from "./AnnouncementStatus.astro";
+import DateText from "./DateText.astro";
+
+interface Props {
+	data: AnnouncementData;
+	status: Status;
+}
+
+const { data, status } = Astro.props;
+---
+
+<p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-small text-text-secondary">
+	<AnnouncementStatus status={status} />
+	{status === "upcoming" && data.opens_at && (
+		<span>
+			วันที่เริ่มต้น <DateText value={data.opens_at} />
+		</span>
+	)}
+	{data.closes_at && (
+		<span>
+			วันที่สิ้นสุด <DateText value={data.closes_at} />
+		</span>
+	)}
+</p>

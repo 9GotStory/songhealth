@@ -6,9 +6,10 @@
 //   until a Featured item exists (#65);
 // - Search, a GET form to /search;
 // - the newest published News as one card, beside up to 3 current Announcements, newest first by
-//   announcement date (src/lib/announcements.ts);
+//   announcement date, each with its status and dates as the Announcements list shows them
+//   (src/lib/announcements.ts), and links to both lists;
 // - Health Information: the latest 4 Health Content items, each labelled with its first Health
-//   Topic, the `topic` term EmDash hydrates first (by label);
+//   Topic, the `topic` term EmDash hydrates first (by label), and a link to their list;
 // - Health Service Discovery: an Area select and a name field, a GET form to the Health Service
 //   Directory with the directory's own parameters (src/lib/health-service-directory.ts);
 // - the latest 3 Activities by when they were held (ADR 0004), and a link to /activities;
@@ -26,15 +27,23 @@
 // script and container health check, and the T016/T022 production verification all read it from
 // the server-rendered HTML of `/`. Keep it exactly as written.
 import ActivityCard from "../components/ActivityCard.astro";
+import AnnouncementStatusLine from "../components/AnnouncementStatusLine.astro";
 import ArrowLink from "../components/ArrowLink.astro";
 import DetailItem from "../components/DetailItem.astro";
 import MapLink from "../components/MapLink.astro";
 import SearchForm from "../components/SearchForm.astro";
 import SectionHeading from "../components/SectionHeading.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
-import { ACTIVITIES_PATH, latestActivities } from "../lib/activities";
-import { announcementPath, currentAnnouncements } from "../lib/announcements";
+import { ACTIVITIES_PATH, ACTIVITIES_TITLE, latestActivities } from "../lib/activities";
+import {
+	ANNOUNCEMENTS_PATH,
+	ANNOUNCEMENTS_TITLE,
+	announcementPath,
+	currentAnnouncements,
+	statusOf,
+} from "../lib/announcements";
 import { telephoneHref } from "../lib/contact-links";
+import { HEALTH_CONTENT_PATH, HEALTH_CONTENT_TITLE } from "../lib/health";
 import { healthContentPath, latestHealthContent } from "../lib/health-content";
 import { DIRECTORY_TITLE, FILTER_PARAMS, directoryPath } from "../lib/health-service-directory";
 import { discoveryAreas } from "../lib/health-services";
@@ -48,11 +57,13 @@ import { termsOf } from "../lib/terms";
 const OFFICE_SUMMARY =
 	"ศูนย์กลางข้อมูล บริการ และการประสานงานด้านสุขภาพของประชาชนในอำเภอสอง จังหวัดแพร่";
 
+/** One instant for the current Announcements and the status each states. */
+const now = new Date();
 const [identity, news, announcements, healthContent, areas, activities, { contact }] =
 	await Promise.all([
 		getSiteIdentity(Astro.url),
 		latestNews(),
-		currentAnnouncements(3, new Date()),
+		currentAnnouncements(3, now),
 		latestHealthContent(4),
 		discoveryAreas(),
 		latestActivities(3),
@@ -121,19 +132,31 @@ const control =
 								</p>
 							</div>
 							<ul aria-labelledby="home-announcements">
-								{announcements.map((announcement) => (
-									<li class="flex flex-col gap-1.5 border-t border-divider px-6 py-4.5">
-										<p class="wrap-anywhere">{announcement.data.title}</p>
-										<ArrowLink
-											href={announcementPath(announcement.id)}
-											context={announcement.data.title}
-										>
-											ดูรายละเอียด
-										</ArrowLink>
-									</li>
-								))}
+								{announcements.map((announcement) => {
+									const status = statusOf(announcement.data, now);
+									return (
+										<li class="flex flex-col gap-1.5 border-t border-divider px-6 py-4.5">
+											<p class="wrap-anywhere">{announcement.data.title}</p>
+											{status && (
+												<AnnouncementStatusLine data={announcement.data} status={status} />
+											)}
+											<ArrowLink
+												href={announcementPath(announcement.id)}
+												context={announcement.data.title}
+											>
+												ดูรายละเอียด
+											</ArrowLink>
+										</li>
+									);
+								})}
 							</ul>
 						</div>
+					)}
+				</div>
+				<div class="flex flex-wrap gap-x-6">
+					{news && <ArrowLink href="/news">ดูข่าวทั้งหมด</ArrowLink>}
+					{announcements.length > 0 && (
+						<ArrowLink href={ANNOUNCEMENTS_PATH}>ดู{ANNOUNCEMENTS_TITLE}ทั้งหมด</ArrowLink>
 					)}
 				</div>
 			</div>
@@ -179,6 +202,7 @@ const control =
 						);
 					})}
 				</ul>
+				<ArrowLink href={HEALTH_CONTENT_PATH}>ดู{HEALTH_CONTENT_TITLE}ทั้งหมด</ArrowLink>
 			</div>
 		</section>
 	)}
@@ -243,7 +267,7 @@ const control =
 						</li>
 					))}
 				</ul>
-				<ArrowLink href={ACTIVITIES_PATH}>ดูกิจกรรมทั้งหมด</ArrowLink>
+				<ArrowLink href={ACTIVITIES_PATH}>ดู{ACTIVITIES_TITLE}ทั้งหมด</ArrowLink>
 			</div>
 		</section>
 	)}

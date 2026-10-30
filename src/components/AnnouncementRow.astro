@@ -1,9 +1,7 @@
 ---
 // An Announcement in a list (Feature 003 #56; spec #51 "Shared building blocks"): its type and
-// date, its title linking to its own page, and, when it has open or close dates, its status
-// (ยังไม่เปิด, เปิดอยู่ or ปิดแล้ว) with its close date, and its open date while it is not open yet.
-// The list decides the status at one instant for every row, so the rows agree with the order the
-// list puts them in.
+// date, its title linking to its own page, and, when it has open or close dates, its status with
+// those dates (AnnouncementStatusLine).
 import {
 	announcementDate,
 	announcementPath,
@@ -11,8 +9,7 @@ import {
 	type AnnouncementStatus as Status,
 } from "../lib/announcements";
 import { termsOf } from "../lib/terms";
-import AnnouncementStatus from "./AnnouncementStatus.astro";
-import DateText from "./DateText.astro";
+import AnnouncementStatusLine from "./AnnouncementStatusLine.astro";
 import MetaLine from "./MetaLine.astro";
 
 interface Props {
@@ -36,19 +33,5 @@ const date = announcementDate(data);
 			{data.title}
 		</a>
 	</h2>
-	{status && (
-		<p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-small text-text-secondary">
-			<AnnouncementStatus status={status} />
-			{status === "upcoming" && data.opens_at && (
-				<span>
-					วันที่เริ่มต้น <DateText value={data.opens_at} />
-				</span>
-			)}
-			{data.closes_at && (
-				<span>
-					วันที่สิ้นสุด <DateText value={data.closes_at} />
-				</span>
-			)}
-		</p>
-	)}
+	{status && <AnnouncementStatusLine data={data} status={status} />}
 </article>

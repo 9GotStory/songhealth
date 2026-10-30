@@ -90,6 +90,8 @@ type Collection = (typeof AUTOMATIC_COLLECTIONS)[number];
 /** A close date long past, and one far ahead, on any calendar. */
 const CLOSED_AT = "2026-01-31T10:00:00.000Z";
 const CLOSES_LATER = "2034-12-31T10:00:00.000Z";
+/** An open date far ahead, so the Announcement is not open yet. */
+const OPENS_LATER = "2033-06-01T03:00:00.000Z";
 
 let admin: CmsActor;
 let origin: string;
@@ -302,12 +304,15 @@ test("the News card shows the newest published News with its category, title and
 		"href",
 		`/news/${newest.slug}`,
 	);
+	await expect(
+		section(page, NEWS_HEADING).getByRole("link", { name: "ดูข่าวทั้งหมด" }),
+	).toHaveAttribute("href", "/news");
 	for (const hidden of [older, draft, unpublished, trashed]) {
 		await expect(page.getByRole("main"), hidden.title).not.toContainText(hidden.title);
 	}
 });
 
-test("up to 3 current Announcements show beside it, newest first by announcement date, and never a closed one or a draft", async ({
+test("up to 3 current Announcements show beside it, newest first by announcement date with the status the list states, and never a closed one or a draft", async ({
 	page,
 }) => {
 	const at = (day: number) => `2032-01-${String(day).padStart(2, "0")}T03:00:00.000Z`;
@@ -315,7 +320,9 @@ test("up to 3 current Announcements show beside it, newest first by announcement
 	const third = await create("announcements", "third", {
 		data: { announcement_at: at(2), closes_at: CLOSES_LATER },
 	});
-	const second = await create("announcements", "second", { data: { announcement_at: at(3) } });
+	const second = await create("announcements", "second", {
+		data: { announcement_at: at(3), opens_at: OPENS_LATER, closes_at: CLOSES_LATER },
+	});
 	const first = await create("announcements", "first", { data: { announcement_at: at(4) } });
 	// Announced last, but closed or a draft: neither shows.
 	const closed = await create("announcements", "closed", {
@@ -331,6 +338,19 @@ test("up to 3 current Announcements show beside it, newest first by announcement
 		await expect(links.nth(index)).toHaveAccessibleName(`ดูรายละเอียด ${announcement.title}`);
 		await expect(links.nth(index)).toHaveAttribute("href", `/announcements/${announcement.slug}`);
 	}
+	// Each states its status and dates as the Announcements list does; one without dates, none.
+	const items = section(page, NEWS_HEADING)
+		.getByRole("list", { name: ANNOUNCEMENTS_HEADING })
+		.getByRole("listitem");
+	await expect(items.nth(0)).not.toContainText(/ยังไม่เปิด|เปิดอยู่|วันที่/);
+	await expect(items.nth(1)).toContainText("ยังไม่เปิด");
+	await expect(items.nth(1)).toContainText(`วันที่เริ่มต้น ${thaiDate(OPENS_LATER)}`);
+	await expect(items.nth(1)).toContainText(`วันที่สิ้นสุด ${thaiDate(CLOSES_LATER)}`);
+	await expect(items.nth(2)).toContainText("เปิดอยู่");
+	await expect(items.nth(2)).toContainText(`วันที่สิ้นสุด ${thaiDate(CLOSES_LATER)}`);
+	await expect(
+		section(page, NEWS_HEADING).getByRole("link", { name: "ดูประกาศทั้งหมด" }),
+	).toHaveAttribute("href", "/announcements");
 	for (const hidden of [fourth, closed, draft]) {
 		await expect(page.getByRole("main"), hidden.title).not.toContainText(hidden.title);
 	}
@@ -383,6 +403,10 @@ test("Health Information shows the latest 4 published Health Content items, each
 			card(fixture).getByRole("link", { name: `อ่านเพิ่มเติม ${fixture.title}` }),
 		).toHaveAttribute("href", `/health/content/${fixture.slug}`);
 	}
+	await expect(health.getByRole("link", { name: "ดูความรู้สุขภาพทั้งหมด" })).toHaveAttribute(
+		"href",
+		"/health/content",
+	);
 	for (const hidden of [oldest, draft]) {
 		await expect(page.getByRole("main"), hidden.title).not.toContainText(hidden.title);
 	}
