@@ -11,7 +11,8 @@
 // path with a synthetic slug comes with a name, which names its screenshot files.
 // Titles start with "[ตัวอย่าง]", like the demo dataset.
 
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -35,8 +36,12 @@ await withFixtureKit(async (kit) => {
 	const targets = (await fixtures(kit)).map((page) =>
 		typeof page === "string" ? page : `${page.name}=${page.path}`,
 	);
-	const capture = spawnSync("node", ["scripts/capture-screenshots.mjs", outDir, ...targets], {
+	// The capture runs while this process waits without blocking. A blocked event loop never sees the
+	// runtime close its idle keep-alive connections, so the cleanup's first request went out on a
+	// closed one and failed ("fetch failed"), leaving that entry behind (#64).
+	const capture = spawn("node", ["scripts/capture-screenshots.mjs", outDir, ...targets], {
 		stdio: "inherit",
 	});
-	if (capture.status !== 0) throw new Error("capture-screenshots.mjs failed");
+	const [code] = await once(capture, "exit");
+	if (code !== 0) throw new Error("capture-screenshots.mjs failed");
 });
