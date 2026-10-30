@@ -52,19 +52,35 @@ export interface DirectoryPage extends ListPage<HealthServiceEntry> {
 	areas: DirectoryTerm[];
 }
 
+/** Every published Health Service. */
+async function publishedHealthServices(): Promise<HealthServiceEntry[]> {
+	const { entries, error } = await getEmDashCollection<"health_services", HealthServiceData>(
+		"health_services",
+	);
+	if (error) throw error;
+	return entries;
+}
+
 /** One page of the published Health Services that match the filters, by name. */
 export async function listHealthServices(
 	page: number,
 	filters: DirectoryFilters,
 ): Promise<DirectoryPage> {
-	const { entries, error } = await getEmDashCollection<"health_services", HealthServiceData>(
-		"health_services",
-	);
-	if (error) throw error;
+	const entries = await publishedHealthServices();
 	return {
 		...listPage(byName(filterDirectory(entries, filters)), page, HEALTH_SERVICES_PAGE_SIZE),
 		areas: areasInUse(entries),
 	};
+}
+
+/**
+ * The Area terms the Homepage's Health Service Discovery form offers (#64): those the published
+ * Health Services use, as the directory's own filter does. Undefined while no Health Service is
+ * published, so the Homepage leaves the form out.
+ */
+export async function discoveryAreas(): Promise<DirectoryTerm[] | undefined> {
+	const entries = await publishedHealthServices();
+	return entries.length === 0 ? undefined : areasInUse(entries);
 }
 
 /**

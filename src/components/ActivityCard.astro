@@ -1,0 +1,51 @@
+---
+// An Activity card (Feature 003 #64; spec #51 "Shared building blocks"; Figma Card/Activity 4:48,
+// docs/design/homepage-concept-v1.md §9): the Activity's picture, or the design's visual when it
+// has none, then "กิจกรรม • date" by when it was held, else its publication (`04` §10), and its
+// title linking to its page. The Homepage shows its latest Activities with it.
+//
+// The picture goes through EmDash's Image with a `sizes` for the card's box, as ContentCard's does
+// (src/components/ContentCard.astro says why). It is decorative, because the title names the link.
+// A picture whose media item was deleted in Admin is left out for the visual (src/lib/media.ts).
+// The visual's caption is decoration too: the line under it says กิจกรรม.
+import { Image } from "emdash/ui";
+import { activityDate, activityPath, type ActivityEntry } from "../lib/activities";
+import { availableMedia } from "../lib/media";
+import MetaLine from "./MetaLine.astro";
+
+interface Props {
+	activity: ActivityEntry;
+}
+
+const { activity } = Astro.props;
+const image = await availableMedia(activity.data.featured_image, Astro.locals.emdash);
+const date = activityDate(activity.data);
+
+/** The card's width in its grid: three to a row from `lg`, two from `sm`. */
+const CARD_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw";
+---
+
+<article class="flex h-full flex-col overflow-hidden rounded-22 border border-border-default bg-surface-base">
+	{image ? (
+		<Image image={image} alt="" sizes={CARD_SIZES} class="aspect-16/9 w-full object-cover" />
+	) : (
+		<div
+			aria-hidden="true"
+			data-testid="activity-visual"
+			class="flex aspect-16/9 w-full items-center justify-center bg-linear-to-r from-activity-visual-from to-activity-visual-to text-label text-brand-dark"
+		>
+			กิจกรรมในชุมชน
+		</div>
+	)}
+	<div class="flex flex-1 flex-col gap-2 px-5 py-4.5">
+		<MetaLine facts={[{ text: "กิจกรรม" }, date && { date }]} />
+		<h3 class="text-h3 wrap-anywhere text-text-primary">
+			<a
+				class="underline-offset-4 hover:text-brand-primary hover:underline"
+				href={activityPath(activity.id)}
+			>
+				{activity.data.title}
+			</a>
+		</h3>
+	</div>
+</article>

@@ -71,3 +71,13 @@ export async function listNews(page: number, topics?: string[]): Promise<NewsPag
 	if (error) throw error;
 	return { entries, hasMore: hasMore === true };
 }
+
+/** The newest published News, which leads the Homepage's News section (#64), or none. */
+export async function latestNews(): Promise<NewsEntry | undefined> {
+	const { entries, error } = await getEmDashCollection<"news", NewsData>("news", {
+		limit: 1,
+		orderBy: { published_at: "desc" },
+	});
+	if (error) throw error;
+	return entries[0];
+}

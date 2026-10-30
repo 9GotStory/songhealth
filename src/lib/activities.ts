@@ -58,15 +58,21 @@ export function activityDate(data: ActivityData): Instant {
 	return listDate(data.activity_at, data.publishedAt);
 }
 
-/** One page of published Activities, the most recently held first. */
-export async function listActivities(page: number): Promise<ListPage<ActivityEntry>> {
+/** Every published Activity, the most recently held first. */
+async function activitiesNewestFirst(): Promise<ActivityEntry[]> {
 	const { entries, error } = await getEmDashCollection<"activities", ActivityData>("activities", {
 		orderBy: { published_at: "desc" },
 	});
 	if (error) throw error;
-	return listPage(
-		newestFirst(entries, (data) => data.activity_at),
-		page,
-		ACTIVITIES_PAGE_SIZE,
-	);
+	return newestFirst(entries, (data) => data.activity_at);
+}
+
+/** One page of published Activities, the most recently held first. */
+export async function listActivities(page: number): Promise<ListPage<ActivityEntry>> {
+	return listPage(await activitiesNewestFirst(), page, ACTIVITIES_PAGE_SIZE);
+}
+
+/** The `count` most recently held published Activities, the Homepage's (#64). */
+export async function latestActivities(count: number): Promise<ActivityEntry[]> {
+	return (await activitiesNewestFirst()).slice(0, count);
 }

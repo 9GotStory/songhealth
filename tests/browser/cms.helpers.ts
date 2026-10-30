@@ -1697,6 +1697,44 @@ export async function readEntry(
 	);
 }
 
+/** A published entry as the native content list gives it: its database id and its fields. */
+export interface PublishedEntry {
+	id: string;
+	data?: Record<string, unknown>;
+}
+
+/**
+ * Every published entry of `collection` on the runtime, through the native content list
+ * (GET /_emdash/api/content/{collection}?status=published, 100 to a page, following `nextCursor`).
+ * A refusal throws.
+ */
+export async function listPublishedEntries(
+	actor: CmsActor,
+	collection: string,
+): Promise<PublishedEntry[]> {
+	const entries: PublishedEntry[] = [];
+	let cursor: string | undefined;
+	do {
+		const listed = await cmsRequest(
+			actor,
+			`/_emdash/api/content/${encodeURIComponent(collection)}`,
+			{
+				searchParams: { status: "published", limit: "100", ...(cursor ? { cursor } : {}) },
+			},
+		);
+		if (!listed.ok) {
+			throw new CmsHelperError(
+				"PUBLISHED_LIST",
+				`listing the published ${collection}: ${nativeRefusalOf(listed)}`,
+			);
+		}
+		const data = nativeDataOf(listed) as { items: PublishedEntry[]; nextCursor?: string };
+		entries.push(...data.items);
+		cursor = data.nextCursor || undefined;
+	} while (cursor !== undefined);
+	return entries;
+}
+
 /**
  * Fresh `_rev` for optimistic-concurrency preconditions (native-editorial
  * contract: "use ... the latest returned `_rev`"). This is the mandatory

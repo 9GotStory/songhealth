@@ -1,15 +1,19 @@
 ---
 // One detail of a record page, inside a <dl> (Feature 003 #55): its name and, in the slot, its
-// value. The pair is grouped in a <div>, which HTML allows in a <dl>.
+// value. The pair is grouped in a <div>, which HTML allows in a <dl>. On a surface-soft section,
+// such as the Homepage's Contact Summary (#64), the name takes the contrast fix for that surface.
 interface Props {
 	term: string;
+	/** The detail sits on surface-soft. */
+	soft?: boolean;
 }
 
-const { term } = Astro.props;
+const { term, soft = false } = Astro.props;
+const termColour = soft ? "text-text-secondary-on-soft" : "text-text-secondary";
 ---
 
 <div class="flex flex-col gap-1 sm:flex-row sm:gap-6">
-	<dt class="text-label text-text-secondary sm:w-44 sm:shrink-0">{term}</dt>
+	<dt class:list={["text-label sm:w-44 sm:shrink-0", termColour]}>{term}</dt>
 	<dd class="wrap-anywhere">
 		<slot />
 	</dd>

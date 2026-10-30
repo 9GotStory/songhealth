@@ -1,15 +1,300 @@
 ---
-// The Songhealth Homepage (Feature 003; `04`). #52 renders the site shell with
-// an empty main area; the Homepage sections arrive in later Feature 003 tickets.
+// The Songhealth Homepage, / (Feature 003 #64; spec #51 "Homepage (`04`, Figma order)", `04`;
+// docs/design/homepage-concept-v1.md). A view of published content, in the Figma order:
 //
-// The meta element named "songhealth-foundation" with content "public-runtime"
-// is the Feature 001 public-runtime marker (T011): tests/browser/foundation.spec.ts,
-// the development runtime's verify script and container health check, and the
-// T016/T022 production verification all read it from the server-rendered HTML
-// of `/`. Keep it exactly as written.
+// - a compact band with the site title and tagline from the native site settings, standing in
+//   until a Featured item exists (#65);
+// - Search, a GET form to /search;
+// - the newest published News as one card, beside up to 3 current Announcements, newest first by
+//   announcement date (src/lib/announcements.ts);
+// - Health Information: the latest 4 Health Content items, each labelled with its first Health
+//   Topic, the `topic` term EmDash hydrates first (by label);
+// - Health Service Discovery: an Area select and a name field, a GET form to the Health Service
+//   Directory with the directory's own parameters (src/lib/health-service-directory.ts);
+// - the latest 3 Activities by when they were held (ADR 0004), and a link to /activities;
+// - the Contact Summary from Office Contact (src/lib/office-contact.ts): the site title, the
+//   address with the "เปิดแผนที่" link, the main telephone and the opening hours, each only when
+//   set, and a link to /contact. A static visual stands in for the map; no map is embedded.
+//
+// A section with nothing to show is left out (`04` §17): News and Announcements together, Health
+// Information, Health Service Discovery while no Health Service is published, and Activities. The
+// band, Search and the Contact Summary always render, so the page answers with no content at all.
+// The Frequently Used Services and Quick Access come with the Homepage menus (#65).
+//
+// The meta element named "songhealth-foundation" with content "public-runtime" is the Feature 001
+// public-runtime marker (T011): tests/browser/foundation.spec.ts, the development runtime's verify
+// script and container health check, and the T016/T022 production verification all read it from
+// the server-rendered HTML of `/`. Keep it exactly as written.
+import ActivityCard from "../components/ActivityCard.astro";
+import ArrowLink from "../components/ArrowLink.astro";
+import DetailItem from "../components/DetailItem.astro";
+import MapLink from "../components/MapLink.astro";
+import SearchForm from "../components/SearchForm.astro";
+import SectionHeading from "../components/SectionHeading.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
+import { ACTIVITIES_PATH, latestActivities } from "../lib/activities";
+import { announcementPath, currentAnnouncements } from "../lib/announcements";
+import { telephoneHref } from "../lib/contact-links";
+import { healthContentPath, latestHealthContent } from "../lib/health-content";
+import { DIRECTORY_TITLE, FILTER_PARAMS, directoryPath } from "../lib/health-service-directory";
+import { discoveryAreas } from "../lib/health-services";
+import { mapHref } from "../lib/map-link";
+import { latestNews, newsPath } from "../lib/news";
+import { readOfficeContact } from "../lib/office-contact";
+import { getSiteIdentity } from "../lib/site-identity";
+import { termsOf } from "../lib/terms";
+
+/** The Contact Summary's lead (docs/design/homepage-concept-v1.md §11), also the page's description. */
+const OFFICE_SUMMARY =
+	"ศูนย์กลางข้อมูล บริการ และการประสานงานด้านสุขภาพของประชาชนในอำเภอสอง จังหวัดแพร่";
+
+const [identity, news, announcements, healthContent, areas, activities, { contact }] =
+	await Promise.all([
+		getSiteIdentity(Astro.url),
+		latestNews(),
+		currentAnnouncements(3, new Date()),
+		latestHealthContent(4),
+		discoveryAreas(),
+		latestActivities(3),
+		readOfficeContact(),
+	]);
+const newsCategory = news && termsOf(news.data, "news_category")[0];
+const telephoneLink = contact.telephone && telephoneHref(contact.telephone);
+const hasMap = mapHref(contact.latitude, contact.longitude) !== undefined;
+const hasContact = !!contact.address || hasMap || !!contact.telephone || !!contact.openingHours;
+
+/** The Health Service Discovery fields' box: 44 px high, with a 3:1 boundary, as FilterForm's. */
+const control =
+	"min-h-11 w-full min-w-0 rounded-14 border border-border-input bg-surface-base px-3 text-body";
 ---
 
-<SiteLayout section="home">
+<SiteLayout section="home" description={OFFICE_SUMMARY} canonical="/">
 	<meta slot="head" name="songhealth-foundation" content="public-runtime" />
+
+	<div class="page-container pt-6 pb-10 lg:pt-8 lg:pb-16">
+		<div class="flex flex-col gap-3 rounded-32 bg-brand-dark px-6 py-8 text-surface-base sm:px-10 lg:px-14 lg:py-12">
+			<h1 class="text-h3 wrap-anywhere sm:text-h2 lg:text-h1">{identity.title}</h1>
+			{identity.tagline && <p class="text-body-large wrap-anywhere">{identity.tagline}</p>}
+		</div>
+	</div>
+
+	<section aria-labelledby="home-search" class="page-container flex flex-col gap-4 pb-16">
+		<h2 id="home-search" class="text-h3 text-text-primary">
+			คุณกำลังมองหาอะไร?
+		</h2>
+		<SearchForm />
+	</section>
+
+	{(news || announcements.length > 0) && (
+		<section aria-labelledby="home-news" class="py-16 lg:py-20">
+			<div class="page-container flex flex-col gap-7">
+				<SectionHeading
+					id="home-news"
+					eyebrow="ข่าวสาร"
+					title="เรื่องใหม่จากเครือข่ายสุขภาพอำเภอสอง"
+					lead="ข่าวประชาสัมพันธ์และประกาศที่ประชาชนควรรู้"
+				/>
+				<div
+					class:list={[
+						"grid gap-6",
+						news && announcements.length > 0 && "lg:grid-cols-[minmax(0,1fr)_26rem]",
+					]}
+				>
+					{news && (
+						<article class="focus-ring-on-dark flex flex-col gap-4 rounded-24 bg-brand-primary px-6 py-7 text-surface-base lg:px-7.5">
+							{newsCategory && <p class="text-label wrap-anywhere">{newsCategory.label}</p>}
+							<h3 class="text-h3 wrap-anywhere lg:text-h1">{news.data.title}</h3>
+							{news.data.summary && <p class="line-clamp-4 text-body-large">{news.data.summary}</p>}
+							<ArrowLink href={newsPath(news.id)} context={news.data.title} onDark class="mt-auto">
+								อ่านข่าว
+							</ArrowLink>
+						</article>
+					)}
+					{announcements.length > 0 && (
+						<div class="flex flex-col rounded-24 border border-border-default bg-surface-base">
+							<div class="flex flex-col gap-1 px-6 pt-6 pb-5">
+								<h3 id="home-announcements" class="text-h3 text-text-primary">
+									ประกาศ
+								</h3>
+								<p class="text-small text-text-secondary">
+									ข้อมูลที่อาจมีวันสิ้นสุดหรือการดำเนินการ
+								</p>
+							</div>
+							<ul aria-labelledby="home-announcements">
+								{announcements.map((announcement) => (
+									<li class="flex flex-col gap-1.5 border-t border-divider px-6 py-4.5">
+										<p class="wrap-anywhere">{announcement.data.title}</p>
+										<ArrowLink
+											href={announcementPath(announcement.id)}
+											context={announcement.data.title}
+										>
+											ดูรายละเอียด
+										</ArrowLink>
+									</li>
+								))}
+							</ul>
+						</div>
+					)}
+				</div>
+			</div>
+		</section>
+	)}
+
+	{healthContent.length > 0 && (
+		<section aria-labelledby="home-health" class="bg-surface-base py-16 lg:py-20">
+			<div class="page-container flex flex-col gap-7">
+				<SectionHeading
+					id="home-health"
+					eyebrow="สุขภาพใกล้ตัว"
+					title="ความรู้ที่ใช้ได้ในชีวิตประจำวัน"
+					lead="เนื้อหาสุขภาพที่คัดสรรและทบทวนเพื่อคนในพื้นที่"
+				/>
+				<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+					{healthContent.map((item, index) => {
+						const topic = termsOf(item.data, "topic")[0];
+						return (
+							<li>
+								<article
+									class:list={[
+										"flex h-full flex-col gap-3 rounded-22 px-6 pt-6.5 pb-6",
+										index % 2 === 0 ? "bg-topic-green" : "bg-topic-blue",
+									]}
+								>
+									{topic && (
+										<p class="text-label wrap-anywhere text-brand-primary">{topic.label}</p>
+									)}
+									<h3 class="text-h3 wrap-anywhere text-text-primary">{item.data.title}</h3>
+									{item.data.summary && (
+										<p class="line-clamp-3 text-text-secondary-on-soft">{item.data.summary}</p>
+									)}
+									<ArrowLink
+										href={healthContentPath(item.id)}
+										context={item.data.title}
+										class="mt-auto"
+									>
+										อ่านเพิ่มเติม
+									</ArrowLink>
+								</article>
+							</li>
+						);
+					})}
+				</ul>
+			</div>
+		</section>
+	)}
+
+	{areas && (
+		<section aria-labelledby="home-discovery" class="bg-brand-dark py-16 lg:py-20">
+			<div class="page-container flex flex-col gap-7">
+				<SectionHeading
+					dark
+					id="home-discovery"
+					eyebrow={DIRECTORY_TITLE}
+					title="ค้นหาหน่วยบริการสุขภาพในอำเภอสอง"
+					lead="ค้นหาตามตำบลหรือชื่อหน่วยบริการ พร้อมข้อมูลติดต่อ เวลาเปิดบริการ และแผนที่"
+				/>
+				<form
+					method="get"
+					action={directoryPath()}
+					aria-label="ค้นหาหน่วยบริการ"
+					class="flex max-w-225 flex-col gap-4 rounded-18 bg-surface-base p-4 sm:flex-row sm:items-end sm:p-2.5 sm:pl-5.5"
+				>
+					<div class="flex min-w-0 flex-1 flex-col gap-1.5">
+						<label class="text-label" for="discovery-area">
+							พื้นที่รับผิดชอบ
+						</label>
+						<select id="discovery-area" name={FILTER_PARAMS.area} class={control}>
+							<option value="">ทุกพื้นที่</option>
+							{areas.map((area) => (
+								<option value={area.slug}>{area.label}</option>
+							))}
+						</select>
+					</div>
+					<div class="flex min-w-0 flex-1 flex-col gap-1.5">
+						<label class="text-label" for="discovery-name">
+							ชื่อหน่วยบริการ
+						</label>
+						<input id="discovery-name" name={FILTER_PARAMS.name} type="search" class={control} />
+					</div>
+					<button
+						type="submit"
+						class="inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center rounded-pill bg-brand-primary px-5 text-label text-surface-base hover:bg-brand-dark"
+					>
+						ค้นหาหน่วยบริการ
+					</button>
+				</form>
+			</div>
+		</section>
+	)}
+
+	{activities.length > 0 && (
+		<section aria-labelledby="home-activities" class="py-16 lg:py-20">
+			<div class="page-container flex flex-col gap-7">
+				<SectionHeading
+					id="home-activities"
+					eyebrow="กิจกรรมของเรา"
+					title="สุขภาพเกิดขึ้นในชุมชน"
+					lead="การประชุม ลงพื้นที่ จิตอาสา และกิจกรรมร่วมกับเครือข่าย"
+				/>
+				<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+					{activities.map((activity) => (
+						<li>
+							<ActivityCard activity={activity} />
+						</li>
+					))}
+				</ul>
+				<ArrowLink href={ACTIVITIES_PATH}>ดูกิจกรรมทั้งหมด</ArrowLink>
+			</div>
+		</section>
+	)}
+
+	<section aria-labelledby="home-contact" class="bg-surface-soft py-16">
+		<div class="page-container grid items-center gap-8 lg:grid-cols-[35rem_minmax(0,1fr)] lg:gap-12">
+			<div class="flex flex-col gap-3.5">
+				<h2 id="home-contact" class="text-h3 wrap-anywhere text-brand-dark lg:text-h2">
+					{identity.title}
+				</h2>
+				<p class="text-body-large text-text-secondary-on-soft">{OFFICE_SUMMARY}</p>
+				{hasContact && (
+					<dl class="flex flex-col gap-3">
+						{(contact.address || hasMap) && (
+							<DetailItem soft term="ที่ตั้ง">
+								<div class="flex flex-col items-start gap-2">
+									{contact.address && <p class="whitespace-pre-line">{contact.address}</p>}
+									<MapLink latitude={contact.latitude} longitude={contact.longitude} />
+								</div>
+							</DetailItem>
+						)}
+						{contact.telephone && (
+							<DetailItem soft term="โทรศัพท์">
+								{telephoneLink ? (
+									<a
+										class="inline-flex min-h-11 items-center text-brand-primary underline underline-offset-4"
+										href={telephoneLink}
+									>
+										{contact.telephone}
+									</a>
+								) : (
+									contact.telephone
+								)}
+							</DetailItem>
+						)}
+						{contact.openingHours && (
+							<DetailItem soft term="เวลาทำการ">
+								<p class="whitespace-pre-line">{contact.openingHours}</p>
+							</DetailItem>
+						)}
+					</dl>
+				)}
+				<ArrowLink href="/contact">ดูข้อมูลติดต่อทั้งหมด</ArrowLink>
+			</div>
+			<div
+				aria-hidden="true"
+				class="flex h-40 items-center justify-center gap-3 rounded-24 bg-linear-to-r from-contact-visual-from to-contact-visual-to px-6 text-center text-label text-brand-dark lg:h-57.5"
+			>
+				<span class="size-10.5 shrink-0 rounded-pill bg-surface-base"></span>
+				แผนที่สำนักงานและพื้นที่อำเภอสอง
+			</div>
+		</div>
+	</section>
 </SiteLayout>

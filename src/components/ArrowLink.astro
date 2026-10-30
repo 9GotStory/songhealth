@@ -1,0 +1,32 @@
+---
+// A text link to another page on this site, ending in the "→" mark (Feature 003 #64;
+// docs/design/homepage-concept-v1.md "Shared patterns": Label in brand-primary, ending in "→"),
+// such as ดูกิจกรรมทั้งหมด. The mark is decorative. A label that does not say by itself where the
+// link goes, such as อ่านข่าว under a News item's title, takes that title as `context`: assistive
+// technology reads it after the label, and it stays out of sight (WCAG 2.2 SC 2.4.4), so the name
+// still begins with the label a citizen sees (SC 2.5.3).
+interface Props {
+	href: string;
+	/** Read after the label by assistive technology only, such as the title of the item it opens. */
+	context?: string;
+	/** Surface-base text, on a brand-primary or brand-dark surface. */
+	onDark?: boolean;
+	/** Where the link sits in its parent, such as `mt-auto`. */
+	class?: string;
+}
+
+const { href, context, onDark = false, class: className } = Astro.props;
+---
+
+<a
+	class:list={[
+		"inline-flex min-h-11 items-center gap-1.5 self-start text-label underline-offset-4 hover:underline",
+		onDark ? "text-surface-base" : "text-brand-primary",
+		className,
+	]}
+	href={href}
+>
+	<slot />
+	{context && <span class="sr-only">{context}</span>}
+	<span aria-hidden="true">→</span>
+</a>
