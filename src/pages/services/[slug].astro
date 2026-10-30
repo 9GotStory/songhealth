@@ -1,0 +1,199 @@
+---
+// A Service page, /services/{slug} (Feature 003 #58; spec #51 "Public reads" (Services) and
+// "Errors, redirects, preview and SEO", `00` §8.1, `03` §7 and §14).
+//
+// The page says in plain Thai who actually provides the Service (src/lib/service-catalog.ts
+// OWNERSHIP_LABELS), with the provider staff name and its Service Category. Its external link is
+// marked as leaving the site (ContentLink.astro). The guidance follows in a fixed order, each kind
+// only when it holds something: channels, eligibility, steps, documents to prepare, contact and
+// location, duration, fees and notes.
+//
+// The related Documents follow in the order staff attached them, and the Health Services that
+// offer the Service by name, because the child side of that relation has no order (emdash 1.1.0
+// src/database/repositories/relation.ts getParentsPageById reads it in link order). EmDash
+// resolves a reference target only while it is published, or a draft in preview, so a draft,
+// unpublished or trashed one is left out (src/references/resolve.ts). A first page holds at most
+// 100 targets (src/references/staged.ts), far more than a Service links. The targets come without
+// their taxonomy terms, so their rows are read again with them (documentsById,
+// healthServicesById).
+//
+// getEmDashEntry returns the published entry, or the draft when the request carries a valid
+// signed preview token for it (src/query.ts resolveEmDashEntry). Anything else answers with the
+// site 404 page, which EmDash records in its 404 log. A slug that changed is redirected by
+// EmDash's middleware before this page runs.
+import { getEmDashEntry, isSafeHref } from "emdash";
+import ContentLink from "../../components/ContentLink.astro";
+import DetailItem from "../../components/DetailItem.astro";
+import DetailSection from "../../components/DetailSection.astro";
+import HealthServiceRow from "../../components/HealthServiceRow.astro";
+import RelatedDocuments from "../../components/RelatedDocuments.astro";
+import RichText from "../../components/RichText.astro";
+import TermLinks from "../../components/TermLinks.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { documentsById } from "../../lib/documents";
+import { healthServicesById } from "../../lib/health-services";
+import { isExternalHref } from "../../lib/links";
+import { targetIds } from "../../lib/references";
+import {
+	OWNERSHIP_LABELS,
+	hasGuidance,
+	servicePath,
+	servicesPath,
+} from "../../lib/service-catalog";
+import type { ServiceData } from "../../lib/services";
+import { termsOf } from "../../lib/terms";
+
+/** The most targets of each reference field one read returns. */
+const REFERENCES_LIMIT = 100;
+
+const slug = Astro.params.slug ?? "";
+const { entry, isPreview, error } = await getEmDashEntry<
+	"services",
+	ServiceData,
+	{ documents: { limit: number }; offering_facilities: { limit: number } }
+>("services", slug, {
+	references: {
+		documents: { limit: REFERENCES_LIMIT },
+		offering_facilities: { limit: REFERENCES_LIMIT },
+	},
+});
+if (error) throw error;
+if (!entry) return Astro.rewrite("/404");
+
+const service = entry.data;
+const [documents, healthServices] = await Promise.all([
+	documentsById(targetIds(entry.references?.documents.entries)),
+	healthServicesById(targetIds(entry.references?.offering_facilities.entries)),
+]);
+
+const ownership = service.ownership_type ? OWNERSHIP_LABELS[service.ownership_type] : undefined;
+const provider = service.provider_text?.trim();
+const categories = termsOf(service, "service_category");
+const hasDetails = !!ownership || !!provider || categories.length > 0;
+
+const externalUrl =
+	service.external_url && isSafeHref(service.external_url) ? service.external_url : undefined;
+const externalHost =
+	externalUrl && isExternalHref(externalUrl, Astro.url.origin)
+		? new URL(externalUrl).host
+		: undefined;
+
+const channels = (service.channels ?? []).flatMap((channel) => {
+	const label = channel.label?.trim();
+	const url = channel.url?.trim();
+	return label || url ? [{ text: label || url!, url }] : [];
+});
+const richGuidance = [
+	{ id: "service-eligibility", heading: "คุณสมบัติและเงื่อนไข", value: service.eligibility },
+	{ id: "service-steps", heading: "ขั้นตอนการรับบริการ", value: service.steps },
+	{
+		id: "service-required-documents",
+		heading: "เอกสารที่ต้องเตรียม",
+		value: service.required_documents_guidance,
+	},
+	{
+		id: "service-contact",
+		heading: "สถานที่และช่องทางติดต่อ",
+		value: service.contact_location_guidance,
+	},
+].flatMap(({ value, ...section }) => (value && hasGuidance(value) ? [{ ...section, value }] : []));
+const textGuidance = [
+	{ id: "service-duration", heading: "ระยะเวลาดำเนินการ", value: service.duration },
+	{ id: "service-fees", heading: "ค่าธรรมเนียม", value: service.fees },
+	{ id: "service-notes", heading: "หมายเหตุ", value: service.notes },
+].flatMap(({ value, ...section }) => (value?.trim() ? [{ ...section, value }] : []));
+
+const linkClass =
+	"inline-flex min-h-11 items-center gap-1 text-brand-primary underline underline-offset-4";
+---
+
+<SiteLayout
+	title={service.seo?.title || service.title}
+	section="services"
+	description={service.summary ?? undefined}
+	canonical={servicePath(entry.id)}
+	breadcrumbs={[
+		{ label: "หน้าแรก", href: "/" },
+		{ label: "บริการประชาชน", href: servicesPath() },
+		{ label: service.title },
+	]}
+	entry={{
+		collection: "services",
+		id: service.id,
+		slug: entry.id,
+		publishedAt: service.publishedAt,
+	}}
+	noindex={isPreview}
+>
+	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<header class="flex max-w-3xl flex-col gap-3">
+			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">{service.title}</h1>
+			{service.summary && <p class="text-body-large text-text-secondary">{service.summary}</p>}
+		</header>
+		{hasDetails && (
+			<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
+				{ownership && <DetailItem term="ผู้ให้บริการ">{ownership}</DetailItem>}
+				{provider && <DetailItem term="หน่วยงานผู้ให้บริการ">{provider}</DetailItem>}
+				{categories.length > 0 && (
+					<DetailItem term="หมวดบริการ">
+						<TermLinks terms={categories} href={(category) => servicesPath({ category })} />
+					</DetailItem>
+				)}
+			</dl>
+		)}
+		{externalUrl && (
+			<div class="flex max-w-3xl flex-col items-start gap-2">
+				<ContentLink
+					href={externalUrl}
+					class="inline-flex min-h-11 flex-wrap items-center gap-x-2 rounded-pill bg-brand-primary px-6 py-2 text-label text-surface-base hover:bg-brand-dark"
+				>
+					ไปยังเว็บไซต์ของบริการ
+				</ContentLink>
+				{externalHost && (
+					<p class="text-small wrap-anywhere text-text-secondary">
+						ลิงก์นี้พาออกจากเว็บไซต์ของสำนักงานไปยัง {externalHost}
+					</p>
+				)}
+			</div>
+		)}
+		{channels.length > 0 && (
+			<DetailSection id="service-channels" heading="ช่องทางรับบริการ">
+				<ul class="flex list-disc flex-col gap-1 pl-6">
+					{channels.map((channel) => (
+						<li class="wrap-anywhere">
+							{channel.url ? (
+								<ContentLink href={channel.url} class={linkClass}>
+									{channel.text}
+								</ContentLink>
+							) : (
+								channel.text
+							)}
+						</li>
+					))}
+				</ul>
+			</DetailSection>
+		)}
+		{richGuidance.map((section) => (
+			<DetailSection id={section.id} heading={section.heading}>
+				<RichText value={section.value} />
+			</DetailSection>
+		))}
+		{textGuidance.map((section) => (
+			<DetailSection id={section.id} heading={section.heading}>
+				<p class="wrap-anywhere whitespace-pre-line">{section.value}</p>
+			</DetailSection>
+		))}
+		<RelatedDocuments documents={documents} />
+		{healthServices.length > 0 && (
+			<DetailSection id="service-health-services" heading="หน่วยบริการสุขภาพที่ให้บริการนี้">
+				<ul class="flex flex-col gap-4">
+					{healthServices.map((healthService) => (
+						<li>
+							<HealthServiceRow healthService={healthService} headingLevel={3} />
+						</li>
+					))}
+				</ul>
+			</DetailSection>
+		)}
+	</article>
+</SiteLayout>

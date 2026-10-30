@@ -28,6 +28,7 @@ import {
 	cleanupOwnedFixtures,
 	cmsRequest,
 	createPatActor,
+	createSyntheticDocument,
 	createSyntheticEntry,
 	createOwnedTerm,
 	deleteSyntheticTerms,
@@ -123,21 +124,8 @@ async function createAnnouncement(
 }
 
 /** A synthetic Document draft with `file`, and the terms given. */
-async function createDocument(
-	label: string,
-	file: SyntheticPdf,
-	taxonomies?: Record<string, string[]>,
-): Promise<Fixture> {
-	const slug = syntheticSlug(label);
-	const title = `${SYNTHETIC_FIXTURE_MARK} เอกสาร ${label} ${slug.slice(-6)}`;
-	const created = await createSyntheticEntry(admin, "documents", {
-		data: { title, file: file.value },
-		slug,
-		...(taxonomies ? { taxonomies } : {}),
-	});
-	expect(created.result.ok, `document ${label}: ${nativeRefusalOf(created.result)}`).toBe(true);
-	return { id: created.entryId!, slug, title };
-}
+const createDocument = (label: string, file: SyntheticPdf, taxonomies?: Record<string, string[]>) =>
+	createSyntheticDocument(admin, label, { file, taxonomies });
 
 /** Publish an entry of `collection` now, or backdated. Returns the stored publication instant. */
 function publish(

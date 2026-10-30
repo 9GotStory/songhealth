@@ -16,13 +16,15 @@
 // EmDash's middleware before this page runs.
 import { getEmDashEntry } from "emdash";
 import DetailItem from "../../components/DetailItem.astro";
+import DetailSection from "../../components/DetailSection.astro";
 import HealthServiceStatus from "../../components/HealthServiceStatus.astro";
 import MapLink from "../../components/MapLink.astro";
+import TermLinks from "../../components/TermLinks.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { directoryPath, healthServicePath, shownName } from "../../lib/health-service-directory";
 import type { HealthServiceData } from "../../lib/health-services";
 import { mapHref } from "../../lib/map-link";
-import { servicePath } from "../../lib/services";
+import { servicePath } from "../../lib/service-catalog";
 import { termsOf } from "../../lib/terms";
 
 const slug = Astro.params.slug ?? "";
@@ -116,27 +118,13 @@ const hasDetails =
 				)}
 				{areas.length > 0 && (
 					<DetailItem term="พื้นที่รับผิดชอบ">
-						<ul class="flex flex-wrap gap-x-4 gap-y-1">
-							{areas.map((area) => (
-								<li>
-									<a
-										class="inline-flex min-h-11 items-center text-brand-primary underline underline-offset-4"
-										href={directoryPath({ area: area.slug })}
-									>
-										{area.label}
-									</a>
-								</li>
-							))}
-						</ul>
+						<TermLinks terms={areas} href={(area) => directoryPath({ area })} />
 					</DetailItem>
 				)}
 			</dl>
 		)}
 		{services.length > 0 && (
-			<section aria-labelledby="offered-services" class="flex max-w-3xl flex-col gap-3">
-				<h2 id="offered-services" class="text-h3 text-brand-dark">
-					บริการที่ให้
-				</h2>
+			<DetailSection id="offered-services" heading="บริการที่ให้">
 				<ul class="flex flex-col gap-2">
 					{services.map((service) => (
 						<li>
@@ -149,7 +137,7 @@ const hasDetails =
 						</li>
 					))}
 				</ul>
-			</section>
+			</DetailSection>
 		)}
 	</article>
 </SiteLayout>

@@ -1,0 +1,99 @@
+---
+// The Service catalog, /services (Feature 003 #58; spec #51 "Public reads" (Services), `03` §7):
+// published Services by name, a fixed number per page with the page number in the query string.
+// `?category=` narrows it to the Services tagged with exactly that Service Category term
+// (src/lib/services.ts). The filter offers every Service Category term, as the Document
+// repository offers every Document Type.
+//
+// Finding a Health Service and the guides and forms belong with the citizen services but are not
+// Services (`00` §8.2, `03` §7), so the heading links to the Health Service Directory and the
+// Document repository instead. The canonical address keeps the filter when it is set and a valid
+// page number, so each view stays its own address.
+import EmptyState from "../../components/EmptyState.astro";
+import FilterForm from "../../components/FilterForm.astro";
+import PageHeading from "../../components/PageHeading.astro";
+import Pagination from "../../components/Pagination.astro";
+import ServiceCard from "../../components/ServiceCard.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { directoryPath } from "../../lib/health-service-directory";
+import { documentsPath } from "../../lib/documents";
+import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
+import { CATEGORY_PARAM, parseServiceFilters, servicesPath } from "../../lib/service-catalog";
+import { listServices } from "../../lib/services";
+import { listTerms } from "../../lib/terms";
+
+const title = "บริการประชาชน";
+const lead =
+	"บริการที่สำนักงานสาธารณสุขอำเภอสองให้บริการเอง ประสานให้ หรือแนะนำช่องทาง พร้อมผู้ให้บริการ ช่องทาง ขั้นตอน และเอกสารที่ต้องเตรียมก่อนไปรับบริการ";
+const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
+const filters = parseServiceFilters(Astro.url.searchParams);
+const [{ entries, hasMore }, categories] = await Promise.all([
+	listServices(page, filters),
+	listTerms("service_category"),
+]);
+const listUrl = new URL(servicesPath(filters), Astro.url);
+const relatedLinks = [
+	{ href: directoryPath(), label: "ค้นหาหน่วยบริการสุขภาพที่เกี่ยวข้อง" },
+	{ href: documentsPath(), label: "คู่มือและแบบฟอร์ม" },
+];
+---
+
+<SiteLayout
+	title={title}
+	section="services"
+	description={lead}
+	canonical={pageHref(listUrl, page)}
+	breadcrumbs={[{ label: "หน้าแรก", href: "/" }, { label: title }]}
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading title={title} lead={lead}>
+			<ul class="flex flex-wrap gap-x-6 gap-y-1">
+				{relatedLinks.map((link) => (
+					<li>
+						<a
+							class="inline-flex min-h-11 items-center text-label text-brand-primary underline underline-offset-4"
+							href={link.href}
+						>
+							{link.label}
+						</a>
+					</li>
+				))}
+			</ul>
+		</PageHeading>
+		<FilterForm
+			label="กรองบริการ"
+			action={servicesPath()}
+			fields={[
+				{
+					name: CATEGORY_PARAM,
+					label: "หมวดบริการ",
+					anyLabel: "ทุกหมวด",
+					value: filters.category,
+					options: categories.map((term) => ({ value: term.slug, label: term.label })),
+				},
+			]}
+		/>
+		{entries.length > 0 ? (
+			<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+				{entries.map((service) => (
+					<li>
+						<ServiceCard service={service} />
+					</li>
+				))}
+			</ul>
+		) : page > 1 ? (
+			<EmptyState
+				message="ไม่พบบริการในหน้านี้"
+				action={{ href: pageHref(listUrl, 1), label: "กลับไปหน้าแรกของรายการ" }}
+			/>
+		) : filters.category ? (
+			<EmptyState
+				message="ไม่พบบริการในหมวดที่เลือก"
+				action={{ href: servicesPath(), label: "ดูบริการทั้งหมด" }}
+			/>
+		) : (
+			<EmptyState message="ยังไม่มีข้อมูลบริการ" />
+		)}
+		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
+	</div>
+</SiteLayout>

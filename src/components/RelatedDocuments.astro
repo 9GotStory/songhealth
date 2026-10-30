@@ -1,0 +1,26 @@
+---
+// The Documents a page links to (Feature 003 #56, #58; spec #51 "Public reads"): a "เอกสารที่เกี่ยวข้อง"
+// section of Document rows, each titled one level below the section's H2, shown only when there is
+// one. Announcement and Service pages show it.
+import type { DocumentEntry } from "../lib/documents";
+import DetailSection from "./DetailSection.astro";
+import DocumentRow from "./DocumentRow.astro";
+
+interface Props {
+	documents: DocumentEntry[];
+}
+
+const { documents } = Astro.props;
+---
+
+{documents.length > 0 && (
+	<DetailSection id="related-documents" heading="เอกสารที่เกี่ยวข้อง">
+		<ul class="flex flex-col gap-4">
+			{documents.map((document) => (
+				<li>
+					<DocumentRow document={document} headingLevel={3} />
+				</li>
+			))}
+		</ul>
+	</DetailSection>
+)}

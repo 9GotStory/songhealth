@@ -2,7 +2,9 @@
 // A Health Service in the directory (Feature 003 #57; spec #51 "Shared building blocks", the
 // Health Service summary): its type and Area, its shown name linking to its own page, its official
 // name when the display name differs, its address, and a status that should stop a citizen from
-// travelling there (temporarily closed or inactive).
+// travelling there (temporarily closed or inactive). Its name is a heading one level below the
+// list's own: H2 in the directory, H3 under a Service page's heading for the Health Services that
+// offer it.
 import { healthServicePath, isOutOfService, shownName } from "../lib/health-service-directory";
 import type { HealthServiceEntry } from "../lib/health-services";
 import { termsOf } from "../lib/terms";
@@ -10,9 +12,11 @@ import HealthServiceStatus from "./HealthServiceStatus.astro";
 
 interface Props {
 	healthService: HealthServiceEntry;
+	headingLevel?: 2 | 3;
 }
 
-const { healthService } = Astro.props;
+const { healthService, headingLevel = 2 } = Astro.props;
+const Heading = headingLevel === 3 ? "h3" : "h2";
 const data = healthService.data;
 const name = shownName(data);
 const types = termsOf(data, "facility_type");
@@ -32,14 +36,14 @@ const status = isOutOfService(data.operational_status) ? data.operational_status
 			)}
 		</p>
 	)}
-	<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
+	<Heading class="text-body-large font-semibold wrap-anywhere text-brand-dark">
 		<a
 			class="underline-offset-4 hover:text-brand-primary hover:underline"
 			href={healthServicePath(healthService.id)}
 		>
 			{name}
 		</a>
-	</h2>
+	</Heading>
 	{name !== data.title && <p class="text-small wrap-anywhere text-text-secondary">{data.title}</p>}
 	{data.address && (
 		<p class="line-clamp-2 wrap-anywhere whitespace-pre-line text-text-secondary">{data.address}</p>

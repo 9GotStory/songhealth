@@ -66,3 +66,20 @@ export async function listHealthServices(
 		areas: areasInUse(entries),
 	};
 }
+
+/**
+ * The published Health Services with these database ids, by name. A Service page reads the Health
+ * Services that offer it through this, because EmDash loads reference targets without their
+ * taxonomy terms (emdash 1.1.0 src/loader.ts loadEntriesByGroups), and a Health Service row shows
+ * its type and Area. A `where` on the `id` column selects them (src/loader.ts
+ * buildFieldConditions), published only like every list read, with their terms hydrated.
+ */
+export async function healthServicesById(ids: string[]): Promise<HealthServiceEntry[]> {
+	if (ids.length === 0) return [];
+	const { entries, error } = await getEmDashCollection<"health_services", HealthServiceData>(
+		"health_services",
+		{ where: { id: ids } },
+	);
+	if (error) throw error;
+	return byName(entries);
+}

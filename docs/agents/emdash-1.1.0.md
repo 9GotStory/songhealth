@@ -25,6 +25,11 @@ checks that every cited file exists. When the pinned version changes, re-verify 
 - `orderBy` is a plain `field DESC|ASC`, with `id` as the tiebreaker. On PostgreSQL, DESC puts
   NULLs first (`buildOrderByClause`). An optional date therefore cannot sort with a publish-date
   fallback inside the query; `./src/lib/dated-lists.ts` sorts in code instead (ADR 0004).
+- `orderBy` on a text field sorts in SQL (`buildOrderByClause`), so by the database collation.
+  The postgres 18.6 image that `./deploy/quadlet/songhealth-db.container` pins initialises it from
+  the image's `LANG`, en_US.utf8 (glibc). On the development database (2026-10-30) it ordered
+  กา, ไก่, ขา, เขียว, คน, โต๊ะ, แมว as `Intl.Collator("th")` does, leading vowels included, and
+  `./tests/browser/public-services.spec.ts` checks a leading vowel in the Service catalog's order.
 - Without a `limit`, `getEmDashCollection` returns every matching entry: the query has no `LIMIT`
   (`src/loader.ts`, `fetchLimit`).
 - A `number` field is a `REAL` column (`src/schema/types.ts` `FIELD_TYPE_TO_COLUMN`), which is
@@ -40,6 +45,13 @@ checks that every cited file exists. When the pinned version changes, re-verify 
   order staff linked them (`src/references/staged.ts` `REFERENCE_PAGE_LIMIT`,
   `src/references/resolve.ts`). Referenced entries come without taxonomy terms or bylines
   (`src/loader.ts` `loadEntriesByGroups`).
+- A field on the child side of a relation, such as a Service's `offering_facilities`, reads its
+  targets in the order the links were created, not an order staff set
+  (`src/database/repositories/relation.ts` `getParentsPageById`). Saving either side's field writes
+  the same links (`src/api/handlers/relations.ts` `writeReferenceSelection`).
+- A `url` field accepts only http, https, mailto, tel or a site-relative path
+  (`src/schema/zod-generator.ts`, `src/utils/url.ts` `isSafeUrlFieldValue`). `isSafeHref`, exported
+  from `emdash`, is the same check for rendering an href.
 - `extractPlainText`, exported from `emdash`, turns Portable Text into plain text
   (`src/search/text-extraction.ts`). It needs no search index, so it works on PostgreSQL.
 - `Astro.rewrite("/404")` answers 404, and EmDash logs the miss (`src/astro/middleware/redirect.ts`).
