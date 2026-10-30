@@ -1,12 +1,17 @@
 // The search's rules (Feature 003 #63; spec #51 "Search", ADR 0002, `08`).
 //
-// The search reads the published entries of the searchable collections when a search is made
-// (src/lib/search.ts). This module holds what it does with their text: normalising, parsing the
-// query, matching, ranking and building snippets. It has no import, so node:test checks it
-// directly.
+// src/lib/search.ts reads the published entries of the searchable collections when a search is
+// made. This module holds the rules for what a search asks and what it finds: reading the request,
+// normalising text, matching, ranking, grouping and building snippets. It imports only
+// src/lib/pagination.ts, which has no import, so node:test checks it directly.
+
+import { PAGE_PARAM, parsePageNumber } from "./pagination.ts";
 
 /** The query parameter that carries the query. */
 export const QUERY_PARAM = "q";
+
+/** The query parameter that narrows the results to one group. */
+export const GROUP_PARAM = "group";
 
 /** The fewest characters a query has after normalisation. */
 const MIN_QUERY_LENGTH = 2;
@@ -14,17 +19,74 @@ const MIN_QUERY_LENGTH = 2;
 /** The most characters of a query the search reads. */
 export const MAX_QUERY_LENGTH = 100;
 
+/** The most characters of text a snippet shows, as many as a page's meta description. */
+export const SNIPPET_LENGTH = 160;
+
+/** About how many characters of text a cut snippet keeps before the first match. */
+const SNIPPET_LEAD = 40;
+
+/** The fixed number of results a page shows, as many as a Document list (src/lib/documents.ts). */
+export const SEARCH_PAGE_SIZE = 20;
+
+/**
+ * The kinds of content the search finds, one per searchable collection, each as citizens read it:
+ * the GLOSSARY's Thai names, except two that are pending the Product Owner (#63). A Health Service
+ * is shortened from หน่วยบริการสุขภาพที่เกี่ยวข้อง, and a Basic Page (หน้าเนื้อหาพื้นฐาน) reads as หน้าข้อมูล.
+ */
+export const KIND_LABELS = {
+	news: "ข่าว",
+	activity: "กิจกรรม",
+	announcement: "ประกาศ",
+	service: "บริการประชาชน",
+	health_service: "หน่วยบริการสุขภาพ",
+	health_content: "ความรู้สุขภาพ",
+	health_report: "รายงานสุขภาพ",
+	document: "เอกสารเผยแพร่",
+	page: "หน้าข้อมูล",
+} as const;
+
+export type SearchKind = keyof typeof KIND_LABELS;
+
+/**
+ * The result groups (`08` §7, spec #51 "Search"), in the order the page offers them, each by its
+ * `group` query value and the kinds it holds; ทุกประเภท holds every kind. A group is a filter, not a
+ * kind of content.
+ */
+export const SEARCH_GROUPS = [
+	{ id: "all", label: "ทุกประเภท", kinds: Object.keys(KIND_LABELS) as SearchKind[] },
+	{ id: "news", label: "ข่าวสาร", kinds: ["news", "activity", "announcement"] },
+	{ id: "services", label: "บริการประชาชน", kinds: ["service"] },
+	{ id: "health", label: "ข้อมูลสุขภาพ", kinds: ["health_content", "health_report"] },
+	{ id: "health-services", label: "หน่วยบริการ", kinds: ["health_service"] },
+	{ id: "documents", label: "เอกสาร", kinds: ["document"] },
+	{ id: "about", label: "เกี่ยวกับเรา", kinds: ["page"] },
+] as const satisfies ReadonlyArray<{ id: string; label: string; kinds: readonly SearchKind[] }>;
+
+export type SearchGroup = (typeof SEARCH_GROUPS)[number];
+
+type SearchGroupId = SearchGroup["id"];
+
+/** The group a `group` value asks for; any value that names none is ทุกประเภท. */
+export function parseGroup(raw: string | null): SearchGroup {
+	return SEARCH_GROUPS.find((group) => group.id === raw) ?? SEARCH_GROUPS[0];
+}
+
+/** Whether a group holds the kind. */
+function holds(group: SearchGroup, kind: SearchKind): boolean {
+	return (group.kinds as readonly SearchKind[]).includes(kind);
+}
+
 /** Zero-width space, non-joiner and joiner, and the byte order mark. */
 const ZERO_WIDTH = /[\u200B-\u200D\uFEFF]/g;
 
-/** Text as a snippet shows it: zero-width characters removed, NFC, whitespace collapsed. */
+/** Text as it is shown: zero-width characters removed, NFC, whitespace collapsed and trimmed. */
 function displayText(text: string): string {
 	return text.replace(ZERO_WIDTH, "").normalize("NFC").replace(/\s+/g, " ").trim();
 }
 
 /**
- * Text with each character lower-cased on its own, so the folded text maps back to the text a
- * snippet shows character by character. Thai has no letter case.
+ * Text with each character lower-cased on its own, so the folded text maps back to the shown text
+ * character by character. Thai has no letter case.
  */
 function fold(text: string): string {
 	return Array.from(text, (character) => character.toLowerCase()).join("");
@@ -38,97 +100,54 @@ export function normalizeText(text: string): string {
 	return fold(displayText(text));
 }
 
-/** What a query asks for: nothing, too little, or its terms. */
+/**
+ * What a query asks for, with its text as the search reads it: nothing when the address carries
+ * no query, too little below MIN_QUERY_LENGTH characters (an empty query included), else its
+ * terms.
+ */
 export type ParsedQuery =
-	{ kind: "none" } | { kind: "too-short" } | { kind: "terms"; terms: string[] };
+	| { kind: "none" }
+	| { kind: "too-short"; text: string }
+	| { kind: "terms"; text: string; terms: string[] };
 
 /**
- * The query a `q` value asks for. It is normalised and capped at MAX_QUERY_LENGTH characters, and
- * splits on whitespace into its terms, each kept once. Fewer than MIN_QUERY_LENGTH characters are
- * too short; none at all is no query.
+ * The query a `q` value asks for. Its text is normalised but keeps its letter case, so the page can
+ * show it as typed, and is capped at MAX_QUERY_LENGTH characters. It splits on whitespace into its
+ * terms, normalised and each kept once.
  */
 export function parseQuery(raw: string | null): ParsedQuery {
-	const text = [...normalizeText(raw ?? "")].slice(0, MAX_QUERY_LENGTH).join("").trim();
-	if (text === "") return { kind: "none" };
-	if ([...text].length < MIN_QUERY_LENGTH) return { kind: "too-short" };
-	return { kind: "terms", terms: [...new Set(text.split(" "))] };
+	if (raw === null) return { kind: "none" };
+	const text = [...displayText(raw)].slice(0, MAX_QUERY_LENGTH).join("").trimEnd();
+	if ([...text].length < MIN_QUERY_LENGTH) return { kind: "too-short", text };
+	return { kind: "terms", text, terms: [...new Set(fold(text).split(" "))] };
 }
 
-/** The kinds of content the search finds, one per searchable collection. */
-export type SearchKind =
-	| "news"
-	| "activity"
-	| "announcement"
-	| "service"
-	| "health_service"
-	| "health_content"
-	| "health_report"
-	| "document"
-	| "page";
-
-/** The query parameter that narrows the results to one group. */
-export const GROUP_PARAM = "group";
-
-/** The most characters of text a snippet shows, as many as a page's meta description. */
-export const SNIPPET_LENGTH = 160;
-
-/** About how many characters of text a cut snippet keeps before the first match. */
-const SNIPPET_LEAD = 40;
-
-/** The fixed number of results a page shows, as many as a Document list (src/lib/documents.ts). */
-export const SEARCH_PAGE_SIZE = 20;
+/** What a search asks for: the query, the group and the page. */
+export interface SearchRequest {
+	query: ParsedQuery;
+	group: SearchGroup;
+	page: number;
+}
 
 /**
- * The result groups (`08` §7, spec #51 "Search"), in the order the page offers them, each by its
- * `group` query value and the kinds it holds. A group is a filter, not a kind of content.
+ * The search an address asks for, by `?q=`, `?group=` and `?page=`. A group or page number that is
+ * not one is ignored, so a hand-edited or stale link never fails.
  */
-export const SEARCH_GROUPS = [
-	{
-		id: "all",
-		label: "ทุกประเภท",
-		kinds: [
-			"news",
-			"activity",
-			"announcement",
-			"service",
-			"health_service",
-			"health_content",
-			"health_report",
-			"document",
-			"page",
-		],
-	},
-	{ id: "news", label: "ข่าวสาร", kinds: ["news", "activity", "announcement"] },
-	{ id: "services", label: "บริการประชาชน", kinds: ["service"] },
-	{ id: "health", label: "ข้อมูลสุขภาพ", kinds: ["health_content", "health_report"] },
-	{ id: "health-services", label: "หน่วยบริการ", kinds: ["health_service"] },
-	{ id: "documents", label: "เอกสาร", kinds: ["document"] },
-	{ id: "about", label: "เกี่ยวกับเรา", kinds: ["page"] },
-] as const satisfies ReadonlyArray<{ id: string; label: string; kinds: readonly SearchKind[] }>;
-
-export type SearchGroupId = (typeof SEARCH_GROUPS)[number]["id"];
-
-/** The group a `group` value asks for; any value that names none is ทุกประเภท. */
-export function parseGroup(raw: string | null): SearchGroupId {
-	return SEARCH_GROUPS.find((group) => group.id === raw)?.id ?? "all";
+export function parseSearchRequest(params: URLSearchParams): SearchRequest {
+	return {
+		query: parseQuery(params.get(QUERY_PARAM)),
+		group: parseGroup(params.get(GROUP_PARAM)),
+		page: parsePageNumber(params.get(PAGE_PARAM)),
+	};
 }
 
-/** Whether a group holds the kind. */
-function holds(group: (typeof SEARCH_GROUPS)[number], kind: SearchKind): boolean {
-	return (group.kinds as readonly SearchKind[]).includes(kind);
-}
-
-/** A published entry as the search reads it: its kind, its text by tier, and its date. */
+/** A published entry as the search reads it: its kind, its text by tier, and its list date. */
 export interface Searchable {
 	kind: SearchKind;
-	/** The title tier: the title, and any other name the entry goes by. */
-	title: string[];
-	/** The summary tier. */
-	summary: string[];
-	/** The body tier, as plain text. */
-	body: string[];
-	/** The date the entry is listed by; the newer entry wins a tie. */
-	date?: Date | string | null;
+	/** The entry's text by tier: its title and other names, its summary, its body as plain text. */
+	text: { title: string[]; summary: string[]; body: string[] };
+	/** The date the entry is listed by (ADR 0004); the newer entry wins a tie. */
+	listDate?: Date | string | null;
 }
 
 /** One result: the entry and its snippet. */
@@ -144,9 +163,10 @@ export interface SearchPage<E> {
 	hasMore: boolean;
 }
 
-/** An entry's text by tier, normalised once per search. */
+/** An entry's text by tier, title first, normalised once per search. */
 function tiersOf(entry: Searchable): string[][] {
-	return [entry.title, entry.summary, entry.body].map((texts) => texts.map(normalizeText));
+	const { title, summary, body } = entry.text;
+	return [title, summary, body].map((texts) => texts.map(normalizeText));
 }
 
 /**
@@ -165,7 +185,7 @@ function scoreOf(tiers: string[][], terms: string[]): number[] | undefined {
 }
 
 /** The instant's time in milliseconds, or undefined when it is not set or not a date. */
-function timeOf(value: Searchable["date"]): number | undefined {
+function timeOf(value: Searchable["listDate"]): number | undefined {
 	if (value === null || value === undefined || value === "") return undefined;
 	const time = new Date(value).getTime();
 	return Number.isNaN(time) ? undefined : time;
@@ -206,18 +226,18 @@ interface Span {
 }
 
 /**
- * Where the terms appear in a text as it is shown, each widened to whole characters with their
- * vowel and tone marks, and merged where they overlap or touch, in order.
+ * Where the terms appear in a shown text, each widened to whole characters with their vowel and
+ * tone marks, and merged where they overlap or touch, in order.
  */
 function hitsIn(text: string, terms: string[]): Span[] {
-	// The folded text, and for each of its code units the span of the character it came from.
+	// The folded text, and for each of its code units the span of the shown character it folds.
 	let folded = "";
-	const from: Span[] = [];
+	const sourceOf: Span[] = [];
 	for (let index = 0; index < text.length;) {
 		const character = String.fromCodePoint(text.codePointAt(index)!);
 		const lower = character.toLowerCase();
 		for (let unit = 0; unit < lower.length; unit += 1) {
-			from.push({ start: index, end: index + character.length });
+			sourceOf.push({ start: index, end: index + character.length });
 		}
 		folded += lower;
 		index += character.length;
@@ -226,8 +246,8 @@ function hitsIn(text: string, terms: string[]): Span[] {
 	const spans: Span[] = [];
 	for (const term of terms) {
 		for (let at = folded.indexOf(term); at !== -1; at = folded.indexOf(term, at + 1)) {
-			const start = from[at].start;
-			const end = from[at + term.length - 1].end;
+			const start = sourceOf[at].start;
+			const end = sourceOf[at + term.length - 1].end;
 			spans.push({
 				start: graphemes.findLast((bound) => bound <= start)!,
 				end: graphemes.find((bound) => bound >= end)!,
@@ -246,19 +266,20 @@ function hitsIn(text: string, terms: string[]): Span[] {
 
 /**
  * The part of a text a snippet shows: all of a short text, else up to SNIPPET_LENGTH characters
- * cut between words, starting about SNIPPET_LEAD characters before the first match.
+ * starting about SNIPPET_LEAD characters before the first match. Each cut falls between words
+ * within SNIPPET_LEAD characters before where it aims, else between characters, inside a word too
+ * long for the snippet. The first match always shows whole.
  */
 function windowOf(text: string, first: Span | undefined): Span {
 	if (text.length <= SNIPPET_LENGTH) return { start: 0, end: text.length };
 	const words = boundaries(WORDS, text);
-	const start = words.findLast(
-		(bound) => bound <= Math.max(0, (first?.start ?? 0) - SNIPPET_LEAD),
-	)!;
-	const end = words.findLast((bound) => bound <= start + SNIPPET_LENGTH)!;
-	return {
-		start,
-		end: first && end < first.end ? words.find((bound) => bound >= first.end)! : end,
-	};
+	const graphemes = boundaries(GRAPHEMES, text);
+	const cutBefore = (aim: number, after: number) =>
+		words.findLast((bound) => bound <= aim && bound > Math.max(after, aim - SNIPPET_LEAD)) ??
+		graphemes.findLast((bound) => bound <= aim)!;
+	const start = cutBefore(Math.max(0, (first?.start ?? 0) - SNIPPET_LEAD), -1);
+	const end = cutBefore(start + SNIPPET_LENGTH, start);
+	return { start, end: Math.max(end, first?.end ?? 0) };
 }
 
 const ESCAPES: Record<string, string> = {
@@ -279,7 +300,7 @@ function escapeHtml(text: string): string {
  * A cut is marked with "…".
  */
 function snippetOf(entry: Searchable, tiers: string[][], terms: string[]): string {
-	const texts = [...entry.summary, ...entry.body];
+	const texts = [...entry.text.summary, ...entry.text.body];
 	const normalized = [...tiers[1], ...tiers[2]];
 	const hit = normalized.findIndex((text) => terms.some((term) => text.includes(term)));
 	const source = hit === -1 ? texts.find((text) => displayText(text) !== "") : texts[hit];
@@ -304,7 +325,7 @@ function snippetOf(entry: Searchable, tiers: string[][], terms: string[]): strin
 export function searchPage<E extends Searchable>(
 	entries: readonly E[],
 	terms: string[],
-	group: SearchGroupId,
+	group: SearchGroup,
 	page: number,
 ): SearchPage<E> {
 	const ranked: Ranked<E>[] = [];
@@ -312,7 +333,7 @@ export function searchPage<E extends Searchable>(
 		const tiers = tiersOf(entry);
 		const score = scoreOf(tiers, terms);
 		if (score === undefined) continue;
-		ranked.push({ entry, tiers, score, time: timeOf(entry.date) ?? Number.NEGATIVE_INFINITY });
+		ranked.push({ entry, tiers, score, time: timeOf(entry.listDate) ?? Number.NEGATIVE_INFINITY });
 	}
 	ranked.sort(byRank);
 	const counts = Object.fromEntries(
@@ -321,8 +342,7 @@ export function searchPage<E extends Searchable>(
 			ranked.filter(({ entry }) => holds(each, entry.kind)).length,
 		]),
 	) as Record<SearchGroupId, number>;
-	const chosen = SEARCH_GROUPS.find((each) => each.id === group)!;
-	const inGroup = ranked.filter(({ entry }) => holds(chosen, entry.kind));
+	const inGroup = ranked.filter(({ entry }) => holds(group, entry.kind));
 	const start = (page - 1) * SEARCH_PAGE_SIZE;
 	return {
 		results: inGroup

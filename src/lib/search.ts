@@ -1,16 +1,18 @@
 // Search on the public site (Feature 003 #63; spec #51 "Search", ADR 0002, `08`).
 //
-// EmDash 1.1.0's own search needs SQLite (emdash src/search/fts-manager.ts), so /search reads the
-// published entries of the nine searchable collections through EmDash's query functions when a
-// search is made, and src/lib/search-matcher.ts matches, ranks and builds snippets in code. A
-// collection read without a `limit` returns every published entry, whatever a preview token or
-// the editor's edit mode asks for (src/loader.ts: the status filter defaults to "published",
-// `fetchLimit`). Songhealth configures no object cache, so each search reads the database
-// (src/object-cache/index.ts), and nothing caches the results (spec #51 "Search": no cache).
+// EmDash's own search needs SQLite (emdash 1.1.0 src/search/fts-manager.ts), so a search reads the
+// published entries of the nine searchable collections through EmDash's query functions when it
+// is made, and src/lib/search-matcher.ts matches, ranks and builds the snippets. A collection read
+// without a `limit` returns every published entry, and stays published-only whatever a preview
+// token or the editor's edit mode asks for (emdash 1.1.0 src/loader.ts: the status defaults to
+// "published", `fetchLimit`). Songhealth configures no EmDash object cache, so each search reads
+// the database (emdash 1.1.0 src/object-cache/index.ts), and nothing caches the results (spec #51
+// "Search": no cache).
 //
-// The fields of each tier follow spec #51 "Search" (Searchable collections). Personnel is not
-// searched, because it has no page of its own. A rich-text field is read as plain text through
-// EmDash's `extractPlainText` (src/search/text-extraction.ts), which needs no search index.
+// Each collection's fields by tier follow spec #51 "Search" (Searchable collections). Personnel is
+// not searched, because it has no page of its own. Rich text is read as plain text through
+// EmDash's `extractPlainText` (emdash 1.1.0 src/search/text-extraction.ts), which needs no search
+// index. A result shows the date and status the list of its kind shows.
 
 import { extractPlainText, getEmDashCollection, type ContentEntry } from "emdash";
 import { activityDate, activityPath, type ActivityData } from "./activities";
@@ -18,225 +20,210 @@ import {
 	announcementDate,
 	announcementPath,
 	statusOf,
-	STATUS_LABELS,
 	type AnnouncementData,
+	type AnnouncementStatus,
 } from "./announcements";
 import { basicPagePath, type BasicPageData } from "./basic-pages";
-import type { Instant } from "./dated-lists";
-import { DOMAIN_STATUS_LABELS, documentPath, type DocumentData } from "./documents";
+import { listDate, type Instant } from "./dated-lists";
+import {
+	documentPath,
+	listedDomainStatus,
+	type DocumentData,
+	type DomainStatus,
+} from "./documents";
 import { healthContentPath, type HealthContentData } from "./health-content";
 import { healthReportDate, healthReportPath, type HealthReportData } from "./health-reports";
 import {
 	healthServicePath,
 	isOutOfService,
-	OPERATIONAL_STATUS_LABELS,
 	shownName,
+	type OperationalStatus,
 } from "./health-service-directory";
 import type { HealthServiceData } from "./health-services";
 import { newsPath, type NewsData } from "./news";
 import {
+	parseSearchRequest,
 	searchPage,
-	type SearchGroupId,
 	type Searchable,
-	type SearchKind,
 	type SearchPage,
+	type SearchRequest,
 } from "./search-matcher";
 import { servicePath } from "./service-catalog";
 import type { ServiceData } from "./services";
 
-/** Each kind of result as citizens read it, by the GLOSSARY's Thai names. */
-export const KIND_LABELS: Record<SearchKind, string> = {
-	news: "ข่าว",
-	activity: "กิจกรรม",
-	announcement: "ประกาศ",
-	service: "บริการประชาชน",
-	health_service: "หน่วยบริการสุขภาพ",
-	health_content: "ความรู้สุขภาพ",
-	health_report: "รายงานสุขภาพ",
-	document: "เอกสารเผยแพร่",
-	page: "หน้าข้อมูล",
-};
-
-/** A status a result states in text, and whether it needs attention. */
-interface ResultStatus {
-	label: string;
-	attention: boolean;
-}
+/** The status a result states, by the kind whose status label shows it. */
+type ResultStatus =
+	| { kind: "announcement"; value: AnnouncementStatus }
+	| { kind: "document"; value: DomainStatus }
+	| { kind: "health_service"; value: OperationalStatus };
 
 /** A published entry as a result shows it, with the text the search reads. */
 export interface SearchEntry extends Searchable {
 	/** The entry's canonical address. */
 	href: string;
 	/** The title the entry is shown by. */
-	shownTitle: string;
-	/** The date the result shows, when its kind has one. */
+	title: string;
+	/** The date the result shows; none for a kind its list shows undated. */
 	shownDate?: Instant;
 	status?: ResultStatus;
 }
 
-/** The text of a field as the search reads it: a string as it is, rich text as plain text. */
-function textOf(value: unknown): string {
-	if (typeof value === "string") return value;
-	if (Array.isArray(value)) return extractPlainText(value);
-	return "";
-}
+/** What a search found, with what it was asked. */
+export type SearchOutcome = SearchRequest &
+	(
+		| { state: "start" | "too-short" | "nothing" | "failed" }
+		| { state: "found"; found: SearchPage<SearchEntry> }
+	);
 
-/** The texts of these fields, rich text as plain text. */
+/** The texts of these fields: a string as it is, rich text as plain text, anything else empty. */
 function texts(...values: unknown[]): string[] {
-	return values.map(textOf);
+	return values.map((value) =>
+		typeof value === "string" ? value : Array.isArray(value) ? extractPlainText(value) : "",
+	);
 }
 
-/** Every published entry of `collection`, newest publication first. */
-async function published<D>(collection: string): Promise<ContentEntry<D>[]> {
-	const { entries, error } = await getEmDashCollection<string, D>(collection, {
-		orderBy: { published_at: "desc" },
-	});
-	if (error) throw error;
-	return entries;
+/** The published entries of one searchable collection as results, at `now`. */
+type Source = (now: Date) => Promise<SearchEntry[]>;
+
+/** A searchable collection, and how each of its published entries reads as a result. */
+function source<D>(
+	collection: string,
+	toEntry: (entry: ContentEntry<D>, now: Date) => SearchEntry,
+): Source {
+	return async (now) => {
+		const { entries, error } = await getEmDashCollection<string, D>(collection, {
+			orderBy: { published_at: "desc" },
+		});
+		if (error) throw error;
+		return entries.map((entry) => toEntry(entry, now));
+	};
 }
 
-/** Every published entry of the searchable collections, as the search reads them, at `now`. */
-async function searchableEntries(now: Date): Promise<SearchEntry[]> {
-	const [
-		news,
-		activities,
-		announcements,
-		services,
-		healthServices,
-		content,
-		reports,
-		documents,
-		pages,
-	] = await Promise.all([
-		published<NewsData>("news"),
-		published<ActivityData>("activities"),
-		published<AnnouncementData>("announcements"),
-		published<ServiceData>("services"),
-		published<HealthServiceData>("health_services"),
-		published<HealthContentData>("health_content"),
-		published<HealthReportData>("health_reports"),
-		published<DocumentData>("documents"),
-		published<BasicPageData>("pages"),
-	]);
-	return [
-		...news.map(({ id, data }): SearchEntry => ({
-			kind: "news",
-			href: newsPath(id),
-			shownTitle: data.title,
-			title: texts(data.title),
-			summary: texts(data.summary),
-			body: texts(data.body),
-			date: data.publishedAt,
-			shownDate: data.publishedAt,
-		})),
-		...activities.map(({ id, data }): SearchEntry => ({
-			kind: "activity",
-			href: activityPath(id),
-			shownTitle: data.title,
+/** The searchable collections (spec #51 "Search"). */
+const SOURCES: Source[] = [
+	source<NewsData>("news", ({ id, data }) => ({
+		kind: "news",
+		href: newsPath(id),
+		title: data.title,
+		text: { title: texts(data.title), summary: texts(data.summary), body: texts(data.body) },
+		listDate: data.publishedAt,
+		shownDate: data.publishedAt,
+	})),
+	source<ActivityData>("activities", ({ id, data }) => ({
+		kind: "activity",
+		href: activityPath(id),
+		title: data.title,
+		text: {
 			title: texts(data.title),
 			summary: texts(data.summary),
 			body: texts(data.location_text, data.participants_text),
-			date: activityDate(data),
-			shownDate: activityDate(data),
-		})),
-		...announcements.map(({ id, data }): SearchEntry => {
-			const status = statusOf(data, now);
-			return {
-				kind: "announcement",
-				href: announcementPath(id),
-				shownTitle: data.title,
-				title: texts(data.title),
-				summary: [],
-				body: texts(data.details),
-				date: announcementDate(data),
-				shownDate: announcementDate(data),
-				status: status && { label: STATUS_LABELS[status], attention: status === "closed" },
-			};
-		}),
-		...services.map(({ id, data }): SearchEntry => ({
-			kind: "service",
-			href: servicePath(id),
-			shownTitle: data.title,
+		},
+		listDate: activityDate(data),
+		shownDate: activityDate(data),
+	})),
+	source<AnnouncementData>("announcements", ({ id, data }, now) => {
+		const status = statusOf(data, now);
+		return {
+			kind: "announcement",
+			href: announcementPath(id),
+			title: data.title,
+			text: { title: texts(data.title), summary: [], body: texts(data.details) },
+			listDate: announcementDate(data),
+			shownDate: announcementDate(data),
+			status: status && { kind: "announcement", value: status },
+		};
+	}),
+	source<ServiceData>("services", ({ id, data }) => ({
+		kind: "service",
+		href: servicePath(id),
+		title: data.title,
+		text: {
 			title: texts(data.title),
 			summary: texts(data.summary),
 			body: texts(data.eligibility, data.steps),
-			date: data.publishedAt,
-		})),
-		...healthServices.map(({ id, data }): SearchEntry => {
-			const status = data.operational_status;
-			return {
-				kind: "health_service",
-				href: healthServicePath(id),
-				shownTitle: shownName(data),
+		},
+		listDate: data.publishedAt,
+	})),
+	source<HealthServiceData>("health_services", ({ id, data }) => {
+		const status = data.operational_status;
+		return {
+			kind: "health_service",
+			href: healthServicePath(id),
+			title: shownName(data),
+			text: {
 				title: texts(data.title, data.display_name),
 				summary: texts(data.address),
 				body: texts(data.affiliation_text),
-				date: data.publishedAt,
-				// Only a status that should stop a citizen from travelling there, as in the directory.
-				status: isOutOfService(status)
-					? { label: OPERATIONAL_STATUS_LABELS[status], attention: true }
-					: undefined,
-			};
-		}),
-		...content.map(({ id, data }): SearchEntry => ({
-			kind: "health_content",
-			href: healthContentPath(id),
-			shownTitle: data.title,
-			title: texts(data.title),
-			summary: texts(data.summary),
-			body: texts(data.body),
-			date: data.publishedAt,
-			shownDate: data.publishedAt,
-		})),
-		...reports.map(({ id, data }): SearchEntry => ({
-			kind: "health_report",
-			href: healthReportPath(id),
-			shownTitle: data.title,
+			},
+			listDate: data.publishedAt,
+			status: isOutOfService(status) ? { kind: "health_service", value: status } : undefined,
+		};
+	}),
+	source<HealthContentData>("health_content", ({ id, data }) => ({
+		kind: "health_content",
+		href: healthContentPath(id),
+		title: data.title,
+		text: { title: texts(data.title), summary: texts(data.summary), body: texts(data.body) },
+		listDate: data.publishedAt,
+		shownDate: data.publishedAt,
+	})),
+	source<HealthReportData>("health_reports", ({ id, data }) => ({
+		kind: "health_report",
+		href: healthReportPath(id),
+		title: data.title,
+		text: {
 			title: texts(data.title),
 			summary: texts(data.summary),
 			body: texts(data.reporting_period),
-			date: healthReportDate(data),
-			shownDate: healthReportDate(data),
-		})),
-		...documents.map(({ id, data }): SearchEntry => {
-			const status = data.domain_status;
-			return {
-				kind: "document",
-				href: documentPath(id),
-				shownTitle: data.title,
+		},
+		listDate: healthReportDate(data),
+		shownDate: healthReportDate(data),
+	})),
+	source<DocumentData>("documents", ({ id, data }) => {
+		const status = listedDomainStatus(data.domain_status);
+		return {
+			kind: "document",
+			href: documentPath(id),
+			title: data.title,
+			text: {
 				title: texts(data.title),
 				summary: texts(data.summary),
 				body: texts(data.owner_source),
-				date: data.document_at ?? data.publishedAt,
-				shownDate: data.document_at,
-				// Only a status that changes what a citizen should do, as in the Document list.
-				status:
-					status === "superseded" || status === "expired"
-						? { label: DOMAIN_STATUS_LABELS[status], attention: true }
-						: undefined,
-			};
-		}),
-		...pages.map(({ id, data }): SearchEntry => ({
-			kind: "page",
-			href: basicPagePath(id),
-			shownTitle: data.title,
-			title: texts(data.title),
-			summary: texts(data.summary),
-			body: texts(data.body),
-			date: data.publishedAt,
-		})),
-	];
-}
+			},
+			listDate: listDate(data.document_at, data.publishedAt),
+			shownDate: data.document_at,
+			status: status && { kind: "document", value: status },
+		};
+	}),
+	source<BasicPageData>("pages", ({ id, data }) => ({
+		kind: "page",
+		href: basicPagePath(id),
+		title: data.title,
+		text: { title: texts(data.title), summary: texts(data.summary), body: texts(data.body) },
+		listDate: data.publishedAt,
+	})),
+];
 
 /**
- * Page `page` of the published entries that match every term, in `group`, with the number of
- * results in each group. A failed read throws; the page shows its error state.
+ * The search an address asks for (`?q=`, `?group=`, `?page=`) at `now`: the start page without a
+ * query, too short, nothing found, a failure, or one page of results with the count of each group.
+ * A failure is logged here and shows no detail.
  */
-export async function search(
-	terms: string[],
-	group: SearchGroupId,
-	page: number,
-	now: Date,
-): Promise<SearchPage<SearchEntry>> {
-	return searchPage(await searchableEntries(now), terms, group, page);
+export async function search(params: URLSearchParams, now: Date): Promise<SearchOutcome> {
+	const request = parseSearchRequest(params);
+	const { query, group, page } = request;
+	if (query.kind === "none") return { ...request, state: "start" };
+	if (query.kind === "too-short") return { ...request, state: "too-short" };
+	let found: SearchPage<SearchEntry>;
+	try {
+		const entries = (await Promise.all(SOURCES.map((read) => read(now)))).flat();
+		found = searchPage(entries, query.terms, group, page);
+	} catch (error) {
+		// The query is a citizen's own words, so the log leaves it out.
+		console.error("/search: the search failed", error);
+		return { ...request, state: "failed" };
+	}
+	return found.counts.all === 0
+		? { ...request, state: "nothing" }
+		: { ...request, state: "found", found };
 }

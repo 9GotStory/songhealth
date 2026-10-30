@@ -1,13 +1,17 @@
 ---
 // A search result (Feature 003 #63; spec #51 "Search", `08` §8), shaped like a Document row
 // (DocumentRow.astro): its kind in Thai and the date its kind is listed by, its title linking to
-// its canonical address, the snippet, and a status that needs attention. No internal field shows.
+// its canonical address, the snippet, and the status the list of its kind states, with that list's
+// status label. No internal field shows.
 //
 // The snippet is HTML that src/lib/search-matcher.ts builds: the entry's plain text, escaped, with
 // the matched terms in <mark>. Nothing else is set as HTML.
-import { KIND_LABELS, type SearchEntry } from "../lib/search";
+import type { SearchEntry } from "../lib/search";
+import { KIND_LABELS } from "../lib/search-matcher";
+import AnnouncementStatus from "./AnnouncementStatus.astro";
+import DocumentStatus from "./DocumentStatus.astro";
+import HealthServiceStatus from "./HealthServiceStatus.astro";
 import MetaLine from "./MetaLine.astro";
-import StatusLabel from "./StatusLabel.astro";
 
 interface Props {
 	entry: SearchEntry;
@@ -15,6 +19,7 @@ interface Props {
 }
 
 const { entry, snippet } = Astro.props;
+const { status } = entry;
 ---
 
 <article class="flex flex-col gap-2 rounded-24 bg-surface-base p-5 shadow-card">
@@ -23,7 +28,7 @@ const { entry, snippet } = Astro.props;
 	/>
 	<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
 		<a class="underline-offset-4 hover:text-brand-primary hover:underline" href={entry.href}>
-			{entry.shownTitle}
+			{entry.title}
 		</a>
 	</h2>
 	{snippet && (
@@ -32,9 +37,15 @@ const { entry, snippet } = Astro.props;
 			set:html={snippet}
 		/>
 	)}
-	{entry.status && (
+	{status && (
 		<p>
-			<StatusLabel attention={entry.status.attention}>{entry.status.label}</StatusLabel>
+			{status.kind === "announcement" ? (
+				<AnnouncementStatus status={status.value} />
+			) : status.kind === "document" ? (
+				<DocumentStatus status={status.value} />
+			) : (
+				<HealthServiceStatus status={status.value} />
+			)}
 		</p>
 	)}
 </article>

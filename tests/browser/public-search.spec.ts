@@ -356,7 +356,7 @@ test("a snippet shows the entry's text as plain text, so markup in it never rend
 	await expect(row.locator("b, img")).toHaveCount(0);
 });
 
-test("the start page, a too-short query and a query that finds nothing each say so in their own words, revealing nothing internal", async ({
+test("the start page, a too-short or empty query and a query that finds nothing each say so in their own words, revealing nothing internal", async ({
 	page,
 }) => {
 	const main = page.getByRole("main");
@@ -368,12 +368,17 @@ test("the start page, a too-short query and a query that finds nothing each say 
 	await expect(main.getByRole("article")).toHaveCount(0);
 	await expect(main).not.toContainText("คำค้นหาสั้นเกินไป");
 
-	await search(page, { q: " ก " });
-	await expect(main).toContainText("คำค้นหาสั้นเกินไป");
-	await expect(main).toContainText("อย่างน้อย 2 ตัวอักษร");
-	await expect(searchBox(page)).toHaveValue("ก");
-	await expect(groups).toHaveCount(0);
-	expect(await main.innerText()).not.toMatch(INTERNAL_DETAIL);
+	for (const [q, shown] of [
+		[" ก ", "ก"],
+		["", ""],
+	] as const) {
+		await search(page, { q });
+		await expect(main, `"${q}" is too short`).toContainText("คำค้นหาสั้นเกินไป");
+		await expect(main).toContainText("อย่างน้อย 2 ตัวอักษร");
+		await expect(searchBox(page)).toHaveValue(shown);
+		await expect(groups).toHaveCount(0);
+		expect(await main.innerText()).not.toMatch(INTERNAL_DETAIL);
+	}
 
 	const nothing = `<img src=x onerror="document.title='x'">${thaiWord()}`;
 	await search(page, { q: nothing });

@@ -5,11 +5,12 @@
 // keep them. src/lib/search.ts reads and matches; this page only renders what it returns.
 //
 // The page has four states besides its results, each in its own words: the start page with just
-// the form, a query too short to search, a query that finds nothing (with links to browse
-// instead, `08` §12), and a failed search. A failure answers 500, shows no detail and is logged on
-// the server. Result pages are discovery views, not content pages (`08` §9), so the page keeps
-// out of search engines and its canonical address is /search. It belongs to no main-navigation
-// section; ค้นหา is a utility link.
+// the form, a query too short to search (an empty one included), a query that finds nothing (with
+// links to browse instead, `08` §12), and a failed search, which answers 500 and shows no detail.
+// Result pages are discovery views, not content pages (`08` §9), so the page keeps out of search
+// engines and its canonical address is /search. It belongs to no main-navigation section; ค้นหา
+// is a utility link.
+import ActionLink from "../components/ActionLink.astro";
 import EmptyState from "../components/EmptyState.astro";
 import PageHeading from "../components/PageHeading.astro";
 import Pagination from "../components/Pagination.astro";
@@ -19,54 +20,28 @@ import SiteLayout from "../layouts/SiteLayout.astro";
 import { documentsPath } from "../lib/documents";
 import { HEALTH_PATH } from "../lib/health";
 import { directoryPath } from "../lib/health-service-directory";
-import { PAGE_PARAM, pageHref, parsePageNumber } from "../lib/pagination";
-import { search, type SearchEntry } from "../lib/search";
-import {
-	GROUP_PARAM,
-	MAX_QUERY_LENGTH,
-	QUERY_PARAM,
-	SEARCH_GROUPS,
-	parseGroup,
-	parseQuery,
-	type SearchGroupId,
-	type SearchPage,
-} from "../lib/search-matcher";
+import { pageHref } from "../lib/pagination";
+import { search } from "../lib/search";
+import { GROUP_PARAM, SEARCH_GROUPS, type SearchGroup } from "../lib/search-matcher";
 import { servicesPath } from "../lib/service-catalog";
 
 const title = "ค้นหา";
 const lead =
 	"ค้นหาข่าวสาร บริการประชาชน ข้อมูลสุขภาพ หน่วยบริการ เอกสาร และข้อมูลของสำนักงานสาธารณสุขอำเภอสองได้จากที่เดียว";
-const params = Astro.url.searchParams;
-const raw = params.get(QUERY_PARAM) ?? "";
-const query = parseQuery(raw);
-const group = parseGroup(params.get(GROUP_PARAM));
-const page = parsePageNumber(params.get(PAGE_PARAM));
-/** The query as the citizen typed it, trimmed and capped as the search reads it. */
-const shownQuery = [...raw.trim()].slice(0, MAX_QUERY_LENGTH).join("");
-
-let results: SearchPage<SearchEntry> | undefined;
-let failed = false;
-if (query.kind === "terms") {
-	try {
-		results = await search(query.terms, group, page, new Date());
-	} catch (error) {
-		// The query is a citizen's own words, so the log leaves it out.
-		console.error("/search: the search failed", error);
-		Astro.response.status = 500;
-		failed = true;
-	}
-}
+const outcome = await search(Astro.url.searchParams, new Date());
+if (outcome.state === "failed") Astro.response.status = 500;
+const { query, group, page } = outcome;
+const queryText = query.kind === "none" ? "" : query.text;
+const groupSuffix = group.id === "all" ? "" : `ในกลุ่ม${group.label}`;
 
 /** This search's address in another group, from its first page. */
-function groupHref(id: SearchGroupId): string {
-	const next = new URLSearchParams(params);
-	next.delete(PAGE_PARAM);
-	if (id === "all") next.delete(GROUP_PARAM);
-	else next.set(GROUP_PARAM, id);
-	return `/search?${next}`;
+function groupHref(other: SearchGroup): string {
+	const url = new URL(Astro.url);
+	if (other.id === "all") url.searchParams.delete(GROUP_PARAM);
+	else url.searchParams.set(GROUP_PARAM, other.id);
+	return pageHref(url, 1);
 }
 
-const chosen = SEARCH_GROUPS.find(({ id }) => id === group)!;
 /** Where to browse instead when a search finds nothing or fails (`08` §12). */
 const browse = [
 	{ label: "บริการประชาชน", href: servicesPath() },
@@ -87,55 +62,52 @@ const pill = "inline-flex min-h-11 items-center gap-2 rounded-pill px-4 text-lab
 >
 	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 		<PageHeading title={title} lead={lead} />
-		<SearchForm value={shownQuery} />
-		{query.kind === "too-short" ? (
+		<SearchForm value={queryText} />
+		{outcome.state === "too-short" ? (
 			<EmptyState message="คำค้นหาสั้นเกินไป">
 				<p class="text-text-secondary">กรุณาพิมพ์คำค้นหาอย่างน้อย 2 ตัวอักษร</p>
 			</EmptyState>
-		) : failed || results?.counts.all === 0 ? (
+		) : outcome.state === "nothing" || outcome.state === "failed" ? (
 			<EmptyState
 				message={
-					failed ? "ขออภัย ระบบค้นหาขัดข้องชั่วคราว" : `ไม่พบข้อมูลที่ตรงกับ “${shownQuery}”`
+					outcome.state === "failed"
+						? "ขออภัย ระบบค้นหาขัดข้องชั่วคราว"
+						: `ไม่พบข้อมูลที่ตรงกับ “${queryText}”`
 				}
 			>
 				<p class="max-w-prose text-text-secondary">
-					{failed
+					{outcome.state === "failed"
 						? "กรุณาลองใหม่อีกครั้งในภายหลัง หรือเลือกดูข้อมูลจากหมวดต่อไปนี้"
 						: "ลองใช้คำที่สั้นลงหรือคำอื่นที่มีความหมายใกล้เคียง หรือเลือกดูข้อมูลจากหมวดต่อไปนี้"}
 				</p>
 				<ul class="flex flex-wrap justify-center gap-3">
 					{browse.map((link) => (
 						<li>
-							<a
-								class="inline-flex min-h-11 items-center rounded-pill border border-border-input px-5 text-label text-brand-primary hover:bg-surface-soft"
-								href={link.href}
-							>
-								{link.label}
-							</a>
+							<ActionLink href={link.href}>{link.label}</ActionLink>
 						</li>
 					))}
 				</ul>
 			</EmptyState>
 		) : (
-			results && (
+			outcome.state === "found" && (
 				<div class="flex flex-col gap-6">
 					<nav aria-label="กลุ่มผลการค้นหา">
 						<ul class="flex flex-wrap gap-2">
-							{SEARCH_GROUPS.map(({ id, label }) => (
+							{SEARCH_GROUPS.map((each) => (
 								<li>
 									<a
 										class:list={[
 											pill,
-											id === group
+											each.id === group.id
 												? "bg-brand-primary text-surface-base"
 												: "bg-surface-soft text-brand-dark hover:bg-border-default",
 										]}
-										href={groupHref(id)}
-										aria-current={id === group ? "true" : undefined}
+										href={groupHref(each)}
+										aria-current={each.id === group.id ? "true" : undefined}
 									>
-										{label}
+										{each.label}
 										<span class="font-normal">
-											{results.counts[id]}
+											{outcome.found.counts[each.id]}
 											<span class="sr-only"> รายการ</span>
 										</span>
 									</a>
@@ -144,28 +116,30 @@ const pill = "inline-flex min-h-11 items-center gap-2 rounded-pill px-4 text-lab
 						</ul>
 					</nav>
 					<p class="text-label text-text-secondary">
-						พบ {results.counts[group]} รายการ{group === "all" ? "" : `ในกลุ่ม${chosen.label}`}
+						{`พบ ${outcome.found.counts[group.id]} รายการ${groupSuffix}`}
 					</p>
-					{results.results.length > 0 ? (
+					{outcome.found.results.length > 0 ? (
 						<ul class="flex flex-col gap-4">
-							{results.results.map(({ entry, snippet }) => (
+							{outcome.found.results.map(({ entry, snippet }) => (
 								<li>
 									<SearchResultRow entry={entry} snippet={snippet} />
 								</li>
 							))}
 						</ul>
-					) : results.counts[group] > 0 ? (
+					) : outcome.found.counts[group.id] > 0 ? (
 						<EmptyState
 							message="ไม่พบผลการค้นหาในหน้านี้"
 							action={{ href: pageHref(Astro.url, 1), label: "กลับไปหน้าแรกของผลการค้นหา" }}
 						/>
 					) : (
 						<EmptyState
-							message={`ไม่พบผลการค้นหาในกลุ่ม${chosen.label}`}
-							action={{ href: groupHref("all"), label: "ดูผลการค้นหาทุกประเภท" }}
+							message={`ไม่พบผลการค้นหาในกลุ่ม${group.label}`}
+							action={{ href: groupHref(SEARCH_GROUPS[0]), label: "ดูผลการค้นหาทุกประเภท" }}
 						/>
 					)}
-					{results.results.length > 0 && <Pagination page={page} hasMore={results.hasMore} />}
+					{outcome.found.results.length > 0 && (
+						<Pagination page={page} hasMore={outcome.found.hasMore} />
+					)}
 				</div>
 			)
 		)}

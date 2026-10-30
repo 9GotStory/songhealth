@@ -3,7 +3,8 @@
 // /search, so it works without JavaScript and the query stays in the address. /search shows it,
 // and the Homepage's Search section reuses it (#64). The field follows the Figma Search section
 // (docs/design/homepage-concept-v1.md §4): radius 20, 72 px high, a border-input boundary for the
-// 3:1 contrast fix, the placeholder, and a primary "ค้นหา" button inside the field. A new query
+// 3:1 contrast fix, the placeholder, and a primary "ค้นหา" button inside the field, a brand-primary
+// pill as the design's primary buttons are. A new query
 // starts from ทุกประเภท and the first page, since the form carries no group or page.
 import { MAX_QUERY_LENGTH, QUERY_PARAM } from "../lib/search-matcher";
 
@@ -37,7 +38,7 @@ const { value = "" } = Astro.props;
 		/>
 		<button
 			type="submit"
-			class="inline-flex min-h-11 shrink-0 cursor-pointer items-center rounded-14 bg-brand-primary px-5 text-label text-surface-base hover:bg-brand-dark"
+			class="inline-flex min-h-11 shrink-0 cursor-pointer items-center rounded-pill bg-brand-primary px-5 text-label text-surface-base hover:bg-brand-dark"
 		>
 			ค้นหา
 		</button>

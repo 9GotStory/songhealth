@@ -56,6 +56,16 @@ export const DOMAIN_STATUS_LABELS: Record<DomainStatus, string> = {
 	expired: "หมดอายุแล้ว",
 };
 
+/**
+ * The status a Document states in a list: only one that changes what a citizen should do,
+ * superseded or expired.
+ */
+export function listedDomainStatus(
+	status: DomainStatus | null | undefined,
+): Exclude<DomainStatus, "current"> | undefined {
+	return status === "superseded" || status === "expired" ? status : undefined;
+}
+
 /** A Document's fields (seed/seed.json) and the system fields public pages read. */
 export interface DocumentData {
 	/** The database id; the entry's own `id` is its slug. */

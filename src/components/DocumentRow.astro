@@ -4,7 +4,7 @@
 // that needs attention (superseded or expired). A file that cannot be served reads as unavailable
 // here as it does on the Document's page (src/lib/media.ts). Its title is a heading one level below
 // the list's own: H2 on the repository, H3 under another page's "related Documents" heading.
-import { documentPath, type DocumentEntry } from "../lib/documents";
+import { documentPath, listedDomainStatus, type DocumentEntry } from "../lib/documents";
 import { FILE_UNAVAILABLE, downloadableFile } from "../lib/media";
 import { termsOf } from "../lib/terms";
 import DocumentStatus from "./DocumentStatus.astro";
@@ -20,11 +20,7 @@ const Heading = headingLevel === 3 ? "h3" : "h2";
 const data = document.data;
 const type = termsOf(data, "document_type")[0];
 const file = await downloadableFile(data.file, Astro.locals.emdash);
-/** Only a status that changes what a citizen should do is shown in a list. */
-const status =
-	data.domain_status === "superseded" || data.domain_status === "expired"
-		? data.domain_status
-		: undefined;
+const status = listedDomainStatus(data.domain_status);
 ---
 
 <article class="flex flex-col gap-2 rounded-24 bg-surface-base p-5 shadow-card">

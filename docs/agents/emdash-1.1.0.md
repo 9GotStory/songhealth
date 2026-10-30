@@ -7,9 +7,12 @@ checks that every cited file exists. When the pinned version changes, re-verify 
 
 ## Public reads
 
-- `getEmDashCollection` and `getEmDashEntry` return published entries. They return a draft only
-  with a valid signed preview token or in edit mode, so pages pass no status (`src/loader.ts`,
-  `src/query.ts` `resolveEmDashEntry`).
+- `getEmDashCollection` and `getEmDashEntry` return published entries, so pages pass no status.
+  `getEmDashEntry` returns a draft only with a valid signed preview token or in edit mode
+  (`src/query.ts` `resolveEmDashEntry`). A `getEmDashCollection` read stays published-only even
+  then: it passes the filter's own `status`, and the loader defaults it to `"published"`
+  (`src/query.ts` `getEmDashCollectionUncached`, `src/loader.ts`). `./src/lib/search.ts` relies on
+  it.
 - An entry's `id` is its slug and `data.id` is the database id. Taxonomy terms hydrate as
   `data.terms[taxonomy]`, ordered by label.
 - `where` on a taxonomy name matches exact term slugs, ORed when given as an array. An unknown slug
@@ -32,14 +35,10 @@ checks that every cited file exists. When the pinned version changes, re-verify 
   `./tests/browser/public-services.spec.ts` checks a leading vowel in the Service catalog's order.
 - Without a `limit`, `getEmDashCollection` returns every matching entry: the query has no `LIMIT`
   (`src/loader.ts`, `fetchLimit`).
-- A `getEmDashCollection` read stays published-only in preview and edit mode: it passes the
-  filter's own `status`, and the loader defaults it to `"published"` (`src/query.ts`
-  `getEmDashCollectionUncached`, `src/loader.ts`). Only `getEmDashEntry` serves a draft.
-  `./src/lib/search.ts` relies on it.
 - The object cache, a read-through cache of collection and entry reads, is off unless the
   integration configures `objectCache`; then `cachedQuery` only calls the loader
-  (`src/object-cache/index.ts`, `src/query.ts` `loadCollectionCached`). Songhealth configures none,
-  so every read reaches the database, and a search sees an unpublish at once.
+  (`src/object-cache/index.ts`, `src/query.ts` `loadCollectionCached`). `./astro.config.mjs`
+  configures none, so every read reaches the database, and a search sees an unpublish at once.
 - A boolean field is an `INTEGER` column, and the query functions hydrate it as `true`/`false`
   (`src/loader.ts` `mapRowToData`). A boolean `where` value binds as 1 or 0
   (`bindableFilterValue`), but the `WhereValue` type admits only strings, so

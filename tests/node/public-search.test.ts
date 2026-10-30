@@ -2,7 +2,8 @@
 //
 // - A query is normalised: Unicode NFC, Latin letters lower-cased, zero-width characters
 //   (U+200B–U+200D, U+FEFF) removed, whitespace collapsed and trimmed. It needs at least 2
-//   characters after that, else it is too short, and it is capped at 100 characters.
+//   characters after that, else it is too short, and it is capped at 100 characters. The query,
+//   the group and the page come from the address.
 // - The query splits on whitespace into terms, and an entry matches when every term appears as a
 //   substring of at least one of its fields, so Thai matches without word spaces.
 // - Results rank by the best tier each term hits (title, then summary, then body), and a tie goes
@@ -14,18 +15,19 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+	KIND_LABELS,
 	SEARCH_GROUPS,
 	SEARCH_PAGE_SIZE,
 	SNIPPET_LENGTH,
 	parseGroup,
 	parseQuery,
+	parseSearchRequest,
 	searchPage,
-	type SearchGroupId,
 	type Searchable,
 	type SearchKind,
 } from "../../src/lib/search-matcher.ts";
 
-/** A published entry as the search reads it: its kind, its text by tier, and its date. */
+/** A published entry as the search reads it: its kind, its text by tier, and its list date. */
 function entry(
 	id: string,
 	text: { title: string | string[]; summary?: string | string[]; body?: string | string[] },
@@ -36,65 +38,98 @@ function entry(
 	return {
 		id,
 		kind: options.kind ?? "news",
-		title: list(text.title),
-		summary: list(text.summary),
-		body: list(text.body),
-		date: options.date ?? null,
+		text: { title: list(text.title), summary: list(text.summary), body: list(text.body) },
+		listDate: options.date ?? null,
 	};
 }
 
-/** The ids of the entries a search finds for `q`, in the order it ranks them. */
+/** The terms of `q`, which must be a query. */
+function termsOf(q: string): string[] {
+	const query = parseQuery(q);
+	assert.equal(query.kind, "terms", `"${q}" is a query`);
+	return query.kind === "terms" ? query.terms : [];
+}
+
+/** The ids of the entries a search finds for `q` in `group`, in the order it ranks them. */
 function found(
 	entries: ReadonlyArray<Searchable & { id: string }>,
 	q: string,
-	group: SearchGroupId = "all",
+	group = "all",
 ): string[] {
-	const query = parseQuery(q);
-	assert.equal(query.kind, "terms", `"${q}" is a query`);
-	if (query.kind !== "terms") return [];
-	return searchPage(entries, query.terms, group, 1).results.map((result) => result.entry.id);
+	return searchPage(entries, termsOf(q), parseGroup(group), 1).results.map(
+		(result) => result.entry.id,
+	);
 }
 
 describe("parseQuery", () => {
-	it("asks nothing when there is no query, or only whitespace and zero-width characters", () => {
+	it("asks nothing when the address carries no query", () => {
 		assert.deepEqual(parseQuery(null), { kind: "none" });
-		assert.deepEqual(parseQuery(""), { kind: "none" });
-		assert.deepEqual(parseQuery(" \t\u200B\uFEFF "), { kind: "none" });
 	});
 
-	it("rejects a query of one character after normalisation as too short", () => {
-		assert.deepEqual(parseQuery("ก"), { kind: "too-short" });
-		assert.deepEqual(parseQuery("  a  "), { kind: "too-short" });
+	it("rejects a query of fewer than two characters after normalisation as too short, an empty one included", () => {
+		assert.deepEqual(parseQuery(""), { kind: "too-short", text: "" });
+		assert.deepEqual(parseQuery(" \t\u200B\uFEFF "), { kind: "too-short", text: "" });
+		assert.deepEqual(parseQuery("ก"), { kind: "too-short", text: "ก" });
+		assert.deepEqual(parseQuery("  a  "), { kind: "too-short", text: "a" });
 		assert.deepEqual(
 			parseQuery("ก\u200B"),
-			{ kind: "too-short" },
+			{ kind: "too-short", text: "ก" },
 			"a zero-width character is not one",
 		);
 	});
 
 	it("accepts two characters, Thai without spaces included", () => {
-		assert.deepEqual(parseQuery("ไข"), { kind: "terms", terms: ["ไข"] });
-		assert.deepEqual(parseQuery("ไข้เลือดออก"), { kind: "terms", terms: ["ไข้เลือดออก"] });
+		assert.deepEqual(parseQuery("ไข"), { kind: "terms", text: "ไข", terms: ["ไข"] });
+		assert.deepEqual(parseQuery("ไข้เลือดออก"), {
+			kind: "terms",
+			text: "ไข้เลือดออก",
+			terms: ["ไข้เลือดออก"],
+		});
 	});
 
 	it("normalises to NFC, lower-cases Latin letters, drops zero-width characters and splits on whitespace", () => {
 		assert.deepEqual(parseQuery("  CAFE\u0301 \u200Bวัคซีน\uFEFF\n\tCOVID-19  "), {
 			kind: "terms",
+			text: "CAF\u00C9 วัคซีน COVID-19",
 			terms: ["caf\u00E9", "วัคซีน", "covid-19"],
 		});
 	});
 
 	it("keeps each term once", () => {
-		assert.deepEqual(parseQuery("ข่าว ข่าว สอง"), { kind: "terms", terms: ["ข่าว", "สอง"] });
+		assert.deepEqual(termsOf("ข่าว ข่าว สอง"), ["ข่าว", "สอง"]);
 	});
 
 	it("caps the query at 100 characters", () => {
 		const long = "ก".repeat(98) + "ขค" + "งจฉ";
-		assert.deepEqual(parseQuery(long), { kind: "terms", terms: ["ก".repeat(98) + "ขค"] });
-		assert.deepEqual(parseQuery(`${"ก".repeat(99)} ขค`), {
+		assert.deepEqual(parseQuery(long), {
 			kind: "terms",
-			terms: ["ก".repeat(99)],
+			text: "ก".repeat(98) + "ขค",
+			terms: ["ก".repeat(98) + "ขค"],
 		});
+		assert.deepEqual(termsOf(`${"ก".repeat(99)} ขค`), ["ก".repeat(99)]);
+		assert.deepEqual(
+			termsOf(`\u200B${"ก".repeat(99)}ข`),
+			["ก".repeat(99) + "ข"],
+			"counted after normalisation",
+		);
+	});
+});
+
+describe("parseSearchRequest", () => {
+	it("reads the query, the group and the page from the address", () => {
+		const request = parseSearchRequest(
+			new URLSearchParams({ q: "วัคซีน", group: "news", page: "3" }),
+		);
+		assert.deepEqual(request.query, { kind: "terms", text: "วัคซีน", terms: ["วัคซีน"] });
+		assert.equal(request.group.id, "news");
+		assert.equal(request.page, 3);
+	});
+
+	it("reads a group or page that is not one as ทุกประเภท and the first page", () => {
+		const request = parseSearchRequest(new URLSearchParams({ group: "ข่าว", page: "0" }));
+		assert.deepEqual(request.query, { kind: "none" });
+		assert.equal(request.group.id, "all");
+		assert.equal(request.page, 1);
 	});
 });
 
@@ -206,12 +241,11 @@ describe("search groups", () => {
 	});
 
 	it("reads a known group from the address, and any other value as ทุกประเภท", () => {
-		assert.equal(parseGroup("news"), "news");
-		assert.equal(parseGroup("health-services"), "health-services");
-		assert.equal(parseGroup(null), "all");
-		assert.equal(parseGroup(""), "all");
-		assert.equal(parseGroup("NEWS"), "all");
-		assert.equal(parseGroup("toString"), "all");
+		assert.equal(parseGroup("news").id, "news");
+		assert.equal(parseGroup("health-services").id, "health-services");
+		for (const other of [null, "", "NEWS", "toString"]) {
+			assert.equal(parseGroup(other).id, "all", `${other}`);
+		}
 	});
 
 	const kinds: SearchKind[] = [
@@ -226,7 +260,24 @@ describe("search groups", () => {
 		"page",
 	];
 	const everyKind = kinds.map((kind) => entry(kind, { title: `สอง ${kind}` }, { kind }));
-	const groupOf = (group: SearchGroupId) => found(everyKind, "สอง", group);
+	const groupOf = (group: string) => found(everyKind, "สอง", group);
+
+	it("names each kind in Thai", () => {
+		assert.deepEqual(
+			kinds.map((kind) => KIND_LABELS[kind]),
+			[
+				"ข่าว",
+				"กิจกรรม",
+				"ประกาศ",
+				"บริการประชาชน",
+				"หน่วยบริการสุขภาพ",
+				"ความรู้สุขภาพ",
+				"รายงานสุขภาพ",
+				"เอกสารเผยแพร่",
+				"หน้าข้อมูล",
+			],
+		);
+	});
 
 	it("narrows the results to the kinds of the chosen group", () => {
 		assert.deepEqual(groupOf("all"), kinds);
@@ -253,12 +304,13 @@ describe("search groups", () => {
 			documents: 1,
 			about: 1,
 		};
-		assert.deepEqual(searchPage(entries, ["สอง"], "all", 1).counts, expected);
-		assert.deepEqual(searchPage(entries, ["สอง"], "documents", 1).counts, expected);
+		assert.deepEqual(searchPage(entries, ["สอง"], parseGroup("all"), 1).counts, expected);
+		assert.deepEqual(searchPage(entries, ["สอง"], parseGroup("documents"), 1).counts, expected);
 	});
 });
 
 describe("search pages", () => {
+	const all = parseGroup("all");
 	const many = Array.from({ length: SEARCH_PAGE_SIZE * 2 + 1 }, (_, index) =>
 		entry(
 			`n${index}`,
@@ -267,7 +319,7 @@ describe("search pages", () => {
 		),
 	);
 	const ids = (page: number) =>
-		searchPage(many, ["วัคซีน"], "all", page).results.map((result) => result.entry.id);
+		searchPage(many, ["วัคซีน"], all, page).results.map((result) => result.entry.id);
 
 	it("shows a fixed number of results to a page, and says whether a further page follows", () => {
 		assert.equal(SEARCH_PAGE_SIZE, 20);
@@ -280,12 +332,12 @@ describe("search pages", () => {
 			many.slice(20, 40).map((e) => e.id),
 		);
 		assert.deepEqual(ids(3), ["n40"]);
-		assert.equal(searchPage(many, ["วัคซีน"], "all", 2).hasMore, true);
-		assert.equal(searchPage(many, ["วัคซีน"], "all", 3).hasMore, false);
+		assert.equal(searchPage(many, ["วัคซีน"], all, 2).hasMore, true);
+		assert.equal(searchPage(many, ["วัคซีน"], all, 3).hasMore, false);
 	});
 
 	it("shows no results on a page past the last, while still counting them", () => {
-		const past = searchPage(many, ["วัคซีน"], "all", 4);
+		const past = searchPage(many, ["วัคซีน"], all, 4);
 		assert.deepEqual(past.results, []);
 		assert.equal(past.hasMore, false);
 		assert.equal(past.counts.all, 41);
@@ -295,10 +347,7 @@ describe("search pages", () => {
 describe("search snippets", () => {
 	/** The snippet of the one entry a search for `q` finds. */
 	function snippet(text: Parameters<typeof entry>[1], q: string): string {
-		const query = parseQuery(q);
-		assert.equal(query.kind, "terms");
-		if (query.kind !== "terms") return "";
-		const { results } = searchPage([entry("one", text)], query.terms, "all", 1);
+		const { results } = searchPage([entry("one", text)], termsOf(q), parseGroup("all"), 1);
 		assert.equal(results.length, 1, `"${q}" finds the entry`);
 		return results[0].snippet;
 	}
@@ -379,6 +428,16 @@ describe("search snippets", () => {
 		}
 		assert.ok(cut.includes("<mark>วัคซีน</mark>"), cut);
 		const lead = kept.indexOf("วัคซีน");
-		assert.ok(lead >= 20 && lead <= 60, `some text before the match: ${cut}`);
+		assert.ok(lead >= 20 && lead <= 80, `some text before the match: ${cut}`);
+	});
+
+	it("cuts inside a word too long for the snippet, between characters", () => {
+		const address = `https://example.org/${"a".repeat(300)}`;
+		const cut = snippet({ title: "วัคซีน", body: address }, "วัคซีน");
+		assert.equal(cut, `${address.slice(0, SNIPPET_LENGTH)}…`, "the start of a long word");
+		const inside = snippet({ title: "ข่าว", body: `${address}วัคซีน${address}` }, "วัคซีน");
+		assert.ok(inside.includes("<mark>วัคซีน</mark>"), inside);
+		const kept = inside.slice(1, -1).replace(/<\/?mark>/g, "");
+		assert.ok(kept.length <= SNIPPET_LENGTH, `at most ${SNIPPET_LENGTH} characters: ${inside}`);
 	});
 });
