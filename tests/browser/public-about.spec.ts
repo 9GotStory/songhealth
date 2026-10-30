@@ -332,9 +332,11 @@ test("/about links to every About sub-page", async ({ page }) => {
 	expect(response?.status(), "GET /about").toBe(200);
 	await expect(navigationLink(page, "เกี่ยวกับเรา")).toHaveAttribute("aria-current", "page");
 	const subpages = page.getByRole("main").getByRole("region", { name: "ข้อมูลเกี่ยวกับสำนักงาน" });
-	await expect(subpages.getByRole("link")).toHaveText(ABOUT_SUBPAGES.map(([label]) => label));
-	for (const [label, href] of ABOUT_SUBPAGES) {
-		await expect(subpages.getByRole("link", { name: label })).toHaveAttribute("href", href);
+	const links = subpages.getByRole("link");
+	await expect(links).toHaveCount(ABOUT_SUBPAGES.length);
+	for (const [index, [label, href]] of ABOUT_SUBPAGES.entries()) {
+		await expect(links.nth(index), "the arrow is decorative").toHaveAccessibleName(label);
+		await expect(links.nth(index)).toHaveAttribute("href", href);
 	}
 	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/about`);
 });
