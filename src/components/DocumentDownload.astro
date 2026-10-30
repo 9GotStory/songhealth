@@ -1,10 +1,10 @@
 ---
 // A Document's file (Feature 003 #55; spec #51 "Shared building blocks", `03` §17): a download
 // link at EmDash's own media URL that names the file's type and size and offers the uploaded
-// file's name, or, when the file cannot be served, the unavailable state. That state names nothing
-// about storage and points to the office (#51 user story 49).
+// file's name, or, when the file cannot be served, the unavailable state (UnavailableNotice.astro).
 import type { FileValue } from "emdash";
 import { FILE_UNAVAILABLE, downloadableFile } from "../lib/media";
+import UnavailableNotice from "./UnavailableNotice.astro";
 
 interface Props {
 	file: FileValue | null | undefined;
@@ -36,11 +36,5 @@ const file = await downloadableFile(Astro.props.file, Astro.locals.emdash);
 		<span>ดาวน์โหลดเอกสาร ({file.label})</span>
 	</a>
 ) : (
-	<div class="flex flex-col items-start gap-2 rounded-24 bg-surface-soft p-5">
-		<p class="font-semibold text-brand-dark">{FILE_UNAVAILABLE}</p>
-		<p class="text-text-secondary-on-soft">หากต้องการเอกสารนี้ โปรดติดต่อสำนักงาน</p>
-		<a class="text-label text-brand-primary underline underline-offset-4" href="/contact">
-			ติดต่อเรา
-		</a>
-	</div>
+	<UnavailableNotice message={FILE_UNAVAILABLE} />
 )}

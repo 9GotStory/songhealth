@@ -1,0 +1,32 @@
+---
+// The Health Topics of a News item or of Health Content (Feature 003 #54, #59): a "ประเด็นสุขภาพ"
+// heading and each `topic` term as a pill linking to the list it filters, Health News for a News
+// item and the Health Content list for Health Content. Shown only when there is a topic.
+import type { TaxonomyTerm } from "emdash";
+
+interface Props {
+	topics: TaxonomyTerm[];
+	/** The address of the list filtered by the topic with this slug. */
+	href: (slug: string) => string;
+}
+
+const { topics, href } = Astro.props;
+---
+
+{topics.length > 0 && (
+	<div class="flex flex-col gap-3 border-t border-divider pt-6">
+		<h2 class="text-label">ประเด็นสุขภาพ</h2>
+		<ul class="flex flex-wrap gap-2">
+			{topics.map((topic) => (
+				<li>
+					<a
+						class="inline-flex min-h-11 items-center rounded-pill bg-surface-soft px-4 text-label text-brand-dark underline-offset-4 hover:underline"
+						href={href(topic.slug)}
+					>
+						{topic.label}
+					</a>
+				</li>
+			))}
+		</ul>
+	</div>
+)}

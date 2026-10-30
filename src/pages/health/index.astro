@@ -1,0 +1,30 @@
+---
+// The Health Information hub, /health (Feature 003 #59; spec #51 "Public reads", `03` §9 and §19):
+// it links to Health Content and to Health Reports (src/lib/health.ts), so citizens choose
+// knowledge or reports (#51 user story 43).
+import PageHeading from "../../components/PageHeading.astro";
+import QuickLinkCard from "../../components/QuickLinkCard.astro";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { HEALTH_AREAS, HEALTH_PATH, HEALTH_TITLE } from "../../lib/health";
+
+const lead = "ความรู้สุขภาพสำหรับประชาชน และรายงานสุขภาพของสำนักงานสาธารณสุขอำเภอสองและเครือข่าย";
+---
+
+<SiteLayout
+	title={HEALTH_TITLE}
+	section="health"
+	description={lead}
+	canonical={HEALTH_PATH}
+	breadcrumbs={[{ label: "หน้าแรก", href: "/" }, { label: HEALTH_TITLE }]}
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading title={HEALTH_TITLE} lead={lead} />
+		<ul class="grid gap-4 sm:grid-cols-2">
+			{HEALTH_AREAS.map((area) => (
+				<li>
+					<QuickLinkCard href={area.href} label={area.label} />
+				</li>
+			))}
+		</ul>
+	</div>
+</SiteLayout>

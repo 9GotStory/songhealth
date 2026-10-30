@@ -34,12 +34,11 @@ import {
 	nativeRefusalOf,
 	NATIVE_ROLES,
 	publishEntryAt,
-	setMediaAlt,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	trashEntry,
 	unpublishEntry,
-	uploadSyntheticMedia,
+	uploadSyntheticPicture,
 	type CmsActor,
 } from "./cms.helpers";
 import {
@@ -91,15 +90,6 @@ async function createActivity(
 /** Publish now, or backdated to `publishedAt`. Returns the stored publication instant. */
 function publish(activity: ActivityFixture, publishedAt?: string): Promise<string> {
 	return publishEntryAt(admin, "activities", activity.id, publishedAt);
-}
-
-/** A synthetic picture in the media library with `alt` as its alt text. Returns its id. */
-async function uploadPicture(alt: string): Promise<string> {
-	const media = await uploadSyntheticMedia(admin);
-	expect(media.mediaId, `the synthetic picture: ${nativeRefusalOf(media.result)}`).toBeDefined();
-	const described = await setMediaAlt(admin, media.mediaId!, alt);
-	expect(described.ok, `the picture's alt text: ${nativeRefusalOf(described)}`).toBe(true);
-	return media.mediaId!;
 }
 
 test.use({ viewport: DESKTOP_VIEWPORT });
@@ -194,13 +184,15 @@ test("an Activity card shows its picture, or the neutral visual when it has none
 	const pictured = await createActivity("card-picture", {
 		data: {
 			activity_at: "2030-03-03T03:00:00.000Z",
-			featured_image: { id: await uploadPicture(`${SYNTHETIC_FIXTURE_MARK} ภาพการประชุม`) },
+			featured_image: {
+				id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพการประชุม`),
+			},
 		},
 	});
 	const plain = await createActivity("card-plain", {
 		data: { activity_at: "2030-03-02T03:00:00.000Z" },
 	});
-	const goneId = await uploadPicture(`${SYNTHETIC_FIXTURE_MARK} ภาพที่ถูกลบ`);
+	const goneId = await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพที่ถูกลบ`);
 	const pictureGone = await createActivity("card-picture-gone", {
 		data: { activity_at: "2030-03-01T03:00:00.000Z", featured_image: { id: goneId } },
 	});
@@ -276,7 +268,7 @@ test("an Activity page shows its date, place, description, participants, picture
 	const firstAlt = `${SYNTHETIC_FIXTURE_MARK} ผู้เข้าร่วมลงทะเบียน`;
 	const secondAlt = `${SYNTHETIC_FIXTURE_MARK} การบรรยายให้ความรู้`;
 	const firstCaption = `${SYNTHETIC_FIXTURE_MARK} ลงทะเบียนผู้เข้าร่วมกิจกรรม`;
-	const goneId = await uploadPicture(`${SYNTHETIC_FIXTURE_MARK} ภาพที่ถูกลบ`);
+	const goneId = await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพที่ถูกลบ`);
 	const summary = `${SYNTHETIC_FIXTURE_MARK} ประชุมติดตามงานควบคุมโรคไข้เลือดออก`;
 	const location = `${SYNTHETIC_FIXTURE_MARK} ห้องประชุมสำนักงานสาธารณสุขอำเภอสอง`;
 	const participants = `${SYNTHETIC_FIXTURE_MARK} อสม. และเจ้าหน้าที่ รพ.สต.`;
@@ -287,11 +279,11 @@ test("an Activity page shows its date, place, description, participants, picture
 			activity_at: "2026-09-23T17:30:00.000Z",
 			location_text: location,
 			participants_text: participants,
-			featured_image: { id: await uploadPicture(featuredAlt) },
+			featured_image: { id: await uploadSyntheticPicture(admin, featuredAlt) },
 			gallery: [
-				{ image: { id: await uploadPicture(firstAlt) }, caption: firstCaption },
+				{ image: { id: await uploadSyntheticPicture(admin, firstAlt) }, caption: firstCaption },
 				{ image: { id: goneId }, caption: `${SYNTHETIC_FIXTURE_MARK} ภาพที่ไม่มีแล้ว` },
-				{ image: { id: await uploadPicture(secondAlt) } },
+				{ image: { id: await uploadSyntheticPicture(admin, secondAlt) } },
 			],
 		},
 	});
@@ -442,13 +434,21 @@ test.describe("accessibility and reflow", () => {
 				activity_at: "2030-02-02T03:00:00.000Z",
 				location_text: `${SYNTHETIC_FIXTURE_MARK} ศาลาประชาคมหมู่บ้าน`,
 				participants_text: `${SYNTHETIC_FIXTURE_MARK} ผู้สูงอายุและผู้ดูแล`,
-				featured_image: { id: await uploadPicture(`${SYNTHETIC_FIXTURE_MARK} ภาพหลัก`) },
+				featured_image: {
+					id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพหลัก`),
+				},
 				gallery: [
 					{
-						image: { id: await uploadPicture(`${SYNTHETIC_FIXTURE_MARK} ภาพที่หนึ่ง`) },
+						image: {
+							id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพที่หนึ่ง`),
+						},
 						caption: `${SYNTHETIC_FIXTURE_MARK} คำบรรยายภาพที่หนึ่ง`,
 					},
-					{ image: { id: await uploadPicture(`${SYNTHETIC_FIXTURE_MARK} ภาพที่สอง`) } },
+					{
+						image: {
+							id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพที่สอง`),
+						},
+					},
 				],
 			},
 		});

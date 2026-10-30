@@ -4,12 +4,12 @@
 //
 // The canonical address keeps a valid page number, so each page of older News stays its own
 // address for search engines; a page number that is not one is dropped (src/lib/pagination.ts).
+import ContentCardGrid from "../../components/ContentCardGrid.astro";
 import EmptyState from "../../components/EmptyState.astro";
-import NewsCardGrid from "../../components/NewsCardGrid.astro";
 import PageHeading from "../../components/PageHeading.astro";
 import Pagination from "../../components/Pagination.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { healthNewsPath, listNews } from "../../lib/news";
+import { healthNewsPath, listNews, newsPath } from "../../lib/news";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
 
 const title = "ข่าวสาร";
@@ -38,7 +38,7 @@ const listUrl = new URL("/news", Astro.url);
 			</p>
 		</PageHeading>
 		{entries.length > 0 ? (
-			<NewsCardGrid entries={entries} labelTaxonomy="news_category" />
+			<ContentCardGrid entries={entries} labelTaxonomy="news_category" pathOf={newsPath} />
 		) : page > 1 ? (
 			<EmptyState
 				message="ไม่พบข่าวในหน้านี้"

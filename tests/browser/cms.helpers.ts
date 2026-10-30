@@ -1240,6 +1240,22 @@ export async function setMediaAlt(
 	});
 }
 
+/**
+ * Upload a synthetic picture as an owned fixture, give it `alt` as its alt text in the media
+ * library, and return its media id. A refusal throws.
+ */
+export async function uploadSyntheticPicture(actor: CmsActor, alt: string): Promise<string> {
+	const media = await uploadSyntheticMedia(actor);
+	if (media.mediaId === undefined) {
+		throw new CmsHelperError("synthetic-picture", `the picture: ${nativeRefusalOf(media.result)}`);
+	}
+	const described = await setMediaAlt(actor, media.mediaId, alt);
+	if (!described.ok) {
+		throw new CmsHelperError("synthetic-picture", `its alt text: ${nativeRefusalOf(described)}`);
+	}
+	return media.mediaId;
+}
+
 /** GET /_emdash/api/media/{id} — native media metadata read. */
 export async function readMedia(actor: CmsActor, mediaId: string): Promise<NativeResult> {
 	return cmsRequest(actor, `/_emdash/api/media/${encodeURIComponent(mediaId)}`);
@@ -1330,6 +1346,28 @@ export function portableTextBlock(text: string, style = "normal"): Record<string
 		style,
 		markDefs: [],
 		children: [{ _type: "span", _key: `${key}s`, text, marks: [] }],
+	};
+}
+
+/**
+ * An image block for a Portable Text body, the shape the Admin editor saves when staff pick an
+ * uploaded media item: its id as `_ref` and its URL, EmDash's media route with the storage key
+ * (emdash 1.1.0 src/content/converters/prosemirror-to-portable-text.ts convertImage,
+ * src/astro/routes/api/media.ts addUrlToMedia). A failed upload throws.
+ */
+export function portableTextImage(
+	uploaded: SyntheticMediaResult,
+	alt: string,
+): Record<string, unknown> {
+	const item = nativeItemOf(uploaded.result);
+	if (uploaded.mediaId === undefined || typeof item?.url !== "string") {
+		throw new CmsHelperError("body-image", `the body image: ${nativeRefusalOf(uploaded.result)}`);
+	}
+	return {
+		_type: "image",
+		_key: crypto.randomUUID().slice(0, 8),
+		asset: { _ref: uploaded.mediaId, url: item.url },
+		alt,
 	};
 }
 

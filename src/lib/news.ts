@@ -41,7 +41,7 @@ export interface NewsData {
 	seo?: { title?: string | null; description?: string | null };
 }
 
-export type NewsEntry = ContentEntry<NewsData>;
+type NewsEntry = ContentEntry<NewsData>;
 
 /** A News item's canonical address, `/news/{slug}` (`03` §15), encoded as EmDash encodes it. */
 export function newsPath(slug: string): string {

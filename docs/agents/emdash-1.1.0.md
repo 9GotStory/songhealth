@@ -76,6 +76,17 @@ checks that every cited file exists. When the pinned version changes, re-verify 
 - An image inside a repeater item is normalised on save the way an image field is, so an item saved
   as `{ id }` takes its alt text from the library too (`src/emdash-runtime.ts`, the repeater
   sub-field loop beside the image fields).
+- An image block in a Portable Text body, as the Admin editor saves a picked media item, is
+  `{ _type: "image", asset: { _ref: mediaId, url }, alt }`, where `url` is the media item's
+  `/_emdash/api/media/file/{storageKey}` (`src/content/converters/prosemirror-to-portable-text.ts`
+  `convertImage`, `src/astro/routes/api/media.ts` `addUrlToMedia`). A gallery block holds such
+  images in `images`. The renderer takes `asset.url`, else a URL from `asset.meta.storageKey`, else
+  the media id (`src/content/converters/gallery.ts` `resolveImageMedia`, `src/media/url.ts`
+  `buildRenderMediaUrl`). `./src/lib/media.ts` `availableBody` reads the key the same way.
+- In edit mode the query functions tag a Portable Text array with non-enumerable edit metadata,
+  and `PortableText` then renders the inline editor instead of HTML (`src/query.ts`
+  `tagEditableFields`, `getEditMeta`; `src/components/PortableText.astro`). A copied or filtered
+  array loses the tag, so `./src/components/RichText.astro` passes a tagged body unchanged.
 - `/_emdash/api/media/file/{key}` serves the stored file by key. Safe image, video and audio types
   are served inline; anything else is an attachment (`src/astro/routes/api/media/file/[...key].ts`).
 - Deleting a media item has no in-use guard. It removes the stored file unless another media row
