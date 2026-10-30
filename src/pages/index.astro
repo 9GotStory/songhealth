@@ -2,12 +2,12 @@
 // The Songhealth Homepage, / (Feature 003 #64; spec #51 "Homepage (`04`, Figma order)", `04`;
 // docs/design/homepage-concept-v1.md). A view of published content, in the Figma order:
 //
-// - a compact band with the site title and tagline from the native site settings, standing in
-//   until a Featured item exists (#65);
+// - a compact band, a brand-dark card in the Featured item's place with the site title and tagline
+//   from the native site settings, standing in until a Featured item exists (#65);
 // - Search, a GET form to /search;
 // - the newest published News as one card, beside up to 3 current Announcements, newest first by
 //   announcement date, each with its status and dates as the Announcements list shows them
-//   (src/lib/announcements.ts), and links to both lists;
+//   (src/lib/announcements.ts), each box followed by a link to its own list;
 // - Health Information: the latest 4 Health Content items, each labelled with its first Health
 //   Topic, the `topic` term EmDash hydrates first (src/lib/terms.ts), and a link to their list;
 // - Health Service Discovery: an Area select and a name field, a GET form to the Health Service
@@ -21,6 +21,11 @@
 // Information, Health Service Discovery while no Health Service is published, and Activities. The
 // band, Search and the Contact Summary always render, so the page answers with no content at all.
 // The Frequently Used Services and Quick Access come with the Homepage menus (#65).
+//
+// Beyond the Figma frame, on the Product Owner's decision (2026-10-30: #64 comment 6526131459):
+// the links to the News, Announcements and Health Content lists, without which no page linked to
+// the Announcements list; each Announcement's status; and the Contact Summary's lead as the page's
+// description, since EmDash's site settings hold no description and a tagline is a slogan.
 //
 // The meta element named "songhealth-foundation" with content "public-runtime" is the Feature 001
 // public-runtime marker (T011): tests/browser/foundation.spec.ts, the development runtime's verify
@@ -110,46 +115,53 @@ const control =
 					]}
 				>
 					{news && (
-						<article class="flex flex-col gap-4 rounded-24 bg-brand-primary px-6 py-7 text-surface-base lg:px-7.5">
-							{newsCategory && <p class="text-label wrap-anywhere">{newsCategory.label}</p>}
-							<h3 class="text-h3 wrap-anywhere lg:text-h1">{news.data.title}</h3>
-							{news.data.summary && <p class="line-clamp-4 text-body-large">{news.data.summary}</p>}
-							<ArrowLink href={newsPath(news.id)} context={news.data.title} onDark class="mt-auto">
-								อ่านข่าว
-							</ArrowLink>
-						</article>
-					)}
-					{announcements.length > 0 && (
-						<div class="flex flex-col rounded-24 border border-border-default bg-surface-base">
-							<div class="flex flex-col gap-1 px-6 pt-6 pb-5">
-								<h3 id="home-announcements" class="text-h3 text-text-primary">
-									ประกาศ
-								</h3>
-								<p class="text-small text-text-secondary">
-									ข้อมูลที่อาจมีวันสิ้นสุดหรือการดำเนินการ
-								</p>
-							</div>
-							<ul aria-labelledby="home-announcements">
-								{announcements.map((announcement) => (
-									<li class="flex flex-col gap-1.5 border-t border-divider px-6 py-4.5">
-										<p class="wrap-anywhere">{announcement.data.title}</p>
-										<AnnouncementStatusLine data={announcement.data} now={now} />
-										<ArrowLink
-											href={announcementPath(announcement.id)}
-											context={announcement.data.title}
-										>
-											ดูรายละเอียด
-										</ArrowLink>
-									</li>
-								))}
-							</ul>
+						<div class="flex flex-col gap-4">
+							<article class="flex flex-1 flex-col gap-4 rounded-24 bg-brand-primary px-6 py-7 text-surface-base lg:px-7.5">
+								{newsCategory && <p class="text-label wrap-anywhere">{newsCategory.label}</p>}
+								<h3 class="text-h3 wrap-anywhere lg:text-h1">{news.data.title}</h3>
+								{news.data.summary && (
+									<p class="line-clamp-4 text-body-large">{news.data.summary}</p>
+								)}
+								<ArrowLink
+									href={newsPath(news.id)}
+									context={news.data.title}
+									onDark
+									class="mt-auto"
+								>
+									อ่านข่าว
+								</ArrowLink>
+							</article>
+							<ArrowLink href="/news">ดูข่าวทั้งหมด</ArrowLink>
 						</div>
 					)}
-				</div>
-				<div class="flex flex-wrap gap-x-6">
-					{news && <ArrowLink href="/news">ดูข่าวทั้งหมด</ArrowLink>}
 					{announcements.length > 0 && (
-						<ArrowLink href={ANNOUNCEMENTS_PATH}>ดู{ANNOUNCEMENTS_TITLE}ทั้งหมด</ArrowLink>
+						<div class="flex flex-col gap-4">
+							<div class="flex flex-1 flex-col rounded-24 border border-border-default bg-surface-base">
+								<div class="flex flex-col gap-1 px-6 pt-6 pb-5">
+									<h3 id="home-announcements" class="text-h3 text-text-primary">
+										ประกาศ
+									</h3>
+									<p class="text-small text-text-secondary">
+										ข้อมูลที่อาจมีวันสิ้นสุดหรือการดำเนินการ
+									</p>
+								</div>
+								<ul aria-labelledby="home-announcements">
+									{announcements.map((announcement) => (
+										<li class="flex flex-col gap-1.5 border-t border-divider px-6 py-4.5">
+											<p class="wrap-anywhere">{announcement.data.title}</p>
+											<AnnouncementStatusLine data={announcement.data} now={now} />
+											<ArrowLink
+												href={announcementPath(announcement.id)}
+												context={announcement.data.title}
+											>
+												ดูรายละเอียด
+											</ArrowLink>
+										</li>
+									))}
+								</ul>
+							</div>
+							<ArrowLink href={ANNOUNCEMENTS_PATH}>ดู{ANNOUNCEMENTS_TITLE}ทั้งหมด</ArrowLink>
+						</div>
 					)}
 				</div>
 			</div>

@@ -232,6 +232,9 @@ test("closed Announcements alone leave the News section out, and a current one b
 	await publish("announcements", current);
 	await page.goto("/");
 	await expect(section(page, NEWS_HEADING).getByRole("article")).toHaveCount(0);
+	await expect(
+		section(page, NEWS_HEADING).getByRole("link", { name: "ดูข่าวทั้งหมด" }),
+	).toHaveCount(0);
 	await expect(announcementLinks(page)).toHaveCount(1);
 	await expect(announcementLinks(page)).toHaveAccessibleName(`ดูรายละเอียด ${current.title}`);
 	await expect(page.getByRole("main")).not.toContainText(closed.title);
