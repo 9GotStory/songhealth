@@ -1,98 +1,31 @@
 #!/usr/bin/env node
-// T021 — the Feature 002 public-read SINGLE-RUNTIME TEST COORDINATOR.
+// The T021 public-read coordinator (Feature 002 T021, retargeted to the single runtime by T037).
 //
-// The single development runtime at http://127.0.0.1:4324 (T036; retargeted
-// by T037): the UID-1000 rootless Quadlet runtime of
-// docs/operations/development-quadlet.md, with containers songhealth-qdev-app
-// + songhealth-qdev-db, persistent volumes and a runtime checkout at a
-// promoted commit. It is the SOLE runtime test target. This coordinator NEVER starts, stops, restarts or substitutes a
-// server: no Astro programmatic dev(), no `npm run dev`, no Playwright
-// `webServer`, no second server/port/DB/media stack, no port fallback. An
-// occupied shared origin is the intended state. It only:
+// The single development runtime at http://127.0.0.1:4324 (docs/operations/development-quadlet.md)
+// is the only target. The coordinator never starts, stops, restarts or substitutes a server, and an
+// occupied origin is its intended state. It:
+//   1. checks the exact source identity both ways: this checkout's full HEAD, and the runtime
+//      source that dev-runtime-verify.sh reports with VERIFY: PASS, plus the app's marker and the
+//      fixture route's identity probe. A missing, malformed, stale or mismatched identity is a
+//      HOLD before any credential, fixture or worker;
+//   2. checks the prerequisites: the pinned local Playwright runner, and the mode-0600 development
+//      credential and route-access token (the token is read only to probe the route);
+//   3. HOLDs on any earlier run's ownership manifest, which it never replays, adopts or deletes;
+//   4. runs tests/browser/cms-public-reads.spec.ts through the pinned Playwright runner, with
+//      PLAYWRIGHT_BASE_URL pinned to the runtime and the opt-in that keeps an ordinary
+//      `npm run test:browser` from running it;
+//   5. owns only its Playwright child and the run's manifest: on failure, timeout, SIGINT or
+//      SIGTERM it terminates and reaps that child, keeps the manifest while owned fixtures may
+//      remain, and reports the primary and the cleanup failures together.
 //
-//   1. verifies the EXACT source identity both ways (Lead corrective round
-//      1, R2): the full 40-hex candidate identity this checkout is being
-//      tested at, and the runtime source SHA observed through the runtime's
-//      documented read-only dev-runtime-verify.sh, which must also report
-//      VERIFY: PASS — plus the app's own marker and the fixture's identity
-//      probe. Missing,
-//      malformed, stale or mismatched identities are a non-success HOLD
-//      BEFORE credentials, fixture mutations or any worker spawn;
-//   2. verifies the coordinated prerequisites (pinned local Playwright
-//      runner installed; the mode-0600 development credential input and the
-//      mode-0600 route-access token input present — existence/mode only for
-//      the PAT; the token file is read to probe the route and nothing else);
-//   3. PRIOR-RUN EVIDENCE HOLDs (scope reduction): historical ownership
-//      journals are never replayed, adopted, consumed or deleted — any
-//      leftover manifest (valid-looking, settled, malformed, unreadable or
-//      EMPTY) is retained untouched and produces a named prerequisite HOLD
-//      before any worker spawns; disposition is a separately authorized
-//      operator action. The worker itself equally refuses recovery inputs;
-//   4. runs the ONE T021 spec file through the repo-pinned Playwright
-//      runner with PLAYWRIGHT_BASE_URL pinned to the persistent origin and
-//      the explicit opt-in that keeps ordinary `npm run test:browser` from
-//      ever executing this runtime suite or reading its credentials
-//      (discovery stays side-effect free);
-//   5. owns exactly its Playwright child and the run's ownership manifest:
-//      on failure, timeout, SIGINT or SIGTERM it terminates, awaits and
-//      reaps ONLY that child (SIGTERM, bounded grace, SIGKILL), preserves
-//      the manifest whenever owned synthetic fixtures may remain (worker
-//      interruption never silently discards ownership records), and reports
-//      primary AND cleanup/residue failures together. Every timer and
-//      transient listener is cleared on every completion path (R4), all
-//      prerequisite requests carry an abort deadline, and a child spawn
-//      failure is handled with the same truthful cleanup. The shared app,
-//      DB, media volumes, credentials and runtime checkout are never
-//      test-owned resources; runtime fixture creation/cleanup itself
-//      is the separately authorized T022 serial join's to execute.
+// Exit codes: 0 every test passed and no residue remained; 1 the Playwright run failed (its code);
+// 2 the run passed but coverage or cleanup is incomplete; 3 HOLD, nothing was started; 4
+// interrupted or timed out, the child terminated and reaped.
 //
-// Exit codes (truthful outcomes, never false success):
-//   0  child passed, every recorded test status passed, no residue remained
-//   1  child Playwright run failed (its exit code propagated)
-//   2  child exited zero but coverage/residue is incomplete (skipped or
-//      non-passed recorded statuses, or unresolved owned fixtures)
-//   3  HOLD — a prerequisite failed; nothing was spawned or started
-//   4  interrupted (SIGINT/SIGTERM) or timed out; child terminated/reaped
-//
-// Authority:
-// - specs/002-cms-content-model/tasks.md T021 and the "T021 execution and
-//   single-runtime isolation" block ("The coordinator
-//   node tests/browser/run-cms-public-reads.mjs must not call Astro
-//   programmatic dev(), npm run dev, create a webServer, stop/restart any
-//   shared container, or switch ports; it orchestrates the existing pinned
-//   Playwright command with PLAYWRIGHT_BASE_URL=http://127.0.0.1:4322 and
-//   owned synthetic fixtures"; "On failures, timeouts, SIGINT or SIGTERM,
-//   perform awaited cleanup/reconciliation with the existing server still
-//   available; report cleanup failures alongside original failures"), as
-//   retargeted by T037: the origin is the single runtime's
-//   http://127.0.0.1:4324 and its verify replaces the retired UID-1001
-//   Runtime Controller observation
-// - CLAUDE.md "Runtimes" (one server/DB/media
-//   store/test target; never free the port or substitute; a dev-only
-//   integration not yet installed is NOT READY → HOLD; task cleanup covers
-//   task-owned temporary resources only) and the Multica runtime brief's
-//   never-terminate-by-name rule (only this coordinator's own child PID)
-// - docs/operations/development-quadlet.md "Verify" — dev-runtime-verify.sh
-//   is read-only, and runtime results are interpreted only against the
-//   commit it reports; this coordinator uses it as the approved observation
-//   of the runtime source SHA
-// - tests/browser/foundation.spec.ts — the public songhealth-foundation SSR
-//   marker contract (application identity, NOT by itself source identity)
-// - tests/browser/fixtures/cms-public-reads.integration.mjs — the fixture
-//   route contract (route pattern, access header, identity, env names)
-//
-// Verified API surface (recorded per CLAUDE.md §Current documentation):
-// Node 24 global fetch with redirect:"error" and AbortSignal.timeout for
-// bounded requests; node:child_process spawn with explicit 'error'/'exit'
-// event handling and awaited termination/reaping; node:child_process.execFile
-// for the bounded read-only `git rev-parse HEAD` (expected candidate
-// identity) and the runtime's dev-runtime-verify.sh (observed runtime source
-// identity: its `runtime source: <checkout> @ <sha>` line before the final
-// VERIFY: PASS — verified against the installed runtime); the
-// repo-local pinned @playwright/test 1.63.0 CLI
-// (node_modules/@playwright/test/cli.js) as the runner — `npm run
-// test:browser` is deliberately NOT used so the ordinary suite never drags
-// this runtime file along.
+// Platform behaviour relied on: Node's global fetch with redirect "error" and AbortSignal.timeout;
+// child_process spawn with awaited termination, and execFile for `git rev-parse HEAD` and
+// dev-runtime-verify.sh (its `runtime source: <checkout> @ <sha>` line); the pinned
+// @playwright/test 1.63.0 CLI (node_modules/@playwright/test/cli.js).
 
 import { spawn, execFile } from "node:child_process";
 import { mkdir, readFile, readdir, stat } from "node:fs/promises";
