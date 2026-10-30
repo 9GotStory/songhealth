@@ -74,9 +74,29 @@ backup_runtime() { # database and media into a new $STATE_DIR/backups/<UTC> dire
   "$SRC/scripts/dev-runtime-backup.sh" "$BACKUP_DIR" || die "backup failed: nothing was changed"
   note "backup written to $BACKUP_DIR"
 }
-admin_page_loads() { # the Admin pages opened in the last ADMIN_QUIET_MINUTES; verify's probe left out
-  podman logs --since "${ADMIN_QUIET_MINUTES}m" "$APP_CTR" 2>&1 \
-    | grep -aE '\] /_emdash/admin/' | grep -avE '\] /_emdash/admin/(login)? [0-9]' || :
+ADMIN_TEST_SESSIONS=$STATE_DIR/admin-test-sessions  # browser suites' Admin sessions, "start end" (cms.helpers.ts)
+admin_page_loads() { # the Admin pages opened in the last ADMIN_QUIET_MINUTES; verify's probe and the
+  # browser suites' own Admin sessions (ADMIN_TEST_SESSIONS) left out
+  podman logs --timestamps --since "${ADMIN_QUIET_MINUTES}m" "$APP_CTR" 2>&1 \
+    | grep -aE '\] /_emdash/admin/' | grep -avE '\] /_emdash/admin/(login)? [0-9]' \
+    | python3 -I -c '
+import datetime, re, sys
+sessions = []
+try:
+    for line in open(sys.argv[1]):
+        try:
+            start, end = map(float, line.split())
+        except ValueError:
+            continue
+        sessions.append((start, end + 2))
+except FileNotFoundError:
+    pass
+for line in sys.stdin:
+    stamp, _, load = line.partition(" ")
+    at = datetime.datetime.fromisoformat(re.sub(r"(\.\d{6})\d+", r"\1", stamp)).timestamp()
+    if not any(start <= at <= end for start, end in sessions):
+        sys.stdout.write(load)
+' "$ADMIN_TEST_SESSIONS" || :
 }
 model_update() { # model_update [--check] — the promoted commit's scripts/model-update.mjs, run in the
   # app container on its pinned Node, with the development PAT on stdin

@@ -33,7 +33,7 @@ import SiteLayout from "../../layouts/SiteLayout.astro";
 import { documentsById } from "../../lib/documents";
 import { healthServicesById } from "../../lib/health-services";
 import { isExternalHref } from "../../lib/links";
-import { targetIds } from "../../lib/references";
+import { REFERENCES_LIMIT, targetIds } from "../../lib/references";
 import {
 	OWNERSHIP_LABELS,
 	hasGuidance,
@@ -42,9 +42,6 @@ import {
 } from "../../lib/service-catalog";
 import type { ServiceData } from "../../lib/services";
 import { termsOf } from "../../lib/terms";
-
-/** The most targets of each reference field one read returns. */
-const REFERENCES_LIMIT = 100;
 
 const slug = Astro.params.slug ?? "";
 const { entry, isPreview, error } = await getEmDashEntry<

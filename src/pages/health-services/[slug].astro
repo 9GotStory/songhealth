@@ -24,6 +24,7 @@ import SiteLayout from "../../layouts/SiteLayout.astro";
 import { directoryPath, healthServicePath, shownName } from "../../lib/health-service-directory";
 import type { HealthServiceData } from "../../lib/health-services";
 import { mapHref } from "../../lib/map-link";
+import { REFERENCES_LIMIT } from "../../lib/references";
 import { servicePath, servicesPath } from "../../lib/service-catalog";
 import { termsOf } from "../../lib/terms";
 
@@ -32,7 +33,9 @@ const { entry, isPreview, error } = await getEmDashEntry<
 	"health_services",
 	HealthServiceData,
 	{ offered_services: { limit: number } }
->("health_services", slug, { references: { offered_services: { limit: 100 } } });
+>("health_services", slug, {
+	references: { offered_services: { limit: REFERENCES_LIMIT } },
+});
 if (error) throw error;
 if (!entry) return Astro.rewrite("/404");
 

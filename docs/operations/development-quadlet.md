@@ -147,8 +147,12 @@ The update runs these steps:
 
 1. Refuses when an Admin page was opened in the last 10 minutes, and lists those page loads. The
    restart in steps 3–5 would cut off someone editing in the Admin, and the Product Owner uses
-   this Admin. Verify's own probe of the Admin does not count.
-   - After an Admin UI test run of your own, wait or pass `--force`.
+   this Admin. Verify's own probe of the Admin does not count, and neither do the browser suites'
+   own Admin sessions: `tests/browser/cms.helpers.ts` records each one's start and end in
+   `~/.local/state/songhealth-qdev/admin-test-sessions` when the suite runs through
+   `scripts/dev-runtime-env.sh`.
+   - Pass `--force` only for Admin loads you know are your own and the guard still lists, such as
+     a test that failed before it logged out.
    - Before a restart the update does not make (`systemctl --user restart …`), run
      `scripts/dev-runtime-admin-activity.sh`. It lists recent Admin loads with this same filter, so
      verify's probe never reads as a person.

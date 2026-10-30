@@ -2066,6 +2066,17 @@ export async function cleanupOwnedFixtures(
  */
 export const ADMIN_SESSION_ENV = "SONGHEALTH_ADMIN_SESSION";
 
+/**
+ * The file a browser suite's Admin sessions are recorded in, one "start end" line (Unix seconds)
+ * per session, so the development runtime's Admin-activity guard tells a test run's Admin page
+ * loads from a person's (scripts/dev-runtime-common.sh admin_page_loads). Unset, nothing is
+ * recorded; scripts/dev-runtime-env.sh sets it.
+ */
+const ADMIN_TEST_SESSIONS_ENV = "SONGHEALTH_ADMIN_TEST_SESSIONS";
+
+/** When each open development Admin session began, by browser context. */
+const adminSessionStarts = new WeakMap<object, number>();
+
 /** The minimal browser-context surface the session helpers use. */
 export interface SessionContext {
 	request: {
@@ -2103,6 +2114,7 @@ export async function openDevAdminSession(context: SessionContext): Promise<void
 			`the development Admin session was not established (status ${response.status()}); a production build refuses this route by design`,
 		);
 	}
+	adminSessionStarts.set(context, Date.now());
 }
 
 /**
@@ -2114,5 +2126,27 @@ export async function closeDevAdminSession(context: SessionContext): Promise<num
 	const response = await context.request.post("/_emdash/api/auth/logout", {
 		headers: { "X-EmDash-Request": "1" },
 	});
+	await recordAdminSession(context);
 	return response.status();
+}
+
+/**
+ * Append the context's Admin session window to ADMIN_TEST_SESSIONS_ENV's file, when set. Node
+ * modules load through non-literal imports, as in loadDevAccessToken.
+ */
+async function recordAdminSession(context: SessionContext): Promise<void> {
+	const start = adminSessionStarts.get(context);
+	adminSessionStarts.delete(context);
+	const processSpecifier = "node:process";
+	const nodeProcess = (await import(processSpecifier)) as unknown as {
+		env: Record<string, string | undefined>;
+	};
+	const file = nodeProcess.env[ADMIN_TEST_SESSIONS_ENV]?.trim();
+	if (start === undefined || !file) return;
+	const fsSpecifier = "node:fs/promises";
+	const fsPromises = (await import(fsSpecifier)) as unknown as {
+		appendFile: (p: string, data: string, options: { mode: number }) => Promise<void>;
+	};
+	const seconds = (ms: number) => (ms / 1000).toFixed(3);
+	await fsPromises.appendFile(file, `${seconds(start)} ${seconds(Date.now())}\n`, { mode: 0o600 });
 }

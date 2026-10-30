@@ -21,6 +21,9 @@ pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
   `src/styles/global.css` (ADR 0001; the Figma frame is described in
   `docs/design/homepage-concept-v1.md`). A colour or type style that the tokens lack becomes a
   named token there, with its source.
+- Interface text the shell or a Homepage section shows (headings, link labels such as the footer's)
+  comes from `docs/design/homepage-concept-v1.md` where it names one; text no document names is a
+  pending confirmation for the Product Owner.
 - Status is stated in text; colour supports it.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page.
@@ -44,8 +47,10 @@ pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
 - A helper that a second suite needs moves to a shared module: page checks (the 404 page, Thai
   dates, list titles) to `tests/browser/public.helpers.ts`, native API fixtures (entries, media,
   terms) to `tests/browser/cms.helpers.ts`.
-- Tests assert what people see and use: text, links, status and focus. A `data-testid` marks
-  only an element with no accessible role or name, such as a decorative mark.
+- Tests assert what people see and use: text, links, status and focus. A link or button is
+  checked by its accessible name (`getByRole(…, { name })`, `toHaveAccessibleName`), which leaves
+  out decorative `aria-hidden` marks such as "→". A `data-testid` marks only an element with no
+  accessible role or name, such as a decorative mark.
 - A test that changes shared runtime state (site settings, menus, plugin settings) saves it first
   and restores it in `finally`, and says what the native API cannot restore.
 - A suite's fixtures stay until the suite ends, so a test that needs its fixtures to lead an
