@@ -86,7 +86,10 @@ test.beforeAll(async () => {
 	});
 	const fixturePath = env[ROLE_FIXTURE_CREDENTIAL_ENV]?.trim();
 	if (fixturePath) {
-		roleFixture = await createPatActor({ baseUrl: origin, token: await loadDevAccessToken(fixturePath) });
+		roleFixture = await createPatActor({
+			baseUrl: origin,
+			token: await loadDevAccessToken(fixturePath),
+		});
 		assertDistinctActors(admin, roleFixture);
 		assertSameNativeApp(admin, roleFixture);
 	}
@@ -94,7 +97,11 @@ test.beforeAll(async () => {
 
 test.beforeEach(async ({ context }) => {
 	await context.addCookies([
-		{ name: "emdash-locale", value: "th", url: `${(await processEnv()).PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN}/` },
+		{
+			name: "emdash-locale",
+			value: "th",
+			url: `${(await processEnv()).PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN}/`,
+		},
 	]);
 	if (sessionRequested) await openDevAdminSession(context);
 });
@@ -123,7 +130,9 @@ test("native Admin publish: the editor's Publish now action publishes a draft, r
 	page,
 }) => {
 	requireSessionOptIn();
-	const draft = await createSyntheticEntry(admin, PAGES, { data: { title: uniqueTitle("publish") } });
+	const draft = await createSyntheticEntry(admin, PAGES, {
+		data: { title: uniqueTitle("publish") },
+	});
 	expect(draft.result.ok, "the synthetic draft must save").toBe(true);
 	expect(nativeItemOf(await readEntry(admin, PAGES, draft.entryId!))?.status).toBe("draft");
 
@@ -146,20 +155,28 @@ test("native Admin lock: another account's lease opens read-only with the holder
 	page,
 }) => {
 	requireSessionOptIn();
-	test.skip(roleFixture === undefined, `set ${ROLE_FIXTURE_CREDENTIAL_ENV} to the role fixture PAT`);
+	test.skip(
+		roleFixture === undefined,
+		`set ${ROLE_FIXTURE_CREDENTIAL_ENV} to the role fixture PAT`,
+	);
 	const fixture = roleFixture!;
-	const entry = await createSyntheticEntry(fixture, PAGES, { data: { title: uniqueTitle("lock") } });
+	const entry = await createSyntheticEntry(fixture, PAGES, {
+		data: { title: uniqueTitle("lock") },
+	});
 	expect(entry.result.ok, "the role fixture's own draft must save").toBe(true);
 	const lockPath = `/_emdash/api/content/${PAGES}/${entry.entryId}/lock`;
-	expect((await cmsRequest(fixture, lockPath, { method: "POST", body: {} })).ok, "the holder takes the lease").toBe(
-		true,
-	);
+	expect(
+		(await cmsRequest(fixture, lockPath, { method: "POST", body: {} })).ok,
+		"the holder takes the lease",
+	).toBe(true);
 	try {
 		await openEditor(page, `/_emdash/admin/content/${PAGES}/${entry.entryId}`);
 		await expect(page.getByRole("button", { name: "Take over" })).toBeVisible();
 		await page.getByRole("button", { name: "Open read-only" }).click();
 		await expect(
-			page.getByText(`${fixture.name} is editing this entry. Nothing you change here will be saved.`),
+			page.getByText(
+				`${fixture.name} is editing this entry. Nothing you change here will be saved.`,
+			),
 		).toBeVisible();
 
 		const lock = nativeDataOf(await cmsRequest(admin, lockPath));
@@ -186,7 +203,9 @@ test("native Admin mandatory reference: a Health Report without its Document is 
 		`/_emdash/admin/content/${HEALTH_REPORTS}/new`,
 	);
 	const listed = nativeItemsOf(
-		await cmsRequest(admin, `/_emdash/api/content/${HEALTH_REPORTS}`, { searchParams: { limit: "100" } }),
+		await cmsRequest(admin, `/_emdash/api/content/${HEALTH_REPORTS}`, {
+			searchParams: { limit: "100" },
+		}),
 	) as Array<{ data?: { title?: unknown } }>;
 	expect(
 		listed.some((item) => item.data?.title === title),
