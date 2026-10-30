@@ -1,14 +1,14 @@
 // Announcements on the public site (Feature 003 #56; spec #51 "Public reads" (Announcements),
 // `03` §15).
 //
-// Every read goes through EmDash's query functions, which return published entries only unless a
-// valid preview token asks for a draft (emdash 1.1.0 src/loader.ts, src/query.ts
-// resolveEmDashEntry). Pages never pass a status. The list shows current Announcements first, then
-// closed ones, each newest first by announcement date, falling back to the publication. EmDash
-// cannot sort that way, so the list reads every published Announcement (a query without a `limit`
-// has none: src/loader.ts `fetchLimit`) and sorts it in src/lib/dated-lists.ts (ADR 0004), which
-// also holds the current-or-closed rule and the status an Announcement states: not open yet, open
-// or closed, by the Bangkok day (Product Owner, 2026-10-29).
+// Every read is a `getEmDashCollection` read, which returns published entries only, even with a
+// preview token or in edit mode, so pages pass no status (docs/agents/emdash-1.1.0.md "Public
+// reads"). The list shows current Announcements first, then closed ones, each newest first by
+// announcement date, falling back to the publication. EmDash cannot sort that way, so the list
+// reads every published Announcement (a query without a `limit` has none: emdash 1.1.0
+// src/loader.ts `fetchLimit`) and sorts it in src/lib/dated-lists.ts (ADR 0004), which also holds
+// the current-or-closed rule and the status an Announcement states: not open yet, open or closed,
+// by the Bangkok day (Product Owner, 2026-10-29).
 
 import {
 	getEmDashCollection,

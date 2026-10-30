@@ -1,12 +1,11 @@
 // Activities on the public site (Feature 003 #56; spec #51 "Public reads" (Activities), `03` §15,
 // `04` §10).
 //
-// Every read goes through EmDash's query functions, which return published entries only unless a
-// valid preview token asks for a draft (emdash 1.1.0 src/loader.ts, src/query.ts
-// resolveEmDashEntry). Pages never pass a status. The list orders by when each Activity was held,
-// falling back to its publication, which EmDash cannot sort, so it reads every published Activity
-// (a query without a `limit` has none: src/loader.ts `fetchLimit`) and sorts it in
-// src/lib/dated-lists.ts (ADR 0004).
+// Every read is a `getEmDashCollection` read, which returns published entries only, even with a
+// preview token or in edit mode, so pages pass no status (docs/agents/emdash-1.1.0.md "Public
+// reads"). The list orders by when each Activity was held, falling back to its publication, which
+// EmDash cannot sort, so it reads every published Activity (a query without a `limit` has none:
+// emdash 1.1.0 src/loader.ts `fetchLimit`) and sorts it in src/lib/dated-lists.ts (ADR 0004).
 
 import { getEmDashCollection, type ContentEntry, type TaxonomyTerm } from "emdash";
 import { listDate, listPage, newestFirst, type Instant, type ListPage } from "./dated-lists";

@@ -1,9 +1,8 @@
 // News on the public site (Feature 003 #54; spec #51 "Public reads", `03` §15).
 //
-// Every read goes through EmDash's query functions, which return published entries only unless a
-// valid preview token or the editor's edit mode asks for drafts (emdash 1.1.0 src/loader.ts: the
-// status filter defaults to "published"; src/query.ts resolveEmDashEntry). Pages never pass a
-// status. Health News is News with any `topic` term (`01` §11 treats Topic and Health Topic as one
+// Every read is a `getEmDashCollection` read, which returns published entries only, even with a
+// preview token or in edit mode, so pages pass no status (docs/agents/emdash-1.1.0.md "Public
+// reads"). Health News is News with any `topic` term (`01` §11 treats Topic and Health Topic as one
 // classification).
 
 import {
