@@ -19,6 +19,9 @@ checks that every cited file exists. When the pinned version changes, re-verify 
   `getEmDashCollectionUncached`; `src/loader.ts`). A read that ignores `error` shows an empty list or
   the 404 page instead of failing, so every read checks it. `./src/lib/search-matcher.ts`
   `searchOutcome` turns it into the search's failed state.
+- A signed preview link carries its token in the `_preview` query parameter
+  (`src/preview/tokens.ts`), so a redirect that keeps the query string keeps the preview
+  (`./src/pages/pages/[slug].astro`).
 - An entry's `id` is its slug and `data.id` is the database id. Taxonomy terms hydrate as
   `data.terms[taxonomy]`, ordered by label.
 - `where` on a taxonomy name matches exact term slugs, ORed when given as an array. An unknown slug
@@ -113,6 +116,10 @@ checks that every cited file exists. When the pinned version changes, re-verify 
   (`src/media/url.ts` `buildRenderMediaUrl`). A production build authorises no media source for
   Astro's image service, so production serves originals (`src/astro/integration/index.ts`;
   ADR 0003).
+- `Image` loads lazily unless given `priority`, which makes it eager and adds
+  `fetchpriority="high"`. The attributes it is given come after that default, so a passed `loading`
+  wins (`src/components/EmDashImage.astro`). `./src/components/ContentCard.astro` and
+  `./src/components/ActivityCard.astro` load a list's first row that way.
 - The frontend media-provider loader creates providers with an empty context, and the local provider
   needs a database, so public pages cannot use it (`src/media/provider-loader.ts`,
   `src/media/local-runtime.ts`).
@@ -136,14 +143,20 @@ checks that every cited file exists. When the pinned version changes, re-verify 
 - `EmDashHead` emits the description, canonical, OG and Twitter tags, the default OG image and the
   favicon. It lays the entry's SEO panel over what the page passes, and the `<title>` stays the
   page's own (`src/components/EmDashHead.astro`, `src/page/seo-contributions.ts`). `getSeoMeta`
-  falls back to `data.excerpt` (`src/seo/index.ts`).
+  falls back to `data.excerpt` (`src/seo/index.ts`). No head or SEO code reads the site tagline
+  (nothing under `src/page/`, `src/seo/` or `src/components/`), so a page's description is only
+  what the page or the entry's SEO panel gives.
 - Site settings accept a fixed key set (`src/api/schemas/settings.ts`). Their `seo` object is
   patched key by key, and `null` removes a key (`src/settings/index.ts`). Plugin `settingsSchema`
   fields are string, number, boolean, select, secret, url or email (`src/plugins/types.ts`).
 - Menu items carry `referenceCollection` and `referenceId`. A menu returns only label, URL, target
   and titleAttr, and does not check publication (`src/api/schemas/menus.ts`, `src/menus/index.ts`).
   `resolveEmDashPath` maps a URL back to its entry (`src/query.ts`).
-- The sitemap lists routable collections with SEO enabled (`src/api/handlers/seo.ts`).
+- The sitemap lists routable collections with SEO enabled (`src/api/handlers/seo.ts`). Its
+  addresses start from the settings' `url`, else the configured origin (the integration's `siteUrl`,
+  then `EMDASH_SITE_URL` or `SITE_URL`), else the request's own (`src/astro/routes/sitemap.xml.ts`,
+  `src/api/public-url.ts` `getPublicOrigin`). `./src/lib/site-identity.ts` follows the settings,
+  `EMDASH_SITE_URL`, then the request, which agrees while neither `siteUrl` nor `SITE_URL` is set.
 - EmDash builds and renders no breadcrumb. `createPublicPageContext` takes an optional
   `breadcrumbs` trail (`{ name, url }` items, root first), which plugins' page hooks receive, so an
   SEO plugin can emit a `BreadcrumbList` from it: `[]` means the page has none, and an omitted
@@ -173,6 +186,8 @@ checks that every cited file exists. When the pinned version changes, re-verify 
   a Facebook page username, a YouTube channel ID or handle (`@emdash-cms/admin/dist/index.js`).
   The settings API patches `social` key by key and accepts only strings, so a handle can be
   emptied but not deleted (`src/settings/index.ts` `setSiteSettings`, `src/api/schemas/settings.ts`).
+  The networks are twitter, github, facebook, instagram, linkedin and youtube; LINE is not one
+  (`src/settings/types.ts`).
 
 ## Search and seeding
 
@@ -181,9 +196,14 @@ checks that every cited file exists. When the pinned version changes, re-verify 
 - Seed taxonomy terms are applied only with content (`src/seed/apply.ts`), and `emdash seed` opens
   SQLite only (`src/cli/commands/seed.ts`). The model-update step uses the schema and taxonomy APIs
   instead (`./scripts/model-update.mjs`).
+- Setup applies the seed with `onConflict: "skip"`, so a collection that exists keeps its settings
+  (`src/astro/routes/api/setup/index.ts`). `emdash schema` lists, gets, creates and deletes
+  collections and adds or removes fields, but cannot update a collection
+  (`src/cli/commands/schema.ts`).
 - `GET` and `POST /_emdash/api/schema/collections/{slug}/fields` list and create a collection's
   fields (`src/astro/routes/api/schema/collections/[slug]/fields/index.ts`). The create body takes a
-  seed field's own keys, and the collection list carries no fields (`src/api/schemas/schema.ts`
+  seed field's own keys (`src/seed/types.ts` `SeedField`, beside `SeedCollection` with its
+  `urlPattern` and `SeedTaxonomyTerm`), and the collection list carries no fields (`src/api/schemas/schema.ts`
   `createFieldBody`, `src/api/handlers/schema.ts` `handleSchemaCollectionList`). A created field
   goes after the existing ones (`src/schema/registry.ts` `createField`).
 - An `integer` field is an `INTEGER` column that takes whole numbers only (`src/schema/types.ts`

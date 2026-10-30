@@ -7,7 +7,7 @@
 //   origin, so loading a page never sends the visit to a font host, map or
 //   tracker elsewhere (#51 user story 11). The guard fails the test after it
 //   has run.
-// - `expectNoAxeViolations`: axe-core with the WCAG 2.2 AA tag set.
+// - `expectNoAxeViolations`: axe-core with the WCAG 2.2 AA tag set and its page-structure rules.
 // - `DESKTOP_VIEWPORT` / `MOBILE_VIEWPORT`: the two widths every template is
 //   checked at. The mobile width is 320 CSS px, the narrowest width the site
 //   must reflow to without horizontal scrolling (WCAG 2.2 SC 1.4.10).
@@ -24,7 +24,7 @@
 //
 // Verified against the pinned @axe-core/playwright 4.14.0 (axe-core 4.14.0,
 // node_modules/@axe-core/playwright/dist/index.d.ts): `new AxeBuilder({ page })
-// .withTags(tags).analyze()` resolves to the axe results, whose `violations`
+// .options(options).analyze()` resolves to the axe results, whose `violations`
 // lists each failed rule with the nodes it failed on.
 
 import AxeBuilder from "@axe-core/playwright";
@@ -47,6 +47,22 @@ export { expect };
 
 /** WCAG 2.2 level A and AA, as axe-core tags (#51 Testing Decisions). */
 const WCAG_22_AA_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+
+/**
+ * axe-core's page-structure rules, which it tags best practice rather than WCAG: one H1, headings
+ * that step down one level at a time, one main landmark, all content inside a landmark, and
+ * landmarks told apart (#51 user story 8). They run beside the WCAG 2.2 AA tag set on the Product
+ * Owner's decision (2026-10-31: #64 comment 6535568373).
+ */
+const STRUCTURE_RULES = [
+	"page-has-heading-one",
+	"heading-order",
+	"landmark-one-main",
+	"region",
+	"landmark-unique",
+	"landmark-no-duplicate-banner",
+	"landmark-no-duplicate-contentinfo",
+];
 
 /** The Figma Homepage Concept v1 desktop frame width. */
 export const DESKTOP_VIEWPORT = { width: 1440, height: 900 };
@@ -124,11 +140,17 @@ export async function expectNoHorizontalScroll(page: Page, label: string): Promi
 }
 
 /**
- * Run axe with the WCAG 2.2 AA tag set on the page as it is now, and fail with
- * a readable summary (rule, impact and the offending nodes) on any violation.
+ * Run axe with the WCAG 2.2 AA tag set and the page-structure rules on the page as it is now, and
+ * fail with a readable summary (rule, impact and the offending nodes) on any violation.
  */
 export async function expectNoAxeViolations(page: Page, label: string): Promise<void> {
-	const results = await new AxeBuilder({ page }).withTags(WCAG_22_AA_TAGS).analyze();
+	// A rule enabled by name runs beside a tag selection (axe-core 4.14.0 axe.js ruleShouldRun).
+	const results = await new AxeBuilder({ page })
+		.options({
+			runOnly: { type: "tag", values: WCAG_22_AA_TAGS },
+			rules: Object.fromEntries(STRUCTURE_RULES.map((rule) => [rule, { enabled: true }])),
+		})
+		.analyze();
 	const violations = results.violations.map(
 		(violation) =>
 			`${violation.id} (${violation.impact ?? "unknown impact"}): ${violation.help} — ${violation.nodes
