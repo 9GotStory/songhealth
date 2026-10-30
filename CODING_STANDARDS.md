@@ -12,6 +12,10 @@ pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
   request.
 - When code relies on platform behaviour, the comment names the package, its pinned version and
   the source path, for example `emdash 1.1.0 src/api/schemas/settings.ts`.
+- A Songhealth helper, hook or plugin that does what EmDash might do names its native gap: its
+  comment cites the fact in `docs/agents/emdash-1.1.0.md` that shows EmDash lacks it, and a
+  missing fact is added there with its source path (CLAUDE.md "Platform-native first";
+  `src/lib/navigation.ts` breadcrumbTrail is an example).
 - Code that departs from the spec or the current docs on a Product Owner decision cites the
   decision (issue and comment) where it departs, so a later change does not "fix" it back.
 - Accepted Feature 001 and 002 files carry long historical headers. Trim them when a change
@@ -39,7 +43,9 @@ pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
 - A list or detail page reuses the shared pieces in `src/components/` and follows the shape of
   `src/pages/news/`. That shape covers reads through EmDash's query functions, `?page=` and GET
   filters, `Astro.rewrite("/404")` for anything not visible, and the SiteLayout head props. A
-  piece that two pages need moves into `src/components/` or `src/lib/`.
+  piece that two pages need moves into `src/components/` or `src/lib/`. So does a page's title
+  that another page shows as a crumb or link: one constant in its section's module, as
+  `HEALTH_CONTENT_TITLE` is.
 - CMS images go through EmDash's `Image` with a `sizes` that matches their box. Image size
   evidence from the development runtime shows renditions that production does not serve
   (ADR 0003).

@@ -60,6 +60,11 @@ The feedback loop for `/implement` and `/tdd` (Node 24.21.0, npm 12.2.0):
 CI (`.github/workflows/checks.yml`) runs the build, typecheck, node tests, `format:check`, `knip`
 and `lint:shell` on every pull request; the browser suites stay local to the development runtime.
 
+`/tdd`'s agreed seams are the public browser suites on the development runtime, node:test on a
+`src/lib` module without runtime imports, and the runtime's verify checks for the model state
+(spec #51 "Testing Decisions"; #86 comment 6519918864). A ticket's Tests line picks among them;
+a new seam goes to the Product Owner.
+
 ## Agent skills
 
 ### Issue tracker

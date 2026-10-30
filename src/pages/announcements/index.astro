@@ -14,10 +14,15 @@ import EmptyState from "../../components/EmptyState.astro";
 import PageHeading from "../../components/PageHeading.astro";
 import Pagination from "../../components/Pagination.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { ANNOUNCEMENTS_PATH, listAnnouncements, statusOf } from "../../lib/announcements";
+import {
+	ANNOUNCEMENTS_PATH,
+	ANNOUNCEMENTS_TITLE,
+	listAnnouncements,
+	statusOf,
+} from "../../lib/announcements";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
 
-const title = "ประกาศ";
+const title = ANNOUNCEMENTS_TITLE;
 const lead = "ประกาศของสำนักงานสาธารณสุขอำเภอสองที่ประชาชนควรทราบหรือต้องดำเนินการ";
 const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
 /** One instant for the whole list, so the order and every row's status agree. */

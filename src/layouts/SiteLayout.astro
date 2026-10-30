@@ -49,7 +49,12 @@ import { readOfficeContact } from "../lib/office-contact";
 import { OFFICE_NAME, getSiteIdentity } from "../lib/site-identity";
 
 interface Props {
-	/** The page's own title. The Homepage passes none and is titled by the site title alone. */
+	/**
+	 * The page's title in the browser tab and search results, before the site title: an entry page
+	 * passes its SEO title when its SEO panel sets one, else its own title. The page's heading and
+	 * its last crumb keep its own title. The Homepage passes none and is titled by the site title
+	 * alone.
+	 */
 	title?: string;
 	/** The main-navigation section this page belongs to; none marks no section. */
 	section?: NavigationSection;

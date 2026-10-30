@@ -47,6 +47,12 @@ export interface DirectoryFilters {
 	name: string;
 }
 
+/**
+ * The directory's title (`00` §13), also its crumb on each Health Service page and its link on
+ * /search.
+ */
+export const DIRECTORY_TITLE = "หน่วยบริการสุขภาพที่เกี่ยวข้อง";
+
 /** The directory's address. */
 const DIRECTORY_PATH = "/health-services";
 
