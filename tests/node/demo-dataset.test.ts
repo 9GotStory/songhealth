@@ -462,6 +462,17 @@ describe("demo dataset: content (#66)", () => {
 		assert.ok(news.some(({ taxonomies }) => !taxonomies?.topic?.length));
 	});
 
+	it("prints each Document's PDF with the Document's own title and summary, in Thai", () => {
+		// Product Owner, 2026-10-31: #66 comment 6541144669, item 6.
+		const pdfs = new Map(
+			dataset.media.flatMap((media) => ("pdf" in media ? [[media.filename, media.pdf]] : [])),
+		);
+		for (const { slug, data } of entriesOf("documents")) {
+			const [filename] = mediaOf(data.file);
+			assert.deepEqual(pdfs.get(filename!), { title: data.title, summary: data.summary }, slug);
+		}
+	});
+
 	it("has Documents of each Document Type the About pages list, one superseded by its successor", () => {
 		const documents = entriesOf("documents");
 		for (const type of ["policy", "plan", "result"]) {

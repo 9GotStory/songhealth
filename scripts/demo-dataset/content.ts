@@ -111,10 +111,10 @@ export function demoDataset(now: Date): DemoDataset {
 		media.push({ filename, alt, colours: [from, to] });
 		return { demoMedia: filename };
 	};
-	/** A PDF `demo-{name}.pdf`, and the field value that stands for it. */
-	const pdf = (name: string): MediaRef => {
+	/** A PDF `demo-{name}.pdf` that shows `title` and `summary`, and the field value for it. */
+	const pdf = (name: string, title: string, summary: string | undefined): MediaRef => {
 		const filename = `demo-${name}.pdf`;
-		media.push({ filename });
+		media.push({ filename, pdf: { title, summary } });
 		return { demoMedia: filename };
 	};
 	/** A Document of the office, under `demo-document-{name}` with its own PDF. */
@@ -137,7 +137,7 @@ export function demoDataset(now: Date): DemoDataset {
 		...(references ? { references } : {}),
 		publishedAt: ago(publishedDaysAgo),
 		data: {
-			file: pdf(`document-${name}`),
+			file: pdf(`document-${name}`, String(data.title), data.summary as string | undefined),
 			owner_source: "สำนักงานสาธารณสุขอำเภอสอง",
 			document_at: ago(publishedDaysAgo + 1),
 			...data,

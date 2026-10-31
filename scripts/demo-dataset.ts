@@ -12,6 +12,10 @@
 // the commands cannot run against production. The PAT is never printed. The origin is
 // PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324.
 
+import { readFile } from "node:fs/promises";
+
+import { chromium } from "@playwright/test";
+
 import * as helpers from "../tests/browser/cms.helpers.ts";
 import { demoDataset } from "./demo-dataset/content.ts";
 import {
@@ -130,30 +134,43 @@ async function readRuntime(admin: helpers.CmsActor): Promise<RuntimeState> {
 	};
 }
 
+/** Text for HTML. */
+const escapeHtml = (text: string) =>
+	text.replace(/[&<>"]/g, (character) => `&#${character.charCodeAt(0)};`);
+
 /**
- * A one-page A4 PDF that names itself a demo document, in a standard PDF font, so its text is
- * ASCII only.
+ * A printer of the demo Documents' PDFs: Playwright's Chromium prints a one-page A4 document in the
+ * site's own Noto Sans Thai, which the PDF embeds, so any PDF viewer shows its Thai (Product Owner,
+ * 2026-10-31: #66 comment 6541144669). A standard PDF font has no Thai glyphs. `keep-all` breaks
+ * lines at spaces only, so no Thai word is cut.
  */
-function demoPdf(filename: string): Uint8Array<ArrayBuffer> {
-	const text = `BT /F1 16 Tf 72 760 Td (Songhealth demo dataset: ${filename}) Tj ET`;
-	const objects = [
-		"<< /Type /Catalog /Pages 2 0 R >>",
-		"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-		"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-		"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-		`<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
-	];
-	let pdf = "%PDF-1.4\n";
-	const offsets = objects.map((object, index) => {
-		const offset = pdf.length;
-		pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
-		return offset;
-	});
-	const xref = pdf.length;
-	pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-	pdf += offsets.map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
-	pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
-	return new TextEncoder().encode(pdf) as Uint8Array<ArrayBuffer>;
+async function pdfPrinter() {
+	const font = async (weight: number, file: string) =>
+		`@font-face { font-family: "Noto Sans Thai"; font-weight: ${weight}; src: url(data:font/woff2;base64,${(
+			await readFile(new URL(`../src/assets/fonts/${file}`, import.meta.url))
+		).toString("base64")}) format("woff2"); }`;
+	const fonts = `${await font(400, "NotoSansThai-Regular.woff2")}${await font(700, "NotoSansThai-Bold.woff2")}`;
+	const browser = await chromium.launch();
+	const page = await browser.newPage();
+	return {
+		async print({ title, summary }: { title: string; summary: string | undefined }) {
+			// The colours are the site's brand-dark, brand-primary and text-secondary
+			// (src/styles/global.css).
+			await page.setContent(
+				`<!doctype html><html lang="th"><meta charset="utf-8"><style>${fonts}
+body { font-family: "Noto Sans Thai"; margin: 0; padding: 64px; color: #123c33;
+  word-break: keep-all; overflow-wrap: anywhere; }
+.mark { display: inline-block; border: 2px solid #0b6b57; border-radius: 8px; padding: 4px 12px;
+  color: #0b6b57; }
+h1 { font-size: 22pt; } p { font-size: 14pt; line-height: 1.6; } .office { color: #65736d; }
+</style><p class="mark">เอกสารตัวอย่าง — ไม่ใช่เอกสารราชการจริง</p><h1>${escapeHtml(title)}</h1>
+<p class="office">สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่</p>${summary ? `<p>${escapeHtml(summary)}</p>` : ""}`,
+				{ waitUntil: "load" },
+			);
+			return new Uint8Array(await page.pdf({ format: "A4", printBackground: true }));
+		},
+		close: () => browser.close(),
+	};
 }
 
 async function add(admin: helpers.CmsActor): Promise<boolean> {
@@ -173,21 +190,26 @@ async function add(admin: helpers.CmsActor): Promise<boolean> {
 		console.log(`created the ${taxonomy} term ${slug}`);
 	}
 	const media = new Map(live.media.map((item) => [item.filename, item]));
-	for (const item of plan.upload) {
-		const uploaded =
-			"colours" in item
-				? await helpers.uploadMediaItem(
-						admin,
-						item.filename,
-						{ bytes: helpers.gradientPng(...item.colours), type: "image/png" },
-						item.alt,
-					)
-				: await helpers.uploadMediaItem(admin, item.filename, {
-						bytes: demoPdf(item.filename),
-						type: "application/pdf",
-					});
-		media.set(item.filename, uploaded as unknown as MediaItem);
-		console.log(`uploaded ${item.filename}`);
+	const printer = plan.upload.some((item) => "pdf" in item) ? await pdfPrinter() : undefined;
+	try {
+		for (const item of plan.upload) {
+			const uploaded =
+				"pdf" in item
+					? await helpers.uploadMediaItem(admin, item.filename, {
+							bytes: await printer!.print(item.pdf),
+							type: "application/pdf",
+						})
+					: await helpers.uploadMediaItem(
+							admin,
+							item.filename,
+							{ bytes: helpers.gradientPng(...item.colours), type: "image/png" },
+							item.alt,
+						);
+			media.set(item.filename, uploaded as unknown as MediaItem);
+			console.log(`uploaded ${item.filename}`);
+		}
+	} finally {
+		await printer?.close();
 	}
 	/**
 	 * `value` with each MediaRef replaced by its media item: `{ id }` for a picture, which takes its

@@ -251,7 +251,9 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
   Health Services in three demo Areas, Health Content, Health Reports with their Documents,
   Documents of the types policy, plan and result (one superseded by its successor), Personnel
   with two Leadership, the reserved Basic Pages, Office Contact values with the Facebook and
-  YouTube handles, and items in the three Homepage menus.
+  YouTube handles, and items in the three Homepage menus. Each Document's file is a one-page Thai
+  PDF that `add` prints with Playwright's Chromium, the one the browser suites use, in the site's
+  own Noto Sans Thai (#66 comment 6541144669).
 - **How it is marked.**
   - Every title starts with `[ตัวอย่าง]`. The Personnel prefix stays empty, so each name starts
     with the mark (#61 comment 6514145827).

@@ -25,10 +25,12 @@ export interface DemoTerm {
 
 /**
  * A picture or a PDF of the dataset, uploaded under its filename. A picture is a diagonal blend of
- * two hex colours, with alt text in the media library.
+ * two hex colours, with alt text in the media library. A PDF is a one-page Thai document with its
+ * Document's title and summary.
  */
 export type DemoMedia =
-	{ filename: string; alt: string; colours: readonly [string, string] } | { filename: string };
+	| { filename: string; alt: string; colours: readonly [string, string] }
+	| { filename: string; pdf: { title: string; summary: string | undefined } };
 
 /**
  * A field value that stands for a media item of the dataset, by filename. `add` gives the field the
