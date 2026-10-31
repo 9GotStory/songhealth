@@ -83,6 +83,14 @@ function picked(collection: string, fixture: DraftFixture): MenuItemInput {
 	return { label: fixture.title, collection, id: fixture.id };
 }
 
+/**
+ * A link typed into a menu, labelled with the synthetic mark, so the residue scan finds it if a run
+ * stops before the menus are put back (scripts/dev-runtime-residue.sh).
+ */
+function typed(label: string, url: string): MenuItemInput {
+	return { label: `${SYNTHETIC_FIXTURE_MARK} ${label}`, url };
+}
+
 /** A Homepage section, by its heading. */
 function section(page: Page, heading: string) {
 	return page.getByRole("region", { name: heading });
@@ -205,7 +213,7 @@ test("with nothing in the Featured menu to show, the compact band with the site 
 			featured: [
 				picked("news", draft),
 				picked("health_services", facility),
-				{ label: "เอกสารเผยแพร่", url: "/documents" },
+				typed("เอกสารเผยแพร่", "/documents"),
 			],
 		},
 		async () => {
@@ -342,12 +350,12 @@ test("Quick Access shows up to 4 items in menu order, to a page, a published ent
 		admin,
 		{
 			quickAccess: [
-				{ label: "เอกสารเผยแพร่", url: "/documents" },
+				typed("เอกสารเผยแพร่", "/documents"),
 				picked("health_content", withdrawn),
 				picked("documents", document),
-				{ label: "ข่าวสุขภาพ", url: "/news/health" },
-				{ label: "ระบบภายนอก", url: "https://example.org/ita" },
-				{ label: "ข้อมูลสุขภาพ", url: "/health" },
+				typed("ข่าวสุขภาพ", "/news/health"),
+				typed("ระบบภายนอก", "https://example.org/ita"),
+				typed("ข้อมูลสุขภาพ", "/health"),
 			],
 		},
 		async () => {
@@ -356,10 +364,13 @@ test("Quick Access shows up to 4 items in menu order, to a page, a published ent
 			const links = quickAccess.getByRole("link");
 			await expect(links).toHaveCount(4);
 			const expected = [
-				["เอกสารเผยแพร่", "/documents"],
+				[`${SYNTHETIC_FIXTURE_MARK} เอกสารเผยแพร่`, "/documents"],
 				[document.title, `/documents/${document.slug}`],
-				["ข่าวสุขภาพ", "/news/health"],
-				["ระบบภายนอก (เว็บไซต์ภายนอก) (เปิดในแท็บใหม่)", "https://example.org/ita"],
+				[`${SYNTHETIC_FIXTURE_MARK} ข่าวสุขภาพ`, "/news/health"],
+				[
+					`${SYNTHETIC_FIXTURE_MARK} ระบบภายนอก (เว็บไซต์ภายนอก) (เปิดในแท็บใหม่)`,
+					"https://example.org/ita",
+				],
 			];
 			for (const [index, [name, href]] of expected.entries()) {
 				await expect(links.nth(index)).toHaveAccessibleName(name!);

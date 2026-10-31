@@ -612,8 +612,8 @@ test("with every section showing, the sections follow the Figma order, and the p
 		featured: [{ label: featured.title, collection: "news", id: featured.id }],
 		services: [{ label: service.title, collection: "services", id: service.id }],
 		quickAccess: [
-			{ label: "เอกสารเผยแพร่", url: "/documents" },
-			{ label: "ข้อมูลสุขภาพ", url: "/health" },
+			{ label: `${SYNTHETIC_FIXTURE_MARK} เอกสารเผยแพร่`, url: "/documents" },
+			{ label: `${SYNTHETIC_FIXTURE_MARK} ข้อมูลสุขภาพ`, url: "/health" },
 		],
 	};
 	await withHomepageMenus(admin, menus, async () => {
