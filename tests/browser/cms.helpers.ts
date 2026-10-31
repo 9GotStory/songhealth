@@ -49,6 +49,7 @@
 
 import { appendFile, lstat, readFile, stat } from "node:fs/promises";
 import { env } from "node:process";
+import { crc32, deflateSync } from "node:zlib";
 
 import { expect } from "@playwright/test";
 
@@ -1328,6 +1329,78 @@ export async function uploadSyntheticPicture(actor: CmsActor, alt: string): Prom
 		throw new CmsHelperError("synthetic-picture", `its alt text: ${nativeRefusalOf(described)}`);
 	}
 	return media.mediaId;
+}
+
+/** A 1200×750 PNG, a diagonal blend from the hex colour `from` to `to`: a stand-in photo. */
+export function gradientPng(from: string, to: string): Uint8Array<ArrayBuffer> {
+	const [width, height] = [1200, 750];
+	const [a, b] = [from, to].map((hex) =>
+		[1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16)),
+	);
+	const chunk = (type: string, data: Buffer) => {
+		const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+		const framed = Buffer.alloc(body.length + 8);
+		framed.writeUInt32BE(data.length, 0);
+		body.copy(framed, 4);
+		framed.writeUInt32BE(crc32(body), body.length + 4);
+		return framed;
+	};
+	const header = Buffer.alloc(13);
+	header.writeUInt32BE(width, 0);
+	header.writeUInt32BE(height, 4);
+	header.set([8, 2, 0, 0, 0], 8); // 8-bit RGB, no interlace
+	const rows = Buffer.alloc((width * 3 + 1) * height);
+	for (let y = 0; y < height; y += 1) {
+		const row = y * (width * 3 + 1); // each row starts with filter type 0
+		for (let x = 0; x < width; x += 1) {
+			const t = (x / width + y / height) / 2;
+			rows.set(
+				a!.map((channel, index) => Math.round(channel + (b![index]! - channel) * t)),
+				row + 1 + x * 3,
+			);
+		}
+	}
+	return new Uint8Array(
+		Buffer.concat([
+			Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+			chunk("IHDR", header),
+			chunk("IDAT", deflateSync(rows)),
+			chunk("IEND", Buffer.alloc(0)),
+		]),
+	);
+}
+
+/**
+ * Upload `file` as a new media item named `filename`, give it `alt` as its alt text when given, and
+ * return the item as the native API answers it. Deduplication is off, so the item is always new. A
+ * refusal throws, after deleting the item when only its alt text was refused. Unlike
+ * uploadSyntheticMedia, nothing registers the item for owned cleanup: the caller removes it.
+ */
+export async function uploadMediaItem(
+	actor: CmsActor,
+	filename: string,
+	file: { bytes: Uint8Array<ArrayBuffer>; type: string },
+	alt?: string,
+): Promise<Record<string, unknown> & { id: string }> {
+	const form = new FormData();
+	form.append("file", new File([file.bytes], filename, { type: file.type }));
+	form.append("deduplicate", "false");
+	const uploaded = await cmsRequest(actor, "/_emdash/api/media", { method: "POST", form });
+	const item = nativeItemOf(uploaded);
+	if (!uploaded.ok || typeof item?.id !== "string") {
+		throw new CmsHelperError("MEDIA_UPLOAD", `${filename}: ${nativeRefusalOf(uploaded)}`);
+	}
+	if (alt !== undefined) {
+		const described = await setMediaAlt(actor, item.id, alt);
+		if (!described.ok) {
+			await deleteMedia(actor, item.id).catch(() => undefined);
+			throw new CmsHelperError(
+				"MEDIA_UPLOAD",
+				`${filename} alt text: ${nativeRefusalOf(described)}`,
+			);
+		}
+	}
+	return item as Record<string, unknown> & { id: string };
 }
 
 /** GET /_emdash/api/media/{id} — native media metadata read. */

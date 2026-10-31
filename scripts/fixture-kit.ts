@@ -6,8 +6,6 @@
 // synthetic mark, so scripts/dev-runtime-residue.sh finds anything a failed cleanup leaves. The
 // origin is PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324.
 
-import { crc32, deflateSync } from "node:zlib";
-
 import * as helpers from "../tests/browser/cms.helpers.ts";
 
 export interface FixtureKit {
@@ -34,37 +32,6 @@ export interface FixtureKit {
 /** The development runtime's origin. */
 export const ORIGIN = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4324";
 
-/** A PNG of `width`×`height` RGB pixels from `colour(x, y)`. */
-function png(width: number, height: number, colour: (x: number, y: number) => number[]): Buffer {
-	const chunk = (type: string, data: Buffer) => {
-		const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
-		const framed = Buffer.alloc(body.length + 8);
-		framed.writeUInt32BE(data.length, 0);
-		body.copy(framed, 4);
-		framed.writeUInt32BE(crc32(body), body.length + 4);
-		return framed;
-	};
-	const header = Buffer.alloc(13);
-	header.writeUInt32BE(width, 0);
-	header.writeUInt32BE(height, 4);
-	header.set([8, 2, 0, 0, 0], 8); // 8-bit RGB, no interlace
-	const rows = Buffer.alloc((width * 3 + 1) * height);
-	for (let y = 0; y < height; y += 1) {
-		const row = y * (width * 3 + 1); // each row starts with filter type 0
-		for (let x = 0; x < width; x += 1) rows.set(colour(x, y), row + 1 + x * 3);
-	}
-	return Buffer.concat([
-		Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-		chunk("IHDR", header),
-		chunk("IDAT", deflateSync(rows)),
-		chunk("IEND", Buffer.alloc(0)),
-	]);
-}
-
-function rgb(hex: string): number[] {
-	return [1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16));
-}
-
 /**
  * Run `work` with a FixtureKit, then remove the entries, pictures and terms it made. Throws when
  * `work` fails or anything is left, after the removal ran.
@@ -90,26 +57,10 @@ export async function withFixtureKit<T>(work: (kit: FixtureKit) => Promise<T>): 
 			return slugs.get(key)!;
 		},
 		async picture(alt, from, to) {
-			const [a, b] = [rgb(from), rgb(to)];
-			const bytes = png(1200, 750, (x, y) => {
-				const t = (x / 1200 + y / 750) / 2;
-				return a.map((channel, index) => Math.round(channel + (b[index] - channel) * t));
-			});
-			const form = new FormData();
 			const name = `${helpers.SYNTHETIC_FIXTURE_MARK}-shot-${crypto.randomUUID().slice(0, 8)}.png`;
-			form.append("file", new File([new Uint8Array(bytes)], name, { type: "image/png" }));
-			form.append("deduplicate", "false");
-			const uploaded = await helpers.cmsRequest(admin, "/_emdash/api/media", {
-				method: "POST",
-				form,
-			});
-			const id = helpers.nativeItemOf(uploaded)?.id;
-			if (!uploaded.ok || typeof id !== "string") {
-				throw new Error(`picture: ${helpers.nativeRefusalOf(uploaded)}`);
-			}
+			const bytes = helpers.gradientPng(from, to);
+			const { id } = await helpers.uploadMediaItem(admin, name, { bytes, type: "image/png" }, alt);
 			media.push(id);
-			const described = await helpers.setMediaAlt(admin, id, alt);
-			if (!described.ok) throw new Error(`picture alt: ${helpers.nativeRefusalOf(described)}`);
 			return id;
 		},
 		block: helpers.portableTextBlock,

@@ -195,6 +195,10 @@ cited file exists and that the name carries the pinned version.
   server replaces a menu's items at once (`src/mcp/server.ts`, `handleMenuSetItems`), so a test
   that sets a menu deletes and recreates its items, which get new ids
   (`./tests/browser/cms.helpers.ts` `showHomepageMenus`).
+- On PostgreSQL, deleting a menu item deletes its children. `DELETE …/items/{id}` deletes the one
+  row (`src/database/repositories/menu.ts` `deleteItem`), and `parent_id` references the parent
+  item `ON DELETE CASCADE` (`src/database/migrations/005_menus.ts`). Only the SQLite rebuild drops
+  that key (`src/database/migrations/036_i18n_menus_and_taxonomies.ts`).
 - Applying the seed recreates the items of every menu it declares: an existing menu loses its
   items (`src/seed/apply.ts`, the menus step). `setup/dev-bypass` applies the seed on every call
   (`src/astro/routes/api/setup/dev-bypass.ts`), while `POST /_emdash/api/setup` refuses once setup
@@ -252,6 +256,8 @@ cited file exists and that the name carries the pinned version.
 
 ## Native API for tests
 
+- A native list answers one page of at most 100 items (`limit`), with `nextCursor` while more remain
+  (`src/api/schemas/common.ts` `cursorPaginationQuery`).
 - `POST …/content/{collection}/{id}/publish` accepts `publishedAt` to backdate a publication
   (`src/astro/routes/api/content/[collection]/[id]/publish.ts`).
 - `POST …/preview-url` mints a draft's signed preview link
@@ -274,6 +280,15 @@ cited file exists and that the name carries the pinned version.
 - `GET …/content/{collection}/{id}` takes an id or a slug, and finds only an entry outside the trash
   (`src/api/handlers/content.ts` `handleContentGet`, `src/database/repositories/content.ts`
   `findByIdOrSlug`).
+- A slug stays taken while its entry is in the trash: the table's `UNIQUE (slug, locale)` covers
+  trashed rows, and a create with that slug answers `409 SLUG_CONFLICT`
+  (`src/database/migrations/019_i18n.ts`, `src/api/handlers/content.ts`).
+  `POST …/{id}/restore` brings a trashed entry back as a draft: it clears the live revision and the
+  schedule (`src/database/repositories/content.ts` `restore`). `./scripts/demo-dataset/plan.ts`
+  therefore restores the dataset's trashed entries and publishes them again.
+- `GET /_emdash/api/media` takes `q`, a case-insensitive part of a filename
+  (`src/api/schemas/media.ts` `mediaListQuery`, `src/database/repositories/media.ts`
+  `applyListFilters`).
 - A term list counts each term's entries as the public site sees them: published, or scheduled and
   due, and not in the trash (`src/api/handlers/taxonomies.ts` `handleTermList`,
   `src/taxonomies/term-counts.ts` `fetchVisibleTermCounts`).

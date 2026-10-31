@@ -111,6 +111,11 @@ content to show takes it from `scripts/dev-runtime-env.sh node scripts/capture-w
 the module returns, and removes everything it made. `scripts/screenshot-fixtures/news.ts` is the
 example.
 
+The runtime holds the demo dataset: content marked `[ตัวอย่าง]` that fills every page for the
+Product Owner's review. `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` installs it
+and `… remove` takes it away. It stays installed, the Product Owner's exception to the cleanup rule
+below (`docs/operations/development-quadlet.md`, Demo dataset).
+
 Latency evidence for a list that reads more than one page (ADR 0002, ADR 0004) comes from
 `scripts/dev-runtime-env.sh node scripts/measure-latency.ts <fixtures-module> [runs]`. It times
 the module's paths before and after making its synthetic content, then removes the content, and
