@@ -1,11 +1,15 @@
 ---
-// A text link to another page on this site, ending in the "→" mark (Feature 003 #64;
-// docs/design/homepage-concept-v1.md "Shared patterns": Label in brand-primary, ending in "→"),
-// such as ดูกิจกรรมทั้งหมด. The mark is decorative. A label that does not say by itself where the
-// link goes, such as อ่านข่าว under a News item's title, takes that title as `context`: assistive
-// technology reads it after the label, and it stays out of sight (WCAG 2.2 SC 2.4.4), so the name
-// still begins with the label a citizen sees (SC 2.5.3). On a dark surface it takes the light text
-// and the focus ring for dark surfaces (src/styles/global.css focus-ring-on-dark).
+// A text link to another page on this site, ending in Lucide's chevron-right (Feature 003 #64,
+// #105; docs/design/homepage-concept-v1.md "Shared patterns": Label in brand-primary), such as
+// ดูกิจกรรมทั้งหมด. The frame ends the label in "→"; the site's onward links take chevron-right
+// instead (Product Owner, 2026-10-31: #51 comments 6536026977, 6536052180). The icon is decorative
+// (docs/agents/lucide-astro-1.59.0.md). A label that does not say by itself where the link goes,
+// such as อ่านข่าว under a News item's title, takes that title as `context`: assistive technology
+// reads it after the label, and it stays out of sight (WCAG 2.2 SC 2.4.4), so the name still begins
+// with the label a citizen sees (SC 2.5.3). On a dark surface it takes the light text and the focus
+// ring for dark surfaces (src/styles/global.css focus-ring-on-dark).
+import ChevronRight from "@lucide/astro/icons/chevron-right";
+
 interface Props {
 	href: string;
 	/** Read after the label by assistive technology only, such as the title of the item it opens. */
@@ -29,5 +33,5 @@ const { href, context, onDark = false, class: className } = Astro.props;
 >
 	<slot />
 	{context && <span class="sr-only">{context}</span>}
-	<span aria-hidden="true">→</span>
+	<ChevronRight class="shrink-0" size={16} />
 </a>

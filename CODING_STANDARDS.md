@@ -45,6 +45,16 @@ and why, and `.jscpd-baseline.json` records them.
   scope is a pending confirmation for the Product Owner (Product Owner, 2026-10-30: #59 comment
   6515274921).
 - Status is stated in text; colour supports it.
+- Icons are Lucide's, each imported from its own `@lucide/astro/icons/<name>` module, and no text
+  stands in for one (Product Owner, 2026-10-31: #51 comments 6536026977, 6536052180). An onward
+  link on this site ends in `chevron-right` and a link that leaves it in `arrow-up-right`. An icon
+  is decorative: Lucide hides it from assistive technology, and the text names the link or button
+  (`docs/agents/lucide-astro-1.59.0.md`). Its size follows its role (Product Owner, 2026-10-31:
+  #105 comment 6536890963): 16 px for a direction icon beside label or small text, 20 px for an
+  icon that shows the action itself at the start of its button, such as the menu's or the
+  download's, and 24 px on a card. It takes a colour token through `currentColor`, and `shrink-0`,
+  because a flex row squeezes an svg beside text that wraps. `tests/node/public-icons.test.ts`
+  fails on a text arrow, a lone "+" or a hand-drawn `<svg>`.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page.
 - A list or detail page reuses the shared pieces in `src/components/` and follows the shape of
@@ -75,8 +85,8 @@ and why, and `.jscpd-baseline.json` records them.
   `tests/browser/cms.helpers.ts`.
 - Tests assert what people see and use: text, links, status and focus. A link or button is
   checked by its accessible name (`getByRole(…, { name })`, `toHaveAccessibleName`), which leaves
-  out decorative `aria-hidden` marks such as "→". A `data-testid` marks only an element with no
-  accessible role or name, such as a decorative mark.
+  out decorative `aria-hidden` icons. A `data-testid` marks only an element with no accessible
+  role or name, such as a decorative mark.
 - A test that changes shared runtime state (site settings, menus, plugin settings) saves it first
   and restores it in `finally`, and says what the native API cannot restore.
 - A suite's fixtures stay until the suite ends, so a test that needs its fixtures to lead an

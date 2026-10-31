@@ -1,8 +1,10 @@
 ---
-// A Quick Link card (Feature 003 #60; Figma Card / Quick Link 4:43,
-// docs/design/homepage-concept-v1.md §10): a label and the "→" mark, the whole card one link to a
-// page on this site. /about links to its sub-pages with it. The arrow is decorative: the label
-// names the link.
+// A Quick Link card (Feature 003 #60, #105; Figma Card / Quick Link 4:43,
+// docs/design/homepage-concept-v1.md §10): a label and the chevron-right icon, the whole card one
+// link to a page on this site. /about links to its sub-pages with it. The icon is decorative
+// (docs/agents/lucide-astro-1.59.0.md): the label names the link.
+import ChevronRight from "@lucide/astro/icons/chevron-right";
+
 interface Props {
 	href: string;
 	label: string;
@@ -16,7 +18,5 @@ const { href, label } = Astro.props;
 	href={href}
 >
 	<span class="wrap-anywhere">{label}</span>
-	<span aria-hidden="true" class="text-brand-primary">
-		→
-	</span>
+	<ChevronRight class="shrink-0 text-brand-primary" size={24} />
 </a>

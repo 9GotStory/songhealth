@@ -337,7 +337,7 @@ test("/about links to every About sub-page", async ({ page }) => {
 	const links = subpages.getByRole("link");
 	await expect(links).toHaveCount(ABOUT_SUBPAGES.length);
 	for (const [index, [label, href]] of ABOUT_SUBPAGES.entries()) {
-		await expect(links.nth(index), "the arrow is decorative").toHaveAccessibleName(label);
+		await expect(links.nth(index), "the icon is decorative").toHaveAccessibleName(label);
 		await expect(links.nth(index)).toHaveAttribute("href", href);
 	}
 	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/about`);
