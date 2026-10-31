@@ -60,8 +60,6 @@ import {
 
 /** The Featured hero's eyebrow, the design's interface text (docs/design/homepage-concept-v1.md §3). */
 const FEATURED_EYEBROW = "เรื่องเด่นจากอำเภอสอง";
-/** The heading of the current Announcements beside the News card. */
-const ANNOUNCEMENTS_HEADING = "ประกาศ";
 /** A close date long past, on any calendar. */
 const CLOSED_AT = "2026-01-31T10:00:00.000Z";
 
@@ -181,10 +179,8 @@ test("an Announcement without a picture is Featured with the start of its detail
 			await expect(shown.getByTestId("featured-visual")).toHaveCount(1);
 			// The newest current Announcement, so the list beside the News card would lead with it.
 			await expect(
-				homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("list", {
-					name: ANNOUNCEMENTS_HEADING,
-				}),
-			).not.toContainText(announcement.title);
+				page.getByRole("main").getByRole("link", { name: `ดูรายละเอียด ${announcement.title}` }),
+			).toHaveCount(0);
 			await expectAccessibleAtEachWidth(page, "/ with the Featured visual");
 			await page.setViewportSize(MOBILE_VIEWPORT);
 			await expectNoHorizontalScroll(page, "/ with the Featured visual");
