@@ -4,12 +4,15 @@
 // while it is one EmDash itself accepts for an href: http, https, mailto, tel or a site-relative
 // path (emdash 1.1.0 src/utils/url.ts isSafeHref); otherwise the text shows as plain text. A link
 // to another website says in text that it leaves the site and opens in a new tab with
-// rel="noopener" (#51 user story 38), as the map link does. A link on this site, an email address
-// or a telephone number opens in place.
+// rel="noopener" (#51 user story 38), as the map link does, and ends in the decorative
+// arrow-up-right icon (#105). A link on this site, an email address or a telephone number opens in
+// place.
 //
 // A compact link, such as one of the footer's official channels, keeps that note for screen
-// readers only and shows just the "↗" mark: the network's name already says it is another website
-// (Product Owner, 2026-10-30: #62 comment 6516956505).
+// readers only and shows just the icon: the network's name already says it is another website
+// (Product Owner, 2026-10-30: #62 comment 6516956505). The icon is `inline`, because Tailwind's
+// preflight makes an svg a block, and such a link runs in a line of text.
+import ArrowUpRight from "@lucide/astro/icons/arrow-up-right";
 import { isSafeHref } from "emdash";
 import { isExternalHref } from "../lib/links";
 
@@ -40,7 +43,7 @@ const external = linked && isExternalHref(href, Astro.url.origin);
 				<span class="sr-only">(เปิดในแท็บใหม่)</span>
 			</>
 		)}
-		<span aria-hidden="true">↗</span>
+		<ArrowUpRight class="inline shrink-0" size={16} />
 	</a>
 ) : (
 	<a class={className} href={href}>

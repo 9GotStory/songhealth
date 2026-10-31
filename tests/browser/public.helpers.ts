@@ -7,7 +7,8 @@
 //   origin, so loading a page never sends the visit to a font host, map or
 //   tracker elsewhere (#51 user story 11). The guard fails the test after it
 //   has run.
-// - `expectNoAxeViolations`: axe-core with the WCAG 2.2 AA tag set and its page-structure rules.
+// - `expectNoAxeViolations`: axe-core with the WCAG 2.2 AA tag set and its page-structure rules,
+//   and every icon hidden from assistive technology.
 // - `DESKTOP_VIEWPORT` / `MOBILE_VIEWPORT`: the two widths every template is
 //   checked at. The mobile width is 320 CSS px, the narrowest width the site
 //   must reflow to without horizontal scrolling (WCAG 2.2 SC 1.4.10).
@@ -141,7 +142,9 @@ export async function expectNoHorizontalScroll(page: Page, label: string): Promi
 
 /**
  * Run axe with the WCAG 2.2 AA tag set and the page-structure rules on the page as it is now, and
- * fail with a readable summary (rule, impact and the offending nodes) on any violation.
+ * fail with a readable summary (rule, impact and the offending nodes) on any violation. Fail too on
+ * an icon that assistive technology can reach: every icon on a public page is decorative, an
+ * `<svg>` that is aria-hidden or inside an aria-hidden element (docs/design/DESIGN.md §5; #105).
  */
 export async function expectNoAxeViolations(page: Page, label: string): Promise<void> {
 	// A rule enabled by name runs beside a tag selection (axe-core 4.14.0 axe.js ruleShouldRun).
@@ -158,6 +161,14 @@ export async function expectNoAxeViolations(page: Page, label: string): Promise<
 				.join(", ")}`,
 	);
 	expect(violations, `${label}: axe must report no WCAG 2.2 AA violations`).toEqual([]);
+	const exposedIcons = await page
+		.locator("svg")
+		.evaluateAll((icons) =>
+			icons
+				.filter((icon) => icon.closest('[aria-hidden="true"]') === null)
+				.map((icon) => `<svg class="${icon.getAttribute("class") ?? ""}">`),
+		);
+	expect(exposedIcons, `${label}: every icon must be hidden from assistive technology`).toEqual([]);
 }
 
 /**

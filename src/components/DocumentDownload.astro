@@ -3,7 +3,8 @@
 // download link at EmDash's own media URL that names the file's type and size and offers the
 // uploaded file's name, or, when the file cannot be served, the unavailable state
 // (UnavailableNotice.astro). A page whose Document row already says the file is unavailable, such
-// as a Health Report's, asks for the link alone.
+// as a Health Report's, asks for the link alone. The download icon (#105) is decorative.
+import Download from "@lucide/astro/icons/download";
 import type { FileValue } from "emdash";
 import { FILE_UNAVAILABLE, downloadableFile } from "../lib/media";
 import UnavailableNotice from "./UnavailableNotice.astro";
@@ -24,20 +25,7 @@ const file = await downloadableFile(Astro.props.file, Astro.locals.emdash);
 		href={file.href}
 		download={file.filename}
 	>
-		<svg
-			class="size-5 shrink-0"
-			aria-hidden="true"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-		>
-			<path d="M12 3v12" />
-			<path d="M7 10l5 5 5-5" />
-			<path d="M5 21h14" />
-		</svg>
+		<Download class="shrink-0" size={20} />
 		<span>ดาวน์โหลดเอกสาร ({file.label})</span>
 	</a>
 ) : (

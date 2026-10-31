@@ -1,7 +1,10 @@
 ---
-// Pagination of a list (Feature 003 #54; spec #51 "Lists and filters"). The page number travels
-// in the query string with the list's other parameters, so the links work without JavaScript and
-// can be shared. The list knows only whether a further page exists, not how many there are.
+// Pagination of a list (Feature 003 #54, #105; spec #51 "Lists and filters"). The page number
+// travels in the query string with the list's other parameters, so the links work without
+// JavaScript and can be shared. The list knows only whether a further page exists, not how many
+// there are. The chevron-left and chevron-right icons are decorative: the labels name the links.
+import ChevronLeft from "@lucide/astro/icons/chevron-left";
+import ChevronRight from "@lucide/astro/icons/chevron-right";
 import { pageHref } from "../lib/pagination";
 
 interface Props {
@@ -20,18 +23,7 @@ const linkClasses =
 			<li>
 				{page > 1 && (
 					<a class={linkClasses} rel="prev" href={pageHref(Astro.url, page - 1)}>
-						<svg
-							class="size-4"
-							aria-hidden="true"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M15 6l-6 6 6 6" />
-						</svg>
+						<ChevronLeft size={16} />
 						หน้าก่อนหน้า
 					</a>
 				)}
@@ -41,18 +33,7 @@ const linkClasses =
 				{hasMore && (
 					<a class={linkClasses} rel="next" href={pageHref(Astro.url, page + 1)}>
 						หน้าถัดไป
-						<svg
-							class="size-4"
-							aria-hidden="true"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M9 6l6 6-6 6" />
-						</svg>
+						<ChevronRight size={16} />
 					</a>
 				)}
 			</li>
