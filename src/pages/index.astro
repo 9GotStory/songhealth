@@ -73,7 +73,9 @@ import { SERVICES_PATH } from "../lib/service-catalog";
 import { getSiteIdentity } from "../lib/site-identity";
 import { termsOf } from "../lib/terms";
 
-/** The Contact Summary's lead (docs/design/homepage-concept-v1.md §11), also the page's description. */
+/**
+ * The Contact Summary's lead (docs/design/homepage-concept-v1.md §11), also the page's description.
+ */
 const OFFICE_SUMMARY =
 	"ศูนย์กลางข้อมูล บริการ และการประสานงานด้านสุขภาพของประชาชนในอำเภอสอง จังหวัดแพร่";
 
@@ -98,7 +100,9 @@ const [
 	latestActivities(3),
 	readOfficeContact(),
 ]);
-/** Whether an entry of `collection` is other than the Featured item, which the page already shows. */
+/**
+ * Whether an entry of `collection` is other than the Featured item, which the page already shows.
+ */
 const notFeatured =
 	(collection: string) =>
 	({ data }: { data: { id: string } }) =>

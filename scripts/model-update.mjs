@@ -78,7 +78,8 @@ import { parseArgs } from "node:util";
  * @typedef {{ collections: LiveCollection[], taxonomies: LiveTaxonomy[], menus: LiveMenu[] }}
  *   LiveModel
  *
- * @typedef {{ collection: string, field: SeedField }} FieldCreate A field to create in a collection.
+ * @typedef {{ collection: string, field: SeedField }} FieldCreate A field to create in a
+ *   collection.
  *
  * @typedef {{ taxonomy: string, slug: string, label: string }} TermCreate A term to create with
  *   POST /_emdash/api/taxonomies/{taxonomy}/terms (src/api/schemas/taxonomies.ts createTermBody).

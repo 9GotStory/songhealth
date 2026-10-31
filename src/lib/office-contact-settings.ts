@@ -73,7 +73,9 @@ export interface OfficeContact {
 	lineUrl?: string;
 }
 
-/** A string value with its surrounding space trimmed, or undefined when it is empty or not a string. */
+/**
+ * A string value with its surrounding space trimmed, or undefined when it is empty or not a string.
+ */
 function trimmedText(value: unknown): string | undefined {
 	return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
 }

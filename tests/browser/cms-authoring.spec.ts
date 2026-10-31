@@ -44,9 +44,9 @@
 //   fields refuse a non-array (src/schema/zod-generator.ts).
 // - A stale `_rev` answers 409 CONFLICT (src/api/rev.ts). A save without a credential or an
 //   `X-EmDash-Request` header answers 403 CSRF_REJECTED before authentication
-//   (src/astro/middleware/auth.ts), and an insufficient one 403 FORBIDDEN (src/api/authorize.ts). An
-//   unknown collection answers 404 COLLECTION_NOT_FOUND, which the schema gate reports as a skip,
-//   never a PASS.
+//   (src/astro/middleware/auth.ts), and an insufficient one 403 FORBIDDEN (src/api/authorize.ts).
+//   An unknown collection answers 404 COLLECTION_NOT_FOUND, which the schema gate reports as a
+//   skip, never a PASS.
 //
 // Credentials and fixtures: the development Administrator PAT (SONGHEALTH_DEV_ACCESS), which
 // holds content:publish_any, acts on the configured origin; no role boundary is claimed from it.

@@ -38,6 +38,7 @@ import {
 	createOwnedTerm,
 	createSyntheticDocument,
 	createSyntheticDraft,
+	createSyntheticHealthReport,
 	deleteMedia,
 	devAdminActor,
 	nativeRefusalOf,
@@ -104,11 +105,7 @@ const createContent = (label: string, fields: DraftFields = {}) =>
 const createReport = (
 	label: string,
 	{ document = reportDocument, ...fields }: DraftFields & { document?: DraftFixture } = {},
-) =>
-	createSyntheticDraft(admin, "health_reports", "รายงานสุขภาพ", label, {
-		...fields,
-		references: { report_document: [document.id] },
-	});
+) => createSyntheticHealthReport(admin, label, { document, ...fields });
 
 /** Publish now, or backdated to `publishedAt`. Returns the stored publication instant. */
 const publishContent = (content: DraftFixture, publishedAt?: string) =>
