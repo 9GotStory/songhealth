@@ -190,7 +190,7 @@ export async function frequentServices<E>(
  * site or a published entry of any kind, the canonical destinations `04` §10.1 names. An item that
  * leads nowhere is skipped (`04` §17): an unpublished or trashed entry's address, a path that is no
  * page, another scheme such as mailto: or only a fragment. So is a link to another website, which
- * is no destination of the site.
+ * is no destination of the site, although the ticket says "any destination" (Product Owner, 2026-10-31: #65 comment 6538358352).
  */
 export async function quickAccessLinks<E>(
 	items: readonly MenuLink[],
