@@ -2,7 +2,9 @@
 
 Facts the public pages' icons rely on (#105; `docs/design/DESIGN.md` §5), read from the installed
 package. Paths are relative to `node_modules/@lucide/astro/`, and a Songhealth file has a leading
-`./`. When the pinned version changes, re-verify every line.
+`./`. When the pinned version changes, re-verify every line and rename this file:
+`./tests/node/package-facts.test.ts` checks that every cited file exists and that the name carries
+the pinned version.
 
 - Each icon is its own module, `@lucide/astro/icons/<name>`, whose default export is the icon's
   Astro component (`package.json` `exports`; `src/icons/chevron-right.ts`). The pages import each

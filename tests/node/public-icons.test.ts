@@ -5,7 +5,9 @@
 // under src/ and fails on a text arrow (→ ↗ ← ‹ ›) or a lone "+" shown as a mark, written as the
 // character, an HTML entity or an escape, and on an <svg> drawn by hand or imported from a file.
 // The placeholder logo mark keeps its own <svg> in the shell until the office's logo arrives
-// (DESIGN.md §5: a logo is not an icon). Comments may name a mark, so they are left out.
+// (DESIGN.md §5: a logo is not an icon). Comments may name a mark, so they are left out. Each icon
+// comes from its own module and has a size of 16, 20 or 24 px and shrink-0 (CODING_STANDARDS
+// "Public pages"; #105 retro: four components missed shrink-0 until review).
 
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
@@ -26,6 +28,18 @@ const PLUS_MARK = /(?<=>\s*)(?:\+|&plus;|&#43;|&#x2b;)(?=\s*<)/gi;
 /** An <svg> drawn by hand, or an .svg file imported as a component. */
 const HAND_DRAWN_SVG = /<svg\b|\bfrom\s*["'][^"']*\.svg(?:\?[^"']*)?["']/gi;
 
+/** An import of one Lucide icon from its own module; the group is the icon's component name. */
+const ICON_IMPORT = /import\s+(\w+)\s+from\s*["']@lucide\/astro\/icons\/[\w-]+["']/g;
+
+/** An import from the package root, which re-exports every icon. */
+const ROOT_IMPORT = /\bfrom\s*["']@lucide\/astro["']/g;
+
+/** One of DESIGN.md §5's icon sizes, as the `size` prop. */
+const SLOT_SIZE = /\bsize=\{(?:16|20|24)\}/;
+
+/** shrink-0 among the classes, because a flex row squeezes an svg beside text that wraps. */
+const SHRINK_0 = /\bclass="[^"]*\bshrink-0\b[^"]*"/;
+
 /** The placeholder logo mark's element and the <svg> inside it, in the shell. */
 const PLACEHOLDER_MARK = {
 	file: "layouts/SiteLayout.astro",
@@ -34,6 +48,11 @@ const PLACEHOLDER_MARK = {
 
 /** Block comments, which a template writes in braces; HTML comments; whole-line comments. */
 const COMMENTS = /\/\*[\s\S]*?\*\/|<!--[\s\S]*?-->|^[ \t]*\/\/.*$/gm;
+
+/** The line of `source` that `index` falls on, counted from 1. */
+function lineAt(source: string, index: number | undefined): number {
+	return source.slice(0, index).split("\n").length;
+}
 
 /** `source` with `pattern`'s matches blanked out, keeping line breaks so line numbers hold. */
 function blank(source: string, pattern: RegExp): string {
@@ -69,11 +88,23 @@ async function matchesInSources(
 	for (const { file, source } of await publicSources()) {
 		const scanned = exempt?.file === file ? blank(source, exempt.pattern) : source;
 		for (const match of scanned.matchAll(pattern)) {
-			const line = scanned.slice(0, match.index).split("\n").length;
-			matches.push(`${file}:${line} ${match[0]}`);
+			matches.push(`${file}:${lineAt(scanned, match.index)} ${match[0]}`);
 		}
 	}
 	return matches.sort();
+}
+
+/** Each Lucide icon element in the public pages' source, as `file:line` and its start tag. */
+async function iconTags(): Promise<Array<{ at: string; tag: string }>> {
+	const tags: Array<{ at: string; tag: string }> = [];
+	for (const { file, source } of await publicSources()) {
+		for (const [, name] of source.matchAll(ICON_IMPORT)) {
+			for (const match of source.matchAll(new RegExp(`<${name}\\b[^>]*>`, "g"))) {
+				tags.push({ at: `${file}:${lineAt(source, match.index)}`, tag: match[0] });
+			}
+		}
+	}
+	return tags;
 }
 
 describe("public pages", () => {
@@ -94,5 +125,18 @@ describe("public pages", () => {
 
 	it("draw no <svg> by hand, apart from the placeholder logo mark", async () => {
 		assert.deepEqual(await matchesInSources(HAND_DRAWN_SVG, PLACEHOLDER_MARK), []);
+	});
+
+	it("import each Lucide icon from its own module", async () => {
+		assert.deepEqual(await matchesInSources(ROOT_IMPORT), []);
+	});
+
+	it("give each Lucide icon a size of 16, 20 or 24 px and shrink-0", async () => {
+		const tags = await iconTags();
+		assert.ok(tags.length > 0, "the icons are found");
+		const off = tags
+			.filter(({ tag }) => !SLOT_SIZE.test(tag) || !SHRINK_0.test(tag))
+			.map(({ at, tag }) => `${at} ${tag}`);
+		assert.deepEqual(off, []);
 	});
 });

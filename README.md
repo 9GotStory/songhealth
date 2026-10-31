@@ -100,7 +100,8 @@ scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs
 
 Public-page suites (Feature 003) take `test` from `tests/browser/public.helpers.ts`. It guards
 every page against third-party requests, and it provides the axe (WCAG 2.2 AA and page
-structure), focus and reflow checks and the desktop and 320 px viewports.
+structure, with every icon hidden from assistive technology), focus and reflow checks and the
+desktop and 320 px viewports.
 
 Pull-request screenshots of public pages come from
 `node scripts/capture-screenshots.mjs <out-dir> <path>...`. The script's header shows how to put

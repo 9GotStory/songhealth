@@ -8,7 +8,7 @@
 // repository, in EmDash, or in an installed package the same comment block names. The check reads
 // git-tracked files, so it sees a new file once it is staged. An EmDash source path that src/ or
 // scripts/ cites must also be recorded in docs/agents/emdash-1.1.0.md (#64 retro), whose own paths
-// tests/node/emdash-facts.test.ts checks.
+// tests/node/package-facts.test.ts checks.
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
