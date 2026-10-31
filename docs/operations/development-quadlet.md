@@ -233,6 +233,71 @@ content model from the model-update step:
 - **Production.** The same script updates a production database:
   `production-foundation.md` §7.4.
 
+## Demo dataset
+
+The demo dataset is realistic content that fills every page and every Homepage section, so the
+Product Owner can review the site before real content exists (#66; spec #51 "Demo dataset",
+approved Q4). It is development-only: it never enters the seed, a production database or a
+production image. It stays installed on this runtime until the Product Owner asks for its removal.
+That is the Product Owner's exception to the task-run cleanup rule (2026-10-29).
+
+```bash
+scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add      # install it, or complete it
+scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of it away
+```
+
+- **What it holds.** `scripts/demo-dataset/content.ts` defines it: News (some of it Health News),
+  Activities with and without pictures, Announcements (current, upcoming and closed), Services,
+  Health Services in three demo Areas, Health Content, Health Reports with their Documents,
+  Documents of the types policy, plan and result (one superseded by its successor), Personnel
+  with two Leadership, the reserved Basic Pages, Office Contact values with the Facebook and
+  YouTube handles, and items in the three Homepage menus. Each Document's file is a one-page Thai
+  PDF that `add` prints with Playwright's Chromium, the one the browser suites use, in the site's
+  own Noto Sans Thai (#66 comment 6541144669). A runtime that holds a PDF of the same name keeps it
+  until `remove` and `add` print it again.
+- **How it is marked.**
+  - Every title starts with `[ตัวอย่าง]`. The Personnel prefix stays empty, so each name starts
+    with the mark (#61 comment 6514145827).
+  - Entry slugs, term slugs and media filenames start with `demo-`. The reserved Basic Pages
+    (`about`, `organization`, `privacy`, `accessibility`) keep their reserved slugs, so the
+    commands recognise them by the title mark.
+  - Each menu item it adds has the CSS class `demo-dataset`, which the Homepage never renders.
+  - Its dates count from the day `add` runs: an Announcement it shows as current closes 30 to 45
+    days later, and one has no closing date.
+- **`add`** reads the runtime through the native API and installs what is missing:
+  - it creates the missing terms, pictures, PDFs and entries, and takes the dataset's entries out
+    of the trash;
+  - it publishes each dataset entry that is not published;
+  - it fills each Homepage menu that is empty or holds only the dataset's items, and each Office
+    Contact value and handle that is unset.
+
+  An entry it finds keeps its fields: to bring back the dataset as defined, or to move its dates
+  to today, run `remove` and then `add`. What holds content the dataset did not make stays as it
+  is, and `add` names it on a `left … as it is` line: a Basic Page at a reserved slug whose title
+  lacks the mark, a menu with an item the dataset did not add, an Office Contact value or a handle
+  with another value.
+- **`remove`**:
+  - it takes the dataset's items out of the menus;
+  - it moves each demo entry to the trash and purges it, including one in the trash already or
+    one the dataset no longer lists;
+  - it deletes the demo terms, pictures and PDFs, so an entry of the office's own that used one
+    loses it;
+  - it unsets each Office Contact value and empties each handle that still holds the dataset's
+    value. The settings API can empty a handle but not delete it, and the site shows an empty
+    handle as unset.
+- **Each command confirms its work.** After it changes the runtime, it reads the runtime again and
+  plans once more. It exits 0 when nothing is left to do, 1 when something is (it names what), and
+  2 for a wrong argument. A second `add` therefore changes nothing.
+- **Credentials.** The commands act as `dev@emdash.local` with the development PAT that
+  `SONGHEALTH_DEV_ACCESS` names, and never print it. Only the development-only `setup/dev-bypass`
+  creates that account, so the commands cannot run against production.
+- **Tests.** The browser suites tolerate the dataset. They assert on their own uniquely titled
+  fixtures, and a test of an empty section returns the runtime's own entries to draft and
+  publishes them again at their own dates (`tests/browser/public.helpers.ts` `BorrowedEntries`).
+  `tests/browser/public-demo-dataset.spec.ts` checks that the installed dataset fills every page
+  and every Homepage section, and skips while the dataset is not installed. The residue scan
+  counts only synthetic fixtures, so the dataset never counts as residue.
+
 ## Verify
 
 `scripts/dev-runtime-verify.sh` is read-only and prints one PASS/FAIL line per check, then

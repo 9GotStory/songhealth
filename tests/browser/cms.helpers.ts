@@ -49,6 +49,7 @@
 
 import { appendFile, lstat, readFile, stat } from "node:fs/promises";
 import { env } from "node:process";
+import { crc32, deflateSync } from "node:zlib";
 
 import { expect } from "@playwright/test";
 
@@ -1291,14 +1292,28 @@ export async function uploadSyntheticPdf(
 		mediaId: item.id,
 		filename: item.filename,
 		storageKey: item.storageKey,
-		value: {
-			id: item.id,
-			provider: "local",
-			filename: item.filename,
-			mimeType: item.mimeType,
-			size: item.size,
-			meta: { storageKey: item.storageKey },
-		},
+		value: fileFieldValue(item),
+	};
+}
+
+/**
+ * The value a file field saves for media `item`, as the Admin's file picker sends it
+ * (@emdash-cms/admin 1.1.0 FileFieldRenderer).
+ */
+export function fileFieldValue(item: {
+	id: string;
+	filename: string;
+	mimeType: string;
+	size: number | null;
+	storageKey: string;
+}): Record<string, unknown> {
+	return {
+		id: item.id,
+		provider: "local",
+		filename: item.filename,
+		mimeType: item.mimeType,
+		size: item.size,
+		meta: { storageKey: item.storageKey },
 	};
 }
 
@@ -1328,6 +1343,79 @@ export async function uploadSyntheticPicture(actor: CmsActor, alt: string): Prom
 		throw new CmsHelperError("synthetic-picture", `its alt text: ${nativeRefusalOf(described)}`);
 	}
 	return media.mediaId;
+}
+
+/** A 1200×750 PNG, a diagonal blend from the hex colour `from` to `to`: a stand-in photo. */
+export function gradientPng(from: string, to: string): Uint8Array<ArrayBuffer> {
+	const [width, height] = [1200, 750];
+	const [a, b] = [from, to].map((hex) =>
+		[1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16)),
+	);
+	const chunk = (type: string, data: Buffer) => {
+		const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+		const framed = Buffer.alloc(body.length + 8);
+		framed.writeUInt32BE(data.length, 0);
+		body.copy(framed, 4);
+		framed.writeUInt32BE(crc32(body), body.length + 4);
+		return framed;
+	};
+	const header = Buffer.alloc(13);
+	header.writeUInt32BE(width, 0);
+	header.writeUInt32BE(height, 4);
+	header.set([8, 2, 0, 0, 0], 8); // 8-bit RGB, no interlace
+	const rows = Buffer.alloc((width * 3 + 1) * height);
+	for (let y = 0; y < height; y += 1) {
+		const row = y * (width * 3 + 1); // each row starts with filter type 0
+		for (let x = 0; x < width; x += 1) {
+			const t = (x / width + y / height) / 2;
+			rows.set(
+				a!.map((channel, index) => Math.round(channel + (b![index]! - channel) * t)),
+				row + 1 + x * 3,
+			);
+		}
+	}
+	return new Uint8Array(
+		Buffer.concat([
+			Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+			chunk("IHDR", header),
+			chunk("IDAT", deflateSync(rows)),
+			chunk("IEND", Buffer.alloc(0)),
+		]),
+	);
+}
+
+/**
+ * Upload `file` as a new media item named `filename`, give it `alt` as its alt text when given, and
+ * return the item as the native API answers it. Deduplication, on unless the form says otherwise
+ * (emdash 1.1.0 src/api/schemas/media.ts mediaUploadDeduplicateForm), is turned off, so the item is
+ * always new. A refusal throws, after deleting the item when only its alt text was refused. Unlike
+ * uploadSyntheticMedia, nothing registers the item for owned cleanup: the caller removes it.
+ */
+export async function uploadMediaItem(
+	actor: CmsActor,
+	filename: string,
+	file: { bytes: Uint8Array<ArrayBuffer>; type: string },
+	alt?: string,
+): Promise<Record<string, unknown> & { id: string }> {
+	const form = new FormData();
+	form.append("file", new File([file.bytes], filename, { type: file.type }));
+	form.append("deduplicate", "false");
+	const uploaded = await cmsRequest(actor, "/_emdash/api/media", { method: "POST", form });
+	const item = nativeItemOf(uploaded);
+	if (!uploaded.ok || typeof item?.id !== "string") {
+		throw new CmsHelperError("MEDIA_UPLOAD", `${filename}: ${nativeRefusalOf(uploaded)}`);
+	}
+	if (alt !== undefined) {
+		const described = await setMediaAlt(actor, item.id, alt);
+		if (!described.ok) {
+			await deleteMedia(actor, item.id).catch(() => undefined);
+			throw new CmsHelperError(
+				"MEDIA_UPLOAD",
+				`${filename} alt text: ${nativeRefusalOf(described)}`,
+			);
+		}
+	}
+	return item as Record<string, unknown> & { id: string };
 }
 
 /** GET /_emdash/api/media/{id} — native media metadata read. */
@@ -1725,35 +1813,42 @@ export interface PublishedEntry {
 }
 
 /**
- * Every published entry of `collection` on the runtime, through the native content list. It lists
- * entries by `status`, at most 100 a page, with `nextCursor` while more remain (emdash 1.1.0
- * src/api/schemas/content.ts contentListQuery, src/api/schemas/common.ts). A refusal throws.
+ * Every item of the native list at `path`, at most 100 a page, following `nextCursor` while more
+ * remain (emdash 1.1.0 src/api/schemas/common.ts cursorPaginationQuery). A refusal throws.
+ */
+export async function listNativeItems(
+	actor: CmsActor,
+	path: string,
+	searchParams: Record<string, string> = {},
+): Promise<Record<string, unknown>[]> {
+	const items: Record<string, unknown>[] = [];
+	let cursor: string | undefined;
+	do {
+		const listed = await cmsRequest(actor, path, {
+			searchParams: { ...searchParams, limit: "100", ...(cursor ? { cursor } : {}) },
+		});
+		if (!listed.ok) {
+			throw new CmsHelperError("NATIVE_LIST", `listing ${path}: ${nativeRefusalOf(listed)}`);
+		}
+		const data = nativeDataOf(listed) as { items: Record<string, unknown>[]; nextCursor?: string };
+		items.push(...data.items);
+		cursor = data.nextCursor || undefined;
+	} while (cursor !== undefined);
+	return items;
+}
+
+/**
+ * Every published entry of `collection` on the runtime, through the native content list, which
+ * lists entries by `status` (emdash 1.1.0 src/api/schemas/content.ts contentListQuery). A refusal
+ * throws.
  */
 export async function listPublishedEntries(
 	actor: CmsActor,
 	collection: string,
 ): Promise<PublishedEntry[]> {
-	const entries: PublishedEntry[] = [];
-	let cursor: string | undefined;
-	do {
-		const listed = await cmsRequest(
-			actor,
-			`/_emdash/api/content/${encodeURIComponent(collection)}`,
-			{
-				searchParams: { status: "published", limit: "100", ...(cursor ? { cursor } : {}) },
-			},
-		);
-		if (!listed.ok) {
-			throw new CmsHelperError(
-				"PUBLISHED_LIST",
-				`listing the published ${collection}: ${nativeRefusalOf(listed)}`,
-			);
-		}
-		const data = nativeDataOf(listed) as { items: PublishedEntry[]; nextCursor?: string };
-		entries.push(...data.items);
-		cursor = data.nextCursor || undefined;
-	} while (cursor !== undefined);
-	return entries;
+	return (await listNativeItems(actor, `/_emdash/api/content/${encodeURIComponent(collection)}`, {
+		status: "published",
+	})) as unknown as PublishedEntry[];
 }
 
 /**
@@ -2285,7 +2380,7 @@ export function pickedMenuItem(
 /**
  * A menu item as GET /_emdash/api/menus/{name} lists it (src/api/schemas/menus.ts menuItemSchema).
  */
-interface StoredMenuItem {
+export interface StoredMenuItem {
 	id: string;
 	parentId: string | null;
 	sortOrder: number;
@@ -2309,10 +2404,9 @@ async function menuItemsOf(actor: CmsActor, name: string): Promise<StoredMenuIte
 /**
  * Give menu `name` exactly `items`, in order: delete what it holds, then create each item, a parent
  * before its children. Deleting an item deletes its children (emdash 1.1.0
- * src/database/migrations/036_i18n_menus_and_taxonomies.ts), so only the top items are deleted. A
- * refusal throws.
+ * src/database/migrations/005_menus.ts), so only the top items are deleted. A refusal throws.
  */
-async function setMenuItems(
+export async function setMenuItems(
 	actor: CmsActor,
 	name: string,
 	items: ReadonlyArray<Omit<StoredMenuItem, "id"> & { id?: string }>,
