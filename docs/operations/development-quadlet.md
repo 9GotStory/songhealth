@@ -253,7 +253,8 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
   with two Leadership, the reserved Basic Pages, Office Contact values with the Facebook and
   YouTube handles, and items in the three Homepage menus. Each Document's file is a one-page Thai
   PDF that `add` prints with Playwright's Chromium, the one the browser suites use, in the site's
-  own Noto Sans Thai (#66 comment 6541144669).
+  own Noto Sans Thai (#66 comment 6541144669). A runtime that holds a PDF of the same name keeps it
+  until `remove` and `add` print it again.
 - **How it is marked.**
   - Every title starts with `[ตัวอย่าง]`. The Personnel prefix stays empty, so each name starts
     with the mark (#61 comment 6514145827).

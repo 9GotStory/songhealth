@@ -7,6 +7,7 @@ import {
 	DEMO_MARK,
 	type DemoDataset,
 	type DemoEntry,
+	type DocumentPdf,
 	type DemoMedia,
 	type DemoMenuItem,
 	type DemoTerm,
@@ -111,10 +112,10 @@ export function demoDataset(now: Date): DemoDataset {
 		media.push({ filename, alt, colours: [from, to] });
 		return { demoMedia: filename };
 	};
-	/** A PDF `demo-{name}.pdf` that shows `title` and `summary`, and the field value for it. */
-	const pdf = (name: string, title: string, summary: string | undefined): MediaRef => {
+	/** A PDF `demo-{name}.pdf` that shows `text`, and the field value that stands for it. */
+	const pdf = (name: string, text: DocumentPdf): MediaRef => {
 		const filename = `demo-${name}.pdf`;
-		media.push({ filename, pdf: { title, summary } });
+		media.push({ filename, pdf: text });
 		return { demoMedia: filename };
 	};
 	/** A Document of the office, under `demo-document-{name}` with its own PDF. */
@@ -125,10 +126,12 @@ export function demoDataset(now: Date): DemoDataset {
 			references,
 			topic,
 			...data
-		}: Record<string, unknown> & {
+		}: {
+			title: string;
+			summary: string;
 			references?: Record<string, string[]>;
 			topic?: string;
-		},
+		} & Record<string, unknown>,
 		publishedDaysAgo: number,
 	): DemoEntry => ({
 		collection: "documents",
@@ -137,7 +140,7 @@ export function demoDataset(now: Date): DemoDataset {
 		...(references ? { references } : {}),
 		publishedAt: ago(publishedDaysAgo),
 		data: {
-			file: pdf(`document-${name}`, String(data.title), data.summary as string | undefined),
+			file: pdf(`document-${name}`, { title: data.title, summary: data.summary }),
 			owner_source: "สำนักงานสาธารณสุขอำเภอสอง",
 			document_at: ago(publishedDaysAgo + 1),
 			...data,
@@ -653,12 +656,16 @@ export function demoDataset(now: Date): DemoDataset {
 		name: string,
 		type: DemoTerm,
 		publishedDaysAgo: number,
-		{ title, ...data }: Record<string, unknown> & { title: string },
+		{ title, ...data }: { title: string; summary: string } & Record<string, unknown>,
 	): DemoEntry[] => [
 		document(
 			`report-${name}`,
 			DOCUMENT_TYPES.report.slug,
-			{ title: `[ตัวอย่าง] เอกสาร${unmarked(title)}`, fiscal_year: data.fiscal_year },
+			{
+				title: `[ตัวอย่าง] เอกสาร${unmarked(title)}`,
+				summary: data.summary,
+				fiscal_year: data.fiscal_year,
+			},
 			publishedDaysAgo,
 		),
 		{

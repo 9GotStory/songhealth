@@ -30,7 +30,13 @@ export interface DemoTerm {
  */
 export type DemoMedia =
 	| { filename: string; alt: string; colours: readonly [string, string] }
-	| { filename: string; pdf: { title: string; summary: string | undefined } };
+	| { filename: string; pdf: DocumentPdf };
+
+/** What a demo Document's PDF shows: the Document's own title and summary. */
+export interface DocumentPdf {
+	title: string;
+	summary: string | undefined;
+}
 
 /**
  * A field value that stands for a media item of the dataset, by filename. `add` gives the field the

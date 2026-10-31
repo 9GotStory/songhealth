@@ -462,7 +462,7 @@ describe("demo dataset: content (#66)", () => {
 		assert.ok(news.some(({ taxonomies }) => !taxonomies?.topic?.length));
 	});
 
-	it("prints each Document's PDF with the Document's own title and summary, in Thai", () => {
+	it("gives each Document's PDF the Document's own title and summary", () => {
 		// Product Owner, 2026-10-31: #66 comment 6541144669, item 6.
 		const pdfs = new Map(
 			dataset.media.flatMap((media) => ("pdf" in media ? [[media.filename, media.pdf]] : [])),

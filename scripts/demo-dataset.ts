@@ -16,6 +16,7 @@ import { readFile } from "node:fs/promises";
 
 import { chromium } from "@playwright/test";
 
+import { escapeHtml } from "../src/lib/search-matcher.ts";
 import * as helpers from "../tests/browser/cms.helpers.ts";
 import { demoDataset } from "./demo-dataset/content.ts";
 import {
@@ -27,6 +28,7 @@ import {
 	planAdd,
 	planRemove,
 	removeSteps,
+	type DocumentPdf,
 	type LiveEntry,
 	type LiveMedia,
 	type LiveMenuItem,
@@ -134,15 +136,12 @@ async function readRuntime(admin: helpers.CmsActor): Promise<RuntimeState> {
 	};
 }
 
-/** Text for HTML. */
-const escapeHtml = (text: string) =>
-	text.replace(/[&<>"]/g, (character) => `&#${character.charCodeAt(0)};`);
-
 /**
- * A printer of the demo Documents' PDFs: Playwright's Chromium prints a one-page A4 document in the
- * site's own Noto Sans Thai, which the PDF embeds, so any PDF viewer shows its Thai (Product Owner,
- * 2026-10-31: #66 comment 6541144669). A standard PDF font has no Thai glyphs. `keep-all` breaks
- * lines at spaces only, so no Thai word is cut.
+ * A printer of the demo Documents' PDFs (Product Owner, 2026-10-31: #66 comment 6541144669): a
+ * standard PDF font has no Thai glyphs, so Playwright's Chromium prints a one-page A4 document in
+ * the site's own Noto Sans Thai. `page.pdf()` prints through Chromium's Page.printToPDF
+ * (@playwright/test 1.63.0, playwright-core lib/coreBundle.js), which embeds the fonts the page
+ * uses: pdffonts lists the NotoSansThai subsets, so any PDF viewer shows the Thai.
  */
 async function pdfPrinter() {
 	const font = async (weight: number, file: string) =>
@@ -151,15 +150,17 @@ async function pdfPrinter() {
 		).toString("base64")}) format("woff2"); }`;
 	const fonts = `${await font(400, "NotoSansThai-Regular.woff2")}${await font(700, "NotoSansThai-Bold.woff2")}`;
 	const browser = await chromium.launch();
-	const page = await browser.newPage();
+	const page = await browser.newPage().catch(async (error: unknown) => {
+		await browser.close();
+		throw error;
+	});
 	return {
-		async print({ title, summary }: { title: string; summary: string | undefined }) {
+		async print({ title, summary }: DocumentPdf) {
 			// The colours are the site's brand-dark, brand-primary and text-secondary
 			// (src/styles/global.css).
 			await page.setContent(
 				`<!doctype html><html lang="th"><meta charset="utf-8"><style>${fonts}
-body { font-family: "Noto Sans Thai"; margin: 0; padding: 64px; color: #123c33;
-  word-break: keep-all; overflow-wrap: anywhere; }
+body { font-family: "Noto Sans Thai"; margin: 0; padding: 64px; color: #123c33; }
 .mark { display: inline-block; border: 2px solid #0b6b57; border-radius: 8px; padding: 4px 12px;
   color: #0b6b57; }
 h1 { font-size: 22pt; } p { font-size: 14pt; line-height: 1.6; } .office { color: #65736d; }
@@ -167,6 +168,8 @@ h1 { font-size: 22pt; } p { font-size: 14pt; line-height: 1.6; } .office { color
 <p class="office">สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่</p>${summary ? `<p>${escapeHtml(summary)}</p>` : ""}`,
 				{ waitUntil: "load" },
 			);
+			// The load event does not wait for a web font; printing before it is ready would use another.
+			await page.evaluate(() => document.fonts.ready.then(() => undefined));
 			return new Uint8Array(await page.pdf({ format: "A4", printBackground: true }));
 		},
 		close: () => browser.close(),
