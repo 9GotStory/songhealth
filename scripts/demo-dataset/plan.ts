@@ -1,7 +1,8 @@
 // What the demo dataset's commands change (#66; spec #51 "Demo dataset"). scripts/demo-dataset.ts
 // reads the development runtime into a LiveState, plans with these functions, applies the plan, and
-// plans again to confirm. The module imports nothing at run time, so node:test checks it directly
-// (tests/node/demo-dataset.test.ts).
+// plans again to confirm. The dataset is development-only, so this module lives in scripts/ rather
+// than src/lib. It imports nothing at run time, so node:test checks it directly
+// (tests/node/demo-dataset.test.ts; Product Owner, 2026-10-31: #66 comment 6539906996).
 
 /** What starts the slug of everything the dataset makes, the reserved Basic Pages aside. */
 export const DEMO_PREFIX = "demo-";
@@ -51,7 +52,7 @@ export interface DemoEntry {
 	publishedAt: string;
 }
 
-/** A menu item of the dataset: an entry of it by slug, as the Admin's picker adds, or a link. */
+/** A menu item of the dataset: one of its entries by slug, or a link. */
 export type DemoMenuItem = { label: string; entry: string } | { label: string; url: string };
 
 /** A value the Office Contact plugin's settings take (src/plugins/office-contact.ts). */
@@ -91,18 +92,22 @@ export interface LiveEntry {
 	trashed: boolean;
 }
 
-/**
- * A menu item on the runtime, as GET /_emdash/api/menus/{name} lists it (emdash 1.1.0
- * src/api/schemas/menus.ts menuItemSchema).
- */
-export interface LiveMenuItem {
-	id: string;
-	parentId: string | null;
+/** What a menu item points at, and how it is labelled. */
+export interface MenuItemFields {
 	type: string;
 	label: string;
 	referenceCollection: string | null;
 	referenceId: string | null;
 	customUrl: string | null;
+}
+
+/**
+ * A menu item on the runtime, as GET /_emdash/api/menus/{name} lists it (emdash 1.1.0
+ * src/api/schemas/menus.ts menuItemSchema).
+ */
+export interface LiveMenuItem extends MenuItemFields {
+	id: string;
+	parentId: string | null;
 	cssClasses: string | null;
 }
 
@@ -131,29 +136,28 @@ export interface AddPlan {
 	create: DemoEntry[];
 	/** The entries to publish, created ones included. */
 	publish: DemoEntry[];
-	/** The menus to give exactly these items, after taking out the items the dataset made before. */
+	/** The menus to give exactly these items, in place of the dataset's items they hold. */
 	menus: { name: string; items: DemoMenuItem[] }[];
 	/** The Office Contact values to set. */
 	officeContact: Record<string, SettingValue>;
 	/** The `social` handles to set. */
 	social: Record<string, string>;
 	/**
-	 * What the dataset leaves as the office has it: an entry of the office's own at a reserved slug
-	 * (as `collection/slug`), a menu that holds an item of its own, and an Office Contact value or a
-	 * handle of its own.
+	 * What `add` leaves as it is because it holds what the dataset did not make: a reserved slug
+	 * (as `collection/slug`), a menu, an Office Contact value or a handle.
 	 */
 	kept: string[];
 }
 
 /** What `remove` does, in this order. */
 export interface RemovePlan {
-	/** The menu items the dataset made, and any other that points at a demo entry. */
+	/** The menu items the dataset made. */
 	menuItems: { menu: string; item: LiveMenuItem }[];
 	/** The demo entries, live or in the trash: those live go to the trash, then all are purged. */
 	entries: LiveEntry[];
-	/** The demo terms, deleted once no entry uses them. */
+	/** The demo terms, deleted after the demo entries. An entry of the office's own loses one. */
 	terms: LiveTerm[];
-	/** The demo pictures and files, deleted once no entry uses them. */
+	/** The demo pictures and files, deleted after the demo entries, whatever still uses them. */
 	media: LiveMedia[];
 	/** The Office Contact keys that still hold the dataset's values, to unset. */
 	officeContact: string[];
@@ -161,10 +165,46 @@ export interface RemovePlan {
 	social: string[];
 }
 
-const entryName = ({ collection, slug }: { collection: string; slug: string | null }) =>
+/** An entry's name in plans and messages: `collection/slug`. */
+export const entryName = ({ collection, slug }: { collection: string; slug: string | null }) =>
 	`${collection}/${slug}`;
 
 const termName = ({ taxonomy, slug }: LiveTerm) => `${taxonomy}/${slug}`;
+
+/**
+ * What a menu item of the dataset points at, as the menu stores it: a link's address, or the
+ * entry's collection and id, typed as the Admin's picker types it, `page` for a Basic Page (emdash
+ * 1.1.0 @emdash-cms/admin/dist/index.js handleAddContent).
+ */
+export function menuItemFields(
+	item: DemoMenuItem,
+	entry?: { collection: string; id: string },
+): MenuItemFields {
+	if ("url" in item) {
+		return {
+			type: "custom",
+			label: item.label,
+			referenceCollection: null,
+			referenceId: null,
+			customUrl: item.url,
+		};
+	}
+	return {
+		type: entry!.collection === "pages" ? "page" : "collection",
+		label: item.label,
+		referenceCollection: entry!.collection,
+		referenceId: entry!.id,
+		customUrl: null,
+	};
+}
+
+const MENU_ITEM_FIELDS = [
+	"type",
+	"label",
+	"referenceCollection",
+	"referenceId",
+	"customUrl",
+] as const;
 
 /**
  * `entries` reordered so that each comes after the entries it refers to, or that `present` holds.
@@ -189,10 +229,11 @@ function inReferenceOrder(entries: DemoEntry[], present: Set<string>): DemoEntry
 }
 
 /**
- * Whether a runtime entry is the dataset's: its slug carries the demo prefix, or it holds a slug
- * that the dataset uses without one, a reserved Basic Page's, under a title with the demo mark.
+ * The test for whether a runtime entry is the dataset's: its slug carries the demo prefix, or it
+ * holds a slug that the dataset uses without one, a reserved Basic Page's, under a title with the
+ * demo mark.
  */
-function demoEntries(dataset: DemoDataset): (entry: LiveEntry) => boolean {
+function isDemoEntryOf(dataset: DemoDataset): (entry: LiveEntry) => boolean {
 	const unprefixed = new Set(
 		dataset.entries.filter(({ slug }) => !slug.startsWith(DEMO_PREFIX)).map(entryName),
 	);
@@ -208,8 +249,9 @@ function demoEntries(dataset: DemoDataset): (entry: LiveEntry) => boolean {
  * office's own at a reserved slug stays as it is, and the dataset's entry there is left out.
  */
 export function planAdd(dataset: DemoDataset, live: LiveState): AddPlan {
-	const isDemo = demoEntries(dataset);
-	// A slug is unique in its collection, the trash included, so the runtime holds one entry at most.
+	const isDemo = isDemoEntryOf(dataset);
+	// A slug stays taken in the trash (emdash 1.1.0 src/database/migrations/019_i18n.ts,
+	// UNIQUE (slug, locale)), so each slug names one entry of the runtime at most.
 	const held = new Map(live.entries.map((entry) => [entryName(entry), entry]));
 	const terms = new Set(live.terms.map(termName));
 	const media = new Set(live.media.map(({ filename }) => filename));
@@ -244,20 +286,18 @@ export function planAdd(dataset: DemoDataset, live: LiveState): AddPlan {
 		new Set(dataset.entries.filter((entry) => !creating.has(entry)).map(({ slug }) => slug)),
 	);
 
-	/** The live id of each dataset entry outside the trash, by slug. */
-	const ids = new Map(
+	/** Each dataset entry the runtime holds outside the trash, by slug. */
+	const placed = new Map(
 		dataset.entries.flatMap((entry) => {
 			const holder = held.get(entryName(entry));
-			return holder && !holder.trashed && isDemo(holder) ? [[entry.slug, holder.id] as const] : [];
+			return holder && !holder.trashed && isDemo(holder) ? [[entry.slug, holder] as const] : [];
 		}),
 	);
-	const collections = new Map(dataset.entries.map(({ slug, collection }) => [slug, collection]));
-	/** An item as the menu would hold it once written, or undefined while its entry has no id. */
+	/** A menu item as the menu stores it, or undefined while its entry has no id yet. */
 	const stored = (item: DemoMenuItem) => {
-		if ("url" in item) return ["custom", item.label, null, null, item.url];
-		const collection = collections.get(item.entry)!;
-		const id = ids.get(item.entry);
-		return id && [collection === "pages" ? "page" : "collection", item.label, collection, id, null];
+		if ("url" in item) return menuItemFields(item);
+		const entry = placed.get(item.entry);
+		return entry && menuItemFields(item, entry);
 	};
 	for (const [name, items] of Object.entries(dataset.menus)) {
 		const holds = live.menus[name] ?? [];
@@ -267,17 +307,12 @@ export function planAdd(dataset: DemoDataset, live: LiveState): AddPlan {
 		}
 		const wanted = items.map(stored);
 		const same =
-			wanted.every((fields) => fields !== undefined) &&
-			JSON.stringify(wanted) ===
-				JSON.stringify(
-					holds.map((item) => [
-						item.type,
-						item.label,
-						item.referenceCollection,
-						item.referenceId,
-						item.customUrl,
-					]),
-				);
+			wanted.length === holds.length &&
+			wanted.every(
+				(fields, index) =>
+					fields !== undefined &&
+					MENU_ITEM_FIELDS.every((key) => fields[key] === holds[index]![key]),
+			);
 		if (!same) plan.menus.push({ name, items });
 	}
 
@@ -298,21 +333,17 @@ export function planAdd(dataset: DemoDataset, live: LiveState): AddPlan {
 /**
  * What `remove` does on a runtime in state `live`: take away every demo entry, term, media item and
  * menu item, including one the dataset no longer lists, and empty the Office Contact values and
- * handles that still hold the dataset's. Nothing else is touched.
+ * handles that still hold the dataset's. An entry of the office's own that uses a demo term or
+ * picture loses it; everything else of the office's own stays as it is.
  */
 export function planRemove(dataset: DemoDataset, live: LiveState): RemovePlan {
-	const entries = live.entries.filter(demoEntries(dataset));
-	const ids = new Set(entries.map(({ id }) => id));
 	return {
 		menuItems: Object.entries(live.menus).flatMap(([menu, items]) =>
 			items
-				.filter(
-					({ cssClasses, referenceId }) =>
-						cssClasses === DEMO_MENU_CLASS || (referenceId !== null && ids.has(referenceId)),
-				)
+				.filter(({ cssClasses }) => cssClasses === DEMO_MENU_CLASS)
 				.map((item) => ({ menu, item })),
 		),
-		entries,
+		entries: live.entries.filter(isDemoEntryOf(dataset)),
 		terms: live.terms.filter(({ slug }) => slug.startsWith(DEMO_PREFIX)),
 		media: live.media.filter(({ filename }) => filename.startsWith(DEMO_PREFIX)),
 		officeContact: Object.keys(dataset.officeContact).filter(
@@ -332,7 +363,7 @@ export function addSteps(plan: AddPlan): string[] {
 		...plan.restore.map((entry) => `restore ${entryName(entry)}`),
 		...plan.create.map((entry) => `create ${entryName(entry)}`),
 		...plan.publish.map((entry) => `publish ${entryName(entry)}`),
-		...plan.menus.map(({ name, items }) => `give the menu ${name} its ${items.length} items`),
+		...plan.menus.map(({ name }) => `fill the menu ${name} with the dataset's items`),
 		...Object.keys(plan.officeContact).map((key) => `set Office Contact ${key}`),
 		...Object.keys(plan.social).map((network) => `set the social handle ${network}`),
 	];

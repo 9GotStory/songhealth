@@ -18,6 +18,8 @@ import {
 	DEMO_MENU_CLASS,
 	DEMO_PREFIX,
 	addSteps,
+	entryName,
+	menuItemFields,
 	planAdd,
 	planRemove,
 	removeSteps,
@@ -59,28 +61,6 @@ async function call(
 	return result;
 }
 
-/** Every item of a native list, following `nextCursor` (src/api/schemas/common.ts). */
-async function listAll(
-	admin: helpers.CmsActor,
-	path: string,
-	searchParams: Record<string, string> = {},
-): Promise<Record<string, unknown>[]> {
-	const items: Record<string, unknown>[] = [];
-	let cursor: string | undefined;
-	do {
-		const listed = await call(admin, `listing ${path}`, path, {
-			searchParams: { ...searchParams, limit: "100", ...(cursor ? { cursor } : {}) },
-		});
-		const data = helpers.nativeDataOf(listed) as {
-			items: Record<string, unknown>[];
-			nextCursor?: string;
-		};
-		items.push(...data.items);
-		cursor = data.nextCursor || undefined;
-	} while (cursor !== undefined);
-	return items;
-}
-
 /** The runtime's state, as the planner reads it, with each demo media item in full. */
 async function readRuntime(admin: helpers.CmsActor): Promise<RuntimeState> {
 	const schema = await call(admin, "listing the collections", "/_emdash/api/schema/collections");
@@ -88,7 +68,7 @@ async function readRuntime(admin: helpers.CmsActor): Promise<RuntimeState> {
 	for (const { slug: collection } of helpers.nativeItemsOf(schema) as { slug: string }[]) {
 		for (const trashed of [false, true]) {
 			const path = `/_emdash/api/content/${collection}${trashed ? "/trash" : ""}`;
-			for (const item of await listAll(admin, path)) {
+			for (const item of await helpers.listNativeItems(admin, path)) {
 				entries.push({
 					collection,
 					id: String(item.id),
@@ -111,7 +91,8 @@ async function readRuntime(admin: helpers.CmsActor): Promise<RuntimeState> {
 				searchParams: { includeCounts: "false" },
 			},
 		);
-		// A hierarchical taxonomy lists its terms as a tree (src/api/handlers/taxonomies.ts).
+		// A hierarchical taxonomy lists its terms as a tree (emdash 1.1.0
+		// src/api/handlers/taxonomies.ts).
 		type TermNode = { slug: string; children?: TermNode[] };
 		const walk = (nodes: TermNode[]): void => {
 			for (const node of nodes) {
@@ -121,8 +102,9 @@ async function readRuntime(admin: helpers.CmsActor): Promise<RuntimeState> {
 		};
 		walk(helpers.nativeDataOf(listed)!.terms as TermNode[]);
 	}
-	// `q` matches part of a filename (src/database/repositories/media.ts applyListFilters).
-	const media = (await listAll(admin, "/_emdash/api/media", {
+	// `q` matches part of a filename (emdash 1.1.0 src/database/repositories/media.ts
+	// applyListFilters).
+	const media = (await helpers.listNativeItems(admin, "/_emdash/api/media", {
 		q: DEMO_PREFIX,
 	})) as unknown as MediaItem[];
 	const menus: Record<string, LiveMenuItem[]> = {};
@@ -210,46 +192,35 @@ async function add(admin: helpers.CmsActor): Promise<boolean> {
 	/**
 	 * `value` with each MediaRef replaced by its media item: `{ id }` for a picture, which takes its
 	 * alt text from the library (emdash 1.1.0 src/media/normalize.ts mergeProviderData), and for a
-	 * PDF the file value the Admin's file picker saves (cms.helpers.ts uploadSyntheticPdf).
+	 * PDF the file value the Admin's file picker saves (cms.helpers.ts fileFieldValue).
 	 */
 	const withMedia = (value: unknown): unknown => {
 		if (Array.isArray(value)) return value.map(withMedia);
 		if (value === null || typeof value !== "object") return value;
 		if ("demoMedia" in value) {
 			const item = media.get((value as MediaRef).demoMedia)!;
-			return item.mimeType === "application/pdf"
-				? {
-						id: item.id,
-						provider: "local",
-						filename: item.filename,
-						mimeType: item.mimeType,
-						size: item.size,
-						meta: { storageKey: item.storageKey },
-					}
-				: { id: item.id };
+			return item.mimeType === "application/pdf" ? helpers.fileFieldValue(item) : { id: item.id };
 		}
 		return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, withMedia(inner)]));
 	};
 	/** Each entry's id by `collection/slug`: the live ones, those restored, then those created. */
 	const ids = new Map(
-		live.entries
-			.filter((entry) => !entry.trashed)
-			.map((entry) => [`${entry.collection}/${entry.slug}`, entry.id]),
+		live.entries.filter((entry) => !entry.trashed).map((entry) => [entryName(entry), entry.id]),
 	);
 	for (const entry of plan.restore) {
-		const name = `${entry.collection}/${entry.slug}`;
+		const name = entryName(entry);
 		const restored = await helpers.restoreEntry(admin, entry.collection, entry.id);
 		if (!restored.ok) throw new Error(`restoring ${name}: ${helpers.nativeRefusalOf(restored)}`);
 		ids.set(name, entry.id);
 		console.log(`restored ${name}`);
 	}
-	/** The id of the dataset's entry `slug`. */
-	const idOf = (slug: string) => {
+	/** The dataset's entry `slug`, with its id on the runtime. */
+	const placed = (slug: string) => {
 		const entry = dataset.entries.find((candidate) => candidate.slug === slug)!;
-		return ids.get(`${entry.collection}/${slug}`)!;
+		return { collection: entry.collection, id: ids.get(entryName(entry))! };
 	};
 	for (const entry of plan.create) {
-		const name = `${entry.collection}/${entry.slug}`;
+		const name = entryName(entry);
 		const created = await call(
 			admin,
 			`creating ${name}`,
@@ -264,7 +235,7 @@ async function add(admin: helpers.CmsActor): Promise<boolean> {
 					references: Object.fromEntries(
 						Object.entries(entry.references ?? {}).map(([field, slugs]) => [
 							field,
-							slugs.map((slug) => idOf(slug)),
+							slugs.map((slug) => placed(slug).id),
 						]),
 					),
 				},
@@ -274,7 +245,7 @@ async function add(admin: helpers.CmsActor): Promise<boolean> {
 		console.log(`created ${name}`);
 	}
 	for (const entry of plan.publish) {
-		const name = `${entry.collection}/${entry.slug}`;
+		const name = entryName(entry);
 		const published = await helpers.publishEntry(admin, entry.collection, ids.get(name)!, {
 			publishedAt: entry.publishedAt,
 		});
@@ -282,33 +253,20 @@ async function add(admin: helpers.CmsActor): Promise<boolean> {
 		console.log(`published ${name}`);
 	}
 	for (const { name, items } of plan.menus) {
-		// A menu the planner writes holds only the dataset's items. Deleting an item deletes its
-		// children (emdash 1.1.0 src/database/migrations/005_menus.ts).
-		for (const { id } of (live.menus[name] ?? []).filter(({ parentId }) => parentId === null)) {
-			await call(admin, `emptying the menu ${name}`, `/_emdash/api/menus/${name}/items/${id}`, {
-				method: "DELETE",
-			});
-		}
-		for (const [sortOrder, item] of items.entries()) {
-			const collection =
-				"entry" in item ? dataset.entries.find(({ slug }) => slug === item.entry)!.collection : "";
-			await call(admin, `filling the menu ${name}`, `/_emdash/api/menus/${name}/items`, {
-				method: "POST",
-				body: {
-					label: item.label,
-					cssClasses: DEMO_MENU_CLASS,
-					sortOrder,
-					...("url" in item
-						? { type: "custom", customUrl: item.url }
-						: {
-								type: collection === "pages" ? "page" : "collection",
-								referenceCollection: collection,
-								referenceId: idOf(item.entry),
-							}),
-				},
-			});
-		}
-		console.log(`filled the menu ${name}: ${items.length} items`);
+		// A menu the planner writes holds only the dataset's items, which this replaces.
+		await helpers.setMenuItems(
+			admin,
+			name,
+			items.map((item, sortOrder) => ({
+				...menuItemFields(item, "entry" in item ? placed(item.entry) : undefined),
+				parentId: null,
+				sortOrder,
+				target: null,
+				titleAttr: null,
+				cssClasses: DEMO_MENU_CLASS,
+			})),
+		);
+		console.log(`filled the menu ${name} with the dataset's items`);
 	}
 	if (Object.keys(plan.officeContact).length > 0) {
 		const written = await helpers.writeOfficeContactSettings(admin, plan.officeContact);
@@ -320,7 +278,9 @@ async function add(admin: helpers.CmsActor): Promise<boolean> {
 		if (!written.ok) throw new Error(`setting the handles: ${helpers.nativeRefusalOf(written)}`);
 		console.log(`set the social handles: ${Object.keys(plan.social).join(", ")}`);
 	}
-	for (const what of plan.kept) console.log(`kept ${what}: the office's own`);
+	for (const what of plan.kept) {
+		console.log(`left ${what} as it is: it holds what the dataset did not make`);
+	}
 	const pending = addSteps(planAdd(dataset, await readRuntime(admin)));
 	if (pending.length > 0) {
 		console.log(`FAIL: still to do: ${pending.join("; ")}`);
@@ -345,7 +305,7 @@ async function remove(admin: helpers.CmsActor): Promise<boolean> {
 		console.log(`took ${item.label} out of the menu ${menu}`);
 	}
 	for (const entry of plan.entries) {
-		const name = `${entry.collection}/${entry.slug}`;
+		const name = entryName(entry);
 		if (!entry.trashed) {
 			const trashed = await helpers.trashEntry(admin, entry.collection, entry.id);
 			if (!trashed.ok) throw new Error(`trashing ${name}: ${helpers.nativeRefusalOf(trashed)}`);
@@ -354,17 +314,9 @@ async function remove(admin: helpers.CmsActor): Promise<boolean> {
 		if (!purged.ok) throw new Error(`purging ${name}: ${helpers.nativeRefusalOf(purged)}`);
 		console.log(`deleted ${name}`);
 	}
-	for (const { taxonomy, slug } of plan.terms) {
-		await call(
-			admin,
-			`deleting the ${taxonomy} term ${slug}`,
-			`/_emdash/api/taxonomies/${taxonomy}/terms/${slug}`,
-			{
-				method: "DELETE",
-			},
-		);
-		console.log(`deleted the ${taxonomy} term ${slug}`);
-	}
+	const failures = await helpers.deleteSyntheticTerms(admin, plan.terms);
+	if (failures.length > 0) throw new Error(`deleting terms: ${failures.join("; ")}`);
+	for (const { taxonomy, slug } of plan.terms) console.log(`deleted the ${taxonomy} term ${slug}`);
 	for (const { id, filename } of plan.media) {
 		await call(admin, `deleting ${filename}`, `/_emdash/api/media/${id}`, { method: "DELETE" });
 		console.log(`deleted ${filename}`);

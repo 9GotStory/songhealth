@@ -1292,14 +1292,28 @@ export async function uploadSyntheticPdf(
 		mediaId: item.id,
 		filename: item.filename,
 		storageKey: item.storageKey,
-		value: {
-			id: item.id,
-			provider: "local",
-			filename: item.filename,
-			mimeType: item.mimeType,
-			size: item.size,
-			meta: { storageKey: item.storageKey },
-		},
+		value: fileFieldValue(item),
+	};
+}
+
+/**
+ * The value a file field saves for media `item`, as the Admin's file picker sends it
+ * (@emdash-cms/admin 1.1.0 FileFieldRenderer).
+ */
+export function fileFieldValue(item: {
+	id: string;
+	filename: string;
+	mimeType: string;
+	size: number | null;
+	storageKey: string;
+}): Record<string, unknown> {
+	return {
+		id: item.id,
+		provider: "local",
+		filename: item.filename,
+		mimeType: item.mimeType,
+		size: item.size,
+		meta: { storageKey: item.storageKey },
 	};
 }
 
@@ -1372,8 +1386,9 @@ export function gradientPng(from: string, to: string): Uint8Array<ArrayBuffer> {
 
 /**
  * Upload `file` as a new media item named `filename`, give it `alt` as its alt text when given, and
- * return the item as the native API answers it. Deduplication is off, so the item is always new. A
- * refusal throws, after deleting the item when only its alt text was refused. Unlike
+ * return the item as the native API answers it. Deduplication, on unless the form says otherwise
+ * (emdash 1.1.0 src/api/schemas/media.ts mediaUploadDeduplicateForm), is turned off, so the item is
+ * always new. A refusal throws, after deleting the item when only its alt text was refused. Unlike
  * uploadSyntheticMedia, nothing registers the item for owned cleanup: the caller removes it.
  */
 export async function uploadMediaItem(
@@ -1798,35 +1813,42 @@ export interface PublishedEntry {
 }
 
 /**
- * Every published entry of `collection` on the runtime, through the native content list. It lists
- * entries by `status`, at most 100 a page, with `nextCursor` while more remain (emdash 1.1.0
- * src/api/schemas/content.ts contentListQuery, src/api/schemas/common.ts). A refusal throws.
+ * Every item of the native list at `path`, at most 100 a page, following `nextCursor` while more
+ * remain (emdash 1.1.0 src/api/schemas/common.ts cursorPaginationQuery). A refusal throws.
+ */
+export async function listNativeItems(
+	actor: CmsActor,
+	path: string,
+	searchParams: Record<string, string> = {},
+): Promise<Record<string, unknown>[]> {
+	const items: Record<string, unknown>[] = [];
+	let cursor: string | undefined;
+	do {
+		const listed = await cmsRequest(actor, path, {
+			searchParams: { ...searchParams, limit: "100", ...(cursor ? { cursor } : {}) },
+		});
+		if (!listed.ok) {
+			throw new CmsHelperError("NATIVE_LIST", `listing ${path}: ${nativeRefusalOf(listed)}`);
+		}
+		const data = nativeDataOf(listed) as { items: Record<string, unknown>[]; nextCursor?: string };
+		items.push(...data.items);
+		cursor = data.nextCursor || undefined;
+	} while (cursor !== undefined);
+	return items;
+}
+
+/**
+ * Every published entry of `collection` on the runtime, through the native content list, which
+ * lists entries by `status` (emdash 1.1.0 src/api/schemas/content.ts contentListQuery). A refusal
+ * throws.
  */
 export async function listPublishedEntries(
 	actor: CmsActor,
 	collection: string,
 ): Promise<PublishedEntry[]> {
-	const entries: PublishedEntry[] = [];
-	let cursor: string | undefined;
-	do {
-		const listed = await cmsRequest(
-			actor,
-			`/_emdash/api/content/${encodeURIComponent(collection)}`,
-			{
-				searchParams: { status: "published", limit: "100", ...(cursor ? { cursor } : {}) },
-			},
-		);
-		if (!listed.ok) {
-			throw new CmsHelperError(
-				"PUBLISHED_LIST",
-				`listing the published ${collection}: ${nativeRefusalOf(listed)}`,
-			);
-		}
-		const data = nativeDataOf(listed) as { items: PublishedEntry[]; nextCursor?: string };
-		entries.push(...data.items);
-		cursor = data.nextCursor || undefined;
-	} while (cursor !== undefined);
-	return entries;
+	return (await listNativeItems(actor, `/_emdash/api/content/${encodeURIComponent(collection)}`, {
+		status: "published",
+	})) as unknown as PublishedEntry[];
 }
 
 /**
@@ -2358,7 +2380,7 @@ export function pickedMenuItem(
 /**
  * A menu item as GET /_emdash/api/menus/{name} lists it (src/api/schemas/menus.ts menuItemSchema).
  */
-interface StoredMenuItem {
+export interface StoredMenuItem {
 	id: string;
 	parentId: string | null;
 	sortOrder: number;
@@ -2382,10 +2404,9 @@ async function menuItemsOf(actor: CmsActor, name: string): Promise<StoredMenuIte
 /**
  * Give menu `name` exactly `items`, in order: delete what it holds, then create each item, a parent
  * before its children. Deleting an item deletes its children (emdash 1.1.0
- * src/database/migrations/036_i18n_menus_and_taxonomies.ts), so only the top items are deleted. A
- * refusal throws.
+ * src/database/migrations/005_menus.ts), so only the top items are deleted. A refusal throws.
  */
-async function setMenuItems(
+export async function setMenuItems(
 	actor: CmsActor,
 	name: string,
 	items: ReadonlyArray<Omit<StoredMenuItem, "id"> & { id?: string }>,

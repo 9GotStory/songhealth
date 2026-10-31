@@ -12,6 +12,7 @@ import { describe, it } from "node:test";
 import { demoDataset } from "../../scripts/demo-dataset/content.ts";
 import {
 	addSteps,
+	menuItemFields,
 	planAdd,
 	planRemove,
 	removeSteps,
@@ -103,21 +104,15 @@ function installed(data: DemoDataset): LiveState {
 			...Object.fromEntries(
 				Object.entries(data.menus).map(([name, items]) => [
 					name,
-					items.map((item, index) => {
-						const entry =
-							"entry" in item ? entries.find(({ slug }) => slug === item.entry)! : undefined;
-						return liveItem(`${name}-${index}`, {
-							label: item.label,
-							cssClasses: "demo-dataset",
-							...(entry
-								? {
-										type: entry.collection === "pages" ? "page" : "collection",
-										referenceCollection: entry.collection,
-										referenceId: entry.id,
-									}
-								: { customUrl: (item as { url: string }).url }),
-						});
-					}),
+					items.map((item, index) => ({
+						...menuItemFields(
+							item,
+							"entry" in item ? entries.find(({ slug }) => slug === item.entry) : undefined,
+						),
+						id: `${name}-${index}`,
+						parentId: null,
+						cssClasses: "demo-dataset",
+					})),
 				]),
 			),
 		},
@@ -368,7 +363,7 @@ describe("demo dataset: remove", () => {
 		});
 		assert.deepEqual(
 			plan.menuItems.map(({ menu, item }) => `${menu}/${item.id}`),
-			[...featured, picked].map(({ id }) => `homepage-featured/${id}`),
+			featured.map(({ id }) => `homepage-featured/${id}`),
 		);
 	});
 

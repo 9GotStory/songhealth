@@ -269,14 +269,16 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
     Contact value and handle that is unset.
 
   An entry it finds keeps its fields: to bring back the dataset as defined, or to move its dates
-  to today, run `remove` and then `add`. The office's own content is left as it is, and `add`
-  lists it under `kept`: a Basic Page at a reserved slug whose title lacks the mark, a menu with an
-  item the dataset did not add, an Office Contact value or a handle with another value.
+  to today, run `remove` and then `add`. What holds content the dataset did not make stays as it
+  is, and `add` names it on a `left … as it is` line: a Basic Page at a reserved slug whose title
+  lacks the mark, a menu with an item the dataset did not add, an Office Contact value or a handle
+  with another value.
 - **`remove`**:
-  - it takes the dataset's items out of the menus, with any item that points at a demo entry;
+  - it takes the dataset's items out of the menus;
   - it moves each demo entry to the trash and purges it, including one in the trash already or
     one the dataset no longer lists;
-  - it deletes the demo terms, pictures and PDFs;
+  - it deletes the demo terms, pictures and PDFs, so an entry of the office's own that used one
+    loses it;
   - it unsets each Office Contact value and empties each handle that still holds the dataset's
     value. The settings API can empty a handle but not delete it, and the site shows an empty
     handle as unset.
