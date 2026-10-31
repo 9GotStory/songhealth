@@ -7,8 +7,9 @@
 //
 // Expected values come from `03` §15 (the canonical route table in
 // tests/canonical-url-patterns.ts), `03` §5 (no per-person route) and spec #51 "Changes to the
-// Feature 002 model" (the Document Type reference terms and Personnel's `leadership_order`), never
-// from the seed. The live models start from the seed's own field list, as setup leaves it.
+// Feature 002 model" (the Document Type reference terms, Personnel's `leadership_order` and the
+// Homepage menus), never from the seed. The live models start from the seed's own field list, as
+// setup leaves it.
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -18,6 +19,7 @@ import {
 	planModelUpdate,
 	type LiveCollection,
 	type LiveField,
+	type LiveMenu,
 	type LiveModel,
 	type LiveTaxonomy,
 } from "../../scripts/model-update.mjs";
@@ -36,6 +38,20 @@ const DOCUMENT_TYPE_TERMS = [
 
 /** The Leadership order Feature 003 adds to Personnel (spec #51; empty means not Leadership). */
 const LEADERSHIP_ORDER = { slug: "leadership_order", label: "ลำดับผู้บริหาร", type: "integer" };
+
+/**
+ * The menus staff curate the Homepage with (#65; spec #51). EmDash 1.1.0 gives a menu a name and a
+ * label only (src/api/schemas/menus.ts createMenuBody), so each Thai label says what the menu does,
+ * in place of the description #51 asks for (Product Owner, 2026-10-31: #65 comment 6538358352).
+ */
+const HOMEPAGE_MENUS: LiveMenu[] = [
+	{ name: "homepage-featured", label: "หน้าแรก: เรื่องเด่น (แสดงรายการแรกที่เผยแพร่อยู่)" },
+	{
+		name: "homepage-services",
+		label: "หน้าแรก: บริการที่ใช้บ่อย (เลือกจากบริการประชาชน แสดงไม่เกิน 6 รายการ)",
+	},
+	{ name: "homepage-quick-access", label: "หน้าแรก: เข้าถึงข้อมูล (ทางลัด แสดงไม่เกิน 4 รายการ)" },
+];
 
 /** The fields of a seed collection as the schema API lists them, by slug and type. */
 function seedFields(slug: string): LiveField[] {
@@ -62,6 +78,7 @@ function feature002Model(): LiveModel {
 			fields: feature002Fields(slug),
 		})),
 		taxonomies: [{ name: "document_type", terms: [] }],
+		menus: [],
 	};
 }
 
@@ -91,6 +108,7 @@ function feature003Model(): LiveModel {
 				terms: DOCUMENT_TYPE_TERMS.map(({ slug, label }) => ({ slug, label })),
 			},
 		],
+		menus: HOMEPAGE_MENUS.map((menu) => ({ ...menu })),
 	};
 }
 
@@ -134,13 +152,34 @@ describe("planModelUpdate", () => {
 		assert.deepEqual(plan.fields, [{ collection: "personnel", field: LEADERSHIP_ORDER }]);
 	});
 
+	it("creates the three Homepage menus, empty, with their Thai labels, on a database without them", () => {
+		assert.deepEqual(planModelUpdate(seed, feature002Model()).menus, HOMEPAGE_MENUS);
+	});
+
 	it("plans nothing for a database already on the model, so a second run changes nothing", () => {
 		assert.deepEqual(planModelUpdate(seed, feature003Model()), {
 			collections: [],
 			fields: [],
 			terms: [],
+			menus: [],
 			problems: [],
 		});
+	});
+
+	it("leaves a Homepage menu staff relabelled, and creates only the menus the database lacks", () => {
+		const live = feature003Model();
+		live.menus = [
+			{ name: "homepage-featured", label: "เรื่องเด่นหน้าแรก" },
+			{ name: "primary", label: "เมนูหลัก" },
+		];
+
+		const plan = planModelUpdate(seed, live);
+
+		assert.deepEqual(plan.problems, []);
+		assert.deepEqual(
+			plan.menus,
+			HOMEPAGE_MENUS.filter(({ name }) => name !== "homepage-featured"),
+		);
 	});
 
 	it("leaves a field the database has beyond the seed", () => {
@@ -218,6 +257,7 @@ describe("planModelUpdate", () => {
 			],
 			fields: [],
 			terms: [],
+			menus: [],
 			problems: [],
 		});
 	});

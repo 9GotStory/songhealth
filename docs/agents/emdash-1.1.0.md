@@ -139,7 +139,7 @@ cited file exists and that the name carries the pinned version.
   site's `timezone` setting and saves canonical UTC ISO (`@emdash-cms/admin/dist/index.js`
   1.1.0, the region bundled from its src/lib/datetime-local.ts).
 
-## Head, settings, menus, sitemap
+## Head, settings, sitemap
 
 - `EmDashHead` emits the description, canonical, OG and Twitter tags, the default OG image and the
   favicon. It lays the entry's SEO panel over what the page passes, and the `<title>` stays the
@@ -150,9 +150,6 @@ cited file exists and that the name carries the pinned version.
 - Site settings accept a fixed key set (`src/api/schemas/settings.ts`). Their `seo` object is
   patched key by key, and `null` removes a key (`src/settings/index.ts`). Plugin `settingsSchema`
   fields are string, number, boolean, select, secret, url or email (`src/plugins/types.ts`).
-- Menu items carry `referenceCollection` and `referenceId`. A menu returns only label, URL, target
-  and titleAttr, and does not check publication (`src/api/schemas/menus.ts`, `src/menus/index.ts`).
-  `resolveEmDashPath` maps a URL back to its entry (`src/query.ts`).
 - The sitemap lists routable collections with SEO enabled (`src/api/handlers/seo.ts`). Its
   addresses start from the settings' `url`, else the configured origin (the integration's `siteUrl`,
   then `EMDASH_SITE_URL` or `SITE_URL`), else the request's own (`src/astro/routes/sitemap.xml.ts`,
@@ -163,6 +160,45 @@ cited file exists and that the name carries the pinned version.
   SEO plugin can emit a `BreadcrumbList` from it: `[]` means the page has none, and an omitted
   field lets the plugin derive its own. Nothing in core reads it (`src/page/context.ts`,
   `src/plugins/types.ts` `PublicPageContext`).
+
+## Menus
+
+- A menu has a name and a label, and no description (`src/api/schemas/menus.ts` `createMenuBody`,
+  `src/menus/types.ts` `MenuRow`). The Admin's Menus screen lists each menu's label, name and item
+  count (`@emdash-cms/admin/dist/index.js` `MenuCard`).
+- Menu items carry `referenceCollection` and `referenceId`. `getMenu(name)` returns a menu's items
+  as a tree, each with its label, URL, target, titleAttr and `children`, and checks no
+  publication: a content item keeps its URL while its entry is a draft or in the trash, and only a
+  permanently deleted entry drops it (`src/menus/index.ts` `resolveContentReferences`,
+  `resolveMenuItem`).
+- A content item's URL is its collection's `urlPattern` with the slug encoded by
+  `encodeURIComponent` (`src/i18n/resolve.ts` `interpolateUrlPattern`).
+- `resolveEmDashPath(path)` matches a path against each collection's `urlPattern` and reads the
+  slug it captures with `getEmDashEntry`, unchanged, so it finds only a published entry, and an
+  encoded slug must be decoded first, as `decodeSlug` does (`src/query.ts`,
+  `src/utils/slugify.ts`). It answers `null` alike for a path no pattern matches, such as a page of
+  the site, and for one whose entry is not published, and it ignores that read's `error`, so a
+  failed read resolves to nothing. `./src/lib/homepage-curation.ts` maps the Homepage menus' items
+  through it, and `./src/lib/homepage-menus.ts` lists the site's own pages beside it.
+- The Admin menu editor adds content through a picker that browses every collection, one entry at
+  a time, and saves the entry as a `collection` item (`page` for `pages`) with the entry's id
+  (`@emdash-cms/admin/dist/index.js` `ContentPickerModal`, `handleAddContent`).
+- The REST API lists and creates menus at `/_emdash/api/menus`, reads, relabels and deletes one at
+  `/_emdash/api/menus/{name}` (`PUT` changes only the label), adds an item with `POST` to
+  `/_emdash/api/menus/{name}/items`, and changes or deletes one at
+  `/_emdash/api/menus/{name}/items/{id}` (`src/astro/routes/api/menus/index.ts`,
+  `src/astro/routes/api/menus/[name].ts`, `src/astro/routes/api/menus/[name]/items.ts`,
+  `src/astro/routes/api/menus/[name]/items/[id].ts`).
+  A token reads them with `content:read` and writes with `menus:manage`, which `content:write`
+  grants (`src/astro/middleware/auth.ts`, `@emdash-cms/auth/src/tokens.ts`). A second menu of the
+  same name answers `CONFLICT` (`src/api/handlers/menus.ts` `handleMenuCreate`). Only the MCP
+  server replaces a menu's items at once (`src/mcp/server.ts`, `handleMenuSetItems`), so a test
+  that sets a menu deletes and recreates its items, which get new ids
+  (`./tests/browser/cms.helpers.ts` `showHomepageMenus`).
+- Applying the seed recreates the items of every menu it declares: an existing menu loses its
+  items (`src/seed/apply.ts`, the menus step). `setup/dev-bypass` applies the seed on every call
+  (`src/astro/routes/api/setup/dev-bypass.ts`), while `POST /_emdash/api/setup` refuses once setup
+  is complete (`src/astro/routes/api/setup/index.ts`).
 
 ## Plugins and plugin settings
 

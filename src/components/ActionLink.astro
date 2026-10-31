@@ -1,23 +1,40 @@
 ---
-// A call to action to another page on this site (Feature 003 #62): a pill-shaped link, primary
+// A call to action to another page on this site (Feature 003 #62, #65): a pill-shaped link, primary
 // (brand-primary, docs/design/homepage-concept-v1.md "Primary button") or secondary (outlined).
-// The 404 page and /contact use it.
+// The 404 page and /contact use it, and so does the Featured hero, on brand-dark: there the
+// secondary pill takes the hero's translucent fill and border, as the frame draws it (§3), the
+// focus ring is the one for dark surfaces, and hover underlines the label, since brand-dark, the
+// primary pill's hover fill elsewhere, is the hero's own. A label that does not say by itself where
+// the link goes takes the item's title as `context`, read after the label by assistive technology
+// only, as ArrowLink's (WCAG 2.2 SC 2.4.4, 2.5.3).
 interface Props {
 	href: string;
 	variant?: "primary" | "secondary";
+	/** Read after the label by assistive technology only, such as the title of the item it opens. */
+	context?: string;
+	/** The link sits on brand-dark. */
+	onDark?: boolean;
 }
 
-const { href, variant = "secondary" } = Astro.props;
+const { href, variant = "secondary", context, onDark = false } = Astro.props;
 ---
 
 <a
 	class:list={[
 		"inline-flex min-h-11 items-center rounded-pill px-5 text-label",
-		variant === "primary"
-			? "bg-brand-primary text-surface-base hover:bg-brand-dark"
-			: "border border-border-input bg-surface-base text-brand-primary hover:bg-surface-soft",
+		onDark
+			? [
+					"focus-ring-on-dark underline-offset-4 hover:underline",
+					variant === "primary"
+						? "bg-brand-primary text-surface-base"
+						: "border border-hero-secondary-border bg-hero-secondary-fill text-surface-base",
+				]
+			: variant === "primary"
+				? "bg-brand-primary text-surface-base hover:bg-brand-dark"
+				: "border border-border-input bg-surface-base text-brand-primary hover:bg-surface-soft",
 	]}
 	href={href}
 >
 	<slot />
+	{context && <span class="sr-only">{context}</span>}
 </a>

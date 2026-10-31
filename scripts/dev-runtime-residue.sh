@@ -4,8 +4,8 @@
 # fixtures carry the mark songhealth-f002-synthetic (tests/browser/cms.helpers.ts
 # SYNTHETIC_FIXTURE_MARK), and requests for missing pages use songhealth-unknown- paths.
 #   scripts/dev-runtime-residue.sh
-# Entries (live or in trash), media, terms, bylines and redirects must all be gone after a task
-# run: any that remain are listed and the exit status is 1. EmDash's 404 log keeps the tests'
+# Entries (live or in trash), media, terms, bylines, redirects and menu items must all be gone after
+# a task run: any that remain are listed and the exit status is 1. EmDash's 404 log keeps the tests'
 # misses too, but it can only be cleared as a whole, so those are counted without failing
 # (docs/operations/development-quadlet.md). Exit status 2: the count itself failed.
 set -uo pipefail
@@ -55,6 +55,9 @@ try:
     for taxonomy in get("/_emdash/api/taxonomies")["taxonomies"]:
         name = taxonomy["name"]
         left[f"{name} terms"] = marked(get(f"/_emdash/api/taxonomies/{name}/terms")["terms"])
+    for menu in get("/_emdash/api/menus"):
+        name = menu["name"]
+        left[f"{name} menu items"] = marked(get(f"/_emdash/api/menus/{name}")["items"])
     left["bylines"] = marked(every("/_emdash/api/admin/bylines", search=FIXTURE))
     left["redirects"] = marked(every("/_emdash/api/redirects", search=FIXTURE))
     misses = marked(every("/_emdash/api/redirects/404s"), MISSES)

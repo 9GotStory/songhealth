@@ -72,12 +72,15 @@ export async function listNews(page: number, topics?: string[]): Promise<NewsPag
 	return { entries, hasMore: hasMore === true };
 }
 
-/** The newest published News, which leads the Homepage's News section (#64), or none. */
-export async function latestNews(): Promise<NewsEntry | undefined> {
+/**
+ * The newest `count` published News, newest first. The Homepage's News section leads with the
+ * first that is not the Featured item (#64, #65).
+ */
+export async function latestNews(count: number): Promise<NewsEntry[]> {
 	const { entries, error } = await getEmDashCollection<"news", NewsData>("news", {
-		limit: 1,
+		limit: count,
 		orderBy: { published_at: "desc" },
 	});
 	if (error) throw error;
-	return entries[0];
+	return entries;
 }

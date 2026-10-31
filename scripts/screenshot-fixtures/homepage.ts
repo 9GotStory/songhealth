@@ -1,14 +1,23 @@
-// Screenshot content for the Homepage's automatic sections (#64): two published News, the newer
-// with a category and summary; three current Announcements and a closed one; four Health Content
-// items with their Health Topics; two Health Services in two Areas; three Activities, two with a
-// picture; and a full Office Contact. Captures /.
+// Screenshot content for the Homepage (#64, #65): two published News, the newer with a category and
+// summary; three current Announcements and a closed one; four Health Content items with their
+// Health Topics; two Health Services in two Areas; three Activities, two with a picture; and a full
+// Office Contact. The curated sections take a Featured News with a picture, which the News card
+// then leaves out; six Services of the `00` §8.2 catalog; and the Quick Access shortcuts the frame
+// keeps, Documents and Health Information (docs/design/homepage-concept-v1.md §10). Captures /.
 
 import type { Fixtures } from "../capture-with-fixtures.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 
-const fixtures: Fixtures = async ({ admin, helpers, term, picture, officeContact }) => {
-	/** Create an entry of `collection` with a synthetic slug and publish it. */
+const fixtures: Fixtures = async ({
+	admin,
+	helpers,
+	term,
+	picture,
+	officeContact,
+	homepageMenus,
+}) => {
+	/** Create an entry of `collection` with a synthetic slug, publish it and return its id. */
 	const published = async (
 		collection: string,
 		data: Record<string, unknown>,
@@ -24,7 +33,19 @@ const fixtures: Fixtures = async ({ admin, helpers, term, picture, officeContact
 		}
 		const done = await helpers.publishEntry(admin, collection, created.entryId!);
 		if (!done.ok) throw new Error(`publish: ${helpers.nativeRefusalOf(done)}`);
+		return created.entryId!;
 	};
+
+	const featured = {
+		title:
+			"[ตัวอย่าง] ชวนประชาชนอายุ 35 ปีขึ้นไปตรวจคัดกรองเบาหวานและความดันโลหิตฟรี ตลอดเดือนพฤศจิกายน",
+		summary:
+			"รพ.สต. ทุกแห่งในอำเภอสองเปิดจุดตรวจคัดกรองในวันและเวลาราชการ ไม่ต้องนัดล่วงหน้า นำบัตรประจำตัวประชาชนมาด้วย",
+	};
+	const featuredId = await published("news", {
+		...featured,
+		featured_image: { id: await picture(`ภาพประกอบ ${featured.title}`, "#f0f5fc", "#0b6b57") },
+	});
 
 	await published("news", {
 		title: "[ตัวอย่าง] สาธารณสุขอำเภอสองจัดประชุมเตรียมรับมือโรคติดต่อช่วงฤดูหนาว",
@@ -116,6 +137,39 @@ const fixtures: Fixtures = async ({ admin, helpers, term, picture, officeContact
 				: {}),
 		});
 	}
+
+	const services = [];
+	for (const [title, summary] of [
+		[
+			"[ตัวอย่าง] ร้องเรียนการปฏิบัติงานหรือการให้บริการ",
+			"แจ้งเรื่องที่ไม่ได้รับความสะดวกหรือไม่เป็นธรรมจากการปฏิบัติงานของเจ้าหน้าที่",
+		],
+		["[ตัวอย่าง] เสนอแนะ / แสดงความคิดเห็น", "เสนอแนะเพื่อพัฒนาการให้บริการของสำนักงาน"],
+		[
+			"[ตัวอย่าง] แจ้งปัญหาด้านสุขภาพ",
+			"แจ้งปัญหาสุขภาพในชุมชน เพื่อให้เจ้าหน้าที่ติดตามและประสานการดูแล",
+		],
+		[
+			"[ตัวอย่าง] ขอข้อมูลหรือเอกสารจากสำนักงาน",
+			"ขั้นตอนและช่องทางการขอข้อมูลหรือเอกสารจากสำนักงานอย่างเป็นทางการ",
+		],
+		[
+			"[ตัวอย่าง] บริการสำหรับ อสม.",
+			"ข้อมูล แบบฟอร์ม และช่องทางติดต่อสำหรับอาสาสมัครสาธารณสุขประจำหมู่บ้าน",
+		],
+		["[ตัวอย่าง] สอบถามข้อมูลทั่วไป", "ช่องทางสอบถามข้อมูลบริการและการติดต่อสำนักงาน"],
+	] as const) {
+		services.push({ title, id: await published("services", { title, summary }) });
+	}
+
+	await homepageMenus({
+		featured: [helpers.pickedMenuItem("news", { id: featuredId, title: featured.title })],
+		services: services.map((service) => helpers.pickedMenuItem("services", service)),
+		quickAccess: [
+			{ label: "เอกสารเผยแพร่", url: "/documents" },
+			{ label: "ข้อมูลสุขภาพ", url: "/health" },
+		],
+	});
 
 	await officeContact(
 		{

@@ -10,8 +10,12 @@
 // the current-or-closed rule and the status an Announcement states: not open yet, open or closed,
 // by the Bangkok day (Product Owner, 2026-10-29). The Homepage shows the newest current ones in the
 // same order (#64).
+//
+// An Announcement has no summary, so where a summary would show, the start of its details does: its
+// page's description, and the Featured hero's lead (#65).
 
 import {
+	extractPlainText,
 	getEmDashCollection,
 	type ContentEntry,
 	type PortableTextBlock,
@@ -27,11 +31,15 @@ import {
 	type Instant,
 	type ListPage,
 } from "./dated-lists";
+import { excerpt } from "./excerpt";
 
 export type { AnnouncementStatus };
 
 /** The fixed number of Announcements a list page shows. */
 const ANNOUNCEMENTS_PAGE_SIZE = 20;
+
+/** The longest text, in characters, taken from the start of an Announcement's details. */
+const DETAILS_EXCERPT_LENGTH = 160;
 
 /** The Announcements list's title, also its crumb on each Announcement page. */
 export const ANNOUNCEMENTS_TITLE = "ประกาศ";
@@ -72,6 +80,14 @@ export function announcementPath(slug: string): string {
 	return `${ANNOUNCEMENTS_PATH}/${encodeURIComponent(slug)}`;
 }
 
+/**
+ * The start of an Announcement's details as plain text, cut between words, or empty without
+ * details.
+ */
+export function detailsExcerpt(details: PortableTextBlock[] | null | undefined): string {
+	return excerpt(extractPlainText(details ?? []), DETAILS_EXCERPT_LENGTH);
+}
+
 /** The date an Announcement is listed by: its announcement date, else its publication. */
 export function announcementDate(data: AnnouncementData): Instant {
 	return listDate(data.announcement_at, data.publishedAt);
@@ -83,7 +99,7 @@ export function statusOf(data: AnnouncementData, now: Date): AnnouncementStatus 
 }
 
 /** Whether the Announcement is closed at `now`: its close date has passed in Bangkok. */
-function isClosed(data: AnnouncementData, now: Date): boolean {
+export function isClosed(data: Pick<AnnouncementData, "closes_at">, now: Date): boolean {
 	return !isCurrent(data.closes_at, now);
 }
 

@@ -43,6 +43,15 @@ These were decided in #51 and the current docs.
   - each current Announcement states its status and dates, as `/announcements` does;
   - the Contact Summary's lead is the Homepage's meta description;
   - the Activities list shows Card / Activity too, with each Activity's summary.
+- **Decided in #65** (Product Owner, 2026-10-31: #65 comment 6538358352):
+  - each Homepage menu's Thai label states its purpose, since an EmDash 1.1.0 menu has no
+    description: "หน้าแรก: เรื่องเด่น (แสดงรายการแรกที่เผยแพร่อยู่)", "หน้าแรก: บริการที่ใช้บ่อย
+    (เลือกจากบริการประชาชน แสดงไม่เกิน 6 รายการ)", "หน้าแรก: เข้าถึงข้อมูล (ทางลัด แสดงไม่เกิน 4 รายการ)";
+  - beside the hero, the site title stays the page's H1, hidden from sight, and the Featured title
+    is the hero's H2;
+  - the hero visual keeps its caption "ชุมชน • สุขภาพ • ใกล้บ้าน", which names no Health Service;
+  - Quick Access holds pages of the site and published entries only: a link to another website,
+    or a typed path that is no page, is skipped.
 - **Icons** (Product Owner, 2026-10-31: #51 comments 6536026977, 6536052180; built in #105):
   Lucide icons replace the frame's text marks. A link on this site ends in chevron-right where the
   frame has "→", and so does the Service card's corner, where it has "↗". A link that leaves the

@@ -1,5 +1,6 @@
-// The model-update step (#53, #60, #61): brings an existing database to the content model of
-// seed/seed.json through EmDash's native schema and taxonomy APIs, and tells whether it is there.
+// The model-update step (#53, #60, #61, #65): brings an existing database to the content model of
+// seed/seed.json through EmDash's native schema, taxonomy and menu APIs, and tells whether it is
+// there.
 //
 //   node scripts/model-update.mjs --origin <origin> [--check] < <Administrator PAT file>
 //
@@ -11,8 +12,9 @@
 // sample content (src/seed/apply.ts `includeContent`). The step therefore uses the REST APIs that
 // the Admin uses: GET and PUT /_emdash/api/schema/collections, GET and POST
 // /_emdash/api/schema/collections/{slug}/fields (src/astro/routes/api/schema/collections/),
-// GET /_emdash/api/taxonomies, and GET and POST /_emdash/api/taxonomies/{name}/terms
-// (src/astro/routes/api/taxonomies/).
+// GET /_emdash/api/taxonomies, GET and POST /_emdash/api/taxonomies/{name}/terms
+// (src/astro/routes/api/taxonomies/), and GET and POST /_emdash/api/menus
+// (src/astro/routes/api/menus/index.ts).
 //
 // The token is read from standard input and never printed. With --check the step only reads:
 // it lists the pending changes and exits 0 when there are none and 3 when there are. Without
@@ -50,6 +52,9 @@ import { parseArgs } from "node:util";
  * @property {string} name
  * @property {{ slug: string, label: string }[]} [terms]
  *
+ * @typedef {{ name: string, label: string }} SeedMenu A menu of seed/seed.json, by its name and
+ *   label (src/seed/types.ts SeedMenu); the seed's menus start empty.
+ *
  * @typedef {object} LiveCollection A collection as GET /_emdash/api/schema/collections lists it
  *   (src/schema/registry.ts mapCollectionRow, which leaves out an unset URL pattern).
  * @property {string} slug
@@ -67,12 +72,19 @@ import { parseArgs } from "node:util";
  * @property {string} name
  * @property {{ slug: string, label: string }[]} terms
  *
- * @typedef {{ collections: LiveCollection[], taxonomies: LiveTaxonomy[] }} LiveModel
+ * @typedef {{ name: string, label: string }} LiveMenu A menu the database has, as
+ *   GET /_emdash/api/menus lists it (src/api/handlers/menus.ts handleMenuList).
+ *
+ * @typedef {{ collections: LiveCollection[], taxonomies: LiveTaxonomy[], menus: LiveMenu[] }}
+ *   LiveModel
  *
  * @typedef {{ collection: string, field: SeedField }} FieldCreate A field to create in a collection.
  *
  * @typedef {{ taxonomy: string, slug: string, label: string }} TermCreate A term to create with
  *   POST /_emdash/api/taxonomies/{taxonomy}/terms (src/api/schemas/taxonomies.ts createTermBody).
+ *
+ * @typedef {{ name: string, label: string }} MenuCreate A menu to create, empty, with
+ *   POST /_emdash/api/menus (src/api/schemas/menus.ts createMenuBody).
  *
  * @typedef {object} CollectionUpdate Settings for PUT /_emdash/api/schema/collections/{slug}
  *   (src/api/schemas/schema.ts updateCollectionBody).
@@ -100,13 +112,18 @@ import { parseArgs } from "node:util";
  * list by, the step adds the terms whose slug the taxonomy lacks. A term staff relabelled keeps
  * its label, and no term is removed.
  *
- * @param {{ collections: SeedCollection[], taxonomies?: SeedTaxonomy[] }} seed the parsed
- *   seed/seed.json
+ * The seed's menus, such as the Homepage menus staff curate, are created empty where the database
+ * has no menu of that name. A menu staff relabelled keeps its label, and no menu or item is
+ * touched.
+ *
+ * @param {{ collections: SeedCollection[], taxonomies?: SeedTaxonomy[], menus?: SeedMenu[] }} seed
+ *   the parsed seed/seed.json
  * @param {LiveModel} live the live model
  * @returns {{
  *   collections: { slug: string, update: CollectionUpdate }[],
  *   fields: FieldCreate[],
  *   terms: TermCreate[],
+ *   menus: MenuCreate[],
  *   problems: string[],
  * }}
  */
@@ -176,7 +193,11 @@ export function planModelUpdate(seed, live) {
 			if (!slugs.has(slug)) terms.push({ taxonomy: wanted.name, slug, label });
 		}
 	}
-	return { collections, fields, terms, problems };
+	const menuNames = new Set(live.menus.map((menu) => menu.name));
+	const menus = (seed.menus ?? [])
+		.filter(({ name }) => !menuNames.has(name))
+		.map(({ name, label }) => ({ name, label }));
+	return { collections, fields, terms, menus, problems };
 }
 
 /**
@@ -184,8 +205,10 @@ export function planModelUpdate(seed, live) {
  *
  * @param {ReturnType<typeof planModelUpdate>} plan
  */
-function isEmpty({ collections, fields, terms }) {
-	return collections.length === 0 && fields.length === 0 && terms.length === 0;
+function isEmpty({ collections, fields, terms, menus }) {
+	return (
+		collections.length === 0 && fields.length === 0 && terms.length === 0 && menus.length === 0
+	);
 }
 
 const USAGE = "usage: node scripts/model-update.mjs --origin <origin> [--check] < <PAT file>";
@@ -334,7 +357,11 @@ async function main(args) {
 					fields: listed.items.map((/** @type {LiveField} */ { slug, type }) => ({ slug, type })),
 				});
 			}
-			return { collections, taxonomies };
+			/** @type {LiveMenu[]} */
+			const menus = (await api("GET", "/_emdash/api/menus")).map(
+				(/** @type {LiveMenu} */ { name, label }) => ({ name, label }),
+			);
+			return { collections, taxonomies, menus };
 		};
 
 		const plan = planModelUpdate(seed, await readModel());
@@ -377,6 +404,14 @@ async function main(args) {
 					label,
 				});
 				say(`applied: ${taxonomy}: term ${slug} (${label})`);
+			}
+		}
+		for (const { name, label } of plan.menus) {
+			if (options.check) {
+				say(`pending: menu ${name} (${label})`);
+			} else {
+				await api("POST", "/_emdash/api/menus", { name, label });
+				say(`applied: menu ${name} (${label})`);
 			}
 		}
 		if (options.check) {

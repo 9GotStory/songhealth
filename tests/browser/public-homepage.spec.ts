@@ -1,15 +1,17 @@
 // The Homepage's automatic sections (#64; spec #51 "Homepage (`04`, Figma order)", `04` §3, §7–§11
 // and §17; docs/design/homepage-concept-v1.md).
 //
-// A citizen opening / sees, in the Figma order: a compact band with the site title and tagline,
-// standing in until a Featured item exists (#65); a search form that submits to /search; the
-// newest published News beside up to 3 current Announcements; the latest 4 Health Content items,
-// each labelled with its first Health Topic; a Health Service Discovery form that submits an Area
-// and a name to /health-services; the latest 3 Activities by Activity date, each with its picture
-// or a visual fallback and "กิจกรรม • date"; and the Contact Summary from Office Contact. An
-// optional section with nothing to show disappears. The search and the Contact Summary always
-// render, and the page answers with no content at all. Closed Announcements, drafts, unpublished
-// and trashed entries never show.
+// A citizen opening / sees, in the Figma order: a compact band with the site title and tagline
+// while nothing is Featured; a search form that submits to /search; the newest published News
+// beside up to 3 current Announcements; the latest 4 Health Content items, each labelled with its
+// first Health Topic; a Health Service Discovery form that submits an Area and a name to
+// /health-services; the latest 3 Activities by Activity date, each with its picture or a visual
+// fallback and "กิจกรรม • date"; and the Contact Summary from Office Contact. An optional section
+// with nothing to show disappears. The search and the Contact Summary always render, and the page
+// answers with no content at all. Closed Announcements, drafts, unpublished and trashed entries
+// never show. The curated sections between them have their own suite
+// (public-homepage-curation.spec.ts); the tests here that look at the whole page set the Homepage
+// menus they need and put back what the menus held.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -29,10 +31,12 @@ import {
 	createOwnedTerm,
 	createSyntheticDraft,
 	createSyntheticHealthService,
+	createSyntheticService,
 	devAdminActor,
 	listPublishedEntries,
 	nativeDataOf,
 	nativeRefusalOf,
+	pickedMenuItem,
 	publishEntryAt,
 	removeSuiteFixtures,
 	withOfficeContact,
@@ -40,6 +44,7 @@ import {
 	trashEntry,
 	unpublishEntry,
 	uploadSyntheticPicture,
+	withHomepageMenus,
 	writeSiteSettings,
 	type CmsActor,
 	type DraftFields,
@@ -49,24 +54,22 @@ import {
 import {
 	BorrowedEntries,
 	DESKTOP_VIEWPORT,
+	HOMEPAGE_HEADINGS,
 	MOBILE_VIEWPORT,
 	detailOf,
 	expect,
 	expectAccessibleAtEachWidth,
 	expectImageLoaded,
 	expectNoHorizontalScroll,
+	homepageSection,
 	listedItem,
 	siteTitleParts,
 	test,
 	thaiDate,
 } from "./public.helpers";
 
-/** The section headings, the design's interface text (docs/design/homepage-concept-v1.md). */
-const SEARCH_HEADING = "คุณกำลังมองหาอะไร?";
-const NEWS_HEADING = "เรื่องใหม่จากเครือข่ายสุขภาพอำเภอสอง";
-const HEALTH_HEADING = "ความรู้ที่ใช้ได้ในชีวิตประจำวัน";
-const DISCOVERY_HEADING = "ค้นหาหน่วยบริการสุขภาพในอำเภอสอง";
-const ACTIVITIES_HEADING = "สุขภาพเกิดขึ้นในชุมชน";
+/** The Homepage menus with nothing in them, so no curated section shows. */
+const EMPTY_MENUS = { featured: [], services: [], quickAccess: [] };
 
 /** The heading of the current Announcements beside the News card, which names their list. */
 const ANNOUNCEMENTS_HEADING = "ประกาศ";
@@ -162,14 +165,9 @@ function sectionHeadings(page: Page) {
 	return page.getByRole("main").getByRole("heading", { level: 2 });
 }
 
-/** A Homepage section, by its heading. */
-function section(page: Page, heading: string) {
-	return page.getByRole("region", { name: heading });
-}
-
 /** The current Announcements' links, in order. */
 function announcementLinks(page: Page) {
-	return section(page, NEWS_HEADING)
+	return homepageSection(page, HOMEPAGE_HEADINGS.news)
 		.getByRole("list", { name: ANNOUNCEMENTS_HEADING })
 		.getByRole("link");
 }
@@ -192,25 +190,27 @@ test("with no published content at all, the Homepage still answers with the band
 	page,
 }) => {
 	await borrowAllContent();
-	await withOfficeContact(admin, {}, {}, async () => {
-		const response = await page.goto("/");
-		expect(response?.status(), "GET / with no content").toBe(200);
-		await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
-		await expect(sectionHeadings(page)).toHaveText([SEARCH_HEADING, siteTitle]);
-		await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
-		await expect(page.getByRole("main").getByRole("search")).toBeVisible();
+	await withHomepageMenus(admin, EMPTY_MENUS, async () => {
+		await withOfficeContact(admin, {}, {}, async () => {
+			const response = await page.goto("/");
+			expect(response?.status(), "GET / with no content").toBe(200);
+			await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
+			await expect(sectionHeadings(page)).toHaveText([HOMEPAGE_HEADINGS.search, siteTitle]);
+			await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
+			await expect(page.getByRole("main").getByRole("search")).toBeVisible();
 
-		const contact = section(page, siteTitle);
-		await expect(contact.getByText(CONTACT_LEAD)).toBeVisible();
-		await expect(contact.getByRole("term")).toHaveCount(0);
-		await expect(contact.getByRole("link", { name: "ดูข้อมูลติดต่อทั้งหมด" })).toHaveAttribute(
-			"href",
-			"/contact",
-		);
+			const contact = homepageSection(page, siteTitle);
+			await expect(contact.getByText(CONTACT_LEAD)).toBeVisible();
+			await expect(contact.getByRole("term")).toHaveCount(0);
+			await expect(contact.getByRole("link", { name: "ดูข้อมูลติดต่อทั้งหมด" })).toHaveAttribute(
+				"href",
+				"/contact",
+			);
 
-		await expectAccessibleAtEachWidth(page, "/ with no content");
-		await page.setViewportSize(MOBILE_VIEWPORT);
-		await expectNoHorizontalScroll(page, "/ with no content");
+			await expectAccessibleAtEachWidth(page, "/ with no content");
+			await page.setViewportSize(MOBILE_VIEWPORT);
+			await expectNoHorizontalScroll(page, "/ with no content");
+		});
 	});
 });
 
@@ -223,7 +223,7 @@ test("closed Announcements alone leave the News section out, and a current one b
 	});
 	await publish("announcements", closed);
 	await page.goto("/");
-	await expect(section(page, NEWS_HEADING)).toHaveCount(0);
+	await expect(homepageSection(page, HOMEPAGE_HEADINGS.news)).toHaveCount(0);
 	await expect(page.getByRole("main")).not.toContainText(closed.title);
 
 	const current = await create("announcements", "current-only", {
@@ -231,9 +231,9 @@ test("closed Announcements alone leave the News section out, and a current one b
 	});
 	await publish("announcements", current);
 	await page.goto("/");
-	await expect(section(page, NEWS_HEADING).getByRole("article")).toHaveCount(0);
+	await expect(homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("article")).toHaveCount(0);
 	await expect(
-		section(page, NEWS_HEADING).getByRole("link", { name: "ดูข่าวทั้งหมด" }),
+		homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("link", { name: "ดูข่าวทั้งหมด" }),
 	).toHaveCount(0);
 	await expect(announcementLinks(page)).toHaveCount(1);
 	await expect(announcementLinks(page)).toHaveAccessibleName(`ดูรายละเอียด ${current.title}`);
@@ -247,7 +247,7 @@ test("a News without a current Announcement brings the News section back with it
 	const lone = await create("news", "without-announcements");
 	await publish("news", lone);
 	await page.goto("/");
-	const news = section(page, NEWS_HEADING);
+	const news = homepageSection(page, HOMEPAGE_HEADINGS.news);
 	await expect(news.getByRole("article").getByRole("heading", { level: 3 })).toHaveText(lone.title);
 	await expect(news.getByRole("list", { name: ANNOUNCEMENTS_HEADING })).toHaveCount(0);
 	await expect(news.getByRole("link", { name: "ดูประกาศทั้งหมด" })).toHaveCount(0);
@@ -259,23 +259,28 @@ test("the band shows the site title and tagline from the site settings, and the 
 	const marker = crypto.randomUUID().slice(0, 8);
 	const title = `${SYNTHETIC_FIXTURE_MARK} ชื่อเว็บไซต์ ${marker}`;
 	const tagline = `${SYNTHETIC_FIXTURE_MARK} คำโปรย ${marker}`;
-	await withSiteIdentity({ title, tagline }, async () => {
-		await page.goto("/");
-		await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
-		await expect(page.getByRole("main").getByText(tagline, { exact: true })).toBeVisible();
-		await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/`);
-		await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", CONTACT_LEAD);
-	});
-	await withSiteIdentity({ title, tagline: "" }, async () => {
-		await page.goto("/");
-		await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
-		await expect(page.getByRole("main")).not.toContainText(tagline);
+	await withHomepageMenus(admin, { featured: [] }, async () => {
+		await withSiteIdentity({ title, tagline }, async () => {
+			await page.goto("/");
+			await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
+			await expect(page.getByRole("main").getByText(tagline, { exact: true })).toBeVisible();
+			await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/`);
+			await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+				"content",
+				CONTACT_LEAD,
+			);
+		});
+		await withSiteIdentity({ title, tagline: "" }, async () => {
+			await page.goto("/");
+			await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
+			await expect(page.getByRole("main")).not.toContainText(tagline);
+		});
 	});
 });
 
 test("the search form submits the query to /search", async ({ page }) => {
 	await page.goto("/");
-	const search = section(page, SEARCH_HEADING);
+	const search = homepageSection(page, HOMEPAGE_HEADINGS.search);
 	await search.getByLabel("คำค้นหา").fill("วัคซีน");
 	await search.getByRole("button", { name: "ค้นหา" }).click();
 	await expect(page).toHaveURL(`/search?q=${encodeURIComponent("วัคซีน")}`);
@@ -300,7 +305,7 @@ test("the News card shows the newest published News with its category, title and
 	expect((await trashEntry(admin, "news", trashed.id)).ok, "trash").toBe(true);
 
 	await page.goto("/");
-	const card = section(page, NEWS_HEADING).getByRole("article");
+	const card = homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("article");
 	await expect(card).toHaveCount(1);
 	await expect(card.getByRole("heading", { level: 3 })).toHaveText(newest.title);
 	await expect(card.getByText(category.label, { exact: true })).toBeVisible();
@@ -310,7 +315,7 @@ test("the News card shows the newest published News with its category, title and
 		`/news/${newest.slug}`,
 	);
 	await expect(
-		section(page, NEWS_HEADING).getByRole("link", { name: "ดูข่าวทั้งหมด" }),
+		homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("link", { name: "ดูข่าวทั้งหมด" }),
 	).toHaveAttribute("href", "/news");
 	for (const hidden of [older, draft, unpublished, trashed]) {
 		await expect(page.getByRole("main"), hidden.title).not.toContainText(hidden.title);
@@ -344,7 +349,7 @@ test("up to 3 current Announcements show beside it, newest first by announcement
 		await expect(links.nth(index)).toHaveAttribute("href", `/announcements/${announcement.slug}`);
 	}
 	// Each states its status and dates as the Announcements list does; one without dates, none.
-	const items = section(page, NEWS_HEADING)
+	const items = homepageSection(page, HOMEPAGE_HEADINGS.news)
 		.getByRole("list", { name: ANNOUNCEMENTS_HEADING })
 		.getByRole("listitem");
 	await expect(items.nth(0)).not.toContainText(/ยังไม่เปิด|เปิดอยู่|วันที่/);
@@ -354,7 +359,7 @@ test("up to 3 current Announcements show beside it, newest first by announcement
 	await expect(items.nth(2)).toContainText("เปิดอยู่");
 	await expect(items.nth(2)).toContainText(`วันที่สิ้นสุด ${thaiDate(CLOSES_LATER)}`);
 	await expect(
-		section(page, NEWS_HEADING).getByRole("link", { name: "ดูประกาศทั้งหมด" }),
+		homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("link", { name: "ดูประกาศทั้งหมด" }),
 	).toHaveAttribute("href", "/announcements");
 	// Each list link follows its own box: the order a phone shows them in, and a screen reader reads.
 	const order = [
@@ -365,7 +370,7 @@ test("up to 3 current Announcements show beside it, newest first by announcement
 		/^ดูรายละเอียด /,
 		/^ดูประกาศทั้งหมด$/,
 	];
-	const sectionLinks = section(page, NEWS_HEADING).getByRole("link");
+	const sectionLinks = homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("link");
 	await expect(sectionLinks).toHaveCount(order.length);
 	for (const [index, name] of order.entries()) {
 		await expect(sectionLinks.nth(index)).toHaveAccessibleName(name);
@@ -401,7 +406,7 @@ test("Health Information shows the latest 4 published Health Content items, each
 	await publish("health_content", oldest, fourth, third, untopical, newest);
 
 	await page.goto("/");
-	const health = section(page, HEALTH_HEADING);
+	const health = homepageSection(page, HOMEPAGE_HEADINGS.health);
 	await expect(health.getByRole("heading", { level: 3 })).toHaveText([
 		newest.title,
 		untopical.title,
@@ -442,7 +447,7 @@ test("Health Service Discovery submits the chosen Area and the name to the Healt
 	const name = facility.slug.slice(-6);
 
 	await page.goto("/");
-	const discovery = section(page, DISCOVERY_HEADING);
+	const discovery = homepageSection(page, HOMEPAGE_HEADINGS.discovery);
 	await expect(
 		discovery.getByText("หน่วยบริการสุขภาพที่เกี่ยวข้อง", { exact: true }),
 	).toBeVisible();
@@ -479,7 +484,7 @@ test("Activities shows the latest 3 by Activity date, each with its picture or t
 	await publish("activities", second, latest, fourth, third, undated);
 
 	await page.goto("/");
-	const activities = section(page, ACTIVITIES_HEADING);
+	const activities = homepageSection(page, HOMEPAGE_HEADINGS.activities);
 	await expect(activities.getByRole("heading", { level: 3 })).toHaveText([
 		latest.title,
 		second.title,
@@ -532,7 +537,7 @@ test("the Contact Summary reads Office Contact: address with the map link, telep
 	};
 	await withOfficeContact(admin, values, {}, async () => {
 		await page.goto("/");
-		const contact = section(page, siteTitle);
+		const contact = homepageSection(page, siteTitle);
 		await expect(contact.getByRole("heading", { level: 2 })).toHaveText(siteTitle);
 		const location = detailOf(page, "ที่ตั้ง");
 		await expect(location).toContainText(values.address.split("\n")[0]!);
@@ -561,7 +566,7 @@ test("the Contact Summary reads Office Contact: address with the map link, telep
 		{},
 		async () => {
 			await page.goto("/");
-			const contact = section(page, siteTitle);
+			const contact = homepageSection(page, siteTitle);
 			await expect(contact.getByRole("term")).toHaveText(["โทรศัพท์"]);
 			await expect(detailOf(page, "โทรศัพท์")).toHaveText("054 591 234 ต่อ 12");
 			await expect(detailOf(page, "โทรศัพท์").getByRole("link")).toHaveCount(0);
@@ -573,36 +578,62 @@ test("the Contact Summary reads Office Contact: address with the map link, telep
 test("with every section showing, the sections follow the Figma order, and the page is accessible and reflows at 320 px", async ({
 	page,
 }) => {
-	// One published entry of each kind, so every section shows whichever tests ran before.
-	await publish("news", await create("news", "every-section"));
+	// One published entry of each kind, so every section shows whichever tests ran before. The
+	// Featured News is published first, so the News card shows the other one.
+	const featured = await create("news", "every-section-featured", {
+		data: {
+			summary: `${SYNTHETIC_FIXTURE_MARK} สรุปเรื่องเด่น`,
+			featured_image: {
+				id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพเรื่องเด่น`),
+			},
+		},
+	});
+	await publish("news", featured, await create("news", "every-section"));
 	await publish("announcements", await create("announcements", "every-section"));
 	await publish("health_content", await create("health_content", "every-section"));
 	await publish("health_services", await createSyntheticHealthService(admin, "every-section"));
 	await publish("activities", await create("activities", "every-section"));
-	await withOfficeContact(
-		admin,
-		{
-			address: `${SYNTHETIC_FIXTURE_MARK} 99 หมู่ 1\nอำเภอสอง จังหวัดแพร่ 54120`,
-			telephone: "054 591 234",
-			opening_hours: "จันทร์–ศุกร์ 08:30–16:30 น.",
-			latitude: 18.4686,
-			longitude: 100.1834,
-		},
-		{},
-		async () => {
-			await page.goto("/");
-			await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
-			await expect(sectionHeadings(page)).toHaveText([
-				SEARCH_HEADING,
-				NEWS_HEADING,
-				HEALTH_HEADING,
-				DISCOVERY_HEADING,
-				ACTIVITIES_HEADING,
-				siteTitle,
-			]);
-			await expectAccessibleAtEachWidth(page, "/ with every section");
-			await page.setViewportSize(MOBILE_VIEWPORT);
-			await expectNoHorizontalScroll(page, "/ with every section");
-		},
-	);
+	const service = await createSyntheticService(admin, "every-section", {
+		data: { summary: `${SYNTHETIC_FIXTURE_MARK} สรุปบริการ` },
+	});
+	await publishEntryAt(admin, "services", service.id);
+	const menus = {
+		featured: [pickedMenuItem("news", featured)],
+		services: [pickedMenuItem("services", service)],
+		quickAccess: [
+			{ label: "เอกสารเผยแพร่", url: "/documents" },
+			{ label: "ข้อมูลสุขภาพ", url: "/health" },
+		],
+	};
+	await withHomepageMenus(admin, menus, async () => {
+		await withOfficeContact(
+			admin,
+			{
+				address: `${SYNTHETIC_FIXTURE_MARK} 99 หมู่ 1\nอำเภอสอง จังหวัดแพร่ 54120`,
+				telephone: "054 591 234",
+				opening_hours: "จันทร์–ศุกร์ 08:30–16:30 น.",
+				latitude: 18.4686,
+				longitude: 100.1834,
+			},
+			{},
+			async () => {
+				await page.goto("/");
+				await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
+				await expect(sectionHeadings(page)).toHaveText([
+					featured.title,
+					HOMEPAGE_HEADINGS.search,
+					HOMEPAGE_HEADINGS.services,
+					HOMEPAGE_HEADINGS.news,
+					HOMEPAGE_HEADINGS.health,
+					HOMEPAGE_HEADINGS.discovery,
+					HOMEPAGE_HEADINGS.activities,
+					HOMEPAGE_HEADINGS.quickAccess,
+					siteTitle,
+				]);
+				await expectAccessibleAtEachWidth(page, "/ with every section");
+				await page.setViewportSize(MOBILE_VIEWPORT);
+				await expectNoHorizontalScroll(page, "/ with every section");
+			},
+		);
+	});
 });

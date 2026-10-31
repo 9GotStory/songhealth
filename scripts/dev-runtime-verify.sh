@@ -70,7 +70,7 @@ check "EmDash accepted EMDASH_ENCRYPTION_KEY" key_ok
 check "development PAT (mode 0600) authenticates" pat_ok
 check "role fixture PAT (mode 0600) authenticates as an enabled Author" fixture_ok
 check "T021 fixture route answers its 0600 route token and refuses without it" route_ok
-check "the database has the seed's content model, fields and reference terms (scripts/dev-runtime-model-update.sh applies them)" \
+check "the database has the seed's content model, fields, reference terms and menus (scripts/dev-runtime-model-update.sh applies them)" \
   model_update --check
 check "the Office Contact plugin is registered and enabled, with its settings form" plugin_ok
 printf 'runtime source: %s @ %s\n' "$SRC" "$(git -C "$SRC" rev-parse HEAD 2>/dev/null || printf unknown)"

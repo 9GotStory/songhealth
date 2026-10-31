@@ -681,14 +681,14 @@ Deliberately absent, and not to be improvised as "maintenance":
 
 EmDash applies `seed/seed.json` only when it sets up a fresh database. A database set up from an
 earlier seed gets a later content model from the model-update step, `scripts/model-update.mjs`
-(`10` §4). The step uses only EmDash's native schema and taxonomy APIs:
+(`10` §4). The step uses only EmDash's native schema, taxonomy and menu APIs:
 
 1. Back up the database and its media (`10` §18). The production backup procedure belongs to the
    pending recovery work (§11).
 2. Use a checkout at the deployed commit, the Node its `package.json` engines pins, and an API
-   token of an Administrator with the `schema:read`, `schema:write`, `content:read` and
-   `taxonomies:manage` scopes (emdash 1.1.0 `src/astro/middleware/auth.ts`). Check what is
-   pending, then apply it:
+   token of an Administrator with the `schema:read`, `schema:write`, `content:read`,
+   `taxonomies:manage` and `menus:manage` scopes (emdash 1.1.0 `src/astro/middleware/auth.ts`).
+   Check what is pending, then apply it:
 
    ```bash
    node scripts/model-update.mjs --origin <public origin> --check < <token file>  # 0: nothing pending, 3: changes pending

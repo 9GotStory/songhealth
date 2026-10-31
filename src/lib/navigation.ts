@@ -11,7 +11,7 @@
 // - The breadcrumb leads with หน้าแรก and the page's section, both taken from
 //   MAIN_NAVIGATION, so no page writes them (`03` §14). EmDash 1.1.0 builds and
 //   renders none; its page context only carries a trail for SEO plugins
-//   (docs/agents/emdash-1.1.0.md "Head, settings, menus, sitemap").
+//   (docs/agents/emdash-1.1.0.md "Head, settings, sitemap").
 import { ABOUT_PATH, ABOUT_TITLE } from "./about.ts";
 import { HEALTH_PATH, HEALTH_TITLE } from "./health.ts";
 import { SERVICES_PATH } from "./service-catalog.ts";

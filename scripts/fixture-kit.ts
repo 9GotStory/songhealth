@@ -1,8 +1,8 @@
 // Synthetic content for the runners that need some on the development runtime
 // (scripts/capture-with-fixtures.ts, scripts/measure-latency.ts): a FixtureKit that makes entries,
 // terms and pictures through the native API with the development PAT (SONGHEALTH_DEV_ACCESS), and
-// removes everything it made when the run ends, even when a step fails. Office Contact and the
-// `social` handles it sets are restored then too. Every slug carries the
+// removes everything it made when the run ends, even when a step fails. Office Contact, the
+// `social` handles and the Homepage menus it sets are restored then too. Every slug carries the
 // synthetic mark, so scripts/dev-runtime-residue.sh finds anything a failed cleanup leaves. The
 // origin is PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324.
 
@@ -24,6 +24,11 @@ export interface FixtureKit {
 	 * which restores the earlier ones (cms.helpers.ts showOfficeContact).
 	 */
 	officeContact(values: helpers.OfficeContactValues, social: Record<string, string>): Promise<void>;
+	/**
+	 * Give the named Homepage menus exactly these items until the run ends, which puts back what
+	 * they held (cms.helpers.ts showHomepageMenus).
+	 */
+	homepageMenus(menus: helpers.HomepageMenuItems): Promise<void>;
 }
 
 /** The development runtime's origin. */
@@ -110,6 +115,9 @@ export async function withFixtureKit<T>(work: (kit: FixtureKit) => Promise<T>): 
 		block: helpers.portableTextBlock,
 		async officeContact(values, social) {
 			restores.unshift(await helpers.showOfficeContact(admin, values, social));
+		},
+		async homepageMenus(menus) {
+			restores.unshift(await helpers.showHomepageMenus(admin, menus));
 		},
 	};
 

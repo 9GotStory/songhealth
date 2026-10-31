@@ -3,7 +3,7 @@
   "version": "1",
   "meta": {
     "name": "Songhealth CMS Content Model",
-    "description": "The Songhealth content model (current/02-content-model.md): ten native collections (documents, pages, news, activities, announcements, health_content, services, health_reports, personnel and health_services) with their fields, six relations (document_successor, page_documents, announcement_documents, service_documents, report_document and facility_services) and nine taxonomies (topic, audience, the hierarchical area, document_type, news_category, announcement_type, service_category, report_type and facility_type). Domain dates such as activity_at stay separate from native publication and scheduling, and no date unpublishes anything. A Health Report describes the one Document it requires; a Service is guidance only, with no transaction or payment. The nine public collections carry their canonical URL patterns (current/03 §15) and SEO support. Personnel is not routable, because no per-person public route exists (03 §5). The seed defines no terms, menus, redirects, widget areas, sections or content: term inventories wait for authoritative sources. Area terms model Province, District, Subdistrict and Village, with the official code in the term slug, the name in its label and the parent through native group identity. EmDash applies this seed only when it sets up a fresh database; an existing database gets later model changes from scripts/model-update.mjs."
+    "description": "The Songhealth content model (current/02-content-model.md): ten native collections (documents, pages, news, activities, announcements, health_content, services, health_reports, personnel and health_services) with their fields, six relations (document_successor, page_documents, announcement_documents, service_documents, report_document and facility_services) and nine taxonomies (topic, audience, the hierarchical area, document_type, news_category, announcement_type, service_category, report_type and facility_type). Domain dates such as activity_at stay separate from native publication and scheduling, and no date unpublishes anything. A Health Report describes the one Document it requires; a Service is guidance only, with no transaction or payment. The nine public collections carry their canonical URL patterns (current/03 §15) and SEO support. Personnel is not routable, because no per-person public route exists (03 §5). The seed defines only the Document Type reference terms policy, plan and result, and the three Homepage menus staff curate (homepage-featured, homepage-services and homepage-quick-access), empty; it defines no other terms and no redirects, widget areas, sections or content: term inventories wait for authoritative sources. Area terms model Province, District, Subdistrict and Village, with the official code in the term slug, the name in its label and the parent through native group identity. EmDash applies this seed only when it sets up a fresh database; an existing database gets later model changes from scripts/model-update.mjs."
   },
   "collections": [
     {
@@ -740,7 +740,23 @@
       "collections": ["health_services"]
     }
   ],
-  "menus": [],
+  "menus": [
+    {
+      "name": "homepage-featured",
+      "label": "หน้าแรก: เรื่องเด่น (แสดงรายการแรกที่เผยแพร่อยู่)",
+      "items": []
+    },
+    {
+      "name": "homepage-services",
+      "label": "หน้าแรก: บริการที่ใช้บ่อย (เลือกจากบริการประชาชน แสดงไม่เกิน 6 รายการ)",
+      "items": []
+    },
+    {
+      "name": "homepage-quick-access",
+      "label": "หน้าแรก: เข้าถึงข้อมูล (ทางลัด แสดงไม่เกิน 4 รายการ)",
+      "items": []
+    }
+  ],
   "redirects": [],
   "widgetAreas": [],
   "sections": [],
