@@ -2337,22 +2337,24 @@ async function setMenuItems(
 }
 
 /**
- * Run `body` with exactly the given items in each named Homepage menu, then put back what each
- * held. A refused read or write throws, after putting back what was saved.
+ * Give each named Homepage menu exactly the given items, and return the function that puts back
+ * what each held. A refused read or write throws, after putting back what was saved.
  *
  * The menu API has no call that replaces a menu's items; only EmDash's MCP server has one (emdash
  * 1.1.0 src/mcp/server.ts). So the items are deleted and created again: what comes back has the
  * same labels, addresses, targets, nesting and order, under new ids and creation times.
  */
-export async function withHomepageMenus(
+export async function showHomepageMenus(
 	actor: CmsActor,
 	menus: Partial<Record<keyof typeof HOMEPAGE_MENUS, readonly MenuItemInput[]>>,
-	body: () => Promise<void>,
-): Promise<void> {
+): Promise<() => Promise<void>> {
 	const saved = new Map<string, StoredMenuItem[]>();
 	for (const key of Object.keys(menus) as Array<keyof typeof HOMEPAGE_MENUS>) {
 		saved.set(HOMEPAGE_MENUS[key], await menuItemsOf(actor, HOMEPAGE_MENUS[key]));
 	}
+	const restore = async () => {
+		for (const [name, items] of saved) await setMenuItems(actor, name, items);
+	};
 	try {
 		for (const [key, items] of Object.entries(menus) as Array<
 			[keyof typeof HOMEPAGE_MENUS, readonly MenuItemInput[]]
@@ -2378,9 +2380,24 @@ export async function withHomepageMenus(
 				})),
 			);
 		}
+	} catch (error) {
+		await restore().catch(() => undefined);
+		throw error;
+	}
+	return restore;
+}
+
+/** Run `body` with exactly the given items in each named Homepage menu, then put back what each held. */
+export async function withHomepageMenus(
+	actor: CmsActor,
+	menus: Partial<Record<keyof typeof HOMEPAGE_MENUS, readonly MenuItemInput[]>>,
+	body: () => Promise<void>,
+): Promise<void> {
+	const restore = await showHomepageMenus(actor, menus);
+	try {
 		await body();
 	} finally {
-		for (const [name, items] of saved) await setMenuItems(actor, name, items);
+		await restore();
 	}
 }
 
