@@ -176,8 +176,10 @@ cited file exists and that the name carries the pinned version.
 - `resolveEmDashPath(path)` matches a path against each collection's `urlPattern` and reads the
   slug it captures with `getEmDashEntry`, unchanged, so it finds only a published entry, and an
   encoded slug must be decoded first, as `decodeSlug` does (`src/query.ts`,
-  `src/utils/slugify.ts`). It ignores that read's `error`, so a failed read resolves to nothing.
-  `./src/lib/homepage-curation.ts` maps the Homepage menus' items through it.
+  `src/utils/slugify.ts`). It answers `null` alike for a path no pattern matches, such as a page of
+  the site, and for one whose entry is not published, and it ignores that read's `error`, so a
+  failed read resolves to nothing. `./src/lib/homepage-curation.ts` maps the Homepage menus' items
+  through it, and `./src/lib/homepage-menus.ts` lists the site's own pages beside it.
 - The Admin menu editor adds content through a picker that browses every collection, one entry at
   a time, and saves the entry as a `collection` item (`page` for `pages`) with the entry's id
   (`@emdash-cms/admin/dist/index.js` `ContentPickerModal`, `handleAddContent`).

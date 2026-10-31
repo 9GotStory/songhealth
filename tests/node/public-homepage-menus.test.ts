@@ -8,9 +8,10 @@
 // - Featured: the first item, in menu order, that resolves to a News, Announcement, Health Content,
 //   Service, Activity or Health Report.
 // - Frequently Used Services: the items that resolve to a Service, in menu order, at most 6.
-// - Quick Access: up to 4 items in menu order, to any destination: an entry while it is published,
-//   a page of the site, or another website. An entry's address that resolves to nothing, such as an
-//   unpublished entry's, is skipped, but a page of the site never is.
+// - Quick Access: up to 4 items in menu order, each to a page of the site or a published entry of
+//   any kind (`04` §10.1). An item that leads nowhere is skipped (`04` §17): an unpublished entry's
+//   address, a path that is no page, another website, another scheme or only a fragment. Every
+//   page of the site counts, even one at an address shaped like an entry's, such as /news/health.
 //
 // A menu gives each content item an address with its slug encoded, as EmDash builds it (emdash
 // 1.1.0 src/i18n/resolve.ts interpolateUrlPattern), and EmDash stores the slug decoded. A link staff
@@ -21,6 +22,7 @@ import { readdirSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import {
+	SITE_PAGES,
 	featuredItem,
 	frequentServices,
 	quickAccessLinks,
@@ -194,25 +196,25 @@ describe("the Frequently Used Services", () => {
 });
 
 describe("Quick Access", () => {
-	it("shows up to 4 items in menu order, to any destination: a published entry, a page of the site or another website", async () => {
+	it("shows up to 4 items in menu order, each to a page of the site or a published entry", async () => {
 		const shown = await quickAccessLinks(
 			[
 				item("เอกสารเผยแพร่", "/documents?type=form"),
 				item("แผนงานที่ยกเลิกการเผยแพร่", "/documents/withdrawn-plan"),
 				item("ความรู้สุขภาพ", "/health/content/dengue"),
-				item("ระบบภายนอก", "https://other.example/ita"),
 				item("ข้อมูลสุขภาพ", "/health"),
-				item("ติดต่อเรา", "/contact"),
+				item("ติดต่อเรา", `${SITE}/contact`),
+				item("ค้นหา", "/search"),
 			],
 			SITE,
 			publishedAt({ "/health/content/dengue": "health_content" }),
 		);
 
 		assert.deepEqual(shown, [
-			{ label: "เอกสารเผยแพร่", href: "/documents?type=form", external: false },
-			{ label: "ความรู้สุขภาพ", href: "/health/content/dengue", external: false },
-			{ label: "ระบบภายนอก", href: "https://other.example/ita", external: true },
-			{ label: "ข้อมูลสุขภาพ", href: "/health", external: false },
+			{ label: "เอกสารเผยแพร่", href: "/documents?type=form" },
+			{ label: "ความรู้สุขภาพ", href: "/health/content/dengue" },
+			{ label: "ข้อมูลสุขภาพ", href: "/health" },
+			{ label: "ติดต่อเรา", href: `${SITE}/contact` },
 		]);
 	});
 
@@ -229,22 +231,30 @@ describe("Quick Access", () => {
 		}
 	});
 
-	it("shows every page of the site, even one at an address shaped like an entry's, such as /news/health", async () => {
-		const pages = sitePages();
-		assert.ok(pages.includes("/news/health"), "the Health News list is a page of the site");
-		for (const page of pages) {
+	it("counts every page of the site, and only those, as a page, even /news/health, shaped like a News address", () => {
+		assert.deepEqual([...SITE_PAGES].sort(), sitePages().sort());
+		assert.ok(SITE_PAGES.has("/news/health"));
+	});
+
+	it("shows an item to each page of the site with nothing published", async () => {
+		for (const page of SITE_PAGES) {
 			assert.deepEqual(
 				await quickAccessLinks([item("หน้า", page)], SITE, publishedAt({})),
-				[{ label: "หน้า", href: page, external: false }],
+				[{ label: "หน้า", href: page }],
 				page,
 			);
 		}
 	});
 
-	it("skips an address that leads nowhere: only a fragment, or another scheme", async () => {
+	it("skips an item that leads nowhere on the site: no page, another website, another scheme or only a fragment", async () => {
 		assert.deepEqual(
 			await quickAccessLinks(
-				[item("ส่วนนี้", "#contact"), item("อีเมล", "mailto:office@example.org")],
+				[
+					item("พิมพ์ผิด", "/documnets"),
+					item("ระบบภายนอก", "https://other.example/eservice"),
+					item("อีเมล", "mailto:office@example.org"),
+					item("ส่วนนี้", "#contact"),
+				],
 				SITE,
 				publishedAt({}),
 			),
@@ -254,13 +264,13 @@ describe("Quick Access", () => {
 });
 
 /**
- * The address of each page of the site that is not an entry's: every page under src/pages whose
- * route has no parameter.
+ * The address of each page under src/pages whose route has no parameter, the not-found page aside:
+ * the pages Astro serves before a parameter route.
  */
 function sitePages(): string[] {
 	const root = new URL("../../src/pages/", import.meta.url);
 	return readdirSync(root, { recursive: true, encoding: "utf8" })
-		.filter((file) => file.endsWith(".astro") && !file.includes("["))
+		.filter((file) => file.endsWith(".astro") && !file.includes("[") && file !== "404.astro")
 		.map((file) => `/${file.replace(/\.astro$/, "").replace(/(^|\/)index$/, "")}`)
 		.map((route) => (route.length > 1 ? route.replace(/\/$/, "") : route));
 }

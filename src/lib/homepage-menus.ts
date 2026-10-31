@@ -14,6 +14,11 @@
 // while EmDash stores the slug decoded and resolves the slug it is given as it is (src/query.ts
 // resolveEmDashPath), so the path is decoded first, as EmDash's own decodeSlug does
 // (src/utils/slugify.ts). A link staff typed may be a full address on this site; its path counts.
+//
+// The path resolution knows entries only: it answers nothing alike for a page of the site, such as
+// /documents, for an unpublished entry's address and for an address that leads nowhere
+// (docs/agents/emdash-1.1.0.md "Menus"). So a Quick Access shortcut, which can lead to a page,
+// shows while its path is one of the site's own pages (SITE_PAGES) or resolves to a published entry.
 
 import { isExternalHref } from "./links.ts";
 
@@ -43,32 +48,37 @@ const SERVICES_LIMIT = 6;
 const QUICK_ACCESS_LIMIT = 4;
 
 /**
- * Where each public collection's entry addresses begin: `03` §15's URL patterns up to `{slug}`, as
- * the seed sets them and tests/canonical-url-patterns.ts records them.
+ * The site's own pages: the address of each page under src/pages whose route has no parameter, the
+ * not-found page aside. tests/node/public-homepage-menus.test.ts keeps the list equal to
+ * src/pages.
  */
-const ENTRY_ADDRESS_PREFIXES = [
-	"/news/",
-	"/activities/",
-	"/announcements/",
-	"/services/",
-	"/health-services/",
-	"/health/content/",
-	"/health/reports/",
-	"/documents/",
-	"/pages/",
-];
+export const SITE_PAGES: ReadonlySet<string> = new Set([
+	"/",
+	"/about",
+	"/about/leadership",
+	"/about/organization",
+	"/about/personnel",
+	"/about/plans",
+	"/about/policies",
+	"/about/results",
+	"/activities",
+	"/announcements",
+	"/contact",
+	"/documents",
+	"/health",
+	"/health/content",
+	"/health/reports",
+	"/health-services",
+	"/news",
+	"/news/health",
+	"/search",
+	"/services",
+]);
 
-/**
- * The site's own pages at an address shaped like an entry's. Astro serves a page before a
- * parameter route, so /news/health is the Health News list, never a News entry.
- */
-const PAGES_AT_ENTRY_ADDRESSES = new Set(["/news/health"]);
-
-/** A Quick Access shortcut: the menu item's label and address, and whether it leaves the site. */
+/** A Quick Access shortcut: the menu item's label and address. */
 export interface QuickAccessLink {
 	label: string;
 	href: string;
-	external: boolean;
 }
 
 /** A menu item as EmDash's getMenu returns it (emdash 1.1.0 src/menus/types.ts MenuItem). */
@@ -111,17 +121,29 @@ function sitePath(url: string, siteOrigin: string): string | undefined {
 	return path.length > 1 ? path.replace(/\/+$/, "") : path;
 }
 
-/** Whether a decoded path is a public entry's address: a prefix, then one segment, the slug. */
-function isEntryAddress(path: string): boolean {
-	if (PAGES_AT_ENTRY_ADDRESSES.has(path)) return false;
-	return ENTRY_ADDRESS_PREFIXES.some(
-		(prefix) =>
-			path.startsWith(prefix) && path.length > prefix.length && !path.includes("/", prefix.length),
-	);
-}
-
 function isFeaturedCollection(collection: string): collection is FeaturedCollection {
 	return (FEATURED_COLLECTIONS as readonly string[]).includes(collection);
+}
+
+/**
+ * Up to `limit` items in menu order whose path on this site resolves to a published entry that
+ * `accept` takes, as each resolved. An item that leaves the site or does not resolve is skipped.
+ */
+async function resolvedItems<E>(
+	items: readonly MenuLink[],
+	siteOrigin: string,
+	resolve: ResolvePath<E>,
+	accept: (found: Resolved<E>) => boolean,
+	limit: number,
+): Promise<Resolved<E>[]> {
+	const kept: Resolved<E>[] = [];
+	for (const item of inMenuOrder(items)) {
+		if (kept.length === limit) break;
+		const path = sitePath(item.url, siteOrigin);
+		const found = path === undefined ? null : await resolve(path);
+		if (found && accept(found)) kept.push(found);
+	}
+	return kept;
 }
 
 /**
@@ -133,15 +155,15 @@ export async function featuredItem<E>(
 	siteOrigin: string,
 	resolve: ResolvePath<E>,
 ): Promise<(Resolved<E> & { collection: FeaturedCollection }) | undefined> {
-	for (const item of inMenuOrder(items)) {
-		const path = sitePath(item.url, siteOrigin);
-		if (path === undefined) continue;
-		const found = await resolve(path);
-		if (found && isFeaturedCollection(found.collection)) {
-			return { collection: found.collection, entry: found.entry };
-		}
-	}
-	return undefined;
+	const [found] = await resolvedItems(
+		items,
+		siteOrigin,
+		resolve,
+		({ collection }) => isFeaturedCollection(collection),
+		1,
+	);
+	if (!found || !isFeaturedCollection(found.collection)) return undefined;
+	return { collection: found.collection, entry: found.entry };
 }
 
 /**
@@ -153,22 +175,22 @@ export async function frequentServices<E>(
 	siteOrigin: string,
 	resolve: ResolvePath<E>,
 ): Promise<E[]> {
-	const services: E[] = [];
-	for (const item of inMenuOrder(items)) {
-		if (services.length === SERVICES_LIMIT) break;
-		const path = sitePath(item.url, siteOrigin);
-		const found = path === undefined ? null : await resolve(path);
-		if (found?.collection === "services") services.push(found.entry);
-	}
-	return services;
+	const services = await resolvedItems(
+		items,
+		siteOrigin,
+		resolve,
+		({ collection }) => collection === "services",
+		SERVICES_LIMIT,
+	);
+	return services.map(({ entry }) => entry);
 }
 
 /**
- * The Quick Access shortcuts: up to QUICK_ACCESS_LIMIT items in menu order, to any destination.
- * An item to another website shows, marked as leaving the site, and so does one to a page of the
- * site. An item at an entry's address shows while that entry is published, so an unpublished or
- * trashed entry's item is skipped. An address that leads nowhere, only a fragment or another
- * scheme such as mailto:, is skipped too.
+ * The Quick Access shortcuts: up to QUICK_ACCESS_LIMIT items in menu order, each to a page of the
+ * site or a published entry of any kind, the canonical destinations `04` §10.1 names. An item that
+ * leads nowhere is skipped (`04` §17): an unpublished or trashed entry's address, a path that is no
+ * page, another scheme such as mailto: or only a fragment. So is a link to another website, which
+ * is no destination of the site.
  */
 export async function quickAccessLinks<E>(
 	items: readonly MenuLink[],
@@ -178,13 +200,9 @@ export async function quickAccessLinks<E>(
 	const links: QuickAccessLink[] = [];
 	for (const { label, url } of inMenuOrder(items)) {
 		if (links.length === QUICK_ACCESS_LIMIT) break;
-		if (isExternalHref(url, siteOrigin)) {
-			links.push({ label, href: url, external: true });
-			continue;
-		}
 		const path = sitePath(url, siteOrigin);
-		if (path === undefined || (isEntryAddress(path) && !(await resolve(path)))) continue;
-		links.push({ label, href: url, external: false });
+		if (path === undefined || !(SITE_PAGES.has(path) || (await resolve(path)))) continue;
+		links.push({ label, href: url });
 	}
 	return links;
 }

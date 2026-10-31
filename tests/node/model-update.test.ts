@@ -41,8 +41,7 @@ const LEADERSHIP_ORDER = { slug: "leadership_order", label: "ลำดับผ�
 
 /**
  * The menus staff curate the Homepage with (#65; spec #51). EmDash 1.1.0 gives a menu a name and a
- * label only, so each Thai label says what the menu does (pending the Product Owner's confirmation
- * on #65).
+ * label only, so each Thai label says what the menu does.
  */
 const HOMEPAGE_MENUS: LiveMenu[] = [
 	{ name: "homepage-featured", label: "หน้าแรก: เรื่องเด่น (แสดงรายการแรกที่เผยแพร่อยู่)" },

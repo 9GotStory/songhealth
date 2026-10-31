@@ -8,10 +8,14 @@
 // src/query.ts; docs/agents/emdash-1.1.0.md "Menus"). That resolution ignores a failed read of the
 // entry, so such an item is left out like an unpublished one, while a failed menu read throws as
 // the page's other reads do.
+//
+// A closed Announcement has expired, so it is not Featured and the next item is (`04` §5; #51 user
+// story 20): the Homepage keeps closed Announcements off, as its Announcements do.
 
 import { getMenu, resolveEmDashPath, type ContentEntry, type PortableTextBlock } from "emdash";
 import { activityPath } from "./activities";
-import { announcementPath, detailsExcerpt } from "./announcements";
+import { announcementPath, detailsExcerpt, isClosed } from "./announcements";
+import type { Instant } from "./dated-lists";
 import { healthContentPath } from "./health-content";
 import { healthReportPath } from "./health-reports";
 import {
@@ -30,6 +34,7 @@ import type { ServiceData } from "./services";
 /** The fields the Homepage reads of a curated entry, whichever kind it is (seed/seed.json). */
 interface CuratedData extends ServiceData {
 	details?: PortableTextBlock[] | null;
+	closes_at?: Instant;
 	featured_image?: ImageFieldValue | null;
 }
 
@@ -74,10 +79,22 @@ async function menuItems(name: string) {
 	return (await getMenu(name))?.items ?? [];
 }
 
-/** The Homepage's curated sections; `siteOrigin` tells a link on this site from another site's. */
-export async function readHomepageCuration(siteOrigin: string): Promise<HomepageCuration> {
+/**
+ * The Homepage's curated sections at `now`; `siteOrigin` tells a link on this site from another
+ * site's.
+ */
+export async function readHomepageCuration(
+	siteOrigin: string,
+	now: Date,
+): Promise<HomepageCuration> {
+	const resolveFeatured: ResolvePath<CuratedEntry> = async (path) => {
+		const found = await resolve(path);
+		return found?.collection === "announcements" && isClosed(found.entry.data, now) ? null : found;
+	};
 	const [featured, services, quickAccess] = await Promise.all([
-		menuItems(HOMEPAGE_MENUS.featured).then((items) => featuredItem(items, siteOrigin, resolve)),
+		menuItems(HOMEPAGE_MENUS.featured).then((items) =>
+			featuredItem(items, siteOrigin, resolveFeatured),
+		),
 		menuItems(HOMEPAGE_MENUS.services).then((items) =>
 			frequentServices(items, siteOrigin, resolve),
 		),

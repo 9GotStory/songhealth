@@ -5,16 +5,17 @@
 //
 // - the Featured hero: the first item of the Featured menu that is published content of a kind
 //   that can be Featured, with its title, its summary (an Announcement: the start of its
-//   details), its picture or the brand visual, a link to it and ค้นหาบริการ to /services. With no
-//   such item, the compact band with the site title stays. The Featured News is not repeated as
-//   the News card;
+//   details), its picture or the brand visual, a link to it and ค้นหาบริการ to /services. A closed
+//   Announcement is not Featured. With no such item, the compact band with the site title stays.
+//   The Featured item is not repeated as the News card or among the current Announcements;
 // - the Frequently Used Services: the published Services of their menu, in menu order, at most 6,
 //   each with its name, summary and the uniform icon, and ดูบริการทั้งหมด to /services;
-// - Quick Access: up to 4 items of its menu, in menu order, to any destination, each a label and
-//   an arrow.
+// - Quick Access: up to 4 items of its menu, in menu order, each to a page of the site or a
+//   published entry, each a label and an arrow.
 //
 // An item whose entry is a draft, unpublished or trashed is skipped, so unpublishing an entry takes
-// it off the Homepage without a menu edit. An item of another kind is skipped too.
+// it off the Homepage without a menu edit. So is an item of another kind, and a Quick Access item
+// that leads nowhere on the site.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set). Each test sets the menus it
@@ -31,31 +32,38 @@ import {
 	createSyntheticHealthService,
 	createSyntheticService,
 	devAdminActor,
+	pickedMenuItem,
 	portableTextBlock,
 	publishEntryAt,
 	removeSuiteFixtures,
 	trashEntry,
+	typedMenuItem,
 	unpublishEntry,
 	uploadSyntheticPicture,
 	withHomepageMenus,
 	type CmsActor,
 	type DraftFields,
 	type DraftFixture,
-	type MenuItemInput,
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
+	HOMEPAGE_HEADINGS,
+	MOBILE_VIEWPORT,
 	expect,
+	expectAccessibleAtEachWidth,
 	expectImageLoaded,
+	expectNoHorizontalScroll,
+	homepageSection,
 	siteTitleParts,
 	test,
 } from "./public.helpers";
 
-/** The design's interface text (docs/design/homepage-concept-v1.md §3, §5, §10). */
+/** The Featured hero's eyebrow, the design's interface text (docs/design/homepage-concept-v1.md §3). */
 const FEATURED_EYEBROW = "เรื่องเด่นจากอำเภอสอง";
-const SERVICES_HEADING = "วันนี้คุณต้องการทำอะไร?";
-const QUICK_ACCESS_HEADING = "ข้อมูลและเอกสารสำคัญ";
-const NEWS_HEADING = "เรื่องใหม่จากเครือข่ายสุขภาพอำเภอสอง";
+/** The heading of the current Announcements beside the News card. */
+const ANNOUNCEMENTS_HEADING = "ประกาศ";
+/** A close date long past, on any calendar. */
+const CLOSED_AT = "2026-01-31T10:00:00.000Z";
 
 let admin: CmsActor;
 /** The site title the settings name, the page's H1. */
@@ -78,27 +86,9 @@ async function publish(collection: string, ...fixtures: DraftFixture[]): Promise
 	for (const fixture of fixtures) await publishEntryAt(admin, collection, fixture.id);
 }
 
-/** A menu item for a fixture, as the Admin's content picker adds it, labelled with its title. */
-function picked(collection: string, fixture: DraftFixture): MenuItemInput {
-	return { label: fixture.title, collection, id: fixture.id };
-}
-
-/**
- * A link typed into a menu, labelled with the synthetic mark, so the residue scan finds it if a run
- * stops before the menus are put back (scripts/dev-runtime-residue.sh).
- */
-function typed(label: string, url: string): MenuItemInput {
-	return { label: `${SYNTHETIC_FIXTURE_MARK} ${label}`, url };
-}
-
-/** A Homepage section, by its heading. */
-function section(page: Page, heading: string) {
-	return page.getByRole("region", { name: heading });
-}
-
 /** The Featured hero, named by the Featured item's title. */
 function hero(page: Page, fixture: DraftFixture) {
-	return section(page, fixture.title);
+	return homepageSection(page, fixture.title);
 }
 
 test.use({ viewport: DESKTOP_VIEWPORT });
@@ -133,10 +123,10 @@ test("Featured shows the first menu item that is published content of a Featured
 		admin,
 		{
 			featured: [
-				picked("news", draft),
-				picked("news", trashed),
-				picked("documents", document),
-				picked("news", featured),
+				pickedMenuItem("news", draft),
+				pickedMenuItem("news", trashed),
+				pickedMenuItem("documents", document),
+				pickedMenuItem("news", featured),
 			],
 		},
 		async () => {
@@ -162,7 +152,7 @@ test("Featured shows the first menu item that is published content of a Featured
 	);
 });
 
-test("an Announcement without a picture is Featured with the start of its details and the brand visual, and its Thai address opens it", async ({
+test("an Announcement without a picture is Featured with the start of its details and the brand visual, is not repeated among the current Announcements, and its Thai address opens it", async ({
 	page,
 }) => {
 	const opening = `${SYNTHETIC_FIXTURE_MARK} เปิดรับสมัครอาสาสมัครสาธารณสุขประจำหมู่บ้าน`;
@@ -177,7 +167,7 @@ test("an Announcement without a picture is Featured with the start of its detail
 
 	await withHomepageMenus(
 		admin,
-		{ featured: [picked("announcements", announcement)] },
+		{ featured: [pickedMenuItem("announcements", announcement)] },
 		async () => {
 			await page.goto("/");
 			const shown = hero(page, announcement);
@@ -189,6 +179,16 @@ test("an Announcement without a picture is Featured with the start of its detail
 			);
 			await expect(shown.locator("img")).toHaveCount(0);
 			await expect(shown.getByTestId("featured-visual")).toHaveCount(1);
+			// The newest current Announcement, so the list beside the News card would lead with it.
+			await expect(
+				homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("list", {
+					name: ANNOUNCEMENTS_HEADING,
+				}),
+			).not.toContainText(announcement.title);
+			await expectAccessibleAtEachWidth(page, "/ with the Featured visual");
+			await page.setViewportSize(MOBILE_VIEWPORT);
+			await expectNoHorizontalScroll(page, "/ with the Featured visual");
+			await page.setViewportSize(DESKTOP_VIEWPORT);
 			const link = shown.getByRole("link", { name: `ดูเรื่องเด่น ${announcement.title}` });
 			await expect(link).toHaveAttribute(
 				"href",
@@ -211,9 +211,9 @@ test("with nothing in the Featured menu to show, the compact band with the site 
 		admin,
 		{
 			featured: [
-				picked("news", draft),
-				picked("health_services", facility),
-				typed("เอกสารเผยแพร่", "/documents"),
+				pickedMenuItem("news", draft),
+				pickedMenuItem("health_services", facility),
+				typedMenuItem("เอกสารเผยแพร่", "/documents"),
 			],
 		},
 		async () => {
@@ -222,6 +222,31 @@ test("with nothing in the Featured menu to show, the compact band with the site 
 			await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 			await expect(page.getByText(FEATURED_EYEBROW)).toHaveCount(0);
 			await expect(page.getByRole("link", { name: /^ดูเรื่องเด่น/ })).toHaveCount(0);
+		},
+	);
+});
+
+test("a closed Announcement is not Featured, and the next item in the menu is", async ({
+	page,
+}) => {
+	const closed = await create("announcements", "featured-closed", {
+		data: { closes_at: CLOSED_AT },
+	});
+	const service = await createSyntheticService(admin, "featured-after-closed");
+	await publish("announcements", closed);
+	await publish("services", service);
+
+	await withHomepageMenus(
+		admin,
+		{
+			featured: [pickedMenuItem("announcements", closed), pickedMenuItem("services", service)],
+		},
+		async () => {
+			await page.goto("/");
+			await expect(hero(page, service).getByRole("heading", { level: 2 })).toHaveText(
+				service.title,
+			);
+			await expect(page.getByRole("main")).not.toContainText(closed.title);
 		},
 	);
 });
@@ -238,15 +263,19 @@ test("unpublishing the Featured entry takes it off the Homepage without a menu e
 	});
 	await publish("health_reports", report);
 
-	await withHomepageMenus(admin, { featured: [picked("health_reports", report)] }, async () => {
-		await page.goto("/");
-		await expect(hero(page, report).getByRole("heading", { level: 2 })).toHaveText(report.title);
+	await withHomepageMenus(
+		admin,
+		{ featured: [pickedMenuItem("health_reports", report)] },
+		async () => {
+			await page.goto("/");
+			await expect(hero(page, report).getByRole("heading", { level: 2 })).toHaveText(report.title);
 
-		expect((await unpublishEntry(admin, "health_reports", report.id)).ok, "unpublish").toBe(true);
-		await page.goto("/");
-		await expect(page.getByRole("main")).not.toContainText(report.title);
-		await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-	});
+			expect((await unpublishEntry(admin, "health_reports", report.id)).ok, "unpublish").toBe(true);
+			await page.goto("/");
+			await expect(page.getByRole("main")).not.toContainText(report.title);
+			await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+		},
+	);
 });
 
 test("the Featured News is not repeated as the News card, which shows the next newest News", async ({
@@ -256,12 +285,12 @@ test("the Featured News is not repeated as the News card, which shows the next n
 	const featured = await create("news", "featured-newest");
 	await publish("news", next, featured);
 
-	await withHomepageMenus(admin, { featured: [picked("news", featured)] }, async () => {
+	await withHomepageMenus(admin, { featured: [pickedMenuItem("news", featured)] }, async () => {
 		await page.goto("/");
 		await expect(hero(page, featured).getByRole("heading", { level: 2 })).toHaveText(
 			featured.title,
 		);
-		const news = section(page, NEWS_HEADING);
+		const news = homepageSection(page, HOMEPAGE_HEADINGS.news);
 		await expect(news.getByRole("article").getByRole("heading", { level: 3 })).toHaveText(
 			next.title,
 		);
@@ -301,17 +330,19 @@ test("the Frequently Used Services are the menu's published Services, in menu or
 		admin,
 		{
 			services: [
-				picked("services", first),
-				picked("news", news),
-				picked("services", draft),
-				picked("services", second),
-				picked("services", trashed),
-				...[third, fourth, fifth, sixth, seventh].map((service) => picked("services", service)),
+				pickedMenuItem("services", first),
+				pickedMenuItem("news", news),
+				pickedMenuItem("services", draft),
+				pickedMenuItem("services", second),
+				pickedMenuItem("services", trashed),
+				...[third, fourth, fifth, sixth, seventh].map((service) =>
+					pickedMenuItem("services", service),
+				),
 			],
 		},
 		async () => {
 			await page.goto("/");
-			const frequent = section(page, SERVICES_HEADING);
+			const frequent = homepageSection(page, HOMEPAGE_HEADINGS.services);
 			const shown = [first, second, third, fourth, fifth, sixth];
 			await expect(frequent.getByRole("heading", { level: 3 })).toHaveText(
 				shown.map(({ title }) => title),
@@ -337,7 +368,7 @@ test("the Frequently Used Services are the menu's published Services, in menu or
 	);
 });
 
-test("Quick Access shows up to 4 items in menu order, to a page, a published entry or another website, each a label and an arrow", async ({
+test("Quick Access shows up to 4 items in menu order, each to a page of the site or a published entry, as a label and an arrow", async ({
 	page,
 }) => {
 	const document = await createSyntheticDocument(admin, "quick-access");
@@ -350,37 +381,34 @@ test("Quick Access shows up to 4 items in menu order, to a page, a published ent
 		admin,
 		{
 			quickAccess: [
-				typed("เอกสารเผยแพร่", "/documents"),
-				picked("health_content", withdrawn),
-				picked("documents", document),
-				typed("ข่าวสุขภาพ", "/news/health"),
-				typed("ระบบภายนอก", "https://example.org/ita"),
-				typed("ข้อมูลสุขภาพ", "/health"),
+				typedMenuItem("เอกสารเผยแพร่", "/documents"),
+				pickedMenuItem("health_content", withdrawn),
+				pickedMenuItem("documents", document),
+				typedMenuItem("ระบบภายนอก", "https://example.org/eservice"),
+				typedMenuItem("หน้าที่ไม่มีอยู่", "/songhealth-unknown-quick-access"),
+				typedMenuItem("ข่าวสุขภาพ", "/news/health"),
+				typedMenuItem("ข้อมูลสุขภาพ", "/health"),
+				typedMenuItem("ติดต่อเรา", "/contact"),
 			],
 		},
 		async () => {
 			await page.goto("/");
-			const quickAccess = section(page, QUICK_ACCESS_HEADING);
+			const quickAccess = homepageSection(page, HOMEPAGE_HEADINGS.quickAccess);
 			const links = quickAccess.getByRole("link");
-			await expect(links).toHaveCount(4);
 			const expected = [
 				[`${SYNTHETIC_FIXTURE_MARK} เอกสารเผยแพร่`, "/documents"],
 				[document.title, `/documents/${document.slug}`],
 				[`${SYNTHETIC_FIXTURE_MARK} ข่าวสุขภาพ`, "/news/health"],
-				[
-					`${SYNTHETIC_FIXTURE_MARK} ระบบภายนอก (เว็บไซต์ภายนอก) (เปิดในแท็บใหม่)`,
-					"https://example.org/ita",
-				],
+				[`${SYNTHETIC_FIXTURE_MARK} ข้อมูลสุขภาพ`, "/health"],
 			];
+			await expect(links).toHaveCount(expected.length);
 			for (const [index, [name, href]] of expected.entries()) {
 				await expect(links.nth(index)).toHaveAccessibleName(name!);
 				await expect(links.nth(index)).toHaveAttribute("href", href!);
 			}
-			await expect(links.nth(3)).toHaveAttribute("target", "_blank");
-			await expect(links.nth(3)).toHaveAttribute("rel", "noopener");
-			await expect(links.nth(0)).not.toHaveAttribute("target");
-			await expect(quickAccess).not.toContainText(withdrawn.title);
-			await expect(quickAccess).not.toContainText("ข้อมูลสุขภาพ");
+			for (const hidden of [withdrawn.title, "ระบบภายนอก", "หน้าที่ไม่มีอยู่", "ติดต่อเรา"]) {
+				await expect(quickAccess, hidden).not.toContainText(hidden);
+			}
 		},
 	);
 });

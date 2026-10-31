@@ -2243,6 +2243,22 @@ export const HOMEPAGE_MENUS = {
 export type MenuItemInput =
 	{ label: string; collection: string; id: string } | { label: string; url: string };
 
+/** A menu item for an entry, as the Admin's content picker adds it: labelled with its title. */
+export function pickedMenuItem(
+	collection: string,
+	entry: { id: string; title: string },
+): MenuItemInput {
+	return { label: entry.title, collection, id: entry.id };
+}
+
+/**
+ * A link typed into a menu, labelled with the synthetic mark, so the residue scan finds it if a run
+ * stops before the menus are put back (scripts/dev-runtime-residue.sh).
+ */
+export function typedMenuItem(label: string, url: string): MenuItemInput {
+	return { label: `${SYNTHETIC_FIXTURE_MARK} ${label}`, url };
+}
+
 /** A menu item as GET /_emdash/api/menus/{name} lists it (src/api/schemas/menus.ts menuItemSchema). */
 interface StoredMenuItem {
 	id: string;

@@ -346,6 +346,22 @@ export function ownTitles(titles: string[], fixtures: ReadonlyArray<{ title: str
 	return titles.filter((title) => own.has(title));
 }
 
+/** The Homepage sections' headings, the design's interface text (docs/design/homepage-concept-v1.md). */
+export const HOMEPAGE_HEADINGS = {
+	search: "คุณกำลังมองหาอะไร?",
+	services: "วันนี้คุณต้องการทำอะไร?",
+	news: "เรื่องใหม่จากเครือข่ายสุขภาพอำเภอสอง",
+	health: "ความรู้ที่ใช้ได้ในชีวิตประจำวัน",
+	discovery: "ค้นหาหน่วยบริการสุขภาพในอำเภอสอง",
+	activities: "สุขภาพเกิดขึ้นในชุมชน",
+	quickAccess: "ข้อมูลและเอกสารสำคัญ",
+} as const;
+
+/** A Homepage section, the region its heading names. */
+export function homepageSection(page: Page, heading: string) {
+	return page.getByRole("region", { name: heading });
+}
+
 /** The card or row a list page shows for the item titled `title`. */
 export function listedItem(page: Page, title: string) {
 	return page.getByRole("main").getByRole("article").filter({ hasText: title });

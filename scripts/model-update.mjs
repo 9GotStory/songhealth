@@ -83,6 +83,9 @@ import { parseArgs } from "node:util";
  * @typedef {{ taxonomy: string, slug: string, label: string }} TermCreate A term to create with
  *   POST /_emdash/api/taxonomies/{taxonomy}/terms (src/api/schemas/taxonomies.ts createTermBody).
  *
+ * @typedef {{ name: string, label: string }} MenuCreate A menu to create, empty, with
+ *   POST /_emdash/api/menus (src/api/schemas/menus.ts createMenuBody).
+ *
  * @typedef {object} CollectionUpdate Settings for PUT /_emdash/api/schema/collections/{slug}
  *   (src/api/schemas/schema.ts updateCollectionBody).
  * @property {string} [urlPattern]
@@ -120,7 +123,7 @@ import { parseArgs } from "node:util";
  *   collections: { slug: string, update: CollectionUpdate }[],
  *   fields: FieldCreate[],
  *   terms: TermCreate[],
- *   menus: LiveMenu[],
+ *   menus: MenuCreate[],
  *   problems: string[],
  * }}
  */

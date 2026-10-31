@@ -9,9 +9,9 @@
 // - the Frequently Used Services: up to 6 Services from their menu, in menu order, and a link to the
 //   Service catalog;
 // - the newest published News that is not the Featured item, as one card, beside up to 3 current
-//   Announcements, newest first by announcement date, each with its status and dates as the
-//   Announcements list shows them (src/lib/announcements.ts), each box followed by a link to its
-//   own list;
+//   Announcements, newest first by announcement date, the Featured one left out (`04` §7), each with
+//   its status and dates as the Announcements list shows them (src/lib/announcements.ts), each box
+//   followed by a link to its own list;
 // - Health Information: the latest 4 Health Content items, each labelled with its first Health
 //   Topic, the `topic` term EmDash hydrates first (src/lib/terms.ts), and a link to their list;
 // - Health Service Discovery: an Area select and a name field, a GET form to the Health Service
@@ -26,8 +26,8 @@
 // Announcements together, Health Information, Health Service Discovery while no Health Service is
 // published, Activities and Quick Access. The hero or the band, Search and the Contact Summary
 // always render, so the page answers with no content at all. The site title is the page's H1 either
-// way: the band shows it, and beside the hero, whose title is its section's H2, it is hidden from
-// sight (Product Owner, 2026-10-30: #64 comment 6526131459 made it the band's H1).
+// way: the band shows it (Product Owner, 2026-10-30: #64 comment 6526131459), and beside the hero,
+// whose title is its section's H2, it is hidden from sight.
 //
 // Beyond the Figma frame, on the Product Owner's decision (2026-10-30: #64 comment 6526131459):
 // the links to the News, Announcements and Health Content lists, since the Announcements list is in
@@ -76,31 +76,36 @@ import { termsOf } from "../lib/terms";
 const OFFICE_SUMMARY =
 	"ศูนย์กลางข้อมูล บริการ และการประสานงานด้านสุขภาพของประชาชนในอำเภอสอง จังหวัดแพร่";
 
-/** One instant for the current Announcements and the status each states. */
+/** One instant for the current Announcements, the status each states and the Featured item's. */
 const now = new Date();
 const [
 	identity,
 	{ featured, services, quickAccess },
 	newestNews,
-	announcements,
+	newestAnnouncements,
 	healthContent,
 	directory,
 	activities,
 	{ contact },
 ] = await Promise.all([
 	getSiteIdentity(Astro.url),
-	readHomepageCuration(Astro.url.origin),
+	readHomepageCuration(Astro.url.origin, now),
 	latestNews(2),
-	currentAnnouncements(3, now),
+	currentAnnouncements(4, now),
 	latestHealthContent(4),
 	directoryOverview(),
 	latestActivities(3),
 	readOfficeContact(),
 ]);
-/** The News card's News: the newest, unless it is the Featured item already headlining the page. */
-const news = newestNews.find(
-	(entry) => !(featured?.collection === "news" && featured.id === entry.data.id),
-);
+/** Whether an entry of `collection` is other than the Featured item, which the page already shows. */
+const notFeatured =
+	(collection: string) =>
+	({ data }: { data: { id: string } }) =>
+		!(featured?.collection === collection && featured.id === data.id);
+/** The News card: the newest News that is not Featured. */
+const news = newestNews.find(notFeatured("news"));
+/** Up to 3 current Announcements that are not Featured. */
+const announcements = newestAnnouncements.filter(notFeatured("announcements")).slice(0, 3);
 const newsCategory = news && termsOf(news.data, "news_category")[0];
 
 /** The Health Service Discovery fields' box: 44 px high, with a 3:1 boundary, as FilterForm's. */

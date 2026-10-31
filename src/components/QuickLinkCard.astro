@@ -1,15 +1,10 @@
 ---
 // A Quick Link card (Feature 003 #60, #65, #105; Figma Card / Quick Link 4:43,
 // docs/design/homepage-concept-v1.md §10): a label and the chevron-right icon, the whole card one
-// link. /about links to its sub-pages with it, and the Homepage's Quick Access to the shortcuts staff
-// pick. The icon is decorative (docs/agents/lucide-astro-1.59.0.md): the label names the link. A
-// shortcut to another website opens in a new tab with rel="noopener" and ends in arrow-up-right, the
-// site's icon for a link that leaves it, with "(เว็บไซต์ภายนอก) (เปิดในแท็บใหม่)" for screen readers
-// only, as a compact ContentLink says it (#51 user story 38): the card shows a label and an arrow
-// only (spec #51 "Homepage").
-import ArrowUpRight from "@lucide/astro/icons/arrow-up-right";
+// link to a page on this site. /about links to its sub-pages with it, and the Homepage's Quick
+// Access to the shortcuts staff pick. The icon is decorative (docs/agents/lucide-astro-1.59.0.md):
+// the label names the link.
 import ChevronRight from "@lucide/astro/icons/chevron-right";
-import { isExternalHref } from "../lib/links";
 
 interface Props {
 	href: string;
@@ -17,22 +12,12 @@ interface Props {
 }
 
 const { href, label } = Astro.props;
-const external = isExternalHref(href, Astro.url.origin);
 ---
 
 <a
 	class="flex h-full min-h-22 items-center justify-between gap-4 rounded-18 border border-border-default bg-surface-base px-5.5 pt-5.5 pb-5 text-h3 text-text-primary shadow-card hover:border-brand-primary hover:text-brand-primary"
 	href={href}
-	target={external ? "_blank" : undefined}
-	rel={external ? "noopener" : undefined}
 >
-	<span class="wrap-anywhere">
-		{label}
-		{external && <span class="sr-only">(เว็บไซต์ภายนอก) (เปิดในแท็บใหม่)</span>}
-	</span>
-	{external ? (
-		<ArrowUpRight class="shrink-0 text-brand-primary" size={24} />
-	) : (
-		<ChevronRight class="shrink-0 text-brand-primary" size={24} />
-	)}
+	<span class="wrap-anywhere">{label}</span>
+	<ChevronRight class="shrink-0 text-brand-primary" size={24} />
 </a>
