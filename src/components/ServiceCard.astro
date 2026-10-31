@@ -5,7 +5,8 @@
 // page and its summary. The Service catalog shows it, and the Homepage's Frequently Used Services
 // reuse it (#64, #65). The icons are decorative (docs/agents/lucide-astro-1.59.0.md), because the
 // name already names the link. The corner icon is chevron-right, the site's icon for a link on this
-// site, where the frame has "↗"; arrow-up-right marks a link that leaves it.
+// site, where the frame has "↗"; arrow-up-right marks a link that leaves it. The name is a heading
+// one level below its list's own: H2 in the catalog, H3 under a Homepage section.
 import ChevronRight from "@lucide/astro/icons/chevron-right";
 import HandHeart from "@lucide/astro/icons/hand-heart";
 import { servicePath } from "../lib/service-catalog";
@@ -13,9 +14,11 @@ import type { ServiceEntry } from "../lib/services";
 
 interface Props {
 	service: ServiceEntry;
+	headingLevel?: 2 | 3;
 }
 
-const { service } = Astro.props;
+const { service, headingLevel = 2 } = Astro.props;
+const Heading = headingLevel === 3 ? "h3" : "h2";
 ---
 
 <article class="flex h-full flex-col gap-3.5 rounded-20 border border-border-default bg-surface-base px-6 pt-6 pb-5.5 shadow-card">
@@ -29,14 +32,14 @@ const { service } = Astro.props;
 		</span>
 		<ChevronRight class="shrink-0" size={24} />
 	</div>
-	<h2 class="text-h3 wrap-anywhere text-text-primary">
+	<Heading class="text-h3 wrap-anywhere text-text-primary">
 		<a
 			class="underline-offset-4 hover:text-brand-primary hover:underline"
 			href={servicePath(service.id)}
 		>
 			{service.data.title}
 		</a>
-	</h2>
+	</Heading>
 	{service.data.summary && (
 		<p class="line-clamp-3 text-small text-text-secondary">{service.data.summary}</p>
 	)}

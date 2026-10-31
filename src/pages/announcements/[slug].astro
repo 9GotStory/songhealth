@@ -19,7 +19,7 @@
 //
 // An Announcement has no summary, so its description is the start of its details, unless its SEO
 // panel sets one.
-import { extractPlainText, getEmDashEntry } from "emdash";
+import { getEmDashEntry } from "emdash";
 import AnnouncementStatus from "../../components/AnnouncementStatus.astro";
 import DateText from "../../components/DateText.astro";
 import DetailItem from "../../components/DetailItem.astro";
@@ -30,18 +30,16 @@ import {
 	ANNOUNCEMENTS_PATH,
 	ANNOUNCEMENTS_TITLE,
 	announcementPath,
+	detailsExcerpt,
 	statusOf,
 	type AnnouncementData,
 } from "../../lib/announcements";
 import { documentsById } from "../../lib/documents";
-import { excerpt } from "../../lib/excerpt";
 import { targetIds } from "../../lib/references";
 import { termsOf } from "../../lib/terms";
 
 /** The most related Documents one read returns. */
 const DOCUMENTS_LIMIT = 100;
-/** The longest description, in characters, taken from the details. */
-const DESCRIPTION_LENGTH = 160;
 
 const slug = Astro.params.slug ?? "";
 const { entry, isPreview, error } = await getEmDashEntry<
@@ -56,7 +54,7 @@ const announcement = entry.data;
 const types = termsOf(announcement, "announcement_type");
 const status = statusOf(announcement, new Date());
 const documents = await documentsById(targetIds(entry.references?.documents.entries));
-const description = excerpt(extractPlainText(announcement.details), DESCRIPTION_LENGTH);
+const description = detailsExcerpt(announcement.details);
 const hasDetails =
 	types.length > 0 ||
 	!!announcement.announcement_at ||

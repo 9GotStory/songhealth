@@ -1,26 +1,33 @@
 ---
-// The Songhealth Homepage, / (Feature 003 #64; spec #51 "Homepage (`04`, Figma order)", `04`;
+// The Songhealth Homepage, / (Feature 003 #64, #65; spec #51 "Homepage (`04`, Figma order)", `04`;
 // docs/design/homepage-concept-v1.md). A view of published content, in the Figma order:
 //
-// - a compact band, a brand-dark card in the Featured item's place with the site title and tagline
-//   from the native site settings, standing in until a Featured item exists (#65);
+// - the Featured hero: the first item of the Featured menu that resolves to published content
+//   (src/lib/homepage-curation.ts, FeaturedHero). With none, a compact band, a brand-dark card in
+//   its place with the site title and tagline from the native site settings;
 // - Search, a GET form to /search;
-// - the newest published News as one card, beside up to 3 current Announcements, newest first by
-//   announcement date, each with its status and dates as the Announcements list shows them
-//   (src/lib/announcements.ts), each box followed by a link to its own list;
+// - the Frequently Used Services: up to 6 Services from their menu, in menu order, and a link to the
+//   Service catalog;
+// - the newest published News that is not the Featured item, as one card, beside up to 3 current
+//   Announcements, newest first by announcement date, each with its status and dates as the
+//   Announcements list shows them (src/lib/announcements.ts), each box followed by a link to its
+//   own list;
 // - Health Information: the latest 4 Health Content items, each labelled with its first Health
 //   Topic, the `topic` term EmDash hydrates first (src/lib/terms.ts), and a link to their list;
 // - Health Service Discovery: an Area select and a name field, a GET form to the Health Service
 //   Directory with the directory's own parameters (src/lib/health-service-directory.ts);
 // - the latest 3 Activities by when they were held (ADR 0004), and a link to /activities;
+// - Quick Access: up to 4 shortcuts from their menu, in menu order, each a label and an arrow;
 // - the Contact Summary: the site title, then Office Contact's address with the "เปิดแผนที่" link,
 //   main telephone and opening hours (OfficeContactDetails), each only when set, and a link to
 //   /contact. A static visual stands in for the map; no map is embedded.
 //
-// A section with nothing to show is left out (`04` §17): News and Announcements together, Health
-// Information, Health Service Discovery while no Health Service is published, and Activities. The
-// band, Search and the Contact Summary always render, so the page answers with no content at all.
-// The Frequently Used Services and Quick Access come with the Homepage menus (#65).
+// A section with nothing to show is left out (`04` §17): the Frequently Used Services, News and
+// Announcements together, Health Information, Health Service Discovery while no Health Service is
+// published, Activities and Quick Access. The hero or the band, Search and the Contact Summary
+// always render, so the page answers with no content at all. The site title is the page's H1 either
+// way: the band shows it, and beside the hero, whose title is its section's H2, it is hidden from
+// sight (Product Owner, 2026-10-30: #64 comment 6526131459 made it the band's H1).
 //
 // Beyond the Figma frame, on the Product Owner's decision (2026-10-30: #64 comment 6526131459):
 // the links to the News, Announcements and Health Content lists, since the Announcements list is in
@@ -35,9 +42,12 @@
 import ActivityCard from "../components/ActivityCard.astro";
 import AnnouncementStatusLine from "../components/AnnouncementStatusLine.astro";
 import ArrowLink from "../components/ArrowLink.astro";
+import FeaturedHero from "../components/FeaturedHero.astro";
 import OfficeContactDetails from "../components/OfficeContactDetails.astro";
+import QuickLinkCard from "../components/QuickLinkCard.astro";
 import SearchForm from "../components/SearchForm.astro";
 import SectionHeading from "../components/SectionHeading.astro";
+import ServiceCard from "../components/ServiceCard.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { ACTIVITIES_PATH, ACTIVITIES_TITLE, latestActivities } from "../lib/activities";
 import {
@@ -55,8 +65,10 @@ import {
 	directoryPath,
 } from "../lib/health-service-directory";
 import { directoryOverview } from "../lib/health-services";
+import { readHomepageCuration } from "../lib/homepage-curation";
 import { latestNews, newsPath } from "../lib/news";
 import { readOfficeContact } from "../lib/office-contact";
+import { SERVICES_PATH } from "../lib/service-catalog";
 import { getSiteIdentity } from "../lib/site-identity";
 import { termsOf } from "../lib/terms";
 
@@ -66,16 +78,29 @@ const OFFICE_SUMMARY =
 
 /** One instant for the current Announcements and the status each states. */
 const now = new Date();
-const [identity, news, announcements, healthContent, directory, activities, { contact }] =
-	await Promise.all([
-		getSiteIdentity(Astro.url),
-		latestNews(),
-		currentAnnouncements(3, now),
-		latestHealthContent(4),
-		directoryOverview(),
-		latestActivities(3),
-		readOfficeContact(),
-	]);
+const [
+	identity,
+	{ featured, services, quickAccess },
+	newestNews,
+	announcements,
+	healthContent,
+	directory,
+	activities,
+	{ contact },
+] = await Promise.all([
+	getSiteIdentity(Astro.url),
+	readHomepageCuration(Astro.url.origin),
+	latestNews(2),
+	currentAnnouncements(3, now),
+	latestHealthContent(4),
+	directoryOverview(),
+	latestActivities(3),
+	readOfficeContact(),
+]);
+/** The News card's News: the newest, unless it is the Featured item already headlining the page. */
+const news = newestNews.find(
+	(entry) => !(featured?.collection === "news" && featured.id === entry.data.id),
+);
 const newsCategory = news && termsOf(news.data, "news_category")[0];
 
 /** The Health Service Discovery fields' box: 44 px high, with a 3:1 boundary, as FilterForm's. */
@@ -86,12 +111,19 @@ const control =
 <SiteLayout section="home" description={OFFICE_SUMMARY} canonical="/">
 	<meta slot="head" name="songhealth-foundation" content="public-runtime" />
 
-	<div class="page-container pt-6 pb-10 lg:pt-8 lg:pb-16">
-		<div class="flex flex-col gap-3 rounded-32 bg-brand-dark px-6 py-8 text-surface-base sm:px-10 lg:px-14 lg:py-12">
-			<h1 class="text-h3 wrap-anywhere sm:text-h2 lg:text-h1">{identity.title}</h1>
-			{identity.tagline && <p class="text-body-large wrap-anywhere">{identity.tagline}</p>}
+	{featured ? (
+		<>
+			<h1 class="sr-only">{identity.title}</h1>
+			<FeaturedHero featured={featured} />
+		</>
+	) : (
+		<div class="page-container pt-6 pb-10 lg:pt-8 lg:pb-16">
+			<div class="flex flex-col gap-3 rounded-32 bg-brand-dark px-6 py-8 text-surface-base sm:px-10 lg:px-14 lg:py-12">
+				<h1 class="text-h3 wrap-anywhere sm:text-h2 lg:text-h1">{identity.title}</h1>
+				{identity.tagline && <p class="text-body-large wrap-anywhere">{identity.tagline}</p>}
+			</div>
 		</div>
-	</div>
+	)}
 
 	<section aria-labelledby="home-search" class="page-container flex flex-col gap-4 pb-16">
 		<h2 id="home-search" class="text-h3 text-text-primary">
@@ -99,6 +131,27 @@ const control =
 		</h2>
 		<SearchForm />
 	</section>
+
+	{services.length > 0 && (
+		<section aria-labelledby="home-services" class="bg-surface-base pt-16 pb-16 lg:pb-20">
+			<div class="page-container flex flex-col gap-7">
+				<SectionHeading
+					id="home-services"
+					eyebrow="บริการประชาชน"
+					title="วันนี้คุณต้องการทำอะไร?"
+					lead="เข้าถึงบริการสำคัญได้ง่าย โดยไม่ต้องรู้โครงสร้างภายในของหน่วยงาน"
+				/>
+				<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+					{services.map((service) => (
+						<li>
+							<ServiceCard service={service} headingLevel={3} />
+						</li>
+					))}
+				</ul>
+				<ArrowLink href={SERVICES_PATH}>ดูบริการทั้งหมด</ArrowLink>
+			</div>
+		</section>
+	)}
 
 	{(news || announcements.length > 0) && (
 		<section aria-labelledby="home-news" class="py-16 lg:py-20">
@@ -274,6 +327,26 @@ const control =
 					))}
 				</ul>
 				<ArrowLink href={ACTIVITIES_PATH}>ดู{ACTIVITIES_TITLE}ทั้งหมด</ArrowLink>
+			</div>
+		</section>
+	)}
+
+	{quickAccess.length > 0 && (
+		<section aria-labelledby="home-quick-access" class="bg-surface-base py-16 lg:py-20">
+			<div class="page-container flex flex-col gap-7">
+				<SectionHeading
+					id="home-quick-access"
+					eyebrow="เข้าถึงข้อมูล"
+					title="ข้อมูลและเอกสารสำคัญ"
+					lead="ทางลัดสำหรับข้อมูลอ้างอิงและความโปร่งใสของหน่วยงาน"
+				/>
+				<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+					{quickAccess.map((link) => (
+						<li>
+							<QuickLinkCard href={link.href} label={link.label} />
+						</li>
+					))}
+				</ul>
 			</div>
 		</section>
 	)}

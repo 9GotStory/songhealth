@@ -220,6 +220,10 @@ content model from the model-update step:
   `result` that the About pages list by, it adds the terms whose slug the taxonomy lacks. A term
   staff relabelled keeps its label, and no term is removed.
 
+  For each menu the seed declares, such as the three Homepage menus staff curate, it creates the
+  menu, empty, when the database has no menu of that name. A menu staff relabelled keeps its label,
+  and no menu or item is removed.
+
   A URL pattern that the database already has with another value, a field it has with another
   type, or a collection or taxonomy the database lacks, stops the step before it changes anything.
   Replacing a pattern would move every public address of the collection, and changing a field's
@@ -245,7 +249,7 @@ content model from the model-update step:
 - the development PAT authenticates as `dev@emdash.local` (Administrator);
 - the role fixture PAT authenticates as `role-fixture@songhealth.test`, enabled, with role Author;
 - the dev-only T021 fixture route answers its 0600 route token and refuses requests without it;
-- the database has the promoted seed's content model, fields and reference terms: the
+- the database has the promoted seed's content model, fields, reference terms and menus: the
   model-update step's read-only check, run in the app container.
 
 Runtime results are interpreted only against the commit verify reports.
@@ -280,7 +284,7 @@ Runtime results are interpreted only against the commit verify reports.
 | Install stops: "app role missing or wrong" | The first initialization failed partway. The database holds no application data yet, so run `uninstall --purge` and install again. |
 | Install refuses an unlabeled volume, a media volume without its marker, or partial secrets | A foreign or half-made resource. Inspect it; purge only what this runtime created. |
 | Port 4324 is in use | Something else listens there. There is no fallback port: resolve the conflict at its cause. |
-| The PAT check fails | `dev-pat` is missing, has the wrong mode or was revoked. Minting a new one means running `setup/dev-bypass?token=1`, which rotates the token; do that only deliberately. |
+| The PAT check fails | `dev-pat` is missing, has the wrong mode or was revoked. Minting a new one means running `setup/dev-bypass?token=1`, which rotates the token; do that only deliberately. It also applies the seed again, which empties the seed's menus, the Homepage menus included (emdash 1.1.0 `src/seed/apply.ts`): note their items first and put them back in the Admin. |
 | The role fixture check fails | `role-fixture-pat` is missing, or a role test was interrupted and left the account with another role or disabled. Restore it in the Admin (Users: Author, enabled), or delete the file; then re-run the installer, which re-mints the PAT. |
 | The content-model check fails | The database lacks part of the promoted seed's model: run `scripts/dev-runtime-model-update.sh`. If the step reports a problem instead, a URL pattern or a field type differs from the seed's, or a collection or taxonomy is missing. Bring that to the Product Owner before changing any of them. |
 | The T021 coordinator holds | The message names the prerequisite. Verify fails: fix the runtime first. The runtime is at another commit: promote the tested commit. The route is missing (404): the commit predates the dev configuration. The token is unprovisioned (503) or does not match (403): delete `t021-route-access.json` and re-run the installer. |

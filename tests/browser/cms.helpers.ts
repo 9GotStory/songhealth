@@ -2225,6 +2225,150 @@ export async function withOfficeContact(
 }
 
 // ---------------------------------------------------------------------------
+// The Homepage menus (#65)
+// ---------------------------------------------------------------------------
+
+/** The native menus staff curate the Homepage with (spec #51 "Changes to the Feature 002 model"). */
+export const HOMEPAGE_MENUS = {
+	featured: "homepage-featured",
+	services: "homepage-services",
+	quickAccess: "homepage-quick-access",
+} as const;
+
+/**
+ * A menu item as staff add it: an entry picked from a collection, which the Admin's content picker
+ * saves by the entry's id, or a link with its address typed in (emdash 1.1.0
+ * @emdash-cms/admin/dist/index.js handleAddContent, handleAddCustomLink).
+ */
+export type MenuItemInput =
+	{ label: string; collection: string; id: string } | { label: string; url: string };
+
+/** A menu item as GET /_emdash/api/menus/{name} lists it (src/api/schemas/menus.ts menuItemSchema). */
+interface StoredMenuItem {
+	id: string;
+	parentId: string | null;
+	sortOrder: number;
+	type: string;
+	label: string;
+	referenceCollection: string | null;
+	referenceId: string | null;
+	customUrl: string | null;
+	target: string | null;
+	titleAttr: string | null;
+	cssClasses: string | null;
+}
+
+/** The items of menu `name`, in menu order. A refusal throws. */
+async function menuItemsOf(actor: CmsActor, name: string): Promise<StoredMenuItem[]> {
+	const read = await cmsRequest(actor, `/_emdash/api/menus/${encodeURIComponent(name)}`);
+	if (!read.ok) throw new CmsHelperError("MENU_READ", `menu ${name}: ${nativeRefusalOf(read)}`);
+	return (nativeDataOf(read)?.items ?? []) as StoredMenuItem[];
+}
+
+/**
+ * Give menu `name` exactly `items`, in order: delete what it holds, then create each item, a parent
+ * before its children. Deleting an item deletes its children (emdash 1.1.0
+ * src/database/migrations/036_i18n_menus_and_taxonomies.ts), so only the top items are deleted. A
+ * refusal throws.
+ */
+async function setMenuItems(
+	actor: CmsActor,
+	name: string,
+	items: ReadonlyArray<Omit<StoredMenuItem, "id"> & { id?: string }>,
+): Promise<void> {
+	const path = `/_emdash/api/menus/${encodeURIComponent(name)}/items`;
+	for (const { id } of (await menuItemsOf(actor, name)).filter((item) => item.parentId === null)) {
+		const deleted = await cmsRequest(actor, `${path}/${encodeURIComponent(id)}`, {
+			method: "DELETE",
+		});
+		if (!deleted.ok) {
+			throw new CmsHelperError("MENU_WRITE", `menu ${name}: ${nativeRefusalOf(deleted)}`);
+		}
+	}
+	const created = new Map<string, string>();
+	let pending = [...items];
+	while (pending.length > 0) {
+		const ready = pending.filter(({ parentId }) => parentId === null || created.has(parentId));
+		if (ready.length === 0) {
+			throw new CmsHelperError("MENU_WRITE", `menu ${name}: an item's parent is missing`);
+		}
+		for (const item of ready) {
+			// The create body takes these fields only, and no null (src/api/schemas/menus.ts
+			// createMenuItemBody), while a read lists more.
+			const body = Object.fromEntries(
+				Object.entries({
+					type: item.type,
+					label: item.label,
+					referenceCollection: item.referenceCollection,
+					referenceId: item.referenceId,
+					customUrl: item.customUrl,
+					target: item.target,
+					titleAttr: item.titleAttr,
+					cssClasses: item.cssClasses,
+					parentId: item.parentId === null ? null : created.get(item.parentId),
+					sortOrder: item.sortOrder,
+				}).filter(([, value]) => value !== null),
+			);
+			const made = await cmsRequest(actor, path, { method: "POST", body });
+			const madeId = nativeDataOf(made)?.id;
+			if (!made.ok || typeof madeId !== "string") {
+				throw new CmsHelperError("MENU_WRITE", `menu ${name}: ${nativeRefusalOf(made)}`);
+			}
+			if (item.id !== undefined) created.set(item.id, madeId);
+		}
+		pending = pending.filter((item) => !ready.includes(item));
+	}
+}
+
+/**
+ * Run `body` with exactly the given items in each named Homepage menu, then put back what each
+ * held. A refused read or write throws, after putting back what was saved.
+ *
+ * The menu API has no call that replaces a menu's items; only EmDash's MCP server has one (emdash
+ * 1.1.0 src/mcp/server.ts). So the items are deleted and created again: what comes back has the
+ * same labels, addresses, targets, nesting and order, under new ids and creation times.
+ */
+export async function withHomepageMenus(
+	actor: CmsActor,
+	menus: Partial<Record<keyof typeof HOMEPAGE_MENUS, readonly MenuItemInput[]>>,
+	body: () => Promise<void>,
+): Promise<void> {
+	const saved = new Map<string, StoredMenuItem[]>();
+	for (const key of Object.keys(menus) as Array<keyof typeof HOMEPAGE_MENUS>) {
+		saved.set(HOMEPAGE_MENUS[key], await menuItemsOf(actor, HOMEPAGE_MENUS[key]));
+	}
+	try {
+		for (const [key, items] of Object.entries(menus) as Array<
+			[keyof typeof HOMEPAGE_MENUS, readonly MenuItemInput[]]
+		>) {
+			await setMenuItems(
+				actor,
+				HOMEPAGE_MENUS[key],
+				items.map((item, sortOrder) => ({
+					parentId: null,
+					sortOrder,
+					label: item.label,
+					titleAttr: null,
+					target: null,
+					cssClasses: null,
+					...("url" in item
+						? { type: "custom", customUrl: item.url, referenceCollection: null, referenceId: null }
+						: {
+								type: item.collection === "pages" ? "page" : "collection",
+								referenceCollection: item.collection,
+								referenceId: item.id,
+								customUrl: null,
+							}),
+				})),
+			);
+		}
+		await body();
+	} finally {
+		for (const [name, items] of saved) await setMenuItems(actor, name, items);
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Cleanup — restricted to fixtures these helpers registered as owned
 // ---------------------------------------------------------------------------
 

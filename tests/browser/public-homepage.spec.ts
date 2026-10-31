@@ -1,15 +1,17 @@
 // The Homepage's automatic sections (#64; spec #51 "Homepage (`04`, Figma order)", `04` §3, §7–§11
 // and §17; docs/design/homepage-concept-v1.md).
 //
-// A citizen opening / sees, in the Figma order: a compact band with the site title and tagline,
-// standing in until a Featured item exists (#65); a search form that submits to /search; the
-// newest published News beside up to 3 current Announcements; the latest 4 Health Content items,
-// each labelled with its first Health Topic; a Health Service Discovery form that submits an Area
-// and a name to /health-services; the latest 3 Activities by Activity date, each with its picture
-// or a visual fallback and "กิจกรรม • date"; and the Contact Summary from Office Contact. An
-// optional section with nothing to show disappears. The search and the Contact Summary always
-// render, and the page answers with no content at all. Closed Announcements, drafts, unpublished
-// and trashed entries never show.
+// A citizen opening / sees, in the Figma order: a compact band with the site title and tagline
+// while nothing is Featured; a search form that submits to /search; the newest published News
+// beside up to 3 current Announcements; the latest 4 Health Content items, each labelled with its
+// first Health Topic; a Health Service Discovery form that submits an Area and a name to
+// /health-services; the latest 3 Activities by Activity date, each with its picture or a visual
+// fallback and "กิจกรรม • date"; and the Contact Summary from Office Contact. An optional section
+// with nothing to show disappears. The search and the Contact Summary always render, and the page
+// answers with no content at all. Closed Announcements, drafts, unpublished and trashed entries
+// never show. The curated sections between them have their own suite
+// (public-homepage-curation.spec.ts); the tests here that look at the whole page set the Homepage
+// menus they need and put back what the menus held.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -29,6 +31,7 @@ import {
 	createOwnedTerm,
 	createSyntheticDraft,
 	createSyntheticHealthService,
+	createSyntheticService,
 	devAdminActor,
 	listPublishedEntries,
 	nativeDataOf,
@@ -40,6 +43,7 @@ import {
 	trashEntry,
 	unpublishEntry,
 	uploadSyntheticPicture,
+	withHomepageMenus,
 	writeSiteSettings,
 	type CmsActor,
 	type DraftFields,
@@ -63,10 +67,15 @@ import {
 
 /** The section headings, the design's interface text (docs/design/homepage-concept-v1.md). */
 const SEARCH_HEADING = "คุณกำลังมองหาอะไร?";
+const SERVICES_HEADING = "วันนี้คุณต้องการทำอะไร?";
 const NEWS_HEADING = "เรื่องใหม่จากเครือข่ายสุขภาพอำเภอสอง";
 const HEALTH_HEADING = "ความรู้ที่ใช้ได้ในชีวิตประจำวัน";
 const DISCOVERY_HEADING = "ค้นหาหน่วยบริการสุขภาพในอำเภอสอง";
 const ACTIVITIES_HEADING = "สุขภาพเกิดขึ้นในชุมชน";
+const QUICK_ACCESS_HEADING = "ข้อมูลและเอกสารสำคัญ";
+
+/** The Homepage menus with nothing in them, so no curated section shows. */
+const EMPTY_MENUS = { featured: [], services: [], quickAccess: [] };
 
 /** The heading of the current Announcements beside the News card, which names their list. */
 const ANNOUNCEMENTS_HEADING = "ประกาศ";
@@ -192,25 +201,27 @@ test("with no published content at all, the Homepage still answers with the band
 	page,
 }) => {
 	await borrowAllContent();
-	await withOfficeContact(admin, {}, {}, async () => {
-		const response = await page.goto("/");
-		expect(response?.status(), "GET / with no content").toBe(200);
-		await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
-		await expect(sectionHeadings(page)).toHaveText([SEARCH_HEADING, siteTitle]);
-		await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
-		await expect(page.getByRole("main").getByRole("search")).toBeVisible();
+	await withHomepageMenus(admin, EMPTY_MENUS, async () => {
+		await withOfficeContact(admin, {}, {}, async () => {
+			const response = await page.goto("/");
+			expect(response?.status(), "GET / with no content").toBe(200);
+			await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
+			await expect(sectionHeadings(page)).toHaveText([SEARCH_HEADING, siteTitle]);
+			await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
+			await expect(page.getByRole("main").getByRole("search")).toBeVisible();
 
-		const contact = section(page, siteTitle);
-		await expect(contact.getByText(CONTACT_LEAD)).toBeVisible();
-		await expect(contact.getByRole("term")).toHaveCount(0);
-		await expect(contact.getByRole("link", { name: "ดูข้อมูลติดต่อทั้งหมด" })).toHaveAttribute(
-			"href",
-			"/contact",
-		);
+			const contact = section(page, siteTitle);
+			await expect(contact.getByText(CONTACT_LEAD)).toBeVisible();
+			await expect(contact.getByRole("term")).toHaveCount(0);
+			await expect(contact.getByRole("link", { name: "ดูข้อมูลติดต่อทั้งหมด" })).toHaveAttribute(
+				"href",
+				"/contact",
+			);
 
-		await expectAccessibleAtEachWidth(page, "/ with no content");
-		await page.setViewportSize(MOBILE_VIEWPORT);
-		await expectNoHorizontalScroll(page, "/ with no content");
+			await expectAccessibleAtEachWidth(page, "/ with no content");
+			await page.setViewportSize(MOBILE_VIEWPORT);
+			await expectNoHorizontalScroll(page, "/ with no content");
+		});
 	});
 });
 
@@ -259,17 +270,22 @@ test("the band shows the site title and tagline from the site settings, and the 
 	const marker = crypto.randomUUID().slice(0, 8);
 	const title = `${SYNTHETIC_FIXTURE_MARK} ชื่อเว็บไซต์ ${marker}`;
 	const tagline = `${SYNTHETIC_FIXTURE_MARK} คำโปรย ${marker}`;
-	await withSiteIdentity({ title, tagline }, async () => {
-		await page.goto("/");
-		await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
-		await expect(page.getByRole("main").getByText(tagline, { exact: true })).toBeVisible();
-		await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/`);
-		await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", CONTACT_LEAD);
-	});
-	await withSiteIdentity({ title, tagline: "" }, async () => {
-		await page.goto("/");
-		await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
-		await expect(page.getByRole("main")).not.toContainText(tagline);
+	await withHomepageMenus(admin, { featured: [] }, async () => {
+		await withSiteIdentity({ title, tagline }, async () => {
+			await page.goto("/");
+			await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
+			await expect(page.getByRole("main").getByText(tagline, { exact: true })).toBeVisible();
+			await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/`);
+			await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+				"content",
+				CONTACT_LEAD,
+			);
+		});
+		await withSiteIdentity({ title, tagline: "" }, async () => {
+			await page.goto("/");
+			await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
+			await expect(page.getByRole("main")).not.toContainText(tagline);
+		});
 	});
 });
 
@@ -573,36 +589,62 @@ test("the Contact Summary reads Office Contact: address with the map link, telep
 test("with every section showing, the sections follow the Figma order, and the page is accessible and reflows at 320 px", async ({
 	page,
 }) => {
-	// One published entry of each kind, so every section shows whichever tests ran before.
-	await publish("news", await create("news", "every-section"));
+	// One published entry of each kind, so every section shows whichever tests ran before. The
+	// Featured News is published first, so the News card shows the other one.
+	const featured = await create("news", "every-section-featured", {
+		data: {
+			summary: `${SYNTHETIC_FIXTURE_MARK} สรุปเรื่องเด่น`,
+			featured_image: {
+				id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพเรื่องเด่น`),
+			},
+		},
+	});
+	await publish("news", featured, await create("news", "every-section"));
 	await publish("announcements", await create("announcements", "every-section"));
 	await publish("health_content", await create("health_content", "every-section"));
 	await publish("health_services", await createSyntheticHealthService(admin, "every-section"));
 	await publish("activities", await create("activities", "every-section"));
-	await withOfficeContact(
-		admin,
-		{
-			address: `${SYNTHETIC_FIXTURE_MARK} 99 หมู่ 1\nอำเภอสอง จังหวัดแพร่ 54120`,
-			telephone: "054 591 234",
-			opening_hours: "จันทร์–ศุกร์ 08:30–16:30 น.",
-			latitude: 18.4686,
-			longitude: 100.1834,
-		},
-		{},
-		async () => {
-			await page.goto("/");
-			await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
-			await expect(sectionHeadings(page)).toHaveText([
-				SEARCH_HEADING,
-				NEWS_HEADING,
-				HEALTH_HEADING,
-				DISCOVERY_HEADING,
-				ACTIVITIES_HEADING,
-				siteTitle,
-			]);
-			await expectAccessibleAtEachWidth(page, "/ with every section");
-			await page.setViewportSize(MOBILE_VIEWPORT);
-			await expectNoHorizontalScroll(page, "/ with every section");
-		},
-	);
+	const service = await createSyntheticService(admin, "every-section", {
+		data: { summary: `${SYNTHETIC_FIXTURE_MARK} สรุปบริการ` },
+	});
+	await publishEntryAt(admin, "services", service.id);
+	const menus = {
+		featured: [{ label: featured.title, collection: "news", id: featured.id }],
+		services: [{ label: service.title, collection: "services", id: service.id }],
+		quickAccess: [
+			{ label: "เอกสารเผยแพร่", url: "/documents" },
+			{ label: "ข้อมูลสุขภาพ", url: "/health" },
+		],
+	};
+	await withHomepageMenus(admin, menus, async () => {
+		await withOfficeContact(
+			admin,
+			{
+				address: `${SYNTHETIC_FIXTURE_MARK} 99 หมู่ 1\nอำเภอสอง จังหวัดแพร่ 54120`,
+				telephone: "054 591 234",
+				opening_hours: "จันทร์–ศุกร์ 08:30–16:30 น.",
+				latitude: 18.4686,
+				longitude: 100.1834,
+			},
+			{},
+			async () => {
+				await page.goto("/");
+				await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
+				await expect(sectionHeadings(page)).toHaveText([
+					featured.title,
+					SEARCH_HEADING,
+					SERVICES_HEADING,
+					NEWS_HEADING,
+					HEALTH_HEADING,
+					DISCOVERY_HEADING,
+					ACTIVITIES_HEADING,
+					QUICK_ACCESS_HEADING,
+					siteTitle,
+				]);
+				await expectAccessibleAtEachWidth(page, "/ with every section");
+				await page.setViewportSize(MOBILE_VIEWPORT);
+				await expectNoHorizontalScroll(page, "/ with every section");
+			},
+		);
+	});
 });

@@ -1,0 +1,70 @@
+---
+// The Featured hero (Feature 003 #65; spec #51 "Homepage (`04`, Figma order)" and "Shared building
+// blocks"; docs/design/homepage-concept-v1.md §3): the Featured item's title, its summary or the
+// start of an Announcement's details, and its picture, with a primary link to the item and a
+// secondary ค้นหาบริการ link to the Service catalog. V1 shows the one item and no carousel (`04` §5).
+// The eyebrow, the link labels and the visual's caption are the frame's text.
+//
+// The title is the section's H2, beside the other sections' H2s; the site title stays the page's H1
+// (src/pages/index.astro). The primary link's label does not say which item it opens, so it takes
+// the title as its context (ActionLink).
+//
+// The picture is decorative, because the title names the item, and it goes through EmDash's Image
+// as a card picture does (src/components/ContentCard.astro says why), with `priority`, which loads
+// it at once with a high fetch priority, since the hero is in view when the page opens (emdash
+// 1.1.0 src/components/EmDashImage.astro). An item without a picture, or whose picture's media item
+// was deleted in Admin (src/lib/media.ts), shows the frame's visual instead, decoration too.
+import { Image } from "emdash/ui";
+import type { FeaturedView } from "../lib/homepage-curation";
+import { availableMedia } from "../lib/media";
+import { SERVICES_PATH } from "../lib/service-catalog";
+import ActionLink from "./ActionLink.astro";
+
+interface Props {
+	featured: FeaturedView;
+}
+
+/** The picture's width: the 450 px column of the frame from `lg`, the card's width below it. */
+const PICTURE_SIZES = "(min-width: 64rem) 28.125rem, 100vw";
+
+const { featured } = Astro.props;
+const image = await availableMedia(featured.image, Astro.locals.emdash);
+---
+
+<section aria-labelledby="home-featured" class="page-container pt-6 pb-10 lg:pt-8 lg:pb-16">
+	<div class="grid items-center gap-8 rounded-32 bg-brand-dark p-6 text-surface-base sm:p-10 lg:grid-cols-[minmax(0,1fr)_28.125rem] lg:gap-12 lg:p-14">
+		<div class="flex min-w-0 flex-col items-start gap-5.5">
+			<p class="rounded-pill bg-surface-base/12 px-3.5 py-2 text-label">เรื่องเด่นจากอำเภอสอง</p>
+			<h2 id="home-featured" class="text-h3 wrap-anywhere sm:text-h2 lg:text-display">
+				{featured.title}
+			</h2>
+			{featured.lead && <p class="line-clamp-4 text-body-large">{featured.lead}</p>}
+			<div class="flex flex-wrap gap-3">
+				<ActionLink href={featured.href} variant="primary" context={featured.title} onDark>
+					ดูเรื่องเด่น
+				</ActionLink>
+				<ActionLink href={SERVICES_PATH} onDark>
+					ค้นหาบริการ
+				</ActionLink>
+			</div>
+		</div>
+		{image ? (
+			<Image
+				image={image}
+				alt=""
+				sizes={PICTURE_SIZES}
+				priority
+				class="aspect-16/9 w-full rounded-26 object-cover lg:aspect-auto lg:h-102"
+			/>
+		) : (
+			<div
+				aria-hidden="true"
+				data-testid="featured-visual"
+				class="flex aspect-16/9 w-full flex-col items-center justify-center gap-3 rounded-26 bg-linear-to-r from-hero-visual-from to-hero-visual-to p-4 text-center text-label text-brand-dark lg:aspect-auto lg:h-102 lg:gap-6 lg:text-h3"
+			>
+				<span class="size-16 shrink-0 rounded-pill bg-surface-base sm:size-24 lg:size-52.5"></span>
+				ชุมชน • สุขภาพ • ใกล้บ้าน
+			</div>
+		)}
+	</div>
+</section>
