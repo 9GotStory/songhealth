@@ -18,7 +18,8 @@
 // The path resolution knows entries only: it answers nothing alike for a page of the site, such as
 // /documents, for an unpublished entry's address and for an address that leads nowhere
 // (docs/agents/emdash-1.1.0.md "Menus"). So a Quick Access shortcut, which can lead to a page,
-// shows while its path is one of the site's own pages (SITE_PAGES) or resolves to a published entry.
+// shows while its path is one of the site's own pages (SITE_PAGES) or resolves to a published
+// entry.
 
 import { isExternalHref } from "./links.ts";
 
@@ -190,7 +191,8 @@ export async function frequentServices<E>(
  * site or a published entry of any kind, the canonical destinations `04` §10.1 names. An item that
  * leads nowhere is skipped (`04` §17): an unpublished or trashed entry's address, a path that is no
  * page, another scheme such as mailto: or only a fragment. So is a link to another website, which
- * is no destination of the site, although the ticket says "any destination" (Product Owner, 2026-10-31: #65 comment 6538358352).
+ * is no destination of the site, although #51 lets an item be "any destination" (Product Owner,
+ * 2026-10-31: #65 comment 6538358352).
  */
 export async function quickAccessLinks<E>(
 	items: readonly MenuLink[],

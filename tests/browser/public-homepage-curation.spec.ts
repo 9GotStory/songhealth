@@ -18,8 +18,8 @@
 // that leads nowhere on the site.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
-// harness (third-party request guard, axe with the WCAG 2.2 AA tag set). Each test sets the menus it
-// reads through the native menu API and puts back what they held (cms.helpers.ts
+// harness (third-party request guard, axe with the WCAG 2.2 AA tag set). Each test sets the menus
+// it reads through the native menu API and puts back what they held (cms.helpers.ts
 // withHomepageMenus). Fixtures are synthetic entries and pictures, removed afterwards. A test that
 // needs its News to be the newest publishes it after every earlier test's fixtures.
 
@@ -37,7 +37,6 @@ import {
 	publishEntryAt,
 	removeSuiteFixtures,
 	trashEntry,
-	typedMenuItem,
 	unpublishEntry,
 	uploadSyntheticPicture,
 	withHomepageMenus,
@@ -209,7 +208,7 @@ test("with nothing in the Featured menu to show, the compact band with the site 
 			featured: [
 				pickedMenuItem("news", draft),
 				pickedMenuItem("health_services", facility),
-				typedMenuItem("เอกสารเผยแพร่", "/documents"),
+				{ label: "เอกสารเผยแพร่", url: "/documents" },
 			],
 		},
 		async () => {
@@ -377,14 +376,14 @@ test("Quick Access shows up to 4 items in menu order, each to a page of the site
 		admin,
 		{
 			quickAccess: [
-				typedMenuItem("เอกสารเผยแพร่", "/documents"),
+				{ label: "เอกสารเผยแพร่", url: "/documents" },
 				pickedMenuItem("health_content", withdrawn),
 				pickedMenuItem("documents", document),
-				typedMenuItem("ระบบภายนอก", "https://example.org/eservice"),
-				typedMenuItem("หน้าที่ไม่มีอยู่", "/songhealth-unknown-quick-access"),
-				typedMenuItem("ข่าวสุขภาพ", "/news/health"),
-				typedMenuItem("ข้อมูลสุขภาพ", "/health"),
-				typedMenuItem("ติดต่อเรา", "/contact"),
+				{ label: "ระบบภายนอก", url: "https://example.org/eservice" },
+				{ label: "หน้าที่ไม่มีอยู่", url: "/songhealth-unknown-quick-access" },
+				{ label: "ข่าวสุขภาพ", url: "/news/health" },
+				{ label: "ข้อมูลสุขภาพ", url: "/health" },
+				{ label: "ติดต่อเรา", url: "/contact" },
 			],
 		},
 		async () => {
@@ -392,10 +391,10 @@ test("Quick Access shows up to 4 items in menu order, each to a page of the site
 			const quickAccess = homepageSection(page, HOMEPAGE_HEADINGS.quickAccess);
 			const links = quickAccess.getByRole("link");
 			const expected = [
-				[`${SYNTHETIC_FIXTURE_MARK} เอกสารเผยแพร่`, "/documents"],
+				["เอกสารเผยแพร่", "/documents"],
 				[document.title, `/documents/${document.slug}`],
-				[`${SYNTHETIC_FIXTURE_MARK} ข่าวสุขภาพ`, "/news/health"],
-				[`${SYNTHETIC_FIXTURE_MARK} ข้อมูลสุขภาพ`, "/health"],
+				["ข่าวสุขภาพ", "/news/health"],
+				["ข้อมูลสุขภาพ", "/health"],
 			];
 			await expect(links).toHaveCount(expected.length);
 			for (const [index, [name, href]] of expected.entries()) {

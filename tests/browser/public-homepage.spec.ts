@@ -42,7 +42,6 @@ import {
 	withOfficeContact,
 	SYNTHETIC_FIXTURE_MARK,
 	trashEntry,
-	typedMenuItem,
 	unpublishEntry,
 	uploadSyntheticPicture,
 	withHomepageMenus,
@@ -602,8 +601,8 @@ test("with every section showing, the sections follow the Figma order, and the p
 		featured: [pickedMenuItem("news", featured)],
 		services: [pickedMenuItem("services", service)],
 		quickAccess: [
-			typedMenuItem("เอกสารเผยแพร่", "/documents"),
-			typedMenuItem("ข้อมูลสุขภาพ", "/health"),
+			{ label: "เอกสารเผยแพร่", url: "/documents" },
+			{ label: "ข้อมูลสุขภาพ", url: "/health" },
 		],
 	};
 	await withHomepageMenus(admin, menus, async () => {

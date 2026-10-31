@@ -194,7 +194,7 @@ cited file exists and that the name carries the pinned version.
   same name answers `CONFLICT` (`src/api/handlers/menus.ts` `handleMenuCreate`). Only the MCP
   server replaces a menu's items at once (`src/mcp/server.ts`, `handleMenuSetItems`), so a test
   that sets a menu deletes and recreates its items, which get new ids
-  (`./tests/browser/cms.helpers.ts` `withHomepageMenus`).
+  (`./tests/browser/cms.helpers.ts` `showHomepageMenus`).
 - Applying the seed recreates the items of every menu it declares: an existing menu loses its
   items (`src/seed/apply.ts`, the menus step). `setup/dev-bypass` applies the seed on every call
   (`src/astro/routes/api/setup/dev-bypass.ts`), while `POST /_emdash/api/setup` refuses once setup

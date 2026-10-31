@@ -28,9 +28,7 @@ export interface FixtureKit {
 	 * Give the named Homepage menus exactly these items until the run ends, which puts back what
 	 * they held (cms.helpers.ts showHomepageMenus).
 	 */
-	homepageMenus(
-		menus: Partial<Record<keyof typeof helpers.HOMEPAGE_MENUS, readonly helpers.MenuItemInput[]>>,
-	): Promise<void>;
+	homepageMenus(menus: helpers.HomepageMenuItems): Promise<void>;
 }
 
 /** The development runtime's origin. */

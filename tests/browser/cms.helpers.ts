@@ -2243,20 +2243,17 @@ export const HOMEPAGE_MENUS = {
 export type MenuItemInput =
 	{ label: string; collection: string; id: string } | { label: string; url: string };
 
+/** The items to give each named Homepage menu. */
+export type HomepageMenuItems = Partial<
+	Record<keyof typeof HOMEPAGE_MENUS, readonly MenuItemInput[]>
+>;
+
 /** A menu item for an entry, as the Admin's content picker adds it: labelled with its title. */
 export function pickedMenuItem(
 	collection: string,
 	entry: { id: string; title: string },
 ): MenuItemInput {
 	return { label: entry.title, collection, id: entry.id };
-}
-
-/**
- * A link typed into a menu, labelled with the synthetic mark, so the residue scan finds it if a run
- * stops before the menus are put back (scripts/dev-runtime-residue.sh).
- */
-export function typedMenuItem(label: string, url: string): MenuItemInput {
-	return { label: `${SYNTHETIC_FIXTURE_MARK} ${label}`, url };
 }
 
 /** A menu item as GET /_emdash/api/menus/{name} lists it (src/api/schemas/menus.ts menuItemSchema). */
@@ -2338,22 +2335,33 @@ async function setMenuItems(
 
 /**
  * Give each named Homepage menu exactly the given items, and return the function that puts back
- * what each held. A refused read or write throws, after putting back what was saved.
+ * what each held, trying every menu and throwing for any it could not. A refused read or write
+ * throws, after trying to put back what was saved.
+ *
+ * Each item made carries the synthetic mark as its CSS class, which the Homepage never renders, so
+ * the residue scan finds any that a run stopped before putting the menus back leaves
+ * (scripts/dev-runtime-residue.sh); what the menus held before is then lost with the run.
  *
  * The menu API has no call that replaces a menu's items; only EmDash's MCP server has one (emdash
  * 1.1.0 src/mcp/server.ts). So the items are deleted and created again: what comes back has the
- * same labels, addresses, targets, nesting and order, under new ids and creation times.
+ * same labels, addresses, targets, classes, nesting and order, under new ids and creation times.
  */
 export async function showHomepageMenus(
 	actor: CmsActor,
-	menus: Partial<Record<keyof typeof HOMEPAGE_MENUS, readonly MenuItemInput[]>>,
+	menus: HomepageMenuItems,
 ): Promise<() => Promise<void>> {
 	const saved = new Map<string, StoredMenuItem[]>();
 	for (const key of Object.keys(menus) as Array<keyof typeof HOMEPAGE_MENUS>) {
 		saved.set(HOMEPAGE_MENUS[key], await menuItemsOf(actor, HOMEPAGE_MENUS[key]));
 	}
 	const restore = async () => {
-		for (const [name, items] of saved) await setMenuItems(actor, name, items);
+		const failures: string[] = [];
+		for (const [name, items] of saved) {
+			await setMenuItems(actor, name, items).catch((error: unknown) =>
+				failures.push(`menu ${name}: ${failureText(error)}`),
+			);
+		}
+		if (failures.length > 0) throw new CmsHelperError("MENU_RESTORE", failures.join("; "));
 	};
 	try {
 		for (const [key, items] of Object.entries(menus) as Array<
@@ -2368,7 +2376,7 @@ export async function showHomepageMenus(
 					label: item.label,
 					titleAttr: null,
 					target: null,
-					cssClasses: null,
+					cssClasses: SYNTHETIC_FIXTURE_MARK,
 					...("url" in item
 						? { type: "custom", customUrl: item.url, referenceCollection: null, referenceId: null }
 						: {
@@ -2390,7 +2398,7 @@ export async function showHomepageMenus(
 /** Run `body` with exactly the given items in each named Homepage menu, then put back what each held. */
 export async function withHomepageMenus(
 	actor: CmsActor,
-	menus: Partial<Record<keyof typeof HOMEPAGE_MENUS, readonly MenuItemInput[]>>,
+	menus: HomepageMenuItems,
 	body: () => Promise<void>,
 ): Promise<void> {
 	const restore = await showHomepageMenus(actor, menus);

@@ -1,9 +1,9 @@
 // Screenshot content for the Homepage (#64, #65): two published News, the newer with a category and
 // summary; three current Announcements and a closed one; four Health Content items with their
 // Health Topics; two Health Services in two Areas; three Activities, two with a picture; and a full
-// Office Contact. The curated sections take a Featured News with a picture, published first so the
-// News card shows the newer News; six Services of the `00` §8.2 catalog; and the Quick Access
-// shortcuts the Product Owner named, Documents and Health Information (2026-10-29). Captures /.
+// Office Contact. The curated sections take a Featured News with a picture, which the News card
+// then leaves out; six Services of the `00` §8.2 catalog; and the Quick Access shortcuts the frame
+// keeps, Documents and Health Information (docs/design/homepage-concept-v1.md §10). Captures /.
 
 import type { Fixtures } from "../capture-with-fixtures.ts";
 
@@ -44,7 +44,7 @@ const fixtures: Fixtures = async ({
 	};
 	const featuredId = await published("news", {
 		...featured,
-		featured_image: { id: await picture(`ภาพประกอบ ${featured.title}`, "#bae0cf", "#f2d17a") },
+		featured_image: { id: await picture(`ภาพประกอบ ${featured.title}`, "#f0f5fc", "#0b6b57") },
 	});
 
 	await published("news", {

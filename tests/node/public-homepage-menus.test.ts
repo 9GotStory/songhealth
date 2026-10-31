@@ -14,8 +14,8 @@
 //   page of the site counts, even one at an address shaped like an entry's, such as /news/health.
 //
 // A menu gives each content item an address with its slug encoded, as EmDash builds it (emdash
-// 1.1.0 src/i18n/resolve.ts interpolateUrlPattern), and EmDash stores the slug decoded. A link staff
-// type may be a full address on this site.
+// 1.1.0 src/i18n/resolve.ts interpolateUrlPattern), and EmDash stores the slug decoded. A link
+// staff type may be a full address on this site.
 
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
