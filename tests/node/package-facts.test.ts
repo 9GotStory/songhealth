@@ -49,7 +49,9 @@ function citedPaths(text: string): string[] {
 	return [...new Set(spans.filter((span) => SOURCE_PATH.test(span)))];
 }
 
-/** Where a path cited in package `name`'s facts lives: the repository, a named package, or `name`. */
+/**
+ * Where a path cited in package `name`'s facts lives: the repository, a named package, or `name`.
+ */
 function resolveCited(path: string, name: string): URL {
 	if (path.startsWith("./")) return new URL(path, ROOT);
 	if (path.startsWith("@")) return new URL(`node_modules/${path}`, ROOT);

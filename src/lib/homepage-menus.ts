@@ -23,7 +23,9 @@
 
 import { isExternalHref } from "./links.ts";
 
-/** The native menus that curate the Homepage, by name (spec #51 "Changes to the Feature 002 model"). */
+/**
+ * The native menus that curate the Homepage, by name (spec #51 "Changes to the Feature 002 model").
+ */
 export const HOMEPAGE_MENUS = {
 	featured: "homepage-featured",
 	services: "homepage-services",
@@ -95,7 +97,9 @@ export interface Resolved<E> {
 	entry: E;
 }
 
-/** Maps a decoded path on this site to its published entry, or null when none is published there. */
+/**
+ * Maps a decoded path on this site to its published entry, or null when none is published there.
+ */
 export type ResolvePath<E> = (path: string) => Promise<Resolved<E> | null>;
 
 /** Every item of a menu in the order the menu lists them, each followed by its nested items. */

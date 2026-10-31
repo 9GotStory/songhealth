@@ -114,7 +114,9 @@ function channelHref(
 	return profile && HANDLE.test(handle) ? profile(handle) : undefined;
 }
 
-/** The official channels that are set, as links, from the `social` settings and the LINE address. */
+/**
+ * The official channels that are set, as links, from the `social` settings and the LINE address.
+ */
 export function officialChannels(
 	social: Partial<Record<SocialNetwork, string>> | undefined,
 	lineUrl?: string,

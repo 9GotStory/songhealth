@@ -28,7 +28,10 @@ const ABOUT_SECTION_PAGES: Record<string, string> = {
 	organization: ORGANIZATION_PATH,
 };
 
-/** The reserved Basic Pages the footer links to, in footer order (docs/design/homepage-concept-v1.md §12). */
+/**
+ * The reserved Basic Pages the footer links to, in footer order (docs/design/homepage-concept-v1.md
+ * §12).
+ */
 const FOOTER_PAGES = [
 	{ slug: "privacy", label: "นโยบายความเป็นส่วนตัว" },
 	{ slug: "accessibility", label: "การเข้าถึงเว็บไซต์" },

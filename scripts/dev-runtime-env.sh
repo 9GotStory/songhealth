@@ -2,7 +2,8 @@
 # Songhealth development runtime — run a command with the test variables (#57 retro): the runtime
 # origin and the paths of the credential files in ~/.local/state/songhealth-qdev
 # (dev-runtime-common.sh STATE_DIR). Only paths are set; the tests read the files, and nothing is
-# printed. A variable already set in the environment, even to empty, wins.
+# printed. A variable already set in the environment, even to empty, wins. The command runs only on
+# the Node package.json engines pins (scripts/check-node.sh, #65 retro).
 #   scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
 #   scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs
 #   scripts/dev-runtime-env.sh node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir>
@@ -15,4 +16,5 @@ export SONGHEALTH_ROLE_FIXTURE_ACCESS=${SONGHEALTH_ROLE_FIXTURE_ACCESS-$state/ro
 export SONGHEALTH_T021_ROUTE_ACCESS=${SONGHEALTH_T021_ROUTE_ACCESS-$state/t021-route-access.json}
 export SONGHEALTH_ADMIN_SESSION=${SONGHEALTH_ADMIN_SESSION-dev-bypass}
 export SONGHEALTH_ADMIN_TEST_SESSIONS=${SONGHEALTH_ADMIN_TEST_SESSIONS-$state/admin-test-sessions}
+"$(dirname "${BASH_SOURCE[0]}")/check-node.sh"
 exec "$@"

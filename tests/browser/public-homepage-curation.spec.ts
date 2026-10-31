@@ -29,6 +29,7 @@ import {
 	SYNTHETIC_FIXTURE_MARK,
 	createSyntheticDocument,
 	createSyntheticDraft,
+	createSyntheticHealthReport,
 	createSyntheticHealthService,
 	createSyntheticService,
 	devAdminActor,
@@ -57,7 +58,9 @@ import {
 	test,
 } from "./public.helpers";
 
-/** The Featured hero's eyebrow, the design's interface text (docs/design/homepage-concept-v1.md §3). */
+/**
+ * The Featured hero's eyebrow, the design's interface text (docs/design/homepage-concept-v1.md §3).
+ */
 const FEATURED_EYEBROW = "เรื่องเด่นจากอำเภอสอง";
 /** A close date long past, on any calendar. */
 const CLOSED_AT = "2026-01-31T10:00:00.000Z";
@@ -71,7 +74,6 @@ const KIND = {
 	news: "ข่าว",
 	announcements: "ประกาศ",
 	health_content: "ความรู้สุขภาพ",
-	health_reports: "รายงานสุขภาพ",
 } as const;
 
 /** A synthetic draft of `collection`. Its title is unique, so the page shows it or does not. */
@@ -249,12 +251,8 @@ test("a closed Announcement is not Featured, and the next item in the menu is", 
 test("unpublishing the Featured entry takes it off the Homepage without a menu edit, and the band comes back", async ({
 	page,
 }) => {
-	// A Health Report requires its report Document (seed/seed.json report_document).
-	const document = await createSyntheticDocument(admin, "featured-report-document");
-	await publish("documents", document);
-	const report = await create("health_reports", "featured-then-unpublished", {
+	const report = await createSyntheticHealthReport(admin, "featured-then-unpublished", {
 		data: { summary: `${SYNTHETIC_FIXTURE_MARK} สรุปรายงานสุขภาพ` },
-		references: { report_document: [document.id] },
 	});
 	await publish("health_reports", report);
 

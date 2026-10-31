@@ -1,5 +1,5 @@
-// Office Contact and the official channels (#62; spec #51 "Office Contact plugin" and "Public reads"
-// (Contact), `01` §10, `03` §12).
+// Office Contact and the official channels (#62; spec #51 "Office Contact plugin" and "Public
+// reads" (Contact), `01` §10, `03` §12).
 //
 // - Office Contact comes from the Office Contact plugin's settings. A value that is empty, or not
 //   of its field's type, is left out, so its line disappears from the page.
@@ -114,7 +114,8 @@ describe("the email link", () => {
 	});
 
 	it("is absent when the text is not one plain address, so the text shows unlinked", () => {
-		// EmDash's email field checks only for an "@" (emdash 1.1.0 src/api/handlers/plugin-settings.ts).
+		// EmDash's email field checks only for an "@" (emdash 1.1.0
+		// src/api/handlers/plugin-settings.ts).
 		assert.equal(emailHref("สสอ.สอง @example.go.th"), undefined);
 		assert.equal(emailHref("a@example.go.th, b@example.go.th"), undefined);
 		assert.equal(emailHref("a@example.go.th?subject=x"), undefined);

@@ -13,7 +13,10 @@ import { getEmDashCollection, type ContentEntry, type TaxonomyTerm } from "emdas
 import { listDate, listPage, newestFirst, type Instant, type ListPage } from "./dated-lists";
 import { HEALTH_REPORTS_PATH } from "./health";
 
-/** The fixed number of Health Reports a list page shows, as many as Documents (src/lib/documents.ts). */
+/**
+ * The fixed number of Health Reports a list page shows, as many as Documents
+ * (src/lib/documents.ts).
+ */
 const HEALTH_REPORTS_PAGE_SIZE = 20;
 
 /** A Health Report's fields (seed/seed.json) and the system fields public pages read. */

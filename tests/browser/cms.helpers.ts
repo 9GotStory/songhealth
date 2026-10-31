@@ -1529,6 +1529,26 @@ export async function createSyntheticDocument(
 }
 
 /**
+ * A synthetic Health Report draft. A Health Report requires the Document it describes
+ * (seed/seed.json report_document): `document`, else a published synthetic Document made for it.
+ */
+export async function createSyntheticHealthReport(
+	actor: CmsActor,
+	label: string,
+	{ document, ...fields }: DraftFields & { document?: { id: string } } = {},
+): Promise<DraftFixture> {
+	let described = document;
+	if (described === undefined) {
+		described = await createSyntheticDocument(actor, `${label}-document`);
+		await publishEntryAt(actor, "documents", described.id);
+	}
+	return createSyntheticDraft(actor, "health_reports", "รายงานสุขภาพ", label, {
+		...fields,
+		references: { ...fields.references, report_document: [described.id] },
+	});
+}
+
+/**
  * A synthetic Health Service draft. Its official name is unique; with `displayName`, the site shows
  * that display name, made unique the same way, instead.
  */
@@ -1581,7 +1601,8 @@ export async function createSyntheticTerm(
 
 /**
  * A synthetic term of `taxonomy` labelled like a real one: `label` behind the synthetic mark, with
- * a unique ending. It is added to `owned`, which the suite hands to deleteSyntheticTerms at its end.
+ * a unique ending. It is added to `owned`, which the suite hands to deleteSyntheticTerms at its
+ * end.
  */
 export async function createOwnedTerm(
 	actor: CmsActor,
@@ -2209,7 +2230,10 @@ export async function showOfficeContact(
 	return restore;
 }
 
-/** Run `body` with exactly `values` as Office Contact and `social` as the only handles, then restore. */
+/**
+ * Run `body` with exactly `values` as Office Contact and `social` as the only handles, then
+ * restore.
+ */
 export async function withOfficeContact(
 	actor: CmsActor,
 	values: OfficeContactValues,
@@ -2228,7 +2252,9 @@ export async function withOfficeContact(
 // The Homepage menus (#65)
 // ---------------------------------------------------------------------------
 
-/** The native menus staff curate the Homepage with (spec #51 "Changes to the Feature 002 model"). */
+/**
+ * The native menus staff curate the Homepage with (spec #51 "Changes to the Feature 002 model").
+ */
 export const HOMEPAGE_MENUS = {
 	featured: "homepage-featured",
 	services: "homepage-services",
@@ -2256,7 +2282,9 @@ export function pickedMenuItem(
 	return { label: entry.title, collection, id: entry.id };
 }
 
-/** A menu item as GET /_emdash/api/menus/{name} lists it (src/api/schemas/menus.ts menuItemSchema). */
+/**
+ * A menu item as GET /_emdash/api/menus/{name} lists it (src/api/schemas/menus.ts menuItemSchema).
+ */
 interface StoredMenuItem {
 	id: string;
 	parentId: string | null;
@@ -2395,7 +2423,10 @@ export async function showHomepageMenus(
 	return restore;
 }
 
-/** Run `body` with exactly the given items in each named Homepage menu, then put back what each held. */
+/**
+ * Run `body` with exactly the given items in each named Homepage menu, then put back what each
+ * held.
+ */
 export async function withHomepageMenus(
 	actor: CmsActor,
 	menus: HomepageMenuItems,

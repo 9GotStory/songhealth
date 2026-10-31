@@ -69,7 +69,10 @@ export const FILTER_LABELS = {
 	name: "ชื่อหน่วยบริการ",
 } as const;
 
-/** A Health Service's canonical address, `/health-services/{slug}` (`03` §15), encoded as EmDash encodes it. */
+/**
+ * A Health Service's canonical address, `/health-services/{slug}` (`03` §15), encoded as EmDash
+ * encodes it.
+ */
 export function healthServicePath(slug: string): string {
 	return `${DIRECTORY_PATH}/${encodeURIComponent(slug)}`;
 }

@@ -188,8 +188,9 @@ export async function expectAccessibleAtEachWidth(page: Page, label: string): Pr
 /**
  * Declare the accessibility and reflow tests of a template's pages: at each of `VIEWPORTS`, every
  * path `paths` gives answers 200, axe reports no WCAG 2.2 AA violation on it, no icon on it is
- * exposed to assistive technology, and focus stays visible; at 320 px none scrolls sideways. `pages` names them in the test titles, such as "the
- * News pages". `paths` is called when the tests run, after the suite's fixtures exist.
+ * exposed to assistive technology, and focus stays visible; at 320 px none scrolls sideways.
+ * `pages` names them in the test titles, such as "the News pages". `paths` is called when the
+ * tests run, after the suite's fixtures exist.
  */
 export function testAccessibilityAndReflow(pages: string, paths: () => readonly string[]): void {
 	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
@@ -346,7 +347,10 @@ export function ownTitles(titles: string[], fixtures: ReadonlyArray<{ title: str
 	return titles.filter((title) => own.has(title));
 }
 
-/** The Homepage sections' headings, the design's interface text (docs/design/homepage-concept-v1.md). */
+/**
+ * The Homepage sections' headings, the design's interface text
+ * (docs/design/homepage-concept-v1.md).
+ */
 export const HOMEPAGE_HEADINGS = {
 	search: "คุณกำลังมองหาอะไร?",
 	services: "วันนี้คุณต้องการทำอะไร?",

@@ -4,7 +4,8 @@
 
 /**
  * The most targets of one reference field a single read asks for: EmDash's ceiling for a reference
- * page (emdash 1.1.0 src/references/staged.ts REFERENCE_PAGE_MAX_LIMIT), far more than a page links.
+ * page (emdash 1.1.0 src/references/staged.ts REFERENCE_PAGE_MAX_LIMIT), far more than a page
+ * links.
  */
 export const REFERENCES_LIMIT = 100;
 

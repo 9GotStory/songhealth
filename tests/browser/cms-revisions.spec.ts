@@ -2287,7 +2287,8 @@ test("SEO boundary: a collection without SEO enabled refuses SEO writes truthful
 	// The complement of the metadata test above (which exercises the
 	// current-state SEO path on `news` when its schema opts in to SEO): the
 	// same native write against a collection whose schema has SEO DISABLED is
-	// a validation refusal, never a partial write. Verified pinned gate: src/api/handlers/content.ts:1202
+	// a validation refusal, never a partial write. Verified pinned gate:
+	// src/api/handlers/content.ts:1202
 	// (VALIDATION_ERROR "Collection … does not have SEO enabled") backed by
 	// plugins/context.ts assertSeoEnabled — the refusal precedes every data,
 	// taxonomy and reference effect.

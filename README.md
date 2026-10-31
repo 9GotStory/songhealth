@@ -48,8 +48,9 @@ and their workflow:
   Product Owner decides scope, architecture, destructive operations, production deployment and
   feature acceptance.
 - **Commit checks:** `git config core.hooksPath .githooks`, once per clone, makes every commit
-  pass `.githooks/pre-commit` (formatting, Knip, typecheck, the invisible-character scan, and
-  ShellCheck when a shell script is staged).
+  pass `.githooks/pre-commit` (the pinned Node, formatting, Knip, typecheck, the
+  invisible-character scan, and ShellCheck when a shell script is staged). `scripts/check-node.sh`
+  also stops `scripts/dev-runtime-env.sh`, and with it every runtime test, on another Node.
 - **Workspace and runtime:** source development happens in `/home/thanakorn/dev/songhealth`
   (user `thanakorn`, UID 1000). The single development runtime is the one below
   (`http://127.0.0.1:4324`); no other development runtime, database or media store is created.
@@ -92,7 +93,7 @@ Tests target the runtime with its own credentials, which are never printed or co
 
 ```bash
 # ordinary suites (the role fixture enables the T019/T020 role cases; the dev Admin session
-# enables the Admin UI journeys of cms-lifecycle-ui and cms-editor; one worker at a time)
+# enables the Admin UI journeys of cms-lifecycle-ui, cms-editor and cms-menus-ui; one worker at a time)
 scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
 # T021 public reads, only through the coordinator, from a checkout at the promoted commit
 scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs
