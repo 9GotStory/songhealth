@@ -1,10 +1,10 @@
 ---
 // The breadcrumb on inner pages (Feature 003 #54; spec #51 user story 5, `03` §14).
 //
-// It follows the public information hierarchy, root first, and ends with the current page, which
-// is text marked aria-current rather than a link. The separators, chevron-right icons (#105), are
-// decorative. The shell derives the items from the page's section (src/lib/navigation.ts
-// breadcrumbTrail).
+// It follows the public information hierarchy, root first, and ends with the current page, which is
+// text marked aria-current rather than a link. The separators, chevron-right icons (#105), are
+// decorative (docs/agents/lucide-astro-1.59.0.md). The shell derives the items from the page's
+// section (src/lib/navigation.ts breadcrumbTrail).
 import ChevronRight from "@lucide/astro/icons/chevron-right";
 import type { Crumb } from "../lib/navigation";
 

@@ -3,9 +3,9 @@
 // 4:36, docs/design/homepage-concept-v1.md): the one uniform Service icon (approved Q12; Lucide's
 // hand-heart, Product Owner, 2026-10-31: #51 comment 6536052180), the Service's name linking to its
 // page and its summary. The Service catalog shows it, and the Homepage's Frequently Used Services
-// reuse it (#64, #65). The icons are decorative, because the name already names the link. The
-// corner icon is chevron-right, the site's icon for a link on this site, where the frame has "↗";
-// arrow-up-right marks a link that leaves it.
+// reuse it (#64, #65). The icons are decorative (docs/agents/lucide-astro-1.59.0.md), because the
+// name already names the link. The corner icon is chevron-right, the site's icon for a link on this
+// site, where the frame has "↗"; arrow-up-right marks a link that leaves it.
 import ChevronRight from "@lucide/astro/icons/chevron-right";
 import HandHeart from "@lucide/astro/icons/hand-heart";
 import { servicePath } from "../lib/service-catalog";
@@ -25,9 +25,9 @@ const { service } = Astro.props;
 			aria-hidden="true"
 			class="flex size-11 items-center justify-center rounded-14 bg-surface-soft"
 		>
-			<HandHeart size={24} />
+			<HandHeart class="shrink-0" size={24} />
 		</span>
-		<ChevronRight size={24} />
+		<ChevronRight class="shrink-0" size={24} />
 	</div>
 	<h2 class="text-h3 wrap-anywhere text-text-primary">
 		<a

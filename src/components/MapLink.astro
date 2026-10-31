@@ -1,8 +1,9 @@
 ---
 // The "เปิดแผนที่" link (Feature 003 #57, #105; spec #51 "Maps", "Shared building blocks"): it
 // opens the place in a map app in a new tab, built from its coordinates (src/lib/map-link.ts), and
-// renders nothing without both. Its accessible name says it opens a new tab, and the
-// arrow-up-right icon after it, the site's icon for a link that leaves it, is decorative.
+// renders nothing without both. Its accessible name says it opens a new tab. It ends in
+// arrow-up-right, the site's icon for a link that leaves it (Product Owner, 2026-10-31: #51 comment
+// 6536052180), which is decorative (docs/agents/lucide-astro-1.59.0.md).
 import ArrowUpRight from "@lucide/astro/icons/arrow-up-right";
 import { mapHref } from "../lib/map-link";
 
@@ -24,6 +25,6 @@ const href = mapHref(latitude, longitude);
 	>
 		เปิดแผนที่
 		<span class="sr-only">(เปิดในแท็บใหม่)</span>
-		<ArrowUpRight size={16} />
+		<ArrowUpRight class="shrink-0" size={16} />
 	</a>
 )}

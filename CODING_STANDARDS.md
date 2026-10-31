@@ -45,13 +45,14 @@ and why, and `.jscpd-baseline.json` records them.
   scope is a pending confirmation for the Product Owner (Product Owner, 2026-10-30: #59 comment
   6515274921).
 - Status is stated in text; colour supports it.
-- Icons are Lucide's, each imported from its own `@lucide/astro/icons/<name>` module
-  (`docs/agents/lucide-astro-1.59.0.md`), and no text stands in for one (Product Owner,
-  2026-10-31: #51 comments 6536026977, 6536052180). An onward link on this site ends in
-  `chevron-right` and a link that leaves it in `arrow-up-right`. An icon takes a DESIGN.md §5
-  slot: 16 px beside label or small text, 20 px leading a button, 24 px on a card. It is
-  decorative and takes its text's colour; the text names the link or button.
-  `tests/node/public-icons.test.ts` fails on a text arrow, a lone "+" or a hand-drawn `<svg>`.
+- Icons are Lucide's, each imported from its own `@lucide/astro/icons/<name>` module, and no text
+  stands in for one (Product Owner, 2026-10-31: #51 comments 6536026977, 6536052180). An onward
+  link on this site ends in `chevron-right` and a link that leaves it in `arrow-up-right`. An icon
+  is decorative: Lucide hides it from assistive technology, and the text names the link or button
+  (`docs/agents/lucide-astro-1.59.0.md`). It takes one of DESIGN.md §5's sizes (16, 20 or 24 px), a
+  colour token through `currentColor`, and `shrink-0`, because a flex row squeezes an svg beside
+  text that wraps. `tests/node/public-icons.test.ts` fails on a text arrow, a lone "+" or a
+  hand-drawn `<svg>`.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page.
 - A list or detail page reuses the shared pieces in `src/components/` and follows the shape of

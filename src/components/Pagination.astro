@@ -2,7 +2,8 @@
 // Pagination of a list (Feature 003 #54, #105; spec #51 "Lists and filters"). The page number
 // travels in the query string with the list's other parameters, so the links work without
 // JavaScript and can be shared. The list knows only whether a further page exists, not how many
-// there are. The chevron-left and chevron-right icons are decorative: the labels name the links.
+// there are. The chevron-left and chevron-right icons are decorative
+// (docs/agents/lucide-astro-1.59.0.md): the labels name the links.
 import ChevronLeft from "@lucide/astro/icons/chevron-left";
 import ChevronRight from "@lucide/astro/icons/chevron-right";
 import { pageHref } from "../lib/pagination";
@@ -23,7 +24,7 @@ const linkClasses =
 			<li>
 				{page > 1 && (
 					<a class={linkClasses} rel="prev" href={pageHref(Astro.url, page - 1)}>
-						<ChevronLeft size={16} />
+						<ChevronLeft class="shrink-0" size={16} />
 						หน้าก่อนหน้า
 					</a>
 				)}
@@ -33,7 +34,7 @@ const linkClasses =
 				{hasMore && (
 					<a class={linkClasses} rel="next" href={pageHref(Astro.url, page + 1)}>
 						หน้าถัดไป
-						<ChevronRight size={16} />
+						<ChevronRight class="shrink-0" size={16} />
 					</a>
 				)}
 			</li>

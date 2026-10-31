@@ -15,7 +15,8 @@
 // button, never with Escape or when focus moves on, so an overlay would cover
 // the content focus moves on to (WCAG 2.2 SC 2.4.11). The button shows Lucide's
 // menu icon while the menu is closed and x while it is open (#105), beside its
-// label เมนู, which names it.
+// label เมนู, which names it; the icons are decorative
+// (docs/agents/lucide-astro-1.59.0.md).
 //
 // The head's metadata comes from EmDash's own EmDashHead (emdash 1.1.0
 // src/components/EmDashHead.astro): the description, canonical link, Open
@@ -195,8 +196,8 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 				</div>
 				<details class="group lg:hidden">
 					<summary class="absolute top-3 right-(--page-gutter) flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-pill border border-border-input bg-surface-base px-4 text-label [&::-webkit-details-marker]:hidden">
-						<Menu class="group-open:hidden" size={20} />
-						<X class="hidden group-open:block" size={20} />
+						<Menu class="shrink-0 group-open:hidden" size={20} />
+						<X class="hidden shrink-0 group-open:block" size={20} />
 						<span>เมนู</span>
 					</summary>
 					<nav aria-label="เมนูหลัก" class="border-t border-border-default">

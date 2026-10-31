@@ -14,10 +14,12 @@ package. Paths are relative to `node_modules/@lucide/astro/`, and a Songhealth f
   `aria-*`, `role` or `title` prop (`src/utils/hasA11yProp.ts`, `src/utils/buildLucideIconNode.ts`).
   The site's icons are decorative and pass none; `./tests/browser/public.helpers.ts`
   `expectNoAxeViolations` fails on an icon that assistive technology can reach.
-- `size` sets the `width` and `height` (24 by default) and keeps the 24-unit `viewBox`, so the
-  2-unit stroke scales with the icon, to 1.33 px at 16 px (`src/Icon.astro`,
-  `src/utils/defaultAttributes.ts`). The stroke is `currentColor`, so an icon takes its text's
-  colour token.
+- `size` sets the `width` and `height` (24 by default) and the `viewBox` stays the icon's own 24
+  units, so the 2-unit stroke scales with the icon, to 1.33 px at 16 px (`src/Icon.astro`,
+  `src/utils/buildLucideIconNode.ts`, `src/utils/defaultAttributes.ts`). The stroke is
+  `currentColor`, so a colour token sets it: the icon's own `text-*` class, or else its text's.
 - `class` is added after `lucide lucide-<name>` on the `<svg>` (`src/utils/buildLucideIconNode.ts`).
   Tailwind's preflight makes every `svg` a block (`tailwindcss` 4.3.3 `preflight.css`), so an icon
   in running text takes `inline`, as `./src/components/ContentLink.astro` does.
+- In a flex row, Chromium squeezes an icon beside text that wraps, despite its `width`: a 16 px
+  icon beside a long label measured 5 px wide (#105). So every icon takes `shrink-0`.
