@@ -7,6 +7,7 @@
 // plans nothing, which makes `add` idempotent.
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import { demoDataset } from "../../scripts/demo-dataset/content.ts";
@@ -582,5 +583,78 @@ describe("demo dataset: content (#66)", () => {
 		assert.ok(activities.length >= 3, `${activities.length} Activities`);
 		assert.ok(activities.some(({ data }) => mediaOf(data.featured_image).length === 1));
 		assert.ok(activities.some(({ data }) => data.featured_image === undefined));
+	});
+});
+
+describe("demo dataset: the content model of seed/seed.json (#66 retro)", () => {
+	interface SeedField {
+		slug: string;
+		type: string;
+		required?: boolean;
+		validation?: { relation?: string; relationSide?: "parent" | "child" };
+	}
+	const seed = JSON.parse(
+		readFileSync(new URL("../../seed/seed.json", import.meta.url), "utf8"),
+	) as {
+		collections: { slug: string; fields: SeedField[] }[];
+		taxonomies: { name: string; collections: string[] }[];
+		relations: { slug: string; parentCollection: string; childCollection: string }[];
+	};
+	const fieldsOf = (collection: string) =>
+		seed.collections.find(({ slug }) => slug === collection)?.fields ?? [];
+	const collectionOf = (slug: string) =>
+		dataset.entries.find((entry) => entry.slug === slug)?.collection;
+
+	it("sets only its collection's fields on each entry, every required one included", () => {
+		const wrong = dataset.entries.flatMap(({ collection, slug, data, references = {} }) => {
+			const fields = fieldsOf(collection);
+			return [
+				...Object.keys(data)
+					.filter(
+						(key) => !fields.some((field) => field.slug === key && field.type !== "reference"),
+					)
+					.map((key) => `${slug}: ${key} is no field of ${collection}`),
+				...fields
+					.filter(({ slug: key, required }) => required && !(key in data) && !(key in references))
+					.map(({ slug: key }) => `${slug}: required ${key} is not set`),
+			];
+		});
+		assert.deepEqual(wrong, []);
+	});
+
+	it("files each entry under its collection's taxonomies only", () => {
+		const wrong = dataset.entries.flatMap(({ collection, slug, taxonomies = {} }) =>
+			Object.keys(taxonomies)
+				.filter(
+					(name) =>
+						!seed.taxonomies.some(
+							(taxonomy) => taxonomy.name === name && taxonomy.collections.includes(collection),
+						),
+				)
+				.map((name) => `${slug}: ${name}`),
+		);
+		assert.deepEqual(wrong, []);
+	});
+
+	it("refers through its collection's reference fields to entries of the related collection", () => {
+		const wrong = dataset.entries.flatMap(({ collection, slug, references = {} }) =>
+			Object.entries(references).flatMap(([key, targets]) => {
+				const field = fieldsOf(collection).find((candidate) => candidate.slug === key);
+				const relation = seed.relations.find(
+					({ slug: name }) => name === field?.validation?.relation,
+				);
+				if (field?.type !== "reference" || relation === undefined) {
+					return [`${slug}: ${key} is no reference field of ${collection}`];
+				}
+				const related =
+					field.validation!.relationSide === "child"
+						? relation.parentCollection
+						: relation.childCollection;
+				return targets
+					.filter((target) => collectionOf(target) !== related)
+					.map((target) => `${slug}: ${key} -> ${target} is not a ${related} entry`);
+			}),
+		);
+		assert.deepEqual(wrong, []);
 	});
 });

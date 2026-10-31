@@ -106,10 +106,12 @@ desktop and 320 px viewports.
 
 Pull-request screenshots of public pages come from
 `node scripts/capture-screenshots.mjs <out-dir> <path>...`. The script's header shows how to put
-them on an image-only `evidence/` branch, so no image enters the code tree. A page that needs
-content to show takes it from `scripts/dev-runtime-env.sh node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir>`. The runner makes the module's synthetic content, captures the paths
-the module returns, and removes everything it made. `scripts/screenshot-fixtures/news.ts` is the
-example.
+them on an image-only `evidence/` branch, so no image enters the code tree. While the demo dataset
+below is installed, it fills every page, so the script alone captures a page with content. A state
+the dataset does not hold, such as a Document whose file was deleted, takes its content from
+`scripts/dev-runtime-env.sh node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir>`. The
+runner makes the module's synthetic content, captures the paths the module returns, and removes
+everything it made. `scripts/screenshot-fixtures/news.ts` is the example.
 
 The runtime holds the demo dataset: content marked `[ตัวอย่าง]` that fills every page for the
 Product Owner's review. `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` installs it
