@@ -117,6 +117,15 @@ cited file exists and that the name carries the pinned version.
   (`src/media/url.ts` `buildRenderMediaUrl`). A production build authorises no media source for
   Astro's image service, so production serves originals (`src/astro/integration/index.ts`;
   ADR 0003).
+  - Only `astro dev` registers the host-agnostic pattern `{ pathname: "/_emdash/api/media/file/**" }`.
+    A build registers the site's origin only when the site URL is known at build time
+    (`src/astro/integration/index.ts` `buildImageRemotePatterns`).
+  - EmDash wraps Astro's `/_image` endpoint. For an `href` under `/_emdash/api/media/file/` with a
+    key of `[A-Za-z0-9._-]`, it reads the bytes from storage and never fetches the URL. Any other
+    `href` goes to Astro's stock endpoint (`src/astro/image-endpoint.ts`,
+    `src/media/image-endpoint.ts` `matchInternalMediaKey`). The production container therefore
+    answers `/_image` for media with a sharp rendition, though its pages never ask for one (#67
+    comment 6558376075).
 - `Image` loads lazily unless given `priority`, which makes it eager and adds
   `fetchpriority="high"`. The attributes it is given come after that default, so a passed `loading`
   wins (`src/components/EmDashImage.astro`). `./src/components/ContentCard.astro` and
