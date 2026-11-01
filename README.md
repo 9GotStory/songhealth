@@ -11,9 +11,10 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
 - **Feature 002 `cms-content-model`:** complete. The Product Owner gave it Final Acceptance on
   2026-10-29, and it was merged into `main`. For T032, the Product Owner waived the staff session
   and accepted the automated Admin journeys as the SC-007 evidence.
-- **Feature 003 `public-website`:** the public website and the Homepage (spec #51, tickets
-  #52–#67), built on the integration branch `003-public-website`. It waits for the Product
-  Owner's Final Acceptance, and it merges into `main` only on their word.
+- **Feature 003 `public-website`:** complete: the public website and the Homepage (spec #51,
+  tickets #52–#67). The Product Owner gave it Final Acceptance on 2026-11-01 (#51 comment
+  6559139711), and it was merged into `main`. The development runtime keeps the demo dataset until
+  the Product Owner asks for its removal.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,
