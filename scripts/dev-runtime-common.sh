@@ -56,6 +56,10 @@ image_of() { # image_of UNIT-FILE — the pinned Image= of a committed unit (sin
   sed -n 's/^Image=//p' "$SRC/deploy/dev-quadlet/$1"
 }
 volume_path() { podman volume inspect --format '{{.Mountpoint}}' "$1"; }
+serves_marker() { # serves_marker ORIGIN [SECONDS] — ORIGIN/ serves the public SSR marker
+  local page # captured whole: under pipefail, `| grep -q` would fail on curl's exit 23
+  page=$(curl -fsS --max-time "${2:-30}" "$1/" 2>/dev/null) && [[ $page == *'name="songhealth-foundation"'* ]]
+}
 db_has_cluster() { # the data volume holds an initialized PostgreSQL 18 cluster
   local p
   p=$(volume_path "$DB_VOLUME") && podman unshare test -e "$p/18/docker/PG_VERSION"

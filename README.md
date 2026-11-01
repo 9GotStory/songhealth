@@ -135,7 +135,10 @@ with the user session; linger is not enabled, so the runtime stops when the last
 
 - One runtime, one database, one media store, one test target: `http://127.0.0.1:4324`
   (`PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324`). Never start a second Astro/EmDash server or
-  stack for verification (`CLAUDE.md`, Runtimes).
+  stack for verification (`CLAUDE.md`, Runtimes). The one exception is
+  `scripts/production-image-check.sh`, which runs the production image briefly against this
+  runtime's data and removes it (Product Owner, #67 comment 6558196151;
+  `docs/operations/development-quadlet.md`, Production image check).
 - Interpret runtime results only against the commit `dev-runtime-verify.sh` reports. Source
   changes reach the runtime only through `dev-runtime-update.sh`: the runtime checkout is never
   edited in place.

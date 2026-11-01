@@ -280,10 +280,16 @@ cited file exists and that the name carries the pinned version.
   `src/astro/routes/api/redirects/[id].ts`, `src/api/schemas/redirects.ts`).
   `./tests/browser/cms.helpers.ts` `deleteAutoRedirects` removes the ones a suite's slug changes
   left.
+- `GET /_emdash/api/redirects/404s` lists the 404 log. With `redirects:manage`, `DELETE` on it
+  clears the whole log and answers `{ deleted }`, and `POST` with `olderThan` prunes it by age; no
+  entry can be removed alone (`src/astro/routes/api/redirects/404s/index.ts`,
+  `src/api/handlers/redirects.ts` `handleNotFoundClear`).
+  `./scripts/dev-runtime-residue.sh --clear-404-log` calls the `DELETE`.
 - A content API request with no token and no session is refused before its route runs. A
   state-changing one without `X-EmDash-Request: 1` answers `403 CSRF_REJECTED`; any other answers
   `401 NOT_AUTHENTICATED` (`src/astro/middleware/auth.ts`). The development runtime answered both
-  on 2026-10-30. Public API routes check CSRF by `Origin` instead (`src/api/csrf.ts`
+  on 2026-10-30. A request with a Bearer token skips that header check, since a token is not an
+  ambient credential (same file, `handleBearerAuth`). Public API routes check CSRF by `Origin` instead (`src/api/csrf.ts`
   `checkPublicCsrf`). `./tests/browser/cms.helpers.ts` `anonymousRequest` sends no such header.
 - A create takes `references: { field: [id] }` and `taxonomies: { name: [slug] }`. Terms are created
   and deleted at `/_emdash/api/taxonomies/{name}/terms[/{slug}]`. `./tests/browser/cms.helpers.ts`

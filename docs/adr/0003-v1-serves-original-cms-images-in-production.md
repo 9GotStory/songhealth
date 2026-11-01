@@ -49,8 +49,10 @@ deployment both need the Product Owner's approval, so the revisit below comes be
 ## Consequences
 
 - Image evidence from the development runtime shows renditions that production does not serve.
-  Image sizing in production is checked through a production container, as #67 did.
+  Image sizing in production is checked through a production container with
+  `scripts/production-image-check.sh`, as #67 did.
 - Staff guidance asks for pictures uploaded at a sensible size.
 - Revisit this decision before the WordPress import brings its pictures or before deployment,
   whichever comes first, or when page weight at real content becomes a problem. The revisit starts
-  from the host-agnostic pattern above and its security check.
+  from the host-agnostic pattern above and its security check, run with
+  `scripts/production-image-check.sh`.
