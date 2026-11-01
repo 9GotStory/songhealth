@@ -45,28 +45,57 @@ function namedPackages(line: string): string[] {
 		.filter((root) => existsSync(new URL(`${root}package.json`, ROOT)));
 }
 
+/** A comment block's words, without its comment markers and line breaks. */
+function prose(block: string[]): string {
+	return block
+		.map((line) => line.trimStart().replace(/^(?:\/\/|\/\*+|\*\/?)/, ""))
+		.join(" ")
+		.replace(/\s+/g, " ");
+}
+
 /**
- * Every cited path, as `file:line path`, with the roots it may resolve against: the repository,
- * EmDash, and the installed packages named so far in its comment block.
+ * Every cited path, as `file:line path`, with the roots it may resolve against (the repository,
+ * EmDash, and the installed packages named so far in its comment block) and its context: the words
+ * of its comment block and of its file's first comment block, the header.
  */
-async function citedPaths(): Promise<Array<{ at: string; path: string; roots: string[] }>> {
-	const cited: Array<{ at: string; path: string; roots: string[] }> = [];
+async function citedPaths(): Promise<
+	Array<{ at: string; path: string; roots: string[]; context: string }>
+> {
+	const cited: Array<{ at: string; path: string; roots: string[]; context: string }> = [];
 	for (const file of codeFiles()) {
 		const lines = (await readFile(new URL(file, ROOT), "utf8")).split("\n");
 		let blockPackages = new Set<string>();
+		let block: string[] = [];
+		let header: string | undefined;
+		const inBlock: Array<{ at: string; path: string; roots: string[] }> = [];
+		const endBlock = () => {
+			if (block.length > 0) header ??= prose(block);
+			const context = `${prose(block)} ${header ?? ""}`;
+			for (const path of inBlock.splice(0)) cited.push({ ...path, context });
+			block = [];
+			blockPackages = new Set();
+		};
 		lines.forEach((line, index) => {
 			if (!isComment(line)) {
-				blockPackages = new Set();
+				endBlock();
 				return;
 			}
+			block.push(line);
 			for (const root of namedPackages(line)) blockPackages.add(root);
 			const roots = ["", "node_modules/emdash/", ...blockPackages];
 			for (const [, path] of line.matchAll(CITED_PATH)) {
-				cited.push({ at: `${file}:${index + 1}`, path, roots });
+				inBlock.push({ at: `${file}:${index + 1}`, path, roots });
 			}
 		});
+		endBlock();
 	}
 	return cited;
+}
+
+/** Whether `path` resolves only under EmDash among its roots. */
+function onlyInEmDash({ path, roots }: { path: string; roots: string[] }): boolean {
+	const holders = roots.filter((root) => existsSync(new URL(root + path, ROOT)));
+	return holders.length > 0 && holders.every((root) => root === "node_modules/emdash/");
 }
 
 describe("cited source paths", () => {
@@ -92,12 +121,22 @@ describe("cited source paths", () => {
 		const facts = await readFile(new URL("docs/agents/emdash-1.1.0.md", ROOT), "utf8");
 		const unrecorded = (await citedPaths())
 			.filter(({ at, path }) => /^(?:src|scripts)\//.test(at) && path.startsWith("src/"))
-			.filter(({ path, roots }) => {
-				const holders = roots.filter((root) => existsSync(new URL(root + path, ROOT)));
-				return holders.length > 0 && holders.every((root) => root === "node_modules/emdash/");
-			})
+			.filter(onlyInEmDash)
 			.filter(({ path }) => !facts.includes(path))
 			.map(({ at, path }) => `${at} ${path}`);
 		assert.deepEqual(unrecorded, []);
+	});
+
+	it("found only in EmDash come with EmDash's pinned version in their comment or the file's header", async () => {
+		// CODING_STANDARDS "Comments": a comment that relies on platform behaviour names the package,
+		// its pinned version and the source path (#66 retro). A file whose header states the version
+		// it relies on, as "Platform behaviour relied on (emdash 1.1.0)" does, covers its comments.
+		const pinned = JSON.parse(await readFile(new URL("package.json", ROOT), "utf8")).dependencies
+			.emdash as string;
+		const unnamed = (await citedPaths())
+			.filter(onlyInEmDash)
+			.filter(({ context }) => !context.toLowerCase().includes(`emdash ${pinned}`))
+			.map(({ at, path }) => `${at} ${path}`);
+		assert.deepEqual(unnamed, []);
 	});
 });

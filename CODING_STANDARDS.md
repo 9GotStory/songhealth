@@ -14,7 +14,8 @@ and why, and `.jscpd-baseline.json` records them.
   request.
 - When code relies on platform behaviour, the comment names the package, its pinned version and
   the source path, for example `emdash 1.1.0 src/api/schemas/settings.ts`.
-  `tests/node/cited-source-paths.test.ts` checks that each cited path exists.
+  `tests/node/cited-source-paths.test.ts` checks that each cited path exists, and that a path
+  found only in EmDash comes with its pinned version in the comment or in the file's header.
 - A Songhealth helper, hook or plugin that does what EmDash might do names its native gap: its
   comment cites the fact in `docs/agents/emdash-1.1.0.md` that shows EmDash lacks it, and a
   missing fact is added there with its source path (CLAUDE.md "Platform-native first";
