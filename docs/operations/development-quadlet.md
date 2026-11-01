@@ -314,8 +314,11 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
 - the development PAT authenticates as `dev@emdash.local` (Administrator);
 - the role fixture PAT authenticates as `role-fixture@songhealth.test`, enabled, with role Author;
 - the dev-only T021 fixture route answers its 0600 route token and refuses requests without it;
-- the database has the promoted seed's content model, fields, reference terms and menus: the
-  model-update step's read-only check, run in the app container.
+- the database has the promoted seed's content model: the model-update step's read-only check,
+  run in the app container. For Feature 003 it covers each public collection's URL pattern and SEO
+  support, Personnel kept non-routable with its `leadership_order` field, the Document Types
+  `policy`, `plan` and `result`, and the three Homepage menus;
+- the Office Contact plugin is registered and enabled, with its settings form.
 
 Runtime results are interpreted only against the commit verify reports.
 

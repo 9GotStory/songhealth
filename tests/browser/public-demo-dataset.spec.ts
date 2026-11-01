@@ -5,11 +5,13 @@
 // opens on its own page under that title; the Personnel lists and the Contact page show theirs;
 // each reserved Basic Page's address shows the page published there, the dataset's or the
 // office's own; and the Homepage shows a Featured item, both its News card and its Announcements,
-// and every other section that hides while it has nothing to show. The suite only reads. It skips
-// while the dataset is not installed, and fails while it is installed in part.
+// and every other section that hides while it has nothing to show. Every public template, as the
+// dataset fills it, passes the axe, focus and reflow checks at both widths (#67). The suite only
+// reads. It skips while the dataset is not installed, and fails while it is installed in part.
 
 import { demoDataset } from "../../scripts/demo-dataset/content.ts";
 import { DEMO_PREFIX } from "../../scripts/demo-dataset/plan.ts";
+import { CANONICAL_URL_PATTERNS } from "../canonical-url-patterns";
 import {
 	dataOfItem,
 	devAdminActor,
@@ -27,6 +29,7 @@ import {
 	listedTitles,
 	siteTitleParts,
 	test,
+	testAccessibilityAndReflow,
 } from "./public.helpers";
 
 /** The mark every demo title starts with (#66). */
@@ -59,6 +62,15 @@ const BASIC_PAGES = {
 
 /** The Personnel pages: a person has no page of their own (`03` §5). */
 const PERSONNEL_PAGES = ["/about/leadership", "/about/personnel"];
+
+/** The first dataset entry of each public collection, at its own address. */
+const ENTRY_PAGES = Object.entries(CANONICAL_URL_PATTERNS).flatMap(([collection, pattern]) => {
+	const entry = demoDataset(new Date()).entries.find(
+		(candidate) => candidate.collection === collection && candidate.slug.startsWith(DEMO_PREFIX),
+	);
+	// The dataset's Basic Pages keep their reserved slugs; BASIC_PAGES has their addresses.
+	return entry === undefined ? [] : [pattern.replace("{slug}", entry.slug)];
+});
 
 test.use({ viewport: DESKTOP_VIEWPORT });
 
@@ -148,3 +160,16 @@ test("/contact shows Office Contact", async ({ page }) => {
 	await expect(page.getByRole("main")).toContainText(MARK);
 	await expect(page.getByRole("main").getByRole("link", { name: "เปิดแผนที่" })).toBeVisible();
 });
+
+// Every public template with the dataset's content (#67), beside each suite's own sweep with its
+// fixtures, in three groups that each finish within the test timeout. The 404 page answers 404, so
+// public-shell.spec.ts sweeps it.
+testAccessibilityAndReflow("the dataset's list pages", () => LIST_PAGES);
+testAccessibilityAndReflow("the dataset's entry pages", () => ENTRY_PAGES);
+testAccessibilityAndReflow("the Homepage, hub, About and Contact pages", () => [
+	"/",
+	"/health",
+	"/contact",
+	...PERSONNEL_PAGES,
+	...Object.values(BASIC_PAGES),
+]);
