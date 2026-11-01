@@ -17,7 +17,6 @@ healthy() { [[ $(podman inspect --format '{{.State.Health.Status}}' "$1" 2>/dev/
 ports_ok() { [[ $(podman port "$APP_CTR") == "$PORT/tcp -> 127.0.0.1:$PORT" && -z $(podman port "$DB_CTR") ]]; }
 # Outputs are captured whole before matching: under pipefail, `| grep -q` fails the check
 # (curl exit 23) or hides a match (SIGPIPE) once the output outgrows the pipe buffer.
-ssr_ok() { local page; page=$(curl -fsS --max-time 30 "$ORIGIN/") && [[ $page == *'name="songhealth-foundation"'* ]]; }
 admin_ok() { [[ $(curl -sS -L -o /dev/null -w '%{http_code}' --max-time 30 "$ORIGIN/_emdash/admin/") == 200 ]]; }
 setup_ok() { [[ $(setup_needed) == false ]]; }
 migrations_ok() { podman exec "$APP_CTR" /bin/sh /src/scripts/dev-runtime-entrypoint.sh migrate-check; }
@@ -60,7 +59,7 @@ check "$APP active" systemctl --user is-active --quiet "$APP"
 check "database container healthy" healthy "$DB_CTR"
 check "application container healthy" healthy "$APP_CTR"
 check "published only on 127.0.0.1:$PORT (database has no host port)" ports_ok
-check "public SSR marker served at $ORIGIN/" ssr_ok
+check "public SSR marker served at $ORIGIN/" serves_marker "$ORIGIN"
 check "native Admin UI reachable at $ORIGIN/_emdash/admin/" admin_ok
 check "EmDash setup complete" setup_ok
 check "native migrations: none pending or unknown (emdash migrate --check)" migrations_ok

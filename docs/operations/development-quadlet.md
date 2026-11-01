@@ -130,10 +130,11 @@ the real state first and only adds what is missing:
     left behind: synthetic entries (live or in trash), media, terms, bylines, redirects and menu
     items. It exits 1 while any remain.
   - **The 404 log.** EmDash logs every miss, including the tests' deliberate requests for
-    missing pages. That log can only be cleared as a whole, so its synthetic misses stay until
-    one clear just before the Product Owner's review (Feature 003 handoff, #67). Residue
-    reports them and does not fail on them. `scripts/dev-runtime-residue.sh --clear-404-log`
-    makes that clear through the native API and then reports.
+    missing pages. That log can be cleared only as a whole or pruned by age, not entry by entry,
+    so its synthetic misses stay until one clear just before the Product Owner's review (Feature
+    003 handoff, #67). Residue reports them and does not fail on them.
+    `scripts/dev-runtime-residue.sh --clear-404-log` makes that clear through the native API and
+    then reports.
 - **Source edits.** Make them in the workspace and promote them. The runtime checkout is never
   edited in place: the app refuses to start when its HEAD is not the promoted commit, and
   verify fails on a dirty tree.
@@ -339,18 +340,23 @@ the ADR 0003 revisit of production images.
 - **Build.** It builds from a `git archive` of the commit, so untracked files never enter, with
   `--layers=false`, which commits the final image alone.
 - **Native pieces.** It checks that Tailwind's oxide binary and `sharp` load in the image, in a
-  container with no network.
+  container with no network. `sharp` is optional (spec #51), so it is reported, not failed.
 - **One run.** It runs the image once against this runtime's data: the Product Owner's exception
   to one application server (#67 comment 6558196151).
-  - The container joins the runtime's private network and reads the database as the
+  - The container joins the runtime's private network and connects to the database as the
     least-privilege app role, with the runtime's podman secrets as environment variables.
   - It mounts the media volume read-only and publishes `127.0.0.1:4325` only.
-  - Production's migration mode is `check`, so the run changes no schema.
+  - Production's migration mode is `check`, so the run changes no schema. A page it does not find
+    lands in EmDash's 404 log, as on this runtime.
 - **Output.** It prints how the first picture on a News page is served by the image and by this
   runtime: its declared size, whether `src` is the original or a rendition, and the bytes it
   downloads. The default page is the demo dataset's first News.
-- **Cleanup.** It removes the container and the image on every exit, pass or fail. The image is
-  never deployed or tagged as a release.
+- **Cleanup.** It removes the container and the image on every exit, pass or fail, and lists any
+  image the run added that is still there. Other projects share this image storage, so it never
+  removes an image by its age or by a difference in the image list. The image is never deployed or
+  tagged as a release.
+- **Credentials.** It prints log lines only on a failed start, with anything shaped like a
+  credential masked.
 
 ## Backup and restore
 

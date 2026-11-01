@@ -280,10 +280,11 @@ cited file exists and that the name carries the pinned version.
   `src/astro/routes/api/redirects/[id].ts`, `src/api/schemas/redirects.ts`).
   `./tests/browser/cms.helpers.ts` `deleteAutoRedirects` removes the ones a suite's slug changes
   left.
-- `GET /_emdash/api/redirects/404s` lists the 404 log. `DELETE` on it clears the whole log, with
-  `redirects:manage`, and answers `{ deleted }`; no entry can be removed alone
-  (`src/astro/routes/api/redirects/404s/index.ts`, `src/api/handlers/redirects.ts`
-  `handleNotFoundClear`). `./scripts/dev-runtime-residue.sh --clear-404-log` calls it.
+- `GET /_emdash/api/redirects/404s` lists the 404 log. With `redirects:manage`, `DELETE` on it
+  clears the whole log and answers `{ deleted }`, and `POST` with `olderThan` prunes it by age; no
+  entry can be removed alone (`src/astro/routes/api/redirects/404s/index.ts`,
+  `src/api/handlers/redirects.ts` `handleNotFoundClear`).
+  `./scripts/dev-runtime-residue.sh --clear-404-log` calls the `DELETE`.
 - A content API request with no token and no session is refused before its route runs. A
   state-changing one without `X-EmDash-Request: 1` answers `403 CSRF_REJECTED`; any other answers
   `401 NOT_AUTHENTICATED` (`src/astro/middleware/auth.ts`). The development runtime answered both

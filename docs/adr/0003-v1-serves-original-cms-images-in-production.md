@@ -54,4 +54,5 @@ deployment both need the Product Owner's approval, so the revisit below comes be
 - Staff guidance asks for pictures uploaded at a sensible size.
 - Revisit this decision before the WordPress import brings its pictures or before deployment,
   whichever comes first, or when page weight at real content becomes a problem. The revisit starts
-  from the host-agnostic pattern above and its security check.
+  from the host-agnostic pattern above and its security check, run with
+  `scripts/production-image-check.sh`.
