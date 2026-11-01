@@ -12,7 +12,7 @@ service. In EmDash 1.1.0, Astro may transform only the media sources EmDash auth
   serves a rendition near the width that `sizes` asks for.
 - **In a production build**, a source is authorised only when the site URL is known at build time.
   Songhealth's build knows no site URL, because `10` §20.1 keeps every environment value at runtime.
-  Astro therefore returns the original media URL unchanged
+  Astro 7.3.5 therefore returns the original media URL unchanged
   (`node_modules/astro/dist/assets/services/service.js`, `getURL`), and the page never asks sharp
   for a rendition.
 
@@ -20,10 +20,13 @@ The page still lays the image out at its declared width and height. The download
 file, though, however large.
 
 The Product Owner accepted original files for V1 on 2026-10-29 (#54). The production container
-confirmed it on 2026-11-01 (#67 comment 6558376075). A News picture declared 1200 × 750 is laid out
-at 768 × 480, the same box as on the development runtime, and the page downloads the original
-31,700-byte PNG where the development runtime serves a 2,866-byte WebP rendition. Asked again before
-deployment, the Product Owner kept original files for V1, with staff guidance on picture size.
+confirmed the behaviour on 2026-11-01 (#67 comment 6558376075). At a 1440 px viewport, a News
+picture declared 1200 × 750 is laid out at 768 × 480, the same box as on the development runtime.
+The page downloads the original 31,700-byte PNG, where the development runtime serves a 2,866-byte
+WebP rendition. Large originals, such as phone photos or the WordPress import's pictures, therefore
+weigh on every list and card that shows them. Asked again before deployment, on 2026-11-01, the
+Product Owner kept original files for V1, with staff guidance on picture size. The import and the
+deployment both need the Product Owner's approval, so the revisit below comes before either.
 
 ## Considered options
 
@@ -36,10 +39,12 @@ deployment, the Product Owner kept original files for V1, with staff guidance on
   build-time site URL. EmDash's wrapped image endpoint reads media from storage by key and never
   fetches the URL (`node_modules/emdash/src/astro/image-endpoint.ts`), and on the production
   container it already answers such a request with a WebP rendition. EmDash registers this pattern
-  under `astro dev` only. With it in production, an `href` whose key EmDash rejects would go to
-  Astro's stock endpoint, which would fetch that path from any host
-  (`node_modules/astro/dist/assets/endpoint/shared.js`). That residual server-side request surface
-  makes this option a security exception, so it waits for the revisit below.
+  under `astro dev` only (`docs/agents/emdash-1.1.0.md`, Media). With it in production, an `href`
+  whose key EmDash rejects, or any media `href` while storage is unavailable, would go to Astro
+  7.3.5's stock endpoint. That endpoint would fetch the path from any host the pattern allows, which
+  is every host (`node_modules/astro/dist/assets/endpoint/generic.js`, `loadImage.js`). That
+  residual server-side request surface makes this option a security exception, so it waits for the
+  revisit below.
 
 ## Consequences
 
