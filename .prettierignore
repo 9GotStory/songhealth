@@ -1,0 +1,18 @@
+# Prettier also skips everything .gitignore lists.
+
+# Prose, records and data are not formatted.
+**/*.md
+**/*.json
+docs/
+specs/
+seed/
+
+# Accepted Feature 001 and 002 files keep their present formatting until a change
+# touches them. That change removes the file's line here first, since Prettier skips a
+# listed file even when it is named on the command line, then formats the file in a
+# commit of its own.
+scripts/verify-readiness.mjs
+scripts/verify-restored-foundation.mjs
+tests/node/foundation.test.ts
+tests/browser/foundation.spec.ts
+tests/browser/fixtures/

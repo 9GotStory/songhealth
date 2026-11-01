@@ -1,0 +1,76 @@
+---
+// Office Contact as details (Feature 003 #62, #64; spec #51 "Public reads" (Contact)): the address
+// with the "เปิดแผนที่" link built from the coordinates, the telephone number, the email address
+// and the opening hours, each only when it is set, and nothing at all while none is. The telephone
+// number and the email address are links while each is one number or one address
+// (src/lib/contact-links.ts), and plain text otherwise. /contact shows them in a card. The
+// Homepage's Contact Summary shows them as its `summary`: on surface-soft and without the email,
+// which /contact keeps (#51 "Homepage" lists the address, telephone, opening hours and map link).
+import { emailHref, telephoneHref } from "../lib/contact-links";
+import { mapHref } from "../lib/map-link";
+import type { OfficeContact } from "../lib/office-contact-settings";
+import DetailItem from "./DetailItem.astro";
+import MapLink from "./MapLink.astro";
+
+interface Props {
+	contact: OfficeContact;
+	/** The Homepage's Contact Summary: on surface-soft, without the email. */
+	summary?: boolean;
+}
+
+const { contact, summary = false } = Astro.props;
+const email = summary ? undefined : contact.email;
+const hasMap = mapHref(contact.latitude, contact.longitude) !== undefined;
+const telephoneLink = contact.telephone && telephoneHref(contact.telephone);
+const emailLink = email && emailHref(email);
+const shown =
+	!!contact.address || hasMap || !!contact.telephone || !!email || !!contact.openingHours;
+
+const linkClass =
+	"inline-flex min-h-11 items-center text-brand-primary underline underline-offset-4";
+---
+
+{shown && (
+	<dl
+		class:list={[
+			"flex flex-col gap-3",
+			!summary && "max-w-3xl rounded-24 bg-surface-base p-5 shadow-card",
+		]}
+	>
+		{(contact.address || hasMap) && (
+			<DetailItem onSoft={summary} term="ที่ตั้ง">
+				<div class="flex flex-col items-start gap-3">
+					{contact.address && <p class="whitespace-pre-line">{contact.address}</p>}
+					<MapLink latitude={contact.latitude} longitude={contact.longitude} />
+				</div>
+			</DetailItem>
+		)}
+		{contact.telephone && (
+			<DetailItem onSoft={summary} term="โทรศัพท์">
+				{telephoneLink ? (
+					<a class={linkClass} href={telephoneLink}>
+						{contact.telephone}
+					</a>
+				) : (
+					contact.telephone
+				)}
+			</DetailItem>
+		)}
+		{email && (
+			<DetailItem onSoft={summary} term="อีเมล">
+				{emailLink ? (
+					<a class={`${linkClass} wrap-anywhere`} href={emailLink}>
+						{email}
+					</a>
+				) : (
+					email
+				)}
+			</DetailItem>
+		)}
+		{contact.openingHours && (
+			<DetailItem onSoft={summary} term="เวลาทำการ">
+				<p class="whitespace-pre-line">{contact.openingHours}</p>
+			</DetailItem>
+		)}
+	</dl>
+)}

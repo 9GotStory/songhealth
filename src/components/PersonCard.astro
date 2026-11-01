@@ -1,0 +1,60 @@
+---
+// A person on an About page (Feature 003 #61; spec #51 "Public reads" (About)): their profile
+// image, prefix and name, position and unit, and their public contact only when it is set.
+// Personnel has no page of its own (`03` §5), so the card links nowhere. The name is a heading one
+// level below the list's own: H2 on /about/leadership, H3 under a unit's heading on
+// /about/personnel, where that heading names the unit and the card leaves it out.
+//
+// The picture is decorative, because the name beside it says who it is. A picture whose media item
+// was deleted in Admin is left out for a plain visual (src/lib/media.ts), as ContentCard does.
+import { Image } from "emdash/ui";
+import { availableMedia } from "../lib/media";
+import type { PersonnelEntry } from "../lib/personnel";
+import { shownName } from "../lib/personnel-directory";
+
+interface Props {
+	person: PersonnelEntry;
+	headingLevel?: 2 | 3;
+	/** Show the person's unit; off under a heading that names it. */
+	showUnit?: boolean;
+}
+
+const { person, headingLevel = 2, showUnit = true } = Astro.props;
+const Heading = headingLevel === 3 ? "h3" : "h2";
+const data = person.data;
+const image = await availableMedia(data.profile_image, Astro.locals.emdash);
+const unit = showUnit ? data.organizational_unit?.trim() : undefined;
+
+/** The picture's width: 4rem, and 5rem from `sm`. */
+const PICTURE_SIZES = "(min-width: 40rem) 5rem, 4rem";
+---
+
+<article class="flex h-full gap-4 rounded-24 bg-surface-base p-5 shadow-card">
+	{image ? (
+		<Image
+			image={image}
+			alt=""
+			sizes={PICTURE_SIZES}
+			class="size-16 shrink-0 rounded-full object-cover object-top sm:size-20"
+		/>
+	) : (
+		<div
+			aria-hidden="true"
+			data-testid="person-visual"
+			class="size-16 shrink-0 rounded-full bg-surface-soft sm:size-20"
+		/>
+	)}
+	<div class="flex min-w-0 flex-col gap-1">
+		<Heading class="text-body-large font-semibold wrap-anywhere text-brand-dark">
+			{shownName(data)}
+		</Heading>
+		{data.current_assignment && <p class="wrap-anywhere">{data.current_assignment}</p>}
+		{unit && <p class="text-small wrap-anywhere text-text-secondary">{unit}</p>}
+		{data.public_contact && (
+			<div class="mt-2 text-small">
+				<p class="font-medium text-text-secondary">ช่องทางติดต่อ</p>
+				<p class="wrap-anywhere whitespace-pre-line">{data.public_contact}</p>
+			</div>
+		)}
+	</div>
+</article>

@@ -1,0 +1,19 @@
+---
+// What a page shows where something it offers cannot be had (Feature 003 #55, #59; `03` §17): a
+// Document's file that cannot be served, or a Health Report's Document that is not published. It
+// says what is unavailable, names nothing about storage, and points to the office (#51 user story
+// 49).
+interface Props {
+	message: string;
+}
+
+const { message } = Astro.props;
+---
+
+<div class="flex flex-col items-start gap-2 rounded-24 bg-surface-soft p-5">
+	<p class="font-semibold text-brand-dark">{message}</p>
+	<p class="text-text-secondary-on-soft">หากต้องการเอกสารนี้ โปรดติดต่อสำนักงาน</p>
+	<a class="text-label text-brand-primary underline underline-offset-4" href="/contact">
+		ติดต่อเรา
+	</a>
+</div>

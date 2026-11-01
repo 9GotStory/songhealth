@@ -1,186 +1,57 @@
-// T002 — bounded native request/fixture helpers for the Feature 002 focused
-// CMS checks. Test support in tests/browser/ only: no application, schema,
-// seed, dependency, infrastructure, or production change is made here.
-// Corrective round 1 (reviewer findings 1–6) hardened: the bootstrap
-// credential path, role-restoration failure coverage, media-deduplication
-// ownership safety, cleanup resilience/retention, embedded-secret redaction,
-// and the configured-origin request boundary. Corrective round 2 (findings
-// 1–3) further hardened: trash-aware cleanup reconciliation through the
-// native trash listing (an ordinary content GET 404 is not proof of
-// permanent deletion), known-secret scrubbing of response-body read
-// failures, and same-application binding for administrative executors and
-// role orchestrators. Corrective round 3 (findings 1–2) further hardened:
-// callback failures are tracked by occurrence (a rejection with undefined
-// is still a failure) and surface only as scrubbed CmsHelperError
-// renderings — never the raw cause object — and combine with restore
-// failures under known-secret scrubbing; trash-listing traversal validates
-// the native success/list/pagination shape and treats malformed pages and
-// stalled or cyclic cursors as unknown, never as proven absence; the
-// one-time Product Owner-authorized corrective round 4 narrowed terminal
-// validity to the native contract: only an actually absent (or explicitly
-// empty) terminal cursor proves exhaustion, and any other supplied cursor
-// value type is unknown. No behavior beyond the authorized T002 scope.
+// Native request and fixture helpers for the browser suites (Feature 002 T002; every Feature 002
+// and 003 suite builds on them).
 //
-// Authority:
-// - specs/002-cms-content-model/tasks.md T002 ("Add bounded native
-//   request/fixture helpers in tests/browser/cms.helpers.ts for the configured
-//   existing development app, dev-bypass access, distinct native roles, public
-//   synthetic media/records, fresh IDs/`_rev`, secret-redacted results and
-//   owned-fixture cleanup; use existing tooling, with no production
-//   authentication, permission or reference-management abstraction") and the
-//   shared "Path Conventions and Shared Constraints" section (dev-bypass,
-//   distinct native role credentials, returned IDs/current `_rev`, re-read
-//   uncertain outcomes, clean only owned synthetic fixtures)
-// - specs/002-cms-content-model/contracts/native-editorial.md — "Native
-//   Request Shapes" table, `_rev` preconditions, truthful native outcomes,
-//   revisions/lifecycle boundaries
-// - specs/002-cms-content-model/contracts/public-read.md — published-only
-//   visibility boundary these synthetic fixtures eventually exercise
-// - specs/002-cms-content-model/quickstart.md — Prerequisites (single README
-//   environment, dev-bypass, distinct Contributor/Author/Editor/Administrator
-//   fixtures via supported native operations, mode-0600 credential scratch,
-//   synthetic public-publishable data, no invented official inventories)
-// - README.md §7 (development-only POST /_emdash/api/setup/dev-bypass?token=1;
-//   token is secret-bearing; passkey login is never automated)
-// - specs/002-cms-content-model/evidence/T001-development-inputs.md — the
-//   existing fixed-name development instance, preserved data, and the
-//   truthfully-pending distinct-role fixture input (§6) these helpers consume
-//   without inventing
+// What they provide:
+// - actors: the development Administrator from its 0600 PAT file (loadDevAccessToken and
+//   createPatActor) and distinct role accounts (withNativeRole), each verified through
+//   /_emdash/api/auth/me. An Administrator token never stands in for another role
+//   (assertDistinctActors).
+// - cmsRequest, the one request core. It reaches only the configured origin's /_emdash/ API,
+//   refuses redirects, and returns native refusals as results instead of throwing them.
+// - synthetic entries and media marked with SYNTHETIC_FIXTURE_MARK, lifecycle calls with a fresh
+//   `_rev`, and cleanupOwnedFixtures, which removes only what these helpers registered as owned.
+// - secret handling: every reported result and message is scrubbed of credentials, and
+//   credential files load only at mode 0600.
+// - refusal checks the CMS suites share (a validation refusal, an unresolvable reference target,
+//   an authorization refusal) and anonymousRequest, a request without a credential. They assert
+//   with Playwright's expect, which also runs outside the test runner (@playwright/test 1.63.0,
+//   playwright/lib/matchers/expect.js), so FixtureKit's plain Node scripts load this module too.
 //
-// Verified API surface (recorded per CLAUDE.md §Current documentation):
-// Context7 /websites/emdashcms (docs.emdashcms.com REST API, roles and
-// permissions) first for unversioned capability orientation; every
-// release-sensitive claim below is controlled by the pinned `emdash@1.1.0`
-// archive (npm tarball sha512-VXo1fIMr44PEiE1A9Z5aFWvjsqhdLDHqat2iPkFYoam2kYV6h+2LGkEDovkXdLmmWWDY9w7ekP0CP6ziYMFhg==,
-// byte-equal to package-lock.json, the same integrity research.md §Evidence
-// independently verified), inspected at:
-// - envelope: `{ success: true, data }` / `{ success: false, error: { code,
-//   message, details? } }` (src/api/error.ts apiSuccess/apiError)
-// - POST /_emdash/api/setup/dev-bypass?token=1 — development builds only
-//   (production answers 403 "FORBIDDEN"); finds/creates the fixed dev
-//   Administrator account dev@emdash.local (role 50), applies the committed
-//   seed with onConflict "skip", and with ?token=1 mints the raw
-//   "dev-bypass-token" PAT (scopes content:read/write, media:read/write,
-//   schema:read/write, admin) that appears only in that response
-//   (src/astro/routes/api/setup/dev-bypass.ts)
-// - Authorization: Bearer <PAT>; the middleware resolves the token's owning
-//   user record on EVERY request, so a token's effective role and disabled
-//   state track the user's current database state
-//   (src/astro/middleware/auth.ts handleBearerAuth)
-// - native role levels Subscriber 10 / Contributor 20 / Author 30 /
-//   Editor 40 / Admin 50 (docs.emdashcms.com "User roles"; source
-//   ROLE_ADMIN = 50)
-// - GET/PUT /_emdash/api/admin/users[/{id}] — Administrator-only;
-//   userUpdateBody { name?, email?, role? } with numeric roleLevel; PUT
-//   refuses changing the caller's own role (SELF_ROLE_CHANGE) and demoting
-//   the last administrator (LAST_ADMIN) (src/astro/routes/api/admin/users/
-//   [id]/index.ts) — these native guards are why distinct-role fixture
-//   support below is a two-account operation by design, never a self
-//   role-switch; users are created only by the platform's authentication
-//   flows (no REST user creation exists in 1.1.0)
-// - POST/GET/DELETE /_emdash/api/admin/api-tokens — mint/list/revoke PATs
-//   for the CALLING administrator only (no userId parameter)
-// - GET /_emdash/api/auth/me → data { id, email, name, role, ... }
-// - POST /_emdash/api/content/{collection} { data, slug?, status? "draft",
-//   taxonomies?, references? } — authorId is set to the caller; 201 with the
-//   created item; the native API create status is draft-only
-//   (src/astro/routes/api/content/[collection]/index.ts,
-//   src/api/schemas/content.ts contentCreateBody)
-// - GET /_emdash/api/content/{collection}/{id} → data { item, _rev }
-// - PUT  …/{id} { data?, references?, taxonomies?, slug?, _rev?,
-//   overrideLock? } (body required)
-// - POST …/{id}/publish   { publishedAt?, _rev?, overrideLock? } (optional
-//   body; publishedAt additionally needs content:publish_any)
-// - POST …/{id}/schedule  { scheduledAt, _rev?, overrideLock? } (body
-//   required; ISO 8601 with Z or an explicit offset);
-//   DELETE …/{id}/schedule unschedules
-// - POST …/{id}/unpublish { _rev?, overrideLock? } (optional body)
-// - DELETE …/{id} trash (content:delete_own/any; overrideLock rides the
-//   query string), POST …/{id}/restore (no body),
-//   DELETE …/{id}/permanent (content:delete_permanent — Administrator-only,
-//   trash-first; no body)
-// - GET …/{collection}/trash — native trash listing (content:read_drafts;
-//   cursor pagination `cursor?`/`limit?` 1-100 default 50; response
-//   data { items: [{ id, … }], nextCursor? })
-//   (src/astro/routes/api/content/[collection]/trash.ts;
-//   src/api/handlers/content.ts handleContentListTrashed). CRITICAL for
-//   cleanup reconciliation: the ORDINARY content GET excludes soft-deleted
-//   entries (src/database/repositories/content.ts findByIdOrSlug →
-//   _findByIdOrSlug includeTrashed=false), so an ordinary 404 is NOT proof
-//   of permanent deletion — an entry sitting in Trash 404s there while the
-//   trash listing still shows it. Cleanup therefore reconciles uncertain
-//   outcomes through the trash listing first (corrective round 2, finding 1)
-// - POST /_emdash/api/media — multipart form field "file" (+ optional
-//   deduplicate/ensureUniqueFilename/folderId/fieldId/width/height/thumbnail),
-//   media:upload permission, response data { item: { id, ... } }.
-//   CRITICAL for fixture ownership: the pinned 1.1.0 upload form parses
-//   `deduplicate` with .default("true") (api/schemas/media.ts
-//   mediaUploadDeduplicateForm), so an OMITTED flag makes an existing
-//   content hash return the PRE-EXISTING item as { item, deduplicated: true }
-//   (src/astro/routes/api/media.ts ~:217) — these helpers therefore send an
-//   explicit deduplicate=false (every upload is a fresh owned fixture) and
-//   would never register a deduplicated id as owned, so cleanup can never
-//   delete an asset it did not create (T013 runtime observation: the
-//   deterministic fixture bytes deduplicate onto the first upload otherwise)
-// - GET/PUT/DELETE /_emdash/api/media/{id} — media:read;
-//   media:edit_own + ownership (editors+ any); media:delete_own + ownership
-//   (editors+ any)
+// Platform behaviour relied on (emdash 1.1.0):
+// - Responses are `{ success: true, data }` or `{ success: false, error: { code, message } }`
+//   (src/api/error.ts).
+// - A Bearer PAT resolves its user on every request, so a role change applies at once
+//   (src/astro/middleware/auth.ts handleBearerAuth). Role levels: Subscriber 10, Contributor 20,
+//   Author 30, Editor 40, Administrator 50.
+// - Users change only through GET and PUT /_emdash/api/admin/users/{id}, which refuses a change
+//   of the caller's own role and the demotion of the last administrator. Role phases therefore
+//   need a second account; REST cannot create users.
+// - Content (src/api/schemas/content.ts): POST /_emdash/api/content/{collection} creates a draft
+//   owned by the caller. PUT, …/publish, …/schedule (ISO 8601 with Z or an offset), …/unpublish,
+//   DELETE (to trash), …/restore and …/permanent (Administrator, trash first) take `_rev` and
+//   `overrideLock`.
+// - The ordinary content read hides trashed entries, so its 404 does not prove deletion. Cleanup
+//   reads the trash listing (…/{collection}/trash, cursor pagination) before it reports an
+//   outcome (src/database/repositories/content.ts findByIdOrSlug).
+// - A media upload returns an existing asset with the same content unless `deduplicate=false` is
+//   sent (src/api/schemas/media.ts). These helpers always send it, so cleanup never deletes an
+//   asset it did not create.
+// - setup/dev-bypass applies the seed and, with ?token=1, rotates the development PAT
+//   (src/astro/routes/api/setup/dev-bypass.ts). createDevBypassActor wraps it for a fresh
+//   install only; no suite calls it.
+// - A content API request with no token and no session is refused before its route runs: a
+//   state-changing one without `X-EmDash-Request: 1` with 403 CSRF_REJECTED, any other with 401
+//   NOT_AUTHENTICATED (src/astro/middleware/auth.ts). Public API routes check CSRF by Origin
+//   instead (src/api/csrf.ts checkPublicCsrf).
 //
-// Boundaries (tasks.md shared constraints; Constitution v3.0.0 II–V):
-// - development-only access: dev-bypass is used exactly as README §7
-//   documents it; no production Passkey automation, no custom authentication
-// - request boundary (corrective finding 6): every helper request is
-//   confined to the configured origin's /_emdash/ native API — absolute,
-//   protocol-relative, non-/_emdash/, and dot-escaping paths are rejected
-//   before any transport (so no credential-bearing request can leave the
-//   configured app), and redirects are refused rather than followed. This is
-//   the bounded T002 request boundary, not a new authentication layer
-// - no RBAC/impersonation abstraction: role fixtures use only the supported
-//   native account/role operations above. An Administrator token is never
-//   presented as coverage of another role — assertDistinctActors refuses the
-//   shortcut and every role phase is verified live through /auth/me. Where
-//   the environment lacks a second PAT-owning account (T001 §6 records that
-//   standing truthfully), the calling tests must report the gap; these
-//   helpers do not manufacture identities. A role mutation is reconciled on
-//   every exit path: uncertain switch responses are re-read, and the
-//   original role is restored and verified even when the identity check or
-//   the callback fails (corrective finding 2)
-// - no reference-management abstraction: `references`/`taxonomies` maps are
-//   passed through in EmDash's native request shapes untouched
-// - no schema operations and no synthetic official inventories: these
-//   helpers only create/read/lifecycle content and clearly-marked synthetic
-//   public-publishable media; Feature 002 schema/taxonomy work belongs to
-//   its owning tasks
-// - secrets (corrective findings 1/5): the dev-bypass PAT travels from the
-//   native bootstrap response into the actor's private in-memory field
-//   through an internal unredacted path that never appears in any returned
-//   result; every externally reportable result, error message, non-JSON
-//   body, and transport-failure message is scrubbed of embedded credential
-//   strings (ec_pat_/ec_oat_ and "Bearer <token>" anywhere in a string) and
-//   of the request's own supplied credential. CmsActor serializes to a
-//   secret-free view; credential scratch loads fail closed below mode 0600
-// - cleanup (corrective findings 3/4) is restricted to fixture IDs these
-//   helpers themselves registered as owned (WeakMap registry). It never
-//   throws past a failed step: each fixture is attempted independently,
-//   uncertain/already-trashed outcomes are reconciled by re-reading state,
-//   unresolved IDs REMAIN registered so a later cleanup can retry them, and
-//   only proven-resolved IDs are dropped. A separate administrator actor may
-//   supply the deletion authority while the owning actor's registry still
-//   defines what may be touched. Volumes, real media, pre-existing data, and
-//   anything unregistered are never touched
-// - truthful outcomes: native validation/permission/conflict/uncertain
-//   results are returned as { ok, status, body } results, never converted
-//   into exceptions or false success; only helper preconditions (transport
-//   failures, missing identity fields, failed precondition reads) throw
-//   CmsHelperError with secret-free messages, and uncertain lifecycle
-//   actions are re-read (currentRev) before any retry-oriented use
-//
-// These helpers perform no verification by themselves and claim nothing as
-// PASS. They are consumed by the T003/T007/T019/T020/T021 spec files against
-// the externally configured running development application
-// (playwright.config.ts contract: PLAYWRIGHT_BASE_URL or the documented
-// http://localhost:4321 origin). Runtime prerequisites the environment does
-// not provide (per T001 §3–§7) remain the calling tests' truthful skips.
+// Cleanup never throws past a failed step. Each owned fixture is attempted on its own, an
+// uncertain outcome is read again, and an unresolved fixture stays registered for a later retry.
+
+import { appendFile, lstat, readFile, stat } from "node:fs/promises";
+import { env } from "node:process";
+import { crc32, deflateSync } from "node:zlib";
+
+import { expect } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
 // Constants and small shared types
@@ -316,19 +187,9 @@ function redactWalk<T>(value: T, secrets: readonly string[], seen: WeakSet<objec
  * "Prerequisites": token scratch lives under e.g. .tmp/feature002/). Fails
  * closed on any looser mode, a non-regular file, or multi-line content —
  * the credential is returned into memory only.
- *
- * node:fs is loaded through a dynamic non-literal import because the pinned
- * dependency baseline intentionally ships no @types/node (tests/browser and
- * tests/node run under Node's own TypeScript support, like the existing
- * tests/node suites); the structural cast keeps this file strict-typed.
  */
 export async function readSecretScratch(path: string): Promise<string> {
-	const specifier = "node:fs/promises";
-	const fsPromises = (await import(specifier)) as unknown as {
-		stat: (p: string) => Promise<{ mode: number; isFile(): boolean }>;
-		readFile: (p: string, encoding: "utf8") => Promise<string>;
-	};
-	const stats = await fsPromises.stat(path);
+	const stats = await stat(path);
 	if (!stats.isFile()) {
 		throw new CmsHelperError("SECRET_SCRATCH_INVALID", `${path} is not a regular file`);
 	}
@@ -338,7 +199,7 @@ export async function readSecretScratch(path: string): Promise<string> {
 			`refusing to read ${path}: credential scratch must be mode 0600 (git-ignored), never group/world readable`,
 		);
 	}
-	const raw = await fsPromises.readFile(path, "utf8");
+	const raw = await readFile(path, "utf8");
 	const credential = raw.trim();
 	if (credential.length === 0 || credential.includes("\n")) {
 		throw new CmsHelperError("SECRET_SCRATCH_INVALID", `${path} must hold exactly one credential`);
@@ -370,27 +231,16 @@ const BARE_PAT_PATTERN = /^ec_pat_[A-Za-z0-9_-]+$/;
  * caller and never logged, hashed, or rewritten.
  *
  * Path resolution: the explicit argument, else DEV_ACCESS_CREDENTIAL_ENV.
- * node:fs is loaded through a dynamic non-literal import because the pinned
- * dependency baseline intentionally ships no @types/node.
  */
 export async function loadDevAccessToken(path?: string): Promise<string> {
-	const processSpecifier = "node:process";
-	const nodeProcess = (await import(processSpecifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	const fsSpecifier = "node:fs/promises";
-	const fsPromises = (await import(fsSpecifier)) as unknown as {
-		lstat: (p: string) => Promise<{ isFile(): boolean; isSymbolicLink(): boolean; mode: number }>;
-		readFile: (p: string, encoding: "utf8") => Promise<string>;
-	};
-	const resolved = path ?? nodeProcess.env[DEV_ACCESS_CREDENTIAL_ENV];
+	const resolved = path ?? env[DEV_ACCESS_CREDENTIAL_ENV];
 	if (resolved === undefined || resolved.trim().length === 0) {
 		throw new CmsHelperError(
 			"DEV_ACCESS_PATH_MISSING",
 			`no development credential path: pass one or set ${DEV_ACCESS_CREDENTIAL_ENV}`,
 		);
 	}
-	const stats = await fsPromises.lstat(resolved);
+	const stats = await lstat(resolved);
 	if (!stats.isFile() || stats.isSymbolicLink()) {
 		throw new CmsHelperError("DEV_ACCESS_INVALID", `${resolved} is not a regular non-symlink file`);
 	}
@@ -400,7 +250,7 @@ export async function loadDevAccessToken(path?: string): Promise<string> {
 			`refusing to read ${resolved}: the development credential must be mode 0600, never group/world readable`,
 		);
 	}
-	const text = (await fsPromises.readFile(resolved, "utf8")).trim();
+	const text = (await readFile(resolved, "utf8")).trim();
 	if (BARE_PAT_PATTERN.test(text)) {
 		return text;
 	}
@@ -408,14 +258,20 @@ export async function loadDevAccessToken(path?: string): Promise<string> {
 	try {
 		parsed = JSON.parse(text);
 	} catch {
-		throw new CmsHelperError("DEV_ACCESS_INVALID", `${resolved} is neither one bare ec_pat_ token nor valid JSON`);
+		throw new CmsHelperError(
+			"DEV_ACCESS_INVALID",
+			`${resolved} is neither one bare ec_pat_ token nor valid JSON`,
+		);
 	}
 	const token =
 		parsed !== null && typeof parsed === "object"
 			? (parsed as Record<string, unknown>).token
 			: undefined;
 	if (typeof token !== "string" || token.trim().length === 0) {
-		throw new CmsHelperError("DEV_ACCESS_INVALID", `${resolved} carries no non-empty string token field`);
+		throw new CmsHelperError(
+			"DEV_ACCESS_INVALID",
+			`${resolved} carries no non-empty string token field`,
+		);
 	}
 	return token;
 }
@@ -501,6 +357,24 @@ export function nativeItemsOf(result: NativeResult): unknown[] {
 	return [];
 }
 
+/** A content item's lifecycle `status`, when the read carries one. */
+export function statusOfItem(item: Record<string, unknown> | undefined): string | undefined {
+	return typeof item?.status === "string" ? item.status : undefined;
+}
+
+/** A content item's field `data`; a drafts read answers a pending draft's values here. */
+export function dataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
+	return recordOf(item?.data);
+}
+
+/**
+ * The published values a drafts read gives as `liveData` while an entry has a pending draft
+ * (emdash 1.1.0 src/emdash-runtime.ts hydrateDraftData).
+ */
+export function liveDataOfItem(item: Record<string, unknown> | undefined): Record<string, unknown> {
+	return recordOf(item?.liveData);
+}
+
 function requireString(value: unknown, what: string): string {
 	if (typeof value !== "string" || value.length === 0) {
 		throw new CmsHelperError("NATIVE_SHAPE_UNEXPECTED", `native response lacked ${what}`);
@@ -510,9 +384,7 @@ function requireString(value: unknown, what: string): string {
 
 /** Narrow an unknown native value to a plain record (empty when not one). */
 function recordOf(value: unknown): Record<string, unknown> {
-	return value !== null && typeof value === "object"
-		? (value as Record<string, unknown>)
-		: {};
+	return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
 /**
@@ -752,12 +624,26 @@ export async function cmsRequest(
 	return { ok: raw.ok, status: raw.status, body: raw.body };
 }
 
+/**
+ * One native API request without a credential, through the same core as cmsRequest: on `origin`'s
+ * /_emdash/ API only, following no redirect, and answering a refusal as a result. It sends no
+ * `X-EmDash-Request` header, so a state-changing request meets EmDash's CSRF check first.
+ */
+export async function anonymousRequest(
+	origin: string,
+	path: string,
+	options: CmsRequestOptions = {},
+): Promise<NativeResult> {
+	const raw = await rawRequest(origin, path, null, options);
+	return { ok: raw.ok, status: raw.status, body: raw.body };
+}
+
 function baseUrlOrDefault(baseUrl?: string): string {
 	if (baseUrl !== undefined) {
 		return baseUrl;
 	}
-	// Mirrors playwright.config.ts: the suite is pointed at the configured
-	// origin by its runner; helpers default to the documented dev origin.
+	// The documented development origin for a caller that names none; the suites pass
+	// configuredDevelopmentOrigin's.
 	return DEFAULT_DEVELOPMENT_ORIGIN;
 }
 
@@ -811,7 +697,7 @@ export async function createDevBypassActor(options: DevBypassOptions = {}): Prom
 	// credential; nothing below returns it.
 	const rawData =
 		raw.rawBody !== null && typeof raw.rawBody === "object"
-			? ((raw.rawBody as Record<string, unknown>).data ?? {}) as Record<string, unknown>
+			? (((raw.rawBody as Record<string, unknown>).data ?? {}) as Record<string, unknown>)
 			: {};
 	const token = requireString(rawData.token, "the minted PAT (only present with ?token=1)");
 	const user = recordOf(rawData.user);
@@ -889,10 +775,7 @@ export async function createPatActor(options: PatActorOptions): Promise<CmsActor
 		},
 		options.token.trim(),
 	);
-	if (
-		options.expected?.userId !== undefined &&
-		options.expected.userId !== verified.userId
-	) {
+	if (options.expected?.userId !== undefined && options.expected.userId !== verified.userId) {
 		throw new CmsHelperError(
 			"IDENTITY_MISMATCH",
 			`the supplied credential belongs to user ${verified.userId}, not the expected ${options.expected.userId}`,
@@ -942,6 +825,56 @@ export function assertSameNativeApp(a: CmsActor, b: CmsActor): void {
 	}
 }
 
+/**
+ * The origin the suites run against, as playwright.config.ts resolves it: PLAYWRIGHT_BASE_URL, else
+ * the documented development origin.
+ */
+export function configuredDevelopmentOrigin(): string {
+	return new URL(env.PLAYWRIGHT_BASE_URL ?? DEFAULT_DEVELOPMENT_ORIGIN).origin;
+}
+
+/** The development Administrator's account, which the development PAT belongs to. */
+const DEV_ADMIN_EMAIL = "dev@emdash.local";
+
+/**
+ * The development Administrator on `origin`, else the configured origin: the development PAT's
+ * actor (DEV_ACCESS_CREDENTIAL_ENV), verified as the dev@emdash.local account at the
+ * Administrator role. The suites' admin setup.
+ */
+export async function devAdminActor(origin?: string): Promise<CmsActor> {
+	const admin = await createPatActor({
+		baseUrl: origin ?? configuredDevelopmentOrigin(),
+		token: await loadDevAccessToken(),
+		expected: { role: NATIVE_ROLES.administrator },
+	});
+	if (admin.email !== DEV_ADMIN_EMAIL) {
+		throw new CmsHelperError(
+			"IDENTITY_MISMATCH",
+			`the development credential belongs to ${admin.email}, not ${DEV_ADMIN_EMAIL}`,
+		);
+	}
+	return admin;
+}
+
+/** Environment variable naming the role fixture's 0600 PAT file (scripts/dev-runtime-env.sh). */
+export const ROLE_FIXTURE_CREDENTIAL_ENV = "SONGHEALTH_ROLE_FIXTURE_ACCESS";
+
+/**
+ * The role fixture account's actor, for role phases beside `admin` (withNativeRole), or undefined
+ * when ROLE_FIXTURE_CREDENTIAL_ENV is unset. It must be another account of the same application.
+ */
+export async function roleFixtureActor(admin: CmsActor): Promise<CmsActor | undefined> {
+	const path = env[ROLE_FIXTURE_CREDENTIAL_ENV]?.trim();
+	if (!path) return undefined;
+	const fixture = await createPatActor({
+		baseUrl: admin.baseUrl,
+		token: await loadDevAccessToken(path),
+	});
+	assertDistinctActors(admin, fixture);
+	assertSameNativeApp(admin, fixture);
+	return fixture;
+}
+
 /** GET /_emdash/api/auth/me — live identity/role of the actor. */
 export async function getMe(actor: CmsActor): Promise<NativeResult> {
 	return cmsRequest(actor, "/_emdash/api/auth/me");
@@ -959,7 +892,10 @@ export interface ListUsersOptions {
 }
 
 /** GET /_emdash/api/admin/users — Administrator-only user listing. */
-export async function listUsers(admin: CmsActor, options: ListUsersOptions = {}): Promise<NativeResult> {
+export async function listUsers(
+	admin: CmsActor,
+	options: ListUsersOptions = {},
+): Promise<NativeResult> {
 	const searchParams: Record<string, string> = {};
 	if (options.search !== undefined) searchParams.search = options.search;
 	if (options.role !== undefined) searchParams.role = options.role;
@@ -1083,7 +1019,12 @@ export async function withNativeRole<T>(
 			const afterLive = await getMe(actor);
 			const adminRole = userRoleOf(afterAdmin);
 			const liveRole = nativeDataOf(afterLive)?.role;
-			if (!afterAdmin.ok || adminRole !== originalRole || !afterLive.ok || liveRole !== originalRole) {
+			if (
+				!afterAdmin.ok ||
+				adminRole !== originalRole ||
+				!afterLive.ok ||
+				liveRole !== originalRole
+			) {
 				return new CmsHelperError(
 					"ROLE_RESTORE_UNVERIFIED",
 					`restoration of ${nativeRoleName(originalRole)} for account ${actor.userId} was requested but not verified (${roleStateText(adminRole, afterLive.ok ? liveRole : nativeRefusalOf(afterLive))})`,
@@ -1230,6 +1171,30 @@ export function syntheticMediaPng(): Uint8Array<ArrayBuffer> {
 	return bytes;
 }
 
+/** The exact size in bytes of every synthetic PDF. */
+export const SYNTHETIC_PDF_BYTES = 2048;
+
+/**
+ * A valid one-page, blank PDF of exactly SYNTHETIC_PDF_BYTES bytes: public-publishable, clearly
+ * synthetic, and unique per call through a padding comment, so no upload deduplicates onto another.
+ */
+export function syntheticMediaPdf(): Uint8Array<ArrayBuffer> {
+	const body = [
+		"%PDF-1.4",
+		"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
+		"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
+		"3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] >> endobj",
+		"trailer << /Root 1 0 R >>",
+		`% ${SYNTHETIC_FIXTURE_MARK} ${crypto.randomUUID()}`,
+	].join("\n");
+	const end = "\n%%EOF\n";
+	const padding = " ".repeat(SYNTHETIC_PDF_BYTES - body.length - end.length - 2);
+	const bytes = new TextEncoder().encode(`${body}\n%${padding}${end}`);
+	if (bytes.length !== SYNTHETIC_PDF_BYTES)
+		throw new CmsHelperError("synthetic-pdf", "synthetic PDF size drifted");
+	return new Uint8Array(bytes);
+}
+
 export interface SyntheticMediaResult {
 	result: NativeResult;
 	/** Media id from the native response, registered for owned cleanup. */
@@ -1258,16 +1223,17 @@ export interface SyntheticMediaResult {
  */
 export async function uploadSyntheticMedia(
 	actor: CmsActor,
-	options: { filename?: string } = {},
+	options: {
+		filename?: string;
+		/** Other bytes than the synthetic PNG, with their MIME type, such as a synthetic PDF. */
+		file?: { bytes: Uint8Array<ArrayBuffer>; type: string };
+	} = {},
 ): Promise<SyntheticMediaResult> {
 	const filename =
-		options.filename ??
-		`${SYNTHETIC_SLUG_PREFIX}media-${crypto.randomUUID().slice(0, 8)}.png`;
+		options.filename ?? `${SYNTHETIC_SLUG_PREFIX}media-${crypto.randomUUID().slice(0, 8)}.png`;
+	const { bytes, type } = options.file ?? { bytes: syntheticMediaPng(), type: "image/png" };
 	const form = new FormData();
-	form.append(
-		"file",
-		new File([syntheticMediaPng()], filename, { type: "image/png" }),
-	);
+	form.append("file", new File([bytes], filename, { type }));
 	// The pinned 1.1.0 upload form parses `deduplicate` with
 	// .default("true") (api/schemas/media.ts mediaUploadDeduplicateForm),
 	// so silence is NOT an opt-out — the explicit "false" is required for
@@ -1285,6 +1251,171 @@ export async function uploadSyntheticMedia(
 		return { result, mediaId };
 	}
 	return { result };
+}
+
+/** A synthetic PDF in the media library, and the file field value that points at it. */
+export interface SyntheticPdf {
+	mediaId: string;
+	filename: string;
+	storageKey: string;
+	/** The file field value the Admin's file picker saves for it. */
+	value: Record<string, unknown>;
+}
+
+/**
+ * Upload a synthetic PDF named `filename` (a unique one by default) as an owned fixture, with the
+ * file field value the Admin's picker sends (@emdash-cms/admin 1.1.0 FileFieldRenderer). A Document
+ * needs one, since its file is required. A refusal throws.
+ */
+export async function uploadSyntheticPdf(
+	actor: CmsActor,
+	filename = `${SYNTHETIC_FIXTURE_MARK}-${crypto.randomUUID().slice(0, 8)}.pdf`,
+): Promise<SyntheticPdf> {
+	const uploaded = await uploadSyntheticMedia(actor, {
+		filename,
+		file: { bytes: syntheticMediaPdf(), type: "application/pdf" },
+	});
+	if (uploaded.mediaId === undefined) {
+		throw new CmsHelperError(
+			"synthetic-pdf",
+			`the synthetic PDF: ${nativeRefusalOf(uploaded.result)}`,
+		);
+	}
+	const item = nativeItemOf(uploaded.result) as {
+		id: string;
+		filename: string;
+		mimeType: string;
+		size: number;
+		storageKey: string;
+	};
+	return {
+		mediaId: item.id,
+		filename: item.filename,
+		storageKey: item.storageKey,
+		value: fileFieldValue(item),
+	};
+}
+
+/**
+ * The value a file field saves for media `item`, as the Admin's file picker sends it
+ * (@emdash-cms/admin 1.1.0 FileFieldRenderer).
+ */
+export function fileFieldValue(item: {
+	id: string;
+	filename: string;
+	mimeType: string;
+	size: number | null;
+	storageKey: string;
+}): Record<string, unknown> {
+	return {
+		id: item.id,
+		provider: "local",
+		filename: item.filename,
+		mimeType: item.mimeType,
+		size: item.size,
+		meta: { storageKey: item.storageKey },
+	};
+}
+
+/** PUT /_emdash/api/media/{id} — set a media item's alt text, as Admin's media library does. */
+export async function setMediaAlt(
+	actor: CmsActor,
+	mediaId: string,
+	alt: string,
+): Promise<NativeResult> {
+	return cmsRequest(actor, `/_emdash/api/media/${encodeURIComponent(mediaId)}`, {
+		method: "PUT",
+		body: { alt },
+	});
+}
+
+/**
+ * Upload a synthetic picture as an owned fixture, give it `alt` as its alt text in the media
+ * library, and return its media id. A refusal throws.
+ */
+export async function uploadSyntheticPicture(actor: CmsActor, alt: string): Promise<string> {
+	const media = await uploadSyntheticMedia(actor);
+	if (media.mediaId === undefined) {
+		throw new CmsHelperError("synthetic-picture", `the picture: ${nativeRefusalOf(media.result)}`);
+	}
+	const described = await setMediaAlt(actor, media.mediaId, alt);
+	if (!described.ok) {
+		throw new CmsHelperError("synthetic-picture", `its alt text: ${nativeRefusalOf(described)}`);
+	}
+	return media.mediaId;
+}
+
+/** A 1200×750 PNG, a diagonal blend from the hex colour `from` to `to`: a stand-in photo. */
+export function gradientPng(from: string, to: string): Uint8Array<ArrayBuffer> {
+	const [width, height] = [1200, 750];
+	const [a, b] = [from, to].map((hex) =>
+		[1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16)),
+	);
+	const chunk = (type: string, data: Buffer) => {
+		const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+		const framed = Buffer.alloc(body.length + 8);
+		framed.writeUInt32BE(data.length, 0);
+		body.copy(framed, 4);
+		framed.writeUInt32BE(crc32(body), body.length + 4);
+		return framed;
+	};
+	const header = Buffer.alloc(13);
+	header.writeUInt32BE(width, 0);
+	header.writeUInt32BE(height, 4);
+	header.set([8, 2, 0, 0, 0], 8); // 8-bit RGB, no interlace
+	const rows = Buffer.alloc((width * 3 + 1) * height);
+	for (let y = 0; y < height; y += 1) {
+		const row = y * (width * 3 + 1); // each row starts with filter type 0
+		for (let x = 0; x < width; x += 1) {
+			const t = (x / width + y / height) / 2;
+			rows.set(
+				a!.map((channel, index) => Math.round(channel + (b![index]! - channel) * t)),
+				row + 1 + x * 3,
+			);
+		}
+	}
+	return new Uint8Array(
+		Buffer.concat([
+			Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+			chunk("IHDR", header),
+			chunk("IDAT", deflateSync(rows)),
+			chunk("IEND", Buffer.alloc(0)),
+		]),
+	);
+}
+
+/**
+ * Upload `file` as a new media item named `filename`, give it `alt` as its alt text when given, and
+ * return the item as the native API answers it. Deduplication, on unless the form says otherwise
+ * (emdash 1.1.0 src/api/schemas/media.ts mediaUploadDeduplicateForm), is turned off, so the item is
+ * always new. A refusal throws, after deleting the item when only its alt text was refused. Unlike
+ * uploadSyntheticMedia, nothing registers the item for owned cleanup: the caller removes it.
+ */
+export async function uploadMediaItem(
+	actor: CmsActor,
+	filename: string,
+	file: { bytes: Uint8Array<ArrayBuffer>; type: string },
+	alt?: string,
+): Promise<Record<string, unknown> & { id: string }> {
+	const form = new FormData();
+	form.append("file", new File([file.bytes], filename, { type: file.type }));
+	form.append("deduplicate", "false");
+	const uploaded = await cmsRequest(actor, "/_emdash/api/media", { method: "POST", form });
+	const item = nativeItemOf(uploaded);
+	if (!uploaded.ok || typeof item?.id !== "string") {
+		throw new CmsHelperError("MEDIA_UPLOAD", `${filename}: ${nativeRefusalOf(uploaded)}`);
+	}
+	if (alt !== undefined) {
+		const described = await setMediaAlt(actor, item.id, alt);
+		if (!described.ok) {
+			await deleteMedia(actor, item.id).catch(() => undefined);
+			throw new CmsHelperError(
+				"MEDIA_UPLOAD",
+				`${filename} alt text: ${nativeRefusalOf(described)}`,
+			);
+		}
+	}
+	return item as Record<string, unknown> & { id: string };
 }
 
 /** GET /_emdash/api/media/{id} — native media metadata read. */
@@ -1316,6 +1447,8 @@ export interface SyntheticEntryInput {
 	references?: Record<string, string[]>;
 	/** Native taxonomy assignments: { taxonomyName: [termSlug, ...] }. */
 	taxonomies?: Record<string, string[]>;
+	/** Native SEO panel values ({ title, description, … }) for a collection that supports SEO. */
+	seo?: Record<string, unknown>;
 }
 
 export interface SyntheticEntryResult {
@@ -1326,8 +1459,13 @@ export interface SyntheticEntryResult {
 	rev?: string;
 }
 
-function syntheticSlug(): string {
-	return `${SYNTHETIC_SLUG_PREFIX}${crypto.randomUUID().slice(0, 13)}`;
+/**
+ * A unique synthetic slug. A label names the fixture's role in the slug, so a failure says which
+ * fixture it was.
+ */
+export function syntheticSlug(label?: string): string {
+	const role = label === undefined ? "" : `${label}-`;
+	return `${SYNTHETIC_SLUG_PREFIX}${role}${crypto.randomUUID().slice(0, 13)}`;
 }
 
 /**
@@ -1342,19 +1480,16 @@ export async function createSyntheticEntry(
 	collection: string,
 	input: SyntheticEntryInput,
 ): Promise<SyntheticEntryResult> {
-	const result = await cmsRequest(
-		actor,
-		`/_emdash/api/content/${encodeURIComponent(collection)}`,
-		{
-			method: "POST",
-			body: {
-				data: input.data,
-				slug: input.slug ?? syntheticSlug(),
-				...(input.references !== undefined ? { references: input.references } : {}),
-				...(input.taxonomies !== undefined ? { taxonomies: input.taxonomies } : {}),
-			},
+	const result = await cmsRequest(actor, `/_emdash/api/content/${encodeURIComponent(collection)}`, {
+		method: "POST",
+		body: {
+			data: input.data,
+			slug: input.slug ?? syntheticSlug(),
+			...(input.references !== undefined ? { references: input.references } : {}),
+			...(input.taxonomies !== undefined ? { taxonomies: input.taxonomies } : {}),
+			...(input.seo !== undefined ? { seo: input.seo } : {}),
 		},
-	);
+	});
 	const entryId = nativeItemOf(result)?.id;
 	const rev = nativeRevOf(result);
 	if (result.ok && typeof entryId === "string") {
@@ -1362,6 +1497,297 @@ export async function createSyntheticEntry(
 		return { result, entryId, rev };
 	}
 	return { result, rev };
+}
+
+/** One Portable Text block of `style` (normal, h2, …), the shape the Admin editor saves. */
+export function portableTextBlock(text: string, style = "normal"): Record<string, unknown> {
+	const key = crypto.randomUUID().slice(0, 8);
+	return {
+		_type: "block",
+		_key: key,
+		style,
+		markDefs: [],
+		children: [{ _type: "span", _key: `${key}s`, text, marks: [] }],
+	};
+}
+
+/**
+ * An image block for a Portable Text body, the shape the Admin editor saves when staff pick an
+ * uploaded media item: its id as `_ref` and its URL, EmDash's media route with the storage key
+ * (emdash 1.1.0 src/content/converters/prosemirror-to-portable-text.ts convertImage,
+ * src/astro/routes/api/media.ts addUrlToMedia). A failed upload throws.
+ */
+export function portableTextImage(
+	uploaded: SyntheticMediaResult,
+	alt: string,
+): Record<string, unknown> {
+	const item = nativeItemOf(uploaded.result);
+	if (uploaded.mediaId === undefined || typeof item?.url !== "string") {
+		throw new CmsHelperError("body-image", `the body image: ${nativeRefusalOf(uploaded.result)}`);
+	}
+	return {
+		_type: "image",
+		_key: crypto.randomUUID().slice(0, 8),
+		asset: { _ref: uploaded.mediaId, url: item.url },
+		alt,
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Synthetic public content for the public-page suites
+// ---------------------------------------------------------------------------
+
+/** A synthetic draft as a public-page suite keeps it: its id, slug and the title the site shows. */
+export interface DraftFixture {
+	id: string;
+	slug: string;
+	title: string;
+}
+
+/** What a suite sets on a synthetic draft besides its title: fields, terms, references, SEO. */
+export interface DraftFields {
+	data?: Record<string, unknown>;
+	taxonomies?: Record<string, string[]>;
+	references?: Record<string, string[]>;
+	seo?: Record<string, unknown>;
+}
+
+/** Create a synthetic draft of `collection` under `slug`, shown as `title`. A refusal throws. */
+async function createDraftFixture(
+	actor: CmsActor,
+	collection: string,
+	slug: string,
+	title: string,
+	{ data, ...fields }: DraftFields & { data: Record<string, unknown> },
+): Promise<DraftFixture> {
+	const created = await createSyntheticEntry(actor, collection, { data, slug, ...fields });
+	if (!created.result.ok || created.entryId === undefined) {
+		throw new CmsHelperError(
+			"synthetic-draft",
+			`${collection} ${slug}: ${nativeRefusalOf(created.result)}`,
+		);
+	}
+	return { id: created.entryId, slug, title };
+}
+
+/**
+ * A synthetic draft of `collection` titled `${mark} ${kind} ${label} ${ending}`, unique by its
+ * slug's ending, so a page shows it or does not. `kind` names the content in Thai, such as ข่าว; a
+ * public-page suite wraps this once per collection it tests. A refusal throws.
+ */
+export async function createSyntheticDraft(
+	actor: CmsActor,
+	collection: string,
+	kind: string,
+	label: string,
+	{ data, ...fields }: DraftFields = {},
+): Promise<DraftFixture> {
+	const slug = syntheticSlug(label);
+	const title = `${SYNTHETIC_FIXTURE_MARK} ${kind} ${label} ${slug.slice(-6)}`;
+	return createDraftFixture(actor, collection, slug, title, {
+		data: { title, ...data },
+		...fields,
+	});
+}
+
+/**
+ * A synthetic Service draft titled `${mark} ${name} ${label} ${ending}`. A `name` that starts with
+ * ก, ข, ค orders the fixtures in Thai whatever their endings.
+ */
+export async function createSyntheticService(
+	actor: CmsActor,
+	label: string,
+	{ name = "บริการ", ...fields }: DraftFields & { name?: string } = {},
+): Promise<DraftFixture> {
+	return createSyntheticDraft(actor, "services", name, label, fields);
+}
+
+/** A synthetic Document draft with a unique title and `file`, else a synthetic PDF of its own. */
+export async function createSyntheticDocument(
+	actor: CmsActor,
+	label: string,
+	{ file, data, ...fields }: DraftFields & { file?: SyntheticPdf } = {},
+): Promise<DraftFixture & { file: SyntheticPdf }> {
+	const pdf = file ?? (await uploadSyntheticPdf(actor));
+	const fixture = await createSyntheticDraft(actor, "documents", "เอกสาร", label, {
+		data: { file: pdf.value, ...data },
+		...fields,
+	});
+	return { ...fixture, file: pdf };
+}
+
+/**
+ * A synthetic Health Report draft. A Health Report requires the Document it describes
+ * (seed/seed.json report_document): `document`, else a published synthetic Document made for it.
+ */
+export async function createSyntheticHealthReport(
+	actor: CmsActor,
+	label: string,
+	{ document, ...fields }: DraftFields & { document?: { id: string } } = {},
+): Promise<DraftFixture> {
+	let described = document;
+	if (described === undefined) {
+		described = await createSyntheticDocument(actor, `${label}-document`);
+		await publishEntryAt(actor, "documents", described.id);
+	}
+	return createSyntheticDraft(actor, "health_reports", "รายงานสุขภาพ", label, {
+		...fields,
+		references: { ...fields.references, report_document: [described.id] },
+	});
+}
+
+/**
+ * A synthetic Health Service draft. Its official name is unique; with `displayName`, the site shows
+ * that display name, made unique the same way, instead.
+ */
+export async function createSyntheticHealthService(
+	actor: CmsActor,
+	label: string,
+	{ displayName, data, ...fields }: DraftFields & { displayName?: string } = {},
+): Promise<DraftFixture & { officialName: string }> {
+	const slug = syntheticSlug(label);
+	const officialName = `${SYNTHETIC_FIXTURE_MARK} หน่วยบริการ ${label} ${slug.slice(-6)}`;
+	const shown = displayName && `${SYNTHETIC_FIXTURE_MARK} ${displayName} ${slug.slice(-6)}`;
+	const fixture = await createDraftFixture(actor, "health_services", slug, shown || officialName, {
+		data: { title: officialName, ...(shown ? { display_name: shown } : {}), ...data },
+		...fields,
+	});
+	return { ...fixture, officialName };
+}
+
+// ---------------------------------------------------------------------------
+// Synthetic taxonomy terms (native request shapes)
+// ---------------------------------------------------------------------------
+
+export interface SyntheticTerm {
+	taxonomy: string;
+	slug: string;
+	label: string;
+}
+
+/**
+ * Create one term of `taxonomy` labelled exactly `label`, under a synthetic slug, through the
+ * native taxonomy API (POST /_emdash/api/taxonomies/{taxonomy}/terms). Terms are not in the
+ * owned-fixture registry: the caller keeps them and hands them to deleteSyntheticTerms. A refusal
+ * throws.
+ */
+export async function createSyntheticTerm(
+	actor: CmsActor,
+	taxonomy: string,
+	label: string,
+): Promise<SyntheticTerm> {
+	const slug = syntheticSlug(taxonomy.replaceAll("_", "-"));
+	const created = await cmsRequest(actor, `/_emdash/api/taxonomies/${taxonomy}/terms`, {
+		method: "POST",
+		body: { slug, label },
+	});
+	if (!created.ok) {
+		throw new CmsHelperError("synthetic-term", `${taxonomy} term: ${nativeRefusalOf(created)}`);
+	}
+	return { taxonomy, slug, label };
+}
+
+/**
+ * A synthetic term of `taxonomy` labelled like a real one: `label` behind the synthetic mark, with
+ * a unique ending. It is added to `owned`, which the suite hands to deleteSyntheticTerms at its
+ * end.
+ */
+export async function createOwnedTerm(
+	actor: CmsActor,
+	taxonomy: string,
+	label: string,
+	owned: SyntheticTerm[],
+): Promise<SyntheticTerm> {
+	const unique = crypto.randomUUID().slice(0, 6);
+	const term = await createSyntheticTerm(
+		actor,
+		taxonomy,
+		`${SYNTHETIC_FIXTURE_MARK} ${label} ${unique}`,
+	);
+	owned.push(term);
+	return term;
+}
+
+/** Delete terms through the native taxonomy API. Returns a line for each that was not deleted. */
+export async function deleteSyntheticTerms(
+	actor: CmsActor,
+	terms: ReadonlyArray<Pick<SyntheticTerm, "taxonomy" | "slug">>,
+): Promise<string[]> {
+	const failures: string[] = [];
+	for (const { taxonomy, slug } of terms) {
+		const removed = await cmsRequest(
+			actor,
+			`/_emdash/api/taxonomies/${taxonomy}/terms/${encodeURIComponent(slug)}`,
+			{ method: "DELETE" },
+		);
+		if (!removed.ok) failures.push(`the ${taxonomy} term ${slug}: ${nativeRefusalOf(removed)}`);
+	}
+	return failures;
+}
+
+/**
+ * Delete the automatic redirects EmDash made when a test changed an entry's slug away from one of
+ * `slugs` (emdash 1.1.0 src/astro/routes/api/redirects/, src/api/schemas/redirects.ts: the list
+ * takes `search` and its items carry `source` and `auto`). Returns a line for each that is not
+ * deleted.
+ */
+export async function deleteAutoRedirects(
+	actor: CmsActor,
+	slugs: readonly string[],
+): Promise<string[]> {
+	const failures: string[] = [];
+	for (const slug of slugs) {
+		const listed = await cmsRequest(actor, "/_emdash/api/redirects", {
+			searchParams: { search: slug, limit: "100" },
+		});
+		if (!listed.ok) {
+			failures.push(`listing the redirects of ${slug}: ${nativeRefusalOf(listed)}`);
+			continue;
+		}
+		const redirects = nativeItemsOf(listed) as Array<{ id: string; source: string; auto: boolean }>;
+		for (const { id, source } of redirects.filter(
+			({ source, auto }) => auto && source.endsWith(`/${slug}`),
+		)) {
+			const removed = await cmsRequest(actor, `/_emdash/api/redirects/${encodeURIComponent(id)}`, {
+				method: "DELETE",
+			});
+			if (!removed.ok) failures.push(`the redirect from ${source}: ${nativeRefusalOf(removed)}`);
+		}
+	}
+	return failures;
+}
+
+/**
+ * Remove what a suite made, as its afterAll: the redirects left by `movedSlugs`, the actor's owned
+ * fixtures, then `terms`, each step attempted whatever the others' outcome, and fail on anything
+ * left. An actor that never loaded made nothing.
+ */
+export async function removeSuiteFixtures(
+	actor: CmsActor | undefined,
+	{
+		terms = [],
+		movedSlugs = [],
+	}: {
+		terms?: ReadonlyArray<Pick<SyntheticTerm, "taxonomy" | "slug">>;
+		movedSlugs?: readonly string[];
+	} = {},
+): Promise<void> {
+	if (actor === undefined) return;
+	const failures: string[] = [];
+	const attempt = async (step: string, run: () => Promise<string[]>) => {
+		try {
+			failures.push(...(await run()));
+		} catch (cause) {
+			failures.push(`${step}: ${failureText(cause)}`);
+		}
+	};
+	await attempt("the redirects", () => deleteAutoRedirects(actor, movedSlugs));
+	await attempt("the owned fixtures", async () => {
+		const report = await cleanupOwnedFixtures(actor, { permanent: true });
+		return report.complete ? [] : [`owned fixtures left: ${JSON.stringify(report)}`];
+	});
+	await attempt("the terms", () => deleteSyntheticTerms(actor, terms));
+	expect(failures, "the suite's synthetic fixtures must all be removed").toEqual([]);
 }
 
 // ---------------------------------------------------------------------------
@@ -1380,6 +1806,51 @@ export async function readEntry(
 	);
 }
 
+/** A published entry as the native content list gives it: its database id and its fields. */
+export interface PublishedEntry {
+	id: string;
+	data?: Record<string, unknown>;
+}
+
+/**
+ * Every item of the native list at `path`, at most 100 a page, following `nextCursor` while more
+ * remain (emdash 1.1.0 src/api/schemas/common.ts cursorPaginationQuery). A refusal throws.
+ */
+export async function listNativeItems(
+	actor: CmsActor,
+	path: string,
+	searchParams: Record<string, string> = {},
+): Promise<Record<string, unknown>[]> {
+	const items: Record<string, unknown>[] = [];
+	let cursor: string | undefined;
+	do {
+		const listed = await cmsRequest(actor, path, {
+			searchParams: { ...searchParams, limit: "100", ...(cursor ? { cursor } : {}) },
+		});
+		if (!listed.ok) {
+			throw new CmsHelperError("NATIVE_LIST", `listing ${path}: ${nativeRefusalOf(listed)}`);
+		}
+		const data = nativeDataOf(listed) as { items: Record<string, unknown>[]; nextCursor?: string };
+		items.push(...data.items);
+		cursor = data.nextCursor || undefined;
+	} while (cursor !== undefined);
+	return items;
+}
+
+/**
+ * Every published entry of `collection` on the runtime, through the native content list, which
+ * lists entries by `status` (emdash 1.1.0 src/api/schemas/content.ts contentListQuery). A refusal
+ * throws.
+ */
+export async function listPublishedEntries(
+	actor: CmsActor,
+	collection: string,
+): Promise<PublishedEntry[]> {
+	return (await listNativeItems(actor, `/_emdash/api/content/${encodeURIComponent(collection)}`, {
+		status: "published",
+	})) as unknown as PublishedEntry[];
+}
+
 /**
  * Fresh `_rev` for optimistic-concurrency preconditions (native-editorial
  * contract: "use ... the latest returned `_rev`"). This is the mandatory
@@ -1388,11 +1859,7 @@ export async function readEntry(
  * reusing a stale token. Tests that want the refusal itself should use
  * readEntry and handle the result.
  */
-export async function currentRev(
-	actor: CmsActor,
-	collection: string,
-	id: string,
-): Promise<string> {
+export async function currentRev(actor: CmsActor, collection: string, id: string): Promise<string> {
 	const read = await readEntry(actor, collection, id);
 	const rev = nativeRevOf(read);
 	if (!read.ok || rev === undefined) {
@@ -1443,9 +1910,7 @@ export async function updateEntry(
 			method: "PUT",
 			body: {
 				_rev: rev,
-				...(payload.overrideLock !== undefined
-					? { overrideLock: payload.overrideLock }
-					: {}),
+				...(payload.overrideLock !== undefined ? { overrideLock: payload.overrideLock } : {}),
 				...(payload.data !== undefined ? { data: payload.data } : {}),
 				...(payload.references !== undefined ? { references: payload.references } : {}),
 				...(payload.taxonomies !== undefined ? { taxonomies: payload.taxonomies } : {}),
@@ -1455,21 +1920,69 @@ export async function updateEntry(
 	);
 }
 
-/** POST …/publish — native RBAC/lifecycle checks only; refusals returned. */
+/**
+ * POST …/publish — native RBAC/lifecycle checks only; refusals returned. `publishedAt` backdates
+ * the publication (emdash 1.1.0 src/astro/routes/api/content/[collection]/[id]/publish.ts).
+ */
 export async function publishEntry(
 	actor: CmsActor,
 	collection: string,
 	id: string,
-	pre: RevPrecondition = {},
+	options: RevPrecondition & { publishedAt?: string } = {},
 ): Promise<NativeResult> {
+	const { publishedAt, ...pre } = options;
 	const body = preconditionBody(
 		pre.rev === undefined ? { ...pre, rev: await currentRev(actor, collection, id) } : pre,
 	);
+	if (publishedAt !== undefined) body.publishedAt = publishedAt;
 	return cmsRequest(
 		actor,
 		`/_emdash/api/content/${encodeURIComponent(collection)}/${encodeURIComponent(id)}/publish`,
 		{ method: "POST", body },
 	);
+}
+
+/**
+ * Publish now, or backdated to `publishedAt`, and return the publication instant EmDash stored,
+ * as a page dates the entry. A refusal throws.
+ */
+export async function publishEntryAt(
+	actor: CmsActor,
+	collection: string,
+	id: string,
+	publishedAt?: string,
+): Promise<string> {
+	const published = await publishEntry(actor, collection, id, { publishedAt });
+	if (!published.ok) {
+		throw new CmsHelperError("publish", `${collection}/${id}: ${nativeRefusalOf(published)}`);
+	}
+	const stored = nativeItemOf(await readEntry(actor, collection, id))?.publishedAt;
+	if (typeof stored !== "string") {
+		throw new CmsHelperError("publish", `${collection}/${id} has no stored publishedAt`);
+	}
+	return stored;
+}
+
+/**
+ * POST …/preview-url — the signed preview link of entry `id`, on the actor's origin (emdash 1.1.0
+ * src/astro/routes/api/content/[collection]/[id]/preview-url.ts). The link carries the signed
+ * token, so a test names it in no message. A refusal throws.
+ */
+export async function mintPreviewLink(
+	actor: CmsActor,
+	collection: string,
+	id: string,
+): Promise<URL> {
+	const minted = await cmsRequest(
+		actor,
+		`/_emdash/api/content/${encodeURIComponent(collection)}/${encodeURIComponent(id)}/preview-url`,
+		{ method: "POST", body: {} },
+	);
+	const url = nativeDataOf(minted)?.url;
+	if (!minted.ok || typeof url !== "string") {
+		throw new CmsHelperError("PREVIEW_URL", `${collection}/${id}: ${nativeRefusalOf(minted)}`);
+	}
+	return new URL(url, actor.baseUrl);
 }
 
 /**
@@ -1549,9 +2062,7 @@ export async function trashEntry(
 		`/_emdash/api/content/${encodeURIComponent(collection)}/${encodeURIComponent(id)}`,
 		{
 			method: "DELETE",
-			...(options.overrideLock === true
-				? { searchParams: { overrideLock: "true" } }
-				: {}),
+			...(options.overrideLock === true ? { searchParams: { overrideLock: "true" } } : {}),
 		},
 	);
 }
@@ -1713,6 +2224,317 @@ async function probeEntryPresence(
 }
 
 // ---------------------------------------------------------------------------
+// Site settings and Office Contact plugin settings (#52, #62)
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /_emdash/api/settings — update the native site settings, as Admin's settings page does. The
+ * nested `seo` and `social` objects are patched key by key (emdash 1.1.0 src/settings/index.ts
+ * setSiteSettings); only the media references accept `null` (src/api/schemas/settings.ts).
+ */
+export async function writeSiteSettings(
+	actor: CmsActor,
+	update: Record<string, unknown>,
+): Promise<NativeResult> {
+	return cmsRequest(actor, "/_emdash/api/settings", { method: "POST", body: update });
+}
+
+/**
+ * The Songhealth Office Contact plugin's id (src/lib/office-contact-settings.ts
+ * OFFICE_CONTACT_PLUGIN).
+ */
+export const OFFICE_CONTACT_PLUGIN_ID = "songhealth-office-contact";
+
+/**
+ * The Office Contact plugin's settings API (emdash 1.1.0
+ * src/astro/routes/api/admin/plugins/[id]/settings.ts). GET answers `{ schema, values }` with
+ * `null` for an unset value, and PUT `{ values }` writes the keys it names, deleting one set to
+ * `null` (src/api/handlers/plugin-settings.ts).
+ */
+const OFFICE_CONTACT_SETTINGS_PATH = `/_emdash/api/admin/plugins/${OFFICE_CONTACT_PLUGIN_ID}/settings`;
+
+/** Office Contact values by settings key; `null` is unset. */
+export type OfficeContactValues = Record<string, string | number | null>;
+
+/** GET the Office Contact settings: `data.schema` and `data.values`. */
+export async function readOfficeContactSettings(actor: CmsActor): Promise<NativeResult> {
+	return cmsRequest(actor, OFFICE_CONTACT_SETTINGS_PATH);
+}
+
+/** PUT Office Contact values, as Admin's settings form saves them. */
+export async function writeOfficeContactSettings(
+	actor: CmsActor,
+	values: OfficeContactValues,
+): Promise<NativeResult> {
+	return cmsRequest(actor, OFFICE_CONTACT_SETTINGS_PATH, { method: "PUT", body: { values } });
+}
+
+/**
+ * Show exactly `values` as Office Contact and `social` as the only `social` handles, and return the
+ * function that puts back what was there. A refused read or write throws, after putting back what
+ * a half-done write changed.
+ *
+ * Office Contact comes back exactly. The settings API cannot delete a `social` handle, only empty
+ * it (emdash 1.1.0 src/api/schemas/settings.ts), so a handle that was unset comes back empty, which
+ * the site shows the same way. Only the networks `social` sets and those already holding a handle
+ * are written, so the others stay unset.
+ */
+export async function showOfficeContact(
+	actor: CmsActor,
+	values: OfficeContactValues,
+	social: Record<string, string>,
+): Promise<() => Promise<void>> {
+	const [stored, site] = await Promise.all([
+		readOfficeContactSettings(actor),
+		cmsRequest(actor, "/_emdash/api/settings"),
+	]);
+	if (!stored.ok || !site.ok) {
+		throw new CmsHelperError(
+			"OFFICE_CONTACT_READ",
+			`Office Contact ${nativeRefusalOf(stored)}, site settings ${nativeRefusalOf(site)}`,
+		);
+	}
+	const before = (nativeDataOf(stored)?.values ?? {}) as OfficeContactValues;
+	const socialBefore = (nativeDataOf(site)?.social ?? {}) as Record<string, string>;
+	const keys = [...new Set([...Object.keys(before), ...Object.keys(values)])];
+	const networks = [...new Set([...Object.keys(social), ...Object.keys(socialBefore)])].filter(
+		(network) => social[network] || socialBefore[network],
+	);
+	const apply = async (contact: OfficeContactValues, handles: Record<string, string>) => {
+		const written = await writeOfficeContactSettings(
+			actor,
+			Object.fromEntries(keys.map((key) => [key, contact[key] ?? null])),
+		);
+		const set = await writeSiteSettings(actor, {
+			social: Object.fromEntries(networks.map((network) => [network, handles[network] ?? ""])),
+		});
+		if (!written.ok || !set.ok) {
+			throw new CmsHelperError(
+				"OFFICE_CONTACT_WRITE",
+				`Office Contact ${nativeRefusalOf(written)}, site settings ${nativeRefusalOf(set)}`,
+			);
+		}
+	};
+	const restore = () => apply(before, socialBefore);
+	try {
+		await apply(values, social);
+	} catch (error) {
+		await restore().catch(() => undefined);
+		throw error;
+	}
+	return restore;
+}
+
+/**
+ * Run `body` with exactly `values` as Office Contact and `social` as the only handles, then
+ * restore.
+ */
+export async function withOfficeContact(
+	actor: CmsActor,
+	values: OfficeContactValues,
+	social: Record<string, string>,
+	body: () => Promise<void>,
+): Promise<void> {
+	const restore = await showOfficeContact(actor, values, social);
+	try {
+		await body();
+	} finally {
+		await restore();
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The Homepage menus (#65)
+// ---------------------------------------------------------------------------
+
+/**
+ * The native menus staff curate the Homepage with (spec #51 "Changes to the Feature 002 model").
+ */
+export const HOMEPAGE_MENUS = {
+	featured: "homepage-featured",
+	services: "homepage-services",
+	quickAccess: "homepage-quick-access",
+} as const;
+
+/**
+ * A menu item as staff add it: an entry picked from a collection, which the Admin's content picker
+ * saves by the entry's id, or a link with its address typed in (emdash 1.1.0
+ * @emdash-cms/admin/dist/index.js handleAddContent, handleAddCustomLink).
+ */
+export type MenuItemInput =
+	{ label: string; collection: string; id: string } | { label: string; url: string };
+
+/** The items to give each named Homepage menu. */
+export type HomepageMenuItems = Partial<
+	Record<keyof typeof HOMEPAGE_MENUS, readonly MenuItemInput[]>
+>;
+
+/** A menu item for an entry, as the Admin's content picker adds it: labelled with its title. */
+export function pickedMenuItem(
+	collection: string,
+	entry: { id: string; title: string },
+): MenuItemInput {
+	return { label: entry.title, collection, id: entry.id };
+}
+
+/**
+ * A menu item as GET /_emdash/api/menus/{name} lists it (src/api/schemas/menus.ts menuItemSchema).
+ */
+export interface StoredMenuItem {
+	id: string;
+	parentId: string | null;
+	sortOrder: number;
+	type: string;
+	label: string;
+	referenceCollection: string | null;
+	referenceId: string | null;
+	customUrl: string | null;
+	target: string | null;
+	titleAttr: string | null;
+	cssClasses: string | null;
+}
+
+/** The items of menu `name`, in menu order. A refusal throws. */
+async function menuItemsOf(actor: CmsActor, name: string): Promise<StoredMenuItem[]> {
+	const read = await cmsRequest(actor, `/_emdash/api/menus/${encodeURIComponent(name)}`);
+	if (!read.ok) throw new CmsHelperError("MENU_READ", `menu ${name}: ${nativeRefusalOf(read)}`);
+	return (nativeDataOf(read)?.items ?? []) as StoredMenuItem[];
+}
+
+/**
+ * Give menu `name` exactly `items`, in order: delete what it holds, then create each item, a parent
+ * before its children. Deleting an item deletes its children (emdash 1.1.0
+ * src/database/migrations/005_menus.ts), so only the top items are deleted. A refusal throws.
+ */
+export async function setMenuItems(
+	actor: CmsActor,
+	name: string,
+	items: ReadonlyArray<Omit<StoredMenuItem, "id"> & { id?: string }>,
+): Promise<void> {
+	const path = `/_emdash/api/menus/${encodeURIComponent(name)}/items`;
+	for (const { id } of (await menuItemsOf(actor, name)).filter((item) => item.parentId === null)) {
+		const deleted = await cmsRequest(actor, `${path}/${encodeURIComponent(id)}`, {
+			method: "DELETE",
+		});
+		if (!deleted.ok) {
+			throw new CmsHelperError("MENU_WRITE", `menu ${name}: ${nativeRefusalOf(deleted)}`);
+		}
+	}
+	const created = new Map<string, string>();
+	let pending = [...items];
+	while (pending.length > 0) {
+		const ready = pending.filter(({ parentId }) => parentId === null || created.has(parentId));
+		if (ready.length === 0) {
+			throw new CmsHelperError("MENU_WRITE", `menu ${name}: an item's parent is missing`);
+		}
+		for (const item of ready) {
+			// The create body takes these fields only, and no null (src/api/schemas/menus.ts
+			// createMenuItemBody), while a read lists more.
+			const body = Object.fromEntries(
+				Object.entries({
+					type: item.type,
+					label: item.label,
+					referenceCollection: item.referenceCollection,
+					referenceId: item.referenceId,
+					customUrl: item.customUrl,
+					target: item.target,
+					titleAttr: item.titleAttr,
+					cssClasses: item.cssClasses,
+					parentId: item.parentId === null ? null : created.get(item.parentId),
+					sortOrder: item.sortOrder,
+				}).filter(([, value]) => value !== null),
+			);
+			const made = await cmsRequest(actor, path, { method: "POST", body });
+			const madeId = nativeDataOf(made)?.id;
+			if (!made.ok || typeof madeId !== "string") {
+				throw new CmsHelperError("MENU_WRITE", `menu ${name}: ${nativeRefusalOf(made)}`);
+			}
+			if (item.id !== undefined) created.set(item.id, madeId);
+		}
+		pending = pending.filter((item) => !ready.includes(item));
+	}
+}
+
+/**
+ * Give each named Homepage menu exactly the given items, and return the function that puts back
+ * what each held, trying every menu and throwing for any it could not. A refused read or write
+ * throws, after trying to put back what was saved.
+ *
+ * Each item made carries the synthetic mark as its CSS class, which the Homepage never renders, so
+ * the residue scan finds any that a run stopped before putting the menus back leaves
+ * (scripts/dev-runtime-residue.sh); what the menus held before is then lost with the run.
+ *
+ * The menu API has no call that replaces a menu's items; only EmDash's MCP server has one (emdash
+ * 1.1.0 src/mcp/server.ts). So the items are deleted and created again: what comes back has the
+ * same labels, addresses, targets, classes, nesting and order, under new ids and creation times.
+ */
+export async function showHomepageMenus(
+	actor: CmsActor,
+	menus: HomepageMenuItems,
+): Promise<() => Promise<void>> {
+	const saved = new Map<string, StoredMenuItem[]>();
+	for (const key of Object.keys(menus) as Array<keyof typeof HOMEPAGE_MENUS>) {
+		saved.set(HOMEPAGE_MENUS[key], await menuItemsOf(actor, HOMEPAGE_MENUS[key]));
+	}
+	const restore = async () => {
+		const failures: string[] = [];
+		for (const [name, items] of saved) {
+			await setMenuItems(actor, name, items).catch((error: unknown) =>
+				failures.push(`menu ${name}: ${failureText(error)}`),
+			);
+		}
+		if (failures.length > 0) throw new CmsHelperError("MENU_RESTORE", failures.join("; "));
+	};
+	try {
+		for (const [key, items] of Object.entries(menus) as Array<
+			[keyof typeof HOMEPAGE_MENUS, readonly MenuItemInput[]]
+		>) {
+			await setMenuItems(
+				actor,
+				HOMEPAGE_MENUS[key],
+				items.map((item, sortOrder) => ({
+					parentId: null,
+					sortOrder,
+					label: item.label,
+					titleAttr: null,
+					target: null,
+					cssClasses: SYNTHETIC_FIXTURE_MARK,
+					...("url" in item
+						? { type: "custom", customUrl: item.url, referenceCollection: null, referenceId: null }
+						: {
+								type: item.collection === "pages" ? "page" : "collection",
+								referenceCollection: item.collection,
+								referenceId: item.id,
+								customUrl: null,
+							}),
+				})),
+			);
+		}
+	} catch (error) {
+		await restore().catch(() => undefined);
+		throw error;
+	}
+	return restore;
+}
+
+/**
+ * Run `body` with exactly the given items in each named Homepage menu, then put back what each
+ * held.
+ */
+export async function withHomepageMenus(
+	actor: CmsActor,
+	menus: HomepageMenuItems,
+	body: () => Promise<void>,
+): Promise<void> {
+	const restore = await showHomepageMenus(actor, menus);
+	try {
+		await body();
+	} finally {
+		await restore();
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Cleanup — restricted to fixtures these helpers registered as owned
 // ---------------------------------------------------------------------------
 
@@ -1834,7 +2656,8 @@ export async function cleanupOwnedFixtures(
 				entryReport.permanentlyDeleted = true;
 				entryReport.note = "already absent (not in the native trash listing; ordinary read 404)";
 			} else if (presence === "live") {
-				entryReport.note = "still a live entry; the native trash-first path must succeed before purge";
+				entryReport.note =
+					"still a live entry; the native trash-first path must succeed before purge";
 			}
 			// "unknown" keeps the observed refusal and stays unresolved.
 		}
@@ -1858,7 +2681,8 @@ export async function cleanupOwnedFixtures(
 				}
 			}
 		}
-		entryReport.resolved = absent || (permanent ? entryReport.permanentlyDeleted : entryReport.trashed);
+		entryReport.resolved =
+			absent || (permanent ? entryReport.permanentlyDeleted : entryReport.trashed);
 		if (entryReport.resolved) {
 			resolvedEntryIds.add(entry.id);
 		} else {
@@ -1907,6 +2731,88 @@ export async function cleanupOwnedFixtures(
 	return redactSecrets(report, scrubSecrets) as CleanupReport;
 }
 
+/**
+ * Clean up the role fixture's owned fixtures, under the Administrator's authority, and the
+ * Administrator's, each attempted whatever the other's outcome. Returns a line for each actor whose
+ * fixtures are not all resolved.
+ */
+export async function cleanupRoleFixtureAndAdmin(
+	roleFixture: CmsActor | undefined,
+	admin: CmsActor | undefined,
+): Promise<string[]> {
+	const failures: string[] = [];
+	for (const [label, owner] of [
+		["role-fixture", roleFixture],
+		["admin", admin],
+	] as const) {
+		if (owner === undefined) continue;
+		try {
+			const report = await cleanupOwnedFixtures(owner, { adminActor: admin, permanent: true });
+			if (!report.complete) failures.push(`${label} cleanup left: ${JSON.stringify(report)}`);
+		} catch (cause) {
+			failures.push(`${label} cleanup: ${failureText(cause)}`);
+		}
+	}
+	return failures;
+}
+
+// ---------------------------------------------------------------------------
+// Refusal checks the CMS suites share
+// ---------------------------------------------------------------------------
+
+/**
+ * Fail unless `result` is a native validation refusal, 400 VALIDATION_ERROR (emdash 1.1.0
+ * src/api/handlers/validation.ts, src/api/errors.ts mapErrorStatus), so that an authorization,
+ * missing-schema or state refusal never passes for one.
+ */
+export function expectValidationRefusal(result: NativeResult, caseLabel: string): void {
+	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
+		false,
+	);
+	expect(result.status, `${caseLabel}: a native validation refusal is HTTP 400`).toBe(400);
+	expect(
+		nativeErrorOf(result)?.code,
+		`${caseLabel}: the refusal must carry the native VALIDATION_ERROR code`,
+	).toBe("VALIDATION_ERROR");
+}
+
+/**
+ * Fail unless `result` refuses an unresolvable reference target, 404 with a NOT_FOUND-family code
+ * (emdash 1.1.0 src/api/handlers/relations.ts resolveReferenceTargets).
+ */
+export function expectTargetRefusal(result: NativeResult, caseLabel: string): void {
+	expect(result.ok, `${caseLabel}: the native save must be refused, not reported as success`).toBe(
+		false,
+	);
+	expect(result.status, `${caseLabel}: an unresolvable reference target is refused with 404`).toBe(
+		404,
+	);
+	const code = nativeErrorOf(result)?.code;
+	expect(
+		typeof code === "string" && code.includes("NOT_FOUND"),
+		`${caseLabel}: the refusal must carry a native NOT_FOUND-family code`,
+	).toBe(true);
+}
+
+/**
+ * Fail unless `result` is a refusal that is no validation outcome: 401 or 403, with a native error
+ * code other than VALIDATION_ERROR. From the content API, an anonymousRequest save gets 403
+ * CSRF_REJECTED and a read 401 NOT_AUTHENTICATED (emdash 1.1.0 src/astro/middleware/auth.ts).
+ * `request` names what was refused, such as "an unauthenticated native save".
+ */
+export function expectAuthorizationRefusal(result: NativeResult, request: string): void {
+	expect(
+		result.status === 401 || result.status === 403,
+		`${request} must be refused with 401 or 403`,
+	).toBe(true);
+	expect(result.ok, `${request} must not be reported as success`).toBe(false);
+	const code = nativeErrorOf(result)?.code;
+	expect(code, `the refusal of ${request} must carry its native error code`).toBeTruthy();
+	expect(code, `the refusal of ${request} must not be mistaken for a validation refusal`).not.toBe(
+		"VALIDATION_ERROR",
+	);
+}
+
 // ---------------------------------------------------------------------------
 // Development Admin browser session (Product Owner decision 2026-10-29)
 // ---------------------------------------------------------------------------
@@ -1919,24 +2825,28 @@ export async function cleanupOwnedFixtures(
  */
 export const ADMIN_SESSION_ENV = "SONGHEALTH_ADMIN_SESSION";
 
+/**
+ * The file a browser suite's Admin sessions are recorded in, one "start end" line (Unix seconds)
+ * per session, so the development runtime's Admin-activity guard tells a test run's Admin page
+ * loads from a person's (scripts/dev-runtime-common.sh admin_page_loads). Unset, nothing is
+ * recorded; scripts/dev-runtime-env.sh sets it.
+ */
+const ADMIN_TEST_SESSIONS_ENV = "SONGHEALTH_ADMIN_TEST_SESSIONS";
+
+/** When each open development Admin session began, by browser context. */
+const adminSessionStarts = new WeakMap<object, number>();
+
 /** The minimal browser-context surface the session helpers use. */
 export interface SessionContext {
 	request: {
 		get(url: string): Promise<{ status(): number; json(): Promise<unknown> }>;
-		post(
-			url: string,
-			options: { headers: Record<string, string> },
-		): Promise<{ status(): number }>;
+		post(url: string, options: { headers: Record<string, string> }): Promise<{ status(): number }>;
 	};
 }
 
 /** True when the runner opted in to the development Admin session. */
 export async function devAdminSessionRequested(): Promise<boolean> {
-	const processSpecifier = "node:process";
-	const nodeProcess = (await import(processSpecifier)) as unknown as {
-		env: Record<string, string | undefined>;
-	};
-	return nodeProcess.env[ADMIN_SESSION_ENV]?.trim() === "dev-bypass";
+	return env[ADMIN_SESSION_ENV]?.trim() === "dev-bypass";
 }
 
 /**
@@ -1951,15 +2861,15 @@ export async function devAdminSessionRequested(): Promise<boolean> {
 export async function openDevAdminSession(context: SessionContext): Promise<void> {
 	const response = await context.request.get("/_emdash/api/auth/dev-bypass");
 	const body = (await response.json().catch(() => undefined)) as
-		| { data?: { user?: { email?: unknown; role?: unknown } } }
-		| undefined;
+		{ data?: { user?: { email?: unknown; role?: unknown } } } | undefined;
 	const user = body?.data?.user;
-	if (response.status() !== 200 || user?.email !== "dev@emdash.local" || user?.role !== 50) {
+	if (response.status() !== 200 || user?.email !== DEV_ADMIN_EMAIL || user?.role !== 50) {
 		throw new CmsHelperError(
 			"DEV_SESSION_FAILED",
 			`the development Admin session was not established (status ${response.status()}); a production build refuses this route by design`,
 		);
 	}
+	adminSessionStarts.set(context, Date.now());
 }
 
 /**
@@ -1971,5 +2881,18 @@ export async function closeDevAdminSession(context: SessionContext): Promise<num
 	const response = await context.request.post("/_emdash/api/auth/logout", {
 		headers: { "X-EmDash-Request": "1" },
 	});
+	await recordAdminSession(context);
 	return response.status();
+}
+
+/**
+ * Append the context's Admin session window to ADMIN_TEST_SESSIONS_ENV's file, when set.
+ */
+async function recordAdminSession(context: SessionContext): Promise<void> {
+	const start = adminSessionStarts.get(context);
+	adminSessionStarts.delete(context);
+	const file = env[ADMIN_TEST_SESSIONS_ENV]?.trim();
+	if (start === undefined || !file) return;
+	const seconds = (ms: number) => (ms / 1000).toFixed(3);
+	await appendFile(file, `${seconds(start)} ${seconds(Date.now())}\n`, { mode: 0o600 });
 }

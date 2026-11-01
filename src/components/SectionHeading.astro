@@ -1,0 +1,39 @@
+---
+// A Homepage section's heading (Feature 003 #64; spec #51 "Shared building blocks";
+// docs/design/homepage-concept-v1.md "Shared patterns"): an eyebrow, the section's H2 and a lead.
+// The section takes its name from the H2 through `id`. On the brand-dark Health Service Discovery
+// section (§8) the eyebrow is accent-warm, and the title and lead are surface-base and larger, as
+// the design draws them.
+interface Props {
+	/** The H2's id, unique on the page, which the section names itself by. */
+	id: string;
+	eyebrow: string;
+	title: string;
+	lead: string;
+	/** The section is brand-dark. */
+	onDark?: boolean;
+}
+
+const { id, eyebrow, title, lead, onDark = false } = Astro.props;
+---
+
+<div class="flex flex-col gap-2">
+	<p class:list={["text-label", onDark ? "text-accent-warm" : "text-brand-primary"]}>{eyebrow}</p>
+	<h2
+		id={id}
+		class:list={[
+			"text-h3 wrap-anywhere",
+			onDark ? "text-surface-base lg:text-h1" : "text-text-primary lg:text-h2",
+		]}
+	>
+		{title}
+	</h2>
+	<p
+		class:list={[
+			"max-w-prose",
+			onDark ? "text-body-large text-surface-base" : "text-text-secondary",
+		]}
+	>
+		{lead}
+	</p>
+</div>

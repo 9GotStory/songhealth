@@ -1,0 +1,25 @@
+---
+// A page of Activities as a grid of Activity cards (Feature 003 #56, #64; spec #51 "Shared building
+// blocks"): each card dated by when the Activity was held, else its publication, the order the
+// list follows, with its summary. The card is the Homepage's, Figma Card/Activity 4:48 (Product
+// Owner, 2026-10-30: #64 comment 6526131459). The first row is in view when the page opens, so its
+// pictures load at once; the rest load lazily.
+import type { ActivityEntry } from "../lib/activities";
+import ActivityCard from "./ActivityCard.astro";
+
+interface Props {
+	entries: ActivityEntry[];
+}
+
+const { entries } = Astro.props;
+/** Cards per row at the widest layout (lg:grid-cols-3). */
+const FIRST_ROW = 3;
+---
+
+<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+	{entries.map((entry, index) => (
+		<li>
+			<ActivityCard activity={entry} showSummary eager={index < FIRST_ROW} />
+		</li>
+	))}
+</ul>

@@ -18,3 +18,5 @@ Tailwind generates CSS at build time and ships no client JavaScript, so `04` §1
   `/tailwindlabs/tailwindcss.com`):
   - `tailwindcss` 4.3.3 and `@tailwindcss/vite` 4.3.3, released 2026-07-16;
   - the plugin's peer range `vite ^5.2 || ^6 || ^7 || ^8` covers the vite 8.3.3 used by Astro 7.3.5.
+- The frame is described section by section in `docs/design/homepage-concept-v1.md`, so later
+  work needs no Figma reads.

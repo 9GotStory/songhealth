@@ -97,7 +97,7 @@ Do **not** silently replace Figma colors across the entire design to address one
 
 **No emoji, text glyphs or Unicode arrows used as UI icon substitutes.** In particular replace the Figma concept's `+`, `↗`, and `→` used as icons, and any symbol pretending to be an official logo. Use one consistent outlined vector icon family: **Lucide** is proposed for the public UI (exact package/integration selected at implementation, with version checked).
 
-- Typical icon slots: 16 px utility/meta; 20 px navigation/inline; 24 px actions/service cards. Align on a shared 24 px grid; consistent stroke treatment (normally 2 px at 24 px).
+- Icon sizes by role (Product Owner, 2026-10-31: #105 comment 6536890963): 16 px for a direction icon beside label or small text (onward and external links, pagination, breadcrumb); 20 px for an icon that shows the action itself at the start of its button (menu, download); 24 px on a card (service and quick-link cards). Align on a shared 24 px grid; consistent stroke treatment (normally 2 px at 24 px).
 - Icons in buttons/cards must remain vector/editable in Figma and accessible in code. Decorative icons use `aria-hidden="true"`; icon-only actions need an accessible name.
 - Do not create icons by typing emoji, arrows, plus signs, or font-based symbol stand-ins into text layers.
 - All icon colors should come from design tokens and achieve sufficient contrast in context.
@@ -227,3 +227,4 @@ These items are **not marked complete**. The Figma MCP Starter quota prevented t
 - **v0.1 draft (2026-10-30):** establish Tailwind-v4-only public styling, Lucide/no-emoji policy, Figma token proposal, V1 scope reconciliation, responsive/QA gates. Recorded as a draft only; not accepted or deployed.
 - **v0.1 clarification (Product Owner):** ITA and Dashboard are **deferred from V1, not removed from Songhealth**. Retain future-state Figma designs and planned capabilities; do not publish inactive V1 links without a separate approved scope decision.
 - **v0.2 recheck (2026-10-30):** make the V1/Future State separation explicit without deleting ITA/Dashboard concepts; validate the Tailwind v4 token namespaces against upstream documentation; record color-contrast failures in the proposed Figma palette for later visual QA. Still a draft; adding it to the repository does not authorize implementation or confer Product Owner acceptance.
+- **v0.2 update (2026-10-31, #105 retro):** §5 states the icon sizes the Product Owner decided on #105 (comment 6536890963), in place of the typical slots "16 px utility/meta; 20 px navigation/inline; 24 px actions/service cards". The rest of the draft is unchanged.

@@ -1057,7 +1057,6 @@ describe("bounded PostgreSQL connectivity contract", () => {
     const fixtures = await startFixtures({ ssr: "marker", pg: "silent", media: "present" });
     try {
       const run = runReadinessHelper(fixtures.env, fixtures.fixtureRoot, NON_RESPONSIVE_BOUND_MS);
-      const forbidden = echoForbiddenValuesFor(fixtures.env);
       const red = redAttributionNote();
       assertHarnessSound(run);
       assert.ok(

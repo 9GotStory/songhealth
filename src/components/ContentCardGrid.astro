@@ -1,0 +1,50 @@
+---
+// A page of News or Health Content as a grid of content cards (Feature 003 #54, #59), shared by
+// the News, Health News and Health Content lists. Each card carries one term of `labelTaxonomy` as
+// its label and links to the address `pathOf` gives the entry's slug. The first row is in view
+// when the page opens, so its pictures load at once; the rest load lazily.
+import type { TaxonomyTerm } from "emdash";
+import type { ImageFieldValue } from "../lib/news";
+import { termsOf } from "../lib/terms";
+import ContentCard from "./ContentCard.astro";
+
+/** The fields a content card shows, which News and Health Content share. */
+interface CardEntry {
+	/** The entry's slug. */
+	id: string;
+	data: {
+		title: string;
+		summary?: string;
+		featured_image?: ImageFieldValue;
+		publishedAt?: Date | string | null;
+		terms?: Record<string, TaxonomyTerm[]>;
+	};
+}
+
+interface Props {
+	entries: CardEntry[];
+	labelTaxonomy: string;
+	/** The entry's own address, from its slug. */
+	pathOf: (slug: string) => string;
+}
+
+const { entries, labelTaxonomy, pathOf } = Astro.props;
+/** Cards per row at the widest layout (lg:grid-cols-3). */
+const FIRST_ROW = 3;
+---
+
+<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+	{entries.map((entry, index) => (
+		<li>
+			<ContentCard
+				href={pathOf(entry.id)}
+				title={entry.data.title}
+				label={termsOf(entry.data, labelTaxonomy)[0]?.label}
+				date={entry.data.publishedAt}
+				summary={entry.data.summary}
+				image={entry.data.featured_image}
+				eager={index < FIRST_ROW}
+			/>
+		</li>
+	))}
+</ul>

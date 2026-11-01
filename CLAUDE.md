@@ -48,11 +48,23 @@ with `/code-review` → `/pr` → `/retro`.
 
 ## Checks
 
-The feedback loop for `/implement` and `/tdd` (Node 24.21.0, npm 12.2.0):
+The feedback loop for `/implement` and `/tdd` (Node 26.13.0, npm 12.2.1, as `package.json` engines pins):
 - `npm run typecheck`;
 - `npm run test:node`;
-- the browser suites against the development runtime. Their commands and credential variables
-  are in `README.md`; the public-read suite runs through `tests/browser/run-cms-public-reads.mjs`.
+- `npm run build:check` when a page, the layout or the Astro config changes;
+- each commit passes `.githooks/pre-commit` (once per clone: `git config core.hooksPath .githooks`);
+  `npm run format` fixes what it reports;
+- the browser suites against the development runtime, through `scripts/dev-runtime-env.sh`
+  (`README.md`); the public-read suite runs through `tests/browser/run-cms-public-reads.mjs`.
+
+CI (`.github/workflows/checks.yml`) runs the build, typecheck, node tests, `format:check`, `knip`,
+`jscpd` and `lint:shell` on every pull request; the browser suites stay local to the development
+runtime.
+
+`/tdd`'s agreed seams are the public browser suites on the development runtime, node:test on a
+`src/lib` module without runtime imports, and the runtime's verify checks for the model state
+(spec #51 "Testing Decisions"; #86 comment 6519918864). A ticket's Tests line picks among them;
+a new seam goes to the Product Owner.
 
 ## Agent skills
 
@@ -77,6 +89,9 @@ tools before relying on it:
 - **Context7 MCP first:** resolve the actual library at the version the manifests pin
   (`package.json`, `package-lock.json`, the digest-pinned images). Where Context7 lacks the
   technology or the fact, use first-party upstream documentation or package metadata.
+- **EmDash:** Context7 lacks its 1.1.0 internals. Start from the verified facts in
+  `docs/agents/emdash-1.1.0.md`, read the installed `node_modules/emdash/src` for the rest, and add
+  each new fact to that file with its source path.
 - **Pinned versions:** use the versions the manifests pin; upgrading or substituting a dependency
   needs the Product Owner's approval.
 - **Capability versus requirement:** documentation tells what a technology can do; the Product

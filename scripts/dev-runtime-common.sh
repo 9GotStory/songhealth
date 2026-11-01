@@ -14,7 +14,7 @@ MARKER=.songhealth-qdev-source-identity           # promoted commit, checked by 
 MEDIA_MARKER=.songhealth-qdev-media-store
 PORT=4324
 ORIGIN=http://127.0.0.1:$PORT
-NPM_VERSION=12.2.0
+NPM_VERSION=12.2.1
 QUADLET=/usr/libexec/podman/quadlet
 APP=songhealth-dev-app.service
 DB=songhealth-dev-db.service
@@ -45,6 +45,8 @@ ROLE_FIXTURE_ROLE=30
 ROLE_SQL="SELECT concat_ws('|', r.rolcanlogin, r.rolsuper, r.rolcreatedb, r.rolcreaterole, pg_get_userbyid(d.datdba))
   FROM pg_roles r, pg_database d WHERE r.rolname = 'songhealth_qdev_app' AND d.datname = 'songhealth_qdev'"
 ROLE_OK='t|f|f|f|songhealth_qdev_app'
+MODEL_PENDING=3                                   # model_update --check: changes are pending
+ADMIN_QUIET_MINUTES=10                            # a promotion waits this long after an Admin page load
 
 die()  { printf '%s: FAIL: %s\n' "${0##*/}" "$*" >&2; exit 1; }
 note() { printf '%s: %s\n' "${0##*/}" "$*"; }
@@ -54,6 +56,10 @@ image_of() { # image_of UNIT-FILE — the pinned Image= of a committed unit (sin
   sed -n 's/^Image=//p' "$SRC/deploy/dev-quadlet/$1"
 }
 volume_path() { podman volume inspect --format '{{.Mountpoint}}' "$1"; }
+serves_marker() { # serves_marker ORIGIN [SECONDS] — ORIGIN/ serves the public SSR marker
+  local page # captured whole: under pipefail, `| grep -q` would fail on curl's exit 23
+  page=$(curl -fsS --max-time "${2:-30}" "$1/" 2>/dev/null) && [[ $page == *'name="songhealth-foundation"'* ]]
+}
 db_has_cluster() { # the data volume holds an initialized PostgreSQL 18 cluster
   local p
   p=$(volume_path "$DB_VOLUME") && podman unshare test -e "$p/18/docker/PG_VERSION"
@@ -66,11 +72,50 @@ setup_needed() { # prints true or false from EmDash's native setup status endpoi
     | python3 -I -c 'import json, sys; print(str(json.load(sys.stdin)["data"]["needsSetup"]).lower())'
 }
 require_sha() { [[ ${1:-} =~ ^[0-9a-f]{40}$ ]] || die "--sha must name a full 40-hex commit"; }
-pat_identity() { # pat_identity FILE — prints "email role" for a 0600 PAT file (token sent on stdin)
+backup_runtime() { # database and media into a new $STATE_DIR/backups/<UTC> directory, named in BACKUP_DIR
+  BACKUP_DIR=$STATE_DIR/backups/$(date -u +%Y%m%dT%H%M%SZ)
+  install -d -m 0700 -- "$STATE_DIR/backups" "$BACKUP_DIR"
+  "$SRC/scripts/dev-runtime-backup.sh" "$BACKUP_DIR" || die "backup failed: nothing was changed"
+  note "backup written to $BACKUP_DIR"
+}
+ADMIN_TEST_SESSIONS=$STATE_DIR/admin-test-sessions  # browser suites' Admin sessions, "start end" (cms.helpers.ts)
+admin_page_loads() { # the Admin pages opened in the last ADMIN_QUIET_MINUTES; verify's probe and the
+  # browser suites' own Admin sessions (ADMIN_TEST_SESSIONS) left out
+  podman logs --timestamps --since "${ADMIN_QUIET_MINUTES}m" "$APP_CTR" 2>&1 \
+    | grep -aE '\] /_emdash/admin/' | grep -avE '\] /_emdash/admin/(login)? [0-9]' \
+    | python3 -I -c '
+import datetime, re, sys
+sessions = []
+try:
+    for line in open(sys.argv[1]):
+        try:
+            start, end = map(float, line.split())
+        except ValueError:
+            continue
+        sessions.append((start, end + 2))
+except FileNotFoundError:
+    pass
+for line in sys.stdin:
+    stamp, _, load = line.partition(" ")
+    at = datetime.datetime.fromisoformat(re.sub(r"(\.\d{6})\d+", r"\1", stamp)).timestamp()
+    if not any(start <= at <= end for start, end in sessions):
+        sys.stdout.write(load)
+' "$ADMIN_TEST_SESSIONS" || :
+}
+model_update() { # model_update [--check] — the promoted commit's scripts/model-update.mjs, run in the
+  # app container on its pinned Node, with the development PAT on stdin
+  [[ -s $STATE_DIR/dev-pat && $(stat -c %a "$STATE_DIR/dev-pat") == 600 ]] \
+    || { warn "the development PAT $STATE_DIR/dev-pat is missing or not mode 0600"; return 1; }
+  podman exec -i "$APP_CTR" node /src/scripts/model-update.mjs --origin "$ORIGIN" "$@" \
+    < "$STATE_DIR/dev-pat"
+}
+pat_get() { # pat_get FILE PATH — GET an API path with a 0600 PAT file's token (sent on stdin)
   local token
   [[ -s $1 && $(stat -c %a "$1") == 600 ]] || return 1
   token=$(<"$1")
-  printf 'Authorization: Bearer %s\n' "$token" \
-    | curl -fsS --max-time 30 -H @- "$ORIGIN/_emdash/api/auth/me" \
+  printf 'Authorization: Bearer %s\n' "$token" | curl -fsS --max-time 30 -H @- "$ORIGIN$2"
+}
+pat_identity() { # pat_identity FILE — prints "email role" for a 0600 PAT file
+  pat_get "$1" /_emdash/api/auth/me \
     | python3 -I -c 'import json, sys; d = json.load(sys.stdin)["data"]; print(d["email"], d["role"])'
 }

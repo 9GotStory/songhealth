@@ -1,0 +1,35 @@
+---
+// The site-designed 404 page (Feature 003 #52; `03` §17).
+//
+// Astro renders it, with status 404, for every route that matches no page;
+// later detail pages answer unknown, draft, unpublished and trashed entries
+// with the same page. It tells the visitor only that the page is not
+// available, never why, so nothing unpublished is revealed. It belongs to no
+// main-navigation section.
+import ActionLink from "../components/ActionLink.astro";
+import SiteLayout from "../layouts/SiteLayout.astro";
+
+const heading = "ไม่พบหน้าที่คุณต้องการ";
+---
+
+<SiteLayout title={heading}>
+	<div class="page-container py-16 lg:py-20">
+		<h1 class="text-h3 text-brand-dark sm:text-h2 lg:text-h1">{heading}</h1>
+		<p class="mt-4 max-w-prose text-body-large text-text-secondary">
+			ที่อยู่นี้อาจพิมพ์ไม่ถูกต้อง หรือหน้านี้อาจถูกย้ายหรือนำออกแล้ว
+		</p>
+		<ul class="mt-8 flex flex-wrap gap-3">
+			<li>
+				<ActionLink variant="primary" href="/">
+					กลับไปหน้าแรก
+				</ActionLink>
+			</li>
+			<li>
+				<ActionLink href="/search">ค้นหาข้อมูล</ActionLink>
+			</li>
+			<li>
+				<ActionLink href="/contact">ติดต่อเรา</ActionLink>
+			</li>
+		</ul>
+	</div>
+</SiteLayout>

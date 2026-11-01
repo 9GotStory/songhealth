@@ -17,7 +17,6 @@ healthy() { [[ $(podman inspect --format '{{.State.Health.Status}}' "$1" 2>/dev/
 ports_ok() { [[ $(podman port "$APP_CTR") == "$PORT/tcp -> 127.0.0.1:$PORT" && -z $(podman port "$DB_CTR") ]]; }
 # Outputs are captured whole before matching: under pipefail, `| grep -q` fails the check
 # (curl exit 23) or hides a match (SIGPIPE) once the output outgrows the pipe buffer.
-ssr_ok() { local page; page=$(curl -fsS --max-time 30 "$ORIGIN/") && [[ $page == *'name="songhealth-foundation"'* ]]; }
 admin_ok() { [[ $(curl -sS -L -o /dev/null -w '%{http_code}' --max-time 30 "$ORIGIN/_emdash/admin/") == 200 ]]; }
 setup_ok() { [[ $(setup_needed) == false ]]; }
 migrations_ok() { podman exec "$APP_CTR" /bin/sh /src/scripts/dev-runtime-entrypoint.sh migrate-check; }
@@ -28,6 +27,15 @@ source_ok() {
 }
 key_ok() { local logs; logs=$(podman logs "$APP_CTR" 2>&1) && [[ $logs != *'EMDASH_ENCRYPTION_KEY is invalid'* ]]; }
 pat_ok() { [[ $(pat_identity "$STATE_DIR/dev-pat") == 'dev@emdash.local 50' ]]; }
+plugin_ok() { # the Office Contact plugin (#62) is registered and enabled, with its settings form
+  local plugins
+  plugins=$(pat_get "$STATE_DIR/dev-pat" /_emdash/api/admin/plugins) || return 1
+  python3 -I -c '
+import json, sys
+items = json.loads(sys.argv[1])["data"]["items"]
+sys.exit(0 if any(p["id"] == "songhealth-office-contact" and p["enabled"] and p["hasSettings"] for p in items) else 1)
+' "$plugins"
+}
 fixture_ok() { [[ $(pat_identity "$ROLE_FIXTURE") == "$ROLE_FIXTURE_EMAIL $ROLE_FIXTURE_ROLE" ]]; }
 route_ok() { # the dev-only T021 fixture answers its probe with the 0600 client token, refuses without
   [[ $(stat -c %a "$ROUTE_ACCESS" 2>/dev/null) == 600 ]] || return 1
@@ -51,7 +59,7 @@ check "$APP active" systemctl --user is-active --quiet "$APP"
 check "database container healthy" healthy "$DB_CTR"
 check "application container healthy" healthy "$APP_CTR"
 check "published only on 127.0.0.1:$PORT (database has no host port)" ports_ok
-check "public SSR marker served at $ORIGIN/" ssr_ok
+check "public SSR marker served at $ORIGIN/" serves_marker "$ORIGIN"
 check "native Admin UI reachable at $ORIGIN/_emdash/admin/" admin_ok
 check "EmDash setup complete" setup_ok
 check "native migrations: none pending or unknown (emdash migrate --check)" migrations_ok
@@ -61,6 +69,9 @@ check "EmDash accepted EMDASH_ENCRYPTION_KEY" key_ok
 check "development PAT (mode 0600) authenticates" pat_ok
 check "role fixture PAT (mode 0600) authenticates as an enabled Author" fixture_ok
 check "T021 fixture route answers its 0600 route token and refuses without it" route_ok
+check "the database has the seed's content model, fields, reference terms and menus (scripts/dev-runtime-model-update.sh applies them)" \
+  model_update --check
+check "the Office Contact plugin is registered and enabled, with its settings form" plugin_ok
 printf 'runtime source: %s @ %s\n' "$SRC" "$(git -C "$SRC" rev-parse HEAD 2>/dev/null || printf unknown)"
 if (( failed )); then echo "VERIFY: FAIL"; exit 1; fi
 echo "VERIFY: PASS"

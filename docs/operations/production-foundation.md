@@ -270,7 +270,8 @@ Every production image is pinned by explicit version **and** immutable digest:
 - Application: `localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407`
 - PostgreSQL: `docker.io/library/postgres:18.6@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf`
 - The application image's build base is itself digest-pinned inside the Containerfile
-  (official Node 24.21.0 image).
+  (official Node 26.13.0 image since #101). The accepted artifact above was built on Node 24.21.0
+  and stays pinned until a reviewed re-pin replaces it.
 
 Podman resolves the digest against local image storage, so any other or rebuilt image fails
 container creation closed. Two consequences for operators:
@@ -675,6 +676,31 @@ Deliberately absent, and not to be improvised as "maintenance":
 - **No editing of committed units on the host** (§4.1) and **no marker creation to legitimize a
   missing/replaced store** (§5.3).
 - **No second production stack** — no Docker/Compose or Kubernetes variant is maintained.
+
+### 7.4 Content model updates
+
+EmDash applies `seed/seed.json` only when it sets up a fresh database. A database set up from an
+earlier seed gets a later content model from the model-update step, `scripts/model-update.mjs`
+(`10` §4). The step uses only EmDash's native schema, taxonomy and menu APIs:
+
+1. Back up the database and its media (`10` §18). The production backup procedure belongs to the
+   pending recovery work (§11).
+2. Use a checkout at the deployed commit, the Node its `package.json` engines pins, and an API
+   token of an Administrator with the `schema:read`, `schema:write`, `content:read`,
+   `taxonomies:manage` and `menus:manage` scopes (emdash 1.1.0 `src/astro/middleware/auth.ts`).
+   Check what is pending, then apply it:
+
+   ```bash
+   node scripts/model-update.mjs --origin <public origin> --check < <token file>  # 0: nothing pending, 3: changes pending
+   node scripts/model-update.mjs --origin <public origin> < <token file>
+   ```
+
+   The token goes in on standard input and is never printed. A problem, such as a URL pattern
+   that differs from the seed's, changes nothing and needs a Product Owner decision.
+3. Verify the public and Admin paths.
+
+The development runtime runs the same step through `scripts/dev-runtime-model-update.sh`
+(`development-quadlet.md`).
 
 ## 8. Readiness interpretation
 

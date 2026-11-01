@@ -3,36 +3,51 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "packageManager": "npm@12.2.0",
+  "packageManager": "npm@12.2.1",
   "engines": {
-    "node": "24.21.0",
-    "npm": "12.2.0"
+    "node": "26.13.0",
+    "npm": "12.2.1"
   },
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "build:check": "node scripts/with-build-inputs.mjs astro build",
     "preview": "astro preview",
     "dev-db:start": "./scripts/dev-db.sh start",
     "dev-db:stop": "./scripts/dev-db.sh stop",
     "dev-db:status": "./scripts/dev-db.sh status",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && node scripts/with-build-inputs.mjs astro check",
     "test:node": "node --test 'tests/node/*.test.ts'",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "knip": "knip",
+    "jscpd": "jscpd --config .jscpd.json && jscpd --config .jscpd.json --update-baseline --silent && git diff --exit-code -- .jscpd-baseline.json",
+    "lint:shell": "./scripts/lint-shell.sh",
     "test:browser": "playwright test",
     "verify:startup": "./tests/operations/verify-startup.sh"
   },
   "dependencies": {
     "@astrojs/node": "11.1.6",
     "@astrojs/react": "6.0.5",
+    "@lucide/astro": "1.59.0",
+    "@tailwindcss/vite": "4.3.3",
     "astro": "7.3.5",
     "emdash": "1.1.0",
     "pg": "8.23.1",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "tailwindcss": "4.3.3"
   },
   "devDependencies": {
+    "@astrojs/check": "0.9.10",
+    "@axe-core/playwright": "4.14.0",
     "@playwright/test": "1.63.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
+    "jscpd": "5.4.1",
+    "knip": "6.41.0",
+    "prettier": "3.9.10",
+    "prettier-plugin-astro": "1.1.1",
     "typescript": "6.0.3"
   }
 }

@@ -1,0 +1,23 @@
+{
+	"//": [
+		"The duplicate-code check (#93): `npm run jscpd`, run by CI on every pull request. A clone of at least 100 tokens over at least 5 lines that .jscpd-baseline.json does not hold fails it (failOnNewClones 0). That includes a new copy of a clone listed below, and an edit inside one. The baseline and the size are the Product Owner's choice (2026-10-30, #93 comment 6522507876).",
+		"A clone that stays is listed below with its reason and recorded with `npx jscpd --config .jscpd.json --update-baseline`. Fold any other clone into a shared module (CODING_STANDARDS.md \"Tests\" names the browser suites' two). After a fold, `npm run jscpd` records the baseline again and fails until that change is committed, so no stale entry lets a copy of the folded code back in; drop its line here too.",
+		"The script passes --config: jscpd 5.4.1 only warns when a config file it finds by itself does not parse, then runs with its defaults. This file is plain JSON; `//` is the comment key jscpd drops (rust/crates/cpd/src/cli.rs normalize_v4_config).",
+		"Not scanned: .git/, and docs/, specs/ and seed/, which hold prose, records and data. Dependencies and build output stay out through .gitignore.",
+		"The accepted Feature 001 shell scripts keep 19 clones. None of them sources another file, and a change that edits one of these clones folds it or records it again here:",
+		"- 7 between the backup and restore scripts and the checks that verify them (scripts/backup-foundation.sh, scripts/restore-foundation.sh, tests/operations/verify-recovery.sh, tests/operations/verify-emdash-postgresql-compatibility.sh): secret scrubbing, media path relations, migration URL and source identity parsing, and Recovery Set manifest checks;",
+		"- 10 between tests/operations/verify-emdash-postgresql-compatibility.sh and the other verification gates (verify-startup.sh, verify-recovery.sh, verify-foundation.sh): failure reporting, secret scrubbing, migration URL parsing, migration manifest and status report parsing, build checks and bounded EmDash CLI runs;",
+		"- 2 inside tests/operations/verify-foundation.sh: its Quadlet command-line tokenizer and its settings API probe, each written twice.",
+		"Accepted, 1 clone: tests/node/foundation.test.ts, an accepted Feature 001 test still in its Feature 001 formatting (.prettierignore), repeats tests/node/config.test.ts's URL-component helper.",
+		"Accepted, 1 clone: tests/browser/fixtures/cms-public-reads.integration.mjs, the accepted T021 route fixture, checks the shared filter, limit and cursor parameters in each query case's own branch. The development runtime loads it, so a change to it needs a promotion and the T021 run."
+	],
+	"path": ["."],
+	"format": ["typescript", "javascript", "astro", "css", "bash"],
+	"minTokens": 100,
+	"minLines": 5,
+	"gitignore": true,
+	"ignore": [".git/**", "docs/**", "specs/**", "seed/**"],
+	"baseline": ".jscpd-baseline.json",
+	"failOnNewClones": 0,
+	"reporters": ["console"]
+}

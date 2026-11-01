@@ -1,0 +1,29 @@
+---
+// A Portable Text field rendered through EmDash's own renderer (Feature 003 #54; spec #51
+// "Shared building blocks"), which brings EmDash's components for images, galleries, tables,
+// embeds and the rest. The page's title is its one H1 (#51 user story 8), and the Admin editor
+// offers H1 in the body too (@emdash-cms/admin 1.1.0 dist/index.js, the editor's heading levels
+// 1–6), so a body H1 renders as an H2. The `rich-text` styles in src/styles/global.css set the
+// typography.
+//
+// An image or gallery picture whose media item was deleted in Admin is left out, so the body never
+// shows a broken image (src/lib/media.ts availableBody; #59). In EmDash's edit mode the value
+// carries the inline editor's metadata and renders as the editor (emdash 1.1.0 src/query.ts
+// getEditMeta, src/components/PortableText.astro), so it passes unchanged: staff see the body as
+// stored and can replace the missing image.
+import { getEditMeta } from "emdash";
+import { PortableText, type PortableTextBlock } from "emdash/ui";
+import { availableBody } from "../lib/media";
+import BodyHeading from "./BodyHeading.astro";
+
+interface Props {
+	value: PortableTextBlock[];
+}
+
+const { value } = Astro.props;
+const body = getEditMeta(value) ? value : await availableBody(value, Astro.locals.emdash);
+---
+
+<div class="rich-text">
+	<PortableText value={body} components={{ block: { h1: BodyHeading } }} />
+</div>

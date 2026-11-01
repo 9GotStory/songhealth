@@ -1,0 +1,38 @@
+---
+// The breadcrumb on inner pages (Feature 003 #54; spec #51 user story 5, `03` §14).
+//
+// It follows the public information hierarchy, root first, and ends with the current page, which is
+// text marked aria-current rather than a link. The separators, chevron-right icons (#105), are
+// decorative (docs/agents/lucide-astro-1.59.0.md). The shell derives the items from the page's
+// section (src/lib/navigation.ts breadcrumbTrail).
+import ChevronRight from "@lucide/astro/icons/chevron-right";
+import type { Crumb } from "../lib/navigation";
+
+interface Props {
+	items: Crumb[];
+}
+
+const { items } = Astro.props;
+---
+
+<nav aria-label="เส้นทางนำทาง">
+	<ol class="flex flex-wrap items-center gap-x-2 gap-y-1 text-small text-text-secondary">
+		{items.map((item, index) => (
+			<li class="flex min-w-0 items-center gap-2">
+				{index > 0 && <ChevronRight class="shrink-0" size={16} />}
+				{item.href === undefined ? (
+					<span aria-current="page" class="wrap-anywhere text-text-primary">
+						{item.label}
+					</span>
+				) : (
+					<a
+						class="text-brand-primary underline underline-offset-4 hover:text-brand-dark"
+						href={item.href}
+					>
+						{item.label}
+					</a>
+				)}
+			</li>
+		))}
+	</ol>
+</nav>

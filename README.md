@@ -11,6 +11,10 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
 - **Feature 002 `cms-content-model`:** complete. The Product Owner gave it Final Acceptance on
   2026-10-29, and it was merged into `main`. For T032, the Product Owner waived the staff session
   and accepted the automated Admin journeys as the SC-007 evidence.
+- **Feature 003 `public-website`:** complete: the public website and the Homepage (spec #51,
+  tickets #52–#67). The Product Owner gave it Final Acceptance on 2026-11-01 (#51 comment
+  6559139711), and it was merged into `main`. The development runtime keeps the demo dataset until
+  the Product Owner asks for its removal.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,
@@ -47,6 +51,10 @@ and their workflow:
 - **Who does what:** Claude Code implements, tests, self-reviews and merges in-scope PRs. The
   Product Owner decides scope, architecture, destructive operations, production deployment and
   feature acceptance.
+- **Commit checks:** `git config core.hooksPath .githooks`, once per clone, makes every commit
+  pass `.githooks/pre-commit` (the pinned Node, formatting, Knip, typecheck, the
+  invisible-character scan, and ShellCheck when a shell script is staged). `scripts/check-node.sh`
+  also stops `scripts/dev-runtime-env.sh`, and with it every runtime test, on another Node.
 - **Workspace and runtime:** source development happens in `/home/thanakorn/dev/songhealth`
   (user `thanakorn`, UID 1000). The single development runtime is the one below
   (`http://127.0.0.1:4324`); no other development runtime, database or media store is created.
@@ -64,7 +72,7 @@ contract, procedures and failure handling:
 | --- | --- |
 | Owner | local user `thanakorn` (UID 1000): rootless Podman + systemd **user** Quadlet units from `deploy/dev-quadlet/` |
 | Origin | `http://127.0.0.1:4324/` — loopback only |
-| Application | `songhealth-dev-app.service` → container `songhealth-qdev-app`: Astro 7.3.5 + EmDash 1.1.0 dev server on `node:24.21.0-bookworm-slim` pinned by digest (the production build base); npm 12.2.0 dependencies |
+| Application | `songhealth-dev-app.service` → container `songhealth-qdev-app`: Astro 7.3.5 + EmDash 1.1.0 dev server on `node:26.13.0-bookworm-slim` pinned by digest (the production build base); npm 12.2.1 dependencies |
 | Database | `songhealth-dev-db.service` → container `songhealth-qdev-db`: PostgreSQL 18.6 pinned by digest, database `songhealth_qdev`, least-privilege app role `songhealth_qdev_app`, no host port |
 | Volumes | `songhealth-qdev-db-data`, `songhealth-qdev-media` (media at the application's stable `./media` path) |
 | Source | `~/dev/songhealth-quadlet` — a full clone at a detached, promoted commit, bind-mounted at `/src` |
@@ -76,25 +84,48 @@ contract, procedures and failure handling:
 # checkout ~/dev/songhealth-quadlet, whose scripts always belong to the promoted commit.
 scripts/dev-runtime-install.sh --sha <commit>   # install (converges; safe to re-run)
 scripts/dev-runtime-update.sh --sha <commit>    # promote another commit (backs up first)
-scripts/dev-runtime-verify.sh                   # read-only checks; ends with VERIFY: PASS|FAIL
+scripts/dev-runtime-model-update.sh             # give the database the seed's content model (backs up first)
+scripts/dev-runtime-verify.sh                   # read-only checks, the content model included; ends with VERIFY: PASS|FAIL
+scripts/dev-runtime-admin-activity.sh           # read-only: Admin pages opened in the last 10 minutes
 scripts/dev-runtime-backup.sh <dir>             # database dump + media archive
 scripts/dev-runtime-uninstall.sh [--purge]      # remove the units (keep data) | delete everything
 ```
 
-Tests target the runtime with its own credentials, which are never printed or committed:
+Tests target the runtime with its own credentials, which are never printed or committed.
+`scripts/dev-runtime-env.sh` runs a command with the origin and the credential file paths
+(`docs/operations/development-quadlet.md`, Browser and API tests):
 
 ```bash
 # ordinary suites (the role fixture enables the T019/T020 role cases; the dev Admin session
-# enables the Admin UI journeys of cms-lifecycle-ui and cms-editor; one worker at a time)
-S=~/.local/state/songhealth-qdev
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324 SONGHEALTH_DEV_ACCESS=$S/dev-pat \
-SONGHEALTH_ROLE_FIXTURE_ACCESS=$S/role-fixture-pat SONGHEALTH_ADMIN_SESSION=dev-bypass \
-  npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
+# enables the Admin UI journeys of cms-lifecycle-ui, cms-editor and cms-menus-ui; one worker at a time)
+scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
 # T021 public reads, only through the coordinator, from a checkout at the promoted commit
-SONGHEALTH_DEV_ACCESS=~/.local/state/songhealth-qdev/dev-pat \
-SONGHEALTH_T021_ROUTE_ACCESS=~/.local/state/songhealth-qdev/t021-route-access.json \
-  node tests/browser/run-cms-public-reads.mjs
+scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs
 ```
+
+Public-page suites (Feature 003) take `test` from `tests/browser/public.helpers.ts`. It guards
+every page against third-party requests, and it provides the axe (WCAG 2.2 AA and page
+structure, with every icon hidden from assistive technology), focus and reflow checks and the
+desktop and 320 px viewports.
+
+Pull-request screenshots of public pages come from
+`node scripts/capture-screenshots.mjs <out-dir> <path>...`. The script's header shows how to put
+them on an image-only `evidence/` branch, so no image enters the code tree. While the demo dataset
+below is installed, it fills every page, so the script alone captures a page with content. A state
+the dataset does not hold, such as a Document whose file was deleted, takes its content from
+`scripts/dev-runtime-env.sh node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir>`. The
+runner makes the module's synthetic content, captures the paths the module returns, and removes
+everything it made. `scripts/screenshot-fixtures/news.ts` is the example.
+
+The runtime holds the demo dataset: content marked `[ตัวอย่าง]` that fills every page for the
+Product Owner's review. `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` installs it
+and `… remove` takes it away. It stays installed, the Product Owner's exception to the cleanup rule
+below (`docs/operations/development-quadlet.md`, Demo dataset).
+
+Latency evidence for a list that reads more than one page (ADR 0002, ADR 0004) comes from
+`scripts/dev-runtime-env.sh node scripts/measure-latency.ts <fixtures-module> [runs]`. It times
+the module's paths before and after making its synthetic content, then removes the content, and
+prints a table for the pull request. `scripts/latency-fixtures/dated-lists.ts` is the example.
 
 Admin login uses EmDash's development-only bypass (browsers accept passkeys only on a domain
 origin, not `127.0.0.1`):
@@ -105,7 +136,10 @@ with the user session; linger is not enabled, so the runtime stops when the last
 
 - One runtime, one database, one media store, one test target: `http://127.0.0.1:4324`
   (`PLAYWRIGHT_BASE_URL=http://127.0.0.1:4324`). Never start a second Astro/EmDash server or
-  stack for verification (`CLAUDE.md`, Runtimes).
+  stack for verification (`CLAUDE.md`, Runtimes). The one exception is
+  `scripts/production-image-check.sh`, which runs the production image briefly against this
+  runtime's data and removes it (Product Owner, #67 comment 6558196151;
+  `docs/operations/development-quadlet.md`, Production image check).
 - Interpret runtime results only against the commit `dev-runtime-verify.sh` reports. Source
   changes reach the runtime only through `dev-runtime-update.sh`: the runtime checkout is never
   edited in place.
@@ -153,6 +187,8 @@ Every task run cleans up only **task-owned temporary resources** before it ends:
 
 Cleanup is part of task completion, never deferred to a later task. A task run that cannot
 clean up a resource it owns reports that fact in its result instead of leaving it silently.
+`scripts/dev-runtime-residue.sh` checks the runtime's share of it: synthetic entries, media,
+terms, bylines, redirects and menu items (`docs/operations/development-quadlet.md`, Daily use).
 
 Production prerequisites, deployment and recovery live in
 [docs/operations/production-foundation.md](docs/operations/production-foundation.md) and are

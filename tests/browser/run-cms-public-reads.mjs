@@ -1,98 +1,34 @@
 #!/usr/bin/env node
-// T021 — the Feature 002 public-read SINGLE-RUNTIME TEST COORDINATOR.
+// The T021 public-read coordinator (Feature 002 T021, retargeted to the single runtime by T037).
 //
-// The single development runtime at http://127.0.0.1:4324 (T036; retargeted
-// by T037): the UID-1000 rootless Quadlet runtime of
-// docs/operations/development-quadlet.md, with containers songhealth-qdev-app
-// + songhealth-qdev-db, persistent volumes and a runtime checkout at a
-// promoted commit. It is the SOLE runtime test target. This coordinator NEVER starts, stops, restarts or substitutes a
-// server: no Astro programmatic dev(), no `npm run dev`, no Playwright
-// `webServer`, no second server/port/DB/media stack, no port fallback. An
-// occupied shared origin is the intended state. It only:
+// The single development runtime at http://127.0.0.1:4324 (docs/operations/development-quadlet.md)
+// is the only target. The coordinator never starts, stops, restarts or substitutes a server, and an
+// occupied origin is its intended state. It:
+//   1. checks the exact source identity both ways: this checkout's full HEAD (or a 40-hex
+//      SONGHEALTH_T021_EXPECTED_SOURCE_SHA), and the runtime source that dev-runtime-verify.sh
+//      reports with VERIFY: PASS, plus the app's marker and the fixture route's identity probe. A
+//      missing, malformed, stale or mismatched identity is a HOLD before any fixture is made or
+//      any test runs;
+//   2. checks the prerequisites: the Node major package.json engines pins, the pinned local
+//      Playwright runner, and the mode-0600 development credential and route-access token (the
+//      token is read only to probe the route);
+//   3. HOLDs on any earlier run's ownership manifest, which it never replays, adopts or deletes;
+//   4. runs tests/browser/cms-public-reads.spec.ts through the pinned Playwright runner, with
+//      PLAYWRIGHT_BASE_URL pinned to the runtime and the opt-in that keeps an ordinary
+//      `npm run test:browser` from running it;
+//   5. owns only its Playwright child and the run's manifest: on failure, timeout, SIGINT or
+//      SIGTERM it terminates and reaps that child, keeps the manifest while owned fixtures may
+//      remain, and reports the primary and the cleanup failures together.
 //
-//   1. verifies the EXACT source identity both ways (Lead corrective round
-//      1, R2): the full 40-hex candidate identity this checkout is being
-//      tested at, and the runtime source SHA observed through the runtime's
-//      documented read-only dev-runtime-verify.sh, which must also report
-//      VERIFY: PASS — plus the app's own marker and the fixture's identity
-//      probe. Missing,
-//      malformed, stale or mismatched identities are a non-success HOLD
-//      BEFORE credentials, fixture mutations or any worker spawn;
-//   2. verifies the coordinated prerequisites (pinned local Playwright
-//      runner installed; the mode-0600 development credential input and the
-//      mode-0600 route-access token input present — existence/mode only for
-//      the PAT; the token file is read to probe the route and nothing else);
-//   3. PRIOR-RUN EVIDENCE HOLDs (scope reduction): historical ownership
-//      journals are never replayed, adopted, consumed or deleted — any
-//      leftover manifest (valid-looking, settled, malformed, unreadable or
-//      EMPTY) is retained untouched and produces a named prerequisite HOLD
-//      before any worker spawns; disposition is a separately authorized
-//      operator action. The worker itself equally refuses recovery inputs;
-//   4. runs the ONE T021 spec file through the repo-pinned Playwright
-//      runner with PLAYWRIGHT_BASE_URL pinned to the persistent origin and
-//      the explicit opt-in that keeps ordinary `npm run test:browser` from
-//      ever executing this runtime suite or reading its credentials
-//      (discovery stays side-effect free);
-//   5. owns exactly its Playwright child and the run's ownership manifest:
-//      on failure, timeout, SIGINT or SIGTERM it terminates, awaits and
-//      reaps ONLY that child (SIGTERM, bounded grace, SIGKILL), preserves
-//      the manifest whenever owned synthetic fixtures may remain (worker
-//      interruption never silently discards ownership records), and reports
-//      primary AND cleanup/residue failures together. Every timer and
-//      transient listener is cleared on every completion path (R4), all
-//      prerequisite requests carry an abort deadline, and a child spawn
-//      failure is handled with the same truthful cleanup. The shared app,
-//      DB, media volumes, credentials and runtime checkout are never
-//      test-owned resources; runtime fixture creation/cleanup itself
-//      is the separately authorized T022 serial join's to execute.
+// Exit codes: 0 every test passed and no residue remained; 1 the Playwright run failed (its code);
+// 2 the run passed but coverage or cleanup is incomplete; 3 HOLD, a prerequisite failed before the
+// test run; 4 interrupted or timed out, the child terminated and reaped.
 //
-// Exit codes (truthful outcomes, never false success):
-//   0  child passed, every recorded test status passed, no residue remained
-//   1  child Playwright run failed (its exit code propagated)
-//   2  child exited zero but coverage/residue is incomplete (skipped or
-//      non-passed recorded statuses, or unresolved owned fixtures)
-//   3  HOLD — a prerequisite failed; nothing was spawned or started
-//   4  interrupted (SIGINT/SIGTERM) or timed out; child terminated/reaped
-//
-// Authority:
-// - specs/002-cms-content-model/tasks.md T021 and the "T021 execution and
-//   single-runtime isolation" block ("The coordinator
-//   node tests/browser/run-cms-public-reads.mjs must not call Astro
-//   programmatic dev(), npm run dev, create a webServer, stop/restart any
-//   shared container, or switch ports; it orchestrates the existing pinned
-//   Playwright command with PLAYWRIGHT_BASE_URL=http://127.0.0.1:4322 and
-//   owned synthetic fixtures"; "On failures, timeouts, SIGINT or SIGTERM,
-//   perform awaited cleanup/reconciliation with the existing server still
-//   available; report cleanup failures alongside original failures"), as
-//   retargeted by T037: the origin is the single runtime's
-//   http://127.0.0.1:4324 and its verify replaces the retired UID-1001
-//   Runtime Controller observation
-// - CLAUDE.md "Runtimes" (one server/DB/media
-//   store/test target; never free the port or substitute; a dev-only
-//   integration not yet installed is NOT READY → HOLD; task cleanup covers
-//   task-owned temporary resources only) and the Multica runtime brief's
-//   never-terminate-by-name rule (only this coordinator's own child PID)
-// - docs/operations/development-quadlet.md "Verify" — dev-runtime-verify.sh
-//   is read-only, and runtime results are interpreted only against the
-//   commit it reports; this coordinator uses it as the approved observation
-//   of the runtime source SHA
-// - tests/browser/foundation.spec.ts — the public songhealth-foundation SSR
-//   marker contract (application identity, NOT by itself source identity)
-// - tests/browser/fixtures/cms-public-reads.integration.mjs — the fixture
-//   route contract (route pattern, access header, identity, env names)
-//
-// Verified API surface (recorded per CLAUDE.md §Current documentation):
-// Node 24 global fetch with redirect:"error" and AbortSignal.timeout for
-// bounded requests; node:child_process spawn with explicit 'error'/'exit'
-// event handling and awaited termination/reaping; node:child_process.execFile
-// for the bounded read-only `git rev-parse HEAD` (expected candidate
-// identity) and the runtime's dev-runtime-verify.sh (observed runtime source
-// identity: its `runtime source: <checkout> @ <sha>` line before the final
-// VERIFY: PASS — verified against the installed runtime); the
-// repo-local pinned @playwright/test 1.63.0 CLI
-// (node_modules/@playwright/test/cli.js) as the runner — `npm run
-// test:browser` is deliberately NOT used so the ordinary suite never drags
-// this runtime file along.
+// Platform behaviour relied on (Node 26.13.0): global fetch with redirect "error" and
+// AbortSignal.timeout;
+// child_process spawn with awaited termination, and execFile for `git rev-parse HEAD` and
+// dev-runtime-verify.sh (its `runtime source: <checkout> @ <sha>` line); the pinned
+// @playwright/test 1.63.0 CLI (node_modules/@playwright/test/cli.js).
 
 import { spawn, execFile } from "node:child_process";
 import { mkdir, readFile, readdir, stat } from "node:fs/promises";
@@ -110,8 +46,7 @@ const SPEC_FILE = "tests/browser/cms-public-reads.spec.ts";
 const PLAYWRIGHT_CLI = "node_modules/@playwright/test/cli.js";
 
 /** The public SSR marker proving the origin is the Songhealth application. */
-const SSR_MARKER_PATTERN =
-	/<meta\s+name="songhealth-foundation"\s+content="public-runtime"\s*\/?>/;
+const SSR_MARKER_PATTERN = /<meta\s+name="songhealth-foundation"\s+content="public-runtime"\s*\/?>/;
 
 /** Explicit coordinator opt-in consumed by the spec file. */
 const OPT_IN_ENV = "SONGHEALTH_T021_COORDINATOR";
@@ -153,7 +88,10 @@ const PREREQUISITE_DEADLINE_MS = 10_000;
  * It is invoked only to OBSERVE the runtime source identity. Overridable path
  * for offline controls.
  */
-const RUNTIME_VERIFY_DEFAULT = path.join(os.homedir(), "dev/songhealth-quadlet/scripts/dev-runtime-verify.sh");
+const RUNTIME_VERIFY_DEFAULT = path.join(
+	os.homedir(),
+	"dev/songhealth-quadlet/scripts/dev-runtime-verify.sh",
+);
 const RUNTIME_VERIFY_ENV = "SONGHEALTH_RUNTIME_VERIFY";
 const RUNTIME_VERIFY_DEADLINE_MS = 120_000;
 
@@ -185,7 +123,10 @@ function boundedExec(file, args, label, timeoutMs = PREREQUISITE_DEADLINE_MS) {
 				{ cwd: repoRoot, timeout: timeoutMs, maxBuffer: 1024 * 1024 },
 				(error, stdout) => {
 					if (error) {
-						resolve({ error: `${label} failed (${error.code ?? error.message})`, stdout: String(stdout ?? "") });
+						resolve({
+							error: `${label} failed (${error.code ?? error.message})`,
+							stdout: String(stdout ?? ""),
+						});
 					} else {
 						resolve({ stdout: String(stdout) });
 					}
@@ -217,7 +158,9 @@ export async function expectedSourceIdentity() {
 	}
 	const sha = (git.stdout ?? "").trim();
 	if (!FULL_SHA_PATTERN.test(sha)) {
-		return { error: `git rev-parse HEAD returned a non-SHA value — refusing to guess the candidate identity` };
+		return {
+			error: `git rev-parse HEAD returned a non-SHA value — refusing to guess the candidate identity`,
+		};
 	}
 	return { sha, provenance: "git rev-parse HEAD of this checkout" };
 }
@@ -234,17 +177,26 @@ export async function expectedSourceIdentity() {
  */
 export async function observedRuntimeSourceIdentity() {
 	const verify = process.env[RUNTIME_VERIFY_ENV] ?? RUNTIME_VERIFY_DEFAULT;
-	const run = await boundedExec(verify, [], `runtime verify (${verify})`, RUNTIME_VERIFY_DEADLINE_MS);
+	const run = await boundedExec(
+		verify,
+		[],
+		`runtime verify (${verify})`,
+		RUNTIME_VERIFY_DEADLINE_MS,
+	);
 	const lines = (run.stdout ?? "").trim().split("\n");
 	if (run.error !== undefined || lines.at(-1) !== "VERIFY: PASS") {
-		const failing = lines.filter((line) => line.startsWith("FAIL: ")).map((line) => line.slice("FAIL: ".length));
+		const failing = lines
+			.filter((line) => line.startsWith("FAIL: "))
+			.map((line) => line.slice("FAIL: ".length));
 		return {
 			error: `the runtime source identity could not be observed: ${run.error ?? `verify ended with ${JSON.stringify(lines.at(-1) ?? "")}`}${failing.length > 0 ? ` (failing: ${failing.join("; ")})` : ""}; an unverified runtime is a HOLD, never an assumption`,
 		};
 	}
 	const source = /^runtime source: .+ @ ([0-9a-f]{40})$/.exec(lines.at(-2) ?? "")?.[1];
 	if (source === undefined || !FULL_SHA_PATTERN.test(source)) {
-		return { error: "the runtime verify output carries no full 40-hex `runtime source` identity line" };
+		return {
+			error: "the runtime verify output carries no full 40-hex `runtime source` identity line",
+		};
 	}
 	return {
 		sha: source,
@@ -315,7 +267,9 @@ export async function readRouteAccessToken() {
 		}
 		return { token: parsed.token };
 	} catch (error) {
-		return { error: `route access input ${value} could not be read (${error.code ?? error.message})` };
+		return {
+			error: `route access input ${value} could not be read (${error.code ?? error.message})`,
+		};
 	}
 }
 
@@ -341,7 +295,10 @@ async function originIdentityHolds() {
 		}
 		return undefined;
 	} catch (error) {
-		const reason = error?.name === "TimeoutError" ? "deadline exceeded" : (error.cause?.code ?? error.cause?.message ?? error.message);
+		const reason =
+			error?.name === "TimeoutError"
+				? "deadline exceeded"
+				: (error.cause?.code ?? error.cause?.message ?? error.message);
 		return `the persistent development origin ${PERSISTENT_DEVELOPMENT_ORIGIN} did not answer (${reason}); an unavailable shared app is a HOLD prerequisite — never authorization to start, restart or substitute a server`;
 	}
 }
@@ -360,7 +317,8 @@ async function fixtureReadinessHolds(routeAccessToken, expectedSha) {
 	try {
 		probe = await fetchJson(url, { "x-songhealth-t021-route-access": routeAccessToken });
 	} catch (error) {
-		const reason = error?.name === "TimeoutError" ? "deadline exceeded" : (error.cause?.code ?? error.message);
+		const reason =
+			error?.name === "TimeoutError" ? "deadline exceeded" : (error.cause?.code ?? error.message);
 		return `the fixture route probe failed against the persistent origin (${reason})`;
 	}
 	if (probe.status === 404) {
@@ -379,7 +337,11 @@ async function fixtureReadinessHolds(routeAccessToken, expectedSha) {
 	if (body.fixtureId !== "songhealth:t021:cms-public-reads" || body.fixtureVersion !== 1) {
 		return `unexpected fixture identity at /__feature002/public-reads (fixtureId=${String(body.fixtureId)}, fixtureVersion=${String(body.fixtureVersion)}) — refusing to run against an unknown fixture`;
 	}
-	if (body.sourceIdentity !== undefined && body.sourceIdentity !== null && body.sourceIdentity !== expectedSha) {
+	if (
+		body.sourceIdentity !== undefined &&
+		body.sourceIdentity !== null &&
+		body.sourceIdentity !== expectedSha
+	) {
 		return `the fixture route declares source identity ${String(body.sourceIdentity)} but the candidate under test is ${expectedSha} — refusing to run against a different source`;
 	}
 	if (!(probe.headers.get("cache-control") ?? "").includes("no-store")) {
@@ -445,8 +407,12 @@ export async function terminateChild(child, reason) {
 	clearTimeout(graceTimer);
 	if (exited === undefined) {
 		child.kill("SIGKILL");
-		const reaped = await new Promise((resolve) => child.once("exit", (code, signal) => resolve({ code, signal })));
-		process.stderr.write(`${reason}: child did not exit within ${TERMINATION_GRACE_MS}ms of SIGTERM; SIGKILLed and reaped\n`);
+		const reaped = await new Promise((resolve) =>
+			child.once("exit", (code, signal) => resolve({ code, signal })),
+		);
+		process.stderr.write(
+			`${reason}: child did not exit within ${TERMINATION_GRACE_MS}ms of SIGTERM; SIGKILLed and reaped\n`,
+		);
 		return reaped;
 	}
 	process.stderr.write(`${reason}: child terminated and reaped\n`);
@@ -491,11 +457,15 @@ export async function expectedTestTitles() {
 		}
 		budgetMs = parsed;
 	}
-	const child = spawn(process.execPath, [PLAYWRIGHT_CLI, "test", SPEC_FILE, "--list", "--reporter=json"], {
-		cwd: repoRoot,
-		env: { ...process.env },
-		stdio: ["ignore", "pipe", "pipe"],
-	});
+	const child = spawn(
+		process.execPath,
+		[PLAYWRIGHT_CLI, "test", SPEC_FILE, "--list", "--reporter=json"],
+		{
+			cwd: repoRoot,
+			env: { ...process.env },
+			stdio: ["ignore", "pipe", "pipe"],
+		},
+	);
 	let stdout = "";
 	let stderr = "";
 	const onData = (chunk) => {
@@ -528,17 +498,24 @@ export async function expectedTestTitles() {
 	process.removeListener("SIGTERM", onSignalTerm);
 	if (outcome.timedOut === true) {
 		await terminateChild(child, "discovery timeout");
-		return { error: `the discovery pre-pass did not finish within its ${budgetMs}ms budget (child terminated and reaped)` };
+		return {
+			error: `the discovery pre-pass did not finish within its ${budgetMs}ms budget (child terminated and reaped)`,
+		};
 	}
 	if (outcome.interrupted !== undefined) {
 		await terminateChild(child, `discovery interrupted by ${outcome.interrupted}`);
-		return { interrupted: true, error: `the discovery pre-pass was interrupted by ${outcome.interrupted} (child terminated and reaped)` };
+		return {
+			interrupted: true,
+			error: `the discovery pre-pass was interrupted by ${outcome.interrupted} (child terminated and reaped)`,
+		};
 	}
 	if (outcome.spawnError !== undefined) {
 		return { error: `the discovery pre-pass could not run (${outcome.spawnError})` };
 	}
 	if (outcome.code !== 0) {
-		return { error: `the discovery pre-pass failed with exit code ${String(outcome.code)}${stderr.trim().length > 0 ? `: ${stderr.trim().split("\n").pop()}` : ""}` };
+		return {
+			error: `the discovery pre-pass failed with exit code ${String(outcome.code)}${stderr.trim().length > 0 ? `: ${stderr.trim().split("\n").pop()}` : ""}`,
+		};
 	}
 	let parsed;
 	try {
@@ -559,7 +536,10 @@ export async function expectedTestTitles() {
 	};
 	walk(parsed.suites);
 	if (titles.length === 0) {
-		return { error: "the discovery pre-pass reported zero expected tests — refusing to accept an empty expected set" };
+		return {
+			error:
+				"the discovery pre-pass reported zero expected tests — refusing to accept an empty expected set",
+		};
 	}
 	return { titles };
 }
@@ -586,12 +566,16 @@ function coverageFailures(statuses, expectedTitles) {
 		const title = String(entry.title ?? "");
 		const status = String(entry.status ?? "unknown");
 		if (status !== "passed") {
-			failures.push(`test ${JSON.stringify(title)} recorded status ${JSON.stringify(status)}, not a terminal "passed"`);
+			failures.push(
+				`test ${JSON.stringify(title)} recorded status ${JSON.stringify(status)}, not a terminal "passed"`,
+			);
 		}
 		const count = (seen.get(title) ?? 0) + 1;
 		seen.set(title, count);
 		if (count > 1) {
-			failures.push(`test ${JSON.stringify(title)} recorded ${count} result rows — duplicated/retried results cannot satisfy coverage`);
+			failures.push(
+				`test ${JSON.stringify(title)} recorded ${count} result rows — duplicated/retried results cannot satisfy coverage`,
+			);
 		}
 	}
 	for (const title of expectedTitles) {
@@ -601,7 +585,9 @@ function coverageFailures(statuses, expectedTitles) {
 	}
 	for (const title of seen.keys()) {
 		if (!expectedTitles.includes(title)) {
-			failures.push(`unexpected recorded test ${JSON.stringify(title)} is not part of the expected suite`);
+			failures.push(
+				`unexpected recorded test ${JSON.stringify(title)} is not part of the expected suite`,
+			);
 		}
 	}
 	return failures;
@@ -634,19 +620,27 @@ async function readRunStatuses(statusPath) {
 async function main() {
 	const reasons = [];
 
-	// Toolchain honesty: record the running Node, and HOLD on a major
-	// mismatch with the pinned 24.x line (engines: 24.21.0).
-	const major = Number.parseInt(process.versions.node.split(".")[0], 10);
-	if (major !== 24) {
+	// Toolchain honesty: HOLD when the running Node's major differs from the one package.json
+	// engines pins.
+	const packageJson = await readFile(path.join(repoRoot, "package.json"), "utf8")
+		.then(JSON.parse)
+		.catch(() => undefined);
+	const pinned = packageJson?.engines?.node;
+	const majorOf = (version) => Number.parseInt(String(version).split(".")[0], 10);
+	if (pinned === undefined) {
+		reasons.push("package.json names no engines.node pin to check the running Node against");
+	} else if (majorOf(process.versions.node) !== majorOf(pinned)) {
 		reasons.push(
-			`running under Node ${process.versions.node}, outside the pinned 24.x line (package.json engines 24.21.0) — refusing to produce runtime evidence on an unpinned toolchain`,
+			`running under Node ${process.versions.node}, outside the pinned ${majorOf(pinned)}.x line (package.json engines ${pinned}) — refusing to produce runtime evidence on an unpinned toolchain`,
 		);
 	}
 
 	// Pinned runner presence (isolated static prerequisite).
 	const cliStats = await stat(path.join(repoRoot, PLAYWRIGHT_CLI)).catch(() => undefined);
 	if (cliStats === undefined) {
-		reasons.push(`the repo-local pinned Playwright runner ${PLAYWRIGHT_CLI} is not installed (run the repo install step in this checkout first)`);
+		reasons.push(
+			`the repo-local pinned Playwright runner ${PLAYWRIGHT_CLI} is not installed (run the repo install step in this checkout first)`,
+		);
 	}
 
 	const timeout = resolvedTimeoutMs();
@@ -708,7 +702,10 @@ async function main() {
 
 	// Credential prerequisites and the AUTHENTICATED fixture probe — only
 	// after the identity gate above.
-	const devAccessReason = await credentialInputHolds(DEV_ACCESS_CREDENTIAL_ENV, "development credential");
+	const devAccessReason = await credentialInputHolds(
+		DEV_ACCESS_CREDENTIAL_ENV,
+		"development credential",
+	);
 	if (devAccessReason !== undefined) {
 		await hold([devAccessReason]);
 		return;
@@ -787,17 +784,13 @@ async function main() {
 	const outcomePromise = new Promise((resolve) => {
 		resolveOutcome = resolve;
 	});
-	const onChildError = (error) =>
-		resolveOutcome({ spawnError: error.code ?? error.message });
+	const onChildError = (error) => resolveOutcome({ spawnError: error.code ?? error.message });
 	const onChildExit = (code, signal) => resolveOutcome({ code, signal });
 	child.once("error", onChildError);
 	child.once("exit", onChildExit);
 	process.once("SIGINT", onSignalInt);
 	process.once("SIGTERM", onSignalTerm);
-	const timeoutHandle = setTimeout(
-		() => resolveOutcome({ timedOut: true }),
-		timeout,
-	);
+	const timeoutHandle = setTimeout(() => resolveOutcome({ timedOut: true }), timeout);
 	// The timeout must never be the thing keeping a completed run alive.
 	timeoutHandle.unref?.();
 

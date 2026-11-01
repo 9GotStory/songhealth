@@ -67,8 +67,12 @@ A public directory record of a staff member's current public position and unit.
 _Avoid_: Staff account, user, employee record
 
 **Leadership** (ผู้บริหาร):
-The Personnel who hold the office's executive positions, in order of rank. A view of Personnel, not a separate kind.
+The Personnel who hold the office's executive positions, in Leadership order. A view of Personnel, not a separate kind.
 _Avoid_: Executive profile, management type
+
+**Leadership order** (ลำดับผู้บริหาร):
+A Personnel's place among the Leadership, the lowest number first. A Personnel without one is not Leadership.
+_Avoid_: Rank, executive rank
 
 **Office Contact** (ข้อมูลติดต่อสำนักงาน):
 The office-wide address, telephone, opening hours and official channels that citizens use to reach the office.
