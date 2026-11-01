@@ -702,6 +702,38 @@ earlier seed gets a later content model from the model-update step, `scripts/mod
 The development runtime runs the same step through `scripts/dev-runtime-model-update.sh`
 (`development-quadlet.md`).
 
+### 7.5 Admin change log
+
+The application writes one JSON line to standard output for each state-changing request to
+EmDash's API: publishing, schema, menu and settings changes, user access and sign-ins (#115,
+ADR 0005). Routine editing that EmDash records itself writes none: entry saves, the edit lock and
+new media uploads. A line looks like this:
+
+```json
+{"log":"songhealth-admin-change","time":"2026-11-01T03:04:05.678Z","userId":"01J…","role":"EDITOR","method":"POST","path":"/_emdash/api/content/news/01J…/publish","status":200}
+```
+
+- `time` is UTC. `userId` and `role` are EmDash's, or `null` when no one was signed in; Admin →
+  Users shows who a user id is.
+- `status` shows whether the request succeeded or was refused, such as 401, 403 or 409.
+- A line never holds a request body, query string, header, cookie, token or password. It says who
+  made a change and when; the entry, field, menu or user named in `path` holds the new state.
+- A scheduled publish goes live inside the application with no request: the line shows who
+  scheduled it, and the entry shows when it went live.
+
+The application unit sets no `LogDriver=`, so Podman sends the container's output to journald,
+its default (Podman 5.8.4 `podman info` on the development host reports `journald`, and the
+development runtime's application container uses it, 2026-11-01). Read the lines from the unit's
+journal by their marker:
+
+```bash
+journalctl --user -u songhealth-app.service -o cat --grep songhealth-admin-change --since today
+journalctl --user -u songhealth-app.service -o cat --grep 'songhealth-admin-change.*/admin/users/'
+```
+
+How long journald keeps them is set with the production host (Feature 001 T022/T028), where the
+Product Owner confirms whether a legal minimum applies (ADR 0005).
+
 ## 8. Readiness interpretation
 
 ### 8.1 What each observable signal proves — and does not
