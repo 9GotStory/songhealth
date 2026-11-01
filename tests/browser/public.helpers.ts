@@ -190,7 +190,9 @@ export async function expectAccessibleAtEachWidth(page: Page, label: string): Pr
  * path `paths` gives answers 200, axe reports no WCAG 2.2 AA violation on it, no icon on it is
  * exposed to assistive technology, and focus stays visible; at 320 px none scrolls sideways.
  * `pages` names them in the test titles, such as "the News pages". `paths` is called when the
- * tests run, after the suite's fixtures exist.
+ * tests run, after the suite's fixtures exist. Each width's paths share one test and its 30 s
+ * timeout, which held 13 list pages at the desktop width but not 30 (#67), so split a longer list
+ * into several calls.
  */
 export function testAccessibilityAndReflow(pages: string, paths: () => readonly string[]): void {
 	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
