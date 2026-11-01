@@ -241,6 +241,49 @@ cited file exists and that the name carries the pinned version.
   The networks are twitter, github, facebook, instagram, linkedin and youtube; LINE is not one
   (`src/settings/types.ts`).
 
+## Traceability
+
+What EmDash records about who changed what, and when (#115; ADR 0005 builds on it).
+
+- A publish records its time in `published_at` but not who published: after the route's permission
+  check, `handleContentPublish` drops the `actor`
+  (`src/astro/routes/api/content/[collection]/[id]/publish.ts`, `src/emdash-runtime.ts`). A publish promotes the draft revision, whose author is whoever saved it
+  last, or creates a revision with no author when there is no draft
+  (`src/database/repositories/content.ts` `publish`). Each save writes a revision with its author
+  and time (`src/database/repositories/revision.ts`).
+- The `content:beforePublish` policy hook receives the `actor` and the `origin`, but
+  `content:afterPublish` receives neither. No plugin hook exists for schema, settings or user
+  changes (`src/plugins/types.ts` `ContentPolicyEvent`, `ContentStateChangeEvent`, `PluginHooks`).
+- Collections keep `created_at` and `updated_at`, and fields only `created_at`
+  (`src/database/migrations/003_schema_registry.ts`). Menus keep both
+  (`src/database/migrations/036_i18n_menus_and_taxonomies.ts`). Site settings (`site:` keys) and
+  plugin settings are rows of the `options` table, which holds only a name and a value
+  (`src/settings/index.ts`, `src/api/handlers/plugin-settings.ts`,
+  `src/database/migrations/001_initial.ts`). None of them records who made the change.
+- A role change and a disable go through `updateUser`, which sets `updated_at` with the new values
+  and keeps neither the old value nor the actor (`src/astro/routes/api/admin/users/[id]/index.ts`,
+  `src/astro/routes/api/admin/users/[id]/disable.ts`, `@emdash-cms/auth/src/adapters/kysely.ts`).
+  A disable also deletes the user's OAuth tokens. An invite's row keeps `invited_by` and the role
+  (`src/database/migrations/008_auth.ts`) and is deleted once the invite is accepted
+  (`@emdash-cms/auth/src/invite.ts`). Revoking an API token deletes its row
+  (`src/api/handlers/api-tokens.ts`).
+- Each media item keeps `author_id` and `created_at` (`src/database/migrations/001_initial.ts`).
+  The Admin takes and refreshes an entry's edit lock with `POST …/lock` and releases it with
+  `DELETE` (`src/astro/routes/api/content/[collection]/[id]/lock.ts`).
+- The `audit_logs` table has an actor, an IP, an action, a resource, details and a status
+  (`src/database/repositories/audit.ts`). EmDash writes it only for plugin MCP tool calls and
+  transfers (`src/emdash-runtime.ts` `handlePluginMcpTool`, `src/transfer/audit.ts`). No route reads
+  it, and the package's exports leave out its repository. The development runtime held no rows on
+  2026-11-01.
+- The publish, schema, settings, user and token routes write no log line. Only `dev-bypass` and the
+  first admin's OAuth setup do (`src/astro/routes/api/auth/dev-bypass.ts`).
+- EmDash adds its middleware with `order: "pre"` (`src/astro/integration/index.ts`
+  `buildMiddlewareEntries`).
+- The MCP endpoint at `/_emdash/api/mcp` is on unless the integration sets `mcp: false`, and it
+  takes bearer tokens only (`src/astro/integration/runtime.ts`). Its tools include
+  `content_publish`, `schema_create_field`, `schema_delete_collection`, and taxonomy and menu
+  changes (`src/mcp/server.ts`).
+
 ## Search and seeding
 
 - Full-text search is SQLite-only: `enableSearch` throws on PostgreSQL (`src/search/fts-manager.ts`;
