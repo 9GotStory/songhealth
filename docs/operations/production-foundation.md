@@ -706,15 +706,15 @@ The development runtime runs the same step through `scripts/dev-runtime-model-up
 
 The application writes one JSON line to standard output for each state-changing request to
 EmDash's API: publishing, schema, menu and settings changes, user access and sign-ins (#115,
-ADR 0005). Routine editing that EmDash records itself writes none: entry saves, the edit lock and
-new media uploads. A line looks like this:
+ADR 0005). Routine editing writes none, because EmDash records it itself or it changes nothing:
+entry saves, the edit lock and new media uploads. A line looks like this:
 
 ```json
 {"log":"songhealth-admin-change","time":"2026-11-01T03:04:05.678Z","userId":"01J…","role":"EDITOR","method":"POST","path":"/_emdash/api/content/news/01J…/publish","status":200}
 ```
 
 - `time` is UTC. `userId` and `role` are EmDash's, or `null` when no one was signed in; Admin →
-  Users shows who a user id is.
+  Users shows who a user id is. `role` is EmDash's role name, such as `ADMIN` or `EDITOR`.
 - `status` shows whether the request succeeded or was refused, such as 401, 403 or 409.
 - A line never holds a request body, query string, header, cookie, token or password. It says who
   made a change and when; the entry, field, menu or user named in `path` holds the new state.

@@ -1,14 +1,21 @@
 // The admin change log (#115; ADR 0005): one JSON line per state-changing request to EmDash's
 // API, so publishing, schema and Admin changes, and user-access changes show who made them and
-// when. Routine editing that EmDash records itself writes no line.
+// when. Routine editing writes no line, because EmDash records it itself or it changes nothing.
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { type AnsweredRequest, adminChangeLine } from "../../src/lib/admin-change-log.ts";
+import {
+	type AnsweredRequest,
+	adminChangeLine,
+	withAdminChangeLog,
+} from "../../src/lib/admin-change-log.ts";
 
 const ENTRY = "/_emdash/api/content/news/01JAAAAAAAAAAAAAAAAAAAAAAA";
 const EDITOR = { id: "01JEDITOR0000000000000000", role: "EDITOR" };
+
+/** A request as its method, the route Astro ran and the requested path. */
+type Routed = [method: string, route: string, path: string];
 
 function answered(overrides: Partial<AnsweredRequest>): AnsweredRequest {
 	return {
@@ -62,12 +69,13 @@ describe("adminChangeLine", () => {
 		);
 	});
 
-	it("writes nothing for routine editing that EmDash records itself", () => {
-		const routine: Array<[method: string, route: string, path: string]> = [
+	it("writes nothing for routine editing: entry saves, the edit lock and new media uploads", () => {
+		const routine: Routed[] = [
 			// An entry's create and update save a revision with its author and time.
 			["POST", "/_emdash/api/content/[collection]", "/_emdash/api/content/news"],
 			["PUT", "/_emdash/api/content/[collection]/[id]", ENTRY],
-			// The Admin takes, refreshes and releases the edit lock while someone edits.
+			// The Admin takes, refreshes and releases the edit lock while someone edits. Any method
+			// on it writes none, even one the route does not answer.
 			["POST", "/_emdash/api/content/[collection]/[id]/lock", `${ENTRY}/lock`],
 			["DELETE", "/_emdash/api/content/[collection]/[id]/lock", `${ENTRY}/lock`],
 			["PUT", "/_emdash/api/content/[collection]/[id]/lock", `${ENTRY}/lock`],
@@ -89,7 +97,7 @@ describe("adminChangeLine", () => {
 
 	it("writes one line for each publishing, schema, settings, menu and user-access change", () => {
 		const user = "/_emdash/api/admin/users/01JUSER";
-		const logged: Array<[method: string, route: string, path: string]> = [
+		const logged: Routed[] = [
 			["POST", "/_emdash/api/content/[collection]/[id]/publish", `${ENTRY}/publish`],
 			["POST", "/_emdash/api/content/[collection]/[id]/unpublish", `${ENTRY}/unpublish`],
 			["POST", "/_emdash/api/content/[collection]/[id]/schedule", `${ENTRY}/schedule`],
@@ -141,6 +149,15 @@ describe("adminChangeLine", () => {
 		assert.equal(line.path, "/_emdash/%61pi/settings");
 	});
 
+	it("logs a request to EmDash's API that no route answers, such as the MCP path while MCP is off", () => {
+		// Astro runs the 404 page for it (src/pages/404.astro).
+		const line = loggedLine(
+			answered({ route: "/404", path: "/_emdash/api/mcp", status: 404, user: null }),
+		);
+		assert.equal(line.path, "/_emdash/api/mcp");
+		assert.equal(line.status, 404);
+	});
+
 	it("never carries a query string or fragment into the line", () => {
 		const line = adminChangeLine(
 			answered({
@@ -170,5 +187,49 @@ describe("adminChangeLine", () => {
 		);
 		assert.equal(line.userId, null);
 		assert.equal(line.role, null);
+	});
+});
+
+describe("withAdminChangeLog", () => {
+	const { status: _, ...publish } = answered({});
+
+	it("writes the line once the request has its answer, with the answer's status", async () => {
+		const written: string[] = [];
+		const response = new Response(null, { status: 409 });
+		const answer = await withAdminChangeLog(
+			async () => response,
+			() => publish,
+			(line) => written.push(line),
+		);
+		assert.equal(answer, response);
+		assert.equal(written.length, 1);
+		assert.equal(JSON.parse(written[0]).status, 409);
+	});
+
+	it("writes status 500 when the handler throws, and lets its error propagate unchanged", async () => {
+		const written: string[] = [];
+		const failure = new Error("handler failed");
+		await assert.rejects(
+			withAdminChangeLog(
+				async () => {
+					throw failure;
+				},
+				() => publish,
+				(line) => written.push(line),
+			),
+			(error) => error === failure,
+		);
+		assert.equal(written.length, 1);
+		assert.equal(JSON.parse(written[0]).status, 500);
+	});
+
+	it("writes nothing for a request that is not logged", async () => {
+		const written: string[] = [];
+		await withAdminChangeLog(
+			async () => new Response(null, { status: 200 }),
+			() => ({ ...publish, method: "GET" }),
+			(line) => written.push(line),
+		);
+		assert.deepEqual(written, []);
 	});
 });

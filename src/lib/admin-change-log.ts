@@ -2,7 +2,13 @@
 // API, so publishing, schema and Admin changes, and user-access changes show who made them and
 // when. EmDash 1.1.0 records who did none of these (docs/agents/emdash-1.1.0.md
 // "Traceability").
+//
+// A request is under EmDash's API when its path is, or when the route Astro ran is: astro 7.3.5
+// routes on the decoded path (dist/core/routing/match-request.js), so a percent-encoded path such
+// as /_emdash/%61pi/settings still reaches the settings route. The exclusions below are decided by
+// that route for the same reason.
 
+const API = "/_emdash/api/";
 const STATE_CHANGING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 // Routine editing writes no line, because EmDash records who did it and when, or because it
@@ -41,7 +47,8 @@ export interface AnsweredRequest {
 export function adminChangeLine(request: AnsweredRequest): string | undefined {
 	const method = request.method.toUpperCase();
 	const { route } = request;
-	if (!STATE_CHANGING.has(method) || !route.startsWith("/_emdash/api/")) return undefined;
+	if (!STATE_CHANGING.has(method)) return undefined;
+	if (!request.path.startsWith(API) && !route.startsWith(API)) return undefined;
 	if (route === EDIT_LOCK || ROUTINE_EDITING.has(`${method} ${route}`)) return undefined;
 	return JSON.stringify({
 		log: "songhealth-admin-change",
@@ -52,4 +59,29 @@ export function adminChangeLine(request: AnsweredRequest): string | undefined {
 		path: request.path.replace(/[?#].*$/s, ""),
 		status: request.status,
 	});
+}
+
+/**
+ * Answers the request with `next`, then writes its line through `write`: with the answer's status,
+ * or with 500 when the handler throws, whose error then propagates unchanged. `details` is read
+ * after the answer, once EmDash has resolved the user the request acted as.
+ */
+export async function withAdminChangeLog(
+	next: () => Promise<Response>,
+	details: () => Omit<AnsweredRequest, "status">,
+	write: (line: string) => void,
+): Promise<Response> {
+	const log = (status: number) => {
+		const line = adminChangeLine({ ...details(), status });
+		if (line !== undefined) write(line);
+	};
+	let response: Response;
+	try {
+		response = await next();
+	} catch (error) {
+		log(500);
+		throw error;
+	}
+	log(response.status);
+	return response;
 }

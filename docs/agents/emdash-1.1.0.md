@@ -279,13 +279,13 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
   first admin's OAuth setup do (`src/astro/routes/api/auth/dev-bypass.ts`).
 - EmDash adds its middleware with `order: "pre"` (`src/astro/integration/index.ts`
   `buildMiddlewareEntries`). The `middleware.outer` option adds a project middleware ahead of it,
-  which wraps the whole EmDash pipeline (`src/astro/integration/runtime.ts`). The admin change log
-  uses it (#115 comment 6559591057).
+  which wraps the whole EmDash pipeline (`src/astro/integration/runtime.ts`).
+  `./src/middleware/admin-change-log.ts` uses it (#115 comment 6559591057).
 - EmDash's auth middleware answers some refusals itself, without calling `next()`: 401 for no
   session or an invalid token, and 403 for a missing `X-EmDash-Request` header, a token's scope or
   a disabled account (`src/astro/middleware/auth.ts`). A signed-in request has `locals.user` set
   by the time `next()` resolves.
-- The admin change log names routes by the patterns EmDash injects, such as
+- `./src/lib/admin-change-log.ts` names routes by the patterns EmDash injects, such as
   `/_emdash/api/content/[collection]/[id]/lock` (`src/astro/integration/routes.ts`).
 - On local storage the Admin uploads a new media item in three requests: `POST …/media/upload-url`
   creates a pending item, then `PUT …/media/{id}/upload` and `POST …/media/{id}/confirm`.
