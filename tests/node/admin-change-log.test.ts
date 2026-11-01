@@ -149,13 +149,16 @@ describe("adminChangeLine", () => {
 		assert.equal(line.path, "/_emdash/%61pi/settings");
 	});
 
-	it("logs a request to EmDash's API that no route answers, such as the MCP path while MCP is off", () => {
-		// Astro runs the 404 page for it (src/pages/404.astro).
-		const line = loggedLine(
-			answered({ route: "/404", path: "/_emdash/api/mcp", status: 404, user: null }),
-		);
-		assert.equal(line.path, "/_emdash/api/mcp");
-		assert.equal(line.status, 404);
+	it("writes nothing for an API path that no route answers, which changes nothing", () => {
+		// astro 7.3.5 answers it with the 404 page, through the middleware again for a method the
+		// route does not export (dist/core/errors/default-handler.js); #115 comment 6560104841.
+		for (const path of ["/_emdash/api/mcp", "/_emdash/api/settings", `${ENTRY}/lock`]) {
+			assert.equal(
+				adminChangeLine(answered({ method: "PUT", route: "/404", path, status: 404 })),
+				undefined,
+				path,
+			);
+		}
 	});
 
 	it("never carries a query string or fragment into the line", () => {

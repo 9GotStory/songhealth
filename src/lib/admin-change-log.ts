@@ -3,12 +3,14 @@
 // when. EmDash 1.1.0 records who did none of these (docs/agents/emdash-1.1.0.md
 // "Traceability").
 //
-// A request is under EmDash's API when its path is, or when the route Astro ran is: astro 7.3.5
-// routes on the decoded path (dist/core/routing/match-request.js), so a percent-encoded path such
-// as /_emdash/%61pi/settings still reaches the settings route. The exclusions below are decided by
-// that route for the same reason.
+// A request is under EmDash's API when the route Astro ran is, not its path (Product Owner, #115
+// comment 6560104841). astro 7.3.5 routes on the decoded path (dist/core/routing/match-request.js),
+// so a percent-encoded path such as /_emdash/%61pi/settings still reaches the settings route. And
+// for a method a route does not export, Astro runs the middleware again for the 404 page with the
+// same path (dist/runtime/server/endpoint.js, dist/core/errors/default-handler.js), which the path
+// would log twice. An API path that no route answers changes nothing and writes no line.
 
-const API = "/_emdash/api/";
+const EMDASH_API = "/_emdash/api/";
 const STATE_CHANGING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 // Routine editing writes no line, because EmDash records who did it and when, or because it
@@ -47,8 +49,7 @@ export interface AnsweredRequest {
 export function adminChangeLine(request: AnsweredRequest): string | undefined {
 	const method = request.method.toUpperCase();
 	const { route } = request;
-	if (!STATE_CHANGING.has(method)) return undefined;
-	if (!request.path.startsWith(API) && !route.startsWith(API)) return undefined;
+	if (!STATE_CHANGING.has(method) || !route.startsWith(EMDASH_API)) return undefined;
 	if (route === EDIT_LOCK || ROUTINE_EDITING.has(`${method} ${route}`)) return undefined;
 	return JSON.stringify({
 		log: "songhealth-admin-change",
