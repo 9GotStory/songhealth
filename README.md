@@ -11,6 +11,9 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
 - **Feature 002 `cms-content-model`:** complete. The Product Owner gave it Final Acceptance on
   2026-10-29, and it was merged into `main`. For T032, the Product Owner waived the staff session
   and accepted the automated Admin journeys as the SC-007 evidence.
+- **Feature 003 `public-website`:** the public website and the Homepage (spec #51, tickets
+  #52–#67), built on the integration branch `003-public-website`. It waits for the Product
+  Owner's Final Acceptance, and it merges into `main` only on their word.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,
@@ -81,7 +84,7 @@ contract, procedures and failure handling:
 scripts/dev-runtime-install.sh --sha <commit>   # install (converges; safe to re-run)
 scripts/dev-runtime-update.sh --sha <commit>    # promote another commit (backs up first)
 scripts/dev-runtime-model-update.sh             # give the database the seed's content model (backs up first)
-scripts/dev-runtime-verify.sh                   # read-only checks; ends with VERIFY: PASS|FAIL
+scripts/dev-runtime-verify.sh                   # read-only checks, the content model included; ends with VERIFY: PASS|FAIL
 scripts/dev-runtime-admin-activity.sh           # read-only: Admin pages opened in the last 10 minutes
 scripts/dev-runtime-backup.sh <dir>             # database dump + media archive
 scripts/dev-runtime-uninstall.sh [--purge]      # remove the units (keep data) | delete everything

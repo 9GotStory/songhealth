@@ -5,11 +5,14 @@
 // opens on its own page under that title; the Personnel lists and the Contact page show theirs;
 // each reserved Basic Page's address shows the page published there, the dataset's or the
 // office's own; and the Homepage shows a Featured item, both its News card and its Announcements,
-// and every other section that hides while it has nothing to show. The suite only reads. It skips
-// while the dataset is not installed, and fails while it is installed in part.
+// and every other section that hides while it has nothing to show. Every public template but the
+// 404 page, as the dataset fills it, passes the axe and focus checks at both widths and does not
+// scroll sideways at 320 px (#67). The suite only reads. It skips while the dataset is not
+// installed, and fails while it is installed in part.
 
 import { demoDataset } from "../../scripts/demo-dataset/content.ts";
 import { DEMO_PREFIX } from "../../scripts/demo-dataset/plan.ts";
+import { CANONICAL_URL_PATTERNS } from "../canonical-url-patterns";
 import {
 	dataOfItem,
 	devAdminActor,
@@ -27,6 +30,7 @@ import {
 	listedTitles,
 	siteTitleParts,
 	test,
+	testAccessibilityAndReflow,
 } from "./public.helpers";
 
 /** The mark every demo title starts with (#66). */
@@ -60,21 +64,33 @@ const BASIC_PAGES = {
 /** The Personnel pages: a person has no page of their own (`03` §5). */
 const PERSONNEL_PAGES = ["/about/leadership", "/about/personnel"];
 
+/**
+ * The dataset's entries, told by their demo slugs. The reserved Basic Pages are left out: they keep
+ * their reserved slugs and may be the office's own, so BASIC_PAGES checks them by address.
+ */
+const DEMO_ENTRIES = demoDataset(new Date()).entries.filter(({ slug }) =>
+	slug.startsWith(DEMO_PREFIX),
+);
+
+/** The first dataset entry of each public collection, at its own address. */
+const ENTRY_PAGES = Object.entries(CANONICAL_URL_PATTERNS).flatMap(([collection, pattern]) => {
+	const entry = DEMO_ENTRIES.find((candidate) => candidate.collection === collection);
+	return entry === undefined ? [] : [pattern.replace("{slug}", entry.slug)];
+});
+
 test.use({ viewport: DESKTOP_VIEWPORT });
 
 let admin: CmsActor;
 /** The site title, which heads the Homepage's Contact Summary. */
 let siteTitle: string;
+/** The addresses of the reserved Basic Pages that are published, the only ones to sweep. */
+const publishedBasicPages: string[] = [];
 
 test.beforeAll(async () => {
 	admin = await devAdminActor();
 	({ siteTitle } = await siteTitleParts(admin));
-	// The reserved Basic Pages may be the office's own, so the dataset is told by its demo slugs.
-	const entries = demoDataset(new Date()).entries.filter(({ slug }) =>
-		slug.startsWith(DEMO_PREFIX),
-	);
 	const missing: string[] = [];
-	for (const { collection, slug } of entries) {
+	for (const { collection, slug } of DEMO_ENTRIES) {
 		const item = nativeItemOf(await readEntry(admin, collection, slug));
 		const title = String(dataOfItem(item).title ?? "");
 		if (statusOfItem(item) !== "published" || !title.startsWith(MARK)) {
@@ -82,10 +98,16 @@ test.beforeAll(async () => {
 		}
 	}
 	test.skip(
-		missing.length === entries.length,
+		missing.length === DEMO_ENTRIES.length,
 		"the demo dataset is not installed (scripts/demo-dataset.ts add)",
 	);
 	expect(missing, "the demo dataset's entries that are not published").toEqual([]);
+	// An office page at a reserved slug may be a draft; its address must not land in the 404 log.
+	for (const [slug, path] of Object.entries(BASIC_PAGES)) {
+		if (statusOfItem(nativeItemOf(await readEntry(admin, "pages", slug))) === "published") {
+			publishedBasicPages.push(path);
+		}
+	}
 });
 
 for (const path of LIST_PAGES) {
@@ -148,3 +170,16 @@ test("/contact shows Office Contact", async ({ page }) => {
 	await expect(page.getByRole("main")).toContainText(MARK);
 	await expect(page.getByRole("main").getByRole("link", { name: "เปิดแผนที่" })).toBeVisible();
 });
+
+// Every public template with the dataset's content (#67), beside each suite's own sweep with its
+// fixtures, in three groups that each finish within the test timeout. The 404 page answers 404, so
+// public-shell.spec.ts sweeps it.
+testAccessibilityAndReflow("the dataset's list pages", () => LIST_PAGES);
+testAccessibilityAndReflow("the dataset's entry pages", () => ENTRY_PAGES);
+testAccessibilityAndReflow("the Homepage, hub, About, Basic and Contact pages", () => [
+	"/",
+	"/health",
+	"/contact",
+	...PERSONNEL_PAGES,
+	...publishedBasicPages,
+]);

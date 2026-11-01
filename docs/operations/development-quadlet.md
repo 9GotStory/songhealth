@@ -295,7 +295,9 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
   fixtures, and a test of an empty section returns the runtime's own entries to draft and
   publishes them again at their own dates (`tests/browser/public.helpers.ts` `BorrowedEntries`).
   `tests/browser/public-demo-dataset.spec.ts` checks that the installed dataset fills every page
-  and every Homepage section, and skips while the dataset is not installed. The residue scan
+  and every Homepage section, and sweeps every public template it fills with the axe, focus and
+  reflow checks (#67). It skips while the dataset is not installed, so evidence that rests on the
+  sweep shows its tests as passed, not skipped. The residue scan
   counts only synthetic fixtures, so the dataset never counts as residue.
 
 ## Verify
@@ -315,7 +317,11 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
 - the role fixture PAT authenticates as `role-fixture@songhealth.test`, enabled, with role Author;
 - the dev-only T021 fixture route answers its 0600 route token and refuses requests without it;
 - the database has the promoted seed's content model, fields, reference terms and menus: the
-  model-update step's read-only check, run in the app container.
+  model-update step's read-only check, run in the app container. Feature 003's share is, for
+  example, each public collection's URL pattern and SEO support, Personnel kept non-routable with
+  its `leadership_order` field, the Document Types `policy`, `plan` and `result`, and the three
+  Homepage menus;
+- the Office Contact plugin is registered and enabled, with its settings form.
 
 Runtime results are interpreted only against the commit verify reports.
 
