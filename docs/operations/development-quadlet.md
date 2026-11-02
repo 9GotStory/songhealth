@@ -145,6 +145,10 @@ the real state first and only adds what is missing:
 ~/dev/songhealth-quadlet/scripts/dev-runtime-update.sh --sha <commit>   # [--no-backup] [--force]
 ```
 
+The runtime checkout fetches from the workspace repository. A commit made on GitHub, such as a
+pull request's merge, reaches it once a workspace branch holds it:
+`git fetch origin <branch>:<branch>` (#122 retro).
+
 The update runs these steps:
 
 1. Refuses when an Admin page was opened in the last 10 minutes, and lists those page loads. The
