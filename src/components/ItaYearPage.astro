@@ -1,0 +1,71 @@
+---
+// A fiscal year's page, /ita/{fiscal-year} (Feature 004 #124; spec #121 "Public routes", ADR 0006):
+// the year's published MOITs by number (src/lib/ita.ts inMoitOrder), each a row with its
+// "MOIT n" badge and title, which lead to its page, how much Evidence it holds and
+// "ปรับปรุงล่าสุด" when staff set it. The Evidence is counted as the MOIT's own page counts it
+// (src/lib/ita.ts groupEvidence), without reading a file. src/pages/ita/[slug].astro renders this
+// for a year that has a published MOIT.
+import SiteLayout from "../layouts/SiteLayout.astro";
+import {
+	groupEvidence,
+	inMoitOrder,
+	itaYearCrumb,
+	itaYearPath,
+	itaYearTitle,
+	moitLabel,
+	moitPath,
+} from "../lib/ita";
+import type { MoitEntry } from "../lib/moits";
+import DateText from "./DateText.astro";
+import PageHeading from "./PageHeading.astro";
+
+interface Props {
+	year: number;
+	/** The year's published MOITs, in any order. */
+	moits: MoitEntry[];
+}
+
+const { year, moits } = Astro.props;
+const title = itaYearTitle(year);
+const lead = `ตัวชี้วัด MOIT ${moits.length} รายการของปีงบประมาณ พ.ศ. ${year} พร้อมหลักฐานที่เผยแพร่`;
+---
+
+<SiteLayout
+	title={title}
+	section="ita"
+	description={lead}
+	canonical={itaYearPath(year)}
+	crumbs={[{ label: itaYearCrumb(year) }]}
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading title={title} lead={lead} />
+		<ol class="flex flex-col divide-y divide-divider rounded-24 bg-surface-base shadow-card">
+			{inMoitOrder(moits).map(({ id, data }) => (
+				<li>
+					<article class="flex flex-col gap-2 p-5">
+						<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
+							<a
+								class="underline-offset-4 hover:text-brand-primary hover:underline"
+								href={moitPath(id)}
+							>
+								<span class="mr-1 inline-block rounded-pill bg-brand-primary px-3 py-0.5 text-label text-surface-base">
+									{moitLabel(data.number)}
+								</span>{" "}
+								{data.title}
+							</a>
+						</h2>
+						<p class="text-small text-text-secondary">
+							หลักฐาน {groupEvidence(data.evidence).total} รายการ
+							{data.updated_on && (
+								<>
+									{" · ปรับปรุงล่าสุด "}
+									<DateText value={data.updated_on} />
+								</>
+							)}
+						</p>
+					</article>
+				</li>
+			))}
+		</ol>
+	</div>
+</SiteLayout>

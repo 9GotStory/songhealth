@@ -70,7 +70,10 @@ cited file exists and that the name carries the pinned version.
 - A `number` field is a `REAL` column (`src/schema/types.ts` `FIELD_TYPE_TO_COLUMN`), which is
   `float4` on PostgreSQL: about 7 significant digits. A Thai longitude keeps 5 decimal places
   (`100.1234567` reads back as `100.12346`, about 1 m), enough for a map link.
-- No query returns distinct values. `./src/lib/documents.ts` `fiscalYears` walks down instead.
+- No query returns distinct values or a count: a collection read answers its entries and, with a
+  `limit`, whether more remain (`src/query.ts` `CollectionResult`). `./src/lib/documents.ts`
+  `fiscalYears` walks down instead, and `./src/lib/moits.ts` reads every published MOIT for the ITA
+  landing's years and counts.
 - `getEmDashEntry(type, slug, { references: { field: true } })` adds
   `entry.references.field.entries`. A target resolves only while it is published, or is a draft in
   preview (`src/query.ts` `attachReferences`). If you pass explicit type arguments, pass the
@@ -459,6 +462,13 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
   entry can be removed alone (`src/astro/routes/api/redirects/404s/index.ts`,
   `src/api/handlers/redirects.ts` `handleNotFoundClear`).
   `./scripts/dev-runtime-residue.sh --clear-404-log` calls the `DELETE`.
+- A 404 log entry keeps the missed path without its query string, with the request's `Referer` and
+  `User-Agent`, and the list answers them as `referrer` and `userAgent`. A repeated miss of one path
+  adds a hit and keeps the latest referrer (`src/astro/middleware/redirect.ts`,
+  `src/database/repositories/redirect.ts` `log404`). `./tests/browser/public.helpers.ts`
+  `expectSiteNotFound` asks from a `songhealth-unknown-` referrer, so
+  `./scripts/dev-runtime-residue.sh` counts a miss as the tests' even where its path cannot carry
+  the mark, such as a fiscal year's `/ita/2404`.
 - A content API request with no token and no session is refused before its route runs. A
   state-changing one without `X-EmDash-Request: 1` answers `403 CSRF_REJECTED`; any other answers
   `401 NOT_AUTHENTICATED` (`src/astro/middleware/auth.ts`). The development runtime answered both
