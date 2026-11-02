@@ -3,7 +3,7 @@
   "version": "1",
   "meta": {
     "name": "Songhealth CMS Content Model",
-    "description": "The Songhealth content model (current/02-content-model.md): ten native collections (documents, pages, news, activities, announcements, health_content, services, health_reports, personnel and health_services) with their fields, six relations (document_successor, page_documents, announcement_documents, service_documents, report_document and facility_services) and nine taxonomies (topic, audience, the hierarchical area, document_type, news_category, announcement_type, service_category, report_type and facility_type). Domain dates such as activity_at stay separate from native publication and scheduling, and no date unpublishes anything. A Health Report describes the one Document it requires; a Service is guidance only, with no transaction or payment. The nine public collections carry their canonical URL patterns (current/03 §15) and SEO support. Personnel is not routable, because no per-person public route exists (03 §5). The seed defines only the Document Type reference terms policy, plan and result, and the three Homepage menus staff curate (homepage-featured, homepage-services and homepage-quick-access), empty; it defines no other terms and no redirects, widget areas, sections or content: term inventories wait for authoritative sources. Area terms model Province, District, Subdistrict and Village, with the official code in the term slug, the name in its label and the parent through native group identity. EmDash applies this seed only when it sets up a fresh database; an existing database gets later model changes from scripts/model-update.mjs."
+    "description": "The Songhealth content model (current/02-content-model.md): eleven native collections (documents, pages, news, activities, announcements, health_content, services, health_reports, personnel, health_services and moit) with their fields, three block types (ita_requirement, ita_file and ita_link), six relations (document_successor, page_documents, announcement_documents, service_documents, report_document and facility_services) and nine taxonomies (topic, audience, the hierarchical area, document_type, news_category, announcement_type, service_category, report_type and facility_type). Domain dates such as activity_at stay separate from native publication and scheduling, and no date unpublishes anything. A Health Report describes the one Document it requires; a Service is guidance only, with no transaction or payment. The nine public collections carry their canonical URL patterns (current/03 §15) and SEO support. A MOIT entry is one indicator of one fiscal year's ITA, at /ita/{slug} with SEO, and its Evidence is a blocks field of Requirement, file and link blocks, each piece of Evidence with a Round (spec #121, ADR 0006). Personnel is not routable, because no per-person public route exists (03 §5). The seed defines only the Document Type reference terms policy, plan and result, and the three Homepage menus staff curate (homepage-featured, homepage-services and homepage-quick-access), empty; it defines no other terms and no redirects, widget areas, sections or content: term inventories wait for authoritative sources. Area terms model Province, District, Subdistrict and Village, with the official code in the term slug, the name in its label and the parent through native group identity. EmDash applies this seed only when it sets up a fresh database; an existing database gets later model changes from scripts/model-update.mjs."
   },
   "collections": [
     {
@@ -598,6 +598,164 @@
             "relation": "facility_services",
             "relationSide": "parent"
           }
+        }
+      ]
+    },
+    {
+      "slug": "moit",
+      "label": "MOIT",
+      "labelSingular": "MOIT",
+      "group": "ITA",
+      "supports": ["drafts", "revisions", "preview", "scheduling", "seo"],
+      "urlPattern": "/ita/{slug}",
+      "titleField": "title",
+      "fields": [
+        {
+          "slug": "title",
+          "label": "ชื่อตัวชี้วัด",
+          "type": "string",
+          "required": true
+        },
+        {
+          "slug": "fiscal_year",
+          "label": "ปีงบประมาณ",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "slug": "number",
+          "label": "ลำดับ MOIT",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "slug": "summary",
+          "label": "สรุป",
+          "type": "text"
+        },
+        {
+          "slug": "updated_on",
+          "label": "ปรับปรุงล่าสุด",
+          "type": "datetime"
+        },
+        {
+          "slug": "evidence",
+          "label": "ข้อกำหนดและหลักฐาน",
+          "type": "blocks",
+          "validation": {
+            "allowedTypes": ["ita_requirement", "ita_file", "ita_link"],
+            "maxItems": 100
+          }
+        }
+      ]
+    }
+  ],
+  "blockTypes": [
+    {
+      "slug": "ita_requirement",
+      "label": "ข้อกำหนด",
+      "description": "หัวข้อข้อกำหนดของ MOIT เช่น 1 หรือ 1.1 หลักฐานที่ตามมาอยู่ใต้ข้อนี้",
+      "category": "ITA",
+      "currentVersion": 1,
+      "versions": [
+        {
+          "version": 1,
+          "fields": [
+            {
+              "slug": "number",
+              "label": "ข้อ",
+              "type": "string",
+              "required": true
+            },
+            {
+              "slug": "title",
+              "label": "ชื่อข้อกำหนด",
+              "type": "text",
+              "required": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ita_file",
+      "label": "หลักฐาน: ไฟล์",
+      "description": "ไฟล์จากคลังสื่อ เช่น บันทึกเสนอ ผบห. เอกสาร หรือฟอร์มเผยแพร่",
+      "category": "ITA",
+      "currentVersion": 1,
+      "versions": [
+        {
+          "version": 1,
+          "fields": [
+            {
+              "slug": "label",
+              "label": "ชื่อหลักฐาน",
+              "type": "string",
+              "required": true
+            },
+            {
+              "slug": "file",
+              "label": "ไฟล์",
+              "type": "file",
+              "required": true
+            },
+            {
+              "slug": "round",
+              "label": "รอบการประเมิน",
+              "type": "select",
+              "required": true,
+              "defaultValue": "ไม่ระบุรอบ",
+              "validation": {
+                "options": ["ไม่ระบุรอบ", "รอบ 6 เดือน", "รอบ 12 เดือน"]
+              }
+            },
+            {
+              "slug": "note",
+              "label": "หมายเหตุ",
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ita_link",
+      "label": "หลักฐาน: ลิงก์",
+      "description": "หน้าเว็บของสำนักงานหรือเว็บไซต์ภายนอก",
+      "category": "ITA",
+      "currentVersion": 1,
+      "versions": [
+        {
+          "version": 1,
+          "fields": [
+            {
+              "slug": "label",
+              "label": "ชื่อหลักฐาน",
+              "type": "string",
+              "required": true
+            },
+            {
+              "slug": "url",
+              "label": "ที่อยู่เว็บ",
+              "type": "url",
+              "required": true
+            },
+            {
+              "slug": "round",
+              "label": "รอบการประเมิน",
+              "type": "select",
+              "required": true,
+              "defaultValue": "ไม่ระบุรอบ",
+              "validation": {
+                "options": ["ไม่ระบุรอบ", "รอบ 6 เดือน", "รอบ 12 เดือน"]
+              }
+            },
+            {
+              "slug": "current",
+              "label": "ข้อมูลปัจจุบัน (เปลี่ยนตามเวลา)",
+              "type": "boolean"
+            }
+          ]
         }
       ]
     }

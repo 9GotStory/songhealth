@@ -208,15 +208,26 @@ content model from the model-update step:
     `~/.local/state/songhealth-qdev/backups/<UTC>/`, applies the changes, reads the model again
     to confirm it, and runs verify.
   - With nothing pending, it changes nothing and takes no backup, so it is safe to run again.
-- **What it manages.** For each collection in the seed:
+- **What it manages.** First the seed's block types, such as the ITA block types `ita_requirement`,
+  `ita_file` and `ita_link` that MOIT's Evidence is made of (#122):
+  - it creates the block types the database lacks;
+  - it updates a changed one in place, by the fingerprint of its active version. EmDash refuses a
+    change that would break the blocks already stored, and the step asks for no new version;
+  - it deletes none, since EmDash 1.1.0 has no route for that: a block type the seed drops stays,
+    left out of the blocks fields' allowed types.
+
+  A collection the seed has and the database lacks, such as MOIT, is created with the seed's
+  settings and fields. For each collection the database has:
   - its URL pattern;
   - its `supports` values: it adds the missing ones and removes none, and SEO also sets the flag
     that puts the collection in the native sitemap;
   - whether it is routable;
   - its fields: it creates the seed's fields that the collection lacks, such as Personnel's
-    `leadership_order`, and removes none. A new seed field also joins the approved field list of
-    the Feature 002 suite that allow-lists that collection (`tests/browser/cms-personnel.spec.ts`,
-    `cms-facilities.spec.ts`), or that suite fails on the unexpected field.
+    `leadership_order`, and removes none. A blocks field gets the seed's allowed block types, in
+    the order the Admin's picker offers them, and its item limit. A new seed field also joins the
+    approved field list of the Feature 002 suite that allow-lists that collection
+    (`tests/browser/cms-personnel.spec.ts`, `cms-facilities.spec.ts`), or that suite fails on the
+    unexpected field.
 
   For each taxonomy the seed gives reference terms, such as the Document Types `policy`, `plan` and
   `result` that the About pages list by, it adds the terms whose slug the taxonomy lacks. A term
@@ -226,10 +237,13 @@ content model from the model-update step:
   menu, empty, when the database has no menu of that name. A menu staff relabelled keeps its label,
   and no menu or item is removed.
 
-  A URL pattern that the database already has with another value, a field it has with another
-  type, or a collection or taxonomy the database lacks, stops the step before it changes anything.
-  Replacing a pattern would move every public address of the collection, and changing a field's
-  type would change its stored values, so each is a Product Owner decision, not a step.
+  A URL pattern that the database already has with another value, a field or a block type's field
+  that it has with another type, a block type whose active version is not the seed's, or a taxonomy
+  the database lacks, stops the step before it changes anything. Replacing a pattern would move
+  every public address of the collection, and changing a field's type or a block type's version
+  would change what stored content means, so each is a Product Owner decision, not a step. When
+  EmDash refuses a breaking block-type change, the step stops before it changes any collection,
+  field, term or menu.
 - **Types.** Nothing needs regenerating. The repository does not use EmDash's generated types, and
   the dev server rewrites its untracked `emdash-env.d.ts` after each schema change.
 - **Production.** The same script updates a production database:
@@ -318,11 +332,12 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
 - the development PAT authenticates as `dev@emdash.local` (Administrator);
 - the role fixture PAT authenticates as `role-fixture@songhealth.test`, enabled, with role Author;
 - the dev-only T021 fixture route answers its 0600 route token and refuses requests without it;
-- the database has the promoted seed's content model, fields, reference terms and menus: the
-  model-update step's read-only check, run in the app container. Feature 003's share is, for
-  example, each public collection's URL pattern and SEO support, Personnel kept non-routable with
-  its `leadership_order` field, the Document Types `policy`, `plan` and `result`, and the three
-  Homepage menus;
+- the database has the promoted seed's content model, block types, fields, reference terms and
+  menus: the model-update step's read-only check, run in the app container. Feature 003's share
+  is, for example, each public collection's URL pattern and SEO support, Personnel kept
+  non-routable with its `leadership_order` field, the Document Types `policy`, `plan` and
+  `result`, and the three Homepage menus. Feature 004's is the MOIT collection with its fields,
+  its Evidence field's allowed block types and limit, and the three ITA block types;
 - the Office Contact plugin is registered and enabled, with its settings form.
 
 Runtime results are interpreted only against the commit verify reports.
@@ -390,7 +405,7 @@ the ADR 0003 revisit of production images.
 | Port 4324 is in use | Something else listens there. There is no fallback port: resolve the conflict at its cause. |
 | The PAT check fails | `dev-pat` is missing, has the wrong mode or was revoked. Minting a new one means running `setup/dev-bypass?token=1`, which rotates the token; do that only deliberately. It also applies the seed again, which empties the seed's menus, the Homepage menus included (emdash 1.1.0 `src/seed/apply.ts`): note their items first and put them back in the Admin. |
 | The role fixture check fails | `role-fixture-pat` is missing, or a role test was interrupted and left the account with another role or disabled. Restore it in the Admin (Users: Author, enabled), or delete the file; then re-run the installer, which re-mints the PAT. |
-| The content-model check fails | The database lacks part of the promoted seed's model: run `scripts/dev-runtime-model-update.sh`. If the step reports a problem instead, a URL pattern or a field type differs from the seed's, or a collection or taxonomy is missing. Bring that to the Product Owner before changing any of them. |
+| The content-model check fails | The database lacks part of the promoted seed's model: run `scripts/dev-runtime-model-update.sh`. If the step reports a problem instead, a URL pattern, a field type, a block type's field type or a block type's version differs from the seed's, or a taxonomy is missing. Bring that to the Product Owner before changing any of them. |
 | The T021 coordinator holds | The message names the prerequisite. Verify fails: fix the runtime first. The runtime is at another commit: promote the tested commit. The route is missing (404): the commit predates the dev configuration. The token is unprovisioned (503) or does not match (403): delete `t021-route-access.json` and re-run the installer. |
 
 **Never run `podman volume prune` or `podman system prune --volumes` while the runtime is

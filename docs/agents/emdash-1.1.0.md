@@ -186,7 +186,27 @@ cited file exists and that the name carries the pinned version.
 - `POST /_emdash/api/schema/block-types` creates a block type and `PUT …/block-types/{slug}`
   updates one (`src/astro/routes/api/schema/block-types/index.ts`,
   `src/astro/routes/api/schema/block-types/[slug]/index.ts`). `./scripts/model-update.mjs` calls
-  neither yet.
+  both.
+  - The create body takes a slug, a label, a description, an icon, a category and the fields, and
+    no source, so a type made through the API is a `user` type, where setup's seed makes `seed`
+    ones (`src/api/schemas/schema.ts` createBlockTypeBody, `src/schema/block-type-registry.ts`
+    createBlockType, applySeedBlockType).
+  - A version's fingerprint hashes each field's slug, type, required flag, default, validation
+    and options, but no label (`src/schema/block-type-contract.ts` fingerprintBlockFields).
+  - The update names the active version's fingerprint as `expectedFingerprint` and answers
+    `CONFLICT` once that version has changed. A compatible change rewrites the active version in
+    place. A breaking one answers `BLOCK_TYPE_BREAKING_CHANGE` unless the body sets `breaking`,
+    which adds a version and makes it current: a field removed or retyped, a required field added,
+    a field made required, or a constraint narrowed, such as a select option removed
+    (`src/schema/block-type-registry.ts` updateBlockType, `src/schema/block-type-contract.ts`
+    compareBlockFields).
+- A blocks field cannot be required, unique, indexed or searchable, and every type it allows must
+  exist when it is created or changed. EmDash stores its validation completed as `allowedTypes`,
+  `retiredTypes`, `minItems` and `maxItems`, and a type taken out of `allowedTypes` moves to
+  `retiredTypes` (`src/schema/registry.ts` normalizeBlocksFieldValidation).
+- The Admin's block picker lists a field's allowed types in their `allowedTypes` order, grouped by
+  category, each with its label and description; it shows no icon. A new block starts with each
+  field's `defaultValue` (`@emdash-cms/admin/dist/index.js` BlocksField, createBlockValue).
 - A file value inside a block is normalised on save like a file field, and an image like an image
   field (`src/emdash-runtime.ts`, the block-field loop beside the repeater one,
   `normalizeMediaValue` and `normalizeImageValue`).
@@ -385,7 +405,15 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
   seed field's own keys (`src/seed/types.ts` `SeedField`, beside `SeedCollection` with its
   `urlPattern` and `SeedTaxonomyTerm`), and the collection list carries no fields (`src/api/schemas/schema.ts`
   `createFieldBody`, `src/api/handlers/schema.ts` `handleSchemaCollectionList`). A created field
-  goes after the existing ones (`src/schema/registry.ts` `createField`).
+  goes after the existing ones (`src/schema/registry.ts` `createField`). `PUT` on
+  `…/fields/{field}` updates one
+  (`src/astro/routes/api/schema/collections/[slug]/fields/[fieldSlug].ts`).
+- `POST /_emdash/api/schema/collections` creates a collection without fields and takes no title or
+  date field, which only the update sets (`src/api/schemas/schema.ts` `createCollectionBody`,
+  `updateCollectionBody`). Setup creates a seed collection with the source `seed` and sets those
+  two in a second write, once the fields exist (`src/seed/apply.ts` `applyDisplayDateFields`).
+  They are the only fields of its own a collection's Admin list can sort by
+  (`src/api/handlers/content.ts`, the `sortableExtras` of the list handler).
 - An `integer` field is an `INTEGER` column that takes whole numbers only (`src/schema/types.ts`
   `FIELD_TYPE_TO_COLUMN`, `src/schema/zod-generator.ts`).
 - An API token reads `/_emdash/api/taxonomies` with the `content:read` scope and creates terms with
