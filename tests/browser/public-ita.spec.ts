@@ -3,7 +3,8 @@
 // A citizen or an assessor opens a MOIT at /ita/{slug} and reads its Evidence grouped under the
 // manual's Requirements: one card per Requirement, with its sub-Requirements inside, and each piece
 // of Evidence a pill that says what it is (a file with its type and size, a page of this site,
-// another website), its Round, and whether it is current information. A file whose media is gone
+// another website, an email address or telephone number), its Round, and whether it is current
+// information. A file whose media is gone
 // shows "ไฟล์ไม่พร้อมให้บริการ" and nothing about storage. A draft, unpublished or trashed MOIT
 // answers the site 404 unless a signed preview asks for the draft.
 //

@@ -166,7 +166,7 @@ export type EvidencePill =
 			current: boolean;
 	  })
 	| (PillBase & {
-			/** A link whose address the page cannot open safely: its label alone. */
+			/** A link whose address the page cannot open as Evidence, or safely: its label alone. */
 			kind: "unlinked";
 			current: boolean;
 	  });
@@ -195,13 +195,14 @@ function contactAddress(pathname: string): string {
  * site when they are on its host (src/lib/links.ts isExternalHref); an email address or a telephone
  * number opens in place, as src/components/ContentLink.astro opens one.
  *
- * EmDash checks an href with isSafeHref (emdash 1.1.0 src/utils/url.ts), and a url inside a
- * block takes only an address that passes it (docs/agents/emdash-1.1.0.md "Admin input"). This
- * module cannot call it, because node:test cannot load `emdash` (CODING_STANDARDS "Tests"), so it
- * applies the same rules to the addresses it opens: no control character, since a URL parser
- * strips a tab or a line break anywhere and trims the others at the ends (so `/<tab>/host` would
- * read as `//host`); a path with one leading slash; an absolute address that parses. A fragment,
- * which isSafeHref also allows, is no Evidence a page can show.
+ * EmDash checks an href with isSafeHref (emdash 1.1.0 src/utils/url.ts). A url saved through the
+ * content API passes it, but one a transfer import writes need not (docs/agents/emdash-1.1.0.md
+ * "Admin input"), and this module cannot call it, because node:test cannot load `emdash`
+ * (CODING_STANDARDS "Tests"). So it applies isSafeHref's rules to the addresses it opens: no
+ * control character, which isSafeHref refuses because the URL Standard's basic URL parser strips
+ * a tab or a line break anywhere in an address (`/<tab>/host` would read as `//host`); a path with
+ * one leading slash, neither two nor a slash and a backslash; an absolute address that parses. A
+ * fragment, which isSafeHref also allows, is no Evidence a page can show.
  */
 function linkTarget(
 	url: string,

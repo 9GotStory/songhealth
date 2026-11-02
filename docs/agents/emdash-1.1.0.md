@@ -219,11 +219,15 @@ cited file exists and that the name carries the pinned version.
 - A file value inside a block is normalised on save like a file field, and an image like an image
   field (`src/emdash-runtime.ts`, the block-field loop beside the repeater one,
   `normalizeMediaValue` and `normalizeImageValue`).
-- A block's fields are validated on save with the same schema as a collection's fields, against
-  the version the block names, and a field the version does not declare is refused
-  (`src/schema/block-values.ts` `blockSchema`, `src/schema/zod-generator.ts`
-  `generateBlockFieldSchema`). So a `url` inside a block takes only an address that `isSafeHref`
-  passes, and a `select` only one of its version's options. `./src/lib/ita.ts` relies on it.
+- A block's fields are validated when an entry is created or updated, and when the seed is
+  applied, with the same schema as a collection's fields, against the version the block names; a
+  field the version does not declare is refused (`src/emdash-runtime.ts` and `src/seed/apply.ts`
+  call `normalizeBlocksData`; `src/schema/block-values.ts` `blockSchema`,
+  `src/schema/zod-generator.ts` `generateBlockFieldSchema`). So a `url` saved there takes only an
+  address that `isSafeHref` passes, and a `select` only one of its version's options. A transfer
+  import checks a url inside a block with the looser `isSafeUrlFieldWriteValue` instead, which
+  takes `example.com` or `?q=1` (`src/transfer/analyze/values.ts` `checkContentUrlFields`).
+  `./src/lib/ita.ts` checks a link's address itself for that reason.
 - `POST /_emdash/api/content/{collection}/{id}/duplicate` copies an entry as a draft with " (Copy)"
   after its title and a fresh unique slug. It needs `content:create` and the edit permission on the
   source (`src/astro/routes/api/content/[collection]/[id]/duplicate.ts`,

@@ -50,8 +50,14 @@ function linkOf(evidence: EvidencePill) {
 		case "page":
 		case "contact":
 			return { href: evidence.href };
-		default:
+		case "unavailable":
+		case "unlinked":
 			return undefined;
+		default: {
+			// A new kind must say how it opens; until then this does not compile.
+			const unknown: never = evidence;
+			return unknown;
+		}
 	}
 }
 ---
