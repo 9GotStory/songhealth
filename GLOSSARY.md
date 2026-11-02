@@ -78,6 +78,28 @@ _Avoid_: Rank, executive rank
 The office-wide address, telephone, opening hours and official channels that citizens use to reach the office.
 _Avoid_: Contact entity, contact record
 
+## ITA
+
+**ITA** (การประเมินคุณธรรมและความโปร่งใส):
+The Ministry of Public Health's yearly integrity and transparency assessment of the office (MOPH ITA), for which the website publishes each fiscal year's evidence.
+_Avoid_: OIT, ITA page
+
+**MOIT** (ตัวชี้วัด MOIT):
+One numbered indicator of a fiscal year's ITA, such as MOIT 1, as that year's MOPH manual words it. Its number and wording can change from one year to the next.
+_Avoid_: Section, ITA item, ITA topic
+
+**Requirement** (ข้อกำหนด):
+One numbered item of a MOIT that says what the office must publish, such as "1. คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง".
+_Avoid_: Sub-indicator, ITA item
+
+**Evidence** (หลักฐาน):
+A file or link published under a Requirement to show that the office meets it.
+_Avoid_: Attachment, Document (a separate kind)
+
+**Round** (รอบการประเมิน):
+One of the two points in a fiscal year by which Evidence must be published for the ITA: the 6-month round and the 12-month round.
+_Avoid_: รอบ for a content period, such as a performance-evaluation cycle; quarter
+
 ## Presentation
 
 **Homepage** (หน้าแรก):
