@@ -43,8 +43,7 @@ const sectionsOf = (
 	<header class="mb-6 flex flex-col gap-3 rounded-32 bg-brand-dark p-6 text-surface-base lg:p-8">
 		<p class="text-label text-accent-warm">ITA ปีงบประมาณ พ.ศ. {moit.fiscal_year}</p>
 		<h1 class="text-h3 wrap-anywhere sm:text-h2">
-			<span class="text-accent-warm">{moitLabel(moit.number)}</span>
-			{moit.title}
+			<span class="text-accent-warm">{moitLabel(moit.number)}</span> {moit.title}
 		</h1>
 		<p class="text-body text-surface-base/80">
 			หลักฐาน {counts.total} รายการ ใน {tree.length} ข้อ
