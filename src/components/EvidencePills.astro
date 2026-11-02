@@ -4,12 +4,15 @@
 //
 // - A file downloads under its uploaded name and says its type and size, as a Document's file does
 //   (src/components/DocumentDownload.astro). One that cannot be served says so in the Document
-//   wording, without a link to it, and points to the office (#121 user story 13).
+//   wording, without a link to it, and points to the office (#121 user story 13). Staff's note on
+//   a file, such as the months it covers, follows its label (Product Owner, 2026-11-02: #123
+//   comment 6575260213).
 // - A link says where it leads: a page of this site, another website by its host, or the email
-//   address or telephone number it opens. Like src/components/ContentLink.astro, a link to another
-//   website says in text that it leaves the site and opens in a new tab, and the others open in
-//   place. A link staff marked current carries "ข้อมูลปัจจุบัน" as a status that needs attention
-//   (StatusLabel.astro): it shows today's data, not the fiscal year's record (ADR 0006).
+//   address or telephone number it opens (Product Owner, 2026-11-02: #123 comment 6575260213).
+//   Like src/components/ContentLink.astro, a link to another website says in text that it leaves
+//   the site and opens in a new tab, and the others open in place. A link staff marked current
+//   carries "ข้อมูลปัจจุบัน" as a status that needs attention (StatusLabel.astro): it shows today's
+//   data, not the fiscal year's record (ADR 0006).
 // - The icons follow the site's rules (CODING_STANDARDS "Public pages"): a file's download icon at
 //   its start, chevron-right at the end of a link on this site and arrow-up-right at the end of
 //   one that leaves it. They are decorative (docs/agents/lucide-astro-1.59.0.md).

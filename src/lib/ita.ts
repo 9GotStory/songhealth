@@ -7,6 +7,10 @@
 // moitEvidence turns each piece into what its pill shows, with the read that decides whether a
 // file can be served passed in by the page (src/lib/media.ts downloadableFile). The module imports
 // no runtime module, so node:test checks it directly (CODING_STANDARDS "Tests").
+//
+// It counts what the pages show: the Evidence, each card's, and the files that cannot be served.
+// Counts by kind and by Round, which spec #121's Seam B also names, belonged to the prototype's
+// variants A and B, and no page shows them (Product Owner, 2026-11-02: #123 comment 6575260213).
 
 import type { FileValue } from "emdash";
 import { isExternalHref } from "./links.ts";
@@ -94,7 +98,8 @@ interface EvidenceGroups<E> {
  * Requirement block opens a group, and the Evidence blocks that follow belong to it; a Requirement
  * whose number has a dot is a sub-Requirement of the last Requirement without one, or a card of
  * its own while there is none; Evidence before any Requirement comes first, ungrouped. A trailing
- * dot is punctuation, as the manual writes "1.", not a level.
+ * dot is punctuation, as the manual writes "1.", not a level (Product Owner, 2026-11-02: #123
+ * comment 6575260213).
  */
 export function groupEvidence(
 	blocks: readonly EvidenceBlock[] | null | undefined,
