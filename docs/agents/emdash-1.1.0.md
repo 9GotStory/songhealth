@@ -219,6 +219,11 @@ cited file exists and that the name carries the pinned version.
 - A file value inside a block is normalised on save like a file field, and an image like an image
   field (`src/emdash-runtime.ts`, the block-field loop beside the repeater one,
   `normalizeMediaValue` and `normalizeImageValue`).
+- A block's fields are validated on save with the same schema as a collection's fields, against
+  the version the block names, and a field the version does not declare is refused
+  (`src/schema/block-values.ts` `blockSchema`, `src/schema/zod-generator.ts`
+  `generateBlockFieldSchema`). So a `url` inside a block takes only an address that `isSafeHref`
+  passes, and a `select` only one of its version's options. `./src/lib/ita.ts` relies on it.
 - `POST /_emdash/api/content/{collection}/{id}/duplicate` copies an entry as a draft with " (Copy)"
   after its title and a fresh unique slug. It needs `content:create` and the edit permission on the
   source (`src/astro/routes/api/content/[collection]/[id]/duplicate.ts`,

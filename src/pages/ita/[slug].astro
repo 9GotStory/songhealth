@@ -131,15 +131,15 @@ const counts = [
 									size={16}
 								/>
 							</summary>
-							{(card.pills.length > 0 || card.subRequirements.length > 0) && (
+							{(card.evidence.length > 0 || card.subRequirements.length > 0) && (
 								<div class="flex flex-col gap-5 px-5 pb-5">
-									<EvidencePills pills={card.pills} />
+									<EvidencePills pills={card.evidence} />
 									{card.subRequirements.map((sub) => (
 										<section class="flex flex-col gap-2">
 											<h3 class="font-semibold wrap-anywhere text-text-primary">
 												{sub.number} {sub.title}
 											</h3>
-											<EvidencePills pills={sub.pills} />
+											<EvidencePills pills={sub.evidence} />
 										</section>
 									))}
 								</div>

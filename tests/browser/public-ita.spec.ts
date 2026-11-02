@@ -16,8 +16,8 @@
 //
 // Platform behaviour relied on (emdash 1.1.0):
 // - A new entry's blocks need no `_key` or `_version` (src/schema/block-values.ts
-//   normalizeBlockArray), and a file inside a block is saved as the Admin's file picker sends it
-//   (src/emdash-runtime.ts, the block-field loop).
+//   normalizeBlockArray). A file inside a block, sent as the Admin's file picker sends it, is
+//   normalised on save as a file field's is (src/emdash-runtime.ts, the block-field loop).
 // - Deleting a media item removes its stored file, and the blocks that hold it keep their value
 //   (src/api/handlers/media.ts handleMediaDelete).
 // - EmDash serves a PDF as an attachment (src/astro/routes/api/media/file/[...key].ts).
@@ -155,6 +155,7 @@ test("a MOIT page shows its header, and its Evidence grouped under its Requireme
 			linkBlock("1.1 ข้อมูลผู้บริหาร แสดงรายนาม", "/contact", { current: true }),
 			fileBlock("1.2 นโยบายของผู้บริหาร", memo),
 			linkBlock("1.3 กฎหมายที่เกี่ยวข้องกับการดำเนินงาน", "https://stopcorruption.moph.go.th/"),
+			linkBlock("1.4 ช่องทางรับฟังความคิดเห็น", "mailto:saraban@example.go.th"),
 			requirement("2", "รายงานผลการดำเนินงานตามแผนปฏิบัติการประจำปี"),
 			requirement("2.1", "รายงานครึ่งปีแรก"),
 			fileBlock("รายงานผลการดำเนินงานครึ่งปีแรก", report, {
@@ -174,7 +175,7 @@ test("a MOIT page shows its header, and its Evidence grouped under its Requireme
 	await expect(main.getByRole("heading", { level: 1 })).toHaveText(moit.heading);
 	await expect(main.getByText(`ITA ปีงบประมาณ พ.ศ. ${FISCAL_YEAR}`)).toBeVisible();
 	await expect(main.getByText(summary)).toBeVisible();
-	await expect(main.getByText("หลักฐาน 5 รายการ ใน 2 ข้อ")).toContainText(
+	await expect(main.getByText("หลักฐาน 6 รายการ ใน 2 ข้อ")).toContainText(
 		`ปรับปรุงล่าสุด ${thaiDate(updatedOn)}`,
 	);
 	await expectBreadcrumb(page, [HOME_CRUMB], "MOIT 2");
@@ -182,7 +183,7 @@ test("a MOIT page shows its header, and its Evidence grouped under its Requireme
 	const entries = tableOfContents(page).getByRole("link");
 	await expect(entries).toHaveCount(2);
 	await expect(entries.nth(0)).toHaveAccessibleName(
-		/^1\s*ข้อมูลพื้นฐานที่เป็นปัจจุบัน\s*3 รายการ$/,
+		/^1\s*ข้อมูลพื้นฐานที่เป็นปัจจุบัน\s*4 รายการ$/,
 	);
 	await expect(entries.nth(1)).toHaveAccessibleName(
 		/^2\s*รายงานผลการดำเนินงานตามแผนปฏิบัติการประจำปี\s*2 รายการ$/,
@@ -193,16 +194,20 @@ test("a MOIT page shows its header, and its Evidence grouped under its Requireme
 		"2. รายงานผลการดำเนินงานตามแผนปฏิบัติการประจำปี",
 	]);
 	const first = card(page, "1. ข้อมูลพื้นฐานที่เป็นปัจจุบัน");
-	await expect(first).toContainText("3 รายการ");
+	await expect(first).toContainText("4 รายการ");
 	await expect(first.getByRole("link")).toHaveText([
 		/1\.1 ข้อมูลผู้บริหาร แสดงรายนาม/,
 		/1\.2 นโยบายของผู้บริหาร/,
 		/1\.3 กฎหมายที่เกี่ยวข้องกับการดำเนินงาน/,
+		/1\.4 ช่องทางรับฟังความคิดเห็น/,
 	]);
+	// Each sub-Requirement's heading, then its own Evidence, in the order the card reads.
 	const second = card(page, "2. รายงานผลการดำเนินงานตามแผนปฏิบัติการประจำปี");
-	await expect(second.getByRole("heading", { level: 3 })).toHaveText([
+	await expect(second.getByRole("heading", { level: 3 }).or(second.getByRole("link"))).toHaveText([
 		"2.1 รายงานครึ่งปีแรก",
+		/รายงานผลการดำเนินงานครึ่งปีแรก/,
 		"2.2 รายงานทั้งปี",
+		/รายงานผลการดำเนินงานทั้งปี/,
 	]);
 
 	const sitePage = first.getByRole("link", { name: /1\.1 ข้อมูลผู้บริหาร/ });
@@ -228,6 +233,14 @@ test("a MOIT page shows its header, and its Evidence grouped under its Requireme
 	await expect(external).toContainText("stopcorruption.moph.go.th (เว็บไซต์ภายนอก)");
 	await expect(external).not.toContainText("ข้อมูลปัจจุบัน");
 
+	const mail = first.getByRole("link", { name: /1\.4 ช่องทางรับฟังความคิดเห็น/ });
+	await expect(mail, "an email address opens in place").toHaveAttribute(
+		"href",
+		"mailto:saraban@example.go.th",
+	);
+	await expect(mail).not.toHaveAttribute("target");
+	await expect(mail).toContainText("saraban@example.go.th");
+
 	const firstHalf = second.getByRole("link", { name: /รายงานผลการดำเนินงานครึ่งปีแรก/ });
 	await expect(firstHalf).toContainText("รอบ 6 เดือน");
 	await expect(firstHalf, "the file's note").toContainText("ต.ค. 2569 – มี.ค. 2570");
@@ -242,22 +255,20 @@ test("a MOIT page shows its header, and its Evidence grouped under its Requireme
 });
 
 /**
- * The text and address of each link in the page's main content, leaving out those in the pill
- * that shows `pill`.
+ * The text and address of each link the page's lists hold, the table of contents' and the pills',
+ * leaving out the pill that shows `pill`.
  */
-async function mainLinks(page: Page, pill: string): Promise<string[]> {
+async function listedLinks(page: Page, pill: string): Promise<string[]> {
 	return page
 		.getByRole("main")
+		.getByRole("listitem")
+		.filter({ hasNotText: pill })
 		.getByRole("link")
-		.evaluateAll(
-			(links, label) =>
-				links
-					.filter((link) => !link.closest("li")?.textContent?.includes(label))
-					.map(
-						(link) =>
-							`${link.textContent?.replace(/\s+/g, " ").trim()} -> ${link.getAttribute("href")}`,
-					),
-			pill,
+		.evaluateAll((links) =>
+			links.map(
+				(link) =>
+					`${link.textContent?.replace(/\s+/g, " ").trim()} -> ${link.getAttribute("href")}`,
+			),
 		);
 }
 
@@ -280,7 +291,7 @@ test("a file deleted from the library shows the unavailable pill with status 200
 	await page.goto(`/ita/${moit.slug}`);
 	const main = page.getByRole("main");
 	await expect(main.getByRole("link", { name: new RegExp(goneLabel) })).toBeVisible();
-	const linksBefore = await mainLinks(page, goneLabel);
+	const linksBefore = await listedLinks(page, goneLabel);
 	const headingsBefore = await main.getByRole("heading").allTextContents();
 
 	const removed = await deleteMedia(admin, gone.mediaId);
@@ -300,7 +311,7 @@ test("a file deleted from the library shows the unavailable pill with status 200
 	for (const detail of [gone.storageKey, gone.mediaId, gone.filename]) {
 		expect(html.includes(detail), `the page must not reveal ${detail}`).toBe(false);
 	}
-	expect(await mainLinks(page, goneLabel), "every other link stays").toEqual(linksBefore);
+	expect(await listedLinks(page, goneLabel), "every other link stays").toEqual(linksBefore);
 	expect(await main.getByRole("heading").allTextContents(), "every heading stays").toEqual(
 		headingsBefore,
 	);
