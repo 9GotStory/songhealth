@@ -189,24 +189,30 @@ cited file exists and that the name carries the pinned version.
   both.
   - The create body takes a slug, a label, a description, an icon, a category and the fields, and
     no source, so a type made through the API is a `user` type, where setup's seed makes `seed`
-    ones (`src/api/schemas/schema.ts` createBlockTypeBody, `src/schema/block-type-registry.ts`
-    createBlockType, applySeedBlockType).
+    ones (`src/api/schemas/schema.ts` `createBlockTypeBody`, `src/schema/block-type-registry.ts`
+    `createBlockType`, `applySeedBlockType`). The route parses the fields with
+    `blockFieldDefinitionSchema`, and a version stores them as parsed. EmDash's own zod (4.5.4)
+    gives an object's keys in the schema's order, so they come back in that order, not in the
+    order they were sent in (checked 2026-11-02).
   - A version's fingerprint hashes each field's slug, type, required flag, default, validation
-    and options, but no label (`src/schema/block-type-contract.ts` fingerprintBlockFields).
+    and options, but no label (`src/schema/block-type-contract.ts` `fingerprintBlockFields`).
   - The update names the active version's fingerprint as `expectedFingerprint` and answers
     `CONFLICT` once that version has changed. A compatible change rewrites the active version in
-    place. A breaking one answers `BLOCK_TYPE_BREAKING_CHANGE` unless the body sets `breaking`,
-    which adds a version and makes it current: a field removed or retyped, a required field added,
-    a field made required, or a constraint narrowed, such as a select option removed
-    (`src/schema/block-type-registry.ts` updateBlockType, `src/schema/block-type-contract.ts`
-    compareBlockFields).
+    place. A breaking one answers `BLOCK_TYPE_BREAKING_CHANGE` unless the body sets `breaking`:
+    a field removed or retyped, a required field added, a field made required, or a constraint
+    narrowed, such as a select option removed (`src/schema/block-type-registry.ts`
+    `updateBlockType`, `src/schema/block-type-contract.ts` `compareBlockFields`). With
+    `breaking`, it adds a version and leaves the current one active. A version becomes current
+    through `POST …/block-types/{slug}/versions/{version}/activate`
+    (`src/astro/routes/api/schema/block-types/[slug]/versions/[version]/activate.ts`,
+    `activateVersion` in the registry).
 - A blocks field cannot be required, unique, indexed or searchable, and every type it allows must
   exist when it is created or changed. EmDash stores its validation completed as `allowedTypes`,
   `retiredTypes`, `minItems` and `maxItems`, and a type taken out of `allowedTypes` moves to
-  `retiredTypes` (`src/schema/registry.ts` normalizeBlocksFieldValidation).
+  `retiredTypes` (`src/schema/registry.ts` `normalizeBlocksFieldValidation`).
 - The Admin's block picker lists a field's allowed types in their `allowedTypes` order, grouped by
   category, each with its label and description; it shows no icon. A new block starts with each
-  field's `defaultValue` (`@emdash-cms/admin/dist/index.js` BlocksField, createBlockValue).
+  field's `defaultValue` (`@emdash-cms/admin/dist/index.js` `BlocksField`, `createBlockValue`).
 - A file value inside a block is normalised on save like a file field, and an image like an image
   field (`src/emdash-runtime.ts`, the block-field loop beside the repeater one,
   `normalizeMediaValue` and `normalizeImageValue`).

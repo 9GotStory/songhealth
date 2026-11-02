@@ -158,17 +158,31 @@ function contractOf({ slug, type, required = false, defaultValue, validation }: 
 	};
 }
 
+/** A collection of the seed, by its slug. */
+function seedCollectionOf(slug: string) {
+	const collection = seed.collections.find(
+		(candidate: { slug: string }) => candidate.slug === slug,
+	);
+	assert.ok(collection, `the seed has no ${slug} collection`);
+	return collection;
+}
+
+/**
+ * The title and date fields setup gives a seed collection once its fields exist (emdash 1.1.0
+ * src/seed/apply.ts applyDisplayDateFields), as the schema API lists them.
+ */
+function seedTitles(slug: string): Pick<LiveCollection, "titleField" | "dateField"> {
+	const { titleField, dateField } = seedCollectionOf(slug);
+	return { ...(titleField ? { titleField } : {}), ...(dateField ? { dateField } : {}) };
+}
+
 /**
  * The fields of a seed collection as the schema API lists them, by slug and type, a blocks field
  * with its validation as EmDash completes it (emdash 1.1.0 src/schema/registry.ts
  * normalizeBlocksFieldValidation).
  */
 function seedFields(slug: string): LiveField[] {
-	const collection = seed.collections.find(
-		(candidate: { slug: string }) => candidate.slug === slug,
-	);
-	assert.ok(collection, `the seed has no ${slug} collection`);
-	return collection.fields.map(({ slug, type, validation }: LiveField) =>
+	return seedCollectionOf(slug).fields.map(({ slug, type, validation }: LiveField) =>
 		type === "blocks"
 			? { slug, type, validation: { retiredTypes: [], minItems: 0, ...validation } }
 			: { slug, type },
@@ -201,6 +215,7 @@ function feature002Model(): LiveModel {
 			supports: [...FEATURE_002_SUPPORTS],
 			hasSeo: false,
 			routable: true,
+			...seedTitles(slug),
 			fields: feature002Fields(slug),
 		})),
 		taxonomies: [{ name: "document_type", terms: [] }],
@@ -219,6 +234,7 @@ function feature003Model(): LiveModel {
 				supports: [...FEATURE_002_SUPPORTS, "seo"],
 				hasSeo: true,
 				routable: true,
+				...seedTitles(slug),
 				fields: feature002Fields(slug),
 			})),
 			{
@@ -226,6 +242,7 @@ function feature003Model(): LiveModel {
 				supports: [...FEATURE_002_SUPPORTS],
 				hasSeo: false,
 				routable: false,
+				...seedTitles("personnel"),
 				fields: [...feature002Fields("personnel"), { slug: "leadership_order", type: "integer" }],
 			},
 		],
@@ -248,6 +265,7 @@ function feature004Model(): LiveModel {
 		supports: [...MOIT.supports],
 		hasSeo: true,
 		routable: true,
+		...seedTitles(MOIT.slug),
 		fields: seedFields(MOIT.slug),
 	});
 	model.blockTypes = seedBlockTypes();
@@ -280,7 +298,11 @@ describe("planModelUpdate", () => {
 		const plan = planModelUpdate(seed, feature002Model());
 
 		assert.deepEqual(plan.problems, []);
-		const updates = new Map(plan.collections.map(({ slug, update }) => [slug, update]));
+		const updates = new Map(
+			plan.collections
+				.filter(({ slug }) => slug !== MOIT.slug)
+				.map(({ slug, update }) => [slug, update]),
+		);
 		for (const [slug, urlPattern] of Object.entries(CANONICAL_URL_PATTERNS)) {
 			assert.deepEqual(
 				updates.get(slug),
@@ -437,19 +459,16 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 
 		assert.deepEqual(plan.problems, []);
 		assert.deepEqual(
-			plan.newCollections.map(
-				({ create: { slug, label, group, supports, urlPattern, routable } }) => ({
-					slug,
-					label,
-					group,
-					supports,
-					urlPattern,
-					routable,
-				}),
-			),
+			plan.newCollections.map(({ slug, label, group, supports, urlPattern, routable }) => ({
+				slug,
+				label,
+				group,
+				supports,
+				urlPattern,
+				routable,
+			})),
 			[MOIT],
 		);
-		assert.deepEqual(plan.collections, []);
 	});
 
 	it("creates MOIT's six fields, its Evidence a blocks field of the ITA types holding at most 100", () => {
@@ -461,11 +480,28 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 		assert.equal(fields.find(({ slug }) => slug === "updated_on")?.label, "ปรับปรุงล่าสุด");
 	});
 
-	it("sets MOIT's title as the Admin list's title once its fields exist, which lets the list sort by it", () => {
+	it("sets MOIT's title as the Admin list's title, which lets the list sort by it", () => {
 		// emdash 1.1.0 src/api/handlers/content.ts: a collection's titleField is a sort column.
-		const [moit] = planModelUpdate(seed, feature003Model()).newCollections;
+		assert.deepEqual(planModelUpdate(seed, feature003Model()).collections, [
+			{ slug: MOIT.slug, update: { titleField: "title" } },
+		]);
+	});
 
-		assert.deepEqual(moit?.display, { titleField: "title" });
+	it("sets the title field of a collection the database has without one, as a run cut short leaves MOIT", () => {
+		const live = feature004Model();
+		delete collectionOf(live, MOIT.slug).titleField;
+
+		assert.deepEqual(planModelUpdate(seed, live), {
+			...NOTHING,
+			collections: [{ slug: MOIT.slug, update: { titleField: "title" } }],
+		});
+	});
+
+	it("keeps a title field staff chose in the Admin", () => {
+		const live = feature004Model();
+		collectionOf(live, MOIT.slug).titleField = "summary";
+
+		assert.deepEqual(planModelUpdate(seed, live), NOTHING);
 	});
 
 	it("creates the block types first, the collection before its fields, and sets the title after them", () => {
@@ -491,7 +527,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	it("updates a changed block type in place, by the fingerprint of its active version", () => {
 		const live = feature004Model();
 		const { blockType, version } = blockTypeOf(live, "ita_file");
-		// The prototype's Round: optional, with no "ไม่ระบุรอบ".
+		// A relabelled type whose Round lacks "ไม่ระบุรอบ": adding an option is a compatible change.
 		blockType.label = "ไฟล์";
 		version.fields = version.fields.map((field) =>
 			field.slug === ROUND.slug

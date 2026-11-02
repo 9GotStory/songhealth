@@ -222,6 +222,9 @@ content model from the model-update step:
   - its `supports` values: it adds the missing ones and removes none, and SEO also sets the flag
     that puts the collection in the native sitemap;
   - whether it is routable;
+  - its title and date fields, which the Admin's list shows and sorts by: set when the database
+    has none, after the fields they name, so a run cut short after creating a collection still
+    gives it them;
   - its fields: it creates the seed's fields that the collection lacks, such as Personnel's
     `leadership_order`, and removes none. A blocks field gets the seed's allowed block types, in
     the order the Admin's picker offers them, and its item limit. A new seed field also joins the

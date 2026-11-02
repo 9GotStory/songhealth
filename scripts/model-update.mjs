@@ -5,10 +5,12 @@
 //   node scripts/model-update.mjs --origin <origin> [--check] < <Administrator PAT file>
 //
 // The native gap it fills, in emdash 1.1.0: EmDash applies the seed only at setup, and with
-// `onConflict: "skip"`, so an existing database gets neither a new collection or block type nor a
-// later setting of one it has (src/astro/routes/api/setup/index.ts and dev-bypass.ts). `emdash
-// seed` opens only a SQLite file (src/cli/commands/seed.ts), and `emdash schema` cannot update a
-// collection (src/cli/commands/schema.ts). Setup also skips the seed's taxonomy terms unless it
+// `onConflict: "skip"`, so an existing collection or block type keeps its settings
+// (src/astro/routes/api/setup/index.ts, which refuses once setup is complete). `setup/dev-bypass`
+// applies it again the same way and adds what is missing, but it answers only in development and
+// empties the seed's menus (dev-bypass.ts, src/seed/apply.ts). `emdash seed` opens only a SQLite
+// file (src/cli/commands/seed.ts), and `emdash schema` cannot update a collection
+// (src/cli/commands/schema.ts). Setup also skips the seed's taxonomy terms unless it
 // installs sample content (src/seed/apply.ts `includeContent`). The step therefore uses the REST
 // APIs that the Admin uses: GET, POST and PUT /_emdash/api/schema/block-types and
 // /_emdash/api/schema/block-types/{slug} (src/astro/routes/api/schema/block-types/), GET, POST and
@@ -99,12 +101,15 @@ import { parseArgs } from "node:util";
  * @property {{ version: number, fields: BlockField[], fingerprint: string }[]} versions
  *
  * @typedef {object} LiveCollection A collection as GET /_emdash/api/schema/collections lists it
- *   (src/schema/registry.ts mapCollectionRow, which leaves out an unset URL pattern).
+ *   (src/schema/registry.ts mapCollectionRow, which leaves out an unset URL pattern, title field or
+ *   date field).
  * @property {string} slug
  * @property {string[]} supports
  * @property {string | null} [urlPattern]
  * @property {boolean} hasSeo
  * @property {boolean} routable
+ * @property {string | null} [titleField]
+ * @property {string | null} [dateField]
  * @property {LiveField[]} fields its fields, from GET /_emdash/api/schema/collections/{slug}/fields
  *
  * @typedef {object} LiveField A field the database has (src/schema/registry.ts mapFieldRow).
@@ -136,8 +141,9 @@ import { parseArgs } from "node:util";
  * @property {BlockField[]} fields
  *
  * @typedef {object} BlockTypeUpdate A block type's definition for
- *   PUT /_emdash/api/schema/block-types/{slug}, which rewrites its active version in place while
- *   that version still has the fingerprint read (src/api/schemas/schema.ts updateBlockTypeBody).
+ *   PUT /_emdash/api/schema/block-types/{slug} (src/api/schemas/schema.ts updateBlockTypeBody),
+ *   which rewrites its active version in place while that version still has the fingerprint read
+ *   (src/schema/block-type-registry.ts updateBlockType).
  * @property {string} expectedFingerprint
  * @property {string} label
  * @property {string | null} description
@@ -145,9 +151,9 @@ import { parseArgs } from "node:util";
  * @property {string | null} category
  * @property {BlockField[]} [fields]
  *
- * @typedef {{ create: Record<string, unknown>, display: CollectionUpdate }} CollectionCreate A
- *   collection to create with POST /_emdash/api/schema/collections (src/api/schemas/schema.ts
- *   createCollectionBody), and the title and date fields to set once its fields exist.
+ * @typedef {{ slug: string, label: string, routable: boolean, [setting: string]: unknown }}
+ *   CollectionCreate A collection to create, without fields, with
+ *   POST /_emdash/api/schema/collections (src/api/schemas/schema.ts createCollectionBody).
  *
  * @typedef {{ collection: string, field: SeedField }} FieldCreate A field to create in a
  *   collection.
@@ -177,8 +183,8 @@ import { parseArgs } from "node:util";
 
 /**
  * A value's JSON with every object's keys in order, so two definitions compare by content: EmDash
- * stores a block type's fields as it parsed them, which can order their keys otherwise
- * (src/schema/block-type-registry.ts createBlockType).
+ * stores a block type's fields as its route parsed them, with their keys in the order of
+ * src/api/schemas/schema.ts blockFieldDefinitionSchema rather than the seed's.
  *
  * @param {unknown} value
  * @returns {string | undefined}
@@ -196,12 +202,27 @@ function canonical(value) {
 }
 
 /**
+ * The problem of a field that the database has with another type than the seed's: the step never
+ * changes a type, because that would change what the stored values mean.
+ *
+ * @param {string} owner the collection or the block type
+ * @param {string} field
+ * @param {string | undefined} stored
+ * @param {string} wanted
+ */
+function retypedField(owner, field, stored, wanted) {
+	return `${owner}: the database has the field ${field} as ${stored}, the seed as ${wanted}`;
+}
+
+/**
  * Plan the block types: the seed's block types the database lacks are created, and those whose
- * definition differs are updated in place by the fingerprint of their active version. A block type
- * whose active version is not the seed's current one, or that has a field of the seed's with
- * another type, is a problem. None is deleted: EmDash 1.1.0 has no route that deletes one (the
- * routes under src/astro/routes/api/schema/block-types/ answer GET, POST and PUT only), so a block
- * type the database has beyond the seed is kept.
+ * definition differs are updated in place by the fingerprint of their active version. The whole
+ * definition is compared, because a fingerprint leaves out the labels
+ * (src/schema/block-type-contract.ts fingerprintBlockFields). A block type whose active version is
+ * not the seed's current one, or that has a field of the seed's with another type, is a problem.
+ * None is deleted: EmDash 1.1.0 has no route that deletes one (the routes under
+ * src/astro/routes/api/schema/block-types/ answer GET, POST and PUT only), so a block type the
+ * database has beyond the seed is kept.
  *
  * @param {SeedBlockType[]} wanted
  * @param {LiveBlockType[]} have
@@ -233,7 +254,7 @@ function planBlockTypes(wanted, have, problems) {
 		);
 		for (const field of retyped) {
 			problems.push(
-				`block type ${slug}: the database has the field ${field.slug} as ${types.get(field.slug)}, the seed as ${field.type}`,
+				retypedField(`block type ${slug}`, field.slug, types.get(field.slug), field.type),
 			);
 		}
 		const { label, description, icon, category } = existing;
@@ -261,20 +282,20 @@ function planBlockTypes(wanted, have, problems) {
 /**
  * A seed collection the database lacks, created as setup creates it: with the seed's settings, the
  * source "seed", and routable unless the seed says otherwise (src/seed/apply.ts, the
- * createSeedCollection call). Its title and date fields name its fields, so they are set once the
- * fields exist, as setup sets them (applyDisplayDateFields).
+ * createSeedCollection call). Its title and date fields name its fields, so they wait for them,
+ * as setup's do (applyDisplayDateFields).
  *
  * @param {SeedCollection} collection
  * @returns {CollectionCreate}
  */
-function newCollection({ fields: _fields, titleField, dateField, routable = true, ...settings }) {
-	return {
-		create: { ...settings, routable, source: "seed" },
-		display: {
-			...(titleField === undefined ? {} : { titleField }),
-			...(dateField === undefined ? {} : { dateField }),
-		},
-	};
+function newCollection({
+	fields: _fields,
+	titleField: _titleField,
+	dateField: _dateField,
+	routable = true,
+	...settings
+}) {
+	return { ...settings, routable, source: "seed" };
 }
 
 /**
@@ -284,13 +305,16 @@ function newCollection({ fields: _fields, titleField, dateField, routable = true
  * block types the database has (src/schema/registry.ts normalizeBlocksFieldValidation).
  *
  * A seed collection the database lacks, such as MOIT, is created with all of its fields. For each
- * collection the database has, the step manages three settings and leaves the rest of the
+ * collection the database has, the step manages these settings and leaves the rest of the
  * collection as it is:
  * - the URL pattern is set when the database has none;
  * - the seed's `supports` values that the database lacks are added, and none is removed;
  *   SEO also sets `hasSeo`, which the native sitemap reads (src/api/handlers/seo.ts
  *   handleSitemapData);
  * - routability is set to the seed's value, routable unless the seed says otherwise.
+ * The title and date fields, which the Admin list shows and sorts by (src/api/handlers/content.ts),
+ * are set when the database has none, a new collection's included, so a run cut short after it
+ * created a collection still gives it them.
  *
  * The seed's fields that a collection lacks, such as Personnel's Leadership order, are created as
  * the seed declares them. A field the database has beyond the seed is kept. A blocks field whose
@@ -344,11 +368,11 @@ export function planModelUpdate(seed, live) {
 	const fieldUpdates = [];
 	for (const wanted of seed.collections) {
 		const have = current.get(wanted.slug);
+		/** @type {CollectionUpdate} */
+		const update = {};
 		if (have === undefined) {
 			newCollections.push(newCollection(wanted));
 		} else {
-			/** @type {CollectionUpdate} */
-			const update = {};
 			if (wanted.urlPattern !== undefined && wanted.urlPattern !== have.urlPattern) {
 				if (have.urlPattern) {
 					problems.push(
@@ -369,9 +393,15 @@ export function planModelUpdate(seed, live) {
 			if (have.routable !== routable) {
 				update.routable = routable;
 			}
-			if (Object.keys(update).length > 0) {
-				collections.push({ slug: wanted.slug, update });
-			}
+		}
+		if (wanted.titleField !== undefined && !have?.titleField) {
+			update.titleField = wanted.titleField;
+		}
+		if (wanted.dateField !== undefined && !have?.dateField) {
+			update.dateField = wanted.dateField;
+		}
+		if (Object.keys(update).length > 0) {
+			collections.push({ slug: wanted.slug, update });
 		}
 		const existing = new Map((have?.fields ?? []).map((field) => [field.slug, field]));
 		for (const field of wanted.fields ?? []) {
@@ -379,9 +409,7 @@ export function planModelUpdate(seed, live) {
 			if (stored === undefined) {
 				fields.push({ collection: wanted.slug, field });
 			} else if (stored.type !== field.type) {
-				problems.push(
-					`${wanted.slug}: the database has the field ${field.slug} as ${stored.type}, the seed as ${field.type}`,
-				);
+				problems.push(retypedField(wanted.slug, field.slug, stored.type, field.type));
 			} else if (
 				field.type === "blocks" &&
 				Object.entries(field.validation ?? {}).some(
@@ -437,9 +465,9 @@ function describe(settings) {
 
 /**
  * The requests that apply a plan, in the order EmDash needs: the block types before the blocks
- * field that names them, a collection before its fields, and its title and date fields after
- * them. Block-type updates go first, so EmDash's refusal of a breaking one stops the step before
- * anything else changes.
+ * field that names them, a collection before its fields, and its settings after them, since its
+ * title and date fields must name fields it has. Block-type updates go first, so EmDash's refusal
+ * of a breaking one stops the step before anything else changes.
  *
  * @param {ReturnType<typeof planModelUpdate>} plan
  * @returns {NativeRequest[]}
@@ -461,17 +489,11 @@ export function planRequests(plan) {
 			path: blockTypes,
 			body: blockType,
 		})),
-		...plan.newCollections.map(({ create }) => ({
-			change: `${create.slug}: collection (${create.label})`,
+		...plan.newCollections.map((created) => ({
+			change: `${created.slug}: collection (${created.label})`,
 			method: "POST",
 			path: "/_emdash/api/schema/collections",
-			body: create,
-		})),
-		...plan.collections.map(({ slug, update }) => ({
-			change: `${slug}: ${describe(update)}`,
-			method: "PUT",
-			path: collection(slug),
-			body: update,
+			body: created,
 		})),
 		...plan.fields.map(({ collection: slug, field }) => ({
 			change: `${slug}: field ${field.slug} (${field.type}, ${field.label})`,
@@ -485,14 +507,12 @@ export function planRequests(plan) {
 			path: `${collection(slug)}/fields/${encodeURIComponent(field)}`,
 			body: { validation },
 		})),
-		...plan.newCollections
-			.filter(({ display }) => Object.keys(display).length > 0)
-			.map(({ create, display }) => ({
-				change: `${create.slug}: ${describe(display)}`,
-				method: "PUT",
-				path: collection(String(create.slug)),
-				body: display,
-			})),
+		...plan.collections.map(({ slug, update }) => ({
+			change: `${slug}: ${describe(update)}`,
+			method: "PUT",
+			path: collection(slug),
+			body: update,
+		})),
 		...plan.terms.map(({ taxonomy, slug, label }) => ({
 			change: `${taxonomy}: term ${slug} (${label})`,
 			method: "POST",
