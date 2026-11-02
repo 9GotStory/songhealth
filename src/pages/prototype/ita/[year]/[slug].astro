@@ -1,0 +1,94 @@
+---
+// PROTOTYPE (throwaway, branch prototype/ita): three variants of the MOIT page, switchable via
+// `?variant=`, on the throwaway route /prototype/ita/{year}/{slug}. The entry is read by its slug,
+// as EmDash resolves a URL pattern (docs/agents/emdash-1.1.0.md "Public reads"), and the year in
+// the address must be the entry's fiscal year. The previous and next links stay inside the year.
+import ChevronLeft from "@lucide/astro/icons/chevron-left";
+import ChevronRight from "@lucide/astro/icons/chevron-right";
+import { getEmDashEntry } from "emdash";
+import MoitVariantA from "../../../../components/prototype/MoitVariantA.astro";
+import MoitVariantB from "../../../../components/prototype/MoitVariantB.astro";
+import MoitVariantC from "../../../../components/prototype/MoitVariantC.astro";
+import PrototypeSwitcher from "../../../../components/prototype/PrototypeSwitcher.astro";
+import SiteLayout from "../../../../layouts/SiteLayout.astro";
+import {
+	ITA_PROTOTYPE_PATH,
+	ITA_PROTOTYPE_TITLE,
+	PROTOTYPE_COLLECTION,
+	VARIANTS,
+	countEvidence,
+	groupEvidence,
+	moitLabel,
+	moitPath,
+	moitsOfYear,
+	publishedMoits,
+	variantOf,
+	yearPath,
+	type MoitData,
+} from "../../../../lib/prototype-ita";
+
+const year = Number(Astro.params.year);
+const slug = Astro.params.slug ?? "";
+const { entry, error } = await getEmDashEntry<typeof PROTOTYPE_COLLECTION, MoitData>(
+	PROTOTYPE_COLLECTION,
+	slug,
+);
+if (error) throw error;
+if (!entry || entry.data.fiscal_year !== year) return Astro.rewrite("/404");
+
+const moit = entry.data;
+const groups = await groupEvidence(moit.evidence, Astro.locals.emdash);
+const counts = countEvidence(groups);
+const variant = variantOf(Astro.url.searchParams.get("variant"));
+
+const siblings = moitsOfYear(await publishedMoits(), year);
+const at = siblings.findIndex((sibling) => sibling.id === entry.id);
+const previous = at > 0 ? siblings[at - 1] : undefined;
+const next = at >= 0 && at < siblings.length - 1 ? siblings[at + 1] : undefined;
+const pagerLink =
+	"inline-flex min-h-11 items-center gap-2 text-brand-primary underline underline-offset-4";
+---
+
+<SiteLayout
+	title={`${moitLabel(moit.number)} ${moit.title} · ITA ${year} (ต้นแบบ)`}
+	description={moit.summary ?? undefined}
+	canonical={moitPath(year, entry.id)}
+	crumbs={[
+		{ label: ITA_PROTOTYPE_TITLE, href: ITA_PROTOTYPE_PATH },
+		{ label: `ปีงบประมาณ ${year}`, href: yearPath(year) },
+		{ label: moitLabel(moit.number) },
+	]}
+	entry={{
+		collection: PROTOTYPE_COLLECTION,
+		id: moit.id,
+		slug: entry.id,
+		publishedAt: moit.publishedAt,
+	}}
+	noindex
+>
+	{variant === "A" && <MoitVariantA moit={moit} groups={groups} counts={counts} />}
+	{variant === "B" && <MoitVariantB moit={moit} groups={groups} counts={counts} />}
+	{variant === "C" && <MoitVariantC moit={moit} groups={groups} counts={counts} />}
+	<nav
+		aria-label="ตัวชี้วัดอื่นของปีเดียวกัน"
+		class="page-container flex justify-between gap-4 pb-24"
+	>
+		{previous ? (
+			<a class={pagerLink} href={moitPath(year, previous.id)}>
+				<ChevronLeft size={20} />
+				{moitLabel(previous.data.number)}
+			</a>
+		) : (
+			<span />
+		)}
+		{next ? (
+			<a class={pagerLink} href={moitPath(year, next.id)}>
+				{moitLabel(next.data.number)}
+				<ChevronRight size={20} />
+			</a>
+		) : (
+			<span />
+		)}
+	</nav>
+	<PrototypeSwitcher variants={VARIANTS} current={variant} />
+</SiteLayout>

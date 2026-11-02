@@ -1,0 +1,149 @@
+---
+// PROTOTYPE (throwaway, branch prototype/ita): variant B of the MOIT page, "ตารางตามรอบ". An
+// assessor's table: one row per piece of Evidence, and the download sits in the column of the
+// round it belongs to, or spans both columns when it belongs to no round. The header counts the
+// Evidence per round.
+import Download from "@lucide/astro/icons/download";
+import ExternalLink from "@lucide/astro/icons/external-link";
+import { FILE_UNAVAILABLE } from "../../lib/media";
+import {
+	ROUNDS,
+	moitLabel,
+	type EvidenceCounts,
+	type EvidenceItem,
+	type MoitData,
+	type RequirementGroup,
+} from "../../lib/prototype-ita";
+import DateText from "../DateText.astro";
+
+interface Props {
+	moit: MoitData;
+	groups: RequirementGroup[];
+	counts: EvidenceCounts;
+}
+
+const { moit, groups, counts } = Astro.props;
+
+/** The leading "1.1" of a label, when it has one, and the rest of the label. */
+function split(label: string): { number?: string; text: string } {
+	const match = /^(\d+(?:\.\d+)*)\s+(.*)$/s.exec(label);
+	return match ? { number: match[1], text: match[2] } : { text: label };
+}
+
+/** The round cells of a row: the action in its round's cell, or one cell across both rounds. */
+function cellsOf(item: EvidenceItem): { span: number; action: boolean }[] {
+	if (item.round === undefined) return [{ span: 2, action: true }];
+	return ROUNDS.map((round) => ({ span: 1, action: round === item.round }));
+}
+---
+
+<div class="page-container flex flex-col gap-6 pt-6 pb-10 lg:pb-12">
+	<header class="flex flex-col gap-4 border-b border-border-default pb-5 lg:flex-row lg:items-end lg:justify-between">
+		<div class="flex max-w-3xl flex-col gap-1">
+			<p class="text-label text-brand-primary">
+				ITA ปีงบประมาณ พ.ศ. {moit.fiscal_year} · {moitLabel(moit.number)}
+			</p>
+			<h1 class="text-h3 wrap-anywhere text-brand-dark lg:text-h2">{moit.title}</h1>
+			{moit.updated_on && (
+				<p class="text-small text-text-secondary">
+					ปรับปรุงล่าสุด <DateText value={moit.updated_on} />
+				</p>
+			)}
+		</div>
+		<dl class="grid shrink-0 grid-cols-3 gap-3 text-center">
+			<div class="rounded-16 bg-surface-soft px-4 py-2">
+				<dt class="text-small text-text-secondary-on-soft">ทั้งหมด</dt>
+				<dd class="text-h3 text-brand-dark">{counts.total}</dd>
+			</div>
+			{ROUNDS.map((round) => (
+				<div class="rounded-16 bg-surface-soft px-4 py-2">
+					<dt class="text-small text-text-secondary-on-soft">{round}</dt>
+					<dd class="text-h3 text-brand-dark">{counts.byRound[round]}</dd>
+				</div>
+			))}
+		</dl>
+	</header>
+	<div class="overflow-x-auto rounded-24 border border-border-default bg-surface-base">
+		<table class="w-full min-w-3xl border-collapse text-body">
+			<caption class="sr-only">หลักฐานของ{moitLabel(moit.number)}แยกตามรอบการประเมิน</caption>
+			<thead class="bg-surface-soft text-left text-label text-brand-dark">
+				<tr>
+					<th scope="col" class="w-20 px-4 py-3">
+						ข้อ
+					</th>
+					<th scope="col" class="px-4 py-3">
+						หลักฐาน
+					</th>
+					{ROUNDS.map((round) => (
+						<th scope="col" class="w-44 px-4 py-3 text-center">
+							{round}
+						</th>
+					))}
+				</tr>
+			</thead>
+			{groups.map((group) => (
+				<tbody class="border-t border-border-default">
+					<tr class={group.depth === 1 ? "bg-bg-page" : undefined}>
+						<th
+							scope="rowgroup"
+							colspan="4"
+							class:list={[
+								"px-4 py-3 text-left wrap-anywhere",
+								group.depth === 1
+									? "text-body-large font-semibold text-brand-dark"
+									: "font-semibold text-text-primary",
+							]}
+						>
+							{group.number}
+							{group.depth === 1 && group.number ? "." : ""}
+							{group.title}
+						</th>
+					</tr>
+					{group.items.map((item) => {
+						const { number, text } = split(item.label);
+						return (
+							<tr class="border-t border-divider align-top">
+								<td class="px-4 py-3 text-text-secondary">{number}</td>
+								<td class="px-4 py-3">
+									<p class="wrap-anywhere">{text}</p>
+									<p class="text-small text-text-secondary">
+										{item.href === undefined ? FILE_UNAVAILABLE : item.detail}
+										{item.current ? " · ข้อมูลปัจจุบัน" : ""}
+										{item.note ? ` · ${item.note}` : ""}
+									</p>
+								</td>
+								{cellsOf(item).map((cell) => (
+									<td colspan={cell.span} class="px-4 py-3 text-center">
+										{cell.action && item.href && item.kind === "file" && (
+											<a
+												class="inline-flex min-h-11 items-center gap-2 rounded-pill bg-brand-primary px-4 py-2 text-label text-surface-base hover:bg-brand-dark"
+												href={item.href}
+												download={item.filename}
+											>
+												<Download size={18} />
+												ดาวน์โหลด
+											</a>
+										)}
+										{cell.action && item.href && item.kind === "link" && (
+											<a
+												class="inline-flex min-h-11 items-center gap-2 rounded-pill border border-brand-primary px-4 py-2 text-label text-brand-primary hover:bg-surface-soft"
+												href={item.href}
+												rel={item.external ? "noopener" : undefined}
+											>
+												<ExternalLink size={18} />
+												เปิดลิงก์
+											</a>
+										)}
+										{cell.action && !item.href && (
+											<span class="text-small text-text-secondary">{FILE_UNAVAILABLE}</span>
+										)}
+									</td>
+								))}
+							</tr>
+						);
+					})}
+				</tbody>
+			))}
+		</table>
+	</div>
+</div>

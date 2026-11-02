@@ -1,0 +1,112 @@
+---
+// PROTOTYPE (throwaway, branch prototype/ita): variant A of the MOIT page, "เอกสารเรียงตามข้อ". One
+// column that reads like the MOPH manual: each Requirement is a numbered section and its Evidence
+// a vertical list of rows, with the round and any note beside each row.
+import ExternalLink from "@lucide/astro/icons/external-link";
+import FileText from "@lucide/astro/icons/file-text";
+import Link from "@lucide/astro/icons/link";
+import { FILE_UNAVAILABLE } from "../../lib/media";
+import {
+	moitLabel,
+	type EvidenceCounts,
+	type MoitData,
+	type RequirementGroup,
+} from "../../lib/prototype-ita";
+import DateText from "../DateText.astro";
+
+interface Props {
+	moit: MoitData;
+	groups: RequirementGroup[];
+	counts: EvidenceCounts;
+}
+
+const { moit, groups, counts } = Astro.props;
+---
+
+<article class="page-container flex flex-col gap-8 pt-6 pb-10 lg:pb-12">
+	<header class="flex max-w-3xl flex-col gap-3">
+		<p class="text-label text-brand-primary">ITA ปีงบประมาณ พ.ศ. {moit.fiscal_year}</p>
+		<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
+			<span class="mr-3 inline-block rounded-pill bg-brand-primary px-4 py-1 align-middle text-label text-surface-base">
+				{moitLabel(moit.number)}
+			</span>
+			{moit.title}
+		</h1>
+		{moit.summary && <p class="text-body-large text-text-secondary">{moit.summary}</p>}
+		<p class="text-small text-text-secondary">
+			หลักฐาน {counts.total} รายการ (ไฟล์ {counts.files}, ลิงก์ {counts.links})
+			{moit.updated_on && (
+				<>
+					{" · ปรับปรุงล่าสุด "}
+					<DateText value={moit.updated_on} />
+				</>
+			)}
+		</p>
+	</header>
+	{groups.map((group) => (
+		<section class="flex max-w-3xl flex-col gap-3" aria-labelledby={`req-${group.key}`}>
+			{group.depth === 1 ? (
+				<h2 id={`req-${group.key}`} class="text-h3 wrap-anywhere text-brand-dark">
+					{group.number ? `${group.number}. ` : ""}
+					{group.title}
+				</h2>
+			) : (
+				<h3
+					id={`req-${group.key}`}
+					class="text-body-large font-semibold wrap-anywhere text-brand-dark"
+				>
+					{group.number} {group.title}
+				</h3>
+			)}
+			{group.items.length > 0 && (
+				<ol class="flex flex-col divide-y divide-divider rounded-24 bg-surface-base shadow-card">
+					{group.items.map((item) => (
+						<li class="flex items-start gap-3 p-4">
+							<span class="mt-0.5 shrink-0 text-brand-primary" aria-hidden="true">
+								{item.kind === "file" ? (
+									<FileText size={20} />
+								) : item.external ? (
+									<ExternalLink size={20} />
+								) : (
+									<Link size={20} />
+								)}
+							</span>
+							<div class="flex min-w-0 flex-1 flex-col gap-1">
+								{item.href ? (
+									<a
+										class="font-medium wrap-anywhere text-brand-primary underline underline-offset-4"
+										href={item.href}
+										download={item.kind === "file" ? item.filename : undefined}
+										rel={item.external ? "noopener" : undefined}
+									>
+										{item.label}
+									</a>
+								) : (
+									<span class="font-medium wrap-anywhere text-text-primary">{item.label}</span>
+								)}
+								<p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-small text-text-secondary">
+									{item.href === undefined ? (
+										<span class="font-medium text-brand-dark">{FILE_UNAVAILABLE}</span>
+									) : (
+										item.detail && <span>{item.detail}</span>
+									)}
+									{item.round && (
+										<span class="rounded-pill bg-surface-soft px-2.5 py-0.5 font-medium text-brand-dark">
+											{item.round}
+										</span>
+									)}
+									{item.current && (
+										<span class="rounded-pill bg-topic-blue px-2.5 py-0.5 font-medium text-brand-dark">
+											ข้อมูลปัจจุบัน
+										</span>
+									)}
+									{item.note && <span>{item.note}</span>}
+								</p>
+							</div>
+						</li>
+					))}
+				</ol>
+			)}
+		</section>
+	))}
+</article>

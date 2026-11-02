@@ -1,0 +1,51 @@
+---
+// PROTOTYPE (throwaway, branch prototype/ita): the ITA landing page of the prototype, which lists
+// the fiscal years that have published MOITs. The year list comes from the content (grill Q14): no
+// year record, no menu edit each year. The data is the temporary "proto-moit" collection.
+import PageHeading from "../../../components/PageHeading.astro";
+import SiteLayout from "../../../layouts/SiteLayout.astro";
+import {
+	ITA_PROTOTYPE_PATH,
+	ITA_PROTOTYPE_TITLE,
+	publishedMoits,
+	yearPath,
+	yearsOf,
+} from "../../../lib/prototype-ita";
+
+const years = yearsOf(await publishedMoits());
+---
+
+<SiteLayout
+	title={ITA_PROTOTYPE_TITLE}
+	canonical={ITA_PROTOTYPE_PATH}
+	crumbs={[{ label: ITA_PROTOTYPE_TITLE }]}
+	noindex
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading
+			title="การประเมินคุณธรรมและความโปร่งใส (ITA)"
+			lead="หลักฐานการประเมิน MOPH ITA ของสำนักงานสาธารณสุขอำเภอสอง แยกตามปีงบประมาณ"
+		/>
+		<p class="max-w-prose rounded-24 bg-accent-warm/30 p-4 text-small text-brand-dark">
+			ต้นแบบชั่วคราวสำหรับตัดสินใจรูปแบบหน้า ITA: เนื้อหาเป็นตัวอย่าง ไม่ใช่หลักฐานจริง
+		</p>
+		{years.length === 0 ? (
+			<p class="text-text-secondary">ยังไม่มีปีงบประมาณที่เผยแพร่</p>
+		) : (
+			<ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+				{years.map(({ year, count }) => (
+					<li>
+						<a
+							href={yearPath(year)}
+							class="flex flex-col gap-1 rounded-24 bg-surface-base p-5 shadow-card hover:ring-2 hover:ring-brand-primary"
+						>
+							<span class="text-label text-brand-primary">ปีงบประมาณ</span>
+							<span class="text-h2 text-brand-dark">{year}</span>
+							<span class="text-small text-text-secondary">{count} ตัวชี้วัด</span>
+						</a>
+					</li>
+				))}
+			</ul>
+		)}
+	</div>
+</SiteLayout>

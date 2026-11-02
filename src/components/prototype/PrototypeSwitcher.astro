@@ -1,0 +1,62 @@
+---
+// PROTOTYPE (throwaway, branch prototype/ita): the floating bar that flips between the variants
+// of a prototype page through its `?variant=` search parameter. Only the pages under
+// src/pages/prototype/ render it, so it cannot reach a real page.
+import ChevronLeft from "@lucide/astro/icons/chevron-left";
+import ChevronRight from "@lucide/astro/icons/chevron-right";
+
+interface Props {
+	variants: readonly { key: string; name: string }[];
+	current: string;
+}
+
+const { variants, current } = Astro.props;
+const index = Math.max(
+	0,
+	variants.findIndex((variant) => variant.key === current),
+);
+const previous = variants[(index - 1 + variants.length) % variants.length];
+const next = variants[(index + 1) % variants.length];
+const hrefOf = (key: string) => {
+	const url = new URL(Astro.url);
+	url.searchParams.set("variant", key);
+	return `${url.pathname}${url.search}`;
+};
+---
+
+<div
+	class="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-pill border-2 border-accent-warm bg-brand-dark px-2 py-1 text-surface-base shadow-card"
+	data-prototype-switcher
+	data-previous={hrefOf(previous.key)}
+	data-next={hrefOf(next.key)}
+>
+	<a
+		class="inline-flex size-11 items-center justify-center rounded-pill hover:bg-hero-chip"
+		href={hrefOf(previous.key)}
+		aria-label={`แบบก่อนหน้า: ${previous.name}`}
+	>
+		<ChevronLeft size={20} />
+	</a>
+	<span class="px-2 text-label whitespace-nowrap">
+		ต้นแบบ {current} · {variants[index].name} ({index + 1}/{variants.length})
+	</span>
+	<a
+		class="inline-flex size-11 items-center justify-center rounded-pill hover:bg-hero-chip"
+		href={hrefOf(next.key)}
+		aria-label={`แบบถัดไป: ${next.name}`}
+	>
+		<ChevronRight size={20} />
+	</a>
+</div>
+
+<script>
+	const bar = document.querySelector<HTMLElement>("[data-prototype-switcher]");
+	document.addEventListener("keydown", (event) => {
+		const target = event.target;
+		if (target instanceof HTMLElement && target.closest("input, textarea, [contenteditable]")) {
+			return;
+		}
+		if (event.key === "ArrowLeft" && bar?.dataset.previous) location.assign(bar.dataset.previous);
+		if (event.key === "ArrowRight" && bar?.dataset.next) location.assign(bar.dataset.next);
+	});
+</script>

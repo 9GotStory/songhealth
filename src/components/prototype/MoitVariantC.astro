@@ -1,0 +1,150 @@
+---
+// PROTOTYPE (throwaway, branch prototype/ita): variant C of the MOIT page, "สารบัญและการ์ด". A
+// navigator for the long MOITs: a sticky table of contents of the top-level Requirements beside
+// one collapsible card per Requirement, whose Evidence are compact pills that wrap, with any
+// sub-Requirement as a section inside its card.
+import ExternalLink from "@lucide/astro/icons/external-link";
+import FileText from "@lucide/astro/icons/file-text";
+import Link from "@lucide/astro/icons/link";
+import { FILE_UNAVAILABLE } from "../../lib/media";
+import {
+	moitLabel,
+	nestGroups,
+	type EvidenceCounts,
+	type EvidenceItem,
+	type MoitData,
+	type RequirementGroup,
+	type RequirementTree,
+} from "../../lib/prototype-ita";
+import DateText from "../DateText.astro";
+
+interface Props {
+	moit: MoitData;
+	groups: RequirementGroup[];
+	counts: EvidenceCounts;
+}
+
+const { moit, groups, counts } = Astro.props;
+const tree = nestGroups(groups);
+
+const countOf = (top: RequirementTree) =>
+	top.items.length + top.children.reduce((sum, child) => sum + child.items.length, 0);
+
+/** A card's sections: the Requirement's own Evidence first, then each sub-Requirement's. */
+const sectionsOf = (
+	top: RequirementTree,
+): { heading?: RequirementGroup; items: EvidenceItem[] }[] => [
+	...(top.items.length > 0 ? [{ items: top.items }] : []),
+	...top.children.map((child) => ({ heading: child, items: child.items })),
+];
+---
+
+<div class="page-container pt-6 pb-10 lg:pb-12">
+	<header class="mb-6 flex flex-col gap-3 rounded-32 bg-brand-dark p-6 text-surface-base lg:p-8">
+		<p class="text-label text-accent-warm">ITA ปีงบประมาณ พ.ศ. {moit.fiscal_year}</p>
+		<h1 class="text-h3 wrap-anywhere sm:text-h2">
+			<span class="text-accent-warm">{moitLabel(moit.number)}</span>
+			{moit.title}
+		</h1>
+		<p class="text-body text-surface-base/80">
+			หลักฐาน {counts.total} รายการ ใน {tree.length} ข้อ
+			{counts.unavailable > 0 ? ` · ไฟล์ที่ไม่พร้อมให้บริการ ${counts.unavailable}` : ""}
+			{moit.updated_on && (
+				<>
+					{" · ปรับปรุงล่าสุด "}
+					<DateText value={moit.updated_on} />
+				</>
+			)}
+		</p>
+	</header>
+	<div class="flex flex-col gap-6 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start lg:gap-10">
+		<nav aria-label="สารบัญข้อกำหนด" class="lg:sticky lg:top-6">
+			<p class="mb-2 text-label text-brand-primary">สารบัญ</p>
+			<ol class="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible">
+				{tree.map((top) => (
+					<li class="shrink-0 lg:shrink">
+						<a
+							href={`#req-${top.key}`}
+							class="flex min-h-11 items-center gap-3 rounded-16 border border-border-default bg-surface-base px-3 py-2 text-label text-brand-dark hover:border-brand-primary"
+						>
+							<span class="inline-flex size-7 shrink-0 items-center justify-center rounded-pill bg-surface-soft font-semibold">
+								{top.number || "–"}
+							</span>
+							<span class="hidden max-w-44 truncate lg:inline">{top.title}</span>
+							<span class="text-text-secondary">{countOf(top)}</span>
+						</a>
+					</li>
+				))}
+			</ol>
+		</nav>
+		<div class="flex flex-col gap-4">
+			{tree.map((top, index) => (
+				<details
+					id={`req-${top.key}`}
+					class="rounded-24 bg-surface-base shadow-card"
+					open={index < 3}
+				>
+					<summary class="flex cursor-pointer list-none items-start justify-between gap-4 p-5">
+						<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
+							{top.number ? `${top.number}. ` : ""}
+							{top.title}
+						</h2>
+						<span class="shrink-0 rounded-pill bg-surface-soft px-3 py-1 text-small text-brand-dark">
+							{countOf(top)} รายการ
+						</span>
+					</summary>
+					<div class="flex flex-col gap-5 px-5 pb-5">
+						{sectionsOf(top).map((section) => (
+							<section class="flex flex-col gap-2">
+								{section.heading && (
+									<h3 class="font-semibold wrap-anywhere text-text-primary">
+										{section.heading.number} {section.heading.title}
+									</h3>
+								)}
+								<ul class="flex flex-wrap gap-2">
+									{section.items.map((item) => (
+										<li class="max-w-full">
+											{item.href ? (
+												<a
+													class="inline-flex min-h-11 max-w-full items-center gap-2 rounded-pill border border-border-default bg-surface-soft px-4 py-2 text-label text-brand-dark hover:border-brand-primary hover:bg-surface-base"
+													href={item.href}
+													download={item.kind === "file" ? item.filename : undefined}
+													rel={item.external ? "noopener" : undefined}
+												>
+													<span class="shrink-0 text-brand-primary" aria-hidden="true">
+														{item.kind === "file" ? (
+															<FileText size={18} />
+														) : item.external ? (
+															<ExternalLink size={18} />
+														) : (
+															<Link size={18} />
+														)}
+													</span>
+													{item.round && (
+														<span class="shrink-0 rounded-pill bg-brand-dark px-2 py-0.5 text-small text-surface-base">
+															{item.round}
+														</span>
+													)}
+													<span class="wrap-anywhere">{item.label}</span>
+													{item.detail && (
+														<span class="shrink-0 text-text-secondary-on-soft">{item.detail}</span>
+													)}
+												</a>
+											) : (
+												<span class="inline-flex min-h-11 max-w-full items-center gap-2 rounded-pill border border-dashed border-border-input px-4 py-2 text-label text-text-secondary">
+													<FileText size={18} aria-hidden="true" />
+													<span class="wrap-anywhere">{item.label}</span>
+													<span class="shrink-0">· {FILE_UNAVAILABLE}</span>
+												</span>
+											)}
+										</li>
+									))}
+								</ul>
+							</section>
+						))}
+					</div>
+				</details>
+			))}
+		</div>
+	</div>
+</div>

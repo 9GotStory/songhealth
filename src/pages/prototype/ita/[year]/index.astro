@@ -1,0 +1,67 @@
+---
+// PROTOTYPE (throwaway, branch prototype/ita): one fiscal year's MOITs, in MOIT order, each with
+// its Evidence count. Only this year's MOITs appear (legacy defect 7: navigation that crosses years).
+import PageHeading from "../../../../components/PageHeading.astro";
+import SiteLayout from "../../../../layouts/SiteLayout.astro";
+import {
+	ITA_PROTOTYPE_PATH,
+	ITA_PROTOTYPE_TITLE,
+	moitLabel,
+	moitPath,
+	moitsOfYear,
+	publishedMoits,
+	yearPath,
+} from "../../../../lib/prototype-ita";
+import DateText from "../../../../components/DateText.astro";
+
+const year = Number(Astro.params.year);
+if (!Number.isInteger(year)) return Astro.rewrite("/404");
+const moits = moitsOfYear(await publishedMoits(), year);
+if (moits.length === 0) return Astro.rewrite("/404");
+
+const evidenceCount = (moit: (typeof moits)[number]) =>
+	(moit.data.evidence ?? []).filter((block) => block._type !== "proto_ita_requirement").length;
+---
+
+<SiteLayout
+	title={`ITA ${year} (ต้นแบบ)`}
+	canonical={yearPath(year)}
+	crumbs={[
+		{ label: ITA_PROTOTYPE_TITLE, href: ITA_PROTOTYPE_PATH },
+		{ label: `ปีงบประมาณ ${year}` },
+	]}
+	noindex
+>
+	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+		<PageHeading
+			title={`MOPH ITA ปีงบประมาณ พ.ศ. ${year}`}
+			lead={`ตัวชี้วัด ${moits.length} รายการ พร้อมหลักฐานที่เผยแพร่แล้ว`}
+		/>
+		<ol class="flex flex-col divide-y divide-divider rounded-24 bg-surface-base shadow-card">
+			{moits.map((moit) => (
+				<li>
+					<a
+						href={moitPath(year, moit.id)}
+						class="flex items-start gap-4 p-5 hover:bg-surface-soft"
+					>
+						<span class="shrink-0 rounded-pill bg-brand-primary px-3 py-1 text-label text-surface-base">
+							{moitLabel(moit.data.number)}
+						</span>
+						<span class="flex min-w-0 flex-col gap-1">
+							<span class="font-medium wrap-anywhere text-brand-dark">{moit.data.title}</span>
+							<span class="text-small text-text-secondary">
+								หลักฐาน {evidenceCount(moit)} รายการ
+								{moit.data.updated_on && (
+									<>
+										{" · ปรับปรุงล่าสุด "}
+										<DateText value={moit.data.updated_on} />
+									</>
+								)}
+							</span>
+						</span>
+					</a>
+				</li>
+			))}
+		</ol>
+	</div>
+</SiteLayout>
