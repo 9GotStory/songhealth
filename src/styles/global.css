@@ -19,7 +19,8 @@
 	--color-brand-dark: #123c33;
 	/*
 	 * A status that needs attention (StatusLabel), the skip link, the focus ring on dark surfaces,
-	 * and the eyebrow on the brand-dark Health Service Discovery section (Figma frame §8)
+	 * and the eyebrow on the brand-dark Health Service Discovery section (Figma frame §8) and on the
+	 * MOIT page's brand-dark header band, with the MOIT's number (#123, ITA prototype variant C)
 	 */
 	--color-accent-warm: #f3c95f;
 	--color-text-primary: #16211d;

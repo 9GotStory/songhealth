@@ -1,0 +1,104 @@
+---
+// A MOIT's Evidence as pills (Feature 004 #123; spec #121 "Public routes", the prototype's variant
+// C): each piece of Evidence with its Round when it names one, its label, and what it is.
+//
+// - A file downloads under its uploaded name and says its type and size, as a Document's file does
+//   (src/components/DocumentDownload.astro). One that cannot be served says so in the Document
+//   wording, without a link to it, and points to the office (#121 user story 13).
+// - A link says whether it leads to a page of this site or to another website, whose host it
+//   names. A link to another website says in text that it leaves the site and opens in a new tab,
+//   as src/components/ContentLink.astro does. A link staff marked current carries
+//   "ข้อมูลปัจจุบัน" as a status that needs attention (StatusLabel.astro): it shows today's data,
+//   not the fiscal year's record (ADR 0006).
+// - The icons follow the site's rules (CODING_STANDARDS "Public pages"): a file's download icon at
+//   its start, chevron-right at the end of a link on this site and arrow-up-right at the end of
+//   one that leaves it. They are decorative (docs/agents/lucide-astro-1.59.0.md).
+import ArrowUpRight from "@lucide/astro/icons/arrow-up-right";
+import ChevronRight from "@lucide/astro/icons/chevron-right";
+import Download from "@lucide/astro/icons/download";
+import type { EvidencePill } from "../lib/ita";
+import { FILE_UNAVAILABLE } from "../lib/media";
+import StatusLabel from "./StatusLabel.astro";
+
+interface Props {
+	pills: EvidencePill[];
+}
+
+const { pills } = Astro.props;
+// A pill keeps its icons at its ends and lets its text wrap between them, so on a phone an icon
+// never sits on a line of its own.
+const pill = "inline-flex min-h-11 max-w-full items-center gap-2 rounded-24 px-4 py-2 text-label";
+const linked = `${pill} border border-border-default bg-surface-soft text-brand-dark hover:border-brand-primary hover:bg-surface-base`;
+const text = "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1";
+const round = "rounded-pill bg-brand-dark px-2 text-small text-surface-base";
+const detail = "wrap-anywhere text-text-secondary-on-soft";
+---
+
+{pills.length > 0 && (
+	<ul class="flex flex-wrap gap-2">
+		{pills.map((evidence) => (
+			<li class="max-w-full">
+				{evidence.kind === "file" ? (
+					<a class={linked} href={evidence.href} download={evidence.filename}>
+						<Download class="shrink-0 text-brand-primary" size={20} />
+						<span class={text}>
+							{evidence.round && <span class={round}>{evidence.round}</span>}
+							<span class="wrap-anywhere">
+								{evidence.label}
+								{evidence.note && ` (${evidence.note})`}
+							</span>
+							<span class={detail}>{evidence.detail}</span>
+						</span>
+					</a>
+				) : evidence.kind === "unavailable" ? (
+					<span class={`${pill} border border-dashed border-border-input text-text-secondary`}>
+						<span class={text}>
+							{evidence.round && <span class={round}>{evidence.round}</span>}
+							<span class="wrap-anywhere">
+								{evidence.label}
+								{evidence.note && ` (${evidence.note})`}
+							</span>
+							<span class="font-semibold text-brand-dark">{FILE_UNAVAILABLE}</span>
+							<a class="text-brand-primary underline underline-offset-4" href="/contact">
+								ติดต่อเรา
+							</a>
+						</span>
+					</span>
+				) : evidence.kind === "unlinked" ? (
+					<span class={`${pill} border border-border-default text-brand-dark`}>
+						<span class={text}>
+							{evidence.round && <span class={round}>{evidence.round}</span>}
+							<span class="wrap-anywhere">{evidence.label}</span>
+							{evidence.current && <StatusLabel attention>ข้อมูลปัจจุบัน</StatusLabel>}
+						</span>
+					</span>
+				) : (
+					<a
+						class={linked}
+						href={evidence.href}
+						target={evidence.kind === "external" ? "_blank" : undefined}
+						rel={evidence.kind === "external" ? "noopener" : undefined}
+					>
+						<span class={text}>
+							{evidence.round && <span class={round}>{evidence.round}</span>}
+							<span class="wrap-anywhere">{evidence.label}</span>
+							<span class={detail}>
+								{evidence.detail}
+								{evidence.kind === "external" && " (เว็บไซต์ภายนอก)"}
+							</span>
+							{evidence.current && <StatusLabel attention>ข้อมูลปัจจุบัน</StatusLabel>}
+						</span>
+						{evidence.kind === "external" ? (
+							<>
+								<span class="sr-only">(เปิดในแท็บใหม่)</span>
+								<ArrowUpRight class="shrink-0" size={16} />
+							</>
+						) : (
+							<ChevronRight class="shrink-0" size={16} />
+						)}
+					</a>
+				)}
+			</li>
+		))}
+	</ul>
+)}
