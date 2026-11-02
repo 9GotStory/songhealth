@@ -16,6 +16,9 @@ and why, and `.jscpd-baseline.json` records them.
   the source path, for example `emdash 1.1.0 src/api/schemas/settings.ts`.
   `tests/node/cited-source-paths.test.ts` checks that each cited path exists, and that a path
   found only in EmDash comes with its pinned version in the comment or in the file's header.
+  Review reads the cited source for each platform claim a changed comment makes: a claim the
+  source does not show, or one without a source, is a finding (#124 retro: a routing claim cited a
+  function that only serves error pages, and a comment said PostgreSQL refuses a five-digit year).
 - A Songhealth helper, hook or plugin that does what EmDash might do names its native gap: its
   comment cites the fact in `docs/agents/emdash-1.1.0.md` that shows EmDash lacks it, and a
   missing fact is added there with its source path (CLAUDE.md "Platform-native first";
@@ -102,7 +105,7 @@ and why, and `.jscpd-baseline.json` records them.
 - A test leaves nothing it can remove. A slug change leaves a native redirect after its entry is
   deleted, so the test deletes that too.
 - A request for a missing page stays in EmDash's 404 log, which only clears as a whole. Such a
-  request is deliberate and uses a synthetic path, or a synthetic referrer where the path cannot
-  carry the mark, such as a fiscal year's `/ita/2404` (`tests/browser/public.helpers.ts`
-  `expectSiteNotFound`). Where a native API can show the outcome first (a redirect list, an entry
-  read), the test asks it before requesting the page.
+  request is deliberate and uses a synthetic path where it can. Every test request also carries a
+  synthetic referrer (`playwright.config.ts`), so a miss whose path cannot carry the mark, such as
+  a fiscal year's `/ita/2404`, still counts as the tests'. Where a native API can show the outcome
+  first (a redirect list, an entry read), the test asks it before requesting the page.

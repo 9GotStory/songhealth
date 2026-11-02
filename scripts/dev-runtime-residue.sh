@@ -3,9 +3,9 @@
 # through the native API with the development PAT, which is never printed. It changes nothing
 # unless --clear-404-log is given. Synthetic
 # fixtures carry the mark songhealth-f002-synthetic (tests/browser/cms.helpers.ts
-# SYNTHETIC_FIXTURE_MARK), and requests for missing pages use songhealth-unknown- paths or, where
-# the path cannot carry the mark, such as a fiscal year's /ita/2404, a songhealth-unknown-
-# referrer, which the 404 log keeps (tests/browser/public.helpers.ts expectSiteNotFound).
+# SYNTHETIC_FIXTURE_MARK), requests for missing pages use songhealth-unknown- paths, and every
+# browser-test request carries a songhealth-unknown- referrer, which the 404 log keeps
+# (playwright.config.ts).
 #   scripts/dev-runtime-residue.sh [--clear-404-log | --clear-404-log-including-others]
 # Entries (live or in trash), media, terms, bylines, redirects and menu items must all be gone after
 # a task run: any that remain are listed and the exit status is 1. EmDash's 404 log keeps the tests'

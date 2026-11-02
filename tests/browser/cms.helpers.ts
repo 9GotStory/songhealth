@@ -1696,6 +1696,10 @@ export interface MoitFixture extends DraftFixture {
 /**
  * A synthetic MOIT draft of fiscal year `year`, numbered `number`, with `evidence` as its blocks.
  * The block types are the runtime's own model (seed/seed.json). A refusal throws.
+ *
+ * Each suite takes its own fiscal years, which no real MOIT has, so its ITA pages and lists hold
+ * only its own MOITs: 2401 is public-ita.spec.ts's, and 2402–2405 are public-ita-years.spec.ts's.
+ * A new suite takes the next free year.
  */
 export async function createSyntheticMoit(
 	actor: CmsActor,

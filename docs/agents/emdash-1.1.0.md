@@ -468,10 +468,12 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
 - A 404 log entry keeps the missed path without its query string, with the request's `Referer` and
   `User-Agent`, and the list answers them as `referrer` and `userAgent`. A repeated miss of one path
   adds a hit and keeps the latest referrer (`src/astro/middleware/redirect.ts`,
-  `src/database/repositories/redirect.ts` `log404`). `./tests/browser/public.helpers.ts`
-  `expectSiteNotFound` asks from a `songhealth-unknown-` referrer, so
-  `./scripts/dev-runtime-residue.sh` counts a miss as the tests' even where its path cannot carry
-  the mark, such as a fiscal year's `/ita/2404`.
+  `src/database/repositories/redirect.ts` `log404`). EmDash reads `Referer` nowhere else but an
+  OAuth error redirect and the request metadata it hands plugins, never for an access decision
+  (`src/astro/routes/api/auth/oauth/[provider].ts`, `src/plugins/request-meta.ts`).
+  `./playwright.config.ts` sends a `songhealth-unknown-` referrer with every test request, so
+  `./scripts/dev-runtime-residue.sh` counts a test's miss as the tests' even where its path cannot
+  carry the mark, such as a fiscal year's `/ita/2404`.
 - A content API request with no token and no session is refused before its route runs. A
   state-changing one without `X-EmDash-Request: 1` answers `403 CSRF_REJECTED`; any other answers
   `401 NOT_AUTHENTICATED` (`src/astro/middleware/auth.ts`). The development runtime answered both
