@@ -37,7 +37,8 @@ const queryText = query.kind === "none" ? "" : query.text;
 
 /**
  * "ในกลุ่ม" and a group's label, spaced from a label in Latin letters, as the site spaces ITA from
- * Thai ("ยังไม่มีข้อมูล ITA", src/pages/ita/index.astro).
+ * Thai ("ยังไม่มีข้อมูล ITA", src/pages/ita/index.astro; Product Owner, 2026-11-03: #125 comment
+ * 6591248342).
  */
 function inGroup({ label }: SearchGroup): string {
 	return /^[A-Za-z]/.test(label) ? `ในกลุ่ม ${label}` : `ในกลุ่ม${label}`;

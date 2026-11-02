@@ -17,7 +17,8 @@
 // EmDash's `extractPlainText` (emdash 1.1.0 src/search/text-extraction.ts), which needs no search
 // index. A result shows the date and status the list of its kind shows (Product Owner,
 // 2026-10-30: #63 comment 6518347225); a MOIT's names its number and fiscal year instead of its
-// kind, as spec #121 words its row.
+// kind and shows no date, as spec #121 words its row (Product Owner, 2026-11-03: #125 comment
+// 6591248342).
 
 import { extractPlainText, getEmDashCollection, type ContentEntry } from "emdash";
 import { activityDate, activityPath, type ActivityData } from "./activities";
@@ -218,7 +219,8 @@ const SOURCES: Source[] = [
 		listDate: data.publishedAt,
 	})),
 	// A MOIT has no list date, because a year's page lists its MOITs by number, so MOITs that tie
-	// keep the ITA pages' order: the newest fiscal year first, then by number.
+	// keep the ITA pages' order: the newest fiscal year first, then by number (Product Owner,
+	// 2026-11-03: #125 comment 6591248342).
 	source<MoitData>(
 		"moit",
 		({ id, data }) => ({
