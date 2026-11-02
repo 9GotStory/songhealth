@@ -267,6 +267,15 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
   (`src/database/migrations/008_auth.ts`) and is deleted once the invite is accepted
   (`@emdash-cms/auth/src/invite.ts`). Revoking an API token deletes its row
   (`src/api/handlers/api-tokens.ts`).
+- No route revokes a pending invite. The invite routes create one with `POST`, then answer
+  `GET …/accept`, `POST …/complete` and `POST …/register-options`
+  (`src/astro/integration/routes.ts`). The row stays in `auth_tokens` until the invite is accepted, so a task that creates an invite
+  deletes its row with SQL by the invite's email. The row's `expires_at` is text
+  (`src/database/migrations/008_auth.ts`).
+- In development, with no other email provider, the console email provider writes each email to
+  standard output, an invite's link and token included, so they reach the app's journal
+  (`src/plugins/email-console.ts`). With no provider configured, the invite route returns the link
+  in its answer instead (`src/astro/routes/api/auth/invite/index.ts`).
 - Each media item keeps `author_id` and `created_at` (`src/database/migrations/001_initial.ts`).
   The Admin takes and refreshes an entry's edit lock with `POST …/lock` and releases it with
   `DELETE` (`src/astro/routes/api/content/[collection]/[id]/lock.ts`).

@@ -14,9 +14,12 @@ const ROOT = new URL("../../", import.meta.url);
 /** Soft hyphen, zero-width and directional marks, bidi embeddings and isolates, BOM. */
 const INVISIBLE = /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
 
-/** Every file git tracks, relative to the repository root. */
-function trackedFiles(): string[] {
-	return execFileSync("git", ["ls-files", "-z"], { cwd: ROOT, encoding: "utf8" })
+/** Every file git tracks or would track, relative to the repository root. */
+function repositoryFiles(): string[] {
+	return execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
+		cwd: ROOT,
+		encoding: "utf8",
+	})
 		.split("\0")
 		.filter(Boolean);
 }
@@ -24,7 +27,7 @@ function trackedFiles(): string[] {
 /** Each text file's invisible characters, as `path:line U+XXXX`. Binary files hold a NUL byte. */
 async function invisibleCharacters(): Promise<string[]> {
 	const found: string[] = [];
-	for (const file of trackedFiles()) {
+	for (const file of repositoryFiles()) {
 		const bytes = await readFile(new URL(file, ROOT));
 		if (bytes.includes(0)) continue;
 		bytes
@@ -41,11 +44,11 @@ async function invisibleCharacters(): Promise<string[]> {
 }
 
 describe("invisible characters", () => {
-	it("reads the tracked text files", () => {
-		assert.ok(trackedFiles().includes("package.json"));
+	it("reads the repository's text files, staged or not", () => {
+		assert.ok(repositoryFiles().includes("package.json"));
 	});
 
-	it("appear in no tracked text file; write them as \\u escapes", async () => {
+	it("appear in no text file; write them as \\u escapes", async () => {
 		assert.deepEqual(await invisibleCharacters(), []);
 	});
 });

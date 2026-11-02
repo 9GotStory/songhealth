@@ -31,10 +31,14 @@ const IGNORE_PATH = [".gitignore", ".prettierignore"].map((name) =>
 	fileURLToPath(new URL(name, ROOT)),
 );
 
-/** Every tracked file of code that Prettier formats, relative to the repository root. */
+/** The code files Prettier formats that git tracks or would track, from the repository root. */
 async function formattedCode(): Promise<string[]> {
 	const files: string[] = [];
-	for (const file of execFileSync("git", ["ls-files", "-z"], { cwd: ROOT, encoding: "utf8" })
+	for (const file of execFileSync(
+		"git",
+		["ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+		{ cwd: ROOT, encoding: "utf8" },
+	)
 		.split("\0")
 		.filter((name) => CODE.test(name))) {
 		const path = fileURLToPath(new URL(file, ROOT));

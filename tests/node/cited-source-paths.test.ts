@@ -6,9 +6,10 @@
 // src/relations/, which emdash 1.1.0 does not have, and a helper still named the Office Contact
 // settings module by a file name it no longer has. Each path a comment cites must exist in the
 // repository, in EmDash, or in an installed package the same comment block names. The check reads
-// git-tracked files, so it sees a new file once it is staged. An EmDash source path that src/ or
-// scripts/ cites must also be recorded in docs/agents/emdash-1.1.0.md (#64 retro), whose own paths
-// tests/node/package-facts.test.ts checks.
+// the files git tracks or would track, so it sees a new file before it is staged (#115 retro). A
+// package name matches in any case, so "Astro 7.3.5" names astro. An EmDash source path that src/
+// or scripts/ cites must also be recorded in docs/agents/emdash-1.1.0.md (#64 retro), whose own
+// paths tests/node/package-facts.test.ts checks.
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -25,9 +26,12 @@ const CITED_PATH =
 /** A word that may name a package, such as `playwright-core` or `@emdash-cms/admin`. */
 const PACKAGE_NAME = /(?:@[\w.-]+\/)?[\w.-]+/g;
 
-/** The code files git tracks, outside the Feature 001 and 002 records in specs/. */
+/** The code files git tracks or would track, outside the Feature 001 and 002 records in specs/. */
 function codeFiles(): string[] {
-	return execFileSync("git", ["ls-files", "-z"], { cwd: ROOT, encoding: "utf8" })
+	return execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
+		cwd: ROOT,
+		encoding: "utf8",
+	})
 		.split("\0")
 		.filter((file) => /\.(?:ts|tsx|mts|js|mjs|astro)$/.test(file) && !file.startsWith("specs/"));
 }
@@ -38,10 +42,10 @@ function isComment(line: string): boolean {
 	return text.startsWith("//") || text.startsWith("/*") || text.startsWith("*");
 }
 
-/** The installed packages a comment line names. */
+/** The installed packages a comment line names, in any case: "Astro 7.3.5" names `astro`. */
 function namedPackages(line: string): string[] {
 	return [...line.matchAll(PACKAGE_NAME)]
-		.map(([name]) => `node_modules/${name}/`)
+		.map(([name]) => `node_modules/${name.toLowerCase()}/`)
 		.filter((root) => existsSync(new URL(`${root}package.json`, ROOT)));
 }
 
