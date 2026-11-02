@@ -9,7 +9,7 @@
 // (src/components/ItaYearPage.astro). Any other segment is read as a MOIT's slug
 // (src/components/MoitPage.astro), and so is a year without a published MOIT: a slug that breaks
 // the moit-{number}-{fiscal_year} convention still works (spec #121 "Content model"), unless it
-// is a year that has a page of its own.
+// is a year that has a page of its own (Product Owner, 2026-11-02: #124 comment 6577248920).
 //
 // getEmDashEntry returns the published entry, or the draft when the request carries a valid signed
 // preview token for it (emdash 1.1.0 src/query.ts resolveEmDashEntry). Anything else answers with

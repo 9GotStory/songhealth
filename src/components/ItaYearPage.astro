@@ -4,7 +4,9 @@
 // "MOIT n" badge and title, which lead to its page, how much Evidence it holds and
 // "ปรับปรุงล่าสุด" when staff set it. The Evidence is counted as the MOIT's own page counts it
 // (src/lib/ita.ts groupEvidence), without reading a file. src/pages/ita/[slug].astro renders this
-// for a year that has a published MOIT.
+// for a year that has a published MOIT. Its heading names the assessment and the year, as a MOIT
+// page's header does, and its crumb the year alone (Product Owner, 2026-11-02: #124 comment
+// 6577248920).
 import SiteLayout from "../layouts/SiteLayout.astro";
 import {
 	groupEvidence,

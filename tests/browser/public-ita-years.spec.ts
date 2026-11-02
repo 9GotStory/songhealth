@@ -25,6 +25,7 @@ import {
 	fileBlock,
 	linkBlock,
 	listPublishedEntries,
+	mintPreviewLink,
 	publishEntryAt,
 	removeSuiteFixtures,
 	requirementBlock,
@@ -71,12 +72,13 @@ let origin: string;
 /** The runtime's own published MOITs the empty-landing test returns to draft. */
 const borrowed = new BorrowedEntries();
 
-/** NEWER's published MOITs 1, 3 and 5, its draft MOIT 2, and OLDER's one MOIT. */
+/** NEWER's published MOITs 1, 3 and 5, its draft MOIT 2, OLDER's one MOIT, and DRAFTS_ONLY's. */
 let first: MoitFixture;
 let third: MoitFixture;
 let fifth: MoitFixture;
 let draft: MoitFixture;
 let older: MoitFixture;
+let draftsOnly: MoitFixture;
 
 /** A synthetic MOIT draft of `year`, numbered `number`, with `evidence` as its blocks. */
 const createMoit = (
@@ -159,7 +161,7 @@ test.beforeAll(async () => {
 	);
 	draft = await createMoit("draft", NEWER, 2);
 	older = await createMoit("older", OLDER, 1);
-	await createMoit("drafts-only", DRAFTS_ONLY, 1);
+	draftsOnly = await createMoit("drafts-only", DRAFTS_ONLY, 1);
 	for (const moit of [fifth, first, third, older]) await publishEntryAt(admin, "moit", moit.id);
 });
 
@@ -240,9 +242,15 @@ test("a fiscal year's page lists its published MOITs by number, each with its ba
 	);
 });
 
-test("a fiscal year without a published MOIT answers the site 404", async ({ page }) => {
+test("a fiscal year without a published MOIT answers the site 404, and its draft previewed leads back to ITA without the year", async ({
+	page,
+}) => {
 	await expectSiteNotFound(page, `/ita/${DRAFTS_ONLY}`, "a year whose only MOIT is a draft");
 	await expectSiteNotFound(page, `/ita/${NO_MOIT}`, "a year without MOITs");
+
+	const preview = await page.goto((await mintPreviewLink(admin, "moit", draftsOnly.id)).toString());
+	expect(preview?.status(), "the draft's preview renders").toBe(200);
+	await expectBreadcrumb(page, [HOME_CRUMB, SECTION_CRUMBS.ita], "MOIT 1");
 });
 
 test("a MOIT page leads to the MOITs before and after it in its fiscal year's number order, past a draft, never into another year, and to none past the year's ends", async ({

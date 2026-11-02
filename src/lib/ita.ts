@@ -61,7 +61,9 @@ export function moitLabel(number: number): string {
 /**
  * A fiscal year as an address writes it: a positive whole number without a leading zero. Nine
  * digits at most keep it within the PostgreSQL integer that the MOIT's integer field is (emdash
- * 1.1.0 src/schema/types.ts), so a year typed wrong, such as 25700, still has a page that shows it.
+ * 1.1.0 src/schema/types.ts FIELD_TYPE_TO_COLUMN, src/schema/registry.ts COLUMN_TYPE_TO_DATA_TYPE),
+ * so a year typed wrong, such as 25700, still has a page that shows it (Product Owner, 2026-11-02:
+ * #124 comment 6577248920).
  */
 const FISCAL_YEAR = /^[1-9][0-9]{0,8}$/;
 
