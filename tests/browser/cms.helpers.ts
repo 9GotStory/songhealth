@@ -1694,20 +1694,26 @@ export interface MoitFixture extends DraftFixture {
 }
 
 /**
- * A synthetic MOIT draft of fiscal year `year`, numbered `number`, with `evidence` as its blocks.
- * The block types are the runtime's own model (seed/seed.json). A refusal throws.
+ * A synthetic MOIT draft of fiscal year `year`, numbered `number`, with `evidence` as its blocks,
+ * titled `${mark} ${name} ${label} ${ending}`. The block types are the runtime's own model
+ * (seed/seed.json). A refusal throws.
  *
  * Each suite takes its own fiscal years, which no real MOIT has, so its ITA pages and lists hold
- * only its own MOITs: 2401 is public-ita.spec.ts's, and 2402–2405 are public-ita-years.spec.ts's.
- * A new suite takes the next free year.
+ * only its own MOITs: 2401 is public-ita.spec.ts's, 2402–2405 are public-ita-years.spec.ts's, and
+ * 2406 is public-search.spec.ts's. A new suite takes the next free year.
  */
 export async function createSyntheticMoit(
 	actor: CmsActor,
 	label: string,
-	{ year, number, evidence }: { year: number; number: number; evidence: Record<string, unknown>[] },
+	{
+		year,
+		number,
+		evidence,
+		name = "ตัวชี้วัด",
+	}: { year: number; number: number; evidence: Record<string, unknown>[]; name?: string },
 	{ data, ...fields }: DraftFields = {},
 ): Promise<MoitFixture> {
-	const moit = await createSyntheticDraft(actor, "moit", "ตัวชี้วัด", label, {
+	const moit = await createSyntheticDraft(actor, "moit", name, label, {
 		data: { fiscal_year: year, number, evidence, ...data },
 		...fields,
 	});

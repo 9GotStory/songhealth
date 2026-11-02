@@ -1,4 +1,5 @@
-// The search's rules (Feature 003 #63; spec #51 "Search", ADR 0002, `08`).
+// The search's rules (Feature 003 #63, Feature 004 #125; spec #51 "Search", spec #121 "Public
+// routes", ADR 0002, `08`).
 //
 // src/lib/search.ts reads the published entries of the searchable collections when a search is
 // made. This module holds the rules for what a search asks and what it finds: reading the request,
@@ -45,6 +46,7 @@ export const KIND_LABELS = {
 	health_report: "รายงานสุขภาพ",
 	document: "เอกสารเผยแพร่",
 	page: "หน้าข้อมูล",
+	moit: "ตัวชี้วัด MOIT",
 } as const;
 
 export type SearchKind = keyof typeof KIND_LABELS;
@@ -52,7 +54,8 @@ export type SearchKind = keyof typeof KIND_LABELS;
 /**
  * The result groups (`08` §7, spec #51 "Search"), in the order the page offers them, each by its
  * `group` query value and the kinds it holds; ทุกประเภท holds every kind. A group is a filter, not a
- * kind of content.
+ * kind of content. ITA, the MOITs' group, follows the groups of `08` §7 (spec #121 "Public
+ * routes").
  */
 export const SEARCH_GROUPS = [
 	{ id: "all", label: "ทุกประเภท", kinds: Object.keys(KIND_LABELS) as SearchKind[] },
@@ -62,6 +65,7 @@ export const SEARCH_GROUPS = [
 	{ id: "health-services", label: "หน่วยบริการ", kinds: ["health_service"] },
 	{ id: "documents", label: "เอกสาร", kinds: ["document"] },
 	{ id: "about", label: "เกี่ยวกับเรา", kinds: ["page"] },
+	{ id: "ita", label: "ITA", kinds: ["moit"] },
 ] as const satisfies ReadonlyArray<{ id: string; label: string; kinds: readonly SearchKind[] }>;
 
 export type SearchGroup = (typeof SEARCH_GROUPS)[number];

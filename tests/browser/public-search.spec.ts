@@ -1,13 +1,14 @@
-// Search (#63; spec #51 "Search", ADR 0002, `08`).
+// Search (#63, #125; spec #51 "Search", spec #121 "Public routes", ADR 0002, `08`).
 //
 // A citizen searches all public content at /search. Thai matches as a substring without word
 // spaces, title matches rank above body-only matches, and results are grouped (ข่าวสาร,
-// บริการประชาชน, ข้อมูลสุขภาพ, หน่วยบริการ, เอกสาร, เกี่ยวกับเรา) with a count and a filter per
+// บริการประชาชน, ข้อมูลสุขภาพ, หน่วยบริการ, เอกสาร, เกี่ยวกับเรา, ITA) with a count and a filter per
 // group. Each result shows its title, its kind in Thai, a plain-text snippet, a date or status, and
-// links to its canonical address; the reserved Basic Pages link to their /about addresses. The
-// query, group and page live in the address. Drafts, trashed and unpublished entries never appear,
-// even straight after an unpublish. A query that is too short and one that finds nothing each say
-// so in their own words.
+// links to its canonical address; the reserved Basic Pages link to their /about addresses. A MOIT
+// is found by its title, its summary or the label of a piece of its Evidence, and its result names
+// it by its number and fiscal year instead of its kind. The query, group and page live in the
+// address. Drafts, trashed and unpublished entries never appear, even straight after an
+// unpublish. A query that is too short and one that finds nothing each say so in their own words.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -28,17 +29,22 @@ import {
 	createSyntheticDraft,
 	createSyntheticEntry,
 	createSyntheticHealthService,
+	createSyntheticMoit,
 	createSyntheticService,
 	devAdminActor,
+	fileBlock,
+	linkBlock,
 	nativeItemOf,
 	nativeRefusalOf,
 	portableTextBlock,
 	publishEntryAt,
 	readEntry,
 	removeSuiteFixtures,
+	requirementBlock,
 	SYNTHETIC_FIXTURE_MARK,
 	trashEntry,
 	unpublishEntry,
+	uploadSyntheticPdf,
 	type CmsActor,
 	type DraftFields,
 	type DraftFixture,
@@ -62,6 +68,9 @@ import {
 
 /** The fixed number of results a page shows. */
 const PAGE_SIZE = 20;
+
+/** The fiscal year of the suite's MOITs, which no real MOIT has (createSyntheticMoit). */
+const FISCAL_YEAR = 2406;
 
 /** Text a citizen-facing state must never show: what an exception, a stack or a database says. */
 const INTERNAL_DETAIL =
@@ -295,6 +304,68 @@ test("a reserved Basic Page's result links to its /about address", async ({ page
 	);
 });
 
+test("a MOIT is found by its title and by an Evidence label alone, under ITA with its count, its result reading MOIT n, the fiscal year and its title and leading to its page, and a draft MOIT never appears", async ({
+	page,
+}) => {
+	const word = thaiWord();
+	const pdf = await uploadSyntheticPdf(admin);
+	const titled = await createSyntheticMoit(admin, "moit-title-hit", {
+		year: FISCAL_YEAR,
+		number: 3,
+		name: `ตัวชี้วัด${word}`,
+		evidence: [requirementBlock("1", "ข้อมูลพื้นฐาน"), fileBlock("1.1 นโยบายของผู้บริหาร", pdf)],
+	});
+	const labelled = await createSyntheticMoit(admin, "moit-label-hit", {
+		year: FISCAL_YEAR,
+		number: 1,
+		evidence: [
+			requirementBlock("1", "คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง"),
+			fileBlock("1.1 บันทึกข้อความเสนอ ผบห.", pdf),
+			fileBlock(`1.2 ฟอร์มเผยแพร่${word}`, pdf),
+		],
+	});
+	const draft = await createSyntheticMoit(admin, "moit-draft", {
+		year: FISCAL_YEAR,
+		number: 2,
+		name: `ตัวชี้วัด${word}`,
+		evidence: [fileBlock(`ฟอร์มเผยแพร่${word}`, pdf)],
+	});
+	for (const moit of [titled, labelled]) await publish("moit", moit);
+	const own = [titled, labelled, draft];
+
+	await search(page, { q: word });
+	expect(
+		ownTitles(await listedTitles(page), own),
+		"the title match first, never the draft",
+	).toEqual([titled.title, labelled.title]);
+	await expect(groupLink(page, "ทุกประเภท", 2)).toBeVisible();
+	await expect(groupLink(page, "ITA", 2)).toBeVisible();
+	for (const [moit, number] of [
+		[titled, 3],
+		[labelled, 1],
+	] as const) {
+		const row = listedItem(page, moit.title);
+		await expect(row, "MOIT n · ปีงบประมาณ YYYY · title").toHaveText(
+			new RegExp(
+				`^\\s*MOIT ${number}[\\s•]*ปีงบประมาณ ${FISCAL_YEAR}\\s*${SYNTHETIC_FIXTURE_MARK}`,
+			),
+		);
+		await expect(row.getByRole("link", { name: moit.title })).toHaveAttribute(
+			"href",
+			`/ita/${moit.slug}`,
+		);
+	}
+	const byLabel = listedItem(page, labelled.title);
+	await expect(byLabel, "the label it was found by").toContainText(`1.2 ฟอร์มเผยแพร่${word}`);
+	await expect(byLabel.locator("mark")).toHaveText(word);
+
+	await groupLink(page, "ITA", 2).click();
+	await expect(page).toHaveURL(`/search?${new URLSearchParams({ q: word, group: "ita" })}`);
+	await expect(groupLink(page, "ITA", 2)).toHaveAttribute("aria-current", "true");
+	await expect(page.getByRole("main")).toContainText("พบ 2 รายการในกลุ่ม ITA");
+	expect(ownTitles(await listedTitles(page), own)).toEqual([titled.title, labelled.title]);
+});
+
 test("drafts, trashed and unpublished entries never appear, even straight after an unpublish", async ({
 	page,
 }) => {
@@ -405,6 +476,18 @@ test.describe("accessibility and reflow", () => {
 		await publish("news", news);
 		const service = await createSyntheticService(admin, "a11y-service", { name: `บริการ${word}` });
 		await publish("services", service);
+		const moit = await createSyntheticMoit(
+			admin,
+			"a11y-moit",
+			{
+				year: FISCAL_YEAR,
+				number: 4,
+				name: `ตัวชี้วัด${word}`,
+				evidence: [linkBlock("1.1 ข้อมูลการติดต่อหน่วยงาน", "/contact", { current: true })],
+			},
+			{ data: { summary: `${SYNTHETIC_FIXTURE_MARK} สรุปตัวชี้วัดสำหรับตรวจการเข้าถึง` } },
+		);
+		await publish("moit", moit);
 	});
 
 	/** /search in each of its states: the start page, too short, nothing found, and results. */
@@ -414,6 +497,7 @@ test.describe("accessibility and reflow", () => {
 		{ state: "nothing found", params: { q: `${word}${thaiWord()}` } },
 		{ state: "results", params: { q: word } },
 		{ state: "a group's results", params: { q: word, group: "services" } },
+		{ state: "ITA's results", params: { q: word, group: "ita" } },
 	];
 
 	for (const [width, viewport] of Object.entries(VIEWPORTS)) {

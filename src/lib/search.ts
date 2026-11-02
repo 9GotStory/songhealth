@@ -1,7 +1,8 @@
-// Search on the public site (Feature 003 #63; spec #51 "Search", ADR 0002, `08`).
+// Search on the public site (Feature 003 #63, Feature 004 #125; spec #51 "Search", spec #121
+// "Public routes", ADR 0002, `08`).
 //
 // EmDash's own search needs SQLite (emdash 1.1.0 src/search/fts-manager.ts), so a search reads the
-// published entries of the nine searchable collections through EmDash's query functions when it
+// published entries of the ten searchable collections through EmDash's query functions when it
 // is made, and src/lib/search-matcher.ts matches, ranks, builds the snippets and decides the
 // outcome, a failed read included. A collection read
 // without a `limit` returns every published entry, and stays published-only whatever a preview
@@ -10,11 +11,13 @@
 // the database (emdash 1.1.0 src/object-cache/index.ts), and nothing caches the results (spec #51
 // "Search": no cache).
 //
-// Each collection's fields by tier follow spec #51 "Search" (Searchable collections). Personnel is
+// Each collection's fields by tier follow spec #51 "Search" (Searchable collections), and a MOIT's
+// spec #121 "Public routes": its title, its summary and the labels of its Evidence. Personnel is
 // not searched, because it has no page of its own. Rich text is read as plain text through
 // EmDash's `extractPlainText` (emdash 1.1.0 src/search/text-extraction.ts), which needs no search
 // index. A result shows the date and status the list of its kind shows (Product Owner,
-// 2026-10-30: #63 comment 6518347225).
+// 2026-10-30: #63 comment 6518347225); a MOIT's names its number and fiscal year instead of its
+// kind, as spec #121 words its row.
 
 import { extractPlainText, getEmDashCollection, type ContentEntry } from "emdash";
 import { activityDate, activityPath, type ActivityData } from "./activities";
@@ -42,6 +45,7 @@ import {
 	type OperationalStatus,
 } from "./health-service-directory";
 import type { HealthServiceData } from "./health-services";
+import { evidenceLabels, itaYearCrumb, moitLabel, moitPath, type MoitData } from "./ita";
 import { newsPath, type NewsData } from "./news";
 import {
 	parseSearchRequest,
@@ -65,6 +69,11 @@ export interface SearchEntry extends Searchable {
 	href: string;
 	/** The title the entry is shown by. */
 	title: string;
+	/**
+	 * What the result names the entry by before its date, instead of its kind in Thai (KIND_LABELS):
+	 * a MOIT's number and fiscal year.
+	 */
+	facts?: string[];
 	/** The date the result shows; none for a kind its list shows undated. */
 	shownDate?: Instant;
 	status?: ResultStatus;
@@ -194,6 +203,18 @@ const SOURCES: Source[] = [
 		href: basicPagePath(id),
 		title: data.title,
 		text: { title: texts(data.title), summary: texts(data.summary), body: texts(data.body) },
+		listDate: data.publishedAt,
+	})),
+	source<MoitData>("moit", ({ id, data }) => ({
+		kind: "moit",
+		href: moitPath(id),
+		title: data.title,
+		facts: [moitLabel(data.number), itaYearCrumb(data.fiscal_year)],
+		text: {
+			title: texts(data.title),
+			summary: texts(data.summary),
+			body: texts(...evidenceLabels(data.evidence)),
+		},
 		listDate: data.publishedAt,
 	})),
 ];
