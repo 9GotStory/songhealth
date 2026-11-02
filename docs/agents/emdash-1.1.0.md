@@ -25,6 +25,18 @@ cited file exists and that the name carries the pinned version.
   (`./src/pages/pages/[slug].astro`).
 - An entry's `id` is its slug and `data.id` is the database id. Taxonomy terms hydrate as
   `data.terms[taxonomy]`, ordered by label.
+- A collection's `urlPattern` takes `{name}` placeholders, one per path segment
+  (`src/schema/url-pattern.ts` `compileUrlPattern`). The resolver matches the path against every
+  pattern and then loads the entry by the `slug` placeholder alone; another placeholder's value is
+  not checked against the entry (`src/query.ts`, the lookup under `urlPatternCache`). The Admin's
+  view link, the preview URL and the sitemap build an entry's address from the pattern.
+- `data.publishedAt` keeps the first publication's time: a republish keeps the current value unless
+  the request sets one (`src/database/repositories/content.ts` `publish`, `intendedPublishedAt`).
+  `data.updatedAt` moves on every publish and also when staff save a draft of a published entry,
+  because the draft revision's pointer sits on the same row (same file, the statement that sets
+  `draft_revision_id` beside `updated_at`). A public read strips the revision pointers
+  (`src/query.ts` `stripRevisionMetadata`), so neither value says when the live version last
+  changed.
 - `where` on a taxonomy name matches exact term slugs, ORed when given as an array. An unknown slug
   or an empty array matches nothing (`src/loader.ts` `resolveTermGroups`).
 - `where` on any other key filters the column:
@@ -149,6 +161,34 @@ cited file exists and that the name carries the pinned version.
 - A datetime field is a UTC instant. The Admin edits it as `<input type="datetime-local">` in the
   site's `timezone` setting and saves canonical UTC ISO (`@emdash-cms/admin/dist/index.js`
   1.1.0, the region bundled from its src/lib/datetime-local.ts).
+- A repeater sub-field is a string, text, url, number, integer, boolean, datetime, select or image.
+  A repeater holds no file, no reference and no nested repeater (`src/schema/types.ts`
+  `REPEATER_SUB_FIELD_TYPES`).
+- A `blocks` field holds an ordered list of typed blocks, at most 100 (`src/schema/types.ts`
+  `MAX_BLOCKS_ITEMS`; `src/schema/registry.ts` rejects a `maxItems` outside 1–100). A block type's
+  fields can be string, text, url, number, integer, boolean, datetime, select, multiSelect,
+  portableText, image, file or repeater, never a reference (`src/schema/block-types.ts`
+  `BLOCK_FIELD_TYPES`). A seed can define block types (`src/seed/types.ts` `blockTypes`).
+- The Admin edits a blocks field as a list: staff add a block from a picker of the allowed types,
+  grouped by category, and reorder blocks by dragging (`@emdash-cms/admin/dist/index.js`
+  `BlocksField`). It reads the types from `GET /_emdash/api/schema/block-types` (same file,
+  `fetchBlockTypes`). A block's own fields render through the same `FieldRenderer` as a
+  collection's fields, so a file field inside a block gets the same picker as a Document's file
+  (same file, the `renderField` that `BlocksField` receives).
+- `POST /_emdash/api/schema/block-types` creates a block type and `PUT …/block-types/{slug}`
+  updates one (`src/astro/routes/api/schema/block-types/index.ts`,
+  `src/astro/routes/api/schema/block-types/[slug]/index.ts`). `./scripts/model-update.mjs` calls
+  neither yet.
+- A file value inside a block is normalised on save like a file field, and an image like an image
+  field (`src/emdash-runtime.ts`, the block-field loop beside the repeater one,
+  `normalizeMediaValue` and `normalizeImageValue`).
+- `POST /_emdash/api/content/{collection}/{id}/duplicate` copies an entry as a draft with " (Copy)"
+  after its title and a fresh unique slug. It needs `content:create` and the edit permission on the
+  source (`src/astro/routes/api/content/[collection]/[id]/duplicate.ts`,
+  `src/database/repositories/content.ts` `duplicate`).
+- The Admin's Portable Text editor saves paragraphs, headings, bullet and numbered lists, quotes,
+  code, HTML and iframe blocks, images, galleries, tables and rules. A link is a mark with an
+  `href`, and there is no file block (`src/content/converters/prosemirror-to-portable-text.ts`).
 
 ## Head, settings, sitemap
 
