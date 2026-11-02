@@ -2,11 +2,12 @@
 //
 // The ITA landing lists the fiscal years of every published MOIT, a year's page lists that year's
 // MOITs, and a MOIT's page leads to the MOITs before and after it in its year. ADR 0006 keeps no
-// year record, so the years come from the MOITs themselves. EmDash's query functions return
-// published entries only, and no query returns distinct values or a count (emdash 1.1.0
-// src/query.ts), so the landing reads every published MOIT and src/lib/ita.ts counts them by year,
-// as the lists of ADR 0004 read their whole collection. A year's read filters the fiscal_year
-// column (src/loader.ts). src/lib/ita.ts orders what either read returns.
+// year record, so the years come from the MOITs themselves. A collection read returns published
+// entries only, even while a draft is previewed, and no query returns distinct values or a count
+// (docs/agents/emdash-1.1.0.md "Public reads"; emdash 1.1.0 src/query.ts), so the landing reads
+// every published MOIT and src/lib/ita.ts counts them by year, as the lists of ADR 0004 read their
+// whole collection. A year's read filters the fiscal_year column (src/loader.ts). src/lib/ita.ts
+// orders what either read returns.
 
 import { getEmDashCollection, type ContentEntry } from "emdash";
 import type { MoitData } from "./ita";

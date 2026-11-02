@@ -49,7 +49,7 @@ interface Props {
 const { entry, isPreview } = Astro.props;
 const moit = entry.data;
 const label = moitLabel(moit.number);
-const [evidence, year] = await Promise.all([
+const [evidence, yearMoits] = await Promise.all([
 	moitEvidence(moit.evidence, {
 		siteOrigin: Astro.url.origin,
 		readFile: (file) => downloadableFile(file, Astro.locals.emdash),
@@ -61,8 +61,8 @@ const counts = [
 	`หลักฐาน ${evidence.total} รายการ${cards.length > 0 ? ` ใน ${cards.length} ข้อ` : ""}`,
 	evidence.unavailable > 0 && `ไฟล์ที่ไม่พร้อมให้บริการ ${evidence.unavailable}`,
 ].filter(Boolean);
-const { previous, next } = moitNeighbours(year, entry);
-const neighbourLink =
+const { previous, next } = moitNeighbours(yearMoits, entry);
+const linkClasses =
 	"flex items-center gap-3 rounded-24 bg-surface-base p-5 text-brand-dark shadow-card hover:text-brand-primary";
 ---
 
@@ -176,7 +176,7 @@ const neighbourLink =
 		{(previous || next) && (
 			<nav aria-label="ตัวชี้วัดอื่นในปีงบประมาณเดียวกัน" class="grid gap-4 sm:grid-cols-2">
 				{previous && (
-					<a class={neighbourLink} rel="prev" href={moitPath(previous.id)}>
+					<a class={linkClasses} rel="prev" href={moitPath(previous.id)}>
 						<ChevronLeft class="shrink-0 text-brand-primary" size={16} />
 						<span class="flex min-w-0 flex-col gap-1">
 							<span class="text-small text-text-secondary">ตัวชี้วัดก่อนหน้า</span>
@@ -188,7 +188,7 @@ const neighbourLink =
 				)}
 				{next && (
 					<a
-						class:list={[neighbourLink, "justify-between sm:col-start-2"]}
+						class:list={[linkClasses, "justify-between sm:col-start-2"]}
 						rel="next"
 						href={moitPath(next.id)}
 					>

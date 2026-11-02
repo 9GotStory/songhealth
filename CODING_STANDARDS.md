@@ -102,5 +102,7 @@ and why, and `.jscpd-baseline.json` records them.
 - A test leaves nothing it can remove. A slug change leaves a native redirect after its entry is
   deleted, so the test deletes that too.
 - A request for a missing page stays in EmDash's 404 log, which only clears as a whole. Such a
-  request is deliberate and uses a synthetic path. Where a native API can show the outcome first
-  (a redirect list, an entry read), the test asks it before requesting the page.
+  request is deliberate and uses a synthetic path, or a synthetic referrer where the path cannot
+  carry the mark, such as a fiscal year's `/ita/2404` (`tests/browser/public.helpers.ts`
+  `expectSiteNotFound`). Where a native API can show the outcome first (a redirect list, an entry
+  read), the test asks it before requesting the page.

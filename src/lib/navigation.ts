@@ -6,8 +6,8 @@
 //   routes", which amends `03` §2). Each page names the section it belongs
 //   to, and the shell marks that item as current. The section is declared by
 //   the page, not derived from URL segments (`03` §14). About, Services, Health
-//   Information and ITA take their address, and all but Services their title,
-//   from the constants their own modules export for their pages.
+//   Information and ITA take their address, About and Health Information their
+//   title and ITA its label, from the constants their own modules export.
 // - UTILITY_LINKS are the `03` §2 utility items.
 // - The breadcrumb leads with หน้าแรก and the page's section, both taken from
 //   MAIN_NAVIGATION, so no page writes them (`03` §14). EmDash 1.1.0 builds and
@@ -15,7 +15,7 @@
 //   (docs/agents/emdash-1.1.0.md "Head, settings, sitemap").
 import { ABOUT_PATH, ABOUT_TITLE } from "./about.ts";
 import { HEALTH_PATH, HEALTH_TITLE } from "./health.ts";
-import { ITA_PATH, ITA_TITLE } from "./ita.ts";
+import { ITA_LABEL, ITA_PATH } from "./ita.ts";
 import { SERVICES_PATH } from "./service-catalog.ts";
 
 export const MAIN_NAVIGATION = [
@@ -25,7 +25,7 @@ export const MAIN_NAVIGATION = [
 	{ section: "services", label: "บริการประชาชน", href: SERVICES_PATH },
 	{ section: "health", label: HEALTH_TITLE, href: HEALTH_PATH },
 	{ section: "documents", label: "เอกสารเผยแพร่", href: "/documents" },
-	{ section: "ita", label: ITA_TITLE, href: ITA_PATH },
+	{ section: "ita", label: ITA_LABEL, href: ITA_PATH },
 ] as const;
 
 export type NavigationSection = (typeof MAIN_NAVIGATION)[number]["section"];

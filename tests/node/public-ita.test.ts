@@ -1,5 +1,5 @@
-// A MOIT's Evidence as its page shows it (#123; spec #121 "Content model" (the grouping rule) and
-// "Public routes", ADR 0006).
+// A MOIT's Evidence as its page shows it (#123), and the ITA years and the order of a year's MOITs
+// (#124); spec #121 "Content model" (the grouping rule) and "Public routes", ADR 0006.
 //
 // - A Requirement block opens a group, and the Evidence blocks that follow belong to it, in block
 //   order. A Requirement whose number has a dot is a sub-Requirement of the last Requirement
@@ -10,6 +10,12 @@
 //   page of this site, to another website, or to an email or phone address, and one the page
 //   cannot open safely shows its label alone.
 // - The MOIT's Evidence, each card's and the files that cannot be served are counted.
+// - An address segment written as a positive whole number of up to nine digits names a fiscal
+//   year; anything else is a MOIT's slug. The landing lists each year of the MOITs once, newest
+//   first, with how many MOITs it has, leaving out a year no address can name.
+// - A year's MOITs are in number order, with the slug deciding between two of the same number.
+//   A MOIT's page leads to the ones before and after it in that order, only in its own year, and a
+//   MOIT not among them, such as a draft in preview, sits where its number puts it.
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -527,6 +533,22 @@ describe("itaYears", () => {
 		);
 	});
 
+	it("leaves out a year that no address can name, so no card leads to the 404 page", () => {
+		assert.deepEqual(
+			itaYears([
+				listed("moit-1-2570", 2570, 1),
+				listed("moit-1-0", 0, 1),
+				listed("moit-1-minus", -2570, 1),
+				listed("moit-1-huge", 1000000000, 1),
+				listed("moit-1-25700", 25700, 1),
+			]),
+			[
+				{ year: 25700, count: 1 },
+				{ year: 2570, count: 1 },
+			],
+		);
+	});
+
 	it("lists no year when there is no MOIT", () => {
 		assert.deepEqual(itaYears([]), []);
 	});
@@ -645,11 +667,12 @@ describe("moitLabel", () => {
 });
 
 describe("fiscalYearOf", () => {
-	it("reads a segment written as a fiscal year, a whole number of up to four digits without a leading zero, as that year", () => {
+	it("reads a segment written as a fiscal year, a positive whole number of up to nine digits without a leading zero, as that year", () => {
 		assert.equal(fiscalYearOf("2570"), 2570);
 		assert.equal(fiscalYearOf("2401"), 2401);
 		assert.equal(fiscalYearOf("1"), 1);
-		assert.equal(fiscalYearOf("9999"), 9999);
+		assert.equal(fiscalYearOf("25700"), 25700, "a year typed wrong still has a page");
+		assert.equal(fiscalYearOf("999999999"), 999999999);
 	});
 
 	it("reads any other segment as no fiscal year, so the page reads it as a MOIT's slug", () => {
@@ -657,7 +680,7 @@ describe("fiscalYearOf", () => {
 			"moit-2-2570",
 			"02570",
 			"0",
-			"25700",
+			"1000000000",
 			"99999999999999999999",
 			"2570.0",
 			"-2570",

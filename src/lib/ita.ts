@@ -21,8 +21,11 @@ import type { FileValue } from "emdash";
 import { isExternalHref } from "./links.ts";
 import type { DownloadableFile } from "./media.ts";
 
-/** The ITA section's own title, its main-navigation label. */
-export const ITA_TITLE = "ITA";
+/**
+ * The ITA section's main-navigation label, which its breadcrumb shows too. The landing's heading
+ * names the assessment in full (src/pages/ita/index.astro).
+ */
+export const ITA_LABEL = "ITA";
 
 /** The ITA landing's address. */
 export const ITA_PATH = "/ita";
@@ -56,11 +59,11 @@ export function moitLabel(number: number): string {
 }
 
 /**
- * A fiscal year as an address writes it: a whole number of up to four digits without a leading
- * zero, as the Documents filter reads one (src/lib/documents.ts). A longer number is no year, and
- * PostgreSQL would refuse it as an integer.
+ * A fiscal year as an address writes it: a positive whole number without a leading zero. Nine
+ * digits at most keep it within the PostgreSQL integer that the MOIT's integer field is (emdash
+ * 1.1.0 src/schema/types.ts), so a year typed wrong, such as 25700, still has a page that shows it.
  */
-const FISCAL_YEAR = /^[1-9][0-9]{0,3}$/;
+const FISCAL_YEAR = /^[1-9][0-9]{0,8}$/;
 
 /** The fiscal year a path segment names, or undefined when it names none. */
 export function fiscalYearOf(segment: string): number | undefined {
@@ -79,12 +82,19 @@ interface ItaYear {
 	count: number;
 }
 
-/** The fiscal years of the MOITs, each once, newest first, with how many MOITs each has. */
+/**
+ * The fiscal years of the MOITs, each once, newest first, with how many MOITs each has. A year that
+ * no address can name, such as 0, has no page and is left out, so no card leads to the 404 page.
+ */
 export function itaYears(moits: readonly ListedMoit[]): ItaYear[] {
 	const counts = new Map<number, number>();
-	for (const { data } of moits)
+	for (const { data } of moits) {
 		counts.set(data.fiscal_year, (counts.get(data.fiscal_year) ?? 0) + 1);
-	return [...counts].map(([year, count]) => ({ year, count })).sort((a, b) => b.year - a.year);
+	}
+	return [...counts]
+		.filter(([year]) => fiscalYearOf(String(year)) === year)
+		.map(([year, count]) => ({ year, count }))
+		.sort((a, b) => b.year - a.year);
 }
 
 /** How `a` and `b` compare in a year's order: by number, then by slug. */
@@ -109,14 +119,14 @@ export function moitNeighbours<M extends ListedMoit>(
 	moits: readonly M[],
 	current: ListedMoit,
 ): { previous?: M; next?: M } {
-	const year = inMoitOrder(
+	const others = inMoitOrder(
 		moits.filter(
 			(moit) => moit.data.fiscal_year === current.data.fiscal_year && moit.id !== current.id,
 		),
 	);
-	const after = year.findIndex((moit) => compareMoits(current, moit) < 0);
-	const at = after === -1 ? year.length : after;
-	return { previous: year[at - 1], next: year[at] };
+	const after = others.findIndex((moit) => compareMoits(current, moit) < 0);
+	const at = after === -1 ? others.length : after;
+	return { previous: others[at - 1], next: others[at] };
 }
 
 interface RequirementBlock {

@@ -33,7 +33,7 @@
 	/* Colours the Figma frame uses without a variable */
 	--color-topic-green: #ebf7f0; /* Health Information cards */
 	--color-topic-blue: #f0f5fc;
-	--color-divider: #dbe8e3; /* Announcement list separators */
+	--color-divider: #dbe8e3; /* Announcement list and ITA year page separators */
 	--color-hero-visual-from: #bae0cf; /* Featured hero visual */
 	--color-hero-visual-to: #f2d17a;
 	--color-activity-visual-from: #bfdcce; /* Activity card without an image */

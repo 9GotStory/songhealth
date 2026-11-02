@@ -1,23 +1,32 @@
 ---
 // A Quick Link card (Feature 003 #60, #65, #105; Figma Card / Quick Link 4:43,
 // docs/design/homepage-concept-v1.md §10): a label and the chevron-right icon, the whole card one
-// link to a page on this site. /about links to its sub-pages with it, and the Homepage's Quick
-// Access to the shortcuts staff pick. The icon is decorative (docs/agents/lucide-astro-1.59.0.md):
-// the label names the link.
+// link to a page on this site. /about links to its sub-pages with it, the Homepage's Quick Access
+// to the shortcuts staff pick, and the ITA landing to each fiscal year (#124), with a line above
+// the label and one below it. The icon is decorative (docs/agents/lucide-astro-1.59.0.md): the
+// label, with those lines, names the link.
 import ChevronRight from "@lucide/astro/icons/chevron-right";
 
 interface Props {
 	href: string;
 	label: string;
+	/** A line above the label, such as ปีงบประมาณ above a fiscal year. */
+	eyebrow?: string;
+	/** A line below the label, such as how many items the page holds. */
+	detail?: string;
 }
 
-const { href, label } = Astro.props;
+const { href, label, eyebrow, detail } = Astro.props;
 ---
 
 <a
 	class="flex h-full min-h-22 items-center justify-between gap-4 rounded-18 border border-border-default bg-surface-base px-5.5 pt-5.5 pb-5 text-h3 text-text-primary shadow-card hover:border-brand-primary hover:text-brand-primary"
 	href={href}
 >
-	<span class="wrap-anywhere">{label}</span>
+	<span class="flex min-w-0 flex-col gap-1">
+		{eyebrow && <span class="text-label text-brand-primary">{eyebrow}</span>}
+		<span class="wrap-anywhere">{label}</span>
+		{detail && <span class="text-small text-text-secondary">{detail}</span>}
+	</span>
 	<ChevronRight class="shrink-0 text-brand-primary" size={24} />
 </a>

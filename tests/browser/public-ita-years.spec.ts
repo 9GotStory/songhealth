@@ -230,6 +230,10 @@ test("a fiscal year's page lists its published MOITs by number, each with its ba
 
 	const { siteTitle, separator } = await siteTitleParts(admin);
 	await expect(page).toHaveTitle(`${heading}${separator}${siteTitle}`);
+	await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+		"content",
+		new RegExp(`ตัวชี้วัด MOIT 3 รายการของปีงบประมาณ พ.ศ. ${NEWER}`),
+	);
 	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
 		"href",
 		`${origin}/ita/${NEWER}`,
