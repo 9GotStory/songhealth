@@ -6,7 +6,9 @@
 # the app (EmDash applies pending core migrations in development) and runs verify.
 #   scripts/dev-runtime-update.sh --sha <commit> [--no-backup] [--force]
 # The commit may be abbreviated (7 or more hex digits); it is resolved after the fetch, and the
-# installer and the runtime's marker get the full 40-hex SHA.
+# installer and the runtime's marker get the full 40-hex SHA. The runtime checkout fetches from the
+# workspace repository, so a commit made on GitHub, such as a pull request's merge, is fetched into
+# a workspace branch first: git fetch origin <branch>:<branch> (#122 retro).
 # The restart would cut off someone editing in the Admin, so the update refuses while an Admin
 # page was opened in the last 10 minutes, leaving out the browser suites' own Admin sessions
 # (dev-runtime-common.sh admin_page_loads); --force overrides once the listed loads are known to
@@ -44,8 +46,9 @@ wait until nobody is editing, or pass --force when these loads are your own"
 fi
 git -C "$SRC" fetch --quiet origin
 full=$(git -C "$SRC" rev-parse --verify --quiet "$SHA^{commit}") \
-  || die "commit $SHA is not on a branch of the repository, or names more than one commit:
-commit it in the workspace first, or give more digits"
+  || die "commit $SHA is not on a branch of the workspace repository, or names more than one commit:
+commit it in the workspace first, fetch a commit made on GitHub into a workspace branch
+(git fetch origin <branch>:<branch>), or give more digits"
 SHA=$full
 require_sha "$SHA"
 git -C "$SRC" cat-file -e "$SHA:scripts/dev-runtime-install.sh" 2>/dev/null \
