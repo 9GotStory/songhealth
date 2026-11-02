@@ -15,7 +15,8 @@
 //   first, with how many MOITs it has, leaving out a year no address can name.
 // - A year's MOITs are in number order, with the slug deciding between two of the same number.
 //   A MOIT's page leads to the ones before and after it in that order, only in its own year, and a
-//   MOIT not among them, such as a draft in preview, sits where its number puts it.
+//   MOIT not among them, such as a draft in preview, sits where its number puts it. MOITs of
+//   several years are in that order within each year, the newest year first (#125).
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -24,6 +25,7 @@ import {
 	fiscalYearOf,
 	groupEvidence,
 	hasYearAddress,
+	inItaOrder,
 	inMoitOrder,
 	itaYearPath,
 	itaYears,
@@ -34,28 +36,10 @@ import {
 	type EvidenceBlock,
 } from "../../src/lib/ita.ts";
 import type { DownloadableFile } from "../../src/lib/media.ts";
+import { file, link, requirement } from "./ita.helpers.ts";
 
 /** The site's own origin, as the page passes its request's. */
 const SITE = "https://songhealth.example";
-
-function requirement(number: string, title: string): EvidenceBlock {
-	return { _type: "ita_requirement", number, title };
-}
-
-/** A file block whose file is stored under `storageKey`. */
-function file(label: string, storageKey: string, fields: Record<string, unknown> = {}) {
-	return {
-		_type: "ita_file",
-		label,
-		file: { id: storageKey, provider: "local", filename: storageKey, meta: { storageKey } },
-		round: "ไม่ระบุรอบ",
-		...fields,
-	} as EvidenceBlock;
-}
-
-function link(label: string, url: string, fields: Record<string, unknown> = {}) {
-	return { _type: "ita_link", label, url, round: "ไม่ระบุรอบ", ...fields } as EvidenceBlock;
-}
 
 /** The media library's files that can be served, by storage key, as downloadableFile reads them. */
 const LIBRARY = new Map<string, DownloadableFile>([
@@ -590,6 +574,29 @@ describe("inMoitOrder", () => {
 				listed("moit-2-2570", 2570, 2),
 			]).map((moit) => moit.id),
 			["moit-2-2570", "moit-2-2570-copy", "moit-3-2570"],
+		);
+	});
+});
+
+describe("inItaOrder", () => {
+	it("orders MOITs of several fiscal years newest year first, and each year's by number, then slug", () => {
+		assert.deepEqual(
+			inItaOrder([
+				listed("moit-10-2569", 2569, 10),
+				listed("moit-2-2570", 2570, 2),
+				listed("moit-1-2571", 2571, 1),
+				listed("moit-9-2569", 2569, 9),
+				listed("moit-1-2570-copy", 2570, 1),
+				listed("moit-1-2570", 2570, 1),
+			]).map((moit) => moit.id),
+			[
+				"moit-1-2571",
+				"moit-1-2570",
+				"moit-1-2570-copy",
+				"moit-2-2570",
+				"moit-9-2569",
+				"moit-10-2569",
+			],
 		);
 	});
 });

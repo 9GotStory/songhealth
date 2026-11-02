@@ -34,7 +34,8 @@ export const SEARCH_PAGE_SIZE = 20;
  * The kinds of content the search finds, one per searchable collection, each as citizens read it:
  * the GLOSSARY's Thai names, except two (Product Owner, 2026-10-30: #63 comment 6518347225). A
  * Health Service is shortened from หน่วยบริการสุขภาพที่เกี่ยวข้อง, and a Basic Page (หน้าเนื้อหาพื้นฐาน) reads
- * as หน้าข้อมูล.
+ * as หน้าข้อมูล. A MOIT's result names it by its number and fiscal year instead of its kind
+ * (src/lib/search.ts), so no page shows its label.
  */
 export const KIND_LABELS = {
 	news: "ข่าว",

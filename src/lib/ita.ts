@@ -5,6 +5,7 @@
 // page /ita/{slug}. ADR 0006 keeps no year record, so the years and each year's MOITs come from
 // the published MOITs (src/lib/moits.ts reads them): itaYears lists the years, inMoitOrder orders
 // a year's MOITs, and moitNeighbours finds the ones a MOIT's page leads to, never in another year.
+// inItaOrder orders MOITs of several years, as the search keeps the MOITs that tie.
 //
 // A MOIT keeps its Evidence as one blocks field: Requirement blocks, each followed by the file and
 // link blocks of its Evidence (seed/seed.json `moit`, block types `ita_requirement`, `ita_file`,
@@ -37,10 +38,10 @@ export function itaYearPath(year: number): string {
 }
 
 /**
- * A fiscal year as the breadcrumb names its page, and a MOIT's search result its year, such as
- * "ปีงบประมาณ 2570".
+ * A fiscal year's short name, such as "ปีงบประมาณ 2570": the breadcrumb names the year's page by
+ * it, and a MOIT's search result its year (spec #121 "Public routes").
  */
-export function itaYearCrumb(year: number): string {
+export function itaYearLabel(year: number): string {
 	return `ปีงบประมาณ ${year}`;
 }
 
@@ -122,6 +123,14 @@ function compareMoits(a: ListedMoit, b: ListedMoit): number {
  */
 export function inMoitOrder<M extends ListedMoit>(moits: readonly M[]): M[] {
 	return [...moits].sort(compareMoits);
+}
+
+/**
+ * MOITs of any fiscal years in the ITA pages' order: the newest year first, as the landing lists
+ * the years, and each year's MOITs as its page lists them.
+ */
+export function inItaOrder<M extends ListedMoit>(moits: readonly M[]): M[] {
+	return [...moits].sort((a, b) => b.data.fiscal_year - a.data.fiscal_year || compareMoits(a, b));
 }
 
 /**
@@ -264,7 +273,9 @@ function inPageOrder<E>({ lead, cards }: Pick<EvidenceGroups<E>, "lead" | "cards
  * The labels of a MOIT's Evidence, in the order its page shows them, which the search reads with
  * its title and summary (spec #121 "Public routes"). Like the page, it takes the Evidence from
  * groupEvidence. It reads no file, so the label of a file that cannot be served still finds the
- * MOIT whose page shows it.
+ * MOIT whose page shows it. EmDash's extractPlainText, through which the search reads rich text,
+ * reads nothing of a blocks field's typed blocks (docs/agents/emdash-1.1.0.md "Search and
+ * seeding").
  */
 export function evidenceLabels(blocks: readonly EvidenceBlock[] | null | undefined): string[] {
 	return inPageOrder(groupEvidence(blocks)).map((evidence) => evidence.label);

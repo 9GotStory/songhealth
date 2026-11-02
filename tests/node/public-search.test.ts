@@ -38,6 +38,7 @@ import {
 	type Searchable,
 	type SearchKind,
 } from "../../src/lib/search-matcher.ts";
+import { file, link, requirement } from "./ita.helpers.ts";
 
 /** A published entry as the search reads it: its kind, its text by tier, and its list date. */
 function entry(
@@ -328,53 +329,45 @@ describe("search groups", () => {
 });
 
 describe("evidenceLabels", () => {
-	/** A file as a file block holds it, which the labels never read. */
-	const file = {
-		id: "01JFILE",
-		provider: "local",
-		filename: "ฟอร์มเผยแพร่-2570.pdf",
-		meta: { storageKey: "form.pdf" },
-	};
-	const NO_ROUND = "ไม่ระบุรอบ";
-
 	it("are the labels of a MOIT's file and link blocks, in the order its page shows them: before any Requirement, then each card's own and its sub-Requirements'", () => {
-		const blocks = [
-			{ _type: "ita_file", label: "คู่มือการประเมิน", file, round: NO_ROUND },
-			{ _type: "ita_requirement", number: "0.1", title: "ข้อย่อยที่มาก่อนข้อหลัก" },
-			{ _type: "ita_link", label: "ประกาศของกระทรวง", url: "https://www.moph.go.th/" },
-			{ _type: "ita_requirement", number: "1", title: "ข้อมูลพื้นฐาน" },
-			{ _type: "ita_link", label: "1.1 ข้อมูลผู้บริหาร", url: "/about/leadership", current: true },
-			{ _type: "ita_requirement", number: "1.2", title: "นโยบายของผู้บริหาร" },
-			{ _type: "ita_file", label: "1.2 ฟอร์มเผยแพร่", file, round: "รอบ 6 เดือน" },
-			{ _type: "ita_requirement", number: "1.2.1", title: "นโยบายรอบ 12 เดือน" },
-			{ _type: "ita_file", label: "1.2.1 ฟอร์มเผยแพร่", file, round: "รอบ 12 เดือน" },
-			{ _type: "ita_requirement", number: "2", title: "ข้อที่ยังไม่มีหลักฐาน" },
-		] as EvidenceBlock[];
-		assert.deepEqual(evidenceLabels(blocks), [
-			"คู่มือการประเมิน",
-			"ประกาศของกระทรวง",
-			"1.1 ข้อมูลผู้บริหาร",
-			"1.2 ฟอร์มเผยแพร่",
-			"1.2.1 ฟอร์มเผยแพร่",
-		]);
+		assert.deepEqual(
+			evidenceLabels([
+				file("คู่มือการประเมิน", "manual.pdf"),
+				requirement("0.1", "ข้อย่อยที่มาก่อนข้อหลัก"),
+				link("ประกาศของกระทรวง", "https://www.moph.go.th/"),
+				requirement("1", "ข้อมูลพื้นฐาน"),
+				link("1.1 ข้อมูลผู้บริหาร", "/about/leadership", { current: true }),
+				requirement("1.2", "นโยบายของผู้บริหาร"),
+				file("1.2 ฟอร์มเผยแพร่", "form.pdf", { round: "รอบ 6 เดือน" }),
+				requirement("1.2.1", "นโยบายรอบ 12 เดือน"),
+				file("1.2.1 ฟอร์มเผยแพร่", "form.pdf", { round: "รอบ 12 เดือน" }),
+				requirement("2", "ข้อที่ยังไม่มีหลักฐาน"),
+			]),
+			[
+				"คู่มือการประเมิน",
+				"ประกาศของกระทรวง",
+				"1.1 ข้อมูลผู้บริหาร",
+				"1.2 ฟอร์มเผยแพร่",
+				"1.2.1 ฟอร์มเผยแพร่",
+			],
+		);
 	});
 
 	it("leave out the Requirements, a file's name and note, a link's address, the Round and a block of another type", () => {
 		const retired = { _type: "ita_retired_note", label: "บันทึกชนิดที่เลิกใช้" } as unknown;
-		const blocks = [
-			{ _type: "ita_requirement", number: "1", title: "คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง" },
-			retired,
-			{ _type: "ita_file", label: "1.1 คำสั่ง", file, round: "รอบ 6 เดือน", note: "ต.ค. 2569" },
-			{ _type: "ita_link", label: "1.2 ข้อมูลการติดต่อ", url: "/contact", round: NO_ROUND },
-		] as EvidenceBlock[];
-		assert.deepEqual(evidenceLabels(blocks), ["1.1 คำสั่ง", "1.2 ข้อมูลการติดต่อ"]);
+		assert.deepEqual(
+			evidenceLabels([
+				requirement("1", "คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง"),
+				retired as EvidenceBlock,
+				file("1.1 คำสั่ง", "คำสั่งแต่งตั้ง-2570.pdf", { round: "รอบ 6 เดือน", note: "ต.ค. 2569" }),
+				link("1.2 ข้อมูลการติดต่อ", "/contact"),
+			]),
+			["1.1 คำสั่ง", "1.2 ข้อมูลการติดต่อ"],
+		);
 	});
 
 	it("are none for a MOIT without Evidence blocks", () => {
-		const requirementsOnly = [
-			{ _type: "ita_requirement", number: "1", title: "ข้อที่ยังไม่มีหลักฐาน" },
-		] as EvidenceBlock[];
-		for (const blocks of [[], null, undefined, requirementsOnly]) {
+		for (const blocks of [[], null, undefined, [requirement("1", "ข้อที่ยังไม่มีหลักฐาน")]]) {
 			assert.deepEqual(evidenceLabels(blocks), []);
 		}
 	});

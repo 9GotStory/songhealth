@@ -45,7 +45,14 @@ import {
 	type OperationalStatus,
 } from "./health-service-directory";
 import type { HealthServiceData } from "./health-services";
-import { evidenceLabels, itaYearCrumb, moitLabel, moitPath, type MoitData } from "./ita";
+import {
+	evidenceLabels,
+	inItaOrder,
+	itaYearLabel,
+	moitLabel,
+	moitPath,
+	type MoitData,
+} from "./ita";
 import { newsPath, type NewsData } from "./news";
 import {
 	parseSearchRequest,
@@ -89,16 +96,21 @@ function texts(...values: unknown[]): string[] {
 /** One searchable collection's published entries as results at `now`, or its read's error. */
 type Source = (now: Date) => Promise<CollectionRead<SearchEntry>>;
 
-/** A searchable collection, and how each of its published entries reads as a result. */
+/**
+ * A searchable collection, and how each of its published entries reads as a result. The entries
+ * come newest published first, unless `order` orders them otherwise; two results that tie without
+ * a list date keep that order (src/lib/search-matcher.ts searchPage).
+ */
 function source<D>(
 	collection: string,
 	toEntry: (entry: ContentEntry<D>, now: Date) => SearchEntry,
+	order: (entries: ContentEntry<D>[]) => ContentEntry<D>[] = (entries) => entries,
 ): Source {
 	return async (now) => {
 		const { entries, error } = await getEmDashCollection<string, D>(collection, {
 			orderBy: { published_at: "desc" },
 		});
-		return { entries: entries.map((entry) => toEntry(entry, now)), error };
+		return { entries: order(entries).map((entry) => toEntry(entry, now)), error };
 	};
 }
 
@@ -205,18 +217,23 @@ const SOURCES: Source[] = [
 		text: { title: texts(data.title), summary: texts(data.summary), body: texts(data.body) },
 		listDate: data.publishedAt,
 	})),
-	source<MoitData>("moit", ({ id, data }) => ({
-		kind: "moit",
-		href: moitPath(id),
-		title: data.title,
-		facts: [moitLabel(data.number), itaYearCrumb(data.fiscal_year)],
-		text: {
-			title: texts(data.title),
-			summary: texts(data.summary),
-			body: texts(...evidenceLabels(data.evidence)),
-		},
-		listDate: data.publishedAt,
-	})),
+	// A MOIT has no list date, because a year's page lists its MOITs by number, so MOITs that tie
+	// keep the ITA pages' order: the newest fiscal year first, then by number.
+	source<MoitData>(
+		"moit",
+		({ id, data }) => ({
+			kind: "moit",
+			href: moitPath(id),
+			title: data.title,
+			facts: [moitLabel(data.number), itaYearLabel(data.fiscal_year)],
+			text: {
+				title: texts(data.title),
+				summary: texts(data.summary),
+				body: texts(...evidenceLabels(data.evidence)),
+			},
+		}),
+		inItaOrder,
+	),
 ];
 
 /**

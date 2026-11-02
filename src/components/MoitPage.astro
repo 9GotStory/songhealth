@@ -34,7 +34,7 @@ import ChevronRight from "@lucide/astro/icons/chevron-right";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import {
 	hasYearAddress,
-	itaYearCrumb,
+	itaYearLabel,
 	itaYearPath,
 	itaYearTitle,
 	moitEvidence,
@@ -81,7 +81,7 @@ const linkClasses =
 	canonical={moitPath(entry.id)}
 	crumbs={[
 		...(hasYearPage
-			? [{ label: itaYearCrumb(moit.fiscal_year), href: itaYearPath(moit.fiscal_year) }]
+			? [{ label: itaYearLabel(moit.fiscal_year), href: itaYearPath(moit.fiscal_year) }]
 			: []),
 		{ label },
 	]}

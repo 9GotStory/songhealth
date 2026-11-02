@@ -5,10 +5,11 @@
 // บริการประชาชน, ข้อมูลสุขภาพ, หน่วยบริการ, เอกสาร, เกี่ยวกับเรา, ITA) with a count and a filter per
 // group. Each result shows its title, its kind in Thai, a plain-text snippet, a date or status, and
 // links to its canonical address; the reserved Basic Pages link to their /about addresses. A MOIT
-// is found by its title, its summary or the label of a piece of its Evidence, and its result names
-// it by its number and fiscal year instead of its kind. The query, group and page live in the
-// address. Drafts, trashed and unpublished entries never appear, even straight after an
-// unpublish. A query that is too short and one that finds nothing each say so in their own words.
+// is found by its title, its summary or the label of a piece of its Evidence, its result names it
+// by its number and fiscal year instead of its kind, and MOITs that tie list the newest fiscal year
+// first. The query, group and page live in the address. Drafts, trashed and unpublished entries
+// never appear, even straight after an unpublish. A query that is too short and one that finds
+// nothing each say so in their own words.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -69,8 +70,9 @@ import {
 /** The fixed number of results a page shows. */
 const PAGE_SIZE = 20;
 
-/** The fiscal year of the suite's MOITs, which no real MOIT has (createSyntheticMoit). */
+/** The fiscal years of the suite's MOITs, which no real MOIT has (createSyntheticMoit). */
 const FISCAL_YEAR = 2406;
+const NEXT_FISCAL_YEAR = 2407;
 
 /** Text a citizen-facing state must never show: what an exception, a stack or a database says. */
 const INTERNAL_DETAIL =
@@ -304,7 +306,7 @@ test("a reserved Basic Page's result links to its /about address", async ({ page
 	);
 });
 
-test("a MOIT is found by its title and by an Evidence label alone, under ITA with its count, its result reading MOIT n, the fiscal year and its title and leading to its page, and a draft MOIT never appears", async ({
+test("MOITs are found by their titles and by an Evidence label alone, under ITA with its count, those that tie newest fiscal year first, each result reading MOIT n, the fiscal year and its title and leading to its page, and a draft MOIT never appears", async ({
 	page,
 }) => {
 	const word = thaiWord();
@@ -314,6 +316,12 @@ test("a MOIT is found by its title and by an Evidence label alone, under ITA wit
 		number: 3,
 		name: `ตัวชี้วัด${word}`,
 		evidence: [requirementBlock("1", "ข้อมูลพื้นฐาน"), fileBlock("1.1 นโยบายของผู้บริหาร", pdf)],
+	});
+	const nextYear = await createSyntheticMoit(admin, "moit-title-hit-next-year", {
+		year: NEXT_FISCAL_YEAR,
+		number: 5,
+		name: `ตัวชี้วัด${word}`,
+		evidence: [],
 	});
 	const labelled = await createSyntheticMoit(admin, "moit-label-hit", {
 		year: FISCAL_YEAR,
@@ -330,25 +338,26 @@ test("a MOIT is found by its title and by an Evidence label alone, under ITA wit
 		name: `ตัวชี้วัด${word}`,
 		evidence: [fileBlock(`ฟอร์มเผยแพร่${word}`, pdf)],
 	});
-	for (const moit of [titled, labelled]) await publish("moit", moit);
-	const own = [titled, labelled, draft];
+	// The next year's MOIT is published first, so only the fiscal year puts it before its tie.
+	for (const moit of [nextYear, titled, labelled]) await publish("moit", moit);
+	const own = [titled, nextYear, labelled, draft];
+	const expected = [nextYear.title, titled.title, labelled.title];
 
 	await search(page, { q: word });
 	expect(
 		ownTitles(await listedTitles(page), own),
-		"the title match first, never the draft",
-	).toEqual([titled.title, labelled.title]);
-	await expect(groupLink(page, "ทุกประเภท", 2)).toBeVisible();
-	await expect(groupLink(page, "ITA", 2)).toBeVisible();
-	for (const [moit, number] of [
-		[titled, 3],
-		[labelled, 1],
+		"title matches first, the newer fiscal year first among them, and never the draft",
+	).toEqual(expected);
+	await expect(groupLink(page, "ทุกประเภท", 3)).toBeVisible();
+	await expect(groupLink(page, "ITA", 3)).toBeVisible();
+	for (const [moit, number, year] of [
+		[nextYear, 5, NEXT_FISCAL_YEAR],
+		[titled, 3, FISCAL_YEAR],
+		[labelled, 1, FISCAL_YEAR],
 	] as const) {
 		const row = listedItem(page, moit.title);
 		await expect(row, "MOIT n · ปีงบประมาณ YYYY · title").toHaveText(
-			new RegExp(
-				`^\\s*MOIT ${number}[\\s•]*ปีงบประมาณ ${FISCAL_YEAR}\\s*${SYNTHETIC_FIXTURE_MARK}`,
-			),
+			new RegExp(`^\\s*MOIT ${number}[\\s•]*ปีงบประมาณ ${year}\\s*${SYNTHETIC_FIXTURE_MARK}`),
 		);
 		await expect(row.getByRole("link", { name: moit.title })).toHaveAttribute(
 			"href",
@@ -359,11 +368,11 @@ test("a MOIT is found by its title and by an Evidence label alone, under ITA wit
 	await expect(byLabel, "the label it was found by").toContainText(`1.2 ฟอร์มเผยแพร่${word}`);
 	await expect(byLabel.locator("mark")).toHaveText(word);
 
-	await groupLink(page, "ITA", 2).click();
+	await groupLink(page, "ITA", 3).click();
 	await expect(page).toHaveURL(`/search?${new URLSearchParams({ q: word, group: "ita" })}`);
-	await expect(groupLink(page, "ITA", 2)).toHaveAttribute("aria-current", "true");
-	await expect(page.getByRole("main")).toContainText("พบ 2 รายการในกลุ่ม ITA");
-	expect(ownTitles(await listedTitles(page), own)).toEqual([titled.title, labelled.title]);
+	await expect(groupLink(page, "ITA", 3)).toHaveAttribute("aria-current", "true");
+	await expect(page.getByRole("main")).toContainText("พบ 3 รายการในกลุ่ม ITA");
+	expect(ownTitles(await listedTitles(page), own)).toEqual(expected);
 });
 
 test("drafts, trashed and unpublished entries never appear, even straight after an unpublish", async ({

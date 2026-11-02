@@ -11,7 +11,7 @@ import SiteLayout from "../layouts/SiteLayout.astro";
 import {
 	groupEvidence,
 	inMoitOrder,
-	itaYearCrumb,
+	itaYearLabel,
 	itaYearPath,
 	itaYearTitle,
 	moitLabel,
@@ -37,7 +37,7 @@ const lead = `ตัวชี้วัด MOIT ${moits.length} รายกา�
 	section="ita"
 	description={lead}
 	canonical={itaYearPath(year)}
-	crumbs={[{ label: itaYearCrumb(year) }]}
+	crumbs={[{ label: itaYearLabel(year) }]}
 >
 	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 		<PageHeading title={title} lead={lead} />
