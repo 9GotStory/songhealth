@@ -9,8 +9,8 @@
 // The list filters by Document Type, Health Topic (the `topic` taxonomy, GLOSSARY) and fiscal year
 // through GET parameters, so a filtered list has its own address. A `where` on a taxonomy matches
 // the exact term, and a term that does not exist matches nothing (emdash 1.1.0 src/loader.ts
-// resolveTermGroups), as on Health News. A fiscal year is a whole number as the integer field
-// stores it; any other value is ignored rather than sent to the database.
+// resolveTermGroups), as on Health News. A fiscal year is a whole number from 1 to 9999
+// (FISCAL_YEAR); any other value is ignored rather than sent to the database.
 
 import {
 	getEmDashCollection,
@@ -43,7 +43,7 @@ export const FILTER_PARAMS = {
 	year: FILTERS.year.param,
 } as const;
 
-/** A fiscal year as the integer field holds it: a whole number from 1 to 9999, such as 2569. */
+/** A fiscal year as the filter takes it: a whole number from 1 to 9999, such as 2569. */
 const FISCAL_YEAR = /^[1-9][0-9]{0,3}$/;
 
 /** A Document's status in its own domain (`02` §13), not its publication state. */

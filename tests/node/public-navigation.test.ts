@@ -1,14 +1,17 @@
-// The breadcrumb the shell derives for an inner page (#86; spec #51 user story 5, `03` §14).
+// The breadcrumb the shell derives for an inner page (#86; spec #51 user story 5, `03` §14), and
+// the main navigation's ITA item (#124; spec #121 "Public routes").
 //
 // - It leads with หน้าแรก and the main-navigation section the page declares, then the page's own
 //   crumbs, and ends with the current page as text without a link.
 // - A section's landing page has no crumbs of its own, so its breadcrumb ends at the section.
 // - A page that belongs to no section follows หน้าแรก directly.
+// - ITA is the last main-navigation item. The shell marks it as the page on the ITA landing and as
+//   the current section on a year's page and a MOIT's.
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { breadcrumbTrail } from "../../src/lib/navigation.ts";
+import { MAIN_NAVIGATION, breadcrumbTrail, currentMark } from "../../src/lib/navigation.ts";
 
 describe("breadcrumbTrail", () => {
 	it("leads a page with หน้าแรก and its section, as `03` §14's examples read", () => {
@@ -31,6 +34,21 @@ describe("breadcrumbTrail", () => {
 		);
 	});
 
+	it("leads an ITA page through ITA and its fiscal year, as หน้าแรก › ITA › ปีงบประมาณ › MOIT reads", () => {
+		assert.deepEqual(
+			breadcrumbTrail("ita", [
+				{ label: "ปีงบประมาณ 2570", href: "/ita/2570" },
+				{ label: "MOIT 2" },
+			]),
+			[
+				{ label: "หน้าแรก", href: "/" },
+				{ label: "ITA", href: "/ita" },
+				{ label: "ปีงบประมาณ 2570", href: "/ita/2570" },
+				{ label: "MOIT 2" },
+			],
+		);
+	});
+
 	it("ends a section's landing page at the section, as the current page", () => {
 		assert.deepEqual(breadcrumbTrail("services", []), [
 			{ label: "หน้าแรก", href: "/" },
@@ -43,5 +61,16 @@ describe("breadcrumbTrail", () => {
 			{ label: "หน้าแรก", href: "/" },
 			{ label: "ติดต่อเรา" },
 		]);
+	});
+});
+
+describe("the main navigation", () => {
+	it("ends with ITA, the page on the ITA landing and the current section on a year's page and a MOIT's", () => {
+		const ita = MAIN_NAVIGATION[MAIN_NAVIGATION.length - 1];
+		assert.deepEqual({ label: ita.label, href: ita.href }, { label: "ITA", href: "/ita" });
+		assert.equal(currentMark(ita, "ita", "/ita"), "page");
+		assert.equal(currentMark(ita, "ita", "/ita/2570"), "true");
+		assert.equal(currentMark(ita, "ita", "/ita/moit-2-2570"), "true");
+		assert.equal(currentMark(ita, "documents", "/documents"), undefined);
 	});
 });

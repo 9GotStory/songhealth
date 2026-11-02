@@ -38,7 +38,7 @@ import {
 /** The office's official name, fixed interface text in the utility bar. */
 const OFFICE_NAME = "สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่";
 
-/** `03` §2 main navigation, in order. */
+/** `03` §2 main navigation, in order, with ITA last (#124; spec #121 "Public routes"). */
 const MAIN_NAVIGATION = [
 	{ name: "หน้าแรก", href: "/" },
 	{ name: "เกี่ยวกับเรา", href: "/about" },
@@ -46,6 +46,7 @@ const MAIN_NAVIGATION = [
 	{ name: "บริการประชาชน", href: "/services" },
 	{ name: "ข้อมูลสุขภาพ", href: "/health" },
 	{ name: "เอกสารเผยแพร่", href: "/documents" },
+	{ name: "ITA", href: "/ita" },
 ];
 
 /** An address no page will ever have, optionally inside a section such as "/news". */

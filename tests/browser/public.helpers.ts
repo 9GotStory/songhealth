@@ -252,9 +252,18 @@ export function thaiDate(iso: string): string {
 	return `${bangkok.getUTCDate()} ${THAI_MONTHS[bangkok.getUTCMonth()]} ${bangkok.getUTCFullYear() + 543}`;
 }
 
+/**
+ * The address the tests ask for a missing page from. EmDash's 404 log keeps a miss's referrer
+ * beside its path (emdash 1.1.0 src/astro/middleware/redirect.ts,
+ * src/database/repositories/redirect.ts log404), so scripts/dev-runtime-residue.sh counts a miss
+ * as a test's even where the path cannot carry the mark, such as a fiscal year's /ita/2404. The
+ * mark is in the host, which a referrer policy keeps when it trims a referrer to its origin.
+ */
+const UNKNOWN_REFERRER = "http://songhealth-unknown-referrer.invalid/";
+
 /** Fail unless `path` answers the site 404 page with status 404. */
 export async function expectSiteNotFound(page: Page, path: string, label: string): Promise<void> {
-	const response = await page.goto(path);
+	const response = await page.goto(path, { referer: UNKNOWN_REFERRER });
 	expect(response?.status(), `${label} must answer 404`).toBe(404);
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText(NOT_FOUND_HEADING);
 }
@@ -290,6 +299,7 @@ export const SECTION_CRUMBS = {
 	services: ["บริการประชาชน", "/services"],
 	health: ["ข้อมูลสุขภาพ", "/health"],
 	documents: ["เอกสารเผยแพร่", "/documents"],
+	ita: ["ITA", "/ita"],
 } as const;
 
 /**

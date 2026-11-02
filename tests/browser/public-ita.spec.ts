@@ -26,12 +26,15 @@
 import type { Page } from "@playwright/test";
 
 import {
-	createSyntheticDraft,
+	createSyntheticMoit,
 	deleteMedia,
 	devAdminActor,
+	fileBlock,
+	linkBlock,
 	nativeRefusalOf,
 	publishEntryAt,
 	removeSuiteFixtures,
+	requirementBlock,
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	trashEntry,
@@ -39,13 +42,14 @@ import {
 	uploadSyntheticPdf,
 	type CmsActor,
 	type DraftFields,
-	type DraftFixture,
+	type MoitFixture,
 	type SyntheticPdf,
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
 	MOBILE_VIEWPORT,
+	SECTION_CRUMBS,
 	expect,
 	expectBreadcrumb,
 	expectPreviewRenders,
@@ -60,56 +64,16 @@ import {
 /** A fiscal year no real MOIT has, so the fixtures stay apart from the runtime's own. */
 const FISCAL_YEAR = 2401;
 
-/** The Round a new Evidence block starts with (seed/seed.json). */
-const NO_ROUND = "ไม่ระบุรอบ";
-
 let admin: CmsActor;
 let origin: string;
 
-/** A Requirement block, as the Admin's block picker adds one. */
-const requirement = (number: string, title: string) => ({
-	_type: "ita_requirement",
-	number,
-	title,
-});
-
-/** A file block holding `pdf`, with no Round unless `fields` sets one. */
-const fileBlock = (label: string, pdf: SyntheticPdf, fields: Record<string, unknown> = {}) => ({
-	_type: "ita_file",
-	label,
-	file: pdf.value,
-	round: NO_ROUND,
-	...fields,
-});
-
-/** A link block to `url`, with no Round and not current unless `fields` says so. */
-const linkBlock = (label: string, url: string, fields: Record<string, unknown> = {}) => ({
-	_type: "ita_link",
-	label,
-	url,
-	round: NO_ROUND,
-	current: false,
-	...fields,
-});
-
-interface MoitFixture extends DraftFixture {
-	/** The page's heading: the MOIT's number and its title. */
-	heading: string;
-}
-
 /** A synthetic MOIT draft of FISCAL_YEAR, numbered `number`, with `evidence` as its blocks. */
-async function createMoit(
+const createMoit = (
 	label: string,
 	number: number,
 	evidence: Record<string, unknown>[],
-	{ data, ...fields }: DraftFields = {},
-): Promise<MoitFixture> {
-	const moit = await createSyntheticDraft(admin, "moit", "ตัวชี้วัด", label, {
-		data: { fiscal_year: FISCAL_YEAR, number, evidence, ...data },
-		...fields,
-	});
-	return { ...moit, heading: `MOIT ${number} ${moit.title}` };
-}
+	fields?: DraftFields,
+) => createSyntheticMoit(admin, label, { year: FISCAL_YEAR, number, evidence }, fields);
 
 /** Publish now. */
 async function publish(moit: MoitFixture): Promise<void> {
@@ -152,18 +116,18 @@ test("a MOIT page shows its header, and its Evidence grouped under its Requireme
 		"detail",
 		2,
 		[
-			requirement("1", "ข้อมูลพื้นฐานที่เป็นปัจจุบัน"),
+			requirementBlock("1", "ข้อมูลพื้นฐานที่เป็นปัจจุบัน"),
 			linkBlock("1.1 ข้อมูลผู้บริหาร แสดงรายนาม", "/contact", { current: true }),
 			fileBlock("1.2 นโยบายของผู้บริหาร", memo),
 			linkBlock("1.3 กฎหมายที่เกี่ยวข้องกับการดำเนินงาน", "https://stopcorruption.moph.go.th/"),
 			linkBlock("1.4 ช่องทางรับฟังความคิดเห็น", "mailto:saraban@example.go.th"),
-			requirement("2", "รายงานผลการดำเนินงานตามแผนปฏิบัติการประจำปี"),
-			requirement("2.1", "รายงานครึ่งปีแรก"),
+			requirementBlock("2", "รายงานผลการดำเนินงานตามแผนปฏิบัติการประจำปี"),
+			requirementBlock("2.1", "รายงานครึ่งปีแรก"),
 			fileBlock("รายงานผลการดำเนินงานครึ่งปีแรก", report, {
 				round: "รอบ 6 เดือน",
 				note: "ต.ค. 2569 – มี.ค. 2570",
 			}),
-			requirement("2.2", "รายงานทั้งปี"),
+			requirementBlock("2.2", "รายงานทั้งปี"),
 			fileBlock("รายงานผลการดำเนินงานทั้งปี", report, { round: "รอบ 12 เดือน" }),
 		],
 		{ data: { summary, updated_on: updatedOn } },
@@ -179,7 +143,11 @@ test("a MOIT page shows its header, and its Evidence grouped under its Requireme
 	await expect(main.getByText("หลักฐาน 6 รายการ ใน 2 ข้อ")).toContainText(
 		`ปรับปรุงล่าสุด ${thaiDate(updatedOn)}`,
 	);
-	await expectBreadcrumb(page, [HOME_CRUMB], "MOIT 2");
+	await expectBreadcrumb(
+		page,
+		[HOME_CRUMB, SECTION_CRUMBS.ita, [`ปีงบประมาณ ${FISCAL_YEAR}`, `/ita/${FISCAL_YEAR}`]],
+		"MOIT 2",
+	);
 
 	const entries = tableOfContents(page).getByRole("link");
 	await expect(entries).toHaveCount(2);
@@ -283,7 +251,7 @@ test("a file deleted from the library shows the unavailable pill with status 200
 	);
 	const goneLabel = "1.2 ฟอร์มเผยแพร่";
 	const moit = await createMoit("file-gone", 1, [
-		requirement("1", "คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง"),
+		requirementBlock("1", "คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง"),
 		fileBlock("1.1 บันทึกข้อความเสนอ ผบห.", kept),
 		fileBlock(goneLabel, gone, { round: "รอบ 12 เดือน" }),
 		linkBlock("1.3 ข้อมูลการติดต่อหน่วยงาน", "/contact", { current: true }),
@@ -321,7 +289,7 @@ test("a file deleted from the library shows the unavailable pill with status 200
 test("a draft, unpublished or trashed MOIT answers the site 404, a signed preview renders the draft, and an unknown slug answers 404", async ({
 	page,
 }) => {
-	const evidence = [requirement("1", "ข้อกำหนดของฉบับร่าง")];
+	const evidence = [requirementBlock("1", "ข้อกำหนดของฉบับร่าง")];
 	const draft = await createMoit("hidden-draft", 4, evidence);
 	const unpublished = await createMoit("hidden-unpublished", 5, evidence);
 	const trashed = await createMoit("hidden-trashed", 6, evidence);
@@ -395,9 +363,9 @@ test("the table of contents leads to each card at the mobile width, and a card c
 	await page.setViewportSize(MOBILE_VIEWPORT);
 	const pdf = await uploadSyntheticPdf(admin);
 	const moit = await createMoit("keyboard", 10, [
-		requirement("1", "ข้อกำหนดข้อแรก"),
+		requirementBlock("1", "ข้อกำหนดข้อแรก"),
 		fileBlock("หลักฐานของข้อแรก", pdf),
-		requirement("2", "ข้อกำหนดข้อที่สอง"),
+		requirementBlock("2", "ข้อกำหนดข้อที่สอง"),
 		fileBlock("หลักฐานของข้อที่สอง", pdf),
 	]);
 	await publish(moit);
@@ -430,7 +398,7 @@ function longEvidence(pdf: SyntheticPdf): Record<string, unknown>[] {
 	const blocks: Record<string, unknown>[] = [];
 	for (let number = 1; number <= 18; number += 1) {
 		blocks.push(
-			requirement(String(number), `ข้อกำหนดที่ ${number} ของตัวชี้วัดที่มีหลักฐานมาก`),
+			requirementBlock(String(number), `ข้อกำหนดที่ ${number} ของตัวชี้วัดที่มีหลักฐานมาก`),
 			fileBlock(`${number}.1 บันทึกข้อความเสนอ ผบห. ของข้อ ${number}`, pdf),
 		);
 		if (number % 2 === 0) {
@@ -438,7 +406,7 @@ function longEvidence(pdf: SyntheticPdf): Record<string, unknown>[] {
 		}
 		if (number % 4 === 0) {
 			blocks.push(
-				requirement(`${number}.3`, `ข้อย่อยของข้อ ${number}`),
+				requirementBlock(`${number}.3`, `ข้อย่อยของข้อ ${number}`),
 				linkBlock(`ข้อมูลปัจจุบันของข้อ ${number}`, "/news", { current: true }),
 				linkBlock(`เว็บไซต์ภายนอกของข้อ ${number}`, "https://www.moph.go.th/", {
 					round: "รอบ 12 เดือน",
@@ -460,10 +428,10 @@ test.describe("accessibility and reflow", () => {
 			"a11y-short",
 			11,
 			[
-				requirement("1", "คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง"),
+				requirementBlock("1", "คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง"),
 				fileBlock("1.1 บันทึกข้อความเสนอ ผบห.", pdf),
 				linkBlock("1.2 ข้อมูลการติดต่อหน่วยงาน", "/contact", { current: true }),
-				requirement("2", "รายงานการกำกับติดตาม"),
+				requirementBlock("2", "รายงานการกำกับติดตาม"),
 				fileBlock("2.1 รายงานผลการกำกับติดตาม", pdf, { round: "รอบ 12 เดือน" }),
 			],
 			{ data: { summary, updated_on: "2026-09-23T17:30:00.000Z" } },
@@ -471,10 +439,10 @@ test.describe("accessibility and reflow", () => {
 		const long = await createMoit("a11y-long", 12, longEvidence(pdf), { data: { summary } });
 		const edge = await createMoit("a11y-edge", 13, [
 			fileBlock("คู่มือการประเมินก่อนข้อแรก", pdf),
-			requirement("1", "ข้อที่ยังไม่มีหลักฐาน"),
-			requirement("2", "ข้อที่มีข้อย่อย"),
-			requirement("2.1", "ข้อย่อยที่ยังไม่มีหลักฐาน"),
-			requirement("2.2", "ข้อย่อยที่มีไฟล์ที่ถูกลบ"),
+			requirementBlock("1", "ข้อที่ยังไม่มีหลักฐาน"),
+			requirementBlock("2", "ข้อที่มีข้อย่อย"),
+			requirementBlock("2.1", "ข้อย่อยที่ยังไม่มีหลักฐาน"),
+			requirementBlock("2.2", "ข้อย่อยที่มีไฟล์ที่ถูกลบ"),
 			fileBlock("ไฟล์ที่ถูกลบออกจากคลังสื่อ", gone, { round: "รอบ 6 เดือน" }),
 			linkBlock("ลิงก์ที่เปิดเป็นหน้าเว็บไม่ได้", "mailto:saraban@example.go.th", {
 				current: true,

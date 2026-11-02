@@ -1,5 +1,10 @@
-// ITA on the public site (Feature 004 #123; spec #121 "Content model" (the grouping rule) and
-// "Public routes", ADR 0006).
+// ITA on the public site (Feature 004 #123, #124; spec #121 "Content model" (the grouping rule)
+// and "Public routes", ADR 0006).
+//
+// The section's addresses: the landing /ita, a fiscal year's page /ita/{fiscal-year}, and a MOIT's
+// page /ita/{slug}. ADR 0006 keeps no year record, so the years and each year's MOITs come from
+// the published MOITs (src/lib/moits.ts reads them): itaYears lists the years, inMoitOrder orders
+// a year's MOITs, and moitNeighbours finds the ones a MOIT's page leads to, never in another year.
 //
 // A MOIT keeps its Evidence as one blocks field: Requirement blocks, each followed by the file and
 // link blocks of its Evidence (seed/seed.json `moit`, block types `ita_requirement`, `ita_file`,
@@ -16,14 +21,122 @@ import type { FileValue } from "emdash";
 import { isExternalHref } from "./links.ts";
 import type { DownloadableFile } from "./media.ts";
 
+/**
+ * The ITA section's main-navigation label, which its breadcrumb shows too. The landing's heading
+ * names the assessment in full (src/pages/ita/index.astro).
+ */
+export const ITA_LABEL = "ITA";
+
+/** The ITA landing's address. */
+export const ITA_PATH = "/ita";
+
+/** A fiscal year's page: its published MOITs, `/ita/{fiscal-year}`. */
+export function itaYearPath(year: number): string {
+	return `${ITA_PATH}/${year}`;
+}
+
+/** A fiscal year's page as the breadcrumb names it, such as "ปีงบประมาณ 2570". */
+export function itaYearCrumb(year: number): string {
+	return `ปีงบประมาณ ${year}`;
+}
+
+/**
+ * A fiscal year's page title, such as "ITA ปีงบประมาณ พ.ศ. 2570", which a MOIT's page shows above
+ * its own.
+ */
+export function itaYearTitle(year: number): string {
+	return `ITA ปีงบประมาณ พ.ศ. ${year}`;
+}
+
 /** A MOIT page's address, `/ita/{slug}` (the collection's urlPattern), encoded as EmDash does. */
 export function moitPath(slug: string): string {
-	return `/ita/${encodeURIComponent(slug)}`;
+	return `${ITA_PATH}/${encodeURIComponent(slug)}`;
 }
 
 /** A MOIT's name by its number, such as "MOIT 2". */
 export function moitLabel(number: number): string {
 	return `MOIT ${number}`;
+}
+
+/**
+ * A fiscal year as an address writes it: a positive whole number without a leading zero. Nine
+ * digits at most keep it within the PostgreSQL integer that the MOIT's integer field is (emdash
+ * 1.1.0 src/schema/types.ts FIELD_TYPE_TO_COLUMN, src/schema/registry.ts COLUMN_TYPE_TO_DATA_TYPE),
+ * so a year typed wrong, such as 25700, still has a page that shows it (Product Owner, 2026-11-02:
+ * #124 comment 6577248920).
+ */
+const FISCAL_YEAR = /^[1-9][0-9]{0,8}$/;
+
+/** The fiscal year a path segment names, or undefined when it names none. */
+export function fiscalYearOf(segment: string): number | undefined {
+	return FISCAL_YEAR.test(segment) ? Number(segment) : undefined;
+}
+
+/**
+ * Whether an address can name fiscal year `year`, so that its page can exist. Staff can still
+ * type a year that none can, such as 0 (seed/seed.json sets no bounds on fiscal_year).
+ */
+export function hasYearAddress(year: number): boolean {
+	return fiscalYearOf(String(year)) === year;
+}
+
+/** A MOIT as EmDash's list read gives it: its slug as `id`, and its fields as `data`. */
+interface ListedMoit {
+	id: string;
+	data: Pick<MoitData, "fiscal_year" | "number">;
+}
+
+/** A fiscal year on the ITA landing, with how many MOITs it has. */
+interface ItaYear {
+	year: number;
+	count: number;
+}
+
+/**
+ * The fiscal years of the MOITs, each once, newest first, with how many MOITs each has. A year that
+ * no address can name, such as 0, has no page and is left out, so no card leads to the 404 page.
+ */
+export function itaYears(moits: readonly ListedMoit[]): ItaYear[] {
+	const counts = new Map<number, number>();
+	for (const { data } of moits) {
+		counts.set(data.fiscal_year, (counts.get(data.fiscal_year) ?? 0) + 1);
+	}
+	return [...counts]
+		.filter(([year]) => hasYearAddress(year))
+		.map(([year, count]) => ({ year, count }))
+		.sort((a, b) => b.year - a.year);
+}
+
+/** How `a` and `b` compare in a year's order: by number, then by slug. */
+function compareMoits(a: ListedMoit, b: ListedMoit): number {
+	return a.data.number - b.data.number || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+
+/**
+ * The MOITs in the order a year's page lists them: by number, and by slug where staff gave two the
+ * same number, so the order never changes between reads.
+ */
+export function inMoitOrder<M extends ListedMoit>(moits: readonly M[]): M[] {
+	return [...moits].sort(compareMoits);
+}
+
+/**
+ * The MOITs a MOIT's page leads to: the ones before and after it in its fiscal year's order, never
+ * one of another year (legacy defect 7, docs/research/legacy-ita.md). A MOIT that is not among
+ * `moits`, such as a draft in preview, sits where its number puts it.
+ */
+export function moitNeighbours<M extends ListedMoit>(
+	moits: readonly M[],
+	current: ListedMoit,
+): { previous?: M; next?: M } {
+	const others = inMoitOrder(
+		moits.filter(
+			(moit) => moit.data.fiscal_year === current.data.fiscal_year && moit.id !== current.id,
+		),
+	);
+	const after = others.findIndex((moit) => compareMoits(current, moit) < 0);
+	const at = after === -1 ? others.length : after;
+	return { previous: others[at - 1], next: others[at] };
 }
 
 interface RequirementBlock {

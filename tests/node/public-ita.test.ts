@@ -1,5 +1,5 @@
-// A MOIT's Evidence as its page shows it (#123; spec #121 "Content model" (the grouping rule) and
-// "Public routes", ADR 0006).
+// A MOIT's Evidence as its page shows it (#123), and the ITA years and the order of a year's MOITs
+// (#124); spec #121 "Content model" (the grouping rule) and "Public routes", ADR 0006.
 //
 // - A Requirement block opens a group, and the Evidence blocks that follow belong to it, in block
 //   order. A Requirement whose number has a dot is a sub-Requirement of the last Requirement
@@ -10,14 +10,26 @@
 //   page of this site, to another website, or to an email or phone address, and one the page
 //   cannot open safely shows its label alone.
 // - The MOIT's Evidence, each card's and the files that cannot be served are counted.
+// - An address segment written as a positive whole number of up to nine digits names a fiscal
+//   year; anything else is a MOIT's slug. The landing lists each year of the MOITs once, newest
+//   first, with how many MOITs it has, leaving out a year no address can name.
+// - A year's MOITs are in number order, with the slug deciding between two of the same number.
+//   A MOIT's page leads to the ones before and after it in that order, only in its own year, and a
+//   MOIT not among them, such as a draft in preview, sits where its number puts it.
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+	fiscalYearOf,
 	groupEvidence,
+	hasYearAddress,
+	inMoitOrder,
+	itaYearPath,
+	itaYears,
 	moitEvidence,
 	moitLabel,
+	moitNeighbours,
 	moitPath,
 	type EvidenceBlock,
 } from "../../src/lib/ita.ts";
@@ -498,8 +510,200 @@ describe("moitPath", () => {
 	});
 });
 
+describe("hasYearAddress", () => {
+	it("holds for a fiscal year that an address can name, which fiscalYearOf reads back", () => {
+		for (const year of [2570, 1, 25700, 999999999]) {
+			assert.equal(hasYearAddress(year), true, String(year));
+		}
+	});
+
+	it("fails for a year no address can name: 0, a negative, ten digits or a fraction", () => {
+		for (const year of [0, -2570, 1000000000, 2570.5]) {
+			assert.equal(hasYearAddress(year), false, String(year));
+		}
+	});
+});
+
+/** A MOIT as a list read gives it: its slug as `id`, and its fiscal year and number. */
+function listed(slug: string, fiscalYear: number, number: number) {
+	return { id: slug, data: { fiscal_year: fiscalYear, number } };
+}
+
+describe("itaYears", () => {
+	it("lists each fiscal year of the MOITs once, newest first, with how many MOITs it has", () => {
+		assert.deepEqual(
+			itaYears([
+				listed("moit-1-2569", 2569, 1),
+				listed("moit-2-2570", 2570, 2),
+				listed("moit-1-2401", 2401, 1),
+				listed("moit-1-2570", 2570, 1),
+				listed("moit-22-2569", 2569, 22),
+				listed("moit-3-2570", 2570, 3),
+			]),
+			[
+				{ year: 2570, count: 3 },
+				{ year: 2569, count: 2 },
+				{ year: 2401, count: 1 },
+			],
+		);
+	});
+
+	it("leaves out a year that no address can name, so no card leads to the 404 page", () => {
+		assert.deepEqual(
+			itaYears([
+				listed("moit-1-2570", 2570, 1),
+				listed("moit-1-0", 0, 1),
+				listed("moit-1-minus", -2570, 1),
+				listed("moit-1-huge", 1000000000, 1),
+				listed("moit-1-25700", 25700, 1),
+			]),
+			[
+				{ year: 25700, count: 1 },
+				{ year: 2570, count: 1 },
+			],
+		);
+	});
+
+	it("lists no year when there is no MOIT", () => {
+		assert.deepEqual(itaYears([]), []);
+	});
+});
+
+describe("inMoitOrder", () => {
+	it("orders MOITs by number, as numbers, so MOIT 10 follows MOIT 9", () => {
+		assert.deepEqual(
+			inMoitOrder([
+				listed("moit-10-2570", 2570, 10),
+				listed("moit-2-2570", 2570, 2),
+				listed("moit-9-2570", 2570, 9),
+				listed("moit-1-2570", 2570, 1),
+			]).map((moit) => moit.id),
+			["moit-1-2570", "moit-2-2570", "moit-9-2570", "moit-10-2570"],
+		);
+	});
+
+	it("orders MOITs that share a number by slug, so their order never changes between reads", () => {
+		assert.deepEqual(
+			inMoitOrder([
+				listed("moit-2-2570-copy", 2570, 2),
+				listed("moit-3-2570", 2570, 3),
+				listed("moit-2-2570", 2570, 2),
+			]).map((moit) => moit.id),
+			["moit-2-2570", "moit-2-2570-copy", "moit-3-2570"],
+		);
+	});
+});
+
+describe("moitNeighbours", () => {
+	/** The published MOITs of fiscal year 2570, as the read gives them, in no order. */
+	const year = [
+		listed("moit-5-2570", 2570, 5),
+		listed("moit-1-2570", 2570, 1),
+		listed("moit-3-2570", 2570, 3),
+	];
+
+	/** The slugs of the MOITs before and after `current`. */
+	function neighboursOf(moits: ReturnType<typeof listed>[], current: ReturnType<typeof listed>) {
+		const { previous, next } = moitNeighbours(moits, current);
+		return { previous: previous?.id, next: next?.id };
+	}
+
+	it("leads to the MOITs before and after it in its year's number order", () => {
+		assert.deepEqual(neighboursOf(year, listed("moit-3-2570", 2570, 3)), {
+			previous: "moit-1-2570",
+			next: "moit-5-2570",
+		});
+	});
+
+	it("has none before the year's first MOIT or after its last, nor either for a MOIT alone in its year", () => {
+		assert.deepEqual(neighboursOf(year, listed("moit-1-2570", 2570, 1)), {
+			previous: undefined,
+			next: "moit-3-2570",
+		});
+		assert.deepEqual(neighboursOf(year, listed("moit-5-2570", 2570, 5)), {
+			previous: "moit-3-2570",
+			next: undefined,
+		});
+		const alone = listed("moit-1-2569", 2569, 1);
+		assert.deepEqual(neighboursOf([alone], alone), { previous: undefined, next: undefined });
+	});
+
+	it("never leads to another fiscal year's MOIT, even one whose number comes next", () => {
+		const years = [
+			...year,
+			listed("moit-4-2569", 2569, 4),
+			listed("moit-6-2571", 2571, 6),
+			listed("moit-2-2569", 2569, 2),
+		];
+		assert.deepEqual(neighboursOf(years, listed("moit-3-2570", 2570, 3)), {
+			previous: "moit-1-2570",
+			next: "moit-5-2570",
+		});
+		assert.deepEqual(neighboursOf(years, listed("moit-5-2570", 2570, 5)), {
+			previous: "moit-3-2570",
+			next: undefined,
+		});
+	});
+
+	it("places a MOIT that is not among them, such as a draft in preview, where its number puts it", () => {
+		assert.deepEqual(neighboursOf(year, listed("moit-4-2570", 2570, 4)), {
+			previous: "moit-3-2570",
+			next: "moit-5-2570",
+		});
+		assert.deepEqual(neighboursOf(year, listed("moit-9-2570", 2570, 9)), {
+			previous: "moit-5-2570",
+			next: undefined,
+		});
+	});
+
+	it("leads between MOITs that share a number in slug order, as the year's page lists them", () => {
+		const twins = [...year, listed("moit-3-2570-copy", 2570, 3)];
+		assert.deepEqual(neighboursOf(twins, listed("moit-3-2570", 2570, 3)), {
+			previous: "moit-1-2570",
+			next: "moit-3-2570-copy",
+		});
+		assert.deepEqual(neighboursOf(twins, listed("moit-3-2570-copy", 2570, 3)), {
+			previous: "moit-3-2570",
+			next: "moit-5-2570",
+		});
+	});
+});
+
+describe("itaYearPath", () => {
+	it("is /ita/{fiscal-year}, the year page's address", () => {
+		assert.equal(itaYearPath(2570), "/ita/2570");
+	});
+});
+
 describe("moitLabel", () => {
 	it("names a MOIT by its number, as the manual does", () => {
 		assert.equal(moitLabel(2), "MOIT 2");
+	});
+});
+
+describe("fiscalYearOf", () => {
+	it("reads a segment written as a fiscal year, a positive whole number of up to nine digits without a leading zero, as that year", () => {
+		assert.equal(fiscalYearOf("2570"), 2570);
+		assert.equal(fiscalYearOf("2401"), 2401);
+		assert.equal(fiscalYearOf("1"), 1);
+		assert.equal(fiscalYearOf("25700"), 25700, "a year typed wrong still has a page");
+		assert.equal(fiscalYearOf("999999999"), 999999999);
+	});
+
+	it("reads any other segment as no fiscal year, so the page reads it as a MOIT's slug", () => {
+		for (const segment of [
+			"moit-2-2570",
+			"02570",
+			"0",
+			"1000000000",
+			"99999999999999999999",
+			"2570.0",
+			"-2570",
+			" 2570",
+			"2570 ",
+			"",
+		]) {
+			assert.equal(fiscalYearOf(segment), undefined, segment);
+		}
 	});
 });
