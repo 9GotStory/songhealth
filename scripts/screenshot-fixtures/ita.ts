@@ -1,8 +1,9 @@
-// Screenshot content for the MOIT page (#123): two published MOITs of fiscal year 2570 that follow
-// the ITA prototype's samples, themselves the legacy site's 2569 MOIT 1 and MOIT 2
-// (docs/research/legacy-ita.md). The short one has one file deleted from the library, for the
-// unavailable pill; the long one has about 60 blocks, Rounds, links to this site marked current
-// and links to other websites. Captures both MOIT pages.
+// Screenshot content for the ITA pages (#123, #124): two published MOITs of fiscal year 2570 that
+// follow the ITA prototype's samples, themselves the legacy site's 2569 MOIT 1 and MOIT 2
+// (docs/research/legacy-ita.md), and a short MOIT of 2569, so the landing lists two years. The
+// short 2570 one has one file deleted from the library, for the unavailable pill; the long one has
+// about 60 blocks, Rounds, links to this site marked current and links to other websites. Captures
+// the landing, the 2570 page and both 2570 MOIT pages, which lead to each other.
 
 import type { Fixtures } from "../capture-with-fixtures.ts";
 
@@ -39,6 +40,13 @@ const SHORT: Line[] = [
 const standing = (number: string, title: string): Line[] => [
 	{ requirement: number, title },
 	{ file: title, pdf: "document" },
+];
+
+/** Last year's MOIT 1, which the landing counts under 2569. */
+const PREVIOUS_YEAR: Line[] = [
+	{ requirement: "1", title: "คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง (ของปีงบประมาณ พ.ศ. 2569)" },
+	{ file: "1.1 บันทึกข้อความเสนอ ผบห. และขออนุญาตนำเผยแพร่บนเว็บไซต์ของหน่วยงาน", pdf: "memo" },
+	{ file: "1.2 คำสั่ง / ประกาศ โดย ผบห.สูงสุดของหน่วยงาน", pdf: "document" },
 ];
 
 const LONG: Line[] = [
@@ -168,6 +176,7 @@ const fixtures: Fixtures = async ({ admin, helpers }) => {
 		});
 	const moits = [
 		{
+			year: YEAR,
 			number: 1,
 			title:
 				"[ตัวอย่าง] หน่วยงานมีการวางระบบโดยการกำหนดมาตรการการเผยแพร่ข้อมูลต่อสาธารณะผ่านเว็บไซต์ของหน่วยงาน",
@@ -176,21 +185,30 @@ const fixtures: Fixtures = async ({ admin, helpers }) => {
 			lines: SHORT,
 		},
 		{
+			year: YEAR,
 			number: 2,
 			title: "[ตัวอย่าง] หน่วยงานมีการเปิดเผยข้อมูลข่าวสารที่เป็นปัจจุบัน",
 			summary:
 				"ข้อมูลพื้นฐาน กฎหมายและแผนที่เกี่ยวข้อง แผนและผลการดำเนินงาน คู่มือ และข้อมูลการจัดซื้อจัดจ้าง",
 			lines: LONG,
 		},
+		{
+			year: YEAR - 1,
+			number: 1,
+			title:
+				"[ตัวอย่าง] หน่วยงานมีการวางระบบโดยการกำหนดมาตรการการเผยแพร่ข้อมูลต่อสาธารณะผ่านเว็บไซต์ของหน่วยงาน",
+			summary: "คำสั่งหรือประกาศที่กำหนดกรอบแนวทางการเผยแพร่ข้อมูลของปีงบประมาณ พ.ศ. 2569",
+			lines: PREVIOUS_YEAR,
+		},
 	];
 	const slugs: string[] = [];
 	for (const moit of moits) {
-		const slug = helpers.syntheticSlug(`shot-moit-${moit.number}`);
+		const slug = helpers.syntheticSlug(`shot-moit-${moit.number}-${moit.year}`);
 		const entry = await helpers.createSyntheticEntry(admin, "moit", {
 			slug,
 			data: {
 				title: moit.title,
-				fiscal_year: YEAR,
+				fiscal_year: moit.year,
 				number: moit.number,
 				summary: moit.summary,
 				updated_on: "2026-10-30T03:00:00.000Z",
@@ -204,6 +222,8 @@ const fixtures: Fixtures = async ({ admin, helpers }) => {
 	const removed = await helpers.deleteMedia(admin, missing.mediaId);
 	if (!removed.ok) throw new Error(`delete file: ${helpers.nativeRefusalOf(removed)}`);
 	return [
+		{ name: "ita-landing", path: "/ita" },
+		{ name: "ita-year", path: `/ita/${YEAR}` },
 		{ name: "moit-short", path: `/ita/${slugs[0]}` },
 		{ name: "moit-long", path: `/ita/${slugs[1]}` },
 	];
