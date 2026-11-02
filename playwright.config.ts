@@ -1,33 +1,17 @@
-// T010 — Playwright configuration for the Feature 001 focused browser smoke
-// checks (minimum public SSR marker + native EmDash Admin availability).
+// Playwright configuration for the browser suites (Feature 001 T010; README "Development runtime").
 //
-// Authority:
-// - specs/001-platform-foundation/tasks.md T010 (graph: T008 -> T010 -> T011)
-// - specs/001-platform-foundation/plan.md ("Testing": Playwright 1.63.0 for
-//   focused public/Admin browser smoke checks; planned tests/browser
-//   structure; "Runtime verification and readiness")
-// - specs/001-platform-foundation/research.md §11 (Testing Approach: browser
-//   automation for exactly the two browser surfaces, not every check)
-// - specs/001-platform-foundation/quickstart.md §2 (`npm run test:browser`)
-// - docs/website-modernization-docs/current/10-system-blueprint.md §21
-//   (test Songhealth configuration and assumptions, not EmDash internals)
+// The suites run against an application that is already running and never start one: the base
+// URL is PLAYWRIGHT_BASE_URL, which scripts/dev-runtime-env.sh sets to the development runtime,
+// else http://localhost:4321. Reporting stays in the console, and artifacts go to the ignored
+// .tmp/. This file reads no credential.
 //
-// The suite targets the externally configured/running Songhealth application:
-// this configuration never starts the application, its database, or any other
-// server (no `webServer`). The maintainer starts the one Astro + EmDash
-// platform externally per quickstart §1 and points the suite at it. This keeps
-// the browser checks a pure availability/marker verification of the running
-// integration surface and avoids duplicating the startup/migration gates owned
-// by T013/T015.
-//
-// The base URL comes from the PLAYWRIGHT_BASE_URL environment variable when
-// set, otherwise from the documented development origin
-// http://localhost:4321 (.env.example EMDASH_SITE_URL; quickstart §1 expects
-// `http://localhost:4321/` to return the SSR marker and §2 expects bare
-// `npm run test:browser`; `astro dev` listens on that localhost origin). That
-// variable is test-runner plumbing, not an application runtime configuration
-// name (10-system-blueprint.md §20.1), so it is intentionally not added to
-// .env.example. This file reads no credentials and no secret values.
+// Every request carries a songhealth-unknown- referrer. EmDash's 404 log keeps a miss's referrer
+// beside its path (docs/agents/emdash-1.1.0.md "Native API for tests"), so
+// scripts/dev-runtime-residue.sh counts every miss a test causes as the tests' own: one whose path
+// cannot carry the mark, such as a fiscal year's /ita/2404, and a red run's request for a route
+// not built yet (#124 retro). Chromium sends the header on a navigation and on a click (checked on
+// the development runtime, 2026-11-02), and EmDash bases no access decision on a referrer (the same
+// facts file).
 
 import { defineConfig, devices } from "@playwright/test";
 
@@ -35,13 +19,11 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:4321";
 
 export default defineConfig({
   testDir: "./tests/browser",
-  // Console-only reporting keeps the suite evidence in command output; the
-  // artifact output directory is bounded to the already-ignored .tmp/ scratch
-  // path (T003 repository hygiene) so a run leaves no untracked directories.
   reporter: [["list"]],
   outputDir: "./.tmp/playwright-results",
   use: {
     baseURL,
+    extraHTTPHeaders: { referer: "http://songhealth-unknown-referrer.invalid/" },
   },
   projects: [
     {
