@@ -436,9 +436,10 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
   They are the only fields of its own a collection's Admin list can sort by
   (`src/api/handlers/content.ts`, the `sortableExtras` of the list handler).
 - An `integer` field is an `INTEGER` column that takes whole numbers only (`src/schema/types.ts`
-  `FIELD_TYPE_TO_COLUMN`, `src/schema/zod-generator.ts`). On PostgreSQL that is a 32-bit integer,
-  which holds any whole number of up to nine digits; `./src/lib/ita.ts` `fiscalYearOf` reads a
-  fiscal year of that length from an address.
+  `FIELD_TYPE_TO_COLUMN`, `src/schema/zod-generator.ts`). On PostgreSQL that is the 32-bit
+  `integer` type (`src/schema/registry.ts` `COLUMN_TYPE_TO_DATA_TYPE`; `src/transfer/analyze/values.ts`
+  `INT4_MAX`), which holds any whole number of up to nine digits; `./src/lib/ita.ts`
+  `fiscalYearOf` reads a fiscal year of that length from an address.
 - An API token reads `/_emdash/api/taxonomies` with the `content:read` scope and creates terms with
   `taxonomies:manage` (`src/astro/middleware/auth.ts`). A term list is a tree for a hierarchical
   taxonomy, and `?includeCounts=false` skips the per-term counts (`src/api/handlers/taxonomies.ts`

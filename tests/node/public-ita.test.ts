@@ -23,6 +23,7 @@ import { describe, it } from "node:test";
 import {
 	fiscalYearOf,
 	groupEvidence,
+	hasYearAddress,
 	inMoitOrder,
 	itaYearPath,
 	itaYears,
@@ -506,6 +507,20 @@ describe("moitPath", () => {
 			moitPath("ตัวชี้วัด 2"),
 			"/ita/%E0%B8%95%E0%B8%B1%E0%B8%A7%E0%B8%8A%E0%B8%B5%E0%B9%89%E0%B8%A7%E0%B8%B1%E0%B8%94%202",
 		);
+	});
+});
+
+describe("hasYearAddress", () => {
+	it("holds for a fiscal year that an address can name, which fiscalYearOf reads back", () => {
+		for (const year of [2570, 1, 25700, 999999999]) {
+			assert.equal(hasYearAddress(year), true, String(year));
+		}
+	});
+
+	it("fails for a year no address can name: 0, a negative, ten digits or a fraction", () => {
+		for (const year of [0, -2570, 1000000000, 2570.5]) {
+			assert.equal(hasYearAddress(year), false, String(year));
+		}
 	});
 });
 

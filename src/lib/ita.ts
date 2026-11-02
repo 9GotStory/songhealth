@@ -70,6 +70,14 @@ export function fiscalYearOf(segment: string): number | undefined {
 	return FISCAL_YEAR.test(segment) ? Number(segment) : undefined;
 }
 
+/**
+ * Whether an address can name fiscal year `year`, so that its page can exist. Staff can still
+ * type a year that none can, such as 0 (seed/seed.json sets no bounds on fiscal_year).
+ */
+export function hasYearAddress(year: number): boolean {
+	return fiscalYearOf(String(year)) === year;
+}
+
 /** A MOIT as EmDash's list read gives it: its slug as `id`, and its fields as `data`. */
 interface ListedMoit {
 	id: string;
@@ -92,7 +100,7 @@ export function itaYears(moits: readonly ListedMoit[]): ItaYear[] {
 		counts.set(data.fiscal_year, (counts.get(data.fiscal_year) ?? 0) + 1);
 	}
 	return [...counts]
-		.filter(([year]) => fiscalYearOf(String(year)) === year)
+		.filter(([year]) => hasYearAddress(year))
 		.map(([year, count]) => ({ year, count }))
 		.sort((a, b) => b.year - a.year);
 }
