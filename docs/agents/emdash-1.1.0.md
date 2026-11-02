@@ -278,7 +278,19 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
 - The publish, schema, settings, user and token routes write no log line. Only `dev-bypass` and the
   first admin's OAuth setup do (`src/astro/routes/api/auth/dev-bypass.ts`).
 - EmDash adds its middleware with `order: "pre"` (`src/astro/integration/index.ts`
-  `buildMiddlewareEntries`).
+  `buildMiddlewareEntries`). The `middleware.outer` option adds a project middleware ahead of it,
+  which wraps the whole EmDash pipeline (`src/astro/integration/runtime.ts`).
+  `./src/middleware/admin-change-log.ts` uses it (#115 comment 6559591057).
+- EmDash's auth middleware answers some refusals itself, without calling `next()`: 401 for no
+  session or an invalid token, and 403 for a missing `X-EmDash-Request` header, a token's scope or
+  a disabled account (`src/astro/middleware/auth.ts`). A signed-in request has `locals.user` set
+  by the time `next()` resolves.
+- `./src/lib/admin-change-log.ts` names routes by the patterns EmDash injects, such as
+  `/_emdash/api/content/[collection]/[id]/lock` (`src/astro/integration/routes.ts`).
+- On local storage the Admin uploads a new media item in three requests: `POST …/media/upload-url`
+  creates a pending item, then `PUT …/media/{id}/upload` and `POST …/media/{id}/confirm`.
+  `POST /_emdash/api/media` uploads one directly (`src/astro/routes/api/media/upload-url.ts`,
+  `src/storage/local.ts` `getSignedUploadUrl`, `src/astro/routes/api/media.ts`).
 - The MCP endpoint at `/_emdash/api/mcp` is on unless the integration sets `mcp: false`, and it
   takes bearer tokens only (`src/astro/integration/runtime.ts`). Its tools include
   `content_publish`, `schema_create_field`, `schema_delete_collection`, and taxonomy and menu

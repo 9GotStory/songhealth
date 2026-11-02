@@ -271,6 +271,16 @@ export default defineConfig({
           entrypoint: fileURLToPath(new URL("./src/plugins/office-contact.ts", import.meta.url)),
         },
       ],
+      // The admin change log (#115; ADR 0005) wraps EmDash's whole request pipeline, so it also
+      // logs the refusals EmDash's own middleware answers (emdash 1.1.0
+      // src/astro/integration/runtime.ts `middleware`; #115 comment 6559591057).
+      middleware: {
+        outer: fileURLToPath(new URL("./src/middleware/admin-change-log.ts", import.meta.url)),
+      },
+      // MCP stays off in V1: it runs publish, schema, taxonomy and menu tools behind one path,
+      // which the admin change log cannot tell apart (ADR 0005; emdash 1.1.0
+      // src/astro/integration/index.ts injects `/_emdash/api/mcp` unless `mcp` is false).
+      mcp: false,
     }),
   ],
 });
