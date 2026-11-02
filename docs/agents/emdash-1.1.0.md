@@ -121,6 +121,14 @@ cited file exists and that the name carries the pinned version.
 - Deleting a media item has no in-use guard. It removes the stored file unless another media row
   shares the key, and content keeps the stale value (`src/api/handlers/media.ts` `handleMediaDelete`).
   Pages therefore check media through `./src/lib/media.ts`.
+- EmDash tracks where a media item is used, in fields of every kind including blocks:
+  `GET /_emdash/api/media/{id}?includeUsage=1` adds a usage summary and
+  `GET /_emdash/api/media/{id}/usage` lists the entries and fields
+  (`src/astro/routes/api/media/[id].ts`, `src/astro/routes/api/media/[id]/usage.ts`,
+  `src/api/handlers/media-usage.ts`, `src/media/usage/content-fields.ts`). The Admin's media
+  dialog shows it as a "Used in" tab, after a setup that indexes existing content, and the
+  delete button sits beside it: the usage informs, it does not block (observed on the development
+  runtime, 2026-11-02).
 - The storage adapter offers `exists(key)` and `download(key)`, which returns
   `{ body, contentType, size }` (`src/storage/local.ts`, `src/storage/s3.ts`).
   - A missing key throws code `NOT_FOUND`.
@@ -189,6 +197,22 @@ cited file exists and that the name carries the pinned version.
 - The Admin's Portable Text editor saves paragraphs, headings, bullet and numbered lists, quotes,
   code, HTML and iframe blocks, images, galleries, tables and rules. A link is a mark with an
   `href`, and there is no file block (`src/content/converters/prosemirror-to-portable-text.ts`).
+- A collection, field or block-type slug matches `^[a-z][a-z0-9_]*$`: no hyphen
+  (`src/api/schemas/common.ts` `slugPattern`). An entry's slug keeps its hyphens and is unique
+  within its collection (`src/database/repositories/content.ts` `generateUniqueSlug`,
+  `SLUG_CONFLICT`).
+- A block posted without `_key` and `_version` is accepted when the entry is created: it gets a
+  key and the type's current version. An update of a blocks field that already has blocks must
+  carry their keys, or set `replaceBlocks` (`src/schema/block-values.ts` `normalizeBlockArray`).
+- In the Admin, every block of a blocks field renders expanded. Each block has a header with its
+  type's label, its version and its first field's value, and "Collapse block", "Duplicate block"
+  and "Delete block" buttons; a collapsed block is expanded again after a reload. A `select` field
+  renders as a combobox with the field's options and no empty choice, so a chosen value cannot
+  be cleared (`@emdash-cms/admin/dist/index.js`; observed on the development runtime,
+  2026-11-02, ITA prototype).
+- The content list's row actions include Duplicate, which makes the draft copy that the duplicate
+  endpoint makes: a blocks field is copied with its file values
+  (`@emdash-cms/admin/dist/index.js`; observed 2026-11-02).
 
 ## Head, settings, sitemap
 
