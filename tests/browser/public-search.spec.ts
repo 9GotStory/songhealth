@@ -225,6 +225,7 @@ test("results are grouped with a count each, and the query, group and page stay 
 		["หน่วยบริการ", 1],
 		["เอกสาร", 1],
 		["เกี่ยวกับเรา", 1],
+		["ITA", 0],
 	] as const) {
 		await expect(groupLink(page, label, count), `${label} counts ${count}`).toBeVisible();
 	}
@@ -280,6 +281,15 @@ test("results are grouped with a count each, and the query, group and page stay 
 	expect(ownTitles(await listedTitles(page), [...news, activity, announcement])).toEqual(
 		secondPage,
 	);
+
+	await search(page, { q: named, group: "ita" });
+	await expect(page.getByRole("main"), "a group without results").toContainText(
+		"ไม่พบผลการค้นหาในกลุ่ม ITA",
+	);
+	await expect(page.getByRole("link", { name: "ดูผลการค้นหาทุกประเภท" })).toHaveAttribute(
+		"href",
+		`/search?${new URLSearchParams({ q: named })}`,
+	);
 });
 
 test("a reserved Basic Page's result links to its /about address", async ({ page }) => {
@@ -306,26 +316,21 @@ test("a reserved Basic Page's result links to its /about address", async ({ page
 	);
 });
 
-test("MOITs are found by their titles and by an Evidence label alone, under ITA with its count, those that tie newest fiscal year first, each result reading MOIT n, the fiscal year and its title and leading to its page, and a draft MOIT never appears", async ({
+test("MOITs are found by their titles and by an Evidence label alone, under ITA with its count, ties in the ITA pages' order, each result reading MOIT n, the fiscal year and its title and leading to its page, and a draft MOIT never appears", async ({
 	page,
 }) => {
 	const word = thaiWord();
 	const pdf = await uploadSyntheticPdf(admin);
-	const titled = await createSyntheticMoit(admin, "moit-title-hit", {
-		year: FISCAL_YEAR,
-		number: 3,
-		name: `ตัวชี้วัด${word}`,
-		evidence: [requirementBlock("1", "ข้อมูลพื้นฐาน"), fileBlock("1.1 นโยบายของผู้บริหาร", pdf)],
-	});
-	const nextYear = await createSyntheticMoit(admin, "moit-title-hit-next-year", {
-		year: NEXT_FISCAL_YEAR,
-		number: 5,
-		name: `ตัวชี้วัด${word}`,
-		evidence: [],
-	});
+	/** A MOIT of fiscal year `year`, numbered `number`, whose title carries the word. */
+	const titledMoit = (label: string, year: number, number: number) =>
+		createSyntheticMoit(admin, label, { year, number, name: `ตัวชี้วัด${word}`, evidence: [] });
+	const nextYear = await titledMoit("moit-next-year", NEXT_FISCAL_YEAR, 5);
+	const second = await titledMoit("moit-2", FISCAL_YEAR, 2);
+	const first = await titledMoit("moit-1", FISCAL_YEAR, 1);
+	const third = await titledMoit("moit-3", FISCAL_YEAR, 3);
 	const labelled = await createSyntheticMoit(admin, "moit-label-hit", {
 		year: FISCAL_YEAR,
-		number: 1,
+		number: 4,
 		evidence: [
 			requirementBlock("1", "คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง"),
 			fileBlock("1.1 บันทึกข้อความเสนอ ผบห.", pdf),
@@ -334,27 +339,31 @@ test("MOITs are found by their titles and by an Evidence label alone, under ITA 
 	});
 	const draft = await createSyntheticMoit(admin, "moit-draft", {
 		year: FISCAL_YEAR,
-		number: 2,
+		number: 6,
 		name: `ตัวชี้วัด${word}`,
 		evidence: [fileBlock(`ฟอร์มเผยแพร่${word}`, pdf)],
 	});
-	// The next year's MOIT is published first, so only the fiscal year puts it before its tie.
-	for (const moit of [nextYear, titled, labelled]) await publish("moit", moit);
-	const own = [titled, nextYear, labelled, draft];
-	const expected = [nextYear.title, titled.title, labelled.title];
+	// Published in an order that is neither the ITA pages' order nor its reverse, so only that
+	// order lists the title matches as expected: the next year's first, then MOIT 2, 1 and 3.
+	for (const moit of [nextYear, second, first, third, labelled]) await publish("moit", moit);
+	const rows = [
+		[nextYear, 5, NEXT_FISCAL_YEAR],
+		[first, 1, FISCAL_YEAR],
+		[second, 2, FISCAL_YEAR],
+		[third, 3, FISCAL_YEAR],
+		[labelled, 4, FISCAL_YEAR],
+	] as const;
+	const own = [...rows.map(([moit]) => moit), draft];
+	const expected = rows.map(([moit]) => moit.title);
 
 	await search(page, { q: word });
 	expect(
 		ownTitles(await listedTitles(page), own),
-		"title matches first, the newer fiscal year first among them, and never the draft",
+		"the title matches in the ITA pages' order, then the label match, and never the draft",
 	).toEqual(expected);
-	await expect(groupLink(page, "ทุกประเภท", 3)).toBeVisible();
-	await expect(groupLink(page, "ITA", 3)).toBeVisible();
-	for (const [moit, number, year] of [
-		[nextYear, 5, NEXT_FISCAL_YEAR],
-		[titled, 3, FISCAL_YEAR],
-		[labelled, 1, FISCAL_YEAR],
-	] as const) {
+	await expect(groupLink(page, "ทุกประเภท", 5)).toBeVisible();
+	await expect(groupLink(page, "ITA", 5)).toBeVisible();
+	for (const [moit, number, year] of rows) {
 		const row = listedItem(page, moit.title);
 		await expect(row, "MOIT n · ปีงบประมาณ YYYY · title").toHaveText(
 			new RegExp(`^\\s*MOIT ${number}[\\s•]*ปีงบประมาณ ${year}\\s*${SYNTHETIC_FIXTURE_MARK}`),
@@ -368,10 +377,10 @@ test("MOITs are found by their titles and by an Evidence label alone, under ITA 
 	await expect(byLabel, "the label it was found by").toContainText(`1.2 ฟอร์มเผยแพร่${word}`);
 	await expect(byLabel.locator("mark")).toHaveText(word);
 
-	await groupLink(page, "ITA", 3).click();
+	await groupLink(page, "ITA", 5).click();
 	await expect(page).toHaveURL(`/search?${new URLSearchParams({ q: word, group: "ita" })}`);
-	await expect(groupLink(page, "ITA", 3)).toHaveAttribute("aria-current", "true");
-	await expect(page.getByRole("main")).toContainText("พบ 3 รายการในกลุ่ม ITA");
+	await expect(groupLink(page, "ITA", 5)).toHaveAttribute("aria-current", "true");
+	await expect(page.getByRole("main")).toContainText("พบ 5 รายการในกลุ่ม ITA");
 	expect(ownTitles(await listedTitles(page), own)).toEqual(expected);
 });
 

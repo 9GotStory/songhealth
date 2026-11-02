@@ -36,7 +36,7 @@ import {
 	type EvidenceBlock,
 } from "../../src/lib/ita.ts";
 import type { DownloadableFile } from "../../src/lib/media.ts";
-import { file, link, requirement } from "./ita.helpers.ts";
+import { fileBlock, linkBlock, requirementBlock } from "./ita.helpers.ts";
 
 /** The site's own origin, as the page passes its request's. */
 const SITE = "https://songhealth.example";
@@ -81,11 +81,11 @@ describe("groupEvidence", () => {
 	it("groups the Evidence blocks that follow a Requirement block under it, in block order", () => {
 		assert.deepEqual(
 			outline([
-				requirement("1", "คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง"),
-				file("1.1 บันทึกข้อความเสนอ ผบห.", "memo.pdf"),
-				link("1.2 ข้อมูลผู้บริหาร", "/about/leadership"),
-				requirement("2", "รายงานการกำกับติดตาม"),
-				file("2.1 ฟอร์มเผยแพร่", "form.pdf"),
+				requirementBlock("1", "คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง"),
+				fileBlock("1.1 บันทึกข้อความเสนอ ผบห.", "memo.pdf"),
+				linkBlock("1.2 ข้อมูลผู้บริหาร", "/about/leadership"),
+				requirementBlock("2", "รายงานการกำกับติดตาม"),
+				fileBlock("2.1 ฟอร์มเผยแพร่", "form.pdf"),
 			]),
 			[
 				{
@@ -105,15 +105,15 @@ describe("groupEvidence", () => {
 	it("puts a Requirement whose number has a dot, two dots included, in the card of the last Requirement without one", () => {
 		assert.deepEqual(
 			outline([
-				requirement("6", "ยุทธศาสตร์ชาติ จำนวน 3 ระดับ"),
-				file("6.1 แผนระดับที่ 1", "memo.pdf"),
-				requirement("6.2", "แผนระดับที่ 2"),
-				file("แผนแม่บทภายใต้ยุทธศาสตร์ชาติ", "memo.pdf"),
-				requirement("6.2.1", "แผนพัฒนาเศรษฐกิจและสังคมแห่งชาติ"),
-				link("แผนพัฒนาฯ ฉบับที่ 13", "https://www.nesdc.go.th/"),
-				requirement("7", "แผนปฏิบัติราชการ"),
-				requirement("7.1", "แผนปฏิบัติราชการด้านการป้องกันการทุจริต"),
-				file("7.1 แผนปฏิบัติราชการ ระยะที่ 2", "form.pdf"),
+				requirementBlock("6", "ยุทธศาสตร์ชาติ จำนวน 3 ระดับ"),
+				fileBlock("6.1 แผนระดับที่ 1", "memo.pdf"),
+				requirementBlock("6.2", "แผนระดับที่ 2"),
+				fileBlock("แผนแม่บทภายใต้ยุทธศาสตร์ชาติ", "memo.pdf"),
+				requirementBlock("6.2.1", "แผนพัฒนาเศรษฐกิจและสังคมแห่งชาติ"),
+				linkBlock("แผนพัฒนาฯ ฉบับที่ 13", "https://www.nesdc.go.th/"),
+				requirementBlock("7", "แผนปฏิบัติราชการ"),
+				requirementBlock("7.1", "แผนปฏิบัติราชการด้านการป้องกันการทุจริต"),
+				fileBlock("7.1 แผนปฏิบัติราชการ ระยะที่ 2", "form.pdf"),
 			]),
 			[
 				{
@@ -143,12 +143,12 @@ describe("groupEvidence", () => {
 
 	it("shows the Evidence before any Requirement first, ungrouped, and keeps a Requirement without Evidence", () => {
 		const blocks = [
-			file("คู่มือการประเมิน ITA", "memo.pdf"),
-			link("เว็บไซต์ ITA ของกระทรวง", "https://ita.moph.go.th/"),
-			requirement("1", "ข้อมูลพื้นฐาน"),
-			requirement("2", "วิสัยทัศน์ พันธกิจ ค่านิยม MOPH"),
-			file("วิสัยทัศน์ พันธกิจ ค่านิยม MOPH", "form.pdf"),
-			requirement("3", "ข้อที่ยังไม่มีหลักฐาน"),
+			fileBlock("คู่มือการประเมิน ITA", "memo.pdf"),
+			linkBlock("เว็บไซต์ ITA ของกระทรวง", "https://ita.moph.go.th/"),
+			requirementBlock("1", "ข้อมูลพื้นฐาน"),
+			requirementBlock("2", "วิสัยทัศน์ พันธกิจ ค่านิยม MOPH"),
+			fileBlock("วิสัยทัศน์ พันธกิจ ค่านิยม MOPH", "form.pdf"),
+			requirementBlock("3", "ข้อที่ยังไม่มีหลักฐาน"),
 		];
 
 		assert.deepEqual(
@@ -169,11 +169,11 @@ describe("groupEvidence", () => {
 	it("shows each sub-Requirement that no Requirement without a dot comes before as a card of its own", () => {
 		assert.deepEqual(
 			outline([
-				requirement("1.1", "ข้อย่อยแรกที่มาก่อนข้อหลัก"),
-				file("หลักฐานของข้อ 1.1", "memo.pdf"),
-				requirement("1.2", "ข้อย่อยที่สองที่มาก่อนข้อหลัก"),
-				requirement("2", "ข้อหลัก"),
-				requirement("2.1", "ข้อย่อยของข้อหลัก"),
+				requirementBlock("1.1", "ข้อย่อยแรกที่มาก่อนข้อหลัก"),
+				fileBlock("หลักฐานของข้อ 1.1", "memo.pdf"),
+				requirementBlock("1.2", "ข้อย่อยที่สองที่มาก่อนข้อหลัก"),
+				requirementBlock("2", "ข้อหลัก"),
+				requirementBlock("2.1", "ข้อย่อยของข้อหลัก"),
 			]),
 			[
 				{
@@ -194,9 +194,9 @@ describe("groupEvidence", () => {
 	it("reads a number's trailing dot and spaces as punctuation, as the manual writes 1.", () => {
 		assert.deepEqual(
 			outline([
-				requirement("1.", "ข้อมูลพื้นฐาน"),
-				requirement(" 1.1. ", "ข้อมูลผู้บริหาร"),
-				requirement(" 2 ", "วิสัยทัศน์"),
+				requirementBlock("1.", "ข้อมูลพื้นฐาน"),
+				requirementBlock(" 1.1. ", "ข้อมูลผู้บริหาร"),
+				requirementBlock(" 2 ", "วิสัยทัศน์"),
 			]),
 			[
 				{
@@ -213,9 +213,9 @@ describe("groupEvidence", () => {
 		const retired = { _type: "ita_retired_note", label: "บล็อกชนิดที่เลิกใช้" } as unknown;
 		const groups = groupEvidence([
 			retired as EvidenceBlock,
-			requirement("1", "ข้อมูลพื้นฐาน"),
+			requirementBlock("1", "ข้อมูลพื้นฐาน"),
 			retired as EvidenceBlock,
-			file("1.1 นโยบายของผู้บริหาร", "memo.pdf"),
+			fileBlock("1.1 นโยบายของผู้บริหาร", "memo.pdf"),
 		]);
 
 		assert.deepEqual(groups.lead, []);
@@ -228,17 +228,17 @@ describe("groupEvidence", () => {
 
 	it("counts the MOIT's Evidence and each card's with its sub-Requirements'", () => {
 		const groups = groupEvidence([
-			file("คู่มือการประเมิน", "memo.pdf"),
-			requirement("1", "ข้อมูลพื้นฐาน"),
-			file("1.1 นโยบายของผู้บริหาร", "memo.pdf"),
-			link("1.2 ข้อมูลผู้บริหาร", "/about/leadership"),
-			requirement("1.3", "โครงสร้างหน่วยงาน"),
-			file("โครงสร้างหน่วยงาน", "deleted.pdf"),
-			link("ผังโครงสร้าง", "javascript:void 0"),
-			requirement("2", "ข้อที่ยังไม่มีหลักฐาน"),
-			requirement("3", "แผนปฏิบัติการ"),
-			requirement("3.1", "แผนปฏิบัติการประจำปี"),
-			file("แผนปฏิบัติการประจำปี", "deleted.pdf"),
+			fileBlock("คู่มือการประเมิน", "memo.pdf"),
+			requirementBlock("1", "ข้อมูลพื้นฐาน"),
+			fileBlock("1.1 นโยบายของผู้บริหาร", "memo.pdf"),
+			linkBlock("1.2 ข้อมูลผู้บริหาร", "/about/leadership"),
+			requirementBlock("1.3", "โครงสร้างหน่วยงาน"),
+			fileBlock("โครงสร้างหน่วยงาน", "deleted.pdf"),
+			linkBlock("ผังโครงสร้าง", "javascript:void 0"),
+			requirementBlock("2", "ข้อที่ยังไม่มีหลักฐาน"),
+			requirementBlock("3", "แผนปฏิบัติการ"),
+			requirementBlock("3.1", "แผนปฏิบัติการประจำปี"),
+			fileBlock("แผนปฏิบัติการประจำปี", "deleted.pdf"),
 		]);
 
 		assert.deepEqual(
@@ -259,13 +259,13 @@ describe("moitEvidence", () => {
 	it("groups the pills as groupEvidence groups the blocks, and counts the files that cannot be served", async () => {
 		const evidence = await moitEvidence(
 			[
-				file("คู่มือการประเมิน", "memo.pdf"),
-				requirement("1", "ข้อมูลพื้นฐาน"),
-				link("1.1 ข้อมูลผู้บริหาร", "/about/leadership"),
-				requirement("1.2", "โครงสร้างหน่วยงาน"),
-				file("โครงสร้างหน่วยงาน", "deleted.pdf"),
-				requirement("2", "แผนปฏิบัติการ"),
-				file("แผนปฏิบัติการประจำปี", "deleted.pdf"),
+				fileBlock("คู่มือการประเมิน", "memo.pdf"),
+				requirementBlock("1", "ข้อมูลพื้นฐาน"),
+				linkBlock("1.1 ข้อมูลผู้บริหาร", "/about/leadership"),
+				requirementBlock("1.2", "โครงสร้างหน่วยงาน"),
+				fileBlock("โครงสร้างหน่วยงาน", "deleted.pdf"),
+				requirementBlock("2", "แผนปฏิบัติการ"),
+				fileBlock("แผนปฏิบัติการประจำปี", "deleted.pdf"),
 			],
 			OPTIONS,
 		);
@@ -311,9 +311,9 @@ describe("moitEvidence", () => {
 	it("offers a file that can be served for download with its type and size, under its uploaded name, and marks one that cannot as unavailable", async () => {
 		assert.deepEqual(
 			await pillsOf([
-				file("1.1 บันทึกข้อความเสนอ ผบห.", "memo.pdf"),
-				file("1.2 ฟอร์มเผยแพร่ที่ถูกลบออกจากคลังสื่อ", "deleted.pdf"),
-				{ ...file("1.3 ไฟล์ที่ยังไม่ได้เลือก", "none.pdf"), file: null } as EvidenceBlock,
+				fileBlock("1.1 บันทึกข้อความเสนอ ผบห.", "memo.pdf"),
+				fileBlock("1.2 ฟอร์มเผยแพร่ที่ถูกลบออกจากคลังสื่อ", "deleted.pdf"),
+				{ ...fileBlock("1.3 ไฟล์ที่ยังไม่ได้เลือก", "none.pdf"), file: null } as EvidenceBlock,
 			]),
 			[
 				{
@@ -332,13 +332,13 @@ describe("moitEvidence", () => {
 	it("tells a page of this site from another website by the link's address, and keeps whether staff marked it current", async () => {
 		assert.deepEqual(
 			await pillsOf([
-				link("1.1 ข้อมูลผู้บริหาร", "/about/leadership", { current: true }),
-				link("1.6 ข่าวประชาสัมพันธ์", `${SITE}/news?page=2`),
-				link("1.5 กฎหมายที่เกี่ยวข้อง", "https://stopcorruption.moph.go.th/laws?year=2570"),
-				link("1.8 ช่องทางรับฟังความคิดเห็น", "HTTP://www.example.go.th:8080/form", {
+				linkBlock("1.1 ข้อมูลผู้บริหาร", "/about/leadership", { current: true }),
+				linkBlock("1.6 ข่าวประชาสัมพันธ์", `${SITE}/news?page=2`),
+				linkBlock("1.5 กฎหมายที่เกี่ยวข้อง", "https://stopcorruption.moph.go.th/laws?year=2570"),
+				linkBlock("1.8 ช่องทางรับฟังความคิดเห็น", "HTTP://www.example.go.th:8080/form", {
 					current: true,
 				}),
-				link("1.9 ไม่ได้ระบุ", "/contact", { current: null }),
+				linkBlock("1.9 ไม่ได้ระบุ", "/contact", { current: null }),
 			]),
 			[
 				{
@@ -383,9 +383,9 @@ describe("moitEvidence", () => {
 	it("opens an email address or a telephone number in place and shows it, as ContentLink does", async () => {
 		assert.deepEqual(
 			await pillsOf([
-				link("ช่องทางร้องเรียน", "mailto:saraban@example.go.th?subject=ITA"),
-				link("โทรติดต่อ", "TEL:054%20000%20000", { current: true }),
-				link("โทรผิดรูปแบบ", "tel:%E0%B8"),
+				linkBlock("ช่องทางร้องเรียน", "mailto:saraban@example.go.th?subject=ITA"),
+				linkBlock("โทรติดต่อ", "TEL:054%20000%20000", { current: true }),
+				linkBlock("โทรผิดรูปแบบ", "tel:%E0%B8"),
 			]),
 			[
 				{
@@ -429,22 +429,22 @@ describe("moitEvidence", () => {
 		];
 
 		assert.deepEqual(
-			await pillsOf(addresses.map((url) => link(`หลักฐาน ${url}`, url, { current: true }))),
+			await pillsOf(addresses.map((url) => linkBlock(`หลักฐาน ${url}`, url, { current: true }))),
 			addresses.map((url) => ({ kind: "unlinked", label: `หลักฐาน ${url}`, current: true })),
 		);
 	});
 
 	it("names the Round of each piece of Evidence, and none for ไม่ระบุรอบ, an empty value or a missing one", async () => {
-		const { round: _, ...withoutRound } = file("ไม่มีค่า", "memo.pdf") as { round?: unknown };
+		const { round: _, ...withoutRound } = fileBlock("ไม่มีค่า", "memo.pdf") as { round?: unknown };
 		const pills = await pillsOf([
-			file("รายงานรอบ 6 เดือน", "memo.pdf", { round: "รอบ 6 เดือน" }),
-			link("ผลการดำเนินงานรอบ 12 เดือน", "/news", { round: "รอบ 12 เดือน" }),
-			file("ไฟล์รอบ 12 เดือนที่ถูกลบ", "deleted.pdf", { round: "รอบ 12 เดือน" }),
-			link("ลิงก์ที่เปิดไม่ได้รอบ 6 เดือน", "javascript:void 0", { round: "รอบ 6 เดือน" }),
-			file("ค่าที่ตัวเลือกไม่มีแล้ว", "memo.pdf", { round: "รอบ 3 เดือน" }),
-			file("ไม่ระบุรอบ", "memo.pdf", { round: "ไม่ระบุรอบ" }),
-			file("ค่าว่าง", "memo.pdf", { round: " " }),
-			file("ไม่มีค่า null", "memo.pdf", { round: null }),
+			fileBlock("รายงานรอบ 6 เดือน", "memo.pdf", { round: "รอบ 6 เดือน" }),
+			linkBlock("ผลการดำเนินงานรอบ 12 เดือน", "/news", { round: "รอบ 12 เดือน" }),
+			fileBlock("ไฟล์รอบ 12 เดือนที่ถูกลบ", "deleted.pdf", { round: "รอบ 12 เดือน" }),
+			linkBlock("ลิงก์ที่เปิดไม่ได้รอบ 6 เดือน", "javascript:void 0", { round: "รอบ 6 เดือน" }),
+			fileBlock("ค่าที่ตัวเลือกไม่มีแล้ว", "memo.pdf", { round: "รอบ 3 เดือน" }),
+			fileBlock("ไม่ระบุรอบ", "memo.pdf", { round: "ไม่ระบุรอบ" }),
+			fileBlock("ค่าว่าง", "memo.pdf", { round: " " }),
+			fileBlock("ไม่มีค่า null", "memo.pdf", { round: null }),
 			withoutRound as EvidenceBlock,
 		]);
 
@@ -466,10 +466,10 @@ describe("moitEvidence", () => {
 
 	it("shows a file's note, such as the months it covers, when staff set one", async () => {
 		const pills = await pillsOf([
-			file("รายงานผลการดำเนินงาน", "memo.pdf", { note: "ต.ค. 2569 – มี.ค. 2570" }),
-			file("ไฟล์ที่ถูกลบ", "deleted.pdf", { note: " เม.ย. – ก.ย. 2570 " }),
-			file("หมายเหตุว่าง", "memo.pdf", { note: "  " }),
-			file("ไม่มีหมายเหตุ", "memo.pdf", { note: null }),
+			fileBlock("รายงานผลการดำเนินงาน", "memo.pdf", { note: "ต.ค. 2569 – มี.ค. 2570" }),
+			fileBlock("ไฟล์ที่ถูกลบ", "deleted.pdf", { note: " เม.ย. – ก.ย. 2570 " }),
+			fileBlock("หมายเหตุว่าง", "memo.pdf", { note: "  " }),
+			fileBlock("ไม่มีหมายเหตุ", "memo.pdf", { note: null }),
 		]);
 
 		assert.deepEqual(

@@ -218,9 +218,10 @@ const SOURCES: Source[] = [
 		text: { title: texts(data.title), summary: texts(data.summary), body: texts(data.body) },
 		listDate: data.publishedAt,
 	})),
-	// A MOIT has no list date, because a year's page lists its MOITs by number, so MOITs that tie
-	// keep the ITA pages' order: the newest fiscal year first, then by number (Product Owner,
-	// 2026-11-03: #125 comment 6591248342).
+	// A MOIT has no list date, because a year's page lists its MOITs by number. So MOITs that tie
+	// keep the ITA pages' order, the newest fiscal year first, then by number, and come after any
+	// dated result they tie with (Product Owner, 2026-11-03: #125 comment 6591248342, choosing
+	// item 2's option A of comment 6580283949).
 	source<MoitData>(
 		"moit",
 		({ id, data }) => ({

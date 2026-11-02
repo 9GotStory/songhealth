@@ -416,10 +416,11 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
   ADR 0002).
 - `extractPlainText` reads Portable Text: the span text of each block that has `children`, through
   `@portabletext/toolkit`'s `toPlainText`, which skips any other
-  (`@portabletext/toolkit/dist/index.js` `isPortableTextBlock`), and of the custom blocks a `code`
-  block's code and an `image` block's alt and caption (`src/search/text-extraction.ts`
-  `extractCustomBlockText`). It reads nothing of a `blocks` field's typed blocks, such as an
-  Evidence block's label, so `./src/lib/ita.ts` `evidenceLabels` gives the search those labels.
+  (`@portabletext/toolkit/dist/index.js` `isPortableTextBlock`; EmDash asks for `^5.0.1`, and
+  `./package-lock.json` holds 5.0.2), and of the custom blocks a `code` block's code and an `image`
+  block's alt and caption (`src/search/text-extraction.ts` `extractCustomBlockText`). It reads
+  nothing of a `blocks` field's typed blocks, such as an Evidence block's label, so
+  `./src/lib/ita.ts` `evidenceLabels` gives the search those labels.
 - Seed taxonomy terms are applied only with content (`src/seed/apply.ts`), and `emdash seed` opens
   SQLite only (`src/cli/commands/seed.ts`). The model-update step uses the schema and taxonomy APIs
   instead (`./scripts/model-update.mjs`).

@@ -38,7 +38,7 @@ import {
 	type Searchable,
 	type SearchKind,
 } from "../../src/lib/search-matcher.ts";
-import { file, link, requirement } from "./ita.helpers.ts";
+import { fileBlock, linkBlock, requirementBlock } from "./ita.helpers.ts";
 
 /** A published entry as the search reads it: its kind, its text by tier, and its list date. */
 function entry(
@@ -332,16 +332,16 @@ describe("evidenceLabels", () => {
 	it("are the labels of a MOIT's file and link blocks, in the order its page shows them: before any Requirement, then each card's own and its sub-Requirements'", () => {
 		assert.deepEqual(
 			evidenceLabels([
-				file("คู่มือการประเมิน", "manual.pdf"),
-				requirement("0.1", "ข้อย่อยที่มาก่อนข้อหลัก"),
-				link("ประกาศของกระทรวง", "https://www.moph.go.th/"),
-				requirement("1", "ข้อมูลพื้นฐาน"),
-				link("1.1 ข้อมูลผู้บริหาร", "/about/leadership", { current: true }),
-				requirement("1.2", "นโยบายของผู้บริหาร"),
-				file("1.2 ฟอร์มเผยแพร่", "form.pdf", { round: "รอบ 6 เดือน" }),
-				requirement("1.2.1", "นโยบายรอบ 12 เดือน"),
-				file("1.2.1 ฟอร์มเผยแพร่", "form.pdf", { round: "รอบ 12 เดือน" }),
-				requirement("2", "ข้อที่ยังไม่มีหลักฐาน"),
+				fileBlock("คู่มือการประเมิน", "manual.pdf"),
+				requirementBlock("0.1", "ข้อย่อยที่มาก่อนข้อหลัก"),
+				linkBlock("ประกาศของกระทรวง", "https://www.moph.go.th/"),
+				requirementBlock("1", "ข้อมูลพื้นฐาน"),
+				linkBlock("1.1 ข้อมูลผู้บริหาร", "/about/leadership", { current: true }),
+				requirementBlock("1.2", "นโยบายของผู้บริหาร"),
+				fileBlock("1.2 ฟอร์มเผยแพร่", "form.pdf", { round: "รอบ 6 เดือน" }),
+				requirementBlock("1.2.1", "นโยบายรอบ 12 เดือน"),
+				fileBlock("1.2.1 ฟอร์มเผยแพร่", "form.pdf", { round: "รอบ 12 เดือน" }),
+				requirementBlock("2", "ข้อที่ยังไม่มีหลักฐาน"),
 			]),
 			[
 				"คู่มือการประเมิน",
@@ -357,17 +357,20 @@ describe("evidenceLabels", () => {
 		const retired = { _type: "ita_retired_note", label: "บันทึกชนิดที่เลิกใช้" } as unknown;
 		assert.deepEqual(
 			evidenceLabels([
-				requirement("1", "คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง"),
+				requirementBlock("1", "คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง"),
 				retired as EvidenceBlock,
-				file("1.1 คำสั่ง", "คำสั่งแต่งตั้ง-2570.pdf", { round: "รอบ 6 เดือน", note: "ต.ค. 2569" }),
-				link("1.2 ข้อมูลการติดต่อ", "/contact"),
+				fileBlock("1.1 คำสั่ง", "คำสั่งแต่งตั้ง-2570.pdf", {
+					round: "รอบ 6 เดือน",
+					note: "ต.ค. 2569",
+				}),
+				linkBlock("1.2 ข้อมูลการติดต่อ", "/contact"),
 			]),
 			["1.1 คำสั่ง", "1.2 ข้อมูลการติดต่อ"],
 		);
 	});
 
 	it("are none for a MOIT without Evidence blocks", () => {
-		for (const blocks of [[], null, undefined, [requirement("1", "ข้อที่ยังไม่มีหลักฐาน")]]) {
+		for (const blocks of [[], null, undefined, [requirementBlock("1", "ข้อที่ยังไม่มีหลักฐาน")]]) {
 			assert.deepEqual(evidenceLabels(blocks), []);
 		}
 	});
