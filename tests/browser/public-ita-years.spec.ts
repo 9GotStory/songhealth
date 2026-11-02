@@ -6,8 +6,10 @@
 // many MOITs it has, or says that there is none yet. /ita/{fiscal-year} lists that year's
 // published MOITs by number, each with its "MOIT n" badge, its title, how much Evidence it holds
 // and "ปรับปรุงล่าสุด" when staff set it; a year without a published MOIT answers the site 404. A
-// MOIT page leads to the MOITs before and after it in its own year only, and the breadcrumb steps
-// down หน้าแรก › ITA › ปีงบประมาณ › MOIT. Quick Access may lead to /ita.
+// MOIT page leads to the MOITs before and after it in its own year only, a draft in preview to
+// those around its number, and the breadcrumb steps down หน้าแรก › ITA › ปีงบประมาณ › MOIT; a
+// draft previewed in a year without a published MOIT, whose year has no page, steps from ITA to
+// the MOIT. Quick Access may lead to /ita.
 //
 // The suite drives the single development runtime over public HTTP through the public-page harness
 // (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px widths).
@@ -253,7 +255,7 @@ test("a fiscal year without a published MOIT answers the site 404, and its draft
 	await expectBreadcrumb(page, [HOME_CRUMB, SECTION_CRUMBS.ita], "MOIT 1");
 });
 
-test("a MOIT page leads to the MOITs before and after it in its fiscal year's number order, past a draft, never into another year, and to none past the year's ends", async ({
+test("a MOIT page leads to the MOITs before and after it in its fiscal year's number order, past a draft, never into another year, and to none past the year's ends, and a draft in preview to those around its number", async ({
 	page,
 }) => {
 	await page.goto(`/ita/${third.slug}`);
@@ -264,6 +266,15 @@ test("a MOIT page leads to the MOITs before and after it in its fiscal year's nu
 	await expectNeighbours(page, third, undefined);
 	await page.goto(`/ita/${older.slug}`);
 	await expectNeighbours(page, undefined, undefined);
+
+	const preview = await page.goto((await mintPreviewLink(admin, "moit", draft.id)).toString());
+	expect(preview?.status(), "the draft's preview renders").toBe(200);
+	await expectNeighbours(page, first, third);
+	await expectBreadcrumb(
+		page,
+		[HOME_CRUMB, SECTION_CRUMBS.ita, [`ปีงบประมาณ ${NEWER}`, `/ita/${NEWER}`]],
+		"MOIT 2",
+	);
 });
 
 test("the main navigation ends with ITA and marks it on the landing, a year's page and a MOIT's, whose breadcrumb steps down หน้าแรก › ITA › ปีงบประมาณ › MOIT", async ({

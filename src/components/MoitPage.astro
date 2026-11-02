@@ -22,9 +22,10 @@
 //
 // The page belongs to the ITA section, and its breadcrumb steps through its fiscal year's page
 // while that page exists: an address can name the year (src/lib/ita.ts hasYearAddress) and the
-// year has a published MOIT, which a draft in preview may lack. Otherwise the crumb is left out,
-// not shown as text, because src/components/Breadcrumb.astro marks a crumb without an address as
-// the current page.
+// year has a published MOIT, which a draft in preview may lack. That is the rule by which
+// src/pages/ita/[slug].astro serves the year's page, so the two change together. Otherwise the
+// crumb is left out, not shown as text, because src/components/Breadcrumb.astro marks a crumb
+// without an address as the current page.
 // The entry is read by its slug, as EmDash resolves the collection's URL pattern, so the MOIT's
 // number and fiscal year come from its fields.
 import ChevronDown from "@lucide/astro/icons/chevron-down";
@@ -68,7 +69,7 @@ const counts = [
 	evidence.unavailable > 0 && `ไฟล์ที่ไม่พร้อมให้บริการ ${evidence.unavailable}`,
 ].filter(Boolean);
 const { previous, next } = moitNeighbours(yearMoits, entry);
-const yearPage = hasYearAddress(moit.fiscal_year) && yearMoits.length > 0;
+const hasYearPage = hasYearAddress(moit.fiscal_year) && yearMoits.length > 0;
 const linkClasses =
 	"flex items-center gap-3 rounded-24 bg-surface-base p-5 text-brand-dark shadow-card hover:text-brand-primary";
 ---
@@ -79,7 +80,7 @@ const linkClasses =
 	description={moit.summary ?? undefined}
 	canonical={moitPath(entry.id)}
 	crumbs={[
-		...(yearPage
+		...(hasYearPage
 			? [{ label: itaYearCrumb(moit.fiscal_year), href: itaYearPath(moit.fiscal_year) }]
 			: []),
 		{ label },
