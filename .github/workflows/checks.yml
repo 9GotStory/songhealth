@@ -1,16 +1,16 @@
 # Songhealth checks: the production build, typecheck, node tests, formatting, unused
 # files, dependencies and exports (Knip), duplicated code (jscpd, .jscpd.json) and
 # ShellCheck on the development-runtime scripts, on every pull request into and push
-# to main or the Feature 003 integration branch. The browser suites need the
+# to main or the Feature 004 integration branch. The browser suites need the
 # development runtime's database and credentials, so they run there instead
 # (README.md).
 name: checks
 
 on:
   pull_request:
-    branches: [main, 003-public-website]
+    branches: [main, 004-ita]
   push:
-    branches: [main, 003-public-website]
+    branches: [main, 004-ita]
 
 permissions:
   contents: read
