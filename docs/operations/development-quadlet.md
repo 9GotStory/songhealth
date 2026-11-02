@@ -132,9 +132,12 @@ the real state first and only adds what is missing:
   - **The 404 log.** EmDash logs every miss, including the tests' deliberate requests for
     missing pages. That log can be cleared only as a whole or pruned by age, not entry by entry,
     so its synthetic misses stay until one clear just before the Product Owner's review (Feature
-    003 handoff, #67). Residue reports them and does not fail on them.
+    003 handoff, #67). Residue reports them and does not fail on them, and it lists any miss
+    without the synthetic marks by its path and time, such as one a person met while browsing.
     `scripts/dev-runtime-residue.sh --clear-404-log` makes that clear through the native API and
-    then reports.
+    then reports, but only while every miss is synthetic: otherwise it lists the others, clears
+    nothing and exits 3. Once someone has looked at them, `--clear-404-log-including-others`
+    clears them too (#123 retro).
 - **Source edits.** Make them in the workspace and promote them. The runtime checkout is never
   edited in place: the app refuses to start when its HEAD is not the promoted commit, and
   verify fails on a dirty tree.
