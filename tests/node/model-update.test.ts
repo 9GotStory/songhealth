@@ -10,8 +10,8 @@
 // tests/canonical-url-patterns.ts), `03` §5 (no per-person route), spec #51 "Changes to the
 // Feature 002 model" (the Document Type reference terms, Personnel's `leadership_order` and the
 // Homepage menus) and spec #121 "Content model" (the MOIT collection and the three ITA block
-// types), never from the seed. The live models start from the seed's own fields and block types,
-// as setup or the step leaves them.
+// types), never from the seed. The live models start from the seed's own fields, title and date
+// fields and block types, as setup or the step leaves them.
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -431,6 +431,40 @@ describe("planModelUpdate", () => {
 			],
 		});
 	});
+
+	it("sets a collection's date field when the database has none, and keeps one it has", () => {
+		// A collection of its own: MOIT, the one collection the step creates, has no date field.
+		const events = {
+			collections: [
+				{
+					slug: "events",
+					label: "Events",
+					dateField: "held_at",
+					fields: [{ slug: "held_at", label: "Held at", type: "datetime" }],
+				},
+			],
+		};
+		const live = (dateField?: string): LiveModel => ({
+			blockTypes: [],
+			collections: [
+				{
+					slug: "events",
+					supports: [],
+					hasSeo: false,
+					routable: true,
+					...(dateField === undefined ? {} : { dateField }),
+					fields: [{ slug: "held_at", type: "datetime" }],
+				},
+			],
+			taxonomies: [],
+			menus: [],
+		});
+
+		assert.deepEqual(planModelUpdate(events, live()).collections, [
+			{ slug: "events", update: { dateField: "held_at" } },
+		]);
+		assert.deepEqual(planModelUpdate(events, live("published_on")).collections, []);
+	});
 });
 
 describe("planModelUpdate: the ITA model (spec #121)", () => {
@@ -487,17 +521,24 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 		]);
 	});
 
-	it("sets the title field of a collection the database has without one, as a run cut short leaves MOIT", () => {
+	it("finishes a collection that a run cut short left without fields or title, the title after the fields", () => {
 		const live = feature004Model();
-		delete collectionOf(live, MOIT.slug).titleField;
+		const moit = collectionOf(live, MOIT.slug);
+		delete moit.titleField;
+		moit.fields = [];
 
-		assert.deepEqual(planModelUpdate(seed, live), {
-			...NOTHING,
-			collections: [{ slug: MOIT.slug, update: { titleField: "title" } }],
-		});
+		const plan = planModelUpdate(seed, live);
+		const requests = planRequests(plan).map(({ method, path }) => `${method} ${path}`);
+
+		assert.deepEqual(plan.problems, []);
+		assert.deepEqual(plan.collections, [{ slug: MOIT.slug, update: { titleField: "title" } }]);
+		assert.deepEqual(requests, [
+			...MOIT_FIELDS.map(() => "POST /_emdash/api/schema/collections/moit/fields"),
+			"PUT /_emdash/api/schema/collections/moit",
+		]);
 	});
 
-	it("keeps a title field staff chose in the Admin", () => {
+	it("keeps the title field the database has", () => {
 		const live = feature004Model();
 		collectionOf(live, MOIT.slug).titleField = "summary";
 

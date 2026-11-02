@@ -190,10 +190,13 @@ cited file exists and that the name carries the pinned version.
   - The create body takes a slug, a label, a description, an icon, a category and the fields, and
     no source, so a type made through the API is a `user` type, where setup's seed makes `seed`
     ones (`src/api/schemas/schema.ts` `createBlockTypeBody`, `src/schema/block-type-registry.ts`
-    `createBlockType`, `applySeedBlockType`). The route parses the fields with
-    `blockFieldDefinitionSchema`, and a version stores them as parsed. EmDash's own zod (4.5.4)
-    gives an object's keys in the schema's order, so they come back in that order, not in the
-    order they were sent in (checked 2026-11-02).
+    `createBlockType`, `applySeedBlockType`). Both routes parse the fields with
+    `blockFieldDefinitionSchema` (`src/astro/routes/api/schema/block-types/index.ts` `parseBody`),
+    and a version stores them as parsed. EmDash's own zod 4.5.4 gives an object's keys in its
+    shape's order (`node_modules/zod/v4/core/schemas.js`, the `allKeys` of `$ZodObject`), so a
+    type made through the API returns its fields' keys in that order, not in the order they were
+    sent in; a type setup made keeps the seed's order (`validateBlockFields` returns each field
+    unchanged).
   - A version's fingerprint hashes each field's slug, type, required flag, default, validation
     and options, but no label (`src/schema/block-type-contract.ts` `fingerprintBlockFields`).
   - The update names the active version's fingerprint as `expectedFingerprint` and answers

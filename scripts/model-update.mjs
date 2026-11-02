@@ -8,11 +8,11 @@
 // `onConflict: "skip"`, so an existing collection or block type keeps its settings
 // (src/astro/routes/api/setup/index.ts, which refuses once setup is complete). `setup/dev-bypass`
 // applies it again the same way and adds what is missing, but it answers only in development and
-// empties the seed's menus (dev-bypass.ts, src/seed/apply.ts). `emdash seed` opens only a SQLite
-// file (src/cli/commands/seed.ts), and `emdash schema` cannot update a collection
-// (src/cli/commands/schema.ts). Setup also skips the seed's taxonomy terms unless it
-// installs sample content (src/seed/apply.ts `includeContent`). The step therefore uses the REST
-// APIs that the Admin uses: GET, POST and PUT /_emdash/api/schema/block-types and
+// empties the seed's menus (src/astro/routes/api/setup/dev-bypass.ts, src/seed/apply.ts).
+// `emdash seed` opens only a SQLite file (src/cli/commands/seed.ts), and `emdash schema` cannot
+// update a collection (src/cli/commands/schema.ts). Setup also skips the seed's taxonomy terms
+// unless it installs sample content (src/seed/apply.ts `includeContent`). The step therefore uses
+// the REST APIs that the Admin uses: GET, POST and PUT /_emdash/api/schema/block-types and
 // /_emdash/api/schema/block-types/{slug} (src/astro/routes/api/schema/block-types/), GET, POST and
 // PUT /_emdash/api/schema/collections, /_emdash/api/schema/collections/{slug}/fields and their
 // items (src/astro/routes/api/schema/collections/), GET /_emdash/api/taxonomies, GET and POST
@@ -182,9 +182,9 @@ import { parseArgs } from "node:util";
  */
 
 /**
- * A value's JSON with every object's keys in order, so two definitions compare by content: EmDash
- * stores a block type's fields as its route parsed them, with their keys in the order of
- * src/api/schemas/schema.ts blockFieldDefinitionSchema rather than the seed's.
+ * A value's JSON with every object's keys in order, so two definitions compare by content: a block
+ * type made through the API returns its fields' keys in the order of src/api/schemas/schema.ts
+ * blockFieldDefinitionSchema, which parsed them, rather than in the seed's.
  *
  * @param {unknown} value
  * @returns {string | undefined}
@@ -206,12 +206,12 @@ function canonical(value) {
  * changes a type, because that would change what the stored values mean.
  *
  * @param {string} owner the collection or the block type
- * @param {string} field
+ * @param {string} fieldSlug
  * @param {string | undefined} stored
  * @param {string} wanted
  */
-function retypedField(owner, field, stored, wanted) {
-	return `${owner}: the database has the field ${field} as ${stored}, the seed as ${wanted}`;
+function retypedFieldProblem(owner, fieldSlug, stored, wanted) {
+	return `${owner}: the database has the field ${fieldSlug} as ${stored}, the seed as ${wanted}`;
 }
 
 /**
@@ -254,7 +254,7 @@ function planBlockTypes(wanted, have, problems) {
 		);
 		for (const field of retyped) {
 			problems.push(
-				retypedField(`block type ${slug}`, field.slug, types.get(field.slug), field.type),
+				retypedFieldProblem(`block type ${slug}`, field.slug, types.get(field.slug), field.type),
 			);
 		}
 		const { label, description, icon, category } = existing;
@@ -409,7 +409,7 @@ export function planModelUpdate(seed, live) {
 			if (stored === undefined) {
 				fields.push({ collection: wanted.slug, field });
 			} else if (stored.type !== field.type) {
-				problems.push(retypedField(wanted.slug, field.slug, stored.type, field.type));
+				problems.push(retypedFieldProblem(wanted.slug, field.slug, stored.type, field.type));
 			} else if (
 				field.type === "blocks" &&
 				Object.entries(field.validation ?? {}).some(
