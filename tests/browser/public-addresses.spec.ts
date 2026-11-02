@@ -13,7 +13,7 @@
 // native API. They are removed afterwards, together with the redirects their slug changes
 // created, which deleting an entry leaves in place.
 
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import { CANONICAL_URL_PATTERNS } from "../canonical-url-patterns";
 import {
@@ -31,6 +31,7 @@ import {
 	uploadSyntheticMedia,
 	type CmsActor,
 } from "./cms.helpers";
+import { sitemapLocations } from "./public.helpers";
 
 let admin: CmsActor;
 let origin: string;
@@ -60,14 +61,6 @@ async function createEntry(
 async function publish(collection: string, id: string): Promise<void> {
 	const published = await publishEntry(admin, collection, id);
 	expect(published.ok, `${collection}: ${nativeRefusalOf(published)}`).toBe(true);
-}
-
-/** The `<loc>` values of a sitemap document, which must be served. */
-async function sitemapLocations(request: APIRequestContext, path: string): Promise<string[]> {
-	const response = await request.get(path);
-	expect(response.status(), `GET ${path}`).toBe(200);
-	const xml = await response.text();
-	return [...xml.matchAll(/<loc>([^<]*)<\/loc>/g)].map((match) => match[1]);
 }
 
 test.beforeAll(async () => {

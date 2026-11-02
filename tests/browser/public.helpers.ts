@@ -20,6 +20,7 @@
 //   page's details.
 // - `expectPreviewRenders`: a draft's signed preview link (cms.helpers.ts
 //   mintPreviewLink) at the draft's address, rendering it out of search engines.
+// - `sitemapLocations`: the addresses a sitemap document lists.
 // - `BorrowedEntries`: the runtime's own published entries a test returns to
 //   draft, published again afterwards at their own publication date.
 //
@@ -29,7 +30,13 @@
 // lists each failed rule with the nodes it failed on.
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test as base, type Locator, type Page } from "@playwright/test";
+import {
+	expect,
+	test as base,
+	type APIRequestContext,
+	type Locator,
+	type Page,
+} from "@playwright/test";
 
 import {
 	cmsRequest,
@@ -334,6 +341,17 @@ export async function expectPreviewRenders(
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText(draft.title);
 	await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
 	return link;
+}
+
+/** The `<loc>` values of a sitemap document, which must be served. */
+export async function sitemapLocations(
+	request: APIRequestContext,
+	path: string,
+): Promise<string[]> {
+	const response = await request.get(path);
+	expect(response.status(), `GET ${path}`).toBe(200);
+	const xml = await response.text();
+	return [...xml.matchAll(/<loc>([^<]*)<\/loc>/g)].map((match) => match[1]);
 }
 
 /** The titles of the cards or rows a list page shows, in order. */
