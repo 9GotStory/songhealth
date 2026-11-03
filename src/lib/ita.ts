@@ -1,17 +1,19 @@
-// ITA on the public site (Feature 004 #123, #124; spec #121 "Content model" (the grouping rule)
-// and "Public routes", ADR 0006).
+// ITA on the public site (Feature 004 #123, #124, #125; spec #121 "Content model" (the grouping
+// rule) and "Public routes", ADR 0006).
 //
 // The section's addresses: the landing /ita, a fiscal year's page /ita/{fiscal-year}, and a MOIT's
 // page /ita/{slug}. ADR 0006 keeps no year record, so the years and each year's MOITs come from
 // the published MOITs (src/lib/moits.ts reads them): itaYears lists the years, inMoitOrder orders
 // a year's MOITs, and moitNeighbours finds the ones a MOIT's page leads to, never in another year.
+// inItaOrder orders MOITs of several years, as the search keeps the MOITs that tie.
 //
 // A MOIT keeps its Evidence as one blocks field: Requirement blocks, each followed by the file and
 // link blocks of its Evidence (seed/seed.json `moit`, block types `ita_requirement`, `ita_file`,
 // `ita_link`). groupEvidence groups and counts them by the spec's rule and reads nothing;
 // moitEvidence turns each piece into what its pill shows, with the read that decides whether a
-// file can be served passed in by the page (src/lib/media.ts downloadableFile). The module imports
-// no runtime module, so node:test checks it directly (CODING_STANDARDS "Tests").
+// file can be served passed in by the page (src/lib/media.ts downloadableFile); evidenceLabels
+// gives the search (src/lib/search.ts) the labels of the same Evidence. The module imports no
+// runtime module, so node:test checks it directly (CODING_STANDARDS "Tests").
 //
 // It counts what the pages show: the Evidence, each card's, and the files that cannot be served.
 // Counts by kind and by Round, which spec #121's Seam B also names, belonged to the prototype's
@@ -35,8 +37,11 @@ export function itaYearPath(year: number): string {
 	return `${ITA_PATH}/${year}`;
 }
 
-/** A fiscal year's page as the breadcrumb names it, such as "ปีงบประมาณ 2570". */
-export function itaYearCrumb(year: number): string {
+/**
+ * A fiscal year's short name, such as "ปีงบประมาณ 2570": the breadcrumb names the year's page by
+ * it, and a MOIT's search result its year (spec #121 "Public routes").
+ */
+export function itaYearLabel(year: number): string {
 	return `ปีงบประมาณ ${year}`;
 }
 
@@ -118,6 +123,14 @@ function compareMoits(a: ListedMoit, b: ListedMoit): number {
  */
 export function inMoitOrder<M extends ListedMoit>(moits: readonly M[]): M[] {
 	return [...moits].sort(compareMoits);
+}
+
+/**
+ * MOITs of any fiscal years in the ITA pages' order: the newest year first, as the landing lists
+ * the years, and each year's MOITs as its page lists them.
+ */
+export function inItaOrder<M extends ListedMoit>(moits: readonly M[]): M[] {
+	return [...moits].sort((a, b) => b.data.fiscal_year - a.data.fiscal_year || compareMoits(a, b));
 }
 
 /**
@@ -246,6 +259,26 @@ export function groupEvidence(
 		);
 	}
 	return { lead, cards, total: cards.reduce((sum, card) => sum + card.count, lead.length) };
+}
+
+/** Every piece of Evidence in the order the page shows it: the lead, then each card's in turn. */
+function inPageOrder<E>({ lead, cards }: Pick<EvidenceGroups<E>, "lead" | "cards">): E[] {
+	return [
+		lead,
+		...cards.flatMap((card) => [card.evidence, ...card.subRequirements.map((sub) => sub.evidence)]),
+	].flat();
+}
+
+/**
+ * The labels of a MOIT's Evidence, in the order its page shows them, which the search reads with
+ * its title and summary (spec #121 "Public routes"). Like the page, it takes the Evidence from
+ * groupEvidence. It reads no file, so the label of a file that cannot be served still finds the
+ * MOIT whose page shows it. EmDash's extractPlainText, through which the search reads rich text,
+ * reads nothing of a blocks field's typed blocks (docs/agents/emdash-1.1.0.md "Search and
+ * seeding").
+ */
+export function evidenceLabels(blocks: readonly EvidenceBlock[] | null | undefined): string[] {
+	return inPageOrder(groupEvidence(blocks)).map((evidence) => evidence.label);
 }
 
 /** The Round a new Evidence block starts with, which names none (seed/seed.json). */
@@ -407,14 +440,10 @@ export async function moitEvidence(
 			})),
 		),
 	]);
-	const pills = [
-		lead,
-		...cards.flatMap((card) => [card.evidence, ...card.subRequirements.map((sub) => sub.evidence)]),
-	].flat();
 	return {
 		lead,
 		cards,
 		total: groups.total,
-		unavailable: pills.filter((pill) => pill.kind === "unavailable").length,
+		unavailable: inPageOrder({ lead, cards }).filter((pill) => pill.kind === "unavailable").length,
 	};
 }

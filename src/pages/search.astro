@@ -1,8 +1,9 @@
 ---
-// Search, /search (Feature 003 #63; spec #51 "Search", ADR 0002, `03` §13, `08`): every
-// published public entry that matches the query, grouped, a fixed number per page. `?q=` carries
-// the query, `?group=` the group and `?page=` the page, so reload, back, forward and a shared link
-// keep them. src/lib/search.ts reads and matches; this page only renders what it returns.
+// Search, /search (Feature 003 #63, Feature 004 #125; spec #51 "Search", spec #121 "Public
+// routes", ADR 0002, `03` §13, `08`): every published public entry that matches the query,
+// grouped, a fixed number per page. `?q=` carries the query, `?group=` the group and `?page=` the
+// page, so reload, back, forward and a shared link keep them. src/lib/search.ts reads and matches;
+// this page only renders what it returns.
 //
 // The page has four states besides its results, each in its own words: the start page with just
 // the form, a query too short to search (an empty one included), a query that finds nothing (with
@@ -33,7 +34,17 @@ const outcome = await search(Astro.url.searchParams, new Date());
 if (outcome.state === "failed") Astro.response.status = 500;
 const { query, group, page } = outcome;
 const queryText = query.kind === "none" ? "" : query.text;
-const groupSuffix = group.id === "all" ? "" : `ในกลุ่ม${group.label}`;
+
+/**
+ * "ในกลุ่ม" and a group's label, spaced from a label in Latin letters, as the site spaces ITA from
+ * Thai ("ยังไม่มีข้อมูล ITA", src/pages/ita/index.astro; Product Owner, 2026-11-03: #125 comment
+ * 6591248342).
+ */
+function inGroup({ label }: SearchGroup): string {
+	return /^[A-Za-z]/.test(label) ? `ในกลุ่ม ${label}` : `ในกลุ่ม${label}`;
+}
+
+const groupSuffix = group.id === "all" ? "" : inGroup(group);
 
 /** This search's address in another group, from its first page. */
 function groupHref(other: SearchGroup): string {
@@ -134,7 +145,7 @@ const pill = "inline-flex min-h-11 items-center gap-2 rounded-pill px-4 text-lab
 						/>
 					) : (
 						<EmptyState
-							message={`ไม่พบผลการค้นหาในกลุ่ม${group.label}`}
+							message={`ไม่พบผลการค้นหา${inGroup(group)}`}
 							action={{ href: groupHref(SEARCH_GROUPS[0]), label: "ดูผลการค้นหาทุกประเภท" }}
 						/>
 					)}
