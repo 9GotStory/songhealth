@@ -127,4 +127,6 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
 - **History.** The body states the current answer; history lives in the decision banners.
 - **Amendments.** A feature that amends a current document bumps its Version, names the feature
   and the date in Last Updated, and adds a "Feature N decision (Product Owner, date)" banner after
-  the earlier ones, as Feature 003 (`c2ac189`) and Feature 004 (#127) did.
+  the earlier ones, as Feature 003 (`c2ac189`) and Feature 004 (#127) did. It bumps the version
+  once: a later change in the same feature, before the feature reaches `main`, keeps that version
+  and adds its decision to the feature's banner (#128).
