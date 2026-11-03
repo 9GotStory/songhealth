@@ -1,8 +1,9 @@
 ---
-// A search result (Feature 003 #63; spec #51 "Search", `08` §8), shaped like a Document row
-// (DocumentRow.astro): its kind in Thai and the date its kind is listed by, its title linking to
-// its canonical address, the snippet, and the status the list of its kind states, with that list's
-// status label. No internal field shows.
+// A search result (Feature 003 #63, Feature 004 #125; spec #51 "Search", spec #121 "Public
+// routes", `08` §8), shaped like a Document row (DocumentRow.astro): its kind in Thai, or a MOIT's
+// number and fiscal year, and the date its kind is listed by, its title linking to its canonical
+// address, the snippet, and the status the list of its kind states, with that list's status
+// label. No internal field shows.
 //
 // The snippet is HTML that src/lib/search-matcher.ts builds: the entry's plain text, escaped, with
 // the matched terms in <mark>. Nothing else is set as HTML. A mark is semibold text-primary without
@@ -26,7 +27,10 @@ const { status } = entry;
 
 <article class="flex flex-col gap-2 rounded-24 bg-surface-base p-5 shadow-card">
 	<MetaLine
-		facts={[{ text: KIND_LABELS[entry.kind] }, entry.shownDate && { date: entry.shownDate }]}
+		facts={[
+			...(entry.facts ?? [KIND_LABELS[entry.kind]]).map((text) => ({ text })),
+			entry.shownDate && { date: entry.shownDate },
+		]}
 	/>
 	<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
 		<a class="underline-offset-4 hover:text-brand-primary hover:underline" href={entry.href}>

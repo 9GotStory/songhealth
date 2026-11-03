@@ -1655,6 +1655,71 @@ export async function createSyntheticHealthService(
 	return { ...fixture, officialName };
 }
 
+/** The Round a new Evidence block starts with (seed/seed.json). */
+const NO_ROUND = "ไม่ระบุรอบ";
+
+/** A MOIT's Requirement block, as the Admin's block picker adds one. */
+export const requirementBlock = (number: string, title: string) => ({
+	_type: "ita_requirement",
+	number,
+	title,
+});
+
+/** A MOIT's file block holding `pdf`, with no Round unless `fields` sets one. */
+export const fileBlock = (
+	label: string,
+	pdf: SyntheticPdf,
+	fields: Record<string, unknown> = {},
+) => ({
+	_type: "ita_file",
+	label,
+	file: pdf.value,
+	round: NO_ROUND,
+	...fields,
+});
+
+/** A MOIT's link block to `url`, with no Round and not current unless `fields` says so. */
+export const linkBlock = (label: string, url: string, fields: Record<string, unknown> = {}) => ({
+	_type: "ita_link",
+	label,
+	url,
+	round: NO_ROUND,
+	current: false,
+	...fields,
+});
+
+/** A synthetic MOIT draft, and the heading its page shows: its number and its title. */
+export interface MoitFixture extends DraftFixture {
+	heading: string;
+}
+
+/**
+ * A synthetic MOIT draft of fiscal year `year`, numbered `number`, with `evidence` as its blocks,
+ * titled `${mark} ${name} ${label} ${ending}`. The block types are the runtime's own model
+ * (seed/seed.json). A refusal throws.
+ *
+ * Each suite takes its own fiscal years, which no real MOIT has, so its ITA pages and lists hold
+ * only its own MOITs: 2401 is public-ita.spec.ts's, 2402–2405 are public-ita-years.spec.ts's, and
+ * 2406–2407 are public-search.spec.ts's. A new suite takes the next free year.
+ */
+export async function createSyntheticMoit(
+	actor: CmsActor,
+	label: string,
+	{
+		year,
+		number,
+		evidence,
+		name = "ตัวชี้วัด",
+	}: { year: number; number: number; evidence: Record<string, unknown>[]; name?: string },
+	{ data, ...fields }: DraftFields = {},
+): Promise<MoitFixture> {
+	const moit = await createSyntheticDraft(actor, "moit", name, label, {
+		data: { fiscal_year: year, number, evidence, ...data },
+		...fields,
+	});
+	return { ...moit, heading: `MOIT ${number} ${moit.title}` };
+}
+
 // ---------------------------------------------------------------------------
 // Synthetic taxonomy terms (native request shapes)
 // ---------------------------------------------------------------------------

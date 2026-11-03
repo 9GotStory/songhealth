@@ -47,9 +47,11 @@ cited file exists and that the name carries the pinned version.
     Directory's name filter reads every published Health Service and matches in code;
   - a reference field bound to a relation can be neither filtered nor sorted (`buildFieldConditions`,
     `findStoragelessQueryKey`).
-- `orderBy` is a plain `field DESC|ASC`, with `id` as the tiebreaker. On PostgreSQL, DESC puts
-  NULLs first (`buildOrderByClause`). An optional date therefore cannot sort with a publish-date
-  fallback inside the query; `./src/lib/dated-lists.ts` sorts in code instead (ADR 0004).
+- `orderBy` sorts by each field it names, in the order given, each a plain `field DESC|ASC`, and
+  then by `id` in the first field's direction (`src/loader.ts` `buildOrderByClause`,
+  `getPrimarySort`). On PostgreSQL, DESC puts NULLs first. An optional date therefore cannot sort
+  with a publish-date fallback inside the query; `./src/lib/dated-lists.ts` sorts in code instead
+  (ADR 0004).
 - `orderBy` on a text field sorts in SQL (`buildOrderByClause`), so by the database collation.
   The postgres 18.6 image that `./deploy/quadlet/songhealth-db.container` pins initialises it from
   the image's `LANG`, en_US.utf8 (glibc). On the development database (2026-10-30) it ordered
@@ -70,7 +72,10 @@ cited file exists and that the name carries the pinned version.
 - A `number` field is a `REAL` column (`src/schema/types.ts` `FIELD_TYPE_TO_COLUMN`), which is
   `float4` on PostgreSQL: about 7 significant digits. A Thai longitude keeps 5 decimal places
   (`100.1234567` reads back as `100.12346`, about 1 m), enough for a map link.
-- No query returns distinct values. `./src/lib/documents.ts` `fiscalYears` walks down instead.
+- No query returns distinct values or a count: a collection read answers its entries and, with a
+  `limit`, whether more remain (`src/query.ts` `CollectionResult`). `./src/lib/documents.ts`
+  `fiscalYears` walks down instead, and `./src/lib/moits.ts` reads every published MOIT for the ITA
+  landing's years and counts.
 - `getEmDashEntry(type, slug, { references: { field: true } })` adds
   `entry.references.field.entries`. A target resolves only while it is published, or is a draft in
   preview (`src/query.ts` `attachReferences`). If you pass explicit type arguments, pass the
@@ -129,6 +134,30 @@ cited file exists and that the name carries the pinned version.
   dialog shows it as a "Used in" tab, after a setup that indexes existing content, and the
   delete button sits beside it: the usage informs, it does not block (observed on the development
   runtime, 2026-11-02).
+  - Until the list is complete, the tab's heading carries a warning icon whose tooltip says so,
+    such as "Usage indexing hasn’t started.", "Usage is updating. Some content may not appear
+    here yet." or "Usage may be out of date.". While the setup is incomplete, the Media Library
+    shows a banner, "Set up media usage tracking" and later "Media usage tracking is indexing
+    existing content", whose button opens `/settings/media-usage`
+    (`@emdash-cms/admin/dist/index.js`). Advancing the setup needs `schema:manage`, which only the
+    Administrator role holds (`src/astro/routes/api/admin/media-usage/activation.ts`,
+    `@emdash-cms/auth/src/rbac.ts`).
+  - In the Admin, indexing advances only through `POST /_emdash/api/admin/media-usage/progress`,
+    which the `/settings/media-usage` page sends in a loop while it is open and visible, until it
+    reads "Media usage tracking is ready" (`src/astro/routes/api/admin/media-usage/progress.ts`,
+    `@emdash-cms/admin/dist/index.js` `requestProgress`). The route
+    `POST /_emdash/api/admin/media-usage/repair` also indexes every collection or one, with
+    `schema:manage`, but the Admin never calls it
+    (`src/astro/routes/api/admin/media-usage/repair.ts`, `src/media/usage/content-repair.ts`).
+  - While tracking is active, a schema change marks a collection's coverage stale, and the warning
+    and the banner return until indexing runs again, each through
+    `src/media/usage/schema-invalidation.ts` `invalidateContentMediaUsageSchemaChange`:
+    - creating, changing or deleting one of its fields (`src/schema/registry.ts` `createField`,
+      `updateField`, `deleteField`);
+    - a change to the fields of a block type that one of its blocks fields allows or retires: an
+      update of the fields (a label alone does not count), a seed's version applied, or another
+      version activated (`src/schema/block-type-registry.ts` `updateBlockType`,
+      `applySeedBlockType`, `activateVersion`, `listAffectedCollections`).
 - The storage adapter offers `exists(key)` and `download(key)`, which returns
   `{ body, contentType, size }` (`src/storage/local.ts`, `src/storage/s3.ts`).
   - A missing key throws code `NOT_FOUND`.
@@ -186,14 +215,56 @@ cited file exists and that the name carries the pinned version.
 - `POST /_emdash/api/schema/block-types` creates a block type and `PUT …/block-types/{slug}`
   updates one (`src/astro/routes/api/schema/block-types/index.ts`,
   `src/astro/routes/api/schema/block-types/[slug]/index.ts`). `./scripts/model-update.mjs` calls
-  neither yet.
+  both.
+  - The create body takes a slug, a label, a description, an icon, a category and the fields, and
+    no source, so a type made through the API is a `user` type, where setup's seed makes `seed`
+    ones (`src/api/schemas/schema.ts` `createBlockTypeBody`, `src/schema/block-type-registry.ts`
+    `createBlockType`, `applySeedBlockType`). Both routes parse the fields with
+    `blockFieldDefinitionSchema` (`src/astro/routes/api/schema/block-types/index.ts` `parseBody`),
+    and a version stores them as parsed. EmDash's own zod 4.5.4 gives an object's keys in its
+    shape's order (`node_modules/zod/v4/core/schemas.js`, the `allKeys` of `$ZodObject`), so a
+    type made through the API returns its fields' keys in that order, not in the order they were
+    sent in; a type setup made keeps the seed's order (`validateBlockFields` returns each field
+    unchanged).
+  - A version's fingerprint hashes each field's slug, type, required flag, default, validation
+    and options, but no label (`src/schema/block-type-contract.ts` `fingerprintBlockFields`).
+  - The update names the active version's fingerprint as `expectedFingerprint` and answers
+    `CONFLICT` once that version has changed. A compatible change rewrites the active version in
+    place. A breaking one answers `BLOCK_TYPE_BREAKING_CHANGE` unless the body sets `breaking`:
+    a field removed or retyped, a required field added, a field made required, or a constraint
+    narrowed, such as a select option removed (`src/schema/block-type-registry.ts`
+    `updateBlockType`, `src/schema/block-type-contract.ts` `compareBlockFields`). With
+    `breaking`, it adds a version and leaves the current one active. A version becomes current
+    through `POST …/block-types/{slug}/versions/{version}/activate`
+    (`src/astro/routes/api/schema/block-types/[slug]/versions/[version]/activate.ts`,
+    `activateVersion` in the registry).
+- A blocks field cannot be required, unique, indexed or searchable, and every type it allows must
+  exist when it is created or changed. EmDash stores its validation completed as `allowedTypes`,
+  `retiredTypes`, `minItems` and `maxItems`, and a type taken out of `allowedTypes` moves to
+  `retiredTypes` (`src/schema/registry.ts` `normalizeBlocksFieldValidation`).
+- The Admin's block picker lists a field's allowed types in their `allowedTypes` order, grouped by
+  category, each with its label and description; it shows no icon. A new block starts with each
+  field's `defaultValue` (`@emdash-cms/admin/dist/index.js` `BlocksField`, `createBlockValue`).
 - A file value inside a block is normalised on save like a file field, and an image like an image
   field (`src/emdash-runtime.ts`, the block-field loop beside the repeater one,
   `normalizeMediaValue` and `normalizeImageValue`).
+- A block's fields are validated when an entry is created or updated, and when the seed is
+  applied, with the same schema as a collection's fields, against the version the block names; a
+  field the version does not declare is refused (`src/emdash-runtime.ts` and `src/seed/apply.ts`
+  call `normalizeBlocksData`; `src/schema/block-values.ts` `blockSchema`,
+  `src/schema/zod-generator.ts` `generateBlockFieldSchema`). So a `url` saved there takes only an
+  address that `isSafeHref` passes, and a `select` only one of its version's options. A transfer
+  import checks a url inside a block with the looser `isSafeUrlFieldWriteValue` instead, which
+  takes `example.com` or `?q=1` (`src/transfer/analyze/values.ts` `checkContentUrlFields`).
+  `./src/lib/ita.ts` checks a link's address itself for that reason.
 - `POST /_emdash/api/content/{collection}/{id}/duplicate` copies an entry as a draft with " (Copy)"
   after its title and a fresh unique slug. It needs `content:create` and the edit permission on the
   source (`src/astro/routes/api/content/[collection]/[id]/duplicate.ts`,
   `src/database/repositories/content.ts` `duplicate`).
+  - It copies every field, a staff-set date such as MOIT's `updated_on` included. It makes the
+    slug from the new title with `slugify`, which NFKC-normalizes the text, so "ำ" becomes "ํา",
+    and keeps at most 80 grapheme clusters (`src/database/repositories/content.ts`
+    `generateUniqueSlug`, `@emdash-cms/admin/dist/slugify.js`).
 - The Admin's Portable Text editor saves paragraphs, headings, bullet and numbered lists, quotes,
   code, HTML and iframe blocks, images, galleries, tables and rules. A link is a mark with an
   `href`, and there is no file block (`src/content/converters/prosemirror-to-portable-text.ts`).
@@ -213,6 +284,11 @@ cited file exists and that the name carries the pinned version.
 - The content list's row actions include Duplicate, which makes the draft copy that the duplicate
   endpoint makes: a blocks field is copied with its file values
   (`@emdash-cms/admin/dist/index.js`; observed 2026-11-02).
+- In the content editor, an entry's slug is the "Slug" input of the sidebar's "URL & language"
+  section (`@emdash-cms/admin/dist/index.js`).
+- The editor's Preview opens the signed preview URL, built from the collection's URL pattern, in a
+  new tab (`@emdash-cms/admin/dist/index.js` `handlePreview`,
+  `src/astro/routes/api/content/[collection]/[id]/preview-url.ts`).
 
 ## Head, settings, sitemap
 
@@ -373,6 +449,13 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
 
 - Full-text search is SQLite-only: `enableSearch` throws on PostgreSQL (`src/search/fts-manager.ts`;
   ADR 0002).
+- `extractPlainText` reads Portable Text: the span text of each block that has `children`, through
+  `@portabletext/toolkit`'s `toPlainText`, which skips any other
+  (`@portabletext/toolkit/dist/index.js` `isPortableTextBlock`; EmDash asks for `^5.0.1`, and
+  `./package-lock.json` holds 5.0.2), and of the custom blocks a `code` block's code and an `image`
+  block's alt and caption (`src/search/text-extraction.ts` `extractCustomBlockText`). It reads
+  nothing of a `blocks` field's typed blocks, such as an Evidence block's label, so
+  `./src/lib/ita.ts` `evidenceLabels` gives the search those labels.
 - Seed taxonomy terms are applied only with content (`src/seed/apply.ts`), and `emdash seed` opens
   SQLite only (`src/cli/commands/seed.ts`). The model-update step uses the schema and taxonomy APIs
   instead (`./scripts/model-update.mjs`).
@@ -385,9 +468,20 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
   seed field's own keys (`src/seed/types.ts` `SeedField`, beside `SeedCollection` with its
   `urlPattern` and `SeedTaxonomyTerm`), and the collection list carries no fields (`src/api/schemas/schema.ts`
   `createFieldBody`, `src/api/handlers/schema.ts` `handleSchemaCollectionList`). A created field
-  goes after the existing ones (`src/schema/registry.ts` `createField`).
+  goes after the existing ones (`src/schema/registry.ts` `createField`). `PUT` on
+  `…/fields/{field}` updates one
+  (`src/astro/routes/api/schema/collections/[slug]/fields/[fieldSlug].ts`).
+- `POST /_emdash/api/schema/collections` creates a collection without fields and takes no title or
+  date field, which only the update sets (`src/api/schemas/schema.ts` `createCollectionBody`,
+  `updateCollectionBody`). Setup creates a seed collection with the source `seed` and sets those
+  two in a second write, once the fields exist (`src/seed/apply.ts` `applyDisplayDateFields`).
+  They are the only fields of its own a collection's Admin list can sort by
+  (`src/api/handlers/content.ts`, the `sortableExtras` of the list handler).
 - An `integer` field is an `INTEGER` column that takes whole numbers only (`src/schema/types.ts`
-  `FIELD_TYPE_TO_COLUMN`, `src/schema/zod-generator.ts`).
+  `FIELD_TYPE_TO_COLUMN`, `src/schema/zod-generator.ts`). On PostgreSQL that is the 32-bit
+  `integer` type (`src/schema/registry.ts` `COLUMN_TYPE_TO_DATA_TYPE`; `src/transfer/analyze/values.ts`
+  `INT4_MAX`), which holds any whole number of up to nine digits; `./src/lib/ita.ts`
+  `fiscalYearOf` reads a fiscal year of that length from an address.
 - An API token reads `/_emdash/api/taxonomies` with the `content:read` scope and creates terms with
   `taxonomies:manage` (`src/astro/middleware/auth.ts`). A term list is a tree for a hierarchical
   taxonomy, and `?includeCounts=false` skips the per-term counts (`src/api/handlers/taxonomies.ts`
@@ -413,6 +507,15 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
   entry can be removed alone (`src/astro/routes/api/redirects/404s/index.ts`,
   `src/api/handlers/redirects.ts` `handleNotFoundClear`).
   `./scripts/dev-runtime-residue.sh --clear-404-log` calls the `DELETE`.
+- A 404 log entry keeps the missed path without its query string, with the request's `Referer` and
+  `User-Agent`, and the list answers them as `referrer` and `userAgent`. A repeated miss of one path
+  adds a hit and keeps the latest referrer (`src/astro/middleware/redirect.ts`,
+  `src/database/repositories/redirect.ts` `log404`). EmDash reads `Referer` nowhere else but an
+  OAuth error redirect and the request metadata it hands plugins, never for an access decision
+  (`src/astro/routes/api/auth/oauth/[provider].ts`, `src/plugins/request-meta.ts`).
+  `./playwright.config.ts` sends a `songhealth-unknown-` referrer with every test request, so
+  `./scripts/dev-runtime-residue.sh` counts a test's miss as the tests' even where its path cannot
+  carry the mark, such as a fiscal year's `/ita/2404`.
 - A content API request with no token and no session is refused before its route runs. A
   state-changing one without `X-EmDash-Request: 1` answers `403 CSRF_REJECTED`; any other answers
   `401 NOT_AUTHENTICATED` (`src/astro/middleware/auth.ts`). The development runtime answered both

@@ -1,4 +1,4 @@
-// Search (#63; spec #51 "Search", ADR 0002).
+// Search (#63, #125; spec #51 "Search", spec #121 "Public routes", ADR 0002).
 //
 // - A query is normalised: Unicode NFC, Latin letters lower-cased, zero-width characters
 //   (U+200B–U+200D, U+FEFF) removed, whitespace collapsed and trimmed. It needs at least 2
@@ -8,6 +8,10 @@
 //   substring of at least one of its fields, so Thai matches without word spaces.
 // - Results rank by the best tier each term hits (title, then summary, then body), and a tie goes
 //   to the newer entry. Each group counts its results, and a page shows a fixed number of them.
+//   The MOITs form the group ITA, the last of `08` §7.
+// - A MOIT is searched by its title, its summary and the labels of its Evidence: every file and
+//   link block's label, in the order its page shows them (src/lib/ita.ts groupEvidence), and
+//   nothing else of its blocks.
 // - A result's snippet is HTML-escaped plain text: the summary, or the text around the match, cut
 //   between words, with the terms marked.
 // - A search answers the start page, too short, nothing found or results. Any failure becomes the
@@ -20,6 +24,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { format } from "node:util";
 
+import { evidenceLabels, type EvidenceBlock } from "../../src/lib/ita.ts";
 import {
 	KIND_LABELS,
 	SEARCH_GROUPS,
@@ -33,6 +38,7 @@ import {
 	type Searchable,
 	type SearchKind,
 } from "../../src/lib/search-matcher.ts";
+import { fileBlock, linkBlock, requirementBlock } from "./ita.helpers.ts";
 
 /** A published entry as the search reads it: its kind, its text by tier, and its list date. */
 function entry(
@@ -232,7 +238,7 @@ describe("searchPage ranking", () => {
 });
 
 describe("search groups", () => {
-	it("offers ทุกประเภท and the six groups of `08` §7, in order", () => {
+	it("offers ทุกประเภท and the groups of `08` §7, ITA last, in order", () => {
 		assert.deepEqual(
 			SEARCH_GROUPS.map(({ label }) => label),
 			[
@@ -243,6 +249,7 @@ describe("search groups", () => {
 				"หน่วยบริการ",
 				"เอกสาร",
 				"เกี่ยวกับเรา",
+				"ITA",
 			],
 		);
 	});
@@ -250,6 +257,7 @@ describe("search groups", () => {
 	it("reads a known group from the address, and any other value as ทุกประเภท", () => {
 		assert.equal(parseGroup("news").id, "news");
 		assert.equal(parseGroup("health-services").id, "health-services");
+		assert.equal(parseGroup("ita").id, "ita");
 		for (const other of [null, "", "NEWS", "toString"]) {
 			assert.equal(parseGroup(other).id, "all", `${other}`);
 		}
@@ -265,6 +273,7 @@ describe("search groups", () => {
 		"health_report",
 		"document",
 		"page",
+		"moit",
 	];
 	const everyKind = kinds.map((kind) => entry(kind, { title: `สอง ${kind}` }, { kind }));
 	const groupOf = (group: string) => found(everyKind, "สอง", group);
@@ -282,6 +291,7 @@ describe("search groups", () => {
 				"รายงานสุขภาพ",
 				"เอกสารเผยแพร่",
 				"หน้าข้อมูล",
+				"ตัวชี้วัด MOIT",
 			],
 		);
 	});
@@ -294,6 +304,7 @@ describe("search groups", () => {
 		assert.deepEqual(groupOf("health-services"), ["health_service"]);
 		assert.deepEqual(groupOf("documents"), ["document"]);
 		assert.deepEqual(groupOf("about"), ["page"]);
+		assert.deepEqual(groupOf("ita"), ["moit"]);
 	});
 
 	it("counts the results of every group, whichever group is chosen", () => {
@@ -303,16 +314,65 @@ describe("search groups", () => {
 			entry("other", { title: "หนึ่ง" }),
 		];
 		const expected = {
-			all: 10,
+			all: 11,
 			news: 4,
 			services: 1,
 			health: 2,
 			"health-services": 1,
 			documents: 1,
 			about: 1,
+			ita: 1,
 		};
 		assert.deepEqual(searchPage(entries, ["สอง"], parseGroup("all"), 1).counts, expected);
 		assert.deepEqual(searchPage(entries, ["สอง"], parseGroup("documents"), 1).counts, expected);
+	});
+});
+
+describe("evidenceLabels", () => {
+	it("are the labels of a MOIT's file and link blocks, in the order its page shows them: before any Requirement, then each card's own and its sub-Requirements'", () => {
+		assert.deepEqual(
+			evidenceLabels([
+				fileBlock("คู่มือการประเมิน", "manual.pdf"),
+				requirementBlock("0.1", "ข้อย่อยที่มาก่อนข้อหลัก"),
+				linkBlock("ประกาศของกระทรวง", "https://www.moph.go.th/"),
+				requirementBlock("1", "ข้อมูลพื้นฐาน"),
+				linkBlock("1.1 ข้อมูลผู้บริหาร", "/about/leadership", { current: true }),
+				requirementBlock("1.2", "นโยบายของผู้บริหาร"),
+				fileBlock("1.2 ฟอร์มเผยแพร่", "form.pdf", { round: "รอบ 6 เดือน" }),
+				requirementBlock("1.2.1", "นโยบายรอบ 12 เดือน"),
+				fileBlock("1.2.1 ฟอร์มเผยแพร่", "form.pdf", { round: "รอบ 12 เดือน" }),
+				requirementBlock("2", "ข้อที่ยังไม่มีหลักฐาน"),
+			]),
+			[
+				"คู่มือการประเมิน",
+				"ประกาศของกระทรวง",
+				"1.1 ข้อมูลผู้บริหาร",
+				"1.2 ฟอร์มเผยแพร่",
+				"1.2.1 ฟอร์มเผยแพร่",
+			],
+		);
+	});
+
+	it("leave out the Requirements, a file's name and note, a link's address, the Round and a block of another type", () => {
+		const retired = { _type: "ita_retired_note", label: "บันทึกชนิดที่เลิกใช้" } as unknown;
+		assert.deepEqual(
+			evidenceLabels([
+				requirementBlock("1", "คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง"),
+				retired as EvidenceBlock,
+				fileBlock("1.1 คำสั่ง", "คำสั่งแต่งตั้ง-2570.pdf", {
+					round: "รอบ 6 เดือน",
+					note: "ต.ค. 2569",
+				}),
+				linkBlock("1.2 ข้อมูลการติดต่อ", "/contact"),
+			]),
+			["1.1 คำสั่ง", "1.2 ข้อมูลการติดต่อ"],
+		);
+	});
+
+	it("are none for a MOIT without Evidence blocks", () => {
+		for (const blocks of [[], null, undefined, [requirementBlock("1", "ข้อที่ยังไม่มีหลักฐาน")]]) {
+			assert.deepEqual(evidenceLabels(blocks), []);
+		}
 	});
 });
 

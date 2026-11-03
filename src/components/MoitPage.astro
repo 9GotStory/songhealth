@@ -1,0 +1,217 @@
+---
+// A MOIT's page, /ita/{slug} (Feature 004 #123, #124; spec #121 "Public routes", ADR 0006): the
+// prototype's variant C, "สารบัญและการ์ด" (docs/prototypes/ita-moit-page.md on the branch
+// prototype/ita). src/pages/ita/[slug].astro reads the entry and renders this for it.
+//
+// - A brand-dark header band names the fiscal year, the MOIT and its title, its summary, how much
+//   Evidence it holds and how many of its files cannot be served, and "ปรับปรุงล่าสุด" when staff
+//   set it: EmDash's own timestamps do not say when the live version changed
+//   (docs/agents/emdash-1.1.0.md "Public reads").
+// - A table of contents of the top-level Requirements, with their counts, sits beside the cards on
+//   desktop, sticky and scrolling on its own when it is taller than the window, and above them as
+//   a row on phones.
+// - Each top-level Requirement is a card, a native <details> that is open at first and closes
+//   without JavaScript, holding its own Evidence and a section per sub-Requirement. Its title is
+//   the heading inside the toggle, as in variant C, and a 16 px chevron shows that it closes
+//   (Product Owner, 2026-11-02: #123 comment 6575260213).
+//   src/lib/ita.ts groups the blocks and src/components/EvidencePills.astro shows the Evidence; a
+//   file is offered only while src/lib/media.ts downloadableFile can serve it.
+// - Below the cards, links lead to the MOITs before and after it in its own fiscal year
+//   (src/lib/ita.ts moitNeighbours), so an assessor never lands in another year by accident. Each
+//   names the MOIT it leads to (Product Owner, 2026-11-02: #124 comment 6577248920).
+//
+// The page belongs to the ITA section, and its breadcrumb steps through its fiscal year's page
+// while that page exists: an address can name the year (src/lib/ita.ts hasYearAddress) and the
+// year has a published MOIT, which a draft in preview may lack. That is the rule by which
+// src/pages/ita/[slug].astro serves the year's page, so the two change together. Otherwise the
+// crumb is left out, not shown as text, because src/components/Breadcrumb.astro marks a crumb
+// without an address as the current page.
+// The entry is read by its slug, as EmDash resolves the collection's URL pattern, so the MOIT's
+// number and fiscal year come from its fields.
+import ChevronDown from "@lucide/astro/icons/chevron-down";
+import ChevronLeft from "@lucide/astro/icons/chevron-left";
+import ChevronRight from "@lucide/astro/icons/chevron-right";
+import SiteLayout from "../layouts/SiteLayout.astro";
+import {
+	hasYearAddress,
+	itaYearLabel,
+	itaYearPath,
+	itaYearTitle,
+	moitEvidence,
+	moitLabel,
+	moitNeighbours,
+	moitPath,
+} from "../lib/ita";
+import { downloadableFile } from "../lib/media";
+import { publishedMoits, type MoitEntry } from "../lib/moits";
+import DateText from "./DateText.astro";
+import EvidencePills from "./EvidencePills.astro";
+
+interface Props {
+	entry: MoitEntry;
+	/** The request carries a signed preview of the entry's draft. */
+	isPreview: boolean;
+}
+
+const { entry, isPreview } = Astro.props;
+const moit = entry.data;
+const label = moitLabel(moit.number);
+const [evidence, yearMoits] = await Promise.all([
+	moitEvidence(moit.evidence, {
+		siteOrigin: Astro.url.origin,
+		readFile: (file) => downloadableFile(file, Astro.locals.emdash),
+	}),
+	publishedMoits(moit.fiscal_year),
+]);
+const { cards } = evidence;
+const counts = [
+	`หลักฐาน ${evidence.total} รายการ${cards.length > 0 ? ` ใน ${cards.length} ข้อ` : ""}`,
+	evidence.unavailable > 0 && `ไฟล์ที่ไม่พร้อมให้บริการ ${evidence.unavailable}`,
+].filter(Boolean);
+const { previous, next } = moitNeighbours(yearMoits, entry);
+const hasYearPage = hasYearAddress(moit.fiscal_year) && yearMoits.length > 0;
+const linkClasses =
+	"flex items-center gap-3 rounded-24 bg-surface-base p-5 text-brand-dark shadow-card hover:text-brand-primary";
+---
+
+<SiteLayout
+	title={moit.seo?.title || `${label} ${moit.title} · ITA ปีงบประมาณ ${moit.fiscal_year}`}
+	section="ita"
+	description={moit.summary ?? undefined}
+	canonical={moitPath(entry.id)}
+	crumbs={[
+		...(hasYearPage
+			? [{ label: itaYearLabel(moit.fiscal_year), href: itaYearPath(moit.fiscal_year) }]
+			: []),
+		{ label },
+	]}
+	entry={{ collection: "moit", id: moit.id, slug: entry.id, publishedAt: moit.publishedAt }}
+	noindex={isPreview}
+>
+	<article class="page-container flex flex-col gap-6 pt-6 pb-16 lg:pb-20">
+		<header class="flex flex-col gap-3 rounded-32 bg-brand-dark p-6 text-surface-base lg:p-8">
+			<p class="text-label text-accent-warm">{itaYearTitle(moit.fiscal_year)}</p>
+			<h1 class="text-h3 wrap-anywhere sm:text-h2">
+				<span class="text-accent-warm">{label}</span> {moit.title}
+			</h1>
+			{moit.summary && <p class="max-w-3xl text-body-large">{moit.summary}</p>}
+			<p>
+				{counts.join(" · ")}
+				{moit.updated_on && (
+					<>
+						{" · ปรับปรุงล่าสุด "}
+						<DateText value={moit.updated_on} />
+					</>
+				)}
+			</p>
+		</header>
+		{cards.length === 0 ? (
+			<EvidencePills pills={evidence.lead} />
+		) : (
+			<div class="flex flex-col gap-6 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start lg:gap-10">
+				<nav
+					aria-label="สารบัญข้อกำหนด"
+					class="lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto"
+				>
+					<p class="mb-1 text-label text-brand-primary">สารบัญ</p>
+					{/* On phones the row scrolls. Chromium leaves a focused link where it is while about
+						32 px of it shows, cut through its middle (observed with Playwright 1.63.0's
+						Chromium); keeping 5rem clear at each end (scroll-padding) makes focus scroll the
+						link into full view. */}
+					<ol class="flex scroll-px-20 gap-2 overflow-x-auto p-1.5 lg:flex-col lg:overflow-visible">
+						{cards.map((card, index) => (
+							<li class="shrink-0 lg:shrink">
+								<a
+									href={`#requirement-${index + 1}`}
+									class="relative flex min-h-11 items-center gap-3 rounded-16 border border-border-default bg-surface-base px-3 py-2 text-label text-brand-dark hover:border-brand-primary"
+								>
+									<span class="inline-flex min-w-7 shrink-0 items-center justify-center rounded-pill bg-surface-soft px-1.5 py-0.5 font-semibold">
+										{card.number || "–"}
+									</span>
+									{/* Phones show the number alone; the title still names the link. The link is
+										relative, so this text stays inside the row that scrolls, not past the page. */}
+									<span class="sr-only lg:not-sr-only lg:grow">
+										<span class="line-clamp-2">{card.title}</span>
+									</span>
+									<span class="shrink-0 text-text-secondary">
+										{card.count}
+										<span class="sr-only">{" รายการ"}</span>
+									</span>
+								</a>
+							</li>
+						))}
+					</ol>
+				</nav>
+				<div class="flex flex-col gap-4">
+					<EvidencePills pills={evidence.lead} />
+					{cards.map((card, index) => (
+						<details
+							id={`requirement-${index + 1}`}
+							open
+							class="group rounded-24 bg-surface-base shadow-card"
+						>
+							{/* A summary holds phrasing content and one heading, so its grid places them: the
+								title takes the width on phones, with the count under it, and one row from sm. */}
+							<summary class="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2 p-5 sm:grid-cols-[minmax(0,1fr)_auto_auto] [&::-webkit-details-marker]:hidden">
+								<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
+									{card.number && `${card.number}. `}
+									{card.title}
+								</h2>
+								<span class="col-start-1 row-start-2 justify-self-start rounded-pill bg-surface-soft px-3 py-1 text-small text-brand-dark sm:col-start-2 sm:row-start-1">
+									{card.count} รายการ
+								</span>
+								<ChevronDown
+									class="col-start-2 row-start-1 mt-1.5 shrink-0 text-brand-primary group-open:rotate-180 sm:col-start-3"
+									size={16}
+								/>
+							</summary>
+							{(card.evidence.length > 0 || card.subRequirements.length > 0) && (
+								<div class="flex flex-col gap-5 px-5 pb-5">
+									<EvidencePills pills={card.evidence} />
+									{card.subRequirements.map((sub) => (
+										<section class="flex flex-col gap-2">
+											<h3 class="font-semibold wrap-anywhere text-text-primary">
+												{sub.number} {sub.title}
+											</h3>
+											<EvidencePills pills={sub.evidence} />
+										</section>
+									))}
+								</div>
+							)}
+						</details>
+					))}
+				</div>
+			</div>
+		)}
+		{(previous || next) && (
+			<nav aria-label="ตัวชี้วัดอื่นในปีงบประมาณเดียวกัน" class="grid gap-4 sm:grid-cols-2">
+				{previous && (
+					<a class={linkClasses} rel="prev" href={moitPath(previous.id)}>
+						<ChevronLeft class="shrink-0 text-brand-primary" size={16} />
+						<span class="flex min-w-0 flex-col gap-1">
+							<span class="text-small text-text-secondary">ตัวชี้วัดก่อนหน้า</span>
+							<span class="font-semibold wrap-anywhere">
+								{moitLabel(previous.data.number)} {previous.data.title}
+							</span>
+						</span>
+					</a>
+				)}
+				{next && (
+					<a
+						class:list={[linkClasses, "justify-between sm:col-start-2"]}
+						rel="next"
+						href={moitPath(next.id)}
+					>
+						<span class="flex min-w-0 flex-col gap-1">
+							<span class="text-small text-text-secondary">ตัวชี้วัดถัดไป</span>
+							<span class="font-semibold wrap-anywhere">
+								{moitLabel(next.data.number)} {next.data.title}
+							</span>
+						</span>
+						<ChevronRight class="shrink-0 text-brand-primary" size={16} />
+					</a>
+				)}
+			</nav>
+		)}
+	</article>
+</SiteLayout>

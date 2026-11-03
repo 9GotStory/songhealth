@@ -4,11 +4,12 @@
 // section shows content: each list page lists entries titled "[ตัวอย่าง] …", and the first of them
 // opens on its own page under that title; the Personnel lists and the Contact page show theirs;
 // each reserved Basic Page's address shows the page published there, the dataset's or the
-// office's own; and the Homepage shows a Featured item, both its News card and its Announcements,
-// and every other section that hides while it has nothing to show. Every public template but the
-// 404 page, as the dataset fills it, passes the axe and focus checks at both widths and does not
-// scroll sideways at 320 px (#67). The suite only reads. It skips while the dataset is not
-// installed, and fails while it is installed in part.
+// office's own; the Homepage shows a Featured item, both its News card and its Announcements,
+// and every other section that hides while it has nothing to show; and the ITA landing leads to the
+// dataset's fiscal year, whose page lists its MOITs, one of them with a file removed from the
+// library (#126). Every public template but the 404 page, as the dataset fills it, passes the axe
+// and focus checks at both widths and does not scroll sideways at 320 px (#67). The suite only
+// reads. It skips while the dataset is not installed, and fails while it is installed in part.
 
 import { demoDataset } from "../../scripts/demo-dataset/content.ts";
 import { DEMO_PREFIX } from "../../scripts/demo-dataset/plan.ts";
@@ -71,6 +72,19 @@ const PERSONNEL_PAGES = ["/about/leadership", "/about/personnel"];
 const DEMO_ENTRIES = demoDataset(new Date()).entries.filter(({ slug }) =>
 	slug.startsWith(DEMO_PREFIX),
 );
+
+/** The dataset's MOITs, in number order. */
+const DEMO_MOITS = DEMO_ENTRIES.filter(({ collection }) => collection === "moit");
+
+/**
+ * The ITA pages the dataset fills: the landing, its fiscal year's page and each MOIT's, at the
+ * MOIT collection's `/ita/{slug}` (seed/seed.json).
+ */
+const ITA_PAGES = [
+	"/ita",
+	...new Set(DEMO_MOITS.map(({ data }) => `/ita/${String(data.fiscal_year)}`)),
+	...DEMO_MOITS.map(({ slug }) => `/ita/${slug}`),
+];
 
 /** The first dataset entry of each public collection, at its own address. */
 const ENTRY_PAGES = Object.entries(CANONICAL_URL_PATTERNS).flatMap(([collection, pattern]) => {
@@ -165,6 +179,35 @@ test("the Homepage shows a Featured item and every section", async ({ page }) =>
 	}
 });
 
+test("/ita leads to the dataset's fiscal year, whose page lists its MOITs, each opening on its own page", async ({
+	page,
+}) => {
+	const year = String(DEMO_MOITS[0]!.data.fiscal_year);
+	await page.goto("/ita");
+	await page.getByRole("main").getByRole("link", { name: year }).click();
+	await expect(page).toHaveURL(new RegExp(`/ita/${year}$`));
+	const yearPage = page.url();
+	for (const { data } of DEMO_MOITS) {
+		const heading = `MOIT ${String(data.number)} ${String(data.title)}`;
+		await page.goto(yearPage);
+		await page.getByRole("main").getByRole("link", { name: heading }).click();
+		await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading);
+	}
+});
+
+test("the dataset's MOIT 1 shows its removed file as unavailable, and its other files", async ({
+	page,
+}) => {
+	const moit = DEMO_MOITS.find(({ data }) => data.number === 1)!;
+	await page.goto(`/ita/${moit.slug}`);
+	const main = page.getByRole("main");
+	await expect(main.getByRole("listitem").filter({ hasText: "2.3 ฟอร์มเผยแพร่" })).toContainText(
+		"ไฟล์ไม่พร้อมให้บริการ",
+	);
+	await expect(main.getByText("ไฟล์ไม่พร้อมให้บริการ", { exact: true })).toHaveCount(1);
+	await expect(main.getByRole("link", { name: /^2\.2 / })).toHaveAttribute("download", /\.pdf$/);
+});
+
 test("/contact shows Office Contact", async ({ page }) => {
 	await page.goto("/contact");
 	await expect(page.getByRole("main")).toContainText(MARK);
@@ -176,6 +219,7 @@ test("/contact shows Office Contact", async ({ page }) => {
 // public-shell.spec.ts sweeps it.
 testAccessibilityAndReflow("the dataset's list pages", () => LIST_PAGES);
 testAccessibilityAndReflow("the dataset's entry pages", () => ENTRY_PAGES);
+testAccessibilityAndReflow("the dataset's ITA pages", () => ITA_PAGES);
 testAccessibilityAndReflow("the Homepage, hub, About, Basic and Contact pages", () => [
 	"/",
 	"/health",

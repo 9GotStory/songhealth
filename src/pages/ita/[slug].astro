@@ -1,0 +1,42 @@
+---
+// /ita/{fiscal-year} and /ita/{slug} (Feature 004 #123, #124; spec #121 "Public routes", ADR 0006).
+//
+// Both addresses are one path segment under /ita, and Astro serves a path that renders on demand
+// through the first route its priority order matches; only a prerendered route can pass a path on
+// to the next (astro 7.3.5 dist/core/routing/match-request.js matchRequest, and
+// dist/core/routing/dev.js matchRoute under astro dev). So this page tells them apart. A segment
+// written as a fiscal year whose year has a published MOIT is that year's page
+// (src/components/ItaYearPage.astro). Any other segment is read as a MOIT's slug
+// (src/components/MoitPage.astro), and so is a year without a published MOIT: a slug that breaks
+// the moit-{number}-{fiscal_year} convention still works (spec #121 "Content model"), unless it
+// is a year that has a page of its own (Product Owner, 2026-11-02: #124 comment 6577248920).
+//
+// getEmDashEntry returns the published entry, or the draft when the request carries a valid signed
+// preview token for it (emdash 1.1.0 src/query.ts resolveEmDashEntry). Anything else answers with
+// the site 404 page, which EmDash records in its 404 log.
+import { getEmDashEntry } from "emdash";
+import ItaYearPage from "../../components/ItaYearPage.astro";
+import MoitPage from "../../components/MoitPage.astro";
+import { fiscalYearOf, type MoitData } from "../../lib/ita";
+import { publishedMoits, type MoitEntry } from "../../lib/moits";
+
+/** What a segment names: a fiscal year with its published MOITs, or one MOIT. */
+type ItaPage = { year: number; moits: MoitEntry[] } | { entry: MoitEntry; isPreview: boolean };
+
+/** The fiscal year's page or the MOIT's that `segment` names, or undefined for neither. */
+async function pageFor(segment: string): Promise<ItaPage | undefined> {
+	const year = fiscalYearOf(segment);
+	if (year !== undefined) {
+		const moits = await publishedMoits(year);
+		if (moits.length > 0) return { year, moits };
+	}
+	const { entry, isPreview, error } = await getEmDashEntry<"moit", MoitData>("moit", segment);
+	if (error) throw error;
+	return entry ? { entry, isPreview } : undefined;
+}
+
+const page = await pageFor(Astro.params.slug ?? "");
+if (!page) return Astro.rewrite("/404");
+---
+
+{"entry" in page ? <MoitPage {...page} /> : <ItaYearPage {...page} />}

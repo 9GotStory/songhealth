@@ -1,7 +1,8 @@
-// Search on the public site (Feature 003 #63; spec #51 "Search", ADR 0002, `08`).
+// Search on the public site (Feature 003 #63, Feature 004 #125; spec #51 "Search", spec #121
+// "Public routes", ADR 0002, `08`).
 //
 // EmDash's own search needs SQLite (emdash 1.1.0 src/search/fts-manager.ts), so a search reads the
-// published entries of the nine searchable collections through EmDash's query functions when it
+// published entries of the ten searchable collections through EmDash's query functions when it
 // is made, and src/lib/search-matcher.ts matches, ranks, builds the snippets and decides the
 // outcome, a failed read included. A collection read
 // without a `limit` returns every published entry, and stays published-only whatever a preview
@@ -10,11 +11,14 @@
 // the database (emdash 1.1.0 src/object-cache/index.ts), and nothing caches the results (spec #51
 // "Search": no cache).
 //
-// Each collection's fields by tier follow spec #51 "Search" (Searchable collections). Personnel is
+// Each collection's fields by tier follow spec #51 "Search" (Searchable collections), and a MOIT's
+// spec #121 "Public routes": its title, its summary and the labels of its Evidence. Personnel is
 // not searched, because it has no page of its own. Rich text is read as plain text through
 // EmDash's `extractPlainText` (emdash 1.1.0 src/search/text-extraction.ts), which needs no search
 // index. A result shows the date and status the list of its kind shows (Product Owner,
-// 2026-10-30: #63 comment 6518347225).
+// 2026-10-30: #63 comment 6518347225); a MOIT's names its number and fiscal year instead of its
+// kind and shows no date, as spec #121 words its row (Product Owner, 2026-11-03: #125 comment
+// 6591248342).
 
 import { extractPlainText, getEmDashCollection, type ContentEntry } from "emdash";
 import { activityDate, activityPath, type ActivityData } from "./activities";
@@ -42,6 +46,14 @@ import {
 	type OperationalStatus,
 } from "./health-service-directory";
 import type { HealthServiceData } from "./health-services";
+import {
+	evidenceLabels,
+	inItaOrder,
+	itaYearLabel,
+	moitLabel,
+	moitPath,
+	type MoitData,
+} from "./ita";
 import { newsPath, type NewsData } from "./news";
 import {
 	parseSearchRequest,
@@ -65,6 +77,11 @@ export interface SearchEntry extends Searchable {
 	href: string;
 	/** The title the entry is shown by. */
 	title: string;
+	/**
+	 * What the result names the entry by before its date, instead of its kind in Thai (KIND_LABELS):
+	 * a MOIT's number and fiscal year.
+	 */
+	facts?: string[];
 	/** The date the result shows; none for a kind its list shows undated. */
 	shownDate?: Instant;
 	status?: ResultStatus;
@@ -80,16 +97,21 @@ function texts(...values: unknown[]): string[] {
 /** One searchable collection's published entries as results at `now`, or its read's error. */
 type Source = (now: Date) => Promise<CollectionRead<SearchEntry>>;
 
-/** A searchable collection, and how each of its published entries reads as a result. */
+/**
+ * A searchable collection, and how each of its published entries reads as a result. The entries
+ * come newest published first, unless `order` orders them otherwise; two results that tie without
+ * a list date keep that order (src/lib/search-matcher.ts searchPage).
+ */
 function source<D>(
 	collection: string,
 	toEntry: (entry: ContentEntry<D>, now: Date) => SearchEntry,
+	order: (entries: ContentEntry<D>[]) => ContentEntry<D>[] = (entries) => entries,
 ): Source {
 	return async (now) => {
 		const { entries, error } = await getEmDashCollection<string, D>(collection, {
 			orderBy: { published_at: "desc" },
 		});
-		return { entries: entries.map((entry) => toEntry(entry, now)), error };
+		return { entries: order(entries).map((entry) => toEntry(entry, now)), error };
 	};
 }
 
@@ -196,6 +218,25 @@ const SOURCES: Source[] = [
 		text: { title: texts(data.title), summary: texts(data.summary), body: texts(data.body) },
 		listDate: data.publishedAt,
 	})),
+	// A MOIT has no list date, because a year's page lists its MOITs by number. So MOITs that tie
+	// keep the ITA pages' order, the newest fiscal year first, then by number, and come after any
+	// dated result they tie with (Product Owner, 2026-11-03: #125 comment 6591248342, choosing
+	// item 2's option A of comment 6580283949).
+	source<MoitData>(
+		"moit",
+		({ id, data }) => ({
+			kind: "moit",
+			href: moitPath(id),
+			title: data.title,
+			facts: [moitLabel(data.number), itaYearLabel(data.fiscal_year)],
+			text: {
+				title: texts(data.title),
+				summary: texts(data.summary),
+				body: texts(...evidenceLabels(data.evidence)),
+			},
+		}),
+		inItaOrder,
+	),
 ];
 
 /**

@@ -28,7 +28,7 @@ import {
 	planAdd,
 	planRemove,
 	removeSteps,
-	type DocumentPdf,
+	type PdfText,
 	type LiveEntry,
 	type LiveMedia,
 	type LiveMenuItem,
@@ -155,7 +155,7 @@ async function pdfPrinter() {
 		throw error;
 	});
 	return {
-		async print({ title, summary }: DocumentPdf) {
+		async print({ title, summary }: PdfText) {
 			// The colours are the site's brand-dark, brand-primary and text-secondary
 			// (src/styles/global.css).
 			await page.setContent(
@@ -277,6 +277,14 @@ async function add(admin: helpers.CmsActor): Promise<boolean> {
 		if (!published.ok) throw new Error(`publishing ${name}: ${helpers.nativeRefusalOf(published)}`);
 		console.log(`published ${name}`);
 	}
+	// Deleting a media item leaves the entries that hold it as they are (emdash 1.1.0
+	// src/api/handlers/media.ts handleMediaDelete), and their pages find the file gone and show it
+	// as unavailable (src/lib/media.ts downloadableFile).
+	for (const filename of plan.discard) {
+		const { id } = media.get(filename)!;
+		await call(admin, `deleting ${filename}`, `/_emdash/api/media/${id}`, { method: "DELETE" });
+		console.log(`deleted ${filename} from the library, as the dataset removes it`);
+	}
 	for (const { name, items } of plan.menus) {
 		// A menu the planner writes holds only the dataset's items, which this replaces.
 		await helpers.setMenuItems(
@@ -311,8 +319,9 @@ async function add(admin: helpers.CmsActor): Promise<boolean> {
 		console.log(`FAIL: still to do: ${pending.join("; ")}`);
 		return false;
 	}
+	const inLibrary = dataset.media.filter(({ removed }) => !removed);
 	console.log(
-		`the demo dataset is installed: ${dataset.entries.length} entries, ${dataset.terms.length} terms, ${dataset.media.length} pictures and files`,
+		`the demo dataset is installed: ${dataset.entries.length} entries, ${dataset.terms.length} terms, ${inLibrary.length} pictures and files`,
 	);
 	return true;
 }

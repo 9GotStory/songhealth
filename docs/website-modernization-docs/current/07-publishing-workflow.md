@@ -1,31 +1,38 @@
 # Native Publishing Lifecycle — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 07-publishing-workflow
-> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-only publication
-> **Version:** 2.4
-> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
+> **Status:** CLEAN REBASELINE v2.5 — CURRENT native-only publication
+> **Version:** 2.5
+> **Last Updated:** 3 พฤศจิกายน 2569 (2026-11-03): Feature 004, ITA in V1
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`, `06-roles-permissions.md`
 > **Purpose:** กำหนด publishing semantics ที่ Songhealth ต้องการโดยใช้ lifecycle ของ CMS เป็น baseline และไม่สร้าง workflow engine ซ้ำ
 
 
 > **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
-> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
-> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
-> publication, permissions and supported validation remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan; deferral is not implementation or PASS. No upstream
-> change, new subsystem, replacement ITA workflow or production action is authorized.
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers unavailable Q3/Q4 enforcement from
+> V1. Ordinary native content/Document/Media, publication, permissions and supported validation
+> remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan;
+> deferral is not implementation or PASS. No upstream change, new subsystem or production action
+> is authorized. The same decision deferred structured ITA; Feature 004 brought ITA into V1
+> (below).
 
 > **Prior native Q1 decision (save-time requiredness retained; publication hook superseded):** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
 > save-time requiredness for genuinely mandatory native references. Missing such a reference need
 > not be saveable as a draft. Other incomplete drafts follow native field validation. Optional/
 > conditional relationships are not automatic publication gates where native enforcement lacks
-> adequate data. D-ITA/D-REF remain deferred; no custom reference adapter or internal-table access.
+> adequate data. D-REF remains deferred (spec #121 supersedes D-ITA); no custom reference adapter
+> or internal-table access.
 
 > **Current V1 simplification (Product Owner, 2026-10-14):** Songhealth uses native EmDash
 > field/type/required-reference/cardinality checks at save and native RBAC/lifecycle at
 > Publish/Schedule. No Songhealth-specific publication validation hook, editorial review,
 > approval queue or confirmation step. Incomplete optional content may publish under
 > native permissions; editorial completeness is the publisher's responsibility.
-> D-ITA/D-REF remain deferred; this decision is not runtime acceptance.
+> D-REF remains deferred (spec #121 supersedes D-ITA); this decision is not runtime acceptance.
+
+> **Feature 004 decision (Product Owner, 2026-11-02; spec #121, `docs/adr/0006`):** MOITs publish
+> through the same native lifecycle as other content (§6, §12). ITA has no historical-evidence
+> guard; the staff precautions are in `05` §7.
 
 ---
 
@@ -132,7 +139,7 @@ Version 1 รองรับ one-time future publishing ผ่าน native sche
 - Health Service: operational status เช่น active / temporarily closed / inactive
 - Document: current / superseded / expired ตามความหมายของเอกสาร
 - Personnel: current public assignment/visibility; assignment history is outside V1 (Q2)
-- ITA: fiscal-year historical evidence semantics are deferred from V1
+- ITA: MOIT เป็นของปีงบประมาณใน field ของตนเอง; MOIT ของปีที่ผ่านไปยังเผยแพร่อยู่ และปีใหม่เป็น entry ใหม่ (`05` §7)
 
 กฎเหล่านี้อยู่ใน Content Model/domain feature ที่เกี่ยวข้อง ไม่สร้าง universal workflow engine.
 
@@ -154,8 +161,9 @@ Native RBAC-authorized staff publish or schedule directly. Native errors, revisi
 concurrency, secure preview and scheduler semantics remain. Missing optional
 information does not cause a Songhealth-specific publication refusal.
 
-D-ITA/D-REF historical preservation and cross-record target availability/removal
-guarantees remain deferred; save-time requiredness does not establish them.
+D-REF cross-record target availability/removal guarantees remain deferred, and ITA builds
+no historical-preservation guarantee (`docs/adr/0006`); save-time requiredness does not
+establish them.
 
 ---
 
@@ -223,10 +231,11 @@ do not retain overwritten media bytes; V1 promises no immutable historical-evide
 
 ---
 
-# 12. Homepage and Deferred ITA
+# 12. Homepage and ITA
 
-Homepage curation reuses ordinary native content publication. Structured ITA history/evidence is
-deferred (`02` §18), not a V1 publishing journey. No Homepage/ITA workflow engine or snapshot
+Homepage curation reuses ordinary native content publication. A MOIT publishes through the same
+native draft, preview, schedule, publish and revision lifecycle (`02` §18), and staff set its
+"ปรับปรุงล่าสุด" date when they publish a Round. No Homepage/ITA workflow engine or snapshot
 subsystem is created. A missing linked target is omitted or represented as safely unavailable in
 public reads, without exposing editorial content; native lifecycle permission alone does not
 guarantee linked-record availability or immutability.

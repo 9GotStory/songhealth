@@ -1,6 +1,6 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** DRAFT v0.2 — rechecked; for Product Owner review; **not** an accepted/FROZEN rule or implementation authorization  
+> **Status:** DRAFT v0.2 — rechecked; amended for Feature 004 (ITA in V1) on 2026-11-03; for Product Owner review; **not** an accepted/FROZEN rule or implementation authorization  
 > **Prepared:** 2026-10-30  
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)  
 > **Repository path:** `docs/design/DESIGN.md`  
@@ -154,7 +154,7 @@ Use a small, justified set of Astro components (proposed names; not a required d
 
 ## 8. Homepage contract (visual composition constrained by product authority)
 
-Source: `current/04-homepage.md` v2.3 and `current/03-sitemap.md` v2.4, both dated 2026-10-29.
+Source: `current/04-homepage.md` v2.4 and `current/03-sitemap.md` v2.5, both dated 2026-11-03.
 
 1. Header / navigation / reachable search.
 2. Featured / Priority (optional; one primary item if shown, not an autoplay carousel).
@@ -167,19 +167,30 @@ Source: `current/04-homepage.md` v2.3 and `current/03-sitemap.md` v2.4, both dat
 9. Contact Summary (true office/address/phone/hours when available, optional map; essential text remains if map fails).
 10. Footer (orientation, privacy/accessibility/contact and maintained official links).
 
-### 8.1 ITA and Dashboard — deferred, not deleted
+### 8.1 ITA in V1; Dashboard deferred, not deleted
 
-**Deferred ≠ removed or cancelled.** ITA and Dashboard remain in Songhealth's longer-term product direction and in the Figma design inventory. Deferral affects **implementation/publication timing**, not the decision to retain their design concepts.
+ITA is in V1 (spec #121, ADR 0006). Dashboard stays deferred, and **deferred ≠ removed or cancelled**: Dashboard remains in Songhealth's longer-term product direction and in the Figma design inventory. Deferral affects **implementation/publication timing**, not the decision to retain its design concepts.
 
 | Area | V1 live/public version | Future-state design |
 | --- | --- | --- |
-| ITA | No new V1 ITA route, main navigation link or Homepage shortcut under the current approved scope | **Retain** ITA screen concepts, components and possible navigation/Quick Access placements for the phase when ITA is authorized |
+| ITA | `/ita`, `/ita/{fiscal-year}` and `/ita/{slug}`; "ITA" is the main navigation's last item; Quick Access may point to `/ita`; no Homepage section of its own (`03` §2 and §11, `04` §10.1) | None: the pages below are live |
 | Dashboard | No V1 `/dashboard` route, main navigation link or Homepage shortcut under the current approved scope | **Retain** Dashboard screen concepts, components and possible navigation/Quick Access placements for its separately approved future scope |
-| Figma Homepage | Maintain an explicitly labeled **V1 implementation** frame consistent with `03-sitemap.md` and `04-homepage.md` | Preserve an explicitly labeled **Future State / Vision** frame or variant displaying ITA/Dashboard if envisioned; do not delete the original concepts |
+| Figma Homepage | Maintain an explicitly labeled **V1 implementation** frame consistent with `03-sitemap.md` and `04-homepage.md`; its ITA navigation item and Quick Access card are V1 now | Preserve an explicitly labeled **Future State / Vision** frame or variant displaying Dashboard if envisioned; do not delete the original concepts |
 
-**Figma preservation rule:** when reconciling the V1 frame, **do not permanently delete ITA/Dashboard layers or component definitions**. Copy/preserve their current appearance in a Future State frame first; V1 visibility is a separate presentation choice. Future-state placement is a proposal, not a newly approved public IA decision.
+**The ITA pages have no Figma concept:** the file has one page, the homepage (checked 2026-11-02). The pages use the site's tokens and components (ADR 0001), and the MOIT page follows variant C, "สารบัญและการ์ด", of the ITA prototype (`docs/prototypes/ita-moit-page.md` on the branch `prototype/ita`):
 
-**Release rule:** do not render future/deferred cards as enabled links in a V1 build or invent placeholder routes. Their later public activation requires Product Owner authorization and corresponding updates to the higher-priority product/IA documents. This does not prevent continuing the visual design for their future release.
+- **Landing `/ita`:** the heading "การประเมินคุณธรรมและความโปร่งใส (ITA)" with the GLOSSARY lead, then a Quick Link card per fiscal year, newest first: "ปีงบประมาณ", the year and "ตัวชี้วัด n รายการ". While no MOIT is published it says "ยังไม่มีข้อมูล ITA".
+- **Year `/ita/{fiscal-year}`:** the heading "ITA ปีงบประมาณ พ.ศ. YYYY", then one card that lists the year's MOITs by number between divider lines. Each row is a heading link, a "MOIT n" badge and the title, over "หลักฐาน n รายการ · ปรับปรุงล่าสุด date".
+- **MOIT `/ita/{slug}`:**
+  - a brand-dark header band: "ITA ปีงบประมาณ พ.ศ. YYYY", the H1 "MOIT n" and the title, the summary, the Evidence count (and how many files cannot be served), and "ปรับปรุงล่าสุด" when staff set it;
+  - a table of contents of the top-level Requirements with their counts: sticky beside the cards on desktop, a horizontal row above them on phones;
+  - one card per top-level Requirement: a native disclosure, open at first, that closes without JavaScript, with its title as the heading inside the toggle and a 16 px chevron; each sub-Requirement is a section inside the card;
+  - Evidence as pills: the Round tag unless the Round is "ไม่ระบุรอบ", the label (a file's note follows it in parentheses), then what it is: a file's type and size after a download icon, "หน้าเว็บของสำนักงาน" with a chevron for a page of this site, the host with "(เว็บไซต์ภายนอก)" and an arrow-up-right for another website, or the email address or phone number. A link marked current carries "ข้อมูลปัจจุบัน". A file that cannot be served is a dashed pill with "ไฟล์ไม่พร้อมให้บริการ" and a "ติดต่อเรา" link;
+  - "ตัวชี้วัดก่อนหน้า" and "ตัวชี้วัดถัดไป" cards below the Requirements, each with "MOIT n" and the title, within the same fiscal year only.
+
+**Figma preservation rule:** when reconciling the V1 frame, **do not permanently delete Dashboard layers or component definitions**. Copy/preserve their current appearance in a Future State frame first; V1 visibility is a separate presentation choice. Future-state placement is a proposal, not a newly approved public IA decision.
+
+**Release rule:** do not render future/deferred cards, such as Dashboard's, as enabled links in a V1 build or invent placeholder routes. Their later public activation requires Product Owner authorization and corresponding updates to the higher-priority product/IA documents. This does not prevent continuing the visual design for their future release.
 
 The visual search field and hero text must represent actual product journeys, not a second search or static marketing-only content owner.
 
@@ -198,7 +209,7 @@ The visual search field and hero text must represent actual product journeys, no
 These items are **not marked complete**. The Figma MCP Starter quota prevented the requested final editing round. Before v1.0 of this design document:
 
 - [ ] Replace all UI-symbol text/emoji (`+`, `↗`, `→`, any pictographic glyphs) with a consistent Lucide-equivalent editable vector/icon-component treatment. Replace provisional medical-plus branding only after approved logo is available.
-- [ ] **Preserve first:** make a clearly named `Future State / Vision` design frame or variant containing the existing ITA and Dashboard concepts/components. Then reconcile only the `V1 Implementation` frame's navigation/Quick Access against the current sitemap; no active V1 ITA/Dashboard links or invented routes. Do not delete the future design inventory.
+- [ ] **Preserve first:** make a clearly named `Future State / Vision` design frame or variant containing the existing Dashboard concepts/components. Then reconcile only the `V1 Implementation` frame's navigation/Quick Access against the current sitemap, where ITA is a V1 link; no active V1 Dashboard links or invented routes. Do not delete the future design inventory.
 - [ ] Audit every desktop service card and mobile equivalent for correct icon, title, description, consistent spacing, equal heights and no clipping.
 - [ ] Review featured content card for clear one-primary-item hierarchy, honest content source, primary/secondary CTA, and sensible image fallback.
 - [ ] Make News, Announcement, Health Content and Quick Access visually distinguishable by role; check dates/categories and published-link states.
@@ -220,11 +231,12 @@ These items are **not marked complete**. The Figma MCP Starter quota prevented t
 
 ## 12. References and change history
 
-- Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.3, 2026-10-29); `03-sitemap.md` (v2.4, 2026-10-29).
-- Architecture: `docs/website-modernization-docs/current/10-system-blueprint.md` (v2.6, 2026-10-29); `README.md`; `CLAUDE.md`.
+- Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.4, 2026-11-03); `03-sitemap.md` (v2.5, 2026-11-03).
+- Architecture: `docs/website-modernization-docs/current/10-system-blueprint.md` (v2.7, 2026-11-03); `README.md`; `CLAUDE.md`.
 - Figma: [Songhealth — Homepage Concept v1](https://www.figma.com/design/Lxdfd1dBgNNO28Rx62zGYO) (design under cleanup).
 - Tailwind official: [Astro installation](https://tailwindcss.com/docs/installation/framework-guides/astro), [Theme variables](https://tailwindcss.com/docs/theme), [State variants](https://tailwindcss.com/docs/hover-focus-and-other-states).
 - **v0.1 draft (2026-10-30):** establish Tailwind-v4-only public styling, Lucide/no-emoji policy, Figma token proposal, V1 scope reconciliation, responsive/QA gates. Recorded as a draft only; not accepted or deployed.
-- **v0.1 clarification (Product Owner):** ITA and Dashboard are **deferred from V1, not removed from Songhealth**. Retain future-state Figma designs and planned capabilities; do not publish inactive V1 links without a separate approved scope decision.
+- **v0.1 clarification (Product Owner):** ITA and Dashboard are **deferred from V1, not removed from Songhealth**. Retain future-state Figma designs and planned capabilities; do not publish inactive V1 links without a separate approved scope decision. Feature 004 superseded the ITA part on 2026-11-03 (below).
 - **v0.2 recheck (2026-10-30):** make the V1/Future State separation explicit without deleting ITA/Dashboard concepts; validate the Tailwind v4 token namespaces against upstream documentation; record color-contrast failures in the proposed Figma palette for later visual QA. Still a draft; adding it to the repository does not authorize implementation or confer Product Owner acceptance.
 - **v0.2 update (2026-10-31, #105 retro):** §5 states the icon sizes the Product Owner decided on #105 (comment 6536890963), in place of the typical slots "16 px utility/meta; 20 px navigation/inline; 24 px actions/service cards". The rest of the draft is unchanged.
+- **v0.2 update (2026-11-03, Feature 004 #127):** §8.1 records ITA in V1 (spec #121, ADR 0006): its routes, the main navigation's last item, an optional Quick Access shortcut, and the ITA page patterns, with the MOIT page from the prototype's variant C; the Figma file has no ITA page. §8.1's preservation and release rules and §10's Future State item now name Dashboard only. The rest of the draft is unchanged.

@@ -72,6 +72,7 @@ export const SITE_PAGES: ReadonlySet<string> = new Set([
 	"/health/content",
 	"/health/reports",
 	"/health-services",
+	"/ita",
 	"/news",
 	"/news/health",
 	"/search",

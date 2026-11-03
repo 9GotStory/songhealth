@@ -1,4 +1,5 @@
-// The search's rules (Feature 003 #63; spec #51 "Search", ADR 0002, `08`).
+// The search's rules (Feature 003 #63, Feature 004 #125; spec #51 "Search", spec #121 "Public
+// routes", ADR 0002, `08`).
 //
 // src/lib/search.ts reads the published entries of the searchable collections when a search is
 // made. This module holds the rules for what a search asks and what it finds: reading the request,
@@ -33,7 +34,8 @@ export const SEARCH_PAGE_SIZE = 20;
  * The kinds of content the search finds, one per searchable collection, each as citizens read it:
  * the GLOSSARY's Thai names, except two (Product Owner, 2026-10-30: #63 comment 6518347225). A
  * Health Service is shortened from หน่วยบริการสุขภาพที่เกี่ยวข้อง, and a Basic Page (หน้าเนื้อหาพื้นฐาน) reads
- * as หน้าข้อมูล.
+ * as หน้าข้อมูล. A MOIT's result names it by its number and fiscal year instead of its kind
+ * (src/lib/search.ts), so no page shows its label.
  */
 export const KIND_LABELS = {
 	news: "ข่าว",
@@ -45,6 +47,7 @@ export const KIND_LABELS = {
 	health_report: "รายงานสุขภาพ",
 	document: "เอกสารเผยแพร่",
 	page: "หน้าข้อมูล",
+	moit: "ตัวชี้วัด MOIT",
 } as const;
 
 export type SearchKind = keyof typeof KIND_LABELS;
@@ -62,6 +65,7 @@ export const SEARCH_GROUPS = [
 	{ id: "health-services", label: "หน่วยบริการ", kinds: ["health_service"] },
 	{ id: "documents", label: "เอกสาร", kinds: ["document"] },
 	{ id: "about", label: "เกี่ยวกับเรา", kinds: ["page"] },
+	{ id: "ita", label: "ITA", kinds: ["moit"] },
 ] as const satisfies ReadonlyArray<{ id: string; label: string; kinds: readonly SearchKind[] }>;
 
 export type SearchGroup = (typeof SEARCH_GROUPS)[number];

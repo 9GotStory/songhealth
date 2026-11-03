@@ -25,15 +25,22 @@ export interface DemoTerm {
 
 /**
  * A picture or a PDF of the dataset, uploaded under its filename. A picture is a diagonal blend of
- * two hex colours, with alt text in the media library. A PDF is a one-page Thai document with its
- * Document's title and summary.
+ * two hex colours, with alt text in the media library. A PDF is a one-page Thai document with a
+ * title and a summary.
  */
-export type DemoMedia =
+export type DemoMedia = (
 	| { filename: string; alt: string; colours: readonly [string, string] }
-	| { filename: string; pdf: DocumentPdf };
+	| { filename: string; pdf: PdfText }
+) & {
+	/**
+	 * Deleted from the media library once the entries that use it exist, so that their pages show a
+	 * file that cannot be served (#126). `add` uploads it only for an entry it creates.
+	 */
+	removed?: true;
+};
 
-/** What a demo Document's PDF shows: the Document's own title and summary. */
-export interface DocumentPdf {
+/** What a demo PDF shows: a title, and a summary under it. */
+export interface PdfText {
 	title: string;
 	summary: string | undefined;
 }
@@ -144,6 +151,8 @@ export interface AddPlan {
 	create: DemoEntry[];
 	/** The entries to publish, created ones included. */
 	publish: DemoEntry[];
+	/** The filenames of the files the dataset removes, to delete from the library. */
+	discard: string[];
 	/** The menus to give exactly these items, in place of the dataset's items they hold. */
 	menus: { name: string; items: DemoMenuItem[] }[];
 	/** The Office Contact values to set. */
@@ -178,6 +187,14 @@ export const entryName = ({ collection, slug }: { collection: string; slug: stri
 	`${collection}/${slug}`;
 
 const termName = ({ taxonomy, slug }: LiveTerm) => `${taxonomy}/${slug}`;
+
+/** The filenames of the media items that a field value, or an entry's fields, point at. */
+export function mediaOf(value: unknown): string[] {
+	if (Array.isArray(value)) return value.flatMap(mediaOf);
+	if (value === null || typeof value !== "object") return [];
+	const { demoMedia } = value as { demoMedia?: unknown };
+	return typeof demoMedia === "string" ? [demoMedia] : Object.values(value).flatMap(mediaOf);
+}
 
 /**
  * What a menu item of the dataset points at, as the menu stores it: a link's address, or the
@@ -254,7 +271,9 @@ function isDemoEntryOf(dataset: DemoDataset): (entry: LiveEntry) => boolean {
  * What `add` does on a runtime in state `live`: create the dataset's terms, media and entries the
  * runtime lacks, take its entries out of the trash, and publish each one that is not published. A
  * term, media item or entry the runtime holds keeps its label, file or fields. An entry of the
- * office's own at a reserved slug stays as it is, and the dataset's entry there is left out.
+ * office's own at a reserved slug stays as it is, and the dataset's entry there is left out. A
+ * file the dataset removes is uploaded only for an entry `add` creates, and then deleted, so a
+ * runtime that holds the dataset has none.
  */
 export function planAdd(dataset: DemoDataset, live: LiveState): AddPlan {
 	const isDemo = isDemoEntryOf(dataset);
@@ -265,10 +284,11 @@ export function planAdd(dataset: DemoDataset, live: LiveState): AddPlan {
 	const media = new Set(live.media.map(({ filename }) => filename));
 	const plan: AddPlan = {
 		terms: dataset.terms.filter((term) => !terms.has(termName(term))),
-		upload: dataset.media.filter(({ filename }) => !media.has(filename)),
+		upload: [],
 		restore: [],
 		create: [],
 		publish: [],
+		discard: [],
 		menus: [],
 		officeContact: {},
 		social: {},
@@ -293,6 +313,14 @@ export function planAdd(dataset: DemoDataset, live: LiveState): AddPlan {
 		plan.create,
 		new Set(dataset.entries.filter((entry) => !creating.has(entry)).map(({ slug }) => slug)),
 	);
+	// A restored entry keeps the value of a removed file, which no upload gives back.
+	const used = new Set(plan.create.flatMap(({ data }) => mediaOf(data)));
+	plan.upload = dataset.media.filter(
+		({ filename, removed }) => !media.has(filename) && (!removed || used.has(filename)),
+	);
+	plan.discard = dataset.media
+		.filter(({ filename, removed }) => removed && (media.has(filename) || used.has(filename)))
+		.map(({ filename }) => filename);
 
 	/** Each dataset entry the runtime holds outside the trash, by slug. */
 	const placed = new Map(
@@ -371,6 +399,7 @@ export function addSteps(plan: AddPlan): string[] {
 		...plan.restore.map((entry) => `restore ${entryName(entry)}`),
 		...plan.create.map((entry) => `create ${entryName(entry)}`),
 		...plan.publish.map((entry) => `publish ${entryName(entry)}`),
+		...plan.discard.map((filename) => `delete ${filename}`),
 		...plan.menus.map(({ name }) => `fill the menu ${name} with the dataset's items`),
 		...Object.keys(plan.officeContact).map((key) => `set Office Contact ${key}`),
 		...Object.keys(plan.social).map((network) => `set the social handle ${network}`),

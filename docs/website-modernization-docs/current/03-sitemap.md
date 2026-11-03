@@ -1,23 +1,29 @@
 # Sitemap — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 03-sitemap
-> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-first V1
-> **Version:** 2.4
-> **Last Updated:** 29 ตุลาคม 2569 (2026-10-29)
+> **Status:** CLEAN REBASELINE v2.5 — CURRENT native-first V1
+> **Version:** 2.5
+> **Last Updated:** 3 พฤศจิกายน 2569 (2026-11-03): Feature 004, ITA in V1
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`
 > **Purpose:** กำหนด public navigation, canonical routes, URL rules, redirects และ public error behavior โดยใช้ slug-based URLs ที่เรียบง่าย
 
 
 > **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
-> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
-> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
-> publication, permissions and supported validation remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan; deferral is not implementation or PASS. No upstream
-> change, new subsystem, replacement ITA workflow or production action is authorized.
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers unavailable Q3/Q4 enforcement from
+> V1. Ordinary native content/Document/Media, publication, permissions and supported validation
+> remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan;
+> deferral is not implementation or PASS. No upstream change, new subsystem or production action
+> is authorized. The same decision deferred structured ITA; Feature 004 brought ITA into V1
+> (below).
 
 > **Feature 003 decision (Product Owner, 2026-10-29):** `/dashboard` is deferred from V1. It has
 > no V1 route, navigation entry or Homepage shortcut. Dashboard stays a separate analytical domain
-> (`00` §1.3), and a later Dashboard needs its own accepted scope. ITA stays outside V1 navigation
-> (§11).
+> (`00` §1.3), and a later Dashboard needs its own accepted scope. ITA stayed outside V1
+> navigation (§11) until Feature 004 (below).
+
+> **Feature 004 decision (Product Owner, 2026-11-02; spec #121):** "ITA" is the main navigation's
+> last item (§2), with the V1 routes `/ita`, `/ita/{fiscal-year}` and `/ita/{slug}` (§11, §19).
+> Only `/dashboard` stays deferred.
 
 ---
 
@@ -44,7 +50,8 @@ Main Navigation
 ├── ข่าวสาร
 ├── บริการประชาชน
 ├── ข้อมูลสุขภาพ
-└── เอกสารเผยแพร่
+├── เอกสารเผยแพร่
+└── ITA
 
 Utility
 ├── ค้นหา
@@ -200,15 +207,22 @@ Raw storage filename ไม่ใช่ canonical page URL.
 
 ---
 
-# 11. ITA — Deferred Route Scope
+# 11. ITA
 
-The `/ita`, `/ita/{fiscal-year}` and `/ita/{fiscal-year}/{section-key}` patterns describe the
-deferred structured-ITA design, not required V1 routes or navigation. Historical-year addressing
-and evidence routing require separate accepted re-entry of `02-content-model.md` §18.
+```text
+/ita
+├── /ita/{fiscal-year}
+└── /ita/{slug}
+```
 
-No replacement Basic Page/evidence route or new external-archive delivery policy is approved by
-this reconciliation. Existing legacy ITA URLs/material remain subject to separate migration/cutover
-decisions; this document update does not withdraw, redirect or delete them.
+- `/ita` = ITA landing: หัวข้อ "การประเมินคุณธรรมและความโปร่งใส (ITA)", คำอธิบายสั้นตาม `GLOSSARY.md` และการ์ดของทุกปีงบประมาณที่มี MOIT เผยแพร่อย่างน้อยหนึ่งรายการ เรียงปีใหม่ก่อน พร้อมจำนวน MOIT; เมื่อยังไม่มี MOIT เผยแพร่ แสดง "ยังไม่มีข้อมูล ITA"
+- `/ita/{fiscal-year}` เช่น `/ita/2570` = MOIT ที่เผยแพร่ของปีนั้นเรียงตามเลข แต่ละรายการมี "MOIT n" ชื่อ จำนวน Evidence และ "ปรับปรุงล่าสุด" เมื่อตั้งไว้; ปีที่ไม่มี MOIT เผยแพร่ตอบ 404
+- `/ita/{slug}` เช่น `/ita/moit-2-2570` = หน้า MOIT ตาม URL pattern ของ collection (`02` §18) ซึ่งมีปีอยู่ใน address ครั้งเดียว; การ์ด "ตัวชี้วัดก่อนหน้า" และ "ตัวชี้วัดถัดไป" ไปยัง MOIT ของปีงบประมาณเดียวกันเท่านั้น
+- `{fiscal-year}` และ `{slug}` ใช้ path segment เดียวกัน: segment ที่เป็นตัวเลขเป็นหน้าปีเมื่อปีนั้นมี MOIT เผยแพร่ ดังนั้น MOIT ที่ slug เป็นตัวเลขล้วนเปิดได้เฉพาะเมื่อไม่มีหน้าปีนั้น; slug ตาม `moit-{number}-{fiscal_year}` ไม่ชนกับหน้าปี
+- MOIT ที่เป็น draft หรือ slug ที่ไม่มีอยู่ตอบหน้า 404 ของเว็บไซต์ (§17); signed preview แสดง draft
+- Breadcrumb: หน้าแรก > ITA > ปีงบประมาณ 2570 > MOIT 2 (§14)
+- ไฟล์ Evidence ดาวน์โหลดตามที่ CMS ส่ง (attachment) ไม่เปิดใน browser; ไฟล์ที่ serve ไม่ได้แสดงสถานะไม่พร้อมให้บริการ (§17)
+- การ redirect URL ITA เดิมบน WordPress เช่น `/moit-2-2569/` ไป `/ita/moit-2-2569` เป็นงานของ Feature 005 (§18, `09`)
 
 ---
 
@@ -243,6 +257,7 @@ Breadcrumb สะท้อน public information hierarchy ไม่ derive จ�
 หน้าแรก > บริการประชาชน > ชื่อบริการ
 หน้าแรก > ข้อมูลสุขภาพ > ความรู้สุขภาพ > ชื่อเรื่อง
 หน้าแรก > เอกสารเผยแพร่ > ชื่อเอกสาร
+หน้าแรก > ITA > ปีงบประมาณ 2570 > MOIT 2
 ```
 
 ---
@@ -254,7 +269,7 @@ Breadcrumb สะท้อน public information hierarchy ไม่ derive จ�
 - no file extension in canonical detail page
 - no trailing slash baseline
 - query parametersใช้สำหรับ filters/search/pagination ไม่ใช่ identity
-- fragmentsใช้ deep-link ภายใน published page ได้; structured ITA item links are deferred (§11)
+- fragmentsใช้ deep-link ภายใน published page ได้ เช่น สารบัญ Requirement ของหน้า MOIT
 - route rootsไม่เปลี่ยนตาม internal collection label โดยอัตโนมัติ
 
 Canonical route table:
@@ -270,7 +285,7 @@ Canonical route table:
 | Health Report | `/health/reports/{slug}` |
 | Document | `/documents/{slug}` |
 | Basic Page | `/pages/{slug}` |
-| ITA Section — deferred, not V1 | `/ita/{fiscal-year}/{section-key}` (reserved future design only) |
+| MOIT (ITA) | `/ita/{slug}` |
 
 ---
 
@@ -354,22 +369,19 @@ Legacy WordPress permalink structure never controls the new IA.
 │   └── /health/reports/{slug}
 ├── /documents
 │   └── /documents/{slug}
+├── /ita
+│   ├── /ita/{fiscal-year}
+│   └── /ita/{slug}
 ├── /pages/{slug}
 ├── /search
 └── /contact
 ```
 
-**Deferred future scope — not active V1 routes (§9, §11):**
+**Deferred future scope — not an active V1 route (§9):**
 
 ```text
 /dashboard
-
-/ita
-├── /ita/{fiscal-year}
-└── /ita/{fiscal-year}/{section-key}
 ```
-
-These reserved patterns do not change the separate legacy ITA disposition described in §11.
 
 ---
 
