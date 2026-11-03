@@ -18,6 +18,23 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 The repository is `9GotStory/songhealth`; `gh` infers it automatically when run inside this clone.
 
+## Pull request bodies
+
+A ticket's pull request fills `/pr`'s template (Summary, Evidence, Merge Danger) in this order, as PRs #131–#139 do. Leave out a section with nothing to say.
+
+1. `Builds #<spec> (Feature N, <name>) and #<ticket> ([F00N-NN]).`, then one sentence on what the change gives its user.
+2. `## Summary`: the smallest view that shows the change (a tree, a diff sketch, pseudocode), then:
+   - `### Decisions`: a table of each decision and its source (`PO, #<n> comment <id>`, or a spec section).
+   - `### Built on precedent`: each choice that follows an accepted page or ticket, with that precedent.
+   - `### Beyond the ticket`: what the change does that its ticket did not list, and why.
+   - `### Review (self-review)`: the `/code-review` findings per axis and the commits that fix them, each finding left as it is with the decision that keeps it, and each later commit that was not reviewed again.
+   - `### Version-specific facts`: each version-specific conclusion a decision rests on, with its version and source path (CLAUDE.md "Current documentation").
+   - `### For the next tickets`: what each later ticket of the feature needs from this one. The same notes go on those issues as comments.
+3. `## Evidence`: **Before**, the first failure of the red run, verbatim; **After**, the same check passing at the final head, with the commit `dev-runtime-verify.sh` reported. Then the screenshots, as a table of `https://github.com/9GotStory/songhealth/blob/<evidence commit>/<file>?raw=true` images from `scripts/evidence-branch.sh`; each seam's cases as pseudocode; and the result of every check at the final head.
+4. `## Merge Danger`: the door, then the blast radius, ending with what reaches production.
+
+**Evidence log.** From the red run on, `/implement` appends each run the Evidence will cite to `evidence-<ticket>.md` in the session's scratchpad: the command, the commit, and the output's decisive lines (the first failure, the pass and skip counts, the verify and residue lines, a script's own report). `/pr` writes the Evidence from that file, which outlives a context compaction (#126 retro: `/pr` searched a 6 MB transcript four times for the red run and the `add` output).
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_

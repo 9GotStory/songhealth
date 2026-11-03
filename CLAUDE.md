@@ -70,7 +70,8 @@ a new seam goes to the Product Owner.
 
 ### Issue tracker
 
-GitHub Issues of `9GotStory/songhealth`, through the `gh` CLI. See `docs/agents/issue-tracker.md`.
+GitHub Issues of `9GotStory/songhealth`, through the `gh` CLI. See `docs/agents/issue-tracker.md`,
+also for branch names and pull request bodies.
 
 ### Triage labels
 
