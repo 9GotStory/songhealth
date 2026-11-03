@@ -1685,7 +1685,7 @@ test("revision history: saves create distinct native revisions newest-first with
 	// current-state observation only: native history is finitely pruned
 	// (newest 50 per entry) and restore itself rewrites current state, so
 	// NOTHING here is an immutable-audit-archive or historical-preservation
-	// claim (spec.md US6.2 staging limits; D-ITA deferred).
+	// claim (spec.md US6.2 staging limits; ADR 0006 builds no historical-evidence guard).
 	const listingAfterRestore = revisionsOf(
 		await listRevisions(admin, PAGES_COLLECTION, entry.entryId!),
 	);

@@ -1,23 +1,30 @@
 # Public Search / Search & Discovery — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 08-search
-> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-first V1
-> **Version:** 2.4
-> **Last Updated:** 29 ตุลาคม 2569 (2026-10-29)
+> **Status:** CLEAN REBASELINE v2.5 — CURRENT native-first V1
+> **Version:** 2.5
+> **Last Updated:** 3 พฤศจิกายน 2569 (2026-11-03): Feature 004, ITA in V1
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`, `06-roles-permissions.md`, `07-publishing-workflow.md`
 > **Purpose:** กำหนด Public Search ที่ใช้ง่ายสำหรับประชาชนโดยใช้ search capability ของ CMS/database ก่อน และไม่สร้าง search platform แยก
 
 
 > **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
-> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
-> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
-> publication, permissions and supported validation remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan; deferral is not implementation or PASS. No upstream
-> change, new subsystem, replacement ITA workflow or production action is authorized.
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers unavailable Q3/Q4 enforcement from
+> V1. Ordinary native content/Document/Media, publication, permissions and supported validation
+> remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan;
+> deferral is not implementation or PASS. No upstream change, new subsystem or production action
+> is authorized. The same decision deferred structured ITA; Feature 004 brought ITA into V1
+> (below).
 
 > **Feature 003 finding and decision (Product Owner, 2026-10-29):** EmDash 1.1.0 native full-text
 > search runs only on SQLite. `enableSearch` refuses PostgreSQL. Songhealth keeps PostgreSQL, and
 > `/search` reads the published entries of the searchable collections through EmDash's public
 > query API when a search is made (`docs/adr/0002`). The requirements below are unchanged.
+
+> **Feature 004 decisions (Product Owner, 2026-11-02, spec #121; 2026-11-03, #125 comment
+> 6591248342):** published MOITs are searchable by their title, summary and Evidence labels (§2,
+> §5), under "ITA", the last group as #125 built it (§7), with their own tie order and result row
+> (§6, §8).
 
 ---
 
@@ -42,6 +49,7 @@ Version 1 ค้นหาเฉพาะ content ที่ตั้งใจใ�
 - Health Report
 - Document
 - selected About/Basic Page content
+- MOIT (ITA)
 
 Media ไม่เป็น standalone global-search result โดย default.
 
@@ -82,6 +90,8 @@ Short-query behavior ต้องชัดเจนใน UI. หาก search e
 
 Reference fields/relationships ไม่จำเป็นต้อง flatten เข้า search corpus หากไม่มี use case.
 
+MOIT ค้นด้วย title, summary และ "ชื่อหลักฐาน" ของ Evidence ทุกชิ้น (file และ link blocks ตามที่หน้า MOIT แสดง) โดย "ชื่อหลักฐาน" อยู่ระดับเดียวกับ body. MOIT ไม่ถูกค้นด้วย "MOIT n", ปีงบประมาณ, ถ้อยคำของ Requirement, ชื่อไฟล์ที่อัปโหลด หรือหมายเหตุ (Product Owner, 2026-11-03: #125 comment 6591248342, item 4).
+
 ---
 
 # 6. Ranking
@@ -89,6 +99,8 @@ Reference fields/relationships ไม่จำเป็นต้อง flatten �
 Version 1 ใช้ ranking ของ platform/search engine เป็น baseline พร้อม field weights/configuration เท่าที่ native capability รองรับ.
 
 Product requirement คือผลที่ match Title/Name โดยตรงควรมีประโยชน์ต่อผู้ใช้ ไม่ใช่การ Freeze score formula.
+
+MOIT ไม่มีวันที่ของรายการ (ผลอื่นที่อันดับเท่ากันเรียงตามวันที่ ใหม่ก่อน) จึงอยู่หลังผลที่มีวันที่ซึ่งอันดับเท่ากัน; MOIT ที่อันดับเท่ากันเรียงเหมือน `/ita` และหน้าปี: ปีงบประมาณใหม่ก่อน แล้วตามเลข MOIT (Product Owner, 2026-11-03: #125 comment 6591248342, item 2).
 
 ไม่สร้าง custom deterministic ranking pipeline, BM25 tuning layer, reranker หรือ ranking service ก่อน UAT.
 
@@ -113,10 +125,13 @@ Public Search Group ใช้เพื่อให้ประชาชนเข
 - หน่วยบริการ
 - เอกสาร
 - เกี่ยวกับเรา
+- ITA
 
 Group เป็น presentation/filter concept ไม่ใช่ content type ใหม่.
 
-Fiscal Year filter แสดงเฉพาะเมื่อเหมาะกับ retained Document/report context. Structured ITA search results/groups/filters are deferred with `02` §18; no legacy content is deleted by this exclusion.
+กลุ่ม ITA อยู่ท้ายสุด ประกอบด้วย MOIT และมีจำนวนผลกับ filter แบบเดียวกับกลุ่มอื่น (#125). ชื่อกลุ่มที่เป็นอักษรละตินเว้นวรรคจากคำไทย เช่น "พบ 3 รายการในกลุ่ม ITA" (Product Owner, 2026-11-03: #125 comment 6591248342, item 3).
+
+Fiscal Year filter แสดงเฉพาะเมื่อเหมาะกับ retained Document/report context; กลุ่ม ITA ไม่มี filter ปีงบประมาณ และผลของ MOIT บอกปีของตนเอง (§8).
 
 อย่าเพิ่ม filter จำนวนมากก่อนมี use case.
 
@@ -133,6 +148,8 @@ Fiscal Year filter แสดงเฉพาะเมื่อเหมาะก�
 - canonical public URL
 
 ไม่แสดง internal score, database ID, editor metadata หรือ private/internal fields.
+
+ผลของ MOIT แสดง "MOIT n • ปีงบประมาณ YYYY" แทนประเภท ตามด้วยชื่อที่ลิงก์ไป `/ita/{slug}` และ snippet จาก summary หรือ "ชื่อหลักฐาน" ที่ match; ไม่แสดงวันที่ (Product Owner, 2026-11-03: #125 comment 6591248342, item 1).
 
 ---
 

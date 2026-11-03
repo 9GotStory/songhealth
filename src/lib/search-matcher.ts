@@ -55,8 +55,7 @@ export type SearchKind = keyof typeof KIND_LABELS;
 /**
  * The result groups (`08` §7, spec #51 "Search"), in the order the page offers them, each by its
  * `group` query value and the kinds it holds; ทุกประเภท holds every kind. A group is a filter, not a
- * kind of content. ITA, the MOITs' group, follows the groups of `08` §7 (spec #121 "Public
- * routes").
+ * kind of content.
  */
 export const SEARCH_GROUPS = [
 	{ id: "all", label: "ทุกประเภท", kinds: Object.keys(KIND_LABELS) as SearchKind[] },
