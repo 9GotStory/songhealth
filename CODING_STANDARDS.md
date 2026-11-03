@@ -110,3 +110,21 @@ and why, and `.jscpd-baseline.json` records them.
   synthetic referrer (`playwright.config.ts`), so a miss whose path cannot carry the mark, such as
   a fiscal year's `/ita/2404`, still counts as the tests'. Where a native API can show the outcome
   first (a redirect list, an entry read), the test asks it before requesting the page.
+
+## Documents
+
+The current documents (`docs/website-modernization-docs/current/`) and `docs/design/` each give
+one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed for:
+
+- **Citers.** Every citation of an amended section still holds what it is cited for, wherever it
+  sits: another document, a code or test comment, a script. Grep the section's citers, such as
+  `` `02` §18 `` and `02-content-model.md`: in #127, `06` §7 still cited `02` §18 for deferred
+  guarantees after §18 became the ITA model. `tests/node/document-versions.test.ts` checks the
+  cited versions.
+- **Owners.** A rule that another section owns is pointed to, or restated with its owner's scope
+  and conditions. In #127, `02` §18 widened `03` §11's slug rule, and `05` §7 said search finds a
+  file where `08` §8 shows its MOIT.
+- **History.** The body states the current answer; history lives in the decision banners.
+- **Amendments.** A feature that amends a current document bumps its Version, names the feature
+  and the date in Last Updated, and adds a "Feature N decision (Product Owner, date)" banner after
+  the earlier ones, as Feature 003 (`c2ac189`) and Feature 004 (#127) did.
