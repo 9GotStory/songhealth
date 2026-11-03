@@ -33,7 +33,7 @@
 > **Feature 004 decision (Product Owner, 2026-11-02; spec #121, `docs/adr/0006`):** staff maintain
 > ITA in V1 as MOIT entries in the Admin group "ITA", with the native roles and workflow, the
 > new-year checklist and the precautions of §7. At least two staff are trained on them. The
-> checks in §7.1 steps 1, 3, 5, 7 and 8 come from the Admin walkthrough, where the slug,
+> checks in §7.1 steps 1, 3 and 8 come from the Admin walkthrough, where the slug,
 > "ปรับปรุงล่าสุด" and a Requirement were missed (Product Owner, 2026-11-03, #128 comment
 > 6605066482).
 
@@ -175,15 +175,15 @@ Version 1 ควร model การเลือก/ลำดับ/ช่วง�
 2. ตั้ง "ปีงบประมาณ" และตรวจให้ถูก: ระบบไม่จำกัดค่า ปีที่พิมพ์ผิด เช่น 25700 จะขึ้นเป็นการ์ดปีใหม่บน ITA landing (`/ita`). แก้ "ลำดับ MOIT" ถ้าคู่มือปีใหม่เปลี่ยนเลข
 3. ตั้ง slug ในช่อง "Slug" ของส่วน "URL & language" ที่แผงด้านข้างของหน้าแก้ไข เป็น `moit-{number}-{fiscal_year}` เช่น `moit-2-2570`; slug ที่เป็นตัวเลขล้วนอาจชนกับหน้าปี (`03` §11)
 4. แก้ "ชื่อตัวชี้วัด" (และ "สรุป" ถ้ามี) ให้ตรงถ้อยคำของคู่มือปีใหม่ และลบ "(Copy)"
-5. ลบ blocks "หลักฐาน: ไฟล์" และ "หลักฐาน: ลิงก์" ของปีก่อนทั้งหมด; คง blocks "ข้อกำหนด" ไว้ หรือแก้ให้ตรงคู่มือปีใหม่ รวมปีในชื่อข้อ. หัวของแต่ละ block บอกชนิดของ block ("ข้อกำหนด", "หลักฐาน: ไฟล์" หรือ "หลักฐาน: ลิงก์"): ดูก่อนกด "Delete block"
+5. ลบ blocks "หลักฐาน: ไฟล์" และ "หลักฐาน: ลิงก์" ของปีก่อนทั้งหมด; คง blocks "ข้อกำหนด" ไว้ หรือแก้ให้ตรงคู่มือปีใหม่
 6. เพิ่ม Evidence ของปีนี้ใต้ข้อกำหนดแต่ละข้อตาม Round ที่เผยแพร่ โดยเลือกไฟล์จาก Media Library และตั้ง "รอบการประเมิน"
-7. ตั้ง "ปรับปรุงล่าสุด" เป็นวันที่เผยแพร่ Round นี้: ค่าที่ได้มากับ Duplicate เป็นวันที่ของปีก่อน
+7. ตั้ง "ปรับปรุงล่าสุด" เป็นวันที่เผยแพร่ Round นี้
 8. ตรวจด้วย Preview ซึ่งเปิดหน้า MOIT ในแท็บใหม่ แล้วจึง Publish:
    - URL ในแถบที่อยู่มี `/ita/moit-{number}-{fiscal_year}`
    - หัวของหน้าแสดงปีงบประมาณใหม่ และ "ปรับปรุงล่าสุด" เป็นวันที่ของ Round นี้
    - ชื่อข้อกำหนดไม่มีปีของปีก่อน และหลักฐานแต่ละรายการอยู่ใต้ข้อกำหนดที่ถูกต้อง
 
-Round ถัดไปของปีเดียวกัน: เพิ่ม Evidence ของ Round นั้นใน MOIT เดิม ตั้ง "ปรับปรุงล่าสุด" ใหม่ ตรวจด้วย Preview ตามข้อ 8 แล้ว Publish.
+Round ถัดไปของปีเดียวกัน: เพิ่ม Evidence ของ Round นั้นใน MOIT เดิม ตั้ง "ปรับปรุงล่าสุด" ใหม่ แล้ว Publish.
 
 ## 7.2 Precautions
 

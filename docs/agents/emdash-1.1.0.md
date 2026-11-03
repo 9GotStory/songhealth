@@ -142,17 +142,22 @@ cited file exists and that the name carries the pinned version.
     (`@emdash-cms/admin/dist/index.js`). Advancing the setup needs `schema:manage`, which only the
     Administrator role holds (`src/astro/routes/api/admin/media-usage/activation.ts`,
     `@emdash-cms/auth/src/rbac.ts`).
-  - Indexing advances only through `POST /_emdash/api/admin/media-usage/progress`, which the
-    Admin's `/settings/media-usage` page sends in a loop while it is open and visible, until it
+  - In the Admin, indexing advances only through `POST /_emdash/api/admin/media-usage/progress`,
+    which the `/settings/media-usage` page sends in a loop while it is open and visible, until it
     reads "Media usage tracking is ready" (`src/astro/routes/api/admin/media-usage/progress.ts`,
-    `@emdash-cms/admin/dist/index.js` `requestProgress`). On the development runtime, tracking
-    was active from 2026-10-28 with 0 of 11 collections indexed until the #128 walkthrough opened
-    that page, which indexed all of them in about two seconds.
-  - While tracking is active, a schema change marks the collection's coverage stale, and the
-    warning and the banner return until that page runs again. The changes are creating, changing
-    or deleting a field (`src/schema/registry.ts` `createField`, `updateField`, `deleteField`), and
-    changing a block type that a blocks field allows (`src/schema/block-type-registry.ts`), each
-    through `src/media/usage/schema-invalidation.ts` `invalidateContentMediaUsageSchemaChange`.
+    `@emdash-cms/admin/dist/index.js` `requestProgress`). The route
+    `POST /_emdash/api/admin/media-usage/repair` also indexes every collection or one, with
+    `schema:manage`, but the Admin never calls it
+    (`src/astro/routes/api/admin/media-usage/repair.ts`, `src/media/usage/content-repair.ts`).
+  - While tracking is active, a schema change marks a collection's coverage stale, and the warning
+    and the banner return until indexing runs again, each through
+    `src/media/usage/schema-invalidation.ts` `invalidateContentMediaUsageSchemaChange`:
+    - creating, changing or deleting one of its fields (`src/schema/registry.ts` `createField`,
+      `updateField`, `deleteField`);
+    - a change to the fields of a block type that one of its blocks fields allows or retires: an
+      update of the fields (a label alone does not count), a seed's version applied, or another
+      version activated (`src/schema/block-type-registry.ts` `updateBlockType`,
+      `applySeedBlockType`, `activateVersion`, `listAffectedCollections`).
 - The storage adapter offers `exists(key)` and `download(key)`, which returns
   `{ body, contentType, size }` (`src/storage/local.ts`, `src/storage/s3.ts`).
   - A missing key throws code `NOT_FOUND`.
@@ -256,6 +261,10 @@ cited file exists and that the name carries the pinned version.
   after its title and a fresh unique slug. It needs `content:create` and the edit permission on the
   source (`src/astro/routes/api/content/[collection]/[id]/duplicate.ts`,
   `src/database/repositories/content.ts` `duplicate`).
+  - It copies every field, a staff-set date such as MOIT's `updated_on` included. It makes the
+    slug from the new title with `slugify`, which NFKC-normalizes the text, so "ำ" becomes "ํา",
+    and keeps at most 80 grapheme clusters (`src/database/repositories/content.ts`
+    `generateUniqueSlug`, `@emdash-cms/admin/dist/slugify.js`).
 - The Admin's Portable Text editor saves paragraphs, headings, bullet and numbered lists, quotes,
   code, HTML and iframe blocks, images, galleries, tables and rules. A link is a mark with an
   `href`, and there is no file block (`src/content/converters/prosemirror-to-portable-text.ts`).
@@ -275,12 +284,11 @@ cited file exists and that the name carries the pinned version.
 - The content list's row actions include Duplicate, which makes the draft copy that the duplicate
   endpoint makes: a blocks field is copied with its file values
   (`@emdash-cms/admin/dist/index.js`; observed 2026-11-02).
-- Duplicate copies every field, a staff-set date such as MOIT's `updated_on` included. It makes the
-  slug from the new title with `slugify`, which NFKC-normalizes the text, so "ำ" becomes "ํา",
-  and keeps at most 80 grapheme clusters (`src/database/repositories/content.ts` `duplicate`,
-  `generateUniqueSlug`; `@emdash-cms/admin/dist/slugify.js`). In the editor the slug is the "Slug"
-  input of the sidebar's "URL & language" section, and Preview opens the signed preview URL in a
-  new tab (`@emdash-cms/admin/dist/index.js` `handlePreview`).
+- In the content editor, an entry's slug is the "Slug" input of the sidebar's "URL & language"
+  section (`@emdash-cms/admin/dist/index.js`).
+- The editor's Preview opens the signed preview URL, built from the collection's URL pattern, in a
+  new tab (`@emdash-cms/admin/dist/index.js` `handlePreview`,
+  `src/astro/routes/api/content/[collection]/[id]/preview-url.ts`).
 
 ## Head, settings, sitemap
 
