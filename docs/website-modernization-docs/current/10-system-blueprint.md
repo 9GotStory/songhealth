@@ -1,33 +1,34 @@
 # System Blueprint — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 10-system-blueprint
-> **Status:** CLEAN REBASELINE v2.6 — CURRENT native-only publication
-> **Version:** 2.6
-> **Last Updated:** 29 ตุลาคม 2569 (2026-10-29)
+> **Status:** CLEAN REBASELINE v2.7 — CURRENT native-only publication
+> **Version:** 2.7
+> **Last Updated:** 3 พฤศจิกายน 2569 (2026-11-03): Feature 004, ITA in V1
 > **Depends On:** `00-website-foundation.md` through `09-migration-plan.md`
 > **Purpose:** กำหนด architecture ปัจจุบันที่ใช้ Astro + EmDash แบบ platform-native และเพิ่ม Songhealth-specific code เฉพาะ gap ที่พิสูจน์แล้ว
 > **Implementation Authorization:** NONE
 
 
 > **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
-> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
-> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
-> publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
-> independent review and human acceptance; deferral is not implementation or PASS. No upstream
-> change, new subsystem, replacement ITA workflow or production action is authorized.
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers unavailable Q3/Q4 enforcement from
+> V1. Ordinary native content/Document/Media, publication, permissions and supported validation
+> remain on EmDash 1.1.0. This revision awaits independent review and human acceptance; deferral
+> is not implementation or PASS. No upstream change, new subsystem or production action is
+> authorized. The same decision deferred structured ITA; Feature 004 brought ITA into V1 (below).
 
 > **Prior native Q1 decision (save-time requiredness retained; publication hook superseded):** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
 > save-time requiredness for genuinely mandatory native references. Missing such a reference need
 > not be saveable as a draft. Other incomplete drafts follow native field validation. Optional/
 > conditional relationships are not automatic publication gates where native enforcement lacks
-> adequate data. D-ITA/D-REF remain deferred; no custom reference adapter or internal-table access.
+> adequate data. D-REF remains deferred (spec #121 supersedes D-ITA); no custom reference adapter
+> or internal-table access.
 
 > **Current V1 simplification (Product Owner, 2026-10-14):** Songhealth uses native EmDash
 > field/type/required-reference/cardinality checks at save and native RBAC/lifecycle at
 > Publish/Schedule. No Songhealth-specific publication validation hook, editorial review,
 > approval queue or confirmation step. Incomplete optional content may publish under
 > native permissions; editorial completeness is the publisher's responsibility.
-> D-ITA/D-REF remain deferred; this decision is not runtime acceptance.
+> D-REF remains deferred (spec #121 supersedes D-ITA); this decision is not runtime acceptance.
 
 > **Feature 003 decisions (Product Owner, 2026-10-29):**
 > - EmDash 1.1.0 full-text search is SQLite-only. On PostgreSQL, public search reads published
@@ -35,6 +36,10 @@
 > - Public presentation uses Tailwind CSS v4 with the Figma Homepage Concept v1 tokens
 >   (`docs/adr/0001`).
 > - `/dashboard` is deferred from V1 (`03` §9).
+
+> **Feature 004 decision (Product Owner, 2026-11-02; spec #121, `docs/adr/0006`):** ITA is in V1
+> on the same foundation: a native collection with a blocks field, block types applied by the
+> model-update step, and no subsystem (§15).
 
 ---
 
@@ -207,9 +212,9 @@ create/save, and native publish/schedule checks. **No custom publication-validat
 plugin, `content:beforePublish` or `content:beforeSchedule` hook is planned.**
 Optional fields/taxonomies are staff editorial responsibilities, not custom
 publication blockers. Native errors remain real refusals. Cross-record
-availability/removal and historical guarantees remain D-REF/D-ITA.
+availability/removal guarantees remain D-REF; ITA builds no historical guarantee (§15).
 
-Domain metadata เช่น announcement expiry, health-service operational status และ document successor/expiry ไม่กลายเป็น universal CMS workflow states. Structured ITA historical semantics are deferred from V1 (§15).
+Domain metadata เช่น announcement expiry, health-service operational status และ document successor/expiry ไม่กลายเป็น universal CMS workflow states. ปีงบประมาณของ MOIT เป็น field ไม่ใช่ workflow state (§15).
 
 ---
 
@@ -302,16 +307,15 @@ Homepage เป็น Astro presentation ที่อ่าน canonical CMS dat
 
 ---
 
-# 15. ITA — Deferred from V1
+# 15. ITA
 
-Structured yearly ITA collections/relations, immutable/historically preserved evidence and its
-correction/retention guarantees are outside the reduced V1 scope (`02` §18). No ITA application,
-snapshot/media subsystem, custom workflow or upstream change is pursued. Ordinary Document/Media
-reuse remains and must not be advertised as historical evidence enforcement.
+ITA อยู่ใน V1 ตั้งแต่ Feature 004 บน foundation เดียวกัน (Astro + EmDash 1.1.0 + PostgreSQL, native local-media mount, rootless Podman/Quadlet production contract) ตาม `docs/adr/0006`:
 
-The canonical Astro + EmDash 1.1.0 + PostgreSQL foundation, native local-media mount and rootless
-Podman/Quadlet production contract are preserved. A later ITA re-entry needs explicit approved
-scope and supported capability evidence; no alternate foundation is authorized here.
+- collection `moit` ที่มี blocks field และ block types `ita_requirement`, `ita_file` และ `ita_link` อยู่ใน seed (`02` §18). Model-update step สร้าง block type ที่ยังไม่มีและ update block type ที่เปลี่ยนตาม fingerprint แต่ไม่ลบ เพราะ EmDash 1.1.0 ไม่มี route ลบ block type; block type ที่เลิกใช้จึงคงอยู่ และถูกเอาออกจาก allowed types ของ field. Verify ตรวจ collection, fields, allowed types และ block types
+- `/ita`, `/ita/{fiscal-year}` และ `/ita/{slug}` เป็น Astro pages ที่อ่าน published MOITs ผ่าน EmDash query functions (§9); การจัดกลุ่ม Evidence เป็น feature-local helper ที่ไม่อ่านไฟล์ และหน้า MOIT ตรวจว่าไฟล์ serve ได้แบบเดียวกับไฟล์ของ Document
+- Search อ่าน MOIT ขณะค้นหาเหมือน collection อื่น (§10) และดึงชื่อ Evidence จาก blocks ด้วย helper เดียวกัน เพราะ EmDash `extractPlainText` ไม่อ่าน blocks field
+- ไฟล์ Evidence อยู่ใน native Media Library; PDF เป็น attachment ตามที่ EmDash serve
+- ไม่มี ITA application, plugin, snapshot/media subsystem, historical-evidence guard, custom workflow หรือ upstream change
 
 ---
 
@@ -426,7 +430,7 @@ Runtime/configuration contract ปัจจุบันของ Songhealth ค�
 - role assignment scenarios
 - scheduling/preview smoke tests
 - Thai search UAT
-- Homepage and retained V1 content behavior; structured ITA historical-evidence acceptance is deferred
+- Homepage, ITA and retained V1 content behavior; ITA has no historical-evidence guarantee to test (`docs/adr/0006`)
 - migration mapping and old-URL redirects
 - production build/start
 - rootless Podman + Quadlet deployment smoke test
@@ -492,7 +496,7 @@ Version 1 ไม่มี baseline requirement สำหรับ:
 - Public search: **request-time read of published content through EmDash query functions (native FTS is SQLite-only; ADR 0002)**
 - Custom Search Projection: **NO**
 - Native relations/media/redirects: **YES, with documented native limitations; no Q3/Q4 enforcement claim**
-- Structured ITA historical evidence: **DEFERRED from V1**
+- ITA: **YES (Feature 004): a native collection with a blocks field (`docs/adr/0006`); no historical-evidence guard**
 - Published-required-reference removal veto / cross-record atomicity: **DEFERRED from V1**
 - Upstream-change pursuit / upgrade / vendor patch / custom history or relationship-locking subsystem: **NO**
 - Runtime configuration contract: **native `PG*` PostgreSQL inputs + `EMDASH_MIGRATION_DATABASE_URL` migration connection + `EMDASH_SITE_URL` + `HOST`/`PORT` + `EMDASH_ENCRYPTION_KEY`; runtime and migration inputs identify the same intended database**

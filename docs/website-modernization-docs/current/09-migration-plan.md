@@ -1,18 +1,25 @@
 # Migration Plan — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 09-migration-plan
-> **Status:** CLEAN REBASELINE v2.3 — CURRENT native-first V1
-> **Version:** 2.3
-> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
+> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-first V1
+> **Version:** 2.4
+> **Last Updated:** 3 พฤศจิกายน 2569 (2026-11-03): Feature 004, ITA in V1
 > **Depends On:** `00-website-foundation.md` through `08-search.md`
 > **Purpose:** กำหนดการย้ายจาก Legacy WordPress เข้าสู่ Songhealth ใหม่โดยใช้ importer ของ CMS ก่อน และเพิ่ม custom migration code เฉพาะ semantic gaps
 
 
 > **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
-> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
-> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
-> publication, permissions and supported validation remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan; deferral is not implementation or PASS. No upstream
-> change, new subsystem, replacement ITA workflow or production action is authorized.
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers unavailable Q3/Q4 enforcement from
+> V1. Ordinary native content/Document/Media, publication, permissions and supported validation
+> remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan;
+> deferral is not implementation or PASS. No upstream change, new subsystem or production action
+> is authorized. The same decision deferred structured ITA; Feature 004 brought ITA into V1
+> (below).
+
+> **Feature 004 decision (Product Owner, 2026-11-02; spec #121):** ITA is in V1, starting with
+> fiscal year 2570's 12-month Round. Feature 005, the WordPress migration, maps the legacy years
+> 2567–2569 and 2570's 6-month Round into MOIT entries with Evidence blocks, and settles ANOM-001,
+> ANOM-004 and ANOM-005 (§5, §12).
 
 ---
 
@@ -89,7 +96,7 @@ Legacy content map ตาม public meaning เช่น:
 - evergreen health knowledge → Health Content
 - reusable PDF/form/report → Document
 - office/facility/personnel structured data → corresponding structured collection
-- ITA evidence → **deferred mapping**, not a V1 target hierarchy; preserve source evidence pending a separately approved scope/cutover decision
+- ITA posts ปี 2567–2569 และรอบ 6 เดือนของปี 2570 → MOIT หนึ่ง entry ต่อ MOIT ต่อปีงบประมาณ (`02` §18) โดย map Evidence เป็น blocks (ข้อกำหนด, หลักฐาน: ไฟล์, หลักฐาน: ลิงก์) และแก้ defects ที่ `docs/research/legacy-ita.md` บันทึกไว้ตอน import แทนการ copy posts: Feature 005
 - leftover standalone prose → Basic Page only when no structured model fits
 
 Native importer mappingใช้ได้เฉพาะเมื่อ target semantics ตรง. Custom conversion script/source เพิ่มเฉพาะกลุ่มที่ต้อง decompose/transform จริง.
@@ -195,10 +202,9 @@ Use target CMS native redirects/404 log first.
 
 ระดับความเสี่ยงเดิมเป็น migration evidence; การแก้แต่ละรายการต้องไม่ขยาย Product modelโดยเงียบ ๆ.
 
-ITA-specific anomalies remain unresolved source-evidence exceptions, not closed/PASS by deferral.
-No legacy ITA binary, URL or public year is deleted/migrated/withdrawn by Feature 002's scope
-reconciliation. Any later trial/cutover must obtain explicit disposition of deferred ITA material
-and continuity obligations; reduced V1 acceptance cannot silently dispose of that evidence.
+ANOM-001, ANOM-004 และ ANOM-005 ได้รับ disposition ใน Feature 005 ซึ่ง map Evidence ของ ITA เดิมเข้า MOIT blocks; Feature 004 ไม่ปิดรายการเหล่านี้.
+ก่อน Feature 005 ไม่มีการลบ ย้าย หรือถอน binary, URL หรือปีของ ITA เดิม และรอบ 6 เดือนของปี 2570 ยังอยู่บนเว็บไซต์เดิม.
+Trial/cutover ต้องได้ disposition ที่ชัดเจนของ ITA เดิมและ URL continuity ก่อน.
 
 ---
 
@@ -269,7 +275,7 @@ Target CMS native importerไม่จำเป็นต้อง solveทุก
 
 - source dataต้อง split/merge into multiple target collections
 - plugin/ACF structureต้อง transform
-- ITA relation mapping is deferred from V1; it is not authorization for custom conversion code or generic-page substitution
+- ITA posts ที่ต้องแตก Evidence เป็น MOIT blocks (§5); Feature 005 เลือกเครื่องมือ และไม่ใช้ generic page แทน
 - legacy date/statusต้อง deriveจาก evidenceอื่น
 
 Custom codeควรเป็น temporary migration tooling ไม่ใช่ permanent application layer.

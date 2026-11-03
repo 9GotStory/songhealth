@@ -28,8 +28,9 @@ These were decided in #51 and the current docs.
   Directory) and "คู่มือและแบบฟอร์ม" (Documents) are not Services.
 - **Health Information:** the latest 4 Health Content items, each labelled with its first topic,
   in the topic-card style. The frame shows Health Topics instead.
-- **Quick Access and navigation:** no ITA and no Dashboard (both deferred). Quick Access items
-  come from its menu and show a label and an arrow only.
+- **Quick Access and navigation:** no Dashboard (deferred). ITA, which the frame shows in both,
+  is the main navigation's last item since Feature 004 (#124), and a Quick Access item may lead
+  to it. Quick Access items come from its menu and show a label and an arrow only.
 - **Contrast fixes:**
   - text-secondary on surface-soft becomes text-secondary-on-soft (the Contact Summary lead);
   - the search and Health Service Discovery inputs use border-input as their boundary.
@@ -196,8 +197,8 @@ These were decided in #51 and the current docs.
   - label: H3, text-primary, with "→" in H3 brand-primary at the right;
   - the frame's Small text-secondary subtitle is not built.
 - **Figma cards:**
-  - kept: เอกสารเผยแพร่, ข้อมูลสุขภาพ;
-  - deferred: ITA, Dashboard.
+  - kept: เอกสารเผยแพร่, ข้อมูลสุขภาพ, and ITA since Feature 004 (#124);
+  - deferred: Dashboard.
 
 ### 11. Contact Summary
 

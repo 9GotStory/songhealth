@@ -1,32 +1,38 @@
 # Content Model — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 02-content-model
-> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-only publication
-> **Version:** 2.4
-> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
+> **Status:** CLEAN REBASELINE v2.5 — CURRENT native-only publication
+> **Version:** 2.5
+> **Last Updated:** 3 พฤศจิกายน 2569 (2026-11-03): Feature 004, ITA in V1
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`
 > **Purpose:** กำหนด semantic resources, fields และ relationships ที่ Songhealth ต้องการ โดยไม่สร้าง model ซ้ำกับ native CMS resources
 
 
 > **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
-> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
-> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
-> publication, permissions and supported validation remain on EmDash 1.1.0. This revision awaits
-> independent review and human acceptance; deferral is not implementation or PASS. No upstream
-> change, new subsystem, replacement ITA workflow or production action is authorized.
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers unavailable Q3/Q4 enforcement from
+> V1. Ordinary native content/Document/Media, publication, permissions and supported validation
+> remain on EmDash 1.1.0. This revision awaits independent review and human acceptance; deferral
+> is not implementation or PASS. No upstream change, new subsystem or production action is
+> authorized. The same decision deferred structured ITA; Feature 004 brought ITA into V1 (below).
 
 > **Prior native Q1 decision (save-time requiredness retained; publication hook superseded):** Product Owner comment `01a13788-95c6-72f5-8787-f86b4e0c5fd6` adopts EmDash 1.1.0
 > save-time requiredness for genuinely mandatory native references. Missing such a reference need
 > not be saveable as a draft. Other incomplete drafts follow native field validation. Optional/
 > conditional relationships are not automatic publication gates where native enforcement lacks
-> adequate data. D-ITA/D-REF remain deferred; no custom reference adapter or internal-table access.
+> adequate data. D-REF remains deferred (spec #121 supersedes D-ITA); no custom reference adapter
+> or internal-table access.
 
 > **Current V1 simplification (Product Owner, 2026-10-14):** Songhealth uses native EmDash
 > field/type/required-reference/cardinality checks at save and native RBAC/lifecycle at
 > Publish/Schedule. No Songhealth-specific publication validation hook, editorial review,
 > approval queue or confirmation step. Incomplete optional content may publish under
 > native permissions; editorial completeness is the publisher's responsibility.
-> D-ITA/D-REF remain deferred; this decision is not runtime acceptance.
+> D-REF remains deferred (spec #121 supersedes D-ITA); this decision is not runtime acceptance.
+
+> **Feature 004 decision (Product Owner, 2026-11-02; spec #121, `docs/adr/0006`):** the V1
+> content model gains MOIT (§18): one entry per MOIT per fiscal year, with its Requirements and
+> Evidence in a blocks field. No historical-evidence guard is built. Spec #121 supersedes Feature
+> 002's FR-014 to FR-017 and D-ITA; `specs/002-cms-content-model/` stays a record.
 
 ---
 
@@ -277,7 +283,7 @@ Fields:
 - successor/current-version relation optional
 - status/context metadataเมื่อ domainต้องการ เช่น superseded/expired
 
-Document reuse ได้ใน About, Service, Health Report และ Announcement. ITA evidence reuse belongs to the deferred structured-ITA scope (§18).
+Document reuse ได้ใน About, Service, Health Report และ Announcement. ITA Evidence ไม่ใช่ Document: file block ของ MOIT เลือกไฟล์จาก Media Library โดยตรง และไฟล์ที่ใช้ทุกปี เช่น กฎหมายหรือประมวลจริยธรรม ใช้ไฟล์เดิมจาก library ซ้ำได้ (§18).
 
 Do not duplicate the same authoritative file merely because it appears in multiple contexts. Native reuse shares the current source; it does not freeze historical bytes or metadata. Native replacement/deletion may affect those consumers; immutable targets and published-reference removal vetoes are deferred (§20).
 
@@ -358,36 +364,57 @@ Database/API/process topologyของ Dashboardอยู่นอก Content Mo
 
 ---
 
-# 18. ITA — Deferred from V1
+# 18. ITA
 
-Structured Fiscal Year → Section/MOIT → Requirement/Item → ordered Document/media/URL Evidence
-is deferred as a whole from the reduced V1 content model. No ITA collections, selectors,
-historical correction workflow, dedicated Admin workspace or associated acceptance fixtures are
-required in V1. Do not substitute Basic Page or ordinary Document reuse for historical guarantees.
+หลักฐานการประเมิน MOPH ITA ของแต่ละปีงบประมาณ ตาม Feature 004 (spec #121) และ `docs/adr/0006`. คำศัพท์ตาม `GLOSSARY.md`: ITA, MOIT, Requirement, Evidence, Round.
 
-Deferred requirements retain their meaning: year-specific configurable structure/order, reusable
-targets, public retention of published years without automatic expiry, no silent changes under
-current/shared edits, and authorized traceable deliberate correction identifying prior/replacement
-targets. Labels/order and the original Q1 ITA field rules remain future-scope requirements, not
-current V1 validation obligations. No automatic evidence carry-forward or compliance engine.
+MOIT คือ **one entry per MOIT per fiscal year** ใน collection เดียว (Admin group "ITA") ที่รองรับ drafts, revisions, preview, scheduling และ SEO แบบ Document; URL pattern `/ita/{slug}`.
 
-The existing logical attributes remain traceable for that deferred scope, without selecting storage:
+Fields (ชื่อใน Admin อยู่ในวงเล็บ):
 
-| Deferred resource | Preserved meaning / attributes |
+- Title ("ชื่อตัวชี้วัด"): ชื่อตัวชี้วัดตามถ้อยคำของคู่มือปีนั้น โดยไม่มีคำนำหน้า "MOIT n"
+- Fiscal Year ("ปีงบประมาณ"): ปีงบประมาณ พ.ศ. เป็นจำนวนเต็ม
+- Number ("ลำดับ MOIT"): เลข MOIT เป็นจำนวนเต็ม
+- Summary optional ("สรุป"): หนึ่งถึงสองประโยคใต้ชื่อ
+- Last Updated optional ("ปรับปรุงล่าสุด"): วันที่ที่เจ้าหน้าที่ตั้งเมื่อเผยแพร่แต่ละ Round เพราะ native timestamps ไม่บอกว่า live version เปลี่ยนเมื่อไร
+- Evidence ("ข้อกำหนดและหลักฐาน"): blocks field ไม่เกิน 100 blocks จาก block types ด้านล่าง
+
+Title, Fiscal Year และ Number จำเป็น.
+
+Block types (หมวด "ITA" ใน block picker):
+
+| Block | Fields |
 | --- | --- |
-| Fiscal Year | Fiscal year; optional title/description; display order; native publication lifecycle |
-| Section / MOIT | Code, title, optional description, display order; belongs to Fiscal Year |
-| Requirement / Item | Code/number, title, description, display order; belongs to Section |
-| Evidence item | One Document, native media or external URL target; optional label/order; no required standalone route or minimum evidence count |
+| ข้อกำหนด (Requirement) | "ข้อ" เช่น "1" หรือ "1.1"; "ชื่อข้อกำหนด" |
+| หลักฐาน: ไฟล์ (Evidence) | "ชื่อหลักฐาน"; "ไฟล์" จาก Media Library; "รอบการประเมิน"; "หมายเหตุ" optional เช่น เดือนที่ไฟล์ครอบคลุม |
+| หลักฐาน: ลิงก์ (Evidence) | "ชื่อหลักฐาน"; "ที่อยู่เว็บ"; "รอบการประเมิน"; "ข้อมูลปัจจุบัน (เปลี่ยนตามเวลา)" สำหรับลิงก์ไปหน้าที่แสดงข้อมูลของวันนี้ |
 
-The hierarchy may vary by year. Existing Document reuse remains a future possibility, not proof
-that current-source media/metadata can satisfy preserved historical targets.
+ทุก field ของ block จำเป็น ยกเว้น "หมายเหตุ" และ "ข้อมูลปัจจุบัน (เปลี่ยนตามเวลา)". Round ("รอบการประเมิน") เป็น select ที่ต้องมีค่า: "ไม่ระบุรอบ" (ค่าเริ่มต้น), "รอบ 6 เดือน" หรือ "รอบ 12 เดือน"; มี "ไม่ระบุรอบ" เพราะ Admin ล้างค่า select ที่เลือกแล้วไม่ได้.
 
-EmDash 1.1.0 replacement can overwrite a shared media key; content revisions do not preserve those
-bytes. Published-required-target removal/atomicity cannot be assumed. These guarantees are neither
-implemented nor passed. Re-entry needs a separate Product/Architecture decision and supported
-capability evidence. Existing legacy/public ITA material is not deleted, migrated or assigned a
-replacement delivery policy by this deferral. See Feature 002 spec deferred register D-ITA/D-REF.
+Grouping rule (หน้าเว็บและ search ใช้กฎเดียวกัน):
+
+- Requirement block เปิดกลุ่ม และ Evidence blocks ที่ตามมาอยู่ในกลุ่มนั้น
+- Requirement ที่เลขมีจุด เช่น "1.1" เป็น Requirement ย่อยของ Requirement ล่าสุดที่เลขไม่มีจุด; Requirement ย่อยที่ไม่มี Requirement แบบนั้นอยู่ก่อนเป็นกลุ่มของตนเอง
+- จุดท้ายเลขเป็นเครื่องหมายวรรคตอน: "1." คือ "1"
+- Evidence ก่อน Requirement แรกแสดงก่อน โดยไม่อยู่ในกลุ่มใด
+- block ของ type อื่นไม่แสดง
+
+Slug: `moit-{number}-{fiscal_year}` เช่น `moit-2-2570` ที่เจ้าหน้าที่ตั้ง เพราะ slug ไม่ซ้ำภายใน collection และ URL pattern resolve entry ด้วย slug อย่างเดียว. หน้าเว็บอ่านเลขและปีจาก fields ดังนั้น slug ที่ไม่ตาม convention ยังใช้ได้ ยกเว้น slug ที่เป็นตัวเลขล้วน (`03` §11).
+
+ชื่อหลักฐานบอกบริบทของตนเอง คือเลขข้อและสิ่งที่ไฟล์เป็น เช่น "1.2 ฟอร์มเผยแพร่ …": หัว block ใน Admin แสดงชื่อนี้ และ search หา Evidence ด้วยชื่อนี้ (`08` §5).
+
+ไม่มี taxonomy, relation, year record หรือ entry ต่อ Evidence.
+
+The ITA attributes Feature 002 recorded, re-mapped:
+
+| Feature 002 resource | V1 |
+| --- | --- |
+| Fiscal Year | Fiscal Year field ของ MOIT; รายการปีสร้างจาก MOIT ที่เผยแพร่ ไม่มี record หรือ display order ของตนเอง |
+| Section / MOIT | MOIT entry: Number, Title, Summary; เรียงตาม Number |
+| Requirement / Item | ข้อกำหนด block: เลขข้อและชื่อ; เรียงตามลำดับ block |
+| Evidence item | หลักฐาน: ไฟล์ block (ไฟล์จาก Media Library) หรือ หลักฐาน: ลิงก์ block (URL): ชื่อหลักฐานและ Round; เรียงตามลำดับ block; ไม่มี route ของตนเอง |
+
+Guarantees (`docs/adr/0006`): ไม่มี historical-evidence guard. EmDash 1.1.0 replace เขียนทับไฟล์เดิม ลบ media ได้แม้ถูกใช้อยู่ และ revisions ถูก prune ดังนั้น V1 ใช้ข้อควรระวังของเจ้าหน้าที่ (`05` §7), แท็บ "Used in" ของ Media Library, revisions, Admin change log (`docs/adr/0005`) และ backups แทน. ไฟล์ที่หายแสดงสถานะไม่พร้อมให้บริการแบบเดียวกับไฟล์ของ Document. ไม่มี write-once media, usage lock, snapshot, retained revisions, scoring หรือ compliance engine.
 
 ---
 
@@ -407,7 +434,7 @@ Health Report ── Document
 
 ```
 
-News/Activity/etc. add relations only where real discovery/reuse needs them. The ITA hierarchy/evidence relationships are deferred (§18), not V1 relation obligations.
+News/Activity/etc. add relations only where real discovery/reuse needs them. ITA has no relations: a MOIT holds its Requirements and Evidence as blocks (§18).
 
 ---
 
@@ -442,7 +469,7 @@ permissions remain binding.
 
 Native references and media are not immutable. A selection does not guarantee
 availability under concurrent/later target changes. D-REF cross-record availability/
-removal veto and D-ITA historical evidence guarantees remain deferred. Public reads
+removal veto remains deferred, and ITA has no historical-evidence guarantee (§18). Public reads
 exclude draft targets and safely omit unavailable links/files. Staff may manually
 inspect reuse; this is not an automated dependency lock.
 
@@ -510,8 +537,8 @@ Canonical Songhealth semantic collectionsสำหรับ Version 1 มีแ�
 - Service
 - Document
 - Health Report
-- ITA structural resources and historical evidence: **deferred from V1** (§18)
+- MOIT (ITA, §18)
 
-Area and current-assignment representationเลือก primitive ที่เล็กที่สุดตอน implementation planning. ITA evidence storage is not selected or built in V1; §23 still applies if that deferred scope is separately reopened.
+Area and current-assignment representationเลือก primitive ที่เล็กที่สุดตอน implementation planning. ITA Evidence อยู่ใน blocks ของ MOIT และไฟล์อยู่ใน native Media Library (§18).
 
 > **Model meaning; reuse platform primitives; do not model infrastructure twice.**

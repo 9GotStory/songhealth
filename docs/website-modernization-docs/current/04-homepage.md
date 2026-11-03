@@ -1,15 +1,18 @@
 # Homepage — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 04-homepage
-> **Status:** CLEAN REBASELINE v2.3 — CURRENT
-> **Version:** 2.3
-> **Last Updated:** 29 ตุลาคม 2569 (2026-10-29)
+> **Status:** CLEAN REBASELINE v2.4 — CURRENT
+> **Version:** 2.4
+> **Last Updated:** 3 พฤศจิกายน 2569 (2026-11-03): Feature 004, ITA in V1
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`
 > **Purpose:** กำหนด homepage information priority, sections, curation, responsive/accessibility behavior โดยไม่กำหนด component implementation หรือสร้าง homepage CMS subsystem
 
 > **Feature 003 decision (Product Owner, 2026-10-29):** the Homepage includes a staff-maintained
 > Quick Access section (§10.1) before the Contact Summary. Quick Access repeats navigation by
 > design. It creates no content and no second sitemap.
+
+> **Feature 004 decision (Product Owner, 2026-11-02; spec #121):** Quick Access may point to ITA
+> (§10.1). ITA gets no Homepage section of its own.
 
 ---
 
@@ -178,7 +181,7 @@ Link ไป canonical Activity route.
 
 - staff ดูแลรายการและลำดับเองผ่าน native CMS primitive; composition เป็น evidence-driven value (`01` §17)
 - ซ้ำกับ navigation ได้โดยตั้งใจ; ไม่สร้าง content หรือ sitemap ชุดที่สอง
-- ไม่ใช้เป็นทางเข้า scope ที่ deferred เช่น ITA หรือ Dashboard
+- ชี้ไปหน้า ITA (`/ita`) ได้ แต่ ITA ไม่มี Homepage section ของตนเอง; ไม่ใช้เป็นทางเข้า scope ที่ deferred เช่น Dashboard
 - section ซ่อนเมื่อไม่มีรายการ (§17)
 
 ---

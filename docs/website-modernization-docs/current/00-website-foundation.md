@@ -1,19 +1,27 @@
 # Website Foundation — สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 00-website-foundation
-> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-first V1
-> **Version:** 2.4
-> **Last Updated:** 29 ตุลาคม 2569 (2026-10-29)
+> **Status:** CLEAN REBASELINE v2.5 — CURRENT native-first V1
+> **Version:** 2.5
+> **Last Updated:** 3 พฤศจิกายน 2569 (2026-11-03): Feature 004, ITA in V1
 > **Purpose:** เอกสารหลักสำหรับบันทึกหลักการ ขอบเขต และ Architecture Decisions ระดับ Foundation ที่เอกสาร Information Architecture, Content Model, Sitemap, CMS และ System Blueprint ต้องยึดร่วมกัน
 > **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
 > **Technology Ownership:** `00–09` define Product/behavior requirements; technology/runtime decisions belong to `10-system-blueprint.md`.
 
 
 > **V1 scope decision:** Product Owner comment `01a135e9-23e0-78c3-bcea-c752516828a8`
-> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers structured ITA historical-evidence
-> management and unavailable Q3/Q4 enforcement from V1. Ordinary native content/Document/Media,
-> publication, permissions and supported validation remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan; deferral is not implementation or PASS. No upstream
-> change, new subsystem, replacement ITA workflow or production action is authorized.
+> (2026-10-13, Songhealth Feature 002 Plan Phase 0) defers unavailable Q3/Q4 enforcement from
+> V1. Ordinary native content/Document/Media, publication, permissions and supported validation
+> remain on EmDash 1.1.0. The reduced V1 scope is reflected in the reviewed Feature 002 Plan;
+> deferral is not implementation or PASS. No upstream change, new subsystem or production action
+> is authorized. The same decision deferred structured ITA; Feature 004 brought ITA into V1
+> (below).
+
+> **Feature 004 decision (Product Owner, 2026-11-02; spec #121, `docs/adr/0006`):** ITA is in V1.
+> Each MOIT of a fiscal year is one entry that holds its Requirements and Evidence as blocks, and
+> the ITA pages are built from the published entries (§7.10). No historical-evidence guard is
+> built: staff precautions and native records stand in for it. Spec #121 supersedes Feature 002's
+> FR-014 to FR-017 and D-ITA.
 
 ---
 
@@ -496,7 +504,7 @@ Online Service เป็นเพียงหนึ่งในช่องท�
 
 โครงสร้างข้อมูลภายในสามารถมีความสัมพันธ์และมาตรฐานที่ดีได้ โดยไม่ควรทำให้ Workflow ของเจ้าหน้าที่ซับซ้อนตามไปด้วย
 
-V1 example: staff select one existing Document from an Announcement or Service through native selectors. Structured ITA upload/evidence maintenance is deferred (§7.10); ordinary reuse does not guarantee historical immutability.
+V1 example: staff select one existing Document from an Announcement or Service through native selectors, and pick each ITA Evidence file from the Media Library inside a MOIT's block (§7.10); ordinary reuse does not guarantee historical immutability.
 
 > **Architecture can be structured without making the workflow complicated.**
 
@@ -506,7 +514,7 @@ V1 example: staff select one existing Document from an Announcement or Service t
 
 CMS และระบบข้อมูลเชิงวิเคราะห์มีหน้าที่ต่างกัน จึงต้องรักษาขอบเขตความรับผิดชอบให้ชัดเจน
 
-- CMS รับผิดชอบ Content, Directory, Services, Documents และ native Media ใน V1; structured ITA history/evidence is deferred
+- CMS รับผิดชอบ Content, Directory, Services, Documents, ITA (MOIT และ Evidence ของแต่ละปีงบประมาณ) และ native Media ใน V1
 - Dashboard / Data Platform รับผิดชอบ Metrics, Time Series, KPI และ Analytical Data
 - การนำเสนอสามารถอยู่ในเว็บไซต์เดียวกันได้ แต่ไม่ควรบังคับให้ใช้ Data Model หรือ Database เดียวกัน
 
@@ -572,7 +580,7 @@ Version 1 ควรประกอบด้วย Module หลักดัง�
 7. Document Center
 8. Health Information
 9. Citizen Services
-10. ITA / คุณธรรมและความโปร่งใส — **deferred from V1** (§7.10)
+10. ITA / คุณธรรมและความโปร่งใส — Feature 004 (§7.10)
 11. Contact & Digital Channels
 12. Admin CMS
 
@@ -762,18 +770,24 @@ Health Information
 
 Public UX สามารถนำสิ่งเหล่านี้มาแสดงร่วมกันใน “บริการประชาชน” ได้ แต่ไม่ควรสร้างเป็น Service Entity ทั้งหมด
 
-### 7.10 ITA / คุณธรรมและความโปร่งใส — Deferred from V1
+### 7.10 ITA / คุณธรรมและความโปร่งใส
 
-The structured Fiscal Year → MOIT/Section → Requirement/Item → Evidence model and its historical
-public retention, immutable-target/preservation and traceable correction guarantees are deferred
-from the reduced V1 scope. They are not implemented/passed by ordinary Document/Media reuse,
-native revisions or staff maintenance precautions. No ITA workspace/upload journey, generic-page
-substitute, snapshot subsystem or upstream change is required in V1.
+เว็บไซต์เผยแพร่หลักฐานการประเมินคุณธรรมและความโปร่งใส (MOPH ITA) ของสำนักงานในแต่ละปีงบประมาณ ตาม Feature 004 (spec #121) และ `docs/adr/0006` โดยเริ่มจากรอบ 12 เดือนของปีงบประมาณ 2570:
 
-Future ITA requirements remain year-configurable structure, reusable Document/media/URL evidence,
-no automatic carry-forward and preserved historical context. Re-entry requires a separate accepted
-scope/capability decision. See `02-content-model.md` §18 and Feature 002 D-ITA/D-REF for traceability.
-This deferral authorizes no deletion, migration, withdrawal or cutover of existing public ITA material.
+- หนึ่ง MOIT ของหนึ่งปีงบประมาณเป็นหนึ่ง entry ที่มีปีงบประมาณและเลข MOIT เป็น field; ไม่มี year record และไม่มีเมนูที่ต้องแก้ทุกปี เพราะหน้ารวม ITA และหน้าของแต่ละปีสร้างจาก MOIT ที่เผยแพร่แล้ว
+- Requirement และ Evidence เป็น blocks ใน MOIT นั้น: Requirement block ตามด้วย Evidence ของข้อนั้น ซึ่งเป็นไฟล์ที่เลือกจาก Media Library หรือลิงก์ และแต่ละชิ้นระบุ Round (`02` §18)
+- ปีใหม่เริ่มจากการ Duplicate MOIT ของปีก่อน แล้วแก้ปี slug และชื่อ และล้าง Evidence ของปีก่อนก่อนเผยแพร่ ตาม checklist ใน `05` §7
+- ITA อยู่ในเมนูหลัก (`03` §2, §11) และ MOIT ค้นหาได้ใน `/search` (`08`)
+- ไม่มีระบบให้คะแนน ไม่มี compliance engine และไม่มี approval chain ของ ITA
+
+V1 ไม่สร้าง historical-evidence guard (write-once media, usage lock, snapshot หรือ retained revisions) แต่ใช้ข้อควรระวังของเจ้าหน้าที่และ native records แทน:
+
+- ไฟล์ Evidence ที่เผยแพร่แล้วไม่ถูก replace หรือลบ; การแก้ไขคือไฟล์ใหม่
+- ตรวจแท็บ "Used in" ของ Media Library ก่อนลบ media item
+- revisions, Admin change log (`docs/adr/0005`) และ backups บันทึกว่าอะไรเปลี่ยน
+- ไฟล์ที่ serve ไม่ได้แสดงสถานะไม่พร้อมให้บริการแบบเดียวกับไฟล์ของ Document
+
+ปี 2567–2569 และรอบ 6 เดือนของปี 2570 อยู่บนเว็บไซต์เดิมจนกว่า Feature 005 (`09`) จะย้ายมา; ก่อนนั้นไม่มีการลบหรือย้ายข้อมูล ITA เดิม.
 
 ---
 
@@ -905,8 +919,8 @@ Admin Dashboard
 บริการประชาชน
 └── Service Catalog
 
-Deferred future scope: ITA
-└── Fiscal Year / Section / Requirement / Evidence (not V1 Admin)
+ITA
+└── MOIT (หนึ่ง entry ต่อ MOIT ต่อปีงบประมาณ; Requirement และ Evidence เป็น blocks)
 
 Media Library
 └── รูปภาพ / Logo / Visual Assets
@@ -1040,7 +1054,7 @@ Legacy WordPress audit และการย้ายข้อมูลถูก
 - Dashboard / Analytical Data เป็น Data Domain แยกจาก CMS และสามารถนำเสนอผ่าน `/dashboard`
 - Public Content/CMS และ Dashboard ต้องมี data ownership และ access boundary แยกกัน; exact physical database topology เป็นเรื่องของ System Blueprint/ระบบ Dashboard
 - Dashboard integration ใช้ bounded interface ที่มี ownership ชัดเจน และไม่ใช้ CMS/Public Content persistence เป็น Analytical Data Source หลัก
-- Structured yearly ITA evidence and historical-preservation guarantees are deferred from V1 (§7.10)
+- ITA อยู่ใน V1 (Feature 004): หนึ่ง MOIT entry ต่อ MOIT ต่อปีงบประมาณ, Evidence เป็น blocks, ไม่มี historical-evidence guard แต่ใช้ข้อควรระวังของเจ้าหน้าที่และ native records (§7.10, `docs/adr/0006`)
 - Ordinary native Document/Media reuse remains; no immutable targets, required-reference deletion vetoes or cross-record atomicity is claimed
 - No upstream EmDash change or custom history/media/relationship-locking subsystem is pursued
 - Basic Page ใช้เฉพาะเมื่อไม่มี Structured Content Model ที่เหมาะสมกว่า
