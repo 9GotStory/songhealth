@@ -85,7 +85,8 @@ and why, and `.jscpd-baseline.json` records them.
 - A helper that a second suite needs moves to a shared module: page checks (the 404 page, Thai
   dates, list titles, an image's load) to `tests/browser/public.helpers.ts`, native API fixtures
   (entries, media, terms) and refusal checks (`expectValidationRefusal`) to
-  `tests/browser/cms.helpers.ts`.
+  `tests/browser/cms.helpers.ts`, and a node test's builders to `tests/node/<area>.helpers.ts`,
+  named as the browser suites name theirs (`tests/node/ita.helpers.ts` `fileBlock`).
 - Tests assert what people see and use: text, links, status and focus. A link or button is
   checked by its accessible name (`getByRole(…, { name })`, `toHaveAccessibleName`), which leaves
   out decorative `aria-hidden` icons. A `data-testid` marks only an element with no accessible
