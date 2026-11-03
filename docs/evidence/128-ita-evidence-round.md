@@ -93,7 +93,11 @@ comment 6605066482. The checklist now says:
   Requirement.
 
 **Walkthrough coverage.** Both Rounds' files went in before one Publish, so adding the next
-Round's Evidence to a published MOIT and publishing it again was not walked on its own.
+Round's Evidence to a published MOIT and publishing it again was not walked on its own. The
+Product Owner accepted the walkthrough as it is, with this gap named in the acceptance ("A:
+รับตามที่ walk (Recommended)", #128 comment 6605551281). T021's "live versus pending" test, which
+passed above, shows the mechanism: a published entry's staged change stays off the public reads
+until it is published.
 
 ## Cleanup
 
