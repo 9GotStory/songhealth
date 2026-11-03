@@ -309,7 +309,7 @@ Homepage เป็น Astro presentation ที่อ่าน canonical CMS dat
 
 # 15. ITA
 
-ITA อยู่ใน V1 ตั้งแต่ Feature 004 บน foundation เดียวกัน (Astro + EmDash 1.1.0 + PostgreSQL, native local-media mount, rootless Podman/Quadlet production contract) ตาม `docs/adr/0006`:
+ITA อยู่ใน V1 บน foundation เดียวกัน (Astro + EmDash 1.1.0 + PostgreSQL, native local-media mount, rootless Podman/Quadlet production contract) ตาม `docs/adr/0006`:
 
 - collection `moit` ที่มี blocks field และ block types `ita_requirement`, `ita_file` และ `ita_link` อยู่ใน seed (`02` §18). Model-update step สร้าง block type ที่ยังไม่มีและ update block type ที่เปลี่ยนตาม fingerprint แต่ไม่ลบ เพราะ EmDash 1.1.0 ไม่มี route ลบ block type; block type ที่เลิกใช้จึงคงอยู่ และถูกเอาออกจาก allowed types ของ field. Verify ตรวจ collection, fields, allowed types และ block types
 - `/ita`, `/ita/{fiscal-year}` และ `/ita/{slug}` เป็น Astro pages ที่อ่าน published MOITs ผ่าน EmDash query functions (§9); การจัดกลุ่ม Evidence เป็น feature-local helper ที่ไม่อ่านไฟล์ และหน้า MOIT ตรวจว่าไฟล์ serve ได้แบบเดียวกับไฟล์ของ Document

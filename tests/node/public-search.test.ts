@@ -8,7 +8,7 @@
 //   substring of at least one of its fields, so Thai matches without word spaces.
 // - Results rank by the best tier each term hits (title, then summary, then body), and a tie goes
 //   to the newer entry. Each group counts its results, and a page shows a fixed number of them.
-//   The MOITs form the group ITA, after the six groups of `08` §7.
+//   The MOITs form the group ITA, the last of `08` §7.
 // - A MOIT is searched by its title, its summary and the labels of its Evidence: every file and
 //   link block's label, in the order its page shows them (src/lib/ita.ts groupEvidence), and
 //   nothing else of its blocks.
@@ -238,7 +238,7 @@ describe("searchPage ranking", () => {
 });
 
 describe("search groups", () => {
-	it("offers ทุกประเภท, the six groups of `08` §7 and ITA, in order", () => {
+	it("offers ทุกประเภท and the groups of `08` §7, ITA last, in order", () => {
 		assert.deepEqual(
 			SEARCH_GROUPS.map(({ label }) => label),
 			[

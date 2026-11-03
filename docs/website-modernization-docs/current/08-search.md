@@ -21,9 +21,10 @@
 > `/search` reads the published entries of the searchable collections through EmDash's public
 > query API when a search is made (`docs/adr/0002`). The requirements below are unchanged.
 
-> **Feature 004 decisions (Product Owner, 2026-11-02 and 2026-11-03; spec #121, #125 comment
-> 6591248342):** published MOITs are searchable by their title, summary and Evidence labels, under
-> "ITA", the last group (§2, §5–§8).
+> **Feature 004 decisions (Product Owner, 2026-11-02, spec #121; 2026-11-03, #125 comment
+> 6591248342):** published MOITs are searchable by their title, summary and Evidence labels (§2,
+> §5), under "ITA", the last group as #125 built it (§7), with their own tie order and result row
+> (§6, §8).
 
 ---
 
@@ -99,7 +100,7 @@ Version 1 ใช้ ranking ของ platform/search engine เป็น baseli
 
 Product requirement คือผลที่ match Title/Name โดยตรงควรมีประโยชน์ต่อผู้ใช้ ไม่ใช่การ Freeze score formula.
 
-MOIT ไม่มีวันที่ของรายการ (ผลอื่นที่อันดับเท่ากันเรียงตามวันที่ ใหม่ก่อน) จึงอยู่หลังผลที่มีวันที่ซึ่งอันดับเท่ากัน; MOIT ที่อันดับเท่ากันเรียงแบบหน้า ITA: ปีงบประมาณใหม่ก่อน แล้วตามเลข MOIT (Product Owner, 2026-11-03: #125 comment 6591248342, item 2).
+MOIT ไม่มีวันที่ของรายการ (ผลอื่นที่อันดับเท่ากันเรียงตามวันที่ ใหม่ก่อน) จึงอยู่หลังผลที่มีวันที่ซึ่งอันดับเท่ากัน; MOIT ที่อันดับเท่ากันเรียงเหมือน `/ita` และหน้าปี: ปีงบประมาณใหม่ก่อน แล้วตามเลข MOIT (Product Owner, 2026-11-03: #125 comment 6591248342, item 2).
 
 ไม่สร้าง custom deterministic ranking pipeline, BM25 tuning layer, reranker หรือ ranking service ก่อน UAT.
 
@@ -128,7 +129,7 @@ Public Search Group ใช้เพื่อให้ประชาชนเข
 
 Group เป็น presentation/filter concept ไม่ใช่ content type ใหม่.
 
-กลุ่ม ITA อยู่ท้ายสุด ประกอบด้วย MOIT และมีจำนวนผลกับ filter แบบเดียวกับกลุ่มอื่น. ชื่อกลุ่มที่เป็นอักษรละตินเว้นวรรคจากคำไทย เช่น "พบ 3 รายการในกลุ่ม ITA" (Product Owner, 2026-11-03: #125 comment 6591248342, item 3).
+กลุ่ม ITA อยู่ท้ายสุด ประกอบด้วย MOIT และมีจำนวนผลกับ filter แบบเดียวกับกลุ่มอื่น (#125). ชื่อกลุ่มที่เป็นอักษรละตินเว้นวรรคจากคำไทย เช่น "พบ 3 รายการในกลุ่ม ITA" (Product Owner, 2026-11-03: #125 comment 6591248342, item 3).
 
 Fiscal Year filter แสดงเฉพาะเมื่อเหมาะกับ retained Document/report context; กลุ่ม ITA ไม่มี filter ปีงบประมาณ และผลของ MOIT บอกปีของตนเอง (§8).
 

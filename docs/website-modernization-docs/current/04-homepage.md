@@ -181,7 +181,7 @@ Link ไป canonical Activity route.
 
 - staff ดูแลรายการและลำดับเองผ่าน native CMS primitive; composition เป็น evidence-driven value (`01` §17)
 - ซ้ำกับ navigation ได้โดยตั้งใจ; ไม่สร้าง content หรือ sitemap ชุดที่สอง
-- ชี้ไปหน้า ITA (`/ita`) ได้ แต่ ITA ไม่มี Homepage section ของตนเอง; ไม่ใช้เป็นทางเข้า scope ที่ deferred เช่น Dashboard
+- ชี้ไป ITA landing (`/ita`) ได้ แต่ ITA ไม่มี Homepage section ของตนเอง; ไม่ใช้เป็นทางเข้า scope ที่ deferred เช่น Dashboard
 - section ซ่อนเมื่อไม่มีรายการ (§17)
 
 ---

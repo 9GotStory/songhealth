@@ -775,12 +775,12 @@ Public UX สามารถนำสิ่งเหล่านี้มาแ�
 เว็บไซต์เผยแพร่หลักฐานการประเมินคุณธรรมและความโปร่งใส (MOPH ITA) ของสำนักงานในแต่ละปีงบประมาณ ตาม Feature 004 (spec #121) และ `docs/adr/0006` โดยเริ่มจากรอบ 12 เดือนของปีงบประมาณ 2570:
 
 - หนึ่ง MOIT ของหนึ่งปีงบประมาณเป็นหนึ่ง entry ที่มีปีงบประมาณและเลข MOIT เป็น field; ไม่มี year record และไม่มีเมนูที่ต้องแก้ทุกปี เพราะหน้ารวม ITA และหน้าของแต่ละปีสร้างจาก MOIT ที่เผยแพร่แล้ว
-- Requirement และ Evidence เป็น blocks ใน MOIT นั้น: Requirement block ตามด้วย Evidence ของข้อนั้น ซึ่งเป็นไฟล์ที่เลือกจาก Media Library หรือลิงก์ และแต่ละชิ้นระบุ Round (`02` §18)
+- Requirement และ Evidence เป็น blocks ใน MOIT นั้น: Requirement block ตามด้วย Evidence ของข้อนั้น ซึ่งเป็นไฟล์ที่เลือกจาก Media Library หรือลิงก์ และแต่ละชิ้นระบุ Round หรือ "ไม่ระบุรอบ" (`02` §18)
 - ปีใหม่เริ่มจากการ Duplicate MOIT ของปีก่อน แล้วแก้ปี slug และชื่อ และล้าง Evidence ของปีก่อนก่อนเผยแพร่ ตาม checklist ใน `05` §7
 - ITA อยู่ในเมนูหลัก (`03` §2, §11) และ MOIT ค้นหาได้ใน `/search` (`08`)
 - ไม่มีระบบให้คะแนน ไม่มี compliance engine และไม่มี approval chain ของ ITA
 
-V1 ไม่สร้าง historical-evidence guard (write-once media, usage lock, snapshot หรือ retained revisions) แต่ใช้ข้อควรระวังของเจ้าหน้าที่และ native records แทน:
+V1 ไม่สร้าง historical-evidence guard (write-once media, usage lock, snapshot หรือ retained revisions) แต่ใช้ข้อควรระวังของเจ้าหน้าที่ (`05` §7.2) และ native records แทน:
 
 - ไฟล์ Evidence ที่เผยแพร่แล้วไม่ถูก replace หรือลบ; การแก้ไขคือไฟล์ใหม่
 - ตรวจแท็บ "Used in" ของ Media Library ก่อนลบ media item

@@ -134,6 +134,14 @@ cited file exists and that the name carries the pinned version.
   dialog shows it as a "Used in" tab, after a setup that indexes existing content, and the
   delete button sits beside it: the usage informs, it does not block (observed on the development
   runtime, 2026-11-02).
+  - Until the list is complete, the tab's heading carries a warning icon whose tooltip says so,
+    such as "Usage indexing hasn’t started.", "Usage is updating. Some content may not appear
+    here yet." or "Usage may be out of date.". While the setup is incomplete, the Media Library
+    shows a banner, "Set up media usage tracking" and later "Media usage tracking is indexing
+    existing content", whose button opens `/settings/media-usage`
+    (`@emdash-cms/admin/dist/index.js`). Advancing the setup needs `schema:manage`, which only the
+    Administrator role holds (`src/astro/routes/api/admin/media-usage/activation.ts`,
+    `@emdash-cms/auth/src/rbac.ts`).
 - The storage adapter offers `exists(key)` and `download(key)`, which returns
   `{ body, contentType, size }` (`src/storage/local.ts`, `src/storage/s3.ts`).
   - A missing key throws code `NOT_FOUND`.

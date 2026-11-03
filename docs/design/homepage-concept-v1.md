@@ -197,7 +197,8 @@ These were decided in #51 and the current docs.
   - label: H3, text-primary, with "→" in H3 brand-primary at the right;
   - the frame's Small text-secondary subtitle is not built.
 - **Figma cards:**
-  - kept: เอกสารเผยแพร่, ข้อมูลสุขภาพ, and ITA since Feature 004 (#124);
+  - kept: เอกสารเผยแพร่, ข้อมูลสุขภาพ;
+  - ITA: staff may add it since Feature 004 (`04` §10.1);
   - deferred: Dashboard.
 
 ### 11. Contact Summary

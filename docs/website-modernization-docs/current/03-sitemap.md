@@ -18,7 +18,8 @@
 
 > **Feature 003 decision (Product Owner, 2026-10-29):** `/dashboard` is deferred from V1. It has
 > no V1 route, navigation entry or Homepage shortcut. Dashboard stays a separate analytical domain
-> (`00` §1.3), and a later Dashboard needs its own accepted scope.
+> (`00` §1.3), and a later Dashboard needs its own accepted scope. ITA stayed outside V1
+> navigation (§11) until Feature 004 (below).
 
 > **Feature 004 decision (Product Owner, 2026-11-02; spec #121):** "ITA" is the main navigation's
 > last item (§2), with the V1 routes `/ita`, `/ita/{fiscal-year}` and `/ita/{slug}` (§11, §19).
@@ -221,7 +222,7 @@ Raw storage filename ไม่ใช่ canonical page URL.
 - MOIT ที่เป็น draft หรือ slug ที่ไม่มีอยู่ตอบหน้า 404 ของเว็บไซต์ (§17); signed preview แสดง draft
 - Breadcrumb: หน้าแรก > ITA > ปีงบประมาณ 2570 > MOIT 2 (§14)
 - ไฟล์ Evidence ดาวน์โหลดตามที่ CMS ส่ง (attachment) ไม่เปิดใน browser; ไฟล์ที่ serve ไม่ได้แสดงสถานะไม่พร้อมให้บริการ (§17)
-- URL ITA เดิมบน WordPress (เช่น `/moit-2-2569/`) redirect ไป `/ita/{slug}` ใน Feature 005 (§18, `09`)
+- การ redirect URL ITA เดิมบน WordPress เช่น `/moit-2-2569/` ไป `/ita/moit-2-2569` เป็นงานของ Feature 005 (§18, `09`)
 
 ---
 
@@ -268,7 +269,7 @@ Breadcrumb สะท้อน public information hierarchy ไม่ derive จ�
 - no file extension in canonical detail page
 - no trailing slash baseline
 - query parametersใช้สำหรับ filters/search/pagination ไม่ใช่ identity
-- fragmentsใช้ deep-link ภายใน published page ได้ เช่น สารบัญ Requirement ของหน้า MOIT (§11)
+- fragmentsใช้ deep-link ภายใน published page ได้ เช่น สารบัญ Requirement ของหน้า MOIT
 - route rootsไม่เปลี่ยนตาม internal collection label โดยอัตโนมัติ
 
 Canonical route table:

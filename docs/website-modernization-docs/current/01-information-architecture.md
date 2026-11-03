@@ -191,28 +191,28 @@ Document เป็น semantic record สำหรับไฟล์เผยแ
 
 Raw media/file asset ไม่เท่ากับ Document record; Document เป็นข้อมูลเชิงความหมายรอบไฟล์.
 
-ITA Evidence ไม่ใช่ Document: เป็นไฟล์จาก Media Library ที่เลือกใน block ของ MOIT (§9).
+ITA Evidence ไม่ใช่ Document: เป็นไฟล์จาก Media Library หรือลิงก์ ใน block ของ MOIT (§9).
 
 ---
 
 # 9. ITA
 
-ITA (การประเมินคุณธรรมและความโปร่งใส) เป็น information domain ของ V1 ตั้งแต่ Feature 004 (spec #121, `docs/adr/0006`): หลักฐานที่สำนักงานเผยแพร่สำหรับการประเมิน MOPH ITA ของแต่ละปีงบประมาณ. คำศัพท์ตาม `GLOSSARY.md`: ITA, MOIT, Requirement, Evidence, Round.
+ITA (การประเมินคุณธรรมและความโปร่งใส) เป็น information domain ของ V1 (spec #121, `docs/adr/0006`): หลักฐานที่สำนักงานเผยแพร่สำหรับการประเมิน MOPH ITA ของแต่ละปีงบประมาณ. คำศัพท์ตาม `GLOSSARY.md`: ITA, MOIT, Requirement, Evidence, Round.
 
 ```text
 ITA
 └── ปีงบประมาณ (field ของ MOIT ไม่มี record ของตนเอง)
     └── MOIT (หนึ่ง entry ต่อ MOIT ต่อปีงบประมาณ)
         └── Requirement (block) เช่น 1
-            ├── Evidence (block): ไฟล์จาก Media Library หรือลิงก์ พร้อม Round
-            └── Requirement ย่อย (block) เช่น 1.1
+            ├── Evidence (block): ไฟล์จาก Media Library หรือลิงก์ พร้อม Round หรือ "ไม่ระบุรอบ"
+            └── sub-Requirement (block) เช่น 1.1
                 └── Evidence (block)
 ```
 
 - รายการปีงบประมาณและ MOIT ของแต่ละปีสร้างจาก MOIT ที่เผยแพร่แล้ว (`02` §18)
 - ปีใหม่เริ่มจาก Duplicate MOIT ของปีก่อน แล้วล้าง Evidence ของปีก่อนก่อนเผยแพร่ (`05` §7)
 - ไม่มี Basic Page แทน, historical-evidence guard, scoring หรือ compliance engine; ข้อควรระวังของเจ้าหน้าที่อยู่ใน `05` §7
-- ข้อมูล ITA เดิมบน WordPress ย้ายใน Feature 005 (`09`); V1 ไม่ลบหรือย้ายข้อมูลเดิม
+- ข้อมูล ITA เดิมบน WordPress ย้ายใน Feature 005 (`09`); ก่อนนั้นไม่มีการลบหรือย้ายข้อมูลเดิม
 
 ---
 

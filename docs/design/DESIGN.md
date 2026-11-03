@@ -154,7 +154,7 @@ Use a small, justified set of Astro components (proposed names; not a required d
 
 ## 8. Homepage contract (visual composition constrained by product authority)
 
-Source: `current/04-homepage.md` v2.3 and `current/03-sitemap.md` v2.4, both dated 2026-10-29.
+Source: `current/04-homepage.md` v2.4 and `current/03-sitemap.md` v2.5, both dated 2026-11-03.
 
 1. Header / navigation / reachable search.
 2. Featured / Priority (optional; one primary item if shown, not an autoplay carousel).
@@ -169,7 +169,7 @@ Source: `current/04-homepage.md` v2.3 and `current/03-sitemap.md` v2.4, both dat
 
 ### 8.1 ITA in V1; Dashboard deferred, not deleted
 
-ITA is in V1 since Feature 004 (spec #121, ADR 0006). Dashboard stays deferred, and **deferred ≠ removed or cancelled**: Dashboard remains in Songhealth's longer-term product direction and in the Figma design inventory. Deferral affects **implementation/publication timing**, not the decision to retain its design concepts.
+ITA is in V1 (spec #121, ADR 0006). Dashboard stays deferred, and **deferred ≠ removed or cancelled**: Dashboard remains in Songhealth's longer-term product direction and in the Figma design inventory. Deferral affects **implementation/publication timing**, not the decision to retain its design concepts.
 
 | Area | V1 live/public version | Future-state design |
 | --- | --- | --- |
@@ -190,7 +190,7 @@ ITA is in V1 since Feature 004 (spec #121, ADR 0006). Dashboard stays deferred, 
 
 **Figma preservation rule:** when reconciling the V1 frame, **do not permanently delete Dashboard layers or component definitions**. Copy/preserve their current appearance in a Future State frame first; V1 visibility is a separate presentation choice. Future-state placement is a proposal, not a newly approved public IA decision.
 
-**Release rule:** do not render future/deferred cards, such as Dashboard's, as enabled links in a V1 build or invent placeholder routes. Their later public activation requires Product Owner authorization and corresponding updates to the higher-priority product/IA documents, as Feature 004 did for ITA. This does not prevent continuing the visual design for their future release.
+**Release rule:** do not render future/deferred cards, such as Dashboard's, as enabled links in a V1 build or invent placeholder routes. Their later public activation requires Product Owner authorization and corresponding updates to the higher-priority product/IA documents. This does not prevent continuing the visual design for their future release.
 
 The visual search field and hero text must represent actual product journeys, not a second search or static marketing-only content owner.
 
@@ -209,7 +209,7 @@ The visual search field and hero text must represent actual product journeys, no
 These items are **not marked complete**. The Figma MCP Starter quota prevented the requested final editing round. Before v1.0 of this design document:
 
 - [ ] Replace all UI-symbol text/emoji (`+`, `↗`, `→`, any pictographic glyphs) with a consistent Lucide-equivalent editable vector/icon-component treatment. Replace provisional medical-plus branding only after approved logo is available.
-- [ ] **Preserve first:** make a clearly named `Future State / Vision` design frame or variant containing the existing Dashboard concepts/components. Then reconcile only the `V1 Implementation` frame's navigation/Quick Access against the current sitemap, where ITA is a V1 link since Feature 004; no active V1 Dashboard links or invented routes. Do not delete the future design inventory.
+- [ ] **Preserve first:** make a clearly named `Future State / Vision` design frame or variant containing the existing Dashboard concepts/components. Then reconcile only the `V1 Implementation` frame's navigation/Quick Access against the current sitemap, where ITA is a V1 link; no active V1 Dashboard links or invented routes. Do not delete the future design inventory.
 - [ ] Audit every desktop service card and mobile equivalent for correct icon, title, description, consistent spacing, equal heights and no clipping.
 - [ ] Review featured content card for clear one-primary-item hierarchy, honest content source, primary/secondary CTA, and sensible image fallback.
 - [ ] Make News, Announcement, Health Content and Quick Access visually distinguishable by role; check dates/categories and published-link states.

@@ -366,7 +366,7 @@ Database/API/process topologyของ Dashboardอยู่นอก Content Mo
 
 # 18. ITA
 
-หลักฐานการประเมิน MOPH ITA ของแต่ละปีงบประมาณ ตาม Feature 004 (spec #121) และ `docs/adr/0006`. คำศัพท์ตาม `GLOSSARY.md`: ITA, MOIT, Requirement, Evidence, Round.
+หลักฐานการประเมิน MOPH ITA ของแต่ละปีงบประมาณ ตาม spec #121 และ `docs/adr/0006`. คำศัพท์ตาม `GLOSSARY.md`: ITA, MOIT, Requirement, Evidence, Round.
 
 MOIT คือ **one entry per MOIT per fiscal year** ใน collection เดียว (Admin group "ITA") ที่รองรับ drafts, revisions, preview, scheduling และ SEO แบบ Document; URL pattern `/ita/{slug}`.
 
@@ -377,7 +377,7 @@ Fields (ชื่อใน Admin อยู่ในวงเล็บ):
 - Number ("ลำดับ MOIT"): เลข MOIT เป็นจำนวนเต็ม
 - Summary optional ("สรุป"): หนึ่งถึงสองประโยคใต้ชื่อ
 - Last Updated optional ("ปรับปรุงล่าสุด"): วันที่ที่เจ้าหน้าที่ตั้งเมื่อเผยแพร่แต่ละ Round เพราะ native timestamps ไม่บอกว่า live version เปลี่ยนเมื่อไร
-- Evidence ("ข้อกำหนดและหลักฐาน"): blocks field ไม่เกิน 100 blocks จาก block types ด้านล่าง
+- Requirements and Evidence ("ข้อกำหนดและหลักฐาน", field `evidence`): blocks field ไม่เกิน 100 blocks จาก block types ด้านล่าง
 
 Title, Fiscal Year และ Number จำเป็น.
 
@@ -394,14 +394,14 @@ Block types (หมวด "ITA" ใน block picker):
 Grouping rule (หน้าเว็บและ search ใช้กฎเดียวกัน):
 
 - Requirement block เปิดกลุ่ม และ Evidence blocks ที่ตามมาอยู่ในกลุ่มนั้น
-- Requirement ที่เลขมีจุด เช่น "1.1" เป็น Requirement ย่อยของ Requirement ล่าสุดที่เลขไม่มีจุด; Requirement ย่อยที่ไม่มี Requirement แบบนั้นอยู่ก่อนเป็นกลุ่มของตนเอง
+- Requirement ที่เลขมีจุด เช่น "1.1" เป็น sub-Requirement ของ Requirement ล่าสุดที่เลขไม่มีจุด; sub-Requirement ที่ไม่มี Requirement แบบนั้นอยู่ก่อนเป็นกลุ่มของตนเอง
 - จุดท้ายเลขเป็นเครื่องหมายวรรคตอน: "1." คือ "1"
 - Evidence ก่อน Requirement แรกแสดงก่อน โดยไม่อยู่ในกลุ่มใด
 - block ของ type อื่นไม่แสดง
 
-Slug: `moit-{number}-{fiscal_year}` เช่น `moit-2-2570` ที่เจ้าหน้าที่ตั้ง เพราะ slug ไม่ซ้ำภายใน collection และ URL pattern resolve entry ด้วย slug อย่างเดียว. หน้าเว็บอ่านเลขและปีจาก fields ดังนั้น slug ที่ไม่ตาม convention ยังใช้ได้ ยกเว้น slug ที่เป็นตัวเลขล้วน (`03` §11).
+Slug: `moit-{number}-{fiscal_year}` เช่น `moit-2-2570` ที่เจ้าหน้าที่ตั้ง เพราะ slug ไม่ซ้ำภายใน collection และ URL pattern resolve entry ด้วย slug อย่างเดียว. หน้าเว็บอ่านเลขและปีจาก fields ดังนั้น slug ที่ไม่ตาม convention ยังใช้ได้ เว้นแต่ slug ชนกับหน้าปี (`03` §11).
 
-ชื่อหลักฐานบอกบริบทของตนเอง คือเลขข้อและสิ่งที่ไฟล์เป็น เช่น "1.2 ฟอร์มเผยแพร่ …": หัว block ใน Admin แสดงชื่อนี้ และ search หา Evidence ด้วยชื่อนี้ (`08` §5).
+ชื่อหลักฐานบอกบริบทของตนเอง คือเลขข้อและสิ่งที่ไฟล์เป็น เช่น "1.2 ฟอร์มเผยแพร่ …": หัว block ใน Admin แสดงชื่อนี้ และ search หา MOIT ที่มีหลักฐานนั้นได้ด้วยชื่อนี้ (`08` §5).
 
 ไม่มี taxonomy, relation, year record หรือ entry ต่อ Evidence.
 

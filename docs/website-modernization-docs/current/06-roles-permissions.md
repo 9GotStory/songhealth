@@ -1,11 +1,14 @@
 # Roles & Permissions — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 06-roles-permissions
-> **Status:** CLEAN REBASELINE v2.3 — CURRENT native-first V1
-> **Version:** 2.3
-> **Last Updated:** 14 ตุลาคม 2569 (2026-10-14)
+> **Status:** CLEAN REBASELINE v2.4 — CURRENT native-first V1
+> **Version:** 2.4
+> **Last Updated:** 3 พฤศจิกายน 2569 (2026-11-03): Feature 004, ITA in V1
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`, `05-admin-cms.md`
 > **Purpose:** กำหนด access-control requirements ที่จำเป็นต่อ Songhealth โดยไม่สร้าง role/permission model ซ้ำกับ CMS
+
+> **Feature 004 decision (Product Owner, 2026-11-02; spec #121, `docs/adr/0006`):** staff maintain
+> ITA with the native roles, as other content. ITA builds no historical-evidence guard (§7).
 
 ---
 
@@ -103,7 +106,8 @@ V1 scope decision `01a135e9-23e0-78c3-bcea-c752516828a8` (2026-10-13): native me
 uses its separate media/ownership permissions; it is not a trash-first content purge or an
 administrator-only guarantee for every raw asset. Authorization of an actor does not establish
 published-required-reference or historical-retention enforcement. Those unavailable Q3/Q4
-guarantees are deferred from V1 under `02` §18/20 and `07` §10, not implemented or passed.
+guarantees are deferred from V1 under `02` §20 and `07` §10, not implemented or passed, and ITA
+builds no historical-evidence guard (`02` §18, `docs/adr/0006`).
 This is the current V1 boundary; no custom RBAC or editorial approval flow.
 
 ---
