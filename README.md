@@ -15,6 +15,11 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   tickets #52–#67). The Product Owner gave it Final Acceptance on 2026-11-01 (#51 comment
   6559139711), and it was merged into `main`. The development runtime keeps the demo dataset until
   the Product Owner asks for its removal.
+- **Feature 004 `ita`:** complete: ITA, with MOIT entries and their Evidence in the CMS, the
+  `/ita` pages, search and the staff checklist (spec #121, tickets #122–#128, ADR 0006). The
+  Product Owner gave it Final Acceptance on 2026-11-03 (#121 comment 6606337870), and it was merged
+  into `main`. The fiscal years before 2570 and 2570's 6-month Round arrive with the WordPress
+  migration (Feature 005).
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,
