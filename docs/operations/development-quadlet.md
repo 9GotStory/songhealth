@@ -277,10 +277,12 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
   Health Services in three demo Areas, Health Content, Health Reports with their Documents,
   Documents of the types policy, plan and result (one superseded by its successor), Personnel
   with two Leadership, the reserved Basic Pages, Office Contact values with the Facebook and
-  YouTube handles, and items in the three Homepage menus. Each Document's file is a one-page Thai
-  PDF that `add` prints with Playwright's Chromium, the one the browser suites use, in the site's
-  own Noto Sans Thai (#66 comment 6541144669). A runtime that holds a PDF of the same name keeps it
-  until `remove` and `add` print it again.
+  YouTube handles, items in the three Homepage menus, and MOIT 1 and MOIT 2 of fiscal year 2570
+  after the prototype's (#126): MOIT 1 is short, and MOIT 2 has 63 blocks with sub-Requirements,
+  both Rounds, site pages marked current and external links. Each Document's file and each
+  Evidence file is a one-page Thai PDF that `add` prints with Playwright's Chromium, the one the
+  browser suites use, in the site's own Noto Sans Thai (#66 comment 6541144669). A runtime that
+  holds a PDF of the same name keeps it until `remove` and `add` print it again.
 - **How it is marked.**
   - Every title starts with `[ตัวอย่าง]`. The Personnel prefix stays empty, so each name starts
     with the mark (#61 comment 6514145827).
@@ -294,6 +296,9 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
   - it creates the missing terms, pictures, PDFs and entries, and takes the dataset's entries out
     of the trash;
   - it publishes each dataset entry that is not published;
+  - it deletes `demo-ita-removed.pdf` from the library once MOIT 1, which uses it, exists, so its
+    Evidence 2.3 shows the unavailable state. It uploads that file only for a MOIT 1 it creates,
+    so a later `add` leaves the state as it is;
   - it fills each Homepage menu that is empty or holds only the dataset's items, and each Office
     Contact value and handle that is unset.
 
