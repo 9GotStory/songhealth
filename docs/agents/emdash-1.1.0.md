@@ -47,9 +47,11 @@ cited file exists and that the name carries the pinned version.
     Directory's name filter reads every published Health Service and matches in code;
   - a reference field bound to a relation can be neither filtered nor sorted (`buildFieldConditions`,
     `findStoragelessQueryKey`).
-- `orderBy` is a plain `field DESC|ASC`, with `id` as the tiebreaker. On PostgreSQL, DESC puts
-  NULLs first (`buildOrderByClause`). An optional date therefore cannot sort with a publish-date
-  fallback inside the query; `./src/lib/dated-lists.ts` sorts in code instead (ADR 0004).
+- `orderBy` sorts by each field it names, in the order given, each a plain `field DESC|ASC`, and
+  then by `id` in the first field's direction (`src/loader.ts` `buildOrderByClause`,
+  `getPrimarySort`). On PostgreSQL, DESC puts NULLs first. An optional date therefore cannot sort
+  with a publish-date fallback inside the query; `./src/lib/dated-lists.ts` sorts in code instead
+  (ADR 0004).
 - `orderBy` on a text field sorts in SQL (`buildOrderByClause`), so by the database collation.
   The postgres 18.6 image that `./deploy/quadlet/songhealth-db.container` pins initialises it from
   the image's `LANG`, en_US.utf8 (glibc). On the development database (2026-10-30) it ordered
