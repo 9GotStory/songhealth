@@ -277,6 +277,13 @@ async function add(admin: helpers.CmsActor): Promise<boolean> {
 		if (!published.ok) throw new Error(`publishing ${name}: ${helpers.nativeRefusalOf(published)}`);
 		console.log(`published ${name}`);
 	}
+	// The entries keep the file's value, and their pages show it as unavailable (emdash 1.1.0
+	// src/api/handlers/media.ts handleMediaDelete).
+	for (const filename of plan.discard) {
+		const { id } = media.get(filename)!;
+		await call(admin, `deleting ${filename}`, `/_emdash/api/media/${id}`, { method: "DELETE" });
+		console.log(`deleted ${filename} from the library, as the dataset removes it`);
+	}
 	for (const { name, items } of plan.menus) {
 		// A menu the planner writes holds only the dataset's items, which this replaces.
 		await helpers.setMenuItems(
@@ -311,8 +318,9 @@ async function add(admin: helpers.CmsActor): Promise<boolean> {
 		console.log(`FAIL: still to do: ${pending.join("; ")}`);
 		return false;
 	}
+	const inLibrary = dataset.media.filter(({ removed }) => !removed);
 	console.log(
-		`the demo dataset is installed: ${dataset.entries.length} entries, ${dataset.terms.length} terms, ${dataset.media.length} pictures and files`,
+		`the demo dataset is installed: ${dataset.entries.length} entries, ${dataset.terms.length} terms, ${inLibrary.length} pictures and files`,
 	);
 	return true;
 }

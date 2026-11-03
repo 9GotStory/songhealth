@@ -13,6 +13,7 @@ import { describe, it } from "node:test";
 import { demoDataset } from "../../scripts/demo-dataset/content.ts";
 import {
 	addSteps,
+	mediaOf,
 	menuItemFields,
 	planAdd,
 	planRemove,
@@ -84,7 +85,8 @@ const REFERENCE_TERMS = ["policy", "plan", "result"].map((slug) => ({
 
 /**
  * The runtime after `add`: every term, media item and entry of the dataset, each entry published,
- * its menu items in the Homepage menus, and its Office Contact values and handles.
+ * its menu items in the Homepage menus, and its Office Contact values and handles. The files the
+ * dataset removes are gone from the library.
  */
 function installed(data: DemoDataset): LiveState {
 	const entries = data.entries.map((entry, index): LiveEntry => ({
@@ -98,7 +100,9 @@ function installed(data: DemoDataset): LiveState {
 	const empty = emptyRuntime();
 	return {
 		terms: [...REFERENCE_TERMS, ...data.terms],
-		media: data.media.map(({ filename }, index) => ({ id: `media-${index}`, filename })),
+		media: data.media.flatMap(({ filename, removed }, index) =>
+			removed ? [] : [{ id: `media-${index}`, filename }],
+		),
 		entries,
 		menus: {
 			...empty.menus,
@@ -131,14 +135,6 @@ function liveEntry(
 	return { collection, id: `${collection}-${slug}`, slug, title, status, trashed };
 }
 
-/** The filenames of the media items an entry's fields point at. */
-function mediaOf(value: unknown): string[] {
-	if (Array.isArray(value)) return value.flatMap(mediaOf);
-	if (value === null || typeof value !== "object") return [];
-	const { demoMedia } = value as { demoMedia?: unknown };
-	return typeof demoMedia === "string" ? [demoMedia] : Object.values(value).flatMap(mediaOf);
-}
-
 /** Each entry as `collection/slug`. */
 const names = (entries: ReadonlyArray<{ collection: string; slug: string | null }>) =>
 	entries.map(({ collection, slug }) => `${collection}/${slug}`);
@@ -161,6 +157,46 @@ describe("demo dataset: add", () => {
 			media: installed(dataset).media.filter(({ filename }) => filename !== missing!.filename),
 		});
 		assert.deepEqual(plan.upload, [missing]);
+	});
+
+	it("uploads a file the dataset removes for the entry it creates, and deletes it after (#126)", () => {
+		const removed = dataset.media.filter((media) => media.removed);
+		const plan = planAdd(dataset, emptyRuntime());
+		assert.deepEqual(
+			removed.filter((media) => !plan.upload.includes(media)),
+			[],
+		);
+		assert.deepEqual(
+			plan.discard,
+			removed.map(({ filename }) => filename),
+		);
+	});
+
+	it("deletes a file the dataset removes that the runtime still holds, as after an interrupted add", () => {
+		const removed = dataset.media.filter((media) => media.removed);
+		const live = installed(dataset);
+		const plan = planAdd(dataset, {
+			...live,
+			media: [
+				...live.media,
+				...removed.map(({ filename }, index) => ({ id: `removed-${index}`, filename })),
+			],
+		});
+		assert.deepEqual(
+			addSteps(plan),
+			removed.map(({ filename }) => `delete ${filename}`),
+		);
+	});
+
+	it("uploads no file the dataset removes for an entry it restores from the trash", () => {
+		// A restored entry keeps its fields, the removed file's value among them.
+		const live = installed(dataset);
+		const plan = planAdd(dataset, {
+			...live,
+			entries: live.entries.map((entry) => ({ ...entry, trashed: true })),
+		});
+		assert.deepEqual(plan.upload, []);
+		assert.deepEqual(plan.discard, []);
 	});
 
 	it("points every picture and file field at a media item of the dataset", () => {
@@ -429,6 +465,13 @@ describe("demo dataset: content (#66)", () => {
 	const entriesOf = (collection: string) =>
 		dataset.entries.filter((entry) => entry.collection === collection);
 
+	/** The dataset's MOIT numbered `number`. */
+	const moitOf = (number: number) => entriesOf("moit").find(({ data }) => data.number === number)!;
+
+	/** The type of each Evidence block of `moit`, in block order. */
+	const blockTypesOf = (moit: DemoEntry) =>
+		(moit.data.evidence as { _type: string }[]).map(({ _type }) => _type);
+
 	it("starts every title with the demo mark and every slug with the demo prefix", () => {
 		assert.deepEqual(
 			dataset.entries
@@ -584,6 +627,56 @@ describe("demo dataset: content (#66)", () => {
 		assert.ok(activities.some(({ data }) => mediaOf(data.featured_image).length === 1));
 		assert.ok(activities.some(({ data }) => data.featured_image === undefined));
 	});
+
+	it("has MOIT 1 and MOIT 2 of fiscal year 2570, each slug following moit-{number}-{fiscal_year} (#126)", () => {
+		assert.deepEqual(
+			entriesOf("moit").map(({ slug, data }) => [slug, data.number, data.fiscal_year]),
+			[
+				["demo-moit-1-2570", 1, 2570],
+				["demo-moit-2-2570", 2, 2570],
+			],
+		);
+	});
+
+	it("has MOIT 1 as the prototype's: two Requirements of four and three files (#126)", () => {
+		const R = "ita_requirement";
+		const F = "ita_file";
+		assert.deepEqual(blockTypesOf(moitOf(1)), [R, F, F, F, F, R, F, F, F]);
+	});
+
+	it("has MOIT 2 as the prototype's long form: about 60 blocks with sub-Requirements, both Rounds, current site pages and external links (#126)", () => {
+		const blocks = moitOf(2).data.evidence as Record<string, unknown>[];
+		assert.ok(blocks.length >= 55 && blocks.length <= 70, `${blocks.length} blocks`);
+		assert.ok(
+			blocks.some(({ _type, number }) => _type === "ita_requirement" && /\./.test(String(number))),
+			"a sub-Requirement",
+		);
+		const rounds = new Set(blocks.map(({ round }) => round));
+		assert.ok(rounds.has("รอบ 6 เดือน") && rounds.has("รอบ 12 เดือน"), "both Rounds");
+		const links = blocks.filter(({ _type }) => _type === "ita_link");
+		assert.ok(
+			links.some(({ url, current }) => String(url).startsWith("/") && current === true),
+			"a site page marked current",
+		);
+		assert.ok(
+			links.some(({ url }) => String(url).startsWith("https://")),
+			"an external link",
+		);
+	});
+
+	it("removes from the library one file, that of MOIT 1's item 2.3 alone (#126)", () => {
+		const removed = dataset.media.filter((media) => media.removed);
+		assert.equal(removed.length, 1);
+		// Each field, or each block of a blocks field, that holds the file.
+		const users = dataset.entries.flatMap(({ slug, data }) =>
+			Object.values(data).flatMap((value) =>
+				(Array.isArray(value) ? value : [value])
+					.filter((part) => mediaOf(part).includes(removed[0]!.filename))
+					.map((part) => `${slug}: ${String((part as { label?: unknown }).label ?? "")}`),
+			),
+		);
+		assert.deepEqual(users, ["demo-moit-1-2570: 2.3 ฟอร์มเผยแพร่"]);
+	});
 });
 
 describe("demo dataset: the content model of seed/seed.json (#66 retro)", () => {
@@ -591,12 +684,23 @@ describe("demo dataset: the content model of seed/seed.json (#66 retro)", () => 
 		slug: string;
 		type: string;
 		required?: boolean;
-		validation?: { relation?: string; relationSide?: "parent" | "child" };
+		validation?: {
+			relation?: string;
+			relationSide?: "parent" | "child";
+			options?: string[];
+			allowedTypes?: string[];
+			maxItems?: number;
+		};
 	}
 	const seed = JSON.parse(
 		readFileSync(new URL("../../seed/seed.json", import.meta.url), "utf8"),
 	) as {
 		collections: { slug: string; fields: SeedField[] }[];
+		blockTypes: {
+			slug: string;
+			currentVersion: number;
+			versions: { version: number; fields: SeedField[] }[];
+		}[];
 		taxonomies: { name: string; collections: string[] }[];
 		relations: { slug: string; parentCollection: string; childCollection: string }[];
 	};
@@ -619,6 +723,50 @@ describe("demo dataset: the content model of seed/seed.json (#66 retro)", () => 
 					.map(({ slug: key }) => `${slug}: required ${key} is not set`),
 			];
 		});
+		assert.deepEqual(wrong, []);
+	});
+
+	it("fills each blocks field with the types it allows, each block with its type's fields, every required one included (#126)", () => {
+		// The native API refuses a block field its type's version does not declare, and a select
+		// value that is not one of its options (docs/agents/emdash-1.1.0.md, blocks).
+		const wrong = dataset.entries.flatMap(({ collection, slug, data }) =>
+			fieldsOf(collection)
+				.filter(({ type, slug: key }) => type === "blocks" && key in data)
+				.flatMap(({ slug: key, validation }) => {
+					const blocks = data[key] as Record<string, unknown>[];
+					const tooMany =
+						blocks.length > validation!.maxItems! ? [`${slug}: ${blocks.length} blocks`] : [];
+					return [
+						...tooMany,
+						...blocks.flatMap(({ _type, ...values }, index) => {
+							const at = `${slug} ${key}[${index}]`;
+							const type = seed.blockTypes.find((candidate) => candidate.slug === _type);
+							if (type === undefined || !validation!.allowedTypes!.includes(String(_type))) {
+								return [`${at}: ${String(_type)} is not allowed`];
+							}
+							const { fields } = type.versions.find(
+								({ version }) => version === type.currentVersion,
+							)!;
+							return [
+								...Object.keys(values)
+									.filter((field) => !fields.some((candidate) => candidate.slug === field))
+									.map((field) => `${at}: ${field} is no field of ${String(_type)}`),
+								...fields
+									.filter((field) => field.required && !(field.slug in values))
+									.map((field) => `${at}: required ${field.slug} is not set`),
+								...fields
+									.filter(
+										(field) =>
+											field.type === "select" &&
+											field.slug in values &&
+											!field.validation!.options!.includes(String(values[field.slug])),
+									)
+									.map((field) => `${at}: ${field.slug} is no option`),
+							];
+						}),
+					];
+				}),
+		);
 		assert.deepEqual(wrong, []);
 	});
 

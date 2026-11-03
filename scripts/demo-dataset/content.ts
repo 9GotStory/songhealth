@@ -16,6 +16,39 @@ import {
 
 const DAY = 24 * 60 * 60 * 1000;
 
+/** The fiscal year of the demo MOITs (#126). */
+const ITA_YEAR = 2570;
+
+/** The Rounds an Evidence block can name (seed/seed.json `ita_file`, `ita_link`). */
+const NO_ROUND = "ไม่ระบุรอบ";
+const ROUND_6 = "รอบ 6 เดือน";
+const ROUND_12 = "รอบ 12 เดือน";
+
+/** A MOIT's Requirement block, numbered `number` ("1", or "1.1" under the Requirement "1"). */
+const requirement = (number: string, title: string) => ({
+	_type: "ita_requirement",
+	number,
+	title,
+});
+
+/** A MOIT's file block: Evidence that is `file`, of `round`, with an optional `note`. */
+const evidenceFile = (label: string, file: MediaRef, round = NO_ROUND, note?: string) => ({
+	_type: "ita_file",
+	label,
+	file,
+	round,
+	...(note ? { note } : {}),
+});
+
+/** A MOIT's link block to `url`, of no Round; `current` marks a page that changes over time. */
+const evidenceLink = (label: string, url: string, current = false) => ({
+	_type: "ita_link",
+	label,
+	url,
+	round: NO_ROUND,
+	current,
+});
+
 /** A demo title without its leading mark. */
 const unmarked = (title: string) => title.slice(`${DEMO_MARK} `.length);
 
@@ -112,10 +145,13 @@ export function demoDataset(now: Date): DemoDataset {
 		media.push({ filename, alt, colours: [from, to] });
 		return { demoMedia: filename };
 	};
-	/** A PDF `demo-{name}.pdf` that shows `text`, and the field value that stands for it. */
-	const pdf = (name: string, text: DocumentPdf): MediaRef => {
+	/**
+	 * A PDF `demo-{name}.pdf` that shows `text`, and the field value that stands for it. A `removed`
+	 * one is deleted from the library once its entry exists.
+	 */
+	const pdf = (name: string, text: DocumentPdf, removed?: true): MediaRef => {
 		const filename = `demo-${name}.pdf`;
-		media.push({ filename, pdf: text });
+		media.push({ filename, pdf: text, ...(removed ? { removed } : {}) });
 		return { demoMedia: filename };
 	};
 	/** A Document of the office, under `demo-document-{name}` with its own PDF. */
@@ -917,6 +953,239 @@ export function demoDataset(now: Date): DemoDataset {
 		},
 	];
 
+	/** An Evidence file `demo-ita-{name}.pdf` of fiscal year 2570, titled `title`. */
+	const itaPdf = (name: string, title: string, removed?: true) =>
+		pdf(
+			`ita-${name}`,
+			{
+				title,
+				summary: `หลักฐานการประเมินคุณธรรมและความโปร่งใส (ITA) ปีงบประมาณ พ.ศ. ${ITA_YEAR}`,
+			},
+			removed,
+		);
+	/** The Evidence files, each shared by several blocks, as staff reuse a file from the library. */
+	const itaFiles = {
+		memo: itaPdf("memo", "บันทึกข้อความเสนอ ผบห. และขออนุญาตนำเผยแพร่บนเว็บไซต์ของหน่วยงาน"),
+		document: itaPdf("document", "เอกสารหลักฐาน"),
+		form: itaPdf("form", "แบบฟอร์มการขอเผยแพร่ข้อมูลผ่านเว็บไซต์ของหน่วยงาน"),
+		report: itaPdf("report", "รายงานผลการดำเนินงาน"),
+		// MOIT 1's item 2.3 shows the unavailable state (spec #121 "Demo dataset").
+		removed: itaPdf("removed", "ฟอร์มเผยแพร่ที่ถูกลบออกจากคลังสื่อ", true),
+	};
+	/** The ITA's MOITs of fiscal year 2570, each under `demo-moit-{number}-2570` (spec #121). */
+	const moit = (number: number, publishedDaysAgo: number, data: Record<string, unknown>) => ({
+		collection: "moit",
+		slug: `demo-moit-${number}-${ITA_YEAR}`,
+		publishedAt: ago(publishedDaysAgo),
+		data: { fiscal_year: ITA_YEAR, number, updated_on: ago(publishedDaysAgo), ...data },
+	});
+	const moits: DemoEntry[] = [
+		moit(1, 6, {
+			title:
+				"[ตัวอย่าง] หน่วยงานมีการวางระบบโดยการกำหนดมาตรการการเผยแพร่ข้อมูลต่อสาธารณะผ่านเว็บไซต์ของหน่วยงาน",
+			summary:
+				"คำสั่งหรือประกาศที่กำหนดกรอบแนวทางการเผยแพร่ข้อมูล และรายงานการกำกับติดตามของปีที่ผ่านมา",
+			evidence: [
+				requirement("1", `คำสั่ง / ประกาศ ที่ระบุกรอบแนวทาง (ของปีงบประมาณ พ.ศ. ${ITA_YEAR})`),
+				evidenceFile(
+					"1.1 บันทึกข้อความเสนอ ผบห. และขออนุญาตนำเผยแพร่บนเว็บไซต์ของหน่วยงาน",
+					itaFiles.memo,
+				),
+				evidenceFile("1.2 คำสั่ง / ประกาศ โดย ผบห.สูงสุดของหน่วยงาน", itaFiles.document),
+				evidenceFile(
+					"1.3 กรอบแนวทางการเผยแพร่ข้อมูลต่อสาธารณะผ่านเว็บไซต์ของหน่วยงาน",
+					itaFiles.document,
+				),
+				evidenceFile("1.4 ฟอร์มเผยแพร่", itaFiles.form),
+				requirement(
+					"2",
+					`รายงานการกำกับติดตามการเผยแพร่ข้อมูลต่อสาธารณะผ่านเว็บไซต์ของหน่วยงานในปีที่ผ่านมา (ของปีงบประมาณ พ.ศ. ${ITA_YEAR - 1})`,
+				),
+				evidenceFile(
+					"2.1 บันทึกข้อความเสนอ ผบห. และขออนุญาตนำเผยแพร่บนเว็บไซต์ของหน่วยงาน",
+					itaFiles.memo,
+				),
+				evidenceFile(
+					"2.2 รายงานผลการกำกับติดตามการเผยแพร่ข้อมูลต่อสาธารณะปีที่ผ่านมา",
+					itaFiles.report,
+				),
+				evidenceFile("2.3 ฟอร์มเผยแพร่", itaFiles.removed),
+			],
+		}),
+		moit(2, 4, {
+			title: "[ตัวอย่าง] หน่วยงานมีการเปิดเผยข้อมูลข่าวสารที่เป็นปัจจุบัน",
+			summary:
+				"ข้อมูลพื้นฐาน กฎหมายและแผนที่เกี่ยวข้อง แผนและผลการดำเนินงาน คู่มือ และข้อมูลการจัดซื้อจัดจ้าง",
+			evidence: [
+				requirement("1", "ข้อมูลพื้นฐานที่เป็นปัจจุบัน"),
+				evidenceLink("1.1 ข้อมูลผู้บริหาร แสดงรายนาม", "/about/leadership", true),
+				evidenceFile("1.2 นโยบายของผู้บริหาร", itaFiles.document),
+				evidenceFile("1.3 โครงสร้างหน่วยงาน", itaFiles.document),
+				evidenceFile(
+					"1.4 หน้าที่และอำนาจของหน่วยงานตามกฎหมายจัดตั้งหรือกฎหมายอื่นที่เกี่ยวข้อง",
+					itaFiles.document,
+				),
+				// The legacy site links the Ministry's anti-corruption site here
+				// (docs/research/legacy-ita.md).
+				evidenceLink(
+					"1.5 กฎหมายที่เกี่ยวข้องกับการดำเนินงาน หรือการปฏิบัติงานของหน่วยงาน",
+					"https://stopcorruption.moph.go.th/",
+				),
+				evidenceLink(
+					`1.6 ข่าวประชาสัมพันธ์ ที่เกิดขึ้นในปีงบประมาณ พ.ศ. ${ITA_YEAR}`,
+					"/news",
+					true,
+				),
+				evidenceLink("1.7 ข้อมูลการติดต่อหน่วยงาน", "/contact", true),
+				evidenceFile(
+					"1.8 ช่องทางการรับฟังความคิดเห็นที่บุคคลภายนอกสามารถแสดงความคิดเห็นต่อการดำเนินงานตามหน้าที่และอำนาจและตามภารกิจของหน่วยงาน",
+					itaFiles.document,
+				),
+				requirement("2", "วิสัยทัศน์ พันธกิจ ค่านิยม MOPH"),
+				evidenceFile("วิสัยทัศน์ พันธกิจ ค่านิยม MOPH", itaFiles.document),
+				requirement("3", "พระราชบัญญัติมาตรฐานทางจริยธรรม พ.ศ. 2562"),
+				evidenceFile("พระราชบัญญัติมาตรฐานทางจริยธรรม พ.ศ. 2562", itaFiles.document),
+				requirement("4", "ประมวลจริยธรรมข้าราชการพลเรือน พ.ศ. 2564"),
+				evidenceFile("ประมวลจริยธรรมข้าราชการพลเรือน พ.ศ. 2564", itaFiles.document),
+				requirement(
+					"5",
+					"ข้อกำหนดจริยธรรมเจ้าหน้าที่ของรัฐ สำนักงานปลัดกระทรวงสาธารณสุข พ.ศ. 2564",
+				),
+				evidenceFile(
+					"ข้อกำหนดจริยธรรมเจ้าหน้าที่ของรัฐ สำนักงานปลัดกระทรวงสาธารณสุข พ.ศ. 2564",
+					itaFiles.document,
+				),
+				requirement("6", "ยุทธศาสตร์ชาติ จำนวน 3 ระดับ"),
+				evidenceFile("6.1 แผนระดับที่ 1 ยุทธศาสตร์ชาติ พ.ศ. 2561 – 2580", itaFiles.document),
+				requirement("6.2", "แผนระดับที่ 2"),
+				evidenceFile(
+					"แผนแม่บทภายใต้ยุทธศาสตร์ชาติ (พ.ศ. 2566 – 2580) (ฉบับแก้ไขเพิ่มเติม)",
+					itaFiles.document,
+				),
+				evidenceFile(
+					"แผนพัฒนาเศรษฐกิจและสังคมแห่งชาติ ฉบับที่ 13 (พ.ศ. 2566 – 2570)",
+					itaFiles.document,
+				),
+				evidenceFile(
+					"นโยบายและแผนระดับชาติว่าด้วยความมั่นคงแห่งชาติ (พ.ศ. 2566 – 2570)",
+					itaFiles.document,
+				),
+				requirement(
+					"6.3",
+					"แผนระดับที่ 3 ที่เกี่ยวข้องกับการต่อต้านการทุจริตและประพฤติมิชอบ และการส่งเสริมคุณธรรม จริยธรรม",
+				),
+				evidenceFile(
+					"แผนปฏิบัติการด้านการต่อต้านการทุจริตและประพฤติมิชอบ ระยะที่ 2 (พ.ศ. 2566 – 2570)",
+					itaFiles.document,
+				),
+				evidenceFile(
+					"แผนปฏิบัติการด้านการส่งเสริมคุณธรรมแห่งชาติ ระยะที่ 2 (พ.ศ. 2566 – 2570)",
+					itaFiles.document,
+				),
+				evidenceFile(
+					"ยุทธศาสตร์ด้านมาตรฐานทางจริยธรรมและการส่งเสริมจริยธรรมภาครัฐ (พ.ศ. 2565 – 2570)",
+					itaFiles.document,
+				),
+				requirement(
+					"7",
+					"แผนปฏิบัติราชการด้านการป้องกันปราบปรามการทุจริตและประพฤติมิชอบ และการส่งเสริมคุณธรรม จริยธรรม ของกระทรวงสาธารณสุข",
+				),
+				evidenceFile(
+					"7.1 แผนปฏิบัติราชการด้านการป้องกัน ปราบปรามการทุจริตและประพฤติมิชอบ กระทรวงสาธารณสุข ระยะที่ 2 (พ.ศ. 2566 – 2570)",
+					itaFiles.document,
+				),
+				evidenceFile(
+					"7.2 แผนปฏิบัติราชการด้านส่งเสริมคุณธรรม จริยธรรม กระทรวงสาธารณสุข ระยะที่ 2 (พ.ศ. 2566 – 2570)",
+					itaFiles.document,
+				),
+				requirement("8", "นโยบายและยุทธศาสตร์ของหน่วยงาน"),
+				evidenceFile("นโยบายและยุทธศาสตร์ของหน่วยงาน", itaFiles.document),
+				requirement("9", "แผนปฏิบัติการประจำปีของหน่วยงาน (ทุกแผน)"),
+				evidenceFile("แผนปฏิบัติการประจำปีของหน่วยงาน", itaFiles.document),
+				requirement("10", "รายงานผลการดำเนินงานตามแผนปฏิบัติการประจำปีของหน่วยงาน (ตามข้อ 9)"),
+				evidenceFile("รายงานผลการดำเนินงานตามแผนปฏิบัติการประจำปี", itaFiles.report, ROUND_6),
+				evidenceFile("รายงานผลการดำเนินงานตามแผนปฏิบัติการประจำปี", itaFiles.report, ROUND_12),
+				requirement(
+					"11",
+					"แผนการใช้จ่ายงบประมาณประจำปีของหน่วยงาน และผลการใช้จ่ายงบประมาณประจำปีของหน่วยงาน",
+				),
+				evidenceFile("แผนการใช้จ่ายงบประมาณประจำปีของหน่วยงาน", itaFiles.document, ROUND_6),
+				evidenceFile("ผลการใช้จ่ายงบประมาณประจำปีของหน่วยงาน", itaFiles.report, ROUND_6),
+				evidenceFile("แผนและผลการใช้จ่ายงบประมาณประจำปีของหน่วยงาน", itaFiles.report, ROUND_12),
+				requirement(
+					"12",
+					"คู่มือการปฏิบัติงานการร้องเรียนการปฏิบัติงานหรือให้บริการของเจ้าหน้าที่",
+				),
+				evidenceFile(
+					"คู่มือการปฏิบัติงานการร้องเรียนการปฏิบัติงานหรือให้บริการของเจ้าหน้าที่",
+					itaFiles.document,
+				),
+				requirement("13", "คู่มือการปฏิบัติงานการร้องเรียนการทุจริตและประพฤติมิชอบ"),
+				evidenceFile("คู่มือการปฏิบัติงานการร้องเรียนการทุจริตและประพฤติมิชอบ", itaFiles.document),
+				requirement("14", "คู่มือการปฏิบัติงานตามภารกิจหลักและสนับสนุนของหน่วยงาน"),
+				evidenceFile("คู่มือการปฏิบัติงานตามภารกิจหลักและสนับสนุนของหน่วยงาน", itaFiles.document),
+				requirement(
+					"15",
+					"คู่มือขั้นตอนการให้บริการ (ภารกิจให้บริการประชาชนตามพระราชบัญญัติการอำนวยความสะดวกในการพิจารณาอนุญาตของทางราชการ พ.ศ. 2558)",
+				),
+				// The legacy site links the Food and Drug Administration here
+				// (docs/research/legacy-ita.md).
+				evidenceLink("คู่มือขั้นตอนการให้บริการ (อย.)", "https://www.fda.moph.go.th/"),
+				requirement(
+					"16",
+					`รายงานผลการดำเนินงานเกี่ยวกับเรื่องร้องเรียนการปฏิบัติงานหรือการให้บริการ (รอบ 12 เดือน ปีงบประมาณ พ.ศ. ${ITA_YEAR - 1})`,
+				),
+				evidenceFile(
+					"รายงานผลการดำเนินงานเกี่ยวกับเรื่องร้องเรียนการปฏิบัติงานหรือการให้บริการ",
+					itaFiles.report,
+				),
+				requirement(
+					"17",
+					`รายงานผลการดำเนินการเกี่ยวกับเรื่องร้องเรียนการทุจริตและประพฤติมิชอบ (รอบ 12 เดือน ปีงบประมาณ พ.ศ. ${ITA_YEAR - 1})`,
+				),
+				evidenceFile(
+					"รายงานผลการดำเนินการเกี่ยวกับเรื่องร้องเรียนการทุจริตและประพฤติมิชอบ",
+					itaFiles.report,
+				),
+				requirement("18", "ข้อมูลการจัดซื้อจัดจ้าง"),
+				evidenceFile(
+					`18.1 การวิเคราะห์ผลการจัดซื้อจัดจ้างและการจัดหาพัสดุของปีงบประมาณ พ.ศ. ${ITA_YEAR - 1}`,
+					itaFiles.report,
+				),
+				evidenceFile(
+					`18.2 แผนการจัดซื้อจัดจ้างและการจัดหาพัสดุ ประจำปีงบประมาณ พ.ศ. ${ITA_YEAR}`,
+					itaFiles.document,
+				),
+				requirement(
+					"18.3",
+					`ผลการดำเนินการตามแผนการจัดซื้อจัดจ้างและการจัดหาพัสดุ ประจำปีงบประมาณ พ.ศ. ${ITA_YEAR} ตามรอบระยะเวลาที่กำหนดในกรอบแนวทางของหน่วยงาน`,
+				),
+				evidenceFile(
+					"ผลการดำเนินงานตามแผน (บันทึก + แบบรายงาน + ฟอร์มเผยแพร่)",
+					itaFiles.report,
+					ROUND_6,
+					`ต.ค. ${ITA_YEAR - 1} – มี.ค. ${ITA_YEAR}`,
+				),
+				evidenceFile(
+					"ผลการดำเนินงานตามแผน (บันทึก + แบบรายงาน + ฟอร์มเผยแพร่)",
+					itaFiles.report,
+					ROUND_12,
+					`เม.ย. – ก.ย. ${ITA_YEAR}`,
+				),
+				requirement(
+					"18.4",
+					"ประกาศสำนักงานปลัดกระทรวงสาธารณสุขว่าด้วยแนวทางปฏิบัติงานเพื่อตรวจสอบบุคลากรในหน่วยงานด้านการจัดซื้อจัดจ้าง พ.ศ. 2560",
+				),
+				evidenceFile(
+					"ประกาศสำนักงานปลัดกระทรวงสาธารณสุขว่าด้วยแนวทางปฏิบัติงานเพื่อตรวจสอบบุคลากรในหน่วยงานด้านการจัดซื้อจัดจ้าง พ.ศ. 2560",
+					itaFiles.document,
+				),
+				evidenceFile("แบบแสดงความบริสุทธิ์ใจในการจัดซื้อจัดจ้างไม่เกิน 100,000 บาท", itaFiles.form),
+				evidenceFile("แบบแสดงความบริสุทธิ์ใจในการจัดซื้อจัดจ้างเกิน 100,000 บาท", itaFiles.form),
+			],
+		}),
+	];
+
 	const entries = [
 		...documents,
 		...news,
@@ -928,6 +1197,7 @@ export function demoDataset(now: Date): DemoDataset {
 		...healthReports,
 		...personnel,
 		...pages,
+		...moits,
 	];
 	/** A menu item for the dataset's entry `slug`, labelled with its title as the picker does. */
 	const picked = (slug: string): DemoMenuItem => ({
