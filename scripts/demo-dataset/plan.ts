@@ -30,7 +30,7 @@ export interface DemoTerm {
  */
 export type DemoMedia = (
 	| { filename: string; alt: string; colours: readonly [string, string] }
-	| { filename: string; pdf: DocumentPdf }
+	| { filename: string; pdf: PdfText }
 ) & {
 	/**
 	 * Deleted from the media library once the entries that use it exist, so that their pages show a
@@ -39,8 +39,8 @@ export type DemoMedia = (
 	removed?: true;
 };
 
-/** What a demo PDF shows: its Document's title and summary, or an Evidence file's. */
-export interface DocumentPdf {
+/** What a demo PDF shows: a title, and a summary under it. */
+export interface PdfText {
 	title: string;
 	summary: string | undefined;
 }

@@ -7,7 +7,7 @@ import {
 	DEMO_MARK,
 	type DemoDataset,
 	type DemoEntry,
-	type DocumentPdf,
+	type PdfText,
 	type DemoMedia,
 	type DemoMenuItem,
 	type DemoTerm,
@@ -19,7 +19,7 @@ const DAY = 24 * 60 * 60 * 1000;
 /** The fiscal year of the demo MOITs (#126). */
 const ITA_YEAR = 2570;
 
-/** The Rounds an Evidence block can name (seed/seed.json `ita_file`, `ita_link`). */
+/** The options of an Evidence block's `round`: no Round, or one of the two (seed/seed.json). */
 const NO_ROUND = "ไม่ระบุรอบ";
 const ROUND_6 = "รอบ 6 เดือน";
 const ROUND_12 = "รอบ 12 เดือน";
@@ -149,7 +149,7 @@ export function demoDataset(now: Date): DemoDataset {
 	 * A PDF `demo-{name}.pdf` that shows `text`, and the field value that stands for it. A `removed`
 	 * one is deleted from the library once its entry exists.
 	 */
-	const pdf = (name: string, text: DocumentPdf, removed?: true): MediaRef => {
+	const pdf = (name: string, text: PdfText, removed?: true): MediaRef => {
 		const filename = `demo-${name}.pdf`;
 		media.push({ filename, pdf: text, ...(removed ? { removed } : {}) });
 		return { demoMedia: filename };
@@ -963,16 +963,19 @@ export function demoDataset(now: Date): DemoDataset {
 			},
 			removed,
 		);
-	/** The Evidence files, each shared by several blocks, as staff reuse a file from the library. */
+	/**
+	 * The Evidence files. All but the removed one serve several blocks, as staff reuse a file from
+	 * the library.
+	 */
 	const itaFiles = {
 		memo: itaPdf("memo", "บันทึกข้อความเสนอ ผบห. และขออนุญาตนำเผยแพร่บนเว็บไซต์ของหน่วยงาน"),
 		document: itaPdf("document", "เอกสารหลักฐาน"),
 		form: itaPdf("form", "แบบฟอร์มการขอเผยแพร่ข้อมูลผ่านเว็บไซต์ของหน่วยงาน"),
 		report: itaPdf("report", "รายงานผลการดำเนินงาน"),
-		// MOIT 1's item 2.3 shows the unavailable state (spec #121 "Demo dataset").
+		// MOIT 1's Evidence 2.3 alone, which shows the unavailable state (spec #121 "Demo dataset").
 		removed: itaPdf("removed", "ฟอร์มเผยแพร่ที่ถูกลบออกจากคลังสื่อ", true),
 	};
-	/** The ITA's MOITs of fiscal year 2570, each under `demo-moit-{number}-2570` (spec #121). */
+	/** A MOIT of fiscal year 2570, under `demo-moit-{number}-2570` (spec #121 "Content model"). */
 	const moit = (number: number, publishedDaysAgo: number, data: Record<string, unknown>) => ({
 		collection: "moit",
 		slug: `demo-moit-${number}-${ITA_YEAR}`,
@@ -1128,8 +1131,8 @@ export function demoDataset(now: Date): DemoDataset {
 					"15",
 					"คู่มือขั้นตอนการให้บริการ (ภารกิจให้บริการประชาชนตามพระราชบัญญัติการอำนวยความสะดวกในการพิจารณาอนุญาตของทางราชการ พ.ศ. 2558)",
 				),
-				// The legacy site links the Food and Drug Administration here
-				// (docs/research/legacy-ita.md).
+				// The legacy site links the Food and Drug Administration here; the research names its
+				// host alone, so the link goes to its home page (docs/research/legacy-ita.md).
 				evidenceLink("คู่มือขั้นตอนการให้บริการ (อย.)", "https://www.fda.moph.go.th/"),
 				requirement(
 					"16",

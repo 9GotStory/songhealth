@@ -297,8 +297,8 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
     of the trash;
   - it publishes each dataset entry that is not published;
   - it deletes `demo-ita-removed.pdf` from the library once MOIT 1, which uses it, exists, so its
-    item 2.3 shows the unavailable state. It uploads that file only for a MOIT 1 it creates, so a
-    later `add` leaves the state as it is;
+    Evidence 2.3 shows the unavailable state. It uploads that file only for a MOIT 1 it creates,
+    so a later `add` leaves the state as it is;
   - it fills each Homepage menu that is empty or holds only the dataset's items, and each Office
     Contact value and handle that is unset.
 

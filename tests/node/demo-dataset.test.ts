@@ -34,6 +34,9 @@ const NOW = new Date("2026-10-31T03:00:00.000Z");
 const RESERVED_PAGES = ["about", "organization", "privacy", "accessibility"];
 const dataset = demoDataset(NOW);
 
+/** The files the dataset removes from the library once their entries exist (#126). */
+const REMOVED = dataset.media.filter((media) => media.removed);
+
 /** The menus staff curate the Homepage with (seed/seed.json), which the model-update step adds. */
 const HOMEPAGE_MENUS = ["homepage-featured", "homepage-services", "homepage-quick-access"];
 
@@ -160,31 +163,44 @@ describe("demo dataset: add", () => {
 	});
 
 	it("uploads a file the dataset removes for the entry it creates, and deletes it after (#126)", () => {
-		const removed = dataset.media.filter((media) => media.removed);
 		const plan = planAdd(dataset, emptyRuntime());
 		assert.deepEqual(
-			removed.filter((media) => !plan.upload.includes(media)),
+			REMOVED.filter((media) => !plan.upload.includes(media)),
 			[],
 		);
 		assert.deepEqual(
 			plan.discard,
-			removed.map(({ filename }) => filename),
+			REMOVED.map(({ filename }) => filename),
 		);
 	});
 
-	it("deletes a file the dataset removes that the runtime still holds, as after an interrupted add", () => {
-		const removed = dataset.media.filter((media) => media.removed);
+	it("deletes a file the dataset removes that the runtime still holds, as after an add interrupted once its entry existed", () => {
 		const live = installed(dataset);
 		const plan = planAdd(dataset, {
 			...live,
 			media: [
 				...live.media,
-				...removed.map(({ filename }, index) => ({ id: `removed-${index}`, filename })),
+				...REMOVED.map(({ filename }, index) => ({ id: `removed-${index}`, filename })),
 			],
 		});
 		assert.deepEqual(
 			addSteps(plan),
-			removed.map(({ filename }) => `delete ${filename}`),
+			REMOVED.map(({ filename }) => `delete ${filename}`),
+		);
+	});
+
+	it("uses a file the dataset removes that an add interrupted before its entry uploaded, then deletes it", () => {
+		const plan = planAdd(dataset, {
+			...emptyRuntime(),
+			media: REMOVED.map(({ filename }, index) => ({ id: `removed-${index}`, filename })),
+		});
+		assert.deepEqual(
+			plan.upload.filter(({ removed }) => removed),
+			[],
+		);
+		assert.deepEqual(
+			plan.discard,
+			REMOVED.map(({ filename }) => filename),
 		);
 	});
 
@@ -458,6 +474,15 @@ describe("demo dataset: remove", () => {
 	it("plans nothing on a runtime without the dataset", () => {
 		assert.deepEqual(removeSteps(planRemove(dataset, emptyRuntime())), []);
 	});
+
+	it("takes away every entry and media item of the installed dataset, its MOITs and their Evidence files among them (#126)", () => {
+		const live = installed(dataset);
+		const plan = planRemove(dataset, live);
+		assert.deepEqual(names(plan.entries), names(live.entries));
+		assert.deepEqual(plan.media, live.media);
+		assert.ok(names(plan.entries).includes("moit/demo-moit-2-2570"));
+		assert.ok(plan.media.some(({ filename }) => filename === "demo-ita-document.pdf"));
+	});
 });
 
 describe("demo dataset: content (#66)", () => {
@@ -628,7 +653,7 @@ describe("demo dataset: content (#66)", () => {
 		assert.ok(activities.some(({ data }) => data.featured_image === undefined));
 	});
 
-	it("has MOIT 1 and MOIT 2 of fiscal year 2570, each slug following moit-{number}-{fiscal_year} (#126)", () => {
+	it("has MOIT 1 and MOIT 2 of fiscal year 2570, each slug moit-{number}-{fiscal_year} behind the demo prefix (#126)", () => {
 		assert.deepEqual(
 			entriesOf("moit").map(({ slug, data }) => [slug, data.number, data.fiscal_year]),
 			[
@@ -639,6 +664,7 @@ describe("demo dataset: content (#66)", () => {
 	});
 
 	it("has MOIT 1 as the prototype's: two Requirements of four and three files (#126)", () => {
+		// R is a Requirement block, F a file block.
 		const R = "ita_requirement";
 		const F = "ita_file";
 		assert.deepEqual(blockTypesOf(moitOf(1)), [R, F, F, F, F, R, F, F, F]);
@@ -664,14 +690,13 @@ describe("demo dataset: content (#66)", () => {
 		);
 	});
 
-	it("removes from the library one file, that of MOIT 1's item 2.3 alone (#126)", () => {
-		const removed = dataset.media.filter((media) => media.removed);
-		assert.equal(removed.length, 1);
+	it("removes from the library one file, that of MOIT 1's Evidence 2.3 alone (#126)", () => {
+		assert.equal(REMOVED.length, 1);
 		// Each field, or each block of a blocks field, that holds the file.
 		const users = dataset.entries.flatMap(({ slug, data }) =>
 			Object.values(data).flatMap((value) =>
 				(Array.isArray(value) ? value : [value])
-					.filter((part) => mediaOf(part).includes(removed[0]!.filename))
+					.filter((part) => mediaOf(part).includes(REMOVED[0]!.filename))
 					.map((part) => `${slug}: ${String((part as { label?: unknown }).label ?? "")}`),
 			),
 		);

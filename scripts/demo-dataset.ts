@@ -28,7 +28,7 @@ import {
 	planAdd,
 	planRemove,
 	removeSteps,
-	type DocumentPdf,
+	type PdfText,
 	type LiveEntry,
 	type LiveMedia,
 	type LiveMenuItem,
@@ -155,7 +155,7 @@ async function pdfPrinter() {
 		throw error;
 	});
 	return {
-		async print({ title, summary }: DocumentPdf) {
+		async print({ title, summary }: PdfText) {
 			// The colours are the site's brand-dark, brand-primary and text-secondary
 			// (src/styles/global.css).
 			await page.setContent(
@@ -277,8 +277,9 @@ async function add(admin: helpers.CmsActor): Promise<boolean> {
 		if (!published.ok) throw new Error(`publishing ${name}: ${helpers.nativeRefusalOf(published)}`);
 		console.log(`published ${name}`);
 	}
-	// The entries keep the file's value, and their pages show it as unavailable (emdash 1.1.0
-	// src/api/handlers/media.ts handleMediaDelete).
+	// Deleting a media item leaves the entries that hold it as they are (emdash 1.1.0
+	// src/api/handlers/media.ts handleMediaDelete), and their pages find the file gone and show it
+	// as unavailable (src/lib/media.ts downloadableFile).
 	for (const filename of plan.discard) {
 		const { id } = media.get(filename)!;
 		await call(admin, `deleting ${filename}`, `/_emdash/api/media/${id}`, { method: "DELETE" });
