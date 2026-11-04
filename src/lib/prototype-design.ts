@@ -29,10 +29,20 @@ export const ONEPAGE_MODES = [
 
 export type OnePageMode = (typeof ONEPAGE_MODES)[number]["key"];
 
+/** How variant 4 lays out a post (a News or an Activity page) on desktop. */
+export const POST_LAYOUTS = [
+	{ key: "single", name: "คอลัมน์เดียว" },
+	{ key: "split", name: "สองคอลัมน์" },
+] as const;
+
+type PostLayout = (typeof POST_LAYOUTS)[number]["key"];
+
 export const VARIANT_PARAM = "variant";
 export const ONEPAGE_PARAM = "onepage";
 export const VARIANT_COOKIE = "proto_design_variant";
 export const ONEPAGE_COOKIE = "proto_design_onepage";
+export const POST_PARAM = "post";
+export const POST_COOKIE = "proto_design_post";
 
 /** The variant when neither the address nor a cookie names one. */
 const DEFAULT_VARIANT: Variant = "4";
@@ -51,18 +61,25 @@ export function usesCurrentLayout(variant: Variant): boolean {
 	return variant === "0" || variant === "4";
 }
 
+const isPostLayout = (value: string | undefined): value is PostLayout =>
+	POST_LAYOUTS.some((layout) => layout.key === value);
+
 export interface Design {
 	variant: Variant;
 	onepage: OnePageMode;
+	/** Variant 4's post layout on desktop. */
+	post: PostLayout;
 }
 
 /** The design a request asks for: the address first, then the cookies, then the defaults. */
 export function designOf(url: URL, cookie: (name: string) => string | undefined): Design {
 	const variant = url.searchParams.get(VARIANT_PARAM) ?? cookie(VARIANT_COOKIE);
 	const onepage = url.searchParams.get(ONEPAGE_PARAM) ?? cookie(ONEPAGE_COOKIE);
+	const post = url.searchParams.get(POST_PARAM) ?? cookie(POST_COOKIE);
 	return {
 		variant: isVariant(variant ?? undefined) ? (variant as Variant) : DEFAULT_VARIANT,
 		onepage: isOnePage(onepage ?? undefined) ? (onepage as OnePageMode) : DEFAULT_ONEPAGE,
+		post: isPostLayout(post ?? undefined) ? (post as PostLayout) : "single",
 	};
 }
 

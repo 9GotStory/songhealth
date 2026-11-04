@@ -20,6 +20,7 @@ import V1ActivityPage from "../../components/prototype/design/v1/ActivityPage.as
 import V2ActivityPage from "../../components/prototype/design/v2/ActivityPage.astro";
 import V3ActivityPage from "../../components/prototype/design/v3/ActivityPage.astro";
 import ThaiText from "../../components/prototype/design/ThaiText.astro";
+import PostPicture from "../../components/prototype/design/PostPicture.astro";
 import { pageDesign, usesCurrentLayout } from "../../lib/prototype-design";
 import {
 	ACTIVITIES_PATH,
@@ -53,6 +54,8 @@ const hasDetails =
 
 // PROTOTYPE (branch prototype/design): variants 1–3 render the page their own way.
 const design = pageDesign(Astro);
+/** Variant 4's two-column post: the text on the left, the picture on the right from `lg`. */
+const split = design.variant === "4" && design.post === "split";
 const latest = (await latestActivities(4)).filter((other) => other.id !== entry.id).slice(0, 3);
 const pageProps = {
 	activity,
@@ -85,8 +88,13 @@ const GALLERY_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw"
 	{design.variant === "2" && <V2ActivityPage {...pageProps} />}
 	{design.variant === "3" && <V3ActivityPage {...pageProps} />}
 	{usesCurrentLayout(design.variant) && (
-		<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-			<header class="flex max-w-3xl flex-col gap-3">
+		<article
+			class:list={[
+				"page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20",
+				split && "lg:grid lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-start lg:gap-x-12",
+			]}
+		>
+			<header class:list={["flex max-w-3xl flex-col gap-3", split && "lg:col-start-1"]}>
 				<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
 					<ThaiText text={activity.title} />
 				</h1>
@@ -100,7 +108,12 @@ const GALLERY_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw"
 				)}
 			</header>
 			{hasDetails && (
-				<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
+				<dl
+					class:list={[
+						"flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card",
+						split && "lg:col-start-1",
+					]}
+				>
 					{activity.activity_at && (
 						<DetailItem term="วันที่จัดกิจกรรม">
 							<DateText value={activity.activity_at} />
@@ -116,16 +129,12 @@ const GALLERY_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw"
 					)}
 				</dl>
 			)}
-			{image && (
-				<Image
-					image={image}
-					priority
-					sizes="(min-width: 48rem) 48rem, 100vw"
-					class="h-auto w-full max-w-3xl rounded-24 bg-surface-soft"
-				/>
-			)}
+			{image && <PostPicture image={image} split={split} />}
 			{gallery.length > 0 && (
-				<section aria-labelledby="activity-gallery" class="flex flex-col gap-4">
+				<section
+					aria-labelledby="activity-gallery"
+					class:list={["flex flex-col gap-4", split && "lg:col-span-2"]}
+				>
 					<h2 id="activity-gallery" class="text-h3 text-brand-dark">
 						ภาพกิจกรรม
 					</h2>

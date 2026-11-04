@@ -10,11 +10,13 @@
 //
 // A featured image whose media item was deleted in Admin is left out (src/lib/media.ts).
 import { getEmDashEntry } from "emdash";
-import { Image } from "emdash/ui";
 import DateText from "../../components/DateText.astro";
 import RichText from "../../components/RichText.astro";
 import TopicPills from "../../components/TopicPills.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import ThaiText from "../../components/prototype/design/ThaiText.astro";
+import PostPicture from "../../components/prototype/design/PostPicture.astro";
+import { pageDesign } from "../../lib/prototype-design";
 import { availableMedia } from "../../lib/media";
 import { healthNewsPath, newsPath, type NewsData } from "../../lib/news";
 import { termsOf } from "../../lib/terms";
@@ -28,6 +30,11 @@ const news = entry.data;
 const category = termsOf(news, "news_category")[0];
 const topics = termsOf(news, "topic");
 const image = await availableMedia(news.featured_image, Astro.locals.emdash);
+// PROTOTYPE (branch prototype/design): variant 4 shows the summary under the title (grill Q14:
+// a One Page's story in words) and, with `?post=split`, the picture in a right column from `lg`.
+const design = pageDesign(Astro);
+const v4 = design.variant === "4";
+const split = v4 && design.post === "split";
 ---
 
 <SiteLayout
@@ -39,25 +46,28 @@ const image = await availableMedia(news.featured_image, Astro.locals.emdash);
 	entry={{ collection: "news", id: news.id, slug: entry.id, publishedAt: news.publishedAt }}
 	noindex={isPreview}
 >
-	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<header class="flex max-w-3xl flex-col gap-3">
+	<article
+		class:list={[
+			"page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20",
+			split && "lg:grid lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-start lg:gap-x-12",
+		]}
+	>
+		<header class:list={["flex max-w-3xl flex-col gap-3", split && "lg:col-start-1"]}>
 			{category && <p class="text-label text-brand-primary">{category.label}</p>}
-			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">{news.title}</h1>
+			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
+				<ThaiText text={news.title} />
+			</h1>
+			{v4 && news.summary && (
+				<p class="text-body-large whitespace-pre-line text-text-secondary">{news.summary}</p>
+			)}
 			{news.publishedAt && (
 				<p class="text-small text-text-secondary">
 					เผยแพร่ <DateText value={news.publishedAt} />
 				</p>
 			)}
 		</header>
-		{image && (
-			<Image
-				image={image}
-				priority
-				sizes="(min-width: 48rem) 48rem, 100vw"
-				class="h-auto w-full max-w-3xl rounded-24 bg-surface-soft"
-			/>
-		)}
-		<div class="flex max-w-3xl flex-col gap-8">
+		{image && <PostPicture image={image} split={split} />}
+		<div class:list={["flex max-w-3xl flex-col gap-8", split && "lg:col-start-1"]}>
 			{news.body && news.body.length > 0 && <RichText value={news.body} />}
 			{news.source_text && <p class="text-text-secondary">แหล่งที่มา: {news.source_text}</p>}
 			<TopicPills topics={topics} href={healthNewsPath} />

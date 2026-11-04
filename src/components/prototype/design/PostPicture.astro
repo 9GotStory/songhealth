@@ -1,0 +1,38 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): a post's picture in variant 4. One column keeps
+// the current page's picture; `split` puts it in the right column from `lg`, kept in view, with a
+// link to the full image.
+import { Image } from "emdash/ui";
+import type { ImageFieldValue } from "../../../lib/news";
+
+interface Props {
+	image: ImageFieldValue;
+	split: boolean;
+}
+
+const { image, split } = Astro.props;
+const key = (image as { meta?: { storageKey?: unknown } }).meta?.storageKey;
+const fullHref = `/_emdash/api/media/file/${typeof key === "string" && key !== "" ? key : image.id}`;
+---
+
+<div
+	class:list={[
+		"flex flex-col gap-2",
+		split && "lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1",
+	]}
+>
+	<Image
+		image={image}
+		priority
+		sizes={split ? "(min-width: 64rem) 28rem, 100vw" : "(min-width: 48rem) 48rem, 100vw"}
+		class="h-auto w-full max-w-3xl rounded-24 bg-surface-soft"
+	/>
+	{split && (
+		<a
+			class="inline-flex min-h-11 items-center self-start text-label text-brand-primary underline underline-offset-4"
+			href={fullHref}
+		>
+			เปิดภาพขนาดเต็ม
+		</a>
+	)}
+</div>

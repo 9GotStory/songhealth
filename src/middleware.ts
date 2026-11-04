@@ -6,6 +6,8 @@ import { defineMiddleware } from "astro:middleware";
 import {
 	ONEPAGE_COOKIE,
 	ONEPAGE_PARAM,
+	POST_COOKIE,
+	POST_PARAM,
 	VARIANT_COOKIE,
 	VARIANT_PARAM,
 	designOf,
@@ -13,11 +15,12 @@ import {
 
 export const onRequest = defineMiddleware((context, next) => {
 	const { searchParams } = context.url;
-	if (searchParams.has(VARIANT_PARAM) || searchParams.has(ONEPAGE_PARAM)) {
+	if ([VARIANT_PARAM, ONEPAGE_PARAM, POST_PARAM].some((name) => searchParams.has(name))) {
 		const design = designOf(context.url, (name) => context.cookies.get(name)?.value);
 		const options = { path: "/", sameSite: "lax" as const, httpOnly: true };
 		context.cookies.set(VARIANT_COOKIE, design.variant, options);
 		context.cookies.set(ONEPAGE_COOKIE, design.onepage, options);
+		context.cookies.set(POST_COOKIE, design.post, options);
 	}
 	return next();
 });
