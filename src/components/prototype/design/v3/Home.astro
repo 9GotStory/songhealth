@@ -170,17 +170,17 @@ const control =
 {services.length > 0 && (
 	<section
 		aria-labelledby="home-services"
-		class="page-container flex flex-col gap-5 pt-12 lg:pt-16"
+		class="page-container flex flex-col gap-5 pt-10 lg:pt-16"
 	>
 		<h2 id="home-services" class={h2}>
 			วันนี้คุณต้องการทำอะไร?
 		</h2>
-		<ul class="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
+		<ul class="grid gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 lg:gap-4">
 			{services.map((service) => (
 				<li>
 					<a
 						href={servicePath(service.id)}
-						class="flex h-full flex-col items-start gap-2 rounded-16 border-2 border-v3-line bg-surface-base p-3 hover:border-v3-leaf sm:flex-row sm:items-center sm:gap-3 lg:p-4"
+						class="flex h-full items-center gap-3 rounded-16 border-2 border-v3-line bg-surface-base px-3 py-2 hover:border-v3-leaf sm:py-3 lg:p-4"
 					>
 						<span
 							aria-hidden="true"
@@ -202,7 +202,7 @@ const control =
 )}
 
 {(lead || announcements.length > 0) && (
-	<section aria-labelledby="home-news" class="page-container flex flex-col gap-5 pt-12 lg:pt-16">
+	<section aria-labelledby="home-news" class="page-container flex flex-col gap-5 pt-10 lg:pt-16">
 		<h2 id="home-news" class={h2}>
 			เรื่องใหม่ในอำเภอสอง
 		</h2>
@@ -282,22 +282,22 @@ const control =
 )}
 
 {healthContent.length > 0 && (
-	<section aria-labelledby="home-health" class="page-container flex flex-col gap-5 pt-12 lg:pt-16">
+	<section aria-labelledby="home-health" class="page-container flex flex-col gap-5 pt-10 lg:pt-16">
 		<h2 id="home-health" class={h2}>
 			ความรู้ใกล้ตัว
 		</h2>
-		<ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+		<ul class="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
 			{healthContent.map((item, index) => {
 				const topic = termsOf(item.data, "topic")[0];
 				return (
 					<li
 						class:list={[
-							"flex flex-col gap-2 rounded-16 p-4 lg:p-5",
+							"flex flex-col gap-2 rounded-16 p-3 sm:p-4 lg:p-5",
 							index % 2 === 0 ? "bg-v3-yellow-light" : "border-2 border-v3-line",
 						]}
 					>
 						{topic && <p class="text-v3-meta font-semibold text-v3-leaf">{topic.label}</p>}
-						<h3 class="font-v3-head text-[1.125rem] leading-7 font-medium text-v3-forest">
+						<h3 class="font-v3-head text-[1rem] leading-6 font-medium text-v3-forest sm:text-[1.125rem] sm:leading-7">
 							<a
 								class={titleLink}
 								href={healthContentPath(item.id)}
@@ -363,7 +363,7 @@ const control =
 {activities.length > 0 && (
 	<section
 		aria-labelledby="home-activities"
-		class="page-container flex flex-col gap-5 pt-12 lg:pt-16"
+		class="page-container flex flex-col gap-5 pt-10 lg:pt-16"
 	>
 		<h2 id="home-activities" class={h2}>
 			สุขภาพเกิดขึ้นในชุมชน
@@ -405,7 +405,9 @@ const control =
 									/>
 								</h3>
 								{activity.data.summary && (
-									<p class="line-clamp-3 text-v3-meta text-v3-ink">{activity.data.summary}</p>
+									<p class="line-clamp-2 text-v3-meta text-v3-ink sm:line-clamp-3">
+										{activity.data.summary}
+									</p>
 								)}
 							</div>
 							{activityImages[index] && (

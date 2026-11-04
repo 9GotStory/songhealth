@@ -211,7 +211,9 @@ const control =
 										set:html={thaiTitleHtml(item.data.title)}
 									/>
 									{item.data.summary && (
-										<p class="line-clamp-2 text-v2-meta text-v2-muted">{item.data.summary}</p>
+										<p class="line-clamp-1 text-v2-meta text-v2-muted sm:line-clamp-2">
+											{item.data.summary}
+										</p>
 									)}
 								</div>
 								{framed && newsImages[index] && (
@@ -261,7 +263,7 @@ const control =
 </div>
 
 {healthContent.length > 0 && (
-	<section aria-labelledby="home-health" class="page-container pt-8 lg:pt-10">
+	<section aria-labelledby="home-health" class="page-container pt-7 lg:pt-10">
 		<h2 id="home-health" class={h2}>
 			ความรู้สุขภาพ
 		</h2>
@@ -294,7 +296,7 @@ const control =
 )}
 
 {directory.hasHealthServices && (
-	<section aria-labelledby="home-discovery" class="page-container pt-8 lg:pt-10">
+	<section aria-labelledby="home-discovery" class="page-container pt-7 lg:pt-10">
 		<div class="flex flex-col gap-3 border-2 border-v2-green bg-v2-mint p-4 lg:flex-row lg:items-end lg:gap-8 lg:p-6">
 			<div class="lg:w-72 lg:shrink-0">
 				<h2 id="home-discovery" class="text-v2-section text-v2-ink">
@@ -337,7 +339,7 @@ const control =
 )}
 
 {activities.length > 0 && (
-	<section aria-labelledby="home-activities" class="page-container pt-8 lg:pt-10">
+	<section aria-labelledby="home-activities" class="page-container pt-7 lg:pt-10">
 		<h2 id="home-activities" class={h2}>
 			กิจกรรม
 		</h2>
@@ -390,7 +392,7 @@ const control =
 )}
 
 {quickAccess.length > 0 && (
-	<section aria-labelledby="home-quick-access" class="page-container pt-8 lg:pt-10">
+	<section aria-labelledby="home-quick-access" class="page-container pt-7 lg:pt-10">
 		<h2 id="home-quick-access" class={h2}>
 			ทางลัด
 		</h2>
