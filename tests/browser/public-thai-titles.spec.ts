@@ -5,7 +5,11 @@
 // as "เบา|หวาน" and "อำเภอ|สอง" (src/lib/thai-title.ts says where that was seen), so a citizen
 // reads them as written: a card's title never puts part of such a word on one line and the rest on
 // the next, at any width, and on a 375 px phone the header's site title keeps "อำเภอสอง" on one
-// line. A title still shows its characters as written.
+// line. A kept word cannot break, so even the longest listed word, "ความดันโลหิตสูง" (15
+// characters), stays inside the narrowest card (spec #144: "a kept run fits the narrowest card
+// column"): where the card keeps its column's width, the word stays within the card's padding, and
+// where the column would widen to fit the word, the page would scroll sideways, so neither may
+// happen. A title still shows its characters as written.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness. Its fixture is a synthetic Health Content item made through the native API and removed
@@ -28,8 +32,11 @@ import {
 } from "./cms.helpers";
 import { HOMEPAGE_HEADINGS, expect, homepageSection, siteTitleParts, test } from "./public.helpers";
 
-/** The listed words the card test checks, which the ticket names and the fixture's title holds. */
-const CHECKED_WORDS = ["เบาหวาน", "อำเภอสอง"];
+/**
+ * The listed words the card test checks, which the fixture's title holds: the two the ticket names,
+ * and the longest listed word (#145 retro).
+ */
+const CHECKED_WORDS = ["เบาหวาน", "อำเภอสอง", "ความดันโลหิตสูง"];
 
 let admin: CmsActor;
 /** The fixture's title: the checked words, and characters that the page must escape. */
@@ -41,9 +48,13 @@ const fixtureCardTitle = (page: Page) =>
 
 /**
  * How the occurrences of `word` in `element`'s text lie as the page is laid out now: how many
- * there are, and how many of them span more than one line.
+ * there are, how many of them span more than one line, and how many run out of the content box of
+ * the card around the element, when it sits in one.
  */
-function occurrencesOf(element: Locator, word: string): Promise<{ found: number; split: number }> {
+function occurrencesOf(
+	element: Locator,
+	word: string,
+): Promise<{ found: number; split: number; outside: number }> {
 	return element.evaluate((root, word) => {
 		const texts: Text[] = [];
 		const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -57,24 +68,32 @@ function occurrencesOf(element: Locator, word: string): Promise<{ found: number;
 			throw new Error(`no text at ${index}`);
 		};
 		const whole = texts.map((text) => text.data).join("");
+		const card = root.closest("article");
+		const box = card && card.getBoundingClientRect();
+		const style = card && getComputedStyle(card);
+		const left = box && style ? box.left + parseFloat(style.paddingLeft) : -Infinity;
+		const right = box && style ? box.right - parseFloat(style.paddingRight) : Infinity;
 		let found = 0;
 		let split = 0;
+		let outside = 0;
 		for (let from = whole.indexOf(word); from !== -1; from = whole.indexOf(word, from + 1)) {
 			const range = document.createRange();
 			range.setStart(...position(from, false));
 			range.setEnd(...position(from + word.length, true));
-			const tops = [...range.getClientRects()].map((rect) => rect.top);
+			const rects = [...range.getClientRects()];
+			const tops = rects.map((rect) => rect.top);
 			found += 1;
 			if (Math.max(...tops) - Math.min(...tops) > 4) split += 1;
+			if (rects.some((rect) => rect.left < left - 0.5 || rect.right > right + 0.5)) outside += 1;
 		}
-		return { found, split };
+		return { found, split, outside };
 	}, word);
 }
 
 test.beforeAll(async () => {
 	admin = await devAdminActor();
 	const slug = syntheticSlug("thai-title");
-	fixtureTitle = `${SYNTHETIC_FIXTURE_MARK} ความรู้สุขภาพ ตรวจคัดกรองเบาหวานให้ผู้สูงอายุทุกหลังคาเรือนในอำเภอสอง "ตรวจฟรี" & <b>ทุกวันพุธ</b> ${slug.slice(-6)}`;
+	fixtureTitle = `${SYNTHETIC_FIXTURE_MARK} ความรู้สุขภาพ ตรวจคัดกรองเบาหวานและความดันโลหิตสูงให้ผู้สูงอายุทุกหลังคาเรือนในอำเภอสอง "ตรวจฟรี" & <b>ทุกวันพุธ</b> ${slug.slice(-6)}`;
 	const created = await createSyntheticEntry(admin, "health_content", {
 		slug,
 		data: { title: fixtureTitle },
@@ -85,7 +104,7 @@ test.beforeAll(async () => {
 
 test.afterAll(() => removeSuiteFixtures(admin));
 
-test("a card never splits เบาหวาน or อำเภอสอง of its title across two lines, at any width from 320 to 1440 px", async ({
+test("a card keeps เบาหวาน, อำเภอสอง and ความดันโลหิตสูง of its title whole and inside it, at any width from 320 to 1440 px", async ({
 	page,
 }) => {
 	await page.goto("/");
@@ -95,13 +114,21 @@ test("a card never splits เบาหวาน or อำเภอสอง of i
 		expect((await occurrencesOf(title, word)).found, `${word} in the card's title`).toBe(1);
 	}
 	const splits: string[] = [];
+	const overflows: string[] = [];
 	for (let width = 320; width <= 1440; width += 8) {
 		await page.setViewportSize({ width, height: 900 });
 		for (const word of CHECKED_WORDS) {
-			if ((await occurrencesOf(title, word)).split > 0) splits.push(`${word} at ${width} px`);
+			const { split, outside } = await occurrencesOf(title, word);
+			if (split > 0) splits.push(`${word} at ${width} px`);
+			if (outside > 0) overflows.push(`${word} at ${width} px`);
 		}
+		const sideways = await page.evaluate(
+			() => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+		);
+		if (sideways > 0) overflows.push(`the page scrolls sideways at ${width} px`);
 	}
 	expect(splits, "a kept word spans two lines").toEqual([]);
+	expect(overflows, "a kept word runs out of the card or the page").toEqual([]);
 });
 
 test("a card's title shows its characters as written", async ({ page }) => {

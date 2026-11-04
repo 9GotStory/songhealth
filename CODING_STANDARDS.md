@@ -58,6 +58,12 @@ and why, and `.jscpd-baseline.json` records them.
   download's, and 24 px on a card. Its colour is a token, through `currentColor`.
   `tests/node/public-icons.test.ts` checks the mechanics: no typed mark or hand-drawn `<svg>`, and
   each icon from its own module, sized 16, 20 or 24 px, with `shrink-0`.
+- A title renders through `src/components/ThaiTitle.astro`, which keeps the Thai compound words of
+  `src/lib/thai-title.ts` on one line (spec #144): every page's H1, every section heading, every
+  card and row title, the Featured title, and the site title in the header, the footer and the
+  Contact Summary. Body text, summaries and labels render as they are.
+  `tests/node/public-titles.test.ts` checks the headings, and review checks the titles that are no
+  heading, such as a Quick Link card's label.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page.
 - A list or detail page reuses the shared pieces in `src/components/` and follows the shape of
@@ -95,6 +101,9 @@ and why, and `.jscpd-baseline.json` records them.
   and restores it in `finally`, and says what the native API cannot restore.
 - A suite's fixtures stay until the suite ends, so a test that needs its fixtures to lead an
   ordered list (newest first, a page boundary) dates them after every earlier test's fixtures.
+- A test of a precedence rule, such as the longest listed word first or the newest entry first,
+  gives its input in an order the rule must overturn, so the test fails without the rule (#145
+  retro: a list already sorted longest first passed with the sort removed).
 - Logic that `tests/node` checks lives in a `src/lib` module with no runtime import, because
   node:test loads it with plain Node: no `emdash`, no extensionless relative import.
   `src/lib/dated-lists.ts` and `src/lib/excerpt.ts` are examples; the module that reads through

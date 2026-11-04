@@ -1,12 +1,19 @@
 // Pull-request screenshots of public pages, taken from the development runtime.
 //
-//   node scripts/capture-screenshots.mjs <out-dir> <[name=]path> [<[name=]path>...]
+//   node scripts/capture-screenshots.mjs <out-dir> <target> [<target>...]
 //
-// Each path is captured full-page at 1440 px (desktop), 375 px and 320 px (mobile), into
-// <name>-<width>.png. Without a name, the path gives it ("/news/x" is "news-x"), so name a path
-// whose slug is synthetic. At the mobile widths the first path is captured again with the menu
-// open. The origin is PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324. Pages are read
-// anonymously, with no credential.
+// A target `[name=]path` is captured full-page at 1440 px (desktop), 375 px and 320 px (mobile),
+// into <name>-<width>.png. Without a name, the path gives it ("/news/x" is "news-x"), so name a
+// path whose slug is synthetic. At the mobile widths the first target, when it is a full-page one,
+// is captured again with the menu open. A target `name=path@width` is captured full-page at that
+// one width, into <name>.png, and `name=path@width>selector` is a close-up of the first element the
+// CSS selector matches, such as "header-375=/@375>header", for a small change that a full page
+// would bury (#145 retro). The origin is PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324. Pages
+// are read anonymously, with no credential.
+//
+// A pull request shows its pages before and after. Take the before screenshots while the runtime
+// still serves the base, before the ticket's first scripts/dev-runtime-update.sh: afterwards they
+// need the base promoted again.
 //
 // To show the images in a pull request without adding them to the code tree, put them on an
 // image-only branch with scripts/evidence-branch.sh <ticket> <out-dir>, which prints how to push
@@ -24,9 +31,7 @@ const WIDTHS = [
 
 const [outDir, ...targets] = process.argv.slice(2);
 if (outDir === undefined || targets.length === 0) {
-	console.error(
-		"usage: node scripts/capture-screenshots.mjs <out-dir> <[name=]path> [<[name=]path>...]",
-	);
+	console.error("usage: node scripts/capture-screenshots.mjs <out-dir> <target> [<target>...]");
 	process.exit(2);
 }
 const origin = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4324";
@@ -37,29 +42,55 @@ function stem(path) {
 	return trimmed === "" ? "home" : trimmed;
 }
 
-/** A target as its file-name base and path: "name=/path" names it, a bare "/path" names itself. */
+/**
+ * A target as its file-name base, its path, and the one width and element it names, if any:
+ * "name=/path" names it, a bare "/path" names itself, and "@width>selector" follows the path.
+ */
 const pages = targets.map((target) => {
 	const split = target.startsWith("/") ? -1 : target.indexOf("=");
-	return split === -1
-		? { base: stem(target), path: target }
-		: { base: target.slice(0, split), path: target.slice(split + 1) };
+	const name = split === -1 ? undefined : target.slice(0, split);
+	const rest = split === -1 ? target : target.slice(split + 1);
+	const one = /^(?<path>.*?)@(?<width>\d+)(?:>(?<selector>.+))?$/.exec(rest)?.groups;
+	const path = one?.path ?? rest;
+	return {
+		base: name ?? (one ? `${stem(path)}-${one.width}` : stem(path)),
+		path,
+		width: one && Number(one.width),
+		selector: one?.selector,
+	};
 });
 
 await mkdir(outDir, { recursive: true });
 const browser = await chromium.launch();
 const written = [];
+
+/** `path` opened at `viewport`, with every picture loaded and decoded. */
+async function openPage(path, viewport) {
+	const page = await browser.newPage({ viewport });
+	await page.goto(new URL(path, origin).href);
+	// A full-page screenshot does not scroll, so lazy pictures below the fold would never load.
+	// Load and decode every picture first, as a reader scrolling down would see it.
+	await page.evaluate(async () => {
+		await document.fonts.ready;
+		for (const image of document.images) image.loading = "eager";
+		await Promise.all([...document.images].map((image) => image.decode().catch(() => {})));
+	});
+	return page;
+}
+
 try {
-	for (const [index, { base, path }] of pages.entries()) {
+	for (const [index, { base, path, width, selector }] of pages.entries()) {
+		if (width !== undefined) {
+			const page = await openPage(path, { width, height: 900 });
+			const file = join(outDir, `${base}.png`);
+			if (selector === undefined) await page.screenshot({ path: file, fullPage: true });
+			else await page.locator(selector).first().screenshot({ path: file });
+			written.push(file);
+			await page.close();
+			continue;
+		}
 		for (const { name, viewport } of WIDTHS) {
-			const page = await browser.newPage({ viewport });
-			await page.goto(new URL(path, origin).href);
-			// A full-page screenshot does not scroll, so lazy pictures below the fold would never
-			// load. Load and decode every picture first, as a reader scrolling down would see it.
-			await page.evaluate(async () => {
-				await document.fonts.ready;
-				for (const image of document.images) image.loading = "eager";
-				await Promise.all([...document.images].map((image) => image.decode().catch(() => {})));
-			});
+			const page = await openPage(path, viewport);
 			const file = join(outDir, `${base}-${name}.png`);
 			await page.screenshot({ path: file, fullPage: true });
 			written.push(file);
