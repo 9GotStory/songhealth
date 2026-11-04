@@ -132,6 +132,10 @@ Latency evidence for a list that reads more than one page (ADR 0002, ADR 0004) c
 the module's paths before and after making its synthetic content, then removes the content, and
 prints a table for the pull request. `scripts/latency-fixtures/dated-lists.ts` is the example.
 
+Whether a title fits a column comes from `node scripts/thai-title-widths.ts`. It prints how wide
+each Thai word a title keeps whole (`src/lib/thai-title.ts`) is at each title size, in the site's
+font. Compare it with the column at the tightest width before a spec or ticket says a title fits.
+
 Admin login uses EmDash's development-only bypass (browsers accept passkeys only on a domain
 origin, not `127.0.0.1`):
 `http://127.0.0.1:4324/_emdash/api/auth/dev-bypass?redirect=/_emdash/admin`. The services start

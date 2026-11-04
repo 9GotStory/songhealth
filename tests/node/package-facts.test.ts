@@ -3,9 +3,10 @@
 // A facts file, `docs/agents/<package>-<version>.md`, records what the site relies on in one pinned
 // package. Each fact cites the file it was read from, relative to that package's directory. A
 // Songhealth file is written with a leading `./`, and another package's file starts with its
-// package name. In #57 a fact cited a Songhealth file as its EmDash source. A cited file that moved
-// or went away fails here, and so does a facts file whose version is not the one package.json pins:
-// a new version means verifying every fact again and renaming the file.
+// package name, scoped or not (`astro/dist/…`, #146 retro). In #57 a fact cited a Songhealth file
+// as its EmDash source. A cited file that moved or went away fails here, and so does a facts file
+// whose version is not the one package.json pins: a new version means verifying every fact again
+// and renaming the file.
 
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
@@ -50,11 +51,14 @@ function citedPaths(text: string): string[] {
 }
 
 /**
- * Where a path cited in package `name`'s facts lives: the repository, a named package, or `name`.
+ * Where a path cited in package `name`'s facts lives: the repository, another package that
+ * package.json pins (scoped, such as `@emdash-cms/admin/…`, or not, such as `astro/…`), or `name`.
  */
-function resolveCited(path: string, name: string): URL {
+function resolveCited(path: string, name: string, pinned: ReadonlySet<string>): URL {
 	if (path.startsWith("./")) return new URL(path, ROOT);
-	if (path.startsWith("@")) return new URL(`node_modules/${path}`, ROOT);
+	if (path.startsWith("@") || pinned.has(path.split("/")[0]!)) {
+		return new URL(`node_modules/${path}`, ROOT);
+	}
 	return new URL(`node_modules/${name}/${path}`, ROOT);
 }
 
@@ -94,11 +98,14 @@ describe("package facts", () => {
 	});
 
 	it("cite files that exist: the package's paths bare, Songhealth paths with ./", async () => {
-		const missing = (await factsFiles()).flatMap(({ file, name, text }) =>
-			citedPaths(text)
-				.filter((path) => name === undefined || !existsSync(resolveCited(path, name)))
-				.map((path) => `${file}: ${path}`),
-		);
+		const manifest = JSON.parse(await readFile(new URL("package.json", ROOT), "utf8"));
+		const pinned = new Set(Object.keys({ ...manifest.dependencies, ...manifest.devDependencies }));
+		const missing = (await factsFiles()).flatMap(({ file, name, text }) => {
+			const others = new Set([...pinned].filter((pin) => pin !== name));
+			return citedPaths(text)
+				.filter((path) => name === undefined || !existsSync(resolveCited(path, name, others)))
+				.map((path) => `${file}: ${path}`);
+		});
 		assert.deepEqual(missing, []);
 	});
 });

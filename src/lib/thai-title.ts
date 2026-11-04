@@ -22,8 +22,11 @@
 /** The most characters (Unicode code points) a listed word may have. */
 const KEPT_WORD_MAX = 15;
 
-/** The Thai compound words a title keeps on one line, as spec #144 lists them. */
-const KEPT_WORDS = [
+/**
+ * The Thai compound words a title keeps on one line, as spec #144 lists them.
+ * scripts/thai-title-widths.ts measures how wide each one is on the page.
+ */
+export const KEPT_WORDS = [
 	"เบาหวาน",
 	"ความดันโลหิตสูง",
 	"ความดันโลหิต",

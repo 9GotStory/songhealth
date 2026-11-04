@@ -145,7 +145,7 @@ the real state first and only adds what is missing:
 ## Promote a new commit
 
 ```bash
-~/dev/songhealth-quadlet/scripts/dev-runtime-update.sh --sha <commit>   # [--no-backup] [--force]
+~/dev/songhealth-quadlet/scripts/dev-runtime-update.sh --sha <commit>   # [--no-backup] [--force | --wait]
 ```
 
 The runtime checkout fetches from the workspace repository. A commit made on GitHub, such as a
@@ -162,6 +162,9 @@ The update runs these steps:
    `scripts/dev-runtime-env.sh`.
    - Pass `--force` only for Admin loads you know are your own and the guard still lists, such as
      a test that failed before it logged out.
+   - Pass `--wait` to wait for the Admin instead: the update lists the loads, waits until no Admin
+     page has been opened for 10 minutes, and goes on. The wait can be long, so run it in the
+     background.
    - Before a restart the update does not make (`systemctl --user restart …`), run
      `scripts/dev-runtime-admin-activity.sh`. It lists recent Admin loads with this same filter, so
      verify's probe never reads as a person.

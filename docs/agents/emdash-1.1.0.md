@@ -190,6 +190,12 @@ cited file exists and that the name carries the pinned version.
   the dominant colour) as the image's inline background, unless given `placeholder={false}`
   (`src/components/EmDashImage.astro` `resolveImage`). `./src/components/FeaturedHero.astro` relies
   on both.
+- For a value with a size, `Image` renders Astro's `<Image layout="constrained">`, which marks the
+  image `data-astro-image-fit="cover"` (`astro/dist/assets/internal.js`). Astro 7.3.5 adds the CSS
+  for that mark only with `image.responsiveStyles`, which defaults to false
+  (`astro/dist/core/config/schemas/defaults.js`, `astro/dist/assets/vite-plugin-assets.js`), and
+  `./astro.config.mjs` leaves it off. A page's own `object-cover` or `object-contain` class
+  therefore decides how the picture fits its box.
 - The frontend media-provider loader creates providers with an empty context, and the local provider
   needs a database, so public pages cannot use it (`src/media/provider-loader.ts`,
   `src/media/local-runtime.ts`).

@@ -9,7 +9,8 @@
 // one width, into <name>.png, and `name=path@width>selector` is a close-up of the first element the
 // CSS selector matches, such as "header-375=/@375>header", for a small change that a full page
 // would bury (#145 retro). The origin is PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324. Pages
-// are read anonymously, with no credential.
+// are read anonymously, with no credential. It prints each file with its size in pixels, so a pull
+// request can quote a page's height from it (#146 retro).
 //
 // A pull request shows its pages before and after. Take the before screenshots while the runtime
 // still serves the base, before the ticket's first scripts/dev-runtime-update.sh: afterwards they
@@ -19,7 +20,7 @@
 // image-only branch with scripts/evidence-branch.sh <ticket> <out-dir>, which prints how to push
 // and embed them.
 
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium } from "@playwright/test";
 
@@ -64,6 +65,12 @@ await mkdir(outDir, { recursive: true });
 const browser = await chromium.launch();
 const written = [];
 
+/** A PNG's width × height in pixels, from its IHDR header: a CSS px each, at scale factor 1. */
+async function pngSize(file) {
+	const header = (await readFile(file)).subarray(16, 24);
+	return `${header.readUInt32BE(0)}×${header.readUInt32BE(4)}`;
+}
+
 /** `path` opened at `viewport`, with every picture loaded and decoded. */
 async function openPage(path, viewport) {
 	const page = await browser.newPage({ viewport });
@@ -106,4 +113,4 @@ try {
 } finally {
 	await browser.close();
 }
-console.log(written.join("\n"));
+for (const file of written) console.log(`${file} ${await pngSize(file)}`);
