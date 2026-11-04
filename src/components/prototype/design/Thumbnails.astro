@@ -1,0 +1,76 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 4's Activity gallery, as the Product
+// Owner picked it (2026-11-04): square thumbnails, four to a row from `lg` and three on phones,
+// each opening the full picture; the first eight show, and a native <details> holds the rest, so a
+// gallery of 20 photos stays short without JavaScript.
+import { Image } from "emdash/ui";
+import type { ImageFieldValue } from "../../../lib/news";
+
+interface Props {
+	items: { image: ImageFieldValue; caption?: string | null }[];
+}
+
+/** How many photos show before the rest fold away. */
+const SHOWN = 8;
+
+const { items } = Astro.props;
+const fullHref = (image: ImageFieldValue) => {
+	const key = (image as { meta?: { storageKey?: unknown } }).meta?.storageKey;
+	return `/_emdash/api/media/file/${typeof key === "string" && key !== "" ? key : image.id}`;
+};
+const grid = "grid grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-4 lg:gap-4";
+const groups = [items.slice(0, SHOWN), items.slice(SHOWN)];
+const rest = groups[1].length;
+---
+
+{groups.map((group, index) =>
+	group.length === 0 ? null : index === 0 ? (
+		<ul class={grid}>
+			{group.map((item) => (
+				<li>
+					<figure class="flex flex-col gap-1">
+						<a class="block overflow-hidden rounded-14" href={fullHref(item.image)}>
+							<Image
+								image={item.image}
+								sizes="(min-width: 64rem) 18rem, 33vw"
+								class="aspect-square w-full bg-surface-soft object-cover"
+							/>
+						</a>
+						{item.caption && (
+							<figcaption class="line-clamp-2 text-small text-text-secondary">
+								{item.caption}
+							</figcaption>
+						)}
+					</figure>
+				</li>
+			))}
+		</ul>
+	) : (
+		<details class="group flex flex-col">
+			<summary class="inline-flex min-h-11 w-fit cursor-pointer list-none items-center gap-2 rounded-pill border border-border-input bg-surface-base px-5 text-label text-brand-primary hover:bg-surface-soft [&::-webkit-details-marker]:hidden">
+				<span class="group-open:hidden">ดูรูปทั้งหมด ({items.length} รูป)</span>
+				<span class="hidden group-open:inline">ซ่อนรูป {rest} รูป</span>
+			</summary>
+			<ul class:list={[grid, "mt-3"]}>
+				{group.map((item) => (
+					<li>
+						<figure class="flex flex-col gap-1">
+							<a class="block overflow-hidden rounded-14" href={fullHref(item.image)}>
+								<Image
+									image={item.image}
+									sizes="(min-width: 64rem) 18rem, 33vw"
+									class="aspect-square w-full bg-surface-soft object-cover"
+								/>
+							</a>
+							{item.caption && (
+								<figcaption class="line-clamp-2 text-small text-text-secondary">
+									{item.caption}
+								</figcaption>
+							)}
+						</figure>
+					</li>
+				))}
+			</ul>
+		</details>
+	),
+)}

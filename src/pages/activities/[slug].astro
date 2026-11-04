@@ -21,6 +21,7 @@ import V2ActivityPage from "../../components/prototype/design/v2/ActivityPage.as
 import V3ActivityPage from "../../components/prototype/design/v3/ActivityPage.astro";
 import ThaiText from "../../components/prototype/design/ThaiText.astro";
 import PostPicture from "../../components/prototype/design/PostPicture.astro";
+import Thumbnails from "../../components/prototype/design/Thumbnails.astro";
 import { pageDesign, usesCurrentLayout } from "../../lib/prototype-design";
 import {
 	ACTIVITIES_PATH,
@@ -139,24 +140,30 @@ const GALLERY_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw"
 					<h2 id="activity-gallery" class="text-h3 text-brand-dark">
 						ภาพกิจกรรม
 					</h2>
-					<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-						{gallery.map((item) => (
-							<li>
-								<figure class="flex flex-col gap-2">
-									<Image
-										image={item.image!}
-										sizes={GALLERY_SIZES}
-										class="h-auto w-full rounded-18 bg-surface-soft"
-									/>
-									{item.caption && (
-										<figcaption class="text-small wrap-anywhere text-text-secondary">
-											{item.caption}
-										</figcaption>
-									)}
-								</figure>
-							</li>
-						))}
-					</ul>
+					{design.variant === "4" ? (
+						<Thumbnails
+							items={gallery.map((item) => ({ image: item.image!, caption: item.caption }))}
+						/>
+					) : (
+						<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+							{gallery.map((item) => (
+								<li>
+									<figure class="flex flex-col gap-2">
+										<Image
+											image={item.image!}
+											sizes={GALLERY_SIZES}
+											class="h-auto w-full rounded-18 bg-surface-soft"
+										/>
+										{item.caption && (
+											<figcaption class="text-small wrap-anywhere text-text-secondary">
+												{item.caption}
+											</figcaption>
+										)}
+									</figure>
+								</li>
+							))}
+						</ul>
+					)}
 				</section>
 			)}
 		</article>
