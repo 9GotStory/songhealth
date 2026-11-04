@@ -16,10 +16,9 @@
 // an image in the body (src/components/RichText.astro).
 import { getEmDashEntry } from "emdash";
 import DateText from "../../../components/DateText.astro";
+import PostBody from "../../../components/PostBody.astro";
 import PostColumns from "../../../components/PostColumns.astro";
-import RichText from "../../../components/RichText.astro";
-import ThaiTitle from "../../../components/ThaiTitle.astro";
-import TopicPills from "../../../components/TopicPills.astro";
+import PostHeader from "../../../components/PostHeader.astro";
 import SiteLayout from "../../../layouts/SiteLayout.astro";
 import { HEALTH_CONTENT_PATH, HEALTH_CONTENT_TITLE } from "../../../lib/health";
 import {
@@ -57,31 +56,20 @@ const topics = termsOf(content, "topic");
 >
 	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 		<PostColumns image={content.featured_image}>
-			<header class="flex max-w-3xl flex-col gap-3">
-				<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
-					<ThaiTitle text={content.title} />
-				</h1>
-				{content.summary && (
-					<p class="text-body-large whitespace-pre-line text-text-secondary">{content.summary}</p>
-				)}
-				{content.publishedAt && (
-					<p class="text-small text-text-secondary">
-						เผยแพร่ <DateText value={content.publishedAt} />
-					</p>
-				)}
+			<PostHeader title={content.title} summary={content.summary} publishedAt={content.publishedAt}>
 				{content.reviewed_at && (
 					<p class="text-small text-text-secondary">
 						ทบทวนล่าสุด <DateText value={content.reviewed_at} />
 					</p>
 				)}
-			</header>
-			<div slot="body" class="flex max-w-3xl flex-col gap-8">
-				{content.body && content.body.length > 0 && <RichText value={content.body} />}
-				{content.source_text && (
-					<p class="text-text-secondary">แหล่งที่มา: {content.source_text}</p>
-				)}
-				<TopicPills topics={topics} href={healthContentListPath} />
-			</div>
+			</PostHeader>
+			<PostBody
+				slot="body"
+				body={content.body}
+				source={content.source_text}
+				topics={topics}
+				topicHref={healthContentListPath}
+			/>
 		</PostColumns>
 	</article>
 </SiteLayout>

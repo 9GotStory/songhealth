@@ -61,9 +61,10 @@ export async function availableMedia<T extends MediaValue | FileValue>(
 
 /**
  * The address of a local media value's stored file, the picture as it was uploaded, or undefined
- * for another provider's media. It names the file by the key availableMedia checks, through the URL
- * resolver EmDash puts on `Astro.locals.emdash`, which on local storage gives EmDash's own file
- * route. EmDash exports no function for it (docs/agents/emdash-1.1.0.md "Media").
+ * for another provider's media or without EmDash's URL resolver. It names the file by the key
+ * availableMedia checks, through the resolver EmDash puts on `Astro.locals.emdash`, which gives
+ * EmDash's own file route under the local storage's `baseUrl` that astro.config.mjs sets. EmDash
+ * exports no function for it (docs/agents/emdash-1.1.0.md "Media").
  */
 export function mediaFileHref(
 	value: MediaValue,

@@ -19,6 +19,7 @@ import { Image } from "emdash/ui";
 import DateText from "../../components/DateText.astro";
 import DetailItem from "../../components/DetailItem.astro";
 import PostColumns from "../../components/PostColumns.astro";
+import PostHeader from "../../components/PostHeader.astro";
 import ThaiTitle from "../../components/ThaiTitle.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import {
@@ -69,19 +70,11 @@ const GALLERY_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw"
 >
 	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 		<PostColumns image={activity.featured_image}>
-			<header class="flex max-w-3xl flex-col gap-3">
-				<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
-					<ThaiTitle text={activity.title} />
-				</h1>
-				{activity.summary && (
-					<p class="text-body-large whitespace-pre-line text-text-secondary">{activity.summary}</p>
-				)}
-				{activity.publishedAt && (
-					<p class="text-small text-text-secondary">
-						เผยแพร่ <DateText value={activity.publishedAt} />
-					</p>
-				)}
-			</header>
+			<PostHeader
+				title={activity.title}
+				summary={activity.summary}
+				publishedAt={activity.publishedAt}
+			/>
 			{hasDetails && (
 				<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
 					{activity.activity_at && (

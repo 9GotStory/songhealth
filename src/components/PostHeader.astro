@@ -1,0 +1,34 @@
+---
+// A post page's header (Feature 006 #147; spec #144 "Post pages: News, Activity and Health
+// Content"): a News item's category, the title as the page's one H1, the summary under it, so a
+// story told only in its One Page is in words too (grill Q14), and the publication date. A page's
+// other dates, such as when Health Content was last reviewed, follow in the default slot. The
+// summary keeps the line breaks staff typed.
+import type { Instant } from "../lib/dated-lists";
+import DateText from "./DateText.astro";
+import ThaiTitle from "./ThaiTitle.astro";
+
+interface Props {
+	title: string;
+	summary?: string | null;
+	publishedAt?: Instant;
+	/** A News item's category, shown above the title. */
+	category?: string;
+}
+
+const { title, summary, publishedAt, category } = Astro.props;
+---
+
+<header class="flex max-w-3xl flex-col gap-3">
+	{category && <p class="text-label text-brand-primary">{category}</p>}
+	<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
+		<ThaiTitle text={title} />
+	</h1>
+	{summary && <p class="text-body-large whitespace-pre-line text-text-secondary">{summary}</p>}
+	{publishedAt && (
+		<p class="text-small text-text-secondary">
+			เผยแพร่ <DateText value={publishedAt} />
+		</p>
+	)}
+	<slot />
+</header>

@@ -12,11 +12,9 @@
 //
 // A featured image whose media item was deleted in Admin is left out (src/lib/media.ts).
 import { getEmDashEntry } from "emdash";
-import DateText from "../../components/DateText.astro";
+import PostBody from "../../components/PostBody.astro";
 import PostColumns from "../../components/PostColumns.astro";
-import RichText from "../../components/RichText.astro";
-import ThaiTitle from "../../components/ThaiTitle.astro";
-import TopicPills from "../../components/TopicPills.astro";
+import PostHeader from "../../components/PostHeader.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { healthNewsPath, newsPath, type NewsData } from "../../lib/news";
 import { termsOf } from "../../lib/terms";
@@ -42,25 +40,19 @@ const topics = termsOf(news, "topic");
 >
 	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 		<PostColumns image={news.featured_image}>
-			<header class="flex max-w-3xl flex-col gap-3">
-				{category && <p class="text-label text-brand-primary">{category.label}</p>}
-				<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
-					<ThaiTitle text={news.title} />
-				</h1>
-				{news.summary && (
-					<p class="text-body-large whitespace-pre-line text-text-secondary">{news.summary}</p>
-				)}
-				{news.publishedAt && (
-					<p class="text-small text-text-secondary">
-						เผยแพร่ <DateText value={news.publishedAt} />
-					</p>
-				)}
-			</header>
-			<div slot="body" class="flex max-w-3xl flex-col gap-8">
-				{news.body && news.body.length > 0 && <RichText value={news.body} />}
-				{news.source_text && <p class="text-text-secondary">แหล่งที่มา: {news.source_text}</p>}
-				<TopicPills topics={topics} href={healthNewsPath} />
-			</div>
+			<PostHeader
+				title={news.title}
+				summary={news.summary}
+				publishedAt={news.publishedAt}
+				category={category?.label}
+			/>
+			<PostBody
+				slot="body"
+				body={news.body}
+				source={news.source_text}
+				topics={topics}
+				topicHref={healthNewsPath}
+			/>
 		</PostColumns>
 	</article>
 </SiteLayout>

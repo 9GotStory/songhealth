@@ -10,7 +10,9 @@
 // The picture stays in view while the left column scrolls, and stops where the two columns end, so
 // it never covers what follows them, such as an Activity's photos. Below lg a post reads in one
 // column in its order: the header, then the picture and the body (News, Health Content), or the
-// details and then the picture (Activity). A post without a picture keeps one column.
+// details and then the picture (Activity). A post without a picture keeps one column. Each
+// template, with a picture and without, passes the axe, focus and reflow checks at the harness's
+// widths and at 375 px.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness. Its fixtures are synthetic News, Activities and Health Content made through the native
@@ -34,31 +36,28 @@ import {
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
-	MOBILE_VIEWPORT,
 	PHONE_VIEWPORT,
 	detailOf,
 	expect,
 	expectImageLoaded,
 	expectNoAxeViolations,
-	expectNoHorizontalScroll,
-	expectPictureWhole,
+	expectPictureFillsBox,
 	expectVisibleFocusOnEveryStop,
 	test,
+	testAccessibilityAndReflow,
 } from "./public.helpers";
 
 /**
- * The post templates, by collection: what the tests call a post, the kind its title names, the
- * address of a post, and what a post holds besides its title, summary and picture.
+ * The post templates, by collection: the kind a post's title names, the address of a post, and what
+ * a post holds besides its title, summary and picture.
  */
 const TEMPLATES = {
 	news: {
-		name: "News",
 		kind: "ข่าว",
 		path: (slug: string) => `/news/${slug}`,
-		content: () => ({ body: [portableTextBlock(BODY)] }),
+		content: () => ({ body: [portableTextBlock(BODY)], source_text: SOURCE }),
 	},
 	activities: {
-		name: "Activity",
 		kind: "กิจกรรม",
 		path: (slug: string) => `/activities/${slug}`,
 		content: () => ({
@@ -70,10 +69,9 @@ const TEMPLATES = {
 		}),
 	},
 	health_content: {
-		name: "Health Content",
 		kind: "ความรู้สุขภาพ",
 		path: (slug: string) => `/health/content/${slug}`,
-		content: () => ({ body: [portableTextBlock(BODY)] }),
+		content: () => ({ body: [portableTextBlock(BODY)], source_text: SOURCE }),
 	},
 } as const;
 
@@ -81,8 +79,9 @@ type Template = keyof typeof TEMPLATES;
 
 const ALL_TEMPLATES = Object.keys(TEMPLATES) as Template[];
 
-/** The body of a News or Health Content fixture. */
+/** The body of a News or Health Content fixture, and the source it names. */
 const BODY = `${SYNTHETIC_FIXTURE_MARK} เนื้อหาของโพสต์`;
+const SOURCE = `${SYNTHETIC_FIXTURE_MARK} สำนักงานสาธารณสุขอำเภอสอง`;
 
 /** The full-size link's label. */
 const FULL_SIZE = "เปิดภาพขนาดเต็ม";
@@ -203,7 +202,7 @@ test("a News post and a Health Content post show their summary under the title, 
 	}
 });
 
-test("at 1440 px a News, an Activity and a Health Content post with a picture show it whole on the right of the title, and เปิดภาพขนาดเต็ม opens its file", async ({
+test("at 1440 px a News, an Activity and a Health Content post with a picture show it whole on the right of the title, the rest of the text under the header, and เปิดภาพขนาดเต็ม opens its file", async ({
 	page,
 }) => {
 	for (const template of ALL_TEMPLATES) {
@@ -212,14 +211,10 @@ test("at 1440 px a News, an Activity and a Health Content post with a picture sh
 		await page.goto(post.path);
 		const main = page.getByRole("main");
 		const picture = pictureOf(page, post);
-		const { width, height } = await expectPictureWhole(picture, label);
-		const shown = await boxOf(picture, label);
 		// The picture fills its own box, so the placeholder EmDash's Image paints behind it never shows
 		// beside it (#147 comment 6628040681).
-		expect(
-			Math.abs(shown.width - width) + Math.abs(shown.height - height),
-			`${label}: the picture fills its box`,
-		).toBeLessThan(1);
+		await expectPictureFillsBox(picture, label);
+		const shown = await boxOf(picture, label);
 		const title = await boxOf(main.getByRole("heading", { level: 1 }), `${label}: the title`);
 		expect(shown.x, `${label}: the picture is on the right of the title`).toBeGreaterThanOrEqual(
 			title.x + title.width,
@@ -227,6 +222,22 @@ test("at 1440 px a News, an Activity and a Health Content post with a picture sh
 		expect(shown.y, `${label}: the picture is beside the title, not below it`).toBeLessThan(
 			title.y + title.height,
 		);
+		// The left column goes on in the page's order: the details card, or the body and its source.
+		const rest: Array<[name: string, part: Locator]> =
+			template === "activities"
+				? [["the details", main.locator("dl")]]
+				: [
+						["the body", main.getByText(BODY, { exact: true })],
+						["the source", main.getByText(`แหล่งที่มา: ${SOURCE}`, { exact: true })],
+					];
+		await expectStacked(label, [["the date", main.getByText(/^เผยแพร่ /)], ...rest]);
+		for (const [name, part] of rest) {
+			const box = await boxOf(part, `${label}: ${name}`);
+			expect(
+				box.x + box.width,
+				`${label}: ${name} is on the left of the picture`,
+			).toBeLessThanOrEqual(shown.x);
+		}
 
 		const opened = page.waitForResponse((response) => response.request().isNavigationRequest());
 		await main.getByRole("link", { name: FULL_SIZE }).click();
@@ -341,21 +352,22 @@ test("at 375 px a post reads in one column in its order, the picture and its lin
 	]);
 });
 
-for (const template of ALL_TEMPLATES) {
-	for (const kind of ["pictured", "plain"] as const) {
-		const name = `a ${TEMPLATES[template].name} post ${kind === "pictured" ? "with" : "without"} a picture`;
-		test(`axe reports no WCAG 2.2 AA violation and focus stays visible on ${name} at 375 and 1440 px, and it does not scroll sideways at 320 px`, async ({
-			page,
-		}) => {
-			const post = (kind === "pictured" ? pictured : plain)[template];
-			for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
-				await page.setViewportSize(viewport);
-				await page.goto(post.path);
-				await expectNoAxeViolations(page, `${name} at ${viewport.width} px`);
-				await expectVisibleFocusOnEveryStop(page, `${name} at ${viewport.width} px`);
-			}
-			await page.setViewportSize(MOBILE_VIEWPORT);
-			await expectNoHorizontalScroll(page, `${name} at 320 px`);
-		});
-	}
-}
+test.describe("accessibility and reflow", () => {
+	/** Each template's post with a picture and without. */
+	const paths = () =>
+		ALL_TEMPLATES.flatMap((template) => [pictured[template].path, plain[template].path]);
+
+	testAccessibilityAndReflow("the post pages", paths);
+
+	test("axe reports no WCAG 2.2 AA violation and focus stays visible on the post pages at 375 px", async ({
+		page,
+	}) => {
+		await page.setViewportSize(PHONE_VIEWPORT);
+		for (const path of paths()) {
+			const response = await page.goto(path);
+			expect(response?.status(), `GET ${path}`).toBe(200);
+			await expectNoAxeViolations(page, `${path} at 375 px`);
+			await expectVisibleFocusOnEveryStop(page, `${path} at 375 px`);
+		}
+	});
+});

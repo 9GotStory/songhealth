@@ -59,7 +59,7 @@ import {
 	expectAccessibleAtEachWidth,
 	expectImageLoaded,
 	expectNoHorizontalScroll,
-	expectPictureWhole,
+	expectPictureFillsBox,
 	homepageSection,
 	occurrencesOf,
 	siteTitleParts,
@@ -181,14 +181,8 @@ test("the Featured picture shows whole, a landscape banner and a portrait One Pa
 				await page.goto("/");
 				const shown = hero(page, featured);
 				await expect(shown.getByRole("heading", { level: 2 }), label).toHaveText(featured.title);
-				const picture = shown.locator("img");
-				const { width, height } = await expectPictureWhole(picture, label);
 				// The picture fills its own box, so the band, not the box, shows beside a narrower one.
-				const box = (await picture.boundingBox())!;
-				expect(
-					Math.abs(box.width - width) + Math.abs(box.height - height),
-					`${label}: the picture fills its box`,
-				).toBeLessThan(1);
+				const { height } = await expectPictureFillsBox(shown.locator("img"), label);
 				if (viewport === DESKTOP_VIEWPORT) {
 					expect(height, `${label}: its height`).toBeLessThanOrEqual(FEATURED_PICTURE_HEIGHT + 0.5);
 				}
