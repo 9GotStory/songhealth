@@ -9,6 +9,7 @@ import { FILE_UNAVAILABLE, downloadableFile } from "../lib/media";
 import { termsOf } from "../lib/terms";
 import DocumentStatus from "./DocumentStatus.astro";
 import MetaLine from "./MetaLine.astro";
+import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	document: DocumentEntry;
@@ -36,7 +37,7 @@ const status = listedDomainStatus(data.domain_status);
 			class="underline-offset-4 hover:text-brand-primary hover:underline"
 			href={documentPath(document.id)}
 		>
-			{data.title}
+			<ThaiTitle text={data.title} />
 		</a>
 	</Heading>
 	{data.summary && <p class="line-clamp-2 text-text-secondary">{data.summary}</p>}

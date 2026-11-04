@@ -22,6 +22,7 @@ import type { FeaturedView } from "../lib/homepage-curation";
 import { availableMedia } from "../lib/media";
 import { SERVICES_PATH } from "../lib/service-catalog";
 import ActionLink from "./ActionLink.astro";
+import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	featured: FeaturedView;
@@ -39,7 +40,7 @@ const image = await availableMedia(featured.image, Astro.locals.emdash);
 		<div class="flex min-w-0 flex-col items-start gap-5.5">
 			<p class="rounded-pill bg-hero-chip px-3.5 py-2 text-label">เรื่องเด่นจากอำเภอสอง</p>
 			<h2 id="home-featured" class="text-h3 wrap-anywhere sm:text-h2 lg:text-display">
-				{featured.title}
+				<ThaiTitle text={featured.title} />
 			</h2>
 			{featured.lead && <p class="line-clamp-4 text-body-large">{featured.lead}</p>}
 			<div class="flex flex-wrap gap-3">

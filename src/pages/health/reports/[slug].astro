@@ -23,6 +23,7 @@ import DetailItem from "../../../components/DetailItem.astro";
 import DetailSection from "../../../components/DetailSection.astro";
 import DocumentDownload from "../../../components/DocumentDownload.astro";
 import DocumentRow from "../../../components/DocumentRow.astro";
+import ThaiTitle from "../../../components/ThaiTitle.astro";
 import UnavailableNotice from "../../../components/UnavailableNotice.astro";
 import SiteLayout from "../../../layouts/SiteLayout.astro";
 import { documentsById } from "../../../lib/documents";
@@ -67,7 +68,9 @@ const hasDetails =
 >
 	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 		<header class="flex max-w-3xl flex-col gap-3">
-			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">{report.title}</h1>
+			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
+				<ThaiTitle text={report.title} />
+			</h1>
 			{report.summary && <p class="text-body-large text-text-secondary">{report.summary}</p>}
 		</header>
 		{hasDetails && (

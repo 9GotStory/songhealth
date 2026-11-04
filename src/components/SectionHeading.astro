@@ -4,6 +4,8 @@
 // The section takes its name from the H2 through `id`. On the brand-dark Health Service Discovery
 // section (§8) the eyebrow is accent-warm, and the title and lead are surface-base and larger, as
 // the design draws them.
+import ThaiTitle from "./ThaiTitle.astro";
+
 interface Props {
 	/** The H2's id, unique on the page, which the section names itself by. */
 	id: string;
@@ -26,7 +28,7 @@ const { id, eyebrow, title, lead, onDark = false } = Astro.props;
 			onDark ? "text-surface-base lg:text-h1" : "text-text-primary lg:text-h2",
 		]}
 	>
-		{title}
+		<ThaiTitle text={title} />
 	</h2>
 	<p
 		class:list={[

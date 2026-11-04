@@ -6,6 +6,7 @@
 // (#124), with a line above the label and one below it. The icon is decorative
 // (docs/agents/lucide-astro-1.59.0.md): the label, with those lines, names the link.
 import ChevronRight from "@lucide/astro/icons/chevron-right";
+import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	href: string;
@@ -25,7 +26,9 @@ const { href, label, eyebrow, detail } = Astro.props;
 >
 	<span class="flex min-w-0 flex-col gap-1">
 		{eyebrow && <span class="text-label text-brand-primary">{eyebrow}</span>}
-		<span class="wrap-anywhere">{label}</span>
+		<span class="wrap-anywhere">
+			<ThaiTitle text={label} />
+		</span>
 		{detail && <span class="text-small font-normal text-text-secondary">{detail}</span>}
 	</span>
 	<ChevronRight class="shrink-0 text-brand-primary" size={24} />

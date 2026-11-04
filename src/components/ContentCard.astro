@@ -19,6 +19,7 @@ import { Image } from "emdash/ui";
 import { CARD_PICTURE_SIZES, availableMedia } from "../lib/media";
 import type { ImageFieldValue } from "../lib/news";
 import MetaLine from "./MetaLine.astro";
+import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	href: string;
@@ -52,7 +53,7 @@ const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
 		<MetaLine facts={[label && { text: label }, date && { date }]} />
 		<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
 			<a class="underline-offset-4 hover:text-brand-primary hover:underline" href={href}>
-				{title}
+				<ThaiTitle text={title} />
 			</a>
 		</h2>
 		{summary && <p class="line-clamp-3 text-text-secondary">{summary}</p>}

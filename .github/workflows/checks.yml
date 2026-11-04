@@ -2,10 +2,10 @@
 # files, dependencies and exports (Knip), duplicated code (jscpd, .jscpd.json) and
 # ShellCheck on the development-runtime scripts, on every pull request, whatever its
 # base, and on every push to main or to a feature's integration branch, named
-# <feature number>-<name> such as 004-ita (docs/agents/issue-tracker.md, Branches), so
-# a new feature's branch needs no change here (#122 retro). The browser suites need the
-# development runtime's database and credentials, so they run there instead
-# (README.md).
+# <feature number>-<name> such as 006-frontend-design (docs/agents/issue-tracker.md,
+# Branches), so a new feature's branch needs no change here (#122 retro). The browser
+# suites need the development runtime's database and credentials, so they run there
+# instead (README.md).
 name: checks
 
 on:

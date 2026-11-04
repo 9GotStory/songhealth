@@ -7,6 +7,7 @@
 // available, never why, so nothing unpublished is revealed. It belongs to no
 // main-navigation section.
 import ActionLink from "../components/ActionLink.astro";
+import ThaiTitle from "../components/ThaiTitle.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 
 const heading = "ไม่พบหน้าที่คุณต้องการ";
@@ -14,7 +15,9 @@ const heading = "ไม่พบหน้าที่คุณต้องกา
 
 <SiteLayout title={heading}>
 	<div class="page-container py-16 lg:py-20">
-		<h1 class="text-h3 text-brand-dark sm:text-h2 lg:text-h1">{heading}</h1>
+		<h1 class="text-h3 text-brand-dark sm:text-h2 lg:text-h1">
+			<ThaiTitle text={heading} />
+		</h1>
 		<p class="mt-4 max-w-prose text-body-large text-text-secondary">
 			ที่อยู่นี้อาจพิมพ์ไม่ถูกต้อง หรือหน้านี้อาจถูกย้ายหรือนำออกแล้ว
 		</p>

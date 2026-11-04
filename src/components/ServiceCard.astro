@@ -11,6 +11,7 @@ import ChevronRight from "@lucide/astro/icons/chevron-right";
 import HandHeart from "@lucide/astro/icons/hand-heart";
 import { servicePath } from "../lib/service-catalog";
 import type { ServiceEntry } from "../lib/services";
+import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	service: ServiceEntry;
@@ -37,7 +38,7 @@ const Heading = headingLevel === 3 ? "h3" : "h2";
 			class="underline-offset-4 hover:text-brand-primary hover:underline"
 			href={servicePath(service.id)}
 		>
-			{service.data.title}
+			<ThaiTitle text={service.data.title} />
 		</a>
 	</Heading>
 	{service.data.summary && (

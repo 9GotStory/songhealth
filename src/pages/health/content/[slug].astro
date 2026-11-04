@@ -16,6 +16,7 @@ import { getEmDashEntry } from "emdash";
 import { Image } from "emdash/ui";
 import DateText from "../../../components/DateText.astro";
 import RichText from "../../../components/RichText.astro";
+import ThaiTitle from "../../../components/ThaiTitle.astro";
 import TopicPills from "../../../components/TopicPills.astro";
 import SiteLayout from "../../../layouts/SiteLayout.astro";
 import { HEALTH_CONTENT_PATH, HEALTH_CONTENT_TITLE } from "../../../lib/health";
@@ -56,7 +57,9 @@ const image = await availableMedia(content.featured_image, Astro.locals.emdash);
 >
 	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 		<header class="flex max-w-3xl flex-col gap-3">
-			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">{content.title}</h1>
+			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
+				<ThaiTitle text={content.title} />
+			</h1>
 			{content.publishedAt && (
 				<p class="text-small text-text-secondary">
 					เผยแพร่ <DateText value={content.publishedAt} />

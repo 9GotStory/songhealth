@@ -6,6 +6,7 @@ import { announcementDate, announcementPath, type AnnouncementEntry } from "../l
 import { termsOf } from "../lib/terms";
 import AnnouncementStatusLine from "./AnnouncementStatusLine.astro";
 import MetaLine from "./MetaLine.astro";
+import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	announcement: AnnouncementEntry;
@@ -25,7 +26,7 @@ const date = announcementDate(data);
 			class="underline-offset-4 hover:text-brand-primary hover:underline"
 			href={announcementPath(announcement.id)}
 		>
-			{data.title}
+			<ThaiTitle text={data.title} />
 		</a>
 	</h2>
 	<AnnouncementStatusLine data={data} now={now} />
