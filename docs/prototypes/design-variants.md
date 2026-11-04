@@ -57,7 +57,17 @@ for three code variants and two ways to show a One Page.
 - New behaviour the variants tried: a direct download from the Document list (2, 3), 4 News items
   on the Homepage (2), and the line "กระทรวงสาธารณสุข" under the office's name (2).
 
-## The verdict
+## The verdict (Product Owner, 2026-11-04)
 
-Pending the Product Owner's pick on the comparison page, a private claude.ai Artifact
-(https://claude.ai/artifact/W7DrUZ4NXbFs7r5LhHcX4e).
+- I recommended variant 2 as the base. The Product Owner turned it down: "เราควรต่อยอดจาก
+  Concept v1 ไม่ใช่การสร้างรูปแบบใหม่แบบนี้ เช่น แบบ หน่วยงานราชการ แบบนี้เก่ามาก". The design
+  builds on Concept v1, not on a new style.
+- Asked then, the Product Owner chose **variant 1, ต่อยอด Concept v1, as the base** ("ใช้แบบ 1
+  เป็นฐาน"), going to the spec as it is, with small details left to the tickets.
+- One Page on lists: **A, the whole One Page in a portrait frame** ("A กรอบภาพ").
+- Nothing from variants 2 and 3 was picked: the direct download in the Document list, the
+  magazine Activity page and the 4 News items on the Homepage stay out unless the spec reopens
+  them.
+
+The comparison page records the pick at the top; the stand-ins were removed from the development
+runtime afterwards, and the runtime went back to `main`.
