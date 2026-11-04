@@ -12,12 +12,13 @@
 // - `DESKTOP_VIEWPORT` / `MOBILE_VIEWPORT`: the two widths every template is
 //   checked at. The mobile width is 320 CSS px, the narrowest width the site
 //   must reflow to without horizontal scrolling (WCAG 2.2 SC 1.4.10).
+//   `PHONE_VIEWPORT`, 375 px, is where spec #144 measures the phone Homepage.
 // - `testAccessibilityAndReflow`: the axe, focus and reflow tests of a
 //   template's pages at those widths; `expectAccessibleAtEachWidth` checks
 //   the page as it is now at both.
 // - What the shell shows every page: the 404 page, the default site title, the
 //   breadcrumb, Thai dates, the titles and items a list shows, and a record
-//   page's details.
+//   page's details; and whether an image loads and shows its whole picture.
 // - `expectPreviewRenders`: a draft's signed preview link (cms.helpers.ts
 //   mintPreviewLink) at the draft's address, rendering it out of search engines.
 // - `sitemapLocations`: the addresses a sitemap document lists.
@@ -77,6 +78,9 @@ export const DESKTOP_VIEWPORT = { width: 1440, height: 900 };
 
 /** The narrowest width the site supports (WCAG 2.2 SC 1.4.10 reflow). */
 export const MOBILE_VIEWPORT = { width: 320, height: 640 };
+
+/** A common phone, the width spec #144 measures the phone Homepage at. */
+export const PHONE_VIEWPORT = { width: 375, height: 812 };
 
 export const VIEWPORTS = { desktop: DESKTOP_VIEWPORT, mobile: MOBILE_VIEWPORT };
 
@@ -325,6 +329,48 @@ export async function expectImageLoaded(image: Locator, label: string): Promise<
 			{ message: `${label} loads` },
 		)
 		.toBe(true);
+}
+
+/**
+ * Fail unless `image` has loaded and shows its whole picture undistorted: the part of the picture
+ * in view keeps the picture's own aspect ratio, so no edge is cropped and nothing is stretched
+ * (spec #144 "Testing Decisions": a picture's rendered aspect ratio against its natural one). That
+ * part follows from the image's content box and its `object-fit`, which scales the picture in the
+ * box and crops what overflows it. Returns the size the picture shows at, in CSS px.
+ */
+export async function expectPictureWhole(
+	image: Locator,
+	label: string,
+): Promise<{ width: number; height: number }> {
+	await expectImageLoaded(image, label);
+	const shown = await image.evaluate((element: HTMLImageElement) => {
+		const style = getComputedStyle(element);
+		const box = element.getBoundingClientRect();
+		const inset = (side: string) =>
+			Number.parseFloat(style.getPropertyValue(`padding-${side}`)) +
+			Number.parseFloat(style.getPropertyValue(`border-${side}-width`));
+		const width = box.width - inset("left") - inset("right");
+		const height = box.height - inset("top") - inset("bottom");
+		const [natural, naturalHeight] = [element.naturalWidth, element.naturalHeight];
+		const contain = Math.min(width / natural, height / naturalHeight);
+		const cover = Math.max(width / natural, height / naturalHeight);
+		const [x, y] = {
+			contain: [contain, contain],
+			cover: [cover, cover],
+			none: [1, 1],
+			"scale-down": [Math.min(1, contain), Math.min(1, contain)],
+		}[style.objectFit] ?? [width / natural, height / naturalHeight];
+		const inView = {
+			width: Math.min(natural * x!, width),
+			height: Math.min(naturalHeight * y!, height),
+		};
+		return { natural: natural / naturalHeight, rendered: inView.width / inView.height, ...inView };
+	});
+	expect(shown.rendered, `${label}: the aspect ratio it shows at is its own`).toBeCloseTo(
+		shown.natural,
+		2,
+	);
+	return { width: shown.width, height: shown.height };
 }
 
 /**

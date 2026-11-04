@@ -17,6 +17,20 @@
 // it at once with a high fetch priority, since the hero is in view when the page opens (emdash
 // 1.1.0 src/components/EmDashImage.astro). An item without a picture, or whose picture's media item
 // was deleted in Admin (src/lib/media.ts), shows the frame's visual instead, decoration too.
+//
+// The picture shows whole at its own aspect ratio, never cropped (Feature 006 #146; spec #144
+// "Homepage (`04`)"): the office's landscape pictures are text banners, and its portrait ones are
+// One Pages. It fills its column's width up to the frame's height, 408 px. A picture that would be
+// taller at that width, such as a One Page, shows at the frame's height, narrower and centred on
+// the band. EmDash stores an image's size when it is uploaded and keeps it in the field value
+// (emdash 1.1.0 src/astro/routes/api/media.ts, src/media/normalize.ts recordToMediaValue), and its
+// Image writes it as the `width` and `height` attributes, so the picture's box takes its shape
+// before the file loads. Without a stored size, the picture still fits the frame whole. Below 640
+// px the lead is clamped to three lines, to keep the phone Homepage short.
+//
+// The title is H1 size from `lg`, 46 px instead of Display's 60, so the hero leaves room on the
+// first screen. It also keeps "ความดันโลหิตสูง", the longest word a title keeps whole (about 318 px
+// at 46 px), inside the 366 px text column at 1024 px (#146 comment 6625101174).
 import { Image } from "emdash/ui";
 import type { FeaturedView } from "../lib/homepage-curation";
 import { availableMedia } from "../lib/media";
@@ -28,21 +42,33 @@ interface Props {
 	featured: FeaturedView;
 }
 
-/** The picture's width: the 450 px column of the frame from `lg`, the card's width below it. */
+/**
+ * The picture's width: the 450 px column of the frame from `lg`, the card's width below it. A
+ * picture shown at the frame's height is narrower.
+ */
 const PICTURE_SIZES = "(min-width: 64rem) 28.125rem, 100vw";
+/** The frame's height, the tallest the picture shows (`max-h-102`). */
+const FRAME_HEIGHT = "25.5rem";
 
 const { featured } = Astro.props;
 const image = await availableMedia(featured.image, Astro.locals.emdash);
+/** The picture's width at the frame's height, from its stored size; unknown without one. */
+const widthAtFrameHeight =
+	image?.width && image.height
+		? `calc(${FRAME_HEIGHT} * ${image.width} / ${image.height})`
+		: undefined;
 ---
 
 <section aria-labelledby="home-featured" class="page-container pt-6 pb-10 lg:pt-8 lg:pb-16">
 	<div class="grid items-center gap-8 rounded-32 bg-brand-dark p-6 text-surface-base sm:p-10 lg:grid-cols-[minmax(0,1fr)_28.125rem] lg:gap-12 lg:p-14">
 		<div class="flex min-w-0 flex-col items-start gap-5.5">
 			<p class="rounded-pill bg-hero-chip px-3.5 py-2 text-label">เรื่องเด่นจากอำเภอสอง</p>
-			<h2 id="home-featured" class="text-h3 wrap-anywhere sm:text-h2 lg:text-display">
+			<h2 id="home-featured" class="text-h3 wrap-anywhere text-balance sm:text-h2 lg:text-h1">
 				<ThaiTitle text={featured.title} />
 			</h2>
-			{featured.lead && <p class="line-clamp-4 text-body-large">{featured.lead}</p>}
+			{featured.lead && (
+				<p class="line-clamp-4 text-body-large max-sm:line-clamp-3">{featured.lead}</p>
+			)}
 			<div class="flex flex-wrap gap-3">
 				<ActionLink href={featured.href} variant="primary" context={featured.title} onDark>
 					ดูเรื่องเด่น
@@ -53,13 +79,18 @@ const image = await availableMedia(featured.image, Astro.locals.emdash);
 			</div>
 		</div>
 		{image ? (
-			<Image
-				image={image}
-				alt=""
-				sizes={PICTURE_SIZES}
-				priority
-				class="aspect-16/9 w-full rounded-26 object-cover lg:aspect-auto lg:h-102"
-			/>
+			<div
+				class="w-full justify-self-center"
+				style={widthAtFrameHeight && `max-width: ${widthAtFrameHeight}`}
+			>
+				<Image
+					image={image}
+					alt=""
+					sizes={PICTURE_SIZES}
+					priority
+					class="h-auto max-h-102 w-full rounded-26 object-contain"
+				/>
+			</div>
 		) : (
 			<div
 				aria-hidden="true"

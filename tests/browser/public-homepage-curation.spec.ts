@@ -7,7 +7,10 @@
 //   that can be Featured, with its title, its summary (an Announcement: the start of its
 //   details), its picture or the brand visual, a link to it and ค้นหาบริการ to /services. A closed
 //   Announcement is not Featured. With no such item, the compact band with the site title stays.
-//   The Featured item is not repeated as the News card or among the current Announcements;
+//   The Featured item is not repeated as the News card or among the current Announcements. The
+//   picture shows whole, a landscape banner and a portrait One Page alike, at most 408 px tall on
+//   a desktop, and from 1024 px a title that keeps a long word whole stays inside its column
+//   (Feature 006 #146; spec #144 "Homepage (`04`)");
 // - the Frequently Used Services: the published Services of their menu, in menu order, at most 6,
 //   each with its name, summary and the uniform icon, and ดูบริการทั้งหมด to /services;
 // - Quick Access: up to 4 items of its menu, in menu order, each to a page of the site or a
@@ -33,6 +36,7 @@ import {
 	createSyntheticHealthService,
 	createSyntheticService,
 	devAdminActor,
+	gradientPng,
 	pickedMenuItem,
 	portableTextBlock,
 	publishEntryAt,
@@ -49,10 +53,12 @@ import {
 	DESKTOP_VIEWPORT,
 	HOMEPAGE_HEADINGS,
 	MOBILE_VIEWPORT,
+	PHONE_VIEWPORT,
 	expect,
 	expectAccessibleAtEachWidth,
 	expectImageLoaded,
 	expectNoHorizontalScroll,
+	expectPictureWhole,
 	homepageSection,
 	siteTitleParts,
 	test,
@@ -62,6 +68,8 @@ import {
  * The Featured hero's eyebrow, the design's interface text (docs/design/homepage-concept-v1.md §3).
  */
 const FEATURED_EYEBROW = "เรื่องเด่นจากอำเภอสอง";
+/** The tallest the Featured picture shows on a desktop (spec #144 "Homepage (`04`)"). */
+const FEATURED_PICTURE_HEIGHT = 408;
 /** A close date long past, on any calendar. */
 const CLOSED_AT = "2026-01-31T10:00:00.000Z";
 
@@ -149,6 +157,78 @@ test("Featured shows the first menu item that is published content of a Featured
 			}
 		},
 	);
+});
+
+test("the Featured picture shows whole, a landscape banner and a portrait One Page alike, at 375 and 1440 px, at most 408 px tall on a desktop, under the title that names the item", async ({
+	page,
+}) => {
+	const pictures = {
+		landscape: gradientPng("#0b6b57", "#f2d17a"),
+		portrait: gradientPng("#123c33", "#bae0cf", { width: 600, height: 848 }),
+	};
+	for (const [shape, png] of Object.entries(pictures)) {
+		const alt = `${SYNTHETIC_FIXTURE_MARK} ภาพเรื่องเด่น ${shape}`;
+		const featured = await create("news", `featured-${shape}`, {
+			data: { featured_image: { id: await uploadSyntheticPicture(admin, alt, png) } },
+		});
+		await publish("news", featured);
+		await withHomepageMenus(admin, { featured: [pickedMenuItem("news", featured)] }, async () => {
+			for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+				const label = `the ${shape} Featured picture at ${viewport.width} px`;
+				await page.setViewportSize(viewport);
+				await page.goto("/");
+				const shown = hero(page, featured);
+				await expect(shown.getByRole("heading", { level: 2 }), label).toHaveText(featured.title);
+				const { height } = await expectPictureWhole(shown.locator("img"), label);
+				if (viewport === DESKTOP_VIEWPORT) {
+					expect(height, `${label}: its height`).toBeLessThanOrEqual(FEATURED_PICTURE_HEIGHT + 0.5);
+				}
+			}
+		});
+	}
+});
+
+test("from 1024 to 1088 px a Featured title holding ความดันโลหิตสูง stays inside its column, clear of the picture", async ({
+	page,
+}) => {
+	// The longest listed word, which a line keeps whole (src/lib/thai-title.ts), at its largest size
+	// in the hero's narrowest text column: lg's two columns at their minimum width (#146 comment
+	// 6625101174).
+	const alt = `${SYNTHETIC_FIXTURE_MARK} ภาพเรื่องเด่น`;
+	const featured = await create("news", "ความดันโลหิตสูง", {
+		data: {
+			featured_image: {
+				id: await uploadSyntheticPicture(admin, alt, gradientPng("#0b6b57", "#f2d17a")),
+			},
+		},
+	});
+	await publish("news", featured);
+	await withHomepageMenus(admin, { featured: [pickedMenuItem("news", featured)] }, async () => {
+		await page.goto("/");
+		const shown = hero(page, featured);
+		const title = shown.getByRole("heading", { level: 2 });
+		await expect(title).toHaveText(featured.title);
+		const overflows: string[] = [];
+		for (let width = 1024; width <= 1088; width += 8) {
+			await page.setViewportSize({ width, height: 900 });
+			// The title's text against the column that holds it, beside the eyebrow and the links.
+			const edges = await title.evaluate((heading) => {
+				const text = document.createRange();
+				text.selectNodeContents(heading);
+				return {
+					text: Math.max(...[...text.getClientRects()].map((rect) => rect.right)),
+					column: heading.parentElement!.getBoundingClientRect().right,
+				};
+			});
+			const picture = (await shown.locator("img").boundingBox())!.x;
+			if (edges.text > Math.min(edges.column, picture) + 0.5) {
+				overflows.push(
+					`at ${width} px the title ends at ${edges.text}, its column at ${edges.column} and the picture starts at ${picture}`,
+				);
+			}
+		}
+		expect(overflows, "the Featured title runs out of its column").toEqual([]);
+	});
 });
 
 test("an Announcement without a picture is Featured with the start of its details and the brand visual, is not repeated among the current Announcements, and its Thai address opens it", async ({
