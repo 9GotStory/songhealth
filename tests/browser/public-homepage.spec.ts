@@ -681,6 +681,10 @@ test("with every section showing, the sections follow the Figma order on a deskt
 						`the cards of "${heading}" side by side at 375 px`,
 					).toBe(2);
 				}
+				await expect(
+					homepageSection(page, siteTitle).getByText(CONTACT_LEAD),
+					"a phone leaves out the sections' leads, the Contact Summary's too",
+				).toBeHidden();
 				await expectNoAxeViolations(page, "/ with every section at 375 px");
 				await page.setViewportSize(MOBILE_VIEWPORT);
 				await expectNoHorizontalScroll(page, "/ with every section");
