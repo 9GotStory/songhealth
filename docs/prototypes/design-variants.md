@@ -69,5 +69,21 @@ for three code variants and two ways to show a One Page.
   magazine Activity page and the 4 News items on the Homepage stay out unless the spec reopens
   them.
 
-The comparison page records the pick at the top; the stand-ins were removed from the development
-runtime afterwards, and the runtime went back to `main`.
+## Round 2 (Product Owner, 2026-11-04)
+
+- Seeing variant 1 as the pick, the Product Owner changed course: "เอาจริงๆไหม ? ฉันคิดว่าแบบเดิมที่เราทำมันยังดีกว่าที่คุณเสนอมาอีกนะ".
+  With real One Pages and the MOPH logo, the current design holds up: its 16:9 card crop shows a
+  One Page's photo collage. Most of the grill's "what fails" came from placeholder content.
+- Asked which fixes the current design still needs, the Product Owner picked four: the Featured
+  picture shown whole, a smaller Featured title, no Thai line break inside a word, and a shorter
+  phone Homepage. One Page cards keep their centre crop. The Product Owner wants to see the
+  result before the spec.
+- **Variant 4, ปัจจุบัน + แก้จุด** (`?variant=4`, now the default) is the current layout with those
+  fixes behind flags in the shared components (`fixed` on FeaturedHero, `compact` on the cards and
+  SectionHeading, `ThaiText` for titles). The phone Homepage at 375 px went from 9,246 to 5,771 px
+  with no section removed; reaching about 5,000 px would need pattern changes, such as title links
+  in place of the cards' "อ่านเพิ่มเติม" and "ดูรายละเอียด" links.
+- The comparison page (Version 3) shows the fixes before and after. The stand-ins are back on the
+  development runtime for the review.
+
+The verdict on variant 4 is pending.
