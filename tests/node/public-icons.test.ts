@@ -10,10 +10,9 @@
 // "Public pages"; #105 retro: four components missed shrink-0 until review).
 
 import assert from "node:assert/strict";
-import { readFile, readdir } from "node:fs/promises";
 import { describe, it } from "node:test";
 
-const SRC = new URL("../../src/", import.meta.url);
+import { blank, lineAt, publicSources } from "./public-sources.helpers.ts";
 
 /**
  * A text arrow standing in for an icon: → ↗ ← ‹ ›, as the character, an HTML entity (named,
@@ -45,36 +44,6 @@ const PLACEHOLDER_MARK = {
 	file: "layouts/SiteLayout.astro",
 	pattern: /data-testid="placeholder-mark"[^>]*>\s*<svg\b[\s\S]*?<\/svg>/,
 };
-
-/** Block comments, which a template writes in braces; HTML comments; whole-line comments. */
-const COMMENTS = /\/\*[\s\S]*?\*\/|<!--[\s\S]*?-->|^[ \t]*\/\/.*$/gm;
-
-/** The line of `source` that `index` falls on, counted from 1. */
-function lineAt(source: string, index: number | undefined): number {
-	return source.slice(0, index).split("\n").length;
-}
-
-/** `source` with `pattern`'s matches blanked out, keeping line breaks so line numbers hold. */
-function blank(source: string, pattern: RegExp): string {
-	return source.replace(pattern, (match) => match.replace(/[^\n]/g, ""));
-}
-
-/**
- * The public pages' source under src/, relative to src/, with its comments blanked out: the
- * templates, the modules whose text they show, and the styles. src/plugins/ holds the Admin's
- * plugin, which is not a public page.
- */
-async function publicSources(): Promise<Array<{ file: string; source: string }>> {
-	const files = (await readdir(SRC, { recursive: true })).filter(
-		(file) => /\.(?:astro|ts|css)$/.test(file) && !file.startsWith("plugins/"),
-	);
-	return Promise.all(
-		files.map(async (file) => ({
-			file,
-			source: blank(await readFile(new URL(file, SRC), "utf8"), COMMENTS),
-		})),
-	);
-}
 
 /**
  * Each match of `pattern` in the public pages' source, as `file:line match`, once `exempt`'s
