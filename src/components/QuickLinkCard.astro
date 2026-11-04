@@ -8,7 +8,10 @@
 //
 // On the Homepage, where Quick Access goes two to a row below 640 px, the card takes its compact
 // form there: lower, with less padding and the label at body size (Feature 006 #146; spec #144
-// "Homepage (`04`)"). The other pages keep the full card.
+// "Homepage (`04`)"). The other pages keep the full card. The compact label has about 80 px beside
+// the arrow at 320 px, so a word a title keeps whole that is wider, such as "ประชาสัมพันธ์" (89 px)
+// or "ความดันโลหิตสูง" (107 px), runs into the arrow below about 342 or 374 px. The Product Owner
+// accepted that limit, since Quick Access labels name destinations (#146 comment 6626919820).
 import ChevronRight from "@lucide/astro/icons/chevron-right";
 import ThaiTitle from "./ThaiTitle.astro";
 
