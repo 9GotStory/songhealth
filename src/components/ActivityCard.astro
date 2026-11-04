@@ -17,6 +17,7 @@ import { Image } from "emdash/ui";
 import { activityDate, activityPath, type ActivityEntry } from "../lib/activities";
 import { CARD_PICTURE_SIZES, availableMedia } from "../lib/media";
 import MetaLine from "./MetaLine.astro";
+import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	activity: ActivityEntry;
@@ -59,7 +60,7 @@ const summary = showSummary ? activity.data.summary : undefined;
 				class="underline-offset-4 hover:text-brand-primary hover:underline"
 				href={activityPath(activity.id)}
 			>
-				{activity.data.title}
+				<ThaiTitle text={activity.data.title} />
 			</a>
 		</Heading>
 		{summary && <p class="line-clamp-3 text-text-secondary">{summary}</p>}

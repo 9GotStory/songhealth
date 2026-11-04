@@ -20,6 +20,7 @@ import {
 import type { MoitEntry } from "../lib/moits";
 import DateText from "./DateText.astro";
 import PageHeading from "./PageHeading.astro";
+import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	year: number;
@@ -53,7 +54,7 @@ const lead = `ตัวชี้วัด MOIT ${moits.length} รายกา�
 								<span class="mr-1 inline-block rounded-pill bg-brand-primary px-3 py-0.5 text-label text-surface-base">
 									{moitLabel(data.number)}
 								</span>{" "}
-								{data.title}
+								<ThaiTitle text={data.title} />
 							</a>
 						</h2>
 						<p class="text-small text-text-secondary">

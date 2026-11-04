@@ -6,6 +6,7 @@
 import { healthReportDate, healthReportPath, type HealthReportEntry } from "../lib/health-reports";
 import { termsOf } from "../lib/terms";
 import MetaLine from "./MetaLine.astro";
+import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	report: HealthReportEntry;
@@ -30,7 +31,7 @@ const date = healthReportDate(data);
 			class="underline-offset-4 hover:text-brand-primary hover:underline"
 			href={healthReportPath(report.id)}
 		>
-			{data.title}
+			<ThaiTitle text={data.title} />
 		</a>
 	</h2>
 	{data.summary && <p class="line-clamp-2 text-text-secondary">{data.summary}</p>}

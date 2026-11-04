@@ -46,6 +46,7 @@ import { downloadableFile } from "../lib/media";
 import { publishedMoits, type MoitEntry } from "../lib/moits";
 import DateText from "./DateText.astro";
 import EvidencePills from "./EvidencePills.astro";
+import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	entry: MoitEntry;
@@ -92,7 +93,7 @@ const linkClasses =
 		<header class="flex flex-col gap-3 rounded-32 bg-brand-dark p-6 text-surface-base lg:p-8">
 			<p class="text-label text-accent-warm">{itaYearTitle(moit.fiscal_year)}</p>
 			<h1 class="text-h3 wrap-anywhere sm:text-h2">
-				<span class="text-accent-warm">{label}</span> {moit.title}
+				<span class="text-accent-warm">{label}</span> <ThaiTitle text={moit.title} />
 			</h1>
 			{moit.summary && <p class="max-w-3xl text-body-large">{moit.summary}</p>}
 			<p>
@@ -155,7 +156,7 @@ const linkClasses =
 							<summary class="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2 p-5 sm:grid-cols-[minmax(0,1fr)_auto_auto] [&::-webkit-details-marker]:hidden">
 								<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
 									{card.number && `${card.number}. `}
-									{card.title}
+									<ThaiTitle text={card.title} />
 								</h2>
 								<span class="col-start-1 row-start-2 justify-self-start rounded-pill bg-surface-soft px-3 py-1 text-small text-brand-dark sm:col-start-2 sm:row-start-1">
 									{card.count} รายการ
@@ -171,7 +172,7 @@ const linkClasses =
 									{card.subRequirements.map((sub) => (
 										<section class="flex flex-col gap-2">
 											<h3 class="font-semibold wrap-anywhere text-text-primary">
-												{sub.number} {sub.title}
+												{sub.number} <ThaiTitle text={sub.title} />
 											</h3>
 											<EvidencePills pills={sub.evidence} />
 										</section>
@@ -191,7 +192,7 @@ const linkClasses =
 						<span class="flex min-w-0 flex-col gap-1">
 							<span class="text-small text-text-secondary">ตัวชี้วัดก่อนหน้า</span>
 							<span class="font-semibold wrap-anywhere">
-								{moitLabel(previous.data.number)} {previous.data.title}
+								{moitLabel(previous.data.number)} <ThaiTitle text={previous.data.title} />
 							</span>
 						</span>
 					</a>
@@ -205,7 +206,7 @@ const linkClasses =
 						<span class="flex min-w-0 flex-col gap-1">
 							<span class="text-small text-text-secondary">ตัวชี้วัดถัดไป</span>
 							<span class="font-semibold wrap-anywhere">
-								{moitLabel(next.data.number)} {next.data.title}
+								{moitLabel(next.data.number)} <ThaiTitle text={next.data.title} />
 							</span>
 						</span>
 						<ChevronRight class="shrink-0 text-brand-primary" size={16} />

@@ -20,6 +20,7 @@ import DetailSection from "../../components/DetailSection.astro";
 import HealthServiceStatus from "../../components/HealthServiceStatus.astro";
 import MapLink from "../../components/MapLink.astro";
 import TermLinks from "../../components/TermLinks.astro";
+import ThaiTitle from "../../components/ThaiTitle.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import {
 	DIRECTORY_TITLE,
@@ -80,7 +81,9 @@ const hasDetails =
 	noindex={isPreview}
 >
 	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<h1 class="max-w-3xl text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">{name}</h1>
+		<h1 class="max-w-3xl text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
+			<ThaiTitle text={name} />
+		</h1>
 		{hasDetails && (
 			<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
 				{name !== healthService.title && (
