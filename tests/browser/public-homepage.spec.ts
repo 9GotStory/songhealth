@@ -5,11 +5,14 @@
 // while nothing is Featured; a search form that submits to /search; the newest published News
 // beside up to 3 current Announcements; the latest 4 Health Content items, each labelled with its
 // first Health Topic; a Health Service Discovery form that submits an Area and a name to
-// /health-services; the latest 3 Activities by Activity date, each with its picture or a visual
-// fallback and "กิจกรรม • date"; and the Contact Summary from Office Contact. An optional section
-// with nothing to show disappears. The search and the Contact Summary always render, and the page
-// answers with no content at all. Closed Announcements, drafts, unpublished and trashed entries
-// never show. The curated sections between them have their own suite
+// /health-services; the latest Activities by Activity date, 3 on a desktop and 4 on a phone, each
+// with its picture or a visual fallback and "กิจกรรม • date"; and the Contact Summary from Office
+// Contact. On a phone the sections keep that order, and the Frequently Used Services, Health
+// Information, Activities and Quick Access show their cards two to a row (Feature 006 #146; spec
+// #144 "Homepage (`04`)"). An optional section with nothing to show disappears. The search and the
+// Contact Summary always render, and the page answers with no content at all. Closed
+// Announcements, drafts, unpublished and trashed entries never show. The curated sections between
+// them have their own suite
 // (public-homepage-curation.spec.ts); the tests here that look at the whole page set the Homepage
 // menus they need and put back what the menus held.
 //
@@ -24,7 +27,7 @@
 // from 2032 on. A suite's fixtures stay until it ends, so a later test dates its own after the
 // earlier tests'.
 
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import {
 	cmsRequest,
@@ -56,10 +59,12 @@ import {
 	DESKTOP_VIEWPORT,
 	HOMEPAGE_HEADINGS,
 	MOBILE_VIEWPORT,
+	PHONE_VIEWPORT,
 	detailOf,
 	expect,
 	expectAccessibleAtEachWidth,
 	expectImageLoaded,
+	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	homepageSection,
 	listedItem,
@@ -163,6 +168,14 @@ async function withSiteIdentity(
 /** The headings of the Homepage's sections, in order. */
 function sectionHeadings(page: Page) {
 	return page.getByRole("main").getByRole("heading", { level: 2 });
+}
+
+/** How many of a section's cards sit side by side in its first row, as the page is laid out now. */
+async function cardsPerRow(section: Locator): Promise<number> {
+	const tops = await section
+		.getByRole("listitem")
+		.evaluateAll((items) => items.map((item) => item.getBoundingClientRect().top));
+	return tops.filter((top) => Math.abs(top - tops[0]!) < 1).length;
 }
 
 /** The current Announcements' links, in order. */
@@ -461,7 +474,7 @@ test("Health Service Discovery submits the chosen Area and the name to the Healt
 	await expect(listedItem(page, facility.title)).toBeVisible();
 });
 
-test("Activities shows the latest 3 by Activity date, each with its picture or the visual fallback and กิจกรรม • date", async ({
+test("Activities shows the latest 3 by Activity date on a desktop and the latest 4 on a phone, each with its picture or the visual fallback and กิจกรรม • date", async ({
 	page,
 }) => {
 	const heldAt = (day: number) => `2032-03-${String(day).padStart(2, "0")}T03:00:00.000Z`;
@@ -518,7 +531,23 @@ test("Activities shows the latest 3 by Activity date, each with its picture or t
 		"href",
 		"/activities",
 	);
-	for (const hidden of [fourth, undated, draft]) {
+	await expect(activities.getByRole("article").filter({ hasText: fourth.title })).toBeHidden();
+
+	// A phone shows the latest 4, two by two (spec #144 "Homepage (`04`)").
+	await page.setViewportSize(PHONE_VIEWPORT);
+	await expect(activities.getByRole("heading", { level: 3 })).toHaveText([
+		latest.title,
+		second.title,
+		third.title,
+		fourth.title,
+	]);
+	const card = activities.getByRole("article").filter({ hasText: fourth.title });
+	await expect(card.locator("time")).toHaveText(thaiDate(heldAt(1)));
+	await expect(card.getByRole("link", { name: fourth.title })).toHaveAttribute(
+		"href",
+		`/activities/${fourth.slug}`,
+	);
+	for (const hidden of [undated, draft]) {
 		await expect(page.getByRole("main"), hidden.title).not.toContainText(hidden.title);
 	}
 });
@@ -575,11 +604,12 @@ test("the Contact Summary reads Office Contact: address with the map link, telep
 	);
 });
 
-test("with every section showing, the sections follow the Figma order, and the page is accessible and reflows at 320 px", async ({
+test("with every section showing, the sections follow the Figma order on a desktop and a phone, a phone shows the card sections two to a row, and the page is accessible and reflows at 320 px", async ({
 	page,
 }) => {
-	// One published entry of each kind, so every section shows whichever tests ran before. The
-	// Featured News is published first, so the News card shows the other one.
+	// Published entries of each kind, so every section shows whichever tests ran before, two of each
+	// card, so a row can hold two. The Featured News is published first, so the News card shows the
+	// other one.
 	const featured = await create("news", "every-section-featured", {
 		data: {
 			summary: `${SYNTHETIC_FIXTURE_MARK} สรุปเรื่องเด่น`,
@@ -590,21 +620,35 @@ test("with every section showing, the sections follow the Figma order, and the p
 	});
 	await publish("news", featured, await create("news", "every-section"));
 	await publish("announcements", await create("announcements", "every-section"));
-	await publish("health_content", await create("health_content", "every-section"));
 	await publish("health_services", await createSyntheticHealthService(admin, "every-section"));
-	await publish("activities", await create("activities", "every-section"));
-	const service = await createSyntheticService(admin, "every-section", {
-		data: { summary: `${SYNTHETIC_FIXTURE_MARK} สรุปบริการ` },
-	});
-	await publishEntryAt(admin, "services", service.id);
+	const services: DraftFixture[] = [];
+	for (const label of ["every-section", "every-section-second"]) {
+		await publish("health_content", await create("health_content", label));
+		await publish("activities", await create("activities", label));
+		const service = await createSyntheticService(admin, label, {
+			data: { summary: `${SYNTHETIC_FIXTURE_MARK} สรุปบริการ` },
+		});
+		await publishEntryAt(admin, "services", service.id);
+		services.push(service);
+	}
 	const menus = {
 		featured: [pickedMenuItem("news", featured)],
-		services: [pickedMenuItem("services", service)],
+		services: services.map((service) => pickedMenuItem("services", service)),
 		quickAccess: [
 			{ label: "เอกสารเผยแพร่", url: "/documents" },
 			{ label: "ข้อมูลสุขภาพ", url: "/health" },
 		],
 	};
+	const order = [
+		featured.title,
+		HOMEPAGE_HEADINGS.search,
+		HOMEPAGE_HEADINGS.services,
+		HOMEPAGE_HEADINGS.news,
+		HOMEPAGE_HEADINGS.health,
+		HOMEPAGE_HEADINGS.discovery,
+		HOMEPAGE_HEADINGS.activities,
+		HOMEPAGE_HEADINGS.quickAccess,
+	];
 	await withHomepageMenus(admin, menus, async () => {
 		await withOfficeContact(
 			admin,
@@ -619,18 +663,25 @@ test("with every section showing, the sections follow the Figma order, and the p
 			async () => {
 				await page.goto("/");
 				await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
-				await expect(sectionHeadings(page)).toHaveText([
-					featured.title,
-					HOMEPAGE_HEADINGS.search,
+				await expect(sectionHeadings(page)).toHaveText([...order, siteTitle]);
+				await expectAccessibleAtEachWidth(page, "/ with every section");
+
+				// A phone keeps every section in order, with the cards two to a row (spec #144
+				// "Homepage (`04`)").
+				await page.setViewportSize(PHONE_VIEWPORT);
+				await expect(sectionHeadings(page)).toHaveText([...order, siteTitle]);
+				for (const heading of [
 					HOMEPAGE_HEADINGS.services,
-					HOMEPAGE_HEADINGS.news,
 					HOMEPAGE_HEADINGS.health,
-					HOMEPAGE_HEADINGS.discovery,
 					HOMEPAGE_HEADINGS.activities,
 					HOMEPAGE_HEADINGS.quickAccess,
-					siteTitle,
-				]);
-				await expectAccessibleAtEachWidth(page, "/ with every section");
+				]) {
+					expect(
+						await cardsPerRow(homepageSection(page, heading)),
+						`the cards of "${heading}" side by side at 375 px`,
+					).toBe(2);
+				}
+				await expectNoAxeViolations(page, "/ with every section at 375 px");
 				await page.setViewportSize(MOBILE_VIEWPORT);
 				await expectNoHorizontalScroll(page, "/ with every section");
 			},
