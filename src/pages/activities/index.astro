@@ -15,7 +15,7 @@ import SiteLayout from "../../layouts/SiteLayout.astro";
 import V1ActivitiesList from "../../components/prototype/design/v1/ActivitiesList.astro";
 import V2ActivitiesList from "../../components/prototype/design/v2/ActivitiesList.astro";
 import V3ActivitiesList from "../../components/prototype/design/v3/ActivitiesList.astro";
-import { pageDesign } from "../../lib/prototype-design";
+import { pageDesign, usesCurrentLayout } from "../../lib/prototype-design";
 import { ACTIVITIES_PATH, ACTIVITIES_TITLE, listActivities } from "../../lib/activities";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
 
@@ -47,7 +47,7 @@ const listProps = {
 	{design.variant === "1" && <V1ActivitiesList {...listProps} />}
 	{design.variant === "2" && <V2ActivitiesList {...listProps} />}
 	{design.variant === "3" && <V3ActivitiesList {...listProps} />}
-	{design.variant === "0" && (
+	{usesCurrentLayout(design.variant) && (
 		<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 			<PageHeading title={title} lead={lead} />
 			{entries.length > 0 ? (

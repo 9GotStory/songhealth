@@ -12,9 +12,11 @@ interface Props {
 	lead: string;
 	/** The section is brand-dark. */
 	onDark?: boolean;
+	/** PROTOTYPE (branch prototype/design, variant 4): leave the lead out on phones. */
+	compact?: boolean;
 }
 
-const { id, eyebrow, title, lead, onDark = false } = Astro.props;
+const { id, eyebrow, title, lead, onDark = false, compact = false } = Astro.props;
 ---
 
 <div class="flex flex-col gap-2">
@@ -32,6 +34,7 @@ const { id, eyebrow, title, lead, onDark = false } = Astro.props;
 		class:list={[
 			"max-w-prose",
 			onDark ? "text-body-large text-surface-base" : "text-text-secondary",
+			compact && "max-sm:hidden",
 		]}
 	>
 		{lead}

@@ -15,7 +15,7 @@ import SiteLayout from "../../layouts/SiteLayout.astro";
 import V1DocumentsList from "../../components/prototype/design/v1/DocumentsList.astro";
 import V2DocumentsList from "../../components/prototype/design/v2/DocumentsList.astro";
 import V3DocumentsList from "../../components/prototype/design/v3/DocumentsList.astro";
-import { pageDesign } from "../../lib/prototype-design";
+import { pageDesign, usesCurrentLayout } from "../../lib/prototype-design";
 import {
 	FILTER_PARAMS,
 	documentsPath,
@@ -99,7 +99,7 @@ const listProps = {
 	{design.variant === "1" && <V1DocumentsList {...listProps} />}
 	{design.variant === "2" && <V2DocumentsList {...listProps} />}
 	{design.variant === "3" && <V3DocumentsList {...listProps} />}
-	{design.variant === "0" && (
+	{usesCurrentLayout(design.variant) && (
 		<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 			<PageHeading title={title} lead={lead} />
 			<FilterForm

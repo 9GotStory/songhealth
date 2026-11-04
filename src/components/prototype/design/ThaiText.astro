@@ -1,0 +1,15 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): a title as text that does not break inside the
+// Thai words thaiTitleHtml lists, in variant 4 (the current design with targeted fixes); every
+// other variant gets the text as it is.
+import { pageDesign, thaiTitleHtml } from "../../../lib/prototype-design";
+
+interface Props {
+	text: string;
+}
+
+const { text } = Astro.props;
+const glue = pageDesign(Astro).variant === "4";
+---
+
+{glue ? <Fragment set:html={thaiTitleHtml(text)} /> : text}

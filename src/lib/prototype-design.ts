@@ -16,9 +16,10 @@ export const VARIANTS = [
 	{ key: "1", name: "ต่อยอด Concept v1" },
 	{ key: "2", name: "หน่วยงานราชการ" },
 	{ key: "3", name: "ชุมชน เน้นภาพ" },
+	{ key: "4", name: "ปัจจุบัน + แก้จุด" },
 ] as const;
 
-type Variant = (typeof VARIANTS)[number]["key"];
+export type Variant = (typeof VARIANTS)[number]["key"];
 
 /** How a card shows a One Page: whole in a portrait frame, or text first with a small one. */
 export const ONEPAGE_MODES = [
@@ -34,13 +35,21 @@ export const VARIANT_COOKIE = "proto_design_variant";
 export const ONEPAGE_COOKIE = "proto_design_onepage";
 
 /** The variant when neither the address nor a cookie names one. */
-const DEFAULT_VARIANT: Variant = "1";
+const DEFAULT_VARIANT: Variant = "4";
 const DEFAULT_ONEPAGE: OnePageMode = "frame";
 
 const isVariant = (value: string | undefined): value is Variant =>
 	VARIANTS.some((variant) => variant.key === value);
 const isOnePage = (value: string | undefined): value is OnePageMode =>
 	ONEPAGE_MODES.some((mode) => mode.key === value);
+
+/**
+ * Whether a variant renders the current layout: variant 0 as it is, and variant 4, the Product
+ * Owner's pick after the first round (2026-11-04), with the targeted fixes.
+ */
+export function usesCurrentLayout(variant: Variant): boolean {
+	return variant === "0" || variant === "4";
+}
 
 export interface Design {
 	variant: Variant;

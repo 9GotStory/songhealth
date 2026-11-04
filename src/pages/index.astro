@@ -52,6 +52,7 @@ import ServiceCard from "../components/ServiceCard.astro";
 import V1Home from "../components/prototype/design/v1/Home.astro";
 import V2Home from "../components/prototype/design/v2/Home.astro";
 import V3Home from "../components/prototype/design/v3/Home.astro";
+import ThaiText from "../components/prototype/design/ThaiText.astro";
 import { pageDesign } from "../lib/prototype-design";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { ACTIVITIES_PATH, ACTIVITIES_TITLE, latestActivities } from "../lib/activities";
@@ -117,6 +118,8 @@ const news = newestNews.find(notFeatured("news"));
 // render their own Homepage from the same reads (src/lib/prototype-design.ts). Variant 0 keeps its
 // 1 News card and 3 Activities.
 const design = pageDesign(Astro);
+/** Variant 4: the current Homepage with the fixes the Product Owner picked (2026-11-04). */
+const v4 = design.variant === "4";
 const prototypeNews = newestNews.filter(notFeatured("news")).slice(0, 4);
 /** Up to 3 current Announcements that are not Featured. */
 const announcements = newestAnnouncements.filter(notFeatured("announcements")).slice(0, 3);
@@ -148,12 +151,12 @@ const control =
 	{design.variant === "1" && <V1Home {...homeProps} />}
 	{design.variant === "2" && <V2Home {...homeProps} />}
 	{design.variant === "3" && <V3Home {...homeProps} />}
-	{design.variant === "0" && (
+	{(design.variant === "0" || v4) && (
 		<>
 			{featured ? (
 				<>
 					<h1 class="sr-only">{identity.title}</h1>
-					<FeaturedHero featured={featured} />
+					<FeaturedHero featured={featured} fixed={v4} />
 				</>
 			) : (
 				<div class="page-container pt-6 pb-10 lg:pt-8 lg:pb-16">
@@ -164,7 +167,10 @@ const control =
 				</div>
 			)}
 
-			<section aria-labelledby="home-search" class="page-container flex flex-col gap-4 pb-16">
+			<section
+				aria-labelledby="home-search"
+				class:list={["page-container flex flex-col gap-4 pb-16", v4 && "max-sm:pb-10"]}
+			>
 				<h2 id="home-search" class="text-h3 text-text-primary">
 					คุณกำลังมองหาอะไร?
 				</h2>
@@ -172,18 +178,27 @@ const control =
 			</section>
 
 			{services.length > 0 && (
-				<section aria-labelledby="home-services" class="bg-surface-base pt-16 pb-16 lg:pb-20">
+				<section
+					aria-labelledby="home-services"
+					class:list={["bg-surface-base pt-16 pb-16 lg:pb-20", v4 && "max-sm:py-10"]}
+				>
 					<div class="page-container flex flex-col gap-7">
 						<SectionHeading
 							id="home-services"
+							compact={v4}
 							eyebrow="บริการประชาชน"
 							title="วันนี้คุณต้องการทำอะไร?"
 							lead="เข้าถึงบริการสำคัญได้ง่าย โดยไม่ต้องรู้โครงสร้างภายในของหน่วยงาน"
 						/>
-						<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+						<ul
+							class:list={[
+								"grid gap-6 sm:grid-cols-2 lg:grid-cols-3",
+								v4 && "max-sm:grid-cols-2 max-sm:gap-3",
+							]}
+						>
 							{services.map((service) => (
 								<li>
-									<ServiceCard service={service} headingLevel={3} />
+									<ServiceCard service={service} headingLevel={3} compact={v4} />
 								</li>
 							))}
 						</ul>
@@ -193,10 +208,11 @@ const control =
 			)}
 
 			{(news || announcements.length > 0) && (
-				<section aria-labelledby="home-news" class="py-16 lg:py-20">
+				<section aria-labelledby="home-news" class:list={["py-16 lg:py-20", v4 && "max-sm:py-10"]}>
 					<div class="page-container flex flex-col gap-7">
 						<SectionHeading
 							id="home-news"
+							compact={v4}
 							eyebrow="ข่าวสาร"
 							title="เรื่องใหม่จากเครือข่ายสุขภาพอำเภอสอง"
 							lead="ข่าวประชาสัมพันธ์และประกาศที่ประชาชนควรรู้"
@@ -211,9 +227,13 @@ const control =
 								<div class="flex flex-col gap-4">
 									<article class="flex flex-1 flex-col gap-4 rounded-24 bg-brand-primary px-6 py-7 text-surface-base lg:px-7.5">
 										{newsCategory && <p class="text-label wrap-anywhere">{newsCategory.label}</p>}
-										<h3 class="text-h3 wrap-anywhere lg:text-h1">{news.data.title}</h3>
+										<h3 class="text-h3 wrap-anywhere lg:text-h1">
+											<ThaiText text={news.data.title} />
+										</h3>
 										{news.data.summary && (
-											<p class="line-clamp-4 text-body-large">{news.data.summary}</p>
+											<p class:list={["line-clamp-4 text-body-large", v4 && "max-sm:line-clamp-3"]}>
+												{news.data.summary}
+											</p>
 										)}
 										<ArrowLink
 											href={newsPath(news.id)}
@@ -241,7 +261,9 @@ const control =
 										<ul aria-labelledby="home-announcements">
 											{announcements.map((announcement) => (
 												<li class="flex flex-col gap-1.5 border-t border-divider px-6 py-4.5">
-													<p class="wrap-anywhere">{announcement.data.title}</p>
+													<p class="wrap-anywhere">
+														<ThaiText text={announcement.data.title} />
+													</p>
 													<AnnouncementStatusLine data={announcement.data} now={now} />
 													<ArrowLink
 														href={announcementPath(announcement.id)}
@@ -262,15 +284,24 @@ const control =
 			)}
 
 			{healthContent.length > 0 && (
-				<section aria-labelledby="home-health" class="bg-surface-base py-16 lg:py-20">
+				<section
+					aria-labelledby="home-health"
+					class:list={["bg-surface-base py-16 lg:py-20", v4 && "max-sm:py-10"]}
+				>
 					<div class="page-container flex flex-col gap-7">
 						<SectionHeading
 							id="home-health"
+							compact={v4}
 							eyebrow="สุขภาพใกล้ตัว"
 							title="ความรู้ที่ใช้ได้ในชีวิตประจำวัน"
 							lead="เนื้อหาสุขภาพที่คัดสรรและทบทวนเพื่อคนในพื้นที่"
 						/>
-						<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+						<ul
+							class:list={[
+								"grid gap-6 sm:grid-cols-2 lg:grid-cols-4",
+								v4 && "max-sm:grid-cols-2 max-sm:gap-3",
+							]}
+						>
 							{healthContent.map((item, index) => {
 								const topic = termsOf(item.data, "topic")[0];
 								return (
@@ -278,15 +309,31 @@ const control =
 										<article
 											class:list={[
 												"flex h-full flex-col gap-3 rounded-22 px-6 pt-6.5 pb-6",
+												v4 &&
+													"max-sm:gap-1.5 max-sm:rounded-18 max-sm:px-3.5 max-sm:pt-3.5 max-sm:pb-2",
 												index % 2 === 0 ? "bg-topic-green" : "bg-topic-blue",
 											]}
 										>
 											{topic && (
 												<p class="text-label wrap-anywhere text-brand-primary">{topic.label}</p>
 											)}
-											<h3 class="text-h3 wrap-anywhere text-text-primary">{item.data.title}</h3>
+											<h3
+												class:list={[
+													"text-h3 wrap-anywhere text-text-primary",
+													v4 && "max-sm:text-body max-sm:font-semibold",
+												]}
+											>
+												<ThaiText text={item.data.title} />
+											</h3>
 											{item.data.summary && (
-												<p class="line-clamp-3 text-text-secondary-on-soft">{item.data.summary}</p>
+												<p
+													class:list={[
+														"line-clamp-3 text-text-secondary-on-soft",
+														v4 && "max-sm:hidden",
+													]}
+												>
+													{item.data.summary}
+												</p>
 											)}
 											<ArrowLink
 												href={healthContentPath(item.id)}
@@ -306,10 +353,14 @@ const control =
 			)}
 
 			{directory.hasHealthServices && (
-				<section aria-labelledby="home-discovery" class="bg-brand-dark py-16 lg:py-20">
+				<section
+					aria-labelledby="home-discovery"
+					class:list={["bg-brand-dark py-16 lg:py-20", v4 && "max-sm:py-10"]}
+				>
 					<div class="page-container flex flex-col gap-7">
 						<SectionHeading
 							onDark
+							compact={v4}
 							id="home-discovery"
 							eyebrow={DIRECTORY_TITLE}
 							title="ค้นหาหน่วยบริการสุขภาพในอำเภอสอง"
@@ -355,18 +406,27 @@ const control =
 			)}
 
 			{activities.length > 0 && (
-				<section aria-labelledby="home-activities" class="py-16 lg:py-20">
+				<section
+					aria-labelledby="home-activities"
+					class:list={["py-16 lg:py-20", v4 && "max-sm:py-10"]}
+				>
 					<div class="page-container flex flex-col gap-7">
 						<SectionHeading
 							id="home-activities"
+							compact={v4}
 							eyebrow="กิจกรรมของเรา"
 							title="สุขภาพเกิดขึ้นในชุมชน"
 							lead="การประชุม ลงพื้นที่ จิตอาสา และกิจกรรมร่วมกับเครือข่าย"
 						/>
-						<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-							{activities.slice(0, 3).map((activity) => (
-								<li>
-									<ActivityCard activity={activity} headingLevel={3} />
+						<ul
+							class:list={[
+								"grid gap-6 sm:grid-cols-2 lg:grid-cols-3",
+								v4 && "max-sm:grid-cols-2 max-sm:gap-3",
+							]}
+						>
+							{activities.slice(0, v4 ? 4 : 3).map((activity, index) => (
+								<li class:list={[index === 3 && "lg:hidden"]}>
+									<ActivityCard activity={activity} headingLevel={3} compact={v4} />
 								</li>
 							))}
 						</ul>
@@ -376,10 +436,14 @@ const control =
 			)}
 
 			{quickAccess.length > 0 && (
-				<section aria-labelledby="home-quick-access" class="bg-surface-base py-16 lg:py-20">
+				<section
+					aria-labelledby="home-quick-access"
+					class:list={["bg-surface-base py-16 lg:py-20", v4 && "max-sm:py-10"]}
+				>
 					<div class="page-container flex flex-col gap-7">
 						<SectionHeading
 							id="home-quick-access"
+							compact={v4}
 							eyebrow="เข้าถึงข้อมูล"
 							title="ข้อมูลและเอกสารสำคัญ"
 							lead="ทางลัดสำหรับข้อมูลอ้างอิงและความโปร่งใสของหน่วยงาน"
@@ -395,11 +459,14 @@ const control =
 				</section>
 			)}
 
-			<section aria-labelledby="home-contact" class="bg-surface-soft py-16">
+			<section
+				aria-labelledby="home-contact"
+				class:list={["bg-surface-soft py-16", v4 && "max-sm:py-10"]}
+			>
 				<div class="page-container grid items-center gap-8 lg:grid-cols-[35rem_minmax(0,1fr)] lg:gap-12">
 					<div class="flex flex-col gap-3.5">
 						<h2 id="home-contact" class="text-h3 wrap-anywhere text-brand-dark lg:text-h2">
-							{identity.title}
+							<ThaiText text={identity.title} />
 						</h2>
 						<p class="text-body-large text-text-secondary-on-soft">{OFFICE_SUMMARY}</p>
 						<OfficeContactDetails contact={contact} summary />
@@ -407,7 +474,10 @@ const control =
 					</div>
 					<div
 						aria-hidden="true"
-						class="flex h-40 items-center justify-center gap-3 rounded-24 bg-linear-to-r from-contact-visual-from to-contact-visual-to px-6 text-center text-label text-brand-dark lg:h-57.5"
+						class:list={[
+							"flex h-40 items-center justify-center gap-3 rounded-24 bg-linear-to-r from-contact-visual-from to-contact-visual-to px-6 text-center text-label text-brand-dark lg:h-57.5",
+							v4 && "max-sm:hidden",
+						]}
 					>
 						<span class="size-10.5 shrink-0 rounded-pill bg-surface-base"></span>
 						แผนที่สำนักงานและพื้นที่อำเภอสอง

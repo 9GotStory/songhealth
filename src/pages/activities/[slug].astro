@@ -19,7 +19,8 @@ import SiteLayout from "../../layouts/SiteLayout.astro";
 import V1ActivityPage from "../../components/prototype/design/v1/ActivityPage.astro";
 import V2ActivityPage from "../../components/prototype/design/v2/ActivityPage.astro";
 import V3ActivityPage from "../../components/prototype/design/v3/ActivityPage.astro";
-import { pageDesign } from "../../lib/prototype-design";
+import ThaiText from "../../components/prototype/design/ThaiText.astro";
+import { pageDesign, usesCurrentLayout } from "../../lib/prototype-design";
 import {
 	ACTIVITIES_PATH,
 	ACTIVITIES_TITLE,
@@ -83,11 +84,11 @@ const GALLERY_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw"
 	{design.variant === "1" && <V1ActivityPage {...pageProps} />}
 	{design.variant === "2" && <V2ActivityPage {...pageProps} />}
 	{design.variant === "3" && <V3ActivityPage {...pageProps} />}
-	{design.variant === "0" && (
+	{usesCurrentLayout(design.variant) && (
 		<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
 			<header class="flex max-w-3xl flex-col gap-3">
 				<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
-					{activity.title}
+					<ThaiText text={activity.title} />
 				</h1>
 				{activity.summary && (
 					<p class="text-body-large whitespace-pre-line text-text-secondary">{activity.summary}</p>

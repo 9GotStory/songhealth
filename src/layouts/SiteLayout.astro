@@ -48,7 +48,8 @@ import V2Footer from "../components/prototype/design/v2/Footer.astro";
 import V2Header from "../components/prototype/design/v2/Header.astro";
 import V3Footer from "../components/prototype/design/v3/Footer.astro";
 import V3Header from "../components/prototype/design/v3/Header.astro";
-import { pageDesign } from "../lib/prototype-design";
+import ThaiText from "../components/prototype/design/ThaiText.astro";
+import { pageDesign, usesCurrentLayout } from "../lib/prototype-design";
 import {
 	MAIN_NAVIGATION,
 	UTILITY_LINKS,
@@ -124,6 +125,7 @@ const bodyClass = {
 	"1": "bg-bg-page text-v1-body text-text-primary",
 	"2": "bg-surface-base font-v2 text-v2-body text-v2-ink",
 	"3": "bg-surface-base font-v3-body text-v3-body text-v3-ink",
+	"4": "bg-bg-page text-body text-text-primary",
 }[design.variant];
 ---
 
@@ -147,7 +149,7 @@ const bodyClass = {
 		{design.variant === "1" && <V1Header {...shell} />}
 		{design.variant === "2" && <V2Header {...shell} />}
 		{design.variant === "3" && <V3Header {...shell} />}
-		{design.variant === "0" && (
+		{usesCurrentLayout(design.variant) && (
 			<header class="bg-surface-base">
 				<div class="focus-ring-on-dark bg-brand-dark text-small text-surface-base">
 					<div class="page-container flex min-h-10.5 flex-wrap items-center justify-between gap-x-6 gap-y-1 py-1.5">
@@ -188,7 +190,7 @@ const bodyClass = {
 							)}
 							<span class="flex min-w-0 flex-col pt-2 lg:pt-0">
 								<span class="text-body font-semibold wrap-anywhere text-brand-dark sm:text-body-large lg:text-h3">
-									{identity.title}
+									<ThaiText text={identity.title} />
 								</span>
 								{identity.tagline && (
 									<span class="text-small wrap-anywhere text-text-secondary">
@@ -259,11 +261,13 @@ const bodyClass = {
 		{design.variant === "1" && <V1Footer {...shell} />}
 		{design.variant === "2" && <V2Footer {...shell} />}
 		{design.variant === "3" && <V3Footer {...shell} />}
-		{design.variant === "0" && (
+		{usesCurrentLayout(design.variant) && (
 			<footer class="focus-ring-on-dark bg-brand-dark text-surface-base">
 				<div class="page-container flex flex-col gap-6 py-12 lg:flex-row lg:items-start lg:justify-between">
 					<div class="flex flex-col gap-1.5">
-						<p class="text-h3 wrap-anywhere">{identity.title}</p>
+						<p class="text-h3 wrap-anywhere">
+							<ThaiText text={identity.title} />
+						</p>
 						<p class="text-small">{OFFICE_NAME}</p>
 					</div>
 					<div class="flex flex-col gap-4 text-small lg:items-end">

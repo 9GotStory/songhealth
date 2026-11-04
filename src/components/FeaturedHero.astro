@@ -22,15 +22,21 @@ import type { FeaturedView } from "../lib/homepage-curation";
 import { availableMedia } from "../lib/media";
 import { SERVICES_PATH } from "../lib/service-catalog";
 import ActionLink from "./ActionLink.astro";
+import ThaiText from "./prototype/design/ThaiText.astro";
 
 interface Props {
 	featured: FeaturedView;
+	/**
+	 * PROTOTYPE (branch prototype/design, variant 4): show the picture whole instead of cropping it,
+	 * and set the title at H1 size instead of Display.
+	 */
+	fixed?: boolean;
 }
 
 /** The picture's width: the 450 px column of the frame from `lg`, the card's width below it. */
 const PICTURE_SIZES = "(min-width: 64rem) 28.125rem, 100vw";
 
-const { featured } = Astro.props;
+const { featured, fixed = false } = Astro.props;
 const image = await availableMedia(featured.image, Astro.locals.emdash);
 ---
 
@@ -38,8 +44,14 @@ const image = await availableMedia(featured.image, Astro.locals.emdash);
 	<div class="grid items-center gap-8 rounded-32 bg-brand-dark p-6 text-surface-base sm:p-10 lg:grid-cols-[minmax(0,1fr)_28.125rem] lg:gap-12 lg:p-14">
 		<div class="flex min-w-0 flex-col items-start gap-5.5">
 			<p class="rounded-pill bg-hero-chip px-3.5 py-2 text-label">เรื่องเด่นจากอำเภอสอง</p>
-			<h2 id="home-featured" class="text-h3 wrap-anywhere sm:text-h2 lg:text-display">
-				{featured.title}
+			<h2
+				id="home-featured"
+				class:list={[
+					"text-h3 wrap-anywhere sm:text-h2",
+					fixed ? "text-balance lg:text-h1" : "lg:text-display",
+				]}
+			>
+				<ThaiText text={featured.title} />
 			</h2>
 			{featured.lead && <p class="line-clamp-4 text-body-large">{featured.lead}</p>}
 			<div class="flex flex-wrap gap-3">
@@ -57,7 +69,12 @@ const image = await availableMedia(featured.image, Astro.locals.emdash);
 				alt=""
 				sizes={PICTURE_SIZES}
 				priority
-				class="aspect-16/9 w-full rounded-26 object-cover lg:aspect-auto lg:h-102"
+				class:list={[
+					"w-full rounded-26",
+					fixed
+						? "h-auto max-h-102 object-contain"
+						: "aspect-16/9 object-cover lg:aspect-auto lg:h-102",
+				]}
 			/>
 		) : (
 			<div
