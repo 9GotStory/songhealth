@@ -1,11 +1,11 @@
 // Thai titles keep compound words whole (Feature 006 #145; spec #144 "Shared: Thai titles keep
 // compound words whole" and "Testing Decisions", Seam A).
 //
-// A browser breaks a Thai line where its dictionary ends a word, and that dictionary splits
-// "เบา|หวาน" and "อำเภอ|สอง". Titles keep the words of a curated list whole
-// (src/lib/thai-title.ts), so a citizen reads them as written: a card's title never puts part of
-// such a word on one line and the rest on the next, at any width, and on a 375 px phone the
-// header's site title keeps "อำเภอสอง" on one line. A title still shows its characters as written.
+// Titles keep whole the words of a curated list that the browser's Thai line breaking splits, such
+// as "เบา|หวาน" and "อำเภอ|สอง" (src/lib/thai-title.ts says where that was seen), so a citizen
+// reads them as written: a card's title never puts part of such a word on one line and the rest on
+// the next, at any width, and on a 375 px phone the header's site title keeps "อำเภอสอง" on one
+// line. A title still shows its characters as written.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness. Its fixture is a synthetic Health Content item made through the native API and removed
@@ -14,7 +14,7 @@
 // to 1440 px rather than trying one width, so it meets the widths at which a line would end inside
 // a word, whatever the card's padding and type size.
 
-import type { Locator } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import {
 	createSyntheticEntry,
@@ -28,12 +28,16 @@ import {
 } from "./cms.helpers";
 import { HOMEPAGE_HEADINGS, expect, homepageSection, siteTitleParts, test } from "./public.helpers";
 
-/** The listed words the ticket names, which the fixture's title holds. */
-const KEPT_WORDS = ["เบาหวาน", "อำเภอสอง"];
+/** The listed words the card test checks, which the ticket names and the fixture's title holds. */
+const CHECKED_WORDS = ["เบาหวาน", "อำเภอสอง"];
 
 let admin: CmsActor;
-/** The fixture's title: the kept words, and characters that the page must escape. */
+/** The fixture's title: the checked words, and characters that the page must escape. */
 let fixtureTitle: string;
+
+/** The fixture's card title in the Homepage's Health Information. */
+const fixtureCardTitle = (page: Page) =>
+	homepageSection(page, HOMEPAGE_HEADINGS.health).getByRole("heading", { name: fixtureTitle });
 
 /**
  * How the occurrences of `word` in `element`'s text lie as the page is laid out now: how many
@@ -85,17 +89,15 @@ test("a card never splits เบาหวาน or อำเภอสอง of i
 	page,
 }) => {
 	await page.goto("/");
-	const title = homepageSection(page, HOMEPAGE_HEADINGS.health).getByRole("heading", {
-		name: fixtureTitle,
-	});
+	const title = fixtureCardTitle(page);
 	await expect(title).toBeVisible();
-	for (const word of KEPT_WORDS) {
+	for (const word of CHECKED_WORDS) {
 		expect((await occurrencesOf(title, word)).found, `${word} in the card's title`).toBe(1);
 	}
 	const splits: string[] = [];
 	for (let width = 320; width <= 1440; width += 8) {
 		await page.setViewportSize({ width, height: 900 });
-		for (const word of KEPT_WORDS) {
+		for (const word of CHECKED_WORDS) {
 			if ((await occurrencesOf(title, word)).split > 0) splits.push(`${word} at ${width} px`);
 		}
 	}
@@ -104,9 +106,7 @@ test("a card never splits เบาหวาน or อำเภอสอง of i
 
 test("a card's title shows its characters as written", async ({ page }) => {
 	await page.goto("/");
-	await expect(
-		homepageSection(page, HOMEPAGE_HEADINGS.health).getByRole("heading", { name: fixtureTitle }),
-	).toHaveText(fixtureTitle);
+	await expect(fixtureCardTitle(page)).toHaveText(fixtureTitle);
 });
 
 test("at 375 px the header's site title keeps อำเภอสอง on one line", async ({ page }) => {

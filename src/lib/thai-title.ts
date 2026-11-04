@@ -1,12 +1,13 @@
 // Thai titles that keep compound words whole (Feature 006 #145; spec #144 "Shared: Thai titles keep
 // compound words whole").
 //
-// A browser breaks a Thai line where its dictionary (ICU) ends a word, and that dictionary splits
-// compounds that read as one word: "เบา|หวาน", "อำเภอ|สอง", "ครั้ง|ที่" (Node 26.13.0's
-// Intl.Segmenter("th") gives the same splits). A title splits into runs: each word of the curated
-// list below is a run kept together, and the text around it is plain. ThaiTitle.astro renders a
-// kept run so that a line cannot break inside it and leaves the text as it is, so copied text and
-// search read the title as written.
+// Chromium ends a Thai line where its word segmentation ends a word, and that segmentation splits
+// compounds that read as one word: "เบา|หวาน", "อำเภอ|สอง", "ความดัน|โลหิต" (seen in #145's red
+// run with @playwright/test 1.63.0's Chromium on main e5fd8a6; Node 26.13.0's Intl.Segmenter("th")
+// gives the same splits, spec #144 "Version-specific evidence"). A title splits into runs: each
+// word of the curated list below is a run kept together, and the text around it is plain.
+// ThaiTitle.astro renders a kept run so that a line cannot break inside it and leaves the text as
+// it is, so copied text and search read the title as written.
 //
 // At each place the longest listed word that starts there is kept, so "ความดันโลหิตสูง" wins over
 // "ความดันโลหิต" and "ตรวจคัดกรอง" over "คัดกรอง", and every occurrence is kept. Two listed words
