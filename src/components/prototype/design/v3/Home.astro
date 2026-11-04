@@ -73,7 +73,7 @@ const control =
 						alt=""
 						sizes="(min-width: 75rem) 75rem, 100vw"
 						priority
-						class="aspect-[4/3] w-full object-cover sm:aspect-video lg:aspect-[21/9] lg:rounded-24"
+						class="aspect-[16/10] w-full object-cover sm:aspect-video lg:aspect-[21/9] lg:rounded-24"
 					/>
 					<div class="relative mx-4 -mt-16 flex flex-col items-start gap-3 rounded-24 bg-v3-yellow-light p-5 sm:mx-8 sm:p-7 lg:absolute lg:bottom-8 lg:left-8 lg:mx-0 lg:mt-0 lg:max-w-[38rem] lg:p-9">
 						<p class="rounded-pill bg-v3-forest px-3 py-1 font-v3-head text-v3-meta text-v3-yellow-light">
@@ -180,7 +180,7 @@ const control =
 				<li>
 					<a
 						href={servicePath(service.id)}
-						class="flex h-full items-center gap-3 rounded-16 border-2 border-v3-line bg-surface-base p-3 hover:border-v3-leaf lg:p-4"
+						class="flex h-full flex-col items-start gap-2 rounded-16 border-2 border-v3-line bg-surface-base p-3 hover:border-v3-leaf sm:flex-row sm:items-center sm:gap-3 lg:p-4"
 					>
 						<span
 							aria-hidden="true"
@@ -305,7 +305,7 @@ const control =
 							/>
 						</h3>
 						{item.data.summary && (
-							<p class="line-clamp-2 text-v3-meta text-v3-muted">{item.data.summary}</p>
+							<p class="hidden text-v3-meta text-v3-muted sm:line-clamp-2">{item.data.summary}</p>
 						)}
 					</li>
 				);

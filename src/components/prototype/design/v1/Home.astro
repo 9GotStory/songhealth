@@ -113,7 +113,7 @@ const control =
 							alt=""
 							sizes="(min-width: 64rem) 26rem, 100vw"
 							priority
-							class="aspect-video w-full object-cover lg:h-full"
+							class="aspect-[2/1] w-full object-cover sm:aspect-video lg:h-full"
 						/>
 					))}
 			</div>
@@ -288,7 +288,9 @@ const control =
 							/>
 						</h3>
 						{item.data.summary && (
-							<p class="line-clamp-2 text-v1-meta text-text-secondary">{item.data.summary}</p>
+							<p class="hidden text-v1-meta text-text-secondary sm:line-clamp-2">
+								{item.data.summary}
+							</p>
 						)}
 					</li>
 				);

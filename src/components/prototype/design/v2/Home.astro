@@ -168,7 +168,9 @@ const control =
 							{service.data.title}
 						</a>
 						{service.data.summary && (
-							<p class="line-clamp-1 text-v2-meta text-v2-muted">{service.data.summary}</p>
+							<p class="hidden text-v2-meta text-v2-muted sm:line-clamp-1">
+								{service.data.summary}
+							</p>
 						)}
 					</li>
 				))}
@@ -191,7 +193,7 @@ const control =
 					</h3>
 					<ul aria-labelledby="home-news-list" class="divide-y divide-v2-rule">
 						{news.map((item, index) => (
-							<li class="flex gap-4 py-3">
+							<li class:list={["gap-4 py-3", index > 2 ? "hidden sm:flex" : "flex"]}>
 								{item.data.publishedAt && (
 									<p class:list={[dateCol, "hidden pt-0.5 sm:block"]}>
 										{shortThaiDate(item.data.publishedAt)}
@@ -279,7 +281,7 @@ const control =
 							set:html={thaiTitleHtml(item.data.title)}
 						/>
 						{item.data.summary && (
-							<p class="line-clamp-1 text-v2-meta text-v2-muted">{item.data.summary}</p>
+							<p class="hidden text-v2-meta text-v2-muted sm:line-clamp-1">{item.data.summary}</p>
 						)}
 					</li>
 				);

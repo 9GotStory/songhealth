@@ -57,12 +57,12 @@ const { identity, navigation } = Astro.props;
 		</nav>
 		<a
 			href="/search"
-			class="ml-auto inline-flex min-h-11 shrink-0 items-center gap-2 rounded-pill bg-v3-yellow px-3 font-v3-head font-medium text-v3-forest lg:ml-2 lg:px-4"
+			class="ml-2 hidden min-h-11 shrink-0 items-center gap-2 rounded-pill bg-v3-yellow px-4 font-v3-head font-medium text-v3-forest lg:inline-flex"
 		>
 			<Search class="shrink-0" size={20} />
-			<span class="sr-only lg:not-sr-only">ค้นหา</span>
+			<span>ค้นหา</span>
 		</a>
-		<span class="w-24 shrink-0 lg:hidden" aria-hidden="true"></span>
+		<span class="ml-auto w-24 shrink-0 lg:hidden" aria-hidden="true"></span>
 	</div>
 	<details class="group lg:hidden">
 		<summary class="absolute top-4.5 right-(--page-gutter) flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-pill bg-v3-forest px-4 font-v3-head font-medium text-surface-base [&::-webkit-details-marker]:hidden">
@@ -70,6 +70,31 @@ const { identity, navigation } = Astro.props;
 			<X class="hidden shrink-0 group-open:block" size={20} />
 			<span>เมนู</span>
 		</summary>
+		<form
+			role="search"
+			method="get"
+			action="/search"
+			aria-label="ค้นหาในเว็บไซต์"
+			class="page-container flex gap-2 bg-v3-yellow-light pt-4"
+		>
+			<label class="sr-only" for="menu-search">
+				คำค้นหา
+			</label>
+			<input
+				id="menu-search"
+				name="q"
+				type="search"
+				placeholder="ค้นหาในเว็บไซต์"
+				class="min-h-12 w-full min-w-0 rounded-pill border-2 border-v3-input bg-surface-base px-4"
+			/>
+			<button
+				type="submit"
+				class="inline-flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-pill bg-v3-yellow text-v3-forest"
+			>
+				<Search class="shrink-0" size={20} />
+				<span class="sr-only">ค้นหา</span>
+			</button>
+		</form>
 		<nav aria-label="เมนูหลัก" class="bg-v3-yellow-light">
 			<ul class="page-container flex flex-col py-3 font-v3-head">
 				{navigation.map((item) => (
