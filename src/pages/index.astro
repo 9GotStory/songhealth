@@ -169,7 +169,7 @@ const control =
 
 			<section
 				aria-labelledby="home-search"
-				class:list={["page-container flex flex-col gap-4 pb-16", v4 && "max-sm:pb-10"]}
+				class:list={["page-container flex flex-col gap-4 pb-16", v4 && "max-sm:pb-8"]}
 			>
 				<h2 id="home-search" class="text-h3 text-text-primary">
 					คุณกำลังมองหาอะไร?
@@ -180,7 +180,7 @@ const control =
 			{services.length > 0 && (
 				<section
 					aria-labelledby="home-services"
-					class:list={["bg-surface-base pt-16 pb-16 lg:pb-20", v4 && "max-sm:py-10"]}
+					class:list={["bg-surface-base pt-16 pb-16 lg:pb-20", v4 && "max-sm:py-8"]}
 				>
 					<div class="page-container flex flex-col gap-7">
 						<SectionHeading
@@ -208,7 +208,7 @@ const control =
 			)}
 
 			{(news || announcements.length > 0) && (
-				<section aria-labelledby="home-news" class:list={["py-16 lg:py-20", v4 && "max-sm:py-10"]}>
+				<section aria-labelledby="home-news" class:list={["py-16 lg:py-20", v4 && "max-sm:py-8"]}>
 					<div class="page-container flex flex-col gap-7">
 						<SectionHeading
 							id="home-news"
@@ -286,7 +286,7 @@ const control =
 			{healthContent.length > 0 && (
 				<section
 					aria-labelledby="home-health"
-					class:list={["bg-surface-base py-16 lg:py-20", v4 && "max-sm:py-10"]}
+					class:list={["bg-surface-base py-16 lg:py-20", v4 && "max-sm:py-8"]}
 				>
 					<div class="page-container flex flex-col gap-7">
 						<SectionHeading
@@ -355,7 +355,7 @@ const control =
 			{directory.hasHealthServices && (
 				<section
 					aria-labelledby="home-discovery"
-					class:list={["bg-brand-dark py-16 lg:py-20", v4 && "max-sm:py-10"]}
+					class:list={["bg-brand-dark py-16 lg:py-20", v4 && "max-sm:py-8"]}
 				>
 					<div class="page-container flex flex-col gap-7">
 						<SectionHeading
@@ -408,7 +408,7 @@ const control =
 			{activities.length > 0 && (
 				<section
 					aria-labelledby="home-activities"
-					class:list={["py-16 lg:py-20", v4 && "max-sm:py-10"]}
+					class:list={["py-16 lg:py-20", v4 && "max-sm:py-8"]}
 				>
 					<div class="page-container flex flex-col gap-7">
 						<SectionHeading
@@ -438,7 +438,7 @@ const control =
 			{quickAccess.length > 0 && (
 				<section
 					aria-labelledby="home-quick-access"
-					class:list={["bg-surface-base py-16 lg:py-20", v4 && "max-sm:py-10"]}
+					class:list={["bg-surface-base py-16 lg:py-20", v4 && "max-sm:py-8"]}
 				>
 					<div class="page-container flex flex-col gap-7">
 						<SectionHeading
@@ -448,10 +448,15 @@ const control =
 							title="ข้อมูลและเอกสารสำคัญ"
 							lead="ทางลัดสำหรับข้อมูลอ้างอิงและความโปร่งใสของหน่วยงาน"
 						/>
-						<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+						<ul
+							class:list={[
+								"grid gap-6 sm:grid-cols-2 lg:grid-cols-4",
+								v4 && "max-sm:grid-cols-2 max-sm:gap-3",
+							]}
+						>
 							{quickAccess.map((link) => (
 								<li>
-									<QuickLinkCard href={link.href} label={link.label} />
+									<QuickLinkCard href={link.href} label={link.label} compact={v4} />
 								</li>
 							))}
 						</ul>
@@ -461,7 +466,7 @@ const control =
 
 			<section
 				aria-labelledby="home-contact"
-				class:list={["bg-surface-soft py-16", v4 && "max-sm:py-10"]}
+				class:list={["bg-surface-soft py-16", v4 && "max-sm:py-8"]}
 			>
 				<div class="page-container grid items-center gap-8 lg:grid-cols-[35rem_minmax(0,1fr)] lg:gap-12">
 					<div class="flex flex-col gap-3.5">

@@ -53,7 +53,11 @@ const image = await availableMedia(featured.image, Astro.locals.emdash);
 			>
 				<ThaiText text={featured.title} />
 			</h2>
-			{featured.lead && <p class="line-clamp-4 text-body-large">{featured.lead}</p>}
+			{featured.lead && (
+				<p class:list={["line-clamp-4 text-body-large", fixed && "max-sm:line-clamp-3"]}>
+					{featured.lead}
+				</p>
+			)}
 			<div class="flex flex-wrap gap-3">
 				<ActionLink href={featured.href} variant="primary" context={featured.title} onDark>
 					ดูเรื่องเด่น

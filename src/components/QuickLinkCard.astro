@@ -14,13 +14,19 @@ interface Props {
 	eyebrow?: string;
 	/** A line below the label, such as how many items the page holds. */
 	detail?: string;
+	/** PROTOTYPE (branch prototype/design, variant 4): a smaller card on phones. */
+	compact?: boolean;
 }
 
-const { href, label, eyebrow, detail } = Astro.props;
+const { href, label, eyebrow, detail, compact = false } = Astro.props;
 ---
 
 <a
-	class="flex h-full min-h-22 items-center justify-between gap-4 rounded-18 border border-border-default bg-surface-base px-5.5 pt-5.5 pb-5 text-h3 text-text-primary shadow-card hover:border-brand-primary hover:text-brand-primary"
+	class:list={[
+		"flex h-full min-h-22 items-center justify-between gap-4 rounded-18 border border-border-default bg-surface-base px-5.5 pt-5.5 pb-5 text-h3 text-text-primary shadow-card hover:border-brand-primary hover:text-brand-primary",
+		compact &&
+			"max-sm:min-h-14 max-sm:gap-2 max-sm:px-3.5 max-sm:py-3 max-sm:text-body max-sm:font-semibold",
+	]}
 	href={href}
 >
 	<span class="flex min-w-0 flex-col gap-1">
