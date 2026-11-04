@@ -8,12 +8,13 @@
 // one column.
 //
 // The picture stays in view while the left column scrolls ("ลอยตาม (แนะนำ)") and stops at the end
-// of the two columns, because a sticky grid item stays inside its grid area, here both rows. So
+// of the two columns, because a sticky grid item stays inside its grid area, here every row. So
 // what a page puts after this block, such as an Activity's photos, comes below the picture and
-// never under it (the Product Owner's finding of 2026-11-04, spec #144). The first row takes the
-// height of what it holds and the second the rest, so the body stays right under the header when
-// the picture is the taller. The picture follows only while the left column is the longer, and one
-// taller than the window shows its lower part as the block ends.
+// never under it (the Product Owner's finding of 2026-11-04, spec #144). With a `body` slot the
+// block has two rows, the first as tall as what it holds and the second the rest, so the body stays
+// right under the header when the picture is the taller. Without one it has a single row, so no
+// empty row and its gap lengthen the block past the text. The picture follows only while the left
+// column is the longer, and one taller than the window shows its lower part as the block ends.
 //
 // The picture fills the column's width at its own aspect ratio, never cropped, in a box shaped by
 // the size EmDash keeps with the image (src/components/FeaturedHero.astro says how), so the
@@ -37,20 +38,26 @@ const PICTURE_SIZES = "(min-width: 64rem) 28rem, (min-width: 48rem) 48rem, 100vw
 
 const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
 const fullSize = image && mediaFileHref(image, Astro.locals.emdash);
+const hasBody = Astro.slots.has("body");
 ---
 
 <div
 	class:list={[
 		"flex flex-col gap-8",
-		image &&
-			"lg:grid lg:grid-cols-[minmax(0,1fr)_28rem] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-12",
+		image && "lg:grid lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-start lg:gap-x-12",
+		image && hasBody && "lg:grid-rows-[auto_1fr]",
 	]}
 >
 	<div class="flex flex-col gap-8 lg:col-start-1">
 		<slot />
 	</div>
 	{image && (
-		<div class="flex flex-col gap-2 lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+		<div
+			class:list={[
+				"flex flex-col gap-2 lg:sticky lg:top-6 lg:col-start-2 lg:row-start-1",
+				hasBody && "lg:row-span-2",
+			]}
+		>
 			<Image
 				image={image}
 				priority
@@ -60,7 +67,7 @@ const fullSize = image && mediaFileHref(image, Astro.locals.emdash);
 			{fullSize && <ArrowLink href={fullSize}>เปิดภาพขนาดเต็ม</ArrowLink>}
 		</div>
 	)}
-	{Astro.slots.has("body") && (
+	{hasBody && (
 		<div class="lg:col-start-1">
 			<slot name="body" />
 		</div>

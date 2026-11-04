@@ -260,7 +260,7 @@ test("at 1440 px a post without a picture keeps one column, its text wider than 
 	}
 });
 
-test("while an Activity post with photos scrolls at 1440 px, its picture stays in view beside the details and never overlaps the photos", async ({
+test("while an Activity post with photos scrolls at 1440 px, its picture stays in view beside the details, stops where they end, and never overlaps the photos", async ({
 	page,
 }) => {
 	const post = pictured.activities;
@@ -272,7 +272,8 @@ test("while an Activity post with photos scrolls at 1440 px, its picture stays i
 		picture,
 		main.getByRole("link", { name: FULL_SIZE }),
 		main.getByRole("heading", { level: 1 }),
-		detailOf(page, "ผู้เข้าร่วม"),
+		// The details card, the end of the left column, which is the longer.
+		main.locator("dl"),
 		main.getByRole("region", { name: "ภาพกิจกรรม" }),
 	];
 	const windowHeight = DESKTOP_VIEWPORT.height;
@@ -281,17 +282,24 @@ test("while an Activity post with photos scrolls at 1440 px, its picture stays i
 	);
 	const overlaps: string[] = [];
 	const outOfView: string[] = [];
+	const pastTheDetails: string[] = [];
 	let following = 0;
 	for (let offset = 0; offset < end + 100; offset += 100) {
 		const at = Math.min(offset, end);
 		await page.evaluate((top) => window.scrollTo(0, top), at);
-		const [shown, link, title, participants, photos] = await Promise.all(
+		const [shown, link, title, details, photos] = await Promise.all(
 			parts.map((part) => boxOf(part, `scrolled ${at} px`)),
 		);
 		if (overlap(shown!, photos!)) overlaps.push(`the picture at ${at} px`);
 		if (overlap(link!, photos!)) overlaps.push(`its link at ${at} px`);
+		// The two columns end with the details, so the picture and its link stop there.
+		if (link!.y + link!.height > details!.y + details!.height + 0.5) {
+			pastTheDetails.push(
+				`at ${at} px: by ${link!.y + link!.height - details!.y - details!.height} px`,
+			);
+		}
 		// The left column scrolls: its title is above the window, and its details run on below it.
-		if (title!.y + title!.height < 0 && participants!.y + participants!.height > windowHeight) {
+		if (title!.y + title!.height < 0 && details!.y + details!.height > windowHeight) {
 			following += 1;
 			if (shown!.y < 0 || shown!.y + shown!.height > windowHeight) {
 				outOfView.push(`at ${at} px: from ${shown!.y} to ${shown!.y + shown!.height}`);
@@ -300,6 +308,7 @@ test("while an Activity post with photos scrolls at 1440 px, its picture stays i
 	}
 	expect(following, "the left column scrolls past the window at some offsets").toBeGreaterThan(0);
 	expect(outOfView, "the picture stays in view while the left column scrolls").toEqual([]);
+	expect(pastTheDetails, "the picture and its link stop where the details end").toEqual([]);
 	expect(overlaps, "the picture and its link never overlap the photos").toEqual([]);
 });
 
