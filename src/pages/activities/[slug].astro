@@ -89,54 +89,55 @@ const GALLERY_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw"
 	{design.variant === "2" && <V2ActivityPage {...pageProps} />}
 	{design.variant === "3" && <V3ActivityPage {...pageProps} />}
 	{usesCurrentLayout(design.variant) && (
-		<article
-			class:list={[
-				"page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20",
-				split &&
-					"lg:grid lg:grid-cols-[minmax(0,1fr)_28rem] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-12",
-			]}
-		>
-			<header class:list={["flex max-w-3xl flex-col gap-3", split && "lg:col-start-1"]}>
-				<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
-					<ThaiText text={activity.title} />
-				</h1>
-				{activity.summary && (
-					<p class="text-body-large whitespace-pre-line text-text-secondary">{activity.summary}</p>
+		<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+			<div
+				class:list={[
+					"flex flex-col gap-8",
+					split &&
+						"lg:grid lg:grid-cols-[minmax(0,1fr)_28rem] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-12",
+				]}
+			>
+				<header class:list={["flex max-w-3xl flex-col gap-3", split && "lg:col-start-1"]}>
+					<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
+						<ThaiText text={activity.title} />
+					</h1>
+					{activity.summary && (
+						<p class="text-body-large whitespace-pre-line text-text-secondary">
+							{activity.summary}
+						</p>
+					)}
+					{activity.publishedAt && (
+						<p class="text-small text-text-secondary">
+							เผยแพร่ <DateText value={activity.publishedAt} />
+						</p>
+					)}
+				</header>
+				{hasDetails && (
+					<dl
+						class:list={[
+							"flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card",
+							split && "lg:col-start-1",
+						]}
+					>
+						{activity.activity_at && (
+							<DetailItem term="วันที่จัดกิจกรรม">
+								<DateText value={activity.activity_at} />
+							</DetailItem>
+						)}
+						{activity.location_text && (
+							<DetailItem term="สถานที่จัดกิจกรรม">{activity.location_text}</DetailItem>
+						)}
+						{activity.participants_text && (
+							<DetailItem term="ผู้เข้าร่วม">
+								<span class="whitespace-pre-line">{activity.participants_text}</span>
+							</DetailItem>
+						)}
+					</dl>
 				)}
-				{activity.publishedAt && (
-					<p class="text-small text-text-secondary">
-						เผยแพร่ <DateText value={activity.publishedAt} />
-					</p>
-				)}
-			</header>
-			{hasDetails && (
-				<dl
-					class:list={[
-						"flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card",
-						split && "lg:col-start-1",
-					]}
-				>
-					{activity.activity_at && (
-						<DetailItem term="วันที่จัดกิจกรรม">
-							<DateText value={activity.activity_at} />
-						</DetailItem>
-					)}
-					{activity.location_text && (
-						<DetailItem term="สถานที่จัดกิจกรรม">{activity.location_text}</DetailItem>
-					)}
-					{activity.participants_text && (
-						<DetailItem term="ผู้เข้าร่วม">
-							<span class="whitespace-pre-line">{activity.participants_text}</span>
-						</DetailItem>
-					)}
-				</dl>
-			)}
-			{image && <PostPicture image={image} split={split} />}
+				{image && <PostPicture image={image} split={split} />}
+			</div>
 			{gallery.length > 0 && (
-				<section
-					aria-labelledby="activity-gallery"
-					class:list={["flex flex-col gap-4", split && "lg:col-span-2"]}
-				>
+				<section aria-labelledby="activity-gallery" class="flex flex-col gap-4">
 					<h2 id="activity-gallery" class="text-h3 text-brand-dark">
 						ภาพกิจกรรม
 					</h2>
