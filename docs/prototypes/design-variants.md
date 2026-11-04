@@ -86,4 +86,26 @@ for three code variants and two ways to show a One Page.
 - The comparison page (Version 3) shows the fixes before and after. The stand-ins are back on the
   development runtime for the review.
 
-The verdict on variant 4 is pending.
+### The verdict on variant 4 (Product Owner, 2026-11-04)
+
+- The Homepage: "โอเค เฉพาะหน้าแรก เพราะหน้า post ยังไม่เห็น", accepting 5,771 px at 375 px over
+  the Q11 target of about 5,000 px.
+- Post pages, shown next: a News post had no summary, so a One Page-only post had its story only in
+  the image; variant 4 shows the summary under the title. Of one column and two, the Product Owner
+  picked "สองคอลัมน์": from `lg` the text on the left and the picture whole on the right, with a
+  link to the full image.
+- Several photos that are not in the One Page: an Activity's gallery field, and a gallery block in
+  a News body (EmDash's own rendering). For 10 to 20 photos the Product Owner picked
+  "รูปย่อ + พับส่วนเกิน (แนะนำ)": square thumbnails, four to a row from `lg` and three on phones,
+  the first eight shown and the rest folded under "ดูรูปทั้งหมด (N รูป)", each opening the full
+  file, without JavaScript. The picture stays in view while scrolling: "ลอยตาม (แนะนำ)".
+- Then: "มันก็ดีอยู่นะ แต่การลอย มันไปทับกับ รูปกิจกรรมด้านล่าง และปุ่ม แสดงรูปที่ซ่อน มันควรไปอยู่ด้านล่างเมื่อ เปิด".
+  Fixed in `7fde03e`: the two columns get their own grid, so the picture stops before the photos,
+  and the control sits under the photos it opens.
+- The "Plugin block: gallery (edit in admin)" the Product Owner saw is EmDash's Edit mode: its
+  inline editor cannot edit gallery blocks. Visitors see the gallery.
+- The seams (the public browser suites and node:test of a Thai keep-together module) and the
+  cleanup after the spec passes, before the first ticket: "สอง seam เดิม (แนะนำ)",
+  "หลัง spec ผ่าน ก่อนตั๋วแรก (แนะนำ)".
+
+The spec carries these decisions; the code here is a reference for the look only.
