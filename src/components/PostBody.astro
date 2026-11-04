@@ -1,0 +1,24 @@
+---
+// A News or Health Content post's text after its picture (Feature 006 #147; spec #144 "Post pages:
+// News, Activity and Health Content"): its body, its source when staff named one, and its Health
+// Topics, each linking to the list it filters (TopicPills.astro).
+import type { PortableTextBlock, TaxonomyTerm } from "emdash";
+import RichText from "./RichText.astro";
+import TopicPills from "./TopicPills.astro";
+
+interface Props {
+	body?: PortableTextBlock[];
+	source?: string;
+	topics: TaxonomyTerm[];
+	/** The address of the list filtered by the topic with this slug. */
+	topicHref: (slug: string) => string;
+}
+
+const { body, source, topics, topicHref } = Astro.props;
+---
+
+<div class="flex max-w-3xl flex-col gap-8">
+	{body && body.length > 0 && <RichText value={body} />}
+	{source && <p class="text-text-secondary">แหล่งที่มา: {source}</p>}
+	<TopicPills topics={topics} href={topicHref} />
+</div>

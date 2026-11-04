@@ -18,8 +18,8 @@
 //   the page as it is now at both.
 // - What the shell shows every page: the 404 page, the default site title, the
 //   breadcrumb, Thai dates, the titles and items a list shows, and a record
-//   page's details; whether an image loads and shows its whole picture; and
-//   how a word of a title lies in its lines and its box.
+//   page's details; whether an image loads, shows its whole picture and fills
+//   its box; and how a word of a title lies in its lines and its box.
 // - `expectPreviewRenders`: a draft's signed preview link (cms.helpers.ts
 //   mintPreviewLink) at the draft's address, rendering it out of search engines.
 // - `sitemapLocations`: the addresses a sitemap document lists.
@@ -339,7 +339,7 @@ export async function expectImageLoaded(image: Locator, label: string): Promise<
  * part follows from the image's content box and its `object-fit`, which scales the picture in the
  * box and crops what overflows it. Returns the size the picture shows at, in CSS px.
  */
-export async function expectPictureWhole(
+async function expectPictureWhole(
 	image: Locator,
 	label: string,
 ): Promise<{ width: number; height: number }> {
@@ -372,6 +372,25 @@ export async function expectPictureWhole(
 		2,
 	);
 	return { width: shown.width, height: shown.height };
+}
+
+/**
+ * Fail unless `image` shows its whole picture undistorted (expectPictureWhole) and fills its own
+ * box with it, so nothing of the box shows beside the picture: neither what is behind the box nor
+ * the placeholder EmDash's Image paints as the image's background (docs/agents/emdash-1.1.0.md
+ * "Media"). Returns the size the picture shows at, in CSS px.
+ */
+export async function expectPictureFillsBox(
+	image: Locator,
+	label: string,
+): Promise<{ width: number; height: number }> {
+	const shown = await expectPictureWhole(image, label);
+	const box = (await image.boundingBox())!;
+	expect(
+		Math.abs(box.width - shown.width) + Math.abs(box.height - shown.height),
+		`${label}: the picture fills its box`,
+	).toBeLessThan(1);
+	return shown;
 }
 
 /**
