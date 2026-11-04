@@ -166,6 +166,14 @@ cited file exists and that the name carries the pinned version.
   `{ body, contentType, size }` (`src/storage/local.ts`, `src/storage/s3.ts`).
   - A missing key throws code `NOT_FOUND`.
   - On local storage, `list` reads the whole directory.
+- EmDash exports no function for the address of a media value's stored file. Each request's
+  `Astro.locals.emdash.getPublicMediaUrl(key)` resolves a storage key through the storage adapter,
+  which on local storage gives `{baseUrl}/{key}`, `/_emdash/api/media/file/{key}` as
+  `./astro.config.mjs` configures it (`src/media/url.ts` `createPublicMediaUrlResolver`, set in
+  `src/astro/middleware.ts`; `src/storage/local.ts` `getPublicUrl`). `Image` builds a picture's own
+  address with the internal `buildRenderMediaUrl` (`src/components/EmDashImage.astro`
+  `buildLocalImageUrl`). `./src/lib/media.ts` `mediaFileHref` and `downloadableFile` use the
+  resolver.
 - `Image` from `emdash/ui` builds a local URL from `meta.storageKey`, else from `id`
   (`src/media/url.ts` `buildRenderMediaUrl`). A production build authorises no media source for
   Astro's image service, so production serves originals (`src/astro/integration/index.ts`;

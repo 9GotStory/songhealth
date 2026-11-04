@@ -1,6 +1,8 @@
 ---
 // A News page, /news/{slug} (Feature 003 #54; spec #51 "Public reads" and "Errors, redirects,
-// preview and SEO").
+// preview and SEO"). Its summary shows under the title, so a story told only in its One Page is
+// in words too, and from lg it reads beside its picture (Feature 006 #147; spec #144 "Post pages:
+// News, Activity and Health Content"; src/components/PostColumns.astro).
 //
 // getEmDashEntry returns the published entry, or the draft when the request carries a valid
 // signed preview token for it; EmDash's middleware checks the token (emdash 1.1.0 src/query.ts
@@ -10,13 +12,12 @@
 //
 // A featured image whose media item was deleted in Admin is left out (src/lib/media.ts).
 import { getEmDashEntry } from "emdash";
-import { Image } from "emdash/ui";
 import DateText from "../../components/DateText.astro";
+import PostColumns from "../../components/PostColumns.astro";
 import RichText from "../../components/RichText.astro";
 import ThaiTitle from "../../components/ThaiTitle.astro";
 import TopicPills from "../../components/TopicPills.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { availableMedia } from "../../lib/media";
 import { healthNewsPath, newsPath, type NewsData } from "../../lib/news";
 import { termsOf } from "../../lib/terms";
 
@@ -28,7 +29,6 @@ if (!entry) return Astro.rewrite("/404");
 const news = entry.data;
 const category = termsOf(news, "news_category")[0];
 const topics = termsOf(news, "topic");
-const image = await availableMedia(news.featured_image, Astro.locals.emdash);
 ---
 
 <SiteLayout
@@ -41,29 +41,26 @@ const image = await availableMedia(news.featured_image, Astro.locals.emdash);
 	noindex={isPreview}
 >
 	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<header class="flex max-w-3xl flex-col gap-3">
-			{category && <p class="text-label text-brand-primary">{category.label}</p>}
-			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
-				<ThaiTitle text={news.title} />
-			</h1>
-			{news.publishedAt && (
-				<p class="text-small text-text-secondary">
-					เผยแพร่ <DateText value={news.publishedAt} />
-				</p>
-			)}
-		</header>
-		{image && (
-			<Image
-				image={image}
-				priority
-				sizes="(min-width: 48rem) 48rem, 100vw"
-				class="h-auto w-full max-w-3xl rounded-24 bg-surface-soft"
-			/>
-		)}
-		<div class="flex max-w-3xl flex-col gap-8">
-			{news.body && news.body.length > 0 && <RichText value={news.body} />}
-			{news.source_text && <p class="text-text-secondary">แหล่งที่มา: {news.source_text}</p>}
-			<TopicPills topics={topics} href={healthNewsPath} />
-		</div>
+		<PostColumns image={news.featured_image}>
+			<header class="flex max-w-3xl flex-col gap-3">
+				{category && <p class="text-label text-brand-primary">{category.label}</p>}
+				<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
+					<ThaiTitle text={news.title} />
+				</h1>
+				{news.summary && (
+					<p class="text-body-large whitespace-pre-line text-text-secondary">{news.summary}</p>
+				)}
+				{news.publishedAt && (
+					<p class="text-small text-text-secondary">
+						เผยแพร่ <DateText value={news.publishedAt} />
+					</p>
+				)}
+			</header>
+			<div slot="body" class="flex max-w-3xl flex-col gap-8">
+				{news.body && news.body.length > 0 && <RichText value={news.body} />}
+				{news.source_text && <p class="text-text-secondary">แหล่งที่มา: {news.source_text}</p>}
+				<TopicPills topics={topics} href={healthNewsPath} />
+			</div>
+		</PostColumns>
 	</article>
 </SiteLayout>

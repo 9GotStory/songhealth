@@ -1,0 +1,68 @@
+---
+// A post page's text and picture (Feature 006 #147; spec #144 "Post pages: News, Activity and
+// Health Content"). From lg a post with a picture reads in two columns ("สองคอลัมน์"): the left
+// column holds what the page has, in its order, and the right column, 28 rem wide, holds the
+// picture whole with a "เปิดภาพขนาดเต็ม" link to its file. Below lg the parts read in one column in
+// the page's order: the default slot (the header, and an Activity's details), the picture and its
+// link, then the `body` slot (a body, its source and its topics). A post without a picture keeps
+// one column.
+//
+// The picture stays in view while the left column scrolls ("ลอยตาม (แนะนำ)") and stops at the end
+// of the two columns, because a sticky grid item stays inside its grid area, here both rows. So
+// what a page puts after this block, such as an Activity's photos, comes below the picture and
+// never under it (the Product Owner's finding of 2026-11-04, spec #144). The first row takes the
+// height of what it holds and the second the rest, so the body stays right under the header when
+// the picture is the taller. The picture follows only while the left column is the longer, and one
+// taller than the window shows its lower part as the block ends.
+//
+// The picture fills the column's width at its own aspect ratio, never cropped, in a box shaped by
+// the size EmDash keeps with the image (src/components/FeaturedHero.astro says how), so the
+// placeholder EmDash's Image paints behind it never shows beside it (#147 comment 6628040681). The
+// link opens the file as uploaded, whatever rendition the picture shows (ADR 0003), so a citizen
+// can read a One Page's small print (#144 user story 17). It is an onward link on this site, so it
+// ends in chevron-right (ArrowLink.astro). The picture loads at once, as the pages loaded it
+// before.
+import { Image } from "emdash/ui";
+import { availableMedia, mediaFileHref } from "../lib/media";
+import type { ImageFieldValue } from "../lib/news";
+import ArrowLink from "./ArrowLink.astro";
+
+interface Props {
+	/** The post's picture, its featured image field's value. */
+	image: ImageFieldValue | null | undefined;
+}
+
+/** The picture's width: the right column from lg, the reading width below it. */
+const PICTURE_SIZES = "(min-width: 64rem) 28rem, (min-width: 48rem) 48rem, 100vw";
+
+const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
+const fullSize = image && mediaFileHref(image, Astro.locals.emdash);
+---
+
+<div
+	class:list={[
+		"flex flex-col gap-8",
+		image &&
+			"lg:grid lg:grid-cols-[minmax(0,1fr)_28rem] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-12",
+	]}
+>
+	<div class="flex flex-col gap-8 lg:col-start-1">
+		<slot />
+	</div>
+	{image && (
+		<div class="flex flex-col gap-2 lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+			<Image
+				image={image}
+				priority
+				sizes={PICTURE_SIZES}
+				class="h-auto w-full max-w-3xl rounded-24 bg-surface-soft"
+			/>
+			{fullSize && <ArrowLink href={fullSize}>เปิดภาพขนาดเต็ม</ArrowLink>}
+		</div>
+	)}
+	{Astro.slots.has("body") && (
+		<div class="lg:col-start-1">
+			<slot name="body" />
+		</div>
+	)}
+</div>
