@@ -604,7 +604,7 @@ test("the Contact Summary reads Office Contact: address with the map link, telep
 	);
 });
 
-test("with every section showing, the sections follow the Figma order on a desktop and a phone, a phone shows the card sections two to a row, and the page is accessible and reflows at 320 px", async ({
+test("with every section showing, the sections follow the Figma order on a desktop and a phone, a phone shows the card sections two to a row without the Contact Summary's lead, and the page is accessible and reflows at 320 px", async ({
 	page,
 }) => {
 	// Published entries of each kind, so every section shows whichever tests ran before, and three of
@@ -684,7 +684,7 @@ test("with every section showing, the sections follow the Figma order on a deskt
 				}
 				await expect(
 					homepageSection(page, siteTitle).getByText(CONTACT_LEAD),
-					"a phone leaves out the sections' leads, the Contact Summary's too",
+					"a phone leaves out the Contact Summary's lead",
 				).toBeHidden();
 				await expectNoAxeViolations(page, "/ with every section at 375 px");
 				await page.setViewportSize(MOBILE_VIEWPORT);
