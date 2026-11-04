@@ -67,15 +67,15 @@ const control =
 		<h1 class="sr-only">{identity.title}</h1>
 		<section aria-labelledby="home-featured" class="lg:page-container lg:pt-8">
 			{featuredImage && !isPortrait(featuredImage) ? (
-				<div class="relative">
+				<div class="overflow-hidden bg-v3-yellow-light lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] lg:items-center lg:rounded-32">
 					<Image
 						image={featuredImage}
 						alt=""
-						sizes="(min-width: 75rem) 75rem, 100vw"
+						sizes="(min-width: 75rem) 44rem, 100vw"
 						priority
-						class="aspect-[16/10] w-full object-cover sm:aspect-video lg:aspect-[21/9] lg:rounded-24"
+						class="aspect-video w-full object-cover"
 					/>
-					<div class="relative mx-4 -mt-16 flex flex-col items-start gap-3 rounded-24 bg-v3-yellow-light p-5 sm:mx-8 sm:p-7 lg:absolute lg:bottom-8 lg:left-8 lg:mx-0 lg:mt-0 lg:max-w-[38rem] lg:p-9">
+					<div class="flex flex-col items-start gap-3 p-5 sm:p-7 lg:p-10">
 						<p class="rounded-pill bg-v3-forest px-3 py-1 font-v3-head text-v3-meta text-v3-yellow-light">
 							เรื่องเด่นจากอำเภอสอง
 						</p>

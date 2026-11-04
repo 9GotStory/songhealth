@@ -72,7 +72,7 @@ const control =
 					"grid items-center gap-5 overflow-hidden rounded-24 bg-brand-dark text-surface-base lg:gap-10",
 					featuredImage && isPortrait(featuredImage)
 						? "lg:grid-cols-[minmax(0,1fr)_16rem]"
-						: "lg:grid-cols-[minmax(0,1fr)_26rem]",
+						: "lg:grid-cols-[minmax(0,1fr)_30rem]",
 				]}
 			>
 				<div class="flex min-w-0 flex-col items-start gap-3 p-5 sm:p-8 lg:py-10 lg:pr-0 lg:pl-10">
@@ -111,9 +111,9 @@ const control =
 						<Image
 							image={featuredImage}
 							alt=""
-							sizes="(min-width: 64rem) 26rem, 100vw"
+							sizes="(min-width: 64rem) 30rem, 100vw"
 							priority
-							class="aspect-[2/1] w-full object-cover sm:aspect-video lg:h-full"
+							class="aspect-video w-full object-cover lg:rounded-l-14"
 						/>
 					))}
 			</div>
