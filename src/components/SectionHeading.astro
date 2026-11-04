@@ -3,7 +3,8 @@
 // docs/design/homepage-concept-v1.md "Shared patterns"): an eyebrow, the section's H2 and a lead.
 // The section takes its name from the H2 through `id`. On the brand-dark Health Service Discovery
 // section (§8) the eyebrow is accent-warm, and the title and lead are surface-base and larger, as
-// the design draws them.
+// the design draws them. Below 640 px the lead is left out, to keep the phone Homepage short
+// (Feature 006 #146; spec #144 "Homepage (`04`)").
 import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
@@ -32,7 +33,7 @@ const { id, eyebrow, title, lead, onDark = false } = Astro.props;
 	</h2>
 	<p
 		class:list={[
-			"max-w-prose",
+			"max-w-prose max-sm:hidden",
 			onDark ? "text-body-large text-surface-base" : "text-text-secondary",
 		]}
 	>

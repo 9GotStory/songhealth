@@ -103,10 +103,14 @@ cited file exists and that the name carries the pinned version.
   `video/`, `audio/` and `application/pdf` (`src/api/handlers/media-allowlist.ts`).
   - `deduplicate` defaults to true; send `"false"` to get a fresh asset (`src/api/schemas/media.ts`).
   - The storage key is `{ulid}{filename's extension}` (`src/astro/routes/api/media.ts`).
+- An upload records an image's width and height: the form's `width` and `height` fields when the
+  client sends them, else the size read from the file (`src/astro/routes/api/media.ts`,
+  `src/media/enrich.ts` `enrichImageMetadata`).
 - Saving an image or file field normalises the value. It keeps `id`, `provider`, `filename`,
   `mimeType`, the dimensions, `alt` and `meta.storageKey`, and drops `size`
-  (`src/media/normalize.ts` `recordToMediaValue`). An image saved as `{ id }` takes its alt text
-  from the library (`mergeProviderData`).
+  (`src/media/normalize.ts` `recordToMediaValue`). An image saved as `{ id }` takes its alt text,
+  dimensions and placeholder from the library (`mergeProviderData`, which a save reaches through
+  `src/emdash-runtime.ts` `normalizeImageValue`).
 - An image inside a repeater item is normalised on save the way an image field is, so an item saved
   as `{ id }` takes its alt text from the library too (`src/emdash-runtime.ts`, the repeater
   sub-field loop beside the image fields).
@@ -181,6 +185,11 @@ cited file exists and that the name carries the pinned version.
   `fetchpriority="high"`. The attributes it is given come after that default, so a passed `loading`
   wins (`src/components/EmDashImage.astro`). `./src/components/ContentCard.astro` and
   `./src/components/ActivityCard.astro` load a list's first row that way.
+- `Image` writes the value's dimensions as the `width` and `height` attributes, so its box takes
+  the picture's shape before the file loads, and shows the value's placeholder (a blurhash, else
+  the dominant colour) as the image's inline background, unless given `placeholder={false}`
+  (`src/components/EmDashImage.astro` `resolveImage`). `./src/components/FeaturedHero.astro` relies
+  on both.
 - The frontend media-provider loader creates providers with an empty context, and the local provider
   needs a database, so public pages cannot use it (`src/media/provider-loader.ts`,
   `src/media/local-runtime.ts`).

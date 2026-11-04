@@ -12,12 +12,14 @@
 // - `DESKTOP_VIEWPORT` / `MOBILE_VIEWPORT`: the two widths every template is
 //   checked at. The mobile width is 320 CSS px, the narrowest width the site
 //   must reflow to without horizontal scrolling (WCAG 2.2 SC 1.4.10).
+//   `PHONE_VIEWPORT`, 375 px, is where spec #144 measures the phone Homepage.
 // - `testAccessibilityAndReflow`: the axe, focus and reflow tests of a
 //   template's pages at those widths; `expectAccessibleAtEachWidth` checks
 //   the page as it is now at both.
 // - What the shell shows every page: the 404 page, the default site title, the
 //   breadcrumb, Thai dates, the titles and items a list shows, and a record
-//   page's details.
+//   page's details; whether an image loads and shows its whole picture; and
+//   how a word of a title lies in its lines and its box.
 // - `expectPreviewRenders`: a draft's signed preview link (cms.helpers.ts
 //   mintPreviewLink) at the draft's address, rendering it out of search engines.
 // - `sitemapLocations`: the addresses a sitemap document lists.
@@ -77,6 +79,9 @@ export const DESKTOP_VIEWPORT = { width: 1440, height: 900 };
 
 /** The narrowest width the site supports (WCAG 2.2 SC 1.4.10 reflow). */
 export const MOBILE_VIEWPORT = { width: 320, height: 640 };
+
+/** A common phone, the width spec #144 measures the phone Homepage at. */
+export const PHONE_VIEWPORT = { width: 375, height: 812 };
 
 export const VIEWPORTS = { desktop: DESKTOP_VIEWPORT, mobile: MOBILE_VIEWPORT };
 
@@ -325,6 +330,93 @@ export async function expectImageLoaded(image: Locator, label: string): Promise<
 			{ message: `${label} loads` },
 		)
 		.toBe(true);
+}
+
+/**
+ * Fail unless `image` has loaded and shows its whole picture undistorted: the part of the picture
+ * in view keeps the picture's own aspect ratio, so no edge is cropped and nothing is stretched
+ * (spec #144 "Testing Decisions": a picture's rendered aspect ratio against its natural one). That
+ * part follows from the image's content box and its `object-fit`, which scales the picture in the
+ * box and crops what overflows it. Returns the size the picture shows at, in CSS px.
+ */
+export async function expectPictureWhole(
+	image: Locator,
+	label: string,
+): Promise<{ width: number; height: number }> {
+	await expectImageLoaded(image, label);
+	const shown = await image.evaluate((element: HTMLImageElement) => {
+		const style = getComputedStyle(element);
+		const box = element.getBoundingClientRect();
+		const inset = (side: string) =>
+			Number.parseFloat(style.getPropertyValue(`padding-${side}`)) +
+			Number.parseFloat(style.getPropertyValue(`border-${side}-width`));
+		const width = box.width - inset("left") - inset("right");
+		const height = box.height - inset("top") - inset("bottom");
+		const [natural, naturalHeight] = [element.naturalWidth, element.naturalHeight];
+		const contain = Math.min(width / natural, height / naturalHeight);
+		const cover = Math.max(width / natural, height / naturalHeight);
+		const [x, y] = {
+			contain: [contain, contain],
+			cover: [cover, cover],
+			none: [1, 1],
+			"scale-down": [Math.min(1, contain), Math.min(1, contain)],
+		}[style.objectFit] ?? [width / natural, height / naturalHeight];
+		const inView = {
+			width: Math.min(natural * x!, width),
+			height: Math.min(naturalHeight * y!, height),
+		};
+		return { natural: natural / naturalHeight, rendered: inView.width / inView.height, ...inView };
+	});
+	expect(shown.rendered, `${label}: the aspect ratio it shows at is its own`).toBeCloseTo(
+		shown.natural,
+		2,
+	);
+	return { width: shown.width, height: shown.height };
+}
+
+/**
+ * How the occurrences of `word` in `element`'s text lie as the page is laid out now: how many
+ * there are, how many of them span more than one line, and how many run out of the content box of
+ * the element that holds `element`, such as a card or a column of text. A Thai word a title keeps
+ * whole (src/lib/thai-title.ts) must do neither.
+ */
+export function occurrencesOf(
+	element: Locator,
+	word: string,
+): Promise<{ found: number; split: number; outside: number }> {
+	return element.evaluate((root, word) => {
+		const texts: Text[] = [];
+		const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+		for (let node = walker.nextNode(); node; node = walker.nextNode()) texts.push(node as Text);
+		/** The text node and offset of `index` in the element's text, a start or an end. */
+		const position = (index: number, end: boolean): [Text, number] => {
+			for (const text of texts) {
+				if (end ? index <= text.length : index < text.length) return [text, index];
+				index -= text.length;
+			}
+			throw new Error(`no text at ${index}`);
+		};
+		const whole = texts.map((text) => text.data).join("");
+		const holder = root.parentElement!;
+		const box = holder.getBoundingClientRect();
+		const style = getComputedStyle(holder);
+		const left = box.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft);
+		const right = box.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight);
+		let found = 0;
+		let split = 0;
+		let outside = 0;
+		for (let from = whole.indexOf(word); from !== -1; from = whole.indexOf(word, from + 1)) {
+			const range = document.createRange();
+			range.setStart(...position(from, false));
+			range.setEnd(...position(from + word.length, true));
+			const rects = [...range.getClientRects()];
+			const tops = rects.map((rect) => rect.top);
+			found += 1;
+			if (Math.max(...tops) - Math.min(...tops) > 4) split += 1;
+			if (rects.some((rect) => rect.left < left - 0.5 || rect.right > right + 0.5)) outside += 1;
+		}
+		return { found, split, outside };
+	}, word);
 }
 
 /**

@@ -16,11 +16,20 @@
 //   Topic, the `topic` term EmDash hydrates first (src/lib/terms.ts), and a link to their list;
 // - Health Service Discovery: an Area select and a name field, a GET form to the Health Service
 //   Directory with the directory's own parameters (src/lib/health-service-directory.ts);
-// - the latest 3 Activities by when they were held (ADR 0004), and a link to /activities;
+// - the latest Activities by when they were held (ADR 0004), 3 on a desktop and 4 on phones and
+//   tablets, and a link to /activities;
 // - Quick Access: up to 4 shortcuts from their menu, in menu order, each a label and an arrow;
 // - the Contact Summary: the site title, then Office Contact's address with the "เปิดแผนที่" link,
 //   main telephone and opening hours (OfficeContactDetails), each only when set, and a link to
 //   /contact. A static visual stands in for the map; no map is embedded.
+//
+// Below 640 px the page is shorter, with every section kept in its order (Feature 006 #146; spec
+// #144 "Homepage (`04`)"; the Product Owner's "โอเค เฉพาะหน้าแรก" on the prototype): the
+// Frequently Used Services, Health Information, Activities and Quick Access go two to a row in
+// their compact cards, the Service and Health Content cards without their summary; the sections'
+// leads, the Contact Summary's too, and the map's stand-in are left out; each section has 32 px
+// of space above and below it; and the News card's summary, like the Featured lead, is clamped to
+// three lines. The 4th Activity fills the second row of two; a desktop row holds three.
 //
 // A section with nothing to show is left out (`04` §17): the Frequently Used Services, News and
 // Announcements together, Health Information, Health Service Discovery while no Health Service is
@@ -98,7 +107,7 @@ const [
 	currentAnnouncements(4, now),
 	latestHealthContent(4),
 	directoryOverview(),
-	latestActivities(3),
+	latestActivities(4),
 	readOfficeContact(),
 ]);
 /**
@@ -140,7 +149,7 @@ const control =
 		</div>
 	)}
 
-	<section aria-labelledby="home-search" class="page-container flex flex-col gap-4 pb-16">
+	<section aria-labelledby="home-search" class="page-container flex flex-col gap-4 pb-8 sm:pb-16">
 		<h2 id="home-search" class="text-h3 text-text-primary">
 			<ThaiTitle text="คุณกำลังมองหาอะไร?" />
 		</h2>
@@ -148,7 +157,7 @@ const control =
 	</section>
 
 	{services.length > 0 && (
-		<section aria-labelledby="home-services" class="bg-surface-base pt-16 pb-16 lg:pb-20">
+		<section aria-labelledby="home-services" class="bg-surface-base py-8 sm:py-16 lg:pb-20">
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
 					id="home-services"
@@ -156,10 +165,10 @@ const control =
 					title="วันนี้คุณต้องการทำอะไร?"
 					lead="เข้าถึงบริการสำคัญได้ง่าย โดยไม่ต้องรู้โครงสร้างภายในของหน่วยงาน"
 				/>
-				<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+				<ul class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
 					{services.map((service) => (
 						<li>
-							<ServiceCard service={service} headingLevel={3} />
+							<ServiceCard service={service} headingLevel={3} compact />
 						</li>
 					))}
 				</ul>
@@ -169,7 +178,7 @@ const control =
 	)}
 
 	{(news || announcements.length > 0) && (
-		<section aria-labelledby="home-news" class="py-16 lg:py-20">
+		<section aria-labelledby="home-news" class="py-8 sm:py-16 lg:py-20">
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
 					id="home-news"
@@ -191,7 +200,9 @@ const control =
 									<ThaiTitle text={news.data.title} />
 								</h3>
 								{news.data.summary && (
-									<p class="line-clamp-4 text-body-large">{news.data.summary}</p>
+									<p class="line-clamp-4 text-body-large max-sm:line-clamp-3">
+										{news.data.summary}
+									</p>
 								)}
 								<ArrowLink
 									href={newsPath(news.id)}
@@ -242,7 +253,7 @@ const control =
 	)}
 
 	{healthContent.length > 0 && (
-		<section aria-labelledby="home-health" class="bg-surface-base py-16 lg:py-20">
+		<section aria-labelledby="home-health" class="bg-surface-base py-8 sm:py-16 lg:py-20">
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
 					id="home-health"
@@ -250,7 +261,7 @@ const control =
 					title="ความรู้ที่ใช้ได้ในชีวิตประจำวัน"
 					lead="เนื้อหาสุขภาพที่คัดสรรและทบทวนเพื่อคนในพื้นที่"
 				/>
-				<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+				<ul class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
 					{healthContent.map((item, index) => {
 						const topic = termsOf(item.data, "topic")[0];
 						return (
@@ -258,17 +269,20 @@ const control =
 								<article
 									class:list={[
 										"flex h-full flex-col gap-3 rounded-22 px-6 pt-6.5 pb-6",
+										"max-sm:gap-1.5 max-sm:rounded-18 max-sm:px-3 max-sm:pt-3.5 max-sm:pb-2",
 										index % 2 === 0 ? "bg-topic-green" : "bg-topic-blue",
 									]}
 								>
 									{topic && (
 										<p class="text-label wrap-anywhere text-brand-primary">{topic.label}</p>
 									)}
-									<h3 class="text-h3 wrap-anywhere text-text-primary">
+									<h3 class="text-h3 wrap-anywhere text-text-primary max-sm:text-body max-sm:font-semibold">
 										<ThaiTitle text={item.data.title} />
 									</h3>
 									{item.data.summary && (
-										<p class="line-clamp-3 text-text-secondary-on-soft">{item.data.summary}</p>
+										<p class="line-clamp-3 text-text-secondary-on-soft max-sm:hidden">
+											{item.data.summary}
+										</p>
 									)}
 									<ArrowLink
 										href={healthContentPath(item.id)}
@@ -288,7 +302,7 @@ const control =
 	)}
 
 	{directory.hasHealthServices && (
-		<section aria-labelledby="home-discovery" class="bg-brand-dark py-16 lg:py-20">
+		<section aria-labelledby="home-discovery" class="bg-brand-dark py-8 sm:py-16 lg:py-20">
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
 					onDark
@@ -332,7 +346,7 @@ const control =
 	)}
 
 	{activities.length > 0 && (
-		<section aria-labelledby="home-activities" class="py-16 lg:py-20">
+		<section aria-labelledby="home-activities" class="py-8 sm:py-16 lg:py-20">
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
 					id="home-activities"
@@ -340,10 +354,10 @@ const control =
 					title="สุขภาพเกิดขึ้นในชุมชน"
 					lead="การประชุม ลงพื้นที่ จิตอาสา และกิจกรรมร่วมกับเครือข่าย"
 				/>
-				<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-					{activities.map((activity) => (
-						<li>
-							<ActivityCard activity={activity} headingLevel={3} />
+				<ul class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
+					{activities.map((activity, index) => (
+						<li class:list={[index === 3 && "lg:hidden"]}>
+							<ActivityCard activity={activity} headingLevel={3} compact />
 						</li>
 					))}
 				</ul>
@@ -353,7 +367,7 @@ const control =
 	)}
 
 	{quickAccess.length > 0 && (
-		<section aria-labelledby="home-quick-access" class="bg-surface-base py-16 lg:py-20">
+		<section aria-labelledby="home-quick-access" class="bg-surface-base py-8 sm:py-16 lg:py-20">
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
 					id="home-quick-access"
@@ -361,10 +375,10 @@ const control =
 					title="ข้อมูลและเอกสารสำคัญ"
 					lead="ทางลัดสำหรับข้อมูลอ้างอิงและความโปร่งใสของหน่วยงาน"
 				/>
-				<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+				<ul class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
 					{quickAccess.map((link) => (
 						<li>
-							<QuickLinkCard href={link.href} label={link.label} />
+							<QuickLinkCard href={link.href} label={link.label} compact />
 						</li>
 					))}
 				</ul>
@@ -372,19 +386,19 @@ const control =
 		</section>
 	)}
 
-	<section aria-labelledby="home-contact" class="bg-surface-soft py-16">
+	<section aria-labelledby="home-contact" class="bg-surface-soft py-8 sm:py-16">
 		<div class="page-container grid items-center gap-8 lg:grid-cols-[35rem_minmax(0,1fr)] lg:gap-12">
 			<div class="flex flex-col gap-3.5">
 				<h2 id="home-contact" class="text-h3 wrap-anywhere text-brand-dark lg:text-h2">
 					<ThaiTitle text={identity.title} />
 				</h2>
-				<p class="text-body-large text-text-secondary-on-soft">{OFFICE_SUMMARY}</p>
+				<p class="text-body-large text-text-secondary-on-soft max-sm:hidden">{OFFICE_SUMMARY}</p>
 				<OfficeContactDetails contact={contact} summary />
 				<ArrowLink href="/contact">ดูข้อมูลติดต่อทั้งหมด</ArrowLink>
 			</div>
 			<div
 				aria-hidden="true"
-				class="flex h-40 items-center justify-center gap-3 rounded-24 bg-linear-to-r from-contact-visual-from to-contact-visual-to px-6 text-center text-label text-brand-dark lg:h-57.5"
+				class="flex h-40 items-center justify-center gap-3 rounded-24 bg-linear-to-r from-contact-visual-from to-contact-visual-to px-6 text-center text-label text-brand-dark max-sm:hidden lg:h-57.5"
 			>
 				<span class="size-10.5 shrink-0 rounded-pill bg-surface-base"></span>
 				แผนที่สำนักงานและพื้นที่อำเภอสอง
