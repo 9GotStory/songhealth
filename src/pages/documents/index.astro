@@ -12,6 +12,10 @@ import FilterForm from "../../components/FilterForm.astro";
 import PageHeading from "../../components/PageHeading.astro";
 import Pagination from "../../components/Pagination.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import V1DocumentsList from "../../components/prototype/design/v1/DocumentsList.astro";
+import V2DocumentsList from "../../components/prototype/design/v2/DocumentsList.astro";
+import V3DocumentsList from "../../components/prototype/design/v3/DocumentsList.astro";
+import { pageDesign } from "../../lib/prototype-design";
 import {
 	FILTER_PARAMS,
 	documentsPath,
@@ -36,6 +40,53 @@ const [{ entries, hasMore }, types, topics, years] = await Promise.all([
 const listUrl = new URL(documentsPath(filters), Astro.url);
 const termOptions = (terms: typeof types) =>
 	terms.map((term) => ({ value: term.slug, label: term.label }));
+// PROTOTYPE (branch prototype/design): variants 1–3 render the repository their own way, from the
+// same reads, filters and empty states.
+const design = pageDesign(Astro);
+const listProps = {
+	title,
+	lead,
+	entries,
+	page,
+	hasMore,
+	action: documentsPath(),
+	filtered: isFiltered(filters),
+	fields: [
+		{
+			name: FILTER_PARAMS.type,
+			label: "ประเภทเอกสาร",
+			anyLabel: "ทุกประเภท",
+			value: filters.type,
+			options: termOptions(types),
+		},
+		{
+			name: FILTER_PARAMS.topic,
+			label: "ประเด็นสุขภาพ",
+			anyLabel: "ทุกประเด็น",
+			value: filters.topic,
+			options: termOptions(topics),
+		},
+		{
+			name: FILTER_PARAMS.year,
+			label: "ปีงบประมาณ",
+			anyLabel: "ทุกปีงบประมาณ",
+			value: filters.year,
+			options: years.map((year) => ({ value: String(year), label: String(year) })),
+		},
+	],
+	empty:
+		page > 1
+			? {
+					message: "ไม่พบเอกสารในหน้านี้",
+					action: { href: pageHref(listUrl, 1), label: "กลับไปหน้าแรกของรายการ" },
+				}
+			: isFiltered(filters)
+				? {
+						message: "ไม่พบเอกสารตามตัวกรองที่เลือก",
+						action: { href: documentsPath(), label: "ดูเอกสารทั้งหมด" },
+					}
+				: { message: "ยังไม่มีเอกสาร" },
+};
 ---
 
 <SiteLayout
@@ -45,56 +96,61 @@ const termOptions = (terms: typeof types) =>
 	canonical={pageHref(listUrl, page)}
 	crumbs={[]}
 >
-	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<PageHeading title={title} lead={lead} />
-		<FilterForm
-			label="กรองเอกสาร"
-			action={documentsPath()}
-			fields={[
-				{
-					name: FILTER_PARAMS.type,
-					label: "ประเภทเอกสาร",
-					anyLabel: "ทุกประเภท",
-					value: filters.type,
-					options: termOptions(types),
-				},
-				{
-					name: FILTER_PARAMS.topic,
-					label: "ประเด็นสุขภาพ",
-					anyLabel: "ทุกประเด็น",
-					value: filters.topic,
-					options: termOptions(topics),
-				},
-				{
-					name: FILTER_PARAMS.year,
-					label: "ปีงบประมาณ",
-					anyLabel: "ทุกปีงบประมาณ",
-					value: filters.year,
-					options: years.map((year) => ({ value: String(year), label: String(year) })),
-				},
-			]}
-		/>
-		{entries.length > 0 ? (
-			<ul class="flex flex-col gap-4">
-				{entries.map((document) => (
-					<li>
-						<DocumentRow document={document} />
-					</li>
-				))}
-			</ul>
-		) : page > 1 ? (
-			<EmptyState
-				message="ไม่พบเอกสารในหน้านี้"
-				action={{ href: pageHref(listUrl, 1), label: "กลับไปหน้าแรกของรายการ" }}
+	{design.variant === "1" && <V1DocumentsList {...listProps} />}
+	{design.variant === "2" && <V2DocumentsList {...listProps} />}
+	{design.variant === "3" && <V3DocumentsList {...listProps} />}
+	{design.variant === "0" && (
+		<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+			<PageHeading title={title} lead={lead} />
+			<FilterForm
+				label="กรองเอกสาร"
+				action={documentsPath()}
+				fields={[
+					{
+						name: FILTER_PARAMS.type,
+						label: "ประเภทเอกสาร",
+						anyLabel: "ทุกประเภท",
+						value: filters.type,
+						options: termOptions(types),
+					},
+					{
+						name: FILTER_PARAMS.topic,
+						label: "ประเด็นสุขภาพ",
+						anyLabel: "ทุกประเด็น",
+						value: filters.topic,
+						options: termOptions(topics),
+					},
+					{
+						name: FILTER_PARAMS.year,
+						label: "ปีงบประมาณ",
+						anyLabel: "ทุกปีงบประมาณ",
+						value: filters.year,
+						options: years.map((year) => ({ value: String(year), label: String(year) })),
+					},
+				]}
 			/>
-		) : isFiltered(filters) ? (
-			<EmptyState
-				message="ไม่พบเอกสารตามตัวกรองที่เลือก"
-				action={{ href: documentsPath(), label: "ดูเอกสารทั้งหมด" }}
-			/>
-		) : (
-			<EmptyState message="ยังไม่มีเอกสาร" />
-		)}
-		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
-	</div>
+			{entries.length > 0 ? (
+				<ul class="flex flex-col gap-4">
+					{entries.map((document) => (
+						<li>
+							<DocumentRow document={document} />
+						</li>
+					))}
+				</ul>
+			) : page > 1 ? (
+				<EmptyState
+					message="ไม่พบเอกสารในหน้านี้"
+					action={{ href: pageHref(listUrl, 1), label: "กลับไปหน้าแรกของรายการ" }}
+				/>
+			) : isFiltered(filters) ? (
+				<EmptyState
+					message="ไม่พบเอกสารตามตัวกรองที่เลือก"
+					action={{ href: documentsPath(), label: "ดูเอกสารทั้งหมด" }}
+				/>
+			) : (
+				<EmptyState message="ยังไม่มีเอกสาร" />
+			)}
+			{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
+		</div>
+	)}
 </SiteLayout>

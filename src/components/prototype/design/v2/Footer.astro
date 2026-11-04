@@ -1,0 +1,65 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 2's footer, an agency footer on a light
+// fill under a green rule: the office's name and contact details, the official channels, and the
+// footer links.
+import ContentLink from "../../../ContentLink.astro";
+import { telephoneHref } from "../../../../lib/contact-links";
+import { OFFICE_NAME } from "../../../../lib/site-identity";
+import type { ShellProps } from "../shell";
+
+type Props = ShellProps;
+const { footerLinks, channels, contact } = Astro.props;
+const telephone = contact.telephone && telephoneHref(contact.telephone);
+const link = "text-v2-green underline underline-offset-4";
+---
+
+<footer class="border-t-4 border-v2-green bg-v2-fill text-v2-ink">
+	<div class="page-container grid gap-8 py-10 text-v2-meta lg:grid-cols-[2fr_1fr_1fr]">
+		<div class="flex flex-col gap-2">
+			<p class="text-v2-item">{OFFICE_NAME}</p>
+			<p>กระทรวงสาธารณสุข</p>
+			{contact.address && <p class="whitespace-pre-line text-v2-muted">{contact.address}</p>}
+			{telephone && (
+				<p>
+					โทรศัพท์{" "}
+					<a class={link} href={telephone}>
+						{contact.telephone}
+					</a>
+				</p>
+			)}
+			{contact.openingHours && (
+				<p class="whitespace-pre-line text-v2-muted">เวลาทำการ {contact.openingHours}</p>
+			)}
+		</div>
+		{channels.length > 0 && (
+			<div class="flex flex-col gap-2">
+				<h2 id="footer-channels" class="font-bold">
+					ช่องทางทางการ
+				</h2>
+				<ul aria-labelledby="footer-channels" class="flex flex-col gap-1.5">
+					{channels.map((channel) => (
+						<li>
+							<ContentLink compact class={link} href={channel.href}>
+								{channel.label}
+							</ContentLink>
+						</li>
+					))}
+				</ul>
+			</div>
+		)}
+		<div class="flex flex-col gap-2">
+			<h2 id="footer-links" class="font-bold">
+				เกี่ยวกับเว็บไซต์
+			</h2>
+			<ul aria-labelledby="footer-links" class="flex flex-col gap-1.5">
+				{footerLinks.map((item) => (
+					<li>
+						<a class={link} href={item.href}>
+							{item.label}
+						</a>
+					</li>
+				))}
+			</ul>
+		</div>
+	</div>
+</footer>

@@ -1,0 +1,109 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 2's Activity page, an agency record: one
+// reading column with the title, a table of the Activity's details, the summary under its own
+// heading (the story in words, Q14), then the One Page in full under its heading. Frame shows the
+// One Page at the column's width; text shows it smaller with a link to the full image.
+import Frame from "../Frame.astro";
+import { activityDetails, mediaFileHref, type ActivityPageProps } from "../activities";
+import { ACTIVITIES_PATH, ACTIVITIES_TITLE } from "../../../../lib/activities";
+import { isPortrait, thaiTitleHtml } from "../../../../lib/prototype-design";
+
+type Props = ActivityPageProps;
+const { activity, image, gallery, onepage } = Astro.props;
+const framed = onepage === "frame";
+const details = activityDetails(activity);
+const portrait = isPortrait(image);
+const h2 = "border-b-3 border-v2-green pb-1.5 text-v2-section";
+---
+
+<div class="page-container">
+	<article class="flex max-w-[52rem] flex-col gap-6 pt-5 pb-14 lg:pb-20">
+		<h1
+			class="text-v2-title-sm text-balance lg:text-v2-title"
+			set:html={thaiTitleHtml(activity.title)}
+		/>
+		{details.length > 0 && (
+			<table class="w-full border-collapse border-2 border-v2-rule text-left text-v2-meta">
+				<caption class="sr-only">ข้อมูลกิจกรรม</caption>
+				<tbody>
+					{details.map(([term, value]) => (
+						<tr class="border-b border-v2-rule">
+							<th scope="row" class="w-36 bg-v2-fill px-3 py-2 align-top font-semibold sm:w-44">
+								{term}
+							</th>
+							<td class="px-3 py-2 whitespace-pre-line">{value}</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+		)}
+		{activity.summary && (
+			<section aria-labelledby="activity-summary" class="flex flex-col gap-2">
+				<h2 id="activity-summary" class={h2}>
+					สรุปกิจกรรม
+				</h2>
+				<p class="text-[1.1875rem] leading-8 whitespace-pre-line">{activity.summary}</p>
+			</section>
+		)}
+		{image && (
+			<section aria-labelledby="activity-onepage" class="flex flex-col gap-3">
+				<h2 id="activity-onepage" class={h2}>
+					{portrait ? "One Page" : "ภาพกิจกรรม"}
+				</h2>
+				<Frame
+					image={image}
+					alt={image.alt ?? ""}
+					sizes={portrait ? "(min-width: 48rem) 40rem, 100vw" : "(min-width: 52rem) 52rem, 100vw"}
+					eager
+					class:list={[
+						"w-full border border-v2-rule bg-v2-fill",
+						portrait
+							? framed
+								? "aspect-[210/297] max-w-2xl"
+								: "aspect-[210/297] max-w-xs"
+							: "aspect-video",
+					]}
+				/>
+				{portrait && (
+					<a
+						class="w-fit font-semibold text-v2-green underline underline-offset-4"
+						href={mediaFileHref(image)}
+					>
+						เปิด One Page ขนาดเต็ม
+					</a>
+				)}
+			</section>
+		)}
+		{gallery.length > 0 && (
+			<section aria-labelledby="activity-gallery" class="flex flex-col gap-3">
+				<h2 id="activity-gallery" class={h2}>
+					ภาพประกอบ
+				</h2>
+				<ul class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+					{gallery.map((item) => (
+						<li>
+							<figure class="flex flex-col gap-1">
+								<Frame
+									image={item.image}
+									alt={item.image.alt ?? ""}
+									sizes="(min-width: 52rem) 17rem, 50vw"
+									cover
+									class="aspect-[4/3] w-full bg-v2-fill"
+								/>
+								{item.caption && (
+									<figcaption class="text-v2-meta text-v2-muted">{item.caption}</figcaption>
+								)}
+							</figure>
+						</li>
+					))}
+				</ul>
+			</section>
+		)}
+		<a
+			class="w-fit font-semibold text-v2-green underline underline-offset-4"
+			href={ACTIVITIES_PATH}
+		>
+			กลับไปหน้า{ACTIVITIES_TITLE}ทั้งหมด
+		</a>
+	</article>
+</div>

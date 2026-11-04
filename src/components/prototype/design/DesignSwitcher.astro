@@ -1,0 +1,84 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): the floating bar that flips between Feature
+// 006's design variants (`?variant=`, arrows and the ← → keys) and between the two ways to show a
+// One Page (`?onepage=`). Only the prototype's shell renders it.
+import ChevronLeft from "@lucide/astro/icons/chevron-left";
+import ChevronRight from "@lucide/astro/icons/chevron-right";
+import {
+	ONEPAGE_MODES,
+	ONEPAGE_PARAM,
+	VARIANTS,
+	VARIANT_PARAM,
+	type Design,
+} from "../../../lib/prototype-design";
+
+interface Props {
+	design: Design;
+}
+
+const { design } = Astro.props;
+const index = VARIANTS.findIndex((variant) => variant.key === design.variant);
+const previous = VARIANTS[(index - 1 + VARIANTS.length) % VARIANTS.length];
+const next = VARIANTS[(index + 1) % VARIANTS.length];
+const hrefWith = (name: string, value: string) => {
+	const url = new URL(Astro.url);
+	url.searchParams.set(VARIANT_PARAM, design.variant);
+	url.searchParams.set(ONEPAGE_PARAM, design.onepage);
+	url.searchParams.set(name, value);
+	return `${url.pathname}${url.search}`;
+};
+const arrow =
+	"inline-flex size-10 items-center justify-center rounded-pill text-surface-base hover:bg-hero-chip";
+---
+
+<div
+	data-prototype-switcher
+	data-previous={hrefWith(VARIANT_PARAM, previous.key)}
+	data-next={hrefWith(VARIANT_PARAM, next.key)}
+	class="fixed bottom-3 left-1/2 z-50 flex w-max max-w-[calc(100vw-1rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-24 border-2 border-accent-warm bg-[#111] px-2 py-1 font-sans text-[0.8125rem] leading-5 text-surface-base shadow-card"
+>
+	<span class="flex items-center">
+		<a
+			class={arrow}
+			href={hrefWith(VARIANT_PARAM, previous.key)}
+			aria-label={`แบบก่อนหน้า: ${previous.name}`}
+		>
+			<ChevronLeft size={20} />
+		</a>
+		<span class="px-1 whitespace-nowrap">
+			ต้นแบบ {design.variant} · {VARIANTS[index].name}
+		</span>
+		<a class={arrow} href={hrefWith(VARIANT_PARAM, next.key)} aria-label={`แบบถัดไป: ${next.name}`}>
+			<ChevronRight size={20} />
+		</a>
+	</span>
+	<span class="flex items-center gap-1 pr-1" aria-label="การแสดง One Page">
+		{ONEPAGE_MODES.map((mode) => (
+			<a
+				href={hrefWith(ONEPAGE_PARAM, mode.key)}
+				aria-current={mode.key === design.onepage ? "true" : undefined}
+				class:list={[
+					"rounded-pill px-2.5 py-1.5 whitespace-nowrap",
+					mode.key === design.onepage ? "bg-accent-warm text-[#111]" : "hover:bg-hero-chip",
+				]}
+			>
+				{mode.key === "frame" ? "กรอบภาพ" : "เน้นข้อความ"}
+			</a>
+		))}
+	</span>
+</div>
+
+<script>
+	const bar = document.querySelector<HTMLElement>("[data-prototype-switcher]");
+	document.addEventListener("keydown", (event) => {
+		const target = event.target;
+		if (
+			target instanceof HTMLElement &&
+			target.closest("input, textarea, select, [contenteditable]")
+		) {
+			return;
+		}
+		if (event.key === "ArrowLeft" && bar?.dataset.previous) location.assign(bar.dataset.previous);
+		if (event.key === "ArrowRight" && bar?.dataset.next) location.assign(bar.dataset.next);
+	});
+</script>

@@ -1,0 +1,122 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 1, ต่อยอด Concept v1. The header is one
+// white band: the MOPH emblem and the office name on the left, ค้นหา and ติดต่อเรา above the main
+// navigation on the right; no separate utility bar. Below `lg` the navigation, the utility links
+// and a search field sit in a native <details> menu that flows in the page, as now.
+import Menu from "@lucide/astro/icons/menu";
+import Phone from "@lucide/astro/icons/phone";
+import Search from "@lucide/astro/icons/search";
+import X from "@lucide/astro/icons/x";
+import { thaiTitleHtml } from "../../../../lib/prototype-design";
+import type { ShellProps } from "../shell";
+
+type Props = ShellProps;
+const { identity, navigation } = Astro.props;
+---
+
+<header class="relative border-b border-border-default bg-surface-base">
+	<div class="page-container flex items-center justify-between gap-3 py-3 lg:py-4">
+		<a href="/" class="flex min-w-0 items-center gap-3">
+			{identity.logo ? (
+				<img
+					class="size-12 shrink-0 object-contain lg:size-14"
+					src={identity.logo.url}
+					alt=""
+					width={identity.logo.width ?? 56}
+					height={identity.logo.height ?? 56}
+				/>
+			) : (
+				<span
+					aria-hidden="true"
+					class="size-12 shrink-0 rounded-pill bg-brand-primary lg:size-14"
+				/>
+			)}
+			<span class="flex min-w-0 flex-col">
+				<span
+					class="text-v1-item text-brand-dark lg:text-[1.375rem] lg:leading-8"
+					set:html={thaiTitleHtml(identity.title)}
+				/>
+				{identity.tagline && (
+					<span class="hidden text-v1-meta text-text-secondary sm:block">{identity.tagline}</span>
+				)}
+			</span>
+		</a>
+		<div class="hidden flex-col items-end gap-2 lg:flex">
+			<ul class="flex gap-5 text-v1-meta text-text-secondary">
+				<li>
+					<a class="inline-flex items-center gap-1.5 hover:text-brand-primary" href="/search">
+						<Search class="shrink-0" size={16} />
+						ค้นหา
+					</a>
+				</li>
+				<li>
+					<a class="inline-flex items-center gap-1.5 hover:text-brand-primary" href="/contact">
+						<Phone class="shrink-0" size={16} />
+						ติดต่อเรา
+					</a>
+				</li>
+			</ul>
+			<nav aria-label="เมนูหลัก">
+				<ul class="flex gap-6 text-label">
+					{navigation.map((item) => (
+						<li>
+							<a
+								href={item.href}
+								aria-current={item.current}
+								class:list={[
+									"block border-b-3 pb-1 hover:text-brand-primary",
+									item.current
+										? "border-brand-primary text-brand-primary"
+										: "border-transparent text-text-primary",
+								]}
+							>
+								{item.label}
+							</a>
+						</li>
+					))}
+				</ul>
+			</nav>
+		</div>
+		<a
+			href="/search"
+			class="ml-auto inline-flex size-11 shrink-0 items-center justify-center rounded-pill text-brand-primary lg:hidden"
+		>
+			<Search class="shrink-0" size={20} />
+			<span class="sr-only">ค้นหา</span>
+		</a>
+		<span class="w-24 shrink-0 lg:hidden" aria-hidden="true"></span>
+	</div>
+	<details class="group lg:hidden">
+		<summary class="absolute top-3.5 right-(--page-gutter) flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-pill border border-border-input bg-surface-base px-4 text-label [&::-webkit-details-marker]:hidden">
+			<Menu class="shrink-0 group-open:hidden" size={20} />
+			<X class="hidden shrink-0 group-open:block" size={20} />
+			<span>เมนู</span>
+		</summary>
+		<nav aria-label="เมนูหลัก" class="border-t border-border-default bg-surface-base">
+			<ul class="page-container divide-y divide-border-default">
+				{navigation.map((item) => (
+					<li>
+						<a
+							href={item.href}
+							aria-current={item.current}
+							class:list={[
+								"flex min-h-12 items-center border-l-4 pl-3 text-v1-body",
+								item.current
+									? "border-brand-primary font-semibold text-brand-primary"
+									: "border-transparent",
+							]}
+						>
+							{item.label}
+						</a>
+					</li>
+				))}
+				<li class="flex gap-6 py-3 text-v1-meta">
+					<a class="inline-flex min-h-11 items-center gap-1.5 text-brand-primary" href="/contact">
+						<Phone class="shrink-0" size={16} />
+						ติดต่อเรา
+					</a>
+				</li>
+			</ul>
+		</nav>
+	</details>
+</header>

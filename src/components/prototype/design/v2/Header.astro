@@ -1,0 +1,156 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 2, หน่วยงานราชการ. An agency header: a
+// band in the MOPH emblem's green with the emblem in a white disc, the office's name and its
+// ministry, and a search field from `lg` up; under it a white bar with the main navigation and
+// ติดต่อเรา. Below `lg` a native <details> menu holds a search field, the navigation and
+// ติดต่อเรา; it flows in the page.
+import Menu from "@lucide/astro/icons/menu";
+import Search from "@lucide/astro/icons/search";
+import X from "@lucide/astro/icons/x";
+import { MAX_QUERY_LENGTH, QUERY_PARAM } from "../../../../lib/search-matcher";
+import { thaiTitleHtml } from "../../../../lib/prototype-design";
+import type { ShellProps } from "../shell";
+
+type Props = ShellProps;
+const { identity, navigation } = Astro.props;
+const field =
+	"min-h-11 w-full min-w-0 rounded-2 border-2 border-v2-ink bg-surface-base px-3 text-v2-body text-v2-ink";
+---
+
+<header class="relative">
+	<div class="bg-v2-green text-surface-base">
+		<div class="page-container flex items-center gap-4 py-3 lg:py-5">
+			<a href="/" class="flex min-w-0 items-center gap-3 lg:gap-4">
+				{identity.logo ? (
+					<span class="flex size-13 shrink-0 items-center justify-center rounded-pill bg-surface-base p-1 lg:size-18">
+						<img
+							class="size-full object-contain"
+							src={identity.logo.url}
+							alt=""
+							width={identity.logo.width ?? 64}
+							height={identity.logo.height ?? 64}
+						/>
+					</span>
+				) : (
+					<span
+						aria-hidden="true"
+						class="size-13 shrink-0 rounded-pill bg-surface-base lg:size-18"
+					/>
+				)}
+				<span class="flex min-w-0 flex-col">
+					<span
+						class="text-[1.1875rem] leading-6 font-bold lg:text-[1.75rem] lg:leading-9"
+						set:html={thaiTitleHtml(identity.title)}
+					/>
+					<span class="text-v2-meta">กระทรวงสาธารณสุข</span>
+				</span>
+			</a>
+			<form
+				role="search"
+				method="get"
+				action="/search"
+				aria-label="ค้นหาในเว็บไซต์"
+				class="ml-auto hidden w-88 items-end gap-0 lg:flex"
+			>
+				<label class="sr-only" for="header-search">
+					คำค้นหา
+				</label>
+				<input
+					id="header-search"
+					name={QUERY_PARAM}
+					type="search"
+					maxlength={MAX_QUERY_LENGTH}
+					placeholder="ค้นหาในเว็บไซต์"
+					class:list={[field, "rounded-r-none border-r-0 border-surface-base"]}
+				/>
+				<button
+					type="submit"
+					class="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-r-2 border-2 border-surface-base bg-v2-green-dark px-4 font-semibold text-surface-base"
+				>
+					<Search class="shrink-0" size={20} />
+					ค้นหา
+				</button>
+			</form>
+			<span class="w-24 shrink-0 lg:hidden" aria-hidden="true"></span>
+		</div>
+	</div>
+	<nav aria-label="เมนูหลัก" class="hidden border-b-4 border-v2-green bg-surface-base lg:block">
+		<ul class="page-container flex text-v2-body font-semibold">
+			{navigation.map((item) => (
+				<li>
+					<a
+						href={item.href}
+						aria-current={item.current}
+						class:list={[
+							"block px-3.5 py-3 underline-offset-4 first:pl-0 hover:underline",
+							item.current ? "bg-v2-mint text-v2-green underline" : "text-v2-ink",
+						]}
+					>
+						{item.label}
+					</a>
+				</li>
+			))}
+			<li class="ml-auto">
+				<a class="block py-3 text-v2-green underline underline-offset-4" href="/contact">
+					ติดต่อเรา
+				</a>
+			</li>
+		</ul>
+	</nav>
+	<details class="group border-b-4 border-v2-green lg:hidden">
+		<summary class="absolute top-4 right-(--page-gutter) flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-2 border-2 border-surface-base px-3 font-semibold text-surface-base [&::-webkit-details-marker]:hidden">
+			<Menu class="shrink-0 group-open:hidden" size={20} />
+			<X class="hidden shrink-0 group-open:block" size={20} />
+			<span>เมนู</span>
+		</summary>
+		<div class="page-container flex flex-col gap-4 bg-surface-base py-4">
+			<form role="search" method="get" action="/search" aria-label="ค้นหาในเว็บไซต์" class="flex">
+				<label class="sr-only" for="menu-search">
+					คำค้นหา
+				</label>
+				<input
+					id="menu-search"
+					name={QUERY_PARAM}
+					type="search"
+					maxlength={MAX_QUERY_LENGTH}
+					placeholder="ค้นหาในเว็บไซต์"
+					class:list={[field, "rounded-r-none"]}
+				/>
+				<button
+					type="submit"
+					class="inline-flex min-h-11 shrink-0 cursor-pointer items-center rounded-r-2 bg-v2-green px-4 font-semibold text-surface-base"
+				>
+					ค้นหา
+				</button>
+			</form>
+			<nav aria-label="เมนูหลัก">
+				<ul class="divide-y divide-v2-rule border-y border-v2-rule font-semibold">
+					{navigation.map((item) => (
+						<li>
+							<a
+								href={item.href}
+								aria-current={item.current}
+								class:list={[
+									"flex min-h-12 items-center px-2",
+									item.current
+										? "bg-v2-mint text-v2-green underline underline-offset-4"
+										: "text-v2-ink",
+								]}
+							>
+								{item.label}
+							</a>
+						</li>
+					))}
+					<li>
+						<a
+							class="flex min-h-12 items-center px-2 text-v2-green underline underline-offset-4"
+							href="/contact"
+						>
+							ติดต่อเรา
+						</a>
+					</li>
+				</ul>
+			</nav>
+		</div>
+	</details>
+</header>

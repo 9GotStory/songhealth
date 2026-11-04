@@ -41,6 +41,14 @@ import { EmDashHead } from "emdash/ui";
 import "../styles/global.css";
 import Breadcrumb from "../components/Breadcrumb.astro";
 import ContentLink from "../components/ContentLink.astro";
+import DesignSwitcher from "../components/prototype/design/DesignSwitcher.astro";
+import V1Footer from "../components/prototype/design/v1/Footer.astro";
+import V1Header from "../components/prototype/design/v1/Header.astro";
+import V2Footer from "../components/prototype/design/v2/Footer.astro";
+import V2Header from "../components/prototype/design/v2/Header.astro";
+import V3Footer from "../components/prototype/design/v3/Footer.astro";
+import V3Header from "../components/prototype/design/v3/Header.astro";
+import { pageDesign } from "../lib/prototype-design";
 import {
 	MAIN_NAVIGATION,
 	UTILITY_LINKS,
@@ -80,7 +88,7 @@ interface Props {
 }
 
 const { title, section, description, canonical, crumbs, entry, noindex } = Astro.props;
-const [identity, footerPages, { channels }] = await Promise.all([
+const [identity, footerPages, { contact, channels }] = await Promise.all([
 	getSiteIdentity(Astro.url),
 	footerPageLinks(),
 	readOfficeContact(),
@@ -107,10 +115,20 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 	...item,
 	current: currentMark(item, section, pathname),
 }));
+// PROTOTYPE (branch prototype/design): the design variant decides the header, the footer, the
+// body's font and the palette (src/lib/prototype-design.ts); variant 0 is the shell below as is.
+const design = pageDesign(Astro);
+const shell = { identity, navigation, utility: UTILITY_LINKS, footerLinks, channels, contact };
+const bodyClass = {
+	"0": "bg-bg-page text-body text-text-primary",
+	"1": "bg-bg-page text-v1-body text-text-primary",
+	"2": "bg-surface-base font-v2 text-v2-body text-v2-ink",
+	"3": "bg-surface-base font-v3-body text-v3-body text-v3-ink",
+}[design.variant];
 ---
 
 <!doctype html>
-<html lang="th">
+<html lang="th" data-variant={design.variant}>
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -119,110 +137,117 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 		<EmDashHead page={pageContext} />
 		<slot name="head" />
 	</head>
-	<body class="flex min-h-dvh flex-col bg-bg-page text-body text-text-primary">
+	<body class:list={["flex min-h-dvh flex-col", bodyClass]}>
 		<a
 			href="#main"
 			class="focus-ring-on-dark absolute top-2 left-4 z-30 -translate-y-[200%] rounded-14 bg-accent-warm px-4 py-3 text-label text-text-primary focus:translate-y-0"
 		>
 			ข้ามไปยังเนื้อหาหลัก
 		</a>
-		<header class="bg-surface-base">
-			<div class="focus-ring-on-dark bg-brand-dark text-small text-surface-base">
-				<div class="page-container flex min-h-10.5 flex-wrap items-center justify-between gap-x-6 gap-y-1 py-1.5">
-					<p>{OFFICE_NAME}</p>
-					<ul class="flex gap-5">
-						{UTILITY_LINKS.map((link) => (
-							<li>
-								<a class="underline-offset-4 hover:underline" href={link.href}>
-									{link.label}
-								</a>
-							</li>
-						))}
-					</ul>
+		{design.variant === "1" && <V1Header {...shell} />}
+		{design.variant === "2" && <V2Header {...shell} />}
+		{design.variant === "3" && <V3Header {...shell} />}
+		{design.variant === "0" && (
+			<header class="bg-surface-base">
+				<div class="focus-ring-on-dark bg-brand-dark text-small text-surface-base">
+					<div class="page-container flex min-h-10.5 flex-wrap items-center justify-between gap-x-6 gap-y-1 py-1.5">
+						<p>{OFFICE_NAME}</p>
+						<ul class="flex gap-5">
+							{UTILITY_LINKS.map((link) => (
+								<li>
+									<a class="underline-offset-4 hover:underline" href={link.href}>
+										{link.label}
+									</a>
+								</li>
+							))}
+						</ul>
+					</div>
 				</div>
-			</div>
-			<div class="relative">
-				<div class="page-container flex items-start justify-between gap-4 py-3 lg:min-h-22 lg:items-center">
-					<a href="/" class="mr-28 flex min-w-0 items-start gap-3 lg:mr-0 lg:items-center">
-						{/* The logo or mark is decorative: the title beside it names the link. */}
-						{identity.logo ? (
-							<img
-								class="size-11 shrink-0 object-contain lg:size-12"
-								src={identity.logo.url}
-								alt=""
-								width={identity.logo.width ?? 48}
-								height={identity.logo.height ?? 48}
-							/>
-						) : (
-							<span
-								data-testid="placeholder-mark"
-								aria-hidden="true"
-								class="flex size-11 shrink-0 items-center justify-center rounded-16 bg-brand-primary text-surface-base lg:size-12"
-							>
-								<svg class="size-6 lg:size-7" viewBox="0 0 24 24" fill="currentColor">
-									<path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z" />
-								</svg>
-							</span>
-						)}
-						<span class="flex min-w-0 flex-col pt-2 lg:pt-0">
-							<span class="text-body font-semibold wrap-anywhere text-brand-dark sm:text-body-large lg:text-h3">
-								{identity.title}
-							</span>
-							{identity.tagline && (
-								<span class="text-small wrap-anywhere text-text-secondary">{identity.tagline}</span>
+				<div class="relative">
+					<div class="page-container flex items-start justify-between gap-4 py-3 lg:min-h-22 lg:items-center">
+						<a href="/" class="mr-28 flex min-w-0 items-start gap-3 lg:mr-0 lg:items-center">
+							{/* The logo or mark is decorative: the title beside it names the link. */}
+							{identity.logo ? (
+								<img
+									class="size-11 shrink-0 object-contain lg:size-12"
+									src={identity.logo.url}
+									alt=""
+									width={identity.logo.width ?? 48}
+									height={identity.logo.height ?? 48}
+								/>
+							) : (
+								<span
+									data-testid="placeholder-mark"
+									aria-hidden="true"
+									class="flex size-11 shrink-0 items-center justify-center rounded-16 bg-brand-primary text-surface-base lg:size-12"
+								>
+									<svg class="size-6 lg:size-7" viewBox="0 0 24 24" fill="currentColor">
+										<path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z" />
+									</svg>
+								</span>
 							)}
-						</span>
-					</a>
-					<nav aria-label="เมนูหลัก" class="hidden shrink-0 lg:block">
-						<ul class="flex gap-6 text-label">
-							{navigation.map((item) => (
-								<li>
-									<a
-										href={item.href}
-										aria-current={item.current}
-										class:list={[
-											"block border-b-3 py-2 hover:text-brand-primary",
-											item.current
-												? "border-brand-primary text-brand-primary"
-												: "border-transparent",
-										]}
-									>
-										{item.label}
-									</a>
-								</li>
-							))}
-						</ul>
-					</nav>
+							<span class="flex min-w-0 flex-col pt-2 lg:pt-0">
+								<span class="text-body font-semibold wrap-anywhere text-brand-dark sm:text-body-large lg:text-h3">
+									{identity.title}
+								</span>
+								{identity.tagline && (
+									<span class="text-small wrap-anywhere text-text-secondary">
+										{identity.tagline}
+									</span>
+								)}
+							</span>
+						</a>
+						<nav aria-label="เมนูหลัก" class="hidden shrink-0 lg:block">
+							<ul class="flex gap-6 text-label">
+								{navigation.map((item) => (
+									<li>
+										<a
+											href={item.href}
+											aria-current={item.current}
+											class:list={[
+												"block border-b-3 py-2 hover:text-brand-primary",
+												item.current
+													? "border-brand-primary text-brand-primary"
+													: "border-transparent",
+											]}
+										>
+											{item.label}
+										</a>
+									</li>
+								))}
+							</ul>
+						</nav>
+					</div>
+					<details class="group lg:hidden">
+						<summary class="absolute top-3 right-(--page-gutter) flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-pill border border-border-input bg-surface-base px-4 text-label [&::-webkit-details-marker]:hidden">
+							<Menu class="shrink-0 group-open:hidden" size={20} />
+							<X class="hidden shrink-0 group-open:block" size={20} />
+							<span>เมนู</span>
+						</summary>
+						<nav aria-label="เมนูหลัก" class="border-t border-border-default">
+							<ul class="page-container py-2">
+								{navigation.map((item) => (
+									<li>
+										<a
+											href={item.href}
+											aria-current={item.current}
+											class:list={[
+												"block border-l-4 px-4 py-3 hover:bg-surface-soft",
+												item.current
+													? "border-brand-primary bg-surface-soft font-semibold text-brand-primary"
+													: "border-transparent",
+											]}
+										>
+											{item.label}
+										</a>
+									</li>
+								))}
+							</ul>
+						</nav>
+					</details>
 				</div>
-				<details class="group lg:hidden">
-					<summary class="absolute top-3 right-(--page-gutter) flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-pill border border-border-input bg-surface-base px-4 text-label [&::-webkit-details-marker]:hidden">
-						<Menu class="shrink-0 group-open:hidden" size={20} />
-						<X class="hidden shrink-0 group-open:block" size={20} />
-						<span>เมนู</span>
-					</summary>
-					<nav aria-label="เมนูหลัก" class="border-t border-border-default">
-						<ul class="page-container py-2">
-							{navigation.map((item) => (
-								<li>
-									<a
-										href={item.href}
-										aria-current={item.current}
-										class:list={[
-											"block border-l-4 px-4 py-3 hover:bg-surface-soft",
-											item.current
-												? "border-brand-primary bg-surface-soft font-semibold text-brand-primary"
-												: "border-transparent",
-										]}
-									>
-										{item.label}
-									</a>
-								</li>
-							))}
-						</ul>
-					</nav>
-				</details>
-			</div>
-		</header>
+			</header>
+		)}
 		<main id="main" tabindex="-1" class="flex-1">
 			{crumbs && (
 				<div class="page-container pt-6">
@@ -231,44 +256,50 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 			)}
 			<slot />
 		</main>
-		<footer class="focus-ring-on-dark bg-brand-dark text-surface-base">
-			<div class="page-container flex flex-col gap-6 py-12 lg:flex-row lg:items-start lg:justify-between">
-				<div class="flex flex-col gap-1.5">
-					<p class="text-h3 wrap-anywhere">{identity.title}</p>
-					<p class="text-small">{OFFICE_NAME}</p>
+		{design.variant === "1" && <V1Footer {...shell} />}
+		{design.variant === "2" && <V2Footer {...shell} />}
+		{design.variant === "3" && <V3Footer {...shell} />}
+		{design.variant === "0" && (
+			<footer class="focus-ring-on-dark bg-brand-dark text-surface-base">
+				<div class="page-container flex flex-col gap-6 py-12 lg:flex-row lg:items-start lg:justify-between">
+					<div class="flex flex-col gap-1.5">
+						<p class="text-h3 wrap-anywhere">{identity.title}</p>
+						<p class="text-small">{OFFICE_NAME}</p>
+					</div>
+					<div class="flex flex-col gap-4 text-small lg:items-end">
+						{channels.length > 0 && (
+							<div class="flex flex-col gap-2 lg:items-end">
+								<p id="footer-channels" class="font-semibold">
+									ช่องทางทางการ
+								</p>
+								<ul aria-labelledby="footer-channels" class="flex flex-wrap gap-x-6 gap-y-2">
+									{channels.map((channel) => (
+										<li>
+											<ContentLink
+												compact
+												class="underline-offset-4 hover:underline"
+												href={channel.href}
+											>
+												{channel.label}
+											</ContentLink>
+										</li>
+									))}
+								</ul>
+							</div>
+						)}
+						<ul class="flex flex-wrap gap-x-6 gap-y-2">
+							{footerLinks.map((link) => (
+								<li>
+									<a class="underline-offset-4 hover:underline" href={link.href}>
+										{link.label}
+									</a>
+								</li>
+							))}
+						</ul>
+					</div>
 				</div>
-				<div class="flex flex-col gap-4 text-small lg:items-end">
-					{channels.length > 0 && (
-						<div class="flex flex-col gap-2 lg:items-end">
-							<p id="footer-channels" class="font-semibold">
-								ช่องทางทางการ
-							</p>
-							<ul aria-labelledby="footer-channels" class="flex flex-wrap gap-x-6 gap-y-2">
-								{channels.map((channel) => (
-									<li>
-										<ContentLink
-											compact
-											class="underline-offset-4 hover:underline"
-											href={channel.href}
-										>
-											{channel.label}
-										</ContentLink>
-									</li>
-								))}
-							</ul>
-						</div>
-					)}
-					<ul class="flex flex-wrap gap-x-6 gap-y-2">
-						{footerLinks.map((link) => (
-							<li>
-								<a class="underline-offset-4 hover:underline" href={link.href}>
-									{link.label}
-								</a>
-							</li>
-						))}
-					</ul>
-				</div>
-			</div>
-		</footer>
+			</footer>
+		)}
+		<DesignSwitcher design={design} />
 	</body>
 </html>

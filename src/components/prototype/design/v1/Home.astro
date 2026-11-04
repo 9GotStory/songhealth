@@ -1,0 +1,472 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 1's Homepage, ต่อยอด Concept v1. The
+// Concept v1 palette and Noto Sans Thai, in the `04` §3 order, with lists and dividers where the
+// current page has cards: a compact Featured band, a one-line search, Services as a link list,
+// News beside the Announcements, Health Content in two columns, a compact directory band, the
+// Activities (One Pages framed whole, or text first), Quick Access as chips and the Contact
+// Summary. Each section heads with its title and its "all" link on one row, with no eyebrow or
+// lead.
+import ChevronRight from "@lucide/astro/icons/chevron-right";
+import HandHeart from "@lucide/astro/icons/hand-heart";
+import Search from "@lucide/astro/icons/search";
+import { Image } from "emdash/ui";
+import AnnouncementStatusLine from "../../../AnnouncementStatusLine.astro";
+import DateText from "../../../DateText.astro";
+import OfficeContactDetails from "../../../OfficeContactDetails.astro";
+import Frame from "../Frame.astro";
+import type { HomeProps } from "../home";
+import { ACTIVITIES_PATH, activityDate, activityPath } from "../../../../lib/activities";
+import { ANNOUNCEMENTS_PATH, announcementPath } from "../../../../lib/announcements";
+import { HEALTH_CONTENT_PATH } from "../../../../lib/health";
+import { healthContentPath } from "../../../../lib/health-content";
+import {
+	FILTER_LABELS,
+	FILTER_PARAMS,
+	directoryPath,
+} from "../../../../lib/health-service-directory";
+import { availableMedia } from "../../../../lib/media";
+import { newsPath } from "../../../../lib/news";
+import { isPortrait, thaiDateOf, thaiTitleHtml } from "../../../../lib/prototype-design";
+import { MAX_QUERY_LENGTH, QUERY_PARAM } from "../../../../lib/search-matcher";
+import { SERVICES_PATH, servicePath } from "../../../../lib/service-catalog";
+import { termsOf } from "../../../../lib/terms";
+
+type Props = HomeProps;
+const {
+	identity,
+	featured,
+	services,
+	quickAccess,
+	news,
+	announcements,
+	healthContent,
+	directory,
+	activities,
+	contact,
+	now,
+	onepage,
+	officeSummary,
+} = Astro.props;
+const media = Astro.locals.emdash;
+const featuredImage = await availableMedia(featured?.image, media);
+const lead = news[0];
+const leadImage = await availableMedia(lead?.data.featured_image, media);
+const activityImages = await Promise.all(
+	activities.map((activity) => availableMedia(activity.data.featured_image, media)),
+);
+const framed = onepage === "frame";
+
+const sectionHead = "flex items-end justify-between gap-4 border-b border-border-default pb-3";
+const allLink =
+	"inline-flex min-h-11 shrink-0 items-center gap-1 text-label text-brand-primary underline-offset-4 hover:underline";
+const control =
+	"min-h-11 w-full min-w-0 rounded-14 border border-border-input bg-surface-base px-3 text-v1-body";
+---
+
+{featured ? (
+	<>
+		<h1 class="sr-only">{identity.title}</h1>
+		<section aria-labelledby="home-featured" class="page-container pt-5 pb-6 lg:pt-8 lg:pb-8">
+			<div
+				class:list={[
+					"grid items-center gap-5 overflow-hidden rounded-24 bg-brand-dark text-surface-base lg:gap-10",
+					featuredImage && isPortrait(featuredImage)
+						? "lg:grid-cols-[minmax(0,1fr)_16rem]"
+						: "lg:grid-cols-[minmax(0,1fr)_26rem]",
+				]}
+			>
+				<div class="flex min-w-0 flex-col items-start gap-3 p-5 sm:p-8 lg:py-10 lg:pr-0 lg:pl-10">
+					<p class="text-v1-meta text-accent-warm">เรื่องเด่น</p>
+					<h2
+						id="home-featured"
+						class="text-v1-title-sm text-balance lg:text-[2rem] lg:leading-11"
+						set:html={thaiTitleHtml(featured.title)}
+					/>
+					{featured.lead && <p class="line-clamp-3 text-surface-base/90">{featured.lead}</p>}
+					<div class="mt-1 flex flex-wrap gap-3">
+						<a
+							href={featured.href}
+							class="focus-ring-on-dark inline-flex min-h-11 items-center gap-1.5 rounded-pill bg-surface-base px-5 text-label text-brand-dark hover:bg-surface-soft"
+						>
+							อ่านเรื่องนี้<span class="sr-only"> {featured.title}</span>
+							<ChevronRight class="shrink-0" size={16} />
+						</a>
+						<a
+							href={SERVICES_PATH}
+							class="focus-ring-on-dark inline-flex min-h-11 items-center rounded-pill border border-hero-secondary-border px-5 text-label hover:bg-hero-secondary-fill"
+						>
+							บริการประชาชน
+						</a>
+					</div>
+				</div>
+				{featuredImage &&
+					(isPortrait(featuredImage) ? (
+						<Frame
+							image={featuredImage}
+							sizes="(min-width: 64rem) 16rem, 100vw"
+							eager
+							class="mx-5 mb-5 aspect-[210/297] rounded-14 bg-surface-base/10 sm:mx-8 lg:m-6 lg:ml-0"
+						/>
+					) : (
+						<Image
+							image={featuredImage}
+							alt=""
+							sizes="(min-width: 64rem) 26rem, 100vw"
+							priority
+							class="aspect-video w-full object-cover lg:h-full"
+						/>
+					))}
+			</div>
+		</section>
+	</>
+) : (
+	<div class="page-container pt-5 pb-6 lg:pt-8">
+		<div class="rounded-24 bg-brand-dark px-6 py-8 text-surface-base lg:px-10">
+			<h1 class="text-v1-title-sm lg:text-v1-title">{identity.title}</h1>
+			{identity.tagline && <p class="mt-2">{identity.tagline}</p>}
+		</div>
+	</div>
+)}
+
+<section aria-labelledby="home-search" class="page-container pb-10 lg:pb-14">
+	<form role="search" method="get" action="/search" class="flex flex-col gap-2">
+		<label id="home-search" for="home-search-query" class="text-v1-item text-brand-dark">
+			คุณกำลังมองหาอะไร?
+		</label>
+		<div class="flex gap-2">
+			<input
+				id="home-search-query"
+				name={QUERY_PARAM}
+				type="search"
+				maxlength={MAX_QUERY_LENGTH}
+				placeholder="บริการ ข่าวสาร หน่วยบริการ หรือเอกสาร"
+				class={control}
+			/>
+			<button
+				type="submit"
+				class="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-pill bg-brand-primary px-5 text-label text-surface-base hover:bg-brand-dark"
+			>
+				<Search class="shrink-0" size={20} />
+				ค้นหา
+			</button>
+		</div>
+	</form>
+</section>
+
+{services.length > 0 && (
+	<section aria-labelledby="home-services" class="page-container pb-10 lg:pb-14">
+		<div class={sectionHead}>
+			<h2 id="home-services" class="text-v1-section text-text-primary">
+				บริการที่ใช้บ่อย
+			</h2>
+			<a class={allLink} href={SERVICES_PATH}>
+				ดูบริการทั้งหมด
+				<ChevronRight class="shrink-0" size={16} />
+			</a>
+		</div>
+		<ul class="grid sm:grid-cols-2 sm:gap-x-8 lg:grid-cols-3">
+			{services.map((service) => (
+				<li class="border-b border-border-default">
+					<a
+						href={servicePath(service.id)}
+						class="group flex min-h-14 items-center gap-3 py-3 hover:text-brand-primary"
+					>
+						<HandHeart class="shrink-0 text-brand-primary" size={20} />
+						<span class="min-w-0 flex-1">
+							<span class="block font-semibold group-hover:underline">{service.data.title}</span>
+							{service.data.summary && (
+								<span class="hidden text-v1-meta text-text-secondary lg:line-clamp-1">
+									{service.data.summary}
+								</span>
+							)}
+						</span>
+						<ChevronRight class="shrink-0 text-brand-primary" size={16} />
+					</a>
+				</li>
+			))}
+		</ul>
+	</section>
+)}
+
+{(lead || announcements.length > 0) && (
+	<section aria-labelledby="home-news" class="page-container pb-10 lg:pb-14">
+		<div class={sectionHead}>
+			<h2 id="home-news" class="text-v1-section text-text-primary">
+				ข่าวสารและประกาศ
+			</h2>
+		</div>
+		<div class="grid gap-x-10 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+			{lead && (
+				<div class="flex flex-col">
+					<article class="flex gap-4 border-b border-border-default py-5">
+						{framed && leadImage && (
+							<Frame
+								image={leadImage}
+								sizes="10rem"
+								class="aspect-[210/297] w-28 rounded-14 bg-surface-soft sm:w-40"
+							/>
+						)}
+						<div class="flex min-w-0 flex-col gap-1.5">
+							<p class="text-v1-meta text-brand-primary">
+								ข่าวล่าสุด
+								{lead.data.publishedAt && (
+									<span class="text-text-secondary">
+										{" "}
+										<DateText value={lead.data.publishedAt} />
+									</span>
+								)}
+							</p>
+							<h3 class="text-v1-item text-text-primary sm:text-[1.375rem] sm:leading-8">
+								<a
+									class="underline-offset-4 hover:text-brand-primary hover:underline"
+									href={newsPath(lead.id)}
+									set:html={thaiTitleHtml(lead.data.title)}
+								/>
+							</h3>
+							{lead.data.summary && (
+								<p class:list={["text-text-secondary", framed ? "line-clamp-4" : "line-clamp-3"]}>
+									{lead.data.summary}
+								</p>
+							)}
+						</div>
+					</article>
+					<a class:list={[allLink, "mt-1"]} href="/news">
+						ดูข่าวทั้งหมด
+						<ChevronRight class="shrink-0" size={16} />
+					</a>
+				</div>
+			)}
+			{announcements.length > 0 && (
+				<div class="flex flex-col">
+					<h3 id="home-announcements" class="pt-5 text-v1-item text-brand-dark">
+						ประกาศ
+					</h3>
+					<ul aria-labelledby="home-announcements">
+						{announcements.map((announcement) => (
+							<li class="flex flex-col gap-1 border-b border-border-default py-3.5">
+								<a
+									class="font-semibold underline-offset-4 hover:text-brand-primary hover:underline"
+									href={announcementPath(announcement.id)}
+									set:html={thaiTitleHtml(announcement.data.title)}
+								/>
+								<AnnouncementStatusLine data={announcement.data} now={now} />
+							</li>
+						))}
+					</ul>
+					<a class:list={[allLink, "mt-1"]} href={ANNOUNCEMENTS_PATH}>
+						ดูประกาศทั้งหมด
+						<ChevronRight class="shrink-0" size={16} />
+					</a>
+				</div>
+			)}
+		</div>
+	</section>
+)}
+
+{healthContent.length > 0 && (
+	<section aria-labelledby="home-health" class="page-container pb-10 lg:pb-14">
+		<div class={sectionHead}>
+			<h2 id="home-health" class="text-v1-section text-text-primary">
+				ความรู้สุขภาพ
+			</h2>
+			<a class={allLink} href={HEALTH_CONTENT_PATH}>
+				ดูทั้งหมด
+				<ChevronRight class="shrink-0" size={16} />
+			</a>
+		</div>
+		<ul class="grid sm:grid-cols-2 sm:gap-x-10">
+			{healthContent.map((item) => {
+				const topic = termsOf(item.data, "topic")[0];
+				return (
+					<li class="flex flex-col gap-1 border-b border-border-default py-4">
+						{topic && <p class="text-v1-meta text-brand-primary">{topic.label}</p>}
+						<h3 class="text-v1-item">
+							<a
+								class="underline-offset-4 hover:text-brand-primary hover:underline"
+								href={healthContentPath(item.id)}
+								set:html={thaiTitleHtml(item.data.title)}
+							/>
+						</h3>
+						{item.data.summary && (
+							<p class="line-clamp-2 text-v1-meta text-text-secondary">{item.data.summary}</p>
+						)}
+					</li>
+				);
+			})}
+		</ul>
+	</section>
+)}
+
+{directory.hasHealthServices && (
+	<section aria-labelledby="home-discovery" class="page-container pb-10 lg:pb-14">
+		<div class="flex flex-col gap-4 rounded-24 bg-brand-dark p-5 text-surface-base sm:p-8 lg:flex-row lg:items-end lg:gap-8">
+			<div class="flex flex-col gap-1 lg:w-80 lg:shrink-0">
+				<h2 id="home-discovery" class="text-v1-section">
+					ค้นหาหน่วยบริการสุขภาพ
+				</h2>
+				<p class="text-v1-meta text-surface-base/85">
+					โรงพยาบาลและ รพ.สต. ในอำเภอสอง ตามตำบลหรือชื่อ
+				</p>
+			</div>
+			<form
+				method="get"
+				action={directoryPath()}
+				aria-label="ค้นหาหน่วยบริการ"
+				class="focus-ring-on-dark grid flex-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+			>
+				<div class="flex flex-col gap-1">
+					<label class="text-v1-meta" for="discovery-area">
+						{FILTER_LABELS.area}
+					</label>
+					<select
+						id="discovery-area"
+						name={FILTER_PARAMS.area}
+						class:list={[control, "text-text-primary"]}
+					>
+						<option value="">{FILTER_LABELS.anyArea}</option>
+						{directory.areas.map((area) => (
+							<option value={area.slug}>{area.label}</option>
+						))}
+					</select>
+				</div>
+				<div class="flex flex-col gap-1">
+					<label class="text-v1-meta" for="discovery-name">
+						{FILTER_LABELS.name}
+					</label>
+					<input
+						id="discovery-name"
+						name={FILTER_PARAMS.name}
+						type="search"
+						class:list={[control, "text-text-primary"]}
+					/>
+				</div>
+				<button
+					type="submit"
+					class="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-pill bg-accent-warm px-5 text-label text-text-primary"
+				>
+					ค้นหาหน่วยบริการ
+				</button>
+			</form>
+		</div>
+	</section>
+)}
+
+{activities.length > 0 && (
+	<section aria-labelledby="home-activities" class="page-container pb-10 lg:pb-14">
+		<div class={sectionHead}>
+			<h2 id="home-activities" class="text-v1-section text-text-primary">
+				กิจกรรม
+			</h2>
+			<a class={allLink} href={ACTIVITIES_PATH}>
+				ดูกิจกรรมทั้งหมด
+				<ChevronRight class="shrink-0" size={16} />
+			</a>
+		</div>
+		{framed ? (
+			<ul class="grid grid-cols-2 gap-x-4 gap-y-6 pt-5 lg:grid-cols-4 lg:gap-x-6">
+				{activities.map((activity, index) => (
+					<li>
+						<article class="flex flex-col gap-2">
+							<Frame
+								image={activityImages[index]}
+								sizes="(min-width: 64rem) 17rem, 50vw"
+								class="aspect-[210/297] w-full rounded-14 border border-border-default bg-surface-soft"
+							/>
+							<p class="text-v1-meta text-text-secondary">
+								{thaiDateOf(activityDate(activity.data))}
+							</p>
+							<h3 class="text-[0.9375rem] leading-6 font-semibold lg:text-v1-body lg:font-semibold">
+								<a
+									class="underline-offset-4 hover:text-brand-primary hover:underline"
+									href={activityPath(activity.id)}
+									set:html={thaiTitleHtml(activity.data.title)}
+								/>
+							</h3>
+							{activity.data.summary && (
+								<p class="hidden text-v1-meta text-text-secondary lg:line-clamp-3">
+									{activity.data.summary}
+								</p>
+							)}
+						</article>
+					</li>
+				))}
+			</ul>
+		) : (
+			<ul class="grid lg:grid-cols-2 lg:gap-x-10">
+				{activities.map((activity, index) => (
+					<li class="border-b border-border-default">
+						<article class="flex gap-4 py-4">
+							<div class="flex min-w-0 flex-1 flex-col gap-1">
+								<p class="text-v1-meta text-text-secondary">
+									{thaiDateOf(activityDate(activity.data))}
+								</p>
+								<h3 class="text-v1-item">
+									<a
+										class="underline-offset-4 hover:text-brand-primary hover:underline"
+										href={activityPath(activity.id)}
+										set:html={thaiTitleHtml(activity.data.title)}
+									/>
+								</h3>
+								{activity.data.summary && (
+									<p class="line-clamp-2 text-v1-meta text-text-secondary">
+										{activity.data.summary}
+									</p>
+								)}
+							</div>
+							{activityImages[index] && (
+								<Frame
+									image={activityImages[index]}
+									sizes="4rem"
+									class="aspect-[210/297] w-14 rounded-8 bg-surface-soft"
+								/>
+							)}
+						</article>
+					</li>
+				))}
+			</ul>
+		)}
+	</section>
+)}
+
+{quickAccess.length > 0 && (
+	<section aria-labelledby="home-quick-access" class="page-container pb-10 lg:pb-14">
+		<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+			<h2 id="home-quick-access" class="text-v1-item text-text-primary">
+				ทางลัด
+			</h2>
+			<ul class="flex flex-wrap gap-2.5">
+				{quickAccess.map((link) => (
+					<li>
+						<a
+							href={link.href}
+							class="inline-flex min-h-11 items-center gap-1.5 rounded-pill border border-border-input bg-surface-base px-4 text-label hover:border-brand-primary hover:text-brand-primary"
+						>
+							{link.label}
+							<ChevronRight class="shrink-0 text-brand-primary" size={16} />
+						</a>
+					</li>
+				))}
+			</ul>
+		</div>
+	</section>
+)}
+
+<section aria-labelledby="home-contact" class="bg-surface-soft py-10 lg:py-12">
+	<div class="page-container grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-12">
+		<div class="flex flex-col gap-2">
+			<h2
+				id="home-contact"
+				class="text-v1-section text-brand-dark"
+				set:html={thaiTitleHtml(identity.title)}
+			/>
+			<p class="text-text-secondary-on-soft">{officeSummary}</p>
+		</div>
+		<div class="flex flex-col gap-2">
+			<OfficeContactDetails contact={contact} summary />
+			<a class={allLink} href="/contact">
+				ดูข้อมูลติดต่อทั้งหมด
+				<ChevronRight class="shrink-0" size={16} />
+			</a>
+		</div>
+	</div>
+</section>

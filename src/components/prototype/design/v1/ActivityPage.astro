@@ -1,0 +1,136 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 1's Activity page, with a side column
+// from `lg` up (grill Q9): the main column has the title, the summary (the story in words, Q14)
+// and the One Page in full; the side column has the Activity's details and the latest Activities.
+// Frame shows the One Page large right under the summary; text shows the details first, then a
+// smaller One Page with a link to the full image. Phones read one column in that order.
+import Frame from "../Frame.astro";
+import { activityDetails, mediaFileHref, type ActivityPageProps } from "../activities";
+import { ACTIVITIES_PATH, activityDate, activityPath } from "../../../../lib/activities";
+import { isPortrait, thaiDateOf, thaiTitleHtml } from "../../../../lib/prototype-design";
+
+type Props = ActivityPageProps;
+const { activity, image, gallery, latest, onepage } = Astro.props;
+const framed = onepage === "frame";
+const details = activityDetails(activity);
+const portrait = isPortrait(image);
+---
+
+<article class="page-container grid gap-8 pt-5 pb-14 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12 lg:pb-20">
+	<div class="flex min-w-0 flex-col gap-6">
+		<header class="flex max-w-3xl flex-col gap-3">
+			<h1
+				class="text-v1-title-sm text-balance text-brand-dark lg:text-v1-title"
+				set:html={thaiTitleHtml(activity.title)}
+			/>
+			{activity.summary && (
+				<p class="text-[1.125rem] leading-8 whitespace-pre-line">{activity.summary}</p>
+			)}
+		</header>
+		{!framed && details.length > 0 && (
+			<dl class="grid max-w-3xl grid-cols-[8.5rem_minmax(0,1fr)] gap-x-4 gap-y-2 border-y border-border-default py-4 lg:hidden">
+				{details.map(([term, value]) => (
+					<>
+						<dt class="text-v1-meta text-text-secondary">{term}</dt>
+						<dd class="whitespace-pre-line">{value}</dd>
+					</>
+				))}
+			</dl>
+		)}
+		{image && (
+			<figure
+				class:list={[
+					"flex flex-col gap-2",
+					portrait ? (framed ? "max-w-xl" : "max-w-xs") : "max-w-3xl",
+				]}
+			>
+				<Frame
+					image={image}
+					alt={image.alt ?? ""}
+					sizes={portrait ? "(min-width: 40rem) 36rem, 100vw" : "(min-width: 48rem) 48rem, 100vw"}
+					eager
+					class:list={[
+						"w-full rounded-18 border border-border-default bg-surface-soft",
+						portrait ? "aspect-[210/297]" : "aspect-video",
+					]}
+				/>
+				{portrait && !framed && (
+					<figcaption class="text-v1-meta">
+						<a class="text-brand-primary underline underline-offset-4" href={mediaFileHref(image)}>
+							เปิด One Page ขนาดเต็ม
+						</a>
+					</figcaption>
+				)}
+			</figure>
+		)}
+		{gallery.length > 0 && (
+			<section aria-labelledby="activity-gallery" class="flex flex-col gap-3">
+				<h2 id="activity-gallery" class="text-v1-section text-brand-dark">
+					ภาพกิจกรรม
+				</h2>
+				<ul class="grid grid-cols-2 gap-4 lg:grid-cols-3">
+					{gallery.map((item) => (
+						<li>
+							<figure class="flex flex-col gap-1.5">
+								<Frame
+									image={item.image}
+									alt={item.image.alt ?? ""}
+									sizes="(min-width: 64rem) 16rem, 50vw"
+									cover
+									class="aspect-[4/3] w-full rounded-14 bg-surface-soft"
+								/>
+								{item.caption && (
+									<figcaption class="text-v1-meta text-text-secondary">{item.caption}</figcaption>
+								)}
+							</figure>
+						</li>
+					))}
+				</ul>
+			</section>
+		)}
+	</div>
+	<aside class="flex flex-col gap-8 lg:sticky lg:top-6 lg:self-start" aria-label="ข้อมูลกิจกรรม">
+		{details.length > 0 && (
+			<dl
+				class:list={[
+					"flex-col divide-y divide-border-default border-y border-border-default",
+					framed ? "flex" : "hidden lg:flex",
+				]}
+			>
+				{details.map(([term, value]) => (
+					<div class="flex flex-col py-3">
+						<dt class="text-v1-meta text-text-secondary">{term}</dt>
+						<dd class="whitespace-pre-line">{value}</dd>
+					</div>
+				))}
+			</dl>
+		)}
+		{latest.length > 0 && (
+			<section aria-labelledby="latest-activities" class="flex flex-col gap-1">
+				<h2 id="latest-activities" class="text-v1-item text-brand-dark">
+					กิจกรรมล่าสุด
+				</h2>
+				<ul class="divide-y divide-border-default">
+					{latest.map((entry) => (
+						<li class="flex flex-col py-3">
+							<a
+								class="font-semibold underline-offset-4 hover:text-brand-primary hover:underline"
+								href={activityPath(entry.id)}
+								set:html={thaiTitleHtml(entry.data.title)}
+							/>
+							<span class="text-v1-meta text-text-secondary">
+								{thaiDateOf(activityDate(entry.data))}
+							</span>
+						</li>
+					))}
+				</ul>
+				<a
+					class="inline-flex min-h-11 items-center text-label text-brand-primary underline underline-offset-4"
+					href={ACTIVITIES_PATH}
+				>
+					ดูกิจกรรมทั้งหมด
+				</a>
+			</section>
+		)}
+	</aside>
+</article>

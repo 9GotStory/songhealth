@@ -1,0 +1,449 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 2's Homepage, หน่วยงานราชการ. White,
+// the emblem's green, Sarabun, dense text-first lists, square corners and underlined links, in the
+// `04` §3 order. The search sits in the header (`04` §3's first item, "Header / Navigation /
+// Search"); on phones the page repeats it at the top. From `lg` up the Services list is a left
+// column beside News and Announcements, which read after it. Dates lead each row. The Activities
+// show as a board of One Pages pinned whole (frame), or as a dated list (text).
+import Search from "@lucide/astro/icons/search";
+import { Image } from "emdash/ui";
+import AnnouncementStatusLine from "../../../AnnouncementStatusLine.astro";
+import MapLink from "../../../MapLink.astro";
+import Frame from "../Frame.astro";
+import type { HomeProps } from "../home";
+import { ACTIVITIES_PATH, activityDate, activityPath } from "../../../../lib/activities";
+import {
+	ANNOUNCEMENTS_PATH,
+	announcementDate,
+	announcementPath,
+} from "../../../../lib/announcements";
+import { telephoneHref } from "../../../../lib/contact-links";
+import { HEALTH_CONTENT_PATH } from "../../../../lib/health";
+import { healthContentPath } from "../../../../lib/health-content";
+import {
+	FILTER_LABELS,
+	FILTER_PARAMS,
+	directoryPath,
+} from "../../../../lib/health-service-directory";
+import { mapHref } from "../../../../lib/map-link";
+import { availableMedia } from "../../../../lib/media";
+import { newsPath } from "../../../../lib/news";
+import { isPortrait, shortThaiDate, thaiTitleHtml } from "../../../../lib/prototype-design";
+import { MAX_QUERY_LENGTH, QUERY_PARAM } from "../../../../lib/search-matcher";
+import { SERVICES_PATH, servicePath } from "../../../../lib/service-catalog";
+import { termsOf } from "../../../../lib/terms";
+
+type Props = HomeProps;
+const {
+	identity,
+	featured,
+	services,
+	quickAccess,
+	news,
+	announcements,
+	healthContent,
+	directory,
+	activities,
+	contact,
+	now,
+	onepage,
+	officeSummary,
+} = Astro.props;
+const media = Astro.locals.emdash;
+const featuredImage = await availableMedia(featured?.image, media);
+const newsImages = await Promise.all(
+	news.map((item) => availableMedia(item.data.featured_image, media)),
+);
+const activityImages = await Promise.all(
+	activities.map((activity) => availableMedia(activity.data.featured_image, media)),
+);
+const framed = onepage === "frame";
+const telephone = contact.telephone && telephoneHref(contact.telephone);
+const hasMap = mapHref(contact.latitude, contact.longitude) !== undefined;
+
+const h2 = "border-b-3 border-v2-green pb-2 text-v2-section text-v2-ink";
+const link = "text-v2-green underline underline-offset-4 hover:decoration-2";
+const titleLink = "font-semibold text-v2-green underline underline-offset-4 hover:decoration-2";
+const more =
+	"inline-flex min-h-11 items-center font-semibold text-v2-green underline underline-offset-4";
+const dateCol = "w-24 shrink-0 text-v2-meta text-v2-muted";
+const control =
+	"min-h-11 w-full min-w-0 rounded-2 border-2 border-v2-input bg-surface-base px-3 text-v2-body";
+---
+
+<form
+	role="search"
+	method="get"
+	action="/search"
+	aria-label="ค้นหาในเว็บไซต์"
+	class="page-container flex pt-4 lg:hidden"
+>
+	<label class="sr-only" for="home-search-query">
+		คำค้นหา
+	</label>
+	<input
+		id="home-search-query"
+		name={QUERY_PARAM}
+		type="search"
+		maxlength={MAX_QUERY_LENGTH}
+		placeholder="ค้นหาบริการ ข่าว เอกสาร"
+		class:list={[control, "rounded-r-none border-v2-ink"]}
+	/>
+	<button
+		type="submit"
+		class="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-r-2 bg-v2-green px-4 font-semibold text-surface-base"
+	>
+		<Search class="shrink-0" size={20} />
+		ค้นหา
+	</button>
+</form>
+
+{featured ? (
+	<>
+		<h1 class="sr-only">{identity.title}</h1>
+		<section aria-labelledby="home-featured" class="page-container pt-4 lg:pt-8">
+			<div
+				class:list={[
+					"grid border-2 border-v2-green bg-surface-base",
+					featuredImage && isPortrait(featuredImage)
+						? "sm:grid-cols-[12rem_minmax(0,1fr)]"
+						: "lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]",
+				]}
+			>
+				{featuredImage &&
+					(isPortrait(featuredImage) ? (
+						<Frame
+							image={featuredImage}
+							sizes="12rem"
+							eager
+							class="aspect-[210/297] w-full bg-v2-fill"
+						/>
+					) : (
+						<Image
+							image={featuredImage}
+							alt=""
+							sizes="(min-width: 64rem) 40rem, 100vw"
+							priority
+							class="aspect-video w-full object-cover lg:h-full"
+						/>
+					))}
+				<div class="flex flex-col gap-2 p-4 lg:p-8">
+					<p class="w-fit bg-v2-green px-2 py-0.5 text-v2-meta font-semibold text-surface-base">
+						เรื่องเด่น
+					</p>
+					<h2
+						id="home-featured"
+						class="text-[1.375rem] leading-8 font-bold text-balance lg:text-[1.875rem] lg:leading-10"
+					>
+						<a
+							class="underline-offset-4 hover:underline"
+							href={featured.href}
+							set:html={thaiTitleHtml(featured.title)}
+						/>
+					</h2>
+					{featured.lead && <p class="line-clamp-4 text-v2-muted">{featured.lead}</p>}
+					<a class={more} href={featured.href}>
+						อ่านรายละเอียด<span class="sr-only"> {featured.title}</span>
+					</a>
+				</div>
+			</div>
+		</section>
+	</>
+) : (
+	<div class="page-container pt-6">
+		<h1 class="text-v2-title-sm lg:text-v2-title">{identity.title}</h1>
+	</div>
+)}
+
+<div class="page-container grid gap-x-10 gap-y-8 pt-8 lg:grid-cols-[20rem_minmax(0,1fr)] lg:pt-10">
+	{services.length > 0 && (
+		<section aria-labelledby="home-services">
+			<h2 id="home-services" class={h2}>
+				บริการประชาชน
+			</h2>
+			<ul class="divide-y divide-v2-rule">
+				{services.map((service) => (
+					<li class="py-2.5">
+						<a class={titleLink} href={servicePath(service.id)}>
+							{service.data.title}
+						</a>
+						{service.data.summary && (
+							<p class="line-clamp-1 text-v2-meta text-v2-muted">{service.data.summary}</p>
+						)}
+					</li>
+				))}
+			</ul>
+			<a class={more} href={SERVICES_PATH}>
+				บริการทั้งหมด
+			</a>
+		</section>
+	)}
+
+	{(news.length > 0 || announcements.length > 0) && (
+		<section aria-labelledby="home-news" class="flex flex-col gap-8">
+			<h2 id="home-news" class="sr-only">
+				ข่าวสารและประกาศ
+			</h2>
+			{news.length > 0 && (
+				<div>
+					<h3 id="home-news-list" class={h2}>
+						ข่าวประชาสัมพันธ์
+					</h3>
+					<ul aria-labelledby="home-news-list" class="divide-y divide-v2-rule">
+						{news.map((item, index) => (
+							<li class="flex gap-4 py-3">
+								{item.data.publishedAt && (
+									<p class:list={[dateCol, "hidden pt-0.5 sm:block"]}>
+										{shortThaiDate(item.data.publishedAt)}
+									</p>
+								)}
+								<div class="flex min-w-0 flex-1 flex-col gap-0.5">
+									{item.data.publishedAt && (
+										<p class="text-v2-meta text-v2-muted sm:hidden">
+											{shortThaiDate(item.data.publishedAt)}
+										</p>
+									)}
+									<a
+										class={titleLink}
+										href={newsPath(item.id)}
+										set:html={thaiTitleHtml(item.data.title)}
+									/>
+									{item.data.summary && (
+										<p class="line-clamp-2 text-v2-meta text-v2-muted">{item.data.summary}</p>
+									)}
+								</div>
+								{framed && newsImages[index] && (
+									<Frame
+										image={newsImages[index]}
+										sizes="5rem"
+										class="aspect-[210/297] w-16 border border-v2-rule bg-v2-fill sm:w-20"
+									/>
+								)}
+							</li>
+						))}
+					</ul>
+					<a class={more} href="/news">
+						ข่าวทั้งหมด
+					</a>
+				</div>
+			)}
+			{announcements.length > 0 && (
+				<div>
+					<h3 id="home-announcements" class={h2}>
+						ประกาศ
+					</h3>
+					<ul aria-labelledby="home-announcements" class="divide-y divide-v2-rule">
+						{announcements.map((announcement) => (
+							<li class="flex gap-4 py-3">
+								<p class:list={[dateCol, "hidden pt-0.5 sm:block"]}>
+									{shortThaiDate(announcementDate(announcement.data))}
+								</p>
+								<div class="flex min-w-0 flex-col gap-0.5">
+									<a
+										class={titleLink}
+										href={announcementPath(announcement.id)}
+										set:html={thaiTitleHtml(announcement.data.title)}
+									/>
+									<AnnouncementStatusLine data={announcement.data} now={now} />
+								</div>
+							</li>
+						))}
+					</ul>
+					<a class={more} href={ANNOUNCEMENTS_PATH}>
+						ประกาศทั้งหมด
+					</a>
+				</div>
+			)}
+		</section>
+	)}
+</div>
+
+{healthContent.length > 0 && (
+	<section aria-labelledby="home-health" class="page-container pt-8 lg:pt-10">
+		<h2 id="home-health" class={h2}>
+			ความรู้สุขภาพ
+		</h2>
+		<ul class="grid sm:grid-cols-2 sm:gap-x-10">
+			{healthContent.map((item) => {
+				const topic = termsOf(item.data, "topic")[0];
+				return (
+					<li class="flex flex-col gap-1 border-b border-v2-rule py-3">
+						{topic && (
+							<p class="w-fit border border-v2-green px-1.5 text-v2-meta text-v2-green">
+								{topic.label}
+							</p>
+						)}
+						<a
+							class={titleLink}
+							href={healthContentPath(item.id)}
+							set:html={thaiTitleHtml(item.data.title)}
+						/>
+						{item.data.summary && (
+							<p class="line-clamp-1 text-v2-meta text-v2-muted">{item.data.summary}</p>
+						)}
+					</li>
+				);
+			})}
+		</ul>
+		<a class={more} href={HEALTH_CONTENT_PATH}>
+			ความรู้สุขภาพทั้งหมด
+		</a>
+	</section>
+)}
+
+{directory.hasHealthServices && (
+	<section aria-labelledby="home-discovery" class="page-container pt-8 lg:pt-10">
+		<div class="flex flex-col gap-3 border-2 border-v2-green bg-v2-mint p-4 lg:flex-row lg:items-end lg:gap-8 lg:p-6">
+			<div class="lg:w-72 lg:shrink-0">
+				<h2 id="home-discovery" class="text-v2-section text-v2-ink">
+					ค้นหาหน่วยบริการสุขภาพ
+				</h2>
+				<p class="text-v2-meta text-v2-muted">โรงพยาบาลและ รพ.สต. ในอำเภอสอง</p>
+			</div>
+			<form
+				method="get"
+				action={directoryPath()}
+				aria-label="ค้นหาหน่วยบริการ"
+				class="grid flex-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+			>
+				<div class="flex flex-col gap-1">
+					<label class="text-v2-meta font-semibold" for="discovery-area">
+						{FILTER_LABELS.area}
+					</label>
+					<select id="discovery-area" name={FILTER_PARAMS.area} class={control}>
+						<option value="">{FILTER_LABELS.anyArea}</option>
+						{directory.areas.map((area) => (
+							<option value={area.slug}>{area.label}</option>
+						))}
+					</select>
+				</div>
+				<div class="flex flex-col gap-1">
+					<label class="text-v2-meta font-semibold" for="discovery-name">
+						{FILTER_LABELS.name}
+					</label>
+					<input id="discovery-name" name={FILTER_PARAMS.name} type="search" class={control} />
+				</div>
+				<button
+					type="submit"
+					class="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-2 bg-v2-green px-5 font-semibold text-surface-base"
+				>
+					ค้นหาหน่วยบริการ
+				</button>
+			</form>
+		</div>
+	</section>
+)}
+
+{activities.length > 0 && (
+	<section aria-labelledby="home-activities" class="page-container pt-8 lg:pt-10">
+		<h2 id="home-activities" class={h2}>
+			กิจกรรม
+		</h2>
+		{framed ? (
+			<ul class="grid grid-cols-2 gap-x-4 gap-y-5 pt-4 lg:grid-cols-4 lg:gap-x-6">
+				{activities.map((activity, index) => (
+					<li class="flex flex-col gap-1.5">
+						<Frame
+							image={activityImages[index]}
+							sizes="(min-width: 64rem) 17rem, 50vw"
+							class="aspect-[210/297] w-full border border-v2-rule bg-v2-fill"
+						/>
+						<p class="text-v2-meta text-v2-muted">{shortThaiDate(activityDate(activity.data))}</p>
+						<a
+							class:list={[titleLink, "text-[0.9375rem] leading-6 lg:text-v2-body"]}
+							href={activityPath(activity.id)}
+							set:html={thaiTitleHtml(activity.data.title)}
+						/>
+					</li>
+				))}
+			</ul>
+		) : (
+			<ul class="divide-y divide-v2-rule">
+				{activities.map((activity) => (
+					<li class="flex gap-4 py-3">
+						<p class:list={[dateCol, "hidden pt-0.5 sm:block"]}>
+							{shortThaiDate(activityDate(activity.data))}
+						</p>
+						<div class="flex min-w-0 flex-col gap-0.5">
+							<p class="text-v2-meta text-v2-muted sm:hidden">
+								{shortThaiDate(activityDate(activity.data))}
+							</p>
+							<a
+								class={titleLink}
+								href={activityPath(activity.id)}
+								set:html={thaiTitleHtml(activity.data.title)}
+							/>
+							{activity.data.summary && (
+								<p class="line-clamp-2 text-v2-meta text-v2-muted">{activity.data.summary}</p>
+							)}
+						</div>
+					</li>
+				))}
+			</ul>
+		)}
+		<a class={more} href={ACTIVITIES_PATH}>
+			กิจกรรมทั้งหมด
+		</a>
+	</section>
+)}
+
+{quickAccess.length > 0 && (
+	<section aria-labelledby="home-quick-access" class="page-container pt-8 lg:pt-10">
+		<h2 id="home-quick-access" class={h2}>
+			ทางลัด
+		</h2>
+		<ul class="flex flex-wrap gap-x-8 gap-y-1 pt-2">
+			{quickAccess.map((item) => (
+				<li>
+					<a class={more} href={item.href}>
+						{item.label}
+					</a>
+				</li>
+			))}
+		</ul>
+	</section>
+)}
+
+<section aria-labelledby="home-contact" class="page-container pt-8 pb-12 lg:pt-10 lg:pb-16">
+	<h2 id="home-contact" class={h2}>
+		ติดต่อสำนักงาน
+	</h2>
+	<div class="grid gap-x-10 pt-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+		<p class="pb-3 text-v2-muted">{officeSummary}</p>
+		<dl class="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-4 gap-y-2 text-v2-meta">
+			{contact.address && (
+				<>
+					<dt class="font-semibold">ที่อยู่</dt>
+					<dd class="whitespace-pre-line">{contact.address}</dd>
+				</>
+			)}
+			{telephone && (
+				<>
+					<dt class="font-semibold">โทรศัพท์</dt>
+					<dd>
+						<a class={link} href={telephone}>
+							{contact.telephone}
+						</a>
+					</dd>
+				</>
+			)}
+			{contact.openingHours && (
+				<>
+					<dt class="font-semibold">เวลาทำการ</dt>
+					<dd class="whitespace-pre-line">{contact.openingHours}</dd>
+				</>
+			)}
+			{hasMap && (
+				<>
+					<dt class="font-semibold">แผนที่</dt>
+					<dd>
+						<MapLink latitude={contact.latitude} longitude={contact.longitude} />
+					</dd>
+				</>
+			)}
+		</dl>
+	</div>
+	<a class={more} href="/contact">
+		ข้อมูลติดต่อทั้งหมด
+	</a>
+</section>

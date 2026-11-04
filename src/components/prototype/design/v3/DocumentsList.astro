@@ -1,0 +1,131 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 3's Document repository. A large Mitr
+// heading, the filters as rounded fields on a light-yellow band, then sheets two to a row from
+// `md`: a file-type tab, the type and fiscal year, the Mitr title, the summary, and a yellow
+// download pill.
+import Download from "@lucide/astro/icons/download";
+import DocumentStatus from "../../../DocumentStatus.astro";
+import EmptyState from "../../../EmptyState.astro";
+import Pagination from "../../../Pagination.astro";
+import type { DocumentsListProps } from "../documents";
+import { documentPath, listedDomainStatus } from "../../../../lib/documents";
+import { FILE_UNAVAILABLE, downloadableFile } from "../../../../lib/media";
+import { thaiTitleHtml } from "../../../../lib/prototype-design";
+import { termsOf } from "../../../../lib/terms";
+import { formatThaiDate } from "../../../../lib/thai-date";
+
+type Props = DocumentsListProps;
+const { title, lead, entries, page, hasMore, fields, action, filtered, empty } = Astro.props;
+const rows = await Promise.all(
+	entries.map(async (entry) => ({
+		entry,
+		type: termsOf(entry.data, "document_type")[0],
+		file: await downloadableFile(entry.data.file, Astro.locals.emdash),
+		status: listedDomainStatus(entry.data.domain_status),
+	})),
+);
+const control =
+	"min-h-12 w-full min-w-0 rounded-pill border-2 border-v3-input bg-surface-base px-4 text-v3-body";
+---
+
+<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-24">
+	<div class="flex max-w-3xl flex-col gap-3">
+		<h1 class="font-v3-head text-v3-display-sm font-medium text-v3-forest lg:text-v3-display">
+			{title}
+		</h1>
+		<p class="text-v3-muted lg:text-[1.1875rem] lg:leading-8">{lead}</p>
+	</div>
+	<form
+		method="get"
+		action={action}
+		aria-label="กรองเอกสาร"
+		class="grid gap-3 rounded-24 bg-v3-yellow-light p-4 sm:grid-cols-3 sm:p-6 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end"
+	>
+		{fields.map((field) => (
+			<div class="flex min-w-0 flex-col gap-1">
+				<label class="text-v3-meta font-semibold text-v3-forest" for={`filter-${field.name}`}>
+					{field.label}
+				</label>
+				<select id={`filter-${field.name}`} name={field.name} class={control}>
+					<option value="">{field.anyLabel}</option>
+					{field.options.map((option) => (
+						<option value={option.value} selected={option.value === field.value}>
+							{option.label}
+						</option>
+					))}
+				</select>
+			</div>
+		))}
+		<div class="flex items-center gap-4">
+			<button
+				type="submit"
+				class="inline-flex min-h-12 cursor-pointer items-center rounded-pill bg-v3-forest px-6 font-v3-head font-medium text-surface-base"
+			>
+				แสดงผล
+			</button>
+			{filtered && (
+				<a class="text-v3-leaf underline underline-offset-4" href={action}>
+					ล้างตัวกรอง
+				</a>
+			)}
+		</div>
+	</form>
+	{rows.length > 0 ? (
+		<ul class="grid gap-4 md:grid-cols-2 lg:gap-6">
+			{rows.map(({ entry, type, file, status }) => (
+				<li>
+					<article class="relative flex h-full flex-col gap-2 rounded-24 border-2 border-v3-line bg-surface-base p-5 pt-6">
+						<span
+							aria-hidden="true"
+							class="absolute -top-px right-6 rounded-b-8 bg-v3-yellow px-3 py-1 font-v3-head text-v3-meta font-medium text-v3-forest"
+						>
+							{file?.label.split(",")[0] ?? "ไฟล์"}
+						</span>
+						<p class="pr-20 text-v3-meta text-v3-leaf">
+							{[type?.label, entry.data.fiscal_year && `ปีงบประมาณ ${entry.data.fiscal_year}`]
+								.filter(Boolean)
+								.join("  ")}
+						</p>
+						<h2 class="font-v3-head text-[1.1875rem] leading-7 font-medium text-v3-forest">
+							<a
+								class="underline-offset-4 hover:text-v3-leaf hover:underline"
+								href={documentPath(entry.id)}
+								set:html={thaiTitleHtml(entry.data.title)}
+							/>
+						</h2>
+						{entry.data.summary && (
+							<p class="line-clamp-2 text-v3-meta text-v3-muted">{entry.data.summary}</p>
+						)}
+						{status && (
+							<p>
+								<DocumentStatus status={status} />
+							</p>
+						)}
+						<div class="mt-auto flex flex-wrap items-center justify-between gap-3 pt-2">
+							{entry.data.document_at && (
+								<p class="text-v3-meta text-v3-muted">
+									ลงวันที่ {formatThaiDate(entry.data.document_at)}
+								</p>
+							)}
+							{file ? (
+								<a
+									class="inline-flex min-h-11 items-center gap-2 rounded-pill bg-v3-yellow px-4 font-v3-head font-medium text-v3-forest"
+									href={file.href}
+									download={file.filename}
+								>
+									<Download class="shrink-0" size={20} />
+									ดาวน์โหลด<span class="sr-only"> {entry.data.title}</span>
+								</a>
+							) : (
+								<p class="text-v3-meta text-v3-muted">{FILE_UNAVAILABLE}</p>
+							)}
+						</div>
+					</article>
+				</li>
+			))}
+		</ul>
+	) : (
+		empty && <EmptyState message={empty.message} action={empty.action} />
+	)}
+	{rows.length > 0 && <Pagination page={page} hasMore={hasMore} />}
+</div>

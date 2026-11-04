@@ -1,0 +1,89 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 2's Activities list. A board of One
+// Pages pinned whole, two to a row on phones and four from `lg`, each with its date and title, the
+// summary from `lg` up (frame); or a dense dated list, the date in its own column from `sm` up, the
+// title, the summary and the place (text).
+import EmptyState from "../../../EmptyState.astro";
+import Pagination from "../../../Pagination.astro";
+import Frame from "../Frame.astro";
+import type { ActivitiesListProps } from "../activities";
+import { activityDate, activityPath } from "../../../../lib/activities";
+import { availableMedia } from "../../../../lib/media";
+import { shortThaiDate, thaiDateOf, thaiTitleHtml } from "../../../../lib/prototype-design";
+
+type Props = ActivitiesListProps;
+const { title, lead, entries, page, hasMore, onepage, firstPageHref } = Astro.props;
+const images = await Promise.all(
+	entries.map((entry) => availableMedia(entry.data.featured_image, Astro.locals.emdash)),
+);
+const framed = onepage === "frame";
+const titleLink = "font-semibold text-v2-green underline underline-offset-4 hover:decoration-2";
+---
+
+<div class="page-container flex flex-col gap-5 pt-5 pb-14 lg:pb-20">
+	<div class="flex max-w-3xl flex-col gap-1">
+		<h1 class="text-v2-title-sm lg:text-v2-title">{title}</h1>
+		<p class="text-v2-muted">{lead}</p>
+	</div>
+	{entries.length > 0 ? (
+		framed ? (
+			<ul class="grid grid-cols-2 gap-x-4 gap-y-6 border-t-3 border-v2-green pt-5 sm:grid-cols-3 lg:grid-cols-4 lg:gap-x-6">
+				{entries.map((entry, index) => (
+					<li class="flex flex-col gap-1.5">
+						<Frame
+							image={images[index]}
+							sizes="(min-width: 64rem) 17rem, (min-width: 40rem) 33vw, 50vw"
+							eager={index < 4}
+							class="aspect-[210/297] w-full border border-v2-rule bg-v2-fill"
+						/>
+						<p class="text-v2-meta text-v2-muted">{thaiDateOf(activityDate(entry.data))}</p>
+						<h2 class="text-[0.9375rem] leading-6 lg:text-v2-body">
+							<a
+								class={titleLink}
+								href={activityPath(entry.id)}
+								set:html={thaiTitleHtml(entry.data.title)}
+							/>
+						</h2>
+						{entry.data.summary && (
+							<p class="hidden text-v2-meta text-v2-muted lg:line-clamp-3">{entry.data.summary}</p>
+						)}
+					</li>
+				))}
+			</ul>
+		) : (
+			<ul class="divide-y divide-v2-rule border-y-3 border-t-v2-green border-b-v2-rule">
+				{entries.map((entry) => (
+					<li class="flex gap-6 py-3.5">
+						<p class="hidden w-28 shrink-0 pt-0.5 text-v2-meta text-v2-muted sm:block">
+							{shortThaiDate(activityDate(entry.data))}
+						</p>
+						<div class="flex min-w-0 flex-col gap-1">
+							<p class="text-v2-meta text-v2-muted sm:hidden">
+								{shortThaiDate(activityDate(entry.data))}
+							</p>
+							<h2 class="text-v2-item">
+								<a
+									class={titleLink}
+									href={activityPath(entry.id)}
+									set:html={thaiTitleHtml(entry.data.title)}
+								/>
+							</h2>
+							{entry.data.summary && <p class="line-clamp-2 text-v2-muted">{entry.data.summary}</p>}
+							{entry.data.location_text && (
+								<p class="text-v2-meta text-v2-muted">สถานที่ {entry.data.location_text}</p>
+							)}
+						</div>
+					</li>
+				))}
+			</ul>
+		)
+	) : page > 1 ? (
+		<EmptyState
+			message="ไม่พบกิจกรรมในหน้านี้"
+			action={{ href: firstPageHref, label: "กลับไปหน้าแรกของรายการ" }}
+		/>
+	) : (
+		<EmptyState message="ยังไม่มีกิจกรรม" />
+	)}
+	{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
+</div>

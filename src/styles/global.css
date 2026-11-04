@@ -11,6 +11,8 @@
  */
 
 @import "tailwindcss" source("../");
+/* PROTOTYPE (branch prototype/design): Feature 006's design variants. */
+@import "./prototype-design.css";
 
 @theme {
 	/* Figma colour variables */

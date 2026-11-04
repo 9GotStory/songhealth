@@ -1,0 +1,67 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 3's footer: forest green, the office's
+// name large in Mitr, its contact details, the official channels and the footer links, headed in
+// yellow.
+import ContentLink from "../../../ContentLink.astro";
+import { telephoneHref } from "../../../../lib/contact-links";
+import { OFFICE_NAME } from "../../../../lib/site-identity";
+import type { ShellProps } from "../shell";
+
+type Props = ShellProps;
+const { identity, footerLinks, channels, contact } = Astro.props;
+const telephone = contact.telephone && telephoneHref(contact.telephone);
+const heading = "font-v3-head text-[1.0625rem] font-medium text-v3-yellow";
+---
+
+<footer class="focus-ring-on-dark bg-v3-forest text-surface-base">
+	<div class="page-container grid gap-8 py-12 lg:grid-cols-[1.5fr_1fr_1fr]">
+		<div class="flex flex-col gap-3">
+			{identity.logo && (
+				<img
+					class="size-16 rounded-pill bg-surface-base object-contain p-1"
+					src={identity.logo.url}
+					alt=""
+					width="64"
+					height="64"
+				/>
+			)}
+			<p class="font-v3-head text-[1.75rem] leading-9 font-medium">{identity.title}</p>
+			<p class="text-v3-meta text-surface-base/85">{OFFICE_NAME}</p>
+		</div>
+		<div class="flex flex-col gap-2 text-v3-meta">
+			<p class={heading}>ติดต่อ</p>
+			{contact.address && <p class="whitespace-pre-line">{contact.address}</p>}
+			{telephone && (
+				<a class="underline underline-offset-4" href={telephone}>
+					โทร {contact.telephone}
+				</a>
+			)}
+			{contact.openingHours && <p class="whitespace-pre-line">{contact.openingHours}</p>}
+		</div>
+		<div class="flex flex-col gap-2 text-v3-meta">
+			{channels.length > 0 && (
+				<>
+					<p class={heading}>ติดตามเรา</p>
+					<ul class="flex flex-wrap gap-x-5 gap-y-2">
+						{channels.map((channel) => (
+							<li>
+								<ContentLink compact class="underline underline-offset-4" href={channel.href}>
+									{channel.label}
+								</ContentLink>
+							</li>
+						))}
+					</ul>
+				</>
+			)}
+			<ul class="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+				{footerLinks.map((item) => (
+					<li>
+						<a class="underline underline-offset-4" href={item.href}>
+							{item.label}
+						</a>
+					</li>
+				))}
+			</ul>
+		</div>
+	</div>
+</footer>

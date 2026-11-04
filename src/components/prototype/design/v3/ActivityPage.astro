@@ -1,0 +1,145 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 3's Activity page, a magazine spread.
+// Frame: from `lg` up the One Page stands whole on the left and stays in view while the story
+// reads on the right: the date and the place as chips, the large Mitr title, the summary (the
+// story in words, Q14) and who took part. Text: the story leads on a light-yellow band, and the
+// One Page follows, centred. Phones read the title, the summary, the One Page, then the rest.
+import Frame from "../Frame.astro";
+import { mediaFileHref, type ActivityPageProps } from "../activities";
+import { ACTIVITIES_PATH, activityDate, activityPath } from "../../../../lib/activities";
+import { isPortrait, thaiDateOf, thaiTitleHtml } from "../../../../lib/prototype-design";
+import { formatThaiDate } from "../../../../lib/thai-date";
+
+type Props = ActivityPageProps;
+const { activity, image, gallery, latest, onepage } = Astro.props;
+const framed = onepage === "frame";
+const portrait = isPortrait(image);
+const chip = "rounded-pill bg-v3-yellow-light px-3 py-1 text-v3-meta text-v3-forest";
+---
+
+<article class="page-container flex flex-col gap-10 pt-6 pb-16 lg:pb-24">
+	<div
+		class:list={[
+			"grid gap-6",
+			framed && image ? "lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14" : "",
+			!framed && "rounded-32 bg-v3-yellow-light p-5 sm:p-8 lg:p-12",
+		]}
+	>
+		<div class="flex min-w-0 flex-col gap-4 lg:order-2">
+			<ul class="flex flex-wrap gap-2">
+				{activity.activity_at && <li class={chip}>{formatThaiDate(activity.activity_at)}</li>}
+				{activity.location_text && <li class={chip}>{activity.location_text}</li>}
+			</ul>
+			<h1
+				class="font-v3-head text-[2rem] leading-[2.75rem] font-medium text-balance text-v3-forest lg:text-[3rem] lg:leading-[3.875rem]"
+				set:html={thaiTitleHtml(activity.title)}
+			/>
+			{activity.summary && (
+				<p class="text-[1.1875rem] leading-[2.125rem] whitespace-pre-line text-v3-ink lg:text-[1.3125rem] lg:leading-[2.375rem]">
+					{activity.summary}
+				</p>
+			)}
+			{activity.participants_text && (
+				<p class="text-v3-muted">
+					<span class="font-semibold text-v3-forest">ผู้เข้าร่วม</span> {activity.participants_text}
+				</p>
+			)}
+			{activity.publishedAt && (
+				<p class="text-v3-meta text-v3-muted">เผยแพร่ {formatThaiDate(activity.publishedAt)}</p>
+			)}
+		</div>
+		{framed && image && (
+			<div class="lg:order-1 lg:sticky lg:top-6 lg:self-start">
+				<Frame
+					image={image}
+					alt={image.alt ?? ""}
+					sizes="(min-width: 64rem) 30rem, 100vw"
+					eager
+					class:list={[
+						"w-full rounded-24 bg-v3-yellow-light shadow-card",
+						portrait ? "aspect-[210/297]" : "aspect-[4/3]",
+					]}
+				/>
+			</div>
+		)}
+	</div>
+	{!framed && image && (
+		<figure
+			class:list={[
+				"mx-auto flex w-full flex-col items-center gap-3",
+				portrait ? "max-w-md" : "max-w-4xl",
+			]}
+		>
+			<Frame
+				image={image}
+				alt={image.alt ?? ""}
+				sizes="(min-width: 28rem) 28rem, 100vw"
+				class:list={[
+					"w-full rounded-24 bg-v3-yellow-light shadow-card",
+					portrait ? "aspect-[210/297]" : "aspect-[4/3]",
+				]}
+			/>
+			{portrait && (
+				<a
+					class="font-v3-head font-medium text-v3-leaf underline decoration-2 underline-offset-6"
+					href={mediaFileHref(image)}
+				>
+					เปิด One Page ขนาดเต็ม
+				</a>
+			)}
+		</figure>
+	)}
+	{gallery.length > 0 && (
+		<section aria-labelledby="activity-gallery" class="flex flex-col gap-4">
+			<h2 id="activity-gallery" class="font-v3-head text-v3-section-sm font-medium text-v3-forest">
+				ภาพบรรยากาศ
+			</h2>
+			<ul class="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-5">
+				{gallery.map((item) => (
+					<li>
+						<figure class="flex flex-col gap-2">
+							<Frame
+								image={item.image}
+								alt={item.image.alt ?? ""}
+								sizes="(min-width: 64rem) 24rem, 50vw"
+								cover
+								class="aspect-[4/3] w-full rounded-16 bg-v3-yellow-light"
+							/>
+							{item.caption && (
+								<figcaption class="text-v3-meta text-v3-muted">{item.caption}</figcaption>
+							)}
+						</figure>
+					</li>
+				))}
+			</ul>
+		</section>
+	)}
+	{latest.length > 0 && (
+		<section
+			aria-labelledby="latest-activities"
+			class="flex flex-col gap-4 border-t-2 border-v3-line pt-8"
+		>
+			<h2 id="latest-activities" class="font-v3-head text-v3-section-sm font-medium text-v3-forest">
+				กิจกรรมอื่นในชุมชน
+			</h2>
+			<ul class="grid gap-x-8 gap-y-3 sm:grid-cols-3">
+				{latest.map((entry) => (
+					<li class="flex flex-col gap-1">
+						<span class="text-v3-meta text-v3-muted">{thaiDateOf(activityDate(entry.data))}</span>
+						<a
+							class="font-v3-head font-medium text-v3-forest underline-offset-4 hover:underline"
+							href={activityPath(entry.id)}
+							set:html={thaiTitleHtml(entry.data.title)}
+						/>
+					</li>
+				))}
+			</ul>
+			<a
+				class="inline-flex min-h-11 w-fit items-center font-v3-head font-medium text-v3-leaf underline decoration-2 underline-offset-6"
+				href={ACTIVITIES_PATH}
+			>
+				ดูกิจกรรมทั้งหมด
+			</a>
+		</section>
+	)}
+</article>

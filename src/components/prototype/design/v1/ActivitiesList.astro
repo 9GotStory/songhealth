@@ -1,0 +1,81 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 1's Activities list. Rows between
+// dividers, one column on phones and two from `lg`: the One Page framed whole beside the date, the
+// title and the summary (frame), or the text with a small One Page (text).
+import MapPin from "@lucide/astro/icons/map-pin";
+import EmptyState from "../../../EmptyState.astro";
+import Pagination from "../../../Pagination.astro";
+import Frame from "../Frame.astro";
+import type { ActivitiesListProps } from "../activities";
+import { activityDate, activityPath } from "../../../../lib/activities";
+import { availableMedia } from "../../../../lib/media";
+import { thaiDateOf, thaiTitleHtml } from "../../../../lib/prototype-design";
+
+type Props = ActivitiesListProps;
+const { title, lead, entries, page, hasMore, onepage, firstPageHref } = Astro.props;
+const images = await Promise.all(
+	entries.map((entry) => availableMedia(entry.data.featured_image, Astro.locals.emdash)),
+);
+const framed = onepage === "frame";
+---
+
+<div class="page-container flex flex-col gap-6 pt-5 pb-14 lg:pb-20">
+	<div class="flex max-w-3xl flex-col gap-2">
+		<h1 class="text-v1-title-sm text-brand-dark lg:text-v1-title">{title}</h1>
+		<p class="text-text-secondary">{lead}</p>
+	</div>
+	{entries.length > 0 ? (
+		<ul class="grid border-t border-border-default lg:grid-cols-2 lg:gap-x-10">
+			{entries.map((entry, index) => (
+				<li class="border-b border-border-default">
+					<article class="flex gap-4 py-5">
+						{framed && (
+							<Frame
+								image={images[index]}
+								sizes="(min-width: 64rem) 10rem, 7rem"
+								eager={index < 4}
+								class="aspect-[210/297] w-28 rounded-14 border border-border-default bg-surface-soft lg:w-40"
+							/>
+						)}
+						<div class="flex min-w-0 flex-1 flex-col gap-1.5">
+							<p class="text-v1-meta text-text-secondary">{thaiDateOf(activityDate(entry.data))}</p>
+							<h2 class="text-v1-item">
+								<a
+									class="underline-offset-4 hover:text-brand-primary hover:underline"
+									href={activityPath(entry.id)}
+									set:html={thaiTitleHtml(entry.data.title)}
+								/>
+							</h2>
+							{entry.data.summary && (
+								<p class:list={["text-text-secondary", framed ? "line-clamp-4" : "line-clamp-3"]}>
+									{entry.data.summary}
+								</p>
+							)}
+							{entry.data.location_text && (
+								<p class="flex items-start gap-1.5 text-v1-meta text-text-secondary">
+									<MapPin class="mt-0.5 shrink-0" size={16} />
+									{entry.data.location_text}
+								</p>
+							)}
+						</div>
+						{!framed && images[index] && (
+							<Frame
+								image={images[index]}
+								sizes="4rem"
+								class="aspect-[210/297] w-14 rounded-8 bg-surface-soft"
+							/>
+						)}
+					</article>
+				</li>
+			))}
+		</ul>
+	) : page > 1 ? (
+		<EmptyState
+			message="ไม่พบกิจกรรมในหน้านี้"
+			action={{ href: firstPageHref, label: "กลับไปหน้าแรกของรายการ" }}
+		/>
+	) : (
+		<EmptyState message="ยังไม่มีกิจกรรม" />
+	)}
+	{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
+</div>

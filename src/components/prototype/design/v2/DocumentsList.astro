@@ -1,0 +1,174 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 2's Document repository, an agency
+// register. A filter row of square controls, then from `md` up a table: the title with its
+// summary and any status, the type, the fiscal year, the Document date and the file with a direct
+// download link. Phones get each Document as a block with the same facts labelled.
+import Download from "@lucide/astro/icons/download";
+import DocumentStatus from "../../../DocumentStatus.astro";
+import EmptyState from "../../../EmptyState.astro";
+import Pagination from "../../../Pagination.astro";
+import type { DocumentsListProps } from "../documents";
+import { documentPath, listedDomainStatus } from "../../../../lib/documents";
+import { FILE_UNAVAILABLE, downloadableFile } from "../../../../lib/media";
+import { shortThaiDate, thaiTitleHtml } from "../../../../lib/prototype-design";
+import { termsOf } from "../../../../lib/terms";
+
+type Props = DocumentsListProps;
+const { title, lead, entries, page, hasMore, fields, action, filtered, empty } = Astro.props;
+const rows = await Promise.all(
+	entries.map(async (entry) => ({
+		entry,
+		type: termsOf(entry.data, "document_type")[0],
+		file: await downloadableFile(entry.data.file, Astro.locals.emdash),
+		status: listedDomainStatus(entry.data.domain_status),
+	})),
+);
+const control =
+	"min-h-11 w-full min-w-0 rounded-2 border-2 border-v2-input bg-surface-base px-3 text-v2-body";
+const titleLink = "font-semibold text-v2-green underline underline-offset-4 hover:decoration-2";
+const download =
+	"inline-flex min-h-11 items-center gap-1.5 font-semibold text-v2-green underline underline-offset-4";
+---
+
+<div class="page-container flex flex-col gap-5 pt-5 pb-14 lg:pb-20">
+	<div class="flex max-w-3xl flex-col gap-1">
+		<h1 class="text-v2-title-sm lg:text-v2-title">{title}</h1>
+		<p class="text-v2-muted">{lead}</p>
+	</div>
+	<form
+		method="get"
+		action={action}
+		aria-label="กรองเอกสาร"
+		class="grid gap-3 border-y-2 border-v2-rule bg-v2-fill p-4 sm:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end"
+	>
+		{fields.map((field) => (
+			<div class="flex min-w-0 flex-col gap-1">
+				<label class="text-v2-meta font-semibold" for={`filter-${field.name}`}>
+					{field.label}
+				</label>
+				<select id={`filter-${field.name}`} name={field.name} class={control}>
+					<option value="">{field.anyLabel}</option>
+					{field.options.map((option) => (
+						<option value={option.value} selected={option.value === field.value}>
+							{option.label}
+						</option>
+					))}
+				</select>
+			</div>
+		))}
+		<div class="flex items-center gap-4">
+			<button
+				type="submit"
+				class="inline-flex min-h-11 cursor-pointer items-center rounded-2 bg-v2-green px-6 font-semibold text-surface-base"
+			>
+				แสดงผล
+			</button>
+			{filtered && (
+				<a class="text-v2-green underline underline-offset-4" href={action}>
+					ล้างตัวกรอง
+				</a>
+			)}
+		</div>
+	</form>
+	{rows.length > 0 ? (
+		<>
+			<table class="hidden w-full border-collapse text-left md:table">
+				<caption class="sr-only">{title}</caption>
+				<thead class="border-b-3 border-v2-green text-v2-meta">
+					<tr>
+						<th scope="col" class="py-2 pr-4 font-bold">
+							ชื่อเอกสาร
+						</th>
+						<th scope="col" class="w-32 py-2 pr-4 font-bold">
+							ประเภท
+						</th>
+						<th scope="col" class="w-24 py-2 pr-4 font-bold">
+							ปีงบประมาณ
+						</th>
+						<th scope="col" class="w-28 py-2 pr-4 font-bold">
+							ลงวันที่
+						</th>
+						<th scope="col" class="w-40 py-2 font-bold">
+							ไฟล์
+						</th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-v2-rule align-top">
+					{rows.map(({ entry, type, file, status }) => (
+						<tr>
+							<td class="py-3 pr-4">
+								<a
+									class={titleLink}
+									href={documentPath(entry.id)}
+									set:html={thaiTitleHtml(entry.data.title)}
+								/>
+								{entry.data.summary && (
+									<p class="line-clamp-1 text-v2-meta text-v2-muted">{entry.data.summary}</p>
+								)}
+								{status && (
+									<p class="mt-1">
+										<DocumentStatus status={status} />
+									</p>
+								)}
+							</td>
+							<td class="py-3 pr-4 text-v2-meta">{type?.label}</td>
+							<td class="py-3 pr-4 text-v2-meta">{entry.data.fiscal_year}</td>
+							<td class="py-3 pr-4 text-v2-meta">
+								{entry.data.document_at && shortThaiDate(entry.data.document_at)}
+							</td>
+							<td class="py-1 text-v2-meta">
+								{file ? (
+									<a class={download} href={file.href} download={file.filename}>
+										<Download class="shrink-0" size={20} />
+										{file.label}
+										<span class="sr-only"> ดาวน์โหลด {entry.data.title}</span>
+									</a>
+								) : (
+									<span class="inline-flex min-h-11 items-center text-v2-muted">
+										{FILE_UNAVAILABLE}
+									</span>
+								)}
+							</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+			<ul class="divide-y divide-v2-rule border-y-3 border-t-v2-green border-b-v2-rule md:hidden">
+				{rows.map(({ entry, type, file, status }) => (
+					<li class="flex flex-col gap-1 py-3">
+						<a
+							class={titleLink}
+							href={documentPath(entry.id)}
+							set:html={thaiTitleHtml(entry.data.title)}
+						/>
+						<p class="text-v2-meta text-v2-muted">
+							{[
+								type?.label,
+								entry.data.fiscal_year && `ปีงบประมาณ ${entry.data.fiscal_year}`,
+								entry.data.document_at && `ลงวันที่ ${shortThaiDate(entry.data.document_at)}`,
+							]
+								.filter(Boolean)
+								.join("  ")}
+						</p>
+						{status && (
+							<p>
+								<DocumentStatus status={status} />
+							</p>
+						)}
+						{file ? (
+							<a class={download} href={file.href} download={file.filename}>
+								<Download class="shrink-0" size={20} />
+								ดาวน์โหลด {file.label}
+							</a>
+						) : (
+							<p class="text-v2-meta text-v2-muted">{FILE_UNAVAILABLE}</p>
+						)}
+					</li>
+				))}
+			</ul>
+		</>
+	) : (
+		empty && <EmptyState message={empty.message} action={empty.action} />
+	)}
+	{rows.length > 0 && <Pagination page={page} hasMore={hasMore} />}
+</div>

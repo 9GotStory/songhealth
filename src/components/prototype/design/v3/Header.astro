@@ -1,0 +1,100 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 3, ชุมชน เน้นภาพ. A white header under a
+// yellow rule: the emblem and the office's name set in Mitr, the main navigation in Mitr, and a
+// yellow ค้นหา pill. Below `lg` a native <details> menu opens a light-yellow panel with the
+// navigation set large; it flows in the page.
+import Menu from "@lucide/astro/icons/menu";
+import Search from "@lucide/astro/icons/search";
+import X from "@lucide/astro/icons/x";
+import { thaiTitleHtml } from "../../../../lib/prototype-design";
+import type { ShellProps } from "../shell";
+
+type Props = ShellProps;
+const { identity, navigation } = Astro.props;
+---
+
+<header class="relative border-t-6 border-v3-yellow bg-surface-base">
+	<div class="page-container flex items-center gap-3 py-3 lg:py-4">
+		<a href="/" class="flex min-w-0 items-center gap-3">
+			{identity.logo ? (
+				<img
+					class="size-12 shrink-0 object-contain lg:size-14"
+					src={identity.logo.url}
+					alt=""
+					width={identity.logo.width ?? 56}
+					height={identity.logo.height ?? 56}
+				/>
+			) : (
+				<span aria-hidden="true" class="size-12 shrink-0 rounded-pill bg-v3-leaf lg:size-14" />
+			)}
+			<span class="flex min-w-0 flex-col">
+				<span
+					class="font-v3-head text-[1.0625rem] leading-6 font-medium text-v3-forest lg:text-[1.375rem] lg:leading-8"
+					set:html={thaiTitleHtml(identity.title)}
+				/>
+				{identity.tagline && (
+					<span class="hidden text-v3-meta text-v3-muted sm:block">{identity.tagline}</span>
+				)}
+			</span>
+		</a>
+		<nav aria-label="เมนูหลัก" class="ml-auto hidden lg:block">
+			<ul class="flex items-center gap-1 font-v3-head text-[1rem] font-medium">
+				{navigation.map((item) => (
+					<li>
+						<a
+							href={item.href}
+							aria-current={item.current}
+							class:list={[
+								"block rounded-pill px-3 py-2 hover:bg-v3-yellow-light",
+								item.current ? "bg-v3-yellow-light text-v3-forest" : "text-v3-ink",
+							]}
+						>
+							{item.label}
+						</a>
+					</li>
+				))}
+			</ul>
+		</nav>
+		<a
+			href="/search"
+			class="ml-auto inline-flex min-h-11 shrink-0 items-center gap-2 rounded-pill bg-v3-yellow px-3 font-v3-head font-medium text-v3-forest lg:ml-2 lg:px-4"
+		>
+			<Search class="shrink-0" size={20} />
+			<span class="sr-only lg:not-sr-only">ค้นหา</span>
+		</a>
+		<span class="w-24 shrink-0 lg:hidden" aria-hidden="true"></span>
+	</div>
+	<details class="group lg:hidden">
+		<summary class="absolute top-4.5 right-(--page-gutter) flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-pill bg-v3-forest px-4 font-v3-head font-medium text-surface-base [&::-webkit-details-marker]:hidden">
+			<Menu class="shrink-0 group-open:hidden" size={20} />
+			<X class="hidden shrink-0 group-open:block" size={20} />
+			<span>เมนู</span>
+		</summary>
+		<nav aria-label="เมนูหลัก" class="bg-v3-yellow-light">
+			<ul class="page-container flex flex-col py-3 font-v3-head">
+				{navigation.map((item) => (
+					<li>
+						<a
+							href={item.href}
+							aria-current={item.current}
+							class:list={[
+								"flex min-h-12 items-center gap-3 text-[1.375rem] leading-8",
+								item.current ? "text-v3-leaf underline underline-offset-6" : "text-v3-forest",
+							]}
+						>
+							{item.label}
+						</a>
+					</li>
+				))}
+				<li class="mt-2 border-t border-v3-line pt-3">
+					<a
+						class="flex min-h-11 items-center text-[1.0625rem] text-v3-leaf underline underline-offset-4"
+						href="/contact"
+					>
+						ติดต่อเรา
+					</a>
+				</li>
+			</ul>
+		</nav>
+	</details>
+</header>

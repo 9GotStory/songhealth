@@ -1,0 +1,36 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): a picture shown whole inside a frame of a fixed
+// shape, the One Page's A4 portrait unless the caller gives another. A One Page is never cropped
+// (grill Q13); a landscape picture in a portrait frame is letterboxed on the frame's fill. Without
+// a picture the frame shows the fill only. The picture is decorative by default: the card's title
+// names its link.
+import { Image } from "emdash/ui";
+import type { ImageFieldValue } from "../../../lib/news";
+
+interface Props {
+	image?: ImageFieldValue;
+	/** The responsive width of the frame, as an <img sizes>. */
+	sizes: string;
+	/** The frame's size, shape, fill and corners, such as `w-24 aspect-[210/297] bg-surface-soft`. */
+	class?: string;
+	/** The picture's alt text; decorative when left out. */
+	alt?: string;
+	eager?: boolean;
+	/** Fill the frame rather than show the picture whole: a landscape photo in a landscape frame. */
+	cover?: boolean;
+}
+
+const { image, sizes, class: frame, alt = "", eager = false, cover = false } = Astro.props;
+---
+
+<span class:list={["block shrink-0 overflow-hidden", frame]}>
+	{image && (
+		<Image
+			image={image}
+			alt={alt}
+			sizes={sizes}
+			loading={eager ? "eager" : "lazy"}
+			class:list={["size-full", cover ? "object-cover" : "object-contain"]}
+		/>
+	)}
+</span>

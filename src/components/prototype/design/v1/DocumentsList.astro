@@ -1,0 +1,72 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 1's Document repository. The current
+// filter form, then rows between dividers instead of shadowed cards: the type and dates above the
+// title, the summary, then the file and any status.
+import FileText from "@lucide/astro/icons/file-text";
+import DocumentStatus from "../../../DocumentStatus.astro";
+import EmptyState from "../../../EmptyState.astro";
+import FilterForm from "../../../FilterForm.astro";
+import Pagination from "../../../Pagination.astro";
+import type { DocumentsListProps } from "../documents";
+import { documentPath, listedDomainStatus } from "../../../../lib/documents";
+import { FILE_UNAVAILABLE, downloadableFile } from "../../../../lib/media";
+import { termsOf } from "../../../../lib/terms";
+import { formatThaiDate } from "../../../../lib/thai-date";
+import { thaiTitleHtml } from "../../../../lib/prototype-design";
+
+type Props = DocumentsListProps;
+const { title, lead, entries, page, hasMore, fields, action, empty } = Astro.props;
+const rows = await Promise.all(
+	entries.map(async (entry) => ({
+		entry,
+		type: termsOf(entry.data, "document_type")[0],
+		file: await downloadableFile(entry.data.file, Astro.locals.emdash),
+		status: listedDomainStatus(entry.data.domain_status),
+	})),
+);
+---
+
+<div class="page-container flex flex-col gap-6 pt-5 pb-14 lg:pb-20">
+	<div class="flex max-w-3xl flex-col gap-2">
+		<h1 class="text-v1-title-sm text-brand-dark lg:text-v1-title">{title}</h1>
+		<p class="text-text-secondary">{lead}</p>
+	</div>
+	<FilterForm label="กรองเอกสาร" action={action} fields={fields} />
+	{rows.length > 0 ? (
+		<ul class="border-t border-border-default">
+			{rows.map(({ entry, type, file, status }) => (
+				<li class="border-b border-border-default">
+					<article class="flex gap-4 py-4">
+						<FileText class="mt-1 hidden shrink-0 text-brand-primary sm:block" size={24} />
+						<div class="flex min-w-0 flex-col gap-1">
+							<p class="text-v1-meta text-text-secondary">
+								{type && <span class="text-brand-primary">{type.label}</span>}
+								{entry.data.document_at && (
+									<span> ลงวันที่ {formatThaiDate(entry.data.document_at)}</span>
+								)}
+								{entry.data.fiscal_year && <span> ปีงบประมาณ {entry.data.fiscal_year}</span>}
+							</p>
+							<h2 class="text-v1-item">
+								<a
+									class="underline-offset-4 hover:text-brand-primary hover:underline"
+									href={documentPath(entry.id)}
+									set:html={thaiTitleHtml(entry.data.title)}
+								/>
+							</h2>
+							{entry.data.summary && (
+								<p class="line-clamp-2 text-v1-meta text-text-secondary">{entry.data.summary}</p>
+							)}
+							<p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-v1-meta text-text-secondary">
+								<span>{file ? `ไฟล์ ${file.label}` : FILE_UNAVAILABLE}</span>
+								{status && <DocumentStatus status={status} />}
+							</p>
+						</div>
+					</article>
+				</li>
+			))}
+		</ul>
+	) : (
+		empty && <EmptyState message={empty.message} action={empty.action} />
+	)}
+	{rows.length > 0 && <Pagination page={page} hasMore={hasMore} />}
+</div>

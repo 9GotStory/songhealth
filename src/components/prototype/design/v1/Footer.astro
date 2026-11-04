@@ -1,0 +1,63 @@
+---
+// PROTOTYPE (throwaway, branch prototype/design): variant 1's footer: brand-dark, the emblem and
+// the office's name, its address and telephone, then the official channels and the footer links.
+import ContentLink from "../../../ContentLink.astro";
+import { telephoneHref } from "../../../../lib/contact-links";
+import { OFFICE_NAME } from "../../../../lib/site-identity";
+import type { ShellProps } from "../shell";
+
+type Props = ShellProps;
+const { identity, footerLinks, channels, contact } = Astro.props;
+const telephone = contact.telephone && telephoneHref(contact.telephone);
+---
+
+<footer class="focus-ring-on-dark bg-brand-dark text-surface-base">
+	<div class="page-container grid gap-8 py-10 lg:grid-cols-[1.4fr_1fr_1fr] lg:py-12">
+		<div class="flex items-start gap-4">
+			{identity.logo && (
+				<img
+					class="size-14 shrink-0 rounded-pill bg-surface-base object-contain p-1"
+					src={identity.logo.url}
+					alt=""
+					width="56"
+					height="56"
+				/>
+			)}
+			<div class="flex flex-col gap-1">
+				<p class="text-v1-item">{identity.title}</p>
+				<p class="text-v1-meta text-surface-base/85">{OFFICE_NAME}</p>
+			</div>
+		</div>
+		<div class="flex flex-col gap-2 text-v1-meta">
+			<p class="font-semibold">ติดต่อสำนักงาน</p>
+			{contact.address && <p class="whitespace-pre-line text-surface-base/85">{contact.address}</p>}
+			{telephone && (
+				<a class="underline-offset-4 hover:underline" href={telephone}>
+					โทร {contact.telephone}
+				</a>
+			)}
+		</div>
+		<div class="flex flex-col gap-3 text-v1-meta">
+			{channels.length > 0 && (
+				<ul class="flex flex-wrap gap-x-5 gap-y-2" aria-label="ช่องทางทางการ">
+					{channels.map((channel) => (
+						<li>
+							<ContentLink compact class="underline-offset-4 hover:underline" href={channel.href}>
+								{channel.label}
+							</ContentLink>
+						</li>
+					))}
+				</ul>
+			)}
+			<ul class="flex flex-wrap gap-x-5 gap-y-2">
+				{footerLinks.map((link) => (
+					<li>
+						<a class="underline-offset-4 hover:underline" href={link.href}>
+							{link.label}
+						</a>
+					</li>
+				))}
+			</ul>
+		</div>
+	</div>
+</footer>

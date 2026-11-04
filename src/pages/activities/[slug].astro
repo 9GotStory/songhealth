@@ -16,10 +16,15 @@ import { Image } from "emdash/ui";
 import DateText from "../../components/DateText.astro";
 import DetailItem from "../../components/DetailItem.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import V1ActivityPage from "../../components/prototype/design/v1/ActivityPage.astro";
+import V2ActivityPage from "../../components/prototype/design/v2/ActivityPage.astro";
+import V3ActivityPage from "../../components/prototype/design/v3/ActivityPage.astro";
+import { pageDesign } from "../../lib/prototype-design";
 import {
 	ACTIVITIES_PATH,
 	ACTIVITIES_TITLE,
 	activityPath,
+	latestActivities,
 	type ActivityData,
 } from "../../lib/activities";
 import { availableMedia } from "../../lib/media";
@@ -45,6 +50,18 @@ const gallery = (
 const hasDetails =
 	!!activity.activity_at || !!activity.location_text || !!activity.participants_text;
 
+// PROTOTYPE (branch prototype/design): variants 1–3 render the page their own way.
+const design = pageDesign(Astro);
+const latest = (await latestActivities(4)).filter((other) => other.id !== entry.id).slice(0, 3);
+const pageProps = {
+	activity,
+	slug: entry.id,
+	image,
+	gallery: gallery.map((item) => ({ image: item.image!, caption: item.caption })),
+	latest,
+	onepage: design.onepage,
+};
+
 /** A gallery picture's width: three to a row from `lg`, two from `sm`. */
 const GALLERY_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw";
 ---
@@ -63,67 +80,74 @@ const GALLERY_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw"
 	}}
 	noindex={isPreview}
 >
-	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<header class="flex max-w-3xl flex-col gap-3">
-			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">{activity.title}</h1>
-			{activity.summary && (
-				<p class="text-body-large whitespace-pre-line text-text-secondary">{activity.summary}</p>
+	{design.variant === "1" && <V1ActivityPage {...pageProps} />}
+	{design.variant === "2" && <V2ActivityPage {...pageProps} />}
+	{design.variant === "3" && <V3ActivityPage {...pageProps} />}
+	{design.variant === "0" && (
+		<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+			<header class="flex max-w-3xl flex-col gap-3">
+				<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
+					{activity.title}
+				</h1>
+				{activity.summary && (
+					<p class="text-body-large whitespace-pre-line text-text-secondary">{activity.summary}</p>
+				)}
+				{activity.publishedAt && (
+					<p class="text-small text-text-secondary">
+						เผยแพร่ <DateText value={activity.publishedAt} />
+					</p>
+				)}
+			</header>
+			{hasDetails && (
+				<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
+					{activity.activity_at && (
+						<DetailItem term="วันที่จัดกิจกรรม">
+							<DateText value={activity.activity_at} />
+						</DetailItem>
+					)}
+					{activity.location_text && (
+						<DetailItem term="สถานที่จัดกิจกรรม">{activity.location_text}</DetailItem>
+					)}
+					{activity.participants_text && (
+						<DetailItem term="ผู้เข้าร่วม">
+							<span class="whitespace-pre-line">{activity.participants_text}</span>
+						</DetailItem>
+					)}
+				</dl>
 			)}
-			{activity.publishedAt && (
-				<p class="text-small text-text-secondary">
-					เผยแพร่ <DateText value={activity.publishedAt} />
-				</p>
+			{image && (
+				<Image
+					image={image}
+					priority
+					sizes="(min-width: 48rem) 48rem, 100vw"
+					class="h-auto w-full max-w-3xl rounded-24 bg-surface-soft"
+				/>
 			)}
-		</header>
-		{hasDetails && (
-			<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
-				{activity.activity_at && (
-					<DetailItem term="วันที่จัดกิจกรรม">
-						<DateText value={activity.activity_at} />
-					</DetailItem>
-				)}
-				{activity.location_text && (
-					<DetailItem term="สถานที่จัดกิจกรรม">{activity.location_text}</DetailItem>
-				)}
-				{activity.participants_text && (
-					<DetailItem term="ผู้เข้าร่วม">
-						<span class="whitespace-pre-line">{activity.participants_text}</span>
-					</DetailItem>
-				)}
-			</dl>
-		)}
-		{image && (
-			<Image
-				image={image}
-				priority
-				sizes="(min-width: 48rem) 48rem, 100vw"
-				class="h-auto w-full max-w-3xl rounded-24 bg-surface-soft"
-			/>
-		)}
-		{gallery.length > 0 && (
-			<section aria-labelledby="activity-gallery" class="flex flex-col gap-4">
-				<h2 id="activity-gallery" class="text-h3 text-brand-dark">
-					ภาพกิจกรรม
-				</h2>
-				<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-					{gallery.map((item) => (
-						<li>
-							<figure class="flex flex-col gap-2">
-								<Image
-									image={item.image!}
-									sizes={GALLERY_SIZES}
-									class="h-auto w-full rounded-18 bg-surface-soft"
-								/>
-								{item.caption && (
-									<figcaption class="text-small wrap-anywhere text-text-secondary">
-										{item.caption}
-									</figcaption>
-								)}
-							</figure>
-						</li>
-					))}
-				</ul>
-			</section>
-		)}
-	</article>
+			{gallery.length > 0 && (
+				<section aria-labelledby="activity-gallery" class="flex flex-col gap-4">
+					<h2 id="activity-gallery" class="text-h3 text-brand-dark">
+						ภาพกิจกรรม
+					</h2>
+					<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+						{gallery.map((item) => (
+							<li>
+								<figure class="flex flex-col gap-2">
+									<Image
+										image={item.image!}
+										sizes={GALLERY_SIZES}
+										class="h-auto w-full rounded-18 bg-surface-soft"
+									/>
+									{item.caption && (
+										<figcaption class="text-small wrap-anywhere text-text-secondary">
+											{item.caption}
+										</figcaption>
+									)}
+								</figure>
+							</li>
+						))}
+					</ul>
+				</section>
+			)}
+		</article>
+	)}
 </SiteLayout>
