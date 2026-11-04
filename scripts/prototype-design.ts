@@ -31,6 +31,11 @@ interface Picture {
 	alt: string;
 }
 
+/** A gallery picture: a photo that is not part of the One Page, with its caption. */
+interface GalleryPicture extends Picture {
+	caption?: string;
+}
+
 interface StandIn extends Picture {
 	/** The legacy item's id, which names the entry and its picture. */
 	key: string;
@@ -43,6 +48,10 @@ interface StandIn extends Picture {
 	activityAt?: string;
 	location?: string;
 	participants?: string;
+	/** An Activity's gallery field (the repeater "ภาพกิจกรรม"). */
+	gallery?: GalleryPicture[];
+	/** A News item's body: one gallery block of these pictures. */
+	bodyGallery?: GalleryPicture[];
 }
 
 interface StandIns {
@@ -69,13 +78,16 @@ async function must(
 }
 
 async function upload(admin: helpers.CmsActor, dir: string, name: string, picture: Picture) {
+	const extension = picture.file.endsWith(".jpg") ? "jpg" : "webp";
+	const filename = `${PREFIX}${name}.${extension}`;
 	const existing = (await helpers.listNativeItems(admin, "/_emdash/api/media")).find(
-		(item) => item.filename === `${PREFIX}${name}.webp`,
+		(item) => item.filename === filename,
 	);
-	if (existing) return existing as { id: string };
+	if (existing) return existing as { id: string; url?: string };
 	const form = new FormData();
 	const bytes = await readFile(join(dir, picture.file));
-	form.append("file", new File([bytes], `${PREFIX}${name}.webp`, { type: "image/webp" }));
+	const type = extension === "jpg" ? "image/jpeg" : "image/webp";
+	form.append("file", new File([bytes], filename, { type }));
 	form.append("width", String(picture.width));
 	form.append("height", String(picture.height));
 	form.append("deduplicate", "false");
@@ -83,12 +95,12 @@ async function upload(admin: helpers.CmsActor, dir: string, name: string, pictur
 		method: "POST",
 		form,
 	});
-	const item = helpers.nativeItemOf(uploaded) as { id: string };
+	const item = helpers.nativeItemOf(uploaded) as { id: string; url?: string };
 	await must(admin, `describing ${picture.file}`, `/_emdash/api/media/${item.id}`, {
 		method: "PUT",
 		body: { alt: picture.alt },
 	});
-	console.log(`uploaded ${PREFIX}${name}.webp`);
+	console.log(`uploaded ${filename}`);
 	return item;
 }
 
@@ -99,6 +111,7 @@ async function entryIds(admin: helpers.CmsActor, collection: string) {
 
 async function publishStandIn(
 	admin: helpers.CmsActor,
+	dir: string,
 	collection: string,
 	standIn: Omit<StandIn, "collection">,
 	mediaId: string,
@@ -106,6 +119,13 @@ async function publishStandIn(
 	const slug = `${PREFIX}${standIn.key}`;
 	const present = (await entryIds(admin, collection)).get(slug);
 	if (present) return present;
+	const pictures = async (list: GalleryPicture[]) =>
+		Promise.all(
+			list.map(async (picture, index) => ({
+				picture,
+				item: await upload(admin, dir, `${standIn.key}-g${index + 1}`, picture),
+			})),
+		);
 	const data: Record<string, unknown> = {
 		title: standIn.title,
 		summary: standIn.summary,
@@ -115,8 +135,32 @@ async function publishStandIn(
 		if (standIn.activityAt) data.activity_at = standIn.activityAt;
 		if (standIn.location) data.location_text = standIn.location;
 		if (standIn.participants) data.participants_text = standIn.participants;
+		if (standIn.gallery) {
+			data.gallery = (await pictures(standIn.gallery)).map(({ picture, item }) => ({
+				image: { id: item.id },
+				caption: picture.caption,
+			}));
+		}
 	} else {
 		data.source_text = "สำนักงานสาธารณสุขอำเภอสอง";
+		if (standIn.bodyGallery) {
+			data.body = [
+				{
+					_type: "gallery",
+					_key: crypto.randomUUID().slice(0, 8),
+					columns: 2,
+					images: (await pictures(standIn.bodyGallery)).map(({ picture, item }) => ({
+						_type: "image",
+						_key: crypto.randomUUID().slice(0, 8),
+						asset: { _ref: item.id, url: item.url },
+						alt: picture.alt,
+						caption: picture.caption,
+						width: picture.width,
+						height: picture.height,
+					})),
+				},
+			];
+		}
 	}
 	const created = await helpers.createSyntheticEntry(admin, collection, { slug, data });
 	if (!created.entryId) {
@@ -154,10 +198,10 @@ async function add(admin: helpers.CmsActor, dir: string): Promise<void> {
 	}
 	for (const item of standIns.items) {
 		const media = await upload(admin, dir, item.key, item);
-		await publishStandIn(admin, item.collection, item, media.id);
+		await publishStandIn(admin, dir, item.collection, item, media.id);
 	}
 	const featuredMedia = await upload(admin, dir, standIns.featured.key, standIns.featured);
-	const featuredId = await publishStandIn(admin, "news", standIns.featured, featuredMedia.id);
+	const featuredId = await publishStandIn(admin, dir, "news", standIns.featured, featuredMedia.id);
 	await helpers.setMenuItems(admin, FEATURED_MENU, [
 		{
 			parentId: null,
