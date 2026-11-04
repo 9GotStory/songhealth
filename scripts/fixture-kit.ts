@@ -13,8 +13,16 @@ export interface FixtureKit {
 	helpers: typeof helpers;
 	/** A term of `taxonomy` labelled `label`, made once per run; returns its slug. */
 	term(taxonomy: string, label: string): Promise<string>;
-	/** A new 1200×750 picture, a diagonal blend of two hex colours, with `alt`; returns its id. */
-	picture(alt: string, from: string, to: string): Promise<string>;
+	/**
+	 * A new picture of `size`, 1200×750 unless given, a diagonal blend of two hex colours, with
+	 * `alt`; returns its id.
+	 */
+	picture(
+		alt: string,
+		from: string,
+		to: string,
+		size?: { width: number; height: number },
+	): Promise<string>;
 	/** One Portable Text block of `style` (normal, h2, …), the shape the Admin editor saves. */
 	block(text: string, style?: string): Record<string, unknown>;
 	/**
@@ -56,9 +64,9 @@ export async function withFixtureKit<T>(work: (kit: FixtureKit) => Promise<T>): 
 			}
 			return slugs.get(key)!;
 		},
-		async picture(alt, from, to) {
+		async picture(alt, from, to, size) {
 			const name = `${helpers.SYNTHETIC_FIXTURE_MARK}-shot-${crypto.randomUUID().slice(0, 8)}.png`;
-			const bytes = helpers.gradientPng(from, to);
+			const bytes = helpers.gradientPng(from, to, size);
 			const { id } = await helpers.uploadMediaItem(admin, name, { bytes, type: "image/png" }, alt);
 			media.push(id);
 			return id;
