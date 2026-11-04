@@ -607,9 +607,9 @@ test("the Contact Summary reads Office Contact: address with the map link, telep
 test("with every section showing, the sections follow the Figma order on a desktop and a phone, a phone shows the card sections two to a row, and the page is accessible and reflows at 320 px", async ({
 	page,
 }) => {
-	// Published entries of each kind, so every section shows whichever tests ran before, two of each
-	// card, so a row can hold two. The Featured News is published first, so the News card shows the
-	// other one.
+	// Published entries of each kind, so every section shows whichever tests ran before, and three of
+	// each card, so a row of two shows as two and not as more. The Featured News is published first,
+	// so the News card shows the other one.
 	const featured = await create("news", "every-section-featured", {
 		data: {
 			summary: `${SYNTHETIC_FIXTURE_MARK} สรุปเรื่องเด่น`,
@@ -622,7 +622,7 @@ test("with every section showing, the sections follow the Figma order on a deskt
 	await publish("announcements", await create("announcements", "every-section"));
 	await publish("health_services", await createSyntheticHealthService(admin, "every-section"));
 	const services: DraftFixture[] = [];
-	for (const label of ["every-section", "every-section-second"]) {
+	for (const label of ["every-section", "every-section-second", "every-section-third"]) {
 		await publish("health_content", await create("health_content", label));
 		await publish("activities", await create("activities", label));
 		const service = await createSyntheticService(admin, label, {
@@ -637,6 +637,7 @@ test("with every section showing, the sections follow the Figma order on a deskt
 		quickAccess: [
 			{ label: "เอกสารเผยแพร่", url: "/documents" },
 			{ label: "ข้อมูลสุขภาพ", url: "/health" },
+			{ label: "ข่าวสุขภาพ", url: "/news/health" },
 		],
 	};
 	const order = [

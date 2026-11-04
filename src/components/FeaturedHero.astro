@@ -22,15 +22,25 @@
 // "Homepage (`04`)"): the office's landscape pictures are text banners, and its portrait ones are
 // One Pages. It fills its column's width up to the frame's height, 408 px. A picture that would be
 // taller at that width, such as a One Page, shows at the frame's height, narrower and centred on
-// the band. EmDash stores an image's size when it is uploaded and keeps it in the field value
-// (emdash 1.1.0 src/astro/routes/api/media.ts, src/media/normalize.ts recordToMediaValue), and its
-// Image writes it as the `width` and `height` attributes, so the picture's box takes its shape
-// before the file loads. Without a stored size, the picture still fits the frame whole. Below 640
-// px the lead is clamped to three lines, to keep the phone Homepage short.
+// the band. The picture's box takes its shape from the size EmDash keeps with the image, before the
+// file loads (emdash 1.1.0):
+// - an upload records the image's width and height (src/astro/routes/api/media.ts,
+//   src/media/enrich.ts enrichImageMetadata);
+// - saving an entry fills them into an image field saved as `{ id }` (src/emdash-runtime.ts
+//   normalizeImageValue, src/media/normalize.ts mergeProviderData);
+// - its Image writes them as the `width` and `height` attributes (src/components/EmDashImage.astro
+//   resolveImage).
+// The width at the frame's height caps a wrapper, so the image's box is the picture itself. Image
+// shows the picture's placeholder as the image's inline background, which a wider box would show
+// beside a One Page instead of the band, and a `style` given to Image would replace it (same file).
+// Without a stored size the picture still fits the frame whole. Below 640 px the lead is clamped to
+// three lines, to keep the phone Homepage short.
 //
-// The title is H1 size from `lg`, 46 px instead of Display's 60, so the hero leaves room on the
-// first screen. It also keeps "ความดันโลหิตสูง", the longest word a title keeps whole (about 318 px
-// at 46 px), inside the 366 px text column at 1024 px (#146 comment 6625101174).
+// The title is H1 size from `lg` (46 px) where the Figma frame has Display (60 px), on the Product
+// Owner's "หัวข้อเรื่องเด่นเล็กลง" (spec #144 "Homepage (`04`)" and Further Notes), so the hero
+// leaves room on the first screen. It also keeps "ความดันโลหิตสูง", the longest word a title keeps
+// whole (about 318 px at 46 px), inside the 366 px text column at 1024 px (#146 comment
+// 6625101174).
 import { Image } from "emdash/ui";
 import type { FeaturedView } from "../lib/homepage-curation";
 import { availableMedia } from "../lib/media";
@@ -44,7 +54,9 @@ interface Props {
 
 /**
  * The picture's width: the 450 px column of the frame from `lg`, the card's width below it. A
- * picture shown at the frame's height is narrower.
+ * picture shown at the frame's height, such as a One Page, is narrower, so the browser may pick a
+ * larger rendition than it shows. Only the development runtime makes renditions: production serves
+ * the original file (ADR 0003).
  */
 const PICTURE_SIZES = "(min-width: 64rem) 28.125rem, 100vw";
 /** The frame's height, the tallest the picture shows (`max-h-102`). */

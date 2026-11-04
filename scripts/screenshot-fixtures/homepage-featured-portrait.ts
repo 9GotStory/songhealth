@@ -6,9 +6,6 @@
 
 import type { Fixtures } from "../capture-with-fixtures.ts";
 
-/** A4's aspect ratio, as the office's One Pages have it (1808 × 2560). */
-const ONE_PAGE = { width: 600, height: 848 };
-
 const fixtures: Fixtures = async ({ admin, helpers, picture, homepageMenus }) => {
 	const title = "[ตัวอย่าง] ตรวจคัดกรองความดันโลหิตสูงและเบาหวานฟรี ที่ รพ.สต. ทุกแห่งในอำเภอสอง";
 	const created = await helpers.createSyntheticEntry(admin, "news", {
@@ -18,7 +15,7 @@ const fixtures: Fixtures = async ({ admin, helpers, picture, homepageMenus }) =>
 			summary:
 				"ประชาชนอายุ 35 ปีขึ้นไปตรวจวัดความดันโลหิตและระดับน้ำตาลในเลือดได้ฟรีในวันและเวลาราชการ",
 			featured_image: {
-				id: await picture(`ภาพ One Page ${title}`, "#123c33", "#bae0cf", ONE_PAGE),
+				id: await picture(`ภาพ One Page ${title}`, "#123c33", "#bae0cf", helpers.ONE_PAGE_SIZE),
 			},
 		},
 	});

@@ -1353,9 +1353,12 @@ export async function uploadSyntheticPicture(
 	return media.mediaId;
 }
 
+/** A portrait A4 sheet's shape, as the office's One Pages have it (1808 × 2560), for a stand-in. */
+export const ONE_PAGE_SIZE = { width: 600, height: 848 };
+
 /**
  * A PNG of `size`, 1200×750 unless given, a diagonal blend from the hex colour `from` to `to`: a
- * stand-in photo, or at a portrait size a stand-in One Page.
+ * stand-in photo, or at ONE_PAGE_SIZE a stand-in One Page.
  */
 export function gradientPng(
 	from: string,

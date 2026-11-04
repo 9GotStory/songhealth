@@ -20,7 +20,7 @@
 // Activities list keeps the full card.
 import { Image } from "emdash/ui";
 import { activityDate, activityPath, type ActivityEntry } from "../lib/activities";
-import { CARD_PICTURE_SIZES, COMPACT_CARD_PICTURE_SIZES, availableMedia } from "../lib/media";
+import { CARD_PICTURE_SIZES, HALF_WIDTH_CARD_PICTURE_SIZES, availableMedia } from "../lib/media";
 import MetaLine from "./MetaLine.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
@@ -53,7 +53,7 @@ const summary = showSummary ? activity.data.summary : undefined;
 		<Image
 			image={image}
 			alt=""
-			sizes={compact ? COMPACT_CARD_PICTURE_SIZES : CARD_PICTURE_SIZES}
+			sizes={compact ? HALF_WIDTH_CARD_PICTURE_SIZES : CARD_PICTURE_SIZES}
 			loading={eager ? "eager" : "lazy"}
 			class="aspect-16/9 w-full object-cover"
 		/>

@@ -18,7 +18,8 @@
 //   the page as it is now at both.
 // - What the shell shows every page: the 404 page, the default site title, the
 //   breadcrumb, Thai dates, the titles and items a list shows, and a record
-//   page's details; and whether an image loads and shows its whole picture.
+//   page's details; whether an image loads and shows its whole picture; and
+//   how a word of a title lies in its lines and its box.
 // - `expectPreviewRenders`: a draft's signed preview link (cms.helpers.ts
 //   mintPreviewLink) at the draft's address, rendering it out of search engines.
 // - `sitemapLocations`: the addresses a sitemap document lists.
@@ -371,6 +372,51 @@ export async function expectPictureWhole(
 		2,
 	);
 	return { width: shown.width, height: shown.height };
+}
+
+/**
+ * How the occurrences of `word` in `element`'s text lie as the page is laid out now: how many
+ * there are, how many of them span more than one line, and how many run out of the content box of
+ * the element that holds `element`, such as a card or a column of text. A Thai word a title keeps
+ * whole (src/lib/thai-title.ts) must do neither.
+ */
+export function occurrencesOf(
+	element: Locator,
+	word: string,
+): Promise<{ found: number; split: number; outside: number }> {
+	return element.evaluate((root, word) => {
+		const texts: Text[] = [];
+		const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+		for (let node = walker.nextNode(); node; node = walker.nextNode()) texts.push(node as Text);
+		/** The text node and offset of `index` in the element's text, a start or an end. */
+		const position = (index: number, end: boolean): [Text, number] => {
+			for (const text of texts) {
+				if (end ? index <= text.length : index < text.length) return [text, index];
+				index -= text.length;
+			}
+			throw new Error(`no text at ${index}`);
+		};
+		const whole = texts.map((text) => text.data).join("");
+		const holder = root.parentElement!;
+		const box = holder.getBoundingClientRect();
+		const style = getComputedStyle(holder);
+		const left = box.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft);
+		const right = box.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight);
+		let found = 0;
+		let split = 0;
+		let outside = 0;
+		for (let from = whole.indexOf(word); from !== -1; from = whole.indexOf(word, from + 1)) {
+			const range = document.createRange();
+			range.setStart(...position(from, false));
+			range.setEnd(...position(from + word.length, true));
+			const rects = [...range.getClientRects()];
+			const tops = rects.map((rect) => rect.top);
+			found += 1;
+			if (Math.max(...tops) - Math.min(...tops) > 4) split += 1;
+			if (rects.some((rect) => rect.left < left - 0.5 || rect.right > right + 0.5)) outside += 1;
+		}
+		return { found, split, outside };
+	}, word);
 }
 
 /**

@@ -37,6 +37,7 @@ import {
 	createSyntheticService,
 	devAdminActor,
 	gradientPng,
+	ONE_PAGE_SIZE,
 	pickedMenuItem,
 	portableTextBlock,
 	publishEntryAt,
@@ -60,6 +61,7 @@ import {
 	expectNoHorizontalScroll,
 	expectPictureWhole,
 	homepageSection,
+	occurrencesOf,
 	siteTitleParts,
 	test,
 } from "./public.helpers";
@@ -159,12 +161,12 @@ test("Featured shows the first menu item that is published content of a Featured
 	);
 });
 
-test("the Featured picture shows whole, a landscape banner and a portrait One Page alike, at 375 and 1440 px, at most 408 px tall on a desktop, under the title that names the item", async ({
+test("the Featured picture shows whole, a landscape banner and a portrait One Page alike, at 375 and 1440 px, at most 408 px tall on a desktop, and the title names the item", async ({
 	page,
 }) => {
 	const pictures = {
 		landscape: gradientPng("#0b6b57", "#f2d17a"),
-		portrait: gradientPng("#123c33", "#bae0cf", { width: 600, height: 848 }),
+		portrait: gradientPng("#123c33", "#bae0cf", ONE_PAGE_SIZE),
 	};
 	for (const [shape, png] of Object.entries(pictures)) {
 		const alt = `${SYNTHETIC_FIXTURE_MARK} ภาพเรื่องเด่น ${shape}`;
@@ -179,7 +181,14 @@ test("the Featured picture shows whole, a landscape banner and a portrait One Pa
 				await page.goto("/");
 				const shown = hero(page, featured);
 				await expect(shown.getByRole("heading", { level: 2 }), label).toHaveText(featured.title);
-				const { height } = await expectPictureWhole(shown.locator("img"), label);
+				const picture = shown.locator("img");
+				const { width, height } = await expectPictureWhole(picture, label);
+				// The picture fills its own box, so the band, not the box, shows beside a narrower one.
+				const box = (await picture.boundingBox())!;
+				expect(
+					Math.abs(box.width - width) + Math.abs(box.height - height),
+					`${label}: the picture fills its box`,
+				).toBeLessThan(1);
 				if (viewport === DESKTOP_VIEWPORT) {
 					expect(height, `${label}: its height`).toBeLessThanOrEqual(FEATURED_PICTURE_HEIGHT + 0.5);
 				}
@@ -188,12 +197,13 @@ test("the Featured picture shows whole, a landscape banner and a portrait One Pa
 	}
 });
 
-test("from 1024 to 1088 px a Featured title holding ความดันโลหิตสูง stays inside its column, clear of the picture", async ({
+test("from 1024 to 1088 px a Featured title keeps ความดันโลหิตสูง whole, inside its column beside the picture", async ({
 	page,
 }) => {
 	// The longest listed word, which a line keeps whole (src/lib/thai-title.ts), at its largest size
 	// in the hero's narrowest text column: lg's two columns at their minimum width (#146 comment
-	// 6625101174).
+	// 6625101174). The column holds the eyebrow, the title and the links, and ends before the
+	// picture's.
 	const alt = `${SYNTHETIC_FIXTURE_MARK} ภาพเรื่องเด่น`;
 	const featured = await create("news", "ความดันโลหิตสูง", {
 		data: {
@@ -205,29 +215,17 @@ test("from 1024 to 1088 px a Featured title holding ความดันโล�
 	await publish("news", featured);
 	await withHomepageMenus(admin, { featured: [pickedMenuItem("news", featured)] }, async () => {
 		await page.goto("/");
-		const shown = hero(page, featured);
-		const title = shown.getByRole("heading", { level: 2 });
+		const title = hero(page, featured).getByRole("heading", { level: 2 });
 		await expect(title).toHaveText(featured.title);
-		const overflows: string[] = [];
+		const misplaced: string[] = [];
 		for (let width = 1024; width <= 1088; width += 8) {
 			await page.setViewportSize({ width, height: 900 });
-			// The title's text against the column that holds it, beside the eyebrow and the links.
-			const edges = await title.evaluate((heading) => {
-				const text = document.createRange();
-				text.selectNodeContents(heading);
-				return {
-					text: Math.max(...[...text.getClientRects()].map((rect) => rect.right)),
-					column: heading.parentElement!.getBoundingClientRect().right,
-				};
-			});
-			const picture = (await shown.locator("img").boundingBox())!.x;
-			if (edges.text > Math.min(edges.column, picture) + 0.5) {
-				overflows.push(
-					`at ${width} px the title ends at ${edges.text}, its column at ${edges.column} and the picture starts at ${picture}`,
-				);
+			const { found, split, outside } = await occurrencesOf(title, "ความดันโลหิตสูง");
+			if (found !== 1 || split > 0 || outside > 0) {
+				misplaced.push(`at ${width} px: found ${found}, split ${split}, outside ${outside}`);
 			}
 		}
-		expect(overflows, "the Featured title runs out of its column").toEqual([]);
+		expect(misplaced, "ความดันโลหิตสูง in the Featured title").toEqual([]);
 	});
 });
 

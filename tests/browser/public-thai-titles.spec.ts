@@ -15,14 +15,14 @@
 // harness. Its fixtures are a synthetic Health Content item, Service and Activity made through the
 // native API and removed afterwards, and each leads its Homepage section: the Health Content item
 // is published last, the Activity is held in 2035, and the Service is the one item of the
-// Frequently Used Services menu while its test runs. Their cards are the narrowest the site shows:
-// Health Information's four to a row on a desktop, and below 640 px all three, two to a row in
-// their compact form, with about 112 px for a title at 320 px (Feature 006 #146; #146 comment
+// Frequently Used Services menu while its test runs. Below 640 px all three go two to a row in
+// their compact form, with 112 px or more for a title at 320 px, and on a desktop Health
+// Information's go four to a row: no card heading has less room (Feature 006 #146; #146 comment
 // 6625101174). The card tests sweep the viewport from 320 to 1440 px rather than trying one width,
 // so they meet the widths at which a line would end inside a word, whatever the card's padding and
 // type size.
 
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 import {
 	createSyntheticEntry,
@@ -41,6 +41,7 @@ import {
 	PHONE_VIEWPORT,
 	expect,
 	homepageSection,
+	occurrencesOf,
 	siteTitleParts,
 	test,
 } from "./public.helpers";
@@ -85,50 +86,6 @@ async function withCardShown(collection: CardCollection, body: () => Promise<voi
 		{ services: [pickedMenuItem("services", fixtures.services)] },
 		body,
 	);
-}
-
-/**
- * How the occurrences of `word` in `element`'s text lie as the page is laid out now: how many
- * there are, how many of them span more than one line, and how many run out of the content box of
- * the element that holds it, such as a card or a card's text column.
- */
-function occurrencesOf(
-	element: Locator,
-	word: string,
-): Promise<{ found: number; split: number; outside: number }> {
-	return element.evaluate((root, word) => {
-		const texts: Text[] = [];
-		const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-		for (let node = walker.nextNode(); node; node = walker.nextNode()) texts.push(node as Text);
-		/** The text node and offset of `index` in the element's text, a start or an end. */
-		const position = (index: number, end: boolean): [Text, number] => {
-			for (const text of texts) {
-				if (end ? index <= text.length : index < text.length) return [text, index];
-				index -= text.length;
-			}
-			throw new Error(`no text at ${index}`);
-		};
-		const whole = texts.map((text) => text.data).join("");
-		const holder = root.parentElement!;
-		const box = holder.getBoundingClientRect();
-		const style = getComputedStyle(holder);
-		const left = box.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft);
-		const right = box.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight);
-		let found = 0;
-		let split = 0;
-		let outside = 0;
-		for (let from = whole.indexOf(word); from !== -1; from = whole.indexOf(word, from + 1)) {
-			const range = document.createRange();
-			range.setStart(...position(from, false));
-			range.setEnd(...position(from + word.length, true));
-			const rects = [...range.getClientRects()];
-			const tops = rects.map((rect) => rect.top);
-			found += 1;
-			if (Math.max(...tops) - Math.min(...tops) > 4) split += 1;
-			if (rects.some((rect) => rect.left < left - 0.5 || rect.right > right + 0.5)) outside += 1;
-		}
-		return { found, split, outside };
-	}, word);
 }
 
 test.beforeAll(async () => {
