@@ -6,15 +6,16 @@ read once, on 2026-10-29, through the Figma MCP (`get_design_context` and `get_v
 The account has very few Figma reads, so build from this page and re-read the file only when the
 Product Owner changes it.
 
-The Product Owner's draft design system for the whole public UI is `docs/design/DESIGN.md`
-(v0.2, not yet accepted). A difference between the two, or between the draft and a built page, is
-a pending confirmation (#64 comment 6535747409).
+Since Feature 006 the design's source is the code with `docs/design/DESIGN.md` v1.0 (ADR 0007),
+and this page describes the frame as history. Where they differ, such as the Featured title and
+picture or the phone Homepage, the code and `DESIGN.md` hold.
 
 - **Tokens:** colour and type names are the tokens in `src/styles/global.css` (ADR 0001).
 - **Units:** sizes are px in the 1440 frame.
 - **Sections:** each spans the frame, with 120 px side padding around the 1200 px content (the
   `page-container` utility).
-- **Mobile:** the frame is desktop only. The mobile layout keeps its content and order (`04` §15).
+- **Mobile:** the frame is desktop only. Phones show the same sections in the same order, more
+  compactly (`04` §15, `DESIGN.md` §8.2).
 
 ## What the build changes
 

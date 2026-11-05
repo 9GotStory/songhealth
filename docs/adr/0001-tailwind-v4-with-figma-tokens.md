@@ -1,8 +1,13 @@
 ---
-status: accepted
+status: accepted; superseded in part by ADR 0007
 ---
 
 # Visual design: Tailwind CSS v4 with tokens from the Figma Homepage Concept
+
+> **Superseded in part (Feature 006, 2026-11-04; spec #144):** ADR 0007 makes the code and
+> `docs/design/DESIGN.md` v1.0 the design's source, in place of the Figma frame, which stays
+> unchanged as history. The technology below stands: Tailwind CSS v4 through its Vite plugin, with
+> CSS-first tokens.
 
 The public site takes its colour and type tokens from the Product Owner's Figma file "Songhealth —
 Homepage Concept v1" (file `Lxdfd1dBgNNO28Rx62zGYO`, frame `5:2`), keeping the Figma variable names.

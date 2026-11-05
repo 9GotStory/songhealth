@@ -125,6 +125,15 @@ cited file exists and that the name carries the pinned version.
   and `PortableText` then renders the inline editor instead of HTML (`src/query.ts`
   `tagEditableFields`, `getEditMeta`; `src/components/PortableText.astro`). A copied or filtered
   array loses the tag, so `./src/components/RichText.astro` passes a tagged body unchanged.
+- Edit mode is on only for a signed-in user whose role is Author (30) or above, while the toolbar's
+  toggle has set the `emdash-edit-mode` cookie; such a user sees the toolbar on public pages
+  (`src/astro/middleware/request-context.ts` `isEditor`, `editMode`;
+  `src/visual-editing/toolbar.ts`; the role numbers in `@emdash-cms/auth/src/types.ts`). The
+  toggle reads "Edit mode" in the Thai catalog too (`@emdash-cms/admin/dist/locales/server.js`
+  `TOOLBAR_MESSAGES`, `@emdash-cms/admin/dist/locales/th/messages.mjs`). The inline editor renders
+  a block type it does not know, such as a body's `gallery`, as "Plugin block: gallery (edit in
+  admin)" (`src/components/InlinePortableTextEditor.tsx`, the unknown-block branch and the
+  placeholder's `renderHTML`). Staff guidance relies on it (`05` §5.1).
 - `/_emdash/api/media/file/{key}` serves the stored file by key. Safe image, video and audio types
   are served inline; anything else is an attachment (`src/astro/routes/api/media/file/[...key].ts`).
 - Deleting a media item has no in-use guard. It removes the stored file unless another media row

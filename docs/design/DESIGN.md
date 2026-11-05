@@ -1,242 +1,518 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** DRAFT v0.2 — rechecked; amended for Feature 004 (ITA in V1) on 2026-11-03; for Product Owner review; **not** an accepted/FROZEN rule or implementation authorization  
-> **Prepared:** 2026-10-30  
-> **Target:** Songhealth public website (Astro SSR + integrated EmDash)  
-> **Repository path:** `docs/design/DESIGN.md`  
-> **Figma concept:** [Songhealth Homepage Concept v1](https://www.figma.com/design/Lxdfd1dBgNNO28Rx62zGYO)  
-> **Design policy:** Tailwind CSS **v4 only**, Astro-first, Lucide vector icons, no emoji as UI iconography.
+> **Status:** v1.0, current (Feature 006, spec #144). It records the public design as the code
+> holds it, built from the Product Owner's picks on the Feature 006 prototype. Feature 006's Final
+> Acceptance on #144 accepts it with the feature.
+> **Updated:** 2026-11-05 (v1.0); first drafted 2026-10-30
+> **Target:** Songhealth public website (Astro SSR + integrated EmDash)
+> **Repository path:** `docs/design/DESIGN.md`
+> **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
+> `src/components/`) with this document (`docs/adr/0007`)
+> **History:** the Figma file "Songhealth — Homepage Concept v1", kept unchanged and described in
+> `docs/design/homepage-concept-v1.md`
+> **Design policy:** Tailwind CSS **v4 only**, Astro-first, Lucide vector icons, no emoji as UI
+> iconography.
 
-## 1. Scope, authority, and status
+## 1. Scope, authority and status
 
-This draft translates the approved Songhealth product direction and the existing Figma concept into a **public-facing presentation contract**. It does not authorize implementation, change CMS architecture, create content types, or change the public sitemap.
+This document records the public presentation of Songhealth: its tokens, its components, the
+layouts of its pages and the rules they follow. It creates no content type, route or CMS
+behaviour.
 
 Higher-priority sources prevail:
 
 1. Product Owner decisions.
-2. `docs/website-modernization-docs/current/00`–`09` (product/behavior) and `current/10-system-blueprint.md` (architecture).
+2. `docs/website-modernization-docs/current/00`–`09` (product/behavior) and
+   `current/10-system-blueprint.md` (architecture).
 3. `GLOSSARY.md` and accepted decisions in `docs/adr/`.
-4. Accepted feature scope/tickets; then implementation and tests.
+4. Specs and tickets; then the code and tests.
 
-This design document is subordinate to these sources. **Figma is a visual proposal, not the source of truth for V1 capabilities or routes.** Where a visible Figma item conflicts with current documents, log it as a Figma correction rather than silently expanding product scope.
+With the code, this document is the design's source (ADR 0007). A design change is made in the
+code and recorded here in the same pull request. A page that departs from this document is a
+pending confirmation for the Product Owner (CODING_STANDARDS "Public pages"). The Figma file is
+history: it is not edited, and no page is built from a fresh read of it.
 
-Current engineering baseline (verified in repository `main` on 2026-10-30): one server-rendered Astro 7.3.5 application, integrated EmDash 1.1.0 CMS/Admin, TypeScript, PostgreSQL 18.6. The public UI must not create a second frontend application or a custom CMS/page-builder subsystem.
+Engineering baseline: one server-rendered Astro 7.3.5 application with EmDash 1.1.0 as its
+integrated CMS, TypeScript, PostgreSQL 18.6. The public UI creates no second frontend application,
+custom CMS or page builder.
 
 ## 2. Design direction
 
-**Modern Local Health Civic:** citizen-first, useful, credible, accessible, calm, editorial, and recognizably connected to the local health-service network.
+**Modern Local Health Civic:** citizen-first, useful, credible, accessible, calm, editorial, and
+recognizably connected to the local health-service network.
 
+- **Evolve Concept v1; add no new style.** Its palette, Noto Sans Thai and its composition are the
+  base. Feature 006 put the legacy site's real content on the built design and changed only what
+  that content showed wrong (spec #144). New palettes, typefaces and an agency look were turned
+  down: "เราควรต่อยอดจาก Concept v1 ไม่ใช่การสร้างรูปแบบใหม่แบบนี้".
 - **Prioritize tasks and content**, not decorative dashboard statistics or giant portal menus.
-- **Neutral surfaces first**; use health green/teal as a meaningful accent, not an all-green interface.
-- **Clear reading hierarchy:** prominent featured content, useful search, visible service choices, recent news, health knowledge and contact details.
-- **Imagery:** genuine permitted local/community/service imagery, with consent/usage rights. Decorative gradients are placeholders, not substitutes for credible editorial images.
-- **Content-driven cards:** never invent CMS records to fill a grid; show fewer cards or hide optional sections as required by `04-homepage.md`.
+- **Neutral surfaces first**; health green is a meaningful accent, not an all-green interface.
+- **Clear reading hierarchy:** prominent Featured content, useful search, visible service choices,
+  recent News, health knowledge and contact details.
+- **Imagery:** genuine, permitted local imagery. Most of the office's pictures are One Pages
+  (GLOSSARY): a page shows one whole, and a card shows its middle (§7.3, §8.1, §9). A gradient
+  visual stands in where an item has no picture; it never replaces an editorial image.
+- **Content-driven cards:** never invent CMS records to fill a grid; show fewer cards or hide an
+  optional section, as `04-homepage.md` requires.
 
-## 3. Mandatory technology and styling rules
+## 3. Technology and styling rules
 
-1. **Tailwind CSS v4 only** for public UI styling. Declare tokens using Tailwind v4's CSS-first `@theme` model and apply styling using utility classes in Astro components.
-2. Integrate through the official `@tailwindcss/vite` plugin when implementation is authorized, with dependencies pinned per project policy. Do not assume Tailwind is already installed: the current `package.json` does not list it.
-3. A minimal global stylesheet containing `@import "tailwindcss";` and approved `@theme` declarations is allowed because it is part of Tailwind v4 configuration.
-4. **Do not author plain CSS selectors for component styling** (`.card { ... }`, `.button:hover { ... }`), CSS Modules, Astro `<style>` styling blocks, CSS-in-JS, or inline `style` attributes. No Tailwind v3 setup, `tailwind.config.js` baseline, or legacy `@tailwind base/components/utilities` syntax.
-5. Use Tailwind v4's `hover:`, `focus-visible:`, `disabled:`, `group-hover:`, responsive variants and reduced-motion variants as needed. Avoid unnecessary client JavaScript for static SSR content.
-6. Prefer shared tokens and explicit component variants over arbitrary values and repeated long class lists. One-off Tailwind arbitrary values may be justified for exact measured details, but should not become a hidden second token system.
-7. These rules apply to the **Songhealth public presentation layer**. Do not override or restyle EmDash's native Admin internals without a separate accepted requirement.
+1. **Tailwind CSS v4 only** for the public UI, through the official `@tailwindcss/vite` plugin
+   (ADR 0001).
+2. The tokens are `@theme` variables in `src/styles/global.css`, which clears Tailwind's default
+   colours, type scale, radii and shadows, so a template can use only these tokens (§3.1).
+3. Templates style with utility classes in Astro components. The global stylesheet holds only the
+   tokens, the base styles (the page gutter and the focus ring), two utilities (`page-container`
+   and `focus-ring-on-dark`) and the `.rich-text` typography of Portable Text bodies, which EmDash
+   renders as plain HTML that takes no utility classes.
+4. No other plain CSS selectors for component styling, no CSS Modules, Astro `<style>` blocks or
+   CSS-in-JS, and no Tailwind v3 setup or `tailwind.config.js`. An inline `style` carries only a
+   value computed from content: the Featured picture's width from its stored size (§8.1).
+5. States and widths use Tailwind's variants (`hover:`, `focus-visible:`, `group-*`, `max-sm:`,
+   `supports-[…]:` and the breakpoints of §6). Pages work without client JavaScript (§11).
+6. A colour or type style the tokens lack becomes a named token with its source, and §3.1 records
+   it. An arbitrary value is for a measured detail only, such as the post picture's `28rem`
+   column.
+7. These rules cover the public presentation. EmDash's Admin and its Edit mode are not restyled.
 
-### 3.1 Example Tailwind v4 theme contract (proposed)
+### 3.1 Tokens
 
-This is a **design example**, not an instruction to create a production file before feature authorization. Its color values are taken from Figma Concept v1 and must be visually reviewed after the pending Figma cleanup.
+The tokens began as Concept v1's variables and keep their names. Colours:
 
-```css
-@import "tailwindcss";
+| Token | Value | Use |
+| --- | --- | --- |
+| `brand-primary` | `#0b6b57` | links, primary buttons, the News card, the focus ring on light surfaces |
+| `brand-dark` | `#123c33` | headings, the Featured hero, dark bands |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces |
+| `text-primary` | `#16211d` | body text |
+| `text-secondary` | `#65736d` | leads, meta lines |
+| `bg-page` | `#f6f9f7` | the page |
+| `surface-base` | `#ffffff` | cards, white bands |
+| `surface-soft` | `#eaf5f0` | soft bands, the Contact Summary |
+| `border-default` | `#dce7e2` | borders |
+| `topic-green`, `topic-blue` | `#ebf7f0`, `#f0f5fc` | Health Information cards |
+| `divider` | `#dbe8e3` | Announcement list separators |
+| `hero-visual-from`, `-to` | `#bae0cf`, `#f2d17a` | the Featured visual without a picture |
+| `activity-visual-from`, `-to` | `#bfdcce`, `#e8f0d9` | an Activity card without a picture |
+| `contact-visual-from`, `-to` | `#d1ebde`, `#e8f0cc` | the Contact Summary's map stand-in |
+| `hero-chip`, `hero-secondary-fill`, `hero-secondary-border` | white at 12 %, 6 %, 28 % | the Featured eyebrow chip and secondary link |
+| `text-secondary-on-soft` | `#5d6a64` | secondary text on `surface-soft` (contrast fix, #51) |
+| `border-input` | `#7a8a83` | input boundaries (contrast fix, #51) |
 
-@theme {
-  --font-sans: "Noto Sans Thai", sans-serif;
-  --color-page: #F6F9F7;
-  --color-surface: #FFFFFF;
-  --color-surface-soft: #EAF5F0;
-  --color-brand: #0B6B57;
-  --color-brand-dark: #123C33;
-  --color-accent: #F3C95F;
-  --color-ink: #16211D;
-  --color-ink-muted: #65736D;
-  --color-outline: #DCE7E2;
-  --color-alert: #C95644;
-  --radius-card: 1.25rem;
-  --radius-feature: 2rem;
-  --shadow-card: 0 10px 30px rgb(13 46 36 / 8%);
-  --container-site: 75rem;
-}
-```
+Type, Noto Sans Thai, as size / line height / weight in px:
 
-Examples of the intended utilities are `bg-page`, `bg-surface`, `text-brand`, `text-ink`, `border-outline`, `rounded-card`, `rounded-feature`, `shadow-card`, and `max-w-site`. Verify compiled class generation against the pinned Tailwind v4 version when implementation starts. Font loading and license/asset strategy must be confirmed separately; specifying `--font-sans` alone does not fetch the typeface.
+| Token | Style | Token | Style |
+| --- | --- | --- | --- |
+| `display` | 60 / 72 / 700, used by no template since #146 | `body-large` | 18 / 30 / 400 |
+| `h1` | 46 / 58 / 700 | `body` | 16 / 26 / 400 |
+| `h2` | 34 / 46 / 600 | `label` | 14 / 22 / 500 |
+| `h3` | 24 / 34 / 600 | `small` | 13 / 20 / 400 |
 
-### 3.2 Color/contrast validation (recheck finding)
+Radii are named by their size in px: 14, 16, 18, 20, 22, 24, 26 and 32, and `pill` (999 px). One
+shadow, `card`: `0 10px 15px rgb(13 46 36 / 0.08)`. One container, `content`: 75 rem (1,200 px).
 
-**The sample theme values are visual proposals, not proof of WCAG AA compliance.** A basic contrast recheck of the Figma-derived pairs found:
+### 3.2 Contrast
 
-| Foreground / background | Approx. contrast | Intended interpretation |
-| --- | ---: | --- |
-| `brand #0B6B57` on white | 6.45:1 | Meets 4.5:1 for normal text |
-| `ink-muted #65736D` on white | 4.97:1 | Meets 4.5:1, with limited margin |
-| `ink-muted #65736D` on `surface-soft #EAF5F0` | 4.45:1 | **Below 4.5:1**; adjust when used as normal text |
-| `alert #C95644` on white | 4.29:1 | **Below 4.5:1**; do not use for normal-size alert text without correction |
-| `accent #F3C95F` on white | 1.58:1 | Decorative/background accent only; not readable text |
+The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 AA: 4.5:1 for text,
+3:1 for large text, input boundaries and focus indicators):
 
-Do **not** silently replace Figma colors across the entire design to address one failed pairing. Define a validated foreground/background role or revise the affected pairing in the Figma QA pass, then update tokens as a coordinated change. Re-test normal text, large text, icons and control boundaries on every surface actually used.
+| Pair | Ratio |
+| --- | ---: |
+| `text-primary` on `surface-base` | 16.54:1 |
+| `surface-base` on `brand-dark` | 12.21:1 |
+| `brand-primary` on `surface-base`, or `surface-base` on `brand-primary` | 6.45:1 |
+| `brand-primary` on `bg-page` | 6.09:1 |
+| `text-secondary` on `surface-base` | 4.97:1 |
+| `text-secondary` on `bg-page` | 4.69:1 |
+| `text-secondary-on-soft` on `surface-soft` (`text-secondary` there would be 4.45:1) | 5.07:1 |
+| `border-input` on `surface-base`, `bg-page`, `surface-soft` | 3.63, 3.42, 3.25:1 |
+| `accent-warm` focus ring on `brand-dark`, `brand-primary` | 7.75, 4.10:1 |
+| `accent-warm` on `surface-base` | 1.58:1: a fill or decoration, never text |
 
+The draft's `alert #C95644` is not a token: a status is stated in text, and colour supports it.
 
-## 4. Typography and copy
+## 4. Typography
 
-- **Primary Figma typeface:** Noto Sans Thai; use compatible fallbacks and make Thai rendering/line breaks part of review.
-- **Editorial type scale (desktop concept):** display 60/72, H1 46/58, H2 34/46, H3 24/34, body-large 18/30, body 16/26, label 14/22, small 13/20 (`font-size/line-height` in px). These are Figma reference values, **not an immutable type scale**; adapt mobile responsively without losing semantics.
-- Keep headings readable, avoid long unbroken lines, and preserve logical `h1` → `h2` → `h3` order independent of visual size.
-- Use concise, natural Thai for citizen-facing tasks. Do not hard-code misleading current dates, opening hours, news, phone numbers, or service status in the final UI.
-- Use metadata (date/category) at lower visual emphasis than the title; never rely only on color to communicate category/status.
+- **Typeface:** Noto Sans Thai, self-hosted through Astro's Fonts API (`astro.config.mjs`,
+  `src/assets/fonts/README.md`).
+- **Headings:** a page's H1 is H3 size below `sm`, H2 size from `sm` and H1 size from `lg`. A
+  section heading is H3 size and H2 size from `lg` (H1 size on a dark band), under an eyebrow at
+  label size. Keep the `h1` → `h2` → `h3` order whatever the visual size.
+- **Copy:** concise, natural Thai. Dates and categories sit below the title in emphasis, and colour
+  is never the only cue. No hard-coded dates, opening hours, news, phone numbers or service status.
+
+### 4.1 Thai titles keep compound words whole
+
+The dictionary the browser uses (ICU) splits Thai compound words, so titles broke as "เบา|หวาน",
+"ความ|ดัน|โลหิต", "ปฏิบัติ|งาน" and "อำเภอ|สอง" (spec #144). A title therefore keeps the words of a
+curated list on one line:
+
+- **The list:** spec #144's 26 words, in `src/lib/thai-title.ts`.
+- **Matching:**
+  - the longest listed word wins at each place ("ความดันโลหิตสูง" over "ความดันโลหิต");
+  - every occurrence is kept;
+  - two listed words side by side stay two runs, so a line can still break between them;
+  - a listed word is 1 to 15 characters (Unicode code points), so it fits the narrowest card
+    column; an empty or longer word is refused.
+- **Rendering:** `src/components/ThaiTitle.astro` renders a kept run as a `whitespace-nowrap`
+  span. The text is unchanged, so copied text and search read the title as written.
+- **Where it applies:** every page's H1, every section heading (a rich-text body's own headings
+  excepted), every card and row title, the Featured title, and the site title in the header, the
+  footer and the Contact Summary.
+- **Where it does not:** body text, summaries and labels, such as the menu, the breadcrumb, the
+  MOIT page's table of contents, Evidence pills, eyebrows, meta lines, link labels and the
+  "บริการที่ให้" link list.
+- **The phone header:** the site title reads "สำนักงานสาธารณสุข" / "อำเภอสอง" at 375 px, and
+  "สำนักงาน" / "สาธารณสุข" / "อำเภอสอง" at 320 px (Product Owner, #145 comment 6625100804 item 2).
+- **Rejected** (spec #144): `word-break: keep-all`, which in Thai breaks only at spaces and
+  overflows; `text-wrap: pretty` alone; a word joiner, which would end up in copied text and in
+  search; a segmentation library, a new dependency.
+
+Its limits are in §10.
 
 ## 5. Iconography — mandatory no-emoji rule
 
-**No emoji, text glyphs or Unicode arrows used as UI icon substitutes.** In particular replace the Figma concept's `+`, `↗`, and `→` used as icons, and any symbol pretending to be an official logo. Use one consistent outlined vector icon family: **Lucide** is proposed for the public UI (exact package/integration selected at implementation, with version checked).
+**No emoji, text glyphs or Unicode arrows as UI icons**, and no symbol pretending to be an official
+logo. The icons are Lucide's (`@lucide/astro`, `docs/agents/lucide-astro-1.59.0.md`), each from its
+own module.
 
-- Icon sizes by role (Product Owner, 2026-10-31: #105 comment 6536890963): 16 px for a direction icon beside label or small text (onward and external links, pagination, breadcrumb); 20 px for an icon that shows the action itself at the start of its button (menu, download); 24 px on a card (service and quick-link cards). Align on a shared 24 px grid; consistent stroke treatment (normally 2 px at 24 px).
-- Icons in buttons/cards must remain vector/editable in Figma and accessible in code. Decorative icons use `aria-hidden="true"`; icon-only actions need an accessible name.
-- Do not create icons by typing emoji, arrows, plus signs, or font-based symbol stand-ins into text layers.
-- All icon colors should come from design tokens and achieve sufficient contrast in context.
-- For Figma: component instances or imported SVG vectors; keep icons in consistent named slots. For Astro: use the approved Lucide SVG integration; no raster icon substitute.
+- **Sizes by role** (Product Owner, 2026-10-31: #105 comment 6536890963): 16 px for a direction
+  icon beside label or small text (onward and external links, pagination, the breadcrumb); 20 px
+  for an icon that shows the action itself at the start of its button (the menu, a download);
+  24 px on a card (Service and Quick Link cards).
+- **Direction:** an onward link on this site ends in `chevron-right`, and a link that leaves it in
+  `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). Every Service card shows
+  the one Service icon, `hand-heart`.
+- **Accessibility:** an icon is decorative. Lucide hides it from assistive technology, the text
+  names the link or button, and an icon-only action has an accessible name. Every icon takes
+  `shrink-0`, and its colour is a token through `currentColor`.
+- `tests/node/public-icons.test.ts` checks the mechanics: no typed mark or hand-drawn `<svg>`, and
+  each icon from its own module at 16, 20 or 24 px with `shrink-0`.
 
-**Suggested Lucide mapping (to validate visually):**
+**A logo is not an icon.** The header's logo is the site setting's file (Admin → Settings), and
+production sets the office's approved file: the MOPH emblem, as the legacy site shows it (grill of
+2026-11-04, Q5). Until one is set, the header shows a decorative placeholder mark.
 
-| UI meaning | Lucide icon name |
-| --- | --- |
-| ร้องเรียน / เสนอแนะ | `message-square-more` |
-| แจ้งปัญหาสุขภาพ | `circle-alert` |
-| ค้นหาหน่วยบริการ | `hospital` or `map-pin` |
-| บริการสำหรับ อสม. | `users` |
-| คู่มือและแบบฟอร์ม | `file-text` |
-| ขอข้อมูลจากสำนักงาน | `file-search` |
-| Search | `search` |
-| Link onward | `arrow-up-right` or `chevron-right` (one convention per context) |
-| Location / phone / email / hours | `map-pin` / `phone` / `mail` / `clock` |
-| Mobile menu | `menu` |
+## 6. Layout, breakpoints and spacing
 
-**Logo is not an icon.** Replace the provisional plus-mark/wordmark with approved, authentic office identity assets once supplied; do not pass a decorative medical plus off as an official government mark.
+- **Mobile-first**, with the same routes and content at every width; phones show them more
+  compactly (`04` §15, §8.2).
+- **Breakpoints:** Tailwind's own, with no custom one.
+  - below `sm` (640 px): phones;
+  - `sm`, from 640 px: wider phones and tablets;
+  - `lg`, from 1,024 px: desktop, with the two-column layouts (the Featured hero, News beside
+    Announcements, the post pages, the MOIT page's table of contents).
+  - `md` and `xl` are not used.
+- **Widths checked:** 1,440 px (desktop, Concept v1's frame), 375 px (a common phone, where the
+  phone Homepage is measured) and 320 px (reflow, WCAG 2.2 SC 1.4.10). A rule from `lg` is checked
+  at 1,023 and 1,024 px (CODING_STANDARDS "Tests").
+- **Container:** the 1,200 px content column, centred (`page-container`), with a gutter of 16 px
+  below `sm` and 24 px from `sm`, so a 1,440 px window has 120 px either side.
+- **Spacing:** the 4/8/12/16/24/32/48/64/80 px rhythm. A Homepage section has 32 px above and below
+  it below `sm`, 64 px from `sm` and, for most, 80 px from `lg`.
+- No horizontal carousel for primary content and no fixed-height text container: Thai text, 200 %
+  zoom and changed text spacing reflow.
 
-## 6. Layout, spacing and responsive behavior
-
-- Design mobile-first; same server-provided content, routes and priorities across devices. No mobile-only CMS configuration or duplicated editorial content.
-- **Reference frames:** mobile 390 px and desktop 1440 px. Check narrow phones (including 320–360 px), tablet (~768–1024 px) and desktop; these are test widths, not extra custom breakpoints.
-- Prefer Tailwind's supported `sm:`, `md:`, `lg:` and `xl:` breakpoints. Only add custom breakpoints with a measured need.
-- Desktop content container targets approximately **1200 px**, centered with responsive side padding. The Figma concept's desktop side margins are 120 px at 1440 px. Mobile side padding is approximately 20 px.
-- Use the 4/8/12/16/24/32/48/64/80 px spacing rhythm from Concept v1. Consolidate recurring measures into approved Tailwind theme variables/utilities; no scattered one-off spacing rules.
-- Maintain generous section separation and consistent card baselines, but do not preserve a fixed page height at the cost of cropped content.
-- Collapse service cards to 2 columns on suitable phones only if text and 44 px targets remain usable; otherwise 1 column. Avoid horizontal content carousels for primary content.
-- Avoid fixed-height text containers; allow content reflow for Thai and browser zoom (including 200% and text spacing changes).
-
-## 7. Components and interaction contracts
+## 7. Components
 
 ### 7.1 Shared components
 
-Use a small, justified set of Astro components (proposed names; not a required directory layout):
+Pages reuse the shared pieces in `src/components/` (CODING_STANDARDS "Public pages"). The ones
+this document names:
 
-- `SiteHeader`, `SiteFooter`, `SearchField`, `SectionHeading`.
-- `Button` or `ActionLink`, `ServiceCard`, `NewsCard`, `AnnouncementItem`, `HealthContentCard`, `ActivityCard`, `QuickLink`, `ContactItem`.
-- `Icon` wrapper only when it simplifies consistent SVG sizing and accessibility. Avoid creating a separate component for every visual fragment.
+| Area | Components |
+| --- | --- |
+| Shell | `src/layouts/SiteLayout.astro`: utility bar, header, main navigation, the mobile menu, footer |
+| Headings | `PageHeading`, `SectionHeading`, `ThaiTitle` |
+| Cards | `ContentCard` (News, Health Content), `ActivityCard`, `ServiceCard`, `QuickLinkCard`, `PersonCard` |
+| Homepage | `FeaturedHero`, `SearchForm` |
+| Posts | `PostHeader`, `PostColumns`, `PostBody`, `ActivityPhotos`, `RichText` |
+| Links | `ActionLink` (buttons), `ArrowLink` (onward links), `Pagination`, `Breadcrumb` |
 
 ### 7.2 Component rules
 
-- Use native `<a>` for navigation and `<button>` for actions; preserve real focus order and semantic controls.
-- **Service card:** meaningful Lucide icon, title, optional short description, consistent onward indicator; 4–6 curated items as homepage guideline, not a forced six-card placeholder grid.
-- **News vs Announcement:** news is editorial and prioritizes a headline; announcement emphasizes current relevance. Both link to canonical published content.
-- **Health knowledge:** clearly distinguish reading/learning content from action links and from Health Reports.
-- **Quick Access:** compact navigation to **already-approved existing V1 destinations**, curated via the native CMS capability. Do not create a second sitemap.
-- Make interactive affordances clear using cursor, outline, fill, motion and focus states. Hover is progressive enhancement: the link must be understandable without hover.
-- Loading, empty, invalid/expired, failure and disabled states must never render inaccessible dead links.
-- Do not force non-existent content into a card layout; hide or gracefully compact optional sections.
+- Native `<a>` for navigation and `<button>` or `<summary>` for actions; a real focus order.
+- **News and Announcement:** News is editorial and leads with its headline; an Announcement states
+  its current relevance. Both link to their canonical page.
+- **Health knowledge** reads differently from action links and from Health Reports.
+- **Quick Access** links only to existing V1 destinations, curated in the CMS: no second sitemap.
+- Hover is an enhancement: a link is understandable without it.
+- Loading, empty, expired, failed and unavailable states never render a dead link.
+- A section with nothing to show is left out or compacted, never filled with placeholder content.
 
-## 8. Homepage contract (visual composition constrained by product authority)
+### 7.3 Cards and their pictures
 
-Source: `current/04-homepage.md` v2.4 and `current/03-sitemap.md` v2.5, both dated 2026-11-03.
+- Cards keep their Feature 003 look (spec #144).
+- **Crops:** an Activity card crops its picture to 16:9 (`ActivityCard.astro`), and a News or
+  Health Content card to 16:10 (`ContentCard.astro`, since #54). Both crop around the middle, or
+  around the focal point that the field's value carries. A One Page in a card therefore shows its
+  middle, where its photo collage is (Product Owner: "คงครอปกลางภาพแบบเดิม (แนะนำ)"; spec #144
+  names the 16:9 crop, exact for Activity cards only).
+- Without a picture, or when its media item was deleted, a card shows a plain visual that keeps
+  the grid even.
+- **Compact cards**, the Homepage's below 640 px (§8.2):
+  - their side padding is 12 px, a measured fit: a Service card keeps 112 px for a title at
+    320 px, and "ความดันโลหิตสูง" is 107 px at body size, semibold;
+  - the title is at body size, semibold, and the Service and Health Content cards leave out their
+    summary;
+  - a Service card's icon box is 36 px, and a Quick Link card is 56 px tall.
+  - `compact` is a prop only the Homepage passes: the Service catalog, `/about`, `/health`, `/ita`
+    and the Activities list keep the full cards.
+
+## 8. Homepage
+
+Source: `current/04-homepage.md` v2.5 and `current/03-sitemap.md` v2.5. The sections, in `04` §3's
+order:
 
 1. Header / navigation / reachable search.
-2. Featured / Priority (optional; one primary item if shown, not an autoplay carousel).
-3. Frequently Used Services (manually curated, approximately 4–6 useful destinations).
-4. Latest News + Current Announcements (canonical links, published/current records, simple ordering).
-5. Health Information (health knowledge, not recommendations or reports by default).
-6. Health Service Discovery CTA linking into `/health-services` (no homepage near-me, geolocation, open-now engine or full directory app).
-7. Activities (small recent set, real activity dates, genuine images or graceful fallback).
-8. Quick Access (optional, approved canonical destinations only).
-9. Contact Summary (true office/address/phone/hours when available, optional map; essential text remains if map fails).
-10. Footer (orientation, privacy/accessibility/contact and maintained official links).
+2. Featured (optional; one item, not an autoplay carousel).
+3. Frequently Used Services (curated, up to 6).
+4. Latest News + Current Announcements.
+5. Health Information (the latest 4 Health Content items).
+6. Health Service Discovery (a form into `/health-services`, no directory on the Homepage).
+7. Activities (the latest, by when they were held).
+8. Quick Access (optional, up to 4 shortcuts to canonical destinations).
+9. Contact Summary (the office's address, telephone and hours; a static map stand-in).
+10. Footer.
 
-### 8.1 ITA in V1; Dashboard deferred, not deleted
+From `lg`, Frequently Used Services show 3 to a row, Health Information 4, Activities 3 and Quick
+Access 4. Below `lg` each shows 2 to a row, 12 px apart below `sm` and 24 px from `sm`.
 
-ITA is in V1 (spec #121, ADR 0006). Dashboard stays deferred, and **deferred ≠ removed or cancelled**: Dashboard remains in Songhealth's longer-term product direction and in the Figma design inventory. Deferral affects **implementation/publication timing**, not the decision to retain its design concepts.
+### 8.1 Featured
 
-| Area | V1 live/public version | Future-state design |
+- **The picture** shows whole at its own aspect ratio, never cropped, at most 408 px tall at every
+  width: the office's landscape pictures are text banners, and its portrait ones are One Pages. A
+  narrower picture, such as a One Page, is centred on the band. Its width cap comes from the size
+  EmDash stores with the image, so the image's box is the picture itself. An item without a picture
+  shows the gradient visual.
+- **The title** is H3 size, H2 size from `sm` and H1 size (46/58) from `lg`, with `text-balance`
+  (Product Owner: "หัวข้อเรื่องเด่นเล็กลง"). Concept v1's Display size (60/72) filled much of the
+  first screen.
+- **The lead** shows four lines at most, three below 640 px.
+- With nothing Featured, a dark band holds the site title and tagline.
+
+### 8.2 Phones
+
+Below 640 px the Homepage is shorter, with every section kept in its order (Product Owner: "โอเค
+เฉพาะหน้าแรก"; `04` §15). From `sm` it is as before, and on a desktop only the Featured hero
+changed.
+
+- Each section has 32 px of space above and below it.
+- The section headings' leads, the Contact Summary's lead and the map stand-in are hidden.
+- The Frequently Used Services, Health Information, Activities and Quick Access go two to a row,
+  12 px apart, in compact cards (§7.3).
+- The News card's summary is clamped to three lines, as the Featured lead is.
+- Phones and tablets show the latest 4 Activities, two by two; a desktop row shows 3.
+
+The Homepage's height with the demo dataset, measured on 2026-11-05 at the application code of
+`006-frontend-design` `571b222` with `scripts/capture-screenshots.mjs`:
+
+| Width | Before Feature 006 | v1.0 |
+| --- | ---: | ---: |
+| 1,440 px | about 5,900 px | 5,736 px |
+| 375 px | 9,246 px | 5,821 px |
+| 320 px | | 6,196 px |
+
+The Product Owner accepted the phone Homepage at 5,771 px at 375 px with the prototype's data, in
+place of the grill's target of about 5,000 px (spec #144). The height moves with the titles and the
+number of items.
+
+### 8.3 ITA in V1; Dashboard deferred
+
+ITA is in V1 (spec #121, ADR 0006). Dashboard stays deferred, and **deferred ≠ removed or
+cancelled**: it remains in Songhealth's longer-term direction, and its concepts stay in the Figma
+file, which is kept unchanged (ADR 0007).
+
+| Area | V1 live/public version | Future state |
 | --- | --- | --- |
 | ITA | `/ita`, `/ita/{fiscal-year}` and `/ita/{slug}`; "ITA" is the main navigation's last item; Quick Access may point to `/ita`; no Homepage section of its own (`03` §2 and §11, `04` §10.1) | None: the pages below are live |
-| Dashboard | No V1 `/dashboard` route, main navigation link or Homepage shortcut under the current approved scope | **Retain** Dashboard screen concepts, components and possible navigation/Quick Access placements for its separately approved future scope |
-| Figma Homepage | Maintain an explicitly labeled **V1 implementation** frame consistent with `03-sitemap.md` and `04-homepage.md`; its ITA navigation item and Quick Access card are V1 now | Preserve an explicitly labeled **Future State / Vision** frame or variant displaying Dashboard if envisioned; do not delete the original concepts |
+| Dashboard | No V1 `/dashboard` route, main navigation link or Homepage shortcut | Its Figma concepts, for a separately approved future scope |
 
-**The ITA pages have no Figma concept:** the file has one page, the homepage (checked 2026-11-02). The pages use the site's tokens and components (ADR 0001), and the MOIT page follows variant C, "สารบัญและการ์ด", of the ITA prototype (`docs/prototypes/ita-moit-page.md` on the branch `prototype/ita`):
+**The ITA pages have no Figma concept.** They use the site's tokens and components (§3.1, §7), and
+the MOIT page follows variant C, "สารบัญและการ์ด", of the ITA prototype
+(`docs/prototypes/ita-moit-page.md` on the branch `prototype/ita`):
 
-- **Landing `/ita`:** the heading "การประเมินคุณธรรมและความโปร่งใส (ITA)" with the GLOSSARY lead, then a Quick Link card per fiscal year, newest first: "ปีงบประมาณ", the year and "ตัวชี้วัด n รายการ". While no MOIT is published it says "ยังไม่มีข้อมูล ITA".
-- **Year `/ita/{fiscal-year}`:** the heading "ITA ปีงบประมาณ พ.ศ. YYYY", then one card that lists the year's MOITs by number between divider lines. Each row is a heading link, a "MOIT n" badge and the title, over "หลักฐาน n รายการ · ปรับปรุงล่าสุด date".
+- **Landing `/ita`:** the heading "การประเมินคุณธรรมและความโปร่งใส (ITA)" with the GLOSSARY lead,
+  then a Quick Link card per fiscal year, newest first: "ปีงบประมาณ", the year and "ตัวชี้วัด n
+  รายการ". While no MOIT is published it says "ยังไม่มีข้อมูล ITA".
+- **Year `/ita/{fiscal-year}`:** the heading "ITA ปีงบประมาณ พ.ศ. YYYY", then one card that lists
+  the year's MOITs by number between divider lines. Each row is a heading link, a "MOIT n" badge
+  and the title, over "หลักฐาน n รายการ · ปรับปรุงล่าสุด date".
 - **MOIT `/ita/{slug}`:**
-  - a brand-dark header band: "ITA ปีงบประมาณ พ.ศ. YYYY", the H1 "MOIT n" and the title, the summary, the Evidence count (and how many files cannot be served), and "ปรับปรุงล่าสุด" when staff set it;
-  - a table of contents of the top-level Requirements with their counts: sticky beside the cards on desktop, a horizontal row above them on phones;
-  - one card per top-level Requirement: a native disclosure, open at first, that closes without JavaScript, with its title as the heading inside the toggle and a 16 px chevron; each sub-Requirement is a section inside the card;
-  - Evidence as pills: the Round tag unless the Round is "ไม่ระบุรอบ", the label (a file's note follows it in parentheses), then what it is: a file's type and size after a download icon, "หน้าเว็บของสำนักงาน" with a chevron for a page of this site, the host with "(เว็บไซต์ภายนอก)" and an arrow-up-right for another website, or the email address or phone number. A link marked current carries "ข้อมูลปัจจุบัน". A file that cannot be served is a dashed pill with "ไฟล์ไม่พร้อมให้บริการ" and a "ติดต่อเรา" link;
-  - "ตัวชี้วัดก่อนหน้า" and "ตัวชี้วัดถัดไป" cards below the Requirements, each with "MOIT n" and the title, within the same fiscal year only.
+  - a brand-dark header band: "ITA ปีงบประมาณ พ.ศ. YYYY", the H1 "MOIT n" and the title, the
+    summary, the Evidence count (and how many files cannot be served), and "ปรับปรุงล่าสุด" when
+    staff set it;
+  - a table of contents of the top-level Requirements with their counts: sticky beside the cards
+    on desktop, a horizontal row above them on phones;
+  - one card per top-level Requirement: a native disclosure, open at first, that closes without
+    JavaScript, with its title as the heading inside the toggle and a 16 px chevron; each
+    sub-Requirement is a section inside the card;
+  - Evidence as pills: the Round tag unless the Round is "ไม่ระบุรอบ", the label (a file's note
+    follows it in parentheses), then what it is: a file's type and size after a download icon,
+    "หน้าเว็บของสำนักงาน" with a chevron for a page of this site, the host with "(เว็บไซต์ภายนอก)"
+    and an arrow-up-right for another website, or the email address or phone number. A link
+    marked current carries "ข้อมูลปัจจุบัน". A file that cannot be served is a dashed pill with
+    "ไฟล์ไม่พร้อมให้บริการ" and a "ติดต่อเรา" link;
+  - "ตัวชี้วัดก่อนหน้า" and "ตัวชี้วัดถัดไป" cards below the Requirements, each with "MOIT n" and the
+    title, within the same fiscal year only.
 
-**Figma preservation rule:** when reconciling the V1 frame, **do not permanently delete Dashboard layers or component definitions**. Copy/preserve their current appearance in a Future State frame first; V1 visibility is a separate presentation choice. Future-state placement is a proposal, not a newly approved public IA decision.
+**Release rule:** a deferred card, such as Dashboard's, is never an enabled link in a V1 build,
+and no placeholder route is invented. Its public activation needs the Product Owner's
+authorization and the matching updates to the higher-priority product and IA documents.
 
-**Release rule:** do not render future/deferred cards, such as Dashboard's, as enabled links in a V1 build or invent placeholder routes. Their later public activation requires Product Owner authorization and corresponding updates to the higher-priority product/IA documents. This does not prevent continuing the visual design for their future release.
+The search field and the Featured text represent real product journeys, not a second search or
+static marketing content.
 
-The visual search field and hero text must represent actual product journeys, not a second search or static marketing-only content owner.
+## 9. Post pages: News, Activity and Health Content
 
-## 9. Accessibility and motion QA
+### 9.1 The header and two columns
 
-- Semantic landmarks (`header`, `nav`, `main`, `footer`), heading hierarchy, and logical reading/tab order.
-- Every actionable link/button has visible `focus-visible` styling; no keyboard trap. Mobile menu is an accessible disclosure with state/name rather than a static visual badge.
-- Target approximately **44×44 CSS px** interactive hit areas on touch surfaces, with sufficient spacing. Check actual mobile layouts, not just Figma bounding boxes.
-- Contrast: text and interactive controls should satisfy the website-wide adopted accessibility target; use **WCAG AA contrast ratios** (4.5:1 normal text, 3:1 large text and relevant UI boundaries) as design-review checks unless a stricter site standard is adopted.
-- Informative images have descriptive alt text; decorative assets have empty alt. Icon-only buttons have a programmatic name; search input has an accessible label.
-- Respect `motion-reduce:` / `prefers-reduced-motion`, avoid autoplay hero and non-essential motion; never use motion to convey information exclusively.
-- Verify at 320, 360, 390, 768, 1024 and 1440 px; keyboard only; zoom 200%; long Thai headings; empty/expired content.
+- **The header** (`PostHeader.astro`): a News item's category, the title as the page's one H1, the
+  summary under it with the line breaks staff typed, and the publication date; Health Content's
+  review date follows. Every post states its story in words, at least its summary, as a One Page's
+  text is an image (grill Q14; `05` §5.1).
+- **From `lg`, a post with a picture reads in two columns** (`PostColumns.astro`):
+  - on the left, the page's text in its order: the header, then an Activity's details card, or a
+    News or Health Content post's body, source and topics;
+  - on the right, a 28 rem column, 48 px from the text, with the picture whole and
+    "เปิดภาพขนาดเต็ม", a link to the file as it was uploaded;
+  - the picture is sticky 1.5 rem from the top: it stays in view while the left column scrolls and
+    stops at the end of the two columns. Anything full width, such as an Activity's photos, comes
+    after them, so the picture never covers it.
+- **Below `lg`**, one column in the page's order: the header, the picture, then the body, source
+  and topics (News, Health Content); the header, the details, the picture, then the photos
+  (Activity). "เปิดภาพขนาดเต็ม" shows at every width (Product Owner, #147 comment 6634124888
+  item 1). A post without a picture keeps one column.
+- The other detail templates, such as Announcement, Document and Service, keep their layout.
 
-## 10. Figma cleanup and acceptance gate — OPEN
+### 9.2 An Activity's photos
 
-These items are **not marked complete**. The Figma MCP Starter quota prevented the requested final editing round. Before v1.0 of this design document:
+`src/components/ActivityPhotos.astro`, under the heading "ภาพกิจกรรม" (Product Owner's decisions:
+#148 comment 6649367649):
 
-- [ ] Replace all UI-symbol text/emoji (`+`, `↗`, `→`, any pictographic glyphs) with a consistent Lucide-equivalent editable vector/icon-component treatment. Replace provisional medical-plus branding only after approved logo is available.
-- [ ] **Preserve first:** make a clearly named `Future State / Vision` design frame or variant containing the existing Dashboard concepts/components. Then reconcile only the `V1 Implementation` frame's navigation/Quick Access against the current sitemap, where ITA is a V1 link; no active V1 Dashboard links or invented routes. Do not delete the future design inventory.
-- [ ] Audit every desktop service card and mobile equivalent for correct icon, title, description, consistent spacing, equal heights and no clipping.
-- [ ] Review featured content card for clear one-primary-item hierarchy, honest content source, primary/secondary CTA, and sensible image fallback.
-- [ ] Make News, Announcement, Health Content and Quick Access visually distinguishable by role; check dates/categories and published-link states.
-- [ ] Ensure Health Service Discovery is a directory entry CTA, not a simulated search with unimplemented direct results.
-- [ ] Replace map/location and activity-image placeholders with appropriately labeled mock assets or verified real assets; preserve textual alternatives.
-- [ ] Review responsive spacing, 44 px target sizes, mobile menu design, visible focus states and long Thai text at narrow widths.
-- [ ] Validate actual foreground/background color pairings; especially avoid `ink-muted` on `surface-soft`, `alert` normal text on white, or yellow `accent` on white without approved contrast-safe alternatives.
-- [ ] Clean Figma layer naming, component overrides, icon instances, token bindings and visual overflow; review the final 1440/390 frames plus a narrow-phone check.
-- [ ] Obtain Product Owner visual approval and reconcile this draft with accepted architectural/ADR decisions before declaring `DESIGN.md v1.0`.
+- Square thumbnails, four to a row from `lg` and three below, each a link to the photo's file,
+  with its caption under it on at most two lines and in full to a screen reader.
+- The first eight show. The rest are in the same list, so they carry on its rows, and show while
+  the outlined-pill control after the list is open. It reads "ดูรูปทั้งหมด (N รูป)" while closed
+  and "ซ่อนรูป M รูป" while open. With eight photos or fewer there is no control.
+- No JavaScript: a native `<details>` and a `:has()` rule. A browser without `:has()` shows every
+  photo and no control.
+- A link is named by the photo's alt text from the media library, else its caption, else "ภาพที่ N".
+- The crop is the middle of the photo, or the part around a focal point that the field's value
+  carries (`05` §5.1).
+- An Activity page with twenty photos is 2,266 px tall on a 375 px phone while they are folded,
+  where it was 7,054 px before (#148's pull request).
 
-## 11. Developer/AI agent handoff rules
+### 9.3 A gallery in a News body
 
-- Before implementing a public UI ticket, read current `00`–`10`, the relevant accepted issue/spec, `CLAUDE.md`, and the accepted design baseline. Confirm Figma screenshots do not introduce deferred product scope.
-- Implement through **Astro SSR + Tailwind CSS v4**. EmDash native CMS owns content/admin behavior. React islands require a demonstrated interactive need, not because a Figma mock looks interactive.
-- Reuse canonical CMS data and published routes. No second homepage database, separate editorial content copies, custom page builder, or duplicate mobile data configuration.
-- Don't silently add UI dependencies, CSS frameworks, private assets, animation engines, or new architecture. Verify version-specific installation/integration before proposing a dependency change.
-- Never claim browser/accessibility QA passed from an inspection of Figma alone. Verify rendered UI and actual navigation with the project test/runtime process at the authorized implementation phase.
-- The Product Owner approves design changes that affect content hierarchy, route scope, institutional identity or technical direction. Cosmetic changes within a scoped ticket may follow ordinary review.
+A gallery block in a body stays EmDash's own rendering: square thumbnails in the columns the block
+sets (3 by default, 2 below 640 px), every photo shown, with no link per photo (emdash 1.1.0
+`src/components/Gallery.astro`; spec #144). Large photo sets belong on an Activity, and EmDash's
+Edit mode shows the block as a placeholder (`05` §5.1).
 
-## 12. References and change history
+## 10. Acceptance and known limits
 
-- Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.4, 2026-11-03); `03-sitemap.md` (v2.5, 2026-11-03).
-- Architecture: `docs/website-modernization-docs/current/10-system-blueprint.md` (v2.7, 2026-11-03); `README.md`; `CLAUDE.md`.
-- Figma: [Songhealth — Homepage Concept v1](https://www.figma.com/design/Lxdfd1dBgNNO28Rx62zGYO) (design under cleanup).
-- Tailwind official: [Astro installation](https://tailwindcss.com/docs/installation/framework-guides/astro), [Theme variables](https://tailwindcss.com/docs/theme), [State variants](https://tailwindcss.com/docs/hover-focus-and-other-states).
-- **v0.1 draft (2026-10-30):** establish Tailwind-v4-only public styling, Lucide/no-emoji policy, Figma token proposal, V1 scope reconciliation, responsive/QA gates. Recorded as a draft only; not accepted or deployed.
-- **v0.1 clarification (Product Owner):** ITA and Dashboard are **deferred from V1, not removed from Songhealth**. Retain future-state Figma designs and planned capabilities; do not publish inactive V1 links without a separate approved scope decision. Feature 004 superseded the ITA part on 2026-11-03 (below).
-- **v0.2 recheck (2026-10-30):** make the V1/Future State separation explicit without deleting ITA/Dashboard concepts; validate the Tailwind v4 token namespaces against upstream documentation; record color-contrast failures in the proposed Figma palette for later visual QA. Still a draft; adding it to the repository does not authorize implementation or confer Product Owner acceptance.
-- **v0.2 update (2026-10-31, #105 retro):** §5 states the icon sizes the Product Owner decided on #105 (comment 6536890963), in place of the typical slots "16 px utility/meta; 20 px navigation/inline; 24 px actions/service cards". The rest of the draft is unchanged.
-- **v0.2 update (2026-11-03, Feature 004 #127):** §8.1 records ITA in V1 (spec #121, ADR 0006): its routes, the main navigation's last item, an optional Quick Access shortcut, and the ITA page patterns, with the MOIT page from the prototype's variant C; the Figma file has no ITA page. §8.1's preservation and release rules and §10's Future State item now name Dashboard only. The rest of the draft is unchanged.
+This section replaces the draft's Figma cleanup and acceptance gate: that checklist was for the
+Figma file, which is no longer edited (ADR 0007).
+
+**What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real content
+(spec #144 Further Notes):
+
+- the current design over three new variants: "ฉันคิดว่าแบบเดิมที่เราทำมันยังดีกว่าที่คุณเสนอมาอีกนะ";
+- the Featured picture whole and a smaller Featured title, titles that keep Thai words whole, and
+  a shorter phone Homepage ("โอเค เฉพาะหน้าแรก");
+- cards that keep the centre crop ("คงครอปกลางภาพแบบเดิม (แนะนำ)");
+- posts in two columns ("สองคอลัมน์"), with a picture that stays in view ("ลอยตาม (แนะนำ)");
+- an Activity's photos as folding thumbnails ("รูปย่อ + พับส่วนเกิน (แนะนำ)").
+
+The prototype's variant 4, "ปัจจุบัน + แก้จุด", on the branch `prototype/design`, is the visual
+reference (`docs/prototypes/design-variants.md` there). Each ticket's decisions are on #145 to
+#149, and its screenshots are in its pull request. The Product Owner accepts the design with
+Feature 006, after walking through the Homepage on a phone and a desktop, a News post, an Activity
+with many photos and a Health Content post (spec #144 "Evidence, not gates").
+
+**Known limits**, each kept by the Product Owner:
+
+- **Thai titles** (#145 comment 6625100804):
+  - the list is curated, so a compound it does not name can still break, and a new word needs a
+    code change;
+  - summaries still break inside words, such as "ออกกำลัง / กาย";
+  - at 320 px the header reads in three lines (§4.1).
+- **A compact Quick Link card's label** has about 80 px beside its arrow at 320 px. Six listed words
+  are wider at body size, semibold: ความดันโลหิตสูง 107 px, ตรวจคัดกรอง 91, ออกกำลังกาย 90,
+  ประชาสัมพันธ์ 89, ความดันโลหิต 89 and ประจำหมู่บ้าน 87. A label holding one of them runs into
+  the arrow below about 342 px, and one holding ความดันโลหิตสูง below about 374 px (#146 comment
+  6626919820 item 1).
+- **The phone Homepage's height** moves with the titles and the number of items (§8.2).
+- **Post pages** (#147 comment 6634124888 items 2 and 4):
+  - the picture follows only while the left column is the longer;
+  - a picture taller than the window shows its lower part as the block ends;
+  - a News or Health Content post with no body, source or topics keeps an empty row and its 2 rem
+    gap, seen only when its header is taller than its picture.
+- **A gallery in a News body** does not fold, and EmDash's Edit mode shows it as a placeholder
+  (§9.3).
+- **A focal point** reaches a picture only when staff pick the picture after setting it (`05`
+  §5.1).
+
+## 11. Accessibility and QA
+
+- Semantic landmarks (`header`, `nav`, `main`, `footer`), a heading hierarchy, and a logical
+  reading and tab order.
+- Every link and button shows its focus: a 3 px `brand-primary` ring, `accent-warm` on dark
+  surfaces. No keyboard trap.
+- Pages work without client JavaScript. The mobile menu, the MOIT page's Requirements and an
+  Activity's folded photos are native disclosures that name their state.
+- Touch targets of about 44×44 CSS px, with room between them.
+- Contrast: WCAG 2.2 AA (§3.2).
+- An informative image has alt text, a decorative one empty alt. A card's or the Featured picture
+  is decorative, as its title names the link. An icon-only button has a name, and the search input
+  a label.
+- No autoplay and no motion that carries meaning.
+- The public suites check each template at 1,440 and 320 px with axe (WCAG 2.2 AA tags), focus on
+  every stop and no sideways scrolling at 320 px, and at 375 px where a spec names it
+  (CODING_STANDARDS "Tests"). There are no pixel tests: the look is the Product Owner's review of
+  each pull request's screenshots at 1,440, 375 and 320 px.
+
+## 12. Developer and agent handoff rules
+
+- Before a public UI ticket, read the current `00`–`10`, the spec or ticket, `CLAUDE.md`, this
+  document and `src/styles/global.css`. No Figma read is needed.
+- Build with Astro SSR and Tailwind CSS v4. EmDash owns content and the Admin. A React island needs
+  a demonstrated interactive need.
+- Reuse canonical CMS data and routes: no second Homepage database, copied content, page builder
+  or mobile-only data.
+- Add no UI dependency, CSS framework, private asset, animation engine or new architecture
+  silently, and verify a version-specific integration before proposing one.
+- Never claim browser or accessibility QA from reading code or pictures: verify the rendered pages
+  on the development runtime.
+- The Product Owner approves a design change that affects content hierarchy, route scope,
+  institutional identity or technical direction, and the change updates this document with the
+  code (§1).
+
+## 13. References and change history
+
+- Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.5, 2026-11-05);
+  `03-sitemap.md` (v2.5, 2026-11-03); staff guidance in `05` §5.1.
+- Architecture: `docs/website-modernization-docs/current/10-system-blueprint.md` (v2.8,
+  2026-11-05); `README.md`; `CLAUDE.md`.
+- Decisions: ADR 0001 (Tailwind CSS v4), ADR 0003 (CMS images in production), ADR 0007 (the
+  design's source).
+- Feature 006: spec #144 and tickets #145 to #151.
+- Figma, as history: [Songhealth — Homepage Concept v1](https://www.figma.com/design/Lxdfd1dBgNNO28Rx62zGYO),
+  described in `docs/design/homepage-concept-v1.md`.
+- Tailwind official: [Astro installation](https://tailwindcss.com/docs/installation/framework-guides/astro),
+  [Theme variables](https://tailwindcss.com/docs/theme),
+  [State variants](https://tailwindcss.com/docs/hover-focus-and-other-states).
+- **v0.1 draft (2026-10-30):** Tailwind-v4-only public styling, the Lucide/no-emoji policy, a token
+  proposal from Figma, V1 scope reconciliation, responsive and QA gates.
+- **v0.1 clarification (Product Owner):** ITA and Dashboard were deferred from V1, not removed;
+  Feature 004 brought ITA into V1.
+- **v0.2 recheck (2026-10-30):** the V1/Future State separation, the Tailwind v4 token namespaces
+  checked upstream, and the contrast failures of the proposed palette.
+- **v0.2 updates:** the icon sizes the Product Owner decided on #105 (2026-10-31); ITA in V1 and
+  its page patterns (2026-11-03, Feature 004 #127).
+- **v1.0 (2026-11-05, Feature 006 #150):** the design's source is the code with this document (ADR
+  0007). It records the tokens and contrast as the code holds them, the Thai keep-together rule, the
+  breakpoints, the card crops, the Featured rules, the phone Homepage with its measured heights,
+  the post layout, an Activity's photos, a News body's gallery and the known limits. §10's Figma
+  checklist gave way to the accepted design.
