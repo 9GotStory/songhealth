@@ -9,25 +9,27 @@
 //
 // It needs no JavaScript: the photos come before a <details> that holds only its <summary>, and a
 // :has() rule on the section shows the folded ones while it is open (the prototype's mechanism,
-// 7fde03e). The photos are one list, so the folded ones carry on the rows of the first eight. A
-// browser without :has() would open the control and show nothing, so there every photo shows and
-// the control does not (#144 user story 25: an old phone). Chromium exposes the summary to
-// assistive technology as a disclosure that is expanded or collapsed and controls the list
+// 7fde03e). The photos are one list, so the folded ones carry on the rows of the first eight, where
+// the prototype had two (Product Owner, 2026-11-05: #148 comment 6649367649). A browser without
+// :has() would open the control and show nothing, so there every photo shows and the control does
+// not (#144 user story 25: an old phone; same comment). Chromium exposes the summary to assistive
+// technology as a disclosure that is expanded or collapsed and controls the list
 // (tests/browser/public-activity-photos.spec.ts).
 //
 // Each photo takes its alt text from the media library, as EmDash saves an image inside a repeater
 // the way it saves an image field (emdash 1.1.0 src/emdash-runtime.ts, the repeater sub-field
 // normalisation), and the alt text names its link. A photo without alt text is named by its
 // caption, else by its place, "ภาพที่ N", so no link goes without a name (WCAG 2.2 SC 2.4.4 and
-// 4.1.2). A photo whose media item was deleted in Admin is left out and not counted
-// (src/lib/media.ts), and the link opens the file as it was uploaded
-// (src/components/PostColumns.astro says how).
+// 4.1.2; Product Owner, 2026-11-05: #148 comment 6649367649). A photo whose media item was deleted
+// in Admin is left out and not counted (src/lib/media.ts), and the link opens the file as it was
+// uploaded (src/components/PostColumns.astro says how).
 //
 // A thumbnail crops its photo around the middle, or around the focal point the photo had in the
 // media library when staff picked it in the Admin, which the field's value keeps and EmDash's Image
 // applies (emdash 1.1.0 src/components/EmDashImage.astro, src/media/focal-point.ts;
 // docs/agents/emdash-1.1.0.md "Media"), as src/components/ContentCard.astro and
-// src/components/ActivityCard.astro crop their pictures.
+// src/components/ActivityCard.astro crop their pictures, where the spec says "centre crop" (Product
+// Owner, 2026-11-05: #148 comment 6649367649).
 import { Image } from "emdash/ui";
 import type { ActivityData } from "../lib/activities";
 import { availableMedia, mediaFileHref } from "../lib/media";
