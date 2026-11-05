@@ -22,7 +22,9 @@ const STATE_CHANGING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 //   URL, upload and confirm on local storage (src/astro/routes/api/media/upload-url.ts);
 // - the toolbar's renewal of its visual-action token, which changes nothing and which a public
 //   page sends on a timer, with nobody acting (#164; src/visual-editing/toolbar.ts
-//   refreshVisualActionToken, src/astro/routes/api/visual-editing/action-token.ts).
+//   refreshVisualActionToken, src/astro/routes/api/visual-editing/action-token.ts). A request that
+//   a person sends keeps its line even when it changes nothing, such as a preview URL (#164
+//   decision A).
 // The edit lock, which the Admin takes, refreshes and releases while someone edits, writes none
 // for any method.
 const ROUTINE_EDITING = new Set([

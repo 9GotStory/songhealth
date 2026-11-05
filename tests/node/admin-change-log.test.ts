@@ -109,8 +109,9 @@ describe("adminChangeLine", () => {
 	});
 
 	it("still writes the toolbar's publish, a preview URL and the media-usage progress", () => {
-		// A publish is what the log attributes. A preview URL and the media-usage progress change
-		// nothing, but each follows a person's click (#164 decision A).
+		// A publish is what the log attributes. A person working in the Admin sends the other two: a
+		// preview URL changes nothing, and the media-usage progress advances the usage index while
+		// its setup page stays open (#164 decision A).
 		const logged: Routed[] = [
 			[
 				"POST",
