@@ -13,12 +13,15 @@
 // harness. Its fixtures are synthetic Activities and photos made through the native API and
 // removed afterwards: twenty landscape photos, each its own picture with alt text and a caption,
 // the first caption longer than two lines at any width. One Activity has the twenty, with a photo
-// whose media item was deleted among them, so the page can show twenty; another has the first
-// eight; a third has two photos without alt text, one with a caption and one without.
+// whose media item was deleted among them, so the page can show twenty; others have the first
+// nine, where the fold starts, and the first eight; another has two photos without alt text, one
+// with a caption and one without.
 //
 // Chromium's accessibility tree is read through the DevTools protocol (Playwright 1.63.0
-// `newCDPSession`), because Playwright's own role model gives a `<summary>` no role: Chromium
-// exposes it to assistive technology as a disclosure that is expanded or collapsed.
+// `newCDPSession`), because Playwright's own role model gives a `<summary>` no role
+// (playwright-core 1.63.0 lib/coreBundle.js `kImplicitRoleByTagName`): Chromium exposes it to
+// assistive technology as a disclosure that is expanded or collapsed and controls the list of
+// photos.
 
 import type { Locator, Page } from "@playwright/test";
 
@@ -38,18 +41,26 @@ import {
 	DESKTOP_VIEWPORT,
 	MOBILE_VIEWPORT,
 	PHONE_VIEWPORT,
+	boxOf,
 	expect,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectStacked,
 	expectVisibleFocusOnEveryStop,
+	itemsPerRow,
 	test,
 	testAccessibilityAndReflow,
 } from "./public.helpers";
 
-/** The control's label while the twenty photos are folded, and while they all show. */
-const CLOSED = "ดูรูปทั้งหมด (20 รูป)";
-const OPEN = "ซ่อนรูป 12 รูป";
+/** The control's labels: while the photos are folded, and while they all show. */
+interface Labels {
+	closed: string;
+	open: string;
+}
+
+/** The labels for twenty photos and for nine. */
+const TWENTY: Labels = { closed: "ดูรูปทั้งหมด (20 รูป)", open: "ซ่อนรูป 12 รูป" };
+const NINE: Labels = { closed: "ดูรูปทั้งหมด (9 รูป)", open: "ซ่อนรูป 1 รูป" };
 
 /** A fixture photo: its alt text, its caption and its file. */
 interface Photo {
@@ -66,8 +77,12 @@ interface Activity {
 let admin: CmsActor;
 /** The twenty photos, in the order the Activities list them. */
 const PHOTOS: Photo[] = [];
-/** The Activity with the twenty photos, the one with the first eight, and one without alt text. */
+/**
+ * The Activities with the twenty photos, the first nine and the first eight, and one with photos
+ * without alt text.
+ */
 let many: Activity;
+let nine: Activity;
 let eight: Activity;
 let unnamed: Activity;
 /** The caption of the photo without alt text that has one; the other has none. */
@@ -103,9 +118,7 @@ async function expectShown(photos: Locator, shown: readonly Photo[], label: stri
  * Fail unless the control reads `text` and shows under every photo that shows, caption included.
  */
 async function expectControlUnder(photos: Locator, text: string, label: string): Promise<void> {
-	const control = controlOf(photos, text);
-	await expect(control, `${label}: the control reads ${text}`).toBeVisible();
-	const top = (await control.boundingBox())!.y;
+	const { y: top } = await boxOf(controlOf(photos, text), `${label}: the control reads ${text}`);
 	const bottom = await photos
 		.getByRole("figure")
 		.evaluateAll((figures) =>
@@ -115,35 +128,49 @@ async function expectControlUnder(photos: Locator, text: string, label: string):
 }
 
 /**
- * Fail unless the Activity with twenty photos shows the first eight with the control under them,
- * all twenty above it once it is activated, and the first eight again once it is activated again.
+ * Fail unless `activity`, whose photos are `all`, shows the first eight with the control under them
+ * reading `labels.closed`, all of them above it reading `labels.open` once it is activated, and the
+ * first eight again once it is activated again.
  */
-async function expectPhotosFold(page: Page, label: string): Promise<void> {
-	await page.goto(many.path);
+async function expectPhotosFold(
+	page: Page,
+	activity: Activity,
+	all: readonly Photo[],
+	labels: Labels,
+	label: string,
+): Promise<void> {
+	await page.goto(activity.path);
 	const photos = photosOf(page);
-	await expectShown(photos, PHOTOS.slice(0, 8), `${label}, closed`);
-	for (const photo of PHOTOS.slice(8)) {
+	await expectShown(photos, all.slice(0, 8), `${label}, closed`);
+	for (const photo of all.slice(8)) {
 		const folded = photos.getByRole("link", { name: photo.alt, exact: true, includeHidden: true });
 		await expect(folded, `${label}, closed: ${photo.alt} is in the page`).toHaveCount(1);
 		await expect(folded, `${label}, closed: ${photo.alt} is folded`).toBeHidden();
 	}
-	await expectControlUnder(photos, CLOSED, `${label}, closed`);
+	await expectControlUnder(photos, labels.closed, `${label}, closed`);
 
-	await controlOf(photos, CLOSED).click();
-	await expectShown(photos, PHOTOS, `${label}, open`);
-	await expectControlUnder(photos, OPEN, `${label}, open`);
-	await expect(controlOf(photos, CLOSED), `${label}, open: ${CLOSED} is gone`).toBeHidden();
+	await controlOf(photos, labels.closed).click();
+	await expectShown(photos, all, `${label}, open`);
+	await expectControlUnder(photos, labels.open, `${label}, open`);
+	await expect(
+		controlOf(photos, labels.closed),
+		`${label}, open: no ${labels.closed}`,
+	).toBeHidden();
 
-	await controlOf(photos, OPEN).click();
-	await expectShown(photos, PHOTOS.slice(0, 8), `${label}, closed again`);
-	await expectControlUnder(photos, CLOSED, `${label}, closed again`);
+	await controlOf(photos, labels.open).click();
+	await expectShown(photos, all.slice(0, 8), `${label}, closed again`);
+	await expectControlUnder(photos, labels.closed, `${label}, closed again`);
 }
 
 /**
- * The expanded state Chromium exposes to assistive technology on the node named `name` that has
- * one, or undefined when none has: the DevTools protocol's Accessibility.queryAXTree.
+ * What Chromium exposes to assistive technology on the node named `name` that states whether it is
+ * expanded: that state, and the ids of the elements it controls (the DevTools protocol's
+ * Accessibility.queryAXTree).
  */
-async function exposedExpanded(page: Page, name: string): Promise<boolean | undefined> {
+async function exposedDisclosure(
+	page: Page,
+	name: string,
+): Promise<{ expanded?: boolean; controls: string[] }> {
 	const session = await page.context().newCDPSession(page);
 	try {
 		const { root } = await session.send("DOM.getDocument", { depth: 0 });
@@ -151,25 +178,17 @@ async function exposedExpanded(page: Page, name: string): Promise<boolean | unde
 			nodeId: root.nodeId,
 			accessibleName: name,
 		});
-		const expanded = nodes
-			.flatMap((node) => node.properties ?? [])
-			.find((property) => property.name === "expanded");
-		return expanded?.value.value as boolean | undefined;
+		const properties = nodes
+			.map((node) => node.properties ?? [])
+			.find((list) => list.some((property) => property.name === "expanded"));
+		const value = (property: string) => properties?.find(({ name }) => name === property)?.value;
+		return {
+			expanded: value("expanded")?.value as boolean | undefined,
+			controls: (value("controls")?.relatedNodes ?? []).map((node) => node.idref ?? ""),
+		};
 	} finally {
 		await session.detach();
 	}
-}
-
-/** How many of the photos that show sit in each row, top to bottom. */
-function photosPerRow(photos: Locator): Promise<number[]> {
-	return photos.getByRole("link").evaluateAll((links) => {
-		const rows = new Map<number, number>();
-		for (const link of links) {
-			const top = Math.round(link.getBoundingClientRect().top);
-			rows.set(top, (rows.get(top) ?? 0) + 1);
-		}
-		return [...rows.values()];
-	});
 }
 
 test.use({ viewport: DESKTOP_VIEWPORT });
@@ -203,6 +222,7 @@ test.beforeAll(async () => {
 		...items.slice(2),
 	]);
 	expect((await deleteMedia(admin, goneId)).ok, "deleting the media item").toBe(true);
+	nine = await publishActivity("nine-photos", items.slice(0, 9));
 	eight = await publishActivity("eight-photos", items.slice(0, 8));
 
 	const withoutAlt = async () => {
@@ -224,18 +244,36 @@ test.beforeAll(async () => {
 
 test.afterAll(() => removeSuiteFixtures(admin));
 
-test("an Activity with twenty photos shows the first eight with ดูรูปทั้งหมด (20 รูป) under them, all twenty with ซ่อนรูป 12 รูป under them once it is activated, and the eight again after", async ({
+test("an Activity with twenty photos shows the first eight with ดูรูปทั้งหมด (20 รูป) under them, all twenty with ซ่อนรูป 12 รูป under them once it is activated, and the eight again after, at 375 and 1440 px", async ({
 	page,
 }) => {
-	await expectPhotosFold(page, "with JavaScript");
+	for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+		await page.setViewportSize(viewport);
+		await expectPhotosFold(page, many, PHOTOS, TWENTY, `at ${viewport.width} px`);
+	}
 });
 
 test.describe("without JavaScript", () => {
 	test.use({ javaScriptEnabled: false });
 
-	test("the twenty photos fold and unfold the same way", async ({ page }) => {
-		await expectPhotosFold(page, "without JavaScript");
+	test("the twenty photos fold and unfold the same way at 375 and 1440 px", async ({ page }) => {
+		for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+			await page.setViewportSize(viewport);
+			await expectPhotosFold(
+				page,
+				many,
+				PHOTOS,
+				TWENTY,
+				`without JavaScript at ${viewport.width} px`,
+			);
+		}
 	});
+});
+
+test("an Activity with nine photos folds the ninth under ดูรูปทั้งหมด (9 รูป), which reads ซ่อนรูป 1 รูป once it is activated", async ({
+	page,
+}) => {
+	await expectPhotosFold(page, nine, PHOTOS.slice(0, 9), NINE, "nine photos");
 });
 
 test("an Activity with eight photos shows them all and has no control", async ({ page }) => {
@@ -245,7 +283,7 @@ test("an Activity with eight photos shows them all and has no control", async ({
 	await expect(photos.getByText(/^(ดูรูปทั้งหมด|ซ่อนรูป)/), "no control").toHaveCount(0);
 });
 
-test("the control follows the eighth photo in the Tab order, opens with Enter, closes with Space, and tells assistive technology whether it is expanded", async ({
+test("the control follows the eighth photo in the Tab order, opens with Enter, closes with Space, and tells assistive technology whether it is expanded and which list it controls", async ({
 	page,
 }) => {
 	await page.goto(many.path);
@@ -254,21 +292,29 @@ test("the control follows the eighth photo in the Tab order, opens with Enter, c
 	await photos.getByRole("link").nth(7).focus();
 	await page.keyboard.press("Tab");
 	await expect(focused, "Tab from the eighth photo reaches the control").toHaveAccessibleName(
-		CLOSED,
+		TWENTY.closed,
 	);
-	expect(await exposedExpanded(page, CLOSED), "closed, it is exposed as collapsed").toBe(false);
+	const closed = await exposedDisclosure(page, TWENTY.closed);
+	expect(closed.expanded, "closed, it is exposed as collapsed").toBe(false);
+	expect(closed.controls, "it controls one element").toHaveLength(1);
+	const controlled = page.locator(`[id="${closed.controls[0]}"]`);
+	await expect(controlled.getByRole("link"), "it controls the photos that show").toHaveCount(8);
 
 	await page.keyboard.press("Enter");
 	await expectShown(photos, PHOTOS, "after Enter");
-	await expect(focused, "the control keeps the focus").toHaveAccessibleName(OPEN);
-	expect(await exposedExpanded(page, OPEN), "open, it is exposed as expanded").toBe(true);
+	await expect(focused, "the control keeps the focus").toHaveAccessibleName(TWENTY.open);
+	expect((await exposedDisclosure(page, TWENTY.open)).expanded, "open, it is expanded").toBe(true);
+	await expect(controlled.getByRole("link"), "the list it controls holds all twenty").toHaveCount(
+		20,
+	);
 
 	await page.keyboard.press("Space");
 	await expectShown(photos, PHOTOS.slice(0, 8), "after Space");
-	await expect(focused, "the control keeps the focus").toHaveAccessibleName(CLOSED);
-	expect(await exposedExpanded(page, CLOSED), "closed again, it is exposed as collapsed").toBe(
-		false,
-	);
+	await expect(focused, "the control keeps the focus").toHaveAccessibleName(TWENTY.closed);
+	expect(
+		(await exposedDisclosure(page, TWENTY.closed)).expanded,
+		"closed again, it is collapsed",
+	).toBe(false);
 });
 
 test("the thumbnails are square, cropped around their middle, four to a row from 1024 px and three below, and the folded photos carry on the rows", async ({
@@ -284,9 +330,12 @@ test("the thumbnails are square, cropped around their middle, four to a row from
 	] as const;
 	for (const [width, closed, open] of widths) {
 		await page.setViewportSize({ width, height: 900 });
-		expect(await photosPerRow(photos), `at ${width} px, closed`).toEqual(closed);
-		await controlOf(photos, CLOSED).click();
-		expect(await photosPerRow(photos), `at ${width} px, open`).toEqual(open);
+		expect(await itemsPerRow(photos.getByRole("link")), `at ${width} px, closed`).toEqual(closed);
+		await controlOf(photos, TWENTY.closed).click();
+		expect(await itemsPerRow(photos.getByRole("link")), `at ${width} px, open`).toEqual(open);
+		// The crop is the photo's object-fit and object-position as computed, which decide whether the
+		// square shows the middle of the photo or squeezes all of it in; expectPictureWhole
+		// (public.helpers.ts) reads the same values. Its aspect ratio alone cannot tell the two apart.
 		const shapes = await photos.getByRole("img").evaluateAll((images) =>
 			images.map((image) => {
 				const { width, height } = image.getBoundingClientRect();
@@ -302,14 +351,14 @@ test("the thumbnails are square, cropped around their middle, four to a row from
 				"50% 50%",
 			]);
 		}
-		await controlOf(photos, OPEN).click();
+		await controlOf(photos, TWENTY.open).click();
 	}
 });
 
 test("each thumbnail opens its own photo's file", async ({ page }) => {
 	await page.goto(many.path);
 	const photos = photosOf(page);
-	await controlOf(photos, CLOSED).click();
+	await controlOf(photos, TWENTY.closed).click();
 	for (const photo of PHOTOS) {
 		const href = await photos
 			.getByRole("link", { name: photo.alt, exact: true })
@@ -379,7 +428,7 @@ test.describe("accessibility and reflow", () => {
 			await page.goto(many.path);
 			await expectNoAxeViolations(page, `closed at ${viewport.width} px`);
 			await expectVisibleFocusOnEveryStop(page, `closed at ${viewport.width} px`);
-			await controlOf(photosOf(page), CLOSED).click();
+			await controlOf(photosOf(page), TWENTY.closed).click();
 			// The walk starts again at the main content, the skip link's target, past the header.
 			await page.getByRole("main").focus();
 			await expectNoAxeViolations(page, `open at ${viewport.width} px`);
@@ -392,7 +441,7 @@ test.describe("accessibility and reflow", () => {
 	}) => {
 		await page.setViewportSize(MOBILE_VIEWPORT);
 		await page.goto(many.path);
-		await controlOf(photosOf(page), CLOSED).click();
+		await controlOf(photosOf(page), TWENTY.closed).click();
 		await expectShown(photosOf(page), PHOTOS, "open at 320 px");
 		await expectNoHorizontalScroll(page, "open at 320 px");
 	});

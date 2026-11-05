@@ -19,8 +19,8 @@
 // - What the shell shows every page: the 404 page, the default site title, the
 //   breadcrumb, Thai dates, the titles and items a list shows, and a record
 //   page's details; whether an image loads, shows its whole picture and fills
-//   its box; where parts of a page sit, one under another; and how a word of a
-//   title lies in its lines and its box.
+//   its box; where parts of a page sit, one under another or side by side in
+//   rows; and how a word of a title lies in its lines and its box.
 // - `expectPreviewRenders`: a draft's signed preview link (cms.helpers.ts
 //   mintPreviewLink) at the draft's address, rendering it out of search engines.
 // - `sitemapLocations`: the addresses a sitemap document lists.
@@ -418,6 +418,23 @@ export async function expectStacked(
 		}
 		above = { name, bottom: box.y + box.height };
 	}
+}
+
+/**
+ * How many of `items` sit in each row as the page is laid out now, top to bottom: items whose tops
+ * lie within 1 px of each other share a row. A role locator leaves out the hidden ones.
+ */
+export function itemsPerRow(items: Locator): Promise<number[]> {
+	return items.evaluateAll((elements) => {
+		const rows: Array<{ top: number; count: number }> = [];
+		for (const element of elements) {
+			const top = element.getBoundingClientRect().top;
+			const row = rows.find((candidate) => Math.abs(candidate.top - top) < 1);
+			if (row) row.count += 1;
+			else rows.push({ top, count: 1 });
+		}
+		return rows.map((row) => row.count);
+	});
 }
 
 /**
