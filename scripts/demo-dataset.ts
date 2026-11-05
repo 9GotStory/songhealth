@@ -17,6 +17,7 @@ import { readFile } from "node:fs/promises";
 import { chromium } from "@playwright/test";
 
 import { escapeHtml } from "../src/lib/search-matcher.ts";
+import { titleRuns } from "../src/lib/thai-title.ts";
 import * as helpers from "../tests/browser/cms.helpers.ts";
 import { demoDataset } from "./demo-dataset/content.ts";
 import {
@@ -28,6 +29,8 @@ import {
 	planAdd,
 	planRemove,
 	removeSteps,
+	type DemoMedia,
+	type OnePageContent,
 	type PdfText,
 	type LiveEntry,
 	type LiveMedia,
@@ -136,26 +139,87 @@ async function readRuntime(admin: helpers.CmsActor): Promise<RuntimeState> {
 	};
 }
 
+/** An A4 sheet in CSS pixels: 210 × 297 mm at 96 pixels to the inch. */
+const A4_SHEET = { width: 794, height: 1123 };
+
+/** A date as a One Page writes it, such as "3 พฤศจิกายน 2569", on the Bangkok calendar day. */
+const ONE_PAGE_DATE = new Intl.DateTimeFormat("th-TH", {
+	dateStyle: "long",
+	timeZone: "Asia/Bangkok",
+});
+
 /**
- * A printer of the demo Documents' PDFs (Product Owner, 2026-10-31: #66 comment 6541144669): a
- * standard PDF font has no Thai glyphs, so Playwright's Chromium prints a one-page A4 document in
- * the site's own Noto Sans Thai. `page.pdf()` prints through Chromium's Page.printToPDF
- * (@playwright/test 1.63.0, playwright-core lib/coreBundle.js), which embeds the fonts the page
- * uses: pdffonts lists the NotoSansThai subsets, so any PDF viewer shows the Thai.
+ * A One Page's sheet (#149; spec #144 "Demo dataset"). Its colours are the site's tokens
+ * (src/styles/global.css), and its text keeps at least 4.5:1 against what is behind it, as WCAG
+ * 2.2 SC 1.4.3 asks of an image of text. The photos fill the middle of the sheet, from 336 to 790
+ * px: a card crops a One Page to the middle 16:9 of its width, which on an A4 sheet runs from 338
+ * to 785 px (spec #144 "Homepage (`04`)"), so a card shows the collage alone, as the office's own
+ * One Pages show theirs.
  */
-async function pdfPrinter() {
+function onePageSheet({ title, heldAt, place, summary, photos }: OnePageContent): string {
+	// The title keeps the site's Thai compound words whole, as the site's titles do (spec #144).
+	const keptTitle = titleRuns(title)
+		.map(({ text, keep }) =>
+			keep ? `<span class="keep">${escapeHtml(text)}</span>` : escapeHtml(text),
+		)
+		.join("");
+	return `<style>
+* { box-sizing: border-box; margin: 0; }
+body { display: flex; flex-direction: column; height: 100vh; font-family: "Noto Sans Thai";
+  color: #16211d; background: #f6f9f7; }
+header { display: flex; flex-direction: column; gap: 12px; height: 336px; padding: 36px 56px;
+  color: #ffffff; background: #0b6b57; }
+.mark { align-self: start; border: 2px solid #f3c95f; border-radius: 999px; padding: 2px 16px;
+  font-size: 15px; }
+.office { font-size: 18px; font-weight: 700; }
+h1 { font-size: 32px; line-height: 1.4; } .keep { white-space: nowrap; }
+.when { margin-top: auto; font-size: 18px; }
+.photos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; height: 454px;
+  padding: 32px 56px; }
+.photos div { border-radius: 16px; }
+.story { flex: 1; margin: 0 56px 32px; padding: 28px 32px; border-left: 8px solid #f3c95f;
+  border-radius: 16px; background: #ffffff; font-size: 22px; line-height: 1.7; }
+footer { padding: 20px 56px; border-top: 6px solid #0b6b57; color: #65736d; font-size: 15px; }
+</style><header><p class="mark">One Page ตัวอย่าง — ไม่ใช่ภาพประชาสัมพันธ์จริง</p>
+<p class="office">สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่</p><h1>${keptTitle}</h1>
+<p class="when">${ONE_PAGE_DATE.format(new Date(heldAt))} ณ ${escapeHtml(place)}</p></header>
+<div class="photos">${photos
+		.map(
+			([from, to]) =>
+				`<div style="background: linear-gradient(to bottom right, ${from}, ${to})"></div>`,
+		)
+		.join("")}</div>
+<p class="story">${escapeHtml(summary)}</p><footer>สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่</footer>`;
+}
+
+/**
+ * A printer of the demo PDFs and One Pages, in the site's own Noto Sans Thai through Playwright's
+ * Chromium.
+ *
+ * - A PDF is a one-page A4 document (Product Owner, 2026-10-31: #66 comment 6541144669): a
+ *   standard PDF font has no Thai glyphs. `page.pdf()` prints through Chromium's Page.printToPDF
+ *   (@playwright/test 1.63.0, playwright-core lib/coreBundle.js), which embeds the fonts the page
+ *   uses: pdffonts lists the NotoSansThai subsets, so any PDF viewer shows the Thai.
+ * - A One Page is a JPEG of an A4 sheet at twice its CSS size, 1588 × 2246, near the 1808 × 2560
+ *   of the office's own (tests/browser/cms.helpers.ts ONE_PAGE_SIZE), so its small print reads
+ *   when it opens at full size (spec #144 user story 17).
+ */
+async function sheetPrinter() {
 	const font = async (weight: number, file: string) =>
 		`@font-face { font-family: "Noto Sans Thai"; font-weight: ${weight}; src: url(data:font/woff2;base64,${(
 			await readFile(new URL(`../src/assets/fonts/${file}`, import.meta.url))
 		).toString("base64")}) format("woff2"); }`;
 	const fonts = `${await font(400, "NotoSansThai-Regular.woff2")}${await font(700, "NotoSansThai-Bold.woff2")}`;
 	const browser = await chromium.launch();
-	const page = await browser.newPage().catch(async (error: unknown) => {
+	const [page, sheetPage] = await Promise.all([
+		browser.newPage(),
+		browser.newPage({ viewport: A4_SHEET, deviceScaleFactor: 2 }),
+	]).catch(async (error: unknown) => {
 		await browser.close();
 		throw error;
 	});
 	return {
-		async print({ title, summary }: PdfText) {
+		async pdf({ title, summary }: PdfText) {
 			// The colours are the site's brand-dark, brand-primary and text-secondary
 			// (src/styles/global.css).
 			await page.setContent(
@@ -171,6 +235,14 @@ h1 { font-size: 22pt; } p { font-size: 14pt; line-height: 1.6; } .office { color
 			// The load event does not wait for a web font; printing before it is ready would use another.
 			await page.evaluate(() => document.fonts.ready.then(() => undefined));
 			return new Uint8Array(await page.pdf({ format: "A4", printBackground: true }));
+		},
+		async onePage(content: OnePageContent) {
+			await sheetPage.setContent(
+				`<!doctype html><html lang="th"><meta charset="utf-8"><style>${fonts}</style>${onePageSheet(content)}`,
+				{ waitUntil: "load" },
+			);
+			await sheetPage.evaluate(() => document.fonts.ready.then(() => undefined));
+			return new Uint8Array(await sheetPage.screenshot({ type: "jpeg", quality: 85 }));
 		},
 		close: () => browser.close(),
 	};
@@ -193,21 +265,24 @@ async function add(admin: helpers.CmsActor): Promise<boolean> {
 		console.log(`created the ${taxonomy} term ${slug}`);
 	}
 	const media = new Map(live.media.map((item) => [item.filename, item]));
-	const printer = plan.upload.some((item) => "pdf" in item) ? await pdfPrinter() : undefined;
+	const printer = plan.upload.some((item) => !("colours" in item))
+		? await sheetPrinter()
+		: undefined;
+	/** What to upload for `item`: a printed PDF or One Page, or a blended picture. */
+	const fileOf = async (item: DemoMedia) =>
+		"pdf" in item
+			? { bytes: await printer!.pdf(item.pdf), type: "application/pdf" }
+			: "onePage" in item
+				? { bytes: await printer!.onePage(item.onePage), type: "image/jpeg" }
+				: { bytes: helpers.gradientPng(...item.colours), type: "image/png" };
 	try {
 		for (const item of plan.upload) {
-			const uploaded =
-				"pdf" in item
-					? await helpers.uploadMediaItem(admin, item.filename, {
-							bytes: await printer!.print(item.pdf),
-							type: "application/pdf",
-						})
-					: await helpers.uploadMediaItem(
-							admin,
-							item.filename,
-							{ bytes: helpers.gradientPng(...item.colours), type: "image/png" },
-							item.alt,
-						);
+			const uploaded = await helpers.uploadMediaItem(
+				admin,
+				item.filename,
+				await fileOf(item),
+				"alt" in item ? item.alt : undefined,
+			);
 			media.set(item.filename, uploaded as unknown as MediaItem);
 			console.log(`uploaded ${item.filename}`);
 		}
