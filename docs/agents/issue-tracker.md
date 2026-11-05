@@ -30,7 +30,7 @@ A ticket's pull request fills `/pr`'s template (Summary, Evidence, Merge Danger)
    - `### Beyond the ticket`: what the change does that its ticket did not list, and why.
    - `### Review (self-review)`: the `/code-review` findings per axis and the commits that fix them, each finding left as it is with the decision that keeps it, and each later commit that was not reviewed again.
    - `### Version-specific facts`: each version-specific conclusion a decision rests on, with its version and source path (CLAUDE.md "Current documentation").
-   - `### For the next tickets`: what each later ticket of the feature needs from this one. The same notes go on those issues as comments.
+   - `### For the next tickets`: what each later ticket of the feature needs from this one, with a link to its note on that ticket's issue. `/pr` posts the notes before it opens the pull request, citing the ticket rather than the pull request, so the section links only notes that are there (#147 retro).
 3. `## Evidence`: **Before**, the first failure of the red run, verbatim; **After**, the same check passing at the final head, with the commit `dev-runtime-verify.sh` reported. Then the screenshots, as a table of `https://github.com/9GotStory/songhealth/blob/<evidence commit>/<file>?raw=true` images from `scripts/evidence-branch.sh`; each seam's cases as pseudocode; and the result of every check at the final head.
 4. `## Merge Danger`: the door, then the blast radius, ending with what reaches production.
 
