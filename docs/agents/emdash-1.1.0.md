@@ -114,6 +114,15 @@ cited file exists and that the name carries the pinned version.
 - An image inside a repeater item is normalised on save the way an image field is, so an item saved
   as `{ id }` takes its alt text from the library too (`src/emdash-runtime.ts`, the repeater
   sub-field loop beside the image fields).
+- A picture picked in the Admin carries the media item's alt text from the pick
+  (`@emdash-cms/admin/dist/index.js` `mediaItemToImageFieldValue`). A save fills an empty alt from
+  the library only when it looks the media item up, which it skips while the value has its
+  dimensions, storage key, file name, type and placeholder (`src/media/normalize.ts`
+  `normalizeMediaValue`, `mergeProviderData`). So alt text added in the library after the pick
+  usually stays off the picture until staff pick it again, as a focal point does (below).
+- Editing a media item's details, such as its alt text or focal point, needs `media:edit_own` for
+  an item the user uploaded, which an Author holds, and `media:edit_any` for anyone's, from Editor
+  up (`src/astro/routes/api/media/[id].ts` `requireOwnerPerm`, `@emdash-cms/auth/src/rbac.ts`).
 - An image block in a Portable Text body, as the Admin editor saves a picked media item, is
   `{ _type: "image", asset: { _ref: mediaId, url }, alt }`, where `url` is the media item's
   `/_emdash/api/media/file/{storageKey}` (`src/content/converters/prosemirror-to-portable-text.ts`
@@ -128,7 +137,9 @@ cited file exists and that the name carries the pinned version.
 - Edit mode is on only for a signed-in user whose role is Author (30) or above, while the toolbar's
   toggle has set the `emdash-edit-mode` cookie; such a user sees the toolbar on public pages
   (`src/astro/middleware/request-context.ts` `isEditor`, `editMode`;
-  `src/visual-editing/toolbar.ts`; the role numbers in `@emdash-cms/auth/src/types.ts`). The
+  `src/visual-editing/toolbar.ts`; the role numbers in `@emdash-cms/auth/src/types.ts`), as the
+  integration's `toolbar` option defaults to `"server"` and `./astro.config.mjs` does not set it
+  (`false` would hide the toolbar; `src/astro/integration/runtime.ts`). The
   toggle reads "Edit mode" in the Thai catalog too (`@emdash-cms/admin/dist/locales/server.js`
   `TOOLBAR_MESSAGES`, `@emdash-cms/admin/dist/locales/th/messages.mjs`). The inline editor renders
   a block type it does not know, such as a body's `gallery`, as "Plugin block: gallery (edit in

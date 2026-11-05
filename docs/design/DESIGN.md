@@ -25,7 +25,7 @@ Higher-priority sources prevail:
 2. `docs/website-modernization-docs/current/00`–`09` (product/behavior) and
    `current/10-system-blueprint.md` (architecture).
 3. `GLOSSARY.md` and accepted decisions in `docs/adr/`.
-4. Specs and tickets; then the code and tests.
+4. Specs and tickets.
 
 With the code, this document is the design's source (ADR 0007). A design change is made in the
 code and recorded here in the same pull request. A page that departs from this document is a
@@ -103,7 +103,7 @@ Type, Noto Sans Thai, as size / line height / weight in px:
 
 | Token | Style | Token | Style |
 | --- | --- | --- | --- |
-| `display` | 60 / 72 / 700, used by no template since #146 | `body-large` | 18 / 30 / 400 |
+| `display` | 60 / 72 / 700, used by no template | `body-large` | 18 / 30 / 400 |
 | `h1` | 46 / 58 / 700 | `body` | 16 / 26 / 400 |
 | `h2` | 34 / 46 / 600 | `label` | 14 / 22 / 500 |
 | `h3` | 24 / 34 / 600 | `small` | 13 / 20 / 400 |
@@ -129,7 +129,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `accent-warm` focus ring on `brand-dark`, `brand-primary` | 7.75, 4.10:1 |
 | `accent-warm` on `surface-base` | 1.58:1: a fill or decoration, never text |
 
-The draft's `alert #C95644` is not a token: a status is stated in text, and colour supports it.
+There is no alert colour: a status is stated in text, and colour supports it.
 
 ## 4. Typography
 
@@ -143,9 +143,9 @@ The draft's `alert #C95644` is not a token: a status is stated in text, and colo
 
 ### 4.1 Thai titles keep compound words whole
 
-The dictionary the browser uses (ICU) splits Thai compound words, so titles broke as "เบา|หวาน",
-"ความ|ดัน|โลหิต", "ปฏิบัติ|งาน" and "อำเภอ|สอง" (spec #144). A title therefore keeps the words of a
-curated list on one line:
+The dictionary the browser uses (ICU) splits Thai compound words, such as "เบา|หวาน",
+"ความ|ดัน|โลหิต", "ปฏิบัติ|งาน" and "อำเภอ|สอง" (spec #144 "Problem Statement" and "Version-specific
+evidence"). A title therefore keeps the words of a curated list on one line:
 
 - **The list:** spec #144's 26 words, in `src/lib/thai-title.ts`.
 - **Matching:**
@@ -242,12 +242,12 @@ this document names:
 
 ### 7.3 Cards and their pictures
 
-- Cards keep their Feature 003 look (spec #144).
 - **Crops:** an Activity card crops its picture to 16:9 (`ActivityCard.astro`), and a News or
-  Health Content card to 16:10 (`ContentCard.astro`, since #54). Both crop around the middle, or
-  around the focal point that the field's value carries. A One Page in a card therefore shows its
-  middle, where its photo collage is (Product Owner: "คงครอปกลางภาพแบบเดิม (แนะนำ)"; spec #144
-  names the 16:9 crop, exact for Activity cards only).
+  Health Content card in a list to 16:10 (`ContentCard.astro`); the Homepage's News and Health
+  Information cards show no picture. Both crops centre on the middle, or around the focal point
+  that the field's value carries. A One Page in a card therefore shows its middle, where its photo
+  collage is (Product Owner: "คงครอปกลางภาพแบบเดิม (แนะนำ)"; spec #144 names the 16:9 crop, exact
+  for Activity cards only).
 - Without a picture, or when its media item was deleted, a card shows a plain visual that keeps
   the grid even.
 - **Compact cards**, the Homepage's below 640 px (§8.2):
@@ -285,17 +285,16 @@ Access 4. Below `lg` each shows 2 to a row, 12 px apart below `sm` and 24 px fro
   narrower picture, such as a One Page, is centred on the band. Its width cap comes from the size
   EmDash stores with the image, so the image's box is the picture itself. An item without a picture
   shows the gradient visual.
-- **The title** is H3 size, H2 size from `sm` and H1 size (46/58) from `lg`, with `text-balance`
-  (Product Owner: "หัวข้อเรื่องเด่นเล็กลง"). Concept v1's Display size (60/72) filled much of the
-  first screen.
+- **The title** is H3 size, H2 size from `sm` and H1 size (46/58) from `lg`, with `text-balance`,
+  so the hero leaves room on the first screen (Product Owner: "หัวข้อเรื่องเด่นเล็กลง").
 - **The lead** shows four lines at most, three below 640 px.
 - With nothing Featured, a dark band holds the site title and tagline.
 
 ### 8.2 Phones
 
 Below 640 px the Homepage is shorter, with every section kept in its order (Product Owner: "โอเค
-เฉพาะหน้าแรก"; `04` §15). From `sm` it is as before, and on a desktop only the Featured hero
-changed.
+เฉพาะหน้าแรก"; `04` §15). From `sm` it is as before, except that tablets show 4 Activities, and on
+a desktop only the Featured hero changed.
 
 - Each section has 32 px of space above and below it.
 - The section headings' leads, the Contact Summary's lead and the map stand-in are hidden.
@@ -305,13 +304,8 @@ changed.
 - Phones and tablets show the latest 4 Activities, two by two; a desktop row shows 3.
 
 The Homepage's height with the demo dataset, measured on 2026-11-05 at the application code of
-`006-frontend-design` `571b222` with `scripts/capture-screenshots.mjs`:
-
-| Width | Before Feature 006 | v1.0 |
-| --- | ---: | ---: |
-| 1,440 px | about 5,900 px | 5,736 px |
-| 375 px | 9,246 px | 5,821 px |
-| 320 px | | 6,196 px |
+`006-frontend-design` `571b222` with `scripts/capture-screenshots.mjs`: 5,736 px at 1,440 px,
+5,821 px at 375 px and 6,196 px at 320 px.
 
 The Product Owner accepted the phone Homepage at 5,771 px at 375 px with the prototype's data, in
 place of the grill's target of about 5,000 px (spec #144). The height moves with the titles and the
@@ -369,8 +363,8 @@ static marketing content.
 
 - **The header** (`PostHeader.astro`): a News item's category, the title as the page's one H1, the
   summary under it with the line breaks staff typed, and the publication date; Health Content's
-  review date follows. Every post states its story in words, at least its summary, as a One Page's
-  text is an image (grill Q14; `05` §5.1).
+  review date follows. Every News and Activity states its story in words, at least its summary,
+  as a One Page's text is an image (grill Q14; `05` §5.1).
 - **From `lg`, a post with a picture reads in two columns** (`PostColumns.astro`):
   - on the left, the page's text in its order: the header, then an Activity's details card, or a
     News or Health Content post's body, source and topics;
@@ -400,20 +394,17 @@ static marketing content.
 - A link is named by the photo's alt text from the media library, else its caption, else "ภาพที่ N".
 - The crop is the middle of the photo, or the part around a focal point that the field's value
   carries (`05` §5.1).
-- An Activity page with twenty photos is 2,266 px tall on a 375 px phone while they are folded,
-  where it was 7,054 px before (#148's pull request).
+- An Activity page with twenty photos is 2,266 px tall on a 375 px phone while they are folded
+  (#148's pull request).
 
 ### 9.3 A gallery in a News body
 
 A gallery block in a body stays EmDash's own rendering: square thumbnails in the columns the block
-sets (3 by default, 2 below 640 px), every photo shown, with no link per photo (emdash 1.1.0
-`src/components/Gallery.astro`; spec #144). Large photo sets belong on an Activity, and EmDash's
-Edit mode shows the block as a placeholder (`05` §5.1).
+sets (3 by default, 2 at 640 px and narrower), every photo shown, with no link per photo (emdash
+1.1.0 `src/components/Gallery.astro`; spec #144). Large photo sets belong on an Activity, and
+EmDash's Edit mode shows the block as a placeholder (`05` §5.1).
 
 ## 10. Acceptance and known limits
-
-This section replaces the draft's Figma cleanup and acceptance gate: that checklist was for the
-Figma file, which is no longer edited (ADR 0007).
 
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real content
 (spec #144 Further Notes):
@@ -451,8 +442,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
     gap, seen only when its header is taller than its picture.
 - **A gallery in a News body** does not fold, and EmDash's Edit mode shows it as a placeholder
   (§9.3).
-- **A focal point** reaches a picture only when staff pick the picture after setting it (`05`
-  §5.1).
+- **A focal point or alt text** set in the media library after staff picked a picture may not
+  reach it until they pick the picture again (`05` §5.1).
 
 ## 11. Accessibility and QA
 
@@ -515,4 +506,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   0007). It records the tokens and contrast as the code holds them, the Thai keep-together rule, the
   breakpoints, the card crops, the Featured rules, the phone Homepage with its measured heights,
   the post layout, an Activity's photos, a News body's gallery and the known limits. §10's Figma
-  checklist gave way to the accepted design.
+  cleanup checklist, written for a file that is no longer edited, gave way to the accepted design.
+  Before the phone Homepage, at `b52ff09` with the demo dataset of the time, the Homepage measured
+  5,864, 9,326 and 9,817 px at 1,440, 375 and 320 px (#146's pull request), and an Activity page
+  with twenty photos 7,054 px at 375 px (#148's pull request).
