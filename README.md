@@ -20,6 +20,11 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   Product Owner gave it Final Acceptance on 2026-11-03 (#121 comment 6606337870), and it was merged
   into `main`. The fiscal years before 2570 and 2570's 6-month Round arrive with the WordPress
   migration (Feature 005).
+- **Feature 006 `frontend-design`:** complete: the public design settled on real content, with Thai
+  titles that keep compound words whole, the Featured picture whole, a shorter phone Homepage, Post
+  pages in two columns and an Activity's photos as folding thumbnails (spec #144, tickets
+  #145–#151, ADR 0007). `docs/design/DESIGN.md` v1.0 records it with the code. The Product Owner
+  gave it Final Acceptance on 2026-11-05 (#144 comment 6660349967), and it was merged into `main`.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,
