@@ -707,8 +707,10 @@ The development runtime runs the same step through `scripts/dev-runtime-model-up
 The application writes one JSON line to standard output for each state-changing request that an
 EmDash API route answers: publishing, schema, menu and settings changes, user access and sign-ins
 (#115, ADR 0005). Routine editing writes none, because EmDash records it itself or it changes
-nothing: entry saves, the edit lock and new media uploads. A request to an API path that no route
-answers changes nothing and writes none either. A line looks like this:
+nothing: entry saves, the edit lock, new media uploads and the toolbar's token renewal, which a
+public page sends every four minutes while a signed-in staff member keeps it open (#164). A
+request to an API path that no route answers changes nothing and writes none either. A line looks
+like this:
 
 ```json
 {"log":"songhealth-admin-change","time":"2026-11-01T03:04:05.678Z","userId":"01J…","role":"EDITOR","method":"POST","path":"/_emdash/api/content/news/01J…/publish","status":200}

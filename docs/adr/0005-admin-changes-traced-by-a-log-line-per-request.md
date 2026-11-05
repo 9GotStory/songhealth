@@ -38,7 +38,11 @@ changes nothing:
 
 - creating and updating an entry: each save is a revision with its author and time;
 - the edit lock, which the Admin takes, refreshes and releases while someone edits;
-- media uploads: each media item keeps who uploaded it and when.
+- media uploads: each media item keeps who uploaded it and when;
+- the toolbar's renewal of its visual-action token: a public page that a signed-in Author or above
+  keeps open sends it every four minutes, with nobody acting, and it changes nothing. A request
+  that a person working in the Admin sends keeps its line even when it changes nothing, such as a
+  preview URL (#164, the Product Owner's decision of 2026-11-05).
 
 EmDash's MCP endpoint is turned off (`mcp: false`). It runs publishing, schema, taxonomy and menu
 tools behind a single path, which a line per request cannot tell apart, and Songhealth does not

@@ -95,6 +95,41 @@ describe("adminChangeLine", () => {
 		}
 	});
 
+	it("writes nothing for the toolbar's token renewal, which changes nothing, at any status", () => {
+		// The toolbar on a public page renews its visual-action token on a timer, with nobody
+		// acting (#164).
+		const renewal = "/_emdash/api/visual-editing/action-token";
+		for (const status of [200, 403]) {
+			assert.equal(
+				adminChangeLine(answered({ route: renewal, path: renewal, status })),
+				undefined,
+				`POST ${renewal} ${status}`,
+			);
+		}
+	});
+
+	it("still writes the toolbar's publish, a preview URL and the media-usage progress", () => {
+		// A publish is what the log attributes. A person working in the Admin sends the other two: a
+		// preview URL changes nothing, and the media-usage progress advances the usage index while
+		// its setup page stays open (#164 decision A).
+		const logged: Routed[] = [
+			[
+				"POST",
+				"/_emdash/api/visual-editing/content/[collection]/[id]/publish",
+				"/_emdash/api/visual-editing/content/news/01JAAAAAAAAAAAAAAAAAAAAAAA/publish",
+			],
+			["POST", "/_emdash/api/content/[collection]/[id]/preview-url", `${ENTRY}/preview-url`],
+			[
+				"POST",
+				"/_emdash/api/admin/media-usage/progress",
+				"/_emdash/api/admin/media-usage/progress",
+			],
+		];
+		for (const [method, route, path] of logged) {
+			assert.equal(loggedLine(answered({ method, route, path })).path, path, `${method} ${path}`);
+		}
+	});
+
 	it("writes one line for each publishing, schema, settings, menu and user-access change", () => {
 		const user = "/_emdash/api/admin/users/01JUSER";
 		const logged: Routed[] = [
