@@ -132,27 +132,6 @@ which refuses a long context pattern such as `.{0,200}x.{0,200}`.
   images in `images`. The renderer takes `asset.url`, else a URL from `asset.meta.storageKey`, else
   the media id (`src/content/converters/gallery.ts` `resolveImageMedia`, `src/media/url.ts`
   `buildRenderMediaUrl`). `./src/lib/media.ts` `availableBody` reads the key the same way.
-- In edit mode the query functions tag a Portable Text array with non-enumerable edit metadata,
-  and `PortableText` then renders the inline editor instead of HTML (`src/query.ts`
-  `tagEditableFields`, `getEditMeta`; `src/components/PortableText.astro`). A copied or filtered
-  array loses the tag, so `./src/components/RichText.astro` passes a tagged body unchanged.
-- Edit mode is on only for a signed-in user whose role is Author (30) or above, while the toolbar's
-  toggle has set the `emdash-edit-mode` cookie; such a user sees the toolbar on public pages
-  (`src/astro/middleware/request-context.ts` `isEditor`, `editMode`;
-  `src/visual-editing/toolbar.ts`; the role numbers in `@emdash-cms/auth/src/types.ts`), as the
-  integration's `toolbar` option defaults to `"server"` and `./astro.config.mjs` does not set it
-  (`false` would hide the toolbar; `src/astro/integration/runtime.ts`). The
-  toggle reads "Edit mode" in the Thai catalog too (`@emdash-cms/admin/dist/locales/server.js`
-  `TOOLBAR_MESSAGES`, `@emdash-cms/admin/dist/locales/th/messages.mjs`). The inline editor renders
-  a block type it does not know, such as a body's `gallery`, as "Plugin block: gallery (edit in
-  admin)" (`src/components/InlinePortableTextEditor.tsx`, the unknown-block branch and the
-  placeholder's `renderHTML`). Staff guidance relies on it (`05` §5.1).
-- While a public page with the toolbar stays open, the toolbar renews its visual-action token with
-  `POST /_emdash/api/visual-editing/action-token` 240 s after the last renewal, or 30 s after a
-  failed one. The route only checks the old token and signs a new one for the same user, so it
-  changes nothing, yet `./src/lib/admin-change-log.ts` writes a line for it (#151; #164)
-  (`src/visual-editing/toolbar.ts` `refreshVisualActionToken`,
-  `scheduleVisualActionTokenRefresh`; `src/astro/routes/api/visual-editing/action-token.ts`).
 - `/_emdash/api/media/file/{key}` serves the stored file by key. Safe image, video and audio types
   are served inline; anything else is an attachment (`src/astro/routes/api/media/file/[...key].ts`).
 - Deleting a media item has no in-use guard. It removes the stored file unless another media row
@@ -247,6 +226,30 @@ which refuses a long context pattern such as `.{0,200}x.{0,200}`.
 - The frontend media-provider loader creates providers with an empty context, and the local provider
   needs a database, so public pages cannot use it (`src/media/provider-loader.ts`,
   `src/media/local-runtime.ts`).
+
+## Edit mode and the toolbar
+
+- In edit mode the query functions tag a Portable Text array with non-enumerable edit metadata,
+  and `PortableText` then renders the inline editor instead of HTML (`src/query.ts`
+  `tagEditableFields`, `getEditMeta`; `src/components/PortableText.astro`). A copied or filtered
+  array loses the tag, so `./src/components/RichText.astro` passes a tagged body unchanged.
+- Edit mode is on only for a signed-in user whose role is Author (30) or above, while the toolbar's
+  toggle has set the `emdash-edit-mode` cookie; such a user sees the toolbar on public pages
+  (`src/astro/middleware/request-context.ts` `isEditor`, `editMode`;
+  `src/visual-editing/toolbar.ts`; the role numbers in `@emdash-cms/auth/src/types.ts`), as the
+  integration's `toolbar` option defaults to `"server"` and `./astro.config.mjs` does not set it
+  (`false` would hide the toolbar; `src/astro/integration/runtime.ts`). The
+  toggle reads "Edit mode" in the Thai catalog too (`@emdash-cms/admin/dist/locales/server.js`
+  `TOOLBAR_MESSAGES`, `@emdash-cms/admin/dist/locales/th/messages.mjs`). The inline editor renders
+  a block type it does not know, such as a body's `gallery`, as "Plugin block: gallery (edit in
+  admin)" (`src/components/InlinePortableTextEditor.tsx`, the unknown-block branch and the
+  placeholder's `renderHTML`). Staff guidance relies on it (`05` §5.1).
+- While a public page with the toolbar stays open, the toolbar renews its visual-action token with
+  `POST /_emdash/api/visual-editing/action-token` 240 s after the last renewal, or 30 s after a
+  failed one. The route only checks the old token and signs a new one for the same user, so it
+  changes nothing, yet `./src/lib/admin-change-log.ts` writes a line for it (#151; #164)
+  (`src/visual-editing/toolbar.ts` `refreshVisualActionToken`,
+  `scheduleVisualActionTokenRefresh`; `src/astro/routes/api/visual-editing/action-token.ts`).
 
 ## Request locals and types
 

@@ -133,16 +133,16 @@ The walkthrough changed no content. The Admin change log (marker `songhealth-adm
 `production-foundation.md` §7.5 says) has one line after the round's last fixture cleanup at
 13:12:38Z: `13:23:16Z ADMIN POST /_emdash/api/visual-editing/action-token 200`. EmDash's toolbar
 writes it while a signed-in user keeps a public page open, renewing a token, and it changes nothing
-(`docs/agents/emdash-1.1.0.md`, beside the Edit mode facts). The Product Owner chose to keep such
+(`docs/agents/emdash-1.1.0.md` "Edit mode and the toolbar"). The Product Owner chose to keep such
 renewals out of the log in a separate issue, #164 (#151 comment 6659258529, item 2). At 13:19Z
 and 13:26Z, `dev-runtime-residue.sh` listed no miss in the 404 log and reported RESIDUE: NONE, and
 `dev-runtime-verify.sh` reported VERIFY: PASS at `b5f407d`.
 
 ## Version-specific facts
 
-**emdash 1.1.0**, in `docs/agents/emdash-1.1.0.md` beside the Edit mode facts: for a signed-in user
-whose role is Author or above, the toolbar on a public page renews its visual-action token every
-240 s with `POST /_emdash/api/visual-editing/action-token`, which changes nothing
+**emdash 1.1.0**, in `docs/agents/emdash-1.1.0.md` "Edit mode and the toolbar": for a signed-in
+user whose role is Author or above, the toolbar on a public page renews its visual-action token
+every 240 s with `POST /_emdash/api/visual-editing/action-token`, which changes nothing
 (`src/visual-editing/toolbar.ts` `refreshVisualActionToken`,
 `src/astro/routes/api/visual-editing/action-token.ts`). The rest of the round relies on the facts
 in spec #144 "Version-specific evidence" and in that file.

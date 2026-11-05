@@ -11,7 +11,8 @@
 # a task run: any that remain are listed and the exit status is 1. EmDash's 404 log keeps the tests'
 # misses too, but they can be removed only by clearing the log or pruning it by age, not one by one,
 # so those are counted without failing (docs/operations/development-quadlet.md). A miss without the
-# synthetic marks, such as one a person met while browsing, is listed by its path and time.
+# synthetic marks, such as one a person met while browsing, is counted, 0 included, so an evidence
+# record can quote an empty log, and listed by its path and time (#151 retro).
 # --clear-404-log first clears that log through the native API, just before the Product Owner's
 # review (#67 retro), and only while every miss in it is synthetic: otherwise it lists the others,
 # clears nothing and exits 3 (#123 retro). --clear-404-log-including-others clears them too, once
@@ -114,6 +115,7 @@ for kind, count in left.items():
     if count:
         print(f"LEFT: {count} synthetic {kind}")
 print(f"404 log: {misses} synthetic misses, cleared as a whole before the Product Owner's review")
+print(f"404 log: {len(others)} misses without the synthetic marks")
 for miss in others:
     print(f"404 log, not synthetic: {miss}")
 found = any(left.values())
