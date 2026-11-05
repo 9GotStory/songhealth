@@ -166,7 +166,7 @@ function onePageSheet({ title, heldAt, place, summary, photos }: OnePageContent)
 	return `<style>
 * { box-sizing: border-box; margin: 0; }
 body { display: flex; flex-direction: column; height: 100vh; font-family: "Noto Sans Thai";
-  color: #16211d; background: #f6f9f7; }
+  color: #16211d; background: #ffffff; }
 header { display: flex; flex-direction: column; gap: 12px; height: 336px; padding: 36px 56px;
   color: #ffffff; background: #0b6b57; }
 .mark { align-self: start; border: 2px solid #f3c95f; border-radius: 999px; padding: 2px 16px;
@@ -178,8 +178,8 @@ h1 { font-size: 32px; line-height: 1.4; } .keep { white-space: nowrap; }
   padding: 32px 56px; }
 .photos div { border-radius: 16px; }
 .story { flex: 1; margin: 0 56px 32px; padding: 28px 32px; border-left: 8px solid #f3c95f;
-  border-radius: 16px; background: #ffffff; font-size: 22px; line-height: 1.7; }
-footer { padding: 20px 56px; border-top: 6px solid #0b6b57; color: #65736d; font-size: 15px; }
+  border-radius: 16px; background: #eaf5f0; font-size: 22px; line-height: 1.7; }
+footer { padding: 20px 56px; color: #ffffff; background: #0b6b57; font-size: 15px; }
 </style><header><p class="mark">One Page ตัวอย่าง — ไม่ใช่ภาพประชาสัมพันธ์จริง</p>
 <p class="office">สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่</p><h1>${keptTitle}</h1>
 <p class="when">${ONE_PAGE_DATE.format(new Date(heldAt))} ณ ${escapeHtml(place)}</p></header>
