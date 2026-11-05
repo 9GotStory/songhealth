@@ -1,7 +1,7 @@
 // Screenshot content for an Activity's photos (#148; spec #144 "An Activity's photos (its gallery
 // field)"): an Activity with a portrait A4 stand-in for its One Page, its details and twenty
 // captioned landscape photos, one of whose captions runs past two lines. Captures its page as
-// activity-photos.
+// activity-photos, and again with all its photos open, as activity-photos-open.
 
 import type { Fixtures } from "../capture-with-fixtures.ts";
 
@@ -61,7 +61,10 @@ const fixtures: Fixtures = async ({ admin, helpers, picture }) => {
 	const published = await helpers.publishEntry(admin, "activities", created.entryId!);
 	if (!published.ok) throw new Error(`publish: ${helpers.nativeRefusalOf(published)}`);
 
-	return [{ name: "activity-photos", path: `/activities/${slug}` }];
+	return [
+		{ name: "activity-photos", path: `/activities/${slug}` },
+		{ name: "activity-photos-open", path: `/activities/${slug}!ดูรูปทั้งหมด (20 รูป)` },
+	];
 };
 
 export default fixtures;
