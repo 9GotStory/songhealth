@@ -198,6 +198,12 @@ cited file exists and that the name carries the pinned version.
   the dominant colour) as the image's inline background, unless given `placeholder={false}`
   (`src/components/EmDashImage.astro` `resolveImage`). `./src/components/FeaturedHero.astro` relies
   on both.
+- The Admin's media library sets a picture's focal point ("Focal point. Use arrow keys to move
+  it.", `@emdash-cms/admin/dist/index.js`), and a saved image value carries it as `focalX` and
+  `focalY` (`src/media/normalize.ts`). `Image` writes it as the picture's inline `object-position`,
+  so a cropped picture centres on it, and on the middle without one (`src/media/focal-point.ts`
+  `focalPointToObjectPosition`, `src/components/EmDashImage.astro` `resolveImage`).
+  `./src/components/ActivityPhotos.astro` and the cards crop that way.
 - For a value with a size, `Image` renders Astro's `<Image layout="constrained">`, which marks the
   image `data-astro-image-fit="cover"` (`astro/dist/assets/internal.js`). Astro 7.3.5 adds the CSS
   for that mark only with `image.responsiveStyles`, which defaults to false

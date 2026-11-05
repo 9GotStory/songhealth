@@ -19,7 +19,8 @@
 // - What the shell shows every page: the 404 page, the default site title, the
 //   breadcrumb, Thai dates, the titles and items a list shows, and a record
 //   page's details; whether an image loads, shows its whole picture and fills
-//   its box; and how a word of a title lies in its lines and its box.
+//   its box; where parts of a page sit, one under another; and how a word of a
+//   title lies in its lines and its box.
 // - `expectPreviewRenders`: a draft's signed preview link (cms.helpers.ts
 //   mintPreviewLink) at the draft's address, rendering it out of search engines.
 // - `sitemapLocations`: the addresses a sitemap document lists.
@@ -391,6 +392,32 @@ export async function expectPictureFillsBox(
 		`${label}: the picture fills its box`,
 	).toBeLessThan(1);
 	return shown;
+}
+
+/** `part`'s box in the window as the page is laid out and scrolled now, once it shows. */
+export async function boxOf(part: Locator, label: string) {
+	await expect(part, label).toBeVisible();
+	return (await part.boundingBox())!;
+}
+
+/**
+ * Fail unless every one of `parts` shows, each one below the one before it, as the page is laid out
+ * now.
+ */
+export async function expectStacked(
+	label: string,
+	parts: Array<[name: string, part: Locator]>,
+): Promise<void> {
+	let above: { name: string; bottom: number } | undefined;
+	for (const [name, part] of parts) {
+		const box = await boxOf(part, `${label}: ${name}`);
+		if (above) {
+			expect(box.y, `${label}: ${name} is below ${above.name}`).toBeGreaterThanOrEqual(
+				above.bottom - 0.5,
+			);
+		}
+		above = { name, bottom: box.y + box.height };
+	}
 }
 
 /**
