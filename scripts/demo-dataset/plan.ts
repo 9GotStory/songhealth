@@ -27,9 +27,9 @@ export interface DemoTerm {
 export type Blend = readonly [from: string, to: string];
 
 /**
- * A picture or a PDF of the dataset, uploaded under its filename. A picture is a 1200 × 750 Blend,
- * or a One Page, a portrait A4 sheet; each has alt text in the media library. A PDF is a one-page
- * Thai document with a title and a summary.
+ * A picture or a PDF of the dataset, uploaded under its filename. A picture is a 1200 × 750 PNG
+ * that blends its two colours, or a One Page, a portrait A4 sheet; each has alt text in the media
+ * library. A PDF is a one-page Thai document with a title and a summary.
  */
 export type DemoMedia = (
 	| { filename: string; alt: string; colours: Blend }

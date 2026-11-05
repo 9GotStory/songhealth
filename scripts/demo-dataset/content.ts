@@ -685,7 +685,7 @@ export function demoDataset(now: Date): DemoDataset {
 	const healthContent = (
 		name: string,
 		topic: DemoTerm,
-		colours: [string, string],
+		colours: Blend,
 		publishedDaysAgo: number,
 		{
 			title,

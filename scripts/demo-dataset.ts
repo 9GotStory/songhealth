@@ -153,26 +153,26 @@ const ONE_PAGE_DATE = new Intl.DateTimeFormat("th-TH", {
 /**
  * A One Page's sheet (#149; spec #144 "Demo dataset"). Its colours are the site's tokens
  * (src/styles/global.css), and its text keeps at least 4.5:1 against what is behind it, as WCAG
- * 2.2 SC 1.4.3 asks of an image of text. The photos fill the middle of the sheet, from 313 to 810
+ * 2.2 SC 1.4.3 asks of an image of text. The photos fill the middle of the sheet, from 305 to 818
  * px, so a card shows the collage alone, as the office's own One Pages show theirs (spec #144
  * "Problem Statement"): an Activity card crops a picture to the middle 16:9 of its width and a
  * News card to the middle 16:10 (src/components/ActivityCard.astro,
  * src/components/ContentCard.astro), which on an A4 sheet run from 338 to 785 px and from 313 to
- * 810 px.
+ * 810 px. The 8 px beyond the 16:10 band keep the header's green out of a scaled-down card's edge.
  */
 function onePageSheet({ title, heldAt, place, summary, photos }: OnePageContent): string {
 	return `<style>
 * { box-sizing: border-box; margin: 0; }
 body { display: flex; flex-direction: column; height: 100vh; font-family: "Noto Sans Thai";
   color: #16211d; background: #ffffff; }
-header { display: flex; flex-direction: column; gap: 12px; height: 313px; padding: 36px 56px;
+header { display: flex; flex-direction: column; gap: 12px; height: 305px; padding: 36px 56px;
   color: #ffffff; background: #0b6b57; }
 .mark { align-self: start; border: 2px solid #f3c95f; border-radius: 999px; padding: 2px 16px;
   font-size: 15px; }
 .office { font-size: 18px; font-weight: 700; }
 h1 { font-size: 32px; line-height: 1.4; }
 .when { margin-top: auto; font-size: 18px; }
-.photos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; height: 497px;
+.photos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; height: 513px;
   padding: 32px 56px; }
 .photos div { border-radius: 16px; }
 .story { flex: 1; margin: 0 56px 32px; padding: 28px 32px; border-left: 8px solid #f3c95f;
@@ -219,8 +219,10 @@ async function sheetPrinter() {
 		throw error;
 	});
 	/**
-	 * `target` once it shows `html` in the site's font. The load event does not wait for a web font;
-	 * printing before it is ready would use another.
+	 * Show `html` on `target` in the site's font, once the fonts the page uses are ready. A PDF
+	 * would otherwise print without them: `page.pdf()` prints at once, where a screenshot first waits
+	 * for `document.fonts.ready` (@playwright/test 1.63.0, playwright-core lib/coreBundle.js, the
+	 * PDF `generate` and `_preparePageForScreenshot`).
 	 */
 	const show = async (target: Page, html: string) => {
 		await target.setContent(
@@ -228,13 +230,12 @@ async function sheetPrinter() {
 			{ waitUntil: "load" },
 		);
 		await target.evaluate(() => document.fonts.ready.then(() => undefined));
-		return target;
 	};
 	return {
 		async pdf({ title, summary }: PdfText) {
 			// The colours are the site's brand-dark, brand-primary and text-secondary
 			// (src/styles/global.css).
-			const shown = await show(
+			await show(
 				page,
 				`<style>
 body { font-family: "Noto Sans Thai"; margin: 0; padding: 64px; color: #123c33; }
@@ -244,11 +245,11 @@ h1 { font-size: 22pt; } p { font-size: 14pt; line-height: 1.6; } .office { color
 </style><p class="mark">เอกสารตัวอย่าง — ไม่ใช่เอกสารราชการจริง</p><h1>${escapeHtml(title)}</h1>
 <p class="office">สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่</p>${summary ? `<p>${escapeHtml(summary)}</p>` : ""}`,
 			);
-			return new Uint8Array(await shown.pdf({ format: "A4", printBackground: true }));
+			return new Uint8Array(await page.pdf({ format: "A4", printBackground: true }));
 		},
 		async onePage(content: OnePageContent) {
-			const shown = await show(sheetPage, onePageSheet(content));
-			return new Uint8Array(await shown.screenshot({ type: "jpeg", quality: 85 }));
+			await show(sheetPage, onePageSheet(content));
+			return new Uint8Array(await sheetPage.screenshot({ type: "jpeg", quality: 85 }));
 		},
 		close: () => browser.close(),
 	};
