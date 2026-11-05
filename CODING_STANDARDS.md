@@ -87,7 +87,8 @@ and why, and `.jscpd-baseline.json` records them.
 - Public-page suites take `test` and `expect` from `tests/browser/public.helpers.ts`, so the
   third-party request guard runs. Each template's pages are checked at both `VIEWPORTS` with
   `expectNoAxeViolations` and `expectVisibleFocusOnEveryStop`, and at 320 px with
-  `expectNoHorizontalScroll`; `testAccessibilityAndReflow` declares those tests.
+  `expectNoHorizontalScroll`; `testAccessibilityAndReflow` declares those tests. A spec or ticket
+  that names more widths, such as axe at 375 px, adds checks at them (#147 retro).
 - A helper that a second suite needs moves to a shared module: page checks (the 404 page, Thai
   dates, list titles, an image's load) to `tests/browser/public.helpers.ts`, native API fixtures
   (entries, media, terms) and refusal checks (`expectValidationRefusal`) to
