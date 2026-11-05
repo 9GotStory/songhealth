@@ -147,6 +147,12 @@ which refuses a long context pattern such as `.{0,200}x.{0,200}`.
   a block type it does not know, such as a body's `gallery`, as "Plugin block: gallery (edit in
   admin)" (`src/components/InlinePortableTextEditor.tsx`, the unknown-block branch and the
   placeholder's `renderHTML`). Staff guidance relies on it (`05` §5.1).
+- While a public page with the toolbar stays open, the toolbar renews its visual-action token with
+  `POST /_emdash/api/visual-editing/action-token` 240 s after the last renewal, or 30 s after a
+  failed one. The route only checks the old token and signs a new one for the same user, so it
+  changes nothing, yet `./src/lib/admin-change-log.ts` writes a line for it (#151; #164)
+  (`src/visual-editing/toolbar.ts` `refreshVisualActionToken`,
+  `scheduleVisualActionTokenRefresh`; `src/astro/routes/api/visual-editing/action-token.ts`).
 - `/_emdash/api/media/file/{key}` serves the stored file by key. Safe image, video and audio types
   are served inline; anything else is an attachment (`src/astro/routes/api/media/file/[...key].ts`).
 - Deleting a media item has no in-use guard. It removes the stored file unless another media row
