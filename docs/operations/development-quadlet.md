@@ -282,10 +282,15 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
   with two Leadership, the reserved Basic Pages, Office Contact values with the Facebook and
   YouTube handles, items in the three Homepage menus, and MOIT 1 and MOIT 2 of fiscal year 2570
   after the prototype's (#126): MOIT 1 is short, and MOIT 2 has 63 blocks with sub-Requirements,
-  both Rounds, site pages marked current and external links. Each Document's file and each
-  Evidence file is a one-page Thai PDF that `add` prints with Playwright's Chromium, the one the
-  browser suites use, in the site's own Noto Sans Thai (#66 comment 6541144669). A runtime that
-  holds a PDF of the same name keeps it until `remove` and `add` print it again.
+  both Rounds, site pages marked current and external links. A district health fair is told by
+  a News item without a body and by an Activity, both with a Summary, whose picture is one demo
+  One Page; the Activity has twelve photos with alt text and captions, so its photos fold after
+  the eighth (#149; spec #144 "Demo dataset"). The Featured item keeps its landscape picture.
+  Each Document's file and each Evidence file is a one-page Thai PDF that `add` prints with
+  Playwright's Chromium, the one the browser suites use, in the site's own Noto Sans Thai (#66
+  comment 6541144669). The One Page is a JPEG of a portrait A4 sheet, 1588 × 2246, that `add`
+  renders with the same Chromium and font. A runtime that holds a PDF or the One Page under the
+  same name keeps it until `remove` and `add` print it again.
 - **How it is marked.**
   - Every title starts with `[ตัวอย่าง]`. The Personnel prefix stays empty, so each name starts
     with the mark (#61 comment 6514145827).
@@ -383,7 +388,7 @@ the ADR 0003 revisit of production images.
     lands in EmDash's 404 log, as on this runtime.
 - **Output.** It prints how the first picture on a News page is served by the image and by this
   runtime: its declared size, whether `src` is the original or a rendition, and the bytes it
-  downloads. The default page is the demo dataset's first News.
+  downloads. The default page is the demo dataset's Featured News.
 - **Cleanup.** It removes the container and the image on every exit, pass or fail, and lists any
   image the run added that is still there. Other projects share this image storage, so it never
   removes an image by its age or by a difference in the image list. The image is never deployed or
