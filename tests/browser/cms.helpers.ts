@@ -51,7 +51,7 @@ import { appendFile, lstat, readFile, stat } from "node:fs/promises";
 import { env } from "node:process";
 import { crc32, deflateSync } from "node:zlib";
 
-import { expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
 // Constants and small shared types
@@ -1840,9 +1840,18 @@ export async function deleteAutoRedirects(
 }
 
 /**
+ * How long a suite's cleanup may take. A runtime busy with a full run deletes slowly, and a cleanup
+ * cut off at the 30 s default leaves fixtures that only a removal by hand clears (#149 retro).
+ */
+const SUITE_CLEANUP_TIMEOUT_MS = 120_000;
+
+/**
  * Remove what a suite made, as its afterAll: the redirects left by `movedSlugs`, the actor's owned
  * fixtures, then `terms`, each step attempted whatever the others' outcome, and fail on anything
- * left. An actor that never loaded made nothing.
+ * left. An actor that never loaded made nothing. It gives its hook SUITE_CLEANUP_TIMEOUT_MS: each
+ * afterAll hook runs on a timeout of its own, which `test.setTimeout` resets while the hook runs
+ * (@playwright/test 1.63.0, playwright lib/worker/workerProcessEntry.js, `_runAllHooksForSuite`
+ * and the timeout manager's `setTimeout`).
  */
 export async function removeSuiteFixtures(
 	actor: CmsActor | undefined,
@@ -1855,6 +1864,7 @@ export async function removeSuiteFixtures(
 	} = {},
 ): Promise<void> {
 	if (actor === undefined) return;
+	test.setTimeout(SUITE_CLEANUP_TIMEOUT_MS);
 	const failures: string[] = [];
 	const attempt = async (step: string, run: () => Promise<string[]>) => {
 		try {
