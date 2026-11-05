@@ -105,6 +105,10 @@ and why, and `.jscpd-baseline.json` records them.
 - A test of a precedence rule, such as the longest listed word first or the newest entry first,
   gives its input in an order the rule must overturn, so the test fails without the rule (#145
   retro: a list already sorted longest first passed with the sort removed).
+- A rule with an edge is tested on both sides of the edge: a count such as "the first eight" or
+  "eight or fewer" with eight and nine items, a breakpoint such as "from `lg`" at 1023 and 1024 px,
+  and a place where something stops or starts with a fixture that reaches it. The spec's coverage
+  line stays beside these (#147 and #148 retros: in both, review found an edge untested).
 - Logic that `tests/node` checks lives in a `src/lib` module with no runtime import, because
   node:test loads it with plain Node: no `emdash`, no extensionless relative import.
   `src/lib/dated-lists.ts` and `src/lib/excerpt.ts` are examples; the module that reads through
