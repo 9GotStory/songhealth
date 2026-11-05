@@ -51,7 +51,7 @@ import { appendFile, lstat, readFile, stat } from "node:fs/promises";
 import { env } from "node:process";
 import { crc32, deflateSync } from "node:zlib";
 
-import { expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
 // Constants and small shared types
@@ -1331,10 +1331,18 @@ export async function setMediaAlt(
 
 /**
  * Upload a synthetic picture as an owned fixture, give it `alt` as its alt text in the media
- * library, and return its media id. A refusal throws.
+ * library, and return its media id. The picture is the 1×1 synthetic PNG, or `png` when given, such
+ * as a gradientPng of the shape a test needs. A refusal throws.
  */
-export async function uploadSyntheticPicture(actor: CmsActor, alt: string): Promise<string> {
-	const media = await uploadSyntheticMedia(actor);
+export async function uploadSyntheticPicture(
+	actor: CmsActor,
+	alt: string,
+	png?: Uint8Array<ArrayBuffer>,
+): Promise<string> {
+	const media = await uploadSyntheticMedia(
+		actor,
+		png && { file: { bytes: png, type: "image/png" } },
+	);
 	if (media.mediaId === undefined) {
 		throw new CmsHelperError("synthetic-picture", `the picture: ${nativeRefusalOf(media.result)}`);
 	}
@@ -1345,9 +1353,18 @@ export async function uploadSyntheticPicture(actor: CmsActor, alt: string): Prom
 	return media.mediaId;
 }
 
-/** A 1200×750 PNG, a diagonal blend from the hex colour `from` to `to`: a stand-in photo. */
-export function gradientPng(from: string, to: string): Uint8Array<ArrayBuffer> {
-	const [width, height] = [1200, 750];
+/** A portrait A4 sheet's shape, as the office's One Pages have it (1808 × 2560), for a stand-in. */
+export const ONE_PAGE_SIZE = { width: 600, height: 848 };
+
+/**
+ * A PNG of `size`, 1200×750 unless given, a diagonal blend from the hex colour `from` to `to`: a
+ * stand-in photo, or at ONE_PAGE_SIZE a stand-in One Page.
+ */
+export function gradientPng(
+	from: string,
+	to: string,
+	{ width, height } = { width: 1200, height: 750 },
+): Uint8Array<ArrayBuffer> {
 	const [a, b] = [from, to].map((hex) =>
 		[1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16)),
 	);
@@ -1823,9 +1840,18 @@ export async function deleteAutoRedirects(
 }
 
 /**
+ * How long a suite's cleanup may take. A runtime busy with a full run deletes slowly, and a cleanup
+ * cut off at the 30 s default leaves fixtures that only a removal by hand clears (#149 retro).
+ */
+const SUITE_CLEANUP_TIMEOUT_MS = 120_000;
+
+/**
  * Remove what a suite made, as its afterAll: the redirects left by `movedSlugs`, the actor's owned
  * fixtures, then `terms`, each step attempted whatever the others' outcome, and fail on anything
- * left. An actor that never loaded made nothing.
+ * left. An actor that never loaded made nothing. It gives its hook SUITE_CLEANUP_TIMEOUT_MS: each
+ * afterAll hook runs on a timeout of its own, which `test.setTimeout` resets while the hook runs
+ * (@playwright/test 1.63.0, playwright lib/worker/workerProcessEntry.js, `_runAllHooksForSuite`
+ * and the timeout manager's `setTimeout`).
  */
 export async function removeSuiteFixtures(
 	actor: CmsActor | undefined,
@@ -1838,6 +1864,7 @@ export async function removeSuiteFixtures(
 	} = {},
 ): Promise<void> {
 	if (actor === undefined) return;
+	test.setTimeout(SUITE_CLEANUP_TIMEOUT_MS);
 	const failures: string[] = [];
 	const attempt = async (step: string, run: () => Promise<string[]>) => {
 		try {

@@ -15,6 +15,7 @@ import AnnouncementStatus from "./AnnouncementStatus.astro";
 import DocumentStatus from "./DocumentStatus.astro";
 import HealthServiceStatus from "./HealthServiceStatus.astro";
 import MetaLine from "./MetaLine.astro";
+import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	entry: SearchEntry;
@@ -34,7 +35,7 @@ const { status } = entry;
 	/>
 	<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
 		<a class="underline-offset-4 hover:text-brand-primary hover:underline" href={entry.href}>
-			{entry.title}
+			<ThaiTitle text={entry.title} />
 		</a>
 	</h2>
 	{snippet && (

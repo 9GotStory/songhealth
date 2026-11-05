@@ -5,7 +5,15 @@
 // the Homepage's Quick Access to the shortcuts staff pick, and the ITA landing to each fiscal year
 // (#124), with a line above the label and one below it. The icon is decorative
 // (docs/agents/lucide-astro-1.59.0.md): the label, with those lines, names the link.
+//
+// On the Homepage, where Quick Access goes two to a row below 640 px, the card takes its compact
+// form there: lower, with less padding and the label at body size (Feature 006 #146; spec #144
+// "Homepage (`04`)"). The other pages keep the full card. The compact label has about 80 px beside
+// the arrow at 320 px, so a word a title keeps whole that is wider, such as "ประชาสัมพันธ์" (89 px)
+// or "ความดันโลหิตสูง" (107 px), runs into the arrow below about 342 or 374 px. The Product Owner
+// accepted that limit, since Quick Access labels name destinations (#146 comment 6626919820).
 import ChevronRight from "@lucide/astro/icons/chevron-right";
+import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	href: string;
@@ -14,18 +22,26 @@ interface Props {
 	eyebrow?: string;
 	/** A line below the label, such as how many items the page holds. */
 	detail?: string;
+	/** The Homepage's compact form below 640 px. */
+	compact?: boolean;
 }
 
-const { href, label, eyebrow, detail } = Astro.props;
+const { href, label, eyebrow, detail, compact = false } = Astro.props;
 ---
 
 <a
-	class="flex h-full min-h-22 items-center justify-between gap-4 rounded-18 border border-border-default bg-surface-base px-5.5 pt-5.5 pb-5 text-h3 text-text-primary shadow-card hover:border-brand-primary hover:text-brand-primary"
+	class:list={[
+		"flex h-full min-h-22 items-center justify-between gap-4 rounded-18 border border-border-default bg-surface-base px-5.5 pt-5.5 pb-5 text-h3 text-text-primary shadow-card hover:border-brand-primary hover:text-brand-primary",
+		compact &&
+			"max-sm:min-h-14 max-sm:gap-2 max-sm:px-3 max-sm:py-3 max-sm:text-body max-sm:font-semibold",
+	]}
 	href={href}
 >
 	<span class="flex min-w-0 flex-col gap-1">
 		{eyebrow && <span class="text-label text-brand-primary">{eyebrow}</span>}
-		<span class="wrap-anywhere">{label}</span>
+		<span class="wrap-anywhere">
+			<ThaiTitle text={label} />
+		</span>
 		{detail && <span class="text-small font-normal text-text-secondary">{detail}</span>}
 	</span>
 	<ChevronRight class="shrink-0 text-brand-primary" size={24} />

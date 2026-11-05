@@ -22,9 +22,15 @@ export interface MediaRuntime {
 
 /**
  * A card picture's `sizes`: the card's width in the card grids it sits in (ContentCardGrid,
- * ActivityCardGrid, the Homepage's Activities), three to a row from `lg`, two from `sm`.
+ * ActivityCardGrid), three to a row from `lg`, two from `sm`.
  */
 export const CARD_PICTURE_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw";
+
+/**
+ * A card picture's `sizes` in a grid that keeps two cards to a row below `lg`, half the width, as
+ * the Homepage's Activities do (Feature 006 #146).
+ */
+export const HALF_WIDTH_CARD_PICTURE_SIZES = "(min-width: 64rem) 24rem, 50vw";
 
 /** What a page shows where a Document's file cannot be served. */
 export const FILE_UNAVAILABLE = "ไฟล์ไม่พร้อมให้บริการ";
@@ -51,6 +57,21 @@ export async function availableMedia<T extends MediaValue | FileValue>(
 		return undefined;
 	}
 	return value ?? undefined;
+}
+
+/**
+ * The address of a local media value's stored file, the picture as it was uploaded, or undefined
+ * for another provider's media or without EmDash's URL resolver. It names the file by the key
+ * availableMedia checks, through the resolver EmDash puts on `Astro.locals.emdash`, which gives
+ * EmDash's own file route under the local storage's `baseUrl` that astro.config.mjs sets. EmDash
+ * exports no function for it (docs/agents/emdash-1.1.0.md "Media").
+ */
+export function mediaFileHref(
+	value: MediaValue,
+	runtime: MediaRuntime | undefined,
+): string | undefined {
+	const key = localKeyOf(value);
+	return key === undefined ? undefined : runtime?.getPublicMediaUrl?.(key);
 }
 
 /** EmDash's route for a local media file, which a body image's URL names with its storage key. */

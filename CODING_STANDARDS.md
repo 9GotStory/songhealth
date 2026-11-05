@@ -32,12 +32,13 @@ and why, and `.jscpd-baseline.json` records them.
 ## Public pages
 
 - Colours, type, radii, shadows and the page container come from the tokens in
-  `src/styles/global.css` (ADR 0001; the Figma frame is described in
-  `docs/design/homepage-concept-v1.md`). A colour or type style that the tokens lack becomes a
-  named token there, with its source.
-- `docs/design/DESIGN.md` is the Product Owner's draft design system for the public UI (v0.2, not
-  yet accepted; its §1 and §10). It sets direction. A difference between it and an accepted page
-  or decision is a pending confirmation (Product Owner, 2026-10-31: #64 comment 6535747409).
+  `src/styles/global.css`. A colour or type style that the tokens lack becomes a named token
+  there, with its source, and `docs/design/DESIGN.md` §3.1 records it.
+- The design's source is the code with `docs/design/DESIGN.md` v1.0 (ADR 0007, Feature 006): a
+  design change updates both in the same pull request. A page that departs from `DESIGN.md`, or a
+  difference between it and a decision, is a pending confirmation (Product Owner, 2026-10-31: #64
+  comment 6535747409). The Figma frame is history, described in
+  `docs/design/homepage-concept-v1.md`.
 - A colour keeps the meaning its token's comment states, such as accent-warm's status that needs
   attention. Emphasis inside text takes weight and text-primary, as search marks the words it
   matched (Product Owner, 2026-10-30: #63 comment 6518347225).
@@ -58,6 +59,12 @@ and why, and `.jscpd-baseline.json` records them.
   download's, and 24 px on a card. Its colour is a token, through `currentColor`.
   `tests/node/public-icons.test.ts` checks the mechanics: no typed mark or hand-drawn `<svg>`, and
   each icon from its own module, sized 16, 20 or 24 px, with `shrink-0`.
+- A title renders through `src/components/ThaiTitle.astro`, which keeps the Thai compound words of
+  `src/lib/thai-title.ts` on one line (spec #144): every page's H1, every section heading, every
+  card and row title, the Featured title, and the site title in the header, the footer and the
+  Contact Summary. Body text, summaries and labels render as they are.
+  `tests/node/public-titles.test.ts` checks the headings, and review checks the titles that are no
+  heading, such as a Quick Link card's label.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page.
 - A list or detail page reuses the shared pieces in `src/components/` and follows the shape of
@@ -81,7 +88,8 @@ and why, and `.jscpd-baseline.json` records them.
 - Public-page suites take `test` and `expect` from `tests/browser/public.helpers.ts`, so the
   third-party request guard runs. Each template's pages are checked at both `VIEWPORTS` with
   `expectNoAxeViolations` and `expectVisibleFocusOnEveryStop`, and at 320 px with
-  `expectNoHorizontalScroll`; `testAccessibilityAndReflow` declares those tests.
+  `expectNoHorizontalScroll`; `testAccessibilityAndReflow` declares those tests. A spec or ticket
+  that names more widths, such as axe at 375 px, adds checks at them (#147 retro).
 - A helper that a second suite needs moves to a shared module: page checks (the 404 page, Thai
   dates, list titles, an image's load) to `tests/browser/public.helpers.ts`, native API fixtures
   (entries, media, terms) and refusal checks (`expectValidationRefusal`) to
@@ -95,6 +103,13 @@ and why, and `.jscpd-baseline.json` records them.
   and restores it in `finally`, and says what the native API cannot restore.
 - A suite's fixtures stay until the suite ends, so a test that needs its fixtures to lead an
   ordered list (newest first, a page boundary) dates them after every earlier test's fixtures.
+- A test of a precedence rule, such as the longest listed word first or the newest entry first,
+  gives its input in an order the rule must overturn, so the test fails without the rule (#145
+  retro: a list already sorted longest first passed with the sort removed).
+- A rule with an edge is tested on both sides of the edge: a count such as "the first eight" or
+  "eight or fewer" with eight and nine items, a breakpoint such as "from `lg`" at 1023 and 1024 px,
+  and a place where something stops or starts with a fixture that reaches it. The spec's coverage
+  line stays beside these (#147 and #148 retros: in both, review found an edge untested).
 - Logic that `tests/node` checks lives in a `src/lib` module with no runtime import, because
   node:test loads it with plain Node: no `emdash`, no extensionless relative import.
   `src/lib/dated-lists.ts` and `src/lib/excerpt.ts` are examples; the module that reads through
@@ -124,7 +139,17 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
 - **Owners.** A rule that another section owns is pointed to, or restated with its owner's scope
   and conditions. In #127, `02` §18 widened `03` §11's slug rule, and `05` §7 said search finds a
   file where `08` §8 shows its MOIT.
-- **History.** The body states the current answer; history lives in the decision banners.
+- **History.** The body states the current answer; history lives in the decision banners, and in
+  `docs/design/DESIGN.md`'s change history.
+- **Facts.** `docs/design/DESIGN.md` states what the code does at its head: each size, count,
+  crop and breakpoint is read from the code, and each measure names its commit and script. A claim
+  that something is unchanged is checked against the base commit's code. In #150 a tablet change,
+  a crop the Homepage does not show and a spec's figure in place of a measure reached review.
+- **Preconditions.** A document that has staff rely on an Admin feature states who can use it and
+  when it takes effect: the role it needs (`@emdash-cms/auth/src/rbac.ts`), its setup and warning
+  states (`@emdash-cms/admin/dist/index.js`), and whether a later change reaches content that
+  already uses it. In #127 the media-usage setup, and in #150 an Author's own-media limit and alt
+  text copied at the pick, were missing from the first draft.
 - **Amendments.** A feature that amends a current document bumps its Version, names the feature
   and the date in Last Updated, and adds a "Feature N decision (Product Owner, date)" banner after
   the earlier ones, as Feature 003 (`c2ac189`) and Feature 004 (#127) did. It bumps the version

@@ -1,9 +1,9 @@
 # System Blueprint — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 10-system-blueprint
-> **Status:** CLEAN REBASELINE v2.7 — CURRENT native-only publication
-> **Version:** 2.7
-> **Last Updated:** 3 พฤศจิกายน 2569 (2026-11-03): Feature 004, ITA in V1
+> **Status:** CLEAN REBASELINE v2.8 — CURRENT native-only publication
+> **Version:** 2.8
+> **Last Updated:** 5 พฤศจิกายน 2569 (2026-11-05): Feature 006, frontend design
 > **Depends On:** `00-website-foundation.md` through `09-migration-plan.md`
 > **Purpose:** กำหนด architecture ปัจจุบันที่ใช้ Astro + EmDash แบบ platform-native และเพิ่ม Songhealth-specific code เฉพาะ gap ที่พิสูจน์แล้ว
 > **Implementation Authorization:** NONE
@@ -40,6 +40,11 @@
 > **Feature 004 decision (Product Owner, 2026-11-02; spec #121, `docs/adr/0006`):** ITA is in V1
 > on the same foundation: a native collection with a blocks field, block types applied by the
 > model-update step, and no subsystem (§15).
+
+> **Feature 006 decision (Product Owner, 2026-11-04; spec #144, `docs/adr/0007`):** public
+> presentation keeps Tailwind CSS v4 (`docs/adr/0001`). Its design's source is the code (the tokens
+> in `src/styles/global.css` and the components) with `docs/design/DESIGN.md` v1.0, in place of
+> the Figma Homepage Concept v1 tokens. No dependency or subsystem is added.
 
 ---
 

@@ -41,6 +41,7 @@ import { EmDashHead } from "emdash/ui";
 import "../styles/global.css";
 import Breadcrumb from "../components/Breadcrumb.astro";
 import ContentLink from "../components/ContentLink.astro";
+import ThaiTitle from "../components/ThaiTitle.astro";
 import {
 	MAIN_NAVIGATION,
 	UTILITY_LINKS,
@@ -166,7 +167,7 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 						)}
 						<span class="flex min-w-0 flex-col pt-2 lg:pt-0">
 							<span class="text-body font-semibold wrap-anywhere text-brand-dark sm:text-body-large lg:text-h3">
-								{identity.title}
+								<ThaiTitle text={identity.title} />
 							</span>
 							{identity.tagline && (
 								<span class="text-small wrap-anywhere text-text-secondary">{identity.tagline}</span>
@@ -234,7 +235,9 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 		<footer class="focus-ring-on-dark bg-brand-dark text-surface-base">
 			<div class="page-container flex flex-col gap-6 py-12 lg:flex-row lg:items-start lg:justify-between">
 				<div class="flex flex-col gap-1.5">
-					<p class="text-h3 wrap-anywhere">{identity.title}</p>
+					<p class="text-h3 wrap-anywhere">
+						<ThaiTitle text={identity.title} />
+					</p>
 					<p class="text-small">{OFFICE_NAME}</p>
 				</div>
 				<div class="flex flex-col gap-4 text-small lg:items-end">

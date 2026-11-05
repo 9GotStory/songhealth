@@ -2,9 +2,13 @@
 // enough to fill every page and every Homepage section, so the Product Owner can browse the site
 // before real content exists. Every title starts with "[ตัวอย่าง]" and every slug with "demo-",
 // except the reserved Basic Pages', which are the pages' own. Dates count from the day `add` runs.
+// News and Activities run newest first. Each collection's first entry is the page that
+// tests/browser/public-demo-dataset.spec.ts sweeps with the axe, focus and reflow checks, so an
+// entry that shows a new behaviour goes first (#149 retro).
 
 import {
 	DEMO_MARK,
+	type Blend,
 	type DemoDataset,
 	type DemoEntry,
 	type PdfText,
@@ -12,6 +16,7 @@ import {
 	type DemoMenuItem,
 	type DemoTerm,
 	type MediaRef,
+	type OnePageContent,
 } from "./plan.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -107,6 +112,29 @@ const NEWS_CATEGORIES = {
 	activity: term("news_category", "news-activity", "ข่าวกิจกรรม"),
 };
 
+/**
+ * The district health fair (#149), which one News item and one Activity tell, under the same title
+ * and Summary.
+ */
+const HEALTH_FAIR = {
+	title: "[ตัวอย่าง] มหกรรมสุขภาพอำเภอสอง ประจำปี 2569 ประชาชนร่วมตรวจสุขภาพกว่า 300 คน",
+	summary:
+		"สำนักงานสาธารณสุขอำเภอสองร่วมกับโรงพยาบาลสองและ รพ.สต. ทุกแห่ง เปิดจุดตรวจคัดกรองเบาหวาน ความดันโลหิต และสุขภาพช่องปาก พร้อมสาธิตอาหารและการออกกำลังกายเพื่อสุขภาพ",
+	place: "ลานอเนกประสงค์ที่ว่าการอำเภอสอง",
+};
+
+/**
+ * The colour pairs the health fair's photos take in turn, so that neighbouring thumbnails differ.
+ */
+const HEALTH_FAIR_COLOURS: readonly Blend[] = [
+	["#bae0cf", "#0b6b57"],
+	["#f2d17a", "#bfdcce"],
+	["#d1ebde", "#123c33"],
+	["#f0f5fc", "#bae0cf"],
+	["#e8f0cc", "#0b6b57"],
+	["#bfdcce", "#f2d17a"],
+];
+
 /** A Portable Text body as the Admin editor saves it: a block a paragraph, "## " for a heading. */
 function body(...paragraphs: string[]): Record<string, unknown>[] {
 	return paragraphs.map((paragraph, index) => {
@@ -143,6 +171,12 @@ export function demoDataset(now: Date): DemoDataset {
 	const picture = (name: string, alt: string, from: string, to: string): MediaRef => {
 		const filename = `demo-${name}.png`;
 		media.push({ filename, alt, colours: [from, to] });
+		return { demoMedia: filename };
+	};
+	/** A One Page `demo-{name}.jpg` that shows `content`, and the field value that stands for it. */
+	const onePage = (name: string, alt: string, content: OnePageContent): MediaRef => {
+		const filename = `demo-${name}.jpg`;
+		media.push({ filename, alt, onePage: content });
 		return { demoMedia: filename };
 	};
 	/**
@@ -183,7 +217,33 @@ export function demoDataset(now: Date): DemoDataset {
 		},
 	});
 
+	/** When the health fair was held. */
+	const healthFairAt = ago(2);
+	/**
+	 * The health fair's One Page (#149), the picture of its News item and its Activity, with four of
+	 * the Activity's photos in its collage.
+	 */
+	const healthFairOnePage = onePage(
+		"one-page-health-fair",
+		`ภาพ One Page ${unmarked(HEALTH_FAIR.title)}`,
+		{ ...HEALTH_FAIR, heldAt: healthFairAt, photos: HEALTH_FAIR_COLOURS.slice(0, 4) },
+	);
+
 	const news: DemoEntry[] = [
+		// As the latest 100 legacy PR items are (spec #144 "Records"), it has no body: its story is in
+		// its One Page and, in words, in its Summary.
+		{
+			collection: "news",
+			slug: "demo-news-health-fair",
+			taxonomies: { news_category: [NEWS_CATEGORIES.activity.slug], topic: [TOPICS.ncd.slug] },
+			publishedAt: ago(1),
+			data: {
+				title: HEALTH_FAIR.title,
+				summary: HEALTH_FAIR.summary,
+				source_text: "สำนักงานสาธารณสุขอำเภอสอง",
+				featured_image: healthFairOnePage,
+			},
+		},
 		{
 			collection: "news",
 			slug: "demo-news-ncd-screening",
@@ -621,11 +681,14 @@ export function demoDataset(now: Date): DemoDataset {
 		}),
 	];
 
-	/** A Health Content item on one Health Topic, under `demo-health-{name}`, with a picture. */
+	/**
+	 * A Health Content item on one Health Topic, under `demo-health-{name}`, with a picture. Its body
+	 * holds the advice: the post shows its summary under the title (#147).
+	 */
 	const healthContent = (
 		name: string,
 		topic: DemoTerm,
-		colours: [string, string],
+		colours: Blend,
 		publishedDaysAgo: number,
 		{
 			title,
@@ -647,7 +710,7 @@ export function demoDataset(now: Date): DemoDataset {
 			summary,
 			source_text: "กรมควบคุมโรค กระทรวงสาธารณสุข",
 			featured_image: picture(`health-${name}`, `ภาพประกอบ ${unmarked(title)}`, ...colours),
-			body: body(summary, "## ข้อควรปฏิบัติ", advice),
+			body: body("## ข้อควรปฏิบัติ", advice),
 			...data,
 		},
 	});
@@ -856,7 +919,56 @@ export function demoDataset(now: Date): DemoDataset {
 		}),
 	];
 
+	/**
+	 * The health fair's photos (#149), more than the eight an Activity shows before the rest fold
+	 * away (src/components/ActivityPhotos.astro): each a picture
+	 * `demo-activity-health-fair-{name}.png` whose alt text says what it shows, with a caption that
+	 * says what it is about. Their colours go round HEALTH_FAIR_COLOURS.
+	 */
+	const healthFairPhotos = (
+		[
+			["registration", "ประชาชนต่อแถวลงทะเบียนที่โต๊ะต้อนรับ", "ลงทะเบียนและรับสมุดบันทึกสุขภาพ"],
+			["opening", "นายอำเภอสองกล่าวเปิดงานบนเวที", "พิธีเปิดงานมหกรรมสุขภาพ"],
+			["blood-pressure", "เจ้าหน้าที่วัดความดันโลหิตให้ผู้สูงอายุ", "จุดตรวจวัดความดันโลหิต"],
+			["blood-sugar", "พยาบาลเจาะเลือดปลายนิ้วตรวจระดับน้ำตาล", "คัดกรองเบาหวานจากเลือดปลายนิ้ว"],
+			["waist", "อสม. วัดรอบเอวผู้มาร่วมงาน", "ประเมินรอบเอวและดัชนีมวลกาย"],
+			["dental", "ทันตบุคลากรตรวจฟันเด็กนักเรียน", "ตรวจสุขภาพช่องปากและสอนแปรงฟัน"],
+			["eyes", "ผู้สูงอายุอ่านแผ่นวัดสายตา", "คัดกรองสายตาผู้สูงอายุ"],
+			["food", "นักโภชนาการสาธิตการจัดจานอาหารสุขภาพ", "สาธิตอาหารลดหวาน มัน เค็ม"],
+			["exercise", "ผู้สูงอายุออกกำลังกายด้วยยางยืดพร้อมกัน", "ออกกำลังกายด้วยยางยืด"],
+			["herbs", "ซุ้มสมุนไพรและการนวดแผนไทย", "ซุ้มแพทย์แผนไทยและสมุนไพร"],
+			[
+				"vaccine",
+				"เจ้าหน้าที่ฉีดวัคซีนไข้หวัดใหญ่ให้ผู้สูงอายุ",
+				"วัคซีนไข้หวัดใหญ่สำหรับกลุ่มเสี่ยง",
+			],
+			["group", "เจ้าหน้าที่และ อสม. ถ่ายภาพหมู่หน้าเวที", "ทีมผู้จัดงานจากทุก รพ.สต."],
+		] as const
+	).map(([name, alt, caption], index) => ({
+		image: picture(
+			`activity-health-fair-${name}`,
+			alt,
+			...HEALTH_FAIR_COLOURS[index % HEALTH_FAIR_COLOURS.length]!,
+		),
+		caption,
+	}));
+
 	const activities: DemoEntry[] = [
+		{
+			collection: "activities",
+			slug: "demo-activity-health-fair",
+			publishedAt: ago(1),
+			data: {
+				title: HEALTH_FAIR.title,
+				summary: HEALTH_FAIR.summary,
+				activity_at: healthFairAt,
+				location_text: HEALTH_FAIR.place,
+				featured_image: healthFairOnePage,
+				participants_text:
+					"ประชาชนอำเภอสองกว่า 300 คน เจ้าหน้าที่โรงพยาบาลสองและ รพ.สต. ทุกแห่ง และ อสม. จาก 8 ตำบล",
+				gallery: healthFairPhotos,
+			},
+		},
 		{
 			collection: "activities",
 			slug: "demo-activity-elderly-screening",

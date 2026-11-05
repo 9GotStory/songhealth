@@ -13,6 +13,7 @@ import { describe, it } from "node:test";
 import { demoDataset } from "../../scripts/demo-dataset/content.ts";
 import {
 	addSteps,
+	entryName,
 	mediaOf,
 	menuItemFields,
 	planAdd,
@@ -36,6 +37,17 @@ const dataset = demoDataset(NOW);
 
 /** The files the dataset removes from the library once their entries exist (#126). */
 const REMOVED = dataset.media.filter((media) => media.removed);
+
+/** The News item and the Activity whose picture is the demo One Page (#149). */
+const ONE_PAGE_NEWS = "news/demo-news-health-fair";
+const ONE_PAGE_ACTIVITY = "activities/demo-activity-health-fair";
+
+/** The dataset's entry named `collection/slug`. */
+const entryNamed = (name: string) => dataset.entries.find((entry) => entryName(entry) === name)!;
+
+/** The dataset's media item `filename`. */
+const mediaNamed = (filename: string) =>
+	dataset.media.find((media) => media.filename === filename)!;
 
 /** The menus staff curate the Homepage with (seed/seed.json), which the model-update step adds. */
 const HOMEPAGE_MENUS = ["homepage-featured", "homepage-services", "homepage-quick-access"];
@@ -213,6 +225,34 @@ describe("demo dataset: add", () => {
 		});
 		assert.deepEqual(plan.upload, []);
 		assert.deepEqual(plan.discard, []);
+	});
+
+	it("installs the One Page's News item and Activity, the One Page and the twelve photos, and nothing else, on a runtime that holds the rest of the dataset (#149)", () => {
+		const added = [ONE_PAGE_NEWS, ONE_PAGE_ACTIVITY];
+		const addedMedia = new Set(added.flatMap((name) => mediaOf(entryNamed(name).data)));
+		assert.equal(addedMedia.size, 13, "the One Page and the twelve photos");
+		assert.deepEqual(
+			dataset.entries
+				.filter((entry) => !added.includes(entryName(entry)))
+				.flatMap(({ data }) => mediaOf(data))
+				.filter((filename) => addedMedia.has(filename)),
+			[],
+			"no other entry uses them",
+		);
+		const live = installed(dataset);
+		const plan = planAdd(dataset, {
+			...live,
+			entries: live.entries.filter((entry) => !added.includes(entryName(entry))),
+			media: live.media.filter(({ filename }) => !addedMedia.has(filename)),
+		});
+		assert.deepEqual(
+			addSteps(plan).sort(),
+			[
+				...[...addedMedia].map((filename) => `upload ${filename}`),
+				...added.map((name) => `create ${name}`),
+				...added.map((name) => `publish ${name}`),
+			].sort(),
+		);
 	});
 
 	it("points every picture and file field at a media item of the dataset", () => {
@@ -475,13 +515,22 @@ describe("demo dataset: remove", () => {
 		assert.deepEqual(removeSteps(planRemove(dataset, emptyRuntime())), []);
 	});
 
-	it("takes away every entry and media item of the installed dataset, its MOITs and their Evidence files among them (#126)", () => {
+	it("takes away every entry and media item of the installed dataset, its MOITs and their Evidence files (#126) and the One Page's entries, the One Page and the photos (#149) among them", () => {
 		const live = installed(dataset);
 		const plan = planRemove(dataset, live);
 		assert.deepEqual(names(plan.entries), names(live.entries));
 		assert.deepEqual(plan.media, live.media);
 		assert.ok(names(plan.entries).includes("moit/demo-moit-2-2570"));
 		assert.ok(plan.media.some(({ filename }) => filename === "demo-ita-document.pdf"));
+		for (const name of [ONE_PAGE_NEWS, ONE_PAGE_ACTIVITY]) {
+			assert.ok(names(plan.entries).includes(name), name);
+		}
+		const media = new Set(plan.media.map(({ filename }) => filename));
+		const photos = mediaOf(entryNamed(ONE_PAGE_ACTIVITY).data.gallery);
+		assert.equal(photos.length, 12);
+		for (const filename of ["demo-one-page-health-fair.jpg", ...photos]) {
+			assert.ok(media.has(filename), filename);
+		}
 	});
 });
 
@@ -522,6 +571,16 @@ describe("demo dataset: content (#66)", () => {
 				.sort(),
 			[...RESERVED_PAGES].sort(),
 		);
+	});
+
+	it("starts no body with its entry's Summary, which News and Health Content posts show under their titles (#147, #149)", () => {
+		const repeated = dataset.entries.flatMap(({ slug, data }) => {
+			const [first] = (data.body ?? []) as { style?: string; children?: { text: string }[] }[];
+			const text =
+				first?.style === "normal" ? first.children?.map((span) => span.text).join("") : "";
+			return text && text === data.summary ? [slug] : [];
+		});
+		assert.deepEqual(repeated, []);
 	});
 
 	it("has News, some of it Health News", () => {
@@ -646,11 +705,91 @@ describe("demo dataset: content (#66)", () => {
 		assert.match(String(dataset.officeContact.address), /^\[ตัวอย่าง\] /);
 	});
 
+	it("lists News and Activities newest first, so each list's first entry is the newest, which the demo-dataset suite sweeps (#149 retro)", () => {
+		// News by publication, Activities by when they were held (ADR 0004), as their lists show them.
+		const outOfOrder = (collection: string, date: (entry: DemoEntry) => string) => {
+			const times = entriesOf(collection).map((entry) => Date.parse(date(entry)));
+			return entriesOf(collection)
+				.filter((_, index) => index > 0 && times[index]! > times[index - 1]!)
+				.map(({ slug }) => slug);
+		};
+		assert.deepEqual(
+			[
+				...outOfOrder("news", ({ publishedAt }) => publishedAt),
+				...outOfOrder("activities", ({ data }) => String(data.activity_at)),
+			],
+			[],
+		);
+	});
+
 	it("has Activities with and without a picture", () => {
 		const activities = entriesOf("activities");
 		assert.ok(activities.length >= 3, `${activities.length} Activities`);
 		assert.ok(activities.some(({ data }) => mediaOf(data.featured_image).length === 1));
 		assert.ok(activities.some(({ data }) => data.featured_image === undefined));
+	});
+
+	it("has one One Page, marked as a demo, as the picture of one News item and one Activity, each with a Summary (#149)", () => {
+		const onePages = dataset.media.filter((media) => "onePage" in media);
+		assert.equal(onePages.length, 1);
+		const [onePage] = onePages;
+		assert.ok("onePage" in onePage! && onePage.onePage.title.startsWith("[ตัวอย่าง] "), "the mark");
+		assert.ok(onePage.alt, "alt text");
+		const users = dataset.entries.filter(({ data }) =>
+			Object.values(data).some((value) => mediaOf(value).includes(onePage.filename)),
+		);
+		assert.deepEqual(names(users).sort(), [ONE_PAGE_ACTIVITY, ONE_PAGE_NEWS]);
+		assert.ok(
+			users.every(({ data }) => mediaOf(data.featured_image).includes(onePage.filename)),
+			"as the picture",
+		);
+		assert.ok(
+			users.every(({ data }) => typeof data.summary === "string" && data.summary.length > 0),
+			"each with a Summary",
+		);
+	});
+
+	it("gives the One Page its Activity's title, date, place and Summary (#149)", () => {
+		const { data } = entryNamed(ONE_PAGE_ACTIVITY);
+		const media = mediaNamed(mediaOf(data.featured_image)[0]!);
+		assert.ok("onePage" in media);
+		const { title, heldAt, place, summary } = media.onePage;
+		assert.deepEqual(
+			{ title, heldAt, place, summary },
+			{
+				title: data.title,
+				heldAt: data.activity_at,
+				place: data.location_text,
+				summary: data.summary,
+			},
+		);
+	});
+
+	it("keeps the Featured item's picture, a landscape blend rather than the One Page (#149)", () => {
+		const [featured] = dataset.menus["homepage-featured"]!;
+		const news = entryNamed(`news/${featured && "entry" in featured ? featured.entry : ""}`);
+		const [filename] = mediaOf(news.data.featured_image);
+		assert.ok("colours" in mediaNamed(filename!), filename);
+	});
+
+	it("has twelve photos on the One Page's Activity, each a generated picture of its own with alt text and a caption (#149)", () => {
+		const photos = entryNamed(ONE_PAGE_ACTIVITY).data.gallery as {
+			image: unknown;
+			caption?: string;
+		}[];
+		assert.equal(photos.length, 12);
+		const pictures = photos.map(({ image }) => mediaNamed(mediaOf(image)[0]!));
+		assert.equal(new Set(pictures.map(({ filename }) => filename)).size, 12, "a picture each");
+		// The alt text names the photo's link and the caption shows under it (#148): the example
+		// staff copy says what the photo shows, then what it is about.
+		const wrong = photos.flatMap(({ caption }, index) => {
+			const picture = pictures[index]!;
+			if (!("colours" in picture)) return [`${picture.filename} is not a generated picture`];
+			return picture.alt && caption && picture.alt !== caption
+				? []
+				: [`${picture.filename}: alt text "${picture.alt}", caption "${caption}"`];
+		});
+		assert.deepEqual(wrong, []);
 	});
 
 	it("has MOIT 1 and MOIT 2 of fiscal year 2570, each slug moit-{number}-{fiscal_year} behind the demo prefix (#126)", () => {

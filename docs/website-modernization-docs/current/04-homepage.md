@@ -1,9 +1,9 @@
 # Homepage — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 04-homepage
-> **Status:** CLEAN REBASELINE v2.4 — CURRENT
-> **Version:** 2.4
-> **Last Updated:** 3 พฤศจิกายน 2569 (2026-11-03): Feature 004, ITA in V1
+> **Status:** CLEAN REBASELINE v2.5 — CURRENT
+> **Version:** 2.5
+> **Last Updated:** 5 พฤศจิกายน 2569 (2026-11-05): Feature 006, frontend design
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`
 > **Purpose:** กำหนด homepage information priority, sections, curation, responsive/accessibility behavior โดยไม่กำหนด component implementation หรือสร้าง homepage CMS subsystem
 
@@ -13,6 +13,10 @@
 
 > **Feature 004 decision (Product Owner, 2026-11-02; spec #121):** Quick Access may point to ITA
 > (§10.1). ITA gets no Homepage section of its own.
+
+> **Feature 006 decision (Product Owner, 2026-11-04; spec #144, #146 comment 6626919820):** the
+> Homepage shows the same sections, in the same order, from the same sources at every width, and
+> phones show them more compactly (§15). `docs/design/DESIGN.md` v1.0 records the layout.
 
 ---
 
@@ -261,14 +265,14 @@ Homepage edit/publish accessใช้ ordinary CMS roles/permissions; ไม่�
 
 # 15. Responsive Behavior
 
-- same content/data across desktop/mobile
+- same sections, in the same order, from the same sources at every width; phones show them more compactly (spec #144): below 640 px the section leads (the Contact Summary's included), the map stand-in and the Service and Health Content cards' summaries are left out, and phones and tablets show the latest 4 Activities where a desktop row shows 3
 - mobile order preserves information priority
 - no separate mobile CMS configuration
 - cards/grid collapseตาม available space
 - primary contentไม่ต้อง horizontal carousel
 - touch targets/readabilityเหมาะกับ mobile
 
-Exact breakpoints/column countsอยู่ใน Design System.
+Exact breakpoints/column countsอยู่ใน Design System (`docs/design/DESIGN.md` §6 และ §8).
 
 ---
 

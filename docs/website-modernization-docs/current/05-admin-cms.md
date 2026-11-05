@@ -1,9 +1,9 @@
 # Admin CMS — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 05-admin-cms
-> **Status:** CLEAN REBASELINE v2.5 — CURRENT native-only publication
-> **Version:** 2.5
-> **Last Updated:** 3 พฤศจิกายน 2569 (2026-11-03): Feature 004, ITA in V1
+> **Status:** CLEAN REBASELINE v2.6 — CURRENT native-only publication
+> **Version:** 2.6
+> **Last Updated:** 5 พฤศจิกายน 2569 (2026-11-05): Feature 006, frontend design
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`
 > **Purpose:** กำหนดความต้องการของ Admin CMS ที่จำเป็นต่อการดูแล Songhealth โดยใช้ความสามารถมาตรฐานของ CMS ก่อน และสร้างส่วนขยายเฉพาะเมื่อมี gap ที่พิสูจน์แล้ว
 
@@ -36,6 +36,11 @@
 > checks in §7.1 steps 1, 3 and 8 come from the Admin walkthrough, where the slug,
 > "ปรับปรุงล่าสุด" and a Requirement were missed (Product Owner, 2026-11-03, #128 comment
 > 6605066482).
+
+> **Feature 006 decision (Product Owner, 2026-11-04; spec #144):** every News and Activity states
+> its story in words, at least its Summary; a One Page is the record's picture, not its text
+> (grill Q14). Photo sets go on an Activity, and a gallery in a News body is edited in the Admin
+> (§5.1). A News body is optional (Product Owner, 2026-11-05: #149 comment 6653400419 item 2).
 
 ---
 
@@ -138,6 +143,22 @@ media removal can break consumers; in-place image replacement can change shared 
 ITA publication. Staff precautions do not enforce historical retention or cross-record safety.
 
 CMS นี้ใช้สำหรับ **public-publishable website assets**. ห้ามใช้เป็นที่เก็บไฟล์ลับ ข้อมูลผู้ป่วย หรือเอกสารภายในที่ต้องการ confidential access control โดยไม่มี requirement และ security design แยกต่างหาก.
+
+## 5.1 Pictures, Summaries and photo sets of News, Activities and Health Content
+
+ข่าว กิจกรรม และความรู้สุขภาพแสดงภาพและเรื่องตาม `docs/design/DESIGN.md` §7.3 และ §9 (spec #144). เจ้าหน้าที่เตรียมแต่ละเรื่องดังนี้:
+
+- ข่าวและกิจกรรมทุกเรื่องเล่าเรื่องเป็นข้อความ อย่างน้อยใน "สรุป" หนึ่งถึงสองประโยค. ภาพ One Page (`GLOSSARY.md`) เป็นภาพของเรื่อง ไม่ใช่ข้อความของเรื่อง: ข้อความที่อยู่ในภาพ screen reader อ่านไม่ได้และค้นหาไม่พบ (`00` §3.5; WCAG 2.2 SC 1.1.1 และ 1.4.5). หน้าข่าว กิจกรรม และความรู้สุขภาพแสดง "สรุป" ใต้ชื่อเรื่อง ตามบรรทัดที่พิมพ์ไว้
+- "เนื้อหา" ของข่าวจะเพิ่มหรือไม่ก็ได้
+- ภาพ One Page ใส่ใน "ภาพประกอบ"; เรื่องที่ไม่มี One Page ใช้ภาพถ่ายหนึ่งภาพแทน. ภาพแบนเนอร์แนวนอนแบบที่เว็บไซต์เดิมใช้ก็ต้องมี "สรุป" เช่นกัน
+- หน้าเรื่องแสดง "ภาพประกอบ" ทั้งภาพ พร้อมลิงก์ "เปิดภาพขนาดเต็ม" ไปยังไฟล์ที่อัปโหลด และเรื่องเด่นบนหน้าแรกก็แสดงทั้งภาพ. การ์ดแสดงกลางภาพ: การ์ดกิจกรรม (ในรายการและบนหน้าแรก) 16:9 และการ์ดข่าวและความรู้สุขภาพในรายการ 16:10
+- ชุดภาพถ่ายใส่ใน "แกลเลอรีภาพ" ของกิจกรรม แต่ละรายการมี "ภาพ" และ "คำบรรยายภาพ". หน้ากิจกรรมแสดงเป็นรูปย่อสี่เหลี่ยมใต้หัวข้อ "ภาพกิจกรรม": 8 ภาพแรก แล้วภาพที่เหลืออยู่ใต้ปุ่ม "ดูรูปทั้งหมด (N รูป)". คำบรรยายแสดงใต้รูปย่อไม่เกินสองบรรทัด และ screen reader อ่านครบ
+- ใส่ alt text ของแต่ละภาพใน Media Library (ช่อง "Alt Text" หรือ "ข้อความ Alt" ใน Admin ภาษาไทย) ก่อนเลือกภาพในช่อง: alt text อธิบาย "ภาพประกอบ" บนหน้าเรื่อง และเป็นชื่อของลิงก์ของรูปย่อแต่ละรูปใน "ภาพกิจกรรม". Admin คัดลอก alt text ไปกับภาพตอนเลือก และการบันทึกอาจไม่เติมให้ภายหลัง (`docs/agents/emdash-1.1.0.md` "Media"): ถ้าใส่ alt text หลังเลือกภาพไปแล้ว ให้เลือกภาพนั้นใหม่ในช่อง. รูปย่อที่ไม่มี alt text ใช้คำบรรยายภาพเป็นชื่อลิงก์ และถ้าไม่มีคำบรรยายใช้ "ภาพที่ N"
+- การ์ดและรูปย่อครอปกลางภาพ หรือรอบ "Focal point" ที่ตั้งไว้ใน Media Library. Focal point ติดไปกับภาพเฉพาะเมื่อเลือกภาพในช่องหลังจากตั้งแล้ว และการบันทึกไม่เติมให้ภายหลัง (`docs/agents/emdash-1.1.0.md` "Media"): ถ้าตั้ง focal point หลังเลือกภาพไปแล้ว ให้เลือกภาพนั้นใหม่ในช่อง
+- ผู้มีบทบาท Author แก้ alt text และ focal point ใน Media Library ได้เฉพาะภาพที่ตนอัปโหลด; Editor ขึ้นไปแก้ได้ทุกภาพ (`docs/agents/emdash-1.1.0.md` "Media")
+- "เนื้อหา" ของข่าวใส่ภาพไม่กี่ภาพใน block "Gallery" ได้ แต่ block นี้แสดงทุกภาพและไม่พับ: ชุดภาพใหญ่จึงควรอยู่ใน "แกลเลอรีภาพ" ของกิจกรรม
+- ผู้ใช้ที่ login ด้วยบทบาท Author ขึ้นไปเห็นแถบเครื่องมือของ EmDash บนหน้าเว็บ. เมื่อเปิดสวิตช์ "Edit mode" บนแถบนั้น block "Gallery" ใน "เนื้อหา" แสดงเป็น "Plugin block: gallery (edit in admin)": แก้แกลเลอรีใน Admin และตรวจหน้าเว็บโดยปิด Edit mode. ผู้เข้าชมเห็นแกลเลอรีตามปกติ
+- ข่าวและกิจกรรมที่ย้ายมาจากเว็บไซต์เดิมจะได้ "สรุป" อย่างไร เป็นการตัดสินใจของ Feature 005 (`09`)
 
 ---
 

@@ -1,70 +1,11 @@
-// The width of comments (#65 retro).
-//
-// Prettier wraps code at the 100 columns of prettier.config.mjs but leaves a comment as it is
-// written, so a long comment line passes the format check. In a file Prettier formats, a comment
-// line keeps to 100 columns too, counted as Prettier counts them: a tab as 2 columns, its default
-// tabWidth, and a nonspacing mark, such as a Thai vowel or tone mark written above or below its
-// consonant, as none. A line that is a single word, such as a long address, cannot wrap and is
-// left alone.
+// The width of comments (#65 retro) and their rewrap (#147 retro). scripts/wrap-comments.ts states
+// the rule, counts the columns and rewraps; this suite checks that every comment of the code
+// Prettier formats keeps to the rule, and how the rewrap moves words.
 
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
-import { fileURLToPath } from "node:url";
 
-import * as prettier from "prettier";
-
-const ROOT = new URL("../../", import.meta.url);
-
-/** The widest a comment line may be. */
-const WIDTH = 100;
-
-/** The code Prettier formats here: TypeScript, JavaScript modules, Astro components and styles. */
-const CODE = /\.(ts|mjs|astro|css)$/;
-
-/** A comment line: one that starts with `//`, or a line of a `/* … *\/` block. */
-const COMMENT = /^\s*(\/\/|\/\*|\*)/;
-
-/** The ignore files Prettier reads, so a file it leaves alone is left alone here too. */
-const IGNORE_PATH = [".gitignore", ".prettierignore"].map((name) =>
-	fileURLToPath(new URL(name, ROOT)),
-);
-
-/** The code files Prettier formats that git tracks or would track, from the repository root. */
-async function formattedCode(): Promise<string[]> {
-	const files: string[] = [];
-	for (const file of execFileSync(
-		"git",
-		["ls-files", "-z", "--cached", "--others", "--exclude-standard"],
-		{ cwd: ROOT, encoding: "utf8" },
-	)
-		.split("\0")
-		.filter((name) => CODE.test(name))) {
-		const path = fileURLToPath(new URL(file, ROOT));
-		if (!(await prettier.getFileInfo(path, { ignorePath: IGNORE_PATH })).ignored) files.push(file);
-	}
-	return files;
-}
-
-/** A line's width as Prettier counts it. */
-function widthOf(line: string): number {
-	return [...line.replaceAll("\t", "  ").replace(/\p{Mn}/gu, "")].length;
-}
-
-/** Each comment line wider than WIDTH that could wrap, as `path:line (columns)`. */
-async function wideComments(files: string[]): Promise<string[]> {
-	const found: string[] = [];
-	for (const file of files) {
-		(await readFile(new URL(file, ROOT), "utf8")).split("\n").forEach((line, index) => {
-			const words = line.replace(COMMENT, "").trim();
-			if (COMMENT.test(line) && widthOf(line) > WIDTH && /\s/.test(words)) {
-				found.push(`${file}:${index + 1} (${widthOf(line)} columns)`);
-			}
-		});
-	}
-	return found;
-}
+import { formattedCode, wideComments, widthOf, wrapComments } from "../../scripts/wrap-comments.ts";
 
 describe("comment width", () => {
 	it("reads the code Prettier formats and leaves out what .prettierignore lists", async () => {
@@ -78,6 +19,61 @@ describe("comment width", () => {
 	});
 
 	it("keeps every comment line of the code Prettier formats within 100 columns", async () => {
-		assert.deepEqual(await wideComments(await formattedCode()), []);
+		const wide = await wideComments(await formattedCode());
+		assert.deepEqual(wide, [], `npm run format rewraps these comment lines:\n${wide.join("\n")}`);
+	});
+});
+
+describe("comment rewrap", () => {
+	it("moves the words past the width to the start of the paragraph's next line", () => {
+		assert.equal(
+			wrapComments("// one two three four five\n// six seven\nconst x = 1;\n", 16),
+			"// one two three\n// four five six\n// seven\nconst x = 1;\n",
+		);
+	});
+
+	it("starts a new line where the paragraph ends, at a blank comment line or code", () => {
+		assert.equal(
+			wrapComments("// one two three four\n//\n// one two three four\nx();\n", 16),
+			"// one two three\n// four\n//\n// one two three\n// four\nx();\n",
+		);
+	});
+
+	it("keeps a list item's next lines under its words, and a new item on its own line", () => {
+		assert.equal(
+			wrapComments("// - one two three four\n//   five\n// - six\n", 16),
+			"// - one two\n//   three four\n//   five\n// - six\n",
+		);
+		assert.equal(
+			wrapComments("// one two three four\n// - five\n", 16),
+			"// one two three\n// four\n// - five\n",
+		);
+	});
+
+	it("opens a one-line block comment into a block, in code and in a stylesheet", () => {
+		assert.equal(
+			wrapComments("\t/** one two three four */\n", 16),
+			"\t/**\n\t * one two\n\t * three four\n\t */\n",
+		);
+		assert.equal(
+			wrapComments("/* one two three four five */\n", 16),
+			"/*\n * one two three\n * four five\n */\n",
+		);
+	});
+
+	it("breaks a line outside a code span, so the span stays whole", () => {
+		assert.equal(wrapComments("// one `a b c d` two\n", 12), "// one\n// `a b c d`\n// two\n");
+	});
+
+	it("measures a line as the check does: a tab as 2 columns, a Thai mark as none", () => {
+		assert.equal(wrapComments("\t// one two three\n", 16), "\t// one two\n\t// three\n");
+		const thai = "// ค้นหาบริการ ค้นหาบริการ\n";
+		assert.equal(wrapComments(thai, 22), thai);
+		assert.equal(wrapComments(thai, 21), "// ค้นหาบริการ\n// ค้นหาบริการ\n");
+	});
+
+	it("leaves a single word and an indented line outside a list as written", () => {
+		const long = "// https://example.com/a/long/path\n//\n//   node scripts/wrap-comments.ts\n";
+		assert.equal(wrapComments(long, 16), long);
 	});
 });

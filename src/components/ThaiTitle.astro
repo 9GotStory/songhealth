@@ -1,0 +1,22 @@
+---
+// A title's text, which a line never breaks inside the Thai compound words src/lib/thai-title.ts
+// lists (Feature 006 #145; spec #144 "Shared: Thai titles keep compound words whole"). Every
+// page's H1, the section headings, the card and row titles, the Featured title and the site title
+// in the header, the footer and the Contact Summary render through it; body text, summaries and
+// labels do not. It renders only the text: the element around it and its style stay the caller's.
+//
+// A kept run is a span that does not wrap, and the text itself is unchanged, so no joiner
+// character ends up in copied text or in search. Astro escapes each run as it renders it
+// (src/lib/thai-title.ts says where).
+import { titleRuns } from "../lib/thai-title";
+
+interface Props {
+	text: string;
+}
+
+const { text } = Astro.props;
+---
+
+{titleRuns(text).map((run) =>
+	run.keep ? <span class="whitespace-nowrap">{run.text}</span> : run.text,
+)}

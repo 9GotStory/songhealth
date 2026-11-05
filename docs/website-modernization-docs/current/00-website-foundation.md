@@ -1,9 +1,9 @@
 # Website Foundation — สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 00-website-foundation
-> **Status:** CLEAN REBASELINE v2.5 — CURRENT native-first V1
-> **Version:** 2.5
-> **Last Updated:** 3 พฤศจิกายน 2569 (2026-11-03): Feature 004, ITA in V1
+> **Status:** CLEAN REBASELINE v2.6 — CURRENT native-first V1
+> **Version:** 2.6
+> **Last Updated:** 5 พฤศจิกายน 2569 (2026-11-05): Feature 006, frontend design
 > **Purpose:** เอกสารหลักสำหรับบันทึกหลักการ ขอบเขต และ Architecture Decisions ระดับ Foundation ที่เอกสาร Information Architecture, Content Model, Sitemap, CMS และ System Blueprint ต้องยึดร่วมกัน
 > **Clean Rebaseline Rule:** เอกสารใน `current/` ต้องอธิบายคำตอบปัจจุบันเพียงชุดเดียว; ประวัติ implementation/architecture เก่าเก็บใน Git history/archival branch และไม่ใช้เป็น authority ของระบบใหม่
 > **Technology Ownership:** `00–09` define Product/behavior requirements; technology/runtime decisions belong to `10-system-blueprint.md`.
@@ -22,6 +22,10 @@
 > the ITA pages are built from the published entries (§7.10). No historical-evidence guard is
 > built: staff precautions and native records stand in for it. Spec #121 supersedes Feature 002's
 > FR-014 to FR-017 and D-ITA.
+
+> **Feature 006 decision (Product Owner, 2026-11-04; spec #144, `docs/adr/0007`):** the public
+> design's source is the code with `docs/design/DESIGN.md` v1.0. Figma Homepage Concept v1 stays
+> unchanged, as history, and Tailwind CSS v4 stands (`docs/adr/0001`).
 
 ---
 
@@ -1064,7 +1068,7 @@ Legacy WordPress audit และการย้ายข้อมูลถูก
 ### Clean Rebaseline Open Decisions
 
 หลัง Clean Rebaseline v2.2 ประเด็นที่ยังอาจต้องตัดสินเชิง implementation/operations แยกต่างหาก ได้แก่:
-- component implementation (Visual Design tokens resolved 2026-10-29 by `docs/adr/0001`: Figma Homepage Concept v1 tokens with Tailwind CSS v4)
+- component implementation (Visual Design resolved: Tailwind CSS v4 by `docs/adr/0001`; the design's source is the code with `docs/design/DESIGN.md` v1.0 by `docs/adr/0007`)
 - exact reference-data values และ service inventory ที่เปลี่ยนตามข้อมูลจริง
 - production hosting/provider และ deployment evidence
 - exact dependency/version pinning

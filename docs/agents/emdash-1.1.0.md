@@ -4,7 +4,9 @@ Facts the Songhealth pages and tests rely on, read from the installed package. A
 its topic with its source path, relative to `node_modules/emdash/`. Write a Songhealth file with a
 leading `./` and another package's file from its package name. When the pinned version changes,
 re-verify every line and rename this file: `./tests/node/package-facts.test.ts` checks that every
-cited file exists and that the name carries the pinned version.
+cited file exists and that the name carries the pinned version. Read the minified Admin bundle,
+`@emdash-cms/admin/dist/index.js`, with `python3 -I` and `str.find`: the host's `grep` is ugrep,
+which refuses a long context pattern such as `.{0,200}x.{0,200}`.
 
 ## Public reads
 
@@ -103,13 +105,26 @@ cited file exists and that the name carries the pinned version.
   `video/`, `audio/` and `application/pdf` (`src/api/handlers/media-allowlist.ts`).
   - `deduplicate` defaults to true; send `"false"` to get a fresh asset (`src/api/schemas/media.ts`).
   - The storage key is `{ulid}{filename's extension}` (`src/astro/routes/api/media.ts`).
+- An upload records an image's width and height: the form's `width` and `height` fields when the
+  client sends them, else the size read from the file (`src/astro/routes/api/media.ts`,
+  `src/media/enrich.ts` `enrichImageMetadata`).
 - Saving an image or file field normalises the value. It keeps `id`, `provider`, `filename`,
   `mimeType`, the dimensions, `alt` and `meta.storageKey`, and drops `size`
-  (`src/media/normalize.ts` `recordToMediaValue`). An image saved as `{ id }` takes its alt text
-  from the library (`mergeProviderData`).
+  (`src/media/normalize.ts` `recordToMediaValue`). An image saved as `{ id }` takes its alt text,
+  dimensions and placeholder from the library (`mergeProviderData`, which a save reaches through
+  `src/emdash-runtime.ts` `normalizeImageValue`).
 - An image inside a repeater item is normalised on save the way an image field is, so an item saved
   as `{ id }` takes its alt text from the library too (`src/emdash-runtime.ts`, the repeater
   sub-field loop beside the image fields).
+- A picture picked in the Admin carries the media item's alt text from the pick
+  (`@emdash-cms/admin/dist/index.js` `mediaItemToImageFieldValue`). A save fills an empty alt from
+  the library only when it looks the media item up, which it skips while the value has its
+  dimensions, storage key, file name, type and placeholder (`src/media/normalize.ts`
+  `normalizeMediaValue`, `mergeProviderData`). So alt text added in the library after the pick
+  usually stays off the picture until staff pick it again, as a focal point does (below).
+- Editing a media item's details, such as its alt text or focal point, needs `media:edit_own` for
+  an item the user uploaded, which an Author holds, and `media:edit_any` for anyone's, from Editor
+  up (`src/astro/routes/api/media/[id].ts` `requireOwnerPerm`, `@emdash-cms/auth/src/rbac.ts`).
 - An image block in a Portable Text body, as the Admin editor saves a picked media item, is
   `{ _type: "image", asset: { _ref: mediaId, url }, alt }`, where `url` is the media item's
   `/_emdash/api/media/file/{storageKey}` (`src/content/converters/prosemirror-to-portable-text.ts`
@@ -121,6 +136,23 @@ cited file exists and that the name carries the pinned version.
   and `PortableText` then renders the inline editor instead of HTML (`src/query.ts`
   `tagEditableFields`, `getEditMeta`; `src/components/PortableText.astro`). A copied or filtered
   array loses the tag, so `./src/components/RichText.astro` passes a tagged body unchanged.
+- Edit mode is on only for a signed-in user whose role is Author (30) or above, while the toolbar's
+  toggle has set the `emdash-edit-mode` cookie; such a user sees the toolbar on public pages
+  (`src/astro/middleware/request-context.ts` `isEditor`, `editMode`;
+  `src/visual-editing/toolbar.ts`; the role numbers in `@emdash-cms/auth/src/types.ts`), as the
+  integration's `toolbar` option defaults to `"server"` and `./astro.config.mjs` does not set it
+  (`false` would hide the toolbar; `src/astro/integration/runtime.ts`). The
+  toggle reads "Edit mode" in the Thai catalog too (`@emdash-cms/admin/dist/locales/server.js`
+  `TOOLBAR_MESSAGES`, `@emdash-cms/admin/dist/locales/th/messages.mjs`). The inline editor renders
+  a block type it does not know, such as a body's `gallery`, as "Plugin block: gallery (edit in
+  admin)" (`src/components/InlinePortableTextEditor.tsx`, the unknown-block branch and the
+  placeholder's `renderHTML`). Staff guidance relies on it (`05` §5.1).
+- While a public page with the toolbar stays open, the toolbar renews its visual-action token with
+  `POST /_emdash/api/visual-editing/action-token` 240 s after the last renewal, or 30 s after a
+  failed one. The route only checks the old token and signs a new one for the same user, so it
+  changes nothing, yet `./src/lib/admin-change-log.ts` writes a line for it (#151; #164)
+  (`src/visual-editing/toolbar.ts` `refreshVisualActionToken`,
+  `scheduleVisualActionTokenRefresh`; `src/astro/routes/api/visual-editing/action-token.ts`).
 - `/_emdash/api/media/file/{key}` serves the stored file by key. Safe image, video and audio types
   are served inline; anything else is an attachment (`src/astro/routes/api/media/file/[...key].ts`).
 - Deleting a media item has no in-use guard. It removes the stored file unless another media row
@@ -162,6 +194,14 @@ cited file exists and that the name carries the pinned version.
   `{ body, contentType, size }` (`src/storage/local.ts`, `src/storage/s3.ts`).
   - A missing key throws code `NOT_FOUND`.
   - On local storage, `list` reads the whole directory.
+- EmDash exports no function for the address of a media value's stored file. Each request's
+  `Astro.locals.emdash.getPublicMediaUrl(key)` resolves a storage key through the storage adapter,
+  which on local storage gives `{baseUrl}/{key}`, `/_emdash/api/media/file/{key}` as
+  `./astro.config.mjs` configures it (`src/media/url.ts` `createPublicMediaUrlResolver`, set in
+  `src/astro/middleware.ts`; `src/storage/local.ts` `getPublicUrl`). `Image` builds a picture's own
+  address with the internal `buildRenderMediaUrl` (`src/components/EmDashImage.astro`
+  `buildLocalImageUrl`). `./src/lib/media.ts` `mediaFileHref` and `downloadableFile` use the
+  resolver.
 - `Image` from `emdash/ui` builds a local URL from `meta.storageKey`, else from `id`
   (`src/media/url.ts` `buildRenderMediaUrl`). A production build authorises no media source for
   Astro's image service, so production serves originals (`src/astro/integration/index.ts`;
@@ -181,6 +221,29 @@ cited file exists and that the name carries the pinned version.
   `fetchpriority="high"`. The attributes it is given come after that default, so a passed `loading`
   wins (`src/components/EmDashImage.astro`). `./src/components/ContentCard.astro` and
   `./src/components/ActivityCard.astro` load a list's first row that way.
+- `Image` writes the value's dimensions as the `width` and `height` attributes, so its box takes
+  the picture's shape before the file loads, and shows the value's placeholder (a blurhash, else
+  the dominant colour) as the image's inline background, unless given `placeholder={false}`
+  (`src/components/EmDashImage.astro` `resolveImage`). `./src/components/FeaturedHero.astro` relies
+  on both.
+- The Admin's media library sets a picture's focal point ("Focal point. Use arrow keys to move
+  it."). The Admin's image field copies the media item's focal point into the field's value as
+  `focalX` and `focalY` when staff pick the picture, or edit it from the field
+  (`@emdash-cms/admin/dist/index.js` `mediaItemToImageFieldValue`). A save keeps the value's own
+  (`src/media/normalize.ts` `recordToMediaValue`) and never fills one in from the library
+  (`mergeProviderData`), so a focal point set after the picture was picked, or a value saved as
+  `{ id }`, has none. `Image` writes the value's focal point as the picture's inline
+  `object-position` (`src/media/focal-point.ts` `focalPointToObjectPosition`,
+  `src/components/EmDashImage.astro` `resolveImage`), so a picture cropped with
+  `object-fit: cover` centres on it; without one, CSS's initial `object-position`, `50% 50%`,
+  centres the crop. `./src/components/ActivityPhotos.astro`, `./src/components/ContentCard.astro`
+  and `./src/components/ActivityCard.astro` crop that way.
+- For a value with a size, `Image` renders Astro's `<Image layout="constrained">`, which marks the
+  image `data-astro-image-fit="cover"` (`astro/dist/assets/internal.js`). Astro 7.3.5 adds the CSS
+  for that mark only with `image.responsiveStyles`, which defaults to false
+  (`astro/dist/core/config/schemas/defaults.js`, `astro/dist/assets/vite-plugin-assets.js`), and
+  `./astro.config.mjs` leaves it off. A page's own `object-cover` or `object-contain` class
+  therefore decides how the picture fits its box.
 - The frontend media-provider loader creates providers with an empty context, and the local provider
   needs a database, so public pages cannot use it (`src/media/provider-loader.ts`,
   `src/media/local-runtime.ts`).

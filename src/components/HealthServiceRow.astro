@@ -10,6 +10,7 @@ import type { HealthServiceEntry } from "../lib/health-services";
 import { termsOf } from "../lib/terms";
 import HealthServiceStatus from "./HealthServiceStatus.astro";
 import MetaLine from "./MetaLine.astro";
+import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	healthService: HealthServiceEntry;
@@ -37,7 +38,7 @@ const status = isOutOfService(data.operational_status) ? data.operational_status
 			class="underline-offset-4 hover:text-brand-primary hover:underline"
 			href={healthServicePath(healthService.id)}
 		>
-			{name}
+			<ThaiTitle text={name} />
 		</a>
 	</Heading>
 	{name !== data.title && <p class="text-small wrap-anywhere text-text-secondary">{data.title}</p>}

@@ -11,6 +11,7 @@ import { Image } from "emdash/ui";
 import { availableMedia } from "../lib/media";
 import type { PersonnelEntry } from "../lib/personnel";
 import { shownName } from "../lib/personnel-directory";
+import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	person: PersonnelEntry;
@@ -46,7 +47,7 @@ const PICTURE_SIZES = "(min-width: 40rem) 5rem, 4rem";
 	)}
 	<div class="flex min-w-0 flex-col gap-1">
 		<Heading class="text-body-large font-semibold wrap-anywhere text-brand-dark">
-			{shownName(data)}
+			<ThaiTitle text={shownName(data)} />
 		</Heading>
 		{data.current_assignment && <p class="wrap-anywhere">{data.current_assignment}</p>}
 		{unit && <p class="text-small wrap-anywhere text-text-secondary">{unit}</p>}
