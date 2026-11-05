@@ -110,6 +110,10 @@ _Avoid_: Landing content, homepage posts
 Existing published content chosen to headline the Homepage. A presentation choice, not a content kind.
 _Avoid_: Banner, hero post, featured type
 
+**One Page** (ภาพ One Page):
+A portrait A4 sheet that staff make to tell one News or Activity in pictures and text; it is that record's picture, not a content kind of its own. A health infographic, such as the Department of Disease Control's dengue sheet in Health Content, is not a One Page, but shows the same way: whole on its own page and as Featured.
+_Avoid_: Poster, banner, infographic
+
 **Frequently Used Services** (บริการที่ใช้บ่อย):
 The Services that staff pick to show on the Homepage for common citizen tasks.
 _Avoid_: Popular services

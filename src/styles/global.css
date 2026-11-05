@@ -1,9 +1,10 @@
 /*
- * Songhealth design tokens and base styles (Feature 003 #52; ADR 0001).
+ * Songhealth design tokens and base styles (Feature 003 #52; ADR 0001, ADR 0007).
  *
- * The tokens come from the Product Owner's Figma file "Songhealth — Homepage
- * Concept v1" (file Lxdfd1dBgNNO28Rx62zGYO, frame 5:2) and keep its variable
- * names; spec #51 (Presentation) records the table. Tailwind CSS v4 turns each
+ * The tokens began as the variables of the Product Owner's Figma file "Songhealth —
+ * Homepage Concept v1" (file Lxdfd1dBgNNO28Rx62zGYO, frame 5:2) and keep their
+ * names. This file is now their source, with docs/design/DESIGN.md v1.0, whose
+ * §3.1 records the table (ADR 0007). Tailwind CSS v4 turns each
  * @theme variable into utilities at build time (`--color-brand-primary` gives
  * `bg-brand-primary`, `text-brand-primary`, …) and ships no client JavaScript.
  * Tailwind's default palette, type scale, radii and shadows are cleared, so the
