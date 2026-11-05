@@ -23,9 +23,11 @@
 // (src/lib/media.ts), and the link opens the file as it was uploaded
 // (src/components/PostColumns.astro says how).
 //
-// A thumbnail crops its photo around the middle, or around the focal point staff set on it in the
-// media library, which EmDash's Image applies (emdash 1.1.0 src/components/EmDashImage.astro,
-// src/media/focal-point.ts), as the cards' crop does.
+// A thumbnail crops its photo around the middle, or around the focal point the photo had in the
+// media library when staff picked it in the Admin, which the field's value keeps and EmDash's Image
+// applies (emdash 1.1.0 src/components/EmDashImage.astro, src/media/focal-point.ts;
+// docs/agents/emdash-1.1.0.md "Media"), as src/components/ContentCard.astro and
+// src/components/ActivityCard.astro crop their pictures.
 import { Image } from "emdash/ui";
 import type { ActivityData } from "../lib/activities";
 import { availableMedia, mediaFileHref } from "../lib/media";
@@ -46,9 +48,9 @@ const runtime = Astro.locals.emdash;
 const photos = (
 	await Promise.all(
 		(Astro.props.gallery ?? []).map(async ({ image, caption }) => {
-			const shown = await availableMedia(image, runtime);
-			const href = shown && mediaFileHref(shown, runtime);
-			return shown && href ? { image: shown, href, caption } : undefined;
+			const available = await availableMedia(image, runtime);
+			const href = available && mediaFileHref(available, runtime);
+			return available && href ? { image: available, href, caption } : undefined;
 		}),
 	)
 ).filter((photo) => photo !== undefined);

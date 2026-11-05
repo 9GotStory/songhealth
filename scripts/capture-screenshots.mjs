@@ -53,9 +53,9 @@ function stem(path) {
 const pages = targets.map((target) => {
 	const split = target.startsWith("/") ? -1 : target.indexOf("=");
 	const name = split === -1 ? undefined : target.slice(0, split);
-	const named = split === -1 ? target : target.slice(split + 1);
-	const bang = named.indexOf("!");
-	const rest = bang === -1 ? named : named.slice(0, bang);
+	const unnamed = split === -1 ? target : target.slice(split + 1);
+	const bang = unnamed.indexOf("!");
+	const rest = bang === -1 ? unnamed : unnamed.slice(0, bang);
 	const one = /^(?<path>.*?)@(?<width>\d+)(?:>(?<selector>.+))?$/.exec(rest)?.groups;
 	const path = one?.path ?? rest;
 	return {
@@ -63,7 +63,7 @@ const pages = targets.map((target) => {
 		path,
 		width: one && Number(one.width),
 		selector: one?.selector,
-		click: bang === -1 ? undefined : named.slice(bang + 1),
+		click: bang === -1 ? undefined : unnamed.slice(bang + 1),
 	};
 });
 
