@@ -27,7 +27,7 @@
 // from 2032 on. A suite's fixtures stay until it ends, so a later test dates its own after the
 // earlier tests'.
 
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 import {
 	cmsRequest,
@@ -67,6 +67,7 @@ import {
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	homepageSection,
+	itemsPerRow,
 	listedItem,
 	siteTitleParts,
 	test,
@@ -168,14 +169,6 @@ async function withSiteIdentity(
 /** The headings of the Homepage's sections, in order. */
 function sectionHeadings(page: Page) {
 	return page.getByRole("main").getByRole("heading", { level: 2 });
-}
-
-/** How many of a section's cards sit side by side in its first row, as the page is laid out now. */
-async function cardsPerRow(section: Locator): Promise<number> {
-	const tops = await section
-		.getByRole("listitem")
-		.evaluateAll((items) => items.map((item) => item.getBoundingClientRect().top));
-	return tops.filter((top) => Math.abs(top - tops[0]!) < 1).length;
 }
 
 /** The current Announcements' links, in order. */
@@ -677,10 +670,10 @@ test("with every section showing, the sections follow the Figma order on a deskt
 					HOMEPAGE_HEADINGS.activities,
 					HOMEPAGE_HEADINGS.quickAccess,
 				]) {
-					expect(
-						await cardsPerRow(homepageSection(page, heading)),
-						`the cards of "${heading}" side by side at 375 px`,
-					).toBe(2);
+					const [firstRow] = await itemsPerRow(
+						homepageSection(page, heading).getByRole("listitem"),
+					);
+					expect(firstRow, `the cards of "${heading}" side by side at 375 px`).toBe(2);
 				}
 				await expect(
 					homepageSection(page, siteTitle).getByText(CONTACT_LEAD),

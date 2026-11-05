@@ -1,0 +1,105 @@
+---
+// An Activity's photos, its gallery field (Feature 006 #148; spec #144 "An Activity's photos (its
+// gallery field)"), under the heading ภาพกิจกรรม. Each photo is a square thumbnail, four to a row
+// from lg and three below, that links to the photo's file, with its caption under it on at most
+// two lines. The first eight show, and the rest show while a native disclosure after them is open,
+// so its control sits under the photos it opens (the Product Owner's finding of 2026-11-04, spec
+// #144 Further Notes). The control reads "ดูรูปทั้งหมด (N รูป)" while closed and "ซ่อนรูป M รูป" while
+// open, and an Activity with eight photos or fewer has none.
+//
+// It needs no JavaScript: the photos come before a <details> that holds only its <summary>, and a
+// :has() rule on the section shows the folded ones while it is open (the prototype's mechanism,
+// 7fde03e). The photos are one list, so the folded ones carry on the rows of the first eight, where
+// the prototype had two (Product Owner, 2026-11-05: #148 comment 6649367649). A browser without
+// :has() would open the control and show nothing, so there every photo shows and the control does
+// not (#144 user story 25: an old phone; same comment). Chromium exposes the summary to assistive
+// technology as a disclosure that is expanded or collapsed and controls the list
+// (tests/browser/public-activity-photos.spec.ts).
+//
+// Each photo takes its alt text from the media library, as EmDash saves an image inside a repeater
+// the way it saves an image field (emdash 1.1.0 src/emdash-runtime.ts, the repeater sub-field
+// normalisation), and the alt text names its link. A photo without alt text is named by its
+// caption, else by its place, "ภาพที่ N", so no link goes without a name (WCAG 2.2 SC 2.4.4 and
+// 4.1.2; Product Owner, 2026-11-05: #148 comment 6649367649). A photo whose media item was deleted
+// in Admin is left out and not counted (src/lib/media.ts), and the link opens the file as it was
+// uploaded (src/components/PostColumns.astro says how).
+//
+// A thumbnail crops its photo around the middle, or around the focal point the photo had in the
+// media library when staff picked it in the Admin, which the field's value keeps and EmDash's Image
+// applies (emdash 1.1.0 src/components/EmDashImage.astro, src/media/focal-point.ts;
+// docs/agents/emdash-1.1.0.md "Media"), as src/components/ContentCard.astro and
+// src/components/ActivityCard.astro crop their pictures, where the spec says "centre crop" (Product
+// Owner, 2026-11-05: #148 comment 6649367649).
+import { Image } from "emdash/ui";
+import type { ActivityData } from "../lib/activities";
+import { availableMedia, mediaFileHref } from "../lib/media";
+import ThaiTitle from "./ThaiTitle.astro";
+
+interface Props {
+	/** The Activity's gallery field's value. */
+	gallery: ActivityData["gallery"];
+}
+
+/** How many photos show before the rest fold away. */
+const SHOWN = 8;
+
+/** A thumbnail's width: a quarter of the 75 rem page container from lg, a third below it. */
+const THUMBNAIL_SIZES = "(min-width: 64rem) 18rem, 33vw";
+
+const runtime = Astro.locals.emdash;
+const photos = (
+	await Promise.all(
+		(Astro.props.gallery ?? []).map(async ({ image, caption }) => {
+			const available = await availableMedia(image, runtime);
+			const href = available && mediaFileHref(available, runtime);
+			return available && href ? { image: available, href, caption } : undefined;
+		}),
+	)
+).filter((photo) => photo !== undefined);
+const folded = photos.length - SHOWN;
+---
+
+{photos.length > 0 && (
+	<section aria-labelledby="activity-gallery" class="group/photos flex flex-col gap-4">
+		<h2 id="activity-gallery" class="text-h3 text-brand-dark">
+			<ThaiTitle text="ภาพกิจกรรม" />
+		</h2>
+		<ul id="activity-photos" class="grid grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-4 lg:gap-4">
+			{photos.map((photo, index) => (
+				<li
+					class:list={[
+						index >= SHOWN &&
+							"group-has-[details[open]]/photos:block supports-[selector(:has(a))]:hidden",
+					]}
+				>
+					<figure class="flex flex-col gap-1">
+						<a class="block overflow-hidden rounded-14" href={photo.href}>
+							<Image
+								image={photo.image}
+								alt={photo.image.alt || photo.caption || `ภาพที่ ${index + 1}`}
+								sizes={THUMBNAIL_SIZES}
+								class="aspect-square w-full bg-surface-soft object-cover"
+							/>
+						</a>
+						{photo.caption && (
+							<figcaption class="line-clamp-2 text-small wrap-anywhere text-text-secondary">
+								{photo.caption}
+							</figcaption>
+						)}
+					</figure>
+				</li>
+			))}
+		</ul>
+		{folded > 0 && (
+			<details class="group/control hidden supports-[selector(:has(a))]:block">
+				<summary
+					aria-controls="activity-photos"
+					class="inline-flex min-h-11 w-fit cursor-pointer list-none items-center rounded-pill border border-border-input bg-surface-base px-5 text-label text-brand-primary hover:bg-surface-soft [&::-webkit-details-marker]:hidden"
+				>
+					<span class="group-open/control:hidden">ดูรูปทั้งหมด ({photos.length} รูป)</span>
+					<span class="hidden group-open/control:inline">ซ่อนรูป {folded} รูป</span>
+				</summary>
+			</details>
+		)}
+	</section>
+)}

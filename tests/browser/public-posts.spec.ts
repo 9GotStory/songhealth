@@ -37,11 +37,13 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	PHONE_VIEWPORT,
+	boxOf,
 	detailOf,
 	expect,
 	expectImageLoaded,
 	expectNoAxeViolations,
 	expectPictureFillsBox,
+	expectStacked,
 	expectVisibleFocusOnEveryStop,
 	test,
 	testAccessibilityAndReflow,
@@ -118,29 +120,6 @@ async function publishPost(
 	});
 	await publishEntryAt(admin, template, draft.id);
 	return { path: path(draft.slug), title: draft.title, summary };
-}
-
-/** `part`'s box in the window as the page is laid out and scrolled now, once it shows. */
-async function boxOf(part: Locator, label: string) {
-	await expect(part, label).toBeVisible();
-	return (await part.boundingBox())!;
-}
-
-/**
- * Fail unless every one of `parts` shows, each one below the one before it, as the page is laid out
- * now.
- */
-async function expectStacked(label: string, parts: Array<[name: string, part: Locator]>) {
-	let above: { name: string; bottom: number } | undefined;
-	for (const [name, part] of parts) {
-		const box = await boxOf(part, `${label}: ${name}`);
-		if (above) {
-			expect(box.y, `${label}: ${name} is below ${above.name}`).toBeGreaterThanOrEqual(
-				above.bottom - 0.5,
-			);
-		}
-		above = { name, bottom: box.y + box.height };
-	}
 }
 
 /** Whether two boxes share any area. */

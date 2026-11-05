@@ -20,7 +20,11 @@ import { withFixtureKit, type FixtureKit } from "./fixture-kit.ts";
 
 export type { FixtureKit };
 
-/** A page to capture: a path, or a path with the name its screenshot files take. */
+/**
+ * A page to capture: a target of capture-screenshots.mjs, such as a path, or one with the name its
+ * screenshot files take. Its path may end in that script's suffixes: "@width", "@width>selector"
+ * or "!text".
+ */
 export type Capture = string | { name: string; path: string };
 
 export type Fixtures = (kit: FixtureKit) => Promise<Capture[]>;
