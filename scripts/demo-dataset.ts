@@ -14,10 +14,9 @@
 
 import { readFile } from "node:fs/promises";
 
-import { chromium } from "@playwright/test";
+import { chromium, type Page } from "@playwright/test";
 
 import { escapeHtml } from "../src/lib/search-matcher.ts";
-import { titleRuns } from "../src/lib/thai-title.ts";
 import * as helpers from "../tests/browser/cms.helpers.ts";
 import { demoDataset } from "./demo-dataset/content.ts";
 import {
@@ -151,37 +150,33 @@ const ONE_PAGE_DATE = new Intl.DateTimeFormat("th-TH", {
 /**
  * A One Page's sheet (#149; spec #144 "Demo dataset"). Its colours are the site's tokens
  * (src/styles/global.css), and its text keeps at least 4.5:1 against what is behind it, as WCAG
- * 2.2 SC 1.4.3 asks of an image of text. The photos fill the middle of the sheet, from 336 to 790
- * px: a card crops a One Page to the middle 16:9 of its width, which on an A4 sheet runs from 338
- * to 785 px (spec #144 "Homepage (`04`)"), so a card shows the collage alone, as the office's own
- * One Pages show theirs.
+ * 2.2 SC 1.4.3 asks of an image of text. The photos fill the middle of the sheet, from 313 to 810
+ * px, so a card shows the collage alone, as the office's own One Pages show theirs (spec #144
+ * "Problem Statement"): an Activity card crops a picture to the middle 16:9 of its width and a
+ * News card to the middle 16:10 (src/components/ActivityCard.astro,
+ * src/components/ContentCard.astro), which on an A4 sheet run from 338 to 785 px and from 313 to
+ * 810 px.
  */
 function onePageSheet({ title, heldAt, place, summary, photos }: OnePageContent): string {
-	// The title keeps the site's Thai compound words whole, as the site's titles do (spec #144).
-	const keptTitle = titleRuns(title)
-		.map(({ text, keep }) =>
-			keep ? `<span class="keep">${escapeHtml(text)}</span>` : escapeHtml(text),
-		)
-		.join("");
 	return `<style>
 * { box-sizing: border-box; margin: 0; }
 body { display: flex; flex-direction: column; height: 100vh; font-family: "Noto Sans Thai";
   color: #16211d; background: #ffffff; }
-header { display: flex; flex-direction: column; gap: 12px; height: 336px; padding: 36px 56px;
+header { display: flex; flex-direction: column; gap: 12px; height: 313px; padding: 36px 56px;
   color: #ffffff; background: #0b6b57; }
 .mark { align-self: start; border: 2px solid #f3c95f; border-radius: 999px; padding: 2px 16px;
   font-size: 15px; }
 .office { font-size: 18px; font-weight: 700; }
-h1 { font-size: 32px; line-height: 1.4; } .keep { white-space: nowrap; }
+h1 { font-size: 32px; line-height: 1.4; }
 .when { margin-top: auto; font-size: 18px; }
-.photos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; height: 454px;
+.photos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; height: 497px;
   padding: 32px 56px; }
 .photos div { border-radius: 16px; }
 .story { flex: 1; margin: 0 56px 32px; padding: 28px 32px; border-left: 8px solid #f3c95f;
   border-radius: 16px; background: #eaf5f0; font-size: 22px; line-height: 1.7; }
 footer { padding: 20px 56px; color: #ffffff; background: #0b6b57; font-size: 15px; }
 </style><header><p class="mark">One Page ตัวอย่าง — ไม่ใช่ภาพประชาสัมพันธ์จริง</p>
-<p class="office">สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่</p><h1>${keptTitle}</h1>
+<p class="office">สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่</p><h1>${escapeHtml(title)}</h1>
 <p class="when">${ONE_PAGE_DATE.format(new Date(heldAt))} ณ ${escapeHtml(place)}</p></header>
 <div class="photos">${photos
 		.map(
@@ -218,31 +213,37 @@ async function sheetPrinter() {
 		await browser.close();
 		throw error;
 	});
+	/**
+	 * `target` once it shows `html` in the site's font. The load event does not wait for a web font;
+	 * printing before it is ready would use another.
+	 */
+	const show = async (target: Page, html: string) => {
+		await target.setContent(
+			`<!doctype html><html lang="th"><meta charset="utf-8"><style>${fonts}</style>${html}`,
+			{ waitUntil: "load" },
+		);
+		await target.evaluate(() => document.fonts.ready.then(() => undefined));
+		return target;
+	};
 	return {
 		async pdf({ title, summary }: PdfText) {
 			// The colours are the site's brand-dark, brand-primary and text-secondary
 			// (src/styles/global.css).
-			await page.setContent(
-				`<!doctype html><html lang="th"><meta charset="utf-8"><style>${fonts}
+			const shown = await show(
+				page,
+				`<style>
 body { font-family: "Noto Sans Thai"; margin: 0; padding: 64px; color: #123c33; }
 .mark { display: inline-block; border: 2px solid #0b6b57; border-radius: 8px; padding: 4px 12px;
   color: #0b6b57; }
 h1 { font-size: 22pt; } p { font-size: 14pt; line-height: 1.6; } .office { color: #65736d; }
 </style><p class="mark">เอกสารตัวอย่าง — ไม่ใช่เอกสารราชการจริง</p><h1>${escapeHtml(title)}</h1>
 <p class="office">สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่</p>${summary ? `<p>${escapeHtml(summary)}</p>` : ""}`,
-				{ waitUntil: "load" },
 			);
-			// The load event does not wait for a web font; printing before it is ready would use another.
-			await page.evaluate(() => document.fonts.ready.then(() => undefined));
-			return new Uint8Array(await page.pdf({ format: "A4", printBackground: true }));
+			return new Uint8Array(await shown.pdf({ format: "A4", printBackground: true }));
 		},
 		async onePage(content: OnePageContent) {
-			await sheetPage.setContent(
-				`<!doctype html><html lang="th"><meta charset="utf-8"><style>${fonts}</style>${onePageSheet(content)}`,
-				{ waitUntil: "load" },
-			);
-			await sheetPage.evaluate(() => document.fonts.ready.then(() => undefined));
-			return new Uint8Array(await sheetPage.screenshot({ type: "jpeg", quality: 85 }));
+			const shown = await show(sheetPage, onePageSheet(content));
+			return new Uint8Array(await shown.screenshot({ type: "jpeg", quality: 85 }));
 		},
 		close: () => browser.close(),
 	};
@@ -265,16 +266,18 @@ async function add(admin: helpers.CmsActor): Promise<boolean> {
 		console.log(`created the ${taxonomy} term ${slug}`);
 	}
 	const media = new Map(live.media.map((item) => [item.filename, item]));
-	const printer = plan.upload.some((item) => !("colours" in item))
-		? await sheetPrinter()
-		: undefined;
-	/** What to upload for `item`: a printed PDF or One Page, or a blended picture. */
-	const fileOf = async (item: DemoMedia) =>
-		"pdf" in item
-			? { bytes: await printer!.pdf(item.pdf), type: "application/pdf" }
-			: "onePage" in item
-				? { bytes: await printer!.onePage(item.onePage), type: "image/jpeg" }
-				: { bytes: helpers.gradientPng(...item.colours), type: "image/png" };
+	/** The printer, launched for the first PDF or One Page to upload. */
+	let printer: Awaited<ReturnType<typeof sheetPrinter>> | undefined;
+	/** What to upload for `item`: a blended picture, or a printed PDF or One Page. */
+	const fileOf = async (item: DemoMedia) => {
+		if ("colours" in item) {
+			return { bytes: helpers.gradientPng(...item.colours), type: "image/png" };
+		}
+		printer ??= await sheetPrinter();
+		return "pdf" in item
+			? { bytes: await printer.pdf(item.pdf), type: "application/pdf" }
+			: { bytes: await printer.onePage(item.onePage), type: "image/jpeg" };
+	};
 	try {
 		for (const item of plan.upload) {
 			const uploaded = await helpers.uploadMediaItem(

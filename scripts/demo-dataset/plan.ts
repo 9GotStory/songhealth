@@ -23,13 +23,16 @@ export interface DemoTerm {
 	label: string;
 }
 
+/** Two hex colours that a picture blends, from its top left corner to its bottom right. */
+export type Blend = readonly [from: string, to: string];
+
 /**
- * A picture or a PDF of the dataset, uploaded under its filename. A picture is a 1200 × 750
- * diagonal blend of two hex colours, or a One Page, a portrait A4 sheet; each has alt text in the
- * media library. A PDF is a one-page Thai document with a title and a summary.
+ * A picture or a PDF of the dataset, uploaded under its filename. A picture is a 1200 × 750 Blend,
+ * or a One Page, a portrait A4 sheet; each has alt text in the media library. A PDF is a one-page
+ * Thai document with a title and a summary.
  */
 export type DemoMedia = (
-	| { filename: string; alt: string; colours: readonly [string, string] }
+	| { filename: string; alt: string; colours: Blend }
 	| { filename: string; alt: string; onePage: OnePageContent }
 	| { filename: string; pdf: PdfText }
 ) & {
@@ -56,8 +59,8 @@ export interface OnePageContent {
 	heldAt: string;
 	place: string;
 	summary: string;
-	/** The photos of the collage, each a blend of two hex colours as a picture is. */
-	photos: readonly (readonly [string, string])[];
+	/** The photos of the collage, each a Blend as a picture is. */
+	photos: readonly Blend[];
 }
 
 /**

@@ -5,6 +5,7 @@
 
 import {
 	DEMO_MARK,
+	type Blend,
 	type DemoDataset,
 	type DemoEntry,
 	type PdfText,
@@ -122,7 +123,7 @@ const HEALTH_FAIR = {
 /**
  * The colour pairs the health fair's photos take in turn, so that neighbouring thumbnails differ.
  */
-const HEALTH_FAIR_COLOURS: readonly (readonly [string, string])[] = [
+const HEALTH_FAIR_COLOURS: readonly Blend[] = [
 	["#bae0cf", "#0b6b57"],
 	["#f2d17a", "#bfdcce"],
 	["#d1ebde", "#123c33"],
@@ -226,6 +227,20 @@ export function demoDataset(now: Date): DemoDataset {
 	);
 
 	const news: DemoEntry[] = [
+		// As the latest 100 legacy PR items are (spec #144 "Records"), it has no body: its story is in
+		// its One Page and, in words, in its Summary.
+		{
+			collection: "news",
+			slug: "demo-news-health-fair",
+			taxonomies: { news_category: [NEWS_CATEGORIES.activity.slug], topic: [TOPICS.ncd.slug] },
+			publishedAt: ago(1),
+			data: {
+				title: HEALTH_FAIR.title,
+				summary: HEALTH_FAIR.summary,
+				source_text: "สำนักงานสาธารณสุขอำเภอสอง",
+				featured_image: healthFairOnePage,
+			},
+		},
 		{
 			collection: "news",
 			slug: "demo-news-ncd-screening",
@@ -327,20 +342,6 @@ export function demoDataset(now: Date): DemoDataset {
 				body: body(
 					"หมู่บ้านต้นแบบจัดเขตปลอดบุหรี่ในที่สาธารณะ และมีคลินิกช่วยเลิกบุหรี่ที่ รพ.สต. ในพื้นที่",
 				),
-			},
-		},
-		// As the latest 100 legacy PR items are (spec #144 "Records"), it has no body: its story is in
-		// its One Page and, in words, in its Summary.
-		{
-			collection: "news",
-			slug: "demo-news-health-fair",
-			taxonomies: { news_category: [NEWS_CATEGORIES.activity.slug], topic: [TOPICS.ncd.slug] },
-			publishedAt: ago(1),
-			data: {
-				title: HEALTH_FAIR.title,
-				summary: HEALTH_FAIR.summary,
-				source_text: "สำนักงานสาธารณสุขอำเภอสอง",
-				featured_image: healthFairOnePage,
 			},
 		},
 	];
@@ -952,6 +953,21 @@ export function demoDataset(now: Date): DemoDataset {
 	const activities: DemoEntry[] = [
 		{
 			collection: "activities",
+			slug: "demo-activity-health-fair",
+			publishedAt: ago(1),
+			data: {
+				title: HEALTH_FAIR.title,
+				summary: HEALTH_FAIR.summary,
+				activity_at: healthFairAt,
+				location_text: HEALTH_FAIR.place,
+				featured_image: healthFairOnePage,
+				participants_text:
+					"ประชาชนอำเภอสองกว่า 300 คน เจ้าหน้าที่โรงพยาบาลสองและ รพ.สต. ทุกแห่ง และ อสม. จาก 8 ตำบล",
+				gallery: healthFairPhotos,
+			},
+		},
+		{
+			collection: "activities",
 			slug: "demo-activity-elderly-screening",
 			publishedAt: ago(3),
 			data: {
@@ -1042,21 +1058,6 @@ export function demoDataset(now: Date): DemoDataset {
 					"#bae0cf",
 					"#e8f0d9",
 				),
-			},
-		},
-		{
-			collection: "activities",
-			slug: "demo-activity-health-fair",
-			publishedAt: ago(1),
-			data: {
-				title: HEALTH_FAIR.title,
-				summary: HEALTH_FAIR.summary,
-				activity_at: healthFairAt,
-				location_text: HEALTH_FAIR.place,
-				featured_image: healthFairOnePage,
-				participants_text:
-					"ประชาชนอำเภอสองกว่า 300 คน เจ้าหน้าที่โรงพยาบาลสองและ รพ.สต. ทุกแห่ง และ อสม. จาก 8 ตำบล",
-				gallery: healthFairPhotos,
 			},
 		},
 	];
