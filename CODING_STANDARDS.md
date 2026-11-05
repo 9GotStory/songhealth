@@ -139,7 +139,17 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
 - **Owners.** A rule that another section owns is pointed to, or restated with its owner's scope
   and conditions. In #127, `02` §18 widened `03` §11's slug rule, and `05` §7 said search finds a
   file where `08` §8 shows its MOIT.
-- **History.** The body states the current answer; history lives in the decision banners.
+- **History.** The body states the current answer; history lives in the decision banners, and in
+  `docs/design/DESIGN.md`'s change history.
+- **Facts.** `docs/design/DESIGN.md` states what the code does at its head: each size, count,
+  crop and breakpoint is read from the code, and each measure names its commit and script. A claim
+  that something is unchanged is checked against the base commit's code. In #150 a tablet change,
+  a crop the Homepage does not show and a spec's figure in place of a measure reached review.
+- **Preconditions.** A document that has staff rely on an Admin feature states who can use it and
+  when it takes effect: the role it needs (`@emdash-cms/auth/src/rbac.ts`), its setup and warning
+  states (`@emdash-cms/admin/dist/index.js`), and whether a later change reaches content that
+  already uses it. In #127 the media-usage setup, and in #150 an Author's own-media limit and alt
+  text copied at the pick, were missing from the first draft.
 - **Amendments.** A feature that amends a current document bumps its Version, names the feature
   and the date in Last Updated, and adds a "Feature N decision (Product Owner, date)" banner after
   the earlier ones, as Feature 003 (`c2ac189`) and Feature 004 (#127) did. It bumps the version
