@@ -247,7 +247,7 @@ which refuses a long context pattern such as `.{0,200}x.{0,200}`.
 - While a public page with the toolbar stays open, the toolbar renews its visual-action token with
   `POST /_emdash/api/visual-editing/action-token` 240 s after the last renewal, or 30 s after a
   failed one. The route only checks the old token and signs a new one for the same user, so it
-  changes nothing, yet `./src/lib/admin-change-log.ts` writes a line for it (#151; #164)
+  changes nothing, and `./src/lib/admin-change-log.ts` writes no line for it (#151; #164)
   (`src/visual-editing/toolbar.ts` `refreshVisualActionToken`,
   `scheduleVisualActionTokenRefresh`; `src/astro/routes/api/visual-editing/action-token.ts`).
 
