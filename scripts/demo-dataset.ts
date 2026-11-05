@@ -141,7 +141,10 @@ async function readRuntime(admin: helpers.CmsActor): Promise<RuntimeState> {
 /** An A4 sheet in CSS pixels: 210 × 297 mm at 96 pixels to the inch. */
 const A4_SHEET = { width: 794, height: 1123 };
 
-/** A date as a One Page writes it, such as "3 พฤศจิกายน 2569", on the Bangkok calendar day. */
+/**
+ * A date as a One Page writes it, such as "3 พฤศจิกายน 2569": on the Bangkok calendar day, with the
+ * Buddhist Era year of the `th-TH` locale's default calendar (src/lib/thai-date.ts says why).
+ */
 const ONE_PAGE_DATE = new Intl.DateTimeFormat("th-TH", {
 	dateStyle: "long",
 	timeZone: "Asia/Bangkok",
@@ -197,7 +200,9 @@ footer { padding: 20px 56px; color: #ffffff; background: #0b6b57; font-size: 15p
  *   uses: pdffonts lists the NotoSansThai subsets, so any PDF viewer shows the Thai.
  * - A One Page is a JPEG of an A4 sheet at twice its CSS size, 1588 × 2246, near the 1808 × 2560
  *   of the office's own (tests/browser/cms.helpers.ts ONE_PAGE_SIZE), so its small print reads
- *   when it opens at full size (spec #144 user story 17).
+ *   when it opens at full size (spec #144 user story 17). Its page has twice the device pixels,
+ *   which a screenshot takes by default (@playwright/test 1.63.0, playwright-core
+ *   types/types.d.ts, the screenshot option `scale`).
  */
 async function sheetPrinter() {
 	const font = async (weight: number, file: string) =>

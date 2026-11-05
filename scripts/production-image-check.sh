@@ -14,7 +14,7 @@
 # projects share this image storage and may build meanwhile, so the build instead runs with
 # `--layers=false`, which commits the final image alone (podman 5.8.4, 2026-11-01), and only its
 # tag is removed. Any image the run added that is still there at the end is listed, not removed.
-# <news-path> defaults to the demo dataset's first News, which has a picture. sharp is optional
+# <news-path> defaults to the demo dataset's Featured News, which has a picture. sharp is optional
 # (spec #51 "Dependencies"), so a sharp that does not load is reported, not failed. Exit status 1:
 # a step failed; 2: a wrong argument. Log lines are printed only with credentials masked.
 set -euo pipefail

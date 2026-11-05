@@ -13,6 +13,7 @@ import { describe, it } from "node:test";
 import { demoDataset } from "../../scripts/demo-dataset/content.ts";
 import {
 	addSteps,
+	entryName,
 	mediaOf,
 	menuItemFields,
 	planAdd,
@@ -42,8 +43,7 @@ const ONE_PAGE_NEWS = "news/demo-news-health-fair";
 const ONE_PAGE_ACTIVITY = "activities/demo-activity-health-fair";
 
 /** The dataset's entry named `collection/slug`. */
-const entryNamed = (name: string) =>
-	dataset.entries.find((entry) => `${entry.collection}/${entry.slug}` === name)!;
+const entryNamed = (name: string) => dataset.entries.find((entry) => entryName(entry) === name)!;
 
 /** The dataset's media item `filename`. */
 const mediaNamed = (filename: string) =>
@@ -233,7 +233,7 @@ describe("demo dataset: add", () => {
 		assert.equal(addedMedia.size, 13, "the One Page and the twelve photos");
 		assert.deepEqual(
 			dataset.entries
-				.filter((entry) => !added.includes(`${entry.collection}/${entry.slug}`))
+				.filter((entry) => !added.includes(entryName(entry)))
 				.flatMap(({ data }) => mediaOf(data))
 				.filter((filename) => addedMedia.has(filename)),
 			[],
@@ -242,7 +242,7 @@ describe("demo dataset: add", () => {
 		const live = installed(dataset);
 		const plan = planAdd(dataset, {
 			...live,
-			entries: live.entries.filter((entry) => !added.includes(`${entry.collection}/${entry.slug}`)),
+			entries: live.entries.filter((entry) => !added.includes(entryName(entry))),
 			media: live.media.filter(({ filename }) => !addedMedia.has(filename)),
 		});
 		assert.deepEqual(

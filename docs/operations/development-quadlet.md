@@ -388,7 +388,7 @@ the ADR 0003 revisit of production images.
     lands in EmDash's 404 log, as on this runtime.
 - **Output.** It prints how the first picture on a News page is served by the image and by this
   runtime: its declared size, whether `src` is the original or a rendition, and the bytes it
-  downloads. The default page is the demo dataset's first News.
+  downloads. The default page is the demo dataset's Featured News.
 - **Cleanup.** It removes the container and the image on every exit, pass or fail, and lists any
   image the run added that is still there. Other projects share this image storage, so it never
   removes an image by its age or by a difference in the image list. The image is never deployed or
