@@ -705,6 +705,23 @@ describe("demo dataset: content (#66)", () => {
 		assert.match(String(dataset.officeContact.address), /^\[ตัวอย่าง\] /);
 	});
 
+	it("lists News and Activities newest first, so each list's first entry is the newest, which the demo-dataset suite sweeps (#149 retro)", () => {
+		// News by publication, Activities by when they were held (ADR 0004), as their lists show them.
+		const outOfOrder = (collection: string, date: (entry: DemoEntry) => string) => {
+			const times = entriesOf(collection).map((entry) => Date.parse(date(entry)));
+			return entriesOf(collection)
+				.filter((_, index) => index > 0 && times[index]! > times[index - 1]!)
+				.map(({ slug }) => slug);
+		};
+		assert.deepEqual(
+			[
+				...outOfOrder("news", ({ publishedAt }) => publishedAt),
+				...outOfOrder("activities", ({ data }) => String(data.activity_at)),
+			],
+			[],
+		);
+	});
+
 	it("has Activities with and without a picture", () => {
 		const activities = entriesOf("activities");
 		assert.ok(activities.length >= 3, `${activities.length} Activities`);

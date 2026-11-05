@@ -2,6 +2,9 @@
 // enough to fill every page and every Homepage section, so the Product Owner can browse the site
 // before real content exists. Every title starts with "[ตัวอย่าง]" and every slug with "demo-",
 // except the reserved Basic Pages', which are the pages' own. Dates count from the day `add` runs.
+// News and Activities run newest first. Each collection's first entry is the page that
+// tests/browser/public-demo-dataset.spec.ts sweeps with the axe, focus and reflow checks, so an
+// entry that shows a new behaviour goes first (#149 retro).
 
 import {
 	DEMO_MARK,
