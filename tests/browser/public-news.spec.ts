@@ -75,6 +75,12 @@ import {
 /** The fixed number of News a list page shows. */
 const PAGE_SIZE = 12;
 
+/** What /news/health shows when its Health Topic matches nothing. */
+const HEALTH_FILTERED_EMPTY = {
+	message: "ไม่พบข่าวสุขภาพในประเด็นนี้",
+	back: { label: "ดูข่าวสุขภาพทุกประเด็น", href: "/news/health" },
+};
+
 let admin: CmsActor;
 let origin: string;
 /** Synthetic terms this suite created, removed at the end. */
@@ -254,10 +260,11 @@ test("/news/health lists News with any topic, ?topic= narrows it, and an unknown
 	expect(ownTitles(await listedTitles(page), all)).toEqual([vaccineNews.title]);
 	expect((await headOf(page)).canonical).toBe(`${origin}/news/health?topic=${vaccine.slug}`);
 
-	const unknown = await page.goto(`/news/health?topic=${syntheticSlug("no-such-topic")}`);
-	expect(unknown?.status(), "an unknown topic is not an error").toBe(200);
-	await expect(page.getByRole("article")).toHaveCount(0);
-	await expect(page.getByRole("main").getByText("ไม่พบข่าวสุขภาพในประเด็นนี้")).toBeVisible();
+	await expectFilteredEmpty(
+		page,
+		`/news/health?topic=${syntheticSlug("no-such-topic")}`,
+		HEALTH_FILTERED_EMPTY,
+	);
 });
 
 test("the /news/health topic filter offers only the Health Topics that published News carries, and an address naming another shows the empty state", async ({
@@ -288,11 +295,7 @@ test("the /news/health topic filter offers only the Health Topics that published
 	).toEqual([offered.label]);
 
 	for (const term of [draftOnly, contentOnly]) {
-		await expectFilteredEmpty(
-			page,
-			`/news/health?topic=${term.slug}`,
-			"ไม่พบข่าวสุขภาพในประเด็นนี้",
-		);
+		await expectFilteredEmpty(page, `/news/health?topic=${term.slug}`, HEALTH_FILTERED_EMPTY);
 	}
 });
 

@@ -67,6 +67,12 @@ import {
 /** The fixed number of Documents a list page shows. */
 const PAGE_SIZE = 20;
 
+/** What /documents shows when its filters match nothing (#55's decision 3). */
+const FILTERED_EMPTY = {
+	message: "ไม่พบเอกสารตามตัวกรองที่เลือก",
+	back: { label: "ดูเอกสารทั้งหมด", href: "/documents" },
+};
+
 let admin: CmsActor;
 let origin: string;
 /** Synthetic terms this suite created, removed at the end. */
@@ -322,7 +328,7 @@ test("the Document Type and topic filters offer only the terms that published Do
 		`/documents?topic=${draftTopic.slug}`,
 		`/documents?topic=${newsTopic.slug}`,
 	]) {
-		await expectFilteredEmpty(page, path, "ไม่พบเอกสารตามตัวกรองที่เลือก");
+		await expectFilteredEmpty(page, path, FILTERED_EMPTY);
 	}
 });
 
@@ -332,13 +338,11 @@ test("an empty filtered result shows the empty state, and a fiscal year that is 
 	const document = await createDocument("filter-safe");
 	await publish(document);
 
-	const unknown = await page.goto(`/documents?type=${syntheticSlug("no-such-type")}`);
-	expect(unknown?.status(), "an unknown Document Type is not an error").toBe(200);
-	await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
-	await expect(page.getByRole("main").getByText("ไม่พบเอกสารตามตัวกรองที่เลือก")).toBeVisible();
-	await expect(
-		page.getByRole("main").getByRole("link", { name: "ดูเอกสารทั้งหมด" }),
-	).toHaveAttribute("href", "/documents");
+	await expectFilteredEmpty(
+		page,
+		`/documents?type=${syntheticSlug("no-such-type")}`,
+		FILTERED_EMPTY,
+	);
 
 	for (const invalid of ["abc", "25690", "2569.5", "-2569", "0", "02569"]) {
 		const response = await page.goto(`/documents?year=${encodeURIComponent(invalid)}`);

@@ -22,6 +22,9 @@
 //   writeReferenceSelection); the child side reads back in link order, not by name
 //   (src/database/repositories/relation.ts getParentsPageById).
 // - A reference target resolves only while it is published (src/references/resolve.ts).
+// - A term made through the API takes the position after the last, and EmDash lists terms by
+//   position (src/database/repositories/taxonomy.ts nextSortOrder, src/taxonomies/index.ts
+//   loadTaxonomyTerms), so this suite's categories come back in the order it makes them.
 
 import {
 	createOwnedTerm,
@@ -49,6 +52,7 @@ import {
 	detailOf,
 	expect,
 	expectBreadcrumb,
+	expectFilteredEmpty,
 	expectPreviewRenders,
 	expectSiteNotFound,
 	listedItem,
@@ -67,6 +71,12 @@ let admin: CmsActor;
 let origin: string;
 /** Synthetic terms this suite created, removed at the end. */
 const ownedTerms: SyntheticTerm[] = [];
+
+/** What /services shows when its Service Category matches nothing. */
+const FILTERED_EMPTY = {
+	message: "ไม่พบบริการในหมวดที่เลือก",
+	back: { label: "ดูบริการทั้งหมด", href: "/services" },
+};
 
 /** A synthetic Service Category term, labelled in Thai so it reads like a real one. */
 const createCategory = (label: string) =>
@@ -147,6 +157,7 @@ test("the Service Category filter offers only the categories of published Servic
 	page,
 	browser,
 }) => {
+	// Made ร before บ, so EmDash lists them in that order, and the filter must offer them by label.
 	const complaints = await createCategory("ร้องเรียน เสนอแนะ");
 	const volunteers = await createCategory("บริการสำหรับ อสม.");
 	const unused = await createCategory("หมวดที่ยังไม่มีบริการ");
@@ -222,15 +233,7 @@ test("the Service Category filter offers only the categories of published Servic
 		`/services?category=${draftOnly.slug}`,
 		`/services?category=${syntheticSlug("no-such-category")}`,
 	]) {
-		const response = await page.goto(path);
-		expect(response?.status(), `${path} is not an error`).toBe(200);
-		const main = page.getByRole("main");
-		await expect(main.getByRole("article")).toHaveCount(0);
-		await expect(main.getByText("ไม่พบบริการในหมวดที่เลือก")).toBeVisible();
-		await expect(main.getByRole("link", { name: "ดูบริการทั้งหมด" })).toHaveAttribute(
-			"href",
-			"/services",
-		);
+		await expectFilteredEmpty(page, path, FILTERED_EMPTY);
 	}
 });
 

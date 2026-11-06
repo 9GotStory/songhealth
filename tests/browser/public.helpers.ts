@@ -542,19 +542,27 @@ export async function offeredLabels(
 		.filter((label) => own.has(label));
 }
 
-/**
- * `path`, a list narrowed to nothing, answers 200 and shows no item and the empty state `message`.
- */
+/** What a list shows when its filters match nothing: a message and a way back to the whole list. */
+export interface FilteredEmptyState {
+	message: string;
+	back: { label: string; href: string };
+}
+
+/** `path`, a list narrowed to nothing, answers 200 and shows no item, only its `empty` state. */
 export async function expectFilteredEmpty(
 	page: Page,
 	path: string,
-	message: string,
+	empty: FilteredEmptyState,
 ): Promise<void> {
 	const response = await page.goto(path);
 	expect(response?.status(), `${path} is not an error`).toBe(200);
 	const main = page.getByRole("main");
 	await expect(main.getByRole("article"), path).toHaveCount(0);
-	await expect(main.getByText(message), path).toBeVisible();
+	await expect(main.getByText(empty.message), path).toBeVisible();
+	await expect(main.getByRole("link", { name: empty.back.label }), path).toHaveAttribute(
+		"href",
+		empty.back.href,
+	);
 }
 
 /**

@@ -87,6 +87,12 @@ const CONTENT_PAGE_SIZE = 12;
 /** The fixed number of Health Reports a list page shows. */
 const REPORTS_PAGE_SIZE = 20;
 
+/** What /health/content shows when its Health Topic matches nothing. */
+const CONTENT_FILTERED_EMPTY = {
+	message: "ไม่พบความรู้สุขภาพในประเด็นนี้",
+	back: { label: "ดูความรู้สุขภาพทุกประเด็น", href: "/health/content" },
+};
+
 // Each area's crumb, which its own pages pass through after the section's.
 const CONTENT_CRUMB = ["ความรู้สุขภาพ", "/health/content"] as const;
 const REPORTS_CRUMB = ["รายงานสุขภาพ", "/health/reports"] as const;
@@ -251,13 +257,11 @@ test("/health/content narrows to one Health Topic with ?topic=, keeps it in the 
 			.getByRole("link", { name: "หน้าก่อนหน้า" }),
 	).toHaveAttribute("href", `/health/content?topic=${topic.slug}`);
 
-	const unknown = await page.goto(`/health/content?topic=${syntheticSlug("no-such-topic")}`);
-	expect(unknown?.status(), "an unknown topic is not an error").toBe(200);
-	await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
-	await expect(page.getByRole("main").getByText("ไม่พบความรู้สุขภาพในประเด็นนี้")).toBeVisible();
-	await expect(
-		page.getByRole("main").getByRole("link", { name: "ดูความรู้สุขภาพทุกประเด็น" }),
-	).toHaveAttribute("href", "/health/content");
+	await expectFilteredEmpty(
+		page,
+		`/health/content?topic=${syntheticSlug("no-such-topic")}`,
+		CONTENT_FILTERED_EMPTY,
+	);
 
 	const beyond = await page.goto("/health/content?page=10000");
 	expect(beyond?.status(), "a page past the end is not an error").toBe(200);
@@ -294,11 +298,7 @@ test("the /health/content topic filter offers only the Health Topics that publis
 	).toEqual([offered.label]);
 
 	for (const term of [draftOnly, newsOnly]) {
-		await expectFilteredEmpty(
-			page,
-			`/health/content?topic=${term.slug}`,
-			"ไม่พบความรู้สุขภาพในประเด็นนี้",
-		);
+		await expectFilteredEmpty(page, `/health/content?topic=${term.slug}`, CONTENT_FILTERED_EMPTY);
 	}
 });
 

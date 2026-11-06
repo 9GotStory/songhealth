@@ -52,8 +52,14 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   (`src/taxonomies/index.ts` `getTaxonomyTerms`, `TaxonomyTermsOptions`;
   `src/taxonomies/term-counts.ts` `fetchVisibleTermCounts`). A count therefore cannot tell whether
   one list's entries carry a term of a taxonomy that several collections share, as seven share
-  `topic` (`./seed/seed.json`). `./src/lib/terms.ts` `offeredTerms` reads one entry per term
-  instead.
+  `topic` (`./seed/seed.json`). `./src/lib/terms.ts` `offeredTerms` asks for one published entry
+  per term instead.
+- A term made through the API takes the position after the last of its sibling group
+  (`src/database/repositories/taxonomy.ts` `create`, `nextSortOrder`), the Admin's term list sets a
+  manual order (`@emdash-cms/admin/dist/index.js` `TaxonomyManager`, `reorderTerms`;
+  `src/api/handlers/taxonomies.ts` `handleTermReorder`), and `getTaxonomyTerms` lists terms by
+  position, then by label (`src/taxonomies/index.ts` `loadTaxonomyTerms`). `./src/lib/terms.ts`
+  `listTerms` sorts them by label in Thai order instead, so a public filter ignores that order.
 - `where` on any other key filters the column:
   - an exact value, an array (IN), or a range `{ gt, gte, lt, lte }`;
   - range values are strings, and PostgreSQL casts them to the column type;

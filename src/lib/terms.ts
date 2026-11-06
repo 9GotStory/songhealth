@@ -30,10 +30,15 @@ async function listTerms(taxonomy: string): Promise<TaxonomyTerm[]> {
 
 /**
  * The terms of `taxonomy` that the filter of `collection`'s list offers: those that at least one
- * published entry of `collection` carries, in the order of `listTerms`, so that no choice leads to
- * an empty list. EmDash's term counts sum every collection of a taxonomy, and `topic` belongs to
- * several lists (docs/agents/emdash-1.1.0.md "Public reads"), so each term takes one read of a
- * published entry instead, with the `where` that choosing the term puts on the list.
+ * published entry of `collection` carries, in the order of `listTerms`, so that no single choice
+ * leads to an empty list (two choices together on /documents still can).
+ *
+ * EmDash's term counts sum every collection of a taxonomy, and `topic` belongs to several lists
+ * (docs/agents/emdash-1.1.0.md "Public reads"). So each term takes one read instead, for every
+ * taxonomy alike, which stays right when a taxonomy gains a collection: it asks for one published
+ * entry with the `where` that choosing the term puts on the list, and a list that narrows its own
+ * read further must narrow this one the same way. EmDash fetches up to ten entries for such a read
+ * and returns one (emdash 1.1.0 src/query.ts bucketFilter).
  */
 export async function offeredTerms(collection: string, taxonomy: string): Promise<TaxonomyTerm[]> {
 	const terms = await listTerms(taxonomy);
