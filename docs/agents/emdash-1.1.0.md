@@ -401,6 +401,10 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   Administrator, and Calendar needs Contributor (same file, `SidebarNav` `minRole`). EmDash
   renders Comments, Menus, Widgets, Sections and Bylines for every Editor, with no setting to hide
   them.
+- The sidebar takes the role from `GET /_emdash/api/auth/me` in the browser (same file,
+  `SidebarNav` `useCurrentUser`, `fetchCurrentUser`), and filters a manifest that is the same for
+  every user: the manifest route reads no user (`src/astro/routes/api/manifest.ts`).
+  `./scripts/capture-admin.ts` shows an Editor's or an Author's sidebar that way.
 - The Admin's content-type editor sets a collection's folder, icon, hidden flag and Dashboard quick
   action in its "การนำทาง" (Navigation) section (same file, `ContentTypeEditor`). Its content-type
   list reorders the collections by drag: `POST /_emdash/api/schema/collections/reorder` gives the
@@ -416,7 +420,8 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
 - The core migrations create the taxonomies `category` ("Categories") and `tag` ("Tags") for a
   `posts` collection (`src/database/migrations/006_taxonomy_defs.ts`), and the WordPress importer
   imports a WXR file's categories and tags into them (`src/import/wxr-taxonomies.ts`). Songhealth
-  has no `posts`, so both stand under "Manage".
+  has no `posts`, and `./scripts/model-update.mjs` deletes both (#175); while they exist, they
+  stand under "Manage".
 
 ## Head, settings, sitemap
 
@@ -587,6 +592,9 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
 - Seed taxonomy terms are applied only with content (`src/seed/apply.ts`), and `emdash seed` opens
   SQLite only (`src/cli/commands/seed.ts`). The model-update step uses the schema and taxonomy APIs
   instead (`./scripts/model-update.mjs`).
+- Applying a seed creates or updates only the taxonomies it declares and deletes none
+  (`src/seed/apply.ts` `applySeed`), so the core `category` and `tag` stay on a database whose seed
+  declares neither (`src/database/migrations/006_taxonomy_defs.ts`).
 - Setup applies the seed with `onConflict: "skip"`, so a collection that exists keeps its settings
   (`src/astro/routes/api/setup/index.ts`). `emdash schema` lists, gets, creates and deletes
   collections and adds or removes fields, but cannot update a collection
@@ -689,6 +697,10 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   `./playwright.config.ts` sends a `songhealth-unknown-` referrer with every test request, so
   `./scripts/dev-runtime-residue.sh` counts a test's miss as the tests' even where its path cannot
   carry the mark, such as a fiscal year's `/ita/2404`.
+- `GET /_emdash/api/auth/dev-bypass` answers only in development, and signs in one account, the
+  Administrator `dev@emdash.local`, which it creates when missing
+  (`src/astro/routes/api/auth/dev-bypass.ts` `handleDevBypass`). `./tests/browser/cms.helpers.ts`
+  `openDevAdminSession` and `./scripts/capture-admin.ts` sign in through it.
 - A content API request with no token and no session is refused before its route runs. A
   state-changing one without `X-EmDash-Request: 1` answers `403 CSRF_REJECTED`; any other answers
   `401 NOT_AUTHENTICATED` (`src/astro/middleware/auth.ts`). The development runtime answered both

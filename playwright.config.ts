@@ -17,13 +17,16 @@ import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:4321";
 
+/** The referrer of every test request; scripts/capture-admin.ts sends it too. */
+export const SYNTHETIC_REFERRER = "http://songhealth-unknown-referrer.invalid/";
+
 export default defineConfig({
   testDir: "./tests/browser",
   reporter: [["list"]],
   outputDir: "./.tmp/playwright-results",
   use: {
     baseURL,
-    extraHTTPHeaders: { referer: "http://songhealth-unknown-referrer.invalid/" },
+    extraHTTPHeaders: { referer: SYNTHETIC_REFERRER },
   },
   projects: [
     {
