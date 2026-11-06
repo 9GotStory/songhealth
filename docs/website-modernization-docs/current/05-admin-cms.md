@@ -103,16 +103,18 @@ Admin ควรสะท้อน Content Model และงานของเ�
 - Editor และ Administrator เห็น taxonomy ที่ใช้กับ collection ของโฟลเดอร์เดียวไว้ในโฟลเดอร์นั้น
   ต่อจาก collection: "ประเภทประกาศ" และ "หมวดข่าว" ใน "ข่าวสาร", "ประเภทรายงาน" ใน "ข้อมูลสุขภาพ",
   "ประเภทหน่วยบริการ" และ "หมวดบริการ" ใน "บริการประชาชน"
-- ส่วน "จัดการ" (Editor ขึ้นไป) มี taxonomy ที่ใช้ข้ามโฟลเดอร์ ("หัวข้อ", "พื้นที่", "กลุ่มเป้าหมาย"),
-  "ประเภทเอกสาร", และ "Categories" กับ "Tags" ซึ่งเป็น taxonomy ตั้งต้นของ CMS: Feature 005
-  ตัดสินว่าจะลบหรือไม่ เพราะตัว import ของ WordPress นำ categories และ tags เข้าสองตัวนี้. Homepage
-  curation อยู่ที่ "จัดการ → เมนู" ในเมนูที่ชื่อขึ้นต้นด้วย "หน้าแรก:" (§6)
+- ส่วน "จัดการ" (Editor ขึ้นไป; "การเปลี่ยนเส้นทาง" เฉพาะ Administrator) มี taxonomy ที่ใช้ข้ามโฟลเดอร์
+  ("หัวข้อ", "พื้นที่", "กลุ่มเป้าหมาย"), "ประเภทเอกสาร", และ "Categories" กับ "Tags" ซึ่งเป็น
+  taxonomy ตั้งต้นของ CMS: Feature 005 ตัดสินว่าจะลบหรือไม่ เพราะตัว import ของ WordPress นำ
+  categories และ tags เข้าสองตัวนี้. Homepage curation อยู่ที่ "จัดการ → เมนู" ในเมนูของ seed ที่ชื่อ
+  ขึ้นต้นด้วย "หน้าแรก:" (#65 comment 6538358352)
 - Author และ Contributor เห็นแดชบอร์ด, Calendar, collection ทุกโฟลเดอร์ และมีเดีย; ไม่เห็น taxonomy
-  และส่วน "จัดการ". ส่วน "ผู้ดูแลระบบ" (ประเภทเนื้อหา, ผู้ใช้, ตั้งค่า) เห็นเฉพาะ Administrator
+  และส่วน "จัดการ". ส่วน "ผู้ดูแลระบบ" (เช่น ประเภทเนื้อหา ผู้ใช้ และตั้งค่า) เห็นเฉพาะ Administrator
 - ปุ่มลัดใน Dashboard เรียงตามลำดับเดียวกัน; รายการ collection ใน Dashboard เรียงตาม slug
 - โครงนี้มาจาก `seed/seed.json` และมีผลกับฐานข้อมูลที่มีอยู่เมื่อรัน model-update step: เปลี่ยนโครงที่
-  seed. Group หรือ Icon ที่แก้ในหน้า "ประเภทเนื้อหา" ของ Admin ถูกตั้งกลับเป็นของ seed ใน model
-  update ครั้งถัดไป
+  seed. "Group" หรือ "Icon" ที่แก้ในส่วน "การนำทาง" ของหน้าแก้ไขประเภทเนื้อหา และลำดับที่ลากในรายการ
+  "ประเภทเนื้อหา" (Administrator) ถูกตั้งกลับเป็นของ seed ใน model update ครั้งถัดไป; "Hide from
+  navigation" และ "Quick action on the dashboard" ไม่ถูกตั้งกลับ
 
 Dashboard analytical data ภายใต้ `/dashboard` ไม่ใช่ CMS content-management module.
 

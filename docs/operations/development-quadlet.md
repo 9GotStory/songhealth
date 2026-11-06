@@ -238,7 +238,9 @@ content model from the model-update step:
     that puts the collection in the native sitemap;
   - whether it is routable;
   - its Admin sidebar folder, position and icon (#169): set to the seed's, and one the seed does
-    not give is removed, so a change made in the Admin's content-type editor is put back;
+    not give is removed, so a folder or an icon set in the Admin's content-type editor, or an order
+    dragged in its content-type list, is put back. The hidden flag and the Dashboard quick action
+    stay as they are;
   - its title and date fields, which the Admin's list shows and sorts by: set when the database
     has none, after the fields they name, so a run cut short after creating a collection still
     gives it them;

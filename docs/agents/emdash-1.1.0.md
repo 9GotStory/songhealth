@@ -379,11 +379,17 @@ which refuses a long context pattern such as `.{0,200}x.{0,200}`.
   renders Comments, Menus, Widgets, Sections and Bylines for every Editor, with no setting to hide
   them.
 - The Admin's content-type editor sets a collection's folder, icon, hidden flag and Dashboard quick
-  action, but no position (same file, `ContentTypeEditor`).
-  `PUT /_emdash/api/schema/collections/{slug}` takes the position too: `null` clears a folder or a
+  action in its "การนำทาง" (Navigation) section (same file, `ContentTypeEditor`). Its content-type
+  list reorders the collections by drag: `POST /_emdash/api/schema/collections/reorder` gives the
+  listed collections the positions 0, 1, 2… and clears the others', and needs `schema:manage`, an
+  Administrator's (same file, `ContentTypeList`, `reorderCollections`;
+  `src/astro/routes/api/schema/collections/reorder.ts`, `src/schema/registry.ts`
+  `reorderCollections`; `@emdash-cms/auth/src/rbac.ts`).
+  `PUT /_emdash/api/schema/collections/{slug}` sets each one: `null` clears a folder or a
   position, and an empty string clears an icon (`src/api/schemas/schema.ts`
   `updateCollectionBody`, `src/schema/registry.ts` `updateCollection`).
-  `./scripts/model-update.mjs` sets the folder, the position and the icon to the seed's.
+  `./scripts/model-update.mjs` sets the folder, the position and the icon to the seed's, and
+  leaves the hidden flag and the quick action as they are.
 - The core migrations create the taxonomies `category` ("Categories") and `tag` ("Tags") for a
   `posts` collection (`src/database/migrations/006_taxonomy_defs.ts`), and the WordPress importer
   imports a WXR file's categories and tags into them (`src/import/wxr-taxonomies.ts`). Songhealth

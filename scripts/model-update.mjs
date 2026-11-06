@@ -322,7 +322,9 @@ function newCollection({
  *   handleSitemapData);
  * - routability is set to the seed's value, routable unless the seed says otherwise;
  * - the Admin sidebar's folder, position and icon are set to the seed's, and one the seed does not
- *   give is removed (#169), so a change made in the Admin's content-type editor is put back.
+ *   give is removed (#169), so a folder or an icon set in the Admin's content-type editor, or an
+ *   order dragged in its content-type list, is put back. The hidden flag and the Dashboard quick
+ *   action are left as they are.
  * The title and date fields, which the Admin list shows and sorts by (src/api/handlers/content.ts),
  * are set when the database has none, a new collection's included, so a run cut short after it
  * created a collection still gives it them.
