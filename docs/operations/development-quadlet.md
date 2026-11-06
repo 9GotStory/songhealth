@@ -237,6 +237,8 @@ content model from the model-update step:
   - its `supports` values: it adds the missing ones and removes none, and SEO also sets the flag
     that puts the collection in the native sitemap;
   - whether it is routable;
+  - its Admin sidebar folder, position and icon (#169): set to the seed's, and one the seed does
+    not give is removed, so a change made in the Admin's content-type editor is put back;
   - its title and date fields, which the Admin's list shows and sorts by: set when the database
     has none, after the fields they name, so a run cut short after creating a collection still
     gives it them;
@@ -365,7 +367,8 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
   is, for example, each public collection's URL pattern and SEO support, Personnel kept
   non-routable with its `leadership_order` field, the Document Types `policy`, `plan` and
   `result`, and the three Homepage menus. Feature 004's is the MOIT collection with its fields,
-  its Evidence field's allowed block types and limit, and the three ITA block types;
+  its Evidence field's allowed block types and limit, and the three ITA block types. #169's is
+  each collection's Admin sidebar folder, position and icon;
 - the Office Contact plugin is registered and enabled, with its settings form.
 
 Runtime results are interpreted only against the commit verify reports.

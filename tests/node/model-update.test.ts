@@ -9,9 +9,10 @@
 // Expected values come from `03` §15 (the canonical route table in
 // tests/canonical-url-patterns.ts), `03` §5 (no per-person route), spec #51 "Changes to the
 // Feature 002 model" (the Document Type reference terms, Personnel's `leadership_order` and the
-// Homepage menus) and spec #121 "Content model" (the MOIT collection and the three ITA block
-// types), never from the seed. The live models start from the seed's own fields, title and date
-// fields and block types, as setup or the step leaves them.
+// Homepage menus), spec #121 "Content model" (the MOIT collection and the three ITA block types)
+// and #169 (the Admin sidebar's folders, positions and icons), never from the seed. The live
+// models start from the seed's own fields, title and date fields and block types, as setup or the
+// step leaves them.
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -113,6 +114,24 @@ const MOIT = {
 	supports: [...FEATURE_002_SUPPORTS, "seo"],
 	urlPattern: "/ita/{slug}",
 	routable: true,
+};
+
+/**
+ * The Admin sidebar of #169 (Product Owner, 2026-11-06: #169 comment 6672831124): each collection's
+ * folder, position and icon. Documents is in no folder.
+ */
+const ADMIN_SIDEBAR: Record<string, { group?: string; sortOrder: number; icon: string }> = {
+	news: { group: "ข่าวสาร", sortOrder: 10, icon: "newspaper" },
+	activities: { group: "ข่าวสาร", sortOrder: 20, icon: "camera" },
+	announcements: { group: "ข่าวสาร", sortOrder: 30, icon: "megaphone" },
+	health_content: { group: "ข้อมูลสุขภาพ", sortOrder: 40, icon: "heartbeat" },
+	health_reports: { group: "ข้อมูลสุขภาพ", sortOrder: 50, icon: "chart-bar" },
+	services: { group: "บริการประชาชน", sortOrder: 60, icon: "hand-heart" },
+	health_services: { group: "บริการประชาชน", sortOrder: 70, icon: "hospital" },
+	documents: { sortOrder: 80, icon: "file-text" },
+	pages: { group: "เกี่ยวกับเรา", sortOrder: 90, icon: "buildings" },
+	personnel: { group: "เกี่ยวกับเรา", sortOrder: 100, icon: "users-three" },
+	moit: { group: "ITA", sortOrder: 110, icon: "seal-check" },
 };
 
 /** MOIT's Evidence: at most 100 blocks of the ITA types. */
@@ -261,6 +280,7 @@ function feature004Model(): LiveModel {
 	const model = feature003Model();
 	model.collections.push({
 		slug: MOIT.slug,
+		group: MOIT.group,
 		urlPattern: MOIT.urlPattern,
 		supports: [...MOIT.supports],
 		hasSeo: true,
@@ -269,6 +289,15 @@ function feature004Model(): LiveModel {
 		fields: seedFields(MOIT.slug),
 	});
 	model.blockTypes = seedBlockTypes();
+	return model;
+}
+
+/** The same database once the Admin sidebar of #169 is applied. */
+function sidebarModel(): LiveModel {
+	const model = feature004Model();
+	for (const collection of model.collections) {
+		Object.assign(collection, ADMIN_SIDEBAR[collection.slug]);
+	}
 	return model;
 }
 
@@ -294,7 +323,7 @@ function blockTypeOf(model: LiveModel, slug: string) {
 }
 
 describe("planModelUpdate", () => {
-	it("gives a Feature 002 database the 03 §15 URL patterns and SEO, and makes Personnel non-routable", () => {
+	it("gives a Feature 002 database the 03 §15 URL patterns, SEO and the #169 sidebar, and makes Personnel non-routable", () => {
 		const plan = planModelUpdate(seed, feature002Model());
 
 		assert.deepEqual(plan.problems, []);
@@ -306,11 +335,16 @@ describe("planModelUpdate", () => {
 		for (const [slug, urlPattern] of Object.entries(CANONICAL_URL_PATTERNS)) {
 			assert.deepEqual(
 				updates.get(slug),
-				{ urlPattern, supports: [...FEATURE_002_SUPPORTS, "seo"], hasSeo: true },
+				{
+					urlPattern,
+					supports: [...FEATURE_002_SUPPORTS, "seo"],
+					hasSeo: true,
+					...ADMIN_SIDEBAR[slug],
+				},
 				slug,
 			);
 		}
-		assert.deepEqual(updates.get("personnel"), { routable: false });
+		assert.deepEqual(updates.get("personnel"), { routable: false, ...ADMIN_SIDEBAR.personnel });
 		assert.equal(updates.size, 10);
 	});
 
@@ -333,14 +367,14 @@ describe("planModelUpdate", () => {
 	});
 
 	it("plans nothing for a database already on the model, so a second run changes nothing", () => {
-		const plan = planModelUpdate(seed, feature004Model());
+		const plan = planModelUpdate(seed, sidebarModel());
 
 		assert.deepEqual(plan, NOTHING);
 		assert.deepEqual(planRequests(plan), []);
 	});
 
 	it("leaves a Homepage menu staff relabelled, and creates only the menus the database lacks", () => {
-		const live = feature004Model();
+		const live = sidebarModel();
 		live.menus = [
 			{ name: "homepage-featured", label: "เรื่องเด่นหน้าแรก" },
 			{ name: "primary", label: "เมนูหลัก" },
@@ -356,14 +390,14 @@ describe("planModelUpdate", () => {
 	});
 
 	it("leaves a field the database has beyond the seed", () => {
-		const live = feature004Model();
+		const live = sidebarModel();
 		collectionOf(live, "personnel").fields.push({ slug: "organization", type: "reference" });
 
 		assert.deepEqual(planModelUpdate(seed, live).fields, []);
 	});
 
 	it("reports a seed field the database has with another type instead of changing its column", () => {
-		const live = feature004Model();
+		const live = sidebarModel();
 		const personnel = collectionOf(live, "personnel");
 		personnel.fields = [
 			...feature002Fields("personnel"),
@@ -378,7 +412,7 @@ describe("planModelUpdate", () => {
 	});
 
 	it("adds only the reference terms a taxonomy lacks, and leaves the terms staff relabelled or added", () => {
-		const live = feature004Model();
+		const live = sidebarModel();
 		taxonomyOf(live, "document_type").terms = [
 			{ slug: "policy", label: "นโยบายและยุทธศาสตร์" },
 			{ slug: "form", label: "แบบฟอร์ม" },
@@ -394,7 +428,7 @@ describe("planModelUpdate", () => {
 	});
 
 	it("reports a taxonomy with reference terms that the database lacks", () => {
-		const live = feature004Model();
+		const live = sidebarModel();
 		live.taxonomies = [];
 
 		const plan = planModelUpdate(seed, live);
@@ -415,7 +449,7 @@ describe("planModelUpdate", () => {
 	});
 
 	it("adds the support values the database lacks and keeps those it has beyond the seed", () => {
-		const live = feature004Model();
+		const live = sidebarModel();
 		Object.assign(collectionOf(live, "news"), {
 			supports: [...FEATURE_002_SUPPORTS, "search"],
 			hasSeo: false,
@@ -516,13 +550,16 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 
 	it("sets MOIT's title as the Admin list's title, which lets the list sort by it", () => {
 		// emdash 1.1.0 src/api/handlers/content.ts: a collection's titleField is a sort column.
-		assert.deepEqual(planModelUpdate(seed, feature003Model()).collections, [
-			{ slug: MOIT.slug, update: { titleField: "title" } },
-		]);
+		const { collections } = planModelUpdate(seed, feature003Model());
+
+		assert.deepEqual(
+			collections.filter(({ slug }) => slug === MOIT.slug),
+			[{ slug: MOIT.slug, update: { titleField: "title" } }],
+		);
 	});
 
 	it("finishes a collection that a run cut short left without fields or title, the title after the fields", () => {
-		const live = feature004Model();
+		const live = sidebarModel();
 		const moit = collectionOf(live, MOIT.slug);
 		delete moit.titleField;
 		moit.fields = [];
@@ -539,7 +576,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("keeps the title field the database has", () => {
-		const live = feature004Model();
+		const live = sidebarModel();
 		collectionOf(live, MOIT.slug).titleField = "summary";
 
 		assert.deepEqual(planModelUpdate(seed, live), NOTHING);
@@ -566,7 +603,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("updates a changed block type in place, by the fingerprint of its active version", () => {
-		const live = feature004Model();
+		const live = sidebarModel();
 		const { blockType, version } = blockTypeOf(live, "ita_file");
 		// A relabelled type whose Round lacks "ไม่ระบุรอบ": adding an option is a compatible change.
 		blockType.label = "ไฟล์";
@@ -591,7 +628,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("keeps a block type the database has beyond the seed: EmDash 1.1.0 has no route that deletes one", () => {
-		const live = feature004Model();
+		const live = sidebarModel();
 		const { blockType } = blockTypeOf(live, "ita_link");
 		live.blockTypes.push({ ...blockType, slug: "proto_ita_link", category: "ITA (ต้นแบบ)" });
 
@@ -599,7 +636,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("reports a block-type field the database has with another type instead of changing it", () => {
-		const live = feature004Model();
+		const live = sidebarModel();
 		const { version } = blockTypeOf(live, "ita_link");
 		version.fields = version.fields.map((field) =>
 			field.slug === "url" ? { ...field, type: "string" } : field,
@@ -613,7 +650,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("reports a block type whose active version is not the seed's instead of making a version", () => {
-		const live = feature004Model();
+		const live = sidebarModel();
 		const { blockType, version } = blockTypeOf(live, "ita_requirement");
 		blockType.currentVersion = 2;
 		blockType.versions.push({ ...version, version: 2, fingerprint: "block-type:v1:sha256:v2" });
@@ -626,7 +663,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("gives MOIT's Evidence field the seed's allowed types, in the picker's order, and its limit", () => {
-		const live = feature004Model();
+		const live = sidebarModel();
 		const evidence = collectionOf(live, MOIT.slug).fields.find(({ slug }) => slug === "evidence");
 		assert.ok(evidence);
 		evidence.validation = {
@@ -650,5 +687,94 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 				body: { validation: EVIDENCE_VALIDATION },
 			},
 		]);
+	});
+});
+
+describe("planModelUpdate: the Admin sidebar (#169)", () => {
+	/** A plan's collection updates by slug, so a test does not depend on the seed's order. */
+	function updatesOf(plan: ReturnType<typeof planModelUpdate>) {
+		return new Map(plan.collections.map(({ slug, update }) => [slug, update]));
+	}
+
+	it("gives a database without them each collection's folder, position and icon, and Documents no folder", () => {
+		const plan = planModelUpdate(seed, feature004Model());
+
+		assert.deepEqual({ ...plan, collections: [] }, NOTHING);
+		assert.deepEqual(
+			updatesOf(plan),
+			new Map(
+				Object.entries(ADMIN_SIDEBAR).map(([slug, { group, ...placement }]) => [
+					slug,
+					// MOIT has been in the folder ITA since the step created it (spec #121).
+					slug === MOIT.slug || group === undefined ? placement : { group, ...placement },
+				]),
+			),
+		);
+	});
+
+	it("sets back a folder, a position or an icon that differs from the seed's", () => {
+		const live = sidebarModel();
+		collectionOf(live, "news").group = "ข่าว";
+		collectionOf(live, "activities").sortOrder = 5;
+		collectionOf(live, "announcements").icon = "bell";
+
+		const plan = planModelUpdate(seed, live);
+
+		assert.deepEqual({ ...plan, collections: [] }, NOTHING);
+		assert.deepEqual(
+			updatesOf(plan),
+			new Map([
+				["news", { group: "ข่าวสาร" }],
+				["activities", { sortOrder: 20 }],
+				["announcements", { icon: "megaphone" }],
+			]),
+		);
+	});
+
+	it("takes Documents out of a folder the database gives it, since the seed gives it none", () => {
+		const live = sidebarModel();
+		collectionOf(live, "documents").group = "เอกสารเผยแพร่";
+
+		const plan = planModelUpdate(seed, live);
+
+		assert.deepEqual(updatesOf(plan), new Map([["documents", { group: null }]]));
+		// EmDash 1.1.0 clears a folder given as null (src/api/schemas/schema.ts updateCollectionBody).
+		assert.deepEqual(planRequests(plan), [
+			{
+				change: "documents: group null",
+				method: "PUT",
+				path: "/_emdash/api/schema/collections/documents",
+				body: { group: null },
+			},
+		]);
+	});
+
+	it("removes the position and icon of a collection the seed gives neither, and leaves one with none", () => {
+		const events = { collections: [{ slug: "events", label: "Events", fields: [] }] };
+		const live = (placement: Partial<LiveCollection>): LiveModel => ({
+			blockTypes: [],
+			collections: [
+				{ slug: "events", supports: [], hasSeo: false, routable: true, fields: [], ...placement },
+			],
+			taxonomies: [],
+			menus: [],
+		});
+
+		// EmDash 1.1.0 clears a position given as null and an icon given as an empty string
+		// (src/schema/registry.ts updateCollection).
+		assert.deepEqual(
+			planModelUpdate(events, live({ sortOrder: 5, icon: "calendar" })).collections,
+			[{ slug: "events", update: { sortOrder: null, icon: "" } }],
+		);
+		assert.deepEqual(planModelUpdate(events, live({})).collections, []);
+	});
+
+	it("creates MOIT in the folder ITA, at the last position, with its icon", () => {
+		const [moit] = planModelUpdate(seed, feature003Model()).newCollections;
+
+		assert.deepEqual(
+			{ slug: moit?.slug, group: moit?.group, sortOrder: moit?.sortOrder, icon: moit?.icon },
+			{ slug: MOIT.slug, ...ADMIN_SIDEBAR.moit },
+		);
 	});
 });
