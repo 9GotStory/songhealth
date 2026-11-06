@@ -18,12 +18,13 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
+import { Role } from "@emdash-cms/auth";
 import { chromium } from "@playwright/test";
 
 import { closeDevAdminSession, openDevAdminSession } from "../tests/browser/cms.helpers.ts";
 
-/** The roles a sidebar is captured as, with their levels (@emdash-cms/auth/src/types.ts Role). */
-const ROLES = { administrator: 50, editor: 40, author: 30 } as const;
+/** The roles a sidebar is captured as, with their levels. */
+const ROLES = { administrator: Role.ADMIN, editor: Role.EDITOR, author: Role.AUTHOR } as const;
 
 const [outDir, role = "administrator"] = process.argv.slice(2);
 if (outDir === undefined || !Object.hasOwn(ROLES, role)) {
@@ -71,6 +72,10 @@ try {
 	await sidebar.screenshot({ path: file, animations: "disabled" });
 	console.log(file);
 } finally {
-	await closeDevAdminSession(context);
+	const status = await closeDevAdminSession(context).catch(() => undefined);
 	await browser.close();
+	if (status !== 200) {
+		console.error(`capture-admin: the logout answered ${status ?? "nothing"}`);
+		process.exitCode = 1;
+	}
 }
