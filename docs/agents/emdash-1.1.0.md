@@ -232,6 +232,9 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
 - The frontend media-provider loader creates providers with an empty context, and the local provider
   needs a database, so public pages cannot use it (`src/media/provider-loader.ts`,
   `src/media/local-runtime.ts`).
+- An upload larger than the `maxUploadSize` option is refused; the default is 50 MB
+  (`src/api/schemas/media.ts` `DEFAULT_MAX_UPLOAD_SIZE`, `src/astro/routes/api/media.ts`), and
+  `./astro.config.mjs` sets no other.
 - A media item sits in at most one folder. An upload request and a media update take `folderId`
   (`src/api/schemas/media.ts` `mediaUpdateBody`; `src/astro/routes/api/media/folders/index.ts`
   creates a folder). The Admin's Media Library and its media picker open on the main library, the
@@ -651,6 +654,11 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   (`src/astro/middleware/auth.ts`).
 - The CLI has no import command: `src/cli/commands/import/wordpress.ts` is not registered in
   `src/cli/index.ts`.
+- EmDash's converter package, `@emdash-cms/gutenberg-to-portable-text` 1.1.0, turns block-editor
+  markup into Portable Text with `gutenbergToPortableText`, and plain HTML, such as an ACF WYSIWYG
+  value, with `htmlToPortableText`, which parses with parse5
+  (`@emdash-cms/gutenberg-to-portable-text/dist/index.d.mts`,
+  `@emdash-cms/gutenberg-to-portable-text/package.json`).
 
 ## Native API for tests
 
