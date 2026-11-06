@@ -43,8 +43,8 @@ const YOUTUBE_CHANNEL_ID = /^UC[\w-]{22}$/;
  * The official channels in the order the site lists them, Facebook, LINE and YouTube first, the
  * channels a Thai office most often runs. Each `social` network turns a handle into the office's
  * profile address there: the Admin asks for a username or handle, not an address
- * (@emdash-cms/admin/dist/index.js, the site settings' social section). An office's LinkedIn page
- * is a company page. LINE has no handle: its Office Contact field holds an address.
+ * (@emdash-cms/admin 1.1.0 dist/index.js, the site settings' social section). An office's LinkedIn
+ * page is a company page. LINE has no handle: its Office Contact field holds an address.
  */
 const CHANNELS: ReadonlyArray<{
 	channel: SocialNetwork | "line";
