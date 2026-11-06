@@ -374,6 +374,10 @@ which refuses a long context pattern such as `.{0,200}x.{0,200}`.
   page; a click stores the choice per folder label in the browser's `localStorage` key
   `emdash-sidebar-folders` (same file, `useFolderState`). The icon-only sidebar shows a folder as
   one link to its open member, else its first (same file, `NavFolderMenu`).
+- A folder lists its members as sub-items without icons (same file, `NavFolderMenu`
+  `MenuSubButton`). A collection's declared icon shows on its own sidebar entry, as its folder's
+  icon, in the command palette's navigation (same file, `buildNavItems`) and in the Calendar (same
+  file, `CalendarCollectionIcon`).
 - Taxonomies and the "Manage" items need Editor, Redirects and the "Admin" section need
   Administrator, and Calendar needs Contributor (same file, `SidebarNav` `minRole`). EmDash
   renders Comments, Menus, Widgets, Sections and Bylines for every Editor, with no setting to hide
