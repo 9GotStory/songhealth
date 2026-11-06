@@ -5,13 +5,14 @@
 //   scripts/dev-runtime-env.sh \
 //     node scripts/capture-admin.ts <out-dir> [administrator|editor|author]
 //
-// Only the development Administrator signs in without a passkey (cms.helpers.ts
-// openDevAdminSession). An Editor's or an Author's sidebar is shown by answering the Admin's
-// question for the current user with that role: the Admin filters the sidebar by it in the browser,
-// from a manifest that is the same for every user (docs/agents/emdash-1.1.0.md "Admin sidebar").
-// Everything else still answers as the Administrator, so only the sidebar is captured this way.
-// The session ends with the native logout, and its window is recorded through
-// scripts/dev-runtime-env.sh, so the runtime's Admin-activity guard does not take it for a person.
+// EmDash's development sign-in signs in only its own Administrator (docs/agents/emdash-1.1.0.md
+// "Native API for tests"; cms.helpers.ts openDevAdminSession). An Editor's or an Author's sidebar
+// is shown by answering the Admin's question for the current user with that role: the Admin filters
+// the sidebar by it in the browser, from a manifest that is the same for every user
+// (docs/agents/emdash-1.1.0.md "Admin sidebar"). Everything else still answers as the
+// Administrator, so only the sidebar is captured this way. The session ends with the native logout,
+// and its window is recorded through scripts/dev-runtime-env.sh, so the runtime's Admin-activity
+// guard does not take it for a person.
 //
 // scripts/evidence-branch.sh then puts the screenshots on an image-only branch for the PR.
 
@@ -21,6 +22,7 @@ import { join } from "node:path";
 import { Role } from "@emdash-cms/auth";
 import { chromium } from "@playwright/test";
 
+import { SYNTHETIC_REFERRER } from "../playwright.config.ts";
 import { closeDevAdminSession, openDevAdminSession } from "../tests/browser/cms.helpers.ts";
 
 /** The roles a sidebar is captured as, with their levels. */
@@ -35,15 +37,15 @@ const origin = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4324";
 
 await mkdir(outDir, { recursive: true });
 const browser = await chromium.launch();
-// The referrer every test request carries (playwright.config.ts), so a miss counts as the tests'.
+// The referrer every test request carries, so a miss counts as the tests'.
 const context = await browser.newContext({
 	baseURL: origin,
 	viewport: { width: 1440, height: 2200 },
-	extraHTTPHeaders: { referer: "http://songhealth-unknown-referrer.invalid/" },
+	extraHTTPHeaders: { referer: SYNTHETIC_REFERRER },
 });
 try {
 	// The Admin's language switch stores the locale in this cookie
-	// (@emdash-cms/admin/dist/LocaleDirectionProvider-Bed7WppM.js).
+	// (@emdash-cms/admin 1.1.0 dist/LocaleDirectionProvider-Bed7WppM.js).
 	await context.addCookies([{ name: "emdash-locale", value: "th", url: origin }]);
 	await openDevAdminSession(context);
 	const page = await context.newPage();

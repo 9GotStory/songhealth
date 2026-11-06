@@ -697,6 +697,10 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   `./playwright.config.ts` sends a `songhealth-unknown-` referrer with every test request, so
   `./scripts/dev-runtime-residue.sh` counts a test's miss as the tests' even where its path cannot
   carry the mark, such as a fiscal year's `/ita/2404`.
+- `GET /_emdash/api/auth/dev-bypass` answers only in development, and signs in one account, the
+  Administrator `dev@emdash.local`, which it creates when missing
+  (`src/astro/routes/api/auth/dev-bypass.ts` `handleDevBypass`). `./tests/browser/cms.helpers.ts`
+  `openDevAdminSession` and `./scripts/capture-admin.ts` sign in through it.
 - A content API request with no token and no session is refused before its route runs. A
   state-changing one without `X-EmDash-Request: 1` answers `403 CSRF_REJECTED`; any other answers
   `401 NOT_AUTHENTICATED` (`src/astro/middleware/auth.ts`). The development runtime answered both

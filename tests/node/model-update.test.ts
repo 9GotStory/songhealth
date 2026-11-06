@@ -29,6 +29,7 @@ import {
 	type LiveMenu,
 	type LiveModel,
 	type LiveTaxonomy,
+	type TermCreate,
 } from "../../scripts/model-update.mjs";
 import { CANONICAL_URL_PATTERNS } from "../canonical-url-patterns.ts";
 
@@ -258,10 +259,7 @@ function setupTaxonomies(): LiveTaxonomy[] {
 }
 
 /** `model` with `terms` added to their taxonomies, as the step creates them. */
-function withTerms(
-	model: LiveModel,
-	terms: { taxonomy: string; slug: string; label: string }[],
-): LiveModel {
+function withTerms(model: LiveModel, terms: TermCreate[]): LiveModel {
 	for (const { taxonomy, slug, label } of terms) {
 		taxonomyOf(model, taxonomy).terms.push({ slug, label });
 	}
@@ -374,7 +372,7 @@ function blockTypeOf(model: LiveModel, slug: string) {
 }
 
 /** Terms in one order, so a test does not depend on the seed's. */
-function sortedTerms(terms: { taxonomy: string; slug: string; label: string }[]) {
+function sortedTerms(terms: TermCreate[]) {
 	return terms.toSorted((left, right) =>
 		`${left.taxonomy}/${left.slug}`.localeCompare(`${right.taxonomy}/${right.slug}`),
 	);
@@ -845,6 +843,11 @@ describe("planModelUpdate: the Admin sidebar (#169)", () => {
 });
 
 describe('planModelUpdate: the migrated content\'s model (#175; spec #174 "Model changes")', () => {
+	/** A database with the migrated content's terms that still has EmDash's Categories and Tags. */
+	function beforeDeletions(): LiveModel {
+		return withTerms(sidebarModel(), MIGRATION_TERMS);
+	}
+
 	it("adds the terms the migrated content uses, and no other, to a database on the #169 model", () => {
 		const plan = planModelUpdate(seed, sidebarModel());
 
@@ -853,7 +856,7 @@ describe('planModelUpdate: the migrated content\'s model (#175; spec #174 "Model
 	});
 
 	it("deletes EmDash's Categories and Tags, which nothing uses, through the native taxonomy delete", () => {
-		const plan = planModelUpdate(seed, withTerms(sidebarModel(), MIGRATION_TERMS));
+		const plan = planModelUpdate(seed, beforeDeletions());
 
 		assert.deepEqual(plan.problems, []);
 		assert.deepEqual(plan.taxonomyDeletions, CORE_TAXONOMIES);
@@ -882,7 +885,7 @@ describe('planModelUpdate: the migrated content\'s model (#175; spec #174 "Model
 	});
 
 	it("deletes no other taxonomy: the seed's own and one staff made in the Admin stay", () => {
-		const live = withTerms(sidebarModel(), MIGRATION_TERMS);
+		const live = beforeDeletions();
 		live.taxonomies.push({ name: "event_type", terms: [{ slug: "meeting", label: "ประชุม" }] });
 
 		assert.deepEqual(planModelUpdate(seed, live).taxonomyDeletions, CORE_TAXONOMIES);
@@ -894,9 +897,6 @@ describe('planModelUpdate: the migrated content\'s model (#175; spec #174 "Model
 			taxonomies: [...seed.taxonomies, { name: "tag", label: "แท็ก", collections: ["news"] }],
 		};
 
-		assert.deepEqual(
-			planModelUpdate(tagged, withTerms(sidebarModel(), MIGRATION_TERMS)).taxonomyDeletions,
-			["category"],
-		);
+		assert.deepEqual(planModelUpdate(tagged, beforeDeletions()).taxonomyDeletions, ["category"]);
 	});
 });

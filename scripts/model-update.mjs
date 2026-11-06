@@ -353,7 +353,8 @@ const CORE_TAXONOMIES = ["category", "tag"];
  *
  * EmDash's core taxonomies Categories and Tags are deleted, with their terms, while the database
  * has them and the seed does not declare them (#175; spec #174 "Model changes"): nothing on
- * Songhealth uses them, and the Admin lists them under "Manage". No other taxonomy is deleted.
+ * Songhealth uses them, and the Admin lists them under "Manage" (docs/agents/emdash-1.1.0.md "Admin
+ * sidebar"). No other taxonomy is deleted.
  *
  * The seed's menus, such as the Homepage menus staff curate, are created empty where the database
  * has no menu of that name. A menu staff relabelled keeps its label, and no menu or item is
