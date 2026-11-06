@@ -1,9 +1,9 @@
 # Admin CMS — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 05-admin-cms
-> **Status:** CLEAN REBASELINE v2.6 — CURRENT native-only publication
-> **Version:** 2.6
-> **Last Updated:** 5 พฤศจิกายน 2569 (2026-11-05): Feature 006, frontend design
+> **Status:** CLEAN REBASELINE v2.7 — CURRENT native-only publication
+> **Version:** 2.7
+> **Last Updated:** 6 พฤศจิกายน 2569 (2026-11-06): #169, Admin sidebar
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`
 > **Purpose:** กำหนดความต้องการของ Admin CMS ที่จำเป็นต่อการดูแล Songhealth โดยใช้ความสามารถมาตรฐานของ CMS ก่อน และสร้างส่วนขยายเฉพาะเมื่อมี gap ที่พิสูจน์แล้ว
 
@@ -41,6 +41,10 @@
 > its story in words, at least its Summary; a One Page is the record's picture, not its text
 > (grill Q14). Photo sets go on an Activity, and a gallery in a News body is edited in the Admin
 > (§5.1). A News body is optional (Product Owner, 2026-11-05: #149 comment 6653400419 item 2).
+
+> **Admin sidebar decision (Product Owner, 2026-11-06; #169 comment 6672831124):** the Admin
+> sidebar puts the collections in folders by the website's domains, ordered by how often staff
+> use them, each with an icon (§2). Categories and Tags wait for Feature 005.
 
 ---
 
@@ -80,7 +84,38 @@ Admin ควรสะท้อน Content Model และงานของเ�
 - Media
 - Users / Settings เฉพาะผู้มีสิทธิ์
 
-ใช้ collection grouping ของ CMS ก่อนสร้าง custom navigation.
+ใช้ collection grouping ของ CMS ก่อนสร้าง custom navigation. Sidebar ของ Admin จัด collection
+เป็นโฟลเดอร์ตามหมวดข้อมูลของเว็บไซต์ (`01` §2) และเรียงตามความถี่ที่เจ้าหน้าที่ใช้ (#169):
+
+| โฟลเดอร์ | Collection ตามลำดับ |
+| --- | --- |
+| ข่าวสาร | ข่าว, กิจกรรม, ประกาศ |
+| ข้อมูลสุขภาพ | ความรู้สุขภาพ, รายงานสุขภาพ |
+| บริการประชาชน | บริการ, หน่วยบริการสุขภาพ |
+| (ไม่มีโฟลเดอร์) | เอกสาร |
+| เกี่ยวกับเรา | ข้อมูลทั่วไป, บุคลากร |
+| ITA | MOIT (§7) |
+
+ตามด้วย "มีเดีย". โฟลเดอร์แสดงไอคอนของ collection แรกในโฟลเดอร์ และรายการในโฟลเดอร์ไม่มีไอคอน;
+ไอคอนของแต่ละ collection แสดงที่ "เอกสาร" ซึ่งไม่อยู่ในโฟลเดอร์, ใน command palette และใน Calendar.
+
+- โฟลเดอร์ที่เจ้าหน้าที่ยังไม่เคยกดเปิดหรือปิดจะเปิดเองเมื่ออยู่ในหน้าที่อยู่ข้างใน; เมื่อกดแล้ว
+  browser นั้นจำว่าเปิดหรือปิดไว้
+- Editor และ Administrator เห็น taxonomy ที่ใช้กับ collection ของโฟลเดอร์เดียวไว้ในโฟลเดอร์นั้น
+  ต่อจาก collection: "ประเภทประกาศ" และ "หมวดข่าว" ใน "ข่าวสาร", "ประเภทรายงาน" ใน "ข้อมูลสุขภาพ",
+  "ประเภทหน่วยบริการ" และ "หมวดบริการ" ใน "บริการประชาชน"
+- ส่วน "จัดการ" (Editor ขึ้นไป; "การเปลี่ยนเส้นทาง" เฉพาะ Administrator) มี taxonomy ที่ใช้ข้ามโฟลเดอร์
+  ("หัวข้อ", "พื้นที่", "กลุ่มเป้าหมาย"), "ประเภทเอกสาร", และ "Categories" กับ "Tags" ซึ่งเป็น
+  taxonomy ตั้งต้นของ CMS: Feature 005 ตัดสินว่าจะลบหรือไม่ เพราะตัว import ของ WordPress นำ
+  categories และ tags เข้าสองตัวนี้. Homepage curation อยู่ที่ "จัดการ → เมนู" ในเมนูของ seed ที่ชื่อ
+  ขึ้นต้นด้วย "หน้าแรก:" (#65 comment 6538358352)
+- Author และ Contributor เห็นแดชบอร์ด, Calendar, collection ทุกโฟลเดอร์ และมีเดีย; ไม่เห็น taxonomy
+  และส่วน "จัดการ". ส่วน "ผู้ดูแลระบบ" (เช่น ประเภทเนื้อหา ผู้ใช้ และตั้งค่า) เห็นเฉพาะ Administrator
+- ปุ่มลัดใน Dashboard เรียงตามลำดับเดียวกัน; รายการ collection ใน Dashboard เรียงตาม slug
+- โครงนี้มาจาก `seed/seed.json` และมีผลกับฐานข้อมูลที่มีอยู่เมื่อรัน model-update step: เปลี่ยนโครงที่
+  seed. "Group" หรือ "Icon" ที่แก้ในส่วน "การนำทาง" ของหน้าแก้ไขประเภทเนื้อหา และลำดับที่ลากในรายการ
+  "ประเภทเนื้อหา" (Administrator) ถูกตั้งกลับเป็นของ seed ใน model update ครั้งถัดไป; "Hide from
+  navigation" และ "Quick action on the dashboard" ไม่ถูกตั้งกลับ
 
 Dashboard analytical data ภายใต้ `/dashboard` ไม่ใช่ CMS content-management module.
 

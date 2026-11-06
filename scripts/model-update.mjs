@@ -1,6 +1,6 @@
-// The model-update step (#53, #60, #61, #65, #122): brings an existing database to the content
-// model of seed/seed.json through EmDash's native schema, taxonomy and menu APIs, and tells whether
-// it is there.
+// The model-update step (#53, #60, #61, #65, #122, #169): brings an existing database to the
+// content model of seed/seed.json through EmDash's native schema, taxonomy and menu APIs, and tells
+// whether it is there.
 //
 //   node scripts/model-update.mjs --origin <origin> [--check] < <Administrator PAT file>
 //
@@ -55,6 +55,9 @@ import { parseArgs } from "node:util";
  * @typedef {object} SeedCollection A collection of seed/seed.json (src/seed/types.ts).
  * @property {string} slug
  * @property {string} label
+ * @property {string} [group] its Admin sidebar folder
+ * @property {number} [sortOrder] its Admin sidebar position
+ * @property {string} [icon] its Admin sidebar icon, a Phosphor name
  * @property {string[]} [supports]
  * @property {string} [urlPattern]
  * @property {boolean} [routable]
@@ -101,9 +104,12 @@ import { parseArgs } from "node:util";
  * @property {{ version: number, fields: BlockField[], fingerprint: string }[]} versions
  *
  * @typedef {object} LiveCollection A collection as GET /_emdash/api/schema/collections lists it
- *   (src/schema/registry.ts mapCollectionRow, which leaves out an unset URL pattern, title field or
- *   date field).
+ *   (src/schema/registry.ts mapCollectionRow, which leaves out an unset URL pattern, title field,
+ *   date field, folder, position or icon).
  * @property {string} slug
+ * @property {string} [group]
+ * @property {number} [sortOrder]
+ * @property {string} [icon]
  * @property {string[]} supports
  * @property {string | null} [urlPattern]
  * @property {boolean} hasSeo
@@ -176,6 +182,9 @@ import { parseArgs } from "node:util";
  * @property {boolean} [routable]
  * @property {string} [titleField]
  * @property {string} [dateField]
+ * @property {string | null} [group]
+ * @property {number | null} [sortOrder]
+ * @property {string} [icon]
  *
  * @typedef {{ change: string, method: string, path: string, body: unknown }} NativeRequest A
  *   request that applies one change, with the line that names the change.
@@ -311,7 +320,11 @@ function newCollection({
  * - the seed's `supports` values that the database lacks are added, and none is removed;
  *   SEO also sets `hasSeo`, which the native sitemap reads (src/api/handlers/seo.ts
  *   handleSitemapData);
- * - routability is set to the seed's value, routable unless the seed says otherwise.
+ * - routability is set to the seed's value, routable unless the seed says otherwise;
+ * - the Admin sidebar's folder, position and icon are set to the seed's, and one the seed does not
+ *   give is removed (#169), so a folder or an icon set in the Admin's content-type editor, or an
+ *   order dragged in its content-type list, is put back. The hidden flag and the Dashboard quick
+ *   action are left as they are.
  * The title and date fields, which the Admin list shows and sorts by (src/api/handlers/content.ts),
  * are set when the database has none, a new collection's included, so a run cut short after it
  * created a collection still gives it them.
@@ -392,6 +405,20 @@ export function planModelUpdate(seed, live) {
 			const routable = wanted.routable ?? true;
 			if (have.routable !== routable) {
 				update.routable = routable;
+			}
+			// EmDash clears a folder or a position given as null and an icon given as an empty
+			// string (src/schema/registry.ts updateCollection).
+			const group = wanted.group ?? null;
+			if ((have.group ?? null) !== group) {
+				update.group = group;
+			}
+			const sortOrder = wanted.sortOrder ?? null;
+			if ((have.sortOrder ?? null) !== sortOrder) {
+				update.sortOrder = sortOrder;
+			}
+			const icon = wanted.icon ?? "";
+			if ((have.icon ?? "") !== icon) {
+				update.icon = icon;
 			}
 		}
 		if (wanted.titleField !== undefined && !have?.titleField) {

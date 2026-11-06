@@ -356,6 +356,49 @@ which refuses a long context pattern such as `.{0,200}x.{0,200}`.
   new tab (`@emdash-cms/admin/dist/index.js` `handlePreview`,
   `src/astro/routes/api/content/[collection]/[id]/preview-url.ts`).
 
+## Admin sidebar
+
+- A collection's sidebar entry has a folder (`group`), a position (`sortOrder`) and an icon
+  (`icon`, a Phosphor name such as `chart-bar`), and `hidden` leaves the entry out
+  (`src/schema/types.ts` `Collection`, `src/seed/types.ts` `SeedCollection`). The manifest lists
+  collections by position, then by slug, so without positions the sidebar follows the English
+  slugs (`src/schema/registry.ts` `collectionOrder`, `listCollectionsWithFields`;
+  `src/api/handlers/manifest.ts`). The Dashboard's quick actions follow the manifest's order
+  (`@emdash-cms/admin/dist/index.js` `visibleCollectionEntries`), and its collection list stays in
+  slug order (`src/api/handlers/dashboard.ts`).
+- The sidebar puts the collections that share a folder into one collapsible entry, where the first
+  of them stands, with the first icon one of them declares (`@emdash-cms/admin/dist/index.js`
+  `groupNavItems`). A taxonomy joins a folder, after its collections, only when every collection it
+  belongs to is in that folder; otherwise it stands under "Manage", before Bylines (same file,
+  `taxonomyGroup`, `SidebarNav`). A folder that has no stored choice opens while it holds the open
+  page; a click stores the choice per folder label in the browser's `localStorage` key
+  `emdash-sidebar-folders` (same file, `useFolderState`). The icon-only sidebar shows a folder as
+  one link to its open member, else its first (same file, `NavFolderMenu`).
+- A folder lists its members as sub-items without icons (same file, `NavFolderMenu`
+  `MenuSubButton`). A collection's declared icon shows on its own sidebar entry, as its folder's
+  icon, in the command palette's navigation (same file, `buildNavItems`) and in the Calendar (same
+  file, `CalendarCollectionIcon`).
+- Taxonomies and the "Manage" items need Editor, Redirects and the "Admin" section need
+  Administrator, and Calendar needs Contributor (same file, `SidebarNav` `minRole`). EmDash
+  renders Comments, Menus, Widgets, Sections and Bylines for every Editor, with no setting to hide
+  them.
+- The Admin's content-type editor sets a collection's folder, icon, hidden flag and Dashboard quick
+  action in its "การนำทาง" (Navigation) section (same file, `ContentTypeEditor`). Its content-type
+  list reorders the collections by drag: `POST /_emdash/api/schema/collections/reorder` gives the
+  listed collections the positions 0, 1, 2… and clears the others', and needs `schema:manage`, an
+  Administrator's (same file, `ContentTypeList`, `reorderCollections`;
+  `src/astro/routes/api/schema/collections/reorder.ts`, `src/schema/registry.ts`
+  `reorderCollections`; `@emdash-cms/auth/src/rbac.ts`).
+  `PUT /_emdash/api/schema/collections/{slug}` sets each one: `null` clears a folder or a
+  position, and an empty string clears an icon (`src/api/schemas/schema.ts`
+  `updateCollectionBody`, `src/schema/registry.ts` `updateCollection`).
+  `./scripts/model-update.mjs` sets the folder, the position and the icon to the seed's, and
+  leaves the hidden flag and the quick action as they are.
+- The core migrations create the taxonomies `category` ("Categories") and `tag` ("Tags") for a
+  `posts` collection (`src/database/migrations/006_taxonomy_defs.ts`), and the WordPress importer
+  imports a WXR file's categories and tags into them (`src/import/wxr-taxonomies.ts`). Songhealth
+  has no `posts`, so both stand under "Manage".
+
 ## Head, settings, sitemap
 
 - `EmDashHead` emits the description, canonical, OG and Twitter tags, the default OG image and the
