@@ -7,7 +7,7 @@ citizens find, and what staff publish. Detailed meaning lives in
 ## Content kinds
 
 **News** (ข่าว):
-A dated public-relations story from the office or its network.
+A dated public-relations story from the office or its network that tells people something or asks them to act, such as an invitation or a PM 2.5 warning.
 _Avoid_: Post, article
 
 **Health News** (ข่าวสุขภาพ):
@@ -15,7 +15,7 @@ News about a Health Topic. A view of News, not a separate kind.
 _Avoid_: Health article
 
 **Activity** (กิจกรรม):
-A record of a meeting, field visit or event the office or its network took part in.
+A record of a meeting, field visit or event the office or its network took part in, told after it happened. The invitation before the same event is News.
 _Avoid_: Event post, gallery
 
 **Announcement** (ประกาศ):
@@ -125,3 +125,13 @@ _Avoid_: Popular services
 **Quick Access** (เข้าถึงข้อมูล):
 A staff-maintained set of shortcuts to existing destinations. It deliberately repeats navigation.
 _Avoid_: Quick Links section, second sitemap
+
+## Migration
+
+**Legacy site** (เว็บไซต์เดิม):
+The office's WordPress website at songhealth.moph.go.th that Songhealth replaces: a source to migrate from, never a model to copy. Its one "ประชาสัมพันธ์" stream holds News and Activities alike.
+_Avoid_: Old site, เว็บเก่า
+
+**Classification list** (บัญชีจัดประเภท):
+The list, reviewed by people, that says what each Legacy site news, directive and procurement item becomes on Songhealth (News, an Activity, an Announcement of a given type, or a Document), with the Summary staff wrote for the current fiscal year's News and Activities. Its defaults come from the items' legacy categories.
+_Avoid_: Mapping file, category map
