@@ -4,9 +4,15 @@ Facts the Songhealth pages and tests rely on, read from the installed package. A
 its topic with its source path, relative to `node_modules/emdash/`. Write a Songhealth file with a
 leading `./` and another package's file from its package name. When the pinned version changes,
 re-verify every line and rename this file: `./tests/node/package-facts.test.ts` checks that every
-cited file exists and that the name carries the pinned version. Read the minified Admin bundle,
-`@emdash-cms/admin/dist/index.js`, with `python3 -I` and `str.find`: the host's `grep` is ugrep,
-which refuses a long context pattern such as `.{0,200}x.{0,200}`.
+cited file exists and that the name carries the pinned version. The Admin bundle,
+`@emdash-cms/admin/dist/index.js`, is formatted JavaScript of about 77,000 lines: find a function
+with `grep -n 'function SidebarNav'` and read its lines with `sed -n '<from>,<to>p'`. Its source
+map holds every original source file, named as in the Admin's repository, such as
+../src/components/Sidebar.tsx:
+`node -p 'const m=JSON.parse(require("fs").readFileSync("node_modules/@emdash-cms/admin/dist/index.js.map","utf8"));m.sourcesContent[m.sources.indexOf(process.argv[1])]' ../src/components/Sidebar.tsx`.
+Cite the bundle, not an original source: the check above needs a file on disk. The host's `grep` is
+ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search one with
+`python3 -I` and `str.find`.
 
 ## Public reads
 
