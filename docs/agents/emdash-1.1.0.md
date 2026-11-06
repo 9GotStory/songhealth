@@ -232,6 +232,12 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
 - The frontend media-provider loader creates providers with an empty context, and the local provider
   needs a database, so public pages cannot use it (`src/media/provider-loader.ts`,
   `src/media/local-runtime.ts`).
+- A media item sits in at most one folder. An upload request and a media update take `folderId`
+  (`src/api/schemas/media.ts` `mediaUpdateBody`; `src/astro/routes/api/media/folders/index.ts`
+  creates a folder). The Admin's Media Library and its media picker open on the main library, the
+  items without a folder, with the folders listed; a search covers every folder
+  (`@emdash-cms/admin/dist/index.js` `MediaLibrary`'s page and `MediaPickerModal` query
+  `folderId: search ? void 0 : folder ?? null`; checked 2026-11-06 for Feature 005).
 
 ## Edit mode and the toolbar
 
@@ -337,6 +343,10 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
     slug from the new title with `slugify`, which NFKC-normalizes the text, so "ำ" becomes "ํา",
     and keeps at most 80 grapheme clusters (`src/database/repositories/content.ts`
     `generateUniqueSlug`, `@emdash-cms/admin/dist/slugify.js`).
+  - The copy stays in the source's collection. No content route, Admin action or MCP tool moves an
+    entry to another collection (`src/astro/routes/api/content/[collection]/[id]/duplicate.ts`
+    and its sibling routes; `@emdash-cms/admin/dist/index.js`; `src/mcp/server.ts`; checked
+    2026-11-06 for Feature 005).
 - The Admin's Portable Text editor saves paragraphs, headings, bullet and numbered lists, quotes,
   code, HTML and iframe blocks, images, galleries, tables and rules. A link is a mark with an
   `href`, and there is no file block (`src/content/converters/prosemirror-to-portable-text.ts`).
@@ -601,6 +611,46 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
   `taxonomies:manage` (`src/astro/middleware/auth.ts`). A term list is a tree for a hierarchical
   taxonomy, and `?includeCounts=false` skips the per-term counts (`src/api/handlers/taxonomies.ts`
   `handleTermList`, `src/api/schemas/taxonomies.ts` `termListQuery`).
+- `DELETE /_emdash/api/taxonomies/{name}` removes a taxonomy with its terms and their content
+  assignments and needs `taxonomies:manage`. Nothing guards the core `category` and `tag`
+  (`src/astro/routes/api/taxonomies/[name].ts`, `src/api/handlers/taxonomies.ts`
+  `handleTaxonomyDelete`).
+
+## WordPress import
+
+Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
+
+- The REST source only probes a site and asks for a WXR upload; it imports nothing
+  (`src/import/sources/wordpress-rest.ts`). The Admin imports from a WXR file or through the
+  EmDash Exporter plugin installed on the WordPress site (`src/import/sources/wxr.ts`,
+  `src/import/sources/wordpress-plugin.ts`).
+- Both write the fixed fields `title`, `content`, `excerpt` and `featured_image`
+  (`src/astro/routes/api/import/wordpress/execute.ts`,
+  `src/astro/routes/api/import/wordpress-plugin/execute.ts`). The Admin sends the analysed
+  `requiredFields` (`title`, `content`, `excerpt`, plus `featured_image` for a post type with
+  thumbnails) to the prepare step, which creates each one the target collection lacks
+  (`src/astro/routes/api/import/wordpress/analyze.ts`,
+  `src/astro/routes/api/import/wordpress/prepare.ts`, `@emdash-cms/admin/dist/index.js`
+  `prepareWxrImport`). A create writes one column per data key, so without that step the insert
+  fails on the missing column (`src/database/repositories/content.ts` `create`). Songhealth's
+  collections name those fields `body` and `summary`.
+- A mapping sends one post type to one collection (`src/import/types.ts` `PostTypeMapping`). The
+  plugin import puts ACF values and custom meta only into fields with the same slug
+  (`src/astro/routes/api/import/wordpress-plugin/execute.ts`).
+- `publish` becomes published and every other status a draft. The WordPress date becomes
+  `createdAt`, and `publishedAt` for a published item
+  (`src/astro/routes/api/import/wordpress/execute.ts` `mapStatus`).
+- The media step downloads each attachment through `ssrfSafeFetch`, which uses the global `fetch`
+  and so verifies TLS, and reuses a media item whose content hash the library already holds
+  (`src/astro/routes/api/import/wordpress/media.ts`, `src/security/ssrf.ts`). An ordinary upload,
+  `POST /_emdash/api/media`, hashes the file too and, unless `deduplicate` is `false`, answers with
+  the existing item of the same hash (`src/astro/routes/api/media.ts`, `src/api/schemas/media.ts`
+  `mediaUploadDeduplicateForm`); the upload-URL flow does so when the client sends the hash, and
+  the type and size match (`src/astro/routes/api/media/upload-url.ts`).
+- Every `/_emdash/api/import` route needs the `admin` scope from an API token
+  (`src/astro/middleware/auth.ts`).
+- The CLI has no import command: `src/cli/commands/import/wordpress.ts` is not registered in
+  `src/cli/index.ts`.
 
 ## Native API for tests
 
