@@ -1,5 +1,5 @@
-// The model-update step's planner (#53, #122; spec #51, "Changes to the Feature 002 model"; spec
-// #121, "Content model").
+// The model-update step's planner (#53, #122, #175; spec #51, "Changes to the Feature 002 model";
+// spec #121, "Content model"; spec #174, "Model changes").
 //
 // `planModelUpdate` compares the content model of seed/seed.json with the live model that
 // EmDash's schema API reports, and plans the native updates that bring the database to the
@@ -9,10 +9,11 @@
 // Expected values come from `03` §15 (the canonical route table in
 // tests/canonical-url-patterns.ts), `03` §5 (no per-person route), spec #51 "Changes to the
 // Feature 002 model" (the Document Type reference terms, Personnel's `leadership_order` and the
-// Homepage menus), spec #121 "Content model" (the MOIT collection and the three ITA block types)
-// and #169 (the Admin sidebar's folders, positions and icons), never from the seed. The live
-// models start from the seed's own fields, title and date fields and block types, as setup or the
-// step leaves them.
+// Homepage menus), spec #121 "Content model" (the MOIT collection and the three ITA block types),
+// #169 (the Admin sidebar's folders, positions and icons) and spec #174 "Model changes" (the
+// migrated content's terms, and no Categories or Tags), never from the seed. The live models start
+// from the seed's own fields, title and date fields, block types and taxonomies, beside EmDash's
+// core Categories and Tags, as setup or the step leaves them.
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -41,6 +42,25 @@ const DOCUMENT_TYPE_TERMS = [
 	{ taxonomy: "document_type", slug: "plan", label: "แผนงาน" },
 	{ taxonomy: "document_type", slug: "result", label: "ผลการดำเนินงาน" },
 ];
+
+/**
+ * The terms the migrated content uses (spec #174 "Model changes", grill Q24): three Announcement
+ * types, the Document Type of the office's orders and the Topic of the PM 2.5 reports, with ASCII
+ * slugs in the style of the Document Types. No other term, and no ประกาศทางราชการ.
+ */
+const MIGRATION_TERMS = [
+	{ taxonomy: "announcement_type", slug: "procurement", label: "จัดซื้อจัดจ้าง" },
+	{ taxonomy: "announcement_type", slug: "recruitment", label: "รับสมัครงาน" },
+	{ taxonomy: "announcement_type", slug: "general", label: "ประกาศทั่วไป" },
+	{ taxonomy: "document_type", slug: "order", label: "คำสั่ง" },
+	{ taxonomy: "topic", slug: "pm25", label: "ฝุ่น PM 2.5" },
+];
+
+/**
+ * EmDash's core taxonomies Categories and Tags, which its migrations create on every database for a
+ * `posts` collection (emdash 1.1.0 src/database/migrations/006_taxonomy_defs.ts).
+ */
+const CORE_TAXONOMIES = ["category", "tag"];
 
 /** The Leadership order Feature 003 adds to Personnel (spec #51; empty means not Leadership). */
 const LEADERSHIP_ORDER = { slug: "leadership_order", label: "ลำดับผู้บริหาร", type: "integer" };
@@ -160,6 +180,7 @@ const NOTHING = {
 	fieldUpdates: [],
 	terms: [],
 	menus: [],
+	taxonomyDeletions: [],
 	problems: [],
 };
 
@@ -225,6 +246,28 @@ function feature002Fields(slug: string): LiveField[] {
 	return seedFields(slug).filter((field) => field.slug !== LEADERSHIP_ORDER.slug);
 }
 
+/**
+ * The taxonomies of a database that setup made from the seed: the seed's own, without terms, and
+ * EmDash's core Categories and Tags.
+ */
+function setupTaxonomies(): LiveTaxonomy[] {
+	return [
+		...seed.taxonomies.map(({ name }: { name: string }) => ({ name, terms: [] })),
+		...CORE_TAXONOMIES.map((name) => ({ name, terms: [] })),
+	];
+}
+
+/** `model` with `terms` added to their taxonomies, as the step creates them. */
+function withTerms(
+	model: LiveModel,
+	terms: { taxonomy: string; slug: string; label: string }[],
+): LiveModel {
+	for (const { taxonomy, slug, label } of terms) {
+		taxonomyOf(model, taxonomy).terms.push({ slug, label });
+	}
+	return model;
+}
+
 /** The ten collections as the schema API lists them on a Feature 002 database, with no terms. */
 function feature002Model(): LiveModel {
 	return {
@@ -237,14 +280,14 @@ function feature002Model(): LiveModel {
 			...seedTitles(slug),
 			fields: feature002Fields(slug),
 		})),
-		taxonomies: [{ name: "document_type", terms: [] }],
+		taxonomies: setupTaxonomies(),
 		menus: [],
 	};
 }
 
 /** The same collections once the Feature 003 model is applied. */
 function feature003Model(): LiveModel {
-	return {
+	const model: LiveModel = {
 		blockTypes: [],
 		collections: [
 			...Object.entries(CANONICAL_URL_PATTERNS).map(([slug, urlPattern]) => ({
@@ -265,14 +308,10 @@ function feature003Model(): LiveModel {
 				fields: [...feature002Fields("personnel"), { slug: "leadership_order", type: "integer" }],
 			},
 		],
-		taxonomies: [
-			{
-				name: "document_type",
-				terms: DOCUMENT_TYPE_TERMS.map(({ slug, label }) => ({ slug, label })),
-			},
-		],
+		taxonomies: setupTaxonomies(),
 		menus: HOMEPAGE_MENUS.map((menu) => ({ ...menu })),
 	};
+	return withTerms(model, DOCUMENT_TYPE_TERMS);
 }
 
 /** The same database once the Feature 004 model is applied: MOIT and the ITA block types. */
@@ -301,6 +340,18 @@ function sidebarModel(): LiveModel {
 	return model;
 }
 
+/** The same database once Feature 005's model is applied (#175). */
+function feature005Model(): LiveModel {
+	return withMigrationModel(sidebarModel());
+}
+
+/** `model` with the migrated content's terms, and without EmDash's Categories and Tags. */
+function withMigrationModel(model: LiveModel): LiveModel {
+	withTerms(model, MIGRATION_TERMS);
+	model.taxonomies = model.taxonomies.filter(({ name }) => !CORE_TAXONOMIES.includes(name));
+	return model;
+}
+
 function collectionOf(model: LiveModel, slug: string): LiveCollection {
 	const collection = model.collections.find((candidate) => candidate.slug === slug);
 	assert.ok(collection, `the test model has no ${slug} collection`);
@@ -320,6 +371,13 @@ function blockTypeOf(model: LiveModel, slug: string) {
 	const [version] = blockType.versions;
 	assert.ok(version, `the test model's ${slug} block type has no version`);
 	return { blockType, version };
+}
+
+/** Terms in one order, so a test does not depend on the seed's. */
+function sortedTerms(terms: { taxonomy: string; slug: string; label: string }[]) {
+	return terms.toSorted((left, right) =>
+		`${left.taxonomy}/${left.slug}`.localeCompare(`${right.taxonomy}/${right.slug}`),
+	);
 }
 
 describe("planModelUpdate", () => {
@@ -348,8 +406,11 @@ describe("planModelUpdate", () => {
 		assert.equal(updates.size, 10);
 	});
 
-	it("adds the Document Type reference terms policy, plan and result to a database without them", () => {
-		assert.deepEqual(planModelUpdate(seed, feature002Model()).terms, DOCUMENT_TYPE_TERMS);
+	it("adds the reference terms to a database without them: the Document Types policy, plan and result, and the migrated content's terms", () => {
+		assert.deepEqual(
+			sortedTerms(planModelUpdate(seed, feature002Model()).terms),
+			sortedTerms([...DOCUMENT_TYPE_TERMS, ...MIGRATION_TERMS]),
+		);
 	});
 
 	it("adds Personnel's optional integer field leadership_order (ลำดับผู้บริหาร) to a database without it", () => {
@@ -367,14 +428,14 @@ describe("planModelUpdate", () => {
 	});
 
 	it("plans nothing for a database already on the model, so a second run changes nothing", () => {
-		const plan = planModelUpdate(seed, sidebarModel());
+		const plan = planModelUpdate(seed, feature005Model());
 
 		assert.deepEqual(plan, NOTHING);
 		assert.deepEqual(planRequests(plan), []);
 	});
 
 	it("leaves a Homepage menu staff relabelled, and creates only the menus the database lacks", () => {
-		const live = sidebarModel();
+		const live = feature005Model();
 		live.menus = [
 			{ name: "homepage-featured", label: "เรื่องเด่นหน้าแรก" },
 			{ name: "primary", label: "เมนูหลัก" },
@@ -390,14 +451,14 @@ describe("planModelUpdate", () => {
 	});
 
 	it("leaves a field the database has beyond the seed", () => {
-		const live = sidebarModel();
+		const live = feature005Model();
 		collectionOf(live, "personnel").fields.push({ slug: "organization", type: "reference" });
 
 		assert.deepEqual(planModelUpdate(seed, live).fields, []);
 	});
 
 	it("reports a seed field the database has with another type instead of changing its column", () => {
-		const live = sidebarModel();
+		const live = feature005Model();
 		const personnel = collectionOf(live, "personnel");
 		personnel.fields = [
 			...feature002Fields("personnel"),
@@ -412,7 +473,7 @@ describe("planModelUpdate", () => {
 	});
 
 	it("adds only the reference terms a taxonomy lacks, and leaves the terms staff relabelled or added", () => {
-		const live = sidebarModel();
+		const live = feature005Model();
 		taxonomyOf(live, "document_type").terms = [
 			{ slug: "policy", label: "นโยบายและยุทธศาสตร์" },
 			{ slug: "form", label: "แบบฟอร์ม" },
@@ -422,14 +483,18 @@ describe("planModelUpdate", () => {
 
 		assert.deepEqual(plan.problems, []);
 		assert.deepEqual(
-			plan.terms,
-			DOCUMENT_TYPE_TERMS.filter(({ slug }) => slug !== "policy"),
+			sortedTerms(plan.terms),
+			sortedTerms(
+				[...DOCUMENT_TYPE_TERMS, ...MIGRATION_TERMS].filter(
+					({ taxonomy, slug }) => taxonomy === "document_type" && slug !== "policy",
+				),
+			),
 		);
 	});
 
 	it("reports a taxonomy with reference terms that the database lacks", () => {
-		const live = sidebarModel();
-		live.taxonomies = [];
+		const live = feature005Model();
+		live.taxonomies = live.taxonomies.filter(({ name }) => name !== "document_type");
 
 		const plan = planModelUpdate(seed, live);
 
@@ -449,7 +514,7 @@ describe("planModelUpdate", () => {
 	});
 
 	it("adds the support values the database lacks and keeps those it has beyond the seed", () => {
-		const live = sidebarModel();
+		const live = feature005Model();
 		Object.assign(collectionOf(live, "news"), {
 			supports: [...FEATURE_002_SUPPORTS, "search"],
 			hasSeo: false,
@@ -559,7 +624,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("finishes a collection that a run cut short left without fields or title, the title after the fields", () => {
-		const live = sidebarModel();
+		const live = feature005Model();
 		const moit = collectionOf(live, MOIT.slug);
 		delete moit.titleField;
 		moit.fields = [];
@@ -576,7 +641,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("keeps the title field the database has", () => {
-		const live = sidebarModel();
+		const live = feature005Model();
 		collectionOf(live, MOIT.slug).titleField = "summary";
 
 		assert.deepEqual(planModelUpdate(seed, live), NOTHING);
@@ -603,7 +668,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("updates a changed block type in place, by the fingerprint of its active version", () => {
-		const live = sidebarModel();
+		const live = feature005Model();
 		const { blockType, version } = blockTypeOf(live, "ita_file");
 		// A relabelled type whose Round lacks "ไม่ระบุรอบ": adding an option is a compatible change.
 		blockType.label = "ไฟล์";
@@ -628,7 +693,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("keeps a block type the database has beyond the seed: EmDash 1.1.0 has no route that deletes one", () => {
-		const live = sidebarModel();
+		const live = feature005Model();
 		const { blockType } = blockTypeOf(live, "ita_link");
 		live.blockTypes.push({ ...blockType, slug: "proto_ita_link", category: "ITA (ต้นแบบ)" });
 
@@ -636,7 +701,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("reports a block-type field the database has with another type instead of changing it", () => {
-		const live = sidebarModel();
+		const live = feature005Model();
 		const { version } = blockTypeOf(live, "ita_link");
 		version.fields = version.fields.map((field) =>
 			field.slug === "url" ? { ...field, type: "string" } : field,
@@ -650,7 +715,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("reports a block type whose active version is not the seed's instead of making a version", () => {
-		const live = sidebarModel();
+		const live = feature005Model();
 		const { blockType, version } = blockTypeOf(live, "ita_requirement");
 		blockType.currentVersion = 2;
 		blockType.versions.push({ ...version, version: 2, fingerprint: "block-type:v1:sha256:v2" });
@@ -663,7 +728,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("gives MOIT's Evidence field the seed's allowed types, in the picker's order, and its limit", () => {
-		const live = sidebarModel();
+		const live = feature005Model();
 		const evidence = collectionOf(live, MOIT.slug).fields.find(({ slug }) => slug === "evidence");
 		assert.ok(evidence);
 		evidence.validation = {
@@ -697,7 +762,7 @@ describe("planModelUpdate: the Admin sidebar (#169)", () => {
 	}
 
 	it("gives a database without them each collection's folder, position and icon, and Documents no folder", () => {
-		const plan = planModelUpdate(seed, feature004Model());
+		const plan = planModelUpdate(seed, withMigrationModel(feature004Model()));
 
 		assert.deepEqual({ ...plan, collections: [] }, NOTHING);
 		assert.deepEqual(
@@ -713,7 +778,7 @@ describe("planModelUpdate: the Admin sidebar (#169)", () => {
 	});
 
 	it("sets back a folder, a position or an icon that differs from the seed's", () => {
-		const live = sidebarModel();
+		const live = feature005Model();
 		collectionOf(live, "news").group = "ข่าว";
 		collectionOf(live, "activities").sortOrder = 5;
 		collectionOf(live, "announcements").icon = "bell";
@@ -732,7 +797,7 @@ describe("planModelUpdate: the Admin sidebar (#169)", () => {
 	});
 
 	it("takes Documents out of a folder the database gives it, since the seed gives it none", () => {
-		const live = sidebarModel();
+		const live = feature005Model();
 		collectionOf(live, "documents").group = "เอกสารเผยแพร่";
 
 		const plan = planModelUpdate(seed, live);
@@ -775,6 +840,63 @@ describe("planModelUpdate: the Admin sidebar (#169)", () => {
 		assert.deepEqual(
 			{ slug: moit?.slug, group: moit?.group, sortOrder: moit?.sortOrder, icon: moit?.icon },
 			{ slug: MOIT.slug, ...ADMIN_SIDEBAR.moit },
+		);
+	});
+});
+
+describe('planModelUpdate: the migrated content\'s model (#175; spec #174 "Model changes")', () => {
+	it("adds the terms the migrated content uses, and no other, to a database on the #169 model", () => {
+		const plan = planModelUpdate(seed, sidebarModel());
+
+		assert.deepEqual(plan.problems, []);
+		assert.deepEqual(sortedTerms(plan.terms), sortedTerms(MIGRATION_TERMS));
+	});
+
+	it("deletes EmDash's Categories and Tags, which nothing uses, through the native taxonomy delete", () => {
+		const plan = planModelUpdate(seed, withTerms(sidebarModel(), MIGRATION_TERMS));
+
+		assert.deepEqual(plan.problems, []);
+		assert.deepEqual(plan.taxonomyDeletions, CORE_TAXONOMIES);
+		assert.deepEqual(planRequests(plan), [
+			{
+				change: "taxonomy category: delete, with its terms",
+				method: "DELETE",
+				path: "/_emdash/api/taxonomies/category",
+			},
+			{
+				change: "taxonomy tag: delete, with its terms",
+				method: "DELETE",
+				path: "/_emdash/api/taxonomies/tag",
+			},
+		]);
+	});
+
+	it("deletes them after every other change, so a change EmDash refuses stops the step first", () => {
+		const requests = planRequests(planModelUpdate(seed, feature002Model()));
+
+		assert.deepEqual(
+			requests.filter(({ method }) => method === "DELETE").map(({ path }) => path),
+			["/_emdash/api/taxonomies/category", "/_emdash/api/taxonomies/tag"],
+		);
+		assert.ok(requests.slice(-2).every(({ method }) => method === "DELETE"));
+	});
+
+	it("deletes no other taxonomy: the seed's own and one staff made in the Admin stay", () => {
+		const live = withTerms(sidebarModel(), MIGRATION_TERMS);
+		live.taxonomies.push({ name: "event_type", terms: [{ slug: "meeting", label: "ประชุม" }] });
+
+		assert.deepEqual(planModelUpdate(seed, live).taxonomyDeletions, CORE_TAXONOMIES);
+	});
+
+	it("keeps a core taxonomy the seed declares", () => {
+		const tagged = {
+			...seed,
+			taxonomies: [...seed.taxonomies, { name: "tag", label: "แท็ก", collections: ["news"] }],
+		};
+
+		assert.deepEqual(
+			planModelUpdate(tagged, withTerms(sidebarModel(), MIGRATION_TERMS)).taxonomyDeletions,
+			["category"],
 		);
 	});
 });

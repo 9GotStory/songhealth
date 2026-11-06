@@ -255,6 +255,12 @@ content model from the model-update step:
   `result` that the About pages list by, it adds the terms whose slug the taxonomy lacks. A term
   staff relabelled keeps its label, and no term is removed.
 
+  It deletes EmDash's core taxonomies Categories and Tags (`category`, `tag`), with their terms,
+  through the native taxonomy delete, while the database has them and the seed does not declare
+  them (#175). EmDash's migrations create both on every database for a `posts` collection that
+  Songhealth does not have. It deletes no other taxonomy, and it deletes these after every other
+  change, so a refused change stops it before it deletes anything.
+
   For each menu the seed declares, such as the three Homepage menus staff curate, it creates the
   menu, empty, when the database has no menu of that name. A menu staff relabelled keeps its label,
   and no menu or item is removed.
@@ -365,12 +371,14 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
 - the role fixture PAT authenticates as `role-fixture@songhealth.test`, enabled, with role Author;
 - the dev-only T021 fixture route answers its 0600 route token and refuses requests without it;
 - the database has the promoted seed's content model, block types, fields, reference terms and
-  menus: the model-update step's read-only check, run in the app container. Feature 003's share
-  is, for example, each public collection's URL pattern and SEO support, Personnel kept
-  non-routable with its `leadership_order` field, the Document Types `policy`, `plan` and
-  `result`, and the three Homepage menus. Feature 004's is the MOIT collection with its fields,
-  its Evidence field's allowed block types and limit, and the three ITA block types. #169's is
-  each collection's Admin sidebar folder, position and icon;
+  menus, without EmDash's Categories and Tags: the model-update step's read-only check, run in
+  the app container. Feature 003's share is, for example, each public collection's URL pattern
+  and SEO support, Personnel kept non-routable with its `leadership_order` field, the Document
+  Types `policy`, `plan` and `result`, and the three Homepage menus. Feature 004's is the MOIT
+  collection with its fields, its Evidence field's allowed block types and limit, and the three
+  ITA block types. #169's is each collection's Admin sidebar folder, position and icon. Feature
+  005's is the terms the migrated content uses (#175): the Announcement types `procurement`,
+  `recruitment` and `general`, the Document Type `order` and the Topic `pm25`;
 - the Office Contact plugin is registered and enabled, with its settings form.
 
 Runtime results are interpreted only against the commit verify reports.

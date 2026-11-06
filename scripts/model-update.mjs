@@ -1,4 +1,4 @@
-// The model-update step (#53, #60, #61, #65, #122, #169): brings an existing database to the
+// The model-update step (#53, #60, #61, #65, #122, #169, #175): brings an existing database to the
 // content model of seed/seed.json through EmDash's native schema, taxonomy and menu APIs, and tells
 // whether it is there.
 //
@@ -11,11 +11,15 @@
 // empties the seed's menus (src/astro/routes/api/setup/dev-bypass.ts, src/seed/apply.ts).
 // `emdash seed` opens only a SQLite file (src/cli/commands/seed.ts), and `emdash schema` cannot
 // update a collection (src/cli/commands/schema.ts). Setup also skips the seed's taxonomy terms
-// unless it installs sample content (src/seed/apply.ts `includeContent`). The step therefore uses
-// the REST APIs that the Admin uses: GET, POST and PUT /_emdash/api/schema/block-types and
+// unless it installs sample content (src/seed/apply.ts `includeContent`), and it deletes no
+// taxonomy, so the Categories and Tags that the core migrations create on every database stay
+// (src/database/migrations/006_taxonomy_defs.ts; docs/agents/emdash-1.1.0.md "Search and
+// seeding"). The step therefore uses the REST APIs that the Admin uses: GET, POST and PUT
+// /_emdash/api/schema/block-types and
 // /_emdash/api/schema/block-types/{slug} (src/astro/routes/api/schema/block-types/), GET, POST and
 // PUT /_emdash/api/schema/collections, /_emdash/api/schema/collections/{slug}/fields and their
-// items (src/astro/routes/api/schema/collections/), GET /_emdash/api/taxonomies, GET and POST
+// items (src/astro/routes/api/schema/collections/), GET /_emdash/api/taxonomies, DELETE
+// /_emdash/api/taxonomies/{name} (src/astro/routes/api/taxonomies/[name].ts), GET and POST
 // /_emdash/api/taxonomies/{name}/terms (src/astro/routes/api/taxonomies/), and GET and POST
 // /_emdash/api/menus (src/astro/routes/api/menus/index.ts).
 //
@@ -134,7 +138,8 @@ import { parseArgs } from "node:util";
  * @typedef {object} LiveModel
  * @property {LiveBlockType[]} blockTypes
  * @property {LiveCollection[]} collections
- * @property {LiveTaxonomy[]} taxonomies
+ * @property {LiveTaxonomy[]} taxonomies every taxonomy the database has, as
+ *   GET /_emdash/api/taxonomies lists them (src/api/handlers/taxonomies.ts handleTaxonomyList)
  * @property {LiveMenu[]} menus
  *
  * @typedef {object} BlockTypeCreate A block type to create with
@@ -186,8 +191,8 @@ import { parseArgs } from "node:util";
  * @property {number | null} [sortOrder]
  * @property {string} [icon]
  *
- * @typedef {{ change: string, method: string, path: string, body: unknown }} NativeRequest A
- *   request that applies one change, with the line that names the change.
+ * @typedef {{ change: string, method: string, path: string, body?: unknown }} NativeRequest A
+ *   request that applies one change, with the line that names the change; a deletion has no body.
  */
 
 /**
@@ -308,6 +313,13 @@ function newCollection({
 }
 
 /**
+ * EmDash's core taxonomies Categories and Tags, which its migrations create on every database for a
+ * `posts` collection (src/database/migrations/006_taxonomy_defs.ts). Songhealth has no `posts`,
+ * and its seed declares neither.
+ */
+const CORE_TAXONOMIES = ["category", "tag"];
+
+/**
  * Plan the updates that bring the live content model to the seed's.
  *
  * Block types come first, as `planBlockTypes` plans them, because a blocks field may only name
@@ -339,6 +351,10 @@ function newCollection({
  * list by, the step adds the terms whose slug the taxonomy lacks. A term staff relabelled keeps
  * its label, and no term is removed.
  *
+ * EmDash's core taxonomies Categories and Tags are deleted, with their terms, while the database
+ * has them and the seed does not declare them (#175; spec #174 "Model changes"): nothing on
+ * Songhealth uses them, and the Admin lists them under "Manage". No other taxonomy is deleted.
+ *
  * The seed's menus, such as the Homepage menus staff curate, are created empty where the database
  * has no menu of that name. A menu staff relabelled keeps its label, and no menu or item is
  * touched.
@@ -359,6 +375,7 @@ function newCollection({
  *   fieldUpdates: FieldUpdate[],
  *   terms: TermCreate[],
  *   menus: MenuCreate[],
+ *   taxonomyDeletions: string[],
  *   problems: string[],
  * }}
  */
@@ -470,6 +487,10 @@ export function planModelUpdate(seed, live) {
 	const menus = (seed.menus ?? [])
 		.filter(({ name }) => !menuNames.has(name))
 		.map(({ name, label }) => ({ name, label }));
+	const declared = new Set((seed.taxonomies ?? []).map(({ name }) => name));
+	const taxonomyDeletions = CORE_TAXONOMIES.filter(
+		(name) => taxonomies.has(name) && !declared.has(name),
+	);
 	return {
 		blockTypes,
 		blockTypeUpdates,
@@ -479,6 +500,7 @@ export function planModelUpdate(seed, live) {
 		fieldUpdates,
 		terms,
 		menus,
+		taxonomyDeletions,
 		problems,
 	};
 }
@@ -494,7 +516,8 @@ function describe(settings) {
  * The requests that apply a plan, in the order EmDash needs: the block types before the blocks
  * field that names them, a collection before its fields, and its settings after them, since its
  * title and date fields must name fields it has. Block-type updates go first, so EmDash's refusal
- * of a breaking one stops the step before anything else changes.
+ * of a breaking one stops the step before anything else changes. Taxonomy deletions go last, so a
+ * refusal of any other change stops the step before it deletes anything.
  *
  * @param {ReturnType<typeof planModelUpdate>} plan
  * @returns {NativeRequest[]}
@@ -551,6 +574,11 @@ export function planRequests(plan) {
 			method: "POST",
 			path: "/_emdash/api/menus",
 			body: { name, label },
+		})),
+		...plan.taxonomyDeletions.map((name) => ({
+			change: `taxonomy ${name}: delete, with its terms`,
+			method: "DELETE",
+			path: `/_emdash/api/taxonomies/${encodeURIComponent(name)}`,
 		})),
 	];
 }
@@ -665,15 +693,9 @@ async function main(args) {
 		const readModel = async () => {
 			/** @type {LiveBlockType[]} */
 			const blockTypes = (await api("GET", "/_emdash/api/schema/block-types")).items;
-			const existing = new Set(
-				(await api("GET", "/_emdash/api/taxonomies")).taxonomies.map(
-					(/** @type {{ name: string }} */ taxonomy) => taxonomy.name,
-				),
-			);
 			/** @type {LiveTaxonomy[]} */
 			const taxonomies = [];
-			for (const { name, terms } of seed.taxonomies ?? []) {
-				if (!terms?.length || !existing.has(name)) continue;
+			for (const { name } of (await api("GET", "/_emdash/api/taxonomies")).taxonomies) {
 				const listed = await api(
 					"GET",
 					`/_emdash/api/taxonomies/${encodeURIComponent(name)}/terms?includeCounts=false`,
