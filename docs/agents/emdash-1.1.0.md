@@ -47,6 +47,13 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   changed.
 - `where` on a taxonomy name matches exact term slugs, ORed when given as an array. An unknown slug
   or an empty array matches nothing (`src/loader.ts` `resolveTermGroups`).
+- `getTaxonomyTerms` counts each term's entries as the public site sees them, summed over every
+  collection the taxonomy declares, and its options take no narrower collection scope
+  (`src/taxonomies/index.ts` `getTaxonomyTerms`, `TaxonomyTermsOptions`;
+  `src/taxonomies/term-counts.ts` `fetchVisibleTermCounts`). A count therefore cannot tell whether
+  one list's entries carry a term of a taxonomy that several collections share, as seven share
+  `topic` (`./seed/seed.json`). `./src/lib/terms.ts` `offeredTerms` reads one entry per term
+  instead.
 - `where` on any other key filters the column:
   - an exact value, an array (IN), or a range `{ gt, gte, lt, lte }`;
   - range values are strings, and PostgreSQL casts them to the column type;

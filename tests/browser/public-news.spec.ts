@@ -3,7 +3,8 @@
 // A citizen reads published News at /news (newest first, paginated), Health News at
 // /news/health (News with any topic term, narrowed by ?topic=), and each News item at its
 // canonical /news/{slug} address. Drafts, unpublished and trashed News never show anywhere,
-// and their addresses answer the site 404.
+// and their addresses answer the site 404. The topic filter of /news/health offers only the
+// Health Topics that published News carries (spec #174 "Public list filters").
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -11,7 +12,8 @@
 // native API, and removed afterwards together with the redirects their slug changes leave.
 // The runtime may hold other News (the demo dataset, the Product Owner's own), so assertions
 // look only at this suite's uniquely titled fixtures, and tests about "newest first" publish
-// their fixtures last.
+// their fixtures last. A synthetic Health Content item stands for another list that carries a
+// topic.
 //
 // Platform behaviour relied on (emdash 1.1.0):
 // - POST …/publish accepts `publishedAt` to backdate a publication; the development PAT's
@@ -57,10 +59,12 @@ import {
 	SECTION_CRUMBS,
 	expect,
 	expectBreadcrumb,
+	expectFilteredEmpty,
 	expectImageLoaded,
 	expectPreviewRenders,
 	expectSiteNotFound,
 	listedTitles,
+	offeredLabels,
 	ownTitles,
 	siteTitleParts,
 	test,
@@ -254,6 +258,42 @@ test("/news/health lists News with any topic, ?topic= narrows it, and an unknown
 	expect(unknown?.status(), "an unknown topic is not an error").toBe(200);
 	await expect(page.getByRole("article")).toHaveCount(0);
 	await expect(page.getByRole("main").getByText("ไม่พบข่าวสุขภาพในประเด็นนี้")).toBeVisible();
+});
+
+test("the /news/health topic filter offers only the Health Topics that published News carries, and an address naming another shows the empty state", async ({
+	page,
+}) => {
+	const offered = await createTerm("topic", "วัณโรค");
+	const draftOnly = await createTerm("topic", "สุขภาพช่องปาก");
+	const contentOnly = await createTerm("topic", "การแพทย์แผนไทย");
+	const news = await createNews("topics-published", { taxonomies: { topic: [offered.slug] } });
+	await createNews("topics-draft", { taxonomies: { topic: [draftOnly.slug] } });
+	const content = await createSyntheticDraft(
+		admin,
+		"health_content",
+		"ความรู้สุขภาพ",
+		"topics-content",
+		{ taxonomies: { topic: [contentOnly.slug] } },
+	);
+	await publish(news);
+	await publishEntryAt(admin, "health_content", content.id);
+
+	await page.goto("/news/health");
+	expect(
+		await offeredLabels(
+			page.getByRole("form", { name: "กรองข่าวสุขภาพ" }).getByLabel("ประเด็นสุขภาพ"),
+			[offered, draftOnly, contentOnly],
+		),
+		"a topic that only a draft or another list carries is not offered",
+	).toEqual([offered.label]);
+
+	for (const term of [draftOnly, contentOnly]) {
+		await expectFilteredEmpty(
+			page,
+			`/news/health?topic=${term.slug}`,
+			"ไม่พบข่าวสุขภาพในประเด็นนี้",
+		);
+	}
 });
 
 test("a News page shows its title, Thai date, category, topics, image with its alt text, body and breadcrumb", async ({

@@ -17,10 +17,11 @@
 //   template's pages at those widths; `expectAccessibleAtEachWidth` checks
 //   the page as it is now at both.
 // - What the shell shows every page: the 404 page, the default site title, the
-//   breadcrumb, Thai dates, the titles and items a list shows, and a record
-//   page's details; whether an image loads, shows its whole picture and fills
-//   its box; where parts of a page sit, one under another or side by side in
-//   rows; and how a word of a title lies in its lines and its box.
+//   breadcrumb, Thai dates, the titles and items a list shows, the terms its
+//   filter offers and its filtered empty state, and a record page's details;
+//   whether an image loads, shows its whole picture and fills its box; where
+//   parts of a page sit, one under another or side by side in rows; and how a
+//   word of a title lies in its lines and its box.
 // - `expectPreviewRenders`: a draft's signed preview link (cms.helpers.ts
 //   mintPreviewLink) at the draft's address, rendering it out of search engines.
 // - `sitemapLocations`: the addresses a sitemap document lists.
@@ -525,6 +526,35 @@ export async function listedTitles(page: Page): Promise<string[]> {
 export function ownTitles(titles: string[], fixtures: ReadonlyArray<{ title: string }>): string[] {
 	const own = new Set(fixtures.map((fixture) => fixture.title));
 	return titles.filter((title) => own.has(title));
+}
+
+/**
+ * The labels of `terms` that a list filter's select offers, in its order. The runtime holds other
+ * terms too (the seed's, the demo dataset's), so a suite looks only at its own.
+ */
+export async function offeredLabels(
+	select: Locator,
+	terms: ReadonlyArray<{ label: string }>,
+): Promise<string[]> {
+	const own = new Set(terms.map((term) => term.label));
+	return (await select.locator("option").allTextContents())
+		.map((label) => label.trim())
+		.filter((label) => own.has(label));
+}
+
+/**
+ * `path`, a list narrowed to nothing, answers 200 and shows no item and the empty state `message`.
+ */
+export async function expectFilteredEmpty(
+	page: Page,
+	path: string,
+	message: string,
+): Promise<void> {
+	const response = await page.goto(path);
+	expect(response?.status(), `${path} is not an error`).toBe(200);
+	const main = page.getByRole("main");
+	await expect(main.getByRole("article"), path).toHaveCount(0);
+	await expect(main.getByText(message), path).toBeVisible();
 }
 
 /**
