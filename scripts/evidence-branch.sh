@@ -4,11 +4,11 @@
 # and the address to embed each image by. The branch keeps no code. A new capture for the same
 # ticket becomes a child commit, so earlier screenshots stay reachable. The push is left to you:
 # it publishes the images, and the repository is public.
-#   scripts/evidence-branch.sh <ticket, such as 003-61> <dir of PNGs>
+#   scripts/evidence-branch.sh <ticket: 003-61, or 169 for a standalone one> <dir of PNGs>
 set -euo pipefail
 (($# == 2)) || { echo "usage: scripts/evidence-branch.sh <ticket> <dir of PNGs>" >&2; exit 2; }
 ticket=$1 dir=$2
-[[ $ticket =~ ^[0-9]{3}-[0-9]+$ ]] || { echo "evidence-branch: the ticket looks like 003-61" >&2; exit 2; }
+[[ $ticket =~ ^([0-9]{3}-)?[0-9]+$ ]] || { echo "evidence-branch: the ticket looks like 003-61 or 169" >&2; exit 2; }
 shopt -s nullglob
 images=("$dir"/*.png)
 ((${#images[@]})) || { echo "evidence-branch: no PNG in $dir" >&2; exit 1; }

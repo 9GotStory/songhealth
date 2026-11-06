@@ -150,8 +150,9 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
   states (`@emdash-cms/admin/dist/index.js`), and whether a later change reaches content that
   already uses it. In #127 the media-usage setup, and in #150 an Author's own-media limit and alt
   text copied at the pick, were missing from the first draft.
-- **Amendments.** A feature that amends a current document bumps its Version, names the feature
-  and the date in Last Updated, and adds a "Feature N decision (Product Owner, date)" banner after
-  the earlier ones, as Feature 003 (`c2ac189`) and Feature 004 (#127) did. It bumps the version
-  once: a later change in the same feature, before the feature reaches `main`, keeps that version
-  and adds its decision to the feature's banner (#128).
+- **Amendments.** A feature or a standalone ticket that amends a current document bumps its
+  Version, names the feature or the ticket and the date in Last Updated, and adds a decision banner
+  after the earlier ones: "Feature N decision (Product Owner, date)", as Feature 003 (`c2ac189`)
+  and Feature 004 (#127) did, or "<subject> decision (Product Owner, date; #<ticket> comment
+  <id>)", as #169 did. It bumps the version once: a later change in the same feature, before the
+  feature reaches `main`, keeps that version and adds its decision to the feature's banner (#128).

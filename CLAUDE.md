@@ -26,9 +26,10 @@ runtime gates (T022, T028, then T030–T032) still live in its `tasks.md`.
 
 Work follows Matt Pocock's skills (`mattpocock/skills`) and their main flow:
 
-`/grill-with-docs` → `/prototype` when a question needs running code → `/to-spec` →
-`/to-tickets` → `/implement` per ticket (or `/implement-spec`), which drives `/tdd` and closes
-with `/code-review` → `/pr` → `/retro`.
+`/grill-with-docs` → `/prototype` when a question needs running code, such as an option the
+Product Owner picks by what a screen will show → `/to-spec` → `/to-tickets` → `/implement` per
+ticket (or `/implement-spec`), which drives `/tdd` and closes with `/code-review` → `/pr` →
+`/retro`.
 
 - **On-ramps:** `/triage` for incoming issues, `/diagnosing-bugs` for hard bugs, `/wayfinder` for
   an effort too big for one session. `/ask-matt` routes when the fit is unclear.
