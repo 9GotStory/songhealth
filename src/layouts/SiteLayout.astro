@@ -14,9 +14,9 @@
 // and pushes it down. Without JavaScript the menu closes only from its own
 // button, never with Escape or when focus moves on, so an overlay would cover
 // the content focus moves on to (WCAG 2.2 SC 2.4.11). The button shows Lucide's
-// menu icon while the menu is closed and x while it is open (#105), beside its
-// label เมนู, which names it; the icons are decorative
-// (docs/agents/lucide-astro-1.59.0.md).
+// menu icon while closed and x while open. Screen-reader-only open/close
+// labels name its state (#191; PO #190 comment 6707205912, Header B); the
+// icons are decorative (docs/agents/lucide-astro-1.59.0.md).
 //
 // The head's metadata comes from EmDash's own EmDashHead (emdash 1.1.0
 // src/components/EmDashHead.astro): the description, canonical link, Open
@@ -144,7 +144,7 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 			</div>
 			<div class="relative">
 				<div class="page-container flex items-start justify-between gap-4 py-3 lg:min-h-22 lg:items-center">
-					<a href="/" class="mr-28 flex min-w-0 items-start gap-3 lg:mr-0 lg:items-center">
+					<a href="/" class="mr-16 flex min-w-0 items-start gap-3 lg:mr-0 lg:items-center">
 						{/* The logo or mark is decorative: the title beside it names the link. */}
 						{identity.logo ? (
 							<img
@@ -196,10 +196,11 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 					</nav>
 				</div>
 				<details class="group lg:hidden">
-					<summary class="absolute top-3 right-(--page-gutter) flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-pill border border-border-input bg-surface-base px-4 text-label [&::-webkit-details-marker]:hidden">
+					<summary class="absolute top-3 right-(--page-gutter) flex size-11 cursor-pointer list-none items-center justify-center rounded-pill border border-border-input bg-surface-base text-label [&::-webkit-details-marker]:hidden">
 						<Menu class="shrink-0 group-open:hidden" size={20} />
 						<X class="hidden shrink-0 group-open:block" size={20} />
-						<span>เมนู</span>
+						<span class="sr-only group-open:hidden">เปิดเมนู</span>
+						<span class="hidden group-open:sr-only">ปิดเมนู</span>
 					</summary>
 					<nav aria-label="เมนูหลัก" class="border-t border-border-default">
 						<ul class="page-container py-2">

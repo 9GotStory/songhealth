@@ -54,9 +54,9 @@ function unknownPath(within = ""): string {
 	return `${within}/songhealth-unknown-${crypto.randomUUID()}`;
 }
 
-/** Open the mobile menu the way a citizen does: its button reads "เมนู". */
+/** Open the compact menu by its accessible name (#191). */
 async function openMenu(page: Page): Promise<void> {
-	await page.getByText("เมนู", { exact: true }).click();
+	await page.getByRole("button", { name: "เปิดเมนู", exact: true }).click();
 }
 
 test.use({ viewport: DESKTOP_VIEWPORT });
@@ -129,6 +129,30 @@ test("an unknown address answers 404 with the site-designed page inside the shel
 		"the 404 page has no breadcrumb",
 	).toHaveCount(0);
 	await expect(page.getByRole("contentinfo")).toBeVisible();
+});
+
+test("below 1024 px the icon-only menu has a 44 px target and native named states", async ({
+	page,
+}) => {
+	for (const width of [320, 375, 1023]) {
+		await page.setViewportSize({ width, height: 900 });
+		await page.goto("/");
+		const control = page.getByRole("button", { name: "เปิดเมนู", exact: true });
+		await expect(control).toBeVisible();
+		const box = await control.boundingBox();
+		expect(box?.width).toBe(44);
+		expect(box?.height).toBe(44);
+		expect(await control.innerText(), "the name uses no visible label").toBe("");
+		await expect(control).toMatchAriaSnapshot('- button "เปิดเมนู"');
+		await control.focus();
+		await page.keyboard.press("Enter");
+		const close = page.getByRole("button", { name: "ปิดเมนู", exact: true });
+		await expect(close).toMatchAriaSnapshot('- button "ปิดเมนู" [expanded]');
+		await expect(page.getByRole("navigation", { name: "เมนูหลัก" })).toBeVisible();
+		await page.keyboard.press("Space");
+		await expect(control).toBeFocused();
+		await expect(page.getByRole("navigation", { name: "เมนูหลัก" })).toBeHidden();
+	}
 });
 
 test.describe("at the 320 px mobile width without JavaScript", () => {

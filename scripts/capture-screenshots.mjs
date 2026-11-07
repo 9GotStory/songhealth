@@ -113,7 +113,7 @@ try {
 			await page.screenshot({ path: file, fullPage: true });
 			written.push(file);
 			if (index === 0 && name !== "desktop") {
-				await page.getByText("เมนู", { exact: true }).click();
+				await page.getByRole("button", { name: "เปิดเมนู", exact: true }).click();
 				const menuFile = join(outDir, `${base}-${name}-menu.png`);
 				await page.screenshot({ path: menuFile, fullPage: true });
 				written.push(menuFile);
