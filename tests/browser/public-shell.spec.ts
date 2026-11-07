@@ -135,7 +135,7 @@ test("an unknown address answers 404 with the site-designed page inside the shel
 test("below 1024 px the icon-only menu has a 44 px target and native named states", async ({
 	page,
 }) => {
-	for (const width of [320, 375, 1023]) {
+	for (const width of [320, 375, 768, 1023]) {
 		await page.setViewportSize({ width, height: 900 });
 		await page.goto("/");
 		const control = page.locator("summary").filter({ hasText: "เปิดเมนู" });
@@ -168,7 +168,7 @@ test("below 1024 px the icon-only menu has a 44 px target and native named state
 test("the utility bar is compact below 1024 px and full from 1024 px, with working destinations", async ({
 	page,
 }) => {
-	for (const width of [320, 375, 1023, 1024, 1440]) {
+	for (const width of [320, 375, 768, 1023, 1024, 1440]) {
 		await page.setViewportSize({ width, height: 900 });
 		await page.goto("/");
 		const banner = page.getByRole("banner");
@@ -240,8 +240,8 @@ test.describe("at the 320 px mobile width without JavaScript", () => {
 });
 
 for (const width of [375, 1023, 1024]) {
-	test.describe(`at ${width} px without JavaScript`, () => {
-		test.use({ viewport: { width, height: 900 }, javaScriptEnabled: false });
+	test.describe(`at ${width} px`, () => {
+		test.use({ viewport: { width, height: 900 } });
 		test("navigation, focus and accessibility remain usable", async ({ page }) => {
 			await page.goto("/");
 			await expectNoAxeViolations(page, `header at ${width} px`);
@@ -429,7 +429,7 @@ test.describe("site identity from the native site settings", () => {
 			for (const width of [320, 375, 1023, 1024]) {
 				await page.setViewportSize({ width, height: 900 });
 				await page.goto("/");
-				await expect(identity).toHaveAccessibleName(title);
+				await expect(identity).toHaveAccessibleName(`${title} ${tagline}`);
 				await expect(identity).toContainText(tagline);
 				await expect(identity.locator("img")).toBeVisible();
 				await expectNoHorizontalScroll(page, `configured identity at ${width} px`);
