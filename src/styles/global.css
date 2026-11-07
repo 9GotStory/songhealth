@@ -3,7 +3,7 @@
  *
  * The tokens began as the variables of the Product Owner's Figma file "Songhealth —
  * Homepage Concept v1" (file Lxdfd1dBgNNO28Rx62zGYO, frame 5:2) and keep their
- * names. This file is now their source, with docs/design/DESIGN.md v1.0, whose
+ * names. This file is now their source, with docs/design/DESIGN.md, whose
  * §3.1 records the table (ADR 0007). Tailwind CSS v4 turns each
  * @theme variable into utilities at build time (`--color-brand-primary` gives
  * `bg-brand-primary`, `text-brand-primary`, …) and ships no client JavaScript.

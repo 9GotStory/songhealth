@@ -1,9 +1,9 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** v1.0, current (Feature 006, spec #144). It records the public design as the code
-> holds it, built from the Product Owner's picks on the Feature 006 prototype. Feature 006's Final
-> Acceptance on #144 accepts it with the feature.
-> **Updated:** 2026-11-05 (v1.0); first drafted 2026-10-30
+> **Status:** v1.1, current. Feature 006's design was accepted on #144; Feature 007's
+> bounded refinements follow spec #190 as its tickets are implemented. Feature 007 acceptance
+> remains the Product Owner's decision.
+> **Updated:** 2026-11-07 (Feature 007 #191); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -12,6 +12,11 @@
 > `docs/design/homepage-concept-v1.md`
 > **Design policy:** Tailwind CSS **v4 only**, Astro-first, Lucide vector icons, no emoji as UI
 > iconography.
+
+> **Feature 007 decision (Product Owner, 2026-11-07; #190 comment 6707205912):**
+> Header B below 1024 px uses compact Search/Contact utility links and a 44×44 px icon-only
+> native menu. The released space belongs to the identity at its existing type size (§7.4).
+> This amendment implements #191 only; the other selected refinements follow in their tickets.
 
 ## 1. Scope, authority and status
 
@@ -162,8 +167,9 @@ evidence"). A title therefore keeps the words of a curated list on one line:
 - **Where it does not:** body text, summaries and labels, such as the menu, the breadcrumb, the
   MOIT page's table of contents, Evidence pills, eyebrows, meta lines, link labels and the
   "บริการที่ให้" link list.
-- **The phone header:** the site title reads "สำนักงานสาธารณสุข" / "อำเภอสอง" at 375 px, and
-  "สำนักงาน" / "สาธารณสุข" / "อำเภอสอง" at 320 px (Product Owner, #145 comment 6625100804 item 2).
+- **The compact header:** the site title uses the space beside the logo and icon-only menu at
+  its existing type size (§7.4; #190 comment 6707205912). Its line count depends on the configured
+  title, logo and tagline; it has no fixed line count. ThaiTitle still keeps listed words whole.
 - **Rejected** (spec #144): `word-break: keep-all`, which in Thai breaks only at spaces and
   overflows; `text-wrap: pretty` alone; a word joiner, which would end up in copied text and in
   search; a segmentation library, a new dependency.
@@ -258,6 +264,27 @@ this document names:
   - a Service card's icon box is 36 px, and a Quick Link card is 56 px tall.
   - `compact` is a prop only the Homepage passes: the Service catalog, `/about`, `/health`, `/ita`
     and the Activities list keep the full cards.
+
+### 7.4 Header and navigation
+
+`src/layouts/SiteLayout.astro` (#191; spec #190 “Header below 1024 px”; Product Owner,
+#190 comment 6707205912, Header B):
+
+- Below 1024 px, the utility bar shows only “ค้นหา” and “ติดต่อเรา”, to `/search` and `/contact`.
+  Each link has a minimum 44 px target height. The repeated office/province label is hidden.
+- The native `<details>` menu opens in the page flow without client JavaScript. Its 44×44 px
+  pill shows a 20 px Lucide menu icon while closed and X while open, with no visible text.
+  Screen-reader-only “เปิดเมนู” / “ปิดเมนู” labels name its state; the browser supplies the native
+  expanded state and Enter/Space operation. The same control closes it; it adds no Escape handler.
+- The identity reserves 64 px for the 44 px control and the gap. Its title takes the released
+  space beside the logo; text remains 16 px below 640 px, 18 px from 640 px and 24 px from 1024 px.
+  The logo or decorative placeholder, optional tagline and ThaiTitle rendering keep their roles.
+- From 1024 px, the full utility bar, office/province label and desktop navigation remain.
+  The same navigation order, destinations and current-section marks serve both presentations.
+- Before/after evidence records the runtime-verified commit and the title/logo/tagline settings.
+  Line counts are observations of those settings, never a universal requirement. The existing
+  public-shell suite verifies 320/375 px reflow, both sides of 1024 px, keyboard/focus, axe,
+  JavaScript-disabled navigation and configured/fallback identities, restoring settings in `finally`.
 
 ## 8. Homepage
 
@@ -428,7 +455,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   - the list is curated, so a compound it does not name can still break, and a new word needs a
     code change;
   - summaries still break inside words, such as "ออกกำลัง / กาย";
-  - at 320 px the header reads in three lines (§4.1).
+  - a configured header title can occupy multiple lines; its space and type follow §7.4.
 - **A compact Quick Link card's label** has about 80 px beside its arrow at 320 px. Six listed words
   are wider at body size, semibold: ความดันโลหิตสูง 107 px, ตรวจคัดกรอง 91, ออกกำลังกาย 90,
   ประชาสัมพันธ์ 89, ความดันโลหิต 89 and ประจำหมู่บ้าน 87. A label holding one of them runs into
@@ -510,3 +537,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   Before the phone Homepage, at `b52ff09` with the demo dataset of the time, the Homepage measured
   5,864, 9,326 and 9,817 px at 1,440, 375 and 320 px (#146's pull request), and an Activity page
   with twenty photos 7,054 px at 375 px (#148's pull request).
+
+- **v1.1 (2026-11-07, Feature 007 #191):** compact phone/tablet Header B, its icon-only native
+  menu, utility targets, unchanged title sizes and setting-dependent title wrapping (§4.1, §7.4,
+  §10). Authority: #190 comment 6707205912. Earlier v1.0 citations record Feature 006's adoption;
+  current header behavior is §7.4.

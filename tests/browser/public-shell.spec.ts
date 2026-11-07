@@ -2,6 +2,7 @@
 //
 // Authority: ticket #52 and spec #51 (Presentation; Testing Decisions, Seam A);
 // `03` §2 (global navigation), `04` §4 and §16 (header, accessibility), ADR 0001.
+// Compact Header B: #191; spec #190 and PO comment 6707205912.
 //
 // The suite drives the single development runtime over public HTTP, the way a
 // citizen does, through the shared public-page harness (third-party request
@@ -147,16 +148,58 @@ test("below 1024 px the icon-only menu has a 44 px target and native named state
 		expect(labelBox?.width, "the accessible label is visually clipped").toBe(1);
 		expect(labelBox?.height).toBe(1);
 		await expect(control).toHaveAccessibleName("เปิดเมนู");
+		await expect(control.locator("svg").nth(0)).toBeVisible();
+		await expect(control.locator("svg").nth(1)).toBeHidden();
 		await expect(control.locator("..")).not.toHaveAttribute("open");
 		await control.focus();
 		await page.keyboard.press("Enter");
 		const close = page.locator("summary").filter({ hasText: "ปิดเมนู" });
 		await expect(close).toHaveAccessibleName("ปิดเมนู");
+		await expect(close.locator("svg").nth(0)).toBeHidden();
+		await expect(close.locator("svg").nth(1)).toBeVisible();
 		await expect(close.locator("..")).toHaveAttribute("open", "");
 		await expect(page.getByRole("navigation", { name: "เมนูหลัก" })).toBeVisible();
 		await page.keyboard.press("Space");
 		await expect(control).toBeFocused();
 		await expect(page.getByRole("navigation", { name: "เมนูหลัก" })).toBeHidden();
+	}
+});
+
+test("the utility bar is compact below 1024 px and full from 1024 px, with working destinations", async ({
+	page,
+}) => {
+	for (const width of [320, 375, 1023, 1024, 1440]) {
+		await page.setViewportSize({ width, height: 900 });
+		await page.goto("/");
+		const banner = page.getByRole("banner");
+		const office = banner.getByText(OFFICE_NAME, { exact: true });
+		const navigation = page.getByRole("navigation", { name: "เมนูหลัก" });
+		if (width < 1024) {
+			await expect(office).toBeHidden();
+			await expect(navigation).toBeHidden();
+			for (const name of ["ค้นหา", "ติดต่อเรา"]) {
+				const link = banner.getByRole("link", { name, exact: true });
+				expect(
+					(await link.boundingBox())?.height,
+					`${name} target at ${width} px`,
+				).toBeGreaterThanOrEqual(44);
+			}
+		} else {
+			await expect(office).toBeVisible();
+			await expect(banner.locator("summary")).toBeHidden();
+			await expect(navigation.getByRole("link")).toHaveText(
+				MAIN_NAVIGATION.map((item) => item.name),
+			);
+			await expect(navigation.getByRole("link", { name: "หน้าแรก" })).toHaveAttribute(
+				"aria-current",
+				"page",
+			);
+		}
+		await expectNoHorizontalScroll(page, `header at ${width} px`);
+		await banner.getByRole("link", { name: "ค้นหา", exact: true }).click();
+		await expect(page).toHaveURL(/\/search$/);
+		await banner.getByRole("link", { name: "ติดต่อเรา", exact: true }).click();
+		await expect(page).toHaveURL(/\/contact$/);
 	}
 });
 
@@ -174,7 +217,12 @@ test.describe("at the 320 px mobile width without JavaScript", () => {
 		).toBeVisible();
 		await expectNoHorizontalScroll(page, "/ with the menu closed");
 
+		const mainBefore = await page.getByRole("main").boundingBox();
 		await openMenu(page);
+		const mainAfter = await page.getByRole("main").boundingBox();
+		const navBox = await navigation.boundingBox();
+		expect(mainAfter!.y - mainBefore!.y).toBeCloseTo(navBox!.height, 0);
+		await expect(page.locator("summary")).toHaveAccessibleName("ปิดเมนู");
 		const links = navigation.getByRole("link");
 		await expect(links).toHaveText(MAIN_NAVIGATION.map((item) => item.name));
 		await expect(navigation.getByRole("link", { name: "หน้าแรก" })).toHaveAttribute(
@@ -190,6 +238,33 @@ test.describe("at the 320 px mobile width without JavaScript", () => {
 		await expectNoHorizontalScroll(page, "the 404 page");
 	});
 });
+
+for (const width of [375, 1023, 1024]) {
+	test.describe(`at ${width} px without JavaScript`, () => {
+		test.use({ viewport: { width, height: 900 }, javaScriptEnabled: false });
+		test("navigation, focus and accessibility remain usable", async ({ page }) => {
+			await page.goto("/");
+			await expectNoAxeViolations(page, `header at ${width} px`);
+			await expectVisibleFocusOnEveryStop(page, `header at ${width} px`);
+			if (width < 1024) {
+				await page.locator("summary").focus();
+				await page.keyboard.press("Enter");
+				await expect(page.locator("summary")).toHaveAccessibleName("ปิดเมนู");
+				await expectNoAxeViolations(page, `open menu at ${width} px`);
+				await expectVisibleFocusOnEveryStop(page, `open menu at ${width} px`);
+			}
+			await expectNoHorizontalScroll(page, `header at ${width} px`);
+			const navigation = page.getByRole("navigation", { name: "เมนูหลัก" });
+			await navigation.getByRole("link", { name: "เอกสารเผยแพร่" }).click();
+			await expect(page).toHaveURL(/\/documents$/);
+			if (width < 1024) await openMenu(page);
+			await expect(navigation.getByRole("link", { name: "เอกสารเผยแพร่" })).toHaveAttribute(
+				"aria-current",
+				"page",
+			);
+		});
+	});
+}
 
 test.describe("keyboard", () => {
 	test("the skip link is the first stop and moves focus to the main content", async ({ page }) => {
@@ -330,7 +405,7 @@ test.describe("site identity from the native site settings", () => {
 		expect(saved.ok, "the native settings read must succeed").toBe(true);
 		const before = (nativeDataOf(saved) ?? {}) as SiteSettingsView;
 		const marker = crypto.randomUUID().slice(0, 8);
-		const title = `${SYNTHETIC_FIXTURE_MARK} ชื่อเว็บไซต์ ${marker}`;
+		const title = `${SYNTHETIC_FIXTURE_MARK} ชื่อเว็บไซต์สำนักงานสาธารณสุขอำเภอสอง ${marker}`;
 		const tagline = `${SYNTHETIC_FIXTURE_MARK} คำโปรย ${marker}`;
 		try {
 			const media = await uploadSyntheticMedia(admin);
@@ -351,6 +426,24 @@ test.describe("site identity from the native site settings", () => {
 			await expect(identity.getByTestId("placeholder-mark")).toHaveCount(0);
 			await expect(page.getByRole("contentinfo")).toContainText(title);
 			await expect(page).toHaveTitle(title);
+			for (const width of [320, 375, 1023, 1024]) {
+				await page.setViewportSize({ width, height: 900 });
+				await page.goto("/");
+				await expect(identity).toHaveAccessibleName(title);
+				await expect(identity).toContainText(tagline);
+				await expect(identity.locator("img")).toBeVisible();
+				await expectNoHorizontalScroll(page, `configured identity at ${width} px`);
+				if (width < 1024) {
+					const name = identity.getByText(title, { exact: true });
+					await expect(name).toHaveCSS("font-size", width < 640 ? "16px" : "18px");
+					const box = await identity.boundingBox();
+					const menu = await page.locator("summary").boundingBox();
+					expect(box!.x + box!.width, "identity leaves room for the menu").toBeLessThanOrEqual(
+						menu!.x,
+					);
+				}
+			}
+
 			await page.goto(unknownPath());
 			await expect(page).toHaveTitle(`${NOT_FOUND_HEADING} — ${title}`);
 
@@ -367,6 +460,13 @@ test.describe("site identity from the native site settings", () => {
 			await expect(fallback.getByTestId("placeholder-mark")).toBeVisible();
 			await expect(fallback.locator("img")).toHaveCount(0);
 			await expect(page.getByRole("banner")).not.toContainText(tagline);
+			for (const width of [320, 375, 1023, 1024]) {
+				await page.setViewportSize({ width, height: 900 });
+				await page.goto("/");
+				await expect(fallback).toBeVisible();
+				await expectNoHorizontalScroll(page, `fallback identity at ${width} px`);
+			}
+
 			await expect(page).toHaveTitle(DEFAULT_SITE_TITLE);
 			await page.goto(unknownPath());
 			await expect(page).toHaveTitle(`${NOT_FOUND_HEADING} | ${DEFAULT_SITE_TITLE}`);

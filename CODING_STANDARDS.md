@@ -34,7 +34,7 @@ and why, and `.jscpd-baseline.json` records them.
 - Colours, type, radii, shadows and the page container come from the tokens in
   `src/styles/global.css`. A colour or type style that the tokens lack becomes a named token
   there, with its source, and `docs/design/DESIGN.md` §3.1 records it.
-- The design's source is the code with `docs/design/DESIGN.md` v1.0 (ADR 0007, Feature 006): a
+- The design's source is the code with `docs/design/DESIGN.md` (ADR 0007, Feature 006): a
   design change updates both in the same pull request. A page that departs from `DESIGN.md`, or a
   difference between it and a decision, is a pending confirmation (Product Owner, 2026-10-31: #64
   comment 6535747409). The Figma frame is history, described in
