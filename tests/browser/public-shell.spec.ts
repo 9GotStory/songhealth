@@ -223,6 +223,13 @@ test.describe("at the 320 px mobile width without JavaScript", () => {
 		const navBox = await navigation.boundingBox();
 		expect(mainAfter!.y - mainBefore!.y).toBeCloseTo(navBox!.height, 0);
 		await expect(page.locator("summary")).toHaveAccessibleName("ปิดเมนู");
+		await page.locator("summary").focus();
+		await page.keyboard.press("Space");
+		await expect(navigation).toBeHidden();
+		await expect(page.locator("summary")).toHaveAccessibleName("เปิดเมนู");
+		expect((await page.getByRole("main").boundingBox())!.y).toBeCloseTo(mainBefore!.y, 0);
+		await page.keyboard.press("Enter");
+		await expect(navigation).toBeVisible();
 		const links = navigation.getByRole("link");
 		await expect(links).toHaveText(MAIN_NAVIGATION.map((item) => item.name));
 		await expect(navigation.getByRole("link", { name: "หน้าแรก" })).toHaveAttribute(
