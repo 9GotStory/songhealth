@@ -72,6 +72,18 @@ and their workflow:
   ([docs/operations/production-foundation.md](docs/operations/production-foundation.md)). Feature
   001's runtime gates T022 and T028 are still open and need a production-capable host.
 
+### Prototype workspace
+
+Put new throwaway prototype builders and their working output under the ignored
+`.tmp/prototypes/<ticket>/` directory. Run them from the repository root, for example
+`node .tmp/prototypes/191/header.mjs`, so their paths to the repository's source are explicit.
+`scripts/` holds maintained commands and is a Knip entry; a local untracked builder there joins
+its dependency scan too (#191 retro).
+
+Keep existing user prototypes in place. An isolated worktree lets implementation checks inspect
+only the ticket's source when unrelated working files interfere. Record the prototype's question,
+verdict and source context with its ticket; publishing the prototype follows that ticket's scope.
+
 ## The development runtime
 
 The single development runtime (Product Owner decision 2026-10-28; Feature 002 T036). Full
@@ -117,6 +129,13 @@ Public-page suites (Feature 003) take `test` from `tests/browser/public.helpers.
 every page against third-party requests, and it provides the axe (WCAG 2.2 AA and page
 structure, with every icon hidden from assistive technology), focus and reflow checks and the
 desktop and 320 px viewports.
+
+For JavaScript-disabled journeys, set `test.use({ javaScriptEnabled: false })` in the public
+suite. The harness records this native option for its fixture context, including any additional
+pages in that context. `expectNoAxeViolations` reports the JavaScript prerequisite immediately
+for that context; run axe in JavaScript-enabled cases and verify no-script navigation separately.
+This uses Playwright 1.63.0's native option fixture (`node_modules/playwright/lib/index.js`,
+`javaScriptEnabled`), including `test.use` overrides.
 
 Pull-request screenshots of public pages come from
 `node scripts/capture-screenshots.mjs <out-dir> <path>...`. The script's header shows how to put

@@ -37,6 +37,7 @@ import {
 	expect,
 	test as base,
 	type APIRequestContext,
+	type BrowserContext,
 	type Locator,
 	type Page,
 } from "@playwright/test";
@@ -88,9 +89,13 @@ export const VIEWPORTS = { desktop: DESKTOP_VIEWPORT, mobile: MOBILE_VIEWPORT };
 
 const NETWORK_PROTOCOLS = new Set(["http:", "https:", "ws:", "wss:"]);
 
+/** Native fixture contexts that cannot run axe's page scripts (#191 retro). */
+const contextsWithoutJavaScript = new WeakSet<BrowserContext>();
+
 export const test = base.extend<{ thirdPartyRequests: string[] }>({
 	thirdPartyRequests: [
-		async ({ page, baseURL }, use) => {
+		async ({ page, baseURL, javaScriptEnabled }, use) => {
+			if (!javaScriptEnabled) contextsWithoutJavaScript.add(page.context());
 			if (baseURL === undefined) {
 				throw new Error("the public-page suites need a configured baseURL (PLAYWRIGHT_BASE_URL)");
 			}
@@ -160,6 +165,11 @@ export async function expectNoHorizontalScroll(page: Page, label: string): Promi
  * `<svg>` that is aria-hidden or inside an aria-hidden element (docs/design/DESIGN.md §5; #105).
  */
 export async function expectNoAxeViolations(page: Page, label: string): Promise<void> {
+	if (contextsWithoutJavaScript.has(page.context())) {
+		throw new Error(
+			`${label}: axe requires a JavaScript-enabled context; audit accessibility with JavaScript enabled and test no-script navigation separately.`,
+		);
+	}
 	// A rule enabled by name runs beside a tag selection (axe-core 4.14.0 axe.js ruleShouldRun).
 	const results = await new AxeBuilder({ page })
 		.options({

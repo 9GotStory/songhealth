@@ -33,6 +33,8 @@ ticket (or `/implement-spec`), which drives `/tdd` and closes with `/code-review
 
 - **On-ramps:** `/triage` for incoming issues, `/diagnosing-bugs` for hard bugs, `/wayfinder` for
   an effort too big for one session. `/ask-matt` routes when the fit is unclear.
+- **Prototypes:** for builders and working artifacts, follow
+  [README's Prototype workspace](README.md#prototype-workspace).
 - **Scope:** an authorized ticket covers its own fixes, tests, refactors and re-reviews. Ask the
   Product Owner before new scope, an architecture change, a destructive or sensitive operation,
   production deployment or runtime provisioning, or a security exception.
