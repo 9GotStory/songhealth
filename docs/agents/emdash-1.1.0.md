@@ -675,6 +675,27 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   (`src/astro/middleware/auth.ts`).
 - The CLI has no import command: `src/cli/commands/import/wordpress.ts` is not registered in
   `src/cli/index.ts`.
+- The package's main entry exports the WXR parsers `parseWxr` (a stream) and `parseWxrString`, and
+  `parseWxrDate` (`src/index.ts`, `src/import/index.ts`), and plain Node 26.13.0 loads it, in about
+  1.2 s (checked 2026-11-07 for #177). `./scripts/migration/legacy-site.ts` reads the Legacy site's
+  export with `parseWxrString` and `parseWxrDate`.
+- `parseWxrString` puts every item but an attachment into `posts`, with its post meta in `meta` by
+  key. An item's `<category>` of a custom taxonomy, neither `category` nor `post_tag`, goes into
+  `customTaxonomies` under its `domain`, by its `nicename`, which WordPress percent-encodes for a
+  Thai name. The name comes from the export's `<wp:term>` entries (`terms`), and from the item's
+  `taxonomyLabels` when it differs from the slug, keyed by the taxonomy and the slug joined by
+  U+0000 (`src/cli/wxr/parser.ts` `parseWxrString`, `captureItemCategoryLabel`).
+- `parseWxrString` gives an attachment its ID, title, `wp:attachment_url` and date, and an empty
+  `meta`: it keeps the attachment's post meta, such as the alt text `_wp_attachment_image_alt`, on
+  the item it drops. The streaming `parseWxr` shares the item's `meta` with the attachment. Neither
+  keeps an attachment's caption (`excerpt:encoded`) (`src/cli/wxr/parser.ts`).
+- `parseWxrString` leaves `site` empty for a WordPress export: it reads the site's fields only as
+  direct children of `<rss>`, while WordPress writes them inside `<channel>`
+  (`src/cli/wxr/parser.ts` `parseWxrString`). `./scripts/migration/plan.ts` names the Legacy
+  site's host itself.
+- `parseWxrDate(gmt, pubDate, local)` reads the GMT date as UTC, else the RFC 2822 `pubDate`,
+  else the site's own date and time, and gives none when all three fail
+  (`src/import/sources/wxr.ts` `parseWxrDate`).
 - EmDash's converter package, `@emdash-cms/gutenberg-to-portable-text` 1.1.0, turns block-editor
   markup into Portable Text with `gutenbergToPortableText`, and plain HTML, such as an ACF WYSIWYG
   value, with `htmlToPortableText`, which parses with parse5

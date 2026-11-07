@@ -1,0 +1,186 @@
+// Synthetic Legacy site exports for the migration script's node tests (#177; spec #174 "Seam A"):
+// a WordPress WXR 1.2 document built from the parts a test names, and a zip of empty files. No
+// Legacy site content enters the repository, so every title, name and file here is made up.
+
+/** A category an item carries: its taxonomy (the WXR `domain`), its slug and its name. */
+export interface SyntheticCategory {
+	domain: string;
+	slug: string;
+	name: string;
+	/** The parent category's slug. */
+	parent?: string;
+}
+
+/** An item of the export: a post of any type, or an attachment. */
+export interface SyntheticItem {
+	type: string;
+	id: number;
+	slug?: string;
+	title?: string;
+	/** `publish` unless given. */
+	status?: string;
+	/** The publish instant in UTC, as WordPress writes `post_date_gmt`: "2025-03-14 03:00:00". */
+	date?: string;
+	categories?: SyntheticCategory[];
+	/** Post meta by key, such as `_thumbnail_id` or the ACF fields `image_1` and `editor`. */
+	meta?: Record<string, string>;
+	/** The block editor's content. */
+	content?: string;
+	/** An attachment's file address. */
+	url?: string;
+	/** The login of the item's author. */
+	creator?: string;
+}
+
+/** An author of the export, with the details WordPress writes for one. */
+export interface SyntheticAuthor {
+	login: string;
+	email: string;
+	displayName: string;
+}
+
+/** The Legacy site's address, as its export writes it. */
+export const SITE = "https://songhealth.moph.go.th";
+
+/** The author every synthetic export holds, whose details no output may carry. */
+export const AUTHOR: SyntheticAuthor = {
+	login: "synthetic-admin",
+	email: "synthetic.author@example.org",
+	displayName: "ผู้เขียนสังเคราะห์",
+};
+
+/** Text inside CDATA, split where it holds the section's end. */
+const cdata = (text: string) => `<![CDATA[${text.replaceAll("]]>", "]]]]><![CDATA[>")}]]>`;
+
+/** "2025-03-14 03:00:00" in UTC, moved by `hours`, in the same form. */
+function shifted(date: string, hours: number): string {
+	const instant = new Date(`${date.replace(" ", "T")}Z`);
+	return new Date(instant.getTime() + hours * 3_600_000)
+		.toISOString()
+		.slice(0, 19)
+		.replace("T", " ");
+}
+
+function itemXml(item: SyntheticItem): string {
+	const date = item.date ?? "2025-03-14 03:00:00";
+	const lines = [
+		`<title>${cdata(item.title ?? "")}</title>`,
+		`<link>${SITE}/?p=${item.id}</link>`,
+		`<pubDate>${new Date(`${date.replace(" ", "T")}Z`).toUTCString()}</pubDate>`,
+		`<dc:creator>${cdata(item.creator ?? AUTHOR.login)}</dc:creator>`,
+		`<guid isPermaLink="false">${SITE}/?p=${item.id}</guid>`,
+		"<description></description>",
+		`<content:encoded>${cdata(item.content ?? "")}</content:encoded>`,
+		`<excerpt:encoded>${cdata("")}</excerpt:encoded>`,
+		`<wp:post_id>${item.id}</wp:post_id>`,
+		// The site's own time, Bangkok's (UTC+7), as WordPress writes `post_date`.
+		`<wp:post_date>${cdata(shifted(date, 7))}</wp:post_date>`,
+		`<wp:post_date_gmt>${cdata(date)}</wp:post_date_gmt>`,
+		`<wp:post_modified>${cdata(shifted(date, 7))}</wp:post_modified>`,
+		`<wp:post_modified_gmt>${cdata(date)}</wp:post_modified_gmt>`,
+		`<wp:comment_status>${cdata("closed")}</wp:comment_status>`,
+		`<wp:ping_status>${cdata("closed")}</wp:ping_status>`,
+		`<wp:post_name>${cdata(item.slug ?? "")}</wp:post_name>`,
+		`<wp:status>${cdata(item.status ?? "publish")}</wp:status>`,
+		"<wp:post_parent>0</wp:post_parent>",
+		"<wp:menu_order>0</wp:menu_order>",
+		`<wp:post_type>${cdata(item.type)}</wp:post_type>`,
+		`<wp:post_password>${cdata("")}</wp:post_password>`,
+		"<wp:is_sticky>0</wp:is_sticky>",
+		...(item.url === undefined
+			? []
+			: [`<wp:attachment_url>${cdata(item.url)}</wp:attachment_url>`]),
+		...(item.categories ?? []).map(
+			(category) =>
+				`<category domain="${category.domain}" nicename="${category.slug}">${cdata(category.name)}</category>`,
+		),
+		...Object.entries(item.meta ?? {}).map(
+			([key, value]) =>
+				`<wp:postmeta><wp:meta_key>${cdata(key)}</wp:meta_key><wp:meta_value>${cdata(value)}</wp:meta_value></wp:postmeta>`,
+		),
+	];
+	return `<item>\n${lines.join("\n")}\n</item>`;
+}
+
+/**
+ * A WXR 1.2 document with the export's author, a `<wp:term>` for each category the items carry,
+ * and the items in the order given.
+ */
+export function wxrDocument(items: SyntheticItem[], authors: SyntheticAuthor[] = [AUTHOR]): string {
+	const terms = new Map<string, SyntheticCategory>();
+	for (const category of items.flatMap((item) => item.categories ?? [])) {
+		terms.set(`${category.domain} ${category.slug}`, category);
+	}
+	const authorXml = authors.map(
+		(author, index) =>
+			`<wp:author><wp:author_id>${index + 1}</wp:author_id><wp:author_login>${cdata(author.login)}</wp:author_login><wp:author_email>${cdata(author.email)}</wp:author_email><wp:author_display_name>${cdata(author.displayName)}</wp:author_display_name><wp:author_first_name>${cdata("")}</wp:author_first_name><wp:author_last_name>${cdata("")}</wp:author_last_name></wp:author>`,
+	);
+	const termXml = [...terms.values()].map(
+		(term, index) =>
+			`<wp:term><wp:term_id>${index + 1}</wp:term_id><wp:term_taxonomy>${cdata(term.domain)}</wp:term_taxonomy><wp:term_slug>${cdata(term.slug)}</wp:term_slug><wp:term_parent>${cdata(term.parent ?? "")}</wp:term_parent><wp:term_name>${cdata(term.name)}</wp:term_name></wp:term>`,
+	);
+	return [
+		'<?xml version="1.0" encoding="UTF-8" ?>',
+		'<rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">',
+		"<channel>",
+		`<title>${cdata("สำนักงานสาธารณสุขอำเภอสอง")}</title>`,
+		`<link>${SITE}</link>`,
+		"<wp:wxr_version>1.2</wp:wxr_version>",
+		`<wp:base_site_url>${SITE}</wp:base_site_url>`,
+		`<wp:base_blog_url>${SITE}</wp:base_blog_url>`,
+		...authorXml,
+		...termXml,
+		...items.map(itemXml),
+		"</channel>",
+		"</rss>",
+	].join("\n");
+}
+
+/** An attachment item whose file is `path` under the site, such as "wp-content/uploads/a.webp". */
+export function attachment(id: number, path: string): SyntheticItem {
+	return {
+		type: "attachment",
+		id,
+		slug: `attachment-${id}`,
+		title: `ไฟล์ ${id}`,
+		url: `${SITE}/${path}`,
+	};
+}
+
+/**
+ * A zip holding an empty file at each path, as the uploads copy holds the site's files. A path
+ * given as bytes is stored as those bytes, such as a name cut inside a character.
+ */
+export function zipOf(paths: (string | Uint8Array)[]): Buffer {
+	const local: Buffer[] = [];
+	const central: Buffer[] = [];
+	let offset = 0;
+	for (const path of paths) {
+		const name = typeof path === "string" ? Buffer.from(path, "utf8") : Buffer.from(path);
+		// General purpose flag bit 11 marks a UTF-8 name; the uploads copy sets it on most names.
+		const flags = typeof path === "string" ? 0x0800 : 0;
+		const header = Buffer.alloc(30);
+		header.writeUInt32LE(0x04034b50, 0);
+		header.writeUInt16LE(20, 4);
+		header.writeUInt16LE(flags, 6);
+		header.writeUInt16LE(name.length, 26);
+		local.push(header, name);
+		const entry = Buffer.alloc(46);
+		entry.writeUInt32LE(0x02014b50, 0);
+		entry.writeUInt16LE(0x0314, 4);
+		entry.writeUInt16LE(20, 6);
+		entry.writeUInt16LE(flags, 8);
+		entry.writeUInt16LE(name.length, 28);
+		entry.writeUInt32LE(offset, 42);
+		central.push(entry, name);
+		offset += header.length + name.length;
+	}
+	const directory = Buffer.concat(central);
+	const end = Buffer.alloc(22);
+	end.writeUInt32LE(0x06054b50, 0);
+	end.writeUInt16LE(paths.length, 8);
+	end.writeUInt16LE(paths.length, 10);
+	end.writeUInt32LE(directory.length, 12);
+	end.writeUInt32LE(offset, 16);
+	return Buffer.concat([...local, directory, end]);
+}
