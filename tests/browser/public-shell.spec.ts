@@ -56,7 +56,7 @@ function unknownPath(within = ""): string {
 
 /** Open the compact menu by its accessible name (#191). */
 async function openMenu(page: Page): Promise<void> {
-	await page.getByRole("button", { name: "เปิดเมนู", exact: true }).click();
+	await page.locator("summary").filter({ hasText: "เปิดเมนู" }).click();
 }
 
 test.use({ viewport: DESKTOP_VIEWPORT });
@@ -137,17 +137,22 @@ test("below 1024 px the icon-only menu has a 44 px target and native named state
 	for (const width of [320, 375, 1023]) {
 		await page.setViewportSize({ width, height: 900 });
 		await page.goto("/");
-		const control = page.getByRole("button", { name: "เปิดเมนู", exact: true });
+		const control = page.locator("summary").filter({ hasText: "เปิดเมนู" });
 		await expect(control).toBeVisible();
 		const box = await control.boundingBox();
 		expect(box?.width).toBe(44);
 		expect(box?.height).toBe(44);
-		expect(await control.innerText(), "the name uses no visible label").toBe("");
-		await expect(control).toMatchAriaSnapshot('- button "เปิดเมนู"');
+		const label = control.getByText("เปิดเมนู", { exact: true });
+		const labelBox = await label.boundingBox();
+		expect(labelBox?.width, "the accessible label is visually clipped").toBe(1);
+		expect(labelBox?.height).toBe(1);
+		await expect(control).toHaveAccessibleName("เปิดเมนู");
+		await expect(control.locator("..")).not.toHaveAttribute("open");
 		await control.focus();
 		await page.keyboard.press("Enter");
-		const close = page.getByRole("button", { name: "ปิดเมนู", exact: true });
-		await expect(close).toMatchAriaSnapshot('- button "ปิดเมนู" [expanded]');
+		const close = page.locator("summary").filter({ hasText: "ปิดเมนู" });
+		await expect(close).toHaveAccessibleName("ปิดเมนู");
+		await expect(close.locator("..")).toHaveAttribute("open", "");
 		await expect(page.getByRole("navigation", { name: "เมนูหลัก" })).toBeVisible();
 		await page.keyboard.press("Space");
 		await expect(control).toBeFocused();
