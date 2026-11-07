@@ -2,7 +2,8 @@
 // The Document repository, /documents (Feature 003 #55; spec #51 "Public reads" (Documents),
 // `03` §10): published Documents, newest publication first, a fixed number per page with the page
 // number in the query string. `?type=`, `?topic=` and `?year=` narrow it by Document Type, topic
-// and fiscal year, alone or together (src/lib/documents.ts).
+// and fiscal year, alone or together (src/lib/documents.ts). Each filter offers only what published
+// Documents carry: their terms (src/lib/terms.ts offeredTerms) and their fiscal years.
 //
 // The canonical address keeps the filters that are set and a valid page number, so each view stays
 // its own address for search engines, as on the News lists.
@@ -21,7 +22,7 @@ import {
 	parseDocumentFilters,
 } from "../../lib/documents";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
-import { listTerms } from "../../lib/terms";
+import { offeredTerms } from "../../lib/terms";
 
 const title = "เอกสารเผยแพร่";
 const lead = "แบบฟอร์ม คู่มือ แผนงาน รายงาน และเอกสารอื่นของสำนักงานสาธารณสุขอำเภอสอง";
@@ -29,8 +30,8 @@ const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
 const filters = parseDocumentFilters(Astro.url.searchParams);
 const [{ entries, hasMore }, types, topics, years] = await Promise.all([
 	listDocuments(page, filters),
-	listTerms("document_type"),
-	listTerms("topic"),
+	offeredTerms("documents", "document_type"),
+	offeredTerms("documents", "topic"),
 	fiscalYears(),
 ]);
 const listUrl = new URL(documentsPath(filters), Astro.url);

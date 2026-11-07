@@ -6,7 +6,8 @@
 // documents to prepare, contact and location, duration, fees and notes. Its external service link
 // is marked as leaving the site and opens in a new tab. The related Documents follow in staff
 // order, then the Health Services that offer it by name. Drafts, unpublished and trashed Services
-// never show, and their addresses answer the site 404.
+// never show, and their addresses answer the site 404. The filter offers only the Service
+// Categories that published Services carry, in label order (spec #174 "Public list filters").
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -21,6 +22,9 @@
 //   writeReferenceSelection); the child side reads back in link order, not by name
 //   (src/database/repositories/relation.ts getParentsPageById).
 // - A reference target resolves only while it is published (src/references/resolve.ts).
+// - A term made through the API takes the position after the last, and EmDash lists terms by
+//   position (src/database/repositories/taxonomy.ts nextSortOrder, src/taxonomies/index.ts
+//   loadTaxonomyTerms), so this suite's categories come back in the order it makes them.
 
 import {
 	createOwnedTerm,
@@ -48,10 +52,12 @@ import {
 	detailOf,
 	expect,
 	expectBreadcrumb,
+	expectFilteredEmpty,
 	expectPreviewRenders,
 	expectSiteNotFound,
 	listedItem,
 	listedTitles,
+	offeredLabels,
 	ownTitles,
 	siteTitleParts,
 	test,
@@ -65,6 +71,12 @@ let admin: CmsActor;
 let origin: string;
 /** Synthetic terms this suite created, removed at the end. */
 const ownedTerms: SyntheticTerm[] = [];
+
+/** What /services shows when its Service Category matches nothing. */
+const FILTERED_EMPTY = {
+	message: "ไม่พบบริการในหมวดที่เลือก",
+	back: { label: "ดูบริการทั้งหมด", href: "/services" },
+};
 
 /** A synthetic Service Category term, labelled in Thai so it reads like a real one. */
 const createCategory = (label: string) =>
@@ -141,13 +153,15 @@ test("/services lists only published Services by name, each with its summary and
 	).toHaveAttribute("href", "/documents");
 });
 
-test("the Service Category filter narrows /services, stays in the address and reproduces from a shared address", async ({
+test("the Service Category filter offers only the categories of published Services in label order, narrows /services, stays in the address and reproduces from a shared address", async ({
 	page,
 	browser,
 }) => {
+	// Made ร before บ, so EmDash lists them in that order, and the filter must offer them by label.
 	const complaints = await createCategory("ร้องเรียน เสนอแนะ");
 	const volunteers = await createCategory("บริการสำหรับ อสม.");
 	const unused = await createCategory("หมวดที่ยังไม่มีบริการ");
+	const draftOnly = await createCategory("หมวดที่มีแต่ฉบับร่าง");
 	const complaint = await createService("filter-complaint", {
 		name: "ก ร้องเรียนการให้บริการ",
 		taxonomies: { service_category: [complaints.slug] },
@@ -162,15 +176,21 @@ test("the Service Category filter narrows /services, stays in the address and re
 	});
 	const all = [complaint, both, volunteer];
 	for (const fixture of all) await publish("services", fixture);
+	await createService("filter-draft", {
+		name: "ง ร่างบริการ",
+		taxonomies: { service_category: [draftOnly.slug] },
+	});
 
 	await page.goto("/services");
 	const filters = page.getByRole("form", { name: "กรองบริการ" });
 	const categoryField = filters.getByLabel("หมวดบริการ");
-	const offered = (await categoryField.locator("option").allTextContents()).map((text) =>
-		text.trim(),
+	await expect(categoryField.locator("option").first(), "the first choice is no filter").toHaveText(
+		"ทุกหมวด",
 	);
-	expect(offered[0], "the first choice is no filter").toBe("ทุกหมวด");
-	expect(offered).toEqual(expect.arrayContaining([complaints.label, volunteers.label]));
+	expect(
+		await offeredLabels(categoryField, [complaints, volunteers, unused, draftOnly]),
+		"the categories of published Services in label order, without one that no Service or only a draft carries",
+	).toEqual([volunteers.label, complaints.label]);
 
 	await categoryField.selectOption({ label: complaints.label });
 	await filters.getByRole("button", { name: "แสดงผล" }).click();
@@ -210,17 +230,10 @@ test("the Service Category filter narrows /services, stays in the address and re
 
 	for (const path of [
 		`/services?category=${unused.slug}`,
+		`/services?category=${draftOnly.slug}`,
 		`/services?category=${syntheticSlug("no-such-category")}`,
 	]) {
-		const response = await page.goto(path);
-		expect(response?.status(), `${path} is not an error`).toBe(200);
-		const main = page.getByRole("main");
-		await expect(main.getByRole("article")).toHaveCount(0);
-		await expect(main.getByText("ไม่พบบริการในหมวดที่เลือก")).toBeVisible();
-		await expect(main.getByRole("link", { name: "ดูบริการทั้งหมด" })).toHaveAttribute(
-			"href",
-			"/services",
-		);
+		await expectFilteredEmpty(page, path, FILTERED_EMPTY);
 	}
 });
 

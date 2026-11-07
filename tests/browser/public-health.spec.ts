@@ -9,7 +9,9 @@
 // (ADR 0004); each report's page at /health/reports/{slug} shows its summary, reporting period,
 // fiscal year and source, and links to its report Document. Health Reports never appear among
 // Health Content. Drafts, unpublished and trashed entries never show, and their addresses answer
-// the site 404. An image in a body whose media item was deleted is left out.
+// the site 404. An image in a body whose media item was deleted is left out. The topic filter of
+// /health/content offers only the Health Topics that published Health Content carries (spec #174
+// "Public list filters").
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -18,7 +20,8 @@
 // entries (the demo dataset, the Product Owner's own), so assertions look only at this suite's
 // uniquely titled fixtures, or at a list narrowed to this suite's own Health Topic. Health Reports
 // that must lead the list are dated from 2030 on, after any real report; the paging test's are
-// dated latest, since earlier tests' fixtures stay until the suite ends.
+// dated latest, since earlier tests' fixtures stay until the suite ends. A synthetic News item
+// stands for another list that carries a topic.
 //
 // Platform behaviour relied on (emdash 1.1.0):
 // - POST …/publish accepts `publishedAt` to backdate a publication
@@ -65,11 +68,13 @@ import {
 	detailOf,
 	expect,
 	expectBreadcrumb,
+	expectFilteredEmpty,
 	expectImageLoaded,
 	expectPreviewRenders,
 	expectSiteNotFound,
 	listedItem,
 	listedTitles,
+	offeredLabels,
 	ownTitles,
 	siteTitleParts,
 	test,
@@ -81,6 +86,12 @@ import {
 const CONTENT_PAGE_SIZE = 12;
 /** The fixed number of Health Reports a list page shows. */
 const REPORTS_PAGE_SIZE = 20;
+
+/** What /health/content shows when its Health Topic matches nothing. */
+const CONTENT_FILTERED_EMPTY = {
+	message: "ไม่พบความรู้สุขภาพในประเด็นนี้",
+	back: { label: "ดูความรู้สุขภาพทุกประเด็น", href: "/health/content" },
+};
 
 // Each area's crumb, which its own pages pass through after the section's.
 const CONTENT_CRUMB = ["ความรู้สุขภาพ", "/health/content"] as const;
@@ -246,13 +257,11 @@ test("/health/content narrows to one Health Topic with ?topic=, keeps it in the 
 			.getByRole("link", { name: "หน้าก่อนหน้า" }),
 	).toHaveAttribute("href", `/health/content?topic=${topic.slug}`);
 
-	const unknown = await page.goto(`/health/content?topic=${syntheticSlug("no-such-topic")}`);
-	expect(unknown?.status(), "an unknown topic is not an error").toBe(200);
-	await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
-	await expect(page.getByRole("main").getByText("ไม่พบความรู้สุขภาพในประเด็นนี้")).toBeVisible();
-	await expect(
-		page.getByRole("main").getByRole("link", { name: "ดูความรู้สุขภาพทุกประเด็น" }),
-	).toHaveAttribute("href", "/health/content");
+	await expectFilteredEmpty(
+		page,
+		`/health/content?topic=${syntheticSlug("no-such-topic")}`,
+		CONTENT_FILTERED_EMPTY,
+	);
 
 	const beyond = await page.goto("/health/content?page=10000");
 	expect(beyond?.status(), "a page past the end is not an error").toBe(200);
@@ -261,6 +270,36 @@ test("/health/content narrows to one Health Topic with ?topic=, keeps it in the 
 	await expect(
 		page.getByRole("main").getByRole("link", { name: "กลับไปหน้าแรกของรายการ" }),
 	).toHaveAttribute("href", "/health/content");
+});
+
+test("the /health/content topic filter offers only the Health Topics that published Health Content carries, and an address naming another shows the empty state", async ({
+	page,
+}) => {
+	const offered = await createTerm("topic", "การแพทย์แผนไทย");
+	const draftOnly = await createTerm("topic", "สุขภาพช่องปาก");
+	const newsOnly = await createTerm("topic", "ยาเสพติด");
+	const content = await createContent("topics-published", {
+		taxonomies: { topic: [offered.slug] },
+	});
+	await createContent("topics-draft", { taxonomies: { topic: [draftOnly.slug] } });
+	const news = await createSyntheticDraft(admin, "news", "ข่าว", "topics-news", {
+		taxonomies: { topic: [newsOnly.slug] },
+	});
+	await publishContent(content);
+	await publishEntryAt(admin, "news", news.id);
+
+	await page.goto("/health/content");
+	expect(
+		await offeredLabels(
+			page.getByRole("form", { name: "กรองความรู้สุขภาพ" }).getByLabel("ประเด็นสุขภาพ"),
+			[offered, draftOnly, newsOnly],
+		),
+		"a topic that only a draft or another list carries is not offered",
+	).toEqual([offered.label]);
+
+	for (const term of [draftOnly, newsOnly]) {
+		await expectFilteredEmpty(page, `/health/content?topic=${term.slug}`, CONTENT_FILTERED_EMPTY);
+	}
 });
 
 test("a Health Content page shows its topics, source, last review date, picture with its alt text and body under its breadcrumb", async ({
