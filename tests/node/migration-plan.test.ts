@@ -261,12 +261,22 @@ describe("the Classification list's rows", () => {
 			newsItem(1, { categories: [PUBLIC_RELATIONS, PM25] }),
 			procurement(2, { categories: [WINNER, AUCTION] }),
 			newsItem(3),
+			// A category the export's term list leaves out takes the name the item gives it.
+			newsItem(4, { categories: [{ ...ACTIVITY, slug: "activity-2", unlisted: true }] }),
 		]);
-		assert.deepEqual(columns(rows, "categories"), [
-			["news-1", "PM 2.5; ประชาสัมพันธ์"],
-			["news-3", ""],
-			["procurement-2", "ขายทอดตลาด; ประกาศผู้ชนะการเสนอราคา"],
+		assert.deepEqual(columns(rows, "categories", "default_target"), [
+			["news-1", "PM 2.5; ประชาสัมพันธ์", "News"],
+			["news-3", "", "News"],
+			["news-4", "กิจกรรม", "Activity"],
+			["procurement-2", "ขายทอดตลาด; ประกาศผู้ชนะการเสนอราคา", "Announcement"],
 		]);
+	});
+
+	it("refuses a published item whose publish date the export gives malformed", async () => {
+		await assert.rejects(
+			planOf([newsItem(1, { categories: [ACTIVITY], date: "2025-02-30 25:00:00" })]),
+			/news-1 has no publish date/,
+		);
 	});
 });
 
@@ -487,7 +497,8 @@ describe("plan's merge with an earlier list", () => {
 			[NOTICE_PATH],
 			earlier,
 		);
-		assert.deepEqual(inventory.list.toChoose, ["news-1", "news-3"]);
+		// A decision plan cannot read leaves its row undecided too.
+		assert.deepEqual(inventory.list.toChoose, ["news-1", "news-3", "news-4", "news-5"]);
 		assert.deepEqual(inventory.list.unreadable, [
 			{ slug: "news-4", decision: "Activty" },
 			{ slug: "news-5", decision: "Announcement" },
@@ -499,6 +510,38 @@ describe("plan's merge with an earlier list", () => {
 			Document: 0,
 			ต้องเลือก: 4,
 		});
+	});
+
+	it("counts the Announcements and Documents by type, a changed target dropping its default type", async () => {
+		const earlier = earlierList(
+			// An order made an Announcement takes no type from its default, order.
+			"directive,directive-1,1,,2025-01-01,2568,คำสั่ง,,Document,order,Announcement,,",
+			// A notice made a Document carries no type: only an order does (spec #174).
+			"directive,directive-2,2,,2025-01-01,2568,ประกาศ,,Announcement,general,Document,,",
+			"directive,directive-3,3,,2025-01-01,2568,ประกาศ,,Announcement,recruitment,,general,",
+			"procurement,procurement-4,4,,2025-01-01,2568,,,Announcement,procurement,Announcement,,",
+			"directive,directive-5,5,,2025-01-01,2568,คำสั่ง,,Document,order,Announcement,recruitment,",
+			"directive,directive-6,6,,2025-01-01,2568,คำสั่ง,,Document,order,,,",
+		);
+		const { inventory } = await planOf(
+			[
+				directive(1, { categories: [ORDER] }),
+				directive(2, { categories: [NOTICE] }),
+				directive(3, { categories: [NOTICE], title: "ประกาศรับสมัครพนักงาน" }),
+				procurement(4),
+				directive(5, { categories: [ORDER] }),
+				directive(6, { categories: [ORDER] }),
+				NOTICE_FILE,
+			],
+			[NOTICE_PATH],
+			earlier,
+		);
+		assert.deepEqual(inventory.list.types, {
+			Announcement: { general: 1, procurement: 1, recruitment: 1 },
+			Document: { order: 1 },
+		});
+		assert.equal(inventory.list.targets.Announcement, 4);
+		assert.equal(inventory.list.targets.Document, 2);
 	});
 
 	it("keeps the columns reviewers added, after the list's own", async () => {
@@ -797,6 +840,36 @@ describe("the plan command", () => {
 				"classification-list.csv",
 				"export.xml",
 				"inventory.json",
+				"wp-content.zip",
+			]);
+		} finally {
+			await rm(folder, { recursive: true });
+		}
+	});
+
+	it("refuses an earlier list that is not UTF-8, and writes nothing", async () => {
+		const folder = await mkdtemp(join(tmpdir(), "songhealth-migration-test-"));
+		try {
+			const exportPath = join(folder, "export.xml");
+			const zipPath = join(folder, "wp-content.zip");
+			const listPath = join(folder, "classification-list.csv");
+			await writeFile(exportPath, wxrDocument([newsItem(1, { categories: [ACTIVITY] })]));
+			await writeFile(zipPath, zipOf([]));
+			// "สรุป" in TIS-620, as Excel's plain CSV saves Thai on a Thai Windows.
+			const tis620 = Buffer.from([0xca, 0xc3, 0xd8, 0xbb]);
+			const list = Buffer.concat([
+				Buffer.from(`${HEADER}\npublic-new,news-1,1,,2025-03-14,2568,กิจกรรม,,Activity,,,,`),
+				tis620,
+				Buffer.from("\n"),
+			]);
+			await writeFile(listPath, list);
+			const result = run("plan", exportPath, zipPath);
+			assert.equal(result.status, 1);
+			assert.match(result.stderr, /the earlier list is not UTF-8/);
+			assert.deepEqual(await readFile(listPath), list);
+			assert.deepEqual((await readdir(folder)).toSorted(), [
+				"classification-list.csv",
+				"export.xml",
 				"wp-content.zip",
 			]);
 		} finally {

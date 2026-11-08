@@ -82,12 +82,7 @@ function categoryName(wxr: WxrData, post: WxrPost, taxonomy: string, slug: strin
 			? wxr.categories.find((category) => category.nicename === slug)?.name
 			: undefined) ??
 		post.taxonomyLabels?.get(`${taxonomy}\u0000${slug}`);
-	if (name !== undefined) return name;
-	try {
-		return decodeURIComponent(slug);
-	} catch {
-		return slug;
-	}
+	return name ?? slug;
 }
 
 function itemOf(wxr: WxrData, post: WxrPost, type: ItemType): LegacyItem {
@@ -96,15 +91,16 @@ function itemOf(wxr: WxrData, post: WxrPost, type: ItemType): LegacyItem {
 		taxonomy === "category" ? post.categories : (post.customTaxonomies?.get(taxonomy) ?? []);
 	const field = (name: string) => [1, 2, 3, 4, 5].map((n) => post.meta.get(`${name}_${n}`));
 	const labels = field("text");
+	// The GMT date first, then pubDate, then the site's own; a malformed GMT date gives an Invalid
+	// Date rather than the next (emdash 1.1.0 src/import/sources/wxr.ts parseWxrDate).
+	const published = parseWxrDate(post.postDateGmt, post.pubDate, post.postDate);
 	return {
 		type,
 		id: post.id!,
 		slug: post.postName ?? "",
 		title: post.title ?? "",
 		status: post.status ?? "",
-		// The GMT date first, then pubDate, then the site's own (emdash 1.1.0
-		// src/import/sources/wxr.ts parseWxrDate).
-		published: parseWxrDate(post.postDateGmt, post.pubDate, post.postDate),
+		published: published && !Number.isNaN(published.getTime()) ? published : undefined,
 		categories: slugs.map((slug) => categoryName(wxr, post, taxonomy, slug)),
 		featured: attachmentId(post.meta.get("_thumbnail_id")),
 		pictures: field("image").flatMap((value) => attachmentId(value) ?? []),

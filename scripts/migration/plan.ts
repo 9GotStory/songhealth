@@ -383,7 +383,7 @@ interface ListReport {
 	targets: Record<string, number>;
 	/** The Announcements and Documents by type slug, a type decision applied. */
 	types: Record<string, Record<string, number>>;
-	/** The slugs of the rows still ต้องเลือก, by default or by decision. */
+	/** The slugs of the rows still ต้องเลือก: by default, by decision, or by an unread decision. */
 	toChoose: string[];
 	/** The rows whose decision names no target their legacy type can take. */
 	unreadable: { slug: string; decision: string }[];
@@ -391,6 +391,16 @@ interface ListReport {
 	added: string[];
 	/** The slugs of the rows whose item the export no longer holds. */
 	vanished: string[];
+}
+
+/**
+ * A row's type: its type decision, else its default type while its target stays the default one,
+ * so that a notice made a Document carries no type (spec #174: only an order does).
+ */
+function typeOf(row: ListRow): string {
+	const decided = row.decision_type.trim();
+	if (decided !== "") return decided;
+	return targetOf(row) === row.default_target ? row.default_type : "";
 }
 
 function listReport(merge: ReturnType<typeof merged>, earlier: boolean): ListReport {
@@ -401,16 +411,19 @@ function listReport(merge: ReturnType<typeof merged>, earlier: boolean): ListRep
 	const types: Record<string, Record<string, number>> = { Announcement: {}, Document: {} };
 	for (const row of current) {
 		const target = targetOf(row) ?? TO_CHOOSE;
-		targets[target] = (targets[target] ?? 0) + 1;
-		const type = row.decision_type.trim() || row.default_type;
-		if (type && types[target]) types[target][type] = (types[target][type] ?? 0) + 1;
+		count(targets, target);
+		const type = typeOf(row);
+		if (type !== "" && types[target] !== undefined) count(types[target], type);
 	}
 	return {
 		earlier,
 		rows: merge.rows.length,
 		targets,
 		types,
-		toChoose: current.filter((row) => targetOf(row) === TO_CHOOSE).map((row) => row.slug),
+		// A decision plan cannot read leaves its row undecided too.
+		toChoose: current
+			.filter((row) => (targetOf(row) ?? TO_CHOOSE) === TO_CHOOSE)
+			.map((row) => row.slug),
 		unreadable: current
 			.filter((row) => targetOf(row) === undefined)
 			.map((row) => ({ slug: row.slug, decision: row.decision })),

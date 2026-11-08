@@ -111,10 +111,20 @@ async function planCommand(exportPath: string, zipPath: string): Promise<number>
 	}
 	const xml = await readFile(exportPath);
 	const listPath = join(folder, LIST_FILE);
-	const earlier = await readFile(listPath, "utf8").catch((error: NodeJS.ErrnoException) => {
+	const earlierBytes = await readFile(listPath).catch((error: NodeJS.ErrnoException) => {
 		if (error.code === "ENOENT") return undefined;
 		throw error;
 	});
+	let earlier: string | undefined;
+	try {
+		// A spreadsheet can save Thai in another code page, which a lenient read would turn into
+		// U+FFFD, losing the Summaries without a word.
+		earlier = earlierBytes && new TextDecoder("utf-8", { fatal: true }).decode(earlierBytes);
+	} catch {
+		throw new Error(
+			`the earlier list is not UTF-8: save ${listPath} as CSV UTF-8 and run plan again`,
+		);
+	}
 	const result = plan({
 		site: await readLegacySite(xml.toString("utf8")),
 		uploads: await readZipNames(zipPath),

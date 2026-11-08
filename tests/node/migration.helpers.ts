@@ -9,6 +9,8 @@ export interface SyntheticCategory {
 	name: string;
 	/** The parent category's slug. */
 	parent?: string;
+	/** Left out of the export's term list, so that only the item's own label names it. */
+	unlisted?: true;
 }
 
 /** An item of the export: a post of any type, or an attachment. */
@@ -19,7 +21,10 @@ export interface SyntheticItem {
 	title?: string;
 	/** `publish` unless given. */
 	status?: string;
-	/** The publish instant in UTC, as WordPress writes `post_date_gmt`: "2025-03-14 03:00:00". */
+	/**
+	 * The publish instant in UTC, as WordPress writes `post_date_gmt`: "2025-03-14 03:00:00". A
+	 * value that is no instant goes into every date field as it is.
+	 */
 	date?: string;
 	categories?: SyntheticCategory[];
 	/** Post meta by key, such as `_thumbnail_id` or the ACF fields `image_1` and `editor`. */
@@ -52,13 +57,20 @@ export const AUTHOR: SyntheticAuthor = {
 /** Text inside CDATA, split where it holds the section's end. */
 const cdata = (text: string) => `<![CDATA[${text.replaceAll("]]>", "]]]]><![CDATA[>")}]]>`;
 
-/** "2025-03-14 03:00:00" in UTC, moved by `hours`, in the same form. */
+/** "2025-03-14 03:00:00" in UTC, moved by `hours`, in the same form; a non-instant as it is. */
 function shifted(date: string, hours: number): string {
 	const instant = new Date(`${date.replace(" ", "T")}Z`);
+	if (Number.isNaN(instant.getTime())) return date;
 	return new Date(instant.getTime() + hours * 3_600_000)
 		.toISOString()
 		.slice(0, 19)
 		.replace("T", " ");
+}
+
+/** An instant as RSS's pubDate writes it; a non-instant as it is. */
+function rssDate(date: string): string {
+	const instant = new Date(`${date.replace(" ", "T")}Z`);
+	return Number.isNaN(instant.getTime()) ? date : instant.toUTCString();
 }
 
 function itemXml(item: SyntheticItem): string {
@@ -66,7 +78,7 @@ function itemXml(item: SyntheticItem): string {
 	const lines = [
 		`<title>${cdata(item.title ?? "")}</title>`,
 		`<link>${SITE}/?p=${item.id}</link>`,
-		`<pubDate>${new Date(`${date.replace(" ", "T")}Z`).toUTCString()}</pubDate>`,
+		`<pubDate>${rssDate(date)}</pubDate>`,
 		`<dc:creator>${cdata(item.creator ?? AUTHOR.login)}</dc:creator>`,
 		`<guid isPermaLink="false">${SITE}/?p=${item.id}</guid>`,
 		"<description></description>",
@@ -103,21 +115,26 @@ function itemXml(item: SyntheticItem): string {
 }
 
 /**
- * A WXR 1.2 document with the export's author, a `<wp:term>` for each category the items carry,
+ * A category in the export's term list: a core one as `<wp:category>`, any other as `<wp:term>`.
+ */
+function termXml(term: SyntheticCategory, id: number): string {
+	return term.domain === "category"
+		? `<wp:category><wp:term_id>${id}</wp:term_id><wp:category_nicename>${cdata(term.slug)}</wp:category_nicename><wp:category_parent>${cdata(term.parent ?? "")}</wp:category_parent><wp:cat_name>${cdata(term.name)}</wp:cat_name></wp:category>`
+		: `<wp:term><wp:term_id>${id}</wp:term_id><wp:term_taxonomy>${cdata(term.domain)}</wp:term_taxonomy><wp:term_slug>${cdata(term.slug)}</wp:term_slug><wp:term_parent>${cdata(term.parent ?? "")}</wp:term_parent><wp:term_name>${cdata(term.name)}</wp:term_name></wp:term>`;
+}
+
+/**
+ * A WXR 1.2 document with the export's author, the term list of the categories the items carry,
  * and the items in the order given.
  */
 export function wxrDocument(items: SyntheticItem[], authors: SyntheticAuthor[] = [AUTHOR]): string {
 	const terms = new Map<string, SyntheticCategory>();
 	for (const category of items.flatMap((item) => item.categories ?? [])) {
-		terms.set(`${category.domain} ${category.slug}`, category);
+		if (!category.unlisted) terms.set(`${category.domain} ${category.slug}`, category);
 	}
 	const authorXml = authors.map(
 		(author, index) =>
 			`<wp:author><wp:author_id>${index + 1}</wp:author_id><wp:author_login>${cdata(author.login)}</wp:author_login><wp:author_email>${cdata(author.email)}</wp:author_email><wp:author_display_name>${cdata(author.displayName)}</wp:author_display_name><wp:author_first_name>${cdata("")}</wp:author_first_name><wp:author_last_name>${cdata("")}</wp:author_last_name></wp:author>`,
-	);
-	const termXml = [...terms.values()].map(
-		(term, index) =>
-			`<wp:term><wp:term_id>${index + 1}</wp:term_id><wp:term_taxonomy>${cdata(term.domain)}</wp:term_taxonomy><wp:term_slug>${cdata(term.slug)}</wp:term_slug><wp:term_parent>${cdata(term.parent ?? "")}</wp:term_parent><wp:term_name>${cdata(term.name)}</wp:term_name></wp:term>`,
 	);
 	return [
 		'<?xml version="1.0" encoding="UTF-8" ?>',
@@ -129,7 +146,7 @@ export function wxrDocument(items: SyntheticItem[], authors: SyntheticAuthor[] =
 		`<wp:base_site_url>${SITE}</wp:base_site_url>`,
 		`<wp:base_blog_url>${SITE}</wp:base_blog_url>`,
 		...authorXml,
-		...termXml,
+		...[...terms.values()].map((term, index) => termXml(term, index + 1)),
 		...items.map(itemXml),
 		"</channel>",
 		"</rss>",
