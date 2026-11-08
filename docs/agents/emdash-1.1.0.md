@@ -695,9 +695,10 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   site's host itself.
 - `parseWxrDate(gmt, pubDate, local)` reads the GMT date as UTC unless it is empty or
   `0000-00-00 00:00:00`, else the RFC 2822 `pubDate`, else the site's own date and time, and gives
-  none when none is set. A malformed GMT date gives an Invalid Date, not the next date
-  (`src/import/sources/wxr.ts` `parseWxrDate`, `WXR_ZERO_DATE`).
-  `./scripts/migration/legacy-site.ts` takes it as no date.
+  none when neither of those two parses. A GMT date that JavaScript's `Date` cannot read gives an
+  Invalid Date, not the next date; one it can read but that names no day, such as 2025-02-30,
+  rolls over into the next month (`src/import/sources/wxr.ts` `parseWxrDate`, `WXR_ZERO_DATE`).
+  `./scripts/migration/legacy-site.ts` takes an Invalid Date as no date.
 - EmDash's converter package, `@emdash-cms/gutenberg-to-portable-text` 1.1.0, turns block-editor
   markup into Portable Text with `gutenbergToPortableText`, and plain HTML, such as an ACF WYSIWYG
   value, with `htmlToPortableText`, which parses with parse5
