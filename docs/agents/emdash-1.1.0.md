@@ -1,9 +1,11 @@
 # EmDash 1.1.0: verified behaviour
 
 Facts the Songhealth pages and tests rely on, read from the installed package. Add a new fact under
-its topic with its source path, relative to `node_modules/emdash/`. Write a Songhealth file with a
-leading `./` and another package's file from its package name. When the pinned version changes,
-re-verify every line and rename this file: `./tests/node/package-facts.test.ts` checks that every
+its topic with its source path, relative to `node_modules/emdash/`. Before writing what a function
+returns, call it with its edge inputs when plain Node can load it (#177 retro: `parseWxrDate`'s
+fact was wrong twice, the first time hiding a crash). Write a Songhealth file with a leading `./`
+and another package's file from its package name. When the pinned version changes, re-verify every
+line and rename this file: `./tests/node/package-facts.test.ts` checks that every
 cited file exists and that the name carries the pinned version. The Admin bundle,
 `@emdash-cms/admin/dist/index.js`, is formatted JavaScript of about 77,000 lines: find a function
 with `grep -n 'function SidebarNav'` and read its lines with `sed -n '<from>,<to>p'`. Its source

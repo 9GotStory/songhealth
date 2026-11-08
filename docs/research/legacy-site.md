@@ -15,7 +15,7 @@ file records counts and structure only: no titles of unpublished items and no pe
 - The legacy categories split the news stream without overlap: 343 กิจกรรม, 39 ประชาสัมพันธ์
   (38 of them PM 2.5) and 2 without a category, both PM 2.5 reports (ANOM-002).
 - 1,002 of the 1,115 attachments belong to those items. Their files total 699 MB, and only
-  attachment 1479 (ANOM-001) is missing from the uploads.
+  attachment 1479 (ANOM-001) is missing from the uploads under its own name.
 - Every page is an Elementor layout.
 
 ## The export and the files
@@ -24,10 +24,10 @@ file records counts and structure only: no titles of unpublished items and no pe
   out. Those are 46 ACF field definitions in four groups, 15 menu items, 11 Elementor templates,
   11 slider slides, 4 popups and 8 popup themes, one Ninja Forms submission, custom CSS and the
   global styles.
-- **`wp-content.zip`:** 24,554 entries, 1.6 GB uncompressed. `uploads` holds 5,889 files
-  (1.26 GB) in the folders 2024, 2025 and 2026 and in plugin folders, among them the form plugins'
-  `forminator` and `wpforms`. The zip holds no database backup: `ai1wm-backups` and
-  `aiowps_backups` contain only placeholder files.
+- **`wp-content.zip`:** 24,554 entries, 1.6 GB uncompressed. `uploads` holds 5,808 files
+  (1.26 GB) under 81 folder entries: the folders 2024, 2025 and 2026 and plugin folders, among them
+  the form plugins' `forminator` and `wpforms`. The zip holds no database backup: `ai1wm-backups`
+  and `aiowps_backups` contain only placeholder files.
 
 ## The news stream (`public-new`, "ประชาสัมพันธ์")
 
@@ -70,7 +70,10 @@ file records counts and structure only: no titles of unpublished items and no pe
   largest 28.2 MB.
 - **ANOM-001:** the export lists attachment 1479, whose file
   `wp-content/uploads/2024/11/7-ยุทธศาสตร์ฯ-แผนแม่บทภายใต้ยุทธศาสตร์ชาติฯ-…-ของประเทศ.pdf` is not in
-  the uploads; that month's folder holds 198 other PDFs.
+  the uploads under that name, which at 304 bytes is over the 255-byte limit of a Linux file name.
+  That month's folder holds a complete PDF of 2,507,202 bytes whose 255-byte name is the
+  attachment's name cut inside a character, so it has no `.pdf`: probably the file, for the office
+  to confirm (found in #177).
 
 ## Pages
 
@@ -83,8 +86,11 @@ file records counts and structure only: no titles of unpublished items and no pe
 
 - 1,115 in all: 653 PDF, 458 WebP, 2 SVG, 1 spreadsheet and 1 font, uploaded in 2024 (293), 2025
   (445) and 2026 (377).
-- 1,002 belong to the news, ITA, directive and procurement items. The other 113 (64 WebP, 45 PDF
-  and 4 more) belong to none, against ANOM-008's 81 in the 2026-08-28 baseline.
+- 1,002 belong to the news, ITA, directive and procurement items. Two of them are the featured
+  images that all 7 directives and all 20 procurement notices share, which no field on Songhealth
+  holds. The other 113 (64 WebP, 45 PDF and 4 more) belong to none, against ANOM-008's 81 in the
+  2026-08-28 baseline. Four of those 113 are pictures the ITA posts embed (69 `<img>`, 68 of them
+  WordPress's resized copies), which no Evidence block holds.
 - The 1,001 files present weigh 699 MB. The largest, 33.9 MB, is under EmDash's default upload
   limit of 50 MB (`docs/agents/emdash-1.1.0.md` "Media").
 
@@ -97,7 +103,8 @@ These follow from the grill's decisions (ADR 0008); the Feature 005 spec states 
 - The 27 PM 2.5 reports bring their text into the News body. No Activity has text, so the rule
   that puts an Activity's text into its Summary applies only to an item the list moves from News.
 - An Activity's gallery receives at most the four extra pictures.
-- ANOM-001 needs the file from the office, or a link to the official source instead.
+- ANOM-001 needs the office's word on the file cut short above, its own copy, or a link to the
+  official source instead.
 
 ## Sources
 
@@ -109,3 +116,6 @@ These follow from the grill's decisions (ADR 0008); the Feature 005 spec states 
   `procurement` and `media`, which match the export's published counts.
 - Read with aggregate-only Python scripts (`xml.etree`, `zipfile`) that print counts, never titles
   of unpublished items or personal data.
+- Corrected on 2026-11-08 from #177's `plan` run and its review: the files in `uploads` had counted
+  the folder entries too (5,889), and ANOM-001's cut name and the two shared and four embedded
+  pictures were not yet known.

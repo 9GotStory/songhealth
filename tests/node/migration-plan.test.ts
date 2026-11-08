@@ -772,6 +772,21 @@ describe("plan's outputs and personal data", () => {
 	});
 });
 
+describe("the planner's imports", () => {
+	it("imports nothing at run time, which the Product Owner's seam decision rests on", async () => {
+		const source = await readFile(
+			new URL("../../scripts/migration/plan.ts", import.meta.url),
+			"utf8",
+		);
+		const imports = source.split("\n").filter((line) => /^import\s/.test(line));
+		assert.ok(imports.length > 0, "the planner's imports were not found");
+		assert.deepEqual(
+			imports.filter((line) => !/^import type\s/.test(line)),
+			[],
+		);
+	});
+});
+
 describe("the uploads copy's file list", () => {
 	it("names every entry, folders included, reading each name as UTF-8 with or without the flag", async () => {
 		const folder = await mkdtemp(join(tmpdir(), "songhealth-migration-test-"));
