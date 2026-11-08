@@ -105,8 +105,8 @@ function procurement(id: number, fields: Partial<SyntheticItem> = {}): Synthetic
 }
 
 /** The plan of an export holding `items`, with the uploads copy's names and an earlier list. */
-async function planOf(items: SyntheticItem[], uploads: string[] = [], earlier?: string) {
-	return plan({ site: await readLegacySite(wxrDocument(items)), uploads, earlier });
+async function planOf(items: SyntheticItem[], uploads: string[] = [], earlierList?: string) {
+	return plan({ site: await readLegacySite(wxrDocument(items)), uploads, earlierList });
 }
 
 /** Each row's slug with the columns a test reads. */
@@ -728,7 +728,6 @@ describe("plan's outputs and personal data", () => {
 			newsItem(1, {
 				categories: [PM25],
 				meta: { editor: "<p>ค่าฝุ่นสูง</p>" },
-				creator: AUTHOR.login,
 			}),
 			newsItem(2, { categories: [ACTIVITY], title: "ร่างที่ยังไม่เผยแพร่", status: "draft" }),
 			directive(3, { categories: [ORDER] }),

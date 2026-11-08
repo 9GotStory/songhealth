@@ -681,21 +681,23 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   export with `parseWxrString` and `parseWxrDate`.
 - `parseWxrString` puts every item but an attachment into `posts`, with its post meta in `meta` by
   key. An item's `<category>` of a custom taxonomy, neither `category` nor `post_tag`, goes into
-  `customTaxonomies` under its `domain`, by its `nicename`, which WordPress percent-encodes for a
-  Thai name. The name comes from the export's `<wp:term>` entries (`terms`), and from the item's
-  `taxonomyLabels` when it differs from the slug, keyed by the taxonomy and the slug joined by
-  U+0000 (`src/cli/wxr/parser.ts` `parseWxrString`, `captureItemCategoryLabel`).
+  `customTaxonomies` under its `domain`, by its `nicename` as the export writes it. The name comes
+  from the export's `<wp:term>` entries (`terms`), and from the item's `taxonomyLabels` when it
+  differs from the slug, keyed by the taxonomy and the slug joined by U+0000
+  (`src/cli/wxr/parser.ts` `parseWxrString`, `captureItemCategoryLabel`).
 - `parseWxrString` gives an attachment its ID, title, `wp:attachment_url` and date, and an empty
   `meta`: it keeps the attachment's post meta, such as the alt text `_wp_attachment_image_alt`, on
   the item it drops. The streaming `parseWxr` shares the item's `meta` with the attachment. Neither
-  keeps an attachment's caption (`excerpt:encoded`) (`src/cli/wxr/parser.ts`).
+  gives an attachment its item's `excerpt:encoded` (`src/cli/wxr/parser.ts` `WxrAttachment`).
 - `parseWxrString` leaves `site` empty for a WordPress export: it reads the site's fields only as
   direct children of `<rss>`, while WordPress writes them inside `<channel>`
   (`src/cli/wxr/parser.ts` `parseWxrString`). `./scripts/migration/plan.ts` names the Legacy
   site's host itself.
-- `parseWxrDate(gmt, pubDate, local)` reads the GMT date as UTC, else the RFC 2822 `pubDate`,
-  else the site's own date and time, and gives none when all three fail
-  (`src/import/sources/wxr.ts` `parseWxrDate`).
+- `parseWxrDate(gmt, pubDate, local)` reads the GMT date as UTC unless it is empty or
+  `0000-00-00 00:00:00`, else the RFC 2822 `pubDate`, else the site's own date and time, and gives
+  none when none is set. A malformed GMT date gives an Invalid Date, not the next date
+  (`src/import/sources/wxr.ts` `parseWxrDate`, `WXR_ZERO_DATE`).
+  `./scripts/migration/legacy-site.ts` takes it as no date.
 - EmDash's converter package, `@emdash-cms/gutenberg-to-portable-text` 1.1.0, turns block-editor
   markup into Portable Text with `gutenbergToPortableText`, and plain HTML, such as an ACF WYSIWYG
   value, with `htmlToPortableText`, which parses with parse5

@@ -1,8 +1,10 @@
 // The Legacy site as its WordPress export describes it (#177; spec #174 "Source"): the items of the
 // types the migration reads (scripts/migration/plan.ts ITEM_TYPES), with the attachments and the
-// pages' slugs. Reading goes through EmDash's own WXR and date parsers (ADR 0008, Q19), which the
-// emdash 1.1.0 package's main entry exports and plain Node loads (src/index.ts;
-// `docs/agents/emdash-1.1.0.md` "WordPress import").
+// pages' slugs. Reading goes through EmDash's own WXR and date parsers, which the emdash 1.1.0
+// package's main entry exports and plain Node loads (src/index.ts; `docs/agents/emdash-1.1.0.md`
+// "WordPress import"). Spec #174 "Source" takes them in place of ADR 0008's `sax` (Q19, refined by
+// delegation, in the spec the Product Owner accepted in #174 comment 6685455009); #185 amends the
+// ADR.
 //
 // This module is where the export's personal data stops: it returns no author, no item's author
 // (`dc:creator`), and nothing of any other post type, such as the form plugin's submission
@@ -70,7 +72,7 @@ function attachmentId(value: string | undefined): number | undefined {
 
 /**
  * A category's name: from the export's terms (a core category's from its categories), else the
- * item's own label, else its slug read back from the percent-encoding WordPress gives a Thai slug.
+ * item's own label, else its slug as the export writes it.
  * The parser keeps an item's category of a custom taxonomy, neither `category` nor `post_tag`, by
  * its slug under the taxonomy, and a label other than the slug keyed by the taxonomy and the slug
  * joined by U+0000 (emdash 1.1.0 src/cli/wxr/parser.ts parseWxrString, captureItemCategoryLabel).

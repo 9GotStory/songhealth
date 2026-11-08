@@ -29,7 +29,7 @@
 //   - title-word: a กิจกรรม item whose title holds เชิญชวน, ขอเชิญ or ประชาสัมพันธ์;
 //   - no-category: the item has no category;
 //   - unmatched-categories: its categories name no default;
-//   - pm25: it carries PM 2.5, so as News it gets the topic ฝุ่น PM 2.5;
+//   - pm25: it carries the legacy category PM 2.5;
 //   - text: its ACF editor or its block editor holds text, which becomes a News body or an
 //     Activity's Summary;
 //   - no-file: a directive or procurement notice names no file;
@@ -42,19 +42,25 @@
 //   - a directive in คำสั่ง is a Document, and one in ประกาศ an Announcement;
 //   - a procurement notice is an Announcement;
 //   - any other categories are ต้องเลือก.
+//   A trial import takes a title-word row at its category's default, an Activity; an
+//   unmatched-categories row has none (spec #174 "The migration script").
 // - default_type: the term slug of the Announcement's type or the Document's (spec #174 "Model
 //   changes"): procurement (จัดซื้อจัดจ้าง) for a procurement notice; recruitment (รับสมัครงาน) for a
 //   directive in ประกาศ whose title holds รับสมัคร, สรรหา or ลูกจ้าง, and general (ประกาศทั่วไป) for
 //   the others; order (คำสั่ง) for a directive in คำสั่ง.
 // - decision: empty, or the reviewer's target, which replaces default_target: News or Activity
 //   for the news stream, Announcement or Document for the others, or ต้องเลือก.
-// - decision_type: empty, or the term slug that replaces default_type.
+// - decision_type: empty, or the term slug that replaces default_type. A decision that changes the
+//   target drops default_type, so such a row carries only the type decision_type names (spec #174:
+//   only an order carries a type). plan does not check the slug against the terms, which only the
+//   target runtime holds.
 // - summary: empty, or the Summary staff wrote.
 //
 // A merge keeps each row's decision, decision_type and summary, and any column reviewers added,
 // and writes every other cell again from the export. It appends the export's new items with their
 // defaults, and keeps a row whose item the export no longer holds, flagged not-in-export. It
-// refuses a list without one of the columns above, or with a WordPress ID twice.
+// refuses a list without one of the columns above, with a WordPress ID twice, or saved in another
+// encoding than UTF-8.
 //
 // The inventory (scripts/migration/plan.ts Inventory) counts the items by type and status, the
 // published items by category, and the attachments used and unused; it lists the missing files,
@@ -115,11 +121,11 @@ async function planCommand(exportPath: string, zipPath: string): Promise<number>
 		if (error.code === "ENOENT") return undefined;
 		throw error;
 	});
-	let earlier: string | undefined;
+	let earlierList: string | undefined;
 	try {
 		// A spreadsheet can save Thai in another code page, which a lenient read would turn into
 		// U+FFFD, losing the Summaries without a word.
-		earlier = earlierBytes && new TextDecoder("utf-8", { fatal: true }).decode(earlierBytes);
+		earlierList = earlierBytes && new TextDecoder("utf-8", { fatal: true }).decode(earlierBytes);
 	} catch {
 		throw new Error(
 			`the earlier list is not UTF-8: save ${listPath} as CSV UTF-8 and run plan again`,
@@ -128,7 +134,7 @@ async function planCommand(exportPath: string, zipPath: string): Promise<number>
 	const result = plan({
 		site: await readLegacySite(xml.toString("utf8")),
 		uploads: await readZipNames(zipPath),
-		earlier,
+		earlierList,
 	});
 	const inventory = {
 		export: { file: basename(exportPath), sha256: createHash("sha256").update(xml).digest("hex") },
@@ -155,7 +161,7 @@ async function planCommand(exportPath: string, zipPath: string): Promise<number>
 		const decisions = list.unreadable.map(({ slug, decision }) => `${slug} "${decision}"`);
 		console.log(`Decisions plan cannot read: ${listed(decisions)}`);
 	}
-	if (list.earlier) {
+	if (list.merged) {
 		console.log(`Rows added to the earlier list: ${listed(list.added)}`);
 		console.log(`Items no longer in the export: ${listed(list.vanished)}`);
 	} else {

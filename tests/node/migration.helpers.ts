@@ -33,22 +33,13 @@ export interface SyntheticItem {
 	content?: string;
 	/** An attachment's file address. */
 	url?: string;
-	/** The login of the item's author. */
-	creator?: string;
-}
-
-/** An author of the export, with the details WordPress writes for one. */
-export interface SyntheticAuthor {
-	login: string;
-	email: string;
-	displayName: string;
 }
 
 /** The Legacy site's address, as its export writes it. */
 export const SITE = "https://songhealth.moph.go.th";
 
-/** The author every synthetic export holds, whose details no output may carry. */
-export const AUTHOR: SyntheticAuthor = {
+/** The author of every synthetic export and its items, whose details no output may carry. */
+export const AUTHOR = {
 	login: "synthetic-admin",
 	email: "synthetic.author@example.org",
 	displayName: "ผู้เขียนสังเคราะห์",
@@ -79,7 +70,7 @@ function itemXml(item: SyntheticItem): string {
 		`<title>${cdata(item.title ?? "")}</title>`,
 		`<link>${SITE}/?p=${item.id}</link>`,
 		`<pubDate>${rssDate(date)}</pubDate>`,
-		`<dc:creator>${cdata(item.creator ?? AUTHOR.login)}</dc:creator>`,
+		`<dc:creator>${cdata(AUTHOR.login)}</dc:creator>`,
 		`<guid isPermaLink="false">${SITE}/?p=${item.id}</guid>`,
 		"<description></description>",
 		`<content:encoded>${cdata(item.content ?? "")}</content:encoded>`,
@@ -127,15 +118,11 @@ function termXml(term: SyntheticCategory, id: number): string {
  * A WXR 1.2 document with the export's author, the term list of the categories the items carry,
  * and the items in the order given.
  */
-export function wxrDocument(items: SyntheticItem[], authors: SyntheticAuthor[] = [AUTHOR]): string {
+export function wxrDocument(items: SyntheticItem[]): string {
 	const terms = new Map<string, SyntheticCategory>();
 	for (const category of items.flatMap((item) => item.categories ?? [])) {
 		if (!category.unlisted) terms.set(`${category.domain} ${category.slug}`, category);
 	}
-	const authorXml = authors.map(
-		(author, index) =>
-			`<wp:author><wp:author_id>${index + 1}</wp:author_id><wp:author_login>${cdata(author.login)}</wp:author_login><wp:author_email>${cdata(author.email)}</wp:author_email><wp:author_display_name>${cdata(author.displayName)}</wp:author_display_name><wp:author_first_name>${cdata("")}</wp:author_first_name><wp:author_last_name>${cdata("")}</wp:author_last_name></wp:author>`,
-	);
 	return [
 		'<?xml version="1.0" encoding="UTF-8" ?>',
 		'<rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">',
@@ -145,7 +132,7 @@ export function wxrDocument(items: SyntheticItem[], authors: SyntheticAuthor[] =
 		"<wp:wxr_version>1.2</wp:wxr_version>",
 		`<wp:base_site_url>${SITE}</wp:base_site_url>`,
 		`<wp:base_blog_url>${SITE}</wp:base_blog_url>`,
-		...authorXml,
+		`<wp:author><wp:author_id>1</wp:author_id><wp:author_login>${cdata(AUTHOR.login)}</wp:author_login><wp:author_email>${cdata(AUTHOR.email)}</wp:author_email><wp:author_display_name>${cdata(AUTHOR.displayName)}</wp:author_display_name><wp:author_first_name>${cdata("")}</wp:author_first_name><wp:author_last_name>${cdata("")}</wp:author_last_name></wp:author>`,
 		...[...terms.values()].map((term, index) => termXml(term, index + 1)),
 		...items.map(itemXml),
 		"</channel>",

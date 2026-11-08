@@ -78,9 +78,12 @@ const FLAGS = [
 
 type Flag = (typeof FLAGS)[number];
 
+/** What a row can become (GLOSSARY "Classification list"), or ต้องเลือก while it waits for one. */
+type Target = "News" | "Activity" | "Announcement" | "Document" | typeof TO_CHOOSE;
+
 /** A row's default: its target, its type by term slug, and the flags that explain it. */
 interface Default {
-	target: string;
+	target: Target;
 	type: string;
 	flags: Flag[];
 }
@@ -260,7 +263,7 @@ function rowOf(item: LegacyItem, files: Files): ListRow {
 }
 
 /** The targets a reviewer may give a row, by its legacy type (GLOSSARY "Classification list"). */
-const TARGETS: Record<string, string[]> = {
+const TARGETS: Record<string, Target[]> = {
 	"public-new": ["News", "Activity"],
 	directive: ["Announcement", "Document"],
 	procurement: ["Announcement", "Document"],
@@ -350,10 +353,10 @@ function readList(text: string): { header: string[]; rows: ListRow[] } {
  * (its decision, type decision and Summary, and the columns they added) and takes everything else
  * from the export; a row whose item the export no longer holds stays as it was, flagged.
  */
-function merged(fresh: ListRow[], earlier: ListRow[]) {
+function mergeRows(fresh: ListRow[], earlierRows: ListRow[]) {
 	const freshRows = new Map(fresh.map((row) => [row.wp_id, row]));
 	const vanished: ListRow[] = [];
-	const kept = earlier.map((row): ListRow => {
+	const kept = earlierRows.map((row): ListRow => {
 		const now = freshRows.get(row.wp_id);
 		if (now === undefined) {
 			const gone = { ...row, flags: "not-in-export" };
@@ -368,7 +371,7 @@ function merged(fresh: ListRow[], earlier: ListRow[]) {
 			summary: row.summary,
 		};
 	});
-	const earlierIds = new Set(earlier.map((row) => row.wp_id));
+	const earlierIds = new Set(earlierRows.map((row) => row.wp_id));
 	const added = fresh.filter((row) => !earlierIds.has(row.wp_id));
 	return { rows: [...kept, ...added], added, vanished };
 }
@@ -376,7 +379,7 @@ function merged(fresh: ListRow[], earlier: ListRow[]) {
 /** What the list holds after a plan, as the inventory reports it and the command prints it. */
 interface ListReport {
 	/** Whether plan merged an earlier list. */
-	earlier: boolean;
+	merged: boolean;
 	/** The rows in the file, those flagged not-in-export included. */
 	rows: number;
 	/** The rows of the export's items by target, a decision applied, ต้องเลือก for an unread one. */
@@ -403,11 +406,10 @@ function typeOf(row: ListRow): string {
 	return targetOf(row) === row.default_target ? row.default_type : "";
 }
 
-function listReport(merge: ReturnType<typeof merged>, earlier: boolean): ListReport {
+function listReport(merge: ReturnType<typeof mergeRows>, merged: boolean): ListReport {
 	const current = merge.rows.filter((row) => !merge.vanished.includes(row));
-	const targets: Record<string, number> = Object.fromEntries(
-		["News", "Activity", "Announcement", "Document", TO_CHOOSE].map((target) => [target, 0]),
-	);
+	const order: Target[] = ["News", "Activity", "Announcement", "Document", TO_CHOOSE];
+	const targets: Record<string, number> = Object.fromEntries(order.map((target) => [target, 0]));
 	const types: Record<string, Record<string, number>> = { Announcement: {}, Document: {} };
 	for (const row of current) {
 		const target = targetOf(row) ?? TO_CHOOSE;
@@ -416,7 +418,7 @@ function listReport(merge: ReturnType<typeof merged>, earlier: boolean): ListRep
 		if (type !== "" && types[target] !== undefined) count(types[target], type);
 	}
 	return {
-		earlier,
+		merged,
 		rows: merge.rows.length,
 		targets,
 		types,
@@ -427,7 +429,7 @@ function listReport(merge: ReturnType<typeof merged>, earlier: boolean): ListRep
 		unreadable: current
 			.filter((row) => targetOf(row) === undefined)
 			.map((row) => ({ slug: row.slug, decision: row.decision })),
-		added: earlier ? merge.added.map((row) => row.slug) : [],
+		added: merged ? merge.added.map((row) => row.slug) : [],
 		vanished: merge.vanished.map((row) => row.slug),
 	};
 }
@@ -490,24 +492,25 @@ function inventoryOf(
 		ITEM_TYPES.map((type) => [type, {}]),
 	);
 	for (const item of published) count(categories[item.type]!, categoriesCell(item) || "(none)");
-	const users = new Map<number, string[]>();
-	const usedBy = Object.fromEntries(ITEM_TYPES.map((type) => [type, new Set<number>()]));
+	// The slugs of the items that use each attachment ID, and the attachments each type uses.
+	const itemsUsing = new Map<number, string[]>();
+	const usedByType = Object.fromEntries(ITEM_TYPES.map((type) => [type, new Set<number>()]));
 	const unlistedLinks: Inventory["unlistedLinks"] = [];
 	for (const item of published) {
 		const uses = usesOf(item, files);
 		for (const id of uses.attachments) {
-			users.set(id, [...(users.get(id) ?? []), item.slug]);
-			if (files.byId.has(id)) usedBy[item.type]!.add(id);
+			itemsUsing.set(id, [...(itemsUsing.get(id) ?? []), item.slug]);
+			if (files.byId.has(id)) usedByType[item.type]!.add(id);
 		}
 		for (const { href, path } of uses.unlisted) {
 			unlistedLinks.push({ item: item.slug, href, inUploads: files.uploads.has(path) });
 		}
 	}
-	const unused = site.attachments.filter((attachment) => !users.has(attachment.id));
+	const unused = site.attachments.filter((attachment) => !itemsUsing.has(attachment.id));
 	const unusedByExtension: Record<string, number> = {};
 	for (const attachment of unused)
 		count(unusedByExtension, extensionOf(files.byId.get(attachment.id)!.path));
-	const missing = [...users]
+	const missing = [...itemsUsing]
 		.toSorted(([a], [b]) => a - b)
 		.flatMap(([id, slugs]) => {
 			const attachment = files.byId.get(id);
@@ -521,7 +524,7 @@ function inventoryOf(
 		attachments: {
 			total: site.attachments.length,
 			used: site.attachments.length - unused.length,
-			usedBy: Object.fromEntries(ITEM_TYPES.map((type) => [type, usedBy[type]!.size])),
+			usedBy: Object.fromEntries(ITEM_TYPES.map((type) => [type, usedByType[type]!.size])),
 			unused: unused.length,
 			unusedByExtension,
 		},
@@ -550,7 +553,7 @@ export interface PlanInput {
 	/** The names of the uploads copy's entries, files and folders, as its zip lists them. */
 	uploads: string[];
 	/** The text of an earlier Classification list, to merge with. */
-	earlier?: string;
+	earlierList?: string;
 }
 
 /** The export's attachments by ID and by path, and the uploads copy's files. */
@@ -577,14 +580,14 @@ function inListOrder(a: LegacyItem, b: LegacyItem): number {
 }
 
 /** The plan of an export: its Classification list, merged with an earlier list when given. */
-export function plan({ site, uploads, earlier }: PlanInput): Plan {
+export function plan({ site, uploads, earlierList }: PlanInput): Plan {
 	const files = filesOf(site, uploads);
 	const fresh = site.items
 		.filter((item) => LISTED_TYPES.includes(item.type) && item.status === "publish")
 		.toSorted(inListOrder)
 		.map((item) => rowOf(item, files));
-	const previous = earlier === undefined ? undefined : readList(earlier);
-	const merge = merged(fresh, previous?.rows ?? []);
+	const previous = earlierList === undefined ? undefined : readList(earlierList);
+	const merge = mergeRows(fresh, previous?.rows ?? []);
 	const header = [
 		...COLUMNS,
 		...(previous?.header ?? []).filter(
