@@ -289,14 +289,39 @@ describe("a heading over a MOIT's files (Product Owner, #180 comment 6723350426,
 		assert.deepEqual(evidence, [noted("แผน", 41, "12 เดือน"), noted("ผล", 42, "12 เดือน")]);
 	});
 
-	it("gives a link block no note, which has no such field", async () => {
-		const evidence = await evidenceOf(
+	it("gives a link block no note, which has no such field, so it goes into the report", async () => {
+		const { entries, report } = await importOf([
 			moitPost(2, 2568, '<p>6 เดือน</p><p>1.1 <a href="https://example.go.th/">เว็บไซต์</a></p>'),
-		);
-		assert.deepEqual(evidence, [
+		]);
+		assert.deepEqual(entries[0]!.data.evidence, [
 			requirementBlock("1.1", "เว็บไซต์"),
 			linkBlock("เว็บไซต์", "https://example.go.th/", { current: false }),
 		]);
+		assert.deepEqual(report.notes, [{ slug: "moit-2-2568", note: "text not carried: 6 เดือน" }]);
+	});
+
+	it("stays open over a numbered line that makes no Requirement", async () => {
+		const { entries, report } = await importOf([
+			evidenceFile(41),
+			moitPost(2, 2568, `<p>ไตรมาสที่ 1</p><p>2. )</p><p>2.1 ${link(41, "บันทึก")}</p>`),
+		]);
+		assert.deepEqual(entries[0]!.data.evidence, [
+			requirementBlock("2.1", "บันทึก"),
+			noted("บันทึก", 41, "ไตรมาสที่ 1"),
+		]);
+		assert.deepEqual(report.notes, [{ slug: "moit-2-2568", note: "text not carried: 2. )" }]);
+	});
+
+	it("is not a line of punctuation, which stays in the report and leaves the heading open", async () => {
+		const { entries, report } = await importOf([
+			evidenceFile(41),
+			moitPost(2, 2568, `<p>ไตรมาสที่ 1</p><p>-</p><p>1.1 ${link(41, "บันทึก")}</p>`),
+		]);
+		assert.deepEqual(entries[0]!.data.evidence, [
+			requirementBlock("1.1", "บันทึก"),
+			noted("บันทึก", 41, "ไตรมาสที่ 1"),
+		]);
+		assert.deepEqual(report.notes, [{ slug: "moit-2-2568", note: "text not carried: -" }]);
 	});
 
 	it("goes into the report when no file comes under it, by the next heading or the end", async () => {
@@ -557,6 +582,21 @@ describe("a MOIT's links", () => {
 			requirementBlock("1.1", "คำสั่งแต่งตั้ง"),
 			linkBlock("คำสั่งแต่งตั้ง", "https://example.go.th/", { current: false }),
 		]);
+	});
+
+	it("does not report the commas between tag links", async () => {
+		const tag = (slug: string) =>
+			`<a href="https://songhealth.moph.go.th/tag/${slug}/">${slug}</a>`;
+		const { report } = await importOf([
+			moitPost(1, 2567, `<h5>1. รายงาน</h5><p>${tag("2567")}, ${tag("moit-1")}</p>`),
+		]);
+		assert.deepEqual(report.notes, []);
+	});
+
+	it("reports a numbered line of nothing but punctuation, with no link", async () => {
+		const { entries, report } = await importOf([moitPost(1, 2567, "<p>1.1 )</p>")]);
+		assert.deepEqual(entries[0]!.data.evidence, []);
+		assert.deepEqual(report.notes, [{ slug: "moit-1-2567", note: "text not carried: 1.1 )" }]);
 	});
 
 	it("drops a tag link with no text without a word", async () => {

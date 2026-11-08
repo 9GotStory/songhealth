@@ -291,10 +291,15 @@ export function planMoits({
 		};
 		/** The wording of the last Requirement, which a link with no words of its own can take. */
 		let requirementWording = "";
-		/** A line of words alone, the note of the files under it (#180 comment 6723350426, item 2). */
+		const noteTextOut = (text: string) => noteOut(`text not carried: ${text}`);
+		/**
+		 * A line of words alone, the note of the files under it until the next heading or top-level
+		 * Requirement (Product Owner, #180 comment 6723350426, item 2). A list item with no link
+		 * describes what a report holds, or names a plan with no file, so it stays in the report.
+		 */
 		let heading: { text: string; used: boolean } | undefined;
 		const endHeading = () => {
-			if (heading !== undefined && !heading.used) noteOut(`text not carried: ${heading.text}`);
+			if (heading !== undefined && !heading.used) noteTextOut(heading.text);
 			heading = undefined;
 		};
 		for (const block of withoutCard(toBlocks(post.content))) {
@@ -310,7 +315,7 @@ export function planMoits({
 			if (
 				line.number === undefined &&
 				line.links.length === 0 &&
-				line.text !== "" &&
+				!saysNothing(line.text) &&
 				!block.listItem
 			) {
 				endHeading();
@@ -339,10 +344,8 @@ export function planMoits({
 			const wordsLeft =
 				line.links.length === 0
 					? line.text !== ""
-					: line.number === undefined && line.beside !== "";
-			if (!isRequirement && pieces.length === 0 && wordsLeft) {
-				noteOut(`text not carried: ${line.text}`);
-			}
+					: line.number === undefined && !saysNothing(line.beside);
+			if (!isRequirement && pieces.length === 0 && wordsLeft) noteTextOut(line.text);
 		}
 		endHeading();
 		if (evidence.length > MAX_BLOCKS) {
