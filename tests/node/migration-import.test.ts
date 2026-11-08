@@ -232,7 +232,7 @@ describe("an Activity", () => {
 			onePage(12),
 			newsItem(1, {
 				categories: [ACTIVITY],
-				meta: { ...featuring(11), image_2: "13", image_3: "12" },
+				meta: { ...featuring(11), image_3: "12", image_2: "13" },
 			}),
 		]);
 		assert.deepEqual(entries[0]!.data.gallery, [
@@ -362,6 +362,22 @@ describe("a News item", () => {
 		);
 	});
 
+	it("reports a link into the uploads that names no attachment, which its body keeps", async () => {
+		const { report } = await importOf([
+			newsItem(1, {
+				categories: [PUBLIC_RELATIONS],
+				meta: { editor: '<p><a href="/wp-content/uploads/2025/03/unlisted.pdf">เอกสาร</a></p>' },
+			}),
+		]);
+		assert.deepEqual(report.notes, [
+			{ slug: "news-1", note: "no featured picture" },
+			{
+				slug: "news-1",
+				note: "a link into the uploads names no attachment: /wp-content/uploads/2025/03/unlisted.pdf",
+			},
+		]);
+	});
+
 	it("keeps a block that is not a paragraph in the body, such as preformatted text", async () => {
 		const { entries } = await importOf([
 			newsItem(1, {
@@ -382,7 +398,7 @@ describe("a News item", () => {
 			onePage(12),
 			newsItem(1, {
 				categories: [PUBLIC_RELATIONS],
-				meta: { ...featuring(11), image_2: "13", image_3: "12", editor: "<p>ข้อความ</p>" },
+				meta: { ...featuring(11), image_3: "12", image_2: "13", editor: "<p>ข้อความ</p>" },
 			}),
 		]);
 		assert.deepEqual(
@@ -789,6 +805,22 @@ describe("the files", () => {
 		);
 	});
 
+	it("reports an ACF file, which no field of a News or an Activity holds", async () => {
+		const items = [
+			attachment(20, "wp-content/uploads/2025/03/acf-file.pdf"),
+			newsItem(1, { categories: [PUBLIC_RELATIONS], meta: { file_1: "20" } }),
+			newsItem(2, { categories: [ACTIVITY], meta: { file_2: "20" } }),
+		];
+		const { report } = await importOf(items);
+		assert.deepEqual(
+			report.notes.filter(({ note }) => note.startsWith("ACF file")),
+			[
+				{ slug: "news-1", note: "ACF file 20 is uploaded, but no field holds it" },
+				{ slug: "news-2", note: "ACF file 20 is uploaded, but no field holds it" },
+			],
+		);
+	});
+
 	it("takes each used file once, for its folder, with its alt text and caption", async () => {
 		const { files } = await importOf([
 			onePage(11, { alt: "ภาพที่หนึ่ง", caption: "คำบรรยาย" }),
@@ -900,7 +932,9 @@ describe("verify", () => {
 	it("reports the counts and no failure for a target that matches the plan", async () => {
 		const target = await goodTarget();
 		const other = { ...target.entries[0]!, slug: "written-later" };
-		assert.deepEqual(await verifyTarget({ ...target, entries: [...target.entries, other] }), {
+		const unpublished = { ...other, slug: "still-a-draft", status: "draft" };
+		const entries = [...target.entries, other, unpublished];
+		assert.deepEqual(await verifyTarget({ ...target, entries }), {
 			entries: {
 				activities: { planned: 1, found: 1, inCollection: 2 },
 				news: { planned: 1, found: 1, inCollection: 1 },

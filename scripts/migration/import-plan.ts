@@ -228,7 +228,11 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 		if (chosen.atDefault) atDefault.push({ slug: item.slug, target: chosen.target });
 		count((groups[row.legacy_type] ??= {}), chosen.target);
 		const collection = chosen.target === "News" ? "news" : "activities";
-		for (const id of usesOf(item, legacyFiles).attachments) use(id, item.slug);
+		const uses = usesOf(item, legacyFiles);
+		for (const id of uses.attachments) use(id, item.slug);
+		for (const { id } of item.files) {
+			notes.push({ slug: item.slug, note: `ACF file ${id} is uploaded, but no field holds it` });
+		}
 		const featured = refTo(item.featured);
 		if (featured === undefined) notes.push({ slug: item.slug, note: "no featured picture" });
 		const html = textHtmlOf(item);
@@ -252,6 +256,14 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 			notes.push({ slug: item.slug, note: "the list's Summary stands in for the item's text" });
 		}
 		const summary = row.summary.trim() || text;
+		if (collection === "news") {
+			for (const { href } of uses.unlisted) {
+				notes.push({
+					slug: item.slug,
+					note: `a link into the uploads names no attachment: ${href}`,
+				});
+			}
+		}
 		const others = otherPictures(item).filter(available);
 		const gallery = others.map((id) => {
 			const image = refTo(id)!;

@@ -94,11 +94,9 @@ import { readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import { parseArgs } from "node:util";
 
-import { computeContentHash } from "emdash";
-
 import { scrubEmbeddedSecrets } from "../tests/browser/cms.helpers.ts";
 import { firstStop, planImport, type ImportPlan } from "./migration/import-plan.ts";
-import { blocksOf, readLegacySite } from "./migration/legacy-site.ts";
+import { blocksOf, computeContentHash, readLegacySite } from "./migration/legacy-site.ts";
 import { plan, TO_CHOOSE } from "./migration/plan.ts";
 import { verifyTarget } from "./migration/verify.ts";
 import { administrator, applyImport, readTarget, type Target } from "./migration/writer.ts";

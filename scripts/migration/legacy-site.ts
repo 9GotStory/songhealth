@@ -13,7 +13,7 @@
 import { Readable } from "node:stream";
 
 import { htmlToPortableText } from "@emdash-cms/gutenberg-to-portable-text";
-import { parseWxr, parseWxrDate, type WxrPost } from "emdash";
+import { computeContentHash, parseWxr, parseWxrDate, type WxrPost } from "emdash";
 
 import type { Block } from "./import-plan.ts";
 import { ITEM_TYPES, type ItemType } from "./plan.ts";
@@ -162,6 +162,8 @@ export async function readLegacySite(xml: string): Promise<LegacySite> {
 			.map((post) => ({ slug: post.postName ?? "", status: post.status ?? "" })),
 	};
 }
+
+export { computeContentHash };
 
 /** HTML as Portable Text blocks, through EmDash's converter (spec #174 "Source"). */
 export const blocksOf = (html: string): Block[] => htmlToPortableText(html) as Block[];
