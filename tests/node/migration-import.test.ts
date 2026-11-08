@@ -18,7 +18,7 @@ import { firstStop, planImport } from "../../scripts/migration/import-plan.ts";
 import { blocksOf, readLegacySite } from "../../scripts/migration/legacy-site.ts";
 import { plan } from "../../scripts/migration/plan.ts";
 import { verifyTarget, type VerifyInput } from "../../scripts/migration/verify.ts";
-import { openZip } from "../../scripts/migration/zip.ts";
+import { openZip, type Zip } from "../../scripts/migration/zip.ts";
 import {
 	ACTIVITY,
 	OTHER_NEWS,
@@ -115,12 +115,17 @@ describe("an attachment's details in the export", () => {
 });
 
 describe("the uploads copy's files", () => {
-	/** Runs `use` on a zip made of `bytes`, and removes it. */
-	async function withZip<T>(bytes: Buffer, use: (path: string) => Promise<T>): Promise<T> {
+	/** Runs `use` on an open zip made of `bytes`, and removes it. */
+	async function withZip<T>(bytes: Buffer, use: (zip: Zip) => Promise<T>): Promise<T> {
 		const folder = await mkdtemp(join(tmpdir(), "songhealth-migration-test-"));
 		try {
 			await writeFile(join(folder, "wp-content.zip"), bytes);
-			return await use(join(folder, "wp-content.zip"));
+			const zip = await openZip(join(folder, "wp-content.zip"));
+			try {
+				return await use(zip);
+			} finally {
+				await zip.close();
+			}
 		} finally {
 			await rm(folder, { recursive: true });
 		}
@@ -135,29 +140,19 @@ describe("the uploads copy's files", () => {
 				{ path: "wp-content/uploads/deflated.webp", bytes: picture },
 				{ path: "wp-content/uploads/ภาพ.webp", bytes: stored, stored: true },
 			]),
-			async (path) => {
-				const zip = await openZip(path);
-				try {
-					assert.deepEqual(
-						new Uint8Array(await zip.read("wp-content/uploads/deflated.webp")),
-						picture,
-					);
-					assert.deepEqual(new Uint8Array(await zip.read("wp-content/uploads/ภาพ.webp")), stored);
-				} finally {
-					await zip.close();
-				}
+			async (zip) => {
+				assert.deepEqual(
+					new Uint8Array(await zip.read("wp-content/uploads/deflated.webp")),
+					picture,
+				);
+				assert.deepEqual(new Uint8Array(await zip.read("wp-content/uploads/ภาพ.webp")), stored);
 			},
 		);
 	});
 
 	it("refuses a name the zip does not hold", async () => {
-		await withZip(zipOf([{ path: "a.webp", bytes: new Uint8Array([1]) }]), async (path) => {
-			const zip = await openZip(path);
-			try {
-				await assert.rejects(zip.read("b.webp"), /b\.webp is not in/);
-			} finally {
-				await zip.close();
-			}
+		await withZip(zipOf([{ path: "a.webp", bytes: new Uint8Array([1]) }]), async (zip) => {
+			await assert.rejects(zip.read("b.webp"), /b\.webp is not in/);
 		});
 	});
 
@@ -165,26 +160,16 @@ describe("the uploads copy's files", () => {
 		const bytes = zipOf([{ path: "a.webp", bytes: new Uint8Array([1, 2, 3]), stored: true }]);
 		// The method field of the file's central directory entry, whose offset the end record holds.
 		bytes.writeUInt16LE(12, bytes.readUInt32LE(bytes.length - 22 + 16) + 10);
-		await withZip(bytes, async (path) => {
-			const zip = await openZip(path);
-			try {
-				await assert.rejects(zip.read("a.webp"), /compression method 12/);
-			} finally {
-				await zip.close();
-			}
+		await withZip(bytes, async (zip) => {
+			await assert.rejects(zip.read("a.webp"), /compression method 12/);
 		});
 	});
 
 	it("refuses a file whose local header is damaged", async () => {
 		const bytes = zipOf([{ path: "a.webp", bytes: new Uint8Array([1, 2, 3]), stored: true }]);
 		bytes.writeUInt32LE(0, 0);
-		await withZip(bytes, async (path) => {
-			const zip = await openZip(path);
-			try {
-				await assert.rejects(zip.read("a.webp"), /a\.webp is damaged/);
-			} finally {
-				await zip.close();
-			}
+		await withZip(bytes, async (zip) => {
+			await assert.rejects(zip.read("a.webp"), /a\.webp is damaged/);
 		});
 	});
 
@@ -192,13 +177,8 @@ describe("the uploads copy's files", () => {
 		const bytes = zipOf([{ path: "a.webp", bytes: new Uint8Array([1, 2, 3]), stored: true }]);
 		// The file's first byte follows the local header (30 bytes) and its name (6 bytes).
 		bytes[36] = 9;
-		await withZip(bytes, async (path) => {
-			const zip = await openZip(path);
-			try {
-				await assert.rejects(zip.read("a.webp"), /a\.webp is damaged/);
-			} finally {
-				await zip.close();
-			}
+		await withZip(bytes, async (zip) => {
+			await assert.rejects(zip.read("a.webp"), /a\.webp is damaged/);
 		});
 	});
 });

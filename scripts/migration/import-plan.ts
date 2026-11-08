@@ -135,8 +135,8 @@ const isPm25 = (row: ListRow, title: string) => hasFlag(row, "pm25") || /PM\s*2\
 
 /**
  * Blocks as plain text: a line per block, keeping the line breaks inside one. EmDash's
- * extractPlainText (emdash 1.1.0 src/search/text-extraction.ts) puts a blank line between blocks
- * and adds a picture's alt text and a code block, which a Summary does not take.
+ * extractPlainText puts a blank line between blocks and adds a code block's text, which the report
+ * names instead (`docs/agents/emdash-1.1.0.md` "Search and seeding").
  */
 const textOf = (blocks: Block[]) =>
 	blocks
@@ -342,7 +342,8 @@ const withoutLastSlash = (path: string) => path.replace(/\/$/, "");
  * (`docs/agents/emdash-1.1.0.md` "Native API for tests"); a term the plan's entries need, which
  * only the model-update step adds; or a legacy address that already redirects. EmDash refuses a
  * second rule with the same source (emdash 1.1.0 src/api/handlers/redirects.ts
- * handleRedirectCreate), and the form without the last slash is the same address to its middleware.
+ * handleRedirectCreate), and its middleware takes the form without the last slash for the same
+ * address (src/astro/middleware/redirect.ts).
  */
 export function firstStop(planned: ImportPlan, target: TargetState): string | undefined {
 	const held = new Map(

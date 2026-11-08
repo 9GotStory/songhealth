@@ -87,14 +87,14 @@ export async function readTarget(admin: helpers.CmsActor, planned: ImportPlan): 
 }
 
 /** The media item a used file became: its id and its address. */
-type MediaOf = Map<number, { id: string; url: string }>;
+type MediaByAttachment = Map<number, { id: string; url: string }>;
 
 /**
  * `value` with each picture a field holds replaced by its media item's `{ id }`, and each picture
  * of a body by the `asset` the Admin editor saves: the media item's id as `_ref` and its URL
  * (`docs/agents/emdash-1.1.0.md` "Media").
  */
-function withMedia(value: unknown, media: MediaOf): unknown {
+function withMedia(value: unknown, media: MediaByAttachment): unknown {
 	if (Array.isArray(value)) return value.map((inner) => withMedia(inner, media));
 	if (value === null || typeof value !== "object") return value;
 	if ("picture" in value) return { id: media.get((value as { picture: number }).picture)!.id };
@@ -129,7 +129,7 @@ export async function applyImport(
 		});
 		folders.set(name, String(helpers.nativeItemOf(created)!.id));
 	}
-	const media: MediaOf = new Map();
+	const media: MediaByAttachment = new Map();
 	let uploadedCount = 0;
 	const reused: ImportPlan["files"] = [];
 	for (const file of planned.files) {
