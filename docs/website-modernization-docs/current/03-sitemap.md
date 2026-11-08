@@ -1,9 +1,9 @@
 # Sitemap — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 03-sitemap
-> **Status:** CLEAN REBASELINE v2.5 — CURRENT native-first V1
-> **Version:** 2.5
-> **Last Updated:** 3 พฤศจิกายน 2569 (2026-11-03): Feature 004, ITA in V1
+> **Status:** CLEAN REBASELINE v2.6 — CURRENT native-first V1
+> **Version:** 2.6
+> **Last Updated:** 8 พฤศจิกายน 2569 (2026-11-08): Feature 007, phone breadcrumb presentation
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`
 > **Purpose:** กำหนด public navigation, canonical routes, URL rules, redirects และ public error behavior โดยใช้ slug-based URLs ที่เรียบง่าย
 
@@ -24,6 +24,10 @@
 > **Feature 004 decision (Product Owner, 2026-11-02; spec #121):** "ITA" is the main navigation's
 > last item (§2), with the V1 routes `/ita`, `/ita/{fiscal-year}` and `/ita/{slug}` (§11, §19).
 > Only `/dashboard` stays deferred.
+
+> **Feature 007 decision (Product Owner, 2026-11-07; #190 comment 6707205912):** Breadcrumb B
+> below 640 px limits only the current-page label to one line with ellipsis when necessary
+> (#192, §14). The public hierarchy, ancestor destinations and complete H1 remain.
 
 ---
 
@@ -249,6 +253,12 @@ Search results linkไป canonical routes ข้างต้น.
 # 14. Breadcrumb
 
 Breadcrumb สะท้อน public information hierarchy ไม่ derive จาก URL segments แบบกลไก.
+
+หน้าปัจจุบันเป็นข้อความเต็มพร้อม `aria-current="page"` ไม่ใช่ลิงก์. ที่ความกว้างต่ำกว่า 640 px
+แสดงเฉพาะ label ของหน้าปัจจุบันหนึ่งบรรทัด และใช้ ellipsis เมื่อข้อความเกินพื้นที่ โดยยังเก็บข้อความเต็มไว้
+ในหน้าและให้เทคโนโลยีช่วยการเข้าถึงอ่านได้. Label สั้นที่พอดียังแสดงครบ. Ancestor ยังคงข้อความเต็ม ลิงก์
+และลำดับชั้นเดิม และ breadcrumb ยังขึ้นบรรทัดใหม่ได้. H1 แสดงชื่อเต็มและตัดบรรทัดตามเดิม.
+ตั้งแต่ 640 px breadcrumb ทุกส่วนตัดบรรทัดได้ตามเดิม (`docs/design/DESIGN.md` §7.5).
 
 ตัวอย่าง:
 

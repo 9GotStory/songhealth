@@ -3,7 +3,7 @@
 > **Status:** v1.1, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190 as its tickets are implemented. Feature 007 acceptance
 > remains the Product Owner's decision.
-> **Updated:** 2026-11-07 (Feature 007 #191); first drafted 2026-10-30
+> **Updated:** 2026-11-08 (Feature 007 #191–#192); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -16,7 +16,9 @@
 > **Feature 007 decision (Product Owner, 2026-11-07; #190 comment 6707205912):**
 > Header B below 1024 px uses compact Search/Contact utility links and a 44×44 px icon-only
 > native menu. The released space belongs to the identity at its existing type size (§7.4).
-> This amendment implements #191 only; the other selected refinements follow in their tickets.
+> Breadcrumb B below 640 px limits only the current label to one line with ellipsis when needed;
+> its full text, ancestor hierarchy and H1 remain (§7.5). This amendment implements #191–#192;
+> the other selected refinements follow in their tickets.
 
 ## 1. Scope, authority and status
 
@@ -286,9 +288,23 @@ this document names:
   public-shell suite verifies 320/375 px reflow, both sides of 1024 px, keyboard/focus, axe,
   JavaScript-disabled navigation and configured/fallback identities, restoring settings in `finally`.
 
+### 7.5 Breadcrumb
+
+`src/components/Breadcrumb.astro` (#192; spec #190 “Breadcrumb below 640 px”; Product Owner,
+#190 comment 6707205912, Breadcrumb B) follows Sitemap `03` §14's public hierarchy:
+
+- Ancestors remain full-text links, root first; the trail can wrap across rows.
+- The current page is text with `aria-current="page"`. Below 640 px its label occupies one line,
+  with ellipsis only when it exceeds its available width. The underlying text remains complete
+  for assistive technology; a short label that fits shows in full.
+- The H1 keeps its full text, type and wrapping. From 640 px the current breadcrumb label wraps
+  as before. Breadcrumb labels remain outside ThaiTitle's word-keeping scope (§4.1).
+- The public-browser suite covers long and short labels at 320/375/639/640/1440 px, ancestor
+  destinations, H1, clipping, keyboard navigation, axe, reflow and JavaScript-disabled pages.
+
 ## 8. Homepage
 
-Source: `current/04-homepage.md` v2.5 and `current/03-sitemap.md` v2.5. The sections, in `04` §3's
+Source: `current/04-homepage.md` v2.5 and `current/03-sitemap.md` v2.6. The sections, in `04` §3's
 order:
 
 1. Header / navigation / reachable search.
@@ -510,7 +526,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 ## 13. References and change history
 
 - Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.5, 2026-11-05);
-  `03-sitemap.md` (v2.5, 2026-11-03); staff guidance in `05` §5.1.
+  `03-sitemap.md` (v2.6, 2026-11-08); staff guidance in `05` §5.1.
 - Architecture: `docs/website-modernization-docs/current/10-system-blueprint.md` (v2.8,
   2026-11-05); `README.md`; `CLAUDE.md`.
 - Decisions: ADR 0001 (Tailwind CSS v4), ADR 0003 (CMS images in production), ADR 0007 (the
@@ -542,3 +558,6 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   menu, utility targets, unchanged title sizes and setting-dependent title wrapping (§4.1, §7.4,
   §10). Authority: #190 comment 6707205912. Earlier v1.0 citations record Feature 006's adoption;
   current header behavior is §7.4.
+- **v1.1 breadcrumb refinement (2026-11-08, Feature 007 #192):** the phone current label's
+  single line and ellipsis, with full underlying text, H1 and ancestor hierarchy (§7.5), following
+  #190 comment 6707205912. Sitemap §14 and its version citations reflect the same rule.
