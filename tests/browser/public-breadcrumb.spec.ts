@@ -67,17 +67,6 @@ test.beforeAll(async () => {
 
 test.afterAll(() => removeSuiteFixtures(admin));
 
-test("at 320 px only the long current label clips to one line with ellipsis", async ({ page }) => {
-	await page.setViewportSize({ width: 320, height: 900 });
-	await page.goto(contentPath());
-	await page.evaluate(() => document.fonts.ready);
-	await expectBreadcrumb(page, ANCESTORS, content.title);
-	const current = page
-		.getByRole("navigation", { name: "เส้นทางนำทาง" })
-		.locator('[aria-current="page"]');
-	expect(await textLayout(current)).toMatchObject({ lines: 1, clipped: true, ellipsis: true });
-});
-
 // Both sides of the phone breakpoint, plus the representative phone and desktop widths (#192).
 for (const width of [320, 375, 639, 640, 1440]) {
 	for (const long of [true, false]) {
