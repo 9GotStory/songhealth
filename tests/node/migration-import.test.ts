@@ -62,6 +62,9 @@ function reviewed(text: string, reviews: Record<string, Review>): string {
 /** How the target answers a request for a path, as verify reads it. */
 type Answer = { status: number; location: string | null; body?: string };
 
+/** An answer as verify reads one, with an empty body unless the test gives one. */
+const withBody = (answer: Answer) => ({ ...answer, body: answer.body ?? "" });
+
 /** The uploads copy's path of each attachment in `items`. */
 const uploadsOf = (items: SyntheticItem[]) =>
 	items.flatMap((item) => (item.url === undefined ? [] : [new URL(item.url).pathname.slice(1)]));
@@ -1539,7 +1542,7 @@ describe("verify", () => {
 			request: async (path) => {
 				const response = responses.get(path);
 				if (response === undefined) throw new Error(`unexpected request: ${path}`);
-				return response;
+				return withBody(response);
 			},
 		};
 	}
@@ -1614,7 +1617,7 @@ describe("verify", () => {
 			request: async (path) => {
 				const response = responses.get(path);
 				if (response === undefined) throw new Error(`unexpected request: ${path}`);
-				return response;
+				return withBody(response);
 			},
 		};
 	}

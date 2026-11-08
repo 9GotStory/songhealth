@@ -19,7 +19,7 @@ export interface VerifyInput {
 	/** Each planned file's content hash, as EmDash writes one, by its attachment. */
 	hashes: Map<number, string>;
 	/** How the target answers a GET of `path`, without following a redirect. */
-	request: (path: string) => Promise<{ status: number; location: string | null; body?: string }>;
+	request: (path: string) => Promise<{ status: number; location: string | null; body: string }>;
 }
 
 interface VerifyReport {
@@ -43,7 +43,8 @@ const timeOf = (instant: string | null) => (instant === null ? Number.NaN : Date
 
 /**
  * The slugs of the Documents a page lists in its related Documents section, in its order
- * (src/components/RelatedDocuments.astro, src/components/DocumentRow.astro).
+ * (src/components/RelatedDocuments.astro, src/components/DetailSection.astro,
+ * src/components/DocumentRow.astro).
  */
 function listedDocuments(html: string): string[] {
 	const section = /id="related-documents"[\s\S]*?<\/section>/.exec(html)?.[0] ?? "";
@@ -134,7 +135,7 @@ export async function verifyTarget({
 		passed: 0,
 	};
 	for (const { page, collection, documents, data } of planned.entries) {
-		const { status, body = "" } = await request(page);
+		const { status, body } = await request(page);
 		pageStatus.set(page, status);
 		if (status !== 200) {
 			failures.push(`${page} answers ${status}`);

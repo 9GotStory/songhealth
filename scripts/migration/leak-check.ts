@@ -5,7 +5,7 @@
 // (tests/node/migration-leak-check.test.ts).
 
 import type { LegacySite } from "./legacy-site.ts";
-import { filesOf } from "./plan.ts";
+import { filesOf, lastPartOf } from "./plan.ts";
 
 /**
  * The shortest text taken to name something. The Legacy site's titles and alt texts are at least
@@ -41,7 +41,7 @@ function stringsOf(site: LegacySite): Map<string, string> {
 	}
 	for (const [id, { url, path, alt, caption }] of filesOf(site, []).byId) {
 		// Its name as the uploads copy has it, and percent-encoded as the export's address writes it.
-		for (const name of [path, url].map((address) => address?.split("/").at(-1) ?? "")) {
+		for (const name of [path ?? "", url].map(lastPartOf)) {
 			if (name.length >= SHORTEST_NAME) strings.set(name, `the file name of attachment ${id}`);
 		}
 		addText(alt, `the alt text of attachment ${id}`);
@@ -60,7 +60,7 @@ export function leaksIn(site: LegacySite, added: AddedLines[]): Leak[] {
 		.filter(({ file }) => !file.startsWith("docs/research/"))
 		.flatMap(({ file, lines }) => {
 			const text = lines.join("\n");
-			return strings.flatMap(([string, what]) => (text.includes(string) ? [{ file, what }] : []));
+			return strings.flatMap(([needle, what]) => (text.includes(needle) ? [{ file, what }] : []));
 		});
 }
 

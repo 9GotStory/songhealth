@@ -442,12 +442,12 @@ function commandOf(args: string[]): (() => Promise<number>) | undefined {
 	const { origin, "token-file": tokenFile, final, "dry-run": dryRun } = parsed.values;
 	const [command, exportPath, zipPath, ...others] = parsed.positionals;
 	const noTarget = origin === undefined && tokenFile === undefined;
-	const plain = noTarget && !final && !dryRun;
-	if (command === "leak-check" && exportPath !== undefined && zipPath === undefined && plain) {
+	const noOptions = noTarget && !final && !dryRun;
+	if (command === "leak-check" && exportPath !== undefined && zipPath === undefined && noOptions) {
 		return () => leakCheckCommand(exportPath);
 	}
 	if (exportPath === undefined || zipPath === undefined || others.length > 0) return undefined;
-	if (command === "plan" && plain) return () => planCommand(exportPath, zipPath);
+	if (command === "plan" && noOptions) return () => planCommand(exportPath, zipPath);
 	if (dryRun) {
 		return command === "import" && noTarget
 			? () => dryRunCommand({ exportPath, zipPath, final })

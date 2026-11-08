@@ -475,9 +475,12 @@ export function count(counts: Record<string, number>, key: string): void {
 	counts[key] = (counts[key] ?? 0) + 1;
 }
 
+/** The last part of a path or an address. */
+export const lastPartOf = (path: string) => path.split("/").at(-1)!;
+
 /** A file's extension in lower case, or "(none)". */
 function extensionOf(path: string | undefined): string {
-	const name = path?.split("/").at(-1) ?? "";
+	const name = path === undefined ? "" : lastPartOf(path);
 	return name.includes(".") ? name.split(".").at(-1)!.toLowerCase() : "(none)";
 }
 

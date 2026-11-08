@@ -84,13 +84,16 @@ export function newsItem(id: number, fields: Partial<SyntheticItem> = {}): Synth
 	return { type: "public-new", id, slug: `news-${id}`, title: `เรื่องที่ ${id}`, ...fields };
 }
 
-/** Runs scripts/migration.ts with `args`, as a command's test does. */
-export const runMigration = (...args: string[]) =>
+/** Runs scripts/migration.ts with `args` from the folder `cwd`, as a command's test does. */
+export const runMigrationIn = (cwd: string | undefined, ...args: string[]) =>
 	spawnSync(
 		process.execPath,
 		[fileURLToPath(new URL("../../scripts/migration.ts", import.meta.url)), ...args],
-		{ encoding: "utf8" },
+		{ cwd, encoding: "utf8" },
 	);
+
+/** Runs scripts/migration.ts with `args`, as a command's test does. */
+export const runMigration = (...args: string[]) => runMigrationIn(undefined, ...args);
 
 /** The Legacy site's address, as its export writes it. */
 export const SITE = "https://songhealth.moph.go.th";

@@ -11,6 +11,7 @@ import {
 	filesOf,
 	hasFlag,
 	holdsText,
+	lastPartOf,
 	linksIn,
 	plan,
 	targetOf,
@@ -129,9 +130,6 @@ function targetFor(row: ListRow): { target: EntryTarget; atDefault: boolean } {
 	if (hasFlag(row, "title-word")) return { target: "Activity", atDefault: true };
 	throw new Error(`${row.slug} has no default: decide it in the Classification list`);
 }
-
-/** The file's name, the last part of its path. */
-const filenameOf = (path: string) => path.split("/").at(-1)!;
 
 /**
  * An item is about PM 2.5 by its category, or by its title, as the two reports without a category
@@ -416,7 +414,7 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 		return {
 			attachment: id,
 			path: path!,
-			filename: filenameOf(path!),
+			filename: lastPartOf(path!),
 			folder: folderOf.get(id)!,
 			alt,
 			caption,

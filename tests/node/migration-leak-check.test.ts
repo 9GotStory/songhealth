@@ -7,11 +7,17 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { fileURLToPath } from "node:url";
 
 import { addedLinesOf, leaksIn } from "../../scripts/migration/leak-check.ts";
 import type { LegacyItem, LegacySite } from "../../scripts/migration/legacy-site.ts";
-import { SITE, attachment, directive, wxrDocument } from "./migration.helpers.ts";
+import {
+	SITE,
+	attachment,
+	directive,
+	runMigration,
+	runMigrationIn,
+	wxrDocument,
+} from "./migration.helpers.ts";
 
 const NAME = "qZ3xW-1700000000.pdf";
 
@@ -210,7 +216,6 @@ describe("the lines a commit adds", () => {
 });
 
 describe("the leak-check command", () => {
-	const script = fileURLToPath(new URL("../../scripts/migration.ts", import.meta.url));
 	const git = (cwd: string, ...args: string[]) => spawnSync("git", args, { cwd, encoding: "utf8" });
 
 	/** Runs the command in a new repository holding `text` staged at `path`, under git settings. */
@@ -231,10 +236,7 @@ describe("the leak-check command", () => {
 			for (const setting of settings) git(repository, "config", ...setting);
 			await writeFile(join(repository, path), text);
 			git(repository, "add", path);
-			return spawnSync(process.execPath, [script, "leak-check", exportFile], {
-				cwd: repository,
-				encoding: "utf8",
-			});
+			return runMigrationIn(repository, "leak-check", exportFile);
 		} finally {
 			await rm(folder, { recursive: true });
 		}
@@ -269,9 +271,7 @@ describe("the leak-check command", () => {
 	});
 
 	it("needs the export", () => {
-		const { status, stderr } = spawnSync(process.execPath, [script, "leak-check"], {
-			encoding: "utf8",
-		});
+		const { status, stderr } = runMigration("leak-check");
 		assert.equal(status, 2);
 		assert.match(stderr, /usage/);
 	});
