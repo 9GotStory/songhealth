@@ -202,9 +202,9 @@ describe("a MOIT's lines", () => {
 		]);
 		assert.deepEqual(entries[0]!.data.evidence, [
 			requirementBlock("1", "แผน"),
-			fileBlock("แผน", 41),
+			{ ...fileBlock("แผน", 41), note: "6 เดือน" },
 		]);
-		assert.deepEqual(report.notes, [{ slug: "moit-5-2568", note: "text not carried: 6 เดือน" }]);
+		assert.deepEqual(report.notes, []);
 	});
 
 	it("reports a line of text with no number and no link, a paragraph or a list item", async () => {
@@ -213,8 +213,8 @@ describe("a MOIT's lines", () => {
 		]);
 		assert.deepEqual(entries[0]!.data.evidence, [requirementBlock("1", "รายงาน")]);
 		assert.deepEqual(report.notes, [
-			{ slug: "moit-6-2568", note: "text not carried: ไตรมาสที่ 1" },
 			{ slug: "moit-6-2568", note: "text not carried: หัวข้อย่อยในรายงาน" },
+			{ slug: "moit-6-2568", note: "text not carried: ไตรมาสที่ 1" },
 		]);
 	});
 
@@ -230,6 +230,131 @@ describe("a MOIT's lines", () => {
 		const { entries, report } = await importOf([moitPost(8, 2568, "<p>1. </p><h5>2. รายงาน</h5>")]);
 		assert.deepEqual(entries[0]!.data.evidence, [requirementBlock("2", "รายงาน")]);
 		assert.deepEqual(report.notes, [{ slug: "moit-8-2568", note: "text not carried: 1." }]);
+	});
+});
+
+describe("a heading over a MOIT's files (Product Owner, #180 comment 6723350426, item 2)", () => {
+	const noted = (label: string, id: number, note: string) => ({ ...fileBlock(label, id), note });
+	const link = (id: number, label: string) => `<a href="${fileHref(id)}">${label}</a>`;
+
+	it("is the note of the files under it, through its sub-items, until the next heading", async () => {
+		const evidence = await evidenceOf(
+			moitPost(
+				4,
+				2568,
+				`<h4>2. รายงาน</h4><p>ไตรมาสที่ 1</p><p>2.1 ${link(41, "บันทึก")}</p><p>2.2 ${link(42, "รายงาน")}</p><p>ไตรมาสที่ 2</p><p>2.1 ${link(43, "บันทึก")}</p>`,
+			),
+			[evidenceFile(41), evidenceFile(42), evidenceFile(43)],
+		);
+		assert.deepEqual(evidence, [
+			requirementBlock("2", "รายงาน"),
+			requirementBlock("2.1", "บันทึก"),
+			noted("บันทึก", 41, "ไตรมาสที่ 1"),
+			requirementBlock("2.2", "รายงาน"),
+			noted("รายงาน", 42, "ไตรมาสที่ 1"),
+			requirementBlock("2.1", "บันทึก"),
+			noted("บันทึก", 43, "ไตรมาสที่ 2"),
+		]);
+	});
+
+	it("ends at the next top-level Requirement, whose files carry no note", async () => {
+		const evidence = await evidenceOf(
+			moitPost(
+				4,
+				2568,
+				`<h4>2. รายงาน</h4><p>ไตรมาสที่ 4</p><p>2.1 ${link(41, "บันทึก")}</p><h4>3. ${link(42, "ถัดไป")}</h4><p>3.1 ${link(43, "ฟอร์ม")}</p>`,
+			),
+			[evidenceFile(41), evidenceFile(42), evidenceFile(43)],
+		);
+		assert.deepEqual(evidence, [
+			requirementBlock("2", "รายงาน"),
+			requirementBlock("2.1", "บันทึก"),
+			noted("บันทึก", 41, "ไตรมาสที่ 4"),
+			requirementBlock("3", "ถัดไป"),
+			fileBlock("ถัดไป", 42),
+			requirementBlock("3.1", "ฟอร์ม"),
+			fileBlock("ฟอร์ม", 43),
+		]);
+	});
+
+	it("carries to the files of a list under it, and to files before any Requirement", async () => {
+		const evidence = await evidenceOf(
+			moitPost(
+				2,
+				2568,
+				`<p>12 เดือน</p><ul><li>${link(41, "แผน")}</li><li>${link(42, "ผล")}</li></ul>`,
+			),
+			[evidenceFile(41), evidenceFile(42)],
+		);
+		assert.deepEqual(evidence, [noted("แผน", 41, "12 เดือน"), noted("ผล", 42, "12 เดือน")]);
+	});
+
+	it("gives a link block no note, which has no such field", async () => {
+		const evidence = await evidenceOf(
+			moitPost(2, 2568, '<p>6 เดือน</p><p>1.1 <a href="https://example.go.th/">เว็บไซต์</a></p>'),
+		);
+		assert.deepEqual(evidence, [
+			requirementBlock("1.1", "เว็บไซต์"),
+			linkBlock("เว็บไซต์", "https://example.go.th/", { current: false }),
+		]);
+	});
+
+	it("goes into the report when no file comes under it, by the next heading or the end", async () => {
+		const { entries, report } = await importOf([
+			evidenceFile(41),
+			moitPost(
+				2,
+				2568,
+				`<p>ไม่มีไฟล์ใต้หัวข้อนี้</p><h4>1. รายงาน</h4><p>หัวข้อถัดไป</p><p>หัวข้อสุดท้าย</p><p>1.1 ${link(41, "บันทึก")}</p><p>หัวข้อท้ายโพสต์</p>`,
+			),
+		]);
+		assert.deepEqual(entries[0]!.data.evidence, [
+			requirementBlock("1", "รายงาน"),
+			requirementBlock("1.1", "บันทึก"),
+			noted("บันทึก", 41, "หัวข้อสุดท้าย"),
+		]);
+		assert.deepEqual(
+			report.notes.map(({ note }) => note),
+			[
+				"text not carried: ไม่มีไฟล์ใต้หัวข้อนี้",
+				"text not carried: หัวข้อถัดไป",
+				"text not carried: หัวข้อท้ายโพสต์",
+			],
+		);
+	});
+
+	it("is not a list item with no link, which stays in the report", async () => {
+		const { entries, report } = await importOf([
+			evidenceFile(41),
+			moitPost(3, 2568, `<ul><li>หัวข้อย่อยในรายงาน</li></ul><p>1.1 ${link(41, "บันทึก")}</p>`),
+		]);
+		assert.deepEqual(entries[0]!.data.evidence, [
+			requirementBlock("1.1", "บันทึก"),
+			fileBlock("บันทึก", 41),
+		]);
+		assert.deepEqual(report.notes, [
+			{ slug: "moit-3-2568", note: "text not carried: หัวข้อย่อยในรายงาน" },
+		]);
+	});
+
+	it("is not a numbered line with no wording, nor one with a link", async () => {
+		const { entries, report } = await importOf([
+			evidenceFile(41),
+			evidenceFile(42),
+			moitPost(
+				3,
+				2568,
+				`<p>1. </p><p>1.1 ${link(41, "บันทึก")}</p><p>${link(42, "ฟอร์ม")}</p><p>1.2 ${link(41, "ซ้ำ")}</p>`,
+			),
+		]);
+		assert.deepEqual(entries[0]!.data.evidence, [
+			requirementBlock("1.1", "บันทึก"),
+			fileBlock("บันทึก", 41),
+			fileBlock("ฟอร์ม", 42),
+			requirementBlock("1.2", "ซ้ำ"),
+			fileBlock("ซ้ำ", 41),
+		]);
+		assert.deepEqual(report.notes, [{ slug: "moit-3-2568", note: "text not carried: 1." }]);
 	});
 });
 

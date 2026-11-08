@@ -33,6 +33,8 @@ export interface Block {
 	children?: { text: string; marks?: string[] }[];
 	/** A link's `href`, by the key its spans name in their `marks`. */
 	markDefs?: { _key: string; _type: string; href?: string }[];
+	/** The kind of list a block is an item of. */
+	listItem?: string;
 	/**
 	 * An image block's address, as the HTML has it (`docs/agents/emdash-1.1.0.md` "WordPress
 	 * import").

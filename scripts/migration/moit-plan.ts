@@ -48,8 +48,8 @@ export const ANOM_001_FILE = "anom-001.pdf";
 
 /**
  * The document's official source, which the MOIT links while the office's copy is not beside the
- * export (spec #174 "Fixes at import"). A proposed address until the Product Owner confirms it
- * (#180 comment 6722950056, item 1).
+ * export (spec #174 "Fixes at import"). The Product Owner chose the office's file (#180 comment
+ * 6723350426, item 1), so this address, which nobody has confirmed, serves only a run without it.
  */
 export const ANOM_001_SOURCE = "https://nscr.nesdc.go.th/";
 
@@ -234,6 +234,8 @@ export function planMoits({
 			source: addressOf(post.slug),
 			destination: `/ita/${slug}`,
 		})),
+		// Every year with MOITs, 2570's too when its posts are in the export (Product Owner, #180
+		// comment 6723350426, item 5).
 		...years.map((year) => ({ source: `/ita-${year}/`, destination: `/ita/${year}` })),
 		...(years.includes(ETHICS_YEAR)
 			? [{ source: "/ethics/", destination: `/ita/${ETHICS_YEAR}` }]
@@ -289,6 +291,12 @@ export function planMoits({
 		};
 		/** The wording of the last Requirement, which a link with no words of its own can take. */
 		let requirementWording = "";
+		/** A line of words alone, the note of the files under it (#180 comment 6723350426, item 2). */
+		let heading: { text: string; used: boolean } | undefined;
+		const endHeading = () => {
+			if (heading !== undefined && !heading.used) noteOut(`text not carried: ${heading.text}`);
+			heading = undefined;
+		};
 		for (const block of withoutCard(toBlocks(post.content))) {
 			if (block._type !== "block") {
 				noteOut(
@@ -299,8 +307,19 @@ export function planMoits({
 				continue;
 			}
 			const line = withYearFixed(slug, lineOf(block));
+			if (
+				line.number === undefined &&
+				line.links.length === 0 &&
+				line.text !== "" &&
+				!block.listItem
+			) {
+				endHeading();
+				heading = { text: line.text, used: false };
+				continue;
+			}
 			const isRequirement = line.number !== undefined && !saysNothing(line.wording);
 			if (isRequirement) {
+				if (!line.number!.includes(".")) endHeading();
 				requirementWording = line.wording;
 				evidence.push({ _type: "ita_requirement", number: line.number, title: line.wording });
 			}
@@ -308,7 +327,14 @@ export function planMoits({
 				(link) =>
 					evidenceOfLink(link, saysNothing(line.wording) ? requirementWording : line.wording) ?? [],
 			);
-			evidence.push(...pieces);
+			for (const piece of pieces) {
+				if (piece._type === "ita_file" && heading !== undefined) {
+					heading.used = true;
+					evidence.push({ ...piece, note: heading.text });
+				} else {
+					evidence.push(piece);
+				}
+			}
 			// A number left alone by a link that stayed out says nothing the report needs.
 			const wordsLeft =
 				line.links.length === 0
@@ -318,6 +344,7 @@ export function planMoits({
 				noteOut(`text not carried: ${line.text}`);
 			}
 		}
+		endHeading();
 		if (evidence.length > MAX_BLOCKS) {
 			throw new Error(`${slug} has ${evidence.length} blocks, over ${MAX_BLOCKS}`);
 		}
@@ -339,7 +366,8 @@ export function planMoits({
 	/**
 	 * What makes a file one file: its bytes, since EmDash answers an upload of the same bytes with
 	 * the media item it holds (emdash 1.1.0 src/astro/routes/api/media.ts), and the office uploaded
-	 * some documents once a year under different attachments.
+	 * some documents once a year under different attachments (Product Owner, #180 comment
+	 * 6723350426, item 3).
 	 */
 	const contentKey = (id: number) => fingerprintOf(files.byId.get(id)!.path!);
 	const yearsOfFile = new Map<string, Set<number>>();
