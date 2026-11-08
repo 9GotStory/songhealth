@@ -3,7 +3,7 @@
 > **Status:** v1.1, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190 as its tickets are implemented. Feature 007 acceptance
 > remains the Product Owner's decision.
-> **Updated:** 2026-11-08 (Feature 007 #191–#192); first drafted 2026-10-30
+> **Updated:** 2026-11-08 (Feature 007 #191–#193); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -17,7 +17,9 @@
 > Header B below 1024 px uses compact Search/Contact utility links and a 44×44 px icon-only
 > native menu. The released space belongs to the identity at its existing type size (§7.4).
 > Breadcrumb B below 640 px limits only the current label to one line with ellipsis when needed;
-> its full text, ancestor hierarchy and H1 remain (§7.5). This amendment implements #191–#192;
+> its full text, ancestor hierarchy and H1 remain (§7.5). Shared ContentCard, ServiceCard and
+> ActivityCard use whole-card native links and the green hover edge/title (§7.3).
+> This amendment implements #191–#193;
 > the other selected refinements follow in their tickets.
 
 ## 1. Scope, authority and status
@@ -250,6 +252,16 @@ this document names:
 
 ### 7.3 Cards and their pictures
 
+- **Whole-card navigation** (#193; Product Owner, #190 comment 6707205912): each shared
+  ContentCard (News, Health News and Health Content lists), ServiceCard (catalog and Homepage)
+  and ActivityCard (list and Homepage) has one native link named by its title alone. The
+  picture/fallback, icon, metadata, summary and padding all open its original destination.
+  H2 titles on lists and H3 under Homepage sections remain inside the link, without nested
+  anchors or another focus stop. Enter, modified clicks and native new-tab actions work.
+- **Interaction:** hover adds a 2 px `brand-primary` ring without moving/resizing the card and
+  makes its title green and underlined. The resting border/shadow remains; keyboard focus uses
+  the global 3 px outline around the whole card. The Homepage's separately composed News and
+  Health Information cards, and multi-action cards, keep their own interactions.
 - **Crops:** an Activity card crops its picture to 16:9 (`ActivityCard.astro`), and a News or
   Health Content card in a list to 16:10 (`ContentCard.astro`); the Homepage's News and Health
   Information cards show no picture. Both crops centre on the middle, or around the focal point
@@ -561,3 +573,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - **v1.1 breadcrumb refinement (2026-11-08, Feature 007 #192):** the phone current label's
   single line and ellipsis, with full underlying text, H1 and ancestor hierarchy (§7.5), following
   #190 comment 6707205912. Sitemap §14 and its version citations reflect the same rule.
+
+- **v1.1 shared-card refinement (2026-11-08, Feature 007 #193):** title-named whole-card
+  links, the 2 px green hover edge and title underline, and whole-card keyboard focus (§7.3),
+  following #190 comment 6707205912. Crops, fallbacks, compact spacing/summary rules and the
+  Homepage's four/three Activities across 1024 px remain.
