@@ -24,8 +24,8 @@ Every legacy group meets one of `09` §16's reasons for custom code, so the impo
 detour. The Product Owner chose the following in the grill of 2026-11-06 (answered "ตามที่แนะนำ",
 confirmed "ตามที่แนะนำ ยืนยัน"):
 
-- **One temporary Songhealth script** in `scripts/` reads a WXR export per post type and a copy of
-  `wp-content/uploads`. It writes through EmDash's native APIs: content, media (an upload with the
+- **One temporary Songhealth script** in `scripts/` reads a WXR export of all content and the zip
+  of `wp-content`. It writes through EmDash's native APIs: content, media (an upload with the
   same content hash reuses the existing item; imported files go into Media Library folders),
   taxonomy terms and redirects. The model stays as `seed/seed.json` defines it.
 - **People decide what each item becomes.** The Classification list (`GLOSSARY.md`) names the
@@ -57,9 +57,18 @@ confirmed "ตามที่แนะนำ ยืนยัน"):
   its WordPress import.
 - EmDash's media step and link rewriting are not used, so the script relies on the upload's
   content-hash reuse and rewrites the links inside migrated text itself.
-- The script adds `sax` 1.6.1 and `@emdash-cms/gutenberg-to-portable-text` 1.1.0 to
-  `devDependencies`, the versions EmDash already installs, to read WXR and convert block-editor
-  HTML.
+- The script reads WXR with EmDash's exported parsers, `parseWxrString` and `parseWxrDate`, and adds
+  only `@emdash-cms/gutenberg-to-portable-text` 1.1.0, the version EmDash already installs, to
+  `devDependencies`, to convert HTML.
+- Direct file addresses under `/wp-content/uploads/` are not redirected: EmDash 1.1.0's redirects
+  skip a path with a file extension (`src/astro/middleware/redirect.ts`, spec #174 "Redirects").
+  People who arrive through an item, page or MOIT redirect still reach the files.
 - Categories and Tags, which only EmDash's import fills, are deleted from the model.
 - `10` §16's rerun guard, for a slug changed between an import and its delta, does not arise:
   there is one final import, and it stops on a slug that already exists.
+
+## Amendments
+
+- **2026-11-08, from spec #174** (accepted in #174 comment 6685455009): one WXR export of all
+  content and the zip of `wp-content`, as the Product Owner provided them; EmDash's exported parsers
+  instead of `sax` (Q19, refined by delegation); direct file addresses not redirected (Q8 revised).

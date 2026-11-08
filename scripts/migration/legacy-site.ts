@@ -2,10 +2,8 @@
 // types the migration reads (scripts/migration/plan.ts ITEM_TYPES), with the attachments and the
 // pages' slugs. Reading goes through EmDash's own WXR and date parsers, which the emdash 1.1.0
 // package's main entry exports and plain Node loads (src/index.ts; `docs/agents/emdash-1.1.0.md`
-// "WordPress import"). Spec #174 "Source" takes them in place of ADR 0008's `sax` (Q19, refined by
-// delegation, in the spec the Product Owner accepted in #174 comment 6685455009); #185 amends the
-// ADR. node:test loads this module, and EmDash with it, with plain Node (Product Owner, #177
-// comment 6719251511, item 1).
+// "WordPress import"), as ADR 0008 has them since its amendment. node:test loads this module, and
+// EmDash with it, with plain Node (Product Owner, #177 comment 6719251511, item 1).
 //
 // This module is where the export's personal data stops: it returns no author, no item's author
 // (`dc:creator`), and nothing of any other post type, such as the form plugin's submission

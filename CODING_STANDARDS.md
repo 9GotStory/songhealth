@@ -110,10 +110,13 @@ and why, and `.jscpd-baseline.json` records them.
   "eight or fewer" with eight and nine items, a breakpoint such as "from `lg`" at 1023 and 1024 px,
   and a place where something stops or starts with a fixture that reaches it. The spec's coverage
   line stays beside these (#147 and #148 retros: in both, review found an edge untested).
-- Logic that `tests/node` checks lives in a `src/lib` module with no runtime import, because
-  node:test loads it with plain Node: no `emdash`, no extensionless relative import.
-  `src/lib/dated-lists.ts` and `src/lib/excerpt.ts` are examples; the module that reads through
-  EmDash imports them.
+- Logic that `tests/node` checks lives in a `src/lib` module, or a script's planning module such as
+  `scripts/demo-dataset/plan.ts`, with no runtime import, because node:test loads it with plain
+  Node: no `emdash`, no extensionless relative import. `src/lib/dated-lists.ts` and
+  `src/lib/excerpt.ts` are examples; the module that reads through EmDash imports them. One
+  exception: the migration script's reader, `scripts/migration/legacy-site.ts`, and its tests load
+  EmDash's exported WXR parsers, which plain Node loads (Product Owner, #177 comment 6719251511,
+  item 1).
 - A state the shared development runtime cannot produce, such as a failed read, is driven in
   node:test: the module that decides it takes the reads as a function, as
   `src/lib/search-matcher.ts` `searchOutcome` does (Product Owner, 2026-10-30: #63 comment
