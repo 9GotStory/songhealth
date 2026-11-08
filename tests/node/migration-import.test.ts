@@ -7,7 +7,6 @@
 // parser and converter, which plain Node loads (Product Owner, #177 comment 6719251511, item 1).
 
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,6 +25,7 @@ import {
 	PUBLIC_RELATIONS,
 	attachment,
 	newsItem,
+	runMigration,
 	wxrDocument,
 	zipOf,
 	type SyntheticItem,
@@ -54,7 +54,7 @@ function reviewed(text: string, reviews: Record<string, Review>): string {
 }
 
 /** How the target answers a request for a path, as verify reads it. */
-type Response_ = { status: number; location: string | null };
+type Answer = { status: number; location: string | null };
 
 /** The uploads copy's path of each attachment in `items`. */
 const uploadsOf = (items: SyntheticItem[]) =>
@@ -154,6 +154,33 @@ describe("the uploads copy's files", () => {
 			const zip = await openZip(path);
 			try {
 				await assert.rejects(zip.read("b.webp"), /b\.webp is not in/);
+			} finally {
+				await zip.close();
+			}
+		});
+	});
+
+	it("refuses a file whose compression method it does not read", async () => {
+		const bytes = zipOf([{ path: "a.webp", bytes: new Uint8Array([1, 2, 3]), stored: true }]);
+		// The method field of the file's central directory entry, whose offset the end record holds.
+		bytes.writeUInt16LE(12, bytes.readUInt32LE(bytes.length - 22 + 16) + 10);
+		await withZip(bytes, async (path) => {
+			const zip = await openZip(path);
+			try {
+				await assert.rejects(zip.read("a.webp"), /compression method 12/);
+			} finally {
+				await zip.close();
+			}
+		});
+	});
+
+	it("refuses a file whose local header is damaged", async () => {
+		const bytes = zipOf([{ path: "a.webp", bytes: new Uint8Array([1, 2, 3]), stored: true }]);
+		bytes.writeUInt32LE(0, 0);
+		await withZip(bytes, async (path) => {
+			const zip = await openZip(path);
+			try {
+				await assert.rejects(zip.read("a.webp"), /a\.webp is damaged/);
 			} finally {
 				await zip.close();
 			}
@@ -782,14 +809,14 @@ describe("verify", () => {
 	const OWNER = "admin-1";
 
 	/** A target that holds exactly what the plan of one Activity and one News writes. */
-	async function goodTarget(): Promise<VerifyInput & { responses: Map<string, Response_> }> {
+	async function goodTarget(): Promise<VerifyInput & { responses: Map<string, Answer> }> {
 		const planned = await importOf([
 			onePage(11),
 			onePage(12),
 			newsItem(1, { categories: [ACTIVITY], meta: featuring(11) }),
 			newsItem(2, { categories: [PUBLIC_RELATIONS], meta: featuring(12) }),
 		]);
-		const responses = new Map<string, Response_>([
+		const responses = new Map<string, Answer>([
 			["/activities/news-1", { status: 200, location: null }],
 			["/news/news-2", { status: 200, location: null }],
 			["/public-new/news-1/", { status: 301, location: "/activities/news-1" }],
@@ -949,7 +976,7 @@ describe("verify", () => {
 
 describe("the planning modules' imports", () => {
 	for (const module of ["import-plan", "verify"]) {
-		it(`${module}.ts imports nothing at run time, so node:test loads it with plain Node`, async () => {
+		it(`${module}.ts imports only the planner at run time, so node:test loads it with plain Node`, async () => {
 			const source = await readFile(
 				new URL(`../../scripts/migration/${module}.ts`, import.meta.url),
 				"utf8",
@@ -968,9 +995,7 @@ describe("the planning modules' imports", () => {
 });
 
 describe("the import and verify commands", () => {
-	const script = fileURLToPath(new URL("../../scripts/migration.ts", import.meta.url));
-	const run = (...args: string[]) =>
-		spawnSync(process.execPath, [script, ...args], { encoding: "utf8" });
+	const run = runMigration;
 	const TOKEN = "ec_pat_syntheticnotrealtoken";
 
 	/** Runs `use` in a folder with a synthetic export and uploads copy, and `plan`'s list. */

@@ -2,6 +2,8 @@
 // a WordPress WXR 1.2 document built from the parts a test names, and a zip of synthetic files. No
 // Legacy site content enters the repository, so every title, name and file here is made up.
 
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { crc32, deflateRawSync } from "node:zlib";
 
 /** A category an item carries: its taxonomy (the WXR `domain`), its slug and its name. */
@@ -68,6 +70,14 @@ export const OTHER_NEWS: SyntheticCategory = {
 export function newsItem(id: number, fields: Partial<SyntheticItem> = {}): SyntheticItem {
 	return { type: "public-new", id, slug: `news-${id}`, title: `เรื่องที่ ${id}`, ...fields };
 }
+
+/** Runs scripts/migration.ts with `args`, as a command's test does. */
+export const runMigration = (...args: string[]) =>
+	spawnSync(
+		process.execPath,
+		[fileURLToPath(new URL("../../scripts/migration.ts", import.meta.url)), ...args],
+		{ encoding: "utf8" },
+	);
 
 /** The Legacy site's address, as its export writes it. */
 export const SITE = "https://songhealth.moph.go.th";

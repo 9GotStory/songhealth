@@ -11,7 +11,6 @@
 // real parser in these tests (#177 comment 6719251511, item 1), so they see what it drops.
 
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -32,6 +31,7 @@ import {
 	SITE,
 	attachment,
 	newsItem,
+	runMigration,
 	wxrDocument,
 	zipOf,
 	type SyntheticCategory,
@@ -793,9 +793,7 @@ describe("the uploads copy's file list", () => {
 });
 
 describe("the plan command", () => {
-	const script = fileURLToPath(new URL("../../scripts/migration.ts", import.meta.url));
-	const run = (...args: string[]) =>
-		spawnSync(process.execPath, [script, ...args], { encoding: "utf8" });
+	const run = runMigration;
 	const sha256 = async (path: string) =>
 		createHash("sha256")
 			.update(await readFile(path))

@@ -57,8 +57,8 @@ confirmed "ตามที่แนะนำ ยืนยัน"):
   its WordPress import.
 - EmDash's media step and link rewriting are not used, so the script relies on the upload's
   content-hash reuse and rewrites the links inside migrated text itself.
-- The script reads WXR with EmDash's exported parsers, `parseWxrString` and `parseWxrDate`, and adds
-  only `@emdash-cms/gutenberg-to-portable-text` 1.1.0, the version EmDash already installs, to
+- The script reads WXR with EmDash's exported parsers, `parseWxr` and `parseWxrDate`, and adds only
+  `@emdash-cms/gutenberg-to-portable-text` 1.1.0, the version EmDash already installs, to
   `devDependencies`, to convert HTML.
 - Direct file addresses under `/wp-content/uploads/` are not redirected: EmDash 1.1.0's redirects
   skip a path with a file extension (`src/astro/middleware/redirect.ts`, spec #174 "Redirects").
@@ -72,3 +72,5 @@ confirmed "ตามที่แนะนำ ยืนยัน"):
 - **2026-11-08, from spec #174** (accepted in #174 comment 6685455009): one WXR export of all
   content and the zip of `wp-content`, as the Product Owner provided them; EmDash's exported parsers
   instead of `sax` (Q19, refined by delegation); direct file addresses not redirected (Q8 revised).
+- **2026-11-08, from #178:** the streaming `parseWxr` in place of `parseWxrString`, which drops an
+  attachment's alt text (`docs/agents/emdash-1.1.0.md` "WordPress import").

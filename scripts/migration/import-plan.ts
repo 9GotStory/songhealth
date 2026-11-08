@@ -1,7 +1,7 @@
 // What the migration script's import command writes (#178; spec #174 "The migration script",
 // "Mapping: the news stream" and "Redirects"): the plan of an export and its Classification list.
-// scripts/migration.ts reads the files and scripts/migration/writer.ts applies the plan; this
-// module imports nothing at run time, so node:test checks it directly
+// scripts/migration.ts reads the files and scripts/migration/writer.ts applies the plan; at run
+// time this module imports only the planner, which imports nothing, so node:test checks it directly
 // (tests/node/migration-import.test.ts).
 
 import type { LegacyItem, LegacySite } from "./legacy-site.ts";
@@ -132,7 +132,11 @@ const filenameOf = (path: string) => path.split("/").at(-1)!;
  */
 const isPm25 = (row: ListRow, title: string) => hasFlag(row, "pm25") || /PM\s*2\.5/i.test(title);
 
-/** Blocks as plain text: a line per block, keeping the line breaks inside one. */
+/**
+ * Blocks as plain text: a line per block, keeping the line breaks inside one. EmDash's
+ * extractPlainText (emdash 1.1.0 src/search/text-extraction.ts) puts a blank line between blocks
+ * and adds a picture's alt text and a code block, which a Summary does not take.
+ */
 const textOf = (blocks: Block[]) =>
 	blocks
 		.map((block) =>
@@ -311,9 +315,9 @@ const withoutLastSlash = (path: string) => path.replace(/\/$/, "");
  * Why the import must stop before it writes anything, or none (spec #174 "The migration script"):
  * the first target slug that exists, a slug in the trash staying taken
  * (`docs/agents/emdash-1.1.0.md` "Native API for tests"); a term the plan's entries need, which
- * only the model-update step adds; or a legacy address that already redirects, whose second rule
- * EmDash would refuse partway through (emdash 1.1.0 src/api/handlers/redirects.ts
- * handleRedirectCreate).
+ * only the model-update step adds; or a legacy address that already redirects. EmDash refuses a
+ * second rule with the same source (emdash 1.1.0 src/api/handlers/redirects.ts
+ * handleRedirectCreate), and the form without the last slash is the same address to its middleware.
  */
 export function firstStop(planned: ImportPlan, target: TargetState): string | undefined {
 	const held = new Map(

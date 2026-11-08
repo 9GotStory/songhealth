@@ -83,7 +83,7 @@ function attachmentId(value: string | undefined): number | undefined {
  * keeps the text of an item's `<category>` element as its label when it differs from the slug,
  * keyed by the taxonomy and the slug joined by U+0000, and a custom taxonomy's category, neither
  * `category` nor `post_tag`, by its slug under the taxonomy (emdash 1.1.0 src/cli/wxr/parser.ts
- * WxrPost taxonomyLabels, parseWxrString, captureItemCategoryLabel).
+ * WxrPost taxonomyLabels, parseWxr, captureItemCategoryLabel).
  */
 function categoryName(post: WxrPost, taxonomy: string, slug: string): string {
 	return post.taxonomyLabels?.get(`${taxonomy}\u0000${slug}`) ?? slug;
@@ -119,9 +119,10 @@ function itemOf(post: WxrPost, type: ItemType): LegacyItem {
 
 /**
  * Each attachment's caption by its WordPress ID, for those that have one. WordPress keeps a caption
- * in its item's `excerpt:encoded`, which neither of EmDash's parsers gives an attachment
- * (emdash 1.1.0 src/cli/wxr/parser.ts WxrAttachment), so this one field is read from the export's
- * text, which WordPress writes in one fixed shape.
+ * as the attachment's `post_excerpt` (`wp_get_attachment_caption`), and its export writes that in
+ * CDATA as the item's `excerpt:encoded` (`export_wp`, WordPress 7.1.4, the Legacy site's). Neither
+ * of EmDash's parsers gives an attachment that field (`docs/agents/emdash-1.1.0.md` "WordPress
+ * import"), so this one field is read from the export's text.
  */
 function captionsOf(xml: string): Map<number, string> {
 	const captions = new Map<number, string>();
