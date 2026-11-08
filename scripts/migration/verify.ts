@@ -1,37 +1,30 @@
 // What the migration script's verify command checks of a target (#178; spec #174 "The migration
-// script"): the plan's entries, pictures, pages and redirects against what the target holds and how
+// script"): the plan's entries, files, pages and redirects against what the target holds and how
 // it answers. scripts/migration.ts makes the reads; this module imports nothing at run time, so
 // node:test drives what the shared development runtime cannot produce, such as a redirect that
 // answers 302 (CODING_STANDARDS "Tests").
 
 import type { ImportPlan } from "./import-plan.ts";
-
-/** An entry of a planned collection, outside the trash. */
-interface LiveEntry {
-	collection: string;
-	slug: string | null;
-	status: string;
-	publishedAt: string | null;
-	authorId: string | null;
-}
+import type { Target } from "./writer.ts";
 
 export interface VerifyInput {
 	planned: ImportPlan;
-	entries: LiveEntry[];
-	/** The Media Library's items. */
-	media: { contentHash: string | null; folderId?: string | null }[];
-	folders: { id: string; name: string }[];
+	/** The entries of the planned collections, outside the trash. */
+	entries: Target["entries"];
+	media: Target["media"];
+	folders: Target["folders"];
 	/** The importing Administrator's user ID. */
 	owner: string;
-	/** Each planned picture's content hash, as EmDash writes one, by its attachment. */
+	/** Each planned file's content hash, as EmDash writes one, by its attachment. */
 	hashes: Map<number, string>;
 	/** How the target answers a GET of `path`, without following a redirect. */
 	request: (path: string) => Promise<{ status: number; location: string | null }>;
 }
 
 interface VerifyReport {
-	entries: Record<string, { planned: number; found: number }>;
-	pictures: { planned: number; inLibrary: number; inFolder: number };
+	/** The planned entries found, and all the published entries the collection holds. */
+	entries: Record<string, { planned: number; found: number; inCollection: number }>;
+	files: { planned: number; inLibrary: number; inFolder: number };
 	pages: { planned: number; passed: number };
 	redirects: { planned: number; passed: number };
 	failures: string[];
@@ -59,7 +52,13 @@ export async function verifyTarget({
 	const live = new Map(entries.map((entry) => [`${entry.collection}/${entry.slug}`, entry]));
 	const entryCounts: VerifyReport["entries"] = {};
 	for (const { collection, slug, publishedAt } of planned.entries) {
-		const count = (entryCounts[collection] ??= { planned: 0, found: 0 });
+		const count = (entryCounts[collection] ??= {
+			planned: 0,
+			found: 0,
+			inCollection: entries.filter(
+				(entry) => entry.collection === collection && entry.status === "published",
+			).length,
+		});
 		count.planned++;
 		const name = `${collection}/${slug}`;
 		const entry = live.get(name);
@@ -78,16 +77,24 @@ export async function verifyTarget({
 	}
 	const libraryHashes = new Set(media.map((item) => item.contentHash));
 	const folderIds = new Map(folders.map((folder) => [folder.name, folder.id]));
-	const pictures = { planned: planned.pictures.length, inLibrary: 0, inFolder: 0 };
-	for (const { attachment, filename, folder } of planned.pictures) {
+	const files = {
+		planned: planned.files.length + planned.report.missing.length,
+		inLibrary: 0,
+		inFolder: 0,
+	};
+	for (const { attachment, filename, folder } of planned.files) {
 		const hash = hashes.get(attachment);
 		if (hash === undefined || !libraryHashes.has(hash)) {
-			failures.push(`picture ${attachment} (${filename}) is not in the Media Library`);
+			failures.push(`file ${attachment} (${filename}) is not in the Media Library`);
 			continue;
 		}
-		pictures.inLibrary++;
+		files.inLibrary++;
 		const item = media.find((candidate) => candidate.contentHash === hash)!;
-		if (item.folderId != null && item.folderId === folderIds.get(folder)) pictures.inFolder++;
+		if (item.folderId != null && item.folderId === folderIds.get(folder)) files.inFolder++;
+	}
+	for (const { attachment, path, usedBy } of planned.report.missing) {
+		const name = path ?? `attachment ${attachment}`;
+		failures.push(`${name}, used by ${usedBy.join(", ")}, is not in the uploads copy`);
 	}
 	const pageStatus = new Map<string, number>();
 	const pages = { planned: planned.entries.length, passed: 0 };
@@ -111,5 +118,5 @@ export async function verifyTarget({
 			redirects.passed++;
 		}
 	}
-	return { entries: entryCounts, pictures, pages, redirects, failures };
+	return { entries: entryCounts, files, pages, redirects, failures };
 }

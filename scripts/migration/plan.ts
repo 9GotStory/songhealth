@@ -74,6 +74,9 @@ const FLAGS = [
 
 type Flag = (typeof FLAGS)[number];
 
+/** Whether a row's flags cell holds `flag`. */
+export const hasFlag = (row: ListRow, flag: Flag) => row.flags.split(" ").includes(flag);
+
 /** What a row can become (GLOSSARY "Classification list"), or ต้องเลือก while it waits for one. */
 type Target = "News" | "Activity" | "Announcement" | "Document" | typeof TO_CHOOSE;
 
@@ -201,7 +204,7 @@ interface Uses {
 /**
  * The attachments an item's featured image, ACF fields and links use, and its other upload links.
  */
-function usesOf(item: LegacyItem, files: Files): Uses {
+export function usesOf(item: LegacyItem, files: Files): Uses {
 	const attachments = [item.featured, ...item.pictures, ...item.files.map((file) => file.id)];
 	const unlisted: Uses["unlisted"] = [];
 	for (const href of [...linksIn(item.content), ...linksIn(item.editor)]) {
@@ -467,7 +470,7 @@ interface Inventory {
 }
 
 /** Adds one to `key`'s count. */
-function count(counts: Record<string, number>, key: string): void {
+export function count(counts: Record<string, number>, key: string): void {
 	counts[key] = (counts[key] ?? 0) + 1;
 }
 

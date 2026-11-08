@@ -348,7 +348,7 @@ describe("a News item", () => {
 	});
 
 	it("takes the files of its other ACF pictures and reports them, since a News has no gallery", async () => {
-		const { entries, pictures, report } = await importOf([
+		const { entries, files, report } = await importOf([
 			onePage(11),
 			onePage(13),
 			onePage(12),
@@ -359,7 +359,7 @@ describe("a News item", () => {
 		]);
 		assert.equal(entries[0]!.data.gallery, undefined);
 		assert.deepEqual(
-			pictures.map(({ attachment: id }) => id),
+			files.map(({ attachment: id }) => id),
 			[11, 13, 12],
 		);
 		assert.deepEqual(report.notes, [
@@ -481,6 +481,17 @@ describe("an Activity's text, which only a row moved from News can have", () => 
 				"link not carried: /wp-content/uploads/a.pdf",
 			],
 		);
+	});
+});
+
+describe("the report", () => {
+	it("counts the items by legacy group and target", async () => {
+		const { report } = await importOf([
+			newsItem(1, { categories: [ACTIVITY] }),
+			newsItem(2, { categories: [ACTIVITY] }),
+			newsItem(3, { categories: [PUBLIC_RELATIONS] }),
+		]);
+		assert.deepEqual(report.groups, { "public-new": { Activity: 2, News: 1 } });
 	});
 });
 
@@ -680,16 +691,40 @@ describe("the stop before anything is written", () => {
 	});
 });
 
-describe("the pictures", () => {
+describe("the files", () => {
+	it("takes every file an item uses: an ACF file and a link into the uploads too", async () => {
+		const { files } = await importOf([
+			onePage(11),
+			attachment(20, "wp-content/uploads/2025/03/acf-file.pdf"),
+			attachment(21, "wp-content/uploads/2025/03/linked.pdf"),
+			newsItem(1, {
+				categories: [PUBLIC_RELATIONS],
+				meta: {
+					...featuring(11),
+					file_1: "20",
+					editor: '<p><a href="/wp-content/uploads/2025/03/linked.pdf">เอกสาร</a></p>',
+				},
+			}),
+		]);
+		assert.deepEqual(
+			files.map(({ attachment: id, filename }) => [id, filename]),
+			[
+				[11, "one-page-11.webp"],
+				[20, "acf-file.pdf"],
+				[21, "linked.pdf"],
+			],
+		);
+	});
+
 	it("takes each used file once, for its folder, with its alt text and caption", async () => {
-		const { pictures } = await importOf([
+		const { files } = await importOf([
 			onePage(11, { alt: "ภาพที่หนึ่ง", caption: "คำบรรยาย" }),
 			onePage(12),
 			onePage(99),
 			newsItem(1, { categories: [ACTIVITY], meta: { ...featuring(11), image_2: "12" } }),
 			newsItem(2, { categories: [ACTIVITY], meta: { _thumbnail_id: "12", image_1: "12" } }),
 		]);
-		assert.deepEqual(pictures, [
+		assert.deepEqual(files, [
 			{
 				attachment: 11,
 				path: "wp-content/uploads/2025/03/one-page-11.webp",
@@ -715,11 +750,11 @@ describe("the pictures", () => {
 			onePage(12),
 			newsItem(1, { categories: [ACTIVITY], meta: { ...featuring(11), image_2: "12" } }),
 		];
-		const { pictures, entries, report } = await importOf(items, {
+		const { files, entries, report } = await importOf(items, {
 			uploads: uploadsOf(items).filter((path) => !path.endsWith("-12.webp")),
 		});
 		assert.deepEqual(
-			pictures.map(({ attachment: id }) => id),
+			files.map(({ attachment: id }) => id),
 			[11],
 		);
 		assert.equal(entries[0]!.data.gallery, undefined);
@@ -765,6 +800,7 @@ describe("verify", () => {
 			entries: planned.entries.map(({ collection, slug, publishedAt }) => ({
 				collection,
 				slug,
+				trashed: false,
 				status: "published",
 				publishedAt,
 				authorId: OWNER,
@@ -792,8 +828,11 @@ describe("verify", () => {
 		const target = await goodTarget();
 		const other = { ...target.entries[0]!, slug: "written-later" };
 		assert.deepEqual(await verifyTarget({ ...target, entries: [...target.entries, other] }), {
-			entries: { activities: { planned: 1, found: 1 }, news: { planned: 1, found: 1 } },
-			pictures: { planned: 2, inLibrary: 2, inFolder: 2 },
+			entries: {
+				activities: { planned: 1, found: 1, inCollection: 2 },
+				news: { planned: 1, found: 1, inCollection: 1 },
+			},
+			files: { planned: 2, inLibrary: 2, inFolder: 2 },
 			pages: { planned: 2, passed: 2 },
 			redirects: { planned: 2, passed: 2 },
 			failures: [],
@@ -819,7 +858,7 @@ describe("verify", () => {
 			"news/news-2: owned by someone, not the importing Administrator",
 		]);
 		const missing = await verifyTarget({ ...target, entries: [news] });
-		assert.deepEqual(missing.entries.activities, { planned: 1, found: 0 });
+		assert.deepEqual(missing.entries.activities, { planned: 1, found: 0, inCollection: 0 });
 		assert.deepEqual(missing.failures, ["activities/news-1: not found"]);
 	});
 
@@ -881,9 +920,29 @@ describe("verify", () => {
 			...target,
 			media: [{ contentHash: "sha1:12", folderId: null }],
 		});
-		assert.deepEqual(report.pictures, { planned: 2, inLibrary: 1, inFolder: 0 });
+		assert.deepEqual(report.files, { planned: 2, inLibrary: 1, inFolder: 0 });
+		assert.deepEqual(report.failures, ["file 11 (one-page-11.webp) is not in the Media Library"]);
+	});
+
+	it("fails a used file the uploads copy lacks, which therefore cannot be in the Media Library", async () => {
+		const target = await goodTarget();
+		const report = await verifyTarget({
+			...target,
+			planned: {
+				...target.planned,
+				report: {
+					...target.planned.report,
+					missing: [
+						{ attachment: 13, path: "wp-content/uploads/lost.webp", usedBy: ["news-1", "news-2"] },
+						{ attachment: 14, usedBy: ["news-2"] },
+					],
+				},
+			},
+		});
+		assert.deepEqual(report.files, { planned: 4, inLibrary: 2, inFolder: 2 });
 		assert.deepEqual(report.failures, [
-			"picture 11 (one-page-11.webp) is not in the Media Library",
+			"wp-content/uploads/lost.webp, used by news-1, news-2, is not in the uploads copy",
+			"attachment 14, used by news-2, is not in the uploads copy",
 		]);
 	});
 });
@@ -895,9 +954,13 @@ describe("the planning modules' imports", () => {
 				new URL(`../../scripts/migration/${module}.ts`, import.meta.url),
 				"utf8",
 			);
-			const imports = source.split("\n").filter((line) => /^import\s/.test(line));
+			const imports = [...source.matchAll(/^import\s[\s\S]*?;$/gm)].map(([statement]) => statement);
+			assert.ok(imports.length > 0, "the module's imports were not found");
 			assert.deepEqual(
-				imports.filter((line) => !/^import type\s/.test(line) && !/from "\.\/plan\.ts"/.test(line)),
+				imports.filter(
+					(statement) =>
+						!statement.startsWith("import type ") && !statement.endsWith('from "./plan.ts";'),
+				),
 				[],
 			);
 		});

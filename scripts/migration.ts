@@ -94,11 +94,14 @@ import { readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import { parseArgs } from "node:util";
 
+import { computeContentHash } from "emdash";
+
+import { scrubEmbeddedSecrets } from "../tests/browser/cms.helpers.ts";
 import { firstStop, planImport, type ImportPlan } from "./migration/import-plan.ts";
 import { blocksOf, readLegacySite } from "./migration/legacy-site.ts";
 import { plan, TO_CHOOSE } from "./migration/plan.ts";
 import { verifyTarget } from "./migration/verify.ts";
-import { administrator, applyImport, readTarget, scrubSecrets } from "./migration/writer.ts";
+import { administrator, applyImport, readTarget, type Target } from "./migration/writer.ts";
 import { openZip, readZipNames, type Zip } from "./migration/zip.ts";
 
 const USAGE = `usage: node scripts/migration.ts plan <export.xml> <wp-content.zip>
@@ -244,82 +247,82 @@ async function importPlanOf(
 	});
 }
 
-/** Each planned collection with how many entries it holds. */
-const entryCounts = (planned: ImportPlan) =>
-	Object.fromEntries(
-		[...new Set(planned.entries.map((entry) => entry.collection))].map((collection) => [
-			collection,
-			planned.entries.filter((entry) => entry.collection === collection).length,
-		]),
-	);
+/** What a command on a target works from. */
+interface TargetRun {
+	folder: string;
+	zip: Zip;
+	planned: ImportPlan;
+	admin: Awaited<ReturnType<typeof administrator>>;
+	target: Target;
+}
 
-async function importCommand(options: TargetOptions): Promise<number> {
-	const { exportPath, zipPath, origin, tokenFile, final } = options;
-	const folder = await exportFolder(exportPath);
+/**
+ * Runs `work` on the plan of the export and the state of its target, with the uploads copy open.
+ * The plan comes first, so a refusal needs no credential and reaches no target.
+ */
+async function onTarget(
+	options: TargetOptions,
+	work: (run: TargetRun) => Promise<number>,
+): Promise<number> {
+	const folder = await exportFolder(options.exportPath);
 	if (folder === undefined) return 2;
-	const zip = await openZip(zipPath);
+	const zip = await openZip(options.zipPath);
 	try {
 		const planned = await importPlanOf(folder, options, zip);
-		const admin = await administrator(origin, tokenFile);
-		const target = await readTarget(admin, planned);
+		const admin = await administrator(options.origin, options.tokenFile);
+		return await work({ folder, zip, planned, admin, target: await readTarget(admin, planned) });
+	} finally {
+		await zip.close();
+	}
+}
+
+/** The digests of a run's three inputs, as each report records them. */
+const inputsOf = async (folder: string, { exportPath, zipPath }: TargetOptions) => ({
+	export: await digestOf(exportPath),
+	uploads: await digestOf(zipPath),
+	list: await digestOf(join(folder, LIST_FILE)),
+});
+
+const importCommand = (options: TargetOptions) =>
+	onTarget(options, async ({ folder, zip, planned, admin, target }) => {
 		const stop = firstStop(planned, target);
 		if (stop !== undefined) {
 			console.error(`import: stopped before writing anything: ${stop}`);
 			return 1;
 		}
 		const { uploaded, reused } = await applyImport(admin, planned, target, zip);
-		const { missing, atDefault } = planned.report;
-		const entries = entryCounts(planned);
+		const { groups, missing, atDefault, notes } = planned.report;
 		const report = {
-			run: final ? "final" : "trial",
-			origin,
-			export: await digestOf(exportPath),
-			uploads: await digestOf(zipPath),
-			list: await digestOf(join(folder, LIST_FILE)),
-			entries,
-			pictures: {
-				used: planned.pictures.length + missing.length,
+			run: options.final ? "final" : "trial",
+			origin: options.origin,
+			...(await inputsOf(folder, options)),
+			files: {
+				used: planned.files.length + missing.length,
 				uploaded,
-				reused,
+				reused: reused.length,
 				missing: missing.length,
 			},
 			redirects: planned.redirects.length,
 			...planned.report,
+			reused: reused.map(({ attachment, filename }) => ({ attachment, filename })),
 		};
 		const reportPath = join(folder, IMPORT_REPORT_FILE);
 		await replaceFile(reportPath, `${JSON.stringify(report, null, "\t")}\n`);
 		console.log(`Import report: ${reportPath}`);
-		console.log(`Run: ${report.run}, into ${origin}`);
-		console.log(`Entries: ${JSON.stringify(entries)}`);
-		console.log(`Pictures: ${JSON.stringify(report.pictures)}`);
+		console.log(`Run: ${report.run}, into ${options.origin}`);
+		console.log(`Items: ${JSON.stringify(groups)}`);
+		console.log(`Files: ${JSON.stringify(report.files)}`);
 		console.log(`Redirects: ${report.redirects}`);
 		console.log(`Rows taken at their default: ${listed(atDefault.map(({ slug }) => slug))}`);
-		console.log(`Notes: ${planned.report.notes.length} (in the report)`);
+		console.log(`Notes: ${notes.length} (in the report)`);
 		return 0;
-	} finally {
-		await zip.close();
-	}
-}
+	});
 
-async function verifyCommand(options: TargetOptions): Promise<number> {
-	const { exportPath, zipPath, origin, tokenFile } = options;
-	const folder = await exportFolder(exportPath);
-	if (folder === undefined) return 2;
-	const zip = await openZip(zipPath);
-	try {
-		const planned = await importPlanOf(folder, options, zip);
-		const admin = await administrator(origin, tokenFile);
-		const target = await readTarget(admin, planned);
-		// EmDash's content hash: `sha1:` and the file's SHA-1 in hex (emdash 1.1.0
-		// src/utils/hash.ts computeContentHash).
+const verifyCommand = (options: TargetOptions) =>
+	onTarget(options, async ({ folder, zip, planned, admin, target }) => {
 		const hashes = new Map<number, string>();
-		for (const { attachment, path } of planned.pictures) {
-			hashes.set(
-				attachment,
-				`sha1:${createHash("sha1")
-					.update(await zip.read(path))
-					.digest("hex")}`,
-			);
+		for (const { attachment, path } of planned.files) {
+			hashes.set(attachment, await computeContentHash(await zip.read(path)));
 		}
 		const result = await verifyTarget({
 			planned,
@@ -329,32 +332,23 @@ async function verifyCommand(options: TargetOptions): Promise<number> {
 			owner: admin.userId,
 			hashes,
 			request: async (path) => {
-				const response = await fetch(new URL(path, origin), { redirect: "manual" });
+				const response = await fetch(new URL(path, options.origin), { redirect: "manual" });
 				await response.arrayBuffer();
 				return { status: response.status, location: response.headers.get("location") };
 			},
 		});
 		const reportPath = join(folder, VERIFY_REPORT_FILE);
-		const report = {
-			origin,
-			export: await digestOf(exportPath),
-			uploads: await digestOf(zipPath),
-			list: await digestOf(join(folder, LIST_FILE)),
-			...result,
-		};
+		const report = { origin: options.origin, ...(await inputsOf(folder, options)), ...result };
 		await replaceFile(reportPath, `${JSON.stringify(report, null, "\t")}\n`);
 		console.log(`Verify report: ${reportPath}`);
 		console.log(`Entries: ${JSON.stringify(result.entries)}`);
-		console.log(`Pictures: ${JSON.stringify(result.pictures)}`);
+		console.log(`Files: ${JSON.stringify(result.files)}`);
 		console.log(`Pages: ${JSON.stringify(result.pages)}`);
 		console.log(`Redirects: ${JSON.stringify(result.redirects)}`);
 		for (const failure of result.failures) console.log(`FAIL ${failure}`);
 		console.log(`VERIFY: ${result.failures.length === 0 ? "PASS" : "FAIL"}`);
 		return result.failures.length === 0 ? 0 : 1;
-	} finally {
-		await zip.close();
-	}
-}
+	});
 
 /** The command the arguments name, or none when they are wrong. */
 function commandOf(args: string[]): (() => Promise<number>) | undefined {
@@ -395,7 +389,7 @@ async function main(args: string[]): Promise<number> {
 		return await command();
 	} catch (error) {
 		console.error(
-			`${args[0]}: ${scrubSecrets(error instanceof Error ? error.message : String(error))}`,
+			`${args[0]}: ${scrubEmbeddedSecrets(error instanceof Error ? error.message : String(error))}`,
 		);
 		return 1;
 	}

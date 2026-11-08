@@ -5,7 +5,18 @@
 // (tests/node/migration-import.test.ts).
 
 import type { LegacyItem, LegacySite } from "./legacy-site.ts";
-import { filesOf, holdsText, linksIn, plan, targetOf, TO_CHOOSE, type ListRow } from "./plan.ts";
+import {
+	count,
+	filesOf,
+	hasFlag,
+	holdsText,
+	linksIn,
+	plan,
+	targetOf,
+	TO_CHOOSE,
+	usesOf,
+	type ListRow,
+} from "./plan.ts";
 
 /** A Portable Text block, as EmDash's converter makes it. */
 export interface Block {
@@ -13,7 +24,7 @@ export interface Block {
 	children?: { text: string }[];
 }
 
-/** The Media Library folder of the news stream's pictures (spec #174 "Pages, media and links"). */
+/** The Media Library folder of the news stream's files (spec #174 "Pages, media and links"). */
 const NEWS_FOLDER = "เว็บไซต์เดิม: ข่าวและกิจกรรม";
 
 /** An attachment that an entry's field holds, which the writer replaces with its media item. */
@@ -22,7 +33,7 @@ interface PictureRef {
 }
 
 /** A used file, which the import uploads once. */
-interface PlannedPicture {
+interface PlannedFile {
 	/** Its attachment's WordPress ID, by which the entries name it. */
 	attachment: number;
 	/** Its entry in the uploads copy. */
@@ -47,6 +58,8 @@ interface PlannedEntry {
 
 /** What the import report says of the plan (spec #174 user story 33). */
 interface ImportReport {
+	/** The items by legacy type and target. */
+	groups: Record<string, Record<string, number>>;
 	/** The used attachments without a file to upload, and the items that use each. */
 	missing: { attachment: number; path?: string; usedBy: string[] }[];
 	/** What the import could not carry, by item. */
@@ -64,7 +77,7 @@ interface PlannedRedirect {
 }
 
 export interface ImportPlan {
-	pictures: PlannedPicture[];
+	files: PlannedFile[];
 	entries: PlannedEntry[];
 	redirects: PlannedRedirect[];
 	report: ImportReport;
@@ -106,7 +119,7 @@ function targetFor(row: ListRow): { target: NewsTarget; atDefault: boolean } {
 	const target = targetOf(row);
 	if (isNewsTarget(target)) return { target, atDefault: false };
 	if (isNewsTarget(row.default_target)) return { target: row.default_target, atDefault: true };
-	if (row.flags.split(" ").includes("title-word")) return { target: "Activity", atDefault: true };
+	if (hasFlag(row, "title-word")) return { target: "Activity", atDefault: true };
 	throw new Error(`${row.slug} has no default: decide it in the Classification list`);
 }
 
@@ -117,8 +130,7 @@ const filenameOf = (path: string) => path.split("/").at(-1)!;
  * An item is about PM 2.5 by its category, or by its title, as the two reports without a category
  * are (spec #174 "Mapping: the news stream", ANOM-002).
  */
-const isPm25 = (row: ListRow, title: string) =>
-	row.flags.split(" ").includes("pm25") || /PM\s*2\.5/i.test(title);
+const isPm25 = (row: ListRow, title: string) => hasFlag(row, "pm25") || /PM\s*2\.5/i.test(title);
 
 /** Blocks as plain text: a line per block, keeping the line breaks inside one. */
 const textOf = (blocks: Block[]) =>
@@ -147,7 +159,7 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 			`the final import refuses while these rows are "${TO_CHOOSE}": ${toChoose.join(", ")}`,
 		);
 	}
-	const files = filesOf(site, uploads);
+	const legacyFiles = filesOf(site, uploads);
 	// A row whose item has gone back to a draft stays out with the rows plan flags not-in-export.
 	const items = new Map(
 		site.items.filter((item) => item.status === "publish").map((item) => [String(item.id), item]),
@@ -155,6 +167,7 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 	const notes: ImportReport["notes"] = [];
 	const newsRows = rows.filter((row) => row.legacy_type === "public-new" && items.has(row.wp_id));
 	const atDefault: ImportReport["atDefault"] = [];
+	const groups: ImportReport["groups"] = {};
 	/** The item whose featured image each attachment is. */
 	const featuredIn = new Map<number, string>();
 	for (const row of newsRows) {
@@ -171,8 +184,8 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 		usedBy.set(id, slugs);
 	};
 	const available = (id: number) => {
-		const path = files.byId.get(id)?.path;
-		return path !== undefined && files.uploads.has(path);
+		const path = legacyFiles.byId.get(id)?.path;
+		return path !== undefined && legacyFiles.uploads.has(path);
 	};
 	/** A field's value for an attachment whose file exists, or none. */
 	const refTo = (id: number | undefined): PictureRef | undefined =>
@@ -182,7 +195,7 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 		[...new Set(item.pictures)].filter((id) => {
 			if (id === item.featured) return false;
 			const owner = featuredIn.get(id);
-			if (owner === undefined || owner === item.slug) return true;
+			if (owner === undefined) return true;
 			notes.push({
 				slug: item.slug,
 				note: `picture ${id} is the featured image of ${owner}: left out`,
@@ -204,9 +217,9 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 		const item = items.get(row.wp_id)!;
 		const chosen = targetFor(row);
 		if (chosen.atDefault) atDefault.push({ slug: item.slug, target: chosen.target });
+		count((groups[row.legacy_type] ??= {}), chosen.target);
 		const collection = chosen.target === "News" ? "news" : "activities";
-		if (item.featured !== undefined) use(item.featured, item.slug);
-		for (const id of item.pictures) use(id, item.slug);
+		for (const id of usesOf(item, legacyFiles).attachments) use(id, item.slug);
 		const featured = refTo(item.featured);
 		if (featured === undefined) notes.push({ slug: item.slug, note: "no featured picture" });
 		const html = textHtmlOf(item);
@@ -239,7 +252,7 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 		const gallery = others.flatMap((id) => {
 			const image = refTo(id);
 			if (image === undefined) return [];
-			const caption = files.byId.get(id)!.caption;
+			const caption = legacyFiles.byId.get(id)!.caption;
 			return [caption === "" ? { image } : { image, caption }];
 		});
 		const data = {
@@ -259,8 +272,8 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 			page: `/${collection}/${item.slug}`,
 		};
 	});
-	const pictures = [...usedBy.keys()].filter(available).map((id): PlannedPicture => {
-		const { path, alt, caption } = files.byId.get(id)!;
+	const files = [...usedBy.keys()].filter(available).map((id): PlannedFile => {
+		const { path, alt, caption } = legacyFiles.byId.get(id)!;
 		return {
 			attachment: id,
 			path: path!,
@@ -273,7 +286,7 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 	const missing = [...usedBy]
 		.filter(([id]) => !available(id))
 		.map(([attachment, slugs]) => {
-			const path = files.byId.get(attachment)?.path;
+			const path = legacyFiles.byId.get(attachment)?.path;
 			return { attachment, ...(path === undefined ? {} : { path }), usedBy: slugs };
 		});
 	const redirects = entries.map(({ slug, page }) => ({
@@ -281,10 +294,10 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 		destination: page,
 	}));
 	return {
-		pictures,
+		files,
 		entries,
 		redirects,
-		report: { missing, notes, atDefault, notInExport: vanished },
+		report: { groups, missing, notes, atDefault, notInExport: vanished },
 	};
 }
 

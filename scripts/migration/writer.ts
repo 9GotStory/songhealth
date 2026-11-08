@@ -7,8 +7,6 @@ import * as helpers from "../../tests/browser/cms.helpers.ts";
 import type { ImportPlan, TargetState } from "./import-plan.ts";
 import type { Zip } from "./zip.ts";
 
-export const scrubSecrets = helpers.scrubEmbeddedSecrets;
-
 /**
  * The Administrator whose API token is in `tokenFile`, a 0600 file holding the bare token, which is
  * checked against `origin` and never printed. Entries the import creates belong to this user.
@@ -34,7 +32,7 @@ async function call(
 }
 
 /** What the target holds, as the stop and verify read it. */
-interface Target extends TargetState {
+export interface Target extends TargetState {
 	entries: (TargetState["entries"][number] & {
 		status: string;
 		publishedAt: string | null;
@@ -99,19 +97,20 @@ function withMedia(value: unknown, media: Map<number, string>): unknown {
 }
 
 /**
- * Carries out the plan on a target that the stop has cleared: the folders, the pictures, then the
+ * Carries out the plan on a target that the stop has cleared: the folders, the files, then the
  * entries, each created and published with its legacy date, then the redirects. It stops at the
  * first refusal, saying what it was doing; what it wrote before stays until the backup is restored,
- * and a later run stops on the first slug it wrote.
+ * and a later run stops on the first slug it wrote. It answers how many files it uploaded and which
+ * ones EmDash reused.
  */
 export async function applyImport(
 	admin: helpers.CmsActor,
 	planned: ImportPlan,
 	target: Target,
 	zip: Zip,
-): Promise<{ uploaded: number; reused: number }> {
+): Promise<{ uploaded: number; reused: ImportPlan["files"] }> {
 	const folders = new Map(target.folders.map((folder) => [folder.name, folder.id]));
-	for (const name of new Set(planned.pictures.map((picture) => picture.folder))) {
+	for (const name of new Set(planned.files.map((file) => file.folder))) {
 		if (folders.has(name)) continue;
 		const created = await call(admin, `creating the folder ${name}`, "/_emdash/api/media/folders", {
 			method: "POST",
@@ -120,15 +119,16 @@ export async function applyImport(
 		folders.set(name, String(helpers.nativeItemOf(created)!.id));
 	}
 	const media = new Map<number, string>();
-	const counts = { uploaded: 0, reused: 0 };
-	for (const picture of planned.pictures) {
+	let uploadedCount = 0;
+	const reused: ImportPlan["files"] = [];
+	for (const file of planned.files) {
 		const form = new FormData();
 		// EmDash takes the type from the file name's extension (emdash 1.1.0 src/media/mime.ts
 		// resolveUploadMimeType), and reuses an item of the same content hash unless told not to
 		// (src/api/schemas/media.ts mediaUploadDeduplicateForm).
-		form.append("file", new File([new Uint8Array(await zip.read(picture.path))], picture.filename));
-		form.append("folderId", folders.get(picture.folder)!);
-		const uploaded = await call(admin, `uploading ${picture.filename}`, "/_emdash/api/media", {
+		form.append("file", new File([new Uint8Array(await zip.read(file.path))], file.filename));
+		form.append("folderId", folders.get(file.folder)!);
+		const uploaded = await call(admin, `uploading ${file.filename}`, "/_emdash/api/media", {
 			method: "POST",
 			form,
 		});
@@ -136,19 +136,19 @@ export async function applyImport(
 			item: { id: string };
 			deduplicated?: boolean;
 		};
-		media.set(picture.attachment, item.id);
+		media.set(file.attachment, item.id);
 		if (deduplicated) {
-			// A reused item is someone's own: its alt text and caption stay as they are.
-			counts.reused++;
+			// A reused item keeps its own alt text and caption; the report lists it.
+			reused.push(file);
 			continue;
 		}
-		counts.uploaded++;
-		if (picture.alt === "" && picture.caption === "") continue;
-		await call(admin, `describing ${picture.filename}`, `/_emdash/api/media/${item.id}`, {
+		uploadedCount++;
+		if (file.alt === "" && file.caption === "") continue;
+		await call(admin, `describing ${file.filename}`, `/_emdash/api/media/${item.id}`, {
 			method: "PUT",
 			body: {
-				...(picture.alt === "" ? {} : { alt: picture.alt }),
-				...(picture.caption === "" ? {} : { caption: picture.caption }),
+				...(file.alt === "" ? {} : { alt: file.alt }),
+				...(file.caption === "" ? {} : { caption: file.caption }),
 			},
 		});
 	}
@@ -181,5 +181,5 @@ export async function applyImport(
 			body: { source, destination, type: 301 },
 		});
 	}
-	return counts;
+	return { uploaded: uploadedCount, reused };
 }
