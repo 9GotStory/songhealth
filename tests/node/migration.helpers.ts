@@ -9,8 +9,6 @@ export interface SyntheticCategory {
 	name: string;
 	/** The parent category's slug. */
 	parent?: string;
-	/** Left out of the export's term list, so that only the item's own label names it. */
-	unlisted?: true;
 }
 
 /** An item of the export: a post of any type, or an attachment. */
@@ -121,7 +119,7 @@ function termXml(term: SyntheticCategory, id: number): string {
 export function wxrDocument(items: SyntheticItem[]): string {
 	const terms = new Map<string, SyntheticCategory>();
 	for (const category of items.flatMap((item) => item.categories ?? [])) {
-		if (!category.unlisted) terms.set(`${category.domain} ${category.slug}`, category);
+		terms.set(`${category.domain} ${category.slug}`, category);
 	}
 	return [
 		'<?xml version="1.0" encoding="UTF-8" ?>',

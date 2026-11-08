@@ -52,8 +52,8 @@
 //   for the news stream, Announcement or Document for the others, or ต้องเลือก.
 // - decision_type: empty, or the term slug that replaces default_type. A decision that changes the
 //   target drops default_type, so such a row carries only the type decision_type names (spec #174:
-//   only an order carries a type). plan does not check the slug against the terms, which only the
-//   target runtime holds.
+//   only an order carries a type), and plan names an Announcement left without one. plan does not
+//   check the slug against the terms, which only the target runtime holds.
 // - summary: empty, or the Summary staff wrote.
 //
 // A merge keeps each row's decision, decision_type and summary, and any column reviewers added,
@@ -160,6 +160,9 @@ async function planCommand(exportPath: string, zipPath: string): Promise<number>
 	if (list.unreadable.length > 0) {
 		const decisions = list.unreadable.map(({ slug, decision }) => `${slug} "${decision}"`);
 		console.log(`Decisions plan cannot read: ${listed(decisions)}`);
+	}
+	if (list.untyped.length > 0) {
+		console.log(`Announcements without a type: ${listed(list.untyped)}`);
 	}
 	if (list.merged) {
 		console.log(`Rows added to the earlier list: ${listed(list.added)}`);

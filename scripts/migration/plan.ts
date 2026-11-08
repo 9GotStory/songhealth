@@ -390,6 +390,8 @@ interface ListReport {
 	toChoose: string[];
 	/** The rows whose decision names no target their legacy type can take. */
 	unreadable: { slug: string; decision: string }[];
+	/** The slugs of the Announcements without a type, which a target decision can leave. */
+	untyped: string[];
 	/** The slugs of the rows a merge appended. */
 	added: string[];
 	/** The slugs of the rows whose item the export no longer holds. */
@@ -429,6 +431,9 @@ function listReport(merge: ReturnType<typeof mergeRows>, merged: boolean): ListR
 		unreadable: current
 			.filter((row) => targetOf(row) === undefined)
 			.map((row) => ({ slug: row.slug, decision: row.decision })),
+		untyped: current
+			.filter((row) => targetOf(row) === "Announcement" && typeOf(row) === "")
+			.map((row) => row.slug),
 		added: merged ? merge.added.map((row) => row.slug) : [],
 		vanished: merge.vanished.map((row) => row.slug),
 	};

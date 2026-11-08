@@ -10,7 +10,7 @@
 // (`dc:creator`), and nothing of any other post type, such as the form plugin's submission
 // (`nf_sub`). The planning modules see only what it returns.
 
-import { parseWxrDate, parseWxrString, type WxrData, type WxrPost } from "emdash";
+import { parseWxrDate, parseWxrString, type WxrPost } from "emdash";
 
 import { ITEM_TYPES, type ItemType } from "./plan.ts";
 
@@ -71,23 +71,17 @@ function attachmentId(value: string | undefined): number | undefined {
 }
 
 /**
- * A category's name: from the export's terms (a core category's from its categories), else the
- * item's own label, else its slug as the export writes it.
- * The parser keeps an item's category of a custom taxonomy, neither `category` nor `post_tag`, by
- * its slug under the taxonomy, and a label other than the slug keyed by the taxonomy and the slug
- * joined by U+0000 (emdash 1.1.0 src/cli/wxr/parser.ts parseWxrString, captureItemCategoryLabel).
+ * A category's name: the item's label for it, else its slug as the export writes it. The parser
+ * keeps the text of an item's `<category>` element as its label when it differs from the slug,
+ * keyed by the taxonomy and the slug joined by U+0000, and a custom taxonomy's category, neither
+ * `category` nor `post_tag`, by its slug under the taxonomy (emdash 1.1.0 src/cli/wxr/parser.ts
+ * WxrPost taxonomyLabels, parseWxrString, captureItemCategoryLabel).
  */
-function categoryName(wxr: WxrData, post: WxrPost, taxonomy: string, slug: string): string {
-	const name =
-		wxr.terms.find((term) => term.taxonomy === taxonomy && term.slug === slug)?.name ??
-		(taxonomy === "category"
-			? wxr.categories.find((category) => category.nicename === slug)?.name
-			: undefined) ??
-		post.taxonomyLabels?.get(`${taxonomy}\u0000${slug}`);
-	return name ?? slug;
+function categoryName(post: WxrPost, taxonomy: string, slug: string): string {
+	return post.taxonomyLabels?.get(`${taxonomy}\u0000${slug}`) ?? slug;
 }
 
-function itemOf(wxr: WxrData, post: WxrPost, type: ItemType): LegacyItem {
+function itemOf(post: WxrPost, type: ItemType): LegacyItem {
 	const taxonomy = CATEGORY_TAXONOMY[type];
 	const slugs =
 		taxonomy === "category" ? post.categories : (post.customTaxonomies?.get(taxonomy) ?? []);
@@ -103,7 +97,7 @@ function itemOf(wxr: WxrData, post: WxrPost, type: ItemType): LegacyItem {
 		title: post.title ?? "",
 		status: post.status ?? "",
 		published: published && !Number.isNaN(published.getTime()) ? published : undefined,
-		categories: slugs.map((slug) => categoryName(wxr, post, taxonomy, slug)),
+		categories: slugs.map((slug) => categoryName(post, taxonomy, slug)),
 		featured: attachmentId(post.meta.get("_thumbnail_id")),
 		pictures: field("image").flatMap((value) => attachmentId(value) ?? []),
 		files: field("file").flatMap((value, index) => {
@@ -126,7 +120,7 @@ export async function readLegacySite(xml: string): Promise<LegacySite> {
 		(ITEM_TYPES as readonly (string | undefined)[]).includes(type);
 	return {
 		items: wxr.posts.flatMap((post) =>
-			isItemType(post.postType) ? [itemOf(wxr, post, post.postType)] : [],
+			isItemType(post.postType) ? [itemOf(post, post.postType)] : [],
 		),
 		attachments: wxr.attachments.map((item) => ({ id: item.id!, url: item.url ?? "" })),
 		pages: wxr.posts

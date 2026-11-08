@@ -261,13 +261,15 @@ describe("the Classification list's rows", () => {
 			newsItem(1, { categories: [PUBLIC_RELATIONS, PM25] }),
 			procurement(2, { categories: [WINNER, AUCTION] }),
 			newsItem(3),
-			// A category the export's term list leaves out takes the name the item gives it.
-			newsItem(4, { categories: [{ ...ACTIVITY, slug: "activity-2", unlisted: true }] }),
+			// The parser keeps no label equal to its slug: the name is the slug as written.
+			newsItem(4, {
+				categories: [{ domain: "category-public-news", slug: "covid-19", name: "covid-19" }],
+			}),
 		]);
 		assert.deepEqual(columns(rows, "categories", "default_target"), [
 			["news-1", "PM 2.5; ประชาสัมพันธ์", "News"],
 			["news-3", "", "News"],
-			["news-4", "กิจกรรม", "Activity"],
+			["news-4", "covid-19", "ต้องเลือก"],
 			["procurement-2", "ขายทอดตลาด; ประกาศผู้ชนะการเสนอราคา", "Announcement"],
 		]);
 	});
@@ -519,7 +521,8 @@ describe("plan's merge with an earlier list", () => {
 			// A notice made a Document carries no type: only an order does (spec #174).
 			"directive,directive-2,2,,2025-01-01,2568,ประกาศ,,Announcement,general,Document,,",
 			"directive,directive-3,3,,2025-01-01,2568,ประกาศ,,Announcement,recruitment,,general,",
-			"procurement,procurement-4,4,,2025-01-01,2568,,,Announcement,procurement,Announcement,,",
+			// The default target in another case keeps the default type.
+			"procurement,procurement-4,4,,2025-01-01,2568,,,Announcement,procurement, announcement ,,",
 			"directive,directive-5,5,,2025-01-01,2568,คำสั่ง,,Document,order,Announcement,recruitment,",
 			"directive,directive-6,6,,2025-01-01,2568,คำสั่ง,,Document,order,,,",
 		);
@@ -542,6 +545,8 @@ describe("plan's merge with an earlier list", () => {
 		});
 		assert.equal(inventory.list.targets.Announcement, 4);
 		assert.equal(inventory.list.targets.Document, 2);
+		// Every Announcement takes a type from the list (#179): plan names the one that has none.
+		assert.deepEqual(inventory.list.untyped, ["directive-1"]);
 	});
 
 	it("keeps the columns reviewers added, after the list's own", async () => {
