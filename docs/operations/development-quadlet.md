@@ -150,7 +150,7 @@ the real state first and only adds what is missing:
 ## Promote a new commit
 
 ```bash
-~/dev/songhealth-quadlet/scripts/dev-runtime-update.sh --sha <commit>   # [--no-backup] [--force | --wait]
+~/dev/songhealth-quadlet/scripts/dev-runtime-update.sh --sha <commit>   # [--no-backup] [--replace] [--force | --wait]
 ```
 
 The runtime checkout fetches from the workspace repository. A commit made on GitHub, such as a
@@ -159,8 +159,12 @@ pull request's merge, reaches it once a workspace branch holds it:
 
 The update runs these steps:
 
-1. Refuses when an Admin page was opened in the last 10 minutes, and lists those page loads. The
-   restart in steps 3–5 would cut off someone editing in the Admin, and the Product Owner uses
+1. Refuses a commit that does not contain the one the runtime serves, and names that commit. Such
+   a promotion takes the runtime away from another line of work, such as another feature's branch
+   that a session is still testing (#177 retro). Pass `--replace` once that work no longer needs
+   the runtime.
+2. Refuses when an Admin page was opened in the last 10 minutes, and lists those page loads. The
+   restart in steps 4–6 would cut off someone editing in the Admin, and the Product Owner uses
    this Admin. Verify's own probe of the Admin does not count, and neither do the browser suites'
    own Admin sessions: `tests/browser/cms.helpers.ts` records each one's start and end in
    `~/.local/state/songhealth-qdev/admin-test-sessions` when the suite runs through
@@ -176,10 +180,10 @@ The update runs these steps:
    - The guard sees page loads only. The Admin routes its screens in the browser
      (`@tanstack/react-router`), so an editor who opened it earlier and kept working passes
      unseen.
-2. Backs up the database and media to `~/.local/state/songhealth-qdev/backups/<UTC>/`.
-3. Stops the app.
-4. Moves the checkout to the commit and records it.
-5. Hands over to that commit's installer. The installer runs `npm ci` only if the lockfile
+3. Backs up the database and media to `~/.local/state/songhealth-qdev/backups/<UTC>/`.
+4. Stops the app.
+5. Moves the checkout to the commit and records it.
+6. Hands over to that commit's installer. The installer runs `npm ci` only if the lockfile
    changed, refreshes changed units, starts the app and runs verify.
 
 Keep the backup whenever the commit can change data: a new `package-lock.json` (an EmDash upgrade
