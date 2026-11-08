@@ -1,8 +1,9 @@
-// What the migration script's verify command checks of a target (#178; spec #174 "The migration
-// script"): the plan's entries, files, pages and redirects against what the target holds and how
-// it answers. scripts/migration.ts makes the reads; this module imports nothing at run time, so
-// node:test drives what the shared development runtime cannot produce, such as a redirect that
-// answers 302 (CODING_STANDARDS "Tests").
+// What the migration script's verify command checks of a target (#178, #179 retro; spec #174 "The
+// migration script"): the plan's entries, files, pages and redirects against what the target holds
+// and how it answers, and what an Announcement's and a Document's page offers people.
+// scripts/migration.ts makes the reads; this module imports nothing at run time, so node:test
+// drives what the shared development runtime cannot produce, such as a redirect that answers 302
+// (CODING_STANDARDS "Tests").
 
 import type { ImportPlan } from "./import-plan.ts";
 import type { Target } from "./writer.ts";
@@ -18,7 +19,7 @@ export interface VerifyInput {
 	/** Each planned file's content hash, as EmDash writes one, by its attachment. */
 	hashes: Map<number, string>;
 	/** How the target answers a GET of `path`, without following a redirect. */
-	request: (path: string) => Promise<{ status: number; location: string | null }>;
+	request: (path: string) => Promise<{ status: number; location: string | null; body?: string }>;
 }
 
 interface VerifyReport {
@@ -27,6 +28,10 @@ interface VerifyReport {
 	files: { planned: number; inLibrary: number; inFolder: number };
 	pages: { planned: number; passed: number };
 	redirects: { planned: number; passed: number };
+	/** The Announcements whose page lists their Documents in the planned order. */
+	lists: { planned: number; passed: number };
+	/** The Documents whose page offers their file under its uploaded name. */
+	downloads: { planned: number; passed: number };
 	failures: string[];
 }
 
@@ -35,6 +40,28 @@ const pathOf = (location: string) => new URL(location, "http://target.invalid").
 
 /** The time of an ISO 8601 instant, so that two ways of writing one compare equal. */
 const timeOf = (instant: string | null) => (instant === null ? Number.NaN : Date.parse(instant));
+
+/**
+ * The slugs of the Documents a page lists in its related Documents section, in its order
+ * (src/components/RelatedDocuments.astro, src/components/DocumentRow.astro).
+ */
+function listedDocuments(html: string): string[] {
+	const section = /id="related-documents"[\s\S]*?<\/section>/.exec(html)?.[0] ?? "";
+	return [...section.matchAll(/href="\/documents\/([^"#?]+)"/g)].map(([, slug]) =>
+		decodeURIComponent(slug!),
+	);
+}
+
+/**
+ * The name a page's download link gives its file (src/components/DocumentDownload.astro). Astro
+ * writes `&` and `"` in an attribute as entities (astro 7.3.5
+ * dist/runtime/server/render/util.js toAttributeString).
+ */
+const offeredFilename = (html: string) =>
+	/<a\b[^>]*\bdownload="([^"]*)"/
+		.exec(html)?.[1]
+		?.replaceAll("&quot;", '"')
+		.replaceAll("&amp;", "&");
 
 /**
  * The report of a target checked against the plan: no failure means it holds what the plan wrote.
@@ -98,11 +125,35 @@ export async function verifyTarget({
 	}
 	const pageStatus = new Map<string, number>();
 	const pages = { planned: planned.entries.length, passed: 0 };
-	for (const { page } of planned.entries) {
-		const { status } = await request(page);
+	const lists = { planned: planned.entries.filter((e) => e.documents).length, passed: 0 };
+	const downloads = {
+		planned: planned.entries.filter((e) => e.collection === "documents").length,
+		passed: 0,
+	};
+	const filenames = new Map(planned.files.map((file) => [file.attachment, file.filename]));
+	for (const { page, collection, documents, data } of planned.entries) {
+		const { status, body = "" } = await request(page);
 		pageStatus.set(page, status);
-		if (status === 200) pages.passed++;
-		else failures.push(`${page} answers ${status}`);
+		if (status !== 200) {
+			failures.push(`${page} answers ${status}`);
+			continue;
+		}
+		pages.passed++;
+		if (documents !== undefined) {
+			const listed = listedDocuments(body);
+			if (listed.join() === documents.join()) lists.passed++;
+			else {
+				failures.push(
+					`${page} lists ${listed.join(", ") || "no Document"}, not ${documents.join(", ")}`,
+				);
+			}
+		}
+		if (collection === "documents") {
+			const expected = filenames.get((data.file as { fileField: number }).fileField);
+			const offered = offeredFilename(body);
+			if (offered === expected) downloads.passed++;
+			else failures.push(`${page} offers ${offered ?? "no file"}, not ${expected}`);
+		}
 	}
 	const redirects = { planned: planned.redirects.length, passed: 0 };
 	for (const { source, destination } of planned.redirects) {
@@ -118,5 +169,5 @@ export async function verifyTarget({
 			redirects.passed++;
 		}
 	}
-	return { entries: entryCounts, files, pages, redirects, failures };
+	return { entries: entryCounts, files, pages, redirects, lists, downloads, failures };
 }

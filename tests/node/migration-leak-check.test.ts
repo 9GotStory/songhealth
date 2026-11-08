@@ -1,0 +1,231 @@
+// The migration script's leak check (#179 retro; spec #174 "What makes a good test": no Legacy site
+// content in the repository; seam A). Every export here is synthetic.
+
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
+
+import { addedLinesOf, leaksIn } from "../../scripts/migration/leak-check.ts";
+import type { LegacyItem, LegacySite } from "../../scripts/migration/legacy-site.ts";
+import { SITE, attachment, directive, wxrDocument } from "./migration.helpers.ts";
+
+const NAME = "qZ3xW-1700000000.pdf";
+
+/** A title, a label or an alt text just long enough to name something: 16 characters. */
+const LONG = "ประกาศเรื่องสมมุติยาว".slice(0, 16);
+
+/** The same text a character shorter, as common words are. */
+const SHORT = LONG.slice(0, 15);
+
+function item(slug: string, fields: Partial<LegacyItem> = {}): LegacyItem {
+	return {
+		type: "directive",
+		id: 1,
+		slug,
+		title: "",
+		status: "publish",
+		published: undefined,
+		categories: [],
+		featured: undefined,
+		pictures: [],
+		files: [],
+		content: "",
+		editor: "",
+		...fields,
+	};
+}
+
+const siteOf = (site: Partial<LegacySite>): LegacySite => ({
+	items: [],
+	attachments: [],
+	pages: [],
+	...site,
+});
+
+const inTests = (...lines: string[]) => [{ file: "tests/node/x.test.ts", lines }];
+
+describe("the leak check", () => {
+	const named = siteOf({
+		attachments: [
+			{ id: 4, url: `${SITE}/wp-content/uploads/2025/03/${NAME}`, alt: "", caption: "" },
+		],
+	});
+
+	it("finds an attachment's file name in a line a commit adds, and names the attachment", () => {
+		assert.deepEqual(leaksIn(named, inTests(`path: "wp-content/${NAME}",`)), [
+			{ file: "tests/node/x.test.ts", what: "the file name of attachment 4" },
+		]);
+	});
+
+	it("says nothing of a line that holds none of the export's strings", () => {
+		assert.deepEqual(leaksIn(named, inTests('path: "wp-content/notice.pdf",')), []);
+	});
+
+	it("finds a title, a long label, an alt text and a caption", () => {
+		const site = siteOf({
+			items: [
+				item("directive-1", {
+					title: `${LONG} ชื่อ`,
+					files: [{ id: 9, label: `${LONG} ป้าย` }],
+				}),
+			],
+			attachments: [{ id: 5, url: `${SITE}/a.webp`, alt: `${LONG} ภาพ`, caption: `${LONG} คำ` }],
+		});
+		assert.deepEqual(
+			leaksIn(
+				site,
+				inTests(
+					`title: "${LONG} ชื่อ"`,
+					`label: "${LONG} ป้าย"`,
+					`alt: "${LONG} ภาพ"`,
+					`caption: "${LONG} คำ"`,
+				),
+			).map(({ what }) => what),
+			[
+				"the title of directive-1",
+				"a label of directive-1",
+				"the alt text of attachment 5",
+				"the caption of attachment 5",
+			],
+		);
+	});
+
+	it("takes a text of 16 characters as naming something, and one of 15 as common words", () => {
+		const longer = siteOf({ items: [item("directive-1", { files: [{ id: 9, label: LONG }] })] });
+		const shorter = siteOf({ items: [item("directive-1", { files: [{ id: 9, label: SHORT }] })] });
+		assert.equal(leaksIn(longer, inTests(LONG)).length, 1);
+		assert.deepEqual(leaksIn(shorter, inTests(SHORT)), []);
+	});
+
+	it("reads a file name percent-encoded in the export as the uploads copy names it", () => {
+		const encoded = siteOf({
+			attachments: [
+				{
+					id: 6,
+					url: `${SITE}/wp-content/uploads/${encodeURIComponent("เอกสารสมมุติ.pdf")}`,
+					alt: "",
+					caption: "",
+				},
+			],
+		});
+		assert.equal(leaksIn(encoded, inTests("เอกสารสมมุติ.pdf")).length, 1);
+	});
+
+	it("reports a string once for each file that holds it", () => {
+		const added = [
+			{ file: "tests/node/a.test.ts", lines: [NAME, NAME] },
+			{ file: "scripts/b.ts", lines: [NAME] },
+		];
+		assert.deepEqual(leaksIn(named, added), [
+			{ file: "tests/node/a.test.ts", what: "the file name of attachment 4" },
+			{ file: "scripts/b.ts", what: "the file name of attachment 4" },
+		]);
+	});
+
+	it("reads no prose under docs/ or specs/, which may name a real item on purpose", () => {
+		const added = [
+			{ file: "docs/research/legacy-ita.md", lines: [NAME] },
+			{ file: "specs/005/notes.md", lines: [NAME] },
+		];
+		assert.deepEqual(leaksIn(named, added), []);
+	});
+});
+
+describe("the lines a commit adds", () => {
+	it("are a diff's added lines, by file", () => {
+		const diff = [
+			"diff --git a/tests/x.ts b/tests/x.ts",
+			"index 1..2 100644",
+			"--- a/tests/x.ts",
+			"+++ b/tests/x.ts",
+			"@@ -1 +1 @@",
+			"-removed",
+			"+added one",
+			"@@ -9 +9,2 @@",
+			"+added two",
+			"+++ a line that starts with two plus signs",
+			"diff --git a/scripts/y.ts b/scripts/y.ts",
+			"--- a/scripts/y.ts",
+			"+++ b/scripts/y.ts",
+			"@@ -0,0 +1 @@",
+			"+added three",
+			"",
+		].join("\n");
+		assert.deepEqual(addedLinesOf(diff), [
+			{
+				file: "tests/x.ts",
+				lines: ["added one", "added two", "++ a line that starts with two plus signs"],
+			},
+			{ file: "scripts/y.ts", lines: ["added three"] },
+		]);
+	});
+
+	it("are none for a deleted file, and none for an empty diff", () => {
+		const deleted = [
+			"diff --git a/tests/x.ts b/tests/x.ts",
+			"deleted file mode 100644",
+			"--- a/tests/x.ts",
+			"+++ /dev/null",
+			"@@ -1 +0,0 @@",
+			"-gone",
+			"",
+		].join("\n");
+		assert.deepEqual(addedLinesOf(deleted), []);
+		assert.deepEqual(addedLinesOf(""), []);
+	});
+});
+
+describe("the leak-check command", () => {
+	const script = fileURLToPath(new URL("../../scripts/migration.ts", import.meta.url));
+	const git = (cwd: string, ...args: string[]) => spawnSync("git", args, { cwd, encoding: "utf8" });
+
+	/** Runs the command in a new repository holding `text` staged at tests/x.ts. */
+	async function staged(text: string) {
+		const folder = await mkdtemp(join(tmpdir(), "songhealth-leak-check-test-"));
+		try {
+			const exportFile = join(folder, "export.xml");
+			await writeFile(
+				exportFile,
+				wxrDocument([
+					attachment(11, `wp-content/uploads/2025/03/${NAME}`),
+					directive(1, { title: `${LONG} ชื่อเรื่อง`, meta: {} }),
+				]),
+			);
+			const repository = join(folder, "repository");
+			await mkdir(join(repository, "tests"), { recursive: true });
+			git(repository, "init", "--quiet");
+			await writeFile(join(repository, "tests/x.ts"), text);
+			git(repository, "add", "tests/x.ts");
+			return spawnSync(process.execPath, [script, "leak-check", exportFile], {
+				cwd: repository,
+				encoding: "utf8",
+			});
+		} finally {
+			await rm(folder, { recursive: true });
+		}
+	}
+
+	it("stops on a staged line that holds the export's file name, without printing it", async () => {
+		const { status, stderr, stdout } = await staged(`export const path = "${NAME}";\n`);
+		assert.equal(status, 1);
+		assert.match(stderr, /tests\/x\.ts: the file name of attachment 11/);
+		assert.equal(`${stdout}${stderr}`.includes(NAME), false);
+	});
+
+	it("passes staged lines that hold none of its strings", async () => {
+		const { status, stderr } = await staged('export const path = "notice.pdf";\n');
+		assert.equal(status, 0, stderr);
+	});
+
+	it("needs the export", () => {
+		const { status, stderr } = spawnSync(process.execPath, [script, "leak-check"], {
+			encoding: "utf8",
+		});
+		assert.equal(status, 2);
+		assert.match(stderr, /usage/);
+	});
+});

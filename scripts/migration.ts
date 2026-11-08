@@ -5,6 +5,7 @@
 //   node scripts/migration.ts import <export.xml> <wp-content.zip> <target> [--final]
 //   node scripts/migration.ts import <export.xml> <wp-content.zip> --dry-run [--final]
 //   node scripts/migration.ts verify <export.xml> <wp-content.zip> <target>
+//   node scripts/migration.ts leak-check <export.xml>
 //
 // where <target> is `--origin <url> --token-file <file>`.
 //
@@ -91,10 +92,17 @@
 //
 // verify checks a target against the same plan, read as a trial reads it: the counts, that each
 // redirect answers one 301 to a page that answers 200, that every used file is in the Media
-// Library, that every page answers 200, and that each entry is published with its legacy date and
-// belongs to the Administrator. It writes verify-report.json beside the export, and exits 1 on a
-// failure.
+// Library, that every page answers 200, that each entry is published with its legacy date and
+// belongs to the Administrator, that an Announcement's page lists its Documents in the planned
+// order, and that a Document's page offers its file under its uploaded name. It writes
+// verify-report.json beside the export, and exits 1 on a failure.
+//
+// leak-check reads the lines the staged changes add and stops (exit 1) when one holds a file name,
+// a title, a label, an alt text or a caption of the export, naming the file and the item without
+// repeating the string: fixtures are made up (spec #174), and the repository's history is public.
+// .githooks/pre-commit runs it wherever the export exists, which CI's checkout does not hold.
 
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readFile, realpath, rename, writeFile } from "node:fs/promises";
@@ -103,6 +111,7 @@ import { parseArgs } from "node:util";
 
 import { scrubEmbeddedSecrets } from "../tests/browser/cms.helpers.ts";
 import { firstStop, planImport, type ImportPlan } from "./migration/import-plan.ts";
+import { addedLinesOf, leaksIn } from "./migration/leak-check.ts";
 import { blocksOf, computeContentHash, readLegacySite } from "./migration/legacy-site.ts";
 import { plan, TO_CHOOSE } from "./migration/plan.ts";
 import { verifyTarget } from "./migration/verify.ts";
@@ -112,7 +121,8 @@ import { openZip, readZipNames, type Zip } from "./migration/zip.ts";
 const USAGE = `usage: node scripts/migration.ts plan <export.xml> <wp-content.zip>
        node scripts/migration.ts import <export.xml> <wp-content.zip> --origin <url> --token-file <file> [--final]
        node scripts/migration.ts import <export.xml> <wp-content.zip> --dry-run [--final]
-       node scripts/migration.ts verify <export.xml> <wp-content.zip> --origin <url> --token-file <file>`;
+       node scripts/migration.ts verify <export.xml> <wp-content.zip> --origin <url> --token-file <file>
+       node scripts/migration.ts leak-check <export.xml>`;
 
 /** The files the commands write into the export's folder. */
 const LIST_FILE = "classification-list.csv";
@@ -367,8 +377,8 @@ const verifyCommand = (options: TargetOptions) =>
 			hashes,
 			request: async (path) => {
 				const response = await fetch(new URL(path, options.origin), { redirect: "manual" });
-				await response.arrayBuffer();
-				return { status: response.status, location: response.headers.get("location") };
+				const body = await response.text();
+				return { status: response.status, location: response.headers.get("location"), body };
 			},
 		});
 		const reportPath = join(folder, VERIFY_REPORT_FILE);
@@ -379,10 +389,26 @@ const verifyCommand = (options: TargetOptions) =>
 		console.log(`Files: ${JSON.stringify(result.files)}`);
 		console.log(`Pages: ${JSON.stringify(result.pages)}`);
 		console.log(`Redirects: ${JSON.stringify(result.redirects)}`);
+		console.log(`Announcements listing their Documents: ${JSON.stringify(result.lists)}`);
+		console.log(`Documents offering their file: ${JSON.stringify(result.downloads)}`);
 		for (const failure of result.failures) console.log(`FAIL ${failure}`);
 		console.log(`VERIFY: ${result.failures.length === 0 ? "PASS" : "FAIL"}`);
 		return result.failures.length === 0 ? 0 : 1;
 	});
+
+async function leakCheckCommand(exportPath: string): Promise<number> {
+	const staged = execFileSync(
+		"git",
+		["-c", "core.quotePath=false", "diff", "--cached", "--unified=0", "--no-color"],
+		{ encoding: "utf8", maxBuffer: 1024 ** 3 },
+	);
+	const site = await readLegacySite(await readFile(exportPath, "utf8"));
+	const leaks = leaksIn(site, addedLinesOf(staged));
+	for (const { file, what } of leaks) console.error(`${file}: ${what}`);
+	if (leaks.length > 0)
+		console.error("leak-check: make these up: fixtures hold no Legacy site content");
+	return leaks.length === 0 ? 0 : 1;
+}
 
 /** The command the arguments name, or none when they are wrong. */
 function commandOf(args: string[]): (() => Promise<number>) | undefined {
@@ -403,11 +429,13 @@ function commandOf(args: string[]): (() => Promise<number>) | undefined {
 	}
 	const { origin, "token-file": tokenFile, final, "dry-run": dryRun } = parsed.values;
 	const [command, exportPath, zipPath, ...others] = parsed.positionals;
-	if (exportPath === undefined || zipPath === undefined || others.length > 0) return undefined;
 	const noTarget = origin === undefined && tokenFile === undefined;
-	if (command === "plan" && noTarget && !final && !dryRun) {
-		return () => planCommand(exportPath, zipPath);
+	const plain = noTarget && !final && !dryRun;
+	if (command === "leak-check" && exportPath !== undefined && zipPath === undefined && plain) {
+		return () => leakCheckCommand(exportPath);
 	}
+	if (exportPath === undefined || zipPath === undefined || others.length > 0) return undefined;
+	if (command === "plan" && plain) return () => planCommand(exportPath, zipPath);
 	if (dryRun) {
 		return command === "import" && noTarget
 			? () => dryRunCommand({ exportPath, zipPath, final })
