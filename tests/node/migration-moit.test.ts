@@ -402,7 +402,7 @@ describe("a MOIT's links", () => {
 		assert.deepEqual(report.notes, []);
 	});
 
-	it("reports a link with no text on a line with no words, rather than losing its file", async () => {
+	it("reports a link with no text on a line with no words", async () => {
 		const { entries, report, files } = await importOf([
 			evidenceFile(31),
 			moitPost(1, 2567, `<p>1.1 <a href="${fileHref(31)}"></a></p>`),
@@ -410,7 +410,27 @@ describe("a MOIT's links", () => {
 		assert.deepEqual(entries[0]!.data.evidence, []);
 		assert.deepEqual(files, []);
 		assert.deepEqual(report.notes, [
-			{ slug: "moit-1-2567", note: `a link with no text and no wording to take: ${fileHref(31)}` },
+			{ slug: "moit-1-2567", note: `a link with no words and no wording to take: ${fileHref(31)}` },
+		]);
+	});
+
+	it("reports the words of a line whose only link is an empty Facebook one", async () => {
+		const { entries, report } = await importOf([
+			moitPost(1, 2567, '<p>เพจสำนักงาน <a href="https://www.facebook.com/profile"></a></p>'),
+		]);
+		assert.deepEqual(entries[0]!.data.evidence, []);
+		assert.deepEqual(report.notes, [
+			{ slug: "moit-1-2567", note: "text not carried: เพจสำนักงาน" },
+		]);
+	});
+
+	it("labels an empty link to another site by the wording of its line", async () => {
+		const evidence = await evidenceOf(
+			moitPost(1, 2567, '<p>1.1 คำสั่งแต่งตั้ง <a href="https://example.go.th/"></a></p>'),
+		);
+		assert.deepEqual(evidence, [
+			requirementBlock("1.1", "คำสั่งแต่งตั้ง"),
+			linkBlock("คำสั่งแต่งตั้ง", "https://example.go.th/", { current: false }),
 		]);
 	});
 
@@ -505,6 +525,22 @@ describe("a MOIT's fixes at import", () => {
 		assert.deepEqual(evidence, [requirementBlock("10", "รายงานผล"), fileBlock("รายงานผล", 52)]);
 	});
 
+	it('does not make a Requirement of a numbered line that holds only ")"', async () => {
+		const evidence = await evidenceOf(
+			moitPost(
+				2,
+				2568,
+				`<h4>10. รายงานผล</h4><p>10.1 <a href="${fileHref(52)}">)</a></p><ul><li><a href="${fileHref(53)}">)</a></li></ul>`,
+			),
+			[evidenceFile(52), evidenceFile(53)],
+		);
+		assert.deepEqual(evidence, [
+			requirementBlock("10", "รายงานผล"),
+			fileBlock("รายงานผล", 52),
+			fileBlock("รายงานผล", 53),
+		]);
+	});
+
 	it('reports a ")" before any Requirement, which has no wording to take', async () => {
 		const { entries, report } = await importOf([
 			evidenceFile(52),
@@ -512,7 +548,7 @@ describe("a MOIT's fixes at import", () => {
 		]);
 		assert.deepEqual(entries[0]!.data.evidence, []);
 		assert.deepEqual(report.notes, [
-			{ slug: "moit-2-2568", note: `a link with no text and no wording to take: ${fileHref(52)}` },
+			{ slug: "moit-2-2568", note: `a link with no words and no wording to take: ${fileHref(52)}` },
 		]);
 	});
 

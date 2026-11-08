@@ -76,9 +76,13 @@ const NUMBER = /^(\d+\.\d+(?:\.\d+)*|\d+(?=\.))\.?[\s.]*/;
 /** Text as one line, without the breaks and non-breaking spaces of the editor's HTML. */
 const clean = (text: string) => text.replace(/\s+/g, " ").trim();
 
-/** A line of a post's content: its text, its number, its wording after that, and its links. */
+/**
+ * A line of a post's content: its text, the words outside its links, its number, its wording after
+ * that, and its links.
+ */
 interface Line {
 	text: string;
+	beside: string;
 	number: string | undefined;
 	wording: string;
 	links: { href: string; text: string }[];
@@ -108,6 +112,12 @@ function lineOf({ children = [], markDefs = [] }: Block): Line {
 	const match = NUMBER.exec(text);
 	return {
 		text,
+		beside: clean(
+			children
+				.filter(({ marks }) => hrefOf(marks) === undefined)
+				.map((span) => span.text)
+				.join(""),
+		),
 		number: match?.[1],
 		wording: match ? text.slice(match[0].length) : text,
 		links: links.map((link) => ({ ...link, text: clean(link.text) })),
@@ -116,14 +126,14 @@ function lineOf({ children = [], markDefs = [] }: Block): Line {
 
 /**
  * A post's blocks without the card that ends it: its picture, the office's name and the words
- * about ITA. Whatever else follows the name stays, so that nothing leaves the post unreported.
+ * about ITA. Whatever else follows the name is read as the post's content.
  */
 function withoutCard(blocks: Block[]): Block[] {
 	const textOf = (block: Block | undefined) => (block?._type === "block" ? lineOf(block).text : "");
-	const name = blocks.findIndex((block) => textOf(block) === OFFICE_NAME);
-	if (name === -1) return blocks;
-	const start = blocks[name - 1]?._type === "image" ? name - 1 : name;
-	const end = textOf(blocks[name + 1]).startsWith(ABOUT_ITA) ? name + 2 : name + 1;
+	const nameAt = blocks.findIndex((block) => textOf(block) === OFFICE_NAME);
+	if (nameAt === -1) return blocks;
+	const start = blocks[nameAt - 1]?._type === "image" ? nameAt - 1 : nameAt;
+	const end = textOf(blocks[nameAt + 1]).startsWith(ABOUT_ITA) ? nameAt + 2 : nameAt + 1;
 	return [...blocks.slice(0, start), ...blocks.slice(end)];
 }
 
@@ -158,7 +168,7 @@ const addressKey = (address: string) => {
 	return path === undefined ? undefined : withoutLastSlash(path);
 };
 
-/** Whether `text` says nothing as a label, as ")" does: its line's wording stands in (defect 5). */
+/** Whether `text` says nothing as a label, as ")" does: other wording stands in (defect 5). */
 const saysNothing = (text: string) => !/[\p{L}\p{N}]/u.test(text);
 
 /** A line with the months of defect 4 reading their year, in its wording and its links. */
@@ -248,7 +258,7 @@ export function planMoits({
 			if (path?.startsWith("tag/") || (text === "" && isFacebook(href))) return undefined;
 			const label = saysNothing(text) ? wording : text;
 			if (label === "") {
-				noteOut(`a link with no text and no wording to take: ${href}`);
+				noteOut(`a link with no words and no wording to take: ${href}`);
 				return undefined;
 			}
 			if (path === undefined) return { _type: "ita_link", label, url: href, round, current: false };
@@ -289,18 +299,23 @@ export function planMoits({
 				continue;
 			}
 			const line = withYearFixed(slug, lineOf(block));
-			if (line.number !== undefined && line.wording !== "") {
+			const isRequirement = line.number !== undefined && !saysNothing(line.wording);
+			if (isRequirement) {
 				requirementWording = line.wording;
 				evidence.push({ _type: "ita_requirement", number: line.number, title: line.wording });
-			} else if (line.text !== "" && line.links.length === 0) {
-				noteOut(`text not carried: ${line.text}`);
 			}
-			for (const link of line.links) {
-				const piece = evidenceOfLink(
-					link,
-					saysNothing(line.wording) ? requirementWording : line.wording,
-				);
-				if (piece !== undefined) evidence.push(piece);
+			const pieces = line.links.flatMap(
+				(link) =>
+					evidenceOfLink(link, saysNothing(line.wording) ? requirementWording : line.wording) ?? [],
+			);
+			evidence.push(...pieces);
+			// A number left alone by a link that stayed out says nothing the report needs.
+			const wordsLeft =
+				line.links.length === 0
+					? line.text !== ""
+					: line.number === undefined && line.beside !== "";
+			if (!isRequirement && pieces.length === 0 && wordsLeft) {
+				noteOut(`text not carried: ${line.text}`);
 			}
 		}
 		if (evidence.length > MAX_BLOCKS) {
