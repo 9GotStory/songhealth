@@ -42,6 +42,7 @@
   "devDependencies": {
     "@astrojs/check": "0.9.10",
     "@axe-core/playwright": "4.14.0",
+    "@emdash-cms/gutenberg-to-portable-text": "1.1.0",
     "@playwright/test": "1.63.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",

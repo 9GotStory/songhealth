@@ -2,15 +2,20 @@
 // types the migration reads (scripts/migration/plan.ts ITEM_TYPES), with the attachments and the
 // pages' slugs. Reading goes through EmDash's own WXR and date parsers, which the emdash 1.1.0
 // package's main entry exports and plain Node loads (src/index.ts; `docs/agents/emdash-1.1.0.md`
-// "WordPress import"), as ADR 0008 has them since its amendment. node:test loads this module, and
-// EmDash with it, with plain Node (Product Owner, #177 comment 6719251511, item 1).
+// "WordPress import"), as ADR 0008 has them since its amendment, and HTML through EmDash's
+// converter package (spec #174 "Source"). node:test loads this module, and both with it, with plain
+// Node (Product Owner, #177 comment 6719251511, item 1).
 //
 // This module is where the export's personal data stops: it returns no author, no item's author
 // (`dc:creator`), and nothing of any other post type, such as the form plugin's submission
 // (`nf_sub`). The planning modules see only what it returns.
 
-import { parseWxrDate, parseWxrString, type WxrPost } from "emdash";
+import { Readable } from "node:stream";
 
+import { htmlToPortableText } from "@emdash-cms/gutenberg-to-portable-text";
+import { parseWxr, parseWxrDate, type WxrPost } from "emdash";
+
+import type { Block } from "./import-plan.ts";
 import { ITEM_TYPES, type ItemType } from "./plan.ts";
 
 /** The taxonomy that holds each type's categories in the export. */
@@ -46,10 +51,14 @@ export interface LegacyItem {
 	editor: string;
 }
 
-/** An attachment: its WordPress ID and its file's address on the Legacy site. */
+/** An attachment: its WordPress ID, its file's address on the Legacy site and its details. */
 export interface LegacyAttachment {
 	id: number;
 	url: string;
+	/** Its alt text (`_wp_attachment_image_alt`), or empty. */
+	alt: string;
+	/** Its caption, or empty. */
+	caption: string;
 }
 
 /** A page, by its slug and status: the migration redirects pages and imports none. */
@@ -109,21 +118,49 @@ function itemOf(post: WxrPost, type: ItemType): LegacyItem {
 }
 
 /**
- * The Legacy site's items, attachments and pages, read from the text of its WXR export. The parser
- * gives an attachment its file's address from `wp:attachment_url`, but none of its post meta
- * (emdash 1.1.0 src/cli/wxr/parser.ts parseWxrString).
+ * Each attachment's caption by its WordPress ID, for those that have one. WordPress keeps a caption
+ * in its item's `excerpt:encoded`, which neither of EmDash's parsers gives an attachment
+ * (emdash 1.1.0 src/cli/wxr/parser.ts WxrAttachment), so this one field is read from the export's
+ * text, which WordPress writes in one fixed shape.
+ */
+function captionsOf(xml: string): Map<number, string> {
+	const captions = new Map<number, string>();
+	for (const [item] of xml.matchAll(/<item>[\s\S]*?<\/item>/g)) {
+		if (!item.includes("<wp:post_type><![CDATA[attachment]]></wp:post_type>")) continue;
+		const id = /<wp:post_id>(\d+)<\/wp:post_id>/.exec(item)?.[1];
+		const caption = /<excerpt:encoded><!\[CDATA\[([\s\S]*?)\]\]><\/excerpt:encoded>/.exec(
+			item,
+		)?.[1];
+		if (id !== undefined && caption) captions.set(Number(id), caption);
+	}
+	return captions;
+}
+
+/**
+ * The Legacy site's items, attachments and pages, read from the text of its WXR export. The
+ * streaming parser gives an attachment its post meta, where WordPress keeps its alt text, and the
+ * string parser leaves that empty (emdash 1.1.0 src/cli/wxr/parser.ts parseWxr, parseWxrString).
  */
 export async function readLegacySite(xml: string): Promise<LegacySite> {
-	const wxr = await parseWxrString(xml);
+	const wxr = await parseWxr(Readable.from(xml));
+	const captions = captionsOf(xml);
 	const isItemType = (type: string | undefined): type is ItemType =>
 		(ITEM_TYPES as readonly (string | undefined)[]).includes(type);
 	return {
 		items: wxr.posts.flatMap((post) =>
 			isItemType(post.postType) ? [itemOf(post, post.postType)] : [],
 		),
-		attachments: wxr.attachments.map((item) => ({ id: item.id!, url: item.url ?? "" })),
+		attachments: wxr.attachments.map((item) => ({
+			id: item.id!,
+			url: item.url ?? "",
+			alt: item.meta.get("_wp_attachment_image_alt") ?? "",
+			caption: captions.get(item.id!) ?? "",
+		})),
 		pages: wxr.posts
 			.filter((post) => post.postType === "page")
 			.map((post) => ({ slug: post.postName ?? "", status: post.status ?? "" })),
 	};
 }
+
+/** HTML as Portable Text blocks, through EmDash's converter (spec #174 "Source"). */
+export const blocksOf = (html: string): Block[] => htmlToPortableText(html) as Block[];

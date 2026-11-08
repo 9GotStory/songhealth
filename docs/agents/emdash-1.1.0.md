@@ -250,6 +250,13 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
 - An upload larger than the `maxUploadSize` option is refused; the default is 50 MB
   (`src/api/schemas/media.ts` `DEFAULT_MAX_UPLOAD_SIZE`, `src/astro/routes/api/media.ts`), and
   `./astro.config.mjs` sets no other.
+- An upload whose form gives no usable type takes it from the file name's extension
+  (`src/media/mime.ts` `resolveUploadMimeType`).
+- An upload of a file the library already holds answers that item with `deduplicated: true`
+  (`src/astro/routes/api/media.ts`). The match is the content hash, `sha1:` and the file's SHA-1 in
+  hex (`src/utils/hash.ts` `computeContentHash`), which a media list gives as `contentHash`
+  (`src/database/repositories/media.ts` `MediaItem`). `./scripts/migration.ts` hashes the used files
+  the same way to find them in the library.
 - A media item sits in at most one folder. An upload request and a media update take `folderId`
   (`src/api/schemas/media.ts` `mediaUpdateBody`; `src/astro/routes/api/media/folders/index.ts`
   creates a folder). The Admin's Media Library and its media picker open on the main library, the
@@ -680,7 +687,7 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
 - The package's main entry exports the WXR parsers `parseWxr` (a stream) and `parseWxrString`, and
   `parseWxrDate` (`src/index.ts`, `src/import/index.ts`), and plain Node 26.13.0 loads it, in about
   1.2 s (checked 2026-11-07 for #177). `./scripts/migration/legacy-site.ts` reads the Legacy site's
-  export with `parseWxrString` and `parseWxrDate`.
+  export with `parseWxr`, which gives an attachment its post meta (below), and `parseWxrDate`.
 - `parseWxrString` puts every item but an attachment into `posts`, with its post meta in `meta` by
   key. An item's `<category>` of a custom taxonomy, neither `category` nor `post_tag`, goes into
   `customTaxonomies` under its `domain`, by its `nicename` as the export writes it. The name comes
@@ -690,7 +697,9 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
 - `parseWxrString` gives an attachment its ID, title, `wp:attachment_url` and date, and an empty
   `meta`: it keeps the attachment's post meta, such as the alt text `_wp_attachment_image_alt`, on
   the item it drops. The streaming `parseWxr` shares the item's `meta` with the attachment. Neither
-  gives an attachment its item's `excerpt:encoded` (`src/cli/wxr/parser.ts` `WxrAttachment`).
+  gives an attachment its item's `excerpt:encoded`, where WordPress keeps a caption
+  (`src/cli/wxr/parser.ts` `WxrAttachment`), so `./scripts/migration/legacy-site.ts` `captionsOf`
+  reads that one field from the export's text.
 - `parseWxrString` leaves `site` empty for a WordPress export: it reads the site's fields only as
   direct children of `<rss>`, while WordPress writes them inside `<channel>`
   (`src/cli/wxr/parser.ts` `parseWxrString`). `./scripts/migration/plan.ts` names the Legacy
@@ -705,7 +714,12 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   markup into Portable Text with `gutenbergToPortableText`, and plain HTML, such as an ACF WYSIWYG
   value, with `htmlToPortableText`, which parses with parse5
   (`@emdash-cms/gutenberg-to-portable-text/dist/index.d.mts`,
-  `@emdash-cms/gutenberg-to-portable-text/package.json`).
+  `@emdash-cms/gutenberg-to-portable-text/package.json`). Called with its edge inputs for #178: plain
+  Node loads it; a `<br>` inside a `<p>` is a line break in the span's text, and a `<br>` between
+  loose inline text starts a new block; an `<img>` becomes an `image` block whose `_ref` is the
+  address as written; an `<iframe>` leaves nothing and a `<table>` leaves its cells' text in one
+  block; a `<pre>` becomes a `code` block and an `<hr>` a `break` block; empty or blank HTML gives
+  no blocks. `./scripts/migration/import-plan.ts` reports the pictures and embeds from the HTML.
 
 ## Native API for tests
 
@@ -722,6 +736,10 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   `src/astro/routes/api/redirects/[id].ts`, `src/api/schemas/redirects.ts`).
   `./tests/browser/cms.helpers.ts` `deleteAutoRedirects` removes the ones a suite's slug changes
   left.
+- EmDash's redirect middleware matches a path with or without its last slash
+  (`src/astro/middleware/redirect.ts`). `POST /_emdash/api/redirects` answers `CONFLICT` for a source
+  that exists, compared exactly (`src/api/handlers/redirects.ts` `handleRedirectCreate`), and needs
+  `redirects:manage`, an Administrator's (`@emdash-cms/auth/src/rbac.ts`).
 - `GET /_emdash/api/redirects/404s` lists the 404 log. With `redirects:manage`, `DELETE` on it
   clears the whole log and answers `{ deleted }`, and `POST` with `olderThan` prunes it by age; no
   entry can be removed alone (`src/astro/routes/api/redirects/404s/index.ts`,

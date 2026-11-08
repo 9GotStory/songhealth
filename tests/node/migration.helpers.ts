@@ -1,6 +1,8 @@
 // Synthetic Legacy site exports for the migration script's node tests (#177; spec #174 "Seam A"):
-// a WordPress WXR 1.2 document built from the parts a test names, and a zip of empty files. No
+// a WordPress WXR 1.2 document built from the parts a test names, and a zip of synthetic files. No
 // Legacy site content enters the repository, so every title, name and file here is made up.
+
+import { crc32, deflateRawSync } from "node:zlib";
 
 /** A category an item carries: its taxonomy (the WXR `domain`), its slug and its name. */
 export interface SyntheticCategory {
@@ -29,8 +31,42 @@ export interface SyntheticItem {
 	meta?: Record<string, string>;
 	/** The block editor's content. */
 	content?: string;
+	/** The excerpt, which is an attachment's caption. */
+	excerpt?: string;
 	/** An attachment's file address. */
 	url?: string;
+}
+
+export const ACTIVITY: SyntheticCategory = {
+	domain: "category-public-news",
+	slug: "activity",
+	name: "กิจกรรม",
+};
+
+/** ประชาสัมพันธ์, with a Thai slug percent-encoded as WordPress writes it. */
+export const PUBLIC_RELATIONS: SyntheticCategory = {
+	domain: "category-public-news",
+	slug: encodeURIComponent("ประชาสัมพันธ์").toLowerCase(),
+	name: "ประชาสัมพันธ์",
+};
+
+export const PM25: SyntheticCategory = {
+	domain: "category-public-news",
+	slug: "pm",
+	name: "PM 2.5",
+	parent: PUBLIC_RELATIONS.slug,
+};
+
+/** A category the defaults do not name. */
+export const OTHER_NEWS: SyntheticCategory = {
+	domain: "category-public-news",
+	slug: "other",
+	name: "ข่าวอื่น",
+};
+
+/** A news stream item `news-{id}` that a test fills in. */
+export function newsItem(id: number, fields: Partial<SyntheticItem> = {}): SyntheticItem {
+	return { type: "public-new", id, slug: `news-${id}`, title: `เรื่องที่ ${id}`, ...fields };
 }
 
 /** The Legacy site's address, as its export writes it. */
@@ -72,7 +108,7 @@ function itemXml(item: SyntheticItem): string {
 		`<guid isPermaLink="false">${SITE}/?p=${item.id}</guid>`,
 		"<description></description>",
 		`<content:encoded>${cdata(item.content ?? "")}</content:encoded>`,
-		`<excerpt:encoded>${cdata("")}</excerpt:encoded>`,
+		`<excerpt:encoded>${cdata(item.excerpt ?? "")}</excerpt:encoded>`,
 		`<wp:post_id>${item.id}</wp:post_id>`,
 		// The site's own time, Bangkok's (UTC+7), as WordPress writes `post_date`.
 		`<wp:post_date>${cdata(shifted(date, 7))}</wp:post_date>`,
@@ -138,50 +174,81 @@ export function wxrDocument(items: SyntheticItem[]): string {
 	].join("\n");
 }
 
-/** An attachment item whose file is `path` under the site, such as "wp-content/uploads/a.webp". */
-export function attachment(id: number, path: string): SyntheticItem {
+/**
+ * An attachment item whose file is `path` under the site, such as "wp-content/uploads/a.webp", with
+ * the alt text and caption WordPress keeps in its post meta and its excerpt.
+ */
+export function attachment(
+	id: number,
+	path: string,
+	{ alt, caption }: { alt?: string; caption?: string } = {},
+): SyntheticItem {
 	return {
 		type: "attachment",
 		id,
 		slug: `attachment-${id}`,
 		title: `ไฟล์ ${id}`,
 		url: `${SITE}/${path}`,
+		excerpt: caption,
+		meta: alt === undefined ? undefined : { _wp_attachment_image_alt: alt },
 	};
 }
 
+/** A file a synthetic zip holds with its bytes, deflated unless `stored`. */
+export interface SyntheticFile {
+	path: string;
+	bytes: Uint8Array;
+	stored?: boolean;
+}
+
 /**
- * A zip holding an empty file at each path, as the uploads copy holds the site's files. A path
- * given as bytes is stored as those bytes, such as a name cut inside a character.
+ * A zip holding an empty file at each path, as the uploads copy holds the site's files, or a given
+ * file with its bytes. A path given as bytes is stored as those bytes, such as a name cut inside a
+ * character.
  */
-export function zipOf(paths: (string | Uint8Array)[]): Buffer {
+export function zipOf(entries: (string | Uint8Array | SyntheticFile)[]): Buffer {
 	const local: Buffer[] = [];
 	const central: Buffer[] = [];
 	let offset = 0;
-	for (const path of paths) {
+	for (const entry of entries) {
+		const file = typeof entry === "string" || entry instanceof Uint8Array ? undefined : entry;
+		const path = file === undefined ? (entry as string | Uint8Array) : file.path;
 		const name = typeof path === "string" ? Buffer.from(path, "utf8") : Buffer.from(path);
+		const bytes = Buffer.from(file?.bytes ?? []);
+		const deflated = file !== undefined && !file.stored;
+		const data = deflated ? deflateRawSync(bytes) : bytes;
 		// General purpose flag bit 11 marks a UTF-8 name; the uploads copy sets it on most names.
 		const flags = typeof path === "string" ? 0x0800 : 0;
+		const method = deflated ? 8 : 0;
 		const header = Buffer.alloc(30);
 		header.writeUInt32LE(0x04034b50, 0);
 		header.writeUInt16LE(20, 4);
 		header.writeUInt16LE(flags, 6);
+		header.writeUInt16LE(method, 8);
+		header.writeUInt32LE(crc32(bytes), 14);
+		header.writeUInt32LE(data.length, 18);
+		header.writeUInt32LE(bytes.length, 22);
 		header.writeUInt16LE(name.length, 26);
-		local.push(header, name);
-		const entry = Buffer.alloc(46);
-		entry.writeUInt32LE(0x02014b50, 0);
-		entry.writeUInt16LE(0x0314, 4);
-		entry.writeUInt16LE(20, 6);
-		entry.writeUInt16LE(flags, 8);
-		entry.writeUInt16LE(name.length, 28);
-		entry.writeUInt32LE(offset, 42);
-		central.push(entry, name);
-		offset += header.length + name.length;
+		local.push(header, name, data);
+		const directoryEntry = Buffer.alloc(46);
+		directoryEntry.writeUInt32LE(0x02014b50, 0);
+		directoryEntry.writeUInt16LE(0x0314, 4);
+		directoryEntry.writeUInt16LE(20, 6);
+		directoryEntry.writeUInt16LE(flags, 8);
+		directoryEntry.writeUInt16LE(method, 10);
+		directoryEntry.writeUInt32LE(crc32(bytes), 16);
+		directoryEntry.writeUInt32LE(data.length, 20);
+		directoryEntry.writeUInt32LE(bytes.length, 24);
+		directoryEntry.writeUInt16LE(name.length, 28);
+		directoryEntry.writeUInt32LE(offset, 42);
+		central.push(directoryEntry, name);
+		offset += header.length + name.length + data.length;
 	}
 	const directory = Buffer.concat(central);
 	const end = Buffer.alloc(22);
 	end.writeUInt32LE(0x06054b50, 0);
-	end.writeUInt16LE(paths.length, 8);
-	end.writeUInt16LE(paths.length, 10);
+	end.writeUInt16LE(entries.length, 8);
+	end.writeUInt16LE(entries.length, 10);
 	end.writeUInt32LE(directory.length, 12);
 	end.writeUInt32LE(offset, 16);
 	return Buffer.concat([...local, directory, end]);
