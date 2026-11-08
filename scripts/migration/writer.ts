@@ -39,7 +39,7 @@ export interface Target extends TargetState {
 		authorId: string | null;
 	})[];
 	/** The Media Library's items (emdash 1.1.0 src/database/repositories/media.ts MediaItem). */
-	media: { contentHash: string | null; folderId?: string | null }[];
+	media: { contentHash: string | null; folderId?: string | null; filename: string }[];
 	folders: { id: string; name: string }[];
 }
 

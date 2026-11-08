@@ -60,7 +60,10 @@ function reviewed(text: string, reviews: Record<string, Review>): string {
 }
 
 /** How the target answers a request for a path, as verify reads it. */
-type Answer = { status: number; location: string | null };
+type Answer = { status: number; location: string | null; body?: string };
+
+/** An answer as verify reads one, with an empty body unless the test gives one. */
+const withBody = (answer: Answer) => ({ ...answer, body: answer.body ?? "" });
 
 /** The uploads copy's path of each attachment in `items`. */
 const uploadsOf = (items: SyntheticItem[]) =>
@@ -1526,8 +1529,8 @@ describe("verify", () => {
 				authorId: OWNER,
 			})),
 			media: [
-				{ contentHash: "sha1:11", folderId: FOLDER.id },
-				{ contentHash: "sha1:12", folderId: FOLDER.id },
+				{ contentHash: "sha1:11", folderId: FOLDER.id, filename: "one-page-11.webp" },
+				{ contentHash: "sha1:12", folderId: FOLDER.id, filename: "one-page-12.webp" },
 			],
 			folders: [FOLDER],
 			owner: OWNER,
@@ -1539,7 +1542,7 @@ describe("verify", () => {
 			request: async (path) => {
 				const response = responses.get(path);
 				if (response === undefined) throw new Error(`unexpected request: ${path}`);
-				return response;
+				return withBody(response);
 			},
 		};
 	}
@@ -1557,25 +1560,42 @@ describe("verify", () => {
 			files: { planned: 2, inLibrary: 2, inFolder: 2 },
 			pages: { planned: 2, passed: 2 },
 			redirects: { planned: 2, passed: 2 },
+			lists: { planned: 0, passed: 0 },
+			downloads: { planned: 0, passed: 0 },
 			failures: [],
 		});
 	});
 
-	it("checks Announcements and Documents as it checks News and Activities", async () => {
+	/** A page's HTML around its related Documents section, as an Announcement's page writes it. */
+	const listing = (...slugs: string[]) =>
+		`<a href="/documents/in-the-menu">เมนู</a><section aria-labelledby="related-documents"><h2 id="related-documents">เอกสารที่เกี่ยวข้อง</h2><ul>${slugs
+			.map((slug) => `<li><a href="/documents/${slug}">เอกสาร</a></li>`)
+			.join("")}</ul></section><a href="/documents/in-the-footer">ท้ายหน้า</a>`;
+
+	/** A Document's page offering a file under `name`, as `DocumentDownload.astro` writes it. */
+	const offering = (name: string) =>
+		`<a class="inline-flex" href="/_emdash/api/media/file/01K.pdf" download="${name}"><span>ดาวน์โหลดเอกสาร</span></a>`;
+
+	/** A target that holds what the plan of an Announcement with two files and an order writes. */
+	async function noticeTarget(): Promise<VerifyInput & { responses: Map<string, Answer> }> {
 		const planned = await importOf([
-			NOTICE_FILE,
-			procurement(1),
-			directive(2, { categories: [ORDER] }),
+			noticeFile(21),
+			noticeFile(22),
+			noticeFile(23),
+			procurement(1, { meta: TWO_FILES }),
+			directive(2, { categories: [ORDER], meta: { file_1: "23" } }),
 		]);
-		const answers = new Map<string, Answer>([
-			["/announcements/procurement-1", { status: 200, location: null }],
-			["/documents/procurement-1", { status: 200, location: null }],
-			["/documents/directive-2", { status: 200, location: null }],
+		const page = (body: string): Answer => ({ status: 200, location: null, body });
+		const responses = new Map<string, Answer>([
+			["/announcements/procurement-1", page(listing("procurement-1", "procurement-1-2"))],
+			["/documents/procurement-1", page(offering("notice-21.pdf"))],
+			["/documents/procurement-1-2", page(offering("notice-22.pdf"))],
+			["/documents/directive-2", page(offering("notice-23.pdf"))],
 			["/procurement/procurement-1/", { status: 301, location: "/announcements/procurement-1" }],
 			["/directive/directive-2/", { status: 301, location: "/documents/directive-2" }],
 		]);
 		const FILES = { id: "folder-2", name: "เว็บไซต์เดิม: ประกาศและเอกสาร" };
-		const target = {
+		return {
 			planned,
 			entries: planned.entries.map(({ collection, slug, publishedAt }) => ({
 				collection,
@@ -1585,30 +1605,163 @@ describe("verify", () => {
 				publishedAt,
 				authorId: OWNER,
 			})),
-			media: [{ contentHash: "sha1:900", folderId: FILES.id }],
+			media: [21, 22, 23].map((id) => ({
+				contentHash: `sha1:${id}`,
+				folderId: FILES.id,
+				filename: `notice-${id}.pdf`,
+			})),
 			folders: [FILES],
 			owner: OWNER,
-			hashes: new Map([[900, "sha1:900"]]),
-			request: async (path: string) => answers.get(path)!,
+			hashes: new Map([21, 22, 23].map((id) => [id, `sha1:${id}`])),
+			responses,
+			request: async (path) => {
+				const response = responses.get(path);
+				if (response === undefined) throw new Error(`unexpected request: ${path}`);
+				return withBody(response);
+			},
 		};
-		assert.deepEqual(await verifyTarget(target), {
+	}
+
+	it("checks Announcements and Documents as it checks News and Activities", async () => {
+		assert.deepEqual(await verifyTarget(await noticeTarget()), {
 			entries: {
 				announcements: { planned: 1, found: 1, inCollection: 1 },
-				documents: { planned: 2, found: 2, inCollection: 2 },
+				documents: { planned: 3, found: 3, inCollection: 3 },
 			},
-			files: { planned: 1, inLibrary: 1, inFolder: 1 },
-			pages: { planned: 3, passed: 3 },
+			files: { planned: 3, inLibrary: 3, inFolder: 3 },
+			pages: { planned: 4, passed: 4 },
 			redirects: { planned: 2, passed: 2 },
+			lists: { planned: 1, passed: 1 },
+			downloads: { planned: 3, passed: 3 },
 			failures: [],
 		});
-		const without = planned.entries[0]!;
-		const report = await verifyTarget({
-			...target,
-			entries: target.entries.filter(
-				({ collection, slug }) => collection !== without.collection || slug !== without.slug,
-			),
+	});
+
+	it("fails a planned entry that is missing from the target", async () => {
+		const target = await noticeTarget();
+		const entries = target.entries.filter(({ collection }) => collection !== "announcements");
+		const { failures } = await verifyTarget({ ...target, entries });
+		assert.deepEqual(failures, ["announcements/procurement-1: not found"]);
+	});
+
+	it("fails an Announcement's page that lists another Document, another order or none", async () => {
+		const expected = "procurement-1, procurement-1-2";
+		for (const [body, listed] of [
+			[listing("procurement-1"), "procurement-1"],
+			[listing("procurement-1-2", "procurement-1"), "procurement-1-2, procurement-1"],
+			[listing("procurement-1", "procurement-1-2", "extra"), `${expected}, extra`],
+			[listing(), "no Document"],
+			["<main>ไม่มีส่วนเอกสาร</main>", "no Document"],
+		] as const) {
+			const target = await noticeTarget();
+			target.responses.set("/announcements/procurement-1", {
+				status: 200,
+				location: null,
+				body,
+			});
+			const { failures, lists } = await verifyTarget(target);
+			assert.deepEqual(failures, [`/announcements/procurement-1 lists ${listed}, not ${expected}`]);
+			assert.deepEqual(lists, { planned: 1, passed: 0 });
+		}
+	});
+
+	it("fails a Document's page that offers another name or no download", async () => {
+		for (const [body, offered] of [
+			[offering("renamed.pdf"), "renamed.pdf"],
+			["<p>ไฟล์ไม่พร้อมให้บริการ</p>", "no file"],
+		] as const) {
+			const target = await noticeTarget();
+			target.responses.set("/documents/directive-2", { status: 200, location: null, body });
+			const { failures, downloads } = await verifyTarget(target);
+			assert.deepEqual(failures, [`/documents/directive-2 offers ${offered}, not notice-23.pdf`]);
+			assert.deepEqual(downloads, { planned: 3, passed: 2 });
+		}
+	});
+
+	it("reads a file name whose ampersand and double quote the page's HTML escapes", async () => {
+		const target = await noticeTarget();
+		target.media = target.media.map((item) =>
+			item.contentHash === "sha1:23" ? { ...item, filename: `a&b"c'.pdf` } : item,
+		);
+		target.responses.set("/documents/directive-2", {
+			status: 200,
+			location: null,
+			body: offering("a&amp;b&quot;c'.pdf"),
 		});
-		assert.deepEqual(report.failures, [`${without.collection}/${without.slug}: not found`]);
+		assert.deepEqual((await verifyTarget(target)).failures, []);
+	});
+
+	it("fails a Document's page whose file the Media Library does not hold", async () => {
+		const target = await noticeTarget();
+		target.media = target.media.filter((item) => item.contentHash !== "sha1:23");
+		const { failures, downloads } = await verifyTarget(target);
+		assert.ok(failures.includes("/documents/directive-2 offers notice-23.pdf, not a library file"));
+		assert.deepEqual(downloads, { planned: 3, passed: 2 });
+	});
+
+	it("expects the name of the library's item for a file EmDash reused", async () => {
+		const target = await noticeTarget();
+		target.media = target.media.map((item) =>
+			item.contentHash === "sha1:23" ? { ...item, filename: "uploaded-first.pdf" } : item,
+		);
+		target.responses.set("/documents/directive-2", {
+			status: 200,
+			location: null,
+			body: offering("uploaded-first.pdf"),
+		});
+		assert.deepEqual((await verifyTarget(target)).failures, []);
+		target.responses.set("/documents/directive-2", {
+			status: 200,
+			location: null,
+			body: offering("notice-23.pdf"),
+		});
+		assert.deepEqual((await verifyTarget(target)).failures, [
+			"/documents/directive-2 offers notice-23.pdf, not uploaded-first.pdf",
+		]);
+	});
+
+	it("checks that an Announcement planned without Documents lists none", async () => {
+		const planned = await importOf([procurement(1, { meta: {} })]);
+		const announcement = planned.entries[0]!;
+		const request = (body: string) => async (path: string) =>
+			path === announcement.page
+				? { status: 200, location: null, body }
+				: { status: 301, location: announcement.page, body: "" };
+		const input = {
+			planned,
+			entries: [
+				{
+					collection: announcement.collection,
+					slug: announcement.slug,
+					trashed: false,
+					status: "published",
+					publishedAt: announcement.publishedAt,
+					authorId: OWNER,
+				},
+			],
+			media: [],
+			folders: [],
+			owner: OWNER,
+			hashes: new Map<number, string>(),
+		};
+		const passing = await verifyTarget({ ...input, request: request(listing()) });
+		assert.deepEqual(passing.failures, []);
+		assert.deepEqual(passing.lists, { planned: 1, passed: 1 });
+		const failing = await verifyTarget({ ...input, request: request(listing("written-later")) });
+		assert.deepEqual(failing.failures, [
+			`${announcement.page} lists written-later, not no Document`,
+		]);
+	});
+
+	it("reports a page that does not answer 200 once, without reading its body", async () => {
+		const target = await noticeTarget();
+		target.responses.set("/announcements/procurement-1", { status: 404, location: null, body: "" });
+		const { failures, lists } = await verifyTarget(target);
+		assert.deepEqual(failures, [
+			"/announcements/procurement-1 answers 404",
+			"/procurement/procurement-1/ goes to /announcements/procurement-1, which does not answer 200",
+		]);
+		assert.deepEqual(lists, { planned: 1, passed: 0 });
 	});
 
 	it("fails an entry that is missing, unpublished, dated otherwise or someone else's", async () => {
@@ -1690,7 +1843,7 @@ describe("verify", () => {
 		const target = await goodTarget();
 		const report = await verifyTarget({
 			...target,
-			media: [{ contentHash: "sha1:12", folderId: null }],
+			media: [{ contentHash: "sha1:12", folderId: null, filename: "elsewhere.webp" }],
 		});
 		assert.deepEqual(report.files, { planned: 2, inLibrary: 1, inFolder: 0 });
 		assert.deepEqual(report.failures, ["file 11 (one-page-11.webp) is not in the Media Library"]);
@@ -1720,7 +1873,7 @@ describe("verify", () => {
 });
 
 describe("the planning modules' imports", () => {
-	for (const module of ["import-plan", "verify"]) {
+	for (const module of ["import-plan", "verify", "leak-check"]) {
 		it(`${module}.ts imports only the planner at run time, so node:test loads it with plain Node`, async () => {
 			const source = await readFile(
 				new URL(`../../scripts/migration/${module}.ts`, import.meta.url),
