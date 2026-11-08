@@ -8,7 +8,7 @@
 // #178 comment 6720200201, item 3).
 
 import assert from "node:assert/strict";
-import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -1056,6 +1056,27 @@ describe("the planning modules' imports", () => {
 	}
 });
 
+describe("the script's EmDash imports", () => {
+	it('only the reader loads EmDash at run time, as CODING_STANDARDS "Tests" allows', async () => {
+		const folder = new URL("../../scripts/migration/", import.meta.url);
+		const modules = ["../migration.ts", ...(await readdir(folder))];
+		const loading: string[] = [];
+		for (const name of modules) {
+			const source = await readFile(new URL(name, folder), "utf8");
+			const statements = [...source.matchAll(/^import\s[\s\S]*?;$/gm)].map(
+				([statement]) => statement,
+			);
+			const loads = statements.some(
+				(statement) =>
+					!statement.startsWith("import type ") &&
+					/from "(?:emdash|@emdash-cms\/[^"]+)"/.test(statement),
+			);
+			if (loads) loading.push(name);
+		}
+		assert.deepEqual(loading, ["legacy-site.ts"]);
+	});
+});
+
 describe("the import and verify commands", () => {
 	const run = runMigration;
 	const TOKEN = "ec_pat_syntheticnotrealtoken";
@@ -1099,6 +1120,42 @@ describe("the import and verify commands", () => {
 				const result = run(...args);
 				assert.equal(result.status, 2, args.join(" "));
 				assert.match(result.stderr, /^usage: /);
+			}
+		});
+	});
+
+	it("--dry-run writes the plan beside the export, the same each time, with no origin or token", async () => {
+		const items = [
+			newsItem(1, {
+				categories: [PUBLIC_RELATIONS],
+				meta: { editor: "<p>ข้อความ <strong>เน้น</strong></p>" },
+			}),
+		];
+		await withExport(items, async ({ folder, xml, zip }) => {
+			const first = run("import", xml, zip, "--dry-run");
+			assert.equal(first.status, 0, first.stderr);
+			assert.match(first.stdout, /Import plan: .*import-plan\.json/);
+			const planned = await readFile(join(folder, "import-plan.json"), "utf8");
+			assert.deepEqual(
+				(JSON.parse(planned) as { entries: { slug: string }[] }).entries.map(({ slug }) => slug),
+				["news-1"],
+			);
+			assert.equal(run("import", xml, zip, "--dry-run").status, 0);
+			assert.equal(await readFile(join(folder, "import-plan.json"), "utf8"), planned);
+		});
+	});
+
+	it("--dry-run refuses a final run as the import would, and takes no target", async () => {
+		await withExport(CHOOSE, async ({ folder, xml, zip, token }) => {
+			const refused = run("import", xml, zip, "--dry-run", "--final");
+			assert.equal(refused.status, 1);
+			assert.match(refused.stderr, /final import refuses while .*news-1/);
+			await assert.rejects(readFile(join(folder, "import-plan.json")));
+			for (const args of [
+				["import", xml, zip, "--dry-run", "--origin", "http://127.0.0.1:1", "--token-file", token],
+				["verify", xml, zip, "--dry-run"],
+			]) {
+				assert.equal(run(...args).status, 2, args.join(" "));
 			}
 		});
 	});

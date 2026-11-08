@@ -233,4 +233,4 @@ confirm "ERASE current media volume contents (qdev only) and extract the tar?"
 podman unshare find "$MP" -mindepth 1 -maxdepth 1 ! -name '.songhealth-qdev-media-store' -exec rm -rf -- {} + \
   || die "media clear failed"
 podman unshare tar -xf "$MEDIA" -C "$MP" || die "media extract failed (marker preserved); inspect manually"
-echo "dev-runtime-restore: restore sequence done. Verify with scripts/dev-runtime-verify.sh BEFORE restarting the app; restart is a separate explicit operator action."
+echo "dev-runtime-restore: restore sequence done. Restarting the app is a separate explicit operator action: systemctl --user start songhealth-dev-app.service, then scripts/dev-runtime-verify.sh, which needs it active."

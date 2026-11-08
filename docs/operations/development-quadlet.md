@@ -159,7 +159,8 @@ pull request's merge, reaches it once a workspace branch holds it:
 
 The update runs these steps:
 
-1. Refuses a commit that does not contain the one the runtime serves, and names that commit. Such
+1. Refuses while a window holds the runtime ("A window" below). Refuses a commit that does not
+   contain the one the runtime serves, and names that commit. Such
    a promotion takes the runtime away from another line of work, such as another feature's branch
    that a session is still testing (#177 retro). Pass `--replace` once that work no longer needs
    the runtime. The check runs again after a `--wait`, since another promotion can land during it.
@@ -429,6 +430,25 @@ the ADR 0003 revisit of production images.
 - **What a backup covers.** Database and media only. The secrets (including
   `EMDASH_ENCRYPTION_KEY`, needed to read encrypted plugin settings) live in the podman secret
   store and are not part of any backup.
+
+## A window
+
+A window takes the runtime's data away for a while and brings it back: a backup, the change, such
+as removing the demo dataset and importing the migration's trial, then a restore (#178 retro).
+Every session shares this runtime, and a promotion during a window leaves a backup the restore
+refuses, so a window holds the runtime:
+
+1. `scripts/dev-runtime-window.sh open "<why>"` writes the lock. `scripts/dev-runtime-update.sh` and
+   `scripts/dev-runtime-env.sh` refuse from now on, naming the window, for every session. Its holder
+   runs `scripts/dev-runtime-env.sh --in-window <command>`.
+2. `scripts/dev-runtime-verify.sh`, `scripts/dev-runtime-residue.sh`, then
+   `scripts/dev-runtime-backup.sh <new folder under backups/>`.
+3. The work.
+4. Put it back: `systemctl --user stop songhealth-dev-app.service`, then the restore above (it asks
+   three times, so type `yes` three times), `systemctl --user start songhealth-dev-app.service`, and
+   verify.
+5. `scripts/dev-runtime-window.sh close`. `scripts/dev-runtime-window.sh status` says whether one is
+   open.
 
 ## Uninstall
 
