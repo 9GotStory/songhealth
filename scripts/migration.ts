@@ -1,7 +1,11 @@
-// The Legacy site's migration script (#177; spec #174 "The migration script"; ADR 0008): temporary
-// tooling, which leaves the repository with its tests when WordPress is retired. Its plan command:
+// The Legacy site's migration script (#177, #178; spec #174 "The migration script"; ADR 0008):
+// temporary tooling, which leaves the repository with its tests when WordPress is retired.
 //
 //   node scripts/migration.ts plan <export.xml> <wp-content.zip>
+//   node scripts/migration.ts import <export.xml> <wp-content.zip> <target> [--final]
+//   node scripts/migration.ts verify <export.xml> <wp-content.zip> <target>
+//
+// where <target> is `--origin <url> --token-file <file>`.
 //
 // plan reads the WXR export of the whole Legacy site and the zip of its `wp-content` folder, and
 // writes two files into the export's folder, which must lie outside the repository:
@@ -65,21 +69,48 @@
 // The inventory (scripts/migration/plan.ts Inventory) counts the items by type and status, the
 // published items by category, and the attachments used and unused; it lists the missing files,
 // reports the list as plan left it, and records the SHA-256 of the export and the zip.
+//
+// import reads the export, the zip and the Classification list beside the export, and writes the
+// news stream to one origin through EmDash's native APIs (scripts/migration/import-plan.ts says
+// what it writes, scripts/migration/writer.ts writes it). It acts as the Administrator whose API
+// token is in the 0600 file --token-file names, on the development runtime
+// ~/.local/state/songhealth-qdev/dev-pat, and never prints the token. Without --final it is a
+// trial, which takes a row still ต้องเลือก at its default and lists it. It refuses a final run while
+// any row is ต้องเลือก, a list that lacks an item of the export, and a row with no default (exit 1),
+// and stops before it writes anything if a target slug or a legacy redirect exists or a term is
+// missing (exit 1). A write the target refuses stops the run where it is (exit 1): restore the
+// backup taken before it. It writes import-report.json beside the export: the inputs' digests, the
+// counts, the rows taken at their default and what it could not carry.
+//
+// verify checks a target against the same plan, read as a trial reads it: the counts, that each
+// redirect answers one 301 to a page that answers 200, that every used file is in the Media
+// Library, that every page answers 200, and that each entry is published with its legacy date and
+// belongs to the Administrator. It writes verify-report.json beside the export, and exits 1 on a
+// failure.
 
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
+import { parseArgs } from "node:util";
 
-import { readLegacySite } from "./migration/legacy-site.ts";
+import { scrubEmbeddedSecrets } from "../tests/browser/cms.helpers.ts";
+import { firstStop, planImport, type ImportPlan } from "./migration/import-plan.ts";
+import { blocksOf, computeContentHash, readLegacySite } from "./migration/legacy-site.ts";
 import { plan, TO_CHOOSE } from "./migration/plan.ts";
-import { readZipNames } from "./migration/zip.ts";
+import { verifyTarget } from "./migration/verify.ts";
+import { administrator, applyImport, readTarget, type Target } from "./migration/writer.ts";
+import { openZip, readZipNames, type Zip } from "./migration/zip.ts";
 
-const USAGE = "usage: node scripts/migration.ts plan <export.xml> <wp-content.zip>";
+const USAGE = `usage: node scripts/migration.ts plan <export.xml> <wp-content.zip>
+       node scripts/migration.ts import <export.xml> <wp-content.zip> --origin <url> --token-file <file> [--final]
+       node scripts/migration.ts verify <export.xml> <wp-content.zip> --origin <url> --token-file <file>`;
 
-/** The files plan writes into the export's folder. */
+/** The files the commands write into the export's folder. */
 const LIST_FILE = "classification-list.csv";
 const INVENTORY_FILE = "inventory.json";
+const IMPORT_REPORT_FILE = "import-report.json";
+const VERIFY_REPORT_FILE = "verify-report.json";
 
 /** The repository, which the export and everything made from it stay out of (ADR 0008). */
 const REPOSITORY = new URL("..", import.meta.url);
@@ -107,34 +138,42 @@ async function replaceFile(path: string, text: string): Promise<void> {
 const listed = (names: string[]) =>
 	names.length === 0 ? "none" : `${names.length}: ${names.join(", ")}`;
 
-async function planCommand(exportPath: string, zipPath: string): Promise<number> {
+/** The export's folder, or none when it lies inside the repository, which the command refuses. */
+async function exportFolder(exportPath: string): Promise<string | undefined> {
 	const folder = await realpath(dirname(exportPath));
-	if (isInside(folder, await realpath(REPOSITORY))) {
-		console.error(
-			`${folder} is inside the repository: the export and what plan writes stay out of it`,
-		);
-		return 2;
-	}
-	const xml = await readFile(exportPath);
-	const listPath = join(folder, LIST_FILE);
-	const earlierBytes = await readFile(listPath).catch((error: NodeJS.ErrnoException) => {
+	if (!isInside(folder, await realpath(REPOSITORY))) return folder;
+	console.error(
+		`${folder} is inside the repository: the export and what the script writes stay out of it`,
+	);
+	return undefined;
+}
+
+/** The text of the list at `listPath`, or none when it does not exist. */
+async function readList(listPath: string): Promise<string | undefined> {
+	const bytes = await readFile(listPath).catch((error: NodeJS.ErrnoException) => {
 		if (error.code === "ENOENT") return undefined;
 		throw error;
 	});
-	let earlierList: string | undefined;
 	try {
 		// A spreadsheet can save Thai in another code page, which a lenient read would turn into
 		// U+FFFD, losing the Summaries without a word.
-		earlierList = earlierBytes && new TextDecoder("utf-8", { fatal: true }).decode(earlierBytes);
+		return bytes && new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 	} catch {
 		throw new Error(
 			`the earlier list is not UTF-8: save ${listPath} as CSV UTF-8 and run plan again`,
 		);
 	}
+}
+
+async function planCommand(exportPath: string, zipPath: string): Promise<number> {
+	const folder = await exportFolder(exportPath);
+	if (folder === undefined) return 2;
+	const xml = await readFile(exportPath);
+	const listPath = join(folder, LIST_FILE);
 	const result = plan({
 		site: await readLegacySite(xml.toString("utf8")),
 		uploads: await readZipNames(zipPath),
-		earlierList,
+		earlierList: await readList(listPath),
 	});
 	const inventory = {
 		export: { file: basename(exportPath), sha256: createHash("sha256").update(xml).digest("hex") },
@@ -176,16 +215,180 @@ async function planCommand(exportPath: string, zipPath: string): Promise<number>
 	return 0;
 }
 
+/** A file's name and SHA-256, as a report records its inputs. */
+const digestOf = async (path: string) => ({ file: basename(path), sha256: await sha256Of(path) });
+
+/** What import and verify take from the command line. */
+interface TargetOptions {
+	exportPath: string;
+	zipPath: string;
+	origin: string;
+	tokenFile: string;
+	final: boolean;
+}
+
+/** The plan of the export and the list beside it. Reads no credential and reaches no target. */
+async function importPlanOf(
+	folder: string,
+	{ exportPath, final }: TargetOptions,
+	zip: Zip,
+): Promise<ImportPlan> {
+	const listPath = join(folder, LIST_FILE);
+	const list = await readList(listPath);
+	if (list === undefined) throw new Error(`no Classification list at ${listPath}: run plan first`);
+	return planImport({
+		site: await readLegacySite(await readFile(exportPath, "utf8")),
+		uploads: zip.names,
+		list,
+		final,
+		toBlocks: blocksOf,
+	});
+}
+
+/** What a command on a target works from. */
+interface TargetRun {
+	folder: string;
+	zip: Zip;
+	planned: ImportPlan;
+	admin: Awaited<ReturnType<typeof administrator>>;
+	target: Target;
+}
+
+/**
+ * Runs `work` on the plan of the export and the state of its target, with the uploads copy open.
+ * The plan comes first, so a refusal needs no credential and reaches no target.
+ */
+async function onTarget(
+	options: TargetOptions,
+	work: (run: TargetRun) => Promise<number>,
+): Promise<number> {
+	const folder = await exportFolder(options.exportPath);
+	if (folder === undefined) return 2;
+	const zip = await openZip(options.zipPath);
+	try {
+		const planned = await importPlanOf(folder, options, zip);
+		const admin = await administrator(options.origin, options.tokenFile);
+		return await work({ folder, zip, planned, admin, target: await readTarget(admin, planned) });
+	} finally {
+		await zip.close();
+	}
+}
+
+/** The digests of a run's three inputs, as each report records them. */
+const inputsOf = async (folder: string, { exportPath, zipPath }: TargetOptions) => ({
+	export: await digestOf(exportPath),
+	uploads: await digestOf(zipPath),
+	list: await digestOf(join(folder, LIST_FILE)),
+});
+
+const importCommand = (options: TargetOptions) =>
+	onTarget(options, async ({ folder, zip, planned, admin, target }) => {
+		const stop = firstStop(planned, target);
+		if (stop !== undefined) {
+			console.error(`import: stopped before writing anything: ${stop}`);
+			return 1;
+		}
+		const { uploaded, reused } = await applyImport(admin, planned, target, zip);
+		const { groups, missing, atDefault, notes } = planned.report;
+		const report = {
+			run: options.final ? "final" : "trial",
+			origin: options.origin,
+			...(await inputsOf(folder, options)),
+			files: {
+				used: planned.files.length + missing.length,
+				uploaded,
+				reused: reused.length,
+				missing: missing.length,
+			},
+			redirects: planned.redirects.length,
+			...planned.report,
+			reused: reused.map(({ attachment, filename }) => ({ attachment, filename })),
+		};
+		const reportPath = join(folder, IMPORT_REPORT_FILE);
+		await replaceFile(reportPath, `${JSON.stringify(report, null, "\t")}\n`);
+		console.log(`Import report: ${reportPath}`);
+		console.log(`Run: ${report.run}, into ${options.origin}`);
+		console.log(`Items: ${JSON.stringify(groups)}`);
+		console.log(`Files: ${JSON.stringify(report.files)}`);
+		console.log(`Redirects: ${report.redirects}`);
+		console.log(`Rows taken at their default: ${listed(atDefault.map(({ slug }) => slug))}`);
+		console.log(`Notes: ${notes.length} (in the report)`);
+		return 0;
+	});
+
+const verifyCommand = (options: TargetOptions) =>
+	onTarget(options, async ({ folder, zip, planned, admin, target }) => {
+		const hashes = new Map<number, string>();
+		for (const { attachment, path } of planned.files) {
+			hashes.set(attachment, await computeContentHash(await zip.read(path)));
+		}
+		const result = await verifyTarget({
+			planned,
+			entries: target.entries.filter((entry) => !entry.trashed),
+			media: target.media,
+			folders: target.folders,
+			owner: admin.userId,
+			hashes,
+			request: async (path) => {
+				const response = await fetch(new URL(path, options.origin), { redirect: "manual" });
+				await response.arrayBuffer();
+				return { status: response.status, location: response.headers.get("location") };
+			},
+		});
+		const reportPath = join(folder, VERIFY_REPORT_FILE);
+		const report = { origin: options.origin, ...(await inputsOf(folder, options)), ...result };
+		await replaceFile(reportPath, `${JSON.stringify(report, null, "\t")}\n`);
+		console.log(`Verify report: ${reportPath}`);
+		console.log(`Entries: ${JSON.stringify(result.entries)}`);
+		console.log(`Files: ${JSON.stringify(result.files)}`);
+		console.log(`Pages: ${JSON.stringify(result.pages)}`);
+		console.log(`Redirects: ${JSON.stringify(result.redirects)}`);
+		for (const failure of result.failures) console.log(`FAIL ${failure}`);
+		console.log(`VERIFY: ${result.failures.length === 0 ? "PASS" : "FAIL"}`);
+		return result.failures.length === 0 ? 0 : 1;
+	});
+
+/** The command the arguments name, or none when they are wrong. */
+function commandOf(args: string[]): (() => Promise<number>) | undefined {
+	let parsed;
+	try {
+		parsed = parseArgs({
+			args,
+			allowPositionals: true,
+			options: {
+				origin: { type: "string" },
+				"token-file": { type: "string" },
+				final: { type: "boolean", default: false },
+			},
+		});
+	} catch {
+		return undefined;
+	}
+	const { origin, "token-file": tokenFile, final } = parsed.values;
+	const [command, exportPath, zipPath, ...others] = parsed.positionals;
+	if (exportPath === undefined || zipPath === undefined || others.length > 0) return undefined;
+	if (command === "plan" && origin === undefined && tokenFile === undefined && !final) {
+		return () => planCommand(exportPath, zipPath);
+	}
+	if (origin === undefined || tokenFile === undefined) return undefined;
+	const options = { exportPath, zipPath, origin, tokenFile, final };
+	if (command === "import") return () => importCommand(options);
+	if (command === "verify" && !final) return () => verifyCommand(options);
+	return undefined;
+}
+
 async function main(args: string[]): Promise<number> {
-	const [command, exportPath, zipPath] = args;
-	if (command !== "plan" || exportPath === undefined || zipPath === undefined || args.length > 3) {
+	const command = commandOf(args);
+	if (command === undefined) {
 		console.error(USAGE);
 		return 2;
 	}
 	try {
-		return await planCommand(exportPath, zipPath);
+		return await command();
 	} catch (error) {
-		console.error(`plan: ${error instanceof Error ? error.message : String(error)}`);
+		console.error(
+			`${args[0]}: ${scrubEmbeddedSecrets(error instanceof Error ? error.message : String(error))}`,
+		);
 		return 1;
 	}
 }

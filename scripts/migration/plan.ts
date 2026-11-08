@@ -15,11 +15,7 @@ export const ITEM_TYPES = ["public-new", "post", "directive", "procurement"] as 
 
 export type ItemType = (typeof ITEM_TYPES)[number];
 
-/**
- * The Legacy site's host, which addresses its files and pages (GLOSSARY "Legacy site"). The export
- * names it too, but EmDash's string parser leaves the site's fields empty (emdash 1.1.0
- * src/cli/wxr/parser.ts parseWxrString).
- */
+/** The Legacy site's host, which addresses its files and pages (GLOSSARY "Legacy site"). */
 const LEGACY_HOST = "songhealth.moph.go.th";
 
 /** The value of a row that waits for a reviewer's decision (spec #174, Q3). */
@@ -77,6 +73,9 @@ const FLAGS = [
 ] as const;
 
 type Flag = (typeof FLAGS)[number];
+
+/** Whether a row's flags cell holds `flag`. */
+export const hasFlag = (row: ListRow, flag: Flag) => row.flags.split(" ").includes(flag);
 
 /** What a row can become (GLOSSARY "Classification list"), or ต้องเลือก while it waits for one. */
 type Target = "News" | "Activity" | "Announcement" | "Document" | typeof TO_CHOOSE;
@@ -154,14 +153,14 @@ function fiscalYear(day: string): number {
 /**
  * Whether HTML holds text: characters beside its markup, its non-breaking spaces and white space.
  */
-const holdsText = (html: string) =>
+export const holdsText = (html: string) =>
 	html
 		.replace(/<[^>]*>/g, "")
 		.replace(/&nbsp;|&#160;/g, "")
 		.trim() !== "";
 
 /** The address in each `href` of an HTML text. */
-const linksIn = (html: string) =>
+export const linksIn = (html: string) =>
 	[...html.matchAll(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)].map(
 		(match) => match[1] ?? match[2]!,
 	);
@@ -190,7 +189,7 @@ function sitePath(address: string): string | undefined {
 const isUploadsPath = (path: string) => /(^|\/)uploads\//.test(path);
 
 /** The export's attachments and the uploads copy, as the plan looks them up. */
-interface Files {
+export interface Files {
 	byId: Map<number, LegacyAttachment & { path: string | undefined }>;
 	byPath: Map<string, number>;
 	uploads: Set<string>;
@@ -205,7 +204,7 @@ interface Uses {
 /**
  * The attachments an item's featured image, ACF fields and links use, and its other upload links.
  */
-function usesOf(item: LegacyItem, files: Files): Uses {
+export function usesOf(item: LegacyItem, files: Files): Uses {
 	const attachments = [item.featured, ...item.pictures, ...item.files.map((file) => file.id)];
 	const unlisted: Uses["unlisted"] = [];
 	for (const href of [...linksIn(item.content), ...linksIn(item.editor)]) {
@@ -273,7 +272,7 @@ const TARGETS: Record<string, Target[]> = {
  * A row's target: its decision, in any case and with spaces around it, else its default. None for
  * a decision that names no target its legacy type can take.
  */
-function targetOf(row: ListRow): string | undefined {
+export function targetOf(row: ListRow): string | undefined {
 	const decision = row.decision.trim();
 	if (decision === "") return row.default_target;
 	if (decision === TO_CHOOSE) return TO_CHOOSE;
@@ -471,7 +470,7 @@ interface Inventory {
 }
 
 /** Adds one to `key`'s count. */
-function count(counts: Record<string, number>, key: string): void {
+export function count(counts: Record<string, number>, key: string): void {
 	counts[key] = (counts[key] ?? 0) + 1;
 }
 
@@ -562,7 +561,7 @@ export interface PlanInput {
 }
 
 /** The export's attachments by ID and by path, and the uploads copy's files. */
-function filesOf(site: LegacySite, uploads: string[]): Files {
+export function filesOf(site: LegacySite, uploads: string[]): Files {
 	const byId: Files["byId"] = new Map();
 	const byPath: Files["byPath"] = new Map();
 	for (const attachment of site.attachments) {

@@ -11,7 +11,6 @@
 // real parser in these tests (#177 comment 6719251511, item 1), so they see what it drops.
 
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -24,41 +23,20 @@ import { readLegacySite } from "../../scripts/migration/legacy-site.ts";
 import { plan, type ListRow } from "../../scripts/migration/plan.ts";
 import { readZipNames } from "../../scripts/migration/zip.ts";
 import {
+	ACTIVITY,
 	AUTHOR,
+	OTHER_NEWS,
+	PM25,
+	PUBLIC_RELATIONS,
 	SITE,
 	attachment,
+	newsItem,
+	runMigration,
 	wxrDocument,
 	zipOf,
 	type SyntheticCategory,
 	type SyntheticItem,
 } from "./migration.helpers.ts";
-
-const ACTIVITY: SyntheticCategory = {
-	domain: "category-public-news",
-	slug: "activity",
-	name: "กิจกรรม",
-};
-
-/** ประชาสัมพันธ์, with a Thai slug percent-encoded as WordPress writes it. */
-const PUBLIC_RELATIONS: SyntheticCategory = {
-	domain: "category-public-news",
-	slug: encodeURIComponent("ประชาสัมพันธ์").toLowerCase(),
-	name: "ประชาสัมพันธ์",
-};
-
-const PM25: SyntheticCategory = {
-	domain: "category-public-news",
-	slug: "pm",
-	name: "PM 2.5",
-	parent: PUBLIC_RELATIONS.slug,
-};
-
-/** A category the defaults do not name. */
-const OTHER_NEWS: SyntheticCategory = {
-	domain: "category-public-news",
-	slug: "other",
-	name: "ข่าวอื่น",
-};
 
 const ORDER: SyntheticCategory = { domain: "category-directive", slug: "order", name: "คำสั่ง" };
 const NOTICE: SyntheticCategory = { domain: "category-directive", slug: "notice", name: "ประกาศ" };
@@ -74,11 +52,6 @@ const AUCTION: SyntheticCategory = {
 	slug: "auction",
 	name: "ขายทอดตลาด",
 };
-
-/** A news stream item `news-{id}` that a test fills in. */
-function newsItem(id: number, fields: Partial<SyntheticItem> = {}): SyntheticItem {
-	return { type: "public-new", id, slug: `news-${id}`, title: `เรื่องที่ ${id}`, ...fields };
-}
 
 /** The file of every synthetic directive and procurement notice, and its path in the uploads. */
 const NOTICE_PATH = "wp-content/uploads/2025/03/notice.pdf";
@@ -820,9 +793,7 @@ describe("the uploads copy's file list", () => {
 });
 
 describe("the plan command", () => {
-	const script = fileURLToPath(new URL("../../scripts/migration.ts", import.meta.url));
-	const run = (...args: string[]) =>
-		spawnSync(process.execPath, [script, ...args], { encoding: "utf8" });
+	const run = runMigration;
 	const sha256 = async (path: string) =>
 		createHash("sha256")
 			.update(await readFile(path))
