@@ -81,8 +81,11 @@ Put new throwaway prototype builders and their working output under the ignored
 its dependency scan too (#191 retro).
 
 Keep existing user prototypes in place. An isolated worktree lets implementation checks inspect
-only the ticket's source when unrelated working files interfere. Record the prototype's question,
-verdict and source context with its ticket; publishing the prototype follows that ticket's scope.
+only the ticket's source when unrelated working files interfere. Start it at the intended baseline,
+verify its branch/HEAD, and run checks and formatting there. A fresh worktree follows CI's
+build-before-typecheck order (`.github/workflows/checks.yml`) to generate the Astro types. Record
+the prototype's question, verdict and source context with its ticket; publishing the prototype
+follows that ticket's scope.
 
 ## The development runtime
 
@@ -136,6 +139,37 @@ pages in that context. `expectNoAxeViolations` reports the JavaScript prerequisi
 for that context; run axe in JavaScript-enabled cases and verify no-script navigation separately.
 This uses Playwright 1.63.0's native option fixture (`node_modules/playwright/lib/index.js`,
 `javaScriptEnabled`), including `test.use` overrides.
+
+### Homepage diagnostics
+
+For a timeout in the existing all-sections Homepage case, use this selected diagnostic run
+(#192 retro, Product Owner comment 6719407526). Its named steps distinguish native fixture setup,
+page rendering, axe, keyboard focus and reflow. The test keeps its existing assertions, timeout,
+retries and cleanup. Record the test-client SHA and the runtime's verified source separately:
+
+```bash
+mkdir -p .tmp
+diagnostic_dir=$(mktemp -d .tmp/homepage-diagnostic.XXXXXX)
+printf 'Diagnostics: %s\n' "$diagnostic_dir"
+git rev-parse HEAD > "$diagnostic_dir/test-client-sha.txt"
+git diff HEAD -- tests/browser/public-homepage.spec.ts > "$diagnostic_dir/test-client.patch"
+~/dev/songhealth-quadlet/scripts/dev-runtime-verify.sh > "$diagnostic_dir/runtime-verify.log" &&
+  scripts/dev-runtime-env.sh node node_modules/@playwright/test/cli.js test \
+    tests/browser/public-homepage.spec.ts --grep 'with every section showing' \
+    --workers=1 --reporter=json --trace=on --output="$diagnostic_dir/artifacts" \
+    > "$diagnostic_dir/report.json" 2> "$diagnostic_dir/stderr.log"
+```
+
+The SHA and scoped patch distinguish committed source from edits to the selected case. The pinned
+runner writes JSON directly, keeping npm's console preamble out of the report. Read
+its `stats`, the selected result's `status`/`duration`, and the named `steps` first; inspect its
+errors, stderr and trace where a phase failed or took unexpected time. Keep each run's directory
+and exit status: a later passing run is separate evidence. The trace is available even on a pass
+for timing inspection. Playwright 1.63.0's CLI/reporters and `test.step` support these artifacts
+(`node_modules/playwright/types/test.d.ts`). Trace recording has a cost even when successful traces
+are discarded with `retain-on-failure`; measure this selected run before broadening its use.
+
+### Public-page evidence
 
 Pull-request screenshots of public pages come from
 `node scripts/capture-screenshots.mjs <out-dir> <path>...`. The script's header shows how to put

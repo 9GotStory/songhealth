@@ -36,6 +36,15 @@ A ticket's pull request fills `/pr`'s template (Summary, Evidence, Merge Danger)
 
 **Evidence log.** From the red run on, `/implement` appends each run the Evidence will cite to `evidence-<ticket>.md` in the session's scratchpad: the command, the commit, and the output's decisive lines (the first failure, the pass and skip counts, the verify and residue lines, a script's own report). `/pr` writes the Evidence from that file, which outlives a context compaction (#126 retro: `/pr` searched a 6 MB transcript four times for the red run and the `add` output).
 
+**Reading evidence (#192 retro).** Start with that log and compact metadata: URL, source SHA,
+state, counts and artifact paths. Keep full tool responses and raw logs in the session's scratch
+or tool store; expand the relevant fields or bounded source excerpts when the summary differs
+from the expected result or lacks a fact the next action needs. Read a minified source as a
+bounded snippet around the match. For tracker writes, compare the receipt with targeted readback
+and print that comparison rather than the complete body again. For a Homepage timeout,
+[README's diagnostic run](../../README.md#homepage-diagnostics) records named phases and native
+JSON/trace artifacts without changing the normal suite's settings.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
