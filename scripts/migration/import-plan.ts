@@ -18,6 +18,7 @@ import {
 	typeOf,
 	usesOf,
 	type ListRow,
+	type Target,
 } from "./plan.ts";
 
 /** A Portable Text block, as EmDash's converter makes it. */
@@ -109,7 +110,7 @@ export interface ImportInput {
 	toBlocks: (html: string) => Block[];
 }
 
-type EntryTarget = "News" | "Activity" | "Announcement" | "Document";
+type EntryTarget = Exclude<Target, typeof TO_CHOOSE>;
 
 const isEntryTarget = (target: string | undefined): target is EntryTarget =>
 	target === "News" || target === "Activity" || target === "Announcement" || target === "Document";
@@ -183,7 +184,9 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 	);
 	const notes: ImportReport["notes"] = [];
 	const newsRows = rows.filter((row) => row.legacy_type === "public-new" && items.has(row.wp_id));
-	const noticeRows = rows.filter((row) => row.legacy_type !== "public-new" && items.has(row.wp_id));
+	const directiveAndProcurementRows = rows.filter(
+		(row) => row.legacy_type !== "public-new" && items.has(row.wp_id),
+	);
 	const atDefault: ImportReport["atDefault"] = [];
 	const groups: ImportReport["groups"] = {};
 	/**
@@ -197,7 +200,7 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 	};
 	/** The item whose featured image each attachment is. */
 	const featuredIn = new Map<number, string>();
-	for (const row of [...newsRows, ...noticeRows]) {
+	for (const row of [...newsRows, ...directiveAndProcurementRows]) {
 		const item = items.get(row.wp_id)!;
 		if (item.featured !== undefined && !featuredIn.has(item.featured)) {
 			featuredIn.set(item.featured, item.slug);
@@ -332,17 +335,17 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 	 * A directive's or a procurement notice's entries (spec #174 "Mapping: directives and procurement
 	 * notices"): an Announcement after the Documents it references, or a Document per file. An
 	 * order's address goes to its first Document. An order with no file to make one from stops the
-	 * run, as a row with no default does (Product Owner, #178 comment 6720200201, item 2): a Document
-	 * holds a file, and the item would be imported nowhere.
+	 * run: a Document holds a file, and the item would be imported nowhere, the reason a row with no
+	 * default stops (#178 comment 6720200201, item 2).
 	 */
-	const noticeEntries = (row: ListRow): PlannedEntry[] => {
+	const directiveOrProcurementEntries = (row: ListRow): PlannedEntry[] => {
 		const item = items.get(row.wp_id)!;
 		const target = decide(row);
 		const type = typeOf(row, target);
 		const publishedAt = item.published!.toISOString();
-		const unheld = (what: string) =>
+		const noteUnheld = (what: string) =>
 			notes.push({ slug: item.slug, note: `${what}: no field holds it` });
-		if (item.featured !== undefined) unheld(`featured image ${item.featured}`);
+		if (item.featured !== undefined) noteUnheld(`featured image ${item.featured}`);
 		if (holdsText(item.content) || holdsText(item.editor)) {
 			notes.push({ slug: item.slug, note: "the item's text is not carried" });
 		}
@@ -372,7 +375,7 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 			if (documents.length === 0) {
 				throw new Error(`${item.slug} has no file to make a Document from`);
 			}
-			for (const id of pictures) unheld(`ACF picture ${id}`);
+			for (const id of pictures) noteUnheld(`ACF picture ${id}`);
 			redirect(row, documents[0]!.page);
 			return documents;
 		}
@@ -397,9 +400,13 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 			},
 		];
 	};
-	const entries = [...newsRows.map(newsEntry), ...noticeRows.flatMap(noticeEntries)];
-	// A numbered Document can meet another item's slug, as WordPress numbers a repeated one, and the
-	// second create would stop the run half written.
+	const entries = [
+		...newsRows.map(newsEntry),
+		...directiveAndProcurementRows.flatMap(directiveOrProcurementEntries),
+	];
+	// A numbered Document can meet another item's slug, and EmDash would refuse the second create
+	// with the run half written (`docs/agents/emdash-1.1.0.md` "Native API for tests",
+	// SLUG_CONFLICT).
 	const names = entries.map(({ collection, slug }) => `${collection}/${slug}`);
 	const twice = names.find((name, at) => names.indexOf(name) !== at);
 	if (twice !== undefined) throw new Error(`${twice} is planned twice`);

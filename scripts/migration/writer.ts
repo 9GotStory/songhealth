@@ -86,7 +86,10 @@ export async function readTarget(admin: helpers.CmsActor, planned: ImportPlan): 
 	return { entries, terms, redirects, media, folders };
 }
 
-/** A media item a used file became, as the upload answers it. */
+/**
+ * A media item a used file became, as the upload answers it (emdash 1.1.0
+ * src/astro/routes/api/media.ts).
+ */
 type MediaItem = Parameters<typeof helpers.fileFieldValue>[0] & { url: string };
 
 type MediaByAttachment = Map<number, MediaItem>;

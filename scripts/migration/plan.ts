@@ -78,7 +78,7 @@ type Flag = (typeof FLAGS)[number];
 export const hasFlag = (row: ListRow, flag: Flag) => row.flags.split(" ").includes(flag);
 
 /** What a row can become (GLOSSARY "Classification list"), or ต้องเลือก while it waits for one. */
-type Target = "News" | "Activity" | "Announcement" | "Document" | typeof TO_CHOOSE;
+export type Target = "News" | "Activity" | "Announcement" | "Document" | typeof TO_CHOOSE;
 
 /** A row's default: its target, its type by term slug, and the flags that explain it. */
 interface Default {

@@ -1,5 +1,5 @@
-// The migration script's import of the news stream (#178; spec #174 "The migration script",
-// "Mapping: the news stream" and "Redirects"; seam A).
+// The migration script's import (#178, #179; spec #174 "The migration script", "Mapping: the news
+// stream", "Mapping: directives and procurement notices" and "Redirects"; seam A).
 //
 // The import turns the Legacy site's export and the Classification list into a plan of what it
 // writes, and verify checks a target against that plan. The expected values come from the spec and
@@ -659,6 +659,27 @@ describe("an Announcement's Documents", () => {
 		);
 	});
 
+	it("follow the files' fields, whatever their attachments' IDs", async () => {
+		const { entries } = await importOf([
+			noticeFile(21),
+			noticeFile(22),
+			procurement(1, { meta: { file_1: "22", text_1: "แรก", file_2: "21", text_2: "หลัง" } }),
+		]);
+		assert.deepEqual(
+			entries
+				.filter(({ collection }) => collection === "documents")
+				.map(({ slug, data }) => [slug, data.title, data.file]),
+			[
+				["procurement-1", "ประกาศผู้ชนะ 1 – แรก", { fileField: 22 }],
+				["procurement-1-2", "ประกาศผู้ชนะ 1 – หลัง", { fileField: 21 }],
+			],
+		);
+		assert.deepEqual(entries.find(({ collection }) => collection === "announcements")?.documents, [
+			"procurement-1",
+			"procurement-1-2",
+		]);
+	});
+
 	it("leaves an Announcement without a file without Documents", async () => {
 		const { entries } = await importOf([procurement(1, { meta: {} })]);
 		assert.equal(entries[0]!.documents, undefined);
@@ -708,11 +729,14 @@ describe("a Document made from a file", () => {
 		const { entries } = await importOf([
 			noticeFile(21),
 			noticeFile(22),
-			procurement(1, { meta: { file_1: "21", file_2: "22", text_2: "  ส่วนที่สอง  " } }),
+			noticeFile(23),
+			procurement(1, {
+				meta: { file_1: "21", file_2: "22", text_2: "  ส่วนที่สอง  ", file_3: "23", text_3: "   " },
+			}),
 		]);
 		assert.deepEqual(
 			entries.filter(({ collection }) => collection === "documents").map(({ data }) => data.title),
-			["ประกาศผู้ชนะ 1", "ประกาศผู้ชนะ 1 – ส่วนที่สอง"],
+			["ประกาศผู้ชนะ 1", "ประกาศผู้ชนะ 1 – ส่วนที่สอง", "ประกาศผู้ชนะ 1"],
 		);
 	});
 
@@ -903,7 +927,7 @@ describe("an Announcement's details", () => {
 	});
 });
 
-describe("a notice's files", () => {
+describe("the files of directives and procurement notices", () => {
 	it("go into the folder of notices and documents under their uploaded names, the ACF picture too", async () => {
 		const { files } = await importOf([
 			attachment(21, "wp-content/uploads/2025/03/aBcDeFgHiJ-1700000000.pdf"),
@@ -1261,6 +1285,20 @@ describe("the redirects", () => {
 		]);
 		assert.deepEqual(redirects, [
 			{ source: "/directive/directive-1/", destination: "/documents/directive-1" },
+		]);
+	});
+
+	it("send an order whose first file the uploads copy lacks to the Document it has", async () => {
+		const items = [
+			noticeFile(21),
+			noticeFile(22),
+			directive(1, { categories: [ORDER], meta: TWO_FILES }),
+		];
+		const { redirects } = await importOf(items, {
+			uploads: uploadsOf(items).filter((path) => !path.endsWith("-21.pdf")),
+		});
+		assert.deepEqual(redirects, [
+			{ source: "/directive/directive-1/", destination: "/documents/directive-1-2" },
 		]);
 	});
 
