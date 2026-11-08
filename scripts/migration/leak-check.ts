@@ -13,6 +13,9 @@ import { filesOf } from "./plan.ts";
  */
 const SHORTEST_TEXT = 16;
 
+/** The shortest file name taken to name something, as the Legacy site's shortest is. */
+const SHORTEST_NAME = 10;
+
 /** The lines a commit adds to one file. */
 interface AddedLines {
 	file: string;
@@ -36,9 +39,11 @@ function stringsOf(site: LegacySite): Map<string, string> {
 		addText(title, `the title of ${slug}`);
 		for (const { label } of files) addText(label, `a label of ${slug}`);
 	}
-	for (const [id, { path, alt, caption }] of filesOf(site, []).byId) {
-		const name = path?.split("/").at(-1);
-		if (name) strings.set(name, `the file name of attachment ${id}`);
+	for (const [id, { url, path, alt, caption }] of filesOf(site, []).byId) {
+		// Its name as the uploads copy has it, and percent-encoded as the export's address writes it.
+		for (const name of [path, url].map((address) => address?.split("/").at(-1) ?? "")) {
+			if (name.length >= SHORTEST_NAME) strings.set(name, `the file name of attachment ${id}`);
+		}
 		addText(alt, `the alt text of attachment ${id}`);
 		addText(caption, `the caption of attachment ${id}`);
 	}
@@ -46,13 +51,13 @@ function stringsOf(site: LegacySite): Map<string, string> {
 }
 
 /**
- * Where `added` holds the export's strings, once for each string and file. Prose under docs/ and
- * specs/ may name a real item on purpose, as `docs/research/legacy-ita.md` names ANOM-001's file.
+ * Where `added` holds the export's strings, once for each string and file. A research note may name
+ * a real item on purpose, as `docs/research/legacy-ita.md` names ANOM-001's file.
  */
 export function leaksIn(site: LegacySite, added: AddedLines[]): Leak[] {
 	const strings = [...stringsOf(site)];
 	return added
-		.filter(({ file }) => !/^(?:docs|specs)\//.test(file))
+		.filter(({ file }) => !file.startsWith("docs/research/"))
 		.flatMap(({ file, lines }) => {
 			const text = lines.join("\n");
 			return strings.flatMap(([string, what]) => (text.includes(string) ? [{ file, what }] : []));
@@ -70,8 +75,15 @@ export function addedLinesOf(diff: string): AddedLines[] {
 			inHunk = false;
 		} else if (line.startsWith("@@ ")) {
 			inHunk = true;
-		} else if (!inHunk && line.startsWith("+++ b/")) {
-			current = { file: line.slice("+++ b/".length), lines: [] };
+		} else if (!inHunk && line.startsWith("+++ ") && line !== "+++ /dev/null") {
+			// git quotes a path that holds an unusual character.
+			current = {
+				file: line
+					.slice("+++ ".length)
+					.replace(/^"?b\//, "")
+					.replace(/"$/, ""),
+				lines: [],
+			};
 			added.push(current);
 		} else if (inHunk && current !== undefined && line.startsWith("+")) {
 			current.lines.push(line.slice(1));

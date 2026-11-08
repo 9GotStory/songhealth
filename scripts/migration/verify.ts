@@ -125,12 +125,14 @@ export async function verifyTarget({
 	}
 	const pageStatus = new Map<string, number>();
 	const pages = { planned: planned.entries.length, passed: 0 };
-	const lists = { planned: planned.entries.filter((e) => e.documents).length, passed: 0 };
+	const lists = {
+		planned: planned.entries.filter((e) => e.collection === "announcements").length,
+		passed: 0,
+	};
 	const downloads = {
 		planned: planned.entries.filter((e) => e.collection === "documents").length,
 		passed: 0,
 	};
-	const filenames = new Map(planned.files.map((file) => [file.attachment, file.filename]));
 	for (const { page, collection, documents, data } of planned.entries) {
 		const { status, body = "" } = await request(page);
 		pageStatus.set(page, status);
@@ -139,20 +141,26 @@ export async function verifyTarget({
 			continue;
 		}
 		pages.passed++;
-		if (documents !== undefined) {
+		if (collection === "announcements") {
 			const listed = listedDocuments(body);
-			if (listed.join() === documents.join()) lists.passed++;
+			const asPlanned = documents ?? [];
+			if (listed.join() === asPlanned.join()) lists.passed++;
 			else {
-				failures.push(
-					`${page} lists ${listed.join(", ") || "no Document"}, not ${documents.join(", ")}`,
-				);
+				const named = (slugs: string[]) => slugs.join(", ") || "no Document";
+				failures.push(`${page} lists ${named(listed)}, not ${named(asPlanned)}`);
 			}
 		}
 		if (collection === "documents") {
-			const expected = filenames.get((data.file as { fileField: number }).fileField);
+			// The file value holds its media item's name, which for a file EmDash reused is the first
+			// upload's (emdash 1.1.0 src/astro/routes/api/media.ts).
+			const hash = hashes.get((data.file as { fileField: number }).fileField);
+			const expected = media.find((item) => item.contentHash === hash)?.filename;
 			const offered = offeredFilename(body);
-			if (offered === expected) downloads.passed++;
-			else failures.push(`${page} offers ${offered ?? "no file"}, not ${expected}`);
+			if (offered !== undefined && offered === expected) downloads.passed++;
+			else
+				failures.push(
+					`${page} offers ${offered ?? "no file"}, not ${expected ?? "a library file"}`,
+				);
 		}
 	}
 	const redirects = { planned: planned.redirects.length, passed: 0 };

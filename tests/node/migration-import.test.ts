@@ -1526,8 +1526,8 @@ describe("verify", () => {
 				authorId: OWNER,
 			})),
 			media: [
-				{ contentHash: "sha1:11", folderId: FOLDER.id },
-				{ contentHash: "sha1:12", folderId: FOLDER.id },
+				{ contentHash: "sha1:11", folderId: FOLDER.id, filename: "one-page-11.webp" },
+				{ contentHash: "sha1:12", folderId: FOLDER.id, filename: "one-page-12.webp" },
 			],
 			folders: [FOLDER],
 			owner: OWNER,
@@ -1602,7 +1602,11 @@ describe("verify", () => {
 				publishedAt,
 				authorId: OWNER,
 			})),
-			media: [21, 22, 23].map((id) => ({ contentHash: `sha1:${id}`, folderId: FILES.id })),
+			media: [21, 22, 23].map((id) => ({
+				contentHash: `sha1:${id}`,
+				folderId: FILES.id,
+				filename: `notice-${id}.pdf`,
+			})),
 			folders: [FILES],
 			owner: OWNER,
 			hashes: new Map([21, 22, 23].map((id) => [id, `sha1:${id}`])),
@@ -1673,9 +1677,8 @@ describe("verify", () => {
 
 	it("reads a file name whose ampersand and double quote the page's HTML escapes", async () => {
 		const target = await noticeTarget();
-		const file = target.planned.files.find(({ attachment: id }) => id === 23)!;
-		target.planned.files = target.planned.files.map((planned) =>
-			planned === file ? { ...planned, filename: `a&b"c'.pdf` } : planned,
+		target.media = target.media.map((item) =>
+			item.contentHash === "sha1:23" ? { ...item, filename: `a&b"c'.pdf` } : item,
 		);
 		target.responses.set("/documents/directive-2", {
 			status: 200,
@@ -1683,6 +1686,60 @@ describe("verify", () => {
 			body: offering("a&amp;b&quot;c'.pdf"),
 		});
 		assert.deepEqual((await verifyTarget(target)).failures, []);
+	});
+
+	it("expects the name of the library's item for a file EmDash reused", async () => {
+		const target = await noticeTarget();
+		target.media = target.media.map((item) =>
+			item.contentHash === "sha1:23" ? { ...item, filename: "uploaded-first.pdf" } : item,
+		);
+		target.responses.set("/documents/directive-2", {
+			status: 200,
+			location: null,
+			body: offering("uploaded-first.pdf"),
+		});
+		assert.deepEqual((await verifyTarget(target)).failures, []);
+		target.responses.set("/documents/directive-2", {
+			status: 200,
+			location: null,
+			body: offering("notice-23.pdf"),
+		});
+		assert.deepEqual((await verifyTarget(target)).failures, [
+			"/documents/directive-2 offers notice-23.pdf, not uploaded-first.pdf",
+		]);
+	});
+
+	it("checks that an Announcement planned without Documents lists none", async () => {
+		const planned = await importOf([procurement(1, { meta: {} })]);
+		const announcement = planned.entries[0]!;
+		const request = (body: string) => async (path: string) =>
+			path === announcement.page
+				? { status: 200, location: null, body }
+				: { status: 301, location: announcement.page, body: "" };
+		const input = {
+			planned,
+			entries: [
+				{
+					collection: announcement.collection,
+					slug: announcement.slug,
+					trashed: false,
+					status: "published",
+					publishedAt: announcement.publishedAt,
+					authorId: OWNER,
+				},
+			],
+			media: [],
+			folders: [],
+			owner: OWNER,
+			hashes: new Map<number, string>(),
+		};
+		const passing = await verifyTarget({ ...input, request: request(listing()) });
+		assert.deepEqual(passing.failures, []);
+		assert.deepEqual(passing.lists, { planned: 1, passed: 1 });
+		const failing = await verifyTarget({ ...input, request: request(listing("written-later")) });
+		assert.deepEqual(failing.failures, [
+			`${announcement.page} lists written-later, not no Document`,
+		]);
 	});
 
 	it("reports a page that does not answer 200 once, without reading its body", async () => {
@@ -1775,7 +1832,7 @@ describe("verify", () => {
 		const target = await goodTarget();
 		const report = await verifyTarget({
 			...target,
-			media: [{ contentHash: "sha1:12", folderId: null }],
+			media: [{ contentHash: "sha1:12", folderId: null, filename: "elsewhere.webp" }],
 		});
 		assert.deepEqual(report.files, { planned: 2, inLibrary: 1, inFolder: 0 });
 		assert.deepEqual(report.failures, ["file 11 (one-page-11.webp) is not in the Media Library"]);

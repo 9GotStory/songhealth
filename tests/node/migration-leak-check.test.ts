@@ -126,12 +126,27 @@ describe("the leak check", () => {
 		]);
 	});
 
-	it("reads no prose under docs/ or specs/, which may name a real item on purpose", () => {
-		const added = [
-			{ file: "docs/research/legacy-ita.md", lines: [NAME] },
-			{ file: "specs/005/notes.md", lines: [NAME] },
-		];
-		assert.deepEqual(leaksIn(named, added), []);
+	it("finds a file name as the export's address writes it, percent-encoded", () => {
+		const encoded = encodeURIComponent("เอกสารสมมุติ.pdf");
+		const site = siteOf({
+			attachments: [{ id: 6, url: `${SITE}/wp-content/${encoded}`, alt: "", caption: "" }],
+		});
+		assert.equal(leaksIn(site, inTests(`url: "${SITE}/wp-content/${encoded}"`)).length, 1);
+	});
+
+	it("takes a file name of 10 characters as naming something, and one of 9 as common", () => {
+		const siteNamed = (name: string) =>
+			siteOf({ attachments: [{ id: 7, url: `${SITE}/wp-content/${name}`, alt: "", caption: "" }] });
+		assert.equal(leaksIn(siteNamed("abcdef.pdf"), inTests("my-abcdef.pdf")).length, 1);
+		assert.deepEqual(leaksIn(siteNamed("abcde.pdf"), inTests("my-abcde.pdf")), []);
+	});
+
+	it("reads no research note, which may name a real item on purpose, and every other path", () => {
+		const research = [{ file: "docs/research/legacy-ita.md", lines: [NAME] }];
+		assert.deepEqual(leaksIn(named, research), []);
+		for (const file of ["docs/prototypes/x.html", "specs/005/x.md", "tests/docs/research/x.ts"]) {
+			assert.equal(leaksIn(named, [{ file, lines: [NAME] }]).length, 1, file);
+		}
 	});
 });
 
@@ -164,6 +179,21 @@ describe("the lines a commit adds", () => {
 		]);
 	});
 
+	it("read a path git quotes, whatever characters it holds", () => {
+		const diff = [
+			'diff --git "a/tests/we\\"ird.ts" "b/tests/we\\"ird.ts"',
+			'--- "a/tests/we\\"ird.ts"',
+			'+++ "b/tests/we\\"ird.ts"',
+			"@@ -0,0 +1 @@",
+			"+added",
+			"",
+		].join("\n");
+		assert.deepEqual(
+			addedLinesOf(diff).map(({ lines }) => lines),
+			[["added"]],
+		);
+	});
+
 	it("are none for a deleted file, and none for an empty diff", () => {
 		const deleted = [
 			"diff --git a/tests/x.ts b/tests/x.ts",
@@ -183,8 +213,8 @@ describe("the leak-check command", () => {
 	const script = fileURLToPath(new URL("../../scripts/migration.ts", import.meta.url));
 	const git = (cwd: string, ...args: string[]) => spawnSync("git", args, { cwd, encoding: "utf8" });
 
-	/** Runs the command in a new repository holding `text` staged at tests/x.ts. */
-	async function staged(text: string) {
+	/** Runs the command in a new repository holding `text` staged at `path`, under git settings. */
+	async function staged(text: string, path = "tests/x.ts", settings: string[][] = []) {
 		const folder = await mkdtemp(join(tmpdir(), "songhealth-leak-check-test-"));
 		try {
 			const exportFile = join(folder, "export.xml");
@@ -198,8 +228,9 @@ describe("the leak-check command", () => {
 			const repository = join(folder, "repository");
 			await mkdir(join(repository, "tests"), { recursive: true });
 			git(repository, "init", "--quiet");
-			await writeFile(join(repository, "tests/x.ts"), text);
-			git(repository, "add", "tests/x.ts");
+			for (const setting of settings) git(repository, "config", ...setting);
+			await writeFile(join(repository, path), text);
+			git(repository, "add", path);
 			return spawnSync(process.execPath, [script, "leak-check", exportFile], {
 				cwd: repository,
 				encoding: "utf8",
@@ -214,6 +245,22 @@ describe("the leak-check command", () => {
 		assert.equal(status, 1);
 		assert.match(stderr, /tests\/x\.ts: the file name of attachment 11/);
 		assert.equal(`${stdout}${stderr}`.includes(NAME), false);
+	});
+
+	it("stops whatever prefixes the clone's git settings give a diff", async () => {
+		for (const setting of [
+			["diff.noprefix", "true"],
+			["diff.mnemonicPrefix", "true"],
+		]) {
+			const { status } = await staged(`export const path = "${NAME}";\n`, "tests/x.ts", [setting]);
+			assert.equal(status, 1, setting[0]);
+		}
+	});
+
+	it("stops on a staged file named after the export's file, even a binary one", async () => {
+		const { status, stderr } = await staged("\0binary", `tests/${NAME}`);
+		assert.equal(status, 1);
+		assert.match(stderr, /the file name of attachment 11/);
 	});
 
 	it("passes staged lines that hold none of its strings", async () => {

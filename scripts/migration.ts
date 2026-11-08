@@ -397,13 +397,25 @@ const verifyCommand = (options: TargetOptions) =>
 	});
 
 async function leakCheckCommand(exportPath: string): Promise<number> {
-	const staged = execFileSync(
-		"git",
-		["-c", "core.quotePath=false", "diff", "--cached", "--unified=0", "--no-color"],
-		{ encoding: "utf8", maxBuffer: 1024 ** 3 },
+	const staged = (...options: string[]) =>
+		execFileSync("git", ["-c", "core.quotePath=false", "diff", "--cached", ...options], {
+			encoding: "utf8",
+			maxBuffer: 1024 ** 3,
+		});
+	// Named prefixes, so that a clone's diff.noprefix or diff.mnemonicPrefix changes nothing here.
+	const lines = staged(
+		"--unified=0",
+		"--no-color",
+		"--no-ext-diff",
+		"--src-prefix=a/",
+		"--dst-prefix=b/",
 	);
+	const names = staged("--name-only", "-z", "--diff-filter=ACMR").split("\0").filter(Boolean);
 	const site = await readLegacySite(await readFile(exportPath, "utf8"));
-	const leaks = leaksIn(site, addedLinesOf(staged));
+	const leaks = leaksIn(site, [
+		...addedLinesOf(lines),
+		...names.map((file) => ({ file, lines: [file] })),
+	]);
 	for (const { file, what } of leaks) console.error(`${file}: ${what}`);
 	if (leaks.length > 0)
 		console.error("leak-check: make these up: fixtures hold no Legacy site content");
