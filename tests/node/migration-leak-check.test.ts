@@ -262,7 +262,8 @@ describe("the leak-check command", () => {
 	it("stops on a staged file named after the export's file, even a binary one", async () => {
 		const { status, stderr } = await staged("\0binary", `tests/${NAME}`);
 		assert.equal(status, 1);
-		assert.match(stderr, /the file name of attachment 11/);
+		assert.match(stderr, /a staged file's name: the file name of attachment 11/);
+		assert.equal(stderr.includes(NAME), false);
 	});
 
 	it("passes staged lines that hold none of its strings", async () => {

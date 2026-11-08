@@ -152,8 +152,9 @@ export async function verifyTarget({
 			}
 		}
 		if (collection === "documents") {
-			// The file value holds its media item's name, which for a file EmDash reused is the first
-			// upload's (emdash 1.1.0 src/astro/routes/api/media.ts).
+			// scripts/migration/writer.ts saves the media item the upload answers, and for a file
+			// EmDash reused that item keeps the first upload's name (emdash 1.1.0
+			// src/astro/routes/api/media.ts).
 			const hash = hashes.get((data.file as { fileField: number }).fileField);
 			const expected = media.find((item) => item.contentHash === hash)?.filename;
 			const offered = offeredFilename(body);

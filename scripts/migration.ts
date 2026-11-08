@@ -410,11 +410,11 @@ async function leakCheckCommand(exportPath: string): Promise<number> {
 		"--src-prefix=a/",
 		"--dst-prefix=b/",
 	);
-	const names = staged("--name-only", "-z", "--diff-filter=ACMR").split("\0").filter(Boolean);
+	const names = staged("--name-only", "-z", "--diff-filter=ACR").split("\0").filter(Boolean);
 	const site = await readLegacySite(await readFile(exportPath, "utf8"));
 	const leaks = leaksIn(site, [
 		...addedLinesOf(lines),
-		...names.map((file) => ({ file, lines: [file] })),
+		...names.map((name) => ({ file: "a staged file's name", lines: [name] })),
 	]);
 	for (const { file, what } of leaks) console.error(`${file}: ${what}`);
 	if (leaks.length > 0)

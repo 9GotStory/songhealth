@@ -1691,6 +1691,14 @@ describe("verify", () => {
 		assert.deepEqual((await verifyTarget(target)).failures, []);
 	});
 
+	it("fails a Document's page whose file the Media Library does not hold", async () => {
+		const target = await noticeTarget();
+		target.media = target.media.filter((item) => item.contentHash !== "sha1:23");
+		const { failures, downloads } = await verifyTarget(target);
+		assert.ok(failures.includes("/documents/directive-2 offers notice-23.pdf, not a library file"));
+		assert.deepEqual(downloads, { planned: 3, passed: 2 });
+	});
+
 	it("expects the name of the library's item for a file EmDash reused", async () => {
 		const target = await noticeTarget();
 		target.media = target.media.map((item) =>
