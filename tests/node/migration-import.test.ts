@@ -4,7 +4,8 @@
 // The import turns the Legacy site's export and the Classification list into a plan of what it
 // writes, and verify checks a target against that plan. The expected values come from the spec and
 // the ticket. Every export and picture here is synthetic, and each export goes through EmDash's own
-// parser and converter, which plain Node loads (Product Owner, #177 comment 6719251511, item 1).
+// parser and converter, which plain Node loads (Product Owner, #177 comment 6719251511, item 1, and
+// #178 comment 6720200201, item 3).
 
 import assert from "node:assert/strict";
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -374,24 +375,69 @@ describe("a News item", () => {
 		);
 	});
 
-	it("takes the files of its other ACF pictures and reports them, since a News has no gallery", async () => {
+	it("puts its other ACF pictures into the body, after any text, in their fields' order, with their alt text and caption", async () => {
 		const { entries, files, report } = await importOf([
 			onePage(11),
-			onePage(13),
+			onePage(13, { alt: "ภาพแผ่นที่สอง", caption: "คำบรรยาย" }),
 			onePage(12),
 			newsItem(1, {
 				categories: [PUBLIC_RELATIONS],
-				meta: { ...featuring(11), image_2: "13", image_3: "12" },
+				meta: { ...featuring(11), image_2: "13", image_3: "12", editor: "<p>ข้อความ</p>" },
 			}),
 		]);
-		assert.equal(entries[0]!.data.gallery, undefined);
 		assert.deepEqual(
 			files.map(({ attachment: id }) => id),
 			[11, 13, 12],
 		);
-		assert.deepEqual(report.notes, [
-			{ slug: "news-1", note: "ACF pictures with no field on a News: 13, 12" },
+		const body = entries[0]!.data.body as { _key: string }[];
+		assert.deepEqual(withoutKeys(body), [
+			{ _type: "block", style: "normal", children: [span("ข้อความ")] },
+			{ _type: "image", asset: { bodyPicture: 13 }, alt: "ภาพแผ่นที่สอง", caption: "คำบรรยาย" },
+			{ _type: "image", asset: { bodyPicture: 12 }, alt: "" },
 		]);
+		assert.equal(new Set(body.map(({ _key }) => _key)).size, 3);
+		assert.equal(entries[0]!.data.gallery, undefined);
+		assert.deepEqual(report.notes, []);
+	});
+
+	it("has a body of pictures alone when it holds no text", async () => {
+		const { entries } = await importOf([
+			onePage(11),
+			onePage(12),
+			newsItem(1, { categories: [PUBLIC_RELATIONS], meta: { ...featuring(11), image_2: "12" } }),
+		]);
+		assert.deepEqual(withoutKeys(entries[0]!.data.body), [
+			{ _type: "image", asset: { bodyPicture: 12 }, alt: "" },
+		]);
+	});
+
+	it("keeps its own picture and another item's featured picture out of the body", async () => {
+		const { entries, report } = await importOf([
+			onePage(11),
+			onePage(12),
+			newsItem(1, { categories: [ACTIVITY], meta: featuring(11) }),
+			newsItem(2, { categories: [PUBLIC_RELATIONS], meta: { _thumbnail_id: "12", image_1: "11" } }),
+		]);
+		assert.equal(entries[1]!.data.body, undefined);
+		assert.deepEqual(report.notes, [
+			{ slug: "news-2", note: "picture 11 is the featured image of news-1: left out" },
+		]);
+	});
+
+	it("leaves out of the body a picture whose file the uploads copy lacks", async () => {
+		const items = [
+			onePage(11),
+			onePage(12),
+			newsItem(1, { categories: [PUBLIC_RELATIONS], meta: { ...featuring(11), image_2: "12" } }),
+		];
+		const { entries, report } = await importOf(items, {
+			uploads: uploadsOf(items).filter((path) => !path.endsWith("-12.webp")),
+		});
+		assert.equal(entries[0]!.data.body, undefined);
+		assert.deepEqual(
+			report.missing.map(({ attachment: id }) => id),
+			[12],
+		);
 	});
 
 	it("takes its Summary from the list", async () => {

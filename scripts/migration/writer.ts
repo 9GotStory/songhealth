@@ -86,11 +86,22 @@ export async function readTarget(admin: helpers.CmsActor, planned: ImportPlan): 
 	return { entries, terms, redirects, media, folders };
 }
 
-/** `value` with each picture a field holds replaced by its media item's `{ id }`. */
-function withMedia(value: unknown, media: Map<number, string>): unknown {
+/** The media item a used file became: its id and its address. */
+type MediaOf = Map<number, { id: string; url: string }>;
+
+/**
+ * `value` with each picture a field holds replaced by its media item's `{ id }`, and each picture
+ * of a body by the `asset` the Admin editor saves: the media item's id as `_ref` and its URL
+ * (`docs/agents/emdash-1.1.0.md` "Media").
+ */
+function withMedia(value: unknown, media: MediaOf): unknown {
 	if (Array.isArray(value)) return value.map((inner) => withMedia(inner, media));
 	if (value === null || typeof value !== "object") return value;
-	if ("picture" in value) return { id: media.get((value as { picture: number }).picture)! };
+	if ("picture" in value) return { id: media.get((value as { picture: number }).picture)!.id };
+	if ("bodyPicture" in value) {
+		const { id, url } = media.get((value as { bodyPicture: number }).bodyPicture)!;
+		return { _ref: id, url };
+	}
 	return Object.fromEntries(
 		Object.entries(value).map(([key, inner]) => [key, withMedia(inner, media)]),
 	);
@@ -118,7 +129,7 @@ export async function applyImport(
 		});
 		folders.set(name, String(helpers.nativeItemOf(created)!.id));
 	}
-	const media = new Map<number, string>();
+	const media: MediaOf = new Map();
 	let uploadedCount = 0;
 	const reused: ImportPlan["files"] = [];
 	for (const file of planned.files) {
@@ -133,10 +144,10 @@ export async function applyImport(
 			form,
 		});
 		const { item, deduplicated } = helpers.nativeDataOf(uploaded) as {
-			item: { id: string };
+			item: { id: string; url: string };
 			deduplicated?: boolean;
 		};
-		media.set(file.attachment, item.id);
+		media.set(file.attachment, item);
 		if (deduplicated) {
 			// A reused item keeps its own alt text and caption; the report lists it.
 			reused.push(file);

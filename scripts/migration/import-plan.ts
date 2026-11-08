@@ -113,7 +113,8 @@ const isNewsTarget = (target: string | undefined): target is NewsTarget =>
  * A news stream row's target: its decision, else its default. A trial takes a row still ต้องเลือก at
  * its default, and a title-word row, which starts as ต้องเลือก, at its category's default, an
  * Activity (spec #174 "The migration script"). A row with neither stops the run: none exists in
- * the export of 2026-11-06, and an item imported nowhere would leave the counts short.
+ * the export of 2026-11-06, and an item imported nowhere would leave the counts short (Product
+ * Owner, #178 comment 6720200201, item 2).
  */
 function targetFor(row: ListRow): { target: NewsTarget; atDefault: boolean } {
 	const target = targetOf(row);
@@ -194,7 +195,11 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 	/** A field's value for an attachment whose file exists, or none. */
 	const refTo = (id: number | undefined): PictureRef | undefined =>
 		id !== undefined && available(id) ? { picture: id } : undefined;
-	/** The item's ACF pictures beside its featured image, each named once. */
+	/**
+	 * The item's ACF pictures beside its featured image, each named once. A picture that is another
+	 * item's featured image, such as news-252's, stays off the page and goes into the report
+	 * (Product Owner, #178 comment 6720200201, item 2).
+	 */
 	const otherPictures = (item: LegacyItem) =>
 		[...new Set(item.pictures)].filter((id) => {
 			if (id === item.featured) return false;
@@ -232,8 +237,9 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 		const blocks = holdsText(html) ? toBlocks(html) : [];
 		// A picture's block would hold its address on the Legacy site (embedsIn reports it).
 		const body = blocks.filter((block) => block._type !== "image");
-		// Text, which only a row moved from News can have, gives an Activity its Summary, unless the
-		// list holds one (spec #174 "Mapping: the news stream").
+		// Text, which only a row moved from News can have, gives an Activity its Summary (spec #174
+		// "Mapping: the news stream"), unless the list holds one (Product Owner, #178 comment
+		// 6720200201, item 2).
 		const text = collection === "activities" ? textOf(body) : "";
 		if (collection === "activities") {
 			for (const { _type: type } of body) {
@@ -246,25 +252,32 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 			notes.push({ slug: item.slug, note: "the list's Summary stands in for the item's text" });
 		}
 		const summary = row.summary.trim() || text;
-		const others = otherPictures(item);
-		if (collection === "news" && others.length > 0) {
-			notes.push({
-				slug: item.slug,
-				note: `ACF pictures with no field on a News: ${others.join(", ")}`,
-			});
-		}
-		const gallery = others.flatMap((id) => {
-			const image = refTo(id);
-			if (image === undefined) return [];
-			const caption = legacyFiles.byId.get(id)!.caption;
-			return [caption === "" ? { image } : { image, caption }];
+		const others = otherPictures(item).filter(available);
+		const gallery = others.map((id) => {
+			const image = refTo(id)!;
+			const { caption } = legacyFiles.byId.get(id)!;
+			return caption === "" ? { image } : { image, caption };
 		});
+		// A News has no gallery, so its other pictures follow its text in the body (Product Owner,
+		// #178 comment 6720200201, item 1).
+		const newsBody = [
+			...body,
+			...others.map((id) => {
+				const { alt, caption } = legacyFiles.byId.get(id)!;
+				const picture = {
+					_type: "image",
+					_key: `legacy-picture-${id}`,
+					asset: { bodyPicture: id },
+				};
+				return { ...picture, alt, ...(caption === "" ? {} : { caption }) };
+			}),
+		];
 		const data = {
 			title: item.title,
 			...(summary === "" ? {} : { summary }),
 			...(featured === undefined ? {} : { featured_image: featured }),
 			...(collection === "news"
-				? { ...(body.length === 0 ? {} : { body }) }
+				? { ...(newsBody.length === 0 ? {} : { body: newsBody }) }
 				: { ...(gallery.length === 0 ? {} : { gallery }) }),
 		};
 		return {
