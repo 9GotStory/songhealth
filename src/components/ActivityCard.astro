@@ -19,6 +19,8 @@
 // form there: less padding and the title at body size (Feature 006 #146; spec #144 "Homepage
 // (`04`)"), with 112 px for the title at 320 px, enough for "ความดันโลหิตสูง" (107 px). The
 // Activities list keeps the full card.
+// A title-named native link covers the whole surface. Metadata and summaries remain readable
+// outside its label (WCAG 2.5.3; #193; #190 comment 6707205912).
 import { Image } from "emdash/ui";
 import { activityDate, activityPath, type ActivityEntry } from "../lib/activities";
 import { CARD_PICTURE_SIZES, HALF_WIDTH_CARD_PICTURE_SIZES, availableMedia } from "../lib/media";
@@ -47,14 +49,11 @@ const Heading = headingLevel === 3 ? "h3" : "h2";
 const image = await availableMedia(activity.data.featured_image, Astro.locals.emdash);
 const date = activityDate(activity.data);
 const summary = showSummary ? activity.data.summary : undefined;
+const titleId = `activitycard-${crypto.randomUUID()}`;
 ---
 
-<article class="h-full">
-	<a
-		href={activityPath(activity.id)}
-		aria-label={activity.data.title}
-		class="group flex h-full flex-col overflow-hidden rounded-22 border border-border-default bg-surface-base hover:ring-2 hover:ring-brand-primary"
-	>
+<article class="group relative h-full">
+	<div class="flex h-full flex-col overflow-hidden rounded-22 border border-border-default bg-surface-base">
 		{image ? (
 			<Image
 				image={image}
@@ -77,6 +76,7 @@ const summary = showSummary ? activity.data.summary : undefined;
 		>
 			<MetaLine facts={[{ text: "กิจกรรม" }, date && { date }]} />
 			<Heading
+				id={titleId}
 				class:list={[
 					"text-h3 wrap-anywhere text-text-primary underline-offset-4 group-hover:text-brand-primary group-hover:underline",
 					compact && "max-sm:text-body max-sm:font-semibold",
@@ -86,5 +86,10 @@ const summary = showSummary ? activity.data.summary : undefined;
 			</Heading>
 			{summary && <p class="line-clamp-3 text-text-secondary">{summary}</p>}
 		</div>
-	</a>
+	</div>
+	<a
+		href={activityPath(activity.id)}
+		aria-labelledby={titleId}
+		class="absolute inset-0 rounded-22 hover:ring-2 hover:ring-brand-primary"
+	/>
 </article>

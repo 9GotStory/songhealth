@@ -1,8 +1,7 @@
 ---
-// The content card of a list (Feature 003 #54; spec #51 "Shared building blocks"): News now,
-// Health Content later. Its whole surface links to the item (#193; #190 comment 6707205912).
-// The picture is decorative here,
-// because the title already names the link; without one, a plain visual keeps the grid even.
+// News, Health News and Health Content list cards (#193; #190 comment 6707205912).
+// One title-named native link covers the whole surface. Other card text stays outside the link
+// so it stays readable without becoming its visible label (WCAG 2.5.3). Pictures are decorative.
 //
 // Images go through EmDash's Image component (emdash 1.1.0 src/components/EmDashImage.astro). It
 // gives a responsive srcset where Astro's image service may transform the media, which is the
@@ -36,14 +35,11 @@ interface Props {
 
 const { href, title, label, date, summary, eager = false } = Astro.props;
 const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
+const titleId = `contentcard-${crypto.randomUUID()}`;
 ---
 
-<article class="h-full">
-	<a
-		href={href}
-		aria-label={title}
-		class="group flex h-full flex-col overflow-hidden rounded-24 bg-surface-base shadow-card hover:ring-2 hover:ring-brand-primary"
-	>
+<article class="group relative h-full">
+	<div class="flex h-full flex-col overflow-hidden rounded-24 bg-surface-base shadow-card">
 		{image ? (
 			<Image
 				image={image}
@@ -61,10 +57,18 @@ const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
 		)}
 		<div class="flex flex-1 flex-col gap-2 p-5">
 			<MetaLine facts={[label && { text: label }, date && { date }]} />
-			<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark underline-offset-4 group-hover:text-brand-primary group-hover:underline">
+			<h2
+				id={titleId}
+				class="text-body-large font-semibold wrap-anywhere text-brand-dark underline-offset-4 group-hover:text-brand-primary group-hover:underline"
+			>
 				<ThaiTitle text={title} />
 			</h2>
 			{summary && <p class="line-clamp-3 text-text-secondary">{summary}</p>}
 		</div>
-	</a>
+	</div>
+	<a
+		href={href}
+		aria-labelledby={titleId}
+		class="absolute inset-0 rounded-24 hover:ring-2 hover:ring-brand-primary"
+	/>
 </article>

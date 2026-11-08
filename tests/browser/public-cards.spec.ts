@@ -82,42 +82,13 @@ test.beforeAll(async () => {
 });
 test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
 
-test("ContentCard picture and padding open its real destination", async ({ page }) => {
-	await page.goto("/news");
-	const card = listedItem(page, news.title);
-	await card.scrollIntoViewIfNeeded();
-	await card.getByTestId("card-visual").click();
-	await expect(page).toHaveURL(`/news/${news.slug}`);
-	await page.goto("/news");
-	const box = await card.boundingBox();
+/** Click the visible part a citizen points at, whether the link wraps it or covers it. */
+async function clickCardSurface(page: Page, target: Locator) {
+	await target.scrollIntoViewIfNeeded();
+	const box = await target.boundingBox();
 	expect(box).not.toBeNull();
-	await card.click({ position: { x: box!.width - 8, y: box!.height - 8 } });
-	await expect(page).toHaveURL(`/news/${news.slug}`);
-});
-
-test("ServiceCard icon and padding open its real destination", async ({ page }) => {
-	await page.goto("/services");
-	const card = listedItem(page, service.title);
-	await card.getByTestId("service-icon").click();
-	await expect(page).toHaveURL(`/services/${service.slug}`);
-	await page.goto("/services");
-	const box = await card.boundingBox();
-	expect(box).not.toBeNull();
-	await card.click({ position: { x: box!.width - 8, y: box!.height - 8 } });
-	await expect(page).toHaveURL(`/services/${service.slug}`);
-});
-
-test("ActivityCard visual and padding open its real destination", async ({ page }) => {
-	await page.goto("/activities");
-	const card = listedItem(page, activity.title);
-	await card.getByTestId("activity-visual").click();
-	await expect(page).toHaveURL(`/activities/${activity.slug}`);
-	await page.goto("/activities");
-	const box = await card.boundingBox();
-	expect(box).not.toBeNull();
-	await card.click({ position: { x: box!.width - 8, y: box!.height - 8 } });
-	await expect(page).toHaveURL(`/activities/${activity.slug}`);
-});
+	await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+}
 
 /** One title-named native target, with keyboard focus around its whole visible surface. */
 async function expectCardInteraction(page: Page, card: Locator, title: string, level: 2 | 3) {
@@ -226,10 +197,12 @@ for (const width of [320, 375, 1440]) {
 			for (const target of ["visual", "summary", "metadata", "padding", "title"]) {
 				if (target === "metadata" && context.name === "Services") continue;
 				await page.goto(context.list);
-				if (target === "visual") await visual.click();
-				else if (target === "title") await card.getByRole("heading", { level: 2 }).click();
-				else if (target === "summary") await card.getByText(SUMMARY, { exact: true }).click();
-				else if (target === "metadata") await card.locator("time").click();
+				if (target === "visual") await clickCardSurface(page, visual);
+				else if (target === "title")
+					await clickCardSurface(page, card.getByRole("heading", { level: 2 }));
+				else if (target === "summary")
+					await clickCardSurface(page, card.getByText(SUMMARY, { exact: true }));
+				else if (target === "metadata") await clickCardSurface(page, card.locator("time"));
 				else {
 					const box = await card.boundingBox();
 					await card.click({ position: { x: box!.width - 8, y: box!.height - 8 } });
@@ -257,14 +230,12 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 				await expectCardInteraction(page, serviceCard, service.title, 3);
 				await expectCardInteraction(page, activityCard, activity.title, 3);
 				const visible = width < 1024 ? 4 : 3;
-				await expect(
-					activities.getByRole("link").filter({ has: page.getByRole("heading", { level: 3 }) }),
-				).toHaveCount(visible);
+				await expect(activities.getByRole("article").getByRole("link")).toHaveCount(visible);
 				await expect(activities.getByRole("heading", { level: 3 })).toHaveText(
 					[activity, ...extraActivities].slice(0, visible).map((item) => item.title),
 				);
 				const fourth = activities
-					.getByRole("article")
+					.getByRole("article", { includeHidden: true })
 					.filter({ hasText: extraActivities[2].title });
 				if (width < 1024) await expect(fourth).toBeVisible();
 				else {
@@ -282,6 +253,7 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 				await expect(activityCard.getByText(SUMMARY, { exact: true })).toHaveCount(0);
 				if ([320, 375, 1440].includes(width)) {
 					await expectNoAxeViolations(page, `Homepage ${width}`);
+					await page.goto("/");
 					await expectVisibleFocusOnEveryStop(page, `Homepage ${width}`);
 					await page.screenshot({
 						path: testInfo.outputPath(`Homepage-${width}.png`),
@@ -294,14 +266,29 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 					[activity, activityCard, "activity-visual", `/activities/${activity.slug}`],
 				] as const) {
 					await page.goto("/");
-					await card.getByTestId(visual).click();
+					await clickCardSurface(page, card.getByTestId(visual));
 					await expectCardDestination(page, path, fixture);
 					await page.goto("/");
 					const link = card.getByRole("link", { name: fixture.title, exact: true });
 					await link.focus();
 					await link.press("Enter");
 					await expectCardDestination(page, path, fixture);
+					await page.goto("/");
+					const box = await card.boundingBox();
+					await card.click({ position: { x: box!.width - 8, y: box!.height - 8 } });
+					await expectCardDestination(page, path, fixture);
 				}
+				await page.goto("/");
+				const pictureCard = activities
+					.getByRole("article")
+					.filter({ hasText: extraActivities[0].title });
+				await expectImageLoaded(pictureCard.locator("img"), "Homepage Activity picture");
+				await clickCardSurface(page, pictureCard.locator("img"));
+				await expectCardDestination(
+					page,
+					`/activities/${extraActivities[0].slug}`,
+					extraActivities[0],
+				);
 			},
 		);
 	});
@@ -322,7 +309,7 @@ for (const collection of ["news", "health_content", "activities"] as const) {
 		await expect(picture).toHaveCSS("object-fit", "cover");
 		const box = await picture.boundingBox();
 		expect(box!.width / box!.height).toBeCloseTo(collection === "activities" ? 16 / 9 : 1.6, 1);
-		await picture.click();
+		await clickCardSurface(page, picture);
 		await expectCardDestination(page, `${list}/${fixture.slug}`, fixture);
 	});
 }
@@ -356,11 +343,29 @@ test.describe("native navigation without JavaScript", () => {
 					: `${context.list}/${fixture.slug}`;
 			await page.goto(context.list);
 			const card = listedItem(page, fixture.title);
-			await card.getByTestId(context.visual).click();
+			await clickCardSurface(page, card.getByTestId(context.visual));
 			await expectCardDestination(page, path, fixture);
 			await page.goto(context.list);
 			await card.getByRole("link", { name: fixture.title, exact: true }).press("Enter");
 			await expectCardDestination(page, path, fixture);
 		}
+		await withHomepageMenus(
+			admin,
+			{ services: [pickedMenuItem("services", service)] },
+			async () => {
+				for (const [fixture, heading, path] of [
+					[service, HOMEPAGE_HEADINGS.services, `/services/${service.slug}`],
+					[activity, HOMEPAGE_HEADINGS.activities, `/activities/${activity.slug}`],
+				] as const) {
+					await page.goto("/");
+					const card = homepageSection(page, heading)
+						.getByRole("article")
+						.filter({ hasText: fixture.title });
+					const box = await card.boundingBox();
+					await card.click({ position: { x: box!.width - 8, y: box!.height - 8 } });
+					await expectCardDestination(page, path, fixture);
+				}
+			},
+		);
 	});
 });

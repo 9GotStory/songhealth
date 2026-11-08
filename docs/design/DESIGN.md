@@ -256,8 +256,9 @@ this document names:
   ContentCard (News, Health News and Health Content lists), ServiceCard (catalog and Homepage)
   and ActivityCard (list and Homepage) has one native link named by its title alone. The
   picture/fallback, icon, metadata, summary and padding all open its original destination.
-  H2 titles on lists and H3 under Homepage sections remain inside the link, without nested
-  anchors or another focus stop. Enter, modified clicks and native new-tab actions work.
+  H2 titles on lists and H3 under Homepage sections name a full-surface native link through
+  `aria-labelledby`. Other content stays outside the link's visible label and remains readable,
+  with no nested anchors or another focus stop. Enter, modified clicks and new-tab actions work.
 - **Interaction:** hover adds a 2 px `brand-primary` ring without moving/resizing the card and
   makes its title green and underlined. The resting border/shadow remains; keyboard focus uses
   the global 3 px outline around the whole card. The Homepage's separately composed News and
