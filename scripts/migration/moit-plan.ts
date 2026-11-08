@@ -27,8 +27,9 @@ const MAX_BLOCKS = 100;
 /** The Media Library folder of the files that more than one fiscal year links (spec #174). */
 const SHARED_FOLDER = "ITA ใช้ทุกปี";
 
-/** The office's name, which opens the card that ends every post. */
+/** The office's name, and how the words about ITA begin, in the card that ends every post. */
 const OFFICE_NAME = "สำนักงานสาธารณสุขอำเภอสอง";
+const ABOUT_ITA = "ITA (Integrity";
 
 /** The pages of the site that Evidence links to, by path, and their new addresses (ANOM-004). */
 const SITE_PAGES: [string, string][] = [
@@ -111,13 +112,17 @@ function lineOf({ children = [], markDefs = [] }: Block): Line {
 	};
 }
 
-/** A post's blocks before the card that ends it: its picture, the office's name and its text. */
-function bodyOf(blocks: Block[]): Block[] {
-	const card = blocks.findIndex(
-		(block) => block._type === "block" && lineOf(block).text === OFFICE_NAME,
-	);
-	if (card === -1) return blocks;
-	return blocks.slice(0, blocks[card - 1]?._type === "image" ? card - 1 : card);
+/**
+ * A post's blocks without the card that ends it: its picture, the office's name and the words
+ * about ITA. Whatever else follows the name stays, so that nothing leaves the post unreported.
+ */
+function withoutCard(blocks: Block[]): Block[] {
+	const textOf = (block: Block | undefined) => (block?._type === "block" ? lineOf(block).text : "");
+	const name = blocks.findIndex((block) => textOf(block) === OFFICE_NAME);
+	if (name === -1) return blocks;
+	const start = blocks[name - 1]?._type === "image" ? name - 1 : name;
+	const end = textOf(blocks[name + 1]).startsWith(ABOUT_ITA) ? name + 2 : name + 1;
+	return [...blocks.slice(0, start), ...blocks.slice(end)];
 }
 
 /** The fiscal year and the number a post's tags name, its slug and its Round. */
@@ -151,11 +156,19 @@ const addressKey = (address: string) => sitePath(address)?.replace(/\/$/, "");
 /** Whether `text` says nothing as a label, as ")" does: its line's wording stands in (defect 5). */
 const saysNothing = (text: string) => !/[\p{L}\p{N}]/u.test(text);
 
-/** A Requirement's title, the months of defect 4 reading their year. */
-const titleOf = (slug: string, number: string, wording: string) =>
-	slug === WRONG_YEAR.slug && WRONG_YEAR.numbers.includes(number)
-		? wording.replaceAll(WRONG_YEAR.from, WRONG_YEAR.to)
-		: wording;
+/** A line with the months of defect 4 reading their year, in its wording and its links. */
+function withYearFixed(slug: string, line: Line): Line {
+	if (slug !== WRONG_YEAR.slug || !WRONG_YEAR.numbers.includes(line.number ?? "")) return line;
+	const fixed = (text: string) => text.replaceAll(WRONG_YEAR.from, WRONG_YEAR.to);
+	return {
+		...line,
+		wording: fixed(line.wording),
+		links: line.links.map((link) => ({ ...link, text: fixed(link.text) })),
+	};
+}
+
+/** Whether a link goes to Facebook, whose empty ones the 2567 posts carry (`legacy-ita.md`). */
+const isFacebook = (href: string) => /^https?:\/\/(?:[\w-]+\.)?facebook\.com(?:\/|$)/i.test(href);
 
 /**
  * `files` with the office's copy standing for ANOM-001's file, while the uploads copy lacks it. Its
@@ -224,31 +237,42 @@ export function planMoits({ posts, files, toBlocks, contentOf, redirects }: Moit
 		const noteOut = (note: string) => notes.push({ slug, note });
 		/** The Evidence a link becomes, or none for a link that stays out. */
 		const evidenceOfLink = ({ href, text }: Line["links"][number], wording: string) => {
-			const label = saysNothing(text) ? wording : text;
-			if (label === "") return undefined;
 			const path = sitePath(href);
+			if (path?.startsWith("tag/") || (text === "" && isFacebook(href))) return undefined;
+			const label = saysNothing(text) ? wording : text;
+			if (label === "") {
+				noteOut(`a link with no text and no wording to take: ${href}`);
+				return undefined;
+			}
 			if (path === undefined) return { _type: "ita_link", label, url: href, round, current: false };
 			if (isUploadsPath(path)) {
 				// A link can leave out /wp-content (`docs/research/legacy-ita.md` defect 3).
 				const id = files.byPath.get(path.startsWith("uploads/") ? `wp-content/${path}` : path);
 				if (id === undefined) throw new Error(`${slug} links ${href}, which names no attachment`);
 				if (id === ANOM_001 && !hasFile(id)) {
+					noteOut(
+						"ANOM-001: the office's file is not beside the export, so the Evidence links the document's official source",
+					);
 					return { _type: "ita_link", label, url: ANOM_001_SOURCE, round, current: false };
 				}
 				fileUses.push({ id, slug, year });
 				// A file the uploads copy lacks goes into the report, and fails verify.
 				if (!hasFile(id)) return undefined;
+				if (files.byId.get(id)?.path === ANOM_001_FILE) {
+					noteOut("ANOM-001: uploaded from the office's file");
+				}
 				if (CARRIED_OVER[slug]?.includes(id)) {
 					noteOut(`a 2568 file, kept as submitted (defect 12): ${label}`);
 				}
 				return { _type: "ita_file", label, file: { fileField: id }, round };
 			}
-			if (path.startsWith("tag/")) return undefined;
 			const url = newAddress.get(path.replace(/\/$/, ""));
 			if (url === undefined) throw new Error(`${slug} links ${href}, which has no new address`);
 			return { _type: "ita_link", label, url, round, current: true };
 		};
-		for (const block of bodyOf(toBlocks(post.content))) {
+		/** The wording of the last Requirement, which a link with no words of its own can take. */
+		let requirementWording = "";
+		for (const block of withoutCard(toBlocks(post.content))) {
 			if (block._type !== "block") {
 				noteOut(
 					block._type === "image"
@@ -257,18 +281,18 @@ export function planMoits({ posts, files, toBlocks, contentOf, redirects }: Moit
 				);
 				continue;
 			}
-			const line = lineOf(block);
+			const line = withYearFixed(slug, lineOf(block));
 			if (line.number !== undefined && line.wording !== "") {
-				evidence.push({
-					_type: "ita_requirement",
-					number: line.number,
-					title: titleOf(slug, line.number, line.wording),
-				});
+				requirementWording = line.wording;
+				evidence.push({ _type: "ita_requirement", number: line.number, title: line.wording });
 			} else if (line.text !== "" && line.links.length === 0) {
 				noteOut(`text not carried: ${line.text}`);
 			}
 			for (const link of line.links) {
-				const piece = evidenceOfLink(link, line.wording);
+				const piece = evidenceOfLink(
+					link,
+					saysNothing(line.wording) ? requirementWording : line.wording,
+				);
 				if (piece !== undefined) evidence.push(piece);
 			}
 		}
@@ -295,10 +319,7 @@ export function planMoits({ posts, files, toBlocks, contentOf, redirects }: Moit
 	 * the media item it holds (emdash 1.1.0 src/astro/routes/api/media.ts), and the office uploaded
 	 * some documents once a year under different attachments.
 	 */
-	const contentKey = (id: number) => {
-		const path = files.byId.get(id)?.path;
-		return path === undefined ? String(id) : contentOf(path);
-	};
+	const contentKey = (id: number) => contentOf(files.byId.get(id)!.path!);
 	const yearsOfFile = new Map<string, Set<number>>();
 	for (const { id, year } of fileUses) {
 		const key = contentKey(id);

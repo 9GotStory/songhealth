@@ -237,11 +237,38 @@ describe("a MOIT's lines", () => {
 });
 
 describe("the end of a post", () => {
-	const FOOTER =
-		'<figure><img src="https://songhealth.moph.go.th/wp-content/uploads/2024/10/logo-300x300.webp" alt=""/></figure><h5>สำนักงานสาธารณสุขอำเภอสอง</h5><p>คำอธิบายท้ายหน้าที่สมมุติขึ้น</p>';
+	const CARD_TEXT =
+		"<h5>สำนักงานสาธารณสุขอำเภอสอง</h5><p>ITA (Integrity and Transparency Assessment) ข้อความสมมุติ</p>";
+	const FOOTER = `<figure><img src="https://songhealth.moph.go.th/wp-content/uploads/2024/10/logo-300x300.webp" alt=""/></figure>${CARD_TEXT}`;
 
 	it("leaves out the office's card, its picture included, without a word", async () => {
 		const { entries, report } = await importOf([moitPost(9, 2568, `<h5>1. รายงาน</h5>${FOOTER}`)]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirement("1", "รายงาน")]);
+		assert.deepEqual(report.notes, []);
+	});
+
+	it("leaves out a card with no picture, and keeps the line before it", async () => {
+		const { entries, report } = await importOf([
+			moitPost(9, 2568, `<h5>1. รายงาน</h5>${CARD_TEXT}`),
+		]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirement("1", "รายงาน")]);
+		assert.deepEqual(report.notes, []);
+	});
+
+	it("still reads what comes after the card, rather than cutting it unseen", async () => {
+		const { entries, report } = await importOf([
+			moitPost(9, 2568, `${FOOTER}<h5>2. ข้อหลังการ์ด</h5><p>บรรทัดหลังการ์ด</p>`),
+		]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirement("2", "ข้อหลังการ์ด")]);
+		assert.deepEqual(report.notes, [
+			{ slug: "moit-9-2568", note: "text not carried: บรรทัดหลังการ์ด" },
+		]);
+	});
+
+	it("reads a line after the office's name when it is not the card's text", async () => {
+		const { entries, report } = await importOf([
+			moitPost(9, 2568, "<h5>สำนักงานสาธารณสุขอำเภอสอง</h5><h5>1. รายงาน</h5>"),
+		]);
 		assert.deepEqual(entries[0]!.data.evidence, [requirement("1", "รายงาน")]);
 		assert.deepEqual(report.notes, []);
 	});
@@ -321,6 +348,19 @@ describe("a MOIT's links", () => {
 		]);
 	});
 
+	it("makes a link to an uploaded picture a file block, as the WebP Evidence of 2567 MOIT 2 is", async () => {
+		const picture = attachment(36, "wp-content/uploads/2024/11/month.webp");
+		const evidence = await evidenceOf(
+			moitPost(
+				2,
+				2567,
+				'<ul><li><a href="/wp-content/uploads/2024/11/month.webp">ตุลาคม</a></li></ul>',
+			),
+			[picture],
+		);
+		assert.deepEqual(evidence, [fileBlock("ตุลาคม", 36)]);
+	});
+
 	it("makes an external link a link block, not marked current", async () => {
 		const evidence = await evidenceOf(
 			moitPost(2, 2568, '<p>1.5 <a href="http://stopcorruption.example.go.th/">กฎหมาย</a></p>'),
@@ -355,6 +395,33 @@ describe("a MOIT's links", () => {
 			requirement("1.1", "เพจสำนักงาน"),
 			linkBlock("เพจสำนักงาน", "https://www.facebook.com/page"),
 		]);
+	});
+
+	it("drops an empty Facebook link on a line of words, which it would otherwise label", async () => {
+		const { entries, report } = await importOf([
+			moitPost(1, 2567, '<p>1.1 เพจสำนักงาน <a href="https://www.facebook.com/profile"></a></p>'),
+		]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirement("1.1", "เพจสำนักงาน")]);
+		assert.deepEqual(report.notes, []);
+	});
+
+	it("reports a link with no text on a line with no words, rather than losing its file", async () => {
+		const { entries, report, files } = await importOf([
+			evidenceFile(31),
+			moitPost(1, 2567, `<p>1.1 <a href="${fileHref(31)}"></a></p>`),
+		]);
+		assert.deepEqual(entries[0]!.data.evidence, []);
+		assert.deepEqual(files, []);
+		assert.deepEqual(report.notes, [
+			{ slug: "moit-1-2567", note: `a link with no text and no wording to take: ${fileHref(31)}` },
+		]);
+	});
+
+	it("drops a tag link with no text without a word", async () => {
+		const { report } = await importOf([
+			moitPost(1, 2567, '<p>1.1 <a href="https://songhealth.moph.go.th/tag/2567/"></a></p>'),
+		]);
+		assert.deepEqual(report.notes, []);
 	});
 
 	it("drops a tag link", async () => {
@@ -413,6 +480,15 @@ describe("a MOIT's fixes at import", () => {
 		}
 	});
 
+	it("reads a link's own text on items 1.4–1.6 as 2569 too (defect 4)", async () => {
+		assert.deepEqual(
+			await evidenceOf(moitPost(5, 2569, `<p>1.4 <a href="${fileHref(51)}">มกราคม 2568</a></p>`), [
+				evidenceFile(51),
+			]),
+			[requirement("1.4", "มกราคม 2569"), fileBlock("มกราคม 2569", 51)],
+		);
+	});
+
 	it('gives a link whose text is ")" the wording of its line (defect 5)', async () => {
 		const evidence = await evidenceOf(
 			moitPost(2, 2568, `<h4>10. รายงานผล (ตามข้อ 9<a href="${fileHref(52)}">)</a></h4>`),
@@ -421,6 +497,25 @@ describe("a MOIT's fixes at import", () => {
 		assert.deepEqual(evidence, [
 			requirement("10", "รายงานผล (ตามข้อ 9)"),
 			fileBlock("รายงานผล (ตามข้อ 9)", 52),
+		]);
+	});
+
+	it('gives a ")" on a line of its own the wording of the Requirement it falls under', async () => {
+		const evidence = await evidenceOf(
+			moitPost(2, 2568, `<h4>10. รายงานผล</h4><ul><li><a href="${fileHref(52)}">)</a></li></ul>`),
+			[evidenceFile(52)],
+		);
+		assert.deepEqual(evidence, [requirement("10", "รายงานผล"), fileBlock("รายงานผล", 52)]);
+	});
+
+	it('reports a ")" before any Requirement, which has no wording to take', async () => {
+		const { entries, report } = await importOf([
+			evidenceFile(52),
+			moitPost(2, 2568, `<ul><li><a href="${fileHref(52)}">)</a></li></ul>`),
+		]);
+		assert.deepEqual(entries[0]!.data.evidence, []);
+		assert.deepEqual(report.notes, [
+			{ slug: "moit-2-2568", note: `a link with no text and no wording to take: ${fileHref(52)}` },
 		]);
 	});
 
@@ -487,6 +582,12 @@ describe("ANOM-001, the file the uploads copy lacks", () => {
 		]);
 		assert.deepEqual(planned.files, []);
 		assert.deepEqual(planned.report.missing, []);
+		assert.deepEqual(planned.report.notes, [
+			{
+				slug: "moit-2-2567",
+				note: "ANOM-001: the office's file is not beside the export, so the Evidence links the document's official source",
+			},
+		]);
 	});
 
 	it("becomes a file block from the office's file, when that lies beside the export", async () => {
@@ -506,6 +607,9 @@ describe("ANOM-001, the file the uploads copy lacks", () => {
 			},
 		]);
 		assert.deepEqual(planned.report.missing, []);
+		assert.deepEqual(planned.report.notes, [
+			{ slug: "moit-2-2567", note: "ANOM-001: uploaded from the office's file" },
+		]);
 	});
 
 	it("takes the attachment's own file when the uploads copy has it after all", async () => {
@@ -514,6 +618,7 @@ describe("ANOM-001, the file the uploads copy lacks", () => {
 			planned.files.map(({ attachment: id, path }) => [id, path]),
 			[[1479, "wp-content/uploads/2024/11/7-long-name.pdf"]],
 		);
+		assert.deepEqual(planned.report.notes, []);
 	});
 
 	it("leaves another attachment without its file to the report, with no block", async () => {
@@ -633,6 +738,30 @@ describe("a MOIT's slug, title and tags", () => {
 			importOf([moitPost(1, 2569, "<h5>1. รายงาน</h5>", { categories })]),
 			/moit-1-2569 does not have one fiscal year tag and one MOIT tag/,
 		);
+	});
+
+	it("stops on a post with two MOIT tags", async () => {
+		const categories = [
+			{ domain: "post_tag", slug: "moit-2", name: "MOIT-2" },
+			...moitTags(1, 2569),
+		];
+		await assert.rejects(
+			importOf([moitPost(1, 2569, "<h5>1. รายงาน</h5>", { categories })]),
+			/moit-1-2569 does not have one fiscal year tag and one MOIT tag/,
+		);
+	});
+
+	it("leaves updated_on out when the export gives no last modification", async () => {
+		const { entries } = await importOf([moitPost(1, 2569, "<h5>1. รายงาน</h5>", { modified: "" })]);
+		assert.deepEqual(Object.keys(entries[0]!.data), ["title", "fiscal_year", "number", "evidence"]);
+	});
+
+	it("counts the MOITs in the report, under the posts' legacy type", async () => {
+		const { report } = await importOf([
+			moitPost(1, 2569, "<h5>1. รายงาน</h5>"),
+			moitPost(2, 2569, "<h5>1. รายงาน</h5>"),
+		]);
+		assert.deepEqual(report.groups, { post: { MOIT: 2 } });
 	});
 
 	it("stops on two posts of one MOIT, before anything is written", async () => {
@@ -764,6 +893,11 @@ describe("the ITA pages' redirects", () => {
 			{ source: "/ita-2569/", destination: "/ita/2569" },
 			{ source: "/ethics/", destination: "/ita/2569" },
 		]);
+	});
+
+	it("gives 2570 its page's redirect when its posts are in the export", async () => {
+		const { redirects } = await importOf([moitPost(1, 2570, POST)]);
+		assert.deepEqual(redirects.slice(1), [{ source: "/ita-2570/", destination: "/ita/2570" }]);
 	});
 
 	it("leaves out a year without MOITs, and the ethics page without 2569's", async () => {
