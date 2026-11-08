@@ -321,7 +321,7 @@ test("native modified click opens a card in a new tab", async ({ page }) => {
 		exact: true,
 	});
 	const [opened] = await Promise.all([
-		page.waitForEvent("popup"),
+		page.context().waitForEvent("page"),
 		link.click({ modifiers: ["ControlOrMeta"] }),
 	]);
 	try {
