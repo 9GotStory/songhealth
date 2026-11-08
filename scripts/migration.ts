@@ -1,5 +1,5 @@
-// The Legacy site's migration script (#177, #178; spec #174 "The migration script"; ADR 0008):
-// temporary tooling, which leaves the repository with its tests when WordPress is retired.
+// The Legacy site's migration script (#177, #178, #179; spec #174 "The migration script"; ADR
+// 0008): temporary tooling, which leaves the repository with its tests when WordPress is retired.
 //
 //   node scripts/migration.ts plan <export.xml> <wp-content.zip>
 //   node scripts/migration.ts import <export.xml> <wp-content.zip> <target> [--final]
@@ -72,13 +72,14 @@
 // reports the list as plan left it, and records the SHA-256 of the export and the zip.
 //
 // import reads the export, the zip and the Classification list beside the export, and writes the
-// news stream to one origin through EmDash's native APIs (scripts/migration/import-plan.ts says
-// what it writes, scripts/migration/writer.ts writes it). It acts as the Administrator whose API
-// token is in the 0600 file --token-file names, on the development runtime
-// ~/.local/state/songhealth-qdev/dev-pat, and never prints the token. Without --final it is a
-// trial, which takes a row still ต้องเลือก at its default and lists it. It refuses a final run while
-// any row is ต้องเลือก, a list that lacks an item of the export, and a row with no default (exit 1),
-// and stops before it writes anything if a target slug or a legacy redirect exists or a term is
+// news stream, directives and procurement notices to one origin through EmDash's native APIs
+// (scripts/migration/import-plan.ts says what it writes, scripts/migration/writer.ts writes it). It
+// acts as the Administrator whose API token is in the 0600 file --token-file names, on the
+// development runtime ~/.local/state/songhealth-qdev/dev-pat, and never prints the token. Without
+// --final it is a trial, which takes a row still ต้องเลือก at its default and lists it. It refuses a
+// final run while any row is ต้องเลือก, a list that lacks an item of the export, a row with no
+// default, an order with no file to make its Document from, and a slug it would make twice (exit
+// 1), and stops before it writes anything if a target slug or a legacy redirect exists or a term is
 // missing (exit 1). A write the target refuses stops the run where it is (exit 1): restore the
 // backup taken before it. It writes import-report.json beside the export: the inputs' digests, the
 // counts, the rows taken at their default and what it could not carry.

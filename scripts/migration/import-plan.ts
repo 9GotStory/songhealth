@@ -1,5 +1,6 @@
-// What the migration script's import command writes (#178; spec #174 "The migration script",
-// "Mapping: the news stream" and "Redirects"): the plan of an export and its Classification list.
+// What the migration script's import command writes (#178, #179; spec #174 "The migration script",
+// "Mapping: the news stream", "Mapping: directives and procurement notices" and "Redirects"): the
+// plan of an export and its Classification list.
 // scripts/migration.ts reads the files and scripts/migration/writer.ts applies the plan; at run
 // time this module imports only the planner, which imports nothing, so node:test checks it directly
 // (tests/node/migration-import.test.ts).
@@ -14,6 +15,7 @@ import {
 	plan,
 	targetOf,
 	TO_CHOOSE,
+	typeOf,
 	usesOf,
 	type ListRow,
 } from "./plan.ts";
@@ -24,8 +26,9 @@ export interface Block {
 	children?: { text: string }[];
 }
 
-/** The Media Library folder of the news stream's files (spec #174 "Pages, media and links"). */
+/** The Media Library folders of the items' files (spec #174 "Pages, media and links"). */
 const NEWS_FOLDER = "เว็บไซต์เดิม: ข่าวและกิจกรรม";
+const NOTICES_FOLDER = "เว็บไซต์เดิม: ประกาศและเอกสาร";
 
 /** An attachment that an entry's field holds, which the writer replaces with its media item. */
 interface PictureRef {
@@ -46,12 +49,14 @@ interface PlannedFile {
 
 /** An entry the import creates and publishes. */
 interface PlannedEntry {
-	collection: "news" | "activities";
+	collection: "news" | "activities" | "announcements" | "documents";
 	slug: string;
 	/** The legacy publish date, as an ISO 8601 instant. */
 	publishedAt: string;
 	data: Record<string, unknown>;
 	taxonomies: Record<string, string[]>;
+	/** The Documents an Announcement references, by slug, which the plan places before it. */
+	documents?: string[];
 	/** Its canonical address on Songhealth. */
 	page: string;
 }
@@ -65,7 +70,7 @@ interface ImportReport {
 	/** What the import could not carry, by item. */
 	notes: { slug: string; note: string }[];
 	/** The rows still ต้องเลือก that a trial took at their default. */
-	atDefault: { slug: string; target: NewsTarget }[];
+	atDefault: { slug: string; target: EntryTarget }[];
 	/** The rows whose item the export no longer holds. */
 	notInExport: string[];
 }
@@ -104,22 +109,22 @@ export interface ImportInput {
 	toBlocks: (html: string) => Block[];
 }
 
-type NewsTarget = "News" | "Activity";
+type EntryTarget = "News" | "Activity" | "Announcement" | "Document";
 
-const isNewsTarget = (target: string | undefined): target is NewsTarget =>
-	target === "News" || target === "Activity";
+const isEntryTarget = (target: string | undefined): target is EntryTarget =>
+	target === "News" || target === "Activity" || target === "Announcement" || target === "Document";
 
 /**
- * A news stream row's target: its decision, else its default. A trial takes a row still ต้องเลือก at
- * its default, and a title-word row, which starts as ต้องเลือก, at its category's default, an
- * Activity (spec #174 "The migration script"). A row with neither stops the run: none exists in
- * the export of 2026-11-06, and an item imported nowhere would leave the counts short (Product
- * Owner, #178 comment 6720200201, item 2).
+ * A row's target: its decision, else its default. A trial takes a row still ต้องเลือก at its
+ * default, and a title-word row, which starts as ต้องเลือก, at its category's default, an Activity
+ * (spec #174 "The migration script"). A row with neither stops the run: none exists in the export
+ * of 2026-11-06, and an item imported nowhere would leave the counts short (Product Owner, #178
+ * comment 6720200201, item 2).
  */
-function targetFor(row: ListRow): { target: NewsTarget; atDefault: boolean } {
+function targetFor(row: ListRow): { target: EntryTarget; atDefault: boolean } {
 	const target = targetOf(row);
-	if (isNewsTarget(target)) return { target, atDefault: false };
-	if (isNewsTarget(row.default_target)) return { target: row.default_target, atDefault: true };
+	if (isEntryTarget(target)) return { target, atDefault: false };
+	if (isEntryTarget(row.default_target)) return { target: row.default_target, atDefault: true };
 	if (hasFlag(row, "title-word")) return { target: "Activity", atDefault: true };
 	throw new Error(`${row.slug} has no default: decide it in the Classification list`);
 }
@@ -149,6 +154,13 @@ const textOf = (blocks: Block[]) =>
 		.filter((line) => line !== "")
 		.join("\n");
 
+/**
+ * The title of a Document made from one of an item's files: the item's, followed by the file's
+ * label when the item has several files (spec #174 "Mapping: directives and procurement notices").
+ */
+const documentTitle = (item: LegacyItem, label: string) =>
+	item.files.length > 1 && label.trim() !== "" ? `${item.title} – ${label.trim()}` : item.title;
+
 /** The elements of HTML that neither a body nor a Summary carries: pictures and embeds. */
 const embedsIn = (html: string) =>
 	[...html.matchAll(/<(?:img|iframe|embed|object|video|audio)\b[^>]*>/gi)].map(([tag]) => tag);
@@ -173,6 +185,15 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 	const newsRows = rows.filter((row) => row.legacy_type === "public-new" && items.has(row.wp_id));
 	const atDefault: ImportReport["atDefault"] = [];
 	const groups: ImportReport["groups"] = {};
+	/**
+	 * A row's target, which the report counts, and lists when a trial took the row at its default.
+	 */
+	const decide = (row: ListRow) => {
+		const { target, atDefault: wasDefault } = targetFor(row);
+		if (wasDefault) atDefault.push({ slug: row.slug, target });
+		count((groups[row.legacy_type] ??= {}), target);
+		return target;
+	};
 	/** The item whose featured image each attachment is. */
 	const featuredIn = new Map<number, string>();
 	for (const row of newsRows) {
@@ -183,10 +204,13 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 	}
 	/** Each used attachment's items, in the order the entries first use it. */
 	const usedBy = new Map<number, string[]>();
-	const use = (id: number, slug: string) => {
+	/** Each used attachment's folder: its first use's, as a file is uploaded once. */
+	const folderOf = new Map<number, string>();
+	const use = (id: number, slug: string, folder: string) => {
 		const slugs = usedBy.get(id) ?? [];
 		if (!slugs.includes(slug)) slugs.push(slug);
 		usedBy.set(id, slugs);
+		if (!folderOf.has(id)) folderOf.set(id, folder);
 	};
 	const available = (id: number) => {
 		const path = legacyFiles.byId.get(id)?.path;
@@ -211,6 +235,16 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 			});
 			return false;
 		});
+	/** A picture's image block, as a body or an Announcement's details holds one. */
+	const pictureBlock = (id: number) => {
+		const { alt, caption } = legacyFiles.byId.get(id)!;
+		const picture = {
+			_type: "image",
+			_key: `legacy-picture-${id}`,
+			asset: { bodyPicture: id },
+		};
+		return { ...picture, alt, ...(caption === "" ? {} : { caption }) };
+	};
 	/** An item's text as HTML: its ACF editor's, else its block editor's. */
 	const textHtmlOf = (item: LegacyItem) => {
 		if (!holdsText(item.editor)) return item.content;
@@ -222,14 +256,15 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 		}
 		return item.editor;
 	};
-	const entries = newsRows.map((row): PlannedEntry => {
+	const redirects: PlannedRedirect[] = [];
+	/** Plans the 301 from a row's legacy address to the page that replaces it. */
+	const redirect = ({ legacy_type: type, slug }: ListRow, destination: string) =>
+		redirects.push({ source: `/${type}/${slug}/`, destination });
+	const newsEntry = (row: ListRow): PlannedEntry => {
 		const item = items.get(row.wp_id)!;
-		const chosen = targetFor(row);
-		if (chosen.atDefault) atDefault.push({ slug: item.slug, target: chosen.target });
-		count((groups[row.legacy_type] ??= {}), chosen.target);
-		const collection = chosen.target === "News" ? "news" : "activities";
+		const collection = decide(row) === "News" ? "news" : "activities";
 		const uses = usesOf(item, legacyFiles);
-		for (const id of uses.attachments) use(id, item.slug);
+		for (const id of uses.attachments) use(id, item.slug, NEWS_FOLDER);
 		for (const { id } of item.files) {
 			notes.push({ slug: item.slug, note: `ACF file ${id}: no field holds it` });
 		}
@@ -272,18 +307,7 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 		});
 		// A News has no gallery, so its other pictures follow its text in the body (Product Owner,
 		// #178 comment 6720200201, item 1).
-		const newsBody = [
-			...body,
-			...others.map((id) => {
-				const { alt, caption } = legacyFiles.byId.get(id)!;
-				const picture = {
-					_type: "image",
-					_key: `legacy-picture-${id}`,
-					asset: { bodyPicture: id },
-				};
-				return { ...picture, alt, ...(caption === "" ? {} : { caption }) };
-			}),
-		];
+		const newsBody = [...body, ...others.map(pictureBlock)];
 		const data = {
 			title: item.title,
 			...(summary === "" ? {} : { summary }),
@@ -292,22 +316,98 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 				? { ...(newsBody.length === 0 ? {} : { body: newsBody }) }
 				: { ...(gallery.length === 0 ? {} : { gallery }) }),
 		};
+		const page = `/${collection}/${item.slug}`;
+		redirect(row, page);
 		return {
 			collection,
 			slug: item.slug,
 			publishedAt: item.published!.toISOString(),
 			data,
 			taxonomies: collection === "news" && isPm25(row, item.title) ? { topic: ["pm25"] } : {},
-			page: `/${collection}/${item.slug}`,
+			page,
 		};
-	});
+	};
+	/**
+	 * A directive's or a procurement notice's entries (spec #174 "Mapping: directives and procurement
+	 * notices"): an Announcement after the Documents it references, or a Document per file. An
+	 * order's address goes to its first Document. An order with no file to make one from stops the
+	 * run, as a row with no default does (Product Owner, #178 comment 6720200201, item 2): a Document
+	 * holds a file, and the item would be imported nowhere.
+	 */
+	const noticeEntries = (row: ListRow): PlannedEntry[] => {
+		const item = items.get(row.wp_id)!;
+		const target = decide(row);
+		const type = typeOf(row, target);
+		const publishedAt = item.published!.toISOString();
+		const unheld = (what: string) =>
+			notes.push({ slug: item.slug, note: `${what}: no field holds it` });
+		if (item.featured !== undefined) unheld(`featured image ${item.featured}`);
+		if (holdsText(item.content) || holdsText(item.editor)) unheld("the item's text");
+		const documents = item.files.flatMap(({ id, label }, at): PlannedEntry[] => {
+			use(id, item.slug, NOTICES_FOLDER);
+			if (!available(id)) return [];
+			const slug = at === 0 ? item.slug : `${item.slug}-${at + 1}`;
+			return [
+				{
+					collection: "documents",
+					slug,
+					publishedAt,
+					data: {
+						title: documentTitle(item, label),
+						file: { fileField: id },
+						document_at: publishedAt,
+						fiscal_year: Number(row.fiscal_year),
+					},
+					// Only an order carries a type (spec #174).
+					taxonomies: target === "Document" && type !== "" ? { document_type: [type] } : {},
+					page: `/documents/${slug}`,
+				},
+			];
+		});
+		const pictures = otherPictures(item);
+		if (target === "Document") {
+			if (documents.length === 0) {
+				throw new Error(`${item.slug} has no file to make a Document from`);
+			}
+			for (const id of pictures) unheld(`ACF picture ${id}`);
+			redirect(row, documents[0]!.page);
+			return documents;
+		}
+		const page = `/announcements/${item.slug}`;
+		redirect(row, page);
+		for (const id of pictures) use(id, item.slug, NOTICES_FOLDER);
+		const details = pictures.filter(available).map(pictureBlock);
+		return [
+			...documents,
+			{
+				collection: "announcements",
+				slug: item.slug,
+				publishedAt,
+				data: {
+					title: item.title,
+					announcement_at: publishedAt,
+					...(details.length === 0 ? {} : { details }),
+				},
+				taxonomies: type === "" ? {} : { announcement_type: [type] },
+				...(documents.length === 0 ? {} : { documents: documents.map(({ slug }) => slug) }),
+				page,
+			},
+		];
+	};
+	const noticeRows = rows.filter((row) => row.legacy_type !== "public-new" && items.has(row.wp_id));
+	const entries = [...newsRows.map(newsEntry), ...noticeRows.flatMap(noticeEntries)];
+	// A numbered Document can meet another item's slug, as WordPress numbers a repeated one, and the
+	// second create would stop the run half written.
+	const names = entries.map(({ collection, slug }) => `${collection}/${slug}`);
+	const twice = names.find((name, at) => names.indexOf(name) !== at);
+	if (twice !== undefined) throw new Error(`${twice} is planned twice`);
 	const files = [...usedBy.keys()].filter(available).map((id): PlannedFile => {
 		const { path, alt, caption } = legacyFiles.byId.get(id)!;
 		return {
 			attachment: id,
 			path: path!,
 			filename: filenameOf(path!),
-			folder: NEWS_FOLDER,
+			folder: folderOf.get(id)!,
 			alt,
 			caption,
 		};
@@ -318,10 +418,6 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 			const path = legacyFiles.byId.get(attachment)?.path;
 			return { attachment, ...(path === undefined ? {} : { path }), usedBy: slugs };
 		});
-	const redirects = entries.map(({ slug, page }) => ({
-		source: `/public-new/${slug}/`,
-		destination: page,
-	}));
 	return {
 		files,
 		entries,

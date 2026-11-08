@@ -154,7 +154,9 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   the media id (`src/content/converters/gallery.ts` `resolveImageMedia`, `src/media/url.ts`
   `buildRenderMediaUrl`). `./src/lib/media.ts` `availableBody` reads the key the same way.
 - `/_emdash/api/media/file/{key}` serves the stored file by key. Safe image, video and audio types
-  are served inline; anything else is an attachment (`src/astro/routes/api/media/file/[...key].ts`).
+  are served inline; anything else is an attachment, and the header names no file, so a link's
+  `download` attribute gives the name a browser saves it under
+  (`src/astro/routes/api/media/file/[...key].ts`).
 - Deleting a media item has no in-use guard. It removes the stored file unless another media row
   shares the key, and content keeps the stale value (`src/api/handlers/media.ts` `handleMediaDelete`).
   Pages therefore check media through `./src/lib/media.ts`.
@@ -770,7 +772,11 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   `checkPublicCsrf`). `./tests/browser/cms.helpers.ts` `anonymousRequest` sends no such header.
 - A create takes `references: { field: [id] }` and `taxonomies: { name: [slug] }`. Terms are created
   and deleted at `/_emdash/api/taxonomies/{name}/terms[/{slug}]`. `./tests/browser/cms.helpers.ts`
-  wraps all of these.
+  wraps all of these. A selection names entries that exist, draft or published but not trashed, by ID
+  or by slug within the relation's other collection, and keeps the order given; anything else refuses
+  the create (`src/api/handlers/relations.ts` `resolveReferenceTargets`,
+  `src/database/repositories/content.ts` `findManyByIdOrSlug`). `./scripts/migration/writer.ts`
+  names Documents by slug, after creating them.
 - `GET …/content/{collection}/{id}` takes an id or a slug, and finds only an entry outside the trash
   (`src/api/handlers/content.ts` `handleContentGet`, `src/database/repositories/content.ts`
   `findByIdOrSlug`).

@@ -59,6 +59,19 @@ export const PM25: SyntheticCategory = {
 	parent: PUBLIC_RELATIONS.slug,
 };
 
+/** The categories of a directive: an order, or a notice. */
+export const ORDER: SyntheticCategory = {
+	domain: "category-directive",
+	slug: "order",
+	name: "คำสั่ง",
+};
+
+export const NOTICE: SyntheticCategory = {
+	domain: "category-directive",
+	slug: "notice",
+	name: "ประกาศ",
+};
+
 /** A category the defaults do not name. */
 export const OTHER_NEWS: SyntheticCategory = {
 	domain: "category-public-news",
@@ -201,6 +214,34 @@ export function attachment(
 		url: `${SITE}/${path}`,
 		excerpt: caption,
 		meta: alt === undefined ? undefined : { _wp_attachment_image_alt: alt },
+	};
+}
+
+/** The file of a synthetic directive or procurement notice, and its path in the uploads. */
+export const NOTICE_PATH = "wp-content/uploads/2025/03/notice.pdf";
+export const NOTICE_FILE = attachment(900, NOTICE_PATH);
+
+/** A directive `directive-{id}` with one file, NOTICE_FILE. */
+export function directive(id: number, fields: Partial<SyntheticItem> = {}): SyntheticItem {
+	return {
+		type: "directive",
+		id,
+		slug: `directive-${id}`,
+		title: `ประกาศที่ ${id}`,
+		meta: { file_1: "900" },
+		...fields,
+	};
+}
+
+/** A procurement notice `procurement-{id}` with one file, NOTICE_FILE. */
+export function procurement(id: number, fields: Partial<SyntheticItem> = {}): SyntheticItem {
+	return {
+		type: "procurement",
+		id,
+		slug: `procurement-${id}`,
+		title: `ประกาศผู้ชนะ ${id}`,
+		meta: { file_1: "900" },
+		...fields,
 	};
 }
 

@@ -28,18 +28,21 @@ import {
 	OTHER_NEWS,
 	PM25,
 	PUBLIC_RELATIONS,
+	NOTICE,
+	NOTICE_FILE,
+	NOTICE_PATH,
+	ORDER,
 	SITE,
 	attachment,
+	directive,
 	newsItem,
+	procurement,
 	runMigration,
 	wxrDocument,
 	zipOf,
 	type SyntheticCategory,
 	type SyntheticItem,
 } from "./migration.helpers.ts";
-
-const ORDER: SyntheticCategory = { domain: "category-directive", slug: "order", name: "คำสั่ง" };
-const NOTICE: SyntheticCategory = { domain: "category-directive", slug: "notice", name: "ประกาศ" };
 
 /** The procurement categories of the Legacy site: none of them changes the default. */
 const WINNER: SyntheticCategory = {
@@ -52,34 +55,6 @@ const AUCTION: SyntheticCategory = {
 	slug: "auction",
 	name: "ขายทอดตลาด",
 };
-
-/** The file of every synthetic directive and procurement notice, and its path in the uploads. */
-const NOTICE_PATH = "wp-content/uploads/2025/03/notice.pdf";
-const NOTICE_FILE = attachment(900, NOTICE_PATH);
-
-/** A directive `directive-{id}` with one file, NOTICE_FILE. */
-function directive(id: number, fields: Partial<SyntheticItem> = {}): SyntheticItem {
-	return {
-		type: "directive",
-		id,
-		slug: `directive-${id}`,
-		title: `ประกาศที่ ${id}`,
-		meta: { file_1: "900" },
-		...fields,
-	};
-}
-
-/** A procurement notice `procurement-{id}` with one file, NOTICE_FILE. */
-function procurement(id: number, fields: Partial<SyntheticItem> = {}): SyntheticItem {
-	return {
-		type: "procurement",
-		id,
-		slug: `procurement-${id}`,
-		title: `ประกาศผู้ชนะ ${id}`,
-		meta: { file_1: "900" },
-		...fields,
-	};
-}
 
 /** The plan of an export holding `items`, with the uploads copy's names and an earlier list. */
 async function planOf(items: SyntheticItem[], uploads: string[] = [], earlierList?: string) {

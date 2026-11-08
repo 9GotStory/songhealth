@@ -1,4 +1,4 @@
-// What the migration script's import and verify commands do on a target (#178; spec #174 "The
+// What the migration script's import and verify commands do on a target (#178, #179; spec #174 "The
 // migration script"): they read and write through EmDash's native APIs, with the helpers the demo
 // dataset uses (tests/browser/cms.helpers.ts). The plan comes from
 // scripts/migration/import-plan.ts; this module only carries it out.
@@ -86,18 +86,24 @@ export async function readTarget(admin: helpers.CmsActor, planned: ImportPlan): 
 	return { entries, terms, redirects, media, folders };
 }
 
-/** The media item a used file became: its id and its address. */
-type MediaByAttachment = Map<number, { id: string; url: string }>;
+/** A media item a used file became, as the upload answers it. */
+type MediaItem = Parameters<typeof helpers.fileFieldValue>[0] & { url: string };
+
+type MediaByAttachment = Map<number, MediaItem>;
 
 /**
- * `value` with each picture a field holds replaced by its media item's `{ id }`, and each picture
- * of a body by the `asset` the Admin editor saves: the media item's id as `_ref` and its URL
- * (`docs/agents/emdash-1.1.0.md` "Media").
+ * `value` with each picture a field holds replaced by its media item's `{ id }`, each file of a
+ * file field by the value the Admin's file picker saves, and each picture of a body by the `asset`
+ * the Admin editor saves: the media item's id as `_ref` and its URL (`docs/agents/emdash-1.1.0.md`
+ * "Media").
  */
 function withMedia(value: unknown, media: MediaByAttachment): unknown {
 	if (Array.isArray(value)) return value.map((inner) => withMedia(inner, media));
 	if (value === null || typeof value !== "object") return value;
 	if ("picture" in value) return { id: media.get((value as { picture: number }).picture)!.id };
+	if ("fileField" in value) {
+		return helpers.fileFieldValue(media.get((value as { fileField: number }).fileField)!);
+	}
 	if ("bodyPicture" in value) {
 		const { id, url } = media.get((value as { bodyPicture: number }).bodyPicture)!;
 		return { _ref: id, url };
@@ -144,7 +150,7 @@ export async function applyImport(
 			form,
 		});
 		const { item, deduplicated } = helpers.nativeDataOf(uploaded) as {
-			item: { id: string; url: string };
+			item: MediaItem;
 			deduplicated?: boolean;
 		};
 		media.set(file.attachment, item);
@@ -175,6 +181,10 @@ export async function applyImport(
 					slug: entry.slug,
 					data: withMedia(entry.data, media),
 					taxonomies: entry.taxonomies,
+					// A selection names entries that exist, by ID or by slug within the relation's other
+					// collection (emdash 1.1.0 src/api/handlers/relations.ts resolveReferenceTargets,
+					// src/database/repositories/content.ts findManyByIdOrSlug). The plan creates them first.
+					...(entry.documents === undefined ? {} : { references: { documents: entry.documents } }),
 				},
 			},
 		);
