@@ -162,7 +162,7 @@ The update runs these steps:
 1. Refuses a commit that does not contain the one the runtime serves, and names that commit. Such
    a promotion takes the runtime away from another line of work, such as another feature's branch
    that a session is still testing (#177 retro). Pass `--replace` once that work no longer needs
-   the runtime.
+   the runtime. The check runs again after a `--wait`, since another promotion can land during it.
 2. Refuses when an Admin page was opened in the last 10 minutes, and lists those page loads. The
    restart in steps 4–6 would cut off someone editing in the Admin, and the Product Owner uses
    this Admin. Verify's own probe of the Admin does not count, and neither do the browser suites'

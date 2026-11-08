@@ -16,7 +16,8 @@
 # (#146 retro: a hand-written wait loop that read the guard's wording never ended).
 # A commit that does not contain the one the runtime serves would take away another line of work,
 # such as another feature's branch under test, so the update refuses it unless given --replace
-# (#177 retro). It checks this before it waits for the Admin.
+# (#177 retro). It checks this before it waits for the Admin, so that --wait never waits only to be
+# refused, and again after the wait, since another promotion can land during it.
 # Rolling back after new EmDash migrations ran means restoring the backup taken here, after
 # pointing the checkout back at the backup's commit (docs/operations/development-quadlet.md).
 set -Eeuo pipefail
@@ -25,6 +26,18 @@ umask 077
 # shellcheck source=scripts/dev-runtime-common.sh
 . "$(dirname "${BASH_SOURCE[0]}")/dev-runtime-common.sh"
 trap '[[ $BASH_SUBSHELL == 0 ]] && die "unexpected failure (line $LINENO): $BASH_COMMAND"' ERR
+
+require_contains_served() { # stops unless SHA contains the commit the runtime serves, or --replace
+  [[ $REPLACE == no ]] || return 0
+  local status=0
+  git -C "$SRC" merge-base --is-ancestor HEAD "$SHA" || status=$?
+  case $status in
+    0) ;;
+    1) die "the runtime serves $(git -C "$SRC" log -1 --format='%h %s' HEAD), and $SHA does not contain it:
+this would take away that work. Once it no longer needs the runtime, pass --replace" ;;
+    *) die "could not compare $SHA with the commit the runtime serves (git exit $status)" ;;
+  esac
+}
 
 SHA='' BACKUP=yes FORCE=no WAIT=no REPLACE=no
 USAGE="usage: ${0##*/} --sha <commit> [--no-backup] [--replace] [--force | --wait]"
@@ -54,9 +67,7 @@ SHA=$full
 require_sha "$SHA"
 git -C "$SRC" cat-file -e "$SHA:scripts/dev-runtime-install.sh" 2>/dev/null \
   || die "commit $SHA predates this development runtime (no scripts/dev-runtime-install.sh)"
-[[ $REPLACE == yes ]] || git -C "$SRC" merge-base --is-ancestor HEAD "$SHA" \
-  || die "the runtime serves $(git -C "$SRC" log -1 --format='%h %s' HEAD), and $SHA does not contain it:
-this would take away that work. Once it no longer needs the runtime, pass --replace"
+require_contains_served
 if [[ $FORCE == no ]]; then
   recent=$(admin_page_loads)
   if [[ -n $recent && $WAIT == yes ]]; then
@@ -69,6 +80,7 @@ $recent"
   [[ -z $recent ]] || die "an Admin page was opened in the last $ADMIN_QUIET_MINUTES minutes:
 $recent
 wait until nobody is editing (--wait does it), or pass --force when these loads are your own"
+  require_contains_served
 fi
 
 if [[ $BACKUP == yes ]]; then
