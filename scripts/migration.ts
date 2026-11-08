@@ -1,5 +1,6 @@
-// The Legacy site's migration script (#177, #178, #179; spec #174 "The migration script"; ADR
-// 0008): temporary tooling, which leaves the repository with its tests when WordPress is retired.
+// The Legacy site's migration script (#177, #178, #179, #180; spec #174 "The migration script";
+// ADR 0008): temporary tooling, which leaves the repository with its tests when WordPress is
+// retired.
 //
 //   node scripts/migration.ts plan <export.xml> <wp-content.zip>
 //   node scripts/migration.ts import <export.xml> <wp-content.zip> <target> [--final]
@@ -73,17 +74,19 @@
 // reports the list as plan left it, and records the SHA-256 of the export and the zip.
 //
 // import reads the export, the zip and the Classification list beside the export, and writes the
-// news stream, directives and procurement notices to one origin through EmDash's native APIs
-// (scripts/migration/import-plan.ts says what it writes, scripts/migration/writer.ts writes it). It
-// acts as the Administrator whose API token is in the 0600 file --token-file names, on the
-// development runtime ~/.local/state/songhealth-qdev/dev-pat, and never prints the token. Without
-// --final it is a trial, which takes a row still ต้องเลือก at its default and lists it. A final run
-// refuses while any row is ต้องเลือก. Any run refuses a list that lacks an item of the export, a row
-// with no default, an order with no file to make its Document from, and a slug it would make twice
-// (exit 1), and stops before it writes anything if a target slug or a legacy redirect exists or a
-// term is missing (exit 1). A write the target refuses stops the run where it is (exit 1): restore
-// the backup taken before it. It writes import-report.json beside the export: the inputs' digests,
-// the counts, the rows taken at their default and what it could not carry.
+// news stream, directives, procurement notices and ITA posts to one origin through EmDash's native
+// APIs (scripts/migration/import-plan.ts and scripts/migration/moit-plan.ts say what it writes,
+// scripts/migration/writer.ts writes it). A file anom-001.pdf beside the export, the office's copy
+// of ANOM-001's document, is uploaded for it; without that file the MOIT links the document's
+// official source. It acts as the Administrator whose API token is in the 0600 file --token-file
+// names, on the development runtime ~/.local/state/songhealth-qdev/dev-pat, and never prints the
+// token. Without --final it is a trial, which takes a row still ต้องเลือก at its default and lists
+// it. A final run refuses while any row is ต้องเลือก. Any run refuses a list that lacks an item of
+// the export, a row with no default, an order with no file to make its Document from, and a slug it
+// would make twice (exit 1), and stops before it writes anything if a target slug or a legacy
+// redirect exists or a term is missing (exit 1). A write the target refuses stops the run where it
+// is (exit 1): restore the backup taken before it. It writes import-report.json beside the export:
+// the inputs' digests, the counts, the rows taken at their default and what it could not carry.
 //
 // import --dry-run stops after the plan: it needs no token and reaches no target, and writes
 // import-plan.json beside the export, the same each time, with the counts import would print. It
@@ -94,8 +97,9 @@
 // redirect answers one 301 to a page that answers 200, that every used file is in the Media
 // Library, that every page answers 200, that each entry is published with its legacy date and
 // belongs to the Administrator, that an Announcement's page lists its Documents in the planned
-// order, and that a Document's page offers its file under its uploaded name. It writes
-// verify-report.json beside the export, and exits 1 on a failure.
+// order, that a Document's page offers its file under its uploaded name, that a MOIT's page shows
+// all its Evidence with every file able to be served, and that a fiscal year's page lists its
+// MOITs. It writes verify-report.json beside the export, and exits 1 on a failure.
 //
 // leak-check reads the lines the staged changes add and stops (exit 1) when one holds a file name,
 // a title, a label, an alt text or a caption of the export, naming the file and the item without
@@ -105,7 +109,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { readFile, realpath, rename, writeFile } from "node:fs/promises";
+import { access, readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import { parseArgs } from "node:util";
 
@@ -113,10 +117,11 @@ import { scrubEmbeddedSecrets } from "../tests/browser/cms.helpers.ts";
 import { firstStop, planImport, type ImportPlan } from "./migration/import-plan.ts";
 import { addedLinesOf, leaksIn } from "./migration/leak-check.ts";
 import { blocksOf, computeContentHash, readLegacySite } from "./migration/legacy-site.ts";
+import { ANOM_001_FILE } from "./migration/moit-plan.ts";
 import { plan, TO_CHOOSE } from "./migration/plan.ts";
 import { verifyTarget } from "./migration/verify.ts";
 import { administrator, applyImport, readTarget, type Target } from "./migration/writer.ts";
-import { openZip, readZipNames, type Zip } from "./migration/zip.ts";
+import { openZip, readZipNames, withFileBeside, type Zip } from "./migration/zip.ts";
 
 const USAGE = `usage: node scripts/migration.ts plan <export.xml> <wp-content.zip>
        node scripts/migration.ts import <export.xml> <wp-content.zip> --origin <url> --token-file <file> [--final]
@@ -261,6 +266,11 @@ async function importPlanOf(
 		list,
 		final,
 		toBlocks: blocksOf,
+		hasOfficeFile: await access(join(folder, ANOM_001_FILE)).then(
+			() => true,
+			() => false,
+		),
+		fingerprintOf: zip.fingerprintOf,
 	});
 }
 
@@ -287,7 +297,13 @@ async function onTarget(
 	try {
 		const planned = await importPlanOf(folder, options, zip);
 		const admin = await administrator(options.origin, options.tokenFile);
-		return await work({ folder, zip, planned, admin, target: await readTarget(admin, planned) });
+		return await work({
+			folder,
+			zip: withFileBeside(zip, ANOM_001_FILE, join(folder, ANOM_001_FILE)),
+			planned,
+			admin,
+			target: await readTarget(admin, planned),
+		});
 	} finally {
 		await zip.close();
 	}
@@ -391,6 +407,8 @@ const verifyCommand = (options: TargetOptions) =>
 		console.log(`Redirects: ${JSON.stringify(result.redirects)}`);
 		console.log(`Announcements listing their Documents: ${JSON.stringify(result.lists)}`);
 		console.log(`Documents offering their file: ${JSON.stringify(result.downloads)}`);
+		console.log(`MOITs showing their Evidence: ${JSON.stringify(result.moits)}`);
+		console.log(`Fiscal years listing their MOITs: ${JSON.stringify(result.years)}`);
 		for (const failure of result.failures) console.log(`FAIL ${failure}`);
 		console.log(`VERIFY: ${result.failures.length === 0 ? "PASS" : "FAIL"}`);
 		return result.failures.length === 0 ? 0 : 1;

@@ -32,6 +32,10 @@ interface VerifyReport {
 	lists: { planned: number; passed: number };
 	/** The Documents whose page offers their file under its uploaded name. */
 	downloads: { planned: number; passed: number };
+	/** The MOITs whose page shows all their Evidence, each file of it able to be served. */
+	moits: { planned: number; passed: number };
+	/** The fiscal years whose page lists all their MOITs. */
+	years: { planned: number; passed: number };
 	failures: string[];
 }
 
@@ -63,6 +67,25 @@ const offeredFilename = (html: string) =>
 		.exec(html)?.[1]
 		?.replaceAll("&quot;", '"')
 		.replaceAll("&amp;", "&");
+
+/**
+ * How much Evidence a MOIT's page says it holds, and whether it says a file cannot be served
+ * (src/components/MoitPage.astro).
+ */
+const evidenceShown = (html: string) => ({
+	count: /หลักฐาน (\d+) รายการ/.exec(html)?.[1],
+	unavailable: html.includes("ไฟล์ที่ไม่พร้อมให้บริการ"),
+});
+
+/** The pieces of Evidence among a planned MOIT's blocks, its Requirements left aside. */
+const plannedEvidence = (data: Record<string, unknown>) =>
+	(data.evidence as { _type: string }[]).filter(({ _type }) => _type !== "ita_requirement").length;
+
+/** The slugs a fiscal year's page links to (src/components/ItaYearPage.astro). */
+const listedMoits = (html: string) =>
+	new Set(
+		[...html.matchAll(/href="\/ita\/([^"#?]+)"/g)].map(([, slug]) => decodeURIComponent(slug!)),
+	);
 
 /**
  * The report of a target checked against the plan: no failure means it holds what the plan wrote.
@@ -134,6 +157,8 @@ export async function verifyTarget({
 		planned: planned.entries.filter((e) => e.collection === "documents").length,
 		passed: 0,
 	};
+	const moitEntries = planned.entries.filter((e) => e.collection === "moit");
+	const moits = { planned: moitEntries.length, passed: 0 };
 	for (const { page, collection, documents, data } of planned.entries) {
 		const { status, body } = await request(page);
 		pageStatus.set(page, status);
@@ -165,6 +190,36 @@ export async function verifyTarget({
 					`${page} offers ${offered ?? "no file"}, not ${expected ?? "a library file"}`,
 				);
 		}
+		if (collection === "moit") {
+			const { count, unavailable } = evidenceShown(body);
+			const expected = plannedEvidence(data);
+			if (count === undefined || Number(count) !== expected) {
+				failures.push(`${page} shows ${count ?? "no"} pieces of Evidence, not ${expected}`);
+			} else if (unavailable) {
+				failures.push(`${page} has a file that cannot be served`);
+			} else {
+				moits.passed++;
+			}
+		}
+	}
+	const slugsOfYear = new Map<number, string[]>();
+	for (const { slug, data } of moitEntries) {
+		const year = data.fiscal_year as number;
+		slugsOfYear.set(year, [...(slugsOfYear.get(year) ?? []), slug]);
+	}
+	const years = { planned: slugsOfYear.size, passed: 0 };
+	for (const [year, slugs] of slugsOfYear) {
+		const path = `/ita/${year}`;
+		const { status, body } = await request(path);
+		pageStatus.set(path, status);
+		if (status !== 200) {
+			failures.push(`${path} answers ${status}`);
+			continue;
+		}
+		const listed = listedMoits(body);
+		const absent = slugs.filter((slug) => !listed.has(slug));
+		if (absent.length === 0) years.passed++;
+		else failures.push(`${path} does not list ${absent.join(", ")}`);
 	}
 	const redirects = { planned: planned.redirects.length, passed: 0 };
 	for (const { source, destination } of planned.redirects) {
@@ -180,5 +235,15 @@ export async function verifyTarget({
 			redirects.passed++;
 		}
 	}
-	return { entries: entryCounts, files, pages, redirects, lists, downloads, failures };
+	return {
+		entries: entryCounts,
+		files,
+		pages,
+		redirects,
+		lists,
+		downloads,
+		moits,
+		years,
+		failures,
+	};
 }

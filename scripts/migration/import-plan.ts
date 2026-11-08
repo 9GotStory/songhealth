@@ -1,23 +1,28 @@
-// What the migration script's import command writes (#178, #179; spec #174 "The migration script",
-// "Mapping: the news stream", "Mapping: directives and procurement notices" and "Redirects"): the
-// plan of an export and its Classification list.
+// What the migration script's import command writes (#178, #179, #180; spec #174 "The migration
+// script", "Mapping: the news stream", "Mapping: directives and procurement notices", "Mapping: ITA
+// posts" and "Redirects"): the plan of an export and its Classification list, the ITA posts from
+// scripts/migration/moit-plan.ts.
 // scripts/migration.ts reads the files and scripts/migration/writer.ts applies the plan; at run
-// time this module imports only the planner, which imports nothing, so node:test checks it directly
-// (tests/node/migration-import.test.ts).
+// time this module imports only the planning modules, which import nothing else, so node:test
+// checks it directly (tests/node/migration-import.test.ts, tests/node/migration-moit.test.ts).
 
 import type { LegacyItem, LegacySite } from "./legacy-site.ts";
+import { planMoits, withOfficeFile } from "./moit-plan.ts";
 import {
 	count,
 	filesOf,
+	hasFile,
 	hasFlag,
 	holdsText,
 	lastPartOf,
 	linksIn,
 	plan,
+	sitePath,
 	targetOf,
 	TO_CHOOSE,
 	typeOf,
 	usesOf,
+	withoutLastSlash,
 	type ListRow,
 	type Target,
 } from "./plan.ts";
@@ -25,7 +30,16 @@ import {
 /** A Portable Text block, as EmDash's converter makes it. */
 export interface Block {
 	_type: string;
-	children?: { text: string }[];
+	children?: { text: string; marks?: string[] }[];
+	/** A link's `href`, by the key its spans name in their `marks`. */
+	markDefs?: { _key: string; _type: string; href?: string }[];
+	/** The kind of list a block is an item of. */
+	listItem?: string;
+	/**
+	 * An image block's address, as the HTML has it (`docs/agents/emdash-1.1.0.md` "WordPress
+	 * import").
+	 */
+	asset?: { _ref?: string };
 }
 
 /** The Media Library folders of the items' files (spec #174 "Pages, media and links"). */
@@ -50,8 +64,8 @@ interface PlannedFile {
 }
 
 /** An entry the import creates and publishes. */
-interface PlannedEntry {
-	collection: "news" | "activities" | "announcements" | "documents";
+export interface PlannedEntry {
+	collection: "news" | "activities" | "announcements" | "documents" | "moit";
 	slug: string;
 	/** The legacy publish date, as an ISO 8601 instant. */
 	publishedAt: string;
@@ -78,7 +92,7 @@ interface ImportReport {
 }
 
 /** A 301 from a legacy address to a page on Songhealth (spec #174 "Redirects"). */
-interface PlannedRedirect {
+export interface PlannedRedirect {
 	source: string;
 	destination: string;
 }
@@ -109,6 +123,10 @@ export interface ImportInput {
 	final: boolean;
 	/** HTML as Portable Text blocks, which the run-time reader provides. */
 	toBlocks: (html: string) => Block[];
+	/** Whether the office's copy of ANOM-001's file lies beside the export. */
+	hasOfficeFile: boolean;
+	/** What tells a file's bytes from another's, which the uploads copy's directory records. */
+	fingerprintOf: (path: string) => string;
 }
 
 type EntryTarget = Exclude<Target, typeof TO_CHOOSE>;
@@ -165,7 +183,15 @@ const embedsIn = (html: string) =>
 	[...html.matchAll(/<(?:img|iframe|embed|object|video|audio)\b[^>]*>/gi)].map(([tag]) => tag);
 
 /** The plan of an export and its Classification list. */
-export function planImport({ site, uploads, list, final, toBlocks }: ImportInput): ImportPlan {
+export function planImport({
+	site,
+	uploads,
+	list,
+	final,
+	toBlocks,
+	hasOfficeFile,
+	fingerprintOf,
+}: ImportInput): ImportPlan {
 	const { rows, inventory } = plan({ site, uploads, earlierList: list });
 	const { added, toChoose, vanished } = inventory.list;
 	if (added.length > 0)
@@ -175,7 +201,8 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 			`the final import refuses while these rows are "${TO_CHOOSE}": ${toChoose.join(", ")}`,
 		);
 	}
-	const legacyFiles = filesOf(site, uploads);
+	const uploadFiles = filesOf(site, uploads);
+	const legacyFiles = hasOfficeFile ? withOfficeFile(uploadFiles) : uploadFiles;
 	// A row whose item has gone back to a draft stays out with the rows plan flags not-in-export.
 	const items = new Map(
 		site.items.filter((item) => item.status === "publish").map((item) => [String(item.id), item]),
@@ -214,10 +241,7 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 		usedBy.set(id, slugs);
 		if (!folderOf.has(id)) folderOf.set(id, folder);
 	};
-	const available = (id: number) => {
-		const path = legacyFiles.byId.get(id)?.path;
-		return path !== undefined && legacyFiles.uploads.has(path);
-	};
+	const available = (id: number) => hasFile(legacyFiles, id);
 	/** A field's value for an attachment whose file exists, or none. */
 	const refTo = (id: number | undefined): PictureRef | undefined =>
 		id !== undefined && available(id) ? { picture: id } : undefined;
@@ -403,6 +427,23 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 		...newsRows.map(newsEntry),
 		...directiveAndProcurementRows.flatMap(directiveOrProcurementEntries),
 	];
+	const moits = planMoits({
+		posts: site.items.filter((item) => item.type === "post" && item.status === "publish"),
+		files: legacyFiles,
+		toBlocks,
+		fingerprintOf,
+		redirects,
+	});
+	entries.push(...moits.entries);
+	if (moits.entries.length > 0) groups.post = { MOIT: moits.entries.length };
+	redirects.push(...moits.redirects);
+	notes.push(...moits.notes);
+	// An ITA file's folder stands over a first use's: the other folders hold the rest (spec #174
+	// "Pages, media and links").
+	for (const { id, slug, folder } of moits.uses) {
+		use(id, slug, folder);
+		folderOf.set(id, folder);
+	}
 	// A numbered Document can meet another item's slug, and EmDash would refuse the second create
 	// with the run half written (`docs/agents/emdash-1.1.0.md` "Native API for tests",
 	// SLUG_CONFLICT).
@@ -410,11 +451,12 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 	const twice = names.find((name, at) => names.indexOf(name) !== at);
 	if (twice !== undefined) throw new Error(`${twice} is planned twice`);
 	const files = [...usedBy.keys()].filter(available).map((id): PlannedFile => {
-		const { path, alt, caption } = legacyFiles.byId.get(id)!;
+		const { path, url, alt, caption } = legacyFiles.byId.get(id)!;
 		return {
 			attachment: id,
 			path: path!,
-			filename: lastPartOf(path!),
+			// Its address names it, also when the office's copy, under another name, stands for it.
+			filename: lastPartOf(sitePath(url)!),
 			folder: folderOf.get(id)!,
 			alt,
 			caption,
@@ -433,12 +475,6 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 		report: { groups, missing, notes, atDefault, notInExport: vanished },
 	};
 }
-
-/**
- * An address without its last slash, since EmDash's redirects match a path with or without it
- * (emdash 1.1.0 src/astro/middleware/redirect.ts).
- */
-const withoutLastSlash = (path: string) => path.replace(/\/$/, "");
 
 /**
  * Why the import must stop before it writes anything, or none (spec #174 "The migration script"):

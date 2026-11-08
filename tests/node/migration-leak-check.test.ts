@@ -35,6 +35,8 @@ function item(slug: string, fields: Partial<LegacyItem> = {}): LegacyItem {
 		title: "",
 		status: "publish",
 		published: undefined,
+		modified: undefined,
+		tags: [],
 		categories: [],
 		featured: undefined,
 		pictures: [],
