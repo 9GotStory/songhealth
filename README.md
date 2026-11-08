@@ -82,10 +82,30 @@ its dependency scan too (#191 retro).
 
 Keep existing user prototypes in place. An isolated worktree lets implementation checks inspect
 only the ticket's source when unrelated working files interfere. Start it at the intended baseline,
-verify its branch/HEAD, and run checks and formatting there. A fresh worktree follows CI's
-build-before-typecheck order (`.github/workflows/checks.yml`) to generate the Astro types. Record
-the prototype's question, verdict and source context with its ticket; publishing the prototype
-follows that ticket's scope.
+verify its branch/HEAD, and run checks and formatting there. Bootstrap a fresh worktree with its
+own dependencies, using the Node/npm versions in `package.json` (#193 retro, Product Owner
+comment 6722771184). Run this from that worktree; a root `node_modules` symlink can appear as an
+untracked file despite `node_modules/` in `.gitignore`, which makes source scans fail with
+`EISDIR`. The first check stops before installation touches such a link:
+
+```bash
+(
+  set -e
+  scripts/check-node.sh
+  test ! -L node_modules
+  npm ci
+  test -d node_modules
+  test -z "$(git ls-files --others --exclude-standard -- node_modules)"
+  npm run build:check
+  npm run typecheck
+)
+```
+
+Success means an ignored dependency directory, followed by a passing build and typecheck. This
+follows CI's build-before-typecheck order (`.github/workflows/checks.yml`) to generate Astro types.
+Use `npm run format` to fix formatting: it includes the comment wrapper that Prettier alone omits.
+Record the prototype's question, verdict and source context with its ticket; publishing the
+prototype follows that ticket's scope.
 
 ## The development runtime
 
@@ -139,6 +159,47 @@ pages in that context. `expectNoAxeViolations` reports the JavaScript prerequisi
 for that context; run axe in JavaScript-enabled cases and verify no-script navigation separately.
 This uses Playwright 1.63.0's native option fixture (`node_modules/playwright/lib/index.js`,
 `javaScriptEnabled`), including `test.use` overrides.
+
+### First browser interaction check
+
+For a public interaction change, make the first tracer reach its accessible name, axe, keyboard
+focus and real navigation before extending the change across components/contexts (#193 retro,
+Product Owner comment 6722771184). Use the existing public HTTP seam and choose a case that reaches
+what changed. `tests/browser/public-cards.spec.ts` is the worked example for whole-surface pointer
+activation, title-named links, modified-click tabs and hidden controls across breakpoints.
+
+The card example below selects one 320 px News interaction case and its native new-tab case.
+The existing cases exercise the actual runtime; a passing click alone does not establish their
+accessibility. Keep JavaScript-enabled axe and JavaScript-disabled navigation in separate cases.
+Run serially through the normal environment wrapper, which honors another session's open
+[development window](docs/operations/development-quadlet.md#a-window):
+
+```bash
+(
+  set -e
+  mkdir -p .tmp
+  interaction_dir=$(mktemp -d .tmp/interaction-first.XXXXXX)
+  printf 'Interaction evidence: %s\n' "$interaction_dir"
+  git rev-parse HEAD > "$interaction_dir/test-client-sha.txt"
+  git diff HEAD -- src/components tests/browser/public-cards.spec.ts > "$interaction_dir/test-client.patch"
+  ~/dev/songhealth-quadlet/scripts/dev-runtime-verify.sh > "$interaction_dir/runtime-verify.log"
+  interaction_status=0
+  scripts/dev-runtime-env.sh node node_modules/@playwright/test/cli.js test \
+    tests/browser/public-cards.spec.ts \
+    --grep 'News whole-card links.*320px|native modified click' --grep-invert 'Health News' \
+    --workers=1 --output="$interaction_dir/artifacts" \
+    > "$interaction_dir/test.log" 2>&1 || interaction_status=$?
+  printf '%s\n' "$interaction_status" > "$interaction_dir/exit-status.txt"
+  tail -n 10 "$interaction_dir/test.log"
+  exit "$interaction_status"
+)
+```
+
+Keep the client SHA/patch and runtime verify result distinct. Adding `--list` to the selected
+Playwright command previews the two cases without running fixtures (Playwright 1.63.0,
+`node_modules/playwright/lib/program.js`). After the first interaction passes, expand coverage to
+all affected kinds/contexts and run the required final suites. This selection changes no test
+assertion, timeout, retry, fixture restoration or cleanup behavior.
 
 ### Homepage diagnostics
 
