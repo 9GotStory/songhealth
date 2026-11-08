@@ -154,7 +154,8 @@ export async function verifyTarget({
 		if (collection === "documents") {
 			// scripts/migration/writer.ts saves the media item the upload answers, and for a file
 			// EmDash reused that item keeps the first upload's name (emdash 1.1.0
-			// src/astro/routes/api/media.ts).
+			// src/astro/routes/api/media.ts). The link is what is checked, not the bytes behind it, which
+			// the Media Library's content hash covers (Product Owner, #179 comment 6722228048, item 2).
 			const hash = hashes.get((data.file as { fileField: number }).fileField);
 			const expected = media.find((item) => item.contentHash === hash)?.filename;
 			const offered = offeredFilename(body);

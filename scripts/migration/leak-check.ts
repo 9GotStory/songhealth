@@ -52,7 +52,8 @@ function stringsOf(site: LegacySite): Map<string, string> {
 
 /**
  * Where `added` holds the export's strings, once for each string and file. A research note may name
- * a real item on purpose, as `docs/research/legacy-ita.md` names ANOM-001's file.
+ * a real item on purpose, as `docs/research/legacy-ita.md` names ANOM-001's file (Product Owner,
+ * #179 comment 6722228048, item 1).
  */
 export function leaksIn(site: LegacySite, added: AddedLines[]): Leak[] {
 	const strings = [...stringsOf(site)];
