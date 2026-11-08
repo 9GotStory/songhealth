@@ -85,8 +85,8 @@
 //
 // import --dry-run stops after the plan: it needs no token and reaches no target, and writes
 // import-plan.json beside the export, the same each time, with the counts import would print. It
-// shows a window's numbers before the window, and a commit after a trial proves that the trial
-// still stands by writing the same plan.
+// shows a window's numbers before the window. Keep a copy from before a window: a later commit that
+// writes the same file plans the same import, though a change to the writer still needs a window.
 //
 // verify checks a target against the same plan, read as a trial reads it: the counts, that each
 // redirect answers one 301 to a page that answers 200, that every used file is in the Media

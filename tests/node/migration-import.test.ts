@@ -1063,15 +1063,12 @@ describe("the script's EmDash imports", () => {
 		const loading: string[] = [];
 		for (const name of modules) {
 			const source = await readFile(new URL(name, folder), "utf8");
-			const statements = [...source.matchAll(/^import\s[\s\S]*?;$/gm)].map(
-				([statement]) => statement,
-			);
-			const loads = statements.some(
-				(statement) =>
-					!statement.startsWith("import type ") &&
-					/from "(?:emdash|@emdash-cms\/[^"]+)"/.test(statement),
-			);
-			if (loads) loading.push(name);
+			const fromEmDash = /^(?:import|export)\s[^;]*?from\s+"(?:emdash|@emdash-cms\/)[^"]*";$/gm;
+			const statements = [...source.matchAll(fromEmDash)].map(([statement]) => statement);
+			const dynamic = /\bimport\(\s*"(?:emdash|@emdash-cms\/)/.test(source);
+			if (dynamic || statements.some((statement) => !statement.startsWith("import type "))) {
+				loading.push(name);
+			}
 		}
 		assert.deepEqual(loading, ["legacy-site.ts"]);
 	});

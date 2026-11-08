@@ -427,6 +427,7 @@ the ADR 0003 revisit of production images.
 - **Restore.** `scripts/dev-runtime-restore.sh --confirm <dump> <media-tar> <checksums> <meta>`
   restores into the running database with the app stopped. It admits only a backup whose
   recorded commit equals the runtime's promoted commit (see the rollback steps above).
+- **A window:** backing up, changing the data and restoring as one held stretch is "A window" below.
 - **What a backup covers.** Database and media only. The secrets (including
   `EMDASH_ENCRYPTION_KEY`, needed to read encrypted plugin settings) live in the podman secret
   store and are not part of any backup.
@@ -438,11 +439,12 @@ as removing the demo dataset and importing the migration's trial, then a restore
 Every session shares this runtime, and a promotion during a window leaves a backup the restore
 refuses, so a window holds the runtime:
 
-1. `scripts/dev-runtime-window.sh open "<why>"` writes the lock. `scripts/dev-runtime-update.sh` and
-   `scripts/dev-runtime-env.sh` refuse from now on, naming the window, for every session. Its holder
-   runs `scripts/dev-runtime-env.sh --in-window <command>`.
-2. `scripts/dev-runtime-verify.sh`, `scripts/dev-runtime-residue.sh`, then
-   `scripts/dev-runtime-backup.sh <new folder under backups/>`.
+1. Check that no suite is running, which the lock cannot see: `pgrep -f '^node .*playwright'` prints
+   nothing. Then `scripts/dev-runtime-window.sh open "<why>"` writes the lock.
+   `scripts/dev-runtime-update.sh` and `scripts/dev-runtime-env.sh` refuse from now on, naming the
+   window, for every session. Its holder runs `scripts/dev-runtime-env.sh --in-window <command>`.
+2. `scripts/dev-runtime-verify.sh`, `scripts/dev-runtime-residue.sh`, then make a folder under
+   `~/.local/state/songhealth-qdev/backups/` and run `scripts/dev-runtime-backup.sh <that folder>`.
 3. The work.
 4. Put it back: `systemctl --user stop songhealth-dev-app.service`, then the restore above (it asks
    three times, so type `yes` three times), `systemctl --user start songhealth-dev-app.service`, and

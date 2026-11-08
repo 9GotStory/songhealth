@@ -10,6 +10,7 @@
 #   scripts/dev-runtime-env.sh node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir>
 set -euo pipefail
 state=$HOME/.local/state/songhealth-qdev
+# $state/window is dev-runtime-common.sh's WINDOW_LOCK.
 if [[ ${1-} == --in-window ]]; then
   shift
 elif [[ -e $state/window ]]; then
