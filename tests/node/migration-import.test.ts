@@ -1,5 +1,5 @@
-// The migration script's import of the news stream (#178; spec #174 "The migration script",
-// "Mapping: the news stream" and "Redirects"; seam A).
+// The migration script's import (#178, #179; spec #174 "The migration script", "Mapping: the news
+// stream", "Mapping: directives and procurement notices" and "Redirects"; seam A).
 //
 // The import turns the Legacy site's export and the Classification list into a plan of what it
 // writes, and verify checks a target against that plan. The expected values come from the spec and
@@ -21,11 +21,16 @@ import { verifyTarget, type VerifyInput } from "../../scripts/migration/verify.t
 import { openZip, type Zip } from "../../scripts/migration/zip.ts";
 import {
 	ACTIVITY,
+	NOTICE,
+	NOTICE_FILE,
+	ORDER,
 	OTHER_NEWS,
 	PM25,
 	PUBLIC_RELATIONS,
 	attachment,
+	directive,
 	newsItem,
+	procurement,
 	runMigration,
 	wxrDocument,
 	zipOf,
@@ -219,6 +224,23 @@ describe("an Activity", () => {
 			{ image: { picture: 13 }, caption: "คำบรรยายภาพที่สอง" },
 			{ image: { picture: 12 } },
 		]);
+	});
+
+	it("keeps a notice's featured picture out of the gallery and names it in the report", async () => {
+		const { entries, report } = await importOf([
+			onePage(11),
+			onePage(12),
+			newsItem(1, { categories: [ACTIVITY], meta: { ...featuring(11), image_2: "12" } }),
+			procurement(2, { meta: { _thumbnail_id: "12" } }),
+		]);
+		assert.equal(entries[0]!.data.gallery, undefined);
+		assert.ok(
+			report.notes.some(
+				(line) =>
+					line.slug === "news-1" &&
+					line.note === "picture 12 is the featured image of procurement-2: left out",
+			),
+		);
 	});
 
 	it("keeps another item's featured picture out of the gallery and names it in the report", async () => {
@@ -555,6 +577,544 @@ describe("an Activity's text, which only a row moved from News can have", () => 
 	});
 });
 
+describe("an Announcement", () => {
+	it("keeps the title and the legacy slug, with the publish date as its announcement date and no open or close date", async () => {
+		const { entries } = await importOf([procurement(1, { date: "2025-03-14 03:00:00", meta: {} })]);
+		assert.deepEqual(entries, [
+			{
+				collection: "announcements",
+				slug: "procurement-1",
+				publishedAt: "2025-03-14T03:00:00.000Z",
+				data: { title: "ประกาศผู้ชนะ 1", announcement_at: "2025-03-14T03:00:00.000Z" },
+				taxonomies: { announcement_type: ["procurement"] },
+				page: "/announcements/procurement-1",
+			},
+		]);
+	});
+
+	it("takes its type from the list: its default, or a reviewer's type by term slug", async () => {
+		const { entries } = await importOf(
+			[
+				procurement(1, { meta: {} }),
+				directive(2, { categories: [NOTICE], title: "ประกาศรับสมัครพนักงาน", meta: {} }),
+				directive(3, { categories: [NOTICE], meta: {} }),
+				procurement(4, { meta: {} }),
+			],
+			{ reviews: { "procurement-4": { decision_type: "general" } } },
+		);
+		assert.deepEqual(
+			entries.map(({ slug, taxonomies }) => [slug, taxonomies]),
+			[
+				["directive-2", { announcement_type: ["recruitment"] }],
+				["directive-3", { announcement_type: ["general"] }],
+				["procurement-1", { announcement_type: ["procurement"] }],
+				["procurement-4", { announcement_type: ["general"] }],
+			],
+		);
+	});
+
+	it("has no type when a reviewer's change of target leaves it none", async () => {
+		const { entries } = await importOf([directive(1, { categories: [ORDER], meta: {} })], {
+			reviews: { "directive-1": { decision: "Announcement" } },
+		});
+		assert.deepEqual(
+			entries.map(({ collection, taxonomies }) => [collection, taxonomies]),
+			[["announcements", {}]],
+		);
+	});
+});
+
+/** A notice's file `id`, at its own path in the uploads. */
+const noticeFile = (id: number) => attachment(id, `wp-content/uploads/2025/03/notice-${id}.pdf`);
+
+/** A notice's two files, 21 and 22, with the labels WordPress keeps in `text_1` and `text_2`. */
+const TWO_FILES = { file_1: "21", text_1: "ส่วนที่หนึ่ง", file_2: "22", text_2: "ส่วนที่สอง" };
+
+describe("an Announcement's Documents", () => {
+	it("makes one Document per file, which the Announcement references in the files' order", async () => {
+		const { entries } = await importOf([
+			noticeFile(21),
+			noticeFile(22),
+			directive(5, { categories: [NOTICE], meta: TWO_FILES }),
+		]);
+		assert.deepEqual(entries.find(({ collection }) => collection === "announcements")?.documents, [
+			"directive-5",
+			"directive-5-2",
+		]);
+		assert.deepEqual(
+			entries.filter(({ collection }) => collection === "documents").map(({ slug }) => slug),
+			["directive-5", "directive-5-2"],
+		);
+	});
+
+	it("come before the Announcement, since a reference names an entry that exists", async () => {
+		const { entries } = await importOf([
+			noticeFile(21),
+			noticeFile(22),
+			procurement(1, { meta: TWO_FILES }),
+		]);
+		assert.deepEqual(
+			entries.map(({ collection }) => collection),
+			["documents", "documents", "announcements"],
+		);
+	});
+
+	it("follow the files' fields, whatever their attachments' IDs", async () => {
+		const { entries } = await importOf([
+			noticeFile(21),
+			noticeFile(22),
+			procurement(1, { meta: { file_1: "22", text_1: "แรก", file_2: "21", text_2: "หลัง" } }),
+		]);
+		assert.deepEqual(
+			entries
+				.filter(({ collection }) => collection === "documents")
+				.map(({ slug, data }) => [slug, data.title, data.file]),
+			[
+				["procurement-1", "ประกาศผู้ชนะ 1 – แรก", { fileField: 22 }],
+				["procurement-1-2", "ประกาศผู้ชนะ 1 – หลัง", { fileField: 21 }],
+			],
+		);
+		assert.deepEqual(entries.find(({ collection }) => collection === "announcements")?.documents, [
+			"procurement-1",
+			"procurement-1-2",
+		]);
+	});
+
+	it("leaves an Announcement without a file without Documents", async () => {
+		const { entries } = await importOf([procurement(1, { meta: {} })]);
+		assert.equal(entries[0]!.documents, undefined);
+	});
+});
+
+describe("a Document made from a file", () => {
+	it("holds the item's title, the publish date, the fiscal year and the file, with no type, owner or source", async () => {
+		const { entries } = await importOf([
+			NOTICE_FILE,
+			procurement(1, { date: "2025-03-14 03:00:00" }),
+		]);
+		assert.deepEqual(entries[0], {
+			collection: "documents",
+			slug: "procurement-1",
+			publishedAt: "2025-03-14T03:00:00.000Z",
+			data: {
+				title: "ประกาศผู้ชนะ 1",
+				file: { fileField: 900 },
+				document_at: "2025-03-14T03:00:00.000Z",
+				fiscal_year: 2568,
+			},
+			taxonomies: {},
+			page: "/documents/procurement-1",
+		});
+	});
+
+	it("adds the file's label to the title only when the item has several files", async () => {
+		const { entries } = await importOf([
+			noticeFile(21),
+			noticeFile(22),
+			noticeFile(23),
+			directive(5, { categories: [NOTICE], meta: TWO_FILES }),
+			directive(6, {
+				categories: [NOTICE],
+				title: "ประกาศเดียว",
+				meta: { file_1: "23", text_1: "ป้ายเดียว" },
+			}),
+		]);
+		assert.deepEqual(
+			entries.filter(({ collection }) => collection === "documents").map(({ data }) => data.title),
+			["ประกาศที่ 5 – ส่วนที่หนึ่ง", "ประกาศที่ 5 – ส่วนที่สอง", "ประกาศเดียว"],
+		);
+	});
+
+	it("keeps the item's title alone for a file without a label among several, and trims a label", async () => {
+		const { entries } = await importOf([
+			noticeFile(21),
+			noticeFile(22),
+			noticeFile(23),
+			procurement(1, {
+				meta: { file_1: "21", file_2: "22", text_2: "  ส่วนที่สอง  ", file_3: "23", text_3: "   " },
+			}),
+		]);
+		assert.deepEqual(
+			entries.filter(({ collection }) => collection === "documents").map(({ data }) => data.title),
+			["ประกาศผู้ชนะ 1", "ประกาศผู้ชนะ 1 – ส่วนที่สอง", "ประกาศผู้ชนะ 1"],
+		);
+	});
+
+	it("numbers the Documents' slugs from the second file on", async () => {
+		const { entries } = await importOf([
+			noticeFile(21),
+			noticeFile(22),
+			noticeFile(23),
+			procurement(1, { meta: { file_1: "21", file_2: "22", file_3: "23" } }),
+		]);
+		assert.deepEqual(
+			entries.filter(({ collection }) => collection === "documents").map(({ slug }) => slug),
+			["procurement-1", "procurement-1-2", "procurement-1-3"],
+		);
+	});
+
+	describe("its fiscal year, October to September by the Bangkok calendar", () => {
+		const yearAt = async (date: string) => {
+			const { entries } = await importOf([NOTICE_FILE, procurement(1, { date })]);
+			return entries[0]!.data.fiscal_year;
+		};
+
+		it("is the Buddhist year's on the last moment of September", async () => {
+			assert.equal(await yearAt("2025-09-30 16:59:59"), 2568);
+		});
+
+		it("is the next Buddhist year's from the first moment of October", async () => {
+			assert.equal(await yearAt("2025-09-30 17:00:00"), 2569);
+		});
+
+		it("stays the same across the New Year", async () => {
+			assert.equal(await yearAt("2025-12-31 16:59:59"), 2569);
+			assert.equal(await yearAt("2025-12-31 17:00:00"), 2569);
+		});
+	});
+});
+
+describe("an order", () => {
+	it("is a Document of the type คำสั่ง, under the legacy slug, with no Announcement", async () => {
+		const { entries } = await importOf([NOTICE_FILE, directive(1, { categories: [ORDER] })]);
+		assert.deepEqual(
+			entries.map(({ collection, slug, taxonomies }) => [collection, slug, taxonomies]),
+			[["documents", "directive-1", { document_type: ["order"] }]],
+		);
+	});
+
+	it("gives every file its type when it has several", async () => {
+		const { entries } = await importOf([
+			noticeFile(21),
+			noticeFile(22),
+			directive(1, { categories: [ORDER], meta: TWO_FILES }),
+		]);
+		assert.deepEqual(
+			entries.map(({ slug, taxonomies }) => [slug, taxonomies]),
+			[
+				["directive-1", { document_type: ["order"] }],
+				["directive-1-2", { document_type: ["order"] }],
+			],
+		);
+	});
+
+	it("stops the run when it names no file, since a Document holds one", async () => {
+		await assert.rejects(
+			importOf([directive(1, { categories: [ORDER], meta: {} })]),
+			/directive-1 has no file to make a Document from/,
+		);
+	});
+});
+
+describe("a reviewer's change of target", () => {
+	it("makes a notice a Document without a type, unless the reviewer names one", async () => {
+		const { entries } = await importOf([NOTICE_FILE, procurement(1), procurement(2)], {
+			reviews: {
+				"procurement-1": { decision: "Document" },
+				"procurement-2": { decision: "Document", decision_type: "order" },
+			},
+		});
+		assert.deepEqual(
+			entries.map(({ collection, slug, taxonomies }) => [collection, slug, taxonomies]),
+			[
+				["documents", "procurement-1", {}],
+				["documents", "procurement-2", { document_type: ["order"] }],
+			],
+		);
+	});
+
+	it("makes an order an Announcement that lists its one untyped Document", async () => {
+		const { entries } = await importOf([NOTICE_FILE, directive(1, { categories: [ORDER] })], {
+			reviews: { "directive-1": { decision: "Announcement", decision_type: "general" } },
+		});
+		assert.deepEqual(
+			entries.map(({ collection, slug, taxonomies, documents }) => [
+				collection,
+				slug,
+				taxonomies,
+				documents,
+			]),
+			[
+				["documents", "directive-1", {}, undefined],
+				["announcements", "directive-1", { announcement_type: ["general"] }, ["directive-1"]],
+			],
+		);
+	});
+});
+
+describe("an Announcement's details", () => {
+	it("hold its ACF pictures in their fields' order, with their alt text and caption", async () => {
+		const { entries } = await importOf([
+			onePage(31, { alt: "ภาพประกาศ", caption: "คำบรรยาย" }),
+			onePage(32),
+			directive(2, {
+				categories: [NOTICE],
+				meta: { image_1: "32", image_2: "31" },
+			}),
+		]);
+		assert.deepEqual(entries[0]!.data.details, [
+			{ _type: "image", _key: "legacy-picture-32", asset: { bodyPicture: 32 }, alt: "" },
+			{
+				_type: "image",
+				_key: "legacy-picture-31",
+				asset: { bodyPicture: 31 },
+				alt: "ภาพประกาศ",
+				caption: "คำบรรยาย",
+			},
+		]);
+	});
+
+	it("leave out its own featured picture, and have no details without another picture", async () => {
+		const { entries } = await importOf([
+			onePage(31),
+			procurement(1, { meta: { _thumbnail_id: "31", image_1: "31" } }),
+		]);
+		assert.equal(entries[0]!.data.details, undefined);
+	});
+
+	it("leave out another notice's featured picture, and the report names it", async () => {
+		const { entries, report } = await importOf([
+			onePage(31),
+			procurement(1, { meta: { _thumbnail_id: "31" } }),
+			procurement(2, { meta: { image_1: "31" } }),
+		]);
+		assert.equal(entries.find(({ slug }) => slug === "procurement-2")!.data.details, undefined);
+		assert.deepEqual(
+			report.notes.filter(({ slug }) => slug === "procurement-2"),
+			[
+				{
+					slug: "procurement-2",
+					note: "picture 31 is the featured image of procurement-1: left out",
+				},
+			],
+		);
+	});
+
+	it("leave out a news item's featured picture too", async () => {
+		const { entries, report } = await importOf([
+			onePage(11),
+			newsItem(1, { categories: [ACTIVITY], meta: featuring(11) }),
+			procurement(2, { meta: { image_1: "11" } }),
+		]);
+		assert.equal(entries.find(({ slug }) => slug === "procurement-2")!.data.details, undefined);
+		assert.deepEqual(report.notes, [
+			{ slug: "procurement-2", note: "picture 11 is the featured image of news-1: left out" },
+		]);
+	});
+
+	it("leave out a picture whose file the uploads copy lacks, which the report lists", async () => {
+		const items = [
+			onePage(31),
+			onePage(32),
+			procurement(1, { meta: { image_1: "31", image_2: "32" } }),
+		];
+		const { entries, report } = await importOf(items, {
+			uploads: uploadsOf(items).filter((path) => !path.endsWith("-31.webp")),
+		});
+		assert.deepEqual(
+			(entries[0]!.data.details as { asset: { bodyPicture: number } }[]).map(
+				({ asset }) => asset.bodyPicture,
+			),
+			[32],
+		);
+		assert.deepEqual(report.missing, [
+			{
+				attachment: 31,
+				path: "wp-content/uploads/2025/03/one-page-31.webp",
+				usedBy: ["procurement-1"],
+			},
+		]);
+	});
+});
+
+describe("the files of directives and procurement notices", () => {
+	it("go into the folder of notices and documents under their uploaded names, the ACF picture too", async () => {
+		const { files } = await importOf([
+			attachment(21, "wp-content/uploads/2025/03/aBcDeFgHiJ-1700000000.pdf"),
+			onePage(31, { alt: "ภาพประกาศ" }),
+			procurement(1, { meta: { file_1: "21", image_1: "31" } }),
+		]);
+		assert.deepEqual(files, [
+			{
+				attachment: 21,
+				path: "wp-content/uploads/2025/03/aBcDeFgHiJ-1700000000.pdf",
+				filename: "aBcDeFgHiJ-1700000000.pdf",
+				folder: "เว็บไซต์เดิม: ประกาศและเอกสาร",
+				alt: "",
+				caption: "",
+			},
+			{
+				attachment: 31,
+				path: "wp-content/uploads/2025/03/one-page-31.webp",
+				filename: "one-page-31.webp",
+				folder: "เว็บไซต์เดิม: ประกาศและเอกสาร",
+				alt: "ภาพประกาศ",
+				caption: "",
+			},
+		]);
+	});
+
+	it("keep a file the news stream uses too in the news stream's folder, once", async () => {
+		const { files } = await importOf([
+			onePage(11),
+			onePage(12),
+			newsItem(1, { categories: [ACTIVITY], meta: { ...featuring(11), image_2: "12" } }),
+			procurement(2, { meta: { image_1: "12" } }),
+		]);
+		assert.deepEqual(
+			files.map(({ attachment: id, folder }) => [id, folder]),
+			[
+				[11, "เว็บไซต์เดิม: ข่าวและกิจกรรม"],
+				[12, "เว็บไซต์เดิม: ข่าวและกิจกรรม"],
+			],
+		);
+	});
+
+	it("leave out the featured image, which no field of an Announcement or a Document holds, and report it", async () => {
+		const { files, report } = await importOf([
+			NOTICE_FILE,
+			onePage(11),
+			procurement(1, { meta: { file_1: "900", _thumbnail_id: "11" } }),
+			directive(2, { categories: [ORDER], meta: { file_1: "900", _thumbnail_id: "11" } }),
+		]);
+		assert.deepEqual(
+			files.map(({ attachment: id }) => id),
+			[900],
+		);
+		assert.deepEqual(report.notes, [
+			{ slug: "directive-2", note: "featured image 11: no field holds it" },
+			{ slug: "procurement-1", note: "featured image 11: no field holds it" },
+		]);
+		assert.deepEqual(report.missing, []);
+	});
+
+	it("report an order's ACF picture, which no field of a Document holds, and leave it out", async () => {
+		const { files, report } = await importOf([
+			NOTICE_FILE,
+			onePage(31),
+			directive(1, { categories: [ORDER], meta: { file_1: "900", image_1: "31" } }),
+		]);
+		assert.deepEqual(
+			files.map(({ attachment: id }) => id),
+			[900],
+		);
+		assert.deepEqual(report.notes, [
+			{ slug: "directive-1", note: "ACF picture 31: no field holds it" },
+		]);
+	});
+
+	it("report an item's text, which is not carried", async () => {
+		const { report } = await importOf([
+			NOTICE_FILE,
+			procurement(1, { content: "<p>ข้อความ</p>" }),
+			procurement(2, { meta: { file_1: "900", editor: "<p>ข้อความ</p>" } }),
+		]);
+		assert.deepEqual(report.notes, [
+			{ slug: "procurement-1", note: "the item's text is not carried" },
+			{ slug: "procurement-2", note: "the item's text is not carried" },
+		]);
+	});
+
+	it("report a file the uploads copy lacks and make no Document of it, keeping the numbering by the file", async () => {
+		const items = [noticeFile(21), noticeFile(22), procurement(1, { meta: TWO_FILES })];
+		const { entries, report } = await importOf(items, {
+			uploads: uploadsOf(items).filter((path) => !path.endsWith("-21.pdf")),
+		});
+		assert.deepEqual(
+			entries.map(({ collection, slug, documents }) => [collection, slug, documents]),
+			[
+				["documents", "procurement-1-2", undefined],
+				["announcements", "procurement-1", ["procurement-1-2"]],
+			],
+		);
+		assert.deepEqual(report.missing, [
+			{
+				attachment: 21,
+				path: "wp-content/uploads/2025/03/notice-21.pdf",
+				usedBy: ["procurement-1"],
+			},
+		]);
+	});
+
+	it("stop the run for an order when the uploads copy lacks its only file", async () => {
+		await assert.rejects(
+			importOf([NOTICE_FILE, directive(1, { categories: [ORDER] })], { uploads: [] }),
+			/directive-1 has no file to make a Document from/,
+		);
+	});
+});
+
+describe("a slug the plan would make twice", () => {
+	it("stops the run on a numbered Document that meets another item's slug", async () => {
+		await assert.rejects(
+			importOf([
+				noticeFile(21),
+				noticeFile(22),
+				noticeFile(23),
+				procurement(1, { meta: TWO_FILES }),
+				procurement(2, { slug: "procurement-1-2", meta: { file_1: "23" } }),
+			]),
+			/documents\/procurement-1-2 is planned twice/,
+		);
+	});
+
+	it("goes on for the same slug in two collections", async () => {
+		const { entries } = await importOf([NOTICE_FILE, procurement(1)]);
+		assert.deepEqual(
+			entries.map(({ collection, slug }) => [collection, slug]),
+			[
+				["documents", "procurement-1"],
+				["announcements", "procurement-1"],
+			],
+		);
+	});
+});
+
+describe("a directive or procurement notice in a trial run", () => {
+	it("takes a row a reviewer set back to ต้องเลือก at its default target and default type, and lists it", async () => {
+		const { entries, report } = await importOf([procurement(1, { meta: {} })], {
+			reviews: { "procurement-1": { decision: "ต้องเลือก" } },
+		});
+		assert.deepEqual(
+			entries.map(({ collection, taxonomies }) => [collection, taxonomies]),
+			[["announcements", { announcement_type: ["procurement"] }]],
+		);
+		assert.deepEqual(report.atDefault, [{ slug: "procurement-1", target: "Announcement" }]);
+	});
+
+	it("stops on a row with no default, which only a reviewer can decide", async () => {
+		await assert.rejects(
+			importOf([directive(1, { categories: [ORDER, NOTICE], meta: {} })]),
+			/directive-1 has no default/,
+		);
+	});
+
+	it("goes on once a reviewer decides such a row", async () => {
+		const { entries, report } = await importOf(
+			[directive(1, { categories: [ORDER, NOTICE], meta: {} })],
+			{ reviews: { "directive-1": { decision: "Announcement", decision_type: "general" } } },
+		);
+		assert.deepEqual(
+			entries.map(({ collection, taxonomies }) => [collection, taxonomies]),
+			[["announcements", { announcement_type: ["general"] }]],
+		);
+		assert.deepEqual(report.atDefault, []);
+	});
+
+	it("counts each row by its legacy group and target", async () => {
+		const { report } = await importOf([
+			directive(1, { categories: [ORDER] }),
+			directive(2, { categories: [NOTICE], meta: {} }),
+			procurement(3, { meta: {} }),
+			NOTICE_FILE,
+		]);
+		assert.deepEqual(report.groups, {
+			directive: { Document: 1, Announcement: 1 },
+			procurement: { Announcement: 1 },
+		});
+	});
+});
+
 describe("the report", () => {
 	it("counts the items by legacy group and target", async () => {
 		const { report } = await importOf([
@@ -703,6 +1263,53 @@ describe("the redirects", () => {
 		});
 		assert.deepEqual(redirects, [{ source: "/public-new/news-1/", destination: "/news/news-1" }]);
 	});
+
+	it("send a directive or procurement notice to its Announcement, one each, with none for its Documents", async () => {
+		const { redirects } = await importOf([
+			noticeFile(21),
+			noticeFile(22),
+			directive(5, { categories: [NOTICE], meta: TWO_FILES }),
+			procurement(1, { meta: { file_1: "21" } }),
+		]);
+		assert.deepEqual(redirects, [
+			{ source: "/directive/directive-5/", destination: "/announcements/directive-5" },
+			{ source: "/procurement/procurement-1/", destination: "/announcements/procurement-1" },
+		]);
+	});
+
+	it("send an order to its Document, the first when it has several", async () => {
+		const { redirects } = await importOf([
+			noticeFile(21),
+			noticeFile(22),
+			directive(1, { categories: [ORDER], meta: TWO_FILES }),
+		]);
+		assert.deepEqual(redirects, [
+			{ source: "/directive/directive-1/", destination: "/documents/directive-1" },
+		]);
+	});
+
+	it("send an order whose first file the uploads copy lacks to the Document it has", async () => {
+		const items = [
+			noticeFile(21),
+			noticeFile(22),
+			directive(1, { categories: [ORDER], meta: TWO_FILES }),
+		];
+		const { redirects } = await importOf(items, {
+			uploads: uploadsOf(items).filter((path) => !path.endsWith("-21.pdf")),
+		});
+		assert.deepEqual(redirects, [
+			{ source: "/directive/directive-1/", destination: "/documents/directive-1-2" },
+		]);
+	});
+
+	it("follow a reviewer's decision on a notice", async () => {
+		const { redirects } = await importOf([NOTICE_FILE, procurement(1)], {
+			reviews: { "procurement-1": { decision: "Document" } },
+		});
+		assert.deepEqual(redirects, [
+			{ source: "/procurement/procurement-1/", destination: "/documents/procurement-1" },
+		]);
+	});
 });
 
 describe("the stop before anything is written", () => {
@@ -752,6 +1359,32 @@ describe("the stop before anything is written", () => {
 	it("stops on a term the plan uses and the target lacks", async () => {
 		const stop = firstStop(await importOf(items), { ...clear, terms: [] });
 		assert.match(stop!, /the topic term pm25 is missing/);
+	});
+
+	it("stops on an existing Document, an existing Announcement and a type term the target lacks", async () => {
+		const notices = await importOf([
+			NOTICE_FILE,
+			procurement(1),
+			directive(2, { categories: [ORDER] }),
+		]);
+		const terms = [
+			{ taxonomy: "announcement_type", slug: "procurement" },
+			{ taxonomy: "document_type", slug: "order" },
+		];
+		assert.equal(firstStop(notices, { ...clear, terms }), undefined);
+		assert.match(
+			firstStop(notices, { ...clear, terms, entries: [entry("documents", "procurement-1")] })!,
+			/procurement-1 already exists in documents/,
+		);
+		assert.match(
+			firstStop(notices, { ...clear, terms, entries: [entry("announcements", "procurement-1")] })!,
+			/procurement-1 already exists in announcements/,
+		);
+		assert.match(
+			firstStop(notices, { ...clear, terms: [terms[1]!] })!,
+			/announcement_type term procurement/,
+		);
+		assert.match(firstStop(notices, { ...clear, terms: [terms[0]!] })!, /document_type term order/);
 	});
 
 	it("stops on a legacy address that already redirects, with or without its last slash", async () => {
@@ -926,6 +1559,56 @@ describe("verify", () => {
 			redirects: { planned: 2, passed: 2 },
 			failures: [],
 		});
+	});
+
+	it("checks Announcements and Documents as it checks News and Activities", async () => {
+		const planned = await importOf([
+			NOTICE_FILE,
+			procurement(1),
+			directive(2, { categories: [ORDER] }),
+		]);
+		const answers = new Map<string, Answer>([
+			["/announcements/procurement-1", { status: 200, location: null }],
+			["/documents/procurement-1", { status: 200, location: null }],
+			["/documents/directive-2", { status: 200, location: null }],
+			["/procurement/procurement-1/", { status: 301, location: "/announcements/procurement-1" }],
+			["/directive/directive-2/", { status: 301, location: "/documents/directive-2" }],
+		]);
+		const FILES = { id: "folder-2", name: "เว็บไซต์เดิม: ประกาศและเอกสาร" };
+		const target = {
+			planned,
+			entries: planned.entries.map(({ collection, slug, publishedAt }) => ({
+				collection,
+				slug,
+				trashed: false,
+				status: "published",
+				publishedAt,
+				authorId: OWNER,
+			})),
+			media: [{ contentHash: "sha1:900", folderId: FILES.id }],
+			folders: [FILES],
+			owner: OWNER,
+			hashes: new Map([[900, "sha1:900"]]),
+			request: async (path: string) => answers.get(path)!,
+		};
+		assert.deepEqual(await verifyTarget(target), {
+			entries: {
+				announcements: { planned: 1, found: 1, inCollection: 1 },
+				documents: { planned: 2, found: 2, inCollection: 2 },
+			},
+			files: { planned: 1, inLibrary: 1, inFolder: 1 },
+			pages: { planned: 3, passed: 3 },
+			redirects: { planned: 2, passed: 2 },
+			failures: [],
+		});
+		const without = planned.entries[0]!;
+		const report = await verifyTarget({
+			...target,
+			entries: target.entries.filter(
+				({ collection, slug }) => collection !== without.collection || slug !== without.slug,
+			),
+		});
+		assert.deepEqual(report.failures, [`${without.collection}/${without.slug}: not found`]);
 	});
 
 	it("fails an entry that is missing, unpublished, dated otherwise or someone else's", async () => {

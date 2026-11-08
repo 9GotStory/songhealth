@@ -78,7 +78,7 @@ type Flag = (typeof FLAGS)[number];
 export const hasFlag = (row: ListRow, flag: Flag) => row.flags.split(" ").includes(flag);
 
 /** What a row can become (GLOSSARY "Classification list"), or ต้องเลือก while it waits for one. */
-type Target = "News" | "Activity" | "Announcement" | "Document" | typeof TO_CHOOSE;
+export type Target = "News" | "Activity" | "Announcement" | "Document" | typeof TO_CHOOSE;
 
 /** A row's default: its target, its type by term slug, and the flags that explain it. */
 interface Default {
@@ -399,12 +399,13 @@ interface ListReport {
 
 /**
  * A row's type: its type decision, else its default type while its target stays the default one,
- * so that a notice made a Document carries no type (spec #174: only an order does).
+ * so that a notice made a Document carries no type (spec #174: only an order does). An import names
+ * the target it took the row at, which for a row still ต้องเลือก is its default.
  */
-function typeOf(row: ListRow): string {
+export function typeOf(row: ListRow, target = targetOf(row)): string {
 	const decided = row.decision_type.trim();
 	if (decided !== "") return decided;
-	return targetOf(row) === row.default_target ? row.default_type : "";
+	return target === row.default_target ? row.default_type : "";
 }
 
 function listReport(merge: ReturnType<typeof mergeRows>, merged: boolean): ListReport {
