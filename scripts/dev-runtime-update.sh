@@ -14,6 +14,9 @@
 # (dev-runtime-common.sh admin_page_loads); --force overrides once the listed loads are known to
 # be your own, and --wait lists them, then waits until that quiet spell has passed and goes on
 # (#146 retro: a hand-written wait loop that read the guard's wording never ended).
+# It refuses while a window holds the runtime (scripts/dev-runtime-window.sh, #178 retro), before
+# the Admin check and again after a wait: a window's restore admits only a backup of the commit the
+# runtime serves.
 # Rolling back after new EmDash migrations ran means restoring the backup taken here, after
 # pointing the checkout back at the backup's commit (docs/operations/development-quadlet.md).
 set -Eeuo pipefail
@@ -22,6 +25,10 @@ umask 077
 # shellcheck source=scripts/dev-runtime-common.sh
 . "$(dirname "${BASH_SOURCE[0]}")/dev-runtime-common.sh"
 trap '[[ $BASH_SUBSHELL == 0 ]] && die "unexpected failure (line $LINENO): $BASH_COMMAND"' ERR
+
+require_no_window() { # stops while a window holds the runtime
+  [[ ! -e $WINDOW_LOCK ]] || die "a window holds the runtime: $(<"$WINDOW_LOCK")"
+}
 
 SHA='' BACKUP=yes FORCE=no WAIT=no
 USAGE="usage: ${0##*/} --sha <commit> [--no-backup] [--force | --wait]"
@@ -41,6 +48,7 @@ done
 [[ -z $(git -C "$SRC" status --porcelain --untracked-files=no) ]] \
   || die "$SRC has modified tracked files: make changes in your workspace and commit them instead"
 [[ $FORCE == no || $WAIT == no ]] || die "$USAGE"
+require_no_window
 if [[ $FORCE == no ]]; then
   recent=$(admin_page_loads)
   if [[ -n $recent && $WAIT == yes ]]; then
@@ -53,6 +61,7 @@ $recent"
   [[ -z $recent ]] || die "an Admin page was opened in the last $ADMIN_QUIET_MINUTES minutes:
 $recent
 wait until nobody is editing (--wait does it), or pass --force when these loads are your own"
+  require_no_window
 fi
 git -C "$SRC" fetch --quiet origin
 full=$(git -C "$SRC" rev-parse --verify --quiet "$SHA^{commit}") \
