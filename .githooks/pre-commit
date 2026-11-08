@@ -22,10 +22,12 @@ check() {
 
 check scripts/check-node.sh
 check npm run --silent format:check
+# Fail on comment formatting before the heavier checks (#193 retro, PO comment 6722771184).
+check node --test tests/node/comment-width.test.ts
 check npm run --silent knip
 check npm run --silent typecheck
 check npm run --silent jscpd
-check node --test tests/node/invisible-characters.test.ts tests/node/comment-width.test.ts \
+check node --test tests/node/invisible-characters.test.ts \
   tests/node/cited-source-paths.test.ts tests/node/package-facts.test.ts \
   tests/node/document-versions.test.ts tests/node/public-titles.test.ts
 if git diff --cached --name-only --diff-filter=ACMR | grep -q -e '\.sh$' -e '^\.githooks/'; then

@@ -5,7 +5,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
-- **Read an issue**: `gh issue view <number> --json number,title,body,labels,comments`.
+- **Read an issue**: begin with metadata through the [bounded read recipe](#bounded-issue-and-evidence-reads); expand the needed body/comment from its saved response.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **Make an issue a sub-issue of a parent**: `gh issue create --parent <parent> ...`, or `gh issue edit <parent> --add-sub-issue <child>` afterwards (`gh` 2.94+). Older `gh`: `gh api --method POST repos/<owner>/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<child-db-id>` (database id, as in **Blocking** below). Without sub-issues, put `Part of #<parent>` at the top of the child body.
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
@@ -44,6 +44,50 @@ bounded snippet around the match. For tracker writes, compare the receipt with t
 and print that comparison rather than the complete body again. For a Homepage timeout,
 [README's diagnostic run](../../README.md#homepage-diagnostics) records named phases and native
 JSON/trace artifacts without changing the normal suite's settings.
+
+## Bounded issue and evidence reads
+
+For a ticket/spec read or evidence handoff, project before printing (#193 retro, Product Owner
+comment 6722771184). Fetch once into a new scratch directory, then consume that completed file in
+the same sequential command. A failed fetch exits before the read. This keeps full bodies out of
+the initial tool result and preserves the response for a selected excerpt:
+
+```bash
+(
+  set -e
+  mkdir -p .tmp
+  issue_read_dir=$(mktemp -d .tmp/issue-read.XXXXXX)
+  printf 'Raw issue: %s/issue.json\n' "$issue_read_dir"
+  gh issue view 193 --json number,title,state,url,labels,body,comments > "$issue_read_dir/issue.json"
+  node --input-type=module - "$issue_read_dir/issue.json" <<'NODE'
+import { readFileSync } from "node:fs";
+const issue = JSON.parse(readFileSync(process.argv[2], "utf8"));
+console.log(JSON.stringify({
+  number: issue.number, title: issue.title, state: issue.state, url: issue.url,
+  labels: issue.labels.map(({ name }) => name),
+  bodyCharacters: issue.body.length, commentCount: issue.comments.length,
+  latestComments: issue.comments.slice(-5).map(({ url, body }) => ({ url, characters: body.length })),
+}, null, 2));
+NODE
+)
+```
+
+Replace `193` with the intended issue. Read the full required spec before implementation, using
+bounded excerpts from the saved body and the relevant decision comments. Print a selected range
+(such as 2,000 characters), its full length and whether more remains; continue until the required
+content is accounted for. The five-comment list is a preview, not a completeness check for older
+decisions. With a connector response, project its structured fields before returning them; retain
+raw HTML/other response fields only in scratch or the tool store.
+
+Parallelize independent fetches. A file consumer, JSON parser, comment readback or PR-body builder
+runs after its writer has completed successfully; issue creation/comment publication returns its
+receipt before targeted readback begins. Print receipt/body-match metadata on success and a bounded
+mismatch excerpt on failure. An empty or partial file is a failed read, not evidence to proceed.
+
+For logs, begin with the evidence index and decisive lines, then read the relevant bounded range.
+Size the combined output of a batch, rather than allowing each child read a full output budget.
+Use the existing raw-response path for follow-up reads so repeated context loads do not repeat the
+fetch or dump whole documents.
 
 ## Pull requests as a triage surface
 
