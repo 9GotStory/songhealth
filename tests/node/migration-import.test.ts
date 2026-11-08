@@ -343,12 +343,14 @@ describe("a News item", () => {
 	});
 
 	it("reports a link into the uploads that names no attachment, which its body keeps", async () => {
-		const { report } = await importOf([
+		const { entries, report } = await importOf([
 			newsItem(1, {
 				categories: [PUBLIC_RELATIONS],
 				meta: { editor: '<p><a href="/wp-content/uploads/2025/03/unlisted.pdf">เอกสาร</a></p>' },
 			}),
 		]);
+		const [block] = entries[0]!.data.body as { markDefs: { href: string }[] }[];
+		assert.equal(block!.markDefs[0]!.href, "/wp-content/uploads/2025/03/unlisted.pdf");
 		assert.deepEqual(report.notes, [
 			{ slug: "news-1", note: "no featured picture" },
 			{
@@ -795,8 +797,8 @@ describe("the files", () => {
 		assert.deepEqual(
 			report.notes.filter(({ note }) => note.startsWith("ACF file")),
 			[
-				{ slug: "news-1", note: "ACF file 20 is uploaded, but no field holds it" },
-				{ slug: "news-2", note: "ACF file 20 is uploaded, but no field holds it" },
+				{ slug: "news-1", note: "ACF file 20: no field holds it" },
+				{ slug: "news-2", note: "ACF file 20: no field holds it" },
 			],
 		);
 	});

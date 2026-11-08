@@ -116,7 +116,8 @@ and why, and `.jscpd-baseline.json` records them.
   `src/lib/excerpt.ts` are examples; the module that reads through EmDash imports them. One
   exception: the migration script's reader, `scripts/migration/legacy-site.ts`, and its tests load
   EmDash's exported WXR parsers (Product Owner, #177 comment 6719251511, item 1) and its HTML
-  converter package (Product Owner, #178 comment 6720200201, item 3), which plain Node loads.
+  converter package (Product Owner, #178 comment 6720200201, item 3), which plain Node loads. The
+  reader also passes on EmDash's content hash for the verify command, which no test calls.
 - A state the shared development runtime cannot produce, such as a failed read, is driven in
   node:test: the module that decides it takes the reads as a function, as
   `src/lib/search-matcher.ts` `searchOutcome` does (Product Owner, 2026-10-30: #63 comment

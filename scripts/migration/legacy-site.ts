@@ -5,6 +5,8 @@
 // "WordPress import"), as ADR 0008 has them since its amendment, and HTML through EmDash's
 // converter package (spec #174 "Source"). node:test loads this module, and both with it, with plain
 // Node (Product Owner, #177 comment 6719251511, item 1, and #178 comment 6720200201, item 3).
+// verify takes EmDash's content hash through here too, so this stays the one module of the script
+// that loads EmDash.
 //
 // This module is where the export's personal data stops: it returns no author, no item's author
 // (`dc:creator`), and nothing of any other post type, such as the form plugin's submission

@@ -231,7 +231,7 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 		const uses = usesOf(item, legacyFiles);
 		for (const id of uses.attachments) use(id, item.slug);
 		for (const { id } of item.files) {
-			notes.push({ slug: item.slug, note: `ACF file ${id} is uploaded, but no field holds it` });
+			notes.push({ slug: item.slug, note: `ACF file ${id}: no field holds it` });
 		}
 		const featured = refTo(item.featured);
 		if (featured === undefined) notes.push({ slug: item.slug, note: "no featured picture" });
