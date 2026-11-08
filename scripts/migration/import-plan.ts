@@ -183,6 +183,7 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 	);
 	const notes: ImportReport["notes"] = [];
 	const newsRows = rows.filter((row) => row.legacy_type === "public-new" && items.has(row.wp_id));
+	const noticeRows = rows.filter((row) => row.legacy_type !== "public-new" && items.has(row.wp_id));
 	const atDefault: ImportReport["atDefault"] = [];
 	const groups: ImportReport["groups"] = {};
 	/**
@@ -196,7 +197,7 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 	};
 	/** The item whose featured image each attachment is. */
 	const featuredIn = new Map<number, string>();
-	for (const row of newsRows) {
+	for (const row of [...newsRows, ...noticeRows]) {
 		const item = items.get(row.wp_id)!;
 		if (item.featured !== undefined && !featuredIn.has(item.featured)) {
 			featuredIn.set(item.featured, item.slug);
@@ -342,7 +343,9 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 		const unheld = (what: string) =>
 			notes.push({ slug: item.slug, note: `${what}: no field holds it` });
 		if (item.featured !== undefined) unheld(`featured image ${item.featured}`);
-		if (holdsText(item.content) || holdsText(item.editor)) unheld("the item's text");
+		if (holdsText(item.content) || holdsText(item.editor)) {
+			notes.push({ slug: item.slug, note: "the item's text is not carried" });
+		}
 		const documents = item.files.flatMap(({ id, label }, at): PlannedEntry[] => {
 			use(id, item.slug, NOTICES_FOLDER);
 			if (!available(id)) return [];
@@ -394,7 +397,6 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 			},
 		];
 	};
-	const noticeRows = rows.filter((row) => row.legacy_type !== "public-new" && items.has(row.wp_id));
 	const entries = [...newsRows.map(newsEntry), ...noticeRows.flatMap(noticeEntries)];
 	// A numbered Document can meet another item's slug, as WordPress numbers a repeated one, and the
 	// second create would stop the run half written.

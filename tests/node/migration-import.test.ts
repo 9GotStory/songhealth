@@ -226,6 +226,23 @@ describe("an Activity", () => {
 		]);
 	});
 
+	it("keeps a notice's featured picture out of the gallery and names it in the report", async () => {
+		const { entries, report } = await importOf([
+			onePage(11),
+			onePage(12),
+			newsItem(1, { categories: [ACTIVITY], meta: { ...featuring(11), image_2: "12" } }),
+			procurement(2, { meta: { _thumbnail_id: "12" } }),
+		]);
+		assert.equal(entries[0]!.data.gallery, undefined);
+		assert.ok(
+			report.notes.some(
+				(line) =>
+					line.slug === "news-1" &&
+					line.note === "picture 12 is the featured image of procurement-2: left out",
+			),
+		);
+	});
+
 	it("keeps another item's featured picture out of the gallery and names it in the report", async () => {
 		const { entries, report } = await importOf([
 			onePage(11),
@@ -831,6 +848,36 @@ describe("an Announcement's details", () => {
 		assert.equal(entries[0]!.data.details, undefined);
 	});
 
+	it("leave out another notice's featured picture, and the report names it", async () => {
+		const { entries, report } = await importOf([
+			onePage(31),
+			procurement(1, { meta: { _thumbnail_id: "31" } }),
+			procurement(2, { meta: { image_1: "31" } }),
+		]);
+		assert.equal(entries.find(({ slug }) => slug === "procurement-2")!.data.details, undefined);
+		assert.deepEqual(
+			report.notes.filter(({ slug }) => slug === "procurement-2"),
+			[
+				{
+					slug: "procurement-2",
+					note: "picture 31 is the featured image of procurement-1: left out",
+				},
+			],
+		);
+	});
+
+	it("leave out a news item's featured picture too", async () => {
+		const { entries, report } = await importOf([
+			onePage(11),
+			newsItem(1, { categories: [ACTIVITY], meta: featuring(11) }),
+			procurement(2, { meta: { image_1: "11" } }),
+		]);
+		assert.equal(entries.find(({ slug }) => slug === "procurement-2")!.data.details, undefined);
+		assert.deepEqual(report.notes, [
+			{ slug: "procurement-2", note: "picture 11 is the featured image of news-1: left out" },
+		]);
+	});
+
 	it("leave out a picture whose file the uploads copy lacks, which the report lists", async () => {
 		const items = [
 			onePage(31),
@@ -932,15 +979,15 @@ describe("a notice's files", () => {
 		]);
 	});
 
-	it("report an item's text, which no field holds", async () => {
+	it("report an item's text, which is not carried", async () => {
 		const { report } = await importOf([
 			NOTICE_FILE,
 			procurement(1, { content: "<p>ข้อความ</p>" }),
 			procurement(2, { meta: { file_1: "900", editor: "<p>ข้อความ</p>" } }),
 		]);
 		assert.deepEqual(report.notes, [
-			{ slug: "procurement-1", note: "the item's text: no field holds it" },
-			{ slug: "procurement-2", note: "the item's text: no field holds it" },
+			{ slug: "procurement-1", note: "the item's text is not carried" },
+			{ slug: "procurement-2", note: "the item's text is not carried" },
 		]);
 	});
 
