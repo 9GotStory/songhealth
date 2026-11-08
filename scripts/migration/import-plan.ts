@@ -335,8 +335,9 @@ export function planImport({ site, uploads, list, final, toBlocks }: ImportInput
 	 * A directive's or a procurement notice's entries (spec #174 "Mapping: directives and procurement
 	 * notices"): an Announcement after the Documents it references, or a Document per file. An
 	 * order's address goes to its first Document. An order with no file to make one from stops the
-	 * run: a Document holds a file, and the item would be imported nowhere, the reason a row with no
-	 * default stops (#178 comment 6720200201, item 2).
+	 * run, since a Document holds a file (Product Owner, #179 comment 6721447473, item 2). A featured
+	 * image stays out, since no field holds it, which leaves the migration 999 files beside spec
+	 * #174's 1,001 (the same comment, item 1).
 	 */
 	const directiveOrProcurementEntries = (row: ListRow): PlannedEntry[] => {
 		const item = items.get(row.wp_id)!;
