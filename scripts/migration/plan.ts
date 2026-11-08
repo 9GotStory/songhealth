@@ -588,6 +588,8 @@ function inListOrder(a: LegacyItem, b: LegacyItem): number {
 export function plan({ site, uploads, earlierList }: PlanInput): Plan {
 	const files = filesOf(site, uploads);
 	const fresh = site.items
+		// Published items only: drafts are not migrated (spec #174 "Pages, media and links"; Product
+		// Owner, #177 comment 6719251511, item 2), and the inventory counts every status.
 		.filter((item) => LISTED_TYPES.includes(item.type) && item.status === "publish")
 		.toSorted(inListOrder)
 		.map((item) => rowOf(item, files));

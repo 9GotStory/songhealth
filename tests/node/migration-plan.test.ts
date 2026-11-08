@@ -5,6 +5,10 @@
 // and writes the Classification list and an inventory. The expected values come from the spec and
 // the ticket: the defaults by legacy category and title word, the flags, the merge with an earlier
 // list, and the outputs that carry nothing personal. Every export here is synthetic.
+//
+// Each synthetic export goes through EmDash's own parser, the `emdash` package's main entry, which
+// plain Node loads: CODING_STANDARDS "Tests" says "no `emdash`", and the Product Owner kept the
+// real parser in these tests (#177 comment 6719251511, item 1), so they see what it drops.
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";

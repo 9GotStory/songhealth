@@ -14,8 +14,8 @@
 //
 // The Classification list (GLOSSARY) is UTF-8 CSV with a byte order mark, so that a spreadsheet
 // opens its Thai, and one row per published news stream item (`public-new`), directive and
-// procurement notice: the news stream, then directives, then procurement notices, each oldest
-// first. Its columns:
+// procurement notice, drafts being not migrated (#177 comment 6719251511, item 2): the news
+// stream, then directives, then procurement notices, each oldest first. Its columns:
 //
 // - legacy_type: public-new, directive or procurement.
 // - slug: the legacy slug, such as news-154.
