@@ -28,8 +28,10 @@ import {
 	PUBLIC_RELATIONS,
 	attachment,
 	directive,
+	featuring,
 	importOf,
 	newsItem,
+	onePage,
 	procurement,
 	runMigration,
 	SYNTHETIC_TOKEN,
@@ -44,16 +46,6 @@ type Answer = { status: number; location: string | null; body?: string };
 
 /** An answer as verify reads one, with an empty body unless the test gives one. */
 const withBody = (answer: Answer) => ({ ...answer, body: answer.body ?? "" });
-
-/** A One Page attachment `id`, as the news stream's items use them. */
-const onePage = (id: number, details: { alt?: string; caption?: string } = {}) =>
-	attachment(id, `wp-content/uploads/2025/03/one-page-${id}.webp`, details);
-
-/** An item whose featured image is attachment `featured`, repeated in `image_1` as most are. */
-const featuring = (featured: number) => ({
-	_thumbnail_id: String(featured),
-	image_1: String(featured),
-});
 
 describe("an attachment's details in the export", () => {
 	it("gives its alt text and its caption, and none where it has none", async () => {
@@ -119,10 +111,10 @@ describe("the uploads copy's files", () => {
 				{ path: "longer.pdf", bytes: new Uint8Array([1, 2, 3, 4, 0]) },
 			]),
 			async (zip) => {
-				assert.equal(zip.contentOf("a.pdf"), zip.contentOf("again.pdf"));
-				assert.notEqual(zip.contentOf("a.pdf"), zip.contentOf("other.pdf"));
-				assert.notEqual(zip.contentOf("a.pdf"), zip.contentOf("longer.pdf"));
-				assert.equal(zip.contentOf("beside.pdf"), "beside.pdf");
+				assert.equal(zip.fingerprintOf("a.pdf"), zip.fingerprintOf("again.pdf"));
+				assert.notEqual(zip.fingerprintOf("a.pdf"), zip.fingerprintOf("other.pdf"));
+				assert.notEqual(zip.fingerprintOf("a.pdf"), zip.fingerprintOf("longer.pdf"));
+				assert.equal(zip.fingerprintOf("beside.pdf"), "beside.pdf");
 			},
 		);
 	});

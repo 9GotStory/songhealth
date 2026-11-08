@@ -6,7 +6,7 @@
 
 import type { Block, PlannedEntry, PlannedRedirect } from "./import-plan.ts";
 import type { LegacyItem } from "./legacy-site.ts";
-import { isUploadsPath, sitePath, type Files } from "./plan.ts";
+import { hasFile, isUploadsPath, sitePath, withoutLastSlash, type Files } from "./plan.ts";
 
 /**
  * The Round of a fiscal year's Evidence (spec #174 "Mapping: ITA posts"): a post's "รอบ" can mean a
@@ -48,7 +48,8 @@ export const ANOM_001_FILE = "anom-001.pdf";
 
 /**
  * The document's official source, which the MOIT links while the office's copy is not beside the
- * export (spec #174 "Fixes at import"; the address is the one the Product Owner confirms on #180).
+ * export (spec #174 "Fixes at import"). A proposed address until the Product Owner confirms it
+ * (#180 comment 6722950056, item 1).
  */
 export const ANOM_001_SOURCE = "https://nscr.nesdc.go.th/";
 
@@ -86,7 +87,8 @@ interface Line {
 /**
  * A block as a line. The converter gives one link one mark per address, across as many runs of text
  * as the editor split it into, and an `<a>` with no text a mark and no run
- * (@emdash-cms/gutenberg-to-portable-text 1.1.0 dist/index.mjs walkNodes, getMarkForElement).
+ * (@emdash-cms/gutenberg-to-portable-text 1.1.0 dist/index.mjs walkNodes, getMarkForElement), so a
+ * link with no text, having no place among the runs, comes last.
  */
 function lineOf({ children = [], markDefs = [] }: Block): Line {
 	const links: Line["links"] = [];
@@ -144,14 +146,17 @@ function identityOf(post: LegacyItem) {
 /**
  * A post's address as EmDash's redirects meet it. The middleware matches `url.pathname` exactly
  * (emdash 1.1.0 src/astro/middleware/redirect.ts), and Astro decodes a request's path and sets it
- * back, so that URL writes a non-ASCII character in upper-case hex however the request wrote it
- * (astro 7.3.5 dist/core/fetch/fetch-state.js #normalizePathname), where a WordPress slug is in
- * lower case: stored as the export has it, a Thai slug's redirect would never match.
+ * back on that URL (astro 7.3.5 dist/core/fetch/fetch-state.js, its constructor's setPathname),
+ * which writes a non-ASCII character in upper-case hex however the request wrote it. The export
+ * writes a Thai slug in lower-case hex: stored so, its redirect would never match.
  */
 const addressOf = (slug: string) => `/${encodeURI(decodeURIComponent(slug))}/`;
 
 /** A site address as the key of its new address: decoded, without its last slash. */
-const addressKey = (address: string) => sitePath(address)?.replace(/\/$/, "");
+const addressKey = (address: string) => {
+	const path = sitePath(address);
+	return path === undefined ? undefined : withoutLastSlash(path);
+};
 
 /** Whether `text` says nothing as a label, as ")" does: its line's wording stands in (defect 5). */
 const saysNothing = (text: string) => !/[\p{L}\p{N}]/u.test(text);
@@ -190,8 +195,8 @@ interface MoitInput {
 	posts: LegacyItem[];
 	files: Files;
 	toBlocks: (html: string) => Block[];
-	/** What tells a file's bytes from another's (ImportInput `contentOf`). */
-	contentOf: (path: string) => string;
+	/** What tells a file's bytes from another's (ImportInput `fingerprintOf`). */
+	fingerprintOf: (path: string) => string;
 	/** The other items' redirects, whose pages a link can name by the item's legacy address. */
 	redirects: PlannedRedirect[];
 }
@@ -205,7 +210,13 @@ interface MoitPlan {
 	notes: { slug: string; note: string }[];
 }
 
-export function planMoits({ posts, files, toBlocks, contentOf, redirects }: MoitInput): MoitPlan {
+export function planMoits({
+	posts,
+	files,
+	toBlocks,
+	fingerprintOf,
+	redirects,
+}: MoitInput): MoitPlan {
 	const moits = posts.map(identityOf);
 	const years = [...new Set(moits.map(({ year }) => year))].toSorted();
 	const ownRedirects = [
@@ -228,10 +239,6 @@ export function planMoits({ posts, files, toBlocks, contentOf, redirects }: Moit
 	const entries: PlannedEntry[] = [];
 	const fileUses: { id: number; slug: string; year: number }[] = [];
 	const notes: MoitPlan["notes"] = [];
-	const hasFile = (id: number) => {
-		const path = files.byId.get(id)?.path;
-		return path !== undefined && files.uploads.has(path);
-	};
 	for (const { post, published, year, number, slug, round } of moits) {
 		const evidence: Record<string, unknown>[] = [];
 		const noteOut = (note: string) => notes.push({ slug, note });
@@ -249,7 +256,7 @@ export function planMoits({ posts, files, toBlocks, contentOf, redirects }: Moit
 				// A link can leave out /wp-content (`docs/research/legacy-ita.md` defect 3).
 				const id = files.byPath.get(path.startsWith("uploads/") ? `wp-content/${path}` : path);
 				if (id === undefined) throw new Error(`${slug} links ${href}, which names no attachment`);
-				if (id === ANOM_001 && !hasFile(id)) {
+				if (id === ANOM_001 && !hasFile(files, id)) {
 					noteOut(
 						"ANOM-001: the office's file is not beside the export, so the Evidence links the document's official source",
 					);
@@ -257,7 +264,7 @@ export function planMoits({ posts, files, toBlocks, contentOf, redirects }: Moit
 				}
 				fileUses.push({ id, slug, year });
 				// A file the uploads copy lacks goes into the report, and fails verify.
-				if (!hasFile(id)) return undefined;
+				if (!hasFile(files, id)) return undefined;
 				if (files.byId.get(id)?.path === ANOM_001_FILE) {
 					noteOut("ANOM-001: uploaded from the office's file");
 				}
@@ -266,7 +273,7 @@ export function planMoits({ posts, files, toBlocks, contentOf, redirects }: Moit
 				}
 				return { _type: "ita_file", label, file: { fileField: id }, round };
 			}
-			const url = newAddress.get(path.replace(/\/$/, ""));
+			const url = newAddress.get(withoutLastSlash(path));
 			if (url === undefined) throw new Error(`${slug} links ${href}, which has no new address`);
 			return { _type: "ita_link", label, url, round, current: true };
 		};
@@ -319,7 +326,7 @@ export function planMoits({ posts, files, toBlocks, contentOf, redirects }: Moit
 	 * the media item it holds (emdash 1.1.0 src/astro/routes/api/media.ts), and the office uploaded
 	 * some documents once a year under different attachments.
 	 */
-	const contentKey = (id: number) => contentOf(files.byId.get(id)!.path!);
+	const contentKey = (id: number) => fingerprintOf(files.byId.get(id)!.path!);
 	const yearsOfFile = new Map<string, Set<number>>();
 	for (const { id, year } of fileUses) {
 		const key = contentKey(id);

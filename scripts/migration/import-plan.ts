@@ -11,6 +11,7 @@ import { planMoits, withOfficeFile } from "./moit-plan.ts";
 import {
 	count,
 	filesOf,
+	hasFile,
 	hasFlag,
 	holdsText,
 	lastPartOf,
@@ -21,6 +22,7 @@ import {
 	TO_CHOOSE,
 	typeOf,
 	usesOf,
+	withoutLastSlash,
 	type ListRow,
 	type Target,
 } from "./plan.ts";
@@ -31,7 +33,10 @@ export interface Block {
 	children?: { text: string; marks?: string[] }[];
 	/** A link's `href`, by the key its spans name in their `marks`. */
 	markDefs?: { _key: string; _type: string; href?: string }[];
-	/** An image block's address, as the HTML has it. */
+	/**
+	 * An image block's address, as the HTML has it (`docs/agents/emdash-1.1.0.md` "WordPress
+	 * import").
+	 */
 	asset?: { _ref?: string };
 }
 
@@ -117,9 +122,9 @@ export interface ImportInput {
 	/** HTML as Portable Text blocks, which the run-time reader provides. */
 	toBlocks: (html: string) => Block[];
 	/** Whether the office's copy of ANOM-001's file lies beside the export. */
-	officeFile: boolean;
+	hasOfficeFile: boolean;
 	/** What tells a file's bytes from another's, which the uploads copy's directory records. */
-	contentOf: (path: string) => string;
+	fingerprintOf: (path: string) => string;
 }
 
 type EntryTarget = Exclude<Target, typeof TO_CHOOSE>;
@@ -182,8 +187,8 @@ export function planImport({
 	list,
 	final,
 	toBlocks,
-	officeFile,
-	contentOf,
+	hasOfficeFile,
+	fingerprintOf,
 }: ImportInput): ImportPlan {
 	const { rows, inventory } = plan({ site, uploads, earlierList: list });
 	const { added, toChoose, vanished } = inventory.list;
@@ -195,7 +200,7 @@ export function planImport({
 		);
 	}
 	const uploadFiles = filesOf(site, uploads);
-	const legacyFiles = officeFile ? withOfficeFile(uploadFiles) : uploadFiles;
+	const legacyFiles = hasOfficeFile ? withOfficeFile(uploadFiles) : uploadFiles;
 	// A row whose item has gone back to a draft stays out with the rows plan flags not-in-export.
 	const items = new Map(
 		site.items.filter((item) => item.status === "publish").map((item) => [String(item.id), item]),
@@ -234,10 +239,7 @@ export function planImport({
 		usedBy.set(id, slugs);
 		if (!folderOf.has(id)) folderOf.set(id, folder);
 	};
-	const available = (id: number) => {
-		const path = legacyFiles.byId.get(id)?.path;
-		return path !== undefined && legacyFiles.uploads.has(path);
-	};
+	const available = (id: number) => hasFile(legacyFiles, id);
 	/** A field's value for an attachment whose file exists, or none. */
 	const refTo = (id: number | undefined): PictureRef | undefined =>
 		id !== undefined && available(id) ? { picture: id } : undefined;
@@ -427,7 +429,7 @@ export function planImport({
 		posts: site.items.filter((item) => item.type === "post" && item.status === "publish"),
 		files: legacyFiles,
 		toBlocks,
-		contentOf,
+		fingerprintOf,
 		redirects,
 	});
 	entries.push(...moits.entries);
@@ -471,12 +473,6 @@ export function planImport({
 		report: { groups, missing, notes, atDefault, notInExport: vanished },
 	};
 }
-
-/**
- * An address without its last slash, since EmDash's redirects match a path with or without it
- * (emdash 1.1.0 src/astro/middleware/redirect.ts).
- */
-const withoutLastSlash = (path: string) => path.replace(/\/$/, "");
 
 /**
  * Why the import must stop before it writes anything, or none (spec #174 "The migration script"):

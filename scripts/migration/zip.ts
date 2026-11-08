@@ -42,7 +42,7 @@ export interface Zip {
 	 * What tells the bytes of the entry `name` from another's without reading them: the CRC-32 and
 	 * the size its directory entry records. A name the zip lacks answers for itself.
 	 */
-	contentOf(name: string): string;
+	fingerprintOf(name: string): string;
 	close(): Promise<void>;
 }
 
@@ -119,7 +119,7 @@ export async function openZip(path: string): Promise<Zip> {
 			if (crc32(bytes) !== entry.checksum) throw new Error(`${name} is damaged in ${path}`);
 			return bytes;
 		},
-		contentOf(name) {
+		fingerprintOf(name) {
 			const entry = entries.get(name);
 			return entry === undefined ? name : `${entry.checksum}:${entry.size}`;
 		},

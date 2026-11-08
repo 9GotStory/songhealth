@@ -258,6 +258,16 @@ export function procurement(id: number, fields: Partial<SyntheticItem> = {}): Sy
 	};
 }
 
+/** A One Page attachment `id`, as the news stream's items use them. */
+export const onePage = (id: number, details: { alt?: string; caption?: string } = {}) =>
+	attachment(id, `wp-content/uploads/2025/03/one-page-${id}.webp`, details);
+
+/** An item whose featured image is attachment `featured`, repeated in `image_1` as most are. */
+export const featuring = (featured: number) => ({
+	_thumbnail_id: String(featured),
+	image_1: String(featured),
+});
+
 /** The category and tags of an ITA post, as the export writes them: its year and its MOIT. */
 export const moitTags = (number: number, year: number): SyntheticCategory[] => [
 	{ domain: "post_tag", slug: String(year), name: String(year) },
@@ -377,9 +387,9 @@ export interface ImportOptions {
 	/** The items the list was made from, `items` unless given. */
 	listItems?: SyntheticItem[];
 	/** Whether the office's copy of ANOM-001's file lies beside the export. */
-	officeFile?: boolean;
+	hasOfficeFile?: boolean;
 	/** What tells a file's bytes from another's, its path unless given. */
-	contentOf?: (path: string) => string;
+	fingerprintOf?: (path: string) => string;
 }
 
 /** What import plans for an export holding `items`, from its list with `reviews` written in. */
@@ -390,14 +400,22 @@ export async function importOf(
 		uploads = uploadsOf(items),
 		final = false,
 		listItems = items,
-		officeFile = false,
-		contentOf = (path) => path,
+		hasOfficeFile = false,
+		fingerprintOf = (path) => path,
 	}: ImportOptions = {},
 ) {
 	const site = await readLegacySite(wxrDocument(items));
 	const listed = plan({ site: await readLegacySite(wxrDocument(listItems)), uploads });
 	const list = reviewed(listed.list, reviews);
-	return planImport({ site, uploads, list, final, toBlocks: blocksOf, officeFile, contentOf });
+	return planImport({
+		site,
+		uploads,
+		list,
+		final,
+		toBlocks: blocksOf,
+		hasOfficeFile,
+		fingerprintOf,
+	});
 }
 
 /** The API token of every synthetic run, which no output may carry. */

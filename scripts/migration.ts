@@ -266,11 +266,11 @@ async function importPlanOf(
 		list,
 		final,
 		toBlocks: blocksOf,
-		officeFile: await access(join(folder, ANOM_001_FILE)).then(
+		hasOfficeFile: await access(join(folder, ANOM_001_FILE)).then(
 			() => true,
 			() => false,
 		),
-		contentOf: zip.contentOf,
+		fingerprintOf: zip.fingerprintOf,
 	});
 }
 

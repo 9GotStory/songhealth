@@ -12,10 +12,12 @@ import type { ImportPlan } from "../../scripts/migration/import-plan.ts";
 import {
 	ACTIVITY,
 	attachment,
+	featuring,
 	importOf,
 	moitPost,
 	moitTags,
 	newsItem,
+	onePage,
 	runMigration,
 	withExport,
 	zipOf,
@@ -24,24 +26,16 @@ import {
 } from "./migration.helpers.ts";
 import { ANOM_001_SOURCE } from "../../scripts/migration/moit-plan.ts";
 import { verifyTarget } from "../../scripts/migration/verify.ts";
+import { linkBlock, requirementBlock } from "./ita.helpers.ts";
 
 /** An attachment `id` that Evidence links, and the address a post's link writes for it. */
 const evidenceFile = (id: number) => attachment(id, `wp-content/uploads/2026/03/file-${id}.pdf`);
 const fileHref = (id: number) => `/wp-content/uploads/2026/03/file-${id}.pdf`;
 
-/** A One Page attachment `id`, and the fields of an item it is the featured image of. */
-const onePage = (id: number) => attachment(id, `wp-content/uploads/2025/03/one-page-${id}.webp`);
-const featuring = (id: number) => ({ _thumbnail_id: String(id), image_1: String(id) });
-
 /** The Round every Evidence block takes in 2567–2569 (spec #174 "Mapping: ITA posts"). */
 const NO_ROUND = "ไม่ระบุรอบ";
 
-/** Requirement, file and link blocks, as the plan holds them. */
-const requirement = (number: string, title: string) => ({
-	_type: "ita_requirement",
-	number,
-	title,
-});
+/** A file block as the plan holds it, naming its attachment until the writer has its media item. */
 const fileBlock = (label: string, id: number, round = NO_ROUND) => ({
 	_type: "ita_file",
 	label,
@@ -49,13 +43,13 @@ const fileBlock = (label: string, id: number, round = NO_ROUND) => ({
 	round,
 });
 
-const linkBlock = (label: string, url: string, current = false, round = NO_ROUND) => ({
-	_type: "ita_link",
-	label,
-	url,
-	round,
-	current,
-});
+/** The ANOM-001 attachment, and a post that links it. */
+const ANOM = attachment(1479, "wp-content/uploads/2024/11/7-long-name.pdf");
+const ANOM_POST = moitPost(
+	2,
+	2567,
+	'<h5>7. <a href="/wp-content/uploads/2024/11/7-long-name.pdf">ยุทธศาสตร์</a></h5>',
+);
 
 /** The Evidence blocks the import plans for one post among `others`. */
 async function evidenceOf(post: SyntheticItem, others: SyntheticItem[] = []) {
@@ -89,8 +83,8 @@ describe("an ITA post", () => {
 					number: 3,
 					updated_on: "2026-03-09T09:16:06.000Z",
 					evidence: [
-						requirement("1", "ข้อกำหนดแรก"),
-						requirement("1.1", "บันทึกเสนอ"),
+						requirementBlock("1", "ข้อกำหนดแรก"),
+						requirementBlock("1.1", "บันทึกเสนอ"),
 						fileBlock("บันทึกเสนอ", 31),
 					],
 				},
@@ -112,11 +106,11 @@ describe("a MOIT's lines", () => {
 			[evidenceFile(41), evidenceFile(42), evidenceFile(43)],
 		);
 		assert.deepEqual(evidence, [
-			requirement("1", "ไตรมาสแรก"),
-			requirement("1.1", "ตุลาคม"),
+			requirementBlock("1", "ไตรมาสแรก"),
+			requirementBlock("1.1", "ตุลาคม"),
 			fileBlock("บันทึก", 41),
 			fileBlock("รายงาน", 42),
-			requirement("2", "วิสัยทัศน์"),
+			requirementBlock("2", "วิสัยทัศน์"),
 			fileBlock("วิสัยทัศน์", 43),
 		]);
 	});
@@ -131,9 +125,9 @@ describe("a MOIT's lines", () => {
 			[evidenceFile(41), evidenceFile(42)],
 		);
 		assert.deepEqual(evidence, [
-			requirement("3.3", "ฟอร์มเผยแพร่"),
+			requirementBlock("3.3", "ฟอร์มเผยแพร่"),
 			fileBlock("ฟอร์มเผยแพร่", 41),
-			requirement("2.1", "บันทึกแจ้งเวียน"),
+			requirementBlock("2.1", "บันทึกแจ้งเวียน"),
 			fileBlock("บันทึกแจ้งเวียน", 42),
 		]);
 	});
@@ -148,8 +142,8 @@ describe("a MOIT's lines", () => {
 			[evidenceFile(41)],
 		);
 		assert.deepEqual(evidence, [
-			requirement("1", "ข้อกำหนด ที่ขึ้นบรรทัด"),
-			requirement("1.1", "รายงาน ประจำปี"),
+			requirementBlock("1", "ข้อกำหนด ที่ขึ้นบรรทัด"),
+			requirementBlock("1.1", "รายงาน ประจำปี"),
 			fileBlock("รายงาน ประจำปี", 41),
 		]);
 	});
@@ -160,7 +154,7 @@ describe("a MOIT's lines", () => {
 			[evidenceFile(41)],
 		);
 		assert.deepEqual(evidence, [
-			requirement("1.1", "รายงานประจำปี"),
+			requirementBlock("1.1", "รายงานประจำปี"),
 			fileBlock("รายงานประจำปี", 41),
 		]);
 	});
@@ -175,7 +169,7 @@ describe("a MOIT's lines", () => {
 			[evidenceFile(41)],
 		);
 		assert.deepEqual(evidence, [
-			requirement("1.1", "บันทึก และ ฟอร์ม"),
+			requirementBlock("1.1", "บันทึก และ ฟอร์ม"),
 			fileBlock("บันทึก", 41),
 			fileBlock("ฟอร์ม", 41),
 		]);
@@ -191,7 +185,7 @@ describe("a MOIT's lines", () => {
 			[evidenceFile(41), evidenceFile(42)],
 		);
 		assert.deepEqual(evidence, [
-			requirement("1.1", "บันทึก ฟอร์ม"),
+			requirementBlock("1.1", "บันทึก ฟอร์ม"),
 			fileBlock("บันทึก", 41),
 			fileBlock("ฟอร์ม", 42),
 		]);
@@ -206,7 +200,10 @@ describe("a MOIT's lines", () => {
 				`<h5>1. แผน</h5><p>6 เดือน</p><ul><li><a href="${fileHref(41)}">แผน</a></li></ul>`,
 			),
 		]);
-		assert.deepEqual(entries[0]!.data.evidence, [requirement("1", "แผน"), fileBlock("แผน", 41)]);
+		assert.deepEqual(entries[0]!.data.evidence, [
+			requirementBlock("1", "แผน"),
+			fileBlock("แผน", 41),
+		]);
 		assert.deepEqual(report.notes, [{ slug: "moit-5-2568", note: "text not carried: 6 เดือน" }]);
 	});
 
@@ -214,7 +211,7 @@ describe("a MOIT's lines", () => {
 		const { entries, report } = await importOf([
 			moitPost(6, 2568, "<h5>1. รายงาน</h5><p>ไตรมาสที่ 1</p><ul><li>หัวข้อย่อยในรายงาน</li></ul>"),
 		]);
-		assert.deepEqual(entries[0]!.data.evidence, [requirement("1", "รายงาน")]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirementBlock("1", "รายงาน")]);
 		assert.deepEqual(report.notes, [
 			{ slug: "moit-6-2568", note: "text not carried: ไตรมาสที่ 1" },
 			{ slug: "moit-6-2568", note: "text not carried: หัวข้อย่อยในรายงาน" },
@@ -225,13 +222,13 @@ describe("a MOIT's lines", () => {
 		const { entries, report } = await importOf([
 			moitPost(7, 2568, '<h3 class="gb-headline"></h3><h5>1. รายงาน</h5>'),
 		]);
-		assert.deepEqual(entries[0]!.data.evidence, [requirement("1", "รายงาน")]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirementBlock("1", "รายงาน")]);
 		assert.deepEqual(report.notes, []);
 	});
 
 	it("reports a number with no wording rather than an empty Requirement", async () => {
 		const { entries, report } = await importOf([moitPost(8, 2568, "<p>1. </p><h5>2. รายงาน</h5>")]);
-		assert.deepEqual(entries[0]!.data.evidence, [requirement("2", "รายงาน")]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirementBlock("2", "รายงาน")]);
 		assert.deepEqual(report.notes, [{ slug: "moit-8-2568", note: "text not carried: 1." }]);
 	});
 });
@@ -243,7 +240,7 @@ describe("the end of a post", () => {
 
 	it("leaves out the office's card, its picture included, without a word", async () => {
 		const { entries, report } = await importOf([moitPost(9, 2568, `<h5>1. รายงาน</h5>${FOOTER}`)]);
-		assert.deepEqual(entries[0]!.data.evidence, [requirement("1", "รายงาน")]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirementBlock("1", "รายงาน")]);
 		assert.deepEqual(report.notes, []);
 	});
 
@@ -251,7 +248,7 @@ describe("the end of a post", () => {
 		const { entries, report } = await importOf([
 			moitPost(9, 2568, `<h5>1. รายงาน</h5>${CARD_TEXT}`),
 		]);
-		assert.deepEqual(entries[0]!.data.evidence, [requirement("1", "รายงาน")]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirementBlock("1", "รายงาน")]);
 		assert.deepEqual(report.notes, []);
 	});
 
@@ -259,7 +256,7 @@ describe("the end of a post", () => {
 		const { entries, report } = await importOf([
 			moitPost(9, 2568, `${FOOTER}<h5>2. ข้อหลังการ์ด</h5><p>บรรทัดหลังการ์ด</p>`),
 		]);
-		assert.deepEqual(entries[0]!.data.evidence, [requirement("2", "ข้อหลังการ์ด")]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirementBlock("2", "ข้อหลังการ์ด")]);
 		assert.deepEqual(report.notes, [
 			{ slug: "moit-9-2568", note: "text not carried: บรรทัดหลังการ์ด" },
 		]);
@@ -269,7 +266,7 @@ describe("the end of a post", () => {
 		const { entries, report } = await importOf([
 			moitPost(9, 2568, "<h5>สำนักงานสาธารณสุขอำเภอสอง</h5><h5>1. รายงาน</h5>"),
 		]);
-		assert.deepEqual(entries[0]!.data.evidence, [requirement("1", "รายงาน")]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirementBlock("1", "รายงาน")]);
 		assert.deepEqual(report.notes, []);
 	});
 
@@ -279,7 +276,7 @@ describe("the end of a post", () => {
 		const { entries, report } = await importOf([
 			moitPost(12, 2568, `${picture}<h5>1. รายงาน</h5>${FOOTER}`),
 		]);
-		assert.deepEqual(entries[0]!.data.evidence, [requirement("1", "รายงาน")]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirementBlock("1", "รายงาน")]);
 		assert.deepEqual(report.notes, [
 			{
 				slug: "moit-12-2568",
@@ -294,7 +291,7 @@ describe("a block no Evidence holds", () => {
 		const { entries, report } = await importOf([
 			moitPost(10, 2568, "<h5>1. รายงาน</h5><pre>ข้อความ</pre>"),
 		]);
-		assert.deepEqual(entries[0]!.data.evidence, [requirement("1", "รายงาน")]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirementBlock("1", "รายงาน")]);
 		assert.deepEqual(report.notes, [{ slug: "moit-10-2568", note: "not carried: a code block" }]);
 	});
 });
@@ -309,10 +306,10 @@ describe("a MOIT's links", () => {
 			),
 		);
 		assert.deepEqual(evidence, [
-			requirement("1.1", "ผู้บริหาร"),
-			linkBlock("ผู้บริหาร", "/about/personnel", true),
-			requirement("1.6", "ข่าว"),
-			linkBlock("ข่าว", "/activities", true),
+			requirementBlock("1.1", "ผู้บริหาร"),
+			linkBlock("ผู้บริหาร", "/about/personnel", { current: true }),
+			requirementBlock("1.6", "ข่าว"),
+			linkBlock("ข่าว", "/activities", { current: true }),
 		]);
 	});
 
@@ -325,15 +322,15 @@ describe("a MOIT's links", () => {
 		const news = newsItem(7, { categories: [ACTIVITY], meta: featuring(71) });
 		const asActivity = await evidenceOf(post, [onePage(71), news]);
 		assert.deepEqual(asActivity, [
-			requirement("1.2", "อินโฟกราฟิก"),
-			linkBlock("อินโฟกราฟิก", "/activities/news-7", true),
+			requirementBlock("1.2", "อินโฟกราฟิก"),
+			linkBlock("อินโฟกราฟิก", "/activities/news-7", { current: true }),
 		]);
 		const moved = await importOf([onePage(71), news, post], {
 			reviews: { "news-7": { decision: "News" } },
 		});
 		assert.deepEqual(moved.entries.at(-1)!.data.evidence, [
-			requirement("1.2", "อินโฟกราฟิก"),
-			linkBlock("อินโฟกราฟิก", "/news/news-7", true),
+			requirementBlock("1.2", "อินโฟกราฟิก"),
+			linkBlock("อินโฟกราฟิก", "/news/news-7", { current: true }),
 		]);
 	});
 
@@ -343,8 +340,8 @@ describe("a MOIT's links", () => {
 			[moitPost(5, 2567, "<h5>1. รายงาน</h5>", { slug: "moit-4-2567-2" })],
 		);
 		assert.deepEqual(evidence, [
-			requirement("1.1", "ตัวชี้วัดเดิม"),
-			linkBlock("ตัวชี้วัดเดิม", "/ita/moit-5-2567", true),
+			requirementBlock("1.1", "ตัวชี้วัดเดิม"),
+			linkBlock("ตัวชี้วัดเดิม", "/ita/moit-5-2567", { current: true }),
 		]);
 	});
 
@@ -366,8 +363,8 @@ describe("a MOIT's links", () => {
 			moitPost(2, 2568, '<p>1.5 <a href="http://stopcorruption.example.go.th/">กฎหมาย</a></p>'),
 		);
 		assert.deepEqual(evidence, [
-			requirement("1.5", "กฎหมาย"),
-			linkBlock("กฎหมาย", "http://stopcorruption.example.go.th/"),
+			requirementBlock("1.5", "กฎหมาย"),
+			linkBlock("กฎหมาย", "http://stopcorruption.example.go.th/", { current: false }),
 		]);
 	});
 
@@ -375,7 +372,7 @@ describe("a MOIT's links", () => {
 		const button =
 			'<div class="gb-container"><a class="gb-button" href="https://www.facebook.com/profile" target="_blank" rel="noopener"><span class="gb-icon"><svg viewBox="0 0 512 512"><path d="M0 0"></path></svg></span></a></div>';
 		const { entries, report } = await importOf([moitPost(1, 2567, `<h5>1. รายงาน</h5>${button}`)]);
-		assert.deepEqual(entries[0]!.data.evidence, [requirement("1", "รายงาน")]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirementBlock("1", "รายงาน")]);
 		assert.deepEqual(report.notes, []);
 	});
 
@@ -383,7 +380,7 @@ describe("a MOIT's links", () => {
 		const { entries, report } = await importOf([
 			moitPost(1, 2567, '<h5>1. รายงาน</h5><p><a href="https://www.facebook.com/profile"></a></p>'),
 		]);
-		assert.deepEqual(entries[0]!.data.evidence, [requirement("1", "รายงาน")]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirementBlock("1", "รายงาน")]);
 		assert.deepEqual(report.notes, []);
 	});
 
@@ -392,8 +389,8 @@ describe("a MOIT's links", () => {
 			moitPost(1, 2567, '<p>1.1 <a href="https://www.facebook.com/page">เพจสำนักงาน</a></p>'),
 		);
 		assert.deepEqual(evidence, [
-			requirement("1.1", "เพจสำนักงาน"),
-			linkBlock("เพจสำนักงาน", "https://www.facebook.com/page"),
+			requirementBlock("1.1", "เพจสำนักงาน"),
+			linkBlock("เพจสำนักงาน", "https://www.facebook.com/page", { current: false }),
 		]);
 	});
 
@@ -401,7 +398,7 @@ describe("a MOIT's links", () => {
 		const { entries, report } = await importOf([
 			moitPost(1, 2567, '<p>1.1 เพจสำนักงาน <a href="https://www.facebook.com/profile"></a></p>'),
 		]);
-		assert.deepEqual(entries[0]!.data.evidence, [requirement("1.1", "เพจสำนักงาน")]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirementBlock("1.1", "เพจสำนักงาน")]);
 		assert.deepEqual(report.notes, []);
 	});
 
@@ -432,7 +429,7 @@ describe("a MOIT's links", () => {
 				'<h5>1. รายงาน</h5><p><a href="https://songhealth.moph.go.th/tag/2567/">2567</a></p>',
 			),
 		]);
-		assert.deepEqual(entries[0]!.data.evidence, [requirement("1", "รายงาน")]);
+		assert.deepEqual(entries[0]!.data.evidence, [requirementBlock("1", "รายงาน")]);
 		assert.deepEqual(report.notes, []);
 	});
 
@@ -466,11 +463,11 @@ describe("a MOIT's fixes at import", () => {
 		const months =
 			"<p>1.3 ธันวาคม 2568</p><p>1.4 มกราคม 2568</p><p>1.5 กุมภาพันธ์ 2568</p><p>1.6 มีนาคม 2568</p><p>1.7 เมษายน 2568</p>";
 		assert.deepEqual(await evidenceOf(moitPost(5, 2569, months)), [
-			requirement("1.3", "ธันวาคม 2568"),
-			requirement("1.4", "มกราคม 2569"),
-			requirement("1.5", "กุมภาพันธ์ 2569"),
-			requirement("1.6", "มีนาคม 2569"),
-			requirement("1.7", "เมษายน 2568"),
+			requirementBlock("1.3", "ธันวาคม 2568"),
+			requirementBlock("1.4", "มกราคม 2569"),
+			requirementBlock("1.5", "กุมภาพันธ์ 2569"),
+			requirementBlock("1.6", "มีนาคม 2569"),
+			requirementBlock("1.7", "เมษายน 2568"),
 		]);
 		for (const other of [moitPost(5, 2568, months), moitPost(4, 2569, months)]) {
 			assert.deepEqual(
@@ -485,7 +482,7 @@ describe("a MOIT's fixes at import", () => {
 			await evidenceOf(moitPost(5, 2569, `<p>1.4 <a href="${fileHref(51)}">มกราคม 2568</a></p>`), [
 				evidenceFile(51),
 			]),
-			[requirement("1.4", "มกราคม 2569"), fileBlock("มกราคม 2569", 51)],
+			[requirementBlock("1.4", "มกราคม 2569"), fileBlock("มกราคม 2569", 51)],
 		);
 	});
 
@@ -495,7 +492,7 @@ describe("a MOIT's fixes at import", () => {
 			[evidenceFile(52)],
 		);
 		assert.deepEqual(evidence, [
-			requirement("10", "รายงานผล (ตามข้อ 9)"),
+			requirementBlock("10", "รายงานผล (ตามข้อ 9)"),
 			fileBlock("รายงานผล (ตามข้อ 9)", 52),
 		]);
 	});
@@ -505,7 +502,7 @@ describe("a MOIT's fixes at import", () => {
 			moitPost(2, 2568, `<h4>10. รายงานผล</h4><ul><li><a href="${fileHref(52)}">)</a></li></ul>`),
 			[evidenceFile(52)],
 		);
-		assert.deepEqual(evidence, [requirement("10", "รายงานผล"), fileBlock("รายงานผล", 52)]);
+		assert.deepEqual(evidence, [requirementBlock("10", "รายงานผล"), fileBlock("รายงานผล", 52)]);
 	});
 
 	it('reports a ")" before any Requirement, which has no wording to take', async () => {
@@ -525,7 +522,7 @@ describe("a MOIT's fixes at import", () => {
 			[evidenceFile(53)],
 		);
 		assert.deepEqual(evidence, [
-			requirement("1.1", "คำสั่งแต่งตั้ง"),
+			requirementBlock("1.1", "คำสั่งแต่งตั้ง"),
 			fileBlock("คำสั่งแต่งตั้ง", 53),
 		]);
 	});
@@ -535,7 +532,7 @@ describe("a MOIT's fixes at import", () => {
 			moitPost(2, 2568, `<p>1.1 คำสั่ง <a href="${fileHref(54)}">(2)</a></p>`),
 			[evidenceFile(54)],
 		);
-		assert.deepEqual(evidence, [requirement("1.1", "คำสั่ง (2)"), fileBlock("(2)", 54)]);
+		assert.deepEqual(evidence, [requirementBlock("1.1", "คำสั่ง (2)"), fileBlock("(2)", 54)]);
 	});
 
 	it("keeps 2569 MOIT 2's carried-over files as submitted, and notes them (defect 12)", async () => {
@@ -567,18 +564,11 @@ describe("a MOIT's fixes at import", () => {
 });
 
 describe("ANOM-001, the file the uploads copy lacks", () => {
-	const ANOM = attachment(1479, "wp-content/uploads/2024/11/7-long-name.pdf");
-	const post = moitPost(
-		2,
-		2567,
-		'<h5>7. <a href="/wp-content/uploads/2024/11/7-long-name.pdf">ยุทธศาสตร์</a></h5>',
-	);
-
 	it("becomes a link block to the document's official source, using no attachment", async () => {
-		const planned = await importOf([ANOM, post], { uploads: [] });
+		const planned = await importOf([ANOM, ANOM_POST], { uploads: [] });
 		assert.deepEqual(planned.entries[0]!.data.evidence, [
-			requirement("7", "ยุทธศาสตร์"),
-			linkBlock("ยุทธศาสตร์", ANOM_001_SOURCE),
+			requirementBlock("7", "ยุทธศาสตร์"),
+			linkBlock("ยุทธศาสตร์", ANOM_001_SOURCE, { current: false }),
 		]);
 		assert.deepEqual(planned.files, []);
 		assert.deepEqual(planned.report.missing, []);
@@ -591,9 +581,9 @@ describe("ANOM-001, the file the uploads copy lacks", () => {
 	});
 
 	it("becomes a file block from the office's file, when that lies beside the export", async () => {
-		const planned = await importOf([ANOM, post], { uploads: [], officeFile: true });
+		const planned = await importOf([ANOM, ANOM_POST], { uploads: [], hasOfficeFile: true });
 		assert.deepEqual(planned.entries[0]!.data.evidence, [
-			requirement("7", "ยุทธศาสตร์"),
+			requirementBlock("7", "ยุทธศาสตร์"),
 			fileBlock("ยุทธศาสตร์", 1479),
 		]);
 		assert.deepEqual(planned.files, [
@@ -613,7 +603,7 @@ describe("ANOM-001, the file the uploads copy lacks", () => {
 	});
 
 	it("takes the attachment's own file when the uploads copy has it after all", async () => {
-		const planned = await importOf([ANOM, post], { officeFile: true });
+		const planned = await importOf([ANOM, ANOM_POST], { hasOfficeFile: true });
 		assert.deepEqual(
 			planned.files.map(({ attachment: id, path }) => [id, path]),
 			[[1479, "wp-content/uploads/2024/11/7-long-name.pdf"]],
@@ -626,7 +616,7 @@ describe("ANOM-001, the file the uploads copy lacks", () => {
 			[evidenceFile(61), moitPost(1, 2569, `<p>1.1 <a href="${fileHref(61)}">บันทึก</a></p>`)],
 			{ uploads: [] },
 		);
-		assert.deepEqual(planned.entries[0]!.data.evidence, [requirement("1.1", "บันทึก")]);
+		assert.deepEqual(planned.entries[0]!.data.evidence, [requirementBlock("1.1", "บันทึก")]);
 		assert.deepEqual(planned.report.missing, [
 			{ attachment: 61, path: "wp-content/uploads/2026/03/file-61.pdf", usedBy: ["moit-1-2569"] },
 		]);
@@ -639,20 +629,20 @@ describe("a MOIT's Round", () => {
 	for (const year of [2567, 2568, 2569]) {
 		it(`is ไม่ระบุรอบ for ${year}, on every piece of Evidence`, async () => {
 			assert.deepEqual(await evidenceOf(moitPost(1, year, evidence), [evidenceFile(31)]), [
-				requirement("1.1", "บันทึก"),
+				requirementBlock("1.1", "บันทึก"),
 				fileBlock("บันทึก", 31),
-				requirement("1.2", "เว็บไซต์"),
-				linkBlock("เว็บไซต์", "https://example.go.th/"),
+				requirementBlock("1.2", "เว็บไซต์"),
+				linkBlock("เว็บไซต์", "https://example.go.th/", { current: false }),
 			]);
 		});
 	}
 
 	it("is รอบ 6 เดือน for 2570, on every piece of Evidence", async () => {
 		assert.deepEqual(await evidenceOf(moitPost(1, 2570, evidence), [evidenceFile(31)]), [
-			requirement("1.1", "บันทึก"),
+			requirementBlock("1.1", "บันทึก"),
 			fileBlock("บันทึก", 31, "รอบ 6 เดือน"),
-			requirement("1.2", "เว็บไซต์"),
-			linkBlock("เว็บไซต์", "https://example.go.th/", false, "รอบ 6 เดือน"),
+			requirementBlock("1.2", "เว็บไซต์"),
+			linkBlock("เว็บไซต์", "https://example.go.th/", { current: false, round: "รอบ 6 เดือน" }),
 		]);
 	});
 
@@ -836,7 +826,7 @@ describe("a MOIT's files", () => {
 					moitPost(1, 2568, linking(31)),
 					moitPost(1, 2569, linking(32)),
 				],
-				{ contentOf: SAME_BYTES },
+				{ fingerprintOf: SAME_BYTES },
 			),
 			[
 				[31, "ITA ใช้ทุกปี"],
@@ -854,7 +844,7 @@ describe("a MOIT's files", () => {
 					moitPost(1, 2569, linking(31)),
 					moitPost(2, 2569, linking(32)),
 				],
-				{ contentOf: SAME_BYTES },
+				{ fingerprintOf: SAME_BYTES },
 			),
 			[
 				[31, "ITA 2569"],
@@ -1032,19 +1022,11 @@ describe("verify of the MOITs", () => {
 });
 
 describe("the import command's ITA posts", () => {
-	const ANOM = attachment(1479, "wp-content/uploads/2024/11/7-long-name.pdf");
-	const post = moitPost(
-		2,
-		2567,
-		'<h5>7. <a href="/wp-content/uploads/2024/11/7-long-name.pdf">ยุทธศาสตร์</a></h5>',
-	);
-	/** ANOM-001 in the export, and an uploads copy that lacks its file. */
-	const items = [ANOM, post].map((item) => (item.url === undefined ? item : { ...item }));
-
 	/** The plan of a dry run in a folder holding what `prepare` puts beside the export. */
 	async function dryRun(prepare: (folder: string) => Promise<void>) {
 		let planned: ImportPlan | undefined;
-		await withExport(items, async ({ folder, xml, zip }) => {
+		await withExport([ANOM, ANOM_POST], async ({ folder, xml, zip }) => {
+			// An uploads copy that lacks ANOM-001's file, as the real one does.
 			await writeFile(zip, zipOf([]));
 			await prepare(folder);
 			const result = runMigration("import", xml, zip, "--dry-run");
@@ -1058,8 +1040,8 @@ describe("the import command's ITA posts", () => {
 		const planned = await dryRun(async () => {});
 		assert.deepEqual(planned.files, []);
 		assert.deepEqual(planned.entries[0]!.data.evidence, [
-			requirement("7", "ยุทธศาสตร์"),
-			linkBlock("ยุทธศาสตร์", ANOM_001_SOURCE),
+			requirementBlock("7", "ยุทธศาสตร์"),
+			linkBlock("ยุทธศาสตร์", ANOM_001_SOURCE, { current: false }),
 		]);
 	});
 
@@ -1077,7 +1059,7 @@ describe("the import command's ITA posts", () => {
 			[[1479, "anom-001.pdf", "7-long-name.pdf", "ITA 2567"]],
 		);
 		assert.deepEqual(planned.entries[0]!.data.evidence, [
-			requirement("7", "ยุทธศาสตร์"),
+			requirementBlock("7", "ยุทธศาสตร์"),
 			fileBlock("ยุทธศาสตร์", 1479),
 		]);
 	});

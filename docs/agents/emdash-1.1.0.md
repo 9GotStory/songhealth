@@ -691,7 +691,7 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   1.2 s (checked 2026-11-07 for #177). `./scripts/migration/legacy-site.ts` reads the Legacy site's
   export with `parseWxr`, which gives an attachment its post meta (below), and `parseWxrDate`.
 - Both parsers put every item but an attachment into `posts`, with its post meta in `meta` by
-  key. An item's `<category>` of a custom taxonomy, neither `category` nor `post_tag`, goes into
+  key, and its tags in `tags` by the `nicename` of each `post_tag` category. An item's `<category>` of a custom taxonomy, neither `category` nor `post_tag`, goes into
   `customTaxonomies` under its `domain`, by its `nicename` as the export writes it. The name comes
   from the export's `<wp:term>` entries (`terms`), and from the item's `taxonomyLabels` when it
   differs from the slug, keyed by the taxonomy and the slug joined by U+0000
@@ -749,7 +749,7 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   (`src/astro/middleware/redirect.ts`). Astro decodes a request's path and sets it back on that URL,
   so a non-ASCII character reaches the middleware in upper-case hex however the request wrote it, and
   a source stored in lower-case hex, as WordPress writes a Thai slug, never matches (astro 7.3.5
-  `astro/dist/core/fetch/fetch-state.js` `#normalizePathname`, read for #180).
+  `astro/dist/core/fetch/fetch-state.js`, its constructor's `setPathname`, read for #180).
   `POST /_emdash/api/redirects` answers `CONFLICT` for a source
   that exists, compared exactly (`src/api/handlers/redirects.ts` `handleRedirectCreate`), and needs
   `redirects:manage`, an Administrator's (`@emdash-cms/auth/src/rbac.ts`).

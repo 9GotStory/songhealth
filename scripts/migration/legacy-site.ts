@@ -41,7 +41,9 @@ export interface LegacyItem {
 	published: Date | undefined;
 	/** When it was last modified, or none when the export gives no date. */
 	modified: Date | undefined;
-	/** Its tags' slugs, as the export writes them. */
+	/**
+	 * Its tags' slugs: each `nicename` of the `post_tag` domain (emdash 1.1.0 src/cli/wxr/parser.ts).
+	 */
 	tags: string[];
 	/** Its categories' names, in the export's order. */
 	categories: string[];
