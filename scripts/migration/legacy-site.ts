@@ -167,5 +167,13 @@ export async function readLegacySite(xml: string): Promise<LegacySite> {
 
 export { computeContentHash };
 
-/** HTML as Portable Text blocks, through EmDash's converter (spec #174 "Source"). */
-export const blocksOf = (html: string): Block[] => htmlToPortableText(html) as Block[];
+/**
+ * HTML as Portable Text blocks, through EmDash's converter (spec #174 "Source"). Its own keys are
+ * random, so these come from `keyGenerator` (@emdash-cms/gutenberg-to-portable-text 1.1.0
+ * dist/index.mjs htmlToPortableText) and count up from each call, unique within the body they
+ * belong to: a plan reads the same each time.
+ */
+export const blocksOf = (html: string): Block[] => {
+	let key = 0;
+	return htmlToPortableText(html, { keyGenerator: () => `key-${++key}` }) as Block[];
+};

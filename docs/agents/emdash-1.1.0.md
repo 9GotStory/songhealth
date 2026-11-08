@@ -714,7 +714,8 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   markup into Portable Text with `gutenbergToPortableText`, and plain HTML, such as an ACF WYSIWYG
   value, with `htmlToPortableText`, which parses with parse5
   (`@emdash-cms/gutenberg-to-portable-text/dist/index.d.mts`,
-  `@emdash-cms/gutenberg-to-portable-text/package.json`). `htmlToPortableText` matches block
+  `@emdash-cms/gutenberg-to-portable-text/package.json`). `htmlToPortableText(html, { keyGenerator })`
+  makes its keys with that function, and random ones without it, and matches block
   elements with `BLOCK_ELEMENT_PATTERN` (`@emdash-cms/gutenberg-to-portable-text/dist/index.mjs`).
   Called with its edge inputs for #178: plain Node loads it; a `<br>` inside a `<p>` is a line break
   in the span's text, and a `<br>` between loose inline text starts a new block; an `<img>` becomes

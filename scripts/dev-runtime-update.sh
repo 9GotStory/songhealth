@@ -17,7 +17,9 @@
 # A commit that does not contain the one the runtime serves would take away another line of work,
 # such as another feature's branch under test, so the update refuses it unless given --replace
 # (#177 retro). It checks this before it waits for the Admin, so that --wait never waits only to be
-# refused, and again after the wait, since another promotion can land during it.
+# refused, and again after the wait, since another promotion can land during it. It refuses while a
+# window holds the runtime (scripts/dev-runtime-window.sh, #178 retro), at the same two points: a
+# window's restore admits only a backup of the commit the runtime serves.
 # Rolling back after new EmDash migrations ran means restoring the backup taken here, after
 # pointing the checkout back at the backup's commit (docs/operations/development-quadlet.md).
 set -Eeuo pipefail
@@ -26,6 +28,10 @@ umask 077
 # shellcheck source=scripts/dev-runtime-common.sh
 . "$(dirname "${BASH_SOURCE[0]}")/dev-runtime-common.sh"
 trap '[[ $BASH_SUBSHELL == 0 ]] && die "unexpected failure (line $LINENO): $BASH_COMMAND"' ERR
+
+require_no_window() { # stops while a window holds the runtime
+  [[ ! -e $WINDOW_LOCK ]] || die "a window holds the runtime: $(<"$WINDOW_LOCK")"
+}
 
 require_contains_served() { # stops unless SHA contains the commit the runtime serves, or --replace
   [[ $REPLACE == no ]] || return 0
@@ -67,6 +73,7 @@ SHA=$full
 require_sha "$SHA"
 git -C "$SRC" cat-file -e "$SHA:scripts/dev-runtime-install.sh" 2>/dev/null \
   || die "commit $SHA predates this development runtime (no scripts/dev-runtime-install.sh)"
+require_no_window
 require_contains_served
 if [[ $FORCE == no ]]; then
   recent=$(admin_page_loads)
@@ -80,6 +87,7 @@ $recent"
   [[ -z $recent ]] || die "an Admin page was opened in the last $ADMIN_QUIET_MINUTES minutes:
 $recent
 wait until nobody is editing (--wait does it), or pass --force when these loads are your own"
+  require_no_window
   require_contains_served
 fi
 

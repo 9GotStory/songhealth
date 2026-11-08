@@ -3,6 +3,7 @@
 //
 //   node scripts/migration.ts plan <export.xml> <wp-content.zip>
 //   node scripts/migration.ts import <export.xml> <wp-content.zip> <target> [--final]
+//   node scripts/migration.ts import <export.xml> <wp-content.zip> --dry-run [--final]
 //   node scripts/migration.ts verify <export.xml> <wp-content.zip> <target>
 //
 // where <target> is `--origin <url> --token-file <file>`.
@@ -82,6 +83,11 @@
 // backup taken before it. It writes import-report.json beside the export: the inputs' digests, the
 // counts, the rows taken at their default and what it could not carry.
 //
+// import --dry-run stops after the plan: it needs no token and reaches no target, and writes
+// import-plan.json beside the export, the same each time, with the counts import would print. It
+// shows a window's numbers before the window. Keep a copy from before a window: a later commit that
+// writes the same file plans the same import, though a change to the writer still needs a window.
+//
 // verify checks a target against the same plan, read as a trial reads it: the counts, that each
 // redirect answers one 301 to a page that answers 200, that every used file is in the Media
 // Library, that every page answers 200, and that each entry is published with its legacy date and
@@ -104,11 +110,13 @@ import { openZip, readZipNames, type Zip } from "./migration/zip.ts";
 
 const USAGE = `usage: node scripts/migration.ts plan <export.xml> <wp-content.zip>
        node scripts/migration.ts import <export.xml> <wp-content.zip> --origin <url> --token-file <file> [--final]
+       node scripts/migration.ts import <export.xml> <wp-content.zip> --dry-run [--final]
        node scripts/migration.ts verify <export.xml> <wp-content.zip> --origin <url> --token-file <file>`;
 
 /** The files the commands write into the export's folder. */
 const LIST_FILE = "classification-list.csv";
 const INVENTORY_FILE = "inventory.json";
+const IMPORT_PLAN_FILE = "import-plan.json";
 const IMPORT_REPORT_FILE = "import-report.json";
 const VERIFY_REPORT_FILE = "verify-report.json";
 
@@ -230,7 +238,7 @@ interface TargetOptions {
 /** The plan of the export and the list beside it. Reads no credential and reaches no target. */
 async function importPlanOf(
 	folder: string,
-	{ exportPath, final }: TargetOptions,
+	{ exportPath, final }: Pick<TargetOptions, "exportPath" | "final">,
 	zip: Zip,
 ): Promise<ImportPlan> {
 	const listPath = join(folder, LIST_FILE);
@@ -281,6 +289,36 @@ const inputsOf = async (folder: string, { exportPath, zipPath }: TargetOptions) 
 	list: await digestOf(join(folder, LIST_FILE)),
 });
 
+/** Prints what a plan holds, beside the files' line that import and a dry run word apart. */
+function printPlan({ redirects, report: { groups, atDefault, notes } }: ImportPlan) {
+	console.log(`Items: ${JSON.stringify(groups)}`);
+	console.log(`Redirects: ${redirects.length}`);
+	console.log(`Rows taken at their default: ${listed(atDefault.map(({ slug }) => slug))}`);
+	console.log(`Notes: ${notes.length} (in the report)`);
+}
+
+async function dryRunCommand(
+	options: Pick<TargetOptions, "exportPath" | "zipPath" | "final">,
+): Promise<number> {
+	const folder = await exportFolder(options.exportPath);
+	if (folder === undefined) return 2;
+	const zip = await openZip(options.zipPath);
+	try {
+		const planned = await importPlanOf(folder, options, zip);
+		const planPath = join(folder, IMPORT_PLAN_FILE);
+		await replaceFile(planPath, `${JSON.stringify(planned, null, "\t")}\n`);
+		console.log(`Import plan: ${planPath}`);
+		const { missing } = planned.report;
+		console.log(
+			`Files: ${JSON.stringify({ used: planned.files.length + missing.length, missing: missing.length })}`,
+		);
+		printPlan(planned);
+		return 0;
+	} finally {
+		await zip.close();
+	}
+}
+
 const importCommand = (options: TargetOptions) =>
 	onTarget(options, async ({ folder, zip, planned, admin, target }) => {
 		const stop = firstStop(planned, target);
@@ -289,7 +327,7 @@ const importCommand = (options: TargetOptions) =>
 			return 1;
 		}
 		const { uploaded, reused } = await applyImport(admin, planned, target, zip);
-		const { groups, missing, atDefault, notes } = planned.report;
+		const { missing } = planned.report;
 		const report = {
 			run: options.final ? "final" : "trial",
 			origin: options.origin,
@@ -308,11 +346,8 @@ const importCommand = (options: TargetOptions) =>
 		await replaceFile(reportPath, `${JSON.stringify(report, null, "\t")}\n`);
 		console.log(`Import report: ${reportPath}`);
 		console.log(`Run: ${report.run}, into ${options.origin}`);
-		console.log(`Items: ${JSON.stringify(groups)}`);
 		console.log(`Files: ${JSON.stringify(report.files)}`);
-		console.log(`Redirects: ${report.redirects}`);
-		console.log(`Rows taken at their default: ${listed(atDefault.map(({ slug }) => slug))}`);
-		console.log(`Notes: ${notes.length} (in the report)`);
+		printPlan(planned);
 		return 0;
 	});
 
@@ -359,16 +394,23 @@ function commandOf(args: string[]): (() => Promise<number>) | undefined {
 				origin: { type: "string" },
 				"token-file": { type: "string" },
 				final: { type: "boolean", default: false },
+				"dry-run": { type: "boolean", default: false },
 			},
 		});
 	} catch {
 		return undefined;
 	}
-	const { origin, "token-file": tokenFile, final } = parsed.values;
+	const { origin, "token-file": tokenFile, final, "dry-run": dryRun } = parsed.values;
 	const [command, exportPath, zipPath, ...others] = parsed.positionals;
 	if (exportPath === undefined || zipPath === undefined || others.length > 0) return undefined;
-	if (command === "plan" && origin === undefined && tokenFile === undefined && !final) {
+	const noTarget = origin === undefined && tokenFile === undefined;
+	if (command === "plan" && noTarget && !final && !dryRun) {
 		return () => planCommand(exportPath, zipPath);
+	}
+	if (dryRun) {
+		return command === "import" && noTarget
+			? () => dryRunCommand({ exportPath, zipPath, final })
+			: undefined;
 	}
 	if (origin === undefined || tokenFile === undefined) return undefined;
 	const options = { exportPath, zipPath, origin, tokenFile, final };
