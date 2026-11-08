@@ -2,8 +2,8 @@
 # Songhealth commit checks (#58 retro): the pinned Node (#65 retro), formatting, Knip, types,
 # duplicated code (#93), the invisible-character scan, the comment-width, cited-path and
 # package-fact checks (#122 retro), the document-version check (#127 retro) and the heading check
-# (#145 retro), plus ShellCheck when a shell script is staged. The scans read git-tracked files, so
-# they see a new file once it is staged. A check prints only when it fails. CI runs these with the
+# (#145 retro), plus ShellCheck when a shell script is staged. Source scans include tracked and
+# non-ignored untracked files. A check prints only when it fails. CI runs these with the
 # build and the full node tests on every pull request (.github/workflows/checks.yml). The checks
 # read the working tree, not the staged snapshot: to commit part of the changes, set the rest aside
 # first (git stash push --keep-index). Enable once per clone:
