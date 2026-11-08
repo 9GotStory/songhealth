@@ -4,7 +4,7 @@
 // (spec #174: no other dependency). The layout is PKWARE's APPNOTE.TXT, sections 4.3.7, 4.3.12 and
 // 4.3.16.
 
-import { open, type FileHandle } from "node:fs/promises";
+import { open, readFile, type FileHandle } from "node:fs/promises";
 import { crc32, inflateRawSync } from "node:zlib";
 
 /** The signatures of the end of central directory record, its headers and a local file header. */
@@ -28,6 +28,7 @@ interface Entry {
 	method: number;
 	checksum: number;
 	compressedSize: number;
+	size: number;
 	offset: number;
 }
 
@@ -37,6 +38,11 @@ export interface Zip {
 	names: string[];
 	/** The bytes of the entry `name`. Refuses a name it lacks, or a file that fails its checksum. */
 	read(name: string): Promise<Buffer>;
+	/**
+	 * What tells the bytes of the entry `name` from another's without reading them: the CRC-32 and
+	 * the size its directory entry records. A name the zip lacks answers for itself.
+	 */
+	contentOf(name: string): string;
 	close(): Promise<void>;
 }
 
@@ -70,6 +76,7 @@ async function readDirectory(file: FileHandle, path: string): Promise<Map<string
 			method: directory.readUInt16LE(at + 10),
 			checksum: directory.readUInt32LE(at + 16),
 			compressedSize: directory.readUInt32LE(at + 20),
+			size: directory.readUInt32LE(at + 24),
 			offset: directory.readUInt32LE(at + 42),
 		});
 		at += 46 + nameLength + extraLength + commentLength;
@@ -112,8 +119,17 @@ export async function openZip(path: string): Promise<Zip> {
 			if (crc32(bytes) !== entry.checksum) throw new Error(`${name} is damaged in ${path}`);
 			return bytes;
 		},
+		contentOf(name) {
+			const entry = entries.get(name);
+			return entry === undefined ? name : `${entry.checksum}:${entry.size}`;
+		},
 		close: () => file.close(),
 	};
+}
+
+/** `zip`, which also answers for `name` with the file at `path`, one the zip cannot hold. */
+export function withFileBeside(zip: Zip, name: string, path: string): Zip {
+	return { ...zip, read: (entry) => (entry === name ? readFile(path) : zip.read(entry)) };
 }
 
 /** The names of a zip's entries: see openZip. */

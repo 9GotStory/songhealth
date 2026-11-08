@@ -2,9 +2,17 @@
 // a WordPress WXR 1.2 document built from the parts a test names, and a zip of synthetic files. No
 // Legacy site content enters the repository, so every title, name and file here is made up.
 
+import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { crc32, deflateRawSync } from "node:zlib";
+
+import { planImport } from "../../scripts/migration/import-plan.ts";
+import { blocksOf, readLegacySite } from "../../scripts/migration/legacy-site.ts";
+import { plan } from "../../scripts/migration/plan.ts";
 
 /** A category an item carries: its taxonomy (the WXR `domain`), its slug and its name. */
 export interface SyntheticCategory {
@@ -31,6 +39,8 @@ export interface SyntheticItem {
 	categories?: SyntheticCategory[];
 	/** Post meta by key, such as `_thumbnail_id` or the ACF fields `image_1` and `editor`. */
 	meta?: Record<string, string>;
+	/** When it was last modified, in the form of `date`: `date` unless given. */
+	modified?: string;
 	/** The block editor's content. */
 	content?: string;
 	/** The excerpt, which is an attachment's caption. */
@@ -139,8 +149,8 @@ function itemXml(item: SyntheticItem): string {
 		// The site's own time, Bangkok's (UTC+7), as WordPress writes `post_date`.
 		`<wp:post_date>${cdata(shifted(date, 7))}</wp:post_date>`,
 		`<wp:post_date_gmt>${cdata(date)}</wp:post_date_gmt>`,
-		`<wp:post_modified>${cdata(shifted(date, 7))}</wp:post_modified>`,
-		`<wp:post_modified_gmt>${cdata(date)}</wp:post_modified_gmt>`,
+		`<wp:post_modified>${cdata(shifted(item.modified ?? date, 7))}</wp:post_modified>`,
+		`<wp:post_modified_gmt>${cdata(item.modified ?? date)}</wp:post_modified_gmt>`,
 		`<wp:comment_status>${cdata("closed")}</wp:comment_status>`,
 		`<wp:ping_status>${cdata("closed")}</wp:ping_status>`,
 		`<wp:post_name>${cdata(item.slug ?? "")}</wp:post_name>`,
@@ -248,6 +258,31 @@ export function procurement(id: number, fields: Partial<SyntheticItem> = {}): Sy
 	};
 }
 
+/** The category and tags of an ITA post, as the export writes them: its year and its MOIT. */
+export const moitTags = (number: number, year: number): SyntheticCategory[] => [
+	{ domain: "post_tag", slug: String(year), name: String(year) },
+	{ domain: "category", slug: "ita", name: "ITA" },
+	{ domain: "post_tag", slug: `moit-${number}`, name: `MOIT-${number}` },
+];
+
+/** A published ITA post `moit-{number}-{year}`, as the block editor saved `content`. */
+export function moitPost(
+	number: number,
+	year: number,
+	content: string,
+	fields: Partial<SyntheticItem> = {},
+): SyntheticItem {
+	return {
+		type: "post",
+		id: year * 100 + number,
+		slug: `moit-${number}-${year}`,
+		title: `MOIT ${number} ตัวชี้วัดที่ ${number}`,
+		categories: moitTags(number, year),
+		content,
+		...fields,
+	};
+}
+
 /** A file a synthetic zip holds with its bytes, deflated unless `stored`. */
 export interface SyntheticFile {
 	path: string;
@@ -306,4 +341,85 @@ export function zipOf(entries: (string | Uint8Array | SyntheticFile)[]): Buffer 
 	end.writeUInt32LE(directory.length, 12);
 	end.writeUInt32LE(offset, 16);
 	return Buffer.concat([...local, directory, end]);
+}
+
+/** What reviewers wrote in a row of the list. */
+type Review = { decision?: string; decision_type?: string; summary?: string };
+
+/** A cell as the list's CSV writes it. */
+const csvCell = (value: string) =>
+	/[",\r\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+
+/** The list `text` with what reviewers wrote, by slug. Synthetic cells hold no comma or quote. */
+function reviewed(text: string, reviews: Record<string, Review>): string {
+	const [header, ...rows] = text.trimEnd().split("\r\n");
+	const columns = header!.split(",");
+	const at = (name: string) => columns.indexOf(name);
+	const lines = rows.map((line) => {
+		const cells = line.split(",");
+		for (const [column, value] of Object.entries(reviews[cells[at("slug")]!] ?? {})) {
+			cells[at(column)] = csvCell(value);
+		}
+		return cells.join(",");
+	});
+	return [header, ...lines, ""].join("\r\n");
+}
+
+/** The uploads copy's path of each attachment in `items`. */
+export const uploadsOf = (items: SyntheticItem[]) =>
+	items.flatMap((item) => (item.url === undefined ? [] : [new URL(item.url).pathname.slice(1)]));
+
+export interface ImportOptions {
+	reviews?: Record<string, Review>;
+	/** The uploads copy's names, every attachment's file unless given. */
+	uploads?: string[];
+	final?: boolean;
+	/** The items the list was made from, `items` unless given. */
+	listItems?: SyntheticItem[];
+	/** Whether the office's copy of ANOM-001's file lies beside the export. */
+	officeFile?: boolean;
+	/** What tells a file's bytes from another's, its path unless given. */
+	contentOf?: (path: string) => string;
+}
+
+/** What import plans for an export holding `items`, from its list with `reviews` written in. */
+export async function importOf(
+	items: SyntheticItem[],
+	{
+		reviews = {},
+		uploads = uploadsOf(items),
+		final = false,
+		listItems = items,
+		officeFile = false,
+		contentOf = (path) => path,
+	}: ImportOptions = {},
+) {
+	const site = await readLegacySite(wxrDocument(items));
+	const listed = plan({ site: await readLegacySite(wxrDocument(listItems)), uploads });
+	const list = reviewed(listed.list, reviews);
+	return planImport({ site, uploads, list, final, toBlocks: blocksOf, officeFile, contentOf });
+}
+
+/** The API token of every synthetic run, which no output may carry. */
+export const SYNTHETIC_TOKEN = "ec_pat_syntheticnotrealtoken";
+
+/** Runs `use` in a folder with a synthetic export and uploads copy, and `plan`'s list. */
+export async function withExport(
+	items: SyntheticItem[],
+	use: (paths: { folder: string; xml: string; zip: string; token: string }) => Promise<void> | void,
+) {
+	const folder = await mkdtemp(join(tmpdir(), "songhealth-migration-test-"));
+	try {
+		const xml = join(folder, "export.xml");
+		const zip = join(folder, "wp-content.zip");
+		const token = join(folder, "token");
+		await writeFile(xml, wxrDocument(items));
+		await writeFile(zip, zipOf(uploadsOf(items)));
+		await writeFile(token, SYNTHETIC_TOKEN);
+		await chmod(token, 0o600);
+		assert.equal(runMigration("plan", xml, zip).status, 0);
+		await use({ folder, xml, zip, token });
+	} finally {
+		await rm(folder, { recursive: true });
+	}
 }

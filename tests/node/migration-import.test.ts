@@ -8,17 +8,16 @@
 // #178 comment 6720200201, item 3).
 
 import assert from "node:assert/strict";
-import { chmod, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { firstStop, planImport } from "../../scripts/migration/import-plan.ts";
-import { blocksOf, readLegacySite } from "../../scripts/migration/legacy-site.ts";
-import { plan } from "../../scripts/migration/plan.ts";
+import { firstStop } from "../../scripts/migration/import-plan.ts";
+import { readLegacySite } from "../../scripts/migration/legacy-site.ts";
 import { verifyTarget, type VerifyInput } from "../../scripts/migration/verify.ts";
-import { openZip, type Zip } from "../../scripts/migration/zip.ts";
+import { openZip, withFileBeside, type Zip } from "../../scripts/migration/zip.ts";
 import {
 	ACTIVITY,
 	NOTICE,
@@ -29,70 +28,22 @@ import {
 	PUBLIC_RELATIONS,
 	attachment,
 	directive,
+	importOf,
 	newsItem,
 	procurement,
 	runMigration,
+	SYNTHETIC_TOKEN,
+	uploadsOf,
+	withExport,
 	wxrDocument,
 	zipOf,
-	type SyntheticItem,
 } from "./migration.helpers.ts";
-
-/** What reviewers wrote in a row of the list. */
-type Review = { decision?: string; decision_type?: string; summary?: string };
-
-/** A cell as the list's CSV writes it. */
-const csvCell = (value: string) =>
-	/[",\r\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
-
-/** The list `text` with what reviewers wrote, by slug. Synthetic cells hold no comma or quote. */
-function reviewed(text: string, reviews: Record<string, Review>): string {
-	const [header, ...rows] = text.trimEnd().split("\r\n");
-	const columns = header!.split(",");
-	const at = (name: string) => columns.indexOf(name);
-	const lines = rows.map((line) => {
-		const cells = line.split(",");
-		for (const [column, value] of Object.entries(reviews[cells[at("slug")]!] ?? {})) {
-			cells[at(column)] = csvCell(value);
-		}
-		return cells.join(",");
-	});
-	return [header, ...lines, ""].join("\r\n");
-}
 
 /** How the target answers a request for a path, as verify reads it. */
 type Answer = { status: number; location: string | null; body?: string };
 
 /** An answer as verify reads one, with an empty body unless the test gives one. */
 const withBody = (answer: Answer) => ({ ...answer, body: answer.body ?? "" });
-
-/** The uploads copy's path of each attachment in `items`. */
-const uploadsOf = (items: SyntheticItem[]) =>
-	items.flatMap((item) => (item.url === undefined ? [] : [new URL(item.url).pathname.slice(1)]));
-
-interface ImportOptions {
-	reviews?: Record<string, Review>;
-	/** The uploads copy's names, every attachment's file unless given. */
-	uploads?: string[];
-	final?: boolean;
-	/** The items the list was made from, `items` unless given. */
-	listItems?: SyntheticItem[];
-}
-
-/** What import plans for an export holding `items`, from its list with `reviews` written in. */
-async function importOf(
-	items: SyntheticItem[],
-	{
-		reviews = {},
-		uploads = uploadsOf(items),
-		final = false,
-		listItems = items,
-	}: ImportOptions = {},
-) {
-	const site = await readLegacySite(wxrDocument(items));
-	const listed = plan({ site: await readLegacySite(wxrDocument(listItems)), uploads });
-	const list = reviewed(listed.list, reviews);
-	return planImport({ site, uploads, list, final, toBlocks: blocksOf });
-}
 
 /** A One Page attachment `id`, as the news stream's items use them. */
 const onePage = (id: number, details: { alt?: string; caption?: string } = {}) =>
@@ -156,6 +107,39 @@ describe("the uploads copy's files", () => {
 				assert.deepEqual(new Uint8Array(await zip.read("wp-content/uploads/ภาพ.webp")), stored);
 			},
 		);
+	});
+
+	it("tells one file's bytes from another's by its directory entry, and any other name by itself", async () => {
+		const same = new Uint8Array([1, 2, 3, 4]);
+		await withZip(
+			zipOf([
+				{ path: "a.pdf", bytes: same },
+				{ path: "again.pdf", bytes: same, stored: true },
+				{ path: "other.pdf", bytes: new Uint8Array([1, 2, 3, 5]) },
+				{ path: "longer.pdf", bytes: new Uint8Array([1, 2, 3, 4, 0]) },
+			]),
+			async (zip) => {
+				assert.equal(zip.contentOf("a.pdf"), zip.contentOf("again.pdf"));
+				assert.notEqual(zip.contentOf("a.pdf"), zip.contentOf("other.pdf"));
+				assert.notEqual(zip.contentOf("a.pdf"), zip.contentOf("longer.pdf"));
+				assert.equal(zip.contentOf("beside.pdf"), "beside.pdf");
+			},
+		);
+	});
+
+	it("answers for a file beside the zip under its name, and for the zip's own as before", async () => {
+		await withZip(zipOf([{ path: "a.webp", bytes: new Uint8Array([1]) }]), async (zip) => {
+			const folder = await mkdtemp(join(tmpdir(), "songhealth-migration-test-"));
+			try {
+				await writeFile(join(folder, "beside.pdf"), new Uint8Array([7, 8]));
+				const both = withFileBeside(zip, "beside.pdf", join(folder, "beside.pdf"));
+				assert.deepEqual(new Uint8Array(await both.read("beside.pdf")), new Uint8Array([7, 8]));
+				assert.deepEqual(new Uint8Array(await both.read("a.webp")), new Uint8Array([1]));
+				assert.deepEqual(both.names, zip.names);
+			} finally {
+				await rm(folder, { recursive: true });
+			}
+		});
 	});
 
 	it("refuses a name the zip does not hold", async () => {
@@ -1562,6 +1546,8 @@ describe("verify", () => {
 			redirects: { planned: 2, passed: 2 },
 			lists: { planned: 0, passed: 0 },
 			downloads: { planned: 0, passed: 0 },
+			moits: { planned: 0, passed: 0 },
+			years: { planned: 0, passed: 0 },
 			failures: [],
 		});
 	});
@@ -1633,6 +1619,8 @@ describe("verify", () => {
 			redirects: { planned: 2, passed: 2 },
 			lists: { planned: 1, passed: 1 },
 			downloads: { planned: 3, passed: 3 },
+			moits: { planned: 0, passed: 0 },
+			years: { planned: 0, passed: 0 },
 			failures: [],
 		});
 	});
@@ -1873,8 +1861,8 @@ describe("verify", () => {
 });
 
 describe("the planning modules' imports", () => {
-	for (const module of ["import-plan", "verify", "leak-check"]) {
-		it(`${module}.ts imports only the planner at run time, so node:test loads it with plain Node`, async () => {
+	for (const module of ["import-plan", "moit-plan", "verify", "leak-check"]) {
+		it(`${module}.ts imports only the planning modules at run time, so node:test loads it with plain Node`, async () => {
 			const source = await readFile(
 				new URL(`../../scripts/migration/${module}.ts`, import.meta.url),
 				"utf8",
@@ -1884,7 +1872,8 @@ describe("the planning modules' imports", () => {
 			assert.deepEqual(
 				imports.filter(
 					(statement) =>
-						!statement.startsWith("import type ") && !statement.endsWith('from "./plan.ts";'),
+						!statement.startsWith("import type ") &&
+						!/from "\.\/(moit-)?plan\.ts";$/.test(statement),
 				),
 				[],
 			);
@@ -1912,33 +1901,6 @@ describe("the script's EmDash imports", () => {
 
 describe("the import and verify commands", () => {
 	const run = runMigration;
-	const TOKEN = "ec_pat_syntheticnotrealtoken";
-
-	/** Runs `use` in a folder with a synthetic export and uploads copy, and `plan`'s list. */
-	async function withExport(
-		items: SyntheticItem[],
-		use: (paths: {
-			folder: string;
-			xml: string;
-			zip: string;
-			token: string;
-		}) => Promise<void> | void,
-	) {
-		const folder = await mkdtemp(join(tmpdir(), "songhealth-migration-test-"));
-		try {
-			const xml = join(folder, "export.xml");
-			const zip = join(folder, "wp-content.zip");
-			const token = join(folder, "token");
-			await writeFile(xml, wxrDocument(items));
-			await writeFile(zip, zipOf(uploadsOf(items)));
-			await writeFile(token, TOKEN);
-			await chmod(token, 0o600);
-			assert.equal(run("plan", xml, zip).status, 0);
-			await use({ folder, xml, zip, token });
-		} finally {
-			await rm(folder, { recursive: true });
-		}
-	}
 
 	const CHOOSE = [newsItem(1, { categories: [ACTIVITY], title: "ขอเชิญร่วมงาน" })];
 
@@ -2055,7 +2017,7 @@ describe("the import and verify commands", () => {
 				token,
 			);
 			assert.equal(result.status, 1);
-			assert.ok(!`${result.stdout}${result.stderr}`.includes(TOKEN));
+			assert.ok(!`${result.stdout}${result.stderr}`.includes(SYNTHETIC_TOKEN));
 		});
 	});
 });

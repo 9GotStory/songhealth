@@ -170,7 +170,7 @@ export const linksIn = (html: string) =>
  * ("wp-content/uploads/2025/03/a.pdf"), or none for an address elsewhere. An address may be
  * absolute or root-relative, and percent-encoded or not.
  */
-function sitePath(address: string): string | undefined {
+export function sitePath(address: string): string | undefined {
 	let url: URL;
 	try {
 		url = new URL(address, `https://${LEGACY_HOST}/`);
@@ -186,7 +186,7 @@ function sitePath(address: string): string | undefined {
 }
 
 /** A path into the site's uploads, with `/wp-content` or without it (legacy-ita.md defect 3). */
-const isUploadsPath = (path: string) => /(^|\/)uploads\//.test(path);
+export const isUploadsPath = (path: string) => /(^|\/)uploads\//.test(path);
 
 /** The export's attachments and the uploads copy, as the plan looks them up. */
 export interface Files {

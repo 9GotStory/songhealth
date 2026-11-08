@@ -39,6 +39,10 @@ export interface LegacyItem {
 	status: string;
 	/** When it was published, or for a draft when it was dated; none for an undated draft. */
 	published: Date | undefined;
+	/** When it was last modified, or none when the export gives no date. */
+	modified: Date | undefined;
+	/** Its tags' slugs, as the export writes them. */
+	tags: string[];
 	/** Its categories' names, in the export's order. */
 	categories: string[];
 	/** The attachment ID of its featured image (`_thumbnail_id`). */
@@ -100,13 +104,18 @@ function itemOf(post: WxrPost, type: ItemType): LegacyItem {
 	// The GMT date first, then pubDate, then the site's own; a malformed GMT date gives an Invalid
 	// Date rather than the next (emdash 1.1.0 src/import/sources/wxr.ts parseWxrDate).
 	const published = parseWxrDate(post.postDateGmt, post.pubDate, post.postDate);
+	const modified = parseWxrDate(post.postModifiedGmt, undefined, post.postModified);
+	const valid = (date: Date | undefined) =>
+		date && !Number.isNaN(date.getTime()) ? date : undefined;
 	return {
 		type,
 		id: post.id!,
 		slug: post.postName ?? "",
 		title: post.title ?? "",
 		status: post.status ?? "",
-		published: published && !Number.isNaN(published.getTime()) ? published : undefined,
+		published: valid(published),
+		modified: valid(modified),
+		tags: post.tags,
 		categories: slugs.map((slug) => categoryName(post, taxonomy, slug)),
 		featured: attachmentId(post.meta.get("_thumbnail_id")),
 		pictures: field("image").flatMap((value) => attachmentId(value) ?? []),
