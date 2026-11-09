@@ -330,7 +330,7 @@ ITA อยู่ใน V1 บน foundation เดียวกัน (Astro + Em
 
 # 16. Migration
 
-การย้ายจาก Legacy WordPress ใช้ script ชั่วคราวของ Songhealth (`scripts/migration.ts`) ที่เขียนผ่าน native APIs ของ EmDash ตาม `09-migration-plan.md` และ `docs/adr/0008`: content, media (upload ที่ content hash ซ้ำใช้ item เดิม), taxonomy terms ที่มาจาก seed และ native redirects. ไม่ใช้ WordPress import ของ EmDash เพราะ import นั้นเขียน field ที่ collection ของ Songhealth ไม่มี ส่ง post type หนึ่งไปได้ collection เดียว และเติมค่า ACF ได้เฉพาะ field ที่ชื่อตรงกัน.
+การย้ายจาก Legacy WordPress ใช้ script ชั่วคราวของ Songhealth (`scripts/migration.ts`) ที่เขียนผ่าน native APIs ของ EmDash ตาม `09-migration-plan.md` และ `docs/adr/0008`: content, media (upload ที่ content hash ซ้ำใช้ item เดิม), taxonomy terms ที่มาจาก seed และ native redirects. ไม่ใช้ WordPress import ของ EmDash ด้วยเหตุผลใน ADR นั้น.
 
 Script เป็น temporary tooling ไม่ใช่ application layer และออกจาก repository พร้อม test เมื่อ WordPress ถูก retire.
 

@@ -81,7 +81,7 @@ Version 1 ย้ายข้อมูลด้วย script ชั่วคร�
 `scripts/migration.ts` อ่าน WXR ด้วย parser ที่ EmDash export และแปลง HTML ด้วย `@emdash-cms/gutenberg-to-portable-text`. อ่านเฉพาะ `public-new`, `post`, `directive`, `procurement`, `attachment` และ slug ของ page. มีสามคำสั่งหลัก:
 
 - **plan** อ่าน export และ zip แล้วเขียน Classification list กับ inventory ข้าง export. ถ้ามี list ที่ตรวจแล้ว จะคงทุกการตัดสินใจและเพิ่มเฉพาะรายการใหม่พร้อมค่าเริ่มต้น
-- **import** เขียนไปยัง origin เดียวด้วย API token ของ Administrator และเขียนรายงานข้าง export. ก่อนเขียนจะหยุดถ้า target slug หรือ legacy redirect มีอยู่แล้ว หรือ term ขาด. Trial ใช้ค่าเริ่มต้นกับแถว "ต้องเลือก" และลงรายงาน; final run (`--final`) ปฏิเสธเมื่อยังมีแถว "ต้องเลือก"
+- **import** เขียนไปยัง origin เดียวด้วย API token ของ Administrator และเขียนรายงานข้าง export. ก่อนเขียนจะหยุดถ้า target slug หรือ legacy redirect มีอยู่แล้ว หรือ term ขาด. Trial ใช้ค่าเริ่มต้นกับแถว "ต้องเลือก" และลงรายงาน แต่หยุดเมื่อแถวนั้นไม่มีค่าเริ่มต้น; final run (`--final`) ปฏิเสธเมื่อยังมีแถว "ต้องเลือก"
 - **verify** ตรวจ target เทียบกับ plan: จำนวนต่อ collection, redirect หนึ่ง 301 ไปหน้าที่ตอบ 200 โดยไม่มี loop, ไฟล์ที่ใช้อยู่ใน Media Library, และหน้าที่ย้ายตอบ 200
 
 Entry ถูกสร้างแล้ว publish; term มาจาก seed ผ่าน model-update step ไม่ใช่จาก script.
@@ -94,7 +94,7 @@ Entry ถูกสร้างแล้ว publish; term มาจาก seed �
 
 Target collections มาจาก `seed/seed.json` ตาม `02-content-model.md`; migration ไม่เปลี่ยน collection, field หรือ block type. Model-update step เพิ่มเฉพาะ term ที่รายการที่ย้ายมาใช้ (ประเภทประกาศ จัดซื้อจัดจ้าง, รับสมัครงาน และ ประกาศทั่วไป; ประเภทเอกสาร คำสั่ง; หัวข้อ ฝุ่น PM 2.5) และลบ taxonomy ตั้งต้น Categories กับ Tags.
 
-Classification list (`GLOSSARY.md`) ที่คนตรวจแล้วกำหนดว่าแต่ละรายการของ `public-new`, `directive` และ `procurement` เป็นอะไร และเก็บ "สรุป" ที่เจ้าหน้าที่เขียนให้ News และ Activity ของปีงบประมาณปัจจุบัน. Import ใช้ "สรุป" จาก list เท่านั้น; รายการของปีก่อนหน้าไม่มี "สรุป".
+Classification list (`GLOSSARY.md`) ที่คนตรวจแล้วกำหนดว่าแต่ละรายการของ `public-new`, `directive` และ `procurement` เป็นอะไร และเก็บ "สรุป" ที่เจ้าหน้าที่เขียนให้ News และ Activity ของปีงบประมาณปัจจุบัน. "สรุป" มาจาก list; Activity ที่ไม่มี "สรุป" ใน list แต่มีข้อความเดิมใช้ข้อความนั้น (§5.1); รายการอื่นของปีก่อนหน้าไม่มี "สรุป".
 
 ## 5.1 ข่าวและกิจกรรม (`public-new`)
 
@@ -137,7 +137,7 @@ Page ทั้งหมด (เจ้าหน้าที่กรอกเน�
 
 # 6. Status Mapping
 
-Script ย้ายเฉพาะรายการที่มีสถานะ `publish`. รายการสถานะอื่น เช่น draft ไม่ถูกย้าย: runbook หยุด cutover ที่ขั้นตรวจ inventory จนกว่าเจ้าหน้าที่จะเผยแพร่หรือลบ draft นั้นระหว่าง freeze.
+Script ย้ายเฉพาะรายการที่มีสถานะ `publish`. รายการสถานะอื่น เช่น draft ไม่ถูกย้าย: runbook หยุด cutover ที่ขั้นตรวจ inventory จนกว่าเจ้าหน้าที่จะเผยแพร่หรือลบรายการนั้นระหว่าง freeze.
 
 Migration ต้องไม่ reconstruct custom Approval/Module Scope workflow เพราะ Version 1 target ไม่มีระบบเหล่านั้น.
 
@@ -319,7 +319,7 @@ Rollback ไม่ต้องเป็น distributed transaction; ต้อง
 
 ---
 
-# 16. Native Importer Boundary
+# 16. Custom Migration Code Boundary
 
 WordPress import ของ EmDash ไม่ถูกใช้กับเว็บไซต์นี้: ทุกกลุ่มเนื้อหาของเว็บไซต์เดิมเข้าเงื่อนไขอย่างน้อยหนึ่งข้อต่อไปนี้ (`docs/adr/0008`):
 
