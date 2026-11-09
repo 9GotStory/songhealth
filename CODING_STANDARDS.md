@@ -106,6 +106,9 @@ and why, and `.jscpd-baseline.json` records them.
 - A test of a precedence rule, such as the longest listed word first or the newest entry first,
   gives its input in an order the rule must overturn, so the test fails without the rule (#145
   retro: a list already sorted longest first passed with the sort removed).
+- A new test's assertions that already hold before the change come before the one it must fail
+  on, so the red run exercises them (#195 retro: a link-name check placed after the failing
+  assertion expected a link the card does not have, and only review caught it).
 - A rule with an edge is tested on both sides of the edge: a count such as "the first eight" or
   "eight or fewer" with eight and nine items, a breakpoint such as "from `lg`" at 1023 and 1024 px,
   and a place where something stops or starts with a fixture that reaches it. The spec's coverage

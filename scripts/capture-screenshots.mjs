@@ -7,15 +7,16 @@
 // path whose slug is synthetic. At the mobile widths the first target, when it is a full-page one,
 // is captured again with the menu open. A target `name=path@width` is captured full-page at that
 // one width, into <name>.png, and `name=path@width>selector` is a close-up of the first element the
-// CSS selector matches, such as "header-375=/@375>header", for a small change that a full page
-// would bury (#145 retro). A close-up shows each select in it as the list of all its options, since
-// a screenshot leaves out the pop-up an open select draws (#176). A target that ends in `!text` is
-// captured after a click on the element whose whole text is `text`, such as a control that opens
-// part of the page (#148). The origin is PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324. Pages are
-// read anonymously, with no credential. It prints each file with its size in pixels, so a pull
-// request can quote a page's height from it (#146 retro). A close-up also prints its element's
-// layout size, the one to quote: its PNG covers every pixel the element touches, so it can come
-// out a pixel larger (#194 retro).
+// selector matches, such as "header-375=/@375>header", for a small change that a full page
+// would bury (#145 retro). The selector is a Playwright locator, so
+// `article:has(h3:has-text("x"))` picks a card by its title. A close-up shows each select in it as
+// the list of all its options, since a screenshot leaves out the pop-up an open select draws
+// (#176). A target that ends in `!text` is captured after a click on the element whose whole text
+// is `text`, such as a control that opens part of the page (#148). The origin is
+// PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324. Pages are read anonymously, with no credential.
+// It prints each file with its size in pixels, so a pull request can quote a page's height from it
+// (#146 retro). A close-up also prints its element's layout size, the one to quote: its PNG covers
+// every pixel the element touches, so it can come out a pixel larger (#194 retro).
 //
 // A pull request shows its pages before and after. Take the before screenshots while the runtime
 // still serves the base, before the ticket's first scripts/dev-runtime-update.sh: afterwards they

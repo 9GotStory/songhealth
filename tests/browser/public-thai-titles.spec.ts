@@ -64,7 +64,11 @@ const CHECKED_WORDS = [
 	{ word: "ร้องเรียน", times: RONGRIAN_TIMES },
 ];
 
-/** The Homepage cards the fixtures lead, by collection: what each is called, and its section. */
+/**
+ * The Homepage cards the fixtures lead, by collection: what each is called, and its section. A
+ * Service or Activity card is one link named by its title. The Homepage composes its Health
+ * Content card itself, with no such link (docs/design/DESIGN.md §7.3).
+ */
 const CARDS = {
 	health_content: {
 		name: "a Health Content card",
