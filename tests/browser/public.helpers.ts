@@ -494,6 +494,100 @@ export function occurrencesOf(
 }
 
 /**
+ * Where a Quick Link card's parts lie in the window as the page is laid out now: its content box
+ * inside the border and padding, the column that holds the label, the label's text and the arrow.
+ * The text is the union of the label's line boxes, so a kept word wider than its column shows.
+ */
+function quickLinkParts(card: Locator) {
+	return card.evaluate((element) => {
+		const edges = ({ top, right, bottom, left }: DOMRect) => ({ top, right, bottom, left });
+		const outer = element.getBoundingClientRect();
+		const style = getComputedStyle(element);
+		const column = element.querySelector(":scope > span")!;
+		const lines: DOMRect[] = [];
+		const range = document.createRange();
+		const walker = document.createTreeWalker(column, NodeFilter.SHOW_TEXT);
+		for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+			range.selectNodeContents(node);
+			lines.push(...range.getClientRects());
+		}
+		return {
+			content: {
+				top: outer.top + parseFloat(style.borderTopWidth) + parseFloat(style.paddingTop),
+				right: outer.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight),
+				bottom:
+					outer.bottom - parseFloat(style.borderBottomWidth) - parseFloat(style.paddingBottom),
+				left: outer.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft),
+			},
+			column: edges(column.getBoundingClientRect()),
+			text: {
+				top: Math.min(...lines.map((line) => line.top)),
+				right: Math.max(...lines.map((line) => line.right)),
+				bottom: Math.max(...lines.map((line) => line.bottom)),
+				left: Math.min(...lines.map((line) => line.left)),
+			},
+			arrow: edges(element.querySelector("svg")!.getBoundingClientRect()),
+		};
+	});
+}
+
+/**
+ * `card`'s parts as the page is laid out now, once the checks both forms of a Quick Link card share
+ * have passed: a 24 px arrow that ends at the card's right content edge. `near` checks, for
+ * failures named `label`, that two lengths agree within half a pixel.
+ */
+async function checkedQuickLink(card: Locator, label: string) {
+	const parts = await quickLinkParts(card);
+	const near = (actual: number, expected: number, what: string) =>
+		expect(Math.abs(actual - expected), `${label}: ${what}`).toBeLessThanOrEqual(0.5);
+	const { content, arrow } = parts;
+	near(arrow.right, content.right, "the arrow ends at the card's right content edge");
+	near(arrow.right - arrow.left, 24, "the arrow is 24 px wide");
+	near(arrow.bottom - arrow.top, 24, "the arrow is 24 px tall");
+	return { ...parts, near };
+}
+
+/**
+ * Fail unless `card` shows a Quick Link card's phone form as the page is laid out now (spec #190
+ * "Compact Homepage Quick Access"): the label across the card's whole content width, and the
+ * 24 px arrow on a row of its own at the lower right, at least 8 px below the label. `label` names
+ * the card in the failures.
+ */
+export async function expectLabelAboveArrow(card: Locator, label: string): Promise<void> {
+	const { content, column, text, arrow, near } = await checkedQuickLink(card, label);
+	near(column.left, content.left, "the label starts at the card's left content edge");
+	near(column.right, content.right, "the label reaches the card's right content edge");
+	expect(
+		arrow.top - column.bottom,
+		`${label}: the arrow is at least 8 px below the label`,
+	).toBeGreaterThanOrEqual(7.5);
+	expect(text.bottom, `${label}: the label's text ends above the arrow`).toBeLessThanOrEqual(
+		arrow.top,
+	);
+	near(arrow.bottom, content.bottom, "the arrow ends at the card's bottom content edge");
+}
+
+/**
+ * Fail unless `card` shows a Quick Link card's full form as the page is laid out now: the label's
+ * text ending before the 24 px arrow, which sits at the right, level with the middle of the card's
+ * content. `label` names the card in the failures.
+ */
+export async function expectArrowBesideLabel(card: Locator, label: string): Promise<void> {
+	const { content, column, text, arrow, near } = await checkedQuickLink(card, label);
+	expect(column.right, `${label}: the label's column ends before the arrow`).toBeLessThanOrEqual(
+		arrow.left,
+	);
+	expect(text.right, `${label}: the label's text ends before the arrow`).toBeLessThanOrEqual(
+		arrow.left,
+	);
+	near(
+		(arrow.top + arrow.bottom) / 2,
+		(content.top + content.bottom) / 2,
+		"the arrow is level with the middle of the card's content",
+	);
+}
+
+/**
  * Fail unless `draft`'s signed preview link is its address `path` and renders the draft, headed by
  * its title and kept out of search engines. Returns the link, whose token a test names in no
  * message.

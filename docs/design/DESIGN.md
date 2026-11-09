@@ -3,7 +3,7 @@
 > **Status:** v1.1, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190 as its tickets are implemented. Feature 007 acceptance
 > remains the Product Owner's decision.
-> **Updated:** 2026-11-08 (Feature 007 #191–#193); first drafted 2026-10-30
+> **Updated:** 2026-11-09 (Feature 007 #191–#194); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -19,7 +19,9 @@
 > Breadcrumb B below 640 px limits only the current label to one line with ellipsis when needed;
 > its full text, ancestor hierarchy and H1 remain (§7.5). Shared ContentCard, ServiceCard and
 > ActivityCard use whole-card native links and the green hover edge/title (§7.3).
-> This amendment implements #191–#193;
+> Quick Access B below 640 px keeps two cards to a row, with the label above and the arrow on a
+> separate lower-right row; the accepted taller cards replace the crowding limit (§7.3, §10).
+> This amendment implements #191–#194;
 > the other selected refinements follow in their tickets.
 
 ## 1. Scope, authority and status
@@ -276,7 +278,12 @@ this document names:
     320 px, and "ความดันโลหิตสูง" is 107 px at body size, semibold;
   - the title is at body size, semibold, and the Service and Health Content cards leave out their
     summary;
-  - a Service card's icon box is 36 px, and a Quick Link card is 56 px tall.
+  - a Service card's icon box is 36 px;
+  - a Quick Link card's label lies across the card's content width, and its 24 px arrow on a row
+    of its own at the lower right, at least 8 px below the label. The card grows with its label,
+    with no one fixed height, and the cards of a row share one height. One line of label makes it
+    84 px tall (a 26 px line, the 8 px gap, the arrow, 24 px of padding and a 2 px border), the
+    taller proportions the Product Owner accepted (#190 comment 6707205912, Quick Access B).
   - `compact` is a prop only the Homepage passes: the Service catalog, `/about`, `/health`, `/ita`
     and the Activities list keep the full cards.
 
@@ -317,7 +324,7 @@ this document names:
 
 ## 8. Homepage
 
-Source: `current/04-homepage.md` v2.5 and `current/03-sitemap.md` v2.6. The sections, in `04` §3's
+Source: `current/04-homepage.md` v2.6 and `current/03-sitemap.md` v2.6. The sections, in `04` §3's
 order:
 
 1. Header / navigation / reachable search.
@@ -485,11 +492,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
     code change;
   - summaries still break inside words, such as "ออกกำลัง / กาย";
   - a configured header title can occupy multiple lines; its space and type follow §7.4.
-- **A compact Quick Link card's label** has about 80 px beside its arrow at 320 px. Six listed words
-  are wider at body size, semibold: ความดันโลหิตสูง 107 px, ตรวจคัดกรอง 91, ออกกำลังกาย 90,
-  ประชาสัมพันธ์ 89, ความดันโลหิต 89 and ประจำหมู่บ้าน 87. A label holding one of them runs into
-  the arrow below about 342 px, and one holding ความดันโลหิตสูง below about 374 px (#146 comment
-  6626919820 item 1).
+- **A compact Quick Link card's height** grows with its label (§7.3), the taller proportions
+  accepted with Quick Access B (#190 comment 6707205912).
 - **The phone Homepage's height** moves with the titles and the number of items (§8.2).
 - **Post pages** (#147 comment 6634124888 items 2 and 4):
   - the picture follows only while the left column is the longer;
@@ -538,7 +542,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 
 ## 13. References and change history
 
-- Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.5, 2026-11-05);
+- Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.6, 2026-11-09);
   `03-sitemap.md` (v2.6, 2026-11-08); staff guidance in `05` §5.1.
 - Architecture: `docs/website-modernization-docs/current/10-system-blueprint.md` (v2.9,
   2026-11-09); `README.md`; `CLAUDE.md`.
@@ -579,3 +583,10 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   links, the 2 px green hover edge and title underline, and whole-card keyboard focus (§7.3),
   following #190 comment 6707205912. Crops, fallbacks, compact spacing/summary rules and the
   Homepage's four/three Activities across 1024 px remain.
+- **v1.1 Quick Access refinement (2026-11-09, Feature 007 #194):** the compact Quick Link card's
+  label across the top and arrow on a lower-right row of its own, with the accepted taller cards
+  (§7.3): one line of label makes a card 84 px tall where it was 56 px. This replaces the crowding
+  limit §10 held from #146 comment 6626919820 item 1, where a label holding a listed word wider
+  than the 80 px beside its arrow ran into the arrow below about 342 to 374 px. It follows #190
+  comment 6707205912, and `04` §15 records the same rule. From 640 px, and the full cards on
+  `/about`, `/health` and `/ita`, remain.

@@ -44,6 +44,7 @@ import {
 	HOMEPAGE_HEADINGS,
 	SECTION_CRUMBS,
 	expect,
+	expectArrowBesideLabel,
 	expectBreadcrumb,
 	expectSiteNotFound,
 	homepageSection,
@@ -195,6 +196,16 @@ test("the ITA landing lists each fiscal year that has a published MOIT once, new
 		/การประเมินคุณธรรมและความโปร่งใส/,
 	);
 	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/ita`);
+});
+
+test("below 640 px a fiscal year's card on the ITA landing keeps its arrow beside its lines", async ({
+	page,
+}) => {
+	await page.goto("/ita");
+	for (const width of [320, 639]) {
+		await page.setViewportSize({ width, height: 900 });
+		await expectArrowBesideLabel(yearCard(page, NEWER), `/ita at ${width} px`);
+	}
 });
 
 test("the ITA landing says that nothing is published yet while no MOIT is", async ({ page }) => {
