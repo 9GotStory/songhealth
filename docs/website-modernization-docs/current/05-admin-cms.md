@@ -1,9 +1,9 @@
 # Admin CMS — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 05-admin-cms
-> **Status:** CLEAN REBASELINE v2.7 — CURRENT native-only publication
-> **Version:** 2.7
-> **Last Updated:** 6 พฤศจิกายน 2569 (2026-11-06): #169, Admin sidebar
+> **Status:** CLEAN REBASELINE v2.8 — CURRENT native-only publication
+> **Version:** 2.8
+> **Last Updated:** 9 พฤศจิกายน 2569 (2026-11-09): Feature 005, WordPress migration
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`
 > **Purpose:** กำหนดความต้องการของ Admin CMS ที่จำเป็นต่อการดูแล Songhealth โดยใช้ความสามารถมาตรฐานของ CMS ก่อน และสร้างส่วนขยายเฉพาะเมื่อมี gap ที่พิสูจน์แล้ว
 
@@ -44,7 +44,12 @@
 
 > **Admin sidebar decision (Product Owner, 2026-11-06; #169 comment 6672831124):** the Admin
 > sidebar puts the collections in folders by the website's domains, ordered by how often staff
-> use them, each with an icon (§2). Categories and Tags wait for Feature 005.
+> use them, each with an icon (§2). Categories and Tags waited for Feature 005 (below).
+
+> **Feature 005 decision (Product Owner, 2026-11-06; spec #174):** Categories and Tags are deleted
+> from the model (§2). An Editor creates a term only after checking the existing ones and when
+> several items will share it, and reviews the terms each fiscal year (§3.1). Migrated items and
+> files follow §5.2.
 
 ---
 
@@ -105,10 +110,9 @@ Admin ควรสะท้อน Content Model และงานของเ�
   ต่อจาก collection: "ประเภทประกาศ" และ "หมวดข่าว" ใน "ข่าวสาร", "ประเภทรายงาน" ใน "ข้อมูลสุขภาพ",
   "ประเภทหน่วยบริการ" และ "หมวดบริการ" ใน "บริการประชาชน"
 - ส่วน "จัดการ" (Editor ขึ้นไป; "การเปลี่ยนเส้นทาง" เฉพาะ Administrator) มี taxonomy ที่ใช้ข้ามโฟลเดอร์
-  ("หัวข้อ", "พื้นที่", "กลุ่มเป้าหมาย"), "ประเภทเอกสาร", และ "Categories" กับ "Tags" ซึ่งเป็น
-  taxonomy ตั้งต้นของ CMS: Feature 005 ตัดสินว่าจะลบหรือไม่ เพราะตัว import ของ WordPress นำ
-  categories และ tags เข้าสองตัวนี้. Homepage curation อยู่ที่ "จัดการ → เมนู" ในเมนูของ seed ที่ชื่อ
-  ขึ้นต้นด้วย "หน้าแรก:" (#65 comment 6538358352)
+  ("หัวข้อ", "พื้นที่", "กลุ่มเป้าหมาย") และ "ประเภทเอกสาร". "Categories" และ "Tags" ซึ่งเป็น
+  taxonomy ตั้งต้นของ CMS ถูกลบด้วย model-update step และไม่ใช้ใน Songhealth. Homepage curation อยู่ที่
+  "จัดการ → เมนู" ในเมนูของ seed ที่ชื่อขึ้นต้นด้วย "หน้าแรก:" (#65 comment 6538358352)
 - Author และ Contributor เห็นแดชบอร์ด, Calendar, collection ทุกโฟลเดอร์ และมีเดีย; ไม่เห็น taxonomy
   และส่วน "จัดการ". ส่วน "ผู้ดูแลระบบ" (เช่น ประเภทเนื้อหา ผู้ใช้ และตั้งค่า) เห็นเฉพาะ Administrator
 - ปุ่มลัดใน Dashboard เรียงตามลำดับเดียวกัน; รายการ collection ใน Dashboard เรียงตาม slug
@@ -139,6 +143,15 @@ Dashboard analytical data ภายใต้ `/dashboard` ไม่ใช่ CMS
 - conflict/edit-lock protection ตาม platform capability
 
 Songhealth ไม่สร้าง editor, revision engine, preview system, autosave engine หรือ scheduling UI ของตนเองหาก CMS มี capability เหล่านี้อยู่แล้ว.
+
+## 3.1 การสร้างและดูแล term
+
+- Editor และ Administrator สร้าง term ได้ในแผง "Taxonomies" ("อนุกรมวิธาน" ใน Admin ภาษาไทย) ของหน้าแก้ไขรายการ หรือในหน้าของ taxonomy นั้น; Author และ Contributor เลือกได้เฉพาะ term ที่มีอยู่ (`docs/agents/emdash-1.1.0.md` "Admin input")
+- สร้าง term ใหม่เมื่อตรวจ term ที่มีอยู่แล้วว่าไม่มีคำที่มีความหมายเดียวกัน และจะมีหลายรายการใช้ร่วมกัน (`01` §11, `02` §21)
+- ทุกปีงบประมาณ Editor รวม term ที่ซ้ำกันและลบ term ที่ไม่มีรายการใช้. Admin ไม่มีคำสั่งรวม term: เปลี่ยนรายการให้ใช้ term ที่เก็บไว้ก่อน แล้วจึงลบ term ที่ซ้ำ
+- ตัวเลขในหน้าของ taxonomy นับเฉพาะรายการที่เผยแพร่อยู่และไม่อยู่ในถังขยะ: term ที่แสดง 0 อาจยังมี draft ใช้อยู่ และการลบ term จะเอา term นั้นออกจากทุกรายการที่ใช้ รวมถึง draft. Term ที่มี term ย่อยลบไม่ได้จนกว่าจะลบ term ย่อยก่อน
+- ตัวกรองของ `/documents`, `/health/content`, `/news/health` และ `/services` แสดง term เมื่อมีรายการที่เผยแพร่ของรายการนั้นใช้อย่างน้อยหนึ่งรายการ: term ที่เพิ่งสร้าง หรือ term ที่รายการทั้งหมดเป็น draft, ยกเลิกการเผยแพร่ หรืออยู่ในถังขยะ จึงไม่แสดงในตัวกรอง และไม่ใช่ข้อผิดพลาด
+- ตัวกรองเรียง term ตามชื่อในลำดับภาษาไทย การจัดลำดับ term ในหน้าของ taxonomy ไม่เปลี่ยนลำดับในตัวกรอง
 
 ---
 
@@ -171,7 +184,7 @@ Songhealth ไม่สร้าง editor, revision engine, preview system, aut
 - native replace/delete with explicit platform limitations; no required-published-reference veto or immutable-history claim
 - media usage/reference information เมื่อ platform รองรับ
 
-Songhealth ไม่สร้าง DAM, folder hierarchy, image editor, check-in/check-out หรือ custom media-usage database ใน Version 1.
+Songhealth ไม่สร้าง DAM, folder hierarchy ของตนเอง, image editor, check-in/check-out หรือ custom media-usage database ใน Version 1. โฟลเดอร์ของ Media Library เป็น capability ของ CMS และใช้ตาม §5.2.
 
 Native usage reporting may be incomplete/stale and is not a deletion lock. Authorized native
 media removal can break consumers; in-place image replacement can change shared bytes without an
@@ -183,7 +196,7 @@ CMS นี้ใช้สำหรับ **public-publishable website assets**. 
 
 ข่าว กิจกรรม และความรู้สุขภาพแสดงภาพและเรื่องตาม `docs/design/DESIGN.md` §7.3 และ §9 (spec #144). เจ้าหน้าที่เตรียมแต่ละเรื่องดังนี้:
 
-- ข่าวและกิจกรรมทุกเรื่องเล่าเรื่องเป็นข้อความ อย่างน้อยใน "สรุป" หนึ่งถึงสองประโยค. ภาพ One Page (`GLOSSARY.md`) เป็นภาพของเรื่อง ไม่ใช่ข้อความของเรื่อง: ข้อความที่อยู่ในภาพ screen reader อ่านไม่ได้และค้นหาไม่พบ (`00` §3.5; WCAG 2.2 SC 1.1.1 และ 1.4.5). หน้าข่าว กิจกรรม และความรู้สุขภาพแสดง "สรุป" ใต้ชื่อเรื่อง ตามบรรทัดที่พิมพ์ไว้
+- ข่าวและกิจกรรมทุกเรื่อง (รายการที่ย้ายมาจากเว็บไซต์เดิมดู §5.2) เล่าเรื่องเป็นข้อความ อย่างน้อยใน "สรุป" หนึ่งถึงสองประโยค. ภาพ One Page (`GLOSSARY.md`) เป็นภาพของเรื่อง ไม่ใช่ข้อความของเรื่อง: ข้อความที่อยู่ในภาพ screen reader อ่านไม่ได้และค้นหาไม่พบ (`00` §3.5; WCAG 2.2 SC 1.1.1 และ 1.4.5). หน้าข่าว กิจกรรม และความรู้สุขภาพแสดง "สรุป" ใต้ชื่อเรื่อง ตามบรรทัดที่พิมพ์ไว้
 - "เนื้อหา" ของข่าวจะเพิ่มหรือไม่ก็ได้
 - ภาพ One Page ใส่ใน "ภาพประกอบ"; เรื่องที่ไม่มี One Page ใช้ภาพถ่ายหนึ่งภาพแทน. ภาพแบนเนอร์แนวนอนแบบที่เว็บไซต์เดิมใช้ก็ต้องมี "สรุป" เช่นกัน
 - หน้าเรื่องแสดง "ภาพประกอบ" ทั้งภาพ พร้อมลิงก์ "เปิดภาพขนาดเต็ม" ไปยังไฟล์ที่อัปโหลด และเรื่องเด่นบนหน้าแรกก็แสดงทั้งภาพ. การ์ดแสดงกลางภาพ: การ์ดกิจกรรม (ในรายการและบนหน้าแรก) 16:9 และการ์ดข่าวและความรู้สุขภาพในรายการ 16:10
@@ -193,7 +206,17 @@ CMS นี้ใช้สำหรับ **public-publishable website assets**. 
 - ผู้มีบทบาท Author แก้ alt text และ focal point ใน Media Library ได้เฉพาะภาพที่ตนอัปโหลด; Editor ขึ้นไปแก้ได้ทุกภาพ (`docs/agents/emdash-1.1.0.md` "Media")
 - "เนื้อหา" ของข่าวใส่ภาพไม่กี่ภาพใน block "Gallery" ได้ แต่ block นี้แสดงทุกภาพและไม่พับ: ชุดภาพใหญ่จึงควรอยู่ใน "แกลเลอรีภาพ" ของกิจกรรม
 - ผู้ใช้ที่ login ด้วยบทบาท Author ขึ้นไปเห็นแถบเครื่องมือของ EmDash บนหน้าเว็บ. เมื่อเปิดสวิตช์ "Edit mode" บนแถบนั้น block "Gallery" ใน "เนื้อหา" แสดงเป็น "Plugin block: gallery (edit in admin)": แก้แกลเลอรีใน Admin และตรวจหน้าเว็บโดยปิด Edit mode. ผู้เข้าชมเห็นแกลเลอรีตามปกติ
-- ข่าวและกิจกรรมที่ย้ายมาจากเว็บไซต์เดิมจะได้ "สรุป" อย่างไร เป็นการตัดสินใจของ Feature 005 (`09`)
+
+## 5.2 เนื้อหาและไฟล์ที่ย้ายจากเว็บไซต์เดิม
+
+รายการที่ย้ายจากเว็บไซต์เดิม (`09`) เป็น entry ปกติใน Admin:
+
+- รายการที่ย้ายมาเป็นของ Administrator ที่รัน import. Author แก้ได้เฉพาะรายการของตน รายการเหล่านี้จึงให้ Editor ขึ้นไปเป็นผู้แก้
+- ข่าวและกิจกรรมของปีงบประมาณปัจจุบันมี "สรุป" ที่เจ้าหน้าที่เขียนไว้ใน Classification list (`GLOSSARY.md`). รายการของปีก่อนหน้าไม่มี "สรุป": เรื่องอยู่ในภาพ One Page เหมือนเว็บไซต์เดิม. รายงาน PM 2.5 เก็บข้อความไว้เป็น "เนื้อหา"
+- ไฟล์ที่นำเข้าอยู่ในโฟลเดอร์ของ Media Library ตามแหล่งที่มา: "ITA 2567", "ITA 2568", "ITA 2569", "ITA 2570", "ITA ใช้ทุกปี", "เว็บไซต์เดิม: ข่าวและกิจกรรม" และ "เว็บไซต์เดิม: ประกาศและเอกสาร" (`09` §8)
+- Media Library และ media picker เปิดที่ main library ซึ่งแสดงเฉพาะไฟล์ที่ไม่อยู่ในโฟลเดอร์ พร้อมรายชื่อโฟลเดอร์ และการค้นหาครอบคลุมทุกโฟลเดอร์: ไฟล์ที่อัปโหลดใหม่จึงอยู่ใน main library ไม่ปนกับไฟล์ที่นำเข้า
+- เอกสาร ITA ที่ใช้หลายปี เช่น กฎหมาย หรือประมวลจริยธรรม อยู่ใน "ITA ใช้ทุกปี": เมื่อขึ้นปีใหม่ให้เลือกไฟล์จากโฟลเดอร์นี้ซ้ำ ไม่อัปโหลดใหม่. การอัปโหลดไฟล์ที่เนื้อหาตรงกับไฟล์ที่มีอยู่จะได้ item เดิมในโฟลเดอร์เดิม ไม่ได้ item ใหม่ใน main library
+- Editor ขึ้นไปสร้างและแก้โฟลเดอร์ได้ และแก้ alt text ของไฟล์ที่นำเข้าได้ทุกไฟล์; Author แก้ได้เฉพาะไฟล์ที่ตนอัปโหลด (§5.1)
 
 ---
 
@@ -215,7 +238,7 @@ Version 1 ควร model การเลือก/ลำดับ/ช่วง�
 
 - ใช้ native roles และ native publishing workflow แบบเดียวกับ content อื่น (`06`, `07`); ไม่มี custom permission, approval chain, scoring หรือ compliance engine
 - field "ข้อกำหนดและหลักฐาน" เป็นรายการ blocks: เพิ่ม block จาก picker หมวด "ITA" ("ข้อกำหนด", "หลักฐาน: ไฟล์", "หลักฐาน: ลิงก์") แล้วลากเพื่อเรียงตามคู่มือ
-- "หลักฐาน: ไฟล์" เลือกไฟล์จาก Media Library หรืออัปโหลดเข้า library จาก picker เดียวกัน; ไม่วางลิงก์ไฟล์เอง. ไฟล์ที่ใช้ทุกปี เช่น กฎหมาย ประมวลจริยธรรม หรือวิสัยทัศน์ของกระทรวง เลือกไฟล์เดิมซ้ำได้
+- "หลักฐาน: ไฟล์" เลือกไฟล์จาก Media Library หรืออัปโหลดเข้า library จาก picker เดียวกัน; ไม่วางลิงก์ไฟล์เอง. ไฟล์ที่ใช้ทุกปี เช่น กฎหมาย ประมวลจริยธรรม หรือวิสัยทัศน์ของกระทรวง เลือกไฟล์เดิมซ้ำได้ และไฟล์เหล่านี้จากเว็บไซต์เดิมอยู่ในโฟลเดอร์ "ITA ใช้ทุกปี" (§5.2)
 - "ชื่อหลักฐาน" ขึ้นต้นด้วยเลขข้อและบอกว่าไฟล์คืออะไร เช่น "1.2 ฟอร์มเผยแพร่ …": หัว block ใน Admin แสดงชื่อนี้ และ search หา MOIT ที่มีไฟล์นั้นได้ด้วยชื่อนี้ (`08` §5)
 - "หมายเหตุ" ของไฟล์ เช่น เดือนที่ไฟล์ครอบคลุม แสดงต่อท้ายชื่อในวงเล็บ
 - "หลักฐาน: ลิงก์" ที่ชี้ไปหน้าเว็บซึ่งแสดงข้อมูลของวันนี้ เช่น หน้าผู้บริหาร ให้เลือก "ข้อมูลปัจจุบัน (เปลี่ยนตามเวลา)"
