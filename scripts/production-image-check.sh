@@ -29,7 +29,7 @@ REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 COMMIT=$(git -C "$REPO" rev-parse --verify -q "$2^{commit}") || die "no commit $2"
 NEWS_PATH=/news/demo-news-ncd-screening
 shift 2
-if [[ $# -gt 0 && $1 != -- ]]; then NEWS_PATH=$1; shift; fi
+if [[ $# -gt 0 && $1 != -- ]]; then NEWS_PATH=${1:-$NEWS_PATH}; shift; fi
 if [[ $# -gt 0 ]]; then [[ $1 == -- && $# -gt 1 ]] || usage; shift; fi
 CHECK_PORT=4325
 CHECK_ORIGIN=http://127.0.0.1:$CHECK_PORT

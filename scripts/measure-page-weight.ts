@@ -4,19 +4,21 @@
 //   scripts/production-image-check.sh --sha <commit> <news-path> -- \
 //     node scripts/measure-page-weight.ts <path>...
 //
-// A row gives the bytes that crossed the network, headers included: the view before any scrolling,
-// the whole page scrolled to its end, and a second visit in the same browser, scrolled the same
-// way, which shows what the browser's cache saves. The container sends everything uncompressed; a
-// reverse proxy in front of production may compress the text, never the pictures. "Waited" is the
-// median and the slowest time the server took to start answering for a picture. The origin comes
-// from CHECK_ORIGIN, or http://127.0.0.1:4324 when it is run alone. Exit status 1: a page or a
-// picture failed; 2: no path given.
+// A row gives the bytes that crossed the network: `encodedDataLength` of the DevTools protocol's
+// `Network.loadingFinished`, the response's headers and body. Nothing in @astrojs/node 11.1.6 or
+// `deploy/` compresses a response, so these bytes are uncompressed; a reverse proxy in production
+// may compress the text (`10` "HTTPS/reverse proxy"). The first view is what loads before any
+// scrolling, lazy pictures Chromium fetches ahead of the screen included; the whole page is that
+// plus the page scrolled to its end; a second visit in the same browser, scrolled the same way,
+// shows what the browser's cache saves. "Waited" is the median and the slowest time the server took
+// to start answering for a picture. The origin and the image come from production-image-check.sh.
+// Exit status 1: a page or a picture failed; 2: no origin or no path.
 
 import { chromium, type CDPSession, type Page } from "@playwright/test";
 
 import { SYNTHETIC_REFERRER } from "../playwright.config.ts";
 
-const ORIGIN = process.env.CHECK_ORIGIN ?? "http://127.0.0.1:4324";
+const ORIGIN = process.env.CHECK_ORIGIN;
 const SCREENS = {
 	// A current phone: the pixel density decides which rendition a srcset picks, and a dense screen
 	// is the heavier case for renditions. An original weighs the same at any density.
@@ -62,7 +64,9 @@ function watch(cdp: CDPSession) {
 		inFlight.delete(requestId);
 		touch();
 		const response = responses.get(requestId);
-		if (response) finished.push({ ...response, bytes: encodedDataLength });
+		if (response && !response.url.startsWith("data:")) {
+			finished.push({ ...response, bytes: encodedDataLength });
+		}
 	});
 	cdp.on("Network.loadingFailed", ({ requestId, canceled }) => {
 		inFlight.delete(requestId);
@@ -97,17 +101,18 @@ const pictures = (transfers: Transfer[]) => transfers.filter(({ type }) => type 
 const sum = (transfers: Transfer[]) => transfers.reduce((total, { bytes }) => total + bytes, 0);
 const kB = (bytes: number) => Math.round(bytes / 1_000).toLocaleString("en");
 
-function weight(transfers: Transfer[]): string {
+function weightCell(transfers: Transfer[]): string {
 	const images = pictures(transfers);
 	return `${kB(sum(transfers))} (pictures ${kB(sum(images))}, ${images.length})`;
 }
 
-function waited(transfers: Transfer[]): string {
+function waitedCell(transfers: Transfer[]): string {
 	const times = pictures(transfers)
 		.flatMap(({ waitedMs }) => (waitedMs === undefined ? [] : [waitedMs]))
 		.toSorted((a, b) => a - b);
 	if (times.length === 0) return "-";
-	return `${Math.round(times[Math.floor(times.length / 2)])} / ${Math.round(times.at(-1) ?? 0)}`;
+	const median = times[Math.ceil(times.length / 2) - 1];
+	return `${Math.round(median)} / ${Math.round(times.at(-1) ?? 0)}`;
 }
 
 /** Opens one address on one screen and returns its table row; a failure throws. */
@@ -128,6 +133,10 @@ async function measure(
 
 	const visit = async () => {
 		await page.goto(ORIGIN + path, { waitUntil: "load" });
+		// A new context can reach quiet before its first frame has asked for the lazy pictures.
+		await page.evaluate(
+			() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+		);
 		await network.quiet();
 		const firstView = network.take();
 		await scrollToEnd(page);
@@ -145,16 +154,18 @@ async function measure(
 		);
 	}
 	await context.close();
-	return `| \`${path}\` | ${name} | ${weight(first.firstView)} | ${weight(first.wholePage)} | ${kB(largest)} | ${waited(first.wholePage)} | ${kB(sum(second.wholePage))} |`;
+	return `| \`${path}\` | ${name} | ${weightCell(first.firstView)} | ${weightCell(first.wholePage)} | ${kB(largest)} | ${waitedCell(first.wholePage)} | ${kB(sum(second.wholePage))} |`;
 }
 
 const paths = process.argv.slice(2);
-if (paths.length === 0) {
-	console.error("usage: node scripts/measure-page-weight.ts <path>...");
+if (ORIGIN === undefined || paths.length === 0) {
+	console.error("usage: CHECK_ORIGIN=<origin> node scripts/measure-page-weight.ts <path>...");
 	process.exit(2);
 }
 const browser = await chromium.launch();
-console.log(`Origin: ${ORIGIN} (kB = 1,000 bytes; pictures: their kB and how many)`);
+console.log(
+	`Origin: ${ORIGIN}, image ${process.env.CHECK_IMAGE ?? "none named"} (kB = 1,000 bytes; pictures: their kB and how many)`,
+);
 console.log(
 	"| Address | Screen | First view, kB | Whole page, kB | Largest picture, kB | Waited for a picture: median / slowest, ms | Second visit, kB |",
 );
