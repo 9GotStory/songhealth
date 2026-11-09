@@ -494,14 +494,6 @@ export function occurrencesOf(
 }
 
 /**
- * A check, for failures named `label`, that two lengths in the layout agree within half a pixel.
- */
-function expectNear(label: string) {
-	return (actual: number, expected: number, what: string) =>
-		expect(Math.abs(actual - expected), `${label}: ${what}`).toBeLessThanOrEqual(0.5);
-}
-
-/**
  * Where a Quick Link card's parts lie in the window as the page is laid out now: its content box
  * inside the border and padding, the column that holds the label, the label's text and the arrow.
  * The text is the union of the label's line boxes, so a kept word wider than its column shows.
@@ -540,14 +532,29 @@ function quickLinkParts(card: Locator) {
 }
 
 /**
+ * `card`'s parts as the page is laid out now, once the checks both forms of a Quick Link card share
+ * have passed: a 24 px arrow that ends at the card's right content edge. `near` checks, for
+ * failures named `label`, that two lengths agree within half a pixel.
+ */
+async function checkedQuickLink(card: Locator, label: string) {
+	const parts = await quickLinkParts(card);
+	const near = (actual: number, expected: number, what: string) =>
+		expect(Math.abs(actual - expected), `${label}: ${what}`).toBeLessThanOrEqual(0.5);
+	const { content, arrow } = parts;
+	near(arrow.right, content.right, "the arrow ends at the card's right content edge");
+	near(arrow.right - arrow.left, 24, "the arrow is 24 px wide");
+	near(arrow.bottom - arrow.top, 24, "the arrow is 24 px tall");
+	return { ...parts, near };
+}
+
+/**
  * Fail unless `card` shows a Quick Link card's phone form as the page is laid out now (spec #190
  * "Compact Homepage Quick Access"): the label across the card's whole content width, and the
  * 24 px arrow on a row of its own at the lower right, at least 8 px below the label. `label` names
  * the card in the failures.
  */
 export async function expectLabelAboveArrow(card: Locator, label: string): Promise<void> {
-	const { content, column, text, arrow } = await quickLinkParts(card);
-	const near = expectNear(label);
+	const { content, column, text, arrow, near } = await checkedQuickLink(card, label);
 	near(column.left, content.left, "the label starts at the card's left content edge");
 	near(column.right, content.right, "the label reaches the card's right content edge");
 	expect(
@@ -557,10 +564,7 @@ export async function expectLabelAboveArrow(card: Locator, label: string): Promi
 	expect(text.bottom, `${label}: the label's text ends above the arrow`).toBeLessThanOrEqual(
 		arrow.top,
 	);
-	near(arrow.right, content.right, "the arrow ends at the card's right content edge");
 	near(arrow.bottom, content.bottom, "the arrow ends at the card's bottom content edge");
-	near(arrow.right - arrow.left, 24, "the arrow is 24 px wide");
-	near(arrow.bottom - arrow.top, 24, "the arrow is 24 px tall");
 }
 
 /**
@@ -569,22 +573,18 @@ export async function expectLabelAboveArrow(card: Locator, label: string): Promi
  * content. `label` names the card in the failures.
  */
 export async function expectArrowBesideLabel(card: Locator, label: string): Promise<void> {
-	const { content, column, text, arrow } = await quickLinkParts(card);
-	const near = expectNear(label);
+	const { content, column, text, arrow, near } = await checkedQuickLink(card, label);
 	expect(column.right, `${label}: the label's column ends before the arrow`).toBeLessThanOrEqual(
 		arrow.left,
 	);
 	expect(text.right, `${label}: the label's text ends before the arrow`).toBeLessThanOrEqual(
 		arrow.left,
 	);
-	near(arrow.right, content.right, "the arrow ends at the card's right content edge");
 	near(
 		(arrow.top + arrow.bottom) / 2,
 		(content.top + content.bottom) / 2,
 		"the arrow is level with the middle of the card's content",
 	);
-	near(arrow.right - arrow.left, 24, "the arrow is 24 px wide");
-	near(arrow.bottom - arrow.top, 24, "the arrow is 24 px tall");
 }
 
 /**

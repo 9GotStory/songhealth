@@ -540,8 +540,9 @@ for (const width of [320, 375, 639]) {
 }
 
 /**
- * The widest words titles keep whole at body size, semibold (docs/design/DESIGN.md §10), as labels
- * of real pages. The Homepage shows 4 shortcuts at most, so they take two menus.
+ * The six words titles keep whole that are widest at body size, semibold
+ * (scripts/thai-title-widths.ts), as labels of real pages. The Homepage shows 4 shortcuts at most,
+ * so they take two menus.
  */
 const LONG_WORD_MENUS = [
 	[
@@ -638,7 +639,12 @@ async function expectShortcutsOpen(page: Page): Promise<void> {
 			(card: Locator) => card.press("Enter"),
 		]) {
 			await page.goto("/");
-			await open(quickAccessCards(page).filter({ hasText: label }));
+			await open(
+				homepageSection(page, HOMEPAGE_HEADINGS.quickAccess).getByRole("link", {
+					name: label,
+					exact: true,
+				}),
+			);
 			await expect(page).toHaveURL(url);
 			await expect(page.getByRole("heading", { level: 1 })).toHaveText(label);
 		}

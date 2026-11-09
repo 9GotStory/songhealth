@@ -281,10 +281,9 @@ this document names:
   - a Service card's icon box is 36 px;
   - a Quick Link card's label lies across the card's content width, and its 24 px arrow on a row
     of its own at the lower right, at least 8 px below the label. The card grows with its label,
-    with no one fixed height, and the cards of a row share one height. With the labels
-    เอกสารเผยแพร่ and ข้อมูลสุขภาพ it is 84 px tall at 320 and 375 px, where the arrow beside the
-    label made it 78 and 56 px: samples of the taller proportions the Product Owner accepted
-    (#190 comment 6707205912, Quick Access B), not a fixed height.
+    with no one fixed height, and the cards of a row share one height. One line of label makes it
+    84 px tall (a 26 px line, the 8 px gap, the arrow, 24 px of padding and a 2 px border), the
+    taller proportions the Product Owner accepted (#190 comment 6707205912, Quick Access B).
   - `compact` is a prop only the Homepage passes: the Service catalog, `/about`, `/health`, `/ita`
     and the Activities list keep the full cards.
 
@@ -493,11 +492,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
     code change;
   - summaries still break inside words, such as "ออกกำลัง / กาย";
   - a configured header title can occupy multiple lines; its space and type follow §7.4.
-- **A compact Quick Link card's height** grows with its label (§7.3). Quick Access B replaced the
-  limit #146 comment 6626919820 item 1 accepted, in which a label holding a listed word wider than
-  the 80 px beside its arrow ran into the arrow below about 342 to 374 px (#190 comment
-  6707205912). At 320 px the label now has 112 px, and the widest listed word, ความดันโลหิตสูง, is
-  107 px at body size, semibold.
+- **A compact Quick Link card's height** grows with its label (§7.3), the taller proportions
+  accepted with Quick Access B (#190 comment 6707205912).
 - **The phone Homepage's height** moves with the titles and the number of items (§8.2).
 - **Post pages** (#147 comment 6634124888 items 2 and 4):
   - the picture follows only while the left column is the longer;
@@ -589,5 +585,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   Homepage's four/three Activities across 1024 px remain.
 - **v1.1 Quick Access refinement (2026-11-09, Feature 007 #194):** the compact Quick Link card's
   label across the top and arrow on a lower-right row of its own, with the accepted taller cards
-  (§7.3), replacing §10's crowding limit, following #190 comment 6707205912. `04` §15 records the
-  same rule. From 640 px, and the full cards on `/about`, `/health` and `/ita`, remain.
+  (§7.3): one line of label makes a card 84 px tall where it was 56 px. This replaces the crowding
+  limit §10 held from #146 comment 6626919820 item 1, where a label holding a listed word wider
+  than the 80 px beside its arrow ran into the arrow below about 342 to 374 px. It follows #190
+  comment 6707205912, and `04` §15 records the same rule. From 640 px, and the full cards on
+  `/about`, `/health` and `/ita`, remain.
