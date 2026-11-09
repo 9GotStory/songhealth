@@ -25,6 +25,12 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   pages in two columns and an Activity's photos as folding thumbnails (spec #144, tickets
   #145–#151, ADR 0007). `docs/design/DESIGN.md` v1.0 records it with the code. The Product Owner
   gave it Final Acceptance on 2026-11-05 (#144 comment 6660349967), and it was merged into `main`.
+- **Feature 005 `wordpress-migration`:** complete: the script that plans, imports and verifies the
+  Legacy site's content from a reviewed Classification list, redirects from the old addresses,
+  filters that offer only terms with items, and the cutover runbook (spec #174, tickets #175–#185,
+  ADR 0008). The Product Owner gave it Final Acceptance on 2026-11-09 (#174 comment 6737259420), and
+  it was merged into `main`. The production import, the cutover and WordPress's retirement stay NOT
+  AUTHORIZED (`09` §18).
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,
@@ -63,11 +69,18 @@ and their workflow:
   feature acceptance.
 - **Commit checks:** `git config core.hooksPath .githooks`, once per clone, makes every commit
   pass `.githooks/pre-commit` (the pinned Node, formatting, Knip, typecheck, the
-  invisible-character scan, and ShellCheck when a shell script is staged). `scripts/check-node.sh`
-  also stops `scripts/dev-runtime-env.sh`, and with it every runtime test, on another Node.
+  invisible-character scan, and ShellCheck when a shell script is staged) and
+  `.githooks/commit-msg` (a `type(scope): ` subject). `scripts/check-node.sh` also stops
+  `scripts/dev-runtime-env.sh`, and with it every runtime test, on another Node.
 - **Workspace and runtime:** source development happens in `/home/thanakorn/dev/songhealth`
   (user `thanakorn`, UID 1000). The single development runtime is the one below
   (`http://127.0.0.1:4324`); no other development runtime, database or media store is created.
+- **Sessions side by side:** a session working beside another keeps to its own worktree. Make it
+  with `git worktree add <folder> <branch>`, install its own dependencies as
+  [Prototype workspace](#prototype-workspace) shows, and run
+  `node scripts/with-build-inputs.mjs astro sync` there once, for typecheck. They still share
+  the one runtime: `--replace` in
+  [the promotion steps](docs/operations/development-quadlet.md#promote-a-new-commit).
 - **Production:** rootless Podman + systemd Quadlet
   ([docs/operations/production-foundation.md](docs/operations/production-foundation.md)). Feature
   001's runtime gates T022 and T028 are still open and need a production-capable host.
@@ -239,7 +252,9 @@ below is installed, it fills every page, so the script alone captures a page wit
 the dataset does not hold, such as a Document whose file was deleted, takes its content from
 `scripts/dev-runtime-env.sh node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir>`. The
 runner makes the module's synthetic content, captures the paths the module returns, and removes
-everything it made. `scripts/screenshot-fixtures/news.ts` is the example.
+everything it made. `scripts/screenshot-fixtures/news.ts` is the example. The Admin's sidebar, as an
+Administrator, an Editor or an Author sees it, comes from
+`scripts/dev-runtime-env.sh node scripts/capture-admin.ts <out-dir> [<role>]`.
 
 The runtime holds the demo dataset: content marked `[ตัวอย่าง]` that fills every page for the
 Product Owner's review. `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` installs it
@@ -320,4 +335,7 @@ terms, bylines, redirects and menu items (`docs/operations/development-quadlet.m
 
 Production prerequisites, deployment and recovery live in
 [docs/operations/production-foundation.md](docs/operations/production-foundation.md) and are
-unchanged by the development-runtime decision; T022/T028 remain PENDING.
+unchanged by the development-runtime decision; T022/T028 remain PENDING. The WordPress migration's
+production import and cutover follow
+[docs/operations/wordpress-cutover.md](docs/operations/wordpress-cutover.md), NOT AUTHORIZED until
+the production track asks (`09` §18).

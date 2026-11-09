@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# A commit's subject reads `type(scope): subject` (#185 retro: two heredocs in the wrong order
+# made an evidence line a commit's message). Git's own merge, revert and autosquash subjects pass.
+# Enabled with pre-commit: git config core.hooksPath .githooks
+set -euo pipefail
+
+shape='^([a-z]+(\([^)]+\))?!?: |Merge |Revert "|(fixup|squash|amend)! )'
+subject=$(grep -m1 -vE '^(#|[[:space:]]*$)' "$1" || true)
+if [[ ! $subject =~ $shape ]]; then
+  printf 'commit-msg: the subject should read type(scope): subject, but reads: %s\n' "$subject" >&2
+  exit 1
+fi

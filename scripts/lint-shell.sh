@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ShellCheck for the development-runtime scripts and the pre-commit hook, on a digest-pinned
+# ShellCheck for the development-runtime scripts and the commit hooks, on a digest-pinned
 # ShellCheck 0.11.0 image so that CI (docker) and the workstation (podman) run the same version.
 # The container gets no network and a read-only view of the repository. The accepted Feature 001
 # scripts join the list when a change touches them.
@@ -10,6 +10,6 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 engine=$(command -v podman || command -v docker) || { echo "lint-shell: needs podman or docker" >&2; exit 2; }
 files=(scripts/dev-runtime-*.sh scripts/evidence-branch.sh scripts/lint-shell.sh scripts/check-node.sh
   scripts/production-image-check.sh
-  deploy/dev-quadlet/initdb/*.sh .githooks/pre-commit)
+  deploy/dev-quadlet/initdb/*.sh .githooks/pre-commit .githooks/commit-msg)
 exec "$engine" run --rm --network none --security-opt label=disable -v "$PWD:/mnt:ro" -w /mnt \
   "$IMAGE" -x "${files[@]}"

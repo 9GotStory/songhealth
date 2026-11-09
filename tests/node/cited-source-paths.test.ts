@@ -5,11 +5,14 @@
 // path that moved or was mistyped still reads as evidence: in #93 a trimmed header cited
 // src/relations/, which emdash 1.1.0 does not have, and a helper still named the Office Contact
 // settings module by a file name it no longer has. Each path a comment cites must exist in the
-// repository, in EmDash, or in an installed package the same comment block names. The check reads
-// the files git tracks or would track, so it sees a new file before it is staged (#115 retro). A
-// package name matches in any case, so "Astro 7.3.5" names astro. An EmDash source path that src/
-// or scripts/ cites must also be recorded in docs/agents/emdash-1.1.0.md (#64 retro), whose own
-// paths tests/node/package-facts.test.ts checks.
+// repository, in EmDash, or in an installed package the same comment block names, and a path joined
+// to its package, such as @emdash-cms/auth/src/types.ts, in that package. A path found only in an
+// installed package comes with that package's version in its comment block or the file's header
+// (#175 retro: two joined citations without one reached review). The check reads the files git
+// tracks or would track, so it sees a new file before it is staged (#115 retro). A package name
+// matches in any case, so "Astro 7.3.5" names astro. An EmDash source path that src/ or scripts/
+// cites must also be recorded in docs/agents/emdash-1.1.0.md (#64 retro), whose own paths
+// tests/node/package-facts.test.ts checks.
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -22,6 +25,13 @@ const ROOT = new URL("../../", import.meta.url);
 /** A cited source path: relative, under src/, dist/ or lib/, with a code file's extension. */
 const CITED_PATH =
 	/(?<![\w./@-])((?:src|dist|lib)\/[\w.[\]/-]+?\.(?:ts|tsx|mts|js|mjs|astro))(?![\w/-])/g;
+
+/**
+ * A cited path joined to the package it is in, such as `@emdash-cms/auth/src/types.ts`, perhaps
+ * after `node_modules/`: the package, then the path inside it.
+ */
+const JOINED_PATH =
+	/(?<![\w./@-])(?:node_modules\/)?((?:@[\w.-]+\/)?[a-z][\w.-]*)\/((?:src|dist|lib)\/[\w.[\]/-]+?\.(?:ts|tsx|mts|js|mjs|astro))(?![\w/-])/g;
 
 /** A word that may name a package, such as `playwright-core` or `@emdash-cms/admin`. */
 const PACKAGE_NAME = /(?:@[\w.-]+\/)?[\w.-]+/g;
@@ -90,16 +100,35 @@ async function citedPaths(): Promise<
 			for (const [, path] of line.matchAll(CITED_PATH)) {
 				inBlock.push({ at: `${file}:${index + 1}`, path, roots });
 			}
+			// A scoped name is always a package; an unscoped one, such as the first folder of a
+			// repository path, is one only when it is installed.
+			for (const [, name, path] of line.matchAll(JOINED_PATH)) {
+				const root = `node_modules/${name}/`;
+				if (name.startsWith("@") || existsSync(new URL(`${root}package.json`, ROOT))) {
+					inBlock.push({ at: `${file}:${index + 1}`, path, roots: [root] });
+				}
+			}
 		});
 		endBlock();
 	}
 	return cited;
 }
 
-/** Whether `path` resolves only under EmDash among its roots. */
-function onlyInEmDash({ path, roots }: { path: string; roots: string[] }): boolean {
+/** The installed packages `path` resolves in among its roots, none when the repository has it. */
+function packagesHolding({ path, roots }: { path: string; roots: string[] }): string[] {
 	const holders = roots.filter((root) => existsSync(new URL(root + path, ROOT)));
+	return holders.includes("") ? [] : holders;
+}
+
+/** Whether `path` resolves only under EmDash among its roots. */
+function onlyInEmDash(cited: { path: string; roots: string[] }): boolean {
+	const holders = packagesHolding(cited);
 	return holders.length > 0 && holders.every((root) => root === "node_modules/emdash/");
+}
+
+/** The version of the installed package at `root`, such as `1.1.0`. */
+async function versionAt(root: string): Promise<string> {
+	return JSON.parse(await readFile(new URL(`${root}package.json`, ROOT), "utf8")).version;
 }
 
 describe("cited source paths", () => {
@@ -141,6 +170,21 @@ describe("cited source paths", () => {
 			.filter(onlyInEmDash)
 			.filter(({ context }) => !context.toLowerCase().includes(`emdash ${pinned}`))
 			.map(({ at, path }) => `${at} ${path}`);
+		assert.deepEqual(unnamed, []);
+	});
+
+	it("found only in another installed package come with its version in their comment or the file's header", async () => {
+		// The same rule for every other package, such as `@emdash-cms/admin 1.1.0 dist/index.js` or
+		// `@emdash-cms/auth/src/types.ts` in a block that says 1.1.0 (#175 retro).
+		const unnamed: string[] = [];
+		for (const cited of await citedPaths()) {
+			const holders = packagesHolding(cited);
+			if (holders.length === 0 || onlyInEmDash(cited)) continue;
+			const versions = await Promise.all(holders.map(versionAt));
+			if (!versions.some((version) => cited.context.includes(version))) {
+				unnamed.push(`${cited.at} ${cited.path}`);
+			}
+		}
 		assert.deepEqual(unnamed, []);
 	});
 });

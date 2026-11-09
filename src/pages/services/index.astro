@@ -2,8 +2,9 @@
 // The Service catalog, /services (Feature 003 #58; spec #51 "Public reads" (Services), `03` §7):
 // published Services by name, a fixed number per page with the page number in the query string.
 // `?category=` narrows it to the Services tagged with exactly that Service Category term
-// (src/lib/services.ts). The filter offers every Service Category term, as the Document
-// repository offers every Document Type.
+// (src/lib/services.ts). The filter offers only the Service Category terms that published
+// Services carry (src/lib/terms.ts offeredTerms), as the Document repository does with its
+// Document Types.
 //
 // Finding a Health Service and the guides and forms belong with the citizen services but are not
 // Services (`00` §8.2, `03` §7), so the heading links to the Health Service Directory and the
@@ -20,7 +21,7 @@ import { documentsPath } from "../../lib/documents";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
 import { CATEGORY_PARAM, parseServiceFilters, servicesPath } from "../../lib/service-catalog";
 import { listServices } from "../../lib/services";
-import { listTerms } from "../../lib/terms";
+import { offeredTerms } from "../../lib/terms";
 
 const title = "บริการประชาชน";
 const lead =
@@ -29,7 +30,7 @@ const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
 const filters = parseServiceFilters(Astro.url.searchParams);
 const [{ entries, hasMore }, categories] = await Promise.all([
 	listServices(page, filters),
-	listTerms("service_category"),
+	offeredTerms("services", "service_category"),
 ]);
 const listUrl = new URL(servicesPath(filters), Astro.url);
 const relatedLinks = [

@@ -1,7 +1,9 @@
 ---
 // Health News, /news/health (Feature 003 #54; spec #51 "Public reads"): published News tagged
 // with any Health Topic (`topic` term), newest first. `?topic=<slug>` narrows it to one Health
-// Topic; one that does not exist simply matches nothing.
+// Topic. The filter offers only the Health Topics that published News carries (src/lib/terms.ts
+// offeredTerms); any other topic simply matches nothing. The unfiltered list asks for the offered
+// topics, which select the same News as every topic would, since they are the ones News carries.
 //
 // The canonical address keeps the chosen Health Topic and a valid page number, so each view stays
 // its own address for search engines.
@@ -13,13 +15,13 @@ import Pagination from "../../components/Pagination.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { healthNewsPath, listNews, newsPath } from "../../lib/news";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
-import { TOPIC_PARAM, listTerms } from "../../lib/terms";
+import { TOPIC_PARAM, offeredTerms } from "../../lib/terms";
 
 const title = "ข่าวสุขภาพ";
 const lead = "ข่าวสารด้านสุขภาพจากสำนักงานสาธารณสุขอำเภอสอง เลือกประเด็นสุขภาพที่สนใจได้";
 const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
 const topic = Astro.url.searchParams.get(TOPIC_PARAM)?.trim() ?? "";
-const topics = await listTerms("topic");
+const topics = await offeredTerms("news", "topic");
 const { entries, hasMore } = await listNews(
 	page,
 	topic === "" ? topics.map((term) => term.slug) : [topic],

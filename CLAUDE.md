@@ -65,9 +65,9 @@ CI (`.github/workflows/checks.yml`) runs the build, typecheck, node tests, `form
 runtime.
 
 `/tdd`'s agreed seams are the public browser suites on the development runtime, node:test on a
-`src/lib` module without runtime imports, and the runtime's verify checks for the model state
-(spec #51 "Testing Decisions"; #86 comment 6519918864). A ticket's Tests line picks among them;
-a new seam goes to the Product Owner.
+`src/lib` module or a script's planning module without runtime imports, and the runtime's verify
+checks for the model state (spec #51 "Testing Decisions"; #86 comment 6519918864; #66 comment
+6539906996). A ticket's Tests line picks among them; a new seam goes to the Product Owner.
 
 ## Agent skills
 

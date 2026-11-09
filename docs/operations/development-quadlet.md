@@ -150,7 +150,7 @@ the real state first and only adds what is missing:
 ## Promote a new commit
 
 ```bash
-~/dev/songhealth-quadlet/scripts/dev-runtime-update.sh --sha <commit>   # [--no-backup] [--force | --wait]
+~/dev/songhealth-quadlet/scripts/dev-runtime-update.sh --sha <commit>   # [--no-backup] [--replace] [--force | --wait]
 ```
 
 The runtime checkout fetches from the workspace repository. A commit made on GitHub, such as a
@@ -159,9 +159,13 @@ pull request's merge, reaches it once a workspace branch holds it:
 
 The update runs these steps:
 
-1. Refuses while a window holds the runtime ("A window" below). Refuses when an Admin page was
-   opened in the last 10 minutes, and lists those page loads. The
-   restart in steps 3–5 would cut off someone editing in the Admin, and the Product Owner uses
+1. Refuses while a window holds the runtime ("A window" below). Refuses a commit that does not
+   contain the one the runtime serves, and names that commit. Such
+   a promotion takes the runtime away from another line of work, such as another feature's branch
+   that a session is still testing (#177 retro). Pass `--replace` once that work no longer needs
+   the runtime. The check runs again after a `--wait`, since another promotion can land during it.
+2. Refuses when an Admin page was opened in the last 10 minutes, and lists those page loads. The
+   restart in steps 4–6 would cut off someone editing in the Admin, and the Product Owner uses
    this Admin. Verify's own probe of the Admin does not count, and neither do the browser suites'
    own Admin sessions: `tests/browser/cms.helpers.ts` records each one's start and end in
    `~/.local/state/songhealth-qdev/admin-test-sessions` when the suite runs through
@@ -177,10 +181,10 @@ The update runs these steps:
    - The guard sees page loads only. The Admin routes its screens in the browser
      (`@tanstack/react-router`), so an editor who opened it earlier and kept working passes
      unseen.
-2. Backs up the database and media to `~/.local/state/songhealth-qdev/backups/<UTC>/`.
-3. Stops the app.
-4. Moves the checkout to the commit and records it.
-5. Hands over to that commit's installer. The installer runs `npm ci` only if the lockfile
+3. Backs up the database and media to `~/.local/state/songhealth-qdev/backups/<UTC>/`.
+4. Stops the app.
+5. Moves the checkout to the commit and records it.
+6. Hands over to that commit's installer. The installer runs `npm ci` only if the lockfile
    changed, refreshes changed units, starts the app and runs verify.
 
 Keep the backup whenever the commit can change data: a new `package-lock.json` (an EmDash upgrade
@@ -255,6 +259,12 @@ content model from the model-update step:
   For each taxonomy the seed gives reference terms, such as the Document Types `policy`, `plan` and
   `result` that the About pages list by, it adds the terms whose slug the taxonomy lacks. A term
   staff relabelled keeps its label, and no term is removed.
+
+  It deletes EmDash's core taxonomies Categories and Tags (`category`, `tag`), with their terms,
+  through the native taxonomy delete, while the database has them and the seed does not declare
+  them (#175). EmDash's migrations create both on every database for a `posts` collection that
+  Songhealth does not have. It deletes no other taxonomy, and it deletes these after every other
+  change, so a refused change stops it before it deletes anything.
 
   For each menu the seed declares, such as the three Homepage menus staff curate, it creates the
   menu, empty, when the database has no menu of that name. A menu staff relabelled keeps its label,
@@ -366,12 +376,14 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
 - the role fixture PAT authenticates as `role-fixture@songhealth.test`, enabled, with role Author;
 - the dev-only T021 fixture route answers its 0600 route token and refuses requests without it;
 - the database has the promoted seed's content model, block types, fields, reference terms and
-  menus: the model-update step's read-only check, run in the app container. Feature 003's share
-  is, for example, each public collection's URL pattern and SEO support, Personnel kept
-  non-routable with its `leadership_order` field, the Document Types `policy`, `plan` and
-  `result`, and the three Homepage menus. Feature 004's is the MOIT collection with its fields,
-  its Evidence field's allowed block types and limit, and the three ITA block types. #169's is
-  each collection's Admin sidebar folder, position and icon;
+  menus, without EmDash's Categories and Tags: the model-update step's read-only check, run in
+  the app container. Feature 003's share is, for example, each public collection's URL pattern
+  and SEO support, Personnel kept non-routable with its `leadership_order` field, the Document
+  Types `policy`, `plan` and `result`, and the three Homepage menus. Feature 004's is the MOIT
+  collection with its fields, its Evidence field's allowed block types and limit, and the three
+  ITA block types. #169's is each collection's Admin sidebar folder, position and icon. Feature
+  005's is the terms the migrated content uses (#175): the Announcement types `procurement`,
+  `recruitment` and `general`, the Document Type `order` and the Topic `pm25`;
 - the Office Contact plugin is registered and enabled, with its settings form.
 
 Runtime results are interpreted only against the commit verify reports.
@@ -379,7 +391,7 @@ Runtime results are interpreted only against the commit verify reports.
 ## Production image check
 
 ```bash
-scripts/production-image-check.sh --sha <commit> [<news-path>]
+scripts/production-image-check.sh --sha <commit> [<news-path>] [-- <command> [<arg>...]]
 ```
 
 It builds `deploy/Containerfile` at the commit and shows what production serves, which `astro dev`
@@ -400,6 +412,9 @@ the ADR 0003 revisit of production images.
 - **Output.** It prints how the first picture on a News page is served by the image and by this
   runtime: its declared size, whether `src` is the original or a rendition, and the bytes it
   downloads. The default page is the demo dataset's Featured News.
+- **A command of its own.** After `--`, a command runs while the image serves, with `CHECK_ORIGIN`,
+  `CHECK_IMAGE` and `CHECK_NETWORK` in its environment, and its failure fails the check. ADR 0003's
+  revisit runs `node scripts/measure-page-weight.ts <path>...` this way (#183).
 - **Cleanup.** It removes the container and the image on every exit, pass or fail, and lists any
   image the run added that is still there. Other projects share this image storage, so it never
   removes an image by its age or by a difference in the image list. The image is never deployed or
@@ -425,7 +440,9 @@ the ADR 0003 revisit of production images.
 A window takes the runtime's data away for a while and brings it back: a backup, the change, such
 as removing the demo dataset and importing the migration's trial, then a restore (#178 retro).
 Every session shares this runtime, and a promotion during a window leaves a backup the restore
-refuses, so a window holds the runtime:
+refuses, so a window holds the runtime. A script the window runs for the first time runs once on
+the demo dataset and goes through review before the window opens, since a wrong number found after
+the restore costs another window (#183 retro):
 
 1. Check that no suite is running, which the lock cannot see: `pgrep -f '^node .*playwright'` prints
    nothing. Then `scripts/dev-runtime-window.sh open "<why>"` writes the lock.
@@ -433,7 +450,16 @@ refuses, so a window holds the runtime:
    window, for every session. Its holder runs `scripts/dev-runtime-env.sh --in-window <command>`.
 2. `scripts/dev-runtime-verify.sh`, `scripts/dev-runtime-residue.sh`, then make a folder under
    `~/.local/state/songhealth-qdev/backups/` and run `scripts/dev-runtime-backup.sh <that folder>`.
-3. The work.
+3. The work. When a person walks through the result, read what they opened before step 4, while
+   it can still be walked again (#184 retro):
+
+   ```bash
+   podman logs --timestamps --since <UTC time> songhealth-qdev-app 2>&1 \
+     | sed 's/\x1b\[[0-9;]*m//g' | grep -E '\[[0-9]{3}\] '
+   ```
+
+   `/` every 15 seconds is the container's health check, and the log drops query strings, so a
+   filter's address reads as its list's.
 4. Put it back: `systemctl --user stop songhealth-dev-app.service`, then the restore above (it asks
    three times, so type `yes` three times), `systemctl --user start songhealth-dev-app.service`, and
    verify.
@@ -460,7 +486,7 @@ refuses, so a window holds the runtime:
 | Port 4324 is in use | Something else listens there. There is no fallback port: resolve the conflict at its cause. |
 | The PAT check fails | `dev-pat` is missing, has the wrong mode or was revoked. Minting a new one means running `setup/dev-bypass?token=1`, which rotates the token; do that only deliberately. It also applies the seed again, which empties the seed's menus, the Homepage menus included (emdash 1.1.0 `src/seed/apply.ts`): note their items first and put them back in the Admin. |
 | The role fixture check fails | `role-fixture-pat` is missing, or a role test was interrupted and left the account with another role or disabled. Restore it in the Admin (Users: Author, enabled), or delete the file; then re-run the installer, which re-mints the PAT. |
-| The content-model check fails | The database lacks part of the promoted seed's model: run `scripts/dev-runtime-model-update.sh`. If the step reports a problem instead, a URL pattern, a field type, a block type's field type or a block type's version differs from the seed's, or a taxonomy is missing. Bring that to the Product Owner before changing any of them. |
+| The content-model check fails | The database lacks part of the promoted seed's model, or still has EmDash's Categories and Tags: run `scripts/dev-runtime-model-update.sh`. If the step reports a problem instead, a URL pattern, a field type, a block type's field type or a block type's version differs from the seed's, or a taxonomy is missing. Bring that to the Product Owner before changing any of them. |
 | The T021 coordinator holds | The message names the prerequisite. Verify fails: fix the runtime first. The runtime is at another commit: promote the tested commit. The route is missing (404): the commit predates the dev configuration. The token is unprovisioned (503) or does not match (403): delete `t021-route-access.json` and re-run the installer. |
 
 **Never run `podman volume prune` or `podman system prune --volumes` while the runtime is
