@@ -539,6 +539,9 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - The Product Owner approves a design change that affects content hierarchy, route scope,
   institutional identity or technical direction, and the change updates this document with the
   code (§1).
+- Before amending this document, read `CODING_STANDARDS.md` "Documents": its Citers, History,
+  Facts and Amendments rules say what the body, a decision banner and §13's change history each
+  hold (#194 retro).
 
 ## 13. References and change history
 
