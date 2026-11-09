@@ -14,7 +14,10 @@
 // - the Frequently Used Services: the published Services of their menu, in menu order, at most 6,
 //   each with its name, summary and the uniform icon, and ดูบริการทั้งหมด to /services;
 // - Quick Access: up to 4 items of its menu, in menu order, each to a page of the site or a
-//   published entry, each a label and an arrow.
+//   published entry, each a label and an arrow. Below 640 px, two to a row, the label lies across
+//   the top of its card and the arrow on a row of its own at the lower right, and the card grows
+//   with its label (Feature 007 #194; #190 "Compact Homepage Quick Access"). From 640 px the arrow
+//   stays beside the label, as it does below 640 px on the full cards of /about, /health and /ita.
 //
 // An item whose entry is a draft, unpublished or trashed is skipped, so unpublishing an entry takes
 // it off the Homepage without a menu edit. So is an item of another kind, and a Quick Access item
@@ -26,7 +29,7 @@
 // withHomepageMenus). Fixtures are synthetic entries and pictures, removed afterwards. A test that
 // needs its News to be the newest publishes it after every earlier test's fixtures.
 
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import {
 	SYNTHETIC_FIXTURE_MARK,
@@ -57,10 +60,15 @@ import {
 	PHONE_VIEWPORT,
 	expect,
 	expectAccessibleAtEachWidth,
+	expectArrowBesideLabel,
 	expectImageLoaded,
+	expectLabelAboveArrow,
+	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectPictureFillsBox,
+	expectVisibleFocusOnEveryStop,
 	homepageSection,
+	itemsPerRow,
 	occurrencesOf,
 	siteTitleParts,
 	test,
@@ -477,3 +485,195 @@ test("Quick Access shows up to 4 items in menu order, each to a page of the site
 		},
 	);
 });
+
+/** Shortcuts of the kind staff pick, each to a page of the site headed by its label. */
+const SHORTCUTS = [
+	{ label: "เอกสารเผยแพร่", url: "/documents" },
+	{ label: "ข้อมูลสุขภาพ", url: "/health" },
+	{ label: "ข่าวสุขภาพ", url: "/news/health" },
+	{ label: "ติดต่อเรา", url: "/contact" },
+];
+
+/** The Homepage's Quick Access cards, in the order they show. */
+function quickAccessCards(page: Page) {
+	return homepageSection(page, HOMEPAGE_HEADINGS.quickAccess).getByRole("link");
+}
+
+/**
+ * Fail on an axe violation, a focus stop that does not show, or sideways scrolling, as laid out
+ * now.
+ */
+async function expectQuickAccessAccessible(page: Page, label: string): Promise<void> {
+	await expectNoAxeViolations(page, label);
+	await expectVisibleFocusOnEveryStop(page, label);
+	await expectNoHorizontalScroll(page, label);
+}
+
+for (const width of [320, 375, 639]) {
+	test(`at ${width} px Quick Access stays two cards to a row, each with its label across the top and its arrow on a row of its own at the lower right`, async ({
+		page,
+	}) => {
+		await withHomepageMenus(admin, { quickAccess: SHORTCUTS }, async () => {
+			await page.setViewportSize({ width, height: 900 });
+			await page.goto("/");
+			const cards = quickAccessCards(page);
+			await expect(cards).toHaveCount(SHORTCUTS.length);
+			const items = homepageSection(page, HOMEPAGE_HEADINGS.quickAccess).getByRole("listitem");
+			expect(await itemsPerRow(items), "two cards to a row").toEqual([2, 2]);
+			for (const [index, { label, url }] of SHORTCUTS.entries()) {
+				const card = cards.nth(index);
+				await expect(card).toHaveAccessibleName(label);
+				await expect(card).toHaveAttribute("href", url);
+				await expect(card).toHaveCSS("font-size", "16px");
+				await expect(card).toHaveCSS("border-top-width", "1px");
+				await expect(card).toHaveCSS("border-top-left-radius", "18px");
+				await expect(card).not.toHaveCSS("box-shadow", "none");
+				await expectLabelAboveArrow(card, `${label} at ${width} px`);
+			}
+			await cards.first().focus();
+			await page.keyboard.press("Tab");
+			await expect(cards.nth(1), "a card is one keyboard stop").toBeFocused();
+			await expect(cards.nth(1)).toHaveCSS("outline-width", "3px");
+			await expectQuickAccessAccessible(page, `Quick Access at ${width} px`);
+		});
+	});
+}
+
+/**
+ * The widest words titles keep whole at body size, semibold (docs/design/DESIGN.md §10), as labels
+ * of real pages. The Homepage shows 4 shortcuts at most, so they take two menus.
+ */
+const LONG_WORD_MENUS = [
+	[
+		{ label: "ความดันโลหิตสูง", url: "/health" },
+		{ label: "ตรวจคัดกรอง", url: "/services" },
+		{ label: "ออกกำลังกาย", url: "/news/health" },
+		{ label: "ประชาสัมพันธ์", url: "/news" },
+	],
+	[
+		{ label: "ความดันโลหิต", url: "/health" },
+		{ label: "ประจำหมู่บ้าน", url: "/services" },
+	],
+];
+
+for (const width of [320, 375, 639, 640]) {
+	test(`at ${width} px a Quick Access label keeps the widest listed words whole, inside its card and clear of its arrow`, async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width, height: 900 });
+		const expectLayout = width < 640 ? expectLabelAboveArrow : expectArrowBesideLabel;
+		for (const quickAccess of LONG_WORD_MENUS) {
+			await withHomepageMenus(admin, { quickAccess }, async () => {
+				await page.goto("/");
+				const cards = quickAccessCards(page);
+				await expect(cards).toHaveCount(quickAccess.length);
+				for (const [index, { label, url }] of quickAccess.entries()) {
+					const card = cards.nth(index);
+					await expect(card).toHaveAccessibleName(label);
+					await expect(card).toHaveAttribute("href", url);
+					// Its holder is the card, so "outside" is measured against the card's content box.
+					expect(
+						await occurrencesOf(card.locator(":scope > span"), label),
+						`${label} at ${width} px`,
+					).toEqual({ found: 1, split: 0, outside: 0 });
+					await expectLayout(card, `${label} at ${width} px`);
+				}
+				await expectNoHorizontalScroll(page, `long Quick Access labels at ${width} px`);
+			});
+		}
+	});
+}
+
+test("at 320 px a Quick Access label that wraps makes its row of cards taller, with no one fixed height, and every arrow stays at its card's lower right", async ({
+	page,
+}) => {
+	const quickAccess = [
+		SHORTCUTS[0]!,
+		SHORTCUTS[1]!,
+		{ label: "คลินิกความดันโลหิตสูงประจำหมู่บ้านและการตรวจคัดกรองเบาหวาน", url: "/services" },
+		SHORTCUTS[3]!,
+	];
+	await withHomepageMenus(admin, { quickAccess }, async () => {
+		await page.setViewportSize(MOBILE_VIEWPORT);
+		await page.goto("/");
+		const cards = quickAccessCards(page);
+		await expect(cards).toHaveCount(quickAccess.length);
+		const heights = await cards.evaluateAll((links) =>
+			links.map((link) => link.getBoundingClientRect().height),
+		);
+		expect(heights[1], "the cards of a row are one height").toBeCloseTo(heights[0]!, 0);
+		expect(heights[3], "the cards of a row are one height").toBeCloseTo(heights[2]!, 0);
+		expect(heights[2]! - heights[0]!, "the wrapped label's row is taller").toBeGreaterThan(20);
+		for (const [index, { label }] of quickAccess.entries()) {
+			await expectLabelAboveArrow(cards.nth(index), label);
+		}
+	});
+});
+
+for (const width of [640, 1440]) {
+	test(`at ${width} px a Quick Access card keeps its arrow beside its label at the H3 size`, async ({
+		page,
+	}) => {
+		await withHomepageMenus(admin, { quickAccess: SHORTCUTS }, async () => {
+			await page.setViewportSize({ width, height: 900 });
+			await page.goto("/");
+			const cards = quickAccessCards(page);
+			await expect(cards).toHaveCount(SHORTCUTS.length);
+			for (const [index, { label }] of SHORTCUTS.entries()) {
+				await expect(cards.nth(index)).toHaveCSS("font-size", "24px");
+				await expect(cards.nth(index)).toHaveCSS("min-height", "88px");
+				await expectArrowBesideLabel(cards.nth(index), `${label} at ${width} px`);
+			}
+			await expectQuickAccessAccessible(page, `Quick Access at ${width} px`);
+		});
+	});
+}
+
+/** Fail unless every shortcut opens its page natively, from its arrow and by Enter. */
+async function expectShortcutsOpen(page: Page): Promise<void> {
+	await page.setViewportSize(MOBILE_VIEWPORT);
+	for (const { label, url } of SHORTCUTS) {
+		for (const open of [
+			(card: Locator) => card.locator("svg").click(),
+			(card: Locator) => card.press("Enter"),
+		]) {
+			await page.goto("/");
+			await open(quickAccessCards(page).filter({ hasText: label }));
+			await expect(page).toHaveURL(url);
+			await expect(page.getByRole("heading", { level: 1 })).toHaveText(label);
+		}
+	}
+}
+
+test("at 320 px each Quick Access card opens its page from its arrow and by Enter", async ({
+	page,
+}) => {
+	await withHomepageMenus(admin, { quickAccess: SHORTCUTS }, () => expectShortcutsOpen(page));
+});
+
+test.describe("without JavaScript", () => {
+	test.use({ javaScriptEnabled: false });
+
+	test("at 320 px each Quick Access card opens its page from its arrow and by Enter", async ({
+		page,
+	}) => {
+		await withHomepageMenus(admin, { quickAccess: SHORTCUTS }, () => expectShortcutsOpen(page));
+	});
+});
+
+for (const [path, name] of [
+	["/about", "โครงสร้างองค์กร"],
+	["/health", "ความรู้สุขภาพ"],
+] as const) {
+	for (const width of [320, 639]) {
+		test(`at ${width} px a Quick Link card on ${path} keeps its arrow beside its label at the H3 size`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width, height: 900 });
+			await page.goto(path);
+			const card = page.getByRole("main").getByRole("link", { name, exact: true });
+			await expect(card).toHaveCSS("font-size", "24px");
+			await expectArrowBesideLabel(card, `${path} at ${width} px`);
+		});
+	}
+}
