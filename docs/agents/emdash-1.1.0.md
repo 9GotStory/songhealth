@@ -274,7 +274,10 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   creates a folder). The Admin's Media Library and its media picker open on the main library, the
   items without a folder, with the folders listed; a search covers every folder
   (`@emdash-cms/admin/dist/index.js` `MediaLibrary`'s page and `MediaPickerModal` query
-  `folderId: search ? void 0 : folder ?? null`; checked 2026-11-06 for Feature 005).
+  `folderId: search ? void 0 : folder ?? null`; checked 2026-11-06 for Feature 005). Creating,
+  renaming or deleting a folder needs `media:edit_any`, an Editor's
+  (`src/astro/routes/api/media/folders/index.ts`, `src/astro/routes/api/media/folders/[id].ts`,
+  `@emdash-cms/auth/src/rbac.ts`).
 
 ## Edit mode and the toolbar
 
@@ -408,6 +411,17 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
 - The editor's Preview opens the signed preview URL, built from the collection's URL pattern, in a
   new tab (`@emdash-cms/admin/dist/index.js` `handlePreview`,
   `src/astro/routes/api/content/[collection]/[id]/preview-url.ts`).
+- The editor's taxonomy panel lets an Editor or an Administrator create a term where they pick one:
+  it takes `canManageTaxonomies` from a role of Editor or above and hands it to the picker as
+  `canCreate`, so an Author or a Contributor only picks an existing term
+  (`@emdash-cms/admin/dist/index.js` `TaxonomySidebar`, `TaxonomySection`). The term route needs
+  `taxonomies:manage`, an Editor's (`src/astro/routes/api/taxonomies/[name]/terms/index.ts`,
+  `@emdash-cms/auth/src/rbac.ts`). The Admin has no action that merges terms (read for #185).
+- The count beside each term on a taxonomy's page holds only published entries outside the trash
+  (`src/taxonomies/term-counts.ts`, `src/api/handlers/taxonomies.ts` `handleTermList`), so a term at
+  0 can still sit on a draft. Deleting a term removes it from the entries of any status that carry
+  it, and a term with children cannot be deleted (`src/api/handlers/taxonomies.ts`
+  `handleTermDelete`, `src/database/repositories/taxonomy.ts` `delete`).
 
 ## Admin sidebar
 
@@ -766,8 +780,11 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   `astro/dist/core/fetch/fetch-state.js`, its constructor's `setPathname`, read for #180).
   `POST /_emdash/api/redirects` answers `CONFLICT` for a source
   that exists, compared exactly (`src/api/handlers/redirects.ts` `handleRedirectCreate`), and needs
-  `redirects:manage`, an Administrator's (`@emdash-cms/auth/src/rbac.ts`). A destination may be the
-  homepage, `/` (`src/api/schemas/redirects.ts` `urlPath`, `src/redirects/destination.ts`
+  `redirects:manage`, an Administrator's (`@emdash-cms/auth/src/rbac.ts`). An API token needs the
+  `admin` scope for it: the redirect routes have no `SCOPE_RULES` entry, a route without one needs
+  `admin` (`src/astro/middleware/auth.ts`), and `admin` holds every other scope
+  (`@emdash-cms/auth/src/tokens.ts` `hasScope`), so `./scripts/migration.ts` runs on such a token.
+  A destination may be the homepage, `/` (`src/api/schemas/redirects.ts` `urlPath`, `src/redirects/destination.ts`
   `isSiteRelativeDestination`).
 - `GET /_emdash/api/redirects/404s` lists the 404 log. With `redirects:manage`, `DELETE` on it
   clears the whole log and answers `{ deleted }`, and `POST` with `olderThan` prunes it by age; no
