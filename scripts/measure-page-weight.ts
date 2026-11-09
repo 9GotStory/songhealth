@@ -17,14 +17,14 @@
 import { chromium, type CDPSession, type Page } from "@playwright/test";
 
 import { SYNTHETIC_REFERRER } from "../playwright.config.ts";
+import { DESKTOP_VIEWPORT } from "../tests/browser/public.helpers.ts";
 
 const ORIGIN = process.env.CHECK_ORIGIN;
 const SCREENS = {
 	// A current phone: the pixel density decides which rendition a srcset picks, and a dense screen
 	// is the heavier case for renditions. An original weighs the same at any density.
 	phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3 },
-	// DESKTOP_VIEWPORT of tests/browser/public.helpers.ts, which Node cannot import directly.
-	desktop: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 },
+	desktop: { viewport: DESKTOP_VIEWPORT, deviceScaleFactor: 1 },
 };
 const QUIET_MS = 1_000;
 const QUIET_LIMIT_MS = 60_000;

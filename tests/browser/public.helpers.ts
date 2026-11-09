@@ -53,7 +53,7 @@ import {
 	unpublishEntry,
 	type CmsActor,
 	type DraftFixture,
-} from "./cms.helpers";
+} from "./cms.helpers.ts";
 
 export { expect };
 
