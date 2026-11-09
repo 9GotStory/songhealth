@@ -171,3 +171,8 @@ line of the log or a run's output. Each cell of a coverage table names the check
 how far that check goes: a status code shows a status code, and what a log cannot show stays
 unclaimed. A check reads as its result at its commit, never as a promise. In #151 four claims were
 not in the log, and in #184 five went wider than their checks.
+
+A runbook in `docs/operations/` can be followed as written. Everything a step uses comes from an
+earlier step or its Setup, and a step's check reads something its command prints. In #185 no step
+brought the reviewed list to the host, no step took WordPress's backup, and a check compared
+redirect counts with an inventory that holds none.
