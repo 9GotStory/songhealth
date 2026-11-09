@@ -76,9 +76,10 @@ and their workflow:
   (user `thanakorn`, UID 1000). The single development runtime is the one below
   (`http://127.0.0.1:4324`); no other development runtime, database or media store is created.
 - **Sessions side by side:** a session working beside another keeps to its own worktree. Make it
-  with `git worktree add <folder> <branch>`, link `node_modules` from this workspace while the
-  lockfiles match, and run `node scripts/with-build-inputs.mjs astro sync` there once, for
-  typecheck. They still share the one runtime: `--replace` in
+  with `git worktree add <folder> <branch>`, install its own dependencies as
+  [Prototype workspace](#prototype-workspace) shows, and run
+  `node scripts/with-build-inputs.mjs astro sync` there once, for typecheck. They still share
+  the one runtime: `--replace` in
   [the promotion steps](docs/operations/development-quadlet.md#promote-a-new-commit).
 - **Production:** rootless Podman + systemd Quadlet
   ([docs/operations/production-foundation.md](docs/operations/production-foundation.md)). Feature
