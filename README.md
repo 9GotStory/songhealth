@@ -25,6 +25,12 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   pages in two columns and an Activity's photos as folding thumbnails (spec #144, tickets
   #145–#151, ADR 0007). `docs/design/DESIGN.md` v1.0 records it with the code. The Product Owner
   gave it Final Acceptance on 2026-11-05 (#144 comment 6660349967), and it was merged into `main`.
+- **Feature 005 `wordpress-migration`:** complete: the script that plans, imports and verifies the
+  Legacy site's content from a reviewed Classification list, redirects from the old addresses,
+  filters that offer only terms with items, and the cutover runbook (spec #174, tickets #175–#185,
+  ADR 0008). The Product Owner gave it Final Acceptance on 2026-11-09 (#174 comment 6737259420), and
+  it was merged into `main`. The production import, the cutover and WordPress's retirement stay NOT
+  AUTHORIZED (`09` §18).
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,
