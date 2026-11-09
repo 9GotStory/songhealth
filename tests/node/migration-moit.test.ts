@@ -1156,6 +1156,7 @@ describe("verify of the MOITs", () => {
 			media: [{ contentHash: "sha1:31", folderId: FOLDER.id, filename: "file-31.pdf" }],
 			folders: [FOLDER],
 			owner: OWNER,
+			reused: new Set<number>(),
 			hashes: new Map([[31, "sha1:31"]]),
 			responses,
 			request: async (path: string) => {

@@ -219,19 +219,18 @@ describe("the lines a commit adds", () => {
 
 describe("the leak-check command", () => {
 	const git = (cwd: string, ...args: string[]) => spawnSync("git", args, { cwd, encoding: "utf8" });
+	const synthetic = () =>
+		wxrDocument([
+			attachment(11, `wp-content/uploads/2025/03/${NAME}`),
+			directive(1, { title: `${LONG} ชื่อเรื่อง`, meta: {} }),
+		]);
 
 	/** Runs the command in a new repository holding `text` staged at `path`, under git settings. */
 	async function staged(text: string, path = "tests/x.ts", settings: string[][] = []) {
 		const folder = await mkdtemp(join(tmpdir(), "songhealth-leak-check-test-"));
 		try {
 			const exportFile = join(folder, "export.xml");
-			await writeFile(
-				exportFile,
-				wxrDocument([
-					attachment(11, `wp-content/uploads/2025/03/${NAME}`),
-					directive(1, { title: `${LONG} ชื่อเรื่อง`, meta: {} }),
-				]),
-			);
+			await writeFile(exportFile, synthetic());
 			const repository = join(folder, "repository");
 			await mkdir(join(repository, "tests"), { recursive: true });
 			git(repository, "init", "--quiet");
@@ -270,6 +269,33 @@ describe("the leak-check command", () => {
 
 	it("passes staged lines that hold none of its strings", async () => {
 		const { status, stderr } = await staged('export const path = "notice.pdf";\n');
+		assert.equal(status, 0, stderr);
+	});
+
+	/** Runs the command on files holding `texts`, in a folder no repository holds. */
+	async function named(...texts: string[]) {
+		const folder = await mkdtemp(join(tmpdir(), "songhealth-leak-check-test-"));
+		try {
+			const exportFile = join(folder, "export.xml");
+			await writeFile(exportFile, synthetic());
+			const files = texts.map((_, index) => join(folder, `note-${index}.md`));
+			await Promise.all(files.map((file, index) => writeFile(file, texts[index]!)));
+			return runMigrationIn(folder, "leak-check", exportFile, ...files);
+		} finally {
+			await rm(folder, { recursive: true });
+		}
+	}
+
+	it("stops on a named file that holds the export's strings, without printing them", async () => {
+		const { status, stderr, stdout } = await named("Nothing here.\n", `It quotes ${NAME}.\n`);
+		assert.equal(status, 1);
+		assert.match(stderr, /note-1\.md: the file name of attachment 11/);
+		assert.equal(stderr.includes("note-0.md"), false);
+		assert.equal(`${stdout}${stderr}`.includes(NAME), false);
+	});
+
+	it("passes named files that hold none of its strings, with no staged lines to read", async () => {
+		const { status, stderr } = await named("Nothing here.\n", "Nor here.\n");
 		assert.equal(status, 0, stderr);
 	});
 
