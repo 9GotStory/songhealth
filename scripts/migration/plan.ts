@@ -426,6 +426,10 @@ interface ListReport {
 	unreadable: { slug: string; decision: string }[];
 	/** The slugs of the Announcements without a type, which a target decision can leave. */
 	untyped: string[];
+	/** The fiscal year of the newest news stream row, whose stories staff write a Summary for. */
+	summaryYear: number;
+	/** The slugs of that year's news stream rows that an import would leave without a Summary. */
+	withoutSummary: string[];
 	/** The slugs of the rows a merge appended. */
 	added: string[];
 	/** The slugs of the rows whose item the export no longer holds. */
@@ -454,6 +458,8 @@ function listReport(merge: ReturnType<typeof mergeRows>, merged: boolean): ListR
 		const type = typeOf(row);
 		if (type !== "" && types[target] !== undefined) count(types[target], type);
 	}
+	const stories = current.filter((row) => row.legacy_type === "public-new");
+	const summaryYear = Math.max(0, ...stories.map((row) => Number(row.fiscal_year)));
 	return {
 		merged,
 		rows: merge.rows.length,
@@ -468,6 +474,12 @@ function listReport(merge: ReturnType<typeof mergeRows>, merged: boolean): ListR
 			.map((row) => ({ slug: row.slug, decision: row.decision })),
 		untyped: current
 			.filter((row) => targetOf(row) === "Announcement" && typeOf(row) === "")
+			.map((row) => row.slug),
+		summaryYear,
+		withoutSummary: stories
+			.filter((row) => Number(row.fiscal_year) === summaryYear && row.summary.trim() === "")
+			// An Activity's own text is its Summary (import-plan.ts); a News's is its body.
+			.filter((row) => !(targetOf(row) === "Activity" && hasFlag(row, "text")))
 			.map((row) => row.slug),
 		added: merged ? merge.added.map((row) => row.slug) : [],
 		vanished: merge.vanished.map((row) => row.slug),
