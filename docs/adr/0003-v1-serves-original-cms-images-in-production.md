@@ -46,13 +46,47 @@ deployment both need the Product Owner's approval, so the revisit below comes be
   residual server-side request surface makes this option a security exception, so it waits for the
   revisit below.
 
+## The revisit of 2026-11-09
+
+With the Legacy site's pictures imported in a window on the development runtime at `d57cf39`, a
+production container downloaded these totals for a whole page. kB is 1,000 bytes, the phone is
+390 px at device scale 3 and the desktop 1440 px. #183 comment 6734787212 holds the first views, a
+second visit and the conditions.
+
+| Page                  | Originals, phone / desktop | Option 4's renditions, phone / desktop |
+| --------------------- | -------------------------- | -------------------------------------- |
+| Homepage              | 1,925 / 1,491 kB           | 510 / 442 kB                           |
+| `/news`, page 1       | 2,720 / 2,741 kB           | 1,658 / 837 kB                         |
+| `/activities`, page 1 | 6,052 / 6,074 kB           | 3,210 / 1,401 kB                       |
+| An Activity           | 622 / 644 kB               | 367 / 245 kB                           |
+
+Option 4 saves 39-77% of those bytes, at a cost the check measured. EmDash re-encodes a rendition
+on every request and sends `max-age=0, must-revalidate` with no validator
+(`node_modules/emdash/src/astro/image-endpoint.ts`): the server took a median of 158-395 ms per
+picture with one browser loading the page, against 4-11 ms for an original. The security check confirmed the residual
+surface above. For a foreign absolute `href` whose key EmDash rejects, the server fetched from
+another host on its network, at a path beginning with the media path, and returned the re-encoded
+picture. With no database and no media volume, a safe key answered 404 with nothing fetched, which
+`image-endpoint.ts` reaches only with storage present, so the "storage is unavailable" condition
+above was not reached.
+
+The Product Owner kept original files with staff guidance for V1 on 2026-11-09 (#183 comment
+6734787212). The guidance reaches new uploads only, so the migrated pictures stay as imported and
+`/activities`, the heaviest page measured, stays about 6 MB. Option 4 stays open for later: the files
+stored are the originals either way, so adopting it needs no new import, only its own ticket and a
+superseding ADR with its mitigations.
+
+The check also found, on the image production serves today and whatever this decision, that a
+forged `Host` header reaches the image endpoint's same-origin fetch, with no limit on the path, and
+that an anonymous rendition can cost about 20 s of server time. #218, open, tracks both for before
+deployment.
+
 ## Consequences
 
 - Image evidence from the development runtime shows renditions that production does not serve.
   Image sizing in production is checked through a production container with
   `scripts/production-image-check.sh`, as #67 did.
 - Staff guidance asks for pictures uploaded at a sensible size.
-- Revisit this decision before the WordPress import brings its pictures or before deployment,
-  whichever comes first, or when page weight at real content becomes a problem. The revisit starts
-  from the host-agnostic pattern above and its security check, run with
-  `scripts/production-image-check.sh`.
+- Revisit this decision when page weight at real content becomes a problem. The revisit starts from
+  the host-agnostic pattern above and its security check, run with
+  `scripts/production-image-check.sh` and `scripts/measure-page-weight.ts`.
