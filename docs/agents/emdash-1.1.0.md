@@ -220,6 +220,15 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
     `matchInternalMediaKey`). The production container therefore
     answers `/_image` for media with a sharp rendition, though its pages never ask for one (#67
     comment 6558376075).
+  - The middleware gives `/_image` its storage with no runtime init and no setup probe, so a
+    container with no database and no media volume still has storage: a safe key answers 404 with
+    nothing fetched (`src/astro/middleware.ts` `isImageEndpointRequest`, `tryGetStorage`; #183
+    comment 6734787212).
+  - A picture's rendition and its original both answer with
+    `Cache-Control: public, max-age=0, must-revalidate` and no validator, so a browser downloads
+    them again on every visit and a rendition is encoded again (`src/astro/image-endpoint.ts`,
+    `src/astro/routes/api/media/file/[...key].ts`, `src/media/image-endpoint.ts`
+    `MUTABLE_MEDIA_CACHE_CONTROL`; #183 comment 6734787212).
 - `Image` loads lazily unless given `priority`, which makes it eager and adds
   `fetchpriority="high"`. The attributes it is given come after that default, so a passed `loading`
   wins (`src/components/EmDashImage.astro`). `./src/components/ContentCard.astro` and
