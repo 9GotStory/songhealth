@@ -3,7 +3,7 @@
 > **Status:** v1.1, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190 as its tickets are implemented. Feature 007 acceptance
 > remains the Product Owner's decision.
-> **Updated:** 2026-11-09 (Feature 007 #191–#194); first drafted 2026-10-30
+> **Updated:** 2026-11-09 (Feature 007 #191–#195); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -21,7 +21,8 @@
 > ActivityCard use whole-card native links and the green hover edge/title (§7.3).
 > Quick Access B below 640 px keeps two cards to a row, with the label above and the arrow on a
 > separate lower-right row; the accepted taller cards replace the crowding limit (§7.3, §10).
-> This amendment implements #191–#194;
+> Titles also keep "ร้องเรียน" on one line, through the shared list and its existing scope (§4.1).
+> This amendment implements #191–#195;
 > the other selected refinements follow in their tickets.
 
 ## 1. Scope, authority and status
@@ -158,7 +159,8 @@ The dictionary the browser uses (ICU) splits Thai compound words, such as "เ�
 "ความ|ดัน|โลหิต", "ปฏิบัติ|งาน" and "อำเภอ|สอง" (spec #144 "Problem Statement" and "Version-specific
 evidence"). A title therefore keeps the words of a curated list on one line:
 
-- **The list:** spec #144's 26 words, in `src/lib/thai-title.ts`.
+- **The list:** 27 words in `src/lib/thai-title.ts`: spec #144's 26 and "ร้องเรียน" (spec #190
+  "Thai-title word").
 - **Matching:**
   - the longest listed word wins at each place ("ความดันโลหิตสูง" over "ความดันโลหิต");
   - every occurrence is kept;
@@ -593,3 +595,6 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   than the 80 px beside its arrow ran into the arrow below about 342 to 374 px. It follows #190
   comment 6707205912, and `04` §15 records the same rule. From 640 px, and the full cards on
   `/about`, `/health` and `/ita`, remain.
+- **v1.1 Thai-title word (2026-11-09, Feature 007 #195):** "ร้องเรียน" joins §4.1's list, which
+  had held spec #144's 26 words, following #190 comment 6707205912 (Q22). Matching, characters and
+  where the rule applies remain.

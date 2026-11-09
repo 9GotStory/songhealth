@@ -1,5 +1,6 @@
 // Thai titles keep compound words whole (Feature 006 #145; spec #144 "Shared: Thai titles keep
-// compound words whole" and "Testing Decisions", Seam A).
+// compound words whole" and "Testing Decisions", Seam A), "ร้องเรียน" among them (Feature 007 #195;
+// spec #190 "Thai-title word").
 //
 // Titles keep whole the words of a curated list that the browser's Thai line breaking splits, such
 // as "เบา|หวาน" and "อำเภอ|สอง" (src/lib/thai-title.ts says where that was seen), so a citizen
@@ -47,11 +48,21 @@ import {
 	test,
 } from "./public.helpers";
 
+/** How many times the fixtures' titles hold "ร้องเรียน" (spec #190), one straight after another. */
+const RONGRIAN_TIMES = 3;
+
 /**
- * The listed words the card tests check, which the fixtures' titles hold: the two the ticket names,
- * and the longest listed word (#145 retro).
+ * The listed words the card tests check and how many times the fixtures' titles hold each: the two
+ * #145 names, the longest listed word (#145 retro) and "ร้องเรียน". A 112 px title has room for one
+ * "ร้องเรียน" and "ร้อง" of the next, so three in a row leave a line ending inside one wherever the
+ * text before them ends, unless the word is kept.
  */
-const CHECKED_WORDS = ["เบาหวาน", "อำเภอสอง", "ความดันโลหิตสูง"];
+const CHECKED_WORDS = [
+	{ word: "เบาหวาน", times: 1 },
+	{ word: "อำเภอสอง", times: 1 },
+	{ word: "ความดันโลหิตสูง", times: 1 },
+	{ word: "ร้องเรียน", times: RONGRIAN_TIMES },
+];
 
 /** The Homepage cards the fixtures lead, by collection: what each is called, and its section. */
 const CARDS = {
@@ -97,7 +108,7 @@ test.beforeAll(async () => {
 		ending = "",
 	) => {
 		const slug = syntheticSlug("thai-title");
-		const title = `${SYNTHETIC_FIXTURE_MARK} ${CARDS[collection].kind} ตรวจคัดกรองเบาหวานและความดันโลหิตสูงให้ผู้สูงอายุทุกหลังคาเรือนในอำเภอสอง${ending} ${slug.slice(-6)}`;
+		const title = `${SYNTHETIC_FIXTURE_MARK} ${CARDS[collection].kind} ตรวจคัดกรองเบาหวานและความดันโลหิตสูงให้ผู้สูงอายุทุกหลังคาเรือนในอำเภอสอง ${"ร้องเรียน".repeat(RONGRIAN_TIMES)}${ending} ${slug.slice(-6)}`;
 		const created = await createSyntheticEntry(admin, collection, {
 			slug,
 			data: { title, ...data },
@@ -120,21 +131,21 @@ for (const [collection, card] of Object.entries(CARDS) as [
 	CardCollection,
 	(typeof CARDS)[CardCollection],
 ][]) {
-	test(`${card.name} keeps เบาหวาน, อำเภอสอง and ความดันโลหิตสูง of its title whole and inside it, at any width from 320 to 1440 px`, async ({
+	test(`${card.name} keeps เบาหวาน, อำเภอสอง, ความดันโลหิตสูง and ร้องเรียน of its title whole and inside it, at any width from 320 to 1440 px`, async ({
 		page,
 	}) => {
 		await withCardShown(collection, async () => {
 			await page.goto("/");
 			const title = fixtureCardTitle(page, collection);
 			await expect(title).toBeVisible();
-			for (const word of CHECKED_WORDS) {
-				expect((await occurrencesOf(title, word)).found, `${word} in the card's title`).toBe(1);
+			for (const { word, times } of CHECKED_WORDS) {
+				expect((await occurrencesOf(title, word)).found, `${word} in the card's title`).toBe(times);
 			}
 			const splits: string[] = [];
 			const overflows: string[] = [];
 			for (let width = 320; width <= 1440; width += 8) {
 				await page.setViewportSize({ width, height: 900 });
-				for (const word of CHECKED_WORDS) {
+				for (const { word } of CHECKED_WORDS) {
 					const { split, outside } = await occurrencesOf(title, word);
 					if (split > 0) splits.push(`${word} at ${width} px`);
 					if (outside > 0) overflows.push(`${word} at ${width} px`);
@@ -149,6 +160,26 @@ for (const [collection, card] of Object.entries(CARDS) as [
 		});
 	});
 }
+
+test("at 320 px a compact card's title keeps every ร้องเรียน whole and inside it, and its link is named by the whole title", async ({
+	page,
+}) => {
+	await page.setViewportSize({ width: 320, height: 900 });
+	await page.goto("/");
+	const title = fixtureCardTitle(page, "activities");
+	await expect(title).toBeVisible();
+	await expect(
+		homepageSection(page, CARDS.activities.section).getByRole("link", {
+			name: fixtures.activities.title,
+			exact: true,
+		}),
+	).toBeVisible();
+	expect(await occurrencesOf(title, "ร้องเรียน")).toEqual({
+		found: RONGRIAN_TIMES,
+		split: 0,
+		outside: 0,
+	});
+});
 
 test("a card's title shows its characters as written", async ({ page }) => {
 	await page.goto("/");

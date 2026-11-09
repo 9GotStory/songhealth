@@ -23,8 +23,8 @@
 const KEPT_WORD_MAX = 15;
 
 /**
- * The Thai compound words a title keeps on one line, as spec #144 lists them.
- * scripts/thai-title-widths.ts measures how wide each one is on the page.
+ * The Thai compound words a title keeps on one line: the 26 spec #144 lists and "ร้องเรียน" (spec
+ * #190 "Thai-title word"). scripts/thai-title-widths.ts measures how wide each one is on the page.
  */
 export const KEPT_WORDS = [
 	"เบาหวาน",
@@ -53,6 +53,7 @@ export const KEPT_WORDS = [
 	"ประจำหมู่บ้าน",
 	"หลังคาเรือน",
 	"เครือข่าย",
+	"ร้องเรียน",
 ];
 
 /** A part of a title: a listed word kept together, or the plain text around it. */
