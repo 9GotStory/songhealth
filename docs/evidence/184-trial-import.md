@@ -36,8 +36,10 @@ All of them stay outside the repository, in `~/.local/state/songhealth-migration
 
 **Plan, with the current Classification list as it stands:** 411 rows; News 41, Activity 339,
 Announcement 25, Document 2 and ต้องเลือก 4. The four rows took their default, Activity:
-`news-154`, `news-290`, `news-359` and `news-360`. 1,002 of the 1,115 attachments are used, and
-attachment 1479 is missing. The dry run planned 1,001 files, none missing, and wrote an
+`news-154`, `news-290`, `news-359` and `news-360`. The inventory counts 1,002 of the 1,115
+attachments as used by items, and the file of one of them, attachment 1479 (ANOM-001), is not in
+the uploads copy. The dry run planned 1,001 files, the import's own count (#177's and #180's notes
+on this ticket), with ANOM-001's taken from `anom-001.pdf` and none missing. It wrote an
 `import-plan.json` byte-identical to the copy kept from before the round.
 
 ## The import
@@ -78,7 +80,7 @@ The Media Library, read through the native API in the window, held 957 items in 
 | --- | --- |
 | Entries found in their collection | Activity 343 of 343, News 41 of 41, Document 28 of 28, Announcement 25 of 25, MOIT 66 of 66 |
 | Files | 1,001 planned, 1,001 in the library, 1,001 in their folder |
-| Pages | 503 of 503 |
+| Pages answering 200 | 503 of 503 |
 | Redirects | 488 of 490, the other 2 waiting for staff content |
 | Direct file addresses answering 404 | 1 of 1 |
 | Announcements listing their Documents | 25 of 25 |
@@ -96,7 +98,9 @@ The second run, after the walkthrough's first answer, took 40 s and ended with t
   `/about/policies`, `/about/personnel` and `/health-services`. Those answered 200 with their empty
   states, since the staff content is not there yet. Verify counts them as passed.
 
-**A scratch read-back over HTTP, in the window:**
+**A read-back over HTTP, in the window,** by a scratch script not kept in the repository. It made
+anonymous requests without following a redirect, and walked each list's pages against the dates in
+`import-plan.json`:
 
 - Each list's dates against the plan, through every page, found none out of order: `/activities`
   343 entries on 29 pages, with 3 pairs sharing a timestamp as #178 noted; `/news` 41 on 4 pages;
@@ -110,10 +114,11 @@ The second run, after the walkthrough's first answer, took 40 s and ended with t
 ## ADR 0002's latency at the real volume
 
 `scripts/measure-latency.ts`, 50 requests per path after 3 to warm up, one at a time, on
-`astro dev`, so these are development figures, not production's. A scratch module gave it these
-paths and no content, so its second pass repeats the first. The search paths are those #63
-measured. The lists are ADR 0004's "about 200 ms" revisit and #176's note. The demo dataset's run
-came before the window, at the same commit.
+`astro dev`, so these are development figures, not production's. A scratch fixtures module, not
+kept in the repository, exported these paths and a default that makes nothing, so the second pass
+repeats the first. Four of the search paths are those #63 measured, and `group=news&page=5` is
+added, since that group holds the most imported entries. The lists are ADR 0004's "about 200 ms"
+revisit and #176's note. The demo dataset's run came before the window, at the same commit.
 
 | Path | Demo dataset, first pass: median / p95 / max | Imported, first pass | Imported, second pass |
 | --- | --- | --- | --- |
@@ -143,27 +148,29 @@ the restore, while the trial could still be walked.
   covered part of steps 1–5. Steps 6–10 (ITA, the renamed MOIT's old address, the redirects, the
   direct file address, the Admin) held no request. The Product Owner was shown this and chose
   "กลับไปตรวจตอนนี้ (Recommended)".
-- **Second answer, "ตรวจแล้ว ผ่านครบ".** The span 03:38:16Z to 03:46:50Z held the rest.
+- **Second answer, "ตรวจแล้ว ผ่านครบ".** The span 03:38:16Z to 03:46:50Z held most of the rest,
+  as the table below shows.
 - **The Admin:** the Product Owner opened it, and edited and published one News entry twice, which
   the restore removed. The two publish lines are in the Admin change log, at 03:41:17Z and
   03:41:28Z.
 
 | The ticket's item | Opened by the Product Owner | The automated check |
 | --- | --- | --- |
-| The lists and their date order | `/activities`, `/news`, `/news/health`, `/announcements`, `/documents` | The read-back's order, through every page |
-| A PM 2.5 report, and #178's two awkward News | `news-288`, `news-259`, `news-252` | verify's Pages |
-| An Activity with its One Page | `news-384`, and three others | verify's Pages |
+| The lists and their date order | `/activities`, `/news`, `/news/health`, `/announcements`, `/documents` | The read-back's order, through every page, for all but `/documents`, which it did not check |
+| A PM 2.5 report, and the two News #178 named for the walkthrough | `news-288`, `news-259`, `news-252` | 200 in verify's Pages |
+| An Activity with its One Page | `news-384`, and three others | 200 in verify's Pages |
 | An Announcement with its Documents | `directive-5`, `directive-6`, `procurement-6`, `procurement-20` | 25 of 25 listing their Documents |
-| An order under the คำสั่ง filter | `/documents` (the log drops query strings), and `directive-1`'s and `directive-4`'s Document pages | 2 Documents under `?type=order` |
+| An order under the คำสั่ง filter | `/documents`, and the two orders' Document pages, reached from a redirect and from search; the log drops query strings, so it cannot show the filter's use | 2 Documents under `?type=order` |
 | One MOIT per year with its Evidence | `/ita/2567`, `/ita/2568`, `/ita/2569`, and MOIT pages of each year | 66 of 66 showing their Evidence |
 | A sample of redirects of each kind | 7 addresses of the news, directive, procurement and page kinds; the MOIT kind is below | 488 of 490 |
 | A direct file address answering 404 | yes | 1 of 1 |
 | The Admin without Categories and Tags | the Admin's pages | The runtime verify's content-model check |
-| The list filters | `/news/health`, `/documents` | The read-back's filters |
+| The list filters | `/news/health`, `/documents`; the log cannot show a filter's use | The read-back's filters |
 
 **Not opened in either span:** `/moit-4-2567-2/`, the renamed MOIT's old address, and its
-destination; `/ita/moit-2-2567`, ANOM-001's page; `/ita/moit-5-2569`; `/announcements/directive-2`;
-the Media Library's folder list; and a Document's file. The automated checks answered for them:
+destination; `/ita/moit-2-2567`, the page with ANOM-001's file; `/ita/moit-5-2569`;
+`/announcements/directive-2`; the Media Library's folder list; and a Document's file. The automated
+checks answered for them:
 
 - `/moit-4-2567-2/` answered one 301 to `/ita/moit-5-2567`, which answered 200;
 - the two MOIT pages and `directive-2` answered 200;
@@ -198,10 +205,10 @@ post-restore verification PASSED.
 | Node seam, before the window | `npm run test:node` | 683 of 683 passed |
 | Browser seam, serial | `scripts/dev-runtime-env.sh npm run test:browser -- --workers=1` | 362 passed, 14 skipped, in 14.3 minutes, from 03:49:54Z to 04:04:13Z |
 | T021 public reads | `scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs` | 14 of 14 passed, no owned-fixture residue |
+| The other CI checks | `npm run build:check`, `format:check`, `knip`, `jscpd`, `lint:shell` | pass at this record's first commit, whose code is `7ad32a8`'s; jscpd's baseline unchanged at 21 clones |
 | Residue | `dev-runtime-residue.sh` | RESIDUE: NONE |
 
-The 14 skipped tests are T021's, which skip outside their coordinator. CI runs the build,
-`format:check`, `knip`, `jscpd` and `lint:shell` on this branch's pull request.
+The 14 skipped tests are T021's, which skip outside their coordinator.
 
 **404 log.** It held 50 synthetic misses and 2 others, `/ita/2569` and `/news/public`. Both are
 Claude Code's own probes of 03:12:41Z, before the window, of addresses the demo dataset does not
