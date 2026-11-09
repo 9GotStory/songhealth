@@ -1,9 +1,11 @@
 # EmDash 1.1.0: verified behaviour
 
 Facts the Songhealth pages and tests rely on, read from the installed package. Add a new fact under
-its topic with its source path, relative to `node_modules/emdash/`. Write a Songhealth file with a
-leading `./` and another package's file from its package name. When the pinned version changes,
-re-verify every line and rename this file: `./tests/node/package-facts.test.ts` checks that every
+its topic with its source path, relative to `node_modules/emdash/`. Before writing what a function
+returns, call it with its edge inputs when plain Node can load it (#177 retro: `parseWxrDate`'s
+fact was wrong twice, the first time hiding a crash). Write a Songhealth file with a leading `./`
+and another package's file from its package name. When the pinned version changes, re-verify every
+line and rename this file: `./tests/node/package-facts.test.ts` checks that every
 cited file exists and that the name carries the pinned version. The Admin bundle,
 `@emdash-cms/admin/dist/index.js`, is formatted JavaScript of about 77,000 lines: find a function
 with `grep -n 'function SidebarNav'` and read its lines with `sed -n '<from>,<to>p'`. Its source
@@ -47,6 +49,19 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   changed.
 - `where` on a taxonomy name matches exact term slugs, ORed when given as an array. An unknown slug
   or an empty array matches nothing (`src/loader.ts` `resolveTermGroups`).
+- `getTaxonomyTerms` counts each term's entries as the public site sees them, summed over every
+  collection the taxonomy declares, and its options take no narrower collection scope
+  (`src/taxonomies/index.ts` `getTaxonomyTerms`, `TaxonomyTermsOptions`;
+  `src/taxonomies/term-counts.ts` `fetchVisibleTermCounts`). A count therefore cannot tell whether
+  one list's entries carry a term of a taxonomy that several collections share, as seven share
+  `topic` (`./seed/seed.json`). `./src/lib/terms.ts` `offeredTerms` asks for one published entry
+  per term instead.
+- A term made through the API takes the position after the last of its sibling group
+  (`src/database/repositories/taxonomy.ts` `create`, `nextSortOrder`), the Admin's term list sets a
+  manual order (`@emdash-cms/admin/dist/index.js` `TaxonomyManager`, `reorderTerms`;
+  `src/api/handlers/taxonomies.ts` `handleTermReorder`), and `getTaxonomyTerms` lists terms by
+  position, then by label (`src/taxonomies/index.ts` `loadTaxonomyTerms`). `./src/lib/terms.ts`
+  `listTerms` sorts them by label in Thai order instead, so a public filter ignores that order.
 - `where` on any other key filters the column:
   - an exact value, an array (IN), or a range `{ gt, gte, lt, lte }`;
   - range values are strings, and PostgreSQL casts them to the column type;
@@ -99,7 +114,8 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   the same links (`src/api/handlers/relations.ts` `writeReferenceSelection`).
 - A `url` field accepts only http, https, mailto, tel or a site-relative path
   (`src/schema/zod-generator.ts`, `src/utils/url.ts` `isSafeUrlFieldValue`). `isSafeHref`, exported
-  from `emdash`, is the same check for rendering an href.
+  from `emdash`, is the same check for rendering an href: a body's `link` mark renders its `href`
+  through `sanitizeHref`, which keeps a site-relative address (`src/components/marks/Link.astro`).
 - `extractPlainText`, exported from `emdash`, turns Portable Text into plain text
   (`src/search/text-extraction.ts`). It needs no search index, so it works on PostgreSQL.
 - `Astro.rewrite("/404")` answers 404, and EmDash logs the miss (`src/astro/middleware/redirect.ts`).
@@ -139,7 +155,9 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   the media id (`src/content/converters/gallery.ts` `resolveImageMedia`, `src/media/url.ts`
   `buildRenderMediaUrl`). `./src/lib/media.ts` `availableBody` reads the key the same way.
 - `/_emdash/api/media/file/{key}` serves the stored file by key. Safe image, video and audio types
-  are served inline; anything else is an attachment (`src/astro/routes/api/media/file/[...key].ts`).
+  are served inline; anything else is an attachment, and the header names no file
+  (`src/astro/routes/api/media/file/[...key].ts`). `./src/components/DocumentDownload.astro` gives
+  the name with the link's `download` attribute.
 - Deleting a media item has no in-use guard. It removes the stored file unless another media row
   shares the key, and content keeps the stale value (`src/api/handlers/media.ts` `handleMediaDelete`).
   Pages therefore check media through `./src/lib/media.ts`.
@@ -202,6 +220,15 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
     `matchInternalMediaKey`). The production container therefore
     answers `/_image` for media with a sharp rendition, though its pages never ask for one (#67
     comment 6558376075).
+  - The middleware gives `/_image` its storage with no runtime init and no setup probe, so a
+    container with no database and no media volume still has storage: a safe key answers 404 with
+    nothing fetched (`src/astro/middleware.ts` `isImageEndpointRequest`, `tryGetStorage`; #183
+    comment 6734787212).
+  - A picture's rendition and its original both answer with
+    `Cache-Control: public, max-age=0, must-revalidate` and no validator, so a browser downloads
+    them again on every visit and a rendition is encoded again (`src/astro/image-endpoint.ts`,
+    `src/astro/routes/api/media/file/[...key].ts`, `src/media/image-endpoint.ts`
+    `MUTABLE_MEDIA_CACHE_CONTROL`; #183 comment 6734787212).
 - `Image` loads lazily unless given `priority`, which makes it eager and adds
   `fetchpriority="high"`. The attributes it is given come after that default, so a passed `loading`
   wins (`src/components/EmDashImage.astro`). `./src/components/ContentCard.astro` and
@@ -235,12 +262,22 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
 - An upload larger than the `maxUploadSize` option is refused; the default is 50 MB
   (`src/api/schemas/media.ts` `DEFAULT_MAX_UPLOAD_SIZE`, `src/astro/routes/api/media.ts`), and
   `./astro.config.mjs` sets no other.
+- An upload whose form gives no usable type takes it from the file name's extension
+  (`src/media/mime.ts` `resolveUploadMimeType`).
+- An upload of a file the library already holds answers that item with `deduplicated: true`
+  (`src/astro/routes/api/media.ts`). The match is the content hash, `sha1:` and the file's SHA-1 in
+  hex (`src/utils/hash.ts` `computeContentHash`, which the package's main entry exports:
+  `src/index.ts`), and a media list gives it as `contentHash` (`src/database/repositories/media.ts`
+  `MediaItem`). `./scripts/migration.ts` finds the used files in the library by it.
 - A media item sits in at most one folder. An upload request and a media update take `folderId`
   (`src/api/schemas/media.ts` `mediaUpdateBody`; `src/astro/routes/api/media/folders/index.ts`
   creates a folder). The Admin's Media Library and its media picker open on the main library, the
   items without a folder, with the folders listed; a search covers every folder
   (`@emdash-cms/admin/dist/index.js` `MediaLibrary`'s page and `MediaPickerModal` query
-  `folderId: search ? void 0 : folder ?? null`; checked 2026-11-06 for Feature 005).
+  `folderId: search ? void 0 : folder ?? null`; checked 2026-11-06 for Feature 005). Creating,
+  renaming or deleting a folder needs `media:edit_any`, an Editor's
+  (`src/astro/routes/api/media/folders/index.ts`, `src/astro/routes/api/media/folders/[id].ts`,
+  `@emdash-cms/auth/src/rbac.ts`).
 
 ## Edit mode and the toolbar
 
@@ -374,6 +411,17 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
 - The editor's Preview opens the signed preview URL, built from the collection's URL pattern, in a
   new tab (`@emdash-cms/admin/dist/index.js` `handlePreview`,
   `src/astro/routes/api/content/[collection]/[id]/preview-url.ts`).
+- The editor's taxonomy panel lets an Editor or an Administrator create a term where they pick one:
+  it takes `canManageTaxonomies` from a role of Editor or above and hands it to the picker as
+  `canCreate`, so an Author or a Contributor only picks an existing term
+  (`@emdash-cms/admin/dist/index.js` `TaxonomySidebar`, `TaxonomySection`). The term route needs
+  `taxonomies:manage`, an Editor's (`src/astro/routes/api/taxonomies/[name]/terms/index.ts`,
+  `@emdash-cms/auth/src/rbac.ts`). The Admin has no action that merges terms (read for #185).
+- The count beside each term on a taxonomy's page holds only published entries outside the trash
+  (`src/taxonomies/term-counts.ts`, `src/api/handlers/taxonomies.ts` `handleTermList`), so a term at
+  0 can still sit on a draft. Deleting a term removes it from the entries of any status that carry
+  it, and a term with children cannot be deleted (`src/api/handlers/taxonomies.ts`
+  `handleTermDelete`, `src/database/repositories/taxonomy.ts` `delete`).
 
 ## Admin sidebar
 
@@ -401,6 +449,10 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   Administrator, and Calendar needs Contributor (same file, `SidebarNav` `minRole`). EmDash
   renders Comments, Menus, Widgets, Sections and Bylines for every Editor, with no setting to hide
   them.
+- The sidebar takes the role from `GET /_emdash/api/auth/me` in the browser (same file,
+  `SidebarNav` `useCurrentUser`, `fetchCurrentUser`), and filters a manifest that is the same for
+  every user: the manifest route reads no user (`src/astro/routes/api/manifest.ts`).
+  `./scripts/capture-admin.ts` shows an Editor's or an Author's sidebar that way.
 - The Admin's content-type editor sets a collection's folder, icon, hidden flag and Dashboard quick
   action in its "การนำทาง" (Navigation) section (same file, `ContentTypeEditor`). Its content-type
   list reorders the collections by drag: `POST /_emdash/api/schema/collections/reorder` gives the
@@ -416,7 +468,8 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
 - The core migrations create the taxonomies `category` ("Categories") and `tag` ("Tags") for a
   `posts` collection (`src/database/migrations/006_taxonomy_defs.ts`), and the WordPress importer
   imports a WXR file's categories and tags into them (`src/import/wxr-taxonomies.ts`). Songhealth
-  has no `posts`, so both stand under "Manage".
+  has no `posts`, and `./scripts/model-update.mjs` deletes both (#175); while they exist, they
+  stand under "Manage".
 
 ## Head, settings, sitemap
 
@@ -578,8 +631,8 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
 - Full-text search is SQLite-only: `enableSearch` throws on PostgreSQL (`src/search/fts-manager.ts`;
   ADR 0002).
 - `extractPlainText` reads Portable Text: the span text of each block that has `children`, through
-  `@portabletext/toolkit`'s `toPlainText`, which skips any other
-  (`@portabletext/toolkit/dist/index.js` `isPortableTextBlock`; EmDash asks for `^5.0.1`, and
+  `@portabletext/toolkit`'s `toPlainText`, which skips any other and puts a blank line between
+  blocks (`@portabletext/toolkit/dist/index.js` `isPortableTextBlock`; EmDash asks for `^5.0.1`, and
   `./package-lock.json` holds 5.0.2), and of the custom blocks a `code` block's code and an `image`
   block's alt and caption (`src/search/text-extraction.ts` `extractCustomBlockText`). It reads
   nothing of a `blocks` field's typed blocks, such as an Evidence block's label, so
@@ -587,6 +640,9 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
 - Seed taxonomy terms are applied only with content (`src/seed/apply.ts`), and `emdash seed` opens
   SQLite only (`src/cli/commands/seed.ts`). The model-update step uses the schema and taxonomy APIs
   instead (`./scripts/model-update.mjs`).
+- Applying a seed creates or updates only the taxonomies it declares and deletes none
+  (`src/seed/apply.ts` `applySeed`), so the core `category` and `tag` stay on a database whose seed
+  declares neither (`src/database/migrations/006_taxonomy_defs.ts`).
 - Setup applies the seed with `onConflict: "skip"`, so a collection that exists keeps its settings
   (`src/astro/routes/api/setup/index.ts`). `emdash schema` lists, gets, creates and deletes
   collections and adds or removes fields, but cannot update a collection
@@ -654,11 +710,51 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   (`src/astro/middleware/auth.ts`).
 - The CLI has no import command: `src/cli/commands/import/wordpress.ts` is not registered in
   `src/cli/index.ts`.
+- The package's main entry exports the WXR parsers `parseWxr` (a stream) and `parseWxrString`, and
+  `parseWxrDate` (`src/index.ts`, `src/import/index.ts`), and plain Node 26.13.0 loads it, in about
+  1.2 s (checked 2026-11-07 for #177). `./scripts/migration/legacy-site.ts` reads the Legacy site's
+  export with `parseWxr`, which gives an attachment its post meta (below), and `parseWxrDate`.
+- Both parsers put every item but an attachment into `posts`, with its post meta in `meta` by
+  key, and its tags in `tags` by the `nicename` of each `post_tag` category. An item's `<category>` of a custom taxonomy, neither `category` nor `post_tag`, goes into
+  `customTaxonomies` under its `domain`, by its `nicename` as the export writes it. The name comes
+  from the export's `<wp:term>` entries (`terms`), and from the item's `taxonomyLabels` when it
+  differs from the slug, keyed by the taxonomy and the slug joined by U+0000
+  (`src/cli/wxr/parser.ts` `parseWxr`, `parseWxrString`, `captureItemCategoryLabel`).
+- `parseWxrString` gives an attachment its ID, title, `wp:attachment_url` and date, and an empty
+  `meta`: it keeps the attachment's post meta, such as the alt text `_wp_attachment_image_alt`, on
+  the item it drops. The streaming `parseWxr` shares the item's `meta` with the attachment. Neither
+  gives an attachment its item's `excerpt:encoded`, where WordPress keeps a caption
+  (`src/cli/wxr/parser.ts` `WxrAttachment`), so `./scripts/migration/legacy-site.ts` `captionsOf`
+  reads that one field from the export's text.
+- `parseWxrString` leaves `site` empty for a WordPress export: it reads the site's fields only as
+  direct children of `<rss>`, while WordPress writes them inside `<channel>`
+  (`src/cli/wxr/parser.ts` `parseWxrString`); `parseWxr` fills it. `./scripts/migration/plan.ts`
+  names the Legacy site's host itself.
+- `parseWxrDate(gmt, pubDate, local)` reads the GMT date as UTC unless it is empty or
+  `0000-00-00 00:00:00`, else the RFC 2822 `pubDate`, else the site's own date and time, and gives
+  none when neither of those two parses. A GMT date that JavaScript's `Date` cannot read gives an
+  Invalid Date, not the next date; one it can read but that names no day, such as 2025-02-30,
+  rolls over into the next month (`src/import/sources/wxr.ts` `parseWxrDate`, `WXR_ZERO_DATE`).
+  `./scripts/migration/legacy-site.ts` takes an Invalid Date as no date.
 - EmDash's converter package, `@emdash-cms/gutenberg-to-portable-text` 1.1.0, turns block-editor
   markup into Portable Text with `gutenbergToPortableText`, and plain HTML, such as an ACF WYSIWYG
   value, with `htmlToPortableText`, which parses with parse5
   (`@emdash-cms/gutenberg-to-portable-text/dist/index.d.mts`,
-  `@emdash-cms/gutenberg-to-portable-text/package.json`).
+  `@emdash-cms/gutenberg-to-portable-text/package.json`). `htmlToPortableText(html, { keyGenerator })`
+  makes its keys with that function, and random ones without it, and matches block
+  elements with `BLOCK_ELEMENT_PATTERN` (`@emdash-cms/gutenberg-to-portable-text/dist/index.mjs`).
+  Called with its edge inputs for #178: plain Node loads it; a `<br>` inside a `<p>` is a line break
+  in the span's text, and a `<br>` between loose inline text starts a new block; an `<img>` becomes
+  an `image` block whose `_ref` is the address as written; an element it does not know, such as an
+  `<iframe>` or a `<table>`, has no block of its own, and only any text inside it comes through as
+  text blocks; a `<pre>` becomes a `code` block and an `<hr>` a `break` block; empty or blank HTML
+  gives no blocks. `./scripts/migration/import-plan.ts` reports the pictures and embeds from the
+  HTML. Inside a block, one address has one `link` mark across all its runs, and an `<a>` with no
+  text leaves its mark in `markDefs` with no run
+  (`@emdash-cms/gutenberg-to-portable-text/dist/index.mjs` `walkNodes`, `getMarkForElement`, read
+  for #180); `./scripts/migration/moit-plan.ts` reads both. Only a top-level `block` holds
+  `markDefs` (`dist/index.mjs` `htmlToPortableText`, read for #181), so
+  `./scripts/migration/import-plan.ts` rewrites a body's links there.
 
 ## Native API for tests
 
@@ -675,6 +771,21 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   `src/astro/routes/api/redirects/[id].ts`, `src/api/schemas/redirects.ts`).
   `./tests/browser/cms.helpers.ts` `deleteAutoRedirects` removes the ones a suite's slug changes
   left.
+- EmDash's redirect middleware matches `url.pathname` exactly, with or without its last slash, and
+  skips a path that ends in a file extension (`ASSET_EXTENSION`), which matches no rule and logs no
+  miss, so a direct file address goes to the router and answers 404
+  (`src/astro/middleware/redirect.ts`). Astro decodes a request's path and sets it back on that URL,
+  so a non-ASCII character reaches the middleware in upper-case hex however the request wrote it, and
+  a source stored in lower-case hex, as WordPress writes a Thai slug, never matches (astro 7.3.5
+  `astro/dist/core/fetch/fetch-state.js`, its constructor's `setPathname`, read for #180).
+  `POST /_emdash/api/redirects` answers `CONFLICT` for a source
+  that exists, compared exactly (`src/api/handlers/redirects.ts` `handleRedirectCreate`), and needs
+  `redirects:manage`, an Administrator's (`@emdash-cms/auth/src/rbac.ts`). An API token needs the
+  `admin` scope for it: the redirect routes have no `SCOPE_RULES` entry, a route without one needs
+  `admin` (`src/astro/middleware/auth.ts`), and `admin` holds every other scope
+  (`@emdash-cms/auth/src/tokens.ts` `hasScope`), so `./scripts/migration.ts` runs on such a token.
+  A destination may be the homepage, `/` (`src/api/schemas/redirects.ts` `urlPath`, `src/redirects/destination.ts`
+  `isSiteRelativeDestination`).
 - `GET /_emdash/api/redirects/404s` lists the 404 log. With `redirects:manage`, `DELETE` on it
   clears the whole log and answers `{ deleted }`, and `POST` with `olderThan` prunes it by age; no
   entry can be removed alone (`src/astro/routes/api/redirects/404s/index.ts`,
@@ -689,6 +800,10 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   `./playwright.config.ts` sends a `songhealth-unknown-` referrer with every test request, so
   `./scripts/dev-runtime-residue.sh` counts a test's miss as the tests' even where its path cannot
   carry the mark, such as a fiscal year's `/ita/2404`.
+- `GET /_emdash/api/auth/dev-bypass` answers only in development, and signs in one account, the
+  Administrator `dev@emdash.local`, which it creates when missing
+  (`src/astro/routes/api/auth/dev-bypass.ts` `handleDevBypass`). `./tests/browser/cms.helpers.ts`
+  `openDevAdminSession` and `./scripts/capture-admin.ts` sign in through it.
 - A content API request with no token and no session is refused before its route runs. A
   state-changing one without `X-EmDash-Request: 1` answers `403 CSRF_REJECTED`; any other answers
   `401 NOT_AUTHENTICATED` (`src/astro/middleware/auth.ts`). The development runtime answered both
@@ -697,7 +812,11 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   `checkPublicCsrf`). `./tests/browser/cms.helpers.ts` `anonymousRequest` sends no such header.
 - A create takes `references: { field: [id] }` and `taxonomies: { name: [slug] }`. Terms are created
   and deleted at `/_emdash/api/taxonomies/{name}/terms[/{slug}]`. `./tests/browser/cms.helpers.ts`
-  wraps all of these.
+  wraps all of these. A selection names entries outside the trash, whatever their status, by ID or
+  by slug within the relation's other collection, and keeps the order given; a name that matches
+  none refuses the create before it writes (`src/api/handlers/relations.ts`
+  `resolveReferenceTargets`, `src/database/repositories/content.ts` `findManyByIdOrSlug`).
+  `./scripts/migration/writer.ts` names Documents by slug, after creating them.
 - `GET …/content/{collection}/{id}` takes an id or a slug, and finds only an entry outside the trash
   (`src/api/handlers/content.ts` `handleContentGet`, `src/database/repositories/content.ts`
   `findByIdOrSlug`).

@@ -1,9 +1,9 @@
 # System Blueprint — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 10-system-blueprint
-> **Status:** CLEAN REBASELINE v2.8 — CURRENT native-only publication
-> **Version:** 2.8
-> **Last Updated:** 5 พฤศจิกายน 2569 (2026-11-05): Feature 006, frontend design
+> **Status:** CLEAN REBASELINE v2.9 — CURRENT native-only publication
+> **Version:** 2.9
+> **Last Updated:** 9 พฤศจิกายน 2569 (2026-11-09): Feature 005, WordPress migration
 > **Depends On:** `00-website-foundation.md` through `09-migration-plan.md`
 > **Purpose:** กำหนด architecture ปัจจุบันที่ใช้ Astro + EmDash แบบ platform-native และเพิ่ม Songhealth-specific code เฉพาะ gap ที่พิสูจน์แล้ว
 > **Implementation Authorization:** NONE
@@ -45,6 +45,10 @@
 > presentation keeps Tailwind CSS v4 (`docs/adr/0001`). Its design's source is the code (the tokens
 > in `src/styles/global.css` and the components) with `docs/design/DESIGN.md` v1.0, in place of
 > the Figma Homepage Concept v1 tokens. No dependency or subsystem is added.
+
+> **Feature 005 decision (Product Owner, 2026-11-06; spec #174, `docs/adr/0008`):** the WordPress
+> migration is a temporary Songhealth script on EmDash's native APIs, not EmDash's WordPress
+> import, and one final import that stops on an existing slug replaces the rerun guard (§16).
 
 ---
 
@@ -326,13 +330,11 @@ ITA อยู่ใน V1 บน foundation เดียวกัน (Astro + Em
 
 # 16. Migration
 
-ใช้ EmDash WordPress import/admin flow เป็น first pathตาม `09-migration-plan.md`: WXR หรือ EmDash Exporter เมื่อเหมาะสม.
+การย้ายจาก Legacy WordPress ใช้ script ชั่วคราวของ Songhealth (`scripts/migration.ts`) ที่เขียนผ่าน native APIs ของ EmDash ตาม `09-migration-plan.md` และ `docs/adr/0008`: content, media (upload ที่ content hash ซ้ำใช้ item เดิม), taxonomy terms ที่มาจาก seed และ native redirects. ไม่ใช้ WordPress import ของ EmDash ด้วยเหตุผลใน ADR นั้น.
 
-ใช้ native schema analysis, author mapping, taxonomy import, media copy/deduplication และ URL rewriting ก่อน custom importer.
+Script เป็น temporary tooling ไม่ใช่ application layer และออกจาก repository พร้อม test เมื่อ WordPress ถูก retire.
 
-สร้าง custom migration script/source เฉพาะ mapping ที่ native importer ไม่สามารถแปลงเป็น Songhealth Content Model ได้อย่างถูกต้อง.
-
-**EmDash rerun guard:** WXR/Exporter reruns with skip-existing identify an existing target by collection + slug + locale. A source slug change between initial import and final delta can therefore produce a second target entry. Migration implementation must inventory slug changes, constrain source editing during final delta, and reconcile duplicates/redirects before cutover.
+**One final import:** มี final import เข้า production ครั้งเดียวหลัง content freeze และไม่มี delta. ก่อนเขียนข้อมูล script หยุดเมื่อ target slug หรือ legacy redirect มีอยู่แล้ว หรือ term ขาด และ final run ปฏิเสธเมื่อ Classification list ยังมีแถว "ต้องเลือก". Trial ทำบน development runtime ระหว่าง backup กับ restore. คำสั่งและผู้ทำอยู่ใน `docs/operations/wordpress-cutover.md`.
 
 ---
 
@@ -508,7 +510,7 @@ Version 1 ไม่มี baseline requirement สำหรับ:
 - Media storage path: **stable application path `./media`; no `MEDIA_DIRECTORY` runtime input**
 - Named Songhealth Policy/Domain Layer: **NO baseline requirement**
 - Feature-local helpers/hooks: **only for proven gaps**
-- WordPress migration: **native EmDash importer first**
+- WordPress migration: **temporary Songhealth script on EmDash native APIs (`docs/adr/0008`)**
 - Implementation authorization: **NONE**
 
 > **Use EmDash as the CMS, not as a database behind another CMS architecture.**

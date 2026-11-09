@@ -8,11 +8,12 @@
 // is captured again with the menu open. A target `name=path@width` is captured full-page at that
 // one width, into <name>.png, and `name=path@width>selector` is a close-up of the first element the
 // CSS selector matches, such as "header-375=/@375>header", for a small change that a full page
-// would bury (#145 retro). A target that ends in `!text` is captured after a click on the element
-// whose whole text is `text`, such as a control that opens part of the page (#148). The origin is
-// PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324. Pages are read anonymously, with no credential.
-// It prints each file with its size in pixels, so a pull request can quote a page's height from it
-// (#146 retro).
+// would bury (#145 retro). A close-up shows each select in it as the list of all its options, since
+// a screenshot leaves out the pop-up an open select draws (#176). A target that ends in `!text` is
+// captured after a click on the element whose whole text is `text`, such as a control that opens
+// part of the page (#148). The origin is PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324. Pages are
+// read anonymously, with no credential. It prints each file with its size in pixels, so a pull
+// request can quote a page's height from it (#146 retro).
 //
 // A pull request shows its pages before and after. Take the before screenshots while the runtime
 // still serves the base, before the ticket's first scripts/dev-runtime-update.sh: afterwards they
@@ -102,7 +103,13 @@ try {
 			const page = await openPage(path, { width, height: 900 }, click);
 			const file = join(outDir, `${base}.png`);
 			if (selector === undefined) await page.screenshot({ path: file, fullPage: true });
-			else await page.locator(selector).first().screenshot({ path: file });
+			else {
+				const element = page.locator(selector).first();
+				await element.evaluate((node) => {
+					for (const select of node.querySelectorAll("select")) select.size = select.length;
+				});
+				await element.screenshot({ path: file });
+			}
 			written.push(file);
 			await page.close();
 			continue;

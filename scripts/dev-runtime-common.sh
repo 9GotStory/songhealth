@@ -47,6 +47,7 @@ ROLE_SQL="SELECT concat_ws('|', r.rolcanlogin, r.rolsuper, r.rolcreatedb, r.rolc
 ROLE_OK='t|f|f|f|songhealth_qdev_app'
 MODEL_PENDING=3                                   # model_update --check: changes are pending
 ADMIN_QUIET_MINUTES=10                            # a promotion waits this long after an Admin page load
+WINDOW_LOCK=$STATE_DIR/window                     # held by scripts/dev-runtime-window.sh
 
 die()  { printf '%s: FAIL: %s\n' "${0##*/}" "$*" >&2; exit 1; }
 note() { printf '%s: %s\n' "${0##*/}" "$*"; }

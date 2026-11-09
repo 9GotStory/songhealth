@@ -865,7 +865,8 @@
       "label": "หัวข้อ",
       "labelSingular": "หัวข้อ",
       "hierarchical": false,
-      "collections": ["documents", "news", "activities", "announcements", "health_content", "services", "health_reports"]
+      "collections": ["documents", "news", "activities", "announcements", "health_content", "services", "health_reports"],
+      "terms": [{ "slug": "pm25", "label": "ฝุ่น PM 2.5" }]
     },
     {
       "name": "audience",
@@ -890,7 +891,8 @@
       "terms": [
         { "slug": "policy", "label": "นโยบาย" },
         { "slug": "plan", "label": "แผนงาน" },
-        { "slug": "result", "label": "ผลการดำเนินงาน" }
+        { "slug": "result", "label": "ผลการดำเนินงาน" },
+        { "slug": "order", "label": "คำสั่ง" }
       ]
     },
     {
@@ -905,7 +907,12 @@
       "label": "ประเภทประกาศ",
       "labelSingular": "ประเภทประกาศ",
       "hierarchical": false,
-      "collections": ["announcements"]
+      "collections": ["announcements"],
+      "terms": [
+        { "slug": "procurement", "label": "จัดซื้อจัดจ้าง" },
+        { "slug": "recruitment", "label": "รับสมัครงาน" },
+        { "slug": "general", "label": "ประกาศทั่วไป" }
+      ]
     },
     {
       "name": "service_category",

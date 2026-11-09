@@ -5,7 +5,8 @@
 // read its details and download its file. A superseded or expired Document says so in text and
 // links to its successor. A Document whose file is gone shows "ไฟล์ไม่พร้อมให้บริการ" and nothing
 // about storage. Drafts, unpublished and trashed Documents never show anywhere, and their
-// addresses answer the site 404.
+// addresses answer the site 404. Each filter offers only the terms or fiscal years that published
+// Documents carry (spec #174 "Public list filters").
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -13,7 +14,8 @@
 // document_type and topic terms, made through the native API the way the Admin makes them and
 // removed afterwards. The runtime may hold other Documents (the demo dataset, the Product Owner's
 // own), so assertions look only at this suite's uniquely titled fixtures, and tests about
-// "newest first" publish their fixtures last.
+// "newest first" publish their fixtures last. A synthetic News item stands for another list that
+// carries a topic.
 //
 // Platform behaviour relied on (emdash 1.1.0):
 // - The upload route accepts application/pdf (src/api/handlers/media-allowlist.ts) and returns the
@@ -26,6 +28,7 @@
 
 import {
 	createSyntheticDocument,
+	createSyntheticDraft,
 	createOwnedTerm,
 	deleteMedia,
 	devAdminActor,
@@ -48,10 +51,12 @@ import {
 	detailOf,
 	expect,
 	expectBreadcrumb,
+	expectFilteredEmpty,
 	expectPreviewRenders,
 	expectSiteNotFound,
 	listedItem,
 	listedTitles,
+	offeredLabels,
 	ownTitles,
 	siteTitleParts,
 	test,
@@ -61,6 +66,12 @@ import {
 
 /** The fixed number of Documents a list page shows. */
 const PAGE_SIZE = 20;
+
+/** What /documents shows when its filters match nothing (#55's decision 3). */
+const FILTERED_EMPTY = {
+	message: "ไม่พบเอกสารตามตัวกรองที่เลือก",
+	back: { label: "ดูเอกสารทั้งหมด", href: "/documents" },
+};
 
 let admin: CmsActor;
 let origin: string;
@@ -281,19 +292,57 @@ test("the fiscal year filter offers the years of published Documents, newest fir
 	).toEqual([short.title]);
 });
 
+test("the Document Type and topic filters offer only the terms that published Documents carry, and an address naming another shows the empty state", async ({
+	page,
+}) => {
+	const offeredType = await createTerm("document_type", "คู่มือ");
+	const draftType = await createTerm("document_type", "ระเบียบ");
+	const offeredTopic = await createTerm("topic", "วัณโรค");
+	const draftTopic = await createTerm("topic", "สุขภาพช่องปาก");
+	const newsTopic = await createTerm("topic", "ยาเสพติด");
+	const published = await createDocument("terms-published", {
+		taxonomies: { document_type: [offeredType.slug], topic: [offeredTopic.slug] },
+	});
+	await createDocument("terms-draft", {
+		taxonomies: { document_type: [draftType.slug], topic: [draftTopic.slug] },
+	});
+	const news = await createSyntheticDraft(admin, "news", "ข่าว", "terms-news", {
+		taxonomies: { topic: [newsTopic.slug] },
+	});
+	await publish(published);
+	await publishEntryAt(admin, "news", news.id);
+
+	await page.goto("/documents");
+	const filters = page.getByRole("form", { name: "กรองเอกสาร" });
+	expect(
+		await offeredLabels(filters.getByLabel("ประเภทเอกสาร"), [offeredType, draftType]),
+		"a type that only a draft carries is not offered",
+	).toEqual([offeredType.label]);
+	expect(
+		await offeredLabels(filters.getByLabel("ประเด็นสุขภาพ"), [offeredTopic, draftTopic, newsTopic]),
+		"a topic that only a draft or another list carries is not offered",
+	).toEqual([offeredTopic.label]);
+
+	for (const path of [
+		`/documents?type=${draftType.slug}`,
+		`/documents?topic=${draftTopic.slug}`,
+		`/documents?topic=${newsTopic.slug}`,
+	]) {
+		await expectFilteredEmpty(page, path, FILTERED_EMPTY);
+	}
+});
+
 test("an empty filtered result shows the empty state, and a fiscal year that is not one is ignored", async ({
 	page,
 }) => {
 	const document = await createDocument("filter-safe");
 	await publish(document);
 
-	const unknown = await page.goto(`/documents?type=${syntheticSlug("no-such-type")}`);
-	expect(unknown?.status(), "an unknown Document Type is not an error").toBe(200);
-	await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
-	await expect(page.getByRole("main").getByText("ไม่พบเอกสารตามตัวกรองที่เลือก")).toBeVisible();
-	await expect(
-		page.getByRole("main").getByRole("link", { name: "ดูเอกสารทั้งหมด" }),
-	).toHaveAttribute("href", "/documents");
+	await expectFilteredEmpty(
+		page,
+		`/documents?type=${syntheticSlug("no-such-type")}`,
+		FILTERED_EMPTY,
+	);
 
 	for (const invalid of ["abc", "25690", "2569.5", "-2569", "0", "02569"]) {
 		const response = await page.goto(`/documents?year=${encodeURIComponent(invalid)}`);
