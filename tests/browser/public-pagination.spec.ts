@@ -110,19 +110,16 @@ async function measurePager(page: Page) {
 }
 
 type PagerLayout = Awaited<ReturnType<typeof measurePager>>;
+type PagerLayouts = Array<[label: string, layout: PagerLayout]>;
 
 function expectNear(actual: number, expected: number, label: string): void {
 	expect(Math.abs(actual - expected), `${label} (${actual} against ${expected})`).toBeLessThan(1);
 }
 
-/** Below 640 px: the number centered on its own row, Previous left and Next right below it. */
-function expectTwoRows({ nav, number, previous, next }: PagerLayout, label: string): void {
-	expectNear((number.left + number.right) / 2, nav.x + nav.width / 2, `${label}: centered number`);
+/** At every width: 44 px targets, one-line labels, Previous at the left end, Next at the right. */
+function expectLinks({ nav, previous, next }: PagerLayout, label: string): void {
 	for (const link of [previous, next]) {
 		if (link === undefined) continue;
-		expect(link.box.y, `${label}: the number is above the links`).toBeGreaterThanOrEqual(
-			number.bottom,
-		);
 		expect(link.box.height, `${label}: a 44 px target`).toBeGreaterThanOrEqual(44);
 		expect(link.label.lines, `${label}: a link's label stays on one line`).toBe(1);
 	}
@@ -138,30 +135,40 @@ function expectTwoRows({ nav, number, previous, next }: PagerLayout, label: stri
 	}
 }
 
-/** From 640 px: one row, Previous left, Next right, the number between them. */
-function expectOneRow({ nav, number, previous, next }: PagerLayout, label: string): void {
-	const links = [previous, next].filter((link) => link !== undefined);
-	for (const link of links) {
+/** Below 640 px: the number centered on its own row, above the links. */
+function expectNumberAbove({ nav, number, previous, next }: PagerLayout, label: string): void {
+	for (const link of [previous, next]) {
+		if (link === undefined) continue;
+		expect(link.box.y, `${label}: the number is above the links`).toBeGreaterThanOrEqual(
+			number.bottom,
+		);
+	}
+	expectNear((number.left + number.right) / 2, nav.x + nav.width / 2, `${label}: centered number`);
+}
+
+/** From 640 px: the number between the links on their one row, with even space around it. */
+function expectNumberBetween({ nav, number, previous, next }: PagerLayout, label: string): void {
+	for (const link of [previous, next]) {
+		if (link === undefined) continue;
 		expectNear(
 			(number.top + number.bottom) / 2,
 			link.box.y + link.box.height / 2,
 			`${label}: the number shares the links' row`,
 		);
-		expect(link.box.height, `${label}: a 44 px target`).toBeGreaterThanOrEqual(44);
-		expect(link.label.lines, `${label}: a link's label stays on one line`).toBe(1);
 		expect(nav.height, `${label}: one row`).toBeLessThan(link.box.height + 1);
-	}
-	if (previous !== undefined) expectNear(previous.box.x, nav.x, `${label}: Previous starts left`);
-	if (next !== undefined) {
-		expectNear(next.box.x + next.box.width, nav.x + nav.width, `${label}: Next ends right`);
 	}
 	const left = previous === undefined ? nav.x : previous.box.x + previous.box.width;
 	const right = next === undefined ? nav.x + nav.width : next.box.x;
 	expectNear(number.left - left, right - number.right, `${label}: even space around the number`);
 }
 
-/** The arrangement the pager takes at `width`: below 640 px two rows, from 640 px one. */
-const expectLayoutAt = (width: number) => (width < 640 ? expectTwoRows : expectOneRow);
+/** The links' placement on every measured page, then the number's arrangement at `width`. */
+function expectLayouts(width: number, layouts: PagerLayouts): void {
+	const measured = layouts.map(([label, layout]) => [`${label} at ${width} px`, layout] as const);
+	for (const [label, layout] of measured) expectLinks(layout, label);
+	const expectNumber = width < 640 ? expectNumberAbove : expectNumberBetween;
+	for (const [label, layout] of measured) expectNumber(layout, label);
+}
 
 /** Move focus to the pager's link `name` and follow it with Enter. */
 async function pressPagerLink(page: Page, name: string): Promise<void> {
@@ -195,7 +202,7 @@ test.beforeAll(async () => {
 test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
 
 // Both sides of the 640 px edge, the representative phone, and the wider layouts' own widths.
-for (const width of [320, 375, 639, 640, 768, 1024, 1440]) {
+for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 	test(`at ${width} px a filtered list goes through its first, middle and last pages`, async ({
 		page,
 	}) => {
@@ -210,7 +217,7 @@ for (const width of [320, 375, 639, 640, 768, 1024, 1440]) {
 		];
 
 		await page.goto(first);
-		const layouts: Array<[label: string, layout: PagerLayout]> = [];
+		const layouts: PagerLayouts = [];
 		const listed: string[] = [];
 		for (const [index, { url, shows, state }] of states.entries()) {
 			if (index > 0) await pager(page).getByRole("link", { name: NEXT }).click();
@@ -230,9 +237,7 @@ for (const width of [320, 375, 639, 640, 768, 1024, 1440]) {
 			await expectPager(page, state);
 		}
 
-		for (const [label, layout] of layouts) {
-			expectLayoutAt(width)(layout, `${label} at ${width} px`);
-		}
+		expectLayouts(width, layouts);
 	});
 }
 
@@ -261,7 +266,7 @@ for (const width of [320, 640]) {
 		page,
 	}) => {
 		await page.setViewportSize({ width, height: 900 });
-		const layouts: Array<[label: string, layout: PagerLayout]> = [];
+		const layouts: PagerLayouts = [];
 		const queries: Array<Record<string, string>> = [{ q: word }, { q: word, group: "news" }];
 		for (const query of queries) {
 			const first = searchPath(query);
@@ -289,9 +294,7 @@ for (const width of [320, 640]) {
 		expect(ownTitles(await listedTitles(page), news), "the one result").toHaveLength(1);
 		await expect(pager(page)).toHaveCount(0);
 
-		for (const [label, layout] of layouts) {
-			expectLayoutAt(width)(layout, `${label} at ${width} px`);
-		}
+		expectLayouts(width, layouts);
 	});
 }
 
@@ -333,7 +336,7 @@ test.describe("without client JavaScript", () => {
 			page,
 		}) => {
 			await page.setViewportSize({ width, height: 900 });
-			const layouts: Array<[label: string, layout: PagerLayout]> = [];
+			const layouts: PagerLayouts = [];
 			for (const [first, second] of [
 				[listPath(threePages), listPath(threePages, 2)],
 				[searchPath({ q: word, group: "news" }), searchPath({ q: word, group: "news", page: "2" })],
@@ -346,9 +349,7 @@ test.describe("without client JavaScript", () => {
 				await pressPagerLink(page, PREVIOUS);
 				await expect(page).toHaveURL(first);
 			}
-			for (const [label, layout] of layouts) {
-				expectLayoutAt(width)(layout, `${label} at ${width} px`);
-			}
+			expectLayouts(width, layouts);
 		});
 	}
 });

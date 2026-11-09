@@ -22,8 +22,8 @@
 > Quick Access B below 640 px keeps two cards to a row, with the label above and the arrow on a
 > separate lower-right row; the accepted taller cards replace the crowding limit (§7.3, §10).
 > Titles also keep "ร้องเรียน" on one line, through the shared list and its existing scope (§4.1).
-> Pagination B below 640 px centers the page number above Previous-left and Next-right; the taller
-> phone pager is an accepted tradeoff (§7.6).
+> Pagination B below 640 px centers the page number above Previous-left and Next-right; the height
+> it adds where one row fit is an accepted tradeoff (§7.6).
 > This amendment implements #191–#196;
 > the other selected refinements follow in their tickets.
 
@@ -333,9 +333,9 @@ this document names:
 
 - Below 640 px, “หน้า N” is centered on a row of its own. Below it, Previous starts at the left
   and Next ends at the right, in two columns sized to their contents, so both labels keep one line
-  at 320 px with `text-label` type, 20 px side padding and the 44 px height. With both links, the
-  pager is 82 px tall (a 22 px line, the 16 px gap and the links), where one row is 44 px; that
-  height is the accepted tradeoff for the same placement at every phone width.
+  at 320 px with `text-label` type, 20 px side padding and the 44 px height. The pager is 82 px
+  tall (a 22 px line, the 16 px gap and the links), where one row is 44 px; that height is the
+  accepted tradeoff for the same placement at every phone width.
 - From 640 px the number and links share one row, with Previous at the left, Next at the right and
   even space around the number.
 - Previous appears only after page 1, and Next only when another page exists; page 1 with no other
@@ -343,9 +343,10 @@ this document names:
   only whether a further page exists.
 - The links are native and work without JavaScript. Each keeps the page's other query parameters
   and changes only `page`, and page 1's address carries no page number (`src/lib/pagination.ts`).
-- The public-browser suite covers real first, middle, last and single-page results at 320, 375,
-  639, 640, 768, 1,024 and 1,440 px, filtered and search navigation, keyboard use, axe, reflow and
-  JavaScript-disabled pages.
+- The public-browser suite goes through a filtered list's real first, middle and last pages at
+  320, 375, 639, 640, 768, 1,023, 1,024 and 1,440 px. It covers single-page results at 320 and
+  1,440 px, search at 320 and 640 px, keyboard use, axe, reflow, and JavaScript-disabled pages at
+  320 and 640 px.
 
 ## 8. Homepage
 
