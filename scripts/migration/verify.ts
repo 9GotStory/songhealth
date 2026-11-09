@@ -1,9 +1,9 @@
 // What the migration script's verify command checks of a target (#178, #179 retro, #181; spec #174
 // "The migration script"): the plan's entries, files, pages and redirects against what the target
 // holds and how it answers, and what an Announcement's and a Document's page offers people.
-// scripts/migration.ts makes the reads; this module imports nothing at run time, so node:test
-// drives what the shared development runtime cannot produce, such as a redirect that answers 302
-// (CODING_STANDARDS "Tests").
+// scripts/migration.ts makes the reads; this module imports only the planning modules at run time,
+// so node:test drives what the shared development runtime cannot produce, such as a redirect that
+// answers 302 (CODING_STANDARDS "Tests").
 
 import type { ImportPlan, PlannedRedirect } from "./import-plan.ts";
 import type { Target } from "./writer.ts";
@@ -101,6 +101,15 @@ const listedMoits = (html: string) =>
 	new Set(
 		[...html.matchAll(/href="\/ita\/([^"#?]+)"/g)].map(([, slug]) => decodeURIComponent(slug!)),
 	);
+
+/**
+ * The last line of the report. A redirect waiting for a page is no failure, and this line counts
+ * them for whoever reads only the verdict at cutover (#181 retro).
+ */
+export const verdictOf = ({ failures, pending }: VerifyReport) =>
+	`VERIFY: ${failures.length === 0 ? "PASS" : "FAIL"}${
+		pending.length === 0 ? "" : `, redirects waiting for a page staff write: ${pending.length}`
+	}`;
 
 /**
  * The report of a target checked against the plan: no failure means it holds what the plan wrote.

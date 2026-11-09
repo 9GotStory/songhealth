@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 
 import { firstStop } from "../../scripts/migration/import-plan.ts";
 import { readLegacySite } from "../../scripts/migration/legacy-site.ts";
-import { verifyTarget, type VerifyInput } from "../../scripts/migration/verify.ts";
+import { verdictOf, verifyTarget, type VerifyInput } from "../../scripts/migration/verify.ts";
 import { openZip, withFileBeside, type Zip } from "../../scripts/migration/zip.ts";
 import {
 	ACTIVITY,
@@ -1835,6 +1835,21 @@ describe("verify", () => {
 			const report = await verifyTarget(input);
 			assert.deepEqual(report.pending, []);
 			assert.deepEqual(report.failures, [`${source} goes to ${path}, which does not answer 200`]);
+		}
+	});
+
+	it("says on its last line whether it passed and how many redirects wait for a page", async () => {
+		for (const [statuses, line] of [
+			[{}, "VERIFY: PASS"],
+			[{ "/about/organization": 404 }, "VERIFY: PASS, redirects waiting for a page staff write: 2"],
+			[{ "/about/organization": 500 }, "VERIFY: FAIL"],
+			[
+				{ "/about/organization": 404, "/about/personnel": 404 },
+				"VERIFY: FAIL, redirects waiting for a page staff write: 2",
+			],
+		] as const) {
+			const { input } = await pagesTarget(statuses);
+			assert.equal(verdictOf(await verifyTarget(input)), line);
 		}
 	});
 
