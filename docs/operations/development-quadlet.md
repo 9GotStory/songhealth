@@ -445,7 +445,16 @@ refuses, so a window holds the runtime:
    window, for every session. Its holder runs `scripts/dev-runtime-env.sh --in-window <command>`.
 2. `scripts/dev-runtime-verify.sh`, `scripts/dev-runtime-residue.sh`, then make a folder under
    `~/.local/state/songhealth-qdev/backups/` and run `scripts/dev-runtime-backup.sh <that folder>`.
-3. The work.
+3. The work. When a person walks through the result, read what they opened before step 4, while
+   it can still be walked again (#184 retro):
+
+   ```bash
+   podman logs --timestamps --since <UTC time> songhealth-qdev-app 2>&1 \
+     | sed 's/\x1b\[[0-9;]*m//g' | grep -E '\[[0-9]{3}\] '
+   ```
+
+   `/` every 15 seconds is the container's health check, and the log drops query strings, so a
+   filter's address reads as its list's.
 4. Put it back: `systemctl --user stop songhealth-dev-app.service`, then the restore above (it asks
    three times, so type `yes` three times), `systemctl --user start songhealth-dev-app.service`, and
    verify.

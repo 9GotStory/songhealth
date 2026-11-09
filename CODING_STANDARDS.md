@@ -165,3 +165,9 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
   and Feature 004 (#127) did, or "<subject> decision (Product Owner, date; #<ticket> comment
   <id>)", as #169 did. It bumps the version once: a later change in the same feature, before the
   feature reaches `main`, keeps that version and adds its decision to the feature's banner (#128).
+
+A record in `docs/evidence/` says what its evidence log shows, and no more. Each claim traces to a
+line of the log or a run's output. Each cell of a coverage table names the check it rests on and
+how far that check goes: a status code shows a status code, and what a log cannot show stays
+unclaimed. A check reads as its result at its commit, never as a promise. In #151 four claims were
+not in the log, and in #184 five went wider than their checks.
