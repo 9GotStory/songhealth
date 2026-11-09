@@ -110,10 +110,19 @@ and why, and `.jscpd-baseline.json` records them.
   "eight or fewer" with eight and nine items, a breakpoint such as "from `lg`" at 1023 and 1024 px,
   and a place where something stops or starts with a fixture that reaches it. The spec's coverage
   line stays beside these (#147 and #148 retros: in both, review found an edge untested).
-- Logic that `tests/node` checks lives in a `src/lib` module with no runtime import, because
-  node:test loads it with plain Node: no `emdash`, no extensionless relative import.
-  `src/lib/dated-lists.ts` and `src/lib/excerpt.ts` are examples; the module that reads through
-  EmDash imports them.
+- The migration script is temporary and reads one known export (ADR 0008). A shape the export does
+  not hold needs no rule or edge test of its own: it reaches the report or stops the plan, so no
+  content disappears unreported. Review lists any other edge that only such a shape reaches as
+  "not reached by the export" and leaves it (#180 retro: both follow-up reviews' logic findings
+  were such shapes, and the real plan's counts did not move after their fixes).
+- Logic that `tests/node` checks lives in a `src/lib` module, or a script's planning module such as
+  `scripts/demo-dataset/plan.ts`, with no runtime import, because node:test loads it with plain
+  Node: no `emdash`, no extensionless relative import. `src/lib/dated-lists.ts` and
+  `src/lib/excerpt.ts` are examples; the module that reads through EmDash imports them. One
+  exception: the migration script's reader, `scripts/migration/legacy-site.ts`, and its tests load
+  EmDash's exported WXR parsers (Product Owner, #177 comment 6719251511, item 1) and its HTML
+  converter package (Product Owner, #178 comment 6720200201, item 3), which plain Node loads. The
+  reader also passes on EmDash's content hash for the verify command, which no test calls.
 - A state the shared development runtime cannot produce, such as a failed read, is driven in
   node:test: the module that decides it takes the reads as a function, as
   `src/lib/search-matcher.ts` `searchOutcome` does (Product Owner, 2026-10-30: #63 comment
@@ -156,3 +165,14 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
   and Feature 004 (#127) did, or "<subject> decision (Product Owner, date; #<ticket> comment
   <id>)", as #169 did. It bumps the version once: a later change in the same feature, before the
   feature reaches `main`, keeps that version and adds its decision to the feature's banner (#128).
+
+A record in `docs/evidence/` says what its evidence log shows, and no more. Each claim traces to a
+line of the log or a run's output. Each cell of a coverage table names the check it rests on and
+how far that check goes: a status code shows a status code, and what a log cannot show stays
+unclaimed. A check reads as its result at its commit, never as a promise. In #151 four claims were
+not in the log, and in #184 five went wider than their checks.
+
+A runbook in `docs/operations/` can be followed as written. Everything a step uses comes from an
+earlier step or its Setup, and a step's check reads something its command prints. In #185 no step
+brought the reviewed list to the host, no step took WordPress's backup, and a check compared
+redirect counts with an inventory that holds none.

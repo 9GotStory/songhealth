@@ -540,8 +540,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 
 - Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.5, 2026-11-05);
   `03-sitemap.md` (v2.6, 2026-11-08); staff guidance in `05` §5.1.
-- Architecture: `docs/website-modernization-docs/current/10-system-blueprint.md` (v2.8,
-  2026-11-05); `README.md`; `CLAUDE.md`.
+- Architecture: `docs/website-modernization-docs/current/10-system-blueprint.md` (v2.9,
+  2026-11-09); `README.md`; `CLAUDE.md`.
 - Decisions: ADR 0001 (Tailwind CSS v4), ADR 0003 (CMS images in production), ADR 0007 (the
   design's source).
 - Feature 006: spec #144 and tickets #145 to #151.

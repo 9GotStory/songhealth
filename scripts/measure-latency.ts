@@ -14,6 +14,7 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { SYNTHETIC_REFERRER } from "../playwright.config.ts";
 import { ORIGIN, withFixtureKit, type FixtureKit } from "./fixture-kit.ts";
 
 export interface LatencyFixtures {
@@ -32,7 +33,8 @@ const WARM_UP = 3;
 /** One request's time in milliseconds, its body read to the end. */
 async function timeOf(path: string): Promise<number> {
 	const started = performance.now();
-	const response = await fetch(ORIGIN + path);
+	// The referrer every test request carries, so a miss counts as the tests'.
+	const response = await fetch(ORIGIN + path, { headers: { referer: SYNTHETIC_REFERRER } });
 	await response.text();
 	if (response.status !== 200) throw new Error(`${path} answered ${response.status}`);
 	return performance.now() - started;
@@ -53,6 +55,8 @@ async function measure(paths: string[]) {
 }
 
 const fixtures = (await import(pathToFileURL(resolve(fixturesPath)).href)) as LatencyFixtures;
+// A wrong address stops the run here, before any path is timed.
+for (const path of fixtures.paths) await timeOf(path);
 const before = await measure(fixtures.paths);
 const after = await withFixtureKit(async (kit) => {
 	await fixtures.default(kit);
