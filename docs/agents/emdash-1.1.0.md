@@ -752,7 +752,9 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   `astro/dist/core/fetch/fetch-state.js`, its constructor's `setPathname`, read for #180).
   `POST /_emdash/api/redirects` answers `CONFLICT` for a source
   that exists, compared exactly (`src/api/handlers/redirects.ts` `handleRedirectCreate`), and needs
-  `redirects:manage`, an Administrator's (`@emdash-cms/auth/src/rbac.ts`).
+  `redirects:manage`, an Administrator's (`@emdash-cms/auth/src/rbac.ts`). A destination may be the
+  homepage, `/` (`src/api/schemas/redirects.ts` `urlPath`, `src/redirects/destination.ts`
+  `isSiteRelativeDestination`).
 - `GET /_emdash/api/redirects/404s` lists the 404 log. With `redirects:manage`, `DELETE` on it
   clears the whole log and answers `{ deleted }`, and `POST` with `olderThan` prunes it by age; no
   entry can be removed alone (`src/astro/routes/api/redirects/404s/index.ts`,

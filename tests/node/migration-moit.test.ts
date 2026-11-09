@@ -463,6 +463,16 @@ describe("a MOIT's links", () => {
 		]);
 	});
 
+	it("leads a link to any page that has a new address there, a page staff write too", async () => {
+		const evidence = await evidenceOf(
+			moitPost(2, 2568, '<p>1.1 <a href="https://songhealth.moph.go.th/history/">ประวัติ</a></p>'),
+		);
+		assert.deepEqual(evidence, [
+			requirementBlock("1.1", "ประวัติ"),
+			linkBlock("ประวัติ", "/about/organization", { current: true }),
+		]);
+	});
+
 	it("leads a link to a migrated news item to its page, News or Activity as the list decides", async () => {
 		const post = moitPost(
 			20,
@@ -1142,6 +1152,7 @@ describe("verify of the MOITs", () => {
 			["/moit-2-2569/", redirect("/ita/moit-2-2569")],
 			["/ita-2569/", redirect("/ita/2569")],
 			["/ethics/", redirect("/ita/2569")],
+			["/wp-content/uploads/2026/03/file-31.pdf", { status: 404, location: null, body: "" }],
 		]);
 		return {
 			planned,

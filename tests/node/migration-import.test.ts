@@ -30,6 +30,8 @@ import {
 	directive,
 	featuring,
 	importOf,
+	legacyPage,
+	moitPost,
 	newsItem,
 	onePage,
 	procurement,
@@ -39,6 +41,8 @@ import {
 	withExport,
 	wxrDocument,
 	zipOf,
+	type ImportOptions,
+	type SyntheticItem,
 } from "./migration.helpers.ts";
 
 /** How the target answers a request for a path, as verify reads it. */
@@ -449,6 +453,116 @@ describe("a News item", () => {
 	it("has no Summary when the list gives none", async () => {
 		const { entries } = await importOf([newsItem(1, { categories: [PUBLIC_RELATIONS] })]);
 		assert.equal(entries[0]!.data.summary, undefined);
+	});
+});
+
+describe("the links in a News body", () => {
+	/** The address of each link in a News body written with `hrefs`, among `others`. */
+	async function linksOf(
+		hrefs: string[],
+		others: SyntheticItem[] = [],
+		options: Pick<ImportOptions, "reviews" | "uploads"> = {},
+	) {
+		const editor = hrefs.map((href, at) => `<p><a href="${href}">ลิงก์ ${at}</a></p>`).join("");
+		const { entries } = await importOf(
+			[...others, newsItem(1, { categories: [PUBLIC_RELATIONS], meta: { editor } })],
+			options,
+		);
+		const body = entries.find(({ slug }) => slug === "news-1")!.data.body as {
+			markDefs: { href: unknown }[];
+		}[];
+		return body.map(({ markDefs }) => markDefs[0]!.href);
+	}
+
+	it("lead to a migrated item's new address, however the link writes it", async () => {
+		const others = [
+			newsItem(2, { categories: [PUBLIC_RELATIONS] }),
+			newsItem(3, { categories: [ACTIVITY] }),
+		];
+		assert.deepEqual(
+			await linksOf(
+				[
+					"https://songhealth.moph.go.th/public-new/news-2/",
+					"http://songhealth.moph.go.th/public-new/news-3",
+					"/public-new/news-2/?from=home#top",
+				],
+				others,
+			),
+			["/news/news-2", "/activities/news-3", "/news/news-2"],
+		);
+	});
+
+	it("follow a reviewer's decision", async () => {
+		assert.deepEqual(
+			await linksOf(["/public-new/news-2/"], [newsItem(2, { categories: [PUBLIC_RELATIONS] })], {
+				reviews: { "news-2": { decision: "Activity" } },
+			}),
+			["/activities/news-2"],
+		);
+	});
+
+	it("lead to a notice, an order's Document and a MOIT, which the plan reaches after the News", async () => {
+		const thaiSlug = encodeURIComponent("ตัวชี้วัดที่-16").toLowerCase();
+		assert.deepEqual(
+			await linksOf(
+				[
+					"/procurement/procurement-5/",
+					"/directive/directive-6/",
+					"/moit-1-2569/",
+					`https://songhealth.moph.go.th/${thaiSlug}/`,
+				],
+				[
+					NOTICE_FILE,
+					procurement(5),
+					directive(6, { categories: [ORDER] }),
+					moitPost(1, 2569, "<h5>1. รายงาน</h5>"),
+					moitPost(16, 2569, "<h5>1. รายงาน</h5>", { slug: thaiSlug }),
+				],
+			),
+			[
+				"/announcements/procurement-5",
+				"/documents/directive-6",
+				"/ita/moit-1-2569",
+				"/ita/moit-16-2569",
+			],
+		);
+	});
+
+	it("lead to a migrated file through its media item, which the writer fills in", async () => {
+		const path = "wp-content/uploads/2025/03/linked.pdf";
+		assert.deepEqual(
+			await linksOf([`/${path}`, `https://songhealth.moph.go.th/${path}`], [attachment(21, path)]),
+			[{ fileLink: 21 }, { fileLink: 21 }],
+		);
+	});
+
+	it("stay at a file the uploads copy lacks, which the report lists", async () => {
+		const path = "wp-content/uploads/2025/03/linked.pdf";
+		assert.deepEqual(await linksOf([`/${path}`], [attachment(21, path)], { uploads: [] }), [
+			`/${path}`,
+		]);
+	});
+
+	it("stay where the link names nothing the migration moved", async () => {
+		const hrefs = [
+			"https://example.org/report",
+			"/officer/",
+			"/home/",
+			"/ita-2569/",
+			"/public-new/news-404/",
+			"/?p=12",
+			"#top",
+			"mailto:office@example.org",
+		];
+		assert.deepEqual(
+			await linksOf(hrefs, [
+				legacyPage(800, "officer"),
+				legacyPage(801, "home"),
+				legacyPage(802, "ita-2569"),
+				moitPost(1, 2569, "<h5>1. รายงาน</h5>"),
+			]),
+			hrefs,
+		);
 	});
 });
 
@@ -1291,6 +1405,92 @@ describe("the redirects", () => {
 	});
 });
 
+describe("the redirects of the site's pages", () => {
+	/** The pages and their new addresses, as spec #174 "Redirects" and #181 list them. */
+	const PAGES: [string, string][] = [
+		["public-news", "/activities"],
+		["directives", "/announcements"],
+		["procurements", "/announcements"],
+		["home", "/"],
+		["history", "/about/organization"],
+		["role", "/about/organization"],
+		["office-policy", "/about/policies"],
+		["officer", "/about/personnel"],
+		["sub-district-health-promoting-hospital", "/health-services"],
+	];
+	const pagesOfTheSite = () => PAGES.map(([slug], at) => legacyPage(800 + at, slug));
+
+	it("give each page one 301 to its new address", async () => {
+		const { redirects } = await importOf(pagesOfTheSite());
+		assert.deepEqual(
+			redirects,
+			PAGES.map(([slug, destination]) => ({ source: `/${slug}/`, destination })),
+		);
+	});
+
+	it("send only /home/ to the homepage, and none to an address that redirects again", async () => {
+		const { redirects } = await importOf([
+			...pagesOfTheSite(),
+			legacyPage(890, "ita-2569"),
+			legacyPage(891, "ethics"),
+			NOTICE_FILE,
+			newsItem(1, { categories: [ACTIVITY] }),
+			newsItem(2, { categories: [PUBLIC_RELATIONS] }),
+			procurement(3),
+			directive(4, { categories: [ORDER] }),
+			moitPost(1, 2569, "<h5>1. รายงาน</h5>"),
+		]);
+		assert.deepEqual(
+			redirects.filter(({ destination }) => destination === "/").map(({ source }) => source),
+			["/home/"],
+		);
+		const sources = new Set(redirects.map(({ source }) => source.replace(/\/$/, "")));
+		assert.deepEqual(
+			redirects.filter(({ destination }) => sources.has(destination)),
+			[],
+		);
+	});
+
+	it("leave out a draft page, whose address was never public, and report nothing of it", async () => {
+		const { redirects, report } = await importOf([
+			legacyPage(800, "officer", { status: "draft" }),
+			legacyPage(801, "not-yet-public", { status: "draft" }),
+		]);
+		assert.deepEqual(redirects, []);
+		assert.deepEqual(report.notes, []);
+	});
+
+	it("report a published page with no new address, which will answer 404", async () => {
+		const { redirects, report } = await importOf([legacyPage(801, "added-later")]);
+		assert.deepEqual(redirects, []);
+		assert.deepEqual(report.notes, [
+			{ slug: "added-later", note: "no new address: it will answer 404" },
+		]);
+	});
+
+	it("report the ITA page of a year without MOITs, and not one the fiscal years' redirects cover", async () => {
+		const { report } = await importOf([
+			moitPost(1, 2569, "<h5>1. รายงาน</h5>"),
+			legacyPage(890, "ita-2569"),
+			legacyPage(891, "ethics"),
+			legacyPage(892, "ita-2570"),
+		]);
+		assert.deepEqual(report.notes, [
+			{ slug: "ita-2570", note: "no new address: it will answer 404" },
+		]);
+	});
+
+	it("are not made for an item's file or its attachment page", async () => {
+		const { redirects } = await importOf([
+			NOTICE_FILE,
+			newsItem(1, { categories: [ACTIVITY], meta: { _thumbnail_id: "900" } }),
+		]);
+		assert.deepEqual(redirects, [
+			{ source: "/public-new/news-1/", destination: "/activities/news-1" },
+		]);
+	});
+});
+
 describe("the stop before anything is written", () => {
 	const items = [
 		newsItem(1, { categories: [ACTIVITY] }),
@@ -1480,6 +1680,9 @@ describe("verify", () => {
 	const FOLDER = { id: "folder-1", name: "เว็บไซต์เดิม: ข่าวและกิจกรรม" };
 	const OWNER = "admin-1";
 
+	/** The address of the first file of `goodTarget`'s plan, on the Legacy site. */
+	const DIRECT_FILE = "/wp-content/uploads/2025/03/one-page-11.webp";
+
 	/** A target that holds exactly what the plan of one Activity and one News writes. */
 	async function goodTarget(): Promise<VerifyInput & { responses: Map<string, Answer> }> {
 		const planned = await importOf([
@@ -1493,6 +1696,7 @@ describe("verify", () => {
 			["/news/news-2", { status: 200, location: null }],
 			["/public-new/news-1/", { status: 301, location: "/activities/news-1" }],
 			["/public-new/news-2/", { status: 301, location: "/news/news-2" }],
+			[DIRECT_FILE, { status: 404, location: null }],
 		]);
 		return {
 			planned,
@@ -1537,12 +1741,115 @@ describe("verify", () => {
 			files: { planned: 2, inLibrary: 2, inFolder: 2 },
 			pages: { planned: 2, passed: 2 },
 			redirects: { planned: 2, passed: 2 },
+			pending: [],
+			directFiles: { planned: 1, passed: 1 },
 			lists: { planned: 0, passed: 0 },
 			downloads: { planned: 0, passed: 0 },
 			moits: { planned: 0, passed: 0 },
 			years: { planned: 0, passed: 0 },
 			failures: [],
 		});
+	});
+
+	/**
+	 * A target of the plan of four pages of the site, whose destinations answer 200 or `statuses`.
+	 */
+	async function pagesTarget(statuses: Record<string, number> = {}) {
+		const planned = await importOf([
+			legacyPage(800, "history"),
+			legacyPage(801, "role"),
+			legacyPage(802, "officer"),
+			legacyPage(803, "home"),
+		]);
+		const destination = (path: string): Answer => ({
+			status: statuses[path] ?? 200,
+			location: null,
+		});
+		const responses = new Map<string, Answer>([
+			["/history/", { status: 301, location: "/about/organization" }],
+			["/role/", { status: 301, location: "/about/organization" }],
+			["/officer/", { status: 301, location: "/about/personnel" }],
+			["/home/", { status: 301, location: "/" }],
+			["/about/organization", destination("/about/organization")],
+			["/about/personnel", destination("/about/personnel")],
+			["/", destination("/")],
+		]);
+		const requested: string[] = [];
+		return {
+			requested,
+			input: {
+				planned,
+				entries: [],
+				media: [],
+				folders: [],
+				owner: OWNER,
+				reused: new Set<number>(),
+				hashes: new Map<number, string>(),
+				request: async (path: string) => {
+					requested.push(path);
+					const response = responses.get(path);
+					if (response === undefined) throw new Error(`unexpected request: ${path}`);
+					return withBody(response);
+				},
+			},
+		};
+	}
+
+	it("requests a page redirect's destination once, and passes the redirect when it answers 200", async () => {
+		const { input, requested } = await pagesTarget();
+		const report = await verifyTarget(input);
+		assert.deepEqual(report.redirects, { planned: 4, passed: 4 });
+		assert.deepEqual(report.pending, []);
+		assert.deepEqual(report.failures, []);
+		assert.equal(requested.filter((path) => path === "/about/organization").length, 1);
+	});
+
+	it("reports a redirect to a page staff have not yet written as pending, not as a failure", async () => {
+		const { input } = await pagesTarget({ "/about/organization": 404 });
+		const report = await verifyTarget(input);
+		assert.deepEqual(report.pending, [
+			{ source: "/history/", destination: "/about/organization" },
+			{ source: "/role/", destination: "/about/organization" },
+		]);
+		assert.deepEqual(report.redirects, { planned: 4, passed: 2 });
+		assert.deepEqual(report.failures, []);
+	});
+
+	it("fails a redirect to a page staff write that answers neither 200 nor 404", async () => {
+		const { input } = await pagesTarget({ "/about/organization": 500 });
+		const report = await verifyTarget(input);
+		assert.deepEqual(report.pending, []);
+		assert.deepEqual(report.failures, [
+			"/history/ goes to /about/organization, which does not answer 200",
+			"/role/ goes to /about/organization, which does not answer 200",
+		]);
+	});
+
+	it("fails a redirect to any other page that answers 404", async () => {
+		for (const [path, source] of [
+			["/about/personnel", "/officer/"],
+			["/", "/home/"],
+		] as const) {
+			const { input } = await pagesTarget({ [path]: 404 });
+			const report = await verifyTarget(input);
+			assert.deepEqual(report.pending, []);
+			assert.deepEqual(report.failures, [`${source} goes to ${path}, which does not answer 200`]);
+		}
+	});
+
+	it("fails a direct file address that does not answer 404", async () => {
+		for (const status of [200, 301]) {
+			const target = await goodTarget();
+			target.responses.set(DIRECT_FILE, { status, location: null });
+			const report = await verifyTarget(target);
+			assert.deepEqual(report.directFiles, { planned: 1, passed: 0 });
+			assert.deepEqual(report.failures, [`${DIRECT_FILE} answers ${status}, not 404`]);
+		}
+	});
+
+	it("checks no direct file address for a plan without files", async () => {
+		const { input } = await pagesTarget();
+		assert.deepEqual((await verifyTarget(input)).directFiles, { planned: 0, passed: 0 });
 	});
 
 	/** A page's HTML around its related Documents section, as an Announcement's page writes it. */
@@ -1572,6 +1879,7 @@ describe("verify", () => {
 			["/documents/directive-2", page(offering("notice-23.pdf"))],
 			["/procurement/procurement-1/", { status: 301, location: "/announcements/procurement-1" }],
 			["/directive/directive-2/", { status: 301, location: "/documents/directive-2" }],
+			["/wp-content/uploads/2025/03/notice-23.pdf", { status: 404, location: null }],
 		]);
 		const FILES = { id: "folder-2", name: "เว็บไซต์เดิม: ประกาศและเอกสาร" };
 		return {
@@ -1611,6 +1919,8 @@ describe("verify", () => {
 			files: { planned: 3, inLibrary: 3, inFolder: 3 },
 			pages: { planned: 4, passed: 4 },
 			redirects: { planned: 2, passed: 2 },
+			pending: [],
+			directFiles: { planned: 1, passed: 1 },
 			lists: { planned: 1, passed: 1 },
 			downloads: { planned: 3, passed: 3 },
 			moits: { planned: 0, passed: 0 },

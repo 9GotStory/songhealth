@@ -96,9 +96,9 @@ type MediaByAttachment = Map<number, MediaItem>;
 
 /**
  * `value` with each picture a field holds replaced by its media item's `{ id }`, each file of a
- * file field by the value the Admin's file picker saves, and each picture of a body by the `asset`
- * the Admin editor saves: the media item's id as `_ref` and its URL (`docs/agents/emdash-1.1.0.md`
- * "Media").
+ * file field by the value the Admin's file picker saves, each picture of a body by the `asset` the
+ * Admin editor saves: the media item's id as `_ref` and its URL (`docs/agents/emdash-1.1.0.md`
+ * "Media"), and each link to a file by that URL.
  */
 function withMedia(value: unknown, media: MediaByAttachment): unknown {
 	if (Array.isArray(value)) return value.map((inner) => withMedia(inner, media));
@@ -107,6 +107,7 @@ function withMedia(value: unknown, media: MediaByAttachment): unknown {
 	if ("fileField" in value) {
 		return helpers.fileFieldValue(media.get((value as { fileField: number }).fileField)!);
 	}
+	if ("fileLink" in value) return media.get((value as { fileLink: number }).fileLink)!.url;
 	if ("bodyPicture" in value) {
 		const { id, url } = media.get((value as { bodyPicture: number }).bodyPicture)!;
 		return { _ref: id, url };

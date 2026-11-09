@@ -18,6 +18,29 @@ export type ItemType = (typeof ITEM_TYPES)[number];
 /** The Legacy site's host, which addresses its files and pages (GLOSSARY "Legacy site"). */
 const LEGACY_HOST = "songhealth.moph.go.th";
 
+/**
+ * The Legacy site's pages and their new addresses, by slug (spec #174 "Redirects"): none is
+ * imported. The ITA year pages and the ethics page follow the fiscal years the export holds, so
+ * scripts/migration/moit-plan.ts plans those.
+ */
+export const PAGE_ADDRESSES = new Map([
+	["public-news", "/activities"],
+	["directives", "/announcements"],
+	["procurements", "/announcements"],
+	["home", "/"],
+	["history", "/about/organization"],
+	["role", "/about/organization"],
+	["office-policy", "/about/policies"],
+	["officer", "/about/personnel"],
+	["sub-district-health-promoting-hospital", "/health-services"],
+]);
+
+/**
+ * The new address that answers 404 until staff publish its Basic Page
+ * (src/pages/about/organization.astro), so verify reports a redirect to it as pending (#181).
+ */
+export const WRITTEN_BY_STAFF = new Set(["/about/organization"]);
+
 /** The value of a row that waits for a reviewer's decision (spec #174, Q3). */
 export const TO_CHOOSE = "ต้องเลือก";
 
@@ -190,6 +213,12 @@ export function sitePath(address: string): string | undefined {
  * (emdash 1.1.0 src/astro/middleware/redirect.ts).
  */
 export const withoutLastSlash = (path: string) => path.replace(/\/$/, "");
+
+/** A site address as the key of its new address: decoded, without its last slash. */
+export const addressKey = (address: string) => {
+	const path = sitePath(address);
+	return path === undefined ? undefined : withoutLastSlash(path);
+};
 
 /** A path into the site's uploads, with `/wp-content` or without it (legacy-ita.md defect 3). */
 export const isUploadsPath = (path: string) => /(^|\/)uploads\//.test(path);

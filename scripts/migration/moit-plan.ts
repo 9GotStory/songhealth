@@ -6,7 +6,15 @@
 
 import type { Block, PlannedEntry, PlannedRedirect } from "./import-plan.ts";
 import type { LegacyItem } from "./legacy-site.ts";
-import { hasFile, isUploadsPath, sitePath, withoutLastSlash, type Files } from "./plan.ts";
+import {
+	addressKey,
+	hasFile,
+	isUploadsPath,
+	PAGE_ADDRESSES,
+	sitePath,
+	withoutLastSlash,
+	type Files,
+} from "./plan.ts";
 
 /**
  * The Round of a fiscal year's Evidence (spec #174 "Mapping: ITA posts"): a post's "รอบ" can mean a
@@ -30,12 +38,6 @@ const SHARED_FOLDER = "ITA ใช้ทุกปี";
 /** The office's name, and how the words about ITA begin, in the card that ends every post. */
 const OFFICE_NAME = "สำนักงานสาธารณสุขอำเภอสอง";
 const ABOUT_ITA = "ITA (Integrity";
-
-/** The pages of the site that Evidence links to, by path, and their new addresses (ANOM-004). */
-const SITE_PAGES: [string, string][] = [
-	["officer", "/about/personnel"],
-	["public-news", "/activities"],
-];
 
 /** The fiscal year whose page takes the Legacy site's ethics page, which repeats it (ANOM-005). */
 const ETHICS_YEAR = 2569;
@@ -162,12 +164,6 @@ function identityOf(post: LegacyItem) {
  */
 const addressOf = (slug: string) => `/${encodeURI(decodeURIComponent(slug))}/`;
 
-/** A site address as the key of its new address: decoded, without its last slash. */
-const addressKey = (address: string) => {
-	const path = sitePath(address);
-	return path === undefined ? undefined : withoutLastSlash(path);
-};
-
 /** Whether `text` says nothing as a label, as ")" does: other wording stands in (defect 5). */
 const saysNothing = (text: string) => !/[\p{L}\p{N}]/u.test(text);
 
@@ -242,7 +238,8 @@ export function planMoits({
 			: []),
 	];
 	const newAddress = new Map([
-		...SITE_PAGES,
+		// The pages of the site that Evidence links to (ANOM-004).
+		...PAGE_ADDRESSES,
 		...[...redirects, ...ownRedirects].map(({ source, destination }): [string, string] => [
 			addressKey(source)!,
 			destination,

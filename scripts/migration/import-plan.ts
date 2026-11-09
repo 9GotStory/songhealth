@@ -1,7 +1,7 @@
-// What the migration script's import command writes (#178, #179, #180; spec #174 "The migration
-// script", "Mapping: the news stream", "Mapping: directives and procurement notices", "Mapping: ITA
-// posts" and "Redirects"): the plan of an export and its Classification list, the ITA posts from
-// scripts/migration/moit-plan.ts.
+// What the migration script's import command writes (#178, #179, #180, #181; spec #174 "The
+// migration script", "Mapping: the news stream", "Mapping: directives and procurement notices",
+// "Mapping: ITA posts", "Pages, media and links" and "Redirects"): the plan of an export and its
+// Classification list, the ITA posts from scripts/migration/moit-plan.ts.
 // scripts/migration.ts reads the files and scripts/migration/writer.ts applies the plan; at run
 // time this module imports only the planning modules, which import nothing else, so node:test
 // checks it directly (tests/node/migration-import.test.ts, tests/node/migration-moit.test.ts).
@@ -9,6 +9,7 @@
 import type { LegacyItem, LegacySite } from "./legacy-site.ts";
 import { planMoits, withOfficeFile } from "./moit-plan.ts";
 import {
+	addressKey,
 	count,
 	filesOf,
 	hasFile,
@@ -16,6 +17,7 @@ import {
 	holdsText,
 	lastPartOf,
 	linksIn,
+	PAGE_ADDRESSES,
 	plan,
 	sitePath,
 	targetOf,
@@ -181,6 +183,19 @@ const documentTitle = (item: LegacyItem, label: string) =>
 /** The elements of HTML that neither a body nor a Summary carries: pictures and embeds. */
 const embedsIn = (html: string) =>
 	[...html.matchAll(/<(?:img|iframe|embed|object|video|audio)\b[^>]*>/gi)].map(([tag]) => tag);
+
+/** A body's blocks with each link at the address `newHref` answers for it. */
+const withNewLinks = (blocks: Block[], newHref: (href: string) => unknown) =>
+	blocks.map((block) =>
+		block.markDefs === undefined
+			? block
+			: {
+					...block,
+					markDefs: block.markDefs.map((mark) =>
+						mark.href === undefined ? mark : { ...mark, href: newHref(mark.href) },
+					),
+				},
+	);
 
 /** The plan of an export and its Classification list. */
 export function planImport({
@@ -438,11 +453,41 @@ export function planImport({
 	if (moits.entries.length > 0) groups.post = { MOIT: moits.entries.length };
 	redirects.push(...moits.redirects);
 	notes.push(...moits.notes);
+	// A page keeps its address through a redirect, or the report says it will not.
+	for (const { slug } of site.pages.filter((page) => page.status === "publish")) {
+		const source = `/${slug}/`;
+		const destination = PAGE_ADDRESSES.get(slug);
+		if (destination !== undefined) redirects.push({ source, destination });
+		else if (!redirects.some((planned) => planned.source === source)) {
+			notes.push({ slug, note: "no new address: it will answer 404" });
+		}
+	}
 	// An ITA file's folder stands over a first use's: the other folders hold the rest (spec #174
 	// "Pages, media and links").
 	for (const { id, slug, folder } of moits.uses) {
 		use(id, slug, folder);
 		folderOf.set(id, folder);
+	}
+	// A link can name any item, whichever the plan reaches last, so the links wait for every address.
+	// A page's redirect goes to no entry, and a link to a page stays (spec #174 "Pages, media and
+	// links").
+	const entryPages = new Set(entries.map(({ page }) => page));
+	const itemAddresses = new Map(
+		redirects
+			.filter(({ destination }) => entryPages.has(destination))
+			.map(({ source, destination }) => [addressKey(source)!, destination]),
+	);
+	/** A link's new address; a file's is its media item's URL, which only the upload gives. */
+	const newHref = (href: string) => {
+		const key = addressKey(href) ?? "";
+		const file = legacyFiles.byPath.get(key);
+		const uploaded = file !== undefined && usedBy.has(file) && available(file);
+		return itemAddresses.get(key) ?? (uploaded ? { fileLink: file } : href);
+	};
+	for (const entry of entries) {
+		if (entry.data.body !== undefined) {
+			entry.data.body = withNewLinks(entry.data.body as Block[], newHref);
+		}
 	}
 	// A numbered Document can meet another item's slug, and EmDash would refuse the second create
 	// with the run half written (`docs/agents/emdash-1.1.0.md` "Native API for tests",

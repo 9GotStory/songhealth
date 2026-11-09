@@ -1,11 +1,12 @@
-// What the migration script's verify command checks of a target (#178, #179 retro; spec #174 "The
-// migration script"): the plan's entries, files, pages and redirects against what the target holds
-// and how it answers, and what an Announcement's and a Document's page offers people.
+// What the migration script's verify command checks of a target (#178, #179 retro, #181; spec #174
+// "The migration script"): the plan's entries, files, pages and redirects against what the target
+// holds and how it answers, and what an Announcement's and a Document's page offers people.
 // scripts/migration.ts makes the reads; this module imports nothing at run time, so node:test
 // drives what the shared development runtime cannot produce, such as a redirect that answers 302
 // (CODING_STANDARDS "Tests").
 
 import type { ImportPlan } from "./import-plan.ts";
+import { WRITTEN_BY_STAFF } from "./plan.ts";
 import type { Target } from "./writer.ts";
 
 export interface VerifyInput {
@@ -33,6 +34,10 @@ interface VerifyReport {
 	files: { planned: number; inLibrary: number; inFolder: number };
 	pages: { planned: number; passed: number };
 	redirects: { planned: number; passed: number };
+	/** The redirects to a page staff have not yet written, neither passed nor failed. */
+	pending: { source: string; destination: string }[];
+	/** The file whose direct address answers 404, since those addresses are not redirected. */
+	directFiles: { planned: number; passed: number };
 	/** The Announcements whose page lists their Documents in the planned order. */
 	lists: { planned: number; passed: number };
 	/** The Documents whose page offers their file under its uploaded name. */
@@ -231,24 +236,45 @@ export async function verifyTarget({
 		else failures.push(`${path} does not list ${absent.join(", ")}`);
 	}
 	const redirects = { planned: planned.redirects.length, passed: 0 };
+	const pending: VerifyReport["pending"] = [];
 	for (const { source, destination } of planned.redirects) {
 		const { status, location } = await request(source);
 		const reached = location === null ? null : pathOf(location);
 		if (status !== 301) {
 			failures.push(`${source} answers ${status}, not 301`);
-		} else if (reached !== destination) {
-			failures.push(`${source} goes to ${reached}, not ${destination}`);
-		} else if (pageStatus.get(destination) !== 200) {
-			failures.push(`${source} goes to ${destination}, which does not answer 200`);
-		} else {
-			redirects.passed++;
+			continue;
 		}
+		if (reached !== destination) {
+			failures.push(`${source} goes to ${reached}, not ${destination}`);
+			continue;
+		}
+		// A page's redirect goes to an address no entry or fiscal year has already requested.
+		if (!pageStatus.has(destination)) {
+			pageStatus.set(destination, (await request(destination)).status);
+		}
+		const answer = pageStatus.get(destination);
+		if (answer === 200) redirects.passed++;
+		else if (answer === 404 && WRITTEN_BY_STAFF.has(destination)) {
+			pending.push({ source, destination });
+		} else {
+			failures.push(`${source} goes to ${destination}, which does not answer 200`);
+		}
+	}
+	const [directFile] = planned.files;
+	const directFiles = { planned: directFile === undefined ? 0 : 1, passed: 0 };
+	if (directFile !== undefined) {
+		const address = `/${directFile.path.split("/").map(encodeURIComponent).join("/")}`;
+		const { status } = await request(address);
+		if (status === 404) directFiles.passed++;
+		else failures.push(`${address} answers ${status}, not 404`);
 	}
 	return {
 		entries: entryCounts,
 		files,
 		pages,
 		redirects,
+		pending,
+		directFiles,
 		lists,
 		downloads,
 		moits,

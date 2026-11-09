@@ -1,6 +1,6 @@
-// The Legacy site's migration script (#177, #178, #179, #180; spec #174 "The migration script";
-// ADR 0008): temporary tooling, which leaves the repository with its tests when WordPress is
-// retired.
+// The Legacy site's migration script (#177, #178, #179, #180, #181; spec #174 "The migration
+// script"; ADR 0008): temporary tooling, which leaves the repository with its tests when WordPress
+// is retired.
 //
 //   node scripts/migration.ts plan <export.xml> <wp-content.zip>
 //   node scripts/migration.ts import <export.xml> <wp-content.zip> <target> [--final]
@@ -99,8 +99,10 @@
 // 200, that each entry is published with its legacy date and belongs to the Administrator, that an
 // Announcement's page lists its Documents in the planned order, that a Document's page offers its
 // file under its uploaded name, that a MOIT's page shows all its Evidence with every file able to
-// be served, and that a fiscal year's page lists its MOITs. It writes verify-report.json beside the
-// export, and exits 1 on a failure.
+// be served, that a fiscal year's page lists its MOITs, and that a file's direct address on the
+// Legacy site answers 404. A redirect to a page staff have not yet written, which answers 404 until
+// they publish it, is reported as pending, not as a failure. It writes verify-report.json beside
+// the export, and exits 1 on a failure.
 //
 // leak-check reads the lines the staged changes add, or the whole of each file it is given, such as
 // a pull request's body, and stops (exit 1) when one holds a file name, a title, a label, an alt
@@ -412,6 +414,10 @@ const verifyCommand = (options: TargetOptions) =>
 		console.log(`Files: ${JSON.stringify(result.files)}`);
 		console.log(`Pages: ${JSON.stringify(result.pages)}`);
 		console.log(`Redirects: ${JSON.stringify(result.redirects)}`);
+		console.log(
+			`Redirects waiting for a page staff write: ${listed(result.pending.map(({ source }) => source))}`,
+		);
+		console.log(`Direct file addresses answering 404: ${JSON.stringify(result.directFiles)}`);
 		console.log(`Announcements listing their Documents: ${JSON.stringify(result.lists)}`);
 		console.log(`Documents offering their file: ${JSON.stringify(result.downloads)}`);
 		console.log(`MOITs showing their Evidence: ${JSON.stringify(result.moits)}`);
