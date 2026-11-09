@@ -114,7 +114,8 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   the same links (`src/api/handlers/relations.ts` `writeReferenceSelection`).
 - A `url` field accepts only http, https, mailto, tel or a site-relative path
   (`src/schema/zod-generator.ts`, `src/utils/url.ts` `isSafeUrlFieldValue`). `isSafeHref`, exported
-  from `emdash`, is the same check for rendering an href.
+  from `emdash`, is the same check for rendering an href: a body's `link` mark renders its `href`
+  through `sanitizeHref`, which keeps a site-relative address (`src/components/marks/Link.astro`).
 - `extractPlainText`, exported from `emdash`, turns Portable Text into plain text
   (`src/search/text-extraction.ts`). It needs no search index, so it works on PostgreSQL.
 - `Astro.rewrite("/404")` answers 404, and EmDash logs the miss (`src/astro/middleware/redirect.ts`).
@@ -728,7 +729,9 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   HTML. Inside a block, one address has one `link` mark across all its runs, and an `<a>` with no
   text leaves its mark in `markDefs` with no run
   (`@emdash-cms/gutenberg-to-portable-text/dist/index.mjs` `walkNodes`, `getMarkForElement`, read
-  for #180); `./scripts/migration/moit-plan.ts` reads both.
+  for #180); `./scripts/migration/moit-plan.ts` reads both. Only a top-level `block` holds
+  `markDefs` (`dist/index.mjs` `htmlToPortableText`, read for #181), so
+  `./scripts/migration/import-plan.ts` rewrites a body's links there.
 
 ## Native API for tests
 
@@ -745,14 +748,18 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   `src/astro/routes/api/redirects/[id].ts`, `src/api/schemas/redirects.ts`).
   `./tests/browser/cms.helpers.ts` `deleteAutoRedirects` removes the ones a suite's slug changes
   left.
-- EmDash's redirect middleware matches `url.pathname` exactly, with or without its last slash
+- EmDash's redirect middleware matches `url.pathname` exactly, with or without its last slash, and
+  skips a path that ends in a file extension (`ASSET_EXTENSION`), which matches no rule and logs no
+  miss, so a direct file address goes to the router and answers 404
   (`src/astro/middleware/redirect.ts`). Astro decodes a request's path and sets it back on that URL,
   so a non-ASCII character reaches the middleware in upper-case hex however the request wrote it, and
   a source stored in lower-case hex, as WordPress writes a Thai slug, never matches (astro 7.3.5
   `astro/dist/core/fetch/fetch-state.js`, its constructor's `setPathname`, read for #180).
   `POST /_emdash/api/redirects` answers `CONFLICT` for a source
   that exists, compared exactly (`src/api/handlers/redirects.ts` `handleRedirectCreate`), and needs
-  `redirects:manage`, an Administrator's (`@emdash-cms/auth/src/rbac.ts`).
+  `redirects:manage`, an Administrator's (`@emdash-cms/auth/src/rbac.ts`). A destination may be the
+  homepage, `/` (`src/api/schemas/redirects.ts` `urlPath`, `src/redirects/destination.ts`
+  `isSiteRelativeDestination`).
 - `GET /_emdash/api/redirects/404s` lists the 404 log. With `redirects:manage`, `DELETE` on it
   clears the whole log and answers `{ deleted }`, and `POST` with `olderThan` prunes it by age; no
   entry can be removed alone (`src/astro/routes/api/redirects/404s/index.ts`,

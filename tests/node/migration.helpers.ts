@@ -105,6 +105,15 @@ export const runMigrationIn = (cwd: string | undefined, ...args: string[]) =>
 /** Runs scripts/migration.ts with `args`, as a command's test does. */
 export const runMigration = (...args: string[]) => runMigrationIn(undefined, ...args);
 
+/** A published page of the Legacy site, at `/{slug}/`, which the migration only redirects. */
+export function legacyPage(
+	id: number,
+	slug: string,
+	fields: Partial<SyntheticItem> = {},
+): SyntheticItem {
+	return { type: "page", id, slug, title: `หน้า ${slug}`, ...fields };
+}
+
 /** The Legacy site's address, as its export writes it. */
 export const SITE = "https://songhealth.moph.go.th";
 
