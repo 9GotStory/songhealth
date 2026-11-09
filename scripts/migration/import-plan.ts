@@ -477,7 +477,10 @@ export function planImport({
 			.filter(({ destination }) => entryPages.has(destination))
 			.map(({ source, destination }) => [addressKey(source)!, destination]),
 	);
-	/** A link's new address; a file's is its media item's URL, which only the upload gives. */
+	/**
+	 * A link's new address. A file's is its media item's URL, which the upload answers with its
+	 * storage key (emdash 1.1.0 src/astro/routes/api/media.ts addUrlToMedia).
+	 */
 	const newHref = (href: string) => {
 		const key = addressKey(href) ?? "";
 		const file = legacyFiles.byPath.get(key);

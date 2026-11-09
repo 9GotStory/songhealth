@@ -35,12 +35,6 @@ export const PAGE_ADDRESSES = new Map([
 	["sub-district-health-promoting-hospital", "/health-services"],
 ]);
 
-/**
- * The new address that answers 404 until staff publish its Basic Page
- * (src/pages/about/organization.astro), so verify reports a redirect to it as pending (#181).
- */
-export const WRITTEN_BY_STAFF = new Set(["/about/organization"]);
-
 /** The value of a row that waits for a reviewer's decision (spec #174, Q3). */
 export const TO_CHOOSE = "ต้องเลือก";
 

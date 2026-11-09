@@ -5,8 +5,7 @@
 // drives what the shared development runtime cannot produce, such as a redirect that answers 302
 // (CODING_STANDARDS "Tests").
 
-import type { ImportPlan } from "./import-plan.ts";
-import { WRITTEN_BY_STAFF } from "./plan.ts";
+import type { ImportPlan, PlannedRedirect } from "./import-plan.ts";
 import type { Target } from "./writer.ts";
 
 export interface VerifyInput {
@@ -35,7 +34,7 @@ interface VerifyReport {
 	pages: { planned: number; passed: number };
 	redirects: { planned: number; passed: number };
 	/** The redirects to a page staff have not yet written, neither passed nor failed. */
-	pending: { source: string; destination: string }[];
+	pending: PlannedRedirect[];
 	/** The file whose direct address answers 404, since those addresses are not redirected. */
 	directFiles: { planned: number; passed: number };
 	/** The Announcements whose page lists their Documents in the planned order. */
@@ -48,6 +47,12 @@ interface VerifyReport {
 	years: { planned: number; passed: number };
 	failures: string[];
 }
+
+/**
+ * The new address that answers 404 until staff publish its Basic Page
+ * (src/pages/about/organization.astro), so a redirect to it is pending, not failed (#181).
+ */
+const WRITTEN_BY_STAFF = "/about/organization";
 
 /** An address's path: a `Location` may be written absolute or site-relative. */
 const pathOf = (location: string) => new URL(location, "http://target.invalid").pathname;
@@ -254,7 +259,7 @@ export async function verifyTarget({
 		}
 		const answer = pageStatus.get(destination);
 		if (answer === 200) redirects.passed++;
-		else if (answer === 404 && WRITTEN_BY_STAFF.has(destination)) {
+		else if (answer === 404 && destination === WRITTEN_BY_STAFF) {
 			pending.push({ source, destination });
 		} else {
 			failures.push(`${source} goes to ${destination}, which does not answer 200`);

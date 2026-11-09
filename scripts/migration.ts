@@ -99,10 +99,10 @@
 // 200, that each entry is published with its legacy date and belongs to the Administrator, that an
 // Announcement's page lists its Documents in the planned order, that a Document's page offers its
 // file under its uploaded name, that a MOIT's page shows all its Evidence with every file able to
-// be served, that a fiscal year's page lists its MOITs, and that a file's direct address on the
-// Legacy site answers 404. A redirect to a page staff have not yet written, which answers 404 until
-// they publish it, is reported as pending, not as a failure. It writes verify-report.json beside
-// the export, and exits 1 on a failure.
+// be served, that a fiscal year's page lists its MOITs, and that the target answers 404 for a
+// file's direct address on the Legacy site. A redirect to a page staff have not yet written, which
+// answers 404 until they publish it, is reported as pending, not as a failure. It writes
+// verify-report.json beside the export, and exits 1 on a failure.
 //
 // leak-check reads the lines the staged changes add, or the whole of each file it is given, such as
 // a pull request's body, and stops (exit 1) when one holds a file name, a title, a label, an alt

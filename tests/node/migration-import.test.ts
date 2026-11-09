@@ -1680,6 +1680,16 @@ describe("verify", () => {
 	const FOLDER = { id: "folder-1", name: "เว็บไซต์เดิม: ข่าวและกิจกรรม" };
 	const OWNER = "admin-1";
 
+	/** How a target answers from `responses`, noting each path; any other path fails the test. */
+	const answeringFrom =
+		(responses: Map<string, Answer>, requested: string[] = []) =>
+		async (path: string) => {
+			requested.push(path);
+			const response = responses.get(path);
+			if (response === undefined) throw new Error(`unexpected request: ${path}`);
+			return withBody(response);
+		};
+
 	/** The address of the first file of `goodTarget`'s plan, on the Legacy site. */
 	const DIRECT_FILE = "/wp-content/uploads/2025/03/one-page-11.webp";
 
@@ -1720,11 +1730,7 @@ describe("verify", () => {
 				[12, "sha1:12"],
 			]),
 			responses,
-			request: async (path) => {
-				const response = responses.get(path);
-				if (response === undefined) throw new Error(`unexpected request: ${path}`);
-				return withBody(response);
-			},
+			request: answeringFrom(responses),
 		};
 	}
 
@@ -1785,12 +1791,7 @@ describe("verify", () => {
 				owner: OWNER,
 				reused: new Set<number>(),
 				hashes: new Map<number, string>(),
-				request: async (path: string) => {
-					requested.push(path);
-					const response = responses.get(path);
-					if (response === undefined) throw new Error(`unexpected request: ${path}`);
-					return withBody(response);
-				},
+				request: answeringFrom(responses, requested),
 			},
 		};
 	}
@@ -1902,11 +1903,7 @@ describe("verify", () => {
 			reused: new Set<number>(),
 			hashes: new Map([21, 22, 23].map((id) => [id, `sha1:${id}`])),
 			responses,
-			request: async (path) => {
-				const response = responses.get(path);
-				if (response === undefined) throw new Error(`unexpected request: ${path}`);
-				return withBody(response);
-			},
+			request: answeringFrom(responses),
 		};
 	}
 
