@@ -101,8 +101,8 @@
 // file under its uploaded name, that a MOIT's page shows all its Evidence with every file able to
 // be served, that a fiscal year's page lists its MOITs, and that the target answers 404 for a
 // file's direct address on the Legacy site. A redirect to a page staff have not yet written, which
-// answers 404 until they publish it, is reported as pending, not as a failure. It writes
-// verify-report.json beside the export, and exits 1 on a failure.
+// answers 404 until they publish it, is reported as pending, not as a failure, and the report's
+// last line counts those. It writes verify-report.json beside the export, and exits 1 on a failure.
 //
 // leak-check reads the lines the staged changes add, or the whole of each file it is given, such as
 // a pull request's body, and stops (exit 1) when one holds a file name, a title, a label, an alt
@@ -124,7 +124,7 @@ import { addedLinesOf, leaksIn } from "./migration/leak-check.ts";
 import { blocksOf, computeContentHash, readLegacySite } from "./migration/legacy-site.ts";
 import { ANOM_001_FILE } from "./migration/moit-plan.ts";
 import { plan, TO_CHOOSE } from "./migration/plan.ts";
-import { verifyTarget } from "./migration/verify.ts";
+import { verdictOf, verifyTarget } from "./migration/verify.ts";
 import { administrator, applyImport, readTarget, type Target } from "./migration/writer.ts";
 import { openZip, readZipNames, withFileBeside, type Zip } from "./migration/zip.ts";
 
@@ -423,7 +423,7 @@ const verifyCommand = (options: TargetOptions) =>
 		console.log(`MOITs showing their Evidence: ${JSON.stringify(result.moits)}`);
 		console.log(`Fiscal years listing their MOITs: ${JSON.stringify(result.years)}`);
 		for (const failure of result.failures) console.log(`FAIL ${failure}`);
-		console.log(`VERIFY: ${result.failures.length === 0 ? "PASS" : "FAIL"}`);
+		console.log(verdictOf(result));
 		return result.failures.length === 0 ? 0 : 1;
 	});
 
