@@ -6,7 +6,7 @@
 //   node scripts/migration.ts import <export.xml> <wp-content.zip> <target> [--final]
 //   node scripts/migration.ts import <export.xml> <wp-content.zip> --dry-run [--final]
 //   node scripts/migration.ts verify <export.xml> <wp-content.zip> <target>
-//   node scripts/migration.ts leak-check <export.xml>
+//   node scripts/migration.ts leak-check <export.xml> [<file>...]
 //
 // where <target> is `--origin <url> --token-file <file>`.
 //
@@ -95,16 +95,19 @@
 //
 // verify checks a target against the same plan, read as a trial reads it: the counts, that each
 // redirect answers one 301 to a page that answers 200, that every used file is in the Media
-// Library, that every page answers 200, that each entry is published with its legacy date and
-// belongs to the Administrator, that an Announcement's page lists its Documents in the planned
-// order, that a Document's page offers its file under its uploaded name, that a MOIT's page shows
-// all its Evidence with every file able to be served, and that a fiscal year's page lists its
-// MOITs. It writes verify-report.json beside the export, and exits 1 on a failure.
+// Library and in its folder, unless the import's report lists it as reused, that every page answers
+// 200, that each entry is published with its legacy date and belongs to the Administrator, that an
+// Announcement's page lists its Documents in the planned order, that a Document's page offers its
+// file under its uploaded name, that a MOIT's page shows all its Evidence with every file able to
+// be served, and that a fiscal year's page lists its MOITs. It writes verify-report.json beside the
+// export, and exits 1 on a failure.
 //
-// leak-check reads the lines the staged changes add and stops (exit 1) when one holds a file name,
-// a title, a label, an alt text or a caption of the export, naming the file and the item without
-// repeating the string: fixtures are made up (spec #174), and the repository's history is public.
-// .githooks/pre-commit runs it wherever the export exists, which CI's checkout does not hold.
+// leak-check reads the lines the staged changes add, or the whole of each file it is given, such as
+// a pull request's body, and stops (exit 1) when one holds a file name, a title, a label, an alt
+// text or a caption of the export, naming the file and the item without repeating the string:
+// fixtures are made up (spec #174), and the repository and its pull requests are public.
+// .githooks/pre-commit runs it on the staged changes wherever the export exists, which CI's
+// checkout does not hold.
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -127,7 +130,7 @@ const USAGE = `usage: node scripts/migration.ts plan <export.xml> <wp-content.zi
        node scripts/migration.ts import <export.xml> <wp-content.zip> --origin <url> --token-file <file> [--final]
        node scripts/migration.ts import <export.xml> <wp-content.zip> --dry-run [--final]
        node scripts/migration.ts verify <export.xml> <wp-content.zip> --origin <url> --token-file <file>
-       node scripts/migration.ts leak-check <export.xml>`;
+       node scripts/migration.ts leak-check <export.xml> [<file>...]`;
 
 /** The files the commands write into the export's folder. */
 const LIST_FILE = "classification-list.csv";
@@ -384,12 +387,16 @@ const verifyCommand = (options: TargetOptions) =>
 		for (const { attachment, path } of planned.files) {
 			hashes.set(attachment, await computeContentHash(await zip.read(path)));
 		}
+		// With no import report beside the export, nothing counts as reused.
+		const importReport = await readFile(join(folder, IMPORT_REPORT_FILE), "utf8").catch(() => "{}");
+		const { reused = [] } = JSON.parse(importReport) as { reused?: { attachment: number }[] };
 		const result = await verifyTarget({
 			planned,
 			entries: target.entries.filter((entry) => !entry.trashed),
 			media: target.media,
 			folders: target.folders,
 			owner: admin.userId,
+			reused: new Set(reused.map(({ attachment }) => attachment)),
 			hashes,
 			request: async (path) => {
 				const response = await fetch(new URL(path, options.origin), { redirect: "manual" });
@@ -414,7 +421,8 @@ const verifyCommand = (options: TargetOptions) =>
 		return result.failures.length === 0 ? 0 : 1;
 	});
 
-async function leakCheckCommand(exportPath: string): Promise<number> {
+/** The lines the staged changes add, and the names of the files they add. */
+function stagedAdditions() {
 	const staged = (...options: string[]) =>
 		execFileSync("git", ["-c", "core.quotePath=false", "diff", "--cached", ...options], {
 			encoding: "utf8",
@@ -429,14 +437,24 @@ async function leakCheckCommand(exportPath: string): Promise<number> {
 		"--dst-prefix=b/",
 	);
 	const names = staged("--name-only", "-z", "--diff-filter=ACR").split("\0").filter(Boolean);
-	const site = await readLegacySite(await readFile(exportPath, "utf8"));
-	const leaks = leaksIn(site, [
+	return [
 		...addedLinesOf(lines),
 		...names.map((name) => ({ file: "a staged file's name", lines: [name] })),
-	]);
+	];
+}
+
+async function leakCheckCommand(exportPath: string, files: string[]): Promise<number> {
+	const scanned =
+		files.length === 0
+			? stagedAdditions()
+			: await Promise.all(
+					files.map(async (file) => ({ file, lines: [await readFile(file, "utf8")] })),
+				);
+	const site = await readLegacySite(await readFile(exportPath, "utf8"));
+	const leaks = leaksIn(site, scanned);
 	for (const { file, what } of leaks) console.error(`${file}: ${what}`);
 	if (leaks.length > 0)
-		console.error("leak-check: make these up: fixtures hold no Legacy site content");
+		console.error("leak-check: make these up or take them out: they are Legacy site content");
 	return leaks.length === 0 ? 0 : 1;
 }
 
@@ -461,8 +479,8 @@ function commandOf(args: string[]): (() => Promise<number>) | undefined {
 	const [command, exportPath, zipPath, ...others] = parsed.positionals;
 	const noTarget = origin === undefined && tokenFile === undefined;
 	const noOptions = noTarget && !final && !dryRun;
-	if (command === "leak-check" && exportPath !== undefined && zipPath === undefined && noOptions) {
-		return () => leakCheckCommand(exportPath);
+	if (command === "leak-check" && exportPath !== undefined && noOptions) {
+		return () => leakCheckCommand(exportPath, parsed.positionals.slice(2));
 	}
 	if (exportPath === undefined || zipPath === undefined || others.length > 0) return undefined;
 	if (command === "plan" && noOptions) return () => planCommand(exportPath, zipPath);

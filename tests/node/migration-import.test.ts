@@ -1510,6 +1510,7 @@ describe("verify", () => {
 			],
 			folders: [FOLDER],
 			owner: OWNER,
+			reused: new Set<number>(),
 			hashes: new Map([
 				[11, "sha1:11"],
 				[12, "sha1:12"],
@@ -1590,6 +1591,7 @@ describe("verify", () => {
 			})),
 			folders: [FILES],
 			owner: OWNER,
+			reused: new Set<number>(),
 			hashes: new Map([21, 22, 23].map((id) => [id, `sha1:${id}`])),
 			responses,
 			request: async (path) => {
@@ -1722,6 +1724,7 @@ describe("verify", () => {
 			media: [],
 			folders: [],
 			owner: OWNER,
+			reused: new Set<number>(),
 			hashes: new Map<number, string>(),
 		};
 		const passing = await verifyTarget({ ...input, request: request(listing()) });
@@ -1824,9 +1827,26 @@ describe("verify", () => {
 		const report = await verifyTarget({
 			...target,
 			media: [{ contentHash: "sha1:12", folderId: null, filename: "elsewhere.webp" }],
+			reused: new Set([12]),
 		});
 		assert.deepEqual(report.files, { planned: 2, inLibrary: 1, inFolder: 0 });
 		assert.deepEqual(report.failures, ["file 11 (one-page-11.webp) is not in the Media Library"]);
+	});
+
+	it("fails a file the import uploaded that is in another folder or in none", async () => {
+		const target = await goodTarget();
+		const report = await verifyTarget({
+			...target,
+			media: [
+				{ contentHash: "sha1:11", folderId: "folder-2", filename: "one-page-11.webp" },
+				{ contentHash: "sha1:12", folderId: null, filename: "one-page-12.webp" },
+			],
+		});
+		assert.deepEqual(report.files, { planned: 2, inLibrary: 2, inFolder: 0 });
+		assert.deepEqual(report.failures, [
+			`file 11 (one-page-11.webp) is not in the folder ${FOLDER.name}`,
+			`file 12 (one-page-12.webp) is not in the folder ${FOLDER.name}`,
+		]);
 	});
 
 	it("fails a used file the uploads copy lacks, which therefore cannot be in the Media Library", async () => {

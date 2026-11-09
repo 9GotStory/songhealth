@@ -110,6 +110,11 @@ and why, and `.jscpd-baseline.json` records them.
   "eight or fewer" with eight and nine items, a breakpoint such as "from `lg`" at 1023 and 1024 px,
   and a place where something stops or starts with a fixture that reaches it. The spec's coverage
   line stays beside these (#147 and #148 retros: in both, review found an edge untested).
+- The migration script is temporary and reads one known export (ADR 0008). A shape the export does
+  not hold needs no rule or edge test of its own: it reaches the report or stops the plan, so no
+  content disappears unreported. Review lists any other edge that only such a shape reaches as
+  "not reached by the export" and leaves it (#180 retro: both follow-up reviews' logic findings
+  were such shapes, and the real plan's counts did not move after their fixes).
 - Logic that `tests/node` checks lives in a `src/lib` module, or a script's planning module such as
   `scripts/demo-dataset/plan.ts`, with no runtime import, because node:test loads it with plain
   Node: no `emdash`, no extensionless relative import. `src/lib/dated-lists.ts` and

@@ -16,6 +16,11 @@ export interface VerifyInput {
 	folders: Target["folders"];
 	/** The importing Administrator's user ID. */
 	owner: string;
+	/**
+	 * The attachments the import's report lists as reused: EmDash answers such an upload with the
+	 * item it holds, which stays in its folder (emdash 1.1.0 src/astro/routes/api/media.ts).
+	 */
+	reused: Set<number>;
 	/** Each planned file's content hash, as EmDash writes one, by its attachment. */
 	hashes: Map<number, string>;
 	/** How the target answers a GET of `path`, without following a redirect. */
@@ -96,6 +101,7 @@ export async function verifyTarget({
 	media,
 	folders,
 	owner,
+	reused,
 	hashes,
 	request,
 }: VerifyInput): Promise<VerifyReport> {
@@ -142,6 +148,9 @@ export async function verifyTarget({
 		files.inLibrary++;
 		const item = media.find((candidate) => candidate.contentHash === hash)!;
 		if (item.folderId != null && item.folderId === folderIds.get(folder)) files.inFolder++;
+		else if (!reused.has(attachment)) {
+			failures.push(`file ${attachment} (${filename}) is not in the folder ${folder}`);
+		}
 	}
 	for (const { attachment, path, usedBy } of planned.report.missing) {
 		const name = path ?? `attachment ${attachment}`;
