@@ -63,11 +63,12 @@ second visit and the conditions.
 Option 4 saves 39-77% of those bytes, at a cost the check measured. EmDash re-encodes a rendition
 on every request and sends `max-age=0, must-revalidate` with no validator
 (`node_modules/emdash/src/astro/image-endpoint.ts`): the server took a median of 158-395 ms per
-picture on an idle host, against 4-11 ms for an original. The security check confirmed the residual
-surface above. For an `href` whose key EmDash rejects, the server fetched from another host on its
-network, under the media path only, and returned the re-encoded picture. With no database and no
-media volume, storage still answered, so the "storage is unavailable" condition above was not
-reached.
+picture with one browser loading the page, against 4-11 ms for an original. The security check confirmed the residual
+surface above. For a foreign absolute `href` whose key EmDash rejects, the server fetched from
+another host on its network, at a path beginning with the media path, and returned the re-encoded
+picture. With no database and no media volume, a safe key answered 404 with nothing fetched, which
+`image-endpoint.ts` reaches only with storage present, so the "storage is unavailable" condition
+above was not reached.
 
 The Product Owner kept original files with staff guidance for V1 on 2026-11-09 (#183 comment
 6734787212). The guidance reaches new uploads only, so the migrated pictures stay as imported and
@@ -76,8 +77,9 @@ stored are the originals either way, so adopting it needs no new import, only it
 superseding ADR with its mitigations.
 
 The check also found, on the image production serves today and whatever this decision, that a
-forged `Host` header reaches the image endpoint's same-origin fetch and that an anonymous rendition
-can cost about 20 s of server time. #218 closes both before deployment.
+forged `Host` header reaches the image endpoint's same-origin fetch, with no limit on the path, and
+that an anonymous rendition can cost about 20 s of server time. #218, open, tracks both for before
+deployment.
 
 ## Consequences
 
