@@ -13,7 +13,9 @@
 // captured after a click on the element whose whole text is `text`, such as a control that opens
 // part of the page (#148). The origin is PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324. Pages are
 // read anonymously, with no credential. It prints each file with its size in pixels, so a pull
-// request can quote a page's height from it (#146 retro).
+// request can quote a page's height from it (#146 retro). A close-up also prints its element's
+// layout size, the one to quote: its PNG covers every pixel the element touches, so it can come
+// out a pixel larger (#194 retro).
 //
 // A pull request shows its pages before and after. Take the before screenshots while the runtime
 // still serves the base, before the ticket's first scripts/dev-runtime-update.sh: afterwards they
@@ -71,6 +73,8 @@ const pages = targets.map((target) => {
 await mkdir(outDir, { recursive: true });
 const browser = await chromium.launch();
 const written = [];
+/** Each close-up's element size in CSS px, by its file. */
+const elementSizes = new Map();
 
 /** A PNG's width × height in pixels, from its IHDR header: a CSS px each, at scale factor 1. */
 async function pngSize(file) {
@@ -109,6 +113,8 @@ try {
 					for (const select of node.querySelectorAll("select")) select.size = select.length;
 				});
 				await element.screenshot({ path: file });
+				const box = await element.boundingBox();
+				elementSizes.set(file, `${box.width}×${box.height}`);
 			}
 			written.push(file);
 			await page.close();
@@ -131,4 +137,7 @@ try {
 } finally {
 	await browser.close();
 }
-for (const file of written) console.log(`${file} ${await pngSize(file)}`);
+for (const file of written) {
+	const element = elementSizes.has(file) ? ` (element ${elementSizes.get(file)})` : "";
+	console.log(`${file} ${await pngSize(file)}${element}`);
+}

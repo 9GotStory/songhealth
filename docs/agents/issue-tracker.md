@@ -5,7 +5,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
-- **Read an issue**: begin with metadata through the [bounded read recipe](#bounded-issue-and-evidence-reads); expand the needed body/comment from its saved response.
+- **Read an issue**: a ticket whole, `gh issue view <n> --json title,state,labels,body,comments`; a spec through the [bounded read recipe](#bounded-issue-and-evidence-reads), expanding the needed body/comment from its saved response.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **Make an issue a sub-issue of a parent**: `gh issue create --parent <parent> ...`, or `gh issue edit <parent> --add-sub-issue <child>` afterwards (`gh` 2.94+). Older `gh`: `gh api --method POST repos/<owner>/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<child-db-id>` (database id, as in **Blocking** below). Without sub-issues, put `Part of #<parent>` at the top of the child body.
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
@@ -31,21 +31,21 @@ A ticket's pull request fills `/pr`'s template (Summary, Evidence, Merge Danger)
    - `### Beyond the ticket`: what the change does that its ticket did not list, and why.
    - `### Review (self-review)`: the `/code-review` findings per axis and the commits that fix them, each finding left as it is with the decision that keeps it, and each later commit that was not reviewed again.
    - `### Version-specific facts`: each version-specific conclusion a decision rests on, with its version and source path (CLAUDE.md "Current documentation").
-   - `### For the next tickets`: what each later ticket of the feature needs from this one, with a link to its note on that ticket's issue. `/pr` posts the notes before it opens the pull request, citing the ticket rather than the pull request, so the section links only notes that are there (#147 retro). While `scripts/migration.ts` exists, `/pr` first runs its `leak-check <export> <file>...` on the pull request's body and each note, which the pre-commit hook cannot see (#180 retro).
+   - `### For the next tickets`: what a later ticket of the feature must build or check differently because of this one, with a link to its note on that ticket's issue. A ticket this change leaves alone gets no note, and a process lesson goes in the document it changes (#194 retro, comment 6741439448). `/pr` posts the notes before it opens the pull request, citing the ticket rather than the pull request, so the section links only notes that are there (#147 retro). While `scripts/migration.ts` exists, `/pr` first runs its `leak-check <export> <file>...` on the pull request's body and each note, which the pre-commit hook cannot see (#180 retro).
 3. `## Evidence`: **Before**, the first failure of the red run, verbatim; **After**, the same check passing at the final head, with the commit `dev-runtime-verify.sh` reported. Then the screenshots, as a table of `https://github.com/9GotStory/songhealth/blob/<evidence commit>/<file>?raw=true` images from `scripts/evidence-branch.sh`; each seam's cases as pseudocode; and the result of every check at the final head.
 4. `## Merge Danger`: the door, then the blast radius, ending with what reaches production.
 
 **Evidence log.** From the red run on, `/implement` appends each run the Evidence will cite to `evidence-<ticket>.md` in the session's scratchpad: the command, the commit, and the output's decisive lines (the first failure, the pass and skip counts, the verify and residue lines, a script's own report). It appends each `/code-review` report as it arrives, for `### Review (self-review)`. `/pr` writes these sections from that file, which outlives a context compaction (#126 retro: `/pr` searched a 6 MB transcript four times for the red run and the `add` output; #180 retro: a 7.5 MB one for the review reports).
 
-**Reading evidence (#192/#193 retros).** For ticket/spec bodies, logs and tracker readback,
+**Reading evidence (#192/#193 retros).** For a spec, logs and tracker readback,
 follow the [bounded read recipe](#bounded-issue-and-evidence-reads). For a Homepage timeout,
 [README's diagnostic run](../../README.md#homepage-diagnostics) records named phases and native
 JSON/trace artifacts without changing the normal suite's settings.
 
 ## Bounded issue and evidence reads
 
-For a ticket/spec read or evidence handoff, project before printing (#193 retro, Product Owner
-comment 6722771184). Fetch once into a new scratch directory, then consume that completed file in
+For a spec read or evidence handoff, project before printing (#193 retro, Product Owner
+comment 6722771184; a ticket is read whole, #194 retro, comment 6741439448). Fetch once into a new scratch directory, then consume that completed file in
 the same sequential command. A failed fetch exits before the read. This keeps full bodies out of
 the initial tool result and preserves the response for a selected excerpt:
 
@@ -89,18 +89,6 @@ Read minified source as a bounded snippet around the match. Use the saved respon
 reads so repeated context loads do not repeat the
 fetch or dump whole documents.
 
-## Pull requests as a triage surface
-
-**PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
-
-When set to `yes`, PRs run through the same labels and states as issues, using the `gh pr` equivalents:
-
-- **Read a PR**: `gh pr view <number> --comments` and `gh pr diff <number>` for the diff.
-- **List external PRs for triage**: `gh api --paginate 'repos/{owner}/{repo}/pulls?state=open' --jq '.[] | select(.author_association | IN("OWNER","MEMBER","COLLABORATOR") | not) | {number, title, author: .user.login, author_association, labels: [.labels[].name]}'`.
-- **Comment / label / close**: `gh pr comment`, `gh pr edit --add-label`/`--remove-label`, `gh pr close`.
-
-GitHub shares one number space across issues and PRs, so a bare `#42` may be either: resolve with `gh pr view 42` and fall back to `gh issue view 42`.
-
 ## When a skill says "publish to the issue tracker"
 
 Create a GitHub issue.
@@ -111,11 +99,8 @@ Read it as in **Read an issue** above.
 
 ## Wayfinding operations
 
-Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
+`/wayfinder`'s: [wayfinding-and-pr-triage.md](wayfinding-and-pr-triage.md#wayfinding-operations).
 
-- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map`.
-- **Child ticket**: an issue linked to the map as a GitHub sub-issue (see **Make an issue a sub-issue of a parent**). Where sub-issues aren't enabled, add the child to a task list in the map body and put `Part of #<map>` at the top of the child body. Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
-- **Blocking**: GitHub's **native issue dependencies**, the canonical, UI-visible representation. Add an edge with `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`, _not_ the `#number` or `node_id`). GitHub reports `issue_dependencies_summary.blocked_by` (open blockers only, the live gate). Where dependencies aren't available, fall back to a `Blocked by: #<n>, #<n>` line at the top of the child body. A ticket is unblocked when every blocker is closed.
-- **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
-- **Claim**: `gh issue edit <n> --add-assignee @me`, the session's first write.
-- **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
+## Pull requests as a triage surface
+
+`/triage`'s flag and commands: [wayfinding-and-pr-triage.md](wayfinding-and-pr-triage.md#pull-requests-as-a-triage-surface).
