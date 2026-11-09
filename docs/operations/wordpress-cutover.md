@@ -44,8 +44,8 @@ All of them stay outside the repository. A record of this run holds counts, chec
    `/_image`.
 2. **The production Admin's address (Operator, Product Owner).** Passkeys are bound to the origin in
    `EMDASH_SITE_URL` (`production-foundation.md` §10), and the domain still points at WordPress until
-   the DNS switch. The production track decides how staff reach the Admin at that origin before then.
-   **Open:** nothing records that choice yet.
+   the DNS switch. **Open (#218):** the production track decides how staff reach the Admin at that
+   origin before then, and names it here.
 3. **The token (Administrator).** Admin → ตั้งค่า → API Tokens (`/_emdash/admin/settings/api-tokens`),
    signed in as the Administrator who will own the migrated items. Create a token with the `admin`
    scope, which the redirect routes need (`docs/agents/emdash-1.1.0.md` "Native API for tests"), and
@@ -98,8 +98,8 @@ All of them stay outside the repository. A record of this run holds counts, chec
       change, again if anyone writes to production before the import. **Command: none yet.**
       `scripts/backup-foundation.sh` is the only production backup in the repository, and it produces
       nothing unless the site's tagline is the validation value of Feature 001's T015, so it cannot
-      back up a site with real settings. The production track supplies the command and proves it with
-      T028's drill. The cutover stops here until it exists.
+      back up a site with real settings. **Open (#221):** the production track supplies the command,
+      proves it with T028's drill and names it here. The cutover stops here until it exists.
     - **WordPress database and files (Product Owner):** with the WordPress host's own tools, just
       before the freeze. `wp-content.zip` holds no database, so it is not this backup.
 
@@ -226,5 +226,5 @@ verify 40 to 46 s (`astro dev`, so these are not production's figures).
 | The import stopped during its writes, or verify fails, before the DNS switch | Restore the production database and media from "Before cutover" step 10, then repeat from step 6. WordPress is still what the public sees | Operator |
 | A problem after the DNS switch | Point the record back at WordPress and tell staff to stop publishing on Songhealth. A restore is needed only to redo the import, and it discards what was written on Songhealth since. WordPress's certificate expired on 2026-10-31, so visitors see a certificate error unless it has been renewed | Product Owner, DNS holder, Operator |
 
-Rollback is practical recovery, not a distributed transaction (`09` §15). The restore command belongs
-to the same production-track procedure as the backup.
+Rollback is practical recovery, not a distributed transaction (`09` §15). The restore command comes
+with the backup's (#221).
