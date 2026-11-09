@@ -48,7 +48,7 @@ describe("titleRuns", () => {
 		assert.deepEqual(titleRuns(""), []);
 	});
 
-	it("keeps ร้องเรียน at every occurrence, side by side too, and beside another listed word", () => {
+	it("keeps ร้องเรียน at every occurrence, side by side too, and the listed words around it", () => {
 		assert.deepEqual(titleRuns("แบบคำร้องเรียนการปฏิบัติงาน"), [
 			plain("แบบคำ"),
 			kept("ร้องเรียน"),

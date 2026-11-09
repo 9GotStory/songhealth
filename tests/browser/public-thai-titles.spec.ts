@@ -166,19 +166,19 @@ test("at 320 px a compact card's title keeps every ร้องเรียน w
 }) => {
 	await page.setViewportSize({ width: 320, height: 900 });
 	await page.goto("/");
-	const title = fixtureCardTitle(page, "health_content");
+	const title = fixtureCardTitle(page, "activities");
 	await expect(title).toBeVisible();
+	await expect(
+		homepageSection(page, CARDS.activities.section).getByRole("link", {
+			name: fixtures.activities.title,
+			exact: true,
+		}),
+	).toBeVisible();
 	expect(await occurrencesOf(title, "ร้องเรียน")).toEqual({
 		found: RONGRIAN_TIMES,
 		split: 0,
 		outside: 0,
 	});
-	await expect(
-		homepageSection(page, CARDS.health_content.section).getByRole("link", {
-			name: fixtures.health_content.title,
-			exact: true,
-		}),
-	).toBeVisible();
 });
 
 test("a card's title shows its characters as written", async ({ page }) => {
