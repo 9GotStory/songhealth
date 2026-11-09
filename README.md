@@ -213,4 +213,7 @@ terms, bylines, redirects and menu items (`docs/operations/development-quadlet.m
 
 Production prerequisites, deployment and recovery live in
 [docs/operations/production-foundation.md](docs/operations/production-foundation.md) and are
-unchanged by the development-runtime decision; T022/T028 remain PENDING.
+unchanged by the development-runtime decision; T022/T028 remain PENDING. The WordPress migration's
+production import and cutover follow
+[docs/operations/wordpress-cutover.md](docs/operations/wordpress-cutover.md), NOT AUTHORIZED until
+the production track asks (`09` §18).
