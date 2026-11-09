@@ -2,7 +2,7 @@
 # Production image check (#67 retro; Product Owner, #67 comment 6558736325): build
 # deploy/Containerfile for one commit, check its native pieces, run it once against the development
 # runtime's data, show how a News picture is served, and remove the container and the image.
-#   scripts/production-image-check.sh --sha <commit> [<news-path>]
+#   scripts/production-image-check.sh --sha <commit> [<news-path>] [-- <command> [<arg>...]]
 # The run is the Product Owner's exception to "one application server" (#67 comment 6558196151):
 # a temporary container on the runtime's private network that connects to its database as the
 # least-privilege app role, with the runtime's own podman secrets as environment variables, the
@@ -15,17 +15,22 @@
 # `--layers=false`, which commits the final image alone (podman 5.8.4, 2026-11-01), and only its
 # tag is removed. Any image the run added that is still there at the end is listed, not removed.
 # <news-path> defaults to the demo dataset's Featured News, which has a picture. sharp is optional
-# (spec #51 "Dependencies"), so a sharp that does not load is reported, not failed. Exit status 1:
+# (spec #51 "Dependencies"), so a sharp that does not load is reported, not failed. <command> runs
+# while the image serves, with CHECK_ORIGIN, CHECK_IMAGE and CHECK_NETWORK in its environment
+# (ADR 0003's revisit, #183), and its failure fails the check. Exit status 1:
 # a step failed; 2: a wrong argument. Log lines are printed only with credentials masked.
 set -euo pipefail
 # shellcheck source=scripts/dev-runtime-common.sh
 . "$(dirname "${BASH_SOURCE[0]}")/dev-runtime-common.sh"
 
-usage() { echo "usage: ${0##*/} --sha <commit> [<news-path>]" >&2; exit 2; }
+usage() { echo "usage: ${0##*/} --sha <commit> [<news-path>] [-- <command> [<arg>...]]" >&2; exit 2; }
 [[ ${1:-} == --sha && -n ${2:-} ]] || usage
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 COMMIT=$(git -C "$REPO" rev-parse --verify -q "$2^{commit}") || die "no commit $2"
-NEWS_PATH=${3:-/news/demo-news-ncd-screening}
+NEWS_PATH=/news/demo-news-ncd-screening
+shift 2
+if [[ $# -gt 0 && $1 != -- ]]; then NEWS_PATH=$1; shift; fi
+if [[ $# -gt 0 ]]; then [[ $1 == -- && $# -gt 1 ]] || usage; shift; fi
 CHECK_PORT=4325
 CHECK_ORIGIN=http://127.0.0.1:$CHECK_PORT
 TAG=localhost/songhealth-image-check:${COMMIT:0:7}
@@ -147,6 +152,11 @@ for origin in sys.argv[1:3]:
         failed = True
 sys.exit(1 if failed else 0)
 PY
+
+if (($# > 0)); then
+  note "running while the image serves: $*"
+  CHECK_ORIGIN=$CHECK_ORIGIN CHECK_IMAGE=$TAG CHECK_NETWORK=$NETWORK "$@" || die "the command failed"
+fi
 
 lines=$(podman logs "$CTR" 2>&1)
 note "its log: $(grep -c . <<<"$lines") lines, $(grep -ciE 'error|warn' <<<"$lines" || true) with an error or a warning"

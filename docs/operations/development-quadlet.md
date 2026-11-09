@@ -391,7 +391,7 @@ Runtime results are interpreted only against the commit verify reports.
 ## Production image check
 
 ```bash
-scripts/production-image-check.sh --sha <commit> [<news-path>]
+scripts/production-image-check.sh --sha <commit> [<news-path>] [-- <command> [<arg>...]]
 ```
 
 It builds `deploy/Containerfile` at the commit and shows what production serves, which `astro dev`
@@ -412,6 +412,9 @@ the ADR 0003 revisit of production images.
 - **Output.** It prints how the first picture on a News page is served by the image and by this
   runtime: its declared size, whether `src` is the original or a rendition, and the bytes it
   downloads. The default page is the demo dataset's Featured News.
+- **A command of its own.** After `--`, a command runs while the image serves, with `CHECK_ORIGIN`,
+  `CHECK_IMAGE` and `CHECK_NETWORK` in its environment, and its failure fails the check. ADR 0003's
+  revisit runs `node scripts/measure-page-weight.ts <path>...` this way (#183).
 - **Cleanup.** It removes the container and the image on every exit, pass or fail, and lists any
   image the run added that is still there. Other projects share this image storage, so it never
   removes an image by its age or by a difference in the image list. The image is never deployed or
