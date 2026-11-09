@@ -61,7 +61,8 @@
 //   target drops default_type, so such a row carries only the type decision_type names (spec #174:
 //   only an order carries a type), and plan names an Announcement left without one. plan does not
 //   check the slug against the terms, which only the target runtime holds.
-// - summary: empty, or the Summary staff wrote.
+// - summary: empty, or the Summary staff wrote. plan names the news stream rows of the newest
+//   fiscal year an import would leave without one; an Activity's own text is its Summary.
 //
 // A merge keeps each row's decision, decision_type and summary, and any column reviewers added,
 // and writes every other cell again from the export. It appends the export's new items with their
@@ -225,6 +226,9 @@ async function planCommand(exportPath: string, zipPath: string): Promise<number>
 			.join(", ")}`,
 	);
 	console.log(`Rows still "${TO_CHOOSE}": ${listed(list.toChoose)}`);
+	console.log(
+		`News and Activities of fiscal year ${list.summaryYear} without a Summary: ${listed(list.withoutSummary)}`,
+	);
 	if (list.unreadable.length > 0) {
 		const decisions = list.unreadable.map(({ slug, decision }) => `${slug} "${decision}"`);
 		console.log(`Decisions plan cannot read: ${listed(decisions)}`);

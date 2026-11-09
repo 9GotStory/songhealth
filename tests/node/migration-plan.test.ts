@@ -544,6 +544,67 @@ describe("plan's merge with an earlier list", () => {
 	});
 });
 
+describe("the Summaries plan asks for", () => {
+	// The last instant of 30 September 2026 in Bangkok, and the first of fiscal year 2570.
+	const LAST_OF_2569 = "2026-09-30 16:59:59";
+	const FIRST_OF_2570 = "2026-09-30 17:00:00";
+
+	it("names the newest fiscal year's News and Activities without a Summary", async () => {
+		const earlier = earlierList(
+			"public-new,news-1,1,,2026-10-01,2570,กิจกรรม,,Activity,,,,สรุปกิจกรรม",
+			'public-new,news-2,2,,2026-10-01,2570,กิจกรรม,,Activity,,,,"  "',
+		);
+		const { inventory } = await planOf(
+			[
+				newsItem(5, { categories: [ACTIVITY], date: LAST_OF_2569 }),
+				newsItem(1, { categories: [ACTIVITY], date: FIRST_OF_2570 }),
+				newsItem(2, { categories: [ACTIVITY], date: FIRST_OF_2570 }),
+				newsItem(3, { categories: [PUBLIC_RELATIONS], date: FIRST_OF_2570 }),
+				newsItem(4, { categories: [ACTIVITY], date: FIRST_OF_2570 }),
+			],
+			[],
+			earlier,
+		);
+		assert.equal(inventory.list.summaryYear, 2570);
+		assert.deepEqual(inventory.list.withoutSummary, ["news-2", "news-3", "news-4"]);
+	});
+
+	it("takes an Activity's own text for its Summary, and a News's for its body", async () => {
+		const meta = { editor: "<p>ข้อความเดิม</p>" };
+		const earlier = earlierList(
+			"public-new,news-3,3,,2026-10-01,2570,กิจกรรม,text,Activity,,News,,",
+			"public-new,news-4,4,,2026-10-01,2570,ประชาสัมพันธ์,text,News,,Activity,,",
+		);
+		const { inventory } = await planOf(
+			[
+				newsItem(1, { categories: [ACTIVITY], date: FIRST_OF_2570, meta }),
+				newsItem(2, { categories: [PUBLIC_RELATIONS], date: FIRST_OF_2570, meta }),
+				newsItem(3, { categories: [ACTIVITY], date: FIRST_OF_2570, meta }),
+				newsItem(4, { categories: [PUBLIC_RELATIONS], date: FIRST_OF_2570, meta }),
+			],
+			[],
+			earlier,
+		);
+		assert.deepEqual(inventory.list.withoutSummary.toSorted(), ["news-2", "news-3"]);
+	});
+
+	it("counts a row still ต้องเลือก, and only the news stream's rows the export holds", async () => {
+		const earlier = earlierList("public-new,news-9,9,,2026-11-01,2570,กิจกรรม,,Activity,,,,");
+		const { inventory } = await planOf(
+			[
+				newsItem(1, { categories: [ACTIVITY], title: "ขอเชิญร่วมงาน", date: LAST_OF_2569 }),
+				directive(2, { categories: [ORDER], date: FIRST_OF_2570 }),
+				NOTICE_FILE,
+			],
+			[NOTICE_PATH],
+			earlier,
+		);
+		assert.deepEqual(inventory.list.toChoose, ["news-1"]);
+		assert.equal(inventory.list.summaryYear, 2569);
+		assert.deepEqual(inventory.list.withoutSummary, ["news-1"]);
+	});
+});
+
 describe("plan's inventory", () => {
 	it("counts the items of the types it reads by status, and the pages", async () => {
 		const { inventory } = await planOf([
@@ -792,6 +853,10 @@ describe("the plan command", () => {
 			const first = run("plan", exportPath, zipPath);
 			assert.equal(first.status, 0, first.stderr);
 			assert.match(first.stdout, /Rows still "ต้องเลือก": 1: news-1\n/);
+			assert.match(
+				first.stdout,
+				/News and Activities of fiscal year 2568 without a Summary: 1: news-1\n/,
+			);
 			// A reviewer decides the row and writes its Summary.
 			const list = await readFile(listPath, "utf8");
 			await writeFile(
@@ -801,6 +866,10 @@ describe("the plan command", () => {
 			const second = run("plan", exportPath, zipPath);
 			assert.equal(second.status, 0, second.stderr);
 			assert.match(second.stdout, /Rows still "ต้องเลือก": none\n/);
+			assert.match(
+				second.stdout,
+				/News and Activities of fiscal year 2568 without a Summary: none\n/,
+			);
 			assert.match(await readFile(listPath, "utf8"), /,ต้องเลือก,,News,,สรุปข่าว\r\n/);
 			const inventory = JSON.parse(await readFile(join(folder, "inventory.json"), "utf8"));
 			assert.deepEqual(inventory.export, { file: "export.xml", sha256: await sha256(exportPath) });

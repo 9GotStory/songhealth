@@ -82,8 +82,9 @@ All of them stay outside the repository. A record of this run holds counts, chec
    | `/services` | Services | not checked |
    | Admin → ตั้งค่า (an Administrator) | site settings and the logo; check the header, the footer and the OG image | not checked |
 
-6. **The Classification list and the Summaries (Staff; #182).** Every row reviewed, no ต้องเลือก left,
-   and a Summary for each News and Activity of the current fiscal year.
+6. **The Classification list and the Summaries (Staff, with the Product Owner; #182).** Every ต้องเลือก
+   row decided, the other rows at their default unless a reviewer changes them, and a Summary for
+   each News and Activity of the current fiscal year.
 7. **ANOM-001 (Product Owner).** The office confirms that `anom-001.pdf` is the document, and the
    confirmation is recorded on #180: the legacy label names four documents and the PDF holds only the
    National Strategy. Without the file a run links `ANOM_001_SOURCE`, an address nobody has confirmed,
@@ -126,7 +127,7 @@ verify 40 to 46 s (`astro dev`, so these are not production's figures).
 
    `plan` keeps every decision and Summary and appends new items at their defaults. Read its lines
    `Rows added to the earlier list`, `Items no longer in the export`, `Rows still "ต้องเลือก"`,
-   `Decisions plan cannot read` and `Announcements without a type`. `No earlier list: every row starts
+   `News and Activities of fiscal year … without a Summary`, `Decisions plan cannot read` and `Announcements without a type`. `No earlier list: every row starts
    at its default` means the reviewed list is not there: stop, put it back from the copy or from
    "Before cutover" step 8, and run `plan` again.
 4. **Only published items (Operator).** `inventory.json`'s `items` counts each type by WordPress
@@ -137,7 +138,8 @@ verify 40 to 46 s (`astro dev`, so these are not production's figures).
 5. **Review the new rows (Staff, then Operator).** The Operator hands `classification-list.csv` to
    staff over the private channel of "Before cutover" step 8. Staff decide every new row and write the
    Summaries of new items of the current fiscal year, saved as UTF-8 CSV. The Operator puts it back and runs
-   step 3's `plan` again: it confirms the list still merges, and `Rows still "ต้องเลือก"` is empty.
+   step 3's `plan` again: it confirms the list still merges, and both `Rows still "ต้องเลือก"` and
+   `News and Activities of fiscal year … without a Summary` read `none`.
 6. **The dry run (Operator).** It needs no token and reaches no target:
 
    ```bash
