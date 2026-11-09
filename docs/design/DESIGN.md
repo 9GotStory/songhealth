@@ -3,7 +3,7 @@
 > **Status:** v1.1, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190 as its tickets are implemented. Feature 007 acceptance
 > remains the Product Owner's decision.
-> **Updated:** 2026-11-09 (Feature 007 #191–#195); first drafted 2026-10-30
+> **Updated:** 2026-11-09 (Feature 007 #191–#196); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -22,7 +22,9 @@
 > Quick Access B below 640 px keeps two cards to a row, with the label above and the arrow on a
 > separate lower-right row; the accepted taller cards replace the crowding limit (§7.3, §10).
 > Titles also keep "ร้องเรียน" on one line, through the shared list and its existing scope (§4.1).
-> This amendment implements #191–#195;
+> Pagination B below 640 px centers the page number above Previous-left and Next-right; the taller
+> phone pager is an accepted tradeoff (§7.6).
+> This amendment implements #191–#196;
 > the other selected refinements follow in their tickets.
 
 ## 1. Scope, authority and status
@@ -324,6 +326,27 @@ this document names:
 - The public-browser suite covers long and short labels at 320/375/639/640/1440 px, ancestor
   destinations, H1, clipping, keyboard navigation, axe, reflow and JavaScript-disabled pages.
 
+### 7.6 Pagination
+
+`src/components/Pagination.astro` (#196; spec #190 “Pagination”; Product Owner, #190 comment
+6707205912, Pagination B) serves every paged list and search:
+
+- Below 640 px, “หน้า N” is centered on a row of its own. Below it, Previous starts at the left
+  and Next ends at the right, in two columns sized to their contents, so both labels keep one line
+  at 320 px with `text-label` type, 20 px side padding and the 44 px height. With both links, the
+  pager is 82 px tall (a 22 px line, the 16 px gap and the links), where one row is 44 px; that
+  height is the accepted tradeoff for the same placement at every phone width.
+- From 640 px the number and links share one row, with Previous at the left, Next at the right and
+  even space around the number.
+- Previous appears only after page 1, and Next only when another page exists; page 1 with no other
+  page has no pager. The pager has no disabled link and no total page count, since a list knows
+  only whether a further page exists.
+- The links are native and work without JavaScript. Each keeps the page's other query parameters
+  and changes only `page`, and page 1's address carries no page number (`src/lib/pagination.ts`).
+- The public-browser suite covers real first, middle, last and single-page results at 320, 375,
+  639, 640, 768, 1,024 and 1,440 px, filtered and search navigation, keyboard use, axe, reflow and
+  JavaScript-disabled pages.
+
 ## 8. Homepage
 
 Source: `current/04-homepage.md` v2.6 and `current/03-sitemap.md` v2.6. The sections, in `04` §3's
@@ -598,3 +621,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - **v1.1 Thai-title word (2026-11-09, Feature 007 #195):** "ร้องเรียน" joins §4.1's list, which
   had held spec #144's 26 words, following #190 comment 6707205912 (Q22). Matching, characters and
   where the rule applies remain.
+- **v1.1 pagination refinement (2026-11-09, Feature 007 #196):** below 640 px the page number's
+  centered row above Previous-left and Next-right, in content-sized columns (§7.6), following #190
+  comment 6707205912, Pagination B. Below 640 px the pager had been one row where it fit, wrapping
+  otherwise; the phone height tradeoff is in #196's pull request. Which links show, their query
+  handling and the layout from 640 px remain.

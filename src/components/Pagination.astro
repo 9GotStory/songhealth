@@ -3,7 +3,9 @@
 // travels in the query string with the list's other parameters, so the links work without
 // JavaScript and can be shared. The list knows only whether a further page exists, not how many
 // there are. The chevron-left and chevron-right icons are decorative
-// (docs/agents/lucide-astro-1.59.0.md): the labels name the links.
+// (docs/agents/lucide-astro-1.59.0.md): the labels name the links. Below 640 px the number takes
+// a centered row above Previous and Next, in columns sized to their contents so that both labels
+// keep one line at 320 px (#196; spec #190 "Pagination"; Product Owner, #190 comment 6707205912).
 import ChevronLeft from "@lucide/astro/icons/chevron-left";
 import ChevronRight from "@lucide/astro/icons/chevron-right";
 import { pageHref } from "../lib/pagination";
@@ -20,8 +22,8 @@ const linkClasses =
 
 {(page > 1 || hasMore) && (
 	<nav aria-label="การแบ่งหน้า">
-		<ul class="flex flex-wrap items-center justify-between gap-4">
-			<li>
+		<ul class="flex flex-wrap items-center justify-between gap-4 max-sm:grid max-sm:grid-cols-[auto_auto]">
+			<li class="max-sm:col-start-1 max-sm:row-start-2">
 				{page > 1 && (
 					<a class={linkClasses} rel="prev" href={pageHref(Astro.url, page - 1)}>
 						<ChevronLeft class="shrink-0" size={16} />
@@ -29,8 +31,10 @@ const linkClasses =
 					</a>
 				)}
 			</li>
-			<li class="text-label text-text-secondary">หน้า {page}</li>
-			<li>
+			<li class="text-label text-text-secondary max-sm:col-span-2 max-sm:row-start-1 max-sm:text-center">
+				หน้า {page}
+			</li>
+			<li class="max-sm:col-start-2 max-sm:row-start-2">
 				{hasMore && (
 					<a class={linkClasses} rel="next" href={pageHref(Astro.url, page + 1)}>
 						หน้าถัดไป
