@@ -440,7 +440,9 @@ the ADR 0003 revisit of production images.
 A window takes the runtime's data away for a while and brings it back: a backup, the change, such
 as removing the demo dataset and importing the migration's trial, then a restore (#178 retro).
 Every session shares this runtime, and a promotion during a window leaves a backup the restore
-refuses, so a window holds the runtime:
+refuses, so a window holds the runtime. A script the window runs for the first time runs once on
+the demo dataset and goes through review before the window opens, since a wrong number found after
+the restore costs another window (#183 retro):
 
 1. Check that no suite is running, which the lock cannot see: `pgrep -f '^node .*playwright'` prints
    nothing. Then `scripts/dev-runtime-window.sh open "<why>"` writes the lock.
