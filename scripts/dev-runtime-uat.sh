@@ -6,7 +6,7 @@
 # configuration stays untouched. Both run as rootless Podman containers on the host network while
 # the UAT lasts; stop removes them and the node. The steps are in
 # docs/operations/development-quadlet.md "Thai search UAT through a Tailscale Funnel".
-#   scripts/dev-runtime-uat.sh start            # the proxy, its check, then the node; prints the URL
+#   scripts/dev-runtime-uat.sh start            # the proxy, its check, the node's login link, the URL
 #   scripts/dev-runtime-uat.sh check [<origin>] # the proxy's rules at <origin>, by default the proxy
 #   scripts/dev-runtime-uat.sh stop             # the node leaves the tailnet; both containers go
 #   scripts/dev-runtime-uat.sh status
@@ -17,8 +17,6 @@ umask 077
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)  # the checkout whose proxy runs
 UAT_DIR=$STATE_DIR/uat                                 # the node's serve config, the host's status
-AUTH_KEY=$STATE_DIR/uat-tailscale-authkey              # written by the Product Owner, 0600
-AUTH_KEY_SECRET=songhealth-uat-tailscale-authkey
 PROXY_CTR=songhealth-uat-proxy
 NODE_CTR=songhealth-uat-tailscale
 UAT_LABEL=io.songhealth.runtime=uat
@@ -108,7 +106,7 @@ node_json() { # node_json — the UAT node's `tailscale status --json`
   podman exec "$NODE_CTR" tailscale --socket="$NODE_SOCKET" status --json
 }
 
-stop_all() { # stop_all — the node leaves the tailnet, then both containers and the key's secret go
+stop_all() { # stop_all — the node leaves the tailnet, then both containers go
   # An ephemeral node that logs out is deleted from the tailnet at once.
   if node_running; then
     podman exec "$NODE_CTR" tailscale --socket="$NODE_SOCKET" logout >/dev/null 2>&1 \
@@ -121,19 +119,14 @@ stop_all() { # stop_all — the node leaves the tailnet, then both containers an
     podman logs "$PROXY_CTR" > "$PROXY_LOG" 2>&1 || :
     podman rm -f -t 10 "$PROXY_CTR" >/dev/null
   fi
-  podman secret exists "$AUTH_KEY_SECRET" && podman secret rm "$AUTH_KEY_SECRET" >/dev/null
   rm -rf "$UAT_DIR/serve" "$UAT_DIR/url"
 }
 
 start() {
-  local key_mode i url ctr
+  local i state login='' url='' ctr
   for ctr in "$PROXY_CTR" "$NODE_CTR"; do
     ! podman container exists "$ctr" || die "$ctr exists: run '${0##*/} stop' first"
   done
-  [[ -f $AUTH_KEY && ! -L $AUTH_KEY && -s $AUTH_KEY ]] \
-    || die "no auth key at $AUTH_KEY: the Product Owner writes an ephemeral, single-use key there"
-  key_mode=$(stat -c '%a %u' "$AUTH_KEY")
-  [[ $key_mode == "600 $(id -u)" ]] || die "$AUTH_KEY must be yours with mode 0600 (it is $key_mode)"
   serves_marker "$ORIGIN" || die "the runtime does not answer at $ORIGIN"
   [[ -z $(ss -Hltn "sport = :$PROXY_PORT") ]] || die "port $PROXY_PORT is in use"
   install -d -m 0700 "$UAT_DIR" "$UAT_DIR/serve"
@@ -154,31 +147,36 @@ start() {
     || { stop_all; die "the proxy listens beyond loopback"; }
   check "$PROXY" || { stop_all; die "the proxy failed its check: nothing is public"; }
 
-  podman secret create "$AUTH_KEY_SECRET" "$AUTH_KEY" >/dev/null
   # shellcheck disable=SC2016  # ${TS_CERT_DOMAIN} is containerboot's placeholder for the node's name
   printf '%s\n' '{"TCP":{"443":{"HTTPS":true}},"Web":{"${TS_CERT_DOMAIN}:443":{"Handlers":{"/":{"Proxy":"'"$PROXY"'"}}}},"AllowFunnel":{"${TS_CERT_DOMAIN}:443":true}}' \
     > "$UAT_DIR/serve/serve.json"
   # No TS_STATE_DIR: containerboot then runs tailscaled with --state=mem:, which registers the node
-  # as ephemeral (tailscale v1.104.4 cmd/containerboot/tailscaled.go, cmd/tailscaled/tailscaled.go).
-  # TS_AUTHKEY=file: names the key's path, never its value: containerboot passes it to
-  # `tailscale up --authkey`, which reads the file (cmd/tailscale/cli/cli.go, cmd/tailscale/cli/up.go).
+  # as ephemeral, an interactive login included (tailscale v1.104.4 cmd/containerboot/tailscaled.go,
+  # cmd/tailscaled/tailscaled.go). With no TS_AUTHKEY the node waits for someone to open its login
+  # link and approve it in the tailnet's account (the Product Owner's decision, #238 comment
+  # 6763361252, item 1).
   podman run -d --name "$NODE_CTR" --label "$UAT_LABEL" --network host --read-only --cap-drop all \
     --security-opt no-new-privileges --security-opt label=disable \
-    --secret "$AUTH_KEY_SECRET,type=mount,target=/run/secrets/ts-authkey,mode=0400" \
-    -e TS_AUTHKEY=file:/run/secrets/ts-authkey -e TS_HOSTNAME="$NODE_NAME" -e TS_USERSPACE=true \
+    -e TS_HOSTNAME="$NODE_NAME" -e TS_USERSPACE=true \
     -e TS_SERVE_CONFIG=/config/serve.json -v "$UAT_DIR/serve:/config:ro" \
     "$NODE_IMAGE" >/dev/null
-  for (( i = 0; i < 90; i++ )); do
-    url=$(node_json 2>/dev/null | python3 -I -c '
+  for (( i = 0; i < 300; i++ )); do  # ten minutes for the approval
+    state=$(node_json 2>/dev/null | python3 -I -c '
 import json, sys
 status = json.load(sys.stdin)
 if status.get("BackendState") == "Running":
-    print("https://" + status["Self"]["DNSName"].rstrip("."))
-' 2>/dev/null) && [[ -n $url ]] && break
+    print("up https://" + status["Self"]["DNSName"].rstrip("."))
+elif status.get("AuthURL"):
+    print("login " + status["AuthURL"])
+' 2>/dev/null) || state=
+    case $state in
+      up\ *) url=${state#up }; break ;;
+      login\ *) [[ -n $login ]] || { login=${state#login }; note "approve the node in Tailscale: $login"; } ;;
+    esac
     node_running || { podman logs --tail 20 "$NODE_CTR" >&2 || :; stop_all; die "the Tailscale node stopped"; }
     sleep 2
   done
-  [[ -n ${url:-} ]] || { podman logs --tail 20 "$NODE_CTR" >&2 || :; stop_all; die "the node did not join the tailnet"; }
+  [[ -n $url ]] || { stop_all; die "the node was not approved within ten minutes: nothing is public"; }
   printf '%s\n' "$url" > "$UAT_DIR/url"
   note "the UAT node is up: $url"
   note "a new Funnel name can take some minutes to resolve: '${0##*/} check $url' checks it"
@@ -187,7 +185,7 @@ if status.get("BackendState") == "Running":
 stop() {
   local now
   stop_all
-  note "the UAT node, its proxy and the key's secret are gone"
+  note "the UAT node and its proxy are gone"
   [[ -z ${PROXY_LOG:-} ]] || note "the proxy's log: $PROXY_LOG"
   [[ -f $UAT_DIR/host-serve-before.json ]] || { warn "no saved Serve status to compare"; return; }
   now=$(tailscale serve status --json) || die "could not read this host's Tailscale Serve status"

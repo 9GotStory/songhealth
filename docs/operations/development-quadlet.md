@@ -487,23 +487,17 @@ checkout that holds it, starts and stops two containers on the host network, lab
   Its state lives in memory, so it never outlives the container. This host's own Serve and Funnel
   configuration, which holds 443, 8443 and 10000, stays untouched.
 
-**Setup, by the Product Owner, before each `start`.** In the Tailscale admin console, Settings → Keys
-→ Generate auth key: not reusable, ephemeral, pre-approved when device approval is on, no tags, and
-expiring in a day. The tailnet's Funnel attribute must cover the key's owner. In your own terminal,
-not in the chat, run this and paste the key:
-
-```bash
-(umask 077; read -rs KEY && printf '%s\n' "$KEY" > ~/.local/state/songhealth-qdev/uat-tailscale-authkey)
-```
-
-A key works once. `start` checks the file is yours with mode 0600 and hands it to the node as a
-podman secret, so its value reaches no argument, log or output.
+**Joining the tailnet.** The node takes no auth key. It prints a login link, and the Product Owner
+opens it in a browser signed in to the tailnet's Tailscale account and approves the node (#238
+comment 6763361252, item 1). The tailnet's Funnel attribute must cover that account. Every start
+makes a new node, so every start needs the approval again.
 
 **Commands:**
 
 - `scripts/dev-runtime-uat.sh start` saves `tailscale serve status --json`, starts the proxy, and
-  runs `check` against it on loopback. Only when that passes does it start the node, then it prints
-  the URL. Any failure removes what it started.
+  runs `check` against it on loopback. Only when that passes does it start the node. It prints
+  "approve the node in Tailscale: <link>", waits up to ten minutes for the approval, then prints
+  the URL. Any failure, or no approval, removes what it started.
 - `scripts/dev-runtime-uat.sh check <URL>` asks the URL for `/`, `/search?q=วัคซีน`, a topic filter
   of `/news/health`, a picture's `/_image` and its media file. Each must answer 200 with the body that
   loopback gives, random ids aside. It also asks for `/_emdash/admin`, both dev-bypass routes,
@@ -513,7 +507,7 @@ podman secret, so its value reaches no argument, log or output.
   `UAT CHECK: PASS` or `FAIL`. A new Funnel name can take some minutes to resolve.
 - `scripts/dev-runtime-uat.sh stop` logs the node out, which deletes an ephemeral node from the
   tailnet at once. It saves the proxy's log under `~/.local/state/songhealth-qdev/uat/` and prints
-  its path, removes both containers and the secret, and compares this host's Serve status with the
+  its path, removes both containers, and compares this host's Serve status with the
   one `start` saved.
 - `scripts/dev-runtime-uat.sh status` lists the containers and the URL.
 
