@@ -1,8 +1,10 @@
 // What the Thai search UAT's proxy forwards to the development runtime (#238; the Product Owner's
 // decisions in #238 comment 6762442208). The proxy answers the public internet through a Tailscale
 // Funnel, while the runtime runs `astro dev`, where anyone who reaches `auth/dev-bypass` is signed
-// in as an administrator. scripts/uat-proxy.ts serves these rules. The module imports nothing, so
-// node:test checks it directly (tests/node/uat-proxy.test.ts).
+// in as an administrator. Beyond the ticket's list, it refuses `/_image` of any other href, encoded
+// ASCII and dot segments, the dev server's own paths, and identity headers, on the Product Owner's
+// decision (#238 comment 6763214587, item 1). scripts/uat-proxy.ts serves these rules. The module
+// imports nothing, so node:test checks it directly (tests/node/uat-proxy.test.ts).
 
 /** What the proxy does with one request: forward it to `path` upstream, or answer `status`. */
 export type Decision =
