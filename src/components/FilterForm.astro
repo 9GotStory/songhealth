@@ -2,7 +2,10 @@
 // A list's filter form (Feature 003 #54, #57; spec #51 "Lists and filters"). It is a plain GET
 // form, so it works without JavaScript and the chosen filters stay in the address. Submitting
 // starts the list again from its first page, since the form carries no page number. A field is a
-// select of options, or a text field such as the directory's name.
+// select of options, or a text field such as the directory's name. The clear link opens the
+// unfiltered list, and shows only while the server has a filter applied, never for a draft change.
+// It is soft at rest and white on hover, the reverse of ActionLink's secondary (Feature 007 #197;
+// Product Owner, #190 comment 6707205912, FilterForm B).
 interface Option {
 	value: string;
 	label: string;
@@ -83,7 +86,10 @@ const control =
 			แสดงผล
 		</button>
 		{filtered && (
-			<a class="text-label text-brand-primary underline underline-offset-4" href={action}>
+			<a
+				class="inline-flex min-h-11 items-center rounded-pill border border-border-input bg-surface-soft px-6 text-label text-brand-primary hover:bg-surface-base"
+				href={action}
+			>
 				ล้างตัวกรอง
 			</a>
 		)}
