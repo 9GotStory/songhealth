@@ -64,13 +64,20 @@ describe("UAT proxy: /_emdash", () => {
 });
 
 describe("UAT proxy: the Vite server's own paths", () => {
-	it("forwards a path that only starts with the same letters", () => {
-		for (const target of ["/media-centre", "/mediation", "/__open-in-editors"]) {
+	it("forwards the dev server's paths a public page loads, and a path that only starts the same", () => {
+		for (const target of [
+			"/@vite/client",
+			"/node_modules/vite/dist/client/env.mjs",
+			"/src/styles/global.css?direct",
+			"/_astro/fonts/font-noto-sans-thai-400-normal-8a1ab9da7e233587.woff2",
+			"/media-centre",
+			"/mediation",
+		]) {
 			assert.deepEqual(decide("GET", target), { forward: true, path: target }, target);
 		}
 	});
 
-	it("refuses the media store as Vite serves it and Vite's open-in-editor route", () => {
+	it("refuses the media store as Vite serves it, and every other path only the dev server answers", () => {
 		for (const target of [
 			"/media",
 			"/media/",
@@ -80,10 +87,17 @@ describe("UAT proxy: the Vite server's own paths", () => {
 			"/__open-in-editor",
 			"/__open-in-editor?file=astro.config.mjs",
 			"/__open-in-editor/x",
+			"/@fs/src/media/01M6NDD56KWYA3M3218QYMR6GR.jpg",
+			"/@FS/src/media/01M6NDD56KWYA3M3218QYMR6GR.jpg?raw",
+			"/@id//src/media/01M6NDD56KWYA3M3218QYMR6GR.jpg?raw",
+			"/@vite/env",
+			"/@vite/client/x",
+			"/__vite_ping",
+			"/__feature002/public-reads",
 		]) {
 			assert.deepEqual(
 				decide("GET", target),
-				{ forward: false, status: 403, reason: "the Vite server's own paths are not public" },
+				{ forward: false, status: 403, reason: "the dev server's own paths are not public" },
 				target,
 			);
 		}
@@ -92,8 +106,9 @@ describe("UAT proxy: the Vite server's own paths", () => {
 
 describe("UAT proxy: targets", () => {
 	it("forwards a path with Thai characters percent-encoded, as browsers send it", () => {
-		const thai = "/news/%E0%B8%82%E0%B9%88%E0%B8%B2%E0%B8%A7?page=2";
-		assert.deepEqual(decide("GET", thai), { forward: true, path: thai });
+		for (const target of ["/news/%E0%B8%82%E0%B9%88%E0%B8%B2%E0%B8%A7?page=2", "/news/%80"]) {
+			assert.deepEqual(decide("GET", target), { forward: true, path: target }, target);
+		}
 	});
 
 	it("refuses a target that is not a plain path, or that a server would read as another path", () => {
@@ -120,6 +135,7 @@ describe("UAT proxy: targets", () => {
 			"/_%69mage?href=%2F_emdash%2Fapi%2Fsetup%2Fdev-bypass&w=64",
 			"/news/%41",
 			"/news/%7e",
+			"/news/%7F",
 		]) {
 			assert.deepEqual(
 				decide("GET", target),

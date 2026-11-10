@@ -71,16 +71,22 @@ function isPlainPath(path: string): boolean {
 }
 
 /**
- * Paths the runtime's Vite server answers itself, which no public page loads: the media store,
- * which the runtime keeps inside Vite's root (docs/operations/development-quadlet.md) and Vite then
- * serves outside EmDash's media route and its checks, and Vite 8.3.3's `/__open-in-editor`, which
- * starts a program on the server (vite dist/node/chunks/node.js).
+ * Whether `path`, in lower case, is one only the runtime's dev server answers and no public page
+ * loads. Vite 8.3.3 serves any file under its root, `/src` in the runtime, by its path and by
+ * `/@fs/` and `/@id/` (vite dist/node/chunks/node.js `serveStaticMiddleware`,
+ * `serveRawFsMiddleware`, `VALID_ID_PREFIX`), and the runtime keeps the media store at `/src/media`
+ * (deploy/dev-quadlet/songhealth-dev-app.container), so it would serve stored files outside
+ * EmDash's media route and its checks. Its `/__open-in-editor` starts a program on the server. A
+ * page loads only `/@vite/client` of these.
  */
-const VITE_PATHS = ["/media", "/__open-in-editor"];
-
-/** Whether `path`, in lower case, is `prefix` or a path under it. */
-function isUnder(path: string, prefix: string): boolean {
-	return path === prefix || path.startsWith(`${prefix}/`);
+function isDevServerPath(path: string): boolean {
+	if (path === "/@vite/client") return false;
+	return (
+		path.startsWith("/@") ||
+		path.startsWith("/__") ||
+		path === "/media" ||
+		path.startsWith("/media/")
+	);
 }
 
 /** What the proxy does with a request of `method` for `target`, its request line's target. */
@@ -103,8 +109,8 @@ export function decide(method: string, target: string): Decision {
 			return { forward: false, status: 403, reason: "/_image answers only media files" };
 		}
 	}
-	if (VITE_PATHS.some((prefix) => isUnder(path.toLowerCase(), prefix))) {
-		return { forward: false, status: 403, reason: "the Vite server's own paths are not public" };
+	if (isDevServerPath(path.toLowerCase())) {
+		return { forward: false, status: 403, reason: "the dev server's own paths are not public" };
 	}
 	return { forward: true, path: target };
 }
