@@ -154,10 +154,11 @@ start() {
   # as ephemeral, an interactive login included (tailscale v1.104.4 cmd/containerboot/tailscaled.go,
   # cmd/tailscaled/tailscaled.go). With no TS_AUTHKEY the node waits for someone to open its login
   # link and approve it in the tailnet's account (the Product Owner's decision, #238 comment
-  # 6763361252, item 1).
+  # 6763361252, item 1). TS_BOOT_TIMEOUT, 60 s by default (cmd/containerboot/settings.go), gives that
+  # approval the same ten minutes the loop below waits.
   podman run -d --name "$NODE_CTR" --label "$UAT_LABEL" --network host --read-only --cap-drop all \
     --security-opt no-new-privileges --security-opt label=disable \
-    -e TS_HOSTNAME="$NODE_NAME" -e TS_USERSPACE=true \
+    -e TS_HOSTNAME="$NODE_NAME" -e TS_USERSPACE=true -e TS_BOOT_TIMEOUT=10m \
     -e TS_SERVE_CONFIG=/config/serve.json -v "$UAT_DIR/serve:/config:ro" \
     "$NODE_IMAGE" >/dev/null
   for (( i = 0; i < 300; i++ )); do  # ten minutes for the approval
