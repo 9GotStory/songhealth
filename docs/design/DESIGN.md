@@ -1,9 +1,9 @@
 # Songhealth — Design System & Public UI Contract
 
 > **Status:** v1.1, current. Feature 006's design was accepted on #144; Feature 007's
-> bounded refinements follow spec #190 as its tickets are implemented. Feature 007 acceptance
+> bounded refinements follow spec #190, implemented by #191–#198. Feature 007 acceptance
 > remains the Product Owner's decision.
-> **Updated:** 2026-11-10 (Feature 007 #191–#197); first drafted 2026-10-30
+> **Updated:** 2026-11-10 (Feature 007 #191–#198); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -26,8 +26,10 @@
 > it adds where one row fit is an accepted tradeoff (§7.6).
 > FilterForm B makes "ล้างตัวกรอง" an outlined soft secondary pill, as tall as "แสดงผล" at every width;
 > it stays a native link to the unfiltered list, shown only for applied filters (§7.7).
-> This amendment implements #191–#197;
-> the other selected refinements follow in their tickets.
+> Empty Post page row B: a News or Health Content post with no body, source or topics ends with
+> whichever of its header and its picture's link ends lower, without the empty row and its 2 rem
+> gap; the rest of the post layout remains (§9.1, §10).
+> This amendment implements #191–#198.
 
 ## 1. Scope, authority and status
 
@@ -485,16 +487,22 @@ static marketing content.
   as a One Page's text is an image (grill Q14; `05` §5.1).
 - **From `lg`, a post with a picture reads in two columns** (`PostColumns.astro`):
   - on the left, the page's text in its order: the header, then an Activity's details card, or a
-    News or Health Content post's body, source and topics;
+    News or Health Content post's body, source and topics, each only when the post has it, 2 rem
+    under the header;
   - on the right, a 28 rem column, 48 px from the text, with the picture whole and
     "เปิดภาพขนาดเต็ม", a link to the file as it was uploaded;
   - the picture is sticky 1.5 rem from the top: it stays in view while the left column scrolls and
     stops at the end of the two columns. Anything full width, such as an Activity's photos, comes
     after them, so the picture never covers it.
 - **Below `lg`**, one column in the page's order: the header, the picture, then the body, source
-  and topics (News, Health Content); the header, the details, the picture, then the photos
-  (Activity). "เปิดภาพขนาดเต็ม" shows at every width (Product Owner, #147 comment 6634124888
-  item 1). A post without a picture keeps one column.
+  and topics the post has, 2 rem apart (News, Health Content); the header, the details, the
+  picture, then the photos (Activity). "เปิดภาพขนาดเต็ม" shows at every width (Product Owner, #147
+  comment 6634124888 item 1). A post without a picture keeps one column.
+- **A News or Health Content post with no body, source or topics** ends with whichever of its
+  header and its picture's link ends lower; below `lg` that is the link, which follows the header.
+  No empty row or 2 rem gap follows (#190 comment 6707205912, Empty Post page row B). A difference
+  in height between the picture and the text, and the shell's minimum page height, still leave
+  their own space.
 - The other detail templates, such as Announcement, Document and Service, keep their layout.
 
 ### 9.2 An Activity's photos
@@ -550,11 +558,9 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - **A compact Quick Link card's height** grows with its label (§7.3), the taller proportions
   accepted with Quick Access B (#190 comment 6707205912).
 - **The phone Homepage's height** moves with the titles and the number of items (§8.2).
-- **Post pages** (#147 comment 6634124888 items 2 and 4):
+- **Post pages** (#147 comment 6634124888 item 2):
   - the picture follows only while the left column is the longer;
-  - a picture taller than the window shows its lower part as the block ends;
-  - a News or Health Content post with no body, source or topics keeps an empty row and its 2 rem
-    gap, seen only when its header is taller than its picture.
+  - a picture taller than the window shows its lower part as the block ends.
 - **A gallery in a News body** does not fold, and EmDash's Edit mode shows it as a placeholder
   (§9.3).
 - **A focal point or alt text** set in the media library after staff picked a picture may not
@@ -660,3 +666,11 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   secondary pill beside the solid primary (§7.7), following #190 comment 6707205912, FilterForm B.
   It had been an underlined text link. When it shows, where it goes, the GET query and the form's
   wrapping remain.
+- **v1.1 Post page empty row (2026-11-10, Feature 007 #198):** a News or Health Content post with
+  no body, source or topics leaves out its trailing row and the 2 rem gap before it (§9.1),
+  following #190 comment 6707205912, Empty Post page row B. This replaces the limit §10 held from
+  #147 comment 6634124888 item 4, where such a post kept an empty row and its gap: 32 px after its
+  last part at 320 px, and at 1440 px where the header was taller than the picture, which #198's
+  `tests/browser/public-posts.spec.ts` measured on the runtime at `33ecdf0` (#198's pull request).
+  The two columns from 1024 px, the 28 rem picture column, the whole picture, "เปิดภาพขนาดเต็ม", the
+  sticky picture and an Activity's photos remain.
