@@ -18,12 +18,11 @@ describe("UAT proxy: methods", () => {
 
 	it("refuses every method but GET and HEAD", () => {
 		for (const method of ["POST", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "CONNECT", "get"]) {
-			assert.equal(decide(method, "/").forward, false, method);
-			assert.deepEqual(decide(method, "/"), {
-				forward: false,
-				status: 405,
-				reason: "only GET and HEAD are answered",
-			});
+			assert.deepEqual(
+				decide(method, "/"),
+				{ forward: false, status: 405, reason: "only GET and HEAD are answered" },
+				method,
+			);
 		}
 	});
 });
@@ -64,6 +63,33 @@ describe("UAT proxy: /_emdash", () => {
 	});
 });
 
+describe("UAT proxy: the Vite server's own paths", () => {
+	it("forwards a path that only starts with the same letters", () => {
+		for (const target of ["/media-centre", "/mediation", "/__open-in-editors"]) {
+			assert.deepEqual(decide("GET", target), { forward: true, path: target }, target);
+		}
+	});
+
+	it("refuses the media store as Vite serves it and Vite's open-in-editor route", () => {
+		for (const target of [
+			"/media",
+			"/media/",
+			"/media/01M6NDD56KWYA3M3218QYMR6GR.jpg",
+			"/MEDIA/01M6NDD56KWYA3M3218QYMR6GR.jpg",
+			"/media/.songhealth-qdev-media-store",
+			"/__open-in-editor",
+			"/__open-in-editor?file=astro.config.mjs",
+			"/__open-in-editor/x",
+		]) {
+			assert.deepEqual(
+				decide("GET", target),
+				{ forward: false, status: 403, reason: "the Vite server's own paths are not public" },
+				target,
+			);
+		}
+	});
+});
+
 describe("UAT proxy: targets", () => {
 	it("forwards a path with Thai characters percent-encoded, as browsers send it", () => {
 		const thai = "/news/%E0%B8%82%E0%B9%88%E0%B8%B2%E0%B8%A7?page=2";
@@ -88,6 +114,12 @@ describe("UAT proxy: targets", () => {
 			"/news#x",
 			"/_emdash/api/media/file/..",
 			"/_emdash/api/media/file/%2e%2e",
+			// A percent-encoded ASCII character, which the runtime decodes before it routes.
+			"/_%65mdash/api/setup/dev-bypass",
+			"/%5Femdash/admin",
+			"/_%69mage?href=%2F_emdash%2Fapi%2Fsetup%2Fdev-bypass&w=64",
+			"/news/%41",
+			"/news/%7e",
 		]) {
 			assert.deepEqual(
 				decide("GET", target),

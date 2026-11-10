@@ -52,20 +52,35 @@ function isMediaFileHref(href: string): boolean {
 }
 
 /**
- * A percent-encoded slash, backslash, dot, NUL or percent sign. A server that decodes one before it
- * routes would read another path than the one checked here, so a target that holds one is refused.
+ * A percent-encoded ASCII character. Astro 7.3.5 decodes a path with `decodeURI`, again until it
+ * stops changing, before it matches a route (astro dist/core/routing/match-request.js
+ * `safeDecodePathname`, dist/core/util/pathname.js `validateAndDecodePathname`), so
+ * `/_%65mdash/admin` reaches the Admin. A path with Thai characters encodes only bytes from 0x80.
  */
-const ENCODED_SEPARATOR = /%(?:2f|5c|2e|00|25)/i;
+const ENCODED_ASCII = /%[0-7][0-9a-f]/i;
 
 /**
- * Whether `path` is one a server routes as written: an origin-form path that names no other host,
- * with no backslash, no `.` or `..` segment and no encoded separator: the WHATWG URL parser leaves
- * it as it is, so no server resolves it to another path.
+ * Whether `path` reaches the route it reads as: an origin-form path that names no other host, with
+ * no backslash, no `.` or `..` segment the URL parser would resolve, and no encoded ASCII character
+ * the runtime would decode.
  */
 function isPlainPath(path: string): boolean {
 	if (!path.startsWith("/") || path.startsWith("//") || path.includes("\\")) return false;
-	if (ENCODED_SEPARATOR.test(path)) return false;
+	if (ENCODED_ASCII.test(path)) return false;
 	return new URL(path, "http://127.0.0.1").pathname === path;
+}
+
+/**
+ * Paths the runtime's Vite server answers itself, which no public page loads: the media store,
+ * which the runtime keeps inside Vite's root (docs/operations/development-quadlet.md) and Vite then
+ * serves outside EmDash's media route and its checks, and Vite 8.3.3's `/__open-in-editor`, which
+ * starts a program on the server (vite dist/node/chunks/node.js).
+ */
+const VITE_PATHS = ["/media", "/__open-in-editor"];
+
+/** Whether `path`, in lower case, is `prefix` or a path under it. */
+function isUnder(path: string, prefix: string): boolean {
+	return path === prefix || path.startsWith(`${prefix}/`);
 }
 
 /** What the proxy does with a request of `method` for `target`, its request line's target. */
@@ -87,6 +102,9 @@ export function decide(method: string, target: string): Decision {
 		if (hrefs.length !== 1 || !isMediaFileHref(hrefs[0])) {
 			return { forward: false, status: 403, reason: "/_image answers only media files" };
 		}
+	}
+	if (VITE_PATHS.some((prefix) => isUnder(path.toLowerCase(), prefix))) {
+		return { forward: false, status: 403, reason: "the Vite server's own paths are not public" };
 	}
 	return { forward: true, path: target };
 }
