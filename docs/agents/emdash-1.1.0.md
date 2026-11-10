@@ -220,6 +220,11 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
     `matchInternalMediaKey`). The production container therefore
     answers `/_image` for media with a sharp rendition, though its pages never ask for one (#67
     comment 6558376075).
+  - Astro 7.3.5's stock endpoint fetches any other relative `href` from the server, on the
+    request's own origin and with its headers (`astro/dist/assets/endpoint/generic.js`). In
+    `astro dev`, `/_image?href=/_emdash/api/setup/dev-bypass&w=64` would therefore call that GET
+    route, which applies the seed again. The Thai search UAT's proxy refuses every `/_image` whose
+    `href` is not a media file (`./scripts/uat-proxy/policy.ts`, #238).
   - The middleware gives `/_image` its storage with no runtime init and no setup probe, so a
     container with no database and no media volume still has storage: a safe key answers 404 with
     nothing fetched (`src/astro/middleware.ts` `isImageEndpointRequest`, `tryGetStorage`; #183
