@@ -477,8 +477,9 @@ checkout that holds it, starts and stops two containers on the host network, lab
 - **`songhealth-uat-proxy`**: `scripts/uat-proxy.ts` on the app unit's Node image, listening on
   `127.0.0.1:4325` only. It answers GET and HEAD alone. It refuses every `/_emdash` path but a
   media file, every `/_image` whose `href` is not a media file, a path with a percent-encoded ASCII
-  character or a dot segment, and the paths only Vite answers: `/media`, which serves the media
-  store outside EmDash's media route, and `/__open-in-editor`. It sends `Host: 127.0.0.1:4324` with
+  character or a dot segment, and the paths only the dev server answers: `/media` and the
+  `/@fs/` paths, which serve the media store outside EmDash's media route, every other `/@` path
+  but `/@vite/client`, and every `/__` path, `/__open-in-editor` among them. It sends `Host: 127.0.0.1:4324` with
   no cookie, credential or forwarding header (`scripts/uat-proxy/policy.ts`), and logs one line
   per request: its time, status, method and target.
 - **`songhealth-uat-tailscale`**: `tailscale/tailscale:v1.104.4` pinned by digest, an ephemeral node
@@ -506,8 +507,8 @@ podman secret, so its value reaches no argument, log or output.
 - `scripts/dev-runtime-uat.sh check <URL>` asks the URL for `/`, `/search?q=วัคซีน`, a topic filter
   of `/news/health`, a picture's `/_image` and its media file. Each must answer 200 with the body that
   loopback gives, random ids aside. It also asks for `/_emdash/admin`, both dev-bypass routes,
-  `/_image` of `setup/dev-bypass`, the picture's file under `/media` and `/__open-in-editor`, each
-  refused with 403, `/_%65mdash/api/setup/dev-bypass`, refused with 400, and `POST /`, refused
+  `/_image` of `setup/dev-bypass`, the picture's file under `/media` and under `/@fs/src/media`,
+  and `/__open-in-editor`, each refused with 403, `/_%65mdash/api/setup/dev-bypass`, refused with 400, and `POST /`, refused
   with 405. Then it checks that the page's own picture addresses name `127.0.0.1:4324`. It ends
   `UAT CHECK: PASS` or `FAIL`. A new Funnel name can take some minutes to resolve.
 - `scripts/dev-runtime-uat.sh stop` logs the node out, which deletes an ephemeral node from the

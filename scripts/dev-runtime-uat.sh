@@ -81,7 +81,7 @@ check() { # check AT — the proxy's rules and pages at the origin AT, against t
   for path in "403 /_emdash/admin" "403 /_emdash/api/auth/dev-bypass" \
     "403 /_emdash/api/setup/dev-bypass" "403 /_image?href=%2F_emdash%2Fapi%2Fsetup%2Fdev-bypass&w=64" \
     "400 /_%65mdash/api/setup/dev-bypass" "403 ${media/\/_emdash\/api\/media\/file/\/media}" \
-    "403 /__open-in-editor"; do
+    "403 ${media/\/_emdash\/api\/media\/file/\/@fs\/src\/media}" "403 /__open-in-editor"; do
     status=${path%% *} path=${path#* }
     got=$(answer "$at$path" "${host[@]}")
     if [[ $got == "$status "* ]]; then pass "GET $path is refused ($status)"
