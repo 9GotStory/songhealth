@@ -26,9 +26,9 @@
 > it adds where one row fit is an accepted tradeoff (§7.6).
 > FilterForm B makes "ล้างตัวกรอง" an outlined soft secondary pill, as tall as "แสดงผล" at every width;
 > it stays a native link to the unfiltered list, shown only for applied filters (§7.7).
-> Empty Post page row B: a News or Health Content post with no body, source or topics ends with its
-> header, or with its picture where that is the taller, without the empty row and its 2 rem gap; the
-> rest of the post layout remains (§9.1, §10).
+> Empty Post page row B: a News or Health Content post with no body, source or topics ends with
+> whichever of its header and its picture's link ends lower, without the empty row and its 2 rem
+> gap; the rest of the post layout remains (§9.1, §10).
 > This amendment implements #191–#198.
 
 ## 1. Scope, authority and status
@@ -498,10 +498,11 @@ static marketing content.
   and topics the post has, 2 rem apart (News, Health Content); the header, the details, the
   picture, then the photos (Activity). "เปิดภาพขนาดเต็ม" shows at every width (Product Owner, #147
   comment 6634124888 item 1). A post without a picture keeps one column.
-- **A News or Health Content post with no body, source or topics** ends with its header, or with
-  its picture's link where the picture is the taller: no empty row or 2 rem gap follows (#190
-  comment 6707205912, Empty Post page row B). A difference in height between the picture and the
-  text, and the shell's minimum page height, still leave their own space.
+- **A News or Health Content post with no body, source or topics** ends with whichever of its
+  header and its picture's link ends lower; below `lg` that is the link, which follows the header.
+  No empty row or 2 rem gap follows (#190 comment 6707205912, Empty Post page row B). A difference
+  in height between the picture and the text, and the shell's minimum page height, still leave
+  their own space.
 - The other detail templates, such as Announcement, Document and Service, keep their layout.
 
 ### 9.2 An Activity's photos
@@ -669,7 +670,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   no body, source or topics leaves out its trailing row and the 2 rem gap before it (§9.1),
   following #190 comment 6707205912, Empty Post page row B. This replaces the limit §10 held from
   #147 comment 6634124888 item 4, where such a post kept an empty row and its gap: 32 px after its
-  last part at every width, seen from `lg` only when the header was taller than the picture
-  (`tests/browser/public-posts.spec.ts` on `33ecdf0`). The two columns from 1024 px, the 28 rem
-  picture column, the whole picture, "เปิดภาพขนาดเต็ม", the sticky picture and an Activity's photos
-  remain.
+  last part at 320 px, and at 1440 px where the header was taller than the picture, which #198's
+  `tests/browser/public-posts.spec.ts` measured on the runtime at `33ecdf0` (#198's pull request).
+  The two columns from 1024 px, the 28 rem picture column, the whole picture, "เปิดภาพขนาดเต็ม", the
+  sticky picture and an Activity's photos remain.

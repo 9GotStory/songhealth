@@ -49,15 +49,15 @@ const PICTURE_SIZES = "(min-width: 64rem) 28rem, (min-width: 48rem) 48rem, 100vw
 
 const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
 const fullSizeHref = image && mediaFileHref(image, Astro.locals.emdash);
-const body = await Astro.slots.render("body");
-const hasBody = Boolean(body?.trim());
+const bodyHtml = await Astro.slots.render("body");
+const showsBody = Boolean(bodyHtml?.trim());
 ---
 
 <div
 	class:list={[
 		"flex flex-col gap-8",
 		image && "lg:grid lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-start lg:gap-x-12",
-		image && hasBody && "lg:grid-rows-[auto_1fr]",
+		image && showsBody && "lg:grid-rows-[auto_1fr]",
 	]}
 >
 	<div class="flex flex-col gap-8 lg:col-start-1">
@@ -67,7 +67,7 @@ const hasBody = Boolean(body?.trim());
 		<div
 			class:list={[
 				"flex flex-col gap-2 lg:sticky lg:top-6 lg:col-start-2 lg:row-start-1",
-				hasBody && "lg:row-span-2",
+				showsBody && "lg:row-span-2",
 			]}
 		>
 			<Image
@@ -79,9 +79,9 @@ const hasBody = Boolean(body?.trim());
 			{fullSizeHref && <ArrowLink href={fullSizeHref}>เปิดภาพขนาดเต็ม</ArrowLink>}
 		</div>
 	)}
-	{hasBody && (
+	{showsBody && (
 		<div class="lg:col-start-1">
-			<Fragment set:html={body} />
+			<Fragment set:html={bodyHtml} />
 		</div>
 	)}
 </div>

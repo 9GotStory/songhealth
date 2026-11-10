@@ -136,8 +136,8 @@ const LAYOUT_VIEWPORTS = [
 /** The width of the picture's column from lg, 28 rem. */
 const PICTURE_COLUMN = 448;
 
-/** The least space above a post's first trailing part, 2 rem, less half a pixel of rounding. */
-const TRAILING_GAP = 31.5;
+/** The space above a post's first trailing part, 2 rem. */
+const TRAILING_GAP = 32;
 
 /** When the Health Content fixtures were last reviewed, so their header ends with ทบทวนล่าสุด. */
 const REVIEWED_AT = "2026-09-23T17:30:00.000Z";
@@ -163,6 +163,12 @@ interface Picture {
 
 /** A published fixture post with a picture. */
 type PicturedPost = Post & Picture;
+
+/** A part of a page, with the name the failures give it. */
+type NamedPart = [name: string, part: Locator];
+
+/** A part's box in the window. */
+type Box = Awaited<ReturnType<typeof boxOf>>;
 
 /**
  * A published News or Health Content fixture: its trailing parts, and its picture if it has one.
@@ -202,16 +208,28 @@ async function publishPost(
 }
 
 /** Whether two boxes share any area. */
-function overlap(
-	a: { x: number; y: number; width: number; height: number },
-	b: { x: number; y: number; width: number; height: number },
-): boolean {
+function overlap(a: Box, b: Box): boolean {
 	return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }
 
 /** The picture of a post with one, by its alt text. */
 const pictureOf = (page: Page, picture: Picture) =>
 	page.getByRole("main").getByRole("img", { name: picture.alt });
+
+/** A post's title, the page's one H1. */
+const titleOf = (page: Page, post: Post) =>
+	page.getByRole("main").getByRole("heading", { level: 1, name: post.title });
+
+/** A post's picture and its เปิดภาพขนาดเต็ม link, and the two as named parts in their order. */
+function pictureParts(page: Page, picture: Picture) {
+	const shown = pictureOf(page, picture);
+	const link = page.getByRole("main").getByRole("link", { name: FULL_SIZE });
+	const named: NamedPart[] = [
+		["the picture", shown],
+		[FULL_SIZE, link],
+	];
+	return { shown, link, named };
+}
 
 /**
  * Fail unless, as the page is laid out now, `picture` shows whole on the right of `title` and
@@ -220,9 +238,9 @@ const pictureOf = (page: Page, picture: Picture) =>
 async function expectPictureBeside(
 	picture: Locator,
 	title: Locator,
-	text: Array<[name: string, part: Locator]>,
+	text: NamedPart[],
 	label: string,
-): Promise<{ x: number; y: number; width: number; height: number }> {
+): Promise<Box> {
 	// The picture fills its own box, so the placeholder EmDash's Image paints behind it never shows
 	// beside it (#147 comment 6628040681).
 	await expectPictureFillsBox(picture, label);
@@ -267,9 +285,7 @@ async function expectFullSizeOpens(
 async function scrolledBoxes(
 	page: Page,
 	parts: Locator[],
-): Promise<
-	Array<{ at: number; boxes: Array<{ x: number; y: number; width: number; height: number }> }>
-> {
+): Promise<Array<{ at: number; boxes: Box[] }>> {
 	const end = await page.evaluate(
 		() => document.documentElement.scrollHeight - document.documentElement.clientHeight,
 	);
@@ -289,8 +305,7 @@ async function scrolledBoxes(
  * Scroll the page through at 1440 px and fail unless `picture` stays in view while the left column
  * scrolls (its `title` above the window and its last part, `end`, below it), as it does at some
  * offsets, and its link never passes the bottom of `end`, where the two columns end, and stops
- * there. Gives the boxes at each offset: the picture's, its link's, the title's, end's, then
- * those of `more`.
+ * there. Gives the boxes at each offset of the picture, its link and each of `more`.
  */
 async function expectPictureFollows(
 	page: Page,
@@ -298,7 +313,7 @@ async function expectPictureFollows(
 	title: Locator,
 	end: Locator,
 	more: Locator[] = [],
-): ReturnType<typeof scrolledBoxes> {
+): Promise<Array<{ at: number; picture: Box; link: Box; more: Box[] }>> {
 	const windowHeight = DESKTOP_VIEWPORT.height;
 	const link = page.getByRole("main").getByRole("link", { name: FULL_SIZE });
 	const offsets = await scrolledBoxes(page, [picture, link, title, end, ...more]);
@@ -326,7 +341,12 @@ async function expectPictureFollows(
 	expect(outOfView, "the picture stays in view while the left column scrolls").toEqual([]);
 	expect(pastTheEnd, "the picture's link never passes the end of the left column").toEqual([]);
 	expect(stopped, "the picture's link stops at the end of the left column").toBeGreaterThan(0);
-	return offsets;
+	return offsets.map(({ at, boxes: [shown, linkBox, , , ...moreBoxes] }) => ({
+		at,
+		picture: shown!,
+		link: linkBox!,
+		more: moreBoxes,
+	}));
 }
 
 /**
@@ -334,11 +354,7 @@ async function expectPictureFollows(
  * part's bottom to the end of the article's content, inside its padding. 0 means nothing empty
  * follows the post's last part.
  */
-async function spaceAfter(
-	page: Page,
-	parts: Array<[name: string, part: Locator]>,
-	label: string,
-): Promise<number> {
+async function spaceAfter(page: Page, parts: NamedPart[], label: string): Promise<number> {
 	let lowest = -Infinity;
 	for (const [name, part] of parts) {
 		const box = await boxOf(part, `${label}: ${name}`);
@@ -359,10 +375,10 @@ async function spaceAfter(
  * A post's header as it reads: the title, the summary, the publication date and, on Health
  * Content, the review date.
  */
-function headerOf(page: Page, post: TrailingPost): Array<[name: string, part: Locator]> {
+function headerOf(page: Page, post: TrailingPost): NamedPart[] {
 	const main = page.getByRole("main");
-	const header: Array<[name: string, part: Locator]> = [
-		["the title", main.getByRole("heading", { level: 1, name: post.title })],
+	const header: NamedPart[] = [
+		["the title", titleOf(page, post)],
 		["the summary", main.getByText(post.summary, { exact: true })],
 		["the date", main.getByText(/^เผยแพร่ /)],
 	];
@@ -373,10 +389,7 @@ function headerOf(page: Page, post: TrailingPost): Array<[name: string, part: Lo
 }
 
 /** What each trailing part shows, in its order: the topic's are its heading, then its list. */
-function trailingOf(
-	page: Page,
-	topic: SyntheticTerm,
-): Record<TrailingPart, Array<[string, Locator]>> {
+function trailingOf(page: Page, topic: SyntheticTerm): Record<TrailingPart, NamedPart[]> {
 	const main = page.getByRole("main");
 	return {
 		body: [["the body", main.getByText(BODY, { exact: true })]],
@@ -447,7 +460,7 @@ test("at 1440 px a News, an Activity and a Health Content post with a picture sh
 		await page.goto(post.path);
 		const main = page.getByRole("main");
 		// The left column goes on in the page's order: the details card, or the body and its source.
-		const rest: Array<[name: string, part: Locator]> =
+		const rest: NamedPart[] =
 			template === "activities"
 				? [["the details", main.locator("dl")]]
 				: [
@@ -498,7 +511,9 @@ test("while an Activity post with photos scrolls at 1440 px, its picture stays i
 	const overlaps: string[] = [];
 	for (const {
 		at,
-		boxes: [shown, link, , , photosBox],
+		picture: shown,
+		link,
+		more: [photosBox],
 	} of await expectPictureFollows(
 		page,
 		picture,
@@ -507,8 +522,8 @@ test("while an Activity post with photos scrolls at 1440 px, its picture stays i
 		main.locator("dl"),
 		[photos],
 	)) {
-		if (overlap(shown!, photosBox!)) overlaps.push(`the picture at ${at} px`);
-		if (overlap(link!, photosBox!)) overlaps.push(`its link at ${at} px`);
+		if (overlap(shown, photosBox!)) overlaps.push(`the picture at ${at} px`);
+		if (overlap(link, photosBox!)) overlaps.push(`its link at ${at} px`);
 	}
 	expect(overlaps, "the picture and its link never overlap the photos").toEqual([]);
 });
@@ -625,27 +640,22 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 				);
 				for (const post of cases) {
 					await page.goto(post.path);
-					const main = page.getByRole("main");
 					const trailing = trailingOf(page, topic);
 					const shown = post.parts.flatMap((part) => trailing[part]);
-					const picture: Array<[name: string, part: Locator]> = post.picture
-						? [
-								["the picture", pictureOf(page, post.picture)],
-								[FULL_SIZE, main.getByRole("link", { name: FULL_SIZE })],
-							]
-						: [];
+					const pictureShown = post.picture && pictureParts(page, post.picture);
+					const picture = pictureShown?.named ?? [];
 					for (const viewport of LAYOUT_VIEWPORTS) {
 						await page.setViewportSize(viewport);
 						const label = `${post.title} at ${viewport.width} px`;
 						const header = headerOf(page, post);
-						const twoColumns = picture.length > 0 && viewport.width >= 1024;
+						const twoColumns = pictureShown !== undefined && viewport.width >= 1024;
 						// From lg the picture is beside the text; below it, it comes after the header.
 						const column = twoColumns ? [...header, ...shown] : [...header, ...picture, ...shown];
 						await expectStacked(label, column);
 						if (twoColumns) {
 							const box = await expectPictureBeside(
-								picture[0]![1],
-								header[0]![1],
+								pictureShown.shown,
+								titleOf(page, post),
 								[...header, ...shown],
 								label,
 							);
@@ -665,10 +675,20 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 							const [firstName, first] = shown[0]!;
 							const aboveBox = await boxOf(above, `${label}: ${aboveName}`);
 							const firstBox = await boxOf(first, `${label}: ${firstName}`);
-							expect(
-								firstBox.y - aboveBox.y - aboveBox.height,
-								`${label}: ${firstName} is at least 2 rem under ${aboveName}`,
-							).toBeGreaterThanOrEqual(TRAILING_GAP);
+							const gap = firstBox.y - aboveBox.y - aboveBox.height;
+							if (post.parts[0] === "topic") {
+								// The topics' heading sits under their own divider and padding (TopicPills.astro),
+								// so the 2 rem before the section is a lower bound on the heading's space.
+								expect(
+									gap,
+									`${label}: ${firstName} is at least 2 rem under ${aboveName}`,
+								).toBeGreaterThanOrEqual(TRAILING_GAP - 0.5);
+							} else {
+								expect(gap, `${label}: ${firstName} is 2 rem under ${aboveName}`).toBeCloseTo(
+									TRAILING_GAP,
+									0,
+								);
+							}
 						}
 						expect(
 							await spaceAfter(page, [...header, ...picture, ...shown], label),
@@ -694,21 +714,18 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 				await page.goto(post.path);
 				const label = `${post.title} at 1440 px, its ${taller} the taller`;
 				const header = headerOf(page, post);
-				const picture: Array<[name: string, part: Locator]> = [
-					["the picture", pictureOf(page, post.picture!)],
-					[FULL_SIZE, page.getByRole("main").getByRole("link", { name: FULL_SIZE })],
-				];
+				const picture = pictureParts(page, post.picture!);
 				await expectStacked(label, header);
-				await expectPictureBeside(picture[0]![1], header[0]![1], header, label);
+				await expectPictureBeside(picture.shown, titleOf(page, post), header, label);
 				const headerEnd = await boxOf(header.at(-1)![1], label);
-				const linkEnd = await boxOf(picture[1]![1], label);
+				const linkEnd = await boxOf(picture.link, label);
 				expect(
 					taller === "header"
 						? headerEnd.y + headerEnd.height > linkEnd.y + linkEnd.height
 						: linkEnd.y + linkEnd.height > headerEnd.y + headerEnd.height,
 					`${label}: the ${taller} is the taller`,
 				).toBe(true);
-				const space = await spaceAfter(page, [...header, ...picture], label);
+				const space = await spaceAfter(page, [...header, ...picture.named], label);
 				await expectFullSizeOpens(page, post.picture!.png, label);
 				expect(
 					space,
@@ -727,7 +744,7 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 			const header = headerOf(page, post);
 			const picture = pictureOf(page, post.picture!);
 			await expectImageLoaded(picture, `${post.title}: the picture`);
-			await expectPictureFollows(page, picture, header[0]![1], header.at(-1)![1]);
+			await expectPictureFollows(page, picture, titleOf(page, post), header.at(-1)![1]);
 		}
 	});
 
