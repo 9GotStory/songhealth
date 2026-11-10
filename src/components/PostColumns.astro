@@ -18,11 +18,13 @@
 // what it holds, and the picture's extra height goes to the second, a flexible row (CSS Grid
 // Layout 1's track sizing), so the body stays right under the header when the picture is the
 // taller. Without one the block has a single row, so no empty row and its gap lengthen it past the
-// text. A News or Health Content page always passes its `body` slot, so one with no body, source
-// or topics keeps the empty row and its gap, which show only when its header is taller than its
-// picture. The picture follows only while the left column is the longer, and one taller than the
-// window shows its lower part as the block ends. The Product Owner kept both limits (2026-11-04:
-// #147 comment 6634124888).
+// text. A `body` slot that renders nothing counts as none, so a News or Health Content post with
+// no body, source or topics (PostBody.astro) ends with the last part it shows, with no empty row or
+// gap after it (#198; #190 comment 6707205912, Empty Post page row B). `Astro.slots.has` tells
+// only that a page passed the slot (astro 7.3.5 dist/core/render/slots.js), so the block renders
+// it once with `Astro.slots.render` and places that HTML. The picture follows only while the left
+// column is the longer, and one taller than the window shows its lower part as the block ends. The
+// Product Owner kept both limits (2026-11-04: #147 comment 6634124888).
 //
 // The picture fills the column's width at its own aspect ratio, never cropped, in a box shaped by
 // the size EmDash keeps with the image (src/components/FeaturedHero.astro says how), so the
@@ -47,7 +49,8 @@ const PICTURE_SIZES = "(min-width: 64rem) 28rem, (min-width: 48rem) 48rem, 100vw
 
 const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
 const fullSizeHref = image && mediaFileHref(image, Astro.locals.emdash);
-const hasBody = Astro.slots.has("body");
+const body = await Astro.slots.render("body");
+const hasBody = Boolean(body?.trim());
 ---
 
 <div
@@ -78,7 +81,7 @@ const hasBody = Astro.slots.has("body");
 	)}
 	{hasBody && (
 		<div class="lg:col-start-1">
-			<slot name="body" />
+			<Fragment set:html={body} />
 		</div>
 	)}
 </div>
