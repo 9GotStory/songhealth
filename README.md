@@ -31,6 +31,13 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   ADR 0008). The Product Owner gave it Final Acceptance on 2026-11-09 (#174 comment 6737259420), and
   it was merged into `main`. The production import, the cutover and WordPress's retirement stay NOT
   AUTHORIZED (`09` §18).
+- **Feature 007 `frontend-refinement`:** complete: detail refinements of the accepted design: a
+  compact header with an icon-only menu below 1024 px, a one-line current breadcrumb on phones,
+  cards that open from their whole surface, a compact Homepage Quick Access, ร้องเรียน kept whole
+  in Thai titles, a two-row phone pager, an outlined clear action in the filter forms, and News and
+  Health Content posts without an empty trailing row (spec #190, tickets #191–#198).
+  `docs/design/DESIGN.md` v1.1 records it with the code. The Product Owner gave it Final Acceptance
+  on 2026-11-10 (#190 comment 6759434955), and it was merged into `main`.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,

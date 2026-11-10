@@ -1,8 +1,8 @@
 # Songhealth — Design System & Public UI Contract
 
 > **Status:** v1.1, current. Feature 006's design was accepted on #144; Feature 007's
-> bounded refinements follow spec #190, implemented by #191–#198. Feature 007 acceptance
-> remains the Product Owner's decision.
+> bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
+> (Product Owner, 2026-11-10: #190 comment 6759434955).
 > **Updated:** 2026-11-10 (Feature 007 #191–#198); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
