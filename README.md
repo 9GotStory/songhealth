@@ -167,6 +167,11 @@ every page against third-party requests, and it provides the axe (WCAG 2.2 AA an
 structure, with every icon hidden from assistive technology), focus and reflow checks and the
 desktop and 320 px viewports.
 
+A suite that needs its own published content starts from
+`tests/browser/public-pagination.spec.ts`. Its `beforeAll` uses `devAdminActor`,
+`createOwnedTerm`, `createSyntheticDraft` and `publishEntryAt` from
+`tests/browser/cms.helpers.ts`, and its `afterAll` calls `removeSuiteFixtures` (#196 retro).
+
 For JavaScript-disabled journeys, set `test.use({ javaScriptEnabled: false })` in the public
 suite. The harness records this native option for its fixture context, including any additional
 pages in that context. `expectNoAxeViolations` reports the JavaScript prerequisite immediately
