@@ -20,7 +20,6 @@ import {
 	type SyntheticTerm,
 } from "./cms.helpers";
 import {
-	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
 	MOBILE_VIEWPORT,
 	PHONE_VIEWPORT,
@@ -34,13 +33,17 @@ import {
 	expectVisibleFocusOnEveryStop,
 	listedTitles,
 	test,
+	testAccessibilityAndReflow,
 	thaiWord,
 } from "./public.helpers";
 
 const SUBMIT = "แสดงผล";
 const CLEAR = "ล้างตัวกรอง";
 const FISCAL_YEAR = 2569;
-/** Both sides of the form's 640 px edge, the header's 1024 px edge, and the ticket's widths. */
+/**
+ * The widths spec #190 Seam A names: the ticket's 320, 375 and 1,440 px, both sides of the form's
+ * 640 px edge and of the header's 1024 px edge, and 768 px.
+ */
 const WIDTHS = [320, 375, 639, 640, 768, 1023, 1024, 1440];
 /** `sm:w-72` on a field from 640 px. */
 const FIELD_WIDTH = 288;
@@ -64,44 +67,43 @@ interface ListForm {
 	unapplied?: string[];
 }
 
-const LIST_FORMS: ListForm[] = [
-	{
-		name: "Services",
-		path: "/services",
-		form: "กรองบริการ",
-		heading: "บริการประชาชน",
-		crumbs: [HOME_CRUMB],
-	},
-	{
-		name: "Documents",
-		path: "/documents",
-		form: "กรองเอกสาร",
-		heading: "เอกสารเผยแพร่",
-		crumbs: [HOME_CRUMB],
-		unapplied: ["year=not-a-year"],
-	},
-	{
-		name: "Health News",
-		path: "/news/health",
-		form: "กรองข่าวสุขภาพ",
-		heading: "ข่าวสุขภาพ",
-		crumbs: [HOME_CRUMB, SECTION_CRUMBS.news],
-	},
-	{
-		name: "Health Content",
-		path: "/health/content",
-		form: "กรองความรู้สุขภาพ",
-		heading: "ความรู้สุขภาพ",
-		crumbs: [HOME_CRUMB, SECTION_CRUMBS.health],
-	},
-	{
-		name: "Health Service Directory",
-		path: "/health-services",
-		form: "ค้นหาหน่วยบริการ",
-		heading: "หน่วยบริการสุขภาพที่เกี่ยวข้อง",
-		crumbs: [HOME_CRUMB, SECTION_CRUMBS.services],
-	},
-];
+const SERVICES: ListForm = {
+	name: "Services",
+	path: "/services",
+	form: "กรองบริการ",
+	heading: "บริการประชาชน",
+	crumbs: [HOME_CRUMB],
+};
+const DOCUMENTS: ListForm = {
+	name: "Documents",
+	path: "/documents",
+	form: "กรองเอกสาร",
+	heading: "เอกสารเผยแพร่",
+	crumbs: [HOME_CRUMB],
+	unapplied: ["year=not-a-year"],
+};
+const HEALTH_NEWS: ListForm = {
+	name: "Health News",
+	path: "/news/health",
+	form: "กรองข่าวสุขภาพ",
+	heading: "ข่าวสุขภาพ",
+	crumbs: [HOME_CRUMB, SECTION_CRUMBS.news],
+};
+const HEALTH_CONTENT: ListForm = {
+	name: "Health Content",
+	path: "/health/content",
+	form: "กรองความรู้สุขภาพ",
+	heading: "ความรู้สุขภาพ",
+	crumbs: [HOME_CRUMB, SECTION_CRUMBS.health],
+};
+const DIRECTORY: ListForm = {
+	name: "Health Service Directory",
+	path: "/health-services",
+	form: "ค้นหาหน่วยบริการ",
+	heading: "หน่วยบริการสุขภาพที่เกี่ยวข้อง",
+	crumbs: [HOME_CRUMB, SECTION_CRUMBS.services],
+};
+const LIST_FORMS = [SERVICES, DOCUMENTS, HEALTH_NEWS, HEALTH_CONTENT, DIRECTORY];
 
 /** One filter as a person sets it. A select's filter names the option; a text field has none. */
 interface AppliedFilter {
@@ -119,9 +121,9 @@ interface ListFixtures {
 
 let admin: CmsActor;
 const ownedTerms: SyntheticTerm[] = [];
-const fixtures = new Map<string, ListFixtures>();
+const fixtures = new Map<ListForm, ListFixtures>();
 
-const fixturesOf = ({ name }: ListForm) => fixtures.get(name)!;
+const fixturesOf = (list: ListForm) => fixtures.get(list)!;
 const formOf = (page: Page, { form }: ListForm) => page.getByRole("form", { name: form });
 const submitOf = (form: Locator) => form.getByRole("button", { name: SUBMIT, exact: true });
 const clearOf = (form: Locator) => form.getByRole("link", { name: CLEAR, exact: true });
@@ -260,7 +262,7 @@ test.beforeAll(async () => {
 			"services",
 			createSyntheticService(admin, label, { taxonomies: { service_category: [slug] } }),
 		);
-	fixtures.set("Services", {
+	fixtures.set(SERVICES, {
 		filters: [
 			{
 				label: "หมวดบริการ",
@@ -286,7 +288,7 @@ test.beforeAll(async () => {
 			}),
 		);
 	const matchingFields = { type: type.slug, topic: topic.slug, year: FISCAL_YEAR };
-	fixtures.set("Documents", {
+	fixtures.set(DOCUMENTS, {
 		filters: [
 			{ label: "ประเภทเอกสาร", param: "type", value: type.slug, option: type.label },
 			topicFilter,
@@ -303,18 +305,18 @@ test.beforeAll(async () => {
 	await document("clear-other-topic", { ...matchingFields, topic: otherTopic.slug });
 	await document("clear-other-year", { ...matchingFields, year: FISCAL_YEAR - 1 });
 
-	for (const [name, collection] of [
-		["Health News", "news"],
-		["Health Content", "health_content"],
+	for (const [list, collection] of [
+		[HEALTH_NEWS, "news"],
+		[HEALTH_CONTENT, "health_content"],
 	] as const) {
 		const entry = (label: string, slug: string) =>
 			published(
 				collection,
-				createSyntheticDraft(admin, collection, name, label, {
+				createSyntheticDraft(admin, collection, list.name, label, {
 					taxonomies: { topic: [slug] },
 				}),
 			);
-		fixtures.set(name, {
+		fixtures.set(list, {
 			filters: [topicFilter],
 			matching: await entry("clear-matching", topic.slug),
 		});
@@ -329,7 +331,7 @@ test.beforeAll(async () => {
 			"health_services",
 			createSyntheticHealthService(admin, label, { displayName, taxonomies: { area: [slug] } }),
 		);
-	fixtures.set("Health Service Directory", {
+	fixtures.set(DIRECTORY, {
 		filters: [
 			{ label: "พื้นที่รับผิดชอบ", param: "area", value: area.slug, option: area.label },
 			{ label: "ชื่อหน่วยบริการ", param: "name", value: nameWord },
@@ -380,6 +382,13 @@ for (const list of LIST_FORMS) {
 			await context.close();
 		}
 
+		// A draft back to "any" in the first field, a select in every list.
+		await form.getByLabel(filters[0].label).selectOption("");
+		await expect(
+			clearOf(form),
+			"a draft change does not take away an applied filter's clear link",
+		).toHaveAttribute("href", list.path);
+
 		await clearOf(form).click();
 		await expect(page).toHaveURL(list.path);
 		expect(await listedTitles(page), "the whole list again").toEqual(whole);
@@ -395,7 +404,7 @@ for (const list of LIST_FORMS) {
 	}) => {
 		const { filters } = fixturesOf(list);
 		const form = formOf(page, list);
-		const unmarked = syntheticSlug("no-such-value");
+		const matchesNothing = syntheticSlug("no-such-value");
 		for (const query of [
 			"page=2",
 			"utm_source=synthetic",
@@ -407,7 +416,7 @@ for (const list of LIST_FORMS) {
 		}
 		for (const query of [
 			...filters.map(({ param, value }) => `${param}=${encodeURIComponent(value)}`),
-			`${filters[0].param}=${unmarked}`,
+			`${filters[0].param}=${matchesNothing}`,
 		]) {
 			await page.goto(`${list.path}?${query}`);
 			await expect(clearOf(form), `${query} is applied`).toHaveAttribute("href", list.path);
@@ -492,20 +501,18 @@ for (const list of LIST_FORMS) {
 	});
 }
 
-for (const { width, height } of [MOBILE_VIEWPORT, PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
-	test(`the five filtered lists stay accessible and keep visible focus and reflow at ${width} px`, async ({
-		page,
-	}) => {
-		await page.setViewportSize({ width, height });
-		for (const list of LIST_FORMS) {
-			const label = `${list.name} at ${width} px`;
-			await page.goto(filteredPath(list));
-			await expectNoAxeViolations(page, label);
-			await expectVisibleFocusOnEveryStop(page, label);
-			await expectNoHorizontalScroll(page, label);
-		}
-	});
-}
+testAccessibilityAndReflow("the five filtered lists", () => LIST_FORMS.map(filteredPath));
+
+test("the five filtered lists stay accessible and keep visible focus at 375 px", async ({
+	page,
+}) => {
+	await page.setViewportSize(PHONE_VIEWPORT);
+	for (const list of LIST_FORMS) {
+		await page.goto(filteredPath(list));
+		await expectNoAxeViolations(page, `${list.name} at 375 px`);
+		await expectVisibleFocusOnEveryStop(page, `${list.name} at 375 px`);
+	}
+});
 
 test.describe("without client JavaScript", () => {
 	test.use({ javaScriptEnabled: false });

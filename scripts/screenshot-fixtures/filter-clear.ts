@@ -13,16 +13,10 @@ const NAME_WORD = "รพ.สต.";
 const fixtures: Fixtures = async ({ admin, helpers, term }) => {
 	const publish = (collection: string, { id }: { id: string }) =>
 		helpers.publishEntryAt(admin, collection, id);
-	const taxonomies = {
-		service_category: [await term("service_category", "ตัวอย่างหมวดบริการ")],
-		document_type: [await term("document_type", "ตัวอย่างประเภทเอกสาร")],
-		topic: [await term("topic", "ตัวอย่างประเด็นสุขภาพ")],
-		area: [await term("area", "ตัวอย่างตำบล")],
-	};
-	const [category] = taxonomies.service_category;
-	const [type] = taxonomies.document_type;
-	const [topic] = taxonomies.topic;
-	const [area] = taxonomies.area;
+	const category = await term("service_category", "ตัวอย่างหมวดบริการ");
+	const type = await term("document_type", "ตัวอย่างประเภทเอกสาร");
+	const topic = await term("topic", "ตัวอย่างประเด็นสุขภาพ");
+	const area = await term("area", "ตัวอย่างตำบล");
 
 	await publish(
 		"services",
