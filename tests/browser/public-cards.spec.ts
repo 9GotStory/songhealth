@@ -27,6 +27,7 @@ import {
 	HOMEPAGE_HEADINGS,
 	listedItem,
 	test,
+	tokenColor,
 } from "./public.helpers";
 
 let admin: CmsActor;
@@ -99,6 +100,7 @@ async function expectCardInteraction(page: Page, card: Locator, title: string, l
 	await expect(link).toHaveAccessibleName(title);
 	await expect(link.locator('a, button, input, select, textarea, [tabindex="0"]')).toHaveCount(0);
 	await expect(heading).toBeVisible();
+	const green = await tokenColor(page, "brand-primary");
 	await card.scrollIntoViewIfNeeded();
 	await page.mouse.move(0, 0);
 	const restingBox = await card.boundingBox();
@@ -106,9 +108,9 @@ async function expectCardInteraction(page: Page, card: Locator, title: string, l
 	const linkBox = await link.boundingBox();
 	expect(linkBox).toEqual(restingBox);
 	await link.hover();
-	await expect(heading).toHaveCSS("color", "rgb(11, 107, 87)");
+	await expect(heading).toHaveCSS("color", green);
 	await expect(heading).toHaveCSS("text-decoration-line", "underline");
-	await expect(link).toHaveCSS("box-shadow", /rgb\(11, 107, 87\) 0px 0px 0px 2px/);
+	await expect(link).toHaveCSS("box-shadow", new RegExp(`${RegExp.escape(green)} 0px 0px 0px 2px`));
 	expect(await card.boundingBox(), "hover must not move or resize a card").toEqual(restingBox);
 	await page.mouse.move(0, 0);
 	await expect(link).toHaveCSS("box-shadow", restingShadow);
@@ -121,7 +123,7 @@ async function expectCardInteraction(page: Page, card: Locator, title: string, l
 	await page.keyboard.press("Shift+Tab");
 	await expect(link).toBeFocused();
 	await expect(link).toHaveCSS("outline-width", "3px");
-	await expect(link).toHaveCSS("outline-color", "rgb(11, 107, 87)");
+	await expect(link).toHaveCSS("outline-color", green);
 	return link;
 }
 

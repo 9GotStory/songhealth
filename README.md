@@ -165,7 +165,10 @@ scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs
 Public-page suites (Feature 003) take `test` from `tests/browser/public.helpers.ts`. It guards
 every page against third-party requests, and it provides the axe (WCAG 2.2 AA and page
 structure, with every icon hidden from assistive technology), focus and reflow checks and the
-desktop and 320 px viewports.
+desktop and 320 px viewports. A suite declares those checks with `testAccessibilityAndReflow` and
+adds a case only for each further width its ticket names, as
+`tests/browser/public-filter-form.spec.ts` does at 375 px. `tokenColor` gives a colour token as
+the browser computes it, for a check of an element's colour (#197 retro).
 
 A suite that needs its own published content starts from
 `tests/browser/public-pagination.spec.ts`. Its `beforeAll` uses `devAdminActor`,

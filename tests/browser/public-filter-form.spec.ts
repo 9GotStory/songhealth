@@ -35,6 +35,7 @@ import {
 	test,
 	testAccessibilityAndReflow,
 	thaiWord,
+	tokenColor,
 } from "./public.helpers";
 
 const SUBMIT = "แสดงผล";
@@ -47,12 +48,6 @@ const FISCAL_YEAR = 2569;
 const WIDTHS = [320, 375, 639, 640, 768, 1023, 1024, 1440];
 /** `sm:w-72` on a field from 640 px. */
 const FIELD_WIDTH = 288;
-
-const BRAND_PRIMARY = "rgb(11, 107, 87)";
-const BRAND_DARK = "rgb(18, 60, 51)";
-const SURFACE_SOFT = "rgb(234, 245, 240)";
-const WHITE = "rgb(255, 255, 255)";
-const BORDER_INPUT = "rgb(122, 138, 131)";
 
 /** One list the form serves. */
 interface ListForm {
@@ -163,6 +158,19 @@ const lookOf = (part: Locator) =>
 		};
 	});
 
+/** The colour tokens the two actions use, as the page computes them. */
+async function actionColors(page: Page) {
+	return {
+		brandPrimary: await tokenColor(page, "brand-primary"),
+		brandDark: await tokenColor(page, "brand-dark"),
+		surfaceSoft: await tokenColor(page, "surface-soft"),
+		surfaceBase: await tokenColor(page, "surface-base"),
+		borderInput: await tokenColor(page, "border-input"),
+	};
+}
+
+type ActionColors = Awaited<ReturnType<typeof actionColors>>;
+
 /** The two actions and the form as the page lays them out now. */
 async function measureActions(form: Locator) {
 	return {
@@ -179,12 +187,13 @@ type MeasuredActions = Awaited<ReturnType<typeof measureActions>>;
 /** The primary stays solid green at 44 px, and the actions sit apart inside the form. */
 function expectActionsFit(
 	{ form, primary, primaryLook, secondary }: MeasuredActions,
+	colors: ActionColors,
 	label: string,
 ): void {
 	expect(primary.height, `${label}: the primary's 44 px target`).toBeGreaterThanOrEqual(44);
 	expect(primaryLook, `${label}: the primary is solid green`).toMatchObject({
-		background: BRAND_PRIMARY,
-		color: WHITE,
+		background: colors.brandPrimary,
+		color: colors.surfaceBase,
 	});
 	for (const [name, box] of [
 		["the primary", primary],
@@ -203,15 +212,16 @@ function expectActionsFit(
 /** The clear link is an outlined soft pill as tall as the primary. */
 function expectSecondaryAction(
 	{ primary, secondary, secondaryLook }: MeasuredActions,
+	colors: ActionColors,
 	label: string,
 ): void {
 	expect(secondary.height, `${label}: the clear link's height matches the primary's`).toBe(
 		primary.height,
 	);
 	expect(secondaryLook, `${label}: the clear link is an outlined soft pill`).toEqual({
-		background: SURFACE_SOFT,
-		color: BRAND_PRIMARY,
-		borderColor: BORDER_INPUT,
+		background: colors.surfaceSoft,
+		color: colors.brandPrimary,
+		borderColor: colors.borderInput,
 		borderWidth: "1px",
 		radius: "999px",
 		underline: "none",
@@ -449,6 +459,7 @@ for (const list of LIST_FORMS) {
 		const form = formOf(page, list);
 		await page.goto(filteredPath(list));
 		await page.evaluate(() => document.fonts.ready);
+		const colors = await actionColors(page);
 		const measured: Array<[label: string, actions: MeasuredActions]> = [];
 		for (const width of WIDTHS) {
 			await page.setViewportSize({ width, height: 900 });
@@ -468,20 +479,22 @@ for (const list of LIST_FORMS) {
 			}
 			measured.push([label, await measureActions(form)]);
 		}
-		for (const [label, actions] of measured) expectActionsFit(actions, label);
+		for (const [label, actions] of measured) expectActionsFit(actions, colors, label);
 
 		// The viewport is the widest of WIDTHS here, where a pointer can hover.
 		await submitOf(form).hover();
 		expect(await lookOf(submitOf(form)), "the primary's hover").toMatchObject({
-			background: BRAND_DARK,
+			background: colors.brandDark,
 		});
 
-		for (const [label, actions] of measured) expectSecondaryAction(actions, label);
+		for (const [label, actions] of measured) expectSecondaryAction(actions, colors, label);
 
 		const clear = clearOf(form);
 		const atRest = await boxOf(clear, "the clear link at rest");
 		await clear.hover();
-		expect(await lookOf(clear), "the clear link's hover").toMatchObject({ background: WHITE });
+		expect(await lookOf(clear), "the clear link's hover").toMatchObject({
+			background: colors.surfaceBase,
+		});
 		expect(await boxOf(clear, "the clear link hovered"), "hover moves nothing").toEqual(atRest);
 	});
 
