@@ -475,10 +475,12 @@ checkout that holds it, starts and stops two containers on the host network, lab
 `io.songhealth.runtime=uat`:
 
 - **`songhealth-uat-proxy`**: `scripts/uat-proxy.ts` on the app unit's Node image, listening on
-  `127.0.0.1:4325` only. It answers GET and HEAD alone, refuses every `/_emdash` path but a media
-  file and every `/_image` whose `href` is not a media file, and sends `Host: 127.0.0.1:4324` with no
-  cookie, credential or forwarding header (`scripts/uat-proxy/policy.ts`). It logs one line per
-  request.
+  `127.0.0.1:4325` only. It answers GET and HEAD alone. It refuses every `/_emdash` path but a
+  media file, every `/_image` whose `href` is not a media file, a path with a percent-encoded ASCII
+  character or a dot segment, and the paths only Vite answers: `/media`, which serves the media
+  store outside EmDash's media route, and `/__open-in-editor`. It sends `Host: 127.0.0.1:4324` with
+  no cookie, credential or forwarding header (`scripts/uat-proxy/policy.ts`), and logs one line
+  per request: its time, status, method and target.
 - **`songhealth-uat-tailscale`**: `tailscale/tailscale:v1.104.4` pinned by digest, an ephemeral node
   named `songhealth-uat` that funnels `https://songhealth-uat.<tailnet>.ts.net` on 443 to the proxy.
   Its state lives in memory, so it never outlives the container. This host's own Serve and Funnel
@@ -503,13 +505,15 @@ podman secret, so its value reaches no argument, log or output.
   the URL. Any failure removes what it started.
 - `scripts/dev-runtime-uat.sh check <URL>` asks the URL for `/`, `/search?q=วัคซีน`, a topic filter
   of `/news/health`, a picture's `/_image` and its media file. Each must answer 200 with the body that
-  loopback gives, random ids aside. It also asks for `/_emdash/admin`, both dev-bypass routes and
-  `/_image` of `setup/dev-bypass`, each refused with 403, and `POST /`, refused with 405. Then it
-  checks that the page's own picture addresses name `127.0.0.1:4324`. It ends `UAT CHECK: PASS` or
-  `FAIL`. A new Funnel name can take some minutes to resolve.
+  loopback gives, random ids aside. It also asks for `/_emdash/admin`, both dev-bypass routes,
+  `/_image` of `setup/dev-bypass`, the picture's file under `/media` and `/__open-in-editor`, each
+  refused with 403, `/_%65mdash/api/setup/dev-bypass`, refused with 400, and `POST /`, refused
+  with 405. Then it checks that the page's own picture addresses name `127.0.0.1:4324`. It ends
+  `UAT CHECK: PASS` or `FAIL`. A new Funnel name can take some minutes to resolve.
 - `scripts/dev-runtime-uat.sh stop` logs the node out, which deletes an ephemeral node from the
-  tailnet at once. It keeps the proxy's log in `~/.local/state/songhealth-qdev/uat/`, removes both
-  containers and the secret, and compares this host's Serve status with the one `start` saved.
+  tailnet at once. It saves the proxy's log under `~/.local/state/songhealth-qdev/uat/` and prints
+  its path, removes both containers and the secret, and compares this host's Serve status with the
+  one `start` saved.
 - `scripts/dev-runtime-uat.sh status` lists the containers and the URL.
 
 **On the UAT date** (`09` §13, inside "A window" above):
@@ -526,18 +530,25 @@ podman secret, so its value reaches no argument, log or output.
      --origin http://127.0.0.1:4324 --token-file ~/.local/state/songhealth-qdev/dev-pat
    ```
 
+   ADR 0002's search latency at this volume is already measured on the same import
+   (`docs/evidence/184-trial-import.md`), so the UAT adds how fast the search feels to the staff.
+
 3. Note the UTC time as epoch seconds (`date -u +%s`), then `start` and `check <URL>`. Give the
    staff the URL and `docs/operations/thai-search-uat-checklist.md`.
-4. After the staff finish, `stop`. Then confirm that no Admin change came in while the node was up.
-   The command below prints nothing when none did, and the proxy's log holds only GET and HEAD:
+4. After the staff finish, `stop`. Then confirm that no Admin change came in while the node was up:
+   the first command prints nothing when none did. The second, on the log `stop` printed, prints
+   nothing when every request the proxy passed on was a GET or a HEAD; it answered every other
+   method itself, with 405:
 
    ```bash
    journalctl --user -u songhealth-dev-app.service -o cat --grep songhealth-admin-change --since @<epoch>
+   awk '/^[0-9]{4}-/ && $3 != "GET" && $3 != "HEAD" && $2 !~ /^4/' <the proxy's log>
    ```
 
 5. Put it back and close the window (its steps 4–5). The restore brings the demo dataset back:
-   `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` confirms it by writing nothing.
-   Then verify reads `VERIFY: PASS` and residue `RESIDUE: NONE`.
+   `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` then writes nothing and prints
+   "the demo dataset is installed: …". Then verify reads `VERIFY: PASS` and residue
+   `RESIDUE: NONE`.
 6. Record the staff's results on #238 with the commit verify printed.
 
 ## Uninstall

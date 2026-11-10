@@ -52,15 +52,18 @@ sys.exit(1) if match is None else print(match.group(match.lastindex or 0))
 ' "$1"
 }
 
-check() { # check ORIGIN — the proxy's rules and pages at ORIGIN, against the runtime on loopback
-  local origin=$1 failed=0 host=() home filter picture media path got want page
-  [[ $origin == "$PROXY" ]] && host=(-H "Host: $NODE_NAME.invalid")  # the public URL sends its own
+read_page() { # read_page URL [CURL-ARGS...] — the page at URL, as the tests' referrer reads it
+  curl -fsS --max-time 60 -H "Referer: $REFERER" "${@:2}" "$1"
+}
+
+check() { # check AT — the proxy's rules and pages at the origin AT, against the runtime's own ORIGIN
+  local at=$1 failed=0 host=() home filter picture media path got want page status
+  [[ $at == "$PROXY" ]] && host=(-H "Host: $NODE_NAME.invalid")  # the public URL sends its own
   pass() { printf 'PASS %s\n' "$*"; }
   fail() { printf 'FAIL %s\n' "$*"; failed=1; }
 
-  home=$(curl -fsS --max-time 60 -H "Referer: $REFERER" "$ORIGIN/") || die "the runtime did not answer $ORIGIN/"
-  filter=$(curl -fsS --max-time 60 -H "Referer: $REFERER" "$ORIGIN/news/health" \
-    | first '<option value="([^"]+)"') || filter=
+  home=$(read_page "$ORIGIN/") || die "the runtime did not answer $ORIGIN/"
+  filter=$(read_page "$ORIGIN/news/health" | first '<option value="([^"]+)"') || filter=
   picture=$(first '/_image\?href=[^" ]+' <<<"$home") && picture=${picture//&amp;/\&} || picture=
   # A picture's media file, which the page names inside its /_image address.
   media=$(first '_emdash%2Fapi%2Fmedia%2Ffile%2F[A-Za-z0-9._-]+' <<<"$home") \
@@ -69,27 +72,36 @@ check() { # check ORIGIN — the proxy's rules and pages at ORIGIN, against the 
     || die "the runtime's pages give no topic filter, picture or media file to check"
 
   for path in / "/search?q=$QUERY" "/news/health?topic=$filter" "$picture" "$media"; do
-    got=$(answer "$origin$path" "${host[@]}")
+    got=$(answer "$at$path" "${host[@]}")
     want=$(answer "$ORIGIN$path")
     if [[ $got == "$want" && $got == 200\ * ]]; then pass "GET $path answers as on loopback"
     else fail "GET $path answered '$got', loopback '$want'"; fi
   done
-  for path in /_emdash/admin /_emdash/api/auth/dev-bypass /_emdash/api/setup/dev-bypass \
-    "/_image?href=%2F_emdash%2Fapi%2Fsetup%2Fdev-bypass&w=64"; do
-    got=$(answer "$origin$path" "${host[@]}")
-    if [[ $got == 403\ * ]]; then pass "GET $path is refused (403)"; else fail "GET $path answered '$got'"; fi
+  # Each refusal as "<status> <path>"; the proxy answers them itself, so none reaches the runtime.
+  for path in "403 /_emdash/admin" "403 /_emdash/api/auth/dev-bypass" \
+    "403 /_emdash/api/setup/dev-bypass" "403 /_image?href=%2F_emdash%2Fapi%2Fsetup%2Fdev-bypass&w=64" \
+    "400 /_%65mdash/api/setup/dev-bypass" "403 ${media/\/_emdash\/api\/media\/file/\/media}" \
+    "403 /__open-in-editor"; do
+    status=${path%% *} path=${path#* }
+    got=$(answer "$at$path" "${host[@]}")
+    if [[ $got == "$status "* ]]; then pass "GET $path is refused ($status)"
+    else fail "GET $path answered '$got'"; fi
   done
-  got=$(answer "$origin/" "${host[@]}" -X POST)
+  got=$(answer "$at/" "${host[@]}" -X POST)
   if [[ $got == 405\ * ]]; then pass "POST / is refused (405)"; else fail "POST / answered '$got'"; fi
   # The runtime's Vite server refuses another Host with 403, and the pages build their picture
   # addresses from the Host they reached the runtime with.
-  page=$(curl -fsS --max-time 60 -H "Referer: $REFERER" "${host[@]}" "$origin/") || page=
+  page=$(read_page "$at/" "${host[@]}") || page=
   if [[ $page == *'href=http%3A%2F%2F127.0.0.1%3A4324%2F_emdash'* ]]; then
     pass "a request with another Host reaches the runtime as 127.0.0.1:4324"
   else fail "a request with another Host did not reach the runtime as 127.0.0.1:4324"; fi
 
-  (( failed == 0 )) || { printf 'UAT CHECK: FAIL at %s\n' "$origin"; return 1; }
-  printf 'UAT CHECK: PASS at %s\n' "$origin"
+  (( failed == 0 )) || { printf 'UAT CHECK: FAIL at %s\n' "$at"; return 1; }
+  printf 'UAT CHECK: PASS at %s\n' "$at"
+}
+
+node_running() { # node_running — the UAT node's container exists and runs
+  podman container exists "$NODE_CTR" && [[ $(podman inspect -f '{{.State.Running}}' "$NODE_CTR") == true ]]
 }
 
 node_json() { # node_json — the UAT node's `tailscale status --json`
@@ -97,17 +109,16 @@ node_json() { # node_json — the UAT node's `tailscale status --json`
 }
 
 stop_all() { # stop_all — the node leaves the tailnet, then both containers and the key's secret go
-  if podman container exists "$NODE_CTR"; then
-    # An ephemeral node that logs out is deleted from the tailnet at once.
-    if [[ $(podman inspect -f '{{.State.Running}}' "$NODE_CTR") == true ]]; then
-      podman exec "$NODE_CTR" tailscale --socket="$NODE_SOCKET" logout >/dev/null 2>&1 \
-        || warn "the node did not log out: it leaves the tailnet once it has been offline for a while"
-    fi
-    podman rm -f -t 10 "$NODE_CTR" >/dev/null
+  # An ephemeral node that logs out is deleted from the tailnet at once.
+  if node_running; then
+    podman exec "$NODE_CTR" tailscale --socket="$NODE_SOCKET" logout >/dev/null 2>&1 \
+      || warn "the node did not log out: it leaves the tailnet once it has been offline for a while"
   fi
+  podman container exists "$NODE_CTR" && podman rm -f -t 10 "$NODE_CTR" >/dev/null
   if podman container exists "$PROXY_CTR"; then
     # One line per request it answered, refusals included, kept for the UAT's record.
-    podman logs "$PROXY_CTR" > "$UAT_DIR/proxy-$(date -u +%Y%m%dT%H%M%SZ).log" 2>&1 || :
+    PROXY_LOG=$UAT_DIR/proxy-$(date -u +%Y%m%dT%H%M%SZ).log
+    podman logs "$PROXY_CTR" > "$PROXY_LOG" 2>&1 || :
     podman rm -f -t 10 "$PROXY_CTR" >/dev/null
   fi
   podman secret exists "$AUTH_KEY_SECRET" && podman secret rm "$AUTH_KEY_SECRET" >/dev/null
@@ -164,8 +175,7 @@ status = json.load(sys.stdin)
 if status.get("BackendState") == "Running":
     print("https://" + status["Self"]["DNSName"].rstrip("."))
 ' 2>/dev/null) && [[ -n $url ]] && break
-    podman container exists "$NODE_CTR" && [[ $(podman inspect -f '{{.State.Running}}' "$NODE_CTR") == true ]] \
-      || { podman logs --tail 20 "$NODE_CTR" >&2 || :; stop_all; die "the Tailscale node stopped"; }
+    node_running || { podman logs --tail 20 "$NODE_CTR" >&2 || :; stop_all; die "the Tailscale node stopped"; }
     sleep 2
   done
   [[ -n ${url:-} ]] || { podman logs --tail 20 "$NODE_CTR" >&2 || :; stop_all; die "the node did not join the tailnet"; }
@@ -177,7 +187,8 @@ if status.get("BackendState") == "Running":
 stop() {
   local now
   stop_all
-  note "the UAT node, its proxy and the key's secret are gone; the proxy's log is in $UAT_DIR"
+  note "the UAT node, its proxy and the key's secret are gone"
+  [[ -z ${PROXY_LOG:-} ]] || note "the proxy's log: $PROXY_LOG"
   [[ -f $UAT_DIR/host-serve-before.json ]] || { warn "no saved Serve status to compare"; return; }
   now=$(tailscale serve status --json) || die "could not read this host's Tailscale Serve status"
   if [[ $now == "$(<"$UAT_DIR/host-serve-before.json")" ]]; then
