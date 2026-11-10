@@ -619,6 +619,14 @@ export async function sitemapLocations(
 	return [...xml.matchAll(/<loc>([^<]*)<\/loc>/g)].map((match) => match[1]);
 }
 
+/** A word of six random Thai consonants, which only the running test's fixtures carry. */
+export function thaiWord(): string {
+	const letters = "กขคฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮ";
+	return Array.from({ length: 6 }, () => letters[Math.floor(Math.random() * letters.length)]).join(
+		"",
+	);
+}
+
 /** The titles of the cards or rows a list page shows, in order. */
 export async function listedTitles(page: Page): Promise<string[]> {
 	return (
