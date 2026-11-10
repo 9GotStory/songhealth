@@ -19,9 +19,10 @@
 // - What the shell shows every page: the 404 page, the default site title, the
 //   breadcrumb, Thai dates, the titles and items a list shows, the terms its
 //   filter offers and its filtered empty state, and a record page's details;
-//   whether an image loads, shows its whole picture and fills its box; where
-//   parts of a page sit, one under another or side by side in rows; and how a
-//   word of a title lies in its lines and its box.
+//   whether an image loads, shows its whole picture and fills its box; a colour
+//   token as the browser computes it; where parts of a page sit, one under
+//   another or side by side in rows; and how a word of a title lies in its
+//   lines and its box.
 // - `expectPreviewRenders`: a draft's signed preview link (cms.helpers.ts
 //   mintPreviewLink) at the draft's address, rendering it out of search engines.
 // - `sitemapLocations`: the addresses a sitemap document lists.
@@ -409,6 +410,26 @@ export async function expectPictureFillsBox(
 export async function boxOf(part: Locator, label: string) {
 	await expect(part, label).toBeVisible();
 	return (await part.boundingBox())!;
+}
+
+/**
+ * The colour token `--color-<name>` (src/styles/global.css) as the page's browser computes a
+ * colour, such as "rgb(11, 107, 87)", to compare with an element's computed style. Throws when the
+ * page's stylesheet does not define the token.
+ */
+export function tokenColor(page: Page, name: string): Promise<string> {
+	return page.evaluate((token) => {
+		const property = `--color-${token}`;
+		if (getComputedStyle(document.documentElement).getPropertyValue(property).trim() === "") {
+			throw new Error(`the page's stylesheet defines no ${property}`);
+		}
+		const probe = document.createElement("span");
+		probe.style.color = `var(${property})`;
+		document.body.append(probe);
+		const color = getComputedStyle(probe).color;
+		probe.remove();
+		return color;
+	}, name);
 }
 
 /**
