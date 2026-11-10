@@ -34,7 +34,7 @@ and why, and `.jscpd-baseline.json` records them.
 - Colours, type, radii, shadows and the page container come from the tokens in
   `src/styles/global.css`. A colour or type style that the tokens lack becomes a named token
   there, with its source, and `docs/design/DESIGN.md` §3.1 records it.
-- The design's source is the code with `docs/design/DESIGN.md` v1.0 (ADR 0007, Feature 006): a
+- The design's source is the code with `docs/design/DESIGN.md` (ADR 0007, Feature 006): a
   design change updates both in the same pull request. A page that departs from `DESIGN.md`, or a
   difference between it and a decision, is a pending confirmation (Product Owner, 2026-10-31: #64
   comment 6535747409). The Figma frame is history, described in
@@ -106,6 +106,12 @@ and why, and `.jscpd-baseline.json` records them.
 - A test of a precedence rule, such as the longest listed word first or the newest entry first,
   gives its input in an order the rule must overturn, so the test fails without the rule (#145
   retro: a list already sorted longest first passed with the sort removed).
+- A new test's assertions that already hold before the change come before the one it must fail
+  on, so the red run exercises them (#195 retro: a link-name check placed after the failing
+  assertion expected a link the card does not have, and only review caught it). A loop over cases
+  runs the cases that already hold first and the case the change creates last, even when that case
+  was the first tracer (#198 retro: with the empty case first, the red run stopped before the body,
+  source and topic cases ran).
 - A rule with an edge is tested on both sides of the edge: a count such as "the first eight" or
   "eight or fewer" with eight and nine items, a breakpoint such as "from `lg`" at 1023 and 1024 px,
   and a place where something stops or starts with a fixture that reaches it. The spec's coverage
@@ -151,9 +157,12 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
 - **History.** The body states the current answer; history lives in the decision banners, and in
   `docs/design/DESIGN.md`'s change history.
 - **Facts.** `docs/design/DESIGN.md` states what the code does at its head: each size, count,
-  crop and breakpoint is read from the code, and each measure names its commit and script. A claim
-  that something is unchanged is checked against the base commit's code. In #150 a tablet change,
-  a crop the Homepage does not show and a spec's figure in place of a measure reached review.
+  crop and breakpoint is read from the code, and each measure names its commit and script. A
+  measure of the base taken by the ticket's new test names the commit the runtime served, where the
+  test lives (its commit or pull request) and the widths it read. A claim that something is
+  unchanged is checked against the base commit's code. In #150 a tablet change, a crop the Homepage
+  does not show and a spec's figure in place of a measure reached review, and in #198 a measure
+  cited the suite at the base commit, which holds no such measure.
 - **Preconditions.** A document that has staff rely on an Admin feature states who can use it and
   when it takes effect: the role it needs (`@emdash-cms/auth/src/rbac.ts`), its setup and warning
   states (`@emdash-cms/admin/dist/index.js`), and whether a later change reaches content that

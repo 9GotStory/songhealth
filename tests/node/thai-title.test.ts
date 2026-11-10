@@ -1,5 +1,5 @@
 // Thai titles keep compound words whole (#145; spec #144 "Shared: Thai titles keep compound words
-// whole").
+// whole"), "ร้องเรียน" among them (#195; spec #190 "Thai-title word").
 //
 // - A title splits into runs, each kept together or plain, which give the title back unchanged
 //   when joined.
@@ -46,6 +46,36 @@ describe("titleRuns", () => {
 	it("leaves a title with no listed word as one plain run, and an empty title with none", () => {
 		assert.deepEqual(titleRuns("ประชุมคณะกรรมการบริหาร"), [plain("ประชุมคณะกรรมการบริหาร")]);
 		assert.deepEqual(titleRuns(""), []);
+	});
+
+	it("keeps ร้องเรียน at every occurrence, side by side too, and the listed words around it", () => {
+		assert.deepEqual(titleRuns("แบบคำร้องเรียนการปฏิบัติงาน"), [
+			plain("แบบคำ"),
+			kept("ร้องเรียน"),
+			plain("การ"),
+			kept("ปฏิบัติงาน"),
+		]);
+		assert.deepEqual(titleRuns("ร้องเรียนร้องเรียน เรื่องร้องเรียน"), [
+			kept("ร้องเรียน"),
+			kept("ร้องเรียน"),
+			plain(" เรื่อง"),
+			kept("ร้องเรียน"),
+		]);
+	});
+
+	it("leaves ร้อง and เรียน plain when they are not that word", () => {
+		assert.deepEqual(titleRuns("แบบคำร้อง เรียนเชิญ"), [plain("แบบคำร้อง เรียนเชิญ")]);
+		assert.deepEqual(titleRuns("ร้อง เรียน"), [plain("ร้อง เรียน")]);
+	});
+
+	it("gives a title holding ร้องเรียน back unchanged when its runs are joined", () => {
+		const title = `ร้องเรียน <ร้องเรียน> & "ร้องเรียน" ร้องเรียนร้องเรียน`;
+		assert.equal(
+			titleRuns(title)
+				.map(({ text }) => text)
+				.join(""),
+			title,
+		);
 	});
 
 	it("keeps a listed word among Thai, Latin and digits", () => {

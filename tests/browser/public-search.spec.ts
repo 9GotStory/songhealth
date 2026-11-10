@@ -65,6 +65,7 @@ import {
 	ownTitles,
 	test,
 	thaiDate,
+	thaiWord,
 } from "./public.helpers";
 
 /** The fixed number of results a page shows. */
@@ -79,14 +80,6 @@ const INTERNAL_DETAIL =
 	/error|exception|stack|undefined|null|sql|select |postgres|emdash|\.ts\b|at .+:\d+/i;
 
 let admin: CmsActor;
-
-/** A word of six random Thai consonants, which only the running test's fixtures carry. */
-function thaiWord(): string {
-	const letters = "กขคฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮ";
-	return Array.from({ length: 6 }, () => letters[Math.floor(Math.random() * letters.length)]).join(
-		"",
-	);
-}
 
 /** A synthetic draft of `collection` whose title names it as `kind`. */
 const createDraft = (collection: string, kind: string, label: string, fields: DraftFields = {}) =>

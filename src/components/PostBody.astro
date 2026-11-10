@@ -1,7 +1,8 @@
 ---
 // A News or Health Content post's text after its picture (Feature 006 #147; spec #144 "Post pages:
 // News, Activity and Health Content"): its body, its source when staff named one, and its Health
-// Topics, each linking to the list it filters (TopicPills.astro).
+// Topics, each linking to the list it filters (TopicPills.astro). With none of the three it renders
+// nothing, so PostColumns.astro leaves out its row (#198; #190 comment 6707205912).
 import type { PortableTextBlock, TaxonomyTerm } from "emdash";
 import RichText from "./RichText.astro";
 import TopicPills from "./TopicPills.astro";
@@ -15,10 +16,13 @@ interface Props {
 }
 
 const { body, source, topics, topicHref } = Astro.props;
+const hasBody = body && body.length > 0;
 ---
 
-<div class="flex max-w-3xl flex-col gap-8">
-	{body && body.length > 0 && <RichText value={body} />}
-	{source && <p class="text-text-secondary">แหล่งที่มา: {source}</p>}
-	<TopicPills topics={topics} href={topicHref} />
-</div>
+{(hasBody || source || topics.length > 0) && (
+	<div class="flex max-w-3xl flex-col gap-8">
+		{hasBody && <RichText value={body} />}
+		{source && <p class="text-text-secondary">แหล่งที่มา: {source}</p>}
+		<TopicPills topics={topics} href={topicHref} />
+	</div>
+)}

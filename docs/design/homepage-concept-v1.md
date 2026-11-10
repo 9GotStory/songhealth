@@ -6,7 +6,7 @@ read once, on 2026-10-29, through the Figma MCP (`get_design_context` and `get_v
 The account has very few Figma reads, so build from this page and re-read the file only when the
 Product Owner changes it.
 
-Since Feature 006 the design's source is the code with `docs/design/DESIGN.md` v1.0 (ADR 0007),
+Since Feature 006 the design's source is the code with `docs/design/DESIGN.md` (ADR 0007),
 and this page describes the frame as history. Where they differ, such as the Featured title and
 picture or the phone Homepage, the code and `DESIGN.md` hold.
 

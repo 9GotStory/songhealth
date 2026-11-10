@@ -31,6 +31,13 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   ADR 0008). The Product Owner gave it Final Acceptance on 2026-11-09 (#174 comment 6737259420), and
   it was merged into `main`. The production import, the cutover and WordPress's retirement stay NOT
   AUTHORIZED (`09` §18).
+- **Feature 007 `frontend-refinement`:** complete: detail refinements of the accepted design: a
+  compact header with an icon-only menu below 1024 px, a one-line current breadcrumb on phones,
+  cards that open from their whole surface, a compact Homepage Quick Access, ร้องเรียน kept whole
+  in Thai titles, a two-row phone pager, an outlined clear action in the filter forms, and News and
+  Health Content posts without an empty trailing row (spec #190, tickets #191–#198).
+  `docs/design/DESIGN.md` v1.1 records it with the code. The Product Owner gave it Final Acceptance
+  on 2026-11-10 (#190 comment 6759434955), and it was merged into `main`.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,
@@ -76,13 +83,50 @@ and their workflow:
   (user `thanakorn`, UID 1000). The single development runtime is the one below
   (`http://127.0.0.1:4324`); no other development runtime, database or media store is created.
 - **Sessions side by side:** a session working beside another keeps to its own worktree. Make it
-  with `git worktree add <folder> <branch>`, link `node_modules` from this workspace while the
-  lockfiles match, and run `node scripts/with-build-inputs.mjs astro sync` there once, for
-  typecheck. They still share the one runtime: `--replace` in
-  [the promotion steps](docs/operations/development-quadlet.md#promote-a-new-commit).
+  with `git worktree add .tmp/worktrees/<ticket> <branch>`: its dependencies take about 900 MB,
+  so it stays on disk under the ignored `.tmp`, out of the RAM-backed `/tmp` (#194 retro). Install
+  its own dependencies as [Prototype workspace](#prototype-workspace) shows, run
+  `node scripts/with-build-inputs.mjs astro sync` there once, for typecheck, and
+  `git worktree remove` it when the ticket's retro is done. They still share the one runtime:
+  `--replace` in [the promotion steps](docs/operations/development-quadlet.md#promote-a-new-commit).
 - **Production:** rootless Podman + systemd Quadlet
   ([docs/operations/production-foundation.md](docs/operations/production-foundation.md)). Feature
   001's runtime gates T022 and T028 are still open and need a production-capable host.
+
+### Prototype workspace
+
+Put new throwaway prototype builders and their working output under the ignored
+`.tmp/prototypes/<ticket>/` directory. Run them from the repository root, for example
+`node .tmp/prototypes/191/header.mjs`, so their paths to the repository's source are explicit.
+`scripts/` holds maintained commands and is a Knip entry; a local untracked builder there joins
+its dependency scan too (#191 retro).
+
+Keep existing user prototypes in place. An isolated worktree lets implementation checks inspect
+only the ticket's source when unrelated working files interfere. Start it at the intended baseline,
+verify its branch/HEAD, and run checks and formatting there. Bootstrap a fresh worktree with its
+own dependencies, using the Node/npm versions in `package.json` (#193 retro, Product Owner
+comment 6722771184). Run this from that worktree; a root `node_modules` symlink can appear as an
+untracked file despite `node_modules/` in `.gitignore`, which makes source scans fail with
+`EISDIR`. The first check stops before installation touches such a link:
+
+```bash
+(
+  set -e
+  scripts/check-node.sh
+  test ! -L node_modules
+  npm ci
+  test -d node_modules
+  test -z "$(git ls-files --others --exclude-standard -- node_modules)"
+  npm run build:check
+  npm run typecheck
+)
+```
+
+Success means an ignored dependency directory, followed by a passing build and typecheck. This
+follows CI's build-before-typecheck order (`.github/workflows/checks.yml`) to generate Astro types.
+Use `npm run format` to fix formatting: it includes the comment wrapper that Prettier alone omits.
+Record the prototype's question, verdict and source context with its ticket; publishing the
+prototype follows that ticket's scope.
 
 ## The development runtime
 
@@ -128,7 +172,94 @@ scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs
 Public-page suites (Feature 003) take `test` from `tests/browser/public.helpers.ts`. It guards
 every page against third-party requests, and it provides the axe (WCAG 2.2 AA and page
 structure, with every icon hidden from assistive technology), focus and reflow checks and the
-desktop and 320 px viewports.
+desktop and 320 px viewports. A suite declares those checks with `testAccessibilityAndReflow` and
+adds a case only for each further width its ticket names, as
+`tests/browser/public-filter-form.spec.ts` does at 375 px. `tokenColor` gives a colour token as
+the browser computes it, for a check of an element's colour (#197 retro).
+
+A suite that needs its own published content starts from
+`tests/browser/public-pagination.spec.ts`. Its `beforeAll` uses `devAdminActor`,
+`createOwnedTerm`, `createSyntheticDraft` and `publishEntryAt` from
+`tests/browser/cms.helpers.ts`, and its `afterAll` calls `removeSuiteFixtures` (#196 retro).
+
+For JavaScript-disabled journeys, set `test.use({ javaScriptEnabled: false })` in the public
+suite. The harness records this native option for its fixture context, including any additional
+pages in that context. `expectNoAxeViolations` reports the JavaScript prerequisite immediately
+for that context; run axe in JavaScript-enabled cases and verify no-script navigation separately.
+This uses Playwright 1.63.0's native option fixture (`node_modules/playwright/lib/index.js`,
+`javaScriptEnabled`), including `test.use` overrides.
+
+### First browser interaction check
+
+For a public interaction change, make the first tracer reach its accessible name, axe, keyboard
+focus and real navigation before extending the change across components/contexts (#193 retro,
+Product Owner comment 6722771184). Use the existing public HTTP seam and choose a case that reaches
+what changed. `tests/browser/public-cards.spec.ts` is the worked example for whole-surface pointer
+activation, title-named links, modified-click tabs and hidden controls across breakpoints.
+
+The card example below selects one 320 px News interaction case and its native new-tab case.
+The existing cases exercise the actual runtime; a passing click alone does not establish their
+accessibility. Keep JavaScript-enabled axe and JavaScript-disabled navigation in separate cases.
+Run serially through the normal environment wrapper, which honors another session's open
+[development window](docs/operations/development-quadlet.md#a-window):
+
+```bash
+(
+  set -e
+  mkdir -p .tmp
+  interaction_dir=$(mktemp -d .tmp/interaction-first.XXXXXX)
+  printf 'Interaction evidence: %s\n' "$interaction_dir"
+  git rev-parse HEAD > "$interaction_dir/test-client-sha.txt"
+  git diff HEAD -- src/components tests/browser/public-cards.spec.ts > "$interaction_dir/test-client.patch"
+  ~/dev/songhealth-quadlet/scripts/dev-runtime-verify.sh > "$interaction_dir/runtime-verify.log"
+  interaction_status=0
+  scripts/dev-runtime-env.sh node node_modules/@playwright/test/cli.js test \
+    tests/browser/public-cards.spec.ts \
+    --grep 'News whole-card links.*320px|native modified click' --grep-invert 'Health News' \
+    --workers=1 --output="$interaction_dir/artifacts" \
+    > "$interaction_dir/test.log" 2>&1 || interaction_status=$?
+  printf '%s\n' "$interaction_status" > "$interaction_dir/exit-status.txt"
+  tail -n 10 "$interaction_dir/test.log"
+  exit "$interaction_status"
+)
+```
+
+Keep the client SHA/patch and runtime verify result distinct. Adding `--list` to the selected
+Playwright command previews the two cases without running fixtures (Playwright 1.63.0,
+`node_modules/playwright/lib/program.js`). After the first interaction passes, expand coverage to
+all affected kinds/contexts and run the required final suites. This selection changes no test
+assertion, timeout, retry, fixture restoration or cleanup behavior.
+
+### Homepage diagnostics
+
+For a timeout in the existing all-sections Homepage case, use this selected diagnostic run
+(#192 retro, Product Owner comment 6719407526). Its named steps distinguish native fixture setup,
+page rendering, axe, keyboard focus and reflow. The test keeps its existing assertions, timeout,
+retries and cleanup. Record the test-client SHA and the runtime's verified source separately:
+
+```bash
+mkdir -p .tmp
+diagnostic_dir=$(mktemp -d .tmp/homepage-diagnostic.XXXXXX)
+printf 'Diagnostics: %s\n' "$diagnostic_dir"
+git rev-parse HEAD > "$diagnostic_dir/test-client-sha.txt"
+git diff HEAD -- tests/browser/public-homepage.spec.ts > "$diagnostic_dir/test-client.patch"
+~/dev/songhealth-quadlet/scripts/dev-runtime-verify.sh > "$diagnostic_dir/runtime-verify.log" &&
+  scripts/dev-runtime-env.sh node node_modules/@playwright/test/cli.js test \
+    tests/browser/public-homepage.spec.ts --grep 'with every section showing' \
+    --workers=1 --reporter=json --trace=on --output="$diagnostic_dir/artifacts" \
+    > "$diagnostic_dir/report.json" 2> "$diagnostic_dir/stderr.log"
+```
+
+The SHA and scoped patch distinguish committed source from edits to the selected case. The pinned
+runner writes JSON directly, keeping npm's console preamble out of the report. Read
+its `stats`, the selected result's `status`/`duration`, and the named `steps` first; inspect its
+errors, stderr and trace where a phase failed or took unexpected time. Keep each run's directory
+and exit status: a later passing run is separate evidence. The trace is available even on a pass
+for timing inspection. Playwright 1.63.0's CLI/reporters and `test.step` support these artifacts
+(`node_modules/playwright/types/test.d.ts`). Trace recording has a cost even when successful traces
+are discarded with `retain-on-failure`; measure this selected run before broadening its use.
+
+### Public-page evidence
 
 Pull-request screenshots of public pages come from
 `node scripts/capture-screenshots.mjs <out-dir> <path>...`. The script's header shows how to put

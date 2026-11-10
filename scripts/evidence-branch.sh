@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Pull-request screenshots on an image-only branch (#61 retro): commit every PNG in <dir> at the
-# root of a commit on the local branch evidence/<ticket>-screenshots, and print the push command
-# and the address to embed each image by. The branch keeps no code. A new capture for the same
-# ticket becomes a child commit, so earlier screenshots stay reachable. The push is left to you:
-# it publishes the images, and the repository is public.
+# root of a commit on the local branch evidence/<ticket>-screenshots, and print the push command,
+# the address to embed each image by, and a table row for each before-<name>.png with its
+# after-<name>.png (#196 retro). The branch keeps no code. A new capture for the same ticket
+# becomes a child commit, so earlier screenshots stay reachable. The push is left to you: it
+# publishes the images, and the repository is public.
 #   scripts/evidence-branch.sh <ticket: 003-61, or 169 for a standalone one> <dir of PNGs>
 set -euo pipefail
 (($# == 2)) || { echo "usage: scripts/evidence-branch.sh <ticket> <dir of PNGs>" >&2; exit 2; }
@@ -23,6 +24,12 @@ commit=$(git commit-tree "$tree" "${parent[@]}" -m "evidence: #${ticket#*-} scre
 git branch -f "$branch" "$commit"
 
 repository=$(git remote get-url origin | sed -E 's#^.*github\.com[:/]##; s#\.git$##')
+address=https://github.com/$repository/blob/$commit
 echo "evidence-branch: ${#images[@]} images on $branch at $commit"
 echo "push:  git push origin $branch"
-echo "embed: https://github.com/$repository/blob/$commit/<file>?raw=true"
+echo "embed: $address/<file>?raw=true"
+for before in "$dir"/before-*.png; do
+  name=${before##*/before-}
+  [[ -e $dir/after-$name ]] || continue
+  echo "| ${name%.png} | ![Before: ${name%.png}]($address/before-$name?raw=true) | ![After: ${name%.png}]($address/after-$name?raw=true) |"
+done

@@ -1,3 +1,6 @@
+// Diagnostic phases for the all-sections case distinguish fixture, rendering and accessibility
+// time (#192 retro; Product Owner comment 6719407526). The normal timeout and cleanup remain.
+//
 // The Homepage's automatic sections (#64; spec #51 "Homepage (`04`, Figma order)", `04` §3, §7–§11
 // and §17; docs/design/homepage-concept-v1.md).
 //
@@ -60,12 +63,14 @@ import {
 	HOMEPAGE_HEADINGS,
 	MOBILE_VIEWPORT,
 	PHONE_VIEWPORT,
+	VIEWPORTS,
 	detailOf,
 	expect,
 	expectAccessibleAtEachWidth,
 	expectImageLoaded,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
+	expectVisibleFocusOnEveryStop,
 	homepageSection,
 	itemsPerRow,
 	listedItem,
@@ -603,27 +608,30 @@ test("with every section showing, the sections follow the Figma order on a deskt
 	// Published entries of each kind, so every section shows whichever tests ran before, and three of
 	// each card, so a row of two shows as two and not as more. The Featured News is published first,
 	// so the News card shows the other one.
-	const featured = await create("news", "every-section-featured", {
-		data: {
-			summary: `${SYNTHETIC_FIXTURE_MARK} สรุปเรื่องเด่น`,
-			featured_image: {
-				id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพเรื่องเด่น`),
+	const { featured, services } = await test.step("Prepare native fixtures", async () => {
+		const featured = await create("news", "every-section-featured", {
+			data: {
+				summary: `${SYNTHETIC_FIXTURE_MARK} สรุปเรื่องเด่น`,
+				featured_image: {
+					id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพเรื่องเด่น`),
+				},
 			},
-		},
-	});
-	await publish("news", featured, await create("news", "every-section"));
-	await publish("announcements", await create("announcements", "every-section"));
-	await publish("health_services", await createSyntheticHealthService(admin, "every-section"));
-	const services: DraftFixture[] = [];
-	for (const label of ["every-section", "every-section-second", "every-section-third"]) {
-		await publish("health_content", await create("health_content", label));
-		await publish("activities", await create("activities", label));
-		const service = await createSyntheticService(admin, label, {
-			data: { summary: `${SYNTHETIC_FIXTURE_MARK} สรุปบริการ` },
 		});
-		await publishEntryAt(admin, "services", service.id);
-		services.push(service);
-	}
+		await publish("news", featured, await create("news", "every-section"));
+		await publish("announcements", await create("announcements", "every-section"));
+		await publish("health_services", await createSyntheticHealthService(admin, "every-section"));
+		const services: DraftFixture[] = [];
+		for (const label of ["every-section", "every-section-second", "every-section-third"]) {
+			await publish("health_content", await create("health_content", label));
+			await publish("activities", await create("activities", label));
+			const service = await createSyntheticService(admin, label, {
+				data: { summary: `${SYNTHETIC_FIXTURE_MARK} สรุปบริการ` },
+			});
+			await publishEntryAt(admin, "services", service.id);
+			services.push(service);
+		}
+		return { featured, services };
+	});
 	const menus = {
 		featured: [pickedMenuItem("news", featured)],
 		services: services.map((service) => pickedMenuItem("services", service)),
@@ -643,46 +651,63 @@ test("with every section showing, the sections follow the Figma order on a deskt
 		HOMEPAGE_HEADINGS.activities,
 		HOMEPAGE_HEADINGS.quickAccess,
 	];
-	await withHomepageMenus(admin, menus, async () => {
-		await withOfficeContact(
-			admin,
-			{
-				address: `${SYNTHETIC_FIXTURE_MARK} 99 หมู่ 1\nอำเภอสอง จังหวัดแพร่ 54120`,
-				telephone: "054 591 234",
-				opening_hours: "จันทร์–ศุกร์ 08:30–16:30 น.",
-				latitude: 18.4686,
-				longitude: 100.1834,
-			},
-			{},
-			async () => {
-				await page.goto("/");
-				await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
-				await expect(sectionHeadings(page)).toHaveText([...order, siteTitle]);
-				await expectAccessibleAtEachWidth(page, "/ with every section");
+	await test.step("Apply and restore Homepage menus and Office Contact", async () => {
+		await withHomepageMenus(admin, menus, async () => {
+			await withOfficeContact(
+				admin,
+				{
+					address: `${SYNTHETIC_FIXTURE_MARK} 99 หมู่ 1\nอำเภอสอง จังหวัดแพร่ 54120`,
+					telephone: "054 591 234",
+					opening_hours: "จันทร์–ศุกร์ 08:30–16:30 น.",
+					latitude: 18.4686,
+					longitude: 100.1834,
+				},
+				{},
+				async () => {
+					await test.step("Render Homepage", async () => {
+						await page.goto("/");
+						await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
+						await expect(sectionHeadings(page)).toHaveText([...order, siteTitle]);
+					});
+					// Keep the shared viewport order while naming axe and focus time separately.
+					for (const [width, viewport] of Object.entries(VIEWPORTS)) {
+						await page.setViewportSize(viewport);
+						await test.step(`Axe at ${width}`, () =>
+							expectNoAxeViolations(page, `/ with every section at ${width}`));
+						await test.step(`Keyboard focus at ${width}`, () =>
+							expectVisibleFocusOnEveryStop(page, `/ with every section at ${width}`));
+					}
+					await page.setViewportSize(DESKTOP_VIEWPORT);
 
-				// A phone keeps every section in order, with the cards two to a row (spec #144
-				// "Homepage (`04`)").
-				await page.setViewportSize(PHONE_VIEWPORT);
-				await expect(sectionHeadings(page)).toHaveText([...order, siteTitle]);
-				for (const heading of [
-					HOMEPAGE_HEADINGS.services,
-					HOMEPAGE_HEADINGS.health,
-					HOMEPAGE_HEADINGS.activities,
-					HOMEPAGE_HEADINGS.quickAccess,
-				]) {
-					const [firstRow] = await itemsPerRow(
-						homepageSection(page, heading).getByRole("listitem"),
-					);
-					expect(firstRow, `the cards of "${heading}" side by side at 375 px`).toBe(2);
-				}
-				await expect(
-					homepageSection(page, siteTitle).getByText(CONTACT_LEAD),
-					"a phone leaves out the Contact Summary's lead",
-				).toBeHidden();
-				await expectNoAxeViolations(page, "/ with every section at 375 px");
-				await page.setViewportSize(MOBILE_VIEWPORT);
-				await expectNoHorizontalScroll(page, "/ with every section");
-			},
-		);
+					// A phone keeps every section in order, with the cards two to a row (spec #144
+					// "Homepage (`04`)").
+					await test.step("Phone layout at 375 px", async () => {
+						await page.setViewportSize(PHONE_VIEWPORT);
+						await expect(sectionHeadings(page)).toHaveText([...order, siteTitle]);
+						for (const heading of [
+							HOMEPAGE_HEADINGS.services,
+							HOMEPAGE_HEADINGS.health,
+							HOMEPAGE_HEADINGS.activities,
+							HOMEPAGE_HEADINGS.quickAccess,
+						]) {
+							const [firstRow] = await itemsPerRow(
+								homepageSection(page, heading).getByRole("listitem"),
+							);
+							expect(firstRow, `the cards of "${heading}" side by side at 375 px`).toBe(2);
+						}
+						await expect(
+							homepageSection(page, siteTitle).getByText(CONTACT_LEAD),
+							"a phone leaves out the Contact Summary's lead",
+						).toBeHidden();
+					});
+					await test.step("Axe at 375 px", () =>
+						expectNoAxeViolations(page, "/ with every section at 375 px"));
+					await test.step("Reflow at 320 px", async () => {
+						await page.setViewportSize(MOBILE_VIEWPORT);
+						await expectNoHorizontalScroll(page, "/ with every section");
+					});
+				},
+			);
+		});
 	});
 });

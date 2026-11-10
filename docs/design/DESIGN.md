@@ -1,9 +1,9 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** v1.0, current (Feature 006, spec #144). It records the public design as the code
-> holds it, built from the Product Owner's picks on the Feature 006 prototype. Feature 006's Final
-> Acceptance on #144 accepts it with the feature.
-> **Updated:** 2026-11-05 (v1.0); first drafted 2026-10-30
+> **Status:** v1.1, current. Feature 006's design was accepted on #144; Feature 007's
+> bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
+> (Product Owner, 2026-11-10: #190 comment 6759434955).
+> **Updated:** 2026-11-10 (Feature 007 #191–#198); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -12,6 +12,24 @@
 > `docs/design/homepage-concept-v1.md`
 > **Design policy:** Tailwind CSS **v4 only**, Astro-first, Lucide vector icons, no emoji as UI
 > iconography.
+
+> **Feature 007 decision (Product Owner, 2026-11-07; #190 comment 6707205912):**
+> Header B below 1024 px uses compact Search/Contact utility links and a 44×44 px icon-only
+> native menu. The released space belongs to the identity at its existing type size (§7.4).
+> Breadcrumb B below 640 px limits only the current label to one line with ellipsis when needed;
+> its full text, ancestor hierarchy and H1 remain (§7.5). Shared ContentCard, ServiceCard and
+> ActivityCard use whole-card native links and the green hover edge/title (§7.3).
+> Quick Access B below 640 px keeps two cards to a row, with the label above and the arrow on a
+> separate lower-right row; the accepted taller cards replace the crowding limit (§7.3, §10).
+> Titles also keep "ร้องเรียน" on one line, through the shared list and its existing scope (§4.1).
+> Pagination B below 640 px centers the page number above Previous-left and Next-right; the height
+> it adds where one row fit is an accepted tradeoff (§7.6).
+> FilterForm B makes "ล้างตัวกรอง" an outlined soft secondary pill, as tall as "แสดงผล" at every width;
+> it stays a native link to the unfiltered list, shown only for applied filters (§7.7).
+> Empty Post page row B: a News or Health Content post with no body, source or topics ends with
+> whichever of its header and its picture's link ends lower, without the empty row and its 2 rem
+> gap; the rest of the post layout remains (§9.1, §10).
+> This amendment implements #191–#198.
 
 ## 1. Scope, authority and status
 
@@ -122,6 +140,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `surface-base` on `brand-dark` | 12.21:1 |
 | `brand-primary` on `surface-base`, or `surface-base` on `brand-primary` | 6.45:1 |
 | `brand-primary` on `bg-page` | 6.09:1 |
+| `brand-primary` on `surface-soft` | 5.78:1 |
 | `text-secondary` on `surface-base` | 4.97:1 |
 | `text-secondary` on `bg-page` | 4.69:1 |
 | `text-secondary-on-soft` on `surface-soft` (`text-secondary` there would be 4.45:1) | 5.07:1 |
@@ -147,7 +166,8 @@ The dictionary the browser uses (ICU) splits Thai compound words, such as "เ�
 "ความ|ดัน|โลหิต", "ปฏิบัติ|งาน" and "อำเภอ|สอง" (spec #144 "Problem Statement" and "Version-specific
 evidence"). A title therefore keeps the words of a curated list on one line:
 
-- **The list:** spec #144's 26 words, in `src/lib/thai-title.ts`.
+- **The list:** 27 words in `src/lib/thai-title.ts`: spec #144's 26 and "ร้องเรียน" (spec #190
+  "Thai-title word").
 - **Matching:**
   - the longest listed word wins at each place ("ความดันโลหิตสูง" over "ความดันโลหิต");
   - every occurrence is kept;
@@ -162,8 +182,9 @@ evidence"). A title therefore keeps the words of a curated list on one line:
 - **Where it does not:** body text, summaries and labels, such as the menu, the breadcrumb, the
   MOIT page's table of contents, Evidence pills, eyebrows, meta lines, link labels and the
   "บริการที่ให้" link list.
-- **The phone header:** the site title reads "สำนักงานสาธารณสุข" / "อำเภอสอง" at 375 px, and
-  "สำนักงาน" / "สาธารณสุข" / "อำเภอสอง" at 320 px (Product Owner, #145 comment 6625100804 item 2).
+- **The compact header:** the site title uses the space beside the logo and icon-only menu at
+  its existing type size (§7.4; #190 comment 6707205912). Its line count depends on the configured
+  title, logo and tagline; it has no fixed line count. ThaiTitle still keeps listed words whole.
 - **Rejected** (spec #144): `word-break: keep-all`, which in Thai breaks only at spaces and
   overflows; `text-wrap: pretty` alone; a word joiner, which would end up in copied text and in
   search; a segmentation library, a new dependency.
@@ -228,6 +249,7 @@ this document names:
 | Homepage | `FeaturedHero`, `SearchForm` |
 | Posts | `PostHeader`, `PostColumns`, `PostBody`, `ActivityPhotos`, `RichText` |
 | Links | `ActionLink` (buttons), `ArrowLink` (onward links), `Pagination`, `Breadcrumb` |
+| Lists | `FilterForm` |
 
 ### 7.2 Component rules
 
@@ -242,6 +264,17 @@ this document names:
 
 ### 7.3 Cards and their pictures
 
+- **Whole-card navigation** (#193; Product Owner, #190 comment 6707205912): each shared
+  ContentCard (News, Health News and Health Content lists), ServiceCard (catalog and Homepage)
+  and ActivityCard (list and Homepage) has one native link named by its title alone. The
+  picture/fallback, icon, metadata, summary and padding all open its original destination.
+  H2 titles on lists and H3 under Homepage sections name a full-surface native link through
+  `aria-labelledby`. Other content stays outside the link's visible label and remains readable,
+  with no nested anchors or another focus stop. Enter, modified clicks and new-tab actions work.
+- **Interaction:** hover adds a 2 px `brand-primary` ring without moving/resizing the card and
+  makes its title green and underlined. The resting border/shadow remains; keyboard focus uses
+  the global 3 px outline around the whole card. The Homepage's separately composed News and
+  Health Information cards, and multi-action cards, keep their own interactions.
 - **Crops:** an Activity card crops its picture to 16:9 (`ActivityCard.astro`), and a News or
   Health Content card in a list to 16:10 (`ContentCard.astro`); the Homepage's News and Health
   Information cards show no picture. Both crops centre on the middle, or around the focal point
@@ -255,13 +288,100 @@ this document names:
     320 px, and "ความดันโลหิตสูง" is 107 px at body size, semibold;
   - the title is at body size, semibold, and the Service and Health Content cards leave out their
     summary;
-  - a Service card's icon box is 36 px, and a Quick Link card is 56 px tall.
+  - a Service card's icon box is 36 px;
+  - a Quick Link card's label lies across the card's content width, and its 24 px arrow on a row
+    of its own at the lower right, at least 8 px below the label. The card grows with its label,
+    with no one fixed height, and the cards of a row share one height. One line of label makes it
+    84 px tall (a 26 px line, the 8 px gap, the arrow, 24 px of padding and a 2 px border), the
+    taller proportions the Product Owner accepted (#190 comment 6707205912, Quick Access B).
   - `compact` is a prop only the Homepage passes: the Service catalog, `/about`, `/health`, `/ita`
     and the Activities list keep the full cards.
 
+### 7.4 Header and navigation
+
+`src/layouts/SiteLayout.astro` (#191; spec #190 “Header below 1024 px”; Product Owner,
+#190 comment 6707205912, Header B):
+
+- Below 1024 px, the utility bar shows only “ค้นหา” and “ติดต่อเรา”, to `/search` and `/contact`.
+  Each link has a minimum 44 px target height. The repeated office/province label is hidden.
+- The native `<details>` menu opens in the page flow without client JavaScript. Its 44×44 px
+  pill shows a 20 px Lucide menu icon while closed and X while open, with no visible text.
+  Screen-reader-only “เปิดเมนู” / “ปิดเมนู” labels name its state; the browser supplies the native
+  expanded state and Enter/Space operation. The same control closes it; it adds no Escape handler.
+- The identity reserves 64 px for the 44 px control and the gap. Its title takes the released
+  space beside the logo; text remains 16 px below 640 px, 18 px from 640 px and 24 px from 1024 px.
+  The logo or decorative placeholder, optional tagline and ThaiTitle rendering keep their roles.
+- From 1024 px, the full utility bar, office/province label and desktop navigation remain.
+  The same navigation order, destinations and current-section marks serve both presentations.
+- Before/after evidence records the runtime-verified commit and the title/logo/tagline settings.
+  Line counts are observations of those settings, never a universal requirement. The existing
+  public-shell suite verifies 320/375 px reflow, both sides of 1024 px, keyboard/focus, axe,
+  JavaScript-disabled navigation and configured/fallback identities, restoring settings in `finally`.
+
+### 7.5 Breadcrumb
+
+`src/components/Breadcrumb.astro` (#192; spec #190 “Breadcrumb below 640 px”; Product Owner,
+#190 comment 6707205912, Breadcrumb B) follows Sitemap `03` §14's public hierarchy:
+
+- Ancestors remain full-text links, root first; the trail can wrap across rows.
+- The current page is text with `aria-current="page"`. Below 640 px its label occupies one line,
+  with ellipsis only when it exceeds its available width. The underlying text remains complete
+  for assistive technology; a short label that fits shows in full.
+- The H1 keeps its full text, type and wrapping. From 640 px the current breadcrumb label wraps
+  as before. Breadcrumb labels remain outside ThaiTitle's word-keeping scope (§4.1).
+- The public-browser suite covers long and short labels at 320/375/639/640/1440 px, ancestor
+  destinations, H1, clipping, keyboard navigation, axe, reflow and JavaScript-disabled pages.
+
+### 7.6 Pagination
+
+`src/components/Pagination.astro` (#196; spec #190 “Pagination”; Product Owner, #190 comment
+6707205912, Pagination B) serves every paged list and search:
+
+- Below 640 px, “หน้า N” is centered on a row of its own. Below it, Previous starts at the left
+  and Next ends at the right, in two columns sized to their contents, so both labels keep one line
+  at 320 px with `text-label` type, 20 px side padding and the 44 px height. The pager is 82 px
+  tall (a 22 px line, the 16 px gap and the links), where one row is 44 px; that height is the
+  accepted tradeoff for the same placement at every phone width.
+- From 640 px the number and links share one row, with Previous at the left, Next at the right and
+  even space around the number.
+- Previous appears only after page 1, and Next only when another page exists; page 1 with no other
+  page has no pager. The pager has no disabled link and no total page count, since a list knows
+  only whether a further page exists.
+- The links are native and work without JavaScript. Each keeps the page's other query parameters
+  and changes only `page`, and page 1's address carries no page number (`src/lib/pagination.ts`).
+- The public-browser suite goes through a filtered list's real first, middle and last pages at
+  320, 375, 639, 640, 768, 1,023, 1,024 and 1,440 px. It covers single-page results at 320 and
+  1,440 px, search at 320 and 640 px, keyboard use, axe, reflow, and JavaScript-disabled pages at
+  320 and 640 px.
+
+### 7.7 Filter form
+
+`src/components/FilterForm.astro` (#197; spec #190 “FilterForm clear action”; Product Owner, #190
+comment 6707205912, FilterForm B) serves Services, Documents, Health News, Health Content and the
+Health Service Directory:
+
+- “แสดงผล” is the solid `brand-primary` submit button. “ล้างตัวกรอง” beside it is an outlined pill: a
+  1 px `border-input` edge, a `surface-soft` fill and a `brand-primary` label, turning `surface-base`
+  on hover. That is the reverse of `ActionLink`'s secondary, which is white at rest and soft on
+  hover. Both actions are at least 44 px tall and the same height at every width.
+- The clear link is a native anchor to the list's own address, not a reset button: it drops every
+  filter and any page number. It shows only for a filter the server applied. A draft change in a
+  field does not show it, nor does a blank value or one the list sets aside, such as a Document
+  fiscal year that is no number. An applied value that matches nothing still shows it.
+- The form is a plain GET form that works without JavaScript. Its field names, options and values
+  stay in the address, which reproduces the results. It carries no page number, so submitting starts
+  the list from its first page.
+- Below 640 px the fields stack above the actions, each as wide as the form. From 640 px a field is
+  288 px wide, and fields and actions wrap inside the form.
+- The public-browser suite goes through all five lists, with Documents' three selects and the
+  directory's Area and name fields. The applied and draft states, the first-page restart and the
+  keyboard run at 320 px, and JavaScript-disabled pages at 320 and 1,440 px. Target height, look and
+  fit run at 320, 375, 639, 640, 768, 1,023, 1,024 and 1,440 px, hover at 1,440 px, and axe, focus
+  and reflow at 320, 375 and 1,440 px.
+
 ## 8. Homepage
 
-Source: `current/04-homepage.md` v2.5 and `current/03-sitemap.md` v2.5. The sections, in `04` §3's
+Source: `current/04-homepage.md` v2.6 and `current/03-sitemap.md` v2.6. The sections, in `04` §3's
 order:
 
 1. Header / navigation / reachable search.
@@ -367,16 +487,22 @@ static marketing content.
   as a One Page's text is an image (grill Q14; `05` §5.1).
 - **From `lg`, a post with a picture reads in two columns** (`PostColumns.astro`):
   - on the left, the page's text in its order: the header, then an Activity's details card, or a
-    News or Health Content post's body, source and topics;
+    News or Health Content post's body, source and topics, each only when the post has it, 2 rem
+    under the header;
   - on the right, a 28 rem column, 48 px from the text, with the picture whole and
     "เปิดภาพขนาดเต็ม", a link to the file as it was uploaded;
   - the picture is sticky 1.5 rem from the top: it stays in view while the left column scrolls and
     stops at the end of the two columns. Anything full width, such as an Activity's photos, comes
     after them, so the picture never covers it.
 - **Below `lg`**, one column in the page's order: the header, the picture, then the body, source
-  and topics (News, Health Content); the header, the details, the picture, then the photos
-  (Activity). "เปิดภาพขนาดเต็ม" shows at every width (Product Owner, #147 comment 6634124888
-  item 1). A post without a picture keeps one column.
+  and topics the post has, 2 rem apart (News, Health Content); the header, the details, the
+  picture, then the photos (Activity). "เปิดภาพขนาดเต็ม" shows at every width (Product Owner, #147
+  comment 6634124888 item 1). A post without a picture keeps one column.
+- **A News or Health Content post with no body, source or topics** ends with whichever of its
+  header and its picture's link ends lower; below `lg` that is the link, which follows the header.
+  No empty row or 2 rem gap follows (#190 comment 6707205912, Empty Post page row B). A difference
+  in height between the picture and the text, and the shell's minimum page height, still leave
+  their own space.
 - The other detail templates, such as Announcement, Document and Service, keep their layout.
 
 ### 9.2 An Activity's photos
@@ -428,18 +554,13 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   - the list is curated, so a compound it does not name can still break, and a new word needs a
     code change;
   - summaries still break inside words, such as "ออกกำลัง / กาย";
-  - at 320 px the header reads in three lines (§4.1).
-- **A compact Quick Link card's label** has about 80 px beside its arrow at 320 px. Six listed words
-  are wider at body size, semibold: ความดันโลหิตสูง 107 px, ตรวจคัดกรอง 91, ออกกำลังกาย 90,
-  ประชาสัมพันธ์ 89, ความดันโลหิต 89 and ประจำหมู่บ้าน 87. A label holding one of them runs into
-  the arrow below about 342 px, and one holding ความดันโลหิตสูง below about 374 px (#146 comment
-  6626919820 item 1).
+  - a configured header title can occupy multiple lines; its space and type follow §7.4.
+- **A compact Quick Link card's height** grows with its label (§7.3), the taller proportions
+  accepted with Quick Access B (#190 comment 6707205912).
 - **The phone Homepage's height** moves with the titles and the number of items (§8.2).
-- **Post pages** (#147 comment 6634124888 items 2 and 4):
+- **Post pages** (#147 comment 6634124888 item 2):
   - the picture follows only while the left column is the longer;
-  - a picture taller than the window shows its lower part as the block ends;
-  - a News or Health Content post with no body, source or topics keeps an empty row and its 2 rem
-    gap, seen only when its header is taller than its picture.
+  - a picture taller than the window shows its lower part as the block ends.
 - **A gallery in a News body** does not fold, and EmDash's Edit mode shows it as a placeholder
   (§9.3).
 - **A focal point or alt text** set in the media library after staff picked a picture may not
@@ -479,11 +600,14 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - The Product Owner approves a design change that affects content hierarchy, route scope,
   institutional identity or technical direction, and the change updates this document with the
   code (§1).
+- Before amending this document, read `CODING_STANDARDS.md` "Documents": its Citers, History,
+  Facts and Amendments rules say what the body, a decision banner and §13's change history each
+  hold (#194 retro).
 
 ## 13. References and change history
 
-- Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.5, 2026-11-05);
-  `03-sitemap.md` (v2.5, 2026-11-03); staff guidance in `05` §5.1.
+- Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.6, 2026-11-09);
+  `03-sitemap.md` (v2.6, 2026-11-08); staff guidance in `05` §5.1.
 - Architecture: `docs/website-modernization-docs/current/10-system-blueprint.md` (v2.9,
   2026-11-09); `README.md`; `CLAUDE.md`.
 - Decisions: ADR 0001 (Tailwind CSS v4), ADR 0003 (CMS images in production), ADR 0007 (the
@@ -510,3 +634,43 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   Before the phone Homepage, at `b52ff09` with the demo dataset of the time, the Homepage measured
   5,864, 9,326 and 9,817 px at 1,440, 375 and 320 px (#146's pull request), and an Activity page
   with twenty photos 7,054 px at 375 px (#148's pull request).
+
+- **v1.1 (2026-11-07, Feature 007 #191):** compact phone/tablet Header B, its icon-only native
+  menu, utility targets, unchanged title sizes and setting-dependent title wrapping (§4.1, §7.4,
+  §10). Authority: #190 comment 6707205912. Earlier v1.0 citations record Feature 006's adoption;
+  current header behavior is §7.4.
+- **v1.1 breadcrumb refinement (2026-11-08, Feature 007 #192):** the phone current label's
+  single line and ellipsis, with full underlying text, H1 and ancestor hierarchy (§7.5), following
+  #190 comment 6707205912. Sitemap §14 and its version citations reflect the same rule.
+
+- **v1.1 shared-card refinement (2026-11-08, Feature 007 #193):** title-named whole-card
+  links, the 2 px green hover edge and title underline, and whole-card keyboard focus (§7.3),
+  following #190 comment 6707205912. Crops, fallbacks, compact spacing/summary rules and the
+  Homepage's four/three Activities across 1024 px remain.
+- **v1.1 Quick Access refinement (2026-11-09, Feature 007 #194):** the compact Quick Link card's
+  label across the top and arrow on a lower-right row of its own, with the accepted taller cards
+  (§7.3): one line of label makes a card 84 px tall where it was 56 px. This replaces the crowding
+  limit §10 held from #146 comment 6626919820 item 1, where a label holding a listed word wider
+  than the 80 px beside its arrow ran into the arrow below about 342 to 374 px. It follows #190
+  comment 6707205912, and `04` §15 records the same rule. From 640 px, and the full cards on
+  `/about`, `/health` and `/ita`, remain.
+- **v1.1 Thai-title word (2026-11-09, Feature 007 #195):** "ร้องเรียน" joins §4.1's list, which
+  had held spec #144's 26 words, following #190 comment 6707205912 (Q22). Matching, characters and
+  where the rule applies remain.
+- **v1.1 pagination refinement (2026-11-09, Feature 007 #196):** below 640 px the page number's
+  centered row above Previous-left and Next-right, in content-sized columns (§7.6), following #190
+  comment 6707205912, Pagination B. Below 640 px the pager had been one row where it fit, wrapping
+  otherwise; the phone height tradeoff is in #196's pull request. Which links show, their query
+  handling and the layout from 640 px remain.
+- **v1.1 filter form clear action (2026-11-10, Feature 007 #197):** "ล้างตัวกรอง" as the outlined soft
+  secondary pill beside the solid primary (§7.7), following #190 comment 6707205912, FilterForm B.
+  It had been an underlined text link. When it shows, where it goes, the GET query and the form's
+  wrapping remain.
+- **v1.1 Post page empty row (2026-11-10, Feature 007 #198):** a News or Health Content post with
+  no body, source or topics leaves out its trailing row and the 2 rem gap before it (§9.1),
+  following #190 comment 6707205912, Empty Post page row B. This replaces the limit §10 held from
+  #147 comment 6634124888 item 4, where such a post kept an empty row and its gap: 32 px after its
+  last part at 320 px, and at 1440 px where the header was taller than the picture, which #198's
+  `tests/browser/public-posts.spec.ts` measured on the runtime at `33ecdf0` (#198's pull request).
+  The two columns from 1024 px, the 28 rem picture column, the whole picture, "เปิดภาพขนาดเต็ม", the
+  sticky picture and an Activity's photos remain.

@@ -1,7 +1,7 @@
 ---
-// The content card of a list (Feature 003 #54; spec #51 "Shared building blocks"): News now,
-// Health Content later. The title links to the item's own page. The picture is decorative here,
-// because the title already names the link; without one, a plain visual keeps the grid even.
+// News, Health News and Health Content list cards (#193; #190 comment 6707205912).
+// One title-named native link covers the whole surface. Other card text stays outside the link
+// so it stays readable without becoming its visible label (WCAG 2.5.3). Pictures are decorative.
 //
 // Images go through EmDash's Image component (emdash 1.1.0 src/components/EmDashImage.astro). It
 // gives a responsive srcset where Astro's image service may transform the media, which is the
@@ -35,27 +35,40 @@ interface Props {
 
 const { href, title, label, date, summary, eager = false } = Astro.props;
 const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
+const titleId = `contentcard-${crypto.randomUUID()}`;
 ---
 
-<article class="flex h-full flex-col overflow-hidden rounded-24 bg-surface-base shadow-card">
-	{image ? (
-		<Image
-			image={image}
-			alt=""
-			sizes={CARD_PICTURE_SIZES}
-			loading={eager ? "eager" : "lazy"}
-			class="aspect-16/10 w-full object-cover"
-		/>
-	) : (
-		<div aria-hidden="true" data-testid="card-visual" class="aspect-16/10 w-full bg-surface-soft" />
-	)}
-	<div class="flex flex-1 flex-col gap-2 p-5">
-		<MetaLine facts={[label && { text: label }, date && { date }]} />
-		<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
-			<a class="underline-offset-4 hover:text-brand-primary hover:underline" href={href}>
+<article class="group relative h-full">
+	<div class="flex h-full flex-col overflow-hidden rounded-24 bg-surface-base shadow-card">
+		{image ? (
+			<Image
+				image={image}
+				alt=""
+				sizes={CARD_PICTURE_SIZES}
+				loading={eager ? "eager" : "lazy"}
+				class="aspect-16/10 w-full object-cover"
+			/>
+		) : (
+			<div
+				aria-hidden="true"
+				data-testid="card-visual"
+				class="aspect-16/10 w-full bg-surface-soft"
+			/>
+		)}
+		<div class="flex flex-1 flex-col gap-2 p-5">
+			<MetaLine facts={[label && { text: label }, date && { date }]} />
+			<h2
+				id={titleId}
+				class="text-body-large font-semibold wrap-anywhere text-brand-dark underline-offset-4 group-hover:text-brand-primary group-hover:underline"
+			>
 				<ThaiTitle text={title} />
-			</a>
-		</h2>
-		{summary && <p class="line-clamp-3 text-text-secondary">{summary}</p>}
+			</h2>
+			{summary && <p class="line-clamp-3 text-text-secondary">{summary}</p>}
+		</div>
 	</div>
+	<a
+		href={href}
+		aria-labelledby={titleId}
+		class="absolute inset-0 rounded-24 hover:ring-2 hover:ring-brand-primary"
+	/>
 </article>
