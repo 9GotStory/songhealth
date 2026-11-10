@@ -3,7 +3,7 @@
 > **Status:** v1.1, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190 as its tickets are implemented. Feature 007 acceptance
 > remains the Product Owner's decision.
-> **Updated:** 2026-11-09 (Feature 007 #191–#196); first drafted 2026-10-30
+> **Updated:** 2026-11-10 (Feature 007 #191–#197); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -24,7 +24,9 @@
 > Titles also keep "ร้องเรียน" on one line, through the shared list and its existing scope (§4.1).
 > Pagination B below 640 px centers the page number above Previous-left and Next-right; the height
 > it adds where one row fit is an accepted tradeoff (§7.6).
-> This amendment implements #191–#196;
+> FilterForm B makes "ล้างตัวกรอง" an outlined soft secondary pill, as tall as "แสดงผล" at every width;
+> it stays a native link to the unfiltered list, shown only for applied filters (§7.7).
+> This amendment implements #191–#197;
 > the other selected refinements follow in their tickets.
 
 ## 1. Scope, authority and status
@@ -136,6 +138,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `surface-base` on `brand-dark` | 12.21:1 |
 | `brand-primary` on `surface-base`, or `surface-base` on `brand-primary` | 6.45:1 |
 | `brand-primary` on `bg-page` | 6.09:1 |
+| `brand-primary` on `surface-soft` | 5.78:1 |
 | `text-secondary` on `surface-base` | 4.97:1 |
 | `text-secondary` on `bg-page` | 4.69:1 |
 | `text-secondary-on-soft` on `surface-soft` (`text-secondary` there would be 4.45:1) | 5.07:1 |
@@ -244,6 +247,7 @@ this document names:
 | Homepage | `FeaturedHero`, `SearchForm` |
 | Posts | `PostHeader`, `PostColumns`, `PostBody`, `ActivityPhotos`, `RichText` |
 | Links | `ActionLink` (buttons), `ArrowLink` (onward links), `Pagination`, `Breadcrumb` |
+| Lists | `FilterForm` |
 
 ### 7.2 Component rules
 
@@ -347,6 +351,31 @@ this document names:
   320, 375, 639, 640, 768, 1,023, 1,024 and 1,440 px. It covers single-page results at 320 and
   1,440 px, search at 320 and 640 px, keyboard use, axe, reflow, and JavaScript-disabled pages at
   320 and 640 px.
+
+### 7.7 Filter form
+
+`src/components/FilterForm.astro` (#197; spec #190 “FilterForm clear action”; Product Owner, #190
+comment 6707205912, FilterForm B) serves Services, Documents, Health News, Health Content and the
+Health Service Directory:
+
+- “แสดงผล” is the solid `brand-primary` submit button. “ล้างตัวกรอง” beside it is an outlined pill: a
+  1 px `border-input` edge, a `surface-soft` fill and a `brand-primary` label, turning `surface-base`
+  on hover. That is the reverse of `ActionLink`'s secondary, which is white at rest and soft on
+  hover. Both actions are at least 44 px tall and the same height at every width.
+- The clear link is a native anchor to the list's own address, not a reset button: it drops every
+  filter and any page number. It shows only for a filter the server applied. A draft change in a
+  field does not show it, nor does a blank value or one the list sets aside, such as a Document
+  fiscal year that is no number. An applied value that matches nothing still shows it.
+- The form is a plain GET form that works without JavaScript. Its field names, options and values
+  stay in the address, which reproduces the results. It carries no page number, so submitting starts
+  the list from its first page.
+- Below 640 px the fields stack above the actions, each as wide as the form. From 640 px a field is
+  288 px wide, and fields and actions wrap inside the form.
+- The public-browser suite goes through all five lists, with Documents' three selects and the
+  directory's Area and name fields. The applied and draft states, the first-page restart and the
+  keyboard run at 320 px, and JavaScript-disabled pages at 320 and 1,440 px. Target height, look and
+  fit run at 320, 375, 639, 640, 768, 1,023, 1,024 and 1,440 px, hover at 1,440 px, and axe, focus
+  and reflow at 320, 375 and 1,440 px.
 
 ## 8. Homepage
 
@@ -627,3 +656,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   comment 6707205912, Pagination B. Below 640 px the pager had been one row where it fit, wrapping
   otherwise; the phone height tradeoff is in #196's pull request. Which links show, their query
   handling and the layout from 640 px remain.
+- **v1.1 filter form clear action (2026-11-10, Feature 007 #197):** "ล้างตัวกรอง" as the outlined soft
+  secondary pill beside the solid primary (§7.7), following #190 comment 6707205912, FilterForm B.
+  It had been an underlined text link. When it shows, where it goes, the GET query and the form's
+  wrapping remain.
