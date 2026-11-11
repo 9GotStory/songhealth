@@ -12,18 +12,20 @@
 // A closed Announcement has expired, so it is not Featured and the next item is (`04` §5; #51 user
 // story 20): the Homepage keeps closed Announcements off, as its Announcements do.
 
-import { getMenu, resolveEmDashPath, type ContentEntry, type PortableTextBlock } from "emdash";
+import { getMenu, resolveEmDashPath, type ContentEntry } from "emdash";
 import { activityPath } from "./activities";
-import { announcementPath, detailsExcerpt, isClosed } from "./announcements";
+import { announcementPath, isClosed } from "./announcements";
 import type { Instant } from "./dated-lists";
 import { healthContentPath } from "./health-content";
 import { healthReportPath } from "./health-reports";
 import {
 	HOMEPAGE_MENUS,
+	featuredDate,
 	featuredItem,
 	frequentServices,
 	quickAccessLinks,
 	type FeaturedCollection,
+	type FeaturedDates,
 	type QuickAccessLink,
 	type ResolvePath,
 } from "./homepage-menus";
@@ -32,22 +34,21 @@ import { servicePath } from "./service-catalog";
 import type { ServiceData } from "./services";
 
 /** The fields the Homepage reads of a curated entry, whichever kind it is (seed/seed.json). */
-interface CuratedData extends ServiceData {
-	details?: PortableTextBlock[] | null;
+interface CuratedData extends ServiceData, FeaturedDates {
 	closes_at?: Instant;
 	featured_image?: ImageFieldValue | null;
 }
 
 type CuratedEntry = ContentEntry<CuratedData>;
 
-/** What the Featured hero shows of the Featured entry. */
+/** What the hero's Featured card shows of the Featured entry. */
 export interface FeaturedView {
 	/** The entry's database id. */
 	id: string;
 	collection: FeaturedCollection;
 	title: string;
-	/** Its summary, or for an Announcement, which has none, the start of its details. */
-	lead?: string;
+	/** The date its own list shows it by; none for a Service (homepage-menus.ts featuredDate). */
+	date?: Date | string;
 	image?: ImageFieldValue;
 	/** Its canonical address (`03` §15). */
 	href: string;
@@ -104,14 +105,12 @@ export async function readHomepageCuration(
 	]);
 	if (!featured) return { services, quickAccess };
 	const { collection, entry } = featured;
-	const lead =
-		collection === "announcements" ? detailsExcerpt(entry.data.details) : entry.data.summary;
 	return {
 		featured: {
 			id: entry.data.id,
 			collection,
 			title: entry.data.title,
-			lead: lead?.trim() || undefined,
+			date: featuredDate(collection, entry.data) || undefined,
 			image: entry.data.featured_image ?? undefined,
 			href: FEATURED_PATHS[collection](entry.id),
 		},

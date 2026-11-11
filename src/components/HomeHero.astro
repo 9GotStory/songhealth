@@ -1,0 +1,224 @@
+---
+// The Homepage's hero (Feature 008 #241; spec #239 "Hero and Featured"), on the deep green field:
+// a chip, the office summary sentence as the headline with "ด้านสุขภาพ" in accent-warm, the site
+// search, and the Featured item as a tilted white card. With nothing Featured the hero is one
+// column and its headline is larger from `sm`, at the prototype's sizes (#241 comment 6791096480,
+// item 3). It shows no telephone number and no hours.
+//
+// The page's H1 is the site title, out of sight, because the headline shows in its place. The
+// hero is named by the sentence whole, as a label: from `lg` each line of the headline is a block,
+// and a name read from blocks gains a space between them, which the sentence does not have after
+// "ด้านสุขภาพ". From `lg` the headline breaks into three fixed lines; below `lg` it wraps as
+// the window allows. The card sits beside the headline from `sm` and under the search below it
+// (Product Owner, 2026-11-11: #241 comment 6791096480, item 2, in place of spec #239's "under it
+// below `lg`").
+//
+// The search is a plain GET form to /search, as src/components/SearchForm.astro is, so it works
+// without JavaScript. Its field and round submit button are 44 px or more.
+//
+// The Featured card is one link to the item's canonical address. Its name is all it shows, so it
+// holds the text in sight (WCAG 2.2 SC 2.5.3), and the card's region is named by the item's title,
+// the card's H2. It states "เรื่องเด่น" and the date the item's own list shows it by; a Service has
+// none (src/lib/homepage-menus.ts featuredDate). V1 shows the one item and no carousel (`04` §5).
+// The card is tilted 2° with an accent-warm sheet behind it and straightens on hover and on focus.
+// Its focus ring is the field's, accent-warm around the link.
+//
+// The picture is decorative, because the title names the item. It shows whole, never cropped
+// (Feature 006 #146; spec #144 "Homepage (`04`)"): the office's landscape pictures are text
+// banners, and its portrait ones are One Pages. Its box is the card's frame, and behind it the
+// frame shows a blurred copy of the picture that covers the frame, a second Image. EmDash's Image
+// cannot stand in for that copy: the blurhash placeholder it writes as the image's inline
+// background is a declaration browsers drop (docs/agents/emdash-1.1.0.md "Media"). Both load at
+// once with a high fetch priority (`priority`, emdash 1.1.0 src/components/EmDashImage.astro),
+// since the hero is in view when the page opens, and from one address. An item without a picture,
+// or whose picture's media item was deleted in Admin (src/lib/media.ts), shows the plain visual
+// instead, decoration too.
+//
+// The decorations are hidden from assistive technology and take no pointer events, and the field
+// clips them, so they never widen the page (spec #239 "Accessibility"). Below `lg` the warm glow
+// is left out, so white text keeps 4.5:1 on the chip and the headline, which it would lie behind.
+// The card's tilt and the submit button's growth on hover move only under
+// `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading").
+import ArrowRight from "@lucide/astro/icons/arrow-right";
+import Search from "@lucide/astro/icons/search";
+import Star from "@lucide/astro/icons/star";
+import { Image } from "emdash/ui";
+import type { FeaturedView } from "../lib/homepage-curation";
+import { availableMedia } from "../lib/media";
+import { OFFICE_SUMMARY, OFFICE_SUMMARY_LINES } from "../lib/office-summary";
+import { MAX_QUERY_LENGTH, QUERY_PARAM } from "../lib/search-matcher";
+import DateText from "./DateText.astro";
+import ThaiTitle from "./ThaiTitle.astro";
+
+interface Props {
+	/** The site title, the page's H1. */
+	siteTitle: string;
+	featured?: FeaturedView;
+}
+
+/**
+ * The picture's width: the card's, 400 px at most from `sm` and 340 px below, less its 10 px
+ * padding either side. Beside the headline the card can be narrower, so the browser may pick a
+ * larger rendition than it shows. Only the development runtime makes renditions: production serves
+ * the original file (ADR 0003).
+ */
+const PICTURE_SIZES = "(min-width: 40rem) 23.75rem, 20rem";
+
+const { siteTitle, featured } = Astro.props;
+const image = featured && (await availableMedia(featured.image, Astro.locals.emdash));
+---
+
+<section
+	aria-label={OFFICE_SUMMARY}
+	class="deep-field focus-ring-on-dark relative overflow-clip rounded-b-24 text-surface-base sm:rounded-b-32"
+>
+	<div aria-hidden="true" class="pointer-events-none absolute inset-0">
+		<span class="absolute -top-30 -right-20 size-105 rounded-pill bg-accent-warm/38 blur-3xl max-lg:hidden"></span>
+		<span class="absolute top-75 -left-35 size-90 rounded-pill bg-surface-soft/16 blur-3xl"></span>
+		<span class="absolute top-15 -right-42.5 size-130 rounded-pill border-[1.5px] border-surface-base/18 max-sm:hidden"></span>
+		<span class="absolute top-13.5 left-[46%] size-40 rounded-pill border-[1.5px] border-accent-warm/50 max-lg:hidden"></span>
+	</div>
+	<div
+		class:list={[
+			"page-container relative grid items-center gap-9 pt-8 pb-10 sm:gap-10 sm:py-12",
+			featured
+				? "sm:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] sm:gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)] lg:gap-12 lg:pt-18 lg:pb-16"
+				: "max-sm:pt-9 lg:pt-22 lg:pb-18",
+		]}
+	>
+		<div class="min-w-0">
+			<p class="inline-flex items-center gap-2.5 rounded-pill border border-surface-base/22 bg-hero-chip px-4 py-1.5 text-label">
+				<span
+					aria-hidden="true"
+					class="size-2 shrink-0 rounded-pill bg-accent-warm ring-4 ring-accent-warm/30"
+				></span>
+				เว็บไซต์ทางการ · กระทรวงสาธารณสุข
+			</p>
+			<h1 class="sr-only">
+				<ThaiTitle text={siteTitle} />
+			</h1>
+			<p
+				class:list={[
+					"mt-4 mb-6 sm:mt-5.5 sm:mb-8.5",
+					featured ? "hero-headline" : "hero-headline-alone",
+				]}
+			>
+				{OFFICE_SUMMARY_LINES.map(({ text, marked }) => (
+					<span class="lg:block lg:whitespace-nowrap">
+						{text}
+						{marked && (
+							<span class="relative whitespace-nowrap text-accent-warm">
+								{marked}
+								<span
+									aria-hidden="true"
+									class="absolute inset-x-0 bottom-0.5 h-2.5 rounded-pill bg-accent-warm/28"
+								></span>
+							</span>
+						)}
+					</span>
+				))}
+			</p>
+			<form
+				role="search"
+				method="get"
+				action="/search"
+				aria-label="ค้นหาในเว็บไซต์"
+				class:list={[
+					"focus-ring-on-light flex h-15 max-w-135 items-center gap-3 rounded-pill bg-surface-base pr-2 pl-5 text-text-secondary shadow-deep sm:h-17 sm:pl-6",
+					!featured && "lg:max-w-160",
+				]}
+			>
+				<Search class="shrink-0" size={20} />
+				<label class="sr-only" for="home-search">
+					ค้นหาในเว็บไซต์
+				</label>
+				<input
+					id="home-search"
+					name={QUERY_PARAM}
+					type="search"
+					maxlength={MAX_QUERY_LENGTH}
+					placeholder="คุณกำลังมองหาอะไร?"
+					class="min-h-11 w-full min-w-0 flex-1 rounded-pill bg-transparent text-body text-text-primary placeholder:text-text-secondary sm:text-body-large"
+				/>
+				<button
+					type="submit"
+					class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-pill bg-accent-warm text-brand-dark motion-safe:transition-transform motion-safe:hover:scale-108 sm:size-13"
+				>
+					<span class="sr-only">ค้นหา</span>
+					<ArrowRight class="shrink-0" size={20} />
+				</button>
+			</form>
+		</div>
+		{featured && (
+			<section
+				aria-labelledby="home-featured"
+				class="relative w-full max-w-85 justify-self-center sm:max-w-100 sm:justify-self-end"
+			>
+				<a href={featured.href} class="group block rounded-24">
+					<div
+						aria-hidden="true"
+						class="absolute inset-0 translate-x-3.5 translate-y-1.5 rotate-6 rounded-24 bg-accent-warm motion-safe:transition-transform motion-safe:duration-400 ease-out group-hover:translate-x-5.5 group-hover:translate-y-2 group-hover:rotate-9"
+					/>
+					<div class="relative -rotate-2 rounded-24 bg-surface-base p-2.5 text-text-primary shadow-deep motion-safe:transition-transform motion-safe:duration-400 ease-out group-hover:rotate-0 group-focus-visible:rotate-0">
+						<div class="relative h-65 overflow-hidden rounded-18 bg-surface-soft sm:h-90">
+							{image ? (
+								<>
+									<div aria-hidden="true" class="absolute -inset-7.5 opacity-75 blur-xl">
+										<Image
+											image={image}
+											alt=""
+											sizes={PICTURE_SIZES}
+											priority
+											placeholder={false}
+											class="size-full object-cover"
+										/>
+									</div>
+									<Image
+										image={image}
+										alt=""
+										sizes={PICTURE_SIZES}
+										priority
+										placeholder={false}
+										class="relative size-full object-contain"
+									/>
+								</>
+							) : (
+								<div
+									aria-hidden="true"
+									data-testid="featured-visual"
+									class="plain-visual flex size-full items-center justify-center"
+								>
+									<span class="flex size-18 items-center justify-center rounded-22 bg-linear-140 from-brand-primary to-brand-dark text-accent-warm shadow-tile">
+										<Star class="shrink-0" size={24} />
+									</span>
+								</div>
+							)}
+						</div>
+						<div class="flex items-center gap-3.5 px-2.5 pt-3.5 pb-1.5">
+							<div class="min-w-0 flex-1">
+								<p class="text-small font-semibold text-brand-primary">
+									เรื่องเด่น
+									{featured.date && (
+										<>
+											{" "}
+											· <DateText value={featured.date} />
+										</>
+									)}
+								</p>
+								<h2 id="home-featured" class="text-body-large font-semibold wrap-anywhere">
+									<ThaiTitle text={featured.title} />
+								</h2>
+							</div>
+							<span
+								aria-hidden="true"
+								class="flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface-soft text-brand-primary motion-safe:transition-colors group-hover:bg-accent-warm group-hover:text-brand-dark"
+							>
+								<ArrowRight class="shrink-0" size={20} />
+							</span>
+						</div>
+					</div>
+				</a>
+			</section>
+		)}
+	</div>
+</section>

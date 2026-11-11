@@ -4,7 +4,7 @@
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > ticket by ticket from #240, and awaits the Product Owner's acceptance on #239.
-> **Updated:** 2026-11-11 (Feature 008 #240); first drafted 2026-10-30
+> **Updated:** 2026-11-11 (Feature 008 #241); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -37,8 +37,9 @@
 > look the Product Owner chose from a prototype, the Homepage first, on the existing colours, radii
 > and Noto Sans Thai. Every page takes the new shell at once (§7.4): one sticky header row with a
 > round search link and no utility bar, no header link to `/contact`, and the deep green footer with
-> the official channels as pills. Five colours join the tokens (§3.1). #240 implements the shell;
-> the sections of this document it does not name still describe the pages as they are until their
+> the official channels as pills. Five colours join the tokens (§3.1). #240 implements the shell,
+> and #241 the Homepage's hero on the deep green field and the Homepage section heading (§8, §8.1);
+> the sections of this document they do not name still describe the pages as they are until their
 > own tickets.
 
 ## 1. Scope, authority and status
@@ -90,12 +91,14 @@ recognizably connected to the local health-service network.
 2. The tokens are `@theme` variables in `src/styles/global.css`, which clears Tailwind's default
    colours, type scale, radii and shadows, so a template can use only these tokens (§3.1).
 3. Templates style with utility classes in Astro components. The global stylesheet holds only the
-   tokens, the base styles (the page gutter and the focus ring), two utilities (`page-container`
-   and `focus-ring-on-dark`) and the `.rich-text` typography of Portable Text bodies, which EmDash
-   renders as plain HTML that takes no utility classes.
+   tokens, the base styles (the page gutter and the focus ring), the utilities (`page-container`;
+   `focus-ring-on-dark` and `focus-ring-on-light`; the header's `header-title` and
+   `header-nav-item`; the Homepage's `deep-field`, `plain-visual`, `hero-headline`,
+   `hero-headline-alone` and `section-title`) and the `.rich-text` typography of Portable Text
+   bodies, which EmDash renders as plain HTML that takes no utility classes.
 4. No other plain CSS selectors for component styling, no CSS Modules, Astro `<style>` blocks or
    CSS-in-JS, and no Tailwind v3 setup or `tailwind.config.js`. An inline `style` carries only a
-   value computed from content: the Featured picture's width from its stored size (§8.1).
+   value computed from content: the shell's `--menu-height` from its number of menu items (§7.4).
 5. States and widths use Tailwind's variants (`hover:`, `focus-visible:`, `group-*`, `max-sm:`,
    `supports-[…]:` and the breakpoints of §6). Pages work without client JavaScript (§11).
 6. A colour or type style the tokens lack becomes a named token with its source, and §3.1 records
@@ -110,8 +113,8 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | Token | Value | Use |
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the News card, the focus ring on light surfaces |
-| `brand-dark` | `#123c33` | headings, the Featured hero, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces |
+| `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, and a section heading's label and icon tile |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -120,10 +123,9 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | `border-default` | `#dce7e2` | borders |
 | `topic-green`, `topic-blue` | `#ebf7f0`, `#f0f5fc` | Health Information cards |
 | `divider` | `#dbe8e3` | Announcement list separators |
-| `hero-visual-from`, `-to` | `#bae0cf`, `#f2d17a` | the Featured visual without a picture |
 | `activity-visual-from`, `-to` | `#bfdcce`, `#e8f0d9` | an Activity card without a picture |
 | `contact-visual-from`, `-to` | `#d1ebde`, `#e8f0cc` | the Contact Summary's map stand-in |
-| `hero-chip`, `hero-secondary-fill`, `hero-secondary-border` | white at 12 %, 6 %, 28 % | the Featured eyebrow chip and secondary link |
+| `hero-chip`, `hero-secondary-fill`, `hero-secondary-border` | white at 12 %, 6 %, 28 % | the hero's chip; a secondary link on a dark surface |
 | `text-secondary-on-soft` | `#5d6a64` | secondary text on `surface-soft` (contrast fix, #51) |
 | `border-input` | `#7a8a83` | input boundaries (contrast fix, #51) |
 | `procurement-text`, `procurement-border` | `#1d4f91`, `#c9dbf3` | the procurement Announcement badge's text and border, on `topic-blue` (Feature 008, #239) |
@@ -131,8 +133,12 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | `deep-highlight` | `#0f8a70` | the highlight in the deep green field's gradient (Feature 008, #239) |
 | `plain-visual-to` | `#d6ece2` | the plain visual's second stop, after `surface-soft` (Feature 008, #239) |
 
-The five Feature 008 colours are defined by name for the Homepage tickets that follow #240; no
-page uses them yet. Two fills are a token at an opacity, not a token of their own: the header's
+The Homepage's hero uses `deep-highlight`, in the `deep-field` utility's gradient, and
+`plain-visual-to`, in the `plain-visual` utility that stands in for a missing picture (§8.1). The
+other three Feature 008 colours are defined by name for the tickets that follow; no page uses them
+yet. Some fills are a token at an opacity, not a token of their own: the hero's decorations and
+chip (`accent-warm` at 28 %, 30 %, 38 % and 50 %, `surface-soft` at 16 %, `surface-base` at 18 %
+and 22 %), the header's
 surface, `surface-base` at 90 %, and the footer's quiet text, pills and rule, `surface-base` at
 70 %, 85 %, 20 %, 15 % and 10 %.
 
@@ -149,9 +155,18 @@ Two header styles scale with the window from 1,024 px and are utilities, not ste
 (§7.4): `header-title`, 16 to 18 px on a 24 px line, and `header-nav-item`, 15 to 16 px on a 26 px
 line. Below 640 px the site title is `body` at 700 on `label`'s 22 px line.
 
-Radii are named by their size in px: 14, 16, 18, 20, 22, 24, 26 and 32, and `pill` (999 px). Two
-shadows: `card`, `0 10px 15px rgb(13 46 36 / 0.08)`, and `header`, the sticky header's lower edge,
-a 1 px `border-default` hairline with `0 8px 24px -16px rgb(13 46 36 / 0.25)`. One container,
+Three Homepage styles are utilities beyond the scale too (spec #239 "Tokens"), each at 700 with
+-0.01 em letter spacing:
+`hero-headline`, 29 / 42 below 640 px, 34 / 48 from 640 px, and from 1,024 px 34 to 44 px with the
+window on a line of 1.42; `hero-headline-alone`, the headline with nothing Featured, 29 / 42, then
+38 / 54 from 640 px and 52 / 74 from 1,024 px; and `section-title`, a Homepage section's H2, 26 /
+38, then 36 / 48 from 640 px and 42 / 54 from 1,024 px.
+
+Radii are named by their size in px: 14, 16, 18, 20, 22, 24, 26 and 32, and `pill` (999 px). Four
+shadows: `card`, `0 10px 15px rgb(13 46 36 / 0.08)`; `header`, the sticky header's lower edge,
+a 1 px `border-default` hairline with `0 8px 24px -16px rgb(13 46 36 / 0.25)`; `deep`, a card on
+the deep green field, `0 30px 60px -20px rgb(13 46 36 / 0.35)`; and `tile`, a section heading's
+icon tile on a light surface, `0 14px 26px -12px rgb(11 107 87 / 0.7)`. One container,
 `content`: 75 rem (1,200 px). One length, `--header-offset`: the room the sticky header takes at
 the top of the window, 88 px below 640 px and 84 px from 640 px (§7.4).
 
@@ -184,8 +199,9 @@ There is no alert colour: a status is stated in text, and colour supports it.
 - **Typeface:** Noto Sans Thai, self-hosted through Astro's Fonts API (`astro.config.mjs`,
   `src/assets/fonts/README.md`).
 - **Headings:** a page's H1 is H3 size below `sm`, H2 size from `sm` and H1 size from `lg`. A
-  section heading is H3 size and H2 size from `lg` (H1 size on a dark band), under an eyebrow at
-  label size. Keep the `h1` → `h2` → `h3` order whatever the visual size.
+  Homepage section's H2 is `section-title` (§3.1), under a label at label size between slashes. The
+  Homepage's H1, the site title, is out of sight: the hero's headline shows in its place (§8.1).
+  Keep the `h1` → `h2` → `h3` order whatever the visual size.
 - **Copy:** concise, natural Thai. Dates and categories sit below the title in emphasis, and colour
   is never the only cue. No hard-coded dates, opening hours, news, phone numbers or service status.
 
@@ -231,7 +247,11 @@ own module.
   for an icon that shows the action itself at the start of its button (the menu, a download);
   24 px on a card (Service and Quick Link cards).
 - **Direction:** an onward link on this site ends in `chevron-right`, and a link that leaves it in
-  `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). Every Service card shows
+  `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). On the Homepage, a round
+  button, a section heading's link and a card take `arrow-right` instead (Product Owner,
+  2026-11-11: #241 comment 6791096480, item 1): 16 px in the heading's link, 20 px in the search's
+  submit button and on the Featured card. The hero's search field opens with a 20 px `search`
+  icon, and a section heading's tile and the plain visual's tile hold a 24 px icon. Every Service card shows
   the one Service icon, `hand-heart`.
 - **Accessibility:** an icon is decorative. Lucide hides it from assistive technology, the text
   names the link or button, and an icon-only action has an accessible name. Every icon takes
@@ -249,8 +269,8 @@ production sets the office's approved file: the MOPH emblem, as the legacy site 
   compactly (`04` §15, §8.2).
 - **Breakpoints:** Tailwind's own, with no custom one.
   - below `sm` (640 px): phones;
-  - `sm`, from 640 px: wider phones and tablets;
-  - `lg`, from 1,024 px: desktop, with the two-column layouts (the Featured hero, News beside
+  - `sm`, from 640 px: wider phones and tablets, where the Homepage's hero takes two columns;
+  - `lg`, from 1,024 px: desktop, with the two-column layouts (News beside
     Announcements, the post pages, the MOIT page's table of contents).
   - `md` and `xl` are not used.
 - **Widths checked:** 1,440 px (desktop, Concept v1's frame), 375 px (a common phone, where the
@@ -275,7 +295,7 @@ this document names:
 | Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
 | Headings | `PageHeading`, `SectionHeading`, `ThaiTitle` |
 | Cards | `ContentCard` (News, Health Content), `ActivityCard`, `ServiceCard`, `QuickLinkCard`, `PersonCard` |
-| Homepage | `FeaturedHero`, `SearchForm` |
+| Homepage | `HomeHero`; `SearchForm` on `/search` |
 | Posts | `PostHeader`, `PostColumns`, `PostBody`, `ActivityPhotos`, `RichText` |
 | Links | `ActionLink` (buttons), `ArrowLink` (onward links), `Pagination`, `Breadcrumb` |
 | Lists | `FilterForm` |
@@ -454,37 +474,66 @@ order:
 9. Contact Summary (the office's address, telephone and hours; a static map stand-in).
 10. Footer.
 
+Each section between the hero and the Contact Summary opens with `SectionHeading` (spec #239
+"Section headings"): an icon tile (72 px, 52 px below `sm`; a `brand-primary` to `brand-dark`
+gradient with an `accent-warm` icon, or `accent-warm` with a `brand-dark` icon on a dark band), a
+label between slashes, and the H2. Frequently Used Services, Health Information and Activities
+are named as their lists are ("บริการประชาชน", "ความรู้สุขภาพ", "กิจกรรม"), and their heading holds
+a pill link to that list that reads "ทั้งหมด", named "ดู…ทั้งหมด" with the section's name; below `sm`
+it is a round 44 px arrow button with the same name. A heading has no lead; the News and
+Announcements, Health Service Discovery and Quick Access sections take the heading now and keep
+their titles until their own tickets (#241 comment 6791096480, item 4).
+
 From `lg`, Frequently Used Services show 3 to a row, Health Information 4, Activities 3 and Quick
 Access 4. Below `lg` each shows 2 to a row, 12 px apart below `sm` and 24 px from `sm`.
 
-### 8.1 Featured
+### 8.1 Hero and Featured
 
-- **The picture** shows whole at its own aspect ratio, never cropped, at most 408 px tall at every
-  width: the office's landscape pictures are text banners, and its portrait ones are One Pages. A
-  narrower picture, such as a One Page, is centred on the band. Its width cap comes from the size
-  EmDash stores with the image, so the image's box is the picture itself. An item without a picture
-  shows the gradient visual.
-- **The title** is H3 size, H2 size from `sm` and H1 size (46/58) from `lg`, with `text-balance`,
-  so the hero leaves room on the first screen (Product Owner: "หัวข้อเรื่องเด่นเล็กลง").
-- **The lead** shows four lines at most, three below 640 px.
-- With nothing Featured, a dark band holds the site title and tagline.
+The hero (`HomeHero`; spec #239 "Hero and Featured") opens the page on the deep green field,
+whose lower corners are radius 32 (24 below `sm`):
+
+- **The chip** reads "เว็บไซต์ทางการ · กระทรวงสาธารณสุข".
+- **The headline** is the office summary sentence, with "ด้านสุขภาพ" in `accent-warm`, in
+  `hero-headline` (§3.1). From `lg` it breaks into three fixed lines; below `lg` it wraps with the
+  window. It is a paragraph that names the hero; the page's H1 is the site title, out of sight.
+- **The search** is a white pill, 68 px high (60 px below `sm`) and at most 540 px wide, with a
+  round `accent-warm` submit button of 52 px (44 px below `sm`). Its field and its form are
+  labelled "ค้นหาในเว็บไซต์", and it submits to `/search`.
+- **The Featured card** is one link to the item, at most 400 px wide (340 px below `sm`): a white
+  card tilted 2° over an `accent-warm` sheet, which straightens on hover and on focus. It holds
+  the picture's frame, 360 px high (260 px below `sm`), then "เรื่องเด่น" with the date the item's
+  own list shows it by (a Service has none), the title as the card's H2, and an arrow. From `sm` it
+  sits beside the headline, and below `sm` under the search, centred (Product Owner, 2026-11-11:
+  #241 comment 6791096480, item 2).
+- **The picture** shows whole in the frame, never cropped: the office's landscape pictures are
+  text banners, and its portrait ones are One Pages. Behind it the frame shows a blurred copy of
+  the picture that covers the frame, a second image. An item without a picture shows the plain
+  visual with an icon tile.
+- **With nothing Featured** the hero is one column: no card, the headline in
+  `hero-headline-alone`, which is larger from `sm` (#241 comment 6791096480, item 3), and from
+  `lg` the search up to 640 px wide.
+- The hero shows no summary of the Featured item, no telephone number and no hours.
+- White text on the field's lightest part, `deep-highlight`, is 4.30:1, so the field carries the
+  headline, which is large text, and smaller text at its darker left. Focus rings on the field are
+  `accent-warm`, the Featured card's link among them, and `brand-primary` inside the white search.
+- The card's tilt and the submit button's growth on hover move only without a reduced-motion
+  preference.
 
 ### 8.2 Phones
 
 Below 640 px the Homepage is shorter, with every section kept in its order (Product Owner: "โอเค
-เฉพาะหน้าแรก"; `04` §15). From `sm` it is as before, except that tablets show 4 Activities, and on
-a desktop only the Featured hero changed.
+เฉพาะหน้าแรก"; `04` §15). From `sm` it is as before, except that tablets show 4 Activities.
 
 - Each section has 32 px of space above and below it.
-- The section headings' leads, the Contact Summary's lead and the map stand-in are hidden.
+- The Contact Summary's lead and the map stand-in are hidden.
 - The Frequently Used Services, Health Information, Activities and Quick Access go two to a row,
   12 px apart, in compact cards (§7.3).
-- The News card's summary is clamped to three lines, as the Featured lead is.
+- The News card's summary is clamped to three lines.
 - Phones and tablets show the latest 4 Activities, two by two; a desktop row shows 3.
 
-The Homepage's height with the demo dataset, measured on 2026-11-05 at the application code of
-`006-frontend-design` `571b222` with `scripts/capture-screenshots.mjs`: 5,736 px at 1,440 px,
-5,821 px at 375 px and 6,196 px at 320 px.
+The Homepage's height with the demo dataset, measured on 2026-11-11 at the application code of
+`feat/008-241-hero-featured` `d58f70f` with `scripts/capture-screenshots.mjs`: 5,087 px at
+1,440 px, 5,552 px at 375 px and 6,149 px at 320 px.
 
 The Product Owner accepted the phone Homepage at 5,771 px at 375 px with the prototype's data, in
 place of the grill's target of about 5,000 px (spec #144). The height moves with the titles and the
@@ -746,3 +795,16 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   6786631899. The header had been Feature 007's Header B: a `brand-dark` utility bar over a white
   row, a 44 px menu pill, and a 24 px title from 1,024 px. Sticky boxes on other pages moved down by
   the header's height; nothing else on those pages changed.
+- **v1.2 Homepage hero and section heading (2026-11-11, Feature 008 #241):** the hero on the deep
+  green field (§8.1): the office summary as the headline, the site search, and the Featured item
+  as a tilted white card with its whole picture, "เรื่องเด่น" with its date, and its title. It
+  replaces the `brand-dark` Featured hero with the item's title at H1 size, its lead and two
+  buttons, the band with the site title and tagline that stood in for it, and the Homepage's Search
+  section. The Homepage section heading (§8) replaces the eyebrow, H2 and lead: the Frequently Used
+  Services, Health Information and Activities take their lists' names and a "ทั้งหมด" link in the
+  heading in place of the link under their cards. §3.1 loses `hero-visual-from` and `-to` and
+  gains the `deep` and `tile` shadows and three type utilities. Authority: spec #239 "Hero and
+  Featured", "Section headings" and "Tokens", and #241 comment 6791096480 (arrow-right on the Homepage, the
+  card beside the headline from 640 px, the larger headline's sizes, the heading on every section).
+  Which item is Featured, its address, and what each
+  section lists remain.

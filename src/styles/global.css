@@ -21,7 +21,9 @@
 	/*
 	 * A status that needs attention (StatusLabel), the skip link, the focus ring on dark surfaces,
 	 * and the eyebrow on the brand-dark Health Service Discovery section (Figma frame §8) and on the
-	 * MOIT page's brand-dark header band, with the MOIT's number (#123, ITA prototype variant C)
+	 * MOIT page's brand-dark header band, with the MOIT's number (#123, ITA prototype variant C). On
+	 * the Homepage's deep field (spec #239): the words the hero's headline marks, the search's submit
+	 * button, the sheet behind the Featured card, and a section heading's label and icon tile.
 	 */
 	--color-accent-warm: #f3c95f;
 	--color-text-primary: #16211d;
@@ -35,13 +37,14 @@
 	--color-topic-green: #ebf7f0; /* Health Information cards */
 	--color-topic-blue: #f0f5fc;
 	--color-divider: #dbe8e3; /* Announcement list separators */
-	--color-hero-visual-from: #bae0cf; /* Featured hero visual */
-	--color-hero-visual-to: #f2d17a;
 	--color-activity-visual-from: #bfdcce; /* Activity card without an image */
 	--color-activity-visual-to: #e8f0d9;
 	--color-contact-visual-from: #d1ebde; /* Contact Summary map stand-in */
 	--color-contact-visual-to: #e8f0cc;
-	/* The Featured hero's eyebrow chip, and its secondary link's fill and border (Figma frame §3) */
+	/*
+	 * The hero's chip (spec #239 "Hero and Featured"), and the fill and border of a secondary link
+	 * on a dark surface (Figma frame §3)
+	 */
 	--color-hero-chip: rgb(255 255 255 / 0.12);
 	--color-hero-secondary-fill: rgb(255 255 255 / 0.06);
 	--color-hero-secondary-border: rgb(255 255 255 / 0.28);
@@ -102,6 +105,13 @@
 
 	--shadow-*: initial;
 	--shadow-card: 0 10px 15px rgb(13 46 36 / 0.08);
+	/*
+	 * A card on the deep green field, such as the hero's search and Featured card (spec #239
+	 * "Tokens")
+	 */
+	--shadow-deep: 0 30px 60px -20px rgb(13 46 36 / 0.35);
+	/* A section heading's icon tile on a light surface (spec #239 "Section headings") */
+	--shadow-tile: 0 14px 26px -12px rgb(11 107 87 / 0.7);
 	/* The sticky header's lower edge: a hairline and a short soft shadow (spec #239 "Header") */
 	--shadow-header: 0 1px 0 var(--color-border-default), 0 8px 24px -16px rgb(13 46 36 / 0.25);
 
@@ -195,11 +205,119 @@
 }
 
 /*
+ * The Homepage's deep green field (spec #239 "Solution"): brand-dark to brand-primary and back,
+ * with the deep-highlight glow from its upper right, 62 % of the field wide, and below `sm` a
+ * smaller one in the corner, so on a phone it stays clear of the text at the left. White text on
+ * its lightest part, deep-highlight, is 4.30:1, so the field carries large text, and smaller text
+ * at its darker left. brand-dark lies under the gradients, so the field's white text stays readable
+ * where a browser draws neither.
+ */
+@utility deep-field {
+	background-color: var(--color-brand-dark);
+	background-image:
+		radial-gradient(
+			var(--deep-field-glow, 62% 37.5rem at 85% 0%),
+			var(--color-deep-highlight) 0%,
+			transparent 60%
+		),
+		linear-gradient(
+			140deg,
+			var(--color-brand-dark) 0%,
+			var(--color-brand-primary) 70%,
+			var(--color-brand-dark) 130%
+		);
+
+	@media (width < 40rem) {
+		--deep-field-glow: 45% 18rem at 100% 0%;
+	}
+}
+
+/*
+ * The plain visual that stands in for a missing picture (spec #239 "Tokens"): surface-soft to
+ * plain-visual-to, with a white glow from its upper right.
+ */
+@utility plain-visual {
+	background:
+		radial-gradient(circle at 80% 10%, var(--color-surface-base) 0, transparent 55%),
+		linear-gradient(140deg, var(--color-surface-soft), var(--color-plain-visual-to));
+}
+
+/*
+ * The hero's headline (spec #239 "Hero and Featured", "Tokens"), sizes beyond the type scale: 29 /
+ * 42 below `sm`, 34 / 48 from `sm`, and from `lg` 34 to 44 px with the window, so its three lines
+ * fit beside the Featured card at 1,024 px without a third breakpoint. With nothing Featured it is
+ * larger: 38 / 54 from `sm` and 52 / 74 from `lg`.
+ */
+@utility hero-headline {
+	font-size: 1.8125rem;
+	line-height: 2.625rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+
+	@media (width >= 40rem) {
+		font-size: 2.125rem;
+		line-height: 3rem;
+	}
+
+	@media (width >= 64rem) {
+		font-size: clamp(2.125rem, 3.3vw, 2.75rem);
+		line-height: 1.42;
+	}
+}
+
+@utility hero-headline-alone {
+	font-size: 1.8125rem;
+	line-height: 2.625rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+
+	@media (width >= 40rem) {
+		font-size: 2.375rem;
+		line-height: 3.375rem;
+	}
+
+	@media (width >= 64rem) {
+		font-size: 3.25rem;
+		line-height: 4.625rem;
+	}
+}
+
+/*
+ * A Homepage section's H2 (spec #239 "Tokens"), sizes beyond the type scale: 26 / 38 below `sm`,
+ * 36 / 48 from `sm` and 42 / 54 from `lg`.
+ */
+@utility section-title {
+	font-size: 1.625rem;
+	line-height: 2.375rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+
+	@media (width >= 40rem) {
+		font-size: 2.25rem;
+		line-height: 3rem;
+	}
+
+	@media (width >= 64rem) {
+		font-size: 2.625rem;
+		line-height: 3.375rem;
+	}
+}
+
+/*
  * Focus ring on dark surfaces: accent-warm, 7.75:1 against brand-dark and 4.10:1 against
  * brand-primary, above the 3:1 a focus indicator needs.
  */
 @utility focus-ring-on-dark {
 	--focus-ring-color: var(--color-accent-warm);
+}
+
+/*
+ * Focus ring on a light surface inside a dark one, such as the white search field on the deep
+ * field: brand-primary again, since accent-warm does not show on white (spec #239
+ * "Accessibility").
+ */
+@utility focus-ring-on-light {
+	--focus-ring-color: var(--color-brand-primary);
 }
 
 /*
