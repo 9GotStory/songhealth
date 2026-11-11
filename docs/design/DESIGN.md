@@ -187,6 +187,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-secondary-on-soft` on `surface-soft` (`text-secondary` there would be 4.45:1) | 5.07:1 |
 | `border-input` on `surface-base`, `bg-page`, `surface-soft` | 3.63, 3.42, 3.25:1 |
 | `accent-warm` focus ring on `brand-dark`, `brand-primary` | 7.75, 4.10:1 |
+| `accent-warm` text on `brand-dark`; on `brand-primary` and the deep field, where small text is `surface-base` instead (§8.4) | 7.75:1; 4.10:1 or less |
 | `text-secondary-on-soft` (the tagline) on the header's surface over `brand-dark`, the darkest fill a page scrolls under it (`text-secondary` there would be 4.15:1) | 4.73:1 |
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
