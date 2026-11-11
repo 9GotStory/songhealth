@@ -464,7 +464,16 @@ the restore costs another window (#183 retro):
    three times, so type `yes` three times), `systemctl --user start songhealth-dev-app.service`, and
    verify.
 5. `scripts/dev-runtime-window.sh close`. `scripts/dev-runtime-window.sh status` says whether one is
-   open.
+   open, and prints why it opened, when, and the directory it was opened from.
+
+**A window another session left open** is closed on the Product Owner's word, by steps 4 and 5
+(#240 retro; #238 comment 6787146310 is the worked record). Its backup is the folder under
+`~/.local/state/songhealth-qdev/backups/` whose `qdev-meta-*.txt` has the first `created-utc` after
+the window opened. Before the restore, stop what the window started (its issue and the directory
+`status` prints name it, such as `scripts/dev-runtime-uat.sh stop`), and back up the runtime as the
+window leaves it, so the restore can be undone. Record what was done on the window's issue.
+`scripts/capture-screenshots.mjs` stops while a window is open, since its pages then show the
+window's content.
 
 ## Uninstall
 

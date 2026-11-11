@@ -4,6 +4,8 @@
 # dev-runtime-env.sh and dev-runtime-update.sh refuse from then on, while the lock exists; it cannot
 # see a suite already running. The steps are in docs/operations/development-quadlet.md "A window".
 # It coordinates sessions: it is no access control.
+# The lock holds why the window opened, when, and the directory it was opened from, where the
+# holder's checkout and its scripts are (#240 retro).
 #   scripts/dev-runtime-window.sh open "<why>"
 #   scripts/dev-runtime-window.sh close
 #   scripts/dev-runtime-window.sh status   # exit 0 with no window open, 1 with one
@@ -17,7 +19,7 @@ case ${1-} in
   open)
     (( $# == 2 )) && [[ -n $2 ]] || die "$USAGE"
     [[ ! -e $WINDOW_LOCK ]] || die "a window already holds the runtime: $(<"$WINDOW_LOCK")"
-    ( set -C; printf '%s (opened %s)\n' "$2" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$WINDOW_LOCK" ) \
+    ( set -C; printf '%s (opened %s, from %s)\n' "$2" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PWD" > "$WINDOW_LOCK" ) \
       || die "could not open the window: $WINDOW_LOCK was not written"
     note "the window is open: scripts/dev-runtime-env.sh --in-window runs commands inside it"
     ;;
