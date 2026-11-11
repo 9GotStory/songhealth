@@ -176,7 +176,9 @@ test("Featured shows the first menu item that is published content of a Featured
 			await expect(
 				shown.getByText(`${FEATURED_LABEL} · ${thaiDate(publishedAt)}`, { exact: true }),
 			).toBeVisible();
-			await expect(shown.getByRole("link")).toHaveAccessibleName(featured.title);
+			await expect(shown.getByRole("link")).toHaveAccessibleName(
+				`${FEATURED_LABEL} · ${thaiDate(publishedAt)} ${featured.title}`,
+			);
 			await expect(shown.getByRole("link")).toHaveAttribute("href", `/news/${featured.slug}`);
 			await expect(shown, "the card leaves the summary to the item's page").not.toContainText(
 				summary,

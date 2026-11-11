@@ -4,15 +4,18 @@
 // search, and the Featured item as a tilted white card. With nothing Featured the hero is one
 // column and its headline is larger. It shows no telephone number and no hours.
 //
-// The page's H1 is the site title, out of sight, because the headline shows in its place; the
-// headline names the hero. From `lg` the headline breaks into three fixed lines beside the card;
+// The page's H1 is the site title, out of sight, because the headline shows in its place. The
+// hero is named by the sentence whole, as a label: from `lg` each line of the headline is a block,
+// and a name read from blocks gains a space between them, which the sentence does not have after
+// "ด้านสุขภาพ". From `lg` the headline breaks into three fixed lines beside the card;
 // below `lg` it wraps as the window allows, and the card sits under the search.
 //
 // The search is a plain GET form to /search, as src/components/SearchForm.astro is, so it works
 // without JavaScript. Its field and round submit button are 44 px or more.
 //
-// The Featured card is one link to the item's canonical address, named by the item's title, the
-// card's H2. It states "เรื่องเด่น" and the date the item's own list shows it by; a Service has
+// The Featured card is one link to the item's canonical address. Its name is all it shows, so it
+// holds the text in sight (WCAG 2.2 SC 2.5.3), and the card's region is named by the item's title,
+// the card's H2. It states "เรื่องเด่น" and the date the item's own list shows it by; a Service has
 // none (src/lib/homepage-menus.ts featuredDate). V1 shows the one item and no carousel (`04` §5).
 // The card is tilted 2° with an accent-warm sheet behind it and straightens on hover and on focus.
 //
@@ -37,7 +40,7 @@ import Star from "@lucide/astro/icons/star";
 import { Image } from "emdash/ui";
 import type { FeaturedView } from "../lib/homepage-curation";
 import { availableMedia } from "../lib/media";
-import { OFFICE_SUMMARY_LINES } from "../lib/office-summary";
+import { OFFICE_SUMMARY, OFFICE_SUMMARY_LINES } from "../lib/office-summary";
 import { MAX_QUERY_LENGTH, QUERY_PARAM } from "../lib/search-matcher";
 import DateText from "./DateText.astro";
 import ThaiTitle from "./ThaiTitle.astro";
@@ -60,7 +63,7 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 ---
 
 <section
-	aria-labelledby="home-headline"
+	aria-label={OFFICE_SUMMARY}
 	class="deep-field focus-ring-on-dark relative overflow-clip rounded-b-24 text-surface-base sm:rounded-b-32"
 >
 	<div aria-hidden="true" class="pointer-events-none absolute inset-0">
@@ -89,7 +92,6 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 				<ThaiTitle text={siteTitle} />
 			</h1>
 			<p
-				id="home-headline"
 				class:list={[
 					"mt-4 mb-6 sm:mt-5.5 sm:mb-8.5",
 					featured ? "hero-headline" : "hero-headline-alone",
@@ -146,7 +148,7 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 				aria-labelledby="home-featured"
 				class="relative w-full max-w-85 justify-self-center sm:max-w-100 lg:justify-self-end"
 			>
-				<a href={featured.href} aria-labelledby="home-featured" class="group block rounded-24">
+				<a href={featured.href} class="group block rounded-24">
 					<div
 						aria-hidden="true"
 						class="absolute inset-0 translate-x-3.5 translate-y-1.5 rotate-6 rounded-24 bg-accent-warm transition-transform duration-400 ease-out group-hover:translate-x-5.5 group-hover:translate-y-2 group-hover:rotate-9"
