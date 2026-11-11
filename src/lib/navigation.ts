@@ -1,6 +1,6 @@
-// Songhealth site navigation (Feature 003 #52, #86): the main navigation, the utility links the
-// page shell renders on every page, and the breadcrumb of each inner page. The module imports no
-// runtime module, so node:test checks it directly.
+// Songhealth site navigation (Feature 003 #52, #86): the main navigation the page shell renders on
+// every page, and the breadcrumb of each inner page. The module imports no runtime module, so
+// node:test checks it directly.
 //
 // - MAIN_NAVIGATION is `03` §2 in order, with ITA last (#124; spec #121 "Public
 //   routes", which amends `03` §2). Each page names the section it belongs
@@ -8,7 +8,8 @@
 //   the page, not derived from URL segments (`03` §14). About, Services, Health
 //   Information and ITA take their address, About and Health Information their
 //   title and ITA its label, from the constants their own modules export.
-// - UTILITY_LINKS are the `03` §2 utility items.
+// - The `03` §2 utility items are the shell's own links: ค้นหา in the header and ติดต่อเรา in the
+//   footer (#240; Product Owner, #239 comment 6786536858).
 // - The breadcrumb leads with หน้าแรก and the page's section, both taken from
 //   MAIN_NAVIGATION, so no page writes them (`03` §14). EmDash 1.1.0 builds and
 //   renders none; its page context only carries a trail for SEO plugins
@@ -29,11 +30,6 @@ export const MAIN_NAVIGATION = [
 ] as const;
 
 export type NavigationSection = (typeof MAIN_NAVIGATION)[number]["section"];
-
-export const UTILITY_LINKS = [
-	{ label: "ค้นหา", href: "/search" },
-	{ label: "ติดต่อเรา", href: "/contact" },
-] as const;
 
 /** One step of the breadcrumb. */
 export interface Crumb {

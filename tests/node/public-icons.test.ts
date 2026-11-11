@@ -4,7 +4,7 @@
 // Owner, 2026-10-31: #51 comments 6536026977, 6536052180). This test reads the public pages' source
 // under src/ and fails on a text arrow (→ ↗ ← ‹ ›) or a lone "+" shown as a mark, written as the
 // character, an HTML entity or an escape, and on an <svg> drawn by hand or imported from a file.
-// The placeholder logo mark keeps its own <svg> in the shell until the office's logo arrives
+// The placeholder logo mark keeps its own <svg> in SiteLogo until the office's logo arrives
 // (DESIGN.md §5: a logo is not an icon). Comments may name a mark, so they are left out. Each icon
 // comes from its own module and has a size of 16, 20 or 24 px and shrink-0 (CODING_STANDARDS
 // "Public pages"; #105 retro: four components missed shrink-0 until review).
@@ -39,9 +39,9 @@ const SLOT_SIZE = /\bsize=\{(?:16|20|24)\}/;
 /** shrink-0 among the classes, because a flex row squeezes an svg beside text that wraps. */
 const SHRINK_0 = /\bclass="[^"]*\bshrink-0\b[^"]*"/;
 
-/** The placeholder logo mark's element and the <svg> inside it, in the shell. */
+/** The placeholder logo mark's element and the <svg> inside it. */
 const PLACEHOLDER_MARK = {
-	file: "layouts/SiteLayout.astro",
+	file: "components/SiteLogo.astro",
 	pattern: /data-testid="placeholder-mark"[^>]*>\s*<svg\b[\s\S]*?<\/svg>/,
 };
 

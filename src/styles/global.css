@@ -54,6 +54,16 @@
 	--color-text-secondary-on-soft: #5d6a64; /* 5.07:1 on surface-soft, more on the other light fills */
 	--color-border-input: #7a8a83; /* 3.63:1 on surface-base, 3.42:1 on bg-page, 3.25:1 on surface-soft */
 
+	/*
+	 * Feature 008's colours, from the prototype the Product Owner chose (spec #239 "Tokens"; the blue
+	 * accepted in the session, the others on #239 comment 6786536858).
+	 */
+	--color-procurement-text: #1d4f91; /* The procurement Announcement badge's text, on topic-blue */
+	--color-procurement-border: #c9dbf3; /* and its border */
+	--color-status-closed: #e7ecea; /* A closed Announcement status label's fill */
+	--color-deep-highlight: #0f8a70; /* The highlight in the deep green field's gradient */
+	--color-plain-visual-to: #d6ece2; /* The plain visual's second stop, after surface-soft */
+
 	/* Figma type styles (Noto Sans Thai): size / line height / weight in px */
 	--text-*: initial;
 	--text-display: 3.75rem; /* 60 / 72 / 700 */
@@ -92,6 +102,8 @@
 
 	--shadow-*: initial;
 	--shadow-card: 0 10px 15px rgb(13 46 36 / 0.08);
+	/* The sticky header's lower edge: a hairline and a short soft shadow (spec #239 "Header") */
+	--shadow-header: 0 1px 0 var(--color-border-default), 0 8px 24px -16px rgb(13 46 36 / 0.25);
 
 	/* The 1200 px content container of the 1440 px desktop frame */
 	--container-content: 75rem;
@@ -107,14 +119,35 @@
 }
 
 @layer base {
-	/* Side gutter of the page container: 16 px on phones, 24 px from `sm` up. */
+	/*
+	 * Side gutter of the page container: 16 px on phones, 24 px from `sm` up. The room the sticky
+	 * header takes at the top of the window: 88 px below `sm`, where the site title can wrap to three
+	 * lines (86 px at 320 px), and its 84 px row from `sm` (spec #239 "Header (every page)").
+	 */
 	:root {
 		--page-gutter: 1rem;
+		--header-offset: 5.5rem;
 	}
 
 	@media (width >= 40rem) {
 		:root {
 			--page-gutter: 1.5rem;
+			--header-offset: 5.25rem;
+		}
+	}
+
+	/*
+	 * What focus or a link to an anchor scrolls to stops below the sticky header, never under it
+	 * (WCAG 2.2 SC 2.4.11). Below `lg` the open menu makes the header taller by --menu-height, which
+	 * the shell sets from its number of items (src/layouts/SiteLayout.astro).
+	 */
+	html {
+		scroll-padding-top: calc(var(--header-offset) + 1rem);
+	}
+
+	@media (width < 64rem) {
+		html:has(#site-menu[open]) {
+			scroll-padding-top: calc(var(--header-offset) + var(--menu-height, 0rem) + 1rem);
 		}
 	}
 
@@ -143,6 +176,22 @@
 	width: 100%;
 	max-width: calc(var(--container-content) + 2 * var(--page-gutter));
 	padding-inline: var(--page-gutter);
+}
+
+/*
+ * The header's text from `lg`: the site title and the navigation items scale with the window, so
+ * the header's one row fits at 1,024 px without a third breakpoint (spec #239 "Breakpoints and
+ * container"). The title runs from body to body-large and an item from 15 px to body.
+ */
+@utility header-title {
+	font-size: clamp(var(--text-body), 1.3vw, var(--text-body-large));
+	line-height: 1.5rem;
+}
+
+@utility header-nav-item {
+	padding-inline: clamp(0.5rem, 0.9vw, 0.75rem);
+	font-size: clamp(0.9375rem, 1.15vw, var(--text-body));
+	line-height: var(--text-body--line-height);
 }
 
 /*

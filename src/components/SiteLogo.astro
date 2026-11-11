@@ -1,0 +1,42 @@
+---
+// The site's logo beside the site title, in the header and in the footer (#52, #240; spec #239
+// "Header (every page)", "Footer (every page)"): the logo the native site settings name, or the
+// placeholder mark until the office's logo arrives (docs/design/DESIGN.md §5: a logo is not an
+// icon). It is decorative: the title beside it names the link. On the footer's deep surface the
+// mark is accent-warm, and a configured logo sits on a white tile, so a dark logo stays readable.
+import type { SiteIdentity } from "../lib/site-identity";
+
+interface Props {
+	logo: SiteIdentity["logo"];
+	/** On the footer's deep green surface. */
+	deep?: boolean;
+}
+
+const { logo, deep = false } = Astro.props;
+---
+
+{logo ? (
+	<img
+		class:list={[
+			"size-11 shrink-0 object-contain sm:size-12",
+			deep && "rounded-14 bg-surface-base p-1",
+		]}
+		src={logo.url}
+		alt=""
+		width={logo.width ?? 48}
+		height={logo.height ?? 48}
+	/>
+) : (
+	<span
+		data-testid="placeholder-mark"
+		aria-hidden="true"
+		class:list={[
+			"flex size-11 shrink-0 items-center justify-center rounded-14 sm:size-12",
+			deep ? "bg-accent-warm text-brand-dark" : "bg-brand-primary text-surface-base",
+		]}
+	>
+		<svg class="size-6" viewBox="0 0 24 24" fill="currentColor">
+			<path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z" />
+		</svg>
+	</span>
+)}
