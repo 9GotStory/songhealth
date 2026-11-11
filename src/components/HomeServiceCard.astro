@@ -21,7 +21,10 @@
 // with a brand-dark icon. The card's lift, the tile's turn and the growth of the circle in its
 // corner move only under `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading").
 // The article keeps its place and its surface lifts inside it, so a pointer at the card's lower
-// edge stays over the article and the card does not drop and lift again.
+// edge stays over the article and the card does not drop and lift again. While the surface is
+// lifted, the link reaches down over the 8 px the surface left, so a press there still opens the
+// Service. The circle has a layer of its own that clips it to the card, which leaves the link free
+// to reach past the surface.
 //
 // The focus ring lies inside the card's edge: from `sm` the card's lower part lies on the page
 // below the deep field, and a ring around the card would need to show on both. It is brand-primary
@@ -44,12 +47,11 @@ const titleId = `home-service-${crypto.randomUUID()}`;
 <article class="group focus-ring-on-light h-full">
 	<div
 		data-testid="service-surface"
-		class="relative flex h-full items-center gap-4 overflow-hidden rounded-22 bg-surface-base p-4 text-text-primary shadow-deep group-hover:bg-brand-primary group-hover:text-surface-base motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:-translate-y-2 sm:min-h-36 sm:items-start sm:p-6"
+		class="relative flex h-full items-center gap-4 rounded-22 bg-surface-base p-4 text-text-primary shadow-deep group-hover:bg-brand-primary group-hover:text-surface-base motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:-translate-y-2 sm:min-h-36 sm:items-start sm:p-6"
 	>
-		<span
-			aria-hidden="true"
-			class="absolute -right-10 -bottom-10 size-30 rounded-pill bg-surface-soft group-hover:bg-brand-primary motion-safe:transition-transform motion-safe:duration-400 motion-safe:group-hover:scale-600"
-		></span>
+		<span aria-hidden="true" class="absolute inset-0 overflow-hidden rounded-22">
+			<span class="absolute -right-10 -bottom-10 size-30 rounded-pill bg-surface-soft group-hover:bg-brand-primary motion-safe:transition-transform motion-safe:duration-400 motion-safe:group-hover:scale-600"></span>
+		</span>
 		<span
 			data-testid="service-icon"
 			aria-hidden="true"
@@ -74,7 +76,7 @@ const titleId = `home-service-${crypto.randomUUID()}`;
 		<a
 			href={servicePath(service.id)}
 			aria-labelledby={titleId}
-			class="absolute inset-0 rounded-22 -outline-offset-4 group-hover:focus-ring-on-dark"
+			class="absolute inset-0 rounded-22 -outline-offset-4 group-hover:focus-ring-on-dark after:absolute after:inset-x-0 after:top-full after:hidden after:h-2 motion-safe:group-hover:after:block"
 		></a>
 	</div>
 </article>

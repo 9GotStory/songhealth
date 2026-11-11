@@ -1,4 +1,5 @@
-// Shared single-destination cards (#193; spec #190, PO comment 6707205912).
+// Shared single-destination cards (#193; spec #190, PO comment 6707205912), and the Homepage's own
+// Service card, which opens from its whole surface as they do (Feature 008 #242).
 // The public HTTP/browser seam checks native activation across each card's surface, independent
 // of its markup/classes. Fixtures belong to this suite; Homepage menus restore in finally.
 import type { Locator, Page } from "@playwright/test";
@@ -91,8 +92,8 @@ async function clickCardSurface(page: Page, target: Locator) {
 	await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
 }
 
-/** One title-named native target, with keyboard focus around its whole visible surface. */
-async function expectCardInteraction(page: Page, card: Locator, title: string, level: 2 | 3) {
+/** One title-named native target over the card's whole surface, and one keyboard stop. */
+async function expectWholeCardLink(page: Page, card: Locator, title: string, level: 2 | 3) {
 	const link = card.getByRole("link", { name: title, exact: true });
 	const heading = card.getByRole("heading", { name: title, level, exact: true });
 	await expect(card.getByRole("link")).toHaveCount(1);
@@ -100,20 +101,9 @@ async function expectCardInteraction(page: Page, card: Locator, title: string, l
 	await expect(link).toHaveAccessibleName(title);
 	await expect(link.locator('a, button, input, select, textarea, [tabindex="0"]')).toHaveCount(0);
 	await expect(heading).toBeVisible();
-	const green = await tokenColor(page, "brand-primary");
 	await card.scrollIntoViewIfNeeded();
 	await page.mouse.move(0, 0);
-	const restingBox = await card.boundingBox();
-	const restingShadow = await link.evaluate((el) => getComputedStyle(el).boxShadow);
-	const linkBox = await link.boundingBox();
-	expect(linkBox).toEqual(restingBox);
-	await link.hover();
-	await expect(heading).toHaveCSS("color", green);
-	await expect(heading).toHaveCSS("text-decoration-line", "underline");
-	await expect(link).toHaveCSS("box-shadow", new RegExp(`${RegExp.escape(green)} 0px 0px 0px 2px`));
-	expect(await card.boundingBox(), "hover must not move or resize a card").toEqual(restingBox);
-	await page.mouse.move(0, 0);
-	await expect(link).toHaveCSS("box-shadow", restingShadow);
+	expect(await link.boundingBox()).toEqual(await card.boundingBox());
 	await link.focus();
 	await page.keyboard.press("Tab");
 	expect(
@@ -122,6 +112,28 @@ async function expectCardInteraction(page: Page, card: Locator, title: string, l
 	).toBe(false);
 	await page.keyboard.press("Shift+Tab");
 	await expect(link).toBeFocused();
+	return link;
+}
+
+/**
+ * A shared card's interaction: the whole-card link, the hover that marks it without moving it, and
+ * keyboard focus around its whole visible surface.
+ */
+async function expectCardInteraction(page: Page, card: Locator, title: string, level: 2 | 3) {
+	const link = await expectWholeCardLink(page, card, title, level);
+	const heading = card.getByRole("heading", { name: title, level, exact: true });
+	const green = await tokenColor(page, "brand-primary");
+	await page.mouse.move(0, 0);
+	const restingBox = await card.boundingBox();
+	const restingShadow = await link.evaluate((el) => getComputedStyle(el).boxShadow);
+	await link.hover();
+	await expect(heading).toHaveCSS("color", green);
+	await expect(heading).toHaveCSS("text-decoration-line", "underline");
+	await expect(link).toHaveCSS("box-shadow", new RegExp(`${RegExp.escape(green)} 0px 0px 0px 2px`));
+	expect(await card.boundingBox(), "hover must not move or resize a card").toEqual(restingBox);
+	await page.mouse.move(0, 0);
+	await expect(link).toHaveCSS("box-shadow", restingShadow);
+	await link.focus();
 	await expect(link).toHaveCSS("outline-width", "3px");
 	await expect(link).toHaveCSS("outline-color", green);
 	return link;
@@ -216,7 +228,7 @@ for (const width of [320, 375, 1440]) {
 }
 
 for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
-	test(`Homepage shared cards keep compact content and Activity visibility at ${width}px`, async ({
+	test(`Homepage cards open from their whole surface, keep compact content and Activity visibility at ${width}px`, async ({
 		page,
 	}, testInfo) => {
 		await withHomepageMenus(
@@ -229,7 +241,9 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 				const activities = homepageSection(page, HOMEPAGE_HEADINGS.activities);
 				const serviceCard = services.getByRole("article").filter({ hasText: service.title });
 				const activityCard = activities.getByRole("article").filter({ hasText: activity.title });
-				await expectCardInteraction(page, serviceCard, service.title, 3);
+				// The Homepage's own Service card (Feature 008 #242): its hover and focus ring are in
+				// public-homepage-curation.spec.ts.
+				await expectWholeCardLink(page, serviceCard, service.title, 3);
 				await expectCardInteraction(page, activityCard, activity.title, 3);
 				const visible = width < 1024 ? 4 : 3;
 				await expect(activities.getByRole("article").getByRole("link")).toHaveCount(visible);
