@@ -1,9 +1,10 @@
 ---
-// The Homepage's hero (Feature 008 #241; spec #239 "Hero and Featured"), on the deep green field:
-// a chip, the office summary sentence as the headline with "ด้านสุขภาพ" in accent-warm, the site
-// search, and the Featured item as a tilted white card. With nothing Featured the hero is one
-// column and its headline is larger from `sm`, at the prototype's sizes (#241 comment 6791096480,
-// item 3). It shows no telephone number and no hours.
+// The Homepage's hero (Feature 008 #241; spec #239 "Hero and Featured"), on the deep green field
+// (HomeDeepField), which gives it its surface-base text and its focus ring: a chip, the office
+// summary sentence as the headline with "ด้านสุขภาพ" in accent-warm, the site search, and the
+// Featured item as a tilted white card. With nothing Featured the hero is one column and its
+// headline is larger from `sm`, at the prototype's sizes (#241 comment 6791096480, item 3). It
+// shows no telephone number and no hours.
 //
 // The page's H1 is the site title, out of sight, because the headline shows in its place. The
 // hero is named by the sentence whole, as a label: from `lg` each line of the headline is a block,
@@ -34,9 +35,6 @@
 // or whose picture's media item was deleted in Admin (src/lib/media.ts), shows the plain visual
 // instead, decoration too.
 //
-// The decorations are hidden from assistive technology and take no pointer events, and the field
-// clips them, so they never widen the page (spec #239 "Accessibility"). Below `lg` the warm glow
-// is left out, so white text keeps 4.5:1 on the chip and the headline, which it would lie behind.
 // The card's tilt and the submit button's growth on hover move only under
 // `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading").
 import ArrowRight from "@lucide/astro/icons/arrow-right";
@@ -68,16 +66,7 @@ const { siteTitle, featured } = Astro.props;
 const image = featured && (await availableMedia(featured.image, Astro.locals.emdash));
 ---
 
-<section
-	aria-label={OFFICE_SUMMARY}
-	class="deep-field focus-ring-on-dark relative overflow-clip rounded-b-24 text-surface-base sm:rounded-b-32"
->
-	<div aria-hidden="true" class="pointer-events-none absolute inset-0">
-		<span class="absolute -top-30 -right-20 size-105 rounded-pill bg-accent-warm/38 blur-3xl max-lg:hidden"></span>
-		<span class="absolute top-75 -left-35 size-90 rounded-pill bg-surface-soft/16 blur-3xl"></span>
-		<span class="absolute top-15 -right-42.5 size-130 rounded-pill border-[1.5px] border-surface-base/18 max-sm:hidden"></span>
-		<span class="absolute top-13.5 left-[46%] size-40 rounded-pill border-[1.5px] border-accent-warm/50 max-lg:hidden"></span>
-	</div>
+<section aria-label={OFFICE_SUMMARY}>
 	<div
 		class:list={[
 			"page-container relative grid items-center gap-9 pt-8 pb-10 sm:gap-10 sm:py-12",

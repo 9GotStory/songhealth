@@ -6,7 +6,11 @@
 //   the headline, the site search, a GET form to /search, and the Featured item as a card, the
 //   first item of the Featured menu that resolves to published content
 //   (src/lib/homepage-curation.ts). With none, the headline and the search alone;
-// - the Frequently Used Services: up to 6 Services from their menu, in menu order;
+// - the Frequently Used Services (Feature 008 #242; spec #239 "Frequently Used Services";
+//   HomeServiceCard): up to 6 Services from their menu, in menu order, as white cards on the
+//   hero's deep field (HomeDeepField), three to a row from `lg`, two from `sm` and one below. Four
+//   Services go two to a row, so no cell is empty. From `sm` the grid's lower 110 px lie below the
+//   field, which leaves that room under it. With no Service the field ends under the hero;
 // - the newest published News that is not the Featured item, as one card, beside up to 3 current
 //   Announcements, newest first by announcement date, the Featured one left out (`04` §7), each
 //   with its status and dates as the Announcements list shows them (src/lib/announcements.ts), each
@@ -31,8 +35,8 @@
 //
 // Below 640 px the page is shorter, with every section kept in its order (Feature 006 #146; spec
 // #144 "Homepage (`04`)"; the Product Owner's "โอเค เฉพาะหน้าแรก" on the prototype): the
-// Frequently Used Services, Health Information, Activities and Quick Access go two to a row in
-// their compact cards, the Service and Health Content cards without their summary; the Contact
+// Health Information, Activities and Quick Access go two to a row in their compact cards, the
+// Health Content cards without their summary; the Contact
 // Summary's lead and the map's stand-in are left out; each section has 32 px of space above and
 // below it; and the News card's summary is clamped to three lines. The 4th Activity fills the
 // second row of two; a desktop row holds three.
@@ -62,11 +66,12 @@ import Users from "@lucide/astro/icons/users";
 import ActivityCard from "../components/ActivityCard.astro";
 import AnnouncementStatusLine from "../components/AnnouncementStatusLine.astro";
 import ArrowLink from "../components/ArrowLink.astro";
+import HomeDeepField from "../components/HomeDeepField.astro";
 import HomeHero from "../components/HomeHero.astro";
+import HomeServiceCard from "../components/HomeServiceCard.astro";
 import OfficeContactDetails from "../components/OfficeContactDetails.astro";
 import QuickLinkCard from "../components/QuickLinkCard.astro";
 import SectionHeading from "../components/SectionHeading.astro";
-import ServiceCard from "../components/ServiceCard.astro";
 import ThaiTitle from "../components/ThaiTitle.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { ACTIVITIES_PATH, ACTIVITIES_TITLE, latestActivities } from "../lib/activities";
@@ -135,29 +140,36 @@ const control =
 <SiteLayout section="home" description={OFFICE_SUMMARY} canonical="/">
 	<meta slot="head" name="songhealth-foundation" content="public-runtime" />
 
-	<HomeHero siteTitle={identity.title} featured={featured} />
-
-	{services.length > 0 && (
-		<section aria-labelledby="home-services" class="bg-surface-base py-8 sm:py-16 lg:pb-20">
-			<div class="page-container flex flex-col gap-7">
-				<SectionHeading
-					id="home-services"
-					label="บริการ"
-					title={SERVICES_TITLE}
-					href={SERVICES_PATH}
-				>
-					<Users slot="icon" class="shrink-0" size={24} />
-				</SectionHeading>
-				<ul class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
-					{services.map((service) => (
-						<li>
-							<ServiceCard service={service} headingLevel={3} compact />
-						</li>
-					))}
-				</ul>
-			</div>
-		</section>
-	)}
+	<HomeDeepField extended={services.length > 0}>
+		<HomeHero siteTitle={identity.title} featured={featured} />
+		{services.length > 0 && (
+			<section aria-labelledby="home-services" class="relative pt-2 max-sm:pb-10">
+				<div class="page-container flex flex-col gap-6 sm:gap-7">
+					<SectionHeading
+						onDark
+						id="home-services"
+						label="บริการ"
+						title={SERVICES_TITLE}
+						href={SERVICES_PATH}
+					>
+						<Users slot="icon" class="shrink-0" size={24} />
+					</SectionHeading>
+					<ul
+						class:list={[
+							"grid gap-3 sm:-mb-27.5 sm:grid-cols-2 sm:gap-5",
+							services.length !== 4 && "lg:grid-cols-3",
+						]}
+					>
+						{services.map((service) => (
+							<li>
+								<HomeServiceCard service={service} />
+							</li>
+						))}
+					</ul>
+				</div>
+			</section>
+		)}
+	</HomeDeepField>
 
 	{(news || announcements.length > 0) && (
 		<section aria-labelledby="home-news" class="py-8 sm:py-16 lg:py-20">

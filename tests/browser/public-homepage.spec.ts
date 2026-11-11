@@ -12,12 +12,12 @@
 // first Health Topic; a Health Service Discovery form that submits an Area and a name to
 // /health-services; the latest Activities by Activity date, 3 on a desktop and 4 on a phone, each
 // with its picture or a visual fallback and "กิจกรรม • date"; and the Contact Summary from Office
-// Contact. On a phone the sections keep that order, and the Frequently Used Services, Health
-// Information, Activities and Quick Access show their cards two to a row (Feature 006 #146; spec
-// #144 "Homepage (`04`)"). An optional section with nothing to show disappears. The hero and the
-// Contact Summary always render, and the page answers with no content at all. Closed
-// Announcements, drafts, unpublished and trashed entries never show. The curated sections between
-// them have their own suite
+// Contact. On a phone the sections keep that order, and Health Information, Activities and Quick
+// Access show their cards two to a row (Feature 006 #146; spec #144 "Homepage (`04`)"); the
+// Frequently Used Services go one to a row there (Feature 008 #242; public-homepage-curation). An
+// optional section with nothing to show disappears. The hero and the Contact Summary always render,
+// and the page answers with no content at all. Closed Announcements, drafts, unpublished and
+// trashed entries never show. The curated sections between them have their own suite
 // (public-homepage-curation.spec.ts); the tests here that look at the whole page set the Homepage
 // menus they need and put back what the menus held.
 //
@@ -677,7 +677,6 @@ test("with every section showing, the sections follow the Figma order on a deskt
 						await page.setViewportSize(PHONE_VIEWPORT);
 						await expect(sectionHeadings(page)).toHaveText([...order, siteTitle]);
 						for (const heading of [
-							HOMEPAGE_HEADINGS.services,
 							HOMEPAGE_HEADINGS.health,
 							HOMEPAGE_HEADINGS.activities,
 							HOMEPAGE_HEADINGS.quickAccess,

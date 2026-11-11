@@ -1,0 +1,42 @@
+---
+// The Homepage's deep green field (Feature 008 #242; spec #239 "Solution", "Frequently Used
+// Services"; src/styles/global.css deep-field): one field under the hero and the Frequently Used
+// Services, which ends with rounded lower corners. Its text is surface-base, and its focus ring is
+// the one for dark surfaces, accent-warm.
+//
+// The decorations lie in a layer of their own, which clips them to the field and its corners. They
+// are hidden from assistive technology and take no pointer events (spec #239 "Accessibility").
+// Below `lg` the warm glow is left out, so white text keeps 4.5:1 on the hero's chip and headline,
+// which it would lie behind. The field also clips what is wider than it, such as the tilted
+// Featured card's sheet on a phone, so nothing on it widens the page; it does not clip downwards,
+// because the Services extend below it.
+//
+// `extended` leaves room under the field, from `sm`, for the part of its last section that extends
+// below it, 110 px, so what follows the field is not covered.
+
+interface Props {
+	/** The field's last section extends 110 px below it from `sm`. */
+	extended?: boolean;
+}
+
+const { extended = false } = Astro.props;
+---
+
+<div
+	data-testid="deep-field"
+	class:list={[
+		"deep-field focus-ring-on-dark relative overflow-x-clip rounded-b-24 text-surface-base sm:rounded-b-32",
+		extended && "sm:mb-27.5",
+	]}
+>
+	<div
+		aria-hidden="true"
+		class="pointer-events-none absolute inset-0 overflow-clip rounded-b-[inherit]"
+	>
+		<span class="absolute -top-30 -right-20 size-105 rounded-pill bg-accent-warm/38 blur-3xl max-lg:hidden"></span>
+		<span class="absolute top-75 -left-35 size-90 rounded-pill bg-surface-soft/16 blur-3xl"></span>
+		<span class="absolute top-15 -right-42.5 size-130 rounded-pill border-[1.5px] border-surface-base/18 max-sm:hidden"></span>
+		<span class="absolute top-13.5 left-[46%] size-40 rounded-pill border-[1.5px] border-accent-warm/50 max-lg:hidden"></span>
+	</div>
+	<slot />
+</div>

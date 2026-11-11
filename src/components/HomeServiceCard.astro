@@ -1,0 +1,67 @@
+---
+// A Frequently Used Service on the Homepage (Feature 008 #242; spec #239 "Frequently Used
+// Services"): a white card on the deep field with the Service icon in a tile, the Service's name,
+// its summary from `sm` and an arrow. The Homepage has its own card, and the Service catalog keeps
+// ServiceCard (spec #239 "Scope of the change"). The icon is the one uniform Service icon (approved
+// Q12; Lucide's hand-heart, Product Owner, 2026-10-31: #51 comment 6536052180), and the arrow is
+// arrow-right, the Homepage's arrow for a card (Product Owner, 2026-11-11: #241 comment
+// 6791096480, item 1). Both are decorative (docs/agents/lucide-astro-1.59.0.md).
+//
+// The name is an H3 under the section's H2, and a native link named by it covers the whole card;
+// the summary stays readable outside the link's name (WCAG 2.2 SC 2.5.3; #193; #190 comment
+// 6707205912). Below `sm` the cards go one to a row: the card is smaller, with its parts centred on
+// one line, and shows no summary.
+//
+// Under the pointer the card turns brand-primary with surface-base text, and the tile accent-warm
+// with a brand-dark icon. The card's lift, the tile's turn and the growth of the circle in its
+// corner move only under `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading").
+//
+// The focus ring lies inside the card's edge: from `sm` the card's lower part lies on the page
+// below the deep field, and a ring around the card would need to show on both. It is brand-primary
+// on the white card, and accent-warm while the card is brand-primary under the pointer.
+import ArrowRight from "@lucide/astro/icons/arrow-right";
+import HandHeart from "@lucide/astro/icons/hand-heart";
+import { servicePath } from "../lib/service-catalog";
+import type { ServiceEntry } from "../lib/services";
+import ThaiTitle from "./ThaiTitle.astro";
+
+interface Props {
+	service: ServiceEntry;
+}
+
+const { service } = Astro.props;
+const titleId = `home-service-${crypto.randomUUID()}`;
+---
+
+<article class="group focus-ring-on-light relative flex h-full items-center gap-4 overflow-hidden rounded-22 bg-surface-base p-4 text-text-primary shadow-deep hover:bg-brand-primary hover:text-surface-base motion-safe:transition motion-safe:duration-300 motion-safe:hover:-translate-y-2 sm:items-start sm:p-6">
+	<span
+		aria-hidden="true"
+		class="absolute -right-10 -bottom-10 size-30 rounded-pill bg-surface-soft group-hover:bg-brand-primary motion-safe:transition-transform motion-safe:duration-400 motion-safe:group-hover:scale-600"
+	></span>
+	<span
+		data-testid="service-icon"
+		aria-hidden="true"
+		class="relative flex size-12 shrink-0 items-center justify-center rounded-14 bg-surface-soft text-brand-primary group-hover:bg-accent-warm group-hover:text-brand-dark motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:scale-106 motion-safe:group-hover:-rotate-8 sm:size-14 sm:rounded-18"
+	>
+		<HandHeart class="shrink-0" size={24} />
+	</span>
+	<div class="relative min-w-0 flex-1">
+		<h3 id={titleId} class="text-body-large font-semibold wrap-anywhere">
+			<ThaiTitle text={service.data.title} />
+		</h3>
+		{service.data.summary && (
+			<p class="mt-1 line-clamp-3 text-label font-normal text-text-secondary group-hover:text-surface-base max-sm:hidden">
+				{service.data.summary}
+			</p>
+		)}
+	</div>
+	<ArrowRight
+		class="relative shrink-0 text-brand-primary group-hover:text-surface-base"
+		size={20}
+	/>
+	<a
+		href={servicePath(service.id)}
+		aria-labelledby={titleId}
+		class="absolute inset-0 rounded-22 -outline-offset-4 group-hover:focus-ring-on-dark"
+	></a>
+</article>

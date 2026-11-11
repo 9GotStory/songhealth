@@ -13,8 +13,13 @@
 //   (`04`)"), and a title that keeps a long word whole stays inside the card. From 640 px the
 //   card sits beside the headline without touching it, and below that under the search (Product
 //   Owner, 2026-11-11: #241 comment 6791096480, item 2);
-// - the Frequently Used Services: the published Services of their menu, in menu order, at most 6,
-//   each with its name, summary and the uniform icon, and ทั้งหมด to /services;
+// - the Frequently Used Services (Feature 008 #242; spec #239 "Frequently Used Services"): the
+//   published Services of their menu, in menu order, at most 6, each a white card on the hero's
+//   deep field with its name, summary and the uniform icon, and ทั้งหมด to /services. They go
+//   three to a row from 1,024 px, two from 640 px and one below, where the summary is hidden; four
+//   go two to a row. From 640 px their lower part lies below the field, clear of the next
+//   section's content. A card under the pointer turns brand green. With no Service the field ends
+//   under the hero;
 // - Quick Access: up to 4 items of its menu, in menu order, each to a page of the site or a
 //   published entry, each a label and an arrow. Below 640 px, two to a row, the label lies across
 //   the top of its card and the arrow on a row of its own at the lower right, and the card grows
@@ -116,6 +121,14 @@ function featuredCard(page: Page, fixture: DraftFixture) {
 /** The Featured picture in `card`: its image that is no decoration, as the blurred copy is. */
 function featuredPicture(card: Locator) {
 	return card.locator('img:not([aria-hidden="true"] img)');
+}
+
+/**
+ * The deep field the hero and the Frequently Used Services stand on, a decoration with no role of
+ * its own.
+ */
+function deepField(page: Page) {
+	return page.getByTestId("deep-field");
 }
 
 /** The hero's headline, the office summary sentence. */
@@ -466,10 +479,10 @@ test("the headline reads the office summary with ด้านสุขภาพ 
 		const card = featuredCard(page, featured);
 		await expect(headline(page)).toBeVisible();
 		// A gradient the browser rejects draws nothing, and the headline is white (#241 retro).
-		await expect(
-			homepageSection(page, HOMEPAGE_HEADLINE),
-			"the deep field is drawn behind the hero's text",
-		).not.toHaveCSS("background-image", "none");
+		await expect(deepField(page), "the deep field is drawn behind the hero's text").not.toHaveCSS(
+			"background-image",
+			"none",
+		);
 		await expect(headline(page).getByText("ด้านสุขภาพ", { exact: true })).toHaveCSS(
 			"color",
 			await tokenColor(page, "accent-warm"),
@@ -688,6 +701,221 @@ test("the Frequently Used Services are the menu's published Services, in menu or
 			).toHaveAttribute("href", "/services");
 			for (const hidden of [seventh, draft, trashed, news]) {
 				await expect(frequent, hidden.title).not.toContainText(hidden.title);
+			}
+		},
+	);
+});
+
+/**
+ * How many Service cards sit in each row from 1,024 px and from 640 px, by how many Services show
+ * (spec #239 "Frequently Used Services"). Four comes last: it is the count that goes two to a row
+ * where the others go three.
+ */
+const SERVICE_ROWS = [
+	[6, [3, 3], [2, 2, 2]],
+	[5, [3, 2], [2, 2, 1]],
+	[3, [3], [2, 1]],
+	[4, [2, 2], [2, 2]],
+] as const;
+
+test("the Frequently Used Services go three to a row from 1,024 px, two from 640 px and one below, where the summary is hidden, and four go two to a row from 640 px with no empty cell", async ({
+	page,
+}) => {
+	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปบริการในแถว`;
+	const services: DraftFixture[] = [];
+	for (let index = 1; index <= 6; index++) {
+		services.push(await createSyntheticService(admin, `rows-${index}`, { data: { summary } }));
+	}
+	await publish("services", ...services);
+	for (const [count, fromDesktop, fromTablet] of SERVICE_ROWS) {
+		const menu = services.slice(0, count).map((service) => pickedMenuItem("services", service));
+		await withHomepageMenus(admin, { services: menu }, async () => {
+			await page.goto("/");
+			const frequent = homepageSection(page, HOMEPAGE_HEADINGS.services);
+			const cards = frequent.getByRole("listitem");
+			await expect(cards).toHaveCount(count);
+			for (const [width, rows] of [
+				[1440, fromDesktop],
+				[1024, fromDesktop],
+				[1023, fromTablet],
+				[640, fromTablet],
+			] as const) {
+				await page.setViewportSize({ width, height: 900 });
+				expect(await itemsPerRow(cards), `${count} Services at ${width} px`).toEqual([...rows]);
+				const list = await boxOf(frequent.getByRole("list"), `the Services at ${width} px`);
+				const ending = await boxOf(
+					cards.nth(rows[0] - 1),
+					`the first row's last card of ${count} at ${width} px`,
+				);
+				expect(
+					ending.x + ending.width,
+					`the first row of ${count} Services fills the grid at ${width} px`,
+				).toBeCloseTo(list.x + list.width, 0);
+				await expect(
+					frequent.getByText(summary).first(),
+					`a Service's summary at ${width} px`,
+				).toBeVisible();
+			}
+			for (const width of [639, 320]) {
+				await page.setViewportSize({ width, height: 900 });
+				expect(await itemsPerRow(cards), `${count} Services at ${width} px`).toEqual(
+					services.slice(0, count).map(() => 1),
+				);
+				await expect(
+					frequent.getByText(summary).first(),
+					`a Service's summary at ${width} px`,
+				).toBeHidden();
+			}
+		});
+	}
+});
+
+test("from 640 px the Services' lower part lies below the deep field and clear of the next section's content, below 640 px they end inside the field, and with no Service the field ends under the hero", async ({
+	page,
+}) => {
+	const services: DraftFixture[] = [];
+	for (let index = 1; index <= 6; index++) {
+		services.push(await createSyntheticService(admin, `overlap-${index}`));
+	}
+	await publish("services", ...services);
+	// A published News, so the News section follows the Services whatever the runtime holds.
+	await publish("news", await create("news", "after-services"));
+	const frequent = homepageSection(page, HOMEPAGE_HEADINGS.services);
+	const cards = frequent.getByRole("article");
+	const nextHeading = homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("heading", {
+		level: 2,
+	});
+	/** Where the field ends, and where the next section's heading starts, at `width`. */
+	const edges = async (width: number) => {
+		await page.setViewportSize({ width, height: 900 });
+		const field = await boxOf(deepField(page), `the deep field at ${width} px`);
+		const next = await boxOf(nextHeading, `the next section's heading at ${width} px`);
+		return { fieldEnd: field.y + field.height, nextStart: next.y };
+	};
+	await withHomepageMenus(
+		admin,
+		{ services: services.map((service) => pickedMenuItem("services", service)) },
+		async () => {
+			await page.goto("/");
+			await expect(cards).toHaveCount(6);
+			for (const width of [1440, 1024, 640]) {
+				const { fieldEnd, nextStart } = await edges(width);
+				const first = await boxOf(cards.first(), `the first Service at ${width} px`);
+				const last = await boxOf(cards.last(), `the last Service at ${width} px`);
+				expect(first.y, `the Services start on the field at ${width} px`).toBeLessThan(fieldEnd);
+				expect(
+					last.y + last.height,
+					`the Services end below the field at ${width} px`,
+				).toBeGreaterThan(fieldEnd);
+				expect(
+					nextStart,
+					`the next section's heading starts below the Services at ${width} px`,
+				).toBeGreaterThanOrEqual(last.y + last.height);
+			}
+			for (const width of [639, 320]) {
+				const { fieldEnd, nextStart } = await edges(width);
+				const last = await boxOf(cards.last(), `the last Service at ${width} px`);
+				expect(
+					last.y + last.height,
+					`the Services end inside the field at ${width} px`,
+				).toBeLessThanOrEqual(fieldEnd);
+				expect(
+					nextStart,
+					`the next section's heading starts below the field at ${width} px`,
+				).toBeGreaterThanOrEqual(fieldEnd);
+			}
+		},
+	);
+	await withHomepageMenus(admin, { services: [] }, async () => {
+		await page.goto("/");
+		await expect(frequent).toHaveCount(0);
+		for (const width of [1440, 640, 639]) {
+			const { fieldEnd, nextStart } = await edges(width);
+			const hero = await boxOf(homepageSection(page, HOMEPAGE_HEADLINE), `the hero at ${width} px`);
+			expect(fieldEnd, `the field ends under the hero at ${width} px`).toBeCloseTo(
+				hero.y + hero.height,
+				0,
+			);
+			expect(
+				nextStart,
+				`the next section's heading starts below the field at ${width} px`,
+			).toBeGreaterThanOrEqual(fieldEnd);
+		}
+	});
+});
+
+test("on hover a Service card turns brand green with white text, and its icon tile accent-warm", async ({
+	page,
+}) => {
+	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปบริการที่ชี้อยู่`;
+	const service = await createSyntheticService(admin, "hover", { data: { summary } });
+	await publish("services", service);
+	await withHomepageMenus(admin, { services: [pickedMenuItem("services", service)] }, async () => {
+		await page.goto("/");
+		const card = homepageSection(page, HOMEPAGE_HEADINGS.services).getByRole("article");
+		const white = await tokenColor(page, "surface-base");
+		await expect(card.getByRole("heading", { level: 3 })).toHaveText(service.title);
+		await expect(card, "the card at rest").toHaveCSS("background-color", white);
+		await card.getByRole("link", { name: service.title }).hover();
+		await expect(card, "the card under the pointer").toHaveCSS(
+			"background-color",
+			await tokenColor(page, "brand-primary"),
+		);
+		await expect(card.getByRole("heading", { level: 3 })).toHaveCSS("color", white);
+		await expect(card.getByText(summary)).toHaveCSS("color", white);
+		const tile = card.getByTestId("service-icon");
+		await expect(tile).toHaveCSS("background-color", await tokenColor(page, "accent-warm"));
+		await expect(tile).toHaveCSS("color", await tokenColor(page, "brand-dark"));
+	});
+});
+
+/** The demo dataset's longest Service name (scripts/demo-dataset/content.ts), without its mark. */
+const LONGEST_SERVICE_NAME = "ร้องเรียนการปฏิบัติงานหรือการให้บริการ";
+
+test("at 1,024, 640 and 320 px the demo dataset's longest Service name and ความดันโลหิตสูง stay inside their cards, after the icon tile, with the word whole", async ({
+	page,
+}) => {
+	const services = [
+		await createSyntheticService(admin, "fit", { name: LONGEST_SERVICE_NAME }),
+		await createSyntheticService(admin, "ความดันโลหิตสูง"),
+		await createSyntheticService(admin, "fit-third"),
+	];
+	await publish("services", ...services);
+	await withHomepageMenus(
+		admin,
+		{ services: services.map((service) => pickedMenuItem("services", service)) },
+		async () => {
+			await page.goto("/");
+			const frequent = homepageSection(page, HOMEPAGE_HEADINGS.services);
+			for (const width of [1024, 640, 320]) {
+				await page.setViewportSize({ width, height: 900 });
+				await expectNoHorizontalScroll(page, `/ with long Service names at ${width} px`);
+				for (const { title } of services) {
+					const card = frequent.getByRole("article").filter({ hasText: title });
+					const name = card.getByRole("heading", { level: 3 });
+					const surface = await boxOf(card, `the card of ${title} at ${width} px`);
+					const text = await boxOf(name, `the name ${title} at ${width} px`);
+					const tile = await boxOf(card.getByTestId("service-icon"), `its icon at ${width} px`);
+					expect(
+						await name.evaluate((element) => element.scrollWidth - element.clientWidth),
+						`${title} stays inside its column at ${width} px`,
+					).toBeLessThanOrEqual(0);
+					expect(
+						text.x + text.width,
+						`${title} ends inside its card at ${width} px`,
+					).toBeLessThanOrEqual(surface.x + surface.width);
+					expect(
+						text.x,
+						`${title} starts after the icon tile at ${width} px`,
+					).toBeGreaterThanOrEqual(tile.x + tile.width);
+				}
+				expect(
+					await occurrencesOf(
+						frequent.getByRole("heading", { level: 3 }).nth(1),
+						"ความดันโลหิตสูง",
+					),
+					`ความดันโลหิตสูง in a Service name at ${width} px`,
+				).toEqual({ found: 1, split: 0, outside: 0 });
 			}
 		},
 	);
