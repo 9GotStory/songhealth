@@ -445,9 +445,13 @@ the demo dataset and goes through review before the window opens, since a wrong 
 the restore costs another window (#183 retro):
 
 1. Check that no suite is running, which the lock cannot see: `pgrep -f '^node .*playwright'` prints
-   nothing. Then `scripts/dev-runtime-window.sh open "<why>"` writes the lock.
+   nothing. Agree with the Product Owner when the window closes, then
+   `scripts/dev-runtime-window.sh open "<why, with the ticket>" <until, UTC, such as 2026-11-11T12:00Z>`
+   writes the lock. A window held while a person reviews its data closes at that time too: one held
+   for a review with no end stayed open 19 hours while another session's suite waited (#238 retro).
    `scripts/dev-runtime-update.sh` and `scripts/dev-runtime-env.sh` refuse from now on, naming the
-   window, for every session. Its holder runs `scripts/dev-runtime-env.sh --in-window <command>`.
+   window and its close time, for every session. Its holder runs
+   `scripts/dev-runtime-env.sh --in-window <command>`.
 2. `scripts/dev-runtime-verify.sh`, `scripts/dev-runtime-residue.sh`, then make a folder under
    `~/.local/state/songhealth-qdev/backups/` and run `scripts/dev-runtime-backup.sh <that folder>`.
 3. The work. When a person walks through the result, read what they opened before step 4, while
@@ -464,7 +468,10 @@ the restore costs another window (#183 retro):
    three times, so type `yes` three times), `systemctl --user start songhealth-dev-app.service`, and
    verify.
 5. `scripts/dev-runtime-window.sh close`. `scripts/dev-runtime-window.sh status` says whether one is
-   open.
+   open, warns once its close time has passed, and prints the newest line of
+   `~/.local/state/songhealth-qdev/runtime-events.log`. Each window's open and close, and each UAT
+   node's start and stop, adds a line there with its time and script, so a session reads what
+   another one did to the runtime.
 
 ## Thai search UAT through a Tailscale Funnel
 
@@ -509,7 +516,7 @@ makes a new node, so every start needs the approval again.
   tailnet at once. It saves the proxy's log under `~/.local/state/songhealth-qdev/uat/` and prints
   its path, removes both containers, and compares this host's Serve status with the
   one `start` saved.
-- `scripts/dev-runtime-uat.sh status` lists the containers and the URL.
+- `scripts/dev-runtime-uat.sh status` lists the containers, the URL and the newest runtime event.
 
 **On the UAT date** (`09` §13, inside "A window" above):
 

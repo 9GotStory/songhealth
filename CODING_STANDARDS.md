@@ -141,6 +141,16 @@ and why, and `.jscpd-baseline.json` records them.
   a fiscal year's `/ita/2404`, still counts as the tests'. Where a native API can show the outcome
   first (a redirect list, an entry read), the test asks it before requesting the page.
 
+## Exposure
+
+A change that lets a network beyond loopback reach a runtime lists every address the server
+behind it answers, each with the source that shows it, and review checks the change's filter
+against that list. The list covers the app's routes, the framework's own endpoints and what they
+fetch (Astro's `/_image` fetches a relative `href` on the server), the dev server's middlewares
+(Vite's `/@fs/`, `/@id/`, `/__open-in-editor`, its root by path) and how the path is decoded before
+routing (`/_%65mdash` reached `/_emdash`). In #238 the filter followed the ticket's list, and three
+review rounds found these one at a time.
+
 ## Documents
 
 The current documents (`docs/website-modernization-docs/current/`) and `docs/design/` each give
