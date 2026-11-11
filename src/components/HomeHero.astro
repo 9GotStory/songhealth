@@ -18,6 +18,7 @@
 // the card's H2. It states "เรื่องเด่น" and the date the item's own list shows it by; a Service has
 // none (src/lib/homepage-menus.ts featuredDate). V1 shows the one item and no carousel (`04` §5).
 // The card is tilted 2° with an accent-warm sheet behind it and straightens on hover and on focus.
+// Its focus ring is the field's, accent-warm around the link.
 //
 // The picture is decorative, because the title names the item. It shows whole, never cropped
 // (Feature 006 #146; spec #144 "Homepage (`04`)"): the office's landscape pictures are text
@@ -32,8 +33,9 @@
 //
 // The decorations are hidden from assistive technology and take no pointer events, and the field
 // clips them, so they never widen the page (spec #239 "Accessibility"). Below `lg` the warm glow
-// is left out: there it lay behind the chip and the headline's first line and took white text to
-// 3.65:1 on the chip at 375 px, whose small text needs 4.5:1.
+// is left out, so white text keeps 4.5:1 on the chip and the headline, which it would lie behind.
+// The card's tilt and the submit button's growth on hover move only under
+// `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading").
 import ArrowRight from "@lucide/astro/icons/arrow-right";
 import Search from "@lucide/astro/icons/search";
 import Star from "@lucide/astro/icons/star";
@@ -136,7 +138,7 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 				/>
 				<button
 					type="submit"
-					class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-pill bg-accent-warm text-brand-dark transition-transform hover:scale-108 sm:size-13"
+					class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-pill bg-accent-warm text-brand-dark motion-safe:transition-transform motion-safe:hover:scale-108 sm:size-13"
 				>
 					<span class="sr-only">ค้นหา</span>
 					<ArrowRight class="shrink-0" size={20} />
@@ -151,9 +153,9 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 				<a href={featured.href} class="group block rounded-24">
 					<div
 						aria-hidden="true"
-						class="absolute inset-0 translate-x-3.5 translate-y-1.5 rotate-6 rounded-24 bg-accent-warm transition-transform duration-400 ease-out group-hover:translate-x-5.5 group-hover:translate-y-2 group-hover:rotate-9"
+						class="absolute inset-0 translate-x-3.5 translate-y-1.5 rotate-6 rounded-24 bg-accent-warm motion-safe:transition-transform motion-safe:duration-400 ease-out group-hover:translate-x-5.5 group-hover:translate-y-2 group-hover:rotate-9"
 					/>
-					<div class="relative -rotate-2 rounded-24 bg-surface-base p-2.5 text-text-primary shadow-deep transition-transform duration-400 ease-out group-hover:rotate-0 group-focus-visible:rotate-0">
+					<div class="relative -rotate-2 rounded-24 bg-surface-base p-2.5 text-text-primary shadow-deep motion-safe:transition-transform motion-safe:duration-400 ease-out group-hover:rotate-0 group-focus-visible:rotate-0">
 						<div class="relative h-65 overflow-hidden rounded-18 bg-surface-soft sm:h-90">
 							{image ? (
 								<>
@@ -205,7 +207,7 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 							</div>
 							<span
 								aria-hidden="true"
-								class="flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface-soft text-brand-primary transition-colors group-hover:bg-accent-warm group-hover:text-brand-dark"
+								class="flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface-soft text-brand-primary motion-safe:transition-colors group-hover:bg-accent-warm group-hover:text-brand-dark"
 							>
 								<ArrowRight class="shrink-0" size={20} />
 							</span>

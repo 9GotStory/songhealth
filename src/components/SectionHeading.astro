@@ -68,9 +68,9 @@ const { id, label, title, href, onDark = false } = Astro.props;
 		<a
 			href={href}
 			class:list={[
-				"inline-flex size-11 shrink-0 items-center justify-center gap-2 rounded-pill border-[1.5px] text-body font-semibold transition-colors sm:h-13 sm:w-auto sm:px-7",
+				"inline-flex size-11 shrink-0 items-center justify-center gap-2 rounded-pill border-[1.5px] text-body font-semibold motion-safe:transition-colors sm:h-13 sm:w-auto sm:px-7",
 				onDark
-					? "focus-ring-on-dark border-surface-base/30 bg-surface-base/10 text-surface-base hover:border-accent-warm hover:bg-accent-warm hover:text-brand-dark"
+					? "focus-ring-on-dark border-hero-secondary-border bg-hero-secondary-fill text-surface-base hover:border-accent-warm hover:bg-accent-warm hover:text-brand-dark"
 					: "border-border-default bg-surface-base text-brand-primary hover:border-brand-primary hover:bg-brand-primary hover:text-surface-base",
 			]}
 		>

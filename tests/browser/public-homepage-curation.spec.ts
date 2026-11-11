@@ -108,13 +108,13 @@ async function publish(collection: string, ...fixtures: DraftFixture[]): Promise
 }
 
 /** The Featured card, named by the Featured item's title. */
-function hero(page: Page, fixture: DraftFixture) {
+function featuredCard(page: Page, fixture: DraftFixture) {
 	return homepageSection(page, fixture.title);
 }
 
-/** The Featured picture in `card`, the image after its blurred copy behind it. */
+/** The Featured picture in `card`: its image that is no decoration, as the blurred copy is. */
 function featuredPicture(card: Locator) {
-	return card.locator("img").last();
+	return card.locator('img:not([aria-hidden="true"] img)');
 }
 
 /** The hero's headline, the office summary sentence. */
@@ -164,7 +164,7 @@ test("Featured shows the first menu item that is published content of a Featured
 		async () => {
 			await page.goto("/");
 			await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
-			const shown = hero(page, featured);
+			const shown = featuredCard(page, featured);
 			await expect(shown.getByRole("heading", { level: 2 })).toHaveText(featured.title);
 			await expectImageLoaded(featuredPicture(shown), "the Featured picture");
 			await expect(shown.getByTestId("featured-visual")).toHaveCount(0);
@@ -205,7 +205,7 @@ test("the Featured picture shows whole inside the card, a landscape banner and a
 				const label = `the ${shape} Featured picture at ${viewport.width} px`;
 				await page.setViewportSize(viewport);
 				await page.goto("/");
-				const shown = hero(page, featured);
+				const shown = featuredCard(page, featured);
 				await expect(shown.getByRole("heading", { level: 2 }), label).toHaveText(featured.title);
 				await expectPictureWhole(featuredPicture(shown), label);
 				// The card holds the picture: neither a banner nor a One Page reaches past its edges.
@@ -238,7 +238,7 @@ test("from 1024 to 1088 px a Featured title keeps ความดันโลห
 	await publish("news", featured);
 	await withHomepageMenus(admin, { featured: [pickedMenuItem("news", featured)] }, async () => {
 		await page.goto("/");
-		const title = hero(page, featured).getByRole("heading", { level: 2 });
+		const title = featuredCard(page, featured).getByRole("heading", { level: 2 });
 		await expect(title).toHaveText(featured.title);
 		const misplaced: string[] = [];
 		for (let width = 1024; width <= 1088; width += 8) {
@@ -270,7 +270,7 @@ test("an Announcement without a picture is Featured with the plain visual and it
 		{ featured: [pickedMenuItem("announcements", announcement)] },
 		async () => {
 			await page.goto("/");
-			const shown = hero(page, announcement);
+			const shown = featuredCard(page, announcement);
 			await expect(shown.getByRole("heading", { level: 2 })).toHaveText(announcement.title);
 			await expect(shown.locator("img")).toHaveCount(0);
 			await expect(shown.getByTestId("featured-visual")).toHaveCount(1);
@@ -303,7 +303,7 @@ test("a Featured Service shows เรื่องเด่น without a date", a
 	await publish("services", service);
 	await withHomepageMenus(admin, { featured: [pickedMenuItem("services", service)] }, async () => {
 		await page.goto("/");
-		const shown = hero(page, service);
+		const shown = featuredCard(page, service);
 		await expect(shown.getByRole("heading", { level: 2 })).toHaveText(service.title);
 		await expect(shown.getByText(FEATURED_LABEL, { exact: true })).toBeVisible();
 		await expect(shown.getByRole("time")).toHaveCount(0);
@@ -319,6 +319,8 @@ test("with nothing in the Featured menu to show, the hero shows its headline alo
 	const featured = await create("news", "headline-with-card");
 	await publish("news", featured);
 
+	/** Widths from `sm`, where the headline alone is larger, on both sides of `lg`. */
+	const LARGER_ALONE = [1440, 1024, 1023, 640];
 	/** The headline's font size in px at `width`, as the page is now. */
 	const headlineSize = async (width: number) => {
 		await page.setViewportSize({ width, height: 900 });
@@ -329,7 +331,7 @@ test("with nothing in the Featured menu to show, the hero shows its headline alo
 	};
 	const beside: Record<number, number> = {};
 	await withHomepageMenus(admin, { featured: [pickedMenuItem("news", featured)] }, async () => {
-		for (const width of [1440, 768]) beside[width] = await headlineSize(width);
+		for (const width of LARGER_ALONE) beside[width] = await headlineSize(width);
 	});
 
 	await withHomepageMenus(
@@ -351,7 +353,7 @@ test("with nothing in the Featured menu to show, the hero shows its headline alo
 			await expect(shown.getByText(FEATURED_LABEL)).toHaveCount(0);
 			await expect(shown.getByRole("link")).toHaveCount(0);
 			await expect(shown.getByRole("heading", { level: 2 })).toHaveCount(0);
-			for (const width of [1440, 768]) {
+			for (const width of LARGER_ALONE) {
 				expect(
 					await headlineSize(width),
 					`the headline alone at ${width} px against ${beside[width]} px beside a card`,
@@ -378,7 +380,7 @@ test("a closed Announcement is not Featured, and the next item in the menu is", 
 		},
 		async () => {
 			await page.goto("/");
-			await expect(hero(page, service).getByRole("heading", { level: 2 })).toHaveText(
+			await expect(featuredCard(page, service).getByRole("heading", { level: 2 })).toHaveText(
 				service.title,
 			);
 			await expect(page.getByRole("main")).not.toContainText(closed.title);
@@ -399,7 +401,9 @@ test("unpublishing the Featured entry takes it off the Homepage without a menu e
 		{ featured: [pickedMenuItem("health_reports", report)] },
 		async () => {
 			await page.goto("/");
-			await expect(hero(page, report).getByRole("heading", { level: 2 })).toHaveText(report.title);
+			await expect(featuredCard(page, report).getByRole("heading", { level: 2 })).toHaveText(
+				report.title,
+			);
 
 			expect((await unpublishEntry(admin, "health_reports", report.id)).ok, "unpublish").toBe(true);
 			await page.goto("/");
@@ -418,7 +422,7 @@ test("the Featured News is not repeated as the News card, which shows the next n
 
 	await withHomepageMenus(admin, { featured: [pickedMenuItem("news", featured)] }, async () => {
 		await page.goto("/");
-		await expect(hero(page, featured).getByRole("heading", { level: 2 })).toHaveText(
+		await expect(featuredCard(page, featured).getByRole("heading", { level: 2 })).toHaveText(
 			featured.title,
 		);
 		const news = homepageSection(page, HOMEPAGE_HEADINGS.news);
@@ -453,7 +457,7 @@ test("the headline reads the office summary with ด้านสุขภาพ 
 		);
 	await withHomepageMenus(admin, { featured: [pickedMenuItem("news", featured)] }, async () => {
 		await page.goto("/");
-		const card = hero(page, featured);
+		const card = featuredCard(page, featured);
 		await expect(headline(page)).toBeVisible();
 		await expect(headline(page).getByText("ด้านสุขภาพ", { exact: true })).toHaveCSS(
 			"color",
@@ -505,6 +509,21 @@ test("the headline reads the office summary with ด้านสุขภาพ 
 		await page.setViewportSize({ width: 1024, height: 900 });
 		expect(await lines(), "the headline's lines alone at 1024 px").toBe(3);
 	});
+});
+
+test("the skip link shows over the hero's deep field when it takes focus", async ({ page }) => {
+	await page.goto("/");
+	await page.keyboard.press("Tab");
+	const skipLink = page.getByRole("link", { name: "ข้ามไปยังเนื้อหาหลัก" });
+	await expect(skipLink).toBeFocused();
+	await expect(skipLink).toBeInViewport();
+	const shown = await boxOf(skipLink, "the skip link");
+	const field = await boxOf(homepageSection(page, HOMEPAGE_HEADLINE), "the hero");
+	expect(shown.y, "the skip link lies on the hero's field").toBeGreaterThanOrEqual(field.y);
+	expect(shown.y + shown.height, "the skip link ends inside the hero").toBeLessThanOrEqual(
+		field.y + field.height,
+	);
+	await expect(skipLink).toHaveCSS("background-color", await tokenColor(page, "accent-warm"));
 });
 
 test("the hero's search has an accessible name and a 44 px submit button at each width, and submits its query to the site search", async ({

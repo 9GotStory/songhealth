@@ -312,8 +312,8 @@
 }
 
 /*
- * Focus ring on a light surface inside a dark one, such as the white search field and Featured
- * card on the deep field: brand-primary again, since accent-warm does not show on white (spec #239
+ * Focus ring on a light surface inside a dark one, such as the white search field on the deep
+ * field: brand-primary again, since accent-warm does not show on white (spec #239
  * "Accessibility").
  */
 @utility focus-ring-on-light {
