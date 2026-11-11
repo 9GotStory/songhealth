@@ -112,6 +112,11 @@ function hero(page: Page, fixture: DraftFixture) {
 	return homepageSection(page, fixture.title);
 }
 
+/** The Featured picture in `card`, the image after its blurred copy behind it. */
+function featuredPicture(card: Locator) {
+	return card.locator("img").last();
+}
+
 /** The hero's headline, the office summary sentence. */
 function headline(page: Page) {
 	return homepageSection(page, HOMEPAGE_HEADLINE).getByText(HOMEPAGE_HEADLINE, { exact: true });
@@ -161,7 +166,7 @@ test("Featured shows the first menu item that is published content of a Featured
 			await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
 			const shown = hero(page, featured);
 			await expect(shown.getByRole("heading", { level: 2 })).toHaveText(featured.title);
-			await expectImageLoaded(shown.locator("img"), "the Featured picture");
+			await expectImageLoaded(featuredPicture(shown), "the Featured picture");
 			await expect(shown.getByTestId("featured-visual")).toHaveCount(0);
 			for (const hidden of [draft, trashed, document]) {
 				await expect(page.getByRole("main"), hidden.title).not.toContainText(hidden.title);
@@ -200,10 +205,10 @@ test("the Featured picture shows whole inside the card, a landscape banner and a
 				await page.goto("/");
 				const shown = hero(page, featured);
 				await expect(shown.getByRole("heading", { level: 2 }), label).toHaveText(featured.title);
-				await expectPictureWhole(shown.locator("img"), label);
+				await expectPictureWhole(featuredPicture(shown), label);
 				// The card holds the picture: neither a banner nor a One Page reaches past its edges.
 				const card = await boxOf(shown.getByRole("link"), `${label}: the card`);
-				const picture = await boxOf(shown.locator("img"), label);
+				const picture = await boxOf(featuredPicture(shown), label);
 				expect(picture.x, `${label}: inside the card's left edge`).toBeGreaterThanOrEqual(card.x);
 				expect(
 					picture.x + picture.width,

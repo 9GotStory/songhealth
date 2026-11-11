@@ -234,11 +234,18 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   wins (`src/components/EmDashImage.astro`). `./src/components/ContentCard.astro` and
   `./src/components/ActivityCard.astro` load a list's first row that way.
 - `Image` writes the value's dimensions as the `width` and `height` attributes, so its box takes
-  the picture's shape before the file loads, and shows the value's placeholder (a blurhash, else
+  the picture's shape before the file loads, and writes the value's placeholder (a blurhash, else
   the dominant colour) as the image's inline background, unless given `placeholder={false}`
   (`src/components/EmDashImage.astro` `resolveImage`). `./src/components/PostColumns.astro` relies
-  on the first, and `./src/components/HomeHero.astro` on the second: the Featured picture's box is
-  the card's frame, which shows the placeholder around the whole picture.
+  on the dimensions.
+- The blurhash placeholder does not show. `Image` writes it as a `background` declaration that
+  ends in `cover` after the image's address (`@unpic/placeholder/dist/index.js`
+  `blurhashToImageCssString`, version 0.1.2), and a `background` shorthand takes a size only after a position and
+  a slash, so the browser drops the declaration: on the development runtime at `8d04198`, Chromium
+  computed `background-image: none` for the Homepage's Featured picture, whose `style` held that
+  text. A dominant colour alone, written as `background-color`, is valid. So
+  `./src/components/HomeHero.astro` draws its own blurred copy of the Featured picture with a
+  second `Image`, both with `placeholder={false}`.
 - The Admin's media library sets a picture's focal point ("Focal point. Use arrow keys to move
   it."). The Admin's image field copies the media item's focal point into the field's value as
   `focalX` and `focalY` when staff pick the picture, or edit it from the field

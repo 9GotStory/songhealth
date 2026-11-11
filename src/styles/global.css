@@ -211,7 +211,11 @@
  */
 @utility deep-field {
 	background:
-		radial-gradient(56.25rem 37.5rem at 85% 0%, var(--color-deep-highlight) 0%, transparent 60%),
+		radial-gradient(
+			min(56.25rem, 62%) 37.5rem at 85% 0%,
+			var(--color-deep-highlight) 0%,
+			transparent 60%
+		),
 		linear-gradient(
 			140deg,
 			var(--color-brand-dark) 0%,

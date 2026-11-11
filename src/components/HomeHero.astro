@@ -18,12 +18,14 @@
 //
 // The picture is decorative, because the title names the item. It shows whole, never cropped
 // (Feature 006 #146; spec #144 "Homepage (`04`)"): the office's landscape pictures are text
-// banners, and its portrait ones are One Pages. Its box is the card's frame, and around the
-// picture the frame shows the blurred placeholder EmDash's Image paints as the image's inline
-// background (emdash 1.1.0 src/components/EmDashImage.astro resolveImage: a blurhash, else the
-// dominant colour). It loads at once with a high fetch priority (`priority`, same file), since the
-// hero is in view when the page opens. An item without a picture, or whose picture's media item
-// was deleted in Admin (src/lib/media.ts), shows the plain visual instead, decoration too.
+// banners, and its portrait ones are One Pages. Its box is the card's frame, and behind it the
+// frame shows a blurred copy of the picture that covers the frame, a second Image. EmDash's Image
+// cannot stand in for that copy: the blurhash placeholder it writes as the image's inline
+// background is a declaration browsers drop (docs/agents/emdash-1.1.0.md "Media"). Both load at
+// once with a high fetch priority (`priority`, emdash 1.1.0 src/components/EmDashImage.astro),
+// since the hero is in view when the page opens, and from one address. An item without a picture,
+// or whose picture's media item was deleted in Admin (src/lib/media.ts), shows the plain visual
+// instead, decoration too.
 //
 // The decorations are hidden from assistive technology and take no pointer events, and the field
 // clips them, so they never widen the page (spec #239 "Accessibility").
@@ -60,7 +62,7 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 	class="deep-field focus-ring-on-dark relative overflow-clip rounded-b-24 text-surface-base sm:rounded-b-32"
 >
 	<div aria-hidden="true" class="pointer-events-none absolute inset-0">
-		<span class="absolute -top-30 -right-20 size-105 rounded-pill bg-accent-warm/38 blur-3xl"></span>
+		<span class="absolute -top-30 -right-20 size-105 rounded-pill bg-accent-warm/38 blur-3xl max-sm:-top-24 max-sm:-right-24 max-sm:size-60"></span>
 		<span class="absolute top-75 -left-35 size-90 rounded-pill bg-surface-soft/16 blur-3xl"></span>
 		<span class="absolute top-15 -right-42.5 size-130 rounded-pill border-[1.5px] border-surface-base/18 max-sm:hidden"></span>
 		<span class="absolute top-13.5 left-[46%] size-40 rounded-pill border-[1.5px] border-accent-warm/50 max-lg:hidden"></span>
@@ -148,15 +150,28 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 						class="absolute inset-0 translate-x-3.5 translate-y-1.5 rotate-6 rounded-24 bg-accent-warm transition-transform duration-400 ease-out group-hover:translate-x-5.5 group-hover:translate-y-2 group-hover:rotate-9"
 					/>
 					<div class="relative -rotate-2 rounded-24 bg-surface-base p-2.5 text-text-primary shadow-deep transition-transform duration-400 ease-out group-hover:rotate-0 group-focus-visible:rotate-0">
-						<div class="h-65 overflow-hidden rounded-18 bg-surface-soft sm:h-90">
+						<div class="relative h-65 overflow-hidden rounded-18 bg-surface-soft sm:h-90">
 							{image ? (
-								<Image
-									image={image}
-									alt=""
-									sizes={PICTURE_SIZES}
-									priority
-									class="size-full object-contain"
-								/>
+								<>
+									<div aria-hidden="true" class="absolute -inset-7.5 opacity-75 blur-xl">
+										<Image
+											image={image}
+											alt=""
+											sizes={PICTURE_SIZES}
+											priority
+											placeholder={false}
+											class="size-full object-cover"
+										/>
+									</div>
+									<Image
+										image={image}
+										alt=""
+										sizes={PICTURE_SIZES}
+										priority
+										placeholder={false}
+										class="relative size-full object-contain"
+									/>
+								</>
 							) : (
 								<div
 									aria-hidden="true"
