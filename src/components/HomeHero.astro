@@ -28,7 +28,8 @@
 // instead, decoration too.
 //
 // The decorations are hidden from assistive technology and take no pointer events, and the field
-// clips them, so they never widen the page (spec #239 "Accessibility").
+// clips them, so they never widen the page (spec #239 "Accessibility"). Below `sm` the warm glow
+// is left out: there it lay behind the chip, whose small text needs 4.5:1.
 import ArrowRight from "@lucide/astro/icons/arrow-right";
 import Search from "@lucide/astro/icons/search";
 import Star from "@lucide/astro/icons/star";
@@ -62,7 +63,7 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 	class="deep-field focus-ring-on-dark relative overflow-clip rounded-b-24 text-surface-base sm:rounded-b-32"
 >
 	<div aria-hidden="true" class="pointer-events-none absolute inset-0">
-		<span class="absolute -top-30 -right-20 size-105 rounded-pill bg-accent-warm/38 blur-3xl max-sm:-top-24 max-sm:-right-24 max-sm:size-60"></span>
+		<span class="absolute -top-30 -right-20 size-105 rounded-pill bg-accent-warm/38 blur-3xl max-sm:hidden"></span>
 		<span class="absolute top-75 -left-35 size-90 rounded-pill bg-surface-soft/16 blur-3xl"></span>
 		<span class="absolute top-15 -right-42.5 size-130 rounded-pill border-[1.5px] border-surface-base/18 max-sm:hidden"></span>
 		<span class="absolute top-13.5 left-[46%] size-40 rounded-pill border-[1.5px] border-accent-warm/50 max-lg:hidden"></span>
