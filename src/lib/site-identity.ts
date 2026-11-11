@@ -20,8 +20,13 @@
 
 import { getSiteSettings } from "emdash";
 
-/** The office's official name, fixed interface text in the utility bar and footer. */
+/** The office's official name, fixed interface text on the contact page. */
 export const OFFICE_NAME = "สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่";
+
+/**
+ * The office's province and ministry, fixed interface text under the footer's site title (#239).
+ */
+export const OFFICE_AFFILIATION = "จังหวัดแพร่ · กระทรวงสาธารณสุข";
 
 /** The site title while the native site settings name none. */
 const DEFAULT_SITE_TITLE = "สำนักงานสาธารณสุขอำเภอสอง";

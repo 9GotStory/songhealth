@@ -109,6 +109,17 @@ describe("the leak check", () => {
 		assert.deepEqual(leaksIn(shorter, inTests(SHORT)), []);
 	});
 
+	it("says nothing of a public institution's name an export text equals, and still finds a longer text that holds it", () => {
+		const ministry = "กระทรวงสาธารณสุข";
+		const site = siteOf({
+			attachments: [{ id: 6, url: `${SITE}/a.webp`, alt: ministry, caption: `${ministry} สมมุติ` }],
+		});
+		assert.deepEqual(leaksIn(site, inTests(`affiliation: "จังหวัดสมมุติ · ${ministry}"`)), []);
+		assert.deepEqual(leaksIn(site, inTests(`caption: "${ministry} สมมุติ"`)), [
+			{ file: "tests/node/x.test.ts", what: "the caption of attachment 6" },
+		]);
+	});
+
 	it("reads a file name percent-encoded in the export as the uploads copy names it", () => {
 		const encoded = siteOf({
 			attachments: [

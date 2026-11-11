@@ -161,7 +161,8 @@ export async function expectNoHorizontalScroll(page: Page, label: string): Promi
 }
 
 /**
- * Run axe with the WCAG 2.2 AA tag set and the page-structure rules on the page as it is now, and
+ * Run axe with the WCAG 2.2 AA tag set and the page-structure rules on the page as it is now,
+ * scrolled back to its top, and
  * fail with a readable summary (rule, impact and the offending nodes) on any violation. Fail too on
  * an icon that assistive technology can reach: every icon on a public page is decorative, an
  * `<svg>` that is aria-hidden or inside an aria-hidden element (docs/design/DESIGN.md §5; #105).
@@ -172,6 +173,10 @@ export async function expectNoAxeViolations(page: Page, label: string): Promise<
 			`${label}: axe requires a JavaScript-enabled context; audit accessibility with JavaScript enabled and test no-script navigation separately.`,
 		);
 	}
+	// From the top of the page, where the sticky header covers nothing: scrolled, it can lie over
+	// part of a control, and axe's target-size then measures the largest part of the control left
+	// uncovered (axe-core 4.14.0 axe.js targetSizeEvaluate, getLargestUnobscuredArea; #240).
+	await page.evaluate(() => window.scrollTo(0, 0));
 	// A rule enabled by name runs beside a tag selection (axe-core 4.14.0 axe.js ruleShouldRun).
 	const results = await new AxeBuilder({ page })
 		.options({

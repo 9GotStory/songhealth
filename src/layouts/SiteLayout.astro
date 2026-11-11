@@ -1,22 +1,27 @@
 ---
-// Songhealth public page shell (Feature 003 #52; spec #51 Presentation, ADR 0001).
+// Songhealth public page shell (Feature 003 #52; spec #51 Presentation, ADR 0001; the look of
+// Feature 008 #240, spec #239 "Header (every page)" and "Footer (every page)").
 //
-// Every public page renders inside this layout: the utility bar, the header
-// with the site identity and the main navigation (`03` §2), the page's own
-// main content, and the footer. The page passes its title and the
-// main-navigation section it belongs to; the shell marks that section.
+// Every public page renders inside this layout: the sticky header with the site identity, the
+// main navigation (`03` §2) and the search link, the page's own main content, and the footer. The
+// page passes its title and the main-navigation section it belongs to; the shell marks that
+// section. There is no utility bar: its ค้นหา is the header's search link at every width, and
+// /contact is reached from the footer (Product Owner, #239 comment 6786536858).
 //
-// The layout is mobile-first and ships no client JavaScript. Below the `lg`
-// breakpoint the main navigation sits in a native <details> disclosure that
-// opens without JavaScript; from `lg` up it is a row in the header. Both
-// placements render the same MAIN_NAVIGATION, and CSS shows exactly one. The
-// menu button sits in the identity row, and the opened menu flows in the page
-// and pushes it down. Without JavaScript the menu closes only from its own
-// button, never with Escape or when focus moves on, so an overlay would cover
-// the content focus moves on to (WCAG 2.2 SC 2.4.11). The button shows Lucide's
-// menu icon while closed and x while open. Screen-reader-only open/close
-// labels name its state (#191; PO #190 comment 6707205912, Header B); the
-// icons are decorative (docs/agents/lucide-astro-1.59.0.md).
+// The layout is mobile-first and ships no client JavaScript. Below the `lg` breakpoint the main
+// navigation sits in a native <details> disclosure that opens without JavaScript; from `lg` up it
+// is a row in the header. Both placements render the same MAIN_NAVIGATION, and CSS shows exactly
+// one. The menu button sits in the header's row, and the opened menu is part of the header's
+// flow: at the top of the page it pushes the page down, and it stays with the header while the
+// page scrolls. Without JavaScript the menu closes only from its own button, never with Escape or
+// when focus moves on, so focus that moves on into the page scrolls to below the open menu
+// (src/styles/global.css, scroll-padding-top from --menu-height; WCAG 2.2 SC 2.4.11). The button
+// shows Lucide's menu icon while closed and x while open. Screen-reader-only open/close labels
+// name its state (#191; PO #190 comment 6707205912, Header B); the icons are decorative
+// (docs/agents/lucide-astro-1.59.0.md).
+//
+// The skip link is the header's first link and shows below the header when it takes focus, so it
+// never covers the logo.
 //
 // The head's metadata comes from EmDash's own EmDashHead (emdash 1.1.0
 // src/components/EmDashHead.astro): the description, canonical link, Open
@@ -32,8 +37,10 @@
 // The footer links to the reserved Basic Pages `privacy` and `accessibility`
 // while they are published, before ติดต่อเรา (src/lib/basic-pages.ts). Above
 // them it lists the official channels that are set (#62,
-// src/lib/office-contact.ts), each a compact link to another website.
+// src/lib/office-contact.ts), each a compact link to another website, shown as a pill.
+import ChevronRight from "@lucide/astro/icons/chevron-right";
 import Menu from "@lucide/astro/icons/menu";
+import Search from "@lucide/astro/icons/search";
 import X from "@lucide/astro/icons/x";
 import { Font } from "astro:assets";
 import { createPublicPageContext } from "emdash/page";
@@ -41,10 +48,10 @@ import { EmDashHead } from "emdash/ui";
 import "../styles/global.css";
 import Breadcrumb from "../components/Breadcrumb.astro";
 import ContentLink from "../components/ContentLink.astro";
+import SiteLogo from "../components/SiteLogo.astro";
 import ThaiTitle from "../components/ThaiTitle.astro";
 import {
 	MAIN_NAVIGATION,
-	UTILITY_LINKS,
 	breadcrumbTrail,
 	currentMark,
 	type Crumb,
@@ -52,7 +59,7 @@ import {
 } from "../lib/navigation";
 import { footerPageLinks } from "../lib/basic-pages";
 import { readOfficeContact } from "../lib/office-contact";
-import { OFFICE_NAME, getSiteIdentity } from "../lib/site-identity";
+import { OFFICE_AFFILIATION, getSiteIdentity } from "../lib/site-identity";
 
 interface Props {
 	/**
@@ -108,10 +115,17 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 	...item,
 	current: currentMark(item, section, pathname),
 }));
+/** A navigation item's look in both placements: the current one a soft green pill. */
+const itemState = (current: string | undefined) =>
+	current ? "bg-surface-soft font-semibold text-brand-primary" : "font-medium";
+// The open menu's height below `lg`: 57 px for each item and 16 px of padding. An item is a 56 px
+// row, and each of the panel's 1 px lines, its top border and the separators between rows, makes
+// one line for each item. The page's scroll padding adds this height while the menu is open.
+const menuHeight = `calc(${navigation.length} * 3.5625rem + 1rem)`;
 ---
 
 <!doctype html>
-<html lang="th">
+<html lang="th" style={`--menu-height:${menuHeight}`}>
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -121,112 +135,84 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 		<slot name="head" />
 	</head>
 	<body class="flex min-h-dvh flex-col bg-bg-page text-body text-text-primary">
-		<a
-			href="#main"
-			class="focus-ring-on-dark absolute top-2 left-4 z-30 -translate-y-[200%] rounded-14 bg-accent-warm px-4 py-3 text-label text-text-primary focus:translate-y-0"
-		>
-			ข้ามไปยังเนื้อหาหลัก
-		</a>
-		<header class="bg-surface-base">
-			<div class="focus-ring-on-dark bg-brand-dark text-small text-surface-base">
-				<div class="page-container flex min-h-11 flex-wrap items-center justify-end gap-x-6 lg:min-h-10.5 lg:justify-between lg:gap-y-1 lg:py-1.5">
-					<p class="hidden lg:block">{OFFICE_NAME}</p>
-					<ul class="flex gap-5">
-						{UTILITY_LINKS.map((link) => (
+		<header class="sticky top-0 z-20 bg-surface-base/90 shadow-header backdrop-blur-md">
+			<a
+				href="#main"
+				class="pointer-events-none absolute top-full left-(--page-gutter) mt-2 rounded-pill bg-accent-warm px-4 py-2 text-label text-text-primary opacity-0 shadow-card focus:pointer-events-auto focus:opacity-100"
+			>
+				ข้ามไปยังเนื้อหาหลัก
+			</a>
+			<div class="page-container flex min-h-17 items-start gap-2.5 py-2.5 sm:min-h-21 sm:gap-4 sm:py-4.5 lg:items-center">
+				<a href="/" class="mr-auto flex min-w-0 items-center gap-2.5 self-center sm:gap-3">
+					<SiteLogo logo={identity.logo} />
+					<span class="flex min-w-0 flex-col">
+						<span class="text-body leading-(--text-label--line-height) font-bold wrap-anywhere text-brand-dark sm:text-body-large lg:header-title">
+							<ThaiTitle text={identity.title} />
+						</span>
+						{identity.tagline && (
+							<span class="text-small wrap-anywhere text-text-secondary-on-soft">
+								{identity.tagline}
+							</span>
+						)}
+					</span>
+				</a>
+				<nav aria-label="เมนูหลัก" class="hidden shrink-0 lg:block">
+					<ul class="flex gap-0.5">
+						{navigation.map((item) => (
 							<li>
 								<a
-									class="inline-flex min-h-11 items-center underline-offset-4 hover:underline lg:inline lg:min-h-0"
-									href={link.href}
+									href={item.href}
+									aria-current={item.current}
+									class:list={[
+										"block rounded-pill py-2 header-nav-item hover:bg-surface-soft hover:text-brand-primary",
+										itemState(item.current),
+									]}
 								>
-									{link.label}
+									{item.label}
 								</a>
 							</li>
 						))}
 					</ul>
-				</div>
+				</nav>
+				{/* Below `lg` the margin keeps the menu button's place in the row. */}
+				<a
+					href="/search"
+					class="mr-14.5 flex size-12 shrink-0 items-center justify-center rounded-pill bg-surface-soft text-brand-primary hover:bg-brand-primary hover:text-surface-base sm:mr-16 lg:mr-0"
+				>
+					<Search class="shrink-0" size={20} />
+					<span class="sr-only">ค้นหา</span>
+				</a>
 			</div>
-			<div class="relative">
-				<div class="page-container flex items-start justify-between gap-4 py-3 lg:min-h-22 lg:items-center">
-					<a href="/" class="mr-16 flex min-w-0 items-start gap-3 lg:mr-0 lg:items-center">
-						{/* The logo or mark is decorative: the title beside it names the link. */}
-						{identity.logo ? (
-							<img
-								class="size-11 shrink-0 object-contain lg:size-12"
-								src={identity.logo.url}
-								alt=""
-								width={identity.logo.width ?? 48}
-								height={identity.logo.height ?? 48}
-							/>
-						) : (
-							<span
-								data-testid="placeholder-mark"
-								aria-hidden="true"
-								class="flex size-11 shrink-0 items-center justify-center rounded-16 bg-brand-primary text-surface-base lg:size-12"
-							>
-								<svg class="size-6 lg:size-7" viewBox="0 0 24 24" fill="currentColor">
-									<path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z" />
-								</svg>
-							</span>
-						)}
-						<span class="flex min-w-0 flex-col pt-2 lg:pt-0">
-							<span class="text-body font-semibold wrap-anywhere text-brand-dark sm:text-body-large lg:text-h3">
-								<ThaiTitle text={identity.title} />
-							</span>
-							{identity.tagline && (
-								<span class="text-small wrap-anywhere text-text-secondary">{identity.tagline}</span>
-							)}
-						</span>
-					</a>
-					<nav aria-label="เมนูหลัก" class="hidden shrink-0 lg:block">
-						<ul class="flex gap-6 text-label">
-							{navigation.map((item) => (
-								<li>
-									<a
-										href={item.href}
-										aria-current={item.current}
-										class:list={[
-											"block border-b-3 py-2 hover:text-brand-primary",
-											item.current
-												? "border-brand-primary text-brand-primary"
-												: "border-transparent",
-										]}
-									>
-										{item.label}
-									</a>
-								</li>
-							))}
-						</ul>
-					</nav>
-				</div>
-				<details class="group lg:hidden">
-					<summary class="absolute top-3 right-(--page-gutter) flex size-11 cursor-pointer list-none items-center justify-center rounded-pill border border-border-input bg-surface-base text-label [&::-webkit-details-marker]:hidden">
-						<Menu class="shrink-0 group-open:hidden" size={20} />
-						<X class="hidden shrink-0 group-open:block" size={20} />
-						<span class="sr-only group-open:hidden">เปิดเมนู</span>
-						<span class="sr-only hidden group-open:block">ปิดเมนู</span>
-					</summary>
-					<nav aria-label="เมนูหลัก" class="border-t border-border-default">
-						<ul class="page-container py-2">
-							{navigation.map((item) => (
-								<li>
-									<a
-										href={item.href}
-										aria-current={item.current}
-										class:list={[
-											"block border-l-4 px-4 py-3 hover:bg-surface-soft",
-											item.current
-												? "border-brand-primary bg-surface-soft font-semibold text-brand-primary"
-												: "border-transparent",
-										]}
-									>
-										{item.label}
-									</a>
-								</li>
-							))}
-						</ul>
-					</nav>
-				</details>
-			</div>
+			<details id="site-menu" class="group lg:hidden">
+				<summary class="absolute top-2.5 right-(--page-gutter) flex size-12 cursor-pointer list-none items-center justify-center rounded-14 bg-surface-soft text-brand-primary group-open:bg-brand-primary group-open:text-surface-base sm:top-4.5 [&::-webkit-details-marker]:hidden">
+					<Menu class="shrink-0 group-open:hidden" size={20} />
+					<X class="hidden shrink-0 group-open:block" size={20} />
+					<span class="sr-only group-open:hidden">เปิดเมนู</span>
+					<span class="sr-only hidden group-open:block">ปิดเมนู</span>
+				</summary>
+				<nav
+					aria-label="เมนูหลัก"
+					class="max-h-[calc(100dvh-var(--header-offset))] overflow-y-auto border-t border-border-default bg-surface-base"
+				>
+					<ul class="page-container py-2">
+						{navigation.map((item) => (
+							<li class="border-b border-border-default last:border-b-0">
+								<a
+									href={item.href}
+									aria-current={item.current}
+									class:list={[
+										"flex min-h-14 items-center justify-between gap-3 rounded-14 px-3 text-body-large hover:bg-surface-soft hover:text-brand-primary",
+										itemState(item.current),
+									]}
+								>
+									{item.label}
+									<ChevronRight class="shrink-0 text-brand-primary" size={16} />
+								</a>
+							</li>
+						))}
+					</ul>
+				</nav>
+			</details>
 		</header>
 		<main id="main" tabindex="-1" class="flex-1">
 			{crumbs && (
@@ -236,45 +222,54 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 			)}
 			<slot />
 		</main>
-		<footer class="focus-ring-on-dark bg-brand-dark text-surface-base">
-			<div class="page-container flex flex-col gap-6 py-12 lg:flex-row lg:items-start lg:justify-between">
-				<div class="flex flex-col gap-1.5">
-					<p class="text-h3 wrap-anywhere">
-						<ThaiTitle text={identity.title} />
-					</p>
-					<p class="text-small">{OFFICE_NAME}</p>
+		<footer class="focus-ring-on-dark rounded-t-24 bg-brand-dark text-surface-base sm:rounded-t-32">
+			<div class="page-container flex flex-wrap items-center gap-x-8 gap-y-6 py-9">
+				<div class="mr-auto flex min-w-0 items-center gap-3">
+					<SiteLogo logo={identity.logo} deep />
+					<div class="min-w-0">
+						<p class="text-body-large font-bold wrap-anywhere">
+							<ThaiTitle text={identity.title} />
+						</p>
+						<p class="text-small text-surface-base/70">{OFFICE_AFFILIATION}</p>
+					</div>
 				</div>
-				<div class="flex flex-col gap-4 text-small lg:items-end">
-					{channels.length > 0 && (
-						<div class="flex flex-col gap-2 lg:items-end">
-							<p id="footer-channels" class="font-semibold">
-								ช่องทางทางการ
-							</p>
-							<ul aria-labelledby="footer-channels" class="flex flex-wrap gap-x-6 gap-y-2">
-								{channels.map((channel) => (
-									<li>
-										<ContentLink
-											compact
-											class="underline-offset-4 hover:underline"
-											href={channel.href}
-										>
-											{channel.label}
-										</ContentLink>
-									</li>
-								))}
-							</ul>
-						</div>
-					)}
-					<ul class="flex flex-wrap gap-x-6 gap-y-2">
+				{channels.length > 0 && (
+					<div class="flex flex-wrap items-center gap-2 text-label">
+						<p id="footer-channels" class="mr-1 text-surface-base/70">
+							ช่องทางทางการ
+						</p>
+						<ul aria-labelledby="footer-channels" class="flex flex-wrap gap-2">
+							{channels.map((channel) => (
+								<li>
+									<ContentLink
+										compact
+										class="inline-flex items-center gap-1.5 rounded-pill border border-surface-base/20 bg-surface-base/10 px-3.5 py-1.5 hover:border-accent-warm hover:bg-accent-warm hover:text-brand-dark"
+										href={channel.href}
+									>
+										{channel.label}
+									</ContentLink>
+								</li>
+							))}
+						</ul>
+					</div>
+				)}
+				<nav
+					aria-label="ลิงก์ท้ายหน้า"
+					class="basis-full border-t border-surface-base/15 pt-5 text-label"
+				>
+					<ul class="flex flex-wrap gap-x-7 gap-y-2">
 						{footerLinks.map((link) => (
 							<li>
-								<a class="underline-offset-4 hover:underline" href={link.href}>
+								<a
+									class="inline-block py-0.5 text-surface-base/85 underline-offset-4 hover:text-accent-warm hover:underline"
+									href={link.href}
+								>
 									{link.label}
 								</a>
 							</li>
 						))}
 					</ul>
-				</div>
+				</nav>
 			</div>
 		</footer>
 	</body>

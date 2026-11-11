@@ -1,9 +1,10 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** v1.1, current. Feature 006's design was accepted on #144; Feature 007's
+> **Status:** v1.2, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
-> (Product Owner, 2026-11-10: #190 comment 6759434955).
-> **Updated:** 2026-11-10 (Feature 007 #191–#198); first drafted 2026-10-30
+> (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
+> ticket by ticket from #240, and awaits the Product Owner's acceptance on #239.
+> **Updated:** 2026-11-11 (Feature 008 #240); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -30,6 +31,15 @@
 > whichever of its header and its picture's link ends lower, without the empty row and its 2 rem
 > gap; the rest of the post layout remains (§9.1, §10).
 > This amendment implements #191–#198.
+
+> **Feature 008 decision (Product Owner, 2026-11-10 and 2026-11-11; spec #239, #239 comments
+> 6786536858 and 6786631899):** the public site is redesigned page by page in the "bold modern"
+> look the Product Owner chose from a prototype, the Homepage first, on the existing colours, radii
+> and Noto Sans Thai. Every page takes the new shell at once (§7.4): one sticky header row with a
+> round search link and no utility bar, no header link to `/contact`, and the deep green footer with
+> the official channels as pills. Five colours join the tokens (§3.1). #240 implements the shell;
+> the sections of this document it does not name still describe the pages as they are until their
+> own tickets.
 
 ## 1. Scope, authority and status
 
@@ -116,6 +126,15 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | `hero-chip`, `hero-secondary-fill`, `hero-secondary-border` | white at 12 %, 6 %, 28 % | the Featured eyebrow chip and secondary link |
 | `text-secondary-on-soft` | `#5d6a64` | secondary text on `surface-soft` (contrast fix, #51) |
 | `border-input` | `#7a8a83` | input boundaries (contrast fix, #51) |
+| `procurement-text`, `procurement-border` | `#1d4f91`, `#c9dbf3` | the procurement Announcement badge's text and border, on `topic-blue` (Feature 008, #239) |
+| `status-closed` | `#e7ecea` | a closed Announcement status label's fill (Feature 008, #239) |
+| `deep-highlight` | `#0f8a70` | the highlight in the deep green field's gradient (Feature 008, #239) |
+| `plain-visual-to` | `#d6ece2` | the plain visual's second stop, after `surface-soft` (Feature 008, #239) |
+
+The five Feature 008 colours are defined by name for the Homepage tickets that follow #240; no
+page uses them yet. Two fills are a token at an opacity, not a token of their own: the header's
+surface, `surface-base` at 90 %, and the footer's quiet text, pills and rule, `surface-base` at
+70 %, 85 %, 20 %, 15 % and 10 %.
 
 Type, Noto Sans Thai, as size / line height / weight in px:
 
@@ -126,8 +145,15 @@ Type, Noto Sans Thai, as size / line height / weight in px:
 | `h2` | 34 / 46 / 600 | `label` | 14 / 22 / 500 |
 | `h3` | 24 / 34 / 600 | `small` | 13 / 20 / 400 |
 
-Radii are named by their size in px: 14, 16, 18, 20, 22, 24, 26 and 32, and `pill` (999 px). One
-shadow, `card`: `0 10px 15px rgb(13 46 36 / 0.08)`. One container, `content`: 75 rem (1,200 px).
+Two header styles scale with the window from 1,024 px and are utilities, not steps of the scale
+(§7.4): `header-title`, 16 to 18 px on a 24 px line, and `header-nav-item`, 15 to 16 px on a 26 px
+line. Below 640 px the site title is `body` at 700 on `label`'s 22 px line.
+
+Radii are named by their size in px: 14, 16, 18, 20, 22, 24, 26 and 32, and `pill` (999 px). Two
+shadows: `card`, `0 10px 15px rgb(13 46 36 / 0.08)`, and `header`, the sticky header's lower edge,
+a 1 px `border-default` hairline with `0 8px 24px -16px rgb(13 46 36 / 0.25)`. One container,
+`content`: 75 rem (1,200 px). One length, `--header-offset`: the room the sticky header takes at
+the top of the window, 88 px below 640 px and 84 px from 640 px (§7.4).
 
 ### 3.2 Contrast
 
@@ -146,6 +172,9 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-secondary-on-soft` on `surface-soft` (`text-secondary` there would be 4.45:1) | 5.07:1 |
 | `border-input` on `surface-base`, `bg-page`, `surface-soft` | 3.63, 3.42, 3.25:1 |
 | `accent-warm` focus ring on `brand-dark`, `brand-primary` | 7.75, 4.10:1 |
+| `text-secondary-on-soft` (the tagline) on the header's surface over `brand-dark`, the darkest fill a page scrolls under it (`text-secondary` there would be 4.15:1) | 4.73:1 |
+| `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
+| `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
 | `accent-warm` on `surface-base` | 1.58:1: a fill or decoration, never text |
 
 There is no alert colour: a status is stated in text, and colour supports it.
@@ -182,9 +211,9 @@ evidence"). A title therefore keeps the words of a curated list on one line:
 - **Where it does not:** body text, summaries and labels, such as the menu, the breadcrumb, the
   MOIT page's table of contents, Evidence pills, eyebrows, meta lines, link labels and the
   "บริการที่ให้" link list.
-- **The compact header:** the site title uses the space beside the logo and icon-only menu at
-  its existing type size (§7.4; #190 comment 6707205912). Its line count depends on the configured
-  title, logo and tagline; it has no fixed line count. ThaiTitle still keeps listed words whole.
+- **The header:** the site title uses the space beside the logo, before the search link and the
+  menu button, at §7.4's sizes. Its line count depends on the configured title, logo and tagline;
+  it has no fixed line count. ThaiTitle still keeps listed words whole.
 - **Rejected** (spec #144): `word-break: keep-all`, which in Thai breaks only at spaces and
   overflows; `text-wrap: pretty` alone; a word joiner, which would end up in copied text and in
   search; a segmentation library, a new dependency.
@@ -243,7 +272,7 @@ this document names:
 
 | Area | Components |
 | --- | --- |
-| Shell | `src/layouts/SiteLayout.astro`: utility bar, header, main navigation, the mobile menu, footer |
+| Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
 | Headings | `PageHeading`, `SectionHeading`, `ThaiTitle` |
 | Cards | `ContentCard` (News, Health Content), `ActivityCard`, `ServiceCard`, `QuickLinkCard`, `PersonCard` |
 | Homepage | `FeaturedHero`, `SearchForm` |
@@ -299,24 +328,54 @@ this document names:
 
 ### 7.4 Header and navigation
 
-`src/layouts/SiteLayout.astro` (#191; spec #190 “Header below 1024 px”; Product Owner,
-#190 comment 6707205912, Header B):
+`src/layouts/SiteLayout.astro` (#240; spec #239 "Header (every page)", "Footer (every page)";
+Product Owner, #239 comment 6786536858). It replaces Feature 007's Header B (#191), whose native
+menu, screen-reader labels and identity roles it keeps:
 
-- Below 1024 px, the utility bar shows only “ค้นหา” and “ติดต่อเรา”, to `/search` and `/contact`.
-  Each link has a minimum 44 px target height. The repeated office/province label is hidden.
-- The native `<details>` menu opens in the page flow without client JavaScript. Its 44×44 px
-  pill shows a 20 px Lucide menu icon while closed and X while open, with no visible text.
-  Screen-reader-only “เปิดเมนู” / “ปิดเมนู” labels name its state; the browser supplies the native
-  expanded state and Enter/Space operation. The same control closes it; it adds no Escape handler.
-- The identity reserves 64 px for the 44 px control and the gap. Its title takes the released
-  space beside the logo; text remains 16 px below 640 px, 18 px from 640 px and 24 px from 1024 px.
-  The logo or decorative placeholder, optional tagline and ThaiTitle rendering keep their roles.
-- From 1024 px, the full utility bar, office/province label and desktop navigation remain.
-  The same navigation order, destinations and current-section marks serve both presentations.
-- Before/after evidence records the runtime-verified commit and the title/logo/tagline settings.
-  Line counts are observations of those settings, never a universal requirement. The existing
-  public-shell suite verifies 320/375 px reflow, both sides of 1024 px, keyboard/focus, axe,
-  JavaScript-disabled navigation and configured/fallback identities, restoring settings in `finally`.
+- **One sticky row** on `surface-base` at 90 % with a backdrop blur and the `header` shadow: the
+  logo or placeholder mark, the site title, the optional tagline, the main navigation from
+  1,024 px, and a round 48 px search link to `/search` at every width, named "ค้นหา" for assistive
+  technology. The row is 84 px tall from 640 px and at least 68 px below.
+- **No utility bar.** No header link goes to `/contact`: the footer links there on every page.
+- **Navigation from 1,024 px:** the same order, destinations and current-section marks as before.
+  The current item is a `surface-soft` pill with `brand-primary` semibold text; the others are
+  medium weight and take the pill on hover.
+- **Text that scales from 1,024 px,** so the row fits at 1,024 px without a third breakpoint: the
+  title is `clamp(16px, 1.3vw, 18px)` on a 24 px line, and a navigation item
+  `clamp(15px, 1.15vw, 16px)` with `clamp(8px, 0.9vw, 12px)` either side. Below 1,024 px the title
+  is 18 px, and below 640 px 16 px on a 22 px line.
+- **Below 1,024 px** the navigation is the native `<details>` menu, with no client JavaScript. Its
+  48×48 px button, with 14 px corners, shows a 20 px Lucide menu icon while closed and X while open,
+  when it turns `brand-primary`; screen-reader-only "เปิดเมนู" / "ปิดเมนู" labels name its state. The
+  panel lists the same items as full-width 56 px rows, each ending in `chevron-right`, the current
+  one on `surface-soft`. The same button closes it; there is no Escape handler.
+- **The open menu is part of the header's flow.** At the top of the page it pushes the page down.
+  It stays with the header while the page scrolls, no taller than the window below the row, and
+  scrolls inside itself when it is.
+- **Nothing is left under the header.** `scroll-padding-top` keeps what focus or an anchor link
+  scrolls to below `--header-offset`, and below the open menu too, whose height the shell sets as
+  `--menu-height` from its number of items. A sticky box elsewhere (a post's picture, the MOIT
+  page's table of contents) sits `--header-offset` plus 24 px from the top.
+- **The skip link** is the header's first link and shows under the header's lower edge when it
+  takes focus, as an `accent-warm` pill.
+- **The title wraps** rather than push a button off the row. The office's own name is three lines
+  at 320 px, which makes the header 86 px tall, and two at 375 px, within the 68 px. A longer
+  configured title takes more lines at any width, and the row grows with it (§10).
+- **Focus rings:** `brand-primary` in the header, `accent-warm` in the footer.
+
+**Footer.** `brand-dark` with 32 px top corners (24 px below 640 px): the logo or placeholder mark
+(`accent-warm` here; a configured logo sits on a white tile) and the site title, with
+"จังหวัดแพร่ · กระทรวงสาธารณสุข" under it; "ช่องทางทางการ" before the official channels, each a pill
+that ends in `arrow-up-right`; then, under a rule, the published policy pages and "ติดต่อเรา". The
+channels, the policy pages and their sources are as before (#62, `src/lib/basic-pages.ts`).
+
+The header's heights were read on the development runtime at `67340c9`, with the office's own
+name as the title and no tagline, from `scripts/capture-screenshots.mjs` close-ups of `header` on
+`/news` and `/` at 1,440, 1,280, 1,024, 1,023, 768, 640, 639, 375 and 320 px: 84 px from 640 px,
+68 px at 639 and 375 px, 86 px at 320 px. The public-shell suite
+checks the search link and the absent utility bar on two pages, the sticky header, the footer, the
+menu without JavaScript, both sides of 1,024 and 640 px, reflow at 375 and 320 px, keyboard order,
+the focus rings, axe, and the configured and fallback identities, restoring settings in `finally`.
 
 ### 7.5 Breadcrumb
 
@@ -491,7 +550,7 @@ static marketing content.
     under the header;
   - on the right, a 28 rem column, 48 px from the text, with the picture whole and
     "เปิดภาพขนาดเต็ม", a link to the file as it was uploaded;
-  - the picture is sticky 1.5 rem from the top: it stays in view while the left column scrolls and
+  - the picture is sticky 1.5 rem below the header (`--header-offset` plus 1.5 rem from the top, §7.4): it stays in view while the left column scrolls and
     stops at the end of the two columns. Anything full width, such as an Activity's photos, comes
     after them, so the picture never covers it.
 - **Below `lg`**, one column in the page's order: the header, the picture, then the body, source
@@ -554,7 +613,10 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   - the list is curated, so a compound it does not name can still break, and a new word needs a
     code change;
   - summaries still break inside words, such as "ออกกำลัง / กาย";
-  - a configured header title can occupy multiple lines; its space and type follow §7.4.
+  - a configured header title can occupy multiple lines; its space and type follow §7.4;
+  - `--header-offset` is a fixed 88 or 84 px (§3.1), so under a header made taller than that by a
+    long configured title or a tagline below 640 px, what focus scrolls to can sit partly under the
+    header (Product Owner, #240 comment 6788678539).
 - **A compact Quick Link card's height** grows with its label (§7.3), the taller proportions
   accepted with Quick Access B (#190 comment 6707205912).
 - **The phone Homepage's height** moves with the titles and the number of items (§8.2).
@@ -674,3 +736,13 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   `tests/browser/public-posts.spec.ts` measured on the runtime at `33ecdf0` (#198's pull request).
   The two columns from 1024 px, the 28 rem picture column, the whole picture, "เปิดภาพขนาดเต็ม", the
   sticky picture and an Activity's photos remain.
+
+- **v1.2 (2026-11-11, Feature 008 #240):** the new shell on every page (§7.4): one sticky header
+  row with a round search link, a pill for the current item, text that scales from 1,024 px, a
+  48 px menu button and full-width menu rows, the skip link under the header, and the `brand-dark`
+  footer with the channels as pills. The utility bar, its office label and the header's "ติดต่อเรา"
+  are gone. §3.1 gains five colours, the `header` shadow and `--header-offset`; §3.2 the pairs on
+  the header's translucent surface. Authority: spec #239 and #239 comments 6786536858 and
+  6786631899. The header had been Feature 007's Header B: a `brand-dark` utility bar over a white
+  row, a 44 px menu pill, and a 24 px title from 1,024 px. Sticky boxes on other pages moved down by
+  the header's height; nothing else on those pages changed.
