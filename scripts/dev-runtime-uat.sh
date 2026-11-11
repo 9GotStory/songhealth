@@ -179,6 +179,7 @@ elif status.get("AuthURL"):
   done
   [[ -n $url ]] || { stop_all; die "the node was not approved within ten minutes: nothing is public"; }
   printf '%s\n' "$url" > "$UAT_DIR/url"
+  log_event "the UAT node is up: $url"
   note "the UAT node is up: $url"
   note "a new Funnel name can take some minutes to resolve: '${0##*/} check $url' checks it"
 }
@@ -187,6 +188,7 @@ stop() {
   local now
   stop_all
   note "the UAT node and its proxy are gone"
+  log_event "the UAT node and its proxy are gone${PROXY_LOG:+, proxy log $PROXY_LOG}"
   [[ -z ${PROXY_LOG:-} ]] || note "the proxy's log: $PROXY_LOG"
   [[ -f $UAT_DIR/host-serve-before.json ]] || { warn "no saved Serve status to compare"; return; }
   now=$(tailscale serve status --json) || die "could not read this host's Tailscale Serve status"
@@ -209,6 +211,7 @@ sys.exit(any(peer.get("HostName") == sys.argv[1] for peer in peers))
 status() {
   podman ps -a --filter "label=$UAT_LABEL" --format '{{.Names}} {{.Status}}'
   if [[ -f $UAT_DIR/url ]]; then note "the UAT URL: $(<"$UAT_DIR/url")"; else note "no UAT node is up"; fi
+  last_event
 }
 
 USAGE="usage: ${0##*/} start | check [<origin>] | stop | status"

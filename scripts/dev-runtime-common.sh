@@ -48,10 +48,17 @@ ROLE_OK='t|f|f|f|songhealth_qdev_app'
 MODEL_PENDING=3                                   # model_update --check: changes are pending
 ADMIN_QUIET_MINUTES=10                            # a promotion waits this long after an Admin page load
 WINDOW_LOCK=$STATE_DIR/window                     # held by scripts/dev-runtime-window.sh
+RUNTIME_EVENTS=$STATE_DIR/runtime-events.log    # windows and UAT nodes, one line each (#238 retro)
 
 die()  { printf '%s: FAIL: %s\n' "${0##*/}" "$*" >&2; exit 1; }
 note() { printf '%s: %s\n' "${0##*/}" "$*"; }
 warn() { printf '%s: WARNING: %s\n' "${0##*/}" "$*" >&2; }
+log_event() { # log_event TEXT — a line in RUNTIME_EVENTS, so another session reads what happened
+  printf '%s %s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${0##*/}" "$*" >> "$RUNTIME_EVENTS"
+}
+last_event() { # last_event — the newest line of RUNTIME_EVENTS, if there is one
+  [[ ! -s $RUNTIME_EVENTS ]] || note "the last runtime event: $(tail -n 1 -- "$RUNTIME_EVENTS")"
+}
 
 image_of() { # image_of UNIT-FILE — the pinned Image= of a committed unit (single source of truth)
   sed -n 's/^Image=//p' "$SRC/deploy/dev-quadlet/$1"
