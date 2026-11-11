@@ -206,16 +206,15 @@
 
 /*
  * The Homepage's deep green field (spec #239 "Solution"): brand-dark to brand-primary and back,
- * with the deep-highlight glow from its upper right. White text on its lightest part,
- * deep-highlight, is 4.30:1, so the field carries large text and text at its darker left.
+ * with the deep-highlight glow from its upper right, 62 % of the field wide, so on a phone it stays
+ * clear of the text at the left. White text on its lightest part, deep-highlight, is 4.30:1, so the
+ * field carries large text, and smaller text at its darker left. brand-dark lies under the
+ * gradients, so the field's white text stays readable where a browser draws neither.
  */
 @utility deep-field {
-	background:
-		radial-gradient(
-			min(56.25rem, 62%) 37.5rem at 85% 0%,
-			var(--color-deep-highlight) 0%,
-			transparent 60%
-		),
+	background-color: var(--color-brand-dark);
+	background-image:
+		radial-gradient(62% 37.5rem at 85% 0%, var(--color-deep-highlight) 0%, transparent 60%),
 		linear-gradient(
 			140deg,
 			var(--color-brand-dark) 0%,
