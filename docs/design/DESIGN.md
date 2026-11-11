@@ -247,7 +247,11 @@ own module.
   for an icon that shows the action itself at the start of its button (the menu, a download);
   24 px on a card (Service and Quick Link cards).
 - **Direction:** an onward link on this site ends in `chevron-right`, and a link that leaves it in
-  `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). Every Service card shows
+  `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). On the Homepage, a round
+  button, a section heading's link and a card take `arrow-right` instead (Product Owner,
+  2026-11-11: #241 comment 6791096480, item 1): 16 px in the heading's link, 20 px in the search's
+  submit button and on the Featured card. The hero's search field opens with a 20 px `search`
+  icon, and a section heading's tile and the plain visual's tile hold a 24 px icon. Every Service card shows
   the one Service icon, `hand-heart`.
 - **Accessibility:** an icon is decorative. Lucide hides it from assistive technology, the text
   names the link or button, and an icon-only action has an accessible name. Every icon takes
@@ -265,8 +269,8 @@ production sets the office's approved file: the MOPH emblem, as the legacy site 
   compactly (`04` §15, §8.2).
 - **Breakpoints:** Tailwind's own, with no custom one.
   - below `sm` (640 px): phones;
-  - `sm`, from 640 px: wider phones and tablets;
-  - `lg`, from 1,024 px: desktop, with the two-column layouts (the Homepage's hero, News beside
+  - `sm`, from 640 px: wider phones and tablets, where the Homepage's hero takes two columns;
+  - `lg`, from 1,024 px: desktop, with the two-column layouts (News beside
     Announcements, the post pages, the MOIT page's table of contents).
   - `md` and `xl` are not used.
 - **Widths checked:** 1,440 px (desktop, Concept v1's frame), 375 px (a common phone, where the
@@ -476,7 +480,9 @@ gradient with an `accent-warm` icon, or `accent-warm` with a `brand-dark` icon o
 label between slashes, and the H2. Frequently Used Services, Health Information and Activities
 are named as their lists are ("บริการประชาชน", "ความรู้สุขภาพ", "กิจกรรม"), and their heading holds
 a pill link to that list that reads "ทั้งหมด", named "ดู…ทั้งหมด" with the section's name; below `sm`
-it is a round 44 px arrow button with the same name. A heading has no lead.
+it is a round 44 px arrow button with the same name. A heading has no lead; the News and
+Announcements, Health Service Discovery and Quick Access sections take the heading now and keep
+their titles until their own tickets (#241 comment 6791096480, item 4).
 
 From `lg`, Frequently Used Services show 3 to a row, Health Information 4, Activities 3 and Quick
 Access 4. Below `lg` each shows 2 to a row, 12 px apart below `sm` and 24 px from `sm`.
@@ -496,14 +502,16 @@ whose lower corners are radius 32 (24 below `sm`):
 - **The Featured card** is one link to the item, at most 400 px wide (340 px below `sm`): a white
   card tilted 2° over an `accent-warm` sheet, which straightens on hover and on focus. It holds
   the picture's frame, 360 px high (260 px below `sm`), then "เรื่องเด่น" with the date the item's
-  own list shows it by (a Service has none), the title as the card's H2, and an arrow. From `lg` it
-  sits beside the headline, and below `lg` under the search, centred.
+  own list shows it by (a Service has none), the title as the card's H2, and an arrow. From `sm` it
+  sits beside the headline, and below `sm` under the search, centred (Product Owner, 2026-11-11:
+  #241 comment 6791096480, item 2).
 - **The picture** shows whole in the frame, never cropped: the office's landscape pictures are
   text banners, and its portrait ones are One Pages. Behind it the frame shows a blurred copy of
   the picture that covers the frame, a second image. An item without a picture shows the plain
   visual with an icon tile.
 - **With nothing Featured** the hero is one column: no card, the headline in
-  `hero-headline-alone`, which is larger from `sm`, and from `lg` the search up to 640 px wide.
+  `hero-headline-alone`, which is larger from `sm` (#241 comment 6791096480, item 3), and from
+  `lg` the search up to 640 px wide.
 - The hero shows no summary of the Featured item, no telephone number and no hours.
 - White text on the field's lightest part, `deep-highlight`, is 4.30:1, so the field carries the
   headline, which is large text, and smaller text at its darker left. Focus rings on the field are
@@ -796,5 +804,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   Services, Health Information and Activities take their lists' names and a "ทั้งหมด" link in the
   heading in place of the link under their cards. §3.1 loses `hero-visual-from` and `-to` and
   gains the `deep` and `tile` shadows and three type utilities. Authority: spec #239 "Hero and
-  Featured", "Section headings" and "Tokens". Which item is Featured, its address, and what each
+  Featured", "Section headings" and "Tokens", and #241 comment 6791096480 (arrow-right on the Homepage, the
+  card beside the headline from 640 px, the larger headline's sizes, the heading on every section).
+  Which item is Featured, its address, and what each
   section lists remain.

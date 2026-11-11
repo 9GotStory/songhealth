@@ -10,8 +10,9 @@
 //   such item the hero shows no card, and its headline is larger. The Featured item is not
 //   repeated as the News card or among the current Announcements. The picture shows whole, a
 //   landscape banner and a portrait One Page alike (Feature 006 #146; spec #144 "Homepage
-//   (`04`)"), and a title that keeps a long word whole stays inside the card. From 1,024 px the
-//   card sits beside the headline without touching it, and below that under it;
+//   (`04`)"), and a title that keeps a long word whole stays inside the card. From 640 px the
+//   card sits beside the headline without touching it, and below that under the search (Product
+//   Owner, 2026-11-11: #241 comment 6791096480, item 2);
 // - the Frequently Used Services: the published Services of their menu, in menu order, at most 6,
 //   each with its name, summary and the uniform icon, and ทั้งหมด to /services;
 // - Quick Access: up to 4 items of its menu, in menu order, each to a page of the site or a
@@ -221,12 +222,17 @@ test("the Featured picture shows whole inside the card, a landscape banner and a
 	}
 });
 
-test("from 1024 to 1088 px a Featured title keeps ความดันโลหิตสูง whole, inside its card", async ({
+/**
+ * Where the card beside the headline is narrowest: from 640 px, where it first sits beside it, and
+ * from 1,024 px, where its column narrows again (#241 comment 6791096480, item 2).
+ */
+const NARROW_CARD_WIDTHS = [640, 648, 656, 664, 672, 1024, 1032, 1040, 1048, 1056];
+
+test("where the card is narrowest beside the headline, from 640 and from 1,024 px, a Featured title keeps ความดันโลหิตสูง whole, inside its card", async ({
 	page,
 }) => {
 	// The longest listed word, which a line keeps whole (src/lib/thai-title.ts), in the card at its
-	// narrowest beside the headline: lg's two columns at their minimum width (#146 comment
-	// 6625101174).
+	// narrowest beside the headline (#146 comment 6625101174).
 	const alt = `${SYNTHETIC_FIXTURE_MARK} ภาพเรื่องเด่น`;
 	const featured = await create("news", "ความดันโลหิตสูง", {
 		data: {
@@ -241,7 +247,7 @@ test("from 1024 to 1088 px a Featured title keeps ความดันโลห
 		const title = featuredCard(page, featured).getByRole("heading", { level: 2 });
 		await expect(title).toHaveText(featured.title);
 		const misplaced: string[] = [];
-		for (let width = 1024; width <= 1088; width += 8) {
+		for (const width of NARROW_CARD_WIDTHS) {
 			await page.setViewportSize({ width, height: 900 });
 			const { found, split, outside } = await occurrencesOf(title, "ความดันโลหิตสูง");
 			if (found !== 1 || split > 0 || outside > 0) {
@@ -436,7 +442,7 @@ test("the Featured News is not repeated as the News card, which shows the next n
 /** The widths on both sides of `lg` and of `sm`, and the two phone widths (#241). */
 const FIT_WIDTHS = [1024, 1023, 640, 639, 375, 320];
 
-test("the headline reads the office summary with ด้านสุขภาพ in accent-warm, on three lines from 1,024 px, clear of the Featured card beside it and above the card below 1,024 px, and the hero fits each width", async ({
+test("the headline reads the office summary with ด้านสุขภาพ in accent-warm, on three lines from 1,024 px, clear of the Featured card beside it from 640 px and above the card below 640 px, and the hero fits each width", async ({
 	page,
 }) => {
 	const featured = await create("news", "ความดันโลหิตสูง-beside-headline", {
@@ -466,6 +472,9 @@ test("the headline reads the office summary with ด้านสุขภาพ 
 		for (const width of [1440, 1024]) {
 			await page.setViewportSize({ width, height: 900 });
 			expect(await lines(), `the headline's lines at ${width} px`).toBe(3);
+		}
+		for (const width of [1440, 1024, 1023, 640]) {
+			await page.setViewportSize({ width, height: 900 });
 			const text = await boxOf(headline(page), `the headline at ${width} px`);
 			expect(
 				await headline(page).evaluate((element) => element.scrollWidth - element.clientWidth),
@@ -477,8 +486,8 @@ test("the headline reads the office summary with ด้านสุขภาพ 
 				`the headline ends before the Featured card at ${width} px`,
 			).toBeLessThanOrEqual(beside.x);
 		}
-		await page.setViewportSize({ width: 1023, height: 900 });
-		await expectStacked("at 1023 px", [
+		await page.setViewportSize({ width: 639, height: 900 });
+		await expectStacked("at 639 px", [
 			["the headline", headline(page)],
 			["the search", page.getByRole("main").getByRole("search")],
 			["the Featured card", card],

@@ -2,13 +2,16 @@
 // The Homepage's hero (Feature 008 #241; spec #239 "Hero and Featured"), on the deep green field:
 // a chip, the office summary sentence as the headline with "ด้านสุขภาพ" in accent-warm, the site
 // search, and the Featured item as a tilted white card. With nothing Featured the hero is one
-// column and its headline is larger. It shows no telephone number and no hours.
+// column and its headline is larger from `sm`, at the prototype's sizes (#241 comment 6791096480,
+// item 3). It shows no telephone number and no hours.
 //
 // The page's H1 is the site title, out of sight, because the headline shows in its place. The
 // hero is named by the sentence whole, as a label: from `lg` each line of the headline is a block,
 // and a name read from blocks gains a space between them, which the sentence does not have after
-// "ด้านสุขภาพ". From `lg` the headline breaks into three fixed lines beside the card;
-// below `lg` it wraps as the window allows, and the card sits under the search.
+// "ด้านสุขภาพ". From `lg` the headline breaks into three fixed lines; below `lg` it wraps as
+// the window allows. The card sits beside the headline from `sm` and under the search below it
+// (Product Owner, 2026-11-11: #241 comment 6791096480, item 2, in place of spec #239's "under it
+// below `lg`").
 //
 // The search is a plain GET form to /search, as src/components/SearchForm.astro is, so it works
 // without JavaScript. Its field and round submit button are 44 px or more.
@@ -55,8 +58,9 @@ interface Props {
 
 /**
  * The picture's width: the card's, 400 px at most from `sm` and 340 px below, less its 10 px
- * padding either side. Only the development runtime makes renditions: production serves the
- * original file (ADR 0003).
+ * padding either side. Beside the headline the card can be narrower, so the browser may pick a
+ * larger rendition than it shows. Only the development runtime makes renditions: production serves
+ * the original file (ADR 0003).
  */
 const PICTURE_SIZES = "(min-width: 40rem) 23.75rem, 20rem";
 
@@ -78,7 +82,7 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 		class:list={[
 			"page-container relative grid items-center gap-9 pt-8 pb-10 sm:gap-10 sm:py-12",
 			featured
-				? "lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)] lg:gap-12 lg:pt-18 lg:pb-16"
+				? "sm:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] sm:gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)] lg:gap-12 lg:pt-18 lg:pb-16"
 				: "max-sm:pt-9 lg:pt-22 lg:pb-18",
 		]}
 	>
@@ -148,7 +152,7 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 		{featured && (
 			<section
 				aria-labelledby="home-featured"
-				class="relative w-full max-w-85 justify-self-center sm:max-w-100 lg:justify-self-end"
+				class="relative w-full max-w-85 justify-self-center sm:max-w-100 sm:justify-self-end"
 			>
 				<a href={featured.href} class="group block rounded-24">
 					<div

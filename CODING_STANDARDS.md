@@ -51,7 +51,9 @@ and why, and `.jscpd-baseline.json` records them.
   6515274921).
 - Status is stated in text; colour supports it.
 - Icons are Lucide's (Product Owner, 2026-10-31: #51 comments 6536026977, 6536052180). An onward
-  link on this site ends in `chevron-right` and a link that leaves it in `arrow-up-right`. An icon
+  link on this site ends in `chevron-right` and a link that leaves it in `arrow-up-right`; on the
+  Homepage a round button, a section heading's link and a card take `arrow-right` (Product Owner,
+  2026-11-11: #241 comment 6791096480). An icon
   is decorative: Lucide hides it from assistive technology, and the text names the link or button
   (`docs/agents/lucide-astro-1.59.0.md`). Its size follows its role (Product Owner, 2026-10-31:
   #105 comment 6536890963): 16 px for a direction icon beside label or small text, 20 px for an
