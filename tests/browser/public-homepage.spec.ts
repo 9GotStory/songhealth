@@ -6,20 +6,21 @@
 //
 // A citizen opening / sees, in the Figma order: the hero, with the office summary as its headline
 // and the site search, the site title being the page's H1 out of sight (Feature 008 #241; spec
-// #239 "Hero and Featured"; its own tests are in public-homepage-curation.spec.ts); the newest
-// published News
-// beside up to 3 current Announcements; the latest 4 Health Content items, each labelled with its
-// first Health Topic; a Health Service Discovery form that submits an Area and a name to
-// /health-services; the latest Activities by Activity date, 3 on a desktop and 4 on a phone, each
-// with its picture or a visual fallback and "กิจกรรม • date"; and the Contact Summary from Office
-// Contact. On a phone the sections keep that order, and Health Information, Activities and Quick
-// Access show their cards two to a row (Feature 006 #146; spec #144 "Homepage (`04`)"); the
-// Frequently Used Services go one to a row there (Feature 008 #242; public-homepage-curation). An
-// optional section with nothing to show disappears. The hero and the Contact Summary always render,
-// and the page answers with no content at all. Closed Announcements, drafts, unpublished and
-// trashed entries never show. The curated sections between them have their own suite
-// (public-homepage-curation.spec.ts); the tests here that look at the whole page set the Homepage
-// menus they need and put back what the menus held.
+// #239 "Hero and Featured"; its own tests are in public-homepage-curation.spec.ts); the Leadership
+// strip, the first three Leadership in Leadership order, after the Frequently Used Services
+// (Feature 008 #243; spec #239 "Leadership strip"); the newest published News beside up to 3
+// current Announcements; the latest 4 Health Content items, each labelled with its first Health
+// Topic; a Health Service Discovery form that submits an Area and a name to /health-services; the
+// latest Activities by Activity date, 3 on a desktop and 4 on a phone, each with its picture or a
+// visual fallback and "กิจกรรม • date"; and the Contact Summary from Office Contact. On a phone the
+// sections keep that order, and Health Information, Activities and Quick Access show their cards
+// two to a row (Feature 006 #146; spec #144 "Homepage (`04`)"); the Frequently Used Services go one
+// to a row there (Feature 008 #242; public-homepage-curation). An optional section with nothing to
+// show disappears. The hero and the Contact Summary always render, and the page answers with no
+// content at all. Closed Announcements, drafts, unpublished and trashed entries never show. The
+// curated sections between them have their own suite (public-homepage-curation.spec.ts); the tests
+// here that look at the whole page set the Homepage menus they need and put back what the menus
+// held.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -37,6 +38,7 @@ import type { Page } from "@playwright/test";
 import {
 	cmsRequest,
 	createOwnedTerm,
+	createSyntheticPerson,
 	createSyntheticDraft,
 	createSyntheticHealthService,
 	createSyntheticService,
@@ -52,6 +54,7 @@ import {
 	trashEntry,
 	unpublishEntry,
 	uploadSyntheticPicture,
+	visiblePublishedPersonnel,
 	withHomepageMenus,
 	writeSiteSettings,
 	type CmsActor,
@@ -67,6 +70,7 @@ import {
 	MOBILE_VIEWPORT,
 	PHONE_VIEWPORT,
 	VIEWPORTS,
+	boxOf,
 	detailOf,
 	expect,
 	expectAccessibleAtEachWidth,
@@ -81,6 +85,7 @@ import {
 	siteTitleParts,
 	test,
 	thaiDate,
+	tokenColor,
 } from "./public.helpers";
 
 /** The Homepage menus with nothing in them, so no curated section shows. */
@@ -134,7 +139,10 @@ const create = (
 ) => createSyntheticDraft(admin, collection, KIND[collection], label, fields);
 
 /** Publish a fixture now. */
-async function publish(collection: Collection, ...fixtures: DraftFixture[]): Promise<void> {
+async function publish(
+	collection: Collection | "personnel",
+	...fixtures: DraftFixture[]
+): Promise<void> {
 	for (const fixture of fixtures) await publishEntryAt(admin, collection, fixture.id);
 }
 
@@ -142,8 +150,16 @@ async function publish(collection: Collection, ...fixtures: DraftFixture[]): Pro
 const createTerm = (taxonomy: string, label: string) =>
 	createOwnedTerm(admin, taxonomy, label, ownedTerms);
 
+/** Return the runtime's own publicly visible Personnel to draft, for the running test. */
+async function borrowPersonnel(): Promise<void> {
+	for (const id of await visiblePublishedPersonnel(admin)) {
+		await borrowed.borrow(admin, "personnel", id);
+	}
+}
+
 /** Return every published entry the Homepage shows by itself to draft, for the running test. */
 async function borrowAllContent(): Promise<void> {
+	await borrowPersonnel();
 	for (const collection of AUTOMATIC_COLLECTIONS) {
 		for (const { id } of await listPublishedEntries(admin, collection)) {
 			await borrowed.borrow(admin, collection, id);
@@ -177,6 +193,24 @@ async function withSiteIdentity(
 /** The headings of the Homepage's sections, in order. */
 function sectionHeadings(page: Page) {
 	return page.getByRole("main").getByRole("heading", { level: 2 });
+}
+
+/** The Leadership strip. */
+function leadershipStrip(page: Page) {
+	return homepageSection(page, HOMEPAGE_HEADINGS.leadership);
+}
+
+/**
+ * The space the Leadership strip's section keeps below the strip's white surface, the box that
+ * holds its list, as the page is laid out now.
+ */
+async function spaceBelowStrip(page: Page): Promise<number> {
+	const section = await boxOf(leadershipStrip(page), "the Leadership section");
+	const surface = await boxOf(
+		leadershipStrip(page).getByRole("list").locator("xpath=.."),
+		"the strip's surface",
+	);
+	return section.y + section.height - (surface.y + surface.height);
 }
 
 /** The current Announcements' links, in order. */
@@ -289,6 +323,171 @@ test("the page's H1 is the site title from the site settings, and the hero shows
 			await expect(homepageSection(page, HOMEPAGE_HEADLINE)).not.toContainText(tagline);
 		});
 	});
+});
+
+test("the Leadership strip shows the first three Leadership in Leadership order with ties by name, each by shown name and current assignment, the first ringed in accent-warm, and links to the Leadership page alone", async ({
+	page,
+}) => {
+	await borrowPersonnel();
+	const run = crypto.randomUUID().slice(0, 6);
+	const marked = (words: string) => `${SYNTHETIC_FIXTURE_MARK} ${words} ${run}`;
+	const position = marked("สาธารณสุขอำเภอ");
+	const unit = marked("หน่วยบริหาร");
+	const contact = marked("โทร 000-000-0000");
+	const chief = await createSyntheticPerson(admin, "สมหญิง", {
+		prefix: "นาง",
+		profile_image: {
+			id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพผู้บริหาร`),
+		},
+		current_assignment: position,
+		organizational_unit: unit,
+		public_contact: contact,
+		leadership_order: 1,
+	});
+	const khwan = await createSyntheticPerson(admin, "ขวัญ", { leadership_order: 2 });
+	const ked = await createSyntheticPerson(admin, "เกด", { leadership_order: 2 });
+	const fourth = await createSyntheticPerson(admin, "กมล", { leadership_order: 3 });
+	const staff = await createSyntheticPerson(admin, "อรุณ");
+	const hidden = await createSyntheticPerson(admin, "ซ่อน", {
+		public_visible: false,
+		leadership_order: 1,
+	});
+	// Published in an order the Leadership order must overturn.
+	await publish("personnel", fourth, khwan, staff, hidden, chief, ked);
+	// A published News, so the News section follows the strip whatever the runtime holds.
+	await publish("news", await create("news", "after-leadership"));
+
+	await page.goto("/");
+	const strip = leadershipStrip(page);
+	const people = strip.getByRole("listitem");
+	await expect(
+		strip.getByRole("heading", { level: 3 }),
+		"the first three by Leadership order, เกด before ขวัญ at the same order",
+	).toHaveText([chief.title, ked.title, khwan.title]);
+	await expect(people).toHaveCount(3);
+	for (const absent of [fourth, staff, hidden]) {
+		await expect(strip, `no place for ${absent.displayName}`).not.toContainText(absent.displayName);
+	}
+
+	const first = people.first();
+	await expect(first, "the current assignment").toContainText(position);
+	await expect(strip, "no unit").not.toContainText(unit);
+	await expect(strip, "no public contact").not.toContainText(contact);
+	await expectImageLoaded(first.locator("img"), "the first person's picture");
+	const plain = people.nth(1);
+	await expect(plain.locator("img"), "no picture without an image").toHaveCount(0);
+	await expect(plain.getByTestId("person-visual"), "the plain visual").toHaveCount(1);
+	const ringOf = (person: typeof first) =>
+		person.getByTestId("person-picture").evaluate((frame) => getComputedStyle(frame).boxShadow);
+	const accentWarm = await tokenColor(page, "accent-warm");
+	expect(await ringOf(first), "the first person's ring").toContain(accentWarm);
+	expect(await ringOf(plain), "the second person's ring").not.toContain(accentWarm);
+
+	const links = strip.getByRole("link");
+	await expect(links, "no person is a link").toHaveCount(1);
+	await expect(links).toHaveAccessibleName(`ดู${HOMEPAGE_HEADINGS.leadership}ทั้งหมด`);
+	await expect(links).toHaveAttribute("href", "/about/leadership");
+	await expect(links.getByText("ทั้งหมด", { exact: true })).toBeVisible();
+
+	// One row with the heading at the left from 1,024 px, under its label; the heading above, the
+	// first person across the row and the others sharing the next from 640 px, with the larger
+	// picture; everyone stacked below.
+	const heading = strip.getByRole("heading", { level: 2 });
+	const label = strip.getByText("บุคลากร", { exact: true });
+	for (const [width, rows, beside] of [
+		[639, [1, 1, 1], false],
+		[640, [1, 2], false],
+		[1023, [1, 2], false],
+		[1024, [3], true],
+		[1440, [3], true],
+	] as const) {
+		await page.setViewportSize({ width, height: 900 });
+		expect(await itemsPerRow(people), `the people's rows at ${width} px`).toEqual(rows);
+		const title = await boxOf(heading, `the heading at ${width} px`);
+		const person = await boxOf(first, `the first person at ${width} px`);
+		const picture = await boxOf(first.locator("img"), `the first picture at ${width} px`);
+		expect(picture.width, `the picture's width at ${width} px`).toBe(width < 640 ? 60 : 76);
+		await expect(label, `the heading's label at ${width} px`).toBeVisible({ visible: beside });
+		if (beside) {
+			expect(title.x + title.width, `the heading at the left at ${width} px`).toBeLessThanOrEqual(
+				person.x,
+			);
+			expect(title.y, `the heading in the people's row at ${width} px`).toBeLessThan(
+				person.y + person.height,
+			);
+			expect(title.y + title.height).toBeGreaterThan(person.y);
+		} else {
+			expect(title.y + title.height, `the heading above at ${width} px`).toBeLessThanOrEqual(
+				person.y,
+			);
+		}
+		expect(
+			await spaceBelowStrip(page),
+			`the News section's space follows the strip at ${width} px`,
+		).toBe(0);
+	}
+	await expectAccessibleAtEachWidth(page, "/ with three Leadership");
+	await page.setViewportSize(MOBILE_VIEWPORT);
+	await expectNoHorizontalScroll(page, "/ with three Leadership");
+});
+
+test("two Leadership divide the strip's row between them and one takes it whole, the strip keeps its own space below while the News section is left out, and with no Leadership the strip is left out", async ({
+	page,
+}) => {
+	await borrowAllContent();
+	const chief = await createSyntheticPerson(admin, "สมหญิง", { leadership_order: 1 });
+	const deputy = await createSyntheticPerson(admin, "สมชาย", { leadership_order: 5 });
+	await publish("personnel", deputy, chief, await createSyntheticPerson(admin, "อรุณ"));
+
+	await page.goto("/");
+	const people = leadershipStrip(page).getByRole("listitem");
+	await expect(leadershipStrip(page).getByRole("heading", { level: 3 })).toHaveText([
+		chief.title,
+		deputy.title,
+	]);
+	for (const [width, rows] of [
+		[1440, [2]],
+		[768, [1, 1]],
+	] as const) {
+		await page.setViewportSize({ width, height: 900 });
+		expect(await itemsPerRow(people), `the people's rows at ${width} px`).toEqual(rows);
+		const [first, second] = [
+			await boxOf(people.first(), "the first person"),
+			await boxOf(people.last(), "the second person"),
+		];
+		expect(
+			Math.abs(first.width - second.width),
+			`the two take equal widths at ${width} px`,
+		).toBeLessThanOrEqual(1);
+	}
+	// No News and no current Announcement is published, so the strip takes the News section's space.
+	for (const [width, space] of [
+		[1440, 80],
+		[768, 64],
+		[375, 32],
+	] as const) {
+		await page.setViewportSize({ width, height: 900 });
+		expect(await spaceBelowStrip(page), `the strip's space below at ${width} px`).toBe(space);
+	}
+
+	const leave = async (person: DraftFixture) => {
+		const unpublished = await unpublishEntry(admin, "personnel", person.id);
+		expect(unpublished.ok, `unpublish ${person.slug}: ${nativeRefusalOf(unpublished)}`).toBe(true);
+		await page.goto("/");
+	};
+	await leave(deputy);
+	await expect(people).toHaveCount(1);
+	for (const width of [1440, 768]) {
+		await page.setViewportSize({ width, height: 900 });
+		const alone = await boxOf(people, `the one person at ${width} px`);
+		const list = await boxOf(leadershipStrip(page).getByRole("list"), "the people's row");
+		expect(alone.width, `one person takes the row at ${width} px`).toBeCloseTo(list.width, 0);
+	}
+
+	// Staff without a Leadership order stay published: they make no Leadership.
+	await leave(chief);
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
+	await expect(leadershipStrip(page), "no strip without Leadership").toHaveCount(0);
 });
 
 test("the News card shows the newest published News with its category, title and summary, and reads it with อ่านข่าว", async ({
@@ -613,6 +812,10 @@ test("with every section showing, the sections follow the Figma order on a deskt
 		await publish("news", featured, await create("news", "every-section"));
 		await publish("announcements", await create("announcements", "every-section"));
 		await publish("health_services", await createSyntheticHealthService(admin, "every-section"));
+		await publish(
+			"personnel",
+			await createSyntheticPerson(admin, "ทุกส่วน", { leadership_order: 1 }),
+		);
 		const services: DraftFixture[] = [];
 		for (const label of ["every-section", "every-section-second", "every-section-third"]) {
 			await publish("health_content", await create("health_content", label));
@@ -637,6 +840,7 @@ test("with every section showing, the sections follow the Figma order on a deskt
 	const order = [
 		featured.title,
 		HOMEPAGE_HEADINGS.services,
+		HOMEPAGE_HEADINGS.leadership,
 		HOMEPAGE_HEADINGS.news,
 		HOMEPAGE_HEADINGS.health,
 		HOMEPAGE_HEADINGS.discovery,

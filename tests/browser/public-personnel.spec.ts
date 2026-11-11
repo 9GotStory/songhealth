@@ -22,15 +22,13 @@
 import type { Page } from "@playwright/test";
 
 import {
-	createSyntheticEntry,
+	createSyntheticPerson,
 	devAdminActor,
-	listPublishedEntries,
-	nativeRefusalOf,
 	publishEntryAt,
 	removeSuiteFixtures,
 	SYNTHETIC_FIXTURE_MARK,
-	syntheticSlug,
 	uploadSyntheticMedia,
+	visiblePublishedPersonnel,
 	type CmsActor,
 	type DraftFixture,
 } from "./cms.helpers";
@@ -67,42 +65,14 @@ const borrowed = new BorrowedEntries();
 /** A text unique to this test run, marked synthetic: `${mark} ${words} ${ending}`. */
 const marked = (words: string, ending: string) => `${SYNTHETIC_FIXTURE_MARK} ${words} ${ending}`;
 
-/** A synthetic Personnel fixture: `title` is the name the site shows it by. */
-interface PersonFixture extends DraftFixture {
-	/** The display name, as staff type it. */
-	displayName: string;
-}
-
-/**
- * A synthetic Personnel draft with the display name `${mark} ${name} ${ending}`, publicly visible
- * unless `data` says otherwise. Its `title` is the prefix, when given, before the display name.
- */
-async function createPerson(
-	name: string,
-	data: Record<string, unknown> = {},
-): Promise<PersonFixture> {
-	const slug = syntheticSlug("person");
-	const displayName = marked(name, slug.slice(-6));
-	const created = await createSyntheticEntry(admin, "personnel", {
-		data: { title: displayName, public_visible: true, ...data },
-		slug,
-	});
-	expect(created.result.ok, `Personnel ${slug}: ${nativeRefusalOf(created.result)}`).toBe(true);
-	const prefix = typeof data.prefix === "string" ? data.prefix : "";
-	return { id: created.entryId!, slug, title: `${prefix}${displayName}`, displayName };
-}
+/** A synthetic, publicly visible Personnel draft named `${mark} ${name} ${ending}`. */
+const createPerson = (name: string, data?: Record<string, unknown>) =>
+	createSyntheticPerson(admin, name, data);
 
 async function publish(...people: DraftFixture[]): Promise<void> {
 	for (const person of people) {
 		await publishEntryAt(admin, "personnel", person.id);
 	}
-}
-
-/** The ids of the runtime's published Personnel that are publicly visible. */
-async function visiblePublishedPersonnel(): Promise<string[]> {
-	return (await listPublishedEntries(admin, "personnel"))
-		.filter(({ data }) => data?.public_visible === true || data?.public_visible === 1)
-		.map(({ id }) => id);
 }
 
 /** The unit headings /about/personnel shows, in order. */
@@ -147,7 +117,8 @@ test.afterAll(() => removeSuiteFixtures(admin));
 test("/about/leadership and /about/personnel show their empty states while no publicly visible Personnel is published", async ({
 	page,
 }) => {
-	for (const id of await visiblePublishedPersonnel()) await borrowed.borrow(admin, "personnel", id);
+	for (const id of await visiblePublishedPersonnel(admin))
+		await borrowed.borrow(admin, "personnel", id);
 	const hidden = await createPerson("ซ่อน", { public_visible: false, leadership_order: 1 });
 	await publish(hidden);
 

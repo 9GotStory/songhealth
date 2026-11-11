@@ -1,9 +1,9 @@
 # Homepage — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 04-homepage
-> **Status:** CLEAN REBASELINE v2.6 — CURRENT
-> **Version:** 2.6
-> **Last Updated:** 9 พฤศจิกายน 2569 (2026-11-09): Feature 007, phone Quick Access presentation
+> **Status:** CLEAN REBASELINE v2.7 — CURRENT
+> **Version:** 2.7
+> **Last Updated:** 11 พฤศจิกายน 2569 (2026-11-11): Feature 008, Leadership section
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`
 > **Purpose:** กำหนด homepage information priority, sections, curation, responsive/accessibility behavior โดยไม่กำหนด component implementation หรือสร้าง homepage CMS subsystem
 
@@ -21,6 +21,11 @@
 > **Feature 007 decision (Product Owner, 2026-11-07; #190 comment 6707205912):** Quick Access B
 > below 640 px keeps two cards to a row, with the label above and the arrow on a separate
 > lower-right row (#194, §15). The taller phone cards are accepted; wider layouts are unchanged.
+
+> **Feature 008 decision (Product Owner, 2026-11-11; spec #239 "Leadership strip"):** the Homepage
+> gains a Leadership section between Frequently Used Services and Latest News (§3, §6.1, #243):
+> the first three Leadership by the Leadership order staff already keep, each by name and current
+> assignment, with one link to `/about/leadership`.
 
 ---
 
@@ -60,6 +65,7 @@ Baseline order:
 Header / Navigation / Search
 Featured / Priority
 Frequently Used Services
+Leadership
 Latest News + Current Announcements
 Health Information
 Health Service Discovery
@@ -120,6 +126,16 @@ Card แสดงเฉพาะข้อมูลที่ช่วยเลื
 Link ไป canonical Service route หรือ approved external journeyผ่าน Service record.
 
 ไม่มี popularity analytics/AI ranking/forced replacement.
+
+---
+
+## 6.1 Leadership
+
+- แสดง Leadership 3 คนแรกตาม Leadership order จากน้อยไปมาก ลำดับเท่ากันเรียงตามชื่อ เหมือน `/about/leadership`; มีน้อยกว่า 3 คนแสดงเท่าที่มี
+- แต่ละคนแสดงรูป ชื่อที่แสดง และ current assignment; ไม่แสดง organizational unit และ public contact
+- Personnel ไม่มีหน้าของตนเอง (`03` §5) จึงไม่มี link รายคน; มี link เดียวไป `/about/leadership`
+- staff ดูแลผ่าน Personnel และ Leadership order ชุดเดียวกับ About; ไม่มี Homepage curation เพิ่ม
+- section ซ่อนเมื่อไม่มี Leadership (§17)
 
 ---
 
@@ -237,6 +253,7 @@ Cookie consent/bannerเกิดเมื่อ actual technology/privacy requi
 Homepage section        Source owner
 Featured                relation/config → existing content
 Services                Service
+Leadership              Personnel (Leadership order)
 Latest News             News
 Announcements           Announcement
 Health Information      Health Content

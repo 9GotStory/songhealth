@@ -9,6 +9,7 @@
 import { getEmDashCollection, type ContentEntry } from "emdash";
 import type { ImageFieldValue } from "./news";
 import {
+	homepageLeadership,
 	leadership,
 	personnelByUnit,
 	type DirectoryData,
@@ -34,6 +35,11 @@ async function listPublishedPersonnel(): Promise<PersonnelEntry[]> {
 /** The Leadership, by Leadership order. */
 export async function listLeadership(): Promise<PersonnelEntry[]> {
 	return leadership(await listPublishedPersonnel());
+}
+
+/** The Leadership the Homepage's strip shows: the first three by Leadership order. */
+export async function listHomepageLeadership(): Promise<PersonnelEntry[]> {
+	return homepageLeadership(await listPublishedPersonnel());
 }
 
 /** The publicly visible Personnel by organizational unit. */

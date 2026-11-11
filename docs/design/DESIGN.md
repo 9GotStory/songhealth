@@ -4,7 +4,7 @@
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > ticket by ticket from #240, and awaits the Product Owner's acceptance on #239.
-> **Updated:** 2026-11-11 (Feature 008 #242); first drafted 2026-10-30
+> **Updated:** 2026-11-11 (Feature 008 #243); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -114,7 +114,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the News card, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, and a Service card's tile under the pointer |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, and the ring of the first person in the Leadership strip |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -460,21 +460,23 @@ Health Service Directory:
 
 ## 8. Homepage
 
-Source: `current/04-homepage.md` v2.6 and `current/03-sitemap.md` v2.6. The sections, in `04` §3's
+Source: `current/04-homepage.md` v2.7 and `current/03-sitemap.md` v2.6. The sections, in `04` §3's
 order:
 
 1. Header / navigation / reachable search.
 2. Featured (optional; one item, not an autoplay carousel).
 3. Frequently Used Services (curated, up to 6).
-4. Latest News + Current Announcements.
-5. Health Information (the latest 4 Health Content items).
-6. Health Service Discovery (a form into `/health-services`, no directory on the Homepage).
-7. Activities (the latest, by when they were held).
-8. Quick Access (optional, up to 4 shortcuts to canonical destinations).
-9. Contact Summary (the office's address, telephone and hours; a static map stand-in).
-10. Footer.
+4. Leadership (the first three by Leadership order, in one strip; §8.5).
+5. Latest News + Current Announcements.
+6. Health Information (the latest 4 Health Content items).
+7. Health Service Discovery (a form into `/health-services`, no directory on the Homepage).
+8. Activities (the latest, by when they were held).
+9. Quick Access (optional, up to 4 shortcuts to canonical destinations).
+10. Contact Summary (the office's address, telephone and hours; a static map stand-in).
+11. Footer.
 
-Each section between the hero and the Contact Summary opens with `SectionHeading` (spec #239
+Each section between the hero and the Contact Summary, except the Leadership strip with its own
+compact heading (§8.5), opens with `SectionHeading` (spec #239
 "Section headings"): an icon tile (72 px, 52 px below `sm`; a `brand-primary` to `brand-dark`
 gradient with an `accent-warm` icon, or `accent-warm` with a `brand-dark` icon on a dark surface),
 a label between slashes, and the H2. The label is `brand-primary`, `accent-warm` on `brand-dark`,
@@ -527,7 +529,8 @@ corners are radius 32 (24 below `sm`):
 Below 640 px the Homepage is shorter, with every section kept in its order (Product Owner: "โอเค
 เฉพาะหน้าแรก"; `04` §15). From `sm` it is as before, except that tablets show 4 Activities.
 
-- Each section after the deep field has 32 px of space above and below it.
+- Each section after the deep field has 32 px of space above and below it, except the Leadership
+  strip, which has it above and takes the space below from the News section (§8.5).
 - The Contact Summary's lead and the map stand-in are hidden.
 - Health Information, Activities and Quick Access go two to a row, 12 px apart, in compact cards
   (§7.3). The Frequently Used Services go one to a row (§8.4).
@@ -535,8 +538,9 @@ Below 640 px the Homepage is shorter, with every section kept in its order (Prod
 - Phones and tablets show the latest 4 Activities, two by two; a desktop row shows 3.
 
 The Homepage's height with the demo dataset, measured on 2026-11-11 at the application code of
-`feat/008-242-services-cards` `75e1765` with `scripts/capture-screenshots.mjs`: 4,825 px at
-1,440 px, 5,696 px at 375 px and 6,301 px at 320 px.
+`feat/008-243-leadership-strip` `b5d1b3e` with `scripts/capture-screenshots.mjs`: 5,013 px at
+1,440 px, 5,997 px at 375 px and 6,608 px at 320 px, with the dataset's two Leadership in the strip
+(§8.5).
 
 The Product Owner accepted the phone Homepage at 5,771 px at 375 px with the prototype's data, in
 place of the grill's target of about 5,000 px (spec #144). The height moves with the titles and the
@@ -616,6 +620,34 @@ hero on the same deep field, under the section heading with its "ทั้งห
   `brand-primary`, where `accent-warm` would be 4.10:1 (§3.2), below the 4.5:1 its small text
   needs. `scripts/measure-text-contrast.ts` read the label at 6.19:1 at its lowest on the runtime
   at `75e1765`, at 1,440, 1,024, 768, 375 and 320 px, with a Featured card and without one.
+
+### 8.5 Leadership strip
+
+The Leadership strip (`HomeLeadershipStrip`; spec #239 "Leadership strip") follows the deep field,
+in the page colour:
+
+- **The people** are the first three Leadership in Leadership order, with the Leadership page's
+  tie rule (`src/lib/personnel-directory.ts` `homepageLeadership`), and fewer when fewer exist.
+  With none the section is left out.
+- **The strip** is one white surface, radius 24, with the `card` shadow and 20 px of padding
+  (24 px from `sm`, 24 by 32 px from `lg`).
+- **Its heading** is compact, without an icon tile (Product Owner, 2026-11-12: #243 comment
+  6809325869, item 1): the H2, "ผู้บริหาร", at H3 size in bold, and a
+  text link that reads "ทั้งหมด" with a 16 px `arrow-right`, named "ดูผู้บริหารทั้งหมด", to
+  `/about/leadership`, 44 px high. From `lg` the label "บุคลากร" between slashes shows above the H2.
+- **A person** shows the picture in a circle of 76 px (60 px below `sm`), the shown name as an H3
+  at 16 / 26 semibold and the current assignment at 14 / 22 in `text-secondary`. Unit and public
+  contact are not shown, and no person is a link. Around the picture, 4 px away, the first person
+  has a 3 px `accent-warm` ring, its only mark (#243 comment 6809325869, item 2), and the others a
+  2 px `border-default` one. Without a picture the
+  circle is `surface-soft`, as on `PersonCard`.
+- **From `lg`** the strip is one row: the heading at the left, ended by a `border-default` line,
+  then the people, who divide the rest of the row equally, three, two or one. **Below `lg`** the
+  heading lies above, with the link at its right over a `border-default` line. **From `sm`** the
+  first person takes a row and the others share the next. **Below `sm`** everyone stacks.
+- **Space:** 32 px above the strip below `sm` and 40 px from `sm`, after the room the field leaves
+  under it (§8.4). The News section's own space follows it; while that section is left out, the
+  strip takes the same space below itself (32, 64 and 80 px).
 
 ## 9. Post pages: News, Activity and Health Content
 
@@ -749,7 +781,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 
 ## 13. References and change history
 
-- Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.6, 2026-11-09);
+- Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.7, 2026-11-11);
   `03-sitemap.md` (v2.6, 2026-11-08); staff guidance in `05` §5.1.
 - Architecture: `docs/website-modernization-docs/current/10-system-blueprint.md` (v2.9,
   2026-11-09); `README.md`; `CLAUDE.md`.
@@ -849,3 +881,10 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   "Frequently Used Services", the notes on #242, and #242 comment 6797113372 (the white label, the
   focus ring inside the card, a card of 144 px or more). Which Services show, their order and their
   addresses remain.
+- **v1.2 Homepage Leadership strip (2026-11-11, Feature 008 #243):** a new Homepage section after
+  the Frequently Used Services (§8, §8.5): the first three Leadership in one white strip with a
+  compact heading, the first person ringed in `accent-warm`, one row from 1,024 px, the first
+  person across the row from 640 px and everyone stacked below. `04` v2.7 lists the section (§3,
+  §6.1). Authority: spec #239 "Leadership strip", the note on #243 (comment 6798581211) and #243 comment
+  6809325869 (the compact heading, the ring alone). The
+  Leadership page and its order remain.
