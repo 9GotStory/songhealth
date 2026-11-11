@@ -27,8 +27,9 @@
 // Product Owner kept both limits (2026-11-04: #147 comment 6634124888).
 //
 // The picture fills the column's width at its own aspect ratio, never cropped, in a box shaped by
-// the size EmDash keeps with the image (docs/agents/emdash-1.1.0.md "Media" says how), so the
-// placeholder EmDash's Image paints behind it never shows beside it (#147 comment 6628040681). It
+// the size EmDash keeps with the image (docs/agents/emdash-1.1.0.md "Media" says how), so a
+// dominant colour EmDash's Image paints behind it never shows beside it (#147 comment 6628040681;
+// its blurhash placeholder does not show at all, same section). It
 // loads at once with a high fetch priority, since from lg it is in view when the page opens
 // (emdash 1.1.0 src/components/EmDashImage.astro). The link opens the file as it was uploaded,
 // which EmDash stores unchanged (src/astro/routes/api/media.ts), whatever rendition the picture

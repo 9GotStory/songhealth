@@ -107,7 +107,7 @@ the real state first and only adds what is missing:
   - **Ordinary suites:**
 
     ```bash
-    scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
+    scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts
     ```
 
     Without `SONGHEALTH_ROLE_FIXTURE_ACCESS` the T019/T020 role cases skip. The role cases

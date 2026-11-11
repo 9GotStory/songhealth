@@ -395,8 +395,9 @@ export async function expectPictureWhole(
 /**
  * Fail unless `image` shows its whole picture undistorted (expectPictureWhole) and fills its own
  * box with it, so nothing of the box shows beside the picture: neither what is behind the box nor
- * the placeholder EmDash's Image paints as the image's background (docs/agents/emdash-1.1.0.md
- * "Media"). Returns the size the picture shows at, in CSS px.
+ * a dominant colour EmDash's Image paints as the image's background (docs/agents/emdash-1.1.0.md
+ * "Media", which also says its blurhash placeholder does not show). Returns the size the picture
+ * shows at, in CSS px.
  */
 export async function expectPictureFillsBox(
 	image: Locator,

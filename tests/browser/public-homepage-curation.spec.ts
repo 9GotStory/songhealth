@@ -465,6 +465,11 @@ test("the headline reads the office summary with ด้านสุขภาพ 
 		await page.goto("/");
 		const card = featuredCard(page, featured);
 		await expect(headline(page)).toBeVisible();
+		// A gradient the browser rejects draws nothing, and the headline is white (#241 retro).
+		await expect(
+			homepageSection(page, HOMEPAGE_HEADLINE),
+			"the deep field is drawn behind the hero's text",
+		).not.toHaveCSS("background-image", "none");
 		await expect(headline(page).getByText("ด้านสุขภาพ", { exact: true })).toHaveCSS(
 			"color",
 			await tokenColor(page, "accent-warm"),
