@@ -1,42 +1,84 @@
 ---
-// A Homepage section's heading (Feature 003 #64; spec #51 "Shared building blocks";
-// docs/design/homepage-concept-v1.md "Shared patterns"): an eyebrow, the section's H2 and a lead.
-// The section takes its name from the H2 through `id`. On the brand-dark Health Service Discovery
-// section (§8) the eyebrow is accent-warm, and the title and lead are surface-base and larger, as
-// the design draws them. Below 640 px the lead is left out, to keep the phone Homepage short
-// (Feature 006 #146; spec #144 "Homepage (`04`)").
+// A Homepage section's heading (Feature 008 #241; spec #239 "Section headings"): an icon tile, a
+// small label between slashes, the section's H2, and, for a section with a list of its own, a
+// link to that list. The section takes its name from the H2 through `id`.
+//
+// The link reads "ทั้งหมด", and assistive technology reads it with the section's name, such as
+// "ดูข่าวประชาสัมพันธ์ทั้งหมด" (WCAG 2.2 SC 2.4.4, and SC 2.5.3: the name holds the text in
+// sight). Below `sm` it is a round 44 px arrow button with the same name. It ends in arrow-right,
+// the arrow the spec's headings and cards take.
+//
+// The icon comes through the `icon` slot, a Lucide icon at 24 px, and is decorative: the tile is
+// hidden from assistive technology. On a dark surface the tile and the label are accent-warm, the
+// H2 is surface-base, and the link takes the focus ring for dark surfaces
+// (src/styles/global.css focus-ring-on-dark).
+import ArrowRight from "@lucide/astro/icons/arrow-right";
 import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	/** The H2's id, unique on the page, which the section names itself by. */
 	id: string;
-	eyebrow: string;
+	/** The small label above the H2. */
+	label: string;
 	title: string;
-	lead: string;
-	/** The section is brand-dark. */
+	/** The address of the section's own list. */
+	href?: string;
+	/** The section is brand-dark or the deep field. */
 	onDark?: boolean;
 }
 
-const { id, eyebrow, title, lead, onDark = false } = Astro.props;
+const { id, label, title, href, onDark = false } = Astro.props;
 ---
 
-<div class="flex flex-col gap-2">
-	<p class:list={["text-label", onDark ? "text-accent-warm" : "text-brand-primary"]}>{eyebrow}</p>
-	<h2
-		id={id}
-		class:list={[
-			"text-h3 wrap-anywhere",
-			onDark ? "text-surface-base lg:text-h1" : "text-text-primary lg:text-h2",
-		]}
-	>
-		<ThaiTitle text={title} />
-	</h2>
-	<p
-		class:list={[
-			"max-w-prose max-sm:hidden",
-			onDark ? "text-body-large text-surface-base" : "text-text-secondary",
-		]}
-	>
-		{lead}
-	</p>
+<div class="flex items-center justify-between gap-4 sm:items-end sm:gap-6">
+	<div class="flex min-w-0 items-center gap-3.5 sm:gap-5">
+		<span
+			aria-hidden="true"
+			class:list={[
+				"flex size-13 shrink-0 items-center justify-center rounded-16 sm:size-18 sm:rounded-22",
+				onDark
+					? "bg-accent-warm text-brand-dark"
+					: "bg-linear-140 from-brand-primary to-brand-dark text-accent-warm shadow-tile",
+			]}
+		>
+			<slot name="icon" />
+		</span>
+		<div class="min-w-0">
+			<p
+				class:list={[
+					"mb-1.5 text-label font-semibold tracking-[0.02em]",
+					"before:mr-2.5 before:opacity-55 before:content-['/'] after:ml-2.5 after:opacity-55 after:content-['/']",
+					onDark ? "text-accent-warm" : "text-brand-primary",
+				]}
+			>
+				{label}
+			</p>
+			<h2
+				id={id}
+				class:list={[
+					"section-title wrap-anywhere",
+					onDark ? "text-surface-base" : "text-text-primary",
+				]}
+			>
+				<ThaiTitle text={title} />
+			</h2>
+		</div>
+	</div>
+	{href && (
+		<a
+			href={href}
+			class:list={[
+				"inline-flex size-11 shrink-0 items-center justify-center gap-2 rounded-pill border-[1.5px] text-body font-semibold transition-colors sm:h-13 sm:w-auto sm:px-7",
+				onDark
+					? "focus-ring-on-dark border-surface-base/30 bg-surface-base/10 text-surface-base hover:border-accent-warm hover:bg-accent-warm hover:text-brand-dark"
+					: "border-border-default bg-surface-base text-brand-primary hover:border-brand-primary hover:bg-brand-primary hover:text-surface-base",
+			]}
+		>
+			<span class="sr-only">ดู{title}ทั้งหมด</span>
+			<span aria-hidden="true" class="max-sm:hidden">
+				ทั้งหมด
+			</span>
+			<ArrowRight class="shrink-0" size={16} />
+		</a>
+	)}
 </div>

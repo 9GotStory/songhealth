@@ -17,13 +17,13 @@
 import { ABOUT_PATH, ABOUT_TITLE } from "./about.ts";
 import { HEALTH_PATH, HEALTH_TITLE } from "./health.ts";
 import { ITA_LABEL, ITA_PATH } from "./ita.ts";
-import { SERVICES_PATH } from "./service-catalog.ts";
+import { SERVICES_PATH, SERVICES_TITLE } from "./service-catalog.ts";
 
 export const MAIN_NAVIGATION = [
 	{ section: "home", label: "หน้าแรก", href: "/" },
 	{ section: "about", label: ABOUT_TITLE, href: ABOUT_PATH },
 	{ section: "news", label: "ข่าวสาร", href: "/news" },
-	{ section: "services", label: "บริการประชาชน", href: SERVICES_PATH },
+	{ section: "services", label: SERVICES_TITLE, href: SERVICES_PATH },
 	{ section: "health", label: HEALTH_TITLE, href: HEALTH_PATH },
 	{ section: "documents", label: "เอกสารเผยแพร่", href: "/documents" },
 	{ section: "ita", label: ITA_LABEL, href: ITA_PATH },

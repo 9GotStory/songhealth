@@ -4,15 +4,17 @@
 // The Homepage's automatic sections (#64; spec #51 "Homepage (`04`, Figma order)", `04` §3, §7–§11
 // and §17; docs/design/homepage-concept-v1.md).
 //
-// A citizen opening / sees, in the Figma order: a compact band with the site title and tagline
-// while nothing is Featured; a search form that submits to /search; the newest published News
+// A citizen opening / sees, in the Figma order: the hero, with the office summary as its headline
+// and the site search, the site title being the page's H1 out of sight (Feature 008 #241; spec
+// #239 "Hero and Featured"; its own tests are in public-homepage-curation.spec.ts); the newest
+// published News
 // beside up to 3 current Announcements; the latest 4 Health Content items, each labelled with its
 // first Health Topic; a Health Service Discovery form that submits an Area and a name to
 // /health-services; the latest Activities by Activity date, 3 on a desktop and 4 on a phone, each
 // with its picture or a visual fallback and "กิจกรรม • date"; and the Contact Summary from Office
 // Contact. On a phone the sections keep that order, and the Frequently Used Services, Health
 // Information, Activities and Quick Access show their cards two to a row (Feature 006 #146; spec
-// #144 "Homepage (`04`)"). An optional section with nothing to show disappears. The search and the
+// #144 "Homepage (`04`)"). An optional section with nothing to show disappears. The hero and the
 // Contact Summary always render, and the page answers with no content at all. Closed
 // Announcements, drafts, unpublished and trashed entries never show. The curated sections between
 // them have their own suite
@@ -61,6 +63,7 @@ import {
 	BorrowedEntries,
 	DESKTOP_VIEWPORT,
 	HOMEPAGE_HEADINGS,
+	HOMEPAGE_HEADLINE,
 	MOBILE_VIEWPORT,
 	PHONE_VIEWPORT,
 	VIEWPORTS,
@@ -71,6 +74,7 @@ import {
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectVisibleFocusOnEveryStop,
+	expectVisuallyHidden,
 	homepageSection,
 	itemsPerRow,
 	listedItem,
@@ -85,9 +89,8 @@ const EMPTY_MENUS = { featured: [], services: [], quickAccess: [] };
 /** The heading of the current Announcements beside the News card, which names their list. */
 const ANNOUNCEMENTS_HEADING = "ประกาศ";
 
-/** The Contact Summary's lead, which is also the Homepage's description. */
-const CONTACT_LEAD =
-	"ศูนย์กลางข้อมูล บริการ และการประสานงานด้านสุขภาพของประชาชนในอำเภอสอง จังหวัดแพร่";
+/** The Contact Summary's lead, which is also the Homepage's description and the hero's headline. */
+const CONTACT_LEAD = HOMEPAGE_HEADLINE;
 
 /** The collections whose latest content the Homepage shows by itself. */
 const AUTOMATIC_COLLECTIONS = [
@@ -108,7 +111,7 @@ const OPENS_LATER = "2033-06-01T03:00:00.000Z";
 
 let admin: CmsActor;
 let origin: string;
-/** The site title the settings name, which heads the band and the Contact Summary. */
+/** The site title the settings name, the page's H1, which also heads the Contact Summary. */
 let siteTitle: string;
 /** Synthetic terms this suite created, removed at the end. */
 const ownedTerms: SyntheticTerm[] = [];
@@ -197,7 +200,7 @@ test.afterEach(async () => {
 
 test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
 
-test("with no published content at all, the Homepage still answers with the band, the search and the Contact Summary only", async ({
+test("with no published content at all, the Homepage still answers with the hero and the Contact Summary only", async ({
 	page,
 }) => {
 	await borrowAllContent();
@@ -206,9 +209,12 @@ test("with no published content at all, the Homepage still answers with the band
 			const response = await page.goto("/");
 			expect(response?.status(), "GET / with no content").toBe(200);
 			await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
-			await expect(sectionHeadings(page)).toHaveText([HOMEPAGE_HEADINGS.search, siteTitle]);
 			await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
 			await expect(page.getByRole("main").getByRole("search")).toBeVisible();
+			await expect(sectionHeadings(page)).toHaveText([siteTitle]);
+			await expect(
+				homepageSection(page, HOMEPAGE_HEADLINE).getByText(HOMEPAGE_HEADLINE, { exact: true }),
+			).toBeVisible();
 
 			const contact = homepageSection(page, siteTitle);
 			await expect(contact.getByText(CONTACT_LEAD)).toBeVisible();
@@ -264,7 +270,7 @@ test("a News without a current Announcement brings the News section back with it
 	await expect(news.getByRole("link", { name: "ดูประกาศทั้งหมด" })).toHaveCount(0);
 });
 
-test("the band shows the site title and tagline from the site settings, and the title alone without a tagline", async ({
+test("the page's H1 is the site title from the site settings, and the hero shows neither it nor the tagline", async ({
 	page,
 }) => {
 	const marker = crypto.randomUUID().slice(0, 8);
@@ -274,28 +280,15 @@ test("the band shows the site title and tagline from the site settings, and the 
 		await withSiteIdentity({ title, tagline }, async () => {
 			await page.goto("/");
 			await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
-			await expect(page.getByRole("main").getByText(tagline, { exact: true })).toBeVisible();
 			await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/`);
 			await expect(page.locator('meta[name="description"]')).toHaveAttribute(
 				"content",
 				CONTACT_LEAD,
 			);
-		});
-		await withSiteIdentity({ title, tagline: "" }, async () => {
-			await page.goto("/");
-			await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
-			await expect(page.getByRole("main")).not.toContainText(tagline);
+			await expectVisuallyHidden(page.getByRole("heading", { level: 1 }), "the site title");
+			await expect(homepageSection(page, HOMEPAGE_HEADLINE)).not.toContainText(tagline);
 		});
 	});
-});
-
-test("the search form submits the query to /search", async ({ page }) => {
-	await page.goto("/");
-	const search = homepageSection(page, HOMEPAGE_HEADINGS.search);
-	await search.getByLabel("คำค้นหา").fill("วัคซีน");
-	await search.getByRole("button", { name: "ค้นหา" }).click();
-	await expect(page).toHaveURL(`/search?q=${encodeURIComponent("วัคซีน")}`);
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText("ค้นหา");
 });
 
 test("the News card shows the newest published News with its category, title and summary, and reads it with อ่านข่าว", async ({
@@ -643,7 +636,6 @@ test("with every section showing, the sections follow the Figma order on a deskt
 	};
 	const order = [
 		featured.title,
-		HOMEPAGE_HEADINGS.search,
 		HOMEPAGE_HEADINGS.services,
 		HOMEPAGE_HEADINGS.news,
 		HOMEPAGE_HEADINGS.health,

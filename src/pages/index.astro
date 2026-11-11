@@ -2,42 +2,44 @@
 // The Songhealth Homepage, / (Feature 003 #64, #65; spec #51 "Homepage (`04`, Figma order)", `04`;
 // docs/design/homepage-concept-v1.md). A view of published content, in the Figma order:
 //
-// - the Featured hero: the first item of the Featured menu that resolves to published content
-//   (src/lib/homepage-curation.ts, FeaturedHero). With none, a compact band, a brand-dark card in
-//   its place with the site title and tagline from the native site settings;
-// - Search, a GET form to /search;
-// - the Frequently Used Services: up to 6 Services from their menu, in menu order, and a link to
-//   the Service catalog;
+// - the hero (Feature 008 #241; spec #239 "Hero and Featured"; HomeHero): the office summary as
+//   the headline, the site search, a GET form to /search, and the Featured item as a card, the
+//   first item of the Featured menu that resolves to published content
+//   (src/lib/homepage-curation.ts). With none, the headline and the search alone;
+// - the Frequently Used Services: up to 6 Services from their menu, in menu order;
 // - the newest published News that is not the Featured item, as one card, beside up to 3 current
 //   Announcements, newest first by announcement date, the Featured one left out (`04` §7), each
 //   with its status and dates as the Announcements list shows them (src/lib/announcements.ts), each
 //   box followed by a link to its own list;
 // - Health Information: the latest 4 Health Content items, each labelled with its first Health
-//   Topic, the `topic` term EmDash hydrates first (src/lib/terms.ts), and a link to their list;
+//   Topic, the `topic` term EmDash hydrates first (src/lib/terms.ts);
 // - Health Service Discovery: an Area select and a name field, a GET form to the Health Service
 //   Directory with the directory's own parameters (src/lib/health-service-directory.ts);
 // - the latest Activities by when they were held (ADR 0004), 3 on a desktop and 4 on phones and
-//   tablets, and a link to /activities;
+//   tablets;
 // - Quick Access: up to 4 shortcuts from their menu, in menu order, each a label and an arrow;
 // - the Contact Summary: the site title, then Office Contact's address with the "เปิดแผนที่" link,
 //   main telephone and opening hours (OfficeContactDetails), each only when set, and a link to
 //   /contact. A static visual stands in for the map; no map is embedded.
 //
+// Each section between the hero and the Contact Summary opens with the Homepage section heading
+// (spec #239 "Section headings"; SectionHeading): an icon tile, a label and the H2. The Frequently
+// Used Services, Health Information and Activities are named as their lists are, and their
+// heading links to that list; the News box and the Announcements box keep a link each under them.
+//
 // Below 640 px the page is shorter, with every section kept in its order (Feature 006 #146; spec
 // #144 "Homepage (`04`)"; the Product Owner's "โอเค เฉพาะหน้าแรก" on the prototype): the
 // Frequently Used Services, Health Information, Activities and Quick Access go two to a row in
-// their compact cards, the Service and Health Content cards without their summary; the sections'
-// leads, the Contact Summary's too, and the map's stand-in are left out; each section has 32 px
-// of space above and below it; and the News card's summary, like the Featured lead, is clamped to
-// three lines. The 4th Activity fills the second row of two; a desktop row holds three.
+// their compact cards, the Service and Health Content cards without their summary; the Contact
+// Summary's lead and the map's stand-in are left out; each section has 32 px of space above and
+// below it; and the News card's summary is clamped to three lines. The 4th Activity fills the
+// second row of two; a desktop row holds three.
 //
 // A section with nothing to show is left out (`04` §17): the Frequently Used Services, News and
 // Announcements together, Health Information, Health Service Discovery while no Health Service is
-// published, Activities and Quick Access. The hero or the band, Search and the Contact Summary
-// always render, so the page answers with no content at all. The site title is the page's H1 either
-// way: the band shows it (Product Owner, 2026-10-30: #64 comment 6526131459), and beside the hero,
-// whose title is its section's H2, it is hidden from sight (Product Owner, 2026-10-31: #65 comment
-// 6538358352).
+// published, Activities and Quick Access. The hero and the Contact Summary always render, so the
+// page answers with no content at all. The site title is the page's H1, hidden from sight in the
+// hero, whose headline shows in its place (spec #239 "Hero and Featured").
 //
 // Beyond the Figma frame, on the Product Owner's decision (2026-10-30: #64 comment 6526131459):
 // the links to the News, Announcements and Health Content lists, since the Announcements list is in
@@ -49,13 +51,18 @@
 // public-runtime marker (T011): tests/browser/foundation.spec.ts, the development runtime's verify
 // script and container health check, and the T016/T022 production verification all read it from
 // the server-rendered HTML of `/`. Keep it exactly as written.
+import FileText from "@lucide/astro/icons/file-text";
+import Heart from "@lucide/astro/icons/heart";
+import HeartPulse from "@lucide/astro/icons/heart-pulse";
+import Hospital from "@lucide/astro/icons/hospital";
+import MessageSquare from "@lucide/astro/icons/message-square";
+import Users from "@lucide/astro/icons/users";
 import ActivityCard from "../components/ActivityCard.astro";
 import AnnouncementStatusLine from "../components/AnnouncementStatusLine.astro";
 import ArrowLink from "../components/ArrowLink.astro";
-import FeaturedHero from "../components/FeaturedHero.astro";
+import HomeHero from "../components/HomeHero.astro";
 import OfficeContactDetails from "../components/OfficeContactDetails.astro";
 import QuickLinkCard from "../components/QuickLinkCard.astro";
-import SearchForm from "../components/SearchForm.astro";
 import SectionHeading from "../components/SectionHeading.astro";
 import ServiceCard from "../components/ServiceCard.astro";
 import ThaiTitle from "../components/ThaiTitle.astro";
@@ -69,25 +76,15 @@ import {
 } from "../lib/announcements";
 import { HEALTH_CONTENT_PATH, HEALTH_CONTENT_TITLE } from "../lib/health";
 import { healthContentPath, latestHealthContent } from "../lib/health-content";
-import {
-	DIRECTORY_TITLE,
-	FILTER_LABELS,
-	FILTER_PARAMS,
-	directoryPath,
-} from "../lib/health-service-directory";
+import { FILTER_LABELS, FILTER_PARAMS, directoryPath } from "../lib/health-service-directory";
 import { directoryOverview } from "../lib/health-services";
 import { readHomepageCuration } from "../lib/homepage-curation";
 import { latestNews, newsPath } from "../lib/news";
 import { readOfficeContact } from "../lib/office-contact";
-import { SERVICES_PATH } from "../lib/service-catalog";
+import { OFFICE_SUMMARY } from "../lib/office-summary";
+import { SERVICES_PATH, SERVICES_TITLE } from "../lib/service-catalog";
 import { getSiteIdentity } from "../lib/site-identity";
 import { termsOf } from "../lib/terms";
-
-/**
- * The Contact Summary's lead (docs/design/homepage-concept-v1.md §11), also the page's description.
- */
-const OFFICE_SUMMARY =
-	"ศูนย์กลางข้อมูล บริการ และการประสานงานด้านสุขภาพของประชาชนในอำเภอสอง จังหวัดแพร่";
 
 /** One instant for the current Announcements, the status each states and the Featured item's. */
 const now = new Date();
@@ -131,40 +128,19 @@ const control =
 <SiteLayout section="home" description={OFFICE_SUMMARY} canonical="/">
 	<meta slot="head" name="songhealth-foundation" content="public-runtime" />
 
-	{featured ? (
-		<>
-			<h1 class="sr-only">
-				<ThaiTitle text={identity.title} />
-			</h1>
-			<FeaturedHero featured={featured} />
-		</>
-	) : (
-		<div class="page-container pt-6 pb-10 lg:pt-8 lg:pb-16">
-			<div class="flex flex-col gap-3 rounded-32 bg-brand-dark px-6 py-8 text-surface-base sm:px-10 lg:px-14 lg:py-12">
-				<h1 class="text-h3 wrap-anywhere sm:text-h2 lg:text-h1">
-					<ThaiTitle text={identity.title} />
-				</h1>
-				{identity.tagline && <p class="text-body-large wrap-anywhere">{identity.tagline}</p>}
-			</div>
-		</div>
-	)}
-
-	<section aria-labelledby="home-search" class="page-container flex flex-col gap-4 pb-8 sm:pb-16">
-		<h2 id="home-search" class="text-h3 text-text-primary">
-			<ThaiTitle text="คุณกำลังมองหาอะไร?" />
-		</h2>
-		<SearchForm />
-	</section>
+	<HomeHero siteTitle={identity.title} featured={featured} />
 
 	{services.length > 0 && (
 		<section aria-labelledby="home-services" class="bg-surface-base py-8 sm:py-16 lg:pb-20">
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
 					id="home-services"
-					eyebrow="บริการประชาชน"
-					title="วันนี้คุณต้องการทำอะไร?"
-					lead="เข้าถึงบริการสำคัญได้ง่าย โดยไม่ต้องรู้โครงสร้างภายในของหน่วยงาน"
-				/>
+					label="บริการ"
+					title={SERVICES_TITLE}
+					href={SERVICES_PATH}
+				>
+					<Users slot="icon" class="shrink-0" size={24} />
+				</SectionHeading>
 				<ul class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
 					{services.map((service) => (
 						<li>
@@ -172,7 +148,6 @@ const control =
 						</li>
 					))}
 				</ul>
-				<ArrowLink href={SERVICES_PATH}>ดูบริการทั้งหมด</ArrowLink>
 			</div>
 		</section>
 	)}
@@ -180,12 +155,9 @@ const control =
 	{(news || announcements.length > 0) && (
 		<section aria-labelledby="home-news" class="py-8 sm:py-16 lg:py-20">
 			<div class="page-container flex flex-col gap-7">
-				<SectionHeading
-					id="home-news"
-					eyebrow="ข่าวสาร"
-					title="เรื่องใหม่จากเครือข่ายสุขภาพอำเภอสอง"
-					lead="ข่าวประชาสัมพันธ์และประกาศที่ประชาชนควรรู้"
-				/>
+				<SectionHeading id="home-news" label="ข่าวสาร" title="เรื่องใหม่จากเครือข่ายสุขภาพอำเภอสอง">
+					<MessageSquare slot="icon" class="shrink-0" size={24} />
+				</SectionHeading>
 				<div
 					class:list={[
 						"grid gap-6",
@@ -257,10 +229,12 @@ const control =
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
 					id="home-health"
-					eyebrow="สุขภาพใกล้ตัว"
-					title="ความรู้ที่ใช้ได้ในชีวิตประจำวัน"
-					lead="เนื้อหาสุขภาพที่คัดสรรและทบทวนเพื่อคนในพื้นที่"
-				/>
+					label="สุขภาพ"
+					title={HEALTH_CONTENT_TITLE}
+					href={HEALTH_CONTENT_PATH}
+				>
+					<HeartPulse slot="icon" class="shrink-0" size={24} />
+				</SectionHeading>
 				<ul class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
 					{healthContent.map((item, index) => {
 						const topic = termsOf(item.data, "topic")[0];
@@ -296,7 +270,6 @@ const control =
 						);
 					})}
 				</ul>
-				<ArrowLink href={HEALTH_CONTENT_PATH}>ดู{HEALTH_CONTENT_TITLE}ทั้งหมด</ArrowLink>
 			</div>
 		</section>
 	)}
@@ -307,10 +280,11 @@ const control =
 				<SectionHeading
 					onDark
 					id="home-discovery"
-					eyebrow={DIRECTORY_TITLE}
+					label="หน่วยบริการ"
 					title="ค้นหาหน่วยบริการสุขภาพในอำเภอสอง"
-					lead="ค้นหาตามตำบลหรือชื่อหน่วยบริการ พร้อมข้อมูลติดต่อ เวลาเปิดบริการ และแผนที่"
-				/>
+				>
+					<Hospital slot="icon" class="shrink-0" size={24} />
+				</SectionHeading>
 				<form
 					method="get"
 					action={directoryPath()}
@@ -350,10 +324,12 @@ const control =
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
 					id="home-activities"
-					eyebrow="กิจกรรมของเรา"
-					title="สุขภาพเกิดขึ้นในชุมชน"
-					lead="การประชุม ลงพื้นที่ จิตอาสา และกิจกรรมร่วมกับเครือข่าย"
-				/>
+					label="ภาพกิจกรรม"
+					title={ACTIVITIES_TITLE}
+					href={ACTIVITIES_PATH}
+				>
+					<Heart slot="icon" class="shrink-0" size={24} />
+				</SectionHeading>
 				<ul class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
 					{activities.map((activity, index) => (
 						<li class:list={[index === 3 && "lg:hidden"]}>
@@ -361,7 +337,6 @@ const control =
 						</li>
 					))}
 				</ul>
-				<ArrowLink href={ACTIVITIES_PATH}>ดู{ACTIVITIES_TITLE}ทั้งหมด</ArrowLink>
 			</div>
 		</section>
 	)}
@@ -369,12 +344,9 @@ const control =
 	{quickAccess.length > 0 && (
 		<section aria-labelledby="home-quick-access" class="bg-surface-base py-8 sm:py-16 lg:py-20">
 			<div class="page-container flex flex-col gap-7">
-				<SectionHeading
-					id="home-quick-access"
-					eyebrow="เข้าถึงข้อมูล"
-					title="ข้อมูลและเอกสารสำคัญ"
-					lead="ทางลัดสำหรับข้อมูลอ้างอิงและความโปร่งใสของหน่วยงาน"
-				/>
+				<SectionHeading id="home-quick-access" label="เข้าถึงข้อมูล" title="ข้อมูลและเอกสารสำคัญ">
+					<FileText slot="icon" class="shrink-0" size={24} />
+				</SectionHeading>
 				<ul class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
 					{quickAccess.map((link) => (
 						<li>

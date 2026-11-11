@@ -37,6 +37,7 @@ import {
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectVisibleFocusOnEveryStop,
+	siteIdentityLink,
 	test,
 	tokenColor,
 } from "./public.helpers";
@@ -46,9 +47,6 @@ const OFFICE_NAME = "สำนักงานสาธารณสุขอำ�
 
 /** The footer's line under the site title (spec #239 "Footer (every page)"). */
 const FOOTER_AFFILIATION = "จังหวัดแพร่ · กระทรวงสาธารณสุข";
-
-/** The header's identity, the logo and the site title: its first link to the Homepage. */
-const IDENTITY_LINK = 'a[href="/"]';
 
 /** The page container's side gutter from 640 px, the wider of its two, in px. */
 const WIDEST_GUTTER = 24;
@@ -136,7 +134,7 @@ test("the footer shows the site title, the official channels and its page links,
 	for (const path of ["/", INNER_PAGE]) {
 		await page.goto(path);
 		const footer = page.getByRole("contentinfo");
-		const title = await page.getByRole("banner").locator(IDENTITY_LINK).first().innerText();
+		const title = await siteIdentityLink(page).innerText();
 		await expect(footer).toContainText(title.split("\n")[0]);
 		const channels = footer.getByRole("list", { name: "ช่องทางทางการ" }).getByRole("link");
 		expect(await channels.count(), "the runtime's Office Contact sets channels").toBeGreaterThan(0);
@@ -292,7 +290,7 @@ test("from 1024 px the header is one row, and the current item is a soft green p
 		const header = await boxOf(banner, `the header at ${width} px`);
 		const middle = header.y + header.height / 2;
 		for (const [name, part] of [
-			["the identity", banner.locator(IDENTITY_LINK).first()],
+			["the identity", siteIdentityLink(page)],
 			["the navigation", navigation],
 			["the search link", banner.getByRole("link", { name: "ค้นหา", exact: true })],
 		] as const) {
@@ -322,7 +320,7 @@ test("at 320 px the identity, the search link and the menu button share the row 
 	await page.setViewportSize(MOBILE_VIEWPORT);
 	await page.goto("/");
 	const banner = page.getByRole("banner");
-	const identity = await boxOf(banner.locator(IDENTITY_LINK).first(), "the identity");
+	const identity = await boxOf(siteIdentityLink(page), "the identity");
 	const menu = await boxOf(banner.locator("summary"), "the menu button");
 	expect(identity.x).toBeGreaterThanOrEqual(0);
 	expect(identity.x + identity.width, "the identity ends before the menu").toBeLessThanOrEqual(
@@ -440,7 +438,7 @@ test.describe("keyboard", () => {
 		await page.goto("/");
 		await page.keyboard.press("Tab");
 		await page.keyboard.press("Tab");
-		await expect(banner.locator(IDENTITY_LINK).first()).toBeFocused();
+		await expect(siteIdentityLink(page)).toBeFocused();
 		for (const item of MAIN_NAVIGATION) {
 			await page.keyboard.press("Tab");
 			await expect(navigation.getByRole("link", { name: item.name, exact: true })).toBeFocused();
@@ -452,7 +450,7 @@ test.describe("keyboard", () => {
 		await page.goto("/");
 		await page.keyboard.press("Tab");
 		await page.keyboard.press("Tab");
-		await expect(banner.locator(IDENTITY_LINK).first()).toBeFocused();
+		await expect(siteIdentityLink(page)).toBeFocused();
 		await page.keyboard.press("Tab");
 		await expect(search).toBeFocused();
 		await page.keyboard.press("Tab");

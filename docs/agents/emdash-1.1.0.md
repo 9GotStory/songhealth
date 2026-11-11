@@ -236,8 +236,9 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
 - `Image` writes the value's dimensions as the `width` and `height` attributes, so its box takes
   the picture's shape before the file loads, and shows the value's placeholder (a blurhash, else
   the dominant colour) as the image's inline background, unless given `placeholder={false}`
-  (`src/components/EmDashImage.astro` `resolveImage`). `./src/components/FeaturedHero.astro` relies
-  on both.
+  (`src/components/EmDashImage.astro` `resolveImage`). `./src/components/PostColumns.astro` relies
+  on the first, and `./src/components/HomeHero.astro` on the second: the Featured picture's box is
+  the card's frame, which shows the placeholder around the whole picture.
 - The Admin's media library sets a picture's focal point ("Focal point. Use arrow keys to move
   it."). The Admin's image field copies the media item's focal point into the field's value as
   `focalX` and `focalY` when staff pick the picture, or edit it from the field

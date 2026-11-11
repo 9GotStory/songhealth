@@ -357,7 +357,7 @@ export async function expectImageLoaded(image: Locator, label: string): Promise<
  * part follows from the image's content box and its `object-fit`, which scales the picture in the
  * box and crops what overflows it. Returns the size the picture shows at, in CSS px.
  */
-async function expectPictureWhole(
+export async function expectPictureWhole(
 	image: Locator,
 	label: string,
 ): Promise<{ width: number; height: number }> {
@@ -704,22 +704,44 @@ export async function expectFilteredEmpty(
 }
 
 /**
- * The Homepage sections' headings, the design's interface text
- * (docs/design/homepage-concept-v1.md).
+ * The Homepage hero's headline, the office summary sentence, which names the hero (spec #239 "Hero
+ * and Featured"). It is also the page's description and the Contact Summary's lead.
+ */
+export const HOMEPAGE_HEADLINE =
+	"ศูนย์กลางข้อมูล บริการ และการประสานงานด้านสุขภาพของประชาชนในอำเภอสอง จังหวัดแพร่";
+
+/**
+ * The Homepage sections' headings, the design's interface text. The Services, Health Information
+ * and Activities sections are named as the prototype of spec #239 names them, so the link to each
+ * one's list reads "ดู…ทั้งหมด" with that name; the others keep the text of
+ * docs/design/homepage-concept-v1.md until their own tickets.
  */
 export const HOMEPAGE_HEADINGS = {
-	search: "คุณกำลังมองหาอะไร?",
-	services: "วันนี้คุณต้องการทำอะไร?",
+	services: "บริการประชาชน",
 	news: "เรื่องใหม่จากเครือข่ายสุขภาพอำเภอสอง",
-	health: "ความรู้ที่ใช้ได้ในชีวิตประจำวัน",
+	health: "ความรู้สุขภาพ",
 	discovery: "ค้นหาหน่วยบริการสุขภาพในอำเภอสอง",
-	activities: "สุขภาพเกิดขึ้นในชุมชน",
+	activities: "กิจกรรม",
 	quickAccess: "ข้อมูลและเอกสารสำคัญ",
 } as const;
 
 /** A Homepage section, the region its heading names. */
 export function homepageSection(page: Page, heading: string) {
 	return page.getByRole("region", { name: heading });
+}
+
+/** The header's identity, the logo and the site title: its first link to the Homepage. */
+export function siteIdentityLink(page: Page) {
+	return page.getByRole("banner").locator('a[href="/"]').first();
+}
+
+/**
+ * Fail unless `part` is on the page for assistive technology and out of sight: it takes no more
+ * than a pixel of the page, as Tailwind's `sr-only` leaves it.
+ */
+export async function expectVisuallyHidden(part: Locator, label: string): Promise<void> {
+	const box = await boxOf(part, label);
+	expect(Math.max(box.width, box.height), `${label} takes no room in sight`).toBeLessThanOrEqual(1);
 }
 
 /** The card or row a list page shows for the item titled `title`. */

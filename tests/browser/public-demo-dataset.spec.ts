@@ -25,6 +25,7 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOMEPAGE_HEADINGS,
+	HOMEPAGE_HEADLINE,
 	expect,
 	homepageSection,
 	listedItem,
@@ -155,11 +156,11 @@ for (const [slug, path] of Object.entries(BASIC_PAGES)) {
 
 test("the Homepage shows a Featured item and every section", async ({ page }) => {
 	await page.goto("/");
-	// Without a Featured item, the Search heading comes first (src/pages/index.astro).
+	// The Featured card is the hero's only link (src/components/HomeHero.astro).
 	await expect(
-		page.getByRole("main").getByRole("heading", { level: 2 }).first(),
+		homepageSection(page, HOMEPAGE_HEADLINE).getByRole("link"),
 		"a Featured item heads the page",
-	).not.toHaveText(HOMEPAGE_HEADINGS.search);
+	).toHaveCount(1);
 	for (const [section, heading] of Object.entries(HOMEPAGE_HEADINGS)) {
 		await expect(homepageSection(page, heading), `the ${section} section`).toBeVisible();
 	}
