@@ -12,7 +12,6 @@ const fixtures: Fixtures = async ({ admin, helpers }) => {
 		slug: helpers.syntheticSlug("shot"),
 		data: {
 			title: "[ตัวอย่าง] ธนพล รักษ์ดี",
-			prefix: "นาย",
 			current_assignment: "ผู้ช่วยสาธารณสุขอำเภอสอง",
 			public_visible: true,
 			leadership_order: 99,

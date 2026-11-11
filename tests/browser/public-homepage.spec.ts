@@ -447,44 +447,6 @@ test("two Leadership divide the strip's row between them, and with no Leadership
 	await expect(leadershipStrip(page), "no strip without Leadership").toHaveCount(0);
 });
 
-test("the Leadership strip starts below the Frequently Used Services' cards, and below the deep field when no Service shows", async ({
-	page,
-}) => {
-	await publish("personnel", await createSyntheticPerson(admin, "สมหญิง", { leadership_order: 1 }));
-	// One Service without a summary: the shortest card, in one row (#243 comment 6798581211).
-	const service = await createSyntheticService(admin, "leadership-strip");
-	await publishEntryAt(admin, "services", service.id);
-	const widths = [639, 640, 1024];
-
-	await withHomepageMenus(
-		admin,
-		{ ...EMPTY_MENUS, services: [pickedMenuItem("services", service)] },
-		async () => {
-			await page.goto("/");
-			const card = homepageSection(page, HOMEPAGE_HEADINGS.services).getByRole("listitem").last();
-			for (const width of widths) {
-				await page.setViewportSize({ width, height: 900 });
-				const above = await boxOf(card, `the Service card at ${width} px`);
-				const strip = await boxOf(leadershipStrip(page), `the strip at ${width} px`);
-				expect(strip.y, `the strip below the Service card at ${width} px`).toBeGreaterThanOrEqual(
-					above.y + above.height - 0.5,
-				);
-			}
-		},
-	);
-	await withHomepageMenus(admin, EMPTY_MENUS, async () => {
-		await page.goto("/");
-		for (const width of widths) {
-			await page.setViewportSize({ width, height: 900 });
-			const field = await boxOf(page.getByTestId("deep-field"), `the field at ${width} px`);
-			const strip = await boxOf(leadershipStrip(page), `the strip at ${width} px`);
-			expect(strip.y, `the strip below the field at ${width} px`).toBeGreaterThanOrEqual(
-				field.y + field.height - 0.5,
-			);
-		}
-	});
-});
-
 test("the News card shows the newest published News with its category, title and summary, and reads it with อ่านข่าว", async ({
 	page,
 }) => {

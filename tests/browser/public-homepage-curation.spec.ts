@@ -44,6 +44,7 @@ import {
 	createSyntheticDraft,
 	createSyntheticHealthReport,
 	createSyntheticHealthService,
+	createSyntheticPerson,
 	createSyntheticService,
 	devAdminActor,
 	gradientPng,
@@ -789,13 +790,16 @@ test("from 640 px the Services' lower part lies below the deep field and clear o
 		services.push(await createSyntheticService(admin, `overlap-${index}`));
 	}
 	await publish("services", ...services);
-	// A published News, so the News section follows the Services whatever the runtime holds.
-	await publish("news", await create("news", "after-services"));
+	// A published Leadership, so the Leadership strip follows the Services whatever the runtime
+	// holds (Feature 008 #243).
+	await publish(
+		"personnel",
+		await createSyntheticPerson(admin, "ถัดจากบริการ", { leadership_order: 1 }),
+	);
 	const frequent = homepageSection(page, HOMEPAGE_HEADINGS.services);
 	const cards = frequent.getByRole("article");
-	const nextHeading = homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("heading", {
-		level: 2,
-	});
+	const nextSection = homepageSection(page, HOMEPAGE_HEADINGS.leadership);
+	const nextHeading = nextSection.getByRole("heading", { level: 2 });
 	/**
 	 * Where the field ends, where the next section starts, and where that section's heading starts,
 	 * at `width`.
@@ -803,10 +807,7 @@ test("from 640 px the Services' lower part lies below the deep field and clear o
 	const edges = async (width: number) => {
 		await page.setViewportSize({ width, height: 900 });
 		const field = await boxOf(deepField(page), `the deep field at ${width} px`);
-		const section = await boxOf(
-			homepageSection(page, HOMEPAGE_HEADINGS.news),
-			`the next section at ${width} px`,
-		);
+		const section = await boxOf(nextSection, `the next section at ${width} px`);
 		const next = await boxOf(nextHeading, `the next section's heading at ${width} px`);
 		return { fieldEnd: field.y + field.height, sectionStart: section.y, nextStart: next.y };
 	};

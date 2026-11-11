@@ -537,8 +537,9 @@ Below 640 px the Homepage is shorter, with every section kept in its order (Prod
 - Phones and tablets show the latest 4 Activities, two by two; a desktop row shows 3.
 
 The Homepage's height with the demo dataset, measured on 2026-11-11 at the application code of
-`feat/008-242-services-cards` `75e1765` with `scripts/capture-screenshots.mjs`: 4,825 px at
-1,440 px, 5,696 px at 375 px and 6,301 px at 320 px.
+`feat/008-243-leadership-strip` `b5d1b3e` with `scripts/capture-screenshots.mjs`: 5,013 px at
+1,440 px, 5,997 px at 375 px and 6,608 px at 320 px, with the dataset's two Leadership in the strip
+(§8.5).
 
 The Product Owner accepted the phone Homepage at 5,771 px at 375 px with the prototype's data, in
 place of the grill's target of about 5,000 px (spec #144). The height moves with the titles and the
