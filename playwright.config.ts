@@ -5,6 +5,10 @@
 // else http://localhost:4321. Reporting stays in the console, and artifacts go to the ignored
 // .tmp/. This file reads no credential.
 //
+// One worker: the suites share one runtime, and one of them returns the runtime's content to draft
+// while it runs (tests/browser/public-homepage.spec.ts), so suites side by side fail each other
+// and leave fixtures behind (#241 retro: 9 failures and two entries left by a run without it).
+//
 // Every request carries a songhealth-unknown- referrer. EmDash's 404 log keeps a miss's referrer
 // beside its path (docs/agents/emdash-1.1.0.md "Native API for tests"), so
 // scripts/dev-runtime-residue.sh counts every miss a test causes as the tests' own: one whose path
@@ -24,6 +28,7 @@ export default defineConfig({
   testDir: "./tests/browser",
   reporter: [["list"]],
   outputDir: "./.tmp/playwright-results",
+  workers: 1,
   use: {
     baseURL,
     extraHTTPHeaders: { referer: SYNTHETIC_REFERRER },

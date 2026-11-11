@@ -163,8 +163,9 @@ Tests target the runtime with its own credentials, which are never printed or co
 
 ```bash
 # ordinary suites (the role fixture enables the T019/T020 role cases; the dev Admin session
-# enables the Admin UI journeys of cms-lifecycle-ui, cms-editor and cms-menus-ui; one worker at a time)
-scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
+# enables the Admin UI journeys of cms-lifecycle-ui, cms-editor and cms-menus-ui); without a suite,
+# every suite. playwright.config.ts runs them one worker at a time
+scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts
 # T021 public reads, only through the coordinator, from a checkout at the promoted commit
 scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs
 ```
@@ -271,6 +272,11 @@ runner makes the module's synthetic content, captures the paths the module retur
 everything it made. `scripts/screenshot-fixtures/news.ts` is the example. The Admin's sidebar, as an
 Administrator, an Editor or an Author sees it, comes from
 `scripts/dev-runtime-env.sh node scripts/capture-admin.ts <out-dir> [<role>]`.
+
+Text on a gradient or over a decoration is read with
+`node scripts/measure-text-contrast.ts [--fixtures <module>] <path> <selector>...` before the
+suites run: axe leaves such text unmeasured. It prints the lowest contrast under the text's own
+pixels at five widths; its header says how.
 
 The runtime holds the demo dataset: content marked `[ตัวอย่าง]` that fills every page for the
 Product Owner's review. `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` installs it
