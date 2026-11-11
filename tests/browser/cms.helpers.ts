@@ -1619,6 +1619,31 @@ export async function createSyntheticService(
 	return createSyntheticDraft(actor, "services", name, label, fields);
 }
 
+/** A synthetic Personnel fixture: `title` is the name the site shows it by. */
+export interface PersonFixture extends DraftFixture {
+	/** The display name, as staff type it. */
+	displayName: string;
+}
+
+/**
+ * A synthetic Personnel draft with the display name `${mark} ${name} ${ending}`, publicly visible
+ * unless `data` says otherwise. Its `title` is the prefix, when given, before the display name. A
+ * refusal throws.
+ */
+export async function createSyntheticPerson(
+	actor: CmsActor,
+	name: string,
+	data: Record<string, unknown> = {},
+): Promise<PersonFixture> {
+	const slug = syntheticSlug("person");
+	const displayName = `${SYNTHETIC_FIXTURE_MARK} ${name} ${slug.slice(-6)}`;
+	const prefix = typeof data.prefix === "string" ? data.prefix : "";
+	const fixture = await createDraftFixture(actor, "personnel", slug, `${prefix}${displayName}`, {
+		data: { title: displayName, public_visible: true, ...data },
+	});
+	return { ...fixture, displayName };
+}
+
 /** A synthetic Document draft with a unique title and `file`, else a synthetic PDF of its own. */
 export async function createSyntheticDocument(
 	actor: CmsActor,
@@ -1941,6 +1966,13 @@ export async function listPublishedEntries(
 	return (await listNativeItems(actor, `/_emdash/api/content/${encodeURIComponent(collection)}`, {
 		status: "published",
 	})) as unknown as PublishedEntry[];
+}
+
+/** The ids of the runtime's published Personnel that are publicly visible. */
+export async function visiblePublishedPersonnel(actor: CmsActor): Promise<string[]> {
+	return (await listPublishedEntries(actor, "personnel"))
+		.filter(({ data }) => data?.public_visible === true || data?.public_visible === 1)
+		.map(({ id }) => id);
 }
 
 /**

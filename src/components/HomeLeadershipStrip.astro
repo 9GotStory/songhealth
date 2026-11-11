@@ -1,0 +1,111 @@
+---
+// The Homepage's Leadership strip (Feature 008 #243; spec #239 "Leadership strip"): one compact
+// white strip with its own small heading, the Leadership it is given, and one link, "ทั้งหมด", to
+// /about/leadership. The page gives it the first three by Leadership order
+// (src/lib/personnel-directory.ts homepageLeadership), and leaves the section out when there is
+// none.
+//
+// Each person shows their picture in a circle, the shown name and the current assignment; unit
+// and public contact stay on the About pages. The first person's picture has an accent-warm ring.
+// Personnel has no page of its own (`03` §5), so no person is a link. The picture is decorative,
+// because the name beside it says who it is, and one whose media item was deleted in Admin is left
+// out for the plain visual (src/lib/media.ts), as PersonCard does.
+//
+// From `lg` the strip is one row: the heading at the left, then the people, who divide the rest of
+// the row equally. From `sm` the heading lies above, the first person takes a row and the others
+// share the next. Below `sm` everyone stacks. The label above the H2 shows from `lg` only.
+//
+// The link is named with the section for assistive technology, "ดูผู้บริหารทั้งหมด", and ends in
+// arrow-right, as a Homepage section heading's link does (SectionHeading.astro).
+import ArrowRight from "@lucide/astro/icons/arrow-right";
+import { Image } from "emdash/ui";
+import { LEADERSHIP_PAGE } from "../lib/about";
+import { availableMedia } from "../lib/media";
+import type { PersonnelEntry } from "../lib/personnel";
+import { shownName } from "../lib/personnel-directory";
+import ThaiTitle from "./ThaiTitle.astro";
+
+interface Props {
+	/** The H2's id, unique on the page, which the section names itself by. */
+	id: string;
+	/** The Leadership to show, in order; at least one. */
+	people: PersonnelEntry[];
+}
+
+const { id, people } = Astro.props;
+const { path, title } = LEADERSHIP_PAGE;
+const shown = await Promise.all(
+	people.map(async ({ data }) => ({
+		data,
+		image: await availableMedia(data.profile_image, Astro.locals.emdash),
+	})),
+);
+
+/** The picture's width: 3.75rem, and 4.75rem from `sm`. */
+const PICTURE_SIZES = "(min-width: 40rem) 4.75rem, 3.75rem";
+const picture = "size-15 rounded-full sm:size-19";
+---
+
+<div class="flex flex-col gap-4.5 rounded-24 bg-surface-base p-5 shadow-card sm:gap-5 sm:p-6 lg:flex-row lg:items-center lg:gap-7 lg:px-8">
+	<div class="flex shrink-0 items-center justify-between gap-4 border-border-default max-lg:border-b max-lg:pb-3 lg:flex-col lg:items-start lg:justify-center lg:gap-0 lg:border-r lg:pr-7">
+		<div>
+			<p class="text-label font-semibold tracking-[0.02em] text-brand-primary before:mr-2.5 before:opacity-55 before:content-['/'] after:ml-2.5 after:opacity-55 after:content-['/'] max-lg:hidden">
+				บุคลากร
+			</p>
+			<h2 id={id} class="text-h3 font-bold text-text-primary">
+				<ThaiTitle text={title} />
+			</h2>
+		</div>
+		<a
+			href={path}
+			class="inline-flex min-h-11 shrink-0 items-center gap-2 text-label font-semibold text-brand-primary underline-offset-4 hover:underline"
+		>
+			<span class="sr-only">ดู{title}ทั้งหมด</span>
+			<span aria-hidden="true">ทั้งหมด</span>
+			<ArrowRight class="shrink-0" size={16} />
+		</a>
+	</div>
+	<ol class="flex min-w-0 flex-1 flex-col gap-4.5 sm:flex-row sm:flex-wrap sm:gap-x-7 sm:gap-y-5 lg:flex-nowrap">
+		{shown.map(({ data, image }, index) => (
+			<li
+				class:list={[
+					"flex min-w-0 items-center gap-4 sm:flex-1 lg:basis-0",
+					index === 0 ? "sm:basis-full" : "sm:basis-2/5",
+				]}
+			>
+				<span
+					data-testid="person-picture"
+					class:list={[
+						"block shrink-0 rounded-full p-1",
+						index === 0 ? "ring-3 ring-accent-warm" : "ring-2 ring-border-default",
+					]}
+				>
+					{image ? (
+						<Image
+							image={image}
+							alt=""
+							sizes={PICTURE_SIZES}
+							class:list={[picture, "object-cover object-top"]}
+						/>
+					) : (
+						<span
+							aria-hidden="true"
+							data-testid="person-visual"
+							class:list={[picture, "block bg-surface-soft"]}
+						/>
+					)}
+				</span>
+				<div class="min-w-0">
+					<h3 class="text-body font-semibold wrap-anywhere text-text-primary">
+						<ThaiTitle text={shownName(data)} />
+					</h3>
+					{data.current_assignment && (
+						<p class="text-label font-normal wrap-anywhere text-text-secondary">
+							{data.current_assignment}
+						</p>
+					)}
+				</div>
+			</li>
+		))}
+	</ol>
+</div>

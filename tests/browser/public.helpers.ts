@@ -712,13 +712,14 @@ export const HOMEPAGE_HEADLINE =
 	"ศูนย์กลางข้อมูล บริการ และการประสานงานด้านสุขภาพของประชาชนในอำเภอสอง จังหวัดแพร่";
 
 /**
- * The Homepage sections' headings, the design's interface text. The Services, Health Information
- * and Activities sections are named as the prototype of spec #239 names them, so the link to each
- * one's list reads "ดู…ทั้งหมด" with that name; the others keep the text of
+ * The Homepage sections' headings, the design's interface text. The Services, Leadership, Health
+ * Information and Activities sections are named as the prototype of spec #239 names them, so the
+ * link to each one's list reads "ดู…ทั้งหมด" with that name; the others keep the text of
  * docs/design/homepage-concept-v1.md until their own tickets.
  */
 export const HOMEPAGE_HEADINGS = {
 	services: "บริการประชาชน",
+	leadership: "ผู้บริหาร",
 	news: "เรื่องใหม่จากเครือข่ายสุขภาพอำเภอสอง",
 	health: "ความรู้สุขภาพ",
 	discovery: "ค้นหาหน่วยบริการสุขภาพในอำเภอสอง",

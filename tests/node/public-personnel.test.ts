@@ -4,6 +4,8 @@
 // - Only Personnel with `public_visible` set appear. Off or unset, a person appears nowhere.
 // - Leadership is the publicly visible Personnel that have a `leadership_order`, ascending, with
 //   ties broken by name. An empty order means the person is not Leadership.
+// - The Homepage's Leadership strip shows the first three of the Leadership, in that order and with
+//   that tie rule, and fewer when fewer exist (Feature 008 #243; spec #239 "Leadership strip").
 // - Personnel groups by `organizational_unit` in Thai order, then by name. A person without a unit
 //   comes in a last group of its own.
 // - A person is shown by their prefix and display name.
@@ -15,6 +17,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+	homepageLeadership,
 	leadership,
 	personnelByUnit,
 	shownName,
@@ -59,6 +62,46 @@ describe("leadership", () => {
 		];
 
 		assert.deepEqual(ids(leadership(entries)), ["chief"]);
+	});
+});
+
+describe("homepageLeadership", () => {
+	/** Leadership given last first, so the rule must order them: `count` people, orders 1 up. */
+	const leaders = (count: number) =>
+		Array.from({ length: count }, (_, index) =>
+			person(`leader-${count - index}`, `สม${count - index}`, { leadership_order: count - index }),
+		);
+
+	it("shows everyone while the Leadership is three or fewer, in Leadership order", () => {
+		assert.deepEqual(ids(homepageLeadership(leaders(0))), []);
+		assert.deepEqual(ids(homepageLeadership(leaders(1))), ["leader-1"]);
+		assert.deepEqual(ids(homepageLeadership(leaders(2))), ["leader-1", "leader-2"]);
+		assert.deepEqual(ids(homepageLeadership(leaders(3))), ["leader-1", "leader-2", "leader-3"]);
+	});
+
+	it("shows the first three of four Leadership", () => {
+		assert.deepEqual(ids(homepageLeadership(leaders(4))), ["leader-1", "leader-2", "leader-3"]);
+	});
+
+	it("breaks a tie for the third place by name in Thai order, as the Leadership page does", () => {
+		const entries = [
+			person("khwan", "ขวัญ", { leadership_order: 3 }),
+			person("deputy", "สมชาย", { leadership_order: 2 }),
+			person("ked", "เกด", { leadership_order: 3 }),
+			person("chief", "สมหญิง", { leadership_order: 1 }),
+		];
+
+		assert.deepEqual(ids(homepageLeadership(entries)), ["chief", "deputy", "ked"]);
+	});
+
+	it("counts only the Leadership: staff and people out of public sight take no place", () => {
+		const entries = [
+			person("hidden", "กมล", { leadership_order: 1, public_visible: false }),
+			person("staff", "กาญจนา"),
+			...leaders(3),
+		];
+
+		assert.deepEqual(ids(homepageLeadership(entries)), ["leader-1", "leader-2", "leader-3"]);
 	});
 });
 
