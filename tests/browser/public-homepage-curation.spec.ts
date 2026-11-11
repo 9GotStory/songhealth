@@ -818,7 +818,7 @@ test("from 640 px the Services' lower part lies below the deep field and clear o
 			await page.goto("/");
 			await expect(cards).toHaveCount(6);
 			for (const width of [1440, 1024, 640]) {
-				const { fieldEnd, nextStart } = await edges(width);
+				const { fieldEnd, sectionStart, nextStart } = await edges(width);
 				const first = await boxOf(cards.first(), `the first Service at ${width} px`);
 				const last = await boxOf(cards.last(), `the last Service at ${width} px`);
 				expect(first.y, `the Services start on the field at ${width} px`).toBeLessThan(fieldEnd);
@@ -832,6 +832,10 @@ test("from 640 px the Services' lower part lies below the deep field and clear o
 					nextStart,
 					`the next section's heading starts below the Services at ${width} px`,
 				).toBeGreaterThanOrEqual(last.y + last.height);
+				expect(
+					sectionStart,
+					`the next section starts where the Services end at ${width} px`,
+				).toBeGreaterThanOrEqual(last.y + last.height - 0.5);
 			}
 			for (const width of [639, 320]) {
 				const { fieldEnd, sectionStart } = await edges(width);

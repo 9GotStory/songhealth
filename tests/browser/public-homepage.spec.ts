@@ -200,6 +200,19 @@ function leadershipStrip(page: Page) {
 	return homepageSection(page, HOMEPAGE_HEADINGS.leadership);
 }
 
+/**
+ * The space the Leadership strip's section keeps below the strip's white surface, the box that
+ * holds its list, as the page is laid out now.
+ */
+async function spaceBelowStrip(page: Page): Promise<number> {
+	const section = await boxOf(leadershipStrip(page), "the Leadership section");
+	const surface = await boxOf(
+		leadershipStrip(page).getByRole("list").locator("xpath=.."),
+		"the strip's surface",
+	);
+	return section.y + section.height - (surface.y + surface.height);
+}
+
 /** The current Announcements' links, in order. */
 function announcementLinks(page: Page) {
 	return homepageSection(page, HOMEPAGE_HEADINGS.news)
@@ -341,6 +354,8 @@ test("the Leadership strip shows the first three Leadership in Leadership order 
 	});
 	// Published in an order the Leadership order must overturn.
 	await publish("personnel", fourth, khwan, staff, hidden, chief, ked);
+	// A published News, so the News section follows the strip whatever the runtime holds.
+	await publish("news", await create("news", "after-leadership"));
 
 	await page.goto("/");
 	const strip = leadershipStrip(page);
@@ -374,9 +389,11 @@ test("the Leadership strip shows the first three Leadership in Leadership order 
 	await expect(links).toHaveAttribute("href", "/about/leadership");
 	await expect(links.getByText("ทั้งหมด", { exact: true })).toBeVisible();
 
-	// One row with the heading at the left from 1,024 px; the heading above, the first person across
-	// the row and the others sharing the next from 640 px; everyone stacked below.
+	// One row with the heading at the left from 1,024 px, under its label; the heading above, the
+	// first person across the row and the others sharing the next from 640 px, with the larger
+	// picture; everyone stacked below.
 	const heading = strip.getByRole("heading", { level: 2 });
+	const label = strip.getByText("บุคลากร", { exact: true });
 	for (const [width, rows, beside] of [
 		[639, [1, 1, 1], false],
 		[640, [1, 2], false],
@@ -388,6 +405,9 @@ test("the Leadership strip shows the first three Leadership in Leadership order 
 		expect(await itemsPerRow(people), `the people's rows at ${width} px`).toEqual(rows);
 		const title = await boxOf(heading, `the heading at ${width} px`);
 		const person = await boxOf(first, `the first person at ${width} px`);
+		const picture = await boxOf(first.locator("img"), `the first picture at ${width} px`);
+		expect(picture.width, `the picture's width at ${width} px`).toBe(width < 640 ? 60 : 76);
+		await expect(label, `the heading's label at ${width} px`).toBeVisible({ visible: beside });
 		if (beside) {
 			expect(title.x + title.width, `the heading at the left at ${width} px`).toBeLessThanOrEqual(
 				person.x,
@@ -401,16 +421,20 @@ test("the Leadership strip shows the first three Leadership in Leadership order 
 				person.y,
 			);
 		}
+		expect(
+			await spaceBelowStrip(page),
+			`the News section's space follows the strip at ${width} px`,
+		).toBe(0);
 	}
 	await expectAccessibleAtEachWidth(page, "/ with three Leadership");
 	await page.setViewportSize(MOBILE_VIEWPORT);
 	await expectNoHorizontalScroll(page, "/ with three Leadership");
 });
 
-test("two Leadership divide the strip's row between them, and with no Leadership the strip is left out", async ({
+test("two Leadership divide the strip's row between them and one takes it whole, the strip keeps its own space below while the News section is left out, and with no Leadership the strip is left out", async ({
 	page,
 }) => {
-	await borrowPersonnel();
+	await borrowAllContent();
 	const chief = await createSyntheticPerson(admin, "สมหญิง", { leadership_order: 1 });
 	const deputy = await createSyntheticPerson(admin, "สมชาย", { leadership_order: 5 });
 	await publish("personnel", deputy, chief, await createSyntheticPerson(admin, "อรุณ"));
@@ -436,13 +460,32 @@ test("two Leadership divide the strip's row between them, and with no Leadership
 			`the two take equal widths at ${width} px`,
 		).toBeLessThanOrEqual(1);
 	}
+	// No News and no current Announcement is published, so the strip takes the News section's space.
+	for (const [width, space] of [
+		[1440, 80],
+		[768, 64],
+		[375, 32],
+	] as const) {
+		await page.setViewportSize({ width, height: 900 });
+		expect(await spaceBelowStrip(page), `the strip's space below at ${width} px`).toBe(space);
+	}
 
-	// Staff without a Leadership order stay published: they make no Leadership.
-	for (const person of [chief, deputy]) {
+	const leave = async (person: DraftFixture) => {
 		const unpublished = await unpublishEntry(admin, "personnel", person.id);
 		expect(unpublished.ok, `unpublish ${person.slug}: ${nativeRefusalOf(unpublished)}`).toBe(true);
+		await page.goto("/");
+	};
+	await leave(deputy);
+	await expect(people).toHaveCount(1);
+	for (const width of [1440, 768]) {
+		await page.setViewportSize({ width, height: 900 });
+		const alone = await boxOf(people, `the one person at ${width} px`);
+		const list = await boxOf(leadershipStrip(page).getByRole("list"), "the people's row");
+		expect(alone.width, `one person takes the row at ${width} px`).toBeCloseTo(list.width, 0);
 	}
-	await page.goto("/");
+
+	// Staff without a Leadership order stay published: they make no Leadership.
+	await leave(chief);
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
 	await expect(leadershipStrip(page), "no strip without Leadership").toHaveCount(0);
 });

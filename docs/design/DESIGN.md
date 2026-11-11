@@ -529,7 +529,8 @@ corners are radius 32 (24 below `sm`):
 Below 640 px the Homepage is shorter, with every section kept in its order (Product Owner: "โอเค
 เฉพาะหน้าแรก"; `04` §15). From `sm` it is as before, except that tablets show 4 Activities.
 
-- Each section after the deep field has 32 px of space above and below it.
+- Each section after the deep field has 32 px of space above and below it, except the Leadership
+  strip, which has it above and takes the space below from the News section (§8.5).
 - The Contact Summary's lead and the map stand-in are hidden.
 - Health Information, Activities and Quick Access go two to a row, 12 px apart, in compact cards
   (§7.3). The Frequently Used Services go one to a row (§8.4).
@@ -639,9 +640,9 @@ in the page colour:
   has a 3 px `accent-warm` ring and the others a 2 px `border-default` one. Without a picture the
   circle is `surface-soft`, as on `PersonCard`.
 - **From `lg`** the strip is one row: the heading at the left, ended by a `border-default` line,
-  then the people, who divide the rest of the row equally, three, two or one. **From `sm`** the
-  heading lies above, with the link at its right over a `border-default` line, the first person
-  takes a row and the others share the next. **Below `sm`** everyone stacks.
+  then the people, who divide the rest of the row equally, three, two or one. **Below `lg`** the
+  heading lies above, with the link at its right over a `border-default` line. **From `sm`** the
+  first person takes a row and the others share the next. **Below `sm`** everyone stacks.
 - **Space:** 32 px above the strip below `sm` and 40 px from `sm`, after the room the field leaves
   under it (§8.4). The News section's own space follows it; while that section is left out, the
   strip takes the same space below itself (32, 64 and 80 px).

@@ -131,9 +131,9 @@ Link ไป canonical Service route หรือ approved external journeyผ่
 
 ## 6.1 Leadership
 
-- แสดง Leadership 3 คนแรกตาม Leadership order ด้วยลำดับและ tie rule เดียวกับ `/about/leadership` (`03` §5); มีน้อยกว่า 3 คนแสดงเท่าที่มี
-- แต่ละคนแสดงรูป ชื่อที่แสดง และ current assignment; ไม่แสดง organizational unit และ public contact (§11)
-- Personnel ไม่มีหน้าของตนเอง จึงไม่มี link รายคน; มี link เดียวไป `/about/leadership`
+- แสดง Leadership 3 คนแรกตาม Leadership order จากน้อยไปมาก ลำดับเท่ากันเรียงตามชื่อ เหมือน `/about/leadership`; มีน้อยกว่า 3 คนแสดงเท่าที่มี
+- แต่ละคนแสดงรูป ชื่อที่แสดง และ current assignment; ไม่แสดง organizational unit และ public contact
+- Personnel ไม่มีหน้าของตนเอง (`03` §5) จึงไม่มี link รายคน; มี link เดียวไป `/about/leadership`
 - staff ดูแลผ่าน Personnel และ Leadership order ชุดเดียวกับ About; ไม่มี Homepage curation เพิ่ม
 - section ซ่อนเมื่อไม่มี Leadership (§17)
 
