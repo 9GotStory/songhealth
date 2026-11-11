@@ -616,7 +616,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   - a configured header title can occupy multiple lines; its space and type follow §7.4;
   - `--header-offset` is a fixed 88 or 84 px (§3.1), so under a header made taller than that by a
     long configured title or a tagline below 640 px, what focus scrolls to can sit partly under the
-    header (#240).
+    header (Product Owner, #240 comment 6788678539).
 - **A compact Quick Link card's height** grows with its label (§7.3), the taller proportions
   accepted with Quick Access B (#190 comment 6707205912).
 - **The phone Homepage's height** moves with the titles and the number of items (§8.2).
