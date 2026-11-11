@@ -271,7 +271,9 @@ below is installed, it fills every page, so the script alone captures a page wit
 the dataset does not hold, such as a Document whose file was deleted, takes its content from
 `scripts/dev-runtime-env.sh node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir>`. The
 runner makes the module's synthetic content, captures the paths the module returns, and removes
-everything it made. `scripts/screenshot-fixtures/news.ts` is the example. The Admin's sidebar, as an
+everything it made. A selector as a third argument, such as
+`'section[aria-labelledby=home-leadership]'`, captures that element alone on each page, to look at
+one part of a long page. `scripts/screenshot-fixtures/news.ts` is the example. The Admin's sidebar, as an
 Administrator, an Editor or an Author sees it, comes from
 `scripts/dev-runtime-env.sh node scripts/capture-admin.ts <out-dir> [<role>]`.
 
