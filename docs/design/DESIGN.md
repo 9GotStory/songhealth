@@ -136,7 +136,9 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 The Homepage's hero uses `deep-highlight`, in the `deep-field` utility's gradient, and
 `plain-visual-to`, in the `plain-visual` utility that stands in for a missing picture (§8.1). The
 other three Feature 008 colours are defined by name for the tickets that follow; no page uses them
-yet. Two fills are a token at an opacity, not a token of their own: the header's
+yet. Some fills are a token at an opacity, not a token of their own: the hero's decorations and
+chip (`accent-warm` at 28 %, 30 %, 38 % and 50 %, `surface-soft` at 16 %, `surface-base` at 18 %
+and 22 %), the header's
 surface, `surface-base` at 90 %, and the footer's quiet text, pills and rule, `surface-base` at
 70 %, 85 %, 20 %, 15 % and 10 %.
 
@@ -153,7 +155,8 @@ Two header styles scale with the window from 1,024 px and are utilities, not ste
 (§7.4): `header-title`, 16 to 18 px on a 24 px line, and `header-nav-item`, 15 to 16 px on a 26 px
 line. Below 640 px the site title is `body` at 700 on `label`'s 22 px line.
 
-Three Homepage styles are utilities beyond the scale too (spec #239 "Tokens"), each at 700:
+Three Homepage styles are utilities beyond the scale too (spec #239 "Tokens"), each at 700 with
+-0.01 em letter spacing:
 `hero-headline`, 29 / 42 below 640 px, 34 / 48 from 640 px, and from 1,024 px 34 to 44 px with the
 window on a line of 1.42; `hero-headline-alone`, the headline with nothing Featured, 29 / 42, then
 38 / 54 from 640 px and 52 / 74 from 1,024 px; and `section-title`, a Homepage section's H2, 26 /
@@ -496,20 +499,22 @@ whose lower corners are radius 32 (24 below `sm`):
   own list shows it by (a Service has none), the title as the card's H2, and an arrow. From `lg` it
   sits beside the headline, and below `lg` under the search, centred.
 - **The picture** shows whole in the frame, never cropped: the office's landscape pictures are
-  text banners, and its portrait ones are One Pages. Around it the frame shows the picture's
-  blurred placeholder. An item without a picture shows the plain visual with an icon tile.
+  text banners, and its portrait ones are One Pages. Behind it the frame shows a blurred copy of
+  the picture that covers the frame, a second image. An item without a picture shows the plain
+  visual with an icon tile.
 - **With nothing Featured** the hero is one column: no card, the headline in
-  `hero-headline-alone`, and the search up to 640 px wide.
+  `hero-headline-alone`, which is larger from `sm`, and from `lg` the search up to 640 px wide.
 - The hero shows no summary of the Featured item, no telephone number and no hours.
 - White text on the field's lightest part, `deep-highlight`, is 4.30:1, so the field carries the
   headline, which is large text, and smaller text at its darker left. Focus rings on the field are
-  `accent-warm`, and `brand-primary` on the white search and Featured card.
+  `accent-warm`, the Featured card's link among them, and `brand-primary` inside the white search.
+- The card's tilt and the submit button's growth on hover move only without a reduced-motion
+  preference.
 
 ### 8.2 Phones
 
 Below 640 px the Homepage is shorter, with every section kept in its order (Product Owner: "โอเค
-เฉพาะหน้าแรก"; `04` §15). From `sm` it is as before, except that tablets show 4 Activities, and on
-a desktop only the Featured hero changed.
+เฉพาะหน้าแรก"; `04` §15). From `sm` it is as before, except that tablets show 4 Activities.
 
 - Each section has 32 px of space above and below it.
 - The Contact Summary's lead and the map stand-in are hidden.
@@ -518,9 +523,9 @@ a desktop only the Featured hero changed.
 - The News card's summary is clamped to three lines.
 - Phones and tablets show the latest 4 Activities, two by two; a desktop row shows 3.
 
-The Homepage's height with the demo dataset, measured on 2026-11-05 at the application code of
-`006-frontend-design` `571b222` with `scripts/capture-screenshots.mjs`: 5,736 px at 1,440 px,
-5,821 px at 375 px and 6,196 px at 320 px.
+The Homepage's height with the demo dataset, measured on 2026-11-11 at the application code of
+`feat/008-241-hero-featured` `d58f70f` with `scripts/capture-screenshots.mjs`: 5,087 px at
+1,440 px, 5,552 px at 375 px and 6,149 px at 320 px.
 
 The Product Owner accepted the phone Homepage at 5,771 px at 375 px with the prototype's data, in
 place of the grill's target of about 5,000 px (spec #144). The height moves with the titles and the
