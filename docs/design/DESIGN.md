@@ -631,13 +631,15 @@ in the page colour:
   With none the section is left out.
 - **The strip** is one white surface, radius 24, with the `card` shadow and 20 px of padding
   (24 px from `sm`, 24 by 32 px from `lg`).
-- **Its heading** is compact, without an icon tile: the H2, "ผู้บริหาร", at H3 size in bold, and a
+- **Its heading** is compact, without an icon tile (Product Owner, 2026-11-12: #243 comment
+  6809325869, item 1): the H2, "ผู้บริหาร", at H3 size in bold, and a
   text link that reads "ทั้งหมด" with a 16 px `arrow-right`, named "ดูผู้บริหารทั้งหมด", to
   `/about/leadership`, 44 px high. From `lg` the label "บุคลากร" between slashes shows above the H2.
 - **A person** shows the picture in a circle of 76 px (60 px below `sm`), the shown name as an H3
   at 16 / 26 semibold and the current assignment at 14 / 22 in `text-secondary`. Unit and public
   contact are not shown, and no person is a link. Around the picture, 4 px away, the first person
-  has a 3 px `accent-warm` ring and the others a 2 px `border-default` one. Without a picture the
+  has a 3 px `accent-warm` ring, its only mark (#243 comment 6809325869, item 2), and the others a
+  2 px `border-default` one. Without a picture the
   circle is `surface-soft`, as on `PersonCard`.
 - **From `lg`** the strip is one row: the heading at the left, ended by a `border-default` line,
   then the people, who divide the rest of the row equally, three, two or one. **Below `lg`** the
@@ -883,5 +885,6 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   the Frequently Used Services (§8, §8.5): the first three Leadership in one white strip with a
   compact heading, the first person ringed in `accent-warm`, one row from 1,024 px, the first
   person across the row from 640 px and everyone stacked below. `04` v2.7 lists the section (§3,
-  §6.1). Authority: spec #239 "Leadership strip" and the note on #243 (comment 6798581211). The
+  §6.1). Authority: spec #239 "Leadership strip", the note on #243 (comment 6798581211) and #243 comment
+  6809325869 (the compact heading, the ring alone). The
   Leadership page and its order remain.
