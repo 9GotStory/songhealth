@@ -821,6 +821,8 @@ test("from 640 px the Services' lower part lies below the deep field and clear o
 				const first = await boxOf(cards.first(), `the first Service at ${width} px`);
 				const last = await boxOf(cards.last(), `the last Service at ${width} px`);
 				expect(first.y, `the Services start on the field at ${width} px`).toBeLessThan(fieldEnd);
+				// These Services have no summary, so their cards are as short as a card gets.
+				expect(last.y, `the last row starts on the field at ${width} px`).toBeLessThan(fieldEnd);
 				expect(
 					last.y + last.height,
 					`the Services end below the field at ${width} px`,

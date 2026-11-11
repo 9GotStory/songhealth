@@ -13,7 +13,8 @@
 // one line, and shows no summary.
 //
 // From `sm` a card is 144 px high or more, so a card with a short name and no summary still starts
-// on the field: the grid's last row extends 110 px below it (src/pages/index.astro).
+// on the field: the grid's last row extends --field-overhang, 110 px, below it
+// (src/styles/global.css), and the card's least height must stay above that.
 //
 // Under the pointer the card turns brand-primary with surface-base text, and the tile accent-warm
 // with a brand-dark icon. The card's lift, the tile's turn and the growth of the circle in its
