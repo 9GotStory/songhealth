@@ -145,6 +145,10 @@ Type, Noto Sans Thai, as size / line height / weight in px:
 | `h2` | 34 / 46 / 600 | `label` | 14 / 22 / 500 |
 | `h3` | 24 / 34 / 600 | `small` | 13 / 20 / 400 |
 
+Two header styles scale with the window from 1,024 px and are utilities, not steps of the scale
+(§7.4): `header-title`, 16 to 18 px on a 24 px line, and `header-nav-item`, 15 to 16 px on a 26 px
+line. Below 640 px the site title is `body` at 700 on `label`'s 22 px line.
+
 Radii are named by their size in px: 14, 16, 18, 20, 22, 24, 26 and 32, and `pill` (999 px). Two
 shadows: `card`, `0 10px 15px rgb(13 46 36 / 0.08)`, and `header`, the sticky header's lower edge,
 a 1 px `border-default` hairline with `0 8px 24px -16px rgb(13 46 36 / 0.25)`. One container,
@@ -365,9 +369,10 @@ menu, screen-reader labels and identity roles it keeps:
 that ends in `arrow-up-right`; then, under a rule, the published policy pages and "ติดต่อเรา". The
 channels, the policy pages and their sources are as before (#62, `src/lib/basic-pages.ts`).
 
-The sizes above were measured with Chromium on the #240 branch's compiled stylesheet over the
-development runtime's `/news` and `/` at `cba17a4`, at 1,440, 1,280, 1,024, 1,023, 768, 640, 639,
-375 and 320 px (#240's pull request holds the script and its output). The public-shell suite
+The header's heights were read on the development runtime at `67340c9`, with the office's own
+name as the title and no tagline, from `scripts/capture-screenshots.mjs` close-ups of `header` on
+`/news` and `/` at 1,440, 1,280, 1,024, 1,023, 768, 640, 639, 375 and 320 px: 84 px from 640 px,
+68 px at 639 and 375 px, 86 px at 320 px. The public-shell suite
 checks the search link and the absent utility bar on two pages, the sticky header, the footer, the
 menu without JavaScript, both sides of 1,024 and 640 px, reflow at 375 and 320 px, keyboard order,
 the focus rings, axe, and the configured and fallback identities, restoring settings in `finally`.
@@ -545,7 +550,7 @@ static marketing content.
     under the header;
   - on the right, a 28 rem column, 48 px from the text, with the picture whole and
     "เปิดภาพขนาดเต็ม", a link to the file as it was uploaded;
-  - the picture is sticky 1.5 rem from the top: it stays in view while the left column scrolls and
+  - the picture is sticky 1.5 rem below the header (`--header-offset` plus 1.5 rem from the top, §7.4): it stays in view while the left column scrolls and
     stops at the end of the two columns. Anything full width, such as an Activity's photos, comes
     after them, so the picture never covers it.
 - **Below `lg`**, one column in the page's order: the header, the picture, then the body, source
@@ -608,7 +613,10 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   - the list is curated, so a compound it does not name can still break, and a new word needs a
     code change;
   - summaries still break inside words, such as "ออกกำลัง / กาย";
-  - a configured header title can occupy multiple lines; its space and type follow §7.4.
+  - a configured header title can occupy multiple lines; its space and type follow §7.4;
+  - `--header-offset` is a fixed 88 or 84 px (§3.1), so under a header made taller than that by a
+    long configured title or a tagline below 640 px, what focus scrolls to can sit partly under the
+    header (#240).
 - **A compact Quick Link card's height** grows with its label (§7.3), the taller proportions
   accepted with Quick Access B (#190 comment 6707205912).
 - **The phone Homepage's height** moves with the titles and the number of items (§8.2).

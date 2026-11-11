@@ -174,7 +174,8 @@ export async function expectNoAxeViolations(page: Page, label: string): Promise<
 		);
 	}
 	// From the top of the page, where the sticky header covers nothing: scrolled, it can lie over
-	// part of a control, and axe's target-size then measures only what is left of it (#240).
+	// part of a control, and axe's target-size then measures the largest part of the control left
+	// uncovered (axe-core 4.14.0 axe.js targetSizeEvaluate, getLargestUnobscuredArea; #240).
 	await page.evaluate(() => window.scrollTo(0, 0));
 	// A rule enabled by name runs beside a tag selection (axe-core 4.14.0 axe.js ruleShouldRun).
 	const results = await new AxeBuilder({ page })

@@ -41,7 +41,7 @@ import {
 	tokenColor,
 } from "./public.helpers";
 
-/** The office's official name, which the utility bar showed until #240 removed the bar. */
+/** The office's official name, which no part of the shell shows. */
 const OFFICE_NAME = "สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่";
 
 /** The footer's line under the site title (spec #239 "Footer (every page)"). */
@@ -49,6 +49,9 @@ const FOOTER_AFFILIATION = "จังหวัดแพร่ · กระทร
 
 /** The header's identity, the logo and the site title: its first link to the Homepage. */
 const IDENTITY_LINK = 'a[href="/"]';
+
+/** The page container's side gutter from 640 px, the wider of its two, in px. */
+const WIDEST_GUTTER = 24;
 
 /** An inner page, which carries the same shell as the Homepage. */
 const INNER_PAGE = "/news";
@@ -127,7 +130,7 @@ test("the Homepage and an inner page carry the shell: the search link, the main 
 	).toHaveCount(0);
 });
 
-test("the footer shows the site title, the official channels, the policy pages and the contact link", async ({
+test("the footer shows the site title, the official channels and its page links, ending in the contact link", async ({
 	page,
 }) => {
 	for (const path of ["/", INNER_PAGE]) {
@@ -204,8 +207,6 @@ test("below 1024 px one 48 px icon-only menu button opens the same items as full
 		const control = page.locator("summary").filter({ hasText: "เปิดเมนู" });
 		await expect(control).toBeVisible();
 		const box = await control.boundingBox();
-		expect(box?.width).toBe(48);
-		expect(box?.height).toBe(48);
 		const label = control.getByText("เปิดเมนู", { exact: true });
 		const labelBox = await label.boundingBox();
 		expect(labelBox?.width, "the accessible label is visually clipped").toBe(1);
@@ -214,6 +215,8 @@ test("below 1024 px one 48 px icon-only menu button opens the same items as full
 		await expect(control.locator("svg").nth(0)).toBeVisible();
 		await expect(control.locator("svg").nth(1)).toBeHidden();
 		await expect(control.locator("..")).not.toHaveAttribute("open");
+		expect(box?.width, `the menu button at ${width} px`).toBe(48);
+		expect(box?.height).toBe(48);
 		await control.focus();
 		await page.keyboard.press("Enter");
 		const close = page.locator("summary").filter({ hasText: "ปิดเมนู" });
@@ -230,7 +233,7 @@ test("below 1024 px one 48 px icon-only menu button opens the same items as full
 			const row = await boxOf(link, `a menu row at ${width} px`);
 			expect(row.y, "each row sits below the one before it").toBeGreaterThanOrEqual(above);
 			expect(row.width, `a row spans the panel at ${width} px`).toBeGreaterThanOrEqual(
-				panel.width - 2 * 24,
+				panel.width - 2 * WIDEST_GUTTER,
 			);
 			above = row.y + row.height;
 		}
@@ -700,6 +703,16 @@ test.describe("site identity from the native site settings", () => {
 				await page.setViewportSize({ width, height: 900 });
 				await page.goto("/");
 				await expect(fallback).toBeVisible();
+				if (width === 320) {
+					const name = fallback.getByText(DEFAULT_SITE_TITLE, { exact: true });
+					const lineHeight = await name.evaluate((span) =>
+						Number.parseFloat(getComputedStyle(span).lineHeight),
+					);
+					expect(
+						(await name.boundingBox())!.height,
+						"the office's own name wraps at 320 px",
+					).toBeGreaterThan(lineHeight);
+				}
 				await expectNoHorizontalScroll(page, `fallback identity at ${width} px`);
 			}
 
