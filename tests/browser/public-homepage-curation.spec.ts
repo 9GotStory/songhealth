@@ -865,7 +865,7 @@ test("from 640 px the Services' lower part lies below the deep field and clear o
 	});
 });
 
-test("on hover a Service card turns brand green with white text, and its icon tile accent-warm, and its focus ring is brand green at rest and accent-warm under the pointer", async ({
+test("on hover a Service card turns brand green with white text, and its icon tile accent-warm, its focus ring is brand green at rest and accent-warm under the pointer, and it opens from its lower edge while it is raised", async ({
 	page,
 }) => {
 	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปบริการที่ชี้อยู่`;
@@ -899,6 +899,18 @@ test("on hover a Service card turns brand green with white text, and its icon ti
 		const tile = card.getByTestId("service-icon");
 		await expect(tile).toHaveCSS("background-color", await tokenColor(page, "accent-warm"));
 		await expect(tile).toHaveCSS("color", await tokenColor(page, "brand-dark"));
+		// The card rises 8 px under the pointer, and a press on the part it left, just above the
+		// card's resting lower edge, still opens the Service.
+		const place = await boxOf(card, "the card's place");
+		const edge = { x: place.x + place.width / 2, y: place.y + place.height - 3 };
+		await page.mouse.move(edge.x, edge.y);
+		await expect
+			.poll(async () => (await boxOf(surface, "the card's surface")).y, {
+				message: "the card under the pointer has risen 8 px",
+			})
+			.toBeCloseTo(place.y - 8, 0);
+		await page.mouse.click(edge.x, edge.y);
+		await expect(page).toHaveURL(`/services/${service.slug}`);
 	});
 });
 
