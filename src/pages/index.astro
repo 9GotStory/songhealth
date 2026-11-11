@@ -76,7 +76,12 @@ import {
 } from "../lib/announcements";
 import { HEALTH_CONTENT_PATH, HEALTH_CONTENT_TITLE } from "../lib/health";
 import { healthContentPath, latestHealthContent } from "../lib/health-content";
-import { FILTER_LABELS, FILTER_PARAMS, directoryPath } from "../lib/health-service-directory";
+import {
+	DIRECTORY_TITLE,
+	FILTER_LABELS,
+	FILTER_PARAMS,
+	directoryPath,
+} from "../lib/health-service-directory";
 import { directoryOverview } from "../lib/health-services";
 import { readHomepageCuration } from "../lib/homepage-curation";
 import { latestNews, newsPath } from "../lib/news";
@@ -280,7 +285,7 @@ const control =
 				<SectionHeading
 					onDark
 					id="home-discovery"
-					label="หน่วยบริการ"
+					label={DIRECTORY_TITLE}
 					title="ค้นหาหน่วยบริการสุขภาพในอำเภอสอง"
 				>
 					<Hospital slot="icon" class="shrink-0" size={24} />

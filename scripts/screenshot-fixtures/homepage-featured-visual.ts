@@ -1,6 +1,7 @@
-// Screenshot content for the Featured hero without a picture (#65): a current Announcement as the
-// Featured item, which shows the start of its details and the frame's visual with its caption
-// (Product Owner, 2026-10-31: #65 comment 6538358352). Captures / as home-featured-visual.
+// Screenshot content for the Featured card without a picture (#65; Feature 008 #241, spec #239
+// "Hero and Featured"): a current Announcement as the Featured item, which shows the plain visual
+// in the card's frame and "เรื่องเด่น" with its announcement date. Captures / as
+// home-featured-visual.
 
 import type { Fixtures } from "../capture-with-fixtures.ts";
 
