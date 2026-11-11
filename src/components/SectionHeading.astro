@@ -10,9 +10,12 @@
 // comment 6791096480, item 1); a text link keeps chevron-right (ArrowLink.astro).
 //
 // The icon comes through the `icon` slot, a Lucide icon at 24 px, and is decorative: the tile is
-// hidden from assistive technology. On a dark surface the tile and the label are accent-warm, the
-// H2 is surface-base, and the link takes the focus ring for dark surfaces
-// (src/styles/global.css focus-ring-on-dark).
+// hidden from assistive technology. On a dark surface the tile is accent-warm, the H2 is
+// surface-base, and the link takes the focus ring for dark surfaces (src/styles/global.css
+// focus-ring-on-dark). The label is accent-warm on brand-dark (7.75:1) and surface-base on the
+// deep field, where the field is as light as brand-primary under it and accent-warm, 4.10:1 there,
+// is below the 4.5:1 its small text needs (measured at 3.93:1 at 320 px with nothing Featured,
+// scripts/measure-text-contrast.ts, #242).
 import ArrowRight from "@lucide/astro/icons/arrow-right";
 import ThaiTitle from "./ThaiTitle.astro";
 
@@ -24,11 +27,18 @@ interface Props {
 	title: string;
 	/** The address of the section's own list. */
 	href?: string;
-	/** The section is brand-dark or the deep field. */
-	onDark?: boolean;
+	/** The dark surface the section is on: brand-dark, or the Homepage's deep field. */
+	surface?: "dark" | "field";
 }
 
-const { id, label, title, href, onDark = false } = Astro.props;
+const { id, label, title, href, surface } = Astro.props;
+const onDark = surface !== undefined;
+/** The label's colour, which keeps 4.5:1 on its surface. */
+const labelColor = {
+	light: "text-brand-primary",
+	dark: "text-accent-warm",
+	field: "text-surface-base",
+}[surface ?? "light"];
 ---
 
 <div class="flex items-center justify-between gap-4 sm:items-end sm:gap-6">
@@ -49,7 +59,7 @@ const { id, label, title, href, onDark = false } = Astro.props;
 				class:list={[
 					"mb-1.5 text-label font-semibold tracking-[0.02em]",
 					"before:mr-2.5 before:opacity-55 before:content-['/'] after:ml-2.5 after:opacity-55 after:content-['/']",
-					onDark ? "text-accent-warm" : "text-brand-primary",
+					labelColor,
 				]}
 			>
 				{label}
