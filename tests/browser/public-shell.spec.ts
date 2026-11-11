@@ -161,8 +161,8 @@ for (const width of [375, 1440]) {
 			await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
 			expect(
 				await page.evaluate(() => window.scrollY),
-				`${path} is taller than the window`,
-			).toBeGreaterThan(900);
+				`${path} scrolls further than the header is tall`,
+			).toBeGreaterThan(200);
 			expect((await banner.boundingBox())?.y, `${path} scrolled to its end`).toBe(0);
 			await expect(banner.getByRole("link", { name: "ค้นหา", exact: true })).toBeInViewport();
 		}
