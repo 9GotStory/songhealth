@@ -594,10 +594,11 @@ hero on the same deep field, under the section heading with its "ทั้งห
 
 - **The grid** holds up to 6 cards: three to a row from `lg`, two from `sm` and one below `sm`,
   20 px apart (12 px below `sm`). Four Services go two to a row from `lg` too, so no cell is empty.
-- **From `sm` the grid's lower 110 px lie below the field**, on the page, and the field leaves
-  that room under it, so the next section starts below the cards. Below `sm` the cards end inside
-  the field, 40 px above its edge. With no Service the section is left out and the field ends
-  under the hero.
+- **From `sm` the grid's lower 110 px lie below the field** (`--field-overhang`), on the page, and
+  the field leaves that room under it, so the next section starts below the cards. A card is
+  144 px high or more there, so the last row starts on the field, with one row as with two. Below
+  `sm` the cards end inside the field, 40 px above its edge. With no Service the section is left
+  out and the field ends under the hero, with no room left under it.
 - **A card** is white, radius 22, with the `deep` shadow and 24 px of padding (16 px below `sm`).
   It holds the Service icon, `hand-heart`, in a `surface-soft` tile of 56 px (48 px below `sm`),
   the name as an H3 at 18 / 30 semibold, the summary at 14 / 22 in `text-secondary`, clamped to
@@ -606,16 +607,14 @@ hero on the same deep field, under the section heading with its "ทั้งห
 - **One link** named by the Service's name covers the card, as on the shared cards (§7.3).
 - **Under the pointer** the card and its circle turn `brand-primary`, its name, summary and arrow
   `surface-base`, and its tile `accent-warm` with a `brand-dark` icon. Without a reduced-motion
-  preference the card also rises 8 px, the tile turns, and the circle grows.
+  preference the card also rises 8 px inside its place, the tile turns, and the circle grows.
 - **The focus ring** lies inside the card's edge, because from `sm` the card lies partly on the
   field and partly on the page: `brand-primary` on the white card, and `accent-warm` while the
   card is `brand-primary` under the pointer.
 - **The heading's label is `surface-base`**: under it the field is about as light as
-  `brand-primary`, where `accent-warm` is 4.10:1 (§3.2), below the 4.5:1 its small text needs.
-  `scripts/measure-text-contrast.ts` read the `accent-warm` label at 3.93:1 at its lowest (320 px,
-  nothing Featured) on the runtime at `3fab2d1`, and the `surface-base` label at 6.19:1 at its
-  lowest on the runtime at `75e1765`, each at 1,440, 1,024, 768, 375 and 320 px, with a Featured
-  card and without one.
+  `brand-primary`, where `accent-warm` would be 4.10:1 (§3.2), below the 4.5:1 its small text
+  needs. `scripts/measure-text-contrast.ts` read the label at 6.19:1 at its lowest on the runtime
+  at `75e1765`, at 1,440, 1,024, 768, 375 and 320 px, with a Featured card and without one.
 
 ## 9. Post pages: News, Activity and Health Content
 
