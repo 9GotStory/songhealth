@@ -4,7 +4,7 @@
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > ticket by ticket from #240, and awaits the Product Owner's acceptance on #239.
-> **Updated:** 2026-11-11 (Feature 008 #241); first drafted 2026-10-30
+> **Updated:** 2026-11-11 (Feature 008 #242); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -114,7 +114,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the News card, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, and a section heading's label and icon tile |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, and a Service card's tile under the pointer |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -250,7 +250,7 @@ own module.
   `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). On the Homepage, a round
   button, a section heading's link and a card take `arrow-right` instead (Product Owner,
   2026-11-11: #241 comment 6791096480, item 1): 16 px in the heading's link, 20 px in the search's
-  submit button and on the Featured card. The hero's search field opens with a 20 px `search`
+  submit button, on the Featured card and on a Homepage Service card. The hero's search field opens with a 20 px `search`
   icon, and a section heading's tile and the plain visual's tile hold a 24 px icon. Every Service card shows
   the one Service icon, `hand-heart`.
 - **Accessibility:** an icon is decorative. Lucide hides it from assistive technology, the text
@@ -314,7 +314,7 @@ this document names:
 ### 7.3 Cards and their pictures
 
 - **Whole-card navigation** (#193; Product Owner, #190 comment 6707205912): each shared
-  ContentCard (News, Health News and Health Content lists), ServiceCard (catalog and Homepage)
+  ContentCard (News, Health News and Health Content lists), ServiceCard (the catalog)
   and ActivityCard (list and Homepage) has one native link named by its title alone. The
   picture/fallback, icon, metadata, summary and padding all open its original destination.
   H2 titles on lists and H3 under Homepage sections name a full-surface native link through
@@ -323,7 +323,8 @@ this document names:
 - **Interaction:** hover adds a 2 px `brand-primary` ring without moving/resizing the card and
   makes its title green and underlined. The resting border/shadow remains; keyboard focus uses
   the global 3 px outline around the whole card. The Homepage's separately composed News and
-  Health Information cards, and multi-action cards, keep their own interactions.
+  Health Information cards, its Service cards (§8.4), and multi-action cards, keep their own
+  interactions.
 - **Crops:** an Activity card crops its picture to 16:9 (`ActivityCard.astro`), and a News or
   Health Content card in a list to 16:10 (`ContentCard.astro`); the Homepage's News and Health
   Information cards show no picture. Both crops centre on the middle, or around the focal point
@@ -333,18 +334,16 @@ this document names:
 - Without a picture, or when its media item was deleted, a card shows a plain visual that keeps
   the grid even.
 - **Compact cards**, the Homepage's below 640 px (§8.2):
-  - their side padding is 12 px, a measured fit: a Service card keeps 112 px for a title at
-    320 px, and "ความดันโลหิตสูง" is 107 px at body size, semibold;
-  - the title is at body size, semibold, and the Service and Health Content cards leave out their
-    summary;
-  - a Service card's icon box is 36 px;
+  - their side padding is 12 px, a measured fit: a card keeps 112 px for a title at 320 px, and
+    "ความดันโลหิตสูง" is 107 px at body size, semibold;
+  - the title is at body size, semibold, and the Health Content cards leave out their summary;
   - a Quick Link card's label lies across the card's content width, and its 24 px arrow on a row
     of its own at the lower right, at least 8 px below the label. The card grows with its label,
     with no one fixed height, and the cards of a row share one height. One line of label makes it
     84 px tall (a 26 px line, the 8 px gap, the arrow, 24 px of padding and a 2 px border), the
     taller proportions the Product Owner accepted (#190 comment 6707205912, Quick Access B).
-  - `compact` is a prop only the Homepage passes: the Service catalog, `/about`, `/health`, `/ita`
-    and the Activities list keep the full cards.
+  - `compact` is a prop only the Homepage passes: `/about`, `/health`, `/ita` and the Activities
+    list keep the full cards.
 
 ### 7.4 Header and navigation
 
@@ -476,21 +475,24 @@ order:
 
 Each section between the hero and the Contact Summary opens with `SectionHeading` (spec #239
 "Section headings"): an icon tile (72 px, 52 px below `sm`; a `brand-primary` to `brand-dark`
-gradient with an `accent-warm` icon, or `accent-warm` with a `brand-dark` icon on a dark band), a
-label between slashes, and the H2. Frequently Used Services, Health Information and Activities
+gradient with an `accent-warm` icon, or `accent-warm` with a `brand-dark` icon on a dark surface),
+a label between slashes, and the H2. The label is `brand-primary`, `accent-warm` on `brand-dark`,
+and `surface-base` on the deep field (§8.4). Frequently Used Services, Health Information and Activities
 are named as their lists are ("บริการประชาชน", "ความรู้สุขภาพ", "กิจกรรม"), and their heading holds
 a pill link to that list that reads "ทั้งหมด", named "ดู…ทั้งหมด" with the section's name; below `sm`
 it is a round 44 px arrow button with the same name. A heading has no lead; the News and
 Announcements, Health Service Discovery and Quick Access sections take the heading now and keep
 their titles until their own tickets (#241 comment 6791096480, item 4).
 
-From `lg`, Frequently Used Services show 3 to a row, Health Information 4, Activities 3 and Quick
-Access 4. Below `lg` each shows 2 to a row, 12 px apart below `sm` and 24 px from `sm`.
+From `lg`, Health Information shows 4 to a row, Activities 3 and Quick Access 4. Below `lg` each
+shows 2 to a row, 12 px apart below `sm` and 24 px from `sm`. The Frequently Used Services have
+their own grid (§8.4).
 
 ### 8.1 Hero and Featured
 
-The hero (`HomeHero`; spec #239 "Hero and Featured") opens the page on the deep green field,
-whose lower corners are radius 32 (24 below `sm`):
+The hero (`HomeHero`; spec #239 "Hero and Featured") opens the page on the deep green field
+(`HomeDeepField`), which it shares with the Frequently Used Services (§8.4) and whose lower
+corners are radius 32 (24 below `sm`):
 
 - **The chip** reads "เว็บไซต์ทางการ · กระทรวงสาธารณสุข".
 - **The headline** is the office summary sentence, with "ด้านสุขภาพ" in `accent-warm`, in
@@ -524,16 +526,16 @@ whose lower corners are radius 32 (24 below `sm`):
 Below 640 px the Homepage is shorter, with every section kept in its order (Product Owner: "โอเค
 เฉพาะหน้าแรก"; `04` §15). From `sm` it is as before, except that tablets show 4 Activities.
 
-- Each section has 32 px of space above and below it.
+- Each section after the deep field has 32 px of space above and below it.
 - The Contact Summary's lead and the map stand-in are hidden.
-- The Frequently Used Services, Health Information, Activities and Quick Access go two to a row,
-  12 px apart, in compact cards (§7.3).
+- Health Information, Activities and Quick Access go two to a row, 12 px apart, in compact cards
+  (§7.3). The Frequently Used Services go one to a row (§8.4).
 - The News card's summary is clamped to three lines.
 - Phones and tablets show the latest 4 Activities, two by two; a desktop row shows 3.
 
 The Homepage's height with the demo dataset, measured on 2026-11-11 at the application code of
-`feat/008-241-hero-featured` `d58f70f` with `scripts/capture-screenshots.mjs`: 5,087 px at
-1,440 px, 5,552 px at 375 px and 6,149 px at 320 px.
+`feat/008-242-services-cards` `75e1765` with `scripts/capture-screenshots.mjs`: 4,825 px at
+1,440 px, 5,696 px at 375 px and 6,301 px at 320 px.
 
 The Product Owner accepted the phone Homepage at 5,771 px at 375 px with the prototype's data, in
 place of the grill's target of about 5,000 px (spec #144). The height moves with the titles and the
@@ -584,6 +586,36 @@ authorization and the matching updates to the higher-priority product and IA doc
 
 The search field and the Featured text represent real product journeys, not a second search or
 static marketing content.
+
+### 8.4 Frequently Used Services
+
+The Frequently Used Services (`HomeServiceCard`; spec #239 "Frequently Used Services") follow the
+hero on the same deep field, under the section heading with its "ทั้งหมด" link in the dark form:
+
+- **The grid** holds up to 6 cards: three to a row from `lg`, two from `sm` and one below `sm`,
+  20 px apart (12 px below `sm`). Four Services go two to a row from `lg` too, so no cell is empty.
+- **From `sm` the grid's lower 110 px lie below the field**, on the page, and the field leaves
+  that room under it, so the next section starts below the cards. Below `sm` the cards end inside
+  the field, 40 px above its edge. With no Service the section is left out and the field ends
+  under the hero.
+- **A card** is white, radius 22, with the `deep` shadow and 24 px of padding (16 px below `sm`).
+  It holds the Service icon, `hand-heart`, in a `surface-soft` tile of 56 px (48 px below `sm`),
+  the name as an H3 at 18 / 30 semibold, the summary at 14 / 22 in `text-secondary`, clamped to
+  three lines and hidden below `sm`, and a 20 px `arrow-right`. A `surface-soft` circle shows in
+  its lower right corner. The Service catalog keeps `ServiceCard` (§7.3).
+- **One link** named by the Service's name covers the card, as on the shared cards (§7.3).
+- **Under the pointer** the card and its circle turn `brand-primary`, its name, summary and arrow
+  `surface-base`, and its tile `accent-warm` with a `brand-dark` icon. Without a reduced-motion
+  preference the card also rises 8 px, the tile turns, and the circle grows.
+- **The focus ring** lies inside the card's edge, because from `sm` the card lies partly on the
+  field and partly on the page: `brand-primary` on the white card, and `accent-warm` while the
+  card is `brand-primary` under the pointer.
+- **The heading's label is `surface-base`**: under it the field is about as light as
+  `brand-primary`, where `accent-warm` is 4.10:1 (§3.2), below the 4.5:1 its small text needs.
+  `scripts/measure-text-contrast.ts` read the `accent-warm` label at 3.93:1 at its lowest (320 px,
+  nothing Featured) on the runtime at `3fab2d1`, and the `surface-base` label at 6.19:1 at its
+  lowest on the runtime at `75e1765`, each at 1,440, 1,024, 768, 375 and 320 px, with a Featured
+  card and without one.
 
 ## 9. Post pages: News, Activity and Health Content
 
@@ -808,3 +840,11 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   card beside the headline from 640 px, the larger headline's sizes, the heading on every section).
   Which item is Featured, its address, and what each
   section lists remain.
+- **v1.2 Homepage Services (2026-11-11, Feature 008 #242):** the Frequently Used Services as white
+  cards on the hero's deep field (§8.4): three, two and one to a row, four as two to a row, the
+  grid's lower part below the field from 640 px, and a card that turns `brand-primary` under the
+  pointer. They replace the shared Service card on a white section, two to a row below 640 px in
+  its compact form, which §7.3 and §8.2 no longer list; the Service catalog's card is unchanged.
+  The section heading's label is `surface-base` on the deep field. Authority: spec #239
+  "Frequently Used Services" and the notes on #242. Which Services show, their order and their
+  addresses remain.

@@ -16,13 +16,15 @@
 // harness. Its fixtures are a synthetic Health Content item, Service and Activity made through the
 // native API and removed afterwards, and each leads its Homepage section: the Health Content item
 // is published last, the Activity is held in 2035, and the Service is the one item of the
-// Frequently Used Services menu while its test runs. Below 640 px all three go two to a row in
-// their compact form, with 112 px or more for a title at 320 px, and on a desktop Health
-// Information's go four to a row: no card heading has less room (Feature 006 #146; #146 comment
-// 6625101174). A compact Quick Link label has that room too, above its arrow (Feature 007
-// #194), and public-homepage-curation.spec.ts checks the widest listed words there. The card tests
-// sweep the viewport from 320 to 1440 px rather than trying one width, so they meet the widths at
-// which a line would end inside a word, whatever the card's padding and type size.
+// Frequently Used Services menu while its test runs. Below 640 px the Health Content and Activity
+// cards go two to a row in their compact form, with 112 px or more for a title at 320 px, and on a
+// desktop Health Information's go four to a row: no card heading of theirs has less room (Feature
+// 006 #146; #146 comment 6625101174). A Service card holds its name beside its icon tile and its
+// arrow, with the least room where two go to a row, at 640 px (Feature 008 #242). A compact Quick
+// Link label has that room too, above its arrow (Feature 007 #194), and
+// public-homepage-curation.spec.ts checks the widest listed words there. The card tests sweep the
+// viewport from 320 to 1440 px rather than trying one width, so they meet the widths at which a
+// line would end inside a word, whatever the card's padding and type size.
 
 import type { Page } from "@playwright/test";
 
