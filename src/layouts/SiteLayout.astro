@@ -115,8 +115,12 @@ const navigation = MAIN_NAVIGATION.map((item) => ({
 	...item,
 	current: currentMark(item, section, pathname),
 }));
-// The open menu's height below `lg`: a 56 px row and its 1 px separator for each item, and the
-// panel's 16 px of padding. The page's scroll padding adds it while the menu is open.
+/** A navigation item's look in both placements: the current one a soft green pill. */
+const itemState = (current: string | undefined) =>
+	current ? "bg-surface-soft font-semibold text-brand-primary" : "font-medium";
+// The open menu's height below `lg`: 57 px for each item and 16 px of padding. An item is a 56 px
+// row, and each of the panel's 1 px lines, its top border and the separators between rows, makes
+// one line for each item. The page's scroll padding adds this height while the menu is open.
 const menuHeight = `calc(${navigation.length} * 3.5625rem + 1rem)`;
 ---
 
@@ -161,9 +165,7 @@ const menuHeight = `calc(${navigation.length} * 3.5625rem + 1rem)`;
 									aria-current={item.current}
 									class:list={[
 										"block rounded-pill py-2 header-nav-item hover:bg-surface-soft hover:text-brand-primary",
-										item.current
-											? "bg-surface-soft font-semibold text-brand-primary"
-											: "font-medium",
+										itemState(item.current),
 									]}
 								>
 									{item.label}
@@ -200,9 +202,7 @@ const menuHeight = `calc(${navigation.length} * 3.5625rem + 1rem)`;
 									aria-current={item.current}
 									class:list={[
 										"flex min-h-14 items-center justify-between gap-3 rounded-14 px-3 text-body-large hover:bg-surface-soft hover:text-brand-primary",
-										item.current
-											? "bg-surface-soft font-semibold text-brand-primary"
-											: "font-medium",
+										itemState(item.current),
 									]}
 								>
 									{item.label}
