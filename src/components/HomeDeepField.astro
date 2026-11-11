@@ -12,10 +12,10 @@
 // because the Services extend below it.
 //
 // `extended` leaves room under the field, from `sm`, for the part of its last section that extends
-// below it, 110 px, so what follows the field is not covered.
+// below it, --field-overhang (src/styles/global.css), so what follows the field is not covered.
 
 interface Props {
-	/** The field's last section extends 110 px below it from `sm`. */
+	/** The field's last section extends --field-overhang below it from `sm`. */
 	extended?: boolean;
 }
 
@@ -26,7 +26,7 @@ const { extended = false } = Astro.props;
 	data-testid="deep-field"
 	class:list={[
 		"deep-field focus-ring-on-dark relative overflow-x-clip rounded-b-24 text-surface-base sm:rounded-b-32",
-		extended && "sm:mb-27.5",
+		extended && "sm:mb-(--field-overhang)",
 	]}
 >
 	<div

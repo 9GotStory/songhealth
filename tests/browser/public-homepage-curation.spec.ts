@@ -755,6 +755,17 @@ test("the Frequently Used Services go three to a row from 1,024 px, two from 640
 					frequent.getByText(summary).first(),
 					`a Service's summary at ${width} px`,
 				).toBeVisible();
+				// The last row straddles the field's lower edge, with one row as with two.
+				const field = await boxOf(deepField(page), `the deep field at ${width} px`);
+				const last = await boxOf(cards.last(), `the last of ${count} Services at ${width} px`);
+				expect(
+					last.y,
+					`the last row of ${count} Services starts on the field at ${width} px`,
+				).toBeLessThan(field.y + field.height);
+				expect(
+					last.y + last.height,
+					`the last row of ${count} Services ends below the field at ${width} px`,
+				).toBeGreaterThan(field.y + field.height);
 			}
 			for (const width of [639, 320]) {
 				await page.setViewportSize({ width, height: 900 });
@@ -785,12 +796,19 @@ test("from 640 px the Services' lower part lies below the deep field and clear o
 	const nextHeading = homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("heading", {
 		level: 2,
 	});
-	/** Where the field ends, and where the next section's heading starts, at `width`. */
+	/**
+	 * Where the field ends, where the next section starts, and where that section's heading starts,
+	 * at `width`.
+	 */
 	const edges = async (width: number) => {
 		await page.setViewportSize({ width, height: 900 });
 		const field = await boxOf(deepField(page), `the deep field at ${width} px`);
+		const section = await boxOf(
+			homepageSection(page, HOMEPAGE_HEADINGS.news),
+			`the next section at ${width} px`,
+		);
 		const next = await boxOf(nextHeading, `the next section's heading at ${width} px`);
-		return { fieldEnd: field.y + field.height, nextStart: next.y };
+		return { fieldEnd: field.y + field.height, sectionStart: section.y, nextStart: next.y };
 	};
 	await withHomepageMenus(
 		admin,
@@ -813,16 +831,16 @@ test("from 640 px the Services' lower part lies below the deep field and clear o
 				).toBeGreaterThanOrEqual(last.y + last.height);
 			}
 			for (const width of [639, 320]) {
-				const { fieldEnd, nextStart } = await edges(width);
+				const { fieldEnd, sectionStart } = await edges(width);
 				const last = await boxOf(cards.last(), `the last Service at ${width} px`);
 				expect(
 					last.y + last.height,
 					`the Services end inside the field at ${width} px`,
 				).toBeLessThanOrEqual(fieldEnd);
 				expect(
-					nextStart,
-					`the next section's heading starts below the field at ${width} px`,
-				).toBeGreaterThanOrEqual(fieldEnd);
+					sectionStart,
+					`the next section starts where the field ends at ${width} px`,
+				).toBeCloseTo(fieldEnd, 0);
 			}
 		},
 	);
@@ -830,21 +848,22 @@ test("from 640 px the Services' lower part lies below the deep field and clear o
 		await page.goto("/");
 		await expect(frequent).toHaveCount(0);
 		for (const width of [1440, 640, 639]) {
-			const { fieldEnd, nextStart } = await edges(width);
+			const { fieldEnd, sectionStart } = await edges(width);
 			const hero = await boxOf(homepageSection(page, HOMEPAGE_HEADLINE), `the hero at ${width} px`);
 			expect(fieldEnd, `the field ends under the hero at ${width} px`).toBeCloseTo(
 				hero.y + hero.height,
 				0,
 			);
+			// No room is left under the field for Services that do not show.
 			expect(
-				nextStart,
-				`the next section's heading starts below the field at ${width} px`,
-			).toBeGreaterThanOrEqual(fieldEnd);
+				sectionStart,
+				`the next section starts where the field ends at ${width} px`,
+			).toBeCloseTo(fieldEnd, 0);
 		}
 	});
 });
 
-test("on hover a Service card turns brand green with white text, and its icon tile accent-warm", async ({
+test("on hover a Service card turns brand green with white text, and its icon tile accent-warm, and its focus ring is brand green at rest and accent-warm under the pointer", async ({
 	page,
 }) => {
 	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปบริการที่ชี้อยู่`;
@@ -853,13 +872,25 @@ test("on hover a Service card turns brand green with white text, and its icon ti
 	await withHomepageMenus(admin, { services: [pickedMenuItem("services", service)] }, async () => {
 		await page.goto("/");
 		const card = homepageSection(page, HOMEPAGE_HEADINGS.services).getByRole("article");
+		// The card's white surface, a box with no role of its own.
+		const surface = card.getByTestId("service-surface");
+		const link = card.getByRole("link", { name: service.title });
 		const white = await tokenColor(page, "surface-base");
+		const green = await tokenColor(page, "brand-primary");
 		await expect(card.getByRole("heading", { level: 3 })).toHaveText(service.title);
-		await expect(card, "the card at rest").toHaveCSS("background-color", white);
-		await card.getByRole("link", { name: service.title }).hover();
-		await expect(card, "the card under the pointer").toHaveCSS(
-			"background-color",
-			await tokenColor(page, "brand-primary"),
+		await expect(surface, "the card at rest").toHaveCSS("background-color", white);
+		// The heading's link comes just before the card in the keyboard's order.
+		await page
+			.getByRole("link", { name: `ดู${HOMEPAGE_HEADINGS.services}ทั้งหมด`, exact: true })
+			.focus();
+		await page.keyboard.press("Tab");
+		await expect(link).toBeFocused();
+		await expect(link, "the focus ring at rest").toHaveCSS("outline-color", green);
+		await link.hover();
+		await expect(surface, "the card under the pointer").toHaveCSS("background-color", green);
+		await expect(link, "the focus ring under the pointer").toHaveCSS(
+			"outline-color",
+			await tokenColor(page, "accent-warm"),
 		);
 		await expect(card.getByRole("heading", { level: 3 })).toHaveCSS("color", white);
 		await expect(card.getByText(summary)).toHaveCSS("color", white);

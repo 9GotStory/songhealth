@@ -23,7 +23,8 @@
 	 * and the eyebrow on the brand-dark Health Service Discovery section (Figma frame §8) and on the
 	 * MOIT page's brand-dark header band, with the MOIT's number (#123, ITA prototype variant C). On
 	 * the Homepage's deep field (spec #239): the words the hero's headline marks, the search's submit
-	 * button, the sheet behind the Featured card, and a section heading's icon tile.
+	 * button, the sheet behind the Featured card, a section heading's icon tile, and a Service card's
+	 * tile under the pointer.
 	 */
 	--color-accent-warm: #f3c95f;
 	--color-text-primary: #16211d;
@@ -132,11 +133,14 @@
 	/*
 	 * Side gutter of the page container: 16 px on phones, 24 px from `sm` up. The room the sticky
 	 * header takes at the top of the window: 88 px below `sm`, where the site title can wrap to three
-	 * lines (86 px at 320 px), and its 84 px row from `sm` (spec #239 "Header (every page)").
+	 * lines (86 px at 320 px), and its 84 px row from `sm` (spec #239 "Header (every page)"). How
+	 * far the Homepage's Frequently Used Services extend below the deep field from `sm`, which is
+	 * also the room the field leaves under it: 110 px (spec #239 "Frequently Used Services").
 	 */
 	:root {
 		--page-gutter: 1rem;
 		--header-offset: 5.5rem;
+		--field-overhang: 6.875rem;
 	}
 
 	@media (width >= 40rem) {
