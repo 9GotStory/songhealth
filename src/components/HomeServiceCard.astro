@@ -14,7 +14,8 @@
 //
 // From `sm` a card is 144 px high or more, so a card with a short name and no summary still starts
 // on the field: the grid's last row extends --field-overhang, 110 px, below it
-// (src/styles/global.css), and the card's least height must stay above that.
+// (src/styles/global.css), and the card's least height must stay above that (Product Owner,
+// 2026-11-11: #242 comment 6797113372, item 3).
 //
 // Under the pointer the card turns brand-primary with surface-base text, and the tile accent-warm
 // with a brand-dark icon. The card's lift, the tile's turn and the growth of the circle in its
@@ -24,7 +25,8 @@
 //
 // The focus ring lies inside the card's edge: from `sm` the card's lower part lies on the page
 // below the deep field, and a ring around the card would need to show on both. It is brand-primary
-// on the white card, and accent-warm while the card is brand-primary under the pointer.
+// on the white card, and accent-warm while the card is brand-primary under the pointer
+// (Product Owner, 2026-11-11: #242 comment 6797113372, item 2).
 import ArrowRight from "@lucide/astro/icons/arrow-right";
 import HandHeart from "@lucide/astro/icons/hand-heart";
 import { servicePath } from "../lib/service-catalog";

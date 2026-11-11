@@ -845,5 +845,6 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   pointer. They replace the shared Service card on a white section, two to a row below 640 px in
   its compact form, which §7.3 and §8.2 no longer list; the Service catalog's card is unchanged.
   The section heading's label is `surface-base` on the deep field. Authority: spec #239
-  "Frequently Used Services" and the notes on #242. Which Services show, their order and their
+  "Frequently Used Services", the notes on #242, and #242 comment 6797113372 (the white label, the
+  focus ring inside the card, a card of 144 px or more). Which Services show, their order and their
   addresses remain.
