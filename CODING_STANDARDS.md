@@ -58,7 +58,8 @@ and why, and `.jscpd-baseline.json` records them.
   (`docs/agents/lucide-astro-1.59.0.md`). Its size follows its role (Product Owner, 2026-10-31:
   #105 comment 6536890963): 16 px for a direction icon beside label or small text, 20 px for an
   icon that shows the action itself at the start of its button, such as the menu's or the
-  download's, and 24 px on a card. Its colour is a token, through `currentColor`.
+  download's, and 24 px on a shared card's corner; a Homepage card's `arrow-right` is 20 px, as
+  `docs/design/DESIGN.md` §5 lists. Its colour is a token, through `currentColor`.
   `tests/node/public-icons.test.ts` checks the mechanics: no typed mark or hand-drawn `<svg>`, and
   each icon from its own module, sized 16, 20 or 24 px, with `shrink-0`.
 - A title renders through `src/components/ThaiTitle.astro`, which keeps the Thai compound words of
@@ -67,6 +68,14 @@ and why, and `.jscpd-baseline.json` records them.
   Contact Summary. Body text, summaries and labels render as they are.
   `tests/node/public-titles.test.ts` checks the headings, and review checks the titles that are no
   heading, such as a Quick Link card's label.
+- What moves under the pointer moves inside the element that takes the hover: that element keeps
+  its place as a `group`, and a child moves on `group-hover:`, so the hover does not end at the
+  element's edge (`tests/node/public-hover.test.ts`). A card that rises still opens from every part
+  of its resting place: its link reaches over the strip its surface left, as
+  `src/components/HomeServiceCard.astro` does (#242 retro).
+- `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the Homepage's deep
+  field it is 4.10:1 or less, so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2;
+  Product Owner, 2026-11-11: #242 comment 6797113372, item 1).
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page.
 - A list or detail page reuses the shared pieces in `src/components/` and follows the shape of
