@@ -1,9 +1,9 @@
 # Homepage — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 04-homepage
-> **Status:** CLEAN REBASELINE v2.8 — CURRENT
-> **Version:** 2.8
-> **Last Updated:** 12 พฤศจิกายน 2569 (2026-11-12): Feature 008, five Activities and the Contact Summary without a map stand-in
+> **Status:** CLEAN REBASELINE v2.7 — CURRENT
+> **Version:** 2.7
+> **Last Updated:** 12 พฤศจิกายน 2569 (2026-11-12): Feature 008, Leadership section, five Activities and the Contact Summary without a map stand-in
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`
 > **Purpose:** กำหนด homepage information priority, sections, curation, responsive/accessibility behavior โดยไม่กำหนด component implementation หรือสร้าง homepage CMS subsystem
 
@@ -25,12 +25,10 @@
 > **Feature 008 decision (Product Owner, 2026-11-11; spec #239 "Leadership strip"):** the Homepage
 > gains a Leadership section between Frequently Used Services and Latest News (§3, §6.1, #243):
 > the first three Leadership by the Leadership order staff already keep, each by name and current
-> assignment, with one link to `/about/leadership`.
-
-> **Feature 008 decision (Product Owner, 2026-11-11; spec #239 "Activities", "Contact Summary",
-> #239 comment 6786631899):** the Homepage shows the latest five Activities at every width (§10,
-> §15), and the Contact Summary shows no stand-in for a map, only the link that opens one (§11,
-> #247). Quick Access (§10.1) is unchanged; the development runtime's menu holds no shortcut.
+> assignment, with one link to `/about/leadership`. The Homepage shows the latest five Activities
+> at every width (§10, §15), and the Contact Summary shows no stand-in for a map, only the link
+> that opens one (§11; spec #239 "Activities", "Contact Summary", #239 comment 6786631899; #247).
+> Quick Access (§10.1) is unchanged.
 
 ---
 
@@ -291,7 +289,7 @@ Homepage edit/publish accessใช้ ordinary CMS roles/permissions; ไม่�
 
 # 15. Responsive Behavior
 
-- same sections, in the same order, from the same sources at every width; phones show them more compactly (spec #144): below 640 px the section leads and the Service and Health Content cards' summaries are left out. The latest five Activities show at every width (§10)
+- same sections, in the same order, from the same sources at every width; phones show them more compactly (spec #144): below 640 px the Service and Health Content cards' summaries are left out. The latest five Activities show at every width (§10)
 - ที่ความกว้างต่ำกว่า 640 px Quick Access คงการ์ดสองใบต่อแถว: label อยู่ด้านบนเต็มความกว้าง และลูกศรอยู่แถวของตัวเองที่มุมขวาล่าง การ์ดสูงขึ้นตาม label ได้โดยไม่กำหนดความสูงตายตัว; ตั้งแต่ 640 px คงรูปแบบเดิม (`docs/design/DESIGN.md` §7.3)
 - mobile order preserves information priority
 - no separate mobile CMS configuration

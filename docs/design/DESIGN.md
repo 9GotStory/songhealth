@@ -234,8 +234,8 @@ evidence"). A title therefore keeps the words of a curated list on one line:
 - **Rendering:** `src/components/ThaiTitle.astro` renders a kept run as a `whitespace-nowrap`
   span. The text is unchanged, so copied text and search read the title as written.
 - **Where it applies:** every page's H1, every section heading (a rich-text body's own headings
-  excepted), every card and row title, the Featured title, and the site title in the header, the
-  footer and the Contact Summary.
+  excepted), every card and row title, the Featured title, and the site title in the header and
+  the footer.
 - **Where it does not:** body text, summaries and labels, such as the menu, the breadcrumb, the
   MOIT page's table of contents, Evidence pills, eyebrows, meta lines, link labels and the
   "บริการที่ให้" link list.
@@ -469,7 +469,7 @@ Health Service Directory:
 
 ## 8. Homepage
 
-Source: `current/04-homepage.md` v2.8 and `current/03-sitemap.md` v2.6. The sections, in `04` §3's
+Source: `current/04-homepage.md` v2.7 and `current/03-sitemap.md` v2.6. The sections, in `04` §3's
 order:
 
 1. Header / navigation / reachable search.
@@ -547,8 +547,7 @@ corners are radius 32 (24 below `sm`):
 
 Below 640 px every section keeps its order (Product Owner: "โอเค เฉพาะหน้าแรก"; `04` §15).
 
-- Each section after the deep field has 32 px of space above and below it, except the Leadership
-  strip, which has it above and takes the space below from the News section (§8.5).
+- The space between two sections is 32 px (§8).
 - Quick Access goes two to a row, 12 px apart, in compact cards (§7.3). The Frequently Used
   Services go one to a row (§8.4).
 - The Activities show the large tile across the row and the others two by two, a small tile
@@ -850,28 +849,34 @@ held, at every width, fewer when fewer exist; with none the section is left out.
   and 85 % up to 65 % of its height, with the date in an `accent-warm` pill (13 / 20 semibold,
   `brand-dark`) and the title in `surface-base`, semibold, in two lines at most: 16 / 26 on a
   small tile (14 / 22 below `sm`), 24 / 34 on the large one from `lg` (18 / 30 below). The date
-  is when the Activity was held, else its publication. A small tile shows no date below `sm`
-  (Product Owner, 2026-11-12: #247 comment 6820125241, item 2).
+  is when the Activity was held, else its publication. A small tile, half the row wide, shows no
+  date below `sm` (Product Owner, 2026-11-12: #247 comment 6820125241, item 2); a tile across the
+  row shows it at every width, the large one and the first of one or three.
+- **The picture's `sizes`** is the tile's box (`activityPictureSizes`): its share of the 1,200 px
+  container from `lg`, the large tile two of the four, and below `lg` the row for a tile across
+  it, else half the row.
 - **Without a picture** a tile shows the `deep-visual` with an `accent-warm` tile near its top
   holding a 24 px `heart`: 72 px, radius 22, on the large tile and 48 px, radius 14, on a small
   one (#244 comment 6810203896). It takes no pointer events.
 - **Five** are one large tile, two rows high, and four small ones two by two
   (`src/lib/homepage-activities.ts`). From `lg` the grid has four columns, 20 px apart, in rows of
   230 px, the large tile at the right; below `lg` two columns in rows of 200 px (170 px and 12 px
-  apart below `sm`), the large tile across the row above the others.
+  apart below `sm`), the large tile across the row above the others, two rows high there too
+  (420 px, 352 px below `sm`).
 - **Fewer** are equal tiles in one row of 300 px from `lg`. Below `lg` they go two to a row, and
   the first spans the row only when the others are an even number, so no cell is empty: one
   alone, two side by side, three with the first across, four two by two (Product Owner,
   2026-11-12: #247 comment 6820174924).
 - **The link:** the title is an H3 that names one link over the whole tile; the date stays outside
-  the link's name. Keyboard focus is the global 3 px outline around the tile.
+  the link's name. Keyboard focus is the global 3 px outline around the tile: a layer inside the
+  tile clips the picture, and the link lies beside it, so the ring is whole.
 - **Under the pointer** the picture grows by 6 %, only under
   `prefers-reduced-motion: no-preference`.
 - **Measured** with `scripts/measure-text-contrast.ts` and
   `scripts/screenshot-fixtures/homepage-activities.ts`, whose pictures are white all over, at the
   application code of `1faa861`, at the five widths: the large tile's title 8.55:1 or more, a
   small tile's 8.15:1, and one on the visual 11.28:1. A small tile keeps 114 px for its title at
-  320 px, above the 93 px of "ความดันโลหิตสูง" at 14 px. A long title's end is out of sight
+  320 px, above the 96 px of "ความดันโลหิตสูง" at 14 px, semibold (measured on the runtime). A long title's end is out of sight
   after two lines, as on a Latest News card (§8.6).
 
 ### 8.11 Quick Access and the Contact Summary
@@ -1042,7 +1047,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 
 ## 13. References and change history
 
-- Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.8, 2026-11-12);
+- Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.7, 2026-11-12);
   `03-sitemap.md` (v2.6, 2026-11-08); staff guidance in `05` §5.1.
 - Architecture: `docs/website-modernization-docs/current/10-system-blueprint.md` (v2.9,
   2026-11-09); `README.md`; `CLAUDE.md`.
@@ -1179,7 +1184,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   under "ติดต่อสำนักงาน" with the telephone large, without the map stand-in and the office
   summary, and Quick Access has the Homepage's card surface and hides with the demo dataset's
   empty menu (§8.11). One function decides the space between sections (§8). The `telephone` size
-  joins the tokens, and `contact-visual-from` and `-to` leave them (§3.1). `04` v2.8 states the
+  joins the tokens, and `contact-visual-from` and `-to` leave them (§3.1). `04` v2.7 now states the
   five Activities and the Contact Summary without a stand-in (§10, §11, §15). Authority: spec #239
   "Activities", "Quick Access" and "Contact Summary", the notes on #247 and #247 comments
   6820010972, 6820125241 and 6820174924. Which Activities show, their order, Office Contact's
