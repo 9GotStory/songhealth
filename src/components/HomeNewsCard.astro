@@ -9,9 +9,9 @@
 // at 80 % or more under the title's three lines at most, so it reads over any picture (measured
 // with scripts/measure-text-contrast.ts over a white picture; docs/design/DESIGN.md §8.6). Without
 // a picture it shows the deep green visual (item 2) with an accent-warm tile near its top, in
-// front of the gradient, which holds a 24 px icon and takes no pointer events, so a press on it
-// reaches the card's link (Product Owner, 2026-11-12: #244 comment
-// 6810203896; the icon sizes of docs/design/DESIGN.md §5).
+// front of the gradient, which holds a 24 px icon (Product Owner, 2026-11-12: #244 comment
+// 6810203896; the icon sizes of docs/design/DESIGN.md §5). The visual takes no pointer events
+// (spec #239 "Accessibility"), so a press on the tile reaches the card's link.
 //
 // A small card is a 16:9 picture, the date and the title in two lines at most. Below `sm` it is a
 // compact row: a 120 px picture at 4:3 with the date and the title beside it (item 3), which leaves
