@@ -59,6 +59,18 @@ async function versionOf(document: string): Promise<string | undefined> {
 	}
 }
 
+describe("DESIGN.md's own version", () => {
+	it("is the version of its newest change-history entry", async () => {
+		const design = await readFile(new URL("docs/design/DESIGN.md", ROOT), "utf8");
+		const status = /^> \*\*Status:\*\* v(\d+\.\d+)/m.exec(design)?.[1];
+		assert.ok(status, "DESIGN.md states its version in its Status line");
+		// The history's entries open with "- **v1.2 …", oldest first (#244 retro: a v1.3 entry under
+		// a v1.2 Status line).
+		const entries = [...design.matchAll(/^- \*\*v(\d+\.\d+)\b/gm)].map(([, version]) => version);
+		assert.equal(entries.at(-1), status);
+	});
+});
+
 describe("versions cited for the current documents", () => {
 	it("finds the versions DESIGN.md cites", async () => {
 		assert.ok((await citations()).some(({ at }) => at.startsWith("docs/design/DESIGN.md:")));

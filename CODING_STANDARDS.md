@@ -106,6 +106,10 @@ and why, and `.jscpd-baseline.json` records them.
   (entries, media, terms) and refusal checks (`expectValidationRefusal`) to
   `tests/browser/cms.helpers.ts`, and a node test's builders to `tests/node/<area>.helpers.ts`,
   named as the browser suites name theirs (`tests/node/ita.helpers.ts` `fileBlock`).
+- A card whose whole surface is one link joins the Homepage or list table of
+  `tests/browser/public-cards.spec.ts`: one link named by its title, a press on the part a citizen
+  points at (its picture, or the tile of the visual in its place), a press on its lower corner, and
+  Enter (#244 retro: a tile lay in front of the large News card's link, and no test pressed it).
 - Tests assert what people see and use: text, links, status and focus. A link or button is
   checked by its accessible name (`getByRole(…, { name })`, `toHaveAccessibleName`), which leaves
   out decorative `aria-hidden` icons. A `data-testid` marks only an element with no accessible

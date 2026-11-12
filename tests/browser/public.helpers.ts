@@ -337,10 +337,12 @@ export async function expectAboutSubpage(page: Page, path: string, current: stri
 
 /**
  * Fail unless `image` is visible and its file has loaded. A lazy image starts loading only as it
- * nears the viewport, which can be after the page's load event, so the check waits for it.
+ * nears the viewport, which can be after the page's load event, so the check scrolls to it and
+ * waits for it: on a long page it would otherwise never load (#244 retro).
  */
 export async function expectImageLoaded(image: Locator, label: string): Promise<void> {
 	await expect(image, label).toBeVisible();
+	await image.scrollIntoViewIfNeeded();
 	await expect
 		.poll(
 			() =>

@@ -128,7 +128,9 @@ the real state first and only adds what is missing:
     checkout's HEAD.
   - **Residue.** At the end of a task run, `scripts/dev-runtime-residue.sh` counts what the tests
     left behind: synthetic entries (live or in trash), media, terms, bylines, redirects and menu
-    items. It exits 1 while any remain.
+    items. It exits 1 while any remain. It also counts the demo dataset's entries and lists any
+    that is not published, with exit 1: a suite that returns the runtime's content to draft can
+    fail to give it back, and `demo-dataset.ts add` publishes it again.
   - **The 404 log.** EmDash logs every miss, including the tests' deliberate requests for
     missing pages. That log can be cleared only as a whole or pruned by age, not entry by entry,
     so its synthetic misses stay until one clear just before the Product Owner's review (Feature
@@ -357,7 +359,8 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
   and every Homepage section, and sweeps every public template it fills with the axe, focus and
   reflow checks (#67). It skips while the dataset is not installed, so evidence that rests on the
   sweep shows its tests as passed, not skipped. The residue scan
-  counts only synthetic fixtures, so the dataset never counts as residue.
+  counts only synthetic fixtures as residue, so the dataset never counts as residue; it reports
+  separately a dataset entry that is not published.
 
 ## Verify
 
