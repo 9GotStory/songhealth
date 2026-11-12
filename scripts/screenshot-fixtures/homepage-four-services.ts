@@ -4,8 +4,7 @@
 // at the five widths the feature's tickets name.
 
 import type { Fixtures } from "../capture-with-fixtures.ts";
-
-const WIDTHS = [1440, 1024, 768, 375, 320];
+import { HOMEPAGE_WIDTHS } from "./homepage-widths.ts";
 
 const fixtures: Fixtures = async ({ admin, helpers, homepageMenus }) => {
 	const services = (await helpers.listPublishedEntries(admin, "services")).slice(0, 4);
@@ -15,7 +14,10 @@ const fixtures: Fixtures = async ({ admin, helpers, homepageMenus }) => {
 			helpers.pickedMenuItem("services", { id, title: String(data?.title) }),
 		),
 	});
-	return WIDTHS.map((width) => ({ name: `home-four-services-${width}`, path: `/@${width}` }));
+	return HOMEPAGE_WIDTHS.map((width) => ({
+		name: `home-four-services-${width}`,
+		path: `/@${width}`,
+	}));
 };
 
 export default fixtures;

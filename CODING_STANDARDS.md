@@ -58,14 +58,16 @@ and why, and `.jscpd-baseline.json` records them.
   (`docs/agents/lucide-astro-1.59.0.md`). Its size follows its role (Product Owner, 2026-10-31:
   #105 comment 6536890963): 16 px for a direction icon beside label or small text, 20 px for an
   icon that shows the action itself at the start of its button, such as the menu's or the
-  download's, and 24 px on a shared card's corner; a Homepage card's `arrow-right` is 20 px, and 16 px
-  beside a card's "อ่านต่อ", as `docs/design/DESIGN.md` §5 lists. Its colour is a token, through `currentColor`.
+  download's, and 24 px on a shared card's corner; a Homepage card's `arrow-right` is 20 px, 16 px
+  beside a card's "อ่านต่อ" and 24 px on a Quick Access card, and the contact card's details open
+  with 20 px icons and its telephone number with a 24 px one, as `docs/design/DESIGN.md` §5
+  lists. Its colour is a token, through `currentColor`.
   `tests/node/public-icons.test.ts` checks the mechanics: no typed mark or hand-drawn `<svg>`, and
   each icon from its own module, sized 16, 20 or 24 px, with `shrink-0`.
 - A title renders through `src/components/ThaiTitle.astro`, which keeps the Thai compound words of
   `src/lib/thai-title.ts` on one line (spec #144): every page's H1, every section heading, every
-  card and row title, the Featured title, and the site title in the header, the footer and the
-  Contact Summary. Body text, summaries and labels render as they are.
+  card and row title, the Featured title, and the site title in the header and the footer. Body
+  text, summaries and labels render as they are.
   `tests/node/public-titles.test.ts` checks the headings, and review checks the titles that are no
   heading, such as a Quick Link card's label.
 - What moves under the pointer moves inside the element that takes the hover: that element keeps

@@ -1062,7 +1062,8 @@ for (const width of [320, 375, 639]) {
 				await expect(card).toHaveAccessibleName(label);
 				await expect(card).toHaveAttribute("href", url);
 				await expect(card).toHaveCSS("font-size", "16px");
-				await expect(card).toHaveCSS("border-top-width", "1px");
+				// The Homepage's card surface: the shadow, without a border (Feature 008 #247).
+				await expect(card).toHaveCSS("border-top-width", "0px");
 				await expect(card).toHaveCSS("border-top-left-radius", "18px");
 				await expect(card).not.toHaveCSS("box-shadow", "none");
 				await expectLabelAboveArrow(card, `${label} at ${width} px`);

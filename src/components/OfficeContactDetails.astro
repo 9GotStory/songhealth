@@ -1,11 +1,10 @@
 ---
-// Office Contact as details (Feature 003 #62, #64; spec #51 "Public reads" (Contact)): the address
+// Office Contact as details (Feature 003 #62; spec #51 "Public reads" (Contact)): the address
 // with the "เปิดแผนที่" link built from the coordinates, the telephone number, the email address
 // and the opening hours, each only when it is set, and nothing at all while none is. The telephone
 // number and the email address are links while each is one number or one address
-// (src/lib/contact-links.ts), and plain text otherwise. /contact shows them in a card. The
-// Homepage's Contact Summary shows them as its `summary`: on surface-soft and without the email,
-// which /contact keeps (#51 "Homepage" lists the address, telephone, opening hours and map link).
+// (src/lib/contact-links.ts), and plain text otherwise. /contact shows them in a card; the
+// Homepage's Contact Summary has its own card (HomeContactCard, Feature 008 #247).
 import { emailHref, telephoneHref } from "../lib/contact-links";
 import { mapHref } from "../lib/map-link";
 import type { OfficeContact } from "../lib/office-contact-settings";
@@ -14,12 +13,10 @@ import MapLink from "./MapLink.astro";
 
 interface Props {
 	contact: OfficeContact;
-	/** The Homepage's Contact Summary: on surface-soft, without the email. */
-	summary?: boolean;
 }
 
-const { contact, summary = false } = Astro.props;
-const email = summary ? undefined : contact.email;
+const { contact } = Astro.props;
+const email = contact.email;
 const hasMap = mapHref(contact.latitude, contact.longitude) !== undefined;
 const telephoneLink = contact.telephone && telephoneHref(contact.telephone);
 const emailLink = email && emailHref(email);
@@ -31,14 +28,9 @@ const linkClass =
 ---
 
 {shown && (
-	<dl
-		class:list={[
-			"flex flex-col gap-3",
-			!summary && "max-w-3xl rounded-24 bg-surface-base p-5 shadow-card",
-		]}
-	>
+	<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
 		{(contact.address || hasMap) && (
-			<DetailItem onSoft={summary} term="ที่ตั้ง">
+			<DetailItem term="ที่ตั้ง">
 				<div class="flex flex-col items-start gap-3">
 					{contact.address && <p class="whitespace-pre-line">{contact.address}</p>}
 					<MapLink latitude={contact.latitude} longitude={contact.longitude} />
@@ -46,7 +38,7 @@ const linkClass =
 			</DetailItem>
 		)}
 		{contact.telephone && (
-			<DetailItem onSoft={summary} term="โทรศัพท์">
+			<DetailItem term="โทรศัพท์">
 				{telephoneLink ? (
 					<a class={linkClass} href={telephoneLink}>
 						{contact.telephone}
@@ -57,7 +49,7 @@ const linkClass =
 			</DetailItem>
 		)}
 		{email && (
-			<DetailItem onSoft={summary} term="อีเมล">
+			<DetailItem term="อีเมล">
 				{emailLink ? (
 					<a class={`${linkClass} wrap-anywhere`} href={emailLink}>
 						{email}
@@ -68,7 +60,7 @@ const linkClass =
 			</DetailItem>
 		)}
 		{contact.openingHours && (
-			<DetailItem onSoft={summary} term="เวลาทำการ">
+			<DetailItem term="เวลาทำการ">
 				<p class="whitespace-pre-line">{contact.openingHours}</p>
 			</DetailItem>
 		)}

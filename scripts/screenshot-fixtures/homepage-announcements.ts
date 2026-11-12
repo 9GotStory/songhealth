@@ -7,8 +7,7 @@
 // name.
 
 import type { Fixtures } from "../capture-with-fixtures.ts";
-
-const WIDTHS = [1440, 1024, 768, 375, 320];
+import { HOMEPAGE_WIDTHS } from "./homepage-widths.ts";
 
 const fixtures: Fixtures = async ({ admin, helpers, term }) => {
 	const added = await term("announcement_type", "[ตัวอย่าง] รับฟังความคิดเห็น");
@@ -49,7 +48,10 @@ const fixtures: Fixtures = async ({ admin, helpers, term }) => {
 		const published = await helpers.publishEntry(admin, "announcements", entry.entryId!);
 		if (!published.ok) throw new Error(`publish: ${helpers.nativeRefusalOf(published)}`);
 	}
-	return WIDTHS.map((width) => ({ name: `home-announcements-${width}`, path: `/@${width}` }));
+	return HOMEPAGE_WIDTHS.map((width) => ({
+		name: `home-announcements-${width}`,
+		path: `/@${width}`,
+	}));
 };
 
 export default fixtures;

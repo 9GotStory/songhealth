@@ -26,12 +26,6 @@ export interface MediaRuntime {
  */
 export const CARD_PICTURE_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw";
 
-/**
- * A card picture's `sizes` in a grid that keeps two cards to a row below `lg`, half the width, as
- * the Homepage's Activities do (Feature 006 #146).
- */
-export const HALF_WIDTH_CARD_PICTURE_SIZES = "(min-width: 64rem) 24rem, 50vw";
-
 /** What a page shows where a Document's file cannot be served. */
 export const FILE_UNAVAILABLE = "ไฟล์ไม่พร้อมให้บริการ";
 

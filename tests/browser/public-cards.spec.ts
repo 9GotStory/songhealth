@@ -234,9 +234,12 @@ for (const width of [320, 375, 1440]) {
 }
 
 for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
-	test(`Homepage cards open from their whole surface, keep compact content and Activity visibility at ${width}px`, async ({
+	test(`Homepage cards open from their whole surface and keep compact content, with five Activities, at ${width}px`, async ({
 		page,
 	}, testInfo) => {
+		// Nine cards, each opened three ways: 15 to 24 seconds on a quiet host, and past the 30 of a
+		// test while the host is busy (#247: three widths failed that way in one run).
+		test.setTimeout(90_000);
 		await withHomepageMenus(
 			admin,
 			{ services: [pickedMenuItem("services", service)], featured: [] },
@@ -272,25 +275,15 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 				});
 				await expectWholeCardLink(page, healthCard, health.title, 3);
 				await expectWholeCardLink(page, pictureHealthCard, pictureEntries.health_content!.title, 3);
-				await expectCardInteraction(page, activityCard, activity.title, 3);
-				const visible = width < 1024 ? 4 : 3;
-				await expect(activities.getByRole("article").getByRole("link")).toHaveCount(visible);
-				await expect(activities.getByRole("heading", { level: 3 })).toHaveText(
-					[activity, ...extraActivities].slice(0, visible).map((item) => item.title),
-				);
-				const fourth = activities
-					.getByRole("article", { includeHidden: true })
-					.filter({ hasText: extraActivities[2].title });
-				if (width < 1024) await expect(fourth).toBeVisible();
-				else {
-					await expect(fourth).toBeHidden();
-					expect(
-						await fourth.getByRole("link", { includeHidden: true }).evaluate((el) => {
-							(el as HTMLElement).focus();
-							return el === document.activeElement;
-						}),
-						"hidden Activity never takes focus",
-					).toBe(false);
+				// The Activities' own tiles (Feature 008 #247): five at every width, this suite's four
+				// leading them.
+				await expectWholeCardLink(page, activityCard, activity.title, 3);
+				await expect(activities.getByRole("article").getByRole("link")).toHaveCount(5);
+				for (const [index, item] of [activity, ...extraActivities].entries()) {
+					await expect(
+						activities.getByRole("heading", { level: 3 }).nth(index),
+						`the Activity in place ${index + 1}`,
+					).toHaveText(item.title);
 				}
 				if (width < 640) await expect(serviceCard.getByText(SUMMARY, { exact: true })).toBeHidden();
 				else await expect(serviceCard.getByText(SUMMARY, { exact: true })).toBeVisible();
@@ -308,7 +301,12 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 				// Each card with the part of it a citizen points at: an icon, a visual's tile, a picture.
 				for (const [fixture, card, part, path] of [
 					[service, serviceCard, serviceCard.getByTestId("service-icon"), "/services/"],
-					[activity, activityCard, activityCard.getByTestId("activity-visual"), "/activities/"],
+					[
+						activity,
+						activityCard,
+						activityCard.getByTestId("activity-visual").locator("span"),
+						"/activities/",
+					],
 					[news, largeNewsCard, largeNewsCard.getByTestId("news-visual").locator("span"), "/news/"],
 					[pictureEntries.news!, smallNewsCard, smallNewsCard.locator("img"), "/news/"],
 					[announcement, announcementRow, announcementRow.locator("time"), "/announcements/"],

@@ -414,6 +414,36 @@ export async function expectPictureFillsBox(
 	return shown;
 }
 
+/**
+ * Fail unless `target` shows a focus ring once it has focus and the ring is drawn whole: no
+ * ancestor that clips its content cuts into the outline, the element's box widened by the
+ * outline's offset and width.
+ */
+export async function expectFocusRingWhole(target: Locator, label: string): Promise<void> {
+	await target.focus();
+	await expect(target, `${label}: a focus ring`).not.toHaveCSS("outline-style", "none");
+	await expect(target, `${label}: a focus ring`).toHaveCSS("outline-width", "3px");
+	const clippedBy = await target.evaluate((element) => {
+		const style = getComputedStyle(element);
+		const reach = Number.parseFloat(style.outlineOffset) + Number.parseFloat(style.outlineWidth);
+		const ring = element.getBoundingClientRect();
+		const clippers: string[] = [];
+		for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+			const { overflowX, overflowY } = getComputedStyle(parent);
+			if (overflowX === "visible" && overflowY === "visible") continue;
+			const box = parent.getBoundingClientRect();
+			const cut =
+				(overflowX !== "visible" &&
+					(ring.left - reach < box.left || ring.right + reach > box.right)) ||
+				(overflowY !== "visible" &&
+					(ring.top - reach < box.top || ring.bottom + reach > box.bottom));
+			if (cut) clippers.push(`<${parent.tagName.toLowerCase()} class="${parent.className}">`);
+		}
+		return clippers;
+	});
+	expect(clippedBy, `${label}: what cuts into the focus ring`).toEqual([]);
+}
+
 /** `part`'s box in the window as the page is laid out and scrolled now, once it shows. */
 export async function boxOf(part: Locator, label: string) {
 	await expect(part, label).toBeVisible();
@@ -728,6 +758,7 @@ export const HOMEPAGE_HEADINGS = {
 	discovery: "หน่วยบริการสุขภาพในอำเภอสอง",
 	activities: "กิจกรรม",
 	quickAccess: "ข้อมูลและเอกสารสำคัญ",
+	contact: "ติดต่อสำนักงาน",
 } as const;
 
 /**

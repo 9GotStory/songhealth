@@ -30,7 +30,6 @@ import {
 	homepageSection,
 	listedItem,
 	listedTitles,
-	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
 } from "./public.helpers";
@@ -96,14 +95,11 @@ const ENTRY_PAGES = Object.entries(CANONICAL_URL_PATTERNS).flatMap(([collection,
 test.use({ viewport: DESKTOP_VIEWPORT });
 
 let admin: CmsActor;
-/** The site title, which heads the Homepage's Contact Summary. */
-let siteTitle: string;
 /** The addresses of the reserved Basic Pages that are published, the only ones to sweep. */
 const publishedBasicPages: string[] = [];
 
 test.beforeAll(async () => {
 	admin = await devAdminActor();
-	({ siteTitle } = await siteTitleParts(admin));
 	const missing: string[] = [];
 	for (const { collection, slug } of DEMO_ENTRIES) {
 		const item = nativeItemOf(await readEntry(admin, collection, slug));
@@ -161,8 +157,12 @@ test("the Homepage shows a Featured item and every section", async ({ page }) =>
 		homepageSection(page, HOMEPAGE_HEADLINE).getByRole("link"),
 		"a Featured item heads the page",
 	).toHaveCount(1);
+	// Every section but Quick Access, whose menu the dataset leaves empty (spec #239 "Quick
+	// Access"; #247).
 	for (const [section, heading] of Object.entries(HOMEPAGE_HEADINGS)) {
-		await expect(homepageSection(page, heading), `the ${section} section`).toBeVisible();
+		const shown = homepageSection(page, heading);
+		if (section === "quickAccess") await expect(shown, "Quick Access").toHaveCount(0);
+		else await expect(shown, `the ${section} section`).toBeVisible();
 	}
 	const news = homepageSection(page, HOMEPAGE_HEADINGS.news);
 	await expect(news.getByRole("article").first(), "the newest News").toContainText(MARK);
@@ -171,7 +171,7 @@ test("the Homepage shows a Featured item and every section", async ({ page }) =>
 		"the current Announcements",
 	).toContainText(MARK);
 	await expect(
-		homepageSection(page, siteTitle).getByRole("link", { name: "เปิดแผนที่" }),
+		homepageSection(page, HOMEPAGE_HEADINGS.contact).getByRole("link", { name: "เปิดแผนที่" }),
 		"the Contact Summary shows Office Contact",
 	).toBeVisible();
 	for (const name of ["นโยบายความเป็นส่วนตัว", "การเข้าถึงเว็บไซต์"]) {
