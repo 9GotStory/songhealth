@@ -1114,12 +1114,17 @@ test("from 1,024 px the Announcements' heading, lead and link to the list stay i
 		);
 		expect(pill.x, `the link starts with the lead at ${width} px`).toBeCloseTo(text.x, 0);
 	}
-	for (const width of [1024, 1440]) {
-		const headerHeight = await scrollIntoRows(width);
-		for (const part of parts) {
-			await expect(part, `in view at ${width} px`).toBeInViewport({ ratio: 1 });
-			const box = await boxOf(part, "a part of the heading");
-			expect(box.y, `below the header at ${width} px`).toBeGreaterThanOrEqual(headerHeight);
+	// With motion allowed too: the heading's reveal is over once it is in the window (#249).
+	for (const reducedMotion of ["reduce", "no-preference"] as const) {
+		await page.emulateMedia({ reducedMotion });
+		for (const width of [1024, 1440]) {
+			const headerHeight = await scrollIntoRows(width);
+			const at = `at ${width} px, motion ${reducedMotion}`;
+			for (const part of parts) {
+				await expect(part, `in view ${at}`).toBeInViewport({ ratio: 1 });
+				const box = await boxOf(part, "a part of the heading");
+				expect(box.y, `below the header ${at}`).toBeGreaterThanOrEqual(headerHeight);
+			}
 		}
 	}
 });
@@ -1942,10 +1947,10 @@ async function withEverySection(
 			await createSyntheticPerson(admin, "ทุกส่วน", { leadership_order: 1 }),
 		);
 		const services: DraftFixture[] = [];
-		for (const each of [label, `${label}-second`, `${label}-third`]) {
-			await publish("health_content", await create("health_content", each));
-			await publish("activities", await create("activities", each));
-			const service = await createSyntheticService(admin, each, {
+		for (const name of [label, `${label}-second`, `${label}-third`]) {
+			await publish("health_content", await create("health_content", name));
+			await publish("activities", await create("activities", name));
+			const service = await createSyntheticService(admin, name, {
 				data: { summary: `${SYNTHETIC_FIXTURE_MARK} สรุปบริการ` },
 			});
 			await publishEntryAt(admin, "services", service.id);
@@ -2071,15 +2076,42 @@ function entersAfter(part: Locator): Promise<number> {
 	});
 }
 
-/** The page's height and each section's place and size, as the page is laid out now. */
-function pageLayout(page: Page) {
-	return page.getByRole("main").evaluate((main) => ({
-		height: document.documentElement.scrollHeight,
-		sections: [...main.querySelectorAll("section")].map((section) => {
-			const { top, height } = section.getBoundingClientRect();
-			return { top: top + window.scrollY, height };
-		}),
-	}));
+/**
+ * The page's height and each section's place and size at the desktop width, 375 px and 320 px, at
+ * the page's top. The viewport ends at the desktop width.
+ */
+async function pageLayouts(page: Page) {
+	const layouts = [];
+	for (const viewport of [PHONE_VIEWPORT, MOBILE_VIEWPORT, DESKTOP_VIEWPORT]) {
+		await page.setViewportSize(viewport);
+		await page.evaluate(() => window.scrollTo(0, 0));
+		layouts.push(
+			await page.getByRole("main").evaluate((main) => ({
+				width: window.innerWidth,
+				height: document.documentElement.scrollHeight,
+				sections: [...main.querySelectorAll("section")].map((section) => {
+					const { top, height } = section.getBoundingClientRect();
+					return { top: top + window.scrollY, height };
+				}),
+			})),
+		);
+	}
+	return layouts;
+}
+
+/** How many of `scope`'s decorations move without end as the page is now. */
+function movingDecorations(scope: Locator): Promise<number> {
+	return scope.evaluate(
+		(root) =>
+			root
+				.getAnimations({ subtree: true })
+				.filter(
+					(animation) =>
+						animation.playState === "running" &&
+						animation.effect?.getTiming().iterations === Infinity &&
+						(animation.effect as KeyframeEffect).target?.closest('[aria-hidden="true"]') != null,
+				).length,
+	);
 }
 
 /** Scroll to each of the Homepage's sections in turn and fail on any part of it held back. */
@@ -2092,10 +2124,10 @@ async function expectEverySectionWhole(page: Page, order: string[], label: strin
 	}
 }
 
-test("the page moves only when motion is allowed: the hero's parts enter one after another and each section shows as it comes into the window, while with reduced motion preferred, and where the browser has no scroll-driven animation, every section shows whole at once; the page's height and each section's place are the same either way", async ({
+test("the page moves only when motion is allowed: the hero's parts enter one after another, each section shows as it comes into the window and the decorations move, while with reduced motion preferred, on paper, and where the browser has no scroll-driven animation, every section shows whole at once; the page's height and each section's place are the same either way", async ({
 	page,
 }) => {
-	test.setTimeout(90_000);
+	test.setTimeout(120_000);
 	await withEverySection("motion", async ({ featured, order }) => {
 		const main = page.getByRole("main");
 		const hero = page.getByRole("region", { name: OFFICE_SUMMARY, exact: true });
@@ -2109,15 +2141,14 @@ test("the page moves only when motion is allowed: the hero's parts enter one aft
 			expect(await heldBack(main), "nothing waits for an effect").toEqual([]);
 			await expectEverySectionWhole(page, order, "reduced motion");
 			expect(await running(), "nothing is mid-animation after scrolling").toBe(0);
-			await page.evaluate(() => window.scrollTo(0, 0));
-			return pageLayout(page);
+			return pageLayouts(page);
 		});
 
 		await test.step("The same layout with motion", async () => {
 			await page.emulateMedia({ reducedMotion: "no-preference" });
 			await page.goto("/");
 			await expect(sectionHeadings(page)).toHaveText(order);
-			expect(await pageLayout(page), "the page with motion").toEqual(still);
+			expect(await pageLayouts(page), "the page with motion").toEqual(still);
 		});
 
 		await test.step("The hero's entrance", async () => {
@@ -2150,6 +2181,9 @@ test("the page moves only when motion is allowed: the hero's parts enter one aft
 				const heading = order[index + 1]!;
 				if ((await boxOf(title, heading)).y <= DESKTOP_VIEWPORT.height + 40) continue;
 				expect(await shownOpacity(title), `${heading}, below the window, waits`).toBe(0);
+				for (const item of await homepageSection(page, heading).getByRole("listitem").all()) {
+					expect(await shownOpacity(item), `an item of ${heading} waits`).toBe(0);
+				}
 				waiting.push(heading);
 			}
 			expect(waiting, "the Contact Summary lies below the window").toContain(order.at(-1));
@@ -2160,8 +2194,45 @@ test("the page moves only when motion is allowed: the hero's parts enter one aft
 						message: `${order[index + 1]}, in the window, shows`,
 					})
 					.toBe(1);
+				for (const item of await homepageSection(page, order[index + 1]!)
+					.getByRole("listitem")
+					.all()) {
+					await item.scrollIntoViewIfNeeded();
+					await expect
+						.poll(() => shownOpacity(item), {
+							message: `an item of ${order[index + 1]}, in the window, shows`,
+						})
+						.toBe(1);
+				}
 			}
-			expect(await running(), "the decorations move").toBeGreaterThan(0);
+		});
+
+		await test.step("The decorations", async () => {
+			expect(
+				await movingDecorations(page.getByTestId("deep-field")),
+				"the deep field's two glows and its small ring",
+			).toBe(3);
+			for (const card of ["discovery-band", "contact-card"]) {
+				expect(await movingDecorations(page.getByTestId(card)), `the ring of ${card}`).toBe(1);
+			}
+		});
+
+		await test.step("Focus on every stop with motion", async () => {
+			for (const [width, viewport] of Object.entries(VIEWPORTS)) {
+				await page.setViewportSize(viewport);
+				await page.goto("/");
+				await expectVisibleFocusOnEveryStop(page, `/ with motion at ${width}`);
+			}
+			await page.setViewportSize(DESKTOP_VIEWPORT);
+		});
+
+		await test.step("On paper", async () => {
+			await page.emulateMedia({ media: "print", reducedMotion: "no-preference" });
+			await page.goto("/");
+			await expect(sectionHeadings(page)).toHaveText(order);
+			expect(await running(), "nothing is mid-animation").toBe(0);
+			expect(await heldBack(main), "nothing waits for an effect").toEqual([]);
+			await page.emulateMedia({ media: "screen" });
 		});
 
 		await test.step("Without scroll-driven animation", async () => {
